@@ -1,5 +1,5 @@
 # Pastoralist 🐑 👩🏽‍🌾
 
-A tool to assist with npm, pnpm, and yarn resolutions.
+A tool to watch over npm, pnpm, or yarn overrides (resolutions) 🐑 👩🏽‍🌾
 
 More soon!

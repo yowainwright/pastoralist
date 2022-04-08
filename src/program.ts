@@ -9,6 +9,12 @@ const version = 'VERSION'
 
 const explorer = cosmiconfigSync('pastoralist')
 
+/**
+ * getInput
+ * @param {InputOptions.name} string}
+ * @param {InputOptions.message} string
+ * @returns {string}
+ */
 export async function getInput({
 	name,
 	message,
@@ -21,6 +27,10 @@ export async function getInput({
 	return input ? input : ''
 }
 
+/**
+ * initializeAction
+ * @param {Options} Record}
+ */
 async function initializeAction(options: Options = {}) {
 	const { config: defaultConfig = {} } = explorer.search() || {}
 	const { isTestingCLI } = options
@@ -47,7 +57,7 @@ async function initializeAction(options: Options = {}) {
 		if (isTestingCLI) {
 			console.log({ manager, options, overrides })
 		}
-		initializeScript({ config, overrides, manager })
+		initializeScript({ config, overrides, manager, ...options })
 	} catch (err) {
 		console.error(err)
 	}
@@ -64,6 +74,7 @@ program
 	)
 	.option('-c, --config <config>', 'path to a unique config')
 	.option('-t, --isTestingCLI', 'enables CLI testing, no scripts are run')
+	.option('-p, --path <path>', 'the path to the package.json file to manage')
 	.action(initializeAction as any)
 
 export const pastoralist = program

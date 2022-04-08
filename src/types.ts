@@ -12,4 +12,5 @@ export type Options = {
 	isTestingCLI?: boolean
 	manager?: string
 	overrides?: string
+	path?: string
 }

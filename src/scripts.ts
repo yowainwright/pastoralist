@@ -1,27 +1,22 @@
 #!/usr/bin/env node
 import { resolve } from 'path'
 // import { constants, copyFile, writeFile } from 'fs'
-import { getManager, getOverrides } from './prompt'
+import { resolve } from 'path'
+import { sync } from 'fast-glob'
 import { Options } from './types'
 
 /**
  *
- * @param param0
+ * @param
  * @returns
  */
-export async function resolveConfig({ explorer, options }) {
+export async function resolveConfig({ options }) {
 	const { config: defaultConfig = {} } = explorer.search() || {}
 	const config = options?.config || defaultConfig
-	const manager = options?.manager ? options.manager : await getManager()
-	const overrides = options?.overrides
-		? options.overrides
-		: await getOverrides()
 
-	return { config, overrides, manager, ...options }
+	return { config, ...options }
 }
 
-import { resolve } from 'path'
-import { sync } from 'fast-glob'
 
 export function generatePackageOverridesList = ({ overridesList }) {
   return overridesList.reduce((list, overriddenItem) => {
@@ -45,7 +40,7 @@ export function generateOverridesList() {
   const overridesList = Object.keys(overrides)
   const nodeModulePackageJSONs = sync(['node_modules/**/package.json'])
 
-  nodeModulePackageJSONs.reduce((acc, packageJSON) => {
+  const overridesList = nodeModulePackageJSONs.reduce((acc, packageJSON) => {
     const { dependencies = {}, name, version } = require(resolve(packageJSON)) || {}
     const dependenciesList = Object.keys(dependencies)
     if (!dependenciesList.length) return acc
@@ -58,25 +53,10 @@ export function generateOverridesList() {
     }
     return acc
   }, {})
+
+  return overridesList
 }
 
-/**
- * managePackageJSON
- * @description manages root package.json
- * @param options
- * @returns {record}
- * @note the package should resolve a projects root or specified
- */
-export function managePackageJSON(options: Options) {
-	const path = options?.path ? `${options.path}/` : ''
-	console.log({ test: 'hello', path })
-	const packageJSON = resolve(`${path}package.json`)
-	// resolve pasturalist items
-	// const config = options?.config ? resolve(options.config) : json?.pastoralist || {}
-	// const { resolutions = {}, overrides = {} } = json
-	console.log({ test: 'hello', path, packageJSON })
-}
+export function auditOverrides() {
 
-// export function checkThePasture(config) {
-// 	console.log({ config })
-// }
+}

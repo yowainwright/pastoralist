@@ -14,4 +14,5 @@ export type Options = {
 	manager?: string
 	overrides?: string
 	path?: string
+	search?: string
 }

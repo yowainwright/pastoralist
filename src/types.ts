@@ -1,6 +1,7 @@
 export type InputOptions = {
-	name?: string
-	message?: string
+	defaultName: string
+	name: string
+	message: string
 }
 
 export type Input = {
@@ -12,4 +13,6 @@ export type Options = {
 	isTestingCLI?: boolean
 	manager?: string
 	overrides?: string
+	path?: string
+	search?: string
 }

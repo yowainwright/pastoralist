@@ -1,4 +1,4 @@
-# Pastoralist
+# Pastoralist (WIP)
 
 A tool to watch over npm, pnpm, or yarn \*overrides 🐑 👩🏽‍🌾
 

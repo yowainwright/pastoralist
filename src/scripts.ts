@@ -134,7 +134,9 @@ export function update(options: Options): Appendix {
   const config = resolveJSON(options?.path || "package.json");
   const resolutions = resolveResolutions({ options, config });
   const resolutionsList = Object.keys(resolutions);
-  const nodeModulePackageJSONs = sync(["node_modules/**/package.json"]);
+  const nodeModulePackageJSONs = sync(
+    options?.depPaths || ["node_modules/**/package.json"]
+  );
   const appendix = nodeModulePackageJSONs.reduce((acc, packageJSON) => {
     const { dependencies = {}, name, version } = resolveJSON(packageJSON);
     const dependenciesList = Object.keys(dependencies);
@@ -161,6 +163,15 @@ export function update(options: Options): Appendix {
    * These scripts currently work one way => make an appendix
    * @todo the appendix should manage it self + provide resolutions that are no longer needed
    */
+  const appendixItems = Object.keys(appendix);
+
+  const resolutionsToRemove =
+    appendixItems.length > 0 &&
+    // @ts-ignore
+    appendixItems.filter((item) => Object.keys(appendix[item]).length === 0);
+  if (resolutionsToRemove && options?.debug) {
+    console.log({ resolutionsToRemove });
+  }
 
   return appendix;
 }

@@ -10,12 +10,12 @@ export type PastoralistJSON = {
 export type Appendix = Record<string, Record<string, string> | undefined>;
 
 export type ResolveResolutionOptions = {
-  config: {
+  config?: {
     overrides?: Record<string, string> | undefined;
     pnpm?: { overrides?: Record<string, string> | undefined };
     resolutions?: Record<string, string> | undefined;
   };
-  options: Options;
+  options?: Options;
 };
 
 export type UpdateAppendixOptions = {
@@ -33,6 +33,7 @@ export type Options = {
   isTestingCLI?: boolean;
   path?: string; // path to json
   search?: string;
+  depPaths?: string[]; // array of paths
 };
 
 export type OverridesType = Record<string, string>;

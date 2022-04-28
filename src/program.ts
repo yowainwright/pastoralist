@@ -13,7 +13,7 @@ const explorer = cosmiconfigSync("pastoralist");
  * @description initialize pastoralist
  * @param {Options} Record}
  */
-async function action(options: Options = {}) {
+export async function action(options: Options = {}) {
   try {
     const config = await resolveConfig({ explorer, options });
 

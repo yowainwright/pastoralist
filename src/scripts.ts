@@ -1,9 +1,7 @@
 #!/usr/bin/env node
 import { resolve } from "path";
-// the commend out files will be used to re-write the updated package json
-// import { constants, copyFile, writeFile } from 'fs'
+import { writeFile } from "fs";
 import { sync } from "fast-glob";
-import { cosmiconfigSync } from "cosmiconfig";
 import { compare } from "compare-versions";
 import {
   Appendix,
@@ -12,27 +10,13 @@ import {
   PastoralistJSON,
   ResolveResolutionOptions,
   UpdateAppendixOptions,
+  UpdatePackageJSONOptions,
 } from "./types";
 
 export function resolveJSON(path: string): PastoralistJSON {
   const jsonPath = resolve(path);
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   return require(jsonPath);
-}
-
-/**
- * resolveConfig
- * @description massages options and config to return all options via CLI args or a config
- * @param {Options}
- * @returns {Options}
- */
-export function resolveConfig<T extends { options: Options }>({
-  options,
-}: T): Options {
-  const explorer = cosmiconfigSync("pastoralist");
-  const { config: defaultConfig = {} } = explorer.search() || {};
-  const config = options?.config || defaultConfig;
-  return { ...config, ...options };
 }
 
 /**
@@ -130,33 +114,70 @@ export function updateAppendix({
   }, {});
 }
 
+/**
+ * updatePackageJSON
+ * @description updates json files (package.json, config file) based on resolutions
+ */
+export function updatePackageJSON({
+  appendix,
+  path,
+  config,
+  resolutions,
+}: UpdatePackageJSONOptions): void {
+  const jsonPath = resolve(path);
+  const pastoralist = config?.pastoralist
+    ? { ...config.pastoralist, appendix }
+    : { appendix };
+  const json = {
+    ...config,
+    pastoralist,
+    ...(config?.resolutions
+      ? { resolutions }
+      : config?.overrides
+      ? { overrides: resolutions }
+      : config?.pnpm?.overrides
+      ? { pnpm: { ...config.pnpm, overrides: resolutions } }
+      : {}),
+  };
+  writeFile(jsonPath, JSON.stringify(json, null, 2), (err) =>
+    console.log(
+      `🐑 👩🏽‍🌾 Pastoralist had an issue updating overrides or resolutions in the package.json!${
+        err ? `, ${err}` : ""
+      }`
+    )
+  );
+}
+
 export function update(options: Options): Appendix {
-  const config = resolveJSON(options?.path || "package.json");
+  const { depPaths = ["node_modules/**/package.json"], path = "package.json" } =
+    options;
+  const config = resolveJSON(path);
   const resolutions = resolveResolutions({ options, config });
   const resolutionsList = Object.keys(resolutions);
-  const nodeModulePackageJSONs = sync(
-    options?.depPaths || ["node_modules/**/package.json"]
+  const nodeModulePackageJSONs = sync(depPaths);
+  const appendix = nodeModulePackageJSONs.reduce(
+    (acc, packageJSON): Appendix => {
+      const { dependencies = {}, name, version } = resolveJSON(packageJSON);
+      const dependenciesList = Object.keys(dependencies);
+      if (!dependenciesList.length) return acc;
+      const hasOverriddenDependencies = dependenciesList.some(
+        (dependencyItem) => resolutionsList.includes(dependencyItem)
+      );
+      if (!hasOverriddenDependencies) return acc;
+      const appendixItem = updateAppendix({
+        dependencies,
+        name,
+        resolutions,
+        version,
+        ...(options.appendix ? { appendix: options.appendix } : {}),
+      });
+      return {
+        ...acc,
+        ...appendixItem,
+      };
+    },
+    {} as Appendix
   );
-  const appendix = nodeModulePackageJSONs.reduce((acc, packageJSON) => {
-    const { dependencies = {}, name, version } = resolveJSON(packageJSON);
-    const dependenciesList = Object.keys(dependencies);
-    if (!dependenciesList.length) return acc;
-    const hasOverriddenDependencies = dependenciesList.some((dependencyItem) =>
-      resolutionsList.includes(dependencyItem)
-    );
-    if (!hasOverriddenDependencies) return acc;
-    const appendixItem = updateAppendix({
-      dependencies,
-      name,
-      resolutions,
-      version,
-      ...(options.appendix ? { appendix: options.appendix } : {}),
-    });
-    return {
-      ...acc,
-      ...appendixItem,
-    };
-  }, {});
 
   /**
    * @note review the appendix
@@ -165,13 +186,17 @@ export function update(options: Options): Appendix {
    */
   const appendixItems = Object.keys(appendix);
 
-  const resolutionsToRemove =
+  // returns resolutions which are no longer needed
+  const updatedResolutions =
     appendixItems.length > 0 &&
-    // @ts-ignore
-    appendixItems.filter((item) => Object.keys(appendix[item]).length === 0);
-  if (resolutionsToRemove && options?.debug) {
-    console.log({ resolutionsToRemove });
-  }
+    appendixItems.filter((item) => Object.keys(appendix[item]).length > 0);
+
+  updatePackageJSON({
+    appendix,
+    path,
+    config,
+    resolutions: updatedResolutions,
+  });
 
   return appendix;
 }

@@ -5,9 +5,12 @@ export type PastoralistJSON = {
   resolutions?: Record<string, string>;
   overrides?: Record<string, string>;
   pnpm?: { overrides?: Record<string, string> };
+  pastoralist?: {
+    appendix?: Appendix;
+  };
 };
 
-export type Appendix = Record<string, Record<string, string> | undefined>;
+export type Appendix = Record<string, Record<string, string>>;
 
 export type ResolveResolutionOptions = {
   config?: {
@@ -29,11 +32,16 @@ export type UpdateAppendixOptions = {
 export type Options = {
   appendix?: Appendix;
   debug?: boolean;
-  config?: string; // path to config
   isTestingCLI?: boolean;
   path?: string; // path to json
-  search?: string;
   depPaths?: string[]; // array of paths
 };
 
 export type OverridesType = Record<string, string>;
+
+export type UpdatePackageJSONOptions = {
+  appendix?: Appendix;
+  path: string;
+  config: PastoralistJSON;
+  resolutions?: false | string[];
+};

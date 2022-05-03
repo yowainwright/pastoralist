@@ -1,7 +1,6 @@
 import { test, expect } from "vitest";
 import {
   resolveJSON,
-  resolveConfig,
   resolveResolutions,
   updateAppendix,
   update,
@@ -9,11 +8,6 @@ import {
 
 test("resolveJSON", () => {
   const result = resolveJSON("./foo-package.json");
-  expect(result).toEqual("");
-});
-
-test("resolveConfig", () => {
-  const result = resolveConfig({ options: {} });
   expect(result).toEqual("");
 });
 

@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import { resolve } from "path";
 import { writeFile } from "fs";
 import { sync } from "fast-glob";
@@ -93,7 +92,7 @@ export function updateAppendix({
   const dependencyList = Object.keys(dependencies);
   const resolutionsList = Object.keys(resolutions);
   return resolutionsList.reduce((acc, resolution) => {
-    if (!dependencyList.includes(resolution)) {
+    if (dependencyList.includes(resolution)) {
       const hasResolutionOverride = compare(
         resolutions[resolution],
         dependencies[resolution],
@@ -105,7 +104,7 @@ export function updateAppendix({
           ...acc,
           [`${resolution}@${resolutions[resolution]}`]: {
             ...appendix[resolution],
-            [name]: [version],
+            [name]: version,
           },
         };
       }
@@ -149,8 +148,11 @@ export function updatePackageJSON({
 }
 
 export function update(options: Options): Appendix {
-  const { depPaths = ["node_modules/**/package.json"], path = "package.json" } =
-    options;
+  const {
+    depPaths = ["node_modules/**/package.json"],
+    path = "package.json",
+    isTesting = false,
+  } = options;
   const config = resolveJSON(path);
   const resolutions = resolveResolutions({ options, config });
   const resolutionsList = Object.keys(resolutions);
@@ -191,12 +193,14 @@ export function update(options: Options): Appendix {
     appendixItems.length > 0 &&
     appendixItems.filter((item) => Object.keys(appendix[item]).length > 0);
 
-  updatePackageJSON({
-    appendix,
-    path,
-    config,
-    resolutions: updatedResolutions,
-  });
+  if (!isTesting) {
+    updatePackageJSON({
+      appendix,
+      path,
+      config,
+      resolutions: updatedResolutions,
+    });
+  }
 
   return appendix;
 }

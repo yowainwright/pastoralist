@@ -7,8 +7,17 @@ import {
 } from "../scripts";
 
 test("resolveJSON", () => {
-  const result = resolveJSON("./foo-package.json");
-  expect(result).toEqual("");
+  const result = resolveJSON("./src/test/foo-package.json");
+  expect(result).toEqual({
+    dependencies: {
+      bar: "1.0.0",
+    },
+    name: "foo",
+    overrides: {
+      biz: "2.0.0",
+    },
+    version: "1.0.0",
+  });
 });
 
 test("resolveResolutions", () => {
@@ -26,7 +35,7 @@ test("resolveResolutions", () => {
     },
   };
   const result = resolveResolutions({ config });
-  expect(result).toEqual("");
+  expect(result).toEqual({ bar: "2.0.0", baz: "2.0.0", foo: "2.0.0" });
 });
 
 test("updateAppendix", () => {
@@ -46,14 +55,29 @@ test("updateAppendix", () => {
     name: "fiz",
     version: "1.0.0",
   });
-  expect(result).toEqual("");
+  expect(result).toEqual({
+    "bar@2.0.0": {
+      fiz: "1.0.0",
+    },
+    "biz@2.0.0": {
+      fiz: "1.0.0",
+    },
+    "foo@2.0.0": {
+      fiz: "1.0.0",
+    },
+  });
 });
 
 test("update", () => {
   const options = {
-    depPaths: ["./bar-package.json"],
-    path: "./foo-package.json",
+    depPaths: ["./src/test/bar-package.json"],
+    path: "./src/test/foo-package.json",
+    isTesting: true,
   };
   const result = update(options);
-  expect(result).toEqual("");
+  expect(result).toEqual({
+    "biz@2.0.0": {
+      bar: "1.0.0",
+    },
+  });
 });

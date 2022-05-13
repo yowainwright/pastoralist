@@ -35,6 +35,7 @@ export type Options = {
   isTestingCLI?: boolean;
   path?: string; // path to json
   depPaths?: string[]; // array of paths
+  isTesting?: boolean;
 };
 
 export type OverridesType = Record<string, string>;

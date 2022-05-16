@@ -1,6 +1,6 @@
 {
   "name": "pastoralist",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "(WIP) a tool to watch over node module resolutions and overrides 🐑 👩🏽‍🌾",
   "type": "module",
   "main": "dist/index.js",

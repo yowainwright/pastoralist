@@ -1,16 +1,31 @@
 {
   "compilerOptions": {
-    "esModuleInterop": true,
+    "baseUrl": ".",
     "outDir": "./dist",
     "rootDir": "src",
-    "target": "esnext",
-    "module": "esnext",
-    "lib": ["esnext", "dom"],
-    "moduleResolution": "node",
-    "checkJs": false,
+    "allowJs": false,
+    "allowSyntheticDefaultImports": true,
     "declaration": true,
+    "esModuleInterop": true,
+    "checkJs": false,
+    "forceConsistentCasingInFileNames": true,
+    "importHelpers": true,
+    "lib": ["esnext", "dom", "es6", "dom.iterable"],
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "noEmit": false,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "preserveConstEnums": true,
+    "removeComments": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "sourceMap": false,
     "strict": true,
+    "target": "es5",
     "types": ["node"]
   },
-  "exclude": ["src/test/**"]
+  "include": ["src"],
+  "exclude": ["src/test/*.ts"]
 }

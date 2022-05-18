@@ -14,6 +14,7 @@ import {
 
 export function resolveJSON(path: string): PastoralistJSON {
   const jsonPath = resolve(path);
+  console.log({ jsonPath });
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   return require(jsonPath);
 }

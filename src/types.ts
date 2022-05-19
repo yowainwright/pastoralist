@@ -44,5 +44,5 @@ export type UpdatePackageJSONOptions = {
   appendix?: Appendix;
   path: string;
   config: PastoralistJSON;
-  resolutions?: false | string[];
+  resolutions?: OverridesType;
 };

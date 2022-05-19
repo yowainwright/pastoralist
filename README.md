@@ -1,4 +1,4 @@
-# Pastoralist (WIP)
+# Pastoralist
 
 A tool to watch over node module *`overrides` and *`resolutions` 🐑 👩🏽‍🌾
 

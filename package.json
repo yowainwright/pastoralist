@@ -2,16 +2,18 @@
   "name": "pastoralist",
   "version": "0.0.7",
   "description": "(WIP) a tool to watch over node module resolutions and overrides 🐑 👩🏽‍🌾",
-  "main": "dist/index.cjs",
-  "types": "dist/types.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "files": [
     "dist"
   ],
   "bin": {
-    "pastoralist": "./dist/index.cjs"
+    "pastoralist": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "npm run clean && npm run dist",
+    "clean": "rm -rf dist",
+    "dist": "tsc",
     "test": "vitest run"
   },
   "repository": {

@@ -12,11 +12,17 @@ import {
   UpdatePackageJSONOptions,
 } from "./types";
 
-export function resolveJSON(path: string): PastoralistJSON {
+export function resolveJSON(
+  path: string,
+  debug = false
+): PastoralistJSON | void {
   const jsonPath = resolve(path);
-  console.log({ jsonPath });
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  return require(jsonPath);
+  const json = require(jsonPath);
+  // don't return unuseable json
+  if (JSON.parse(json)) return json;
+  if (debug)
+    console.log(`🐑 👩🏽‍🌾  Pastoralist found invalid JSON at:\n${jsonPath}`);
 }
 
 /**
@@ -148,19 +154,23 @@ export function updatePackageJSON({
   );
 }
 
-export function update(options: Options): Appendix {
+export function update(options: Options): Appendix | void {
   const {
+    debug = false,
     depPaths = ["node_modules/**/package.json"],
     path = "package.json",
     isTesting = false,
   } = options;
-  const config = resolveJSON(path);
+  const config = resolveJSON(path, debug);
+  if (!config) return;
   const resolutions = resolveResolutions({ options, config });
   const resolutionsList = Object.keys(resolutions);
   const nodeModulePackageJSONs = sync(depPaths);
   const appendix = nodeModulePackageJSONs.reduce(
     (acc, packageJSON): Appendix => {
-      const { dependencies = {}, name, version } = resolveJSON(packageJSON);
+      const currentPackageJSON = resolveJSON(packageJSON, debug);
+      if (!currentPackageJSON) return acc;
+      const { dependencies = {}, name, version } = currentPackageJSON;
       const dependenciesList = Object.keys(dependencies);
       if (!dependenciesList.length) return acc;
       const hasOverriddenDependencies = dependenciesList.some(

@@ -135,14 +135,15 @@ export function updatePackageJSON({
   const pastoralist = config?.pastoralist
     ? { ...config.pastoralist, appendix }
     : { appendix };
+  const hasResolutions = resolutions && Object.keys(resolutions).length > 0;
   const json = {
     ...config,
     pastoralist,
-    ...(config?.resolutions
+    ...(config?.resolutions && hasResolutions
       ? { resolutions }
-      : config?.overrides
+      : config?.overrides && hasResolutions
       ? { overrides: resolutions }
-      : config?.pnpm?.overrides
+      : config?.pnpm?.overrides && hasResolutions
       ? { pnpm: { ...config.pnpm, overrides: resolutions } }
       : {}),
   };
@@ -195,10 +196,24 @@ export function update(options: Options): Appendix | void {
 
   const appendixItems = Object.keys(appendix);
 
-  // returns resolutions which are no longer needed
+  // removes resolutions which are no longer needed
+  const appendixItemsToBeRemoved =
+    appendixItems.length > 0
+      ? appendixItems
+          .filter((item) => Object.keys(appendix[item]).length > 0)
+          .map((item) => item.split("@")[0])
+      : [];
   const updatedResolutions =
-    appendixItems.length > 0 &&
-    appendixItems.filter((item) => Object.keys(appendix[item]).length > 0);
+    appendixItemsToBeRemoved.length > 0
+      ? Object.keys(resolutions).reduce((acc, item): OverridesType => {
+          const isItemToBeRemoved = appendixItemsToBeRemoved.includes(item);
+          if (isItemToBeRemoved) return acc;
+          return {
+            ...acc,
+            [item]: resolutions[item],
+          };
+        }, {} as OverridesType)
+      : resolutions;
 
   if (!isTesting) {
     updatePackageJSON({

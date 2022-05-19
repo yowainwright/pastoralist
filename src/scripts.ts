@@ -1,5 +1,5 @@
 import { resolve } from "path";
-import { writeFile } from "fs";
+import { writeFile, readFileSync } from "fs";
 import { sync } from "fast-glob";
 import { compare } from "compare-versions";
 import {
@@ -16,13 +16,14 @@ export function resolveJSON(
   path: string,
   debug = false
 ): PastoralistJSON | void {
-  const jsonPath = resolve(path);
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const json = require(jsonPath);
-  // don't return unuseable json
-  if (JSON.parse(json)) return json;
-  if (debug)
-    console.log(`🐑 👩🏽‍🌾  Pastoralist found invalid JSON at:\n${jsonPath}`);
+  try {
+    const json = JSON.parse(readFileSync(path, "utf8"));
+    return json;
+  } catch (err) {
+    if (debug)
+      console.log(`🐑 👩🏽‍🌾  Pastoralist found invalid JSON at:\n${path}`);
+    return;
+  }
 }
 
 /**
@@ -192,11 +193,6 @@ export function update(options: Options): Appendix | void {
     {} as Appendix
   );
 
-  /**
-   * @note review the appendix
-   * These scripts currently work one way => make an appendix
-   * @todo the appendix should manage it self + provide resolutions that are no longer needed
-   */
   const appendixItems = Object.keys(appendix);
 
   // returns resolutions which are no longer needed

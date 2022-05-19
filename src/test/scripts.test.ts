@@ -6,8 +6,8 @@ import {
   update,
 } from "../scripts";
 
-test("resolveJSON", () => {
-  const result = resolveJSON("./src/test/foo-package.json");
+test("resolveJSON success", () => {
+  const result = resolveJSON("./src/test/foo-package.json", true);
   expect(result).toEqual({
     dependencies: {
       bar: "1.0.0",
@@ -18,6 +18,11 @@ test("resolveJSON", () => {
     },
     version: "1.0.0",
   });
+});
+
+test("resolveJSON failure", () => {
+  const result = resolveJSON("./src/test/malformed.json", true);
+  expect(result).toBeUndefined();
 });
 
 test("resolveResolutions", () => {

@@ -2,16 +2,8 @@
   "name": "pastoralist",
   "version": "0.0.6",
   "description": "(WIP) a tool to watch over node module resolutions and overrides 🐑 👩🏽‍🌾",
-  "type": "module",
   "main": "dist/index.cjs",
-  "module": "dist/index.mjs",
   "types": "dist/types.d.ts",
-  "exports": {
-    ".": {
-      "require": "./dist/index.cjs",
-      "import": "./dist/index.mjs"
-    }
-  },
   "files": [
     "dist"
   ],
@@ -19,7 +11,7 @@
     "pastoralist": "./dist/index.cjs"
   },
   "scripts": {
-    "build": "tsup src/index.ts src/program.ts src/scripts.ts --format cjs,esm",
+    "build": "tsc",
     "test": "vitest run"
   },
   "repository": {
@@ -56,7 +48,6 @@
     "stdouttojson": "^0.3.1",
     "ts-node": "^10.7.0",
     "tslib": "^2.3.1",
-    "tsup": "^5.12.6",
     "typescript": "^4.6.4",
     "vitest": "^0.12.1"
   }

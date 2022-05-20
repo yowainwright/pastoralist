@@ -1,0 +1,6 @@
+# .kodiak.toml
+# Minimal config. version is the only required field.
+version = 1
+auto_approve_usernames = ["dependent"]
+merge.automerge_label = ['dependencies','automerge 🚀']
+update.autoupdate_label = 'autoupdate 🔁'

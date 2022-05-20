@@ -94,7 +94,9 @@ Pastoralist can _and should be incorporated_ into your workflow—which ever way
 ---
 ## Roadmap
 
-- [ ] More tests
-- [ ] Local development setup
-- [ ] Provide more configuration options using a tool like [cosmiconfig](https://github.com/davidtheclark/cosmiconfig).
-- [ ] Provide caveats, code examples, and more documentation.
+**Updated `2022-05-20`**
+
+- More tests (in progress)
+- Local development setup (next few days)
+- Provide more configuration options using a tool like [cosmiconfig](https://github.com/davidtheclark/cosmiconfig) (within the next weeks)
+- Provide caveats, code examples, and more documentation (next few days)

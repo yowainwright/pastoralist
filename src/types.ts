@@ -42,6 +42,7 @@ export type OverridesType = Record<string, string>;
 
 export type UpdatePackageJSONOptions = {
   appendix?: Appendix;
+  debug?: boolean;
   path: string;
   config: PastoralistJSON;
   resolutions?: OverridesType;

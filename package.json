@@ -19,7 +19,7 @@
     "husky-setup:commit-msg": "(path-exists .husky/commit-msg) || (npx husky add .husky/commit-msg 'npm run commit-msg')",
     "husky-setup:post-merge": "(path-exists .husky/post-merge) || (npx husky add .husky/post-merge 'npm install && npm run build')",
     "husky-setup:pre-commit": "(path-exists .husky/pre-commit) || (npx husky add .husky/pre-commit 'npm run pre-commit')",
-    "pre-commit": "lint-staged --quiet",
+    "pre-commit": "lint-staged --quiet && npm run test",
     "prepare": "is-ci || (husky install && npm run husky-setup:commit-msg --silent; npm run husky-setup:post-merge --silent; npm run husky-setup:pre-commit --silent)",
     "prepublishOnly": "npm run test && npm run build",
     "test": "vitest run"

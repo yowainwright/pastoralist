@@ -131,6 +131,7 @@ export function updatePackageJSON({
   config,
   resolutions,
   isTesting = false,
+  debug = false,
 }: UpdatePackageJSONOptions): PastoralistJSON | void {
   const jsonPath = resolve(path);
   const pastoralist = config?.pastoralist
@@ -148,16 +149,24 @@ export function updatePackageJSON({
       ? { pnpm: { ...config.pnpm, overrides: resolutions } }
       : {}),
   };
-  console.log({ json, config, pastoralist, resolutions });
+  if (debug)
+    console.log({
+      log: "🐑 👩🏽‍🌾 Pastoralist:updatePackageJSON:fn:",
+      json,
+      config,
+      pastoralist,
+      resolutions,
+    });
   if (isTesting) return json;
-  else
-    writeFile(jsonPath, JSON.stringify(json, null, 2), (err) =>
+  writeFile(
+    jsonPath,
+    JSON.stringify(json, null, 2),
+    (err) =>
+      debug &&
       console.log(
-        `🐑 👩🏽‍🌾 Pastoralist had an issue updating overrides or resolutions in the package.json!${
-          err ? `, ${err}` : ""
-        }`
+        `🐑 👩🏽‍🌾 Pastoralist had an issue updating overrides or resolutions in the package.json!\n${err}`
       )
-    );
+  );
 }
 
 export function update(options: Options): Appendix | void {
@@ -218,7 +227,14 @@ export function update(options: Options): Appendix | void {
           };
         }, {} as OverridesType)
       : resolutions;
-
+  if (debug)
+    console.log({
+      log: "🐑 👩🏽‍🌾 Pastoralist:update:fn:",
+      appendix,
+      config,
+      path,
+      updatedResolutions,
+    });
   if (!isTesting) {
     updatePackageJSON({
       appendix,

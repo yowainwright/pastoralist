@@ -3,6 +3,7 @@ import {
   resolveJSON,
   resolveResolutions,
   updateAppendix,
+  updatePackageJSON,
   update,
 } from "../scripts";
 
@@ -69,6 +70,52 @@ test("updateAppendix", () => {
     },
     "foo@2.0.0": {
       fiz: "1.0.0",
+    },
+  });
+});
+
+test("updatePackageJSON", () => {
+  const appendix = {
+    "bar@2.0.0": {
+      fiz: "1.0.0",
+    },
+  };
+
+  const config = {
+    name: "test",
+    version: "1.0.0",
+    overrides: {
+      fiz: "1.0.0",
+    },
+    pastoralist: {
+      appendix,
+    },
+  };
+  const resolutions = {
+    fiz: "1.0.0",
+    buzz: "1.0.0",
+  };
+  const options = {
+    appendix,
+    config,
+    path: "./src/test/foo-package.json",
+    resolutions,
+    isTesting: true,
+  };
+  const result = updatePackageJSON(options);
+  expect(result).toEqual({
+    name: "test",
+    version: "1.0.0",
+    overrides: {
+      fiz: "1.0.0",
+      buzz: "1.0.0",
+    },
+    pastoralist: {
+      appendix: {
+        "bar@2.0.0": {
+          fiz: "1.0.0",
+        },
+      },
     },
   });
 });

@@ -45,4 +45,5 @@ export type UpdatePackageJSONOptions = {
   path: string;
   config: PastoralistJSON;
   resolutions?: OverridesType;
+  isTesting?: boolean;
 };

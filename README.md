@@ -70,12 +70,15 @@ Pastoralist is comprised of a few functions which read `node_module` `package.js
 - Pastoralist **does** manage dependenceis that exists in a `package.json`'s overrides or resolutions objects.
   - Pastoralist will remove overrides and resolutions if they become unneeded according to child `package.json`'s spec!
 
+---
 ## Install
 
 ```sh
 npm install pastoralist --save-dev
 # pastoralist does not expect to be a dependency! It's a tool!!!
 ```
+
+---
 
 ## Usage
 
@@ -88,6 +91,7 @@ pastoralist
 
 Pastoralist can _and should be incorporated_ into your workflow—which ever way is best for you and your team's developer experience! 👌
 
+---
 ## Roadmap
 
 - [ ] More tests

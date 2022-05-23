@@ -35,7 +35,6 @@ Will look like this:
 "pastoralist": {
   "appendix": {
     "trim@^0.0.3": {
-      "rootDeps": ["markdown-lint"],
       "dependenents": {
         "remark-parse": "4.0.0"
       }
@@ -116,8 +115,6 @@ When **Pastoralist** is run in a respository with override or resolution depende
   "appendix": {
     // the resolution/override is stringified with it's version
     "trim@^0.0.3": {
-      // rootDeps is array of root dependencies which can be mapped to this override/resolution dependency
-      "rootDeps": ["markdown-lint"],
       // dependents cantain dependents which actuall require the override/resolution dependency
       "dependenents": {
         "remark-parse": "4.0.0"

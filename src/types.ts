@@ -58,9 +58,9 @@ export type UpdatePackageJSONOptions = {
 };
 
 export type FindRootDeps = {
-  rootDependencies?: Record<string, string>;
   packageJSONs?: string[];
   debug?: boolean;
-  name: string;
-  version: string;
+  resolutionName: string;
+  resolutionVersion: string;
+  rootName: string;
 };

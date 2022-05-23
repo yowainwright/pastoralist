@@ -91,6 +91,7 @@ export function resolveResolutions({
 }
 
 export function updateAppendix({
+  debug = false,
   dependencies,
   resolutions,
   name,
@@ -99,26 +100,39 @@ export function updateAppendix({
 }: UpdateAppendixOptions): Appendix {
   const dependencyList = Object.keys(dependencies);
   const resolutionsList = Object.keys(resolutions);
-  return resolutionsList.reduce((acc, resolution) => {
-    if (dependencyList.includes(resolution)) {
-      const hasResolutionOverride = compare(
-        resolutions[resolution],
-        dependencies[resolution],
-        ">"
-      );
-      if (hasResolutionOverride) {
-        return {
-          ...appendix,
-          ...acc,
-          [`${resolution}@${resolutions[resolution]}`]: {
-            ...appendix[resolution],
-            [name]: version,
-          },
-        };
+  const updatedAppendix = resolutionsList.reduce(
+    (acc: Appendix, resolution: string): Appendix => {
+      if (dependencyList.includes(resolution)) {
+        const hasResolutionOverride = compare(
+          resolutions[resolution],
+          dependencies[resolution],
+          ">"
+        );
+        if (hasResolutionOverride) {
+          const key = `${resolution}@${resolutions[resolution]}`;
+          return {
+            ...appendix,
+            ...acc,
+            [key]: {
+              dependents: {
+                ...appendix?.[key]?.dependents,
+                ...acc?.[key]?.dependents,
+                [name]: version,
+              },
+            },
+          };
+        }
       }
-    }
-    return acc || {};
-  }, {});
+      return acc || {};
+    },
+    {}
+  );
+  if (debug)
+    console.log({
+      log: "🐑 👩🏽‍🌾 Pastoralist:updateAppendix:fn:",
+      updatedAppendix,
+    });
+  return updatedAppendix;
 }
 
 /**
@@ -179,33 +193,38 @@ export function update(options: Options): Appendix | void {
   const config = resolveJSON(path, debug);
   if (!config) return;
   const resolutions = resolveResolutions({ options, config });
+  const rootDependencies = {
+    ...(config?.dependencies ? config?.dependencies : {}),
+    ...(config?.devDependencies ? config.devDependencies : {}),
+  };
   const resolutionsList = Object.keys(resolutions);
-  const nodeModulePackageJSONs = sync(depPaths);
-  const appendix = nodeModulePackageJSONs.reduce(
-    (acc, packageJSON): Appendix => {
-      const currentPackageJSON = resolveJSON(packageJSON, debug);
-      if (!currentPackageJSON) return acc;
-      const { dependencies = {}, name, version } = currentPackageJSON;
-      const dependenciesList = Object.keys(dependencies);
-      if (!dependenciesList.length) return acc;
-      const hasOverriddenDependencies = dependenciesList.some(
-        (dependencyItem) => resolutionsList.includes(dependencyItem)
-      );
-      if (!hasOverriddenDependencies) return acc;
-      const appendixItem = updateAppendix({
-        dependencies,
-        name,
-        resolutions,
-        version,
-        ...(options.appendix ? { appendix: options.appendix } : {}),
-      });
-      return {
-        ...acc,
-        ...appendixItem,
-      };
-    },
-    {} as Appendix
-  );
+  const packageJSONs = sync(depPaths);
+  const appendix = packageJSONs.reduce((acc, packageJSON): Appendix => {
+    const currentPackageJSON = resolveJSON(packageJSON, debug);
+    if (!currentPackageJSON) return acc;
+    const { dependencies = {}, name, version } = currentPackageJSON;
+    const dependenciesList = Object.keys(dependencies);
+    if (!dependenciesList.length) return acc;
+    const hasOverriddenDependencies = dependenciesList.some((dependencyItem) =>
+      resolutionsList.includes(dependencyItem)
+    );
+    if (!hasOverriddenDependencies) return acc;
+    const appendixItem = updateAppendix({
+      debug,
+      packageJSONs,
+      rootDependencies,
+      dependencies,
+      name,
+      resolutions,
+      version,
+      ...(config?.pastoralist?.appendix ? config.pastoralist.appendix : {}),
+      ...(options.appendix ? { appendix: options.appendix } : {}),
+    });
+    return {
+      ...acc,
+      ...appendixItem,
+    };
+  }, {} as Appendix);
 
   const appendixItems = Object.keys(appendix);
 
@@ -232,6 +251,7 @@ export function update(options: Options): Appendix | void {
       log: "🐑 👩🏽‍🌾 Pastoralist:update:fn:",
       appendix,
       config,
+      packageJSONs,
       path,
       updatedResolutions,
     });

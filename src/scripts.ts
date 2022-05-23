@@ -4,7 +4,6 @@ import { sync } from "fast-glob";
 import { compare } from "compare-versions";
 import {
   Appendix,
-  FindRootDeps,
   Options,
   OverridesType,
   PastoralistJSON,
@@ -91,51 +90,6 @@ export function resolveResolutions({
   };
 }
 
-export function findRootDeps({
-  rootDependencies = {},
-  packageJSONs = [],
-  debug = false,
-  name,
-  version,
-}: FindRootDeps): Array<string> {
-  const readPackageJSONs = packageJSONs;
-  const rootDeps = packageJSONs.reduce(
-    (acc: string[] = [], packageJSON: string, i: number) => {
-      const json = resolveJSON(packageJSON, debug);
-      if (!json) return acc;
-      readPackageJSONs.splice(i, 1);
-      const {
-        dependencies = {},
-        name: packageName = "",
-        version: packageVersion = "",
-      } = json;
-      const depNames = Object.keys(dependencies);
-      if (
-        !depNames.length ||
-        !depNames.includes(name) ||
-        dependencies[name] !== version
-      ) {
-        return acc;
-      }
-      if (Object.keys(rootDependencies).includes(name)) {
-        return [...acc, name];
-      }
-      const deps = findRootDeps({
-        rootDependencies,
-        packageJSONs: readPackageJSONs,
-        debug,
-        name: packageName,
-        version: packageVersion,
-      });
-      return [...acc, ...deps];
-    },
-    []
-  );
-  if (debug)
-    console.log({ log: "🐑 👩🏽‍🌾 Pastoralist:findRootDeps:fn:", rootDeps });
-  return rootDeps;
-}
-
 export function updateAppendix({
   debug = false,
   dependencies,
@@ -143,41 +97,36 @@ export function updateAppendix({
   name,
   version,
   appendix = {},
-  rootDependencies = {},
-  packageJSONs = [],
 }: UpdateAppendixOptions): Appendix {
   const dependencyList = Object.keys(dependencies);
   const resolutionsList = Object.keys(resolutions);
-  const updatedAppendix = resolutionsList.reduce((acc, resolution) => {
-    if (dependencyList.includes(resolution)) {
-      const hasResolutionOverride = compare(
-        resolutions[resolution],
-        dependencies[resolution],
-        ">"
-      );
-      if (hasResolutionOverride) {
-        const rootDeps = findRootDeps({
-          rootDependencies,
-          packageJSONs,
-          debug,
-          name,
-          version,
-        });
-        return {
-          ...appendix,
-          ...acc,
-          [`${resolution}@${resolutions[resolution]}`]: {
-            rootDeps,
-            dependents: {
-              ...appendix?.[resolution]?.dependents,
-              [name]: version,
+  const updatedAppendix = resolutionsList.reduce(
+    (acc: Appendix, resolution: string): Appendix => {
+      if (dependencyList.includes(resolution)) {
+        const hasResolutionOverride = compare(
+          resolutions[resolution],
+          dependencies[resolution],
+          ">"
+        );
+        if (hasResolutionOverride) {
+          const key = `${resolution}@${resolutions[resolution]}`;
+          return {
+            ...appendix,
+            ...acc,
+            [key]: {
+              dependents: {
+                ...appendix?.[key]?.dependents,
+                ...acc?.[key]?.dependents,
+                [name]: version,
+              },
             },
-          },
-        };
+          };
+        }
       }
-    }
-    return acc || {};
-  }, {});
+      return acc || {};
+    },
+    {}
+  );
   if (debug)
     console.log({
       log: "🐑 👩🏽‍🌾 Pastoralist:updateAppendix:fn:",

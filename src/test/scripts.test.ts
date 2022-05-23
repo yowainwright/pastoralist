@@ -74,19 +74,16 @@ test("updateAppendix", () => {
       dependents: {
         fiz: "1.0.0",
       },
-      rootDeps: [],
     },
     "biz@2.0.0": {
       dependents: {
         fiz: "1.0.0",
       },
-      rootDeps: [],
     },
     "foo@2.0.0": {
       dependents: {
         fiz: "1.0.0",
       },
-      rootDeps: [],
     },
   });
 });
@@ -94,7 +91,6 @@ test("updateAppendix", () => {
 test("updatePackageJSON", () => {
   const appendix = {
     "bar@2.0.0": {
-      rootDeps: [],
       dependents: {
         fiz: "1.0.0",
       },
@@ -137,7 +133,6 @@ test("updatePackageJSON", () => {
           dependents: {
             fiz: "1.0.0",
           },
-          rootDeps: [],
         },
       },
     },
@@ -156,7 +151,6 @@ test("update", () => {
       dependents: {
         bar: "1.0.0",
       },
-      rootDeps: [],
     },
   });
 });

@@ -5,14 +5,18 @@
 
 A tool to watch over node module **`*overrides and resolutions`** 🐑 👩🏽‍🌾
 
-> \***overrides and resolutions**
->
-> Overrides and resolutions solve the same problem-they give developers a way to specify the dependency versions downloaded to repository's `node_modules`. This is very convenient for setting dependency dependencies to specific versions to fix security issues. However, it is easy to lose track of why an override or resolution is specified. This is an inconvenient problem when trying to maintain useable dependencies over time—until now.
+---
+
+#### \*Overrides and resolutions
+
+Overrides and resolutions solve the same problem—they give developers a way to specify the dependency versions downloaded to repository's `node_modules`. This is very convenient for setting dependency dependencies to specific versions to fix security issues.
+
+However, it is easy to lose track of why an override or resolution is specified. This is an inconvenient problem when trying to maintain dependencies over time—**until now**.
 
 ---
 ## Synopsis
 
-By running **Pastoralist** in a `pre-commit` hook (or other command) an override/resolution which looks like this:
+By running **Pastoralist** in a `pre-commit` hook or other command an override/resolution which looks like this:
 
 ```js
 // package.json
@@ -31,7 +35,9 @@ Will look like this:
 "pastoralist": {
   "appendix": {
     "trim@^0.0.3": {
-      "remark-parse": "4.0.0"
+      "dependenents": {
+        "remark-parse": "4.0.0"
+      }
     }
   }
 }
@@ -75,7 +81,7 @@ it will clean up itself and resolutions!
 - **Pastoralist does** manage dependenceis that exists in a `package.json`'s overrides or resolutions objects.
   - **Pastoralist** will remove overrides and resolutions if they become unneeded according to child `package.json`'s spec!
 
-View the **[Pasture lifecycle doc](./docs/pasture-lifecycle.md)** to get some visuals into what Pastoralist has got going on!
+- View the **[Pasture lifecycle doc](./docs/pasture-lifecycle.md)** to get some visuals into what Pastoralist has got going on!
 
 ---
 ## Install
@@ -98,6 +104,28 @@ pastoralist
 
 **Pastoralist** can _and should be incorporated_ into your workflow—which ever way is best for you and your team's developer experience! 👌
 
+## Pastoralist Object Anatomy
+
+When **Pastoralist** is run in a respository with override or resolution dependencies, it will output a shape like below.
+
+```js
+// package.json
+"pastoralist": {
+  // the appendix contains mapped resolutions/overrides
+  "appendix": {
+    // the resolution/override is stringified with it's version
+    "trim@^0.0.3": {
+      // dependents cantain dependents which actuall require the override/resolution dependency
+      "dependenents": {
+        "remark-parse": "4.0.0"
+      }
+    }
+  }
+}
+```
+
+When ever **Pastoralist** is run again, it will check the `pastoralist.appendix` object and remove any resolutions/overrides that are no longer needed.
+
 ---
 ## Roadmap
 
@@ -107,3 +135,4 @@ pastoralist
 - Local development setup (next few days)
 - Provide more configuration options using a tool like [cosmiconfig](https://github.com/davidtheclark/cosmiconfig) (within the next weeks)
 - Provide caveats, code examples, and more documentation (next few days)
+- **Note:** the shape of the `pastoralist` object may change rapidly currently to improve the API. However, **Pastoralist** is built to work on it's own so, generally, you shouldn't worry about it!

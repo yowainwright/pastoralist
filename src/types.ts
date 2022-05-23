@@ -1,5 +1,6 @@
 export type PastoralistJSON = {
   dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
   name: string;
   version: string;
   resolutions?: Record<string, string>;
@@ -10,7 +11,11 @@ export type PastoralistJSON = {
   };
 };
 
-export type Appendix = Record<string, Record<string, string>>;
+export type AppendixItem = {
+  rootDeps?: Array<string>;
+  dependents?: Record<string, string>;
+};
+export type Appendix = Record<string, AppendixItem>;
 
 export type ResolveResolutionOptions = {
   config?: {
@@ -23,8 +28,11 @@ export type ResolveResolutionOptions = {
 
 export type UpdateAppendixOptions = {
   appendix?: Appendix;
+  debug?: boolean;
   dependencies: Record<string, string>;
   resolutions: Record<string, string>;
+  packageJSONs?: string[];
+  rootDependencies: Record<string, string>;
   name: string;
   version: string;
 };
@@ -47,4 +55,12 @@ export type UpdatePackageJSONOptions = {
   config: PastoralistJSON;
   resolutions?: OverridesType;
   isTesting?: boolean;
+};
+
+export type FindRootDeps = {
+  packageJSONs?: string[];
+  debug?: boolean;
+  resolutionName: string;
+  resolutionVersion: string;
+  rootName: string;
 };

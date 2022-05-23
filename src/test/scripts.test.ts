@@ -60,16 +60,30 @@ test("updateAppendix", () => {
     resolutions,
     name: "fiz",
     version: "1.0.0",
+    debug: true,
+    rootDependencies: {
+      fix: "1.0.0",
+    },
+    packageJSONs: [
+      "./src/test/foo-package.json",
+      "./src/test/bar-package.json",
+    ],
   });
   expect(result).toEqual({
     "bar@2.0.0": {
-      fiz: "1.0.0",
+      dependents: {
+        fiz: "1.0.0",
+      },
     },
     "biz@2.0.0": {
-      fiz: "1.0.0",
+      dependents: {
+        fiz: "1.0.0",
+      },
     },
     "foo@2.0.0": {
-      fiz: "1.0.0",
+      dependents: {
+        fiz: "1.0.0",
+      },
     },
   });
 });
@@ -77,7 +91,9 @@ test("updateAppendix", () => {
 test("updatePackageJSON", () => {
   const appendix = {
     "bar@2.0.0": {
-      fiz: "1.0.0",
+      dependents: {
+        fiz: "1.0.0",
+      },
     },
   };
 
@@ -101,6 +117,7 @@ test("updatePackageJSON", () => {
     path: "./src/test/foo-package.json",
     resolutions,
     isTesting: true,
+    debug: true,
   };
   const result = updatePackageJSON(options);
   expect(result).toEqual({
@@ -113,7 +130,9 @@ test("updatePackageJSON", () => {
     pastoralist: {
       appendix: {
         "bar@2.0.0": {
-          fiz: "1.0.0",
+          dependents: {
+            fiz: "1.0.0",
+          },
         },
       },
     },
@@ -129,7 +148,9 @@ test("update", () => {
   const result = update(options);
   expect(result).toEqual({
     "biz@2.0.0": {
-      bar: "1.0.0",
+      dependents: {
+        bar: "1.0.0",
+      },
     },
   });
 });

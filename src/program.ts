@@ -10,7 +10,7 @@ const version = "VERSION";
  * @description the pastoralist runner
  * @param {Options} Record}
  */
-export async function action(options: Options = {}) {
+export async function action(options: Options = {}): Promise<void> {
   try {
     if (options?.isTestingCLI) console.info({ options });
 
@@ -24,7 +24,7 @@ program
   .version(version)
   .description("Pastoralist, a utility CLI to manage your dependency overrides")
   .option("-t, --isTestingCLI", "enables CLI testing, no scripts are run")
-  .action(action as any)
+  .action(action)
   .parse(process.argv);
 
 export { program };

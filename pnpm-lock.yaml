@@ -20,7 +20,7 @@ specifiers:
   ts-node: ^10.7.0
   tslib: ^2.3.1
   typescript: ^4.6.4
-  vitest: ^0.12.1
+  vitest: ^0.14.1
 
 dependencies:
   commander: 9.3.0
@@ -44,7 +44,7 @@ devDependencies:
   stdouttojson: 0.3.2
   ts-node: 10.8.1_wpmar7q2se7jlmxe5wggegnl2m
   typescript: 4.7.3
-  vitest: 0.12.10
+  vitest: 0.14.2
 
 packages:
 
@@ -4444,8 +4444,8 @@ packages:
       fsevents: 2.3.2
     dev: true
 
-  /vitest/0.12.10:
-    resolution: {integrity: sha512-TVoI6fM7rZ1zIMDjcviY8Dg5XIaPqBwDweaI3oUwvWqUz68cbM49CIHNMkF+UVoSjl94wXiBRdNhsT4ekgWuGA==}
+  /vitest/0.14.2:
+    resolution: {integrity: sha512-vXQUl8OUCqHmxKWscMGL+6Xl1pBJmYHZ8N85iNpLGrirAC2vhspu7b73ShRcLonmZT44BYZW+LBAVvn0L4jyVA==}
     engines: {node: '>=v14.16.0'}
     hasBin: true
     peerDependencies:

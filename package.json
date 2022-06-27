@@ -59,7 +59,7 @@
     "eslint-config-prettier": "^8.5.0",
     "husky": "^8.0.1",
     "is-ci": "^3.0.1",
-    "lint-staged": "^12.4.1",
+    "lint-staged": "^13.0.2",
     "path-exists-cli": "^2.0.0",
     "release-it": "^15.0.0",
     "stdouttojson": "^0.3.1",

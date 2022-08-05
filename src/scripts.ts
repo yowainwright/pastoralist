@@ -1,16 +1,28 @@
+import { promisify } from "util";
+import { exec } from "child_process";
 import { resolve } from "path";
 import { writeFile, readFileSync } from "fs";
 import { sync } from "fast-glob";
 import { compare } from "compare-versions";
 import {
   Appendix,
+  GetRootDeps,
   Options,
   OverridesType,
   PastoralistJSON,
   ResolveResolutionOptions,
+  RootDepItem,
   UpdateAppendixOptions,
   UpdatePackageJSONOptions,
-} from "./types";
+} from "./interfaces";
+
+/**
+ * execPromise
+ * @description interprets a cmd
+ * @param {cmd} string
+ * @returns {object}
+ */
+export const execPromise = promisify(exec);
 
 export function resolveJSON(
   path: string,
@@ -88,6 +100,30 @@ export function resolveResolutions({
     ...pnpmOverrides,
     ...resolutions,
   };
+}
+
+export async function getRootDeps({ debug = false, resolutions, exec = execPromise }: GetRootDeps): Promise<Array<RootDepItem>> {
+  const rootDepsList = Promise.all(
+    resolutions.map(async (resolution: string): Promise<RootDepItem> => {
+      try {
+        const { dependencies } = await exec(`npm ls ${resolution} --json`);
+        console.log({ dependencies, test: Object.keys(dependencies) });
+        const rootDeps = Object.keys(dependencies).map((dependency) => `${dependency}@${dependencies[dependency].version}`);
+        if (debug) console.log(`🐑 👩🏽‍🌾 ${resolution} has direct dependendents: ${rootDeps.join(", ")}`);
+        return {
+          resolution,
+          rootDeps
+        };
+      } catch (err) {
+        if (debug) console.error(err);
+        return {
+          resolution,
+          rootDeps: []
+        };
+      }
+    })
+  );
+  return rootDepsList;
 }
 
 export function updateAppendix({

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { program } from "commander";
-import { Options } from "./types";
+import { Options } from "./interfaces";
 import { update } from "./scripts";
 const version = "VERSION";
 

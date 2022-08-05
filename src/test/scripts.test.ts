@@ -154,3 +154,5 @@ test("update", () => {
     },
   });
 });
+
+test('getRootDeps', () => expect(1).toEqual(1));

@@ -1,4 +1,4 @@
-export type PastoralistJSON = {
+export interface PastoralistJSON {
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
   name: string;
@@ -11,13 +11,15 @@ export type PastoralistJSON = {
   };
 };
 
-export type AppendixItem = {
+export interface AppendixItem {
   rootDeps?: Array<string>;
-  dependents?: Record<string, string>;
+  dependents: Record<string, string>;
 };
-export type Appendix = Record<string, AppendixItem>;
+export interface Appendix {
+  [key: string]: AppendixItem
+}
 
-export type ResolveResolutionOptions = {
+export interface ResolveResolutionOptions {
   config?: {
     overrides?: Record<string, string> | undefined;
     pnpm?: { overrides?: Record<string, string> | undefined };
@@ -26,7 +28,7 @@ export type ResolveResolutionOptions = {
   options?: Options;
 };
 
-export type UpdateAppendixOptions = {
+export interface UpdateAppendixOptions {
   appendix?: Appendix;
   debug?: boolean;
   dependencies: Record<string, string>;
@@ -37,7 +39,7 @@ export type UpdateAppendixOptions = {
   version: string;
 };
 
-export type Options = {
+export interface Options {
   appendix?: Appendix;
   debug?: boolean;
   isTestingCLI?: boolean;
@@ -46,9 +48,11 @@ export type Options = {
   isTesting?: boolean;
 };
 
-export type OverridesType = Record<string, string>;
+export interface OverridesType {
+  [key: string]:  string;
+}
 
-export type UpdatePackageJSONOptions = {
+export interface UpdatePackageJSONOptions {
   appendix?: Appendix;
   debug?: boolean;
   path: string;
@@ -57,10 +61,21 @@ export type UpdatePackageJSONOptions = {
   isTesting?: boolean;
 };
 
-export type FindRootDeps = {
+export interface FindRootDeps {
   packageJSONs?: string[];
   debug?: boolean;
   resolutionName: string;
   resolutionVersion: string;
   rootName: string;
 };
+
+export interface GetRootDeps {
+  debug?: boolean;
+  resolutions: Array<string>;
+  exec?: any;
+}
+
+export interface RootDepItem {
+  resolution: string;
+  rootDeps: Array<string>;
+}

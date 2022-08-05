@@ -106,8 +106,8 @@ export async function getRootDeps({ debug = false, resolutions, exec = execPromi
   const rootDepsList = Promise.all(
     resolutions.map(async (resolution: string): Promise<RootDepItem> => {
       try {
-        const { stdout } = await exec(`npm ls ${resolution} --json`);
-        const { dependencies } = JSON.parse(stdout);
+        const { dependencies } = await exec(`npm ls ${resolution} --json`);
+        console.log({ dependencies, test: Object.keys(dependencies) });
         const rootDeps = Object.keys(dependencies).map((dependency) => `${dependency}@${dependencies[dependency].version}`);
         if (debug) console.log(`🐑 👩🏽‍🌾 ${resolution} has direct dependendents: ${rootDeps.join(", ")}`);
         return {

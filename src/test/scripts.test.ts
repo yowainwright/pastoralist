@@ -1,10 +1,11 @@
-import { test, expect } from "vitest";
+import { test, expect, vi } from "vitest";
 import {
   resolveJSON,
   resolveResolutions,
   updateAppendix,
   updatePackageJSON,
   update,
+  getRootDeps,
 } from "../scripts";
 
 test("resolveJSON success", () => {
@@ -155,4 +156,16 @@ test("update", () => {
   });
 });
 
-test('getRootDeps', () => expect(1).toEqual(1));
+test('getRootDeps', async () => {
+  const resolutions = ['foo', 'bar'];
+  const exec = vi.fn(() => ({ "dependencies": { "biz": { "version": "1.0.0" } } }));
+  const result = await getRootDeps({ resolutions, exec, debug: true });
+  expect(result[0]).toEqual({
+    "resolution": "foo",
+    "rootDeps": ["biz@1.0.0",]
+  });
+  expect(result[1]).toEqual({
+    "resolution": "bar",
+    "rootDeps": ["biz@1.0.0",]
+  });
+});

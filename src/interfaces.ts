@@ -1,3 +1,5 @@
+
+export type Exec = any;
 export interface PastoralistJSON {
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
@@ -37,6 +39,7 @@ export interface UpdateAppendixOptions {
   rootDependencies: Record<string, string>;
   name: string;
   version: string;
+  exec?: Exec;
 };
 
 export interface Options {
@@ -46,6 +49,7 @@ export interface Options {
   path?: string; // path to json
   depPaths?: string[]; // array of paths
   isTesting?: boolean;
+  exec?: Exec;
 };
 
 export interface OverridesType {
@@ -72,7 +76,7 @@ export interface FindRootDeps {
 export interface GetRootDeps {
   debug?: boolean;
   resolutions: Array<string>;
-  exec?: any;
+  exec?: Exec;
 }
 
 export interface RootDepItem {

@@ -45,7 +45,7 @@ test("resolveResolutions", () => {
   expect(result).toEqual({ bar: "2.0.0", baz: "2.0.0", foo: "2.0.0" });
 });
 
-test("updateAppendix", () => {
+test("updateAppendix", async () => {
   const dependencies = {
     foo: "1.0.0",
     bar: "1.0.0",
@@ -56,7 +56,8 @@ test("updateAppendix", () => {
     bar: "2.0.0",
     biz: "2.0.0",
   };
-  const result = updateAppendix({
+  const exec = vi.fn(() => ({ "dependencies": { "biz": { "version": "1.0.0" } } }));
+  const result = await updateAppendix({
     dependencies,
     resolutions,
     name: "fiz",
@@ -69,22 +70,26 @@ test("updateAppendix", () => {
       "./src/test/foo-package.json",
       "./src/test/bar-package.json",
     ],
+    exec,
   });
   expect(result).toEqual({
     "bar@2.0.0": {
       dependents: {
         fiz: "1.0.0",
       },
+      rootDeps: ['biz@1.0.0']
     },
     "biz@2.0.0": {
       dependents: {
         fiz: "1.0.0",
       },
+      rootDeps: ['biz@1.0.0']
     },
     "foo@2.0.0": {
       dependents: {
         fiz: "1.0.0",
       },
+      rootDeps: ['biz@1.0.0']
     },
   });
 });
@@ -140,18 +145,21 @@ test("updatePackageJSON", () => {
   });
 });
 
-test("update", () => {
+test("update", async () => {
+  const exec = vi.fn(() => ({ "dependencies": { "biz": { "version": "1.0.0" } } }));
   const options = {
     depPaths: ["./src/test/bar-package.json"],
     path: "./src/test/foo-package.json",
     isTesting: true,
+    exec
   };
-  const result = update(options);
+  const result = await update(options);
   expect(result).toEqual({
     "biz@2.0.0": {
       dependents: {
         bar: "1.0.0",
       },
+      rootDeps: ['biz@1.0.0']
     },
   });
 });

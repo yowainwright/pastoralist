@@ -126,17 +126,20 @@ export async function getRootDeps({ debug = false, resolutions, exec = execPromi
   return rootDepsList;
 }
 
-export function updateAppendix({
+export async function updateAppendix({
   debug = false,
   dependencies,
   resolutions,
   name,
   version,
   appendix = {},
-}: UpdateAppendixOptions): Appendix {
+  exec = execPromise,
+}: UpdateAppendixOptions): Promise<Appendix> {
   const dependencyList = Object.keys(dependencies);
   const resolutionsList = Object.keys(resolutions);
-  const updatedAppendix = resolutionsList.reduce(
+  try {
+    const resolutionRootDeps = await getRootDeps({ resolutions: resolutionsList, debug, exec });
+    const updatedAppendix = resolutionsList.reduce(
     (acc: Appendix, resolution: string): Appendix => {
       if (dependencyList.includes(resolution)) {
         const hasResolutionOverride = compare(
@@ -146,6 +149,7 @@ export function updateAppendix({
         );
         if (hasResolutionOverride) {
           const key = `${resolution}@${resolutions[resolution]}`;
+          const { rootDeps = [] } = resolutionRootDeps.find((dep) => dep.resolution === resolution) || {};
           return {
             ...appendix,
             ...acc,
@@ -155,6 +159,7 @@ export function updateAppendix({
                 ...acc?.[key]?.dependents,
                 [name]: version,
               },
+              ...(rootDeps.length ? { rootDeps } : {}),
             },
           };
         }
@@ -169,6 +174,10 @@ export function updateAppendix({
       updatedAppendix,
     });
   return updatedAppendix;
+  } catch (err) {
+    if (debug) console.error(err);
+    return appendix;
+  }
 }
 
 /**
@@ -219,12 +228,13 @@ export function updatePackageJSON({
   );
 }
 
-export function update(options: Options): Appendix | void {
+export async function update(options: Options): Promise<Appendix | void> {
   const {
     debug = false,
     depPaths = ["node_modules/**/package.json"],
     path = "package.json",
     isTesting = false,
+    exec = execPromise,
   } = options;
   const config = resolveJSON(path, debug);
   if (!config) return;
@@ -235,7 +245,7 @@ export function update(options: Options): Appendix | void {
   };
   const resolutionsList = Object.keys(resolutions);
   const packageJSONs = sync(depPaths);
-  const appendix = packageJSONs.reduce((acc, packageJSON): Appendix => {
+  const appendix = await packageJSONs.reduce(async (acc, packageJSON): Promise<Appendix> => {
     const currentPackageJSON = resolveJSON(packageJSON, debug);
     if (!currentPackageJSON) return acc;
     const { dependencies = {}, name, version } = currentPackageJSON;
@@ -245,7 +255,7 @@ export function update(options: Options): Appendix | void {
       resolutionsList.includes(dependencyItem)
     );
     if (!hasOverriddenDependencies) return acc;
-    const appendixItem = updateAppendix({
+    const appendixItem = await updateAppendix({
       debug,
       packageJSONs,
       rootDependencies,
@@ -255,12 +265,13 @@ export function update(options: Options): Appendix | void {
       version,
       ...(config?.pastoralist?.appendix ? config.pastoralist.appendix : {}),
       ...(options.appendix ? { appendix: options.appendix } : {}),
+      exec,
     });
     return {
       ...acc,
       ...appendixItem,
     };
-  }, {} as Appendix);
+  }, Promise.resolve({} as Appendix));
 
   const appendixItems = Object.keys(appendix);
 

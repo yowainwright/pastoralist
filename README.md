@@ -2,7 +2,7 @@
 
 ![Typed with TypeScript](https://flat.badgen.net/badge/icon/Typed?icon=typescript&label&labelColor=blue&color=555555)
 [![npm version](https://badge.fury.io/js/pastoralist.svg)](https://badge.fury.io/js/pastoralist)
-![ci](https://github.com/yowainwright/pastoralist/actions/workflows/ci.yml/badge.svg?event=push)
+![ci](https://github.com/yowainwright/pastoralist/actions/workflows/ci.yml/badge.svg)
 [![Github](https://badgen.net/badge/icon/github?icon=github&label&color=grey)](https://github.com/yowainwright/mini-cookies)
 ![Twitter](https://img.shields.io/twitter/url?url=https%3A%2F%2Fgithub.com%2Fyowainwright%2Fpastoralist)
 

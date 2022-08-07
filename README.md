@@ -2,17 +2,20 @@
 
 ![Typed with TypeScript](https://flat.badgen.net/badge/icon/Typed?icon=typescript&label&labelColor=blue&color=555555)
 [![npm version](https://badge.fury.io/js/pastoralist.svg)](https://badge.fury.io/js/pastoralist)
+![ci](https://github.com/yowainwright/pastoralist/actions/workflows/ci.yml/badge.svg?event=push)
+[![Github](https://badgen.net/badge/icon/github?icon=github&label&color=grey)](https://github.com/yowainwright/mini-cookies)
 ![Twitter](https://img.shields.io/twitter/url?url=https%3A%2F%2Fgithub.com%2Fyowainwright%2Fpastoralist)
 
-A tool to watch over node module **`*overrides and resolutions`** 🐑 👩🏽‍🌾
+A tool to watch over node module **`*overrides and resolutions`** with ease. 🐑 👩🏽‍🌾
 
 ---
 
 #### \*Overrides and resolutions
 
-Overrides and resolutions solve the same problem—they give developers a way to specify the dependency versions downloaded to repository's `node_modules`. This is very convenient for setting dependency dependencies to specific versions to fix security issues.
+Overrides and resolutions solve the same problem—they give developers a way to specify the dependency versions downloaded to repository's `node_modules`. This is very convenient for specifying specific `node_module` versions and fixing security issues.
 
-However, it is easy to lose track of why an override or resolution is specified. This is an inconvenient problem when trying to maintain dependencies over time—**until now**.
+However, it is easy to lose track of why an override or resolution is specified.
+This is an inconvenient problem when trying to maintain dependencies over time—**until now**!
 
 ---
 ## Synopsis
@@ -131,11 +134,10 @@ When ever **Pastoralist** is run again, it will check the `pastoralist.appendix`
 ---
 ## Roadmap
 
-**Updated `2022-05-20`**
+**Updated `2022-08-06`**
 
-- More tests (in progress)
-- Local development setup (next few days)
-- Provide more configuration options using a tool like [cosmiconfig](https://github.com/davidtheclark/cosmiconfig) (within the next weeks)
-- Provide caveats, code examples, and more documentation (next few days)
+- [ ] More tests (in progress)
+- [ ] Provide more configuration options using a tool like [cosmiconfig](https://github.com/davidtheclark/cosmiconfig)
+- [ ] Provide caveats, code examples, and more documentation
 - **Note:** the shape of the `pastoralist` object may change rapidly currently to improve the API.
   - **However, Pastoralist** is built to work on it's own so, generally, you shouldn't worry about it!

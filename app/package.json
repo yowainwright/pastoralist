@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "app-dev": "vite",
-    "app-build": "tsc && vite build",
+    "app-build": "tsc && vite build --emptyOutDir",
     "app-preview": "vite preview"
   },
   "dependencies": {

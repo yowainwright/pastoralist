@@ -36,7 +36,7 @@ jobs:
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
-      - run: pnpm install
+      - run: pnpm install --recursive
       - run: pnpm build
 
       - name: Deploy 🚀

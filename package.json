@@ -11,26 +11,28 @@
     "pastoralist": "./dist/index.js"
   },
   "scripts": {
-    "build": "pnpm run clean && pnpm run build-packages",
-    "build-packages": "pnpm run build-dist && pnpm run build-docs",
+    "build": "turbo run build-dist",
     "build-dist": "tsc",
-    "build-docs": "pnpm --filter './app/**' app-build",
     "clean-dist": "rimraf dist",
-    "clean": "pnpm clean-dist",
+    "clean": "turbo run clean-dist",
     "commit": "git-cz",
     "commit-msg": "commitlint --edit $1",
-    "dev": "pnpm --filter './app/**' app-dev",
+    "dev": "pnpm --filter @pastoralist/app run app-dev",
     "husky-setup:commit-msg": "(path-exists .husky/commit-msg) || (npx husky add .husky/commit-msg 'pnpm run commit-msg')",
     "husky-setup:post-merge": "(path-exists .husky/post-merge) || (npx husky add .husky/post-merge 'pnpm install && pnpm run build')",
     "husky-setup:pre-commit": "(path-exists .husky/pre-commit) || (npx husky add .husky/pre-commit 'pnpm run pre-commit')",
-    "lint": "eslint .",
+    "lint": "turbo run lint-src",
     "lint-fix": "eslint . --fix",
+    "lint-src": "eslint src --ext .ts",
     "pre-commit": "lint-staged --quiet && pnpm run test",
     "prepare": "is-ci || (husky install && pnpm run husky-setup:commit-msg; pnpm run husky-setup:post-merge; pnpm run husky-setup:pre-commit)",
-    "prepublishOnly": "pnpm run test && npm run build",
-    "preview": "pnpm --filter './app/**' app-preview",
+    "prepublishOnly": "pnpm run test && pnpm run build",
+    "preview": "pnpm --filter @pastoralist/app app-preview",
     "release": "release-it",
-    "test": "vitest run"
+    "test": "turbo run test-src",
+    "test-src": "vitest run",
+    "typecheck": "turbo run typecheck-src",
+    "typecheck-src": "tsc --noEmit"
   },
   "repository": {
     "type": "git",
@@ -73,6 +75,8 @@
     "rimraf": "^3.0.2",
     "stdouttojson": "^0.3.6",
     "ts-node": "^10.9.1",
+    "tsup": "^6.2.2",
+    "turbo": "^1.4.3",
     "typescript": "^4.7.4",
     "vite": "^3.0.4",
     "vitest": "^0.20.3"
@@ -95,5 +99,9 @@
   "engines": {
     "node": ">=16.0.0",
     "pnpm": ">=7.0.0"
+  },
+  "resolutions": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   }
 }

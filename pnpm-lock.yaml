@@ -59,7 +59,7 @@ importers:
       vite: 3.0.4
       vitest: 0.22.1
 
-  docs/app:
+  page/app:
     specifiers:
       '@mdx-js/mdx': ^2.1.2
       '@mdx-js/react': ^2.1.2

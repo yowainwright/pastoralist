@@ -11,17 +11,17 @@
     "pastoralist": "./dist/index.js"
   },
   "scripts": {
-    "build": "turbo run build-dist",
+    "build": "pnpm run build-dist",
     "build-dist": "tsc",
     "clean-dist": "rimraf dist",
-    "clean": "turbo run clean-dist",
+    "clean": "pnpm run clean-dist",
     "commit": "git-cz",
     "commit-msg": "commitlint --edit $1",
     "dev": "pnpm --filter @pastoralist/app run app-dev",
     "husky-setup:commit-msg": "(path-exists .husky/commit-msg) || (npx husky add .husky/commit-msg 'pnpm run commit-msg')",
     "husky-setup:post-merge": "(path-exists .husky/post-merge) || (npx husky add .husky/post-merge 'pnpm install && pnpm run build')",
     "husky-setup:pre-commit": "(path-exists .husky/pre-commit) || (npx husky add .husky/pre-commit 'pnpm run pre-commit')",
-    "lint": "turbo run lint-src",
+    "lint": "pnpm run lint-src",
     "lint-fix": "eslint . --fix",
     "lint-src": "eslint src --ext .ts",
     "pre-commit": "lint-staged --quiet && pnpm run test",
@@ -29,9 +29,9 @@
     "prepublishOnly": "pnpm run test && pnpm run build",
     "preview": "pnpm --filter @pastoralist/app app-preview",
     "release": "release-it",
-    "test": "turbo run test-src",
+    "test": "pnpm run test-src",
     "test-src": "vitest run",
-    "typecheck": "turbo run typecheck-src",
+    "typecheck": "pnpm run typecheck-src",
     "typecheck-src": "tsc --noEmit"
   },
   "repository": {

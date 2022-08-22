@@ -1,4 +1,4 @@
-name: deploy gh-pages
+name: gh-pages
 on:
   push:
     branches:
@@ -42,4 +42,4 @@ jobs:
       - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: page
+          folder: page/app/dist

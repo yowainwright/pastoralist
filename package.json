@@ -11,10 +11,10 @@
     "pastoralist": "./dist/index.js"
   },
   "scripts": {
-    "build": "pnpm run build-dist",
+    "build": "pnpm -r build-dist",
     "build-dist": "tsc",
     "clean-dist": "rimraf dist",
-    "clean": "pnpm run clean-dist",
+    "clean": "pnpm -r clean-dist",
     "commit": "git-cz",
     "commit-msg": "commitlint --edit $1",
     "dev": "pnpm --filter @pastoralist/app run app-dev",
@@ -29,9 +29,9 @@
     "prepublishOnly": "pnpm run test && pnpm run build",
     "preview": "pnpm --filter @pastoralist/app app-preview",
     "release": "release-it",
-    "test": "pnpm run test-src",
+    "test": "pnpm -r test-src",
     "test-src": "vitest run",
-    "typecheck": "pnpm run typecheck-src",
+    "typecheck": "pnpm -r typecheck-src",
     "typecheck-src": "tsc --noEmit"
   },
   "repository": {

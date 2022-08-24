@@ -40,8 +40,10 @@ const components = {
   },
 }
 
-export const Doc = ({ Component }: any) => (
+export const Docs = ({ Component }: any) => (
   <MDXProvider components={components as MDXComponents}>
+    <article className="prose w-full max-w-4xl flex-grow">
       <Component />
+    </article>
   </MDXProvider>
 )

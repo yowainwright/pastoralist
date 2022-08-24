@@ -107,3 +107,4 @@ dist
 .DS_Store
 .husky
 docs/app/page
+.turbo

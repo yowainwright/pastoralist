@@ -5,14 +5,14 @@ import { SideBar } from './SideBar';
 export const Drawer = ({ children }: any) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  const toggleDrawer= () => setIsOpen(!isOpen);
+  const toggleDrawer= () => {
+    console.log({ isOpen });
+    setIsOpen(!isOpen);
+  }
 
   return (
     <DaisyDrawer side={<SideBar />} open={isOpen} onClickOverlay={toggleDrawer} mobile>
-      <div className="flex h-56 items-center justify-center">
-        <Button color="primary" className="lg:hidden" onClick={toggleDrawer}>
-          Open drawer
-        </Button>
+      <div className="h-56 px-6">
         {children}
       </div>
     </DaisyDrawer>

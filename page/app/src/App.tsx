@@ -1,22 +1,17 @@
 import React from 'react'
 import { Drawer } from './components/Drawer'
-// import { Button } from 'react-daisyui';
+import { Docs } from './components/Docs'
+import Badges from './content/badges.mdx';
+import Introduction from './content/introduction.mdx';
 
 export function App() {
   return (
-    <div className="App">
+    <main className="App main">
       <Drawer>
-      <div className="flex h-56 items-center justify-center">
-        <h1>Pastoralist</h1>
-      </div>
-      <div className="flex h-56 items-center justify-center">
-        <p>Docs coming soon!</p>
-      </div>
-      <div className="flex h-56">
-
-      </div>
+        <Docs Component={Badges} />
+        <Docs Component={Introduction} />
       </Drawer>
-    </div>
+    </main>
   )
 }
 

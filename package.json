@@ -74,7 +74,7 @@
     "prettier": "^2.7.1",
     "release-it": "^15.2.0",
     "rimraf": "^3.0.2",
-    "stdouttojson": "^0.3.6",
+    "stdouttojson": "^0.6.0",
     "ts-node": "^10.9.1",
     "tsup": "^6.2.2",
     "turbo": "^1.4.3",

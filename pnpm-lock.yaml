@@ -25,7 +25,7 @@ importers:
       prettier: ^2.7.1
       release-it: ^15.2.0
       rimraf: ^3.0.2
-      stdouttojson: ^0.3.6
+      stdouttojson: ^0.6.0
       ts-node: ^10.9.1
       tslib: ^2.4.0
       tsup: ^6.2.2
@@ -53,7 +53,7 @@ importers:
       prettier: 2.7.1
       release-it: 15.2.0
       rimraf: 3.0.2
-      stdouttojson: 0.3.6
+      stdouttojson: 0.6.0
       ts-node: 10.9.1_hn66opzbaneygq52jmwjxha6su
       tsup: 6.2.2_6oasmw356qmm23djlsjgkwvrtm
       turbo: 1.4.3
@@ -5740,8 +5740,8 @@ packages:
     engines: {node: '>= 0.8'}
     dev: true
 
-  /stdouttojson/0.3.6:
-    resolution: {integrity: sha512-99fQJD+NtxC/yySCLCYIzSxrq4mXpWWqS4QUs8+r3VPr8M35ctdftnZwqgq8FzjBX3ApT7o+OyIE416TI1wQ8g==}
+  /stdouttojson/0.6.0:
+    resolution: {integrity: sha512-1PihVK7LLHB9VnHAGyerqD6f57SPpxLamuo9vE7Z9QSdVprrC3JthGwQXv+uXozyWZQUMFBKZPg2jEkFB/wPjg==}
     dev: true
 
   /string-argv/0.3.1:

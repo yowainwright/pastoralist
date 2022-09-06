@@ -80,7 +80,7 @@
     "turbo": "^1.4.3",
     "typescript": "^4.7.4",
     "vite": "^3.0.4",
-    "vitest": "^0.22.0"
+    "vitest": "^0.23.1"
   },
   "commitlint": {
     "extends": [

@@ -1,5 +1,6 @@
 export const sidebar = {
-  title: "Pastoralist Docs",
+  title: "Pastoralist",
+  subtitle: "Documentation",
   version: "VERSION",
   description: "A tool to watch over node module overrides and resolutions",
   items: [

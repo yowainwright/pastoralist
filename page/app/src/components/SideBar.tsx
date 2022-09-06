@@ -2,12 +2,13 @@ import React from 'react';
 import { Divider } from 'react-daisyui';
 import { sidebar } from '../data';
 
-const { description, items, title, version } = sidebar;
+const { description, items, subtitle, title, version } = sidebar;
 
 export const SideBar = () => {
   return (
     <aside className="sidebar menu p-4 overflow-y-auto w-80 bg-base-100 text-base-content bg-base-200">
       <h2 className='font-title text-primary inline-flex text-lg transition-all duration-200 md:text-3xl'>{title}</h2>
+      <h3 className='font-title text-base-content inline-flex text-sm transition-all duration-200 md:text-3m'>{subtitle}</h3>
       <Divider />
       <p>{description}</p>
       <Divider />

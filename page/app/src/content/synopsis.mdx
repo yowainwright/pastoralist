@@ -1,0 +1,50 @@
+## Synopsis
+
+By running **Pastoralist** in a `pre-commit` hook or other command an override/resolution which looks like this:
+
+```js
+// package.json
+"overrides": {
+  "trim": "^0.0.3"
+},
+```
+
+Will look like this:
+
+```js
+// package.json
+"overrides": {
+  "trim": "^0.0.3"
+},
+"pastoralist": {
+  "appendix": {
+    "trim@^0.0.3": {
+      "dependenents": {
+        "remark-parse": "4.0.0"
+      }
+    }
+  }
+}
+```
+
+By running this!
+
+```bash
+pastoralist
+# oh hech yeah!
+```
+
+But there's more!
+
+If **Pastoralist** is run and a `resolution` or `override` is no longer required
+it will clean up itself and resolutions!
+
+```js
+// pastoralist finds and removes `trim` when/if it's no longer needed!
+"overrides": {},
+"pastoralist": {
+  "appendix": {}
+}
+```
+
+---

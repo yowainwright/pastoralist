@@ -1,0 +1,23 @@
+### Pastoralist Object Anatomy
+
+When **Pastoralist** is run in a respository with override or resolution dependencies, it will output a shape like below.
+
+```js
+// package.json
+"pastoralist": {
+  // the appendix contains mapped resolutions/overrides
+  "appendix": {
+    // the resolution/override is stringified with it's version
+    "trim@^0.0.3": {
+      // dependents cantain dependents which actuall require the override/resolution dependency
+      "dependenents": {
+        "remark-parse": "4.0.0"
+      }
+    }
+  }
+}
+```
+
+When ever **Pastoralist** is run again, it will check the `pastoralist.appendix` object and remove any resolutions/overrides that are no longer needed.
+
+---

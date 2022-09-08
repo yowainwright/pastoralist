@@ -1,0 +1,16 @@
+import { Mermaid } from "mdx-mermaid/Mermaid";
+
+### Update
+
+**Pastoralist** checks `pastoralist.appendix` and removes unneeded `overrides/resolutions` from their corresponding declarations.
+
+<Mermaid
+  chart={`
+flowchart LR;
+A(checks pastoralist.appendix for item to be updated);
+A --> B(updates pastoralist.appendix);
+A --> C(updates overrides/resolutions/pnpm.overrides);
+`}
+/>
+
+---

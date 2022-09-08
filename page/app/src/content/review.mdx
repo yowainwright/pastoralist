@@ -1,0 +1,16 @@
+import { Mermaid } from "mdx-mermaid/Mermaid";
+
+### Review
+
+**Pasturalist** creates a pastoralist object which maps `overrides/resolutions/pnpm.overrides` dependents to `pastoralist.appendix`.
+
+<Mermaid
+  chart={`
+flowchart LR;
+A(finds overrides/resolutions/pnpm.overrides);
+A --> B(nests mapped dependents to pastoralist.appendix);
+A --> C(checks pastoralist.appendix for item to be updated);
+`}
+/>
+
+---

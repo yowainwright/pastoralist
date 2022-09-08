@@ -18,6 +18,7 @@ However, it is easy to lose track of why an override or resolution is specified.
 This is an inconvenient problem when trying to maintain dependencies over time—**until now**!
 
 ---
+
 ## Synopsis
 
 By running **Pastoralist** in a `pre-commit` hook or other command an override/resolution which looks like this:
@@ -87,6 +88,7 @@ it will clean up itself and resolutions!
 - **View the [Pasture lifecycle doc](./docs/pasture-lifecycle.md)** to get some visuals into what Pastoralist has got going on!
 
 ---
+
 ## Install
 
 ```sh
@@ -169,12 +171,17 @@ A --> C(updates overrides/resolutions/pnpm.overrides);
 ```
 
 ---
+
 ## Roadmap
 
 **Updated `2022-08-06`**
 
-- [ ] More tests (in progress)
-- [ ] Provide more configuration options using a tool like [cosmiconfig](https://github.com/davidtheclark/cosmiconfig)
-- [ ] Provide caveats, code examples, and more documentation
+- More tests (in progress)
+- Provide more configuration options using a tool like [cosmiconfig](https://github.com/davidtheclark/cosmiconfig)
+- Provide caveats, code examples, and more documentation
 - **Note:** the shape of the `pastoralist` object may change rapidly currently to improve the API.
   - **However, Pastoralist** is built to work on it's own so, generally, you shouldn't worry about it!
+  
+---
+
+Made by [@yowainwright](https://github.com/yowainwright) for fun with passion! MIT, 2022

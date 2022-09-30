@@ -1,6 +1,8 @@
 <p align="center"><a href="https://github.com/yowainwright/pastoralist"><img width="150" src="https://user-images.githubusercontent.com/1074042/193210573-71704355-64ce-4d88-8394-2c07e6e66c2c.svg" alt="pastoralist"></a></p>
 
-# Pastoralist
+---
+
+# [Pastoralist](https://jeffry.in/pastoralist/)  🐑 👩🏽‍🌾
 
 ![Typed with TypeScript](https://flat.badgen.net/badge/icon/Typed?icon=typescript&label&labelColor=blue&color=555555)
 [![npm version](https://badge.fury.io/js/pastoralist.svg)](https://badge.fury.io/js/pastoralist)
@@ -8,7 +10,7 @@
 [![Github](https://badgen.net/badge/icon/github?icon=github&label&color=grey)](https://github.com/yowainwright/mini-cookies)
 ![Twitter](https://img.shields.io/twitter/url?url=https%3A%2F%2Fgithub.com%2Fyowainwright%2Fpastoralist)
 
-A tool to watch over node module **`*overrides and resolutions`** with ease. 🐑 👩🏽‍🌾
+A tool to watch over node module **`*overrides and resolutions`** with ease.
 
 ---
 

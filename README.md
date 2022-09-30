@@ -1,3 +1,5 @@
+<p align="center"><a href="https://github.com/yowainwright/pastoralist"><img width="150" src="https://user-images.githubusercontent.com/1074042/193210573-71704355-64ce-4d88-8394-2c07e6e66c2c.svg" alt="pastoralist"></a></p>
+
 # Pastoralist
 
 ![Typed with TypeScript](https://flat.badgen.net/badge/icon/Typed?icon=typescript&label&labelColor=blue&color=555555)

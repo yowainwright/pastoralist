@@ -6,7 +6,7 @@
 [![Github](https://badgen.net/badge/icon/github?icon=github&label&color=grey)](https://github.com/yowainwright/mini-cookies)
 ![Twitter](https://img.shields.io/twitter/url?url=https%3A%2F%2Fgithub.com%2Fyowainwright%2Fpastoralist)
 
-Manage your `package.json` **`*overrides and resolutions`** with ease!
+Manage your `package.json` **`*overrides` or `resolutions`** with ease!
 
 ---
 

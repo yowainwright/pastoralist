@@ -6,22 +6,34 @@
 [![Github](https://badgen.net/badge/icon/github?icon=github&label&color=grey)](https://github.com/yowainwright/mini-cookies)
 ![Twitter](https://img.shields.io/twitter/url?url=https%3A%2F%2Fgithub.com%2Fyowainwright%2Fpastoralist)
 
-A tool to watch over node module **`*overrides and resolutions`** with ease.
+Manage your `package.json` **`*overrides and resolutions`** with ease!
 
 ---
 
-## \*Overrides and resolutions
+## What _are_ \*overrides and resolutions?
 
-Overrides and resolutions solve the same problem—they give developers a way to specify the dependency versions downloaded to repository's `node_modules`. This is very convenient for specifying specific `node_module` versions and fixing security issues.
+Overrides and resolutions solve the same problem. 
 
-However, **it is easy to lose track of why an override or resolution is specified**!
-This is an inconvenient problem when trying to maintain dependencies over time—**until now**!
+They give developers a way to specify dependency versions downloaded to repository's `node_modules` folder. This is done by adding an `overrides` or `resolutions` object to a repository's root `package.json`. This is awesome when fix dependency issues with security and/or code issues.
 
 ---
 
 ## Why is Patoralist Awesome?
 
-By running **`pastoralist`** as a CLI command, an override/resolution which looks like this:
+It is easy to lose track of _why_ a dependency is in an `overrides` or `resolutions` object.
+This is an inconvenient problem when trying to maintain dependencies over time.
+
+### _Until now!_
+
+After installing Pastoralist. 
+
+By running: 
+
+```sh
+pastoralist
+```
+
+as a CLI command, an override/resolution which looks like this:
 
 ```js
 // package.json
@@ -51,7 +63,10 @@ Will look like this:
 But there's more!
 
 If **Pastoralist** is run and a `resolution` or `override` is no longer required
-**it will clean up itself and resolutions**!
+
+### Pastoralist will clean up itself and resolutions!
+
+AKA, the object above, will now look like the object below if `trim` is no longer needed.
 
 ```js
 "overrides": {},
@@ -60,24 +75,22 @@ If **Pastoralist** is run and a `resolution` or `override` is no longer required
 }
 ```
 
-In the code above pastoralist has removed `trim` as it no longer needed to be a resolution!
-
 ---
 
-## How Pastoralist works
+## How does Pastoralist work?
 
 **Pastoralist** manages `overrides` and `resolutions` so you don't have to!
 
-Pastoralist is comprised of a few functions which read `package.json` files and reduce overrides or resolutions within the root `package.json` into a single `pastoralist.appendix` object.
+Pastoralist is comprised of a few functions which read `package.json` file(s) and reduce overrides or resolutions within the root `package.json` into a single `pastoralist.appendix` object.
 
-- Pastoralist adds an`pastoralist.appendix` with a list of "resolved" dependencies.
+- Pastoralist adds a `pastoralist.appendix` with a list of "resolved" dependencies.
 - Better yet, if Pastoralist observes an `override` or `resolution` is no longer needed, it removes it from `resolutions`, `overrides`, and the pastoralist `appendix` object.
 - This means with Pastoralist, your **only** concern is adding dependencies to the `overrides` and `resolutions` objects.
 
 ### Key notes
 
 - Pastoralist does **not** manage what is added to overrides and resolutions objects.
-- Pastoralist does manage dependenceis that exists in a `package.json`'s overrides or resolutions objects.
+- Pastoralist does manage dependenceis that exist in a `package.json`'s `overrides` or `resolutions` object.
 - Pastoralist will remove overrides and resolutions if they become unneeded according to child `package.json`'s spec!
 - View the [Pasture lifecycle doc](./docs/pasture-lifecycle.md) to get some visuals into what Pastoralist has got going on!
 
@@ -87,7 +100,6 @@ Pastoralist is comprised of a few functions which read `package.json` files and 
 
 ```sh
 npm install pastoralist --save-dev
-# pastoralist does not expect to be a dependency! It's a tool!!!
 ```
 
 ---
@@ -101,7 +113,7 @@ pastoralist
 # => That's it! Chack out your package json
 ```
 
-**Pastoralist** can _and should be incorporated_ into your workflow—which ever way is best for you and your team's developer experience! 👌
+**Pastoralist** can _and should_ be incorporated into your workflow—which ever way is best for you and your team's developer experience! 👌
 
 ---
 

@@ -2,7 +2,7 @@ export const sidebar = {
   title: "Pastoralist",
   subtitle: "Documentation",
   version: "VERSION",
-  description: "A tool to watch over node module overrides and resolutions",
+  description: "Manage your package.json overrides or resolutions with ease!",
   items: [
     {
       "name": "Overview",

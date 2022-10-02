@@ -1,18 +1,19 @@
+<section>
+
 ## How Pastoralist works
 
-**Pastoralist** manages `overrides` and `resolutions` so you don't have to!
+Pastoralist manages overrides and resolutions so you don't have to! It is comprised of a few functions which read node_modules package.json files and reduce overrides or resolutions within the root package.json into a single `pastoralist.appendix` object.
 
-**Pastoralist** is comprised of a few functions which read **node_modules** `package.json` files and reduce overrides or resolutions within the root `package.json` into a single `pastoralist.appendix` object.
-
-- **Pastoralist** adds an `pastoralist.appendix` with a list of "resolved" dependencies.
-- Better yet, if Pastoralist observes an `override` or `resolution` is no longer needed, it removes it from `resolutions`, `overrides`, and the pastoralist `appendix` object.
-- This means with **Pastoralist**, your **only** concern is adding dependencies to the `overrides` and `resolutions` objects.
+- Pastoralist adds an `pastoralist.appendix` with a list of "resolved" dependencies.
+- Better yet, if Pastoralist observes an override or resolution is no longer needed, it removes it from resolutions, overrides, and the pastoralist `appendix` object.
+- This means with Pastoralist, your **only** concern is adding dependencies to the overrides and resolutions objects.
 
 ### Key notes
 
-- **Pastoralist** does **not** manage what is added to overrides and resolutions objects.
-- **Pastoralist does** manage dependenceis that exists in a `package.json`'s overrides or resolutions objects.
-  - **Pastoralist** will remove overrides and resolutions if they become unneeded according to child `package.json`'s spec!
-- **View the [Pasture lifecycle doc](./docs/pasture-lifecycle.md)** to get some visuals into what Pastoralist has got going on!
+- Pastoralist does **not** manage what is added to overrides and resolutions objects.
+- Pastoralist **does** manage dependenceis that exists in a `package.json`'s overrides or resolutions objects.
+- Pastoralist will remove overrides and resolutions if they become unneeded according to child package.json's spec!
 
 ---
+
+</section>

@@ -1,6 +1,17 @@
-## Synopsis
+<section>
 
-By running **Pastoralist** in a `pre-commit` hook or other command an override/resolution which looks like this:
+## Why is Patoralist Awesome?
+
+It is easy to lose track of _why_ a dependency is in an `overrides` or `resolutions` object.
+This is an inconvenient problem when trying to maintain dependencies over time. _Until now!_
+
+After installing Pastoralist, by running:
+
+```sh
+pastoralist
+```
+
+as a CLI command, an override/resolution which looks like this:
 
 ```js
 // package.json
@@ -27,20 +38,11 @@ Will look like this:
 }
 ```
 
-By running this!
-
-```bash
-pastoralist
-# oh hech yeah!
-```
-
 But there's more!
 
-If **Pastoralist** is run and a `resolution` or `override` is no longer required
-it will clean up itself and resolutions!
+If **Pastoralist** is run and a `resolution` or `override` is no longer required it will clean up itself and resolutions! AKA, the object above, will now look like the object below if `trim` is no longer needed.
 
 ```js
-// pastoralist finds and removes `trim` when/if it's no longer needed!
 "overrides": {},
 "pastoralist": {
   "appendix": {}
@@ -48,3 +50,5 @@ it will clean up itself and resolutions!
 ```
 
 ---
+
+</section>

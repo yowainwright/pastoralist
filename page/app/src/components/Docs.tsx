@@ -25,7 +25,6 @@ const components = {
       <Highlight
         {...defaultProps}
         code={children}
-        theme={githubTheme}
         language={language as Language}
       >
         {({ className, style, tokens, getLineProps, getTokenProps }) => (

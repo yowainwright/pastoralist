@@ -1,32 +1,37 @@
 export const sidebar = {
+  logo: "https://user-images.githubusercontent.com/1074042/193210573-71704355-64ce-4d88-8394-2c07e6e66c2c.svg",
   title: "Pastoralist",
-  subtitle: "Documentation",
+  subtitle: "Unofficial JavaScript Package Resolutions & Overrides Shepherd",
   version: "VERSION",
   description: "Manage your package.json overrides or resolutions with ease!",
   items: [
     {
-      "name": "Overview",
+      "name": "Home",
       "link": "/"
     },
     {
-      "name": "Synopsis",
-      "link": "/#overview"
+      "name": "What are overrides and resolutions?",
+      "link": "#what-are-overrides-and-resolutions"
     },
     {
-      "name": "How it works",
-      "link": "/#how-it-works"
+      "name": "Why is Patoralist Awesome?",
+      "link": "#why-is-patoralist-awesome"
+    },
+    {
+      "name": "How Pastoralist works",
+      "link": "#how-pastoralist-works"
     },
     {
       "name": "Install",
-      "link": "/#install"
+      "link": "#install"
     },
     {
       "name": "Usage",
-      "link": "/#usage"
+      "link": "#usage"
     },
     {
       "name": "Lifecycle",
-      "link": "/#lifecycle"
+      "link": "#lifecycle"
     }
   ]
 }

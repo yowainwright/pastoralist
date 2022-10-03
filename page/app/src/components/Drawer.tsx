@@ -9,7 +9,7 @@ export const Drawer = ({ children, isOpen, handler }: any) => {
       onClickOverlay={() => handler({ isOpen })}
       mobile
     >
-      <div className="h-screen px-6">{children}</div>
+      <div className="h-100 px-6">{children}</div>
     </DaisyDrawer>
   );
 };

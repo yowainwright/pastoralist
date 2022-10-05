@@ -6,11 +6,7 @@ export const sidebar = {
   description: "Manage your package.json overrides or resolutions with ease!",
   items: [
     {
-      "name": "Home",
-      "link": "/"
-    },
-    {
-      "name": "What are overrides and resolutions?",
+      "name": "What are overrides & resolutions?",
       "link": "#what-are-overrides-and-resolutions"
     },
     {
@@ -22,16 +18,12 @@ export const sidebar = {
       "link": "#how-pastoralist-works"
     },
     {
-      "name": "Install",
+      "name": "Simple to set up!",
       "link": "#install"
     },
     {
-      "name": "Usage",
-      "link": "#usage"
-    },
-    {
-      "name": "Lifecycle",
-      "link": "#lifecycle"
+      "name": "Pastoralist Lifecycle",
+      "link": "#pastoralist-lifecycle"
     }
   ]
 }

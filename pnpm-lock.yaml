@@ -23,6 +23,7 @@ importers:
       lint-staged: ^13.0.3
       path-exists-cli: ^2.0.0
       prettier: ^2.7.1
+      react-icons: ^4.4.0
       release-it: ^15.4.1
       rimraf: ^3.0.2
       stdouttojson: ^0.7.0
@@ -37,6 +38,7 @@ importers:
       commander: 9.4.0
       compare-versions: 5.0.1
       fast-glob: 3.2.11
+      react-icons: 4.4.0
       tslib: 2.4.0
     devDependencies:
       '@commitlint/cli': 17.1.2
@@ -5942,6 +5944,12 @@ packages:
       loose-envify: 1.4.0
       react: 18.2.0
       scheduler: 0.23.0
+
+  /react-icons/4.4.0:
+    resolution: {integrity: sha512-fSbvHeVYo/B5/L4VhB7sBA1i2tS8MkT0Hb9t2H1AVPkwGfVHLJCqyr2Py9dKMxsyM63Eng1GkdZfbWj+Fmv8Rg==}
+    peerDependencies:
+      react: '*'
+    dev: false
 
   /react-refresh/0.14.0:
     resolution: {integrity: sha512-wViHqhAd8OHeLS/IRMJjTSDHF3U9eWi62F/MledQGPdJGDhodXJ9PBLNGr6WWL7qlH12Mt3TyTpbS+hGXMjCzQ==}

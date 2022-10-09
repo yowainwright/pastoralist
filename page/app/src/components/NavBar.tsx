@@ -59,6 +59,7 @@ export const NavBar = ({ toggleDrawer, toggleTheme }: any) => {
               aria-label="Github"
               href="https://github.com/yowainwright/pastoralist"
               className="btn btn-ghost drawer-button btn-square normal-case text-xl"
+              target="_blank"
             >
               <FaGithubAlt />
             </a>

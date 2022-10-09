@@ -1,17 +1,17 @@
 <section>
 
-## Why is Patoralist Awesome?
+## Why is Pastoralist Awesome?
 
-It is easy to lose track of _why_ a dependency is in an `overrides` or `resolutions` object.
+It is easy to lose track of _why_ a dependency is in an overrides or resolutions object in a repository's root `package.json`.
 This is an inconvenient problem when trying to maintain dependencies over time. _Until now!_
 
-After installing Pastoralist, by running:
+By installing the Pastoralist CLI and running:
 
 ```sh
 pastoralist
 ```
 
-as a CLI command, an override/resolution which looks like this:
+an overrides (resolution) object that looks like this:
 
 ```js
 // package.json
@@ -40,7 +40,9 @@ Will look like this:
 
 But there's more!
 
-If **Pastoralist** is run and a `resolution` or `override` is no longer required it will clean up itself and resolutions! AKA, the object above, will now look like the object below if `trim` is no longer needed.
+If Pastoralist is run and an override or resolution is no longer required, Pastoralist will remove the dependency from `pastoralist.appendix` and overrides!
+
+AKA, the object above, will now look like the object below if trim is no longer needed.
 
 ```js
 "overrides": {},

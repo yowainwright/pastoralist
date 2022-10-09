@@ -32,6 +32,7 @@
     "mermaid": "^9.1.6",
     "postcss": "^8.4.16",
     "react-daisyui": "^2.3.2",
+    "react-flow-renderer": "^10.3.17",
     "rehype-slug": "^5.0.1",
     "remark-gfm": "^3.0.1",
     "tailwindcss": "^3.1.8",

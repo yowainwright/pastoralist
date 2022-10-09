@@ -1,19 +1,17 @@
 import { Mermaid } from "mdx-mermaid/Mermaid";
+import ReviewFlow from "../components/ReviewFlow";
 
 <section>
 
-### Review
+### 1. Review
 
-**Pasturalist** creates a pastoralist object which maps `overrides/resolutions/pnpm.overrides` dependents to `pastoralist.appendix`.
+When Pastoralist is run once, it creates a pastoralist object which maps `resolutions` to `pastoralist.appendix`.
 
-<Mermaid
-  chart={`
-flowchart LR;
-A(finds overrides/resolutions/pnpm.overrides);
-A --> B(nests mapped dependents to pastoralist.appendix);
-A --> C(checks pastoralist.appendix for item to be updated);
-`}
-/>
+When Pastoralist is run again, it reviews the `pastoralist.appendix` as well as resolutions and updates the `pastoralist.appendix` accordingly.
+
+#### The flow graph below outlines this process
+
+<ReviewFlow />
 
 ---
 

@@ -4,7 +4,7 @@ import { Docs } from "./components/Docs";
 import { NavBar } from "./components/NavBar";
 import Badges from "./content/badges.mdx";
 import Introduction from "./content/introduction.mdx";
-import Synopsis from "./content/synopsis.mdx";
+import WhyIsPastoralistAwesome from "./content/why-is-pastoralist-awesome.mdx";
 import HowItWorks from "./content/how-it-works.mdx";
 import Install from "./content/install.mdx";
 import Usage from "./content/usage.mdx";
@@ -14,6 +14,7 @@ import Review from "./content/review.mdx";
 import Update from "./content/update.mdx";
 import RoadMap from "./content/roadmap.mdx";
 import Footer from "./content/footer.mdx";
+import WhatAreOverrides from "./content/what-are-overrides.mdx";
 
 export function App() {
   const [isOpen, setIsOpen] = useState(false);
@@ -42,7 +43,8 @@ export function App() {
         />
         <Docs Component={Badges} />
         <Docs Component={Introduction} />
-        <Docs Component={Synopsis} />
+        <Docs Component={WhatAreOverrides} />
+        <Docs Component={WhyIsPastoralistAwesome} />
         <Docs Component={HowItWorks} />
         <Docs Component={Install} />
         <Docs Component={Usage} />

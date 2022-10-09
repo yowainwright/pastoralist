@@ -52,7 +52,7 @@
   "bugs": {
     "url": "https://github.com/yowainwright/pastoralist/issues"
   },
-  "homepage": "https://github.com/yowainwright/pastoralist#readme",
+  "homepage": "https://jeffry.in/pastoralist/",
   "dependencies": {
     "commander": "^9.4.0",
     "compare-versions": "^5.0.1",

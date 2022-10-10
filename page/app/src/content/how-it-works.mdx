@@ -1,20 +1,25 @@
+import ReviewFlow from "../components/ReviewFlow";
+
 <section>
 
 ## How Pastoralist works
 
 Pastoralist manages overrides and resolutions so you don't have to!
 
-It is comprised of a few functions which read node_modules package.json files and reduce overrides or resolutions within the root package.json into a single `pastoralist.appendix` object.
+It is comprised of a few functions which read the root package.json file's overrides or resolutions and map the packages in them to a `pastoralist.appendix` object.
 
-- Pastoralist adds an `pastoralist.appendix` with a list of "resolved" dependencies.
-- Better yet, if Pastoralist observes an override or resolution is no longer needed, it removes it from resolutions, overrides, and the pastoralist appendix object.
-- This means with Pastoralist, your **only** concern is adding dependencies to the overrides and resolutions objects.
+If Pastoralist observes an override or resolution is no longer needed, it removes it from resolutions or overrides, and the pastoralist appendix object.
+
+This means with Pastoralist, your only concern is adding dependencies to the overrides and resolutions objects.
+Broken down, Pastoralist manages your overrides and resolutions with 4 simple steps demonstrated in the flow chart below.
+
+<ReviewFlow />
 
 ### Key notes
 
-- Pastoralist does **not** manage what is added to overrides and resolutions objects.
-- Pastoralist **does** manage dependenceis that exists in a `package.json`'s overrides or resolutions objects.
-- Pastoralist will remove overrides and resolutions if they become unneeded according to child package.json's spec!
+1. Pastoralist does **not** manage what is added to overrides or resolutions objects.
+2. Pastoralist **does** manage dependenceis that exists in a `package.json`'s overrides or resolutions objects.
+3. Pastoralist will remove overrides and resolutions if they become unneeded according to child package.json's spec!
 
 ---
 

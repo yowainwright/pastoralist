@@ -33,8 +33,8 @@ const nodes = [
     data: {
       label: (
         <Label
-          description="finds *resolutions"
-          metaDescription="*resolutions, overrides, pnpm.overrides"
+          description="find"
+          metaDescription="Pastoralist finds overrides/resolutions in a repo's root package.json"
         />
       )
     },
@@ -46,8 +46,8 @@ const nodes = [
     data: {
       label: (
         <Label
-          description="checks pastoralist.appendix"
-          metaDescription="compares pastoralist.appendix against resolutions"
+          description="review"
+          metaDescription="Pastoralist compares pastoralist.appendix against overrides/resolutions"
         />
       )
     },
@@ -55,12 +55,12 @@ const nodes = [
   },
   {
     id: "3",
-    position: { x: 0, y: 300 },
+    position: { x: 0, y: 340 },
     data: {
       label: (
         <Label
           description="add"
-          metaDescription="adds new resolutions pastoralist.appendix"
+          metaDescription="Pastoralist adds new overrides/resolutions dependencies to the pastoralist.appendix"
         />
       )
     },
@@ -68,12 +68,12 @@ const nodes = [
   },
   {
     id: "4",
-    position: { x: 320, y: 300 },
+    position: { x: 320, y: 340 },
     data: {
       label: (
         <Label
           description="update"
-          metaDescription="updates resolutions in pastoralist.appendix"
+          metaDescription="Pastoralist updates or removes dependencies from overrides/resolutions and the pastoralist.appendix based on the repo's current dependencies"
         />
       )
     },
@@ -84,7 +84,7 @@ const nodes = [
 const ReviewFlow = () => {
   return (
     <section className="flex justify-center mt-10">
-      <div style={{ width: 620, height: 460 }}>
+      <div style={{ width: 620, height: 550 }}>
         <ReactFlow nodes={nodes} edges={edges}>
           <Background color="#aaa" gap={16} />
         </ReactFlow>

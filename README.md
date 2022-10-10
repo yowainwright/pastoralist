@@ -6,37 +6,34 @@
 [![Github](https://badgen.net/badge/icon/github?icon=github&label&color=grey)](https://github.com/yowainwright/mini-cookies)
 ![Twitter](https://img.shields.io/twitter/url?url=https%3A%2F%2Fgithub.com%2Fyowainwright%2Fpastoralist)
 
-Manage your `package.json` **`*overrides` or `resolutions`** with ease!
+#### Manage your package.json \*`overrides` or `resolutions` with ease!
+
+With the Pastoralist CLI, you can ensure your project's overrides _(or resolutions)_ are kept up-to-date by running a single one word command! Jump to [setup](#setup) or scroll on!
 
 ---
 
 ## What _are_ \*overrides and resolutions?
 
-Overrides and resolutions solve the same problem. 
+#### Overrides and resolutions solve the same problem. They give developers a way to specify dependency versions downloaded to repository's node_modules folder.
 
-They give developers a way to specify dependency versions downloaded to repository's `node_modules` folder. This is done by adding an `overrides` or `resolutions` object to a repository's root `package.json`. This is awesome when fix dependency issues with security and/or code issues.
+Node package manager CLIs, like npm, yarn, and pnpm, enable engineers to solve dependency specificity issues by adding an overrides or resolutions object to a repository's root package.json. This is awesome for fixing dependency issues with security and/or code. Read more about [npm](https://docs.npmjs.com/cli/v8/configuring-npm/package-json#overrides), [yarn](https://yarnpkg.com/configuration/manifest#resolutions), and [pnpm](https://pnpm.io/package_json#pnpmoverrides) overrides or resolution solutions.
 
 ---
 
-## Why is Patoralist Awesome?
+## Why is Pastoralist Awesome?
 
-It is easy to lose track of _why_ a dependency is in an `overrides` or `resolutions` object.
+#### Is the override still needed?<br />Is there a better fix?<br />Like a security patch or a major release?
+
+After using overrides or resolutions to fix dependency specificity issues for a while, it is easy to lose track of why a dependency is in an overrides or resolutions package.json object.
+
 This is an inconvenient problem when trying to maintain dependencies over time.
 
-### _Until now!_
+This information is not really known—until now!
 
-After installing Pastoralist. 
-
-By running: 
-
-```sh
-pastoralist
-```
-
-as a CLI command, an override/resolution which looks like this:
+With Pastoralist CLI, you can run the `pastoralist` CLI command and an overrides (resolution) object that looks like this:
 
 ```js
-// package.json
+// Note the trim dependency in overrides
 "overrides": {
   "trim": "^0.0.3"
 },
@@ -45,7 +42,7 @@ as a CLI command, an override/resolution which looks like this:
 Will look like this:
 
 ```js
-// package.json
+// Note the trim dependency is now added to the appendix
 "overrides": {
   "trim": "^0.0.3"
 },
@@ -62,58 +59,78 @@ Will look like this:
 
 But there's more!
 
-If **Pastoralist** is run and a `resolution` or `override` is no longer required
+If Pastoralist is run and an override or resolution is no longer required, Pastoralist will remove the dependency from pastoralist.appendix, overrides, or reslutions!
 
-### Pastoralist will clean up itself and resolutions!
-
-AKA, the object above, will now look like the object below if `trim` is no longer needed.
+AKA, the object above, will now look like the object below if trim is no longer needed.
 
 ```js
+// Note that since trim is no longer needed,
+// it has been removed from the appendix and overrides
 "overrides": {},
 "pastoralist": {
   "appendix": {}
 }
 ```
 
+There is more to come with Pastoralist! But for now, by adding pastoralist to [package.json postInstall script](https://docs.npmjs.com/cli/v8/using-npm/scripts#npm-install), you don't have to worry about installing unneeded override or resolution packages anymore!
+
 ---
 
-## How does Pastoralist work?
+## How Pastoralist works
 
-**Pastoralist** manages `overrides` and `resolutions` so you don't have to!
+#### Pastoralist manages overrides and resolutions so you don't have to!
 
-Pastoralist is comprised of a few functions which read `package.json` file(s) and reduce overrides or resolutions within the root `package.json` into a single `pastoralist.appendix` object.
+It is comprised of a few functions which read the root package.json file's overrides or resolutions and map the packages in them to a `pastoralist.appendix` object.
 
-- Pastoralist adds a `pastoralist.appendix` with a list of "resolved" dependencies.
-- Better yet, if Pastoralist observes an `override` or `resolution` is no longer needed, it removes it from `resolutions`, `overrides`, and the pastoralist `appendix` object.
-- This means with Pastoralist, your **only** concern is adding dependencies to the `overrides` and `resolutions` objects.
+If Pastoralist observes an override or resolution is no longer needed, it removes it from resolutions or overrides, and the pastoralist appendix object.
+
+This means with Pastoralist, your only concern is adding dependencies to the overrides and resolutions objects.
+Broken down, Pastoralist manages your overrides and resolutions with 4 simple steps demonstrated in the flow chart below.
 
 ### Key notes
 
-- Pastoralist does **not** manage what is added to overrides and resolutions objects.
-- Pastoralist does manage dependenceis that exist in a `package.json`'s `overrides` or `resolutions` object.
-- Pastoralist will remove overrides and resolutions if they become unneeded according to child `package.json`'s spec!
-- View the [Pasture lifecycle doc](./docs/pasture-lifecycle.md) to get some visuals into what Pastoralist has got going on!
+1. Pastoralist does **not** manage what is added to overrides or resolutions objects.
+2. Pastoralist **does** manage dependenceis that exists in a `package.json`'s overrides or resolutions objects.
+3. Pastoralist will remove overrides and resolutions if they become unneeded according to child package.json's spec!
 
 ---
 
-## Install
+## Setup
 
-```sh
+#### Okay! Hopefully the breakdowns above were clear enough on why you might want to use Pastoralist!
+
+Please submit a [pull request](https://github.com/yowainwright/pastoralist/pulls) or [issue](https://github.com/yowainwright/pastoralist/issues) if it wasn't!
+
+Now for the super simple setup!
+
+1. Install
+
+```bash
 npm install pastoralist --save-dev
+# pastoralist does not expect to be a dependency! It's a tool!!!
 ```
 
----
+2. run
 
-## Usage
-
-Pastoralist is built to be used as a CLI program and runs with a single word "pastoralist".`
-
-```sh
+```bash
 pastoralist
 # => That's it! Chack out your package json
 ```
 
-**Pastoralist** can _and should_ be incorporated into your workflow—which ever way is best for you and your team's developer experience! 👌
+3. (recommended) add Pastoralist to a postInstall script
+
+```js
+// package.json
+{
+  "scripts": {
+    "postinstall": "pastoralist"
+  }
+}
+```
+
+In the near feature, Pastoralist will fully support a config file but this is it for now!
+
+Read on to understand what is going on under the hood of Pastoralist!
 
 ---
 
@@ -141,53 +158,14 @@ When ever **Pastoralist** is run again, it will check the `pastoralist.appendix`
 
 ---
 
-## Pasturalist Lifecycle
-
-When **Pasturalist** is run, it does 2 things—**review** and **update** resolutions/overrides within a root `package.json` file.
-
-1. **Review**
-   - it creates/re-creates an appendix which is an appendix resolutions/overrides.
-2. **Update**
-   - it reviews the appendix for dependents which can be removed from resolutions/overrides.
-
----
-
-### Review
-
-**Pasturalist** creates a pastoralist object which maps `overrides/resolutions/pnpm.overrides` dependents to `pastoralist.appendix`.
-
-```mermaid
-flowchart LR
-A(finds overrides/resolutions/pnpm.overrides);
-A --> B(nests mapped dependents to pastoralist.appendix);
-A --> C(checks pastoralist.appendix for item to be updated);
-```
-
----
-
-### Update
-
-**Pastoralist** checks `pastoralist.appendix` and removes unneeded `overrides/resolutions` from their corresponding declarations.
-
-```mermaid
-flowchart LR
-A(checks pastoralist.appendix for item to be updated);
-A --> B(updates pastoralist.appendix);
-A --> C(updates overrides/resolutions/pnpm.overrides);
-```
-
----
-
 ## Roadmap
 
-**Updated `2022-08-06`**
+#### Updated `2022-10-09`
 
-- More tests (in progress)
-- Provide more configuration options using a tool like [cosmiconfig](https://github.com/davidtheclark/cosmiconfig)
+- Provide more configuration options using [cosmiconfig](https://github.com/davidtheclark/cosmiconfig)
 - Provide caveats, code examples, and more documentation
 - **Note:** the shape of the `pastoralist` object may change rapidly currently to improve the API.
-  - **However, Pastoralist** is built to work on it's own so, generally, you shouldn't worry about it!
-  
+
 ---
 
 Made by [@yowainwright](https://github.com/yowainwright) for fun with passion! MIT, 2022

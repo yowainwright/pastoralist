@@ -1,10 +1,9 @@
 import React from "react";
 import { Divider } from "react-daisyui";
-import { MdReplay } from "react-icons/md";
+import { GiAnatomy } from "react-icons/gi";
 import { IoIosRocket } from "react-icons/io";
 import { FaToolbox, FaRegLightbulb } from "react-icons/fa";
 import { SiAwesomelists } from "react-icons/si";
-import { BsFillInfoSquareFill } from "react-icons/bs";
 
 export const SideBar = () => {
   return (
@@ -19,7 +18,7 @@ export const SideBar = () => {
         Pastoralist
       </h2>
       <h3 className="font-title text-base-content inline-flex text-sm transition-all duration-200 md:text-3m pl-4">
-        Pastoralist is a CLI tool for managing your package.json overrides (or
+        Pastoralist is a CLI tool for managing package.json overrides (or
         resolutions) with ease
       </h3>
       <Divider />
@@ -44,13 +43,13 @@ export const SideBar = () => {
           </a>
         </li>
         <li>
-          <a href="#install">
+          <a href="#setup">
             <IoIosRocket /> Simple to set up!
           </a>
         </li>
         <li>
-          <a href="#pastoralist-lifecycle">
-            <MdReplay /> Pastoralist Lifecycle
+          <a href="#pastoralist-object-anatomy">
+            <GiAnatomy /> Pastoralist Object Anatomy
           </a>
         </li>
       </ul>

@@ -2,19 +2,19 @@
 
 ## Why is Pastoralist Awesome?
 
-It is easy to lose track of _why_ a dependency is in an overrides or resolutions object in a repository's root `package.json`.
-This is an inconvenient problem when trying to maintain dependencies over time. _Until now!_
+After using overrides or resolutions to fix dependency specificity issues for a while, it is easy to lose track of why a dependency is in an overrides or resolutions package.json object.
 
-By installing the Pastoralist CLI and running:
+This is an inconvenient problem when trying to maintain dependencies over time.
 
-```sh
-pastoralist
-```
+> Is the override still needed?<br />
+> Is there a better fix? Like a security patch or a major release?
 
-an overrides (resolution) object that looks like this:
+This information is not really known—until now!
+
+With Pastoralist CLI, you can run the `pastoralist` CLI command and an overrides (resolution) object that looks like this:
 
 ```js
-// package.json
+// Note the trim dependency in overrides
 "overrides": {
   "trim": "^0.0.3"
 },
@@ -23,7 +23,7 @@ an overrides (resolution) object that looks like this:
 Will look like this:
 
 ```js
-// package.json
+// Note the trim dependency is now added to the appendix
 "overrides": {
   "trim": "^0.0.3"
 },
@@ -40,16 +40,20 @@ Will look like this:
 
 But there's more!
 
-If Pastoralist is run and an override or resolution is no longer required, Pastoralist will remove the dependency from `pastoralist.appendix` and overrides!
+If Pastoralist is run and an override or resolution is no longer required, Pastoralist will remove the dependency from pastoralist.appendix, overrides, or reslutions!
 
 AKA, the object above, will now look like the object below if trim is no longer needed.
 
 ```js
+// Note that since trim is no longer needed,
+// it has been removed from the appendix and overrides
 "overrides": {},
 "pastoralist": {
   "appendix": {}
 }
 ```
+
+There is more to come with Pastoralist! But for now, by adding pastoralist to [package.json postInstall script](https://docs.npmjs.com/cli/v8/using-npm/scripts#npm-install), you don't have to worry about installing unneeded override or resolution packages anymore!
 
 ---
 

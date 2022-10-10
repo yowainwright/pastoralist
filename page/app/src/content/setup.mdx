@@ -1,0 +1,41 @@
+<section>
+
+## Setup
+
+Okay! Hopefully the breakdowns above were clear enough on why you might want to use Pastoralist!
+Please submit a [pull request](https://github.com/yowainwright/pastoralist/pulls) or [issue](https://github.com/yowainwright/pastoralist/issues) if it wasn't!
+
+Now for the super simple setup!
+
+1. Install
+
+```bash
+npm install pastoralist --save-dev
+# pastoralist does not expect to be a dependency! It's a tool!!!
+```
+
+2. run
+
+```bash
+pastoralist
+# => That's it! Chack out your package json
+```
+
+3. (recommended) add Pastoralist to a postInstall script
+
+```js
+// package.json
+{
+  "scripts": {
+    "postinstall": "pastoralist"
+  }
+}
+```
+
+In the near feature, Pastoralist will fully support a config file but this is it for now!
+
+Read on to understand what is going on under the hood of Pastoralist!
+
+---
+
+</section>

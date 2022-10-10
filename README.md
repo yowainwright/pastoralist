@@ -87,6 +87,8 @@ If Pastoralist observes an override or resolution is no longer needed, it remove
 This means with Pastoralist, your only concern is adding dependencies to the overrides and resolutions objects.
 Broken down, Pastoralist manages your overrides and resolutions with 4 simple steps demonstrated in the flow chart below.
 
+<p align="center"><img src="https://user-images.githubusercontent.com/1074042/194803911-93097b50-3bff-4529-879c-81fd161e7bfa.gif" /></p>
+
 ### Key notes
 
 1. Pastoralist does **not** manage what is added to overrides or resolutions objects.

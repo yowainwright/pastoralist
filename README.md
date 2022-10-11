@@ -49,7 +49,7 @@ Will look like this:
 "pastoralist": {
   "appendix": {
     "trim@^0.0.3": {
-      "dependenents": {
+      "dependents": {
         "remark-parse": "4.0.0"
       }
     }
@@ -116,7 +116,7 @@ npm install pastoralist --save-dev
 
 ```bash
 pastoralist
-# => That's it! Chack out your package json
+# => That's it! Check out your package.json
 ```
 
 3. (recommended) add Pastoralist to a postInstall script
@@ -147,7 +147,7 @@ When **Pastoralist** is run in a respository with override or resolution depende
   "appendix": {
     // the resolution/override is stringified with it's version
     "trim@^0.0.3": {
-      // dependents cantain dependents which actuall require the override/resolution dependency
+      // dependents contain dependents which actually require the override/resolution dependency
       "dependenents": {
         "remark-parse": "4.0.0"
       }

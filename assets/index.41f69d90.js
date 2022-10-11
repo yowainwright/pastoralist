@@ -63,7 +63,7 @@ Is there a better fix? Like a security patch or a major release?`]}),`
 "pastoralist": {
   "appendix": {
     "trim@^0.0.3": {
-      "dependenents": {
+      "dependents": {
         "remark-parse": "4.0.0"
       }
     }
@@ -90,7 +90,7 @@ Please submit a `,E.exports.jsx(t.a,{href:"https://github.com/yowainwright/pasto
 `})}),E.exports.jsxs(t.ol,{start:"2",children:[`
 `,E.exports.jsx(t.li,{children:"run"}),`
 `]}),E.exports.jsx(t.pre,{children:E.exports.jsx(t.code,{className:"language-bash",children:`pastoralist
-# => That's it! Chack out your package json
+# => That's it! Check out your package.json
 `})}),E.exports.jsxs(t.ol,{start:"3",children:[`
 `,E.exports.jsx(t.li,{children:"(recommended) add Pastoralist to a postInstall script"}),`
 `]}),E.exports.jsx(t.pre,{children:E.exports.jsx(t.code,{className:"language-js",children:`// package.json
@@ -105,7 +105,7 @@ Please submit a `,E.exports.jsx(t.a,{href:"https://github.com/yowainwright/pasto
   "appendix": {
     // the resolution/override is stringified with it's version
     "trim@^0.0.3": {
-      // dependents cantain dependents which actuall require the override/resolution dependency
+      // dependents contain dependents which actually require the override/resolution dependency
       "dependenents": {
         "remark-parse": "4.0.0"
       }

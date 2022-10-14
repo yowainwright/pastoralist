@@ -170,7 +170,7 @@ When ever **Pastoralist** is run again, it will check the `pastoralist.appendix`
 
 ## Thanks
 
-Shout out to [Brayant Cabrera](https://github.com/bryantcabrera) and the infamous [Mardin](https://github.com/mardinyadegar) for all the fun conversation, insights, and pairing around this topic.
+Shout out to [Bryant Cabrera](https://github.com/bryantcabrera) and the infamous [Mardin](https://github.com/mardinyadegar) for all the fun conversation, insights, and pairing around this topic.
 
 ---
 

@@ -168,6 +168,10 @@ When ever **Pastoralist** is run again, it will check the `pastoralist.appendix`
 - Provide caveats, code examples, and more documentation
 - **Note:** the shape of the `pastoralist` object may change rapidly currently to improve the API.
 
+## Thanks
+
+Shout out to [Brayant Cabrera](https://github.com/bryantcabrera) and the infamous [Mardin](https://github.com/mardinyadegar) for all the fun conversation, insights, and pairing around this topic.
+
 ---
 
 Made by [@yowainwright](https://github.com/yowainwright) for fun with passion! MIT, 2022

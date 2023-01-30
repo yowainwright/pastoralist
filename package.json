@@ -59,16 +59,16 @@
     "compare-versions": "^5.0.3",
     "fast-glob": "^3.2.12",
     "react-icons": "^4.7.1",
-    "tslib": "^2.4.1"
+    "tslib": "^2.5.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^17.4.2",
     "@commitlint/config-conventional": "^17.4.2",
     "@types/node": "^18.11.18",
-    "@typescript-eslint/eslint-plugin": "^5.48.2",
-    "@typescript-eslint/parser": "^5.48.2",
+    "@typescript-eslint/eslint-plugin": "^5.49.0",
+    "@typescript-eslint/parser": "^5.49.0",
     "codependence": "^0.2.6",
-    "eslint": "^8.32.0",
+    "eslint": "^8.33.0",
     "eslint-config-prettier": "^8.6.0",
     "husky": "^8.0.3",
     "is-ci": "^3.0.1",

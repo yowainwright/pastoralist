@@ -14,7 +14,7 @@ With the Pastoralist CLI, you can ensure your project's overrides _(or resolutio
 
 ## What _are_ \*overrides and resolutions?
 
-> #### Overrides and resolutions solve the same problem.<br>They give developers a way to specify dependency versions downloaded to repository's node_modules folder.
+> Overrides and resolutions solve the same problem!<br>**_They give developers a way to specify dependency versions downloaded to repository's node_modules folder_**.
 
 Node package manager CLIs, like npm, yarn, and pnpm, enable engineers to solve dependency specificity issues by adding an overrides or resolutions object to a repository's root package.json. This is awesome for fixing dependency issues with security and/or code. Read more about [npm](https://docs.npmjs.com/cli/v8/configuring-npm/package-json#overrides), [yarn](https://yarnpkg.com/configuration/manifest#resolutions), and [pnpm](https://pnpm.io/package_json#pnpmoverrides) overrides or resolution solutions.
 
@@ -22,13 +22,9 @@ Node package manager CLIs, like npm, yarn, and pnpm, enable engineers to solve d
 
 ## Why is Pastoralist Awesome?
 
-> #### Is the override still needed?<br />Is there a better fix?<br />Like a security patch or a major release?
+> Is the override still needed? Is there a better fix? Like a security patch or a major release?
 
-After using overrides or resolutions to fix dependency specificity issues for a while, it is easy to lose track of why a dependency is in an overrides or resolutions package.json object.
-
-This is an inconvenient problem when trying to maintain dependencies over time.
-
-This information is not really known—until now!
+After using overrides or resolutions to fix dependency specificity issues for a while, **_it is easy to lose track of why a dependency is in an overrides or resolutions package.json object!_** This is an inconvenient problem when trying to maintain dependencies over time. This information is not really known—**until now!**
 
 With Pastoralist CLI, you can run the `pastoralist` CLI command and an overrides (resolution) object that looks like this:
 

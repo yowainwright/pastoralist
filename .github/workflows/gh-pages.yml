@@ -2,7 +2,7 @@ name: gh-pages
 on:
   push:
     branches:
-      - master
+      - main
 permissions:
   contents: write
 jobs:

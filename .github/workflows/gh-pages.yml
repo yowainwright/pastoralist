@@ -2,7 +2,7 @@ name: gh-pages
 on:
   push:
     branches:
-      - master
+      - main
 permissions:
   contents: write
 jobs:
@@ -16,7 +16,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 16
+          node-version: 18
 
       - uses: pnpm/action-setup@v2.2.2
         name: Install pnpm

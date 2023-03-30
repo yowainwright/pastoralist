@@ -1,11 +1,9 @@
 {
   "$schema": "https://turborepo.org/schema.json",
-  "baseBranch": "origin/master",
+  "baseBranch": "origin/main",
   "pipeline": {
     "build-dist": {
-      "dependsOn": [
-        "^build-dist"
-      ],
+      "dependsOn": ["^build-dist"],
       "inputs": ["src/**/*.{ts,tsx}", "index.html"]
     },
     "//#build-dist": {
@@ -13,7 +11,7 @@
     },
     "lint-src": {
       "dependsOn": ["typecheck-src"],
-       "inputs": ["src/**/*.{tsx,ts}"]
+      "inputs": ["src/**/*.{tsx,ts}"]
     },
     "//#lint-src": {
       "dependsOn": ["typecheck-src"],

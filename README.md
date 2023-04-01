@@ -158,11 +158,9 @@ When ever **Pastoralist** is run again, it will check the `pastoralist.appendix`
 
 ## Roadmap
 
-#### Updated `2022-10-09`
+#### Updated `2023-03-31`
 
-- Provide more configuration options using [cosmiconfig](https://github.com/davidtheclark/cosmiconfig)
 - Provide caveats, code examples, and more documentation
-- **Note:** the shape of the `pastoralist` object may change rapidly currently to improve the API.
 
 ## Thanks
 

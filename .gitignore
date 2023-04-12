@@ -105,6 +105,6 @@ dist
 
 .dccache
 .DS_Store
-.husky
 docs/app/page
 .turbo
+.pnpm-store

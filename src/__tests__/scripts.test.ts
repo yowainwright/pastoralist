@@ -1,15 +1,17 @@
-import { test, expect, vi } from "vitest";
 import {
   resolveJSON,
   resolveResolutions,
-  updateAppendix,
   updatePackageJSON,
-  update,
   getRootDeps,
-} from "../scripts";
+} from "../utils"
+
+import {
+  updateAppendix,
+  update,
+} from '../scripts'
 
 test("resolveJSON success", () => {
-  const result = resolveJSON("./src/test/foo-package.json", true);
+  const result = resolveJSON("./src/__tests__/foo-package.json", true);
   expect(result).toEqual({
     dependencies: {
       bar: "1.0.0",
@@ -23,7 +25,7 @@ test("resolveJSON success", () => {
 });
 
 test("resolveJSON failure", () => {
-  const result = resolveJSON("./src/test/malformed.json", true);
+  const result = resolveJSON("./src/__tests__/malformed.json", true);
   expect(result).toBeUndefined();
 });
 
@@ -56,7 +58,7 @@ test("updateAppendix", async () => {
     bar: "2.0.0",
     biz: "2.0.0",
   };
-  const exec = vi.fn(() => ({ "dependencies": { "biz": { "version": "1.0.0" } } }));
+  const exec = jest.fn(() => ({ "dependencies": { "biz": { "version": "1.0.0" } } }));
   const result = await updateAppendix({
     dependencies,
     resolutions,
@@ -120,7 +122,7 @@ test("updatePackageJSON", () => {
   const options = {
     appendix,
     config,
-    path: "./src/test/foo-package.json",
+    path: "./src/__tests__/foo-package.json",
     resolutions,
     isTesting: true,
     debug: true,
@@ -146,10 +148,10 @@ test("updatePackageJSON", () => {
 });
 
 test("update", async () => {
-  const exec = vi.fn(() => ({ "dependencies": { "biz": { "version": "1.0.0" } } }));
+  const exec = jest.fn(() => ({ "dependencies": { "biz": { "version": "1.0.0" } } }));
   const options = {
-    depPaths: ["./src/test/bar-package.json"],
-    path: "./src/test/foo-package.json",
+    depPaths: ["./src/__tests__/bar-package.json"],
+    path: "./src/__tests__/foo-package.json",
     isTesting: true,
     exec
   };
@@ -166,7 +168,7 @@ test("update", async () => {
 
 test('getRootDeps', async () => {
   const resolutions = ['foo', 'bar'];
-  const exec = vi.fn(() => ({ "dependencies": { "biz": { "version": "1.0.0" } } }));
+  const exec = jest.fn(() => ({ "dependencies": { "biz": { "version": "1.0.0" } } }));
   const result = await getRootDeps({ resolutions, exec, debug: true });
   expect(result[0]).toEqual({
     "resolution": "foo",

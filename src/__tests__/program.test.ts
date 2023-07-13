@@ -1,5 +1,4 @@
 import { exec } from "child_process";
-import { test, expect } from "vitest";
 import { stdoutToJSON } from "stdouttojson";
 
 test("program", () => {

@@ -62,33 +62,59 @@ export function resolveJSON(
  * @warning pastoralist is not built to support npm's nested overrides
  */
 export function resolveResolutions({
-  config: {
-    overrides: npmOverrides = {},
-    pnpm: { overrides: pnpmOverrides = {} } = {},
-    resolutions = {},
-  } = {},
+  config = {},
   options: { debug = false } = {},
 }: ResolveResolutionOptions) {
-  const overridesItems = Object.keys(npmOverrides);
-  const hasOverrides = overridesItems.length > 0;
-  const hasComplexOverrides =
-    hasOverrides &&
-    overridesItems.some((name) => typeof npmOverrides[name] === "object");
-  if (hasComplexOverrides && debug) {
-    console.warn(
+  const npmOverrides = config?.overrides ? { 'npmOverrides': config.overrides } : {};
+  const pnpmOverrides = config?.pnpm?.overrides ? { 'pnpmOverrides': config.pnpm.overrides } : {};
+  const resolutions = config?.resolutions ? { 'resolutions': config.resolutions } : {};
+
+  const overrideObject = {
+    ...npmOverrides,
+    ...pnpmOverrides,
+    ...resolutions
+  }
+  const overrideObjects = Object.keys(overrideObject);
+
+  if (!overrideObjects) {
+    if (debug) console.debug("🐑 👩🏽‍🌾 Pastoralist didn't find any overrides objects!");
+    return {}
+  } else if (overrideObjects.length > 1) {
+    console.error({
+      log: "🐑 👩🏽‍🌾 Pastoralist:resolveResolutions:fn",
+      error: "Pastoralist only supports one override object per package.json!",
+      overridesDetail: overrideObjects
+    })
+    return {}
+  }
+
+  const foundOverride = overrideObjects[0]
+  const override = overrideObject[foundOverride as keyof typeof overrideObject]
+  const overridesItems = override && Object.keys(override) || [];
+  const hasOverrides = override && Object.keys(override).length > 0;
+  if (!hasOverrides) {
+    if (debug) console.debug("🐑 👩🏽‍🌾 Pastoralist didn't find any overrides!");
+    return {}
+  }
+
+  const hasComplexOverrides = overridesItems.some((name) => typeof override[name] === "object");
+
+  if (hasComplexOverrides) {
+    if (debug) console.debug(
       "🐑 👩🏽‍🌾 Pastoralist only supports simple overrides! Pastoralist is bypassing the specified complex overrides. 👌"
     );
+    return {}
   }
+
   const overrides = hasOverrides
     ? overridesItems
-      .filter((name) => typeof npmOverrides[name] === "string")
-      .reduce((acc, name) => ({ ...acc, [name]: npmOverrides[name] }), {})
+      .filter((name) => typeof override[name] === "string")
+      .reduce((acc, name) => ({ ...acc, [name]: override[name] }), {})
     : {};
-  return {
-    ...overrides,
-    ...pnpmOverrides,
-    ...resolutions,
-  };
+
+  if (foundOverride === 'pnpmOverrides') return { pnpm: { overrides: overrides } };
+  else if (foundOverride === 'resolutions') return { resolutions: overrides };
+  return { overrides: overrides };
 }
 
 export async function getRootDeps({ debug = false, resolutions, exec = execPromise }: GetRootDeps): Promise<Array<RootDepItem>> {

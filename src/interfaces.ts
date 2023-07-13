@@ -1,5 +1,5 @@
-
-export type Exec = any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type Exec = (runner: string, cmds: Array<string>) => Promise<any>;
 export interface PastoralistJSON {
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
@@ -53,7 +53,7 @@ export interface Options {
 };
 
 export interface OverridesType {
-  [key: string]:  string;
+  [key: string]: string;
 }
 
 export interface UpdatePackageJSONOptions {

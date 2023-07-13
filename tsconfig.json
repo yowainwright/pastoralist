@@ -24,9 +24,8 @@
     "sourceMap": false,
     "strict": true,
     "target": "es5",
-    "types": ["node"]
+    "types": ["node", "jest"]
   },
   "include": ["src"],
-  "exclude": ["src/test/*.ts", "app/**/*"],
-
+  "exclude": ["src/__tests__/*.ts", "app/**/*"],
 }

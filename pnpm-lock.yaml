@@ -98,8 +98,8 @@ importers:
         specifier: ^5.1.6
         version: 5.1.6
       vite:
-        specifier: 4.4.5
-        version: 4.4.5(@types/node@20.4.2)
+        specifier: 4.4.6
+        version: 4.4.6(@types/node@20.4.2)
 
   page/app:
     dependencies:
@@ -8965,8 +8965,8 @@ packages:
       fsevents: 2.3.2
     dev: true
 
-  /vite@4.4.5(@types/node@20.4.2):
-    resolution: {integrity: sha512-4m5kEtAWHYr0O1Fu7rZp64CfO1PsRGZlD3TAB32UmQlpd7qg15VF7ROqGN5CyqN7HFuwr7ICNM2+fDWRqFEKaA==}
+  /vite@4.4.6(@types/node@20.4.2):
+    resolution: {integrity: sha512-EY6Mm8vJ++S3D4tNAckaZfw3JwG3wa794Vt70M6cNJ6NxT87yhq7EC8Rcap3ahyHdo8AhCmV9PTk+vG1HiYn1A==}
     engines: {node: ^14.18.0 || >=16.0.0}
     hasBin: true
     peerDependencies:

@@ -147,8 +147,8 @@ importers:
         specifier: ^10.4.14
         version: 10.4.14(postcss@8.4.25)
       daisyui:
-        specifier: ^3.2.1
-        version: 3.2.1(ts-node@10.9.1)
+        specifier: ^2.24.0
+        version: 2.24.0(autoprefixer@10.4.14)(postcss@8.4.25)(ts-node@10.9.1)
       mdx-mermaid:
         specifier: ^2.0.0
         version: 2.0.0(mermaid@10.2.4)(react@18.2.0)(unist-util-visit@4.1.2)
@@ -159,8 +159,8 @@ importers:
         specifier: ^8.4.25
         version: 8.4.25
       react-daisyui:
-        specifier: ^4.0.0
-        version: 4.0.0(daisyui@3.2.1)(react-dom@18.2.0)(react@18.2.0)(tailwindcss@3.3.2)
+        specifier: ^2.3.2
+        version: 2.3.2(daisyui@2.24.0)(react-dom@18.2.0)(react@18.2.0)(tailwindcss@3.3.2)
       react-flow-renderer:
         specifier: ^10.3.17
         version: 10.3.17(react-dom@18.2.0)(react@18.2.0)
@@ -2943,8 +2943,19 @@ packages:
     resolution: {integrity: sha512-dOy+3AuW3a2wNbZHIuMZpTcgjGuLU/uBL/ubcZF9OXbDo8ff4O8yVp5Bf0efS8uEoYo5q4Fx7dY9OgQGXgAsQA==}
     dev: true
 
-  /colord@2.9.3:
-    resolution: {integrity: sha512-jeC1axXpnb0/2nn/Y1LPuLdgXBLH7aDcHu4KEKfqw3CUhX7ZpfBSlPKyqXE6btIgEzfWtrX3/tyBCaCvXvMkOw==}
+  /color-string@1.9.1:
+    resolution: {integrity: sha512-shrVawQFojnZv6xM40anx4CkoDP+fZsw/ZerEMsW/pyzsRbElpsL/DBVW7q3ExxwusdNXI3lXpuhEZkzs8p5Eg==}
+    dependencies:
+      color-name: 1.1.4
+      simple-swizzle: 0.2.2
+    dev: true
+
+  /color@4.2.3:
+    resolution: {integrity: sha512-1rXeuUUiGGrykh+CeBdu5Ie7OJwinCgQY0bc7GCRxy5xVHy+moaqkpL/jqQq0MtQOeYcrqEz4abc5f0KtU7W4A==}
+    engines: {node: '>=12.5.0'}
+    dependencies:
+      color-convert: 2.0.1
+      color-string: 1.9.1
     dev: true
 
   /colorette@2.0.20:
@@ -3415,11 +3426,14 @@ packages:
       lodash-es: 4.17.21
     dev: true
 
-  /daisyui@3.2.1(ts-node@10.9.1):
-    resolution: {integrity: sha512-gIqE6wiqoJt9G8+n3R/SwLeUnpNCE2eDhT73rP0yZYVaM7o6zVcakBH3aEW5RGpx3UkonPiLuvcgxRcb2lE8TA==}
-    engines: {node: '>=16.9.0'}
+  /daisyui@2.24.0(autoprefixer@10.4.14)(postcss@8.4.25)(ts-node@10.9.1):
+    resolution: {integrity: sha512-Fdu/4LCdTfWLWAbCuPxvnaRotEfJ+hVPgZ2kv/aUk9RZ00Yk8fGdJtIf0kXJ3IgUKOr8rCXUpfQY6DQU9usPCQ==}
+    peerDependencies:
+      autoprefixer: ^10.0.2
+      postcss: ^8.1.6
     dependencies:
-      colord: 2.9.3
+      autoprefixer: 10.4.14(postcss@8.4.25)
+      color: 4.2.3
       css-selector-tokenizer: 0.8.0
       postcss: 8.4.25
       postcss-js: 4.0.1(postcss@8.4.25)
@@ -4913,6 +4927,10 @@ packages:
 
   /is-arrayish@0.2.1:
     resolution: {integrity: sha512-zz06S8t0ozoDXMG+ube26zeCTNXcKIPJZJi8hBrF4idCLms4CG9QtK7qBl1boi5ODzFpjswb5JPmHCbMpjaYzg==}
+    dev: true
+
+  /is-arrayish@0.3.2:
+    resolution: {integrity: sha512-eVRqCvVlZbuw3GrM63ovNSNAeA1K16kaR/LRY/92w0zxQ5/1YzwblUX652i4Xs9RwAGjW9d9y6X88t8OaAJfWQ==}
     dev: true
 
   /is-bigint@1.0.4:
@@ -7522,15 +7540,15 @@ packages:
       strip-json-comments: 2.0.1
     dev: true
 
-  /react-daisyui@4.0.0(daisyui@3.2.1)(react-dom@18.2.0)(react@18.2.0)(tailwindcss@3.3.2):
-    resolution: {integrity: sha512-kE+Ybw6GD00AQ6fGm0JRUUF7t3P127D2+XFVRwhEHqgdwLo8K/XhuWA69ilNZSLTklgrnghaUh8H1mtubk3fmg==}
+  /react-daisyui@2.3.2(daisyui@2.24.0)(react-dom@18.2.0)(react@18.2.0)(tailwindcss@3.3.2):
+    resolution: {integrity: sha512-mX2zGWN59HLxFZ1hsgQRMw+84cug122hzU8mqvor5U9aZGvWDypz5ZcGg7CaYNM3jjzxVtzUhWrUw4ezZaB8hQ==}
     peerDependencies:
-      daisyui: ^3.0.22
+      daisyui: ^2.24.0
       react: '>=16'
       react-dom: '>=16'
-      tailwindcss: '>=3.2.7'
+      tailwindcss: ^3.0.23
     dependencies:
-      daisyui: 3.2.1(ts-node@10.9.1)
+      daisyui: 2.24.0(autoprefixer@10.4.14)(postcss@8.4.25)(ts-node@10.9.1)
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
       tailwindcss: 3.3.2(ts-node@10.9.1)
@@ -8027,6 +8045,12 @@ packages:
   /signal-exit@4.0.2:
     resolution: {integrity: sha512-MY2/qGx4enyjprQnFaZsHib3Yadh3IXyV2C321GY0pjGfVBu4un0uDJkwgdxqO+Rdx8JMT8IfJIRwbYVz3Ob3Q==}
     engines: {node: '>=14'}
+    dev: true
+
+  /simple-swizzle@0.2.2:
+    resolution: {integrity: sha512-JA//kQgZtbuY83m+xT+tXJkmJncGMTFT+C+g2h2R9uxkYIrE2yy9sgmcLhCnw57/WSD+Eh3J97FPEDFnbXnDUg==}
+    dependencies:
+      is-arrayish: 0.3.2
     dev: true
 
   /sisteransi@1.0.5:

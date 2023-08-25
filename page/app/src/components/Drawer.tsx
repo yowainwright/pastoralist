@@ -1,3 +1,4 @@
+import React from "react";
 import { Drawer as DaisyDrawer } from "react-daisyui";
 import { SideBar } from "./SideBar";
 
@@ -13,6 +14,7 @@ export const Drawer = ({ children, isOpen, toggleDrawer }: DrawerProps) => {
       side={<SideBar />}
       open={isOpen}
       onClickOverlay={toggleDrawer}
+      mobile
     >
       <div className="h-100 px-6">{children}</div>
     </DaisyDrawer>

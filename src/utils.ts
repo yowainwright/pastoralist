@@ -3,6 +3,9 @@ import { execFile } from "child_process";
 import { resolve } from "path";
 import { writeFile, readFileSync } from "fs";
 
+import { logger } from "./logger";
+import { IS_DEBUGGING } from "./constants";
+
 import {
   GetRootDeps,
   PastoralistJSON,
@@ -10,6 +13,8 @@ import {
   RootDepItem,
   UpdatePackageJSONOptions,
 } from "./interfaces";
+
+const log = logger({ file: "utils.ts", isLogging: IS_DEBUGGING });
 
 export const execPromise = promisify(execFile);
 
@@ -22,7 +27,7 @@ export function resolveJSON(
     return json;
   } catch (err) {
     if (debug)
-      console.debug(`🐑 👩🏽‍🌾  Pastoralist found invalid JSON at:\n${path}`);
+      log.debug(`🐑 👩🏽‍🌾  Pastoralist found invalid JSON at:\n${path}`);
     return;
   }
 }
@@ -63,7 +68,6 @@ export function resolveJSON(
  */
 export function resolveResolutions({
   config = {},
-  options: { debug = false } = {},
 }: ResolveResolutionOptions) {
   const npmOverrides = config?.overrides ? { 'npmOverrides': config.overrides } : {};
   const pnpmOverrides = config?.pnpm?.overrides ? { 'pnpmOverrides': config.pnpm.overrides } : {};
@@ -77,11 +81,10 @@ export function resolveResolutions({
   const overrideObjects = Object.keys(overrideObject);
 
   if (!overrideObjects) {
-    if (debug) console.debug("🐑 👩🏽‍🌾 Pastoralist didn't find any overrides objects!");
+    log.debug("didn't find any overrides objects!");
     return {}
   } else if (overrideObjects.length > 1) {
-    console.error({
-      log: "🐑 👩🏽‍🌾 Pastoralist:resolveResolutions:fn",
+    log.error("resolveResolutions:fn", {
       error: "Pastoralist only supports one override object per package.json!",
       overridesDetail: overrideObjects
     })
@@ -93,14 +96,14 @@ export function resolveResolutions({
   const overridesItems = override && Object.keys(override) || [];
   const hasOverrides = override && Object.keys(override).length > 0;
   if (!hasOverrides) {
-    if (debug) console.debug("🐑 👩🏽‍🌾 Pastoralist didn't find any overrides!");
+    log.debug("🐑 👩🏽‍🌾 Pastoralist didn't find any overrides!");
     return {}
   }
 
   const hasComplexOverrides = overridesItems.some((name) => typeof override[name] === "object");
 
   if (hasComplexOverrides) {
-    if (debug) console.debug(
+    log.debug(
       "🐑 👩🏽‍🌾 Pastoralist only supports simple overrides! Pastoralist is bypassing the specified complex overrides. 👌"
     );
     return {}
@@ -117,7 +120,7 @@ export function resolveResolutions({
   return { overrides: overrides };
 }
 
-export async function getRootDeps({ debug = false, resolutions, exec = execPromise }: GetRootDeps): Promise<Array<RootDepItem>> {
+export async function getRootDeps({ resolutions, exec = execPromise }: GetRootDeps): Promise<Array<RootDepItem>> {
   const rootDepsList = Promise.all(
     resolutions.map(async (resolution: string): Promise<RootDepItem> => {
       try {
@@ -125,13 +128,13 @@ export async function getRootDeps({ debug = false, resolutions, exec = execPromi
         const cmd = ['ls', resolution, '--json']
         const { dependencies } = await exec(runner, cmd);
         const rootDeps = Object.keys(dependencies).map((dependency) => `${dependency}@${dependencies[dependency].version}`);
-        if (debug) console.debug(`🐑 👩🏽‍🌾 ${resolution} has direct dependendents: ${rootDeps.join(", ")}`);
+        log.debug(`getRootDeps: ${resolution} has direct dependendents: ${rootDeps.join(", ")}`);
         return {
           resolution,
           rootDeps
         };
       } catch (err) {
-        if (debug) console.error(err);
+        log.error('getRootDeps:', { error: err });
         return {
           resolution,
           rootDeps: []
@@ -148,7 +151,6 @@ export function updatePackageJSON({
   config,
   resolutions,
   isTesting = false,
-  debug = false,
 }: UpdatePackageJSONOptions): PastoralistJSON | void {
   const jsonPath = resolve(path);
   const pastoralist = config?.pastoralist
@@ -167,14 +169,13 @@ export function updatePackageJSON({
           : {}),
   };
 
-  if (debug)
-    console.debug({
-      log: "🐑 👩🏽‍🌾 Pastoralist:updatePackageJSON:fn:",
-      json,
-      config,
-      pastoralist,
-      resolutions,
-    });
+
+  log.debug("updatePackageJSON:fn:", {
+    json,
+    config,
+    pastoralist,
+    resolutions,
+  });
 
   if (isTesting) return json;
 
@@ -182,9 +183,8 @@ export function updatePackageJSON({
     jsonPath,
     JSON.stringify(json, null, 2),
     (err) =>
-      debug &&
-      console.debug(
-        `🐑 👩🏽‍🌾 Pastoralist had an issue updating overrides or resolutions in the package.json!\n${err}`
+      log.debug(
+        `had an issue updating overrides or resolutions in the package.json!\n${err}`
       )
   );
 }

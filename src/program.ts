@@ -3,17 +3,21 @@
 import { program } from "commander";
 import { Options } from "./interfaces";
 import { update } from "./scripts";
+import { logger } from "./logger";
+import { IS_DEBUGGING } from "./constants";
+
+const log = logger({ file: "program.ts", isLogging: IS_DEBUGGING });
 
 export async function action(options: Options = {}): Promise<void> {
   try {
     const { debug, depPaths, isTestingCLI = false, path } = options;
     if (isTestingCLI) {
-      console.info({ options });
+      log.debug('action:options:', { options });
       return
     }
     update({ debug, depPaths, path });
   } catch (err) {
-    console.error({ log: "🐑 👩🏽‍🌾 Pastoralist:cli:action:fn", error: err });
+    log.error("action:fn", { error: err });
     process.exit(1)
   }
 }

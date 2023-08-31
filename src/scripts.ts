@@ -1,12 +1,16 @@
 import { sync } from "fast-glob";
 import { compare } from "compare-versions";
 import { resolveResolutions, execPromise, resolveJSON, getRootDeps, updatePackageJSON } from "./utils";
+import { logger } from "./logger";
+import { IS_DEBUGGING } from "./constants";
 import {
   Appendix,
   Options,
   OverridesType,
   UpdateAppendixOptions,
 } from "./interfaces";
+
+const log = logger({ file: "scripts.ts", isLogging: IS_DEBUGGING });
 
 export async function updateAppendix({
   debug = false,
@@ -50,14 +54,12 @@ export async function updateAppendix({
       },
       {}
     );
-    if (debug)
-      console.log({
-        log: "🐑 👩🏽‍🌾 Pastoralist:updateAppendix:fn:",
-        updatedAppendix,
-      });
+    log.debug("updateAppendix:fn:", {
+      updatedAppendix,
+    });
     return updatedAppendix;
   } catch (err) {
-    if (debug) console.error(err);
+    log.error('updatedAppendix:fn', { error: err });
     return appendix;
   }
 }
@@ -127,15 +129,13 @@ export async function update(options: Options): Promise<Appendix | void> {
         };
       }, {})
       : resolutions;
-  if (debug)
-    console.log({
-      log: "🐑 👩🏽‍🌾 Pastoralist:update:fn:",
-      appendix,
-      config,
-      packageJSONs,
-      path,
-      updatedResolutions,
-    });
+  log.debug("update:fn:", {
+    appendix,
+    config,
+    packageJSONs,
+    path,
+    updatedResolutions,
+  });
   if (!isTesting) {
     updatePackageJSON({
       appendix,

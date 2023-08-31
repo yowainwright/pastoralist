@@ -83,3 +83,8 @@ export interface RootDepItem {
   resolution: string;
   rootDeps: Array<string>;
 }
+
+export interface LoggerOptions {
+  file: string;
+  isLogging?: boolean;
+};

@@ -3,10 +3,10 @@ import {
   resolveResolutions,
   updatePackageJSON,
   getRootDeps,
+  updateAppendix,
 } from "../utils"
 
 import {
-  updateAppendix,
   update,
 } from '../scripts'
 
@@ -29,7 +29,7 @@ test("resolveJSON failure", () => {
   expect(result).toBeUndefined();
 });
 
-test("resolveResolutions", () => {
+test("resolveResolutions: too many resolutions", () => {
   const config = {
     overrides: {
       foo: "2.0.0",
@@ -44,7 +44,65 @@ test("resolveResolutions", () => {
     },
   };
   const result = resolveResolutions({ config });
-  expect(result).toEqual({ bar: "2.0.0", baz: "2.0.0", foo: "2.0.0" });
+  expect(result).toEqual({});
+});
+
+test("resolveResolutions: perfecto npm", () => {
+  const config = {
+    overrides: {
+      foo: "2.0.0",
+      bar: "2.0.0",
+      baz: "2.0.0",
+    },
+  };;
+  const result = resolveResolutions({ config });
+  expect(result).toEqual({
+    overrides: {
+      foo: "2.0.0",
+      bar: "2.0.0",
+      baz: "2.0.0",
+    },
+  });
+});
+
+test('resolveResolutions: perfecto pnpm', () => {
+  const config = {
+    pnpm: {
+      overrides: {
+        foo: "2.0.0",
+        bar: "2.0.0",
+        baz: "2.0.0",
+      },
+    },
+  };
+  const result = resolveResolutions({ config });
+  expect(result).toEqual({
+    pnpm: {
+      overrides: {
+        foo: "2.0.0",
+        bar: "2.0.0",
+        baz: "2.0.0",
+      },
+    },
+  });
+})
+
+test('resolveResolutions: perfecto resolutions', () => {
+  const config = {
+    resolutions: {
+      foo: "2.0.0",
+      bar: "2.0.0",
+      baz: "2.0.0"
+    }
+  };
+  const result = resolveResolutions({ config });
+  expect(result).toEqual({
+    resolutions: {
+      foo: "2.0.0",
+      bar: "2.0.0",
+      baz: "2.0.0"
+    }
+  });
 });
 
 test("updateAppendix", async () => {

@@ -21,12 +21,14 @@ export interface Appendix {
   [key: string]: AppendixItem
 }
 
+export interface OverridesConfig {
+  overrides?: Record<string, string>;
+  pnpm?: { overrides?: Record<string, string> };
+  resolutions?: Record<string, string>;
+}
+
 export interface ResolveResolutionOptions {
-  config?: {
-    overrides?: Record<string, string> | undefined;
-    pnpm?: { overrides?: Record<string, string> | undefined };
-    resolutions?: Record<string, string> | undefined;
-  };
+  config?: OverridesConfig;
   options?: Options;
 };
 

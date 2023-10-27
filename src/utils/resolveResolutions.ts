@@ -43,15 +43,16 @@ const log = logger({ file: "resolveResolutions.ts", isLogging: IS_DEBUGGING });
 export function resolveResolutions({
   config = {},
 }: ResolveResolutionOptions) {
-  const { type, override } = defineOverride(config);
-  const hasOverrides = override && Object.keys(override).length > 0;
-  if (!hasOverrides) {
+  const { type, overrides: initialOverrides } = defineOverride(config);
+  const hasOverrides = Object.keys(initialOverrides)?.length > 0;
+  if (!hasOverrides || !type) {
+    console.log('here');
     log.debug("🐑 👩🏽‍🌾 Pastoralist didn't find any overrides!");
     return {}
   }
-  const overridesItems = override && Object.keys(override) || [];
+  const overridesItems = Object.keys(initialOverrides) || [];
 
-  const hasComplexOverrides = overridesItems.some((name) => typeof override[name as keyof typeof override] === 'object');
+  const hasComplexOverrides = overridesItems.some((name) => typeof initialOverrides[name as keyof typeof initialOverrides] === 'object');
 
   if (hasComplexOverrides) {
     log.debug(
@@ -59,12 +60,13 @@ export function resolveResolutions({
     );
     return {}
   }
-  const overrides = hasOverrides
-    ? overridesItems
-      .reduce((acc, name) => ({ ...acc, [name]: override[name as keyof typeof override] }), {})
-    : {};
+  const overrides = overridesItems
+    .reduce((acc, name) => ({ ...acc, [name]: initialOverrides[name as keyof typeof initialOverrides] }), {});
 
+  // pnpm
   if (type === 'pnpm') return { pnpm: { overrides } };
+  // pnpm or yarn, doesn't matter
   else if (type === 'resolutions') return { resolutions: overrides };
+  // npm
   return { overrides };
 }

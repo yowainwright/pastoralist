@@ -38,16 +38,16 @@ import { logger } from "../logger";
  * @warning pastoralist is not built to support npm's nested overrides
  */
 
-const log = logger({ file: "resolveResolutions.ts", isLogging: IS_DEBUGGING });
+const log = logger({ file: "utils/resolveResolutions.ts", isLogging: IS_DEBUGGING });
 
 export function resolveResolutions({
   config = {},
 }: ResolveResolutionOptions) {
+  const logText = '[resolveResolutions]:'
   const { type, overrides: initialOverrides } = defineOverride(config);
   const hasOverrides = Object.keys(initialOverrides)?.length > 0;
   if (!hasOverrides || !type) {
-    console.log('here');
-    log.debug("🐑 👩🏽‍🌾 Pastoralist didn't find any overrides!");
+    log.debug(`${logText} didn't find any overrides!`);
     return {}
   }
   const overridesItems = Object.keys(initialOverrides) || [];
@@ -56,7 +56,7 @@ export function resolveResolutions({
 
   if (hasComplexOverrides) {
     log.debug(
-      "Pastoralist only supports simple overrides! Pastoralist is bypassing the specified complex overrides. 👌"
+      `${logText} Pastoralist only supports simple overrides! Pastoralist is bypassing the specified complex overrides. 👌`
     );
     return {}
   }

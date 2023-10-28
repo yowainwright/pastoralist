@@ -4,7 +4,7 @@ import { logger } from "../logger";
 import { IS_DEBUGGING } from "../constants";
 import { Appendix, UpdateAppendixOptions } from "../interfaces";
 
-const log = logger({ file: "utils.ts", isLogging: IS_DEBUGGING });
+const log = logger({ file: "utils/updateAppendix.ts", isLogging: IS_DEBUGGING });
 
 export async function updateAppendix({
   debug = false,
@@ -15,6 +15,7 @@ export async function updateAppendix({
   appendix = {},
   exec = execPromise,
 }: UpdateAppendixOptions): Promise<Appendix> {
+  const logText = '[updateAppendix]:'
   const dependencyList = Object.keys(dependencies);
   const resolutionsList = Object.keys(resolutions);
   try {
@@ -30,7 +31,7 @@ export async function updateAppendix({
           if (hasResolutionOverride) {
             const key = `${resolution}@${resolutions[resolution]}`;
             const { rootDeps = [] } = resolutionRootDeps.find((dep) => dep.resolution === resolution) || {};
-            return {
+            const result = {
               ...appendix,
               ...acc,
               [key]: {
@@ -42,18 +43,18 @@ export async function updateAppendix({
                 ...(rootDeps.length ? { rootDeps } : {}),
               },
             };
+            log.debug(`${logText} updated appendix`, result);
+            return result;
           }
         }
         return acc || {};
       },
       {}
     );
-    log.debug("updateAppendix:fn:", {
-      updatedAppendix,
-    });
+    log.debug(logText, { updatedAppendix });
     return updatedAppendix;
   } catch (err) {
-    log.error('updatedAppendix:fn', { error: err });
+    log.error(logText, { error: err });
     return appendix;
   }
 }

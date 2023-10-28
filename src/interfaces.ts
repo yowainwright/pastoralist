@@ -38,7 +38,7 @@ export interface UpdateAppendixOptions {
   dependencies: Record<string, string>;
   resolutions: Record<string, string>;
   packageJSONs?: string[];
-  rootDependencies: Record<string, string>;
+  rootDependencies?: Record<string, string>;
   name: string;
   version: string;
   exec?: Exec;

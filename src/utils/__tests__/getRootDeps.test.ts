@@ -1,4 +1,4 @@
-import { getRootDeps } from './getRootDeps';
+import { getRootDeps } from '../getRootDeps';
 
 describe('getRootDeps', () => {
 

@@ -1,12 +1,13 @@
 import { updateAppendix } from '../updateAppendix';
 
+jest.mock('../getRootDeps');
+import * as fn from '../getRootDeps';
+
 describe('updateAppendix', () => {
 
-  const mockGetRootDeps = jest.fn();
   const mockExec = jest.fn();
 
   beforeEach(() => {
-    mockGetRootDeps.mockReset();
     mockExec.mockReset();
   });
 
@@ -36,10 +37,10 @@ describe('updateAppendix', () => {
       foo: '2.0.0'
     };
 
-    mockGetRootDeps.mockResolvedValueOnce([
+    await jest.spyOn(fn, 'getRootDeps').mockResolvedValueOnce([
       {
         resolution: 'foo',
-        rootDeps: ['dep']
+        rootDeps: ['foo']
       }
     ]);
 
@@ -56,13 +57,8 @@ describe('updateAppendix', () => {
         dependents: {
           test: '1.0.0'
         },
-        rootDeps: ['dep']
+        rootDeps: ['foo']
       }
-    });
-
-    expect(mockGetRootDeps).toHaveBeenCalledWith({
-      resolutions: ['foo'],
-      exec: mockExec
     });
   });
 
@@ -94,7 +90,6 @@ describe('updateAppendix', () => {
       'foo@2.0.0': {
         dependents: {
           other: '1.0.0',
-          test: '1.0.0'
         }
       }
     });

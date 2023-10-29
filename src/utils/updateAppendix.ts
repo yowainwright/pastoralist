@@ -30,7 +30,9 @@ export async function updateAppendix({
           );
           if (hasResolutionOverride) {
             const key = `${resolution}@${resolutions[resolution]}`;
-            const { rootDeps = [] } = resolutionRootDeps.find((dep) => dep.resolution === resolution) || {};
+            const resolvedResolutions = resolutionRootDeps.find((dep) => dep.resolution === resolution);
+            const rootDeps = resolvedResolutions?.rootDeps || [];
+            console.log({ rootDeps, resolutionRootDeps, resolution, resolvedResolutions });
             const result = {
               ...appendix,
               ...acc,

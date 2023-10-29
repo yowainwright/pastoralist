@@ -20,7 +20,6 @@ export function resolveJSON(
 ) {
   try {
     const json = JSON.parse(readFileSync(path, "utf8"));
-    console.log(json);
     return json;
   } catch (err) {
     if (debug)

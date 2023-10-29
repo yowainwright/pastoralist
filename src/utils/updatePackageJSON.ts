@@ -13,25 +13,21 @@ export function updatePackageJSON({
   resolutions,
   isTesting = false,
 }: UpdatePackageJSONOptions): PastoralistJSON | void {
+  const logText = '[updatePackageJSON]:'
   const jsonPath = resolve(path);
-  const pastoralist = config?.pastoralist
-    ? { ...config.pastoralist, appendix }
-    : { appendix };
   const hasResolutions = resolutions && Object.keys(resolutions).length > 0;
+  const hasAppendix = appendix && Object.keys(appendix).length > 0;
+  const pastoralist = config?.pastoralist && hasAppendix
+    ? { ...config.pastoralist, appendix } : hasAppendix ? { appendix } : {};
   const json = {
     ...config,
-    pastoralist,
-    ...(config?.resolutions && hasResolutions
-      ? { resolutions }
-      : config?.overrides && hasResolutions
-        ? { overrides: resolutions }
-        : config?.pnpm?.overrides && hasResolutions
-          ? { pnpm: { ...config.pnpm, overrides: resolutions } }
-          : {}),
+    ...(hasAppendix && { pastoralist: { appendix } }),
+    ...(config?.resolutions && hasResolutions && { resolutions }),
+    ...(config?.overrides && hasResolutions && { overrides: resolutions }),
+    ...(config?.pnpm?.overrides && hasResolutions && { pnpm: { ...config.pnpm, overrides: resolutions } }),
   };
 
-
-  log.debug("updatePackageJSON:fn:", {
+  log.debug(logText, {
     json,
     config,
     pastoralist,

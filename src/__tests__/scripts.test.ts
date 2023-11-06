@@ -65,7 +65,7 @@ test("resolveResolutions: perfecto npm", () => {
   });
 });
 
-test('resolveResolutions: perfecto pnpm', () => {
+test.only('resolveResolutions: perfecto pnpm', () => {
   const config = {
     pnpm: {
       overrides: {

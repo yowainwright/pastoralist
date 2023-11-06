@@ -45,6 +45,7 @@ export function resolveResolutions({
 }: ResolveResolutionOptions) {
   const logText = '[resolveResolutions]:'
   const { type, overrides: initialOverrides } = defineOverride(config);
+  console.log({ type, initialOverrides });
   const hasOverrides = Object.keys(initialOverrides)?.length > 0;
   if (!hasOverrides || !type) {
     log.debug(`${logText} didn't find any overrides!`);
@@ -64,7 +65,7 @@ export function resolveResolutions({
     .reduce((acc, name) => ({ ...acc, [name]: initialOverrides[name as keyof typeof initialOverrides] }), {});
 
   // pnpm
-  if (type === 'pnpm') return { pnpm: { overrides } };
+  if (type === 'pnpmOverrides') return { pnpm: { overrides } };
   // pnpm or yarn, doesn't matter
   else if (type === 'resolutions') return { resolutions: overrides };
   // npm

@@ -5,7 +5,12 @@ import { OverridesConfig } from "../interfaces";
 const log = logger({ file: "defineOverride.ts", isLogging: IS_DEBUGGING });
 
 export const defineOverride = ({ overrides = {}, pnpm = {}, resolutions = {} }: OverridesConfig = {}) => {
-  const overrideTypes = [overrides, pnpm, resolutions].filter(type => Object.keys(type).length > 0);
+  const pnpmOverrides = pnpm?.overrides || {};
+  const overrideTypes = [
+    { type: 'overrides', overrides },
+    { type: 'pnpmOverrides', overrides: pnpmOverrides },
+    { type: 'resolutions', overrides: resolutions }
+  ].filter(({ overrides }) => Object.keys(overrides).length > 0);
   const hasOverride = overrideTypes?.length > 0;
   const hasMultipleOverrides = overrideTypes?.length > 1;
 
@@ -16,10 +21,5 @@ export const defineOverride = ({ overrides = {}, pnpm = {}, resolutions = {} }: 
     log.error("resolveResolutions:fn: only 1 override object allowed");
     return { type: '', overrides: {} }
   }
-
-  const type = overrides ? 'npm' : pnpm ? 'pnpm' : resolutions ? 'resolutions' : '';
-  return {
-    type,
-    overrides: type === 'npm' ? overrides : type === 'pnpm' ? pnpm : resolutions
-  }
+  return overrideTypes[0];
 }

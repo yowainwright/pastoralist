@@ -31,7 +31,7 @@ describe('resolveJSON', () => {
   it('returns undefined if file not found', () => {
     jest.spyOn(fs, 'readFileSync')
       .mockImplementation(() => {
-        const error = new Error();
+        const error = new Error() as unknown as NodeJS.ErrnoException;
         error.code = 'ENOENT';
         throw error;
       });

@@ -98,6 +98,7 @@
     "transform": {
       "^.+\\.(js|ts)$": "@swc/jest"
     },
+    "testRegex": "(src/__tests__/.*|(\\.|/)(test))\\.(ts?)$",
     "testEnvironment": "jest-environment-node",
     "clearMocks": true,
     "moduleFileExtensions": [

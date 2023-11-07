@@ -55,7 +55,7 @@ export async function updateAppendix({
     );
     log.debug(logText, { updatedAppendix });
     return updatedAppendix;
-  } catch (err) {
+  } catch (err: unknown) {
     log.error(logText, { error: err });
     return appendix;
   }

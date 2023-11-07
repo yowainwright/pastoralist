@@ -90,3 +90,9 @@ export interface LoggerOptions {
   file: string;
   isLogging?: boolean;
 };
+
+export interface ResolveAppendixOptions {
+  config: PastoralistJSON;
+  options: Options;
+  resolutions: Record<string, string>;
+}

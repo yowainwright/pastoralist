@@ -27,5 +27,5 @@
     "types": ["node", "jest"]
   },
   "include": ["src"],
-  "exclude": ["src/__tests__/*.ts", "app/**/*"],
+  "exclude": ["src/__tests__/*.ts", "app/**/*", "dist"]
 }

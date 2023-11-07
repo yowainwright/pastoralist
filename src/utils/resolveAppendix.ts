@@ -2,9 +2,9 @@ import { sync } from "fast-glob";
 
 import { execPromise, resolveJSON, updateAppendix } from './index';
 
-import { Appendix } from '../interfaces';
+import { Appendix, ResolveAppendixOptions } from '../interfaces';
 
-export const resolveAppendix = async ({ config, options, resolutions }) => {
+export const resolveAppendix = async ({ config, options, resolutions }: ResolveAppendixOptions) => {
   const {
     depPaths = ['node_modules/**/package.json'],
     exec = execPromise,

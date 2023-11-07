@@ -21,12 +21,14 @@ export interface Appendix {
   [key: string]: AppendixItem
 }
 
+export interface OverridesConfig {
+  overrides?: Record<string, string>;
+  pnpm?: { overrides?: Record<string, string> };
+  resolutions?: Record<string, string>;
+}
+
 export interface ResolveResolutionOptions {
-  config?: {
-    overrides?: Record<string, string> | undefined;
-    pnpm?: { overrides?: Record<string, string> | undefined };
-    resolutions?: Record<string, string> | undefined;
-  };
+  config?: OverridesConfig;
   options?: Options;
 };
 
@@ -36,7 +38,7 @@ export interface UpdateAppendixOptions {
   dependencies: Record<string, string>;
   resolutions: Record<string, string>;
   packageJSONs?: string[];
-  rootDependencies: Record<string, string>;
+  rootDependencies?: Record<string, string>;
   name: string;
   version: string;
   exec?: Exec;
@@ -82,4 +84,15 @@ export interface GetRootDeps {
 export interface RootDepItem {
   resolution: string;
   rootDeps: Array<string>;
+}
+
+export interface LoggerOptions {
+  file: string;
+  isLogging?: boolean;
+};
+
+export interface ResolveAppendixOptions {
+  config: PastoralistJSON;
+  options: Options;
+  resolutions: Record<string, string>;
 }

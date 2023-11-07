@@ -19,7 +19,7 @@ describe('defineOverride', () => {
     };
     const result = defineOverride(config);
     expect(result).toEqual({
-      type: 'npm',
+      type: 'overrides',
       overrides: {
         foo: '1.0.0'
       }

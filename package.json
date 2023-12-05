@@ -82,7 +82,7 @@
     "tsup": "8.0.1",
     "turbo": "1.10.16",
     "typescript": "5.3.2",
-    "vite": "5.0.2"
+    "vite": "4.5.1"
   },
   "commitlint": {
     "extends": [

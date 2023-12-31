@@ -27,6 +27,7 @@
     "preview": "pnpm --filter @pastoralist/app app-preview",
     "release": "release-it",
     "test": "turbo run test-src",
+    "test-resolutions": "ts-node src/index.ts --debug",
     "test-src": "jest --coverage --maxWorkers=75%",
     "typecheck": "turbo run typecheck-src",
     "typecheck-src": "tsc --noEmit",
@@ -131,7 +132,9 @@
     "pnpm": ">=8.0.0"
   },
   "resolutions": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "resolutions": {
+      "react": "^18.2.0",
+      "react-dom": "^18.2.0"
+    }
   }
 }

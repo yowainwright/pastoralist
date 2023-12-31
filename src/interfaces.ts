@@ -47,11 +47,12 @@ export interface UpdateAppendixOptions {
 export interface Options {
   appendix?: Appendix;
   debug?: boolean;
+  depPaths?: string[]; // array of paths
+  exec?: Exec;
+  isTesting?: boolean;
   isTestingCLI?: boolean;
   path?: string; // path to json
-  depPaths?: string[]; // array of paths
-  isTesting?: boolean;
-  exec?: Exec;
+  out?: string; // path to write to
 };
 
 export interface OverridesType {

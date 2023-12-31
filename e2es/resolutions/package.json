@@ -1,0 +1,12 @@
+{
+  "name": "resolutions",
+  "version": "0.0.0",
+  "description": "pastorlist resolutions test",
+  "license": "MIT",
+  "dependencies": {
+    "react": "^17.0.1"
+  },
+  "resolutions": {
+    "react": "^18.2.0"
+  }
+}

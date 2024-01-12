@@ -62,9 +62,9 @@
     "@swc/core": "^1.3.96",
     "@swc/jest": "^0.2.29",
     "@types/jest": "^29.5.7",
-    "@types/node": "20.10.6",
-    "@typescript-eslint/eslint-plugin": "6.17.0",
-    "@typescript-eslint/parser": "6.17.0",
+    "@types/node": "20.11.0",
+    "@typescript-eslint/eslint-plugin": "6.18.1",
+    "@typescript-eslint/parser": "6.18.1",
     "codependence": "^0.2.6",
     "eslint": "8.56.0",
     "eslint-config-prettier": "9.1.0",
@@ -82,7 +82,7 @@
     "tsup": "8.0.1",
     "turbo": "1.11.3",
     "typescript": "5.3.3",
-    "vite": "5.0.10"
+    "vite": "5.0.11"
   },
   "commitlint": {
     "extends": [

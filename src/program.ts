@@ -2,8 +2,7 @@
 
 import { program } from "commander";
 import { Options } from "./interfaces";
-import { update } from "./scripts";
-import { logger } from "./logger";
+import { update, logger } from "./scripts";
 import { IS_DEBUGGING } from "./constants";
 
 

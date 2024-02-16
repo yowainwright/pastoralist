@@ -27,7 +27,7 @@
     "preview": "pnpm --filter @pastoralist/app app-preview",
     "release": "release-it",
     "test": "turbo run test-src",
-    "test-resolutions": "ts-node src/index.ts --debug",
+    "test-resolutions": "tsx src/index.ts --debug",
     "test-src": "jest --coverage --maxWorkers=75%",
     "typecheck": "turbo run typecheck-src",
     "typecheck-src": "tsc --noEmit",
@@ -81,6 +81,7 @@
     "ts-node": "^10.9.2",
     "tslib": "2.6.2",
     "tsup": "8.0.1",
+    "tsx": "^4.7.0",
     "turbo": "1.11.2",
     "typescript": "5.3.3",
     "vite": "5.0.10"

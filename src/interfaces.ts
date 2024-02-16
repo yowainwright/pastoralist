@@ -33,15 +33,11 @@ export interface ResolveResolutionOptions {
 };
 
 export interface UpdateAppendixOptions {
+  overrides?: Record<string, string>;
   appendix?: Appendix;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
   debug?: boolean;
-  dependencies: Record<string, string>;
-  resolutions: Record<string, string>;
-  packageJSONs?: string[];
-  rootDependencies?: Record<string, string>;
-  name: string;
-  version: string;
-  exec?: Exec;
 };
 
 export interface Options {
@@ -97,3 +93,8 @@ export interface ResolveAppendixOptions {
   options: Options;
   resolutions: Record<string, string>;
 }
+
+export interface OverridesWithType extends OverridesConfig {
+  type: string;
+}
+export type ResolveOverrides = OverridesWithType | undefined;

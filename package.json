@@ -135,5 +135,14 @@
   "resolutions": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
+  },
+  "pastoralist": {
+    "appendix": {
+      "react@^18.2.0": {
+        "dependents": {
+          "@swc/core": "react@^17.0.2"
+        }
+      }
+    }
   }
 }

@@ -57,7 +57,7 @@ export const update = (options: Options) => {
   const appendixItemsToBeRemoved = auditAppendix(appendix);
   const updatedResolutions = updateOverrides(overridesData, appendixItemsToBeRemoved);
   if (isTesting) return appendix;
-
+  // TODO console.log({ appendix, updatedResolutions, path, config })
   updatePackageJSON({ appendix, path, config, overrides: updatedResolutions });
 }
 
@@ -65,18 +65,23 @@ export const constructAppendix = (packageJSONs: Array<string>, data: ResolveOver
   const overrides = getOverridesByType(data) || {};
   const overridesList = Object.keys(overrides);
   const hasOverrides = overridesList?.length > 0;
+  if (!hasOverrides) return;
+  // TODO console.log({ packageJSONs, data, overrides, overridesList, hasOverrides });
   return packageJSONs.reduce((acc, packageJSON) => {
     const currentPackageJSON = resolveJSON(packageJSON) as PastoralistJSON;
     if (!currentPackageJSON) return acc;
 
-    const { dependencies = {}, devDependencies = {} } = currentPackageJSON;
-    const depList = Object.keys(dependencies);
-    if (!depList.length || !hasOverrides) return acc;
+    const { name, dependencies = {}, devDependencies = {} } = currentPackageJSON;
+    const mergedDeps = Object.assign(dependencies, devDependencies);
+    const depList = Object.keys(mergedDeps);
+    // TODO console.log({ depList });
+    if (!depList.length) return acc;
 
     const hasOverriddenDeps = depList.some(item => overridesList.includes(item));
     if (!hasOverriddenDeps) return acc;
     const appendix = currentPackageJSON?.pastoralist?.appendix || {};
-    const appendixItem = updateAppendix({ appendix, overrides, dependencies, devDependencies });
+    // TODO console.log({ appendix });
+    const appendixItem = updateAppendix({ appendix, overrides, dependencies, devDependencies, packageName: name });
     return Object.assign(acc, appendixItem);
   }, {} as Appendix);
 }
@@ -88,9 +93,11 @@ export const auditAppendix = (appendix: Appendix) => {
   const hasAppendixItems = appendixItems.length > 0;
   if (!hasAppendixItems) return [];
 
-  return appendixItems
+  const updatedAppendixItems = appendixItems
     .filter((item) => Object.keys(appendix[item]).length > 0)
     .map((item) => item.split("@")[0])
+  // TODO console.log({ updatedAppendixItems });
+  return updatedAppendixItems;
 }
 
 export const updateOverrides = (overrideData: ResolveOverrides, appendixItems: string[] = []) => {
@@ -120,12 +127,12 @@ export function updatePackageJSON({
   appendix,
   path,
   config,
-  resolutions,
+  overrides,
   isTesting = false,
 }: UpdatePackageJSONOptions): PastoralistJSON | void {
 
-  const hasResolutions = resolutions && Object.keys(resolutions).length > 0;
-  if (!hasResolutions) {
+  const hasOverrides = overrides && Object.keys(overrides).length > 0;
+  if (!hasOverrides) {
     delete config.pastoralist;
     delete config.resolutions;
     delete config.overrides;
@@ -135,9 +142,9 @@ export function updatePackageJSON({
   const hasAppendix = appendix && Object.keys(appendix).length > 0;
   if (!hasAppendix) throw new Error('There should be an appendix!')
   config.pastoralist = { appendix };
-  if (config?.resolutions) config.resolutions = resolutions;
-  if (config?.overrides) config.overrides = resolutions;
-  if (config?.pnpm?.overrides) config.pnpm.overrides = resolutions;
+  if (config?.resolutions) config.resolutions = overrides;
+  if (config?.overrides) config.overrides = overrides;
+  if (config?.pnpm?.overrides) config.pnpm.overrides = overrides;
 
   if (isTesting) return config;
 
@@ -190,6 +197,7 @@ export function updateAppendix({
   appendix = {},
   dependencies = {},
   devDependencies = {},
+  packageName = "",
 }: UpdateAppendixOptions) {
   const overridesList = overrides && Object.keys(overrides) || [];
   //const hasOverrides = overridesList.length > 0;
@@ -200,20 +208,24 @@ export function updateAppendix({
     const hasOverride = depList.includes(override);
     if (!hasOverride) return acc;
 
-    const name = overrides[override];
-    const version = deps[override];
-    const hasResolutionOverride = compare(name, version, ">");
-
+    const overrideVersion = overrides[override];
+    const packageVersion = deps[override];
+    const hasResolutionOverride = compare(overrideVersion, packageVersion, ">");
+    console.log({ override, overrideVersion, packageVersion, hasResolutionOverride, packageName });
     if (!hasResolutionOverride) return acc;
-    const key = `${override}@${overrides[override]}`;
 
+    const key = `${override}@${overrides[override]}`;
+    const currentDependents = appendix?.[key]?.dependents || {};
+    const appendixDependents = appendix?.[key]?.dependents || {};
     const dependents = Object.assign(
-      acc?.[key]?.dependents || {},
-      appendix?.[key]?.dependents || {},
-      { [name]: version }
+      currentDependents,
+      appendixDependents,
+      { [packageName]: `${override}@${packageVersion}` }
     );
 
     const result = Object.assign(appendix, acc, { [key]: { dependents } });
+    console.log({ result, currentDependents, appendixDependents, key, dependents, packageName });
+
     return result;
   }, appendix);
 }

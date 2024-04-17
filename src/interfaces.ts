@@ -37,6 +37,7 @@ export interface UpdateAppendixOptions {
   appendix?: Appendix;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
+  packageName?: string;
   debug?: boolean;
 };
 
@@ -60,7 +61,7 @@ export interface UpdatePackageJSONOptions {
   debug?: boolean;
   path: string;
   config: PastoralistJSON;
-  resolutions?: OverridesType;
+  overrides?: OverridesType;
   isTesting?: boolean;
 };
 

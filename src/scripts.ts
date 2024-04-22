@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from "fs";
-import { resolve } from "path";
+import { execFileSync } from "child_process";
+import { resolve, relative } from "path";
 import { sync } from "fast-glob";
 import { compare } from "compare-versions";
 
@@ -268,5 +269,35 @@ export function resolveJSON(path: string) {
   } catch (err) {
     log.error(`🐑 👩🏽‍🌾  Pastoralist found invalid JSON at:\n${path}`, 'resolveJSON', err);
     return;
+  }
+}
+
+// TODO implement this
+// Ref: https://claude.ai/chat/80e42fbc-6ef6-4a55-9f96-22521c1cb084
+export const findRootDependency = ({ packageName, exec = execFileSync, cwd = process.cwd() }) => {
+  try {
+    const output = exec('npm', ['ls', packageName, '--json'], { cwd }).toString();
+
+    // Parse the JSON output
+    const dependencyTree = JSON.parse(output);
+
+    // Traverse the dependency tree to find the root dependency
+    let currentDependency = dependencyTree;
+    while (currentDependency.dependencies) {
+      const dependencies = Object.keys(currentDependency.dependencies);
+      if (dependencies.includes(packageName)) {
+        currentDependency = currentDependency.dependencies[packageName];
+      } else {
+        break;
+      }
+    }
+
+    // Get the relative path from the project root to the root dependency
+    const rootDependencyPath = relative(cwd, currentDependency.path);
+
+    return rootDependencyPath;
+  } catch (error) {
+    console.error(`Error finding root dependency for package ${packageName}:`, error?.message);
+    return null;
   }
 }

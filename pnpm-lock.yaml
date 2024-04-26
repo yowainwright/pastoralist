@@ -7,6 +7,7 @@ settings:
 overrides:
   react: ^18.2.0
   react-dom: ^18.2.0
+  json5: 2.2.2
 
 importers:
 
@@ -24,9 +25,6 @@ importers:
       fast-glob:
         specifier: 3.3.2
         version: 3.3.2
-      json5:
-        specifier: ^2.2.3
-        version: 2.2.3
     devDependencies:
       '@commitlint/cli':
         specifier: 18.4.4
@@ -239,7 +237,7 @@ packages:
       convert-source-map: 2.0.0
       debug: 4.3.4
       gensync: 1.0.0-beta.2
-      json5: 2.2.3
+      json5: 2.2.2
       semver: 6.3.1
     transitivePeerDependencies:
       - supports-color
@@ -6459,10 +6457,11 @@ packages:
     resolution: {integrity: sha512-Bdboy+l7tA3OGW6FjyFHWkP5LuByj1Tk33Ljyq0axyzdk9//JSi2u3fP1QSmd1KNwq6VOKYGlAu87CisVir6Pw==}
     dev: true
 
-  /json5@2.2.3:
-    resolution: {integrity: sha512-XmOWe7eyHYH14cLdVPoyg+GOH3rYX++KpzrylJwSW98t3Nk+U8XOl8FWKOgwtzdb8lXGf6zYwDUzeHMWfxasyg==}
+  /json5@2.2.2:
+    resolution: {integrity: sha512-46Tk9JiOL2z7ytNQWFLpj99RZkVgeHf87yGQKsIkaPz1qSH9UczKH1rO7K3wgRselo0tYMUNfecYpm/p1vC7tQ==}
     engines: {node: '>=6'}
     hasBin: true
+    dev: true
 
   /jsonc-parser@3.2.0:
     resolution: {integrity: sha512-gfFQZrcTc8CnKXp6Y4/CBT3fTc0OVuDofpre4aEeEpSBPV5X5v4+Vmx+8snU7RLPrNHPKSgLxGo9YuQzz20o+w==}
@@ -8955,7 +8954,7 @@ packages:
   /stdouttojson@0.7.2:
     resolution: {integrity: sha512-Uk6dgaY4VfdmSL1kas5WCbHua6UxNq5Tnu9xlddyudpDifkmBiUKyyO21yBZqPMy0/sEOj9LSc4A44gkd146aQ==}
     dependencies:
-      json5: 2.2.3
+      json5: 2.2.2
     dev: true
 
   /stop-iteration-iterator@1.0.0:

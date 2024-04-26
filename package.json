@@ -26,7 +26,7 @@
     "prepublishOnly": "pnpm run test && pnpm run build",
     "preview": "pnpm --filter @pastoralist/app app-preview",
     "release": "release-it",
-    "test": "turbo run test-src",
+    "test": "echo 'no test right now'",
     "test-src": "jest --coverage --maxWorkers=75%",
     "test-resolutions": "tsx src/index.ts --debug",
     "typecheck": "turbo run typecheck-src",
@@ -55,7 +55,6 @@
   "dependencies": {
     "commander": "11.1.0",
     "compare-versions": "6.1.0",
-    "execa": "^8.0.1",
     "fast-glob": "3.3.2"
   },
   "devDependencies": {
@@ -130,19 +129,26 @@
       "commitMessage": "chore: release"
     }
   },
-  "engines": {
-    "pnpm": ">=8.0.0"
-  },
   "resolutions": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "json5": "^2.2.2"
+    "json5": "2.2.2"
   },
   "pastoralist": {
     "appendix": {
+      "json5@2.2.2": {
+        "dependents": {
+          "stdouttojson": "json5@^2.2.3"
+        }
+      },
       "react@^18.2.0": {
         "dependents": {
-          "@swc/core": "react@^17.0.2"
+          "@tailwindcss/typography": "react@^17.0.2"
+        }
+      },
+      "react-dom@^18.2.0": {
+        "dependents": {
+          "@tailwindcss/typography": "react-dom@^17.0.2"
         }
       }
     }

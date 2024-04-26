@@ -1,4 +1,3 @@
-import { execa } from 'execa';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Exec = (runner: string, cmds: Array<string>) => Promise<any>;
 export interface PastoralistJSON {
@@ -101,8 +100,6 @@ export interface OverridesWithType extends OverridesConfig {
 }
 export type ResolveOverrides = OverridesWithType | undefined;
 
-export interface FindRootDependencyOptions {
-  packageName: string,
-  exec?: typeof execa;
-  cwd?: string;
-}
+export type ConsoleMethod = 'debug' | 'error' | 'info';
+type ConsoleMethodFunc = (...args: unknown[]) => void;
+export type ConsoleObject = { [K in ConsoleMethod]: ConsoleMethodFunc };

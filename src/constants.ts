@@ -1,1 +1,3 @@
-export const IS_DEBUGGING = Boolean(process.env.DEBUG) || false;
+export const IS_DEBUGGING = process.env.DEBUG === 'true' || false;
+
+export const LOG_PREFIX = "🐑 👩🏽‍🌾 Pastoralist:";

@@ -1,8 +1,7 @@
 import { readFileSync, writeFileSync } from "fs";
-import { execa } from "execa";
 import { resolve } from "path";
 import { sync } from "fast-glob";
-import { compare } from "compare-versions";
+import { satisfies } from "compare-versions";
 
 import { IS_DEBUGGING, LOG_PREFIX } from "./constants";
 import {
@@ -15,35 +14,28 @@ import {
   LoggerOptions,
   OverridesConfig,
   ResolveOverrides,
-  FindRootDependencyOptions
+  ConsoleObject,
+  ConsoleMethod
 } from "./interfaces";
 
+export const logMethod = (type: ConsoleMethod, isLogging: boolean, file: string) => (msg: string, caller: string, ...args: unknown[]) => {
+  if (!isLogging) return;
+  const callerTxt = caller ? `[${caller}]` : "";
+  const prefix = `${LOG_PREFIX}[${file}]${callerTxt}`
+  if (args) (console as ConsoleObject)[type](`${prefix} ${msg}`, ...args);
+  else (console as ConsoleObject)[type](`${prefix} ${msg}`);
+}
+
 export const logger = ({ file, isLogging = false }: LoggerOptions) => ({
-  debug: (msg: string, caller: string, ...args: unknown[]) => {
-    if (!isLogging) return;
-    const callerTxt = caller ? `[${caller}]` : "";
-    const prefix = `${LOG_PREFIX}[${file}]${callerTxt}`
-    if (args) console.debug(`${prefix} ${msg}`, ...args);
-    else console.debug(`${prefix} ${msg}`);
-  },
-  error: (msg: string, caller: string, ...args: unknown[]) => {
-    const callerTxt = caller ? `[${caller}]` : "";
-    const prefix = `${LOG_PREFIX}[${file}]${callerTxt}`
-    if (args) console.error(`${prefix} ${msg}`, ...args);
-    else console.error(`${prefix} ${msg}`);
-  },
-  info: (msg: string, caller: string, ...args: unknown[]) => {
-    const callerTxt = caller ? `[${caller}]` : "";
-    const prefix = `${LOG_PREFIX}[${file}]${callerTxt}`;
-    if (args) console.info(`${prefix} ${msg}`, ...args);
-    else console.info(`${prefix} ${msg}`);
-  }
+  debug: logMethod('debug', isLogging, file),
+  error: logMethod('error', isLogging, file),
+  info: logMethod('info', isLogging, file),
 });
 
 const log = logger({ file: "scripts.ts", isLogging: IS_DEBUGGING });
 
 export const update = async (options: Options) => {
-  const depPaths = options?.depPaths || ["node_modules/**/package.json"];
+  const depPaths = options?.depPaths || ["**/package.json"];
   const path = options?.path || "package.json";
   const isTesting = options?.isTesting || false;
   const config = resolveJSON(path);
@@ -60,11 +52,10 @@ export const update = async (options: Options) => {
   if (appendix) appendixItemsToBeRemoved = auditAppendix(appendix);
   const updatedResolutions = updateOverrides(overridesData, appendixItemsToBeRemoved);
   if (isTesting) return appendix;
-  // TODO console.log({ appendix, updatedResolutions, path, config })
   updatePackageJSON({ appendix, path, config, overrides: updatedResolutions });
 }
 
-export const constructAppendix = async (packageJSONs: Array<string>, data: ResolveOverrides) => {
+export const constructAppendix = (packageJSONs: Array<string>, data: ResolveOverrides) => {
   const overrides = getOverridesByType(data) || {};
   const overridesList = Object.keys(overrides);
   const hasOverrides = overridesList?.length > 0;
@@ -86,7 +77,7 @@ export const constructAppendix = async (packageJSONs: Array<string>, data: Resol
     if (!hasOverriddenDeps) continue;
 
     const appendix = currentPackageJSON?.pastoralist?.appendix || {};
-    const appendixItem = await updateAppendix({ appendix, overrides, dependencies, devDependencies, packageName: name });
+    const appendixItem = updateAppendix({ appendix, overrides, dependencies, devDependencies, packageName: name });
     result = Object.assign(result, appendixItem);
   }
 
@@ -103,7 +94,6 @@ export const auditAppendix = (appendix: Appendix) => {
   const updatedAppendixItems = appendixItems
     .filter((item) => Object.keys(appendix[item]).length > 0)
     .map((item) => item.split("@")[0])
-  // TODO console.log({ updatedAppendixItems });
   return updatedAppendixItems;
 }
 
@@ -147,12 +137,10 @@ export function updatePackageJSON({
   }
 
   const hasAppendix = appendix && Object.keys(appendix).length > 0;
-  if (!hasAppendix) throw new Error('There should be an appendix!')
-  config.pastoralist = { appendix };
+  if (hasAppendix) config.pastoralist = { appendix };
   if (config?.resolutions) config.resolutions = overrides;
   if (config?.overrides) config.overrides = overrides;
   if (config?.pnpm?.overrides) config.pnpm.overrides = overrides;
-
   if (isTesting) return config;
 
   const jsonPath = resolve(path);
@@ -199,7 +187,7 @@ export function resolveOverrides({
   return { type: 'npm', overrides };
 }
 
-export const updateAppendix = async ({
+export const updateAppendix = ({
   overrides = {},
   appendix = {},
   dependencies = {},
@@ -209,25 +197,20 @@ export const updateAppendix = async ({
   const overridesList = overrides && Object.keys(overrides) || [];
   const deps = Object.assign(dependencies, devDependencies);
   const depList = Object.keys(deps);
+  let result = {} as Appendix;
 
-  let result = appendix;
-
-  for await (const override of overridesList) {
+  for (const override of overridesList) {
     const hasOverride = depList.includes(override);
     if (!hasOverride) continue;
 
-    const testResult = await findRootDependency({ packageName: override });
-    console.log({ testResult });
-
     const overrideVersion = overrides[override];
     const packageVersion = deps[override];
-    const hasResolutionOverride = compare(overrideVersion, packageVersion, ">");
-    console.log({ override, overrideVersion, packageVersion, hasResolutionOverride, packageName });
-    if (!hasResolutionOverride) continue;
+    const hasResolutionOverride = satisfies(overrideVersion, packageVersion);
+    if (hasResolutionOverride) continue;
 
     const key = `${override}@${overrides[override]}`;
-    const currentDependents = result[key]?.dependents || {};
-    const appendixDependents = appendix[key]?.dependents || {};
+    const currentDependents = result?.[key]?.dependents || {};
+    const appendixDependents = appendix?.[key]?.dependents || {};
     const dependents = Object.assign(
       currentDependents,
       appendixDependents,
@@ -235,7 +218,6 @@ export const updateAppendix = async ({
     );
 
     result = Object.assign(result, { [key]: { dependents } });
-    console.log({ result, currentDependents, appendixDependents, key, dependents, packageName });
   }
 
   return result;
@@ -279,36 +261,5 @@ export function resolveJSON(path: string) {
   } catch (err) {
     log.error(`🐑 👩🏽‍🌾  Pastoralist found invalid JSON at:\n${path}`, 'resolveJSON', err);
     return;
-  }
-}
-
-// TODO implement this
-// Ref: https://claude.ai/chat/80e42fbc-6ef6-4a55-9f96-22521c1cb084
-export const findRootDependency = async ({
-  packageName,
-  exec = execa,
-  cwd = process.cwd()
-}: FindRootDependencyOptions) => {
-  try {
-    const { stdout } = await exec(
-      'npm',
-      ['ls', packageName, '--depth=0', '--json'],
-      { cwd }
-    );
-    const depTree = JSON.parse(stdout);
-    const dependencies = depTree.dependencies || {};
-    const packageInfo = dependencies[packageName];
-
-    if (packageInfo) {
-      const { version } = packageInfo;
-      return { name: packageName, version };
-    } else {
-      return null;
-    }
-  } catch (error) {
-    const msg = `Error finding root dependency for package ${packageName}`;
-    const fn = 'findRootDependency';
-    log.error(msg, fn, { error });
-    return null;
   }
 }

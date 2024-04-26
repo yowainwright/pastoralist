@@ -33,25 +33,23 @@ export interface ResolveResolutionOptions {
 };
 
 export interface UpdateAppendixOptions {
+  overrides?: Record<string, string>;
   appendix?: Appendix;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+  packageName?: string;
   debug?: boolean;
-  dependencies: Record<string, string>;
-  resolutions: Record<string, string>;
-  packageJSONs?: string[];
-  rootDependencies?: Record<string, string>;
-  name: string;
-  version: string;
-  exec?: Exec;
 };
 
 export interface Options {
   appendix?: Appendix;
   debug?: boolean;
+  depPaths?: string[]; // array of paths
+  exec?: Exec;
+  isTesting?: boolean;
   isTestingCLI?: boolean;
   path?: string; // path to json
-  depPaths?: string[]; // array of paths
-  isTesting?: boolean;
-  exec?: Exec;
+  out?: string; // path to write to
 };
 
 export interface OverridesType {
@@ -63,7 +61,7 @@ export interface UpdatePackageJSONOptions {
   debug?: boolean;
   path: string;
   config: PastoralistJSON;
-  resolutions?: OverridesType;
+  overrides?: OverridesType;
   isTesting?: boolean;
 };
 
@@ -96,3 +94,12 @@ export interface ResolveAppendixOptions {
   options: Options;
   resolutions: Record<string, string>;
 }
+
+export interface OverridesWithType extends OverridesConfig {
+  type: string;
+}
+export type ResolveOverrides = OverridesWithType | undefined;
+
+export type ConsoleMethod = 'debug' | 'error' | 'info';
+type ConsoleMethodFunc = (...args: unknown[]) => void;
+export type ConsoleObject = { [K in ConsoleMethod]: ConsoleMethodFunc };

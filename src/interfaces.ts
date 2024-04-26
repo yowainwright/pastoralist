@@ -1,3 +1,4 @@
+import { execa } from 'execa';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Exec = (runner: string, cmds: Array<string>) => Promise<any>;
 export interface PastoralistJSON {
@@ -99,3 +100,9 @@ export interface OverridesWithType extends OverridesConfig {
   type: string;
 }
 export type ResolveOverrides = OverridesWithType | undefined;
+
+export interface FindRootDependencyOptions {
+  packageName: string,
+  exec?: typeof execa;
+  cwd?: string;
+}

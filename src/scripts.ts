@@ -34,7 +34,7 @@ export const logger = ({ file, isLogging = false }: LoggerOptions) => ({
 
 const log = logger({ file: "scripts.ts", isLogging: IS_DEBUGGING });
 
-export const update = async (options: Options) => {
+export const update = (options: Options): void => {
   const depPaths = options?.depPaths || ["**/package.json"];
   const path = options?.path || "package.json";
   const isTesting = options?.isTesting || false;
@@ -47,11 +47,11 @@ export const update = async (options: Options) => {
   const overridesData = resolveOverrides({ options, config });
   const packageJSONs = sync(depPaths);
 
-  const appendix = await constructAppendix(packageJSONs, overridesData);
+  const appendix = constructAppendix(packageJSONs, overridesData);
   let appendixItemsToBeRemoved
   if (appendix) appendixItemsToBeRemoved = auditAppendix(appendix);
   const updatedResolutions = updateOverrides(overridesData, appendixItemsToBeRemoved);
-  if (isTesting) return appendix;
+  if (isTesting) return appendix as void;
   updatePackageJSON({ appendix, path, config, overrides: updatedResolutions });
 }
 

@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from "fs";
-import { execFileSync } from "child_process";
-import { resolve, relative } from "path";
+import { execa } from "execa";
+import { resolve } from "path";
 import { sync } from "fast-glob";
 import { compare } from "compare-versions";
 
@@ -14,7 +14,8 @@ import {
   ResolveResolutionOptions,
   LoggerOptions,
   OverridesConfig,
-  ResolveOverrides
+  ResolveOverrides,
+  FindRootDependencyOptions
 } from "./interfaces";
 
 export const logger = ({ file, isLogging = false }: LoggerOptions) => ({
@@ -41,7 +42,7 @@ export const logger = ({ file, isLogging = false }: LoggerOptions) => ({
 
 const log = logger({ file: "scripts.ts", isLogging: IS_DEBUGGING });
 
-export const update = (options: Options) => {
+export const update = async (options: Options) => {
   const depPaths = options?.depPaths || ["node_modules/**/package.json"];
   const path = options?.path || "package.json";
   const isTesting = options?.isTesting || false;
@@ -54,38 +55,43 @@ export const update = (options: Options) => {
   const overridesData = resolveOverrides({ options, config });
   const packageJSONs = sync(depPaths);
 
-  const appendix = constructAppendix(packageJSONs, overridesData);
-  const appendixItemsToBeRemoved = auditAppendix(appendix);
+  const appendix = await constructAppendix(packageJSONs, overridesData);
+  let appendixItemsToBeRemoved
+  if (appendix) appendixItemsToBeRemoved = auditAppendix(appendix);
   const updatedResolutions = updateOverrides(overridesData, appendixItemsToBeRemoved);
   if (isTesting) return appendix;
   // TODO console.log({ appendix, updatedResolutions, path, config })
   updatePackageJSON({ appendix, path, config, overrides: updatedResolutions });
 }
 
-export const constructAppendix = (packageJSONs: Array<string>, data: ResolveOverrides) => {
+export const constructAppendix = async (packageJSONs: Array<string>, data: ResolveOverrides) => {
   const overrides = getOverridesByType(data) || {};
   const overridesList = Object.keys(overrides);
   const hasOverrides = overridesList?.length > 0;
   if (!hasOverrides) return;
-  // TODO console.log({ packageJSONs, data, overrides, overridesList, hasOverrides });
-  return packageJSONs.reduce((acc, packageJSON) => {
+
+  let result = {} as Appendix;
+
+  for (const packageJSON of packageJSONs) {
     const currentPackageJSON = resolveJSON(packageJSON) as PastoralistJSON;
-    if (!currentPackageJSON) return acc;
+    if (!currentPackageJSON) continue;
 
     const { name, dependencies = {}, devDependencies = {} } = currentPackageJSON;
     const mergedDeps = Object.assign(dependencies, devDependencies);
     const depList = Object.keys(mergedDeps);
-    // TODO console.log({ depList });
-    if (!depList.length) return acc;
+
+    if (!depList.length) continue;
 
     const hasOverriddenDeps = depList.some(item => overridesList.includes(item));
-    if (!hasOverriddenDeps) return acc;
+    if (!hasOverriddenDeps) continue;
+
     const appendix = currentPackageJSON?.pastoralist?.appendix || {};
-    // TODO console.log({ appendix });
-    const appendixItem = updateAppendix({ appendix, overrides, dependencies, devDependencies, packageName: name });
-    return Object.assign(acc, appendixItem);
-  }, {} as Appendix);
-}
+    const appendixItem = await updateAppendix({ appendix, overrides, dependencies, devDependencies, packageName: name });
+    result = Object.assign(result, appendixItem);
+  }
+
+  return result;
+};
 
 export const auditAppendix = (appendix: Appendix) => {
   if (!appendix) return [];
@@ -193,43 +199,47 @@ export function resolveOverrides({
   return { type: 'npm', overrides };
 }
 
-export function updateAppendix({
+export const updateAppendix = async ({
   overrides = {},
   appendix = {},
   dependencies = {},
   devDependencies = {},
   packageName = "",
-}: UpdateAppendixOptions) {
+}: UpdateAppendixOptions) => {
   const overridesList = overrides && Object.keys(overrides) || [];
-  //const hasOverrides = overridesList.length > 0;
   const deps = Object.assign(dependencies, devDependencies);
   const depList = Object.keys(deps);
 
-  return overridesList.reduce((acc: Appendix, override: string): Appendix => {
+  let result = appendix;
+
+  for await (const override of overridesList) {
     const hasOverride = depList.includes(override);
-    if (!hasOverride) return acc;
+    if (!hasOverride) continue;
+
+    const testResult = await findRootDependency({ packageName: override });
+    console.log({ testResult });
 
     const overrideVersion = overrides[override];
     const packageVersion = deps[override];
     const hasResolutionOverride = compare(overrideVersion, packageVersion, ">");
     console.log({ override, overrideVersion, packageVersion, hasResolutionOverride, packageName });
-    if (!hasResolutionOverride) return acc;
+    if (!hasResolutionOverride) continue;
 
     const key = `${override}@${overrides[override]}`;
-    const currentDependents = appendix?.[key]?.dependents || {};
-    const appendixDependents = appendix?.[key]?.dependents || {};
+    const currentDependents = result[key]?.dependents || {};
+    const appendixDependents = appendix[key]?.dependents || {};
     const dependents = Object.assign(
       currentDependents,
       appendixDependents,
       { [packageName]: `${override}@${packageVersion}` }
     );
 
-    const result = Object.assign(appendix, acc, { [key]: { dependents } });
+    result = Object.assign(result, { [key]: { dependents } });
     console.log({ result, currentDependents, appendixDependents, key, dependents, packageName });
+  }
 
-    return result;
-  }, appendix);
-}
+  return result;
+};
 
 export const defineOverride = ({ overrides = {}, pnpm = {}, resolutions = {} }: OverridesConfig = {}) => {
   const pnpmOverrides = pnpm?.overrides || {};
@@ -274,30 +284,31 @@ export function resolveJSON(path: string) {
 
 // TODO implement this
 // Ref: https://claude.ai/chat/80e42fbc-6ef6-4a55-9f96-22521c1cb084
-export const findRootDependency = ({ packageName, exec = execFileSync, cwd = process.cwd() }) => {
+export const findRootDependency = async ({
+  packageName,
+  exec = execa,
+  cwd = process.cwd()
+}: FindRootDependencyOptions) => {
   try {
-    const output = exec('npm', ['ls', packageName, '--json'], { cwd }).toString();
+    const { stdout } = await exec(
+      'npm',
+      ['ls', packageName, '--depth=0', '--json'],
+      { cwd }
+    );
+    const depTree = JSON.parse(stdout);
+    const dependencies = depTree.dependencies || {};
+    const packageInfo = dependencies[packageName];
 
-    // Parse the JSON output
-    const dependencyTree = JSON.parse(output);
-
-    // Traverse the dependency tree to find the root dependency
-    let currentDependency = dependencyTree;
-    while (currentDependency.dependencies) {
-      const dependencies = Object.keys(currentDependency.dependencies);
-      if (dependencies.includes(packageName)) {
-        currentDependency = currentDependency.dependencies[packageName];
-      } else {
-        break;
-      }
+    if (packageInfo) {
+      const { version } = packageInfo;
+      return { name: packageName, version };
+    } else {
+      return null;
     }
-
-    // Get the relative path from the project root to the root dependency
-    const rootDependencyPath = relative(cwd, currentDependency.path);
-
-    return rootDependencyPath;
   } catch (error) {
-    console.error(`Error finding root dependency for package ${packageName}:`, error?.message);
+    const msg = `Error finding root dependency for package ${packageName}`;
+    const fn = 'findRootDependency';
+    log.error(msg, fn, { error });
     return null;
   }
 }

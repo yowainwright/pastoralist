@@ -11,14 +11,14 @@ export interface PastoralistJSON {
   pastoralist?: {
     appendix?: Appendix;
   };
-};
+}
 
 export interface AppendixItem {
   rootDeps?: Array<string>;
   dependents: Record<string, string>;
-};
+}
 export interface Appendix {
-  [key: string]: AppendixItem
+  [key: string]: AppendixItem;
 }
 
 export interface OverridesConfig {
@@ -30,7 +30,7 @@ export interface OverridesConfig {
 export interface ResolveResolutionOptions {
   config?: OverridesConfig;
   options?: Options;
-};
+}
 
 export interface UpdateAppendixOptions {
   overrides?: Record<string, string>;
@@ -39,7 +39,7 @@ export interface UpdateAppendixOptions {
   devDependencies?: Record<string, string>;
   packageName?: string;
   debug?: boolean;
-};
+}
 
 export interface Options {
   appendix?: Appendix;
@@ -50,7 +50,7 @@ export interface Options {
   isTestingCLI?: boolean;
   path?: string; // path to json
   out?: string; // path to write to
-};
+}
 
 export interface OverridesType {
   [key: string]: string;
@@ -63,7 +63,7 @@ export interface UpdatePackageJSONOptions {
   config: PastoralistJSON;
   overrides?: OverridesType;
   isTesting?: boolean;
-};
+}
 
 export interface FindRootDeps {
   packageJSONs?: string[];
@@ -71,7 +71,7 @@ export interface FindRootDeps {
   resolutionName: string;
   resolutionVersion: string;
   rootName: string;
-};
+}
 
 export interface GetRootDeps {
   debug?: boolean;
@@ -87,7 +87,7 @@ export interface RootDepItem {
 export interface LoggerOptions {
   file: string;
   isLogging?: boolean;
-};
+}
 
 export interface ResolveAppendixOptions {
   config: PastoralistJSON;
@@ -100,6 +100,6 @@ export interface OverridesWithType extends OverridesConfig {
 }
 export type ResolveOverrides = OverridesWithType | undefined;
 
-export type ConsoleMethod = 'debug' | 'error' | 'info';
+export type ConsoleMethod = "debug" | "error" | "info";
 type ConsoleMethodFunc = (...args: unknown[]) => void;
 export type ConsoleObject = { [K in ConsoleMethod]: ConsoleMethodFunc };

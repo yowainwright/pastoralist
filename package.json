@@ -66,7 +66,7 @@
     "@swc/core": "^1.4.17",
     "@swc/jest": "^0.2.36",
     "@types/jest": "^29.5.12",
-    "@types/node": "20.12.7",
+    "@types/node": "20.12.8",
     "codependence": "^0.2.6",
     "eslint": "9.1.1",
     "eslint-config-prettier": "^9.1.0",
@@ -87,7 +87,7 @@
     "turbo": "1.13.3",
     "typescript": "5.4.5",
     "typescript-eslint": "^7.7.1",
-    "vite": "5.2.10"
+    "vite": "5.2.11"
   },
   "commitlint": {
     "extends": [

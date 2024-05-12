@@ -3,7 +3,14 @@
   "version": "1.1.12-beta.1",
   "description": "A tool to watch over node module resolutions and overrides 🐑 👩🏽‍🌾",
   "main": "dist/index.js",
+  "module": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.mjs"
+    }
+  },
   "files": [
     "dist"
   ],
@@ -12,7 +19,7 @@
   },
   "scripts": {
     "build": "turbo run build-dist",
-    "build-dist": "tsc",
+    "build-dist": "tsup src/index.ts --format esm,cjs --dts",
     "clean-dist": "rimraf dist",
     "clean": "turbo run clean-dist",
     "commit": "git-cz",
@@ -56,7 +63,9 @@
   "dependencies": {
     "commander": "12.0.0",
     "compare-versions": "6.1.0",
-    "fast-glob": "3.3.2"
+    "fast-glob": "3.3.2",
+    "gradient-string": "^2.0.2",
+    "ora": "^8.0.1"
   },
   "devDependencies": {
     "@commitlint/cli": "19.3.0",
@@ -65,6 +74,7 @@
     "@eslint/js": "^9.1.1",
     "@swc/core": "^1.4.17",
     "@swc/jest": "^0.2.36",
+    "@types/gradient-string": "^1.1.6",
     "@types/jest": "^29.5.12",
     "@types/node": "20.12.8",
     "codependence": "^0.2.6",

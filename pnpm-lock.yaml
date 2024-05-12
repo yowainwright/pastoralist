@@ -22,6 +22,12 @@ importers:
       fast-glob:
         specifier: 3.3.2
         version: 3.3.2
+      gradient-string:
+        specifier: ^2.0.2
+        version: 2.0.2
+      ora:
+        specifier: ^8.0.1
+        version: 8.0.1
     devDependencies:
       '@commitlint/cli':
         specifier: 19.3.0
@@ -41,6 +47,9 @@ importers:
       '@swc/jest':
         specifier: ^0.2.36
         version: 0.2.36(@swc/core@1.4.17)
+      '@types/gradient-string':
+        specifier: ^1.1.6
+        version: 1.1.6
       '@types/jest':
         specifier: ^29.5.12
         version: 29.5.12
@@ -1417,6 +1426,9 @@ packages:
 
   '@types/graceful-fs@4.1.9':
     resolution: {integrity: sha512-olP3sd1qOEe5dXTSaFvQG+02VdRXcdytWLAZsAq1PecU8uqQAhkrnbli7DagjtXKW/Bl7YJbUsa8MPcuc8LHEQ==}
+
+  '@types/gradient-string@1.1.6':
+    resolution: {integrity: sha512-LkaYxluY4G5wR1M4AKQUal2q61Di1yVVCw42ImFTuaIoQVgmV0WP1xUaLB8zwb47mp82vWTpePI9JmrjEnJ7nQ==}
 
   '@types/hast@2.3.10':
     resolution: {integrity: sha512-McWspRw8xx8J9HurkVBfYj0xKoE25tOFlHGdx4MJ5xORQrMGZNqJhVQWaIbm6Oyla5kYOXtDiopzKRJzEOkwJw==}
@@ -6648,6 +6660,10 @@ snapshots:
   '@types/graceful-fs@4.1.9':
     dependencies:
       '@types/node': 20.12.11
+
+  '@types/gradient-string@1.1.6':
+    dependencies:
+      '@types/tinycolor2': 1.4.6
 
   '@types/hast@2.3.10':
     dependencies:

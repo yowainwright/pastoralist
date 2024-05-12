@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import { program } from "commander";
+import ora from "ora";
+import gradient from "gradient-string";
 import { Options } from "./interfaces";
 import { update, logger } from "./scripts";
 import { IS_DEBUGGING } from "./constants";
@@ -14,7 +16,12 @@ export async function action(options: Options = {}): Promise<void> {
     return;
   }
   try {
+    const pastor = gradient("green", "tan");
+    const spinner = ora(
+      `👩🏽‍🌾 ${pastor(`pastoralist`)} checking herd...\n`,
+    ).start();
     await update(rest);
+    spinner.succeed(`👩🏽‍🌾 ${pastor(`pastoralist`)} the herd is safe!`);
   } catch (err) {
     log.error("action:fn", "action", { error: err });
     process.exit(1);

@@ -142,11 +142,6 @@
       "commitMessage": "chore: release"
     }
   },
-  "resolutions": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "json5": "2.2.2"
-  },
   "pastoralist": {
     "appendix": {
       "json5@2.2.2": {

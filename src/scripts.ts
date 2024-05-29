@@ -69,7 +69,7 @@ export const constructAppendix = (
   const hasOverrides = overridesList?.length > 0;
   if (!hasOverrides) return;
 
-  let result = new Map();
+  let result = new Map() as unknown as Appendix;
 
   for (const packageJSON of packageJSONs) {
     const currentPackageJSON = resolveJSON(packageJSON) as PastoralistJSON;

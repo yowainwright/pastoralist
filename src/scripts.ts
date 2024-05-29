@@ -69,7 +69,7 @@ export const constructAppendix = (
   const hasOverrides = overridesList?.length > 0;
   if (!hasOverrides) return;
 
-  let result = {} as Appendix;
+  let result = new Map();
 
   for (const packageJSON of packageJSONs) {
     const currentPackageJSON = resolveJSON(packageJSON) as PastoralistJSON;
@@ -134,13 +134,11 @@ export const updateOverrides = (
     return overrides;
   }
 
-  const overrideItems = Object.keys(overrides);
-  return overrideItems.reduce((acc, item) => {
-    const isItemToBeRemoved = appendixItems.includes(item);
-    if (isItemToBeRemoved) return acc;
-    const update = { [item]: overrides[item] };
-    return Object.assign(acc, update);
-  }, overrides);
+  for (const item of appendixItems) {
+    delete overrides[item];
+  }
+
+  return overrides;
 };
 
 export function updatePackageJSON({
@@ -152,10 +150,10 @@ export function updatePackageJSON({
 }: UpdatePackageJSONOptions): PastoralistJSON | void {
   const hasOverrides = overrides && Object.keys(overrides).length > 0;
   if (!hasOverrides) {
-    delete config.pastoralist;
-    delete config.resolutions;
-    delete config.overrides;
-    delete config.pnpm?.overrides;
+    const keysToRemove = ["pastoralist", "resolutions", "overrides", "pnpm"];
+    for (const key of keysToRemove) {
+      delete config[key as keyof PastoralistJSON];
+    }
   }
 
   const hasAppendix = appendix && Object.keys(appendix).length > 0;
@@ -263,16 +261,18 @@ export const defineOverride = ({
     { type: "pnpmOverrides", overrides: pnpmOverrides },
     { type: "resolutions", overrides: resolutions },
   ].filter(({ overrides }) => Object.keys(overrides).length > 0);
-  const hasOverride = overrideTypes?.length > 0;
-  const hasMultipleOverrides = overrideTypes?.length > 1;
   const fn = "defineOverride";
+  const hasOverride = overrideTypes?.length > 0;
   if (!hasOverride) {
     log.debug("🐑 👩🏽‍🌾 Pastoralist didn't find any overrides!", fn);
     return;
-  } else if (hasMultipleOverrides) {
+  }
+  const hasMultipleOverrides = overrideTypes?.length > 1;
+  if (hasMultipleOverrides) {
     log.error("Only 1 override object allowed", fn);
     return;
   }
+
   return overrideTypes[0];
 };
 

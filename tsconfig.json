@@ -11,7 +11,7 @@
     "forceConsistentCasingInFileNames": true,
     "importHelpers": true,
     "lib": ["esnext", "dom", "es6", "dom.iterable"],
-    "module": "commonjs",
+    "module": "esnext",
     "moduleResolution": "node",
     "noEmit": false,
     "noImplicitReturns": true,
@@ -23,7 +23,7 @@
     "skipLibCheck": true,
     "sourceMap": false,
     "strict": true,
-    "target": "es5",
+    "target": "esnext",
     "types": ["node", "jest"]
   },
   "include": ["src"],

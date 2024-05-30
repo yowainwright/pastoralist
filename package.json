@@ -4,11 +4,12 @@
   "description": "A tool to watch over node module resolutions and overrides 🐑 👩🏽‍🌾",
   "main": "dist/index.js",
   "module": "dist/index.js",
+  "type": "module",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "import": "./dist/index.js",
-      "require": "./dist/index.mjs"
+      "require": "./dist/index.cjs"
     }
   },
   "files": [
@@ -19,9 +20,8 @@
   },
   "scripts": {
     "build": "turbo run build-dist",
-    "build-dist": "tsup src/index.ts --format esm,cjs --dts",
+    "build-dist": "pnpm run clean-dist && tsup src/index.ts --format esm,cjs --dts",
     "clean-dist": "rimraf dist",
-    "clean": "turbo run clean-dist",
     "commit": "git-cz",
     "commit-msg": "commitlint --edit $1",
     "dev": "pnpm --filter @pastoralist/app run app-dev",

@@ -142,7 +142,7 @@
       "commitMessage": "chore: release"
     }
   },
-  "packageManager": "^pnpm@9.0.0",
+  "packageManager": "pnpm@9.5.0",
   "pastoralist": {
     "appendix": {
       "json5@2.2.2": {

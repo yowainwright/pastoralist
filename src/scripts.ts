@@ -1,7 +1,8 @@
 import { readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
-import { sync } from "fast-glob";
+import fg from "fast-glob";
 import { satisfies } from "compare-versions";
+const { sync } = fg;
 
 import { IS_DEBUGGING, LOG_PREFIX } from "./constants";
 import {

@@ -2,7 +2,7 @@
   "name": "pastoralist",
   "version": "1.1.12-beta.4",
   "description": "A tool to watch over node module resolutions and overrides 🐑 👩🏽‍🌾",
-  "main": "dist/index.js",
+  "main": "dist/index.cjs",
   "module": "dist/index.js",
   "type": "module",
   "types": "dist/index.d.ts",
@@ -142,6 +142,7 @@
       "commitMessage": "chore: release"
     }
   },
+  "packageManager": "pnpm@9.5.0",
   "pastoralist": {
     "appendix": {
       "json5@2.2.2": {

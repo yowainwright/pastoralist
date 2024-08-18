@@ -7,14 +7,11 @@ export async function processPackageJSON(
   overrides: OverridesType,
   overridesList: string[],
 ) {
-  // 1. Read and parse the JSON file using resolveJSON
   const currentPackageJSON = await resolveJSON(filePath);
-  if (!currentPackageJSON) return null; // Or handle the error appropriately
+  if (!currentPackageJSON) return;
 
-  // 2. Extract name, dependencies, devDependencies
   const { name, dependencies = {}, devDependencies = {} } = currentPackageJSON;
 
-  // 3. Perform the logic within the original for loop
   const mergedDeps = { ...dependencies, ...devDependencies };
   const depList = Object.keys(mergedDeps);
 
@@ -22,7 +19,7 @@ export async function processPackageJSON(
     depList.length === 0 ||
     !depList.some((item) => overridesList.includes(item))
   ) {
-    return null; // No relevant dependencies
+    return;
   }
 
   const appendix = currentPackageJSON?.pastoralist?.appendix || {};
@@ -34,7 +31,6 @@ export async function processPackageJSON(
     packageName: name,
   });
 
-  // 4. Return the relevant data
   return { name, dependencies, devDependencies, appendixItem };
 }
 

@@ -22,9 +22,9 @@
   "devDependencies": {
     "@mdx-js/mdx": "^3.0.1",
     "@mdx-js/rollup": "^3.0.1",
-    "@tailwindcss/typography": "^0.5.14",
+    "@tailwindcss/typography": "^0.5.15",
     "@types/mdx": "^2.0.13",
-    "@types/node": "^20.16.1",
+    "@types/node": "^20.16.2",
     "@types/react": "^18.3.4",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",

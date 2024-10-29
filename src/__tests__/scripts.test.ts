@@ -1,17 +1,27 @@
 import { LOG_PREFIX } from "../constants";
 import { logMethod } from "../scripts";
 import { ConsoleMethod } from "../interfaces";
+import { resolve } from "path";
+
+jest.mock("fs/promises");
+jest.mock("fast-glob", () => ({
+  async: jest.fn(() =>
+    Promise.resolve([
+      resolve(__dirname, "./fixtures/package-overrides.json"),
+      resolve(__dirname, "./fixtures/package-resolutions.json"),
+      resolve(__dirname, "./fixtures/package-pnpm-overrides.json"),
+    ]),
+  ),
+}));
 
 describe("logMethod", () => {
   beforeEach(() => {
-    // Mock console methods before each test
     jest.spyOn(console, "debug").mockImplementation(() => {});
     jest.spyOn(console, "error").mockImplementation(() => {});
     jest.spyOn(console, "info").mockImplementation(() => {});
   });
 
   afterEach(() => {
-    // Restore console methods after each test
     jest.restoreAllMocks();
   });
 

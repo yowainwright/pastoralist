@@ -16,9 +16,6 @@
       "dependsOn": ["typecheck-src"],
       "inputs": ["src/**/*.ts"]
     },
-    "//#test-src": {
-      "inputs": ["src/**/*.ts"]
-    },
     "typecheck-src": {
       "inputs": ["src/**/*.ts"]
     },

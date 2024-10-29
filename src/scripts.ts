@@ -1,7 +1,9 @@
 import { readFile, writeFile } from "fs/promises";
 import { resolve } from "path";
 import fg from "fast-glob";
-import workerpool from "workerpool";
+import pLimit from "p-limit";
+import { satisfies } from "compare-versions";
+
 const { async } = fg;
 import { IS_DEBUGGING, LOG_PREFIX } from "./constants";
 import {
@@ -13,8 +15,9 @@ import {
   LoggerOptions,
   OverridesConfig,
   ResolveOverrides,
-  ConsoleObject,
   ConsoleMethod,
+  OverridesType,
+  UpdateAppendixOptions,
 } from "./interfaces";
 
 export const logMethod = (
@@ -22,12 +25,10 @@ export const logMethod = (
   isLogging: boolean,
   file: string,
 ) => {
-  return (msg: string, caller: string, ...args: unknown[]) => {
+  return (msg: string, caller?: string, ...args: unknown[]) => {
     if (!isLogging) return;
     const callerTxt = caller ? `[${caller}]` : "";
-    const prefix = `${LOG_PREFIX}[${file}]${callerTxt}`;
-    if (args) (console as ConsoleObject)[type](`${prefix} ${msg}`, ...args);
-    else (console as ConsoleObject)[type](`${prefix} ${msg}`);
+    console[type](`${LOG_PREFIX}[${file}]${callerTxt} ${msg}`, ...args);
   };
 };
 
@@ -76,25 +77,32 @@ export const constructAppendix = async (
   const hasOverrides = overridesList?.length > 0;
   if (!hasOverrides) return;
 
-  const pool = workerpool.pool("./processPackageJSON.ts");
-
   let result = new Map() as unknown as Appendix;
   try {
-    const workerPromises = packageJSONs.map((filePath) =>
-      pool.exec("processPackageJSON", [filePath, overrides, overridesList]),
-    );
+    const limit = pLimit(10);
 
-    const workerResults = await Promise.all(workerPromises);
+    const deps = packageJSONs.map((filePath) => {
+      return limit(async () => {
+        const resultData = await processPackageJSON(
+          filePath,
+          overrides,
+          overridesList,
+        );
+        if (resultData) {
+          return resultData;
+        }
+      });
+    });
 
-    for (const resultData of workerResults) {
+    const depResults = await Promise.all(deps);
+
+    for (const resultData of depResults) {
       if (!resultData) continue;
       const appendixItem = resultData?.appendixItem;
       result = Object.assign(result, appendixItem);
     }
   } catch (err) {
     log.error("Error constructing appendix", "constructAppendix", err);
-  } finally {
-    pool.terminate();
   }
   return result;
 };
@@ -118,17 +126,17 @@ export const updateOverrides = (
 ) => {
   if (!overrideData) return;
   const overrides = getOverridesByType(overrideData);
-  const hasOverrides = overrides && Object.keys(overrides).length > 0;
-  if (!hasOverrides) {
+  if (!overrides || Object.keys(overrides).length === 0) {
     log.debug("Should there be overrides here?", "updateOverrides");
     return;
   }
 
-  for (const item of appendixItems) {
-    delete overrides[item];
-  }
-
-  return overrides;
+  return Object.entries(overrides).reduce((acc, [key, value]) => {
+    if (!appendixItems.includes(key)) {
+      acc[key] = value;
+    }
+    return acc;
+  }, {} as OverridesType);
 };
 
 export async function updatePackageJSON({
@@ -138,19 +146,20 @@ export async function updatePackageJSON({
   overrides,
   isTesting = false,
 }: UpdatePackageJSONOptions): Promise<PastoralistJSON | void> {
-  const hasOverrides = overrides && Object.keys(overrides).length > 0;
-  if (!hasOverrides) {
-    const keysToRemove = ["pastoralist", "resolutions", "overrides", "pnpm"];
-    for (const key of keysToRemove) {
+  if (!overrides || Object.keys(overrides).length === 0) {
+    ["pastoralist", "resolutions", "overrides", "pnpm"].forEach((key) => {
       delete config[key as keyof PastoralistJSON];
+    });
+  } else {
+    if (appendix && Object.keys(appendix).length > 0) {
+      config.pastoralist = { appendix };
+    }
+    config.resolutions = overrides;
+    config.overrides = overrides;
+    if (config.pnpm) {
+      config.pnpm.overrides = overrides;
     }
   }
-
-  const hasAppendix = appendix && Object.keys(appendix).length > 0;
-  if (hasAppendix) config.pastoralist = { appendix };
-  if (config?.resolutions) config.resolutions = overrides;
-  if (config?.overrides) config.overrides = overrides;
-  if (config?.pnpm?.overrides) config.pnpm.overrides = overrides;
   if (isTesting) return config;
 
   const jsonPath = resolve(path);
@@ -263,3 +272,69 @@ export async function resolveJSON(path: string) {
     return;
   }
 }
+
+export async function processPackageJSON(
+  filePath: string,
+  overrides: OverridesType,
+  overridesList: string[],
+) {
+  const currentPackageJSON = await resolveJSON(filePath);
+  if (!currentPackageJSON) return;
+
+  const { name, dependencies = {}, devDependencies = {} } = currentPackageJSON;
+
+  const mergedDeps = { ...dependencies, ...devDependencies };
+  const depList = Object.keys(mergedDeps);
+
+  if (
+    depList.length === 0 ||
+    !depList.some((item) => overridesList.includes(item))
+  ) {
+    return;
+  }
+
+  const appendix = currentPackageJSON?.pastoralist?.appendix || {};
+  const appendixItem = updateAppendix({
+    appendix,
+    overrides,
+    dependencies,
+    devDependencies,
+    packageName: name,
+  });
+
+  return { name, dependencies, devDependencies, appendixItem };
+}
+
+export const updateAppendix = ({
+  overrides = {},
+  appendix = {},
+  dependencies = {},
+  devDependencies = {},
+  packageName = "",
+}: UpdateAppendixOptions) => {
+  const overridesList = (overrides && Object.keys(overrides)) || [];
+  const deps = Object.assign(dependencies, devDependencies);
+  const depList = Object.keys(deps);
+  let result = {} as Appendix;
+
+  for (const override of overridesList) {
+    const hasOverride = depList.includes(override);
+    if (!hasOverride) continue;
+
+    const overrideVersion = overrides[override];
+    const packageVersion = deps[override];
+    const hasResolutionOverride = satisfies(overrideVersion, packageVersion);
+    if (hasResolutionOverride) continue;
+
+    const key = `${override}@${overrides[override]}`;
+    const currentDependents = result?.[key]?.dependents || {};
+    const appendixDependents = appendix?.[key]?.dependents || {};
+    const dependents = Object.assign(currentDependents, appendixDependents, {
+      [packageName]: `${override}@${packageVersion}`,
+    });
+
+    result = Object.assign(result, { [key]: { dependents } });
+  }
+
+  return result;
+};

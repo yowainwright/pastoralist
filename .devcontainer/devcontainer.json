@@ -1,12 +1,10 @@
 {
-	"name": "Node.js",
-	"build": {
-		"dockerfile": "Dockerfile",
-		"args": { "VARIANT": "20-bullseye" }
-	},
-	"extensions": [
-		"dbaeumer.vscode-eslint"
-	],
-	"postCreateCommand": "pnpm install",
-	"remoteUser": "node"
+  "name": "Node.js",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "args": { "VARIANT": "22-bullseye" }
+  },
+  "extensions": ["dbaeumer.vscode-eslint"],
+  "postCreateCommand": "pnpm install",
+  "remoteUser": "node"
 }

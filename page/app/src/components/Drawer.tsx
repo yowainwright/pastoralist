@@ -11,12 +11,12 @@ export type DrawerProps = {
 export const Drawer = ({ children, isOpen, toggleDrawer }: DrawerProps) => {
   return (
     <DaisyDrawer
+      className="lg:drawer-open"
       side={<SideBar />}
       open={isOpen}
       onClickOverlay={toggleDrawer}
-      mobile
     >
-      <div className="h-100 px-6">{children}</div>
+      <div className="h-full">{children}</div>
     </DaisyDrawer>
   );
 };

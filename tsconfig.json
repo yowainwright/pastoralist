@@ -26,6 +26,6 @@
 		"target": "esnext",
 		"types": ["node"]
 	},
-	"include": ["src", "tests/scripts.test.ts"],
-	"exclude": ["src/__tests__/*.ts", "app/**/*", "dist", "tests"]
+	"include": ["src"],
+	"exclude": ["app/**/*", "dist", "tests"]
 }

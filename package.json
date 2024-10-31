@@ -19,7 +19,7 @@
     "pastoralist": "./dist/index.js"
   },
   "scripts": {
-    "build": "turbo run build-dist && ./scripts/replacePoolFileStrings.js",
+    "build": "turbo run build-dist",
     "build-dist": "pnpm run clean-dist && tsup src/index.ts --format esm,cjs --dts --minify",
     "clean-dist": "rimraf dist",
     "commit": "git-cz",

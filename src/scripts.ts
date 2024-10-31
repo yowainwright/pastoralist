@@ -4,7 +4,7 @@ import fg from "fast-glob";
 import pLimit from "p-limit";
 import { satisfies } from "compare-versions";
 
-const { async } = fg;
+const { sync } = fg;
 import { IS_DEBUGGING, LOG_PREFIX } from "./constants";
 import {
   Appendix,
@@ -23,6 +23,8 @@ import {
 export const update = async (options: Options): Promise<void> => {
   const depPaths = options?.depPaths || ["**/package.json"];
   const path = options?.path || "package.json";
+  const root = options?.root || "./";
+  const ignore = options?.ignore || ["**/node_modules/**"];
   const isTesting = options?.isTesting || false;
   const config = await resolveJSON(path);
   if (!config) {
@@ -31,7 +33,7 @@ export const update = async (options: Options): Promise<void> => {
   }
 
   const overridesData = resolveOverrides({ options, config });
-  const packageJSONs = await async(depPaths);
+  const packageJSONs = sync(depPaths, { cwd: root, ignore });
   const appendix = await constructAppendix(packageJSONs, overridesData);
   let appendixItemsToBeRemoved;
   if (appendix) appendixItemsToBeRemoved = auditAppendix(appendix);

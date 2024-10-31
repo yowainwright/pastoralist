@@ -35,6 +35,7 @@
     "release": "release-it",
     "test": "tsx --test tests/*.ts",
     "test-resolutions": "tsx src/index.ts --debug",
+    "test-resolutions-with-dist": "node dist/index.js --debug",
     "typecheck": "turbo run typecheck-src",
     "typecheck-src": "tsc --noEmit",
     "update": "codependence --update && pnpm run update-app-deps",

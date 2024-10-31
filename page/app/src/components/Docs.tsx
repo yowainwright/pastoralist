@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { MDXProvider } from "@mdx-js/react";
 import { Highlight, themes, Language } from "prism-react-renderer";
 import { MDXComponents } from "mdx/types";

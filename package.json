@@ -33,7 +33,7 @@
     "prepublishOnly": "pnpm run test && pnpm run build",
     "preview": "pnpm --filter @pastoralist/app app-preview",
     "release": "release-it",
-    "test": "tsx --test ./tests/**/*.ts",
+    "test": "tsx --test tests/*.ts",
     "test-resolutions": "tsx src/index.ts --debug",
     "typecheck": "turbo run typecheck-src",
     "typecheck-src": "tsc --noEmit",

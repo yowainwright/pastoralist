@@ -9,6 +9,7 @@ import {
 	getOverridesByType,
 	defineOverride,
 	resolveOverrides,
+	updatePackageJSON,
 } from "../src/scripts";
 import { LOG_PREFIX } from "../src/constants";
 
@@ -488,6 +489,68 @@ describe("resolveOverrides", () => {
 		assert.deepStrictEqual(result, {
 			type: "npm",
 			overrides: { foo: "1.0.0" },
+		});
+	});
+});
+
+describe("updatePackageJSON", () => {
+	it("should delete specific keys from config if overrides are empty", async () => {
+		const config = {
+			pastoralist: { appendix: {} },
+			resolutions: { foo: "1.0.0" },
+			overrides: { bar: "2.0.0" },
+			pnpm: { overrides: { baz: "3.0.0" } },
+		};
+
+		await updatePackageJSON({
+			appendix: {},
+			path: "path/to/package.json",
+			config,
+			overrides: {},
+			isTesting: true,
+		});
+
+		assert.deepStrictEqual(config, {});
+	});
+
+	it("should update config with appendix and overrides", async () => {
+		const config = {};
+		const appendix = {
+			"foo@1.0.0": { dependents: { "test-package": "foo@1.0.0" } },
+		};
+		const overrides = { foo: "1.0.0" };
+
+		const result = await updatePackageJSON({
+			appendix,
+			path: "path/to/package.json",
+			config,
+			overrides,
+			isTesting: true,
+		});
+
+		assert.deepStrictEqual(result, {
+			pastoralist: { appendix },
+			resolutions: overrides,
+			overrides,
+		});
+	});
+
+	it("should update config with pnpm overrides if pnpm key exists", async () => {
+		const config = { pnpm: {} };
+		const overrides = { foo: "1.0.0" };
+
+		const result = await updatePackageJSON({
+			appendix: {},
+			path: "path/to/package.json",
+			config,
+			overrides,
+			isTesting: true,
+		});
+
+		assert.deepStrictEqual(result, {
+			pnpm: { overrides },
+			resolutions: overrides,
+			overrides,
 		});
 	});
 });

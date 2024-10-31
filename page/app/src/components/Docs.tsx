@@ -1,7 +1,6 @@
 import React from "react";
 import { MDXProvider } from "@mdx-js/react";
-import Highlight, { defaultProps, Language } from "prism-react-renderer";
-import githubTheme from "prism-react-renderer/themes/github";
+import { Highlight, themes, Language } from "prism-react-renderer";
 import { MDXComponents } from "mdx/types";
 
 export interface PreProps {
@@ -21,9 +20,10 @@ const components = {
   }: PreProps) => {
     const matches = className?.match(/language-(?<lang>.*)/);
     const language = matches?.groups?.lang ? matches.groups.lang : "";
+    const highlightTheme = themes.dracula;
     return (
       <Highlight
-        {...defaultProps}
+        theme={highlightTheme}
         code={children}
         language={language as Language}
       >

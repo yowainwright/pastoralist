@@ -31,8 +31,10 @@ export async function action(options: Options = {}): Promise<void> {
 program
   .description("Pastoralist, a utility CLI to manage your dependency overrides")
   .option("--debug", "enables debug mode")
-  .option("--nodeModulePath", "specifies a node_module path")
-  .option("--json", "specifies a json path to read from for `resolutions`")
+  .option("--path", "-p", "specifies a path to a package.json")
+  .option("--depPaths", "-dp", "specifies a glob path to a package.jsons")
+  .option("--ignore", "specifies a glob path to ignore")
+  .option("--root", "-r", "specifies a root path")
   .option("-t, --isTestingCLI", "enables CLI testing, no scripts are run")
   .option("--isTesting", "enables testing, no scripts are run")
   .action(action)

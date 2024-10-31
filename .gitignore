@@ -108,3 +108,4 @@ dist
 docs/app/page
 .turbo
 .pnpm-store
+tests/fixtures/package.json

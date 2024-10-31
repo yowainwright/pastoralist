@@ -1,0 +1,12 @@
+{
+  "name": "resolutions-package",
+  "version": "1.0.0",
+  "dependencies": {
+    "react": "^18.1.0",
+    "react-dom": "^18.1.0"
+  },
+  "resolutions": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  }
+}

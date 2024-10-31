@@ -50,6 +50,8 @@ export interface Options {
   isTestingCLI?: boolean;
   path?: string; // path to json
   out?: string; // path to write to
+  root?: string; // root path
+  ignore?: string[]; // array of paths
 }
 
 export interface OverridesType {

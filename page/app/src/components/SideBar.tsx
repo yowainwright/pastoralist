@@ -1,5 +1,5 @@
 import React from "react";
-import { Divider } from "react-daisyui";
+import { Divider, Menu } from "react-daisyui";
 import { GiAnatomy } from "react-icons/gi";
 import { IoIosRocket } from "react-icons/io";
 import { FaToolbox, FaRegLightbulb } from "react-icons/fa";
@@ -7,7 +7,7 @@ import { SiAwesomelists } from "react-icons/si";
 
 export const SideBar = () => {
   return (
-    <aside className="sidebar menu p-4 overflow-y-auto w-80 bg-base-100 text-base-content bg-base-200">
+    <Menu className="p-4 overflow-y-auto w-80 h-full bg-base-100 text-base-content bg-base-200">
       <figure className="flex justify-center max-w-xs mb-5">
         <img
           className="w-20"
@@ -53,6 +53,6 @@ export const SideBar = () => {
           </a>
         </li>
       </ul>
-    </aside>
+    </Menu>
   );
 };

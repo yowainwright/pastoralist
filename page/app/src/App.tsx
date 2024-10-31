@@ -36,14 +36,16 @@ export function App() {
           toggleDrawer={toggleDrawer}
           toggleTheme={toggleTheme}
         />
-        <Docs Component={Badges} />
-        <Docs Component={Introduction} />
-        <Docs Component={WhatAreOverrides} />
-        <Docs Component={WhyIsPastoralistAwesome} />
-        <Docs Component={HowItWorks} />
-        <Docs Component={Setup} />
-        <Docs Component={ObjectAnatomy} />
-        <Docs Component={Footer} />
+        <div className="px-6">
+          <Docs Component={Badges} />
+          <Docs Component={Introduction} />
+          <Docs Component={WhatAreOverrides} />
+          <Docs Component={WhyIsPastoralistAwesome} />
+          <Docs Component={HowItWorks} />
+          <Docs Component={Setup} />
+          <Docs Component={ObjectAnatomy} />
+          <Docs Component={Footer} />
+        </div>
       </Drawer>
     </main>
   );

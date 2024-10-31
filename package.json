@@ -20,7 +20,7 @@
   },
   "scripts": {
     "build": "turbo run build-dist && ./scripts/replacePoolFileStrings.js",
-    "build-dist": "pnpm run clean-dist && tsup src/index.ts --format esm,cjs --dts && tsup src/processPackageJSON.ts --format esm,cjs --minify",
+    "build-dist": "pnpm run clean-dist && tsup src/index.ts --format esm,cjs --dts --minify",
     "clean-dist": "rimraf dist",
     "commit": "git-cz",
     "commit-msg": "commitlint --edit $1",

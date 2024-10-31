@@ -1,56 +1,38 @@
 import { readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import fg from "fast-glob";
+import pLimit from "p-limit";
 import { satisfies } from "compare-versions";
-const { sync } = fg;
 
+const { async } = fg;
 import { IS_DEBUGGING, LOG_PREFIX } from "./constants";
 import {
   Appendix,
   Options,
   PastoralistJSON,
   UpdatePackageJSONOptions,
-  UpdateAppendixOptions,
   ResolveResolutionOptions,
   LoggerOptions,
   OverridesConfig,
   ResolveOverrides,
-  ConsoleObject,
   ConsoleMethod,
+  OverridesType,
+  UpdateAppendixOptions,
 } from "./interfaces";
 
-export const logMethod =
-  (type: ConsoleMethod, isLogging: boolean, file: string) =>
-  (msg: string, caller: string, ...args: unknown[]) => {
-    if (!isLogging) return;
-    const callerTxt = caller ? `[${caller}]` : "";
-    const prefix = `${LOG_PREFIX}[${file}]${callerTxt}`;
-    if (args) (console as ConsoleObject)[type](`${prefix} ${msg}`, ...args);
-    else (console as ConsoleObject)[type](`${prefix} ${msg}`);
-  };
-
-export const logger = ({ file, isLogging = false }: LoggerOptions) => ({
-  debug: logMethod("debug", isLogging, file),
-  error: logMethod("error", isLogging, file),
-  info: logMethod("info", isLogging, file),
-});
-
-const log = logger({ file: "scripts.ts", isLogging: IS_DEBUGGING });
-
-export const update = (options: Options): void => {
+export const update = async (options: Options): Promise<void> => {
   const depPaths = options?.depPaths || ["**/package.json"];
   const path = options?.path || "package.json";
   const isTesting = options?.isTesting || false;
-  const config = resolveJSON(path);
+  const config = await resolveJSON(path);
   if (!config) {
     log.debug("no config found", "update");
     return;
   }
 
   const overridesData = resolveOverrides({ options, config });
-  const packageJSONs = sync(depPaths);
-
-  const appendix = constructAppendix(packageJSONs, overridesData);
+  const packageJSONs = await async(depPaths);
+  const appendix = await constructAppendix(packageJSONs, overridesData);
   let appendixItemsToBeRemoved;
   if (appendix) appendixItemsToBeRemoved = auditAppendix(appendix);
   const updatedResolutions = updateOverrides(
@@ -58,10 +40,15 @@ export const update = (options: Options): void => {
     appendixItemsToBeRemoved,
   );
   if (isTesting) return appendix as void;
-  updatePackageJSON({ appendix, path, config, overrides: updatedResolutions });
+  await updatePackageJSON({
+    appendix,
+    path,
+    config,
+    overrides: updatedResolutions,
+  });
 };
 
-export const constructAppendix = (
+export const constructAppendix = async (
   packageJSONs: Array<string>,
   data: ResolveOverrides,
 ) => {
@@ -71,37 +58,31 @@ export const constructAppendix = (
   if (!hasOverrides) return;
 
   let result = new Map() as unknown as Appendix;
+  try {
+    const limit = pLimit(10);
 
-  for (const packageJSON of packageJSONs) {
-    const currentPackageJSON = resolveJSON(packageJSON) as PastoralistJSON;
-    if (!currentPackageJSON) continue;
-
-    const {
-      name,
-      dependencies = {},
-      devDependencies = {},
-    } = currentPackageJSON;
-    const mergedDeps = Object.assign(dependencies, devDependencies);
-    const depList = Object.keys(mergedDeps);
-
-    if (!depList.length) continue;
-
-    const hasOverriddenDeps = depList.some((item) =>
-      overridesList.includes(item),
-    );
-    if (!hasOverriddenDeps) continue;
-
-    const appendix = currentPackageJSON?.pastoralist?.appendix || {};
-    const appendixItem = updateAppendix({
-      appendix,
-      overrides,
-      dependencies,
-      devDependencies,
-      packageName: name,
+    const deps = packageJSONs.map((filePath) => {
+      return limit(async () => {
+        const resultData = await processPackageJSON(
+          filePath,
+          overrides,
+          overridesList,
+        );
+        if (!resultData) return;
+        return resultData;
+      });
     });
-    result = Object.assign(result, appendixItem);
-  }
 
+    const depResults = await Promise.all(deps);
+
+    for (const resultData of depResults) {
+      if (!resultData) continue;
+      const appendixItem = resultData?.appendix || {};
+      result = Object.assign(result, appendixItem);
+    }
+  } catch (err) {
+    log.error("Error constructing appendix", "constructAppendix", err);
+  }
   return result;
 };
 
@@ -124,49 +105,45 @@ export const updateOverrides = (
 ) => {
   if (!overrideData) return;
   const overrides = getOverridesByType(overrideData);
-  const hasOverrides = overrides && Object.keys(overrides).length > 0;
-  if (!hasOverrides) {
+  if (!overrides || Object.keys(overrides).length === 0) {
     log.debug("Should there be overrides here?", "updateOverrides");
     return;
   }
-  const hasAppendix = appendixItems?.length > 0;
-  if (!hasAppendix) {
-    log.debug("Should there be an appendix here?", "updateOverrides");
-    return overrides;
-  }
 
-  for (const item of appendixItems) {
-    delete overrides[item];
-  }
-
-  return overrides;
+  return Object.entries(overrides).reduce((acc, [key, value]) => {
+    if (!appendixItems.includes(key)) {
+      acc[key] = value;
+    }
+    return acc;
+  }, {} as OverridesType);
 };
 
-export function updatePackageJSON({
+export async function updatePackageJSON({
   appendix,
   path,
   config,
   overrides,
   isTesting = false,
-}: UpdatePackageJSONOptions): PastoralistJSON | void {
-  const hasOverrides = overrides && Object.keys(overrides).length > 0;
-  if (!hasOverrides) {
-    const keysToRemove = ["pastoralist", "resolutions", "overrides", "pnpm"];
-    for (const key of keysToRemove) {
+}: UpdatePackageJSONOptions): Promise<PastoralistJSON | void> {
+  if (!overrides || Object.keys(overrides).length === 0) {
+    ["pastoralist", "resolutions", "overrides", "pnpm"].forEach((key) => {
       delete config[key as keyof PastoralistJSON];
+    });
+  } else {
+    if (appendix && Object.keys(appendix).length > 0) {
+      config.pastoralist = { appendix };
+    }
+    config.resolutions = overrides;
+    config.overrides = overrides;
+    if (config.pnpm) {
+      config.pnpm.overrides = overrides;
     }
   }
-
-  const hasAppendix = appendix && Object.keys(appendix).length > 0;
-  if (hasAppendix) config.pastoralist = { appendix };
-  if (config?.resolutions) config.resolutions = overrides;
-  if (config?.overrides) config.overrides = overrides;
-  if (config?.pnpm?.overrides) config.pnpm.overrides = overrides;
   if (isTesting) return config;
 
   const jsonPath = resolve(path);
   const jsonString = JSON.stringify(config, null, 2);
-  writeFileSync(jsonPath, jsonString);
+  await writeFileSync(jsonPath, jsonString);
 }
 
 export function resolveOverrides({
@@ -217,40 +194,6 @@ export function resolveOverrides({
   return { type: "npm", overrides };
 }
 
-export const updateAppendix = ({
-  overrides = {},
-  appendix = {},
-  dependencies = {},
-  devDependencies = {},
-  packageName = "",
-}: UpdateAppendixOptions) => {
-  const overridesList = (overrides && Object.keys(overrides)) || [];
-  const deps = Object.assign(dependencies, devDependencies);
-  const depList = Object.keys(deps);
-  let result = {} as Appendix;
-
-  for (const override of overridesList) {
-    const hasOverride = depList.includes(override);
-    if (!hasOverride) continue;
-
-    const overrideVersion = overrides[override];
-    const packageVersion = deps[override];
-    const hasResolutionOverride = satisfies(overrideVersion, packageVersion);
-    if (hasResolutionOverride) continue;
-
-    const key = `${override}@${overrides[override]}`;
-    const currentDependents = result?.[key]?.dependents || {};
-    const appendixDependents = appendix?.[key]?.dependents || {};
-    const dependents = Object.assign(currentDependents, appendixDependents, {
-      [packageName]: `${override}@${packageVersion}`,
-    });
-
-    result = Object.assign(result, { [key]: { dependents } });
-  }
-
-  return result;
-};
-
 export const defineOverride = ({
   overrides = {},
   pnpm = {},
@@ -288,11 +231,82 @@ export const getOverridesByType = (data: ResolveOverrides) => {
   else return data?.overrides;
 };
 
+export async function processPackageJSON(
+  filePath: string,
+  overrides: OverridesType,
+  overridesList: string[],
+) {
+  const currentPackageJSON = await resolveJSON(filePath);
+  if (!currentPackageJSON) return;
+
+  const { name, dependencies = {}, devDependencies = {} } = currentPackageJSON;
+
+  const mergedDeps = { ...dependencies, ...devDependencies };
+  const depList = Object.keys(mergedDeps);
+
+  if (
+    depList.length === 0 ||
+    !depList.some((item) => overridesList.includes(item))
+  ) {
+    return;
+  }
+
+  const currentAppendix = currentPackageJSON?.pastoralist?.appendix || {};
+  const appendix = updateAppendix({
+    appendix: currentAppendix,
+    overrides,
+    dependencies,
+    devDependencies,
+    packageName: name,
+  });
+  return { name, dependencies, devDependencies, appendix };
+}
+
+export const updateAppendix = ({
+  overrides = {},
+  appendix = {},
+  dependencies = {},
+  devDependencies = {},
+  packageName = "",
+}: UpdateAppendixOptions) => {
+  const overridesList = (overrides && Object.keys(overrides)) || [];
+  const deps = Object.assign(dependencies, devDependencies);
+  const depList = Object.keys(deps);
+  let result = {} as Appendix;
+
+  for (const override of overridesList) {
+    const hasOverride = depList.includes(override);
+    if (!hasOverride) continue;
+
+    const overrideVersion = overrides[override];
+    const packageVersion = deps[override];
+    const hasResolutionOverride = satisfies(overrideVersion, packageVersion);
+    if (hasResolutionOverride) continue;
+
+    const key = `${override}@${overrides[override]}`;
+    const currentDependents = result?.[key]?.dependents || {};
+    const appendixDependents = appendix?.[key]?.dependents || {};
+    const dependents = Object.assign(currentDependents, appendixDependents, {
+      [packageName]: `${override}@${packageVersion}`,
+    });
+
+    result = Object.assign(result, { [key]: { dependents } });
+  }
+
+  return result;
+};
+
 export function resolveJSON(path: string) {
+  if (jsonCache.has(path)) {
+    return jsonCache.get(path);
+  }
   try {
-    const json = JSON.parse(readFileSync(path, "utf8"));
+    const file = readFileSync(path, "utf8");
+    const json = JSON.parse(file);
+    jsonCache.set(path, json);
     return json;
   } catch (err) {
+    console.log(err);
     log.error(
       `🐑 👩🏽‍🌾  Pastoralist found invalid JSON at:\n${path}`,
       "resolveJSON",
@@ -301,3 +315,25 @@ export function resolveJSON(path: string) {
     return;
   }
 }
+
+export const logMethod = (
+  type: ConsoleMethod,
+  isLogging: boolean,
+  file: string,
+) => {
+  return (msg: string, caller?: string, ...args: unknown[]) => {
+    if (!isLogging) return;
+    const callerTxt = caller ? `[${caller}]` : "";
+    console[type](`${LOG_PREFIX}[${file}]${callerTxt} ${msg}`, ...args);
+  };
+};
+
+export const logger = ({ file, isLogging = false }: LoggerOptions) => ({
+  debug: logMethod("debug", isLogging, file),
+  error: logMethod("error", isLogging, file),
+  info: logMethod("info", isLogging, file),
+});
+
+const log = logger({ file: "scripts.ts", isLogging: IS_DEBUGGING });
+
+export const jsonCache = new Map<string, PastoralistJSON>();

@@ -1,22 +1,10 @@
-import eslintPluginPrettier from "eslint-plugin-prettier"
+import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended"
 import eslint from "@eslint/js"
 import tseslint from "typescript-eslint"
 
 export default tseslint.config(
 	{ ignores: ["dist", "*.js", "page/*"] },
+	eslintPluginPrettierRecommended,
 	eslint.configs.recommended,
 	...tseslint.configs.recommended,
-	{
-		plugins: {
-			prettier: eslintPluginPrettier,
-		},
-		extends: [
-			"eslint:recommended",
-			"plugin:@typescript-eslint/recommended",
-			"plugin:prettier/recommended",
-		],
-		rules: {
-			"prettier/prettier": "error",
-		},
-	},
 )

@@ -12,6 +12,7 @@ import {
   updatePackageJSON,
 } from "../src/scripts";
 import { LOG_PREFIX } from "../src/constants";
+import { PastoralistJSON } from "../src/interfaces";
 
 export const describe = (description: string, fn: any) => {
   console.log(`\n${description}`);
@@ -514,11 +515,15 @@ describe("updatePackageJSON", () => {
   });
 
   it("should update config with appendix and overrides", async () => {
-    const config = {};
+    const overrides = { foo: "1.0.0" };
+    const config = {
+      name: "test-package",
+      version: "1.0.0",
+      overrides,
+    };
     const appendix = {
       "foo@1.0.0": { dependents: { "test-package": "foo@1.0.0" } },
     };
-    const overrides = { foo: "1.0.0" };
 
     const result = await updatePackageJSON({
       appendix,
@@ -529,14 +534,13 @@ describe("updatePackageJSON", () => {
     });
 
     assert.deepStrictEqual(result, {
+      ...config,
       pastoralist: { appendix },
-      resolutions: overrides,
-      overrides,
     });
   });
 
   it("should update config with pnpm overrides if pnpm key exists", async () => {
-    const config = { pnpm: {} };
+    const config = { pnpm: { overrides: { foo: "1.0.0" } } } as unknown as PastoralistJSON;
     const overrides = { foo: "1.0.0" };
 
     const result = await updatePackageJSON({
@@ -549,8 +553,6 @@ describe("updatePackageJSON", () => {
 
     assert.deepStrictEqual(result, {
       pnpm: { overrides },
-      resolutions: overrides,
-      overrides,
     });
   });
 });

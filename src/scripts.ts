@@ -1,7 +1,6 @@
 import { readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import fg from "fast-glob";
-import pLimit from "p-limit";
 import { satisfies } from "compare-versions";
 
 const { sync } = fg;
@@ -59,32 +58,24 @@ export const constructAppendix = async (
   const hasOverrides = overridesList?.length > 0;
   if (!hasOverrides) return;
 
-  let result = new Map() as unknown as Appendix;
+  let result: Appendix = {};
+
   try {
-    const limit = pLimit(10);
-
-    const deps = packageJSONs.map((filePath) => {
-      return limit(async () => {
-        const resultData = await processPackageJSON(
-          filePath,
-          overrides,
-          overridesList,
-        );
-        if (!resultData) return;
-        return resultData;
-      });
-    });
-
-    const depResults = await Promise.all(deps);
-
-    for (const resultData of depResults) {
+    for (const filePath of packageJSONs) {
+      const resultData = await processPackageJSON(
+        filePath,
+        overrides,
+        overridesList,
+      );
       if (!resultData) continue;
+
       const appendixItem = resultData?.appendix || {};
-      result = Object.assign(result, appendixItem);
+      result = { ...result, ...appendixItem };
     }
   } catch (err) {
     log.error("Error constructing appendix", "constructAppendix", err);
   }
+
   return result;
 };
 
@@ -108,12 +99,12 @@ export const updateOverrides = (
   if (!overrideData) return;
   const overrides = getOverridesByType(overrideData);
   if (!overrides || Object.keys(overrides).length === 0) {
-    log.debug("Should there be overrides here?", "updateOverrides");
+    log.debug("No overrides found to update", "updateOverrides");
     return;
   }
 
   return Object.entries(overrides).reduce((acc, [key, value]) => {
-    if (!appendixItems.includes(key)) {
+    if (!appendixItems.some((item) => item.startsWith(key))) {
       acc[key] = value;
     }
     return acc;

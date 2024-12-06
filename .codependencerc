@@ -10,7 +10,7 @@
     "fast-glob",
     "react-icons",
     "tslib",
-    "eslint",
+    { "eslint": "9.14.0" },
     "eslint-config-prettier",
     "husky",
     "is-ci",

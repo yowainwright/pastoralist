@@ -232,16 +232,10 @@ export async function processPackageJSON(
   if (!currentPackageJSON) return;
 
   const { name, dependencies = {}, devDependencies = {} } = currentPackageJSON;
-
   const mergedDeps = { ...dependencies, ...devDependencies };
   const depList = Object.keys(mergedDeps);
-
-  if (
-    depList.length === 0 ||
-    !depList.some((item) => overridesList.includes(item))
-  ) {
-    return;
-  }
+  const isOverridden = depList.some((item) => overridesList.includes(item));
+  if (!isOverridden) return;
 
   const currentAppendix = currentPackageJSON?.pastoralist?.appendix || {};
   const appendix = updateAppendix({
@@ -251,7 +245,12 @@ export async function processPackageJSON(
     devDependencies,
     packageName: name,
   });
-  return { name, dependencies, devDependencies, appendix };
+  return {
+    name,
+    dependencies,
+    devDependencies,
+    appendix,
+  };
 }
 
 export const updateAppendix = ({
@@ -260,11 +259,11 @@ export const updateAppendix = ({
   dependencies = {},
   devDependencies = {},
   packageName = "",
-}: UpdateAppendixOptions) => {
-  const overridesList = (overrides && Object.keys(overrides)) || [];
-  const deps = Object.assign(dependencies, devDependencies);
+  cache = new Map<string, Appendix>(),
+}: UpdateAppendixOptions & { cache?: Map<string, Appendix> }) => {
+  const overridesList = Object.keys(overrides);
+  const deps = { ...dependencies, ...devDependencies };
   const depList = Object.keys(deps);
-  let result = {} as Appendix;
 
   for (const override of overridesList) {
     const hasOverride = depList.includes(override);
@@ -275,17 +274,31 @@ export const updateAppendix = ({
     const hasResolutionOverride = satisfies(overrideVersion, packageVersion);
     if (hasResolutionOverride) continue;
 
-    const key = `${override}@${overrides[override]}`;
-    const currentDependents = result?.[key]?.dependents || {};
-    const appendixDependents = appendix?.[key]?.dependents || {};
-    const dependents = Object.assign(currentDependents, appendixDependents, {
-      [packageName]: `${override}@${packageVersion}`,
-    });
+    const key = `${override}@${overrideVersion}`;
+    if (cache.has(key)) {
+      appendix[key] = cache.get(key)!;
+      continue;
+    }
 
-    result = Object.assign(result, { [key]: { dependents } });
+    const currentDependents = appendix?.[key]?.dependents || {};
+    const newDependents = {
+      ...currentDependents,
+      [packageName]: `${override}@${packageVersion}`,
+    };
+
+    const newAppendixItem = { dependents: newDependents };
+    appendix[key] = newAppendixItem;
+
+    cache.set(key, newAppendixItem);
   }
 
-  return result;
+  Object.keys(appendix).forEach((key) => {
+    if (!Object.keys(appendix[key].dependents || {}).length) {
+      delete appendix[key];
+    }
+  });
+
+  return appendix;
 };
 
 export function resolveJSON(path: string) {

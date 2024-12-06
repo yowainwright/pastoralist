@@ -15,7 +15,7 @@ export interface PastoralistJSON {
 
 export interface AppendixItem {
   rootDeps?: Array<string>;
-  dependents: Record<string, string>;
+  dependents?: Record<string, string>;
 }
 export interface Appendix {
   [key: string]: AppendixItem;

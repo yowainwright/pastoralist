@@ -83,7 +83,7 @@
     "is-ci": "^3.0.1",
     "lint-staged": "15.2.10",
     "path-exists-cli": "^2.0.0",
-    "prettier": "3.4.1",
+    "prettier": "3.4.2",
     "release-it": "17.10.0",
     "rimraf": "6.0.1",
     "stdouttojson": "1.0.0",
@@ -93,7 +93,7 @@
     "turbo": "2.3.3",
     "typescript": "5.7.2",
     "typescript-eslint": "^8.12.2",
-    "vite": "6.0.1"
+    "vite": "6.0.3"
   },
   "commitlint": {
     "extends": [

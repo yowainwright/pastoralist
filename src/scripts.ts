@@ -84,15 +84,12 @@ export const findRemovableAppendixItems = (appendix: Appendix) => {
   const appendixItems = Object.keys(appendix);
   if (appendixItems.length === 0) return [];
 
-  return (
-    appendixItems
-      .filter((item) => {
-        const dependents = appendix[item]?.dependents;
-        return !dependents || Object.keys(dependents).length === 0;
-      })
-      // We split "@<version>" and return just the package name for matching
-      .map((item) => item.split("@")[0])
-  );
+  return appendixItems
+    .filter((item) => {
+      const dependents = appendix[item]?.dependents;
+      return !dependents || Object.keys(dependents).length === 0;
+    })
+    .map((item) => item.split("@")[0]);
 };
 
 export const updateOverrides = (
@@ -242,7 +239,6 @@ export async function processPackageJSON(
   const mergedDeps = { ...dependencies, ...devDependencies };
   const depList = Object.keys(mergedDeps);
 
-  // Check if any of the overrides apply to these dependencies
   const isOverridden = depList.some((dep) => overridesList.includes(dep));
   if (!isOverridden) return;
 

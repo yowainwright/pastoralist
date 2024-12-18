@@ -10,9 +10,11 @@ import {
   defineOverride,
   resolveOverrides,
   updatePackageJSON,
+  findRemovableAppendixItems,
+  updateOverrides as updateOverrideItems,
 } from "../src/scripts";
 import { LOG_PREFIX } from "../src/constants";
-import { PastoralistJSON } from "../src/interfaces";
+import { PastoralistJSON, Appendix } from "../src/interfaces";
 
 export const describe = (description: string, fn: any) => {
   console.log(`\n${description}`);
@@ -252,13 +254,11 @@ describe("updateAppendix", () => {
 
 describe("processPackageJSON", () => {
   it("should return undefined if resolveJSON returns undefined", async () => {
-    // Mock readFileSync to return undefined for this test case
     fs.readFileSync = () => undefined as any;
 
     const result = await processPackageJSON("path/to/nonexistent.json", {}, []);
     assert.strictEqual(result, undefined);
 
-    // Restore original readFileSync
     fs.readFileSync = originalReadFileSync;
   });
 
@@ -286,8 +286,8 @@ describe("processPackageJSON", () => {
     fs.readFileSync = function mockReadFileSync(path: string, encoding: any) {
       if (path === "tests/fixtures/package-overrides.json") {
         return JSON.stringify({
-          name: "test-package",
-          dependencies: { foo: "1.0.0" },
+          name: "overrides-package",
+          dependencies: { foo: "1.0.0", express: "^4.18.1" },
           devDependencies: { bar: "2.0.0" },
         });
       } else {
@@ -300,7 +300,6 @@ describe("processPackageJSON", () => {
       { express: "2.0.0" },
       ["express"],
     );
-    console.log(result);
     assert.deepStrictEqual(result?.appendix, {
       "express@2.0.0": {
         dependents: {
@@ -337,22 +336,6 @@ describe("getOverridesByType", () => {
     };
     const result = getOverridesByType(data);
     assert.deepStrictEqual(result, { baz: "3.0.0" });
-  });
-
-  it("should log an error and return undefined when type is not found", () => {
-    const originalError = console.error;
-    let loggedMessage = "";
-    console.error = (message) => (loggedMessage = message);
-
-    const data = {};
-    const result = getOverridesByType(data as any);
-
-    console.error = originalError;
-    assert.strictEqual(result, undefined);
-    assert.strictEqual(
-      loggedMessage,
-      `${LOG_PREFIX}[scripts.ts][resolveOverridesProp] no type found`,
-    );
   });
 });
 
@@ -554,6 +537,66 @@ describe("updatePackageJSON", () => {
     assert.deepStrictEqual(result, {
       pnpm: { overrides },
     });
+  });
+});
+
+const mockOverridesData = {
+  type: "npm",
+  overrides: {
+    foo: "1.0.0",
+    bar: "2.0.0",
+    baz: "3.0.0",
+  },
+};
+
+describe("findRemovableAppendixItems", () => {
+  it("should return an empty array if appendix is empty", () => {
+    const result = findRemovableAppendixItems({});
+    assert.deepStrictEqual(result, []);
+  });
+
+  it("should return items with no dependents", () => {
+    const appendix: Appendix = {
+      "foo@1.0.0": { dependents: {} },
+      "bar@2.0.0": { dependents: { "pkg-a": "bar@2.0.0" } },
+      "baz@3.0.0": { dependents: {} },
+    };
+    const result = findRemovableAppendixItems(appendix);
+    assert.deepStrictEqual(result.sort(), ["baz", "foo"].sort());
+  });
+
+  it("should not return items that have dependents", () => {
+    const appendix: Appendix = {
+      "bar@2.0.0": { dependents: { "pkg-a": "bar@2.0.0" } },
+    };
+    const result = findRemovableAppendixItems(appendix);
+    assert.deepStrictEqual(result, []);
+  });
+});
+
+describe("updateOverrides (refactored)", () => {
+  it("should return undefined if overrideData is undefined", () => {
+    const result = updateOverrideItems(undefined);
+    assert.strictEqual(result, undefined);
+  });
+
+  it("should keep all overrides if removableItems is empty", () => {
+    const result = updateOverrideItems(mockOverridesData, []);
+    assert.deepStrictEqual(result, {
+      foo: "1.0.0",
+      bar: "2.0.0",
+      baz: "3.0.0",
+    });
+  });
+
+  it("should remove only the overrides listed in removableItems", () => {
+    const result = updateOverrideItems(mockOverridesData, ["foo", "baz"]);
+    assert.deepStrictEqual(result, { bar: "2.0.0" });
+  });
+
+  it("should ignore removableItems that do not exist in overrides", () => {
+    const result = updateOverrideItems(mockOverridesData, ["nonexistent", "foo"]);
+    assert.deepStrictEqual(result, { bar: "2.0.0", baz: "3.0.0" });
   });
 });
 

@@ -25,6 +25,7 @@ export const update = async (options: Options): Promise<void> => {
   const root = options?.root || "./";
   const ignore = options?.ignore || ["**/node_modules/**"];
   const isTesting = options?.isTesting || false;
+
   const config = await resolveJSON(path);
   if (!config) {
     log.debug("no config found", "update");
@@ -34,13 +35,11 @@ export const update = async (options: Options): Promise<void> => {
   const overridesData = resolveOverrides({ options, config });
   const packageJSONs = sync(depPaths, { cwd: root, ignore });
   const appendix = await constructAppendix(packageJSONs, overridesData);
-  let appendixItemsToBeRemoved;
-  if (appendix) appendixItemsToBeRemoved = auditAppendix(appendix);
-  const updatedResolutions = updateOverrides(
-    overridesData,
-    appendixItemsToBeRemoved,
-  );
+  const removableItems = appendix ? findRemovableAppendixItems(appendix) : [];
+  const updatedResolutions = updateOverrides(overridesData, removableItems);
+
   if (isTesting) return appendix as void;
+
   await updatePackageJSON({
     appendix,
     path,
@@ -54,8 +53,8 @@ export const constructAppendix = async (
   data: ResolveOverrides,
 ) => {
   const overrides = getOverridesByType(data) || {};
-  const overridesList = Object.keys(overrides);
-  const hasOverrides = overridesList?.length > 0;
+  const overrideKeys = Object.keys(overrides);
+  const hasOverrides = overrideKeys.length > 0;
   if (!hasOverrides) return;
 
   let result: Appendix = {};
@@ -65,7 +64,7 @@ export const constructAppendix = async (
       const resultData = await processPackageJSON(
         filePath,
         overrides,
-        overridesList,
+        overrideKeys,
       );
       if (!resultData) continue;
 
@@ -79,22 +78,23 @@ export const constructAppendix = async (
   return result;
 };
 
-export const auditAppendix = (appendix: Appendix) => {
+export const findRemovableAppendixItems = (appendix: Appendix) => {
   if (!appendix) return [];
 
   const appendixItems = Object.keys(appendix);
-  const hasAppendixItems = appendixItems.length > 0;
-  if (!hasAppendixItems) return [];
+  if (appendixItems.length === 0) return [];
 
-  const updatedAppendixItems = appendixItems
-    .filter((item) => Object.keys(appendix[item]).length > 0)
+  return appendixItems
+    .filter((item) => {
+      const dependents = appendix[item]?.dependents;
+      return !dependents || Object.keys(dependents).length === 0;
+    })
     .map((item) => item.split("@")[0]);
-  return updatedAppendixItems;
 };
 
 export const updateOverrides = (
   overrideData: ResolveOverrides,
-  appendixItems: string[] = [],
+  removableItems: string[] = [],
 ) => {
   if (!overrideData) return;
   const overrides = getOverridesByType(overrideData);
@@ -104,7 +104,7 @@ export const updateOverrides = (
   }
 
   return Object.entries(overrides).reduce((acc, [key, value]) => {
-    if (!appendixItems.some((item) => item.startsWith(key))) {
+    if (!removableItems.includes(key)) {
       acc[key] = value;
     }
     return acc;
@@ -119,6 +119,7 @@ export async function updatePackageJSON({
   isTesting = false,
 }: UpdatePackageJSONOptions): Promise<PastoralistJSON | void> {
   const hasOverrides = overrides && Object.keys(overrides).length > 0;
+
   if (!hasOverrides) {
     const keysToRemove = ["pastoralist", "resolutions", "overrides", "pnpm"];
     for (const key of keysToRemove) {
@@ -128,14 +129,16 @@ export async function updatePackageJSON({
 
   const hasAppendix = appendix && Object.keys(appendix).length > 0;
   if (hasAppendix) config.pastoralist = { appendix };
+
   if (config?.resolutions) config.resolutions = overrides;
   if (config?.overrides) config.overrides = overrides;
   if (config?.pnpm?.overrides) config.pnpm.overrides = overrides;
+
   if (isTesting) return config;
 
   const jsonPath = resolve(path);
   const jsonString = JSON.stringify(config, null, 2);
-  await writeFileSync(jsonPath, jsonString);
+  writeFileSync(jsonPath, jsonString);
 }
 
 export function resolveOverrides({
@@ -197,6 +200,7 @@ export const defineOverride = ({
     { type: "pnpmOverrides", overrides: pnpmOverrides },
     { type: "resolutions", overrides: resolutions },
   ].filter(({ overrides }) => Object.keys(overrides).length > 0);
+
   const fn = "defineOverride";
   const hasOverride = overrideTypes?.length > 0;
   if (!hasOverride) {
@@ -234,7 +238,8 @@ export async function processPackageJSON(
   const { name, dependencies = {}, devDependencies = {} } = currentPackageJSON;
   const mergedDeps = { ...dependencies, ...devDependencies };
   const depList = Object.keys(mergedDeps);
-  const isOverridden = depList.some((item) => overridesList.includes(item));
+
+  const isOverridden = depList.some((dep) => overridesList.includes(dep));
   if (!isOverridden) return;
 
   const currentAppendix = currentPackageJSON?.pastoralist?.appendix || {};
@@ -293,7 +298,10 @@ export const updateAppendix = ({
   }
 
   Object.keys(appendix).forEach((key) => {
-    if (!Object.keys(appendix[key].dependents || {}).length) {
+    const hasNoDependents =
+      !appendix[key].dependents ||
+      Object.keys(appendix[key].dependents).length === 0;
+    if (hasNoDependents) {
       delete appendix[key];
     }
   });

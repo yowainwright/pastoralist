@@ -17,7 +17,7 @@
     "prism-react-renderer": "2.4.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-icons": "^5.4.0"
+    "react-icons": "^5.5.0"
   },
   "devDependencies": {
     "@mdx-js/mdx": "^3.1.0",
@@ -32,7 +32,7 @@
     "daisyui": "4.12.14",
     "mdx-mermaid": "^2.0.3",
     "mermaid": "^11.4.1",
-    "postcss": "^8.5.2",
+    "postcss": "^8.5.3",
     "react-daisyui": "^5.0.5",
     "react-flow-renderer": "^10.3.17",
     "rehype-slug": "^6.0.0",

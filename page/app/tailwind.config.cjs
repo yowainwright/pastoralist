@@ -4,11 +4,10 @@ module.exports = {
     "index.html",
     "./src/**/*.{ts,tsx,mdx}",
     "node_modules/daisyui/dist/**/*.js",
-    "node_modules/react-daisyui/dist/**/*.js"
+    "node_modules/react-daisyui/dist/**/*.js",
   ],
   daisyui: {
-    light: "lofi",
-    dark: "night"
+    themes: ["lofi", "night"],
   },
-  plugins: [require("@tailwindcss/typography"), require("daisyui")]
+  plugins: [require("@tailwindcss/typography"), require("daisyui")],
 };

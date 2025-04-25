@@ -1,10 +1,11 @@
 import React from "react";
-import ReactFlow, { Background } from "react-flow-renderer";
+import ReactFlow, { Background } from "reactflow";
+import "reactflow/dist/style.css";
 
 const edges = [
   { animated: true, id: "1-2", source: "1", target: "2", type: "smoothstep" },
   { animated: true, id: "2-3", source: "2", target: "3", type: "smoothstep" },
-  { animated: true, id: "2-4", source: "2", target: "4", type: "smoothstep" }
+  { animated: true, id: "2-4", source: "2", target: "4", type: "smoothstep" },
 ];
 
 const Label = ({ description, metaDescription }: any) => (
@@ -23,7 +24,7 @@ const style = {
   border: 0,
   borderRadius: ".25rem",
   padding: 0,
-  width: "300px"
+  width: "300px",
 };
 
 const nodes = [
@@ -36,9 +37,9 @@ const nodes = [
           description="find"
           metaDescription="Pastoralist finds overrides/resolutions in a repo's root package.json"
         />
-      )
+      ),
     },
-    style
+    style,
   },
   {
     id: "2",
@@ -49,9 +50,9 @@ const nodes = [
           description="review"
           metaDescription="Pastoralist compares pastoralist.appendix against overrides/resolutions"
         />
-      )
+      ),
     },
-    style
+    style,
   },
   {
     id: "3",
@@ -62,9 +63,9 @@ const nodes = [
           description="add"
           metaDescription="Pastoralist adds new overrides/resolutions dependencies to the pastoralist.appendix"
         />
-      )
+      ),
     },
-    style
+    style,
   },
   {
     id: "4",
@@ -75,10 +76,10 @@ const nodes = [
           description="update"
           metaDescription="Pastoralist updates or removes dependencies from overrides/resolutions and the pastoralist.appendix based on the repo's current dependencies"
         />
-      )
+      ),
     },
-    style
-  }
+    style,
+  },
 ];
 
 const ReviewFlow = () => {

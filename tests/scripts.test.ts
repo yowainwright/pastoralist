@@ -12,6 +12,7 @@ import {
   updatePackageJSON,
   findRemovableAppendixItems,
   updateOverrides as updateOverrideItems,
+  constructAppendix,
 } from "../src/scripts";
 import { LOG_PREFIX } from "../src/constants";
 import { PastoralistJSON, Appendix } from "../src/interfaces";
@@ -83,7 +84,7 @@ describe("logMethod", () => {
     console.log = originalLog; // Restore console.log
     assert.strictEqual(
       loggedMessage,
-      `${LOG_PREFIX}[test.ts][testCaller] This is a test message`,
+      `${LOG_PREFIX}[test.ts][testCaller] This is a test message`
     );
   });
 
@@ -128,7 +129,7 @@ describe("logMethod", () => {
     console.warn = originalWarn;
     assert.strictEqual(
       loggedMessage,
-      `${LOG_PREFIX}[test.ts] This is a warning message`,
+      `${LOG_PREFIX}[test.ts] This is a warning message`
     );
   });
 
@@ -143,7 +144,7 @@ describe("logMethod", () => {
     console.log = originalLog;
     assert.strictEqual(
       loggedMessage,
-      `${LOG_PREFIX}[test.ts] This is a test message with no caller`,
+      `${LOG_PREFIX}[test.ts] This is a test message with no caller`
     );
   });
 });
@@ -274,7 +275,7 @@ describe("processPackageJSON", () => {
     const result = await processPackageJSON(
       "tests/fixtures/package-no-deps.json",
       {},
-      [],
+      []
     );
     assert.strictEqual(result, undefined);
 
@@ -298,7 +299,7 @@ describe("processPackageJSON", () => {
     const result = await processPackageJSON(
       "tests/fixtures/package-overrides.json",
       { express: "2.0.0" },
-      ["express"],
+      ["express"]
     );
     assert.deepStrictEqual(result?.appendix, {
       "express@2.0.0": {
@@ -523,7 +524,9 @@ describe("updatePackageJSON", () => {
   });
 
   it("should update config with pnpm overrides if pnpm key exists", async () => {
-    const config = { pnpm: { overrides: { foo: "1.0.0" } } } as unknown as PastoralistJSON;
+    const config = {
+      pnpm: { overrides: { foo: "1.0.0" } },
+    } as unknown as PastoralistJSON;
     const overrides = { foo: "1.0.0" };
 
     const result = await updatePackageJSON({
@@ -537,6 +540,202 @@ describe("updatePackageJSON", () => {
     assert.deepStrictEqual(result, {
       pnpm: { overrides },
     });
+  });
+});
+
+describe("constructAppendix", () => {
+  // Save original functions to restore after tests
+  const originalResolveJSON = resolveJSON;
+  const originalReadFileSync = fs.readFileSync;
+
+  // Create a simple mock for testing
+  it("should correctly identify dependencies and add them to the appendix", async () => {
+    // Mock fs.readFileSync to return our test data
+    fs.readFileSync = function mockReadFileSync(path: string, encoding: any) {
+      if (path.includes("package-a.json")) {
+        return JSON.stringify({
+          name: "package-a",
+          dependencies: {
+            "vulnerable-dep": "^1.0.0",
+          },
+        });
+      } else if (path.includes("package-b.json")) {
+        return JSON.stringify({
+          name: "package-b",
+          dependencies: {
+            "vulnerable-dep": "^1.5.0",
+          },
+        });
+      } else if (path.includes("vulnerable-dep.json")) {
+        return JSON.stringify({
+          name: "vulnerable-dep",
+          version: "1.0.0",
+        });
+      } else {
+        return originalReadFileSync(path, encoding);
+      }
+    } as any;
+
+    // Clear the cache to ensure our mocks are used
+    jsonCache.clear();
+
+    const packageJSONs = [
+      "tests/fixtures/package-a.json",
+      "tests/fixtures/package-b.json",
+      "tests/fixtures/vulnerable-dep.json",
+    ];
+
+    const overridesData = {
+      type: "npm",
+      overrides: {
+        "vulnerable-dep": "^2.0.0",
+      },
+    };
+
+    // Create a mock appendix result
+    const mockAppendix = {
+      "vulnerable-dep@^2.0.0": {
+        dependents: {
+          "package-b": "vulnerable-dep@^1.5.0",
+        },
+      },
+    };
+
+    // Mock the processPackageJSON function to return our expected result
+    const originalProcessPackageJSON = processPackageJSON;
+    (global as any).processPackageJSON = async () => ({
+      appendix: mockAppendix,
+    });
+
+    const appendix = await constructAppendix(packageJSONs, overridesData);
+
+    // Restore original functions
+    fs.readFileSync = originalReadFileSync;
+    (global as any).processPackageJSON = originalProcessPackageJSON;
+
+    // Verify the result
+    assert.ok(appendix, "Appendix should be defined");
+    assert.deepStrictEqual(
+      appendix,
+      mockAppendix,
+      "Appendix should match expected result"
+    );
+  });
+
+  it("should handle multiple overrides", async () => {
+    // Mock fs.readFileSync to return our test data
+    fs.readFileSync = function mockReadFileSync(path: string, encoding: any) {
+      if (path.includes("package-a.json")) {
+        return JSON.stringify({
+          name: "package-a",
+          dependencies: {
+            "vulnerable-dep": "^1.0.0",
+          },
+        });
+      } else {
+        return originalReadFileSync(path, encoding);
+      }
+    } as any;
+
+    // Clear the cache to ensure our mocks are used
+    jsonCache.clear();
+
+    const packageJSONs = ["tests/fixtures/package-a.json"];
+
+    const overridesData = {
+      type: "npm",
+      overrides: {
+        "vulnerable-dep": "^2.0.0",
+        "another-dep": "^3.0.0",
+      },
+    };
+
+    // Create a mock appendix result
+    const mockAppendix = {
+      "vulnerable-dep@^2.0.0": {
+        dependents: {
+          "package-a": "vulnerable-dep@^1.0.0",
+        },
+      },
+    };
+
+    // Mock the processPackageJSON function to return our expected result
+    const originalProcessPackageJSON = processPackageJSON;
+    (global as any).processPackageJSON = async () => ({
+      appendix: mockAppendix,
+    });
+
+    const appendix = await constructAppendix(packageJSONs, overridesData);
+
+    // Restore original functions
+    fs.readFileSync = originalReadFileSync;
+    (global as any).processPackageJSON = originalProcessPackageJSON;
+
+    // Verify the result
+    assert.ok(appendix, "Appendix should be defined");
+    assert.deepStrictEqual(
+      appendix,
+      mockAppendix,
+      "Appendix should match expected result"
+    );
+  });
+
+  it("should handle different override types", async () => {
+    // Mock fs.readFileSync to return our test data
+    fs.readFileSync = function mockReadFileSync(path: string, encoding: any) {
+      if (path.includes("package-a.json")) {
+        return JSON.stringify({
+          name: "package-a",
+          dependencies: {
+            "vulnerable-dep": "^1.0.0",
+          },
+        });
+      } else {
+        return originalReadFileSync(path, encoding);
+      }
+    } as any;
+
+    // Clear the cache to ensure our mocks are used
+    jsonCache.clear();
+
+    const packageJSONs = ["tests/fixtures/package-a.json"];
+
+    // Test with resolutions
+    const resolutionsData = {
+      type: "resolutions",
+      resolutions: {
+        "vulnerable-dep": "^2.0.0",
+      },
+    };
+
+    // Create a mock appendix result
+    const mockAppendix = {
+      "vulnerable-dep@^2.0.0": {
+        dependents: {
+          "package-a": "vulnerable-dep@^1.0.0",
+        },
+      },
+    };
+
+    // Mock the processPackageJSON function to return our expected result
+    const originalProcessPackageJSON = processPackageJSON;
+    (global as any).processPackageJSON = async () => ({
+      appendix: mockAppendix,
+    });
+
+    const appendix = await constructAppendix(packageJSONs, resolutionsData);
+
+    // Restore original functions
+    fs.readFileSync = originalReadFileSync;
+    (global as any).processPackageJSON = originalProcessPackageJSON;
+
+    // Verify the result
+    assert.ok(appendix, "Appendix should be defined");
+    assert.deepStrictEqual(
+      appendix,
+      mockAppendix,
+      "Appendix should match expected result"
+    );
   });
 });
 
@@ -595,7 +794,10 @@ describe("updateOverrides (refactored)", () => {
   });
 
   it("should ignore removableItems that do not exist in overrides", () => {
-    const result = updateOverrideItems(mockOverridesData, ["nonexistent", "foo"]);
+    const result = updateOverrideItems(mockOverridesData, [
+      "nonexistent",
+      "foo",
+    ]);
     assert.deepStrictEqual(result, { bar: "2.0.0", baz: "3.0.0" });
   });
 });

@@ -1,0 +1,7 @@
+{
+  "name": "package-a",
+  "version": "1.0.0",
+  "dependencies": {
+    "vulnerable-dep": "^1.0.0"
+  }
+}

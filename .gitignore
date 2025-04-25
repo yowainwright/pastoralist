@@ -109,3 +109,4 @@ docs/app/page
 .turbo
 .pnpm-store
 tests/fixtures/package.json
+e2e/test-project/

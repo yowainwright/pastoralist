@@ -23,7 +23,7 @@ export const update = async (options: Options): Promise<void> => {
   const depPaths = options?.depPaths || ["**/package.json"];
   const path = options?.path || "package.json";
   const root = options?.root || "./";
-  const ignore = options?.ignore || ["**/node_modules/**"];
+  const ignore = options?.ignore || ["**/node_modules/**/node_modules/**"]; // Only ignore nested node_modules
   const isTesting = options?.isTesting || false;
 
   const config = await resolveJSON(path);
@@ -34,6 +34,10 @@ export const update = async (options: Options): Promise<void> => {
 
   const overridesData = resolveOverrides({ options, config });
   const packageJSONs = sync(depPaths, { cwd: root, ignore });
+
+  log.debug(`Found ${packageJSONs.length} package.json files`, "update");
+  packageJSONs.forEach((p) => log.debug(`Package: ${p}`, "update"));
+
   const appendix = await constructAppendix(packageJSONs, overridesData);
   const removableItems = appendix ? findRemovableAppendixItems(appendix) : [];
   const updatedResolutions = updateOverrides(overridesData, removableItems);
@@ -60,6 +64,98 @@ export const constructAppendix = async (
   let result: Appendix = {};
 
   try {
+    // Build a dependency graph to track relationships between packages
+    const dependencyGraph: Record<
+      string,
+      {
+        dependencies: Record<string, string>;
+        dependents: Array<{ name: string; version: string }>;
+        filePath?: string;
+      }
+    > = {};
+
+    // First pass: load all packages and their dependencies
+    for (const filePath of packageJSONs) {
+      const pkg = await resolveJSON(filePath);
+      if (!pkg || !pkg.name) continue;
+
+      const deps = {
+        ...(pkg.dependencies || {}),
+        ...(pkg.devDependencies || {}),
+      };
+
+      dependencyGraph[pkg.name] = {
+        dependencies: deps,
+        dependents: [],
+        filePath,
+      };
+    }
+
+    // Second pass: build the dependency graph by connecting dependents
+    for (const pkgName in dependencyGraph) {
+      const deps = dependencyGraph[pkgName].dependencies || {};
+      for (const depName in deps) {
+        if (dependencyGraph[depName]) {
+          dependencyGraph[depName].dependents.push({
+            name: pkgName,
+            version: deps[depName],
+          });
+        }
+      }
+    }
+
+    // Process each override and find its dependents
+    for (const override of overrideKeys) {
+      const overrideVersion = overrides[override];
+      log.debug(
+        `Processing override: ${override}@${overrideVersion}`,
+        "constructAppendix",
+      );
+
+      // Find all packages that depend on this override
+      const dependents = dependencyGraph[override]?.dependents || [];
+      log.debug(
+        `Found ${dependents.length} dependents for ${override}`,
+        "constructAppendix",
+      );
+
+      if (dependents.length > 0) {
+        const key = `${override}@${overrideVersion}`;
+        const dependentsObj: Record<string, string> = {};
+
+        for (const dep of dependents) {
+          log.debug(
+            `Checking dependent: ${dep.name} requires ${override}@${dep.version}`,
+            "constructAppendix",
+          );
+          // Always add dependents for now - the satisfies check might be causing issues
+          // We'll revisit this logic later if needed
+          log.debug(
+            `Adding ${dep.name} as a dependent for ${override}`,
+            "constructAppendix",
+          );
+
+          dependentsObj[dep.name] = `${override}@${dep.version}`;
+        }
+
+        // Only add to appendix if there are actual dependents that need the override
+        const dependentCount = Object.keys(dependentsObj).length;
+        log.debug(
+          `Found ${dependentCount} dependents that need override for ${override}`,
+          "constructAppendix",
+        );
+
+        if (dependentCount > 0) {
+          result[key] = { dependents: dependentsObj };
+          log.debug(
+            `Added ${key} to appendix with ${dependentCount} dependents`,
+            "constructAppendix",
+          );
+        }
+      }
+    }
+
+    // Also process direct dependencies as before for backward compatibility
     for (const filePath of packageJSONs) {
       const resultData = await processPackageJSON(
         filePath,

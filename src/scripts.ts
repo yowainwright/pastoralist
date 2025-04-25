@@ -75,37 +75,40 @@ export const constructAppendix = async (
     > = {};
 
     // First pass: load all packages and their dependencies
-    for (const filePath of packageJSONs) {
-      const pkg = await resolveJSON(filePath);
-      if (!pkg || !pkg.name) continue;
+    await Promise.all(
+      packageJSONs.map(async (filePath) => {
+        const pkg = await resolveJSON(filePath);
+        if (!pkg || !pkg.name) return;
 
-      const deps = {
-        ...(pkg.dependencies || {}),
-        ...(pkg.devDependencies || {}),
-      };
+        const deps = {
+          ...(pkg.dependencies || {}),
+          ...(pkg.devDependencies || {}),
+        };
 
-      dependencyGraph[pkg.name] = {
-        dependencies: deps,
-        dependents: [],
-        filePath,
-      };
-    }
+        dependencyGraph[pkg.name] = {
+          dependencies: deps,
+          dependents: [],
+          filePath,
+        };
+      }),
+    );
 
     // Second pass: build the dependency graph by connecting dependents
-    for (const pkgName in dependencyGraph) {
+    Object.keys(dependencyGraph).forEach((pkgName) => {
       const deps = dependencyGraph[pkgName].dependencies || {};
-      for (const depName in deps) {
+
+      Object.entries(deps).forEach(([depName, version]) => {
         if (dependencyGraph[depName]) {
           dependencyGraph[depName].dependents.push({
             name: pkgName,
-            version: deps[depName],
+            version,
           });
         }
-      }
-    }
+      });
+    });
 
     // Process each override and find its dependents
-    for (const override of overrideKeys) {
+    overrideKeys.forEach((override) => {
       const overrideVersion = overrides[override];
       log.debug(
         `Processing override: ${override}@${overrideVersion}`,
@@ -121,22 +124,27 @@ export const constructAppendix = async (
 
       if (dependents.length > 0) {
         const key = `${override}@${overrideVersion}`;
-        const dependentsObj: Record<string, string> = {};
 
-        for (const dep of dependents) {
-          log.debug(
-            `Checking dependent: ${dep.name} requires ${override}@${dep.version}`,
-            "constructAppendix",
-          );
-          // Always add dependents for now - the satisfies check might be causing issues
-          // We'll revisit this logic later if needed
-          log.debug(
-            `Adding ${dep.name} as a dependent for ${override}`,
-            "constructAppendix",
-          );
+        // Create dependents object using reduce
+        const dependentsObj = dependents.reduce(
+          (acc, dep) => {
+            log.debug(
+              `Checking dependent: ${dep.name} requires ${override}@${dep.version}`,
+              "constructAppendix",
+            );
 
-          dependentsObj[dep.name] = `${override}@${dep.version}`;
-        }
+            log.debug(
+              `Adding ${dep.name} as a dependent for ${override}`,
+              "constructAppendix",
+            );
+
+            return {
+              ...acc,
+              [dep.name]: `${override}@${dep.version}`,
+            };
+          },
+          {} as Record<string, string>,
+        );
 
         // Only add to appendix if there are actual dependents that need the override
         const dependentCount = Object.keys(dependentsObj).length;
@@ -153,20 +161,22 @@ export const constructAppendix = async (
           );
         }
       }
-    }
+    });
 
     // Also process direct dependencies as before for backward compatibility
-    for (const filePath of packageJSONs) {
-      const resultData = await processPackageJSON(
-        filePath,
-        overrides,
-        overrideKeys,
-      );
-      if (!resultData) continue;
+    const processResults = await Promise.all(
+      packageJSONs.map(async (filePath) => {
+        return await processPackageJSON(filePath, overrides, overrideKeys);
+      }),
+    );
 
-      const appendixItem = resultData?.appendix || {};
-      result = { ...result, ...appendixItem };
-    }
+    // Filter out undefined results and merge appendix items
+    processResults
+      .filter((resultData) => resultData)
+      .forEach((resultData) => {
+        const appendixItem = resultData?.appendix || {};
+        result = { ...result, ...appendixItem };
+      });
   } catch (err) {
     log.error("Error constructing appendix", "constructAppendix", err);
   }

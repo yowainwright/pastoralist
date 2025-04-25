@@ -1,3 +1,66 @@
 @import "tailwindcss/base";
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
+
+/* Custom styles for code blocks */
+pre {
+  overflow-x: auto;
+  padding: 1rem;
+  border-radius: 0.375rem;
+  margin: 1.5rem 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+pre > code {
+  display: grid;
+}
+
+pre [data-line] {
+  padding-right: 1rem;
+  padding-left: 1rem;
+  border-left: 2px solid transparent;
+}
+
+pre [data-highlighted-line] {
+  background: rgba(200, 200, 255, 0.1);
+  border-left: 2px solid #7aa2f7;
+}
+
+pre [data-highlighted-chars] {
+  background: rgba(200, 200, 255, 0.1);
+  box-shadow: 0 0 0 1px rgba(200, 200, 255, 0.2);
+  border-radius: 0.25rem;
+  padding: 0.1rem 0.2rem;
+}
+
+pre .word {
+  background-color: rgba(200, 200, 255, 0.15);
+  border-radius: 0.25rem;
+  padding: 0.1rem 0.2rem;
+}
+
+/* Line numbers */
+pre[data-line-numbers] {
+  counter-reset: line;
+}
+
+pre[data-line-numbers] [data-line]::before {
+  counter-increment: line;
+  content: counter(line);
+  display: inline-block;
+  width: 1rem;
+  margin-right: 1rem;
+  text-align: right;
+  color: gray;
+}
+
+pre[data-line-numbers-max-digits="2"] [data-line]::before {
+  width: 2rem;
+}
+
+pre[data-line-numbers-max-digits="3"] [data-line]::before {
+  width: 3rem;
+}

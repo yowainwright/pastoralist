@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "E2E test workspace for pastoralist using npm",
   "private": true,
+  "type": "module",
   "workspaces": [
     "packages/*"
   ],

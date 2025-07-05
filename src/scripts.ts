@@ -23,7 +23,7 @@ export const update = async (options: Options): Promise<void> => {
   const depPaths = options?.depPaths || ["**/package.json"];
   const path = options?.path || "package.json";
   const root = options?.root || "./";
-  const ignore = options?.ignore || ["**/node_modules/**/node_modules/**"]; // Only ignore nested node_modules
+  const ignore = options?.ignore || ["**/node_modules/**/node_modules/**"];
   const isTesting = options?.isTesting || false;
 
   const config = await resolveJSON(path);
@@ -64,7 +64,6 @@ export const constructAppendix = async (
   let result: Appendix = {};
 
   try {
-    // Build a dependency graph to track relationships between packages
     const dependencyGraph: Record<
       string,
       {
@@ -74,7 +73,6 @@ export const constructAppendix = async (
       }
     > = {};
 
-    // First pass: load all packages and their dependencies
     await Promise.all(
       packageJSONs.map(async (filePath) => {
         const pkg = await resolveJSON(filePath);
@@ -93,7 +91,6 @@ export const constructAppendix = async (
       }),
     );
 
-    // Second pass: build the dependency graph by connecting dependents
     Object.keys(dependencyGraph).forEach((pkgName) => {
       const deps = dependencyGraph[pkgName].dependencies || {};
 
@@ -107,7 +104,6 @@ export const constructAppendix = async (
       });
     });
 
-    // Process each override and find its dependents
     overrideKeys.forEach((override) => {
       const overrideVersion = overrides[override];
       log.debug(
@@ -115,7 +111,6 @@ export const constructAppendix = async (
         "constructAppendix",
       );
 
-      // Find all packages that depend on this override
       const dependents = dependencyGraph[override]?.dependents || [];
       log.debug(
         `Found ${dependents.length} dependents for ${override}`,
@@ -125,7 +120,6 @@ export const constructAppendix = async (
       if (dependents.length > 0) {
         const key = `${override}@${overrideVersion}`;
 
-        // Create dependents object using reduce
         const dependentsObj = dependents.reduce(
           (acc, dep) => {
             log.debug(
@@ -146,7 +140,6 @@ export const constructAppendix = async (
           {} as Record<string, string>,
         );
 
-        // Only add to appendix if there are actual dependents that need the override
         const dependentCount = Object.keys(dependentsObj).length;
         log.debug(
           `Found ${dependentCount} dependents that need override for ${override}`,
@@ -163,14 +156,12 @@ export const constructAppendix = async (
       }
     });
 
-    // Also process direct dependencies as before for backward compatibility
     const processResults = await Promise.all(
       packageJSONs.map(async (filePath) => {
         return await processPackageJSON(filePath, overrides, overrideKeys);
       }),
     );
 
-    // Filter out undefined results and merge appendix items
     processResults
       .filter((resultData) => resultData)
       .forEach((resultData) => {
@@ -225,15 +216,22 @@ export async function updatePackageJSON({
   isTesting = false,
 }: UpdatePackageJSONOptions): Promise<PastoralistJSON | void> {
   const hasOverrides = overrides && Object.keys(overrides).length > 0;
+  const hasAppendix = appendix && Object.keys(appendix).length > 0;
 
   if (!hasOverrides) {
-    const keysToRemove = ["pastoralist", "resolutions", "overrides", "pnpm"];
-    for (const key of keysToRemove) {
-      delete config[key as keyof PastoralistJSON];
+    if (!hasAppendix) {
+      const keysToRemove = ["pastoralist", "resolutions", "overrides", "pnpm"];
+      for (const key of keysToRemove) {
+        delete config[key as keyof PastoralistJSON];
+      }
+    } else {
+      const keysToRemove = ["resolutions", "overrides", "pnpm"];
+      for (const key of keysToRemove) {
+        delete config[key as keyof PastoralistJSON];
+      }
     }
   }
 
-  const hasAppendix = appendix && Object.keys(appendix).length > 0;
   if (hasAppendix) config.pastoralist = { appendix };
 
   if (config?.resolutions) config.resolutions = overrides;

@@ -498,6 +498,37 @@ describe("updatePackageJSON", () => {
     assert.deepStrictEqual(config, {});
   });
 
+  it("should preserve pastoralist.appendix when no overrides but has appendix", async () => {
+    const config = {
+      name: "test-package",
+      version: "1.0.0",
+      resolutions: { foo: "1.0.0" },
+      overrides: { bar: "2.0.0" },
+      pnpm: { overrides: { baz: "3.0.0" } },
+    };
+    const appendix = {
+      "lodash@4.17.21": { dependents: { "test-package": "lodash@4.17.20" } },
+    };
+
+    const result = await updatePackageJSON({
+      appendix,
+      path: "path/to/package.json",
+      config,
+      overrides: {}, // No overrides
+      isTesting: true,
+    });
+
+    // Should preserve appendix even when no overrides
+    assert.deepStrictEqual(result.pastoralist, { appendix });
+    // Should remove override-related keys
+    assert.strictEqual(result.resolutions, undefined);
+    assert.strictEqual(result.overrides, undefined);
+    assert.strictEqual(result.pnpm, undefined);
+    // Should preserve other keys
+    assert.strictEqual(result.name, "test-package");
+    assert.strictEqual(result.version, "1.0.0");
+  });
+
   it("should update config with appendix and overrides", async () => {
     const overrides = { foo: "1.0.0" };
     const config = {
@@ -623,7 +654,6 @@ describe("constructAppendix", () => {
   });
 
   it("should handle multiple overrides", async () => {
-    // Mock fs.readFileSync to return our test data
     fs.readFileSync = function mockReadFileSync(path: string, encoding: any) {
       if (path.includes("package-a.json")) {
         return JSON.stringify({
@@ -637,7 +667,6 @@ describe("constructAppendix", () => {
       }
     } as any;
 
-    // Clear the cache to ensure our mocks are used
     jsonCache.clear();
 
     const packageJSONs = ["tests/fixtures/package-a.json"];
@@ -650,7 +679,6 @@ describe("constructAppendix", () => {
       },
     };
 
-    // Create a mock appendix result
     const mockAppendix = {
       "vulnerable-dep@^2.0.0": {
         dependents: {
@@ -659,7 +687,6 @@ describe("constructAppendix", () => {
       },
     };
 
-    // Mock the processPackageJSON function to return our expected result
     const originalProcessPackageJSON = processPackageJSON;
     (global as any).processPackageJSON = async () => ({
       appendix: mockAppendix,
@@ -667,11 +694,9 @@ describe("constructAppendix", () => {
 
     const appendix = await constructAppendix(packageJSONs, overridesData);
 
-    // Restore original functions
     fs.readFileSync = originalReadFileSync;
     (global as any).processPackageJSON = originalProcessPackageJSON;
 
-    // Verify the result
     assert.ok(appendix, "Appendix should be defined");
     assert.deepStrictEqual(
       appendix,
@@ -681,7 +706,6 @@ describe("constructAppendix", () => {
   });
 
   it("should handle different override types", async () => {
-    // Mock fs.readFileSync to return our test data
     fs.readFileSync = function mockReadFileSync(path: string, encoding: any) {
       if (path.includes("package-a.json")) {
         return JSON.stringify({
@@ -695,12 +719,10 @@ describe("constructAppendix", () => {
       }
     } as any;
 
-    // Clear the cache to ensure our mocks are used
     jsonCache.clear();
 
     const packageJSONs = ["tests/fixtures/package-a.json"];
 
-    // Test with resolutions
     const resolutionsData = {
       type: "resolutions",
       resolutions: {
@@ -708,7 +730,6 @@ describe("constructAppendix", () => {
       },
     };
 
-    // Create a mock appendix result
     const mockAppendix = {
       "vulnerable-dep@^2.0.0": {
         dependents: {
@@ -717,7 +738,6 @@ describe("constructAppendix", () => {
       },
     };
 
-    // Mock the processPackageJSON function to return our expected result
     const originalProcessPackageJSON = processPackageJSON;
     (global as any).processPackageJSON = async () => ({
       appendix: mockAppendix,
@@ -725,11 +745,9 @@ describe("constructAppendix", () => {
 
     const appendix = await constructAppendix(packageJSONs, resolutionsData);
 
-    // Restore original functions
     fs.readFileSync = originalReadFileSync;
     (global as any).processPackageJSON = originalProcessPackageJSON;
 
-    // Verify the result
     assert.ok(appendix, "Appendix should be defined");
     assert.deepStrictEqual(
       appendix,

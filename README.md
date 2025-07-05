@@ -126,6 +126,30 @@ pastoralist
 }
 ```
 
+---
+
+## Testing
+
+### Unit Tests
+
+```bash
+pnpm test
+```
+
+### End-to-End Tests
+
+Run comprehensive e2e tests using Docker to verify real-world scenarios:
+
+```bash
+pnpm run test-e2e
+```
+
+The e2e tests create a realistic monorepo workspace with lodash dependencies and verify:
+- Appendix creation and updates
+- Override version changes
+- Appendix preservation when overrides are removed (bug fix verification)
+- Cross-package dependency tracking
+
 In the near feature, Pastoralist will fully support a config file but this is it for now!
 
 Read on to understand what is going on under the hood of Pastoralist!

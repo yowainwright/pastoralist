@@ -11,7 +11,7 @@ WORKDIR /app
 COPY dist/ ./pastoralist/
 
 # Make pastoralist executable
-RUN chmod +x ./pastoralist/index.cjs
+RUN chmod +x ./pastoralist/index.js
 
 # Create a test workspace with multiple packages
 RUN mkdir -p packages/app packages/utils packages/shared

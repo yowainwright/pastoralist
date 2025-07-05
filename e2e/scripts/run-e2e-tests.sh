@@ -90,7 +90,7 @@ echo "\n1️⃣ Initial state - showing current package.json before pastoralist"
 show_package_json
 
 echo "\n2️⃣ Running pastoralist for the first time..."
-node /app/pastoralist/index.cjs --debug --root /app --depPaths "**/package.json"
+node /app/pastoralist/index.js --debug --root /app --depPaths "**/package.json"
 print_result $? "Initial pastoralist run completed"
 
 echo "\n3️⃣ Checking if appendix was created..."
@@ -109,7 +109,7 @@ echo "\n4️⃣ Updating lodash override from 4.17.21 to 4.17.20..."
 sed -i 's/"lodash": "4.17.21"/"lodash": "4.17.20"/g' package.json
 
 echo "\n5️⃣ Running pastoralist after override change..."
-node /app/pastoralist/index.cjs --debug --root /app --depPaths "**/package.json"
+node /app/pastoralist/index.js --debug --root /app --depPaths "**/package.json"
 print_result $? "Second pastoralist run completed"
 
 echo "\n6️⃣ Checking if appendix was updated..."
@@ -119,7 +119,7 @@ echo "\n7️⃣ Updating lodash override to 4.17.22..."
 sed -i 's/"lodash": "4.17.20"/"lodash": "4.17.22"/g' package.json
 
 echo "\n8️⃣ Running pastoralist after second override change..."
-node /app/pastoralist/index.cjs --debug --root /app --depPaths "**/package.json"
+node /app/pastoralist/index.js --debug --root /app --depPaths "**/package.json"
 print_result $? "Third pastoralist run completed"
 
 echo "\n9️⃣ Final appendix state:"
@@ -131,7 +131,7 @@ sed -i 's/"lodash": "4.17.22"//g' package.json
 sed -i '/^[[:space:]]*$/d' package.json  # Remove empty lines
 
 echo "\n1️⃣1️⃣ Running pastoralist without overrides..."
-node /app/pastoralist/index.cjs --debug --root /app --depPaths "**/package.json"
+node /app/pastoralist/index.js --debug --root /app --depPaths "**/package.json"
 print_result $? "Fourth pastoralist run completed"
 
 echo "\n1️⃣2️⃣ Checking if appendix is preserved when no overrides..."

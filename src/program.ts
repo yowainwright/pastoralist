@@ -37,7 +37,7 @@ program
     "specifies a glob path to a package.jsons",
   )
   .option("--ignore [ignore...]", "specifies a glob path to ignore")
-  .option("-r", "--root <root>", "specifies a root path")
+  .option("-r, --root <root>", "specifies a root path")
   .option("-t, --isTestingCLI", "enables CLI testing, no scripts are run")
   .option("--isTesting", "enables testing, no scripts are run")
   .action(action)

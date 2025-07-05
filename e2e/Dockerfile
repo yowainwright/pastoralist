@@ -1,6 +1,7 @@
 FROM node:24-alpine
 
-# Install pnpm for better package management
+# Install bash and pnpm
+RUN apk add --no-cache bash
 RUN npm install -g pnpm
 
 # Create a working directory

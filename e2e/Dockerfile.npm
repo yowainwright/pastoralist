@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:24-alpine
 
 # Create a working directory
 WORKDIR /app
@@ -7,7 +7,7 @@ WORKDIR /app
 COPY dist/ ./pastoralist/
 
 # Make pastoralist executable
-RUN chmod +x ./pastoralist/index.js
+RUN chmod +x ./pastoralist/index.cjs
 
 # Create a test workspace with multiple packages
 RUN mkdir -p packages/app packages/utils packages/shared
@@ -25,12 +25,15 @@ RUN echo 'console.log("App module");' > ./packages/app/index.js
 RUN echo 'console.log("Utils module");' > ./packages/utils/index.js
 RUN echo 'console.log("Shared module");' > ./packages/shared/index.js
 
-# Install dependencies to create a realistic scenario
+# Install workspace dependencies
 RUN npm install
 
-# Copy test scripts
-COPY e2e/test-scripts/ ./test-scripts/
-RUN chmod +x ./test-scripts/*.sh
+# Install pastoralist runtime dependencies in root so they can be found
+RUN npm install commander@14.0.0 compare-versions@6.1.1 fast-glob@3.3.3 gradient-string@^3.0.0 ora@^8.1.0 p-limit@^6.1.0
+
+# Copy scripts
+COPY e2e/scripts/ ./scripts/
+RUN chmod +x ./scripts/*.sh
 
 # Set up environment for testing
 ENV NODE_PATH=/app/pastoralist

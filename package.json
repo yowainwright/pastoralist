@@ -36,7 +36,7 @@
     "test": "tsx --test tests/*.ts",
     "test-resolutions": "tsx src/index.ts --debug",
     "test-resolutions-with-dist": "node dist/index.js --debug",
-    "test-e2e": "cd e2e && ./run-tests.sh",
+    "test-e2e": "./e2e/scripts/run-e2e-tests.sh",
     "typecheck": "turbo run typecheck-src",
     "typecheck-src": "tsc --noEmit",
     "update": "codependence --update && pnpm run update-app-deps",

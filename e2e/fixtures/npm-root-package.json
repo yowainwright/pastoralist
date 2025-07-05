@@ -1,0 +1,15 @@
+{
+  "name": "e2e-test-workspace-npm",
+  "version": "1.0.0",
+  "description": "E2E test workspace for pastoralist using npm",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "overrides": {
+    "lodash": "4.17.21"
+  },
+  "devDependencies": {
+    "lodash": "4.17.20"
+  }
+}

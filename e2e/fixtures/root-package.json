@@ -1,0 +1,18 @@
+{
+  "name": "e2e-test-workspace",
+  "version": "1.0.0",
+  "description": "E2E test workspace for pastoralist",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "packageManager": "pnpm@8.0.0",
+  "pnpm": {
+    "overrides": {
+      "lodash": "4.17.21"
+    }
+  },
+  "devDependencies": {
+    "lodash": "4.17.20"
+  }
+}

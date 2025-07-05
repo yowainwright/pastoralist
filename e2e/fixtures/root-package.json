@@ -11,8 +11,5 @@
     "overrides": {
       "lodash": "4.17.21"
     }
-  },
-  "devDependencies": {
-    "lodash": "4.17.20"
   }
 }

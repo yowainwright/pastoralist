@@ -6,7 +6,7 @@
   "dependencies": {
     "lodash": "^4.17.19",
     "express": "^4.18.0",
-    "@workspace/utils": "workspace:*"
+    "@workspace/utils": "*"
   },
   "devDependencies": {
     "axios": "^1.3.0"

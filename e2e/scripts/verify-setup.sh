@@ -40,7 +40,7 @@ ls -la packages/*/package.json
 
 echo "\n🧪 Testing pastoralist binary..."
 echo "--------------------------------"
-if node /app/pastoralist/index.js --help; then
+if node /app/pastoralist/index.cjs --help; then
     echo "✅ Pastoralist binary works!"
 else
     echo "❌ Pastoralist binary failed"

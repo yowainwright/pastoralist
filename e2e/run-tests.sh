@@ -11,14 +11,14 @@ echo "🐳 Starting E2E Tests..."
 echo "========================"
 
 # Ensure we have a fresh start
-docker-compose down --remove-orphans 2>/dev/null || true
+docker compose down --remove-orphans 2>/dev/null || true
 
 # Build and run the tests
 echo "📦 Building Docker containers..."
-docker-compose build
+docker compose build
 
 echo "🧪 Running E2E tests..."
-docker-compose up --abort-on-container-exit e2e-test
+docker compose up --abort-on-container-exit e2e-test
 
 # Capture the exit code
 TEST_EXIT_CODE=$?
@@ -32,7 +32,7 @@ if [ $TEST_EXIT_CODE -eq 0 ]; then
     
     echo ""
     echo "🔍 Running additional validation..."
-    docker-compose run --rm e2e-test /app/test-scripts/validate-appendix.sh
+    docker compose run --rm e2e-test /app/test-scripts/validate-appendix.sh
     
     VALIDATION_EXIT_CODE=$?
     if [ $VALIDATION_EXIT_CODE -eq 0 ]; then
@@ -45,14 +45,14 @@ else
     echo "❌ E2E tests FAILED!"
     echo ""
     echo "🔍 Container logs:"
-    docker-compose logs e2e-test
+    docker compose logs e2e-test
     exit 1
 fi
 
 # Cleanup
 echo ""
 echo "🧹 Cleaning up..."
-docker-compose down --remove-orphans
+docker compose down --remove-orphans
 
 echo ""
 echo "✨ E2E test run complete!"

@@ -84,7 +84,7 @@ describe("logMethod", () => {
     console.log = originalLog; // Restore console.log
     assert.strictEqual(
       loggedMessage,
-      `${LOG_PREFIX}[test.ts][testCaller] This is a test message`
+      `${LOG_PREFIX}[test.ts][testCaller] This is a test message`,
     );
   });
 
@@ -129,7 +129,7 @@ describe("logMethod", () => {
     console.warn = originalWarn;
     assert.strictEqual(
       loggedMessage,
-      `${LOG_PREFIX}[test.ts] This is a warning message`
+      `${LOG_PREFIX}[test.ts] This is a warning message`,
     );
   });
 
@@ -144,7 +144,7 @@ describe("logMethod", () => {
     console.log = originalLog;
     assert.strictEqual(
       loggedMessage,
-      `${LOG_PREFIX}[test.ts] This is a test message with no caller`
+      `${LOG_PREFIX}[test.ts] This is a test message with no caller`,
     );
   });
 });
@@ -275,7 +275,7 @@ describe("processPackageJSON", () => {
     const result = await processPackageJSON(
       "tests/fixtures/package-no-deps.json",
       {},
-      []
+      [],
     );
     assert.strictEqual(result, undefined);
 
@@ -299,7 +299,7 @@ describe("processPackageJSON", () => {
     const result = await processPackageJSON(
       "tests/fixtures/package-overrides.json",
       { express: "2.0.0" },
-      ["express"]
+      ["express"],
     );
     assert.deepStrictEqual(result?.appendix, {
       "express@2.0.0": {
@@ -498,7 +498,6 @@ describe("updatePackageJSON", () => {
     assert.deepStrictEqual(config, {});
   });
 
-
   it("should update config with appendix and overrides", async () => {
     const overrides = { foo: "1.0.0" };
     const config = {
@@ -619,7 +618,7 @@ describe("constructAppendix", () => {
     assert.deepStrictEqual(
       appendix,
       mockAppendix,
-      "Appendix should match expected result"
+      "Appendix should match expected result",
     );
   });
 
@@ -671,7 +670,7 @@ describe("constructAppendix", () => {
     assert.deepStrictEqual(
       appendix,
       mockAppendix,
-      "Appendix should match expected result"
+      "Appendix should match expected result",
     );
   });
 
@@ -722,7 +721,7 @@ describe("constructAppendix", () => {
     assert.deepStrictEqual(
       appendix,
       mockAppendix,
-      "Appendix should match expected result"
+      "Appendix should match expected result",
     );
   });
 });

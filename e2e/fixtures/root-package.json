@@ -4,9 +4,7 @@
   "description": "E2E test workspace for pastoralist",
   "private": true,
   "type": "module",
-  "workspaces": [
-    "packages/*"
-  ],
+  "workspaces": ["packages/*"],
   "packageManager": "pnpm@8.0.0",
   "pnpm": {
     "overrides": {

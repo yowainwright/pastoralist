@@ -1,28 +1,28 @@
 // Shared demo configuration for pastoralist StackBlitz demos
 export const demoConfig = {
   packageJson: {
-    "name": "pastoralist-demo",
-    "version": "1.0.0",
-    "description": "Demo of pastoralist - dependency override management tool",
-    "main": "index.js",
-    "type": "module",
-    "scripts": {
-      "start": "node index.js",
-      "demo": "node demo.js",
-      "run-pastoralist": "pastoralist"
+    name: "pastoralist-demo",
+    version: "1.0.0",
+    description: "Demo of pastoralist - dependency override management tool",
+    main: "index.js",
+    type: "module",
+    scripts: {
+      start: "node index.js",
+      demo: "node demo.js",
+      "run-pastoralist": "pastoralist",
     },
-    "dependencies": {
-      "lodash": "^4.17.21",
-      "react": "^18.2.0",
-      "express": "^4.18.0"
+    dependencies: {
+      lodash: "^4.17.21",
+      react: "^18.2.0",
+      express: "^4.18.0",
     },
-    "devDependencies": {
-      "pastoralist": "^1.2.1"
+    devDependencies: {
+      pastoralist: "^1.2.1",
     },
-    "overrides": {
-      "lodash": "4.17.20",
-      "react": "18.1.0"
-    }
+    overrides: {
+      lodash: "4.17.20",
+      react: "18.1.0",
+    },
   },
 
   indexJs: `// Pastoralist Demo - Package Override Management
@@ -247,10 +247,19 @@ In your actual projects, add pastoralist to your postinstall script:
 *Made with ❤️ by [@yowainwright](https://github.com/yowainwright)*`,
 
   stackblitzConfig: {
-    title: 'Pastoralist Demo - Smart Package Override Management',
-    description: 'Interactive demo of pastoralist - a tool that intelligently manages package.json overrides and resolutions, documenting why they exist and automatically cleaning up unnecessary ones.',
-    template: 'node',
-    tags: ['pastoralist', 'npm', 'dependencies', 'overrides', 'package-management', 'nodejs', 'automation']
+    title: "Pastoralist Demo - Smart Package Override Management",
+    description:
+      "Interactive demo of pastoralist - a tool that intelligently manages package.json overrides and resolutions, documenting why they exist and automatically cleaning up unnecessary ones.",
+    template: "node",
+    tags: [
+      "pastoralist",
+      "npm",
+      "dependencies",
+      "overrides",
+      "package-management",
+      "nodejs",
+      "automation",
+    ],
   },
 
   embedCode: `<iframe 
@@ -259,16 +268,16 @@ In your actual projects, add pastoralist to your postinstall script:
   title="Pastoralist Demo"
   allow="accelerometer; ambient-light-sensor; camera; encrypted-media; geolocation; gyroscope; hid; microphone; midi; payment; usb; vr; xr-spatial-tracking"
   sandbox="allow-forms allow-modals allow-popups allow-presentation allow-same-origin allow-scripts">
-</iframe>`
+</iframe>`,
 };
 
 // Helper function to generate demo files object
 export function getDemoFiles() {
   return {
-    'package.json': JSON.stringify(demoConfig.packageJson, null, 2),
-    'index.js': demoConfig.indexJs,
-    'demo.js': demoConfig.demoJs,
-    'README.md': demoConfig.readmeMd
+    "package.json": JSON.stringify(demoConfig.packageJson, null, 2),
+    "index.js": demoConfig.indexJs,
+    "demo.js": demoConfig.demoJs,
+    "README.md": demoConfig.readmeMd,
   };
 }
 
@@ -277,6 +286,6 @@ export function getStackblitzProject() {
   return {
     files: getDemoFiles(),
     ...demoConfig.stackblitzConfig,
-    dependencies: demoConfig.packageJson.dependencies
+    dependencies: demoConfig.packageJson.dependencies,
   };
 }

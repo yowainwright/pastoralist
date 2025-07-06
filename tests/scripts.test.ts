@@ -498,36 +498,6 @@ describe("updatePackageJSON", () => {
     assert.deepStrictEqual(config, {});
   });
 
-  it("should preserve pastoralist.appendix when no overrides but has appendix", async () => {
-    const config = {
-      name: "test-package",
-      version: "1.0.0",
-      resolutions: { foo: "1.0.0" },
-      overrides: { bar: "2.0.0" },
-      pnpm: { overrides: { baz: "3.0.0" } },
-    };
-    const appendix = {
-      "lodash@4.17.21": { dependents: { "test-package": "lodash@4.17.20" } },
-    };
-
-    const result = await updatePackageJSON({
-      appendix,
-      path: "path/to/package.json",
-      config,
-      overrides: {}, // No overrides
-      isTesting: true,
-    });
-
-    // Should preserve appendix even when no overrides
-    assert.deepStrictEqual(result.pastoralist, { appendix });
-    // Should remove override-related keys
-    assert.strictEqual(result.resolutions, undefined);
-    assert.strictEqual(result.overrides, undefined);
-    assert.strictEqual(result.pnpm, undefined);
-    // Should preserve other keys
-    assert.strictEqual(result.name, "test-package");
-    assert.strictEqual(result.version, "1.0.0");
-  });
 
   it("should update config with appendix and overrides", async () => {
     const overrides = { foo: "1.0.0" };

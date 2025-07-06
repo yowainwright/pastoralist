@@ -216,22 +216,15 @@ export async function updatePackageJSON({
   isTesting = false,
 }: UpdatePackageJSONOptions): Promise<PastoralistJSON | void> {
   const hasOverrides = overrides && Object.keys(overrides).length > 0;
-  const hasAppendix = appendix && Object.keys(appendix).length > 0;
 
   if (!hasOverrides) {
-    if (!hasAppendix) {
-      const keysToRemove = ["pastoralist", "resolutions", "overrides", "pnpm"];
-      for (const key of keysToRemove) {
-        delete config[key as keyof PastoralistJSON];
-      }
-    } else {
-      const keysToRemove = ["resolutions", "overrides", "pnpm"];
-      for (const key of keysToRemove) {
-        delete config[key as keyof PastoralistJSON];
-      }
+    const keysToRemove = ["pastoralist", "resolutions", "overrides", "pnpm"];
+    for (const key of keysToRemove) {
+      delete config[key as keyof PastoralistJSON];
     }
   }
 
+  const hasAppendix = appendix && Object.keys(appendix).length > 0;
   if (hasAppendix) config.pastoralist = { appendix };
 
   if (config?.resolutions) config.resolutions = overrides;

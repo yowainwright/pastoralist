@@ -24,6 +24,8 @@
     "clean-dist": "rimraf dist",
     "commit": "git-cz",
     "commit-msg": "commitlint --edit $1",
+    "create-demo": "node demo/create-demo.js generate",
+    "demo-embed": "node demo/create-demo.js embed",
     "dev": "pnpm --filter @pastoralist/app run app-dev",
     "lint": "turbo run lint-src",
     "lint-fix": "eslint",

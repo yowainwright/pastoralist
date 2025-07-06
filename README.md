@@ -145,6 +145,7 @@ pnpm run test-e2e
 ```
 
 The e2e tests create a realistic monorepo workspace with lodash dependencies and verify:
+
 - Appendix creation and updates
 - Override version changes
 - Appendix preservation when overrides are removed (bug fix verification)

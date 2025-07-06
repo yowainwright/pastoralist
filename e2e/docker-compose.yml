@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   e2e-test:
@@ -32,7 +32,7 @@ services:
       - NODE_ENV=test
       - DEBUG=pastoralist*
 
-  # Test with npm instead of pnpm  
+  # Test with npm instead of pnpm
   e2e-npm:
     build:
       context: ..

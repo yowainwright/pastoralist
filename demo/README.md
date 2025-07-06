@@ -29,6 +29,7 @@ node demo/create-demo.js files
 ### Browser GUI
 
 Open `create-demo.html` in your browser for a graphical interface to:
+
 - Create StackBlitz demos instantly
 - Get embed codes for documentation
 - Copy URLs for sharing
@@ -38,7 +39,7 @@ Open `create-demo.html` in your browser for a graphical interface to:
 The demo creates a complete Node.js project showcasing pastoralist:
 
 - **Sample package.json** with lodash and react overrides
-- **Interactive scripts** demonstrating pastoralist functionality  
+- **Interactive scripts** demonstrating pastoralist functionality
 - **Before/after examples** showing appendix creation
 - **Complete documentation** explaining how pastoralist works
 

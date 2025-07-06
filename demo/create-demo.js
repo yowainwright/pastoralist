@@ -124,7 +124,7 @@ function generateDemo() {
   console.log(markdownEmbed.trim());
   console.log("");
 
-  const finalCreateUrl = writeEmbedFiles();
+  writeEmbedFiles();
 
   console.log("");
   console.log("🚀 Next Steps:");

@@ -1,0 +1,48 @@
+version: "3.8"
+
+services:
+  e2e-test:
+    build:
+      context: ..
+      dockerfile: e2e/Dockerfile
+    container_name: pastoralist-e2e
+    volumes:
+      - ../dist:/app/pastoralist:ro
+      - ./results:/app/results
+    working_dir: /app
+    command: /app/scripts/run-e2e-tests.sh
+    environment:
+      - NODE_ENV=test
+      - DEBUG=pastoralist*
+
+  # Interactive shell for manual testing
+  e2e-shell:
+    build:
+      context: ..
+      dockerfile: e2e/Dockerfile
+    container_name: pastoralist-e2e-shell
+    volumes:
+      - ../dist:/app/pastoralist:ro
+      - ./results:/app/results
+    working_dir: /app
+    command: /bin/sh
+    stdin_open: true
+    tty: true
+    environment:
+      - NODE_ENV=test
+      - DEBUG=pastoralist*
+
+  # Test with npm instead of pnpm
+  e2e-npm:
+    build:
+      context: ..
+      dockerfile: e2e/Dockerfile.npm
+    container_name: pastoralist-e2e-npm
+    volumes:
+      - ../dist:/app/pastoralist:ro
+      - ./results:/app/results
+    working_dir: /app
+    command: /app/scripts/run-e2e-tests.sh
+    environment:
+      - NODE_ENV=test
+      - DEBUG=pastoralist*

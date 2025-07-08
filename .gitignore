@@ -110,3 +110,5 @@ docs/app/page
 .pnpm-store
 tests/fixtures/package.json
 e2e/test-project/
+.vscode/
+e2e/results/

@@ -1,0 +1,14 @@
+{
+  "name": "@workspace/app",
+  "version": "1.0.0",
+  "description": "Main application package",
+  "main": "index.js",
+  "dependencies": {
+    "lodash": "^4.17.19",
+    "express": "^4.18.0",
+    "@workspace/utils": "*"
+  },
+  "devDependencies": {
+    "axios": "^1.3.0"
+  }
+}

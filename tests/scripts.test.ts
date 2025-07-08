@@ -84,7 +84,7 @@ describe("logMethod", () => {
     console.log = originalLog; // Restore console.log
     assert.strictEqual(
       loggedMessage,
-      `${LOG_PREFIX}[test.ts][testCaller] This is a test message`
+      `${LOG_PREFIX}[test.ts][testCaller] This is a test message`,
     );
   });
 
@@ -129,7 +129,7 @@ describe("logMethod", () => {
     console.warn = originalWarn;
     assert.strictEqual(
       loggedMessage,
-      `${LOG_PREFIX}[test.ts] This is a warning message`
+      `${LOG_PREFIX}[test.ts] This is a warning message`,
     );
   });
 
@@ -144,7 +144,7 @@ describe("logMethod", () => {
     console.log = originalLog;
     assert.strictEqual(
       loggedMessage,
-      `${LOG_PREFIX}[test.ts] This is a test message with no caller`
+      `${LOG_PREFIX}[test.ts] This is a test message with no caller`,
     );
   });
 });
@@ -275,7 +275,7 @@ describe("processPackageJSON", () => {
     const result = await processPackageJSON(
       "tests/fixtures/package-no-deps.json",
       {},
-      []
+      [],
     );
     assert.strictEqual(result, undefined);
 
@@ -299,7 +299,7 @@ describe("processPackageJSON", () => {
     const result = await processPackageJSON(
       "tests/fixtures/package-overrides.json",
       { express: "2.0.0" },
-      ["express"]
+      ["express"],
     );
     assert.deepStrictEqual(result?.appendix, {
       "express@2.0.0": {
@@ -618,12 +618,11 @@ describe("constructAppendix", () => {
     assert.deepStrictEqual(
       appendix,
       mockAppendix,
-      "Appendix should match expected result"
+      "Appendix should match expected result",
     );
   });
 
   it("should handle multiple overrides", async () => {
-    // Mock fs.readFileSync to return our test data
     fs.readFileSync = function mockReadFileSync(path: string, encoding: any) {
       if (path.includes("package-a.json")) {
         return JSON.stringify({
@@ -637,7 +636,6 @@ describe("constructAppendix", () => {
       }
     } as any;
 
-    // Clear the cache to ensure our mocks are used
     jsonCache.clear();
 
     const packageJSONs = ["tests/fixtures/package-a.json"];
@@ -650,7 +648,6 @@ describe("constructAppendix", () => {
       },
     };
 
-    // Create a mock appendix result
     const mockAppendix = {
       "vulnerable-dep@^2.0.0": {
         dependents: {
@@ -659,7 +656,6 @@ describe("constructAppendix", () => {
       },
     };
 
-    // Mock the processPackageJSON function to return our expected result
     const originalProcessPackageJSON = processPackageJSON;
     (global as any).processPackageJSON = async () => ({
       appendix: mockAppendix,
@@ -667,21 +663,18 @@ describe("constructAppendix", () => {
 
     const appendix = await constructAppendix(packageJSONs, overridesData);
 
-    // Restore original functions
     fs.readFileSync = originalReadFileSync;
     (global as any).processPackageJSON = originalProcessPackageJSON;
 
-    // Verify the result
     assert.ok(appendix, "Appendix should be defined");
     assert.deepStrictEqual(
       appendix,
       mockAppendix,
-      "Appendix should match expected result"
+      "Appendix should match expected result",
     );
   });
 
   it("should handle different override types", async () => {
-    // Mock fs.readFileSync to return our test data
     fs.readFileSync = function mockReadFileSync(path: string, encoding: any) {
       if (path.includes("package-a.json")) {
         return JSON.stringify({
@@ -695,12 +688,10 @@ describe("constructAppendix", () => {
       }
     } as any;
 
-    // Clear the cache to ensure our mocks are used
     jsonCache.clear();
 
     const packageJSONs = ["tests/fixtures/package-a.json"];
 
-    // Test with resolutions
     const resolutionsData = {
       type: "resolutions",
       resolutions: {
@@ -708,7 +699,6 @@ describe("constructAppendix", () => {
       },
     };
 
-    // Create a mock appendix result
     const mockAppendix = {
       "vulnerable-dep@^2.0.0": {
         dependents: {
@@ -717,7 +707,6 @@ describe("constructAppendix", () => {
       },
     };
 
-    // Mock the processPackageJSON function to return our expected result
     const originalProcessPackageJSON = processPackageJSON;
     (global as any).processPackageJSON = async () => ({
       appendix: mockAppendix,
@@ -725,16 +714,14 @@ describe("constructAppendix", () => {
 
     const appendix = await constructAppendix(packageJSONs, resolutionsData);
 
-    // Restore original functions
     fs.readFileSync = originalReadFileSync;
     (global as any).processPackageJSON = originalProcessPackageJSON;
 
-    // Verify the result
     assert.ok(appendix, "Appendix should be defined");
     assert.deepStrictEqual(
       appendix,
       mockAppendix,
-      "Appendix should match expected result"
+      "Appendix should match expected result",
     );
   });
 });

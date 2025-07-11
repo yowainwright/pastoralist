@@ -32,15 +32,50 @@ export const update = async (options: Options): Promise<void> => {
     return;
   }
 
+  // Detect patches in the project
+  const patchMap = detectPatches(root);
+  const patchedPackages = Object.keys(patchMap);
+  if (patchedPackages.length > 0) {
+    log.debug(
+      `Found patches for packages: ${patchedPackages.join(", ")}`,
+      "update",
+    );
+  }
+
   const overridesData = resolveOverrides({ options, config });
   const packageJSONs = sync(depPaths, { cwd: root, ignore });
 
   log.debug(`Found ${packageJSONs.length} package.json files`, "update");
   packageJSONs.forEach((p) => log.debug(`Package: ${p}`, "update"));
 
-  const appendix = await constructAppendix(packageJSONs, overridesData);
+  const appendix = await constructAppendix(
+    packageJSONs,
+    overridesData,
+    patchMap,
+  );
   const removableItems = appendix ? findRemovableAppendixItems(appendix) : [];
   const updatedResolutions = updateOverrides(overridesData, removableItems);
+
+  // Check for unused patches
+  if (config) {
+    const allDeps = {
+      ...(config.dependencies || {}),
+      ...(config.devDependencies || {}),
+      ...(config.peerDependencies || {}),
+    };
+    const unusedPatches = findUnusedPatches(patchMap, allDeps);
+    if (unusedPatches.length > 0) {
+      log.info(
+        `Found ${unusedPatches.length} potentially unused patch files:`,
+        "update",
+      );
+      unusedPatches.forEach((patch) => log.info(`  - ${patch}`, "update"));
+      log.info(
+        "Consider removing these patches if the packages are no longer used.",
+        "update",
+      );
+    }
+  }
 
   if (isTesting) return appendix as void;
 
@@ -55,6 +90,7 @@ export const update = async (options: Options): Promise<void> => {
 export const constructAppendix = async (
   packageJSONs: Array<string>,
   data: ResolveOverrides,
+  patchMap: Record<string, string[]> = {},
 ) => {
   const overrides = getOverridesByType(data) || {};
   const overrideKeys = Object.keys(overrides);
@@ -81,6 +117,7 @@ export const constructAppendix = async (
         const deps = {
           ...(pkg.dependencies || {}),
           ...(pkg.devDependencies || {}),
+          ...(pkg.peerDependencies || {}),
         };
 
         dependencyGraph[pkg.name] = {
@@ -147,9 +184,13 @@ export const constructAppendix = async (
         );
 
         if (dependentCount > 0) {
-          result[key] = { dependents: dependentsObj };
+          const patches = getPackagePatches(override, patchMap);
+          result[key] = {
+            dependents: dependentsObj,
+            ...(patches.length > 0 && { patches }),
+          };
           log.debug(
-            `Added ${key} to appendix with ${dependentCount} dependents`,
+            `Added ${key} to appendix with ${dependentCount} dependents${patches.length > 0 ? ` and ${patches.length} patches` : ""}`,
             "constructAppendix",
           );
         }
@@ -332,8 +373,17 @@ export async function processPackageJSON(
   const currentPackageJSON = await resolveJSON(filePath);
   if (!currentPackageJSON) return;
 
-  const { name, dependencies = {}, devDependencies = {} } = currentPackageJSON;
-  const mergedDeps = { ...dependencies, ...devDependencies };
+  const {
+    name,
+    dependencies = {},
+    devDependencies = {},
+    peerDependencies = {},
+  } = currentPackageJSON;
+  const mergedDeps = {
+    ...dependencies,
+    ...devDependencies,
+    ...peerDependencies,
+  };
   const depList = Object.keys(mergedDeps);
 
   const isOverridden = depList.some((dep) => overridesList.includes(dep));
@@ -345,6 +395,7 @@ export async function processPackageJSON(
     overrides,
     dependencies,
     devDependencies,
+    peerDependencies,
     packageName: name,
   });
   return {
@@ -360,11 +411,12 @@ export const updateAppendix = ({
   appendix = {},
   dependencies = {},
   devDependencies = {},
+  peerDependencies = {},
   packageName = "",
   cache = new Map<string, Appendix>(),
 }: UpdateAppendixOptions & { cache?: Map<string, Appendix> }) => {
   const overridesList = Object.keys(overrides);
-  const deps = { ...dependencies, ...devDependencies };
+  const deps = { ...dependencies, ...devDependencies, ...peerDependencies };
   const depList = Object.keys(deps);
 
   for (const override of overridesList) {
@@ -447,3 +499,112 @@ export const logger = ({ file, isLogging = false }: LoggerOptions) => ({
 const log = logger({ file: "scripts.ts", isLogging: IS_DEBUGGING });
 
 export const jsonCache = new Map<string, PastoralistJSON>();
+
+/**
+ * Detect patches in the project by scanning for patch files
+ * Common patterns:
+ * - patches/ directory (patch-package)
+ * - .patches/ directory
+ * - *.patch files in the root
+ */
+export const detectPatches = (
+  root: string = "./",
+): Record<string, string[]> => {
+  const patchPatterns = [
+    "patches/*.patch",
+    ".patches/*.patch",
+    "*.patch",
+    "patches/**/*.patch",
+  ];
+
+  try {
+    const patchFiles = sync(patchPatterns, { cwd: root });
+    const patchMap: Record<string, string[]> = {};
+
+    patchFiles.forEach((patchFile) => {
+      // Extract package name from patch filename
+      // Common formats:
+      // - package-name+1.2.3.patch
+      // - @scope+package-name+1.2.3.patch
+      // - package-name.patch
+      const basename = patchFile.split("/").pop() || "";
+
+      if (!basename.endsWith(".patch")) {
+        return; // Skip non-patch files
+      }
+
+      // Remove .patch extension
+      const nameWithoutExt = basename.replace(".patch", "");
+
+      let packageName: string;
+
+      if (!nameWithoutExt.includes("+")) {
+        // Simple case: package-name.patch -> package-name
+        packageName = nameWithoutExt;
+      } else {
+        // Complex case: package+version.patch or @scope+package+version.patch
+        const parts = nameWithoutExt.split("+");
+
+        if (nameWithoutExt.startsWith("@")) {
+          // Scoped package: @scope+package+version -> @scope/package
+          if (parts.length >= 2) {
+            packageName = `${parts[0]}/${parts[1]}`;
+          } else {
+            packageName = parts[0]; // Fallback
+          }
+        } else {
+          // Regular package: package+version -> package
+          packageName = parts[0];
+        }
+      }
+
+      if (packageName) {
+        if (!patchMap[packageName]) {
+          patchMap[packageName] = [];
+        }
+        patchMap[packageName].push(patchFile);
+        log.debug(
+          `Found patch for ${packageName}: ${patchFile}`,
+          "detectPatches",
+        );
+      }
+    });
+
+    return patchMap;
+  } catch (err) {
+    log.error("Error detecting patches", "detectPatches", err);
+    return {};
+  }
+};
+
+/**
+ * Check if a package has patches applied
+ */
+export const getPackagePatches = (
+  packageName: string,
+  patchMap: Record<string, string[]>,
+): string[] => {
+  return patchMap[packageName] || [];
+};
+
+/**
+ * Find patches that are no longer needed (packages not in dependencies)
+ */
+export const findUnusedPatches = (
+  patchMap: Record<string, string[]>,
+  allDependencies: Record<string, string>,
+): string[] => {
+  const unusedPatches: string[] = [];
+
+  Object.entries(patchMap).forEach(([packageName, patches]) => {
+    if (!allDependencies[packageName]) {
+      unusedPatches.push(...patches);
+      log.debug(
+        `Found unused patches for ${packageName}: ${patches.join(", ")}`,
+        "findUnusedPatches",
+      );
+    }
+  });
+
+  return unusedPatches;
+};

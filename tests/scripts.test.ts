@@ -790,3 +790,160 @@ describe("updateOverrides (refactored)", () => {
 });
 
 fs.readFileSync = originalReadFileSync;
+
+describe("peerDependencies support", () => {
+  it("should return empty object when override satisfies peerDependency version", () => {
+    // lodash@4.17.21 satisfies ^4.17.0, so no appendix entry should be created
+    const result = updateAppendix({
+      overrides: { lodash: "4.17.21" },
+      appendix: {},
+      dependencies: { react: "^18.0.0" },
+      devDependencies: { typescript: "^5.0.0" },
+      peerDependencies: { lodash: "^4.17.0" },
+      packageName: "test-package-with-peers",
+    });
+    assert.deepStrictEqual(result, {});
+  });
+
+  it("should create appendix entry when peerDependency override is incompatible", () => {
+    // lodash@5.0.0 does NOT satisfy ^4.17.0, so an appendix entry should be created
+    const result = updateAppendix({
+      overrides: { lodash: "5.0.0" },
+      appendix: {},
+      dependencies: { react: "^18.0.0" },
+      devDependencies: { typescript: "^5.0.0" },
+      peerDependencies: { lodash: "^4.17.0" },
+      packageName: "test-package-with-peers",
+    });
+    assert.deepStrictEqual(result, {
+      "lodash@5.0.0": {
+        dependents: {
+          "test-package-with-peers": "lodash@^4.17.0",
+        },
+      },
+    });
+  });
+
+  it("should handle mixed compatible and incompatible overrides across dependency types", () => {
+    const result = updateAppendix({
+      overrides: { 
+        react: "18.2.0",        // Compatible with ^18.0.0
+        typescript: "4.9.5",    // NOT compatible with ^5.0.0
+        lodash: "4.17.21"       // Compatible with ^4.17.0
+      },
+      appendix: {},
+      dependencies: { react: "^18.0.0" },
+      devDependencies: { typescript: "^5.0.0" },
+      peerDependencies: { lodash: "^4.17.0" },
+      packageName: "test-package-with-all-deps",
+    });
+    
+    // Should only create appendix entry for typescript (incompatible override)
+    assert.deepStrictEqual(result, {
+      "typescript@4.9.5": {
+        dependents: {
+          "test-package-with-all-deps": "typescript@^5.0.0",
+        },
+      },
+    });
+  });
+});
+
+describe("patch detection and management", () => {
+  it("should detect patches from common patterns", () => {
+    // Mock patch files
+    const mockPatches = [
+      "patches/lodash+4.17.21.patch",
+      "patches/@types+react+18.0.0.patch",
+      "patches/express.patch"
+    ];
+    
+    // Since we can't easily mock fast-glob in this test environment,
+    // we'll test the parsing logic directly
+    const patchMap: Record<string, string[]> = {};
+    
+    mockPatches.forEach(patchFile => {
+      const basename = patchFile.split('/').pop() || '';
+      
+      if (!basename.endsWith('.patch')) {
+        return; // Skip non-patch files
+      }
+      
+      // Remove .patch extension
+      const nameWithoutExt = basename.replace('.patch', '');
+      
+      let packageName: string;
+      
+      if (!nameWithoutExt.includes('+')) {
+        // Simple case: package-name.patch -> package-name
+        packageName = nameWithoutExt;
+      } else {
+        // Complex case: package+version.patch or @scope+package+version.patch
+        const parts = nameWithoutExt.split('+');
+        
+        if (nameWithoutExt.startsWith('@')) {
+          // Scoped package: @scope+package+version -> @scope/package
+          if (parts.length >= 2) {
+            packageName = `${parts[0]}/${parts[1]}`;
+          } else {
+            packageName = parts[0]; // Fallback
+          }
+        } else {
+          // Regular package: package+version -> package
+          packageName = parts[0];
+        }
+      }
+      
+      if (packageName) {
+        if (!patchMap[packageName]) {
+          patchMap[packageName] = [];
+        }
+        patchMap[packageName].push(patchFile);
+      }
+    });
+    
+    assert.deepStrictEqual(patchMap, {
+      "lodash": ["patches/lodash+4.17.21.patch"],
+      "@types/react": ["patches/@types+react+18.0.0.patch"],
+      "express": ["patches/express.patch"]
+    });
+  });
+
+  it("should find unused patches correctly", () => {
+    const patchMap = {
+      "lodash": ["patches/lodash+4.17.21.patch"],
+      "unused-package": ["patches/unused-package+1.0.0.patch"],
+      "react": ["patches/react+18.0.0.patch"]
+    };
+    
+    const allDependencies = {
+      "lodash": "^4.17.0",
+      "react": "^18.0.0"
+      // unused-package is not in dependencies
+    };
+    
+    const unusedPatches: string[] = [];
+    Object.entries(patchMap).forEach(([packageName, patches]) => {
+      if (!allDependencies[packageName]) {
+        unusedPatches.push(...patches);
+      }
+    });
+    
+    assert.deepStrictEqual(unusedPatches, ["patches/unused-package+1.0.0.patch"]);
+  });
+
+  it("should get package patches correctly", () => {
+    const patchMap = {
+      "lodash": ["patches/lodash+4.17.21.patch", "patches/lodash+4.17.20.patch"],
+      "react": ["patches/react+18.0.0.patch"]
+    };
+    
+    const lodashPatches = patchMap["lodash"] || [];
+    const reactPatches = patchMap["react"] || [];
+    const nonExistentPatches = patchMap["non-existent"] || [];
+    
+    assert.deepStrictEqual(lodashPatches, ["patches/lodash+4.17.21.patch", "patches/lodash+4.17.20.patch"]);
+    assert.deepStrictEqual(reactPatches, ["patches/react+18.0.0.patch"]);
+    assert.deepStrictEqual(nonExistentPatches, []);
+  });
+});

@@ -3,6 +3,7 @@ export type Exec = (runner: string, cmds: Array<string>) => Promise<any>;
 export interface PastoralistJSON {
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
   name: string;
   version: string;
   resolutions?: Record<string, string>;
@@ -16,6 +17,7 @@ export interface PastoralistJSON {
 export interface AppendixItem {
   rootDeps?: Array<string>;
   dependents?: Record<string, string>;
+  patches?: Array<string>; // Track applied patches for this package
 }
 export interface Appendix {
   [key: string]: AppendixItem;
@@ -37,6 +39,7 @@ export interface UpdateAppendixOptions {
   appendix?: Appendix;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
   packageName?: string;
   debug?: boolean;
 }

@@ -6,9 +6,9 @@
 [![Github](https://badgen.net/badge/icon/github?icon=github&label&color=grey)](https://github.com/yowainwright/mini-cookies)
 ![Twitter](https://img.shields.io/twitter/url?url=https%3A%2F%2Fgithub.com%2Fyowainwright%2Fpastoralist)
 
-#### Manage your package.json \*`overrides` or `resolutions` with ease!
+#### Manage your package.json \*`overrides`, `resolutions`, and `patches` with ease!
 
-With the Pastoralist CLI, you can ensure your project's overrides _(or resolutions)_ are kept up-to-date by running a single one word command! Jump to [setup](#setup) or scroll on!
+With the Pastoralist CLI, you can ensure your project's overrides _(or resolutions)_ and patches are kept up-to-date by running a single one word command! Jump to [setup](#setup) or scroll on!
 
 ---
 
@@ -66,6 +66,32 @@ AKA, the object above, will now look like the object below if trim is no longer 
 "pastoralist": {
   "appendix": {}
 }
+```
+
+### ✨ New Features
+
+**Patch Support**: Pastoralist now automatically detects and tracks patches (e.g., from `patch-package`) in your project:
+
+```js
+"pastoralist": {
+  "appendix": {
+    "lodash@4.17.21": {
+      "dependents": {
+        "my-app": "lodash@^4.17.0"
+      },
+      "patches": ["patches/lodash+4.17.21.patch"]
+    }
+  }
+}
+```
+
+**Enhanced Dependency Support**: Now supports `peerDependencies` alongside `dependencies` and `devDependencies` for complete dependency tracking.
+
+**Smart Cleanup**: Get notified about unused patches when dependencies are removed:
+```
+🐑 Found 2 potentially unused patch files:
+  - patches/old-package+1.0.0.patch
+Consider removing these patches if the packages are no longer used.
 ```
 
 There is more to come with Pastoralist! But for now, by adding pastoralist to [package.json postInstall script](https://docs.npmjs.com/cli/v8/using-npm/scripts#npm-install), you don't have to worry about installing unneeded override or resolution packages anymore!
@@ -150,6 +176,8 @@ The e2e tests create a realistic monorepo workspace with lodash dependencies and
 - Override version changes
 - Appendix preservation when overrides are removed (bug fix verification)
 - Cross-package dependency tracking
+- Patch detection and tracking
+- PeerDependencies support
 
 In the near feature, Pastoralist will fully support a config file but this is it for now!
 

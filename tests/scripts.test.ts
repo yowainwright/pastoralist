@@ -654,6 +654,11 @@ describe("constructAppendix", () => {
           "package-a": "vulnerable-dep@^1.0.0",
         },
       },
+      "another-dep@^3.0.0": {
+        dependents: {
+          "package-a": "another-dep@^3.0.0",
+        },
+      },
     };
 
     const originalProcessPackageJSON = processPackageJSON;

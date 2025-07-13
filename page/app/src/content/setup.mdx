@@ -19,6 +19,10 @@ npm install pastoralist --save-dev
 ```bash
 pastoralist
 # => That's it! Check out your package.json
+# Pastoralist will automatically detect and track:
+# - Overrides and resolutions
+# - Patches (from patch-package and similar tools)
+# - All dependency types (dependencies, devDependencies, peerDependencies)
 ```
 
 3. (recommended) add Pastoralist to a postInstall script

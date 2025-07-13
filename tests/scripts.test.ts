@@ -4,6 +4,7 @@ import {
   resolveJSON,
   jsonCache,
   logMethod,
+  logger,
   updateAppendix,
   processPackageJSON,
   getOverridesByType,
@@ -607,7 +608,8 @@ describe("constructAppendix", () => {
       appendix: mockAppendix,
     });
 
-    const appendix = await constructAppendix(packageJSONs, overridesData);
+    const testLog = logger({ file: "test", isLogging: false });
+    const appendix = await constructAppendix(packageJSONs, overridesData, {}, testLog);
 
     // Restore original functions
     fs.readFileSync = originalReadFileSync;
@@ -666,7 +668,8 @@ describe("constructAppendix", () => {
       appendix: mockAppendix,
     });
 
-    const appendix = await constructAppendix(packageJSONs, overridesData);
+    const testLog = logger({ file: "test", isLogging: false });
+    const appendix = await constructAppendix(packageJSONs, overridesData, {}, testLog);
 
     fs.readFileSync = originalReadFileSync;
     (global as any).processPackageJSON = originalProcessPackageJSON;
@@ -717,7 +720,8 @@ describe("constructAppendix", () => {
       appendix: mockAppendix,
     });
 
-    const appendix = await constructAppendix(packageJSONs, resolutionsData);
+    const testLog = logger({ file: "test", isLogging: false });
+    const appendix = await constructAppendix(packageJSONs, resolutionsData, {}, testLog);
 
     fs.readFileSync = originalReadFileSync;
     (global as any).processPackageJSON = originalProcessPackageJSON;

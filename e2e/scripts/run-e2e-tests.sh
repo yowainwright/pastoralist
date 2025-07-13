@@ -151,6 +151,15 @@ else
     exit 1
 fi
 
+echo "\n🎉 All workspace E2E tests passed!"
+echo "==================================="
+
+# Run single package tests
+echo "\n🔄 Running Single Package Tests..."
+echo "==================================="
+/app/scripts/test-single-packages.sh
+print_result $? "Single package tests completed"
+
 echo "\n🎉 All E2E tests passed!"
 echo "========================="
 

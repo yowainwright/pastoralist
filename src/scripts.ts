@@ -25,6 +25,8 @@ export const update = async (options: Options): Promise<void> => {
   const root = options?.root || "./";
   const ignore = options?.ignore || ["**/node_modules/**/node_modules/**"];
   const isTesting = options?.isTesting || false;
+  const isLogging = IS_DEBUGGING || options?.debug || false;
+  const log = logger({ file: "scripts.ts", isLogging });
 
   const config = await resolveJSON(path);
   if (!config) {
@@ -52,6 +54,7 @@ export const update = async (options: Options): Promise<void> => {
     packageJSONs,
     overridesData,
     patchMap,
+    log,
   );
   const removableItems = appendix ? findRemovableAppendixItems(appendix) : [];
   const updatedResolutions = updateOverrides(overridesData, removableItems);
@@ -91,6 +94,7 @@ export const constructAppendix = async (
   packageJSONs: Array<string>,
   data: ResolveOverrides,
   patchMap: Record<string, string[]> = {},
+  log: ReturnType<typeof logger>,
 ) => {
   const overrides = getOverridesByType(data) || {};
   const overrideKeys = Object.keys(overrides);
@@ -228,7 +232,7 @@ export const constructAppendix = async (
         result = { ...result, ...appendixItem };
       });
   } catch (err) {
-    log.error("Error constructing appendix", "constructAppendix", err);
+    fallbackLog.error("Error constructing appendix", "constructAppendix", err);
   }
 
   return result;
@@ -255,7 +259,7 @@ export const updateOverrides = (
   if (!overrideData) return;
   const overrides = getOverridesByType(overrideData);
   if (!overrides || Object.keys(overrides).length === 0) {
-    log.debug("No overrides found to update", "updateOverrides");
+    fallbackLog.debug("No overrides found to update", "updateOverrides");
     return;
   }
 
@@ -304,7 +308,7 @@ export function resolveOverrides({
   const errMsg = "Pastorlist didn't find any overrides or resolutions!";
   const overrideData = defineOverride(config);
   if (!overrideData) {
-    log.error(errMsg, fn);
+    fallbackLog.error(errMsg, fn);
     return;
   }
 
@@ -312,7 +316,7 @@ export function resolveOverrides({
   const hasOverrides = Object.keys(initialOverrides)?.length > 0;
 
   if (!hasOverrides || !type) {
-    log.error(errMsg, fn);
+    fallbackLog.error(errMsg, fn);
     return;
   }
 
@@ -324,8 +328,8 @@ export function resolveOverrides({
   );
 
   if (hasComplexOverrides) {
-    log.error("Pastoralist only supports simple overrides!", fn);
-    log.error(
+    fallbackLog.error("Pastoralist only supports simple overrides!", fn);
+    fallbackLog.error(
       "Pastoralist is bypassing the specified complex overrides. 👌",
       fn,
     );
@@ -360,12 +364,12 @@ export const defineOverride = ({
   const fn = "defineOverride";
   const hasOverride = overrideTypes?.length > 0;
   if (!hasOverride) {
-    log.debug("🐑 👩🏽‍🌾 Pastoralist didn't find any overrides!", fn);
+    fallbackLog.debug("🐑 👩🏽‍🌾 Pastoralist didn't find any overrides!", fn);
     return;
   }
   const hasMultipleOverrides = overrideTypes?.length > 1;
   if (hasMultipleOverrides) {
-    log.error("Only 1 override object allowed", fn);
+    fallbackLog.error("Only 1 override object allowed", fn);
     return;
   }
 
@@ -375,7 +379,7 @@ export const defineOverride = ({
 export const getOverridesByType = (data: ResolveOverrides) => {
   const type = data?.type;
   if (!type) {
-    log.error("no type found", "resolveOverridesProp");
+    fallbackLog.error("no type found", "resolveOverridesProp");
     return;
   }
   if (type === "resolutions") return data?.resolutions;
@@ -486,7 +490,7 @@ export function resolveJSON(path: string) {
     jsonCache.set(path, json);
     return json;
   } catch (err) {
-    log.error(
+    fallbackLog.error(
       `🐑 👩🏽‍🌾  Pastoralist found invalid JSON at:\n${path}`,
       "resolveJSON",
       err,
@@ -513,7 +517,8 @@ export const logger = ({ file, isLogging = false }: LoggerOptions) => ({
   info: logMethod("info", isLogging, file),
 });
 
-const log = logger({ file: "scripts.ts", isLogging: IS_DEBUGGING });
+// Fallback logger for functions not called from update()
+const fallbackLog = logger({ file: "scripts.ts", isLogging: IS_DEBUGGING });
 
 export const jsonCache = new Map<string, PastoralistJSON>();
 
@@ -580,7 +585,7 @@ export const detectPatches = (
           patchMap[packageName] = [];
         }
         patchMap[packageName].push(patchFile);
-        log.debug(
+        fallbackLog.debug(
           `Found patch for ${packageName}: ${patchFile}`,
           "detectPatches",
         );
@@ -589,7 +594,7 @@ export const detectPatches = (
 
     return patchMap;
   } catch (err) {
-    log.error("Error detecting patches", "detectPatches", err);
+    fallbackLog.error("Error detecting patches", "detectPatches", err);
     return {};
   }
 };
@@ -616,7 +621,7 @@ export const findUnusedPatches = (
   Object.entries(patchMap).forEach(([packageName, patches]) => {
     if (!allDependencies[packageName]) {
       unusedPatches.push(...patches);
-      log.debug(
+      fallbackLog.debug(
         `Found unused patches for ${packageName}: ${patches.join(", ")}`,
         "findUnusedPatches",
       );

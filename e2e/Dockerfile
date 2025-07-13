@@ -24,6 +24,17 @@ COPY e2e/fixtures/app-package.json ./packages/app/package.json
 COPY e2e/fixtures/utils-package.json ./packages/utils/package.json
 COPY e2e/fixtures/shared-package.json ./packages/shared/package.json
 
+# Copy single package test fixtures
+COPY e2e/fixtures/npm-single-package.json ./e2e/fixtures/
+COPY e2e/fixtures/yarn-single-package.json ./e2e/fixtures/
+COPY e2e/fixtures/pnpm-single-package.json ./e2e/fixtures/
+COPY e2e/fixtures/bun-single-package.json ./e2e/fixtures/
+COPY e2e/fixtures/with-patches-package.json ./e2e/fixtures/
+COPY e2e/fixtures/with-peers-package.json ./e2e/fixtures/
+
+# Copy patch fixtures
+COPY e2e/fixtures/patches/ ./e2e/fixtures/patches/
+
 # Create some dummy source files to make the packages realistic
 RUN echo 'console.log("App module");' > ./packages/app/index.js
 RUN echo 'console.log("Utils module");' > ./packages/utils/index.js

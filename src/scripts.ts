@@ -154,6 +154,24 @@ export const constructAppendix = async (
         "constructAppendix",
       );
 
+      const isSinglePackageProject = packageJSONs.length === 1;
+      const hasNoDependents = dependents.length === 0;
+
+      if (isSinglePackageProject && hasNoDependents) {
+        const rootPackageName = Object.keys(dependencyGraph)[0];
+        const rootDependencies =
+          dependencyGraph[rootPackageName]?.dependencies || {};
+        const isDirect = Boolean(rootDependencies[override]);
+        const dependencyVersion = rootDependencies[override] || overrideVersion;
+        const dependencyType = isDirect ? "direct" : "transitive";
+
+        dependents.push({ name: rootPackageName, version: dependencyVersion });
+        log.debug(
+          `Added root package ${rootPackageName} as dependent for ${override} in single-package project (${dependencyType} dependency)`,
+          "constructAppendix",
+        );
+      }
+
       if (dependents.length > 0) {
         const key = `${override}@${overrideVersion}`;
 
@@ -468,7 +486,6 @@ export function resolveJSON(path: string) {
     jsonCache.set(path, json);
     return json;
   } catch (err) {
-    console.log(err);
     log.error(
       `🐑 👩🏽‍🌾  Pastoralist found invalid JSON at:\n${path}`,
       "resolveJSON",

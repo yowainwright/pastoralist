@@ -14,12 +14,13 @@ COPY dist/ ./pastoralist/
 RUN chmod +x ./pastoralist/index.js
 
 # Create a test workspace with multiple packages
-RUN mkdir -p packages/app packages/utils packages/shared
+RUN mkdir -p packages/app packages/utils packages/shared e2e/fixtures/patches
 
-# Create root package.json with workspace configuration
+# Copy all fixtures in a single layer for better caching
+COPY e2e/fixtures/ ./e2e/fixtures/
+
+# Copy workspace package.json files to their correct locations
 COPY e2e/fixtures/root-package.json ./package.json
-
-# Create package.json files for each workspace package
 COPY e2e/fixtures/app-package.json ./packages/app/package.json
 COPY e2e/fixtures/utils-package.json ./packages/utils/package.json
 COPY e2e/fixtures/shared-package.json ./packages/shared/package.json

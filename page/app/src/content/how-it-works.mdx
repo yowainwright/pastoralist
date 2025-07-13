@@ -4,22 +4,25 @@ import ReviewFlow from "../components/ReviewFlow";
 
 ## How Pastoralist works
 
-Pastoralist manages overrides and resolutions so you don't have to!
+Pastoralist manages overrides, resolutions, and patches so you don't have to!
 
-It is comprised of a few functions which read the root package.json file's overrides or resolutions and map the packages in them to a `pastoralist.appendix` object.
+It is comprised of a few functions which read the root package.json file's overrides or resolutions and map the packages in them to a `pastoralist.appendix` object. Additionally, it automatically detects and tracks patches in your project (such as those created by `patch-package`).
 
-If Pastoralist observes an override or resolution is no longer needed, it removes it from resolutions or overrides, and the pastoralist appendix object.
+If Pastoralist observes an override, resolution, or patch is no longer needed, it removes it from the respective objects and the pastoralist appendix object, and notifies you about unused patches.
 
-This means with Pastoralist, your only concern is adding dependencies to the overrides and resolutions objects.
-Broken down, Pastoralist manages your overrides and resolutions with 4 simple steps demonstrated in the flow chart below.
+This means with Pastoralist, your only concern is adding dependencies to the overrides and resolutions objects - patch tracking happens automatically.
+Broken down, Pastoralist manages your overrides, resolutions, and patches with 4 simple steps demonstrated in the flow chart below.
 
 <ReviewFlow />
 
 ### Key notes
 
 1. Pastoralist does **not** manage what is added to overrides or resolutions objects.
-2. Pastoralist **does** manage dependenceis that exists in a `package.json`'s overrides or resolutions objects.
-3. Pastoralist will remove overrides and resolutions if they become unneeded according to child package.json's spec!
+2. Pastoralist **does** manage dependencies that exist in a `package.json`'s overrides or resolutions objects.
+3. Pastoralist **automatically detects and tracks patches** in your project without any configuration.
+4. Pastoralist **supports all dependency types**: `dependencies`, `devDependencies`, and `peerDependencies`.
+5. Pastoralist will remove overrides and resolutions if they become unneeded according to child package.json's spec!
+6. Pastoralist will **notify you about unused patches** when packages are no longer in your dependencies.
 
 ---
 

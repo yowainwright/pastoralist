@@ -41,5 +41,6 @@ RUN chmod +x ./scripts/*.sh
 
 # Set up environment for testing
 ENV NODE_PATH=/app/pastoralist
+ENV IS_DEBUGGING=true
 
 CMD ["/bin/sh"]

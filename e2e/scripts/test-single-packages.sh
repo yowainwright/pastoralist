@@ -72,7 +72,7 @@ echo ""
 
 # Run pastoralist
 echo "Running pastoralist..."
-node /app/pastoralist/index.js --debug
+node /app/pastoralist/index.js
 print_result $? "NPM single package pastoralist run"
 
 # Validate results
@@ -97,7 +97,7 @@ echo ""
 
 # Run pastoralist
 echo "Running pastoralist..."
-node /app/pastoralist/index.js --debug
+node /app/pastoralist/index.js
 print_result $? "Yarn single package pastoralist run"
 
 # Validate results
@@ -122,7 +122,7 @@ echo ""
 
 # Run pastoralist
 echo "Running pastoralist..."
-node /app/pastoralist/index.js --debug
+node /app/pastoralist/index.js
 print_result $? "PNPM single package pastoralist run"
 
 # Validate results
@@ -142,7 +142,7 @@ sed -i 's/"follow-redirects": "1.14.0"/"follow-redirects": "1.15.0"/g' package.j
 
 # Run pastoralist again
 echo "Running pastoralist after override change..."
-node /app/pastoralist/index.js --debug
+node /app/pastoralist/index.js
 print_result $? "NPM single package override update run"
 
 # Validate the appendix was updated
@@ -169,7 +169,7 @@ fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
 
 # Run pastoralist
 echo "Running pastoralist after removing overrides..."
-node /app/pastoralist/index.js --debug
+node /app/pastoralist/index.js
 print_result $? "NPM single package override removal run"
 
 # Validate that pastoralist section is removed
@@ -198,7 +198,7 @@ echo ""
 
 # Run pastoralist (bun uses npm-style overrides)
 echo "Running pastoralist..."
-node /app/pastoralist/index.js --debug
+node /app/pastoralist/index.js
 print_result $? "Bun single package pastoralist run"
 
 # Validate results
@@ -228,7 +228,7 @@ echo ""
 
 # Run pastoralist
 echo "Running pastoralist..."
-node /app/pastoralist/index.js --debug
+node /app/pastoralist/index.js
 print_result $? "Patches test pastoralist run"
 
 # Validate that patches are included in appendix
@@ -259,7 +259,7 @@ echo ""
 
 # Run pastoralist
 echo "Running pastoralist..."
-node /app/pastoralist/index.js --debug
+node /app/pastoralist/index.js
 print_result $? "PeerDependencies test pastoralist run"
 
 # Validate that peerDependency overrides are tracked in single-package projects
@@ -302,7 +302,7 @@ fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
 
 # Run pastoralist again - it should detect unused patches
 echo "Running pastoralist to detect unused patches..."
-node /app/pastoralist/index.js --debug 2>&1 | tee output.log
+node /app/pastoralist/index.js 2>&1 | tee output.log
 print_result $? "Unused patch detection run"
 
 # Check if unused patch warning is shown

@@ -1,0 +1,14 @@
+{
+  "name": "pnpm-test-package",
+  "version": "1.0.0",
+  "description": "Test package with pnpm overrides",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "follow-redirects": "^1.14.1"
+  },
+  "pnpm": {
+    "overrides": {
+      "follow-redirects": "1.14.0"
+    }
+  }
+}

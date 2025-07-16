@@ -9,6 +9,7 @@ export interface PastoralistJSON {
   resolutions?: Record<string, string>;
   overrides?: Record<string, string>;
   pnpm?: { overrides?: Record<string, string> };
+  workspaces?: string[];
   pastoralist?: {
     appendix?: Appendix;
   };
@@ -47,14 +48,12 @@ export interface UpdateAppendixOptions {
 export interface Options {
   appendix?: Appendix;
   debug?: boolean;
-  depPaths?: string[];
   exec?: Exec;
   isTesting?: boolean;
   isTestingCLI?: boolean;
   path?: string;
   out?: string;
   root?: string;
-  ignore?: string[];
 }
 
 export interface OverridesType {

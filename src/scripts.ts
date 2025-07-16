@@ -1,7 +1,7 @@
-import { readFileSync, writeFileSync } from "fs";
+import { readFileSync, writeFileSync, promises as fsPromises } from "fs";
+const { writeFile } = fsPromises;
 import { resolve } from "path";
 import fg from "fast-glob";
-import { satisfies } from "compare-versions";
 
 const { sync } = fg;
 import { IS_DEBUGGING, LOG_PREFIX } from "./constants";
@@ -20,10 +20,8 @@ import {
 } from "./interfaces";
 
 export const update = async (options: Options): Promise<void> => {
-  const depPaths = options?.depPaths || ["**/package.json"];
   const path = options?.path || "package.json";
   const root = options?.root || "./";
-  const ignore = options?.ignore || ["**/node_modules/**/node_modules/**"];
   const isTesting = options?.isTesting || false;
   const isLogging = IS_DEBUGGING || options?.debug || false;
   const log = logger({ file: "scripts.ts", isLogging });
@@ -44,40 +42,56 @@ export const update = async (options: Options): Promise<void> => {
     );
   }
 
+  const {
+    dependencies = {},
+    devDependencies = {},
+    peerDependencies = {},
+  } = config;
   const overridesData = resolveOverrides({ options, config });
-  const packageJSONs = sync(depPaths, { cwd: root, ignore });
+  const overrides = getOverridesByType(overridesData);
 
-  log.debug(`Found ${packageJSONs.length} package.json files`, "update");
-  packageJSONs.forEach((p) => log.debug(`Package: ${p}`, "update"));
+  if (!overrides || Object.keys(overrides).length === 0) {
+    log.debug("No overrides found", "update");
+    await updatePackageJSON({
+      appendix: {},
+      path,
+      config,
+      overrides: {},
+    });
+    return;
+  }
 
-  const appendix = await constructAppendix(
-    packageJSONs,
-    overridesData,
-    patchMap,
-    log,
-  );
-  const removableItems = appendix ? findRemovableAppendixItems(appendix) : [];
-  const updatedResolutions = updateOverrides(overridesData, removableItems);
+  // Create appendix entries
+  const appendix = await updateAppendix({
+    overrides,
+    dependencies,
+    devDependencies,
+    peerDependencies,
+    packageName: config.name || "root",
+  });
+
+  // Add patches if found
+  for (const key of Object.keys(appendix)) {
+    const packageName = key.split("@")[0];
+    const patches = getPackagePatches(packageName, patchMap);
+    if (patches.length > 0) {
+      appendix[key].patches = patches;
+    }
+  }
 
   // Check for unused patches
-  if (config) {
-    const allDeps = {
-      ...(config.dependencies || {}),
-      ...(config.devDependencies || {}),
-      ...(config.peerDependencies || {}),
-    };
-    const unusedPatches = findUnusedPatches(patchMap, allDeps);
-    if (unusedPatches.length > 0) {
-      log.info(
-        `Found ${unusedPatches.length} potentially unused patch files:`,
-        "update",
-      );
-      unusedPatches.forEach((patch) => log.info(`  - ${patch}`, "update"));
-      log.info(
-        "Consider removing these patches if the packages are no longer used.",
-        "update",
-      );
-    }
+  const allDeps = { ...dependencies, ...devDependencies, ...peerDependencies };
+  const unusedPatches = findUnusedPatches(patchMap, allDeps);
+  if (unusedPatches.length > 0) {
+    log.info(
+      `Found ${unusedPatches.length} potentially unused patch files:`,
+      "update",
+    );
+    unusedPatches.forEach((patch) => log.info(`  - ${patch}`, "update"));
+    log.info(
+      "Consider removing these patches if the packages are no longer used.",
+      "update",
+    );
   }
 
   if (isTesting) return appendix as void;
@@ -86,156 +100,8 @@ export const update = async (options: Options): Promise<void> => {
     appendix,
     path,
     config,
-    overrides: updatedResolutions,
+    overrides,
   });
-};
-
-export const constructAppendix = async (
-  packageJSONs: Array<string>,
-  data: ResolveOverrides,
-  patchMap: Record<string, string[]> = {},
-  log: ReturnType<typeof logger>,
-) => {
-  const overrides = getOverridesByType(data) || {};
-  const overrideKeys = Object.keys(overrides);
-  const hasOverrides = overrideKeys.length > 0;
-  if (!hasOverrides) return;
-
-  let result: Appendix = {};
-
-  try {
-    const dependencyGraph: Record<
-      string,
-      {
-        dependencies: Record<string, string>;
-        dependents: Array<{ name: string; version: string }>;
-        filePath?: string;
-      }
-    > = {};
-
-    await Promise.all(
-      packageJSONs.map(async (filePath) => {
-        const pkg = await resolveJSON(filePath);
-        if (!pkg || !pkg.name) return;
-
-        const deps = {
-          ...(pkg.dependencies || {}),
-          ...(pkg.devDependencies || {}),
-          ...(pkg.peerDependencies || {}),
-        };
-
-        dependencyGraph[pkg.name] = {
-          dependencies: deps,
-          dependents: [],
-          filePath,
-        };
-      }),
-    );
-
-    Object.keys(dependencyGraph).forEach((pkgName) => {
-      const deps = dependencyGraph[pkgName].dependencies || {};
-
-      Object.entries(deps).forEach(([depName, version]) => {
-        if (dependencyGraph[depName]) {
-          dependencyGraph[depName].dependents.push({
-            name: pkgName,
-            version,
-          });
-        }
-      });
-    });
-
-    overrideKeys.forEach((override) => {
-      const overrideVersion = overrides[override];
-      log.debug(
-        `Processing override: ${override}@${overrideVersion}`,
-        "constructAppendix",
-      );
-
-      const dependents = dependencyGraph[override]?.dependents || [];
-      log.debug(
-        `Found ${dependents.length} dependents for ${override}`,
-        "constructAppendix",
-      );
-
-      const isSinglePackageProject = packageJSONs.length === 1;
-      const hasNoDependents = dependents.length === 0;
-
-      if (isSinglePackageProject && hasNoDependents) {
-        const rootPackageName = Object.keys(dependencyGraph)[0];
-        const rootDependencies =
-          dependencyGraph[rootPackageName]?.dependencies || {};
-        const isDirect = Boolean(rootDependencies[override]);
-        const dependencyVersion = rootDependencies[override] || overrideVersion;
-        const dependencyType = isDirect ? "direct" : "transitive";
-
-        dependents.push({ name: rootPackageName, version: dependencyVersion });
-        log.debug(
-          `Added root package ${rootPackageName} as dependent for ${override} in single-package project (${dependencyType} dependency)`,
-          "constructAppendix",
-        );
-      }
-
-      if (dependents.length > 0) {
-        const key = `${override}@${overrideVersion}`;
-
-        const dependentsObj = dependents.reduce(
-          (acc, dep) => {
-            log.debug(
-              `Checking dependent: ${dep.name} requires ${override}@${dep.version}`,
-              "constructAppendix",
-            );
-
-            log.debug(
-              `Adding ${dep.name} as a dependent for ${override}`,
-              "constructAppendix",
-            );
-
-            return {
-              ...acc,
-              [dep.name]: `${override}@${dep.version}`,
-            };
-          },
-          {} as Record<string, string>,
-        );
-
-        const dependentCount = Object.keys(dependentsObj).length;
-        log.debug(
-          `Found ${dependentCount} dependents that need override for ${override}`,
-          "constructAppendix",
-        );
-
-        if (dependentCount > 0) {
-          const patches = getPackagePatches(override, patchMap);
-          result[key] = {
-            dependents: dependentsObj,
-            ...(patches.length > 0 && { patches }),
-          };
-          log.debug(
-            `Added ${key} to appendix with ${dependentCount} dependents${patches.length > 0 ? ` and ${patches.length} patches` : ""}`,
-            "constructAppendix",
-          );
-        }
-      }
-    });
-
-    const processResults = await Promise.all(
-      packageJSONs.map(async (filePath) => {
-        return await processPackageJSON(filePath, overrides, overrideKeys);
-      }),
-    );
-
-    processResults
-      .filter((resultData) => resultData)
-      .forEach((resultData) => {
-        const appendixItem = resultData?.appendix || {};
-        result = { ...result, ...appendixItem };
-      });
-  } catch (err) {
-    fallbackLog.error("Error constructing appendix", "constructAppendix", err);
-  }
-
-  return result;
 };
 
 export const findRemovableAppendixItems = (appendix: Appendix) => {
@@ -280,15 +146,31 @@ export async function updatePackageJSON({
 }: UpdatePackageJSONOptions): Promise<PastoralistJSON | void> {
   const hasOverrides = overrides && Object.keys(overrides).length > 0;
 
-  if (!hasOverrides) {
-    const keysToRemove = ["pastoralist", "resolutions", "overrides", "pnpm"];
-    for (const key of keysToRemove) {
-      delete config[key as keyof PastoralistJSON];
-    }
+  const hasAppendix = appendix && Object.keys(appendix).length > 0;
+
+  if (IS_DEBUGGING) {
+    fallbackLog.debug(
+      `Processing package.json update:\nhasOverrides=${hasOverrides}, hasAppendix=${hasAppendix}\nCurrent config:\n${JSON.stringify(config, null, 2)}`,
+      "updatePackageJSON",
+    );
   }
 
-  const hasAppendix = appendix && Object.keys(appendix).length > 0;
-  if (hasAppendix) config.pastoralist = { appendix };
+  if (!hasOverrides && !hasAppendix) {
+    const keysToRemove = ["pastoralist", "resolutions", "overrides", "pnpm"];
+    for (const key of keysToRemove) {
+      if (key === "pnpm" && config.pnpm) {
+        // Only delete pnpm.overrides, not the entire pnpm section
+        delete config.pnpm.overrides;
+        if (Object.keys(config.pnpm).length === 0) {
+          delete config[key as keyof PastoralistJSON];
+        }
+      } else {
+        delete config[key as keyof PastoralistJSON];
+      }
+    }
+  } else if (hasAppendix) {
+    config.pastoralist = { appendix };
+  }
 
   if (config?.resolutions) config.resolutions = overrides;
   if (config?.overrides) config.overrides = overrides;
@@ -298,6 +180,12 @@ export async function updatePackageJSON({
 
   const jsonPath = resolve(path);
   const jsonString = JSON.stringify(config, null, 2);
+  if (IS_DEBUGGING) {
+    fallbackLog.debug(
+      `Writing updated package.json:\n${jsonString}`,
+      "updatePackageJSON",
+    );
+  }
   writeFileSync(jsonPath, jsonString);
 }
 
@@ -305,10 +193,9 @@ export function resolveOverrides({
   config = {},
 }: ResolveResolutionOptions): ResolveOverrides {
   const fn = "resolveOverrides";
-  const errMsg = "Pastorlist didn't find any overrides or resolutions!";
   const overrideData = defineOverride(config);
   if (!overrideData) {
-    fallbackLog.error(errMsg, fn);
+    fallbackLog.debug("No overrides configuration found", fn);
     return;
   }
 
@@ -316,7 +203,7 @@ export function resolveOverrides({
   const hasOverrides = Object.keys(initialOverrides)?.length > 0;
 
   if (!hasOverrides || !type) {
-    fallbackLog.error(errMsg, fn);
+    fallbackLog.debug("No active overrides found", fn);
     return;
   }
 
@@ -355,6 +242,14 @@ export const defineOverride = ({
   resolutions = {},
 }: OverridesConfig = {}) => {
   const pnpmOverrides = pnpm?.overrides || {};
+  const hasNpmOverrides = Object.keys(overrides).length > 0;
+  const hasPnpmOverrides = Object.keys(pnpmOverrides).length > 0;
+  const hasResolutions = Object.keys(resolutions).length > 0;
+
+  if (!hasNpmOverrides && !hasPnpmOverrides && !hasResolutions) {
+    return undefined;
+  }
+
   const overrideTypes = [
     { type: "overrides", overrides },
     { type: "pnpmOverrides", overrides: pnpmOverrides },
@@ -362,11 +257,6 @@ export const defineOverride = ({
   ].filter(({ overrides }) => Object.keys(overrides).length > 0);
 
   const fn = "defineOverride";
-  const hasOverride = overrideTypes?.length > 0;
-  if (!hasOverride) {
-    fallbackLog.debug("🐑 👩🏽‍🌾 Pastoralist didn't find any overrides!", fn);
-    return;
-  }
   const hasMultipleOverrides = overrideTypes?.length > 1;
   if (hasMultipleOverrides) {
     fallbackLog.error("Only 1 override object allowed", fn);
@@ -411,15 +301,22 @@ export async function processPackageJSON(
   const isOverridden = depList.some((dep) => overridesList.includes(dep));
   if (!isOverridden) return;
 
-  const currentAppendix = currentPackageJSON?.pastoralist?.appendix || {};
+  // Create new appendix with all dependencies
   const appendix = updateAppendix({
-    appendix: currentAppendix,
     overrides,
     dependencies,
     devDependencies,
     peerDependencies,
     packageName: name,
   });
+
+  // Only persist if we have actual appendix entries
+  const hasAppendix = appendix && Object.keys(appendix).length > 0;
+  if (hasAppendix) {
+    currentPackageJSON.pastoralist = { appendix };
+    await writeFile(filePath, JSON.stringify(currentPackageJSON, null, 2));
+  }
+
   return {
     name,
     dependencies,
@@ -447,9 +344,6 @@ export const updateAppendix = ({
 
     const overrideVersion = overrides[override];
     const packageVersion = deps[override];
-    const hasResolutionOverride = satisfies(overrideVersion, packageVersion);
-    if (hasResolutionOverride) continue;
-
     const key = `${override}@${overrideVersion}`;
     if (cache.has(key)) {
       appendix[key] = cache.get(key)!;
@@ -630,3 +524,49 @@ export const findUnusedPatches = (
 
   return unusedPatches;
 };
+
+/**
+ * Constructs the appendix by processing each package.json file in the workspace.
+ * @param packageJSONs - Array of package.json file paths to process
+ * @param overridesData - Override configuration data
+ * @param cache - Cache for appendix data
+ * @param log - Logger instance
+ * @returns Combined appendix with all dependencies and their dependents
+ */
+export async function constructAppendix(
+  packageJSONs: string[],
+  overridesData: ResolveOverrides,
+  log = fallbackLog,
+): Promise<Appendix> {
+  if (!overridesData) {
+    log.debug("No overrides data provided", "constructAppendix");
+    return {};
+  }
+
+  const overrides = getOverridesByType(overridesData);
+  if (!overrides || Object.keys(overrides).length === 0) {
+    log.debug("No overrides found", "constructAppendix");
+    return {};
+  }
+
+  const overridesList = Object.keys(overrides);
+  const appendix: Appendix = {};
+
+  for (const path of packageJSONs) {
+    const result = await processPackageJSON(path, overrides, overridesList);
+    if (!result?.appendix) continue;
+
+    // Merge the appendix entries
+    for (const [key, value] of Object.entries(result.appendix)) {
+      if (!appendix[key]) {
+        appendix[key] = { dependents: {} };
+      }
+      appendix[key].dependents = {
+        ...appendix[key].dependents,
+        ...value.dependents,
+      };
+    }
+  }
+
+  return appendix;
+}

@@ -1,7 +1,7 @@
 FROM node:24-alpine
 
-# Install bash and pnpm
-RUN apk add --no-cache bash
+# Install dependencies
+RUN apk add --no-cache bash jq
 RUN npm install -g pnpm
 
 # Create a working directory
@@ -42,5 +42,6 @@ RUN chmod +x ./scripts/*.sh
 
 # Set up environment for testing
 ENV NODE_PATH=/app/pastoralist
+ENV IS_DEBUGGING=true
 
 CMD ["/bin/sh"]

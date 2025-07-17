@@ -117,8 +117,43 @@ Broken down, Pastoralist manages your overrides and resolutions with 4 simple st
 2. Pastoralist **does** manage dependenceis that exists in a `package.json`'s overrides or resolutions objects.
 3. Pastoralist will remove overrides and resolutions if they become unneeded according to child package.json's spec!
 
----
+### Using Pastoralist with Workspaces
 
+Pastoralist operates on a single `package.json` at a time. In a workspace/monorepo setup, you can run Pastoralist on any package.json that has overrides by specifying its path:
+
+```bash
+# Run on root package.json
+pastoralist
+
+# Run on a workspace package
+pastoralist --path packages/app-a/package.json
+```
+
+For example, in a monorepo with this structure:
+```
+.
+├── package.json           # root with overrides
+└── packages/
+    ├── app-a/
+    │   └── package.json  # has its own overrides
+    └── app-b/
+        └── package.json  # also has overrides
+```
+
+You would run Pastoralist separately on each package.json that contains overrides:
+
+```bash
+# Update root overrides
+pastoralist
+
+# Update app-a overrides
+pastoralist --path packages/app-a/package.json
+
+# Update app-b overrides
+pastoralist --path packages/app-b/package.json
+```
+
+---
 ## Setup
 
 > #### Okay! Hopefully the breakdowns above were clear enough on why you might want to use Pastoralist!

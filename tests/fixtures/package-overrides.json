@@ -1,12 +1,19 @@
 {
   "name": "overrides-package",
-  "version": "1.0.0",
   "dependencies": {
-    "lodash": "^4.17.20",
+    "foo": "1.0.0",
     "express": "^4.18.1"
   },
-  "overrides": {
-    "lodash": "^4.17.21",
-    "express": "^4.18.2"
+  "devDependencies": {
+    "bar": "2.0.0"
+  },
+  "pastoralist": {
+    "appendix": {
+      "express@2.0.0": {
+        "dependents": {
+          "overrides-package": "express@^4.18.1"
+        }
+      }
+    }
   }
 }

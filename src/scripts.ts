@@ -94,7 +94,7 @@ export const update = async (options: Options): Promise<void> => {
     );
   }
 
-  if (isTesting) return appendix as void;
+  if (isTesting) return;
 
   await updatePackageJSON({
     appendix,

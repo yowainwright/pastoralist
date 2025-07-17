@@ -129,29 +129,7 @@ pastoralist
 pastoralist --path packages/app-a/package.json
 ```
 
-For example, in a monorepo with this structure:
-```
-.
-├── package.json           # root with overrides
-└── packages/
-    ├── app-a/
-    │   └── package.json  # has its own overrides
-    └── app-b/
-        └── package.json  # also has overrides
-```
-
-You would run Pastoralist separately on each package.json that contains overrides:
-
-```bash
-# Update root overrides
-pastoralist
-
-# Update app-a overrides
-pastoralist --path packages/app-a/package.json
-
-# Update app-b overrides
-pastoralist --path packages/app-b/package.json
-```
+For detailed information about using Pastoralist in workspace/monorepo environments, including best practices and automation strategies, see [Workspaces and Monorepos](docs/workspaces.md).
 
 ---
 ## Setup

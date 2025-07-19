@@ -54,6 +54,8 @@ export interface Options {
   path?: string;
   out?: string;
   root?: string;
+  depPaths?: string[];
+  ignore?: string[];
 }
 
 export interface OverridesType {

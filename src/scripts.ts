@@ -42,11 +42,6 @@ export const update = async (options: Options): Promise<void> => {
     );
   }
 
-  const {
-    dependencies = {},
-    devDependencies = {},
-    peerDependencies = {},
-  } = config;
   const overridesData = resolveOverrides({ options, config });
   const overrides = getOverridesByType(overridesData);
 
@@ -61,14 +56,47 @@ export const update = async (options: Options): Promise<void> => {
     return;
   }
 
-  // Create appendix entries
-  const appendix = await updateAppendix({
-    overrides,
-    dependencies,
-    devDependencies,
-    peerDependencies,
-    packageName: config.name || "root",
-  });
+  let appendix: Appendix = {};
+
+  // Check if depPaths are provided - if so, use glob to find package.json files
+  if (options.depPaths && options.depPaths.length > 0) {
+    log.debug(
+      `Using depPaths to find package.json files: ${options.depPaths.join(", ")}`,
+      "update",
+    );
+
+    const packageJsonFiles = findPackageJsonFiles(
+      options.depPaths,
+      options.ignore || [],
+      root,
+      log,
+    );
+
+    if (packageJsonFiles.length > 0) {
+      log.debug(
+        `Processing ${packageJsonFiles.length} package.json files from depPaths`,
+        "update",
+      );
+      appendix = await constructAppendix(packageJsonFiles, overridesData, log);
+    } else {
+      log.debug("No package.json files found matching depPaths", "update");
+    }
+  } else {
+    // Original behavior - process only the main package.json
+    const {
+      dependencies = {},
+      devDependencies = {},
+      peerDependencies = {},
+    } = config;
+
+    appendix = await updateAppendix({
+      overrides,
+      dependencies,
+      devDependencies,
+      peerDependencies,
+      packageName: config.name || "root",
+    });
+  }
 
   // Add patches if found
   for (const key of Object.keys(appendix)) {
@@ -80,6 +108,11 @@ export const update = async (options: Options): Promise<void> => {
   }
 
   // Check for unused patches
+  const {
+    dependencies = {},
+    devDependencies = {},
+    peerDependencies = {},
+  } = config;
   const allDeps = { ...dependencies, ...devDependencies, ...peerDependencies };
   const unusedPatches = findUnusedPatches(patchMap, allDeps);
   if (unusedPatches.length > 0) {
@@ -415,6 +448,38 @@ export const logger = ({ file, isLogging = false }: LoggerOptions) => ({
 const fallbackLog = logger({ file: "scripts.ts", isLogging: IS_DEBUGGING });
 
 export const jsonCache = new Map<string, PastoralistJSON>();
+
+export const findPackageJsonFiles = (
+  depPaths: string[] = [],
+  ignore: string[] = [],
+  root: string = "./",
+  log = fallbackLog,
+): string[] => {
+  if (depPaths.length === 0) {
+    log.debug("No depPaths provided", "findPackageJsonFiles");
+    return [];
+  }
+
+  try {
+    log.debug(
+      `Searching with patterns: ${depPaths.join(", ")}, ignoring: ${ignore.join(", ")}`,
+      "findPackageJsonFiles",
+    );
+
+    const files = sync(depPaths, {
+      cwd: root,
+      ignore,
+      absolute: false,
+      onlyFiles: true,
+    });
+
+    log.debug(`Found ${files.length} files`, "findPackageJsonFiles");
+    return files;
+  } catch (err) {
+    log.error("Error finding package.json files", "findPackageJsonFiles", err);
+    return [];
+  }
+};
 
 /**
  * Detect patches in the project by scanning for patch files

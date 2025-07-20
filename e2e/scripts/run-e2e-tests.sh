@@ -158,5 +158,10 @@ if grep -q '"pastoralist":' package.json; then
   exit 1
 fi
 
+echo "\n🔄 Running Migration Tests..."
+echo "=============================="
+/app/scripts/test-migration-1.3.0-to-1.4.0.sh
+print_result $? "Migration test (1.3.0 to 1.4.0) completed"
+
 echo "\n🎯 All E2E tests passed!"
-echo "==================================="
+echo "===================================="

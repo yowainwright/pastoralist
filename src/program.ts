@@ -7,6 +7,12 @@ import { Options } from "./interfaces";
 import { update, logger } from "./scripts";
 import { IS_DEBUGGING } from "./constants";
 
+/**
+ * @name action
+ * @description Main entry point for Pastoralist CLI
+ * @param options - Options for updating package.json
+ * @returns void
+ */
 export async function action(options: Options = {}): Promise<void> {
   const isLogging = IS_DEBUGGING || options.debug;
   const log = logger({ file: "program.ts", isLogging });
@@ -28,6 +34,11 @@ export async function action(options: Options = {}): Promise<void> {
   }
 }
 
+/**
+ * @name main
+ * @description Main entry point for Pastoralist CLI
+ * @returns void
+ */
 program
   .description("Pastoralist, a utility CLI to manage your dependency overrides")
   .option("--debug", "enables debug mode")

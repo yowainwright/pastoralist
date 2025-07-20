@@ -1312,3 +1312,125 @@ describe("patch detection and management", () => {
     assert.deepStrictEqual(nonExistentPatches, []);
   });
 });
+
+describe("Migration Tests", () => {
+  it("should migrate from 1.3.0 format to 1.4.0 format correctly", () => {
+    const oldFormat: PastoralistJSON = {
+      name: "test-migration",
+      version: "1.0.0",
+      dependencies: {
+        "lodash": "^4.17.21",
+        "express": "^4.18.0"
+      },
+      devDependencies: {
+        "old-package": "^1.0.0"
+      },
+      peerDependencies: {
+        "typescript": "^5.0.0"
+      },
+      overrides: {
+        "lodash": "4.17.21",
+        "express": "4.18.0",
+        "old-package": "1.0.0"
+      },
+      pastoralist: {
+        appendix: {
+          "lodash@4.17.21": {
+            dependents: {
+              "test-migration": "lodash@^4.17.21"
+            }
+          },
+          "express@4.18.0": {
+            dependents: {
+              "test-migration": "express@^4.18.0"
+            }
+          },
+          "old-package@1.0.0": {
+            dependents: {
+              "test-migration": "old-package@^1.0.0"
+            }
+          }
+        }
+      }
+    };
+
+    const updatedPackageJSON = updateAppendix(oldFormat);
+
+    assert.ok(updatedPackageJSON.pastoralist, "Pastoralist section should exist");
+    assert.ok(updatedPackageJSON.pastoralist.appendix, "Appendix should exist");
+    
+    const appendixKeys = Object.keys(updatedPackageJSON.pastoralist.appendix);
+    assert.ok(appendixKeys.length > 0, "Appendix should have entries");
+    
+    appendixKeys.forEach(key => {
+      const entry = updatedPackageJSON.pastoralist.appendix[key];
+      assert.ok(entry.dependents, `Entry ${key} should have dependents`);
+      assert.ok(typeof entry.dependents === 'object', `Entry ${key} dependents should be an object`);
+    });
+  });
+
+  it("should preserve existing appendix structure during migration", () => {
+    const packageWithExistingAppendix: PastoralistJSON = {
+      name: "test-migration-existing",
+      version: "1.0.0",
+      dependencies: {
+        "lodash": "^4.17.21"
+      },
+      overrides: {
+        "lodash": "4.17.21"
+      },
+      pastoralist: {
+        appendix: {
+          "lodash@4.17.21": {
+            dependents: {
+              "test-migration-existing": "lodash@^4.17.21"
+            },
+            patches: ["patches/lodash+4.17.21.patch"]
+          }
+        }
+      }
+    };
+
+    const updatedPackageJSON = updateAppendix(packageWithExistingAppendix);
+    
+    assert.ok(updatedPackageJSON.pastoralist, "Pastoralist section should be preserved");
+    assert.ok(updatedPackageJSON.pastoralist.appendix["lodash@4.17.21"], "Existing appendix entry should be preserved");
+    
+    const lodashEntry = updatedPackageJSON.pastoralist.appendix["lodash@4.17.21"];
+    assert.ok(lodashEntry.dependents, "Dependents should be preserved");
+    
+    if (lodashEntry.patches) {
+      assert.ok(Array.isArray(lodashEntry.patches), "Patches should be an array if present");
+      assert.ok(lodashEntry.patches.includes("patches/lodash+4.17.21.patch"), "Existing patches should be preserved");
+    }
+  });
+
+  it("should handle migration with peerDependencies support", () => {
+    const packageWithPeerDeps: PastoralistJSON = {
+      name: "test-peer-deps",
+      version: "1.0.0",
+      dependencies: {
+        "react": "^18.0.0"
+      },
+      peerDependencies: {
+        "typescript": "^5.0.0",
+        "@types/react": "^18.0.0"
+      },
+      overrides: {
+        "react": "18.2.0",
+        "@types/react": "18.0.0"
+      }
+    };
+
+    const updatedPackageJSON = updateAppendix(packageWithPeerDeps);
+    
+    assert.ok(updatedPackageJSON.peerDependencies, "peerDependencies should be preserved");
+    assert.strictEqual(updatedPackageJSON.peerDependencies.typescript, "^5.0.0", "TypeScript peerDependency should be preserved");
+    assert.strictEqual(updatedPackageJSON.peerDependencies["@types/react"], "^18.0.0", "@types/react peerDependency should be preserved");
+    
+    if (updatedPackageJSON.pastoralist && updatedPackageJSON.pastoralist.appendix) {
+      const appendixKeys = Object.keys(updatedPackageJSON.pastoralist.appendix);
+      assert.ok(appendixKeys.length > 0, "Appendix should track overridden dependencies");
+    }
+  });
+});

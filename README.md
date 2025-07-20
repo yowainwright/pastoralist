@@ -3,7 +3,7 @@
 ![Typed with TypeScript](https://flat.badgen.net/badge/icon/Typed?icon=typescript&label&labelColor=blue&color=555555)
 [![npm version](https://badge.fury.io/js/pastoralist.svg)](https://badge.fury.io/js/pastoralist)
 ![ci](https://github.com/yowainwright/pastoralist/actions/workflows/ci.yml/badge.svg)
-[![Github](https://badgen.net/badge/icon/github?icon=github&label&color=grey)](https://github.com/yowainwright/mini-cookies)
+[![Github](https://badgen.net/badge/icon/github?icon=github&label&color=grey)](https://github.com/yowainwright/pastoralist)
 ![Twitter](https://img.shields.io/twitter/url?url=https%3A%2F%2Fgithub.com%2Fyowainwright%2Fpastoralist)
 
 #### Manage your package.json \*`overrides`, `resolutions`, and `patches` with ease!
@@ -14,7 +14,7 @@ With the Pastoralist CLI, you can ensure your project's overrides _(or resolutio
 
 ## What _are_ \*overrides and resolutions?
 
-> Overrides and resolutions solve the same problem!<br>**_They give developers a way to specify dependency versions downloaded to repository's node_modules folder_**.
+> Overrides and resolutions solve the same problem!<br>**_They give developers a way to specify dependency versions downloaded to a repository's node_modules folder_**.
 
 Node package manager CLIs, like npm, yarn, and pnpm, enable engineers to solve dependency specificity issues by adding an overrides or resolutions object to a repository's root package.json. This is awesome for fixing dependency issues with security and/or code. Read more about [npm](https://docs.npmjs.com/cli/v8/configuring-npm/package-json#overrides), [yarn](https://yarnpkg.com/configuration/manifest#resolutions), and [pnpm](https://pnpm.io/package_json#pnpmoverrides) overrides or resolution solutions.
 
@@ -192,7 +192,7 @@ The e2e tests create a realistic monorepo workspace with lodash dependencies and
 - Patch detection and tracking
 - PeerDependencies support
 
-In the near feature, Pastoralist will fully support a config file but this is it for now!
+In the near future, Pastoralist will fully support a config file but this is it for now!
 
 Read on to understand what is going on under the hood of Pastoralist!
 
@@ -200,7 +200,7 @@ Read on to understand what is going on under the hood of Pastoralist!
 
 ### Pastoralist Object Anatomy
 
-When **Pastoralist** is run in a respository with override or resolution dependencies, it will output a shape like below.
+When **Pastoralist** is run in a repository with override or resolution dependencies, it will output a shape like below.
 
 ```js
 // package.json
@@ -210,7 +210,7 @@ When **Pastoralist** is run in a respository with override or resolution depende
     // the resolution/override is stringified with it's version
     "trim@^0.0.3": {
       // dependents contain dependents which actually require the override/resolution dependency
-      "dependenents": {
+      "dependents": {
         "remark-parse": "4.0.0"
       }
     }
@@ -219,14 +219,6 @@ When **Pastoralist** is run in a respository with override or resolution depende
 ```
 
 When ever **Pastoralist** is run again, it will check the `pastoralist.appendix` object and remove any resolutions/overrides that are no longer needed.
-
----
-
-## Roadmap
-
-#### Updated `2023-03-31`
-
-- Provide caveats, code examples, and more documentation
 
 ## Thanks
 

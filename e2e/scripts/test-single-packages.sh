@@ -5,7 +5,6 @@ set -e
 echo "🧪 Testing Single Package Scenarios"
 echo "=================================="
 
-# Function to print test results
 print_result() {
     if [ $1 -eq 0 ]; then
         echo "✅ $2"
@@ -15,7 +14,6 @@ print_result() {
     fi
 }
 
-# Function to validate pastoralist appendix exists and has expected content
 validate_appendix() {
     local package_name="$1"
     local expected_keys="$2"
@@ -24,19 +22,16 @@ validate_appendix() {
     cat package.json | head -40
     echo ""
     
-    # Check if pastoralist section exists
     if ! grep -q "pastoralist" package.json; then
         echo "❌ Pastoralist section missing for $package_name"
         return 1
     fi
     
-    # Check if appendix exists
     if ! grep -q "appendix" package.json; then
         echo "❌ Appendix missing for $package_name"
         return 1
     fi
     
-    # Validate expected override keys exist in appendix
     for key in $expected_keys; do
         if ! grep -q "\"$key\":" package.json; then
             echo "❌ Expected key '$key' missing from appendix"
@@ -44,7 +39,6 @@ validate_appendix() {
         fi
     done
     
-    # Validate that the root package is listed as dependent
     if ! grep -q "\"$package_name\":" package.json; then
         echo "❌ Root package '$package_name' not found as dependent"
         return 1

@@ -3,7 +3,6 @@
 echo "🔍 Validating Appendix Content"
 echo "==============================="
 
-# Function to check if a dependency is listed in the appendix
 check_dependency_in_appendix() {
     local dep_name=$1
     local expected_version=$2
@@ -12,8 +11,6 @@ check_dependency_in_appendix() {
     
     if grep -q "\"$dep_name@$expected_version\"" package.json; then
         echo "✅ Found $dep_name@$expected_version in appendix"
-        
-        # Extract and show the dependents
         echo "   Dependents:"
         grep -A 10 "\"$dep_name@$expected_version\"" package.json | grep -E '(@workspace|"dependents")' | head -5
     else
@@ -22,7 +19,6 @@ check_dependency_in_appendix() {
     fi
 }
 
-# Function to count total appendix entries
 count_appendix_entries() {
     local count=$(grep -c "@[0-9]" package.json || echo "0")
     echo "📊 Total appendix entries: $count"
@@ -31,12 +27,10 @@ count_appendix_entries() {
 
 echo "\n📋 Current appendix content:"
 echo "----------------------------"
-# Show just the pastoralist section
 sed -n '/pastoralist/,/}/p' package.json | head -20
 
 echo "\n🧪 Running validation tests..."
 
-# Test 1: Check if lodash entries exist
 echo "\n1️⃣ Checking for lodash entries..."
 if grep -q "lodash@" package.json; then
     echo "✅ Lodash entries found in appendix"
@@ -45,7 +39,6 @@ else
     echo "❌ No lodash entries found in appendix"
 fi
 
-# Test 2: Check for workspace dependencies
 echo "\n2️⃣ Checking for workspace dependencies..."
 if grep -q "@workspace" package.json; then
     echo "✅ Workspace dependencies found in appendix"
@@ -54,7 +47,6 @@ else
     echo "ℹ️ No workspace dependencies in appendix (may be expected)"
 fi
 
-# Test 3: Validate appendix structure
 echo "\n3️⃣ Validating appendix JSON structure..."
 if node -e "
 const pkg = JSON.parse(require('fs').readFileSync('package.json', 'utf8'));

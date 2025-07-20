@@ -2,12 +2,9 @@
 
 set -e
 
-# Check if we're running inside Docker (if not, orchestrate Docker run)
 if [ ! -f /.dockerenv ]; then
     echo "🔨 Building Pastoralist..."
-    # Get the directory where this script is located
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    # Go to the project root (two levels up from scripts directory)
 cd "$SCRIPT_DIR/../.."
     pnpm run build
     cd e2e
@@ -15,17 +12,14 @@ cd "$SCRIPT_DIR/../.."
     echo "🐳 Starting E2E Tests..."
     echo "========================"
     
-    # Ensure we have a fresh start
     docker compose down --remove-orphans 2>/dev/null || true
     
-    # Build and run the tests
     echo "📦 Building Docker containers..."
     docker compose build
     
     echo "🧪 Running E2E tests..."
     docker compose up --abort-on-container-exit e2e-test
     
-    # Capture the exit code
     TEST_EXIT_CODE=$?
     
     echo ""
@@ -42,7 +36,6 @@ cd "$SCRIPT_DIR/../.."
         exit 1
     fi
     
-    # Cleanup
     echo ""
     echo "🧹 Cleaning up..."
     docker compose down --remove-orphans
@@ -52,11 +45,9 @@ cd "$SCRIPT_DIR/../.."
     exit 0
 fi
 
-# If we're inside Docker, run the actual tests
 echo "🧪 Starting Pastoralist E2E Tests"
 echo "================================="
 
-# Function to print test results
 print_result() {
     if [ $1 -eq 0 ]; then
         echo "✅ $2"
@@ -66,7 +57,6 @@ print_result() {
     fi
 }
 
-# Function to display package.json content
 show_package_json() {
     echo "📄 Current package.json:"
     echo "------------------------"
@@ -84,7 +74,6 @@ print_result $? "Initial pastoralist run completed"
 echo "\n3️⃣ Checking if appendix was created..."
 show_package_json
 
-# Check for appendix
 if grep -q '"pastoralist": {' package.json; then
     echo "✅ Pastoralist section exists"
     if grep -q '"appendix": {' package.json && grep -q '"dependents": {' package.json; then
@@ -100,7 +89,6 @@ fi
 
 echo "\n4️⃣ Testing override formats..."
 
-# Test npm overrides
 cp /app/e2e/fixtures/npm-package.json package.json
 echo "Testing npm overrides:"
 node /app/pastoralist/index.js
@@ -110,7 +98,6 @@ if ! grep -q '"pastoralist": {' package.json; then
     exit 1
 fi
 
-# Test pnpm overrides
 cp /app/e2e/fixtures/pnpm-package.json package.json
 echo "Testing pnpm overrides:"
 node /app/pastoralist/index.js
@@ -120,7 +107,6 @@ if ! grep -q '"pastoralist": {' package.json; then
     exit 1
 fi
 
-# Test yarn resolutions
 cp /app/e2e/fixtures/yarn-package.json package.json
 echo "Testing yarn resolutions:"
 node /app/pastoralist/index.js
@@ -145,7 +131,6 @@ fi
 echo "\n6️⃣ Testing override removal..."
 cp /app/e2e/fixtures/npm-package.json package.json
 node /app/pastoralist/index.js
-# Remove all override sections
 jq 'del(.overrides) | del(.pnpm.overrides) | del(.resolutions)' package.json > package.json.tmp && mv package.json.tmp package.json
 node /app/pastoralist/index.js
 if grep -q '"pastoralist": {' package.json; then

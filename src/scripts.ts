@@ -19,6 +19,12 @@ import {
   UpdateAppendixOptions,
 } from "./interfaces";
 
+/**
+ * @name update
+ * @description Main entry point for Pastoralist
+ * @param options - Options for updating package.json
+ * @returns void
+ */
 export const update = async (options: Options): Promise<void> => {
   const path = options?.path || "package.json";
   const root = options?.root || "./";
@@ -32,7 +38,6 @@ export const update = async (options: Options): Promise<void> => {
     return;
   }
 
-  // Detect patches in the project
   const patchMap = detectPatches(root);
   const patchedPackages = Object.keys(patchMap);
   if (patchedPackages.length > 0) {
@@ -58,8 +63,7 @@ export const update = async (options: Options): Promise<void> => {
 
   let appendix: Appendix = {};
 
-  // Check if depPaths are provided - if so, use glob to find package.json files
-  if (options.depPaths && options.depPaths.length > 0) {
+  if (options?.depPaths && options?.depPaths.length > 0) {
     log.debug(
       `Using depPaths to find package.json files: ${options.depPaths.join(", ")}`,
       "update",
@@ -82,7 +86,6 @@ export const update = async (options: Options): Promise<void> => {
       log.debug("No package.json files found matching depPaths", "update");
     }
   } else {
-    // Original behavior - process only the main package.json
     const {
       dependencies = {},
       devDependencies = {},
@@ -98,7 +101,6 @@ export const update = async (options: Options): Promise<void> => {
     });
   }
 
-  // Add patches if found
   for (const key of Object.keys(appendix)) {
     const packageName = key.split("@")[0];
     const patches = getPackagePatches(packageName, patchMap);
@@ -107,7 +109,6 @@ export const update = async (options: Options): Promise<void> => {
     }
   }
 
-  // Check for unused patches
   const {
     dependencies = {},
     devDependencies = {},
@@ -137,7 +138,15 @@ export const update = async (options: Options): Promise<void> => {
   });
 };
 
-export const findRemovableAppendixItems = (appendix: Appendix) => {
+/**
+ * @name findRemovableAppendixItems
+ * @description Find appendix items that are no longer needed
+ * @param appendix Appendix to check
+ * @returns Array of appendix items that are no longer needed
+ */
+export const findRemovableAppendixItems = (
+  appendix: Appendix,
+): Array<string> => {
   if (!appendix) return [];
 
   const appendixItems = Object.keys(appendix);
@@ -151,6 +160,13 @@ export const findRemovableAppendixItems = (appendix: Appendix) => {
     .map((item) => item.split("@")[0]);
 };
 
+/**
+ * @name updateOverrides
+ * @description Update overrides by removing appendix items that are no longer needed
+ * @param overrideData - Override data to update
+ * @param removableItems - Array of appendix items that are no longer needed
+ * @returns Updated overrides
+ */
 export const updateOverrides = (
   overrideData: ResolveOverrides,
   removableItems: string[] = [],
@@ -170,6 +186,12 @@ export const updateOverrides = (
   }, {} as OverridesType);
 };
 
+/**
+ * @name updatePackageJSON
+ * @description Update package.json with appendix and overrides
+ * @param options - Options for updating package.json
+ * @returns void
+ */
 export async function updatePackageJSON({
   appendix,
   path,
@@ -192,7 +214,6 @@ export async function updatePackageJSON({
     const keysToRemove = ["pastoralist", "resolutions", "overrides", "pnpm"];
     for (const key of keysToRemove) {
       if (key === "pnpm" && config.pnpm) {
-        // Only delete pnpm.overrides, not the entire pnpm section
         delete config.pnpm.overrides;
         if (Object.keys(config.pnpm).length === 0) {
           delete config[key as keyof PastoralistJSON];
@@ -222,6 +243,12 @@ export async function updatePackageJSON({
   writeFileSync(jsonPath, jsonString);
 }
 
+/**
+ * @name resolveOverrides
+ * @description Resolve overrides from package.json
+ * @param options - Options for resolving overrides
+ * @returns ResolveOverrides
+ */
 export function resolveOverrides({
   config = {},
 }: ResolveResolutionOptions): ResolveOverrides {
@@ -269,6 +296,14 @@ export function resolveOverrides({
   return { type: "npm", overrides };
 }
 
+/**
+ * @name defineOverride
+ * @description Define the type of override
+ * @param overrides - Overrides object
+ * @param pnpm - Pnpm object
+ * @param resolutions - Resolutions object
+ * @returns ResolveOverrides
+ */
 export const defineOverride = ({
   overrides = {},
   pnpm = {},
@@ -299,6 +334,12 @@ export const defineOverride = ({
   return overrideTypes[0];
 };
 
+/**
+ * @name getOverridesByType
+ * @description Get overrides by type
+ * @param data - ResolveOverrides
+ * @returns OverridesType
+ */
 export const getOverridesByType = (data: ResolveOverrides) => {
   const type = data?.type;
   if (!type) {
@@ -310,6 +351,14 @@ export const getOverridesByType = (data: ResolveOverrides) => {
   else return data?.overrides;
 };
 
+/**
+ * @name processPackageJSON
+ * @description Process package.json file
+ * @param filePath - Path to package.json file
+ * @param overrides - Overrides object
+ * @param overridesList - Array of overrides
+ * @returns void
+ */
 export async function processPackageJSON(
   filePath: string,
   overrides: OverridesType,
@@ -334,7 +383,6 @@ export async function processPackageJSON(
   const isOverridden = depList.some((dep) => overridesList.includes(dep));
   if (!isOverridden) return;
 
-  // Create new appendix with all dependencies
   const appendix = updateAppendix({
     overrides,
     dependencies,
@@ -343,7 +391,6 @@ export async function processPackageJSON(
     packageName: name,
   });
 
-  // Only persist if we have actual appendix entries
   const hasAppendix = appendix && Object.keys(appendix).length > 0;
   if (hasAppendix) {
     currentPackageJSON.pastoralist = { appendix };
@@ -358,6 +405,12 @@ export async function processPackageJSON(
   };
 }
 
+/**
+ * @name updateAppendix
+ * @description Update appendix with new dependents
+ * @param options - Options for updating appendix
+ * @returns Appendix
+ */
 export const updateAppendix = ({
   overrides = {},
   appendix = {},
@@ -407,10 +460,14 @@ export const updateAppendix = ({
   return appendix;
 };
 
+/**
+ * @name resolveJSON
+ * @description Resolve JSON from file
+ * @param path - Path to file
+ * @returns JSON
+ */
 export function resolveJSON(path: string) {
-  if (jsonCache.has(path)) {
-    return jsonCache.get(path);
-  }
+  if (jsonCache.has(path)) return jsonCache.get(path);
   try {
     const file = readFileSync(path, "utf8");
     const json = JSON.parse(file);
@@ -426,6 +483,14 @@ export function resolveJSON(path: string) {
   }
 }
 
+/**
+ * @name logMethod
+ * @description Log method
+ * @param type - Type of log
+ * @param isLogging - Is logging enabled
+ * @param file - File name
+ * @returns Log function
+ */
 export const logMethod = (
   type: ConsoleMethod,
   isLogging: boolean,
@@ -438,15 +503,21 @@ export const logMethod = (
   };
 };
 
+/**
+ * @name logger
+ * @description Logger
+ * @param options - Logger options
+ * @returns Logger
+ */
 export const logger = ({ file, isLogging = false }: LoggerOptions) => ({
   debug: logMethod("debug", isLogging, file),
   error: logMethod("error", isLogging, file),
   info: logMethod("info", isLogging, file),
 });
 
-// Fallback logger for functions not called from update()
+// Fallback logger for internal use
 const fallbackLog = logger({ file: "scripts.ts", isLogging: IS_DEBUGGING });
-
+// Cache for resolved JSON files
 export const jsonCache = new Map<string, PastoralistJSON>();
 
 export const findPackageJsonFiles = (
@@ -482,7 +553,10 @@ export const findPackageJsonFiles = (
 };
 
 /**
- * Detect patches in the project by scanning for patch files
+ * @name detectPatches
+ * @description Detect patches in the project by scanning for patch files
+ * @root - Root directory to scan from
+ * @returns Map of package names to patch files
  * Common patterns:
  * - patches/ directory (patch-package)
  * - .patches/ directory
@@ -503,46 +577,30 @@ export const detectPatches = (
     const patchMap: Record<string, string[]> = {};
 
     patchFiles.forEach((patchFile) => {
-      // Extract package name from patch filename
-      // Common formats:
-      // - package-name+1.2.3.patch
-      // - @scope+package-name+1.2.3.patch
-      // - package-name.patch
+      /**
+       * @note Extract package name from patch filename
+       * examples:
+       * - package-name+1.2.3.patch
+       * - @scope+package-name+1.2.3.patch
+       * - package-name.patch
+       */
       const basename = patchFile.split("/").pop() || "";
-
-      if (!basename.endsWith(".patch")) {
-        return; // Skip non-patch files
-      }
-
-      // Remove .patch extension
+      if (!basename.endsWith(".patch")) return;
       const nameWithoutExt = basename.replace(".patch", "");
 
       let packageName: string;
-
-      if (!nameWithoutExt.includes("+")) {
-        // Simple case: package-name.patch -> package-name
-        packageName = nameWithoutExt;
-      } else {
-        // Complex case: package+version.patch or @scope+package+version.patch
+      if (!nameWithoutExt.includes("+")) packageName = nameWithoutExt;
+      else {
         const parts = nameWithoutExt.split("+");
 
         if (nameWithoutExt.startsWith("@")) {
-          // Scoped package: @scope+package+version -> @scope/package
-          if (parts.length >= 2) {
-            packageName = `${parts[0]}/${parts[1]}`;
-          } else {
-            packageName = parts[0]; // Fallback
-          }
-        } else {
-          // Regular package: package+version -> package
-          packageName = parts[0];
-        }
+          if (parts.length >= 2) packageName = `${parts[0]}/${parts[1]}`;
+          else packageName = parts[0];
+        } else packageName = parts[0];
       }
 
       if (packageName) {
-        if (!patchMap[packageName]) {
-          patchMap[packageName] = [];
-        }
+        if (!patchMap[packageName]) patchMap[packageName] = [];
         patchMap[packageName].push(patchFile);
         fallbackLog.debug(
           `Found patch for ${packageName}: ${patchFile}`,
@@ -559,17 +617,23 @@ export const detectPatches = (
 };
 
 /**
- * Check if a package has patches applied
+ * @name getPackagePatches
+ * @description Check if a package has patches applied
+ * @param packageName - Name of the package to check
+ * @param patchMap - Map of package names to patch files
+ * @returns Array of patch file paths
  */
 export const getPackagePatches = (
   packageName: string,
   patchMap: Record<string, string[]>,
-): string[] => {
-  return patchMap[packageName] || [];
-};
+): string[] => patchMap[packageName] || [];
 
 /**
- * Find patches that are no longer needed (packages not in dependencies)
+ * @name findUnusedPatches
+ * @description Find patches that are no longer needed (packages not in dependencies)
+ * @param patchMap - Map of package names to patch files
+ * @param allDependencies - Map of all dependencies in the project
+ * @returns Array of unused patch file paths
  */
 export const findUnusedPatches = (
   patchMap: Record<string, string[]>,
@@ -591,7 +655,8 @@ export const findUnusedPatches = (
 };
 
 /**
- * Constructs the appendix by processing each package.json file in the workspace.
+ * @name constructAppendix
+ * @description Constructs the appendix by processing each package.json file in the workspace.
  * @param packageJSONs - Array of package.json file paths to process
  * @param overridesData - Override configuration data
  * @param cache - Cache for appendix data
@@ -621,7 +686,6 @@ export async function constructAppendix(
     const result = await processPackageJSON(path, overrides, overridesList);
     if (!result?.appendix) continue;
 
-    // Merge the appendix entries
     for (const [key, value] of Object.entries(result.appendix)) {
       if (!appendix[key]) {
         appendix[key] = { dependents: {} };

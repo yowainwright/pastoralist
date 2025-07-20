@@ -1,11 +1,7 @@
 name: Test Published Release
-
 on:
-  # Run when a new release is published (after the package is available on npm)
   release:
     types: [published]
-  
-  # Allow manual triggering to test any published version
   workflow_dispatch:
     inputs:
       version:

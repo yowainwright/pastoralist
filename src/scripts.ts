@@ -128,13 +128,25 @@ export const update = async (options: Options): Promise<void> => {
     );
   }
 
+  const removableItems = findUnusedOverrides(overrides, allDeps);
+  let finalOverrides = overrides;
+
+  if (removableItems.length > 0) {
+    log.debug(
+      `Found ${removableItems.length} packages to remove from overrides: ${removableItems.join(", ")}`,
+      "update",
+    );
+    finalOverrides =
+      updateOverrides(overridesData, removableItems) || overrides;
+  }
+
   if (isTesting) return;
 
   await updatePackageJSON({
     appendix,
     path,
     config,
-    overrides,
+    overrides: finalOverrides,
   });
 };
 
@@ -652,6 +664,32 @@ export const findUnusedPatches = (
   });
 
   return unusedPatches;
+};
+
+/**
+ * @name findUnusedOverrides
+ * @description Find overrides that are no longer needed (packages not in dependencies)
+ * @param overrides - Current overrides object
+ * @param allDependencies - Map of all dependencies in the project
+ * @returns Array of package names that should be removed from overrides
+ */
+export const findUnusedOverrides = (
+  overrides: OverridesType = {},
+  allDependencies: Record<string, string> = {},
+): string[] => {
+  const unusedOverrides: string[] = [];
+
+  Object.keys(overrides).forEach((packageName) => {
+    if (!allDependencies[packageName]) {
+      unusedOverrides.push(packageName);
+      fallbackLog.debug(
+        `Found unused override for ${packageName}: no longer in dependencies`,
+        "findUnusedOverrides",
+      );
+    }
+  });
+
+  return unusedOverrides;
 };
 
 /**

@@ -10,8 +10,9 @@ WORKDIR /app
 # Copy the built pastoralist binary
 COPY dist/ ./pastoralist/
 
-# Make pastoralist executable
+# Make pastoralist executable and add package.json with module type
 RUN chmod +x ./pastoralist/index.js
+RUN echo '{"type":"module"}' > ./pastoralist/package.json
 
 # Create a test workspace with multiple packages
 RUN mkdir -p packages/app packages/utils packages/shared e2e/fixtures/patches

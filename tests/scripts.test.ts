@@ -15,6 +15,7 @@ import {
   updatePackageJSON,
   findRemovableAppendixItems,
   updateOverrides as updateOverrideItems,
+  findUnusedOverrides,
   constructAppendix,
   findPackageJsonFiles,
   update,
@@ -1310,6 +1311,236 @@ describe("patch detection and management", () => {
     assert.deepStrictEqual(lodashPatches, ["patches/lodash+4.17.21.patch", "patches/lodash+4.17.20.patch"]);
     assert.deepStrictEqual(reactPatches, ["patches/react+18.0.0.patch"]);
     assert.deepStrictEqual(nonExistentPatches, []);
+  });
+});
+
+describe("findUnusedOverrides", () => {
+  it("should return an empty array when no overrides are provided", () => {
+    const result = findUnusedOverrides({}, { lodash: "^4.17.0" });
+    assert.deepStrictEqual(result, []);
+  });
+
+  it("should return an empty array when all overrides are in dependencies", () => {
+    const overrides = {
+      lodash: "4.17.21",
+      react: "18.2.0",
+      typescript: "5.0.0"
+    };
+    const allDependencies = {
+      lodash: "^4.17.0",
+      react: "^18.0.0",
+      typescript: "^5.0.0",
+      express: "^4.18.0" // Extra dependency not in overrides is ok
+    };
+
+    const result = findUnusedOverrides(overrides, allDependencies);
+    assert.deepStrictEqual(result, []);
+  });
+
+  it("should return packages that are in overrides but not in dependencies", () => {
+    const overrides = {
+      lodash: "4.17.21",
+      "old-package": "1.0.0",
+      react: "18.2.0",
+      "removed-dep": "2.0.0"
+    };
+    const allDependencies = {
+      lodash: "^4.17.0",
+      react: "^18.0.0"
+      // old-package and removed-dep are missing
+    };
+
+    const result = findUnusedOverrides(overrides, allDependencies);
+    assert.deepStrictEqual(result.sort(), ["old-package", "removed-dep"].sort());
+  });
+
+  it("should handle all dependencies being removed", () => {
+    const overrides = {
+      "old-dep-1": "1.0.0",
+      "old-dep-2": "2.0.0"
+    };
+    const allDependencies = {}; // No dependencies left
+
+    const result = findUnusedOverrides(overrides, allDependencies);
+    assert.deepStrictEqual(result.sort(), ["old-dep-1", "old-dep-2"].sort());
+  });
+
+  it("should handle empty dependencies object", () => {
+    const overrides = {
+      lodash: "4.17.21"
+    };
+    const allDependencies = {};
+
+    const result = findUnusedOverrides(overrides, allDependencies);
+    assert.deepStrictEqual(result, ["lodash"]);
+  });
+
+  it("should handle mixed dependency types (dependencies, devDependencies, peerDependencies)", () => {
+    const overrides = {
+      lodash: "4.17.21",
+      typescript: "5.0.0",
+      react: "18.2.0",
+      "old-package": "1.0.0"
+    };
+    // Simulate allDeps = {...dependencies, ...devDependencies, ...peerDependencies}
+    const allDependencies = {
+      lodash: "^4.17.0", // from dependencies
+      typescript: "^5.0.0", // from devDependencies
+      react: "^18.0.0" // from peerDependencies
+      // old-package is not in any dependency type
+    };
+
+    const result = findUnusedOverrides(overrides, allDependencies);
+    assert.deepStrictEqual(result, ["old-package"]);
+  });
+
+  it("should handle scoped packages correctly", () => {
+    const overrides = {
+      "@types/node": "20.0.0",
+      "@babel/core": "7.22.0",
+      "@removed/package": "1.0.0"
+    };
+    const allDependencies = {
+      "@types/node": "^18.0.0",
+      "@babel/core": "^7.20.0"
+      // @removed/package is missing
+    };
+
+    const result = findUnusedOverrides(overrides, allDependencies);
+    assert.deepStrictEqual(result, ["@removed/package"]);
+  });
+});
+
+describe("Cleanup functionality integration", () => {
+  it("should identify and clean up unused overrides during update", async () => {
+    // Mock a package.json with overrides for packages that are no longer dependencies
+    const mockConfig = {
+      name: "test-cleanup",
+      version: "1.0.0",
+      dependencies: {
+        lodash: "^4.17.0",
+        react: "^18.0.0"
+      },
+      // Note: old-package is NOT in dependencies but IS in overrides
+      overrides: {
+        lodash: "4.17.21",
+        react: "18.2.0",
+        "old-package": "1.0.0" // This should be removed
+      }
+    };
+
+    // Test the cleanup logic components
+    const allDeps = { ...mockConfig.dependencies };
+    const unusedOverrides = findUnusedOverrides(mockConfig.overrides, allDeps);
+    
+    assert.deepStrictEqual(unusedOverrides, ["old-package"], "Should identify old-package as unused");
+
+    // Test the updateOverrides function
+    const mockOverridesData = {
+      type: "npm",
+      overrides: mockConfig.overrides
+    };
+    
+    const cleanedOverrides = updateOverrideItems(mockOverridesData, unusedOverrides);
+    const expectedCleanedOverrides = {
+      lodash: "4.17.21",
+      react: "18.2.0"
+      // old-package should be removed
+    };
+    
+    assert.deepStrictEqual(cleanedOverrides, expectedCleanedOverrides, "Should remove unused overrides");
+  });
+
+  it("should preserve overrides when all packages are still dependencies", () => {
+    const overrides = {
+      lodash: "4.17.21",
+      react: "18.2.0",
+      typescript: "5.0.0"
+    };
+    const allDeps = {
+      lodash: "^4.17.0",
+      react: "^18.0.0",
+      typescript: "^5.0.0"
+    };
+
+    const unusedOverrides = findUnusedOverrides(overrides, allDeps);
+    assert.deepStrictEqual(unusedOverrides, [], "Should find no unused overrides");
+
+    const mockOverridesData = { type: "npm", overrides };
+    const cleanedOverrides = updateOverrideItems(mockOverridesData, unusedOverrides);
+    assert.deepStrictEqual(cleanedOverrides, overrides, "Should preserve all overrides");
+  });
+
+  it("should handle complex cleanup scenarios", () => {
+    const overrides = {
+      lodash: "4.17.21",
+      "@types/node": "20.0.0",
+      "old-dep-1": "1.0.0",
+      react: "18.2.0",
+      "old-dep-2": "2.0.0",
+      typescript: "5.0.0",
+      "removed-package": "3.0.0"
+    };
+    const allDeps = {
+      lodash: "^4.17.0",
+      "@types/node": "^18.0.0",
+      react: "^18.0.0",
+      typescript: "^5.0.0"
+      // old-dep-1, old-dep-2, and removed-package are missing
+    };
+
+    const unusedOverrides = findUnusedOverrides(overrides, allDeps);
+    const expectedUnused = ["old-dep-1", "old-dep-2", "removed-package"];
+    assert.deepStrictEqual(unusedOverrides.sort(), expectedUnused.sort(), "Should identify all unused overrides");
+
+    const mockOverridesData = { type: "npm", overrides };
+    const cleanedOverrides = updateOverrideItems(mockOverridesData, unusedOverrides);
+    const expectedCleaned = {
+      lodash: "4.17.21",
+      "@types/node": "20.0.0",
+      react: "18.2.0",
+      typescript: "5.0.0"
+    };
+    assert.deepStrictEqual(cleanedOverrides, expectedCleaned, "Should remove all unused overrides while preserving used ones");
+  });
+
+  it("should work with different override types (pnpm, resolutions)", () => {
+    // Test pnpm overrides
+    const pnpmOverridesData = {
+      type: "pnpm",
+      pnpm: {
+        overrides: {
+          lodash: "4.17.21",
+          "old-package": "1.0.0"
+        }
+      }
+    };
+    
+    const pnpmOverrides = getOverridesByType(pnpmOverridesData);
+    const allDeps = { lodash: "^4.17.0" }; // old-package missing
+    const unusedPnpmOverrides = findUnusedOverrides(pnpmOverrides, allDeps);
+    
+    assert.deepStrictEqual(unusedPnpmOverrides, ["old-package"], "Should identify unused pnpm overrides");
+
+    const cleanedPnpmOverrides = updateOverrideItems(pnpmOverridesData, unusedPnpmOverrides);
+    assert.deepStrictEqual(cleanedPnpmOverrides, { lodash: "4.17.21" }, "Should clean pnpm overrides");
+
+    // Test resolutions
+    const resolutionsData = {
+      type: "resolutions",
+      resolutions: {
+        lodash: "4.17.21",
+        "old-package": "1.0.0"
+      }
+    };
+    
+    const resolutions = getOverridesByType(resolutionsData);
+    const unusedResolutions = findUnusedOverrides(resolutions, allDeps);
+    
+    assert.deepStrictEqual(unusedResolutions, ["old-package"], "Should identify unused resolutions");
+
+    const cleanedResolutions = updateOverrideItems(resolutionsData, unusedResolutions);
+    assert.deepStrictEqual(cleanedResolutions, { lodash: "4.17.21" }, "Should clean resolutions");
   });
 });
 

@@ -24,9 +24,11 @@ show_package_json() {
 echo ""
 echo "1️⃣ Setting up migration test environment..."
 
-# Get latest 1.3.x and 1.4.x versions for fuzzy matching
-LATEST_1_3_X=$(npm view pastoralist@"~1.3.0" version 2>/dev/null || echo "1.3.10")
-LATEST_1_4_X=$(npm view pastoralist@"~1.4.0" version 2>/dev/null || echo "1.4.0")
+# Get latest 1.3.x and 1.4.x versions for fuzzy matching (including pre-releases)
+# Check if 1.3.* versions exist, fallback to known existing version
+LATEST_1_3_X=$(npm view pastoralist@">=1.3.0 <1.4.0" version --json 2>/dev/null | jq -r 'if type == "array" then .[-1] else . end' 2>/dev/null || echo "1.3.0")
+# Check if 1.4.* versions exist, fallback to known pre-release version
+LATEST_1_4_X=$(npm view pastoralist@">=1.4.0-0 <2.0.0" version --json 2>/dev/null | jq -r 'if type == "array" then .[-1] else . end' 2>/dev/null || echo "1.4.0-4")
 
 echo "🔍 Testing migration from $LATEST_1_3_X format to $LATEST_1_4_X format"
 echo "Note: Using fuzzy version matching to test latest patch versions"
@@ -139,7 +141,7 @@ fi
 echo ""
 echo "6️⃣ Testing cleanup of unused dependencies after migration..."
 
-# Remove old-package from devDependencies to test cleanup
+# Remove old-package from devDependencies to test cleanup behavior
 jq 'del(.devDependencies."old-package")' package.json > package.json.tmp && mv package.json.tmp package.json
 
 echo "Running pastoralist after removing old-package..."
@@ -215,12 +217,12 @@ echo "8️⃣ Final validation..."
 show_package_json
 
 # Final structure validation
-REQUIRED_FIELDS=("pastoralist" "appendix")
-for field in "${REQUIRED_FIELDS[@]}"; do
-    if jq -e ".$field" package.json > /dev/null; then
-        echo "✅ Required field '$field' present"
+REQUIRED_PATHS=("pastoralist" "pastoralist.appendix")
+for path in "${REQUIRED_PATHS[@]}"; do
+    if jq -e ".$path" package.json > /dev/null; then
+        echo "✅ Required field '$path' present"
     else
-        echo "❌ Required field '$field' missing"
+        echo "❌ Required field '$path' missing"
         exit 1
     fi
 done
@@ -232,7 +234,7 @@ echo "✅ $LATEST_1_3_X format successfully migrated to $LATEST_1_4_X"
 echo "✅ Existing appendix entries preserved"
 echo "✅ New patch tracking functionality works"
 echo "✅ peerDependencies support verified"
-echo "✅ Enhanced dependency cleanup verified"
+echo "✅ Enhanced dependency cleanup functionality verified"
 echo "✅ Backward compatibility maintained"
 echo "✅ Fuzzy version matching compatibility verified"
 echo ""

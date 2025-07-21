@@ -55,7 +55,7 @@ Will look like this:
 
 But there's more!
 
-If Pastoralist is run and an override or resolution is no longer required, Pastoralist will remove the dependency from pastoralist.appendix, overrides, or reslutions!
+If Pastoralist is run and an override or resolution is no longer required, Pastoralist will remove the dependency from pastoralist.appendix, overrides, or resolutions!
 
 AKA, the object above, will now look like the object below if trim is no longer needed.
 
@@ -114,7 +114,7 @@ Broken down, Pastoralist manages your overrides and resolutions with 4 simple st
 ### Key notes
 
 1. Pastoralist does **not** manage what is added to overrides or resolutions objects.
-2. Pastoralist **does** manage dependenceis that exists in a `package.json`'s overrides or resolutions objects.
+2. Pastoralist **does** manage dependencies that exist in a `package.json`'s overrides or resolutions objects.
 3. Pastoralist will remove overrides and resolutions if they become unneeded according to child package.json's spec!
 
 ### Using Pastoralist with Workspaces

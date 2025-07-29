@@ -5,6 +5,8 @@ import react from "@astrojs/react";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
+  site: 'https://jeffry.in',
+  base: '/pastoralist',
   integrations: [mdx(), react()],
   trailingSlash: "never",
 

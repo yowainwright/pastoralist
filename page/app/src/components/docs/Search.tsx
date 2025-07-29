@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import Fuse from 'fuse.js';
 
 interface SearchResult {
@@ -100,18 +101,23 @@ export default function Search({ searchData }: SearchProps) {
       </button>
 
       {/* Search Modal */}
-      {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] px-4">
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsOpen(false)} />
-          <div
-            ref={searchRef}
-            className="relative w-full max-w-2xl bg-base-100 rounded-xl shadow-2xl overflow-hidden border border-base-content/10"
-          >
+      {isOpen && createPortal(
+        <>
+          {/* Backdrop */}
+          <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm" onClick={() => setIsOpen(false)} />
+          
+          {/* Modal Container */}
+          <div className="fixed inset-0 z-[101] overflow-y-auto">
+            <div className="flex min-h-full items-start justify-center pt-[10vh] p-4">
+              <div
+                ref={searchRef}
+                className="relative w-full max-w-2xl bg-base-100 rounded-xl shadow-2xl overflow-hidden border border-base-content/10"
+              >
             {/* Search Input */}
             <div className="flex items-center p-4 border-b border-base-content/10">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 text-primary mr-3"
+                className="h-5 w-5 mr-3 text-[#3d04d9]"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -158,10 +164,10 @@ export default function Search({ searchData }: SearchProps) {
                       }}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="flex-shrink-0 w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                        <div className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center bg-[#3d04d9]/10">
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
-                            className="h-5 w-5 text-primary"
+                            className="h-5 w-5 text-[#3d04d9]"
                             fill="none"
                             viewBox="0 0 24 24"
                             stroke="currentColor"
@@ -225,8 +231,11 @@ export default function Search({ searchData }: SearchProps) {
                 </div>
               )}
             </div>
+              </div>
+            </div>
           </div>
-        </div>
+        </>,
+        document.body
       )}
     </>
   );

@@ -26,14 +26,14 @@
     "commit-msg": "commitlint --edit $1",
     "create-demo": "node demo/create-demo.js generate",
     "demo-embed": "node demo/create-demo.js embed",
-    "dev": "pnpm --filter @pastoralist/app run app-dev",
+    "dev": "pnpm --filter pastoralist-docs run dev",
     "lint": "turbo run lint-src",
     "lint-fix": "eslint",
     "lint-src": "eslint",
     "pre-commit": "lint-staged --quiet && pnpm run test",
     "prepare": "is-ci || husky install",
     "prepublishOnly": "pnpm run test && pnpm run build",
-    "preview": "pnpm --filter @pastoralist/app app-preview",
+    "preview": "pnpm --filter pastoralist-docs run preview",
     "release": "release-it",
     "test": "tsx --test tests/*.ts",
     "test-resolutions": "tsx src/index.ts --debug",
@@ -42,7 +42,7 @@
     "typecheck": "turbo run typecheck-src",
     "typecheck-src": "tsc --noEmit",
     "update": "codependence --update && pnpm run update-app-deps",
-    "update-app-deps": "pnpm --filter @pastoralist/app update"
+    "update-app-deps": "pnpm --filter pastoralist-docs update"
   },
   "repository": {
     "type": "git",

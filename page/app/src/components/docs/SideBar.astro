@@ -11,29 +11,28 @@ const pathname = new URL(Astro.request.url).pathname;
     <div
       class="bg-base-100 sticky top-0 z-20 items-center gap-2 bg-opacity-90 px-4 py-2 backdrop-blur lg:flex font-outfit"
     >
-      <a href="/" class="btn btn-ghost px-2 flex items-center gap-2">
-        <img src="/pastoralist-logo.svg" alt="Pastoralist Logo" class="h-8 w-8" />
+      <a href="/" class="btn btn-ghost px-2">
         <h1
-          class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/50"
+          class="text-2xl font-bold bg-clip-text text-transparent" style="background: linear-gradient(90deg, rgba(61, 4, 217, 1) 2%, rgba(114, 4, 217, 1) 55%, rgba(137, 10, 196, 1) 100%); -webkit-background-clip: text;"
         >
           Pastoralist
         </h1>
       </a>
     </div>
 
-    <ul class="menu w-full px-4 py-0 font-outfit">
+    <div class="p-4 pt-8">
       {
         SIDEBAR.map((navItem) => (
-          <li>
-            <h2 class="menu-title flex items-center gap-4 px-1.5">
+          <div>
+            <h2 class="mb-4 text-xl font-bold font-outfit">
               {navItem.title}
             </h2>
-            <ul>
+            <ul class="menu menu-sm p-0">
               {navItem.items.map((navItem) => (
-                <li class="flex flex-col">
+                <li>
                   <a
                     href={navItem.href}
-                    class={`hover:text-primary hover:bg-primary/5 transition flex ${pathname === navItem.href ? "text-primary bg-primary/5" : ""}`}
+                    class={`hover:text-[#3d04d9] hover:bg-[#3d04d9]/10 transition ${pathname === navItem.href ? "text-[#3d04d9] bg-[#3d04d9]/10" : ""}`}
                   >
                     {navItem.title}
                     {navItem.label && (
@@ -43,9 +42,9 @@ const pathname = new URL(Astro.request.url).pathname;
                 </li>
               ))}
             </ul>
-          </li>
+          </div>
         ))
       }
-    </ul>
+    </div>
   </aside>
 </div>

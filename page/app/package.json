@@ -3,7 +3,7 @@
   "type": "module",
   "version": "1.1.0",
   "scripts": {
-    "dev": "astro dev --open",
+    "dev": "astro dev",
     "start": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
@@ -14,14 +14,15 @@
     "@astrojs/mdx": "^4.1.0",
     "@astrojs/react": "^4.2.1",
     "@fontsource-variable/lexend": "^5.0.20",
-    "fuse.js": "^7.0.0",
     "@fontsource-variable/outfit": "^5.0.13",
     "@tailwindcss/vite": "^4.0.9",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "astro": "^5.4.1",
+    "fuse.js": "^7.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "reactflow": "^11.11.4",
     "typescript": "^5.4.5"
   },
   "devDependencies": {

@@ -9,3 +9,8 @@
 @theme {
   --font-outfit: "Outfit Variable", "sans-serif";
 }
+
+:root {
+  --purple-gradient: linear-gradient(90deg, rgba(61, 4, 217, 1) 2%, rgba(114, 4, 217, 1) 55%, rgba(137, 10, 196, 1) 100%);
+  --purple-dark: #3d04d9;
+}

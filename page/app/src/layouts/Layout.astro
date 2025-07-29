@@ -1,6 +1,7 @@
 ---
 import SideBar from "../components/docs/SideBar.astro";
 import DocsHeader from "../components/docs/DocsHeader.astro";
+import Footer from "../components/common/Footer.astro";
 import "@fontsource-variable/outfit";
 import "../styles/global.css";
 
@@ -22,13 +23,18 @@ const { title } = Astro.props;
     <title>{title}</title>
   </head>
   <body>
-    <div class="drawer lg:drawer-open">
-      <input id="my-drawer-2" type="checkbox" class="drawer-toggle" />
-      <div class="drawer-content flex flex-col">
-        <DocsHeader />
-        <slot />
+    <div class="flex flex-col min-h-screen">
+      <div class="drawer lg:drawer-open flex-1">
+        <input id="my-drawer-2" type="checkbox" class="drawer-toggle" />
+        <div class="drawer-content flex flex-col">
+          <DocsHeader />
+          <div class="flex-1">
+            <slot />
+          </div>
+        </div>
+        <SideBar />
       </div>
-      <SideBar />
+      <Footer />
     </div>
   </body>
 </html>

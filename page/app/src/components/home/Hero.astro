@@ -1,5 +1,6 @@
 ---
 import { CopyButton } from "../common/CopyButton";
+const base = import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL : import.meta.env.BASE_URL + '/';
 ---
 
 <div class="hero">
@@ -27,7 +28,7 @@ import { CopyButton } from "../common/CopyButton";
   </div>
   <div class="hero-content text-center min-h-[40rem] font-outfit">
     <div class="max-w-2xl md:max-w-6xl">
-      <img src="/pastoralist-logo.svg" alt="Pastoralist Logo" class="h-24 w-24 md:h-32 md:w-32 mx-auto mb-6" />
+      <img src={`${base}pastoralist-logo.svg`} alt="Pastoralist Logo" class="h-24 w-24 md:h-32 md:w-32 mx-auto mb-6" />
       <h1 class="text-4xl md:text-5xl lg:text-7xl">
         Keep your overrides,
         <br/>

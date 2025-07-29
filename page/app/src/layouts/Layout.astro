@@ -1,0 +1,40 @@
+---
+import SideBar from "../components/docs/SideBar.astro";
+import DocsHeader from "../components/docs/DocsHeader.astro";
+import "@fontsource-variable/outfit";
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content="Pastoralist - Manage your package.json overrides, resolutions, and patches with ease" />
+    <meta name="viewport" content="width=device-width" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+  </head>
+  <body>
+    <div class="drawer lg:drawer-open">
+      <input id="my-drawer-2" type="checkbox" class="drawer-toggle" />
+      <div class="drawer-content flex flex-col">
+        <DocsHeader />
+        <slot />
+      </div>
+      <SideBar />
+    </div>
+  </body>
+</html>
+
+<style>
+  * {
+    scroll-behavior: smooth;
+  }
+</style>

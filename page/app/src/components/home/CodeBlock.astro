@@ -1,0 +1,53 @@
+---
+import { Code } from "astro:components";
+---
+
+<div class="xl:flex py-20 lg:py-28 gap-28">
+  <div class="max-w-3xl mt-7 xl:mt-0 order-2 xl:order-1 flex-1">
+    <div class="mockup-code text-sm md:text-base">
+      <pre data-prefix="$"><code>npm install -g pastoralist</code></pre>
+      <pre data-prefix="" class="text-base-content/60"><code>npm notice</code></pre>
+      <pre data-prefix="" class="text-base-content/60"><code>npm notice New major version of npm available! 9.8.1 → 10.2.4</code></pre>
+      <pre data-prefix="" class="text-success"><code>added 1 package in 2s</code></pre>
+      <pre data-prefix="$" class="mt-4"><code>cd my-awesome-project</code></pre>
+      <pre data-prefix="$"><code>pastoralist</code></pre>
+      <pre data-prefix="" class="text-warning"><code>⚡ Pastoralist v1.4.0</code></pre>
+      <pre data-prefix="" class="text-info"><code>📦 Scanning package.json for overrides and resolutions...</code></pre>
+      <pre data-prefix=""><code></code></pre>
+      <pre data-prefix="" class="text-base-content/80"><code>Found overrides:</code></pre>
+      <pre data-prefix="" class="text-base-content/60"><code>  • lodash@4.17.19 (latest: 4.17.21)</code></pre>
+      <pre data-prefix="" class="text-base-content/60"><code>  • react@17.0.1 (latest: 17.0.2)</code></pre>
+      <pre data-prefix="" class="text-base-content/60"><code>  • webpack@5.70.0 (latest: 5.91.0)</code></pre>
+      <pre data-prefix=""><code></code></pre>
+      <pre data-prefix="" class="text-info"><code>🔄 Updating overrides...</code></pre>
+      <pre data-prefix="" class="text-success"><code>✓ Updated lodash: 4.17.19 → 4.17.21</code></pre>
+      <pre data-prefix="" class="text-success"><code>✓ Updated react: 17.0.1 → 17.0.2</code></pre>
+      <pre data-prefix="" class="text-success"><code>✓ Updated webpack: 5.70.0 → 5.91.0</code></pre>
+      <pre data-prefix=""><code></code></pre>
+      <pre data-prefix="" class="text-primary"><code>✨ Successfully updated 3 overrides in package.json</code></pre>
+      <pre data-prefix="" class="text-base-content/60"><code>💡 Run 'npm install' to apply the changes</code></pre>
+    </div>
+  </div>
+
+  <div class="xl:max-w-xl flex flex-col justify-center font-outfit order-1 xl:order-2">
+    <h1 class="text-4xl lg:text-5xl font-black">
+      Works <span class="text-primary">Seamlessly</span> with Your Workflow
+    </h1>
+
+    <p class="mt-8 text-lg">
+      Pastoralist integrates perfectly into your development process. Run it as part of
+      your CI/CD pipeline, include it in your pre-commit hooks, or use it manually
+      whenever you need to update your dependency overrides.
+    </p>
+
+    <div class="flex gap-4 mt-8">
+      <a href="/documentation/introduction">
+        <button class="btn btn-primary"> Get Started </button>
+      </a>
+
+      <a href="/documentation/setup">
+        <button class="btn btn-outline"> View Setup Guide </button>
+      </a>
+    </div>
+  </div>
+</div>

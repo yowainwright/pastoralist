@@ -1,81 +1,32 @@
 {
-  "name": "@pastoralist/app",
-  "description": "Pastoralist docs app",
-  "private": true,
-  "version": "0.0.0",
+  "name": "pastoralist-docs",
   "type": "module",
+  "version": "1.1.0",
   "scripts": {
-    "build-dist": "pnpm run app-build",
-    "clean-dist": "rimraf dist",
-    "app-dev": "vite",
-    "app-build": "tsc && vite build --emptyOutDir",
-    "app-preview": "vite preview",
-    "update": "codependence --update"
+    "dev": "astro dev --open",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
   },
   "dependencies": {
-    "@mdx-js/react": "3.1.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "react-icons": "^5.5.0",
-    "reactflow": "^11.11.4"
+    "@astrojs/check": "^0.9.4",
+    "@astrojs/mdx": "^4.1.0",
+    "@astrojs/react": "^4.2.1",
+    "@fontsource-variable/lexend": "^5.0.20",
+    "fuse.js": "^7.0.0",
+    "@fontsource-variable/outfit": "^5.0.13",
+    "@tailwindcss/vite": "^4.0.9",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "astro": "^5.4.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "^5.4.5"
   },
   "devDependencies": {
-    "@mdx-js/mdx": "^3.1.0",
-    "@mdx-js/rollup": "^3.1.0",
-    "@tailwindcss/typography": "^0.5.16",
-    "@types/mdx": "^2.0.13",
-    "@types/node": "^24.0.14",
-    "@types/react": "^19.1.8",
-    "@types/react-dom": "^19.1.6",
-    "@vitejs/plugin-react": "^4.7.0",
-    "autoprefixer": "^10.4.21",
-    "daisyui": "4.12.10",
-    "mdx-mermaid": "^2.0.3",
-    "mermaid": "^11.9.0",
-    "postcss": "^8.5.6",
-    "react-daisyui": "^5.0.5",
-    "rehype-pretty-code": "^0.14.1",
-    "rehype-slug": "^6.0.0",
-    "remark-gfm": "^4.0.1",
-    "shiki": "^3.8.1",
-    "tailwindcss": "3.4.1",
-    "typescript": "^5.8.3",
-    "unist-util-visit": "^4.1.2",
-    "vite": "^6.3.5"
-  },
-  "codependence": {
-    "codependencies": [
-      {
-        "@mdx-js/react": "2.3.0"
-      },
-      "react",
-      "react-dom",
-      "react-icons",
-      "@mdx-js/mdx",
-      "@mdx-js/rollup",
-      "@tailwindcss/typography",
-      "@types/mdx",
-      "@types/node",
-      "@types/react",
-      "@types/react-dom",
-      "@vitejs/plugin-react",
-      "autoprefixer",
-      {
-        "daisyui": "4.12.10"
-      },
-      "mdx-mermaid",
-      "mermaid",
-      "postcss",
-      {
-        "react-daisyui": "^5.0.5"
-      },
-      "reactflow",
-      "rehype-slug",
-      "remark-gfm",
-      "tailwindcss",
-      "typescript",
-      "unist-util-visit",
-      "vite"
-    ]
+    "@tailwindcss/typography": "^0.5.13",
+    "daisyui": "^5.0.0",
+    "tailwindcss": "^4.0.9"
   }
 }

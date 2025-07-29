@@ -1,97 +1,75 @@
-import React from "react";
-import ReactFlow, { Background } from "reactflow";
-import "reactflow/dist/style.css";
-
-const edges = [
-  { animated: true, id: "1-2", source: "1", target: "2", type: "smoothstep" },
-  { animated: true, id: "2-3", source: "2", target: "3", type: "smoothstep" },
-  { animated: true, id: "2-4", source: "2", target: "4", type: "smoothstep" },
-];
-
-const Label = ({ description, metaDescription }: any) => (
-  <article className="border-primary border-2 p-3 rounded">
-    <p className="text-primary text-base my-1 leading-tight">{description}</p>
-    {metaDescription && (
-      <small className="text-xs text-slate-500 leading-tight my-0">
-        {metaDescription}
-      </small>
-    )}
-  </article>
-);
-
-const style = {
-  background: "transparent",
-  border: 0,
-  borderRadius: ".25rem",
-  padding: 0,
-  width: "300px",
-};
-
-const nodes = [
-  {
-    id: "1",
-    position: { x: 160, y: 0 },
-    data: {
-      label: (
-        <Label
-          description="find"
-          metaDescription="Pastoralist finds overrides/resolutions in a repo's root package.json"
-        />
-      ),
-    },
-    style,
-  },
-  {
-    id: "2",
-    position: { x: 160, y: 150 },
-    data: {
-      label: (
-        <Label
-          description="review"
-          metaDescription="Pastoralist compares pastoralist.appendix against overrides/resolutions"
-        />
-      ),
-    },
-    style,
-  },
-  {
-    id: "3",
-    position: { x: 0, y: 340 },
-    data: {
-      label: (
-        <Label
-          description="add"
-          metaDescription="Pastoralist adds new overrides/resolutions dependencies to the pastoralist.appendix"
-        />
-      ),
-    },
-    style,
-  },
-  {
-    id: "4",
-    position: { x: 320, y: 340 },
-    data: {
-      label: (
-        <Label
-          description="update"
-          metaDescription="Pastoralist updates or removes dependencies from overrides/resolutions and the pastoralist.appendix based on the repo's current dependencies"
-        />
-      ),
-    },
-    style,
-  },
-];
-
-const ReviewFlow = () => {
+export default function ReviewFlow() {
   return (
-    <section className="flex justify-center mt-10">
-      <div style={{ width: 620, height: 550 }}>
-        <ReactFlow nodes={nodes} edges={edges}>
-          <Background color="#aaa" gap={16} />
-        </ReactFlow>
+    <div className="flow-chart">
+      <div className="steps">
+        <div className="step">
+          <div className="step-number">1</div>
+          <h3>Read Package.json</h3>
+          <p>Pastoralist reads your package.json file to find overrides, resolutions, and patches</p>
+        </div>
+        
+        <div className="step">
+          <div className="step-number">2</div>
+          <h3>Track Dependencies</h3>
+          <p>Maps all overrides and resolutions to the pastoralist.appendix object</p>
+        </div>
+        
+        <div className="step">
+          <div className="step-number">3</div>
+          <h3>Detect Changes</h3>
+          <p>Monitors for outdated or unnecessary overrides and patches</p>
+        </div>
+        
+        <div className="step">
+          <div className="step-number">4</div>
+          <h3>Clean Up</h3>
+          <p>Removes unused overrides and notifies about unnecessary patches</p>
+        </div>
       </div>
-    </section>
+      
+      <style jsx>{`
+        .flow-chart {
+          margin: 2rem 0;
+        }
+        
+        .steps {
+          display: grid;
+          gap: 1.5rem;
+          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        }
+        
+        .step {
+          padding: 1.5rem;
+          border-radius: 0.5rem;
+          background: var(--bg-base-200);
+          border: 1px solid var(--border-base-300);
+        }
+        
+        .step-number {
+          width: 2rem;
+          height: 2rem;
+          border-radius: 50%;
+          background: var(--bg-primary);
+          color: var(--text-primary-content);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: bold;
+          margin-bottom: 0.75rem;
+        }
+        
+        .step h3 {
+          margin: 0 0 0.5rem 0;
+          font-size: 1.125rem;
+          font-weight: 600;
+        }
+        
+        .step p {
+          margin: 0;
+          color: var(--text-base-content);
+          opacity: 0.8;
+        }
+      `}</style>
+    </div>
   );
-};
-
-export default ReviewFlow;
+}

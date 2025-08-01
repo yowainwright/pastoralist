@@ -1,0 +1,82 @@
+---
+import { CopyButton } from "../common/CopyButton";
+import { resolveDocsUrl } from "../../utils/urlResolver";
+const base = import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL : import.meta.env.BASE_URL + '/';
+---
+
+<div class="hero">
+  <div
+    class="absolute inset-x-0 top-50 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80"
+    aria-hidden="true"
+  >
+    <div
+      class="relative left-[calc(50%-11rem)] aspect-[1155/678] w-[40rem] -translate-x-1/2 rotate-[70deg] bg-gradient-to-tr from-primary to-primary/50 opacity-15 sm:left-[calc(50%-30rem)] sm:w-[72.1875rem]"
+      style={{
+        clipPath:
+          "polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 150%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)",
+      }}
+    >
+    </div>
+
+    <div
+      class="relative left-[calc(50%-11rem)] aspect-[1155/678] w-[40rem] -translate-x-1/2 rotate-[70deg] bg-gradient-to-tr from-primary to-primary/50 opacity-15 sm:left-[calc(100%)] sm:w-[72.1875rem]"
+      style={{
+        clipPath:
+          "polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 150%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)",
+      }}
+    >
+    </div>
+  </div>
+  <div class="hero-content text-center min-h-[40rem] font-outfit px-4 py-16 md:py-20">
+    <div class="max-w-2xl md:max-w-6xl w-full">
+      <img src={`${base}pastoralist-logo.svg`} alt="Pastoralist Logo" class="h-24 w-24 md:h-32 md:w-32 mx-auto mb-6" />
+      <h1 class="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-black leading-tight">
+        Keep your overrides,
+        <br/>
+        <span class="font-bold bg-clip-text text-transparent" style="background: linear-gradient(90deg, rgba(61, 4, 217, 1) 2%, rgba(114, 4, 217, 1) 55%, rgba(137, 10, 196, 1) 100%); -webkit-background-clip: text;">resolutions & patches</span>
+        <br/>
+        up-to-date
+      </h1>
+      <div class="flex justify-center items-center">
+        <p class="py-4 md:py-7 max-w-4xl text-base sm:text-lg md:text-xl lg:text-2xl px-2">
+          Pastoralist automagically manages and resolves your overrides,
+          resolutions, and patches with a single command.
+        </p>
+      </div>
+      <div class="flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-5 w-full max-w-lg mx-auto">
+        <a href={resolveDocsUrl("introduction")}>
+          <button
+            class="btn btn-lg sm:btn-md text-white border-0 hover:opacity-90 w-full sm:w-auto" style="background: linear-gradient(90deg, rgba(61, 4, 217, 1) 2%, rgba(114, 4, 217, 1) 55%, rgba(137, 10, 196, 1) 100%);"
+            >Get Started
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+            </svg>
+            
+            </button
+          >
+        </a>
+
+          <div
+            class="flex items-center bg-base-300 rounded-lg shadow-sm justify-between w-full sm:w-auto"
+          >
+              <svg
+                width="22"
+                height="13"
+                viewBox="0 0 22 13"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                class="relative ml-4 mr-2 block w-3 -rotate-90"
+              >
+                <path d="M1 1L11 11L21 1" stroke="currentColor" stroke-Width="2"
+                ></path>
+              </svg>
+              <code class="flex-1 text-left leading-none mr-4 text-sm sm:text-base">
+                bun add -g pastoralist
+              </code>
+              <CopyButton client:only="react" />
+          </div>
+
+      </div>
+    </div>
+  </div>
+</div>

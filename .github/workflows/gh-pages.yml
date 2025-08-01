@@ -35,7 +35,7 @@ jobs:
             ${{ runner.os }}-bun-
 
       - run: bun install
-      - run: bun run build
+      - run: cd app && bun run build
 
       - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@v4

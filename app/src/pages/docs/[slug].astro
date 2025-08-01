@@ -1,0 +1,58 @@
+---
+import { getCollection, type CollectionEntry } from "astro:content";
+import Layout from "../../layouts/Layout.astro";
+import Toc from "../../components/docs/Toc.astro";
+import Pagination from "../../components/docs/Pagination.astro";
+import { resolveUrl } from "../../utils/urlResolver";
+
+export const getStaticPaths = async () => {
+  const docs = await getCollection("docs");
+  const path = docs.map((doc) => {
+    return {
+      params: {
+        slug: doc.slug,
+      },
+      props: {
+        doc,
+      },
+    };
+  });
+  return path;
+};
+
+type Props = {
+  doc: CollectionEntry<"docs">;
+};
+
+const { doc } = Astro.props;
+
+const { Content, headings } = await doc.render();
+---
+
+<Layout title={doc.data.title}>
+  <div class="flex flex-col lg:flex-row p-4 sm:p-6 md:p-10 md:pt-10 xl:gap-20 font-outfit">
+    <article class="flex flex-col w-full lg:max-w-3xl">
+      <div class="text-sm breadcrumbs pt-0 pb-4">
+        <ul>
+          <li><a href={resolveUrl("")} class="hover:text-primary">Home</a></li>
+          <li class="text-primary">{doc.data.title}</li>
+        </ul>
+      </div>
+      <section class="prose prose-sm sm:prose-base md:prose-md mb-10 max-w-none prose-pre:max-w-[90vw] prose-pre:overflow-x-auto">
+        <div>
+          <h1>{doc.data.title}</h1>
+          <p>{doc.data.description}</p>
+        </div>
+
+        <div class="divider my-5"></div>
+
+        <Content />
+      </section>
+      <div class="divider"></div>
+      <Pagination />
+    </article>
+    <div class="hidden lg:block">
+      <Toc headings={headings} />
+    </div>
+  </div>
+</Layout>

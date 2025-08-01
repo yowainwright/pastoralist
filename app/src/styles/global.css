@@ -1,0 +1,38 @@
+@import "tailwindcss";
+@plugin "daisyui" {
+  themes:
+    lofi --default,
+    night --prefersdark;
+}
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --font-outfit: "Outfit Variable", "sans-serif";
+}
+
+:root {
+  --purple-gradient: linear-gradient(90deg, rgba(61, 4, 217, 1) 2%, rgba(114, 4, 217, 1) 55%, rgba(137, 10, 196, 1) 100%);
+  --purple-dark: #3d04d9;
+}
+
+/* Improve mobile responsiveness */
+@media (max-width: 640px) {
+  /* Ensure code blocks are scrollable on mobile */
+  pre {
+    max-width: calc(100vw - 2rem);
+    overflow-x: auto;
+  }
+  
+  /* Improve mockup-code on mobile */
+  .mockup-code {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  
+  /* Ensure tables are scrollable */
+  .prose table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}

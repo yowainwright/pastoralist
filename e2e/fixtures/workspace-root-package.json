@@ -2,9 +2,7 @@
   "name": "workspace-root",
   "version": "1.0.0",
   "private": true,
-  "workspaces": [
-    "packages/*"
-  ],
+  "workspaces": ["packages/*"],
   "dependencies": {
     "lodash": "^4.17.15"
   }

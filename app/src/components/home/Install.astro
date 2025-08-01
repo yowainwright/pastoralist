@@ -1,0 +1,32 @@
+---
+import { CopyButton } from "../common/CopyButton";
+import { resolveDocsUrl } from "../../utils/urlResolver";
+---
+
+<div
+  class="hero bg-base-100 text-base-content mx-auto py-16 sm:py-20 lg:py-28 px-4 sm:px-6 max-w-md md:max-w-full"
+>
+  <div class="hero-content text-center">
+    <div class="w-full max-w-xl font-outfit">
+      <h1 class="text-3xl sm:text-4xl md:text-5xl font-bold">
+        Install <span class="bg-clip-text text-transparent" style="background: linear-gradient(90deg, rgba(61, 4, 217, 1) 2%, rgba(114, 4, 217, 1) 55%, rgba(137, 10, 196, 1) 100%); -webkit-background-clip: text;">Pastoralist</span>
+      </h1>
+
+      <p class="mt-4 sm:mt-5 w-full max-w-lg text-center text-sm sm:text-base">
+        Install pastoralist globally, as a devDependency,<br class="hidden sm:inline" />
+        <span class="sm:hidden">or use with npx.</span>
+        <span class="hidden sm:inline">or just use with npx or adjacent.</span>
+      </p>
+      <div
+        class="flex items-center bg-base-300 rounded-lg shadow-sm mt-4 justify-between p-1"
+      >
+        <code class="ml-3 text-sm sm:text-base">bun add -g pastoralist</code>
+        <CopyButton client:only="react" />
+      </div>
+
+      <a href={resolveDocsUrl("setup")} class="inline-block mt-6 sm:mt-7">
+        <button class="btn btn-lg sm:btn-md text-white border-0 hover:opacity-90" style="background: linear-gradient(90deg, rgba(61, 4, 217, 1) 2%, rgba(114, 4, 217, 1) 55%, rgba(137, 10, 196, 1) 100%);">Setup guide</button>
+      </a>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,68 @@
+---
+title: Setup
+description: "Quick and easy setup guide for Pastoralist CLI"
+---
+
+<section>
+
+## Getting Started
+
+1. Install Pastoralist globally:
+   ```bash
+   bun add -g pastoralist
+   ```
+
+2. Run it in your project:
+   ```bash
+   pastoralist
+   ```
+
+3. That's it! Pastoralist will automatically:
+   - Scan for overrides and resolutions
+   - Check for updates
+   - Update your package.json
+   - Track everything in the appendix
+
+## Setup
+
+Okay! Hopefully the breakdowns above were clear enough on why you might want to use Pastoralist!
+Please submit a [pull request](https://github.com/yowainwright/pastoralist/pulls) or [issue](https://github.com/yowainwright/pastoralist/issues) if it wasn't!
+
+Now for the super simple setup!
+
+1. Install
+
+```bash
+bun add pastoralist --dev
+# pastoralist does not expect to be a dependency! It's a tool!!!
+```
+
+2. run
+
+```bash
+pastoralist
+# => That's it! Check out your package.json
+# Pastoralist will automatically detect and track:
+# - Overrides and resolutions
+# - Patches (from patch-package and similar tools)
+# - All dependency types (dependencies, devDependencies, peerDependencies)
+```
+
+3. (recommended) add Pastoralist to a postInstall script
+
+```js
+// package.json
+{
+  "scripts": {
+    "postinstall": "pastoralist"
+  }
+}
+```
+
+In the near future, Pastoralist will fully support a config file but this is it for now!
+
+Read on to understand what is going on under the hood of Pastoralist!
+
+---
+
+</section>

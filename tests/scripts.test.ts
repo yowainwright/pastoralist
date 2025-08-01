@@ -35,27 +35,31 @@ interface MockFunction<T extends (...args: any[]) => any> {
 }
 
 // Create a mock function
-function createMockFunction<T extends (...args: any[]) => any>(): MockFunction<T> {
+function createMockFunction<
+  T extends (...args: any[]) => any,
+>(): MockFunction<T> {
   const calls: Parameters<T>[] = [];
   const results: ReturnType<T>[] = [];
-  
-    const mockFn = ((...args: Parameters<T>): ReturnType<T> => {
-      calls.push(args);
-      const result = undefined as ReturnType<T>;
-      results.push(result);
-      return result;
-    }) as MockFunction<T>;
-  
+
+  const mockFn = ((...args: Parameters<T>): ReturnType<T> => {
+    calls.push(args);
+    const result = undefined as ReturnType<T>;
+    results.push(result);
+    return result;
+  }) as MockFunction<T>;
+
   mockFn.calls = calls;
   mockFn.results = results;
-  Object.defineProperty(mockFn, 'callCount', {
-    get() { return calls.length; }
+  Object.defineProperty(mockFn, "callCount", {
+    get() {
+      return calls.length;
+    },
   });
   mockFn.reset = () => {
     calls.length = 0;
     results.length = 0;
   };
-  
+
   return mockFn;
 }
 
@@ -94,7 +98,7 @@ export function it(testDescription: string, fn: any): void {
 // Test helper utilities with overloading
 export function mockFunction<T extends (...args: any[]) => any>(
   obj: any,
-  methodName: keyof typeof obj
+  methodName: keyof typeof obj,
 ): {
   mock: MockFunction<T>;
   restore: () => void;
@@ -105,7 +109,7 @@ export function mockFunction<T extends (...args: any[]) => any>(): {
 };
 export function mockFunction<T extends (...args: any[]) => any>(
   obj?: any,
-  methodName?: keyof typeof obj
+  methodName?: keyof typeof obj,
 ) {
   if (obj && methodName) {
     const original = obj[methodName];
@@ -135,14 +139,14 @@ export function mockConsole(): {
   debug: MockFunction<typeof console.debug>;
   restore: () => void;
 };
-export function mockConsole(method: 'log' | 'error' | 'warn' | 'debug'): {
-  mock: MockFunction<typeof console[typeof method]>;
+export function mockConsole(method: "log" | "error" | "warn" | "debug"): {
+  mock: MockFunction<(typeof console)[typeof method]>;
   restore: () => void;
 };
-export function mockConsole(method?: 'log' | 'error' | 'warn' | 'debug') {
+export function mockConsole(method?: "log" | "error" | "warn" | "debug") {
   if (method) {
     const original = console[method];
-    const mock = createMockFunction<typeof console[typeof method]>();
+    const mock = createMockFunction<(typeof console)[typeof method]>();
     console[method] = mock as any;
     return {
       mock,
@@ -155,17 +159,17 @@ export function mockConsole(method?: 'log' | 'error' | 'warn' | 'debug') {
     const originalError = console.error;
     const originalWarn = console.warn;
     const originalDebug = console.debug;
-    
+
     const logMock = createMockFunction<typeof console.log>();
     const errorMock = createMockFunction<typeof console.error>();
     const warnMock = createMockFunction<typeof console.warn>();
     const debugMock = createMockFunction<typeof console.debug>();
-    
+
     console.log = logMock as any;
     console.error = errorMock as any;
     console.warn = warnMock as any;
     console.debug = debugMock as any;
-    
+
     return {
       log: logMock,
       error: errorMock,
@@ -182,13 +186,28 @@ export function mockConsole(method?: 'log' | 'error' | 'warn' | 'debug') {
 }
 
 // Assertion utilities with overloading
-export function assertCalled<T extends (...args: any[]) => any>(mock: MockFunction<T>): void;
-export function assertCalled<T extends (...args: any[]) => any>(mock: MockFunction<T>, times: number): void;
-export function assertCalled<T extends (...args: any[]) => any>(mock: MockFunction<T>, times?: number): void {
+export function assertCalled<T extends (...args: any[]) => any>(
+  mock: MockFunction<T>,
+): void;
+export function assertCalled<T extends (...args: any[]) => any>(
+  mock: MockFunction<T>,
+  times: number,
+): void;
+export function assertCalled<T extends (...args: any[]) => any>(
+  mock: MockFunction<T>,
+  times?: number,
+): void {
   if (times !== undefined) {
-    assert.strictEqual(mock.callCount, times, `Expected function to be called ${times} times`);
+    assert.strictEqual(
+      mock.callCount,
+      times,
+      `Expected function to be called ${times} times`,
+    );
   } else {
-    assert.ok(mock.callCount > 0, 'Expected function to be called at least once');
+    assert.ok(
+      mock.callCount > 0,
+      "Expected function to be called at least once",
+    );
   }
 }
 
@@ -206,13 +225,13 @@ export function assertCalledWith<T extends (...args: any[]) => any>(
   callIndexOrFirstArg: any,
   ...restArgs: any[]
 ): void {
-  if (typeof callIndexOrFirstArg === 'number') {
+  if (typeof callIndexOrFirstArg === "number") {
     const callIndex = callIndexOrFirstArg;
     const expectedArgs = restArgs;
     assert.deepStrictEqual(
       mock.calls[callIndex],
       expectedArgs,
-      `Expected call ${callIndex} to have specific arguments`
+      `Expected call ${callIndex} to have specific arguments`,
     );
   } else {
     const expectedArgs = [callIndexOrFirstArg, ...restArgs];
@@ -220,33 +239,35 @@ export function assertCalledWith<T extends (...args: any[]) => any>(
     assert.deepStrictEqual(
       lastCall,
       expectedArgs,
-      'Expected last call to have specific arguments'
+      "Expected last call to have specific arguments",
     );
   }
 }
 
 // Additional utility functions for easier testing
-export function captureConsoleOutput(method: 'log' | 'error' | 'warn' | 'debug' = 'log'): {
+export function captureConsoleOutput(
+  method: "log" | "error" | "warn" | "debug" = "log",
+): {
   output: string[];
   restore: () => void;
 } {
   const output: string[] = [];
   const original = console[method];
-  
+
   console[method] = (...args: any[]) => {
-    output.push(args.join(' '));
+    output.push(args.join(" "));
   };
-  
+
   return {
     output,
     restore: () => {
       console[method] = original;
-    }
+    },
   };
 }
 
 // Enable debugging for tests
-process.env.DEBUG = 'true';
+process.env.DEBUG = "true";
 
 const originalReadFileSync = fs.readFileSync;
 fs.readFileSync = function mockReadFileSync(path: string, encoding: any) {
@@ -370,10 +391,10 @@ describe("updateAppendix", () => {
     const result = updateAppendix({
       overrides: {},
       appendix: {},
-        dependencies: {
-          "semver": "^6.3.1",
-          "tough-cookie": "^4.1.0"
-        },
+      dependencies: {
+        semver: "^6.3.1",
+        "tough-cookie": "^4.1.0",
+      },
       devDependencies: {},
       packageName: "test-package",
     });
@@ -523,18 +544,21 @@ describe("processPackageJSON", () => {
 
     try {
       const result = await processPackageJSON(
-        "tests/fixtures/package-overrides.json", 
+        "tests/fixtures/package-overrides.json",
         { express: "2.0.0" },
-        ["express"]
+        ["express"],
       );
 
       // The result should match our expected data
       assert.deepStrictEqual(result?.name, mockPackageJSON.name);
-      assert.deepStrictEqual(result?.dependencies, mockPackageJSON.dependencies);
+      assert.deepStrictEqual(
+        result?.dependencies,
+        mockPackageJSON.dependencies,
+      );
       assert.ok(result?.appendix); // Should exist
       assert.deepStrictEqual(
         result?.appendix["express@2.0.0"]?.dependents["overrides-package"],
-        "express@^4.18.1"
+        "express@^4.18.1",
       );
     } finally {
       // Restore original fs.readFileSync
@@ -648,7 +672,7 @@ describe("resolveOverrides", () => {
 
   it("should return undefined and log an error if complex overrides are found", () => {
     // Use the new utility function for capturing console output
-    const consoleCapture = captureConsoleOutput('error');
+    const consoleCapture = captureConsoleOutput("error");
 
     const result = resolveOverrides({
       config: { overrides: { foo: { bar: "1.0.0" } } },
@@ -656,16 +680,24 @@ describe("resolveOverrides", () => {
 
     consoleCapture.restore();
     assert.strictEqual(result, undefined);
-    
+
     // Check that we have the expected number of messages
-    assert.strictEqual(consoleCapture.output.length, 2, "Expected two error messages");
-    assert.ok(
-      consoleCapture.output[0].includes("Pastoralist only supports simple overrides!"),
-      "Expected message about simple overrides"
+    assert.strictEqual(
+      consoleCapture.output.length,
+      2,
+      "Expected two error messages",
     );
     assert.ok(
-      consoleCapture.output[1].includes("Pastoralist is bypassing the specified complex overrides"),
-      "Expected message about bypassing overrides"
+      consoleCapture.output[0].includes(
+        "Pastoralist only supports simple overrides!",
+      ),
+      "Expected message about simple overrides",
+    );
+    assert.ok(
+      consoleCapture.output[1].includes(
+        "Pastoralist is bypassing the specified complex overrides",
+      ),
+      "Expected message about bypassing overrides",
     );
   });
 
@@ -779,7 +811,7 @@ describe("constructAppendix", () => {
     const mockPackageJSON = {
       name: "package-a",
       dependencies: {
-        "semver": "^7.5.3",
+        semver: "^7.5.3",
         "tough-cookie": "^4.1.3",
       },
     };
@@ -790,7 +822,7 @@ describe("constructAppendix", () => {
     const overridesData = {
       type: "npm",
       overrides: {
-        "semver": "^7.5.3",
+        semver: "^7.5.3",
         "tough-cookie": "^4.1.3",
       },
     };
@@ -816,11 +848,16 @@ describe("constructAppendix", () => {
     });
 
     const testLog = logger({ file: "test", isLogging: true });
-    const appendix = await constructAppendix(packageJSONs, overridesData, {}, testLog);
+    const appendix = await constructAppendix(
+      packageJSONs,
+      overridesData,
+      {},
+      testLog,
+    );
 
     // Debug logging
-    testLog.debug(`Package: ${mockPackageJSON.name}`, 'constructAppendix');
-    testLog.debug(`Appendix: ${JSON.stringify(appendix)}`, 'constructAppendix');
+    testLog.debug(`Package: ${mockPackageJSON.name}`, "constructAppendix");
+    testLog.debug(`Appendix: ${JSON.stringify(appendix)}`, "constructAppendix");
 
     // Restore original functions
     fs.readFileSync = originalReadFileSync;
@@ -837,13 +874,13 @@ describe("constructAppendix", () => {
 
   it("should handle multiple overrides", async () => {
     jsonCache.clear();
-    
+
     const mockPackageJSON = {
       name: "package-a",
       dependencies: {
         "vulnerable-dep": "^1.0.0",
-        "another-dep": "^3.0.0"
-      }
+        "another-dep": "^3.0.0",
+      },
     };
     jsonCache.set("tests/fixtures/package-a.json", mockPackageJSON);
 
@@ -876,7 +913,12 @@ describe("constructAppendix", () => {
     });
 
     const testLog = logger({ file: "test", isLogging: false });
-    const appendix = await constructAppendix(packageJSONs, overridesData, {}, testLog);
+    const appendix = await constructAppendix(
+      packageJSONs,
+      overridesData,
+      {},
+      testLog,
+    );
 
     fs.readFileSync = originalReadFileSync;
     (global as any).processPackageJSON = originalProcessPackageJSON;
@@ -933,7 +975,12 @@ describe("constructAppendix", () => {
     });
 
     const testLog = logger({ file: "test", isLogging: false });
-    const appendix = await constructAppendix(packageJSONs, resolutionsData, {}, testLog);
+    const appendix = await constructAppendix(
+      packageJSONs,
+      resolutionsData,
+      {},
+      testLog,
+    );
 
     fs.readFileSync = originalReadFileSync;
     (global as any).processPackageJSON = originalProcessPackageJSON;
@@ -1033,10 +1080,10 @@ describe("peerDependencies support", () => {
 
   it("should include all overridden dependencies in appendix", () => {
     const result = updateAppendix({
-      overrides: { 
+      overrides: {
         react: "18.2.0",
         typescript: "4.9.5",
-        lodash: "4.17.21"
+        lodash: "4.17.21",
       },
       appendix: {},
       dependencies: { react: "^18.0.0" },
@@ -1065,7 +1112,6 @@ describe("peerDependencies support", () => {
   });
 });
 
-
 describe("depPaths and ignore functionality", () => {
   it("should find package.json files using depPaths patterns", () => {
     const mockFiles = [
@@ -1073,22 +1119,22 @@ describe("depPaths and ignore functionality", () => {
       "packages/lib/package.json",
       "apps/web/package.json",
     ];
-    
+
     // Mock fast-glob sync function in the fg module
     const originalSync = fg.sync;
     fg.sync = () => mockFiles;
-    
+
     const result = findPackageJsonFiles([
       "packages/*/package.json",
       "apps/*/package.json",
     ]);
-    
+
     // Restore original sync
     fg.sync = originalSync;
-    
+
     assert.deepStrictEqual(result, mockFiles);
   });
-  
+
   it("should respect ignore patterns", () => {
     const allFiles = [
       "packages/app/package.json",
@@ -1099,7 +1145,7 @@ describe("depPaths and ignore functionality", () => {
       "packages/app/package.json",
       "packages/lib/package.json",
     ];
-    
+
     // Mock fast-glob sync function
     const originalSync = (global as any).sync;
     (global as any).sync = (patterns: string[], options: any) => {
@@ -1109,35 +1155,35 @@ describe("depPaths and ignore functionality", () => {
       }
       return allFiles;
     };
-    
+
     const result = findPackageJsonFiles(
       ["packages/*/package.json"],
       ["packages/ignored/**"],
     );
-    
+
     // Restore original sync
     (global as any).sync = originalSync;
-    
+
     assert.deepStrictEqual(result, filteredFiles);
   });
-  
+
   it("should return empty array when no depPaths provided", () => {
     const result = findPackageJsonFiles([]);
     assert.deepStrictEqual(result, []);
   });
-  
+
   it("should handle errors gracefully", () => {
     // Mock fast-glob sync function to throw an error
     const originalSync = (global as any).sync;
     (global as any).sync = () => {
       throw new Error("Test error");
     };
-    
+
     const result = findPackageJsonFiles(["packages/*/package.json"]);
-    
+
     // Restore original sync
     (global as any).sync = originalSync;
-    
+
     assert.deepStrictEqual(result, []);
   });
 });
@@ -1148,7 +1194,7 @@ describe("update function with depPaths support", () => {
       "packages/app/package.json",
       "packages/lib/package.json",
     ];
-    
+
     const mockRootConfig = {
       name: "root",
       version: "1.0.0",
@@ -1156,7 +1202,7 @@ describe("update function with depPaths support", () => {
         lodash: "4.17.21",
       },
     };
-    
+
     const mockAppConfig = {
       name: "app",
       version: "1.0.0",
@@ -1164,7 +1210,7 @@ describe("update function with depPaths support", () => {
         lodash: "^4.17.0",
       },
     };
-    
+
     const mockLibConfig = {
       name: "lib",
       version: "1.0.0",
@@ -1172,13 +1218,13 @@ describe("update function with depPaths support", () => {
         lodash: "^4.17.0",
       },
     };
-    
+
     // Mock functions
     const originalFindPackageJsonFiles = findPackageJsonFiles;
     const originalResolveJSON = resolveJSON;
     const originalUpdatePackageJSON = updatePackageJSON;
     const originalConstructAppendix = constructAppendix;
-    
+
     (global as any).findPackageJsonFiles = () => mockPackageFiles;
     (global as any).resolveJSON = (path: string) => {
       if (path === "package.json") return mockRootConfig;
@@ -1186,34 +1232,36 @@ describe("update function with depPaths support", () => {
       if (path === "packages/lib/package.json") return mockLibConfig;
       return null;
     };
-    
+
     let updatePackageJSONCalled = false;
     (global as any).updatePackageJSON = () => {
       updatePackageJSONCalled = true;
     };
-    
+
     let constructAppendixCalled = false;
     (global as any).constructAppendix = () => {
       constructAppendixCalled = true;
       return {};
     };
-    
+
     await update({
       depPaths: ["packages/*/package.json"],
       ignore: ["packages/ignored/**"],
       isTesting: true,
     });
-    
+
     // Restore original functions
     (global as any).findPackageJsonFiles = originalFindPackageJsonFiles;
     (global as any).resolveJSON = originalResolveJSON;
     (global as any).updatePackageJSON = originalUpdatePackageJSON;
     (global as any).constructAppendix = originalConstructAppendix;
-    
-    assert.ok(constructAppendixCalled, "constructAppendix should be called when depPaths provided");
+
+    assert.ok(
+      constructAppendixCalled,
+      "constructAppendix should be called when depPaths provided",
+    );
   });
 });
-
 
 describe("patch detection and management", () => {
   it("should detect patches from common patterns", () => {
@@ -1221,33 +1269,33 @@ describe("patch detection and management", () => {
     const mockPatches = [
       "patches/lodash+4.17.21.patch",
       "patches/@types+react+18.0.0.patch",
-      "patches/express.patch"
+      "patches/express.patch",
     ];
-    
+
     // Since we can't easily mock fast-glob in this test environment,
     // we'll test the parsing logic directly
     const patchMap: Record<string, string[]> = {};
-    
-    mockPatches.forEach(patchFile => {
-      const basename = patchFile.split('/').pop() || '';
-      
-      if (!basename.endsWith('.patch')) {
+
+    mockPatches.forEach((patchFile) => {
+      const basename = patchFile.split("/").pop() || "";
+
+      if (!basename.endsWith(".patch")) {
         return; // Skip non-patch files
       }
-      
+
       // Remove .patch extension
-      const nameWithoutExt = basename.replace('.patch', '');
-      
+      const nameWithoutExt = basename.replace(".patch", "");
+
       let packageName: string;
-      
-      if (!nameWithoutExt.includes('+')) {
+
+      if (!nameWithoutExt.includes("+")) {
         // Simple case: package-name.patch -> package-name
         packageName = nameWithoutExt;
       } else {
         // Complex case: package+version.patch or @scope+package+version.patch
-        const parts = nameWithoutExt.split('+');
-        
-        if (nameWithoutExt.startsWith('@')) {
+        const parts = nameWithoutExt.split("+");
+
+        if (nameWithoutExt.startsWith("@")) {
           // Scoped package: @scope+package+version -> @scope/package
           if (parts.length >= 2) {
             packageName = `${parts[0]}/${parts[1]}`;
@@ -1259,7 +1307,7 @@ describe("patch detection and management", () => {
           packageName = parts[0];
         }
       }
-      
+
       if (packageName) {
         if (!patchMap[packageName]) {
           patchMap[packageName] = [];
@@ -1267,48 +1315,53 @@ describe("patch detection and management", () => {
         patchMap[packageName].push(patchFile);
       }
     });
-    
+
     assert.deepStrictEqual(patchMap, {
-      "lodash": ["patches/lodash+4.17.21.patch"],
+      lodash: ["patches/lodash+4.17.21.patch"],
       "@types/react": ["patches/@types+react+18.0.0.patch"],
-      "express": ["patches/express.patch"]
+      express: ["patches/express.patch"],
     });
   });
 
   it("should find unused patches correctly", () => {
     const patchMap = {
-      "lodash": ["patches/lodash+4.17.21.patch"],
+      lodash: ["patches/lodash+4.17.21.patch"],
       "unused-package": ["patches/unused-package+1.0.0.patch"],
-      "react": ["patches/react+18.0.0.patch"]
+      react: ["patches/react+18.0.0.patch"],
     };
-    
+
     const allDependencies = {
-      "lodash": "^4.17.0",
-      "react": "^18.0.0"
+      lodash: "^4.17.0",
+      react: "^18.0.0",
       // unused-package is not in dependencies
     };
-    
+
     const unusedPatches: string[] = [];
     Object.entries(patchMap).forEach(([packageName, patches]) => {
       if (!allDependencies[packageName]) {
         unusedPatches.push(...patches);
       }
     });
-    
-    assert.deepStrictEqual(unusedPatches, ["patches/unused-package+1.0.0.patch"]);
+
+    assert.deepStrictEqual(unusedPatches, [
+      "patches/unused-package+1.0.0.patch",
+    ]);
   });
 
   it("should get package patches correctly", () => {
     const patchMap = {
-      "lodash": ["patches/lodash+4.17.21.patch", "patches/lodash+4.17.20.patch"],
-      "react": ["patches/react+18.0.0.patch"]
+      lodash: ["patches/lodash+4.17.21.patch", "patches/lodash+4.17.20.patch"],
+      react: ["patches/react+18.0.0.patch"],
     };
-    
+
     const lodashPatches = patchMap["lodash"] || [];
     const reactPatches = patchMap["react"] || [];
     const nonExistentPatches = patchMap["non-existent"] || [];
-    
-    assert.deepStrictEqual(lodashPatches, ["patches/lodash+4.17.21.patch", "patches/lodash+4.17.20.patch"]);
+
+    assert.deepStrictEqual(lodashPatches, [
+      "patches/lodash+4.17.21.patch",
+      "patches/lodash+4.17.20.patch",
+    ]);
     assert.deepStrictEqual(reactPatches, ["patches/react+18.0.0.patch"]);
     assert.deepStrictEqual(nonExistentPatches, []);
   });
@@ -1324,13 +1377,13 @@ describe("findUnusedOverrides", () => {
     const overrides = {
       lodash: "4.17.21",
       react: "18.2.0",
-      typescript: "5.0.0"
+      typescript: "5.0.0",
     };
     const allDependencies = {
       lodash: "^4.17.0",
       react: "^18.0.0",
       typescript: "^5.0.0",
-      express: "^4.18.0" // Extra dependency not in overrides is ok
+      express: "^4.18.0", // Extra dependency not in overrides is ok
     };
 
     const result = findUnusedOverrides(overrides, allDependencies);
@@ -1342,22 +1395,25 @@ describe("findUnusedOverrides", () => {
       lodash: "4.17.21",
       "old-package": "1.0.0",
       react: "18.2.0",
-      "removed-dep": "2.0.0"
+      "removed-dep": "2.0.0",
     };
     const allDependencies = {
       lodash: "^4.17.0",
-      react: "^18.0.0"
+      react: "^18.0.0",
       // old-package and removed-dep are missing
     };
 
     const result = findUnusedOverrides(overrides, allDependencies);
-    assert.deepStrictEqual(result.sort(), ["old-package", "removed-dep"].sort());
+    assert.deepStrictEqual(
+      result.sort(),
+      ["old-package", "removed-dep"].sort(),
+    );
   });
 
   it("should handle all dependencies being removed", () => {
     const overrides = {
       "old-dep-1": "1.0.0",
-      "old-dep-2": "2.0.0"
+      "old-dep-2": "2.0.0",
     };
     const allDependencies = {}; // No dependencies left
 
@@ -1367,7 +1423,7 @@ describe("findUnusedOverrides", () => {
 
   it("should handle empty dependencies object", () => {
     const overrides = {
-      lodash: "4.17.21"
+      lodash: "4.17.21",
     };
     const allDependencies = {};
 
@@ -1380,13 +1436,13 @@ describe("findUnusedOverrides", () => {
       lodash: "4.17.21",
       typescript: "5.0.0",
       react: "18.2.0",
-      "old-package": "1.0.0"
+      "old-package": "1.0.0",
     };
     // Simulate allDeps = {...dependencies, ...devDependencies, ...peerDependencies}
     const allDependencies = {
       lodash: "^4.17.0", // from dependencies
       typescript: "^5.0.0", // from devDependencies
-      react: "^18.0.0" // from peerDependencies
+      react: "^18.0.0", // from peerDependencies
       // old-package is not in any dependency type
     };
 
@@ -1398,11 +1454,11 @@ describe("findUnusedOverrides", () => {
     const overrides = {
       "@types/node": "20.0.0",
       "@babel/core": "7.22.0",
-      "@removed/package": "1.0.0"
+      "@removed/package": "1.0.0",
     };
     const allDependencies = {
       "@types/node": "^18.0.0",
-      "@babel/core": "^7.20.0"
+      "@babel/core": "^7.20.0",
       // @removed/package is missing
     };
 
@@ -1419,56 +1475,78 @@ describe("Cleanup functionality integration", () => {
       version: "1.0.0",
       dependencies: {
         lodash: "^4.17.0",
-        react: "^18.0.0"
+        react: "^18.0.0",
       },
       // Note: old-package is NOT in dependencies but IS in overrides
       overrides: {
         lodash: "4.17.21",
         react: "18.2.0",
-        "old-package": "1.0.0" // This should be removed
-      }
+        "old-package": "1.0.0", // This should be removed
+      },
     };
 
     // Test the cleanup logic components
     const allDeps = { ...mockConfig.dependencies };
     const unusedOverrides = findUnusedOverrides(mockConfig.overrides, allDeps);
-    
-    assert.deepStrictEqual(unusedOverrides, ["old-package"], "Should identify old-package as unused");
+
+    assert.deepStrictEqual(
+      unusedOverrides,
+      ["old-package"],
+      "Should identify old-package as unused",
+    );
 
     // Test the updateOverrides function
     const mockOverridesData = {
       type: "npm",
-      overrides: mockConfig.overrides
+      overrides: mockConfig.overrides,
     };
-    
-    const cleanedOverrides = updateOverrideItems(mockOverridesData, unusedOverrides);
+
+    const cleanedOverrides = updateOverrideItems(
+      mockOverridesData,
+      unusedOverrides,
+    );
     const expectedCleanedOverrides = {
       lodash: "4.17.21",
-      react: "18.2.0"
+      react: "18.2.0",
       // old-package should be removed
     };
-    
-    assert.deepStrictEqual(cleanedOverrides, expectedCleanedOverrides, "Should remove unused overrides");
+
+    assert.deepStrictEqual(
+      cleanedOverrides,
+      expectedCleanedOverrides,
+      "Should remove unused overrides",
+    );
   });
 
   it("should preserve overrides when all packages are still dependencies", () => {
     const overrides = {
       lodash: "4.17.21",
       react: "18.2.0",
-      typescript: "5.0.0"
+      typescript: "5.0.0",
     };
     const allDeps = {
       lodash: "^4.17.0",
       react: "^18.0.0",
-      typescript: "^5.0.0"
+      typescript: "^5.0.0",
     };
 
     const unusedOverrides = findUnusedOverrides(overrides, allDeps);
-    assert.deepStrictEqual(unusedOverrides, [], "Should find no unused overrides");
+    assert.deepStrictEqual(
+      unusedOverrides,
+      [],
+      "Should find no unused overrides",
+    );
 
     const mockOverridesData = { type: "npm", overrides };
-    const cleanedOverrides = updateOverrideItems(mockOverridesData, unusedOverrides);
-    assert.deepStrictEqual(cleanedOverrides, overrides, "Should preserve all overrides");
+    const cleanedOverrides = updateOverrideItems(
+      mockOverridesData,
+      unusedOverrides,
+    );
+    assert.deepStrictEqual(
+      cleanedOverrides,
+      overrides,
+      "Should preserve all overrides",
+    );
   });
 
   it("should handle complex cleanup scenarios", () => {
@@ -1479,29 +1557,40 @@ describe("Cleanup functionality integration", () => {
       react: "18.2.0",
       "old-dep-2": "2.0.0",
       typescript: "5.0.0",
-      "removed-package": "3.0.0"
+      "removed-package": "3.0.0",
     };
     const allDeps = {
       lodash: "^4.17.0",
       "@types/node": "^18.0.0",
       react: "^18.0.0",
-      typescript: "^5.0.0"
+      typescript: "^5.0.0",
       // old-dep-1, old-dep-2, and removed-package are missing
     };
 
     const unusedOverrides = findUnusedOverrides(overrides, allDeps);
     const expectedUnused = ["old-dep-1", "old-dep-2", "removed-package"];
-    assert.deepStrictEqual(unusedOverrides.sort(), expectedUnused.sort(), "Should identify all unused overrides");
+    assert.deepStrictEqual(
+      unusedOverrides.sort(),
+      expectedUnused.sort(),
+      "Should identify all unused overrides",
+    );
 
     const mockOverridesData = { type: "npm", overrides };
-    const cleanedOverrides = updateOverrideItems(mockOverridesData, unusedOverrides);
+    const cleanedOverrides = updateOverrideItems(
+      mockOverridesData,
+      unusedOverrides,
+    );
     const expectedCleaned = {
       lodash: "4.17.21",
       "@types/node": "20.0.0",
       react: "18.2.0",
-      typescript: "5.0.0"
+      typescript: "5.0.0",
     };
-    assert.deepStrictEqual(cleanedOverrides, expectedCleaned, "Should remove all unused overrides while preserving used ones");
+    assert.deepStrictEqual(
+      cleanedOverrides,
+      expectedCleaned,
+      "Should remove all unused overrides while preserving used ones",
+    );
   });
 
   it("should work with different override types (pnpm, resolutions)", () => {
@@ -1511,36 +1600,58 @@ describe("Cleanup functionality integration", () => {
       pnpm: {
         overrides: {
           lodash: "4.17.21",
-          "old-package": "1.0.0"
-        }
-      }
+          "old-package": "1.0.0",
+        },
+      },
     };
-    
+
     const pnpmOverrides = getOverridesByType(pnpmOverridesData);
     const allDeps = { lodash: "^4.17.0" }; // old-package missing
     const unusedPnpmOverrides = findUnusedOverrides(pnpmOverrides, allDeps);
-    
-    assert.deepStrictEqual(unusedPnpmOverrides, ["old-package"], "Should identify unused pnpm overrides");
 
-    const cleanedPnpmOverrides = updateOverrideItems(pnpmOverridesData, unusedPnpmOverrides);
-    assert.deepStrictEqual(cleanedPnpmOverrides, { lodash: "4.17.21" }, "Should clean pnpm overrides");
+    assert.deepStrictEqual(
+      unusedPnpmOverrides,
+      ["old-package"],
+      "Should identify unused pnpm overrides",
+    );
+
+    const cleanedPnpmOverrides = updateOverrideItems(
+      pnpmOverridesData,
+      unusedPnpmOverrides,
+    );
+    assert.deepStrictEqual(
+      cleanedPnpmOverrides,
+      { lodash: "4.17.21" },
+      "Should clean pnpm overrides",
+    );
 
     // Test resolutions
     const resolutionsData = {
       type: "resolutions",
       resolutions: {
         lodash: "4.17.21",
-        "old-package": "1.0.0"
-      }
+        "old-package": "1.0.0",
+      },
     };
-    
+
     const resolutions = getOverridesByType(resolutionsData);
     const unusedResolutions = findUnusedOverrides(resolutions, allDeps);
-    
-    assert.deepStrictEqual(unusedResolutions, ["old-package"], "Should identify unused resolutions");
 
-    const cleanedResolutions = updateOverrideItems(resolutionsData, unusedResolutions);
-    assert.deepStrictEqual(cleanedResolutions, { lodash: "4.17.21" }, "Should clean resolutions");
+    assert.deepStrictEqual(
+      unusedResolutions,
+      ["old-package"],
+      "Should identify unused resolutions",
+    );
+
+    const cleanedResolutions = updateOverrideItems(
+      resolutionsData,
+      unusedResolutions,
+    );
+    assert.deepStrictEqual(
+      cleanedResolutions,
+      { lodash: "4.17.21" },
+      "Should clean resolutions",
+    );
   });
 });
 
@@ -1550,53 +1661,59 @@ describe("Migration Tests", () => {
       name: "test-migration",
       version: "1.0.0",
       dependencies: {
-        "lodash": "^4.17.21",
-        "express": "^4.18.0"
+        lodash: "^4.17.21",
+        express: "^4.18.0",
       },
       devDependencies: {
-        "old-package": "^1.0.0"
+        "old-package": "^1.0.0",
       },
       peerDependencies: {
-        "typescript": "^5.0.0"
+        typescript: "^5.0.0",
       },
       overrides: {
-        "lodash": "4.17.21",
-        "express": "4.18.0",
-        "old-package": "1.0.0"
+        lodash: "4.17.21",
+        express: "4.18.0",
+        "old-package": "1.0.0",
       },
       pastoralist: {
         appendix: {
           "lodash@4.17.21": {
             dependents: {
-              "test-migration": "lodash@^4.17.21"
-            }
+              "test-migration": "lodash@^4.17.21",
+            },
           },
           "express@4.18.0": {
             dependents: {
-              "test-migration": "express@^4.18.0"
-            }
+              "test-migration": "express@^4.18.0",
+            },
           },
           "old-package@1.0.0": {
             dependents: {
-              "test-migration": "old-package@^1.0.0"
-            }
-          }
-        }
-      }
+              "test-migration": "old-package@^1.0.0",
+            },
+          },
+        },
+      },
     };
 
     const updatedPackageJSON = updateAppendix(oldFormat);
 
-    assert.ok(updatedPackageJSON.pastoralist, "Pastoralist section should exist");
+    assert.ok(
+      updatedPackageJSON.pastoralist,
+      "Pastoralist section should exist",
+    );
     assert.ok(updatedPackageJSON.pastoralist.appendix, "Appendix should exist");
-    
+
     const appendixKeys = Object.keys(updatedPackageJSON.pastoralist.appendix);
     assert.ok(appendixKeys.length > 0, "Appendix should have entries");
-    
-    appendixKeys.forEach(key => {
+
+    appendixKeys.forEach((key) => {
       const entry = updatedPackageJSON.pastoralist.appendix[key];
       assert.ok(entry.dependents, `Entry ${key} should have dependents`);
-      assert.ok(typeof entry.dependents === 'object', `Entry ${key} dependents should be an object`);
+      assert.ok(
+        typeof entry.dependents === "object",
+        `Entry ${key} dependents should be an object`,
+      );
     });
   });
 
@@ -1605,34 +1722,47 @@ describe("Migration Tests", () => {
       name: "test-migration-existing",
       version: "1.0.0",
       dependencies: {
-        "lodash": "^4.17.21"
+        lodash: "^4.17.21",
       },
       overrides: {
-        "lodash": "4.17.21"
+        lodash: "4.17.21",
       },
       pastoralist: {
         appendix: {
           "lodash@4.17.21": {
             dependents: {
-              "test-migration-existing": "lodash@^4.17.21"
+              "test-migration-existing": "lodash@^4.17.21",
             },
-            patches: ["patches/lodash+4.17.21.patch"]
-          }
-        }
-      }
+            patches: ["patches/lodash+4.17.21.patch"],
+          },
+        },
+      },
     };
 
     const updatedPackageJSON = updateAppendix(packageWithExistingAppendix);
-    
-    assert.ok(updatedPackageJSON.pastoralist, "Pastoralist section should be preserved");
-    assert.ok(updatedPackageJSON.pastoralist.appendix["lodash@4.17.21"], "Existing appendix entry should be preserved");
-    
-    const lodashEntry = updatedPackageJSON.pastoralist.appendix["lodash@4.17.21"];
+
+    assert.ok(
+      updatedPackageJSON.pastoralist,
+      "Pastoralist section should be preserved",
+    );
+    assert.ok(
+      updatedPackageJSON.pastoralist.appendix["lodash@4.17.21"],
+      "Existing appendix entry should be preserved",
+    );
+
+    const lodashEntry =
+      updatedPackageJSON.pastoralist.appendix["lodash@4.17.21"];
     assert.ok(lodashEntry.dependents, "Dependents should be preserved");
-    
+
     if (lodashEntry.patches) {
-      assert.ok(Array.isArray(lodashEntry.patches), "Patches should be an array if present");
-      assert.ok(lodashEntry.patches.includes("patches/lodash+4.17.21.patch"), "Existing patches should be preserved");
+      assert.ok(
+        Array.isArray(lodashEntry.patches),
+        "Patches should be an array if present",
+      );
+      assert.ok(
+        lodashEntry.patches.includes("patches/lodash+4.17.21.patch"),
+        "Existing patches should be preserved",
+      );
     }
   });
 
@@ -1641,27 +1771,44 @@ describe("Migration Tests", () => {
       name: "test-peer-deps",
       version: "1.0.0",
       dependencies: {
-        "react": "^18.0.0"
+        react: "^18.0.0",
       },
       peerDependencies: {
-        "typescript": "^5.0.0",
-        "@types/react": "^18.0.0"
+        typescript: "^5.0.0",
+        "@types/react": "^18.0.0",
       },
       overrides: {
-        "react": "18.2.0",
-        "@types/react": "18.0.0"
-      }
+        react: "18.2.0",
+        "@types/react": "18.0.0",
+      },
     };
 
     const updatedPackageJSON = updateAppendix(packageWithPeerDeps);
-    
-    assert.ok(updatedPackageJSON.peerDependencies, "peerDependencies should be preserved");
-    assert.strictEqual(updatedPackageJSON.peerDependencies.typescript, "^5.0.0", "TypeScript peerDependency should be preserved");
-    assert.strictEqual(updatedPackageJSON.peerDependencies["@types/react"], "^18.0.0", "@types/react peerDependency should be preserved");
-    
-    if (updatedPackageJSON.pastoralist && updatedPackageJSON.pastoralist.appendix) {
+
+    assert.ok(
+      updatedPackageJSON.peerDependencies,
+      "peerDependencies should be preserved",
+    );
+    assert.strictEqual(
+      updatedPackageJSON.peerDependencies.typescript,
+      "^5.0.0",
+      "TypeScript peerDependency should be preserved",
+    );
+    assert.strictEqual(
+      updatedPackageJSON.peerDependencies["@types/react"],
+      "^18.0.0",
+      "@types/react peerDependency should be preserved",
+    );
+
+    if (
+      updatedPackageJSON.pastoralist &&
+      updatedPackageJSON.pastoralist.appendix
+    ) {
       const appendixKeys = Object.keys(updatedPackageJSON.pastoralist.appendix);
-      assert.ok(appendixKeys.length > 0, "Appendix should track overridden dependencies");
+      assert.ok(
+        appendixKeys.length > 0,
+        "Appendix should track overridden dependencies",
+      );
     }
   });
 });

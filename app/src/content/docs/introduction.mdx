@@ -1,0 +1,70 @@
+---
+title: Introduction to Pastoralist
+description: "Pastoralist is a dependency management tool that keeps your package.json overrides, resolutions, and patches up-to-date automatically"
+---
+
+<div className="flex flex-wrap gap-2 mb-8">
+  <a href="https://badge.fury.io/js/pastoralist" target="_blank" rel="noopener noreferrer">
+    <img src="https://badge.fury.io/js/pastoralist.svg" alt="npm version" />
+  </a>
+  <a href="https://github.com/yowainwright/pastoralist" target="_blank" rel="noopener noreferrer">
+    <img src="https://img.shields.io/github/stars/yowainwright/pastoralist?style=social" alt="GitHub stars" />
+  </a>
+  <a href="https://www.typescriptlang.org/" target="_blank" rel="noopener noreferrer">
+    <img src="https://img.shields.io/badge/TypeScript-Ready-blue" alt="TypeScript Ready" />
+  </a>
+  <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener noreferrer">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" />
+  </a>
+</div>
+
+## What is Pastoralist?
+
+Pastoralist is a command-line tool that automatically manages and updates your package.json overrides, resolutions, and patches. It ensures that your dependency overrides stay up-to-date with the latest versions, saving you time and reducing potential security vulnerabilities.
+
+## Why is Pastoralist Awesome?
+
+### The Problem
+
+When working with Node.js projects, you often need to override specific package versions due to:
+- Security vulnerabilities in transitive dependencies
+- Bug fixes that haven't been merged upstream
+- Breaking changes you need to avoid
+- Custom patches for specific use cases
+
+However, managing these overrides manually is tedious and error-prone:
+
+```json
+{
+  "overrides": {
+    "lodash": "4.17.19",
+    "minimist": "1.2.5",
+    "node-fetch": "2.6.7"
+  }
+}
+```
+
+Over time, these overrides become outdated, and you might miss important security updates or bug fixes.
+
+### The Solution
+
+Pastoralist automates this process by:
+- Scanning your package.json for overrides, resolutions, and patches
+- Checking for newer versions of overridden packages
+- Updating them automatically while maintaining compatibility
+- Removing overrides that are no longer needed
+
+With one simple command, you can ensure all your overrides are current:
+
+```bash
+pastoralist
+```
+
+## Benefits
+
+- **🚀 Automated Updates**: No more manual version checking
+- **🔒 Security**: Stay current with security patches
+- **📊 Transparency**: Clear tracking of all overrides
+- **🧹 Clean**: Removes unnecessary overrides automatically
+- **⚡ Fast**: Updates all overrides with one command
+- **📦 Compatible**: Works with npm, yarn, pnpm, and bun

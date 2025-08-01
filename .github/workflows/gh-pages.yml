@@ -36,6 +36,7 @@ jobs:
 
       - run: bun install
       - run: cd app && bun run build
+      - run: touch app/dist/.nojekyll
 
       - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@v4

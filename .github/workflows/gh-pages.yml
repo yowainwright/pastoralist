@@ -18,27 +18,26 @@ jobs:
         with:
           node-version: 24
 
-      - uses: pnpm/action-setup@v4
-        name: Install pnpm
-        id: pnpm-install
-        with:
-          run_install: false
+      - uses: oven-sh/setup-bun@v2
+        name: Install Bun
 
-      - name: Get pnpm store directory
-        id: pnpm-cache
+      - name: Get Bun cache directory
+        id: bun-cache
         run: |
-          echo "::set-output name=pnpm_cache_dir::$(pnpm store path)"
+          echo "bun_cache_dir=$(bun pm cache dir)" >> $GITHUB_OUTPUT
+
       - uses: actions/cache@v4
-        name: Setup pnpm cache
+        name: Setup Bun cache
         with:
-          path: ${{ steps.pnpm-cache.outputs.pnpm_cache_dir }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          path: ${{ steps.bun-cache.outputs.bun_cache_dir }}
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
           restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-      - run: pnpm install --recursive
-      - run: pnpm build
+            ${{ runner.os }}-bun-
+
+      - run: bun install
+      - run: bun run build
 
       - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: page/app/dist
+          folder: app/dist

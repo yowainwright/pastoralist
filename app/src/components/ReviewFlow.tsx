@@ -8,7 +8,13 @@ const edges = [
   { animated: true, id: "2-4", source: "2", target: "4", type: "smoothstep" },
 ];
 
-const Label = ({ description, metaDescription }: any) => (
+const Label = ({
+  description,
+  metaDescription,
+}: {
+  description: string;
+  metaDescription?: string;
+}) => (
   <article className="border-[#3d04d9] border-2 p-3 rounded">
     <p className="text-[#3d04d9] text-base my-1 leading-tight">{description}</p>
     {metaDescription && (
@@ -86,8 +92,8 @@ const ReviewFlow = () => {
   return (
     <section className="flex justify-center mt-10">
       <div style={{ width: 620, height: 550 }}>
-        <ReactFlow 
-          nodes={nodes} 
+        <ReactFlow
+          nodes={nodes}
           edges={edges}
           proOptions={{ hideAttribution: true }}
           zoomOnScroll={false}

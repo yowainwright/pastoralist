@@ -88,6 +88,7 @@ AKA, the object above, will now look like the object below if trim is no longer 
 **Enhanced Dependency Support**: Now supports `peerDependencies` alongside `dependencies` and `devDependencies` for complete dependency tracking.
 
 **Smart Cleanup**: Get notified about unused patches when dependencies are removed:
+
 ```
 🐑 Found 2 potentially unused patch files:
   - patches/old-package+1.0.0.patch
@@ -132,6 +133,7 @@ pastoralist --path packages/app-a/package.json
 For detailed information about using Pastoralist in workspace/monorepo environments, including best practices and automation strategies, see [Workspaces and Monorepos](docs/workspaces.md).
 
 ---
+
 ## Setup
 
 > #### Okay! Hopefully the breakdowns above were clear enough on why you might want to use Pastoralist!

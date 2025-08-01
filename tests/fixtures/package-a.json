@@ -1,7 +1,8 @@
 {
   "name": "package-a",
   "dependencies": {
-    "vulnerable-dep": "^1.0.0"
+    "vulnerable-dep": "^1.0.0",
+    "another-dep": "^3.0.0"
   },
   "pastoralist": {
     "appendix": {
@@ -9,10 +10,6 @@
         "dependents": {
           "package-a": "vulnerable-dep@^1.0.0"
         }
-      }
-    }
-  }
-}        }
       },
       "another-dep@^3.0.0": {
         "dependents": {

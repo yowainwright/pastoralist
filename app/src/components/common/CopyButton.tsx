@@ -3,7 +3,7 @@ import React, { useState } from "react";
 export const CopyButton = () => {
   const [isClicked, setIsClicked] = useState(false);
 
-  const handleCopy = (e) => {
+  const handleCopy = (e: React.MouseEvent<HTMLButtonElement>) => {
     const target = e.currentTarget;
     const codeElement = target.closest("div").querySelector("code");
 

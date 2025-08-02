@@ -124,18 +124,18 @@ export default function SpotlightCodeBlock() {
     };
 
     // Start the cycle
-    const interval = setInterval(cycleSpotlight, 2000);
+    const interval = setInterval(cycleSpotlight, 1000);
 
     return () => clearInterval(interval);
   }, []);
 
   const getLineOpacity = (index: number) => {
     if (hoveredIndex !== null) {
-      return hoveredIndex === index ? 1 : 0.3;
+      return hoveredIndex === index ? 1 : 0.4;
     }
     const line = codeLines[index];
-    if (!line.spotlight) return 0.7;
-    return activeIndex === index ? 1 : 0.3;
+    if (!line.spotlight) return 0.8;
+    return activeIndex === index ? 1 : 0.5;
   };
 
   return (
@@ -144,7 +144,7 @@ export default function SpotlightCodeBlock() {
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          background: `radial-gradient(600px circle at 50% ${(activeIndex / codeLines.length) * 100}%, rgba(61, 4, 217, 0.15), transparent 40%)`,
+          background: `radial-gradient(600px circle at 50% ${(activeIndex / codeLines.length) * 100}%, rgba(61, 4, 217, 0.25), transparent 40%)`,
           transition: "all 0.5s ease-out",
         }}
       />

@@ -2,8 +2,6 @@ import { readFileSync, writeFileSync, promises as fsPromises } from "fs";
 const { writeFile } = fsPromises;
 import { resolve } from "path";
 import fg from "fast-glob";
-
-const { sync } = fg;
 import { IS_DEBUGGING, LOG_PREFIX } from "./constants";
 import {
   Appendix,
@@ -549,7 +547,7 @@ export const findPackageJsonFiles = (
       "findPackageJsonFiles",
     );
 
-    const files = sync(depPaths, {
+    const files = fg.sync(depPaths, {
       cwd: root,
       ignore,
       absolute: false,
@@ -585,7 +583,7 @@ export const detectPatches = (
   ];
 
   try {
-    const patchFiles = sync(patchPatterns, { cwd: root });
+    const patchFiles = fg.sync(patchPatterns, { cwd: root });
     const patchMap: Record<string, string[]> = {};
 
     patchFiles.forEach((patchFile) => {

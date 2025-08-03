@@ -1,0 +1,336 @@
+---
+title: Advanced Features
+description: Deep dive into pastoralist's advanced capabilities
+---
+
+Pastoralist includes several advanced features that make dependency override management more powerful and maintainable.
+
+## Patch Support
+
+Pastoralist automatically detects and tracks patches created by tools like `patch-package`.
+
+### How It Works
+
+When you have patches in your `patches/` directory:
+
+```
+patches/
+├── lodash+4.17.21.patch
+├── express+4.18.0.patch
+└── react+18.2.0.patch
+```
+
+Pastoralist will track them in the appendix:
+
+```json
+{
+  "pastoralist": {
+    "appendix": {
+      "lodash@4.17.21": {
+        "dependents": {
+          "my-app": "lodash@^4.17.0"
+        },
+        "patches": ["patches/lodash+4.17.21.patch"]
+      }
+    }
+  }
+}
+```
+
+### Benefits
+
+- **Visibility**: See which overrides have patches applied
+- **Cleanup Detection**: Get notified about unused patches
+- **Documentation**: Understand why patches exist alongside overrides
+
+### Unused Patch Detection
+
+When a dependency is removed, pastoralist alerts you:
+
+```
+🐑 Found 2 potentially unused patch files:
+  - patches/old-package+1.0.0.patch
+  - patches/removed-dep+2.0.0.patch
+Consider removing these patches if the packages are no longer used.
+```
+
+## PeerDependencies Support
+
+Pastoralist now considers `peerDependencies` when tracking override usage.
+
+### Example
+
+```json
+{
+  "peerDependencies": {
+    "react": "^17.0.0 || ^18.0.0"
+  },
+  "overrides": {
+    "react": "18.2.0"
+  }
+}
+```
+
+The appendix will reflect peer dependency requirements:
+
+```json
+{
+  "pastoralist": {
+    "appendix": {
+      "react@18.2.0": {
+        "dependents": {
+          "my-component": "react@^17.0.0 || ^18.0.0"
+        }
+      }
+    }
+  }
+}
+```
+
+## Smart Cleanup
+
+Pastoralist intelligently removes overrides that are no longer needed.
+
+### Automatic Removal
+
+When a dependency is updated and no longer needs an override:
+
+**Before:**
+```json
+{
+  "dependencies": {
+    "lodash": "^4.17.0"
+  },
+  "overrides": {
+    "lodash": "4.17.21"
+  }
+}
+```
+
+**After updating lodash to 4.17.21:**
+```json
+{
+  "dependencies": {
+    "lodash": "^4.17.21"
+  },
+  "overrides": {}
+}
+```
+
+### Transitive Dependency Tracking
+
+Pastoralist tracks overrides needed by transitive dependencies:
+
+```json
+{
+  "pastoralist": {
+    "appendix": {
+      "minimist@1.2.8": {
+        "dependents": {
+          "mkdirp": "minimist@^1.2.6",
+          "optimist": "minimist@~1.2.0"
+        }
+      }
+    }
+  }
+}
+```
+
+## Fuzzy Version Matching
+
+Pastoralist intelligently matches version ranges to determine if overrides are needed.
+
+### How It Works
+
+Given these dependencies:
+```json
+{
+  "dependencies": {
+    "express": "^4.18.0"
+  }
+}
+```
+
+And this override:
+```json
+{
+  "overrides": {
+    "express": "4.18.2"
+  }
+}
+```
+
+Pastoralist understands that `^4.18.0` could resolve to `4.18.2` naturally, so the override might not be necessary unless it's fixing a specific issue.
+
+## Appendix Preservation
+
+The appendix is preserved even when overrides are temporarily removed, maintaining historical context.
+
+### Example Scenario
+
+1. **Initial state**: Override with appendix
+2. **Dependency removed**: Override removed, appendix preserved
+3. **Dependency re-added**: Override can be restored with context
+
+This helps teams understand the history of override decisions.
+
+## Multi-Format Support
+
+While pastoralist uses npm's `overrides` format, it understands conversions from:
+
+- **Yarn 1.x**: `resolutions`
+- **pnpm**: `pnpm.overrides`
+- **Yarn Berry**: `resolutions` with different syntax
+
+### Conversion Example
+
+From Yarn:
+```json
+{
+  "resolutions": {
+    "package-a": "1.0.0",
+    "**/package-b": "2.0.0"
+  }
+}
+```
+
+To npm (what pastoralist uses):
+```json
+{
+  "overrides": {
+    "package-a": "1.0.0",
+    "package-b": "2.0.0"
+  }
+}
+```
+
+## Performance Optimizations
+
+### Caching
+
+Pastoralist caches dependency trees during execution to avoid repeated file system reads.
+
+### Parallel Processing
+
+When using `--depPaths`, multiple package.json files are processed efficiently.
+
+### Minimal File Writes
+
+Package.json is only rewritten if changes are detected, preserving timestamps and reducing unnecessary git changes.
+
+## Debug Mode Insights
+
+Debug mode (`--debug`) provides detailed information:
+
+```
+🐑 pastoralist checking herd...
+[DEBUG] Reading package.json from /path/to/package.json
+[DEBUG] Found 3 overrides
+[DEBUG] Analyzing dependency tree...
+[DEBUG] lodash@4.17.21 required by:
+  - express@4.18.0 (wants lodash@^4.17.0)
+  - custom-utils@1.0.0 (wants lodash@~4.17.0)
+[DEBUG] Writing updated package.json
+✅ pastoralist the herd is safe!
+```
+
+## Integration with Other Tools
+
+### patch-package
+
+Pastoralist complements `patch-package` by tracking which overrides have associated patches:
+
+```bash
+# Apply a patch
+npx patch-package lodash
+
+# Run pastoralist to update tracking
+npx pastoralist
+```
+
+### npm-check-updates
+
+Use with `npm-check-updates` to manage both regular updates and overrides:
+
+```bash
+# Update dependencies
+npx npm-check-updates -u
+
+# Update override tracking
+npx pastoralist
+```
+
+### Renovate/Dependabot
+
+Configure automated tools to run pastoralist after updates:
+
+```json
+{
+  "postUpgradeTasks": {
+    "commands": ["npm install", "npx pastoralist"],
+    "fileFilters": ["package.json"]
+  }
+}
+```
+
+## Custom Workflows
+
+### Override Policies
+
+Create policies for when overrides should be used:
+
+```javascript
+// scripts/check-override-policy.js
+const pkg = require('./package.json');
+
+const policies = {
+  security: ['minimist', 'lodash'],  // Always override for security
+  compatibility: ['react'],           // Override for compatibility
+  temporary: ['experimental-pkg']     // Temporary overrides
+};
+
+// Validate overrides match policies
+Object.keys(pkg.overrides || {}).forEach(override => {
+  const category = Object.entries(policies)
+    .find(([_, pkgs]) => pkgs.includes(override))?.[0];
+    
+  if (!category) {
+    console.warn(`Override '${override}' has no policy!`);
+  }
+});
+```
+
+### Appendix Analysis
+
+Extract insights from the appendix:
+
+```javascript
+const pkg = require('./package.json');
+const appendix = pkg.pastoralist?.appendix || {};
+
+// Find overrides with most dependents
+const overrideImpact = Object.entries(appendix)
+  .map(([override, info]) => ({
+    override,
+    dependentCount: Object.keys(info.dependents || {}).length
+  }))
+  .sort((a, b) => b.dependentCount - a.dependentCount);
+
+console.log('Highest impact overrides:', overrideImpact.slice(0, 5));
+```
+
+## Future-Proofing
+
+Pastoralist is designed to adapt as package managers evolve:
+
+- **Version compatibility**: Handles different package.json formats
+- **Extensible appendix**: Room for additional metadata
+- **Backward compatibility**: Older versions can read newer appendixes
+
+## Best Practices
+
+1. **Regular Updates**: Run pastoralist regularly, ideally in postinstall
+2. **Review Patches**: Periodically review patches for upstream fixes
+3. **Document Policies**: Create clear policies for override usage
+4. **Monitor Impact**: Track which overrides affect the most packages
+5. **Clean Regularly**: Remove overrides as soon as they're not needed

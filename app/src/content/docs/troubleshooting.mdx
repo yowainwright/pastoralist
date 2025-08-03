@@ -1,0 +1,285 @@
+---
+title: Troubleshooting & FAQ
+description: Common issues and frequently asked questions
+---
+
+## Frequently Asked Questions
+
+### What is pastoralist?
+
+Pastoralist is a tool that automatically manages your npm overrides (or yarn resolutions) by creating an appendix that documents why each override exists and which packages depend on them.
+
+### Why do I need pastoralist?
+
+Without pastoralist, it's easy to:
+- Forget why an override was added
+- Leave outdated overrides in your package.json
+- Not know which packages need specific overrides
+- Accumulate technical debt over time
+
+### Does pastoralist work with yarn/pnpm?
+
+Pastoralist uses npm's `overrides` format. If you're using:
+- **Yarn 1.x**: Convert `resolutions` to `overrides`
+- **pnpm**: Convert `pnpm.overrides` to `overrides`
+- **Yarn Berry**: Use `resolutions` but consider converting
+
+### Is pastoralist safe to use?
+
+Yes! Pastoralist:
+- Only modifies the `overrides` and `pastoralist` sections of package.json
+- Preserves all formatting and other fields
+- Creates backups in version control (through git)
+- Can be rolled back by removing the `pastoralist` section
+
+### When should overrides be used?
+
+Use overrides for:
+- Security patches before upstream updates
+- Compatibility issues between packages
+- Bug fixes not yet released
+- Temporary workarounds
+
+## Common Issues
+
+### Overrides Not Being Removed
+
+**Problem:** Pastoralist isn't removing overrides that seem unnecessary.
+
+**Solution:** The override might still be needed by a transitive dependency. Run with debug mode to see why:
+
+```bash
+npx pastoralist --debug
+```
+
+Look for output showing which packages require the override.
+
+### Package.json Formatting Changes
+
+**Problem:** Pastoralist changes the formatting of my package.json.
+
+**Solution:** Pastoralist preserves formatting as much as possible. If you see changes:
+1. Ensure you're using the latest version
+2. Check if you have a `.prettierrc` or `.editorconfig` that might conflict
+3. Consider running a formatter after pastoralist
+
+### Patches Not Detected
+
+**Problem:** My patch files aren't being tracked in the appendix.
+
+**Solution:** Ensure patches follow the standard naming convention:
+```
+patches/
+├── package-name+1.0.0.patch    # Correct
+├── package-name@1.0.0.patch    # Incorrect
+└── custom-patch.patch          # Won't be detected
+```
+
+### Performance Issues
+
+**Problem:** Pastoralist takes a long time to run.
+
+**Solution:** For large monorepos:
+1. Run on specific packages instead of all at once
+2. Use `--ignore` to skip unnecessary directories
+3. Run packages in parallel:
+
+```bash
+# Instead of
+pastoralist --depPaths "**/*package.json"
+
+# Try
+find . -name "package.json" -not -path "*/node_modules/*" | \
+  xargs -P 4 -I {} npx pastoralist --path {}
+```
+
+### Monorepo Override Conflicts
+
+**Problem:** Different packages in my monorepo need different versions.
+
+**Solution:** Use package-specific overrides:
+```json
+// root package.json - security patches only
+{
+  "overrides": {
+    "minimist": "1.2.8"
+  }
+}
+
+// packages/legacy-app/package.json - specific needs
+{
+  "overrides": {
+    "react": "17.0.2"
+  }
+}
+```
+
+### CI Failures
+
+**Problem:** CI fails saying package.json was modified.
+
+**Solution:** Run pastoralist locally and commit the changes:
+```bash
+npx pastoralist
+git add package.json
+git commit -m "Update override appendix"
+```
+
+Then add to your CI check:
+```yaml
+- run: npx pastoralist
+- run: git diff --exit-code package.json
+```
+
+## Debug Mode
+
+Enable debug mode for detailed information:
+
+```bash
+npx pastoralist --debug
+```
+
+Debug output includes:
+- Package resolution paths
+- Dependency tree analysis
+- Override usage detection
+- File operation details
+
+## Error Messages
+
+### "Cannot find package.json"
+
+Pastoralist can't locate your package.json. Solutions:
+- Run from project root
+- Use `--path` to specify location
+- Check file permissions
+
+### "Invalid package.json"
+
+Your package.json has syntax errors. Validate with:
+```bash
+npx json package.json
+```
+
+### "No overrides found"
+
+This is normal if you don't have any overrides. Pastoralist will:
+- Clean up any existing appendix
+- Exit successfully
+
+## Best Practices
+
+### 1. Regular Updates
+
+Run pastoralist regularly:
+```json
+{
+  "scripts": {
+    "postinstall": "pastoralist"
+  }
+}
+```
+
+### 2. Document Override Reasons
+
+While pastoralist tracks what depends on overrides, consider adding comments:
+```json
+{
+  "overrides": {
+    "lodash": "4.17.21",  // CVE-2021-12345 fix
+    "react": "17.0.2"     // Legacy app compatibility
+  }
+}
+```
+
+### 3. Review Periodically
+
+Set reminders to review overrides:
+- Check if security patches are merged upstream
+- Test if compatibility issues are resolved
+- Remove overrides as soon as possible
+
+### 4. Monitor Patch Files
+
+When you see this warning:
+```
+🐑 Found potentially unused patch files:
+  - patches/old-package+1.0.0.patch
+```
+
+Review and remove unused patches to keep your repo clean.
+
+## Getting Help
+
+### Resources
+
+- [GitHub Issues](https://github.com/yowainwright/pastoralist/issues) - Report bugs
+- [Discussions](https://github.com/yowainwright/pastoralist/discussions) - Ask questions
+- [Stack Overflow](https://stackoverflow.com/questions/tagged/pastoralist) - Community help
+
+### Before Filing an Issue
+
+1. Update to the latest version
+2. Run with `--debug` flag
+3. Check existing issues
+4. Provide minimal reproduction
+
+### Issue Template
+
+When reporting issues, include:
+- Pastoralist version
+- Node.js version
+- Package manager (npm/yarn/pnpm)
+- Relevant package.json sections
+- Debug output
+
+## Migration Help
+
+### From Manual Management
+
+If you're tracking overrides manually (in comments or docs), pastoralist will:
+1. Automatically document all current overrides
+2. Track their usage going forward
+3. Clean up when no longer needed
+
+### From Other Tools
+
+Moving from other override management tools:
+1. Convert to npm `overrides` format
+2. Run `npx pastoralist`
+3. Remove old tool configuration
+
+## Advanced Debugging
+
+### Trace Dependency Paths
+
+To understand why an override is needed:
+
+```javascript
+// debug-override.js
+import { update } from 'pastoralist';
+
+await update({
+  debug: true,
+  path: './package.json'
+});
+
+// Check the debug output for dependency paths
+```
+
+### Analyze Appendix
+
+```javascript
+// analyze-appendix.js
+import fs from 'fs';
+
+const pkg = JSON.parse(fs.readFileSync('./package.json', 'utf-8'));
+const appendix = pkg.pastoralist?.appendix || {};
+
+console.log('Override Report:');
+Object.entries(appendix).forEach(([override, info]) => {
+  console.log(`\n${override}:`);
+  console.log('  Dependents:', Object.keys(info.dependents || {}));
+  console.log('  Patches:', info.patches || 'none');
+});
+```

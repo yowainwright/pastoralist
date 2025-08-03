@@ -1,0 +1,357 @@
+---
+title: Interactive Codelab
+description: Learn how pastoralist works through hands-on examples
+---
+
+Welcome to the pastoralist interactive codelab! This hands-on tutorial will help you understand how pastoralist manages your package.json overrides and resolutions through real examples you can run in your browser.
+
+## What You'll Learn
+
+In this codelab, you'll discover:
+- 📝 How pastoralist documents your overrides
+- 🧹 Automatic cleanup of unnecessary overrides
+- 🔍 Dependency tracking and visualization
+- 🚀 Integration into your workflow
+
+## Before You Begin
+
+### The Problem
+
+When using npm overrides or yarn resolutions, it's easy to:
+- Forget why an override was added
+- Leave outdated overrides in place
+- Not know which packages depend on the override
+- Accumulate technical debt over time
+
+### The Solution
+
+Pastoralist automatically:
+- Creates an appendix documenting each override
+- Shows which packages require each override
+- Removes overrides that are no longer needed
+- Runs automatically via postinstall hooks
+
+## Live Demo
+
+Try pastoralist right in your browser! Since pastoralist requires a Node.js environment to analyze dependencies, you can:
+
+1. **Run locally**: Copy the examples below and try them in your own project
+2. **Create a demo**: Use our demo script to generate a working example
+
+### Quick Demo Setup
+
+```bash
+# Clone and run the demo
+git clone https://github.com/yowainwright/pastoralist.git
+cd pastoralist/demo
+node create-demo.js generate
+```
+
+Or create a minimal demo in your project:
+
+```bash
+# 1. Create a test directory
+mkdir pastoralist-test && cd pastoralist-test
+
+# 2. Create package.json with overrides
+cat > package.json << 'EOF'
+{
+  "name": "pastoralist-test",
+  "version": "1.0.0",
+  "dependencies": {
+    "lodash": "^4.17.21",
+    "express": "^4.18.0"
+  },
+  "overrides": {
+    "lodash": "4.17.20"
+  }
+}
+EOF
+
+# 3. Install dependencies
+npm install
+
+# 4. Install and run pastoralist
+npm install --save-dev pastoralist
+npx pastoralist
+
+# 5. Check the result
+cat package.json
+```
+
+You'll see pastoralist has added an appendix showing why the lodash override exists!
+
+## Step-by-Step Tutorial
+
+### Step 1: Understanding the Initial State
+
+Let's start with a typical package.json that has overrides:
+
+```json
+{
+  "name": "my-app",
+  "version": "1.0.0",
+  "dependencies": {
+    "lodash": "^4.17.21",
+    "react": "^18.2.0",
+    "express": "^4.18.0"
+  },
+  "overrides": {
+    "lodash": "4.17.20",
+    "react": "18.1.0"
+  }
+}
+```
+
+**Question:** Why are these overrides here? Which packages need them? When can they be removed?
+
+Without pastoralist, these questions are difficult to answer.
+
+### Step 2: Running Pastoralist
+
+Install and run pastoralist:
+
+**npm:**
+```bash
+npm install --save-dev pastoralist
+npx pastoralist
+```
+
+**yarn:**
+```bash
+yarn add -D pastoralist
+yarn pastoralist
+```
+
+**pnpm:**
+```bash
+pnpm add -D pastoralist
+pnpm pastoralist
+```
+
+### Step 3: Understanding the Output
+
+After running pastoralist, your package.json now includes an appendix:
+
+```json
+{
+  "overrides": {
+    "lodash": "4.17.20",
+    "react": "18.1.0"
+  },
+  "pastoralist": {
+    "appendix": {
+      "lodash@4.17.20": {
+        "dependents": {
+          "express": "^4.18.0"
+        }
+      },
+      "react@18.1.0": {
+        "dependents": {
+          "some-ui-lib": "^2.0.0"
+        }
+      }
+    }
+  }
+}
+```
+
+Now you can see:
+- ✅ `lodash@4.17.20` is needed by `express`
+- ✅ `react@18.1.0` is needed by `some-ui-lib`
+- ✅ Each override is documented with its purpose
+
+### Step 4: Automatic Cleanup
+
+Let's say you update `express` to a version that no longer needs the lodash override. When you run pastoralist again:
+
+**Before:**
+```json
+"overrides": {
+  "lodash": "4.17.20",
+  "react": "18.1.0"
+}
+```
+
+**After:**
+```json
+"overrides": {
+  "react": "18.1.0"
+}
+```
+
+Pastoralist automatically:
+- 🧹 Removed the unnecessary `lodash` override
+- 📝 Updated the appendix accordingly
+- ✨ Kept your package.json clean
+
+### Step 5: Patch Support
+
+Pastoralist also tracks patches from tools like `patch-package`:
+
+```json
+"pastoralist": {
+  "appendix": {
+    "lodash@4.17.21": {
+      "dependents": {
+        "my-app": "lodash@^4.17.0"
+      },
+      "patches": ["patches/lodash+4.17.21.patch"]
+    }
+  }
+}
+```
+
+When a patched dependency is no longer needed, pastoralist will notify you:
+
+```
+🐑 Found 1 potentially unused patch file:
+  - patches/lodash+4.17.21.patch
+Consider removing this patch if the package is no longer used.
+```
+
+## Integration Best Practices
+
+### 1. Automatic Execution
+
+Add pastoralist to your postinstall script:
+
+```json
+{
+  "scripts": {
+    "postinstall": "pastoralist"
+  }
+}
+```
+
+This ensures overrides are managed automatically after every install.
+
+### 2. CI/CD Integration
+
+Include pastoralist in your CI pipeline:
+
+```yaml
+# .github/workflows/ci.yml
+- name: Check overrides
+  run: |
+    npx pastoralist
+    git diff --exit-code package.json
+```
+
+### 3. Workspace Support
+
+For monorepos, run pastoralist on specific packages:
+
+```bash
+# Root package
+pastoralist
+
+# Specific workspace
+pastoralist --path packages/app/package.json
+```
+
+## Try It Yourself
+
+### Exercise 1: Add an Override
+
+1. In the StackBlitz demo above, add a new override to package.json
+2. Run `npm run run-pastoralist`
+3. Observe how the appendix is updated
+
+### Exercise 2: Remove a Dependency
+
+1. Remove a dependency that has an override
+2. Run pastoralist again
+3. Watch the override get cleaned up automatically
+
+### Exercise 3: Explore Edge Cases
+
+1. What happens with nested dependencies?
+2. How are version ranges handled?
+3. What about peer dependencies?
+
+## Advanced Features
+
+### Custom Configuration
+
+While pastoralist works with zero config, you can customize its behavior:
+
+```json
+{
+  "pastoralist": {
+    "preserveUnused": false,
+    "includeDevDependencies": true
+  }
+}
+```
+
+### Programmatic API
+
+Use pastoralist in your scripts:
+
+```javascript
+import { runPastoralist } from 'pastoralist';
+
+await runPastoralist({
+  path: './package.json',
+  silent: false
+});
+```
+
+## Common Scenarios
+
+### Security Patches
+
+When applying security patches via overrides:
+
+```json
+"overrides": {
+  "minimist": "1.2.6"
+}
+```
+
+Pastoralist helps track when the security fix is incorporated upstream and the override can be removed.
+
+### Breaking Changes
+
+Managing major version differences:
+
+```json
+"overrides": {
+  "react": "17.0.2"
+}
+```
+
+The appendix shows which packages aren't ready for React 18 yet.
+
+### Transitive Dependencies
+
+Fixing deeply nested dependency issues becomes transparent with pastoralist's dependency tracking.
+
+## Next Steps
+
+Now that you understand how pastoralist works:
+
+1. **Install it** in your project: `npm install --save-dev pastoralist`
+2. **Add it** to postinstall: `"postinstall": "pastoralist"`
+3. **Run it** to see your current override usage: `npx pastoralist`
+4. **Share** the appendix with your team for better visibility
+
+## Resources
+
+- [GitHub Repository](https://github.com/yowainwright/pastoralist)
+- [npm Package](https://www.npmjs.com/package/pastoralist)
+- [Full Documentation](/docs/introduction)
+- [Architecture Details](/docs/architecture)
+
+## Get Help
+
+Having issues? Here's how to get help:
+
+- 🐛 [Report bugs](https://github.com/yowainwright/pastoralist/issues)
+- 💬 [Start a discussion](https://github.com/yowainwright/pastoralist/discussions)
+- 📚 [Read the FAQ](#)
+
+---
+
+**Ready to take control of your overrides?** Jump back to the [live demo](#live-demo) and start experimenting!

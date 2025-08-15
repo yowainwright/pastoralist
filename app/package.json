@@ -17,10 +17,10 @@
     "@docsearch/js": "^3.9.0",
     "@fontsource-variable/lexend": "^5.2.9",
     "@fontsource-variable/outfit": "^5.2.6",
-    "@tailwindcss/vite": "^4.1.11",
+    "@tailwindcss/vite": "^4.1.12",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
-    "astro": "^5.12.8",
+    "astro": "^5.13.0",
     "fuse.js": "^7.1.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
@@ -30,6 +30,6 @@
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.16",
     "daisyui": "^5.0.50",
-    "tailwindcss": "^4.1.11"
+    "tailwindcss": "^4.1.12"
   }
 }

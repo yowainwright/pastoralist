@@ -11,8 +11,41 @@
 }
 
 :root {
-  --purple-gradient: linear-gradient(90deg, rgba(61, 4, 217, 1) 2%, rgba(114, 4, 217, 1) 55%, rgba(137, 10, 196, 1) 100%);
-  --purple-dark: #3d04d9;
+  /* Light theme gradients */
+  --blue-teal-gradient: linear-gradient(90deg, #1D4ED8 0%, #3B82F6 35%, #60A5FA 70%, #93C5FD 100%);
+  --blue-teal-gradient-light: linear-gradient(90deg, rgba(29, 78, 216, 0.8) 0%, rgba(59, 130, 246, 0.8) 35%, rgba(96, 165, 250, 0.8) 70%, rgba(147, 197, 253, 0.8) 100%);
+  --blue-teal-text-gradient: linear-gradient(90deg, #1E40AF 0%, #1D4ED8 35%, #3B82F6 70%, #60A5FA 100%);
+  
+  /* Legacy variables for backward compatibility */
+  --purple-gradient: var(--blue-teal-gradient);
+  --purple-dark: #1D4ED8;
+}
+
+[data-theme="night"] {
+  /* Dark theme gradients - slightly brighter for better contrast */
+  --blue-teal-gradient: linear-gradient(90deg, #3B82F6 0%, #60A5FA 35%, #93C5FD 70%, #BFDBFE 100%);
+  --blue-teal-gradient-light: linear-gradient(90deg, rgba(59, 130, 246, 0.6) 0%, rgba(96, 165, 250, 0.6) 35%, rgba(147, 197, 253, 0.6) 70%, rgba(191, 219, 254, 0.6) 100%);
+  --blue-teal-text-gradient: linear-gradient(90deg, #60A5FA 0%, #3B82F6 35%, #93C5FD 70%, #BFDBFE 100%);
+  
+  /* Legacy variables for backward compatibility */
+  --purple-gradient: var(--blue-teal-gradient);
+  --purple-dark: #3B82F6;
+}
+
+/* Gradient utility classes */
+.gradient-text {
+  background: var(--blue-teal-text-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.gradient-bg {
+  background: var(--blue-teal-gradient);
+}
+
+.gradient-bg-light {
+  background: var(--blue-teal-gradient-light);
 }
 
 /* Improve mobile responsiveness */

@@ -93,7 +93,7 @@ const codeLines: CodeLine[] = [
   {
     prefix: "",
     content: "✨ Successfully updated 3 overrides in package.json",
-    style: { color: "#3d04d9" },
+    style: { color: "#1D4ED8" },
     spotlight: true,
     delay: 9000,
   },
@@ -144,7 +144,7 @@ export default function SpotlightCodeBlock() {
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          background: `radial-gradient(600px circle at 50% ${(activeIndex / codeLines.length) * 100}%, rgba(61, 4, 217, 0.25), transparent 40%)`,
+          background: `radial-gradient(600px circle at 50% ${(activeIndex / codeLines.length) * 100}%, rgba(29, 78, 216, 0.25), transparent 40%)`,
           transition: "all 0.5s ease-out",
         }}
       />

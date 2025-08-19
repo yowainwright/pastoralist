@@ -28,7 +28,7 @@ const packageManagers = [
 <div class="xl:flex xl:flex-row-reverse py-12 sm:py-16 lg:py-20 gap-8 lg:gap-16 xl:gap-28 px-4 sm:px-6 lg:px-8">
   <div class="xl:max-w-xl flex flex-col justify-center font-outfit">
     <h1 class="text-3xl sm:text-4xl lg:text-5xl font-black leading-tight">
-      Works With All Major <span class="bg-clip-text text-transparent" style="background: linear-gradient(90deg, rgba(61, 4, 217, 1) 2%, rgba(114, 4, 217, 1) 55%, rgba(137, 10, 196, 1) 100%); -webkit-background-clip: text;"
+      Works With All Major <span class="gradient-text"
         >Package Managers
       </span>
     </h1>
@@ -39,7 +39,7 @@ const packageManagers = [
 
     <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 mt-6 sm:mt-8">
       <a href={resolveDocsUrl("setup")} class="w-full sm:w-auto">
-        <button class="btn btn-lg sm:btn-md text-white border-0 hover:opacity-90 w-full sm:w-auto" style="background: linear-gradient(90deg, rgba(61, 4, 217, 1) 2%, rgba(114, 4, 217, 1) 55%, rgba(137, 10, 196, 1) 100%);"> Get started </button>
+        <button class="btn btn-lg sm:btn-md text-white border-0 hover:opacity-90 w-full sm:w-auto gradient-bg"> Get started </button>
       </a>
 
       <a href={resolveDocsUrl("architecture#object-anatomy")} class="w-full sm:w-auto">
@@ -55,10 +55,10 @@ const packageManagers = [
           href={pm.url} 
           target="_blank" 
           rel="noopener noreferrer"
-          class="bg-base-200 hover:bg-base-300 transition-colors rounded-xl sm:rounded-2xl flex justify-center items-center aspect-square group"
+          class="bg-base-200 hover:bg-base-300 transition-colors rounded-xl sm:rounded-2xl flex justify-center items-center aspect-square group min-w-20 min-h-20 sm:min-w-24 sm:min-h-24"
         >
           <img
-            class="p-4 sm:p-6 lg:p-8 h-20 w-20 sm:h-24 sm:w-24 lg:h-32 lg:w-32 group-hover:scale-110 transition-transform"
+            class="p-3 sm:p-4 lg:p-6 min-h-16 min-w-16 h-16 w-16 sm:h-20 sm:w-20 lg:h-24 lg:w-24 max-h-24 max-w-24 object-contain group-hover:scale-110 transition-transform"
             src={pm.logo}
             alt={pm.name}
           />

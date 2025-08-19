@@ -123,7 +123,7 @@ export default function Search({ searchData }: SearchProps) {
                   <div className="flex items-center p-4 border-b border-base-content/10">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5 mr-3 text-[#3d04d9]"
+                      className="h-5 w-5 mr-3 text-[#1D4ED8]"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -176,10 +176,10 @@ export default function Search({ searchData }: SearchProps) {
                             }}
                           >
                             <div className="flex items-center gap-3">
-                              <div className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center bg-[#3d04d9]/10">
+                              <div className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center bg-[#1D4ED8]/10">
                                 <svg
                                   xmlns="http://www.w3.org/2000/svg"
-                                  className="h-5 w-5 text-[#3d04d9]"
+                                  className="h-5 w-5 text-[#1D4ED8]"
                                   fill="none"
                                   viewBox="0 0 24 24"
                                   stroke="currentColor"

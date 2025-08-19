@@ -43,7 +43,7 @@ const pathname = new URL(Astro.request.url).pathname;
           navigation.map((item) => (
             <li>
               <a
-                class={`hover:text-[#3d04d9] hover:bg-[#3d04d9]/10 transition flex ${pathname === item.href ? "text-[#3d04d9] bg-[#3d04d9]/10" : ""}`}
+                class={`hover:text-[#1D4ED8] hover:bg-[#1D4ED8]/10 transition flex ${pathname === item.href ? "text-[#1D4ED8] bg-[#1D4ED8]/10" : ""}`}
                 href={item.href}
               >
                 {item.title}
@@ -56,7 +56,7 @@ const pathname = new URL(Astro.request.url).pathname;
     <div class="navbar-start">
       <a href={resolveUrl("")} class="btn btn-ghost px-1 sm:px-2">
         <h1
-          class="text-lg sm:text-xl md:text-2xl font-bold bg-clip-text text-transparent" style="background: linear-gradient(90deg, rgba(61, 4, 217, 1) 2%, rgba(114, 4, 217, 1) 55%, rgba(137, 10, 196, 1) 100%); -webkit-background-clip: text;"
+          class="text-lg sm:text-xl md:text-2xl font-bold gradient-text"
         >
           Pastoralist
         </h1>
@@ -64,12 +64,12 @@ const pathname = new URL(Astro.request.url).pathname;
     </div>
 
     <div class="navbar-center hidden lg:flex">
-      <ul class="menu menu-horizontal text-base font-medium">
+      <ul class="menu menu-horizontal text-base font-medium space-x-2">
         {
           navigation.map((item) => (
             <li>
               <a
-                class={`hover:text-[#3d04d9] hover:bg-[#3d04d9]/10 transition flex ${pathname === item.href ? "text-[#3d04d9] bg-[#3d04d9]/10" : ""}`}
+                class={`hover:text-[#1D4ED8] hover:bg-[#1D4ED8]/10 transition flex ${pathname === item.href ? "text-[#1D4ED8] bg-[#1D4ED8]/10" : ""}`}
                 href={item.href}
               >
                 {item.title}

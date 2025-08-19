@@ -15,8 +15,8 @@ const Label = ({
   description: string;
   metaDescription?: string;
 }) => (
-  <article className="border-[#3d04d9] border-2 p-3 rounded">
-    <p className="text-[#3d04d9] text-base my-1 leading-tight">{description}</p>
+  <article className="border-[#1D4ED8] border-2 p-3 rounded">
+    <p className="text-[#1D4ED8] text-base my-1 leading-tight">{description}</p>
     {metaDescription && (
       <small className="text-xs text-base-content/60 leading-tight my-0">
         {metaDescription}

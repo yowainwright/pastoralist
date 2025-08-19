@@ -14,7 +14,7 @@ const pathname = new URL(Astro.request.url).pathname;
     >
       <a href={resolveUrl("")} class="btn btn-ghost px-2">
         <h1
-          class="text-2xl font-bold bg-clip-text text-transparent" style="background: linear-gradient(90deg, rgba(61, 4, 217, 1) 2%, rgba(114, 4, 217, 1) 55%, rgba(137, 10, 196, 1) 100%); -webkit-background-clip: text;"
+          class="text-2xl font-bold gradient-text"
         >
           Pastoralist
         </h1>
@@ -28,12 +28,12 @@ const pathname = new URL(Astro.request.url).pathname;
             <h2 class="mb-4 text-xl font-bold font-outfit">
               {navItem.title}
             </h2>
-            <ul class="menu menu-sm p-0">
+            <ul class="menu menu-sm p-0 space-y-1">
               {navItem.items.map((navItem) => (
                 <li>
                   <a
                     href={navItem.href}
-                    class={`hover:text-[#3d04d9] hover:bg-[#3d04d9]/10 transition ${pathname === navItem.href ? "text-[#3d04d9] bg-[#3d04d9]/10" : ""}`}
+                    class={`hover:text-[#1D4ED8] hover:bg-[#1D4ED8]/10 transition ${pathname === navItem.href ? "text-[#1D4ED8] bg-[#1D4ED8]/10" : ""}`}
                   >
                     {navItem.title}
                     {navItem.label && (

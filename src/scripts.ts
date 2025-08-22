@@ -60,6 +60,8 @@ export const update = async (options: Options): Promise<void> => {
   }
 
   let appendix: Appendix = {};
+  let packageJsonFiles: string[] = [];
+  let allWorkspaceDeps: Record<string, string> = {};
 
   if (options?.depPaths && options?.depPaths.length > 0) {
     log.debug(
@@ -67,7 +69,7 @@ export const update = async (options: Options): Promise<void> => {
       "update",
     );
 
-    const packageJsonFiles = findPackageJsonFiles(
+    packageJsonFiles = findPackageJsonFiles(
       options.depPaths,
       options.ignore || [],
       root,
@@ -80,6 +82,28 @@ export const update = async (options: Options): Promise<void> => {
         "update",
       );
       appendix = await constructAppendix(packageJsonFiles, overridesData, log);
+      
+      // Collect all dependencies from workspace packages
+      for (const packagePath of packageJsonFiles) {
+        const packageConfig = await resolveJSON(packagePath);
+        if (packageConfig) {
+          const {
+            dependencies: pkgDeps = {},
+            devDependencies: pkgDevDeps = {},
+            peerDependencies: pkgPeerDeps = {},
+          } = packageConfig;
+          allWorkspaceDeps = {
+            ...allWorkspaceDeps,
+            ...pkgDeps,
+            ...pkgDevDeps,
+            ...pkgPeerDeps,
+          };
+        }
+      }
+      log.debug(
+        `Collected dependencies from ${packageJsonFiles.length} workspace packages`,
+        "update",
+      );
     } else {
       log.debug("No package.json files found matching depPaths", "update");
     }
@@ -112,7 +136,14 @@ export const update = async (options: Options): Promise<void> => {
     devDependencies = {},
     peerDependencies = {},
   } = config;
-  const allDeps = { ...dependencies, ...devDependencies, ...peerDependencies };
+  // Combine root dependencies with workspace dependencies
+  let allDeps = { 
+    ...dependencies, 
+    ...devDependencies, 
+    ...peerDependencies,
+    ...allWorkspaceDeps 
+  };
+  
   const unusedPatches = findUnusedPatches(patchMap, allDeps);
   if (unusedPatches.length > 0) {
     log.info(
@@ -236,7 +267,7 @@ export async function updatePackageJSON({
     config.pastoralist = { appendix };
   }
 
-  if (config?.resolutions) config.resolutions = overrides;
+  if (config?.resolutions) config.resolutions = overrides as Record<string, string>;
   if (config?.overrides) config.overrides = overrides;
   if (config?.pnpm?.overrides) config.pnpm.overrides = overrides;
 
@@ -278,31 +309,20 @@ export function resolveOverrides({
   }
 
   const overridesItems = Object.keys(initialOverrides) || [];
-  const hasComplexOverrides = overridesItems.some(
-    (name) =>
-      typeof initialOverrides[name as keyof typeof initialOverrides] ===
-      "object",
-  );
-
-  if (hasComplexOverrides) {
-    fallbackLog.error("Pastoralist only supports simple overrides!", fn);
-    fallbackLog.error(
-      "Pastoralist is bypassing the specified complex overrides. 👌",
-      fn,
-    );
-    return;
-  }
+  
+  // Support both simple and nested overrides
   const overrides = overridesItems.reduce(
-    (acc, name) =>
-      Object.assign(acc, {
-        [name]: initialOverrides[name as keyof typeof initialOverrides],
-      }),
-    {},
+    (acc, name) => {
+      const value = initialOverrides[name as keyof typeof initialOverrides];
+      acc[name] = value;
+      return acc;
+    },
+    {} as OverridesType,
   );
 
   if (type === "pnpmOverrides") return { type: "pnpm", pnpm: { overrides } };
   else if (type === "resolutions")
-    return { type: "resolutions", resolutions: overrides };
+    return { type: "resolutions", resolutions: overrides as Record<string, string> };
   return { type: "npm", overrides };
 }
 
@@ -435,27 +455,56 @@ export const updateAppendix = ({
   const depList = Object.keys(deps);
 
   for (const override of overridesList) {
-    const hasOverride = depList.includes(override);
-    if (!hasOverride) continue;
+    const overrideValue = overrides[override];
+    
+    if (typeof overrideValue === "object") {
+      // Handle nested overrides (e.g., { "pg": { "pg-types": "^4.0.1" } })
+      // Check if the parent package is in dependencies
+      const hasOverride = depList.includes(override);
+      if (!hasOverride) continue;
+      
+      // Process each nested override
+      Object.entries(overrideValue).forEach(([nestedPkg, nestedVersion]) => {
+        const key = `${nestedPkg}@${nestedVersion}`;
+        if (cache.has(key)) {
+          appendix[key] = cache.get(key)!;
+          return;
+        }
+        
+        const currentDependents = appendix?.[key]?.dependents || {};
+        const newDependents = {
+          ...currentDependents,
+          [packageName]: `${override}@${deps[override]} (nested override)`,
+        };
+        
+        const newAppendixItem = { dependents: newDependents };
+        appendix[key] = newAppendixItem;
+        cache.set(key, newAppendixItem);
+      });
+    } else {
+      // Handle simple overrides
+      const hasOverride = depList.includes(override);
+      if (!hasOverride) continue;
 
-    const overrideVersion = overrides[override];
-    const packageVersion = deps[override];
-    const key = `${override}@${overrideVersion}`;
-    if (cache.has(key)) {
-      appendix[key] = cache.get(key)!;
-      continue;
+      const overrideVersion = overrideValue;
+      const packageVersion = deps[override];
+      const key = `${override}@${overrideVersion}`;
+      if (cache.has(key)) {
+        appendix[key] = cache.get(key)!;
+        continue;
+      }
+
+      const currentDependents = appendix?.[key]?.dependents || {};
+      const newDependents = {
+        ...currentDependents,
+        [packageName]: `${override}@${packageVersion}`,
+      };
+
+      const newAppendixItem = { dependents: newDependents };
+      appendix[key] = newAppendixItem;
+
+      cache.set(key, newAppendixItem);
     }
-
-    const currentDependents = appendix?.[key]?.dependents || {};
-    const newDependents = {
-      ...currentDependents,
-      [packageName]: `${override}@${packageVersion}`,
-    };
-
-    const newAppendixItem = { dependents: newDependents };
-    appendix[key] = newAppendixItem;
-
-    cache.set(key, newAppendixItem);
   }
 
   Object.keys(appendix).forEach((key) => {
@@ -678,12 +727,29 @@ export const findUnusedOverrides = (
   const unusedOverrides: string[] = [];
 
   Object.keys(overrides).forEach((packageName) => {
-    if (!allDependencies[packageName]) {
-      unusedOverrides.push(packageName);
-      fallbackLog.debug(
-        `Found unused override for ${packageName}: no longer in dependencies`,
-        "findUnusedOverrides",
-      );
+    const overrideValue = overrides[packageName];
+    
+    // For nested overrides (e.g., { "pg": { "pg-types": "^4.0.1" } })
+    // we check if the parent package (pg) is in dependencies
+    // Nested overrides are used to override transitive dependencies
+    if (typeof overrideValue === "object") {
+      // This is a nested override - check if the parent package is in dependencies
+      if (!allDependencies[packageName]) {
+        unusedOverrides.push(packageName);
+        fallbackLog.debug(
+          `Found unused nested override for ${packageName}: parent package not in dependencies`,
+          "findUnusedOverrides",
+        );
+      }
+    } else {
+      // Simple override - check if the package itself is in dependencies
+      if (!allDependencies[packageName]) {
+        unusedOverrides.push(packageName);
+        fallbackLog.debug(
+          `Found unused override for ${packageName}: no longer in dependencies`,
+          "findUnusedOverrides",
+        );
+      }
     }
   });
 

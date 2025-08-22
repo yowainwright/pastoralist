@@ -70,6 +70,31 @@ AKA, the object above, will now look like the object below if trim is no longer 
 
 ### ✨ New Features
 
+**Nested Overrides Support**: Pastoralist now fully supports npm's nested overrides for overriding transitive dependencies:
+
+```js
+// Override a transitive dependency of pg
+"overrides": {
+  "pg": {
+    "pg-types": "^4.0.1"
+  }
+}
+```
+
+This is tracked in the appendix as:
+
+```js
+"pastoralist": {
+  "appendix": {
+    "pg-types@^4.0.1": {
+      "dependents": {
+        "my-app": "pg@^8.13.1 (nested override)"
+      }
+    }
+  }
+}
+```
+
 **Patch Support**: Pastoralist now automatically detects and tracks patches (e.g., from `patch-package`) in your project:
 
 ```js
@@ -199,6 +224,70 @@ In the near future, Pastoralist will fully support a config file but this is it 
 Read on to understand what is going on under the hood of Pastoralist!
 
 ---
+
+### Examples
+
+#### Simple Overrides
+
+For direct dependency overrides:
+
+```js
+// package.json
+"dependencies": {
+  "lodash": "^4.17.0"
+},
+"overrides": {
+  "lodash": "4.17.21"  // Pin to specific version
+}
+```
+
+#### Nested Overrides (Transitive Dependencies)
+
+For overriding dependencies of dependencies:
+
+```js
+// package.json
+"dependencies": {
+  "pg": "^8.13.1",
+  "express": "^4.18.0"
+},
+"overrides": {
+  // Override pg's dependency on pg-types
+  "pg": {
+    "pg-types": "^4.0.1"
+  },
+  // Override express's cookie dependency
+  "express": {
+    "cookie": "0.5.0"
+  },
+  // You can also mix simple and nested overrides
+  "lodash": "4.17.21"
+}
+```
+
+After running `pastoralist`, you'll see:
+
+```js
+"pastoralist": {
+  "appendix": {
+    "pg-types@^4.0.1": {
+      "dependents": {
+        "my-app": "pg@^8.13.1 (nested override)"
+      }
+    },
+    "cookie@0.5.0": {
+      "dependents": {
+        "my-app": "express@^4.18.0 (nested override)"
+      }
+    },
+    "lodash@4.17.21": {
+      "dependents": {
+        "my-app": "lodash@^4.17.0"
+      }
+    }
+  }
+}
+```
 
 ### Pastoralist Object Anatomy
 

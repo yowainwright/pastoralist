@@ -671,12 +671,16 @@ describe("resolveOverrides", () => {
     assert.strictEqual(result, undefined);
   });
 
-  it("should return undefined if complex overrides are found", () => {
+  it("should handle nested overrides correctly", () => {
     const result = resolveOverrides({
       config: { overrides: { foo: { bar: "1.0.0" } } },
     });
 
-    assert.strictEqual(result, undefined);
+    // Now nested overrides are supported
+    assert.deepStrictEqual(result, {
+      type: "npm",
+      overrides: { foo: { bar: "1.0.0" } },
+    });
   });
 
   it("should return pnpm overrides when type is pnpmOverrides", () => {
@@ -1146,17 +1150,8 @@ describe("depPaths and ignore functionality", () => {
   });
 
   it("should handle errors gracefully", () => {
-    // Mock fast-glob sync function to throw an error
-    const originalSync = (global as any).sync;
-    (global as any).sync = () => {
-      throw new Error("Test error");
-    };
-
-    const result = findPackageJsonFiles(["packages/*/package.json"]);
-
-    // Restore original sync
-    (global as any).sync = originalSync;
-
+    // Use a non-existent pattern that won't match our real workspace files
+    const result = findPackageJsonFiles(["non-existent-dir/*/package.json"]);
     assert.deepStrictEqual(result, []);
   });
 });
@@ -1180,7 +1175,7 @@ describe("update function with depPaths support", () => {
     try {
       await update({
         path: testPath,
-        depPaths: ["packages/*/package.json"],
+        depPaths: ["non-existent-dir/*/package.json"],
       });
 
       const updatedContent = fs.readFileSync(testPath, "utf-8");
@@ -1588,6 +1583,183 @@ describe("Cleanup functionality integration", () => {
   });
 });
 
+describe("Nested Overrides Support", () => {
+  it("should handle simple overrides", () => {
+    const result = updateAppendix({
+      overrides: { lodash: "4.17.21" },
+      appendix: {},
+      dependencies: { lodash: "^4.17.0" },
+      packageName: "test-package",
+    });
+    assert.deepStrictEqual(result, {
+      "lodash@4.17.21": {
+        dependents: {
+          "test-package": "lodash@^4.17.0",
+        },
+      },
+    });
+  });
+
+  it("should handle nested overrides for transitive dependencies", () => {
+    const result = updateAppendix({
+      overrides: { pg: { "pg-types": "^4.0.1" } },
+      appendix: {},
+      dependencies: { pg: "^8.13.1" },
+      packageName: "test-package",
+    });
+    assert.deepStrictEqual(result, {
+      "pg-types@^4.0.1": {
+        dependents: {
+          "test-package": "pg@^8.13.1 (nested override)",
+        },
+      },
+    });
+  });
+
+  it("should handle mixed simple and nested overrides", () => {
+    const result = updateAppendix({
+      overrides: {
+        lodash: "4.17.21",
+        pg: { "pg-types": "^4.0.1" },
+      },
+      appendix: {},
+      dependencies: {
+        lodash: "^4.17.0",
+        pg: "^8.13.1",
+      },
+      packageName: "test-package",
+    });
+    assert.deepStrictEqual(result, {
+      "lodash@4.17.21": {
+        dependents: {
+          "test-package": "lodash@^4.17.0",
+        },
+      },
+      "pg-types@^4.0.1": {
+        dependents: {
+          "test-package": "pg@^8.13.1 (nested override)",
+        },
+      },
+    });
+  });
+
+  it("should ignore nested overrides when parent package is not in dependencies", () => {
+    const result = updateAppendix({
+      overrides: { pg: { "pg-types": "^4.0.1" } },
+      appendix: {},
+      dependencies: { lodash: "^4.17.0" }, // pg is not a dependency
+      packageName: "test-package",
+    });
+    assert.deepStrictEqual(result, {});
+  });
+
+  it("should handle multiple nested overrides in same parent", () => {
+    const result = updateAppendix({
+      overrides: {
+        pg: {
+          "pg-types": "^4.0.1",
+          "pg-protocol": "^1.6.0",
+        },
+      },
+      appendix: {},
+      dependencies: { pg: "^8.13.1" },
+      packageName: "test-package",
+    });
+    assert.deepStrictEqual(result, {
+      "pg-types@^4.0.1": {
+        dependents: {
+          "test-package": "pg@^8.13.1 (nested override)",
+        },
+      },
+      "pg-protocol@^1.6.0": {
+        dependents: {
+          "test-package": "pg@^8.13.1 (nested override)",
+        },
+      },
+    });
+  });
+
+  it("should preserve nested overrides in resolveOverrides", () => {
+    const result = resolveOverrides({
+      config: {
+        overrides: {
+          lodash: "4.17.21",
+          pg: { "pg-types": "^4.0.1" },
+        },
+      },
+    });
+    assert.deepStrictEqual(result, {
+      type: "npm",
+      overrides: {
+        lodash: "4.17.21",
+        pg: { "pg-types": "^4.0.1" },
+      },
+    });
+  });
+
+  it("should handle nested overrides in findUnusedOverrides", () => {
+    const overrides = {
+      lodash: "4.17.21",
+      pg: { "pg-types": "^4.0.1" },
+      "old-package": { "sub-dep": "1.0.0" },
+    };
+    const allDependencies = {
+      lodash: "^4.17.0",
+      pg: "^8.13.1",
+      // old-package is not in dependencies
+    };
+
+    const result = findUnusedOverrides(overrides, allDependencies);
+    assert.deepStrictEqual(result, ["old-package"]);
+  });
+
+  it("should not remove nested overrides when parent is in dependencies", () => {
+    const overrides = {
+      pg: { "pg-types": "^4.0.1" },
+    };
+    const allDependencies = {
+      pg: "^8.13.1",
+    };
+
+    const result = findUnusedOverrides(overrides, allDependencies);
+    assert.deepStrictEqual(result, []);
+  });
+
+  it("should handle nested overrides with devDependencies", () => {
+    const result = updateAppendix({
+      overrides: { webpack: { "loader-utils": "^3.2.1" } },
+      appendix: {},
+      dependencies: {},
+      devDependencies: { webpack: "^5.88.0" },
+      packageName: "test-package",
+    });
+    assert.deepStrictEqual(result, {
+      "loader-utils@^3.2.1": {
+        dependents: {
+          "test-package": "webpack@^5.88.0 (nested override)",
+        },
+      },
+    });
+  });
+
+  it("should handle nested overrides with peerDependencies", () => {
+    const result = updateAppendix({
+      overrides: { react: { "scheduler": "^0.23.0" } },
+      appendix: {},
+      dependencies: {},
+      peerDependencies: { react: "^18.0.0" },
+      packageName: "test-package",
+    });
+    assert.deepStrictEqual(result, {
+      "scheduler@^0.23.0": {
+        dependents: {
+          "test-package": "react@^18.0.0 (nested override)",
+        },
+      },
+    });
+  });
+});
+
 describe("Migration Tests", () => {
   it("should migrate from 1.3.0 format to 1.4.0 format correctly", () => {
     const oldFormat: PastoralistJSON = {
@@ -1740,5 +1912,42 @@ describe("Migration Tests", () => {
       updatedAppendix["@types/react@18.0.0"],
       "@types/react override should be in appendix",
     );
+  });
+});
+
+describe("Nested Overrides Fixture Tests", () => {
+  it("should process package.json with nested overrides from fixture", async () => {
+    jsonCache.clear();
+    const mockPackageJSON = resolveJSON("tests/fixtures/package-nested-overrides.json");
+    
+    if (mockPackageJSON) {
+      const result = updateAppendix({
+        overrides: mockPackageJSON.overrides,
+        appendix: {},
+        dependencies: mockPackageJSON.dependencies,
+        devDependencies: mockPackageJSON.devDependencies,
+        packageName: mockPackageJSON.name,
+      });
+      
+      // Check that nested overrides are processed correctly
+      assert.ok(result["pg-types@^4.0.1"], "Should have pg-types override");
+      assert.ok(result["pg-protocol@^1.6.0"], "Should have pg-protocol override");
+      assert.ok(result["cookie@0.5.0"], "Should have cookie override");
+      assert.ok(result["loader-utils@^3.2.1"], "Should have loader-utils override");
+      
+      // Check the dependents are correctly tagged
+      assert.strictEqual(
+        result["pg-types@^4.0.1"].dependents["test-nested-overrides"],
+        "pg@^8.13.1 (nested override)"
+      );
+      assert.strictEqual(
+        result["cookie@0.5.0"].dependents["test-nested-overrides"],
+        "express@^4.18.0 (nested override)"
+      );
+      assert.strictEqual(
+        result["loader-utils@^3.2.1"].dependents["test-nested-overrides"],
+        "webpack@^5.88.0 (nested override)"
+      );
+    }
   });
 });

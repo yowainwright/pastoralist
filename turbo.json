@@ -1,26 +1,51 @@
 {
   "$schema": "https://turborepo.org/schema.json",
+  "remoteCache": {
+    "enabled": true
+  },
   "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"],
+      "cache": true
+    },
     "build-dist": {
       "dependsOn": ["^build-dist"],
-      "inputs": ["src/**/*.{ts,tsx}", "index.html"]
+      "inputs": ["src/**/*.{ts,tsx}", "index.html"],
+      "outputs": ["dist/**"],
+      "cache": true
     },
     "//#build-dist": {
-      "inputs": ["src/**/*.ts"]
+      "inputs": ["src/**/*.ts"],
+      "outputs": ["dist/**"],
+      "cache": true
     },
-    "lint-src": {
-      "dependsOn": ["typecheck-src"],
-      "inputs": ["src/**/*.{tsx,ts}"]
+    "lint": {
+      "cache": true,
+      "outputs": []
     },
-    "//#lint-src": {
-      "dependsOn": ["typecheck-src"],
-      "inputs": ["src/**/*.ts"]
+    "typecheck": {
+      "dependsOn": ["^typecheck"],
+      "cache": true,
+      "outputs": []
     },
     "typecheck-src": {
-      "inputs": ["src/**/*.ts"]
+      "inputs": ["src/**/*.ts"],
+      "cache": true,
+      "outputs": []
     },
     "//#typecheck-src": {
-      "inputs": ["src/**/*.ts"]
+      "inputs": ["src/**/*.ts"],
+      "cache": true,
+      "outputs": []
+    },
+    "test": {
+      "dependsOn": ["build"],
+      "cache": false
+    },
+    "dev": {
+      "persistent": true,
+      "cache": false
     }
   }
 }

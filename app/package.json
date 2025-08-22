@@ -18,9 +18,7 @@
     "@fontsource-variable/lexend": "^5.2.9",
     "@fontsource-variable/outfit": "^5.2.6",
     "@tailwindcss/vite": "^4.1.12",
-    "@types/react": "^18.3.23",
-    "@types/react-dom": "^18.3.7",
-    "astro": "^5.13.2",
+    "astro": "^5.13.3",
     "fuse.js": "^7.1.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
@@ -29,6 +27,8 @@
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.16",
+    "@types/react": "^19.1.11",
+    "@types/react-dom": "^19.1.7",
     "daisyui": "^5.0.50",
     "tailwindcss": "^4.1.12"
   }

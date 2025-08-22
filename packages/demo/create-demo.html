@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Create Pastoralist StackBlitz Demo</title>
+    <style>
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        max-width: 800px;
+        margin: 40px auto;
+        padding: 20px;
+        line-height: 1.6;
+      }
+      .header {
+        text-align: center;
+        margin-bottom: 40px;
+      }
+      .emoji {
+        font-size: 2em;
+        margin-bottom: 10px;
+      }
+      button {
+        background: #007acc;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 16px;
+        margin: 10px;
+      }
+      button:hover {
+        background: #005a9e;
+      }
+      .demo-info {
+        background: #f5f5f5;
+        padding: 20px;
+        border-radius: 8px;
+        margin: 20px 0;
+      }
+      .url-box {
+        background: #e8f4fd;
+        border: 1px solid #bee5eb;
+        border-radius: 6px;
+        padding: 15px;
+        margin: 15px 0;
+        word-break: break-all;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div class="emoji">🐑</div>
+      <h1>Pastoralist StackBlitz Demo Creator</h1>
+      <p>Create an interactive demo of pastoralist for sharing and testing</p>
+    </div>
+
+    <div class="demo-info">
+      <h3>What this creates:</h3>
+      <ul>
+        <li>📦 A Node.js project with sample dependencies and overrides</li>
+        <li>🔍 Interactive scripts showing pastoralist functionality</li>
+        <li>📝 Documentation explaining how pastoralist works</li>
+        <li>🚀 Ready-to-run demo environment</li>
+      </ul>
+    </div>
+
+    <div style="text-align: center">
+      <button onclick="createStackBlitzDemo()">
+        🚀 Create StackBlitz Demo
+      </button>
+      <button onclick="showQuickUrl()">🔗 Show Quick Create URL</button>
+      <button onclick="copyEmbedCode()">📋 Get Embed Code</button>
+    </div>
+
+    <div id="output"></div>
+
+    <script src="https://unpkg.com/@stackblitz/sdk/bundles/sdk.umd.js"></script>
+    <script>
+      const quickCreateUrl =
+        "https://stackblitz.com/fork/node?title=Pastoralist%20Demo&description=Interactive%20demo%20of%20pastoralist%20-%20smart%20package%20override%20management&file=README.md&dependencies=%7B%22pastoralist%22%3A%22%5E1.2.1%22%2C%22lodash%22%3A%22%5E4.17.21%22%2C%22react%22%3A%22%5E18.2.0%22%2C%22express%22%3A%22%5E4.18.0%22%7D";
+
+      const embedCode = `<iframe 
+  src="https://stackblitz.com/edit/pastoralist-demo?embed=1&file=README.md&theme=dark&view=editor"
+  style="width: 100%; height: 500px; border: 0; border-radius: 4px; overflow: hidden;"
+  title="Pastoralist Demo"
+  allow="accelerometer; ambient-light-sensor; camera; encrypted-media; geolocation; gyroscope; hid; microphone; midi; payment; usb; vr; xr-spatial-tracking"
+  sandbox="allow-forms allow-modals allow-popups allow-presentation allow-same-origin allow-scripts">
+</iframe>`;
+
+      function createStackBlitzDemo() {
+        const output = document.getElementById("output");
+        output.innerHTML = "<p>🚀 Opening StackBlitz demo creator...</p>";
+
+        // Open the quick create URL
+        window.open(quickCreateUrl, "_blank");
+
+        output.innerHTML = `
+                <div class="demo-info">
+                    <h3>✅ StackBlitz Demo Creator Opened!</h3>
+                    <p>A new tab has opened with the StackBlitz demo creator. To complete the setup:</p>
+                    <ol>
+                        <li>The basic project structure is already configured</li>
+                        <li>Copy the demo files from the <a href="#" onclick="showFiles()">files section</a></li>
+                        <li>Run the demo scripts to see pastoralist in action</li>
+                        <li>Share the resulting URL with others</li>
+                    </ol>
+                    
+                    <h4>Demo files to copy:</h4>
+                    <ul>
+                        <li><strong>package.json</strong> - Already configured with overrides</li>
+                        <li><strong>index.js</strong> - Basic demo script</li>
+                        <li><strong>demo.js</strong> - Interactive demo script</li>
+                        <li><strong>README.md</strong> - Documentation</li>
+                    </ul>
+                </div>
+            `;
+      }
+
+      function showQuickUrl() {
+        const output = document.getElementById("output");
+        output.innerHTML = `
+                <div class="demo-info">
+                    <h3>🔗 Quick Create URL</h3>
+                    <p>Use this URL to instantly create a new StackBlitz project:</p>
+                    <div class="url-box">
+                        <a href="${quickCreateUrl}" target="_blank">${quickCreateUrl}</a>
+                    </div>
+                    <p><strong>Note:</strong> This creates the basic project structure. You'll need to add the demo files manually.</p>
+                </div>
+            `;
+      }
+
+      function copyEmbedCode() {
+        const markdownCode = `## Try Pastoralist Live
+
+[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/edit/pastoralist-demo?file=README.md)
+
+${embedCode}`;
+
+        if (navigator.clipboard) {
+          navigator.clipboard
+            .writeText(markdownCode)
+            .then(() => {
+              showEmbedSuccess();
+            })
+            .catch(() => {
+              showEmbedCodes();
+            });
+        } else {
+          showEmbedCodes();
+        }
+      }
+
+      function showEmbedSuccess() {
+        const output = document.getElementById("output");
+        output.innerHTML = `
+                <div class="demo-info">
+                    <h3>📋 Embed Code Copied!</h3>
+                    <p>The markdown embed code has been copied to your clipboard. You can paste it into:</p>
+                    <ul>
+                        <li>README.md files</li>
+                        <li>Documentation websites</li>
+                        <li>Blog posts</li>
+                        <li>GitHub wikis</li>
+                    </ul>
+                </div>
+            `;
+      }
+
+      function showEmbedCodes() {
+        const markdownCode = `## Try Pastoralist Live
+
+[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/edit/pastoralist-demo?file=README.md)
+
+${embedCode}`;
+
+        const output = document.getElementById("output");
+        output.innerHTML = `
+                <div class="demo-info">
+                    <h3>📋 Embed Codes</h3>
+                    
+                    <h4>Markdown Embed:</h4>
+                    <textarea readonly style="width: 100%; height: 120px; font-family: monospace; font-size: 12px;">${markdownCode}</textarea>
+                    
+                    <h4>HTML Embed:</h4>
+                    <textarea readonly style="width: 100%; height: 80px; font-family: monospace; font-size: 12px;">${embedCode}</textarea>
+                    
+                    <h4>Direct Link:</h4>
+                    <div class="url-box">
+                        <a href="https://stackblitz.com/edit/pastoralist-demo?file=README.md" target="_blank">
+                            https://stackblitz.com/edit/pastoralist-demo?file=README.md
+                        </a>
+                    </div>
+                </div>
+            `;
+      }
+
+      function showFiles() {
+        const output = document.getElementById("output");
+        output.innerHTML = `
+                <div class="demo-info">
+                    <h3>📁 Demo Files</h3>
+                    <p>Run <code>node create-demo.js files</code> in the terminal to see the complete file contents, or check the demo-config.js file.</p>
+                    <p>The demo includes:</p>
+                    <ul>
+                        <li><strong>package.json</strong> - Sample project with lodash and react overrides</li>
+                        <li><strong>index.js</strong> - Basic demo showing before/after states</li>
+                        <li><strong>demo.js</strong> - Interactive demo with simulated pastoralist execution</li>
+                        <li><strong>README.md</strong> - Complete documentation and usage examples</li>
+                    </ul>
+                </div>
+            `;
+      }
+    </script>
+  </body>
+</html>

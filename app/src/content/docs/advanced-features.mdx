@@ -5,6 +5,96 @@ description: Deep dive into pastoralist's advanced capabilities
 
 Pastoralist includes several advanced features that make dependency override management more powerful and maintainable.
 
+## Nested Overrides (Transitive Dependencies)
+
+Pastoralist fully supports npm's nested override syntax for overriding transitive dependencies (dependencies of dependencies).
+
+### How It Works
+
+When you need to override a transitive dependency, you can use nested overrides:
+
+```json
+{
+  "dependencies": {
+    "pg": "^8.13.1"
+  },
+  "overrides": {
+    "pg": {
+      "pg-types": "^4.0.1"
+    }
+  }
+}
+```
+
+This tells npm to use `pg-types@^4.0.1` whenever it's required by the `pg` package, regardless of what version `pg` actually specifies.
+
+### Multiple Nested Overrides
+
+You can override multiple transitive dependencies:
+
+```json
+{
+  "overrides": {
+    "pg": {
+      "pg-types": "^4.0.1",
+      "pg-protocol": "^1.6.0"
+    },
+    "express": {
+      "cookie": "0.5.0"
+    }
+  }
+}
+```
+
+### Tracking in Appendix
+
+Nested overrides are tracked with a special notation in the appendix:
+
+```json
+{
+  "pastoralist": {
+    "appendix": {
+      "pg-types@^4.0.1": {
+        "dependents": {
+          "my-app": "pg@^8.13.1 (nested override)"
+        }
+      },
+      "cookie@0.5.0": {
+        "dependents": {
+          "my-app": "express@^4.18.0 (nested override)"
+        }
+      }
+    }
+  }
+}
+```
+
+### Use Cases
+
+Nested overrides are particularly useful for:
+
+1. **Security Fixes**: Override vulnerable transitive dependencies without waiting for upstream updates
+2. **Bug Fixes**: Apply fixes to deeply nested dependencies
+3. **Version Conflicts**: Resolve version conflicts in the dependency tree
+4. **Testing**: Test with specific versions of transitive dependencies
+
+### Workspace Support
+
+In monorepos, nested overrides in workspace packages are also tracked:
+
+```json
+// packages/app/package.json
+{
+  "overrides": {
+    "pg": {
+      "pg-types": "^4.0.1"
+    }
+  }
+}
+```
+
+Pastoralist will detect and manage these nested overrides across all workspace packages when using the `--depPaths` option.
+
 ## Patch Support
 
 Pastoralist automatically detects and tracks patches created by tools like `patch-package`.

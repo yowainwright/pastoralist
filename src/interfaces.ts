@@ -1,5 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Exec = (runner: string, cmds: Array<string>) => Promise<any>;
+export type OverrideValue = string | Record<string, string>;
+
 export interface PastoralistJSON {
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
@@ -7,8 +9,8 @@ export interface PastoralistJSON {
   name: string;
   version: string;
   resolutions?: Record<string, string>;
-  overrides?: Record<string, string>;
-  pnpm?: { overrides?: Record<string, string> };
+  overrides?: Record<string, OverrideValue>;
+  pnpm?: { overrides?: Record<string, OverrideValue> };
   workspaces?: string[];
   pastoralist?: {
     appendix?: Appendix;
@@ -25,8 +27,8 @@ export interface Appendix {
 }
 
 export interface OverridesConfig {
-  overrides?: Record<string, string>;
-  pnpm?: { overrides?: Record<string, string> };
+  overrides?: Record<string, OverrideValue>;
+  pnpm?: { overrides?: Record<string, OverrideValue> };
   resolutions?: Record<string, string>;
 }
 
@@ -36,7 +38,7 @@ export interface ResolveResolutionOptions {
 }
 
 export interface UpdateAppendixOptions {
-  overrides?: Record<string, string>;
+  overrides?: OverridesType;
   appendix?: Appendix;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
@@ -59,7 +61,7 @@ export interface Options {
 }
 
 export interface OverridesType {
-  [key: string]: string;
+  [key: string]: string | Record<string, string>;
 }
 
 export interface UpdatePackageJSONOptions {

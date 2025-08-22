@@ -1,0 +1,12 @@
+{
+  "name": "with-patches-test",
+  "version": "1.0.0",
+  "description": "Test package with patches and overrides",
+  "dependencies": {
+    "lodash": "^4.17.0",
+    "express": "^4.18.0"
+  },
+  "overrides": {
+    "lodash": "4.17.21"
+  }
+}

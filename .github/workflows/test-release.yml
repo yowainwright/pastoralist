@@ -64,14 +64,14 @@ jobs:
           RUN mkdir -p packages/app packages/utils packages/shared e2e/fixtures/patches
 
           # Copy test fixtures and scripts
-          COPY e2e/fixtures/ ./e2e/fixtures/
-          COPY e2e/scripts/ ./scripts/
+          COPY packages/e2e/fixtures/ ./e2e/fixtures/
+          COPY packages/e2e/scripts/ ./scripts/
           
           # Copy workspace configurations
-          COPY e2e/fixtures/root-package.json ./package.json
-          COPY e2e/fixtures/app-package.json ./packages/app/package.json
-          COPY e2e/fixtures/utils-package.json ./packages/utils/package.json
-          COPY e2e/fixtures/shared-package.json ./packages/shared/package.json
+          COPY packages/e2e/fixtures/root-package.json ./package.json
+          COPY packages/e2e/fixtures/app-package.json ./packages/app/package.json
+          COPY packages/e2e/fixtures/utils-package.json ./packages/utils/package.json
+          COPY packages/e2e/fixtures/shared-package.json ./packages/shared/package.json
 
           # Create dummy source files
           RUN echo 'console.log("App module");' > ./packages/app/index.js && \
@@ -125,12 +125,12 @@ jobs:
           WORKDIR /app
           ARG PASTORALIST_VERSION
           RUN npm install -g pastoralist@${PASTORALIST_VERSION}
-          COPY e2e/fixtures/ ./e2e/fixtures/
-          COPY e2e/scripts/ ./scripts/
-          COPY e2e/fixtures/npm-root-package.json ./package.json
-          COPY e2e/fixtures/app-package.json ./packages/app/package.json
-          COPY e2e/fixtures/utils-package.json ./packages/utils/package.json
-          COPY e2e/fixtures/shared-package.json ./packages/shared/package.json
+          COPY packages/e2e/fixtures/ ./e2e/fixtures/
+          COPY packages/e2e/scripts/ ./scripts/
+          COPY packages/e2e/fixtures/npm-root-package.json ./package.json
+          COPY packages/e2e/fixtures/app-package.json ./packages/app/package.json
+          COPY packages/e2e/fixtures/utils-package.json ./packages/utils/package.json
+          COPY packages/e2e/fixtures/shared-package.json ./packages/shared/package.json
           RUN mkdir -p packages/app packages/utils packages/shared && \
               echo 'console.log("test");' > ./packages/app/index.js && \
               echo 'console.log("test");' > ./packages/utils/index.js && \

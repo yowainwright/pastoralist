@@ -16,13 +16,13 @@ RUN chmod +x ./pastoralist/index.js
 RUN mkdir -p packages/app packages/utils packages/shared e2e/fixtures
 
 # Copy all fixtures in a single layer for better caching
-COPY e2e/fixtures/ ./e2e/fixtures/
+COPY packages/e2e/fixtures/ ./e2e/fixtures/
 
 # Copy workspace package.json files to their correct locations
-COPY e2e/fixtures/npm-root-package.json ./package.json
-COPY e2e/fixtures/app-package.json ./packages/app/package.json
-COPY e2e/fixtures/utils-package.json ./packages/utils/package.json
-COPY e2e/fixtures/shared-package.json ./packages/shared/package.json
+COPY packages/e2e/fixtures/npm-root-package.json ./package.json
+COPY packages/e2e/fixtures/app-package.json ./packages/app/package.json
+COPY packages/e2e/fixtures/utils-package.json ./packages/utils/package.json
+COPY packages/e2e/fixtures/shared-package.json ./packages/shared/package.json
 
 # Create some dummy source files to make the packages realistic
 RUN echo 'console.log("App module");' > ./packages/app/index.js
@@ -36,7 +36,7 @@ RUN npm install
 RUN npm install commander@14.0.0 compare-versions@6.1.1 fast-glob@3.3.3 gradient-string@^3.0.0 ora@^8.1.0 p-limit@^6.1.0
 
 # Copy scripts
-COPY e2e/scripts/ ./scripts/
+COPY packages/e2e/scripts/ ./scripts/
 RUN chmod +x ./scripts/*.sh
 
 # Set up environment for testing

@@ -95,6 +95,34 @@ This is tracked in the appendix as:
 }
 ```
 
+**Security Vulnerability Detection**: Pastoralist can check for security vulnerabilities using GitHub Dependabot alerts and automatically generate overrides to fix them:
+
+```bash
+# Check for vulnerabilities and show report
+pastoralist --checkSecurity
+
+# Automatically apply security fixes
+pastoralist --checkSecurity --forceSecurityRefactor
+
+# Interactive mode - choose which fixes to apply
+pastoralist --checkSecurity --interactive
+```
+
+Configure security checks in your `package.json`:
+
+```js
+"pastoralist": {
+  "security": {
+    "enabled": false,             // Disabled by default, set to true to enable
+    "provider": "github",          // Security provider (github, npm, snyk - coming soon)
+    "autoFix": false,             // Automatically apply fixes
+    "interactive": false,         // Use interactive mode
+    "severityThreshold": "medium", // Minimum severity to report (low, medium, high, critical)
+    "excludePackages": []         // Packages to exclude from security checks
+  }
+}
+```
+
 **Patch Support**: Pastoralist now automatically detects and tracks patches (e.g., from `patch-package`) in your project:
 
 ```js

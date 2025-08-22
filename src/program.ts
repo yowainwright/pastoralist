@@ -4,8 +4,9 @@ import { program } from "commander";
 import ora from "ora";
 import gradient from "gradient-string";
 import { Options } from "./interfaces";
-import { update, logger } from "./scripts";
+import { update, logger, resolveJSON } from "./scripts";
 import { IS_DEBUGGING } from "./constants";
+import { SecurityChecker } from "./security";
 
 /**
  * @name action
@@ -21,12 +22,58 @@ export async function action(options: Options = {}): Promise<void> {
     log.debug("action:options:", "action", { options });
     return;
   }
+  
   try {
     const pastor = gradient("green", "tan");
+    
+    // Read config to get security settings
+    const path = options.path || "package.json";
+    const config = await resolveJSON(path);
+    
+    // Merge CLI options with config file settings
+    const securityConfig = config?.pastoralist?.security || {};
+    const mergedOptions: Options = {
+      ...rest,
+      checkSecurity: options.checkSecurity ?? securityConfig.enabled,
+      forceSecurityRefactor: options.forceSecurityRefactor ?? securityConfig.autoFix,
+      securityProvider: options.securityProvider ?? securityConfig.provider ?? "github",
+      githubToken: options.githubToken ?? securityConfig.githubToken,
+      interactive: options.interactive ?? securityConfig.interactive,
+    };
+    
+    // Run security check if enabled
+    if (mergedOptions.checkSecurity) {
+      const spinner = ora(
+        `🔒 ${pastor(`pastoralist`)} checking for security vulnerabilities...\n`,
+      ).start();
+      
+      const securityChecker = new SecurityChecker({
+        provider: mergedOptions.securityProvider,
+        forceRefactor: mergedOptions.forceSecurityRefactor,
+        interactive: mergedOptions.interactive,
+        token: mergedOptions.githubToken,
+        debug: isLogging,
+      });
+      
+      const securityOverrides = await securityChecker.checkSecurity(config!, mergedOptions);
+      
+      if (securityOverrides.length > 0) {
+        const report = securityChecker.formatSecurityReport([], securityOverrides);
+        spinner.info(report);
+        
+        if (mergedOptions.forceSecurityRefactor || mergedOptions.interactive) {
+          // Apply overrides will be handled by update function
+          mergedOptions.securityOverrides = securityChecker.generatePackageOverrides(securityOverrides);
+        }
+      } else {
+        spinner.succeed(`🔒 ${pastor(`pastoralist`)} no security vulnerabilities found!`);
+      }
+    }
+    
     const spinner = ora(
       `👩🏽‍🌾 ${pastor(`pastoralist`)} checking herd...\n`,
     ).start();
-    await update(rest);
+    await update(mergedOptions);
     spinner.succeed(`👩🏽‍🌾 ${pastor(`pastoralist`)} the herd is safe!`);
   } catch (err) {
     log.error("action:fn", "action", { error: err });
@@ -51,6 +98,11 @@ program
   .option("-r, --root <root>", "specifies a root path")
   .option("-t, --isTestingCLI", "enables CLI testing, no scripts are run")
   .option("--isTesting", "enables testing, no scripts are run")
+  .option("--checkSecurity", "check for security vulnerabilities and generate overrides")
+  .option("--forceSecurityRefactor", "automatically apply security overrides without prompting")
+  .option("--securityProvider <provider>", "security provider to use (github, snyk, npm)", "github")
+  .option("--githubToken <token>", "GitHub token for API access")
+  .option("--interactive", "run security checks in interactive mode")
   .action(action)
   .parse(process.argv);
 

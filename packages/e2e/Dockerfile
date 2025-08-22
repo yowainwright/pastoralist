@@ -1,7 +1,7 @@
 FROM node:24-alpine
 
 # Install dependencies
-RUN apk add --no-cache bash jq
+RUN apk add --no-cache bash jq git
 RUN npm install -g pnpm
 
 # Create a working directory

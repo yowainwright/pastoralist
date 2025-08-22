@@ -163,5 +163,10 @@ echo "=============================="
 /app/scripts/test-migration-1.3.0-to-1.4.0.sh
 print_result $? "Migration test (1.3.0 to 1.4.0) completed"
 
+echo "\n🔒 Running Security Feature Tests..."
+echo "=============================="
+/app/scripts/test-security-features.sh
+print_result $? "Security feature tests completed"
+
 echo "\n🎯 All E2E tests passed!"
 echo "===================================="

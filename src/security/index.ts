@@ -11,10 +11,13 @@ import { InteractiveSecurityManager } from "./interactive";
 
 abstract class SecurityProvider {
   protected debug: boolean;
-  protected log: ReturnType<typeof logger>;
+  protected log!: ReturnType<typeof logger>;
   
   constructor(options: { debug?: boolean } = {}) {
     this.debug = options.debug || false;
+  }
+  
+  protected initializeLogger(): void {
     this.log = logger({ file: `security/${this.name}.ts`, isLogging: this.debug });
   }
   
@@ -27,6 +30,11 @@ abstract class SecurityProvider {
 class OSVProvider extends SecurityProvider {
   get name() { return "osv"; }
   get requiresAuth() { return false; }
+  
+  constructor(options: { debug?: boolean } = {}) {
+    super(options);
+    this.initializeLogger();
+  }
   
   async isAvailable(): Promise<boolean> {
     try {
@@ -125,7 +133,6 @@ class OSVProvider extends SecurityProvider {
 export class SecurityChecker {
   private provider: SecurityProvider;
   private log: ReturnType<typeof logger>;
-  private useGitHubFallback: boolean = false;
 
   constructor(options: SecurityCheckOptions & { debug?: boolean }) {
     this.log = logger({ file: "security/index.ts", isLogging: options.debug });
@@ -139,7 +146,6 @@ export class SecurityChecker {
       case "osv":
         return new OSVProvider({ debug: options.debug });
       case "github":
-        this.useGitHubFallback = true;
         return new OSVProvider({ debug: options.debug });
       default:
         this.log.debug(`Provider ${providerType} not yet implemented, using OSV`, "createProvider");
@@ -171,7 +177,7 @@ export class SecurityChecker {
         const workspaceVulnerable = await this.findWorkspaceVulnerabilities(
           options.depPaths,
           options.root || "./",
-          securityAlerts
+          alerts
         );
         allVulnerablePackages = [...allVulnerablePackages, ...workspaceVulnerable];
       }

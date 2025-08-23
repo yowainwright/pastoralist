@@ -42,7 +42,7 @@ export class GitHubSecurityProvider {
       const { stdout } = await execFileAsync("git", ["config", "--get", "remote.origin.url"]);
       const remoteUrl = stdout.trim();
       
-      if (remoteUrl.includes("github.com")) {
+      if (this.isGitHubUrl(remoteUrl)) {
         const match = remoteUrl.match(/github\.com[:/]([^/]+)\//);
         if (match) {
           return match[1];
@@ -59,7 +59,7 @@ export class GitHubSecurityProvider {
       const { stdout } = await execFileAsync("git", ["config", "--get", "remote.origin.url"]);
       const remoteUrl = stdout.trim();
       
-      if (remoteUrl.includes("github.com")) {
+      if (this.isGitHubUrl(remoteUrl)) {
         const match = remoteUrl.match(/github\.com[:/][^/]+\/([^/.]+)/);
         if (match) {
           return match[1];
@@ -69,6 +69,19 @@ export class GitHubSecurityProvider {
       this.log.debug("Failed to get repo name from git", "getRepoName");
     }
     throw new Error("Unable to determine GitHub repository name");
+  }
+
+  private isGitHubUrl(url: string): boolean {
+    if (url.startsWith("git@github.com:")) {
+      return true;
+    }
+    
+    try {
+      const parsed = new URL(url);
+      return parsed.hostname === "github.com";
+    } catch {
+      return false;
+    }
   }
 
   async fetchDependabotAlerts(): Promise<DependabotAlert[]> {

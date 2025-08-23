@@ -36,9 +36,10 @@ export async function action(options: Options = {}): Promise<void> {
       ...rest,
       checkSecurity: options.checkSecurity ?? securityConfig.enabled,
       forceSecurityRefactor: options.forceSecurityRefactor ?? securityConfig.autoFix,
-      securityProvider: options.securityProvider ?? securityConfig.provider ?? "github",
-      githubToken: options.githubToken ?? securityConfig.githubToken,
+      securityProvider: options.securityProvider ?? securityConfig.provider ?? "osv",
+      providerToken: options.providerToken ?? securityConfig.providerToken,
       interactive: options.interactive ?? securityConfig.interactive,
+      includeWorkspaces: options.includeWorkspaces ?? securityConfig.includeWorkspaces,
     };
     
     // Run security check if enabled
@@ -51,13 +52,13 @@ export async function action(options: Options = {}): Promise<void> {
         provider: mergedOptions.securityProvider,
         forceRefactor: mergedOptions.forceSecurityRefactor,
         interactive: mergedOptions.interactive,
-        token: mergedOptions.githubToken,
+        token: mergedOptions.providerToken,
         debug: isLogging,
       });
       
-      const includeWorkspaces = securityConfig.includeWorkspaces || false;
+      const includeWorkspaces = mergedOptions.includeWorkspaces || false;
       const workspacePaths = includeWorkspaces && config?.workspaces ? 
-        config.workspaces.map(ws => `${ws}/package.json`) : 
+        config.workspaces.map((ws: string) => `${ws}/package.json`) : 
         undefined;
       
       const securityOverrides = await securityChecker.checkSecurity(config!, {
@@ -109,9 +110,10 @@ program
   .option("--isTesting", "enables testing, no scripts are run")
   .option("--checkSecurity", "check for security vulnerabilities and generate overrides")
   .option("--forceSecurityRefactor", "automatically apply security overrides without prompting")
-  .option("--securityProvider <provider>", "security provider to use (github, snyk, npm)", "github")
-  .option("--githubToken <token>", "GitHub token for API access")
+  .option("--securityProvider <provider>", "security provider to use (osv, github, snyk, npm, socket)", "osv")
+  .option("--providerToken <token>", "Provider token for API access (if required)")
   .option("--interactive", "run security checks in interactive mode")
+  .option("--includeWorkspaces", "include workspace packages in security scan")
   .action(action)
   .parse(process.argv);
 

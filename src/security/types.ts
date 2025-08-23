@@ -12,7 +12,7 @@ export interface SecurityAlert {
 }
 
 export interface SecurityCheckOptions {
-  provider?: "github" | "snyk" | "npm";
+  provider?: "osv" | "github" | "snyk" | "npm" | "socket";
   forceRefactor?: boolean;
   interactive?: boolean;
   owner?: string;

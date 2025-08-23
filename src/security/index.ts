@@ -20,7 +20,7 @@ export class SecurityChecker {
 
   async checkSecurity(
     config: PastoralistJSON,
-    options: SecurityCheckOptions = {}
+    options: SecurityCheckOptions & { depPaths?: string[]; root?: string } = {}
   ): Promise<SecurityOverride[]> {
     this.log.debug("Starting security check", "checkSecurity");
 
@@ -29,20 +29,30 @@ export class SecurityChecker {
       this.log.debug(`Found ${alerts.length} Dependabot alerts`, "checkSecurity");
 
       const securityAlerts = this.provider.convertToSecurityAlerts(alerts);
-      const vulnerablePackages = this.findVulnerablePackages(config, securityAlerts);
+      
+      let allVulnerablePackages = this.findVulnerablePackages(config, securityAlerts);
+      
+      if (options.depPaths && options.depPaths.length > 0) {
+        this.log.debug("Scanning workspace packages for vulnerabilities", "checkSecurity");
+        const workspaceVulnerable = await this.findWorkspaceVulnerabilities(
+          options.depPaths,
+          options.root || "./",
+          securityAlerts
+        );
+        allVulnerablePackages = [...allVulnerablePackages, ...workspaceVulnerable];
+      }
 
       this.log.debug(
-        `Found ${vulnerablePackages.length} vulnerable packages in dependencies`,
+        `Found ${allVulnerablePackages.length} vulnerable packages in dependencies`,
         "checkSecurity"
       );
 
-      let overrides = this.generateOverrides(vulnerablePackages);
+      let overrides = this.generateOverrides(allVulnerablePackages);
 
-      // Handle interactive mode
-      if (options.interactive && vulnerablePackages.length > 0) {
+      if (options.interactive && allVulnerablePackages.length > 0) {
         const interactiveManager = new InteractiveSecurityManager();
         overrides = await interactiveManager.promptForSecurityActions(
-          vulnerablePackages,
+          allVulnerablePackages,
           overrides
         );
       }
@@ -74,6 +84,60 @@ export class SecurityChecker {
 
       return this.isVersionVulnerable(currentVersion, alert.vulnerableVersions);
     });
+  }
+
+  private async findWorkspaceVulnerabilities(
+    depPaths: string[],
+    root: string,
+    alerts: SecurityAlert[]
+  ): Promise<SecurityAlert[]> {
+    const vulnerablePackages: SecurityAlert[] = [];
+    
+    try {
+      const fg = await import("fast-glob");
+      const { readFileSync } = await import("fs");
+      const { resolve } = await import("path");
+      
+      const patterns = depPaths.map(p => resolve(root, p));
+      const packageFiles = await fg.default(patterns, {
+        ignore: ["**/node_modules/**"],
+        absolute: true,
+      });
+      
+      for (const packageFile of packageFiles) {
+        try {
+          const content = readFileSync(packageFile, "utf-8");
+          const pkgJson = JSON.parse(content) as PastoralistJSON;
+          
+          const pkgVulnerable = this.findVulnerablePackages(pkgJson, alerts);
+          
+          for (const vuln of pkgVulnerable) {
+            const existing = vulnerablePackages.find(
+              v => v.packageName === vuln.packageName && 
+                   v.currentVersion === vuln.currentVersion
+            );
+            
+            if (!existing) {
+              vulnerablePackages.push(vuln);
+            }
+          }
+        } catch (error) {
+          this.log.debug(
+            `Failed to check ${packageFile}`,
+            "findWorkspaceVulnerabilities",
+            { error }
+          );
+        }
+      }
+    } catch (error) {
+      this.log.error(
+        "Failed to find workspace vulnerabilities",
+        "findWorkspaceVulnerabilities",
+        { error }
+      );
+    }
+    
+    return vulnerablePackages;
   }
 
   private isVersionVulnerable(

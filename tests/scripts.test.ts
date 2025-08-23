@@ -402,7 +402,7 @@ describe("updateAppendix", () => {
     assert.deepStrictEqual(result, {});
   });
 
-  it("should return an empty object when overrides are not in dependencies", () => {
+  it("should create appendix entry for transitive dependency overrides", () => {
     const result = updateAppendix({
       overrides: { foo: "1.0.0" },
       appendix: {},
@@ -410,7 +410,13 @@ describe("updateAppendix", () => {
       devDependencies: {},
       packageName: "test-package",
     });
-    assert.deepStrictEqual(result, {});
+    assert.deepStrictEqual(result, {
+      "foo@1.0.0": {
+        dependents: {
+          "test-package": "foo (transitive dependency)",
+        },
+      },
+    });
   });
 
   it("should add a new entry to the appendix when an override is needed", () => {
@@ -1348,14 +1354,10 @@ describe("findUnusedOverrides", () => {
     const allDependencies = {
       lodash: "^4.17.0",
       react: "^18.0.0",
-      // old-package and removed-dep are missing
     };
 
     const result = findUnusedOverrides(overrides, allDependencies);
-    assert.deepStrictEqual(
-      result.sort(),
-      ["old-package", "removed-dep"].sort(),
-    );
+    assert.deepStrictEqual(result.sort(), ["old-package", "removed-dep"].sort());
   });
 
   it("should handle all dependencies being removed", () => {
@@ -1363,7 +1365,7 @@ describe("findUnusedOverrides", () => {
       "old-dep-1": "1.0.0",
       "old-dep-2": "2.0.0",
     };
-    const allDependencies = {}; // No dependencies left
+    const allDependencies = {};
 
     const result = findUnusedOverrides(overrides, allDependencies);
     assert.deepStrictEqual(result.sort(), ["old-dep-1", "old-dep-2"].sort());
@@ -1386,12 +1388,10 @@ describe("findUnusedOverrides", () => {
       react: "18.2.0",
       "old-package": "1.0.0",
     };
-    // Simulate allDeps = {...dependencies, ...devDependencies, ...peerDependencies}
     const allDependencies = {
-      lodash: "^4.17.0", // from dependencies
-      typescript: "^5.0.0", // from devDependencies
-      react: "^18.0.0", // from peerDependencies
-      // old-package is not in any dependency type
+      lodash: "^4.17.0",
+      typescript: "^5.0.0",
+      react: "^18.0.0",
     };
 
     const result = findUnusedOverrides(overrides, allDependencies);

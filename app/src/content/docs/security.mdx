@@ -3,9 +3,6 @@ title: Security Vulnerability Detection
 description: Detect and fix security vulnerabilities in your dependencies
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
-import { Tabs, TabItem } from '@astrojs/starlight/components';
-
 Pastoralist includes an experimental security feature that can detect vulnerabilities in your dependencies and automatically generate package overrides to fix them.
 
 ## Overview
@@ -14,32 +11,29 @@ The security feature scans your project's dependencies against vulnerability dat
 
 ## Quick Start
 
-<Tabs>
-  <TabItem label="Basic Check">
-    ```bash
-    # Check for vulnerabilities and display a report
-    pastoralist --checkSecurity
-    ```
-  </TabItem>
-  <TabItem label="Auto Fix">
-    ```bash
-    # Automatically apply security fixes
-    pastoralist --checkSecurity --forceSecurityRefactor
-    ```
-  </TabItem>
-  <TabItem label="Interactive">
-    ```bash
-    # Choose which fixes to apply
-    pastoralist --checkSecurity --interactive
-    ```
-  </TabItem>
-  <TabItem label="Workspaces">
-    ```bash
-    # Include workspace packages in the scan
-    pastoralist --checkSecurity --includeWorkspaces
-    ```
-  </TabItem>
-</Tabs>
+### Basic Check
+```bash
+# Check for vulnerabilities and display a report
+pastoralist --checkSecurity
+```
+
+### Auto Fix
+```bash
+# Automatically apply security fixes
+pastoralist --checkSecurity --forceSecurityRefactor
+```
+
+### Interactive
+```bash
+# Choose which fixes to apply
+pastoralist --checkSecurity --interactive
+```
+
+### Workspaces
+```bash
+# Include workspace packages in the scan
+pastoralist --checkSecurity --includeWorkspaces
+```
 
 ## Configuration
 
@@ -92,32 +86,22 @@ You can configure security settings in your `package.json`:
 
 Currently, Pastoralist uses the [OSV database](https://osv.dev/) as its security provider. OSV is a distributed vulnerability database for open source, created by Google and the open source community.
 
-<Card title="Benefits of OSV" icon="shield">
-  - Fully open source and transparent
-  - No authentication required
-  - Aggregates data from multiple vulnerability sources
-  - Fast and reliable API
-  - Comprehensive coverage of npm packages
-</Card>
+#### Benefits of OSV
+
+- Fully open source and transparent
+- No authentication required
+- Aggregates data from multiple vulnerability sources
+- Fast and reliable API
+- Comprehensive coverage of npm packages
 
 ### Planned Providers
 
 Support for additional providers is planned for future releases:
 
-<CardGrid>
-  <Card title="GitHub" icon="github">
-    Dependabot alerts API
-  </Card>
-  <Card title="Snyk" icon="warning">
-    Commercial vulnerability database
-  </Card>
-  <Card title="NPM" icon="npm">
-    Native npm audit data
-  </Card>
-  <Card title="Socket" icon="puzzle">
-    Supply chain security analysis
-  </Card>
-</CardGrid>
+- **GitHub**: Dependabot alerts API
+- **Snyk**: Commercial vulnerability database
+- **NPM**: Native npm audit data
+- **Socket**: Supply chain security analysis
 
 ## How It Works
 
@@ -169,20 +153,10 @@ Found 3 vulnerable package(s):
 
 ## Best Practices
 
-<CardGrid>
-  <Card title="Regular Scanning" icon="rocket">
-    Run security checks as part of your CI/CD pipeline
-  </Card>
-  <Card title="Review First" icon="document">
-    Always review suggested fixes before applying them
-  </Card>
-  <Card title="Test After Fixes" icon="seti:test-js">
-    Ensure your application still works after applying security overrides
-  </Card>
-  <Card title="Monitor Workspaces" icon="folder">
-    In monorepos, consider enabling workspace scanning for comprehensive coverage
-  </Card>
-</CardGrid>
+- **Regular Scanning**: Run security checks as part of your CI/CD pipeline
+- **Review First**: Always review suggested fixes before applying them
+- **Test After Fixes**: Ensure your application still works after applying security overrides
+- **Monitor Workspaces**: In monorepos, consider enabling workspace scanning for comprehensive coverage
 
 ## Limitations
 
@@ -212,34 +186,33 @@ Found 3 vulnerable package(s):
 
 ## Example: CI/CD Integration
 
-<Tabs>
-  <TabItem label="GitHub Actions">
-    ```yaml
-    name: Security Check
-    on: [push, pull_request]
-    
-    jobs:
-      security:
-        runs-on: ubuntu-latest
-        steps:
-          - uses: actions/checkout@v3
-          - uses: actions/setup-node@v3
-          - run: npm install
-          - run: npx pastoralist --checkSecurity
-    ```
-  </TabItem>
-  <TabItem label="GitLab CI">
-    ```yaml
-    security:
-      script:
-        - npm install
-        - npx pastoralist --checkSecurity
-      only:
-        - main
-        - merge_requests
-    ```
-  </TabItem>
-</Tabs>
+### GitHub Actions
+
+```yaml
+name: Security Check
+on: [push, pull_request]
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+      - run: npm install
+      - run: npx pastoralist --checkSecurity
+```
+
+### GitLab CI
+
+```yaml
+security:
+  script:
+    - npm install
+    - npx pastoralist --checkSecurity
+  only:
+    - main
+    - merge_requests
+```
 
 ## Contributing
 

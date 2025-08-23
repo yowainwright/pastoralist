@@ -24,7 +24,7 @@ const searchData = await getSearchData();
             d="M4 6h16M4 12h16M4 18h16"></path>
         </svg>
       </label>
-      <Search client:load searchData={searchData} />
+      <Search client:only="react" searchData={searchData} />
     </div>
 
     <div class="navbar-end">

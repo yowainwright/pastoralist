@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Fuse from "fuse.js";
 import { resolveDocsUrl } from "../../utils/urlResolver";

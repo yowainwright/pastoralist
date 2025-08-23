@@ -16,10 +16,10 @@ export interface PastoralistJSON {
     appendix?: Appendix;
     security?: {
       enabled?: boolean; // Default: false
-      provider?: "github" | "snyk" | "npm";
+      provider?: "osv" | "github" | "snyk" | "npm" | "socket";
       autoFix?: boolean;
       interactive?: boolean;
-      githubToken?: string;
+      providerToken?: string;
       severityThreshold?: "low" | "medium" | "high" | "critical";
       excludePackages?: string[];
       includeWorkspaces?: boolean; // Default: false
@@ -70,9 +70,10 @@ export interface Options {
   ignore?: string[];
   checkSecurity?: boolean;
   forceSecurityRefactor?: boolean;
-  securityProvider?: "github" | "snyk" | "npm";
-  githubToken?: string;
+  securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket";
+  providerToken?: string;
   interactive?: boolean;
+  includeWorkspaces?: boolean;
   securityOverrides?: OverridesType;
 }
 

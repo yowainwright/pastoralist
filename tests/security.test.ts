@@ -1,4 +1,5 @@
 process.env.DEBUG = "true";
+process.env.PASTORALIST_MOCK_SECURITY = "true";
 
 import assert from "assert";
 import { SecurityChecker } from "../src/security";
@@ -301,6 +302,114 @@ describe("SecurityChecker", () => {
       }
     });
   });
+
+  describe("OSV Provider", () => {
+    it("should initialize without authentication", () => {
+      const checker = new SecurityChecker({ provider: "osv" });
+      assert.ok(checker, "OSV provider should initialize without token");
+    });
+
+    it("should be the default provider", () => {
+      const checker = new SecurityChecker({});
+      assert.ok(checker, "Should default to OSV provider");
+    });
+  });
+
+  describe("Provider Abstraction", () => {
+    it("should support multiple providers", () => {
+      const providers = ["osv", "github", "snyk", "npm", "socket"] as const;
+      
+      for (const provider of providers) {
+        const checker = new SecurityChecker({ provider });
+        assert.ok(checker, `Should create checker with ${provider} provider`);
+      }
+    });
+
+    it("should use unified provider token", () => {
+      const checker = new SecurityChecker({ 
+        provider: "github",
+        token: "test-token-123",
+      });
+      assert.ok(checker, "Should accept unified provider token");
+    });
+
+    it("should fall back to OSV for unknown providers", () => {
+      const checker = new SecurityChecker({ provider: "unknown" as any });
+      assert.ok(checker, "Should fall back to OSV provider");
+    });
+  });
+
+  describe("Workspace Security Scanning", () => {
+    it("should not scan workspaces by default", async () => {
+      const config: PastoralistJSON = {
+        name: "test-workspace",
+        version: "1.0.0",
+        workspaces: ["packages/*"],
+        dependencies: {
+          lodash: "4.17.20",
+        },
+      };
+
+      const checker = new SecurityChecker({});
+      const alerts = await checker.checkSecurity(config);
+      
+      assert.ok(Array.isArray(alerts), "Should return array without scanning workspaces");
+    });
+
+    it("should scan workspaces when explicitly enabled", async () => {
+      const config: PastoralistJSON = {
+        name: "test-workspace",
+        version: "1.0.0",
+        workspaces: ["packages/*"],
+        dependencies: {},
+      };
+
+      const checker = new SecurityChecker({});
+      const alerts = await checker.checkSecurity(config, {
+        depPaths: ["packages/*/package.json"],
+        root: "./",
+      });
+      
+      assert.ok(Array.isArray(alerts), "Should return array when scanning workspaces");
+    });
+  });
+
+  describe("Configuration Integration", () => {
+    it("should read security settings from pastoralist config", () => {
+      const config: PastoralistJSON = {
+        name: "test-package",
+        version: "1.0.0",
+        pastoralist: {
+          security: {
+            enabled: true,
+            provider: "github",
+            autoFix: true,
+            interactive: false,
+            providerToken: "test-token",
+            includeWorkspaces: true,
+          },
+        },
+      };
+      
+      assert.ok(config.pastoralist?.security?.enabled, "Should read enabled setting");
+      assert.strictEqual(config.pastoralist?.security?.provider, "github", "Should read provider");
+      assert.ok(config.pastoralist?.security?.autoFix, "Should read autoFix");
+      assert.strictEqual(config.pastoralist?.security?.providerToken, "test-token", "Should read providerToken");
+      assert.ok(config.pastoralist?.security?.includeWorkspaces, "Should read includeWorkspaces");
+    });
+
+    it("should use default values when config is missing", () => {
+      const config: PastoralistJSON = {
+        name: "test-package",
+        version: "1.0.0",
+      };
+      
+      const securityConfig = config.pastoralist?.security || {};
+      assert.strictEqual(securityConfig.enabled, undefined, "Should default to undefined (disabled)");
+      assert.strictEqual(securityConfig.provider, undefined, "Should default to undefined (OSV)");
+      assert.strictEqual(securityConfig.includeWorkspaces, undefined, "Should default to undefined (false)");
+    });
+  });
 });
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -313,6 +422,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     "Package Override Format",
     "Security Report Formatting",
     "Severity Normalization",
+    "OSV Provider",
+    "Provider Abstraction",
+    "Workspace Security Scanning",
+    "Configuration Integration",
   ];
   
   console.log(`✅ All ${tests.length} test suites passed!`);

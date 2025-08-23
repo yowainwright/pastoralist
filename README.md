@@ -117,6 +117,7 @@ Configure security checks in your `package.json`:
     "provider": "github",          // Security provider (github, npm, snyk - coming soon)
     "autoFix": false,             // Automatically apply fixes
     "interactive": false,         // Use interactive mode
+    "includeWorkspaces": false,   // Include workspace packages in scan (default: false for performance)
     "severityThreshold": "medium", // Minimum severity to report (low, medium, high, critical)
     "excludePackages": []         // Packages to exclude from security checks
   }

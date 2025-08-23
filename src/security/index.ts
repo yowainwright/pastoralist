@@ -9,13 +9,142 @@ import { logger } from "../scripts";
 import { compareVersions } from "compare-versions";
 import { InteractiveSecurityManager } from "./interactive";
 
+abstract class SecurityProvider {
+  protected debug: boolean;
+  protected log: ReturnType<typeof logger>;
+  
+  constructor(options: { debug?: boolean } = {}) {
+    this.debug = options.debug || false;
+    this.log = logger({ file: `security/${this.name}.ts`, isLogging: this.debug });
+  }
+  
+  abstract get name(): string;
+  abstract get requiresAuth(): boolean;
+  abstract isAvailable(): Promise<boolean>;
+  abstract fetchAlerts(packages: Array<{ name: string; version: string }>): Promise<SecurityAlert[]>;
+}
+
+class OSVProvider extends SecurityProvider {
+  get name() { return "osv"; }
+  get requiresAuth() { return false; }
+  
+  async isAvailable(): Promise<boolean> {
+    try {
+      const response = await fetch("https://api.osv.dev/v1/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ package: { name: "test", ecosystem: "npm" } }),
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+  
+  async fetchAlerts(packages: Array<{ name: string; version: string }>): Promise<SecurityAlert[]> {
+    const alerts: SecurityAlert[] = [];
+    
+    for (const pkg of packages) {
+      try {
+        const response = await fetch("https://api.osv.dev/v1/query", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            package: { name: pkg.name, ecosystem: "npm" },
+            version: pkg.version,
+          }),
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.vulns && data.vulns.length > 0) {
+            alerts.push(...this.convertOSVAlerts(pkg, data.vulns));
+          }
+        }
+      } catch (error) {
+        this.log.debug(`Failed to check ${pkg.name}@${pkg.version}`, "fetchAlerts", { error });
+      }
+    }
+    
+    return alerts;
+  }
+  
+  private convertOSVAlerts(pkg: { name: string; version: string }, vulns: any[]): SecurityAlert[] {
+    return vulns.map(vuln => ({
+      packageName: pkg.name,
+      currentVersion: pkg.version,
+      vulnerableVersions: this.extractVersionRange(vuln),
+      patchedVersion: this.extractPatchedVersion(vuln),
+      severity: this.extractSeverity(vuln),
+      title: vuln.summary || vuln.details || `Vulnerability in ${pkg.name}`,
+      description: vuln.details,
+      cve: this.extractCVE(vuln),
+      url: vuln.references?.[0]?.url || `https://osv.dev/vulnerability/${vuln.id}`,
+      fixAvailable: !!this.extractPatchedVersion(vuln),
+    }));
+  }
+  
+  private extractVersionRange(vuln: any): string {
+    const affected = vuln.affected?.[0];
+    if (affected?.ranges?.[0]?.events) {
+      const events = affected.ranges[0].events;
+      const introduced = events.find((e: any) => e.introduced)?.introduced || "0";
+      const fixed = events.find((e: any) => e.fixed)?.fixed;
+      return fixed ? `>= ${introduced} < ${fixed}` : `>= ${introduced}`;
+    }
+    return "";
+  }
+  
+  private extractPatchedVersion(vuln: any): string | undefined {
+    const affected = vuln.affected?.[0];
+    const events = affected?.ranges?.[0]?.events || [];
+    const fixed = events.find((e: any) => e.fixed)?.fixed;
+    return fixed;
+  }
+  
+  private extractSeverity(vuln: any): "low" | "medium" | "high" | "critical" {
+    const severity = vuln.database_specific?.severity || 
+                    vuln.severity?.[0]?.score || 
+                    "medium";
+    
+    if (typeof severity === "string") {
+      const s = severity.toLowerCase();
+      if (["low", "medium", "high", "critical"].includes(s)) {
+        return s as "low" | "medium" | "high" | "critical";
+      }
+    }
+    
+    return "medium";
+  }
+  
+  private extractCVE(vuln: any): string | undefined {
+    return vuln.aliases?.find((a: string) => a.startsWith("CVE-"));
+  }
+}
+
 export class SecurityChecker {
-  private provider: GitHubSecurityProvider;
+  private provider: SecurityProvider;
   private log: ReturnType<typeof logger>;
+  private useGitHubFallback: boolean = false;
 
   constructor(options: SecurityCheckOptions & { debug?: boolean }) {
-    this.provider = new GitHubSecurityProvider(options);
     this.log = logger({ file: "security/index.ts", isLogging: options.debug });
+    this.provider = this.createProvider(options);
+  }
+
+  private createProvider(options: SecurityCheckOptions & { debug?: boolean }): SecurityProvider {
+    const providerType = options.provider || "osv";
+    
+    switch (providerType) {
+      case "osv":
+        return new OSVProvider({ debug: options.debug });
+      case "github":
+        this.useGitHubFallback = true;
+        return new OSVProvider({ debug: options.debug });
+      default:
+        this.log.debug(`Provider ${providerType} not yet implemented, using OSV`, "createProvider");
+        return new OSVProvider({ debug: options.debug });
+    }
   }
 
   async checkSecurity(
@@ -25,12 +154,17 @@ export class SecurityChecker {
     this.log.debug("Starting security check", "checkSecurity");
 
     try {
-      const alerts = await this.provider.fetchDependabotAlerts();
-      this.log.debug(`Found ${alerts.length} Dependabot alerts`, "checkSecurity");
-
-      const securityAlerts = this.provider.convertToSecurityAlerts(alerts);
+      const packages = this.extractPackages(config);
       
-      let allVulnerablePackages = this.findVulnerablePackages(config, securityAlerts);
+      if (packages.length === 0) {
+        this.log.debug("No packages to check", "checkSecurity");
+        return [];
+      }
+      
+      const alerts = await this.provider.fetchAlerts(packages);
+      this.log.debug(`Found ${alerts.length} security alerts`, "checkSecurity");
+      
+      let allVulnerablePackages = alerts;
       
       if (options.depPaths && options.depPaths.length > 0) {
         this.log.debug("Scanning workspace packages for vulnerabilities", "checkSecurity");
@@ -62,6 +196,22 @@ export class SecurityChecker {
       this.log.error("Security check failed", "checkSecurity", { error });
       throw error;
     }
+  }
+
+  private extractPackages(config: PastoralistJSON): Array<{ name: string; version: string }> {
+    const packages: Array<{ name: string; version: string }> = [];
+    const allDeps = {
+      ...config.dependencies,
+      ...config.devDependencies,
+      ...config.peerDependencies,
+    };
+    
+    for (const [name, version] of Object.entries(allDeps)) {
+      const cleanVersion = version.replace(/^[\^~]/, "");
+      packages.push({ name, version: cleanVersion });
+    }
+    
+    return packages;
   }
 
   private findVulnerablePackages(

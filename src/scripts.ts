@@ -168,6 +168,7 @@ export const update = async (options: Options): Promise<void> => {
 
   const removableItems = findUnusedOverrides(overrides, allDeps);
   let finalOverrides = overrides;
+  let finalAppendix = appendix;
 
   if (removableItems.length > 0) {
     log.debug(
@@ -176,12 +177,23 @@ export const update = async (options: Options): Promise<void> => {
     );
     finalOverrides =
       updateOverrides(overridesData, removableItems) || overrides;
+    
+    finalAppendix = { ...appendix };
+    for (const item of removableItems) {
+      const keysToRemove = Object.keys(finalAppendix).filter(key => 
+        key.startsWith(`${item}@`)
+      );
+      for (const key of keysToRemove) {
+        delete finalAppendix[key];
+        log.debug(`Removed appendix entry for ${key}`, "update");
+      }
+    }
   }
 
   if (isTesting) return;
 
   await updatePackageJSON({
-    appendix,
+    appendix: finalAppendix,
     path,
     config,
     overrides: finalOverrides,

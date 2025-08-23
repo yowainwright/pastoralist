@@ -12,19 +12,7 @@ export interface PastoralistJSON {
   overrides?: Record<string, OverrideValue>;
   pnpm?: { overrides?: Record<string, OverrideValue> };
   workspaces?: string[];
-  pastoralist?: {
-    appendix?: Appendix;
-    security?: {
-      enabled?: boolean; // Default: false
-      provider?: "osv" | "github" | "snyk" | "npm" | "socket";
-      autoFix?: boolean;
-      interactive?: boolean;
-      securityProviderToken?: string;
-      severityThreshold?: "low" | "medium" | "high" | "critical";
-      excludePackages?: string[];
-      includeWorkspaces?: boolean; // Default: false
-    };
-  };
+  pastoralist?: PastoralistConfig;
 }
 
 export interface AppendixItem {
@@ -34,6 +22,20 @@ export interface AppendixItem {
 }
 export interface Appendix {
   [key: string]: AppendixItem;
+}
+
+export interface PastoralistConfig {
+  appendix?: Appendix;
+  security?: {
+    enabled?: boolean;
+    provider?: "osv" | "github" | "snyk" | "npm" | "socket";
+    autoFix?: boolean;
+    interactive?: boolean;
+    securityProviderToken?: string;
+    severityThreshold?: "low" | "medium" | "high" | "critical";
+    excludePackages?: string[];
+    includeWorkspaces?: boolean;
+  };
 }
 
 export interface OverridesConfig {

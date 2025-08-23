@@ -1,0 +1,252 @@
+---
+title: Security Vulnerability Detection
+description: Detect and fix security vulnerabilities in your dependencies
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Pastoralist includes an experimental security feature that can detect vulnerabilities in your dependencies and automatically generate package overrides to fix them.
+
+## Overview
+
+The security feature scans your project's dependencies against vulnerability databases and suggests or applies fixes through package overrides. This helps maintain secure dependencies without manual intervention.
+
+## Quick Start
+
+<Tabs>
+  <TabItem label="Basic Check">
+    ```bash
+    # Check for vulnerabilities and display a report
+    pastoralist --checkSecurity
+    ```
+  </TabItem>
+  <TabItem label="Auto Fix">
+    ```bash
+    # Automatically apply security fixes
+    pastoralist --checkSecurity --forceSecurityRefactor
+    ```
+  </TabItem>
+  <TabItem label="Interactive">
+    ```bash
+    # Choose which fixes to apply
+    pastoralist --checkSecurity --interactive
+    ```
+  </TabItem>
+  <TabItem label="Workspaces">
+    ```bash
+    # Include workspace packages in the scan
+    pastoralist --checkSecurity --includeWorkspaces
+    ```
+  </TabItem>
+</Tabs>
+
+## Configuration
+
+You can configure security settings in your `package.json`:
+
+```json
+{
+  "pastoralist": {
+    "security": {
+      "enabled": false,
+      "provider": "osv",
+      "autoFix": false,
+      "interactive": false,
+      "securityProviderToken": "",
+      "includeWorkspaces": false,
+      "severityThreshold": "medium",
+      "excludePackages": []
+    }
+  }
+}
+```
+
+### Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enabled` | boolean | `false` | Enable automatic security checks when running pastoralist |
+| `provider` | string | `"osv"` | Security provider to use (currently only "osv" is implemented) |
+| `autoFix` | boolean | `false` | Automatically apply security fixes without prompting |
+| `interactive` | boolean | `false` | Use interactive mode to select which fixes to apply |
+| `securityProviderToken` | string | `""` | Authentication token for providers that require it (future use) |
+| `includeWorkspaces` | boolean | `false` | Include workspace packages in security scan |
+| `severityThreshold` | string | `"medium"` | Minimum severity level to report (low, medium, high, critical) |
+| `excludePackages` | array | `[]` | List of package names to exclude from security checks |
+
+## CLI Options
+
+| Option | Description |
+|--------|-------------|
+| `--checkSecurity` | Enable security vulnerability checking |
+| `--forceSecurityRefactor` | Automatically apply security fixes without prompting |
+| `--securityProvider <provider>` | Specify the security provider (default: "osv") |
+| `--securityProviderToken <token>` | Provide authentication token for the security provider |
+| `--interactive` | Use interactive mode to select fixes |
+| `--includeWorkspaces` | Include workspace packages in the security scan |
+
+## Security Providers
+
+### OSV (Open Source Vulnerabilities)
+
+Currently, Pastoralist uses the [OSV database](https://osv.dev/) as its security provider. OSV is a distributed vulnerability database for open source, created by Google and the open source community.
+
+<Card title="Benefits of OSV" icon="shield">
+  - Fully open source and transparent
+  - No authentication required
+  - Aggregates data from multiple vulnerability sources
+  - Fast and reliable API
+  - Comprehensive coverage of npm packages
+</Card>
+
+### Planned Providers
+
+Support for additional providers is planned for future releases:
+
+<CardGrid>
+  <Card title="GitHub" icon="github">
+    Dependabot alerts API
+  </Card>
+  <Card title="Snyk" icon="warning">
+    Commercial vulnerability database
+  </Card>
+  <Card title="NPM" icon="npm">
+    Native npm audit data
+  </Card>
+  <Card title="Socket" icon="puzzle">
+    Supply chain security analysis
+  </Card>
+</CardGrid>
+
+## How It Works
+
+1. **Scanning**: Pastoralist extracts all dependencies from your `package.json` (and optionally workspace packages)
+2. **Checking**: Dependencies are checked against the OSV database for known vulnerabilities
+3. **Reporting**: Vulnerable packages are displayed with severity levels and available fixes
+4. **Fixing**: If fixes are available, Pastoralist can:
+   - Display them for review
+   - Apply them automatically (with `--forceSecurityRefactor`)
+   - Let you choose interactively (with `--interactive`)
+5. **Applying**: Selected fixes are added to your `package.json` overrides section
+
+## Example Output
+
+```
+🔒 pastoralist checking for security vulnerabilities...
+
+🔒 Security Check Report
+══════════════════════════════════════════════════
+
+Found 3 vulnerable package(s):
+
+🔥 lodash@4.17.20
+   Prototype Pollution
+   CVE: CVE-2021-23337
+   ✅ Fix available: 4.17.21
+   🔗 https://osv.dev/vulnerability/GHSA-35jh-r3h4-6jhm
+
+⚠️ minimist@1.2.5
+   Prototype Pollution
+   CVE: CVE-2021-44906
+   ✅ Fix available: 1.2.6
+   🔗 https://osv.dev/vulnerability/GHSA-xvch-5gv4-984h
+
+📝 Generated 2 override(s):
+
+  "lodash": "4.17.21" // Security fix: Prototype Pollution (high)
+  "minimist": "1.2.6" // Security fix: Prototype Pollution (medium)
+```
+
+## Performance Considerations
+
+:::caution[Performance Impact]
+- Security scanning is **disabled by default** to maintain fast performance
+- Workspace scanning is **opt-in** via the `includeWorkspaces` option
+- The OSV provider is optimized for batch queries
+- Results are processed in parallel when possible
+:::
+
+## Best Practices
+
+<CardGrid>
+  <Card title="Regular Scanning" icon="rocket">
+    Run security checks as part of your CI/CD pipeline
+  </Card>
+  <Card title="Review First" icon="document">
+    Always review suggested fixes before applying them
+  </Card>
+  <Card title="Test After Fixes" icon="seti:test-js">
+    Ensure your application still works after applying security overrides
+  </Card>
+  <Card title="Monitor Workspaces" icon="folder">
+    In monorepos, consider enabling workspace scanning for comprehensive coverage
+  </Card>
+</CardGrid>
+
+## Limitations
+
+:::note[Current Limitations]
+- Currently only supports npm packages
+- Only the OSV provider is implemented
+- Interactive mode requires the `inquirer` package (installed on demand)
+- Some vulnerabilities may not have available fixes
+:::
+
+## Troubleshooting
+
+### No vulnerabilities found when expected
+- Ensure you're using the latest version of pastoralist
+- Check that your dependencies are correctly specified in package.json
+- Try running with `--debug` to see detailed logs
+
+### Fixes not being applied
+- Verify you have write permissions to package.json
+- Check for existing overrides that might conflict
+- Ensure the package manager supports overrides
+
+### Performance issues
+- Disable workspace scanning if not needed
+- Consider excluding large dependency trees with `excludePackages`
+- Use severity threshold to limit results
+
+## Example: CI/CD Integration
+
+<Tabs>
+  <TabItem label="GitHub Actions">
+    ```yaml
+    name: Security Check
+    on: [push, pull_request]
+    
+    jobs:
+      security:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v3
+          - uses: actions/setup-node@v3
+          - run: npm install
+          - run: npx pastoralist --checkSecurity
+    ```
+  </TabItem>
+  <TabItem label="GitLab CI">
+    ```yaml
+    security:
+      script:
+        - npm install
+        - npx pastoralist --checkSecurity
+      only:
+        - main
+        - merge_requests
+    ```
+  </TabItem>
+</Tabs>
+
+## Contributing
+
+The security feature is experimental and we welcome contributions! Areas for improvement:
+- Additional security provider implementations
+- Enhanced vulnerability filtering
+- Better workspace integration
+- Performance optimizations
+
+Please see our [contributing guide](https://github.com/yowainwright/pastoralist/blob/main/CONTRIBUTING.md) for more information.

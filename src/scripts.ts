@@ -276,11 +276,14 @@ export async function updatePackageJSON({
     if (hasAppendix) {
       config.pastoralist = { appendix };
     }
+    
+    // Only set overrides if there are actual overrides to set
+    if (hasOverrides) {
+      if (config?.resolutions !== undefined) config.resolutions = overrides as Record<string, string>;
+      if (config?.overrides !== undefined) config.overrides = overrides;
+      if (config?.pnpm?.overrides !== undefined) config.pnpm.overrides = overrides;
+    }
   }
-
-  if (config?.resolutions) config.resolutions = overrides as Record<string, string>;
-  if (config?.overrides) config.overrides = overrides;
-  if (config?.pnpm?.overrides) config.pnpm.overrides = overrides;
 
   if (isTesting) return config;
 
@@ -493,7 +496,6 @@ export const updateAppendix = ({
         cache.set(key, newAppendixItem);
       });
     } else {
-      // Handle simple overrides
       const hasOverride = depList.includes(override);
       if (!hasOverride) continue;
 
@@ -753,7 +755,6 @@ export const findUnusedOverrides = (
         );
       }
     } else {
-      // Simple override - check if the package itself is in dependencies
       if (!allDependencies[packageName]) {
         unusedOverrides.push(packageName);
         fallbackLog.debug(

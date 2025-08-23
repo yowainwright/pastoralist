@@ -2,6 +2,9 @@ import { readFileSync, writeFileSync, promises as fsPromises } from "fs";
 const { writeFile } = fsPromises;
 import { resolve } from "path";
 import fg from "fast-glob";
+import { execFile as execFileCallback } from "child_process";
+import { promisify } from "util";
+const execFile = promisify(execFileCallback);
 import { IS_DEBUGGING, LOG_PREFIX } from "./constants";
 import {
   Appendix,
@@ -166,7 +169,7 @@ export const update = async (options: Options): Promise<void> => {
     );
   }
 
-  const removableItems = findUnusedOverrides(overrides, allDeps);
+  const removableItems = await findUnusedOverrides(overrides, allDeps);
   let finalOverrides = overrides;
   let finalAppendix = appendix;
 
@@ -748,20 +751,16 @@ export const findUnusedPatches = (
  * @param allDependencies - Map of all dependencies in the project
  * @returns Array of package names that should be removed from overrides
  */
-export const findUnusedOverrides = (
+export const findUnusedOverrides = async (
   overrides: OverridesType = {},
   allDependencies: Record<string, string> = {},
-): string[] => {
+): Promise<string[]> => {
   const unusedOverrides: string[] = [];
 
-  Object.keys(overrides).forEach((packageName) => {
+  for (const packageName of Object.keys(overrides)) {
     const overrideValue = overrides[packageName];
     
-    // For nested overrides (e.g., { "pg": { "pg-types": "^4.0.1" } })
-    // we check if the parent package (pg) is in dependencies
-    // Nested overrides are used to override transitive dependencies
     if (typeof overrideValue === "object") {
-      // This is a nested override - check if the parent package is in dependencies
       if (!allDependencies[packageName]) {
         unusedOverrides.push(packageName);
         fallbackLog.debug(
@@ -771,14 +770,41 @@ export const findUnusedOverrides = (
       }
     } else {
       if (!allDependencies[packageName]) {
-        unusedOverrides.push(packageName);
-        fallbackLog.debug(
-          `Found potentially unused override for ${packageName}: not in direct dependencies`,
-          "findUnusedOverrides",
-        );
+        try {
+          const { stdout } = await execFile('npm', ['ls', packageName, '--json'], { 
+            encoding: 'utf8',
+            maxBuffer: 1024 * 1024 * 10
+          }).catch((error) => {
+            if (error.code === 1 && error.stdout) {
+              return { stdout: error.stdout };
+            }
+            throw error;
+          });
+          
+          const result = JSON.parse(stdout);
+          const hasPackage = result.dependencies && Object.keys(result.dependencies).length > 0;
+          
+          if (!hasPackage) {
+            unusedOverrides.push(packageName);
+            fallbackLog.debug(
+              `Found unused override for ${packageName}: not in dependency tree`,
+              "findUnusedOverrides",
+            );
+          } else {
+            fallbackLog.debug(
+              `Keeping override for ${packageName}: found in dependency tree`,
+              "findUnusedOverrides",
+            );
+          }
+        } catch (error) {
+          fallbackLog.debug(
+            `Keeping override for ${packageName}: unable to verify dependency tree - ${error}`,
+            "findUnusedOverrides",
+          );
+        }
       }
     }
-  });
+  }
 
   return unusedOverrides;
 };

@@ -168,6 +168,7 @@ export const update = async (options: Options): Promise<void> => {
 
   const removableItems = findUnusedOverrides(overrides, allDeps);
   let finalOverrides = overrides;
+  let finalAppendix = appendix;
 
   if (removableItems.length > 0) {
     log.debug(
@@ -176,12 +177,23 @@ export const update = async (options: Options): Promise<void> => {
     );
     finalOverrides =
       updateOverrides(overridesData, removableItems) || overrides;
+    
+    finalAppendix = { ...appendix };
+    for (const item of removableItems) {
+      const keysToRemove = Object.keys(finalAppendix).filter(key => 
+        key.startsWith(`${item}@`)
+      );
+      for (const key of keysToRemove) {
+        delete finalAppendix[key];
+        log.debug(`Removed appendix entry for ${key}`, "update");
+      }
+    }
   }
 
   if (isTesting) return;
 
   await updatePackageJSON({
-    appendix,
+    appendix: finalAppendix,
     path,
     config,
     overrides: finalOverrides,
@@ -496,11 +508,7 @@ export const updateAppendix = ({
         cache.set(key, newAppendixItem);
       });
     } else {
-      const hasOverride = depList.includes(override);
-      if (!hasOverride) continue;
-
       const overrideVersion = overrideValue;
-      const packageVersion = deps[override];
       const key = `${override}@${overrideVersion}`;
       if (cache.has(key)) {
         appendix[key] = cache.get(key)!;
@@ -508,9 +516,16 @@ export const updateAppendix = ({
       }
 
       const currentDependents = appendix?.[key]?.dependents || {};
+      const hasOverride = depList.includes(override);
+      const packageVersion = deps[override];
+      
+      const dependentInfo = hasOverride 
+        ? `${override}@${packageVersion}`
+        : `${override} (transitive dependency)`;
+      
       const newDependents = {
         ...currentDependents,
-        [packageName]: `${override}@${packageVersion}`,
+        [packageName]: dependentInfo,
       };
 
       const newAppendixItem = { dependents: newDependents };
@@ -758,7 +773,7 @@ export const findUnusedOverrides = (
       if (!allDependencies[packageName]) {
         unusedOverrides.push(packageName);
         fallbackLog.debug(
-          `Found unused override for ${packageName}: no longer in dependencies`,
+          `Found potentially unused override for ${packageName}: not in direct dependencies`,
           "findUnusedOverrides",
         );
       }

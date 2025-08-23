@@ -39,7 +39,7 @@ export async function action(options: Options = {}): Promise<void> {
       securityProvider: options.securityProvider ?? securityConfig.provider ?? "osv",
       securityProviderToken: options.securityProviderToken ?? securityConfig.securityProviderToken,
       interactive: options.interactive ?? securityConfig.interactive,
-      includeWorkspaces: options.includeWorkspaces ?? securityConfig.includeWorkspaces,
+      hasWorkspaceSecurityChecks: options.hasWorkspaceSecurityChecks ?? securityConfig.hasWorkspaceSecurityChecks,
     };
     
     // Run security check if enabled
@@ -56,8 +56,8 @@ export async function action(options: Options = {}): Promise<void> {
         debug: isLogging,
       });
       
-      const includeWorkspaces = mergedOptions.includeWorkspaces || false;
-      const workspacePaths = includeWorkspaces && config?.workspaces ? 
+      const hasWorkspaceSecurityChecks = mergedOptions.hasWorkspaceSecurityChecks || false;
+      const workspacePaths = hasWorkspaceSecurityChecks && config?.workspaces ? 
         config.workspaces.map((ws: string) => `${ws}/package.json`) : 
         undefined;
       
@@ -113,7 +113,7 @@ program
   .option("--securityProvider <provider>", "security provider to use (osv, github, snyk, npm, socket)", "osv")
   .option("--securityProviderToken <token>", "Security provider token for API access (if required)")
   .option("--interactive", "run security checks in interactive mode")
-  .option("--includeWorkspaces", "include workspace packages in security scan")
+  .option("--hasWorkspaceSecurityChecks", "include workspace packages in security scan")
   .action(action)
   .parse(process.argv);
 

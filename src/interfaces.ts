@@ -14,6 +14,16 @@ export interface PastoralistJSON {
   workspaces?: string[];
   pastoralist?: {
     appendix?: Appendix;
+    security?: {
+      enabled?: boolean; // Default: false
+      provider?: "osv" | "github" | "snyk" | "npm" | "socket";
+      autoFix?: boolean;
+      interactive?: boolean;
+      securityProviderToken?: string;
+      severityThreshold?: "low" | "medium" | "high" | "critical";
+      excludePackages?: string[];
+      includeWorkspaces?: boolean; // Default: false
+    };
   };
 }
 
@@ -58,6 +68,13 @@ export interface Options {
   root?: string;
   depPaths?: string[];
   ignore?: string[];
+  checkSecurity?: boolean;
+  forceSecurityRefactor?: boolean;
+  securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket";
+  securityProviderToken?: string;
+  interactive?: boolean;
+  includeWorkspaces?: boolean;
+  securityOverrides?: OverridesType;
 }
 
 export interface OverridesType {

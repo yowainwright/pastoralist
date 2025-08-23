@@ -55,7 +55,16 @@ export async function action(options: Options = {}): Promise<void> {
         debug: isLogging,
       });
       
-      const securityOverrides = await securityChecker.checkSecurity(config!, mergedOptions);
+      const includeWorkspaces = securityConfig.includeWorkspaces || false;
+      const workspacePaths = includeWorkspaces && config?.workspaces ? 
+        config.workspaces.map(ws => `${ws}/package.json`) : 
+        undefined;
+      
+      const securityOverrides = await securityChecker.checkSecurity(config!, {
+        ...mergedOptions,
+        depPaths: workspacePaths,
+        root: options.root || "./",
+      });
       
       if (securityOverrides.length > 0) {
         const report = securityChecker.formatSecurityReport([], securityOverrides);

@@ -22,6 +22,7 @@ export interface PastoralistJSON {
       githubToken?: string;
       severityThreshold?: "low" | "medium" | "high" | "critical";
       excludePackages?: string[];
+      includeWorkspaces?: boolean; // Default: false
     };
   };
 }

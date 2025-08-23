@@ -864,53 +864,64 @@ describe("constructAppendix", () => {
         "another-dep": "^3.0.0",
       },
     };
-    jsonCache.set("tests/fixtures/package-a.json", mockPackageJSON);
+    
+    // Create a temporary copy of the fixture file
+    const tempFixturePath = "tests/fixtures/package-a-temp.json";
+    try {
+      fs.writeFileSync(tempFixturePath, JSON.stringify(mockPackageJSON, null, 2));
+      jsonCache.set(tempFixturePath, mockPackageJSON);
 
-    const packageJSONs = ["tests/fixtures/package-a.json"];
+      const packageJSONs = [tempFixturePath];
 
-    const overridesData = {
-      type: "npm",
-      overrides: {
-        "vulnerable-dep": "^2.0.0",
-        "another-dep": "^3.0.0",
-      },
-    };
-
-    const mockAppendix = {
-      "vulnerable-dep@^2.0.0": {
-        dependents: {
-          "package-a": "vulnerable-dep@^1.0.0",
+      const overridesData = {
+        type: "npm",
+        overrides: {
+          "vulnerable-dep": "^2.0.0",
+          "another-dep": "^3.0.0",
         },
-      },
-      "another-dep@^3.0.0": {
-        dependents: {
-          "package-a": "another-dep@^3.0.0",
+      };
+
+      const mockAppendix = {
+        "vulnerable-dep@^2.0.0": {
+          dependents: {
+            "package-a": "vulnerable-dep@^1.0.0",
+          },
         },
-      },
-    };
+        "another-dep@^3.0.0": {
+          dependents: {
+            "package-a": "another-dep@^3.0.0",
+          },
+        },
+      };
 
-    const originalProcessPackageJSON = processPackageJSON;
-    (global as any).processPackageJSON = async () => ({
-      appendix: mockAppendix,
-    });
+      const originalProcessPackageJSON = processPackageJSON;
+      (global as any).processPackageJSON = async () => ({
+        appendix: mockAppendix,
+      });
 
-    const testLog = logger({ file: "test", isLogging: false });
-    const appendix = await constructAppendix(
-      packageJSONs,
-      overridesData,
-      {},
-      testLog,
-    );
+      const testLog = logger({ file: "test", isLogging: false });
+      const appendix = await constructAppendix(
+        packageJSONs,
+        overridesData,
+        {},
+        testLog,
+      );
 
-    fs.readFileSync = originalReadFileSync;
-    (global as any).processPackageJSON = originalProcessPackageJSON;
+      fs.readFileSync = originalReadFileSync;
+      (global as any).processPackageJSON = originalProcessPackageJSON;
 
-    assert.ok(appendix, "Appendix should be defined");
-    assert.deepStrictEqual(
-      appendix,
-      mockAppendix,
-      "Appendix should match expected result",
-    );
+      assert.ok(appendix, "Appendix should be defined");
+      assert.deepStrictEqual(
+        appendix,
+        mockAppendix,
+        "Appendix should match expected result",
+      );
+    } finally {
+      // Clean up the temporary file
+      try {
+        fs.unlinkSync(tempFixturePath);
+      } catch {}
+    }
   });
   it("should handle different override types", async () => {
     jsonCache.clear();
@@ -922,57 +933,66 @@ describe("constructAppendix", () => {
       },
     };
 
-    // Cache the mock data
-    jsonCache.set("tests/fixtures/package-a.json", mockPackageJSON);
+    // Create a temporary copy of the fixture file
+    const tempFixturePath = "tests/fixtures/package-a-temp-2.json";
+    try {
+      fs.writeFileSync(tempFixturePath, JSON.stringify(mockPackageJSON, null, 2));
+      jsonCache.set(tempFixturePath, mockPackageJSON);
 
-    // Mock fs.readFileSync for the test
-    fs.readFileSync = function mockReadFileSync(path: string, encoding: any) {
-      if (path.includes("package-a.json")) {
-        return JSON.stringify(mockPackageJSON);
-      } else {
-        return originalReadFileSync(path, encoding);
-      }
-    } as any;
+      // Mock fs.readFileSync for the test
+      fs.readFileSync = function mockReadFileSync(path: string, encoding: any) {
+        if (path.includes("package-a-temp-2.json")) {
+          return JSON.stringify(mockPackageJSON);
+        } else {
+          return originalReadFileSync(path, encoding);
+        }
+      } as any;
 
-    const packageJSONs = ["tests/fixtures/package-a.json"];
+      const packageJSONs = [tempFixturePath];
 
-    const resolutionsData = {
-      type: "resolutions",
-      resolutions: {
-        "vulnerable-dep": "^2.0.0",
-      },
-    };
-
-    const mockAppendix = {
-      "vulnerable-dep@^2.0.0": {
-        dependents: {
-          "package-a": "vulnerable-dep@^1.0.0",
+      const resolutionsData = {
+        type: "resolutions",
+        resolutions: {
+          "vulnerable-dep": "^2.0.0",
         },
-      },
-    };
+      };
 
-    const originalProcessPackageJSON = processPackageJSON;
-    (global as any).processPackageJSON = async () => ({
-      appendix: mockAppendix,
-    });
+      const mockAppendix = {
+        "vulnerable-dep@^2.0.0": {
+          dependents: {
+            "package-a": "vulnerable-dep@^1.0.0",
+          },
+        },
+      };
 
-    const testLog = logger({ file: "test", isLogging: false });
-    const appendix = await constructAppendix(
-      packageJSONs,
-      resolutionsData,
-      {},
-      testLog,
-    );
+      const originalProcessPackageJSON = processPackageJSON;
+      (global as any).processPackageJSON = async () => ({
+        appendix: mockAppendix,
+      });
 
-    fs.readFileSync = originalReadFileSync;
-    (global as any).processPackageJSON = originalProcessPackageJSON;
+      const testLog = logger({ file: "test", isLogging: false });
+      const appendix = await constructAppendix(
+        packageJSONs,
+        resolutionsData,
+        {},
+        testLog,
+      );
 
-    assert.ok(appendix, "Appendix should be defined");
-    assert.deepStrictEqual(
-      appendix,
-      mockAppendix,
-      "Appendix should match expected result",
-    );
+      fs.readFileSync = originalReadFileSync;
+      (global as any).processPackageJSON = originalProcessPackageJSON;
+
+      assert.ok(appendix, "Appendix should be defined");
+      assert.deepStrictEqual(
+        appendix,
+        mockAppendix,
+        "Appendix should match expected result",
+      );
+    } finally {
+      // Clean up the temporary file
+      try {
+        fs.unlinkSync(tempFixturePath);
+      } catch {}
+    }
   });
 });
 

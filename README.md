@@ -95,7 +95,7 @@ This is tracked in the appendix as:
 }
 ```
 
-**Security Vulnerability Detection**: Pastoralist can check for security vulnerabilities using GitHub Dependabot alerts and automatically generate overrides to fix them:
+**Security Vulnerability Detection (Experimental)**: Pastoralist can check for security vulnerabilities and automatically generate overrides to fix them:
 
 ```bash
 # Check for vulnerabilities and show report
@@ -106,6 +106,9 @@ pastoralist --checkSecurity --forceSecurityRefactor
 
 # Interactive mode - choose which fixes to apply
 pastoralist --checkSecurity --interactive
+
+# Include workspace packages in security scan
+pastoralist --checkSecurity --includeWorkspaces
 ```
 
 Configure security checks in your `package.json`:
@@ -113,16 +116,21 @@ Configure security checks in your `package.json`:
 ```js
 "pastoralist": {
   "security": {
-    "enabled": false,             // Disabled by default, set to true to enable
-    "provider": "github",          // Security provider (github, npm, snyk - coming soon)
-    "autoFix": false,             // Automatically apply fixes
-    "interactive": false,         // Use interactive mode
-    "includeWorkspaces": false,   // Include workspace packages in scan (default: false for performance)
-    "severityThreshold": "medium", // Minimum severity to report (low, medium, high, critical)
-    "excludePackages": []         // Packages to exclude from security checks
+    "enabled": false,                  // Disabled by default for performance
+    "provider": "osv",                 // Currently only "osv" is implemented
+    "autoFix": false,                  // Automatically apply fixes
+    "interactive": false,              // Use interactive mode  
+    "securityProviderToken": "",       // Token for future providers that require auth
+    "includeWorkspaces": false,        // Include workspace packages (default: false)
+    "severityThreshold": "medium",     // Minimum severity (low, medium, high, critical)
+    "excludePackages": []              // Packages to exclude from checks
   }
 }
 ```
+
+**Note**: Currently, Pastoralist uses the [OSV (Open Source Vulnerabilities)](https://osv.dev/) database for security scanning. OSV is a distributed vulnerability database for open source, created by Google and the open source community. It aggregates vulnerabilities from multiple sources and requires no authentication - making it fast and accessible. Huge thanks to the OSV team for providing this valuable service! 
+
+Support for additional providers (GitHub, Snyk, NPM, Socket) is planned for future releases.
 
 **Patch Support**: Pastoralist now automatically detects and tracks patches (e.g., from `patch-package`) in your project:
 

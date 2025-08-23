@@ -37,7 +37,7 @@ export async function action(options: Options = {}): Promise<void> {
       checkSecurity: options.checkSecurity ?? securityConfig.enabled,
       forceSecurityRefactor: options.forceSecurityRefactor ?? securityConfig.autoFix,
       securityProvider: options.securityProvider ?? securityConfig.provider ?? "osv",
-      providerToken: options.providerToken ?? securityConfig.providerToken,
+      securityProviderToken: options.securityProviderToken ?? securityConfig.securityProviderToken,
       interactive: options.interactive ?? securityConfig.interactive,
       includeWorkspaces: options.includeWorkspaces ?? securityConfig.includeWorkspaces,
     };
@@ -52,7 +52,7 @@ export async function action(options: Options = {}): Promise<void> {
         provider: mergedOptions.securityProvider,
         forceRefactor: mergedOptions.forceSecurityRefactor,
         interactive: mergedOptions.interactive,
-        token: mergedOptions.providerToken,
+        token: mergedOptions.securityProviderToken,
         debug: isLogging,
       });
       
@@ -111,7 +111,7 @@ program
   .option("--checkSecurity", "check for security vulnerabilities and generate overrides")
   .option("--forceSecurityRefactor", "automatically apply security overrides without prompting")
   .option("--securityProvider <provider>", "security provider to use (osv, github, snyk, npm, socket)", "osv")
-  .option("--providerToken <token>", "Provider token for API access (if required)")
+  .option("--securityProviderToken <token>", "Security provider token for API access (if required)")
   .option("--interactive", "run security checks in interactive mode")
   .option("--includeWorkspaces", "include workspace packages in security scan")
   .action(action)

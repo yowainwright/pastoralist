@@ -272,8 +272,10 @@ export async function updatePackageJSON({
         delete config[key as keyof PastoralistJSON];
       }
     }
-  } else if (hasAppendix) {
-    config.pastoralist = { appendix };
+  } else {
+    if (hasAppendix) {
+      config.pastoralist = { appendix };
+    }
   }
 
   if (config?.resolutions) config.resolutions = overrides as Record<string, string>;

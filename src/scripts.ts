@@ -46,7 +46,16 @@ export const update = async (options: Options): Promise<void> => {
   }
 
   const overridesData = resolveOverrides({ options, config });
-  const overrides = getOverridesByType(overridesData);
+  let overrides = getOverridesByType(overridesData);
+
+  // Merge security overrides if provided
+  if (options?.securityOverrides) {
+    log.debug("Merging security overrides", "update");
+    overrides = {
+      ...overrides,
+      ...options.securityOverrides,
+    };
+  }
 
   if (!overrides || Object.keys(overrides).length === 0) {
     log.debug("No overrides found", "update");

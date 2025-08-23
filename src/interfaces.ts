@@ -34,7 +34,7 @@ export interface PastoralistConfig {
     securityProviderToken?: string;
     severityThreshold?: "low" | "medium" | "high" | "critical";
     excludePackages?: string[];
-    includeWorkspaces?: boolean;
+    hasWorkspaceSecurityChecks?: boolean;
   };
 }
 
@@ -75,7 +75,7 @@ export interface Options {
   securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket";
   securityProviderToken?: string;
   interactive?: boolean;
-  includeWorkspaces?: boolean;
+  hasWorkspaceSecurityChecks?: boolean;
   securityOverrides?: OverridesType;
 }
 

@@ -13,14 +13,18 @@ const SIDEBAR = [
         href: resolveDocsUrl("setup"),
       },
       {
-        title: "Interactive Codelab",
-        href: resolveDocsUrl("codelab"),
+        title: "Interactive Demos",
+        href: resolveDocsUrl("demos"),
       },
     ],
   },
   {
-    title: "Guides",
+    title: "Features",
     items: [
+      {
+        title: "Security Scanning",
+        href: resolveDocsUrl("security"),
+      },
       {
         title: "Workspaces & Monorepos",
         href: resolveDocsUrl("workspaces"),
@@ -29,9 +33,22 @@ const SIDEBAR = [
         title: "Advanced Features",
         href: resolveDocsUrl("advanced-features"),
       },
+    ],
+  },
+  {
+    title: "Codelabs",
+    items: [
       {
-        title: "Architecture",
-        href: resolveDocsUrl("architecture"),
+        title: "Basic Usage",
+        href: resolveDocsUrl("codelab-basic"),
+      },
+      {
+        title: "Security Features",
+        href: resolveDocsUrl("codelab-security"),
+      },
+      {
+        title: "Migration Guide",
+        href: resolveDocsUrl("codelab-migration"),
       },
     ],
   },
@@ -41,6 +58,10 @@ const SIDEBAR = [
       {
         title: "API Reference",
         href: resolveDocsUrl("api-reference"),
+      },
+      {
+        title: "Architecture",
+        href: resolveDocsUrl("architecture"),
       },
       {
         title: "Troubleshooting & FAQ",

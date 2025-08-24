@@ -15,6 +15,7 @@ export interface SecurityCheckOptions {
   provider?: "osv" | "github" | "snyk" | "npm" | "socket";
   forceRefactor?: boolean;
   interactive?: boolean;
+  autoFix?: boolean;
   owner?: string;
   repo?: string;
   token?: string;

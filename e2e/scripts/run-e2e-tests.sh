@@ -5,9 +5,9 @@ set -e
 if [ ! -f /.dockerenv ]; then
     echo "🔨 Building Pastoralist..."
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    cd "$SCRIPT_DIR/../../.."
+    cd "$SCRIPT_DIR/../.."
     bun run build
-    cd packages/e2e
+    cd e2e
     
     echo "🐳 Starting E2E Tests..."
     echo "========================"

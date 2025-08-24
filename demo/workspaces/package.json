@@ -1,0 +1,24 @@
+{
+  "name": "pastoralist-workspaces-demo",
+  "version": "1.0.0",
+  "description": "Demo of pastoralist in a monorepo with workspaces",
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "start": "bun run index.ts",
+    "check": "pastoralist --check",
+    "fix": "pastoralist",
+    "fix-workspaces": "pastoralist --includeWorkspaces"
+  },
+  "devDependencies": {
+    "pastoralist": "^1.6.0",
+    "@types/bun": "^1.1.0"
+  },
+  "overrides": {
+    "lodash": "4.17.21",
+    "react": "18.2.0"
+  }
+}

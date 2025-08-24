@@ -1,0 +1,31 @@
+{
+  "name": "pastoralist-migration-demo",
+  "version": "1.0.0",
+  "description": "Demo showing migration from manual overrides to pastoralist",
+  "type": "module",
+  "scripts": {
+    "start": "bun run index.ts",
+    "before": "bun run show-before.ts",
+    "migrate": "bun run migrate.ts",
+    "after": "bun run show-after.ts"
+  },
+  "dependencies": {
+    "lodash": "4.17.15",
+    "express": "4.16.0",
+    "react": "17.0.0",
+    "axios": "0.21.0",
+    "moment": "2.29.0"
+  },
+  "devDependencies": {
+    "pastoralist": "^1.6.0",
+    "@types/bun": "^1.1.0"
+  },
+  "overrides": {
+    "lodash": "4.17.21",
+    "minimist": "1.2.6",
+    "glob-parent": "6.0.2",
+    "trim-newlines": "3.0.1",
+    "node-fetch": "2.6.7"
+  },
+  "comment": "These overrides were added manually over time without documentation"
+}

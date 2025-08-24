@@ -155,7 +155,7 @@ export class SecurityChecker {
 
   async checkSecurity(
     config: PastoralistJSON,
-    options: SecurityCheckOptions & { depPaths?: string[]; root?: string } = {}
+    options: SecurityCheckOptions & { depPaths?: string[]; root?: string; packageJsonPath?: string } = {}
   ): Promise<SecurityOverride[]> {
     this.log.debug("Starting security check", "checkSecurity");
 
@@ -195,6 +195,10 @@ export class SecurityChecker {
           allVulnerablePackages,
           overrides
         );
+      }
+
+      if (options.autoFix && overrides.length > 0) {
+        await this.applyAutoFix(overrides, options.packageJsonPath);
       }
 
       return overrides;
@@ -417,6 +421,128 @@ export class SecurityChecker {
         return "ℹ️";
       default:
         return "⚠️";
+    }
+  }
+
+  async applyAutoFix(
+    overrides: SecurityOverride[],
+    packageJsonPath?: string
+  ): Promise<void> {
+    try {
+      const { readFileSync, writeFileSync, existsSync, copyFileSync } = await import("fs");
+      const { resolve } = await import("path");
+      
+      const pkgPath = packageJsonPath || resolve(process.cwd(), "package.json");
+      
+      if (!existsSync(pkgPath)) {
+        throw new Error(`package.json not found at ${pkgPath}`);
+      }
+
+      const backupPath = `${pkgPath}.backup-${Date.now()}`;
+      copyFileSync(pkgPath, backupPath);
+      this.log.debug(`Created backup at ${backupPath}`, "applyAutoFix");
+
+      const packageJson = JSON.parse(readFileSync(pkgPath, "utf-8"));
+      
+      const packageManager = await this.detectPackageManager();
+      const overrideField = this.getOverrideField(packageManager);
+      
+      const newOverrides = this.generatePackageOverrides(overrides);
+      
+      if (!packageJson[overrideField]) {
+        packageJson[overrideField] = {};
+      }
+      
+      const existingOverrides = packageJson[overrideField];
+      const mergedOverrides = { ...existingOverrides, ...newOverrides };
+      
+      packageJson[overrideField] = mergedOverrides;
+      
+      writeFileSync(pkgPath, JSON.stringify(packageJson, null, 2) + "\n");
+      
+      console.log(`\n✅ Auto-fix applied successfully!`);
+      console.log(`📝 Updated ${pkgPath} with ${Object.keys(newOverrides).length} security override(s)`);
+      console.log(`💾 Backup saved to ${backupPath}`);
+      
+      if (Object.keys(newOverrides).length > 0) {
+        console.log(`\n📋 Applied overrides:`);
+        for (const [pkg, version] of Object.entries(newOverrides)) {
+          const override = overrides.find(o => o.packageName === pkg);
+          console.log(`   ${pkg}: ${version} (${override?.severity || "unknown"} severity)`);
+        }
+      }
+      
+      console.log(`\n⚠️  Don't forget to run your package manager install command:`);
+      switch (packageManager) {
+        case "yarn":
+          console.log(`   yarn install`);
+          break;
+        case "pnpm":
+          console.log(`   pnpm install`);
+          break;
+        case "bun":
+          console.log(`   bun install`);
+          break;
+        default:
+          console.log(`   npm install`);
+      }
+      
+    } catch (error) {
+      this.log.error("Failed to apply auto-fix", "applyAutoFix", { error });
+      throw new Error(`Auto-fix failed: ${error}`);
+    }
+  }
+
+  private async detectPackageManager(): Promise<"npm" | "yarn" | "pnpm" | "bun"> {
+    try {
+      const { existsSync } = await import("fs");
+      const { resolve } = await import("path");
+      
+      const cwd = process.cwd();
+      
+      if (existsSync(resolve(cwd, "bun.lockb"))) {
+        return "bun";
+      }
+      if (existsSync(resolve(cwd, "yarn.lock"))) {
+        return "yarn";
+      }
+      if (existsSync(resolve(cwd, "pnpm-lock.yaml"))) {
+        return "pnpm";
+      }
+      
+      return "npm";
+    } catch {
+      return "npm";
+    }
+  }
+
+  private getOverrideField(packageManager: "npm" | "yarn" | "pnpm" | "bun"): string {
+    switch (packageManager) {
+      case "yarn":
+        return "resolutions";
+      case "pnpm":
+      case "npm":
+      case "bun":
+      default:
+        return "overrides";
+    }
+  }
+
+  async rollbackAutoFix(backupPath: string): Promise<void> {
+    try {
+      const { copyFileSync, existsSync } = await import("fs");
+      
+      if (!existsSync(backupPath)) {
+        throw new Error(`Backup file not found at ${backupPath}`);
+      }
+      
+      const packageJsonPath = backupPath.replace(/\.backup-\d+$/, "");
+      copyFileSync(backupPath, packageJsonPath);
+      
+      console.log(`✅ Rolled back to ${backupPath}`);
+    } catch (error) {
+      this.log.error("Failed to rollback", "rollbackAutoFix", { error });
+      throw new Error(`Rollback failed: ${error}`);
     }
   }
 }

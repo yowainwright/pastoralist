@@ -1,0 +1,148 @@
+---
+title: Interactive Demos
+description: Try pastoralist features directly in your browser with StackBlitz
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+Experience pastoralist's features through interactive demos that run directly in your browser. No installation required!
+
+## 🚀 Quick Start with StackBlitz
+
+All demos open instantly in StackBlitz - just click and explore!
+
+<CardGrid>
+  <Card title="📦 Basic Demo" icon="document">
+    Learn the fundamentals of override management.
+    
+    [![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz_small.svg)](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/demo/basic)
+  </Card>
+  
+  <Card title="🔒 Security Demo" icon="shield">
+    Detect and fix vulnerabilities automatically.
+    
+    [![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz_small.svg)](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/demo/security)
+  </Card>
+  
+  <Card title="🏗️ Workspaces Demo" icon="folder">
+    Manage overrides in monorepos.
+    
+    [![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz_small.svg)](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/demo/workspaces)
+  </Card>
+  
+  <Card title="🔄 Migration Demo" icon="arrow-right">
+    Migrate from manual overrides.
+    
+    [![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz_small.svg)](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/demo/migration)
+  </Card>
+</CardGrid>
+
+## Demo Descriptions
+
+### Basic Override Management
+**Path:** `/demo/basic`
+
+Perfect for beginners! Learn how pastoralist:
+- Tracks package overrides
+- Creates documentation automatically
+- Shows dependency relationships
+- Cleans up unused overrides
+
+**Try it:** See how overrides are documented and managed automatically.
+
+---
+
+### Security Vulnerability Detection
+**Path:** `/demo/security`
+
+Explore advanced security features:
+- Scan for vulnerable dependencies
+- Auto-fix with one command
+- Interactive mode for selective fixes
+- Backup and rollback capabilities
+
+**Try it:** Fix real vulnerabilities in demo packages!
+
+---
+
+### Monorepo Workspaces
+**Path:** `/demo/workspaces`
+
+See monorepo management in action:
+- Root-level override control
+- Cross-package dependency tracking
+- Unified version management
+- Workspace-aware cleanup
+
+**Try it:** Manage overrides across multiple packages.
+
+---
+
+### Migration from Manual Overrides
+**Path:** `/demo/migration`
+
+Learn to migrate existing projects:
+- Analyze current overrides
+- Remove unnecessary ones
+- Add documentation
+- Set up automation
+
+**Try it:** Transform messy overrides into documented, maintained ones.
+
+## Running Demos Locally
+
+While StackBlitz is the easiest way, you can also run demos locally:
+
+```bash
+# Clone the repository
+git clone https://github.com/yowainwright/pastoralist.git
+
+# Navigate to a demo
+cd pastoralist/demo/basic
+
+# Install and run
+bun install
+bun start
+```
+
+## Demo Features
+
+Each demo includes:
+- **Real package.json files** - See actual configurations
+- **Interactive scripts** - Run commands and see results
+- **Before/after comparisons** - Understand the transformation
+- **Full documentation** - Learn while doing
+
+## Creating Custom Demos
+
+Want to create your own demo? It's easy!
+
+1. Fork any demo as a starting point
+2. Modify for your use case
+3. Push to GitHub
+4. Open via StackBlitz URL:
+   ```
+   https://stackblitz.com/github/[username]/[repo]/tree/[branch]/[path]
+   ```
+
+## Tips for Using Demos
+
+- **Edit files freely** - Changes are sandboxed
+- **Run commands** - Full terminal available
+- **Fork to save** - Create your own version
+- **Share URLs** - Each demo has a unique URL
+- **No installation** - Everything runs in browser
+
+## Next Steps
+
+After exploring the demos:
+1. [Install pastoralist](/docs/setup) in your project
+2. Read the [codelabs](/docs/codelab-basic) for detailed tutorials
+3. Check the [API reference](/docs/api-reference) for all options
+4. Join the [community](https://github.com/yowainwright/pastoralist/discussions)
+
+## Questions?
+
+- **GitHub Issues:** [Report problems](https://github.com/yowainwright/pastoralist/issues)
+- **Discussions:** [Ask questions](https://github.com/yowainwright/pastoralist/discussions)
+- **Twitter:** [@yowainwright](https://twitter.com/yowainwright)

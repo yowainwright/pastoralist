@@ -24,8 +24,8 @@
     "clean-dist": "rimraf dist",
     "commit": "git-cz",
     "commit-msg": "commitlint --edit $1",
-    "demo:create": "bun run --cwd packages/demo create",
-    "demo:embed": "bun run --cwd packages/demo embed",
+    "demo:create": "bun run --cwd demo create",
+    "demo:embed": "bun run --cwd demo embed",
     "dev": "bun run --cwd app dev",
     "lint": "oxlint src app",
     "lint-fix": "oxlint src app --fix",
@@ -37,7 +37,7 @@
     "test": "bun test",
     "test-resolutions": "tsx src/index.ts --debug",
     "test-resolutions-with-dist": "node dist/index.js --debug",
-    "test:e2e": "bun run --cwd packages/e2e test",
+    "test:e2e": "bun run --cwd e2e test",
     "typecheck": "turbo run typecheck-src",
     "typecheck-src": "tsc --noEmit",
     "update": "codependence --update && bun run update-app-deps",
@@ -64,8 +64,7 @@
   "homepage": "https://jeffry.in/pastoralist/",
   "workspaces": [
     "app",
-    "packages/demo",
-    "packages/e2e"
+    "e2e"
   ],
   "dependencies": {
     "commander": "14.0.0",

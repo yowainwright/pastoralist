@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
-    "lodash": "4.17.20",
+    "lodash": "4.17.21",
     "axios": "0.21.0"
   }
 }

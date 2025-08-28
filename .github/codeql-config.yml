@@ -1,0 +1,5 @@
+name: "CodeQL config"
+
+paths-ignore:
+  - demo/**
+  - e2e/fixtures/**

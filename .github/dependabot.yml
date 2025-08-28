@@ -6,8 +6,3 @@ updates:
       interval: daily
       time: "13:00"
     open-pull-requests-limit: 0
-    ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
-        # Ignore all updates in demo directories
-        directory: "/demo/**"

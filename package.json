@@ -93,7 +93,7 @@
     "tsx": "^4.19.2",
     "turbo": "2.5.6",
     "typescript": "5.9.2",
-    "vite": "7.1.4"
+    "vite": "7.1.5"
   },
   "commitlint": {
     "extends": [

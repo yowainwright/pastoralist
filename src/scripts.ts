@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, promises as fsPromises } from "fs";
+import { readFileSync, writeFileSync, existsSync, promises as fsPromises } from "fs";
 const { writeFile } = fsPromises;
 import { resolve } from "path";
 import fg from "fast-glob";
@@ -14,11 +14,96 @@ import {
   ResolveResolutionOptions,
   LoggerOptions,
   OverridesConfig,
+  OverrideValue,
   ResolveOverrides,
   ConsoleMethod,
   OverridesType,
   UpdateAppendixOptions,
 } from "./interfaces";
+
+/**
+ * @name detectPackageManager
+ * @description Detect which package manager is being used
+ * @returns Package manager type
+ */
+export function detectPackageManager(): "npm" | "yarn" | "pnpm" | "bun" {
+  const cwd = process.cwd();
+
+  if (existsSync(resolve(cwd, "bun.lockb"))) {
+    return "bun";
+  }
+  if (existsSync(resolve(cwd, "yarn.lock"))) {
+    return "yarn";
+  }
+  if (existsSync(resolve(cwd, "pnpm-lock.yaml"))) {
+    return "pnpm";
+  }
+
+  return "npm";
+}
+
+/**
+ * @name getExistingOverrideField
+ * @description Get the existing override field type from config
+ * @returns Override field type or null
+ */
+export function getExistingOverrideField(
+  config: PastoralistJSON
+): "resolutions" | "overrides" | "pnpm" | null {
+  if (config?.resolutions !== undefined) {
+    return "resolutions";
+  }
+  if (config?.overrides !== undefined) {
+    return "overrides";
+  }
+  if (config?.pnpm?.overrides !== undefined) {
+    return "pnpm";
+  }
+  return null;
+}
+
+/**
+ * @name getOverrideFieldForPackageManager
+ * @description Get the override field type for a package manager
+ * @returns Override field type
+ */
+export function getOverrideFieldForPackageManager(
+  packageManager: "npm" | "yarn" | "pnpm" | "bun"
+): "resolutions" | "overrides" | "pnpm" {
+  switch (packageManager) {
+    case "yarn":
+      return "resolutions";
+    case "pnpm":
+      return "pnpm";
+    case "npm":
+    case "bun":
+    default:
+      return "overrides";
+  }
+}
+
+/**
+ * @name applyOverridesToConfig
+ * @description Apply overrides to config based on the field type
+ */
+export function applyOverridesToConfig(
+  config: PastoralistJSON,
+  overrides: Record<string, OverrideValue> | Record<string, string>,
+  fieldType: "resolutions" | "overrides" | "pnpm" | null
+): void {
+  switch (fieldType) {
+    case "resolutions":
+      config.resolutions = overrides as Record<string, string>;
+      break;
+    case "pnpm":
+      if (!config.pnpm) config.pnpm = {};
+      config.pnpm.overrides = overrides as Record<string, OverrideValue>;
+      break;
+    case "overrides":
+      config.overrides = overrides as Record<string, OverrideValue>;
+      break;
+  }
+}
 
 /**
  * @name update
@@ -276,15 +361,13 @@ export async function updatePackageJSON({
   }
 
   if (!hasOverrides && !hasAppendix) {
-    const keysToRemove = ["pastoralist", "resolutions", "overrides", "pnpm"];
-    for (const key of keysToRemove) {
-      if (key === "pnpm" && config.pnpm) {
-        delete config.pnpm.overrides;
-        if (Object.keys(config.pnpm).length === 0) {
-          delete config[key as keyof PastoralistJSON];
-        }
-      } else {
-        delete config[key as keyof PastoralistJSON];
+    delete config.pastoralist;
+    delete config.resolutions;
+    delete config.overrides;
+    if (config.pnpm) {
+      delete config.pnpm.overrides;
+      if (Object.keys(config.pnpm).length === 0) {
+        delete config.pnpm;
       }
     }
   } else {
@@ -292,11 +375,15 @@ export async function updatePackageJSON({
       config.pastoralist = { appendix };
     }
     
-    // Only set overrides if there are actual overrides to set
     if (hasOverrides) {
-      if (config?.resolutions !== undefined) config.resolutions = overrides as Record<string, string>;
-      if (config?.overrides !== undefined) config.overrides = overrides;
-      if (config?.pnpm?.overrides !== undefined) config.pnpm.overrides = overrides;
+      let overrideField = getExistingOverrideField(config);
+
+      if (!overrideField && !isTesting) {
+        const packageManager = detectPackageManager();
+        overrideField = getOverrideFieldForPackageManager(packageManager);
+      }
+
+      applyOverridesToConfig(config, overrides, overrideField);
     }
   }
 

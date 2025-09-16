@@ -22,6 +22,10 @@ import {
   constructAppendix,
   findPackageJsonFiles,
   update,
+  detectPackageManager,
+  getExistingOverrideField,
+  getOverrideFieldForPackageManager,
+  applyOverridesToConfig,
 } from "../src/scripts";
 import { LOG_PREFIX } from "../src/constants";
 import { PastoralistJSON, Appendix } from "../src/interfaces";
@@ -1971,5 +1975,141 @@ describe("Nested Overrides Fixture Tests", () => {
         "webpack@^5.88.0 (nested override)"
       );
     }
+  });
+});
+
+describe("Package Manager Detection", () => {
+  it("should detect npm by default when no lock file exists", () => {
+    const packageManager = detectPackageManager();
+    assert.strictEqual(["npm", "yarn", "pnpm", "bun"].includes(packageManager), true);
+  });
+
+  it("should get correct override field for yarn", () => {
+    const field = getOverrideFieldForPackageManager("yarn");
+    assert.strictEqual(field, "resolutions");
+  });
+
+  it("should get correct override field for pnpm", () => {
+    const field = getOverrideFieldForPackageManager("pnpm");
+    assert.strictEqual(field, "pnpm");
+  });
+
+  it("should get correct override field for npm", () => {
+    const field = getOverrideFieldForPackageManager("npm");
+    assert.strictEqual(field, "overrides");
+  });
+
+  it("should get correct override field for bun", () => {
+    const field = getOverrideFieldForPackageManager("bun");
+    assert.strictEqual(field, "overrides");
+  });
+});
+
+describe("Override Field Detection", () => {
+  it("should detect existing resolutions field", () => {
+    const config: PastoralistJSON = {
+      name: "test",
+      version: "1.0.0",
+      resolutions: { "lodash": "4.17.21" }
+    };
+    const field = getExistingOverrideField(config);
+    assert.strictEqual(field, "resolutions");
+  });
+
+  it("should detect existing overrides field", () => {
+    const config: PastoralistJSON = {
+      name: "test",
+      version: "1.0.0",
+      overrides: { "lodash": "4.17.21" }
+    };
+    const field = getExistingOverrideField(config);
+    assert.strictEqual(field, "overrides");
+  });
+
+  it("should detect existing pnpm.overrides field", () => {
+    const config: PastoralistJSON = {
+      name: "test",
+      version: "1.0.0",
+      pnpm: {
+        overrides: { "lodash": "4.17.21" }
+      }
+    };
+    const field = getExistingOverrideField(config);
+    assert.strictEqual(field, "pnpm");
+  });
+
+  it("should return null when no override fields exist", () => {
+    const config: PastoralistJSON = {
+      name: "test",
+      version: "1.0.0"
+    };
+    const field = getExistingOverrideField(config);
+    assert.strictEqual(field, null);
+  });
+
+  it("should prioritize resolutions over overrides", () => {
+    const config: PastoralistJSON = {
+      name: "test",
+      version: "1.0.0",
+      resolutions: { "lodash": "4.17.21" },
+      overrides: { "axios": "1.0.0" }
+    };
+    const field = getExistingOverrideField(config);
+    assert.strictEqual(field, "resolutions");
+  });
+});
+
+describe("Apply Overrides to Config", () => {
+  it("should apply overrides to resolutions field", () => {
+    const config: PastoralistJSON = {
+      name: "test",
+      version: "1.0.0"
+    };
+    const overrides = { "lodash": "4.17.21" };
+    applyOverridesToConfig(config, overrides, "resolutions");
+    assert.deepStrictEqual(config.resolutions, overrides);
+  });
+
+  it("should apply overrides to overrides field", () => {
+    const config: PastoralistJSON = {
+      name: "test",
+      version: "1.0.0"
+    };
+    const overrides = { "lodash": "4.17.21" };
+    applyOverridesToConfig(config, overrides, "overrides");
+    assert.deepStrictEqual(config.overrides, overrides);
+  });
+
+  it("should apply overrides to pnpm.overrides field", () => {
+    const config: PastoralistJSON = {
+      name: "test",
+      version: "1.0.0"
+    };
+    const overrides = { "lodash": "4.17.21" };
+    applyOverridesToConfig(config, overrides, "pnpm");
+    assert.deepStrictEqual(config.pnpm?.overrides, overrides);
+  });
+
+  it("should create pnpm object if it doesn't exist", () => {
+    const config: PastoralistJSON = {
+      name: "test",
+      version: "1.0.0"
+    };
+    const overrides = { "lodash": "4.17.21" };
+    applyOverridesToConfig(config, overrides, "pnpm");
+    assert.strictEqual(typeof config.pnpm, "object");
+    assert.deepStrictEqual(config.pnpm?.overrides, overrides);
+  });
+
+  it("should do nothing when fieldType is null", () => {
+    const config: PastoralistJSON = {
+      name: "test",
+      version: "1.0.0"
+    };
+    const overrides = { "lodash": "4.17.21" };
+    applyOverridesToConfig(config, overrides, null);
+    assert.strictEqual(config.overrides, undefined);
+    assert.strictEqual(config.resolutions, undefined);
+    assert.strictEqual(config.pnpm, undefined);
   });
 });

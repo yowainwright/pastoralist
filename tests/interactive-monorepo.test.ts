@@ -9,7 +9,7 @@ describe("InteractiveMonorepoManager", () => {
   let consoleSpy: any;
 
   beforeEach(() => {
-    manager = new InteractiveMonorepoManager(false);
+    manager = new InteractiveMonorepoManager();
     consoleSpy = spyOn(console, "log").mockImplementation(() => {});
   });
 

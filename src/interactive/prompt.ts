@@ -85,14 +85,14 @@ export class Prompt {
 
     switch (type) {
       case 'confirm':
-        return this.confirm(message, (options as ConfirmOptions).default);
+        return this.confirm(message, (options as ConfirmOptions).default ?? true);
 
       case 'list':
         return this.list(message, (options as ListOptions).choices);
 
       case 'input':
       default:
-        return this.input(message, (options as InputOptions).default);
+        return this.input(message, (options as InputOptions).default ?? '');
     }
   }
 
@@ -104,7 +104,13 @@ export class Prompt {
 
     for (const [index, question] of questions.entries()) {
       const key = `answer${index}`;
-      answers[key] = await this.prompt(question);
+      if (question.type === 'confirm') {
+        answers[key] = await this.prompt(question as ConfirmOptions);
+      } else if (question.type === 'list') {
+        answers[key] = await this.prompt(question as ListOptions);
+      } else {
+        answers[key] = await this.prompt(question as InputOptions);
+      }
     }
 
     return answers;
@@ -140,7 +146,7 @@ export async function quickConfirm(message: string, defaultValue: boolean = true
  */
 export async function quickInput(message: string, defaultValue?: string): Promise<string> {
   return createPrompt(async (prompt) => {
-    return prompt.input(message, defaultValue);
+    return prompt.input(message, defaultValue ?? '');
   });
 }
 

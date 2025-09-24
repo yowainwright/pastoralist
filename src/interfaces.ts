@@ -130,5 +130,5 @@ export interface OverridesWithType extends OverridesConfig {
 export type ResolveOverrides = OverridesWithType | undefined;
 
 export type ConsoleMethod = "debug" | "error" | "info";
-type ConsoleMethodFunc = (...args: unknown[]) => void;
+type ConsoleMethodFunc = (msg: string, caller?: string, ...args: unknown[]) => void;
 export type ConsoleObject = { [K in ConsoleMethod]: ConsoleMethodFunc };

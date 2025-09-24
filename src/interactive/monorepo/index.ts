@@ -1,4 +1,3 @@
-import { logger } from "../../scripts";
 import { Options } from "../../interfaces";
 import { createPrompt } from "../prompt";
 import {
@@ -11,11 +10,8 @@ import {
 import type { MonorepoPromptResult, MainAction, WorkspaceType } from "../types";
 
 export class InteractiveMonorepoManager {
-  private log: ReturnType<typeof logger>;
 
-  constructor(debug: boolean = false) {
-    this.log = logger({ file: "interactive/monorepo/index.ts", isLogging: debug });
-  }
+  constructor() {}
 
   async promptForMonorepoConfiguration(
     missingPackages: string[],
@@ -88,10 +84,10 @@ export class InteractiveMonorepoManager {
         "Enter paths (space-separated):",
         DEFAULTS.customPath
       );
-      return paths.split(/\s+/).filter(p => p.trim());
+      return paths.split(/\s+/).filter((p: string) => p.trim());
     }
 
-    return WORKSPACE_TYPES[type] || [];
+    return [...(WORKSPACE_TYPES[type] || [])];
   }
 
   private async handleManualPaths(prompt: any): Promise<MonorepoPromptResult> {
@@ -99,7 +95,7 @@ export class InteractiveMonorepoManager {
       "Enter paths (space-separated):",
       DEFAULTS.customPath
     );
-    const depPaths = paths.split(/\s+/).filter(p => p.trim());
+    const depPaths = paths.split(/\s+/).filter((p: string) => p.trim());
 
     return this.getSavePreference(prompt, depPaths);
   }

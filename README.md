@@ -109,6 +109,12 @@ pastoralist --checkSecurity --interactive
 
 # Include workspace packages in security scan
 pastoralist --checkSecurity --includeWorkspaces
+
+# Initialize interactive configuration for monorepo support
+pastoralist --init
+
+# Use interactive mode to configure monorepo paths when overrides are detected
+pastoralist --interactive
 ```
 
 Configure security checks in your `package.json`:
@@ -180,17 +186,70 @@ Broken down, Pastoralist manages your overrides and resolutions with 4 simple st
 2. Pastoralist **does** manage dependencies that exist in a `package.json`'s overrides or resolutions objects.
 3. Pastoralist will remove overrides and resolutions if they become unneeded according to child package.json's spec!
 
-### Using Pastoralist with Workspaces
+### Using Pastoralist with Workspaces and Monorepos
 
-Pastoralist operates on a single `package.json` at a time. In a workspace/monorepo setup, you can run Pastoralist on any package.json that has overrides by specifying its path:
+Pastoralist now provides enhanced support for monorepo scenarios where overrides are defined at the root but the overridden packages are installed in workspace packages.
 
-```bash
-# Run on root package.json
-pastoralist
+#### Monorepo Override Tracking
 
-# Run on a workspace package
-pastoralist --path packages/app-a/package.json
+When you have overrides at the root of a monorepo for packages that are only installed in workspace packages, Pastoralist can track these properly:
+
+```js
+// Root package.json with overrides for workspace packages
+{
+  "overrides": {
+    "lodash": "4.17.21"  // Used by workspace packages, not root
+  },
+  "pastoralist": {
+    "overridePaths": {
+      "packages/app-a/package.json": {
+        "lodash@4.17.21": {
+          "dependents": {
+            "app-a": "lodash@^4.17.0"
+          }
+        }
+      }
+    }
+  }
+}
 ```
+
+#### Configuration Options
+
+1. **Interactive Configuration** - Let Pastoralist guide you through setup:
+```bash
+# Initialize with interactive prompts
+pastoralist --init
+
+# Or use --interactive when overrides are detected
+pastoralist --interactive
+```
+
+When Pastoralist detects overrides for packages not in root dependencies, it will:
+- Prompt you to configure workspace paths
+- Offer to auto-detect common monorepo structures
+- Allow you to specify custom paths
+- Optionally save the configuration to your package.json
+
+2. **Using depPaths** - Specify paths to scan for package.json files:
+```bash
+pastoralist --depPaths "packages/*/package.json" "apps/*/package.json"
+```
+
+3. **Using overridePaths/resolutionPaths** - Configure in your package.json:
+```js
+"pastoralist": {
+  "overridePaths": {  // or "resolutionPaths" for yarn
+    "packages/app-a/package.json": { /* appendix for app-a */ },
+    "packages/app-b/package.json": { /* appendix for app-b */ }
+  }
+}
+```
+
+This configuration ensures that:
+- Overrides for packages not in root dependencies are preserved
+- Each workspace package's usage is tracked separately
+- The appendix correctly maps overrides to their actual consumers
 
 For detailed information about using Pastoralist in workspace/monorepo environments, including best practices and automation strategies, see [Workspaces and Monorepos](docs/workspaces.md).
 

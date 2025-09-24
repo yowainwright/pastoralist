@@ -111,6 +111,158 @@ export function applyOverridesToConfig(
  * @param options - Options for updating package.json
  * @returns void
  */
+export const checkMonorepoOverrides = (
+  overrides: OverridesType,
+  rootDeps: Record<string, string>,
+  log: ConsoleObject,
+  options?: Options
+): string[] => {
+  const overridesList = Object.keys(overrides);
+  const missingInRoot = overridesList.filter(pkg => {
+    if (typeof overrides[pkg] === 'object') {
+      return !rootDeps[pkg];
+    }
+    return !rootDeps[pkg];
+  });
+
+  if (missingInRoot.length > 0 && !options?.depPaths) {
+    log.info(
+      `🐑 Found overrides for packages not in root dependencies: ${missingInRoot.join(", ")}`,
+      "checkMonorepoOverrides",
+    );
+    log.info(
+      `💡 For monorepo support, add depPaths to your pastoralist command or configure overridePaths/resolutionPaths in package.json`,
+      "checkMonorepoOverrides",
+    );
+  }
+
+  return missingInRoot;
+};
+
+export const processWorkspacePackages = async (
+  packageJsonFiles: string[],
+  overridesData: ResolveOverrides,
+  log: ConsoleObject
+): Promise<{ appendix: Appendix; allWorkspaceDeps: Record<string, string> }> => {
+  const appendix = await constructAppendix(packageJsonFiles, overridesData, log);
+  let allWorkspaceDeps: Record<string, string> = {};
+
+  for (const packagePath of packageJsonFiles) {
+    const packageConfig = await resolveJSON(packagePath);
+    if (packageConfig) {
+      const {
+        dependencies: pkgDeps = {},
+        devDependencies: pkgDevDeps = {},
+        peerDependencies: pkgPeerDeps = {},
+      } = packageConfig;
+      allWorkspaceDeps = {
+        ...allWorkspaceDeps,
+        ...pkgDeps,
+        ...pkgDevDeps,
+        ...pkgPeerDeps,
+      };
+    }
+  }
+
+  return { appendix, allWorkspaceDeps };
+};
+
+export const attachPatchesToAppendix = (
+  appendix: Appendix,
+  patchMap: Record<string, string[]>
+): void => {
+  for (const key of Object.keys(appendix)) {
+    const packageName = key.split("@")[0];
+    const patches = getPackagePatches(packageName, patchMap);
+    if (patches.length > 0) {
+      appendix[key].patches = patches;
+    }
+  }
+};
+
+export const mergeOverridePaths = (
+  appendix: Appendix,
+  overridePaths: Record<string, Appendix> | undefined,
+  missingInRoot: string[],
+  log: ConsoleObject
+): void => {
+  if (!overridePaths || missingInRoot.length === 0) return;
+
+  log.debug(
+    `Using overridePaths configuration for monorepo support`,
+    "mergeOverridePaths",
+  );
+
+  for (const pathAppendix of Object.values(overridePaths)) {
+    for (const [key, value] of Object.entries(pathAppendix)) {
+      if (!appendix[key]) {
+        appendix[key] = value;
+      } else {
+        appendix[key].dependents = {
+          ...appendix[key].dependents,
+          ...value.dependents,
+        };
+      }
+    }
+  }
+};
+
+export const cleanupUnusedOverrides = async (
+  overrides: OverridesType,
+  overridesData: ResolveOverrides,
+  appendix: Appendix,
+  allDeps: Record<string, string>,
+  missingInRoot: string[],
+  overridePaths: Record<string, Appendix> | undefined,
+  log: ConsoleObject
+): Promise<{ finalOverrides: OverridesType; finalAppendix: Appendix }> => {
+  const removableItems = await findUnusedOverrides(overrides, allDeps);
+
+  if (removableItems.length === 0) {
+    return { finalOverrides: overrides, finalAppendix: appendix };
+  }
+
+  const trackedInPaths = missingInRoot.filter(pkg => {
+    if (overridePaths) {
+      for (const pathAppendix of Object.values(overridePaths)) {
+        const hasEntry = Object.keys(pathAppendix).some(key => key.startsWith(`${pkg}@`));
+        if (hasEntry) return true;
+      }
+    }
+    return false;
+  });
+
+  const actuallyRemovable = removableItems.filter(pkg => !trackedInPaths.includes(pkg));
+
+  if (actuallyRemovable.length > 0) {
+    log.debug(
+      `Found ${actuallyRemovable.length} packages to remove from overrides: ${actuallyRemovable.join(", ")}`,
+      "cleanupUnusedOverrides",
+    );
+    const finalOverrides = updateOverrides(overridesData, actuallyRemovable) || overrides;
+    const finalAppendix = { ...appendix };
+
+    for (const item of actuallyRemovable) {
+      const keysToRemove = Object.keys(finalAppendix).filter(key =>
+        key.startsWith(`${item}@`)
+      );
+      for (const key of keysToRemove) {
+        delete finalAppendix[key];
+        log.debug(`Removed appendix entry for ${key}`, "cleanupUnusedOverrides");
+      }
+    }
+
+    return { finalOverrides, finalAppendix };
+  } else if (trackedInPaths.length > 0) {
+    log.info(
+      `🐑 Keeping overrides for packages tracked in overridePaths: ${trackedInPaths.join(", ")}`,
+      "cleanupUnusedOverrides",
+    );
+  }
+
+  return { finalOverrides: overrides, finalAppendix: appendix };
+};
+
 export const update = async (options: Options): Promise<void> => {
   const path = options?.path || "package.json";
   const root = options?.root || "./";
@@ -136,7 +288,6 @@ export const update = async (options: Options): Promise<void> => {
   const overridesData = resolveOverrides({ options, config });
   let overrides = getOverridesByType(overridesData);
 
-  // Merge security overrides if provided
   if (options?.securityOverrides) {
     log.debug("Merging security overrides", "update");
     overrides = {
@@ -156,8 +307,15 @@ export const update = async (options: Options): Promise<void> => {
     return;
   }
 
+  const rootDeps = {
+    ...config.dependencies,
+    ...config.devDependencies,
+    ...config.peerDependencies,
+  };
+
+  const missingInRoot = checkMonorepoOverrides(overrides, rootDeps, log, options);
+
   let appendix: Appendix = {};
-  let packageJsonFiles: string[] = [];
   let allWorkspaceDeps: Record<string, string> = {};
 
   if (options?.depPaths && options?.depPaths.length > 0) {
@@ -166,7 +324,7 @@ export const update = async (options: Options): Promise<void> => {
       "update",
     );
 
-    packageJsonFiles = findPackageJsonFiles(
+    const packageJsonFiles = findPackageJsonFiles(
       options.depPaths,
       options.ignore || [],
       root,
@@ -178,25 +336,9 @@ export const update = async (options: Options): Promise<void> => {
         `Processing ${packageJsonFiles.length} package.json files from depPaths`,
         "update",
       );
-      appendix = await constructAppendix(packageJsonFiles, overridesData, log);
-      
-      // Collect all dependencies from workspace packages
-      for (const packagePath of packageJsonFiles) {
-        const packageConfig = await resolveJSON(packagePath);
-        if (packageConfig) {
-          const {
-            dependencies: pkgDeps = {},
-            devDependencies: pkgDevDeps = {},
-            peerDependencies: pkgPeerDeps = {},
-          } = packageConfig;
-          allWorkspaceDeps = {
-            ...allWorkspaceDeps,
-            ...pkgDeps,
-            ...pkgDevDeps,
-            ...pkgPeerDeps,
-          };
-        }
-      }
+      const result = await processWorkspacePackages(packageJsonFiles, overridesData, log);
+      appendix = result.appendix;
+      allWorkspaceDeps = result.allWorkspaceDeps;
       log.debug(
         `Collected dependencies from ${packageJsonFiles.length} workspace packages`,
         "update",
@@ -220,27 +362,16 @@ export const update = async (options: Options): Promise<void> => {
     });
   }
 
-  for (const key of Object.keys(appendix)) {
-    const packageName = key.split("@")[0];
-    const patches = getPackagePatches(packageName, patchMap);
-    if (patches.length > 0) {
-      appendix[key].patches = patches;
-    }
-  }
+  attachPatchesToAppendix(appendix, patchMap);
 
-  const {
-    dependencies = {},
-    devDependencies = {},
-    peerDependencies = {},
-  } = config;
-  // Combine root dependencies with workspace dependencies
-  let allDeps = { 
-    ...dependencies, 
-    ...devDependencies, 
-    ...peerDependencies,
-    ...allWorkspaceDeps 
+  const overridePaths = config.pastoralist?.overridePaths || config.pastoralist?.resolutionPaths;
+  mergeOverridePaths(appendix, overridePaths, missingInRoot, log);
+
+  const allDeps = {
+    ...rootDeps,
+    ...allWorkspaceDeps
   };
-  
+
   const unusedPatches = findUnusedPatches(patchMap, allDeps);
   if (unusedPatches.length > 0) {
     log.info(
@@ -254,29 +385,15 @@ export const update = async (options: Options): Promise<void> => {
     );
   }
 
-  const removableItems = await findUnusedOverrides(overrides, allDeps);
-  let finalOverrides = overrides;
-  let finalAppendix = appendix;
-
-  if (removableItems.length > 0) {
-    log.debug(
-      `Found ${removableItems.length} packages to remove from overrides: ${removableItems.join(", ")}`,
-      "update",
-    );
-    finalOverrides =
-      updateOverrides(overridesData, removableItems) || overrides;
-    
-    finalAppendix = { ...appendix };
-    for (const item of removableItems) {
-      const keysToRemove = Object.keys(finalAppendix).filter(key => 
-        key.startsWith(`${item}@`)
-      );
-      for (const key of keysToRemove) {
-        delete finalAppendix[key];
-        log.debug(`Removed appendix entry for ${key}`, "update");
-      }
-    }
-  }
+  const { finalOverrides, finalAppendix } = await cleanupUnusedOverrides(
+    overrides,
+    overridesData,
+    appendix,
+    allDeps,
+    missingInRoot,
+    overridePaths,
+    log
+  );
 
   if (isTesting) return;
 
@@ -372,9 +489,25 @@ export async function updatePackageJSON({
     }
   } else {
     if (hasAppendix) {
-      config.pastoralist = { appendix };
+      const existingOverridePaths = config.pastoralist?.overridePaths;
+      const existingResolutionPaths = config.pastoralist?.resolutionPaths;
+      const existingSecurity = config.pastoralist?.security;
+
+      if (IS_DEBUGGING) {
+        fallbackLog.debug(
+          `Preserving existing config: overridePaths=${!!existingOverridePaths}, resolutionPaths=${!!existingResolutionPaths}, security=${!!existingSecurity}`,
+          "updatePackageJSON",
+        );
+      }
+
+      config.pastoralist = {
+        appendix,
+        ...(existingOverridePaths && { overridePaths: existingOverridePaths }),
+        ...(existingResolutionPaths && { resolutionPaths: existingResolutionPaths }),
+        ...(existingSecurity && { security: existingSecurity }),
+      };
     }
-    
+
     if (hasOverrides) {
       let overrideField = getExistingOverrideField(config);
 

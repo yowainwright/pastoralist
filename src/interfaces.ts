@@ -26,6 +26,8 @@ export interface Appendix {
 
 export interface PastoralistConfig {
   appendix?: Appendix;
+  overridePaths?: Record<string, Appendix>; // Map of package.json paths to their appendices for monorepo support
+  resolutionPaths?: Record<string, Appendix>; // Alias for overridePaths for yarn users
   security?: {
     enabled?: boolean;
     provider?: "osv" | "github" | "snyk" | "npm" | "socket";

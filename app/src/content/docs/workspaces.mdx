@@ -12,6 +12,24 @@ Pastoralist operates on a single `package.json` at a time. In a workspace setup,
 - Individual workspace packages
 - Multiple packages using scripts
 
+## Interactive Configuration
+
+Pastoralist offers interactive configuration for monorepo setups:
+
+```bash
+# Initialize with guided setup
+pastoralist --init
+
+# Or use interactive mode when running
+pastoralist --interactive
+```
+
+When Pastoralist detects overrides for packages not in root dependencies, it will:
+- Guide you through workspace configuration
+- Auto-detect common structures (packages/*, apps/*, etc.)
+- Allow custom path specification
+- Optionally save configuration to package.json
+
 ## Basic Usage
 
 ### Running on Root Package

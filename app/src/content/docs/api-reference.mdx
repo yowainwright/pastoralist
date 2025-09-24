@@ -75,6 +75,33 @@ npx pastoralist --root /path/to/project
 npx pastoralist --root ../my-project --path package.json
 ```
 
+### `pastoralist --init`
+
+Initialize interactive configuration for monorepo support. This will guide you through setting up workspace paths and configuration.
+
+```bash
+# Start interactive setup
+npx pastoralist --init
+```
+
+When run, this will:
+- Detect if you have overrides for packages not in root dependencies
+- Prompt you to choose between auto-detection or manual configuration
+- Offer common workspace structures (standard, packages-only, apps-only, custom)
+- Optionally save configuration to your package.json
+
+### `pastoralist --interactive`
+
+Run pastoralist in interactive mode. When overrides are detected for packages not in root dependencies, you'll be prompted to configure monorepo support.
+
+```bash
+# Run with interactive prompts
+npx pastoralist --interactive
+
+# Combine with security checks
+npx pastoralist --checkSecurity --interactive
+```
+
 ### `pastoralist --debug`
 
 Enable detailed debug output.

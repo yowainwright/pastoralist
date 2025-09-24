@@ -17,6 +17,7 @@ import {
   OverrideValue,
   ResolveOverrides,
   ConsoleMethod,
+  ConsoleObject,
   OverridesType,
   UpdateAppendixOptions,
 } from "./interfaces";

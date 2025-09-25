@@ -178,13 +178,32 @@ If Pastoralist observes an override or resolution is no longer needed, it remove
 This means with Pastoralist, your only concern is adding dependencies to the overrides and resolutions objects.
 Broken down, Pastoralist manages your overrides and resolutions with 4 simple steps demonstrated in the flow chart below.
 
-<p align="center"><img src="https://user-images.githubusercontent.com/1074042/194803911-93097b50-3bff-4529-879c-81fd161e7bfa.gif" /></p>
+```mermaid
+flowchart TD
+    Start([Start]) --> Find[Find overrides/resolutions<br/>in package.json]
+    Find --> Review[Review dependencies<br/>Compare with appendix]
+    Review --> Decision{Changes needed?}
+    Decision -->|New overrides| Add[Add to<br/>pastoralist.appendix]
+    Decision -->|Unused overrides| Remove[Remove from overrides<br/>and appendix]
+    Decision -->|No changes| End([End])
+    Add --> End
+    Remove --> End
+
+    style Start fill:#e1f5e1
+    style End fill:#e1f5e1
+    style Find fill:#e3f2fd
+    style Review fill:#e3f2fd
+    style Add fill:#f3e5f5
+    style Remove fill:#f3e5f5
+```
 
 ### Key notes
 
 1. Pastoralist does **not** manage what is added to overrides or resolutions objects.
 2. Pastoralist **does** manage dependencies that exist in a `package.json`'s overrides or resolutions objects.
 3. Pastoralist will remove overrides and resolutions if they become unneeded according to child package.json's spec!
+
+**For detailed architecture diagrams and use cases**, see [Architecture Documentation](docs/architecture.md)
 
 ### Using Pastoralist with Workspaces and Monorepos
 

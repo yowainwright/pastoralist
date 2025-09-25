@@ -1,0 +1,7 @@
+{
+  "installDependencies": true,
+  "startCommand": "bun install && bun run start",
+  "env": {
+    "NODE_ENV": "development"
+  }
+}

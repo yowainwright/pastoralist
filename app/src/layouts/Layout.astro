@@ -1,8 +1,8 @@
 ---
-import SideBar from "../components/docs/SideBar.astro";
+import CollapsibleSidebar from "../components/docs/CollapsibleSidebar.astro";
 import DocsHeader from "../components/docs/DocsHeader.astro";
 import Footer from "../components/common/Footer.astro";
-import "@fontsource-variable/outfit";
+import "@fontsource-variable/spline-sans-mono";
 import "../styles/global.css";
 
 interface Props {
@@ -33,7 +33,7 @@ const base = import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL :
             <slot />
           </div>
         </div>
-        <SideBar />
+        <CollapsibleSidebar />
       </div>
       <Footer />
     </div>

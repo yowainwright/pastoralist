@@ -1,7 +1,7 @@
 ---
 import { getCollection, type CollectionEntry } from "astro:content";
 import Layout from "../../layouts/Layout.astro";
-import Toc from "../../components/docs/Toc.astro";
+import TocWithScrollspy from "../../components/docs/TocWithScrollspy.astro";
 import Pagination from "../../components/docs/Pagination.astro";
 import { resolveUrl } from "../../utils/urlResolver";
 
@@ -30,9 +30,9 @@ const { Content, headings } = await doc.render();
 ---
 
 <Layout title={doc.data.title}>
-  <div class="flex flex-col lg:flex-row p-4 sm:p-6 md:p-10 md:pt-10 xl:gap-20 font-outfit">
-    <article class="flex flex-col w-full lg:max-w-3xl">
-      <div class="text-sm breadcrumbs pt-0 pb-4">
+  <div class="flex flex-col lg:flex-row p-4 sm:p-6 md:p-10 md:pt-10 font-spline-sans-mono">
+    <article class="flex flex-col w-full lg:max-w-4xl xl:max-w-5xl">
+      <div class="text-base breadcrumbs pt-0 pb-4">
         <ul>
           <li><a href={resolveUrl("")} class="hover:text-primary">Home</a></li>
           <li class="text-primary">{doc.data.title}</li>
@@ -51,8 +51,8 @@ const { Content, headings } = await doc.render();
       <div class="divider"></div>
       <Pagination />
     </article>
-    <div class="hidden lg:block">
-      <Toc headings={headings} />
+    <div class="hidden xl:block ml-auto pl-8">
+      <TocWithScrollspy headings={headings} />
     </div>
   </div>
 </Layout>

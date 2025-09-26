@@ -1,108 +1,94 @@
 import React from "react";
-import ReactFlow, { Background } from "reactflow";
+import ReactFlow, { Background, Controls, Position } from "reactflow";
+import type { Node, Edge } from "reactflow";
 import "reactflow/dist/style.css";
+import { nodeStyles, edgeStyles, flowProps } from "./architectures/styles";
+import FlowModalProvider from "./architectures/FlowModalProvider";
 
-const edges = [
-  { animated: true, id: "1-2", source: "1", target: "2", type: "smoothstep" },
-  { animated: true, id: "2-3", source: "2", target: "3", type: "smoothstep" },
-  { animated: true, id: "2-4", source: "2", target: "4", type: "smoothstep" },
+const edges: Edge[] = [
+  { animated: true, id: "1-2", source: "1", target: "2", type: "smoothstep", style: edgeStyles.animated },
+  { animated: true, id: "2-3", source: "2", target: "3", type: "smoothstep", style: edgeStyles.animated },
+  { animated: true, id: "2-4", source: "2", target: "4", type: "smoothstep", style: edgeStyles.animated },
 ];
 
-const Label = ({
-  description,
-  metaDescription,
-}: {
-  description: string;
-  metaDescription?: string;
-}) => (
-  <article className="border-[#1D4ED8] border-2 p-3 rounded">
-    <p className="text-[#1D4ED8] text-base my-1 leading-tight">{description}</p>
-    {metaDescription && (
-      <small className="text-xs text-base-content/60 leading-tight my-0">
-        {metaDescription}
-      </small>
-    )}
-  </article>
-);
-
-const style = {
-  background: "transparent",
-  border: 0,
-  borderRadius: ".25rem",
-  padding: 0,
-  width: "300px",
-};
-
-const nodes = [
+const nodes: Node[] = [
   {
     id: "1",
-    position: { x: 160, y: 0 },
+    position: { x: 200, y: 50 },
     data: {
       label: (
-        <Label
-          description="find"
-          metaDescription="Pastoralist finds overrides/resolutions in a repo's root package.json"
-        />
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontWeight: 600 }}>Find</div>
+          <div style={{ fontSize: "11px", opacity: 0.8, marginTop: "2px" }}>
+            Finds overrides in package.json
+          </div>
+        </div>
       ),
     },
-    style,
+    sourcePosition: Position.Bottom,
+    style: { ...nodeStyles.input, width: "250px", height: "60px", paddingBottom: "8px" },
   },
   {
     id: "2",
-    position: { x: 160, y: 150 },
+    position: { x: 200, y: 180 },
     data: {
       label: (
-        <Label
-          description="review"
-          metaDescription="Pastoralist compares pastoralist.appendix against overrides/resolutions"
-        />
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontWeight: 600 }}>Review</div>
+          <div style={{ fontSize: "11px", opacity: 0.8, marginTop: "2px" }}>
+            Compares appendix vs overrides
+          </div>
+        </div>
       ),
     },
-    style,
+    targetPosition: Position.Top,
+    sourcePosition: Position.Bottom,
+    style: { ...nodeStyles.process, width: "250px", height: "60px", paddingBottom: "8px" },
   },
   {
     id: "3",
-    position: { x: 0, y: 340 },
+    position: { x: 50, y: 320 },
     data: {
       label: (
-        <Label
-          description="update"
-          metaDescription="Pastoralist updates a repo's overrides and resolutions in package.json"
-        />
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontWeight: 600 }}>Update</div>
+          <div style={{ fontSize: "11px", opacity: 0.8, marginTop: "2px" }}>
+            Updates overrides in package.json
+          </div>
+        </div>
       ),
     },
-    style,
+    targetPosition: Position.Top,
+    style: { ...nodeStyles.output, width: "250px", height: "60px", paddingBottom: "8px" },
   },
   {
     id: "4",
-    position: { x: 320, y: 340 },
+    position: { x: 350, y: 320 },
     data: {
       label: (
-        <Label
-          description="add"
-          metaDescription="Pastoralist adds new overrides/resolutions to the appendix"
-        />
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontWeight: 600 }}>Add</div>
+          <div style={{ fontSize: "11px", opacity: 0.8, marginTop: "2px" }}>
+            Adds new items to appendix
+          </div>
+        </div>
       ),
     },
-    style,
+    targetPosition: Position.Top,
+    style: { ...nodeStyles.info, width: "250px", height: "60px", paddingBottom: "8px" },
   },
 ];
 
 const ReviewFlow = () => {
   return (
     <section className="flex justify-center mt-10">
-      <div style={{ width: 620, height: 550 }}>
-        <ReactFlow
+      <div style={{ width: "100%", height: 450 }}>
+        <FlowModalProvider
           nodes={nodes}
           edges={edges}
-          proOptions={{ hideAttribution: true }}
-          zoomOnScroll={false}
-          zoomOnDoubleClick={false}
-          panOnScroll={false}
-          preventScrolling={false}
-        >
-          <Background />
-        </ReactFlow>
+          height="450px"
+          title="How Pastoralist Works"
+        />
       </div>
     </section>
   );

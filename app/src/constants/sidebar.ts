@@ -40,15 +40,7 @@ const SIDEBAR = [
     items: [
       {
         title: "Basic Usage",
-        href: resolveDocsUrl("codelab-basic"),
-      },
-      {
-        title: "Security Features",
-        href: resolveDocsUrl("codelab-security"),
-      },
-      {
-        title: "Migration Guide",
-        href: resolveDocsUrl("codelab-migration"),
+        href: resolveDocsUrl("codelab"),
       },
     ],
   },

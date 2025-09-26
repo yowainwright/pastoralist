@@ -7,7 +7,10 @@
 @plugin "@tailwindcss/typography";
 
 @theme {
-  --font-outfit: "Outfit Variable", "sans-serif";
+  --font-spline-sans-mono: "Spline Sans Mono Variable", "monospace";
+  --font-size-base: 1rem;
+  --font-size-sm: 0.875rem;
+  --font-size-xs: 0.75rem;
 }
 
 :root {
@@ -15,10 +18,13 @@
   --blue-teal-gradient: linear-gradient(90deg, #1D4ED8 0%, #3B82F6 35%, #60A5FA 70%, #93C5FD 100%);
   --blue-teal-gradient-light: linear-gradient(90deg, rgba(29, 78, 216, 0.8) 0%, rgba(59, 130, 246, 0.8) 35%, rgba(96, 165, 250, 0.8) 70%, rgba(147, 197, 253, 0.8) 100%);
   --blue-teal-text-gradient: linear-gradient(90deg, #1E40AF 0%, #1D4ED8 35%, #3B82F6 70%, #60A5FA 100%);
-  
+
   /* Legacy variables for backward compatibility */
   --purple-gradient: var(--blue-teal-gradient);
   --purple-dark: #1D4ED8;
+
+  /* Base font sizes */
+  font-size: 16px;
 }
 
 [data-theme="night"] {
@@ -46,6 +52,64 @@
 
 .gradient-bg-light {
   background: var(--blue-teal-gradient-light);
+}
+
+/* Base typography adjustments */
+html {
+  font-size: 22px;
+}
+
+body {
+  font-size: 1rem;
+  font-weight: 300;
+  font-family: "Spline Sans Mono Variable", monospace;
+  letter-spacing: 0.01em;
+  line-height: 1.7;
+}
+
+/* Override Tailwind text sizes to be larger */
+.text-xs {
+  font-size: 0.9rem !important;
+}
+
+.text-sm {
+  font-size: 1rem !important;
+}
+
+.text-base {
+  font-size: 1.1rem !important;
+}
+
+.text-lg {
+  font-size: 1.6rem !important;
+}
+
+.text-xl {
+  font-size: 1.9rem !important;
+}
+
+.text-2xl {
+  font-size: 2.3rem !important;
+}
+
+.text-3xl {
+  font-size: 2.8rem !important;
+}
+
+.text-4xl {
+  font-size: 3.5rem !important;
+}
+
+.text-5xl {
+  font-size: 4.3rem !important;
+}
+
+.text-6xl {
+  font-size: 5.2rem !important;
+}
+
+.text-7xl {
+  font-size: 6.2rem !important;
 }
 
 /* Improve mobile responsiveness */

@@ -16,6 +16,7 @@ import {
   cleanupUnusedOverrides,
   updateOverrides,
   getOverridesByType,
+  jsonCache,
 } from "../src/scripts";
 import { PastoralistJSON, Appendix, Options, ConsoleObject, OverridesType, ResolveOverrides } from "../src/interfaces";
 import { writeFileSync, readFileSync, mkdirSync, rmSync, existsSync } from "fs";
@@ -23,30 +24,19 @@ import { resolve, join } from "path";
 
 const TEST_DIR = resolve(__dirname, ".test-monorepo");
 
-function describe(description: string, fn: () => void | Promise<void>): void {
+async function describe(description: string, fn: () => void | Promise<void>): Promise<void> {
   console.log(`\n${description}`);
-  const result = fn();
-  if (result instanceof Promise) {
-    result.catch(console.error);
-  }
+  await fn();
 }
 
-function it(testDescription: string, fn: () => void | Promise<void>): void {
+async function it(testDescription: string, fn: () => void | Promise<void>): Promise<void> {
   try {
-    const result = fn();
-    if (result instanceof Promise) {
-      result
-        .then(() => console.log(`\t✅ ${testDescription}`))
-        .catch((error) => {
-          console.error(`\t❌ ${testDescription}`);
-          console.error(error);
-        });
-    } else {
-      console.log(`\t✅ ${testDescription}`);
-    }
+    await fn();
+    console.log(`\t✅ ${testDescription}`);
   } catch (error) {
     console.error(`\t❌ ${testDescription}`);
     console.error(error);
+    throw error;
   }
 }
 
@@ -55,6 +45,7 @@ function setupTestDirectory(): void {
     rmSync(TEST_DIR, { recursive: true, force: true });
   } catch {}
   mkdirSync(TEST_DIR, { recursive: true });
+  jsonCache.clear();
 }
 
 function teardownTestDirectory(): void {
@@ -84,8 +75,8 @@ function createMockLog(): ConsoleObject {
   } as ConsoleObject & { _calls: typeof calls };
 }
 
-describe("Monorepo Support Tests", () => {
-  describe("checkMonorepoOverrides", () => {
+await describe("Monorepo Support Tests", async () => {
+  await describe("checkMonorepoOverrides", async () => {
     it("should detect overrides not in root dependencies", () => {
       const mockLog = createMockLog();
 
@@ -399,7 +390,10 @@ describe("Monorepo Support Tests", () => {
     });
 
     it("should support resolutionPaths alias", async () => {
-      setupTestDirectory();
+      const testDir = resolve(__dirname, ".test-monorepo-resolution");
+      rmSync(testDir, { recursive: true, force: true });
+      mkdirSync(testDir, { recursive: true });
+      jsonCache.clear();
 
       const config: PastoralistJSON = {
         name: "test-monorepo",
@@ -430,7 +424,7 @@ describe("Monorepo Support Tests", () => {
         "react": "18.2.0",
       };
 
-      const testPath = join(TEST_DIR, "package.json");
+      const testPath = join(testDir, "package.json");
       writeFileSync(testPath, JSON.stringify(config, null, 2));
 
       await updatePackageJSON({
@@ -449,7 +443,7 @@ describe("Monorepo Support Tests", () => {
         config.pastoralist!.resolutionPaths!["packages/app-b/package.json"]
       );
 
-      teardownTestDirectory();
+      rmSync(testDir, { recursive: true, force: true });
     });
   });
 
@@ -576,7 +570,10 @@ describe("Monorepo Support Tests", () => {
     });
 
     it("should handle nested overrides in monorepo", async () => {
-      setupTestDirectory();
+      const testDir = resolve(__dirname, ".test-monorepo-nested");
+      rmSync(testDir, { recursive: true, force: true });
+      mkdirSync(testDir, { recursive: true });
+      jsonCache.clear();
 
       const rootPackageJson = {
         name: "monorepo-root",
@@ -589,7 +586,7 @@ describe("Monorepo Support Tests", () => {
         },
       };
 
-      mkdirSync(join(TEST_DIR, "packages", "api"), { recursive: true });
+      mkdirSync(join(testDir, "packages", "api"), { recursive: true });
 
       const apiPackageJson = {
         name: "api",
@@ -600,18 +597,159 @@ describe("Monorepo Support Tests", () => {
       };
 
       writeFileSync(
+        join(testDir, "package.json"),
+        JSON.stringify(rootPackageJson, null, 2)
+      );
+      writeFileSync(
+        join(testDir, "packages", "api", "package.json"),
+        JSON.stringify(apiPackageJson, null, 2)
+      );
+
+      const options: Options = {
+        path: join(testDir, "package.json"),
+        root: testDir,
+        depPaths: ["packages/*/package.json"],
+      };
+
+      await update(options);
+
+      const updatedRoot = JSON.parse(
+        readFileSync(join(testDir, "package.json"), "utf8")
+      );
+
+      assert(updatedRoot.pastoralist);
+      assert(updatedRoot.pastoralist.appendix);
+      assert(updatedRoot.pastoralist.appendix["pg-types@^4.0.1"]);
+      assert(
+        updatedRoot.pastoralist.appendix["pg-types@^4.0.1"].dependents["api"]
+          .includes("nested override")
+      );
+
+      rmSync(testDir, { recursive: true, force: true });
+    });
+  });
+
+  describe("depPaths Configuration Support", () => {
+    it("should use depPaths from package.json config when set to workspace string", async () => {
+      const testDir = resolve(__dirname, ".test-monorepo-workspace");
+      rmSync(testDir, { recursive: true, force: true });
+      mkdirSync(testDir, { recursive: true });
+      jsonCache.clear();
+
+      const rootPackageJson = {
+        name: "monorepo-root",
+        version: "1.0.0",
+        workspaces: ["packages/*", "apps/*"],
+        overrides: {
+          "lodash": "4.17.21",
+        },
+        pastoralist: {
+          depPaths: "workspace",
+        },
+      };
+
+      mkdirSync(join(testDir, "packages", "app-a"), { recursive: true });
+      mkdirSync(join(testDir, "apps", "app-b"), { recursive: true });
+
+      const appAPackageJson = {
+        name: "app-a",
+        version: "1.0.0",
+        dependencies: {
+          "lodash": "^4.17.0",
+        },
+      };
+
+      const appBPackageJson = {
+        name: "app-b",
+        version: "1.0.0",
+        dependencies: {
+          "lodash": "^4.17.0",
+        },
+      };
+
+      writeFileSync(
+        join(testDir, "package.json"),
+        JSON.stringify(rootPackageJson, null, 2)
+      );
+      writeFileSync(
+        join(testDir, "packages", "app-a", "package.json"),
+        JSON.stringify(appAPackageJson, null, 2)
+      );
+      writeFileSync(
+        join(testDir, "apps", "app-b", "package.json"),
+        JSON.stringify(appBPackageJson, null, 2)
+      );
+
+      const options: Options = {
+        path: join(testDir, "package.json"),
+        root: testDir,
+      };
+
+      await update(options);
+
+      const updatedRoot = JSON.parse(
+        readFileSync(join(testDir, "package.json"), "utf8")
+      );
+
+      assert(updatedRoot.pastoralist);
+      assert(updatedRoot.pastoralist.appendix);
+      assert(updatedRoot.pastoralist.appendix["lodash@4.17.21"]);
+      assert(updatedRoot.pastoralist.appendix["lodash@4.17.21"].dependents["app-a"]);
+      assert(updatedRoot.pastoralist.appendix["lodash@4.17.21"].dependents["app-b"]);
+      assert.deepEqual(updatedRoot.pastoralist.depPaths, "workspace");
+
+      rmSync(testDir, { recursive: true, force: true });
+    });
+
+    it("should use depPaths from package.json config when set to array", async () => {
+      setupTestDirectory();
+
+      const rootPackageJson = {
+        name: "monorepo-root",
+        version: "1.0.0",
+        overrides: {
+          "react": "18.2.0",
+        },
+        pastoralist: {
+          depPaths: ["packages/app-c/package.json"],
+        },
+      };
+
+      mkdirSync(join(TEST_DIR, "packages", "app-c"), { recursive: true });
+      mkdirSync(join(TEST_DIR, "packages", "app-d"), { recursive: true });
+
+      const appCPackageJson = {
+        name: "app-c",
+        version: "1.0.0",
+        dependencies: {
+          "react": "^18.0.0",
+        },
+      };
+
+      const appDPackageJson = {
+        name: "app-d",
+        version: "1.0.0",
+        dependencies: {
+          "react": "^18.0.0",
+        },
+      };
+
+      writeFileSync(
         join(TEST_DIR, "package.json"),
         JSON.stringify(rootPackageJson, null, 2)
       );
       writeFileSync(
-        join(TEST_DIR, "packages", "api", "package.json"),
-        JSON.stringify(apiPackageJson, null, 2)
+        join(TEST_DIR, "packages", "app-c", "package.json"),
+        JSON.stringify(appCPackageJson, null, 2)
+      );
+      writeFileSync(
+        join(TEST_DIR, "packages", "app-d", "package.json"),
+        JSON.stringify(appDPackageJson, null, 2)
       );
 
       const options: Options = {
         path: join(TEST_DIR, "package.json"),
         root: TEST_DIR,
-        depPaths: ["packages/*/package.json"],
       };
 
       await update(options);
@@ -622,11 +760,118 @@ describe("Monorepo Support Tests", () => {
 
       assert(updatedRoot.pastoralist);
       assert(updatedRoot.pastoralist.appendix);
-      assert(updatedRoot.pastoralist.appendix["pg-types@^4.0.1"]);
-      assert(
-        updatedRoot.pastoralist.appendix["pg-types@^4.0.1"].dependents["api"]
-          .includes("nested override")
+      assert(updatedRoot.pastoralist.appendix["react@18.2.0"]);
+      assert(updatedRoot.pastoralist.appendix["react@18.2.0"].dependents["app-c"]);
+      assert(!updatedRoot.pastoralist.appendix["react@18.2.0"].dependents["app-d"]);
+
+      teardownTestDirectory();
+    });
+
+    it("should prioritize CLI depPaths over package.json config", async () => {
+      setupTestDirectory();
+
+      const rootPackageJson = {
+        name: "monorepo-root",
+        version: "1.0.0",
+        workspaces: ["packages/*"],
+        overrides: {
+          "lodash": "4.17.21",
+        },
+        pastoralist: {
+          depPaths: "workspace",
+        },
+      };
+
+      mkdirSync(join(TEST_DIR, "packages", "app-e"), { recursive: true });
+
+      const appEPackageJson = {
+        name: "app-e",
+        version: "1.0.0",
+        dependencies: {
+          "lodash": "^4.17.0",
+        },
+      };
+
+      writeFileSync(
+        join(TEST_DIR, "package.json"),
+        JSON.stringify(rootPackageJson, null, 2)
       );
+      writeFileSync(
+        join(TEST_DIR, "packages", "app-e", "package.json"),
+        JSON.stringify(appEPackageJson, null, 2)
+      );
+
+      const options: Options = {
+        path: join(TEST_DIR, "package.json"),
+        root: TEST_DIR,
+        depPaths: ["packages/app-e/package.json"],
+      };
+
+      await update(options);
+
+      const updatedRoot = JSON.parse(
+        readFileSync(join(TEST_DIR, "package.json"), "utf8")
+      );
+
+      assert(updatedRoot.pastoralist);
+      assert(updatedRoot.pastoralist.appendix);
+      assert(updatedRoot.pastoralist.appendix["lodash@4.17.21"]);
+      assert(updatedRoot.pastoralist.appendix["lodash@4.17.21"].dependents["app-e"]);
+
+      teardownTestDirectory();
+    });
+
+    it("should not write appendix to workspace packages when using depPaths", async () => {
+      setupTestDirectory();
+
+      const rootPackageJson = {
+        name: "monorepo-root",
+        version: "1.0.0",
+        workspaces: ["packages/*"],
+        overrides: {
+          "lodash": "4.17.21",
+        },
+        pastoralist: {
+          depPaths: "workspace",
+        },
+      };
+
+      mkdirSync(join(TEST_DIR, "packages", "app-f"), { recursive: true });
+
+      const appFPackageJson = {
+        name: "app-f",
+        version: "1.0.0",
+        dependencies: {
+          "lodash": "^4.17.0",
+        },
+      };
+
+      writeFileSync(
+        join(TEST_DIR, "package.json"),
+        JSON.stringify(rootPackageJson, null, 2)
+      );
+      writeFileSync(
+        join(TEST_DIR, "packages", "app-f", "package.json"),
+        JSON.stringify(appFPackageJson, null, 2)
+      );
+
+      const options: Options = {
+        path: join(TEST_DIR, "package.json"),
+        root: TEST_DIR,
+      };
+
+      await update(options);
+
+      const updatedRoot = JSON.parse(
+        readFileSync(join(TEST_DIR, "package.json"), "utf8")
+      );
+      const updatedWorkspace = JSON.parse(
+        readFileSync(join(TEST_DIR, "packages", "app-f", "package.json"), "utf8")
+      );
+
+      assert(updatedRoot.pastoralist);
+      assert(updatedRoot.pastoralist.appendix);
+      assert(!updatedWorkspace.pastoralist);
 
       teardownTestDirectory();
     });

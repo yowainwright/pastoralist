@@ -3,20 +3,48 @@
 import { program } from "commander";
 import ora from "ora";
 import gradient from "gradient-string";
-import { Options } from "./interfaces";
-import { update, logger, resolveJSON } from "./scripts";
+import { Options, PastoralistJSON } from "./interfaces";
+import { update, logger as createLogger, resolveJSON } from "./scripts";
 import { IS_DEBUGGING } from "./constants";
 import { SecurityChecker } from "./security";
 
-/**
- * @name action
- * @description Main entry point for Pastoralist CLI
- * @param options - Options for updating package.json
- * @returns void
- */
+const logger = createLogger({ file: "program.ts", isLogging: false });
+
+export function determineSecurityScanPaths(
+  config: PastoralistJSON | undefined,
+  mergedOptions: Options,
+  log: ReturnType<typeof createLogger> = logger
+): string[] {
+  const configDepPaths = config?.pastoralist?.depPaths;
+  const isArray = Array.isArray(configDepPaths);
+  const workspaces = config?.workspaces || [];
+  const hasWorkspaces = workspaces.length > 0;
+  const isWorkspaceString = configDepPaths === "workspace";
+  const hasWorkspaceSecurityChecks = mergedOptions.hasWorkspaceSecurityChecks || false;
+  const shouldScanWorkspaces = (isWorkspaceString || hasWorkspaceSecurityChecks) && hasWorkspaces;
+
+  if (isArray) {
+    log.debug(
+      `Using depPaths configuration for security checks: ${configDepPaths.join(", ")}`,
+      "determineSecurityScanPaths"
+    );
+    return configDepPaths;
+  }
+
+  if (shouldScanWorkspaces) {
+    log.debug(
+      `Using workspace configuration for security checks: ${workspaces.join(", ")}`,
+      "determineSecurityScanPaths"
+    );
+    return workspaces.map((ws: string) => `${ws}/package.json`);
+  }
+
+  return [];
+}
+
 export async function action(options: Options = {}): Promise<void> {
   const isLogging = IS_DEBUGGING || options.debug;
-  const log = logger({ file: "program.ts", isLogging });
+  const log = createLogger({ file: "program.ts", isLogging });
   const { isTestingCLI = false, ...rest } = options;
   if (isTestingCLI) {
     log.debug("action:options:", "action", { options });
@@ -55,15 +83,12 @@ export async function action(options: Options = {}): Promise<void> {
         token: mergedOptions.securityProviderToken,
         debug: isLogging,
       });
-      
-      const hasWorkspaceSecurityChecks = mergedOptions.hasWorkspaceSecurityChecks || false;
-      const workspacePaths = hasWorkspaceSecurityChecks && config?.workspaces ? 
-        config.workspaces.map((ws: string) => `${ws}/package.json`) : 
-        undefined;
-      
+
+      const scanPaths = determineSecurityScanPaths(config, mergedOptions, log);
+
       const securityOverrides = await securityChecker.checkSecurity(config!, {
         ...mergedOptions,
-        depPaths: workspacePaths,
+        depPaths: scanPaths,
         root: options.root || "./",
       });
       
@@ -74,6 +99,10 @@ export async function action(options: Options = {}): Promise<void> {
         if (mergedOptions.forceSecurityRefactor || mergedOptions.interactive) {
           // Apply overrides will be handled by update function
           mergedOptions.securityOverrides = securityChecker.generatePackageOverrides(securityOverrides);
+          mergedOptions.securityOverrideDetails = securityOverrides.map(override => ({
+            packageName: override.packageName,
+            reason: override.reason
+          }));
         }
       } else {
         spinner.succeed(`🔒 ${pastor(`pastoralist`)} no security vulnerabilities found!`);
@@ -114,6 +143,7 @@ program
   .option("--securityProviderToken <token>", "Security provider token for API access (if required)")
   .option("--interactive", "run security checks in interactive mode")
   .option("--hasWorkspaceSecurityChecks", "include workspace packages in security scan")
+  .option("--promptForReasons", "prompt for reasons when adding manual overrides")
   .action(action)
   .parse(process.argv);
 

@@ -158,6 +158,173 @@ if grep -q '"pastoralist":' package.json; then
   exit 1
 fi
 
+echo "\n8️⃣ Testing depPaths configuration..."
+echo "======================================"
+
+# Test 8.1: depPaths with "workspace" string
+echo "Testing depPaths: 'workspace'..."
+rm -rf /tmp/test-workspace
+mkdir -p /tmp/test-workspace/packages/app-a /tmp/test-workspace/apps/app-b
+cd /tmp/test-workspace
+
+cat > package.json <<'EOF'
+{
+  "name": "test-monorepo",
+  "version": "1.0.0",
+  "workspaces": ["packages/*", "apps/*"],
+  "overrides": {
+    "lodash": "4.17.21"
+  },
+  "pastoralist": {
+    "depPaths": "workspace"
+  }
+}
+EOF
+
+cat > packages/app-a/package.json <<'EOF'
+{
+  "name": "app-a",
+  "version": "1.0.0",
+  "dependencies": {
+    "lodash": "^4.17.0"
+  }
+}
+EOF
+
+cat > apps/app-b/package.json <<'EOF'
+{
+  "name": "app-b",
+  "version": "1.0.0",
+  "dependencies": {
+    "lodash": "^4.17.0"
+  }
+}
+EOF
+
+node /app/pastoralist/index.js
+print_result $? "depPaths workspace config completed"
+
+if ! grep -q '"appendix":' package.json; then
+    echo "❌ Appendix missing in root"
+    exit 1
+fi
+if ! grep -q '"app-a":' package.json || ! grep -q '"app-b":' package.json; then
+    echo "❌ Workspace packages not tracked in appendix"
+    exit 1
+fi
+if grep -q '"pastoralist":' packages/app-a/package.json || grep -q '"pastoralist":' apps/app-b/package.json; then
+    echo "❌ Workspace packages should not have pastoralist section"
+    exit 1
+fi
+echo "✅ depPaths workspace configuration works correctly"
+
+# Test 8.2: depPaths with array
+echo "Testing depPaths with array..."
+rm -rf /tmp/test-array
+mkdir -p /tmp/test-array/packages/app-c /tmp/test-array/packages/app-d
+cd /tmp/test-array
+
+cat > package.json <<'EOF'
+{
+  "name": "test-monorepo",
+  "version": "1.0.0",
+  "overrides": {
+    "react": "18.2.0"
+  },
+  "pastoralist": {
+    "depPaths": ["packages/app-c/package.json"]
+  }
+}
+EOF
+
+cat > packages/app-c/package.json <<'EOF'
+{
+  "name": "app-c",
+  "version": "1.0.0",
+  "dependencies": {
+    "react": "^18.0.0"
+  }
+}
+EOF
+
+cat > packages/app-d/package.json <<'EOF'
+{
+  "name": "app-d",
+  "version": "1.0.0",
+  "dependencies": {
+    "react": "^18.0.0"
+  }
+}
+EOF
+
+node /app/pastoralist/index.js
+print_result $? "depPaths array config completed"
+
+if ! grep -q '"app-c":' package.json; then
+    echo "❌ Specified package not tracked"
+    exit 1
+fi
+if grep -q '"app-d":' package.json; then
+    echo "❌ Non-specified package should not be tracked"
+    exit 1
+fi
+echo "✅ depPaths array configuration works correctly"
+
+# Test 8.3: CLI priority over config
+echo "Testing CLI depPaths priority..."
+rm -rf /tmp/test-priority
+mkdir -p /tmp/test-priority/packages/app-e /tmp/test-priority/packages/app-f
+cd /tmp/test-priority
+
+cat > package.json <<'EOF'
+{
+  "name": "test-monorepo",
+  "version": "1.0.0",
+  "workspaces": ["packages/*"],
+  "overrides": {
+    "lodash": "4.17.21"
+  },
+  "pastoralist": {
+    "depPaths": "workspace"
+  }
+}
+EOF
+
+cat > packages/app-e/package.json <<'EOF'
+{
+  "name": "app-e",
+  "version": "1.0.0",
+  "dependencies": {
+    "lodash": "^4.17.0"
+  }
+}
+EOF
+
+cat > packages/app-f/package.json <<'EOF'
+{
+  "name": "app-f",
+  "version": "1.0.0",
+  "dependencies": {
+    "lodash": "^4.17.0"
+  }
+}
+EOF
+
+node /app/pastoralist/index.js --depPaths "packages/app-e/package.json"
+print_result $? "CLI depPaths override completed"
+
+if ! grep -q '"app-e":' package.json; then
+    echo "❌ CLI-specified package not tracked"
+    exit 1
+fi
+if grep -q '"app-f":' package.json; then
+    echo "❌ CLI should override workspace config"
+    exit 1
+fi
+echo "✅ CLI depPaths correctly overrides config"
+
+cd /app/e2e
+
 echo "\n🔄 Running Migration Tests..."
 echo "=============================="
 /app/scripts/test-migration-1.3.0-to-1.4.0.sh

@@ -26,6 +26,13 @@ import {
   getExistingOverrideField,
   getOverrideFieldForPackageManager,
   applyOverridesToConfig,
+  hasExistingReasonInAppendix,
+  hasSecurityReason,
+  needsReasonPrompt,
+  extractPackagesFromNestedOverride,
+  extractPackagesFromSimpleOverride,
+  detectNewOverrides,
+  filterEmptyReasons,
 } from "../src/scripts";
 import { LOG_PREFIX } from "../src/constants";
 import { PastoralistJSON, Appendix } from "../src/interfaces";
@@ -414,13 +421,12 @@ describe("updateAppendix", () => {
       devDependencies: {},
       packageName: "test-package",
     });
-    assert.deepStrictEqual(result, {
-      "foo@1.0.0": {
-        dependents: {
-          "test-package": "foo (transitive dependency)",
-        },
-      },
+    assert.ok(result["foo@1.0.0"]);
+    assert.deepStrictEqual(result["foo@1.0.0"].dependents, {
+      "test-package": "foo (transitive dependency)",
     });
+    assert.ok(result["foo@1.0.0"].ledger);
+    assert.ok(result["foo@1.0.0"].ledger.addedDate);
   });
 
   it("should add a new entry to the appendix when an override is needed", () => {
@@ -431,13 +437,12 @@ describe("updateAppendix", () => {
       devDependencies: {},
       packageName: "test-package",
     });
-    assert.deepStrictEqual(result, {
-      "foo@2.0.0": {
-        dependents: {
-          "test-package": "foo@1.0.0",
-        },
-      },
+    assert.ok(result["foo@2.0.0"]);
+    assert.deepStrictEqual(result["foo@2.0.0"].dependents, {
+      "test-package": "foo@1.0.0",
     });
+    assert.ok(result["foo@2.0.0"].ledger);
+    assert.ok(result["foo@2.0.0"].ledger.addedDate);
   });
 
   it("should merge dependents from the existing appendix", () => {
@@ -454,14 +459,13 @@ describe("updateAppendix", () => {
       devDependencies: {},
       packageName: "test-package",
     });
-    assert.deepStrictEqual(result, {
-      "foo@2.0.0": {
-        dependents: {
-          "existing-package": "foo@1.2.3",
-          "test-package": "foo@1.0.0",
-        },
-      },
+    assert.ok(result["foo@2.0.0"]);
+    assert.deepStrictEqual(result["foo@2.0.0"].dependents, {
+      "existing-package": "foo@1.2.3",
+      "test-package": "foo@1.0.0",
     });
+    assert.ok(result["foo@2.0.0"].ledger);
+    assert.ok(result["foo@2.0.0"].ledger.addedDate);
   });
 
   it("should handle both dependencies and devDependencies", () => {
@@ -472,18 +476,16 @@ describe("updateAppendix", () => {
       devDependencies: { bar: "2.5.0" },
       packageName: "test-package",
     });
-    assert.deepStrictEqual(result, {
-      "foo@2.0.0": {
-        dependents: {
-          "test-package": "foo@1.0.0",
-        },
-      },
-      "bar@3.0.0": {
-        dependents: {
-          "test-package": "bar@2.5.0",
-        },
-      },
+    assert.ok(result["foo@2.0.0"]);
+    assert.deepStrictEqual(result["foo@2.0.0"].dependents, {
+      "test-package": "foo@1.0.0",
     });
+    assert.ok(result["foo@2.0.0"].ledger);
+    assert.ok(result["bar@3.0.0"]);
+    assert.deepStrictEqual(result["bar@3.0.0"].dependents, {
+      "test-package": "bar@2.5.0",
+    });
+    assert.ok(result["bar@3.0.0"].ledger);
   });
 
   it("should add an entry for the overridden dependency", () => {
@@ -494,13 +496,12 @@ describe("updateAppendix", () => {
       devDependencies: {},
       packageName: "test-package",
     });
-    assert.deepStrictEqual(result, {
-      "foo@^1.0.0": {
-        dependents: {
-          "test-package": "foo@1.2.0",
-        },
-      },
+    assert.ok(result["foo@^1.0.0"]);
+    assert.deepStrictEqual(result["foo@^1.0.0"].dependents, {
+      "test-package": "foo@1.2.0",
     });
+    assert.ok(result["foo@^1.0.0"].ledger);
+    assert.ok(result["foo@^1.0.0"].ledger.addedDate);
   });
 });
 
@@ -1081,13 +1082,12 @@ describe("peerDependencies support", () => {
       peerDependencies: { lodash: "^4.17.0" },
       packageName: "test-package-with-peers",
     });
-    assert.deepStrictEqual(result, {
-      "lodash@5.0.0": {
-        dependents: {
-          "test-package-with-peers": "lodash@^4.17.0",
-        },
-      },
+    assert.ok(result["lodash@5.0.0"]);
+    assert.deepStrictEqual(result["lodash@5.0.0"].dependents, {
+      "test-package-with-peers": "lodash@^4.17.0",
     });
+    assert.ok(result["lodash@5.0.0"].ledger);
+    assert.ok(result["lodash@5.0.0"].ledger.addedDate);
   });
 
   it("should include all overridden dependencies in appendix", () => {
@@ -1104,23 +1104,23 @@ describe("peerDependencies support", () => {
       packageName: "test-package-with-all-deps",
     });
     // Should include all overridden dependencies
-    assert.deepStrictEqual(result, {
-      "react@18.2.0": {
-        dependents: {
-          "test-package-with-all-deps": "react@^18.0.0",
-        },
-      },
-      "typescript@4.9.5": {
-        dependents: {
-          "test-package-with-all-deps": "typescript@^5.0.0",
-        },
-      },
-      "lodash@4.17.21": {
-        dependents: {
-          "test-package-with-all-deps": "lodash@^4.17.0",
-        },
-      },
+    assert.ok(result["react@18.2.0"]);
+    assert.deepStrictEqual(result["react@18.2.0"].dependents, {
+      "test-package-with-all-deps": "react@^18.0.0",
     });
+    assert.ok(result["react@18.2.0"].ledger);
+
+    assert.ok(result["typescript@4.9.5"]);
+    assert.deepStrictEqual(result["typescript@4.9.5"].dependents, {
+      "test-package-with-all-deps": "typescript@^5.0.0",
+    });
+    assert.ok(result["typescript@4.9.5"].ledger);
+
+    assert.ok(result["lodash@4.17.21"]);
+    assert.deepStrictEqual(result["lodash@4.17.21"].dependents, {
+      "test-package-with-all-deps": "lodash@^4.17.0",
+    });
+    assert.ok(result["lodash@4.17.21"].ledger);
   });
 });
 
@@ -1617,13 +1617,12 @@ describe("Nested Overrides Support", () => {
       dependencies: { lodash: "^4.17.0" },
       packageName: "test-package",
     });
-    assert.deepStrictEqual(result, {
-      "lodash@4.17.21": {
-        dependents: {
-          "test-package": "lodash@^4.17.0",
-        },
-      },
+    assert.ok(result["lodash@4.17.21"]);
+    assert.deepStrictEqual(result["lodash@4.17.21"].dependents, {
+      "test-package": "lodash@^4.17.0",
     });
+    assert.ok(result["lodash@4.17.21"].ledger);
+    assert.ok(result["lodash@4.17.21"].ledger.addedDate);
   });
 
   it("should handle nested overrides for transitive dependencies", () => {
@@ -1633,13 +1632,12 @@ describe("Nested Overrides Support", () => {
       dependencies: { pg: "^8.13.1" },
       packageName: "test-package",
     });
-    assert.deepStrictEqual(result, {
-      "pg-types@^4.0.1": {
-        dependents: {
-          "test-package": "pg@^8.13.1 (nested override)",
-        },
-      },
+    assert.ok(result["pg-types@^4.0.1"]);
+    assert.deepStrictEqual(result["pg-types@^4.0.1"].dependents, {
+      "test-package": "pg@^8.13.1 (nested override)",
     });
+    assert.ok(result["pg-types@^4.0.1"].ledger);
+    assert.ok(result["pg-types@^4.0.1"].ledger.addedDate);
   });
 
   it("should handle mixed simple and nested overrides", () => {
@@ -1655,18 +1653,17 @@ describe("Nested Overrides Support", () => {
       },
       packageName: "test-package",
     });
-    assert.deepStrictEqual(result, {
-      "lodash@4.17.21": {
-        dependents: {
-          "test-package": "lodash@^4.17.0",
-        },
-      },
-      "pg-types@^4.0.1": {
-        dependents: {
-          "test-package": "pg@^8.13.1 (nested override)",
-        },
-      },
+    assert.ok(result["lodash@4.17.21"]);
+    assert.deepStrictEqual(result["lodash@4.17.21"].dependents, {
+      "test-package": "lodash@^4.17.0",
     });
+    assert.ok(result["lodash@4.17.21"].ledger);
+
+    assert.ok(result["pg-types@^4.0.1"]);
+    assert.deepStrictEqual(result["pg-types@^4.0.1"].dependents, {
+      "test-package": "pg@^8.13.1 (nested override)",
+    });
+    assert.ok(result["pg-types@^4.0.1"].ledger);
   });
 
   it("should ignore nested overrides when parent package is not in dependencies", () => {
@@ -1691,18 +1688,17 @@ describe("Nested Overrides Support", () => {
       dependencies: { pg: "^8.13.1" },
       packageName: "test-package",
     });
-    assert.deepStrictEqual(result, {
-      "pg-types@^4.0.1": {
-        dependents: {
-          "test-package": "pg@^8.13.1 (nested override)",
-        },
-      },
-      "pg-protocol@^1.6.0": {
-        dependents: {
-          "test-package": "pg@^8.13.1 (nested override)",
-        },
-      },
+    assert.ok(result["pg-types@^4.0.1"]);
+    assert.deepStrictEqual(result["pg-types@^4.0.1"].dependents, {
+      "test-package": "pg@^8.13.1 (nested override)",
     });
+    assert.ok(result["pg-types@^4.0.1"].ledger);
+
+    assert.ok(result["pg-protocol@^1.6.0"]);
+    assert.deepStrictEqual(result["pg-protocol@^1.6.0"].dependents, {
+      "test-package": "pg@^8.13.1 (nested override)",
+    });
+    assert.ok(result["pg-protocol@^1.6.0"].ledger);
   });
 
   it("should preserve nested overrides in resolveOverrides", () => {
@@ -1759,13 +1755,11 @@ describe("Nested Overrides Support", () => {
       devDependencies: { webpack: "^5.88.0" },
       packageName: "test-package",
     });
-    assert.deepStrictEqual(result, {
-      "loader-utils@^3.2.1": {
-        dependents: {
-          "test-package": "webpack@^5.88.0 (nested override)",
-        },
-      },
+    assert.ok(result["loader-utils@^3.2.1"]);
+    assert.deepStrictEqual(result["loader-utils@^3.2.1"].dependents, {
+      "test-package": "webpack@^5.88.0 (nested override)",
     });
+    assert.ok(result["loader-utils@^3.2.1"].ledger);
   });
 
   it("should handle nested overrides with peerDependencies", () => {
@@ -1776,13 +1770,11 @@ describe("Nested Overrides Support", () => {
       peerDependencies: { react: "^18.0.0" },
       packageName: "test-package",
     });
-    assert.deepStrictEqual(result, {
-      "scheduler@^0.23.0": {
-        dependents: {
-          "test-package": "react@^18.0.0 (nested override)",
-        },
-      },
+    assert.ok(result["scheduler@^0.23.0"]);
+    assert.deepStrictEqual(result["scheduler@^0.23.0"].dependents, {
+      "test-package": "react@^18.0.0 (nested override)",
     });
+    assert.ok(result["scheduler@^0.23.0"].ledger);
   });
 });
 
@@ -2111,5 +2103,647 @@ describe("Apply Overrides to Config", () => {
     assert.strictEqual(config.overrides, undefined);
     assert.strictEqual(config.resolutions, undefined);
     assert.strictEqual(config.pnpm, undefined);
+  });
+});
+
+describe("Security Feature: Reason Tracking in Appendix Ledger", () => {
+  it("should add ledger with addedDate when creating new appendix entry", () => {
+    const result = updateAppendix({
+      overrides: { lodash: "4.17.21" },
+      appendix: {},
+      dependencies: { lodash: "^4.17.0" },
+      packageName: "test-package",
+    });
+
+    assert.ok(result["lodash@4.17.21"]);
+    assert.ok(result["lodash@4.17.21"].ledger);
+    assert.ok(result["lodash@4.17.21"].ledger.addedDate);
+
+    // Check that addedDate is a valid ISO date string
+    const date = new Date(result["lodash@4.17.21"].ledger.addedDate);
+    assert.ok(!isNaN(date.getTime()));
+  });
+
+  it("should add security reason to ledger when securityOverrideDetails provided", () => {
+    const securityOverrideDetails = [
+      { packageName: "lodash", reason: "CVE-2021-23337: Command injection vulnerability" }
+    ];
+
+    const result = updateAppendix({
+      overrides: { lodash: "4.17.21" },
+      appendix: {},
+      dependencies: { lodash: "^4.17.0" },
+      packageName: "test-package",
+      securityOverrideDetails,
+    });
+
+    assert.ok(result["lodash@4.17.21"].ledger);
+    assert.strictEqual(
+      result["lodash@4.17.21"].ledger.reason,
+      "CVE-2021-23337: Command injection vulnerability"
+    );
+  });
+
+  it("should add manual reason to ledger when manualOverrideReasons provided", () => {
+    const result = updateAppendix({
+      overrides: { lodash: "4.17.21" },
+      appendix: {},
+      dependencies: { lodash: "^4.17.0" },
+      packageName: "test-package",
+      manualOverrideReasons: { "lodash": "Pinning for stability" },
+    });
+
+    assert.ok(result["lodash@4.17.21"].ledger);
+    assert.strictEqual(
+      result["lodash@4.17.21"].ledger.reason,
+      "Pinning for stability"
+    );
+  });
+
+  it("should prioritize explicit reason over securityOverrideDetails", () => {
+    const securityOverrideDetails = [
+      { packageName: "lodash", reason: "Security fix" }
+    ];
+
+    const result = updateAppendix({
+      overrides: { lodash: "4.17.21" },
+      appendix: {},
+      dependencies: { lodash: "^4.17.0" },
+      packageName: "test-package",
+      reason: "Custom override reason",
+      securityOverrideDetails,
+    });
+
+    assert.strictEqual(
+      result["lodash@4.17.21"].ledger.reason,
+      "Custom override reason"
+    );
+  });
+
+  it("should preserve existing ledger when updating appendix", () => {
+    const existingAppendix: Appendix = {
+      "lodash@4.17.21": {
+        dependents: { "old-package": "lodash@^4.17.0" },
+        ledger: {
+          addedDate: "2023-01-01T00:00:00.000Z",
+          reason: "Original reason"
+        }
+      }
+    };
+
+    const result = updateAppendix({
+      overrides: { lodash: "4.17.21" },
+      appendix: existingAppendix,
+      dependencies: { lodash: "^4.17.0" },
+      packageName: "test-package",
+    });
+
+    assert.strictEqual(
+      result["lodash@4.17.21"].ledger.addedDate,
+      "2023-01-01T00:00:00.000Z"
+    );
+    assert.strictEqual(
+      result["lodash@4.17.21"].ledger.reason,
+      "Original reason"
+    );
+  });
+
+  it("should add reason to nested overrides", () => {
+    const securityOverrideDetails = [
+      { packageName: "pg-types", reason: "CVE-2023-XXXX: SQL injection fix" }
+    ];
+
+    const result = updateAppendix({
+      overrides: { pg: { "pg-types": "^4.0.1" } },
+      appendix: {},
+      dependencies: { pg: "^8.13.1" },
+      packageName: "test-package",
+      securityOverrideDetails,
+    });
+
+    assert.ok(result["pg-types@^4.0.1"].ledger);
+    assert.strictEqual(
+      result["pg-types@^4.0.1"].ledger.reason,
+      "CVE-2023-XXXX: SQL injection fix"
+    );
+  });
+
+  it("should use parent package reason for nested overrides when nested package has no specific reason", () => {
+    const securityOverrideDetails = [
+      { packageName: "pg", reason: "Security update for pg dependencies" }
+    ];
+
+    const result = updateAppendix({
+      overrides: { pg: { "pg-types": "^4.0.1" } },
+      appendix: {},
+      dependencies: { pg: "^8.13.1" },
+      packageName: "test-package",
+      securityOverrideDetails,
+    });
+
+    assert.ok(result["pg-types@^4.0.1"].ledger);
+    assert.strictEqual(
+      result["pg-types@^4.0.1"].ledger.reason,
+      "Security update for pg dependencies"
+    );
+  });
+});
+
+describe("Security Feature: Helper Functions for Reason Tracking", () => {
+  it("getReasonForPackage should find reason in securityOverrideDetails", () => {
+    const securityOverrideDetails = [
+      { packageName: "lodash", reason: "CVE-2021-23337" },
+      { packageName: "axios", reason: "CVE-2023-XXXX" }
+    ];
+
+    const result = updateAppendix({
+      overrides: { lodash: "4.17.21" },
+      appendix: {},
+      dependencies: { lodash: "^4.17.0" },
+      packageName: "test-package",
+      securityOverrideDetails,
+    });
+
+    assert.strictEqual(result["lodash@4.17.21"].ledger.reason, "CVE-2021-23337");
+  });
+
+  it("hasExistingReasonInAppendix should return true when reason exists", () => {
+    const appendix: Appendix = {
+      "lodash@4.17.21": {
+        dependents: {},
+        ledger: {
+          addedDate: "2023-01-01T00:00:00.000Z",
+          reason: "Security fix"
+        }
+      }
+    };
+
+    const hasReason = hasExistingReasonInAppendix("lodash", "4.17.21", appendix);
+    assert.strictEqual(hasReason, true);
+  });
+
+  it("hasExistingReasonInAppendix should return false when reason does not exist", () => {
+    const appendix: Appendix = {
+      "lodash@4.17.21": {
+        dependents: {},
+        ledger: {
+          addedDate: "2023-01-01T00:00:00.000Z"
+        }
+      }
+    };
+
+    const hasReason = hasExistingReasonInAppendix("lodash", "4.17.21", appendix);
+    assert.strictEqual(hasReason, false);
+  });
+
+  it("hasSecurityReason should return true when package has security reason", () => {
+    const securityOverrideDetails = [
+      { packageName: "lodash", reason: "CVE-2021-23337" }
+    ];
+
+    const hasReason = hasSecurityReason("lodash", securityOverrideDetails);
+    assert.strictEqual(hasReason, true);
+  });
+
+  it("hasSecurityReason should return false when package has no security reason", () => {
+    const securityOverrideDetails = [
+      { packageName: "axios", reason: "CVE-2023-XXXX" }
+    ];
+
+    const hasReason = hasSecurityReason("lodash", securityOverrideDetails);
+    assert.strictEqual(hasReason, false);
+  });
+
+  it("needsReasonPrompt should return true when no reason exists", () => {
+    const appendix: Appendix = {};
+    const securityOverrideDetails: Array<{ packageName: string; reason: string }> = [];
+
+    const needsPrompt = needsReasonPrompt("lodash", "4.17.21", appendix, securityOverrideDetails);
+    assert.strictEqual(needsPrompt, true);
+  });
+
+  it("needsReasonPrompt should return false when ledger reason exists", () => {
+    const appendix: Appendix = {
+      "lodash@4.17.21": {
+        dependents: {},
+        ledger: {
+          addedDate: "2023-01-01T00:00:00.000Z",
+          reason: "Existing reason"
+        }
+      }
+    };
+
+    const needsPrompt = needsReasonPrompt("lodash", "4.17.21", appendix);
+    assert.strictEqual(needsPrompt, false);
+  });
+
+  it("needsReasonPrompt should return false when security reason exists", () => {
+    const appendix: Appendix = {};
+    const securityOverrideDetails = [
+      { packageName: "lodash", reason: "CVE-2021-23337" }
+    ];
+
+    const needsPrompt = needsReasonPrompt("lodash", "4.17.21", appendix, securityOverrideDetails);
+    assert.strictEqual(needsPrompt, false);
+  });
+});
+
+describe("Security Feature: detectNewOverrides Function", () => {
+  it("should detect new simple override without reason", () => {
+    const overrides = { lodash: "4.17.21" };
+    const existingAppendix: Appendix = {};
+
+    const newOverrides = detectNewOverrides(overrides, existingAppendix);
+    assert.deepStrictEqual(newOverrides, ["lodash"]);
+  });
+
+  it("should not detect override that already has ledger reason", () => {
+    const overrides = { lodash: "4.17.21" };
+    const existingAppendix: Appendix = {
+      "lodash@4.17.21": {
+        dependents: {},
+        ledger: {
+          addedDate: "2023-01-01T00:00:00.000Z",
+          reason: "Existing reason"
+        }
+      }
+    };
+
+    const newOverrides = detectNewOverrides(overrides, existingAppendix);
+    assert.deepStrictEqual(newOverrides, []);
+  });
+
+  it("should not detect override with security reason", () => {
+    const overrides = { lodash: "4.17.21" };
+    const existingAppendix: Appendix = {};
+    const securityOverrideDetails = [
+      { packageName: "lodash", reason: "CVE-2021-23337" }
+    ];
+
+    const newOverrides = detectNewOverrides(overrides, existingAppendix, securityOverrideDetails);
+    assert.deepStrictEqual(newOverrides, []);
+  });
+
+  it("should detect multiple new overrides", () => {
+    const overrides = {
+      lodash: "4.17.21",
+      axios: "1.0.0",
+      react: "18.2.0"
+    };
+    const existingAppendix: Appendix = {};
+
+    const newOverrides = detectNewOverrides(overrides, existingAppendix);
+    assert.deepStrictEqual(newOverrides.sort(), ["axios", "lodash", "react"].sort());
+  });
+
+  it("should detect new nested overrides without reasons", () => {
+    const overrides = {
+      pg: { "pg-types": "^4.0.1", "pg-protocol": "^1.6.0" }
+    };
+    const existingAppendix: Appendix = {};
+
+    const newOverrides = detectNewOverrides(overrides, existingAppendix);
+    assert.deepStrictEqual(newOverrides.sort(), ["pg-protocol", "pg-types"].sort());
+  });
+
+  it("should not detect nested overrides with security reasons", () => {
+    const overrides = {
+      pg: { "pg-types": "^4.0.1", "pg-protocol": "^1.6.0" }
+    };
+    const existingAppendix: Appendix = {};
+    const securityOverrideDetails = [
+      { packageName: "pg-types", reason: "Security fix" },
+      { packageName: "pg-protocol", reason: "Security update" }
+    ];
+
+    const newOverrides = detectNewOverrides(overrides, existingAppendix, securityOverrideDetails);
+    assert.deepStrictEqual(newOverrides, []);
+  });
+
+  it("should handle mixed simple and nested overrides", () => {
+    const overrides = {
+      lodash: "4.17.21",
+      pg: { "pg-types": "^4.0.1" },
+      axios: "1.0.0"
+    };
+    const existingAppendix: Appendix = {
+      "lodash@4.17.21": {
+        dependents: {},
+        ledger: {
+          addedDate: "2023-01-01T00:00:00.000Z",
+          reason: "Existing"
+        }
+      }
+    };
+    const securityOverrideDetails = [
+      { packageName: "pg-types", reason: "CVE fix" }
+    ];
+
+    const newOverrides = detectNewOverrides(overrides, existingAppendix, securityOverrideDetails);
+    assert.deepStrictEqual(newOverrides, ["axios"]);
+  });
+
+  it("should return unique package names", () => {
+    const overrides = {
+      lodash: "4.17.21",
+      axios: "1.0.0",
+      react: "18.2.0"
+    };
+    const existingAppendix: Appendix = {};
+
+    const newOverrides = detectNewOverrides(overrides, existingAppendix);
+    const uniqueOverrides = [...new Set(newOverrides)];
+    assert.strictEqual(newOverrides.length, uniqueOverrides.length);
+  });
+});
+
+describe("Security Feature: Package Extraction Functions", () => {
+  it("extractPackagesFromSimpleOverride should return package when it needs reason", () => {
+    const appendix: Appendix = {};
+    const packages = extractPackagesFromSimpleOverride("lodash", "4.17.21", appendix);
+    assert.deepStrictEqual(packages, ["lodash"]);
+  });
+
+  it("extractPackagesFromSimpleOverride should return empty when reason exists", () => {
+    const appendix: Appendix = {
+      "lodash@4.17.21": {
+        dependents: {},
+        ledger: {
+          addedDate: "2023-01-01T00:00:00.000Z",
+          reason: "Existing"
+        }
+      }
+    };
+    const packages = extractPackagesFromSimpleOverride("lodash", "4.17.21", appendix);
+    assert.deepStrictEqual(packages, []);
+  });
+
+  it("extractPackagesFromNestedOverride should return packages needing reasons", () => {
+    const overrideValue = {
+      "pg-types": "^4.0.1",
+      "pg-protocol": "^1.6.0"
+    };
+    const appendix: Appendix = {};
+
+    const packages = extractPackagesFromNestedOverride(overrideValue, appendix);
+    assert.deepStrictEqual(packages.sort(), ["pg-protocol", "pg-types"].sort());
+  });
+
+  it("extractPackagesFromNestedOverride should filter out packages with reasons", () => {
+    const overrideValue = {
+      "pg-types": "^4.0.1",
+      "pg-protocol": "^1.6.0"
+    };
+    const appendix: Appendix = {
+      "pg-types@^4.0.1": {
+        dependents: {},
+        ledger: {
+          addedDate: "2023-01-01T00:00:00.000Z",
+          reason: "Security fix"
+        }
+      }
+    };
+
+    const packages = extractPackagesFromNestedOverride(overrideValue, appendix);
+    assert.deepStrictEqual(packages, ["pg-protocol"]);
+  });
+
+  it("extractPackagesFromNestedOverride should respect security reasons", () => {
+    const overrideValue = {
+      "pg-types": "^4.0.1",
+      "pg-protocol": "^1.6.0"
+    };
+    const appendix: Appendix = {};
+    const securityOverrideDetails = [
+      { packageName: "pg-types", reason: "CVE fix" }
+    ];
+
+    const packages = extractPackagesFromNestedOverride(
+      overrideValue,
+      appendix,
+      securityOverrideDetails
+    );
+    assert.deepStrictEqual(packages, ["pg-protocol"]);
+  });
+});
+
+describe("Security Feature: Reason Priority and Merging", () => {
+  it("should prioritize explicit reason over manual override reason", () => {
+    const manualOverrideReasons = {
+      "lodash": "Manual override"
+    };
+
+    const result = updateAppendix({
+      overrides: { lodash: "4.17.21" },
+      appendix: {},
+      dependencies: { lodash: "^4.17.0" },
+      packageName: "test-package",
+      reason: "Explicit reason",
+      manualOverrideReasons,
+    });
+
+    assert.strictEqual(
+      result["lodash@4.17.21"].ledger.reason,
+      "Explicit reason"
+    );
+  });
+
+  it("should prioritize security reason over manual override reason", () => {
+    const securityOverrideDetails = [
+      { packageName: "lodash", reason: "Security fix" }
+    ];
+    const manualOverrideReasons = {
+      "lodash": "Manual override"
+    };
+
+    const result = updateAppendix({
+      overrides: { lodash: "4.17.21" },
+      appendix: {},
+      dependencies: { lodash: "^4.17.0" },
+      packageName: "test-package",
+      securityOverrideDetails,
+      manualOverrideReasons,
+    });
+
+    assert.strictEqual(
+      result["lodash@4.17.21"].ledger.reason,
+      "Security fix"
+    );
+  });
+
+  it("should use manual override reason when no security reason exists", () => {
+    const manualOverrideReasons = {
+      "lodash": "Manual override for stability"
+    };
+
+    const result = updateAppendix({
+      overrides: { lodash: "4.17.21" },
+      appendix: {},
+      dependencies: { lodash: "^4.17.0" },
+      packageName: "test-package",
+      manualOverrideReasons,
+    });
+
+    assert.strictEqual(
+      result["lodash@4.17.21"].ledger.reason,
+      "Manual override for stability"
+    );
+  });
+
+  it("should have correct priority: explicit > security > manual", () => {
+    const securityOverrideDetails = [
+      { packageName: "lodash", reason: "Security reason" }
+    ];
+    const manualOverrideReasons = {
+      "lodash": "Manual reason"
+    };
+
+    // Test with all three
+    const result1 = updateAppendix({
+      overrides: { lodash: "4.17.21" },
+      appendix: {},
+      dependencies: { lodash: "^4.17.0" },
+      packageName: "test-package",
+      reason: "Explicit",
+      securityOverrideDetails,
+      manualOverrideReasons,
+    });
+    assert.strictEqual(result1["lodash@4.17.21"].ledger.reason, "Explicit");
+
+    // Test without explicit
+    const result2 = updateAppendix({
+      overrides: { lodash: "4.17.21" },
+      appendix: {},
+      dependencies: { lodash: "^4.17.0" },
+      packageName: "test-package",
+      securityOverrideDetails,
+      manualOverrideReasons,
+    });
+    assert.strictEqual(result2["lodash@4.17.21"].ledger.reason, "Security reason");
+
+    // Test with only manual
+    const result3 = updateAppendix({
+      overrides: { lodash: "4.17.21" },
+      appendix: {},
+      dependencies: { lodash: "^4.17.0" },
+      packageName: "test-package",
+      manualOverrideReasons,
+    });
+    assert.strictEqual(result3["lodash@4.17.21"].ledger.reason, "Manual reason");
+  });
+});
+
+describe("Security Feature: Integration Tests", () => {
+  it("should create complete appendix with security reasons for multiple packages", () => {
+    const securityOverrideDetails = [
+      { packageName: "lodash", reason: "CVE-2021-23337: Command injection" },
+      { packageName: "axios", reason: "CVE-2023-XXXX: SSRF vulnerability" }
+    ];
+
+    const result = updateAppendix({
+      overrides: {
+        lodash: "4.17.21",
+        axios: "1.0.0"
+      },
+      appendix: {},
+      dependencies: {
+        lodash: "^4.17.0",
+        axios: "^0.27.0"
+      },
+      packageName: "test-app",
+      securityOverrideDetails,
+    });
+
+    assert.ok(result["lodash@4.17.21"]);
+    assert.ok(result["axios@1.0.0"]);
+    assert.strictEqual(
+      result["lodash@4.17.21"].ledger.reason,
+      "CVE-2021-23337: Command injection"
+    );
+    assert.strictEqual(
+      result["axios@1.0.0"].ledger.reason,
+      "CVE-2023-XXXX: SSRF vulnerability"
+    );
+  });
+
+  it("should handle mixed security and manual overrides", () => {
+    const securityOverrideDetails = [
+      { packageName: "lodash", reason: "CVE-2021-23337" }
+    ];
+    const manualOverrideReasons = {
+      "react": "Pinning for compatibility"
+    };
+
+    const result = updateAppendix({
+      overrides: {
+        lodash: "4.17.21",
+        react: "18.2.0"
+      },
+      appendix: {},
+      dependencies: {
+        lodash: "^4.17.0",
+        react: "^18.0.0"
+      },
+      packageName: "test-app",
+      securityOverrideDetails,
+      manualOverrideReasons,
+    });
+
+    assert.strictEqual(
+      result["lodash@4.17.21"].ledger.reason,
+      "CVE-2021-23337"
+    );
+    assert.strictEqual(
+      result["react@18.2.0"].ledger.reason,
+      "Pinning for compatibility"
+    );
+  });
+
+  it("should preserve ledger when adding new dependents", () => {
+    const existingAppendix: Appendix = {
+      "lodash@4.17.21": {
+        dependents: { "package-a": "lodash@^4.17.0" },
+        ledger: {
+          addedDate: "2023-01-01T00:00:00.000Z",
+          reason: "Security fix"
+        }
+      }
+    };
+
+    const result = updateAppendix({
+      overrides: { lodash: "4.17.21" },
+      appendix: existingAppendix,
+      dependencies: { lodash: "^4.17.0" },
+      packageName: "package-b",
+    });
+
+    assert.strictEqual(result["lodash@4.17.21"].dependents["package-a"], "lodash@^4.17.0");
+    assert.strictEqual(result["lodash@4.17.21"].dependents["package-b"], "lodash@^4.17.0");
+    assert.strictEqual(result["lodash@4.17.21"].ledger.addedDate, "2023-01-01T00:00:00.000Z");
+    assert.strictEqual(result["lodash@4.17.21"].ledger.reason, "Security fix");
+  });
+
+  it("should handle security overrides for transitive dependencies", () => {
+    const securityOverrideDetails = [
+      { packageName: "minimist", reason: "CVE-2021-44906: Prototype pollution" }
+    ];
+
+    const result = updateAppendix({
+      overrides: { minimist: "1.2.6" },
+      appendix: {},
+      dependencies: { "some-package": "^1.0.0" }, // minimist is transitive
+      packageName: "test-app",
+      securityOverrideDetails,
+    });
+
+    assert.ok(result["minimist@1.2.6"]);
+    assert.strictEqual(
+      result["minimist@1.2.6"].dependents["test-app"],
+      "minimist (transitive dependency)"
+    );
+    assert.strictEqual(
+      result["minimist@1.2.6"].ledger.reason,
+      "CVE-2021-44906: Prototype pollution"
+    );
   });
 });

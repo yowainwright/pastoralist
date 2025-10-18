@@ -19,6 +19,10 @@ export interface AppendixItem {
   rootDeps?: Array<string>;
   dependents?: Record<string, string>;
   patches?: Array<string>; // Track applied patches for this package
+  ledger?: {
+    addedDate: string; // ISO date string when the item was first added
+    reason?: string; // Reason for the override (e.g., security issue, version conflict)
+  };
 }
 export interface Appendix {
   [key: string]: AppendixItem;
@@ -26,8 +30,9 @@ export interface Appendix {
 
 export interface PastoralistConfig {
   appendix?: Appendix;
-  overridePaths?: Record<string, Appendix>; // Map of package.json paths to their appendices for monorepo support
-  resolutionPaths?: Record<string, Appendix>; // Alias for overridePaths for yarn users
+  depPaths?: "workspace" | string[];
+  overridePaths?: Record<string, Appendix>;
+  resolutionPaths?: Record<string, Appendix>;
   security?: {
     enabled?: boolean;
     provider?: "osv" | "github" | "snyk" | "npm" | "socket";
@@ -59,6 +64,8 @@ export interface UpdateAppendixOptions {
   peerDependencies?: Record<string, string>;
   packageName?: string;
   debug?: boolean;
+  reason?: string;
+  securityOverrideDetails?: Array<{ packageName: string; reason: string; }>;
 }
 
 export interface Options {
@@ -79,6 +86,9 @@ export interface Options {
   interactive?: boolean;
   hasWorkspaceSecurityChecks?: boolean;
   securityOverrides?: OverridesType;
+  securityOverrideDetails?: Array<{ packageName: string; reason: string; }>;
+  promptForReasons?: boolean;
+  manualOverrideReasons?: Record<string, string>;
 }
 
 export interface OverridesType {

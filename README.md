@@ -250,12 +250,32 @@ When Pastoralist detects overrides for packages not in root dependencies, it wil
 - Allow you to specify custom paths
 - Optionally save the configuration to your package.json
 
-2. **Using depPaths** - Specify paths to scan for package.json files:
+2. **Using depPaths CLI Flag** - Specify paths to scan for package.json files:
 ```bash
 pastoralist --depPaths "packages/*/package.json" "apps/*/package.json"
 ```
 
-3. **Using overridePaths/resolutionPaths** - Configure in your package.json:
+3. **Using depPaths in package.json** - Configure dependency paths directly in your package.json:
+```js
+"pastoralist": {
+  "depPaths": "workspace"  // Automatically uses all workspaces
+}
+
+// OR specify custom paths
+"pastoralist": {
+  "depPaths": ["packages/*/package.json", "apps/*/package.json"]
+}
+```
+
+When using `depPaths: "workspace"`, Pastoralist will automatically scan all packages defined in your `workspaces` field. This is the recommended approach for most monorepos as it keeps your configuration in sync with your workspace structure.
+
+Benefits of using `depPaths` configuration:
+- Single source of truth in package.json
+- No need to remember CLI flags
+- Works automatically with postinstall scripts
+- Appendix only appears in root package.json (workspace packages remain clean)
+
+4. **Using overridePaths/resolutionPaths** - Configure in your package.json:
 ```js
 "pastoralist": {
   "overridePaths": {  // or "resolutionPaths" for yarn
@@ -403,6 +423,52 @@ After running `pastoralist`, you'll see:
   }
 }
 ```
+
+#### Monorepo with depPaths Configuration
+
+For monorepos, the cleanest approach is using `depPaths` in your package.json:
+
+```js
+// Root package.json
+{
+  "name": "my-monorepo",
+  "version": "1.0.0",
+  "workspaces": ["packages/*", "apps/*"],
+  "overrides": {
+    "lodash": "4.17.21"  // Override used by workspace packages
+  },
+  "pastoralist": {
+    "depPaths": "workspace"  // Automatically tracks all workspaces
+  },
+  "scripts": {
+    "postinstall": "pastoralist"
+  }
+}
+```
+
+After running `pastoralist`, the root package.json will contain:
+
+```js
+{
+  "overrides": {
+    "lodash": "4.17.21"
+  },
+  "pastoralist": {
+    "depPaths": "workspace",
+    "appendix": {
+      "lodash@4.17.21": {
+        "dependents": {
+          "app-a": "lodash@^4.17.0",
+          "app-b": "lodash@^4.17.0",
+          "package-c": "lodash@^4.17.0"
+        }
+      }
+    }
+  }
+}
+```
+
+The workspace packages (`packages/*/package.json` and `apps/*/package.json`) remain clean without any pastoralist appendix.
 
 ### Pastoralist Object Anatomy
 

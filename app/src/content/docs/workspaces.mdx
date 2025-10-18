@@ -12,7 +12,86 @@ Pastoralist operates on a single `package.json` at a time. In a workspace setup,
 - Individual workspace packages
 - Multiple packages using scripts
 
-## Interactive Configuration
+## Configuration Methods
+
+Pastoralist provides multiple ways to configure workspace scanning in monorepos:
+
+### Method 1: depPaths in package.json (Recommended)
+
+Configure dependency paths directly in your `package.json` for automatic workspace tracking:
+
+```json
+{
+  "name": "my-monorepo",
+  "workspaces": ["packages/*", "apps/*"],
+  "overrides": {
+    "lodash": "4.17.21"
+  },
+  "pastoralist": {
+    "depPaths": "workspace"  // Automatically scans all workspaces
+  },
+  "scripts": {
+    "postinstall": "pastoralist"
+  }
+}
+```
+
+**Using `"workspace"` string** - Pastoralist automatically uses all packages defined in your `workspaces` field:
+
+Benefits:
+- Single source of truth in package.json
+- No CLI flags needed
+- Works automatically with postinstall scripts
+- Appendix only appears in root (workspace packages stay clean)
+- Self-documenting configuration
+
+**Using array of paths** - Specify custom paths to scan:
+
+```json
+{
+  "pastoralist": {
+    "depPaths": ["packages/app-a/package.json", "packages/app-b/package.json"]
+  }
+}
+```
+
+After running `pastoralist`, your root package.json will contain:
+
+```json
+{
+  "overrides": {
+    "lodash": "4.17.21"
+  },
+  "pastoralist": {
+    "depPaths": "workspace",
+    "appendix": {
+      "lodash@4.17.21": {
+        "dependents": {
+          "app-a": "lodash@^4.17.0",
+          "app-b": "lodash@^4.17.0",
+          "package-c": "lodash@^4.17.0"
+        }
+      }
+    }
+  }
+}
+```
+
+The workspace packages (`packages/*/package.json` and `apps/*/package.json`) remain clean without any pastoralist appendix.
+
+### Method 2: CLI depPaths Flag
+
+Specify paths at runtime:
+
+```bash
+# Scan specific paths
+pastoralist --depPaths "packages/*/package.json" "apps/*/package.json"
+
+# CLI flags override package.json configuration
+pastoralist --depPaths "packages/app-a/package.json"
+```
+
+### Method 3: Interactive Configuration
 
 Pastoralist offers interactive configuration for monorepo setups:
 
@@ -129,21 +208,27 @@ done
 
 ## Integration Strategies
 
-### Strategy 1: Centralized Management (Recommended)
+### Strategy 1: Centralized Management with depPaths (Recommended)
 
-Keep all overrides in the root `package.json`:
+Keep all overrides in the root `package.json` and use `depPaths` configuration:
 
 **Pros:**
 - Single source of truth
 - Easier to maintain
 - Consistent versions across packages
+- Automatic workspace tracking
+- Clean workspace package.json files
 
 **Setup:**
 ```json
 // root package.json
 {
+  "workspaces": ["packages/*", "apps/*"],
   "overrides": {
     "lodash": "4.17.21"
+  },
+  "pastoralist": {
+    "depPaths": "workspace"
   },
   "scripts": {
     "postinstall": "pastoralist"

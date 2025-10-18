@@ -73,6 +73,7 @@
     "compare-versions": "6.1.1",
     "fast-glob": "3.3.3",
     "gradient-string": "^3.0.0",
+    "inquirer": "^12.9.6",
     "ora": "^8.1.0",
     "p-limit": "^6.1.0"
   },

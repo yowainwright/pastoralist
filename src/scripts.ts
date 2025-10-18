@@ -8,6 +8,7 @@ const execFile = promisify(execFileCallback);
 import { IS_DEBUGGING, LOG_PREFIX } from "./constants";
 import {
   Appendix,
+  AppendixItem,
   Options,
   PastoralistJSON,
   UpdatePackageJSONOptions,
@@ -132,7 +133,7 @@ export const checkMonorepoOverrides = (
       "checkMonorepoOverrides",
     );
     log.info(
-      `💡 For monorepo support, add depPaths to your pastoralist command or configure overridePaths/resolutionPaths in package.json`,
+      `💡 For monorepo support, use --depPaths flag or add depPaths configuration in package.json`,
       "checkMonorepoOverrides",
     );
   }
@@ -264,6 +265,109 @@ export const cleanupUnusedOverrides = async (
   return { finalOverrides: overrides, finalAppendix: appendix };
 };
 
+export const getReasonForPackage = (packageName: string, securityOverrideDetails?: Array<{ packageName: string; reason: string; }>): string | undefined => {
+  return securityOverrideDetails?.find(detail => detail.packageName === packageName)?.reason;
+};
+
+export const hasExistingReasonInAppendix = (
+  packageName: string,
+  version: string,
+  appendix: Appendix
+): boolean => {
+  const key = `${packageName}@${version}`;
+  return !!appendix[key]?.ledger?.reason;
+};
+
+export const hasSecurityReason = (
+  packageName: string,
+  securityOverrideDetails?: Array<{ packageName: string; reason: string; }>
+): boolean => {
+  return securityOverrideDetails?.some(d => d.packageName === packageName) ?? false;
+};
+
+export const needsReasonPrompt = (
+  packageName: string,
+  version: string,
+  appendix: Appendix,
+  securityOverrideDetails?: Array<{ packageName: string; reason: string; }>
+): boolean => {
+  return (
+    !hasExistingReasonInAppendix(packageName, version, appendix) &&
+    !hasSecurityReason(packageName, securityOverrideDetails)
+  );
+};
+
+export const extractPackagesFromNestedOverride = (
+  overrideValue: Record<string, string>,
+  appendix: Appendix,
+  securityOverrideDetails?: Array<{ packageName: string; reason: string; }>
+): string[] => {
+  return Object.entries(overrideValue)
+    .filter(([nestedPkg, nestedVersion]) =>
+      needsReasonPrompt(nestedPkg, nestedVersion, appendix, securityOverrideDetails)
+    )
+    .map(([nestedPkg]) => nestedPkg);
+};
+
+export const extractPackagesFromSimpleOverride = (
+  packageName: string,
+  version: string,
+  appendix: Appendix,
+  securityOverrideDetails?: Array<{ packageName: string; reason: string; }>
+): string[] => {
+  return needsReasonPrompt(packageName, version, appendix, securityOverrideDetails)
+    ? [packageName]
+    : [];
+};
+
+export const detectNewOverrides = (
+  overrides: OverridesType,
+  existingAppendix: Appendix,
+  securityOverrideDetails?: Array<{ packageName: string; reason: string; }>
+): string[] => {
+  const packagesNeedingReasons = Object.entries(overrides).flatMap(
+    ([packageName, overrideValue]) =>
+      typeof overrideValue === "object"
+        ? extractPackagesFromNestedOverride(overrideValue, existingAppendix, securityOverrideDetails)
+        : extractPackagesFromSimpleOverride(packageName, overrideValue, existingAppendix, securityOverrideDetails)
+  );
+
+  return [...new Set(packagesNeedingReasons)];
+};
+
+export const promptForSinglePackageReason = async (packageName: string): Promise<[string, string]> => {
+  const { createPrompt } = await import("./interactive/prompt");
+  const reason = await createPrompt(async (prompt) =>
+    prompt.input(`Reason for overriding ${packageName}`, "Manual override")
+  );
+  return [packageName, reason];
+};
+
+export const collectReasonEntries = async (packageNames: string[]): Promise<Array<[string, string]>> => {
+  return Promise.all(packageNames.map(promptForSinglePackageReason));
+};
+
+export const filterEmptyReasons = (entries: Array<[string, string]>): Array<[string, string]> => {
+  return entries.filter(([_, reason]) => reason.trim().length > 0);
+};
+
+export const promptForOverrideReasons = async (
+  packageNames: string[],
+  log: ConsoleObject
+): Promise<Record<string, string>> => {
+  if (packageNames.length === 0) return {};
+
+  log.info(
+    `\n📝 Please provide reasons for the following manual overrides:`,
+    "promptForOverrideReasons"
+  );
+
+  const reasonEntries = await collectReasonEntries(packageNames);
+  const validEntries = filterEmptyReasons(reasonEntries);
+
+  return Object.fromEntries(validEntries);
+};
+
 export const update = async (options: Options): Promise<void> => {
   const path = options?.path || "package.json";
   const root = options?.root || "./";
@@ -308,6 +412,28 @@ export const update = async (options: Options): Promise<void> => {
     return;
   }
 
+  const existingAppendix = config.pastoralist?.appendix || {};
+
+  if (options?.promptForReasons && !isTesting) {
+    const newOverrides = detectNewOverrides(
+      overrides,
+      existingAppendix,
+      options.securityOverrideDetails
+    );
+
+    if (newOverrides.length > 0) {
+      log.debug(
+        `Detected ${newOverrides.length} new manual overrides requiring reasons`,
+        "update"
+      );
+      const promptedReasons = await promptForOverrideReasons(newOverrides, log);
+      options.manualOverrideReasons = {
+        ...options.manualOverrideReasons,
+        ...promptedReasons,
+      };
+    }
+  }
+
   const rootDeps = {
     ...config.dependencies,
     ...config.devDependencies,
@@ -319,14 +445,39 @@ export const update = async (options: Options): Promise<void> => {
   let appendix: Appendix = {};
   let allWorkspaceDeps: Record<string, string> = {};
 
-  if (options?.depPaths && options?.depPaths.length > 0) {
+  const configDepPaths = config.pastoralist?.depPaths;
+  const hasOptionsDepPaths = options?.depPaths && options.depPaths.length > 0;
+  const hasConfigDepPaths = !hasOptionsDepPaths && configDepPaths;
+  const isWorkspaceConfig = configDepPaths === "workspace";
+  const isArrayConfig = Array.isArray(configDepPaths);
+  const hasWorkspaces = config.workspaces && config.workspaces.length > 0;
+
+  let depPaths = options?.depPaths;
+
+  if (hasConfigDepPaths && isWorkspaceConfig && hasWorkspaces) {
     log.debug(
-      `Using depPaths to find package.json files: ${options.depPaths.join(", ")}`,
+      `Using workspace configuration from package.json: ${config.workspaces.join(", ")}`,
+      "update",
+    );
+    depPaths = config.workspaces.map((ws: string) => `${ws}/package.json`);
+  }
+
+  if (hasConfigDepPaths && isArrayConfig) {
+    log.debug(
+      `Using depPaths configuration from package.json: ${configDepPaths.join(", ")}`,
+      "update",
+    );
+    depPaths = configDepPaths;
+  }
+
+  if (depPaths && depPaths.length > 0) {
+    log.debug(
+      `Using depPaths to find package.json files: ${depPaths.join(", ")}`,
       "update",
     );
 
     const packageJsonFiles = findPackageJsonFiles(
-      options.depPaths,
+      depPaths,
       options.ignore || [],
       root,
       log,
@@ -337,7 +488,8 @@ export const update = async (options: Options): Promise<void> => {
         `Processing ${packageJsonFiles.length} package.json files from depPaths`,
         "update",
       );
-      const result = await processWorkspacePackages(packageJsonFiles, overridesData, log);
+      const absolutePackageJsonFiles = packageJsonFiles.map(file => resolve(root, file));
+      const result = await processWorkspacePackages(absolutePackageJsonFiles, overridesData, log);
       appendix = result.appendix;
       allWorkspaceDeps = result.allWorkspaceDeps;
       log.debug(
@@ -360,6 +512,8 @@ export const update = async (options: Options): Promise<void> => {
       devDependencies,
       peerDependencies,
       packageName: config.name || "root",
+      securityOverrideDetails: options?.securityOverrideDetails,
+      manualOverrideReasons: options?.manualOverrideReasons,
     });
   }
 
@@ -493,16 +647,18 @@ export async function updatePackageJSON({
       const existingOverridePaths = config.pastoralist?.overridePaths;
       const existingResolutionPaths = config.pastoralist?.resolutionPaths;
       const existingSecurity = config.pastoralist?.security;
+      const existingDepPaths = config.pastoralist?.depPaths;
 
       if (IS_DEBUGGING) {
         fallbackLog.debug(
-          `Preserving existing config: overridePaths=${!!existingOverridePaths}, resolutionPaths=${!!existingResolutionPaths}, security=${!!existingSecurity}`,
+          `Preserving existing config: overridePaths=${!!existingOverridePaths}, resolutionPaths=${!!existingResolutionPaths}, security=${!!existingSecurity}, depPaths=${!!existingDepPaths}`,
           "updatePackageJSON",
         );
       }
 
       config.pastoralist = {
         appendix,
+        ...(existingDepPaths && { depPaths: existingDepPaths }),
         ...(existingOverridePaths && { overridePaths: existingOverridePaths }),
         ...(existingResolutionPaths && { resolutionPaths: existingResolutionPaths }),
         ...(existingSecurity && { security: existingSecurity }),
@@ -643,6 +799,7 @@ export async function processPackageJSON(
   filePath: string,
   overrides: OverridesType,
   overridesList: string[],
+  writeAppendixToFile: boolean = true,
 ) {
   const currentPackageJSON = await resolveJSON(filePath);
   if (!currentPackageJSON) return;
@@ -669,10 +826,12 @@ export async function processPackageJSON(
     devDependencies,
     peerDependencies,
     packageName: name,
+    securityOverrideDetails: undefined,
+    manualOverrideReasons: undefined,
   });
 
   const hasAppendix = appendix && Object.keys(appendix).length > 0;
-  if (hasAppendix) {
+  if (hasAppendix && writeAppendixToFile) {
     currentPackageJSON.pastoralist = { appendix };
     await writeFile(filePath, JSON.stringify(currentPackageJSON, null, 2));
   }
@@ -691,6 +850,19 @@ export async function processPackageJSON(
  * @param options - Options for updating appendix
  * @returns Appendix
  */
+const mergeOverrideReasons = (
+  packageName: string,
+  reason?: string,
+  securityOverrideDetails?: Array<{ packageName: string; reason: string; }>,
+  manualOverrideReasons?: Record<string, string>
+): string | undefined => {
+  return (
+    reason ||
+    getReasonForPackage(packageName, securityOverrideDetails) ||
+    manualOverrideReasons?.[packageName]
+  );
+};
+
 export const updateAppendix = ({
   overrides = {},
   appendix = {},
@@ -698,36 +870,47 @@ export const updateAppendix = ({
   devDependencies = {},
   peerDependencies = {},
   packageName = "",
-  cache = new Map<string, Appendix>(),
-}: UpdateAppendixOptions & { cache?: Map<string, Appendix> }) => {
+  reason,
+  securityOverrideDetails,
+  manualOverrideReasons,
+  cache = new Map<string, AppendixItem>(),
+}: UpdateAppendixOptions & { cache?: Map<string, AppendixItem>; manualOverrideReasons?: Record<string, string> }) => {
   const overridesList = Object.keys(overrides);
   const deps = { ...dependencies, ...devDependencies, ...peerDependencies };
   const depList = Object.keys(deps);
 
   for (const override of overridesList) {
     const overrideValue = overrides[override];
-    
+    const packageReason = mergeOverrideReasons(override, reason, securityOverrideDetails, manualOverrideReasons);
+
     if (typeof overrideValue === "object") {
-      // Handle nested overrides (e.g., { "pg": { "pg-types": "^4.0.1" } })
-      // Check if the parent package is in dependencies
       const hasOverride = depList.includes(override);
       if (!hasOverride) continue;
-      
-      // Process each nested override
+
       Object.entries(overrideValue).forEach(([nestedPkg, nestedVersion]) => {
         const key = `${nestedPkg}@${nestedVersion}`;
         if (cache.has(key)) {
           appendix[key] = cache.get(key)!;
           return;
         }
-        
+
         const currentDependents = appendix?.[key]?.dependents || {};
         const newDependents = {
           ...currentDependents,
           [packageName]: `${override}@${deps[override]} (nested override)`,
         };
-        
-        const newAppendixItem = { dependents: newDependents };
+
+        const existingLedger = appendix?.[key]?.ledger;
+        const nestedReason = mergeOverrideReasons(nestedPkg, undefined, securityOverrideDetails, manualOverrideReasons) || packageReason;
+        const newAppendixItem = {
+          dependents: newDependents,
+          ...(existingLedger ? { ledger: existingLedger } : {
+            ledger: {
+              addedDate: new Date().toISOString(),
+              ...(nestedReason && { reason: nestedReason })
+            }
+          })
+        };
         appendix[key] = newAppendixItem;
         cache.set(key, newAppendixItem);
       });
@@ -742,17 +925,26 @@ export const updateAppendix = ({
       const currentDependents = appendix?.[key]?.dependents || {};
       const hasOverride = depList.includes(override);
       const packageVersion = deps[override];
-      
-      const dependentInfo = hasOverride 
+
+      const dependentInfo = hasOverride
         ? `${override}@${packageVersion}`
         : `${override} (transitive dependency)`;
-      
+
       const newDependents = {
         ...currentDependents,
         [packageName]: dependentInfo,
       };
 
-      const newAppendixItem = { dependents: newDependents };
+      const existingLedger = appendix?.[key]?.ledger;
+      const newAppendixItem = {
+        dependents: newDependents,
+        ...(existingLedger ? { ledger: existingLedger } : {
+          ledger: {
+            addedDate: new Date().toISOString(),
+            ...(packageReason && { reason: packageReason })
+          }
+        })
+      };
       appendix[key] = newAppendixItem;
 
       cache.set(key, newAppendixItem);
@@ -1059,7 +1251,7 @@ export async function constructAppendix(
   const appendix: Appendix = {};
 
   for (const path of packageJSONs) {
-    const result = await processPackageJSON(path, overrides, overridesList);
+    const result = await processPackageJSON(path, overrides, overridesList, false);
     if (!result?.appendix) continue;
 
     for (const [key, value] of Object.entries(result.appendix)) {

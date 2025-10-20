@@ -110,6 +110,9 @@ docs/app/page
 .pnpm-store
 tests/fixtures/package.json
 tests/fixtures/package-overrides.json
+tests/.test-monorepo*/
+test-update-depPaths.json
+tests/fixtures/temp-*/
 e2e/test-project/
 .vscode/
 e2e/results/
@@ -117,3 +120,4 @@ e2e/results/
 .astro
 .kiro
 pnpm-lock.yaml
+tmp/

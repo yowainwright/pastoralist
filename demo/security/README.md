@@ -22,19 +22,19 @@ git clone https://github.com/yowainwright/pastoralist.git
 cd pastoralist/demo/security
 
 # Install dependencies
-bun install
+npm install
 
 # Show demo info
-bun start
+npm start
 
 # Check for vulnerabilities
-bun run check
+npm run check
 
 # Auto-fix all vulnerabilities
-bun run fix
+npm run fix
 
 # Interactive mode (choose which to fix)
-bun run interactive
+npm run interactive
 ```
 
 ## Vulnerable Packages in Demo

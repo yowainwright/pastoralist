@@ -115,3 +115,4 @@ e2e/results/
 .claude
 .astro
 .kiro
+pnpm-lock.yaml

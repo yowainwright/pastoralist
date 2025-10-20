@@ -49,32 +49,55 @@ class OSVProvider extends SecurityProvider {
     }
   }
   
-  async fetchAlerts(packages: Array<{ name: string; version: string }>): Promise<SecurityAlert[]> {
-    const alerts: SecurityAlert[] = [];
-    
-    for (const pkg of packages) {
-      try {
-        const response = await fetch("https://api.osv.dev/v1/query", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            package: { name: pkg.name, ecosystem: "npm" },
-            version: pkg.version,
-          }),
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (data.vulns && data.vulns.length > 0) {
-            alerts.push(...this.convertOSVAlerts(pkg, data.vulns));
-          }
-        }
-      } catch (error) {
-        this.log.debug(`Failed to check ${pkg.name}@${pkg.version}`, "fetchAlerts", { error });
-      }
-    }
-    
-    return alerts;
+  async fetchAlerts(
+    packages: Array<{ name: string; version: string }>
+  ): Promise<SecurityAlert[]> {
+    type OSVVuln = unknown;
+    type FetchResult = {
+      pkg: { name: string; version: string };
+      vulns: OSVVuln[]
+    } | null;
+
+    const fetchPackageVulnerabilities = (
+      pkg: { name: string; version: string }
+    ): Promise<FetchResult> => {
+      return fetch("https://api.osv.dev/v1/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          package: { name: pkg.name, ecosystem: "npm" },
+          version: pkg.version,
+        }),
+      })
+      .then(async (response) => {
+        if (!response.ok) return null;
+
+        const data = await response.json();
+        const hasVulns = data.vulns && data.vulns.length > 0;
+
+        return hasVulns ? { pkg, vulns: data.vulns } : null;
+      })
+      .catch((error) => {
+        this.log.debug(
+          `Failed to check ${pkg.name}@${pkg.version}`,
+          "fetchAlerts",
+          { error }
+        );
+        return null;
+      });
+    };
+
+    const isValidResult = (
+      result: FetchResult
+    ): result is NonNullable<FetchResult> => {
+      return result !== null;
+    };
+
+    const results = await Promise.all(packages.map(fetchPackageVulnerabilities));
+
+    return results
+      .filter(isValidResult)
+      .flatMap(result => this.convertOSVAlerts(result.pkg, result.vulns));
   }
   
   private convertOSVAlerts(pkg: { name: string; version: string }, vulns: any[]): SecurityAlert[] {

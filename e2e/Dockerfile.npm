@@ -1,7 +1,7 @@
 FROM node:24-alpine
 
-# Install bash
-RUN apk add --no-cache bash
+# Install dependencies
+RUN apk add --no-cache bash jq git
 
 # Create a working directory
 WORKDIR /app

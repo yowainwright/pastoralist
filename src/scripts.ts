@@ -970,15 +970,20 @@ export const updateAppendix = ({
  * @returns JSON
  */
 export function resolveJSON(path: string) {
-  if (jsonCache.has(path)) return jsonCache.get(path);
+  const normalizedPath = resolve(path);
+
+  if (jsonCache.has(normalizedPath)) {
+    return jsonCache.get(normalizedPath);
+  }
+
   try {
-    const file = readFileSync(path, "utf8");
+    const file = readFileSync(normalizedPath, "utf8");
     const json = JSON.parse(file);
-    jsonCache.set(path, json);
+    jsonCache.set(normalizedPath, json);
     return json;
   } catch (err) {
     fallbackLog.error(
-      `🐑 👩🏽‍🌾  Pastoralist found invalid JSON at:\n${path}`,
+      `🐑 👩🏽‍🌾  Pastoralist found invalid JSON at:\n${normalizedPath}`,
       "resolveJSON",
       err,
     );
@@ -1157,6 +1162,52 @@ export const findUnusedPatches = (
   return unusedPatches;
 };
 
+let dependencyTreeCache: Record<string, boolean> | null = null;
+
+const getDependencyTree = async (): Promise<Record<string, boolean>> => {
+  if (dependencyTreeCache) return dependencyTreeCache;
+
+  try {
+    const { stdout } = await execFile('npm', ['ls', '--json', '--all'], {
+      encoding: 'utf8',
+      maxBuffer: 1024 * 1024 * 10,
+    }).catch((error) => {
+      if (error.code === 1 && error.stdout) {
+        return { stdout: error.stdout };
+      }
+      throw error;
+    });
+
+    const tree = JSON.parse(stdout);
+    const packageMap: Record<string, boolean> = {};
+
+    const traverseDependencies = (deps: Record<string, unknown>): void => {
+      if (!deps || typeof deps !== 'object') return;
+
+      Object.entries(deps).forEach(([name, value]) => {
+        packageMap[name] = true;
+        if (value && typeof value === 'object' && 'dependencies' in value) {
+          traverseDependencies(value.dependencies as Record<string, unknown>);
+        }
+      });
+    };
+
+    if (tree.dependencies) {
+      traverseDependencies(tree.dependencies);
+    }
+
+    dependencyTreeCache = packageMap;
+    return packageMap;
+  } catch (error) {
+    fallbackLog.debug("Failed to get dependency tree", "getDependencyTree", error);
+    return {};
+  }
+};
+
+export const clearDependencyTreeCache = (): void => {
+  dependencyTreeCache = null;
+};
+
 /**
  * @name findUnusedOverrides
  * @description Find overrides that are no longer needed (packages not in dependencies)
@@ -1168,58 +1219,57 @@ export const findUnusedOverrides = async (
   overrides: OverridesType = {},
   allDependencies: Record<string, string> = {},
 ): Promise<string[]> => {
-  const unusedOverrides: string[] = [];
+  const packageNames = Object.keys(overrides);
+  const dependencyTree = await getDependencyTree();
 
-  for (const packageName of Object.keys(overrides)) {
-    const overrideValue = overrides[packageName];
-    
-    if (typeof overrideValue === "object") {
-      if (!allDependencies[packageName]) {
-        unusedOverrides.push(packageName);
-        fallbackLog.debug(
-          `Found unused nested override for ${packageName}: parent package not in dependencies`,
-          "findUnusedOverrides",
-        );
-      }
-    } else {
-      if (!allDependencies[packageName]) {
-        try {
-          const { stdout } = await execFile('npm', ['ls', packageName, '--json'], { 
-            encoding: 'utf8',
-            maxBuffer: 1024 * 1024 * 10
-          }).catch((error) => {
-            if (error.code === 1 && error.stdout) {
-              return { stdout: error.stdout };
-            }
-            throw error;
-          });
-          
-          const result = JSON.parse(stdout);
-          const hasPackage = result.dependencies && Object.keys(result.dependencies).length > 0;
-          
-          if (!hasPackage) {
-            unusedOverrides.push(packageName);
-            fallbackLog.debug(
-              `Found unused override for ${packageName}: not in dependency tree`,
-              "findUnusedOverrides",
-            );
-          } else {
-            fallbackLog.debug(
-              `Keeping override for ${packageName}: found in dependency tree`,
-              "findUnusedOverrides",
-            );
-          }
-        } catch (error) {
-          fallbackLog.debug(
-            `Keeping override for ${packageName}: unable to verify dependency tree - ${error}`,
-            "findUnusedOverrides",
-          );
-        }
-      }
+  const isNestedOverride = (packageName: string): boolean => {
+    return typeof overrides[packageName] === "object";
+  };
+
+  const isInDirectDeps = (packageName: string): boolean => {
+    return Boolean(allDependencies[packageName]);
+  };
+
+  const isUnusedNestedOverride = (packageName: string): boolean => {
+    const isNested = isNestedOverride(packageName);
+    if (!isNested) return false;
+
+    const inDeps = isInDirectDeps(packageName);
+    if (inDeps) return false;
+
+    fallbackLog.debug(
+      `Found unused nested override for ${packageName}: parent package not in dependencies`,
+      "findUnusedOverrides",
+    );
+    return true;
+  };
+
+  const isUnusedSimpleOverride = (packageName: string): boolean => {
+    const isNested = isNestedOverride(packageName);
+    if (isNested) return false;
+
+    const inDeps = isInDirectDeps(packageName);
+    if (inDeps) return false;
+
+    const isInTree = dependencyTree[packageName];
+    if (isInTree) {
+      fallbackLog.debug(
+        `Keeping override for ${packageName}: found in dependency tree`,
+        "findUnusedOverrides",
+      );
+      return false;
     }
-  }
 
-  return unusedOverrides;
+    fallbackLog.debug(
+      `Found unused override for ${packageName}: not in dependency tree`,
+      "findUnusedOverrides",
+    );
+    return true;
+  };
+
+  return packageNames.filter(packageName =>
+    isUnusedNestedOverride(packageName) || isUnusedSimpleOverride(packageName)
+  );
 };
 
 /**
@@ -1248,22 +1298,31 @@ export async function constructAppendix(
   }
 
   const overridesList = Object.keys(overrides);
-  const appendix: Appendix = {};
 
-  for (const path of packageJSONs) {
-    const result = await processPackageJSON(path, overrides, overridesList, false);
-    if (!result?.appendix) continue;
+  const results = await Promise.all(
+    packageJSONs.map(path =>
+      processPackageJSON(path, overrides, overridesList, false)
+    )
+  );
 
-    for (const [key, value] of Object.entries(result.appendix)) {
-      if (!appendix[key]) {
-        appendix[key] = { dependents: {} };
-      }
-      appendix[key].dependents = {
-        ...appendix[key].dependents,
-        ...value.dependents,
-      };
-    }
-  }
+  return results
+    .filter((result): result is NonNullable<typeof result> & { appendix: Appendix } =>
+      result !== null && result !== undefined && !!result.appendix
+    )
+    .reduce((acc, result) => {
+      const entries = Object.entries(result.appendix);
 
-  return appendix;
+      return entries.reduce((appendix, [key, value]) => {
+        const existingDependents = appendix[key]?.dependents || {};
+        return {
+          ...appendix,
+          [key]: {
+            dependents: {
+              ...existingDependents,
+              ...value.dependents,
+            },
+          },
+        };
+      }, acc);
+    }, {} as Appendix);
 }

@@ -109,9 +109,11 @@ docs/app/page
 .turbo
 .pnpm-store
 tests/fixtures/package.json
+tests/fixtures/package-overrides.json
 e2e/test-project/
 .vscode/
 e2e/results/
 .claude
 .astro
 .kiro
+pnpm-lock.yaml

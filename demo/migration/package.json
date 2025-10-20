@@ -4,10 +4,10 @@
   "description": "Demo showing migration from manual overrides to pastoralist",
   "type": "module",
   "scripts": {
-    "start": "bun run index.ts",
-    "before": "bun run show-before.ts",
-    "migrate": "bun run migrate.ts",
-    "after": "bun run show-after.ts"
+    "start": "node --loader tsx index.ts",
+    "before": "node --loader tsx show-before.ts",
+    "migrate": "node --loader tsx migrate.ts",
+    "after": "node --loader tsx show-after.ts"
   },
   "dependencies": {
     "lodash": "4.17.15",
@@ -18,7 +18,8 @@
   },
   "devDependencies": {
     "pastoralist": "^1.6.0",
-    "@types/bun": "^1.1.0"
+    "@types/node": "^24.0.0",
+    "tsx": "^4.0.0"
   },
   "overrides": {
     "lodash": "4.17.21",

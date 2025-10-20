@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 
 import { readFileSync } from 'fs';
 
@@ -59,9 +59,9 @@ try {
 
 console.log(`
 🚀 Commands to try:
-   bun start       - Show this demo
-   bun run check   - Check what pastoralist would do
-   bun run fix     - Run pastoralist to fix overrides
+   npm start       - Show this demo
+   npm run check   - Check what pastoralist would do
+   npm run fix     - Run pastoralist to fix overrides
 
 💡 After running pastoralist, check package.json to see:
    - The appendix that documents each override

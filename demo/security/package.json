@@ -4,10 +4,10 @@
   "description": "Demo of pastoralist security vulnerability detection and auto-fix",
   "type": "module",
   "scripts": {
-    "start": "bun run index.ts",
-    "check": "bun run check-security.ts",
-    "fix": "bun run auto-fix.ts",
-    "interactive": "bun run interactive.ts"
+    "start": "node --loader tsx index.ts",
+    "check": "node --loader tsx check-security.ts",
+    "fix": "node --loader tsx auto-fix.ts",
+    "interactive": "node --loader tsx interactive.ts"
   },
   "dependencies": {
     "lodash": "4.17.20",
@@ -18,7 +18,8 @@
   },
   "devDependencies": {
     "pastoralist": "^1.6.0",
-    "@types/bun": "^1.1.0"
+    "@types/node": "^24.0.0",
+    "tsx": "^4.0.0"
   },
   "pastoralist": {
     "security": {

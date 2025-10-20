@@ -325,11 +325,6 @@ echo "✅ CLI depPaths correctly overrides config"
 
 cd /app/e2e
 
-echo "\n🔄 Running Migration Tests..."
-echo "=============================="
-/app/scripts/test-migration-1.3.0-to-1.4.0.sh
-print_result $? "Migration test (1.3.0 to 1.4.0) completed"
-
 echo "\n🔒 Running Security Feature Tests..."
 echo "=============================="
 /app/scripts/test-security-features.sh

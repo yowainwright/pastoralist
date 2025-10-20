@@ -1,6 +1,6 @@
 {
   "installDependencies": true,
-  "startCommand": "bun install && bun run start",
+  "startCommand": "npm install && npm start",
   "env": {
     "NODE_ENV": "development"
   }

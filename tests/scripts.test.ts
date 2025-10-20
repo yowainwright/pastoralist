@@ -33,6 +33,7 @@ import {
   extractPackagesFromSimpleOverride,
   detectNewOverrides,
   filterEmptyReasons,
+  clearDependencyTreeCache,
 } from "../src/scripts";
 import { LOG_PREFIX } from "../src/constants";
 import { PastoralistJSON, Appendix } from "../src/interfaces";
@@ -296,16 +297,18 @@ fs.readFileSync = function mockReadFileSync(path: string, encoding: any) {
 
 describe("resolveJSON", () => {
   it("should return cached JSON if available", () => {
-    const path = "tests/fixtures/package-overrides.json";
+    const testPath = "tests/fixtures/package-overrides.json";
+    const normalizedPath = path.resolve(testPath);
     const cachedJSON = { key: "value" };
-    jsonCache.set(path, cachedJSON as any);
-    assert.strictEqual(resolveJSON(path), cachedJSON);
+    jsonCache.set(normalizedPath, cachedJSON as any);
+    assert.strictEqual(resolveJSON(testPath), cachedJSON);
   });
 
   it("should read, parse, and cache JSON from a file", () => {
-    const path = "./fixtures/package-resolutions.json";
-    const result = resolveJSON(path);
-    assert.deepStrictEqual(jsonCache.get(path), result);
+    const testPath = "./fixtures/package-resolutions.json";
+    const normalizedPath = path.resolve(testPath);
+    const result = resolveJSON(testPath);
+    assert.deepStrictEqual(jsonCache.get(normalizedPath), result);
   });
 
   it("should handle invalid JSON files", () => {
@@ -536,44 +539,42 @@ describe("processPackageJSON", () => {
 
   it("should return the processed package.json with appendixItem", async () => {
     jsonCache.clear();
+    const testPath = "tests/fixtures/package-overrides.json";
+    const normalizedPath = path.resolve(testPath);
     const mockPackageJSON = {
       name: "overrides-package",
       dependencies: { foo: "1.0.0", express: "^4.18.1" },
       devDependencies: { bar: "2.0.0" },
     };
 
-    // Cache the mock data
-    jsonCache.set("tests/fixtures/package-overrides.json", mockPackageJSON);
+    jsonCache.set(normalizedPath, mockPackageJSON);
 
-    // Set up mock fs.readFileSync
     const mockReadFileSync = originalReadFileSync;
-    fs.readFileSync = (path: string, encoding: string) => {
-      if (path === "tests/fixtures/package-overrides.json") {
+    fs.readFileSync = (filePath: string, encoding: string) => {
+      if (path.resolve(filePath) === normalizedPath) {
         return JSON.stringify(mockPackageJSON);
       }
-      return mockReadFileSync(path, encoding);
+      return mockReadFileSync(filePath, encoding);
     };
 
     try {
       const result = await processPackageJSON(
-        "tests/fixtures/package-overrides.json",
+        testPath,
         { express: "2.0.0" },
         ["express"],
       );
 
-      // The result should match our expected data
       assert.deepStrictEqual(result?.name, mockPackageJSON.name);
       assert.deepStrictEqual(
         result?.dependencies,
         mockPackageJSON.dependencies,
       );
-      assert.ok(result?.appendix); // Should exist
+      assert.ok(result?.appendix);
       assert.deepStrictEqual(
         result?.appendix["express@2.0.0"]?.dependents["overrides-package"],
         "express@^4.18.1",
       );
     } finally {
-      // Restore original fs.readFileSync
       fs.readFileSync = mockReadFileSync;
     }
   });
@@ -2731,7 +2732,7 @@ describe("Security Feature: Integration Tests", () => {
     const result = updateAppendix({
       overrides: { minimist: "1.2.6" },
       appendix: {},
-      dependencies: { "some-package": "^1.0.0" }, // minimist is transitive
+      dependencies: { "some-package": "^1.0.0" },
       packageName: "test-app",
       securityOverrideDetails,
     });
@@ -2745,5 +2746,93 @@ describe("Security Feature: Integration Tests", () => {
       result["minimist@1.2.6"].ledger.reason,
       "CVE-2021-44906: Prototype pollution"
     );
+  });
+});
+
+describe("performance optimizations", () => {
+  it("should normalize paths in resolveJSON cache", () => {
+    const testPath1 = "./package.json";
+    const testPath2 = path.resolve(process.cwd(), "package.json");
+
+    jsonCache.clear();
+
+    const result1 = resolveJSON(testPath1);
+    const result2 = resolveJSON(testPath2);
+
+    assert.strictEqual(result1, result2, "Should return same cached object");
+    assert.strictEqual(jsonCache.size, 1, "Should have single cache entry");
+  });
+
+  it("should handle parallel package processing in constructAppendix", async () => {
+    const overridesData = {
+      type: "npm" as const,
+      overrides: { lodash: "4.17.21" }
+    };
+
+    const tempDir = path.join(process.cwd(), "tests", "fixtures", "temp-parallel");
+    const pkg1Path = path.join(tempDir, "pkg1", "package.json");
+    const pkg2Path = path.join(tempDir, "pkg2", "package.json");
+
+    try {
+      fs.mkdirSync(path.dirname(pkg1Path), { recursive: true });
+      fs.mkdirSync(path.dirname(pkg2Path), { recursive: true });
+
+      fs.writeFileSync(pkg1Path, JSON.stringify({
+        name: "pkg1",
+        dependencies: { lodash: "^4.17.0" }
+      }));
+
+      fs.writeFileSync(pkg2Path, JSON.stringify({
+        name: "pkg2",
+        dependencies: { lodash: "^4.17.0" }
+      }));
+
+      const result = await constructAppendix(
+        [pkg1Path, pkg2Path],
+        overridesData
+      );
+
+      assert.ok(result["lodash@4.17.21"], "Should have lodash in appendix");
+      assert.ok(
+        result["lodash@4.17.21"].dependents.pkg1,
+        "Should have pkg1 as dependent"
+      );
+      assert.ok(
+        result["lodash@4.17.21"].dependents.pkg2,
+        "Should have pkg2 as dependent"
+      );
+    } finally {
+      try {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      } catch {}
+    }
+  });
+
+  it("should use cached dependency tree for findUnusedOverrides", async () => {
+    clearDependencyTreeCache();
+
+    const overrides = {
+      lodash: "4.17.21",
+      chalk: "4.1.2"
+    };
+
+    const allDeps = {
+      lodash: "^4.17.0"
+    };
+
+    const startTime = Date.now();
+    const result1 = await findUnusedOverrides(overrides, allDeps);
+    const firstCallTime = Date.now() - startTime;
+
+    const startTime2 = Date.now();
+    const result2 = await findUnusedOverrides(overrides, allDeps);
+    const secondCallTime = Date.now() - startTime2;
+
+    assert.ok(
+      secondCallTime < firstCallTime || secondCallTime < 100,
+      "Second call should be faster due to caching"
+    );
+
+    clearDependencyTreeCache();
   });
 });

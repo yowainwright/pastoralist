@@ -22,19 +22,19 @@ git clone https://github.com/yowainwright/pastoralist.git
 cd pastoralist/demo/workspaces
 
 # Install dependencies
-bun install
+npm install
 
 # Show demo structure
-bun start
+npm start
 
 # Check root package only
-bun run check
+npm run check
 
 # Fix root overrides
-bun run fix
+npm run fix
 
 # Fix including all workspaces
-bun run fix-workspaces
+npm run fix-workspaces
 ```
 
 ## Monorepo Structure

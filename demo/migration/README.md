@@ -30,19 +30,19 @@ git clone https://github.com/yowainwright/pastoralist.git
 cd pastoralist/demo/migration
 
 # Install dependencies
-bun install
+npm install
 
 # Show demo overview
-bun start
+npm start
 
 # Show current problematic state
-bun run before
+npm run before
 
 # Run the migration
-bun run migrate
+npm run migrate
 
 # Show the cleaned result
-bun run after
+npm run after
 ```
 
 ## Migration Process

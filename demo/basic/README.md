@@ -21,22 +21,22 @@ git clone https://github.com/yowainwright/pastoralist.git
 cd pastoralist/demo/basic
 
 # Install dependencies
-bun install
+npm install
 
 # Run the demo
-bun start
+npm start
 
 # Check what pastoralist would do
-bun run check
+npm run check
 
 # Apply pastoralist fixes
-bun run fix
+npm run fix
 ```
 
 ## What's Happening
 
 1. **Initial State**: The package.json has overrides for `lodash` and `react`
-2. **Run Pastoralist**: Execute `bun run fix`
+2. **Run Pastoralist**: Execute `npm run fix`
 3. **Result**: Pastoralist adds an appendix showing:
    - Which packages require each override
    - Why the override exists

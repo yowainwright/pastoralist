@@ -73,7 +73,8 @@
     "gradient-string": "^3.0.0",
     "inquirer": "^12.10.0",
     "ora": "^8.2.0",
-    "p-limit": "^6.2.0"
+    "p-limit": "^6.2.0",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@commitlint/cli": "20.1.0",

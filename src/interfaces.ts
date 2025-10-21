@@ -18,10 +18,13 @@ export interface PastoralistJSON {
 export interface AppendixItem {
   rootDeps?: Array<string>;
   dependents?: Record<string, string>;
-  patches?: Array<string>; // Track applied patches for this package
+  patches?: Array<string>;
   ledger?: {
-    addedDate: string; // ISO date string when the item was first added
-    reason?: string; // Reason for the override (e.g., security issue, version conflict)
+    addedDate: string;
+    reason?: string;
+    securityChecked?: boolean;
+    securityCheckDate?: string;
+    securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket";
   };
 }
 export interface Appendix {
@@ -67,6 +70,7 @@ export interface UpdateAppendixOptions {
   debug?: boolean;
   reason?: string;
   securityOverrideDetails?: Array<{ packageName: string; reason: string; }>;
+  securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket";
 }
 
 export interface Options {

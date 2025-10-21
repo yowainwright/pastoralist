@@ -381,6 +381,13 @@ export const update = async (options: Options): Promise<void> => {
     return;
   }
 
+  const { loadConfig } = await import("./config/loader");
+  const mergedConfig = await loadConfig(root, config.pastoralist, false);
+  if (mergedConfig) {
+    config.pastoralist = mergedConfig;
+    log.debug("Loaded and merged external config", "update");
+  }
+
   const patchMap = detectPatches(root);
   const patchedPackages = Object.keys(patchMap);
   if (patchedPackages.length > 0) {
@@ -451,7 +458,7 @@ export const update = async (options: Options): Promise<void> => {
   let appendix: Appendix = {};
   let allWorkspaceDeps: Record<string, string> = {};
 
-  const isWorkspaceConfig = configDepPaths === "workspace";
+  const isWorkspaceConfig = configDepPaths === "workspace" || configDepPaths === "workspaces";
   const isArrayConfig = Array.isArray(configDepPaths);
   const hasWorkspaces = config.workspaces && config.workspaces.length > 0;
 
@@ -516,6 +523,7 @@ export const update = async (options: Options): Promise<void> => {
       peerDependencies,
       packageName: config.name || "root",
       securityOverrideDetails: options?.securityOverrideDetails,
+      securityProvider: options?.securityProvider,
       manualOverrideReasons: options?.manualOverrideReasons,
     });
   }
@@ -635,8 +643,32 @@ export async function updatePackageJSON({
     );
   }
 
+  // Preserve existing pastoralist config
+  const existingOverridePaths = config.pastoralist?.overridePaths;
+  const existingResolutionPaths = config.pastoralist?.resolutionPaths;
+  const existingSecurity = config.pastoralist?.security;
+  const existingDepPaths = config.pastoralist?.depPaths;
+  const hasOtherPastoralistConfig = existingOverridePaths || existingResolutionPaths || existingSecurity || existingDepPaths;
+
   if (!hasOverrides && !hasAppendix) {
-    delete config.pastoralist;
+    // Only delete pastoralist object if there's no other config
+    if (!hasOtherPastoralistConfig) {
+      delete config.pastoralist;
+    } else {
+      // Preserve other config, just remove appendix
+      if (IS_DEBUGGING) {
+        fallbackLog.debug(
+          `Preserving pastoralist config without appendix: overridePaths=${!!existingOverridePaths}, resolutionPaths=${!!existingResolutionPaths}, security=${!!existingSecurity}, depPaths=${!!existingDepPaths}`,
+          "updatePackageJSON",
+        );
+      }
+      config.pastoralist = {
+        ...(existingDepPaths && { depPaths: existingDepPaths }),
+        ...(existingOverridePaths && { overridePaths: existingOverridePaths }),
+        ...(existingResolutionPaths && { resolutionPaths: existingResolutionPaths }),
+        ...(existingSecurity && { security: existingSecurity }),
+      };
+    }
     delete config.resolutions;
     delete config.overrides;
     if (config.pnpm) {
@@ -647,11 +679,6 @@ export async function updatePackageJSON({
     }
   } else {
     if (hasAppendix) {
-      const existingOverridePaths = config.pastoralist?.overridePaths;
-      const existingResolutionPaths = config.pastoralist?.resolutionPaths;
-      const existingSecurity = config.pastoralist?.security;
-      const existingDepPaths = config.pastoralist?.depPaths;
-
       if (IS_DEBUGGING) {
         fallbackLog.debug(
           `Preserving existing config: overridePaths=${!!existingOverridePaths}, resolutionPaths=${!!existingResolutionPaths}, security=${!!existingSecurity}, depPaths=${!!existingDepPaths}`,
@@ -661,6 +688,14 @@ export async function updatePackageJSON({
 
       config.pastoralist = {
         appendix,
+        ...(existingDepPaths && { depPaths: existingDepPaths }),
+        ...(existingOverridePaths && { overridePaths: existingOverridePaths }),
+        ...(existingResolutionPaths && { resolutionPaths: existingResolutionPaths }),
+        ...(existingSecurity && { security: existingSecurity }),
+      };
+    } else if (hasOtherPastoralistConfig) {
+      // No appendix but has other config - preserve it
+      config.pastoralist = {
         ...(existingDepPaths && { depPaths: existingDepPaths }),
         ...(existingOverridePaths && { overridePaths: existingOverridePaths }),
         ...(existingResolutionPaths && { resolutionPaths: existingResolutionPaths }),
@@ -866,6 +901,28 @@ const mergeOverrideReasons = (
   );
 };
 
+const isSecurityOverride = (
+  packageName: string,
+  securityOverrideDetails?: Array<{ packageName: string; reason: string; }>
+): boolean => {
+  return securityOverrideDetails?.some(d => d.packageName === packageName) ?? false;
+};
+
+const createSecurityLedger = (
+  packageName: string,
+  securityOverrideDetails?: Array<{ packageName: string; reason: string; }>,
+  securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket"
+) => {
+  const isSecurity = isSecurityOverride(packageName, securityOverrideDetails);
+  if (!isSecurity) return {};
+
+  return {
+    securityChecked: true,
+    securityCheckDate: new Date().toISOString(),
+    ...(securityProvider && { securityProvider }),
+  };
+};
+
 export const updateAppendix = ({
   overrides = {},
   appendix = {},
@@ -875,6 +932,7 @@ export const updateAppendix = ({
   packageName = "",
   reason,
   securityOverrideDetails,
+  securityProvider,
   manualOverrideReasons,
   cache = new Map<string, AppendixItem>(),
 }: UpdateAppendixOptions & { cache?: Map<string, AppendixItem>; manualOverrideReasons?: Record<string, string> }) => {
@@ -885,6 +943,7 @@ export const updateAppendix = ({
   for (const override of overridesList) {
     const overrideValue = overrides[override];
     const packageReason = mergeOverrideReasons(override, reason, securityOverrideDetails, manualOverrideReasons);
+    const securityLedger = createSecurityLedger(override, securityOverrideDetails, securityProvider);
 
     if (typeof overrideValue === "object") {
       const hasOverride = depList.includes(override);
@@ -905,12 +964,14 @@ export const updateAppendix = ({
 
         const existingLedger = appendix?.[key]?.ledger;
         const nestedReason = mergeOverrideReasons(nestedPkg, undefined, securityOverrideDetails, manualOverrideReasons) || packageReason;
+        const nestedSecurityLedger = createSecurityLedger(nestedPkg, securityOverrideDetails, securityProvider);
         const newAppendixItem = {
           dependents: newDependents,
           ...(existingLedger ? { ledger: existingLedger } : {
             ledger: {
               addedDate: new Date().toISOString(),
-              ...(nestedReason && { reason: nestedReason })
+              ...(nestedReason && { reason: nestedReason }),
+              ...nestedSecurityLedger,
             }
           })
         };
@@ -944,7 +1005,8 @@ export const updateAppendix = ({
         ...(existingLedger ? { ledger: existingLedger } : {
           ledger: {
             addedDate: new Date().toISOString(),
-            ...(packageReason && { reason: packageReason })
+            ...(packageReason && { reason: packageReason }),
+            ...securityLedger,
           }
         })
       };

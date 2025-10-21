@@ -294,6 +294,171 @@ For detailed information about using Pastoralist in workspace/monorepo environme
 
 ---
 
+## Configuration
+
+Pastoralist supports multiple configuration methods to fit your project's needs. Configuration can be defined in external files or directly in your `package.json`.
+
+### Configuration Files
+
+Pastoralist searches for configuration files in this order (first found wins):
+
+1. `.pastoralistrc` (JSON format)
+2. `.pastoralistrc.json`
+3. `pastoralist.json`
+4. `pastoralist.config.js`
+5. `pastoralist.config.ts`
+
+**Example `.pastoralistrc.json`:**
+
+```json
+{
+  "checkSecurity": true,
+  "depPaths": "workspaces",
+  "security": {
+    "provider": "osv",
+    "severityThreshold": "medium"
+  }
+}
+```
+
+**Example `pastoralist.config.js`:**
+
+```js
+module.exports = {
+  checkSecurity: true,
+  depPaths: ["packages/*/package.json", "apps/*/package.json"],
+  security: {
+    provider: "osv",
+    severityThreshold: "high",
+    excludePackages: ["@types/*"]
+  }
+};
+```
+
+**Example `pastoralist.config.ts`:**
+
+```ts
+import { PastoralistConfig } from 'pastoralist';
+
+const config: PastoralistConfig = {
+  checkSecurity: true,
+  depPaths: "workspaces",
+  security: {
+    provider: "osv",
+    severityThreshold: "critical"
+  }
+};
+
+export default config;
+```
+
+### Configuration Priority
+
+When both external config files and `package.json` configuration exist:
+
+1. **External config** provides base settings
+2. **`package.json`** overrides top-level fields
+3. **Nested objects** (like `security`) are deep merged
+
+**Example:**
+
+```js
+// .pastoralistrc.json
+{
+  "checkSecurity": true,
+  "depPaths": "workspaces",
+  "security": {
+    "provider": "osv",
+    "severityThreshold": "medium"
+  }
+}
+
+// package.json
+{
+  "pastoralist": {
+    "security": {
+      "severityThreshold": "high"  // Overrides "medium" from .pastoralistrc.json
+    }
+  }
+}
+
+// Effective config:
+{
+  "checkSecurity": true,
+  "depPaths": "workspaces",
+  "security": {
+    "provider": "osv",
+    "severityThreshold": "high"  // From package.json
+  }
+}
+```
+
+### Configuration Options
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `checkSecurity` | `boolean` | Enable security vulnerability scanning |
+| `depPaths` | `"workspace"` \| `"workspaces"` \| `string[]` | Paths to scan for dependencies in monorepos |
+| `appendix` | `object` | Auto-generated dependency tracking (managed by Pastoralist) |
+| `overridePaths` | `object` | Manual override tracking for specific paths |
+| `resolutionPaths` | `object` | Manual resolution tracking for specific paths |
+| `security` | `object` | Security scanning configuration (see below) |
+
+#### Security Configuration
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `enabled` | `boolean` | Enable/disable security checks |
+| `provider` | `"osv"` \| `"github"` \| `"snyk"` \| `"npm"` \| `"socket"` | Security provider (currently only OSV) |
+| `autoFix` | `boolean` | Automatically apply security fixes |
+| `interactive` | `boolean` | Use interactive mode for security fixes |
+| `securityProviderToken` | `string` | API token for providers that require auth |
+| `severityThreshold` | `"low"` \| `"medium"` \| `"high"` \| `"critical"` | Minimum severity level to report |
+| `excludePackages` | `string[]` | Packages to exclude from security checks |
+| `hasWorkspaceSecurityChecks` | `boolean` | Include workspace packages in scans |
+
+### Security Tracking in Appendix
+
+When security vulnerabilities are detected and fixed, Pastoralist tracks this information in the appendix ledger:
+
+```js
+"pastoralist": {
+  "appendix": {
+    "lodash@4.17.21": {
+      "dependents": {
+        "my-app": "lodash@^4.17.0"
+      },
+      "ledger": {
+        "addedDate": "2024-01-15T10:30:00.000Z",
+        "reason": "Security vulnerability CVE-2021-23337",
+        "securityChecked": true,
+        "securityCheckDate": "2024-01-15T10:30:00.000Z",
+        "securityProvider": "osv"
+      }
+    }
+  }
+}
+```
+
+The ledger tracks:
+- `addedDate`: When the override was first added
+- `reason`: Why the override was needed (e.g., security issue description)
+- `securityChecked`: Whether a security check was performed
+- `securityCheckDate`: When the last security check occurred
+- `securityProvider`: Which provider detected the vulnerability
+
+This allows you to see at a glance which packages were overridden due to security issues and when they were last verified.
+
+### Best Practices
+
+1. **Use external config files** for shared settings across teams
+2. **Use `package.json`** for project-specific overrides
+3. **Commit config files** to version control
+4. **Use `depPaths: "workspaces"`** for most monorepos
+5. **Enable security checks** in CI/CD pipelines with `--checkSecurity`
+
+---
+
 ## Setup
 
 > #### Okay! Hopefully the breakdowns above were clear enough on why you might want to use Pastoralist!

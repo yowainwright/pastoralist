@@ -171,6 +171,25 @@ await describe("determineSecurityScanPaths (Bug Fix Tests)", async () => {
 
     assert.deepEqual(result, ["packages/specific/package.json"]);
   });
+
+  await it("should return empty array when depPaths is an array but checkSecurity is false", () => {
+    const config: PastoralistJSON = {
+      name: "test",
+      version: "1.0.0",
+      pastoralist: {
+        depPaths: ["packages/app-a/package.json", "packages/app-b/package.json"],
+        checkSecurity: false,
+      },
+    };
+
+    const options: Options = {
+      checkSecurity: false,
+    };
+
+    const result = determineSecurityScanPaths(config, options);
+
+    assert.deepEqual(result, []);
+  });
 });
 
 console.log("\n✨ All determineSecurityScanPaths tests passed!");

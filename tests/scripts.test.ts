@@ -1006,6 +1006,117 @@ describe("constructAppendix", () => {
       } catch {}
     }
   });
+
+  it("should return an empty object when no overrides are found in root or any workspace packages", async () => {
+    jsonCache.clear();
+
+    const mockPackageJSON = {
+      name: "package-a",
+      dependencies: {
+        lodash: "^4.17.0",
+      },
+    };
+
+    const tempFixturePath = "tests/fixtures/package-no-overrides.json";
+    try {
+      fs.writeFileSync(tempFixturePath, JSON.stringify(mockPackageJSON, null, 2));
+      jsonCache.set(tempFixturePath, mockPackageJSON);
+
+      const packageJSONs = [tempFixturePath];
+
+      const emptyOverridesData = {
+        type: "npm",
+        overrides: {},
+      };
+
+      const testLog = logger({ file: "test", isLogging: false });
+      const appendix = await constructAppendix(
+        packageJSONs,
+        emptyOverridesData,
+        testLog,
+      );
+
+      assert.ok(appendix !== null && appendix !== undefined, "Appendix should be defined");
+      assert.deepStrictEqual(
+        appendix,
+        {},
+        "Appendix should be an empty object when no overrides are found",
+      );
+    } finally {
+      try {
+        fs.unlinkSync(tempFixturePath);
+      } catch {}
+    }
+  });
+
+  it("should gracefully handle workspace packages without an overrides section", async () => {
+    jsonCache.clear();
+
+    const mockPackageWithoutOverrides = {
+      name: "package-b",
+      dependencies: {
+        react: "^18.0.0",
+      },
+    };
+
+    const mockRootPackage = {
+      name: "root-package",
+      dependencies: {
+        react: "^18.0.0",
+      },
+      overrides: {
+        react: "18.2.0",
+      },
+    };
+
+    const tempWorkspaceFixture = "tests/fixtures/workspace-no-overrides.json";
+    try {
+      fs.writeFileSync(tempWorkspaceFixture, JSON.stringify(mockPackageWithoutOverrides, null, 2));
+      jsonCache.set(tempWorkspaceFixture, mockPackageWithoutOverrides);
+
+      const packageJSONs = [tempWorkspaceFixture];
+
+      const overridesData = {
+        type: "npm",
+        overrides: {
+          react: "18.2.0",
+        },
+      };
+
+      const mockAppendix = {
+        "react@18.2.0": {
+          dependents: {
+            "package-b": "react@^18.0.0",
+          },
+        },
+      };
+
+      const originalProcessPackageJSON = processPackageJSON;
+      (global as any).processPackageJSON = async () => ({
+        appendix: mockAppendix,
+      });
+
+      const testLog = logger({ file: "test", isLogging: false });
+      const appendix = await constructAppendix(
+        packageJSONs,
+        overridesData,
+        testLog,
+      );
+
+      (global as any).processPackageJSON = originalProcessPackageJSON;
+
+      assert.ok(appendix, "Appendix should be defined");
+      assert.deepStrictEqual(
+        appendix,
+        mockAppendix,
+        "Should process workspace packages without overrides section correctly",
+      );
+    } finally {
+      try {
+        fs.unlinkSync(tempWorkspaceFixture);
+      } catch {}
+    }
+  });
 });
 
 const mockOverridesData = {

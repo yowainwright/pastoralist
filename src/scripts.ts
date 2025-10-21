@@ -391,7 +391,7 @@ export const update = async (options: Options): Promise<void> => {
   }
 
   const overridesData = resolveOverrides({ options, config });
-  let overrides = getOverridesByType(overridesData);
+  let overrides = getOverridesByType(overridesData) || {};
 
   if (options?.securityOverrides) {
     log.debug("Merging security overrides", "update");
@@ -401,7 +401,13 @@ export const update = async (options: Options): Promise<void> => {
     };
   }
 
-  if (!overrides || Object.keys(overrides).length === 0) {
+  const configDepPaths = config.pastoralist?.depPaths;
+  const hasOptionsDepPaths = options?.depPaths && options.depPaths.length > 0;
+  const hasConfigDepPaths = !hasOptionsDepPaths && configDepPaths;
+  const shouldCheckWorkspaces = hasOptionsDepPaths || hasConfigDepPaths;
+  const hasRootOverrides = overrides && Object.keys(overrides).length > 0;
+
+  if (!hasRootOverrides && !shouldCheckWorkspaces) {
     log.debug("No overrides found", "update");
     await updatePackageJSON({
       appendix: {},
@@ -445,9 +451,6 @@ export const update = async (options: Options): Promise<void> => {
   let appendix: Appendix = {};
   let allWorkspaceDeps: Record<string, string> = {};
 
-  const configDepPaths = config.pastoralist?.depPaths;
-  const hasOptionsDepPaths = options?.depPaths && options.depPaths.length > 0;
-  const hasConfigDepPaths = !hasOptionsDepPaths && configDepPaths;
   const isWorkspaceConfig = configDepPaths === "workspace";
   const isArrayConfig = Array.isArray(configDepPaths);
   const hasWorkspaces = config.workspaces && config.workspaces.length > 0;
@@ -1286,22 +1289,53 @@ export async function constructAppendix(
   overridesData: ResolveOverrides,
   log = fallbackLog,
 ): Promise<Appendix> {
-  if (!overridesData) {
-    log.debug("No overrides data provided", "constructAppendix");
+  const hasOverridesData = !!overridesData;
+  const rootOverrides = hasOverridesData ? getOverridesByType(overridesData) : null;
+  const hasRootOverrides = rootOverrides && Object.keys(rootOverrides).length > 0;
+
+  if (hasRootOverrides) {
+    log.debug(`Found ${Object.keys(rootOverrides).length} overrides in root package.json`, "constructAppendix");
+  }
+
+  const workspaceOverridesResults = await Promise.all(
+    packageJSONs.map(async (packagePath) => {
+      const packageConfig = await resolveJSON(packagePath);
+      const hasPackageConfig = !!packageConfig;
+
+      if (!hasPackageConfig) return null;
+
+      const workspaceOverridesData = resolveOverrides({ config: packageConfig });
+      const workspaceOverrides = getOverridesByType(workspaceOverridesData);
+      const hasWorkspaceOverrides = workspaceOverrides && Object.keys(workspaceOverrides).length > 0;
+
+      if (hasWorkspaceOverrides) {
+        log.debug(
+          `Found ${Object.keys(workspaceOverrides).length} overrides in ${packagePath}`,
+          "constructAppendix"
+        );
+      }
+
+      return hasWorkspaceOverrides ? workspaceOverrides : null;
+    })
+  );
+
+  const allOverrides = workspaceOverridesResults
+    .filter((overrides): overrides is Record<string, OverrideValue> => overrides !== null)
+    .reduce((acc, overrides) => ({ ...acc, ...overrides }), hasRootOverrides ? { ...rootOverrides } : {});
+
+  const hasAnyOverrides = Object.keys(allOverrides).length > 0;
+
+  if (!hasAnyOverrides) {
+    log.debug("No overrides found in root or workspace packages", "constructAppendix");
     return {};
   }
 
-  const overrides = getOverridesByType(overridesData);
-  if (!overrides || Object.keys(overrides).length === 0) {
-    log.debug("No overrides found", "constructAppendix");
-    return {};
-  }
-
-  const overridesList = Object.keys(overrides);
+  const overridesList = Object.keys(allOverrides);
+  log.debug(`Processing ${overridesList.length} total unique overrides across all packages`, "constructAppendix");
 
   const results = await Promise.all(
     packageJSONs.map(path =>
-      processPackageJSON(path, overrides, overridesList, false)
+      processPackageJSON(path, allOverrides, overridesList, false)
     )
   );
 

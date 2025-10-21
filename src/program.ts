@@ -21,9 +21,13 @@ export function determineSecurityScanPaths(
   const hasWorkspaces = workspaces.length > 0;
   const isWorkspaceString = configDepPaths === "workspace";
   const hasWorkspaceSecurityChecks = mergedOptions.hasWorkspaceSecurityChecks || false;
-  const shouldScanWorkspaces = (isWorkspaceString || hasWorkspaceSecurityChecks) && hasWorkspaces;
+  const hasSecurityEnabled = mergedOptions.checkSecurity || config?.pastoralist?.checkSecurity || false;
+  const isArrayDepPaths = isArray && hasSecurityEnabled;
+  const shouldUseWorkspaceConfig = isWorkspaceString && hasWorkspaces && hasSecurityEnabled;
+  const shouldUseExplicitWorkspaceChecks = hasWorkspaceSecurityChecks && hasWorkspaces;
+  const shouldScanWorkspaces = shouldUseWorkspaceConfig || shouldUseExplicitWorkspaceChecks;
 
-  if (isArray) {
+  if (isArrayDepPaths) {
     log.debug(
       `Using depPaths configuration for security checks: ${configDepPaths.join(", ")}`,
       "determineSecurityScanPaths"

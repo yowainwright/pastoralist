@@ -876,4 +876,146 @@ await describe("Monorepo Support Tests", async () => {
       teardownTestDirectory();
     });
   });
+
+  describe("Workspace Override Detection (Bug Fix)", () => {
+    it("should detect and track overrides defined in workspace packages", async () => {
+      const testDir = resolve(__dirname, ".test-workspace-overrides");
+      rmSync(testDir, { recursive: true, force: true });
+      mkdirSync(testDir, { recursive: true });
+      jsonCache.clear();
+
+      const rootPackageJson = {
+        name: "monorepo-root",
+        version: "1.0.0",
+        workspaces: ["packages/*"],
+        pastoralist: {
+          depPaths: "workspace",
+        },
+      };
+
+      mkdirSync(join(testDir, "packages", "service-a"), { recursive: true });
+      mkdirSync(join(testDir, "packages", "service-b"), { recursive: true });
+
+      const serviceAPackageJson = {
+        name: "service-a",
+        version: "1.0.0",
+        dependencies: {
+          "react": "^18.0.0",
+        },
+        overrides: {
+          "esbuild": "^0.25.9",
+        },
+      };
+
+      const serviceBPackageJson = {
+        name: "service-b",
+        version: "1.0.0",
+        dependencies: {
+          "pg": "^8.13.1",
+        },
+        overrides: {
+          "pg": {
+            "pg-types": "^4.0.1",
+          },
+        },
+      };
+
+      writeFileSync(
+        join(testDir, "package.json"),
+        JSON.stringify(rootPackageJson, null, 2)
+      );
+      writeFileSync(
+        join(testDir, "packages", "service-a", "package.json"),
+        JSON.stringify(serviceAPackageJson, null, 2)
+      );
+      writeFileSync(
+        join(testDir, "packages", "service-b", "package.json"),
+        JSON.stringify(serviceBPackageJson, null, 2)
+      );
+
+      const options: Options = {
+        path: join(testDir, "package.json"),
+        root: testDir,
+      };
+
+      await update(options);
+
+      const updatedRoot = JSON.parse(
+        readFileSync(join(testDir, "package.json"), "utf8")
+      );
+
+      assert(updatedRoot.pastoralist);
+      assert(updatedRoot.pastoralist.appendix);
+      assert(updatedRoot.pastoralist.appendix["esbuild@^0.25.9"]);
+      assert(updatedRoot.pastoralist.appendix["pg-types@^4.0.1"]);
+      assert(updatedRoot.pastoralist.appendix["esbuild@^0.25.9"].dependents["service-a"]);
+      assert(updatedRoot.pastoralist.appendix["pg-types@^4.0.1"].dependents["service-b"]);
+
+      rmSync(testDir, { recursive: true, force: true });
+    });
+
+    it("should combine root and workspace overrides in appendix", async () => {
+      const testDir = resolve(__dirname, ".test-combined-overrides");
+      rmSync(testDir, { recursive: true, force: true });
+      mkdirSync(testDir, { recursive: true });
+      jsonCache.clear();
+
+      const rootPackageJson = {
+        name: "monorepo-root",
+        version: "1.0.0",
+        workspaces: ["packages/*"],
+        dependencies: {
+          "lodash": "^4.17.0",
+        },
+        overrides: {
+          "lodash": "4.17.21",
+        },
+        pastoralist: {
+          depPaths: "workspace",
+        },
+      };
+
+      mkdirSync(join(testDir, "packages", "app"), { recursive: true });
+
+      const appPackageJson = {
+        name: "app",
+        version: "1.0.0",
+        dependencies: {
+          "typescript": "^5.0.0",
+        },
+        overrides: {
+          "typescript": "5.8.2",
+        },
+      };
+
+      writeFileSync(
+        join(testDir, "package.json"),
+        JSON.stringify(rootPackageJson, null, 2)
+      );
+      writeFileSync(
+        join(testDir, "packages", "app", "package.json"),
+        JSON.stringify(appPackageJson, null, 2)
+      );
+
+      const options: Options = {
+        path: join(testDir, "package.json"),
+        root: testDir,
+      };
+
+      await update(options);
+
+      const updatedRoot = JSON.parse(
+        readFileSync(join(testDir, "package.json"), "utf8")
+      );
+
+      assert(updatedRoot.pastoralist);
+      assert(updatedRoot.pastoralist.appendix);
+      assert(updatedRoot.pastoralist.appendix["lodash@4.17.21"]);
+      assert(updatedRoot.pastoralist.appendix["typescript@5.8.2"]);
+      assert(updatedRoot.pastoralist.appendix["lodash@4.17.21"].dependents["monorepo-root"]);
+      assert(updatedRoot.pastoralist.appendix["typescript@5.8.2"].dependents["app"]);
+
+      rmSync(testDir, { recursive: true, force: true });
+    });
+  });
 });

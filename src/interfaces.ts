@@ -31,6 +31,7 @@ export interface Appendix {
 export interface PastoralistConfig {
   appendix?: Appendix;
   depPaths?: "workspace" | string[];
+  checkSecurity?: boolean;
   overridePaths?: Record<string, Appendix>;
   resolutionPaths?: Record<string, Appendix>;
   security?: {

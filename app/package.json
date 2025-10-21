@@ -17,6 +17,7 @@
     "@docsearch/js": "^3.9.0",
     "@fontsource-variable/lexend": "^5.2.11",
     "@fontsource-variable/outfit": "^5.2.8",
+    "@fontsource-variable/spline-sans-mono": "^5.2.8",
     "@tailwindcss/vite": "^4.1.14",
     "astro": "^5.14.6",
     "fuse.js": "^7.1.0",

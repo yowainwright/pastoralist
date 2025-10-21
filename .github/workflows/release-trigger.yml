@@ -3,7 +3,7 @@ name: pastoralist trigger release tests 🧑‍🌾
 on:
   push:
     tags:
-      - '**'
+      - 'v*.*.*'
 
 jobs:
   build:

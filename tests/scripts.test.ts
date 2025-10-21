@@ -845,7 +845,6 @@ describe("constructAppendix", () => {
     const appendix = await constructAppendix(
       packageJSONs,
       overridesData,
-      {},
       testLog,
     );
 
@@ -915,7 +914,6 @@ describe("constructAppendix", () => {
       const appendix = await constructAppendix(
         packageJSONs,
         overridesData,
-        {},
         testLog,
       );
 
@@ -986,7 +984,6 @@ describe("constructAppendix", () => {
       const appendix = await constructAppendix(
         packageJSONs,
         resolutionsData,
-        {},
         testLog,
       );
 

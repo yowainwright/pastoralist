@@ -718,7 +718,7 @@ export async function updatePackageJSON({
   if (isTesting) return config;
 
   const jsonPath = resolve(path);
-  const jsonString = JSON.stringify(config, null, 2);
+  const jsonString = JSON.stringify(config, null, 2) + '\n';
   if (IS_DEBUGGING) {
     fallbackLog.debug(
       `Writing updated package.json:\n${jsonString}`,

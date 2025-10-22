@@ -1,0 +1,21 @@
+{
+  "name": "@pastoralist/demo-init",
+  "version": "1.0.0",
+  "description": "Demo of pastoralist init command",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun run index.ts",
+    "init": "bun run run-init.ts",
+    "real": "pastoralist init",
+    "check": "pastoralist --checkSecurity",
+    "fix": "pastoralist"
+  },
+  "dependencies": {
+    "react": "^18.0.0"
+  },
+  "devDependencies": {
+    "pastoralist": "workspace:*",
+    "@types/node": "^24.0.0"
+  }
+}

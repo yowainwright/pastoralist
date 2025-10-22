@@ -7,6 +7,7 @@ import { Options, PastoralistJSON } from "./interfaces";
 import { update, logger as createLogger, resolveJSON } from "./scripts";
 import { IS_DEBUGGING } from "./constants";
 import { SecurityChecker } from "./security";
+import { initCommand } from "./init";
 
 const logger = createLogger({ file: "program.ts", isLogging: false });
 
@@ -124,11 +125,6 @@ export async function action(options: Options = {}): Promise<void> {
   }
 }
 
-/**
- * @name main
- * @description Main entry point for Pastoralist CLI
- * @returns void
- */
 program
   .description("Pastoralist, a utility CLI to manage your dependency overrides")
   .option("--debug", "enables debug mode")
@@ -148,7 +144,15 @@ program
   .option("--interactive", "run security checks in interactive mode")
   .option("--hasWorkspaceSecurityChecks", "include workspace packages in security scan")
   .option("--promptForReasons", "prompt for reasons when adding manual overrides")
-  .action(action)
-  .parse(process.argv);
+  .action(action);
+
+program
+  .command("init")
+  .description("Initialize Pastoralist configuration interactively")
+  .option("-p, --path <path>", "specifies a path to a package.json")
+  .option("-r, --root <root>", "specifies a root path")
+  .action(initCommand);
+
+program.parse(process.argv);
 
 export { program };

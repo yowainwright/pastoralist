@@ -1,4 +1,4 @@
-import type { SecurityProvider, SeverityThreshold } from "../../config";
+import type { SecurityProvider, SeverityThreshold } from "../config";
 
 export interface InitOptions {
   path?: string;

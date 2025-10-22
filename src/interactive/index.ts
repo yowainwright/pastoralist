@@ -5,7 +5,7 @@ import type { PastoralistConfig, SecurityProvider, SeverityThreshold } from "../
 import { loadConfig } from "../config/loader";
 import { resolveJSON, logger as createLogger } from "../scripts";
 import type { PastoralistJSON } from "../interfaces";
-import type { InteractiveConfigOptions, ConfigUpdate, WorkspaceConfigUpdate, SecurityConfigUpdate } from "./types";
+import type { InteractiveConfigOptions, WorkspaceConfigUpdate, SecurityConfigUpdate } from "./types";
 import {
   REVIEW_SECTION_CHOICES,
   WORKSPACE_ACTION_CHOICES,
@@ -112,9 +112,7 @@ async function handleWorkspaceCustomPaths(prompt: Prompt): Promise<WorkspaceConf
 }
 
 async function reviewWorkspaceConfig(
-  prompt: Prompt,
-  config: PastoralistConfig,
-  packageJson: PastoralistJSON
+  prompt: Prompt
 ): Promise<WorkspaceConfigUpdate | null> {
   const action = await prompt.list(
     "What would you like to do with workspace configuration?",
@@ -357,10 +355,9 @@ function saveConfiguration(
 
 async function handleWorkspaceSection(
   prompt: Prompt,
-  config: PastoralistConfig,
-  packageJson: PastoralistJSON
+  config: PastoralistConfig
 ): Promise<{ config: PastoralistConfig; hasChanges: boolean }> {
-  const workspaceUpdate = await reviewWorkspaceConfig(prompt, config, packageJson);
+  const workspaceUpdate = await reviewWorkspaceConfig(prompt);
 
   if (!workspaceUpdate) {
     return { config, hasChanges: false };
@@ -441,7 +438,7 @@ async function processSection(
   }
 
   if (section === "workspaces") {
-    const result = await handleWorkspaceSection(prompt, state.config, state.packageJson);
+    const result = await handleWorkspaceSection(prompt, state.config);
     return { ...state, config: result.config, hasChanges: state.hasChanges || result.hasChanges };
   }
 

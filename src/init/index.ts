@@ -111,7 +111,7 @@ async function promptForSecurityToken(
   const token = await prompt.input(PROMPTS.enterToken(provider), "");
 
   if (!token) {
-    log.info(`\n   ${INIT_MESSAGES.noTokenProvided(provider)}`, "promptForSecurityToken");
+    log.info(`\n   ${INIT_MESSAGES.noTokenProvided()}`, "promptForSecurityToken");
     return undefined;
   }
 

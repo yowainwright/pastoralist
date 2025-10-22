@@ -17,13 +17,26 @@ Pastoralist searches for configuration files in this order (first found wins):
 
 ### Example Configurations
 
+#### Minimal Configuration
+
+Enable security checks with defaults:
+
+```json
+{
+  "depPaths": "workspaces",
+  "security": {
+    "enabled": true
+  }
+}
+```
+
 #### `.pastoralistrc.json`
 
 ```json
 {
-  "checkSecurity": true,
   "depPaths": "workspaces",
   "security": {
+    "enabled": true,
     "provider": "osv",
     "severityThreshold": "medium"
   }
@@ -34,9 +47,9 @@ Pastoralist searches for configuration files in this order (first found wins):
 
 ```js
 module.exports = {
-  checkSecurity: true,
   depPaths: ["packages/*/package.json", "apps/*/package.json"],
   security: {
+    enabled: true,
     provider: "osv",
     severityThreshold: "high",
     excludePackages: ["@types/*"]
@@ -50,9 +63,9 @@ module.exports = {
 import { PastoralistConfig } from 'pastoralist';
 
 const config: PastoralistConfig = {
-  checkSecurity: true,
   depPaths: "workspaces",
   security: {
+    enabled: true,
     provider: "osv",
     severityThreshold: "critical"
   }

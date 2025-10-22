@@ -12,6 +12,31 @@ With the Pastoralist CLI, you can ensure your project's overrides _(or resolutio
 
 ---
 
+## Table of Contents
+
+- [What are overrides and resolutions?](#what-are-overrides-and-resolutions)
+- [Why is Pastoralist Awesome?](#why-is-pastoralist-awesome)
+  - [New Features](#-new-features)
+- [How Pastoralist Works](#how-pastoralist-works)
+  - [Key Notes](#key-notes)
+  - [Workspaces and Monorepos](#using-pastoralist-with-workspaces-and-monorepos)
+- [Configuration](#configuration)
+  - [Configuration Files](#configuration-files)
+  - [Configuration Priority](#configuration-priority)
+  - [Configuration Options](#configuration-options)
+  - [Security Tracking](#security-tracking-in-appendix)
+  - [Best Practices](#best-practices)
+- [Setup](#setup)
+- [Testing](#testing)
+- [Examples](#examples)
+  - [Simple Overrides](#simple-overrides)
+  - [Nested Overrides](#nested-overrides-transitive-dependencies)
+  - [Monorepo with depPaths](#monorepo-with-deppaths-configuration)
+- [Pastoralist Object Anatomy](#pastoralist-object-anatomy)
+- [Thanks](#thanks)
+
+---
+
 ## What _are_ \*overrides and resolutions?
 
 > Overrides and resolutions solve the same problem!<br>**_They give developers a way to specify dependency versions downloaded to a repository's node_modules folder_**.
@@ -117,18 +142,30 @@ pastoralist --init
 pastoralist --interactive
 ```
 
-Configure security checks in your `package.json`:
+**Minimal configuration** to enable security checks:
 
 ```js
 "pastoralist": {
   "security": {
-    "enabled": false,                  // Disabled by default for performance
-    "provider": "osv",                 // Currently only "osv" is implemented
-    "autoFix": false,                  // Automatically apply fixes
-    "interactive": false,              // Use interactive mode  
+    "enabled": true  // Enable security vulnerability scanning
+  }
+}
+```
+
+This uses default settings: OSV provider, manual review (no auto-fix), and medium severity threshold.
+
+**Full configuration** options:
+
+```js
+"pastoralist": {
+  "security": {
+    "enabled": true,                   // Enable security checks (default: false)
+    "provider": "osv",                 // Security provider (default: "osv")
+    "autoFix": false,                  // Automatically apply fixes (default: false)
+    "interactive": false,              // Use interactive mode (default: false)
     "securityProviderToken": "",       // Token for future providers that require auth
-    "includeWorkspaces": false,        // Include workspace packages (default: false)
-    "severityThreshold": "medium",     // Minimum severity (low, medium, high, critical)
+    "hasWorkspaceSecurityChecks": false, // Include workspace packages (default: false)
+    "severityThreshold": "medium",     // Minimum severity (default: "medium")
     "excludePackages": []              // Packages to exclude from checks
   }
 }

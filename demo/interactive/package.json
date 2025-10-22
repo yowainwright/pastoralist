@@ -1,0 +1,33 @@
+{
+  "name": "@pastoralist/demo-interactive",
+  "version": "1.0.0",
+  "description": "Demo of pastoralist interactive config review",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun run index.ts",
+    "interactive": "bun run run-interactive.ts",
+    "real": "pastoralist --interactive",
+    "fix": "pastoralist"
+  },
+  "dependencies": {
+    "react": "^18.0.0",
+    "lodash": "^4.17.20"
+  },
+  "devDependencies": {
+    "pastoralist": "workspace:*",
+    "@types/node": "^24.0.0"
+  },
+  "overrides": {
+    "lodash": "4.17.21"
+  },
+  "pastoralist": {
+    "depPaths": "workspace",
+    "checkSecurity": true,
+    "security": {
+      "enabled": true,
+      "provider": "osv",
+      "interactive": true
+    }
+  }
+}

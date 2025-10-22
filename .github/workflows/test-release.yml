@@ -191,18 +191,20 @@ jobs:
           github-token: ${{ secrets.PASTORALIST_TEST_DISPATCH_TOKEN }}
           script: |
             console.log('🚀 Triggering external e2e tests in pastoralist-test repository');
-            
+
+            const releaseUrl = '${{ github.event.release.html_url }}' || 'Manual trigger';
+
             await github.rest.repos.createDispatchEvent({
               owner: 'yowainwright',
               repo: 'pastoralist-test',
               event_type: 'pastoralist-release',
               client_payload: {
                 version: '${{ steps.version.outputs.version }}',
-                release_url: '${{ github.event.release.html_url || "Manual trigger" }}',
+                release_url: releaseUrl,
                 trigger_type: '${{ github.event_name }}'
               }
             });
-            
+
             console.log('✅ Successfully triggered external tests for version ${{ steps.version.outputs.version }}');
 
       - name: Create Test Report

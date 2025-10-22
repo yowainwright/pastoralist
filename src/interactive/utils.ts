@@ -1,5 +1,5 @@
-import type { PastoralistConfig } from "../../config";
-import type { PastoralistJSON } from "../../interfaces";
+import type { PastoralistConfig } from "../config";
+import type { PastoralistJSON } from "../interfaces";
 import type { ConfigUpdate, WorkspaceConfigUpdate, SecurityConfigUpdate } from "./types";
 
 export function getWorkspaceStatus(config: PastoralistConfig): string {
@@ -20,7 +20,7 @@ export function getWorkspacePaths(config: PastoralistConfig, packageJson: Pastor
   if (isWorkspaceMode) return packageJson.workspaces?.join(", ") || "none";
 
   const isArrayMode = Array.isArray(config.depPaths);
-  if (isArrayMode) return config.depPaths.join(", ");
+  if (isArrayMode) return (config.depPaths as string[]).join(", ");
 
   return "none";
 }
@@ -160,7 +160,7 @@ export function applyPackageJsonUpdates(packageJson: PastoralistJSON, updates: C
   const hasOverrideRemovals = Boolean(updates.removeOverrides);
   if (hasOverrideRemovals) {
     updated = updates.removeOverrides!.reduce(
-      (acc, override) => removeOverrideFromPackageJson(acc, override),
+      (acc: PastoralistJSON, override: string) => removeOverrideFromPackageJson(acc, override),
       updated
     );
   }
@@ -168,7 +168,7 @@ export function applyPackageJsonUpdates(packageJson: PastoralistJSON, updates: C
   const hasResolutionRemovals = Boolean(updates.removeResolutions);
   if (hasResolutionRemovals) {
     updated = updates.removeResolutions!.reduce(
-      (acc, resolution) => removeResolutionFromPackageJson(acc, resolution),
+      (acc: PastoralistJSON, resolution: string) => removeResolutionFromPackageJson(acc, resolution),
       updated
     );
   }

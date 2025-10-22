@@ -1,4 +1,4 @@
-import type { PromptChoice } from "../../interactive/types";
+import type { PromptChoice } from "../interactive/types";
 
 export const CONFIG_LOCATION_CHOICES: PromptChoice[] = [
   { name: "In package.json (recommended for simple setups)", value: "package.json" },
@@ -43,7 +43,7 @@ export const INIT_MESSAGES = {
   initCancelled: "✅ Initialization cancelled. Your existing configuration is preserved.",
   initComplete: "initialization complete!",
   packageJsonNotFound: "❌ Error: package.json not found",
-  noTokenProvided: (provider: string) => `⚠️  No token provided. You can add it later to the config or use --securityProviderToken flag.`,
+  noTokenProvided: () => `⚠️  No token provided. You can add it later to the config or use --securityProviderToken flag.`,
   workspacesDetected: (workspaces: string[]) => `Detected workspaces in package.json: ${workspaces.join(", ")}`,
   noWorkspacesDetected: "No workspaces detected in package.json.",
   savingConfig: "💾 Saving configuration...",

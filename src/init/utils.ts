@@ -1,4 +1,4 @@
-import type { PastoralistConfig } from "../../config";
+import type { PastoralistConfig } from "../config";
 import type { InitAnswers } from "./types";
 
 export function parseWorkspacePaths(pathsInput: string): string[] {

@@ -330,5 +330,15 @@ echo "=============================="
 /app/scripts/test-security-features.sh
 print_result $? "Security feature tests completed"
 
+echo "\n🎬 Running Init Command Tests..."
+echo "=============================="
+/app/scripts/test-init-command.sh
+print_result $? "Init command tests completed"
+
+echo "\n⚙️  Running Interactive Config Review Tests..."
+echo "=============================="
+/app/scripts/test-interactive-config.sh
+print_result $? "Interactive config review tests completed"
+
 echo "\n🎯 All E2E tests passed!"
 echo "===================================="

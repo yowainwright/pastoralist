@@ -44,6 +44,8 @@ export const INIT_MESSAGES = {
   initComplete: "initialization complete!",
   packageJsonNotFound: "❌ Error: package.json not found",
   noTokenProvided: () => `⚠️  No token provided. You can add it later to the config or use --securityProviderToken flag.`,
+  tokenCreationInfo: (provider: string, url: string) => `💡 To create a ${provider} token, visit: ${url}`,
+  tokenRequiredWarning: (provider: string) => `⚠️  ${provider} requires a token to function. Security scanning will not work without it.`,
   workspacesDetected: (workspaces: string[]) => `Detected workspaces in package.json: ${workspaces.join(", ")}`,
   noWorkspacesDetected: "No workspaces detected in package.json.",
   savingConfig: "💾 Saving configuration...",

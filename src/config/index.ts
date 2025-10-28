@@ -24,6 +24,14 @@ export const AppendixSchema = z.record(z.string(), AppendixItemSchema);
 export const SecurityProviderSchema = z.enum(["osv", "github", "snyk", "npm", "socket"]);
 
 /**
+ * Security providers schema (single or array)
+ */
+export const SecurityProvidersSchema = z.union([
+  SecurityProviderSchema,
+  z.array(SecurityProviderSchema)
+]);
+
+/**
  * Severity threshold schema
  */
 export const SeverityThresholdSchema = z.enum(["low", "medium", "high", "critical"]);
@@ -33,7 +41,7 @@ export const SeverityThresholdSchema = z.enum(["low", "medium", "high", "critica
  */
 export const SecurityConfigSchema = z.object({
   enabled: z.boolean().optional(),
-  provider: SecurityProviderSchema.optional(),
+  provider: SecurityProvidersSchema.optional(),
   autoFix: z.boolean().optional(),
   interactive: z.boolean().optional(),
   securityProviderToken: z.string().optional(),
@@ -64,6 +72,7 @@ export const PastoralistConfigSchema = z.object({
 export type AppendixItem = z.infer<typeof AppendixItemSchema>;
 export type Appendix = z.infer<typeof AppendixSchema>;
 export type SecurityProvider = z.infer<typeof SecurityProviderSchema>;
+export type SecurityProviders = z.infer<typeof SecurityProvidersSchema>;
 export type SeverityThreshold = z.infer<typeof SeverityThresholdSchema>;
 export type SecurityConfig = z.infer<typeof SecurityConfigSchema>;
 export type PastoralistConfig = z.infer<typeof PastoralistConfigSchema>;

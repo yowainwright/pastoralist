@@ -3,6 +3,9 @@ import type { SecurityProvider, SeverityThreshold } from "../config";
 export interface InitOptions {
   path?: string;
   root?: string;
+  checkSecurity?: boolean;
+  securityProvider?: SecurityProvider;
+  hasWorkspaceSecurityChecks?: boolean;
 }
 
 export interface InitAnswers {

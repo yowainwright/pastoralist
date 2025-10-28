@@ -45,7 +45,7 @@ class GitHubProvider extends SecurityProvider {
     return true;
   }
 
-  async fetchAlerts(packages: Array<{ name: string; version: string }>): Promise<SecurityAlert[]> {
+  async fetchAlerts(): Promise<SecurityAlert[]> {
     const dependabotAlerts = await this.githubProvider.fetchDependabotAlerts();
     return this.githubProvider.convertToSecurityAlerts(dependabotAlerts);
   }
@@ -67,8 +67,8 @@ class SnykProvider extends SecurityProvider {
     return this.snykProvider.ensureInstalled();
   }
 
-  async fetchAlerts(packages: Array<{ name: string; version: string }>): Promise<SecurityAlert[]> {
-    return this.snykProvider.fetchAlerts(packages);
+  async fetchAlerts(): Promise<SecurityAlert[]> {
+    return this.snykProvider.fetchAlerts();
   }
 }
 
@@ -88,8 +88,8 @@ class SocketProvider extends SecurityProvider {
     return this.socketProvider.ensureInstalled();
   }
 
-  async fetchAlerts(packages: Array<{ name: string; version: string }>): Promise<SecurityAlert[]> {
-    return this.socketProvider.fetchAlerts(packages);
+  async fetchAlerts(): Promise<SecurityAlert[]> {
+    return this.socketProvider.fetchAlerts();
   }
 }
 

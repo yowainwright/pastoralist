@@ -5,18 +5,6 @@
     "packages/*"
   ],
   "pastoralist": {
-    "appendix": {
-      "esbuild@^0.25.9": {
-        "dependents": {
-          "service-b": "esbuild (transitive dependency)"
-        }
-      },
-      "pg-types@^4.0.1": {
-        "dependents": {
-          "service-b": "pg@^8.13.1 (nested override)"
-        }
-      }
-    },
     "depPaths": "workspace"
   }
 }

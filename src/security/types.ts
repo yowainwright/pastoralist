@@ -85,3 +85,10 @@ export interface GithubApiError {
   documentation_url?: string;
   status?: number;
 }
+
+import type { GitHubSecurityProvider } from "./github";
+import type { SnykCLIProvider } from "./snyk";
+import type { SocketCLIProvider } from "./socket";
+import type { OSVProvider } from "./index";
+
+export type SecurityProvider = GitHubSecurityProvider | SnykCLIProvider | SocketCLIProvider | OSVProvider;

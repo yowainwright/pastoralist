@@ -84,13 +84,18 @@ export class GitHubSecurityProvider {
     }
   }
 
+  async fetchAlerts(): Promise<SecurityAlert[]> {
+    const dependabotAlerts = await this.fetchDependabotAlerts();
+    return this.convertToSecurityAlerts(dependabotAlerts);
+  }
+
   async fetchDependabotAlerts(): Promise<DependabotAlert[]> {
     await this.initialize();
-    
+
     if (this.isMockMode()) {
       return this.fetchMockAlerts();
     }
-    
+
     return this.fetchRealAlerts();
   }
 

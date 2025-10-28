@@ -1,4 +1,6 @@
 import { GitHubSecurityProvider } from "./github";
+import { SnykCLIProvider } from "./snyk";
+import { SocketCLIProvider } from "./socket";
 import {
   SecurityAlert,
   SecurityCheckOptions,
@@ -12,19 +14,83 @@ import { InteractiveSecurityManager } from "./interactive";
 abstract class SecurityProvider {
   protected debug: boolean;
   protected log!: ReturnType<typeof logger>;
-  
+
   constructor(options: { debug?: boolean } = {}) {
     this.debug = options.debug || false;
   }
-  
+
   protected initializeLogger(): void {
     this.log = logger({ file: `security/${this.name}.ts`, isLogging: this.debug });
   }
-  
+
   abstract get name(): string;
   abstract get requiresAuth(): boolean;
   abstract isAvailable(): Promise<boolean>;
   abstract fetchAlerts(packages: Array<{ name: string; version: string }>): Promise<SecurityAlert[]>;
+}
+
+class GitHubProvider extends SecurityProvider {
+  private githubProvider: GitHubSecurityProvider;
+
+  get name() { return "github"; }
+  get requiresAuth() { return false; }
+
+  constructor(options: { debug?: boolean; token?: string } = {}) {
+    super(options);
+    this.initializeLogger();
+    this.githubProvider = new GitHubSecurityProvider(options);
+  }
+
+  async isAvailable(): Promise<boolean> {
+    return true;
+  }
+
+  async fetchAlerts(packages: Array<{ name: string; version: string }>): Promise<SecurityAlert[]> {
+    const dependabotAlerts = await this.githubProvider.fetchDependabotAlerts();
+    return this.githubProvider.convertToSecurityAlerts(dependabotAlerts);
+  }
+}
+
+class SnykProvider extends SecurityProvider {
+  private snykProvider: SnykCLIProvider;
+
+  get name() { return "snyk"; }
+  get requiresAuth() { return true; }
+
+  constructor(options: { debug?: boolean; token?: string } = {}) {
+    super(options);
+    this.initializeLogger();
+    this.snykProvider = new SnykCLIProvider(options);
+  }
+
+  async isAvailable(): Promise<boolean> {
+    return this.snykProvider.ensureInstalled();
+  }
+
+  async fetchAlerts(packages: Array<{ name: string; version: string }>): Promise<SecurityAlert[]> {
+    return this.snykProvider.fetchAlerts(packages);
+  }
+}
+
+class SocketProvider extends SecurityProvider {
+  private socketProvider: SocketCLIProvider;
+
+  get name() { return "socket"; }
+  get requiresAuth() { return true; }
+
+  constructor(options: { debug?: boolean; token?: string } = {}) {
+    super(options);
+    this.initializeLogger();
+    this.socketProvider = new SocketCLIProvider(options);
+  }
+
+  async isAvailable(): Promise<boolean> {
+    return this.socketProvider.ensureInstalled();
+  }
+
+  async fetchAlerts(packages: Array<{ name: string; version: string }>): Promise<SecurityAlert[]> {
+    return this.socketProvider.fetchAlerts(packages);
+  }
 }
 
 class OSVProvider extends SecurityProvider {
@@ -154,22 +220,44 @@ class OSVProvider extends SecurityProvider {
 }
 
 export class SecurityChecker {
-  private provider: SecurityProvider;
+  private providers: SecurityProvider[];
   private log: ReturnType<typeof logger>;
 
   constructor(options: SecurityCheckOptions & { debug?: boolean }) {
     this.log = logger({ file: "security/index.ts", isLogging: options.debug });
-    this.provider = this.createProvider(options);
+    this.providers = this.createProviders(options);
   }
 
-  private createProvider(options: SecurityCheckOptions & { debug?: boolean }): SecurityProvider {
-    const providerType = options.provider || "osv";
-    
+  private createProviders(options: SecurityCheckOptions & { debug?: boolean }): SecurityProvider[] {
+    const providerTypes = Array.isArray(options.provider)
+      ? options.provider
+      : [options.provider || "osv"];
+
+    return providerTypes.map(providerType => this.createProvider(providerType, options));
+  }
+
+  private createProvider(
+    providerType: string,
+    options: SecurityCheckOptions & { debug?: boolean }
+  ): SecurityProvider {
     switch (providerType) {
       case "osv":
         return new OSVProvider({ debug: options.debug });
       case "github":
-        return new OSVProvider({ debug: options.debug });
+        return new GitHubProvider({
+          debug: options.debug,
+          token: options.token
+        });
+      case "snyk":
+        return new SnykProvider({
+          debug: options.debug,
+          token: options.token
+        });
+      case "socket":
+        return new SocketProvider({
+          debug: options.debug,
+          token: options.token
+        });
       default:
         this.log.debug(`Provider ${providerType} not yet implemented, using OSV`, "createProvider");
         return new OSVProvider({ debug: options.debug });
@@ -179,22 +267,26 @@ export class SecurityChecker {
   async checkSecurity(
     config: PastoralistJSON,
     options: SecurityCheckOptions & { depPaths?: string[]; root?: string; packageJsonPath?: string } = {}
-  ): Promise<SecurityOverride[]> {
+  ): Promise<{ alerts: SecurityAlert[]; overrides: SecurityOverride[] }> {
     this.log.debug("Starting security check", "checkSecurity");
 
     try {
       const packages = this.extractPackages(config);
-      
+
       if (packages.length === 0) {
         this.log.debug("No packages to check", "checkSecurity");
-        return [];
+        return { alerts: [], overrides: [] };
       }
-      
-      const alerts = await this.provider.fetchAlerts(packages);
-      this.log.debug(`Found ${alerts.length} security alerts`, "checkSecurity");
-      
-      let allVulnerablePackages = alerts;
-      
+
+      const allAlerts = await Promise.all(
+        this.providers.map(provider => provider.fetchAlerts(packages))
+      );
+      const alerts = allAlerts.flat();
+
+      this.log.debug(`Found ${alerts.length} security alerts from ${this.providers.length} provider(s)`, "checkSecurity");
+
+      let allVulnerablePackages = this.deduplicateAlerts(alerts);
+
       if (options.depPaths && options.depPaths.length > 0) {
         this.log.debug("Scanning workspace packages for vulnerabilities", "checkSecurity");
         const workspaceVulnerable = await this.findWorkspaceVulnerabilities(
@@ -224,11 +316,37 @@ export class SecurityChecker {
         await this.applyAutoFix(overrides, options.packageJsonPath);
       }
 
-      return overrides;
+      return { alerts: allVulnerablePackages, overrides };
     } catch (error) {
       this.log.error("Security check failed", "checkSecurity", { error });
       throw error;
     }
+  }
+
+  private deduplicateAlerts(alerts: SecurityAlert[]): SecurityAlert[] {
+    const seen = alerts.reduce((map, alert) => {
+      const key = `${alert.packageName}@${alert.currentVersion}:${alert.cve || alert.title}`;
+      const existing = map.get(key);
+      const shouldReplace = !existing || this.getSeverityScore(alert.severity) > this.getSeverityScore(existing.severity);
+
+      if (shouldReplace) {
+        map.set(key, alert);
+      }
+
+      return map;
+    }, new Map<string, SecurityAlert>());
+
+    return Array.from(seen.values());
+  }
+
+  private getSeverityScore(severity: string): number {
+    const scores: Record<string, number> = {
+      low: 1,
+      medium: 2,
+      high: 3,
+      critical: 4
+    };
+    return scores[severity.toLowerCase()] || 0;
   }
 
   private extractPackages(config: PastoralistJSON): Array<{ name: string; version: string }> {
@@ -238,12 +356,12 @@ export class SecurityChecker {
       ...config.devDependencies,
       ...config.peerDependencies,
     };
-    
+
     for (const [name, version] of Object.entries(allDeps)) {
       const cleanVersion = version.replace(/^[\^~]/, "");
       packages.push({ name, version: cleanVersion });
     }
-    
+
     return packages;
   }
 

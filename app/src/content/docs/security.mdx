@@ -61,10 +61,10 @@ You can configure security settings in your `package.json`:
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `enabled` | boolean | `false` | Enable automatic security checks when running pastoralist |
-| `provider` | string | `"osv"` | Security provider to use (currently only "osv" is implemented) |
+| `provider` | string | `"osv"` | Security provider to use ("osv" or "github") |
 | `autoFix` | boolean | `false` | Automatically apply security fixes without prompting |
 | `interactive` | boolean | `false` | Use interactive mode to select which fixes to apply |
-| `securityProviderToken` | string | `""` | Authentication token for providers that require it (future use) |
+| `securityProviderToken` | string | `""` | Authentication token for providers that require it |
 | `includeWorkspaces` | boolean | `false` | Include workspace packages in security scan |
 | `severityThreshold` | string | `"medium"` | Minimum severity level to report (low, medium, high, critical) |
 | `excludePackages` | array | `[]` | List of package names to exclude from security checks |
@@ -94,11 +94,51 @@ Currently, Pastoralist uses the [OSV database](https://osv.dev/) as its security
 - Fast and reliable API
 - Comprehensive coverage of npm packages
 
+### GitHub Provider
+
+The GitHub provider uses Dependabot alerts to check for vulnerabilities. This provider queries GitHub's Dependabot API for your repository.
+
+#### Setup
+
+The GitHub provider supports two authentication methods:
+
+**Option 1: GitHub CLI (Recommended)**
+
+If you have the [GitHub CLI](https://cli.github.com/) installed and authenticated, no additional setup is required:
+
+```bash
+# Install and authenticate gh CLI
+gh auth login
+
+# Run pastoralist with GitHub provider
+pastoralist --checkSecurity --securityProvider github
+```
+
+**Option 2: Personal Access Token**
+
+If you don't have the GitHub CLI, you can provide a GitHub token:
+
+1. Create a personal access token at https://github.com/settings/tokens with `repo` scope
+2. Set the token as an environment variable:
+   ```bash
+   export GITHUB_TOKEN=your_token_here
+   ```
+3. Or pass it via CLI:
+   ```bash
+   pastoralist --checkSecurity --securityProvider github --securityProviderToken your_token_here
+   ```
+
+#### Benefits
+
+- Uses GitHub's official Dependabot alerts
+- Integrates with your existing GitHub security settings
+- No additional API rate limits beyond GitHub's standard limits
+- Can be used in GitHub Actions without additional configuration
+
 ### Planned Providers
 
 Support for additional providers is planned for future releases:
 
-- **GitHub**: Dependabot alerts API
 - **Snyk**: Commercial vulnerability database
 - **NPM**: Native npm audit data
 - **Socket**: Supply chain security analysis

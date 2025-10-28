@@ -50,12 +50,23 @@ export function determineSecurityScanPaths(
 export async function action(options: Options = {}): Promise<void> {
   const isLogging = IS_DEBUGGING || options.debug;
   const log = createLogger({ file: "program.ts", isLogging });
-  const { isTestingCLI = false, ...rest } = options;
+  const { isTestingCLI = false, init = false, ...rest } = options;
   if (isTestingCLI) {
     log.debug("action:options:", "action", { options });
     return;
   }
-  
+
+  if (init) {
+    await initCommand({
+      path: options.path,
+      root: options.root,
+      checkSecurity: rest.checkSecurity,
+      securityProvider: rest.securityProvider,
+      hasWorkspaceSecurityChecks: rest.hasWorkspaceSecurityChecks,
+    });
+    return;
+  }
+
   try {
     const pastor = gradient("green", "tan");
     
@@ -91,18 +102,17 @@ export async function action(options: Options = {}): Promise<void> {
 
       const scanPaths = determineSecurityScanPaths(config, mergedOptions, log);
 
-      const securityOverrides = await securityChecker.checkSecurity(config!, {
+      const { alerts, overrides: securityOverrides } = await securityChecker.checkSecurity(config!, {
         ...mergedOptions,
         depPaths: scanPaths,
         root: options.root || "./",
       });
-      
-      if (securityOverrides.length > 0) {
-        const report = securityChecker.formatSecurityReport([], securityOverrides);
+
+      if (alerts.length > 0) {
+        const report = securityChecker.formatSecurityReport(alerts, securityOverrides);
         spinner.info(report);
-        
+
         if (mergedOptions.forceSecurityRefactor || mergedOptions.interactive) {
-          // Apply overrides will be handled by update function
           mergedOptions.securityOverrides = securityChecker.generatePackageOverrides(securityOverrides);
           mergedOptions.securityOverrideDetails = securityOverrides.map(override => ({
             packageName: override.packageName,
@@ -137,9 +147,10 @@ program
   .option("-r, --root <root>", "specifies a root path")
   .option("-t, --isTestingCLI", "enables CLI testing, no scripts are run")
   .option("--isTesting", "enables testing, no scripts are run")
+  .option("--init", "initialize Pastoralist configuration interactively")
   .option("--checkSecurity", "check for security vulnerabilities and generate overrides")
   .option("--forceSecurityRefactor", "automatically apply security overrides without prompting")
-  .option("--securityProvider <provider>", "security provider to use (osv, github, snyk, npm, socket)", "osv")
+  .option("--securityProvider <provider...>", "security provider(s) to use (osv, github, snyk, npm, socket)", ["osv"])
   .option("--securityProviderToken <token>", "Security provider token for API access (if required)")
   .option("--interactive", "run security checks in interactive mode")
   .option("--hasWorkspaceSecurityChecks", "include workspace packages in security scan")

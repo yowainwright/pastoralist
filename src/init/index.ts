@@ -96,15 +96,22 @@ async function promptForSecurityToken(
   provider: SecurityProvider,
   log: ReturnType<typeof createLogger>
 ): Promise<string | undefined> {
-  const requiresToken = provider === "snyk" || provider === "socket";
+  const tokenInfo = getTokenInfoForProvider(provider);
 
-  if (!requiresToken) {
+  if (!tokenInfo.required && !tokenInfo.optional) {
     return undefined;
+  }
+
+  if (tokenInfo.createUrl) {
+    log.info(`\n   ${INIT_MESSAGES.tokenCreationInfo(provider, tokenInfo.createUrl)}`, "promptForSecurityToken");
   }
 
   const hasToken = await prompt.confirm(PROMPTS.hasToken(provider), false);
 
   if (!hasToken) {
+    if (tokenInfo.required) {
+      log.info(`\n   ${INIT_MESSAGES.tokenRequiredWarning(provider)}`, "promptForSecurityToken");
+    }
     return undefined;
   }
 
@@ -116,6 +123,40 @@ async function promptForSecurityToken(
   }
 
   return token;
+}
+
+function getTokenInfoForProvider(provider: SecurityProvider): {
+  required: boolean;
+  optional: boolean;
+  createUrl?: string;
+  scopes?: string[];
+} {
+  switch (provider) {
+    case "github":
+      return {
+        required: false,
+        optional: true,
+        createUrl: "https://github.com/settings/tokens/new?description=Pastoralist%20Security&scopes=repo",
+        scopes: ["repo"]
+      };
+    case "snyk":
+      return {
+        required: true,
+        optional: false,
+        createUrl: "https://app.snyk.io/account",
+      };
+    case "socket":
+      return {
+        required: true,
+        optional: false,
+        createUrl: "https://socket.dev/dashboard/settings",
+      };
+    default:
+      return {
+        required: false,
+        optional: false,
+      };
+  }
 }
 
 async function collectSecurityAnswers(
@@ -239,9 +280,19 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
   const pastor = gradient("green", "tan");
   const log = createLogger({ file: "init/index.ts", isLogging: true });
 
-  log.info(`\n👩🏽‍🌾 ${pastor("Pastoralist")} initialization wizard\n`, "initCommand");
-  log.info(`${INIT_MESSAGES.welcome}\n`, "initCommand");
-  log.info(`${INIT_MESSAGES.skipInfo}\n`, "initCommand");
+  const hasSecurityContext = !!(options.checkSecurity || options.securityProvider);
+  const hasWorkspaceContext = !!options.hasWorkspaceSecurityChecks;
+  const hasFocusedContext = hasSecurityContext || hasWorkspaceContext;
+
+  if (hasSecurityContext) {
+    log.info(`\n👩🏽‍🌾 ${pastor("Pastoralist")} security configuration wizard\n`, "initCommand");
+  } else if (hasWorkspaceContext) {
+    log.info(`\n👩🏽‍🌾 ${pastor("Pastoralist")} workspace configuration wizard\n`, "initCommand");
+  } else {
+    log.info(`\n👩🏽‍🌾 ${pastor("Pastoralist")} initialization wizard\n`, "initCommand");
+    log.info(`${INIT_MESSAGES.welcome}\n`, "initCommand");
+    log.info(`${INIT_MESSAGES.skipInfo}\n`, "initCommand");
+  }
 
   const path = options.path || "package.json";
   const root = options.root || process.cwd();
@@ -262,22 +313,89 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
       setupSecurity: false,
     };
 
-    await collectConfigLocationAnswers(prompt, answers, log);
-    await collectWorkspaceAnswers(prompt, answers, packageJson, log);
-    await collectSecurityAnswers(prompt, answers, log);
+    if (hasSecurityContext) {
+      answers.setupSecurity = true;
+      if (options.securityProvider) {
+        answers.securityProvider = options.securityProvider;
+      }
+    }
+
+    if (hasWorkspaceContext) {
+      answers.setupWorkspaces = true;
+      answers.hasWorkspaceSecurityChecks = true;
+    }
+
+    if (!hasFocusedContext) {
+      await collectConfigLocationAnswers(prompt, answers, log);
+      await collectWorkspaceAnswers(prompt, answers, packageJson, log);
+      await collectSecurityAnswers(prompt, answers, log);
+    } else {
+      await collectConfigLocationAnswers(prompt, answers, log);
+
+      if (hasWorkspaceContext) {
+        await collectWorkspaceAnswers(prompt, answers, packageJson, log);
+      }
+
+      if (hasSecurityContext) {
+        await collectSecurityAnswersWithContext(prompt, answers, log, options);
+      }
+    }
 
     const config = buildConfig(answers);
 
     log.info(`\n${INIT_MESSAGES.savingConfig}\n`, "initCommand");
 
-    if (answers.configLocation === "package.json") {
+    const shouldSaveToPackageJson = answers.configLocation === "package.json";
+    const shouldSaveToExternalFile = answers.configLocation === "external" && answers.configFormat;
+
+    if (shouldSaveToPackageJson) {
       await saveToPackageJson(config, path, packageJson, log);
     }
 
-    if (answers.configLocation === "external" && answers.configFormat) {
-      await saveToExternalFile(config, answers.configFormat, root, prompt, log);
+    if (shouldSaveToExternalFile) {
+      await saveToExternalFile(config, answers.configFormat!, root, prompt, log);
     }
 
     displayNextSteps(answers.setupSecurity, log);
   });
+}
+
+async function collectSecurityAnswersWithContext(
+  prompt: Prompt,
+  answers: InitAnswers,
+  log: ReturnType<typeof createLogger>,
+  options: InitOptions
+): Promise<void> {
+  log.info(`\n${STEP_TITLES.security}`, "collectSecurityAnswersWithContext");
+
+  const needsProviderSelection = !answers.securityProvider;
+
+  if (needsProviderSelection) {
+    answers.securityProvider = await prompt.list(
+      PROMPTS.securityProvider,
+      SECURITY_PROVIDER_CHOICES
+    ) as SecurityProvider;
+  }
+
+  answers.securityProviderToken = await promptForSecurityToken(prompt, answers.securityProvider!, log);
+
+  answers.securityInteractive = await prompt.confirm(PROMPTS.securityInteractive, true);
+
+  if (!answers.securityInteractive) {
+    answers.securityAutoFix = await prompt.confirm(PROMPTS.securityAutoFix, false);
+  }
+
+  answers.severityThreshold = await prompt.list(
+    PROMPTS.severityThreshold,
+    SEVERITY_THRESHOLD_CHOICES
+  ) as SeverityThreshold;
+
+  const hasNonSecurityWorkspaces = answers.setupWorkspaces && !answers.hasWorkspaceSecurityChecks;
+
+  if (hasNonSecurityWorkspaces) {
+    answers.hasWorkspaceSecurityChecks = await prompt.confirm(
+      PROMPTS.hasWorkspaceSecurityChecks,
+      true
+    );
+  }
 }

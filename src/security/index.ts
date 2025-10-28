@@ -5,101 +5,21 @@ import {
   SecurityAlert,
   SecurityCheckOptions,
   SecurityOverride,
+  SecurityProvider,
 } from "./types";
 import { PastoralistJSON, OverridesType } from "../interfaces";
 import { logger } from "../scripts";
 import { compareVersions } from "compare-versions";
 import { InteractiveSecurityManager } from "./interactive";
 
-abstract class SecurityProvider {
+
+export class OSVProvider {
   protected debug: boolean;
-  protected log!: ReturnType<typeof logger>;
+  protected log: ReturnType<typeof logger>;
 
   constructor(options: { debug?: boolean } = {}) {
     this.debug = options.debug || false;
-  }
-
-  protected initializeLogger(): void {
-    this.log = logger({ file: `security/${this.name}.ts`, isLogging: this.debug });
-  }
-
-  abstract get name(): string;
-  abstract get requiresAuth(): boolean;
-  abstract isAvailable(): Promise<boolean>;
-  abstract fetchAlerts(packages: Array<{ name: string; version: string }>): Promise<SecurityAlert[]>;
-}
-
-class GitHubProvider extends SecurityProvider {
-  private githubProvider: GitHubSecurityProvider;
-
-  get name() { return "github"; }
-  get requiresAuth() { return false; }
-
-  constructor(options: { debug?: boolean; token?: string } = {}) {
-    super(options);
-    this.initializeLogger();
-    this.githubProvider = new GitHubSecurityProvider(options);
-  }
-
-  async isAvailable(): Promise<boolean> {
-    return true;
-  }
-
-  async fetchAlerts(): Promise<SecurityAlert[]> {
-    const dependabotAlerts = await this.githubProvider.fetchDependabotAlerts();
-    return this.githubProvider.convertToSecurityAlerts(dependabotAlerts);
-  }
-}
-
-class SnykProvider extends SecurityProvider {
-  private snykProvider: SnykCLIProvider;
-
-  get name() { return "snyk"; }
-  get requiresAuth() { return true; }
-
-  constructor(options: { debug?: boolean; token?: string } = {}) {
-    super(options);
-    this.initializeLogger();
-    this.snykProvider = new SnykCLIProvider(options);
-  }
-
-  async isAvailable(): Promise<boolean> {
-    return this.snykProvider.ensureInstalled();
-  }
-
-  async fetchAlerts(): Promise<SecurityAlert[]> {
-    return this.snykProvider.fetchAlerts();
-  }
-}
-
-class SocketProvider extends SecurityProvider {
-  private socketProvider: SocketCLIProvider;
-
-  get name() { return "socket"; }
-  get requiresAuth() { return true; }
-
-  constructor(options: { debug?: boolean; token?: string } = {}) {
-    super(options);
-    this.initializeLogger();
-    this.socketProvider = new SocketCLIProvider(options);
-  }
-
-  async isAvailable(): Promise<boolean> {
-    return this.socketProvider.ensureInstalled();
-  }
-
-  async fetchAlerts(): Promise<SecurityAlert[]> {
-    return this.socketProvider.fetchAlerts();
-  }
-}
-
-class OSVProvider extends SecurityProvider {
-  get name() { return "osv"; }
-  get requiresAuth() { return false; }
-  
-  constructor(options: { debug?: boolean } = {}) {
-    super(options);
-    this.initializeLogger();
+    this.log = logger({ file: "security/osv.ts", isLogging: this.debug });
   }
   
   async isAvailable(): Promise<boolean> {
@@ -244,17 +164,17 @@ export class SecurityChecker {
       case "osv":
         return new OSVProvider({ debug: options.debug });
       case "github":
-        return new GitHubProvider({
+        return new GitHubSecurityProvider({
           debug: options.debug,
           token: options.token
         });
       case "snyk":
-        return new SnykProvider({
+        return new SnykCLIProvider({
           debug: options.debug,
           token: options.token
         });
       case "socket":
-        return new SocketProvider({
+        return new SocketCLIProvider({
           debug: options.debug,
           token: options.token
         });

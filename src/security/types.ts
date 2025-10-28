@@ -11,8 +11,10 @@ export interface SecurityAlert {
   fixAvailable: boolean;
 }
 
+export type SecurityProviderType = "osv" | "github" | "snyk" | "npm" | "socket";
+
 export interface SecurityCheckOptions {
-  provider?: "osv" | "github" | "snyk" | "npm" | "socket";
+  provider?: SecurityProviderType | SecurityProviderType[];
   forceRefactor?: boolean;
   interactive?: boolean;
   autoFix?: boolean;

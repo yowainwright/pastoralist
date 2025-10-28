@@ -31,7 +31,7 @@ export function isSecurityEnabled(config: PastoralistConfig): boolean {
   return hasSecurityEnabled || hasCheckSecurity;
 }
 
-export function getSecurityProvider(config: PastoralistConfig): string {
+export function getSecurityProvider(config: PastoralistConfig): string | string[] {
   return config.security?.provider || "osv";
 }
 

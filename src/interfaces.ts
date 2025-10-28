@@ -79,6 +79,7 @@ export interface Options {
   exec?: Exec;
   isTesting?: boolean;
   isTestingCLI?: boolean;
+  init?: boolean;
   path?: string;
   out?: string;
   root?: string;

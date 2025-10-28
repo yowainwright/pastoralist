@@ -318,15 +318,35 @@ describe("SecurityChecker", () => {
   describe("Provider Abstraction", () => {
     it("should support multiple providers", () => {
       const providers = ["osv", "github", "snyk", "npm", "socket"] as const;
-      
+
       for (const provider of providers) {
         const checker = new SecurityChecker({ provider });
         assert.ok(checker, `Should create checker with ${provider} provider`);
       }
     });
 
+    it("should support array of providers", () => {
+      const checker = new SecurityChecker({ provider: ["osv", "github"] });
+      assert.ok(checker, "Should create checker with multiple providers");
+    });
+
+    it("should deduplicate alerts from multiple providers", async () => {
+      const config: PastoralistJSON = {
+        name: "test-package",
+        version: "1.0.0",
+        dependencies: {
+          lodash: "4.17.20",
+        },
+      };
+
+      const checker = new SecurityChecker({ provider: ["osv"] });
+      const result = await checker.checkSecurity(config);
+
+      assert.ok(Array.isArray(result.alerts), "Should return deduplicated alerts");
+    });
+
     it("should use unified provider token", () => {
-      const checker = new SecurityChecker({ 
+      const checker = new SecurityChecker({
         provider: "github",
         token: "test-token-123",
       });
@@ -351,9 +371,10 @@ describe("SecurityChecker", () => {
       };
 
       const checker = new SecurityChecker({});
-      const alerts = await checker.checkSecurity(config);
-      
-      assert.ok(Array.isArray(alerts), "Should return array without scanning workspaces");
+      const result = await checker.checkSecurity(config);
+
+      assert.ok(Array.isArray(result.alerts), "Should return alerts array");
+      assert.ok(Array.isArray(result.overrides), "Should return overrides array");
     });
 
     it("should scan workspaces when explicitly enabled", async () => {
@@ -365,12 +386,13 @@ describe("SecurityChecker", () => {
       };
 
       const checker = new SecurityChecker({});
-      const alerts = await checker.checkSecurity(config, {
+      const result = await checker.checkSecurity(config, {
         depPaths: ["packages/*/package.json"],
         root: "./",
       });
-      
-      assert.ok(Array.isArray(alerts), "Should return array when scanning workspaces");
+
+      assert.ok(Array.isArray(result.alerts), "Should return alerts array");
+      assert.ok(Array.isArray(result.overrides), "Should return overrides array");
     });
   });
 

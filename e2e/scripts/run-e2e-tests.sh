@@ -18,8 +18,8 @@ if [ ! -f /.dockerenv ]; then
     docker compose build
     
     echo "🧪 Running E2E tests..."
-    docker compose up --abort-on-container-exit e2e-test
-    
+    docker compose up --abort-on-container-exit e2e-pnpm
+
     TEST_EXIT_CODE=$?
     
     echo ""
@@ -32,7 +32,7 @@ if [ ! -f /.dockerenv ]; then
         echo "❌ E2E tests FAILED!"
         echo ""
         echo "🔍 Container logs:"
-        docker compose logs e2e-test
+        docker compose logs e2e-pnpm
         exit 1
     fi
     
@@ -339,6 +339,16 @@ echo "\n⚙️  Running Interactive Config Review Tests..."
 echo "=============================="
 /app/scripts/test-interactive-config.sh
 print_result $? "Interactive config review tests completed"
+
+echo "\n🔐 Running Snyk Security Provider Tests..."
+echo "=============================="
+/app/scripts/test-snyk-security.sh
+print_result $? "Snyk security provider tests completed"
+
+echo "\n🔌 Running Socket Security Provider Tests..."
+echo "=============================="
+/app/scripts/test-socket-security.sh
+print_result $? "Socket security provider tests completed"
 
 echo "\n🎯 All E2E tests passed!"
 echo "===================================="

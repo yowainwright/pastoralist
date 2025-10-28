@@ -76,7 +76,7 @@ export class SnykCLIProvider {
     return JSON.parse(stdout);
   }
 
-  async fetchAlerts(packages: Array<{ name: string; version: string }>): Promise<SecurityAlert[]> {
+  async fetchAlerts(): Promise<SecurityAlert[]> {
     const isValid = await this.validatePrerequisites();
 
     if (!isValid) {

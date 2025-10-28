@@ -337,7 +337,7 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
       }
 
       if (hasSecurityContext) {
-        await collectSecurityAnswersWithContext(prompt, answers, log, options);
+        await collectSecurityAnswersWithContext(prompt, answers, log);
       }
     }
 
@@ -363,8 +363,7 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
 async function collectSecurityAnswersWithContext(
   prompt: Prompt,
   answers: InitAnswers,
-  log: ReturnType<typeof createLogger>,
-  options: InitOptions
+  log: ReturnType<typeof createLogger>
 ): Promise<void> {
   log.info(`\n${STEP_TITLES.security}`, "collectSecurityAnswersWithContext");
 

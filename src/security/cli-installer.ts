@@ -1,7 +1,5 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
-import { existsSync } from "fs";
-import { resolve } from "path";
 import { logger } from "../scripts";
 
 const execFileAsync = promisify(execFile);
@@ -76,7 +74,7 @@ export class CLIInstaller {
       const isNowInstalled = await this.isInstalled(cliCommand);
 
       if (!isNowInstalled) {
-        this.log.warn(
+        this.log.info(
           `${packageName} was installed but ${cliCommand} is still not available. Please ensure it's in your PATH.`,
           "ensureInstalled"
         );

@@ -3,12 +3,10 @@
 ![Typed with TypeScript](https://flat.badgen.net/badge/icon/Typed?icon=typescript&label&labelColor=blue&color=555555)
 [![npm version](https://badge.fury.io/js/pastoralist.svg)](https://badge.fury.io/js/pastoralist)
 ![ci](https://github.com/yowainwright/pastoralist/actions/workflows/ci.yml/badge.svg)
+[![codecov](https://codecov.io/gh/yowainwright/pastoralist/branch/main/graph/badge.svg)](https://codecov.io/gh/yowainwright/pastoralist)
 [![Github](https://badgen.net/badge/icon/github?icon=github&label&color=grey)](https://github.com/yowainwright/pastoralist)
-![Twitter](https://img.shields.io/twitter/url?url=https%3A%2F%2Fgithub.com%2Fyowainwright%2Fpastoralist)
 
-#### Manage your package.json \*`overrides`, `resolutions`, and `patches` with ease!
-
-With the Pastoralist CLI, you can ensure your project's overrides _(or resolutions)_ and patches are kept up-to-date by running a single one word command! Jump to [setup](#setup) or scroll on!
+**Automatically track and clean up your repos security dependency issues AND package.json `overrides`, `resolutions`, and `patches`**
 
 ---
 
@@ -37,21 +35,42 @@ With the Pastoralist CLI, you can ensure your project's overrides _(or resolutio
 
 ---
 
-## What _are_ \*overrides and resolutions?
+## What are overrides and resolutions?
 
-> Overrides and resolutions solve the same problem!<br>**_They give developers a way to specify dependency versions downloaded to a repository's node_modules folder_**.
+**Package manager overrides and resolutions let you control exact dependency versions in your node_modules.**
 
-Node package manager CLIs, like npm, yarn, and pnpm, enable engineers to solve dependency specificity issues by adding an overrides or resolutions object to a repository's root package.json. This is awesome for fixing dependency issues with security and/or code. Read more about [npm](https://docs.npmjs.com/cli/v8/configuring-npm/package-json#overrides), [yarn](https://yarnpkg.com/configuration/manifest#resolutions), and [pnpm](https://pnpm.io/package_json#pnpmoverrides) overrides or resolution solutions.
+Package managers (npm, yarn, pnpm, bun) use these to fix:
+- Security vulnerabilities in nested dependencies
+- Bugs in transitive dependencies
+- Version conflicts
+
+Read more: [npm overrides](https://docs.npmjs.com/cli/v8/configuring-npm/package-json#overrides), [yarn resolutions](https://yarnpkg.com/configuration/manifest#resolutions), [pnpm overrides](https://pnpm.io/package_json#pnpmoverrides), [bun overrides](https://bun.sh/docs/install/overrides)
 
 ---
 
-## Why is Pastoralist Awesome?
+## The Problem
 
-> Is the override still needed? Is there a better fix? Like a security patch or a major release?
+You add overrides to fix issues:
 
-After using overrides or resolutions to fix dependency specificity issues for a while, **_it is easy to lose track of why a dependency is in an overrides or resolutions package.json object!_** This is an inconvenient problem when trying to maintain dependencies over time. This information is not really known—**until now!**
+```js
+"overrides": {
+  "trim": "^0.0.3",
+  "lodash": "4.17.21",
+  "some-package": "2.0.0"
+}
+```
 
-With Pastoralist CLI, you can run the `pastoralist` CLI command and an overrides (resolution) object that looks like this:
+Six months later:
+- Why are these here?
+- What uses them?
+- Are they still needed?
+- Which ones can I remove?
+
+---
+
+## The Solution
+
+With Pastoralist CLI, an overrides object that looks like this:
 
 ```js
 // Note the trim dependency in overrides
@@ -78,11 +97,9 @@ Will look like this:
 }
 ```
 
-But there's more!
+Now you know exactly why it exists and what needs it.
 
-If Pastoralist is run and an override or resolution is no longer required, Pastoralist will remove the dependency from pastoralist.appendix, overrides, or resolutions!
-
-AKA, the object above, will now look like the object below if trim is no longer needed.
+When an override is no longer required, Pastoralist automatically removes it:
 
 ```js
 // Note that since trim is no longer needed,
@@ -93,9 +110,58 @@ AKA, the object above, will now look like the object below if trim is no longer 
 }
 ```
 
-### ✨ New Features
+**Security vulnerability detection:**
 
-**Nested Overrides Support**: Pastoralist now fully supports npm's nested overrides for overriding transitive dependencies:
+Run `pastoralist --checkSecurity` to scan for vulnerabilities via OSV API. Pastoralist will:
+1. Call https://api.osv.dev/v1/query for each dependency
+2. Detect vulnerable packages
+3. Automatically create overrides with patched versions
+4. Track the security fix in the appendix ledger
+
+```js
+// After running pastoralist --checkSecurity
+"overrides": {
+  "lodash": "4.17.21"  // Auto-generated security fix
+},
+"pastoralist": {
+  "appendix": {
+    "lodash@4.17.21": {
+      "dependents": {
+        "my-app": "lodash@^4.17.0"
+      },
+      "ledger": {
+        "reason": "Security vulnerability CVE-2021-23337",
+        "securityProvider": "osv",
+        "addedDate": "2024-01-15T10:30:00.000Z"
+      }
+    }
+  }
+}
+```
+
+---
+
+## Features
+
+### Nested Overrides (Transitive Dependencies)
+
+Sometimes you need to override a dependency of a dependency. Pastoralist tracks the full dependency chain so you know exactly which parent package requires the nested override.
+
+```mermaid
+flowchart TD
+    Start([Nested override detected]) --> Parse[Parse parent dependency]
+    Parse --> Map[Map transitive dependency]
+    Map --> Track[Track in appendix]
+    Track --> End([Full dependency chain visible])
+
+    style Start fill:#e1f5e1
+    style End fill:#e1f5e1
+    style Parse fill:#e3f2fd
+    style Map fill:#e3f2fd
+    style Track fill:#f3e5f5
+```
+
+**Example:**
 
 ```js
 // Override a transitive dependency of pg
@@ -106,7 +172,7 @@ AKA, the object above, will now look like the object below if trim is no longer 
 }
 ```
 
-This is tracked in the appendix as:
+**Tracked in appendix:**
 
 ```js
 "pastoralist": {
@@ -120,62 +186,81 @@ This is tracked in the appendix as:
 }
 ```
 
-**Security Vulnerability Detection (Experimental)**: Pastoralist can check for security vulnerabilities and automatically generate overrides to fix them:
+### Security Vulnerability Detection
+
+Automatically scan for security vulnerabilities and create overrides to fix them. Supports multiple security providers: OSV (default), GitHub, Snyk, and Socket.
+
+```mermaid
+flowchart TD
+    Start([Run --checkSecurity]) --> Provider[Query security provider API]
+    Provider --> Detect{Vulnerabilities found?}
+    Detect -->|Yes| Fix[Generate override with patched version]
+    Detect -->|No| Safe[No action needed]
+    Fix --> Track[Add to appendix with security ledger]
+    Track --> End([Secure dependencies])
+    Safe --> End
+
+    style Start fill:#e1f5e1
+    style End fill:#d4edda
+    style Provider fill:#e3f2fd
+    style Fix fill:#fff3cd
+    style Track fill:#f3e5f5
+```
+
+**Usage:**
 
 ```bash
-# Check for vulnerabilities and show report
-pastoralist --checkSecurity
-
-# Automatically apply security fixes
-pastoralist --checkSecurity --forceSecurityRefactor
-
-# Interactive mode - choose which fixes to apply
-pastoralist --checkSecurity --interactive
-
-# Include workspace packages in security scan
-pastoralist --checkSecurity --includeWorkspaces
-
-# Initialize interactive configuration for monorepo support
-pastoralist --init
-
-# Use interactive mode to configure monorepo paths when overrides are detected
-pastoralist --interactive
+pastoralist --checkSecurity                           # Scan and report
+pastoralist --checkSecurity --forceSecurityRefactor   # Auto-apply fixes
+pastoralist --checkSecurity --interactive             # Choose which fixes to apply
+pastoralist --checkSecurity --includeWorkspaces       # Include workspace packages
 ```
 
-**Minimal configuration** to enable security checks:
+**Configuration:**
 
 ```js
 "pastoralist": {
   "security": {
-    "enabled": true  // Enable security vulnerability scanning
+    "enabled": true,                      // Enable security checks (default: false)
+    "provider": "osv",                    // Security provider: "osv", "github", "snyk", "socket" (default: "osv")
+    "autoFix": false,                     // Automatically apply fixes (default: false)
+    "interactive": false,                 // Use interactive mode (default: false)
+    "securityProviderToken": "",          // Token for providers that require auth
+    "hasWorkspaceSecurityChecks": false,  // Include workspace packages (default: false)
+    "severityThreshold": "medium",        // Minimum severity: "low", "medium", "high", "critical" (default: "medium")
+    "excludePackages": []                 // Packages to exclude from checks
   }
 }
 ```
 
-This uses default settings: OSV provider, manual review (no auto-fix), and medium severity threshold.
+**Supported providers:**
+- **OSV** (default) - [Open Source Vulnerabilities](https://osv.dev/) - No auth required
+- **GitHub** - GitHub Dependabot alerts - Requires token
+- **Snyk** - Snyk vulnerability database - Requires CLI
+- **Socket** - Socket security analysis - Requires CLI
 
-**Full configuration** options:
+### Patch Detection and Tracking
 
-```js
-"pastoralist": {
-  "security": {
-    "enabled": true,                   // Enable security checks (default: false)
-    "provider": "osv",                 // Security provider (default: "osv")
-    "autoFix": false,                  // Automatically apply fixes (default: false)
-    "interactive": false,              // Use interactive mode (default: false)
-    "securityProviderToken": "",       // Token for future providers that require auth
-    "hasWorkspaceSecurityChecks": false, // Include workspace packages (default: false)
-    "severityThreshold": "medium",     // Minimum severity (default: "medium")
-    "excludePackages": []              // Packages to exclude from checks
-  }
-}
+Automatically detects and tracks patches from tools like `patch-package`. Links patches to their corresponding overrides and warns about unused patches.
+
+```mermaid
+flowchart TD
+    Start([Patch files detected]) --> Scan[Scan patches directory]
+    Scan --> Link[Link patches to overrides]
+    Link --> Track[Add to appendix]
+    Track --> Monitor{Package removed?}
+    Monitor -->|Yes| Warn[Warn about unused patch]
+    Monitor -->|No| End([Continue tracking])
+    Warn --> End
+
+    style Start fill:#e1f5e1
+    style End fill:#e1f5e1
+    style Scan fill:#e3f2fd
+    style Link fill:#f3e5f5
+    style Warn fill:#fff3cd
 ```
 
-**Note**: Currently, Pastoralist uses the [OSV (Open Source Vulnerabilities)](https://osv.dev/) database for security scanning. OSV is a distributed vulnerability database for open source, created by Google and the open source community. It aggregates vulnerabilities from multiple sources and requires no authentication - making it fast and accessible. Huge thanks to the OSV team for providing this valuable service! 
-
-Support for additional providers (GitHub, Snyk, NPM, Socket) is planned for future releases.
-
-**Patch Support**: Pastoralist now automatically detects and tracks patches (e.g., from `patch-package`) in your project:
+**Example:**
 
 ```js
 "pastoralist": {
@@ -190,9 +275,7 @@ Support for additional providers (GitHub, Snyk, NPM, Socket) is planned for futu
 }
 ```
 
-**Enhanced Dependency Support**: Now supports `peerDependencies` alongside `dependencies` and `devDependencies` for complete dependency tracking.
-
-**Smart Cleanup**: Get notified about unused patches when dependencies are removed:
+**Unused patch warning:**
 
 ```
 🐑 Found 2 potentially unused patch files:
@@ -200,7 +283,26 @@ Support for additional providers (GitHub, Snyk, NPM, Socket) is planned for futu
 Consider removing these patches if the packages are no longer used.
 ```
 
-There is more to come with Pastoralist! But for now, by adding pastoralist to [package.json postInstall script](https://docs.npmjs.com/cli/v8/using-npm/scripts#npm-install), you don't have to worry about installing unneeded override or resolution packages anymore!
+### Complete Dependency Tracking
+
+Tracks all dependency types: `dependencies`, `devDependencies`, and `peerDependencies`. Ensures every override is mapped regardless of where the dependency is declared.
+
+```mermaid
+flowchart TD
+    Start([Scan package.json]) --> Deps[Read dependencies]
+    Deps --> DevDeps[Read devDependencies]
+    DevDeps --> PeerDeps[Read peerDependencies]
+    PeerDeps --> Map[Map all to overrides]
+    Map --> Track[Track in appendix]
+    Track --> End([Complete dependency picture])
+
+    style Start fill:#e1f5e1
+    style End fill:#e1f5e1
+    style Deps fill:#e3f2fd
+    style DevDeps fill:#e3f2fd
+    style PeerDeps fill:#e3f2fd
+    style Map fill:#f3e5f5
+```
 
 ---
 
@@ -530,169 +632,6 @@ pastoralist
 ```
 
 ---
-
-## Testing
-
-### Unit Tests
-
-```bash
-pnpm test
-```
-
-### End-to-End Tests
-
-Run comprehensive e2e tests using Docker to verify real-world scenarios:
-
-```bash
-pnpm run test-e2e
-```
-
-The e2e tests create a realistic monorepo workspace with lodash dependencies and verify:
-
-- Appendix creation and updates
-- Override version changes
-- Appendix preservation when overrides are removed (bug fix verification)
-- Cross-package dependency tracking
-- Patch detection and tracking
-- PeerDependencies support
-
-In the near future, Pastoralist will fully support a config file but this is it for now!
-
-Read on to understand what is going on under the hood of Pastoralist!
-
----
-
-### Examples
-
-#### Simple Overrides
-
-For direct dependency overrides:
-
-```js
-// package.json
-"dependencies": {
-  "lodash": "^4.17.0"
-},
-"overrides": {
-  "lodash": "4.17.21"  // Pin to specific version
-}
-```
-
-#### Nested Overrides (Transitive Dependencies)
-
-For overriding dependencies of dependencies:
-
-```js
-// package.json
-"dependencies": {
-  "pg": "^8.13.1",
-  "express": "^4.18.0"
-},
-"overrides": {
-  // Override pg's dependency on pg-types
-  "pg": {
-    "pg-types": "^4.0.1"
-  },
-  // Override express's cookie dependency
-  "express": {
-    "cookie": "0.5.0"
-  },
-  // You can also mix simple and nested overrides
-  "lodash": "4.17.21"
-}
-```
-
-After running `pastoralist`, you'll see:
-
-```js
-"pastoralist": {
-  "appendix": {
-    "pg-types@^4.0.1": {
-      "dependents": {
-        "my-app": "pg@^8.13.1 (nested override)"
-      }
-    },
-    "cookie@0.5.0": {
-      "dependents": {
-        "my-app": "express@^4.18.0 (nested override)"
-      }
-    },
-    "lodash@4.17.21": {
-      "dependents": {
-        "my-app": "lodash@^4.17.0"
-      }
-    }
-  }
-}
-```
-
-#### Monorepo with depPaths Configuration
-
-For monorepos, the cleanest approach is using `depPaths` in your package.json:
-
-```js
-// Root package.json
-{
-  "name": "my-monorepo",
-  "version": "1.0.0",
-  "workspaces": ["packages/*", "apps/*"],
-  "overrides": {
-    "lodash": "4.17.21"  // Override used by workspace packages
-  },
-  "pastoralist": {
-    "depPaths": "workspace"  // Automatically tracks all workspaces
-  },
-  "scripts": {
-    "postinstall": "pastoralist"
-  }
-}
-```
-
-After running `pastoralist`, the root package.json will contain:
-
-```js
-{
-  "overrides": {
-    "lodash": "4.17.21"
-  },
-  "pastoralist": {
-    "depPaths": "workspace",
-    "appendix": {
-      "lodash@4.17.21": {
-        "dependents": {
-          "app-a": "lodash@^4.17.0",
-          "app-b": "lodash@^4.17.0",
-          "package-c": "lodash@^4.17.0"
-        }
-      }
-    }
-  }
-}
-```
-
-The workspace packages (`packages/*/package.json` and `apps/*/package.json`) remain clean without any pastoralist appendix.
-
-### Pastoralist Object Anatomy
-
-When **Pastoralist** is run in a repository with override or resolution dependencies, it will output a shape like below.
-
-```js
-// package.json
-"pastoralist": {
-  // the appendix contains mapped resolutions/overrides
-  "appendix": {
-    // the resolution/override is stringified with it's version
-    "trim@^0.0.3": {
-      // dependents contain dependents which actually require the override/resolution dependency
-      "dependents": {
-        "remark-parse": "4.0.0"
-      }
-    }
-  }
-}
-```
-
-When ever **Pastoralist** is run again, it will check the `pastoralist.appendix` object and remove any resolutions/overrides that are no longer needed.
 
 ## Thanks
 

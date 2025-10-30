@@ -10,6 +10,16 @@
 
 ---
 
+## TL;DR
+
+Want to automate security fixes and override management?
+
+```bash
+npm i pastoralist -D && pastoralist --init
+```
+
+---
+
 ## Table of Contents
 
 - [What are overrides and resolutions?](#what-are-overrides-and-resolutions)

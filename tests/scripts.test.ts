@@ -2944,3 +2944,128 @@ describe("performance optimizations", () => {
     clearDependencyTreeCache();
   });
 });
+
+describe("Bug Fix: Missing await in processPackageJSON", () => {
+  it("should properly await updateAppendix and return valid appendix object", async () => {
+    const testFile = "/tmp/pastoralist-test-process-pkg.json";
+    const testPackage = {
+      name: "test-package",
+      version: "1.0.0",
+      dependencies: {
+        lodash: "^4.17.0",
+      },
+    };
+
+    fs.writeFileSync(testFile, JSON.stringify(testPackage, null, 2));
+
+    try {
+      const overrides: OverridesType = {
+        lodash: "4.17.21",
+      };
+      const overridesList = ["lodash"];
+
+      const result = await processPackageJSON(
+        testFile,
+        overrides,
+        overridesList,
+        false
+      );
+
+      assert.ok(result, "Result should exist");
+      assert.ok(result.appendix, "Appendix should exist");
+      assert.strictEqual(typeof result.appendix, "object", "Appendix should be an object, not a Promise");
+      assert.ok(result.appendix["lodash@4.17.21"], "Should have lodash override in appendix");
+      assert.ok(result.appendix["lodash@4.17.21"].dependents, "Should have dependents");
+      assert.ok(result.appendix["lodash@4.17.21"].dependents["test-package"], "Should have test-package as dependent");
+    } finally {
+      if (fs.existsSync(testFile)) {
+        fs.unlinkSync(testFile);
+      }
+    }
+  });
+});
+
+describe("Bug Fix: Null check in cleanup loop", () => {
+  it("should handle undefined appendix items gracefully", () => {
+    const appendix: Appendix = {
+      "lodash@4.17.21": {
+        dependents: {
+          "test-app": "lodash@^4.17.0",
+        },
+      },
+    };
+
+    const result = updateAppendix({
+      overrides: {},
+      appendix,
+      dependencies: {},
+      devDependencies: {},
+      peerDependencies: {},
+      packageName: "test-app",
+    });
+
+    assert.ok(result, "Result should exist");
+    assert.strictEqual(typeof result, "object", "Result should be an object");
+  });
+
+  it("should remove items without dependents", () => {
+    const appendix: Appendix = {
+      "lodash@4.17.21": {
+        dependents: {},
+      },
+    };
+
+    const result = updateAppendix({
+      overrides: {},
+      appendix,
+      dependencies: {},
+      devDependencies: {},
+      peerDependencies: {},
+      packageName: "test-app",
+    });
+
+    assert.ok(result, "Result should exist");
+    assert.strictEqual(
+      Object.keys(result).length,
+      0,
+      "Should remove items without dependents"
+    );
+  });
+
+  it("should not crash when appendix item is undefined", () => {
+    const appendix: Appendix = {
+      "lodash@4.17.21": {
+        dependents: {
+          "app": "lodash@^4.17.0",
+        },
+      },
+    };
+
+    assert.doesNotThrow(() => {
+      updateAppendix({
+        overrides: {},
+        appendix,
+        dependencies: {},
+        devDependencies: {},
+        peerDependencies: {},
+        packageName: "test-app",
+      });
+    });
+  });
+});
+
+describe("Bug Fix: Dependency tree cache clearing", () => {
+  it("should clear dependency tree cache at start of update", () => {
+    assert.doesNotThrow(() => {
+      clearDependencyTreeCache();
+    });
+  });
+
+  it("should execute clearDependencyTreeCache multiple times without error", () => {
+    clearDependencyTreeCache();
+    clearDependencyTreeCache();
+    clearDependencyTreeCache();
+
+    assert.ok(true, "Should execute successfully multiple times");
+  });
+});

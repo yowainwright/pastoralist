@@ -375,6 +375,8 @@ export const update = async (options: Options): Promise<void> => {
   const isLogging = IS_DEBUGGING || options?.debug || false;
   const log = logger({ file: "scripts.ts", isLogging });
 
+  clearDependencyTreeCache();
+
   const config = await resolveJSON(path);
   if (!config) {
     log.debug("no config found", "update");
@@ -858,7 +860,7 @@ export async function processPackageJSON(
   const isOverridden = depList.some((dep) => overridesList.includes(dep));
   if (!isOverridden) return;
 
-  const appendix = updateAppendix({
+  const appendix = await updateAppendix({
     overrides,
     dependencies,
     devDependencies,
@@ -1017,9 +1019,14 @@ export const updateAppendix = ({
   }
 
   Object.keys(appendix).forEach((key) => {
+    const item = appendix[key];
+    if (!item) {
+      delete appendix[key];
+      return;
+    }
     const hasNoDependents =
-      !appendix[key].dependents ||
-      Object.keys(appendix[key].dependents).length === 0;
+      !item.dependents ||
+      Object.keys(item.dependents).length === 0;
     if (hasNoDependents) {
       delete appendix[key];
     }

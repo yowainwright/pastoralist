@@ -64,7 +64,9 @@ const tryLoadConfig = async (
     const rawConfig = await loadConfigFile(filename, path);
     if (!rawConfig) return null;
     return validateAndReturn(rawConfig, validate);
-  } catch {
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`Failed to load config from ${filename}: ${errorMessage}`);
     return null;
   }
 };
@@ -80,6 +82,37 @@ export const loadExternalConfig = async (
   return undefined;
 };
 
+const deepMergeAppendix = (
+  external: PastoralistConfig["appendix"],
+  packageJson: PastoralistConfig["appendix"]
+) => {
+  if (!external && !packageJson) return undefined;
+  if (!external) return packageJson;
+  if (!packageJson) return external;
+
+  const merged = Object.assign({}, external);
+
+  Object.entries(packageJson).forEach(([key, value]) => {
+    if (!merged[key]) {
+      merged[key] = value;
+    } else {
+      const existingItem = merged[key];
+      const mergedDependents = Object.assign({}, existingItem.dependents, value.dependents);
+      const mergedPatches = value.patches
+        ? (existingItem.patches || []).concat(value.patches)
+        : existingItem.patches;
+
+      merged[key] = {
+        dependents: mergedDependents,
+        patches: mergedPatches,
+        ledger: value.ledger || existingItem.ledger,
+      };
+    }
+  });
+
+  return merged;
+};
+
 export const mergeConfigs = (
   externalConfig: PastoralistConfig | undefined,
   packageJsonConfig: PastoralistConfig | undefined
@@ -87,26 +120,17 @@ export const mergeConfigs = (
   if (!externalConfig) return packageJsonConfig;
   if (!packageJsonConfig) return externalConfig;
 
-  return {
-    ...externalConfig,
-    ...packageJsonConfig,
-    appendix: {
-      ...externalConfig.appendix,
-      ...packageJsonConfig.appendix,
-    },
-    overridePaths: {
-      ...externalConfig.overridePaths,
-      ...packageJsonConfig.overridePaths,
-    },
-    resolutionPaths: {
-      ...externalConfig.resolutionPaths,
-      ...packageJsonConfig.resolutionPaths,
-    },
-    security: {
-      ...externalConfig.security,
-      ...packageJsonConfig.security,
-    },
-  };
+  const mergedAppendix = deepMergeAppendix(externalConfig.appendix, packageJsonConfig.appendix);
+  const mergedOverridePaths = Object.assign({}, externalConfig.overridePaths, packageJsonConfig.overridePaths);
+  const mergedResolutionPaths = Object.assign({}, externalConfig.resolutionPaths, packageJsonConfig.resolutionPaths);
+  const mergedSecurity = Object.assign({}, externalConfig.security, packageJsonConfig.security);
+
+  return Object.assign({}, externalConfig, packageJsonConfig, {
+    appendix: mergedAppendix,
+    overridePaths: mergedOverridePaths,
+    resolutionPaths: mergedResolutionPaths,
+    security: mergedSecurity,
+  });
 };
 
 export const loadConfig = async (

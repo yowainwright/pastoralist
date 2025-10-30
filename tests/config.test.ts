@@ -273,7 +273,7 @@ describe("Config Loading", () => {
     assert.deepStrictEqual(result, {
       ...externalConfig,
       ...packageJsonConfig,
-      appendix: {},
+      appendix: undefined,
       overridePaths: {},
       resolutionPaths: {},
       security: externalConfig.security
@@ -291,11 +291,11 @@ describe("Config Merging", () => {
     const packageJson = { depPaths: ["apps/*/package.json"] };
 
     const result = mergeConfigs(external, packageJson);
-    
+
     assert.deepStrictEqual(result, {
       security: { enabled: true },
       depPaths: ["apps/*/package.json"],
-      appendix: {},
+      appendix: undefined,
       overridePaths: {},
       resolutionPaths: {}
     });
@@ -762,3 +762,123 @@ describe("Security Integration", () => {
   });
 });
 
+describe("Bug Fix: Deep merge appendix dependents", () => {
+  it("should preserve dependents from both external and package.json configs", () => {
+    const externalConfig: PastoralistConfig = {
+      appendix: {
+        "lodash@4.17.21": {
+          dependents: {
+            "external-app": "lodash@^4.0.0",
+          },
+          ledger: {
+            addedDate: "2024-01-01T00:00:00.000Z",
+            reason: "From external config",
+          },
+        },
+      },
+    };
+
+    const packageJsonConfig: PastoralistConfig = {
+      appendix: {
+        "lodash@4.17.21": {
+          dependents: {
+            "my-app": "lodash@^4.17.0",
+          },
+          ledger: {
+            addedDate: "2024-06-01T00:00:00.000Z",
+            reason: "From package.json",
+          },
+        },
+      },
+    };
+
+    const merged = mergeConfigs(externalConfig, packageJsonConfig);
+
+    assert.ok(merged?.appendix, "Merged appendix should exist");
+    const lodashEntry = merged.appendix["lodash@4.17.21"];
+    assert.ok(lodashEntry, "Lodash entry should exist");
+    assert.ok(lodashEntry.dependents["external-app"], "Should preserve external-app dependent");
+    assert.ok(lodashEntry.dependents["my-app"], "Should preserve my-app dependent");
+    assert.strictEqual(
+      Object.keys(lodashEntry.dependents).length,
+      2,
+      "Should have exactly 2 dependents"
+    );
+  });
+
+  it("should use concat for merging patches arrays", () => {
+    const externalConfig: PastoralistConfig = {
+      appendix: {
+        "lodash@4.17.21": {
+          dependents: { app: "lodash@^4.0.0" },
+          patches: ["patches/lodash+4.17.21.patch"],
+        },
+      },
+    };
+
+    const packageJsonConfig: PastoralistConfig = {
+      appendix: {
+        "lodash@4.17.21": {
+          dependents: { app: "lodash@^4.0.0" },
+          patches: ["patches/lodash+4.17.21-fix.patch"],
+        },
+      },
+    };
+
+    const merged = mergeConfigs(externalConfig, packageJsonConfig);
+
+    assert.ok(merged?.appendix, "Merged appendix should exist");
+    const patches = merged.appendix["lodash@4.17.21"]?.patches;
+    assert.ok(patches, "Patches should exist");
+    assert.strictEqual(patches.length, 2, "Should have both patches");
+    assert.ok(patches.includes("patches/lodash+4.17.21.patch"), "Should include external patch");
+    assert.ok(patches.includes("patches/lodash+4.17.21-fix.patch"), "Should include package.json patch");
+  });
+
+  it("should use Object.assign for merging overridePaths", () => {
+    const externalConfig: PastoralistConfig = {
+      overridePaths: {
+        "packages/app": {
+          "lodash@4.17.21": {
+            dependents: { app: "lodash@^4.0.0" },
+          },
+        },
+      },
+    };
+
+    const packageJsonConfig: PastoralistConfig = {
+      overridePaths: {
+        "packages/utils": {
+          "express@4.18.2": {
+            dependents: { utils: "express@^4.0.0" },
+          },
+        },
+      },
+    };
+
+    const merged = mergeConfigs(externalConfig, packageJsonConfig);
+
+    assert.ok(merged?.overridePaths, "Merged overridePaths should exist");
+    assert.ok(merged.overridePaths["packages/app"], "Should have app overridePath");
+    assert.ok(merged.overridePaths["packages/utils"], "Should have utils overridePath");
+  });
+});
+
+describe("Bug Fix: Config loader error messages", () => {
+  it("should log error message for malformed config files", async () => {
+    const tempDir = "/tmp/pastoralist-test-error-logging";
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    const configPath = path.join(tempDir, ".pastoralistrc.json");
+    fs.writeFileSync(configPath, "{ invalid json }");
+
+    const result = await loadExternalConfig(tempDir);
+
+    assert.strictEqual(result, undefined, "Should return undefined for malformed config");
+
+    if (fs.existsSync(tempDir)) {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+});

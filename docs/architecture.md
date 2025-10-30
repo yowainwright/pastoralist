@@ -404,30 +404,45 @@ The complete lifecycle of an override from creation to removal:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Identified: Security issue or<br/>version conflict identified
+    [*] --> Identified: Security issue or version conflict identified
 
-    Identified --> Added: Developer adds<br/>override to package.json
+    Identified --> Added: Developer adds override to package.json
 
-    Added --> Tracked: pastoralist creates<br/>appendix entry
+    Added --> Tracked: pastoralist creates appendix entry
 
-    Tracked --> Active: Override is actively<br/>fixing issues
+    Tracked --> Active: Override is actively fixing issues
 
-    Active --> Monitored: Continuous monitoring<br/>via pastoralist
+    Active --> Monitored: Continuous monitoring via pastoralist
 
-    Monitored --> Updated: Dependencies change,<br/>override updated
+    Monitored --> Updated: Dependencies change, override updated
     Updated --> Tracked
 
-    Monitored --> Obsolete: Original issue<br/>fixed upstream
+    Monitored --> Obsolete: Original issue fixed upstream
 
-    Obsolete --> Removed: pastoralist removes<br/>override automatically
+    Obsolete --> Removed: pastoralist removes override automatically
 
     Removed --> [*]
 
-    note right of Tracked: Appendix documents:<br/>- Which packages need it<br/>- Why it exists<br/>- Related patches
+    note right of Tracked
+        Appendix documents:
+        - Which packages need it
+        - Why it exists
+        - Related patches
+    end note
 
-    note right of Monitored: Regular checks via:<br/>- postinstall hooks<br/>- CI/CD pipeline<br/>- Manual runs
+    note right of Monitored
+        Regular checks via:
+        - postinstall hooks
+        - CI/CD pipeline
+        - Manual runs
+    end note
 
-    note right of Obsolete: Detected when:<br/>- No dependents need it<br/>- Security issue resolved<br/>- Version conflict gone
+    note right of Obsolete
+        Detected when:
+        - No dependents need it
+        - Security issue resolved
+        - Version conflict gone
+    end note
 ```
 
 ## Interactive Mode Architecture

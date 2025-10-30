@@ -328,8 +328,18 @@ export class SecurityChecker {
       for (const packageFile of packageFiles) {
         try {
           const content = readFileSync(packageFile, "utf-8");
-          const pkgJson = JSON.parse(content) as PastoralistJSON;
-          
+          const parsed = JSON.parse(content);
+
+          const isValidObject = parsed && typeof parsed === 'object';
+          if (!isValidObject) {
+            this.log.debug(
+              `Invalid package.json format in ${packageFile}`,
+              "findWorkspaceVulnerabilities"
+            );
+            continue;
+          }
+
+          const pkgJson = parsed as PastoralistJSON;
           const pkgVulnerable = this.findVulnerablePackages(pkgJson, alerts);
           
           for (const vuln of pkgVulnerable) {
@@ -504,20 +514,26 @@ export class SecurityChecker {
       this.log.debug(`Created backup at ${backupPath}`, "applyAutoFix");
 
       const packageJson = JSON.parse(readFileSync(pkgPath, "utf-8"));
-      
+
       const packageManager = await this.detectPackageManager();
-      const overrideField = this.getOverrideField(packageManager);
-      
       const newOverrides = this.generatePackageOverrides(overrides);
-      
-      if (!packageJson[overrideField]) {
-        packageJson[overrideField] = {};
+
+      if (packageManager === "pnpm") {
+        if (!packageJson.pnpm) {
+          packageJson.pnpm = {};
+        }
+        if (!packageJson.pnpm.overrides) {
+          packageJson.pnpm.overrides = {};
+        }
+        packageJson.pnpm.overrides = { ...packageJson.pnpm.overrides, ...newOverrides };
+      } else {
+        const overrideField = this.getOverrideField(packageManager);
+        if (!packageJson[overrideField]) {
+          packageJson[overrideField] = {};
+        }
+        const existingOverrides = packageJson[overrideField];
+        packageJson[overrideField] = { ...existingOverrides, ...newOverrides };
       }
-      
-      const existingOverrides = packageJson[overrideField];
-      const mergedOverrides = { ...existingOverrides, ...newOverrides };
-      
-      packageJson[overrideField] = mergedOverrides;
       
       writeFileSync(pkgPath, JSON.stringify(packageJson, null, 2) + "\n");
       

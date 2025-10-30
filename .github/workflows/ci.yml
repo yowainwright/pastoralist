@@ -46,7 +46,7 @@ jobs:
         env:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
-      - run: bun run test --coverage
+      - run: bun test --coverage --coverage-reporter=lcov
         env:
           CI: true
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}

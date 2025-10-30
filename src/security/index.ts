@@ -9,7 +9,7 @@ import {
 } from "./types";
 import { PastoralistJSON, OverridesType } from "../interfaces";
 import { logger } from "../scripts";
-import { compareVersions } from "compare-versions";
+import { compareVersions } from "../utils/semver";
 import { InteractiveSecurityManager } from "./interactive";
 
 
@@ -318,7 +318,7 @@ export class SecurityChecker {
       const fg = await import("fast-glob");
       const { readFileSync } = await import("fs");
       const { resolve } = await import("path");
-      
+
       const patterns = depPaths.map(p => resolve(root, p));
       const packageFiles = await fg.default(patterns, {
         ignore: ["**/node_modules/**"],

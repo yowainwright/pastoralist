@@ -11,15 +11,15 @@
   },
   "dependencies": {
     "@astrojs/check": "^0.9.5",
-    "@astrojs/mdx": "^4.3.8",
-    "@astrojs/react": "^4.4.0",
+    "@astrojs/mdx": "^4.3.9",
+    "@astrojs/react": "^4.4.1",
     "@docsearch/css": "^3.9.0",
     "@docsearch/js": "^3.9.0",
     "@fontsource-variable/lexend": "^5.2.11",
     "@fontsource-variable/outfit": "^5.2.8",
     "@fontsource-variable/spline-sans-mono": "^5.2.8",
     "@tailwindcss/vite": "^4.1.16",
-    "astro": "^5.15.1",
+    "astro": "^5.15.3",
     "fuse.js": "^7.1.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -30,7 +30,7 @@
     "@tailwindcss/typography": "^0.5.19",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
-    "daisyui": "^5.3.8",
+    "daisyui": "^5.3.10",
     "tailwindcss": "^4.1.16"
   }
 }

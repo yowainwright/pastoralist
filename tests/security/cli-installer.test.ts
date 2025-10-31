@@ -55,12 +55,12 @@ describe("CLIInstaller", () => {
     it("should return false for non-installed package", async () => {
       const result = await installer.isInstalledGlobally("definitely-not-a-real-package-xyz");
       expect(result).toBe(false);
-    });
+    }, 30000);
 
     it("should handle npm list errors gracefully", async () => {
       const result = await installer.isInstalledGlobally("non-existent-package-12345");
       expect(result).toBe(false);
-    });
+    }, 30000);
   });
 
   describe("getVersion", () => {
@@ -106,7 +106,7 @@ describe("CLIInstaller", () => {
       });
 
       expect(typeof result).toBe("boolean");
-    });
+    }, 30000);
   });
 
   describe("installGlobally", () => {

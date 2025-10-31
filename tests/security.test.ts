@@ -272,7 +272,7 @@ describe("SecurityChecker", () => {
       assert(report.includes("lodash@4.17.20"));
       assert(report.includes("CVE-2021-23337"));
       assert(report.includes("Fix available: 4.17.21"));
-      assert(report.includes("Generated 1 override"));
+      assert(report.includes("Generated 1 override(s)"));
     });
 
     it("should show correct message when no vulnerabilities found", () => {
@@ -280,7 +280,7 @@ describe("SecurityChecker", () => {
 
       const report = checker.formatSecurityReport([], []);
 
-      assert(report.includes("No vulnerable packages"));
+      assert(report.includes("No vulnerable packages found"));
     });
   });
 

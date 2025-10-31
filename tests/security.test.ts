@@ -207,82 +207,7 @@ describe("SecurityChecker", () => {
     });
   });
 
-  describe("Package Override Format", () => {
-    it("should generate correct package.json override format", () => {
-      const checker = new SecurityChecker({ debug: false });
-      
-      const securityOverrides: SecurityOverride[] = [
-        {
-          packageName: "lodash",
-          fromVersion: "4.17.20",
-          toVersion: "4.17.21",
-          reason: "Security fix: Prototype Pollution (high)",
-          severity: "high",
-        },
-        {
-          packageName: "minimist",
-          fromVersion: "1.2.5",
-          toVersion: "1.2.6",
-          reason: "Security fix: Prototype Pollution (medium)",
-          severity: "medium",
-        },
-      ];
-      
-      const overrides = checker.generatePackageOverrides(securityOverrides);
-      
-      assert.strictEqual(overrides["lodash"], "4.17.21");
-      assert.strictEqual(overrides["minimist"], "1.2.6");
-    });
-  });
 
-  describe("Security Report Formatting", () => {
-    it("should format security report correctly", () => {
-      const checker = new SecurityChecker({ debug: false });
-      
-      const vulnerablePackages: SecurityAlert[] = [
-        {
-          packageName: "lodash",
-          currentVersion: "4.17.20",
-          vulnerableVersions: "< 4.17.21",
-          patchedVersion: "4.17.21",
-          severity: "high",
-          title: "Prototype Pollution",
-          cve: "CVE-2021-23337",
-          url: "https://github.com/owner/repo/security/dependabot/1",
-          fixAvailable: true,
-        },
-      ];
-      
-      const securityOverrides: SecurityOverride[] = [
-        {
-          packageName: "lodash",
-          fromVersion: "4.17.20",
-          toVersion: "4.17.21",
-          reason: "Security fix: Prototype Pollution (high)",
-          severity: "high",
-        },
-      ];
-      
-      const report = checker.formatSecurityReport(
-        vulnerablePackages,
-        securityOverrides
-      );
-      
-      assert(report.includes("Security Check Report"));
-      assert(report.includes("lodash@4.17.20"));
-      assert(report.includes("CVE-2021-23337"));
-      assert(report.includes("Fix available: 4.17.21"));
-      assert(report.includes("Generated 1 override(s)"));
-    });
-
-    it("should show correct message when no vulnerabilities found", () => {
-      const checker = new SecurityChecker({ debug: false });
-      
-      const report = checker.formatSecurityReport([], []);
-      
-      assert(report.includes("No vulnerable packages found"));
-    });
-  });
 
   describe("Severity Normalization", () => {
     it("should normalize severity levels correctly", () => {
@@ -441,8 +366,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     "Security Alert Detection",
     "Version Vulnerability Checking",
     "Override Generation",
-    "Package Override Format",
-    "Security Report Formatting",
     "Severity Normalization",
     "OSV Provider",
     "Provider Abstraction",

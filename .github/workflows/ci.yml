@@ -38,6 +38,7 @@ jobs:
             ${{ runner.os }}-bun-
 
       - run: bun install
+      - run: rm -rf dist .turbo
       - run: bun run build
         env:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}

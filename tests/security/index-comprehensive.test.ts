@@ -518,4 +518,5 @@ describe("SecurityChecker - Comprehensive Tests", () => {
       }
     });
   });
+
 });

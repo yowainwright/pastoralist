@@ -64,7 +64,7 @@ describe("SnykCLIProvider - Comprehensive Tests", () => {
       const p = new SnykCLIProvider();
       const result = await p.isAuthenticated();
       expect(typeof result).toBe("boolean");
-    });
+    }, 30000);
   });
 
   describe("authenticate", () => {

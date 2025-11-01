@@ -1,9 +1,0 @@
-{
-  "name": "@demo/shared",
-  "version": "1.0.0",
-  "type": "module",
-  "dependencies": {
-    "lodash": "4.17.20",
-    "axios": "0.21.0"
-  }
-}

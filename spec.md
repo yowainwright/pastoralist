@@ -445,7 +445,6 @@ Options:
 
 - **Unit tests**: `bun test`
 - **E2E tests**: `bun run test:e2e`
-- **Demo**: `bun run demo:create`
 
 Test coverage includes:
 - Override resolution

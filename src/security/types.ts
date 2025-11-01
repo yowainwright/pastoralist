@@ -29,6 +29,17 @@ export interface SecurityOverride {
   toVersion: string;
   reason: string;
   severity: string;
+  cve?: string;
+  description?: string;
+  url?: string;
+}
+
+export interface OverrideUpdate {
+  packageName: string;
+  currentOverride: string;
+  newerVersion: string;
+  reason: string;
+  addedDate?: string;
 }
 
 export interface DependabotAlert {

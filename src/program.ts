@@ -114,10 +114,19 @@ export async function action(options: Options = {}): Promise<void> {
 
         if (mergedOptions.forceSecurityRefactor || mergedOptions.interactive) {
           mergedOptions.securityOverrides = securityChecker.generatePackageOverrides(securityOverrides);
-          mergedOptions.securityOverrideDetails = securityOverrides.map(override => ({
-            packageName: override.packageName,
-            reason: override.reason
-          }));
+          mergedOptions.securityOverrideDetails = securityOverrides.map(override => {
+            const base = {
+              packageName: override.packageName,
+              reason: override.reason,
+            };
+
+            const cveField = override.cve ? { cve: override.cve } : {};
+            const severityField = override.severity ? { severity: override.severity } : {};
+            const descriptionField = override.description ? { description: override.description } : {};
+            const urlField = override.url ? { url: override.url } : {};
+
+            return Object.assign({}, base, cveField, severityField, descriptionField, urlField);
+          });
         }
       } else {
         spinner.succeed(`🔒 ${pastor(`pastoralist`)} no security vulnerabilities found!`);
@@ -138,6 +147,7 @@ export async function action(options: Options = {}): Promise<void> {
 program
   .description("Pastoralist, a utility CLI to manage your dependency overrides")
   .option("--debug", "enables debug mode")
+  .option("--dry-run", "preview changes without writing to package.json")
   .option("-p, --path <path>", "specifies a path to a package.json")
   .option(
     "-d, --depPaths [depPaths...]",
@@ -163,6 +173,15 @@ program
   .option("-p, --path <path>", "specifies a path to a package.json")
   .option("-r, --root <root>", "specifies a root path")
   .action(initCommand);
+
+program
+  .command("init-ci")
+  .description("Generate GitHub Actions workflow for Pastoralist")
+  .option("-r, --root <root>", "specifies a root path")
+  .action(async (options) => {
+    const { initCICommand } = await import("./commands/init-ci.js");
+    await initCICommand(options);
+  });
 
 program.parse(process.argv);
 

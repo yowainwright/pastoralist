@@ -25,6 +25,10 @@ export interface AppendixItem {
     securityChecked?: boolean;
     securityCheckDate?: string;
     securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket";
+    cve?: string;
+    severity?: "low" | "medium" | "high" | "critical";
+    description?: string;
+    url?: string;
   };
 }
 export interface Appendix {
@@ -60,6 +64,15 @@ export interface ResolveResolutionOptions {
   options?: Options;
 }
 
+export interface SecurityOverrideDetail {
+  packageName: string;
+  reason: string;
+  cve?: string;
+  severity?: "low" | "medium" | "high" | "critical";
+  description?: string;
+  url?: string;
+}
+
 export interface UpdateAppendixOptions {
   overrides?: OverridesType;
   appendix?: Appendix;
@@ -69,13 +82,14 @@ export interface UpdateAppendixOptions {
   packageName?: string;
   debug?: boolean;
   reason?: string;
-  securityOverrideDetails?: Array<{ packageName: string; reason: string; }>;
+  securityOverrideDetails?: SecurityOverrideDetail[];
   securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket";
 }
 
 export interface Options {
   appendix?: Appendix;
   debug?: boolean;
+  dryRun?: boolean;
   exec?: Exec;
   isTesting?: boolean;
   isTestingCLI?: boolean;
@@ -92,7 +106,7 @@ export interface Options {
   interactive?: boolean;
   hasWorkspaceSecurityChecks?: boolean;
   securityOverrides?: OverridesType;
-  securityOverrideDetails?: Array<{ packageName: string; reason: string; }>;
+  securityOverrideDetails?: SecurityOverrideDetail[];
   promptForReasons?: boolean;
   manualOverrideReasons?: Record<string, string>;
 }
@@ -104,6 +118,7 @@ export interface OverridesType {
 export interface UpdatePackageJSONOptions {
   appendix?: Appendix;
   debug?: boolean;
+  dryRun?: boolean;
   path: string;
   config: PastoralistJSON;
   overrides?: OverridesType;

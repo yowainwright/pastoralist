@@ -24,8 +24,6 @@
     "clean-dist": "bun run scripts/clean.ts",
     "commit": "git-cz",
     "commit-msg": "commitlint --edit $1",
-    "demo:create": "bun run --cwd demo create",
-    "demo:embed": "bun run --cwd demo embed",
     "dev": "bun run --cwd app dev",
     "lint": "oxlint src app",
     "lint-fix": "oxlint src app --fix",
@@ -37,7 +35,7 @@
     "test": "bun test",
     "test-resolutions": "tsx src/index.ts --debug",
     "test-resolutions-with-dist": "node dist/index.js --debug",
-    "test:e2e": "bun run --cwd e2e test",
+    "test:e2e": "./tests/e2e/scripts/run-e2e-tests.sh",
     "typecheck": "turbo run typecheck-src",
     "typecheck-src": "tsc --noEmit",
     "update": "codependence --update && bun run update-app-deps",
@@ -63,8 +61,7 @@
   },
   "homepage": "https://jeffry.in/pastoralist/",
   "workspaces": [
-    "app",
-    "e2e"
+    "app"
   ],
   "dependencies": {
     "@astrojs/mdx": "^4.3.9",

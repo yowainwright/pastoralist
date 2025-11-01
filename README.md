@@ -40,11 +40,7 @@ npm i pastoralist -D && pastoralist --init
   - [Security Tracking](#security-tracking-in-appendix)
   - [Best Practices](#best-practices)
 - [Setup](#setup)
-- [Examples](#examples)
-  - [Simple Overrides](#simple-overrides)
-  - [Nested Overrides](#nested-overrides-transitive-dependencies)
-  - [Monorepo with depPaths](#monorepo-with-deppaths-configuration)
-- [Pastoralist Object Anatomy](#pastoralist-object-anatomy)
+  - [Additional Commands](#additional-commands)
 - [Thanks](#thanks)
 
 ---
@@ -306,7 +302,7 @@ Add it to your postinstall script and forget about it:
 }
 ```
 
-**For detailed workflow diagrams**, see [Developer Experience (DX)](docs/dx.md)
+**For detailed architecture, code flows, and user journeys**, see [Architecture and User Journeys](docs/architecture-and-user-journeys.md)
 
 ### Key Notes
 
@@ -314,7 +310,6 @@ Add it to your postinstall script and forget about it:
 - **Pastoralist controls** tracking, security, and cleanup
 - **Fully automatic** - runs on every install via postinstall hook
 
-**For detailed architecture diagrams and use cases**, see [Architecture Documentation](docs/architecture.md)
 
 ### Using Pastoralist with Workspaces and Monorepos
 
@@ -437,8 +432,6 @@ This configuration ensures that:
 - Overrides for packages not in root dependencies are preserved
 - Each workspace package's usage is tracked separately
 - The appendix correctly maps overrides to their actual consumers
-
-For detailed information about using Pastoralist in workspace/monorepo environments, including best practices and automation strategies, see [Workspaces and Monorepos](docs/workspaces.md).
 
 ---
 
@@ -567,7 +560,7 @@ When both external config files and `package.json` configuration exist:
 
 ### Security Tracking in Appendix
 
-When security vulnerabilities are detected and fixed, Pastoralist tracks this information in the appendix ledger:
+When security vulnerabilities are detected and fixed, Pastoralist tracks complete vulnerability information in the appendix ledger:
 
 ```js
 "pastoralist": {
@@ -581,7 +574,11 @@ When security vulnerabilities are detected and fixed, Pastoralist tracks this in
         "reason": "Security vulnerability CVE-2021-23337",
         "securityChecked": true,
         "securityCheckDate": "2024-01-15T10:30:00.000Z",
-        "securityProvider": "osv"
+        "securityProvider": "osv",
+        "cve": "CVE-2021-23337",
+        "severity": "high",
+        "description": "Command injection in lodash",
+        "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-23337"
       }
     }
   }
@@ -590,12 +587,16 @@ When security vulnerabilities are detected and fixed, Pastoralist tracks this in
 
 The ledger tracks:
 - `addedDate`: When the override was first added
-- `reason`: Why the override was needed (e.g., security issue description)
+- `reason`: Why the override was needed
 - `securityChecked`: Whether a security check was performed
 - `securityCheckDate`: When the last security check occurred
 - `securityProvider`: Which provider detected the vulnerability
+- `cve`: CVE identifier (if applicable)
+- `severity`: Vulnerability severity level (low, medium, high, critical)
+- `description`: Brief description of the vulnerability
+- `url`: Link to full vulnerability details
 
-This allows you to see at a glance which packages were overridden due to security issues and when they were last verified.
+This complete audit trail lets you understand exactly which security issues were fixed and provides full context for future reference.
 
 ### Best Practices
 
@@ -639,6 +640,31 @@ pastoralist
   }
 }
 ```
+
+### Additional Commands
+
+**Preview changes without writing to package.json:**
+
+```bash
+pastoralist --dry-run
+```
+
+This shows exactly what Pastoralist would change without modifying any files. Useful for understanding changes before applying them.
+
+**Set up automated CI/CD security checks:**
+
+```bash
+pastoralist init-ci
+```
+
+This generates a GitHub Actions workflow that:
+- Runs on pull requests and pushes to main/master
+- Runs weekly security scans
+- Auto-detects your package manager (npm, yarn, pnpm, bun)
+- Fails if package.json changes are uncommitted
+- Comments on PRs when changes are needed
+
+The workflow file is created at `.github/workflows/pastoralist.yml`. Commit it to enable automated security checks in CI.
 
 ---
 

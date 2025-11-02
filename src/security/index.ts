@@ -6,6 +6,7 @@ import {
   SecurityCheckOptions,
   SecurityOverride,
   SecurityProvider,
+  OverrideUpdate,
 } from "./types";
 import { PastoralistJSON, OverridesType } from "../interfaces";
 import { logger } from "../scripts";
@@ -187,7 +188,7 @@ export class SecurityChecker {
   async checkSecurity(
     config: PastoralistJSON,
     options: SecurityCheckOptions & { depPaths?: string[]; root?: string; packageJsonPath?: string } = {}
-  ): Promise<{ alerts: SecurityAlert[]; overrides: SecurityOverride[] }> {
+  ): Promise<{ alerts: SecurityAlert[]; overrides: SecurityOverride[]; updates: OverrideUpdate[] }> {
     this.log.debug("Starting security check", "checkSecurity");
 
     try {
@@ -195,7 +196,7 @@ export class SecurityChecker {
 
       if (packages.length === 0) {
         this.log.debug("No packages to check", "checkSecurity");
-        return { alerts: [], overrides: [] };
+        return { alerts: [], overrides: [], updates: [] };
       }
 
       const allAlerts = await Promise.all(
@@ -224,6 +225,9 @@ export class SecurityChecker {
 
       let overrides = this.generateOverrides(allVulnerablePackages);
 
+      // Check for updates to existing overrides
+      const updates = await this.checkOverrideUpdates(config, alerts);
+
       if (options.interactive && allVulnerablePackages.length > 0) {
         const interactiveManager = new InteractiveSecurityManager();
         overrides = await interactiveManager.promptForSecurityActions(
@@ -236,7 +240,7 @@ export class SecurityChecker {
         await this.applyAutoFix(overrides, options.packageJsonPath);
       }
 
-      return { alerts: allVulnerablePackages, overrides };
+      return { alerts: allVulnerablePackages, overrides, updates };
     } catch (error) {
       this.log.error("Security check failed", "checkSecurity", { error });
       throw error;
@@ -411,16 +415,67 @@ export class SecurityChecker {
     }
   }
 
+  private async checkOverrideUpdates(
+    config: PastoralistJSON,
+    alerts: SecurityAlert[]
+  ): Promise<OverrideUpdate[]> {
+    const existingOverrides = config.overrides || config.pnpm?.overrides || config.resolutions || {};
+    const appendix = config.pastoralist?.appendix || {};
+
+    const overrideEntries = Object.entries(existingOverrides).filter(([_, version]) => typeof version === 'string');
+
+    const updates = overrideEntries
+      .map(([packageName, version]) => {
+        const key = `${packageName}@${version}`;
+        const entry = appendix[key];
+        const isSecurityOverride = entry?.ledger?.securityChecked;
+
+        if (!isSecurityOverride) return null;
+
+        const alertsForPackage = alerts.filter(a => a.packageName === packageName && a.patchedVersion);
+        const newerAlert = alertsForPackage.find(a => compareVersions(a.patchedVersion!, version as string) > 0);
+        const hasNewer = !!newerAlert;
+
+        if (!hasNewer) return null;
+
+        const update: OverrideUpdate = {
+          packageName,
+          currentOverride: version as string,
+          newerVersion: newerAlert.patchedVersion!,
+          reason: `Newer security patch available: ${newerAlert.title}`,
+          addedDate: entry.ledger?.addedDate,
+        };
+
+        return update;
+      })
+      .filter((update): update is OverrideUpdate => update !== null);
+
+    const hasUpdates = updates.length > 0;
+    if (hasUpdates) {
+      this.log.debug(`Found ${updates.length} override updates available`, "checkOverrideUpdates");
+    }
+
+    return updates;
+  }
+
   private generateOverrides(vulnerablePackages: SecurityAlert[]): SecurityOverride[] {
     return vulnerablePackages
       .filter((pkg) => pkg.fixAvailable && pkg.patchedVersion)
-      .map((pkg) => ({
-        packageName: pkg.packageName,
-        fromVersion: pkg.currentVersion,
-        toVersion: pkg.patchedVersion!,
-        reason: `Security fix: ${pkg.title} (${pkg.severity})`,
-        severity: pkg.severity,
-      }));
+      .map((pkg) => {
+        const base = {
+          packageName: pkg.packageName,
+          fromVersion: pkg.currentVersion,
+          toVersion: pkg.patchedVersion!,
+          reason: `Security fix: ${pkg.title} (${pkg.severity})`,
+          severity: pkg.severity,
+        };
+
+        const cveField = pkg.cve ? { cve: pkg.cve } : {};
+        const descriptionField = pkg.description ? { description: pkg.description } : {};
+        const urlField = pkg.url ? { url: pkg.url } : {};
+
+        return Object.assign({}, base, cveField, descriptionField, urlField);
+      });
   }
 
   generatePackageOverrides(securityOverrides: SecurityOverride[]): OverridesType {
@@ -437,62 +492,46 @@ export class SecurityChecker {
     vulnerablePackages: SecurityAlert[],
     securityOverrides: SecurityOverride[]
   ): string {
-    let report = "\n🔒 Security Check Report\n";
-    report += "═".repeat(50) + "\n\n";
+    let report = "\nSecurity Check Report\n";
+    report += "=".repeat(50) + "\n\n";
 
     if (vulnerablePackages.length === 0) {
-      report += "✅ No vulnerable packages found!\n";
+      report += "No vulnerable packages found\n";
       return report;
     }
 
     report += `Found ${vulnerablePackages.length} vulnerable package(s):\n\n`;
 
     for (const pkg of vulnerablePackages) {
-      const severity = this.getSeverityEmoji(pkg.severity);
-      report += `${severity} ${pkg.packageName}@${pkg.currentVersion}\n`;
+      report += `[${pkg.severity.toUpperCase()}] ${pkg.packageName}@${pkg.currentVersion}\n`;
       report += `   ${pkg.title}\n`;
-      
+
       if (pkg.cve) {
         report += `   CVE: ${pkg.cve}\n`;
       }
-      
+
       if (pkg.fixAvailable && pkg.patchedVersion) {
-        report += `   ✅ Fix available: ${pkg.patchedVersion}\n`;
+        report += `   Fix available: ${pkg.patchedVersion}\n`;
       } else {
-        report += `   ❌ No fix available yet\n`;
+        report += `   No fix available yet\n`;
       }
-      
+
       if (pkg.url) {
-        report += `   🔗 ${pkg.url}\n`;
+        report += `   ${pkg.url}\n`;
       }
-      
+
       report += "\n";
     }
 
     if (securityOverrides.length > 0) {
-      report += `\n📝 Generated ${securityOverrides.length} override(s):\n\n`;
-      
+      report += `\nGenerated ${securityOverrides.length} override(s):\n\n`;
+
       for (const override of securityOverrides) {
-        report += `  "${override.packageName}": "${override.toVersion}" // ${override.reason}\n`;
+        report += `  "${override.packageName}": "${override.toVersion}"\n`;
       }
     }
 
     return report;
-  }
-
-  private getSeverityEmoji(severity: string): string {
-    switch (severity.toLowerCase()) {
-      case "critical":
-        return "🚨";
-      case "high":
-        return "🔥";
-      case "medium":
-        return "⚠️";
-      case "low":
-        return "ℹ️";
-      default:
-        return "⚠️";
-    }
   }
 
   async applyAutoFix(

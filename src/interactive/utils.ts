@@ -86,7 +86,7 @@ export function createDisabledSecurityUpdate(): SecurityConfigUpdate {
 export function applyWorkspaceUpdate(config: PastoralistConfig, update: WorkspaceConfigUpdate): PastoralistConfig {
   const isDisabled = !update.enabled;
   if (isDisabled) {
-    const { depPaths, ...rest } = config;
+    const { depPaths: _depPaths, ...rest } = config;
     return rest;
   }
 

@@ -111,7 +111,7 @@ jobs:
 
       - name: Run E2E Tests (${{ matrix.package-manager }})
         run: |
-          cd e2e
+          cd tests/e2e
           docker compose up --abort-on-container-exit e2e-${{ matrix.package-manager }}
         env:
           CI: true

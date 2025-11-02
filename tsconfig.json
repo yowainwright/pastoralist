@@ -24,7 +24,7 @@
     "sourceMap": false,
     "strict": true,
     "target": "esnext",
-    "types": ["node"]
+    "types": ["bun"]
   },
   "include": ["src"],
   "exclude": ["app/**/*", "dist", "tests"]

@@ -18,60 +18,25 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 'lts/*'
+          node-version: 24
 
-      - name: Detect package manager
-        id: detect
-        run: |
-          if [ -f "bun.lockb" ]; then
-            echo "manager=bun" >> $GITHUB_OUTPUT
-          elif [ -f "pnpm-lock.yaml" ]; then
-            echo "manager=pnpm" >> $GITHUB_OUTPUT
-          elif [ -f "yarn.lock" ]; then
-            echo "manager=yarn" >> $GITHUB_OUTPUT
-          else
-            echo "manager=npm" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Setup Bun (if needed)
-        if: steps.detect.outputs.manager == 'bun'
+      - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
-      - name: Setup pnpm (if needed)
-        if: steps.detect.outputs.manager == 'pnpm'
-        uses: pnpm/action-setup@v4
-        with:
-          version: latest
-
       - name: Install dependencies
-        run: |
-          if [ "${{ steps.detect.outputs.manager }}" = "bun" ]; then
-            bun install
-          elif [ "${{ steps.detect.outputs.manager }}" = "pnpm" ]; then
-            pnpm install
-          elif [ "${{ steps.detect.outputs.manager }}" = "yarn" ]; then
-            yarn install
-          else
-            npm install
-          fi
+        run: bun install
+
+      - name: Build pastoralist
+        run: bun run build
 
       - name: Run Pastoralist security check
-        run: |
-          if [ "${{ steps.detect.outputs.manager }}" = "bun" ]; then
-            bunx pastoralist --checkSecurity
-          elif [ "${{ steps.detect.outputs.manager }}" = "pnpm" ]; then
-            pnpm exec pastoralist --checkSecurity
-          elif [ "${{ steps.detect.outputs.manager }}" = "yarn" ]; then
-            yarn pastoralist --checkSecurity
-          else
-            npx pastoralist --checkSecurity
-          fi
+        run: node dist/index.js --checkSecurity
 
       - name: Check for uncommitted changes
         run: |
           if [ -n "$(git status --porcelain)" ]; then
             echo "Error: Pastoralist made changes to package.json"
-            echo "Please run 'npx pastoralist' locally and commit the changes"
+            echo "Please run 'bun run build && node dist/index.js' locally and commit the changes"
             git diff
             exit 1
           fi
@@ -85,5 +50,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '⚠️ Pastoralist detected changes needed in package.json. Please run `npx pastoralist` locally and commit the changes.'
+              body: '⚠️ Pastoralist detected changes needed in package.json. Please run `bun run build && node dist/index.js` locally and commit the changes.'
             })

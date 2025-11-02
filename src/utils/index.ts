@@ -19,3 +19,6 @@ export {
   warn,
   createSpinnerMethods,
 } from './spinner';
+export { logger, logMethod } from './logger';
+export type { ConsoleObject, LoggerOptions } from './logger';
+export { compareVersions } from './semver';

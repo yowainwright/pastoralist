@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, mock, spyOn } from "bun:test";
 import { SecurityChecker, OSVProvider } from "../../../src/security/index";
+import { getSeverityScore, extractPackages, deduplicateAlerts, isVersionVulnerable } from "../../../src/security/utils";
 import { writeFileSync, existsSync, unlinkSync, copyFileSync } from "fs";
 import { resolve } from "path";
 
@@ -243,7 +244,7 @@ describe("SecurityChecker - Comprehensive Tests", () => {
         dependencies: { lodash: "^4.17.21", express: "^4.18.0" },
       };
 
-      const packages = (checker as any).extractPackages(config);
+      const packages = extractPackages(config);
       expect(packages.length).toBe(2);
       expect(packages.find((p: any) => p.name === "lodash")).toBeDefined();
     });
@@ -253,7 +254,7 @@ describe("SecurityChecker - Comprehensive Tests", () => {
         devDependencies: { jest: "^29.0.0" },
       };
 
-      const packages = (checker as any).extractPackages(config);
+      const packages = extractPackages(config);
       expect(packages.length).toBe(1);
       expect(packages[0].name).toBe("jest");
     });
@@ -263,7 +264,7 @@ describe("SecurityChecker - Comprehensive Tests", () => {
         peerDependencies: { react: "^18.0.0" },
       };
 
-      const packages = (checker as any).extractPackages(config);
+      const packages = extractPackages(config);
       expect(packages.length).toBe(1);
       expect(packages[0].name).toBe("react");
     });
@@ -277,7 +278,7 @@ describe("SecurityChecker - Comprehensive Tests", () => {
         },
       };
 
-      const packages = (checker as any).extractPackages(config);
+      const packages = extractPackages(config);
       expect(packages[0].version).toBe("1.0.0");
       expect(packages[1].version).toBe("2.0.0");
       expect(packages[2].version).toBe("3.0.0");
@@ -285,7 +286,7 @@ describe("SecurityChecker - Comprehensive Tests", () => {
 
     it("should handle empty config", () => {
       const config = {};
-      const packages = (checker as any).extractPackages(config);
+      const packages = extractPackages(config);
       expect(packages.length).toBe(0);
     });
   });
@@ -317,7 +318,7 @@ describe("SecurityChecker - Comprehensive Tests", () => {
         },
       ];
 
-      const result = (checker as any).deduplicateAlerts(alerts);
+      const result = deduplicateAlerts(alerts);
       expect(result.length).toBe(1);
       expect(result[0].severity).toBe("critical");
     });
@@ -348,7 +349,7 @@ describe("SecurityChecker - Comprehensive Tests", () => {
         },
       ];
 
-      const result = (checker as any).deduplicateAlerts(alerts);
+      const result = deduplicateAlerts(alerts);
       expect(result.length).toBe(2);
     });
 
@@ -376,34 +377,34 @@ describe("SecurityChecker - Comprehensive Tests", () => {
         },
       ];
 
-      const result = (checker as any).deduplicateAlerts(alerts);
+      const result = deduplicateAlerts(alerts);
       expect(result.length).toBe(2);
     });
   });
 
   describe("getSeverityScore", () => {
     it("should return 1 for low", () => {
-      const score = (checker as any).getSeverityScore("low");
+      const score = getSeverityScore("low");
       expect(score).toBe(1);
     });
 
     it("should return 2 for medium", () => {
-      const score = (checker as any).getSeverityScore("medium");
+      const score = getSeverityScore("medium");
       expect(score).toBe(2);
     });
 
     it("should return 3 for high", () => {
-      const score = (checker as any).getSeverityScore("high");
+      const score = getSeverityScore("high");
       expect(score).toBe(3);
     });
 
     it("should return 4 for critical", () => {
-      const score = (checker as any).getSeverityScore("critical");
+      const score = getSeverityScore("critical");
       expect(score).toBe(4);
     });
 
     it("should return 0 for unknown", () => {
-      const score = (checker as any).getSeverityScore("unknown");
+      const score = getSeverityScore("unknown");
       expect(score).toBe(0);
     });
   });

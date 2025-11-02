@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, mock, spyOn } from "bun:test";
-import { SocketCLIProvider } from "../../../src/security/socket";
+import { SocketCLIProvider } from "../../../src/security/providers/socket";
 
 describe("SocketCLIProvider - Comprehensive Tests", () => {
   let provider: SocketCLIProvider;

@@ -17,7 +17,7 @@ import {
   updateOverrides,
   getOverridesByType,
   jsonCache,
-} from "../../src/scripts";
+} from "../../src/api";
 import { PastoralistJSON, Appendix, Options, ConsoleObject, OverridesType, ResolveOverrides } from "../../src/interfaces";
 import { writeFileSync, readFileSync, mkdirSync, rmSync, existsSync } from "fs";
 import { resolve, join } from "path";
@@ -253,6 +253,12 @@ await describe("Monorepo Support Tests", async () => {
       const originalFindUnusedOverrides = global.findUnusedOverrides;
       (global as any).findUnusedOverrides = async () => ["lodash", "react"];
 
+      const mockUpdateOverrides = (data: ResolveOverrides, removable: string[]) => {
+        const currentOverrides = { ...overrides };
+        removable.forEach(pkg => delete currentOverrides[pkg]);
+        return currentOverrides;
+      };
+
       const result = await cleanupUnusedOverrides(
         overrides,
         overridesData,
@@ -260,7 +266,8 @@ await describe("Monorepo Support Tests", async () => {
         allDeps,
         missingInRoot,
         overridePaths,
-        mockLog
+        mockLog,
+        mockUpdateOverrides
       );
 
       (global as any).findUnusedOverrides = originalFindUnusedOverrides;
@@ -304,6 +311,12 @@ await describe("Monorepo Support Tests", async () => {
       const originalFindUnusedOverrides = global.findUnusedOverrides;
       (global as any).findUnusedOverrides = async () => ["unused"];
 
+      const mockUpdateOverrides = (data: ResolveOverrides, removable: string[]) => {
+        const currentOverrides = { ...overrides };
+        removable.forEach(pkg => delete currentOverrides[pkg]);
+        return currentOverrides;
+      };
+
       const result = await cleanupUnusedOverrides(
         overrides,
         overridesData,
@@ -311,7 +324,8 @@ await describe("Monorepo Support Tests", async () => {
         allDeps,
         missingInRoot,
         overridePaths,
-        mockLog
+        mockLog,
+        mockUpdateOverrides
       );
 
       (global as any).findUnusedOverrides = originalFindUnusedOverrides;

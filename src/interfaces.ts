@@ -37,13 +37,13 @@ export interface Appendix {
 
 export interface PastoralistConfig {
   appendix?: Appendix;
-  depPaths?: "workspace" | string[];
+  depPaths?: "workspace" | "workspaces" | string[];
   checkSecurity?: boolean;
   overridePaths?: Record<string, Appendix>;
   resolutionPaths?: Record<string, Appendix>;
   security?: {
     enabled?: boolean;
-    provider?: "osv" | "github" | "snyk" | "npm" | "socket";
+    provider?: "osv" | "github" | "snyk" | "npm" | "socket" | ("osv" | "github" | "snyk" | "npm" | "socket")[];
     autoFix?: boolean;
     interactive?: boolean;
     securityProviderToken?: string;

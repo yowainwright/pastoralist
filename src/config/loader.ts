@@ -77,7 +77,8 @@ export const loadExternalConfig = async (
 ): Promise<PastoralistConfig | undefined> => {
   for (const filename of CONFIG_FILES) {
     const config = await tryLoadConfig(filename, root, validate);
-    if (config) return config;
+    const isFound = config !== null;
+    if (isFound) return config;
   }
   return undefined;
 };

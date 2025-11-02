@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "bun:test";
-import { SnykCLIProvider } from "../../../src/security/snyk";
+import { SnykCLIProvider } from "../../../src/security/providers/snyk";
 
 describe("SnykCLIProvider", () => {
   let provider: SnykCLIProvider;

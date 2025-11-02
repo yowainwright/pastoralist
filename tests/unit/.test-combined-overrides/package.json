@@ -11,6 +11,18 @@
     "lodash": "4.17.21"
   },
   "pastoralist": {
+    "appendix": {
+      "lodash@4.17.21": {
+        "dependents": {
+          "app": "lodash (transitive dependency)"
+        }
+      },
+      "typescript@5.8.2": {
+        "dependents": {
+          "app": "typescript@^5.0.0"
+        }
+      }
+    },
     "depPaths": "workspace"
   }
 }

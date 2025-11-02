@@ -85,7 +85,11 @@ export interface DependabotAlert {
   created_at: string;
   updated_at: string;
   dismissed_at?: string;
-  dismissed_by?: any;
+  dismissed_by?: {
+    login: string;
+    id: number;
+    type: string;
+  };
   dismissed_reason?: string;
   dismissed_comment?: string;
   fixed_at?: string;
@@ -97,9 +101,66 @@ export interface GithubApiError {
   status?: number;
 }
 
-import type { GitHubSecurityProvider } from "./github";
-import type { SnykCLIProvider } from "./snyk";
-import type { SocketCLIProvider } from "./socket";
-import type { OSVProvider } from "./index";
+import type { GitHubSecurityProvider, SnykCLIProvider, SocketCLIProvider, OSVProvider } from "./providers";
 
 export type SecurityProvider = GitHubSecurityProvider | SnykCLIProvider | SocketCLIProvider | OSVProvider;
+
+export interface OSVVulnerability {
+  id: string;
+  summary?: string;
+  details?: string;
+  aliases?: string[];
+  severity?: Array<{ type: string; score: string }>;
+  affected?: Array<{
+    package?: { name: string; ecosystem: string };
+    ranges?: Array<{
+      type: string;
+      events: Array<{ introduced?: string; fixed?: string }>;
+    }>;
+  }>;
+  references?: Array<{ type: string; url: string }>;
+}
+
+export interface SnykVulnerability {
+  id: string;
+  title: string;
+  description?: string;
+  severity: string;
+  identifiers?: { CVE?: string[] };
+  packageName: string;
+  version: string;
+  from: string[];
+  upgradePath?: Array<string | boolean>;
+  isUpgradable?: boolean;
+  isPatchable?: boolean;
+}
+
+export interface SnykResult {
+  vulnerabilities: SnykVulnerability[];
+  ok: boolean;
+  dependencyCount: number;
+  org: string;
+  policy: string;
+  isPrivate: boolean;
+  licensesPolicy?: Record<string, unknown>;
+  packageManager: string;
+}
+
+export interface SocketIssue {
+  type: string;
+  severity: string;
+  title: string;
+  description?: string;
+  cve?: string;
+  url?: string;
+}
+
+export interface SocketPackage {
+  name: string;
+  version: string;
+  issues?: SocketIssue[];
+}
+
+export interface SocketResult {
+  packages: SocketPackage[];
+}

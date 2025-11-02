@@ -1,10 +1,12 @@
 import { writeFileSync, existsSync } from "fs";
 import { resolve } from "path";
 import { green } from "../utils";
-import { createPrompt, Prompt } from "../interactive/prompt";
+import { createPrompt, Prompt } from "../prompts/prompt";
 import type { PastoralistConfig, SecurityProvider, SeverityThreshold } from "../config";
 import { loadExternalConfig } from "../config/loader";
-import { resolveJSON, logger as createLogger } from "../scripts";
+import { resolveJSON } from "../packageJSON";
+import { logger as createLogger } from "../utils";
+import type { PastoralistJSON } from "../interfaces";
 import type { InitOptions, InitAnswers } from "./types";
 import {
   CONFIG_LOCATION_CHOICES,
@@ -67,7 +69,7 @@ async function promptForWorkspaceType(
 async function collectWorkspaceAnswers(
   prompt: Prompt,
   answers: InitAnswers,
-  packageJson: any,
+  packageJson: PastoralistJSON | null | undefined,
   log: ReturnType<typeof createLogger>
 ): Promise<void> {
   log.info(`\n${STEP_TITLES.workspace}`, "collectWorkspaceAnswers");
@@ -78,7 +80,7 @@ async function collectWorkspaceAnswers(
     return;
   }
 
-  const hasWorkspaces = packageJson?.workspaces && packageJson.workspaces.length > 0;
+  const hasWorkspaces = Boolean(packageJson?.workspaces && packageJson.workspaces.length > 0);
 
   if (!hasWorkspaces) {
     log.info(`\n   ${INIT_MESSAGES.noWorkspacesDetected}`, "collectWorkspaceAnswers");
@@ -201,7 +203,7 @@ async function collectSecurityAnswers(
 async function saveToPackageJson(
   config: PastoralistConfig,
   path: string,
-  packageJson: any,
+  packageJson: PastoralistJSON | null | undefined,
   log: ReturnType<typeof createLogger>
 ): Promise<void> {
   if (!packageJson) {

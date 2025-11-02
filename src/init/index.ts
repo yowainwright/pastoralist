@@ -1,6 +1,6 @@
 import { writeFileSync, existsSync } from "fs";
 import { resolve } from "path";
-import gradient from "gradient-string";
+import { green } from "../utils";
 import { createPrompt, Prompt } from "../interactive/prompt";
 import type { PastoralistConfig, SecurityProvider, SeverityThreshold } from "../config";
 import { loadExternalConfig } from "../config/loader";
@@ -242,17 +242,15 @@ async function saveToExternalFile(
 }
 
 function displayNextSteps(setupSecurity: boolean, log: ReturnType<typeof createLogger>): void {
-  const pastor = gradient("green", "tan");
-
   log.info(`\n${INIT_MESSAGES.nextSteps}\n`, "displayNextSteps");
-  log.info(`   1. Run ${pastor("pastoralist")} to check and update your dependencies`, "displayNextSteps");
+  log.info(`   1. Run ${green("pastoralist")} to check and update your dependencies`, "displayNextSteps");
 
   if (setupSecurity) {
-    log.info(`   2. Run ${pastor("pastoralist --checkSecurity")} to scan for security vulnerabilities`, "displayNextSteps");
+    log.info(`   2. Run ${green("pastoralist --checkSecurity")} to scan for security vulnerabilities`, "displayNextSteps");
   }
 
   log.info(`   3. Check the documentation for advanced configuration options`, "displayNextSteps");
-  log.info(`\n👩🏽‍🌾 ${pastor("Pastoralist")} ${INIT_MESSAGES.initComplete}\n`, "displayNextSteps");
+  log.info(`\n👩🏽‍🌾 ${green("Pastoralist")} ${INIT_MESSAGES.initComplete}\n`, "displayNextSteps");
 }
 
 async function checkExistingConfig(
@@ -277,7 +275,6 @@ async function checkExistingConfig(
 }
 
 export async function initCommand(options: InitOptions = {}): Promise<void> {
-  const pastor = gradient("green", "tan");
   const log = createLogger({ file: "init/index.ts", isLogging: true });
 
   const hasSecurityContext = !!(options.checkSecurity || options.securityProvider);
@@ -285,11 +282,11 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
   const hasFocusedContext = hasSecurityContext || hasWorkspaceContext;
 
   if (hasSecurityContext) {
-    log.info(`\n👩🏽‍🌾 ${pastor("Pastoralist")} security configuration wizard\n`, "initCommand");
+    log.info(`\n👩🏽‍🌾 ${green("Pastoralist")} security configuration wizard\n`, "initCommand");
   } else if (hasWorkspaceContext) {
-    log.info(`\n👩🏽‍🌾 ${pastor("Pastoralist")} workspace configuration wizard\n`, "initCommand");
+    log.info(`\n👩🏽‍🌾 ${green("Pastoralist")} workspace configuration wizard\n`, "initCommand");
   } else {
-    log.info(`\n👩🏽‍🌾 ${pastor("Pastoralist")} initialization wizard\n`, "initCommand");
+    log.info(`\n👩🏽‍🌾 ${green("Pastoralist")} initialization wizard\n`, "initCommand");
     log.info(`${INIT_MESSAGES.welcome}\n`, "initCommand");
     log.info(`${INIT_MESSAGES.skipInfo}\n`, "initCommand");
   }

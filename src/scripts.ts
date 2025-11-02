@@ -423,6 +423,7 @@ export const update = async (options: Options): Promise<void> => {
       path,
       config,
       overrides: {},
+      dryRun: options?.dryRun,
     });
     return;
   }
@@ -480,6 +481,12 @@ export const update = async (options: Options): Promise<void> => {
       "update",
     );
     depPaths = configDepPaths;
+  }
+
+  const shouldAutoDetect = !depPaths && hasWorkspaces && !hasConfigDepPaths;
+  if (shouldAutoDetect) {
+    log.debug("Auto-detecting workspace structure from package.json workspaces field", "update");
+    depPaths = config.workspaces!.map((ws: string) => `${ws}/package.json`);
   }
 
   if (depPaths && depPaths.length > 0) {
@@ -570,6 +577,7 @@ export const update = async (options: Options): Promise<void> => {
     path,
     config,
     overrides: finalOverrides,
+    dryRun: options?.dryRun,
   });
 };
 
@@ -633,6 +641,7 @@ export async function updatePackageJSON({
   config,
   overrides,
   isTesting = false,
+  dryRun = false,
 }: UpdatePackageJSONOptions): Promise<PastoralistJSON | void> {
   const hasOverrides = overrides && Object.keys(overrides).length > 0;
 
@@ -721,6 +730,13 @@ export async function updatePackageJSON({
 
   const jsonPath = resolve(path);
   const jsonString = JSON.stringify(config, null, 2) + '\n';
+
+  if (dryRun) {
+    console.log("\n[DRY RUN] Would write to package.json:");
+    console.log(jsonString);
+    return config;
+  }
+
   if (IS_DEBUGGING) {
     fallbackLog.debug(
       `Writing updated package.json:\n${jsonString}`,
@@ -890,10 +906,12 @@ export async function processPackageJSON(
  * @param options - Options for updating appendix
  * @returns Appendix
  */
+import type { SecurityOverrideDetail } from "./interfaces";
+
 const mergeOverrideReasons = (
   packageName: string,
   reason?: string,
-  securityOverrideDetails?: Array<{ packageName: string; reason: string; }>,
+  securityOverrideDetails?: SecurityOverrideDetail[],
   manualOverrideReasons?: Record<string, string>
 ): string | undefined => {
   return (
@@ -905,24 +923,33 @@ const mergeOverrideReasons = (
 
 const isSecurityOverride = (
   packageName: string,
-  securityOverrideDetails?: Array<{ packageName: string; reason: string; }>
+  securityOverrideDetails?: SecurityOverrideDetail[]
 ): boolean => {
   return securityOverrideDetails?.some(d => d.packageName === packageName) ?? false;
 };
 
 const createSecurityLedger = (
   packageName: string,
-  securityOverrideDetails?: Array<{ packageName: string; reason: string; }>,
+  securityOverrideDetails?: SecurityOverrideDetail[],
   securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket"
 ) => {
   const isSecurity = isSecurityOverride(packageName, securityOverrideDetails);
   if (!isSecurity) return {};
 
-  return {
+  const detail = securityOverrideDetails?.find(d => d.packageName === packageName);
+
+  const baseLedger = {
     securityChecked: true,
     securityCheckDate: new Date().toISOString(),
-    ...(securityProvider && { securityProvider }),
   };
+
+  const providerField = securityProvider ? { securityProvider } : {};
+  const cveField = detail?.cve ? { cve: detail.cve } : {};
+  const severityField = detail?.severity ? { severity: detail.severity } : {};
+  const descriptionField = detail?.description ? { description: detail.description } : {};
+  const urlField = detail?.url ? { url: detail.url } : {};
+
+  return Object.assign({}, baseLedger, providerField, cveField, severityField, descriptionField, urlField);
 };
 
 export const updateAppendix = ({

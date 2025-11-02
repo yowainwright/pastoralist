@@ -6,7 +6,11 @@
 [![codecov](https://codecov.io/gh/yowainwright/pastoralist/branch/main/graph/badge.svg)](https://codecov.io/gh/yowainwright/pastoralist)
 [![Github](https://badgen.net/badge/icon/github?icon=github&label&color=grey)](https://github.com/yowainwright/pastoralist)
 
-**Pastoralist IS *set-it-and-forget-it automation* for dependency overrides. Pastoralist automatically tracks, secures, and cleans up your `overrides`, `resolutions`, and `patches`. Pastoralist also provides an out-of-the-box solution for resolving dependency security alerts using the same pattern of overriding and tracking security vulnerabilities in node modules. This provides a dead simple, boring way to singularly maintain node module dependencies and security issues in dependencies.**
+Pastoralist provides a dead simple way to singularly maintain node module dependencies and security issues in dependencies.
+
+1. Pastoralist IS *set-it-and-forget-it automation* for dependency overrides. Pastoralist automatically tracks, secures, and cleans up your `overrides`, `resolutions`, and `patches`. 
+2. Pastoralist also provides an out-of-the-box solution for resolving dependency security alerts using the same pattern of overriding and tracking security vulnerabilities in node modules. 
+
 
 ---
 
@@ -47,9 +51,9 @@ npm i pastoralist -D && pastoralist --init
 
 ## What are overrides and resolutions?
 
-**Package manager overrides and resolutions let you control exact dependency versions in your node_modules.**
+**Package manager `overrides` and `resolutions` let you control exact dependency versions in your node_modules.**
 
-Package managers (npm, yarn, pnpm, bun) use these to fix:
+Package managers (npm, yarn, pnpm, bun) use these overrides to fix:
 - Security vulnerabilities in nested dependencies
 - Bugs in transitive dependencies
 - Version conflicts
@@ -110,8 +114,8 @@ No more mysteries. Every override is tracked.
 flowchart LR
     Install[npm install] --> Auto[Pastoralist runs]
     Auto --> Track[Auto-tracks dependencies]
-    Auto --> Scan[Auto-scans security]
-    Auto --> Clean[Auto-removes unused]
+    Auto --> Scan[Auto-tracks security and maps overrides to resolve issues]
+    Auto --> Clean[Auto-removes unused overrides]
     Track --> Done[✓ Done]
     Scan --> Done
     Clean --> Done
@@ -128,11 +132,11 @@ When trim is no longer needed, Pastoralist removes it automatically:
 ```js
 "overrides": {},      // ← Cleaned up automatically
 "pastoralist": {
-  "appendix": {}
+  "appendix": {} //  ← Cleaned up automatically
 }
 ```
 
-**Automatic security fixes:**
+**Automatic security checks:**
 
 Run once with `--checkSecurity` enabled:
 
@@ -207,9 +211,9 @@ flowchart TD
 }
 ```
 
-### 2. Automatic Security Scanning
+### 2. Automatic Depedency Security Checks
 
-Enable once. Pastoralist handles the rest.
+Enable once. Pastoralist handles the rest using your preferred security provider.
 
 ```js
 "pastoralist": {
@@ -223,8 +227,8 @@ Enable once. Pastoralist handles the rest.
 
 ```mermaid
 flowchart TD
-    Start([npm install]) --> Scan[Scan for vulnerabilities]
-    Scan --> Detect{Found?}
+    Start([npm install]) --> Scan[Request vulnerability reports]
+    Scan --> Detect{Vulnerabilities found?}
     Detect -->|Yes| Fix[Auto-generate override]
     Detect -->|No| Done[✓ Done]
     Fix --> Done
@@ -246,7 +250,7 @@ When dependencies are removed, Pastoralist removes their overrides automatically
 
 ```mermaid
 flowchart TD
-    Start([Dependency removed]) --> Check[Check if override still needed]
+    Start([Dependency removed or updated]) --> Check[Check if override still needed]
     Check --> Remove[Auto-remove from overrides & appendix]
     Remove --> Done[✓ Cleaned up]
 
@@ -280,11 +284,11 @@ Works seamlessly with `patch-package`. Automatically links patches to overrides 
 
 ```mermaid
 flowchart LR
-    You[You add override] --> Install[npm install]
+    You[You add override or request a security check] --> Install[npm install]
     Install --> Pastor[Pastoralist runs]
     Pastor --> Track[Tracks it]
-    Pastor --> Scan[Scans it]
-    Pastor --> Clean[Cleans if unused]
+    Pastor --> Scan[Maps it]
+    Pastor --> Clean[Removes it from tracking if unused]
     Track --> Chill[You go back to coding]
     Scan --> Chill
     Clean --> Chill

@@ -12,10 +12,6 @@ const SIDEBAR = [
         title: "Setup",
         href: resolveDocsUrl("setup"),
       },
-      {
-        title: "Interactive Demos",
-        href: resolveDocsUrl("demos"),
-      },
     ],
   },
   {

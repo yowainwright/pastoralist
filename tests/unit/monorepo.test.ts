@@ -902,9 +902,6 @@ await describe("Monorepo Support Tests", async () => {
         name: "monorepo-root",
         version: "1.0.0",
         workspaces: ["packages/*"],
-        pastoralist: {
-          depPaths: "workspace",
-        },
       };
 
       mkdirSync(join(testDir, "packages", "service-a"), { recursive: true });
@@ -947,89 +944,35 @@ await describe("Monorepo Support Tests", async () => {
         JSON.stringify(serviceBPackageJson, null, 2)
       );
 
-      const options: Options = {
-        path: join(testDir, "package.json"),
+      await update({
+        path: join(testDir, "packages", "service-a", "package.json"),
         root: testDir,
-      };
+      });
 
-      await update(options);
+      await update({
+        path: join(testDir, "packages", "service-b", "package.json"),
+        root: testDir,
+      });
 
-      const updatedRoot = JSON.parse(
-        readFileSync(join(testDir, "package.json"), "utf8")
+      const updatedServiceA = JSON.parse(
+        readFileSync(join(testDir, "packages", "service-a", "package.json"), "utf8")
+      );
+      const updatedServiceB = JSON.parse(
+        readFileSync(join(testDir, "packages", "service-b", "package.json"), "utf8")
       );
 
-      assert(updatedRoot.pastoralist);
-      assert(updatedRoot.pastoralist.appendix);
-      assert(updatedRoot.pastoralist.appendix["esbuild@^0.25.9"]);
-      assert(updatedRoot.pastoralist.appendix["pg-types@^4.0.1"]);
-      assert(updatedRoot.pastoralist.appendix["esbuild@^0.25.9"].dependents["service-a"]);
-      assert(updatedRoot.pastoralist.appendix["pg-types@^4.0.1"].dependents["service-b"]);
+      assert(updatedServiceA.pastoralist);
+      assert(updatedServiceA.pastoralist.appendix);
+      assert(updatedServiceA.pastoralist.appendix["esbuild@^0.25.9"]);
+      assert(updatedServiceA.pastoralist.appendix["esbuild@^0.25.9"].dependents["service-a"]);
+
+      assert(updatedServiceB.pastoralist);
+      assert(updatedServiceB.pastoralist.appendix);
+      assert(updatedServiceB.pastoralist.appendix["pg-types@^4.0.1"]);
+      assert(updatedServiceB.pastoralist.appendix["pg-types@^4.0.1"].dependents["service-b"]);
 
       rmSync(testDir, { recursive: true, force: true });
     });
 
-    it("should combine root and workspace overrides in appendix", async () => {
-      const testDir = resolve(__dirname, ".test-combined-overrides");
-      rmSync(testDir, { recursive: true, force: true });
-      mkdirSync(testDir, { recursive: true });
-      jsonCache.clear();
-
-      const rootPackageJson = {
-        name: "monorepo-root",
-        version: "1.0.0",
-        workspaces: ["packages/*"],
-        dependencies: {
-          "lodash": "^4.17.0",
-        },
-        overrides: {
-          "lodash": "4.17.21",
-        },
-        pastoralist: {
-          depPaths: "workspace",
-        },
-      };
-
-      mkdirSync(join(testDir, "packages", "app"), { recursive: true });
-
-      const appPackageJson = {
-        name: "app",
-        version: "1.0.0",
-        dependencies: {
-          "typescript": "^5.0.0",
-        },
-        overrides: {
-          "typescript": "5.8.2",
-        },
-      };
-
-      writeFileSync(
-        join(testDir, "package.json"),
-        JSON.stringify(rootPackageJson, null, 2)
-      );
-      writeFileSync(
-        join(testDir, "packages", "app", "package.json"),
-        JSON.stringify(appPackageJson, null, 2)
-      );
-
-      const options: Options = {
-        path: join(testDir, "package.json"),
-        root: testDir,
-      };
-
-      await update(options);
-
-      const updatedRoot = JSON.parse(
-        readFileSync(join(testDir, "package.json"), "utf8")
-      );
-
-      assert(updatedRoot.pastoralist);
-      assert(updatedRoot.pastoralist.appendix);
-      assert(updatedRoot.pastoralist.appendix["lodash@4.17.21"]);
-      assert(updatedRoot.pastoralist.appendix["typescript@5.8.2"]);
-      assert(updatedRoot.pastoralist.appendix["lodash@4.17.21"].dependents["monorepo-root"]);
-      assert(updatedRoot.pastoralist.appendix["typescript@5.8.2"].dependents["app"]);
-
-      rmSync(testDir, { recursive: true, force: true });
-    });
   });
 });

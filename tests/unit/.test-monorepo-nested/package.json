@@ -3,5 +3,10 @@
   "version": "1.0.0",
   "workspaces": [
     "packages/*"
-  ]
+  ],
+  "overrides": {
+    "pg": {
+      "pg-types": "^4.0.1"
+    }
+  }
 }

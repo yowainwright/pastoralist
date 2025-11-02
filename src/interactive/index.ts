@@ -1,5 +1,5 @@
 import { writeFileSync } from "fs";
-import gradient from "gradient-string";
+import { green } from "../utils";
 import { createPrompt, Prompt } from "./prompt";
 import type { PastoralistConfig, SecurityProvider, SeverityThreshold } from "../config";
 import { loadConfig } from "../config/loader";
@@ -494,10 +494,9 @@ async function runReviewLoop(
 }
 
 export async function interactiveConfigReview(options: InteractiveConfigOptions = {}): Promise<void> {
-  const pastor = gradient("green", "tan");
   const log = createLogger({ file: "interactive/index.ts", isLogging: true });
 
-  log.info(`\n👩🏽‍🌾 ${pastor("Pastoralist")} ${INTERACTIVE_MESSAGES.welcome}\n`, "interactiveConfigReview");
+  log.info(`\n👩🏽‍🌾 ${green("Pastoralist")} ${INTERACTIVE_MESSAGES.welcome}\n`, "interactiveConfigReview");
 
   const path = options.path || "package.json";
   const root = options.root || process.cwd();

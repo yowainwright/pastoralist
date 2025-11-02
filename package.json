@@ -23,18 +23,16 @@
     "build-dist": "bun run clean-dist && bun build src/index.ts --outdir dist --target node --minify && tsc --emitDeclarationOnly --outDir dist",
     "clean-dist": "bun run scripts/clean.ts",
     "commit": "git-cz",
-    "commit-msg": "commitlint --edit $1",
     "dev": "bun run --cwd app dev",
+    "format": "prettier --check .",
+    "format:fix": "prettier --write .",
     "lint": "oxlint src app",
     "lint-fix": "oxlint src app --fix",
-    "pre-commit": "oxlint src app && bun run test",
-    "prepare": "is-ci || husky install",
+    "prepare": "bun run scripts/install-hooks.ts",
     "prepublishOnly": "bun run test && bun run build-dist",
     "preview": "bun run --cwd app preview",
     "release": "release-it",
     "test": "bun test",
-    "test-resolutions": "tsx src/index.ts --debug",
-    "test-resolutions-with-dist": "node dist/index.js --debug",
     "test:e2e": "./tests/e2e/scripts/run-e2e-tests.sh",
     "typecheck": "turbo run typecheck-src",
     "typecheck-src": "tsc --noEmit",
@@ -66,42 +64,17 @@
   "dependencies": {
     "commander": "14.0.2",
     "fast-glob": "3.3.3",
-    "gradient-string": "^3.0.0",
     "inquirer": "^12.10.0",
-    "ora": "^9.0.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {
-    "@commitlint/cli": "20.1.0",
-    "@commitlint/config-conventional": "20.0.0",
-    "@types/gradient-string": "^1.1.6",
-    "@types/node": "24.9.2",
+    "@types/bun": "latest",
     "codependence": "^0.3.1",
-    "husky": "9.1.7",
-    "is-ci": "^4.1.0",
-    "lint-staged": "16.2.6",
     "oxlint": "^1.25.0",
-    "path-exists-cli": "^2.0.0",
     "prettier": "3.6.2",
     "release-it": "19.0.5",
-    "stdouttojson": "1.0.0",
-    "tslib": "2.8.1",
-    "tsx": "^4.20.6",
     "turbo": "2.5.8",
     "typescript": "5.9.3"
-  },
-  "commitlint": {
-    "extends": [
-      "@commitlint/config-conventional"
-    ]
-  },
-  "lint-staged": {
-    "src/**/*.ts": [
-      "oxlint --fix"
-    ],
-    "app/**/*.{ts,tsx}": [
-      "oxlint --fix"
-    ]
   },
   "release-it": {
     "git": {

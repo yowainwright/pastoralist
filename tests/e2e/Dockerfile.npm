@@ -33,7 +33,7 @@ RUN echo 'console.log("Shared module");' > ./packages/shared/index.js
 RUN npm install
 
 # Install pastoralist runtime dependencies in root so they can be found
-RUN npm install commander@14.0.0 compare-versions@6.1.1 fast-glob@3.3.3 gradient-string@^3.0.0 ora@^8.1.0 p-limit@^6.1.0
+RUN npm install commander@14.0.0 fast-glob@3.3.3 inquirer@^12.10.0 zod@^4.1.12
 
 # Copy scripts
 COPY tests/e2e/scripts/ ./scripts/

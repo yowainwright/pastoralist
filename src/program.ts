@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 
 import { program } from "commander";
-import ora from "ora";
-import gradient from "gradient-string";
+import { createSpinner, green } from "./utils";
 import { Options, PastoralistJSON } from "./interfaces";
 import { update, logger as createLogger, resolveJSON } from "./scripts";
 import { IS_DEBUGGING } from "./constants";
@@ -68,13 +67,8 @@ export async function action(options: Options = {}): Promise<void> {
   }
 
   try {
-    const pastor = gradient("green", "tan");
-    
-    // Read config to get security settings
     const path = options.path || "package.json";
     const config = await resolveJSON(path);
-    
-    // Merge CLI options with config file settings
     const securityConfig = config?.pastoralist?.security || {};
     const mergedOptions: Options = {
       ...rest,
@@ -85,11 +79,10 @@ export async function action(options: Options = {}): Promise<void> {
       interactive: options.interactive ?? securityConfig.interactive,
       hasWorkspaceSecurityChecks: options.hasWorkspaceSecurityChecks ?? securityConfig.hasWorkspaceSecurityChecks,
     };
-    
-    // Run security check if enabled
+
     if (mergedOptions.checkSecurity) {
-      const spinner = ora(
-        `🔒 ${pastor(`pastoralist`)} checking for security vulnerabilities...\n`,
+      const spinner = createSpinner(
+        `🔒 ${green(`pastoralist`)} checking for security vulnerabilities...`,
       ).start();
       
       const securityChecker = new SecurityChecker({
@@ -108,36 +101,43 @@ export async function action(options: Options = {}): Promise<void> {
         root: options.root || "./",
       });
 
-      if (alerts.length > 0) {
+      const hasAlerts = alerts.length > 0;
+      const shouldApplySecurityFixes = mergedOptions.forceSecurityRefactor || mergedOptions.interactive;
+      const shouldGenerateOverrides = hasAlerts && shouldApplySecurityFixes;
+
+      if (hasAlerts) {
         const report = securityChecker.formatSecurityReport(alerts, securityOverrides);
         spinner.info(report);
+      }
 
-        if (mergedOptions.forceSecurityRefactor || mergedOptions.interactive) {
-          mergedOptions.securityOverrides = securityChecker.generatePackageOverrides(securityOverrides);
-          mergedOptions.securityOverrideDetails = securityOverrides.map(override => {
-            const base = {
-              packageName: override.packageName,
-              reason: override.reason,
-            };
+      if (shouldGenerateOverrides) {
+        mergedOptions.securityOverrides = securityChecker.generatePackageOverrides(securityOverrides);
+        mergedOptions.securityOverrideDetails = securityOverrides.map(override => {
+          const base = {
+            packageName: override.packageName,
+            reason: override.reason,
+          };
 
-            const cveField = override.cve ? { cve: override.cve } : {};
-            const severityField = override.severity ? { severity: override.severity } : {};
-            const descriptionField = override.description ? { description: override.description } : {};
-            const urlField = override.url ? { url: override.url } : {};
+          const cveField = override.cve ? { cve: override.cve } : {};
+          const severityField = override.severity ? { severity: override.severity } : {};
+          const descriptionField = override.description ? { description: override.description } : {};
+          const urlField = override.url ? { url: override.url } : {};
 
-            return Object.assign({}, base, cveField, severityField, descriptionField, urlField);
-          });
-        }
-      } else {
-        spinner.succeed(`🔒 ${pastor(`pastoralist`)} no security vulnerabilities found!`);
+          return Object.assign({}, base, cveField, severityField, descriptionField, urlField);
+        });
+      }
+
+      const hasNoAlerts = !hasAlerts;
+      if (hasNoAlerts) {
+        spinner.succeed(`🔒 ${green(`pastoralist`)} no security vulnerabilities found!`);
       }
     }
-    
-    const spinner = ora(
-      `👩🏽‍🌾 ${pastor(`pastoralist`)} checking herd...\n`,
+
+    const spinner = createSpinner(
+      `👩🏽‍🌾 ${green(`pastoralist`)} checking herd...`,
     ).start();
     await update(mergedOptions);
-    spinner.succeed(`👩🏽‍🌾 ${pastor(`pastoralist`)} the herd is safe!`);
+    spinner.succeed(`👩🏽‍🌾 ${green(`pastoralist`)} the herd is safe!`);
   } catch (err) {
     log.error("action:fn", "action", { error: err });
     process.exit(1);

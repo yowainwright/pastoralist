@@ -3,15 +3,23 @@ title: Architecture
 description: "Deep dive into how Pastoralist works, including overrides, resolutions, patches, and the object anatomy"
 ---
 
-import ReviewFlow from "../../components/ReviewFlow";
-import SimpleProjectArchitecture from "../../components/architectures/SimpleProjectArchitecture";
-import MonorepoArchitecture from "../../components/architectures/MonorepoArchitecture";
-import NestedOverrideArchitecture from "../../components/architectures/NestedOverrideArchitecture";
-import DependencyResolutionFlow from "../../components/architectures/DependencyResolutionFlow";
-
 ## How Pastoralist Works
 
-<ReviewFlow client:only="react" />
+```mermaid
+flowchart LR
+    You[You add override] --> Install[npm install]
+    Install --> Pastor[Pastoralist runs]
+    Pastor --> Track[Tracks it]
+    Pastor --> Scan[Scans it]
+    Pastor --> Clean[Cleans if unused]
+    Track --> Chill[You go back to coding]
+    Scan --> Chill
+    Clean --> Chill
+
+    style You fill:#e3f2fd
+    style Pastor fill:#f3e5f5
+    style Chill fill:#e8f5e9
+```
 
 Pastoralist manages overrides, resolutions, and patches so you don't have to!
 
@@ -33,13 +41,32 @@ In workspace/monorepo setups, Pastoralist:
 
 Standard single-package project with overrides:
 
-<SimpleProjectArchitecture client:only="react" />
+```mermaid
+flowchart TD
+    PkgJson[package.json] --> Pastoralist[Pastoralist]
+    NodeModules[node_modules] --> Pastoralist
+    Pastoralist --> UpdatedPkg[Updated package.json with appendix]
+
+    style PkgJson fill:#e3f2fd
+    style Pastoralist fill:#f3e5f5
+    style UpdatedPkg fill:#e8f5e9
+```
 
 ## Monorepo Architecture
 
 Complex workspace setup with shared overrides:
 
-<MonorepoArchitecture client:only="react" />
+```mermaid
+flowchart TD
+    Root[Root package.json] --> Pastoralist[Pastoralist]
+    WS1[Workspace A] --> Pastoralist
+    WS2[Workspace B] --> Pastoralist
+    Pastoralist --> Output[Root package.json with consolidated appendix]
+
+    style Root fill:#e3f2fd
+    style Pastoralist fill:#f3e5f5
+    style Output fill:#e8f5e9
+```
 
 ## What Are Overrides, Resolutions, and Patches?
 
@@ -112,10 +139,32 @@ The Pastoralist object in your package.json provides full transparency into what
 
 How nested overrides work for transitive dependencies:
 
-<NestedOverrideArchitecture client:only="react" />
+```mermaid
+flowchart TD
+    App[Your App] --> ParentPkg[Parent Package]
+    ParentPkg --> NestedDep[Nested Dependency]
+    Override[Override in package.json] -.->|Forces version| NestedDep
+
+    style App fill:#e3f2fd
+    style Override fill:#fff3cd
+    style NestedDep fill:#e8f5e9
+```
 
 ## Dependency Resolution Flow
 
 Complete flow of how dependencies are resolved with overrides:
 
-<DependencyResolutionFlow client:only="react" />
+```mermaid
+flowchart TD
+    Install[npm install] --> ReadPkg[Read package.json]
+    ReadPkg --> CheckOverrides{Overrides exist?}
+    CheckOverrides -->|Yes| ApplyOverrides[Apply overrides to dependency tree]
+    CheckOverrides -->|No| NormalInstall[Normal install]
+    ApplyOverrides --> UpdateLock[Update lock file]
+    NormalInstall --> UpdateLock
+    UpdateLock --> Done[✓ Dependencies installed]
+
+    style Install fill:#e3f2fd
+    style ApplyOverrides fill:#fff3cd
+    style Done fill:#e8f5e9
+```

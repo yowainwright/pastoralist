@@ -4,9 +4,9 @@ import { resolveDocsUrl } from "../../utils/urlResolver";
 const base = import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL : import.meta.env.BASE_URL + '/';
 ---
 
-<div class="hero">
+<div class="relative flex items-center justify-center px-3 md:px-10 xl:px-28 py-16 md:py-20 overflow-hidden min-h-[calc(100vh-theme(spacing.16)-theme(spacing.24))]">
   <div
-    class="absolute inset-x-0 top-50 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80"
+    class="absolute inset-0 -z-10 transform-gpu overflow-hidden blur-3xl"
     aria-hidden="true"
   >
     <div
@@ -27,8 +27,7 @@ const base = import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL :
     >
     </div>
   </div>
-  <div class="hero-content text-center min-h-[30rem] md:min-h-[40rem] font-spline-sans-mono px-4 py-12 lg:py-20">
-    <div class="max-w-2xl md:max-w-6xl w-full">
+  <div class="max-w-2xl md:max-w-6xl w-full text-center">
       <img src={`${base}pastoralist-logo.svg`} alt="Pastoralist Logo" class="h-24 w-24 md:h-32 md:w-32 mx-auto mb-6" />
       <h1 class="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-black leading-tight">
         Track security issues &

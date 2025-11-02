@@ -7,10 +7,6 @@
 @plugin "@tailwindcss/typography";
 
 @theme {
-  --font-spline-sans-mono: "Spline Sans Mono Variable", "monospace";
-  --font-size-base: 1rem;
-  --font-size-sm: 0.875rem;
-  --font-size-xs: 0.75rem;
 }
 
 :root {
@@ -22,9 +18,32 @@
   /* Legacy variables for backward compatibility */
   --purple-gradient: var(--blue-teal-gradient);
   --purple-dark: #1D4ED8;
+}
 
-  /* Base font sizes */
-  font-size: 16px;
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+main {
+  flex: 1 0 auto;
+}
+
+footer {
+  flex-shrink: 0;
+}
+
+code, pre, kbd, samp {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Monaco, "Cascadia Mono", "Roboto Mono", Consolas, "Courier New", monospace;
 }
 
 [data-theme="night"] {
@@ -52,64 +71,6 @@
 
 .gradient-bg-light {
   background: var(--blue-teal-gradient-light);
-}
-
-/* Base typography adjustments */
-html {
-  font-size: 22px;
-}
-
-body {
-  font-size: 1rem;
-  font-weight: 300;
-  font-family: "Spline Sans Mono Variable", monospace;
-  letter-spacing: 0.01em;
-  line-height: 1.7;
-}
-
-/* Override Tailwind text sizes to be larger */
-.text-xs {
-  font-size: 0.9rem !important;
-}
-
-.text-sm {
-  font-size: 1rem !important;
-}
-
-.text-base {
-  font-size: 1.1rem !important;
-}
-
-.text-lg {
-  font-size: 1.6rem !important;
-}
-
-.text-xl {
-  font-size: 1.9rem !important;
-}
-
-.text-2xl {
-  font-size: 2.3rem !important;
-}
-
-.text-3xl {
-  font-size: 2.8rem !important;
-}
-
-.text-4xl {
-  font-size: 3.5rem !important;
-}
-
-.text-5xl {
-  font-size: 4.3rem !important;
-}
-
-.text-6xl {
-  font-size: 5.2rem !important;
-}
-
-.text-7xl {
-  font-size: 6.2rem !important;
 }
 
 /* Improve mobile responsiveness */

@@ -33,13 +33,21 @@ jobs:
             echo "manager=npm" >> $GITHUB_OUTPUT
           fi
 
+      - name: Setup Bun (if needed)
+        if: steps.detect.outputs.manager == 'bun'
+        uses: oven-sh/setup-bun@v2
+
+      - name: Setup pnpm (if needed)
+        if: steps.detect.outputs.manager == 'pnpm'
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
       - name: Install dependencies
         run: |
           if [ "${{ steps.detect.outputs.manager }}" = "bun" ]; then
-            curl -fsSL https://bun.sh/install | bash
             bun install
           elif [ "${{ steps.detect.outputs.manager }}" = "pnpm" ]; then
-            npm install -g pnpm
             pnpm install
           elif [ "${{ steps.detect.outputs.manager }}" = "yarn" ]; then
             yarn install
@@ -48,7 +56,16 @@ jobs:
           fi
 
       - name: Run Pastoralist security check
-        run: npx pastoralist --checkSecurity
+        run: |
+          if [ "${{ steps.detect.outputs.manager }}" = "bun" ]; then
+            bunx pastoralist --checkSecurity
+          elif [ "${{ steps.detect.outputs.manager }}" = "pnpm" ]; then
+            pnpm exec pastoralist --checkSecurity
+          elif [ "${{ steps.detect.outputs.manager }}" = "yarn" ]; then
+            yarn pastoralist --checkSecurity
+          else
+            npx pastoralist --checkSecurity
+          fi
 
       - name: Check for uncommitted changes
         run: |

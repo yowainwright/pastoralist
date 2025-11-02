@@ -22,7 +22,6 @@
           "app": "typescript@^5.0.0"
         }
       }
-    },
-    "depPaths": "workspace"
+    }
   }
 }

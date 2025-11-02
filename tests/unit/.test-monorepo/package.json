@@ -1,0 +1,13 @@
+{
+  "name": "monorepo-root",
+  "version": "1.0.0",
+  "workspaces": [
+    "packages/*"
+  ],
+  "overrides": {
+    "lodash": "4.17.21"
+  },
+  "pastoralist": {
+    "depPaths": "workspace"
+  }
+}

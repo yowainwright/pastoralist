@@ -141,7 +141,7 @@ export default function Search({ searchData }: SearchProps) {
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       placeholder="Search documentation..."
-                      className="flex-1 bg-transparent outline-none text-lg placeholder-base-content/50 font-spline-sans-mono"
+                      className="flex-1 bg-transparent outline-none text-lg placeholder-base-content/50 "
                     />
                     <kbd className="px-2 py-1 text-xs font-medium bg-base-200 text-base-content/60 rounded">
                       ESC

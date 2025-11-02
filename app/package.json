@@ -15,15 +15,13 @@
     "@astrojs/react": "^4.4.1",
     "@docsearch/css": "^3.9.0",
     "@docsearch/js": "^3.9.0",
-    "@fontsource-variable/lexend": "^5.2.11",
-    "@fontsource-variable/outfit": "^5.2.8",
-    "@fontsource-variable/spline-sans-mono": "^5.2.8",
     "@tailwindcss/vite": "^4.1.16",
     "astro": "^5.15.3",
+    "astro-mermaid": "^1.1.0",
     "fuse.js": "^7.1.0",
+    "mermaid": "^11.4.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "reactflow": "^11.11.4"
+    "react-dom": "^19.2.0"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.19",

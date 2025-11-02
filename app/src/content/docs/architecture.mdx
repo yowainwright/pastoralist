@@ -4,12 +4,8 @@ description: "Deep dive into how Pastoralist works, including overrides, resolut
 ---
 
 import ReviewFlow from "../../components/ReviewFlow";
-import CoreArchitectureSimple from "../../components/architectures/CoreArchitectureSimple";
 import SimpleProjectArchitecture from "../../components/architectures/SimpleProjectArchitecture";
 import MonorepoArchitecture from "../../components/architectures/MonorepoArchitecture";
-import SecurityVulnerabilityManagement from "../../components/architectures/SecurityVulnerabilityManagement";
-import PatchManagementArchitecture from "../../components/architectures/PatchManagementArchitecture";
-import CICDIntegration from "../../components/architectures/CICDIntegration";
 import NestedOverrideArchitecture from "../../components/architectures/NestedOverrideArchitecture";
 import DependencyResolutionFlow from "../../components/architectures/DependencyResolutionFlow";
 
@@ -18,12 +14,6 @@ import DependencyResolutionFlow from "../../components/architectures/DependencyR
 <ReviewFlow client:only="react" />
 
 Pastoralist manages overrides, resolutions, and patches so you don't have to!
-
-## Core Architecture
-
-How Pastoralist processes and manages overrides internally:
-
-<CoreArchitectureSimple client:only="react" />
 
 It is comprised of a few functions which read the root package.json file's overrides or resolutions and map the packages in them to a `pastoralist.appendix` object. Additionally, it automatically detects and tracks patches in your project (such as those created by `patch-package`).
 
@@ -85,12 +75,6 @@ Resolutions serve the same purpose for Yarn users, allowing you to force specifi
 
 Patches are custom modifications to node_modules packages, typically created with tools like `patch-package`. Pastoralist automatically detects and tracks these patches.
 
-## Patch Management Architecture
-
-Integration with patch-package and similar tools:
-
-<PatchManagementArchitecture client:only="react" />
-
 ## Object Anatomy
 
 The Pastoralist object in your package.json provides full transparency into what's being managed:
@@ -123,18 +107,6 @@ The Pastoralist object in your package.json provides full transparency into what
 - **hasOverride**: Whether an npm override exists
 - **hasResolution**: Whether a Yarn resolution exists
 - **hasPatch**: Whether a patch file exists
-
-## Security Vulnerability Management
-
-How Pastoralist handles security scanning and fixes:
-
-<SecurityVulnerabilityManagement client:only="react" />
-
-## CI/CD Integration
-
-How Pastoralist fits into CI/CD pipelines:
-
-<CICDIntegration client:only="react" />
 
 ## Nested Override Architecture
 

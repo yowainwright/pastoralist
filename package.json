@@ -81,6 +81,5 @@
       "commitMessage": "chore: release"
     }
   },
-  "packageManager": "bun@1.3.0",
-  "pastoralist": {}
+  "packageManager": "bun@1.3.0"
 }

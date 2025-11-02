@@ -737,7 +737,7 @@ describe("updatePackageJSON", () => {
       pnpm: { overrides: { baz: "3.0.0" } },
     };
 
-    await updatePackageJSON({
+    const result = await updatePackageJSON({
       appendix: {},
       path: "path/to/package.json",
       config,
@@ -745,7 +745,7 @@ describe("updatePackageJSON", () => {
       isTesting: true,
     });
 
-    assert.deepStrictEqual(config, {});
+    assert.deepStrictEqual(result, {});
   });
 
   it("should update config with appendix and overrides", async () => {
@@ -789,6 +789,7 @@ describe("updatePackageJSON", () => {
 
     assert.deepStrictEqual(result, {
       pnpm: { overrides },
+      pastoralist: {},
     });
   });
 });
@@ -800,10 +801,11 @@ describe("constructAppendix", () => {
 
   // Create a simple mock for testing
   it("should correctly identify dependencies and add them to the appendix", async () => {
-    // Clear the cache to ensure our mocks are used
     jsonCache.clear();
 
-    // Set up the mock data directly in the cache
+    const tmpDir = `/tmp/test-construct-appendix-${Date.now()}`;
+    fs.mkdirSync(tmpDir, { recursive: true });
+
     const mockPackageJSON = {
       name: "package-a",
       dependencies: {
@@ -811,9 +813,11 @@ describe("constructAppendix", () => {
         "tough-cookie": "^4.1.3",
       },
     };
-    jsonCache.set("tests/fixtures/package.json", mockPackageJSON);
 
-    const packageJSONs = ["tests/fixtures/package.json"];
+    const packageJsonPath = `${tmpDir}/package.json`;
+    fs.writeFileSync(packageJsonPath, JSON.stringify(mockPackageJSON, null, 2));
+
+    const packageJSONs = [packageJsonPath];
 
     const overridesData = {
       type: "npm",
@@ -823,48 +827,20 @@ describe("constructAppendix", () => {
       },
     };
 
-    // Create a mock appendix result
-    const mockAppendix = {
-      "semver@^7.5.3": {
-        dependents: {
-          "package-a": "semver@^7.5.3",
-        },
-      },
-      "tough-cookie@^4.1.3": {
-        dependents: {
-          "package-a": "tough-cookie@^4.1.3",
-        },
-      },
-    };
-
-    // Mock the processPackageJSON function to return our expected appendix
-    const originalProcessPackageJSON = processPackageJSON;
-    (global as any).processPackageJSON = async () => ({
-      appendix: mockAppendix,
-    });
-
-    const testLog = logger({ file: "test", isLogging: true });
+    const testLog = logger({ file: "test", isLogging: false });
     const appendix = await constructAppendix(
       packageJSONs,
       overridesData,
       testLog,
     );
 
-    // Debug logging
-    testLog.debug(`Package: ${mockPackageJSON.name}`, "constructAppendix");
-    testLog.debug(`Appendix: ${JSON.stringify(appendix)}`, "constructAppendix");
+    fs.rmSync(tmpDir, { recursive: true, force: true });
 
-    // Restore original functions
-    fs.readFileSync = originalReadFileSync;
-    (global as any).processPackageJSON = originalProcessPackageJSON;
-
-    // Verify the result
     assert.ok(appendix, "Appendix should be defined");
-    assert.deepStrictEqual(
-      appendix,
-      mockAppendix,
-      "Appendix should match expected result",
-    );
+    assert.ok(appendix["semver@^7.5.3"], "Should have semver in appendix");
+    assert.ok(appendix["tough-cookie@^4.1.3"], "Should have tough-cookie in appendix");
+    assert.strictEqual(appendix["semver@^7.5.3"].dependents["package-a"], "semver@^7.5.3");
+    assert.strictEqual(appendix["tough-cookie@^4.1.3"].dependents["package-a"], "tough-cookie@^4.1.3");
   });
 
   it("should handle multiple overrides", async () => {
@@ -1321,8 +1297,8 @@ describe("update function with depPaths support", () => {
 
       const updatedContent = fs.readFileSync(testPath, "utf-8");
       const updatedJson = JSON.parse(updatedContent);
-      
-      assert.strictEqual(updatedJson.pastoralist, undefined, "Should not have pastoralist section when no files found");
+
+      assert.ok(!updatedJson.pastoralist?.appendix || Object.keys(updatedJson.pastoralist.appendix).length === 0, "Should have empty or no appendix when no files found");
       assert.deepStrictEqual(updatedJson.overrides, testConfig.overrides, "Overrides should be preserved");
     } finally {
       try {

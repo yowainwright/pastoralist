@@ -160,11 +160,15 @@ const buildPreservedConfig = (config: PastoralistJSON) => {
 
 const removeAllOverrides = (config: PastoralistJSON): PastoralistJSON => {
   const { resolutions, overrides, pnpm, ...rest } = config;
-  const shouldRemovePnpm = pnpm && Object.keys(pnpm).length === 0;
+
+  if (!pnpm) return rest;
+
+  const { overrides: pnpmOverrides, ...restPnpm } = pnpm;
+  const hasPnpmConfig = Object.keys(restPnpm).length > 0;
 
   return {
     ...rest,
-    ...(pnpm && !shouldRemovePnpm && { pnpm }),
+    ...(hasPnpmConfig && { pnpm: restPnpm }),
   };
 };
 

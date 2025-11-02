@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "bun:test";
-import { SocketCLIProvider } from "../../../src/security/socket";
+import { SocketCLIProvider } from "../../../src/security/providers/socket";
 
 describe("SocketCLIProvider", () => {
   let provider: SocketCLIProvider;

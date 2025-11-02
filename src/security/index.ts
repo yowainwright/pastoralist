@@ -1,6 +1,4 @@
-import { GitHubSecurityProvider } from "./github";
-import { SnykCLIProvider } from "./snyk";
-import { SocketCLIProvider } from "./socket";
+import { GitHubSecurityProvider, SnykCLIProvider, SocketCLIProvider, OSVProvider } from "./providers";
 import {
   SecurityAlert,
   SecurityCheckOptions,
@@ -9,136 +7,10 @@ import {
   OverrideUpdate,
 } from "./types";
 import { PastoralistJSON, OverridesType } from "../interfaces";
-import { logger } from "../scripts";
+import { logger } from "../utils";
 import { compareVersions } from "../utils/semver";
-import { InteractiveSecurityManager } from "./interactive";
-
-
-export class OSVProvider {
-  protected debug: boolean;
-  protected log: ReturnType<typeof logger>;
-
-  constructor(options: { debug?: boolean } = {}) {
-    this.debug = options.debug || false;
-    this.log = logger({ file: "security/osv.ts", isLogging: this.debug });
-  }
-  
-  async isAvailable(): Promise<boolean> {
-    try {
-      const response = await fetch("https://api.osv.dev/v1/query", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ package: { name: "test", ecosystem: "npm" } }),
-      });
-      return response.ok;
-    } catch {
-      return false;
-    }
-  }
-  
-  async fetchAlerts(
-    packages: Array<{ name: string; version: string }>
-  ): Promise<SecurityAlert[]> {
-    type OSVVuln = unknown;
-    type FetchResult = {
-      pkg: { name: string; version: string };
-      vulns: OSVVuln[]
-    } | null;
-
-    const fetchPackageVulnerabilities = (
-      pkg: { name: string; version: string }
-    ): Promise<FetchResult> => {
-      return fetch("https://api.osv.dev/v1/query", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          package: { name: pkg.name, ecosystem: "npm" },
-          version: pkg.version,
-        }),
-      })
-      .then(async (response) => {
-        if (!response.ok) return null;
-
-        const data = await response.json();
-        const hasVulns = data.vulns && data.vulns.length > 0;
-
-        return hasVulns ? { pkg, vulns: data.vulns } : null;
-      })
-      .catch((error) => {
-        this.log.debug(
-          `Failed to check ${pkg.name}@${pkg.version}`,
-          "fetchAlerts",
-          { error }
-        );
-        return null;
-      });
-    };
-
-    const isValidResult = (
-      result: FetchResult
-    ): result is NonNullable<FetchResult> => {
-      return result !== null;
-    };
-
-    const results = await Promise.all(packages.map(fetchPackageVulnerabilities));
-
-    return results
-      .filter(isValidResult)
-      .flatMap(result => this.convertOSVAlerts(result.pkg, result.vulns));
-  }
-  
-  private convertOSVAlerts(pkg: { name: string; version: string }, vulns: any[]): SecurityAlert[] {
-    return vulns.map(vuln => ({
-      packageName: pkg.name,
-      currentVersion: pkg.version,
-      vulnerableVersions: this.extractVersionRange(vuln),
-      patchedVersion: this.extractPatchedVersion(vuln),
-      severity: this.extractSeverity(vuln),
-      title: vuln.summary || vuln.details || `Vulnerability in ${pkg.name}`,
-      description: vuln.details,
-      cve: this.extractCVE(vuln),
-      url: vuln.references?.[0]?.url || `https://osv.dev/vulnerability/${vuln.id}`,
-      fixAvailable: !!this.extractPatchedVersion(vuln),
-    }));
-  }
-  
-  private extractVersionRange(vuln: any): string {
-    const affected = vuln.affected?.[0];
-    if (affected?.ranges?.[0]?.events) {
-      const events = affected.ranges[0].events;
-      const introduced = events.find((e: any) => e.introduced)?.introduced || "0";
-      const fixed = events.find((e: any) => e.fixed)?.fixed;
-      return fixed ? `>= ${introduced} < ${fixed}` : `>= ${introduced}`;
-    }
-    return "";
-  }
-  
-  private extractPatchedVersion(vuln: any): string | undefined {
-    const affected = vuln.affected?.[0];
-    const events = affected?.ranges?.[0]?.events || [];
-    const fixed = events.find((e: any) => e.fixed)?.fixed;
-    return fixed;
-  }
-  
-  private extractSeverity(vuln: any): "low" | "medium" | "high" | "critical" {
-    const severity = vuln.database_specific?.severity || 
-                    vuln.severity?.[0]?.score || 
-                    "medium";
-    
-    if (typeof severity === "string") {
-      const s = severity.toLowerCase();
-      if (["low", "medium", "high", "critical"].includes(s)) {
-        return s as "low" | "medium" | "high" | "critical";
-      }
-    }
-    
-    return "medium";
-  }
-  
-  private extractCVE(vuln: any): string | undefined {
-    return vuln.aliases?.find((a: string) => a.startsWith("CVE-"));
-  }
-}
+import { InteractiveSecurityManager } from "./prompt";
+import { deduplicateAlerts, extractPackages, findVulnerablePackages } from "./utils";
 
 export class SecurityChecker {
   private providers: SecurityProvider[];
@@ -192,7 +64,7 @@ export class SecurityChecker {
     this.log.debug("Starting security check", "checkSecurity");
 
     try {
-      const packages = this.extractPackages(config);
+      const packages = extractPackages(config);
 
       if (packages.length === 0) {
         this.log.debug("No packages to check", "checkSecurity");
@@ -206,12 +78,13 @@ export class SecurityChecker {
 
       this.log.debug(`Found ${alerts.length} security alerts from ${this.providers.length} provider(s)`, "checkSecurity");
 
-      let allVulnerablePackages = this.deduplicateAlerts(alerts);
+      let allVulnerablePackages = deduplicateAlerts(alerts);
 
-      if (options.depPaths && options.depPaths.length > 0) {
+      const shouldScanWorkspaces = options.depPaths && options.depPaths.length > 0;
+      if (shouldScanWorkspaces) {
         this.log.debug("Scanning workspace packages for vulnerabilities", "checkSecurity");
         const workspaceVulnerable = await this.findWorkspaceVulnerabilities(
-          options.depPaths,
+          options.depPaths!,
           options.root || "./",
           alerts
         );
@@ -228,7 +101,8 @@ export class SecurityChecker {
       // Check for updates to existing overrides
       const updates = await this.checkOverrideUpdates(config, alerts);
 
-      if (options.interactive && allVulnerablePackages.length > 0) {
+      const shouldPromptInteractively = options.interactive && allVulnerablePackages.length > 0;
+      if (shouldPromptInteractively) {
         const interactiveManager = new InteractiveSecurityManager();
         overrides = await interactiveManager.promptForSecurityActions(
           allVulnerablePackages,
@@ -236,7 +110,8 @@ export class SecurityChecker {
         );
       }
 
-      if (options.autoFix && overrides.length > 0) {
+      const shouldApplyAutoFix = options.autoFix && overrides.length > 0;
+      if (shouldApplyAutoFix) {
         await this.applyAutoFix(overrides, options.packageJsonPath);
       }
 
@@ -245,70 +120,6 @@ export class SecurityChecker {
       this.log.error("Security check failed", "checkSecurity", { error });
       throw error;
     }
-  }
-
-  private deduplicateAlerts(alerts: SecurityAlert[]): SecurityAlert[] {
-    const seen = alerts.reduce((map, alert) => {
-      const key = `${alert.packageName}@${alert.currentVersion}:${alert.cve || alert.title}`;
-      const existing = map.get(key);
-      const shouldReplace = !existing || this.getSeverityScore(alert.severity) > this.getSeverityScore(existing.severity);
-
-      if (shouldReplace) {
-        map.set(key, alert);
-      }
-
-      return map;
-    }, new Map<string, SecurityAlert>());
-
-    return Array.from(seen.values());
-  }
-
-  private getSeverityScore(severity: string): number {
-    const scores: Record<string, number> = {
-      low: 1,
-      medium: 2,
-      high: 3,
-      critical: 4
-    };
-    return scores[severity.toLowerCase()] || 0;
-  }
-
-  private extractPackages(config: PastoralistJSON): Array<{ name: string; version: string }> {
-    const packages: Array<{ name: string; version: string }> = [];
-    const allDeps = {
-      ...config.dependencies,
-      ...config.devDependencies,
-      ...config.peerDependencies,
-    };
-
-    for (const [name, version] of Object.entries(allDeps)) {
-      const cleanVersion = version.replace(/^[\^~]/, "");
-      packages.push({ name, version: cleanVersion });
-    }
-
-    return packages;
-  }
-
-  private findVulnerablePackages(
-    config: PastoralistJSON,
-    alerts: SecurityAlert[]
-  ): SecurityAlert[] {
-    const allDeps = {
-      ...config.dependencies,
-      ...config.devDependencies,
-      ...config.peerDependencies,
-    };
-
-    return alerts.filter((alert) => {
-      const currentVersion = allDeps[alert.packageName];
-      if (!currentVersion) {
-        return false;
-      }
-
-      alert.currentVersion = currentVersion;
-
-      return this.isVersionVulnerable(currentVersion, alert.vulnerableVersions);
-    });
   }
 
   private async findWorkspaceVulnerabilities(
@@ -328,8 +139,8 @@ export class SecurityChecker {
         ignore: ["**/node_modules/**"],
         absolute: true,
       });
-      
-      for (const packageFile of packageFiles) {
+
+      packageFiles.forEach(packageFile => {
         try {
           const content = readFileSync(packageFile, "utf-8");
           const parsed = JSON.parse(content);
@@ -340,22 +151,23 @@ export class SecurityChecker {
               `Invalid package.json format in ${packageFile}`,
               "findWorkspaceVulnerabilities"
             );
-            continue;
+            return;
           }
 
           const pkgJson = parsed as PastoralistJSON;
-          const pkgVulnerable = this.findVulnerablePackages(pkgJson, alerts);
-          
-          for (const vuln of pkgVulnerable) {
+          const pkgVulnerable = findVulnerablePackages(pkgJson, alerts);
+
+          pkgVulnerable.forEach(vuln => {
             const existing = vulnerablePackages.find(
-              v => v.packageName === vuln.packageName && 
+              v => v.packageName === vuln.packageName &&
                    v.currentVersion === vuln.currentVersion
             );
-            
-            if (!existing) {
+
+            const isNew = !existing;
+            if (isNew) {
               vulnerablePackages.push(vuln);
             }
-          }
+          });
         } catch (error) {
           this.log.debug(
             `Failed to check ${packageFile}`,
@@ -363,7 +175,7 @@ export class SecurityChecker {
             { error }
           );
         }
-      }
+      });
     } catch (error) {
       this.log.error(
         "Failed to find workspace vulnerabilities",
@@ -373,46 +185,6 @@ export class SecurityChecker {
     }
     
     return vulnerablePackages;
-  }
-
-  private isVersionVulnerable(
-    currentVersion: string,
-    vulnerableRange: string
-  ): boolean {
-    try {
-      const cleanVersion = currentVersion.replace(/^[\^~]/, "");
-
-      if (vulnerableRange.includes(">=") && vulnerableRange.includes("<")) {
-        const [, minVersion] = vulnerableRange.match(/>= ?([^\s,]+)/) || [];
-        const [, maxVersion] = vulnerableRange.match(/< ?([^\s,]+)/) || [];
-
-        if (minVersion && maxVersion) {
-          return (
-            compareVersions(cleanVersion, minVersion) >= 0 &&
-            compareVersions(cleanVersion, maxVersion) < 0
-          );
-        }
-      }
-
-      if (vulnerableRange.startsWith("<")) {
-        const maxVersion = vulnerableRange.replace(/< ?/, "");
-        return compareVersions(cleanVersion, maxVersion) < 0;
-      }
-
-      if (vulnerableRange.startsWith("<=")) {
-        const maxVersion = vulnerableRange.replace(/<= ?/, "");
-        return compareVersions(cleanVersion, maxVersion) <= 0;
-      }
-
-      return false;
-    } catch (error) {
-      this.log.debug(
-        `Error comparing versions ${currentVersion} vs ${vulnerableRange}`,
-        "isVersionVulnerable",
-        { error }
-      );
-      return false;
-    }
   }
 
   private async checkOverrideUpdates(
@@ -479,13 +251,10 @@ export class SecurityChecker {
   }
 
   generatePackageOverrides(securityOverrides: SecurityOverride[]): OverridesType {
-    const overrides: OverridesType = {};
-
-    for (const override of securityOverrides) {
-      overrides[override.packageName] = override.toVersion;
-    }
-
-    return overrides;
+    return securityOverrides.reduce((overrides, override) => ({
+      ...overrides,
+      [override.packageName]: override.toVersion,
+    }), {} as OverridesType);
   }
 
   formatSecurityReport(
@@ -495,40 +264,47 @@ export class SecurityChecker {
     let report = "\nSecurity Check Report\n";
     report += "=".repeat(50) + "\n\n";
 
-    if (vulnerablePackages.length === 0) {
+    const hasNoVulnerablePackages = vulnerablePackages.length === 0;
+    if (hasNoVulnerablePackages) {
       report += "No vulnerable packages found\n";
       return report;
     }
 
     report += `Found ${vulnerablePackages.length} vulnerable package(s):\n\n`;
 
-    for (const pkg of vulnerablePackages) {
-      report += `[${pkg.severity.toUpperCase()}] ${pkg.packageName}@${pkg.currentVersion}\n`;
-      report += `   ${pkg.title}\n`;
+    const vulnerabilityReport = vulnerablePackages.map(pkg => {
+      let pkgReport = `[${pkg.severity.toUpperCase()}] ${pkg.packageName}@${pkg.currentVersion}\n`;
+      pkgReport += `   ${pkg.title}\n`;
 
-      if (pkg.cve) {
-        report += `   CVE: ${pkg.cve}\n`;
+      const hasCVE = Boolean(pkg.cve);
+      if (hasCVE) {
+        pkgReport += `   CVE: ${pkg.cve}\n`;
       }
 
-      if (pkg.fixAvailable && pkg.patchedVersion) {
-        report += `   Fix available: ${pkg.patchedVersion}\n`;
+      const hasFixAvailable = pkg.fixAvailable && pkg.patchedVersion;
+      if (hasFixAvailable) {
+        pkgReport += `   Fix available: ${pkg.patchedVersion}\n`;
       } else {
-        report += `   No fix available yet\n`;
+        pkgReport += `   No fix available yet\n`;
       }
 
-      if (pkg.url) {
-        report += `   ${pkg.url}\n`;
+      const hasUrl = Boolean(pkg.url);
+      if (hasUrl) {
+        pkgReport += `   ${pkg.url}\n`;
       }
 
-      report += "\n";
-    }
+      return pkgReport + "\n";
+    }).join("");
 
-    if (securityOverrides.length > 0) {
+    report += vulnerabilityReport;
+
+    const hasOverrides = securityOverrides.length > 0;
+    if (hasOverrides) {
       report += `\nGenerated ${securityOverrides.length} override(s):\n\n`;
-
-      for (const override of securityOverrides) {
-        report += `  "${override.packageName}": "${override.toVersion}"\n`;
-      }
+      const overridesReport = securityOverrides.map(override =>
+        `  "${override.packageName}": "${override.toVersion}"\n`
+      ).join("");
+      report += overridesReport;
     }
 
     return report;
@@ -580,12 +356,13 @@ export class SecurityChecker {
       console.log(`📝 Updated ${pkgPath} with ${Object.keys(newOverrides).length} security override(s)`);
       console.log(`💾 Backup saved to ${backupPath}`);
       
-      if (Object.keys(newOverrides).length > 0) {
+      const hasOverrides = Object.keys(newOverrides).length > 0;
+      if (hasOverrides) {
         console.log(`\n📋 Applied overrides:`);
-        for (const [pkg, version] of Object.entries(newOverrides)) {
+        Object.entries(newOverrides).forEach(([pkg, version]) => {
           const override = overrides.find(o => o.packageName === pkg);
           console.log(`   ${pkg}: ${version} (${override?.severity || "unknown"} severity)`);
-        }
+        });
       }
       
       console.log(`\n⚠️  Don't forget to run your package manager install command:`);
@@ -664,4 +441,4 @@ export class SecurityChecker {
 }
 
 export * from "./types";
-export { GitHubSecurityProvider };
+export * from "./providers";

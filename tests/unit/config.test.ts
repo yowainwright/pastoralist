@@ -11,7 +11,7 @@ import {
   SeverityThreshold,
 } from "../../src/config/index";
 import { loadConfig, loadExternalConfig, mergeConfigs } from "../../src/config/loader";
-import { updatePackageJSON, updateAppendix } from "../../src/scripts";
+import { updatePackageJSON, updateAppendix } from "../../src/api";
 import { PastoralistJSON, Appendix } from "../../src/interfaces";
 
 function describe(description: string, fn: () => void): void;

@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, mock, spyOn } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach, mock, spyOn } from "bun:test";
 import { initCommand } from "../../../src/init";
-import * as prompt from "../../../src/interactive/prompt";
-import * as scripts from "../../../src/scripts";
+import * as prompt from "../../../src/prompts/prompt";
+import * as scripts from "../../../src/api";
 import * as configLoader from "../../../src/config/loader";
 import { writeFileSync, existsSync, unlinkSync } from "fs";
 import { resolve } from "path";
@@ -17,6 +17,10 @@ describe("Init Command - Comprehensive Tests", () => {
       error: mock(() => {}),
     };
     loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  });
+
+  afterEach(() => {
+    loggerSpy?.mockRestore();
   });
 
   describe("Basic Initialization", () => {

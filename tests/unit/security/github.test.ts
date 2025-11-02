@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "bun:test";
-import { GitHubSecurityProvider } from "../../../src/security/github";
+import { GitHubSecurityProvider } from "../../../src/security/providers/github";
 import { DependabotAlert } from "../../../src/security/types";
 import {
   MOCK_DEPENDABOT_ALERT_LODASH,

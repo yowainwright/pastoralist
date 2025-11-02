@@ -3,7 +3,8 @@ process.env.PASTORALIST_MOCK_SECURITY = "true";
 
 import assert from "assert";
 import { SecurityChecker } from "../../src/security";
-import { GitHubSecurityProvider } from "../../src/security/github";
+import { GitHubSecurityProvider } from "../../src/security/providers/github";
+import { isVersionVulnerable } from "../../src/security/utils";
 import { PastoralistJSON } from "../../src/interfaces";
 import {
   DependabotAlert,
@@ -112,53 +113,47 @@ describe("SecurityChecker", () => {
 
   describe("Version Vulnerability Checking", () => {
     it("should correctly identify vulnerable versions with < operator", () => {
-      const checker = new SecurityChecker({ debug: false });
-      const isVulnerable = (checker as any).isVersionVulnerable(
+      const vulnerable = isVersionVulnerable(
         "4.17.20",
         "< 4.17.21"
       );
-      assert.strictEqual(isVulnerable, true);
+      assert.strictEqual(vulnerable, true);
     });
 
     it("should correctly identify non-vulnerable versions", () => {
-      const checker = new SecurityChecker({ debug: false });
-      const isVulnerable = (checker as any).isVersionVulnerable(
+      const vulnerable = isVersionVulnerable(
         "4.17.21",
         "< 4.17.21"
       );
-      assert.strictEqual(isVulnerable, false);
+      assert.strictEqual(vulnerable, false);
     });
 
     it("should handle version ranges with >= and <", () => {
-      const checker = new SecurityChecker({ debug: false });
-      
-      let isVulnerable = (checker as any).isVersionVulnerable(
+      let vulnerable = isVersionVulnerable(
         "4.17.15",
         ">= 4.17.0 < 4.17.21"
       );
-      assert.strictEqual(isVulnerable, true);
-      
-      isVulnerable = (checker as any).isVersionVulnerable(
+      assert.strictEqual(vulnerable, true);
+
+      vulnerable = isVersionVulnerable(
         "4.17.21",
         ">= 4.17.0 < 4.17.21"
       );
-      assert.strictEqual(isVulnerable, false);
+      assert.strictEqual(vulnerable, false);
     });
 
     it("should handle versions with semver prefixes", () => {
-      const checker = new SecurityChecker({ debug: false });
-      
-      let isVulnerable = (checker as any).isVersionVulnerable(
+      let vulnerable = isVersionVulnerable(
         "^4.17.20",
         "< 4.17.21"
       );
-      assert.strictEqual(isVulnerable, true);
-      
-      isVulnerable = (checker as any).isVersionVulnerable(
+      assert.strictEqual(vulnerable, true);
+
+      vulnerable = isVersionVulnerable(
         "~4.17.20",
         "< 4.17.21"
       );
-      assert.strictEqual(isVulnerable, true);
+      assert.strictEqual(vulnerable, true);
     });
   });
 

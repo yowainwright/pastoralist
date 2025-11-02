@@ -9,7 +9,7 @@ import {
   extractPackagesFromSimpleOverride,
   detectNewOverrides,
   filterEmptyReasons,
-} from "../../src/scripts";
+} from "../../src/prompts";
 import { Appendix } from "../../src/interfaces";
 
 function describe(description: string, fn: () => void): void {

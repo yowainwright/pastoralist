@@ -1,18 +1,38 @@
-import { describe, it, expect, beforeEach, afterEach, mock } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach, mock, beforeAll, afterAll } from "bun:test";
 import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync, rmSync } from "fs";
 import { resolve } from "path";
+import { tmpdir } from "os";
+import { jsonCache } from "../../src/packageJSON";
 
-const TEST_DIR = resolve(process.cwd(), "tmp-test-init-flows");
+const TEST_DIR = resolve(tmpdir(), "pastoralist-test-init-flows");
 
 describe("Init Integration Flows", () => {
+  beforeAll(() => {
+    // Ensure clean start
+    if (existsSync(TEST_DIR)) {
+      rmSync(TEST_DIR, { recursive: true, force: true });
+    }
+  });
+
   beforeEach(() => {
+    // Clean and recreate directory for each test
     if (existsSync(TEST_DIR)) {
       rmSync(TEST_DIR, { recursive: true, force: true });
     }
     mkdirSync(TEST_DIR, { recursive: true });
+    // Clear the JSON cache to avoid interference from other tests
+    jsonCache.clear();
   });
 
   afterEach(() => {
+    if (existsSync(TEST_DIR)) {
+      rmSync(TEST_DIR, { recursive: true, force: true });
+    }
+    // Clear the JSON cache after each test
+    jsonCache.clear();
+  });
+
+  afterAll(() => {
     if (existsSync(TEST_DIR)) {
       rmSync(TEST_DIR, { recursive: true, force: true });
     }

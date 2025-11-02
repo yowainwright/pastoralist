@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, mock, spyOn } from "bun:test";
-import { SnykCLIProvider } from "../../../src/security/snyk";
+import { SnykCLIProvider } from "../../../src/security/providers/snyk";
 import { execFile } from "child_process";
 import { promisify } from "util";
 

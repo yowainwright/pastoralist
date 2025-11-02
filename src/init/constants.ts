@@ -1,4 +1,4 @@
-import type { PromptChoice } from "../interactive/types";
+import type { PromptChoice } from "../prompts/types";
 
 export const CONFIG_LOCATION_CHOICES: PromptChoice[] = [
   { name: "In package.json (recommended for simple setups)", value: "package.json" },

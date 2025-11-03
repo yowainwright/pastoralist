@@ -322,7 +322,9 @@ export const update = async (options: Options): Promise<UpdateContext> => {
     async (ctx) => {
       if (!ctx.mode?.hasRootOverrides && ctx.mode?.mode === "root" && ctx.config) {
         ctx.log.debug("No overrides found", "update");
-        await writeResult(ctx.path, ctx.config, {}, {}, ctx.options?.dryRun || false);
+        if (!ctx.isTesting) {
+          await writeResult(ctx.path, ctx.config, {}, {}, ctx.options?.dryRun || false);
+        }
         return ctx;
       }
       return ctx;

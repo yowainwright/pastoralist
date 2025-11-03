@@ -1276,7 +1276,7 @@ describe("depPaths and ignore functionality", () => {
 
 describe("update function with depPaths support", () => {
   it("should throw error when depPaths finds no files", async () => {
-    const testPath = "test-update-depPaths.json";
+    const testPath = path.join(__dirname, "test-update-depPaths.json");
     const testConfig = {
       name: "test-project",
       version: "1.0.0",
@@ -1296,6 +1296,7 @@ describe("update function with depPaths support", () => {
           await update({
             path: testPath,
             depPaths: ["non-existent-dir/*/package.json"],
+            isTesting: true,
           });
         },
         /No package\.json files found matching patterns/

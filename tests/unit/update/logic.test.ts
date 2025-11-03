@@ -208,7 +208,7 @@ describe("update/logic", () => {
 
   describe("hasOverrides", () => {
     it("should return true when options has overrides", () => {
-      const options: Options = { overrides: { lodash: "4.17.21" } };
+      const options: Options = { securityOverrides: { lodash: "4.17.21" } };
       const config: PastoralistJSON = { name: "test" };
 
       const result = hasOverrides(options, config);

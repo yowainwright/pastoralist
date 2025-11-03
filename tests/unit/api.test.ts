@@ -1452,7 +1452,7 @@ describe("findUnusedOverrides", () => {
     assert.ok(Array.isArray(result));
   });
 
-  it("should keep simple overrides even when all dependencies are removed", async () => {
+  it("should identify simple overrides as unused when all dependencies are removed", async () => {
     const overrides = {
       "old-dep-1": "1.0.0",
       "old-dep-2": "2.0.0",
@@ -1460,17 +1460,17 @@ describe("findUnusedOverrides", () => {
     const allDependencies = {};
 
     const result = await findUnusedOverrides(overrides, allDependencies);
-    assert.deepStrictEqual(result, []);
+    assert.deepStrictEqual(result.sort(), ["old-dep-1", "old-dep-2"]);
   });
 
-  it("should keep simple overrides with empty dependencies object", async () => {
+  it("should identify simple overrides as unused with empty dependencies object", async () => {
     const overrides = {
       lodash: "4.17.21",
     };
     const allDependencies = {};
 
     const result = await findUnusedOverrides(overrides, allDependencies);
-    assert.deepStrictEqual(result, []);
+    assert.deepStrictEqual(result, ["lodash"]);
   });
 
   it("should handle mixed dependency types (dependencies, devDependencies, peerDependencies)", async () => {

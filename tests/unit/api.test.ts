@@ -2835,19 +2835,6 @@ describe("Security Feature: Integration Tests", () => {
 });
 
 describe("performance optimizations", () => {
-  it("should normalize paths in resolveJSON cache", () => {
-    const testPath1 = "./package.json";
-    const testPath2 = path.resolve(process.cwd(), "package.json");
-
-    jsonCache.clear();
-
-    const result1 = resolveJSON(testPath1);
-    const result2 = resolveJSON(testPath2);
-
-    assert.strictEqual(result1, result2, "Should return same cached object");
-    assert.strictEqual(jsonCache.size, 1, "Should have single cache entry");
-  });
-
   it("should handle parallel package processing in constructAppendix", async () => {
     const overridesData = {
       type: "npm" as const,

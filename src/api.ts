@@ -1,4 +1,5 @@
 export { update } from "./update";
+import type { Appendix } from "./interfaces";
 
 /**
  * @name findRemovableAppendixItems

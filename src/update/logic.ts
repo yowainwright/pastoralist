@@ -1,6 +1,6 @@
 import type { Options, PastoralistJSON, Appendix, OverridesType } from "../interfaces";
 import type { PastoralistConfig } from "../config";
-import type { ResolveOverrides } from "../overrides/interfaces";
+import type { ResolveOverrides } from "../interfaces";
 import type { ProcessingMode, MergedConfig } from "./types";
 
 export const determineProcessingMode = (
@@ -88,7 +88,7 @@ export const findRemovableOverrides = (
 export const hasOverrides = (options: Options | undefined, config: PastoralistJSON): boolean => {
   if (!options && !config) return false;
 
-  const optionsOverrides = options?.overrides;
+  const optionsOverrides = options?.securityOverrides;
   const configOverrides = config?.overrides;
   const configResolutions = config?.resolutions;
   const configPnpmOverrides = config?.pnpm?.overrides;

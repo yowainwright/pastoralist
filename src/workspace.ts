@@ -3,7 +3,6 @@ import type { Appendix, AppendixItem, OverridesType, ResolveOverrides, Options, 
 import type { ConsoleObject } from "./utils";
 import { logger } from "./utils";
 import { resolveJSON, getDependencyTree } from "./packageJSON";
-import { updateOverrides } from "./overrides";
 
 const log = logger({ file: "workspace.ts", isLogging: IS_DEBUGGING });
 
@@ -115,17 +114,6 @@ const mergeAppendixEntry = (
       ...newEntry.dependents,
     },
   };
-};
-
-const mergePathAppendix = (
-  currentAppendix: Appendix,
-  pathAppendix: Appendix
-): Appendix => {
-  return Object.entries(pathAppendix).reduce((merged, [key, value]) => {
-    const hasExisting = Boolean(merged[key]);
-    const mergedValue = hasExisting ? mergeAppendixEntry(merged[key], value) : value;
-    return { ...merged, [key]: mergedValue };
-  }, currentAppendix);
 };
 
 export const mergeOverridePaths = (

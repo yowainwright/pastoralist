@@ -1261,20 +1261,23 @@ describe("depPaths and ignore functionality", () => {
     assert.deepStrictEqual(result, filteredFiles);
   });
 
-  it("should return empty array when no depPaths provided", () => {
-    const result = findPackageJsonFiles([]);
-    assert.deepStrictEqual(result, []);
+  it("should throw error when no depPaths provided", () => {
+    assert.throws(
+      () => findPackageJsonFiles([]),
+      /No depPaths provided to findPackageJsonFiles/
+    );
   });
 
-  it("should handle errors gracefully", () => {
-    // Use a non-existent pattern that won't match our real workspace files
-    const result = findPackageJsonFiles(["non-existent-dir/*/package.json"]);
-    assert.deepStrictEqual(result, []);
+  it("should throw error when no files found", () => {
+    assert.throws(
+      () => findPackageJsonFiles(["non-existent-dir/*/package.json"]),
+      /No package\.json files found matching patterns/
+    );
   });
 });
 
 describe("update function with depPaths support", () => {
-  it("should process without creating appendix when depPaths finds no files", async () => {
+  it("should throw error when depPaths finds no files", async () => {
     const testPath = "test-update-depPaths.json";
     const testConfig = {
       name: "test-project",
@@ -1290,16 +1293,15 @@ describe("update function with depPaths support", () => {
     fs.writeFileSync(testPath, JSON.stringify(testConfig, null, 2));
 
     try {
-      await update({
-        path: testPath,
-        depPaths: ["non-existent-dir/*/package.json"],
-      });
-
-      const updatedContent = fs.readFileSync(testPath, "utf-8");
-      const updatedJson = JSON.parse(updatedContent);
-
-      assert.ok(!updatedJson.pastoralist?.appendix || Object.keys(updatedJson.pastoralist.appendix).length === 0, "Should have empty or no appendix when no files found");
-      assert.deepStrictEqual(updatedJson.overrides, testConfig.overrides, "Overrides should be preserved");
+      await assert.rejects(
+        async () => {
+          await update({
+            path: testPath,
+            depPaths: ["non-existent-dir/*/package.json"],
+          });
+        },
+        /No package\.json files found matching patterns/
+      );
     } finally {
       try {
         fs.unlinkSync(testPath);
@@ -1310,15 +1312,12 @@ describe("update function with depPaths support", () => {
 
 describe("patch detection and management", () => {
   it("should detect patches from common patterns", () => {
-    // Mock patch files
     const mockPatches = [
       "patches/lodash+4.17.21.patch",
       "patches/@types+react+18.0.0.patch",
       "patches/express.patch",
     ];
 
-    // Since we can't easily mock fast-glob in this test environment,
-    // we'll test the parsing logic directly
     const patchMap: Record<string, string[]> = {};
 
     mockPatches.forEach((patchFile) => {

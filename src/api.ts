@@ -29,6 +29,8 @@ export {
   resolveJSON,
   clearDependencyTreeCache,
   jsonCache,
+  getCacheStats,
+  forceClearCache,
 } from "./packageJSON";
 
 export {

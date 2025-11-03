@@ -12,6 +12,20 @@ const log = logger({ file: "packageJSON.ts", isLogging: IS_DEBUGGING });
 
 export const jsonCache = new Map<string, PastoralistJSON>();
 
+export const getCacheStats = () => {
+  return {
+    size: jsonCache.size,
+    keys: Array.from(jsonCache.keys()),
+  };
+};
+
+export const forceClearCache = () => {
+  const sizeBefore = jsonCache.size;
+  jsonCache.clear();
+  log.debug(`Cache cleared. Had ${sizeBefore} entries`, "forceClearCache");
+  return sizeBefore;
+};
+
 const lockFileExists = (filename: string): boolean => {
   const cwd = process.cwd();
   const filePath = resolve(cwd, filename);
@@ -267,6 +281,9 @@ export const updatePackageJSON = async ({
   }
 
   writeJsonFile(path, jsonString);
+
+  const normalizedPath = resolve(path);
+  jsonCache.delete(normalizedPath);
 };
 
 export const findPackageJsonFiles = (
@@ -278,13 +295,13 @@ export const findPackageJsonFiles = (
   const hasNoPaths = depPaths.length === 0;
 
   if (hasNoPaths) {
-    logInstance.debug("No depPaths provided", "findPackageJsonFiles");
-    return [];
+    logInstance.error("No depPaths provided", "findPackageJsonFiles");
+    throw new Error("No depPaths provided to findPackageJsonFiles");
   }
 
   try {
     logInstance.debug(
-      `Searching with patterns: ${depPaths.join(", ")}, ignoring: ${ignore.join(", ")}`,
+      `Searching with patterns: ${depPaths.join(", ")}, ignoring: ${ignore.join(", ")}, cwd: ${root}`,
       "findPackageJsonFiles"
     );
 
@@ -295,11 +312,19 @@ export const findPackageJsonFiles = (
       onlyFiles: true,
     });
 
+    const hasNoFiles = files.length === 0;
+
+    if (hasNoFiles) {
+      const errorMessage = `No package.json files found matching patterns: ${depPaths.join(", ")} in directory: ${root}`;
+      logInstance.error(errorMessage, "findPackageJsonFiles");
+      throw new Error(errorMessage);
+    }
+
     logInstance.debug(`Found ${files.length} files`, "findPackageJsonFiles");
     return files;
   } catch (err) {
     logInstance.error("Error finding package.json files", "findPackageJsonFiles", err);
-    return [];
+    throw err;
   }
 };
 

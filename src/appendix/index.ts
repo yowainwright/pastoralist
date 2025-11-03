@@ -33,8 +33,16 @@ const processSimpleOverride = (
   appendix: Appendix,
   packageReason: string | undefined,
   securityLedger: Record<string, any>,
-  cache: Map<string, AppendixItem>
+  cache: Map<string, AppendixItem>,
+  onlyUsedOverrides: boolean = false
 ): Appendix => {
+  const hasOverride = depList.includes(override);
+
+  // Skip if package doesn't use this override (only when onlyUsedOverrides is true)
+  if (onlyUsedOverrides && !hasOverride) {
+    return appendix;
+  }
+
   const key = `${override}@${overrideVersion}`;
   const isCached = cache.has(key);
 
@@ -43,7 +51,6 @@ const processSimpleOverride = (
   }
 
   const currentDependents = appendix?.[key]?.dependents || {};
-  const hasOverride = depList.includes(override);
   const packageVersion = deps[override];
 
   const dependentInfo = buildDependentInfo(hasOverride, override, packageVersion);
@@ -136,7 +143,8 @@ const processOverrideEntry = (
   securityOverrideDetails: SecurityOverrideDetail[] | undefined,
   securityProvider: "osv" | "github" | "snyk" | "npm" | "socket" | undefined,
   manualOverrideReasons: Record<string, string> | undefined,
-  cache: Map<string, AppendixItem>
+  cache: Map<string, AppendixItem>,
+  onlyUsedOverrides: boolean = false
 ): Appendix => {
   const overrideValue = overrides[override];
   const packageReason = mergeOverrideReasons(override, reason, securityOverrideDetails, manualOverrideReasons);
@@ -169,7 +177,8 @@ const processOverrideEntry = (
     appendix,
     packageReason,
     securityLedger,
-    cache
+    cache,
+    onlyUsedOverrides
   );
 };
 
@@ -185,6 +194,7 @@ export const updateAppendix = ({
   securityProvider,
   manualOverrideReasons,
   cache = new Map<string, AppendixItem>(),
+  onlyUsedOverrides = false,
 }: UpdateAppendixOptions & { cache?: Map<string, AppendixItem>; manualOverrideReasons?: Record<string, string> }): Appendix => {
   const overridesList = Object.keys(overrides);
   const deps = { ...dependencies, ...devDependencies, ...peerDependencies };
@@ -203,7 +213,8 @@ export const updateAppendix = ({
         securityOverrideDetails,
         securityProvider,
         manualOverrideReasons,
-        cache
+        cache,
+        onlyUsedOverrides
       ),
     appendix
   );
@@ -243,6 +254,7 @@ export const processPackageJSON = async (
     packageName: name,
     securityOverrideDetails: undefined,
     manualOverrideReasons: undefined,
+    onlyUsedOverrides: true,
   });
 
   const shouldWrite = shouldWriteAppendix(appendix, writeAppendixToFile);

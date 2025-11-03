@@ -317,10 +317,8 @@ describe("packageJSON", () => {
   });
 
   describe("findPackageJsonFiles", () => {
-    test("should return empty array when no depPaths provided", () => {
-      const result = findPackageJsonFiles([], [], "./");
-
-      expect(result).toEqual([]);
+    test("should throw error when no depPaths provided", () => {
+      expect(() => findPackageJsonFiles([], [], "./")).toThrow("No depPaths provided to findPackageJsonFiles");
     });
 
     test("should find files matching patterns", () => {
@@ -340,7 +338,7 @@ describe("packageJSON", () => {
     test("should pass ignore patterns to fast-glob", () => {
       // @ts-ignore
       const originalSync = fg.sync;
-      const mockFn = mock(() => []);
+      const mockFn = mock(() => ["some/package.json"]);
       // @ts-ignore
       fg.sync = mockFn;
 
@@ -359,7 +357,7 @@ describe("packageJSON", () => {
     test("should use provided root path", () => {
       // @ts-ignore
       const originalSync = fg.sync;
-      const mockFn = mock(() => []);
+      const mockFn = mock(() => ["custom/package.json"]);
       // @ts-ignore
       fg.sync = mockFn;
 
@@ -375,7 +373,7 @@ describe("packageJSON", () => {
       fg.sync = originalSync;
     });
 
-    test("should return empty array on error", () => {
+    test("should throw error on glob failure", () => {
       // @ts-ignore
       const originalSync = fg.sync;
       // @ts-ignore
@@ -383,9 +381,8 @@ describe("packageJSON", () => {
         throw new Error("Glob error");
       });
 
-      const result = findPackageJsonFiles(["**/package.json"], [], "./");
+      expect(() => findPackageJsonFiles(["**/package.json"], [], "./")).toThrow("Glob error");
 
-      expect(result).toEqual([]);
       // @ts-ignore
       fg.sync = originalSync;
     });

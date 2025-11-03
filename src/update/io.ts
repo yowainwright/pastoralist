@@ -8,7 +8,7 @@ export const loadAllConfig = async (
   path: string,
   root: string
 ): Promise<LoadedConfig> => {
-  const packageJson = await resolveJSON(path);
+  const packageJson = resolveJSON(path);
 
   let packageJsonConfig: PastoralistConfig | undefined;
 

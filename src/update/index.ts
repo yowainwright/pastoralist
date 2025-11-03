@@ -10,7 +10,7 @@ import { updateAppendix, constructAppendix } from "../appendix";
 import { detectNewOverrides, promptForOverrideReasons } from "../prompts";
 import { loadAllConfig, findPackageFiles, writeResult } from "./io";
 import { determineProcessingMode, resolveDepPaths } from "./logic";
-import type { ResolveOverrides } from "../overrides/interfaces";
+import type { ResolveOverrides } from "../interfaces";
 
 interface UpdateContext {
   options: Options;
@@ -19,7 +19,7 @@ interface UpdateContext {
   isTesting: boolean;
   log: ConsoleObject;
   config?: PastoralistJSON;
-  patchMap?: Record<string, string>;
+  patchMap?: Record<string, string[]>;
   overridesData?: ResolveOverrides;
   overrides?: OverridesType;
   hasRootOverrides?: boolean;
@@ -275,7 +275,7 @@ const stepWriteResult = async (ctx: UpdateContext): Promise<UpdateContext> => {
   }
 
   ctx.log.debug(`Writing results: appendix keys=${Object.keys(ctx.finalAppendix || {}).length}, override keys=${Object.keys(ctx.finalOverrides || {}).length}`, "stepWriteResult");
-  await writeResult(ctx.path, ctx.config, ctx.finalAppendix, ctx.finalOverrides, ctx.options?.dryRun || false);
+  await writeResult(ctx.path, ctx.config!, ctx.finalAppendix!, ctx.finalOverrides!, ctx.options?.dryRun || false);
 
   return ctx;
 };
@@ -291,7 +291,7 @@ const pipe = async <T>(
   return result;
 };
 
-export const update = async (options: Options): Promise<void> => {
+export const update = async (options: Options): Promise<UpdateContext> => {
   const path = options?.path || "package.json";
   const root = options?.root || "./";
   const isTesting = options?.isTesting || false;
@@ -335,4 +335,10 @@ export const update = async (options: Options): Promise<void> => {
     stepCleanupOverrides,
     stepWriteResult
   );
+
+  if (IS_DEBUGGING) {
+    ctx.log.debug("Update complete", "update");
+  }
+
+  return ctx;
 };

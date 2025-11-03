@@ -854,8 +854,7 @@ describe("constructAppendix", () => {
       },
     };
     
-    // Create a temporary copy of the fixture file
-    const tempFixturePath = "tests/fixtures/package-a-temp.json";
+    const tempFixturePath = path.join(__dirname, "package-a-temp.json");
     try {
       fs.writeFileSync(tempFixturePath, JSON.stringify(mockPackageJSON, null, 2));
       jsonCache.set(tempFixturePath, mockPackageJSON);
@@ -921,8 +920,7 @@ describe("constructAppendix", () => {
       },
     };
 
-    // Create a temporary copy of the fixture file
-    const tempFixturePath = "tests/fixtures/package-a-temp-2.json";
+    const tempFixturePath = path.join(__dirname, "package-a-temp-2.json");
     try {
       fs.writeFileSync(tempFixturePath, JSON.stringify(mockPackageJSON, null, 2));
       jsonCache.set(tempFixturePath, mockPackageJSON);
@@ -992,7 +990,7 @@ describe("constructAppendix", () => {
       },
     };
 
-    const tempFixturePath = "tests/fixtures/package-no-overrides.json";
+    const tempFixturePath = path.join(__dirname, "package-no-overrides.json");
     try {
       fs.writeFileSync(tempFixturePath, JSON.stringify(mockPackageJSON, null, 2));
       jsonCache.set(tempFixturePath, mockPackageJSON);
@@ -1044,7 +1042,7 @@ describe("constructAppendix", () => {
       },
     };
 
-    const tempWorkspaceFixture = "tests/fixtures/workspace-no-overrides.json";
+    const tempWorkspaceFixture = path.join(__dirname, "workspace-no-overrides.json");
     try {
       fs.writeFileSync(tempWorkspaceFixture, JSON.stringify(mockPackageWithoutOverrides, null, 2));
       jsonCache.set(tempWorkspaceFixture, mockPackageWithoutOverrides);

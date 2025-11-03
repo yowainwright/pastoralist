@@ -2,7 +2,7 @@ import { resolve } from "path";
 import { IS_DEBUGGING } from "../constants";
 import type { Options, Appendix, OverridesType, PastoralistJSON } from "../interfaces";
 import { logger, type ConsoleObject } from "../utils";
-import { clearDependencyTreeCache } from "../packageJSON";
+import { clearDependencyTreeCache, jsonCache } from "../packageJSON";
 import { processWorkspacePackages, mergeOverridePaths, cleanupUnusedOverrides, checkMonorepoOverrides } from "../workspace";
 import { attachPatchesToAppendix, detectPatches, findUnusedPatches } from "../patches";
 import { resolveOverrides, getOverridesByType, updateOverrides } from "../overrides";
@@ -243,6 +243,14 @@ const stepCleanupOverrides = async (ctx: UpdateContext): Promise<UpdateContext> 
     return { ...ctx, finalOverrides: defaultFinalOverrides, finalAppendix: defaultFinalAppendix };
   }
 
+  // Skip cleanup for workspace packages (mode === "root" with no depPaths)
+  // Workspace packages with explicit overrides should keep them
+  const isWorkspacePackage = ctx.mode?.mode === "root" && !ctx.mode?.depPaths;
+  if (isWorkspacePackage && ctx.config && !ctx.config.workspaces) {
+    ctx.log.debug("Skipping cleanup for workspace package", "stepCleanupOverrides");
+    return { ...ctx, finalOverrides: defaultFinalOverrides, finalAppendix: defaultFinalAppendix };
+  }
+
   const { finalOverrides, finalAppendix } = await cleanupUnusedOverrides(
     ctx.overrides,
     ctx.overridesData,
@@ -261,8 +269,12 @@ const stepWriteResult = async (ctx: UpdateContext): Promise<UpdateContext> => {
   if (ctx.isTesting) return ctx;
 
   const hasNoData = !ctx.config || ctx.finalAppendix === undefined || ctx.finalOverrides === undefined;
-  if (hasNoData) return ctx;
+  if (hasNoData) {
+    ctx.log.debug(`Skipping write: config=${!!ctx.config}, appendix=${ctx.finalAppendix !== undefined}, overrides=${ctx.finalOverrides !== undefined}`, "stepWriteResult");
+    return ctx;
+  }
 
+  ctx.log.debug(`Writing results: appendix keys=${Object.keys(ctx.finalAppendix || {}).length}, override keys=${Object.keys(ctx.finalOverrides || {}).length}`, "stepWriteResult");
   await writeResult(ctx.path, ctx.config, ctx.finalAppendix, ctx.finalOverrides, ctx.options?.dryRun || false);
 
   return ctx;
@@ -287,6 +299,7 @@ export const update = async (options: Options): Promise<void> => {
   const log = logger({ file: "update", isLogging });
 
   clearDependencyTreeCache();
+  jsonCache.clear();
 
   const initialContext: UpdateContext = {
     options,

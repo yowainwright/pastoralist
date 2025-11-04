@@ -133,21 +133,21 @@ describe("action", () => {
   });
 
   it("should handle isTestingCLI flag", async () => {
-    await action({ isTestingCLI: true, debug: true });
+    await action({ isTesting: true, isTestingCLI: true, debug: true });
     expect(mockLog.debug).toHaveBeenCalled();
   });
 
   it("should call initCommand when init flag is set", async () => {
     const initCommandSpy = spyOn(initModule, "initCommand").mockResolvedValue();
 
-    await action({ init: true, path: "package.json" });
+    await action({ isTesting: true,  init: true, path: "package.json" });
     expect(initCommandSpy).toHaveBeenCalled();
   });
 
   it("should pass security options to initCommand", async () => {
     const initCommandSpy = spyOn(initModule, "initCommand").mockResolvedValue();
 
-    await action({
+    await action({ isTesting: true, 
       init: true,
       checkSecurity: true,
       securityProvider: "github",
@@ -178,7 +178,7 @@ describe("action", () => {
     const resolveJSONSpy = spyOn(packageJSON, "resolveJSON").mockReturnValue(mockConfig);
     const updateSpy = spyOn(api, "update").mockResolvedValue();
 
-    await action({ path: "package.json" });
+    await action({ isTesting: true,  path: "package.json" });
 
     expect(updateSpy).toHaveBeenCalled();
   });
@@ -197,7 +197,7 @@ describe("action", () => {
       overrides: [],
     });
 
-    await action({ checkSecurity: true });
+    await action({ isTesting: true,  checkSecurity: true });
 
     expect(mockCheckSecurity).toHaveBeenCalled();
   });
@@ -243,7 +243,7 @@ describe("action", () => {
     });
     const updateSpy = spyOn(api, "update").mockResolvedValue();
 
-    await action({ checkSecurity: true });
+    await action({ isTesting: true,  checkSecurity: true });
 
     expect(mockFormatReport).toHaveBeenCalledWith(mockAlerts, mockOverrides);
   });
@@ -261,7 +261,7 @@ describe("action", () => {
     });
     const updateSpy = spyOn(api, "update").mockResolvedValue();
 
-    await action({ checkSecurity: true });
+    await action({ isTesting: true,  checkSecurity: true });
 
     expect(mockCheckSecurity).toHaveBeenCalled();
   });
@@ -279,7 +279,7 @@ describe("action", () => {
     });
     const updateSpy = spyOn(api, "update").mockResolvedValue();
 
-    await action({ checkSecurity: true, securityProvider: "github" });
+    await action({ isTesting: true,  checkSecurity: true, securityProvider: "github" });
 
     expect(mockCheckSecurity).toHaveBeenCalled();
   });
@@ -297,7 +297,7 @@ describe("action", () => {
     });
     const updateSpy = spyOn(api, "update").mockResolvedValue();
 
-    await action({
+    await action({ isTesting: true, 
       checkSecurity: true,
       securityProvider: "snyk",
       securityProviderToken: "test-token",
@@ -319,7 +319,7 @@ describe("action", () => {
     });
     const updateSpy = spyOn(api, "update").mockResolvedValue();
 
-    await action({ checkSecurity: true, interactive: true });
+    await action({ isTesting: true,  checkSecurity: true, interactive: true });
 
     expect(mockCheckSecurity).toHaveBeenCalled();
   });
@@ -365,7 +365,7 @@ describe("action", () => {
     });
     const updateSpy = spyOn(api, "update").mockResolvedValue();
 
-    await action({ checkSecurity: true, forceSecurityRefactor: true });
+    await action({ isTesting: true,  checkSecurity: true, forceSecurityRefactor: true });
 
     expect(mockGenerateOverrides).toHaveBeenCalled();
   });
@@ -378,7 +378,7 @@ describe("action", () => {
     const resolveJSONSpy = spyOn(packageJSON, "resolveJSON").mockReturnValue(mockConfig);
     const updateSpy = spyOn(api, "update").mockResolvedValue();
 
-    await action({});
+    await action({ isTesting: true, });
 
     expect(updateSpy).toHaveBeenCalled();
   });
@@ -389,7 +389,7 @@ describe("action", () => {
       throw new Error("Test error");
     });
 
-    await action({});
+    await action({ isTesting: true, });
 
     expect(mockLog.error).toHaveBeenCalled();
     expect(mockExit).toHaveBeenCalledWith(1);
@@ -403,7 +403,7 @@ describe("action", () => {
     const resolveJSONSpy = spyOn(packageJSON, "resolveJSON").mockReturnValue(mockConfig);
     const updateSpy = spyOn(api, "update").mockResolvedValue();
 
-    await action({ path: "custom/package.json" });
+    await action({ isTesting: true,  path: "custom/package.json" });
 
     expect(resolveJSONSpy).toHaveBeenCalledWith("custom/package.json");
   });
@@ -416,7 +416,7 @@ describe("action", () => {
     const resolveJSONSpy = spyOn(packageJSON, "resolveJSON").mockReturnValue(mockConfig);
     const updateSpy = spyOn(api, "update").mockResolvedValue();
 
-    await action({ root: "/custom/root" });
+    await action({ isTesting: true,  root: "/custom/root" });
 
     expect(updateSpy).toHaveBeenCalled();
   });
@@ -444,7 +444,7 @@ describe("action", () => {
     });
     const updateSpy = spyOn(api, "update").mockResolvedValue();
 
-    await action({});
+    await action({ isTesting: true, });
 
     expect(mockCheckSecurity).toHaveBeenCalled();
   });
@@ -468,7 +468,7 @@ describe("action", () => {
     });
     const updateSpy = spyOn(api, "update").mockResolvedValue();
 
-    await action({ checkSecurity: true, securityProvider: "github" });
+    await action({ isTesting: true,  checkSecurity: true, securityProvider: "github" });
 
     expect(mockCheckSecurity).toHaveBeenCalled();
   });
@@ -490,7 +490,7 @@ describe("action", () => {
     });
     const updateSpy = spyOn(api, "update").mockResolvedValue();
 
-    await action({ checkSecurity: true });
+    await action({ isTesting: true,  checkSecurity: true });
 
     expect(mockCheckSecurity).toHaveBeenCalledWith(
       expect.any(Object),
@@ -508,7 +508,7 @@ describe("action", () => {
     const resolveJSONSpy = spyOn(packageJSON, "resolveJSON").mockReturnValue(mockConfig);
     const updateSpy = spyOn(api, "update").mockResolvedValue();
 
-    await action({ debug: true });
+    await action({ isTesting: true,  debug: true });
 
     expect(updateSpy).toHaveBeenCalled();
   });
@@ -526,7 +526,7 @@ describe("action", () => {
     });
     const updateSpy = spyOn(api, "update").mockResolvedValue();
 
-    await action({ checkSecurity: true, securityProvider: ["osv", "github"] });
+    await action({ isTesting: true,  checkSecurity: true, securityProvider: ["osv", "github"] });
 
     expect(mockCheckSecurity).toHaveBeenCalled();
   });

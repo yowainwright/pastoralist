@@ -24,10 +24,13 @@ function saveConfiguration(
   config: PastoralistConfig,
   packageJson: PastoralistJSON,
   path: string,
-  log: ReturnType<typeof createLogger>
+  log: ReturnType<typeof createLogger>,
+  isTesting: boolean = false
 ): void {
   const updated = { ...packageJson, pastoralist: config };
-  writeFileSync(path, JSON.stringify(updated, null, 2) + "\n");
+  if (!isTesting) {
+    writeFileSync(path, JSON.stringify(updated, null, 2) + "\n");
+  }
   log.info(`\n${INTERACTIVE_MESSAGES.configSaved}`, "saveConfiguration");
 }
 
@@ -178,6 +181,7 @@ export async function interactiveConfigReview(options: InteractiveConfigOptions 
 
   const path = options.path || "package.json";
   const root = options.root || process.cwd();
+  const isTesting = options.isTesting || false;
 
   await createPrompt(async (prompt: Prompt) => {
     const packageJson = await resolveJSON(path);
@@ -193,7 +197,7 @@ export async function interactiveConfigReview(options: InteractiveConfigOptions 
     if (finalState.hasChanges) {
       const shouldSave = await prompt.confirm("Save changes to package.json?", true);
       if (shouldSave) {
-        saveConfiguration(finalState.config, finalState.packageJson, path, log);
+        saveConfiguration(finalState.config, finalState.packageJson, path, log, isTesting);
       }
       return;
     }

@@ -36,6 +36,7 @@ export type WorkspaceType = "standard" | "packages-only" | "apps-only" | "custom
 export interface InteractiveConfigOptions {
   path?: string;
   root?: string;
+  isTesting?: boolean;
 }
 
 export interface WorkspaceConfigUpdate {

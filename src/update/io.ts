@@ -32,18 +32,22 @@ export const findPackageFiles = (
   return findPackageJsonFiles(patterns, ignore, root, log);
 };
 
-export const writeResult = async (
-  path: string,
-  config: PastoralistJSON,
-  appendix: Appendix,
-  overrides: OverridesType,
-  dryRun: boolean
-): Promise<void> => {
-  await updatePackageJSON({
-    appendix,
-    path,
-    config,
-    overrides,
-    dryRun,
+interface WriteResultContext {
+  path: string;
+  config: PastoralistJSON;
+  finalAppendix: Appendix;
+  finalOverrides: OverridesType;
+  options: { dryRun?: boolean };
+  isTesting: boolean;
+}
+
+export const writeResult = (ctx: WriteResultContext): void => {
+  updatePackageJSON({
+    appendix: ctx.finalAppendix,
+    path: ctx.path,
+    config: ctx.config,
+    overrides: ctx.finalOverrides,
+    dryRun: ctx.options?.dryRun || false,
+    isTesting: ctx.isTesting,
   });
 };

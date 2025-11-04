@@ -250,14 +250,14 @@ const writeJsonFile = (path: string, content: string): void => {
   fs.writeFileSync(jsonPath, content);
 };
 
-export const updatePackageJSON = async ({
+export const updatePackageJSON = ({
   appendix,
   path,
   config,
   overrides,
   isTesting = false,
   dryRun = false,
-}: UpdatePackageJSONOptions): Promise<PastoralistJSON | void> => {
+}: UpdatePackageJSONOptions): PastoralistJSON | void => {
   const hasOverridesData = overrides && Object.keys(overrides).length > 0;
   const hasAppendixData = appendix && Object.keys(appendix).length > 0;
   const hasAnyData = hasOverridesData || hasAppendixData;

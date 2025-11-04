@@ -275,7 +275,14 @@ const stepWriteResult = async (ctx: UpdateContext): Promise<UpdateContext> => {
   }
 
   ctx.log.debug(`Writing results: appendix keys=${Object.keys(ctx.finalAppendix || {}).length}, override keys=${Object.keys(ctx.finalOverrides || {}).length}`, "stepWriteResult");
-  await writeResult(ctx.path, ctx.config!, ctx.finalAppendix!, ctx.finalOverrides!, ctx.options?.dryRun || false);
+  writeResult({
+    path: ctx.path,
+    config: ctx.config!,
+    finalAppendix: ctx.finalAppendix!,
+    finalOverrides: ctx.finalOverrides!,
+    options: ctx.options,
+    isTesting: ctx.isTesting,
+  });
 
   return ctx;
 };
@@ -323,7 +330,14 @@ export const update = async (options: Options): Promise<UpdateContext> => {
       if (!ctx.mode?.hasRootOverrides && ctx.mode?.mode === "root" && ctx.config) {
         ctx.log.debug("No overrides found", "update");
         if (!ctx.isTesting) {
-          await writeResult(ctx.path, ctx.config, {}, {}, ctx.options?.dryRun || false);
+          writeResult({
+            path: ctx.path,
+            config: ctx.config,
+            finalAppendix: {},
+            finalOverrides: {},
+            options: ctx.options,
+            isTesting: ctx.isTesting,
+          });
         }
         return ctx;
       }

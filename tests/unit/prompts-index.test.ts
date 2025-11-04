@@ -26,7 +26,7 @@ describe("Interactive Config Review", () => {
         return callback(mockPrompt);
       });
 
-      await interactiveConfigReview({ path: "package.json", root: process.cwd() });
+      await interactiveConfigReview({ path: "package.json", root: process.cwd(), isTesting: true });
 
       expect(createPromptSpy).toHaveBeenCalled();
     });
@@ -49,7 +49,7 @@ describe("Interactive Config Review", () => {
         return callback(mockPrompt);
       });
 
-      await interactiveConfigReview({ path: "package.json", root: process.cwd() });
+      await interactiveConfigReview({ path: "package.json", root: process.cwd(), isTesting: true });
 
       expect(createPromptSpy).toHaveBeenCalled();
     });
@@ -72,7 +72,7 @@ describe("Interactive Config Review", () => {
         return callback(mockPrompt);
       });
 
-      await interactiveConfigReview({ path: "package.json", root: process.cwd() });
+      await interactiveConfigReview({ path: "package.json", root: process.cwd(), isTesting: true });
 
       expect(createPromptSpy).toHaveBeenCalled();
     });
@@ -95,7 +95,7 @@ describe("Interactive Config Review", () => {
         return callback(mockPrompt);
       });
 
-      await interactiveConfigReview({ path: "package.json", root: process.cwd() });
+      await interactiveConfigReview({ path: "package.json", root: process.cwd(), isTesting: true });
 
       expect(createPromptSpy).toHaveBeenCalled();
     });
@@ -118,7 +118,7 @@ describe("Interactive Config Review", () => {
         return callback(mockPrompt);
       });
 
-      await interactiveConfigReview({ path: "package.json", root: process.cwd() });
+      await interactiveConfigReview({ path: "package.json", root: process.cwd(), isTesting: true });
 
       expect(createPromptSpy).toHaveBeenCalled();
     });
@@ -140,7 +140,7 @@ describe("Interactive Config Review", () => {
         return callback(mockPrompt);
       });
 
-      await interactiveConfigReview({ path: "package.json", root: process.cwd() });
+      await interactiveConfigReview({ path: "package.json", root: process.cwd(), isTesting: true });
 
       expect(createPromptSpy).toHaveBeenCalled();
     });

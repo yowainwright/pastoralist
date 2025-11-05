@@ -9,7 +9,6 @@
     "commander": "^14.0.0",
     "fast-glob": "^3.3.3",
     "inquirer": "^12.10.0",
-    "lodash": "^4.17.20",
     "zod": "^4.1.12"
   },
   "overrides": {

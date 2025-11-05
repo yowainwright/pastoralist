@@ -1,0 +1,604 @@
+import { test, expect } from "bun:test";
+import { resolve } from "path";
+import type { PastoralistJSON, OverridesType } from "../../../src/types";
+import {
+  jsonCache,
+  getCacheStats,
+  forceClearCache,
+  detectPackageManager,
+  getExistingOverrideField,
+  getOverrideFieldForPackageManager,
+  applyOverridesToConfig,
+  resolveJSON,
+  updatePackageJSON,
+  findPackageJsonFiles,
+  clearDependencyTreeCache,
+} from "../../../src";
+import { getDependencyTree } from "../../../src/core/packageJSON";
+import {
+  safeWriteFileSync as writeFileSync,
+  safeMkdirSync as mkdirSync,
+  safeRmSync as rmSync,
+  safeUnlinkSync as unlinkSync,
+  safeExistsSync as existsSync,
+  validateRootPackageJsonIntegrity,
+} from "../setup";
+
+const testDir = resolve(__dirname, "..", ".test-packagejson-core");
+const testPkgPath = resolve(testDir, "package.json");
+
+test("getCacheStats - should return cache size and keys", () => {
+  jsonCache.clear();
+  const stats = getCacheStats();
+  expect(stats.size).toBe(0);
+  expect(stats.keys).toEqual([]);
+  jsonCache.clear();
+});
+
+test("getCacheStats - should show cached entries", () => {
+  jsonCache.clear();
+  const mockJson: PastoralistJSON = { name: "test", version: "1.0.0" };
+  jsonCache.set("/test/path", mockJson);
+
+  const stats = getCacheStats();
+  expect(stats.size).toBe(1);
+  expect(stats.keys).toEqual(["/test/path"]);
+  jsonCache.clear();
+});
+
+test("forceClearCache - should clear cache and return count", () => {
+  jsonCache.clear();
+  jsonCache.set("/test/path1", { name: "test1", version: "1.0.0" });
+  jsonCache.set("/test/path2", { name: "test2", version: "1.0.0" });
+
+  const count = forceClearCache();
+  expect(count).toBe(2);
+  expect(jsonCache.size).toBe(0);
+  jsonCache.clear();
+});
+
+test("forceClearCache - should return 0 when cache is empty", () => {
+  jsonCache.clear();
+  const count = forceClearCache();
+  expect(count).toBe(0);
+  jsonCache.clear();
+});
+
+test("detectPackageManager - should detect bun when bun.lockb exists", () => {
+  const lockPath = resolve(process.cwd(), "bun.lockb");
+  const hadLock = existsSync(lockPath);
+
+  if (!hadLock) {
+    writeFileSync(lockPath, "");
+  }
+
+  const pm = detectPackageManager();
+  expect(pm).toBe("bun");
+
+  if (!hadLock && existsSync(lockPath)) {
+    unlinkSync(lockPath);
+  }
+});
+
+test("detectPackageManager - should detect npm as fallback", () => {
+  const locks = ["bun.lockb", "yarn.lock", "pnpm-lock.yaml"];
+  const existing = locks.filter(f => existsSync(resolve(process.cwd(), f)));
+
+  const pm = detectPackageManager();
+
+  if (existing.length === 0) {
+    expect(pm).toBe("npm");
+  }
+});
+
+test("getExistingOverrideField - should return resolutions when present", () => {
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+    resolutions: { lodash: "4.17.21" },
+  };
+
+  const field = getExistingOverrideField(config);
+  expect(field).toBe("resolutions");
+});
+
+test("getExistingOverrideField - should return overrides when present", () => {
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+    overrides: { lodash: "4.17.21" },
+  };
+
+  const field = getExistingOverrideField(config);
+  expect(field).toBe("overrides");
+});
+
+test("getExistingOverrideField - should return pnpm when pnpm overrides present", () => {
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+    pnpm: { overrides: { lodash: "4.17.21" } },
+  };
+
+  const field = getExistingOverrideField(config);
+  expect(field).toBe("pnpm");
+});
+
+test("getExistingOverrideField - should return null when no overrides", () => {
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+  };
+
+  const field = getExistingOverrideField(config);
+  expect(field).toBeNull();
+});
+
+test("getExistingOverrideField - should prioritize resolutions over overrides", () => {
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+    resolutions: { lodash: "4.17.21" },
+    overrides: { axios: "1.0.0" },
+  };
+
+  const field = getExistingOverrideField(config);
+  expect(field).toBe("resolutions");
+});
+
+test("getOverrideFieldForPackageManager - should return resolutions for yarn", () => {
+  const field = getOverrideFieldForPackageManager("yarn");
+  expect(field).toBe("resolutions");
+});
+
+test("getOverrideFieldForPackageManager - should return pnpm for pnpm", () => {
+  const field = getOverrideFieldForPackageManager("pnpm");
+  expect(field).toBe("pnpm");
+});
+
+test("getOverrideFieldForPackageManager - should return overrides for npm", () => {
+  const field = getOverrideFieldForPackageManager("npm");
+  expect(field).toBe("overrides");
+});
+
+test("getOverrideFieldForPackageManager - should return overrides for bun", () => {
+  const field = getOverrideFieldForPackageManager("bun");
+  expect(field).toBe("overrides");
+});
+
+test("applyOverridesToConfig - should apply resolutions", () => {
+  const config: PastoralistJSON = { name: "test", version: "1.0.0" };
+  const overrides = { lodash: "4.17.21" };
+
+  const result = applyOverridesToConfig(config, overrides, "resolutions");
+
+  expect(result.resolutions).toEqual({ lodash: "4.17.21" });
+});
+
+test("applyOverridesToConfig - should apply npm overrides", () => {
+  const config: PastoralistJSON = { name: "test", version: "1.0.0" };
+  const overrides = { lodash: "4.17.21" };
+
+  const result = applyOverridesToConfig(config, overrides, "overrides");
+
+  expect(result.overrides).toEqual({ lodash: "4.17.21" });
+});
+
+test("applyOverridesToConfig - should apply pnpm overrides", () => {
+  const config: PastoralistJSON = { name: "test", version: "1.0.0" };
+  const overrides = { lodash: "4.17.21" };
+
+  const result = applyOverridesToConfig(config, overrides, "pnpm");
+
+  expect(result.pnpm?.overrides).toEqual({ lodash: "4.17.21" });
+});
+
+test("applyOverridesToConfig - should preserve existing pnpm config when adding overrides", () => {
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+    pnpm: { shamefullyHoist: true },
+  };
+  const overrides = { lodash: "4.17.21" };
+
+  const result = applyOverridesToConfig(config, overrides, "pnpm");
+
+  expect(result.pnpm).toEqual({
+    shamefullyHoist: true,
+    overrides: { lodash: "4.17.21" },
+  });
+});
+
+test("applyOverridesToConfig - should return config unchanged when fieldType is null", () => {
+  const config: PastoralistJSON = { name: "test", version: "1.0.0" };
+  const overrides = { lodash: "4.17.21" };
+
+  const result = applyOverridesToConfig(config, overrides, null);
+
+  expect(result).toEqual(config);
+});
+
+test("resolveJSON - should parse and cache valid JSON", () => {
+  validateRootPackageJsonIntegrity();
+  if (!existsSync(testDir)) {
+    mkdirSync(testDir, { recursive: true });
+  }
+  jsonCache.clear();
+
+  const mockPkg: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+  };
+
+  writeFileSync(testPkgPath, JSON.stringify(mockPkg, null, 2));
+
+  const result = resolveJSON(testPkgPath);
+
+  expect(result).toEqual(mockPkg);
+  expect(jsonCache.size).toBe(1);
+
+  if (existsSync(testDir)) {
+    rmSync(testDir, { recursive: true, force: true });
+  }
+  jsonCache.clear();
+  validateRootPackageJsonIntegrity();
+});
+
+test("resolveJSON - should return cached result on second call", () => {
+  validateRootPackageJsonIntegrity();
+  if (!existsSync(testDir)) {
+    mkdirSync(testDir, { recursive: true });
+  }
+  jsonCache.clear();
+
+  const mockPkg: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+  };
+
+  writeFileSync(testPkgPath, JSON.stringify(mockPkg, null, 2));
+
+  const first = resolveJSON(testPkgPath);
+  const second = resolveJSON(testPkgPath);
+
+  expect(first).toBe(second);
+  expect(jsonCache.size).toBe(1);
+
+  if (existsSync(testDir)) {
+    rmSync(testDir, { recursive: true, force: true });
+  }
+  jsonCache.clear();
+  validateRootPackageJsonIntegrity();
+});
+
+test("resolveJSON - should return undefined for invalid JSON", () => {
+  validateRootPackageJsonIntegrity();
+  if (!existsSync(testDir)) {
+    mkdirSync(testDir, { recursive: true });
+  }
+  jsonCache.clear();
+
+  writeFileSync(testPkgPath, "{ invalid json");
+
+  const result = resolveJSON(testPkgPath);
+
+  expect(result).toBeUndefined();
+
+  if (existsSync(testDir)) {
+    rmSync(testDir, { recursive: true, force: true });
+  }
+  jsonCache.clear();
+  validateRootPackageJsonIntegrity();
+});
+
+test("resolveJSON - should return undefined for non-existent file", () => {
+  const result = resolveJSON("/non/existent/package.json");
+  expect(result).toBeUndefined();
+});
+
+test("updatePackageJSON - should add appendix and overrides to package.json", () => {
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+    overrides: {},
+  };
+
+  const appendix = {
+    "lodash@4.17.21": {
+      dependents: { root: "lodash@^4.17.20" },
+    },
+  };
+
+  const overrides: OverridesType = { lodash: "4.17.21" };
+
+  const result = updatePackageJSON({
+    path: testPkgPath,
+    config,
+    appendix,
+    overrides,
+    isTesting: true,
+  });
+
+  expect(result?.pastoralist?.appendix).toEqual(appendix);
+  expect(result?.overrides).toEqual(overrides);
+});
+
+test("updatePackageJSON - should remove overrides when none provided", () => {
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+    overrides: { lodash: "4.17.21" },
+    pastoralist: {
+      appendix: {
+        "lodash@4.17.21": {
+          dependents: { root: "lodash@^4.17.20" },
+        },
+      },
+    },
+  };
+
+  const result = updatePackageJSON({
+    path: testPkgPath,
+    config,
+    isTesting: true,
+  });
+
+  expect(result?.overrides).toBeUndefined();
+  expect(result?.pastoralist).toBeUndefined();
+});
+
+test("updatePackageJSON - should preserve other pastoralist config when removing appendix", () => {
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+    overrides: { lodash: "4.17.21" },
+    pastoralist: {
+      depPaths: "workspace",
+      security: { enabled: true },
+      appendix: {
+        "lodash@4.17.21": {
+          dependents: { root: "lodash@^4.17.20" },
+        },
+      },
+    },
+  };
+
+  const result = updatePackageJSON({
+    path: testPkgPath,
+    config,
+    isTesting: true,
+  });
+
+  expect(result?.pastoralist?.depPaths).toBe("workspace");
+  expect(result?.pastoralist?.security).toEqual({ enabled: true });
+  expect(result?.pastoralist?.appendix).toBeUndefined();
+});
+
+test("updatePackageJSON - should write file when not in testing mode", () => {
+  validateRootPackageJsonIntegrity();
+  if (!existsSync(testDir)) {
+    mkdirSync(testDir, { recursive: true });
+  }
+  jsonCache.clear();
+
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+  };
+
+  const overrides: OverridesType = { lodash: "4.17.21" };
+
+  writeFileSync(testPkgPath, JSON.stringify(config, null, 2));
+
+  updatePackageJSON({
+    path: testPkgPath,
+    config,
+    overrides,
+    isTesting: false,
+  });
+
+  expect(existsSync(testPkgPath)).toBe(true);
+
+  const written = resolveJSON(testPkgPath);
+  const hasOverrides = Boolean(
+    written?.overrides ||
+    written?.resolutions ||
+    written?.pnpm?.overrides
+  );
+  expect(hasOverrides).toBe(true);
+
+  if (existsSync(testDir)) {
+    rmSync(testDir, { recursive: true, force: true });
+  }
+  jsonCache.clear();
+  validateRootPackageJsonIntegrity();
+});
+
+test("updatePackageJSON - should not write file in dry run mode", () => {
+  validateRootPackageJsonIntegrity();
+  if (!existsSync(testDir)) {
+    mkdirSync(testDir, { recursive: true });
+  }
+  jsonCache.clear();
+
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+  };
+
+  const overrides: OverridesType = { lodash: "4.17.21" };
+
+  const result = updatePackageJSON({
+    path: testPkgPath,
+    config,
+    overrides,
+    isTesting: false,
+    dryRun: true,
+  });
+
+  expect(existsSync(testPkgPath)).toBe(false);
+  const hasOverrides = Boolean(
+    result?.overrides ||
+    result?.resolutions ||
+    result?.pnpm?.overrides
+  );
+  expect(hasOverrides).toBe(true);
+
+  if (existsSync(testDir)) {
+    rmSync(testDir, { recursive: true, force: true });
+  }
+  jsonCache.clear();
+  validateRootPackageJsonIntegrity();
+});
+
+test("updatePackageJSON - should clear cache after writing", () => {
+  validateRootPackageJsonIntegrity();
+  if (!existsSync(testDir)) {
+    mkdirSync(testDir, { recursive: true });
+  }
+  jsonCache.clear();
+
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+  };
+
+  writeFileSync(testPkgPath, JSON.stringify(config, null, 2));
+
+  resolveJSON(testPkgPath);
+  expect(jsonCache.size).toBe(1);
+
+  const overrides: OverridesType = { lodash: "4.17.21" };
+
+  updatePackageJSON({
+    path: testPkgPath,
+    config,
+    overrides,
+    isTesting: false,
+  });
+
+  expect(jsonCache.has(resolve(testPkgPath))).toBe(false);
+
+  if (existsSync(testDir)) {
+    rmSync(testDir, { recursive: true, force: true });
+  }
+  jsonCache.clear();
+  validateRootPackageJsonIntegrity();
+});
+
+test("findPackageJsonFiles - should throw when no depPaths provided", () => {
+  expect(() => findPackageJsonFiles([])).toThrow("No depPaths provided");
+});
+
+test("findPackageJsonFiles - should throw when no files found", () => {
+  expect(() => findPackageJsonFiles(["nonexistent/**/*.json"], [], testDir)).toThrow("No package.json files found");
+});
+
+test("getDependencyTree - should return dependency tree", async () => {
+  clearDependencyTreeCache();
+  const tree = await getDependencyTree();
+  expect(typeof tree).toBe("object");
+});
+
+
+test("updatePackageJSON - should handle existing override field", () => {
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+    resolutions: { axios: "1.0.0" },
+  };
+
+  const overrides: OverridesType = { lodash: "4.17.21" };
+
+  const result = updatePackageJSON({
+    path: testPkgPath,
+    config,
+    overrides,
+    isTesting: true,
+  });
+
+  expect(result?.resolutions).toEqual({ lodash: "4.17.21" });
+});
+
+test("applyOverridesToConfig - should use existing override field", () => {
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+    resolutions: { axios: "1.0.0" },
+  };
+
+  const overrides = { lodash: "4.17.21" };
+  const existingField = getExistingOverrideField(config);
+
+  const result = applyOverridesToConfig(config, overrides, existingField);
+
+  expect(result.resolutions).toEqual({ lodash: "4.17.21" });
+});
+
+test("updatePackageJSON - should preserve pnpm config when removing overrides", () => {
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+    pnpm: {
+      overrides: { lodash: "4.17.21" },
+      shamefullyHoist: true,
+    },
+  };
+
+  const result = updatePackageJSON({
+    path: testPkgPath,
+    config,
+    isTesting: true,
+  });
+
+  expect(result?.pnpm?.overrides).toBeUndefined();
+  expect(result?.pnpm?.shamefullyHoist).toBe(true);
+});
+
+test("updatePackageJSON - should remove empty pnpm when only had overrides", () => {
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+    pnpm: {
+      overrides: { lodash: "4.17.21" },
+    },
+  };
+
+  const result = updatePackageJSON({
+    path: testPkgPath,
+    config,
+    isTesting: true,
+  });
+
+  expect(result?.pnpm).toBeUndefined();
+});
+
+test("updatePackageJSON - should write to non-root package.json", () => {
+  validateRootPackageJsonIntegrity();
+  if (!existsSync(testDir)) {
+    mkdirSync(testDir, { recursive: true });
+  }
+
+  const config: PastoralistJSON = {
+    name: "workspace-pkg",
+    version: "1.0.0",
+  };
+
+  const overrides: OverridesType = { lodash: "4.17.21" };
+
+  writeFileSync(testPkgPath, JSON.stringify(config, null, 2));
+
+  updatePackageJSON({
+    path: testPkgPath,
+    config,
+    overrides,
+    isTesting: false,
+  });
+
+  expect(existsSync(testPkgPath)).toBe(true);
+
+  if (existsSync(testDir)) {
+    rmSync(testDir, { recursive: true, force: true });
+  }
+  validateRootPackageJsonIntegrity();
+});

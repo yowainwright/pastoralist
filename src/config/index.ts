@@ -1,96 +1,147 @@
-import { z } from "zod";
+import { existsSync, readFileSync } from "fs";
+import { resolve } from "path";
+import { PastoralistConfig, safeValidateConfig } from "./constants";
+import { CONFIG_FILES } from "./constants";
 
-/**
- * Appendix item schema
- */
-export const AppendixItemSchema = z.object({
-  rootDeps: z.array(z.string()).optional(),
-  dependents: z.record(z.string(), z.string()).optional(),
-  patches: z.array(z.string()).optional(),
-  ledger: z.object({
-    addedDate: z.string(),
-    reason: z.string().optional(),
-    securityChecked: z.boolean().optional(),
-    securityCheckDate: z.string().optional(),
-    securityProvider: z.enum(["osv", "github", "snyk", "npm", "socket"]).optional(),
-  }).optional(),
-});
+const configCache = new Map<string, PastoralistConfig>();
 
-export const AppendixSchema = z.record(z.string(), AppendixItemSchema);
+export const clearConfigCache = (): void => {
+  configCache.clear();
+};
 
-/**
- * Security provider schema
- */
-export const SecurityProviderSchema = z.enum(["osv", "github", "snyk", "npm", "socket"]);
+const isJsonFile = (filename: string): boolean =>
+  filename.endsWith(".json") || filename === ".pastoralistrc";
 
-/**
- * Security providers schema (single or array)
- */
-export const SecurityProvidersSchema = z.union([
-  SecurityProviderSchema,
-  z.array(SecurityProviderSchema)
-]);
+const loadJsonConfig = (path: string): unknown => {
+  const content = readFileSync(path, "utf8");
+  return JSON.parse(content);
+};
 
-/**
- * Severity threshold schema
- */
-export const SeverityThresholdSchema = z.enum(["low", "medium", "high", "critical"]);
+const loadJsConfig = async (path: string): Promise<unknown> => {
+  const resolvedPath = resolve(path);
+  const module = await import(resolvedPath);
+  return module.default || module;
+};
 
-/**
- * Security configuration schema
- */
-export const SecurityConfigSchema = z.object({
-  enabled: z.boolean().optional(),
-  provider: SecurityProvidersSchema.optional(),
-  autoFix: z.boolean().optional(),
-  interactive: z.boolean().optional(),
-  securityProviderToken: z.string().optional(),
-  severityThreshold: SeverityThresholdSchema.optional(),
-  excludePackages: z.array(z.string()).optional(),
-  hasWorkspaceSecurityChecks: z.boolean().optional(),
-});
+const loadConfigFile = async (filename: string, path: string): Promise<unknown | null> => {
+  if (isJsonFile(filename)) return loadJsonConfig(path);
+  return await loadJsConfig(path);
+};
 
-/**
- * Pastoralist configuration schema
- */
-export const PastoralistConfigSchema = z.object({
-  appendix: AppendixSchema.optional(),
-  depPaths: z.union([
-    z.literal("workspace"),
-    z.literal("workspaces"),
-    z.array(z.string()),
-  ]).optional(),
-  checkSecurity: z.boolean().optional(),
-  overridePaths: z.record(z.string(), AppendixSchema).optional(),
-  resolutionPaths: z.record(z.string(), AppendixSchema).optional(),
-  security: SecurityConfigSchema.optional(),
-});
+const validateAndReturn = (
+  config: unknown,
+  validate: boolean
+): PastoralistConfig | null => {
+  if (!validate) return config as PastoralistConfig;
+  return safeValidateConfig(config) || null;
+};
 
-/**
- * TypeScript types inferred from Zod schemas
- */
-export type AppendixItem = z.infer<typeof AppendixItemSchema>;
-export type Appendix = z.infer<typeof AppendixSchema>;
-export type SecurityProvider = z.infer<typeof SecurityProviderSchema>;
-export type SecurityProviders = z.infer<typeof SecurityProvidersSchema>;
-export type SeverityThreshold = z.infer<typeof SeverityThresholdSchema>;
-export type SecurityConfig = z.infer<typeof SecurityConfigSchema>;
-export type PastoralistConfig = z.infer<typeof PastoralistConfigSchema>;
+const tryLoadConfig = async (
+  filename: string,
+  root: string,
+  validate: boolean
+): Promise<PastoralistConfig | null> => {
+  const path = resolve(root, filename);
 
-/**
- * Validate and parse pastoralist configuration
- */
-export function validateConfig(config: unknown): PastoralistConfig {
-  return PastoralistConfigSchema.parse(config);
-}
+  if (!existsSync(path)) return null;
 
-/**
- * Safely validate and parse configuration, returning undefined on error
- */
-export function safeValidateConfig(config: unknown): PastoralistConfig | undefined {
-  const result = PastoralistConfigSchema.safeParse(config);
-  if (result.success) {
-    return result.data;
+  try {
+    const rawConfig = await loadConfigFile(filename, path);
+    if (!rawConfig) return null;
+    return validateAndReturn(rawConfig, validate);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`Failed to load config from ${filename}: ${errorMessage}`);
+    return null;
+  }
+};
+
+export const loadExternalConfig = async (
+  root: string = process.cwd(),
+  validate: boolean = true
+): Promise<PastoralistConfig | undefined> => {
+  for (const filename of CONFIG_FILES) {
+    const config = await tryLoadConfig(filename, root, validate);
+    if (config !== null) return config;
   }
   return undefined;
-}
+};
+
+const deepMergeAppendix = (
+  external: PastoralistConfig["appendix"],
+  packageJson: PastoralistConfig["appendix"]
+) => {
+  if (!external && !packageJson) return undefined;
+  if (!external) return packageJson;
+  if (!packageJson) return external;
+
+  const mergeEntry = (key: string, value: any) => {
+    if (!external[key]) {
+      return value;
+    }
+
+    const existingItem = external[key];
+    const mergedDependents = Object.assign({}, existingItem.dependents, value.dependents);
+    const mergedPatches = value.patches
+      ? (existingItem.patches || []).concat(value.patches)
+      : existingItem.patches;
+
+    return {
+      dependents: mergedDependents,
+      patches: mergedPatches,
+      ledger: value.ledger || existingItem.ledger,
+    };
+  };
+
+  return Object.entries(packageJson).reduce(
+    (acc, [key, value]) => ({
+      ...acc,
+      [key]: mergeEntry(key, value)
+    }),
+    { ...external }
+  );
+};
+
+export const mergeConfigs = (
+  externalConfig: PastoralistConfig | undefined,
+  packageJsonConfig: PastoralistConfig | undefined
+): PastoralistConfig | undefined => {
+  if (!externalConfig) return packageJsonConfig;
+  if (!packageJsonConfig) return externalConfig;
+
+  const mergedAppendix = deepMergeAppendix(externalConfig.appendix, packageJsonConfig.appendix);
+  const mergedOverridePaths = Object.assign({}, externalConfig.overridePaths, packageJsonConfig.overridePaths);
+  const mergedResolutionPaths = Object.assign({}, externalConfig.resolutionPaths, packageJsonConfig.resolutionPaths);
+  const mergedSecurity = Object.assign({}, externalConfig.security, packageJsonConfig.security);
+
+  return Object.assign({}, externalConfig, packageJsonConfig, {
+    appendix: mergedAppendix,
+    overridePaths: mergedOverridePaths,
+    resolutionPaths: mergedResolutionPaths,
+    security: mergedSecurity,
+  });
+};
+
+export const loadConfig = async (
+  root: string = process.cwd(),
+  packageJsonConfig?: PastoralistConfig,
+  validate: boolean = true
+): Promise<PastoralistConfig | undefined> => {
+  const cacheKey = `${root}:${validate}:${JSON.stringify(packageJsonConfig)}`;
+  const cached = configCache.get(cacheKey);
+
+  if (cached) {
+    return cached;
+  }
+
+  const externalConfig = await loadExternalConfig(root, validate);
+  const merged = mergeConfigs(externalConfig, packageJsonConfig);
+
+  if (merged) {
+    configCache.set(cacheKey, merged);
+  }
+
+  return merged;
+};
+
+export * from "./constants";

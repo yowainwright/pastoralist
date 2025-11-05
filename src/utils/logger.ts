@@ -9,14 +9,6 @@ export interface LoggerOptions {
   isLogging?: boolean;
 }
 
-/**
- * @name logMethod
- * @description Log method
- * @param type - Type of log
- * @param isLogging - Is logging enabled
- * @param file - File name
- * @returns Log function
- */
 export const logMethod = (
   type: ConsoleMethod,
   isLogging: boolean,
@@ -25,16 +17,17 @@ export const logMethod = (
   return (msg: string, caller?: string, ...args: unknown[]) => {
     if (!isLogging) return;
     const callerTxt = caller ? `[${caller}]` : "";
-    console[type](`${LOG_PREFIX}[${file}]${callerTxt} ${msg}`, ...args);
+    const message = `${LOG_PREFIX}[${file}]${callerTxt} ${msg}`;
+    if (type === "debug") {
+      console.debug(message, ...args);
+    } else if (type === "error") {
+      console.error(message, ...args);
+    } else if (type === "info") {
+      console.info(message, ...args);
+    }
   };
 };
 
-/**
- * @name logger
- * @description Logger
- * @param options - Logger options
- * @returns Logger
- */
 export const logger = ({ file, isLogging = false }: LoggerOptions) => ({
   debug: logMethod("debug", isLogging, file),
   error: logMethod("error", isLogging, file),

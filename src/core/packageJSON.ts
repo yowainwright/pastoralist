@@ -346,6 +346,7 @@ export const executeNpmLs = async (): Promise<string> => {
     const { stdout } = await execFile('npm', ['ls', '--json', '--all'], {
       encoding: 'utf8',
       maxBuffer: 1024 * 1024 * 10,
+      timeout: 3000,
     });
     return stdout;
   } catch (error: unknown) {

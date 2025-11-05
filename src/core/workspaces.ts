@@ -66,12 +66,10 @@ const collectPackageDependencies = (
   };
 };
 
-const aggregateWorkspaceDependencies = async (
+const aggregateWorkspaceDependencies = (
   packageJsonFiles: string[]
-): Promise<Record<string, string>> => {
-  const packageConfigs = await Promise.all(
-    packageJsonFiles.map(packagePath => resolveJSON(packagePath))
-  );
+): Record<string, string> => {
+  const packageConfigs = packageJsonFiles.map(packagePath => resolveJSON(packagePath));
 
   return packageConfigs.reduce((allDeps, packageConfig) => {
     const hasConfig = Boolean(packageConfig);
@@ -82,14 +80,14 @@ const aggregateWorkspaceDependencies = async (
   }, {} as Record<string, string>);
 };
 
-export const processWorkspacePackages = async (
+export const processWorkspacePackages = (
   packageJsonFiles: string[],
   overridesData: ResolveOverrides,
   logInstance: ConsoleObject,
-  constructAppendix: (files: string[], data: ResolveOverrides, log: ConsoleObject) => Promise<Appendix>
-): Promise<{ appendix: Appendix; allWorkspaceDeps: Record<string, string> }> => {
-  const appendix = await constructAppendix(packageJsonFiles, overridesData, logInstance);
-  const allWorkspaceDeps = await aggregateWorkspaceDependencies(packageJsonFiles);
+  constructAppendix: (files: string[], data: ResolveOverrides, log: ConsoleObject) => Appendix
+): { appendix: Appendix; allWorkspaceDeps: Record<string, string> } => {
+  const appendix = constructAppendix(packageJsonFiles, overridesData, logInstance);
+  const allWorkspaceDeps = aggregateWorkspaceDependencies(packageJsonFiles);
 
   return { appendix, allWorkspaceDeps };
 };

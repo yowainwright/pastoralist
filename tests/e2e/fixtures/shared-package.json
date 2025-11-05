@@ -1,0 +1,8 @@
+{
+  "name": "@test/shared",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "date-fns": "^2.29.0"
+  }
+}

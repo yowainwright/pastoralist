@@ -229,9 +229,19 @@ const processConfigWithOverrides = (
   isTesting: boolean
 ): PastoralistJSON => {
   const shouldAddAppendix = appendix && Object.keys(appendix).length > 0;
-  let updatedConfig = shouldAddAppendix
-    ? addAppendixToConfig(config, appendix)
-    : { ...config, pastoralist: buildPreservedConfig(config) };
+  let updatedConfig: PastoralistJSON;
+
+  if (shouldAddAppendix) {
+    updatedConfig = addAppendixToConfig(config, appendix);
+  } else {
+    const preservedConfig = buildPreservedConfig(config);
+    const hasPreservedConfig = Object.keys(preservedConfig).length > 0;
+    const { pastoralist, ...configWithoutPastoralist } = config;
+
+    updatedConfig = hasPreservedConfig
+      ? { ...configWithoutPastoralist, pastoralist: preservedConfig }
+      : configWithoutPastoralist;
+  }
 
   const shouldAddOverrides = overrides && Object.keys(overrides).length > 0;
 
@@ -251,8 +261,19 @@ const writeJsonFile = (path: string, content: string): void => {
   const jsonPath = resolve(path);
 
   const rootPkgPath = resolve(process.cwd(), "package.json");
-  if (jsonPath === rootPkgPath && !content.includes('"pastoralist"')) {
-    return;
+  const isRootPackage = jsonPath === rootPkgPath;
+
+  if (isRootPackage) {
+    try {
+      const parsed = JSON.parse(content);
+      const hasName = Boolean(parsed.name);
+
+      if (!hasName) {
+        return;
+      }
+    } catch {
+      return;
+    }
   }
 
   fs.writeFileSync(jsonPath, content);

@@ -49,11 +49,11 @@ test("mergeOverridePaths", () => {
 });
 
 test("findUnusedOverrides", async () => {
-  const result = await findUnusedOverrides({ lodash: "4.17.21" }, { lodash: "^4.17.21" });
+  const result = await findUnusedOverrides({ "fake-pkg": "1.0.0" }, { "fake-pkg": "^1.0.0" });
   expect(result).toEqual([]);
 
-  const result2 = await findUnusedOverrides({ lodash: "4.17.21" }, {});
-  expect(result2).toEqual(["lodash"]);
+  const result2 = await findUnusedOverrides({ "fake-pkg": "1.0.0" }, {});
+  expect(result2).toEqual(["fake-pkg"]);
 
   const result3 = await findUnusedOverrides({ react: { "react-dom": "18.0.0" } }, {});
   expect(result3).toEqual(["react"]);
@@ -64,21 +64,21 @@ test("findUnusedOverrides", async () => {
 
 test("cleanupUnusedOverrides", async () => {
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
-  const mockUpdateOverrides = () => ({ lodash: "4.17.21" });
+  const mockUpdateOverrides = () => ({ "fake-pkg": "1.0.0" });
 
-  const appendix: Appendix = { "lodash@4.17.21": { dependents: { root: "lodash@^4.17.21" } }, "react@18.0.0": { dependents: {} } };
+  const appendix: Appendix = { "fake-pkg@1.0.0": { dependents: { root: "fake-pkg@^1.0.0" } }, "react@18.0.0": { dependents: {} } };
   const result = await cleanupUnusedOverrides(
-    { lodash: "4.17.21", react: "18.0.0" },
+    { "fake-pkg": "1.0.0", "react": "18.0.0" },
     {} as ResolveOverrides,
     appendix,
-    { lodash: "^4.17.21" },
+    { "fake-pkg": "^1.0.0" },
     [],
     undefined,
     mockLog,
     mockUpdateOverrides
   );
 
-  expect(result.finalOverrides).toEqual({ lodash: "4.17.21" });
+  expect(result.finalOverrides).toEqual({ "fake-pkg": "1.0.0" });
   expect(result.finalAppendix["react@18.0.0"]).toBeUndefined();
 
   const appendix2: Appendix = { "react@18.0.0": { dependents: { "pkg-a": "react@^18.0.0" } } };

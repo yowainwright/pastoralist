@@ -1,13 +1,8 @@
 {
-  "name": "@workspace/utils",
+  "name": "@test/utils",
   "version": "1.0.0",
-  "description": "Utility functions package",
-  "main": "index.js",
+  "private": true,
   "dependencies": {
-    "lodash": "^4.17.18",
-    "moment": "^2.29.0"
-  },
-  "devDependencies": {
-    "jest": "^29.0.0"
+    "axios": "^1.0.0"
   }
 }

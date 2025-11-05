@@ -1,0 +1,12 @@
+{
+  "name": "test-pnpm",
+  "version": "1.0.0",
+  "dependencies": {
+    "react": "^18.0.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "react": "18.2.0"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+[
+  {
+    "number": 1,
+    "state": "open",
+    "security_advisory": {
+      "ghsa_id": "GHSA-test-1234-5678",
+      "severity": "high",
+      "summary": "Prototype Pollution in lodash",
+      "description": "Versions of lodash prior to 4.17.21 are vulnerable to prototype pollution."
+    },
+    "security_vulnerability": {
+      "package": {
+        "name": "lodash",
+        "ecosystem": "npm"
+      },
+      "vulnerable_version_range": "< 4.17.21",
+      "first_patched_version": {
+        "identifier": "4.17.21"
+      }
+    }
+  }
+]

@@ -221,13 +221,13 @@ export const updateAppendix = ({
   return removeEmptyEntries(updated);
 };
 
-export const processPackageJSON = async (
+export const processPackageJSON = (
   filePath: string,
   overrides: OverridesType,
   overridesList: string[],
   writeAppendixToFile: boolean = true
 ) => {
-  const currentPackageJSON = await resolveJSON(filePath);
+  const currentPackageJSON = resolveJSON(filePath);
   const hasConfig = Boolean(currentPackageJSON);
 
   if (!hasConfig) return;
@@ -259,9 +259,9 @@ export const processPackageJSON = async (
   const shouldWrite = shouldWriteAppendix(appendix, writeAppendixToFile);
 
   if (shouldWrite) {
-    const { writeFile } = await import("fs/promises");
+    const { writeFileSync } = require("fs");
     currentPackageJSON!.pastoralist = { appendix };
-    await writeFile(filePath, JSON.stringify(currentPackageJSON, null, 2));
+    writeFileSync(filePath, JSON.stringify(currentPackageJSON, null, 2));
   }
 
   return {
@@ -285,18 +285,17 @@ const extractRootOverrides = (
   return getOverridesByType(overridesData!) || null;
 };
 
-const extractWorkspaceOverrides = async (
+const extractWorkspaceOverrides = (
   packagePath: string,
   logInstance: ConsoleObject
-): Promise<OverridesType | null> => {
-  const packageConfig = await resolveJSON(packagePath);
+): OverridesType | null => {
+  const packageConfig = resolveJSON(packagePath);
   const hasConfig = Boolean(packageConfig);
 
   if (!hasConfig) return null;
 
-  const workspaceOverridesData = await import("../overrides").then(m =>
-    m.resolveOverrides({ config: packageConfig })
-  );
+  const { resolveOverrides } = require("../overrides");
+  const workspaceOverridesData = resolveOverrides({ config: packageConfig });
   const workspaceOverrides = getOverridesByType(workspaceOverridesData!) || null;
   const hasWorkspaceOverrides = hasOverrides(workspaceOverrides);
 
@@ -310,13 +309,11 @@ const extractWorkspaceOverrides = async (
   return hasWorkspaceOverrides ? workspaceOverrides : null;
 };
 
-const collectAllWorkspaceOverrides = async (
+const collectAllWorkspaceOverrides = (
   packageJSONs: string[],
   logInstance: ConsoleObject
-): Promise<Array<OverridesType | null>> => {
-  return Promise.all(
-    packageJSONs.map(packagePath => extractWorkspaceOverrides(packagePath, logInstance))
-  );
+): Array<OverridesType | null> => {
+  return packageJSONs.map(packagePath => extractWorkspaceOverrides(packagePath, logInstance));
 };
 
 const mergeAllOverrides = (
@@ -335,15 +332,13 @@ const mergeAllOverrides = (
   );
 };
 
-const processAllPackageFiles = async (
+const processAllPackageFiles = (
   packageJSONs: string[],
   allOverrides: OverridesType,
   overridesList: string[]
-): Promise<Array<{ name: string; dependencies: Record<string, string>; devDependencies: Record<string, string>; appendix: Appendix } | undefined>> => {
-  return Promise.all(
-    packageJSONs.map(path =>
-      processPackageJSON(path, allOverrides, overridesList, false)
-    )
+): Array<{ name: string; dependencies: Record<string, string>; devDependencies: Record<string, string>; appendix: Appendix } | undefined> => {
+  return packageJSONs.map(path =>
+    processPackageJSON(path, allOverrides, overridesList, false)
   );
 };
 
@@ -381,11 +376,11 @@ const aggregateAppendices = (
   );
 };
 
-export const constructAppendix = async (
+export const constructAppendix = (
   packageJSONs: string[],
   overridesData: ResolveOverrides,
   logInstance: ConsoleObject
-): Promise<Appendix> => {
+): Appendix => {
   const rootOverrides = extractRootOverrides(overridesData);
   const hasRootOverrides = hasOverrides(rootOverrides);
 
@@ -396,7 +391,7 @@ export const constructAppendix = async (
     );
   }
 
-  const workspaceOverridesResults = await collectAllWorkspaceOverrides(packageJSONs, logInstance);
+  const workspaceOverridesResults = collectAllWorkspaceOverrides(packageJSONs, logInstance);
   const allOverrides = mergeAllOverrides(workspaceOverridesResults, rootOverrides);
 
   const hasAnyOverrides = Object.keys(allOverrides).length > 0;
@@ -412,7 +407,7 @@ export const constructAppendix = async (
     "constructAppendix"
   );
 
-  const results = await processAllPackageFiles(packageJSONs, allOverrides, overridesList);
+  const results = processAllPackageFiles(packageJSONs, allOverrides, overridesList);
 
   return aggregateAppendices(results);
 };

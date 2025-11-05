@@ -170,6 +170,7 @@ export async function action(options: Options = {}): Promise<void> {
       : securityConfig.provider;
 
     const mergedOptions = buildMergedOptions(options, rest, securityConfig, configProvider);
+    mergedOptions.config = config;
 
     if (mergedOptions.checkSecurity) {
       const { spinner, securityChecker, alerts, securityOverrides } = await runSecurityCheck(

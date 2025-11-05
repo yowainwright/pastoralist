@@ -1,0 +1,10 @@
+{
+  "name": "yarn-single-test",
+  "version": "1.0.0",
+  "dependencies": {
+    "webpack": "^5.88.0"
+  },
+  "resolutions": {
+    "webpack": "5.90.0"
+  }
+}

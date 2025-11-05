@@ -1,0 +1,16 @@
+{
+  "name": "test-fixture-e2e",
+  "version": "1.0.0",
+  "description": "E2E test fixture package.json",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "dependencies": {
+    "lodash": "^4.17.20",
+    "react": "^18.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

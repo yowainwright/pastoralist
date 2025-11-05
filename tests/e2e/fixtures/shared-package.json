@@ -1,12 +1,8 @@
 {
-  "name": "@workspace/shared",
+  "name": "@test/shared",
   "version": "1.0.0",
-  "description": "Shared utilities package",
-  "main": "index.js",
+  "private": true,
   "dependencies": {
-    "lodash": "^4.17.17"
-  },
-  "peerDependencies": {
-    "react": ">=16.0.0"
+    "date-fns": "^2.29.0"
   }
 }

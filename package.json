@@ -34,6 +34,7 @@
     "release": "release-it",
     "test": "bun test",
     "test:e2e": "./tests/e2e/scripts/run-e2e-tests.sh",
+    "test:integration:docker": "cd tests/e2e && docker compose up --abort-on-container-exit",
     "typecheck": "turbo run typecheck-src",
     "typecheck-src": "tsc --noEmit",
     "update": "codependence --update && bun run update-app-deps",

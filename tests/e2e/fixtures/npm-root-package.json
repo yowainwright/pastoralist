@@ -1,11 +1,20 @@
 {
-  "name": "e2e-test-workspace-npm",
+  "name": "e2e-test-root",
   "version": "1.0.0",
-  "description": "E2E test workspace for pastoralist using npm",
   "private": true,
-  "type": "module",
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
+  "dependencies": {
+    "commander": "^14.0.0",
+    "fast-glob": "^3.3.3",
+    "inquirer": "^12.10.0",
+    "zod": "^4.1.12"
+  },
   "overrides": {
     "lodash": "4.17.21"
+  },
+  "pastoralist": {
+    "depPaths": "workspace"
   }
 }

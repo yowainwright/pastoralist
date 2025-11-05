@@ -14,7 +14,6 @@ console.log('Running pre-commit checks...');
 try {
   await $\`bun run format\`;
   await $\`bun run lint\`;
-  await $\`bun test\`;
   console.log('✓ All pre-commit checks passed');
 } catch (error) {
   console.error('✗ Pre-commit checks failed');

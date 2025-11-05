@@ -658,7 +658,7 @@ This shows exactly what Pastoralist would change without modifying any files. Us
 **Set up automated CI/CD security checks:**
 
 ```bash
-pastoralist init-ci
+pastoralist setup-ci
 ```
 
 This generates a GitHub Actions workflow that:

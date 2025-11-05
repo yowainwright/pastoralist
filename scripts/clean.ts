@@ -1,4 +1,11 @@
-#!/usr/bin/env bun
-import { rm } from 'node:fs/promises';
+import { rmSync, existsSync } from "fs";
+import { resolve } from "path";
 
-await rm('dist', { recursive: true, force: true });
+const distPath = resolve(process.cwd(), "dist");
+
+if (existsSync(distPath)) {
+  rmSync(distPath, { recursive: true, force: true });
+  console.log("✅ Cleaned dist directory");
+} else {
+  console.log("✓ dist directory does not exist, nothing to clean");
+}

@@ -1,0 +1,12 @@
+{
+  "name": "test-fixture-unit",
+  "version": "1.0.0",
+  "description": "Unit test fixture package.json",
+  "dependencies": {
+    "lodash": "^4.17.20",
+    "axios": "^0.21.0"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0"
+  }
+}

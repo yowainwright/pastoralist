@@ -1,15 +1,19 @@
 {
-  "name": "e2e-test-workspace",
+  "name": "e2e-test-root",
   "version": "1.0.0",
-  "description": "E2E test workspace for pastoralist",
   "private": true,
-  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "dependencies": {
-    "lodash": "^4.17.15"
+    "lodash": "^4.17.20"
   },
   "pnpm": {
     "overrides": {
       "lodash": "4.17.21"
     }
+  },
+  "pastoralist": {
+    "depPaths": "workspace"
   }
 }

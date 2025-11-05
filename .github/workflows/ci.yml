@@ -8,18 +8,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [24.x]
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Install Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
 
       - uses: oven-sh/setup-bun@v2
         name: Install Bun
@@ -47,11 +38,14 @@ jobs:
         env:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
-      - run: bun test --coverage --coverage-reporter=lcov
+      - run: bun test tests/unit/ --coverage --coverage-reporter=lcov
         env:
           CI: true
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+      - run: bun run test:integration:docker
+        env:
+          CI: true
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
@@ -72,11 +66,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Install Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
 
       - uses: oven-sh/setup-bun@v2
         name: Install Bun

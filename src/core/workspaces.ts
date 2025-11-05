@@ -188,6 +188,15 @@ const isUnusedSimpleOverride = async (
   const inDeps = isInDirectDeps(packageName, allDependencies);
   if (inDeps) return false;
 
+  const hasAnyDeps = Object.keys(allDependencies).length > 0;
+  if (!hasAnyDeps) {
+    log.debug(
+      `Found unused override for ${packageName}: no dependencies at all`,
+      "isUnusedSimpleOverride"
+    );
+    return true;
+  }
+
   const dependencyTree = await getDependencyTree();
   const isInTree = Boolean(dependencyTree[packageName]);
 

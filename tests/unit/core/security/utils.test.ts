@@ -1,5 +1,15 @@
 import { test, expect } from "bun:test";
-import { CLIInstaller } from "../../../../src/core/security/utils";
+import {
+  CLIInstaller,
+  getSeverityScore,
+  deduplicateAlerts,
+  extractPackages,
+  isVersionVulnerable,
+  findVulnerablePackages,
+  InteractiveSecurityManager,
+} from "../../../../src/core/security/utils";
+import type { SecurityAlert } from "../../../../src/core/security/types";
+import type { PastoralistJSON } from "../../../../src/types";
 
 test("constructor - should initialize with default options", () => {
   const installer = new CLIInstaller();

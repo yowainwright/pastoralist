@@ -4,6 +4,7 @@ import { compareVersions } from "../../utils/semver";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { logger } from "../../utils";
+import { red, yellow, cyan, gray } from "../../utils/colors";
 
 const execFileAsync = promisify(execFile);
 
@@ -343,16 +344,16 @@ export class InteractiveSecurityManager {
     let summary = `Found ${vulnerablePackages.length} vulnerable package(s):\n`;
 
     if (bySeverity.critical > 0) {
-      summary += `  🚨 Critical: ${bySeverity.critical}\n`;
+      summary += `  ${red('[CRITICAL]')} ${bySeverity.critical}\n`;
     }
     if (bySeverity.high > 0) {
-      summary += `  🔥 High: ${bySeverity.high}\n`;
+      summary += `  ${red('[HIGH]    ')} ${bySeverity.high}\n`;
     }
     if (bySeverity.medium > 0) {
-      summary += `  ⚠️  Medium: ${bySeverity.medium}\n`;
+      summary += `  ${yellow('[MEDIUM]  ')} ${bySeverity.medium}\n`;
     }
     if (bySeverity.low > 0) {
-      summary += `  ℹ️  Low: ${bySeverity.low}\n`;
+      summary += `  ${cyan('[LOW]     ')} ${bySeverity.low}\n`;
     }
 
     return summary;
@@ -361,15 +362,15 @@ export class InteractiveSecurityManager {
   private getSeverityEmoji(severity: string): string {
     switch (severity.toLowerCase()) {
       case "critical":
-        return "🚨";
+        return red("[!]");
       case "high":
-        return "🔥";
+        return red("[!]");
       case "medium":
-        return "⚠️";
+        return yellow("[*]");
       case "low":
-        return "ℹ️";
+        return cyan("[i]");
       default:
-        return "⚠️";
+        return gray("[*]");
     }
   }
 }

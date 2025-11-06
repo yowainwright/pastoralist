@@ -1,0 +1,18 @@
+{
+  "name": "complex-inheritance-root",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "dependencies": {
+    "express": "^4.18.0"
+  },
+  "overrides": {
+    "express": "4.18.2",
+    "lodash": "4.17.21",
+    "cookie": "0.5.0",
+    "pg": "8.11.0",
+    "pg>pg-types": "4.0.1"
+  }
+}

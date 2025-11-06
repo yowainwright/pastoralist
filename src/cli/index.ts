@@ -162,7 +162,10 @@ export async function action(options: Options = {}): Promise<void> {
   if (await handleInitMode(init, options, rest)) return;
 
   try {
-    const path = options.path || "package.json";
+    const relativePath = options.path || "package.json";
+    const path = options.root && !relativePath.startsWith("/")
+      ? `${options.root}/${relativePath}`
+      : relativePath;
     const config = await resolveJSON(path);
     const securityConfig = config?.pastoralist?.security || {};
     const configProvider = Array.isArray(securityConfig.provider)
@@ -171,6 +174,10 @@ export async function action(options: Options = {}): Promise<void> {
 
     const mergedOptions = buildMergedOptions(options, rest, securityConfig, configProvider);
     mergedOptions.config = config;
+    mergedOptions.path = path;
+    if (options.root) {
+      mergedOptions.root = options.root;
+    }
 
     if (mergedOptions.checkSecurity) {
       const { spinner, securityChecker, alerts, securityOverrides } = await runSecurityCheck(

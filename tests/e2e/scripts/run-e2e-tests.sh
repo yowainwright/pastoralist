@@ -350,5 +350,15 @@ echo "=============================="
 /app/scripts/test-socket-security.sh
 print_result $? "Socket security provider tests completed"
 
+echo "\n🚨 Running Error Handling & Edge Cases Tests..."
+echo "=============================="
+/app/scripts/test-error-handling.sh
+print_result $? "Error handling tests completed"
+
+echo "\n🎛️  Running CLI Flags & Options Tests..."
+echo "=============================="
+/app/scripts/test-cli-flags.sh
+print_result $? "CLI flags tests completed"
+
 echo "\n🎯 All E2E tests passed!"
 echo "===================================="

@@ -1,0 +1,13 @@
+{
+  "name": "scoped-test",
+  "version": "1.0.0",
+  "dependencies": {
+    "@types/node": "^20.0.0",
+    "@babel/core": "^7.20.0"
+  },
+  "overrides": {
+    "@types/node": "20.10.0",
+    "@babel/core": "7.23.0",
+    "@babel/preset-env": "7.23.0"
+  }
+}

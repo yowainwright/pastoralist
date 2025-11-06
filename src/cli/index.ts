@@ -2,7 +2,7 @@
 
 import { program } from "commander";
 import { createSpinner, green } from "../utils";
-import { Options, PastoralistJSON } from "../types";
+import { Options, PastoralistJSON, SecurityAlert, SecurityOverride, SecurityOverrideDetail } from "../types";
 import { update } from "../core/update";
 import { logger as createLogger } from "../utils";
 import { resolveJSON } from "../core/packageJSON";
@@ -12,7 +12,7 @@ import { initCommand } from "./cmds/init/index";
 
 const logger = createLogger({ file: "program.ts", isLogging: false });
 
-const handleTestMode = (isTestingCLI: boolean, log: ReturnType<typeof createLogger>, options: Options): boolean => {
+export const handleTestMode = (isTestingCLI: boolean, log: ReturnType<typeof createLogger>, options: Options): boolean => {
   if (isTestingCLI) {
     log.debug("action:options:", "action", { options });
     return true;
@@ -34,7 +34,7 @@ const handleInitMode = async (init: boolean, options: Options, rest: Omit<Option
   return false;
 };
 
-const buildMergedOptions = (options: Options, rest: any, securityConfig: any, configProvider: any): Options => {
+export const buildMergedOptions = (options: Options, rest: any, securityConfig: any, configProvider: any): Options => {
   return {
     ...rest,
     checkSecurity: options.checkSecurity ?? securityConfig.enabled,
@@ -46,7 +46,7 @@ const buildMergedOptions = (options: Options, rest: any, securityConfig: any, co
   };
 };
 
-const buildSecurityOverrideDetail = (override: any) => {
+export const buildSecurityOverrideDetail = (override: SecurityOverride): SecurityOverrideDetail => {
   const hasCve = Boolean(override.cve);
   const hasSeverity = Boolean(override.severity);
   const hasDescription = Boolean(override.description);
@@ -56,7 +56,7 @@ const buildSecurityOverrideDetail = (override: any) => {
     packageName: override.packageName,
     reason: override.reason,
     ...(hasCve && { cve: override.cve }),
-    ...(hasSeverity && { severity: override.severity }),
+    ...(hasSeverity && { severity: override.severity as "low" | "medium" | "high" | "critical" }),
     ...(hasDescription && { description: override.description }),
     ...(hasUrl && { url: override.url }),
   };
@@ -90,13 +90,13 @@ const runSecurityCheck = async (
   return { spinner, securityChecker, alerts, securityOverrides };
 };
 
-const handleSecurityResults = (
-  alerts: any[],
-  securityOverrides: any[],
+export const handleSecurityResults = (
+  alerts: SecurityAlert[],
+  securityOverrides: SecurityOverride[],
   securityChecker: SecurityChecker,
   spinner: any,
   mergedOptions: Options
-) => {
+): void => {
   const hasAlerts = alerts.length > 0;
   const shouldApplySecurityFixes = mergedOptions.forceSecurityRefactor || mergedOptions.interactive;
   const shouldGenerateOverrides = hasAlerts && shouldApplySecurityFixes;

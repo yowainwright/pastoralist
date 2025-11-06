@@ -8,7 +8,7 @@ import type {
 } from './types';
 
 export class Prompt {
-  private rl: readline.Interface;
+  protected rl: readline.Interface;
 
   constructor() {
     this.rl = readline.createInterface({

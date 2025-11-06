@@ -1,0 +1,10 @@
+{
+  "name": "@workspace/app",
+  "version": "1.0.0",
+  "dependencies": {
+    "@workspace/package-a": "workspace:*",
+    "@workspace/package-b": "workspace:*",
+    "lodash": "^4.17.0",
+    "react": "^18.0.0"
+  }
+}

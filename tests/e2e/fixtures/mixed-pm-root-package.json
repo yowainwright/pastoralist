@@ -1,0 +1,19 @@
+{
+  "name": "mixed-pm-root",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "overrides": {
+    "axios": "1.6.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "axios": "1.6.0"
+    }
+  },
+  "resolutions": {
+    "axios": "1.6.0"
+  }
+}

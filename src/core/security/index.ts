@@ -422,29 +422,24 @@ export class SecurityChecker {
       const newOverrides = this.generatePackageOverrides(overrides);
 
       const securityOverrideDetails: SecurityOverrideDetail[] = overrides.map(override => {
-        const cve = override.cve ? override.cve : undefined;
-        const severity = override.severity ? override.severity as "low" | "medium" | "high" | "critical" : undefined;
-        const description = override.description ? override.description : undefined;
-        const url = override.url ? override.url : undefined;
-
         const detail: SecurityOverrideDetail = {
           packageName: override.packageName,
           reason: override.reason,
         };
 
-        if (cve) detail.cve = cve;
-        if (severity) detail.severity = severity;
-        if (description) detail.description = description;
-        if (url) detail.url = url;
+        if (override.cve) detail.cve = override.cve;
+        if (override.severity) detail.severity = override.severity as "low" | "medium" | "high" | "critical";
+        if (override.description) detail.description = override.description;
+        if (override.url) detail.url = override.url;
 
         return detail;
       });
 
-      const providerName = this.providers[0]?.constructor.name.toLowerCase().replace('provider', '').replace('securitychecker', '') || 'osv';
-      const securityProvider = providerName.includes('github') ? 'github' :
-                               providerName.includes('snyk') ? 'snyk' :
-                               providerName.includes('socket') ? 'socket' :
-                               providerName.includes('osv') ? 'osv' : 'osv';
+      const providerName = this.providers[0]?.constructor.name.toLowerCase() || '';
+      let securityProvider: "osv" | "github" | "snyk" | "npm" | "socket" = 'osv';
+      if (providerName.includes('github')) securityProvider = 'github';
+      else if (providerName.includes('snyk')) securityProvider = 'snyk';
+      else if (providerName.includes('socket')) securityProvider = 'socket';
 
       const existingAppendix = packageJson.pastoralist?.appendix || {};
       const dependencies = packageJson.dependencies || {};
@@ -469,8 +464,7 @@ export class SecurityChecker {
         newOverrides
       );
 
-      const existingPastoralist = updatedPackageJson.pastoralist || {};
-      updatedPackageJson.pastoralist = existingPastoralist;
+      updatedPackageJson.pastoralist = updatedPackageJson.pastoralist || {};
       updatedPackageJson.pastoralist.appendix = updatedAppendix;
 
       writeFileSync(pkgPath, JSON.stringify(updatedPackageJson, null, 2) + "\n");

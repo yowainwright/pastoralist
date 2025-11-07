@@ -73,8 +73,8 @@
     "codependence": "^0.3.1",
     "oxlint": "^1.25.0",
     "prettier": "3.6.2",
-    "release-it": "19.0.5",
-    "turbo": "2.5.8",
+    "release-it": "19.0.6",
+    "turbo": "2.6.0",
     "typescript": "5.9.3"
   },
   "release-it": {

@@ -93,6 +93,8 @@ export interface Options {
   exec?: Exec;
   isTesting?: boolean;
   isTestingCLI?: boolean;
+  isIRLFix?: boolean;
+  isIRLCatch?: boolean;
   init?: boolean;
   path?: string;
   out?: string;

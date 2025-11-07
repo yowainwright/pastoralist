@@ -1,0 +1,35 @@
+{
+  "note": "Baseline performance metrics - run 'bun run bench:baseline' to update",
+  "lastUpdated": "2024-11-06T22:00:00.000Z",
+  "system": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "node": "bun"
+  },
+  "benchmarks": {
+    "resolveJSON": {
+      "avgTimeMs": 0.5,
+      "tolerance": 2.0
+    },
+    "updateAppendix-small": {
+      "avgTimeMs": 0.1,
+      "tolerance": 2.0
+    },
+    "updateAppendix-medium": {
+      "avgTimeMs": 0.3,
+      "tolerance": 2.0
+    },
+    "updateAppendix-large": {
+      "avgTimeMs": 1.0,
+      "tolerance": 2.0
+    },
+    "SecurityChecker-init": {
+      "avgTimeMs": 0.5,
+      "tolerance": 2.0
+    },
+    "OSVProvider-init": {
+      "avgTimeMs": 0.2,
+      "tolerance": 2.0
+    }
+  }
+}

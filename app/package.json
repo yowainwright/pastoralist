@@ -11,15 +11,15 @@
   },
   "dependencies": {
     "@astrojs/check": "^0.9.5",
-    "@astrojs/mdx": "^4.3.9",
-    "@astrojs/react": "^4.4.1",
+    "@astrojs/mdx": "^4.3.10",
+    "@astrojs/react": "^4.4.2",
     "@docsearch/css": "^3.9.0",
     "@docsearch/js": "^3.9.0",
-    "@tailwindcss/vite": "^4.1.16",
-    "astro": "^5.15.3",
+    "@tailwindcss/vite": "^4.1.17",
+    "astro": "^5.15.4",
     "astro-mermaid": "^1.1.0",
     "fuse.js": "^7.1.0",
-    "mermaid": "^11.4.0",
+    "mermaid": "^11.12.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
@@ -27,9 +27,9 @@
     "@tailwindcss/typography": "^0.5.19",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
-    "daisyui": "^5.3.10",
-    "tailwindcss": "^4.1.16",
+    "daisyui": "^5.4.7",
+    "tailwindcss": "^4.1.17",
     "typescript": "^5.9.3",
-    "vite": "^7.1.12"
+    "vite": "^7.2.1"
   }
 }

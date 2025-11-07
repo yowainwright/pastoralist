@@ -477,3 +477,76 @@ test("quickList - directly tests the quickList wrapper", async () => {
   console.log = mockLog;
   createInterfaceSpy.mockRestore();
 });
+
+test("Prompt - input calls setRawMode(false) when stdin is TTY", async () => {
+  const originalIsTTY = process.stdin.isTTY;
+  const originalSetRawMode = process.stdin.setRawMode;
+
+  process.stdin.isTTY = true;
+  const setRawModeMock = mock(() => {});
+  process.stdin.setRawMode = setRawModeMock;
+
+  const prompt = new TestablePrompt();
+  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
+    callback("test");
+  });
+  prompt.setQuestion(questionSpy);
+
+  await prompt.input("Test:");
+
+  expect(setRawModeMock).toHaveBeenCalledWith(false);
+
+  process.stdin.isTTY = originalIsTTY;
+  process.stdin.setRawMode = originalSetRawMode;
+  prompt.close();
+});
+
+test("Prompt - confirm calls setRawMode(false) when stdin is TTY", async () => {
+  const originalIsTTY = process.stdin.isTTY;
+  const originalSetRawMode = process.stdin.setRawMode;
+
+  process.stdin.isTTY = true;
+  const setRawModeMock = mock(() => {});
+  process.stdin.setRawMode = setRawModeMock;
+
+  const prompt = new TestablePrompt();
+  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
+    callback("y");
+  });
+  prompt.setQuestion(questionSpy);
+
+  await prompt.confirm("Confirm?");
+
+  expect(setRawModeMock).toHaveBeenCalledWith(false);
+
+  process.stdin.isTTY = originalIsTTY;
+  process.stdin.setRawMode = originalSetRawMode;
+  prompt.close();
+});
+
+test("Prompt - list calls setRawMode(false) when stdin is TTY", async () => {
+  const originalIsTTY = process.stdin.isTTY;
+  const originalSetRawMode = process.stdin.setRawMode;
+
+  process.stdin.isTTY = true;
+  const setRawModeMock = mock(() => {});
+  process.stdin.setRawMode = setRawModeMock;
+
+  const prompt = new TestablePrompt();
+  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
+    callback("1");
+  });
+  prompt.setQuestion(questionSpy);
+
+  const mockLog = console.log;
+  console.log = () => {};
+
+  await prompt.list("Choose:", [{ name: "Test", value: "test" }]);
+
+  expect(setRawModeMock).toHaveBeenCalledWith(false);
+
+  console.log = mockLog;
+  process.stdin.isTTY = originalIsTTY;
+  process.stdin.setRawMode = originalSetRawMode;
+  prompt.close();
+});

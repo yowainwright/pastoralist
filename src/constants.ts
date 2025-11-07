@@ -93,3 +93,57 @@ export const MOCK_DEPENDABOT_ALERT_MINIMIST = {
   security_vulnerability: MOCK_SECURITY_VULNERABILITY_MINIMIST,
   ...MOCK_ALERT_METADATA,
 };
+
+export const TEST_FIXTURES = {
+  OVERRIDE_TO_KEEP: {
+    packageName: "fake-pastoralist-check-2",
+    fromVersion: "1.0.0",
+    toVersion: "2.1.0",
+    key: "fake-pastoralist-check-2@2.1.0",
+    dependents: {
+      "fake-pastoralist-check-1": "1.0.0"
+    },
+    ledger: {
+      addedDate: "2024-01-15T10:00:00.000Z",
+      reason: "Security fix: Critical vulnerability in fake-pastoralist-check-1 transitive dependency (critical)",
+      securityChecked: true,
+      securityCheckDate: "2024-01-15T10:00:00.000Z",
+      securityProvider: "osv" as const,
+    }
+  },
+  OVERRIDE_TO_REMOVE: {
+    packageName: "fake-pastoralist-check-3",
+    fromVersion: "0.8.0",
+    toVersion: "1.0.0",
+    key: "fake-pastoralist-check-3@1.0.0",
+    dependents: {},
+    ledger: {
+      addedDate: "2023-06-01T10:00:00.000Z",
+      reason: "Manual override for compatibility testing",
+    }
+  },
+  ALERT_TO_RESOLVE: {
+    packageName: "fake-pastoralist-check-2",
+    currentVersion: "1.0.0",
+    vulnerableVersions: "< 2.1.0",
+    patchedVersion: "2.1.0",
+    severity: "critical" as const,
+    title: "Critical vulnerability in fake-pastoralist-check-2 (transitive from fake-pastoralist-check-1)",
+    cve: "CVE-FAKE-PASTORALIST-2024-0001",
+    fixAvailable: true,
+    description: "Fake critical security vulnerability in fake-pastoralist-check-2. Used by fake-pastoralist-check-1@1.0.0.",
+    url: "https://example.com/fake-pastoralist-advisory-0001"
+  },
+  ALERT_TO_CAPTURE: {
+    packageName: "fake-pastoralist-check-4",
+    currentVersion: "0.5.0",
+    vulnerableVersions: "< 1.0.0",
+    patchedVersion: undefined,
+    severity: "high" as const,
+    title: "High severity issue in fake-pastoralist-check-4 with no patch available",
+    cve: "CVE-FAKE-PASTORALIST-2024-0002",
+    fixAvailable: false,
+    description: "Fake high severity vulnerability with no available patch for testing alert capture functionality.",
+    url: "https://example.com/fake-pastoralist-advisory-0002"
+  }
+} as const;

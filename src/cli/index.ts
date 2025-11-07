@@ -78,6 +78,8 @@ const runSecurityCheck = async (
     interactive: mergedOptions.interactive,
     token: mergedOptions.securityProviderToken,
     debug: isLogging,
+    isIRLFix: mergedOptions.isIRLFix,
+    isIRLCatch: mergedOptions.isIRLCatch,
   });
 
   const scanPaths = determineSecurityScanPaths(config, mergedOptions, log);
@@ -213,6 +215,8 @@ program
   .option("-r, --root <root>", "specifies a root path")
   .option("-t, --isTestingCLI", "enables CLI testing, no scripts are run")
   .option("--isTesting", "enables testing, no scripts are run")
+  .option("--isIRLFix", "test mode: append resolvable security alert fixture to real results")
+  .option("--isIRLCatch", "test mode: append capturable security alert fixture to real results")
   .option("--init", "initialize Pastoralist configuration interactively")
   .option("--checkSecurity", "check for security vulnerabilities and generate overrides")
   .option("--forceSecurityRefactor", "automatically apply security overrides without prompting")

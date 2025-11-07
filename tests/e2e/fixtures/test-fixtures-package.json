@@ -1,0 +1,33 @@
+{
+  "name": "test-fixtures-e2e",
+  "version": "1.0.0",
+  "description": "E2E test package for pastoralist test fixtures",
+  "dependencies": {
+    "fake-pastoralist-check-1": "1.0.0",
+    "fake-pastoralist-check-2": "1.0.0",
+    "fake-pastoralist-check-4": "0.5.0"
+  },
+  "devDependencies": {
+    "fake-pastoralist-check-3": "1.0.0"
+  },
+  "overrides": {
+    "fake-pastoralist-check-3": "1.0.0"
+  },
+  "pastoralist": {
+    "appendix": {
+      "fake-pastoralist-check-3@1.0.0": {
+        "dependents": {},
+        "ledger": {
+          "addedDate": "2023-06-01T10:00:00.000Z",
+          "reason": "Manual override for compatibility testing"
+        }
+      }
+    },
+    "security": {
+      "enabled": true,
+      "provider": "osv",
+      "autoFix": true,
+      "severityThreshold": "high"
+    }
+  }
+}

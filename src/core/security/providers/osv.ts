@@ -1,12 +1,17 @@
 import { SecurityAlert, OSVVulnerability } from "../../../types";
 import { logger } from "../../../utils";
+import { TEST_FIXTURES } from "../../../constants";
 
 export class OSVProvider {
   protected debug: boolean;
+  protected isIRLFix: boolean;
+  protected isIRLCatch: boolean;
   protected log: ReturnType<typeof logger>;
 
-  constructor(options: { debug?: boolean } = {}) {
+  constructor(options: { debug?: boolean; isIRLFix?: boolean; isIRLCatch?: boolean } = {}) {
     this.debug = options.debug || false;
+    this.isIRLFix = options.isIRLFix || false;
+    this.isIRLCatch = options.isIRLCatch || false;
     this.log = logger({ file: "security/osv.ts", isLogging: this.debug });
   }
 
@@ -68,9 +73,14 @@ export class OSVProvider {
 
     const results = await Promise.all(packages.map(fetchPackageVulnerabilities));
 
-    return results
+    const realAlerts = results
       .filter(isValidResult)
       .flatMap(result => this.convertOSVAlerts(result.pkg, result.vulns));
+
+    const alertToResolve = this.isIRLFix ? [TEST_FIXTURES.ALERT_TO_RESOLVE] : [];
+    const alertToCapture = this.isIRLCatch ? [TEST_FIXTURES.ALERT_TO_CAPTURE] : [];
+
+    return realAlerts.concat(alertToResolve).concat(alertToCapture);
   }
 
   private convertOSVAlerts(pkg: { name: string; version: string }, vulns: OSVVulnerability[]): SecurityAlert[] {

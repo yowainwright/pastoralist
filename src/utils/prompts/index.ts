@@ -21,9 +21,16 @@ export class Prompt {
     this.rl.close();
   }
 
+  private ensureCookedMode(): void {
+    if (process.stdin.isTTY) {
+      process.stdin.setRawMode(false);
+    }
+  }
+
   async input(message: string, defaultValue?: string): Promise<string> {
     return new Promise((resolve) => {
       const prompt = defaultValue ? `${message} (${defaultValue}): ` : `${message}: `;
+      this.ensureCookedMode();
       this.rl.question(prompt, (answer) => {
         resolve(answer.trim() || defaultValue || '');
       });
@@ -33,6 +40,7 @@ export class Prompt {
   async confirm(message: string, defaultValue: boolean = true): Promise<boolean> {
     return new Promise((resolve) => {
       const defaultText = defaultValue ? 'Y/n' : 'y/N';
+      this.ensureCookedMode();
       this.rl.question(`${message} (${defaultText}): `, (answer) => {
         const normalized = answer.trim().toLowerCase();
         if (normalized === '') {
@@ -53,6 +61,7 @@ export class Prompt {
 
     return new Promise((resolve) => {
       const askForChoice = () => {
+        this.ensureCookedMode();
         this.rl.question('\nEnter your choice (number): ', (answer) => {
           const num = parseInt(answer.trim(), 10);
 

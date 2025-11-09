@@ -5,12 +5,14 @@ import {
   SecurityOverride,
   SecurityProvider,
   OverrideUpdate,
+  SecurityOverrideDetail,
 } from "../../types";
 import { PastoralistJSON, OverridesType } from "../../types";
 import { logger } from "../../utils";
 import { compareVersions } from "../../utils/semver";
 import { InteractiveSecurityManager, deduplicateAlerts, extractPackages, findVulnerablePackages } from "./utils";
 import { readFileSync, copyFileSync } from "fs";
+import { updateAppendix } from "../appendix";
 
 export * from "./providers";
 
@@ -18,12 +20,12 @@ export class SecurityChecker {
   private providers: SecurityProvider[];
   private log: ReturnType<typeof logger>;
 
-  constructor(options: SecurityCheckOptions & { debug?: boolean }) {
+  constructor(options: SecurityCheckOptions & { debug?: boolean; isIRLFix?: boolean; isIRLCatch?: boolean }) {
     this.log = logger({ file: "security/index.ts", isLogging: options.debug });
     this.providers = this.createProviders(options);
   }
 
-  private createProviders(options: SecurityCheckOptions & { debug?: boolean }): SecurityProvider[] {
+  private createProviders(options: SecurityCheckOptions & { debug?: boolean; isIRLFix?: boolean; isIRLCatch?: boolean }): SecurityProvider[] {
     const providerTypes = Array.isArray(options.provider)
       ? options.provider
       : [options.provider || "osv"];
@@ -33,11 +35,11 @@ export class SecurityChecker {
 
   private createProvider(
     providerType: string,
-    options: SecurityCheckOptions & { debug?: boolean }
+    options: SecurityCheckOptions & { debug?: boolean; isIRLFix?: boolean; isIRLCatch?: boolean }
   ): SecurityProvider {
     switch (providerType) {
       case "osv":
-        return new OSVProvider({ debug: options.debug });
+        return new OSVProvider({ debug: options.debug, isIRLFix: options.isIRLFix, isIRLCatch: options.isIRLCatch });
       case "github":
         return new GitHubSecurityProvider({
           debug: options.debug,
@@ -55,7 +57,7 @@ export class SecurityChecker {
         });
       default:
         this.log.debug(`Provider ${providerType} not yet implemented, using OSV`, "createProvider");
-        return new OSVProvider({ debug: options.debug });
+        return new OSVProvider({ debug: options.debug, isIRLFix: options.isIRLFix, isIRLCatch: options.isIRLCatch });
     }
   }
 
@@ -419,11 +421,52 @@ export class SecurityChecker {
       const packageManager = await this.detectPackageManager();
       const newOverrides = this.generatePackageOverrides(overrides);
 
+      const securityOverrideDetails: SecurityOverrideDetail[] = overrides.map(override => {
+        const detail: SecurityOverrideDetail = {
+          packageName: override.packageName,
+          reason: override.reason,
+        };
+
+        if (override.cve) detail.cve = override.cve;
+        if (override.severity) detail.severity = override.severity as "low" | "medium" | "high" | "critical";
+        if (override.description) detail.description = override.description;
+        if (override.url) detail.url = override.url;
+
+        return detail;
+      });
+
+      const providerName = this.providers[0]?.constructor.name.toLowerCase() || '';
+      let securityProvider: "osv" | "github" | "snyk" | "npm" | "socket" = 'osv';
+      if (providerName.includes('github')) securityProvider = 'github';
+      else if (providerName.includes('snyk')) securityProvider = 'snyk';
+      else if (providerName.includes('socket')) securityProvider = 'socket';
+
+      const existingAppendix = packageJson.pastoralist?.appendix || {};
+      const dependencies = packageJson.dependencies || {};
+      const devDependencies = packageJson.devDependencies || {};
+      const peerDependencies = packageJson.peerDependencies || {};
+      const packageName = packageJson.name || '';
+
+      const updatedAppendix = updateAppendix({
+        overrides: newOverrides,
+        appendix: existingAppendix,
+        dependencies,
+        devDependencies,
+        peerDependencies,
+        packageName,
+        securityOverrideDetails,
+        securityProvider: securityProvider as "osv" | "github" | "snyk" | "npm" | "socket",
+      });
+
       const updatedPackageJson = this.applyOverridesToPackageJson(
         packageJson,
         packageManager,
         newOverrides
       );
+
+      updatedPackageJson.pastoralist = updatedPackageJson.pastoralist || {};
+      updatedPackageJson.pastoralist.appendix = updatedAppendix;
+
       writeFileSync(pkgPath, JSON.stringify(updatedPackageJson, null, 2) + "\n");
 
       this.logSuccess(pkgPath, backupPath, newOverrides, overrides, packageManager);

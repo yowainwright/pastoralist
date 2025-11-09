@@ -20,6 +20,8 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         name: Install Bun
+        with:
+          bun-version: 1.3.1
 
       - name: Get Bun cache directory
         id: bun-cache

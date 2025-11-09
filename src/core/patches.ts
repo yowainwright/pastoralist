@@ -1,4 +1,4 @@
-import fg from "fast-glob";
+import * as fg from "../utils/glob";
 import { IS_DEBUGGING } from "../constants";
 import type { Appendix } from "../types";
 import { logger } from "../utils";

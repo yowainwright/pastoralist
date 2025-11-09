@@ -12,7 +12,9 @@ import { logger } from "../../utils";
 import { compareVersions } from "../../utils/semver";
 import { InteractiveSecurityManager, deduplicateAlerts, extractPackages, findVulnerablePackages } from "./utils";
 import { readFileSync, copyFileSync } from "fs";
+import { resolve } from "path";
 import { updateAppendix } from "../appendix";
+import { glob } from "../../utils/glob";
 
 export * from "./providers";
 
@@ -176,11 +178,8 @@ export class SecurityChecker {
     alerts: SecurityAlert[]
   ): Promise<SecurityAlert[]> {
     try {
-      const fg = await import("fast-glob");
-      const { resolve } = await import("path");
-
       const patterns = depPaths.map(p => resolve(root, p));
-      const packageFiles = await fg.default(patterns, {
+      const packageFiles = await glob(patterns, {
         ignore: ["**/node_modules/**"],
         absolute: true,
       });

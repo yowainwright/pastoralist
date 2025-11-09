@@ -1,5 +1,3 @@
-import { z } from "zod";
-
 export const CONFIG_FILES = [
   ".pastoralistrc",
   ".pastoralistrc.json",
@@ -8,70 +6,59 @@ export const CONFIG_FILES = [
   "pastoralist.config.ts",
 ] as const;
 
-export const AppendixItemSchema = z.object({
-  rootDeps: z.array(z.string()).optional(),
-  dependents: z.record(z.string(), z.string()).optional(),
-  patches: z.array(z.string()).optional(),
-  ledger: z.object({
-    addedDate: z.string(),
-    reason: z.string().optional(),
-    securityChecked: z.boolean().optional(),
-    securityCheckDate: z.string().optional(),
-    securityProvider: z.enum(["osv", "github", "snyk", "npm", "socket"]).optional(),
-  }).optional(),
-});
+export type SecurityProvider = "osv" | "github" | "snyk" | "npm" | "socket";
+export type SecurityProviders = SecurityProvider | SecurityProvider[];
+export type SeverityThreshold = "low" | "medium" | "high" | "critical";
 
-export const AppendixSchema = z.record(z.string(), AppendixItemSchema);
+export type AppendixItem = {
+  rootDeps?: string[];
+  dependents?: Record<string, string>;
+  patches?: string[];
+  ledger?: {
+    addedDate: string;
+    reason?: string;
+    securityChecked?: boolean;
+    securityCheckDate?: string;
+    securityProvider?: SecurityProvider;
+  };
+};
 
-export const SecurityProviderSchema = z.enum(["osv", "github", "snyk", "npm", "socket"]);
+export type Appendix = Record<string, AppendixItem>;
 
-export const SecurityProvidersSchema = z.union([
-  SecurityProviderSchema,
-  z.array(SecurityProviderSchema)
-]);
+export type SecurityConfig = {
+  enabled?: boolean;
+  provider?: SecurityProviders;
+  autoFix?: boolean;
+  interactive?: boolean;
+  securityProviderToken?: string;
+  severityThreshold?: SeverityThreshold;
+  excludePackages?: string[];
+  hasWorkspaceSecurityChecks?: boolean;
+};
 
-export const SeverityThresholdSchema = z.enum(["low", "medium", "high", "critical"]);
+export type PastoralistConfig = {
+  appendix?: Appendix;
+  depPaths?: "workspace" | "workspaces" | string[];
+  checkSecurity?: boolean;
+  overridePaths?: Record<string, Appendix>;
+  resolutionPaths?: Record<string, Appendix>;
+  security?: SecurityConfig;
+};
 
-export const SecurityConfigSchema = z.object({
-  enabled: z.boolean().optional(),
-  provider: SecurityProvidersSchema.optional(),
-  autoFix: z.boolean().optional(),
-  interactive: z.boolean().optional(),
-  securityProviderToken: z.string().optional(),
-  severityThreshold: SeverityThresholdSchema.optional(),
-  excludePackages: z.array(z.string()).optional(),
-  hasWorkspaceSecurityChecks: z.boolean().optional(),
-});
-
-export const PastoralistConfigSchema = z.object({
-  appendix: AppendixSchema.optional(),
-  depPaths: z.union([
-    z.literal("workspace"),
-    z.literal("workspaces"),
-    z.array(z.string()),
-  ]).optional(),
-  checkSecurity: z.boolean().optional(),
-  overridePaths: z.record(z.string(), AppendixSchema).optional(),
-  resolutionPaths: z.record(z.string(), AppendixSchema).optional(),
-  security: SecurityConfigSchema.optional(),
-});
-
-export type AppendixItem = z.infer<typeof AppendixItemSchema>;
-export type Appendix = z.infer<typeof AppendixSchema>;
-export type SecurityProvider = z.infer<typeof SecurityProviderSchema>;
-export type SecurityProviders = z.infer<typeof SecurityProvidersSchema>;
-export type SeverityThreshold = z.infer<typeof SeverityThresholdSchema>;
-export type SecurityConfig = z.infer<typeof SecurityConfigSchema>;
-export type PastoralistConfig = z.infer<typeof PastoralistConfigSchema>;
+const isObject = (value: unknown): value is Record<string, unknown> => {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+};
 
 export function validateConfig(config: unknown): PastoralistConfig {
-  return PastoralistConfigSchema.parse(config);
+  if (!isObject(config)) {
+    throw new Error("Config must be an object");
+  }
+  return config as PastoralistConfig;
 }
 
 export function safeValidateConfig(config: unknown): PastoralistConfig | undefined {
-  const result = PastoralistConfigSchema.safeParse(config);
-  if (result.success) {
-    return result.data;
+  if (!isObject(config)) {
+    return undefined;
   }
-  return undefined;
+  return config as PastoralistConfig;
 }

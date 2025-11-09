@@ -7,7 +7,6 @@
     "@typescript-eslint/parser",
     "commander",
     "compare-versions",
-    "fast-glob",
     "react-icons",
     "tslib",
     { "eslint": "9.14.0" },

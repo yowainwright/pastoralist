@@ -5,6 +5,7 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 import { logger } from "../../utils";
 import { red, yellow, cyan, gray } from "../../utils/colors";
+import * as readline from "readline/promises";
 
 const execFileAsync = promisify(execFile);
 
@@ -190,7 +191,67 @@ export class CLIInstaller {
   }
 }
 
-type InquirerModule = typeof import("inquirer");
+export const createPromptInterface = () => {
+  return readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+};
+
+export const promptConfirm = async (message: string, defaultValue = true): Promise<boolean> => {
+  const rl = createPromptInterface();
+  const defaultText = defaultValue ? "Y/n" : "y/N";
+  const answer = await rl.question(`${message} (${defaultText}): `);
+  rl.close();
+
+  const trimmedAnswer = answer.trim();
+  if (trimmedAnswer === "") {
+    return defaultValue;
+  }
+
+  const isYes = trimmedAnswer.toLowerCase().startsWith("y");
+  return isYes;
+};
+
+export const promptSelect = async (
+  message: string,
+  choices: Array<{ name: string; value: string }>
+): Promise<string> => {
+  const rl = createPromptInterface();
+
+  console.log(message);
+  choices.forEach((choice, i) => {
+    console.log(`  ${i + 1}) ${choice.name}`);
+  });
+
+  let selectedValue: string | null = null;
+
+  while (selectedValue === null) {
+    const input = await rl.question(`Select (1-${choices.length}): `);
+    const num = parseInt(input.trim(), 10);
+    const isValidSelection = num >= 1 && num <= choices.length;
+
+    if (isValidSelection) {
+      selectedValue = choices[num - 1].value;
+    } else {
+      console.log("Invalid selection. Please try again.");
+    }
+  }
+
+  rl.close();
+  return selectedValue;
+};
+
+export const promptInput = async (message: string, defaultValue = ""): Promise<string> => {
+  const rl = createPromptInterface();
+  const promptText = defaultValue ? `${message} (${defaultValue}): ` : `${message}: `;
+  const answer = await rl.question(promptText);
+  rl.close();
+
+  const trimmedAnswer = answer.trim();
+  const finalValue = trimmedAnswer || defaultValue;
+  return finalValue;
+};
 
 export interface InteractivePrompt {
   type: string;
@@ -200,33 +261,27 @@ export interface InteractivePrompt {
   default?: string | boolean;
 }
 
+export interface PromptFunctions {
+  confirm: (message: string, defaultValue?: boolean) => Promise<boolean>;
+  select: (message: string, choices: Array<{ name: string; value: string }>) => Promise<string>;
+  input: (message: string, defaultValue?: string) => Promise<string>;
+}
+
 export class InteractiveSecurityManager {
-  private inquirer: InquirerModule | null;
+  private prompts: PromptFunctions;
 
-  constructor() {
-    this.inquirer = null;
-  }
-
-  private async loadInquirer() {
-    if (!this.inquirer) {
-      try {
-        this.inquirer = await import("inquirer");
-      } catch {
-        console.warn(
-          "⚠️  Inquirer not installed. Run 'npm install inquirer' to enable interactive mode."
-        );
-        throw new Error("Interactive mode requires inquirer to be installed");
-      }
-    }
-    return this.inquirer;
+  constructor(prompts: PromptFunctions = {
+    confirm: promptConfirm,
+    select: promptSelect,
+    input: promptInput,
+  }) {
+    this.prompts = prompts;
   }
 
   async promptForSecurityActions(
     vulnerablePackages: SecurityAlert[],
     suggestedOverrides: SecurityOverride[]
   ): Promise<SecurityOverride[]> {
-    const inquirer = await this.loadInquirer();
-
     if (vulnerablePackages.length === 0) {
       return [];
     }
@@ -237,14 +292,10 @@ export class InteractiveSecurityManager {
     const summary = this.generateSummary(vulnerablePackages);
     console.log(summary);
 
-    const { proceed } = await inquirer.default.prompt([
-      {
-        type: "confirm",
-        name: "proceed",
-        message: "Would you like to review and apply security fixes?",
-        default: true,
-      },
-    ]);
+    const proceed = await this.prompts.confirm(
+      "Would you like to review and apply security fixes?",
+      true
+    );
 
     if (!proceed) {
       return [];
@@ -266,39 +317,31 @@ export class InteractiveSecurityManager {
         console.log(`   CVE: ${vuln.cve}`);
       }
 
-      const { action } = await inquirer.default.prompt([
-        {
-          type: "list",
-          name: "action",
-          message: `How would you like to handle this vulnerability?`,
-          choices: [
-            {
-              name: `✅ Apply fix: Update to ${override.toVersion}`,
-              value: "apply",
-            },
-            {
-              name: "⏭️  Skip this vulnerability",
-              value: "skip",
-            },
-            {
-              name: "📝 Enter custom version",
-              value: "custom",
-            },
-          ],
-        },
-      ]);
+      const action = await this.prompts.select(
+        "How would you like to handle this vulnerability?",
+        [
+          {
+            name: `✅ Apply fix: Update to ${override.toVersion}`,
+            value: "apply",
+          },
+          {
+            name: "⏭️  Skip this vulnerability",
+            value: "skip",
+          },
+          {
+            name: "📝 Enter custom version",
+            value: "custom",
+          },
+        ]
+      );
 
       if (action === "apply") {
         selectedOverrides.push(override);
       } else if (action === "custom") {
-        const { customVersion } = await inquirer.default.prompt([
-          {
-            type: "input",
-            name: "customVersion",
-            message: "Enter the version to use:",
-            default: override.toVersion,
-          },
-        ]);
+        const customVersion = await this.prompts.input(
+          "Enter the version to use:",
+          override.toVersion
+        );
 
         selectedOverrides.push(Object.assign({}, override, {
           toVersion: customVersion,
@@ -315,14 +358,10 @@ export class InteractiveSecurityManager {
         );
       });
 
-      const { confirm } = await inquirer.default.prompt([
-        {
-          type: "confirm",
-          name: "confirm",
-          message: "Apply these overrides to your package.json?",
-          default: true,
-        },
-      ]);
+      const confirm = await this.prompts.confirm(
+        "Apply these overrides to your package.json?",
+        true
+      );
 
       if (!confirm) {
         return [];

@@ -91,6 +91,7 @@ export interface Options {
   debug?: boolean;
   dryRun?: boolean;
   exec?: Exec;
+  help?: boolean;
   isTesting?: boolean;
   isTestingCLI?: boolean;
   isIRLFix?: boolean;

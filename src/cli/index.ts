@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { program } from "commander";
+import { parseArgs, showHelp } from "./parser";
 import { createSpinner, green } from "../utils";
 import { Options, PastoralistJSON, SecurityAlert, SecurityOverride, SecurityOverrideDetail } from "../types";
 import { update } from "../core/update";
@@ -202,38 +202,21 @@ export async function action(options: Options = {}): Promise<void> {
   }
 }
 
-program
-  .description("Pastoralist, a utility CLI to manage your dependency overrides")
-  .option("--debug", "enables debug mode")
-  .option("--dry-run", "preview changes without writing to package.json")
-  .option("-p, --path <path>", "specifies a path to a package.json")
-  .option(
-    "-d, --depPaths [depPaths...]",
-    "specifies a glob path to a package.jsons",
-  )
-  .option("--ignore [ignore...]", "specifies a glob path to ignore")
-  .option("-r, --root <root>", "specifies a root path")
-  .option("-t, --isTestingCLI", "enables CLI testing, no scripts are run")
-  .option("--isTesting", "enables testing, no scripts are run")
-  .option("--isIRLFix", "test mode: append resolvable security alert fixture to real results")
-  .option("--isIRLCatch", "test mode: append capturable security alert fixture to real results")
-  .option("--init", "initialize Pastoralist configuration interactively")
-  .option("--checkSecurity", "check for security vulnerabilities and generate overrides")
-  .option("--forceSecurityRefactor", "automatically apply security overrides without prompting")
-  .option("--securityProvider <provider...>", "security provider(s) to use (osv, github, snyk, npm, socket)", ["osv"])
-  .option("--securityProviderToken <token>", "Security provider token for API access (if required)")
-  .option("--interactive", "run security checks in interactive mode")
-  .option("--hasWorkspaceSecurityChecks", "include workspace packages in security scan")
-  .option("--promptForReasons", "prompt for reasons when adding manual overrides")
-  .action(action);
+export const run = async (argv: string[] = process.argv): Promise<void> => {
+  const parsed = parseArgs(argv);
+  const options = parsed.options as Options;
 
-program
-  .command("init")
-  .description("Initialize Pastoralist configuration interactively")
-  .option("-p, --path <path>", "specifies a path to a package.json")
-  .option("-r, --root <root>", "specifies a root path")
-  .action(initCommand);
+  const isHelpRequested = options.help || argv.includes("-h") || argv.includes("--help");
+  if (isHelpRequested) {
+    showHelp();
+    return;
+  }
 
-program.parse(process.argv);
+  const isInitCommand = parsed.command === "init";
+  if (isInitCommand) {
+    await initCommand(options);
+    return;
+  }
 
-export { program };
+  await action(options);
+};

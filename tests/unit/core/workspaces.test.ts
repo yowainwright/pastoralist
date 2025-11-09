@@ -1,4 +1,4 @@
-import { test, expect, mock } from "bun:test";
+import { test, expect, mock, afterEach } from "bun:test";
 import type { Appendix, ResolveOverrides } from "../../../src/types";
 import {
   checkMonorepoOverrides,
@@ -8,6 +8,10 @@ import {
   cleanupUnusedOverrides,
 } from "../../../src/core/workspaces";
 import * as packageJSON from "../../../src/core/packageJSON";
+
+afterEach(() => {
+  mock.restore();
+});
 
 test("checkMonorepoOverrides", () => {
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };

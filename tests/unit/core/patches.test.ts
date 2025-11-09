@@ -1,11 +1,11 @@
 import { test, expect, mock } from "bun:test";
 import type { Appendix } from "../../../src/types";
 
-const mockFg = {
+const mockGlob = {
   sync: mock(() => []),
 };
 
-mock.module("fast-glob", () => ({ default: mockFg }));
+mock.module("../../../src/utils/glob", () => mockGlob);
 
 import {
   detectPatches,
@@ -15,8 +15,8 @@ import {
 } from "../../../src/core/patches";
 
 test("detectPatches - should return empty object when no patches found", () => {
-  mockFg.sync.mockClear();
-  mockFg.sync.mockReturnValue([]);
+  mockGlob.sync.mockClear();
+  mockGlob.sync.mockReturnValue([]);
 
   const result = detectPatches("./");
 
@@ -24,8 +24,8 @@ test("detectPatches - should return empty object when no patches found", () => {
 });
 
 test("detectPatches - should detect simple patch files", () => {
-  mockFg.sync.mockClear();
-  mockFg.sync.mockReturnValue(["patches/lodash+4.17.21.patch"]);
+  mockGlob.sync.mockClear();
+  mockGlob.sync.mockReturnValue(["patches/lodash+4.17.21.patch"]);
 
   const result = detectPatches("./");
 
@@ -35,8 +35,8 @@ test("detectPatches - should detect simple patch files", () => {
 });
 
 test("detectPatches - should detect scoped package patches", () => {
-  mockFg.sync.mockClear();
-  mockFg.sync.mockReturnValue(["patches/@babel+core+7.20.0.patch"]);
+  mockGlob.sync.mockClear();
+  mockGlob.sync.mockReturnValue(["patches/@babel+core+7.20.0.patch"]);
 
   const result = detectPatches("./");
 
@@ -46,8 +46,8 @@ test("detectPatches - should detect scoped package patches", () => {
 });
 
 test("detectPatches - should detect patches without version", () => {
-  mockFg.sync.mockClear();
-  mockFg.sync.mockReturnValue(["patches/my-package.patch"]);
+  mockGlob.sync.mockClear();
+  mockGlob.sync.mockReturnValue(["patches/my-package.patch"]);
 
   const result = detectPatches("./");
 
@@ -57,8 +57,8 @@ test("detectPatches - should detect patches without version", () => {
 });
 
 test("detectPatches - should group multiple patches for same package", () => {
-  mockFg.sync.mockClear();
-  mockFg.sync.mockReturnValue([
+  mockGlob.sync.mockClear();
+  mockGlob.sync.mockReturnValue([
     "patches/lodash+4.17.20.patch",
     "patches/lodash+4.17.21.patch",
   ]);
@@ -74,8 +74,8 @@ test("detectPatches - should group multiple patches for same package", () => {
 });
 
 test("detectPatches - should handle multiple packages", () => {
-  mockFg.sync.mockClear();
-  mockFg.sync.mockReturnValue([
+  mockGlob.sync.mockClear();
+  mockGlob.sync.mockReturnValue([
     "patches/lodash+4.17.21.patch",
     "patches/react+18.0.0.patch",
   ]);
@@ -89,8 +89,8 @@ test("detectPatches - should handle multiple packages", () => {
 });
 
 test("detectPatches - should ignore non-patch files", () => {
-  mockFg.sync.mockClear();
-  mockFg.sync.mockReturnValue([
+  mockGlob.sync.mockClear();
+  mockGlob.sync.mockReturnValue([
     "patches/lodash+4.17.21.patch",
     "patches/README.md",
   ]);
@@ -103,8 +103,8 @@ test("detectPatches - should ignore non-patch files", () => {
 });
 
 test("detectPatches - should handle scoped packages with only scope", () => {
-  mockFg.sync.mockClear();
-  mockFg.sync.mockReturnValue(["patches/@babel.patch"]);
+  mockGlob.sync.mockClear();
+  mockGlob.sync.mockReturnValue(["patches/@babel.patch"]);
 
   const result = detectPatches("./");
 
@@ -114,8 +114,8 @@ test("detectPatches - should handle scoped packages with only scope", () => {
 });
 
 test("detectPatches - should return empty object on error", () => {
-  mockFg.sync.mockClear();
-  mockFg.sync.mockImplementation(() => {
+  mockGlob.sync.mockClear();
+  mockGlob.sync.mockImplementation(() => {
     throw new Error("File system error");
   });
 
@@ -125,12 +125,12 @@ test("detectPatches - should return empty object on error", () => {
 });
 
 test("detectPatches - should use provided root path", () => {
-  mockFg.sync.mockClear();
-  mockFg.sync.mockReturnValue([]);
+  mockGlob.sync.mockClear();
+  mockGlob.sync.mockReturnValue([]);
 
   detectPatches("/custom/root");
 
-  expect(mockFg.sync).toHaveBeenCalledWith(
+  expect(mockGlob.sync).toHaveBeenCalledWith(
     expect.any(Array),
     expect.objectContaining({ cwd: "/custom/root" })
   );

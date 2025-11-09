@@ -64,7 +64,6 @@
     "app"
   ],
   "dependencies": {
-    "commander": "14.0.2",
     "zod": "^4.1.12"
   },
   "devDependencies": {

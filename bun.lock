@@ -4,7 +4,6 @@
     "": {
       "name": "pastoralist",
       "dependencies": {
-        "fast-glob": "3.3.3",
         "zod": "^4.1.12",
       },
       "devDependencies": {

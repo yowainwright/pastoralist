@@ -64,7 +64,6 @@
     "app"
   ],
   "dependencies": {
-    "commander": "14.0.2",
     "fast-glob": "3.3.3",
     "inquirer": "^12.10.0",
     "zod": "^4.1.12"

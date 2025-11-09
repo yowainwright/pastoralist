@@ -95,6 +95,6 @@ const isMainModule = import.meta.url === `file://${process.argv[1]}` ||
                      process.argv[1]?.endsWith('\\pastoralist');
 
 if (isMainModule) {
-  const { program } = await import("./cli");
-  program.parse(process.argv);
+  const { run } = await import("./cli");
+  await run(process.argv);
 }

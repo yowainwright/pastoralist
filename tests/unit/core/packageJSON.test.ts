@@ -491,7 +491,17 @@ test("findPackageJsonFiles - should throw when no depPaths provided", () => {
 });
 
 test("findPackageJsonFiles - should throw when no files found", () => {
+  validateRootPackageJsonIntegrity();
+  if (!existsSync(testDir)) {
+    mkdirSync(testDir, { recursive: true });
+  }
+
   expect(() => findPackageJsonFiles(["nonexistent/**/*.json"], [], testDir)).toThrow("No package.json files found");
+
+  if (existsSync(testDir)) {
+    rmSync(testDir, { recursive: true, force: true });
+  }
+  validateRootPackageJsonIntegrity();
 });
 
 test("getDependencyTree - should return dependency tree", async () => {

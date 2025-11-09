@@ -33,6 +33,7 @@
     "preview": "bun run --cwd app preview",
     "release": "release-it",
     "test": "bun test",
+    "test:bench": "./tests/benchmarks/run-benchmarks.sh",
     "test:e2e": "./tests/e2e/scripts/run-e2e-tests.sh",
     "test:integration:docker": "cd tests/e2e && docker compose up --abort-on-container-exit",
     "typecheck": "turbo run typecheck-src",
@@ -82,5 +83,5 @@
       "commitMessage": "chore: release"
     }
   },
-  "packageManager": "bun@1.3.0"
+  "packageManager": "bun@1.3.1"
 }

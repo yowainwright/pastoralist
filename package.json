@@ -64,7 +64,7 @@
     "app"
   ],
   "dependencies": {
-    "zod": "^4.1.12"
+    "commander": "14.0.2"
   },
   "devDependencies": {
     "@types/bun": "latest",

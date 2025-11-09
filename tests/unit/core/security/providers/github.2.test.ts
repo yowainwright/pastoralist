@@ -357,3 +357,146 @@ test("GitHubSecurityProvider - convertToSecurityAlerts handles multiple open ale
   expect(alerts[0].packageName).toBe("pkg1");
   expect(alerts[1].packageName).toBe("pkg2");
 });
+
+test("GitHubSecurityProvider - getMockVulnerableAlerts uses default when no mock file", async () => {
+  const originalMock = process.env[SECURITY_ENV_VARS.MOCK_MODE];
+  const originalForce = process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE];
+  const originalFile = process.env[SECURITY_ENV_VARS.MOCK_FILE];
+
+  process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
+  process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE] = "true";
+  delete process.env[SECURITY_ENV_VARS.MOCK_FILE];
+
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false
+  });
+
+  const alerts = await provider['getMockVulnerableAlerts']();
+  expect(Array.isArray(alerts)).toBe(true);
+  expect(alerts.length).toBeGreaterThan(0);
+
+  if (originalMock) process.env[SECURITY_ENV_VARS.MOCK_MODE] = originalMock;
+  else delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
+
+  if (originalForce) process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE] = originalForce;
+  else delete process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE];
+
+  if (originalFile) process.env[SECURITY_ENV_VARS.MOCK_FILE] = originalFile;
+});
+
+test("GitHubSecurityProvider - loadMockFile loads valid mock file", async () => {
+  const { writeFileSync, unlinkSync } = await import("fs");
+  const { resolve } = await import("path");
+
+  const testFile = resolve(process.cwd(), "tests/unit/.test-mock-alerts.json");
+  const mockData = [
+    {
+      state: "open",
+      security_vulnerability: {
+        package: { name: "test-package" },
+        vulnerable_version_range: "< 1.0.0",
+        first_patched_version: { identifier: "1.0.0" },
+        severity: "high"
+      },
+      security_advisory: {
+        summary: "Test Alert",
+        description: "Test Description",
+        cve_id: "CVE-2024-TEST"
+      },
+      html_url: "https://github.com/test/test/security/1"
+    }
+  ];
+
+  writeFileSync(testFile, JSON.stringify(mockData));
+
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false
+  });
+
+  const alerts = await provider['loadMockFile'](testFile);
+  expect(alerts).toBeDefined();
+  expect(Array.isArray(alerts)).toBe(true);
+  expect(alerts?.length).toBe(1);
+
+  unlinkSync(testFile);
+});
+
+test("GitHubSecurityProvider - loadMockFile returns null for invalid file", async () => {
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false
+  });
+
+  const alerts = await provider['loadMockFile']("/nonexistent/path/file.json");
+  expect(alerts).toBeNull();
+});
+
+test("GitHubSecurityProvider - loadMockFile returns null for malformed JSON", async () => {
+  const { writeFileSync, unlinkSync } = await import("fs");
+  const { resolve } = await import("path");
+
+  const testFile = resolve(process.cwd(), "tests/unit/.test-invalid-json.json");
+  writeFileSync(testFile, "{ invalid json }");
+
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false
+  });
+
+  const alerts = await provider['loadMockFile'](testFile);
+  expect(alerts).toBeNull();
+
+  unlinkSync(testFile);
+});
+
+test("GitHubSecurityProvider - fetchMockAlerts returns empty when not forcing vulnerable", async () => {
+  const originalMock = process.env[SECURITY_ENV_VARS.MOCK_MODE];
+  const originalForce = process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE];
+
+  process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
+  delete process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE];
+
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false
+  });
+
+  const alerts = await provider['fetchMockAlerts']();
+  expect(alerts).toEqual([]);
+
+  if (originalMock) process.env[SECURITY_ENV_VARS.MOCK_MODE] = originalMock;
+  else delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
+
+  if (originalForce) process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE] = originalForce;
+});
+
+test("GitHubSecurityProvider - fetchMockAlerts returns alerts when forcing vulnerable", async () => {
+  const originalMock = process.env[SECURITY_ENV_VARS.MOCK_MODE];
+  const originalForce = process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE];
+
+  process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
+  process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE] = "true";
+
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false
+  });
+
+  const alerts = await provider['fetchMockAlerts']();
+  expect(Array.isArray(alerts)).toBe(true);
+  expect(alerts.length).toBeGreaterThan(0);
+
+  if (originalMock) process.env[SECURITY_ENV_VARS.MOCK_MODE] = originalMock;
+  else delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
+
+  if (originalForce) process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE] = originalForce;
+  else delete process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE];
+});

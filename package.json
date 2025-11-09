@@ -63,12 +63,7 @@
   "workspaces": [
     "app"
   ],
-<<<<<<< Updated upstream
-  "dependencies": {
-    "commander": "14.0.2"
-  },
-=======
->>>>>>> Stashed changes
+  "dependencies": {},
   "devDependencies": {
     "@types/bun": "latest",
     "codependence": "^0.3.1",

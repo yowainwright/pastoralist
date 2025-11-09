@@ -1,12 +1,7 @@
-import { test, expect, mock } from "bun:test";
+import { test, expect, beforeEach, afterEach } from "bun:test";
+import { mkdirSync, writeFileSync, rmSync, existsSync } from "fs";
+import { resolve } from "path";
 import type { Appendix } from "../../../src/types";
-
-const mockGlob = {
-  sync: mock(() => []),
-};
-
-mock.module("../../../src/utils/glob", () => mockGlob);
-
 import {
   detectPatches,
   getPackagePatches,
@@ -14,20 +9,40 @@ import {
   attachPatchesToAppendix,
 } from "../../../src/core/patches";
 
-test("detectPatches - should return empty object when no patches found", () => {
-  mockGlob.sync.mockClear();
-  mockGlob.sync.mockReturnValue([]);
+const TEST_DIR = resolve(__dirname, ".test-patches");
 
-  const result = detectPatches("./");
+const createPatchFile = (filename: string) => {
+  const dir = resolve(TEST_DIR, filename.substring(0, filename.lastIndexOf("/")));
+  if (dir !== TEST_DIR && !existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+  writeFileSync(resolve(TEST_DIR, filename), "patch content");
+};
+
+beforeEach(() => {
+  if (existsSync(TEST_DIR)) {
+    rmSync(TEST_DIR, { recursive: true, force: true });
+  }
+  mkdirSync(TEST_DIR, { recursive: true });
+});
+
+afterEach(() => {
+  if (existsSync(TEST_DIR)) {
+    rmSync(TEST_DIR, { recursive: true, force: true });
+  }
+});
+
+test("detectPatches - should return empty object when no patches found", () => {
+  const result = detectPatches(TEST_DIR);
 
   expect(result).toEqual({});
 });
 
 test("detectPatches - should detect simple patch files", () => {
-  mockGlob.sync.mockClear();
-  mockGlob.sync.mockReturnValue(["patches/lodash+4.17.21.patch"]);
+  mkdirSync(resolve(TEST_DIR, "patches"), { recursive: true });
+  createPatchFile("patches/lodash+4.17.21.patch");
 
-  const result = detectPatches("./");
+  const result = detectPatches(TEST_DIR);
 
   expect(result).toEqual({
     lodash: ["patches/lodash+4.17.21.patch"],
@@ -35,10 +50,10 @@ test("detectPatches - should detect simple patch files", () => {
 });
 
 test("detectPatches - should detect scoped package patches", () => {
-  mockGlob.sync.mockClear();
-  mockGlob.sync.mockReturnValue(["patches/@babel+core+7.20.0.patch"]);
+  mkdirSync(resolve(TEST_DIR, "patches"), { recursive: true });
+  createPatchFile("patches/@babel+core+7.20.0.patch");
 
-  const result = detectPatches("./");
+  const result = detectPatches(TEST_DIR);
 
   expect(result).toEqual({
     "@babel/core": ["patches/@babel+core+7.20.0.patch"],
@@ -46,10 +61,10 @@ test("detectPatches - should detect scoped package patches", () => {
 });
 
 test("detectPatches - should detect patches without version", () => {
-  mockGlob.sync.mockClear();
-  mockGlob.sync.mockReturnValue(["patches/my-package.patch"]);
+  mkdirSync(resolve(TEST_DIR, "patches"), { recursive: true });
+  createPatchFile("patches/my-package.patch");
 
-  const result = detectPatches("./");
+  const result = detectPatches(TEST_DIR);
 
   expect(result).toEqual({
     "my-package": ["patches/my-package.patch"],
@@ -57,13 +72,11 @@ test("detectPatches - should detect patches without version", () => {
 });
 
 test("detectPatches - should group multiple patches for same package", () => {
-  mockGlob.sync.mockClear();
-  mockGlob.sync.mockReturnValue([
-    "patches/lodash+4.17.20.patch",
-    "patches/lodash+4.17.21.patch",
-  ]);
+  mkdirSync(resolve(TEST_DIR, "patches"), { recursive: true });
+  createPatchFile("patches/lodash+4.17.20.patch");
+  createPatchFile("patches/lodash+4.17.21.patch");
 
-  const result = detectPatches("./");
+  const result = detectPatches(TEST_DIR);
 
   expect(result).toEqual({
     lodash: [
@@ -74,13 +87,11 @@ test("detectPatches - should group multiple patches for same package", () => {
 });
 
 test("detectPatches - should handle multiple packages", () => {
-  mockGlob.sync.mockClear();
-  mockGlob.sync.mockReturnValue([
-    "patches/lodash+4.17.21.patch",
-    "patches/react+18.0.0.patch",
-  ]);
+  mkdirSync(resolve(TEST_DIR, "patches"), { recursive: true });
+  createPatchFile("patches/lodash+4.17.21.patch");
+  createPatchFile("patches/react+18.0.0.patch");
 
-  const result = detectPatches("./");
+  const result = detectPatches(TEST_DIR);
 
   expect(result).toEqual({
     lodash: ["patches/lodash+4.17.21.patch"],
@@ -89,13 +100,11 @@ test("detectPatches - should handle multiple packages", () => {
 });
 
 test("detectPatches - should ignore non-patch files", () => {
-  mockGlob.sync.mockClear();
-  mockGlob.sync.mockReturnValue([
-    "patches/lodash+4.17.21.patch",
-    "patches/README.md",
-  ]);
+  mkdirSync(resolve(TEST_DIR, "patches"), { recursive: true });
+  createPatchFile("patches/lodash+4.17.21.patch");
+  writeFileSync(resolve(TEST_DIR, "patches/README.md"), "readme");
 
-  const result = detectPatches("./");
+  const result = detectPatches(TEST_DIR);
 
   expect(result).toEqual({
     lodash: ["patches/lodash+4.17.21.patch"],
@@ -103,10 +112,10 @@ test("detectPatches - should ignore non-patch files", () => {
 });
 
 test("detectPatches - should handle scoped packages with only scope", () => {
-  mockGlob.sync.mockClear();
-  mockGlob.sync.mockReturnValue(["patches/@babel.patch"]);
+  mkdirSync(resolve(TEST_DIR, "patches"), { recursive: true });
+  createPatchFile("patches/@babel.patch");
 
-  const result = detectPatches("./");
+  const result = detectPatches(TEST_DIR);
 
   expect(result).toEqual({
     "@babel": ["patches/@babel.patch"],
@@ -114,26 +123,18 @@ test("detectPatches - should handle scoped packages with only scope", () => {
 });
 
 test("detectPatches - should return empty object on error", () => {
-  mockGlob.sync.mockClear();
-  mockGlob.sync.mockImplementation(() => {
-    throw new Error("File system error");
-  });
-
-  const result = detectPatches("./");
+  const result = detectPatches("/nonexistent/path/that/should/not/exist");
 
   expect(result).toEqual({});
 });
 
 test("detectPatches - should use provided root path", () => {
-  mockGlob.sync.mockClear();
-  mockGlob.sync.mockReturnValue([]);
+  mkdirSync(resolve(TEST_DIR, "patches"), { recursive: true });
+  createPatchFile("patches/test.patch");
 
-  detectPatches("/custom/root");
+  const result = detectPatches(TEST_DIR);
 
-  expect(mockGlob.sync).toHaveBeenCalledWith(
-    expect.any(Array),
-    expect.objectContaining({ cwd: "/custom/root" })
-  );
+  expect(result.test).toEqual(["patches/test.patch"]);
 });
 
 test("getPackagePatches - should return patches for existing package", () => {

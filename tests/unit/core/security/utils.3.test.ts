@@ -12,7 +12,13 @@ test("InteractiveSecurityManager - promptForSecurityActions with no vulnerabilit
 });
 
 test("InteractiveSecurityManager - promptForSecurityActions with vulnerabilities but user declines", async () => {
-  const manager = new InteractiveSecurityManager();
+  const mockPrompts = {
+    confirm: mock(async () => false),
+    select: mock(async () => "skip"),
+    input: mock(async () => ""),
+  };
+
+  const manager = new InteractiveSecurityManager(mockPrompts);
 
   const vulnerablePackages: SecurityAlert[] = [
     {
@@ -37,29 +43,24 @@ test("InteractiveSecurityManager - promptForSecurityActions with vulnerabilities
     },
   ];
 
-  const mockInquirer = {
-    default: {
-      prompt: mock(async (questions: any[]) => {
-        if (questions[0].name === "proceed") {
-          return { proceed: false };
-        }
-        return {};
-      }),
-    },
-  };
-
-  const originalLoadInquirer = manager['loadInquirer'];
-  manager['loadInquirer'] = mock(async () => mockInquirer);
+  const mockLog = console.log;
+  console.log = mock();
 
   const result = await manager.promptForSecurityActions(vulnerablePackages, suggestedOverrides);
 
   expect(result).toEqual([]);
 
-  manager['loadInquirer'] = originalLoadInquirer;
+  console.log = mockLog;
 });
 
 test("InteractiveSecurityManager - promptForSecurityActions user applies fix", async () => {
-  const manager = new InteractiveSecurityManager();
+  const mockPrompts = {
+    confirm: mock(async () => true),
+    select: mock(async () => "apply"),
+    input: mock(async () => ""),
+  };
+
+  const manager = new InteractiveSecurityManager(mockPrompts);
 
   const vulnerablePackages: SecurityAlert[] = [
     {
@@ -84,30 +85,8 @@ test("InteractiveSecurityManager - promptForSecurityActions user applies fix", a
     },
   ];
 
-  let callCount = 0;
-  const mockInquirer = {
-    default: {
-      prompt: mock(async (questions: any[]) => {
-        callCount++;
-        if (questions[0].name === "proceed") {
-          return { proceed: true };
-        }
-        if (questions[0].name === "action") {
-          return { action: "apply" };
-        }
-        if (questions[0].name === "confirm") {
-          return { confirm: true };
-        }
-        return {};
-      }),
-    },
-  };
-
   const mockLog = console.log;
   console.log = mock();
-
-  const originalLoadInquirer = manager['loadInquirer'];
-  manager['loadInquirer'] = mock(async () => mockInquirer);
 
   const result = await manager.promptForSecurityActions(vulnerablePackages, suggestedOverrides);
 
@@ -116,11 +95,16 @@ test("InteractiveSecurityManager - promptForSecurityActions user applies fix", a
   expect(result[0].toVersion).toBe("4.17.21");
 
   console.log = mockLog;
-  manager['loadInquirer'] = originalLoadInquirer;
 });
 
 test("InteractiveSecurityManager - promptForSecurityActions user skips vulnerability", async () => {
-  const manager = new InteractiveSecurityManager();
+  const mockPrompts = {
+    confirm: mock(async () => true),
+    select: mock(async () => "skip"),
+    input: mock(async () => ""),
+  };
+
+  const manager = new InteractiveSecurityManager(mockPrompts);
 
   const vulnerablePackages: SecurityAlert[] = [
     {
@@ -144,36 +128,24 @@ test("InteractiveSecurityManager - promptForSecurityActions user skips vulnerabi
     },
   ];
 
-  const mockInquirer = {
-    default: {
-      prompt: mock(async (questions: any[]) => {
-        if (questions[0].name === "proceed") {
-          return { proceed: true };
-        }
-        if (questions[0].name === "action") {
-          return { action: "skip" };
-        }
-        return {};
-      }),
-    },
-  };
-
   const mockLog = console.log;
   console.log = mock();
-
-  const originalLoadInquirer = manager['loadInquirer'];
-  manager['loadInquirer'] = mock(async () => mockInquirer);
 
   const result = await manager.promptForSecurityActions(vulnerablePackages, suggestedOverrides);
 
   expect(result.length).toBe(0);
 
   console.log = mockLog;
-  manager['loadInquirer'] = originalLoadInquirer;
 });
 
 test("InteractiveSecurityManager - promptForSecurityActions user provides custom version", async () => {
-  const manager = new InteractiveSecurityManager();
+  const mockPrompts = {
+    confirm: mock(async () => true),
+    select: mock(async () => "custom"),
+    input: mock(async () => "18.0.0"),
+  };
+
+  const manager = new InteractiveSecurityManager(mockPrompts);
 
   const vulnerablePackages: SecurityAlert[] = [
     {
@@ -197,31 +169,8 @@ test("InteractiveSecurityManager - promptForSecurityActions user provides custom
     },
   ];
 
-  const mockInquirer = {
-    default: {
-      prompt: mock(async (questions: any[]) => {
-        if (questions[0].name === "proceed") {
-          return { proceed: true };
-        }
-        if (questions[0].name === "action") {
-          return { action: "custom" };
-        }
-        if (questions[0].name === "customVersion") {
-          return { customVersion: "18.0.0" };
-        }
-        if (questions[0].name === "confirm") {
-          return { confirm: true };
-        }
-        return {};
-      }),
-    },
-  };
-
   const mockLog = console.log;
   console.log = mock();
-
-  const originalLoadInquirer = manager['loadInquirer'];
-  manager['loadInquirer'] = mock(async () => mockInquirer);
 
   const result = await manager.promptForSecurityActions(vulnerablePackages, suggestedOverrides);
 
@@ -229,11 +178,20 @@ test("InteractiveSecurityManager - promptForSecurityActions user provides custom
   expect(result[0].toVersion).toBe("18.0.0");
 
   console.log = mockLog;
-  manager['loadInquirer'] = originalLoadInquirer;
 });
 
 test("InteractiveSecurityManager - promptForSecurityActions user declines final confirmation", async () => {
-  const manager = new InteractiveSecurityManager();
+  let confirmCallCount = 0;
+  const mockPrompts = {
+    confirm: mock(async () => {
+      confirmCallCount++;
+      return confirmCallCount === 1;
+    }),
+    select: mock(async () => "apply"),
+    input: mock(async () => ""),
+  };
+
+  const manager = new InteractiveSecurityManager(mockPrompts);
 
   const vulnerablePackages: SecurityAlert[] = [
     {
@@ -258,35 +216,14 @@ test("InteractiveSecurityManager - promptForSecurityActions user declines final 
     },
   ];
 
-  const mockInquirer = {
-    default: {
-      prompt: mock(async (questions: any[]) => {
-        if (questions[0].name === "proceed") {
-          return { proceed: true };
-        }
-        if (questions[0].name === "action") {
-          return { action: "apply" };
-        }
-        if (questions[0].name === "confirm") {
-          return { confirm: false };
-        }
-        return {};
-      }),
-    },
-  };
-
   const mockLog = console.log;
   console.log = mock();
-
-  const originalLoadInquirer = manager['loadInquirer'];
-  manager['loadInquirer'] = mock(async () => mockInquirer);
 
   const result = await manager.promptForSecurityActions(vulnerablePackages, suggestedOverrides);
 
   expect(result.length).toBe(0);
 
   console.log = mockLog;
-  manager['loadInquirer'] = originalLoadInquirer;
 });
 
 test("InteractiveSecurityManager - generateSummary produces correct output", async () => {
@@ -359,7 +296,13 @@ test("InteractiveSecurityManager - getSeverityEmoji returns correct indicators",
 });
 
 test("InteractiveSecurityManager - handles vulnerability without CVE", async () => {
-  const manager = new InteractiveSecurityManager();
+  const mockPrompts = {
+    confirm: mock(async () => true),
+    select: mock(async () => "apply"),
+    input: mock(async () => ""),
+  };
+
+  const manager = new InteractiveSecurityManager(mockPrompts);
 
   const vulnerablePackages: SecurityAlert[] = [
     {
@@ -383,33 +326,12 @@ test("InteractiveSecurityManager - handles vulnerability without CVE", async () 
     },
   ];
 
-  const mockInquirer = {
-    default: {
-      prompt: mock(async (questions: any[]) => {
-        if (questions[0].name === "proceed") {
-          return { proceed: true };
-        }
-        if (questions[0].name === "action") {
-          return { action: "apply" };
-        }
-        if (questions[0].name === "confirm") {
-          return { confirm: true };
-        }
-        return {};
-      }),
-    },
-  };
-
   const mockLog = console.log;
   console.log = mock();
-
-  const originalLoadInquirer = manager['loadInquirer'];
-  manager['loadInquirer'] = mock(async () => mockInquirer);
 
   const result = await manager.promptForSecurityActions(vulnerablePackages, suggestedOverrides);
 
   expect(result.length).toBe(1);
 
   console.log = mockLog;
-  manager['loadInquirer'] = originalLoadInquirer;
 });

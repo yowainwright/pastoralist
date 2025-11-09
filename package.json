@@ -63,9 +63,7 @@
   "workspaces": [
     "app"
   ],
-  "dependencies": {
-    "zod": "^4.1.12"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@types/bun": "latest",
     "codependence": "^0.3.1",

@@ -1,4 +1,4 @@
-import { test, expect } from "bun:test";
+import { test, expect, mock } from "bun:test";
 import type { Appendix, ResolveOverrides } from "../../../src/types";
 import {
   checkMonorepoOverrides,
@@ -7,6 +7,7 @@ import {
   findUnusedOverrides,
   cleanupUnusedOverrides,
 } from "../../../src/core/workspaces";
+import * as packageJSON from "../../../src/core/packageJSON";
 
 test("checkMonorepoOverrides", () => {
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
@@ -65,6 +66,11 @@ test("findUnusedOverrides", async () => {
 test("cleanupUnusedOverrides", async () => {
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
   const mockUpdateOverrides = () => ({ "fake-pkg": "1.0.0" });
+
+  mock.module("../../../src/core/packageJSON", () => ({
+    ...packageJSON,
+    getDependencyTree: async () => ({ "fake-pkg": true }),
+  }));
 
   const appendix: Appendix = { "fake-pkg@1.0.0": { dependents: { root: "fake-pkg@^1.0.0" } }, "react@18.0.0": { dependents: {} } };
   const result = await cleanupUnusedOverrides(

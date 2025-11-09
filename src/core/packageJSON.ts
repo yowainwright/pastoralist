@@ -2,7 +2,7 @@ import * as fs from "fs";
 import { resolve } from "path";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "util";
-import fg from "fast-glob";
+import * as fg from "../utils/glob";
 import { IS_DEBUGGING } from "../constants";
 import type { PastoralistJSON, OverridesType, OverrideValue, UpdatePackageJSONOptions } from "../types";
 import { logger } from "../utils";

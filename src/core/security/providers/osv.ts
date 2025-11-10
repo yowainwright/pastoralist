@@ -31,6 +31,7 @@ export class OSVProvider {
   async fetchAlerts(
     packages: Array<{ name: string; version: string }>
   ): Promise<SecurityAlert[]> {
+    this.log.debug(`OSV checking ${packages.length} packages`, "fetchAlerts");
     type FetchResult = {
       pkg: { name: string; version: string };
       vulns: OSVVulnerability[];

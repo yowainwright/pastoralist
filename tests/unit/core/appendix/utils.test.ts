@@ -148,22 +148,6 @@ test("createSecurityLedger - should include severity in ledger", () => {
   expect(result).toHaveProperty("severity", "high");
 });
 
-test("createSecurityLedger - should include description in ledger", () => {
-  const securityDetails: SecurityOverrideDetail[] = [
-    {
-      packageName: "lodash",
-      reason: "CVE-2021-23337",
-      cve: "CVE-2021-23337",
-      severity: "high",
-      description: "Prototype pollution",
-    },
-  ];
-
-  const result = createSecurityLedger("lodash", securityDetails, undefined);
-
-  expect(result).toHaveProperty("description", "Prototype pollution");
-});
-
 test("createSecurityLedger - should include URL in ledger", () => {
   const securityDetails: SecurityOverrideDetail[] = [
     {
@@ -200,7 +184,6 @@ test("createSecurityLedger - should include all fields when provided", () => {
     securityProvider: "github",
     cve: "CVE-2021-23337",
     severity: "high",
-    description: "Prototype pollution",
     url: "https://nvd.nist.gov/vuln/detail/CVE-2021-23337",
   });
 });

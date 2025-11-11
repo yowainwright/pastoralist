@@ -14,7 +14,7 @@ export const OPTION_DEFINITIONS: OptionDefinition[] = [
   { flags: ["--init"], hasValue: false },
   { flags: ["--checkSecurity"], hasValue: false },
   { flags: ["--forceSecurityRefactor"], hasValue: false },
-  { flags: ["--securityProvider"], hasValue: true, isArray: true, defaultValue: ["osv"] },
+  { flags: ["--securityProvider"], hasValue: true, isArray: true },
   { flags: ["--securityProviderToken"], hasValue: true },
   { flags: ["--interactive"], hasValue: false },
   { flags: ["--hasWorkspaceSecurityChecks"], hasValue: false },

@@ -84,7 +84,9 @@ You can configure security settings in your `package.json`:
 
 ### OSV (Open Source Vulnerabilities)
 
-Currently, Pastoralist uses the [OSV database](https://osv.dev/) as its security provider. OSV is a distributed vulnerability database for open source, created by Google and the open source community.
+Free but only checks top-level dependencies from `package.json`.
+
+The [OSV database](https://osv.dev/) is a distributed vulnerability database for open source, created by Google and the open source community.
 
 #### Benefits of OSV
 
@@ -95,6 +97,8 @@ Currently, Pastoralist uses the [OSV database](https://osv.dev/) as its security
 - Comprehensive coverage of npm packages
 
 ### GitHub Provider
+
+Requires a token but provides more in-depth security awareness, including transitive dependencies.
 
 The GitHub provider uses Dependabot alerts to check for vulnerabilities. This provider queries GitHub's Dependabot API for your repository.
 
@@ -135,13 +139,13 @@ If you don't have the GitHub CLI, you can provide a GitHub token:
 - No additional API rate limits beyond GitHub's standard limits
 - Can be used in GitHub Actions without additional configuration
 
-### Planned Providers
+### Snyk Provider
 
-Support for additional providers is planned for future releases:
+Beta implementation with CLI - requires API authentication.
 
-- **Snyk**: Commercial vulnerability database
-- **NPM**: Native npm audit data
-- **Socket**: Supply chain security analysis
+### Socket Provider
+
+Beta implementation with CLI - requires API key.
 
 ## How It Works
 

@@ -76,14 +76,6 @@ const addSeverityToLedger = (
   return { ...ledger, severity: detail.severity };
 };
 
-const addDescriptionToLedger = (
-  ledger: Record<string, any>,
-  detail?: SecurityOverrideDetail
-): Record<string, any> => {
-  if (!detail?.description) return ledger;
-  return { ...ledger, description: detail.description };
-};
-
 const addUrlToLedger = (
   ledger: Record<string, any>,
   detail?: SecurityOverrideDetail
@@ -106,7 +98,6 @@ export const createSecurityLedger = (
   ledger = addProviderToLedger(ledger, securityProvider);
   ledger = addCveToLedger(ledger, detail);
   ledger = addSeverityToLedger(ledger, detail);
-  ledger = addDescriptionToLedger(ledger, detail);
   ledger = addUrlToLedger(ledger, detail);
 
   return ledger;

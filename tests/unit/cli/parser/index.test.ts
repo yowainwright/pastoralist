@@ -115,10 +115,10 @@ describe("parseArgs", () => {
       expect(result.options.path).toBe("package.json");
     });
 
-    test("should apply default value for securityProvider", () => {
+    test("should not apply default value for securityProvider when not provided", () => {
       const result = parseArgs(["node", "script.js"]);
 
-      expect(result.options.securityProvider).toEqual(["osv"]);
+      expect(result.options.securityProvider).toBeUndefined();
     });
 
     test("should override default value when provided", () => {
@@ -246,7 +246,7 @@ describe("parseArgs", () => {
 
       expect(result.command).toBeUndefined();
       expect(result.options.path).toBe("package.json");
-      expect(result.options.securityProvider).toEqual(["osv"]);
+      expect(result.options.securityProvider).toBeUndefined();
     });
 
     test("should handle only command", () => {

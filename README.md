@@ -554,7 +554,7 @@ When both external config files and `package.json` configuration exist:
 | Option | Type | Description |
 |--------|------|-------------|
 | `enabled` | `boolean` | Enable/disable security checks |
-| `provider` | `"osv"` \| `"github"` \| `"snyk"` \| `"npm"` \| `"socket"` | Security provider (currently only OSV) |
+| `provider` | `"osv"` \| `"github"` \| `"snyk"` \| `"socket"` | Security provider: `osv` (free but only top-level), `github` (requires token but includes transitive deps), `snyk` (beta, requires API auth), `socket` (beta, requires API key) |
 | `autoFix` | `boolean` | Automatically apply security fixes |
 | `interactive` | `boolean` | Use interactive mode for security fixes |
 | `securityProviderToken` | `string` | API token for providers that require auth |

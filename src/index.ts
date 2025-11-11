@@ -90,7 +90,13 @@ export const findRemovableAppendixItems = (
     .map((item) => item.split("@")[0]);
 };
 
-const isMainModule = import.meta.url === `file://${process.argv[1]}` ||
+import { realpathSync } from 'fs';
+import { fileURLToPath } from 'url';
+
+const currentFile = fileURLToPath(import.meta.url);
+const argv1Real = process.argv[1] ? realpathSync(process.argv[1]) : '';
+
+const isMainModule = currentFile === argv1Real ||
                      process.argv[1]?.endsWith('/pastoralist') ||
                      process.argv[1]?.endsWith('\\pastoralist');
 

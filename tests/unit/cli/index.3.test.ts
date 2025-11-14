@@ -358,3 +358,165 @@ test("handleSecurityResults - does not generate overrides without autofix or int
   expect(mockSecurityChecker.applyAutoFix).not.toHaveBeenCalled();
   expect(mergedOptions.securityOverrides).toBeUndefined();
 });
+
+test("formatUpdateReport - formats single update", () => {
+  const { formatUpdateReport } = require("../../../src/cli/index");
+
+  const updates = [
+    {
+      packageName: "vite",
+      currentOverride: "6.3.6",
+      newerVersion: "6.4.1",
+      reason: "CVE-2025-62522 has a newer patch available",
+      addedDate: "2025-11-14T06:27:44.172Z",
+    },
+  ];
+
+  const result = formatUpdateReport(updates);
+
+  expect(result).toContain("Security Override Updates");
+  expect(result).toContain("Found 1 existing override(s)");
+  expect(result).toContain("[UPDATE] vite");
+  expect(result).toContain("Current override: 6.3.6");
+  expect(result).toContain("Newer patch: 6.4.1");
+  expect(result).toContain("CVE-2025-62522 has a newer patch available");
+});
+
+test("formatUpdateReport - formats multiple updates", () => {
+  const { formatUpdateReport } = require("../../../src/cli/index");
+
+  const updates = [
+    {
+      packageName: "vite",
+      currentOverride: "6.3.6",
+      newerVersion: "6.4.1",
+      reason: "Newer security patch available",
+    },
+    {
+      packageName: "astro",
+      currentOverride: "5.15.5",
+      newerVersion: "5.15.6",
+      reason: "XSS vulnerability fix",
+    },
+  ];
+
+  const result = formatUpdateReport(updates);
+
+  expect(result).toContain("Found 2 existing override(s)");
+  expect(result).toContain("[UPDATE] vite");
+  expect(result).toContain("[UPDATE] astro");
+  expect(result).toContain("6.3.6");
+  expect(result).toContain("6.4.1");
+  expect(result).toContain("5.15.5");
+  expect(result).toContain("5.15.6");
+});
+
+test("handleSecurityResults - applies updates when autoFix enabled", () => {
+  const { handleSecurityResults } = require("../../../src/cli/index");
+
+  const alerts: any[] = [];
+  const securityOverrides: any[] = [];
+
+  const updates = [
+    {
+      packageName: "vite",
+      currentOverride: "6.3.6",
+      newerVersion: "6.4.1",
+      reason: "Newer patch available",
+    },
+  ];
+
+  const mockSecurityChecker = {
+    formatSecurityReport: mock(() => ""),
+    generatePackageOverrides: mock(() => ({ vite: "6.4.1" })),
+    applyAutoFix: mock(() => {}),
+  };
+
+  const mockSpinner = {
+    info: mock(),
+  };
+
+  const mergedOptions: Options = {
+    forceSecurityRefactor: true,
+    path: "package.json",
+  };
+
+  handleSecurityResults(
+    alerts,
+    securityOverrides,
+    mockSecurityChecker as any,
+    mockSpinner as any,
+    mergedOptions,
+    updates,
+  );
+
+  expect(mockSpinner.info).toHaveBeenCalled();
+  expect(mockSecurityChecker.generatePackageOverrides).toHaveBeenCalled();
+  expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
+  expect(mergedOptions.securityOverrides).toEqual({ vite: "6.4.1" });
+});
+
+test("handleSecurityResults - merges updates with new overrides", () => {
+  const { handleSecurityResults } = require("../../../src/cli/index");
+
+  const alerts = [
+    {
+      packageName: "express",
+      severity: "high",
+      title: "Security issue",
+    },
+  ];
+
+  const securityOverrides = [
+    {
+      packageName: "express",
+      fromVersion: "4.17.0",
+      toVersion: "4.18.2",
+      reason: "Security fix",
+      severity: "high",
+    },
+  ];
+
+  const updates = [
+    {
+      packageName: "vite",
+      currentOverride: "6.3.6",
+      newerVersion: "6.4.1",
+      reason: "Newer patch available",
+    },
+  ];
+
+  const mockSecurityChecker = {
+    formatSecurityReport: mock(() => "Report"),
+    generatePackageOverrides: mock(() => ({
+      express: "4.18.2",
+      vite: "6.4.1",
+    })),
+    applyAutoFix: mock(() => {}),
+  };
+
+  const mockSpinner = {
+    info: mock(),
+  };
+
+  const mergedOptions: Options = {
+    forceSecurityRefactor: true,
+    path: "package.json",
+  };
+
+  handleSecurityResults(
+    alerts,
+    securityOverrides,
+    mockSecurityChecker as any,
+    mockSpinner as any,
+    mergedOptions,
+    updates,
+  );
+
+  expect(mockSecurityChecker.generatePackageOverrides).toHaveBeenCalled();
+  expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
+  expect(mergedOptions.securityOverrides).toEqual({
+    express: "4.18.2",
+    vite: "6.4.1",
+  });
+});

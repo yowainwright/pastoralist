@@ -171,13 +171,16 @@ test("handleSecurityResults - formats report when alerts found", () => {
     {
       packageName: "lodash",
       fromVersion: "4.17.20",
-      toVersion: "4.17.21"
+      toVersion: "4.17.21",
+      reason: "Security fix",
+      severity: "high"
     }
   ];
 
   const mockSecurityChecker = {
     formatSecurityReport: mock((alerts, overrides) => "Security Report"),
-    generatePackageOverrides: mock((overrides) => ({ lodash: "4.17.21" }))
+    generatePackageOverrides: mock((overrides) => ({ lodash: "4.17.21" })),
+    applyAutoFix: mock(() => {})
   };
 
   const mockSpinner = {
@@ -185,14 +188,18 @@ test("handleSecurityResults - formats report when alerts found", () => {
   };
 
   const mergedOptions: Options = {
-    forceSecurityRefactor: true
+    forceSecurityRefactor: true,
+    path: "package.json"
   };
 
-  handleSecurityResults(alerts, securityOverrides, mockSecurityChecker as any, mockSpinner as any, mergedOptions);
+  const updates: any[] = [];
+
+  handleSecurityResults(alerts, securityOverrides, mockSecurityChecker as any, mockSpinner as any, mergedOptions, updates);
 
   expect(mockSecurityChecker.formatSecurityReport).toHaveBeenCalled();
   expect(mockSpinner.info).toHaveBeenCalledWith("Security Report");
   expect(mockSecurityChecker.generatePackageOverrides).toHaveBeenCalled();
+  expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
   expect(mergedOptions.securityOverrides).toEqual({ lodash: "4.17.21" });
 });
 
@@ -213,13 +220,15 @@ test("handleSecurityResults - generates overrides in interactive mode", () => {
       fromVersion: "4.17.0",
       toVersion: "4.18.2",
       reason: "Security fix",
-      cve: "CVE-2024-1234"
+      cve: "CVE-2024-1234",
+      severity: "medium"
     }
   ];
 
   const mockSecurityChecker = {
     formatSecurityReport: mock(() => "Report"),
-    generatePackageOverrides: mock(() => ({ express: "4.18.2" }))
+    generatePackageOverrides: mock(() => ({ express: "4.18.2" })),
+    applyAutoFix: mock(() => {})
   };
 
   const mockSpinner = {
@@ -227,16 +236,20 @@ test("handleSecurityResults - generates overrides in interactive mode", () => {
   };
 
   const mergedOptions: Options = {
-    interactive: true
+    interactive: true,
+    path: "package.json"
   };
 
-  handleSecurityResults(alerts, securityOverrides, mockSecurityChecker as any, mockSpinner as any, mergedOptions);
+  const updates: any[] = [];
+
+  handleSecurityResults(alerts, securityOverrides, mockSecurityChecker as any, mockSpinner as any, mergedOptions, updates);
 
   expect(mergedOptions.securityOverrides).toEqual({ express: "4.18.2" });
   expect(mergedOptions.securityOverrideDetails).toBeDefined();
   expect(mergedOptions.securityOverrideDetails?.length).toBe(1);
   expect(mergedOptions.securityOverrideDetails?.[0].packageName).toBe("express");
   expect(mergedOptions.securityOverrideDetails?.[0].cve).toBe("CVE-2024-1234");
+  expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
 });
 
 test("handleSecurityResults - shows success message when no alerts", () => {
@@ -247,7 +260,8 @@ test("handleSecurityResults - shows success message when no alerts", () => {
 
   const mockSecurityChecker = {
     formatSecurityReport: mock(() => ""),
-    generatePackageOverrides: mock(() => ({}))
+    generatePackageOverrides: mock(() => ({})),
+    applyAutoFix: mock(() => {})
   };
 
   const mockSpinner = {
@@ -257,11 +271,14 @@ test("handleSecurityResults - shows success message when no alerts", () => {
 
   const mergedOptions: Options = {};
 
-  handleSecurityResults(alerts, securityOverrides, mockSecurityChecker as any, mockSpinner as any, mergedOptions);
+  const updates: any[] = [];
+
+  handleSecurityResults(alerts, securityOverrides, mockSecurityChecker as any, mockSpinner as any, mergedOptions, updates);
 
   expect(mockSpinner.succeed).toHaveBeenCalled();
   expect(mockSecurityChecker.formatSecurityReport).not.toHaveBeenCalled();
   expect(mockSecurityChecker.generatePackageOverrides).not.toHaveBeenCalled();
+  expect(mockSecurityChecker.applyAutoFix).not.toHaveBeenCalled();
 });
 
 test("handleSecurityResults - does not generate overrides without autofix or interactive", () => {
@@ -272,7 +289,8 @@ test("handleSecurityResults - does not generate overrides without autofix or int
 
   const mockSecurityChecker = {
     formatSecurityReport: mock(() => "Report"),
-    generatePackageOverrides: mock(() => ({ test: "2.0.0" }))
+    generatePackageOverrides: mock(() => ({ test: "2.0.0" })),
+    applyAutoFix: mock(() => {})
   };
 
   const mockSpinner = {
@@ -284,9 +302,12 @@ test("handleSecurityResults - does not generate overrides without autofix or int
     interactive: false
   };
 
-  handleSecurityResults(alerts, securityOverrides, mockSecurityChecker as any, mockSpinner as any, mergedOptions);
+  const updates: any[] = [];
+
+  handleSecurityResults(alerts, securityOverrides, mockSecurityChecker as any, mockSpinner as any, mergedOptions, updates);
 
   expect(mockSpinner.info).toHaveBeenCalled();
   expect(mockSecurityChecker.generatePackageOverrides).not.toHaveBeenCalled();
+  expect(mockSecurityChecker.applyAutoFix).not.toHaveBeenCalled();
   expect(mergedOptions.securityOverrides).toBeUndefined();
 });

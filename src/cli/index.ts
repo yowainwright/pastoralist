@@ -96,10 +96,9 @@ export const handleSecurityResults = (
   alerts: SecurityAlert[],
   securityOverrides: SecurityOverride[],
   securityChecker: SecurityChecker,
-  spinner: any,
+  spinner: ReturnType<typeof createSpinner>,
   mergedOptions: Options,
-  updates: import("../types").OverrideUpdate[] = [],
-  log: ReturnType<typeof createLogger> = createLogger({ file: "cli/index.ts", isLogging: false })
+  updates: import("../types").OverrideUpdate[] = []
 ): void => {
   const hasAlerts = alerts.length > 0;
   const hasUpdates = updates.length > 0;
@@ -139,11 +138,6 @@ export const handleSecurityResults = (
       const isStringMatch = typeof finalVersion === 'string' && finalVersion === override.toVersion;
       return isStringMatch;
     });
-
-    log.debug(`allOverrides count: ${allOverrides.length}`, "handleSecurityResults");
-    log.debug(`finalOverrides: ${JSON.stringify(finalOverrides)}`, "handleSecurityResults");
-    log.debug(`overridesToApply count: ${overridesToApply.length}`, "handleSecurityResults");
-    log.debug(`overridesToApply: ${overridesToApply.map(o => `${o.packageName}@${o.toVersion}`).join(", ")}`, "handleSecurityResults");
 
     mergedOptions.securityOverrideDetails = overridesToApply.map(buildSecurityOverrideDetail);
 
@@ -242,7 +236,8 @@ export async function action(options: Options = {}): Promise<void> {
         Boolean(isLogging),
         log
       );
-      handleSecurityResults(alerts, securityOverrides, securityChecker, spinner, mergedOptions, updates, log);
+
+      handleSecurityResults(alerts, securityOverrides, securityChecker, spinner, mergedOptions, updates);
     }
 
     const spinner = createSpinner(

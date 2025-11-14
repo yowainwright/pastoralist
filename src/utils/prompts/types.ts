@@ -4,19 +4,19 @@ export interface PromptChoice {
 }
 
 export interface InputOptions {
-  type?: 'input';
+  type?: "input";
   message: string;
   default?: string;
 }
 
 export interface ConfirmOptions {
-  type: 'confirm';
+  type: "confirm";
   message: string;
   default?: boolean;
 }
 
 export interface ListOptions {
-  type: 'list';
+  type: "list";
   message: string;
   choices: PromptChoice[];
 }
@@ -30,8 +30,17 @@ export interface MonorepoPromptResult {
   shouldSaveConfig?: boolean;
 }
 
-export type MainAction = "auto-detect" | "manual-paths" | "override-path" | "skip" | "learn-more";
-export type WorkspaceType = "standard" | "packages-only" | "apps-only" | "custom";
+export type MainAction =
+  | "auto-detect"
+  | "manual-paths"
+  | "override-path"
+  | "skip"
+  | "learn-more";
+export type WorkspaceType =
+  | "standard"
+  | "packages-only"
+  | "apps-only"
+  | "custom";
 
 export interface InteractiveConfigOptions {
   path?: string;

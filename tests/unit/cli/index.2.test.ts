@@ -19,8 +19,8 @@ test("determineSecurityScanPaths - returns empty array when security not enabled
     name: "test",
     version: "1.0.0",
     pastoralist: {
-      depPaths: ["packages/*/package.json"]
-    }
+      depPaths: ["packages/*/package.json"],
+    },
   };
   const options: Options = { checkSecurity: false };
 
@@ -35,8 +35,8 @@ test("determineSecurityScanPaths - returns depPaths from config when array and s
     version: "1.0.0",
     pastoralist: {
       depPaths: ["packages/*/package.json", "apps/*/package.json"],
-      checkSecurity: true
-    }
+      checkSecurity: true,
+    },
   };
   const options: Options = { checkSecurity: true };
 
@@ -52,8 +52,8 @@ test("determineSecurityScanPaths - uses workspace paths when depPaths is workspa
     workspaces: ["packages/*", "apps/*"],
     pastoralist: {
       depPaths: "workspace",
-      checkSecurity: true
-    }
+      checkSecurity: true,
+    },
   };
   const options: Options = { checkSecurity: true };
 
@@ -66,11 +66,11 @@ test("determineSecurityScanPaths - uses workspace paths when hasWorkspaceSecurit
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    workspaces: ["packages/*"]
+    workspaces: ["packages/*"],
   };
   const options: Options = {
     checkSecurity: true,
-    hasWorkspaceSecurityChecks: true
+    hasWorkspaceSecurityChecks: true,
   };
 
   const result = determineSecurityScanPaths(config, options, logger);
@@ -85,8 +85,8 @@ test("determineSecurityScanPaths - returns empty array when depPaths is workspac
     workspaces: [],
     pastoralist: {
       depPaths: "workspace",
-      checkSecurity: true
-    }
+      checkSecurity: true,
+    },
   };
   const options: Options = { checkSecurity: true };
 
@@ -99,11 +99,11 @@ test("determineSecurityScanPaths - returns empty array when hasWorkspaceSecurity
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    workspaces: []
+    workspaces: [],
   };
   const options: Options = {
     checkSecurity: true,
-    hasWorkspaceSecurityChecks: true
+    hasWorkspaceSecurityChecks: true,
   };
 
   const result = determineSecurityScanPaths(config, options, logger);
@@ -118,8 +118,8 @@ test("determineSecurityScanPaths - prioritizes depPaths array over workspace", (
     workspaces: ["packages/*"],
     pastoralist: {
       depPaths: ["custom/path/package.json"],
-      checkSecurity: true
-    }
+      checkSecurity: true,
+    },
   };
   const options: Options = { checkSecurity: true };
 
@@ -134,8 +134,8 @@ test("determineSecurityScanPaths - uses config.pastoralist.checkSecurity when op
     version: "1.0.0",
     pastoralist: {
       depPaths: ["packages/*/package.json"],
-      checkSecurity: true
-    }
+      checkSecurity: true,
+    },
   };
   const options: Options = {};
 
@@ -147,7 +147,7 @@ test("determineSecurityScanPaths - uses config.pastoralist.checkSecurity when op
 test("determineSecurityScanPaths - handles missing pastoralist config", () => {
   const config: PastoralistJSON = {
     name: "test",
-    version: "1.0.0"
+    version: "1.0.0",
   };
   const options: Options = { checkSecurity: true };
 
@@ -162,8 +162,8 @@ test("determineSecurityScanPaths - handles empty depPaths array", () => {
     version: "1.0.0",
     pastoralist: {
       depPaths: [],
-      checkSecurity: true
-    }
+      checkSecurity: true,
+    },
   };
   const options: Options = { checkSecurity: true };
 
@@ -179,8 +179,8 @@ test("determineSecurityScanPaths - handles single workspace path", () => {
     workspaces: ["packages"],
     pastoralist: {
       depPaths: "workspace",
-      checkSecurity: true
-    }
+      checkSecurity: true,
+    },
   };
   const options: Options = { checkSecurity: true };
 
@@ -195,8 +195,8 @@ test("determineSecurityScanPaths - option.checkSecurity takes precedence over co
     version: "1.0.0",
     pastoralist: {
       depPaths: ["packages/*/package.json"],
-      checkSecurity: false
-    }
+      checkSecurity: false,
+    },
   };
   const options: Options = { checkSecurity: true };
 
@@ -209,11 +209,11 @@ test("determineSecurityScanPaths - handles workspace with hasWorkspaceSecurityCh
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    workspaces: ["packages/*"]
+    workspaces: ["packages/*"],
   };
   const options: Options = {
     checkSecurity: true,
-    hasWorkspaceSecurityChecks: false
+    hasWorkspaceSecurityChecks: false,
   };
 
   const result = determineSecurityScanPaths(config, options, logger);

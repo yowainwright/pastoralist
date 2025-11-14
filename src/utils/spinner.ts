@@ -1,20 +1,24 @@
-import type { SpinnerState, Spinner } from './types';
+import type { SpinnerState, Spinner } from "./types";
 
-const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+const FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 export const hideCursor = (): void => {
-  process.stdout.write('\x1B[?25l');
+  process.stdout.write("\x1B[?25l");
 };
 
 export const showCursor = (): void => {
-  process.stdout.write('\x1B[?25h');
+  process.stdout.write("\x1B[?25h");
 };
 
 export const clearLine = (): void => {
-  process.stdout.write('\r\x1B[K');
+  process.stdout.write("\r\x1B[K");
 };
 
-export const renderFrame = (frames: string[], index: number, text: string): void => {
+export const renderFrame = (
+  frames: string[],
+  index: number,
+  text: string,
+): void => {
   const frame = frames[index];
   clearLine();
   process.stdout.write(`${frame} ${text}`);
@@ -29,7 +33,10 @@ export const stopInterval = (state: SpinnerState): SpinnerState => {
   return Object.assign({}, state, { interval: null, isSpinning: false });
 };
 
-export const updateStateText = (state: SpinnerState, text: string): SpinnerState => {
+export const updateStateText = (
+  state: SpinnerState,
+  text: string,
+): SpinnerState => {
   return Object.assign({}, state, { text });
 };
 
@@ -81,7 +88,7 @@ export const succeed = (state: SpinnerState, text?: string): Spinner => {
   const newState = stopInterval(state);
   Object.assign(state, newState);
   const displayText = text || state.text;
-  writeSymbol('✔', displayText);
+  writeSymbol("✔", displayText);
   showCursor();
   return createSpinnerMethods(state);
 };
@@ -90,7 +97,7 @@ export const fail = (state: SpinnerState, text?: string): Spinner => {
   const newState = stopInterval(state);
   Object.assign(state, newState);
   const displayText = text || state.text;
-  writeSymbol('✖', displayText);
+  writeSymbol("✖", displayText);
   showCursor();
   return createSpinnerMethods(state);
 };
@@ -99,7 +106,7 @@ export const info = (state: SpinnerState, text?: string): Spinner => {
   const newState = stopInterval(state);
   Object.assign(state, newState);
   const displayText = text || state.text;
-  writeSymbol('ℹ', displayText);
+  writeSymbol("ℹ", displayText);
   showCursor();
   return createSpinnerMethods(state);
 };
@@ -108,7 +115,7 @@ export const warn = (state: SpinnerState, text?: string): Spinner => {
   const newState = stopInterval(state);
   Object.assign(state, newState);
   const displayText = text || state.text;
-  writeSymbol('⚠', displayText);
+  writeSymbol("⚠", displayText);
   showCursor();
   return createSpinnerMethods(state);
 };

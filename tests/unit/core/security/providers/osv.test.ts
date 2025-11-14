@@ -62,7 +62,7 @@ test("fetchAlerts - should return empty array when no vulnerabilities found", as
   });
 
   const alerts = await provider.fetchAlerts([
-    { name: "lodash", version: "4.17.21" }
+    { name: "lodash", version: "4.17.21" },
   ]);
 
   expect(alerts).toEqual([]);
@@ -77,26 +77,32 @@ test("fetchAlerts - should convert OSV vulnerabilities to SecurityAlerts", async
   const mockVuln: OSVVulnerability = {
     id: "OSV-2021-1234",
     summary: "Prototype Pollution in lodash",
-    details: "lodash versions prior to 4.17.21 are vulnerable to prototype pollution",
+    details:
+      "lodash versions prior to 4.17.21 are vulnerable to prototype pollution",
     aliases: ["CVE-2021-1234"],
-    affected: [{
-      package: { name: "lodash", ecosystem: "npm" },
-      ranges: [{
-        type: "SEMVER",
-        events: [
-          { introduced: "0" },
-          { fixed: "4.17.21" }
-        ]
-      }]
-    }],
-    references: [{
-      type: "ADVISORY",
-      url: "https://example.com/advisory"
-    }],
-    severity: [{
-      type: "CVSS_V3",
-      score: "7.5 HIGH"
-    }]
+    affected: [
+      {
+        package: { name: "lodash", ecosystem: "npm" },
+        ranges: [
+          {
+            type: "SEMVER",
+            events: [{ introduced: "0" }, { fixed: "4.17.21" }],
+          },
+        ],
+      },
+    ],
+    references: [
+      {
+        type: "ADVISORY",
+        url: "https://example.com/advisory",
+      },
+    ],
+    severity: [
+      {
+        type: "CVSS_V3",
+        score: "7.5 HIGH",
+      },
+    ],
   };
 
   global.fetch = mock(() => {
@@ -107,7 +113,7 @@ test("fetchAlerts - should convert OSV vulnerabilities to SecurityAlerts", async
   });
 
   const alerts = await provider.fetchAlerts([
-    { name: "lodash", version: "4.17.20" }
+    { name: "lodash", version: "4.17.20" },
   ]);
 
   expect(alerts).toHaveLength(1);
@@ -134,21 +140,28 @@ test("fetchAlerts - should handle multiple packages", async () => {
     if (packageName === "lodash") {
       return Promise.resolve({
         ok: true,
-        json: () => Promise.resolve({
-          vulns: [{
-            id: "OSV-2021-1234",
-            summary: "Vuln in lodash",
-            details: "Details",
-            affected: [{
-              package: { name: "lodash", ecosystem: "npm" },
-              ranges: [{
-                type: "SEMVER",
-                events: [{ introduced: "0" }, { fixed: "4.17.21" }]
-              }]
-            }],
-            references: [{ type: "ADVISORY", url: "https://example.com" }]
-          }]
-        }),
+        json: () =>
+          Promise.resolve({
+            vulns: [
+              {
+                id: "OSV-2021-1234",
+                summary: "Vuln in lodash",
+                details: "Details",
+                affected: [
+                  {
+                    package: { name: "lodash", ecosystem: "npm" },
+                    ranges: [
+                      {
+                        type: "SEMVER",
+                        events: [{ introduced: "0" }, { fixed: "4.17.21" }],
+                      },
+                    ],
+                  },
+                ],
+                references: [{ type: "ADVISORY", url: "https://example.com" }],
+              },
+            ],
+          }),
       } as Response);
     }
 
@@ -160,7 +173,7 @@ test("fetchAlerts - should handle multiple packages", async () => {
 
   const alerts = await provider.fetchAlerts([
     { name: "lodash", version: "4.17.20" },
-    { name: "axios", version: "0.21.0" }
+    { name: "axios", version: "0.21.0" },
   ]);
 
   expect(alerts).toHaveLength(1);
@@ -178,7 +191,7 @@ test("fetchAlerts - should handle fetch errors gracefully", async () => {
   });
 
   const alerts = await provider.fetchAlerts([
-    { name: "lodash", version: "4.17.20" }
+    { name: "lodash", version: "4.17.20" },
   ]);
 
   expect(alerts).toEqual([]);
@@ -198,7 +211,7 @@ test("fetchAlerts - should handle non-ok responses", async () => {
   });
 
   const alerts = await provider.fetchAlerts([
-    { name: "lodash", version: "4.17.20" }
+    { name: "lodash", version: "4.17.20" },
   ]);
 
   expect(alerts).toEqual([]);
@@ -214,17 +227,21 @@ test("fetchAlerts - should extract severity correctly", async () => {
     id: "OSV-2021-1234",
     summary: "High severity vuln",
     details: "Details",
-    affected: [{
-      package: { name: "test", ecosystem: "npm" },
-      ranges: [{
-        type: "SEMVER",
-        events: [{ introduced: "0" }, { fixed: "2.0.0" }]
-      }]
-    }],
+    affected: [
+      {
+        package: { name: "test", ecosystem: "npm" },
+        ranges: [
+          {
+            type: "SEMVER",
+            events: [{ introduced: "0" }, { fixed: "2.0.0" }],
+          },
+        ],
+      },
+    ],
     references: [],
     database_specific: {
-      severity: "HIGH"
-    }
+      severity: "HIGH",
+    },
   };
 
   global.fetch = mock(() => {
@@ -235,7 +252,7 @@ test("fetchAlerts - should extract severity correctly", async () => {
   });
 
   const alerts = await provider.fetchAlerts([
-    { name: "test", version: "1.0.0" }
+    { name: "test", version: "1.0.0" },
   ]);
 
   expect(alerts[0].severity).toBe("high");
@@ -251,14 +268,18 @@ test("fetchAlerts - should default to medium severity when not specified", async
     id: "OSV-2021-1234",
     summary: "Vuln without severity",
     details: "Details",
-    affected: [{
-      package: { name: "test", ecosystem: "npm" },
-      ranges: [{
-        type: "SEMVER",
-        events: [{ introduced: "0" }]
-      }]
-    }],
-    references: []
+    affected: [
+      {
+        package: { name: "test", ecosystem: "npm" },
+        ranges: [
+          {
+            type: "SEMVER",
+            events: [{ introduced: "0" }],
+          },
+        ],
+      },
+    ],
+    references: [],
   };
 
   global.fetch = mock(() => {
@@ -269,7 +290,7 @@ test("fetchAlerts - should default to medium severity when not specified", async
   });
 
   const alerts = await provider.fetchAlerts([
-    { name: "test", version: "1.0.0" }
+    { name: "test", version: "1.0.0" },
   ]);
 
   expect(alerts[0].severity).toBe("medium");
@@ -286,14 +307,18 @@ test("fetchAlerts - should extract CVE from aliases", async () => {
     summary: "Vuln with CVE",
     details: "Details",
     aliases: ["GHSA-xxxx-yyyy-zzzz", "CVE-2021-9999"],
-    affected: [{
-      package: { name: "test", ecosystem: "npm" },
-      ranges: [{
-        type: "SEMVER",
-        events: [{ introduced: "0" }]
-      }]
-    }],
-    references: []
+    affected: [
+      {
+        package: { name: "test", ecosystem: "npm" },
+        ranges: [
+          {
+            type: "SEMVER",
+            events: [{ introduced: "0" }],
+          },
+        ],
+      },
+    ],
+    references: [],
   };
 
   global.fetch = mock(() => {
@@ -304,7 +329,7 @@ test("fetchAlerts - should extract CVE from aliases", async () => {
   });
 
   const alerts = await provider.fetchAlerts([
-    { name: "test", version: "1.0.0" }
+    { name: "test", version: "1.0.0" },
   ]);
 
   expect(alerts[0].cve).toBe("CVE-2021-9999");
@@ -321,14 +346,18 @@ test("fetchAlerts - should return undefined for CVE when not in aliases", async 
     summary: "Vuln without CVE",
     details: "Details",
     aliases: ["GHSA-xxxx-yyyy-zzzz"],
-    affected: [{
-      package: { name: "test", ecosystem: "npm" },
-      ranges: [{
-        type: "SEMVER",
-        events: [{ introduced: "0" }]
-      }]
-    }],
-    references: []
+    affected: [
+      {
+        package: { name: "test", ecosystem: "npm" },
+        ranges: [
+          {
+            type: "SEMVER",
+            events: [{ introduced: "0" }],
+          },
+        ],
+      },
+    ],
+    references: [],
   };
 
   global.fetch = mock(() => {
@@ -339,7 +368,7 @@ test("fetchAlerts - should return undefined for CVE when not in aliases", async 
   });
 
   const alerts = await provider.fetchAlerts([
-    { name: "test", version: "1.0.0" }
+    { name: "test", version: "1.0.0" },
   ]);
 
   expect(alerts[0].cve).toBeUndefined();
@@ -355,14 +384,18 @@ test("fetchAlerts - should use default URL when no references", async () => {
     id: "OSV-2021-1234",
     summary: "Vuln",
     details: "Details",
-    affected: [{
-      package: { name: "test", ecosystem: "npm" },
-      ranges: [{
-        type: "SEMVER",
-        events: [{ introduced: "0" }]
-      }]
-    }],
-    references: []
+    affected: [
+      {
+        package: { name: "test", ecosystem: "npm" },
+        ranges: [
+          {
+            type: "SEMVER",
+            events: [{ introduced: "0" }],
+          },
+        ],
+      },
+    ],
+    references: [],
   };
 
   global.fetch = mock(() => {
@@ -373,7 +406,7 @@ test("fetchAlerts - should use default URL when no references", async () => {
   });
 
   const alerts = await provider.fetchAlerts([
-    { name: "test", version: "1.0.0" }
+    { name: "test", version: "1.0.0" },
   ]);
 
   expect(alerts[0].url).toBe("https://osv.dev/vulnerability/OSV-2021-1234");

@@ -1,7 +1,11 @@
 import { LOG_PREFIX } from "../constants";
 
 export type ConsoleMethod = "debug" | "error" | "info";
-type ConsoleMethodFunc = (msg: string, caller?: string, ...args: unknown[]) => void;
+type ConsoleMethodFunc = (
+  msg: string,
+  caller?: string,
+  ...args: unknown[]
+) => void;
 export type ConsoleObject = { [K in ConsoleMethod]: ConsoleMethodFunc };
 
 export interface LoggerOptions {

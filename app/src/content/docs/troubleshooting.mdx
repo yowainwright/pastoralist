@@ -12,6 +12,7 @@ Pastoralist is a tool that automatically manages your npm overrides (or yarn res
 ### Why do I need pastoralist?
 
 Without pastoralist, it's easy to:
+
 - Forget why an override was added
 - Leave outdated overrides in your package.json
 - Not know which packages need specific overrides
@@ -20,6 +21,7 @@ Without pastoralist, it's easy to:
 ### Does pastoralist work with yarn/pnpm?
 
 Pastoralist uses npm's `overrides` format. If you're using:
+
 - **Yarn 1.x**: Convert `resolutions` to `overrides`
 - **pnpm**: Convert `pnpm.overrides` to `overrides`
 - **Yarn Berry**: Use `resolutions` but consider converting
@@ -27,6 +29,7 @@ Pastoralist uses npm's `overrides` format. If you're using:
 ### Is pastoralist safe to use?
 
 Yes! Pastoralist:
+
 - Only modifies the `overrides` and `pastoralist` sections of package.json
 - Preserves all formatting and other fields
 - Creates backups in version control (through git)
@@ -35,6 +38,7 @@ Yes! Pastoralist:
 ### When should overrides be used?
 
 Use overrides for:
+
 - Security patches before upstream updates
 - Compatibility issues between packages
 - Bug fixes not yet released
@@ -59,6 +63,7 @@ Look for output showing which packages require the override.
 **Problem:** Pastoralist changes the formatting of my package.json.
 
 **Solution:** Pastoralist preserves formatting as much as possible. If you see changes:
+
 1. Ensure you're using the latest version
 2. Check if you have a `.prettierrc` or `.editorconfig` that might conflict
 3. Consider running a formatter after pastoralist
@@ -68,6 +73,7 @@ Look for output showing which packages require the override.
 **Problem:** My patch files aren't being tracked in the appendix.
 
 **Solution:** Ensure patches follow the standard naming convention:
+
 ```
 patches/
 ├── package-name+1.0.0.patch    # Correct
@@ -80,6 +86,7 @@ patches/
 **Problem:** Pastoralist takes a long time to run.
 
 **Solution:** For large monorepos:
+
 1. Run on specific packages instead of all at once
 2. Use `--ignore` to skip unnecessary directories
 3. Run packages in parallel:
@@ -98,6 +105,7 @@ find . -name "package.json" -not -path "*/node_modules/*" | \
 **Problem:** Different packages in my monorepo need different versions.
 
 **Solution:** Use package-specific overrides:
+
 ```json
 // root package.json - security patches only
 {
@@ -119,6 +127,7 @@ find . -name "package.json" -not -path "*/node_modules/*" | \
 **Problem:** CI fails saying package.json was modified.
 
 **Solution:** Run pastoralist locally and commit the changes:
+
 ```bash
 npx pastoralist
 git add package.json
@@ -126,6 +135,7 @@ git commit -m "Update override appendix"
 ```
 
 Then add to your CI check:
+
 ```yaml
 - run: npx pastoralist
 - run: git diff --exit-code package.json
@@ -140,6 +150,7 @@ npx pastoralist --debug
 ```
 
 Debug output includes:
+
 - Package resolution paths
 - Dependency tree analysis
 - Override usage detection
@@ -150,6 +161,7 @@ Debug output includes:
 ### "Cannot find package.json"
 
 Pastoralist can't locate your package.json. Solutions:
+
 - Run from project root
 - Use `--path` to specify location
 - Check file permissions
@@ -157,6 +169,7 @@ Pastoralist can't locate your package.json. Solutions:
 ### "Invalid package.json"
 
 Your package.json has syntax errors. Validate with:
+
 ```bash
 npx json package.json
 ```
@@ -164,6 +177,7 @@ npx json package.json
 ### "No overrides found"
 
 This is normal if you don't have any overrides. Pastoralist will:
+
 - Clean up any existing appendix
 - Exit successfully
 
@@ -172,6 +186,7 @@ This is normal if you don't have any overrides. Pastoralist will:
 ### 1. Regular Updates
 
 Run pastoralist regularly:
+
 ```json
 {
   "scripts": {
@@ -183,11 +198,12 @@ Run pastoralist regularly:
 ### 2. Document Override Reasons
 
 While pastoralist tracks what depends on overrides, consider adding comments:
+
 ```json
 {
   "overrides": {
-    "lodash": "4.17.21",  // CVE-2021-12345 fix
-    "react": "17.0.2"     // Legacy app compatibility
+    "lodash": "4.17.21", // CVE-2021-12345 fix
+    "react": "17.0.2" // Legacy app compatibility
   }
 }
 ```
@@ -195,6 +211,7 @@ While pastoralist tracks what depends on overrides, consider adding comments:
 ### 3. Review Periodically
 
 Set reminders to review overrides:
+
 - Check if security patches are merged upstream
 - Test if compatibility issues are resolved
 - Remove overrides as soon as possible
@@ -202,6 +219,7 @@ Set reminders to review overrides:
 ### 4. Monitor Patch Files
 
 When you see this warning:
+
 ```
 🐑 Found potentially unused patch files:
   - patches/old-package+1.0.0.patch
@@ -227,6 +245,7 @@ Review and remove unused patches to keep your repo clean.
 ### Issue Template
 
 When reporting issues, include:
+
 - Pastoralist version
 - Node.js version
 - Package manager (npm/yarn/pnpm)
@@ -238,6 +257,7 @@ When reporting issues, include:
 ### From Manual Management
 
 If you're tracking overrides manually (in comments or docs), pastoralist will:
+
 1. Automatically document all current overrides
 2. Track their usage going forward
 3. Clean up when no longer needed
@@ -245,6 +265,7 @@ If you're tracking overrides manually (in comments or docs), pastoralist will:
 ### From Other Tools
 
 Moving from other override management tools:
+
 1. Convert to npm `overrides` format
 2. Run `npx pastoralist`
 3. Remove old tool configuration
@@ -257,11 +278,11 @@ To understand why an override is needed:
 
 ```javascript
 // debug-override.js
-import { update } from 'pastoralist';
+import { update } from "pastoralist";
 
 await update({
   debug: true,
-  path: './package.json'
+  path: "./package.json",
 });
 
 // Check the debug output for dependency paths
@@ -271,15 +292,15 @@ await update({
 
 ```javascript
 // analyze-appendix.js
-import fs from 'fs';
+import fs from "fs";
 
-const pkg = JSON.parse(fs.readFileSync('./package.json', 'utf-8'));
+const pkg = JSON.parse(fs.readFileSync("./package.json", "utf-8"));
 const appendix = pkg.pastoralist?.appendix || {};
 
-console.log('Override Report:');
+console.log("Override Report:");
 Object.entries(appendix).forEach(([override, info]) => {
   console.log(`\n${override}:`);
-  console.log('  Dependents:', Object.keys(info.dependents || {}));
-  console.log('  Patches:', info.patches || 'none');
+  console.log("  Dependents:", Object.keys(info.dependents || {}));
+  console.log("  Patches:", info.patches || "none");
 });
 ```

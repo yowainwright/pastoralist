@@ -7,13 +7,14 @@ export const mockSnykAlerts: SecurityAlert[] = [
     severity: "critical",
     cve: "SNYK-JS-EXPRESS-1234567",
     title: "Path Traversal in express",
-    description: "Path traversal vulnerability allowing access to restricted files",
+    description:
+      "Path traversal vulnerability allowing access to restricted files",
     fixedVersion: "4.17.3",
   },
 ];
 
 export const mockSnykResponse = {
-  vulnerabilities: mockSnykAlerts.map(alert => ({
+  vulnerabilities: mockSnykAlerts.map((alert) => ({
     packageName: alert.package,
     version: alert.version,
     severity: alert.severity,

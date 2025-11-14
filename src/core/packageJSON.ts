@@ -4,7 +4,12 @@ import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "util";
 import * as fg from "../utils/glob";
 import { IS_DEBUGGING } from "../constants";
-import type { PastoralistJSON, OverridesType, OverrideValue, UpdatePackageJSONOptions } from "../types";
+import type {
+  PastoralistJSON,
+  OverridesType,
+  OverrideValue,
+  UpdatePackageJSONOptions,
+} from "../types";
 import { logger } from "../utils";
 
 const execFile = promisify(execFileCallback);
@@ -60,7 +65,7 @@ const hasPnpmOverrides = (config: PastoralistJSON): boolean => {
 };
 
 export const getExistingOverrideField = (
-  config: PastoralistJSON
+  config: PastoralistJSON,
 ): "resolutions" | "overrides" | "pnpm" | null => {
   if (hasResolutions(config)) return "resolutions";
   if (hasOverrides(config)) return "overrides";
@@ -69,7 +74,7 @@ export const getExistingOverrideField = (
 };
 
 export const getOverrideFieldForPackageManager = (
-  packageManager: "npm" | "yarn" | "pnpm" | "bun"
+  packageManager: "npm" | "yarn" | "pnpm" | "bun",
 ): "resolutions" | "overrides" | "pnpm" => {
   const fieldMap = {
     yarn: "resolutions" as const,
@@ -83,14 +88,14 @@ export const getOverrideFieldForPackageManager = (
 
 const applyResolutions = (
   config: PastoralistJSON,
-  overrides: Record<string, string>
+  overrides: Record<string, string>,
 ): PastoralistJSON => {
   return { ...config, resolutions: overrides };
 };
 
 const applyPnpmOverrides = (
   config: PastoralistJSON,
-  overrides: Record<string, OverrideValue>
+  overrides: Record<string, OverrideValue>,
 ): PastoralistJSON => {
   const pnpm = config.pnpm || {};
   return {
@@ -101,7 +106,7 @@ const applyPnpmOverrides = (
 
 const applyNpmOverrides = (
   config: PastoralistJSON,
-  overrides: Record<string, OverrideValue>
+  overrides: Record<string, OverrideValue>,
 ): PastoralistJSON => {
   return { ...config, overrides };
 };
@@ -109,18 +114,24 @@ const applyNpmOverrides = (
 export const applyOverridesToConfig = (
   config: PastoralistJSON,
   overrides: Record<string, OverrideValue> | Record<string, string>,
-  fieldType: "resolutions" | "overrides" | "pnpm" | null
+  fieldType: "resolutions" | "overrides" | "pnpm" | null,
 ): PastoralistJSON => {
   if (fieldType === "resolutions") {
     return applyResolutions(config, overrides as Record<string, string>);
   }
 
   if (fieldType === "pnpm") {
-    return applyPnpmOverrides(config, overrides as Record<string, OverrideValue>);
+    return applyPnpmOverrides(
+      config,
+      overrides as Record<string, OverrideValue>,
+    );
   }
 
   if (fieldType === "overrides") {
-    return applyNpmOverrides(config, overrides as Record<string, OverrideValue>);
+    return applyNpmOverrides(
+      config,
+      overrides as Record<string, OverrideValue>,
+    );
   }
 
   return config;
@@ -188,7 +199,9 @@ const removeAllOverrides = (config: PastoralistJSON): PastoralistJSON => {
   };
 };
 
-const removePastoralistAppendix = (config: PastoralistJSON): PastoralistJSON => {
+const removePastoralistAppendix = (
+  config: PastoralistJSON,
+): PastoralistJSON => {
   const hasOtherConfig = hasOtherPastoralistConfig(config);
 
   if (!hasOtherConfig) {
@@ -202,7 +215,7 @@ const removePastoralistAppendix = (config: PastoralistJSON): PastoralistJSON => 
 
 const addAppendixToConfig = (
   config: PastoralistJSON,
-  appendix: Record<string, any>
+  appendix: Record<string, any>,
 ): PastoralistJSON => {
   const preservedConfig = buildPreservedConfig(config);
 
@@ -216,7 +229,7 @@ const addAppendixToConfig = (
 };
 
 const processConfigWithoutOverrides = (
-  config: PastoralistJSON
+  config: PastoralistJSON,
 ): PastoralistJSON => {
   const withoutOverrides = removeAllOverrides(config);
   return removePastoralistAppendix(withoutOverrides);
@@ -226,7 +239,7 @@ const processConfigWithOverrides = (
   config: PastoralistJSON,
   appendix: Record<string, any> | undefined,
   overrides: OverridesType,
-  isTesting: boolean
+  isTesting: boolean,
 ): PastoralistJSON => {
   const shouldAddAppendix = appendix && Object.keys(appendix).length > 0;
   let updatedConfig: PastoralistJSON;
@@ -248,13 +261,17 @@ const processConfigWithOverrides = (
   if (!shouldAddOverrides) return updatedConfig;
 
   const existingField = getExistingOverrideField(updatedConfig);
-  const overrideField = existingField || (isTesting ? null : getOverrideFieldForPackageManager(detectPackageManager()));
+  const overrideField =
+    existingField ||
+    (isTesting
+      ? null
+      : getOverrideFieldForPackageManager(detectPackageManager()));
 
   return applyOverridesToConfig(updatedConfig, overrides, overrideField);
 };
 
 const formatJson = (config: PastoralistJSON): string => {
-  return JSON.stringify(config, null, 2) + '\n';
+  return JSON.stringify(config, null, 2) + "\n";
 };
 
 const writeJsonFile = (path: string, content: string): void => {
@@ -306,7 +323,10 @@ export const updatePackageJSON = ({
   }
 
   if (IS_DEBUGGING) {
-    log.debug(`Writing updated package.json:\n${jsonString}`, "updatePackageJSON");
+    log.debug(
+      `Writing updated package.json:\n${jsonString}`,
+      "updatePackageJSON",
+    );
   }
 
   writeJsonFile(path, jsonString);
@@ -320,13 +340,14 @@ export const parseNpmLsOutput = (stdout: string): Record<string, boolean> => {
   const packageMap: Record<string, boolean> = {};
 
   const traverseDependencies = (deps: Record<string, unknown>): void => {
-    const isValidDeps = deps && typeof deps === 'object';
+    const isValidDeps = deps && typeof deps === "object";
     if (!isValidDeps) return;
 
     Object.entries(deps).forEach(([name, value]) => {
       packageMap[name] = true;
 
-      const hasNestedDeps = value && typeof value === 'object' && 'dependencies' in value;
+      const hasNestedDeps =
+        value && typeof value === "object" && "dependencies" in value;
       if (hasNestedDeps) {
         traverseDependencies(value.dependencies as Record<string, unknown>);
       }
@@ -343,8 +364,8 @@ export const parseNpmLsOutput = (stdout: string): Record<string, boolean> => {
 
 export const executeNpmLs = async (): Promise<string> => {
   try {
-    const { stdout } = await execFile('npm', ['ls', '--json', '--all'], {
-      encoding: 'utf8',
+    const { stdout } = await execFile("npm", ["ls", "--json", "--all"], {
+      encoding: "utf8",
       maxBuffer: 1024 * 1024 * 10,
       timeout: 3000,
     });
@@ -380,7 +401,7 @@ export const findPackageJsonFiles = (
   depPaths: string[],
   ignore: string[] = [],
   root: string = "./",
-  logInstance = log
+  logInstance = log,
 ): string[] => {
   const hasNoPaths = depPaths.length === 0;
 
@@ -392,7 +413,7 @@ export const findPackageJsonFiles = (
   try {
     logInstance.debug(
       `Searching with patterns: ${depPaths.join(", ")}, ignoring: ${ignore.join(", ")}, cwd: ${root}`,
-      "findPackageJsonFiles"
+      "findPackageJsonFiles",
     );
 
     const files = fg.sync(depPaths, {
@@ -413,7 +434,11 @@ export const findPackageJsonFiles = (
     logInstance.debug(`Found ${files.length} files`, "findPackageJsonFiles");
     return files;
   } catch (err) {
-    logInstance.error("Error finding package.json files", "findPackageJsonFiles", err);
+    logInstance.error(
+      "Error finding package.json files",
+      "findPackageJsonFiles",
+      err,
+    );
     throw err;
   }
 };

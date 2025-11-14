@@ -23,18 +23,18 @@ test("sync - should match recursive pattern", () => {
   const results = sync("**/*.md", { cwd: PROJECT_ROOT });
 
   expect(results.length).toBeGreaterThan(0);
-  expect(results.some(f => f.endsWith(".md"))).toBe(true);
+  expect(results.some((f) => f.endsWith(".md"))).toBe(true);
 });
 
 test("sync - should respect ignore patterns", () => {
   const results = sync("**/*.ts", {
     cwd: PROJECT_ROOT,
-    ignore: ["**/node_modules/**", "**/dist/**"]
+    ignore: ["**/node_modules/**", "**/dist/**"],
   });
 
   expect(results.length).toBeGreaterThan(0);
-  expect(results.every(f => !f.includes("node_modules"))).toBe(true);
-  expect(results.every(f => !f.includes("dist/"))).toBe(true);
+  expect(results.every((f) => !f.includes("node_modules"))).toBe(true);
+  expect(results.every((f) => !f.includes("dist/"))).toBe(true);
 });
 
 test("sync - should return absolute paths when absolute option is true", () => {
@@ -59,7 +59,9 @@ test("sync - should use process.cwd() when cwd not specified", () => {
 });
 
 test("sync - should return sorted results", () => {
-  const results = sync(["package.json", "bun.lock", ".gitignore"], { cwd: PROJECT_ROOT });
+  const results = sync(["package.json", "bun.lock", ".gitignore"], {
+    cwd: PROJECT_ROOT,
+  });
 
   const sorted = [...results].sort();
   expect(results).toEqual(sorted);
@@ -94,7 +96,9 @@ test("glob - should match package.json async", async () => {
 });
 
 test("glob - should match multiple patterns async", async () => {
-  const results = await glob(["package.json", "bun.lock"], { cwd: PROJECT_ROOT });
+  const results = await glob(["package.json", "bun.lock"], {
+    cwd: PROJECT_ROOT,
+  });
 
   expect(results).toContain("package.json");
   expect(results).toContain("bun.lock");
@@ -105,35 +109,42 @@ test("glob - should match recursive pattern async", async () => {
   const results = await glob("**/*.md", { cwd: PROJECT_ROOT });
 
   expect(results.length).toBeGreaterThan(0);
-  expect(results.some(f => f.endsWith(".md"))).toBe(true);
+  expect(results.some((f) => f.endsWith(".md"))).toBe(true);
 });
 
 test("glob - should respect ignore patterns async", async () => {
   const results = await glob("**/*.ts", {
     cwd: PROJECT_ROOT,
-    ignore: ["**/node_modules/**", "**/dist/**"]
+    ignore: ["**/node_modules/**", "**/dist/**"],
   });
 
   expect(results.length).toBeGreaterThan(0);
-  expect(results.every(f => !f.includes("node_modules"))).toBe(true);
+  expect(results.every((f) => !f.includes("node_modules"))).toBe(true);
 });
 
 test("glob - should return absolute paths async", async () => {
-  const results = await glob("package.json", { cwd: PROJECT_ROOT, absolute: true });
+  const results = await glob("package.json", {
+    cwd: PROJECT_ROOT,
+    absolute: true,
+  });
 
   expect(results.length).toBe(1);
   expect(results[0]).toBe(resolve(PROJECT_ROOT, "package.json"));
 });
 
 test("glob - should return sorted results async", async () => {
-  const results = await glob(["package.json", "bun.lock", ".gitignore"], { cwd: PROJECT_ROOT });
+  const results = await glob(["package.json", "bun.lock", ".gitignore"], {
+    cwd: PROJECT_ROOT,
+  });
 
   const sorted = [...results].sort();
   expect(results).toEqual(sorted);
 });
 
 test("glob - should deduplicate results from multiple patterns async", async () => {
-  const results = await glob(["package.json", "package.json"], { cwd: PROJECT_ROOT });
+  const results = await glob(["package.json", "package.json"], {
+    cwd: PROJECT_ROOT,
+  });
 
   expect(results.length).toBe(1);
   expect(results).toContain("package.json");

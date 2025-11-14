@@ -13,7 +13,9 @@ console.log('Running pre-commit checks...');
 
 try {
   await $\`bun run format\`;
+  await $\`bun run build\`;
   await $\`bun run lint\`;
+  await $\`bun test tests/unit/ --coverage --coverage-reporter=lcov\`;
   console.log('✓ All pre-commit checks passed');
 } catch (error) {
   console.error('✗ Pre-commit checks failed');
@@ -67,7 +69,7 @@ const HOOKS = {
   "post-merge": POST_MERGE,
 };
 
-const installHooks = (): void => {
+const installHooks = async (): Promise<void> => {
   const isCI = process.env.CI === "true" || process.env.CI === "1";
   if (isCI) {
     console.log("CI environment detected, skipping hook installation");
@@ -78,6 +80,19 @@ const installHooks = (): void => {
   if (!isGitRepo) {
     console.log("Not a git repository, skipping hook installation");
     return;
+  }
+
+  const { $ } = await import("bun");
+
+  try {
+    const hooksPath = await $`git config --get core.hooksPath`.text();
+    const isHuskyPath = hooksPath.trim() === ".husky/_";
+    if (isHuskyPath) {
+      await $`git config --unset core.hooksPath`;
+      console.log("✓ Removed husky hooks path configuration");
+    }
+  } catch {
+    // core.hooksPath not set, which is fine
   }
 
   const hooksDir = HOOKS_DIR;
@@ -121,4 +136,4 @@ const installHooks = (): void => {
   }
 };
 
-installHooks();
+await installHooks();

@@ -14,7 +14,7 @@ export const getSeverityScore = (severity: string): number => {
     low: 1,
     medium: 2,
     high: 3,
-    critical: 4
+    critical: 4,
   };
   return scores[severity.toLowerCase()] || 0;
 };
@@ -23,7 +23,9 @@ export const deduplicateAlerts = (alerts: SecurityAlert[]): SecurityAlert[] => {
   const seen = alerts.reduce((map, alert) => {
     const key = `${alert.packageName}@${alert.currentVersion}:${alert.cve || alert.title}`;
     const existing = map.get(key);
-    const shouldReplace = !existing || getSeverityScore(alert.severity) > getSeverityScore(existing.severity);
+    const shouldReplace =
+      !existing ||
+      getSeverityScore(alert.severity) > getSeverityScore(existing.severity);
 
     if (shouldReplace) {
       map.set(key, alert);
@@ -35,8 +37,15 @@ export const deduplicateAlerts = (alerts: SecurityAlert[]): SecurityAlert[] => {
   return Array.from(seen.values());
 };
 
-export const extractPackages = (config: PastoralistJSON): Array<{ name: string; version: string }> => {
-  const allDeps = Object.assign({}, config.dependencies, config.devDependencies, config.peerDependencies);
+export const extractPackages = (
+  config: PastoralistJSON,
+): Array<{ name: string; version: string }> => {
+  const allDeps = Object.assign(
+    {},
+    config.dependencies,
+    config.devDependencies,
+    config.peerDependencies,
+  );
 
   return Object.entries(allDeps).map(([name, version]) => ({
     name,
@@ -46,7 +55,7 @@ export const extractPackages = (config: PastoralistJSON): Array<{ name: string; 
 
 export const isVersionVulnerable = (
   currentVersion: string,
-  vulnerableRange: string
+  vulnerableRange: string,
 ): boolean => {
   try {
     const cleanVersion = currentVersion.replace(/^[\^~]/, "");
@@ -81,9 +90,14 @@ export const isVersionVulnerable = (
 
 export const findVulnerablePackages = (
   config: PastoralistJSON,
-  alerts: SecurityAlert[]
+  alerts: SecurityAlert[],
 ): SecurityAlert[] => {
-  const allDeps = Object.assign({}, config.dependencies, config.devDependencies, config.peerDependencies);
+  const allDeps = Object.assign(
+    {},
+    config.dependencies,
+    config.devDependencies,
+    config.peerDependencies,
+  );
 
   return alerts.filter((alert) => {
     const currentVersion = allDeps[alert.packageName];
@@ -107,7 +121,10 @@ export class CLIInstaller {
   private log: ReturnType<typeof logger>;
 
   constructor(options: { debug?: boolean } = {}) {
-    this.log = logger({ file: "security/cli-installer.ts", isLogging: options.debug });
+    this.log = logger({
+      file: "security/cli-installer.ts",
+      isLogging: options.debug,
+    });
   }
 
   async isInstalled(command: string): Promise<boolean> {
@@ -121,7 +138,12 @@ export class CLIInstaller {
 
   async isInstalledGlobally(packageName: string): Promise<boolean> {
     try {
-      const { stdout } = await execFileAsync("npm", ["list", "-g", packageName, "--depth=0"]);
+      const { stdout } = await execFileAsync("npm", [
+        "list",
+        "-g",
+        packageName,
+        "--depth=0",
+      ]);
       return stdout.includes(packageName);
     } catch {
       return false;
@@ -137,7 +159,9 @@ export class CLIInstaller {
       });
       this.log.info(`Successfully installed ${packageName}`, "installGlobally");
     } catch (error) {
-      this.log.error(`Failed to install ${packageName}`, "installGlobally", { error });
+      this.log.error(`Failed to install ${packageName}`, "installGlobally", {
+        error,
+      });
       throw new Error(`Failed to install ${packageName}: ${error}`);
     }
   }
@@ -155,11 +179,17 @@ export class CLIInstaller {
     const isGloballyInstalled = await this.isInstalledGlobally(packageName);
 
     if (isGloballyInstalled) {
-      this.log.debug(`${packageName} is installed globally but command not in PATH`, "ensureInstalled");
+      this.log.debug(
+        `${packageName} is installed globally but command not in PATH`,
+        "ensureInstalled",
+      );
       return true;
     }
 
-    this.log.info(`${cliCommand} not found, installing ${packageName}...`, "ensureInstalled");
+    this.log.info(
+      `${cliCommand} not found, installing ${packageName}...`,
+      "ensureInstalled",
+    );
 
     try {
       await this.installGlobally(packageName);
@@ -169,14 +199,16 @@ export class CLIInstaller {
       if (!isNowInstalled) {
         this.log.info(
           `${packageName} was installed but ${cliCommand} is still not available. Please ensure it's in your PATH.`,
-          "ensureInstalled"
+          "ensureInstalled",
         );
         return false;
       }
 
       return true;
     } catch (error) {
-      this.log.error(`Could not install ${packageName}`, "ensureInstalled", { error });
+      this.log.error(`Could not install ${packageName}`, "ensureInstalled", {
+        error,
+      });
       return false;
     }
   }
@@ -198,7 +230,10 @@ export const createPromptInterface = () => {
   });
 };
 
-export const promptConfirm = async (message: string, defaultValue = true): Promise<boolean> => {
+export const promptConfirm = async (
+  message: string,
+  defaultValue = true,
+): Promise<boolean> => {
   const rl = createPromptInterface();
   const defaultText = defaultValue ? "Y/n" : "y/N";
   const answer = await rl.question(`${message} (${defaultText}): `);
@@ -215,7 +250,7 @@ export const promptConfirm = async (message: string, defaultValue = true): Promi
 
 export const promptSelect = async (
   message: string,
-  choices: Array<{ name: string; value: string }>
+  choices: Array<{ name: string; value: string }>,
 ): Promise<string> => {
   const rl = createPromptInterface();
 
@@ -242,9 +277,14 @@ export const promptSelect = async (
   return selectedValue;
 };
 
-export const promptInput = async (message: string, defaultValue = ""): Promise<string> => {
+export const promptInput = async (
+  message: string,
+  defaultValue = "",
+): Promise<string> => {
   const rl = createPromptInterface();
-  const promptText = defaultValue ? `${message} (${defaultValue}): ` : `${message}: `;
+  const promptText = defaultValue
+    ? `${message} (${defaultValue}): `
+    : `${message}: `;
   const answer = await rl.question(promptText);
   rl.close();
 
@@ -263,24 +303,29 @@ export interface InteractivePrompt {
 
 export interface PromptFunctions {
   confirm: (message: string, defaultValue?: boolean) => Promise<boolean>;
-  select: (message: string, choices: Array<{ name: string; value: string }>) => Promise<string>;
+  select: (
+    message: string,
+    choices: Array<{ name: string; value: string }>,
+  ) => Promise<string>;
   input: (message: string, defaultValue?: string) => Promise<string>;
 }
 
 export class InteractiveSecurityManager {
   private prompts: PromptFunctions;
 
-  constructor(prompts: PromptFunctions = {
-    confirm: promptConfirm,
-    select: promptSelect,
-    input: promptInput,
-  }) {
+  constructor(
+    prompts: PromptFunctions = {
+      confirm: promptConfirm,
+      select: promptSelect,
+      input: promptInput,
+    },
+  ) {
     this.prompts = prompts;
   }
 
   async promptForSecurityActions(
     vulnerablePackages: SecurityAlert[],
-    suggestedOverrides: SecurityOverride[]
+    suggestedOverrides: SecurityOverride[],
   ): Promise<SecurityOverride[]> {
     if (vulnerablePackages.length === 0) {
       return [];
@@ -294,7 +339,7 @@ export class InteractiveSecurityManager {
 
     const proceed = await this.prompts.confirm(
       "Would you like to review and apply security fixes?",
-      true
+      true,
     );
 
     if (!proceed) {
@@ -305,7 +350,7 @@ export class InteractiveSecurityManager {
 
     for (const override of suggestedOverrides) {
       const vuln = vulnerablePackages.find(
-        (v) => v.packageName === override.packageName
+        (v) => v.packageName === override.packageName,
       );
 
       if (!vuln) continue;
@@ -332,7 +377,7 @@ export class InteractiveSecurityManager {
             name: "📝 Enter custom version",
             value: "custom",
           },
-        ]
+        ],
       );
 
       if (action === "apply") {
@@ -340,27 +385,29 @@ export class InteractiveSecurityManager {
       } else if (action === "custom") {
         const customVersion = await this.prompts.input(
           "Enter the version to use:",
-          override.toVersion
+          override.toVersion,
         );
 
-        selectedOverrides.push(Object.assign({}, override, {
-          toVersion: customVersion,
-        }));
+        selectedOverrides.push(
+          Object.assign({}, override, {
+            toVersion: customVersion,
+          }),
+        );
       }
     }
 
     const hasSelectedOverrides = selectedOverrides.length > 0;
     if (hasSelectedOverrides) {
       console.log("\n📋 Selected Overrides:\n");
-      selectedOverrides.forEach(override => {
+      selectedOverrides.forEach((override) => {
         console.log(
-          `  ${override.packageName}: ${override.fromVersion} → ${override.toVersion}`
+          `  ${override.packageName}: ${override.fromVersion} → ${override.toVersion}`,
         );
       });
 
       const confirm = await this.prompts.confirm(
         "Apply these overrides to your package.json?",
-        true
+        true,
       );
 
       if (!confirm) {
@@ -377,22 +424,22 @@ export class InteractiveSecurityManager {
         acc[pkg.severity]++;
         return acc;
       },
-      { critical: 0, high: 0, medium: 0, low: 0 }
+      { critical: 0, high: 0, medium: 0, low: 0 },
     );
 
     let summary = `Found ${vulnerablePackages.length} vulnerable package(s):\n`;
 
     if (bySeverity.critical > 0) {
-      summary += `  ${red('[CRITICAL]')} ${bySeverity.critical}\n`;
+      summary += `  ${red("[CRITICAL]")} ${bySeverity.critical}\n`;
     }
     if (bySeverity.high > 0) {
-      summary += `  ${red('[HIGH]    ')} ${bySeverity.high}\n`;
+      summary += `  ${red("[HIGH]    ")} ${bySeverity.high}\n`;
     }
     if (bySeverity.medium > 0) {
-      summary += `  ${yellow('[MEDIUM]  ')} ${bySeverity.medium}\n`;
+      summary += `  ${yellow("[MEDIUM]  ")} ${bySeverity.medium}\n`;
     }
     if (bySeverity.low > 0) {
-      summary += `  ${cyan('[LOW]     ')} ${bySeverity.low}\n`;
+      summary += `  ${cyan("[LOW]     ")} ${bySeverity.low}\n`;
     }
 
     return summary;

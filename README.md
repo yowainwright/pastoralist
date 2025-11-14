@@ -1,10 +1,8 @@
 # [Pastoralist](https://jeffry.in/pastoralist/)
 
-![Typed with TypeScript](https://flat.badgen.net/badge/icon/Typed?icon=typescript&label&labelColor=blue&color=555555)
 [![npm version](https://badge.fury.io/js/pastoralist.svg)](https://badge.fury.io/js/pastoralist)
 ![ci](https://github.com/yowainwright/pastoralist/actions/workflows/ci.yml/badge.svg)
 [![codecov](https://codecov.io/gh/yowainwright/pastoralist/branch/main/graph/badge.svg)](https://codecov.io/gh/yowainwright/pastoralist)
-[![Github](https://badgen.net/badge/icon/github?icon=github&label&color=grey)](https://github.com/yowainwright/pastoralist)
 
 Pastoralist provides a dead simple way to singularly maintain node module dependencies and security issues in dependencies.
 

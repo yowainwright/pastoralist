@@ -11,7 +11,7 @@ import { PastoralistJSON, OverridesType } from "../../types";
 import { logger } from "../../utils";
 import { compareVersions } from "../../utils/semver";
 import { InteractiveSecurityManager, deduplicateAlerts, extractPackages, findVulnerablePackages } from "./utils";
-import { readFileSync, copyFileSync } from "fs";
+import { readFileSync, copyFileSync, writeFileSync, existsSync } from "fs";
 import { resolve } from "path";
 import { updateAppendix } from "../appendix";
 import { glob } from "../../utils/glob";
@@ -113,11 +113,6 @@ export class SecurityChecker {
           allVulnerablePackages,
           overrides
         );
-      }
-
-      const shouldApplyAutoFix = options.autoFix && overrides.length > 0;
-      if (shouldApplyAutoFix) {
-        await this.applyAutoFix(overrides, options.packageJsonPath);
       }
 
       return { alerts: allVulnerablePackages, overrides, updates };
@@ -267,10 +262,20 @@ export class SecurityChecker {
   }
 
   generatePackageOverrides(securityOverrides: SecurityOverride[]): OverridesType {
-    return securityOverrides.reduce((overrides, override) => ({
-      ...overrides,
-      [override.packageName]: override.toVersion,
-    }), {} as OverridesType);
+    return securityOverrides.reduce((overrides, override) => {
+      const existingVersion = overrides[override.packageName];
+      const shouldUseExisting = existingVersion && typeof existingVersion === 'string';
+
+      if (shouldUseExisting) {
+        const isNewerVersion = compareVersions(override.toVersion, existingVersion) > 0;
+        if (isNewerVersion) {
+          return Object.assign({}, overrides, { [override.packageName]: override.toVersion });
+        }
+        return overrides;
+      }
+
+      return Object.assign({}, overrides, { [override.packageName]: override.toVersion });
+    }, {} as OverridesType);
   }
 
   private formatVulnerabilityEntry(pkg: SecurityAlert): string {
@@ -401,14 +406,11 @@ export class SecurityChecker {
     this.logInstallInstructions(packageManager);
   }
 
-  async applyAutoFix(
+  applyAutoFix(
     overrides: SecurityOverride[],
     packageJsonPath?: string
-  ): Promise<void> {
+  ): void {
     try {
-      const { readFileSync, writeFileSync, existsSync } = await import("fs");
-      const { resolve } = await import("path");
-
       const pkgPath = packageJsonPath || resolve(process.cwd(), "package.json");
 
       if (!existsSync(pkgPath)) {
@@ -417,7 +419,7 @@ export class SecurityChecker {
 
       const backupPath = this.createBackup(pkgPath);
       const packageJson = JSON.parse(readFileSync(pkgPath, "utf-8"));
-      const packageManager = await this.detectPackageManager();
+      const packageManager = this.detectPackageManager();
       const newOverrides = this.generatePackageOverrides(overrides);
 
       const securityOverrideDetails: SecurityOverrideDetail[] = overrides.map(override => {
@@ -475,13 +477,10 @@ export class SecurityChecker {
     }
   }
 
-  private async detectPackageManager(): Promise<"npm" | "yarn" | "pnpm" | "bun"> {
+  private detectPackageManager(): "npm" | "yarn" | "pnpm" | "bun" {
     try {
-      const { existsSync } = await import("fs");
-      const { resolve } = await import("path");
-      
       const cwd = process.cwd();
-      
+
       if (existsSync(resolve(cwd, "bun.lockb"))) {
         return "bun";
       }
@@ -491,7 +490,7 @@ export class SecurityChecker {
       if (existsSync(resolve(cwd, "pnpm-lock.yaml"))) {
         return "pnpm";
       }
-      
+
       return "npm";
     } catch {
       return "npm";
@@ -510,17 +509,15 @@ export class SecurityChecker {
     }
   }
 
-  async rollbackAutoFix(backupPath: string): Promise<void> {
+  rollbackAutoFix(backupPath: string): void {
     try {
-      const { copyFileSync, existsSync } = await import("fs");
-      
       if (!existsSync(backupPath)) {
         throw new Error(`Backup file not found at ${backupPath}`);
       }
-      
+
       const packageJsonPath = backupPath.replace(/\.backup-\d+$/, "");
       copyFileSync(backupPath, packageJsonPath);
-      
+
       console.log(`✅ Rolled back to ${backupPath}`);
     } catch (error) {
       this.log.error("Failed to rollback", "rollbackAutoFix", { error });

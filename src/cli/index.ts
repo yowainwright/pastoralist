@@ -83,13 +83,13 @@ const runSecurityCheck = async (
   });
 
   const scanPaths = determineSecurityScanPaths(config, mergedOptions, log);
-  const { alerts, overrides: securityOverrides } = await securityChecker.checkSecurity(config, {
+  const { alerts, overrides: securityOverrides, updates } = await securityChecker.checkSecurity(config, {
     ...mergedOptions,
     depPaths: scanPaths,
     root: mergedOptions.root || "./",
   });
 
-  return { spinner, securityChecker, alerts, securityOverrides };
+  return { spinner, securityChecker, alerts, securityOverrides, updates };
 };
 
 export const handleSecurityResults = (
@@ -97,26 +97,80 @@ export const handleSecurityResults = (
   securityOverrides: SecurityOverride[],
   securityChecker: SecurityChecker,
   spinner: any,
-  mergedOptions: Options
+  mergedOptions: Options,
+  updates: import("../types").OverrideUpdate[] = [],
+  log: ReturnType<typeof createLogger> = createLogger({ file: "cli/index.ts", isLogging: false })
 ): void => {
   const hasAlerts = alerts.length > 0;
+  const hasUpdates = updates.length > 0;
   const shouldApplySecurityFixes = mergedOptions.forceSecurityRefactor || mergedOptions.interactive;
   const shouldGenerateOverrides = hasAlerts && shouldApplySecurityFixes;
+  const shouldApplyUpdates = hasUpdates && shouldApplySecurityFixes;
 
   if (hasAlerts) {
     const report = securityChecker.formatSecurityReport(alerts, securityOverrides);
     spinner.info(report);
   }
 
-  if (shouldGenerateOverrides) {
-    mergedOptions.securityOverrides = securityChecker.generatePackageOverrides(securityOverrides);
-    mergedOptions.securityOverrideDetails = securityOverrides.map(buildSecurityOverrideDetail);
+  if (hasUpdates) {
+    const updateReport = formatUpdateReport(updates);
+    spinner.info(updateReport);
   }
 
-  const hasNoAlerts = !hasAlerts;
-  if (hasNoAlerts) {
+  const allOverrides = [...securityOverrides];
+
+  if (shouldApplyUpdates) {
+    const updateOverrides = updates.map(update => ({
+      packageName: update.packageName,
+      fromVersion: update.currentOverride,
+      toVersion: update.newerVersion,
+      reason: update.reason,
+      severity: "medium" as const,
+    }));
+    allOverrides.push(...updateOverrides);
+  }
+
+  if (shouldGenerateOverrides || shouldApplyUpdates) {
+    const finalOverrides = securityChecker.generatePackageOverrides(allOverrides);
+    mergedOptions.securityOverrides = finalOverrides;
+
+    const overridesToApply = allOverrides.filter(override => {
+      const finalVersion = finalOverrides[override.packageName];
+      const isStringMatch = typeof finalVersion === 'string' && finalVersion === override.toVersion;
+      return isStringMatch;
+    });
+
+    log.debug(`allOverrides count: ${allOverrides.length}`, "handleSecurityResults");
+    log.debug(`finalOverrides: ${JSON.stringify(finalOverrides)}`, "handleSecurityResults");
+    log.debug(`overridesToApply count: ${overridesToApply.length}`, "handleSecurityResults");
+    log.debug(`overridesToApply: ${overridesToApply.map(o => `${o.packageName}@${o.toVersion}`).join(", ")}`, "handleSecurityResults");
+
+    mergedOptions.securityOverrideDetails = overridesToApply.map(buildSecurityOverrideDetail);
+
+    const shouldAutoFix = (shouldGenerateOverrides || shouldApplyUpdates) && overridesToApply.length > 0;
+    if (shouldAutoFix) {
+      securityChecker.applyAutoFix(overridesToApply, mergedOptions.path);
+    }
+  }
+
+  const hasNoAlertsOrUpdates = !hasAlerts && !hasUpdates;
+  if (hasNoAlertsOrUpdates) {
     spinner.succeed(`🔒 ${green(`pastoralist`)} no security vulnerabilities found!`);
   }
+};
+
+export const formatUpdateReport = (updates: import("../types").OverrideUpdate[]): string => {
+  const header = "\nSecurity Override Updates\n" + "=".repeat(50) + "\n\n";
+  const summary = `Found ${updates.length} existing override(s) with newer patches available:\n\n`;
+  const updateList = updates
+    .map(update =>
+      `[UPDATE] ${update.packageName}\n` +
+      `   Current override: ${update.currentOverride}\n` +
+      `   Newer patch: ${update.newerVersion}\n` +
+      `   ${update.reason}\n\n`
+    )
+    .join("");
+  return header + summary + updateList;
 };
 
 export function determineSecurityScanPaths(
@@ -182,13 +236,13 @@ export async function action(options: Options = {}): Promise<void> {
     }
 
     if (mergedOptions.checkSecurity) {
-      const { spinner, securityChecker, alerts, securityOverrides } = await runSecurityCheck(
+      const { spinner, securityChecker, alerts, securityOverrides, updates } = await runSecurityCheck(
         config!,
         mergedOptions,
         Boolean(isLogging),
         log
       );
-      handleSecurityResults(alerts, securityOverrides, securityChecker, spinner, mergedOptions);
+      handleSecurityResults(alerts, securityOverrides, securityChecker, spinner, mergedOptions, updates, log);
     }
 
     const spinner = createSpinner(

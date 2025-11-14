@@ -31,7 +31,7 @@ test("buildSecurityOverrideDetail - builds complete detail object", () => {
     cve: "CVE-2021-23337",
     severity: "high",
     description: "Prototype pollution vulnerability",
-    url: "https://nvd.nist.gov/vuln/detail/CVE-2021-23337"
+    url: "https://nvd.nist.gov/vuln/detail/CVE-2021-23337",
   };
 
   const result = buildSecurityOverrideDetail(override);
@@ -49,7 +49,7 @@ test("buildSecurityOverrideDetail - excludes missing optional fields", () => {
 
   const override = {
     packageName: "express",
-    reason: "Security fix"
+    reason: "Security fix",
   };
 
   const result = buildSecurityOverrideDetail(override);
@@ -69,7 +69,7 @@ test("buildSecurityOverrideDetail - includes only present optional fields", () =
     packageName: "react",
     reason: "Security update",
     cve: "CVE-2024-1234",
-    severity: "medium"
+    severity: "medium",
   };
 
   const result = buildSecurityOverrideDetail(override);
@@ -87,12 +87,12 @@ test("buildMergedOptions - merges options with config security settings", () => 
 
   const options: Options = {
     checkSecurity: true,
-    securityProvider: "osv"
+    securityProvider: "osv",
   };
 
   const rest = {
     path: "package.json",
-    root: "./"
+    root: "./",
   };
 
   const securityConfig = {
@@ -100,12 +100,17 @@ test("buildMergedOptions - merges options with config security settings", () => 
     autoFix: true,
     provider: "github",
     interactive: true,
-    hasWorkspaceSecurityChecks: false
+    hasWorkspaceSecurityChecks: false,
   };
 
   const configProvider = "github";
 
-  const result = buildMergedOptions(options, rest, securityConfig, configProvider);
+  const result = buildMergedOptions(
+    options,
+    rest,
+    securityConfig,
+    configProvider,
+  );
 
   expect(result.checkSecurity).toBe(true);
   expect(result.forceSecurityRefactor).toBe(true);
@@ -127,12 +132,17 @@ test("buildMergedOptions - uses config values when options not provided", () => 
     provider: "snyk",
     securityProviderToken: "test-token",
     interactive: false,
-    hasWorkspaceSecurityChecks: true
+    hasWorkspaceSecurityChecks: true,
   };
 
   const configProvider = "snyk";
 
-  const result = buildMergedOptions(options, rest, securityConfig, configProvider);
+  const result = buildMergedOptions(
+    options,
+    rest,
+    securityConfig,
+    configProvider,
+  );
 
   expect(result.checkSecurity).toBe(true);
   expect(result.forceSecurityRefactor).toBe(false);
@@ -150,7 +160,12 @@ test("buildMergedOptions - defaults to osv provider when not specified", () => {
   const securityConfig = {};
   const configProvider = undefined;
 
-  const result = buildMergedOptions(options, rest, securityConfig, configProvider);
+  const result = buildMergedOptions(
+    options,
+    rest,
+    securityConfig,
+    configProvider,
+  );
 
   expect(result.securityProvider).toBe("osv");
 });
@@ -163,8 +178,8 @@ test("handleSecurityResults - formats report when alerts found", () => {
       packageName: "lodash",
       severity: "high",
       title: "Prototype Pollution",
-      cve: "CVE-2021-23337"
-    }
+      cve: "CVE-2021-23337",
+    },
   ];
 
   const securityOverrides = [
@@ -173,28 +188,35 @@ test("handleSecurityResults - formats report when alerts found", () => {
       fromVersion: "4.17.20",
       toVersion: "4.17.21",
       reason: "Security fix",
-      severity: "high"
-    }
+      severity: "high",
+    },
   ];
 
   const mockSecurityChecker = {
     formatSecurityReport: mock((alerts, overrides) => "Security Report"),
     generatePackageOverrides: mock((overrides) => ({ lodash: "4.17.21" })),
-    applyAutoFix: mock(() => {})
+    applyAutoFix: mock(() => {}),
   };
 
   const mockSpinner = {
-    info: mock()
+    info: mock(),
   };
 
   const mergedOptions: Options = {
     forceSecurityRefactor: true,
-    path: "package.json"
+    path: "package.json",
   };
 
   const updates: any[] = [];
 
-  handleSecurityResults(alerts, securityOverrides, mockSecurityChecker as any, mockSpinner as any, mergedOptions, updates);
+  handleSecurityResults(
+    alerts,
+    securityOverrides,
+    mockSecurityChecker as any,
+    mockSpinner as any,
+    mergedOptions,
+    updates,
+  );
 
   expect(mockSecurityChecker.formatSecurityReport).toHaveBeenCalled();
   expect(mockSpinner.info).toHaveBeenCalledWith("Security Report");
@@ -210,8 +232,8 @@ test("handleSecurityResults - generates overrides in interactive mode", () => {
     {
       packageName: "express",
       severity: "medium",
-      title: "XSS"
-    }
+      title: "XSS",
+    },
   ];
 
   const securityOverrides = [
@@ -221,33 +243,42 @@ test("handleSecurityResults - generates overrides in interactive mode", () => {
       toVersion: "4.18.2",
       reason: "Security fix",
       cve: "CVE-2024-1234",
-      severity: "medium"
-    }
+      severity: "medium",
+    },
   ];
 
   const mockSecurityChecker = {
     formatSecurityReport: mock(() => "Report"),
     generatePackageOverrides: mock(() => ({ express: "4.18.2" })),
-    applyAutoFix: mock(() => {})
+    applyAutoFix: mock(() => {}),
   };
 
   const mockSpinner = {
-    info: mock()
+    info: mock(),
   };
 
   const mergedOptions: Options = {
     interactive: true,
-    path: "package.json"
+    path: "package.json",
   };
 
   const updates: any[] = [];
 
-  handleSecurityResults(alerts, securityOverrides, mockSecurityChecker as any, mockSpinner as any, mergedOptions, updates);
+  handleSecurityResults(
+    alerts,
+    securityOverrides,
+    mockSecurityChecker as any,
+    mockSpinner as any,
+    mergedOptions,
+    updates,
+  );
 
   expect(mergedOptions.securityOverrides).toEqual({ express: "4.18.2" });
   expect(mergedOptions.securityOverrideDetails).toBeDefined();
   expect(mergedOptions.securityOverrideDetails?.length).toBe(1);
-  expect(mergedOptions.securityOverrideDetails?.[0].packageName).toBe("express");
+  expect(mergedOptions.securityOverrideDetails?.[0].packageName).toBe(
+    "express",
+  );
   expect(mergedOptions.securityOverrideDetails?.[0].cve).toBe("CVE-2024-1234");
   expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
 });
@@ -261,19 +292,26 @@ test("handleSecurityResults - shows success message when no alerts", () => {
   const mockSecurityChecker = {
     formatSecurityReport: mock(() => ""),
     generatePackageOverrides: mock(() => ({})),
-    applyAutoFix: mock(() => {})
+    applyAutoFix: mock(() => {}),
   };
 
   const mockSpinner = {
     info: mock(),
-    succeed: mock()
+    succeed: mock(),
   };
 
   const mergedOptions: Options = {};
 
   const updates: any[] = [];
 
-  handleSecurityResults(alerts, securityOverrides, mockSecurityChecker as any, mockSpinner as any, mergedOptions, updates);
+  handleSecurityResults(
+    alerts,
+    securityOverrides,
+    mockSecurityChecker as any,
+    mockSpinner as any,
+    mergedOptions,
+    updates,
+  );
 
   expect(mockSpinner.succeed).toHaveBeenCalled();
   expect(mockSecurityChecker.formatSecurityReport).not.toHaveBeenCalled();
@@ -285,26 +323,35 @@ test("handleSecurityResults - does not generate overrides without autofix or int
   const { handleSecurityResults } = require("../../../src/cli/index");
 
   const alerts = [{ packageName: "test", severity: "low" }];
-  const securityOverrides = [{ packageName: "test", fromVersion: "1.0.0", toVersion: "2.0.0" }];
+  const securityOverrides = [
+    { packageName: "test", fromVersion: "1.0.0", toVersion: "2.0.0" },
+  ];
 
   const mockSecurityChecker = {
     formatSecurityReport: mock(() => "Report"),
     generatePackageOverrides: mock(() => ({ test: "2.0.0" })),
-    applyAutoFix: mock(() => {})
+    applyAutoFix: mock(() => {}),
   };
 
   const mockSpinner = {
-    info: mock()
+    info: mock(),
   };
 
   const mergedOptions: Options = {
     forceSecurityRefactor: false,
-    interactive: false
+    interactive: false,
   };
 
   const updates: any[] = [];
 
-  handleSecurityResults(alerts, securityOverrides, mockSecurityChecker as any, mockSpinner as any, mergedOptions, updates);
+  handleSecurityResults(
+    alerts,
+    securityOverrides,
+    mockSecurityChecker as any,
+    mockSpinner as any,
+    mergedOptions,
+    updates,
+  );
 
   expect(mockSpinner.info).toHaveBeenCalled();
   expect(mockSecurityChecker.generatePackageOverrides).not.toHaveBeenCalled();

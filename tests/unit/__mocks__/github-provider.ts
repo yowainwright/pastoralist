@@ -25,7 +25,7 @@ export const mockGitHubResponse = {
   data: {
     repository: {
       vulnerabilityAlerts: {
-        nodes: mockGitHubAlerts.map(alert => ({
+        nodes: mockGitHubAlerts.map((alert) => ({
           securityVulnerability: {
             package: { name: alert.package },
             vulnerableVersionRange: `< ${alert.fixedVersion}`,

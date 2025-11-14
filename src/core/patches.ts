@@ -44,7 +44,7 @@ const extractPackageName = (nameWithoutExt: string): string => {
 const addPatchToMap = (
   patchMap: Record<string, string[]>,
   packageName: string,
-  patchFile: string
+  patchFile: string,
 ): Record<string, string[]> => {
   const existingPatches = patchMap[packageName] || [];
   return {
@@ -55,7 +55,7 @@ const addPatchToMap = (
 
 const processPatchFile = (
   patchFile: string,
-  patchMap: Record<string, string[]>
+  patchMap: Record<string, string[]>,
 ): Record<string, string[]> => {
   const basename = extractBasename(patchFile);
   const isPatchFile = basename.endsWith(".patch");
@@ -76,11 +76,13 @@ const processPatchFile = (
 const buildPatchMap = (patchFiles: string[]): Record<string, string[]> => {
   return patchFiles.reduce(
     (map, file) => processPatchFile(file, map),
-    {} as Record<string, string[]>
+    {} as Record<string, string[]>,
   );
 };
 
-export const detectPatches = (root: string = "./"): Record<string, string[]> => {
+export const detectPatches = (
+  root: string = "./",
+): Record<string, string[]> => {
   try {
     const patchFiles = fg.sync(PATCH_PATTERNS, { cwd: root });
     return buildPatchMap(patchFiles);
@@ -92,21 +94,21 @@ export const detectPatches = (root: string = "./"): Record<string, string[]> => 
 
 export const getPackagePatches = (
   packageName: string,
-  patchMap: Record<string, string[]>
+  patchMap: Record<string, string[]>,
 ): string[] => {
   return patchMap[packageName] || [];
 };
 
 const isPackageInDependencies = (
   packageName: string,
-  allDependencies: Record<string, string>
+  allDependencies: Record<string, string>,
 ): boolean => {
   return Boolean(allDependencies[packageName]);
 };
 
 const collectUnusedPatches = (
   entries: [string, string[]][],
-  allDependencies: Record<string, string>
+  allDependencies: Record<string, string>,
 ): string[] => {
   return entries.flatMap(([packageName, patches]) => {
     const isUsed = isPackageInDependencies(packageName, allDependencies);
@@ -115,7 +117,7 @@ const collectUnusedPatches = (
 
     log.debug(
       `Found unused patches for ${packageName}: ${patches.join(", ")}`,
-      "collectUnusedPatches"
+      "collectUnusedPatches",
     );
 
     return patches;
@@ -124,7 +126,7 @@ const collectUnusedPatches = (
 
 export const findUnusedPatches = (
   patchMap: Record<string, string[]>,
-  allDependencies: Record<string, string>
+  allDependencies: Record<string, string>,
 ): string[] => {
   const entries = Object.entries(patchMap);
   return collectUnusedPatches(entries, allDependencies);
@@ -137,7 +139,7 @@ const extractPackageNameFromKey = (key: string): string => {
 const addPatchesToAppendixEntry = (
   appendix: Appendix,
   key: string,
-  patchMap: Record<string, string[]>
+  patchMap: Record<string, string[]>,
 ): Appendix => {
   const packageName = extractPackageNameFromKey(key);
   const patches = getPackagePatches(packageName, patchMap);
@@ -156,12 +158,12 @@ const addPatchesToAppendixEntry = (
 
 export const attachPatchesToAppendix = (
   appendix: Appendix,
-  patchMap: Record<string, string[]>
+  patchMap: Record<string, string[]>,
 ): Appendix => {
   const keys = Object.keys(appendix);
 
   return keys.reduce(
     (acc, key) => addPatchesToAppendixEntry(acc, key, patchMap),
-    appendix
+    appendix,
   );
 };

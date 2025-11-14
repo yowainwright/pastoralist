@@ -46,7 +46,10 @@ test("InteractiveSecurityManager - promptForSecurityActions with vulnerabilities
   const mockLog = console.log;
   console.log = mock();
 
-  const result = await manager.promptForSecurityActions(vulnerablePackages, suggestedOverrides);
+  const result = await manager.promptForSecurityActions(
+    vulnerablePackages,
+    suggestedOverrides,
+  );
 
   expect(result).toEqual([]);
 
@@ -88,7 +91,10 @@ test("InteractiveSecurityManager - promptForSecurityActions user applies fix", a
   const mockLog = console.log;
   console.log = mock();
 
-  const result = await manager.promptForSecurityActions(vulnerablePackages, suggestedOverrides);
+  const result = await manager.promptForSecurityActions(
+    vulnerablePackages,
+    suggestedOverrides,
+  );
 
   expect(result.length).toBe(1);
   expect(result[0].packageName).toBe("lodash");
@@ -131,7 +137,10 @@ test("InteractiveSecurityManager - promptForSecurityActions user skips vulnerabi
   const mockLog = console.log;
   console.log = mock();
 
-  const result = await manager.promptForSecurityActions(vulnerablePackages, suggestedOverrides);
+  const result = await manager.promptForSecurityActions(
+    vulnerablePackages,
+    suggestedOverrides,
+  );
 
   expect(result.length).toBe(0);
 
@@ -172,7 +181,10 @@ test("InteractiveSecurityManager - promptForSecurityActions user provides custom
   const mockLog = console.log;
   console.log = mock();
 
-  const result = await manager.promptForSecurityActions(vulnerablePackages, suggestedOverrides);
+  const result = await manager.promptForSecurityActions(
+    vulnerablePackages,
+    suggestedOverrides,
+  );
 
   expect(result.length).toBe(1);
   expect(result[0].toVersion).toBe("18.0.0");
@@ -219,7 +231,10 @@ test("InteractiveSecurityManager - promptForSecurityActions user declines final 
   const mockLog = console.log;
   console.log = mock();
 
-  const result = await manager.promptForSecurityActions(vulnerablePackages, suggestedOverrides);
+  const result = await manager.promptForSecurityActions(
+    vulnerablePackages,
+    suggestedOverrides,
+  );
 
   expect(result.length).toBe(0);
 
@@ -276,7 +291,7 @@ test("InteractiveSecurityManager - generateSummary produces correct output", asy
     },
   ];
 
-  const summary = manager['generateSummary'](vulnerablePackages);
+  const summary = manager["generateSummary"](vulnerablePackages);
 
   expect(summary).toContain("4 vulnerable package(s)");
   expect(summary).toContain("[CRITICAL]");
@@ -288,11 +303,11 @@ test("InteractiveSecurityManager - generateSummary produces correct output", asy
 test("InteractiveSecurityManager - getSeverityEmoji returns correct indicators", () => {
   const manager = new InteractiveSecurityManager();
 
-  expect(manager['getSeverityEmoji']("critical")).toContain("[!]");
-  expect(manager['getSeverityEmoji']("high")).toContain("[!]");
-  expect(manager['getSeverityEmoji']("medium")).toContain("[*]");
-  expect(manager['getSeverityEmoji']("low")).toContain("[i]");
-  expect(manager['getSeverityEmoji']("unknown")).toContain("[*]");
+  expect(manager["getSeverityEmoji"]("critical")).toContain("[!]");
+  expect(manager["getSeverityEmoji"]("high")).toContain("[!]");
+  expect(manager["getSeverityEmoji"]("medium")).toContain("[*]");
+  expect(manager["getSeverityEmoji"]("low")).toContain("[i]");
+  expect(manager["getSeverityEmoji"]("unknown")).toContain("[*]");
 });
 
 test("InteractiveSecurityManager - handles vulnerability without CVE", async () => {
@@ -329,7 +344,10 @@ test("InteractiveSecurityManager - handles vulnerability without CVE", async () 
   const mockLog = console.log;
   console.log = mock();
 
-  const result = await manager.promptForSecurityActions(vulnerablePackages, suggestedOverrides);
+  const result = await manager.promptForSecurityActions(
+    vulnerablePackages,
+    suggestedOverrides,
+  );
 
   expect(result.length).toBe(1);
 

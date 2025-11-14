@@ -12,24 +12,28 @@ The security feature scans your project's dependencies against vulnerability dat
 ## Quick Start
 
 ### Basic Check
+
 ```bash
 # Check for vulnerabilities and display a report
 pastoralist --checkSecurity
 ```
 
 ### Auto Fix
+
 ```bash
 # Automatically apply security fixes
 pastoralist --checkSecurity --forceSecurityRefactor
 ```
 
 ### Interactive
+
 ```bash
 # Choose which fixes to apply
 pastoralist --checkSecurity --interactive
 ```
 
 ### Workspaces
+
 ```bash
 # Include workspace packages in the scan
 pastoralist --checkSecurity --includeWorkspaces
@@ -58,27 +62,27 @@ You can configure security settings in your `package.json`:
 
 ### Configuration Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `enabled` | boolean | `false` | Enable automatic security checks when running pastoralist |
-| `provider` | string | `"osv"` | Security provider to use ("osv" or "github") |
-| `autoFix` | boolean | `false` | Automatically apply security fixes without prompting |
-| `interactive` | boolean | `false` | Use interactive mode to select which fixes to apply |
-| `securityProviderToken` | string | `""` | Authentication token for providers that require it |
-| `includeWorkspaces` | boolean | `false` | Include workspace packages in security scan |
-| `severityThreshold` | string | `"medium"` | Minimum severity level to report (low, medium, high, critical) |
-| `excludePackages` | array | `[]` | List of package names to exclude from security checks |
+| Option                  | Type    | Default    | Description                                                    |
+| ----------------------- | ------- | ---------- | -------------------------------------------------------------- |
+| `enabled`               | boolean | `false`    | Enable automatic security checks when running pastoralist      |
+| `provider`              | string  | `"osv"`    | Security provider to use ("osv" or "github")                   |
+| `autoFix`               | boolean | `false`    | Automatically apply security fixes without prompting           |
+| `interactive`           | boolean | `false`    | Use interactive mode to select which fixes to apply            |
+| `securityProviderToken` | string  | `""`       | Authentication token for providers that require it             |
+| `includeWorkspaces`     | boolean | `false`    | Include workspace packages in security scan                    |
+| `severityThreshold`     | string  | `"medium"` | Minimum severity level to report (low, medium, high, critical) |
+| `excludePackages`       | array   | `[]`       | List of package names to exclude from security checks          |
 
 ## CLI Options
 
-| Option | Description |
-|--------|-------------|
-| `--checkSecurity` | Enable security vulnerability checking |
-| `--forceSecurityRefactor` | Automatically apply security fixes without prompting |
-| `--securityProvider <provider>` | Specify the security provider (default: "osv") |
+| Option                            | Description                                            |
+| --------------------------------- | ------------------------------------------------------ |
+| `--checkSecurity`                 | Enable security vulnerability checking                 |
+| `--forceSecurityRefactor`         | Automatically apply security fixes without prompting   |
+| `--securityProvider <provider>`   | Specify the security provider (default: "osv")         |
 | `--securityProviderToken <token>` | Provide authentication token for the security provider |
-| `--interactive` | Use interactive mode to select fixes |
-| `--includeWorkspaces` | Include workspace packages in the security scan |
+| `--interactive`                   | Use interactive mode to select fixes                   |
+| `--includeWorkspaces`             | Include workspace packages in the security scan        |
 
 ## Security Providers
 
@@ -189,11 +193,12 @@ Found 3 vulnerable package(s):
 ## Performance Considerations
 
 :::caution[Performance Impact]
+
 - Security scanning is **disabled by default** to maintain fast performance
 - Workspace scanning is **opt-in** via the `includeWorkspaces` option
 - The OSV provider is optimized for batch queries
 - Results are processed in parallel when possible
-:::
+  :::
 
 ## Best Practices
 
@@ -205,25 +210,29 @@ Found 3 vulnerable package(s):
 ## Limitations
 
 :::note[Current Limitations]
+
 - Currently only supports npm packages
 - Only the OSV provider is implemented
 - Interactive mode requires the `inquirer` package (installed on demand)
 - Some vulnerabilities may not have available fixes
-:::
+  :::
 
 ## Troubleshooting
 
 ### No vulnerabilities found when expected
+
 - Ensure you're using the latest version of pastoralist
 - Check that your dependencies are correctly specified in package.json
 - Try running with `--debug` to see detailed logs
 
 ### Fixes not being applied
+
 - Verify you have write permissions to package.json
 - Check for existing overrides that might conflict
 - Ensure the package manager supports overrides
 
 ### Performance issues
+
 - Disable workspace scanning if not needed
 - Consider excluding large dependency trees with `excludePackages`
 - Use severity threshold to limit results
@@ -261,6 +270,7 @@ security:
 ## Contributing
 
 The security feature is experimental and we welcome contributions! Areas for improvement:
+
 - Additional security provider implementations
 - Enhanced vulnerability filtering
 - Better workspace integration

@@ -5,14 +5,14 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Published pastoralist version to test (leave empty for latest on npm)'
+        description: "Published pastoralist version to test (leave empty for latest on npm)"
         required: false
         type: string
 
 jobs:
   test-published-release:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -72,7 +72,7 @@ jobs:
           # Copy test fixtures and scripts
           COPY packages/e2e/fixtures/ ./e2e/fixtures/
           COPY packages/e2e/scripts/ ./scripts/
-          
+
           # Copy workspace configurations
           COPY packages/e2e/fixtures/root-package.json ./package.json
           COPY packages/e2e/fixtures/app-package.json ./packages/app/package.json
@@ -123,7 +123,7 @@ jobs:
       - name: Test with Different Package Managers
         run: |
           echo "🔧 Testing with different package managers..."
-          
+
           # Test with npm
           cat > Dockerfile.npm-test << 'EOF'
           FROM node:24-alpine
@@ -233,6 +233,6 @@ jobs:
           All tests passed successfully. The published package is ready for use.
           External e2e tests have been triggered in the pastoralist-test repository.
           EOF
-          
+
           echo "📄 Test report created:"
           cat test-report.md

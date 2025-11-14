@@ -79,18 +79,18 @@ test("mergeConfigs - merges appendix entries with no overlap", () => {
   const external: PastoralistConfig = {
     appendix: {
       "lodash@4.17.21": {
-        dependents: { "app1": "lodash@^4.17.0" },
+        dependents: { app1: "lodash@^4.17.0" },
         patches: ["patches/lodash.patch"],
-      }
-    }
+      },
+    },
   };
 
   const packageJson: PastoralistConfig = {
     appendix: {
       "express@4.18.0": {
-        dependents: { "app2": "express@^4.18.0" },
-      }
-    }
+        dependents: { app2: "express@^4.18.0" },
+      },
+    },
   };
 
   const merged = mergeConfigs(external, packageJson);
@@ -104,46 +104,48 @@ test("mergeConfigs - merges appendix entries when key exists in external but not
   const external: PastoralistConfig = {
     appendix: {
       "lodash@4.17.21": {
-        dependents: { "app1": "lodash@^4.17.0" },
-      }
-    }
+        dependents: { app1: "lodash@^4.17.0" },
+      },
+    },
   };
 
   const packageJson: PastoralistConfig = {
     appendix: {
       "lodash@4.17.21": {
-        dependents: { "app2": "lodash@^4.17.0" },
+        dependents: { app2: "lodash@^4.17.0" },
         patches: ["patches/new.patch"],
-      }
-    }
+      },
+    },
   };
 
   const merged = mergeConfigs(external, packageJson);
 
   expect(merged?.appendix?.["lodash@4.17.21"].dependents).toEqual({
-    "app1": "lodash@^4.17.0",
-    "app2": "lodash@^4.17.0",
+    app1: "lodash@^4.17.0",
+    app2: "lodash@^4.17.0",
   });
-  expect(merged?.appendix?.["lodash@4.17.21"].patches).toEqual(["patches/new.patch"]);
+  expect(merged?.appendix?.["lodash@4.17.21"].patches).toEqual([
+    "patches/new.patch",
+  ]);
 });
 
 test("mergeConfigs - handles when external has no key and packageJson does", () => {
   const external: PastoralistConfig = {
-    appendix: {}
+    appendix: {},
   };
 
   const packageJson: PastoralistConfig = {
     appendix: {
       "react@18.0.0": {
-        dependents: { "frontend": "react@^18.0.0" },
-      }
-    }
+        dependents: { frontend: "react@^18.0.0" },
+      },
+    },
   };
 
   const merged = mergeConfigs(external, packageJson);
 
   expect(merged?.appendix?.["react@18.0.0"]).toBeDefined();
   expect(merged?.appendix?.["react@18.0.0"].dependents).toEqual({
-    "frontend": "react@^18.0.0"
+    frontend: "react@^18.0.0",
   });
 });

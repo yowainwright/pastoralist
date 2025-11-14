@@ -8,9 +8,8 @@
 
 Pastoralist provides a dead simple way to singularly maintain node module dependencies and security issues in dependencies.
 
-1. Pastoralist IS *set-it-and-forget-it automation* for dependency overrides. Pastoralist automatically tracks, secures, and cleans up your `overrides`, `resolutions`, and `patches`. 
-2. Pastoralist also provides an out-of-the-box solution for resolving dependency security alerts using the same pattern of overriding and tracking security vulnerabilities in node modules. 
-
+1. Pastoralist IS _set-it-and-forget-it automation_ for dependency overrides. Pastoralist automatically tracks, secures, and cleans up your `overrides`, `resolutions`, and `patches`.
+2. Pastoralist also provides an out-of-the-box solution for resolving dependency security alerts using the same pattern of overriding and tracking security vulnerabilities in node modules.
 
 ---
 
@@ -54,6 +53,7 @@ npm i pastoralist -D && pastoralist --init
 **Package manager `overrides` and `resolutions` let you control exact dependency versions in your node_modules.**
 
 Package managers (npm, yarn, pnpm, bun) use these overrides to fix:
+
 - Security vulnerabilities in nested dependencies
 - Bugs in transitive dependencies
 - Version conflicts
@@ -239,6 +239,7 @@ flowchart TD
 ```
 
 **Supported providers:**
+
 - **OSV** (default) - No auth required
 - **GitHub** - Requires token
 - **Snyk** - Requires CLI
@@ -314,7 +315,6 @@ Add it to your postinstall script and forget about it:
 - **Pastoralist controls** tracking, security, and cleanup
 - **Fully automatic** - runs on every install via postinstall hook
 
-
 ### Using Pastoralist with Workspaces and Monorepos
 
 Pastoralist provides enhanced support for monorepo scenarios where overrides are defined at the root but dependencies exist in workspace packages.
@@ -383,6 +383,7 @@ When you have overrides at the root for packages only installed in workspace pac
 #### Configuration Options
 
 1. **Interactive Configuration** - Let Pastoralist guide you through setup:
+
 ```bash
 # Initialize with interactive prompts
 pastoralist --init
@@ -392,17 +393,20 @@ pastoralist --interactive
 ```
 
 When Pastoralist detects overrides for packages not in root dependencies, it will:
+
 - Prompt you to configure workspace paths
 - Offer to auto-detect common monorepo structures
 - Allow you to specify custom paths
 - Optionally save the configuration to your package.json
 
 2. **Using depPaths CLI Flag** - Specify paths to scan for package.json files:
+
 ```bash
 pastoralist --depPaths "packages/*/package.json" "apps/*/package.json"
 ```
 
 3. **Using depPaths in package.json** - Configure dependency paths directly in your package.json:
+
 ```js
 "pastoralist": {
   "depPaths": "workspace"  // Automatically uses all workspaces
@@ -417,12 +421,14 @@ pastoralist --depPaths "packages/*/package.json" "apps/*/package.json"
 When using `depPaths: "workspace"`, Pastoralist will automatically scan all packages defined in your `workspaces` field. This is the recommended approach for most monorepos as it keeps your configuration in sync with your workspace structure.
 
 Benefits of using `depPaths` configuration:
+
 - Single source of truth in package.json
 - No need to remember CLI flags
 - Works automatically with postinstall scripts
 - Appendix only appears in root package.json (workspace packages remain clean)
 
 4. **Using overridePaths/resolutionPaths** - Configure in your package.json:
+
 ```js
 "pastoralist": {
   "overridePaths": {  // or "resolutionPaths" for yarn
@@ -433,6 +439,7 @@ Benefits of using `depPaths` configuration:
 ```
 
 This configuration ensures that:
+
 - Overrides for packages not in root dependencies are preserved
 - Each workspace package's usage is tracked separately
 - The appendix correctly maps overrides to their actual consumers
@@ -475,23 +482,23 @@ module.exports = {
   security: {
     provider: "osv",
     severityThreshold: "high",
-    excludePackages: ["@types/*"]
-  }
+    excludePackages: ["@types/*"],
+  },
 };
 ```
 
 **Example `pastoralist.config.ts`:**
 
 ```ts
-import { PastoralistConfig } from 'pastoralist';
+import { PastoralistConfig } from "pastoralist";
 
 const config: PastoralistConfig = {
   checkSecurity: true,
   depPaths: "workspaces",
   security: {
     provider: "osv",
-    severityThreshold: "critical"
-  }
+    severityThreshold: "critical",
+  },
 };
 
 export default config;
@@ -540,27 +547,27 @@ When both external config files and `package.json` configuration exist:
 
 ### Configuration Options
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `checkSecurity` | `boolean` | Enable security vulnerability scanning |
-| `depPaths` | `"workspace"` \| `"workspaces"` \| `string[]` | Paths to scan for dependencies in monorepos |
-| `appendix` | `object` | Auto-generated dependency tracking (managed by Pastoralist) |
-| `overridePaths` | `object` | Manual override tracking for specific paths |
-| `resolutionPaths` | `object` | Manual resolution tracking for specific paths |
-| `security` | `object` | Security scanning configuration (see below) |
+| Option            | Type                                          | Description                                                 |
+| ----------------- | --------------------------------------------- | ----------------------------------------------------------- |
+| `checkSecurity`   | `boolean`                                     | Enable security vulnerability scanning                      |
+| `depPaths`        | `"workspace"` \| `"workspaces"` \| `string[]` | Paths to scan for dependencies in monorepos                 |
+| `appendix`        | `object`                                      | Auto-generated dependency tracking (managed by Pastoralist) |
+| `overridePaths`   | `object`                                      | Manual override tracking for specific paths                 |
+| `resolutionPaths` | `object`                                      | Manual resolution tracking for specific paths               |
+| `security`        | `object`                                      | Security scanning configuration (see below)                 |
 
 #### Security Configuration
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `enabled` | `boolean` | Enable/disable security checks |
-| `provider` | `"osv"` \| `"github"` \| `"snyk"` \| `"socket"` | Security provider: `osv` (free but only top-level), `github` (requires token but includes transitive deps), `snyk` (beta, requires API auth), `socket` (beta, requires API key) |
-| `autoFix` | `boolean` | Automatically apply security fixes |
-| `interactive` | `boolean` | Use interactive mode for security fixes |
-| `securityProviderToken` | `string` | API token for providers that require auth |
-| `severityThreshold` | `"low"` \| `"medium"` \| `"high"` \| `"critical"` | Minimum severity level to report |
-| `excludePackages` | `string[]` | Packages to exclude from security checks |
-| `hasWorkspaceSecurityChecks` | `boolean` | Include workspace packages in scans |
+| Option                       | Type                                              | Description                                                                                                                                                                     |
+| ---------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`                    | `boolean`                                         | Enable/disable security checks                                                                                                                                                  |
+| `provider`                   | `"osv"` \| `"github"` \| `"snyk"` \| `"socket"`   | Security provider: `osv` (free but only top-level), `github` (requires token but includes transitive deps), `snyk` (beta, requires API auth), `socket` (beta, requires API key) |
+| `autoFix`                    | `boolean`                                         | Automatically apply security fixes                                                                                                                                              |
+| `interactive`                | `boolean`                                         | Use interactive mode for security fixes                                                                                                                                         |
+| `securityProviderToken`      | `string`                                          | API token for providers that require auth                                                                                                                                       |
+| `severityThreshold`          | `"low"` \| `"medium"` \| `"high"` \| `"critical"` | Minimum severity level to report                                                                                                                                                |
+| `excludePackages`            | `string[]`                                        | Packages to exclude from security checks                                                                                                                                        |
+| `hasWorkspaceSecurityChecks` | `boolean`                                         | Include workspace packages in scans                                                                                                                                             |
 
 ### Security Tracking in Appendix
 
@@ -590,6 +597,7 @@ When security vulnerabilities are detected and fixed, Pastoralist tracks complet
 ```
 
 The ledger tracks:
+
 - `addedDate`: When the override was first added
 - `reason`: Why the override was needed
 - `securityChecked`: Whether a security check was performed
@@ -662,6 +670,7 @@ pastoralist setup-ci
 ```
 
 This generates a GitHub Actions workflow that:
+
 - Runs on pull requests and pushes to main/master
 - Runs weekly security scans
 - Auto-detects your package manager (npm, yarn, pnpm, bun)

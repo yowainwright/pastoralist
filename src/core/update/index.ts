@@ -2,11 +2,23 @@ import { IS_DEBUGGING } from "../../constants";
 import type { Options } from "../../types";
 import { logger } from "../../utils";
 import { clearDependencyTreeCache, jsonCache } from "../packageJSON";
-import { mergeOverridePaths, checkMonorepoOverrides, processWorkspacePackages } from "../workspaces";
-import { attachPatchesToAppendix, detectPatches, findUnusedPatches } from "../patches";
+import {
+  mergeOverridePaths,
+  checkMonorepoOverrides,
+  processWorkspacePackages,
+} from "../workspaces";
+import {
+  attachPatchesToAppendix,
+  detectPatches,
+  findUnusedPatches,
+} from "../patches";
 import { resolveOverrides, getOverridesByType } from "../overrides";
 import { updateAppendix, constructAppendix } from "../appendix";
-import { writeResult, determineProcessingMode, findPackageFiles } from "./utils";
+import {
+  writeResult,
+  determineProcessingMode,
+  findPackageFiles,
+} from "./utils";
 import type { UpdateContext } from "../../types";
 
 const stepDetectPatches = (ctx: UpdateContext): UpdateContext => {
@@ -16,7 +28,7 @@ const stepDetectPatches = (ctx: UpdateContext): UpdateContext => {
   if (patchedPackages.length > 0) {
     ctx.log.debug(
       `Found patches for packages: ${patchedPackages.join(", ")}`,
-      "stepDetectPatches"
+      "stepDetectPatches",
     );
   }
 
@@ -26,7 +38,10 @@ const stepDetectPatches = (ctx: UpdateContext): UpdateContext => {
 const stepPrepareOverrides = (ctx: UpdateContext): UpdateContext => {
   if (!ctx.config) return ctx;
 
-  const overridesData = resolveOverrides({ options: ctx.options, config: ctx.config });
+  const overridesData = resolveOverrides({
+    options: ctx.options,
+    config: ctx.config,
+  });
   let overrides = getOverridesByType(overridesData) || {};
 
   if (ctx.options?.securityOverrides) {
@@ -51,8 +66,18 @@ const stepDetermineMode = (ctx: UpdateContext): UpdateContext => {
     ...ctx.config.peerDependencies,
   };
 
-  const missingInRoot = checkMonorepoOverrides(overrides, rootDeps, ctx.log, ctx.options);
-  const mode = determineProcessingMode(ctx.options, ctx.config, hasRootOverrides, missingInRoot);
+  const missingInRoot = checkMonorepoOverrides(
+    overrides,
+    rootDeps,
+    ctx.log,
+    ctx.options,
+  );
+  const mode = determineProcessingMode(
+    ctx.options,
+    ctx.config,
+    hasRootOverrides,
+    missingInRoot,
+  );
 
   return { ...ctx, hasRootOverrides, rootDeps, missingInRoot, mode };
 };
@@ -66,18 +91,27 @@ const stepProcessWorkspaces = (ctx: UpdateContext): UpdateContext => {
   if (!shouldProcessWorkspaces) return ctx;
 
   const ignore = ctx.options?.ignore || [];
-  const packageJsonFiles = findPackageFiles(depPaths, ctx.root, ignore, ctx.log);
+  const packageJsonFiles = findPackageFiles(
+    depPaths,
+    ctx.root,
+    ignore,
+    ctx.log,
+  );
 
   if (packageJsonFiles.length === 0) return ctx;
 
-  ctx.log.debug(`Processing ${packageJsonFiles.length} workspace packages`, "stepProcessWorkspaces");
-
-  const { appendix: workspaceAppendix, allWorkspaceDeps } = processWorkspacePackages(
-    packageJsonFiles,
-    ctx.overridesData,
-    ctx.log,
-    constructAppendix
+  ctx.log.debug(
+    `Processing ${packageJsonFiles.length} workspace packages`,
+    "stepProcessWorkspaces",
   );
+
+  const { appendix: workspaceAppendix, allWorkspaceDeps } =
+    processWorkspacePackages(
+      packageJsonFiles,
+      ctx.overridesData,
+      ctx.log,
+      constructAppendix,
+    );
 
   return { ...ctx, workspaceAppendix, allWorkspaceDeps };
 };
@@ -112,7 +146,10 @@ const stepBuildAppendix = (ctx: UpdateContext): UpdateContext => {
 
   if (!ctx.workspaceAppendix) return { ...ctx, appendix };
 
-  ctx.log.debug("Merging workspace appendix with root appendix", "stepBuildAppendix");
+  ctx.log.debug(
+    "Merging workspace appendix with root appendix",
+    "stepBuildAppendix",
+  );
 
   Object.entries(ctx.workspaceAppendix).forEach(([key, value]) => {
     const existing = appendix[key];
@@ -132,7 +169,10 @@ const stepBuildAppendix = (ctx: UpdateContext): UpdateContext => {
 const stepAttachPatches = (ctx: UpdateContext): UpdateContext => {
   if (!ctx.appendix || !ctx.patchMap) return ctx;
 
-  const appendixWithPatches = attachPatchesToAppendix(ctx.appendix, ctx.patchMap);
+  const appendixWithPatches = attachPatchesToAppendix(
+    ctx.appendix,
+    ctx.patchMap,
+  );
 
   return { ...ctx, appendix: appendixWithPatches };
 };
@@ -140,7 +180,9 @@ const stepAttachPatches = (ctx: UpdateContext): UpdateContext => {
 const stepMergeOverridePaths = (ctx: UpdateContext): UpdateContext => {
   if (!ctx.config || !ctx.appendix || !ctx.missingInRoot) return ctx;
 
-  const overridePaths = ctx.config.pastoralist?.overridePaths || ctx.config.pastoralist?.resolutionPaths;
+  const overridePaths =
+    ctx.config.pastoralist?.overridePaths ||
+    ctx.config.pastoralist?.resolutionPaths;
   mergeOverridePaths(ctx.appendix, overridePaths, ctx.missingInRoot, ctx.log);
 
   return { ...ctx, overridePaths };
@@ -154,12 +196,14 @@ const stepLogUnusedPatches = (ctx: UpdateContext): UpdateContext => {
   if (unusedPatches.length > 0) {
     ctx.log.info(
       `Found ${unusedPatches.length} potentially unused patch files:`,
-      "stepLogUnusedPatches"
+      "stepLogUnusedPatches",
     );
-    unusedPatches.forEach((patch) => ctx.log.info(`  - ${patch}`, "stepLogUnusedPatches"));
+    unusedPatches.forEach((patch) =>
+      ctx.log.info(`  - ${patch}`, "stepLogUnusedPatches"),
+    );
     ctx.log.info(
       "Consider removing these patches if the packages are no longer used.",
-      "stepLogUnusedPatches"
+      "stepLogUnusedPatches",
     );
   }
 
@@ -175,7 +219,11 @@ const stepCleanupOverrides = (ctx: UpdateContext): UpdateContext => {
   const defaultFinalAppendix = ctx.appendix || {};
 
   if (!ctx.overrides || !ctx.overridesData || !ctx.appendix) {
-    return { ...ctx, finalOverrides: defaultFinalOverrides, finalAppendix: defaultFinalAppendix };
+    return {
+      ...ctx,
+      finalOverrides: defaultFinalOverrides,
+      finalAppendix: defaultFinalAppendix,
+    };
   }
 
   return { ...ctx, finalOverrides: ctx.overrides, finalAppendix: ctx.appendix };
@@ -184,13 +232,22 @@ const stepCleanupOverrides = (ctx: UpdateContext): UpdateContext => {
 const stepWriteResult = (ctx: UpdateContext): UpdateContext => {
   if (ctx.isTesting) return ctx;
 
-  const hasNoData = !ctx.config || ctx.finalAppendix === undefined || ctx.finalOverrides === undefined;
+  const hasNoData =
+    !ctx.config ||
+    ctx.finalAppendix === undefined ||
+    ctx.finalOverrides === undefined;
   if (hasNoData) {
-    ctx.log.debug(`Skipping write: config=${!!ctx.config}, appendix=${ctx.finalAppendix !== undefined}, overrides=${ctx.finalOverrides !== undefined}`, "stepWriteResult");
+    ctx.log.debug(
+      `Skipping write: config=${!!ctx.config}, appendix=${ctx.finalAppendix !== undefined}, overrides=${ctx.finalOverrides !== undefined}`,
+      "stepWriteResult",
+    );
     return ctx;
   }
 
-  ctx.log.debug(`Writing results: appendix keys=${Object.keys(ctx.finalAppendix || {}).length}, override keys=${Object.keys(ctx.finalOverrides || {}).length}`, "stepWriteResult");
+  ctx.log.debug(
+    `Writing results: appendix keys=${Object.keys(ctx.finalAppendix || {}).length}, override keys=${Object.keys(ctx.finalOverrides || {}).length}`,
+    "stepWriteResult",
+  );
   writeResult({
     path: ctx.path,
     config: ctx.config!,
@@ -203,10 +260,7 @@ const stepWriteResult = (ctx: UpdateContext): UpdateContext => {
   return ctx;
 };
 
-const pipe = <T>(
-  initialValue: T,
-  ...fns: Array<(value: T) => T>
-): T => {
+const pipe = <T>(initialValue: T, ...fns: Array<(value: T) => T>): T => {
   return fns.reduce((result, fn) => fn(result), initialValue);
 };
 
@@ -268,7 +322,7 @@ export const update = (options: Options): UpdateContext => {
     stepMergeOverridePaths,
     stepLogUnusedPatches,
     stepCleanupOverrides,
-    stepWriteResult
+    stepWriteResult,
   );
 
   if (IS_DEBUGGING) {

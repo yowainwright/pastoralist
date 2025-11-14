@@ -25,7 +25,7 @@ test("validateConfig - should accept valid appendix with ledger", () => {
     appendix: {
       "lodash@4.17.21": {
         rootDeps: ["express"],
-        dependents: { "app": "lodash@^4.17.0" },
+        dependents: { app: "lodash@^4.17.0" },
         patches: ["patches/lodash.patch"],
         ledger: {
           addedDate: "2024-01-01",
@@ -34,7 +34,7 @@ test("validateConfig - should accept valid appendix with ledger", () => {
           securityCheckDate: "2024-01-02",
           securityProvider: "osv",
         },
-      }
+      },
     },
   };
 
@@ -49,7 +49,7 @@ test("validateConfig - should reject appendix item with invalid ledger (missing 
         ledger: {
           reason: "Security fix",
         },
-      }
+      },
     },
   };
 
@@ -64,9 +64,9 @@ test("validateConfig - should reject appendix item with invalid ledger fields", 
           ledger: {
             addedDate: "2024-01-01",
             reason: 123,
-          }
-        }
-      }
+          },
+        },
+      },
     },
     {
       appendix: {
@@ -74,9 +74,9 @@ test("validateConfig - should reject appendix item with invalid ledger fields", 
           ledger: {
             addedDate: "2024-01-01",
             securityChecked: "true",
-          }
-        }
-      }
+          },
+        },
+      },
     },
     {
       appendix: {
@@ -84,13 +84,13 @@ test("validateConfig - should reject appendix item with invalid ledger fields", 
           ledger: {
             addedDate: "2024-01-01",
             securityProvider: "invalid",
-          }
-        }
-      }
+          },
+        },
+      },
     },
   ];
 
-  invalidConfigs.forEach(config => {
+  invalidConfigs.forEach((config) => {
     expect(() => validateConfig(config)).toThrow("Invalid config structure");
   });
 });
@@ -101,40 +101,40 @@ test("validateConfig - should reject appendix item with invalid fields", () => {
       appendix: {
         "pkg@1.0.0": {
           rootDeps: "not-an-array",
-        }
-      }
+        },
+      },
     },
     {
       appendix: {
         "pkg@1.0.0": {
           rootDeps: [123, 456],
-        }
-      }
+        },
+      },
     },
     {
       appendix: {
         "pkg@1.0.0": {
           dependents: "not-an-object",
-        }
-      }
+        },
+      },
     },
     {
       appendix: {
         "pkg@1.0.0": {
           patches: "not-an-array",
-        }
-      }
+        },
+      },
     },
     {
       appendix: {
         "pkg@1.0.0": {
           patches: [123],
-        }
-      }
+        },
+      },
     },
   ];
 
-  invalidConfigs.forEach(config => {
+  invalidConfigs.forEach((config) => {
     expect(() => validateConfig(config)).toThrow("Invalid config structure");
   });
 });
@@ -175,7 +175,7 @@ test("validateConfig - should reject invalid security provider", () => {
     { security: { provider: 123 } },
   ];
 
-  invalidConfigs.forEach(config => {
+  invalidConfigs.forEach((config) => {
     expect(() => validateConfig(config)).toThrow("Invalid config structure");
   });
 });
@@ -201,7 +201,7 @@ test("validateConfig - should reject invalid security config fields", () => {
     { security: { hasWorkspaceSecurityChecks: "true" } },
   ];
 
-  invalidConfigs.forEach(config => {
+  invalidConfigs.forEach((config) => {
     expect(() => validateConfig(config)).toThrow("Invalid config structure");
   });
 });
@@ -213,7 +213,7 @@ test("validateConfig - should accept valid depPaths values", () => {
     { depPaths: ["packages/*/package.json", "apps/*/package.json"] },
   ];
 
-  configs.forEach(config => {
+  configs.forEach((config) => {
     const result = validateConfig(config);
     expect(result).toEqual(config);
   });
@@ -227,7 +227,7 @@ test("validateConfig - should reject invalid depPaths", () => {
     { depPaths: {} },
   ];
 
-  invalidConfigs.forEach(config => {
+  invalidConfigs.forEach((config) => {
     expect(() => validateConfig(config)).toThrow("Invalid config structure");
   });
 });
@@ -243,12 +243,12 @@ test("validateConfig - should reject invalid checkSecurity type", () => {
 test("validateConfig - should accept valid overridePaths", () => {
   const config = {
     overridePaths: {
-      "path1": {
+      path1: {
         "pkg@1.0.0": {
-          dependents: { "app": "pkg@^1.0.0" }
-        }
-      }
-    }
+          dependents: { app: "pkg@^1.0.0" },
+        },
+      },
+    },
   };
 
   const result = validateConfig(config);
@@ -258,12 +258,12 @@ test("validateConfig - should accept valid overridePaths", () => {
 test("validateConfig - should reject invalid overridePaths", () => {
   const config = {
     overridePaths: {
-      "path1": {
+      path1: {
         "pkg@1.0.0": {
-          rootDeps: "not-array"
-        }
-      }
-    }
+          rootDeps: "not-array",
+        },
+      },
+    },
   };
 
   expect(() => validateConfig(config)).toThrow("Invalid config structure");
@@ -272,12 +272,12 @@ test("validateConfig - should reject invalid overridePaths", () => {
 test("validateConfig - should accept valid resolutionPaths", () => {
   const config = {
     resolutionPaths: {
-      "path1": {
+      path1: {
         "pkg@1.0.0": {
-          dependents: { "app": "pkg@^1.0.0" }
-        }
-      }
-    }
+          dependents: { app: "pkg@^1.0.0" },
+        },
+      },
+    },
   };
 
   const result = validateConfig(config);
@@ -287,12 +287,12 @@ test("validateConfig - should accept valid resolutionPaths", () => {
 test("validateConfig - should reject invalid resolutionPaths", () => {
   const config = {
     resolutionPaths: {
-      "path1": {
+      path1: {
         "pkg@1.0.0": {
-          patches: 123
-        }
-      }
-    }
+          patches: 123,
+        },
+      },
+    },
   };
 
   expect(() => validateConfig(config)).toThrow("Invalid config structure");
@@ -301,7 +301,7 @@ test("validateConfig - should reject invalid resolutionPaths", () => {
 test("validateConfig - should accept all valid security providers", () => {
   const providers = ["osv", "github", "snyk", "npm", "socket"];
 
-  providers.forEach(provider => {
+  providers.forEach((provider) => {
     const config = { security: { provider } };
     const result = validateConfig(config);
     expect(result).toEqual(config);
@@ -311,7 +311,7 @@ test("validateConfig - should accept all valid security providers", () => {
 test("validateConfig - should accept all valid severity thresholds", () => {
   const thresholds = ["low", "medium", "high", "critical"];
 
-  thresholds.forEach(threshold => {
+  thresholds.forEach((threshold) => {
     const config = { security: { severityThreshold: threshold } };
     const result = validateConfig(config);
     expect(result).toEqual(config);
@@ -326,7 +326,7 @@ test("safeValidateConfig - should return config for all valid inputs", () => {
     { appendix: { "pkg@1.0.0": { dependents: {} } } },
   ];
 
-  validConfigs.forEach(config => {
+  validConfigs.forEach((config) => {
     const result = safeValidateConfig(config);
     expect(result).toEqual(config);
   });
@@ -336,10 +336,10 @@ test("safeValidateConfig - should return undefined for all invalid inputs", () =
   const invalidConfigs = [
     { security: { provider: "invalid" } },
     { depPaths: 123 },
-    { appendix: { "pkg": { rootDeps: "not-array" } } },
+    { appendix: { pkg: { rootDeps: "not-array" } } },
   ];
 
-  invalidConfigs.forEach(config => {
+  invalidConfigs.forEach((config) => {
     const result = safeValidateConfig(config);
     expect(result).toBeUndefined();
   });

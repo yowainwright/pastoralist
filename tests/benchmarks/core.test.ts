@@ -55,7 +55,7 @@ test("Benchmark: Core Operations", () => {
   });
 
   const largeDeps = Object.fromEntries(
-    Array.from({ length: 100 }, (_, i) => [`dep-${i}`, `${i}.0.0`])
+    Array.from({ length: 100 }, (_, i) => [`dep-${i}`, `${i}.0.0`]),
   );
 
   const largeTime = benchmark("updateAppendix (100 deps, 5 overrides)", () => {
@@ -97,11 +97,21 @@ test("Benchmark: Core Operations", () => {
     severity: "high" as const,
   }));
 
-  const generateTime = benchmark("generatePackageOverrides (20 overrides)", () => {
-    checker.generatePackageOverrides(overrides);
-  });
+  const generateTime = benchmark(
+    "generatePackageOverrides (20 overrides)",
+    () => {
+      checker.generatePackageOverrides(overrides);
+    },
+  );
 
-  const total = resolveTime + smallTime + largeTime + checkerTime + providerTime + fixtureTime + generateTime;
+  const total =
+    resolveTime +
+    smallTime +
+    largeTime +
+    checkerTime +
+    providerTime +
+    fixtureTime +
+    generateTime;
   console.log(`\nTotal: ${total.toFixed(2)}ms\n`);
 
   expect(resolveTime).toBeLessThan(5);

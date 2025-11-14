@@ -6,6 +6,7 @@ description: Learn pastoralist step-by-step
 ## The Problem
 
 When using npm overrides or yarn resolutions, you often:
+
 - Forget why an override was added
 - Leave outdated overrides in place
 - Don't know which packages need them
@@ -13,6 +14,7 @@ When using npm overrides or yarn resolutions, you often:
 ## The Solution
 
 Pastoralist automatically:
+
 - Documents each override with an appendix
 - Shows which packages require each override
 - Removes unnecessary overrides
@@ -55,7 +57,7 @@ cat package.json
     "express": "^4.18.0"
   },
   "overrides": {
-    "lodash": "4.17.20"  // Why is this here?
+    "lodash": "4.17.20" // Why is this here?
   }
 }
 ```
@@ -71,7 +73,7 @@ cat package.json
     "appendix": {
       "lodash@4.17.20": {
         "dependents": {
-          "express": "^4.18.0"  // Now we know!
+          "express": "^4.18.0" // Now we know!
         }
       }
     }
@@ -141,11 +143,11 @@ The appendix shows which packages aren't ready for React 18.
 ### API Usage
 
 ```javascript
-import { runPastoralist } from 'pastoralist';
+import { runPastoralist } from "pastoralist";
 
 await runPastoralist({
-  path: './package.json',
-  silent: false
+  path: "./package.json",
+  silent: false,
 });
 ```
 

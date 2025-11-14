@@ -8,6 +8,7 @@ Pastoralist works seamlessly with workspace and monorepo setups. This guide cove
 ## How Pastoralist Works in Workspaces
 
 Pastoralist operates on a single `package.json` at a time. In a workspace setup, you can run it on:
+
 - The root package.json
 - Individual workspace packages
 - Multiple packages using scripts
@@ -28,7 +29,7 @@ Configure dependency paths directly in your `package.json` for automatic workspa
     "lodash": "4.17.21"
   },
   "pastoralist": {
-    "depPaths": "workspace"  // Automatically scans all workspaces
+    "depPaths": "workspace" // Automatically scans all workspaces
   },
   "scripts": {
     "postinstall": "pastoralist"
@@ -39,6 +40,7 @@ Configure dependency paths directly in your `package.json` for automatic workspa
 **Using `"workspace"` string** - Pastoralist automatically uses all packages defined in your `workspaces` field:
 
 Benefits:
+
 - Single source of truth in package.json
 - No CLI flags needed
 - Works automatically with postinstall scripts
@@ -104,8 +106,9 @@ pastoralist --interactive
 ```
 
 When Pastoralist detects overrides for packages not in root dependencies, it will:
+
 - Guide you through workspace configuration
-- Auto-detect common structures (packages/*, apps/*, etc.)
+- Auto-detect common structures (packages/_, apps/_, etc.)
 - Allow custom path specification
 - Optionally save configuration to package.json
 
@@ -150,6 +153,7 @@ Most monorepos use root-level overrides that apply to all workspaces:
 ```
 
 Run pastoralist at the root:
+
 ```bash
 pastoralist
 ```
@@ -163,12 +167,13 @@ Some packages may need their own overrides:
 {
   "name": "legacy-app",
   "overrides": {
-    "react": "17.0.2"  // This app needs React 17
+    "react": "17.0.2" // This app needs React 17
   }
 }
 ```
 
 Run pastoralist for this package:
+
 ```bash
 pastoralist --path packages/legacy-app/package.json
 ```
@@ -213,6 +218,7 @@ done
 Keep all overrides in the root `package.json` and use `depPaths` configuration:
 
 **Pros:**
+
 - Single source of truth
 - Easier to maintain
 - Consistent versions across packages
@@ -220,6 +226,7 @@ Keep all overrides in the root `package.json` and use `depPaths` configuration:
 - Clean workspace package.json files
 
 **Setup:**
+
 ```json
 // root package.json
 {
@@ -241,11 +248,13 @@ Keep all overrides in the root `package.json` and use `depPaths` configuration:
 Allow packages to manage their own overrides:
 
 **Pros:**
+
 - Package autonomy
 - Specific version requirements
 - Gradual migrations
 
 **Setup:**
+
 ```json
 // packages/*/package.json
 {
@@ -294,10 +303,7 @@ Combine root overrides with package-specific ones:
 ```json
 {
   "name": "my-npm-workspace",
-  "workspaces": [
-    "packages/*",
-    "apps/*"
-  ],
+  "workspaces": ["packages/*", "apps/*"],
   "scripts": {
     "postinstall": "pastoralist",
     "check-overrides": "pastoralist --debug"
@@ -310,8 +316,8 @@ Combine root overrides with package-specific ones:
 ```yaml
 # pnpm-workspace.yaml
 packages:
-  - 'packages/*'
-  - 'apps/*'
+  - "packages/*"
+  - "apps/*"
 ```
 
 ```json
@@ -344,6 +350,7 @@ packages:
 ### 1. Choose a Consistent Strategy
 
 Decide whether to:
+
 - Manage all overrides at the root (recommended for most cases)
 - Allow package-specific overrides (for complex requirements)
 - Use a hybrid approach (for gradual migrations)
@@ -392,6 +399,7 @@ Ensure overrides are valid in CI:
 **Symptom:** Workspace packages don't respect root overrides
 
 **Solution:** Ensure you're using a package manager that supports workspace overrides:
+
 - npm 8.3+ ✅
 - yarn 1.x (use resolutions) ✅
 - pnpm (use pnpm.overrides) ✅
@@ -407,6 +415,7 @@ Ensure overrides are valid in CI:
 **Symptom:** Pastoralist takes long to run across many packages
 
 **Solution:** Run in parallel:
+
 ```bash
 # Using GNU parallel
 find . -name "package.json" -path "*/node_modules" -prune -o -print | \
@@ -418,6 +427,7 @@ find . -name "package.json" -path "*/node_modules" -prune -o -print | \
 ### Moving to Centralized Overrides
 
 1. Collect all overrides:
+
 ```bash
 find . -name "package.json" -not -path "*/node_modules/*" \
   -exec jq '.overrides // {}' {} \; | jq -s 'add'
@@ -440,11 +450,11 @@ find . -name "package.json" -not -path "*/node_modules/*" \
 
 ```javascript
 // scripts/check-overrides.js
-const { execSync } = require('child_process');
-const { readdirSync } = require('fs');
+const { execSync } = require("child_process");
+const { readdirSync } = require("fs");
 
-const packages = readdirSync('./packages');
-packages.forEach(pkg => {
+const packages = readdirSync("./packages");
+packages.forEach((pkg) => {
   try {
     execSync(`pastoralist --path packages/${pkg}/package.json`);
     console.log(`✅ ${pkg}: overrides updated`);
@@ -467,9 +477,10 @@ Create a base configuration:
 ```
 
 Apply to packages:
+
 ```javascript
 // scripts/apply-base-overrides.js
-const base = require('./packages/base-config/overrides.json');
+const base = require("./packages/base-config/overrides.json");
 // Apply base overrides to each package
 ```
 

@@ -41,7 +41,7 @@ test("SocketCLIProvider - isAuthenticated returns false without token", async ()
 
 test("SocketCLIProvider - convertSocketAlerts handles missing packages", () => {
   const provider = new SocketCLIProvider({ debug: false });
-  const result = provider['convertSocketAlerts']({} as any);
+  const result = provider["convertSocketAlerts"]({} as any);
   expect(result).toEqual([]);
 });
 
@@ -50,10 +50,10 @@ test("SocketCLIProvider - convertSocketAlerts filters packages without issues", 
   const socketResult = {
     packages: [
       { name: "pkg1", version: "1.0.0" },
-      { name: "pkg2", version: "2.0.0", issues: [] }
-    ]
+      { name: "pkg2", version: "2.0.0", issues: [] },
+    ],
   };
-  const result = provider['convertSocketAlerts'](socketResult as any);
+  const result = provider["convertSocketAlerts"](socketResult as any);
   expect(result).toEqual([]);
 });
 
@@ -71,14 +71,14 @@ test("SocketCLIProvider - convertSocketAlerts processes packages with issues", (
             title: "Prototype Pollution",
             description: "Test vulnerability",
             cve: "CVE-2021-23337",
-            url: "https://socket.dev/vuln/CVE-2021-23337"
-          }
-        ]
-      }
-    ]
+            url: "https://socket.dev/vuln/CVE-2021-23337",
+          },
+        ],
+      },
+    ],
   };
 
-  const result = provider['convertSocketAlerts'](socketResult as any);
+  const result = provider["convertSocketAlerts"](socketResult as any);
 
   expect(result.length).toBe(1);
   expect(result[0].packageName).toBe("lodash");
@@ -95,10 +95,10 @@ test("SocketCLIProvider - convertIssueToAlert handles vulnerability type", () =>
     title: "Security Issue",
     description: "Test description",
     cve: "CVE-2024-1234",
-    url: "https://socket.dev/test"
+    url: "https://socket.dev/test",
   };
 
-  const alert = provider['convertIssueToAlert'](pkg as any, issue as any);
+  const alert = provider["convertIssueToAlert"](pkg as any, issue as any);
 
   expect(alert.packageName).toBe("test-pkg");
   expect(alert.currentVersion).toBe("1.0.0");
@@ -117,10 +117,10 @@ test("SocketCLIProvider - convertIssueToAlert handles non-vulnerability type", (
     type: "security-risk",
     severity: "medium",
     title: "Risk Issue",
-    description: "Test description"
+    description: "Test description",
   };
 
-  const alert = provider['convertIssueToAlert'](pkg as any, issue as any);
+  const alert = provider["convertIssueToAlert"](pkg as any, issue as any);
 
   expect(alert.vulnerableVersions).toBe("");
   expect(alert.cve).toBeUndefined();
@@ -134,10 +134,10 @@ test("SocketCLIProvider - convertIssueToAlert uses type as title when title miss
   const issue = {
     type: "typosquat",
     severity: "low",
-    description: "Test description"
+    description: "Test description",
   };
 
-  const alert = provider['convertIssueToAlert'](pkg as any, issue as any);
+  const alert = provider["convertIssueToAlert"](pkg as any, issue as any);
 
   expect(alert.title).toBe("typosquat");
 });
@@ -150,10 +150,10 @@ test("SocketCLIProvider - convertIssueToAlert generates default url when missing
     type: "vulnerability",
     severity: "high",
     title: "Test",
-    description: "Test"
+    description: "Test",
   };
 
-  const alert = provider['convertIssueToAlert'](pkg as any, issue as any);
+  const alert = provider["convertIssueToAlert"](pkg as any, issue as any);
 
   expect(alert.url).toContain("socket.dev");
   expect(alert.url).toContain("test-pkg");
@@ -163,32 +163,32 @@ test("SocketCLIProvider - convertIssueToAlert generates default url when missing
 test("SocketCLIProvider - mapSocketSeverity handles all standard severities", () => {
   const provider = new SocketCLIProvider({ debug: false });
 
-  expect(provider['mapSocketSeverity']("critical")).toBe("critical");
-  expect(provider['mapSocketSeverity']("high")).toBe("high");
-  expect(provider['mapSocketSeverity']("medium")).toBe("medium");
-  expect(provider['mapSocketSeverity']("low")).toBe("low");
+  expect(provider["mapSocketSeverity"]("critical")).toBe("critical");
+  expect(provider["mapSocketSeverity"]("high")).toBe("high");
+  expect(provider["mapSocketSeverity"]("medium")).toBe("medium");
+  expect(provider["mapSocketSeverity"]("low")).toBe("low");
 });
 
 test("SocketCLIProvider - mapSocketSeverity handles socket-specific severities", () => {
   const provider = new SocketCLIProvider({ debug: false });
 
-  expect(provider['mapSocketSeverity']("moderate")).toBe("medium");
-  expect(provider['mapSocketSeverity']("info")).toBe("low");
+  expect(provider["mapSocketSeverity"]("moderate")).toBe("medium");
+  expect(provider["mapSocketSeverity"]("info")).toBe("low");
 });
 
 test("SocketCLIProvider - mapSocketSeverity handles uppercase", () => {
   const provider = new SocketCLIProvider({ debug: false });
 
-  expect(provider['mapSocketSeverity']("CRITICAL")).toBe("critical");
-  expect(provider['mapSocketSeverity']("HIGH")).toBe("high");
-  expect(provider['mapSocketSeverity']("MODERATE")).toBe("medium");
+  expect(provider["mapSocketSeverity"]("CRITICAL")).toBe("critical");
+  expect(provider["mapSocketSeverity"]("HIGH")).toBe("high");
+  expect(provider["mapSocketSeverity"]("MODERATE")).toBe("medium");
 });
 
 test("SocketCLIProvider - mapSocketSeverity handles unknown severity", () => {
   const provider = new SocketCLIProvider({ debug: false });
 
-  expect(provider['mapSocketSeverity']("unknown")).toBe("medium");
-  expect(provider['mapSocketSeverity']("")).toBe("medium");
+  expect(provider["mapSocketSeverity"]("unknown")).toBe("medium");
+  expect(provider["mapSocketSeverity"]("")).toBe("medium");
 });
 
 test("SocketCLIProvider - convertSocketAlerts handles multiple packages with multiple issues", () => {
@@ -204,15 +204,15 @@ test("SocketCLIProvider - convertSocketAlerts handles multiple packages with mul
             type: "vulnerability",
             severity: "high",
             title: "Issue 1",
-            description: "Desc 1"
+            description: "Desc 1",
           },
           {
             type: "security-risk",
             severity: "medium",
             title: "Issue 2",
-            description: "Desc 2"
-          }
-        ]
+            description: "Desc 2",
+          },
+        ],
       },
       {
         name: "pkg2",
@@ -222,14 +222,14 @@ test("SocketCLIProvider - convertSocketAlerts handles multiple packages with mul
             type: "vulnerability",
             severity: "critical",
             title: "Issue 3",
-            description: "Desc 3"
-          }
-        ]
-      }
-    ]
+            description: "Desc 3",
+          },
+        ],
+      },
+    ],
   };
 
-  const result = provider['convertSocketAlerts'](socketResult as any);
+  const result = provider["convertSocketAlerts"](socketResult as any);
 
   expect(result.length).toBe(3);
   expect(result[0].packageName).toBe("pkg1");

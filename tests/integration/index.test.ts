@@ -24,7 +24,10 @@ const createTestPackageJson = (content: any = {}) => {
       ...content.pastoralist,
     },
   };
-  writeFileSync(TEST_PACKAGE_JSON, JSON.stringify({ ...defaultContent, ...content }, null, 2));
+  writeFileSync(
+    TEST_PACKAGE_JSON,
+    JSON.stringify({ ...defaultContent, ...content }, null, 2),
+  );
 };
 
 const createPatchFile = (packageName: string, version: string) => {
@@ -91,7 +94,9 @@ test("update - should detect and attach patches", () => {
 
   expect(result.patchMap).toBeDefined();
   expect(result.patchMap?.lodash).toContain("patches/lodash+4.17.21.patch");
-  expect(result.appendix?.["lodash@4.17.21"]?.patches).toContain("patches/lodash+4.17.21.patch");
+  expect(result.appendix?.["lodash@4.17.21"]?.patches).toContain(
+    "patches/lodash+4.17.21.patch",
+  );
 });
 
 test("update - should handle security overrides", () => {
@@ -125,7 +130,9 @@ test("update - should handle security overrides", () => {
   expect(result.overrides?.express).toBe("4.17.3");
   expect(result.appendix?.["express@4.17.3"]).toBeDefined();
   expect(result.appendix?.["express@4.17.3"]?.ledger).toBeDefined();
-  expect(result.appendix?.["express@4.17.3"]?.ledger?.reason).toBe("Security fix for CVE-2021-1234");
+  expect(result.appendix?.["express@4.17.3"]?.ledger?.reason).toBe(
+    "Security fix for CVE-2021-1234",
+  );
 });
 
 test("update - should handle workspace packages", () => {
@@ -140,7 +147,7 @@ test("update - should handle workspace packages", () => {
   };
   writeFileSync(
     resolve(TEST_DIR, "packages/app/package.json"),
-    JSON.stringify(workspacePackageJson, null, 2)
+    JSON.stringify(workspacePackageJson, null, 2),
   );
 
   createTestPackageJson({
@@ -221,7 +228,7 @@ test("update - should merge workspace appendix with root appendix", () => {
   };
   writeFileSync(
     resolve(TEST_DIR, "packages/app/package.json"),
-    JSON.stringify(workspacePackageJson, null, 2)
+    JSON.stringify(workspacePackageJson, null, 2),
   );
 
   createTestPackageJson({

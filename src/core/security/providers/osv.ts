@@ -8,7 +8,9 @@ export class OSVProvider {
   protected isIRLCatch: boolean;
   protected log: ReturnType<typeof logger>;
 
-  constructor(options: { debug?: boolean; isIRLFix?: boolean; isIRLCatch?: boolean } = {}) {
+  constructor(
+    options: { debug?: boolean; isIRLFix?: boolean; isIRLCatch?: boolean } = {},
+  ) {
     this.debug = options.debug || false;
     this.isIRLFix = options.isIRLFix || false;
     this.isIRLCatch = options.isIRLCatch || false;
@@ -29,7 +31,7 @@ export class OSVProvider {
   }
 
   async fetchAlerts(
-    packages: Array<{ name: string; version: string }>
+    packages: Array<{ name: string; version: string }>,
   ): Promise<SecurityAlert[]> {
     this.log.debug(`OSV checking ${packages.length} packages`, "fetchAlerts");
     type FetchResult = {
@@ -37,9 +39,10 @@ export class OSVProvider {
       vulns: OSVVulnerability[];
     } | null;
 
-    const fetchPackageVulnerabilities = (
-      pkg: { name: string; version: string }
-    ): Promise<FetchResult> => {
+    const fetchPackageVulnerabilities = (pkg: {
+      name: string;
+      version: string;
+    }): Promise<FetchResult> => {
       return fetch("https://api.osv.dev/v1/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -48,44 +51,55 @@ export class OSVProvider {
           version: pkg.version,
         }),
       })
-      .then(async (response) => {
-        if (!response.ok) return null;
+        .then(async (response) => {
+          if (!response.ok) return null;
 
-        const data = await response.json() as { vulns?: OSVVulnerability[] };
-        const hasVulns = data.vulns && data.vulns.length > 0;
+          const data = (await response.json()) as {
+            vulns?: OSVVulnerability[];
+          };
+          const hasVulns = data.vulns && data.vulns.length > 0;
 
-        return hasVulns ? { pkg, vulns: data.vulns! } : null;
-      })
-      .catch((error) => {
-        this.log.debug(
-          `Failed to check ${pkg.name}@${pkg.version}`,
-          "fetchAlerts",
-          { error }
-        );
-        return null;
-      });
+          return hasVulns ? { pkg, vulns: data.vulns! } : null;
+        })
+        .catch((error) => {
+          this.log.debug(
+            `Failed to check ${pkg.name}@${pkg.version}`,
+            "fetchAlerts",
+            { error },
+          );
+          return null;
+        });
     };
 
     const isValidResult = (
-      result: FetchResult
+      result: FetchResult,
     ): result is NonNullable<FetchResult> => {
       return result !== null;
     };
 
-    const results = await Promise.all(packages.map(fetchPackageVulnerabilities));
+    const results = await Promise.all(
+      packages.map(fetchPackageVulnerabilities),
+    );
 
     const realAlerts = results
       .filter(isValidResult)
-      .flatMap(result => this.convertOSVAlerts(result.pkg, result.vulns));
+      .flatMap((result) => this.convertOSVAlerts(result.pkg, result.vulns));
 
-    const alertToResolve = this.isIRLFix ? [TEST_FIXTURES.ALERT_TO_RESOLVE] : [];
-    const alertToCapture = this.isIRLCatch ? [TEST_FIXTURES.ALERT_TO_CAPTURE] : [];
+    const alertToResolve = this.isIRLFix
+      ? [TEST_FIXTURES.ALERT_TO_RESOLVE]
+      : [];
+    const alertToCapture = this.isIRLCatch
+      ? [TEST_FIXTURES.ALERT_TO_CAPTURE]
+      : [];
 
     return realAlerts.concat(alertToResolve).concat(alertToCapture);
   }
 
-  private convertOSVAlerts(pkg: { name: string; version: string }, vulns: OSVVulnerability[]): SecurityAlert[] {
-    return vulns.map(vuln => ({
+  private convertOSVAlerts(
+    pkg: { name: string; version: string },
+    vulns: OSVVulnerability[],
+  ): SecurityAlert[] {
+    return vulns.map((vuln) => ({
       packageName: pkg.name,
       currentVersion: pkg.version,
       vulnerableVersions: this.extractVersionRange(vuln),
@@ -94,7 +108,8 @@ export class OSVProvider {
       title: vuln.summary || vuln.details || `Vulnerability in ${pkg.name}`,
       description: vuln.details,
       cve: this.extractCVE(vuln),
-      url: vuln.references?.[0]?.url || `https://osv.dev/vulnerability/${vuln.id}`,
+      url:
+        vuln.references?.[0]?.url || `https://osv.dev/vulnerability/${vuln.id}`,
       fixAvailable: !!this.extractPatchedVersion(vuln),
     }));
   }
@@ -103,8 +118,8 @@ export class OSVProvider {
     const affected = vuln.affected?.[0];
     if (affected?.ranges?.[0]?.events) {
       const events = affected.ranges[0].events;
-      const introduced = events.find(e => e.introduced)?.introduced || "0";
-      const fixed = events.find(e => e.fixed)?.fixed;
+      const introduced = events.find((e) => e.introduced)?.introduced || "0";
+      const fixed = events.find((e) => e.fixed)?.fixed;
       return fixed ? `>= ${introduced} < ${fixed}` : `>= ${introduced}`;
     }
     return "";
@@ -113,14 +128,15 @@ export class OSVProvider {
   private extractPatchedVersion(vuln: OSVVulnerability): string | undefined {
     const affected = vuln.affected?.[0];
     const events = affected?.ranges?.[0]?.events || [];
-    const fixed = events.find(e => e.fixed)?.fixed;
+    const fixed = events.find((e) => e.fixed)?.fixed;
     return fixed;
   }
 
-  private extractSeverity(vuln: OSVVulnerability & { database_specific?: { severity?: string } }): "low" | "medium" | "high" | "critical" {
-    const severity = vuln.database_specific?.severity ||
-                    vuln.severity?.[0]?.score ||
-                    "medium";
+  private extractSeverity(
+    vuln: OSVVulnerability & { database_specific?: { severity?: string } },
+  ): "low" | "medium" | "high" | "critical" {
+    const severity =
+      vuln.database_specific?.severity || vuln.severity?.[0]?.score || "medium";
 
     if (typeof severity === "string") {
       const s = severity.toLowerCase();
@@ -133,6 +149,6 @@ export class OSVProvider {
   }
 
   private extractCVE(vuln: OSVVulnerability): string | undefined {
-    return vuln.aliases?.find(a => a.startsWith("CVE-"));
+    return vuln.aliases?.find((a) => a.startsWith("CVE-"));
   }
 }

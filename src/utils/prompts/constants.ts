@@ -92,7 +92,8 @@ export const SEVERITY_THRESHOLD_CHOICES: PromptChoice[] = [
   { name: "Critical (critical only)", value: "critical" },
 ];
 
-export const DEFAULT_WORKSPACE_PATHS = "packages/*/package.json, apps/*/package.json";
+export const DEFAULT_WORKSPACE_PATHS =
+  "packages/*/package.json, apps/*/package.json";
 
 export const INTERACTIVE_MESSAGES = {
   welcome: "Interactive Configuration Review",
@@ -107,7 +108,8 @@ export const INTERACTIVE_MESSAGES = {
   configSaved: "💾 Configuration saved successfully",
   noChanges: "No changes were made",
   exitMessage: "Exiting interactive configuration review",
-  noConfig: "⚠️  No package.json found. Please run this command from your project root.",
+  noConfig:
+    "⚠️  No package.json found. Please run this command from your project root.",
   overridesRemoved: (count: number) => `Removed ${count} override(s)`,
   resolutionsRemoved: (count: number) => `Removed ${count} resolution(s)`,
 } as const;

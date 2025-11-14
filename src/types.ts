@@ -42,7 +42,13 @@ export interface PastoralistConfig {
   resolutionPaths?: Record<string, Appendix>;
   security?: {
     enabled?: boolean;
-    provider?: "osv" | "github" | "snyk" | "npm" | "socket" | ("osv" | "github" | "snyk" | "npm" | "socket")[];
+    provider?:
+      | "osv"
+      | "github"
+      | "snyk"
+      | "npm"
+      | "socket"
+      | ("osv" | "github" | "snyk" | "npm" | "socket")[];
     autoFix?: boolean;
     interactive?: boolean;
     securityProviderToken?: string;
@@ -165,7 +171,11 @@ export interface OverridesWithType extends OverridesConfig {
 export type ResolveOverrides = OverridesWithType | undefined;
 
 export type ConsoleMethod = "debug" | "error" | "info";
-type ConsoleMethodFunc = (msg: string, caller?: string, ...args: unknown[]) => void;
+type ConsoleMethodFunc = (
+  msg: string,
+  caller?: string,
+  ...args: unknown[]
+) => void;
 export type ConsoleObject = { [K in ConsoleMethod]: ConsoleMethodFunc };
 
 export * from "./core/security/types";

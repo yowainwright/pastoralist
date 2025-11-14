@@ -19,7 +19,10 @@ const createTestPackageJson = (content: any = {}) => {
       ...content.pastoralist,
     },
   };
-  writeFileSync(TEST_PACKAGE_JSON, JSON.stringify({ ...defaultContent, ...content }, null, 2));
+  writeFileSync(
+    TEST_PACKAGE_JSON,
+    JSON.stringify({ ...defaultContent, ...content }, null, 2),
+  );
 };
 
 beforeEach(() => {

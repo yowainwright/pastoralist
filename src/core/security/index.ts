@@ -1,4 +1,9 @@
-import { GitHubSecurityProvider, SnykCLIProvider, SocketCLIProvider, OSVProvider } from "./providers";
+import {
+  GitHubSecurityProvider,
+  SnykCLIProvider,
+  SocketCLIProvider,
+  OSVProvider,
+} from "./providers";
 import {
   SecurityAlert,
   SecurityCheckOptions,
@@ -10,7 +15,12 @@ import {
 import { PastoralistJSON, OverridesType } from "../../types";
 import { logger } from "../../utils";
 import { compareVersions } from "../../utils/semver";
-import { InteractiveSecurityManager, deduplicateAlerts, extractPackages, findVulnerablePackages } from "./utils";
+import {
+  InteractiveSecurityManager,
+  deduplicateAlerts,
+  extractPackages,
+  findVulnerablePackages,
+} from "./utils";
 import { readFileSync, copyFileSync, writeFileSync, existsSync } from "fs";
 import { resolve } from "path";
 import { updateAppendix } from "../appendix";
@@ -22,51 +32,88 @@ export class SecurityChecker {
   private providers: SecurityProvider[];
   private log: ReturnType<typeof logger>;
 
-  constructor(options: SecurityCheckOptions & { debug?: boolean; isIRLFix?: boolean; isIRLCatch?: boolean }) {
+  constructor(
+    options: SecurityCheckOptions & {
+      debug?: boolean;
+      isIRLFix?: boolean;
+      isIRLCatch?: boolean;
+    },
+  ) {
     this.log = logger({ file: "security/index.ts", isLogging: options.debug });
     this.providers = this.createProviders(options);
   }
 
-  private createProviders(options: SecurityCheckOptions & { debug?: boolean; isIRLFix?: boolean; isIRLCatch?: boolean }): SecurityProvider[] {
+  private createProviders(
+    options: SecurityCheckOptions & {
+      debug?: boolean;
+      isIRLFix?: boolean;
+      isIRLCatch?: boolean;
+    },
+  ): SecurityProvider[] {
     const providerTypes = Array.isArray(options.provider)
       ? options.provider
       : [options.provider || "osv"];
 
-    return providerTypes.map(providerType => this.createProvider(providerType, options));
+    return providerTypes.map((providerType) =>
+      this.createProvider(providerType, options),
+    );
   }
 
   private createProvider(
     providerType: string,
-    options: SecurityCheckOptions & { debug?: boolean; isIRLFix?: boolean; isIRLCatch?: boolean }
+    options: SecurityCheckOptions & {
+      debug?: boolean;
+      isIRLFix?: boolean;
+      isIRLCatch?: boolean;
+    },
   ): SecurityProvider {
     switch (providerType) {
       case "osv":
-        return new OSVProvider({ debug: options.debug, isIRLFix: options.isIRLFix, isIRLCatch: options.isIRLCatch });
+        return new OSVProvider({
+          debug: options.debug,
+          isIRLFix: options.isIRLFix,
+          isIRLCatch: options.isIRLCatch,
+        });
       case "github":
         return new GitHubSecurityProvider({
           debug: options.debug,
-          token: options.token
+          token: options.token,
         });
       case "snyk":
         return new SnykCLIProvider({
           debug: options.debug,
-          token: options.token
+          token: options.token,
         });
       case "socket":
         return new SocketCLIProvider({
           debug: options.debug,
-          token: options.token
+          token: options.token,
         });
       default:
-        this.log.debug(`Provider ${providerType} not yet implemented, using OSV`, "createProvider");
-        return new OSVProvider({ debug: options.debug, isIRLFix: options.isIRLFix, isIRLCatch: options.isIRLCatch });
+        this.log.debug(
+          `Provider ${providerType} not yet implemented, using OSV`,
+          "createProvider",
+        );
+        return new OSVProvider({
+          debug: options.debug,
+          isIRLFix: options.isIRLFix,
+          isIRLCatch: options.isIRLCatch,
+        });
     }
   }
 
   async checkSecurity(
     config: PastoralistJSON,
-    options: SecurityCheckOptions & { depPaths?: string[]; root?: string; packageJsonPath?: string } = {}
-  ): Promise<{ alerts: SecurityAlert[]; overrides: SecurityOverride[]; updates: OverrideUpdate[] }> {
+    options: SecurityCheckOptions & {
+      depPaths?: string[];
+      root?: string;
+      packageJsonPath?: string;
+    } = {},
+  ): Promise<{
+    alerts: SecurityAlert[];
+    overrides: SecurityOverride[];
+    updates: OverrideUpdate[];
+  }> {
     this.log.debug("Starting security check", "checkSecurity");
 
     try {
@@ -78,40 +125,51 @@ export class SecurityChecker {
       }
 
       const allAlerts = await Promise.all(
-        this.providers.map(provider => provider.fetchAlerts(packages))
+        this.providers.map((provider) => provider.fetchAlerts(packages)),
       );
       const alerts = allAlerts.flat();
 
-      this.log.debug(`Found ${alerts.length} security alerts from ${this.providers.length} provider(s)`, "checkSecurity");
+      this.log.debug(
+        `Found ${alerts.length} security alerts from ${this.providers.length} provider(s)`,
+        "checkSecurity",
+      );
 
       let allVulnerablePackages = deduplicateAlerts(alerts);
 
-      const shouldScanWorkspaces = options.depPaths && options.depPaths.length > 0;
+      const shouldScanWorkspaces =
+        options.depPaths && options.depPaths.length > 0;
       if (shouldScanWorkspaces) {
-        this.log.debug("Scanning workspace packages for vulnerabilities", "checkSecurity");
+        this.log.debug(
+          "Scanning workspace packages for vulnerabilities",
+          "checkSecurity",
+        );
         const workspaceVulnerable = await this.findWorkspaceVulnerabilities(
           options.depPaths!,
           options.root || "./",
-          alerts
+          alerts,
         );
-        allVulnerablePackages = [...allVulnerablePackages, ...workspaceVulnerable];
+        allVulnerablePackages = [
+          ...allVulnerablePackages,
+          ...workspaceVulnerable,
+        ];
       }
 
       this.log.debug(
         `Found ${allVulnerablePackages.length} vulnerable packages in dependencies`,
-        "checkSecurity"
+        "checkSecurity",
       );
 
       let overrides = this.generateOverrides(allVulnerablePackages);
 
       const updates = await this.checkOverrideUpdates(config, alerts);
 
-      const shouldPromptInteractively = options.interactive && allVulnerablePackages.length > 0;
+      const shouldPromptInteractively =
+        options.interactive && allVulnerablePackages.length > 0;
       if (shouldPromptInteractively) {
         const interactiveManager = new InteractiveSecurityManager();
         overrides = await interactiveManager.promptForSecurityActions(
           allVulnerablePackages,
-          overrides
+          overrides,
         );
       }
 
@@ -127,33 +185,32 @@ export class SecurityChecker {
       const content = readFileSync(packageFile, "utf-8");
       const parsed = JSON.parse(content);
 
-      const isValidObject = parsed && typeof parsed === 'object';
+      const isValidObject = parsed && typeof parsed === "object";
       if (!isValidObject) {
         this.log.debug(
           `Invalid package.json format in ${packageFile}`,
-          "readPackageFile"
+          "readPackageFile",
         );
         return null;
       }
 
       return parsed as PastoralistJSON;
     } catch (error) {
-      this.log.debug(
-        `Failed to check ${packageFile}`,
-        "readPackageFile",
-        { error }
-      );
+      this.log.debug(`Failed to check ${packageFile}`, "readPackageFile", {
+        error,
+      });
       return null;
     }
   }
 
   private isNewVulnerability(
     vuln: SecurityAlert,
-    vulnerablePackages: SecurityAlert[]
+    vulnerablePackages: SecurityAlert[],
   ): boolean {
     const existing = vulnerablePackages.find(
-      v => v.packageName === vuln.packageName &&
-           v.currentVersion === vuln.currentVersion
+      (v) =>
+        v.packageName === vuln.packageName &&
+        v.currentVersion === vuln.currentVersion,
     );
     return !existing;
   }
@@ -161,19 +218,21 @@ export class SecurityChecker {
   private extractNewVulnerabilities(
     pkgJson: PastoralistJSON,
     alerts: SecurityAlert[],
-    vulnerablePackages: SecurityAlert[]
+    vulnerablePackages: SecurityAlert[],
   ): SecurityAlert[] {
     const pkgVulnerable = findVulnerablePackages(pkgJson, alerts);
-    return pkgVulnerable.filter(vuln => this.isNewVulnerability(vuln, vulnerablePackages));
+    return pkgVulnerable.filter((vuln) =>
+      this.isNewVulnerability(vuln, vulnerablePackages),
+    );
   }
 
   private async findWorkspaceVulnerabilities(
     depPaths: string[],
     root: string,
-    alerts: SecurityAlert[]
+    alerts: SecurityAlert[],
   ): Promise<SecurityAlert[]> {
     try {
-      const patterns = depPaths.map(p => resolve(root, p));
+      const patterns = depPaths.map((p) => resolve(root, p));
       const packageFiles = await glob(patterns, {
         ignore: ["**/node_modules/**"],
         absolute: true,
@@ -192,7 +251,7 @@ export class SecurityChecker {
       this.log.error(
         "Failed to find workspace vulnerabilities",
         "findWorkspaceVulnerabilities",
-        { error }
+        { error },
       );
       return [];
     }
@@ -200,12 +259,15 @@ export class SecurityChecker {
 
   private async checkOverrideUpdates(
     config: PastoralistJSON,
-    alerts: SecurityAlert[]
+    alerts: SecurityAlert[],
   ): Promise<OverrideUpdate[]> {
-    const existingOverrides = config.overrides || config.pnpm?.overrides || config.resolutions || {};
+    const existingOverrides =
+      config.overrides || config.pnpm?.overrides || config.resolutions || {};
     const appendix = config.pastoralist?.appendix || {};
 
-    const overrideEntries = Object.entries(existingOverrides).filter(([_, version]) => typeof version === 'string');
+    const overrideEntries = Object.entries(existingOverrides).filter(
+      ([_, version]) => typeof version === "string",
+    );
 
     const updates = overrideEntries
       .map(([packageName, version]) => {
@@ -215,8 +277,12 @@ export class SecurityChecker {
 
         if (!isSecurityOverride) return null;
 
-        const alertsForPackage = alerts.filter(a => a.packageName === packageName && a.patchedVersion);
-        const newerAlert = alertsForPackage.find(a => compareVersions(a.patchedVersion!, version as string) > 0);
+        const alertsForPackage = alerts.filter(
+          (a) => a.packageName === packageName && a.patchedVersion,
+        );
+        const newerAlert = alertsForPackage.find(
+          (a) => compareVersions(a.patchedVersion!, version as string) > 0,
+        );
         const hasNewer = !!newerAlert;
 
         if (!hasNewer) return null;
@@ -235,13 +301,18 @@ export class SecurityChecker {
 
     const hasUpdates = updates.length > 0;
     if (hasUpdates) {
-      this.log.debug(`Found ${updates.length} override updates available`, "checkOverrideUpdates");
+      this.log.debug(
+        `Found ${updates.length} override updates available`,
+        "checkOverrideUpdates",
+      );
     }
 
     return updates;
   }
 
-  private generateOverrides(vulnerablePackages: SecurityAlert[]): SecurityOverride[] {
+  private generateOverrides(
+    vulnerablePackages: SecurityAlert[],
+  ): SecurityOverride[] {
     return vulnerablePackages
       .filter((pkg) => pkg.fixAvailable && pkg.patchedVersion)
       .map((pkg) => {
@@ -254,33 +325,45 @@ export class SecurityChecker {
         };
 
         const cveField = pkg.cve ? { cve: pkg.cve } : {};
-        const descriptionField = pkg.description ? { description: pkg.description } : {};
+        const descriptionField = pkg.description
+          ? { description: pkg.description }
+          : {};
         const urlField = pkg.url ? { url: pkg.url } : {};
 
         return Object.assign({}, base, cveField, descriptionField, urlField);
       });
   }
 
-  generatePackageOverrides(securityOverrides: SecurityOverride[]): OverridesType {
+  generatePackageOverrides(
+    securityOverrides: SecurityOverride[],
+  ): OverridesType {
     return securityOverrides.reduce((overrides, override) => {
       const existingVersion = overrides[override.packageName];
-      const shouldUseExisting = existingVersion && typeof existingVersion === 'string';
+      const shouldUseExisting =
+        existingVersion && typeof existingVersion === "string";
 
       if (shouldUseExisting) {
-        const isNewerVersion = compareVersions(override.toVersion, existingVersion) > 0;
+        const isNewerVersion =
+          compareVersions(override.toVersion, existingVersion) > 0;
         if (isNewerVersion) {
-          return Object.assign({}, overrides, { [override.packageName]: override.toVersion });
+          return Object.assign({}, overrides, {
+            [override.packageName]: override.toVersion,
+          });
         }
         return overrides;
       }
 
-      return Object.assign({}, overrides, { [override.packageName]: override.toVersion });
+      return Object.assign({}, overrides, {
+        [override.packageName]: override.toVersion,
+      });
     }, {} as OverridesType);
   }
 
   private formatVulnerabilityEntry(pkg: SecurityAlert): string {
     const lines = [];
-    lines.push(`[${pkg.severity.toUpperCase()}] ${pkg.packageName}@${pkg.currentVersion}\n`);
+    lines.push(
+      `[${pkg.severity.toUpperCase()}] ${pkg.packageName}@${pkg.currentVersion}\n`,
+    );
     lines.push(`   ${pkg.title}\n`);
 
     const hasCVE = Boolean(pkg.cve);
@@ -303,13 +386,17 @@ export class SecurityChecker {
     return lines.join("") + "\n";
   }
 
-  private formatOverridesSection(securityOverrides: SecurityOverride[]): string {
+  private formatOverridesSection(
+    securityOverrides: SecurityOverride[],
+  ): string {
     const hasOverrides = securityOverrides.length > 0;
     if (!hasOverrides) return "";
 
     const header = `\nGenerated ${securityOverrides.length} override(s):\n\n`;
     const overrideList = securityOverrides
-      .map(override => `  "${override.packageName}": "${override.toVersion}"\n`)
+      .map(
+        (override) => `  "${override.packageName}": "${override.toVersion}"\n`,
+      )
       .join("");
 
     return header + overrideList;
@@ -317,7 +404,7 @@ export class SecurityChecker {
 
   formatSecurityReport(
     vulnerablePackages: SecurityAlert[],
-    securityOverrides: SecurityOverride[]
+    securityOverrides: SecurityOverride[],
   ): string {
     const header = "\nSecurity Check Report\n" + "=".repeat(50) + "\n\n";
 
@@ -328,7 +415,7 @@ export class SecurityChecker {
 
     const summaryLine = `Found ${vulnerablePackages.length} vulnerable package(s):\n\n`;
     const vulnerabilityReport = vulnerablePackages
-      .map(pkg => this.formatVulnerabilityEntry(pkg))
+      .map((pkg) => this.formatVulnerabilityEntry(pkg))
       .join("");
     const overridesReport = this.formatOverridesSection(securityOverrides);
 
@@ -347,7 +434,7 @@ export class SecurityChecker {
   private applyOverridesToPackageJson(
     packageJson: any,
     packageManager: "npm" | "yarn" | "pnpm" | "bun",
-    newOverrides: OverridesType
+    newOverrides: OverridesType,
   ): any {
     if (packageManager === "pnpm") {
       return {
@@ -356,9 +443,9 @@ export class SecurityChecker {
           ...(packageJson.pnpm || {}),
           overrides: {
             ...(packageJson.pnpm?.overrides || {}),
-            ...newOverrides
-          }
-        }
+            ...newOverrides,
+          },
+        },
       };
     }
 
@@ -367,20 +454,24 @@ export class SecurityChecker {
       ...packageJson,
       [overrideField]: {
         ...(packageJson[overrideField] || {}),
-        ...newOverrides
-      }
+        ...newOverrides,
+      },
     };
   }
 
   private logInstallInstructions(packageManager: string): void {
-    console.log(`\n⚠️  Don't forget to run your package manager install command:`);
+    console.log(
+      `\n⚠️  Don't forget to run your package manager install command:`,
+    );
     const commands = {
       yarn: "yarn install",
       pnpm: "pnpm install",
       bun: "bun install",
       npm: "npm install",
     };
-    console.log(`   ${commands[packageManager as keyof typeof commands] || commands.npm}`);
+    console.log(
+      `   ${commands[packageManager as keyof typeof commands] || commands.npm}`,
+    );
   }
 
   private logSuccess(
@@ -388,28 +479,29 @@ export class SecurityChecker {
     backupPath: string,
     newOverrides: OverridesType,
     overrides: SecurityOverride[],
-    packageManager: string
+    packageManager: string,
   ): void {
     console.log(`\n✅ Auto-fix applied successfully!`);
-    console.log(`📝 Updated ${pkgPath} with ${Object.keys(newOverrides).length} security override(s)`);
+    console.log(
+      `📝 Updated ${pkgPath} with ${Object.keys(newOverrides).length} security override(s)`,
+    );
     console.log(`💾 Backup saved to ${backupPath}`);
 
     const hasOverrides = Object.keys(newOverrides).length > 0;
     if (hasOverrides) {
       console.log(`\n📋 Applied overrides:`);
       Object.entries(newOverrides).forEach(([pkg, version]) => {
-        const override = overrides.find(o => o.packageName === pkg);
-        console.log(`   ${pkg}: ${version} (${override?.severity || "unknown"} severity)`);
+        const override = overrides.find((o) => o.packageName === pkg);
+        console.log(
+          `   ${pkg}: ${version} (${override?.severity || "unknown"} severity)`,
+        );
       });
     }
 
     this.logInstallInstructions(packageManager);
   }
 
-  applyAutoFix(
-    overrides: SecurityOverride[],
-    packageJsonPath?: string
-  ): void {
+  applyAutoFix(overrides: SecurityOverride[], packageJsonPath?: string): void {
     try {
       const pkgPath = packageJsonPath || resolve(process.cwd(), "package.json");
 
@@ -422,31 +514,40 @@ export class SecurityChecker {
       const packageManager = this.detectPackageManager();
       const newOverrides = this.generatePackageOverrides(overrides);
 
-      const securityOverrideDetails: SecurityOverrideDetail[] = overrides.map(override => {
-        const detail: SecurityOverrideDetail = {
-          packageName: override.packageName,
-          reason: override.reason,
-        };
+      const securityOverrideDetails: SecurityOverrideDetail[] = overrides.map(
+        (override) => {
+          const detail: SecurityOverrideDetail = {
+            packageName: override.packageName,
+            reason: override.reason,
+          };
 
-        if (override.cve) detail.cve = override.cve;
-        if (override.severity) detail.severity = override.severity as "low" | "medium" | "high" | "critical";
-        if (override.description) detail.description = override.description;
-        if (override.url) detail.url = override.url;
+          if (override.cve) detail.cve = override.cve;
+          if (override.severity)
+            detail.severity = override.severity as
+              | "low"
+              | "medium"
+              | "high"
+              | "critical";
+          if (override.description) detail.description = override.description;
+          if (override.url) detail.url = override.url;
 
-        return detail;
-      });
+          return detail;
+        },
+      );
 
-      const providerName = this.providers[0]?.constructor.name.toLowerCase() || '';
-      let securityProvider: "osv" | "github" | "snyk" | "npm" | "socket" = 'osv';
-      if (providerName.includes('github')) securityProvider = 'github';
-      else if (providerName.includes('snyk')) securityProvider = 'snyk';
-      else if (providerName.includes('socket')) securityProvider = 'socket';
+      const providerName =
+        this.providers[0]?.constructor.name.toLowerCase() || "";
+      let securityProvider: "osv" | "github" | "snyk" | "npm" | "socket" =
+        "osv";
+      if (providerName.includes("github")) securityProvider = "github";
+      else if (providerName.includes("snyk")) securityProvider = "snyk";
+      else if (providerName.includes("socket")) securityProvider = "socket";
 
       const existingAppendix = packageJson.pastoralist?.appendix || {};
       const dependencies = packageJson.dependencies || {};
       const devDependencies = packageJson.devDependencies || {};
       const peerDependencies = packageJson.peerDependencies || {};
-      const packageName = packageJson.name || '';
+      const packageName = packageJson.name || "";
 
       const updatedAppendix = updateAppendix({
         overrides: newOverrides,
@@ -456,21 +557,35 @@ export class SecurityChecker {
         peerDependencies,
         packageName,
         securityOverrideDetails,
-        securityProvider: securityProvider as "osv" | "github" | "snyk" | "npm" | "socket",
+        securityProvider: securityProvider as
+          | "osv"
+          | "github"
+          | "snyk"
+          | "npm"
+          | "socket",
       });
 
       const updatedPackageJson = this.applyOverridesToPackageJson(
         packageJson,
         packageManager,
-        newOverrides
+        newOverrides,
       );
 
       updatedPackageJson.pastoralist = updatedPackageJson.pastoralist || {};
       updatedPackageJson.pastoralist.appendix = updatedAppendix;
 
-      writeFileSync(pkgPath, JSON.stringify(updatedPackageJson, null, 2) + "\n");
+      writeFileSync(
+        pkgPath,
+        JSON.stringify(updatedPackageJson, null, 2) + "\n",
+      );
 
-      this.logSuccess(pkgPath, backupPath, newOverrides, overrides, packageManager);
+      this.logSuccess(
+        pkgPath,
+        backupPath,
+        newOverrides,
+        overrides,
+        packageManager,
+      );
     } catch (error) {
       this.log.error("Failed to apply auto-fix", "applyAutoFix", { error });
       throw new Error(`Auto-fix failed: ${error}`);
@@ -497,7 +612,9 @@ export class SecurityChecker {
     }
   }
 
-  private getOverrideField(packageManager: "npm" | "yarn" | "pnpm" | "bun"): string {
+  private getOverrideField(
+    packageManager: "npm" | "yarn" | "pnpm" | "bun",
+  ): string {
     switch (packageManager) {
       case "yarn":
         return "resolutions";

@@ -223,14 +223,18 @@ test("isGitHubUrl - should detect SSH GitHub URL", () => {
 test("isGitHubUrl - should detect HTTPS GitHub URL", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
-  const result = (provider as any).isGitHubUrl("https://github.com/user/repo.git");
+  const result = (provider as any).isGitHubUrl(
+    "https://github.com/user/repo.git",
+  );
   expect(result).toBe(true);
 });
 
 test("isGitHubUrl - should reject non-GitHub URL", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
-  const result = (provider as any).isGitHubUrl("https://gitlab.com/user/repo.git");
+  const result = (provider as any).isGitHubUrl(
+    "https://gitlab.com/user/repo.git",
+  );
   expect(result).toBe(false);
 });
 
@@ -244,7 +248,9 @@ test("isGitHubUrl - should reject invalid URL", () => {
 test("isGitHubUrl - should handle HTTP GitHub URL", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
-  const result = (provider as any).isGitHubUrl("http://github.com/user/repo.git");
+  const result = (provider as any).isGitHubUrl(
+    "http://github.com/user/repo.git",
+  );
   expect(result).toBe(true);
 });
 
@@ -309,8 +315,8 @@ test("getDefaultMockAlerts - should include lodash alert", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
   const alerts = (provider as any).getDefaultMockAlerts();
-  const lodashAlert = alerts.find((a: DependabotAlert) =>
-    a.dependency.package.name === "lodash"
+  const lodashAlert = alerts.find(
+    (a: DependabotAlert) => a.dependency.package.name === "lodash",
   );
   expect(lodashAlert).toBeDefined();
 });
@@ -319,8 +325,8 @@ test("getDefaultMockAlerts - should include minimist alert", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
   const alerts = (provider as any).getDefaultMockAlerts();
-  const minimistAlert = alerts.find((a: DependabotAlert) =>
-    a.dependency.package.name === "minimist"
+  const minimistAlert = alerts.find(
+    (a: DependabotAlert) => a.dependency.package.name === "minimist",
   );
   expect(minimistAlert).toBeDefined();
 });

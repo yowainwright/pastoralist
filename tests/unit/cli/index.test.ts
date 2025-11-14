@@ -95,7 +95,10 @@ test("determineSecurityScanPaths - should return array depPaths when provided as
 
   const result = determineSecurityScanPaths(config, options);
 
-  expect(result).toEqual(["packages/app-a/package.json", "packages/app-b/package.json"]);
+  expect(result).toEqual([
+    "packages/app-a/package.json",
+    "packages/app-b/package.json",
+  ]);
 });
 
 test("determineSecurityScanPaths - should return workspace paths when hasWorkspaceSecurityChecks is true", () => {

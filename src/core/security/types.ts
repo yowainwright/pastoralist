@@ -101,9 +101,18 @@ export interface GithubApiError {
   status?: number;
 }
 
-import type { GitHubSecurityProvider, SnykCLIProvider, SocketCLIProvider, OSVProvider } from "./providers";
+import type {
+  GitHubSecurityProvider,
+  SnykCLIProvider,
+  SocketCLIProvider,
+  OSVProvider,
+} from "./providers";
 
-export type SecurityProvider = GitHubSecurityProvider | SnykCLIProvider | SocketCLIProvider | OSVProvider;
+export type SecurityProvider =
+  | GitHubSecurityProvider
+  | SnykCLIProvider
+  | SocketCLIProvider
+  | OSVProvider;
 
 export interface OSVVulnerability {
   id: string;

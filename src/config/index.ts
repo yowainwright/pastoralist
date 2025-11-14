@@ -23,14 +23,17 @@ const loadJsConfig = async (path: string): Promise<unknown> => {
   return module.default || module;
 };
 
-const loadConfigFile = async (filename: string, path: string): Promise<unknown | null> => {
+const loadConfigFile = async (
+  filename: string,
+  path: string,
+): Promise<unknown | null> => {
   if (isJsonFile(filename)) return loadJsonConfig(path);
   return await loadJsConfig(path);
 };
 
 const validateAndReturn = (
   config: unknown,
-  validate: boolean
+  validate: boolean,
 ): PastoralistConfig | null => {
   if (!validate) return config as PastoralistConfig;
   return safeValidateConfig(config) || null;
@@ -39,7 +42,7 @@ const validateAndReturn = (
 const tryLoadConfig = async (
   filename: string,
   root: string,
-  validate: boolean
+  validate: boolean,
 ): Promise<PastoralistConfig | null> => {
   const path = resolve(root, filename);
 
@@ -58,7 +61,7 @@ const tryLoadConfig = async (
 
 export const loadExternalConfig = async (
   root: string = process.cwd(),
-  validate: boolean = true
+  validate: boolean = true,
 ): Promise<PastoralistConfig | undefined> => {
   for (const filename of CONFIG_FILES) {
     const config = await tryLoadConfig(filename, root, validate);
@@ -69,7 +72,7 @@ export const loadExternalConfig = async (
 
 const deepMergeAppendix = (
   external: PastoralistConfig["appendix"],
-  packageJson: PastoralistConfig["appendix"]
+  packageJson: PastoralistConfig["appendix"],
 ) => {
   if (!external && !packageJson) return undefined;
   if (!external) return packageJson;
@@ -81,7 +84,11 @@ const deepMergeAppendix = (
     }
 
     const existingItem = external[key];
-    const mergedDependents = Object.assign({}, existingItem.dependents, value.dependents);
+    const mergedDependents = Object.assign(
+      {},
+      existingItem.dependents,
+      value.dependents,
+    );
     const mergedPatches = value.patches
       ? (existingItem.patches || []).concat(value.patches)
       : existingItem.patches;
@@ -96,23 +103,38 @@ const deepMergeAppendix = (
   return Object.entries(packageJson).reduce(
     (acc, [key, value]) => ({
       ...acc,
-      [key]: mergeEntry(key, value)
+      [key]: mergeEntry(key, value),
     }),
-    { ...external }
+    { ...external },
   );
 };
 
 export const mergeConfigs = (
   externalConfig: PastoralistConfig | undefined,
-  packageJsonConfig: PastoralistConfig | undefined
+  packageJsonConfig: PastoralistConfig | undefined,
 ): PastoralistConfig | undefined => {
   if (!externalConfig) return packageJsonConfig;
   if (!packageJsonConfig) return externalConfig;
 
-  const mergedAppendix = deepMergeAppendix(externalConfig.appendix, packageJsonConfig.appendix);
-  const mergedOverridePaths = Object.assign({}, externalConfig.overridePaths, packageJsonConfig.overridePaths);
-  const mergedResolutionPaths = Object.assign({}, externalConfig.resolutionPaths, packageJsonConfig.resolutionPaths);
-  const mergedSecurity = Object.assign({}, externalConfig.security, packageJsonConfig.security);
+  const mergedAppendix = deepMergeAppendix(
+    externalConfig.appendix,
+    packageJsonConfig.appendix,
+  );
+  const mergedOverridePaths = Object.assign(
+    {},
+    externalConfig.overridePaths,
+    packageJsonConfig.overridePaths,
+  );
+  const mergedResolutionPaths = Object.assign(
+    {},
+    externalConfig.resolutionPaths,
+    packageJsonConfig.resolutionPaths,
+  );
+  const mergedSecurity = Object.assign(
+    {},
+    externalConfig.security,
+    packageJsonConfig.security,
+  );
 
   return Object.assign({}, externalConfig, packageJsonConfig, {
     appendix: mergedAppendix,
@@ -125,7 +147,7 @@ export const mergeConfigs = (
 export const loadConfig = async (
   root: string = process.cwd(),
   packageJsonConfig?: PastoralistConfig,
-  validate: boolean = true
+  validate: boolean = true,
 ): Promise<PastoralistConfig | undefined> => {
   const cacheKey = `${root}:${validate}:${JSON.stringify(packageJsonConfig)}`;
   const cached = configCache.get(cacheKey);

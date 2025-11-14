@@ -10,7 +10,7 @@ test("mergeOverrideReasons - should return reason when provided", () => {
     "lodash",
     "security fix",
     undefined,
-    undefined
+    undefined,
   );
 
   expect(result).toBe("security fix");
@@ -30,7 +30,7 @@ test("mergeOverrideReasons - should return security reason when no reason provid
     "lodash",
     undefined,
     securityDetails,
-    undefined
+    undefined,
   );
 
   expect(result).toBe("CVE-2021-23337");
@@ -43,7 +43,7 @@ test("mergeOverrideReasons - should return manual reason when no reason or secur
     "lodash",
     undefined,
     undefined,
-    manualReasons
+    manualReasons,
   );
 
   expect(result).toBe("manual override");
@@ -54,7 +54,7 @@ test("mergeOverrideReasons - should return undefined when no reasons provided", 
     "lodash",
     undefined,
     undefined,
-    undefined
+    undefined,
   );
 
   expect(result).toBeUndefined();
@@ -62,14 +62,19 @@ test("mergeOverrideReasons - should return undefined when no reasons provided", 
 
 test("mergeOverrideReasons - should prioritize reason over security details", () => {
   const securityDetails: SecurityOverrideDetail[] = [
-    { packageName: "lodash", reason: "CVE-2021-23337", cve: "CVE-2021-23337", severity: "high" },
+    {
+      packageName: "lodash",
+      reason: "CVE-2021-23337",
+      cve: "CVE-2021-23337",
+      severity: "high",
+    },
   ];
 
   const result = mergeOverrideReasons(
     "lodash",
     "manual fix",
     securityDetails,
-    undefined
+    undefined,
   );
 
   expect(result).toBe("manual fix");
@@ -77,7 +82,12 @@ test("mergeOverrideReasons - should prioritize reason over security details", ()
 
 test("mergeOverrideReasons - should prioritize security details over manual reasons", () => {
   const securityDetails: SecurityOverrideDetail[] = [
-    { packageName: "lodash", reason: "CVE-2021-23337", cve: "CVE-2021-23337", severity: "high" },
+    {
+      packageName: "lodash",
+      reason: "CVE-2021-23337",
+      cve: "CVE-2021-23337",
+      severity: "high",
+    },
   ];
   const manualReasons = { lodash: "manual override" };
 
@@ -85,7 +95,7 @@ test("mergeOverrideReasons - should prioritize security details over manual reas
     "lodash",
     undefined,
     securityDetails,
-    manualReasons
+    manualReasons,
   );
 
   expect(result).toBe("CVE-2021-23337");
@@ -99,7 +109,12 @@ test("createSecurityLedger - should return empty object when no security details
 
 test("createSecurityLedger - should return empty object when package not in security details", () => {
   const securityDetails: SecurityOverrideDetail[] = [
-    { packageName: "axios", reason: "CVE-2021-1234", cve: "CVE-2021-1234", severity: "high" },
+    {
+      packageName: "axios",
+      reason: "CVE-2021-1234",
+      cve: "CVE-2021-1234",
+      severity: "high",
+    },
   ];
 
   const result = createSecurityLedger("lodash", securityDetails, undefined);
@@ -109,7 +124,12 @@ test("createSecurityLedger - should return empty object when package not in secu
 
 test("createSecurityLedger - should create basic security ledger", () => {
   const securityDetails: SecurityOverrideDetail[] = [
-    { packageName: "lodash", reason: "CVE-2021-23337", cve: "CVE-2021-23337", severity: "high" },
+    {
+      packageName: "lodash",
+      reason: "CVE-2021-23337",
+      cve: "CVE-2021-23337",
+      severity: "high",
+    },
   ];
 
   const result = createSecurityLedger("lodash", securityDetails, undefined);
@@ -120,7 +140,12 @@ test("createSecurityLedger - should create basic security ledger", () => {
 
 test("createSecurityLedger - should include provider in ledger", () => {
   const securityDetails: SecurityOverrideDetail[] = [
-    { packageName: "lodash", reason: "CVE-2021-23337", cve: "CVE-2021-23337", severity: "high" },
+    {
+      packageName: "lodash",
+      reason: "CVE-2021-23337",
+      cve: "CVE-2021-23337",
+      severity: "high",
+    },
   ];
 
   const result = createSecurityLedger("lodash", securityDetails, "github");
@@ -130,7 +155,12 @@ test("createSecurityLedger - should include provider in ledger", () => {
 
 test("createSecurityLedger - should include CVE in ledger", () => {
   const securityDetails: SecurityOverrideDetail[] = [
-    { packageName: "lodash", reason: "CVE-2021-23337", cve: "CVE-2021-23337", severity: "high" },
+    {
+      packageName: "lodash",
+      reason: "CVE-2021-23337",
+      cve: "CVE-2021-23337",
+      severity: "high",
+    },
   ];
 
   const result = createSecurityLedger("lodash", securityDetails, undefined);
@@ -140,7 +170,12 @@ test("createSecurityLedger - should include CVE in ledger", () => {
 
 test("createSecurityLedger - should include severity in ledger", () => {
   const securityDetails: SecurityOverrideDetail[] = [
-    { packageName: "lodash", reason: "CVE-2021-23337", cve: "CVE-2021-23337", severity: "high" },
+    {
+      packageName: "lodash",
+      reason: "CVE-2021-23337",
+      cve: "CVE-2021-23337",
+      severity: "high",
+    },
   ];
 
   const result = createSecurityLedger("lodash", securityDetails, undefined);
@@ -161,7 +196,10 @@ test("createSecurityLedger - should include URL in ledger", () => {
 
   const result = createSecurityLedger("lodash", securityDetails, undefined);
 
-  expect(result).toHaveProperty("url", "https://nvd.nist.gov/vuln/detail/CVE-2021-23337");
+  expect(result).toHaveProperty(
+    "url",
+    "https://nvd.nist.gov/vuln/detail/CVE-2021-23337",
+  );
 });
 
 test("createSecurityLedger - should include all fields when provided", () => {

@@ -4,15 +4,21 @@ import {
   resolveDepPaths,
   mergeAllConfigs,
   findRemovableOverrides,
-  hasOverrides
+  hasOverrides,
 } from "../../../../src/core/update/utils";
-import type { Options, PastoralistJSON, OverridesType, Appendix, ResolveOverrides } from "../../../../src/types";
+import type {
+  Options,
+  PastoralistJSON,
+  OverridesType,
+  Appendix,
+  ResolveOverrides,
+} from "../../../../src/types";
 
 test("determineProcessingMode - returns root mode when no depPaths", () => {
   const options: Options = {};
   const config: PastoralistJSON = {
     name: "test",
-    version: "1.0.0"
+    version: "1.0.0",
   };
 
   const result = determineProcessingMode(options, config, true, []);
@@ -24,11 +30,11 @@ test("determineProcessingMode - returns root mode when no depPaths", () => {
 
 test("determineProcessingMode - returns workspace mode when options depPaths", () => {
   const options: Options = {
-    depPaths: ["packages/*/package.json"]
+    depPaths: ["packages/*/package.json"],
   };
   const config: PastoralistJSON = {
     name: "test",
-    version: "1.0.0"
+    version: "1.0.0",
   };
 
   const result = determineProcessingMode(options, config, false, ["lodash"]);
@@ -44,8 +50,8 @@ test("determineProcessingMode - returns workspace mode when config depPaths", ()
     name: "test",
     version: "1.0.0",
     pastoralist: {
-      depPaths: ["apps/*/package.json"]
-    }
+      depPaths: ["apps/*/package.json"],
+    },
   };
 
   const result = determineProcessingMode(options, config, true, []);
@@ -56,14 +62,14 @@ test("determineProcessingMode - returns workspace mode when config depPaths", ()
 
 test("resolveDepPaths - returns options depPaths when provided", () => {
   const options: Options = {
-    depPaths: ["custom/path"]
+    depPaths: ["custom/path"],
   };
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
     pastoralist: {
-      depPaths: ["other/path"]
-    }
+      depPaths: ["other/path"],
+    },
   };
 
   const result = resolveDepPaths(options, config);
@@ -78,8 +84,8 @@ test("resolveDepPaths - resolves workspace keyword to workspace paths", () => {
     version: "1.0.0",
     workspaces: ["packages/*", "apps/*"],
     pastoralist: {
-      depPaths: "workspace"
-    }
+      depPaths: "workspace",
+    },
   };
 
   const result = resolveDepPaths(options, config);
@@ -94,8 +100,8 @@ test("resolveDepPaths - handles workspaces keyword", () => {
     version: "1.0.0",
     workspaces: ["packages"],
     pastoralist: {
-      depPaths: "workspaces"
-    }
+      depPaths: "workspaces",
+    },
   };
 
   const result = resolveDepPaths(options, config);
@@ -109,8 +115,8 @@ test("resolveDepPaths - returns config depPaths array", () => {
     name: "test",
     version: "1.0.0",
     pastoralist: {
-      depPaths: ["lib/package.json"]
-    }
+      depPaths: ["lib/package.json"],
+    },
   };
 
   const result = resolveDepPaths(options, config);
@@ -123,7 +129,7 @@ test("resolveDepPaths - returns workspaces when no config depPaths", () => {
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    workspaces: ["packages/*"]
+    workspaces: ["packages/*"],
   };
 
   const result = resolveDepPaths(options, config);
@@ -135,7 +141,7 @@ test("resolveDepPaths - returns null when no depPaths or workspaces", () => {
   const options: Options = {};
   const config: PastoralistJSON = {
     name: "test",
-    version: "1.0.0"
+    version: "1.0.0",
   };
 
   const result = resolveDepPaths(options, config);
@@ -147,16 +153,21 @@ test("mergeAllConfigs - merges CLI options and package.json config", () => {
   const cliOptions: Options = {
     depPaths: ["cli/path"],
     securityOverrideDetails: [{ packageName: "lodash", reason: "security" }],
-    securityProvider: "osv"
+    securityProvider: "osv",
   };
   const packageJsonConfig = {
     appendix: { "lodash@4.17.21": { dependents: {} } },
-    depPaths: ["config/path"]
+    depPaths: ["config/path"],
   };
   const overridesData: ResolveOverrides = { npm: { lodash: "4.17.21" } };
   const overrides: OverridesType = { lodash: "4.17.21" };
 
-  const result = mergeAllConfigs(cliOptions, packageJsonConfig, overridesData, overrides);
+  const result = mergeAllConfigs(
+    cliOptions,
+    packageJsonConfig,
+    overridesData,
+    overrides,
+  );
 
   expect(result.overrides).toEqual(overrides);
   expect(result.overridesData).toEqual(overridesData);
@@ -168,12 +179,17 @@ test("mergeAllConfigs - merges CLI options and package.json config", () => {
 
 test("mergeAllConfigs - handles undefined packageJsonConfig", () => {
   const cliOptions: Options = {
-    depPaths: ["cli/path"]
+    depPaths: ["cli/path"],
   };
   const overridesData: ResolveOverrides = { npm: { express: "4.18.2" } };
   const overrides: OverridesType = { express: "4.18.2" };
 
-  const result = mergeAllConfigs(cliOptions, undefined, overridesData, overrides);
+  const result = mergeAllConfigs(
+    cliOptions,
+    undefined,
+    overridesData,
+    overrides,
+  );
 
   expect(result.overrides).toEqual(overrides);
   expect(result.depPaths).toEqual(["cli/path"]);
@@ -184,71 +200,91 @@ test("findRemovableOverrides - finds unused overrides", () => {
   const overrides: OverridesType = {
     lodash: "4.17.21",
     express: "4.18.2",
-    react: "18.0.0"
+    react: "18.0.0",
   };
   const appendix: Appendix = {
-    "lodash@4.17.21": { dependents: { app: "lodash@^4.17.0" } }
+    "lodash@4.17.21": { dependents: { app: "lodash@^4.17.0" } },
   };
   const allDeps = {
-    express: "^4.18.0"
+    express: "^4.18.0",
   };
   const missingInRoot: string[] = [];
 
-  const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
+  const result = findRemovableOverrides(
+    overrides,
+    appendix,
+    allDeps,
+    missingInRoot,
+  );
 
   expect(result).toEqual(["react"]);
 });
 
 test("findRemovableOverrides - keeps overrides used in appendix", () => {
   const overrides: OverridesType = {
-    lodash: "4.17.21"
+    lodash: "4.17.21",
   };
   const appendix: Appendix = {
-    "lodash@4.17.21": { dependents: { app: "lodash@^4.17.0" } }
+    "lodash@4.17.21": { dependents: { app: "lodash@^4.17.0" } },
   };
   const allDeps = {};
   const missingInRoot: string[] = [];
 
-  const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
+  const result = findRemovableOverrides(
+    overrides,
+    appendix,
+    allDeps,
+    missingInRoot,
+  );
 
   expect(result).toEqual([]);
 });
 
 test("findRemovableOverrides - keeps overrides with root dependencies", () => {
   const overrides: OverridesType = {
-    express: "4.18.2"
+    express: "4.18.2",
   };
   const appendix: Appendix = {};
   const allDeps = {
-    express: "^4.18.0"
+    express: "^4.18.0",
   };
   const missingInRoot: string[] = [];
 
-  const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
+  const result = findRemovableOverrides(
+    overrides,
+    appendix,
+    allDeps,
+    missingInRoot,
+  );
 
   expect(result).toEqual([]);
 });
 
 test("findRemovableOverrides - keeps overrides missing in root", () => {
   const overrides: OverridesType = {
-    react: "18.0.0"
+    react: "18.0.0",
   };
   const appendix: Appendix = {};
   const allDeps = {};
   const missingInRoot: string[] = ["react"];
 
-  const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
+  const result = findRemovableOverrides(
+    overrides,
+    appendix,
+    allDeps,
+    missingInRoot,
+  );
 
   expect(result).toEqual([]);
 });
 
 test("hasOverrides - returns true for security overrides", () => {
   const options: Options = {
-    securityOverrides: { lodash: "4.17.21" }
+    securityOverrides: { lodash: "4.17.21" },
   };
   const config: PastoralistJSON = {
     name: "test",
-    version: "1.0.0"
+    version: "1.0.0",
   };
 
   const result = hasOverrides(options, config);
@@ -260,7 +296,7 @@ test("hasOverrides - returns true for npm overrides", () => {
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    overrides: { express: "4.18.2" }
+    overrides: { express: "4.18.2" },
   };
 
   const result = hasOverrides({}, config);
@@ -272,7 +308,7 @@ test("hasOverrides - returns true for yarn resolutions", () => {
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    resolutions: { lodash: "4.17.21" }
+    resolutions: { lodash: "4.17.21" },
   };
 
   const result = hasOverrides({}, config);
@@ -285,8 +321,8 @@ test("hasOverrides - returns true for pnpm overrides", () => {
     name: "test",
     version: "1.0.0",
     pnpm: {
-      overrides: { react: "18.0.0" }
-    }
+      overrides: { react: "18.0.0" },
+    },
   };
 
   const result = hasOverrides({}, config);
@@ -297,7 +333,7 @@ test("hasOverrides - returns true for pnpm overrides", () => {
 test("hasOverrides - returns false when no overrides", () => {
   const config: PastoralistJSON = {
     name: "test",
-    version: "1.0.0"
+    version: "1.0.0",
   };
 
   const result = hasOverrides({}, config);
@@ -307,12 +343,12 @@ test("hasOverrides - returns false when no overrides", () => {
 
 test("hasOverrides - returns false when empty overrides", () => {
   const options: Options = {
-    securityOverrides: {}
+    securityOverrides: {},
   };
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    overrides: {}
+    overrides: {},
   };
 
   const result = hasOverrides(options, config);

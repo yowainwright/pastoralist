@@ -6,7 +6,7 @@ test("update - returns early context when no config provided", () => {
   const options: Options = {
     path: "package.json",
     root: "./",
-    isTesting: true
+    isTesting: true,
   };
 
   const result = update(options);
@@ -23,17 +23,17 @@ test("update - processes simple override in root mode", () => {
     name: "test-app",
     version: "1.0.0",
     dependencies: {
-      lodash: "^4.17.20"
+      lodash: "^4.17.20",
     },
     overrides: {
-      lodash: "4.17.21"
-    }
+      lodash: "4.17.21",
+    },
   };
 
   const options: Options = {
     config,
     isTesting: true,
-    debug: false
+    debug: false,
   };
 
   const result = update(options);
@@ -51,19 +51,19 @@ test("update - merges security overrides with config overrides", () => {
     version: "1.0.0",
     dependencies: {
       lodash: "^4.17.20",
-      express: "^4.17.0"
+      express: "^4.17.0",
     },
     overrides: {
-      lodash: "4.17.21"
-    }
+      lodash: "4.17.21",
+    },
   };
 
   const options: Options = {
     config,
     securityOverrides: {
-      express: "4.18.2"
+      express: "4.18.2",
     },
-    isTesting: true
+    isTesting: true,
   };
 
   const result = update(options);
@@ -78,14 +78,14 @@ test("update - determines workspace mode without file I/O", () => {
     version: "1.0.0",
     workspaces: ["packages/*"],
     overrides: {
-      react: "18.0.0"
-    }
+      react: "18.0.0",
+    },
   };
 
   const options: Options = {
     config,
     depPaths: [],
-    isTesting: true
+    isTesting: true,
   };
 
   const result = update(options);
@@ -99,14 +99,14 @@ test("update - detects patches when present", () => {
     name: "test-app",
     version: "1.0.0",
     overrides: {
-      lodash: "4.17.21"
-    }
+      lodash: "4.17.21",
+    },
   };
 
   const options: Options = {
     config,
     root: "./",
-    isTesting: true
+    isTesting: true,
   };
 
   const result = update(options);
@@ -120,16 +120,16 @@ test("update - determines processing mode correctly", () => {
     name: "test-app",
     version: "1.0.0",
     dependencies: {
-      lodash: "^4.17.20"
+      lodash: "^4.17.20",
     },
     overrides: {
-      lodash: "4.17.21"
-    }
+      lodash: "4.17.21",
+    },
   };
 
   const options: Options = {
     config,
-    isTesting: true
+    isTesting: true,
   };
 
   const result = update(options);
@@ -145,16 +145,16 @@ test("update - builds appendix with dependents", () => {
     name: "my-app",
     version: "1.0.0",
     dependencies: {
-      lodash: "^4.17.20"
+      lodash: "^4.17.20",
     },
     overrides: {
-      lodash: "4.17.21"
-    }
+      lodash: "4.17.21",
+    },
   };
 
   const options: Options = {
     config,
-    isTesting: true
+    isTesting: true,
   };
 
   const result = update(options);
@@ -170,13 +170,13 @@ test("update - handles empty overrides", () => {
     name: "test-app",
     version: "1.0.0",
     dependencies: {
-      lodash: "^4.17.20"
-    }
+      lodash: "^4.17.20",
+    },
   };
 
   const options: Options = {
     config,
-    isTesting: true
+    isTesting: true,
   };
 
   const result = update(options);
@@ -191,16 +191,16 @@ test("update - sets finalOverrides and finalAppendix in cleanup step", () => {
     name: "test-app",
     version: "1.0.0",
     dependencies: {
-      react: "^17.0.0"
+      react: "^17.0.0",
     },
     overrides: {
-      react: "18.0.0"
-    }
+      react: "18.0.0",
+    },
   };
 
   const options: Options = {
     config,
-    isTesting: true
+    isTesting: true,
   };
 
   const result = update(options);
@@ -215,16 +215,16 @@ test("update - skips write when isTesting is true", () => {
     name: "test-app",
     version: "1.0.0",
     dependencies: {
-      lodash: "^4.17.20"
+      lodash: "^4.17.20",
     },
     overrides: {
-      lodash: "4.17.21"
-    }
+      lodash: "4.17.21",
+    },
   };
 
   const options: Options = {
     config,
-    isTesting: true
+    isTesting: true,
   };
 
   const result = update(options);
@@ -239,16 +239,16 @@ test("update - handles devDependencies", () => {
     name: "test-app",
     version: "1.0.0",
     devDependencies: {
-      jest: "^28.0.0"
+      jest: "^28.0.0",
     },
     overrides: {
-      jest: "29.0.0"
-    }
+      jest: "29.0.0",
+    },
   };
 
   const options: Options = {
     config,
-    isTesting: true
+    isTesting: true,
   };
 
   const result = update(options);
@@ -262,16 +262,16 @@ test("update - handles peerDependencies", () => {
     name: "test-lib",
     version: "1.0.0",
     peerDependencies: {
-      react: "^17.0.0"
+      react: "^17.0.0",
     },
     overrides: {
-      react: "18.0.0"
-    }
+      react: "18.0.0",
+    },
   };
 
   const options: Options = {
     config,
-    isTesting: true
+    isTesting: true,
   };
 
   const result = update(options);
@@ -285,18 +285,18 @@ test("update - handles nested overrides", () => {
     name: "test-app",
     version: "1.0.0",
     dependencies: {
-      react: "^18.0.0"
+      react: "^18.0.0",
     },
     overrides: {
       react: {
-        "react-dom": "18.2.0"
-      }
-    }
+        "react-dom": "18.2.0",
+      },
+    },
   };
 
   const options: Options = {
     config,
-    isTesting: true
+    isTesting: true,
   };
 
   const result = update(options);
@@ -309,25 +309,25 @@ test("update - includes security override details in appendix", () => {
     name: "test-app",
     version: "1.0.0",
     dependencies: {
-      lodash: "^4.17.20"
-    }
+      lodash: "^4.17.20",
+    },
   };
 
   const options: Options = {
     config,
     securityOverrides: {
-      lodash: "4.17.21"
+      lodash: "4.17.21",
     },
     securityOverrideDetails: [
       {
         packageName: "lodash",
         reason: "Security vulnerability CVE-2021-23337",
         cve: "CVE-2021-23337",
-        severity: "high"
-      }
+        severity: "high",
+      },
     ],
     securityProvider: "osv",
-    isTesting: true
+    isTesting: true,
   };
 
   const result = update(options);
@@ -342,12 +342,12 @@ test("update - uses default path when not provided", () => {
   const config: PastoralistJSON = {
     name: "test-app",
     version: "1.0.0",
-    overrides: {}
+    overrides: {},
   };
 
   const options: Options = {
     config,
-    isTesting: true
+    isTesting: true,
   };
 
   const result = update(options);
@@ -359,12 +359,12 @@ test("update - uses default root when not provided", () => {
   const config: PastoralistJSON = {
     name: "test-app",
     version: "1.0.0",
-    overrides: {}
+    overrides: {},
   };
 
   const options: Options = {
     config,
-    isTesting: true
+    isTesting: true,
   };
 
   const result = update(options);
@@ -377,16 +377,16 @@ test("update - handles yarn resolutions", () => {
     name: "test-app",
     version: "1.0.0",
     dependencies: {
-      lodash: "^4.17.20"
+      lodash: "^4.17.20",
     },
     resolutions: {
-      lodash: "4.17.21"
-    }
+      lodash: "4.17.21",
+    },
   };
 
   const options: Options = {
     config,
-    isTesting: true
+    isTesting: true,
   };
 
   const result = update(options);
@@ -400,18 +400,18 @@ test("update - handles pnpm overrides", () => {
     name: "test-app",
     version: "1.0.0",
     dependencies: {
-      react: "^17.0.0"
+      react: "^17.0.0",
     },
     pnpm: {
       overrides: {
-        react: "18.0.0"
-      }
-    }
+        react: "18.0.0",
+      },
+    },
   };
 
   const options: Options = {
     config,
-    isTesting: true
+    isTesting: true,
   };
 
   const result = update(options);
@@ -425,25 +425,25 @@ test("update - preserves existing appendix entries", () => {
     name: "test-app",
     version: "1.0.0",
     dependencies: {
-      lodash: "^4.17.20"
+      lodash: "^4.17.20",
     },
     overrides: {
-      lodash: "4.17.21"
+      lodash: "4.17.21",
     },
     pastoralist: {
       appendix: {
         "express@4.18.2": {
           dependents: {
-            "old-app": "express@^4.17.0"
-          }
-        }
-      }
-    }
+            "old-app": "express@^4.17.0",
+          },
+        },
+      },
+    },
   };
 
   const options: Options = {
     config,
-    isTesting: true
+    isTesting: true,
   };
 
   const result = update(options);

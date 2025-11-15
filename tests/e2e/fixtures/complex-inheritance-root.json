@@ -2,9 +2,7 @@
   "name": "complex-inheritance-root",
   "version": "1.0.0",
   "private": true,
-  "workspaces": [
-    "packages/*"
-  ],
+  "workspaces": ["packages/*"],
   "dependencies": {
     "express": "^4.18.0"
   },

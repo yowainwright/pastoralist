@@ -3,7 +3,10 @@ process.env.PASTORALIST_MOCK_SECURITY = "true";
 import { test, expect, mock, spyOn } from "bun:test";
 import { SecurityChecker } from "../../../../src/core/security";
 import { GitHubSecurityProvider } from "../../../../src/core/security/providers/github";
-import { isVersionVulnerable, findVulnerablePackages } from "../../../../src/core/security/utils";
+import {
+  isVersionVulnerable,
+  findVulnerablePackages,
+} from "../../../../src/core/security/utils";
 import * as securityUtils from "../../../../src/core/security/utils";
 import { PastoralistJSON } from "../../../../src/types";
 import {
@@ -27,7 +30,8 @@ const mockDependabotAlert: DependabotAlert = {
   security_advisory: {
     severity: "high",
     summary: "Prototype Pollution in lodash",
-    description: "Lodash versions before 4.17.21 are vulnerable to prototype pollution",
+    description:
+      "Lodash versions before 4.17.21 are vulnerable to prototype pollution",
     cve_id: "CVE-2021-23337",
     vulnerabilities: [
       {
@@ -215,7 +219,9 @@ test("Override Generation - should include description in overrides when availab
   const overrides = (checker as any).generateOverrides(vulnerablePackages);
 
   expect(overrides.length).toBe(1);
-  expect(overrides[0].description).toBe("Lodash versions before 4.17.21 are vulnerable");
+  expect(overrides[0].description).toBe(
+    "Lodash versions before 4.17.21 are vulnerable",
+  );
 });
 
 test("Override Generation - should include URL in overrides when available", () => {
@@ -237,7 +243,9 @@ test("Override Generation - should include URL in overrides when available", () 
   const overrides = (checker as any).generateOverrides(vulnerablePackages);
 
   expect(overrides.length).toBe(1);
-  expect(overrides[0].url).toBe("https://nvd.nist.gov/vuln/detail/CVE-2021-23337");
+  expect(overrides[0].url).toBe(
+    "https://nvd.nist.gov/vuln/detail/CVE-2021-23337",
+  );
 });
 
 test("Severity Normalization - should normalize severity levels correctly", () => {
@@ -721,7 +729,10 @@ test("formatSecurityReport - should include overrides section when overrides exi
     },
   ];
 
-  const report = checker.formatSecurityReport(vulnerablePackages, securityOverrides);
+  const report = checker.formatSecurityReport(
+    vulnerablePackages,
+    securityOverrides,
+  );
 
   expect(report).toContain("Generated 1 override(s)");
   expect(report).toContain('"lodash": "4.17.21"');
@@ -731,7 +742,10 @@ test("readPackageFile - should read valid package.json", () => {
   const checker = new SecurityChecker({ provider: "osv" });
   const testPath = path.join(process.cwd(), "test-package.json");
 
-  fs.writeFileSync(testPath, JSON.stringify({ name: "test", version: "1.0.0" }));
+  fs.writeFileSync(
+    testPath,
+    JSON.stringify({ name: "test", version: "1.0.0" }),
+  );
   const result = (checker as any).readPackageFile(testPath);
   fs.unlinkSync(testPath);
 
@@ -827,10 +841,14 @@ test("extractNewVulnerabilities - should extract only new vulnerabilities", () =
 
   const mockFindVulnerable = spyOn(
     securityUtils,
-    "findVulnerablePackages"
+    "findVulnerablePackages",
   ).mockReturnValue(alerts);
 
-  const result = (checker as any).extractNewVulnerabilities(pkgJson, alerts, existing);
+  const result = (checker as any).extractNewVulnerabilities(
+    pkgJson,
+    alerts,
+    existing,
+  );
 
   expect(result.length).toBe(1);
   expect(result[0].packageName).toBe("lodash");
@@ -911,7 +929,11 @@ test("applyOverridesToPackageJson - should apply overrides for npm", () => {
   const packageJson = { name: "test", version: "1.0.0" };
   const newOverrides = { lodash: "4.17.21" };
 
-  const result = (checker as any).applyOverridesToPackageJson(packageJson, "npm", newOverrides);
+  const result = (checker as any).applyOverridesToPackageJson(
+    packageJson,
+    "npm",
+    newOverrides,
+  );
 
   expect(result.overrides).toEqual({ lodash: "4.17.21" });
 });
@@ -921,7 +943,11 @@ test("applyOverridesToPackageJson - should apply resolutions for yarn", () => {
   const packageJson = { name: "test", version: "1.0.0" };
   const newOverrides = { lodash: "4.17.21" };
 
-  const result = (checker as any).applyOverridesToPackageJson(packageJson, "yarn", newOverrides);
+  const result = (checker as any).applyOverridesToPackageJson(
+    packageJson,
+    "yarn",
+    newOverrides,
+  );
 
   expect(result.resolutions).toEqual({ lodash: "4.17.21" });
 });
@@ -931,7 +957,11 @@ test("applyOverridesToPackageJson - should apply pnpm overrides", () => {
   const packageJson = { name: "test", version: "1.0.0" };
   const newOverrides = { lodash: "4.17.21" };
 
-  const result = (checker as any).applyOverridesToPackageJson(packageJson, "pnpm", newOverrides);
+  const result = (checker as any).applyOverridesToPackageJson(
+    packageJson,
+    "pnpm",
+    newOverrides,
+  );
 
   expect(result.pnpm.overrides).toEqual({ lodash: "4.17.21" });
 });
@@ -945,7 +975,11 @@ test("applyOverridesToPackageJson - should merge with existing overrides", () =>
   };
   const newOverrides = { lodash: "4.17.21" };
 
-  const result = (checker as any).applyOverridesToPackageJson(packageJson, "npm", newOverrides);
+  const result = (checker as any).applyOverridesToPackageJson(
+    packageJson,
+    "npm",
+    newOverrides,
+  );
 
   expect(result.overrides).toEqual({
     axios: "1.0.0",
@@ -997,7 +1031,9 @@ test("applyAutoFix - should apply security overrides to package.json", async () 
   const updated = JSON.parse(fs.readFileSync(testPath, "utf-8"));
   expect(updated.overrides).toEqual({ lodash: "4.17.21" });
 
-  const backupFiles = fs.readdirSync(process.cwd()).filter(f => f.startsWith("test-autofix.json.backup-"));
+  const backupFiles = fs
+    .readdirSync(process.cwd())
+    .filter((f) => f.startsWith("test-autofix.json.backup-"));
   expect(backupFiles.length).toBeGreaterThan(0);
 
   fs.unlinkSync(testPath);
@@ -1053,7 +1089,9 @@ test("applyAutoFix - should use cwd when no path provided", async () => {
   if (originalExists) {
     await checker.applyAutoFix(overrides);
 
-    const backupFiles = fs.readdirSync(process.cwd()).filter(f => f.startsWith("package.json.backup-"));
+    const backupFiles = fs
+      .readdirSync(process.cwd())
+      .filter((f) => f.startsWith("package.json.backup-"));
     expect(backupFiles.length).toBeGreaterThan(0);
 
     fs.writeFileSync(testPath, originalContent);
@@ -1111,7 +1149,7 @@ test("findWorkspaceVulnerabilities - should find vulnerabilities in workspace pa
       dependencies: {
         lodash: "4.17.20",
       },
-    })
+    }),
   );
 
   const alerts: SecurityAlert[] = [
@@ -1129,7 +1167,7 @@ test("findWorkspaceVulnerabilities - should find vulnerabilities in workspace pa
   const result = await (checker as any).findWorkspaceVulnerabilities(
     ["test-workspace-vuln/package.json"],
     process.cwd(),
-    alerts
+    alerts,
   );
 
   fs.unlinkSync(pkgPath);
@@ -1197,7 +1235,7 @@ test("logSuccess - should log success message with overrides", () => {
     "package.json.backup-123",
     { lodash: "4.17.21" },
     overrides,
-    "npm"
+    "npm",
   );
 
   expect(mockConsoleLog).toHaveBeenCalled();

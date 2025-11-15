@@ -52,23 +52,23 @@ module.exports = {
     enabled: true,
     provider: "osv",
     severityThreshold: "high",
-    excludePackages: ["@types/*"]
-  }
+    excludePackages: ["@types/*"],
+  },
 };
 ```
 
 #### `pastoralist.config.ts`
 
 ```ts
-import { PastoralistConfig } from 'pastoralist';
+import { PastoralistConfig } from "pastoralist";
 
 const config: PastoralistConfig = {
   depPaths: "workspaces",
   security: {
     enabled: true,
     provider: "osv",
-    severityThreshold: "critical"
-  }
+    severityThreshold: "critical",
+  },
 };
 
 export default config;
@@ -119,29 +119,29 @@ When both external config files and `package.json` configuration exist, they are
 
 ### Top-Level Options
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `checkSecurity` | `boolean` | Enable security vulnerability scanning |
-| `depPaths` | `"workspace"` \| `"workspaces"` \| `string[]` | Paths to scan for dependencies in monorepos |
-| `appendix` | `object` | Auto-generated dependency tracking (managed by Pastoralist) |
-| `overridePaths` | `object` | Manual override tracking for specific paths |
-| `resolutionPaths` | `object` | Manual resolution tracking for specific paths |
-| `security` | `object` | Security scanning configuration |
+| Option            | Type                                          | Description                                                 |
+| ----------------- | --------------------------------------------- | ----------------------------------------------------------- |
+| `checkSecurity`   | `boolean`                                     | Enable security vulnerability scanning                      |
+| `depPaths`        | `"workspace"` \| `"workspaces"` \| `string[]` | Paths to scan for dependencies in monorepos                 |
+| `appendix`        | `object`                                      | Auto-generated dependency tracking (managed by Pastoralist) |
+| `overridePaths`   | `object`                                      | Manual override tracking for specific paths                 |
+| `resolutionPaths` | `object`                                      | Manual resolution tracking for specific paths               |
+| `security`        | `object`                                      | Security scanning configuration                             |
 
 ### Security Configuration
 
 The `security` object supports the following options:
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `enabled` | `boolean` | Enable/disable security checks |
-| `provider` | `"osv"` \| `"github"` \| `"snyk"` \| `"npm"` \| `"socket"` | Security provider (currently only OSV is implemented) |
-| `autoFix` | `boolean` | Automatically apply security fixes |
-| `interactive` | `boolean` | Use interactive mode for security fixes |
-| `securityProviderToken` | `string` | API token for providers that require authentication |
-| `severityThreshold` | `"low"` \| `"medium"` \| `"high"` \| `"critical"` | Minimum severity level to report |
-| `excludePackages` | `string[]` | Packages to exclude from security checks |
-| `hasWorkspaceSecurityChecks` | `boolean` | Include workspace packages in security scans |
+| Option                       | Type                                                       | Description                                           |
+| ---------------------------- | ---------------------------------------------------------- | ----------------------------------------------------- |
+| `enabled`                    | `boolean`                                                  | Enable/disable security checks                        |
+| `provider`                   | `"osv"` \| `"github"` \| `"snyk"` \| `"npm"` \| `"socket"` | Security provider (currently only OSV is implemented) |
+| `autoFix`                    | `boolean`                                                  | Automatically apply security fixes                    |
+| `interactive`                | `boolean`                                                  | Use interactive mode for security fixes               |
+| `securityProviderToken`      | `string`                                                   | API token for providers that require authentication   |
+| `severityThreshold`          | `"low"` \| `"medium"` \| `"high"` \| `"critical"`          | Minimum severity level to report                      |
+| `excludePackages`            | `string[]`                                                 | Packages to exclude from security checks              |
+| `hasWorkspaceSecurityChecks` | `boolean`                                                  | Include workspace packages in security scans          |
 
 ## Package.json Configuration
 
@@ -189,10 +189,7 @@ For more control, specify custom glob patterns:
 ```json
 {
   "pastoralist": {
-    "depPaths": [
-      "packages/*/package.json",
-      "apps/*/package.json"
-    ]
+    "depPaths": ["packages/*/package.json", "apps/*/package.json"]
   }
 }
 ```
@@ -255,15 +252,15 @@ npm install ts-node --save-dev
 Then create your `pastoralist.config.ts`:
 
 ```ts
-import type { PastoralistConfig } from 'pastoralist';
+import type { PastoralistConfig } from "pastoralist";
 
 const config: PastoralistConfig = {
   checkSecurity: true,
   depPaths: "workspaces",
   security: {
     provider: "osv",
-    severityThreshold: "high"
-  }
+    severityThreshold: "high",
+  },
 };
 
 export default config;
@@ -275,8 +272,8 @@ You can use JavaScript config files to provide environment-specific settings:
 
 ```js
 // pastoralist.config.js
-const isDev = process.env.NODE_ENV === 'development';
-const isCI = process.env.CI === 'true';
+const isDev = process.env.NODE_ENV === "development";
+const isCI = process.env.CI === "true";
 
 module.exports = {
   checkSecurity: !isDev, // Only check in production/CI
@@ -284,8 +281,8 @@ module.exports = {
   security: {
     provider: "osv",
     severityThreshold: isCI ? "high" : "medium",
-    autoFix: isCI && !isDev
-  }
+    autoFix: isCI && !isDev,
+  },
 };
 ```
 

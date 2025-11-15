@@ -1,5 +1,9 @@
 import { test, expect } from "bun:test";
-import { parseWorkspacePaths, buildConfig, generateConfigContent } from "../../../../../src/cli/cmds/init/utils";
+import {
+  parseWorkspacePaths,
+  buildConfig,
+  generateConfigContent,
+} from "../../../../../src/cli/cmds/init/utils";
 import type { InitAnswers } from "../../../../../src/cli/cmds/init/types";
 
 test("parseWorkspacePaths - should parse comma-separated paths", () => {

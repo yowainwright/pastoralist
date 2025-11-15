@@ -1,6 +1,11 @@
 import { test, expect } from "bun:test";
 import type { OverridesConfig } from "../../../src/types";
-import { defineOverride, getOverridesByType, resolveOverrides, updateOverrides } from "../../../src/core/overrides";
+import {
+  defineOverride,
+  getOverridesByType,
+  resolveOverrides,
+  updateOverrides,
+} from "../../../src/core/overrides";
 
 test("defineOverride - should return npm overrides when only overrides exist", () => {
   const config: OverridesConfig = {

@@ -1,16 +1,23 @@
 import type { SecurityOverrideDetail, PastoralistJSON } from "../../types";
-import type { Appendix, AppendixItem, OverridesType, OverrideValue } from "../../types";
+import type {
+  Appendix,
+  AppendixItem,
+  OverridesType,
+  OverrideValue,
+} from "../../types";
 
 const getReasonFromSecurityDetails = (
   packageName: string,
-  securityOverrideDetails?: SecurityOverrideDetail[]
+  securityOverrideDetails?: SecurityOverrideDetail[],
 ): string | undefined => {
-  return securityOverrideDetails?.find(detail => detail.packageName === packageName)?.reason;
+  return securityOverrideDetails?.find(
+    (detail) => detail.packageName === packageName,
+  )?.reason;
 };
 
 const getManualReason = (
   packageName: string,
-  manualOverrideReasons?: Record<string, string>
+  manualOverrideReasons?: Record<string, string>,
 ): string | undefined => {
   return manualOverrideReasons?.[packageName];
 };
@@ -19,11 +26,14 @@ export const mergeOverrideReasons = (
   packageName: string,
   reason?: string,
   securityOverrideDetails?: SecurityOverrideDetail[],
-  manualOverrideReasons?: Record<string, string>
+  manualOverrideReasons?: Record<string, string>,
 ): string | undefined => {
   if (reason) return reason;
 
-  const securityReason = getReasonFromSecurityDetails(packageName, securityOverrideDetails);
+  const securityReason = getReasonFromSecurityDetails(
+    packageName,
+    securityOverrideDetails,
+  );
   if (securityReason) return securityReason;
 
   return getManualReason(packageName, manualOverrideReasons);
@@ -31,19 +41,19 @@ export const mergeOverrideReasons = (
 
 const isPackageInSecurityDetails = (
   packageName: string,
-  securityOverrideDetails?: SecurityOverrideDetail[]
+  securityOverrideDetails?: SecurityOverrideDetail[],
 ): boolean => {
   const hasDetails = Boolean(securityOverrideDetails);
   if (!hasDetails) return false;
 
-  return securityOverrideDetails!.some(d => d.packageName === packageName);
+  return securityOverrideDetails!.some((d) => d.packageName === packageName);
 };
 
 const findSecurityDetail = (
   packageName: string,
-  securityOverrideDetails?: SecurityOverrideDetail[]
+  securityOverrideDetails?: SecurityOverrideDetail[],
 ): SecurityOverrideDetail | undefined => {
-  return securityOverrideDetails?.find(d => d.packageName === packageName);
+  return securityOverrideDetails?.find((d) => d.packageName === packageName);
 };
 
 const buildBaseLedger = (): Record<string, any> => ({
@@ -53,7 +63,7 @@ const buildBaseLedger = (): Record<string, any> => ({
 
 const addProviderToLedger = (
   ledger: Record<string, any>,
-  securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket"
+  securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket",
 ): Record<string, any> => {
   const hasProvider = Boolean(securityProvider);
   if (!hasProvider) return ledger;
@@ -62,7 +72,7 @@ const addProviderToLedger = (
 
 const addCveToLedger = (
   ledger: Record<string, any>,
-  detail?: SecurityOverrideDetail
+  detail?: SecurityOverrideDetail,
 ): Record<string, any> => {
   if (!detail?.cve) return ledger;
   return { ...ledger, cve: detail.cve };
@@ -70,7 +80,7 @@ const addCveToLedger = (
 
 const addSeverityToLedger = (
   ledger: Record<string, any>,
-  detail?: SecurityOverrideDetail
+  detail?: SecurityOverrideDetail,
 ): Record<string, any> => {
   if (!detail?.severity) return ledger;
   return { ...ledger, severity: detail.severity };
@@ -78,7 +88,7 @@ const addSeverityToLedger = (
 
 const addUrlToLedger = (
   ledger: Record<string, any>,
-  detail?: SecurityOverrideDetail
+  detail?: SecurityOverrideDetail,
 ): Record<string, any> => {
   if (!detail?.url) return ledger;
   return { ...ledger, url: detail.url };
@@ -87,9 +97,12 @@ const addUrlToLedger = (
 export const createSecurityLedger = (
   packageName: string,
   securityOverrideDetails?: SecurityOverrideDetail[],
-  securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket"
+  securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket",
 ): Record<string, any> => {
-  const isSecurity = isPackageInSecurityDetails(packageName, securityOverrideDetails);
+  const isSecurity = isPackageInSecurityDetails(
+    packageName,
+    securityOverrideDetails,
+  );
   if (!isSecurity) return {};
 
   const detail = findSecurityDetail(packageName, securityOverrideDetails);
@@ -105,7 +118,10 @@ export const createSecurityLedger = (
 
 const buildNewLedger = (
   reason: string | undefined,
-  securityLedger: Omit<NonNullable<AppendixItem["ledger"]>, "addedDate" | "reason">
+  securityLedger: Omit<
+    NonNullable<AppendixItem["ledger"]>,
+    "addedDate" | "reason"
+  >,
 ): NonNullable<AppendixItem["ledger"]> => {
   const baseLedger = { addedDate: new Date().toISOString() };
   const ledgerWithReason = reason ? { ...baseLedger, reason } : baseLedger;
@@ -116,7 +132,10 @@ export const buildAppendixItem = (
   dependents: Record<string, string>,
   existingLedger: AppendixItem["ledger"],
   reason: string | undefined,
-  securityLedger: Omit<NonNullable<AppendixItem["ledger"]>, "addedDate" | "reason">
+  securityLedger: Omit<
+    NonNullable<AppendixItem["ledger"]>,
+    "addedDate" | "reason"
+  >,
 ): AppendixItem => {
   const hasExistingLedger = Boolean(existingLedger);
   const ledger = hasExistingLedger
@@ -129,7 +148,7 @@ export const buildAppendixItem = (
 export const mergeDependents = (
   currentDependents: Record<string, string>,
   packageName: string,
-  dependentInfo: string
+  dependentInfo: string,
 ): Record<string, string> => {
   return {
     ...currentDependents,
@@ -140,7 +159,7 @@ export const mergeDependents = (
 export const buildDependentInfo = (
   hasOverride: boolean,
   override: string,
-  packageVersion: string | undefined
+  packageVersion: string | undefined,
 ): string => {
   if (!hasOverride) return `${override} (transitive dependency)`;
   return `${override}@${packageVersion}`;
@@ -171,7 +190,9 @@ export const removeEmptyEntries = (appendix: Appendix): Appendix => {
   }, {} as Appendix);
 };
 
-export const mergeDependenciesForPackage = (packageConfig: PastoralistJSON | undefined): Record<string, string> => {
+export const mergeDependenciesForPackage = (
+  packageConfig: PastoralistJSON | undefined,
+): Record<string, string> => {
   const dependencies = packageConfig?.dependencies || {};
   const devDependencies = packageConfig?.devDependencies || {};
   const peerDependencies = packageConfig?.peerDependencies || {};
@@ -185,14 +206,14 @@ export const mergeDependenciesForPackage = (packageConfig: PastoralistJSON | und
 
 export const hasDependenciesMatchingOverrides = (
   depList: string[],
-  overridesList: string[]
+  overridesList: string[],
 ): boolean => {
   return depList.some((dep) => overridesList.includes(dep));
 };
 
 export const shouldWriteAppendix = (
   appendix: Appendix | undefined,
-  writeAppendixToFile: boolean
+  writeAppendixToFile: boolean,
 ): boolean => {
   const hasAppendix = Boolean(appendix);
   if (!hasAppendix) return false;
@@ -209,7 +230,7 @@ export const hasOverrides = (overrides: OverridesType | null): boolean => {
 export const mergeAppendixDependents = (
   currentAppendix: Appendix,
   key: string,
-  value: AppendixItem
+  value: AppendixItem,
 ): Appendix => {
   const existingDependents = currentAppendix[key]?.dependents || {};
 

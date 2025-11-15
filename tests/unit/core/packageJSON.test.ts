@@ -82,7 +82,7 @@ test("detectPackageManager - should detect bun when bun.lockb exists", () => {
 
 test("detectPackageManager - should detect npm as fallback", () => {
   const locks = ["bun.lockb", "yarn.lock", "pnpm-lock.yaml"];
-  const existing = locks.filter(f => existsSync(resolve(process.cwd(), f)));
+  const existing = locks.filter((f) => existsSync(resolve(process.cwd(), f)));
 
   const pm = detectPackageManager();
 
@@ -401,9 +401,7 @@ test("updatePackageJSON - should write file when not in testing mode", () => {
 
   const written = resolveJSON(testPkgPath);
   const hasOverrides = Boolean(
-    written?.overrides ||
-    written?.resolutions ||
-    written?.pnpm?.overrides
+    written?.overrides || written?.resolutions || written?.pnpm?.overrides,
   );
   expect(hasOverrides).toBe(true);
 
@@ -438,9 +436,7 @@ test("updatePackageJSON - should not write file in dry run mode", () => {
 
   expect(existsSync(testPkgPath)).toBe(false);
   const hasOverrides = Boolean(
-    result?.overrides ||
-    result?.resolutions ||
-    result?.pnpm?.overrides
+    result?.overrides || result?.resolutions || result?.pnpm?.overrides,
   );
   expect(hasOverrides).toBe(true);
 
@@ -496,7 +492,9 @@ test("findPackageJsonFiles - should throw when no files found", () => {
     mkdirSync(testDir, { recursive: true });
   }
 
-  expect(() => findPackageJsonFiles(["nonexistent/**/*.json"], [], testDir)).toThrow("No package.json files found");
+  expect(() =>
+    findPackageJsonFiles(["nonexistent/**/*.json"], [], testDir),
+  ).toThrow("No package.json files found");
 
   if (existsSync(testDir)) {
     rmSync(testDir, { recursive: true, force: true });
@@ -509,7 +507,6 @@ test("getDependencyTree - should return dependency tree", async () => {
   const tree = await getDependencyTree();
   expect(typeof tree).toBe("object");
 });
-
 
 test("updatePackageJSON - should handle existing override field", () => {
   const config: PastoralistJSON = {

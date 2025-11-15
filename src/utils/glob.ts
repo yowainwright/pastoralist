@@ -11,7 +11,7 @@ interface GlobOptions {
 
 export function sync(
   patterns: string | string[],
-  options: GlobOptions = {}
+  options: GlobOptions = {},
 ): string[] {
   const { cwd = process.cwd(), ignore = [], absolute = false } = options;
   const patternArray = Array.isArray(patterns) ? patterns : [patterns];
@@ -36,7 +36,7 @@ export function sync(
 
 export async function glob(
   patterns: string | string[],
-  options: GlobOptions = {}
+  options: GlobOptions = {},
 ): Promise<string[]> {
   const { cwd = process.cwd(), ignore = [], absolute = false } = options;
   const patternArray = Array.isArray(patterns) ? patterns : [patterns];

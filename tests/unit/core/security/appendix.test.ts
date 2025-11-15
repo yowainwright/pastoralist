@@ -24,11 +24,14 @@ test("Security - applyAutoFix adds security overrides to appendix", async () => 
     name: "test-package",
     version: "1.0.0",
     dependencies: {
-      "test-dep": "1.0.0"
-    }
+      "test-dep": "1.0.0",
+    },
   };
 
-  fs.writeFileSync(testPackageJsonPath, JSON.stringify(initialPackageJson, null, 2));
+  fs.writeFileSync(
+    testPackageJsonPath,
+    JSON.stringify(initialPackageJson, null, 2),
+  );
 
   const overrides: SecurityOverride[] = [
     {
@@ -40,7 +43,7 @@ test("Security - applyAutoFix adds security overrides to appendix", async () => 
       cve: "CVE-2024-TEST-0001",
       description: "Test security vulnerability",
       url: "https://example.com/advisory/test-0001",
-    }
+    },
   ];
 
   const checker = new SecurityChecker({ provider: "osv", debug: false });
@@ -71,27 +74,30 @@ test("Security - applyAutoFix preserves existing appendix entries", async () => 
     version: "1.0.0",
     dependencies: {
       "test-dep": "1.0.0",
-      "existing-dep": "2.0.0"
+      "existing-dep": "2.0.0",
     },
     overrides: {
-      "existing-dep": "2.1.0"
+      "existing-dep": "2.1.0",
     },
     pastoralist: {
       appendix: {
         "existing-dep@2.1.0": {
           dependents: {
-            "test-package": "2.0.0"
+            "test-package": "2.0.0",
           },
           ledger: {
             addedDate: "2024-01-01T00:00:00.000Z",
-            reason: "Manual override for testing"
-          }
-        }
-      }
-    }
+            reason: "Manual override for testing",
+          },
+        },
+      },
+    },
   };
 
-  fs.writeFileSync(testPackageJsonPath, JSON.stringify(initialPackageJson, null, 2));
+  fs.writeFileSync(
+    testPackageJsonPath,
+    JSON.stringify(initialPackageJson, null, 2),
+  );
 
   const overrides: SecurityOverride[] = [
     {
@@ -100,7 +106,7 @@ test("Security - applyAutoFix preserves existing appendix entries", async () => 
       toVersion: "1.1.0",
       reason: "Security fix: New vulnerability (critical)",
       severity: "critical",
-    }
+    },
   ];
 
   const checker = new SecurityChecker({ provider: "osv", debug: false });
@@ -109,7 +115,8 @@ test("Security - applyAutoFix preserves existing appendix entries", async () => 
   const updatedContent = fs.readFileSync(testPackageJsonPath, "utf-8");
   const updatedPackageJson = JSON.parse(updatedContent);
 
-  const existingEntry = updatedPackageJson.pastoralist.appendix["existing-dep@2.1.0"];
+  const existingEntry =
+    updatedPackageJson.pastoralist.appendix["existing-dep@2.1.0"];
   expect(existingEntry).toBeDefined();
   expect(existingEntry.ledger.reason).toBe("Manual override for testing");
 
@@ -123,11 +130,14 @@ test("Security - applyAutoFix includes CVE and severity in appendix", async () =
     name: "test-package",
     version: "1.0.0",
     dependencies: {
-      "vuln-package": "1.0.0"
-    }
+      "vuln-package": "1.0.0",
+    },
   };
 
-  fs.writeFileSync(testPackageJsonPath, JSON.stringify(initialPackageJson, null, 2));
+  fs.writeFileSync(
+    testPackageJsonPath,
+    JSON.stringify(initialPackageJson, null, 2),
+  );
 
   const overrides: SecurityOverride[] = [
     {
@@ -139,7 +149,7 @@ test("Security - applyAutoFix includes CVE and severity in appendix", async () =
       cve: "CVE-2024-12345",
       description: "Remote code execution vulnerability",
       url: "https://nvd.nist.gov/vuln/detail/CVE-2024-12345",
-    }
+    },
   ];
 
   const checker = new SecurityChecker({ provider: "osv", debug: false });
@@ -162,11 +172,14 @@ test("Security - applyAutoFix handles multiple overrides", async () => {
     dependencies: {
       "package-a": "1.0.0",
       "package-b": "2.0.0",
-      "package-c": "3.0.0"
-    }
+      "package-c": "3.0.0",
+    },
   };
 
-  fs.writeFileSync(testPackageJsonPath, JSON.stringify(initialPackageJson, null, 2));
+  fs.writeFileSync(
+    testPackageJsonPath,
+    JSON.stringify(initialPackageJson, null, 2),
+  );
 
   const overrides: SecurityOverride[] = [
     {
@@ -189,7 +202,7 @@ test("Security - applyAutoFix handles multiple overrides", async () => {
       toVersion: "3.1.0",
       reason: "Security fix: Low severity (low)",
       severity: "low",
-    }
+    },
   ];
 
   const checker = new SecurityChecker({ provider: "osv", debug: false });
@@ -200,11 +213,26 @@ test("Security - applyAutoFix handles multiple overrides", async () => {
 
   expect(Object.keys(updatedPackageJson.pastoralist.appendix)).toHaveLength(3);
 
-  expect(updatedPackageJson.pastoralist.appendix["package-a@1.1.0"]).toBeDefined();
-  expect(updatedPackageJson.pastoralist.appendix["package-b@2.1.0"]).toBeDefined();
-  expect(updatedPackageJson.pastoralist.appendix["package-c@3.1.0"]).toBeDefined();
+  expect(
+    updatedPackageJson.pastoralist.appendix["package-a@1.1.0"],
+  ).toBeDefined();
+  expect(
+    updatedPackageJson.pastoralist.appendix["package-b@2.1.0"],
+  ).toBeDefined();
+  expect(
+    updatedPackageJson.pastoralist.appendix["package-c@3.1.0"],
+  ).toBeDefined();
 
-  expect(updatedPackageJson.pastoralist.appendix["package-a@1.1.0"].ledger.securityChecked).toBe(true);
-  expect(updatedPackageJson.pastoralist.appendix["package-b@2.1.0"].ledger.securityChecked).toBe(true);
-  expect(updatedPackageJson.pastoralist.appendix["package-c@3.1.0"].ledger.securityChecked).toBe(true);
+  expect(
+    updatedPackageJson.pastoralist.appendix["package-a@1.1.0"].ledger
+      .securityChecked,
+  ).toBe(true);
+  expect(
+    updatedPackageJson.pastoralist.appendix["package-b@2.1.0"].ledger
+      .securityChecked,
+  ).toBe(true);
+  expect(
+    updatedPackageJson.pastoralist.appendix["package-c@3.1.0"].ledger
+      .securityChecked,
+  ).toBe(true);
 });

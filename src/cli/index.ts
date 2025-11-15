@@ -30,13 +30,14 @@ export const handleTestMode = (
   return false;
 };
 
-const handleInitMode = async (
+export const handleInitMode = async (
   init: boolean,
   options: Options,
   rest: Omit<Options, "isTestingCLI" | "init">,
+  deps = { initCommand },
 ): Promise<boolean> => {
   if (init) {
-    await initCommand({
+    await deps.initCommand({
       path: options.path,
       root: options.root,
       checkSecurity: rest.checkSecurity,
@@ -89,17 +90,25 @@ export const buildSecurityOverrideDetail = (
   };
 };
 
-const runSecurityCheck = async (
+export const runSecurityCheck = async (
   config: PastoralistJSON,
   mergedOptions: Options,
   isLogging: boolean,
   log: ReturnType<typeof createLogger>,
+  deps = {
+    createSpinner,
+    SecurityChecker,
+    determineSecurityScanPaths,
+    green,
+  },
 ) => {
-  const spinner = createSpinner(
-    `🔒 ${green(`pastoralist`)} checking for security vulnerabilities...`,
-  ).start();
+  const spinner = deps
+    .createSpinner(
+      `🔒 ${deps.green(`pastoralist`)} checking for security vulnerabilities...`,
+    )
+    .start();
 
-  const securityChecker = new SecurityChecker({
+  const securityChecker = new deps.SecurityChecker({
     provider: mergedOptions.securityProvider,
     forceRefactor: mergedOptions.forceSecurityRefactor,
     interactive: mergedOptions.interactive,
@@ -109,7 +118,7 @@ const runSecurityCheck = async (
     isIRLCatch: mergedOptions.isIRLCatch,
   });
 
-  const scanPaths = determineSecurityScanPaths(config, mergedOptions, log);
+  const scanPaths = deps.determineSecurityScanPaths(config, mergedOptions, log);
   const {
     alerts,
     overrides: securityOverrides,
@@ -254,13 +263,28 @@ export function determineSecurityScanPaths(
   return [];
 }
 
-export async function action(options: Options = {}): Promise<void> {
+export async function action(
+  options: Options = {},
+  deps = {
+    createLogger,
+    handleTestMode,
+    handleInitMode,
+    resolveJSON,
+    buildMergedOptions,
+    runSecurityCheck,
+    handleSecurityResults,
+    createSpinner,
+    green,
+    update,
+    processExit: (code: number) => process.exit(code),
+  },
+): Promise<void> {
   const isLogging = IS_DEBUGGING || options.debug;
-  const log = createLogger({ file: "program.ts", isLogging });
+  const log = deps.createLogger({ file: "program.ts", isLogging });
   const { isTestingCLI = false, init = false, ...rest } = options;
 
-  if (handleTestMode(isTestingCLI, log, options)) return;
-  if (await handleInitMode(init, options, rest)) return;
+  if (deps.handleTestMode(isTestingCLI, log, options)) return;
+  if (await deps.handleInitMode(init, options, rest)) return;
 
   try {
     const relativePath = options.path || "package.json";
@@ -268,13 +292,13 @@ export async function action(options: Options = {}): Promise<void> {
       options.root && !relativePath.startsWith("/")
         ? `${options.root}/${relativePath}`
         : relativePath;
-    const config = await resolveJSON(path);
+    const config = await deps.resolveJSON(path);
     const securityConfig = config?.pastoralist?.security || {};
     const configProvider = Array.isArray(securityConfig.provider)
       ? securityConfig.provider[0]
       : securityConfig.provider;
 
-    const mergedOptions = buildMergedOptions(
+    const mergedOptions = deps.buildMergedOptions(
       options,
       rest,
       securityConfig,
@@ -288,9 +312,14 @@ export async function action(options: Options = {}): Promise<void> {
 
     if (mergedOptions.checkSecurity) {
       const { spinner, securityChecker, alerts, securityOverrides, updates } =
-        await runSecurityCheck(config!, mergedOptions, Boolean(isLogging), log);
+        await deps.runSecurityCheck(
+          config!,
+          mergedOptions,
+          Boolean(isLogging),
+          log,
+        );
 
-      handleSecurityResults(
+      deps.handleSecurityResults(
         alerts,
         securityOverrides,
         securityChecker,
@@ -300,14 +329,14 @@ export async function action(options: Options = {}): Promise<void> {
       );
     }
 
-    const spinner = createSpinner(
-      `👩🏽‍🌾 ${green(`pastoralist`)} checking herd...`,
-    ).start();
-    await update(mergedOptions);
-    spinner.succeed(`👩🏽‍🌾 ${green(`pastoralist`)} the herd is safe!`);
+    const spinner = deps
+      .createSpinner(`👩🏽‍🌾 ${deps.green(`pastoralist`)} checking herd...`)
+      .start();
+    await deps.update(mergedOptions);
+    spinner.succeed(`👩🏽‍🌾 ${deps.green(`pastoralist`)} the herd is safe!`);
   } catch (err) {
     log.error("action:fn", "action", { error: err });
-    process.exit(1);
+    deps.processExit(1);
   }
 }
 

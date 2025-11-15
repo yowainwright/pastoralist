@@ -186,6 +186,7 @@ Pastoralist intelligently removes overrides that are no longer needed.
 When a dependency is updated and no longer needs an override:
 
 **Before:**
+
 ```json
 {
   "dependencies": {
@@ -198,6 +199,7 @@ When a dependency is updated and no longer needs an override:
 ```
 
 **After updating lodash to 4.17.21:**
+
 ```json
 {
   "dependencies": {
@@ -233,6 +235,7 @@ Pastoralist intelligently matches version ranges to determine if overrides are n
 ### How It Works
 
 Given these dependencies:
+
 ```json
 {
   "dependencies": {
@@ -242,6 +245,7 @@ Given these dependencies:
 ```
 
 And this override:
+
 ```json
 {
   "overrides": {
@@ -275,6 +279,7 @@ While pastoralist uses npm's `overrides` format, it understands conversions from
 ### Conversion Example
 
 From Yarn:
+
 ```json
 {
   "resolutions": {
@@ -285,6 +290,7 @@ From Yarn:
 ```
 
 To npm (what pastoralist uses):
+
 ```json
 {
   "overrides": {
@@ -371,19 +377,20 @@ Create policies for when overrides should be used:
 
 ```javascript
 // scripts/check-override-policy.js
-const pkg = require('./package.json');
+const pkg = require("./package.json");
 
 const policies = {
-  security: ['minimist', 'lodash'],  // Always override for security
-  compatibility: ['react'],           // Override for compatibility
-  temporary: ['experimental-pkg']     // Temporary overrides
+  security: ["minimist", "lodash"], // Always override for security
+  compatibility: ["react"], // Override for compatibility
+  temporary: ["experimental-pkg"], // Temporary overrides
 };
 
 // Validate overrides match policies
-Object.keys(pkg.overrides || {}).forEach(override => {
-  const category = Object.entries(policies)
-    .find(([_, pkgs]) => pkgs.includes(override))?.[0];
-    
+Object.keys(pkg.overrides || {}).forEach((override) => {
+  const category = Object.entries(policies).find(([_, pkgs]) =>
+    pkgs.includes(override),
+  )?.[0];
+
   if (!category) {
     console.warn(`Override '${override}' has no policy!`);
   }
@@ -395,18 +402,18 @@ Object.keys(pkg.overrides || {}).forEach(override => {
 Extract insights from the appendix:
 
 ```javascript
-const pkg = require('./package.json');
+const pkg = require("./package.json");
 const appendix = pkg.pastoralist?.appendix || {};
 
 // Find overrides with most dependents
 const overrideImpact = Object.entries(appendix)
   .map(([override, info]) => ({
     override,
-    dependentCount: Object.keys(info.dependents || {}).length
+    dependentCount: Object.keys(info.dependents || {}).length,
   }))
   .sort((a, b) => b.dependentCount - a.dependentCount);
 
-console.log('Highest impact overrides:', overrideImpact.slice(0, 5));
+console.log("Highest impact overrides:", overrideImpact.slice(0, 5));
 ```
 
 ## Future-Proofing

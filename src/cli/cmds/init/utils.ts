@@ -4,8 +4,8 @@ import type { InitAnswers } from "./types";
 export function parseWorkspacePaths(pathsInput: string): string[] {
   return pathsInput
     .split(",")
-    .map(p => p.trim())
-    .filter(p => p.length > 0);
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
 }
 
 export function buildConfig(answers: InitAnswers): PastoralistConfig {
@@ -15,7 +15,9 @@ export function buildConfig(answers: InitAnswers): PastoralistConfig {
     if (answers.workspaceType === "workspace") {
       config.depPaths = "workspace";
     }
-    const isCustomWithPaths = answers.workspaceType === "custom" && answers.customWorkspacePaths?.length;
+    const isCustomWithPaths =
+      answers.workspaceType === "custom" &&
+      answers.customWorkspacePaths?.length;
     if (isCustomWithPaths) {
       config.depPaths = answers.customWorkspacePaths;
     }
@@ -43,7 +45,10 @@ export function buildConfig(answers: InitAnswers): PastoralistConfig {
 
 export function generateConfigContent(
   config: PastoralistConfig,
-  format: ".pastoralistrc.json" | "pastoralist.config.js" | "pastoralist.config.ts"
+  format:
+    | ".pastoralistrc.json"
+    | "pastoralist.config.js"
+    | "pastoralist.config.ts",
 ): string {
   const isJson = format.endsWith(".json");
   if (isJson) {

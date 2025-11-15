@@ -29,7 +29,9 @@ test("isInstalled - should return true for installed command", async () => {
 
 test("isInstalled - should return false for non-existent command", async () => {
   const installer = new CLIInstaller({ debug: false });
-  const result = await installer.isInstalled("definitely-not-a-real-command-xyz");
+  const result = await installer.isInstalled(
+    "definitely-not-a-real-command-xyz",
+  );
   expect(result).toBe(false);
 });
 
@@ -53,13 +55,17 @@ test("isInstalled - should return true for git", async () => {
 
 test("isInstalledGlobally - should return false for non-installed package", async () => {
   const installer = new CLIInstaller({ debug: false });
-  const result = await installer.isInstalledGlobally("definitely-not-a-real-package-xyz");
+  const result = await installer.isInstalledGlobally(
+    "definitely-not-a-real-package-xyz",
+  );
   expect(result).toBe(false);
 }, 30000);
 
 test("isInstalledGlobally - should handle npm list errors gracefully", async () => {
   const installer = new CLIInstaller({ debug: false });
-  const result = await installer.isInstalledGlobally("non-existent-package-12345");
+  const result = await installer.isInstalledGlobally(
+    "non-existent-package-12345",
+  );
   expect(result).toBe(false);
 }, 30000);
 

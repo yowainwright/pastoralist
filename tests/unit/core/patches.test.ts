@@ -12,7 +12,10 @@ import {
 const TEST_DIR = resolve(__dirname, ".test-patches");
 
 const createPatchFile = (filename: string) => {
-  const dir = resolve(TEST_DIR, filename.substring(0, filename.lastIndexOf("/")));
+  const dir = resolve(
+    TEST_DIR,
+    filename.substring(0, filename.lastIndexOf("/")),
+  );
   if (dir !== TEST_DIR && !existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
@@ -79,10 +82,7 @@ test("detectPatches - should group multiple patches for same package", () => {
   const result = detectPatches(TEST_DIR);
 
   expect(result).toEqual({
-    lodash: [
-      "patches/lodash+4.17.20.patch",
-      "patches/lodash+4.17.21.patch",
-    ],
+    lodash: ["patches/lodash+4.17.20.patch", "patches/lodash+4.17.21.patch"],
   });
 });
 
@@ -211,10 +211,7 @@ test("findUnusedPatches - should find all unused patches", () => {
 
 test("findUnusedPatches - should handle multiple patches for same package", () => {
   const patchMap = {
-    lodash: [
-      "patches/lodash+4.17.20.patch",
-      "patches/lodash+4.17.21.patch",
-    ],
+    lodash: ["patches/lodash+4.17.20.patch", "patches/lodash+4.17.21.patch"],
   };
   const dependencies = {};
 

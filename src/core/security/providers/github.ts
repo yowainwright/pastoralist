@@ -24,7 +24,10 @@ export class GitHubSecurityProvider {
   constructor(options: SecurityCheckOptions & { debug?: boolean }) {
     this.token = options.token || process.env.GITHUB_TOKEN;
     this.log = logger({ file: "github.ts", isLogging: options.debug });
-    this.log.debug(`Token provided: ${this.token ? 'yes (length: ' + this.token.length + ')' : 'no'}`, "constructor");
+    this.log.debug(
+      `Token provided: ${this.token ? "yes (length: " + this.token.length + ")" : "no"}`,
+      "constructor",
+    );
     this.owner = options.owner || "";
     this.repo = options.repo || "";
   }
@@ -40,9 +43,13 @@ export class GitHubSecurityProvider {
 
   private async getRepoOwner(): Promise<string> {
     try {
-      const { stdout } = await execFileAsync("git", ["config", "--get", "remote.origin.url"]);
+      const { stdout } = await execFileAsync("git", [
+        "config",
+        "--get",
+        "remote.origin.url",
+      ]);
       const remoteUrl = stdout.trim();
-      
+
       if (this.isGitHubUrl(remoteUrl)) {
         const match = remoteUrl.match(/github\.com[:/]([^/]+)\//);
         if (match) {
@@ -57,9 +64,13 @@ export class GitHubSecurityProvider {
 
   private async getRepoName(): Promise<string> {
     try {
-      const { stdout } = await execFileAsync("git", ["config", "--get", "remote.origin.url"]);
+      const { stdout } = await execFileAsync("git", [
+        "config",
+        "--get",
+        "remote.origin.url",
+      ]);
       const remoteUrl = stdout.trim();
-      
+
       if (this.isGitHubUrl(remoteUrl)) {
         const match = remoteUrl.match(/github\.com[:/][^/]+\/([^/.]+)/);
         if (match) {
@@ -76,7 +87,7 @@ export class GitHubSecurityProvider {
     if (url.startsWith("git@github.com:")) {
       return true;
     }
-    
+
     try {
       const parsed = new URL(url);
       return parsed.hostname === "github.com";
@@ -88,9 +99,15 @@ export class GitHubSecurityProvider {
   async fetchAlerts(): Promise<SecurityAlert[]> {
     this.log.debug("Fetching GitHub Dependabot alerts", "fetchAlerts");
     const dependabotAlerts = await this.fetchDependabotAlerts();
-    this.log.debug(`Found ${dependabotAlerts.length} Dependabot alerts`, "fetchAlerts");
+    this.log.debug(
+      `Found ${dependabotAlerts.length} Dependabot alerts`,
+      "fetchAlerts",
+    );
     const securityAlerts = this.convertToSecurityAlerts(dependabotAlerts);
-    this.log.debug(`Converted to ${securityAlerts.length} security alerts`, "fetchAlerts");
+    this.log.debug(
+      `Converted to ${securityAlerts.length} security alerts`,
+      "fetchAlerts",
+    );
     return securityAlerts;
   }
 
@@ -122,17 +139,17 @@ export class GitHubSecurityProvider {
     }
 
     throw new Error(
-      "GitHub CLI not found and no GITHUB_TOKEN provided. Please install gh CLI or set GITHUB_TOKEN environment variable."
+      "GitHub CLI not found and no GITHUB_TOKEN provided. Please install gh CLI or set GITHUB_TOKEN environment variable.",
     );
   }
 
   private async fetchMockAlerts(): Promise<DependabotAlert[]> {
     this.log.debug("Using mock Dependabot alerts", "fetchMockAlerts");
-    
+
     if (this.shouldForceVulnerable()) {
       return this.getMockVulnerableAlerts();
     }
-    
+
     return [];
   }
 
@@ -142,16 +159,18 @@ export class GitHubSecurityProvider {
 
   private async getMockVulnerableAlerts(): Promise<DependabotAlert[]> {
     const mockFile = process.env[SECURITY_ENV_VARS.MOCK_FILE];
-    
+
     if (mockFile) {
       const alerts = await this.loadMockFile(mockFile);
       if (alerts) return alerts;
     }
-    
+
     return this.getDefaultMockAlerts();
   }
 
-  private async loadMockFile(filePath: string): Promise<DependabotAlert[] | null> {
+  private async loadMockFile(
+    filePath: string,
+  ): Promise<DependabotAlert[] | null> {
     try {
       const { readFileSync } = await import("fs");
       const mockData = readFileSync(filePath, "utf-8");
@@ -180,24 +199,41 @@ export class GitHubSecurityProvider {
 
   private async fetchAlertsWithGhCli(): Promise<DependabotAlert[]> {
     try {
-      const args = ["api", `repos/${this.owner}/${this.repo}/dependabot/alerts`, "--paginate"];
-      this.log.debug(`Fetching alerts with gh CLI: gh ${args.join(" ")}`, "fetchAlertsWithGhCli");
+      const args = [
+        "api",
+        `repos/${this.owner}/${this.repo}/dependabot/alerts`,
+        "--paginate",
+      ];
+      this.log.debug(
+        `Fetching alerts with gh CLI: gh ${args.join(" ")}`,
+        "fetchAlertsWithGhCli",
+      );
 
       const { stdout } = await execFileAsync("gh", args);
-      this.log.debug(`gh CLI stdout length: ${stdout.length}`, "fetchAlertsWithGhCli");
+      this.log.debug(
+        `gh CLI stdout length: ${stdout.length}`,
+        "fetchAlertsWithGhCli",
+      );
       const alerts = JSON.parse(stdout);
-      this.log.debug(`Parsed ${Array.isArray(alerts) ? alerts.length : 'non-array'} alerts`, "fetchAlertsWithGhCli");
+      this.log.debug(
+        `Parsed ${Array.isArray(alerts) ? alerts.length : "non-array"} alerts`,
+        "fetchAlertsWithGhCli",
+      );
 
       return Array.isArray(alerts) ? alerts : [];
     } catch (error) {
-      this.log.error("Failed to fetch alerts with gh CLI", "fetchAlertsWithGhCli", { error });
+      this.log.error(
+        "Failed to fetch alerts with gh CLI",
+        "fetchAlertsWithGhCli",
+        { error },
+      );
       throw new Error(`Failed to fetch Dependabot alerts: ${error}`);
     }
   }
 
   private async fetchAlertsWithApi(): Promise<DependabotAlert[]> {
     const url = `https://api.github.com/repos/${this.owner}/${this.repo}/dependabot/alerts`;
-    
+
     try {
       const response = await fetch(url, {
         headers: {
@@ -209,19 +245,23 @@ export class GitHubSecurityProvider {
       if (!response.ok) {
         const error: GithubApiError = await response.json();
         throw new Error(
-          `GitHub API error: ${error.message || response.statusText}`
+          `GitHub API error: ${error.message || response.statusText}`,
         );
       }
 
       const alerts = await response.json();
       return Array.isArray(alerts) ? alerts : [];
     } catch (error) {
-      this.log.error("Failed to fetch alerts with API", "fetchAlertsWithApi", { error });
+      this.log.error("Failed to fetch alerts with API", "fetchAlertsWithApi", {
+        error,
+      });
       throw new Error(`Failed to fetch Dependabot alerts: ${error}`);
     }
   }
 
-  convertToSecurityAlerts(dependabotAlerts: DependabotAlert[]): SecurityAlert[] {
+  convertToSecurityAlerts(
+    dependabotAlerts: DependabotAlert[],
+  ): SecurityAlert[] {
     return dependabotAlerts
       .filter((alert) => alert.state === "open")
       .map((alert) => {
@@ -245,7 +285,8 @@ export class GitHubSecurityProvider {
   }
 
   private extractCurrentVersion(alert: DependabotAlert): string {
-    const vulnerableRange = alert.security_vulnerability.vulnerable_version_range;
+    const vulnerableRange =
+      alert.security_vulnerability.vulnerable_version_range;
     if (vulnerableRange.includes(">=") && vulnerableRange.includes("<=")) {
       const match = vulnerableRange.match(/>= ?([^\s,]+)/);
       return match ? match[1] : "unknown";
@@ -258,7 +299,7 @@ export class GitHubSecurityProvider {
   }
 
   private normalizeSeverity(
-    severity: string
+    severity: string,
   ): "low" | "medium" | "high" | "critical" {
     const normalized = severity.toLowerCase();
     switch (normalized) {

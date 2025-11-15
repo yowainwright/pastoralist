@@ -1,11 +1,11 @@
-import * as readline from 'readline';
+import * as readline from "readline";
 import type {
   PromptChoice,
   PromptOptions,
   InputOptions,
   ConfirmOptions,
-  ListOptions
-} from './types';
+  ListOptions,
+} from "./types";
 
 export class Prompt {
   protected rl: readline.Interface;
@@ -29,24 +29,29 @@ export class Prompt {
 
   async input(message: string, defaultValue?: string): Promise<string> {
     return new Promise((resolve) => {
-      const prompt = defaultValue ? `${message} (${defaultValue}): ` : `${message}: `;
+      const prompt = defaultValue
+        ? `${message} (${defaultValue}): `
+        : `${message}: `;
       this.ensureCookedMode();
       this.rl.question(prompt, (answer) => {
-        resolve(answer.trim() || defaultValue || '');
+        resolve(answer.trim() || defaultValue || "");
       });
     });
   }
 
-  async confirm(message: string, defaultValue: boolean = true): Promise<boolean> {
+  async confirm(
+    message: string,
+    defaultValue: boolean = true,
+  ): Promise<boolean> {
     return new Promise((resolve) => {
-      const defaultText = defaultValue ? 'Y/n' : 'y/N';
+      const defaultText = defaultValue ? "Y/n" : "y/N";
       this.ensureCookedMode();
       this.rl.question(`${message} (${defaultText}): `, (answer) => {
         const normalized = answer.trim().toLowerCase();
-        if (normalized === '') {
+        if (normalized === "") {
           resolve(defaultValue);
         } else {
-          resolve(normalized === 'y' || normalized === 'yes');
+          resolve(normalized === "y" || normalized === "yes");
         }
       });
     });
@@ -62,11 +67,14 @@ export class Prompt {
     return new Promise((resolve) => {
       const askForChoice = () => {
         this.ensureCookedMode();
-        this.rl.question('\nEnter your choice (number): ', (answer) => {
+        this.rl.question("\nEnter your choice (number): ", (answer) => {
           const num = parseInt(answer.trim(), 10);
 
           if (isNaN(num) || num < 1 || num > choices.length) {
-            console.log('⚠️  Invalid choice. Please enter a number between 1 and ' + choices.length);
+            console.log(
+              "⚠️  Invalid choice. Please enter a number between 1 and " +
+                choices.length,
+            );
             askForChoice();
           } else {
             resolve(choices[num - 1].value);
@@ -79,44 +87,52 @@ export class Prompt {
   }
 
   async prompt(options: PromptOptions): Promise<string | boolean> {
-    const { type = 'input', message } = options;
+    const { type = "input", message } = options;
 
     switch (type) {
-      case 'confirm':
-        return this.confirm(message, (options as ConfirmOptions).default ?? true);
+      case "confirm":
+        return this.confirm(
+          message,
+          (options as ConfirmOptions).default ?? true,
+        );
 
-      case 'list':
+      case "list":
         return this.list(message, (options as ListOptions).choices);
 
-      case 'input':
+      case "input":
       default:
-        return this.input(message, (options as InputOptions).default ?? '');
+        return this.input(message, (options as InputOptions).default ?? "");
     }
   }
 
-  async promptMany(questions: PromptOptions[]): Promise<Record<string, string | boolean>> {
-    return questions.reduce(async (accPromise, question, index) => {
-      const answers = await accPromise;
-      const key = `answer${index}`;
+  async promptMany(
+    questions: PromptOptions[],
+  ): Promise<Record<string, string | boolean>> {
+    return questions.reduce(
+      async (accPromise, question, index) => {
+        const answers = await accPromise;
+        const key = `answer${index}`;
 
-      const isConfirm = question.type === 'confirm';
-      const isList = question.type === 'list';
+        const isConfirm = question.type === "confirm";
+        const isList = question.type === "list";
 
-      if (isConfirm) {
-        answers[key] = await this.prompt(question as ConfirmOptions);
-      } else if (isList) {
-        answers[key] = await this.prompt(question as ListOptions);
-      } else {
-        answers[key] = await this.prompt(question as InputOptions);
-      }
+        if (isConfirm) {
+          answers[key] = await this.prompt(question as ConfirmOptions);
+        } else if (isList) {
+          answers[key] = await this.prompt(question as ListOptions);
+        } else {
+          answers[key] = await this.prompt(question as InputOptions);
+        }
 
-      return answers;
-    }, Promise.resolve({} as Record<string, string | boolean>));
+        return answers;
+      },
+      Promise.resolve({} as Record<string, string | boolean>),
+    );
   }
 }
 
 export async function createPrompt<T = any>(
-  callback: (prompt: Prompt) => Promise<T>
+  callback: (prompt: Prompt) => Promise<T>,
 ): Promise<T> {
   const prompt = new Prompt();
   try {
@@ -127,19 +143,28 @@ export async function createPrompt<T = any>(
   }
 }
 
-export async function quickConfirm(message: string, defaultValue: boolean = true): Promise<boolean> {
+export async function quickConfirm(
+  message: string,
+  defaultValue: boolean = true,
+): Promise<boolean> {
   return createPrompt(async (prompt) => {
     return prompt.confirm(message, defaultValue);
   });
 }
 
-export async function quickInput(message: string, defaultValue?: string): Promise<string> {
+export async function quickInput(
+  message: string,
+  defaultValue?: string,
+): Promise<string> {
   return createPrompt(async (prompt) => {
-    return prompt.input(message, defaultValue ?? '');
+    return prompt.input(message, defaultValue ?? "");
   });
 }
 
-export async function quickList(message: string, choices: PromptChoice[]): Promise<string> {
+export async function quickList(
+  message: string,
+  choices: PromptChoice[],
+): Promise<string> {
   return createPrompt(async (prompt) => {
     return prompt.list(message, choices);
   });

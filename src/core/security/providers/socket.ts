@@ -1,6 +1,11 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
-import { SecurityAlert, SocketResult, SocketPackage, SocketIssue } from "../../../types";
+import {
+  SecurityAlert,
+  SocketResult,
+  SocketPackage,
+  SocketIssue,
+} from "../../../types";
 import { logger } from "../../../utils";
 import { CLIInstaller } from "../utils";
 
@@ -12,7 +17,10 @@ export class SocketCLIProvider {
   private token?: string;
 
   constructor(options: { debug?: boolean; token?: string } = {}) {
-    this.log = logger({ file: "security/socket.ts", isLogging: options.debug || false });
+    this.log = logger({
+      file: "security/socket.ts",
+      isLogging: options.debug || false,
+    });
     this.installer = new CLIInstaller({ debug: options.debug });
     this.token = options.token || process.env.SOCKET_SECURITY_API_KEY;
   }
@@ -32,7 +40,10 @@ export class SocketCLIProvider {
     const isInstalled = await this.ensureInstalled();
 
     if (!isInstalled) {
-      this.log.info("Socket CLI not available, skipping Socket scan", "validatePrerequisites");
+      this.log.info(
+        "Socket CLI not available, skipping Socket scan",
+        "validatePrerequisites",
+      );
       return false;
     }
 
@@ -41,7 +52,7 @@ export class SocketCLIProvider {
     if (!isAuthed) {
       this.log.info(
         "Socket requires authentication. Set SOCKET_SECURITY_API_KEY or provide --securityProviderToken",
-        "validatePrerequisites"
+        "validatePrerequisites",
       );
       return false;
     }
@@ -55,10 +66,14 @@ export class SocketCLIProvider {
       SOCKET_SECURITY_API_KEY: this.token,
     };
 
-    const { stdout } = await execFileAsync("socket", ["report", "create", "--format", "json"], {
-      timeout: 60000,
-      env,
-    });
+    const { stdout } = await execFileAsync(
+      "socket",
+      ["report", "create", "--format", "json"],
+      {
+        timeout: 60000,
+        env,
+      },
+    );
 
     return JSON.parse(stdout);
   }
@@ -85,13 +100,16 @@ export class SocketCLIProvider {
     }
 
     return socketResult.packages
-      .filter(pkg => pkg.issues && pkg.issues.length > 0)
-      .flatMap(pkg =>
-        pkg.issues!.map(issue => this.convertIssueToAlert(pkg, issue))
+      .filter((pkg) => pkg.issues && pkg.issues.length > 0)
+      .flatMap((pkg) =>
+        pkg.issues!.map((issue) => this.convertIssueToAlert(pkg, issue)),
       );
   }
 
-  private convertIssueToAlert(pkg: SocketPackage, issue: SocketIssue): SecurityAlert {
+  private convertIssueToAlert(
+    pkg: SocketPackage,
+    issue: SocketIssue,
+  ): SecurityAlert {
     const isCVE = issue.type === "vulnerability";
     const packageName = pkg.name;
     const currentVersion = pkg.version;
@@ -101,7 +119,9 @@ export class SocketCLIProvider {
     const title = issue.title || issue.type;
     const description = issue.description;
     const cve = isCVE ? issue.cve : undefined;
-    const url = issue.url || `https://socket.dev/npm/package/${packageName}/overview/${currentVersion}`;
+    const url =
+      issue.url ||
+      `https://socket.dev/npm/package/${packageName}/overview/${currentVersion}`;
     const fixAvailable = false;
 
     return {
@@ -118,7 +138,9 @@ export class SocketCLIProvider {
     };
   }
 
-  private mapSocketSeverity(severity: string): "low" | "medium" | "high" | "critical" {
+  private mapSocketSeverity(
+    severity: string,
+  ): "low" | "medium" | "high" | "critical" {
     const normalized = severity.toLowerCase();
 
     switch (normalized) {

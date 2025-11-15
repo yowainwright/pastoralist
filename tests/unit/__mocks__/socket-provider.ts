@@ -13,7 +13,7 @@ export const mockSocketAlerts: SecurityAlert[] = [
 ];
 
 export const mockSocketResponse = {
-  packages: mockSocketAlerts.map(alert => ({
+  packages: mockSocketAlerts.map((alert) => ({
     name: alert.package,
     version: alert.version,
     alerts: [

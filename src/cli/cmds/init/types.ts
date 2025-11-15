@@ -11,7 +11,10 @@ export interface InitOptions {
 
 export interface InitAnswers {
   configLocation: "package.json" | "external";
-  configFormat?: ".pastoralistrc.json" | "pastoralist.config.js" | "pastoralist.config.ts";
+  configFormat?:
+    | ".pastoralistrc.json"
+    | "pastoralist.config.js"
+    | "pastoralist.config.ts";
   setupWorkspaces: boolean;
   workspaceType?: "workspace" | "custom";
   customWorkspacePaths?: string[];

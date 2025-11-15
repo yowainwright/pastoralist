@@ -2,10 +2,7 @@
   "name": "nested-workspace-root",
   "version": "1.0.0",
   "private": true,
-  "workspaces": [
-    "packages/*",
-    "apps/*"
-  ],
+  "workspaces": ["packages/*", "apps/*"],
   "overrides": {
     "lodash": "4.17.21",
     "react": "18.2.0"

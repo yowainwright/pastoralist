@@ -4,9 +4,14 @@ import {
   hasDependenciesMatchingOverrides,
   shouldWriteAppendix,
   hasOverrides,
-  mergeAppendixDependents
+  mergeAppendixDependents,
 } from "../../../../src/core/appendix/utils";
-import type { PastoralistJSON, Appendix, AppendixItem, OverridesType } from "../../../../src/types";
+import type {
+  PastoralistJSON,
+  Appendix,
+  AppendixItem,
+  OverridesType,
+} from "../../../../src/types";
 
 test("mergeDependenciesForPackage - merges all dependency types", () => {
   const packageConfig: PastoralistJSON = {
@@ -14,15 +19,15 @@ test("mergeDependenciesForPackage - merges all dependency types", () => {
     version: "1.0.0",
     dependencies: {
       lodash: "^4.17.20",
-      express: "^4.18.0"
+      express: "^4.18.0",
     },
     devDependencies: {
       jest: "^29.0.0",
-      typescript: "^5.0.0"
+      typescript: "^5.0.0",
     },
     peerDependencies: {
-      react: "^18.0.0"
-    }
+      react: "^18.0.0",
+    },
   };
 
   const result = mergeDependenciesForPackage(packageConfig);
@@ -39,8 +44,8 @@ test("mergeDependenciesForPackage - handles missing dependency types", () => {
     name: "test",
     version: "1.0.0",
     dependencies: {
-      lodash: "^4.17.20"
-    }
+      lodash: "^4.17.20",
+    },
   };
 
   const result = mergeDependenciesForPackage(packageConfig);
@@ -58,7 +63,7 @@ test("mergeDependenciesForPackage - handles undefined config", () => {
 test("mergeDependenciesForPackage - handles empty dependencies", () => {
   const packageConfig: PastoralistJSON = {
     name: "test",
-    version: "1.0.0"
+    version: "1.0.0",
   };
 
   const result = mergeDependenciesForPackage(packageConfig);
@@ -115,9 +120,9 @@ test("shouldWriteAppendix - returns true with appendix and write flag", () => {
   const appendix: Appendix = {
     "lodash@4.17.21": {
       dependents: {
-        app: "lodash@^4.17.0"
-      }
-    }
+        app: "lodash@^4.17.0",
+      },
+    },
   };
 
   const result = shouldWriteAppendix(appendix, true);
@@ -129,9 +134,9 @@ test("shouldWriteAppendix - returns false when write flag is false", () => {
   const appendix: Appendix = {
     "lodash@4.17.21": {
       dependents: {
-        app: "lodash@^4.17.0"
-      }
-    }
+        app: "lodash@^4.17.0",
+      },
+    },
   };
 
   const result = shouldWriteAppendix(appendix, false);
@@ -156,7 +161,7 @@ test("shouldWriteAppendix - returns false when appendix is empty", () => {
 test("hasOverrides - returns true when overrides exist", () => {
   const overrides: OverridesType = {
     lodash: "4.17.21",
-    express: "4.18.2"
+    express: "4.18.2",
   };
 
   const result = hasOverrides(overrides);
@@ -182,16 +187,16 @@ test("mergeAppendixDependents - merges dependents for existing key", () => {
   const currentAppendix: Appendix = {
     "lodash@4.17.21": {
       dependents: {
-        app1: "lodash@^4.17.0"
-      }
-    }
+        app1: "lodash@^4.17.0",
+      },
+    },
   };
 
   const key = "lodash@4.17.21";
   const value: AppendixItem = {
     dependents: {
-      app2: "lodash@^4.17.20"
-    }
+      app2: "lodash@^4.17.20",
+    },
   };
 
   const result = mergeAppendixDependents(currentAppendix, key, value);
@@ -204,16 +209,16 @@ test("mergeAppendixDependents - creates new entry for non-existing key", () => {
   const currentAppendix: Appendix = {
     "lodash@4.17.21": {
       dependents: {
-        app1: "lodash@^4.17.0"
-      }
-    }
+        app1: "lodash@^4.17.0",
+      },
+    },
   };
 
   const key = "express@4.18.2";
   const value: AppendixItem = {
     dependents: {
-      app2: "express@^4.18.0"
-    }
+      app2: "express@^4.18.0",
+    },
   };
 
   const result = mergeAppendixDependents(currentAppendix, key, value);
@@ -229,8 +234,8 @@ test("mergeAppendixDependents - handles empty currentAppendix", () => {
   const key = "react@18.0.0";
   const value: AppendixItem = {
     dependents: {
-      frontend: "react@^18.0.0"
-    }
+      frontend: "react@^18.0.0",
+    },
   };
 
   const result = mergeAppendixDependents(currentAppendix, key, value);
@@ -243,16 +248,16 @@ test("mergeAppendixDependents - overwrites duplicate dependent names", () => {
   const currentAppendix: Appendix = {
     "lodash@4.17.21": {
       dependents: {
-        app: "lodash@^4.17.0"
-      }
-    }
+        app: "lodash@^4.17.0",
+      },
+    },
   };
 
   const key = "lodash@4.17.21";
   const value: AppendixItem = {
     dependents: {
-      app: "lodash@^4.17.20"
-    }
+      app: "lodash@^4.17.20",
+    },
   };
 
   const result = mergeAppendixDependents(currentAppendix, key, value);
@@ -265,21 +270,21 @@ test("mergeAppendixDependents - preserves other appendix entries", () => {
   const currentAppendix: Appendix = {
     "lodash@4.17.21": {
       dependents: {
-        app1: "lodash@^4.17.0"
-      }
+        app1: "lodash@^4.17.0",
+      },
     },
     "express@4.18.2": {
       dependents: {
-        app2: "express@^4.18.0"
-      }
-    }
+        app2: "express@^4.18.0",
+      },
+    },
   };
 
   const key = "lodash@4.17.21";
   const value: AppendixItem = {
     dependents: {
-      app3: "lodash@^4.17.20"
-    }
+      app3: "lodash@^4.17.20",
+    },
   };
 
   const result = mergeAppendixDependents(currentAppendix, key, value);

@@ -21,7 +21,9 @@ test("logMethod should include file name in log output", () => {
   const consoleDebugSpy = spyOn(console, "debug");
   const log = logMethod("debug", true, "test.ts");
   log("Test message");
-  expect(consoleDebugSpy).toHaveBeenCalledWith(expect.stringContaining("[test.ts]"));
+  expect(consoleDebugSpy).toHaveBeenCalledWith(
+    expect.stringContaining("[test.ts]"),
+  );
   consoleDebugSpy.mockRestore();
 });
 
@@ -29,7 +31,9 @@ test("logMethod should include caller in log output when provided", () => {
   const consoleDebugSpy = spyOn(console, "debug");
   const log = logMethod("debug", true, "test.ts");
   log("Test message", "myFunction");
-  expect(consoleDebugSpy).toHaveBeenCalledWith(expect.stringContaining("[myFunction]"));
+  expect(consoleDebugSpy).toHaveBeenCalledWith(
+    expect.stringContaining("[myFunction]"),
+  );
   consoleDebugSpy.mockRestore();
 });
 

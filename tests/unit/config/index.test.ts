@@ -4,7 +4,11 @@ import {
   validateConfig,
   safeValidateConfig,
 } from "../../../src/config/constants";
-import { loadConfig, loadExternalConfig, mergeConfigs } from "../../../src/config";
+import {
+  loadConfig,
+  loadExternalConfig,
+  mergeConfigs,
+} from "../../../src/config";
 import {
   safeWriteFileSync as writeFileSync,
   safeMkdirSync as mkdirSync,
@@ -25,8 +29,8 @@ test("validateConfig - should validate complete config", () => {
   const config = {
     appendix: {
       "lodash@4.17.21": {
-        dependents: { "app": "lodash@^4.17.0" },
-      }
+        dependents: { app: "lodash@^4.17.0" },
+      },
     },
     depPaths: ["packages/*/package.json"],
     security: {
@@ -206,6 +210,10 @@ test("mergeConfigs - should deep merge appendix", () => {
   };
 
   const result = mergeConfigs(base, override);
-  expect(result.appendix?.["lodash@4.17.21"]?.dependents?.["pkg-a"]).toBeDefined();
-  expect(result.appendix?.["lodash@4.17.21"]?.dependents?.["pkg-b"]).toBeDefined();
+  expect(
+    result.appendix?.["lodash@4.17.21"]?.dependents?.["pkg-a"],
+  ).toBeDefined();
+  expect(
+    result.appendix?.["lodash@4.17.21"]?.dependents?.["pkg-b"],
+  ).toBeDefined();
 });

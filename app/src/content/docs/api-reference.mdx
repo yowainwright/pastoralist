@@ -24,6 +24,7 @@ npx pastoralist
 Run pastoralist on a specific package.json file.
 
 **params:**
+
 - `<path>`: path to a package.json file
 
 ```bash
@@ -39,6 +40,7 @@ npx pastoralist --path ./nested/project/package.json
 Run pastoralist on multiple package.json files using glob patterns.
 
 **params:**
+
 - `[paths...]`: array of glob patterns
 
 ```bash
@@ -54,6 +56,7 @@ npx pastoralist --depPaths "packages/*/package.json" "apps/*/package.json"
 Exclude files matching glob patterns.
 
 **params:**
+
 - `[patterns...]`: array of glob patterns to ignore
 
 ```bash
@@ -69,6 +72,7 @@ npx pastoralist --depPaths "**/*package.json" --ignore "**/node_modules/**" "**/
 Set the root directory for all operations.
 
 **params:**
+
 - `<root>`: root directory path
 
 ```bash
@@ -89,6 +93,7 @@ npx pastoralist --init
 ```
 
 When run, this will:
+
 - Detect if you have overrides for packages not in root dependencies
 - Prompt you to choose between auto-detection or manual configuration
 - Offer common workspace structures (standard, packages-only, apps-only, custom)
@@ -131,6 +136,7 @@ npm install pastoralist
 Update package.json overrides and manage the appendix.
 
 **params:**
+
 - `options`: configuration object (optional)
   - `path`: path to package.json (default: './package.json')
   - `depPaths`: array of glob patterns for multiple files
@@ -139,25 +145,25 @@ Update package.json overrides and manage the appendix.
   - `debug`: enable debug logging
 
 ```javascript
-import { update } from 'pastoralist';
+import { update } from "pastoralist";
 
 // Basic usage
 await update();
 
 // With specific path
 await update({
-  path: './packages/app/package.json'
+  path: "./packages/app/package.json",
 });
 
 // With debug mode
 await update({
-  debug: true
+  debug: true,
 });
 
 // Multiple packages
 await update({
-  depPaths: ['packages/*/package.json'],
-  ignore: ['**/test/**']
+  depPaths: ["packages/*/package.json"],
+  ignore: ["**/test/**"],
 });
 ```
 
@@ -166,22 +172,23 @@ await update({
 Create a logger instance for custom debugging.
 
 **params:**
+
 - `config`: logger configuration
   - `file`: source file name
   - `isLogging`: enable/disable logging
 
 ```javascript
-import { logger } from 'pastoralist';
+import { logger } from "pastoralist";
 
 // Create logger
 const log = logger({
-  file: 'my-script.js',
-  isLogging: true
+  file: "my-script.js",
+  isLogging: true,
 });
 
 // Use logger
-log.debug('method-name', 'action', { data: 'value' });
-log.error('method-name', 'error', { error: err });
+log.debug("method-name", "action", { data: "value" });
+log.error("method-name", "error", { error: err });
 ```
 
 ## Examples
@@ -189,21 +196,21 @@ log.error('method-name', 'error', { error: err });
 ### Build Tool Integration
 
 ```javascript
-import { update } from 'pastoralist';
+import { update } from "pastoralist";
 
 // Ensure overrides are up-to-date before building
 await update();
-console.log('✓ Package overrides verified');
+console.log("✓ Package overrides verified");
 ```
 
 ### Workspace Automation
 
 ```javascript
-import { update } from 'pastoralist';
-import glob from 'glob';
+import { update } from "pastoralist";
+import glob from "glob";
 
 // Update all workspace packages
-const packages = glob.sync('packages/*/package.json');
+const packages = glob.sync("packages/*/package.json");
 
 for (const pkgPath of packages) {
   await update({ path: pkgPath });
@@ -214,16 +221,16 @@ for (const pkgPath of packages) {
 ### CI/CD Validation
 
 ```javascript
-import { update } from 'pastoralist';
-import { execSync } from 'child_process';
+import { update } from "pastoralist";
+import { execSync } from "child_process";
 
 // Check if overrides are up-to-date
-const before = execSync('git status --porcelain').toString();
+const before = execSync("git status --porcelain").toString();
 await update();
-const after = execSync('git status --porcelain').toString();
+const after = execSync("git status --porcelain").toString();
 
 if (before !== after) {
-  console.error('❌ Package.json overrides need updating');
+  console.error("❌ Package.json overrides need updating");
   process.exit(1);
 }
 ```
@@ -231,34 +238,34 @@ if (before !== after) {
 ### Custom Logger
 
 ```javascript
-import { update, logger } from 'pastoralist';
+import { update, logger } from "pastoralist";
 
 // Create custom logger
 const log = logger({
-  file: 'my-script.js',
-  isLogging: process.env.DEBUG === 'true'
+  file: "my-script.js",
+  isLogging: process.env.DEBUG === "true",
 });
 
 // Log custom events
-log.debug('custom-action', 'starting', { time: Date.now() });
+log.debug("custom-action", "starting", { time: Date.now() });
 
 await update({ debug: true });
 
-log.debug('custom-action', 'completed', { time: Date.now() });
+log.debug("custom-action", "completed", { time: Date.now() });
 ```
 
 ### Error Handling
 
 ```javascript
-import { update } from 'pastoralist';
+import { update } from "pastoralist";
 
 try {
-  await update({ path: './package.json' });
+  await update({ path: "./package.json" });
 } catch (error) {
-  if (error.code === 'ENOENT') {
-    console.error('Package.json not found');
+  if (error.code === "ENOENT") {
+    console.error("Package.json not found");
   } else {
-    console.error('Unexpected error:', error);
+    console.error("Unexpected error:", error);
   }
 }
 ```
@@ -278,11 +285,11 @@ DEBUG=pastoralist* npx pastoralist
 Pastoralist includes full TypeScript support.
 
 ```typescript
-import { update, Options } from 'pastoralist';
+import { update, Options } from "pastoralist";
 
 const options: Options = {
-  path: './package.json',
-  debug: true
+  path: "./package.json",
+  debug: true,
 };
 
 await update(options);

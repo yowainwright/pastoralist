@@ -3,55 +3,63 @@ import { OSVProvider } from "../../../../src/core/security/providers/osv";
 import { TEST_FIXTURES } from "../../../../src/constants";
 
 test("Test Fixtures - OSVProvider appends ALERT_TO_RESOLVE when isIRLFix is true", async () => {
-  const provider = new OSVProvider({ debug: false, isIRLFix: true, isIRLCatch: false });
+  const provider = new OSVProvider({
+    debug: false,
+    isIRLFix: true,
+    isIRLCatch: false,
+  });
 
-  const packages = [
-    { name: "express", version: "4.18.0" },
-  ];
+  const packages = [{ name: "express", version: "4.18.0" }];
 
   const alerts = await provider.fetchAlerts(packages);
 
   const hasFixtureAlert = alerts.some(
-    alert => alert.packageName === TEST_FIXTURES.ALERT_TO_RESOLVE.packageName &&
-             alert.cve === TEST_FIXTURES.ALERT_TO_RESOLVE.cve
+    (alert) =>
+      alert.packageName === TEST_FIXTURES.ALERT_TO_RESOLVE.packageName &&
+      alert.cve === TEST_FIXTURES.ALERT_TO_RESOLVE.cve,
   );
 
   expect(hasFixtureAlert).toBe(true);
 });
 
 test("Test Fixtures - OSVProvider appends ALERT_TO_CAPTURE when isIRLCatch is true", async () => {
-  const provider = new OSVProvider({ debug: false, isIRLFix: false, isIRLCatch: true });
+  const provider = new OSVProvider({
+    debug: false,
+    isIRLFix: false,
+    isIRLCatch: true,
+  });
 
-  const packages = [
-    { name: "express", version: "4.18.0" },
-  ];
+  const packages = [{ name: "express", version: "4.18.0" }];
 
   const alerts = await provider.fetchAlerts(packages);
 
   const hasCaptureAlert = alerts.some(
-    alert => alert.packageName === TEST_FIXTURES.ALERT_TO_CAPTURE.packageName &&
-             alert.cve === TEST_FIXTURES.ALERT_TO_CAPTURE.cve &&
-             alert.fixAvailable === false
+    (alert) =>
+      alert.packageName === TEST_FIXTURES.ALERT_TO_CAPTURE.packageName &&
+      alert.cve === TEST_FIXTURES.ALERT_TO_CAPTURE.cve &&
+      alert.fixAvailable === false,
   );
 
   expect(hasCaptureAlert).toBe(true);
 });
 
 test("Test Fixtures - OSVProvider appends both fixtures when both flags are true", async () => {
-  const provider = new OSVProvider({ debug: false, isIRLFix: true, isIRLCatch: true });
+  const provider = new OSVProvider({
+    debug: false,
+    isIRLFix: true,
+    isIRLCatch: true,
+  });
 
-  const packages = [
-    { name: "express", version: "4.18.0" },
-  ];
+  const packages = [{ name: "express", version: "4.18.0" }];
 
   const alerts = await provider.fetchAlerts(packages);
 
   const hasFixAlert = alerts.some(
-    alert => alert.packageName === TEST_FIXTURES.ALERT_TO_RESOLVE.packageName
+    (alert) => alert.packageName === TEST_FIXTURES.ALERT_TO_RESOLVE.packageName,
   );
 
   const hasCaptureAlert = alerts.some(
-    alert => alert.packageName === TEST_FIXTURES.ALERT_TO_CAPTURE.packageName
+    (alert) => alert.packageName === TEST_FIXTURES.ALERT_TO_CAPTURE.packageName,
   );
 
   expect(hasFixAlert).toBe(true);
@@ -59,17 +67,20 @@ test("Test Fixtures - OSVProvider appends both fixtures when both flags are true
 });
 
 test("Test Fixtures - OSVProvider does not append fixtures when flags are false", async () => {
-  const provider = new OSVProvider({ debug: false, isIRLFix: false, isIRLCatch: false });
+  const provider = new OSVProvider({
+    debug: false,
+    isIRLFix: false,
+    isIRLCatch: false,
+  });
 
-  const packages = [
-    { name: "express", version: "4.18.0" },
-  ];
+  const packages = [{ name: "express", version: "4.18.0" }];
 
   const alerts = await provider.fetchAlerts(packages);
 
   const hasAnyFixture = alerts.some(
-    alert => alert.packageName === TEST_FIXTURES.ALERT_TO_RESOLVE.packageName ||
-             alert.packageName === TEST_FIXTURES.ALERT_TO_CAPTURE.packageName
+    (alert) =>
+      alert.packageName === TEST_FIXTURES.ALERT_TO_RESOLVE.packageName ||
+      alert.packageName === TEST_FIXTURES.ALERT_TO_CAPTURE.packageName,
   );
 
   expect(hasAnyFixture).toBe(false);
@@ -119,17 +130,19 @@ test("Test Fixtures - OVERRIDE_TO_REMOVE has no dependents", () => {
 });
 
 test("Test Fixtures - OSVProvider uses concat for immutable array operations", async () => {
-  const provider = new OSVProvider({ debug: false, isIRLFix: true, isIRLCatch: false });
+  const provider = new OSVProvider({
+    debug: false,
+    isIRLFix: true,
+    isIRLCatch: false,
+  });
 
-  const packages = [
-    { name: "test-package", version: "1.0.0" },
-  ];
+  const packages = [{ name: "test-package", version: "1.0.0" }];
 
   const alerts = await provider.fetchAlerts(packages);
   const originalLength = alerts.length;
 
   const hasFixture = alerts.some(
-    alert => alert.packageName === TEST_FIXTURES.ALERT_TO_RESOLVE.packageName
+    (alert) => alert.packageName === TEST_FIXTURES.ALERT_TO_RESOLVE.packageName,
   );
 
   expect(hasFixture).toBe(true);

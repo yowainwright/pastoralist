@@ -1,14 +1,24 @@
 import { findPackageJsonFiles, updatePackageJSON } from "../packageJSON";
-import type { PastoralistJSON, Appendix, OverridesType, Options, ResolveOverrides } from "../../types";
+import type {
+  PastoralistJSON,
+  Appendix,
+  OverridesType,
+  Options,
+  ResolveOverrides,
+} from "../../types";
 import type { PastoralistConfig } from "../../config";
-import type { WriteResultContext, ProcessingMode, MergedConfig } from "../../types";
+import type {
+  WriteResultContext,
+  ProcessingMode,
+  MergedConfig,
+} from "../../types";
 import type { ConsoleObject } from "../../utils";
 
 export const findPackageFiles = (
   patterns: string[],
   root: string,
   ignore: string[],
-  log: ConsoleObject
+  log: ConsoleObject,
 ): string[] => {
   return findPackageJsonFiles(patterns, ignore, root, log);
 };
@@ -28,7 +38,7 @@ export const determineProcessingMode = (
   options: Options,
   config: PastoralistJSON,
   hasRootOverrides: boolean,
-  missingInRoot: string[]
+  missingInRoot: string[],
 ): ProcessingMode => {
   const configDepPaths = config.pastoralist?.depPaths;
   const hasOptionsDepPaths = options?.depPaths && options.depPaths.length > 0;
@@ -47,7 +57,7 @@ export const determineProcessingMode = (
 
 export const resolveDepPaths = (
   options: Options,
-  config: PastoralistJSON
+  config: PastoralistJSON,
 ): string[] | null => {
   if (options?.depPaths) return options.depPaths;
 
@@ -70,7 +80,7 @@ export const mergeAllConfigs = (
   cliOptions: Options,
   packageJsonConfig: PastoralistConfig | undefined,
   overridesData: ResolveOverrides,
-  overrides: OverridesType
+  overrides: OverridesType,
 ): MergedConfig => {
   const base = packageJsonConfig || {};
 
@@ -89,7 +99,7 @@ export const findRemovableOverrides = (
   overrides: OverridesType,
   appendix: Appendix,
   allDeps: Record<string, string>,
-  missingInRoot: string[]
+  missingInRoot: string[],
 ): string[] => {
   const removable: string[] = [];
 
@@ -106,7 +116,10 @@ export const findRemovableOverrides = (
   return removable;
 };
 
-export const hasOverrides = (options: Options | undefined, config: PastoralistJSON): boolean => {
+export const hasOverrides = (
+  options: Options | undefined,
+  config: PastoralistJSON,
+): boolean => {
   if (!options && !config) return false;
 
   const optionsOverrides = options?.securityOverrides;
@@ -116,8 +129,8 @@ export const hasOverrides = (options: Options | undefined, config: PastoralistJS
 
   return Boolean(
     (optionsOverrides && Object.keys(optionsOverrides).length > 0) ||
-    (configOverrides && Object.keys(configOverrides).length > 0) ||
-    (configResolutions && Object.keys(configResolutions).length > 0) ||
-    (configPnpmOverrides && Object.keys(configPnpmOverrides).length > 0)
+      (configOverrides && Object.keys(configOverrides).length > 0) ||
+      (configResolutions && Object.keys(configResolutions).length > 0) ||
+      (configPnpmOverrides && Object.keys(configPnpmOverrides).length > 0),
   );
 };

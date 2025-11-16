@@ -4,7 +4,7 @@
 ![ci](https://github.com/yowainwright/pastoralist/actions/workflows/ci.yml/badge.svg)
 [![codecov](https://codecov.io/gh/yowainwright/pastoralist/branch/main/graph/badge.svg)](https://codecov.io/gh/yowainwright/pastoralist)
 
-Pastoralist provides a dead simple way to singularly maintain node module dependencies and security issues in dependencies.
+Pastoralist provides a dead simple way to singularly maintain node module overrides AND security issues in dependencies.
 
 1. Pastoralist IS _set-it-and-forget-it automation_ for dependency overrides. Pastoralist automatically tracks, secures, and cleans up your `overrides`, `resolutions`, and `patches`.
 2. Pastoralist also provides an out-of-the-box solution for resolving dependency security alerts using the same pattern of overriding and tracking security vulnerabilities in node modules.

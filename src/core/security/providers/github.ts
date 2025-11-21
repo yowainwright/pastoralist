@@ -6,7 +6,7 @@ import {
   SecurityCheckOptions,
   GithubApiError,
 } from "../../../types";
-import { logger } from "../../../utils";
+import { logger, retry } from "../../../utils";
 import {
   SECURITY_ENV_VARS,
   MOCK_DEPENDABOT_ALERT_LODASH,
@@ -197,23 +197,36 @@ export class GitHubSecurityProvider {
     }
   }
 
+  private async executeGhCli(): Promise<string> {
+    const args = [
+      "api",
+      `repos/${this.owner}/${this.repo}/dependabot/alerts`,
+      "--paginate",
+    ];
+    this.log.debug(
+      `Fetching alerts with gh CLI: gh ${args.join(" ")}`,
+      "executeGhCli",
+    );
+
+    const { stdout } = await execFileAsync("gh", args);
+    this.log.debug(`gh CLI stdout length: ${stdout.length}`, "executeGhCli");
+    return stdout;
+  }
+
   private async fetchAlertsWithGhCli(): Promise<DependabotAlert[]> {
     try {
-      const args = [
-        "api",
-        `repos/${this.owner}/${this.repo}/dependabot/alerts`,
-        "--paginate",
-      ];
-      this.log.debug(
-        `Fetching alerts with gh CLI: gh ${args.join(" ")}`,
-        "fetchAlertsWithGhCli",
-      );
+      const stdout = await retry(() => this.executeGhCli(), {
+        retries: 3,
+        factor: 2,
+        minTimeout: 1000,
+        onFailedAttempt: (error) => {
+          this.log.debug(
+            `gh CLI attempt ${error.attemptNumber} failed`,
+            "fetchAlertsWithGhCli",
+          );
+        },
+      });
 
-      const { stdout } = await execFileAsync("gh", args);
-      this.log.debug(
-        `gh CLI stdout length: ${stdout.length}`,
-        "fetchAlertsWithGhCli",
-      );
       const alerts = JSON.parse(stdout);
       this.log.debug(
         `Parsed ${Array.isArray(alerts) ? alerts.length : "non-array"} alerts`,
@@ -231,26 +244,40 @@ export class GitHubSecurityProvider {
     }
   }
 
-  private async fetchAlertsWithApi(): Promise<DependabotAlert[]> {
+  private async fetchFromGitHubAPI(): Promise<DependabotAlert[]> {
     const url = `https://api.github.com/repos/${this.owner}/${this.repo}/dependabot/alerts`;
 
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    });
+
+    if (!response.ok) {
+      const error: GithubApiError = await response.json();
+      throw new Error(
+        `GitHub API error: ${error.message || response.statusText}`,
+      );
+    }
+
+    const alerts = await response.json();
+    return Array.isArray(alerts) ? alerts : [];
+  }
+
+  private async fetchAlertsWithApi(): Promise<DependabotAlert[]> {
     try {
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${this.token}`,
-          Accept: "application/vnd.github.v3+json",
+      return await retry(() => this.fetchFromGitHubAPI(), {
+        retries: 3,
+        factor: 2,
+        minTimeout: 1000,
+        onFailedAttempt: (error) => {
+          this.log.debug(
+            `GitHub API attempt ${error.attemptNumber} failed`,
+            "fetchAlertsWithApi",
+          );
         },
       });
-
-      if (!response.ok) {
-        const error: GithubApiError = await response.json();
-        throw new Error(
-          `GitHub API error: ${error.message || response.statusText}`,
-        );
-      }
-
-      const alerts = await response.json();
-      return Array.isArray(alerts) ? alerts : [];
     } catch (error) {
       this.log.error("Failed to fetch alerts with API", "fetchAlertsWithApi", {
         error,

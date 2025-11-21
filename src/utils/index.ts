@@ -22,3 +22,13 @@ export {
 export { logger, logMethod } from "./logger";
 export type { ConsoleObject, LoggerOptions } from "./logger";
 export { compareVersions } from "./semver";
+export { ConcurrencyLimiter, createLimit } from "./limit";
+export { LRUCache } from "./lru";
+export { retry } from "./retry";
+export type {
+  Task,
+  QueueItem,
+  LRUCacheOptions,
+  RetryOptions,
+  RetryError,
+} from "./types";

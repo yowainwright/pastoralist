@@ -189,3 +189,30 @@ test("convertSocketAlerts - should handle multiple issues per package", () => {
   expect(alerts[0].packageName).toBe("multi-issue-pkg");
   expect(alerts[1].packageName).toBe("multi-issue-pkg");
 });
+test("Severity Mapping - should handle uppercase severity", () => {
+  const provider = new SocketCLIProvider({ debug: false });
+  expect((provider as any).mapSocketSeverity("CRITICAL")).toBe("critical");
+  expect((provider as any).mapSocketSeverity("HIGH")).toBe("high");
+  expect((provider as any).mapSocketSeverity("MODERATE")).toBe("medium");
+  expect((provider as any).mapSocketSeverity("INFO")).toBe("low");
+});
+
+test("Alert Conversion - should use url field if provided", () => {
+  const provider = new SocketCLIProvider({ debug: false });
+  const pkg = { name: "test-package", version: "1.0.0" };
+  const issue = {
+    type: "vulnerability",
+    severity: "high",
+    title: "Test",
+    url: "https://custom.url/vuln",
+  };
+
+  const alert = (provider as any).convertIssueToAlert(pkg, issue);
+  expect(alert.url).toBe("https://custom.url/vuln");
+});
+
+test("convertSocketAlerts - should handle missing packages array", () => {
+  const provider = new SocketCLIProvider({ debug: false });
+  const alerts = (provider as any).convertSocketAlerts({ packages: null });
+  expect(alerts).toEqual([]);
+});

@@ -141,3 +141,44 @@ test("Snyk Result Conversion - should return empty array for non-array vulnerabi
   });
   expect(alerts).toEqual([]);
 });
+test("Vulnerability Conversion - should use name field if packageName missing", () => {
+  const provider = new SnykCLIProvider({ debug: false });
+  const vuln = {
+    name: "test-package",
+    version: "1.0.0",
+    severity: "medium",
+    title: "Security Issue",
+    description: "Some security issue",
+    id: "SNYK-JS-TEST-123",
+  };
+
+  const alert = (provider as any).convertVulnToAlert(vuln);
+  expect(alert.packageName).toBe("test-package");
+});
+
+test("Severity Normalization - should handle uppercase severity", () => {
+  const provider = new SnykCLIProvider({ debug: false });
+  expect((provider as any).normalizeSeverity("CRITICAL")).toBe("critical");
+  expect((provider as any).normalizeSeverity("HIGH")).toBe("high");
+  expect((provider as any).normalizeSeverity("MEDIUM")).toBe("medium");
+  expect((provider as any).normalizeSeverity("LOW")).toBe("low");
+});
+
+test("Version Extraction - should handle non-string upgradePath items", () => {
+  const provider = new SnykCLIProvider({ debug: false });
+  const vuln = {
+    upgradePath: [null, 123],
+  };
+  const version = (provider as any).extractPatchedVersion(vuln);
+  expect(version).toBeUndefined();
+});
+
+test("Version Extraction - should prefer fixedIn over upgradePath", () => {
+  const provider = new SnykCLIProvider({ debug: false });
+  const vuln = {
+    fixedIn: ["2.0.0"],
+    upgradePath: ["package@1.0.0", "package@1.5.0"],
+  };
+  const version = (provider as any).extractPatchedVersion(vuln);
+  expect(version).toBe("2.0.0");
+});

@@ -183,7 +183,10 @@ test("fetchAlerts - should handle multiple packages", async () => {
 });
 
 test("fetchAlerts - should handle fetch errors gracefully", async () => {
-  const provider = new OSVProvider({ debug: false });
+  const provider = new OSVProvider({
+    debug: false,
+    retryOptions: { retries: 1, minTimeout: 10 },
+  });
   const originalFetch = global.fetch;
 
   global.fetch = mock(() => {
@@ -200,7 +203,10 @@ test("fetchAlerts - should handle fetch errors gracefully", async () => {
 });
 
 test("fetchAlerts - should handle non-ok responses", async () => {
-  const provider = new OSVProvider({ debug: false });
+  const provider = new OSVProvider({
+    debug: false,
+    retryOptions: { retries: 1, minTimeout: 10 },
+  });
   const originalFetch = global.fetch;
 
   global.fetch = mock(() => {

@@ -382,3 +382,47 @@ test("fetchAlerts - should convert Dependabot alerts to SecurityAlerts", async (
   }
   delete process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE];
 });
+test("extractCurrentVersion - should extract version from >= range", () => {
+  process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
+  const provider = new GitHubSecurityProvider({ debug: false });
+  const alert: DependabotAlert = {
+    ...(MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert),
+    security_vulnerability: {
+      ...MOCK_DEPENDABOT_ALERT_LODASH.security_vulnerability,
+      vulnerable_version_range: ">= 4.0.0",
+    },
+  };
+
+  const version = (provider as any).extractCurrentVersion(alert);
+  expect(version).toBe("4.0.0");
+});
+
+test("extractCurrentVersion - should extract version from >= <= range", () => {
+  process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
+  const provider = new GitHubSecurityProvider({ debug: false });
+  const alert: DependabotAlert = {
+    ...(MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert),
+    security_vulnerability: {
+      ...MOCK_DEPENDABOT_ALERT_LODASH.security_vulnerability,
+      vulnerable_version_range: ">= 4.0.0, <= 4.17.20",
+    },
+  };
+
+  const version = (provider as any).extractCurrentVersion(alert);
+  expect(version).toBe("4.0.0");
+});
+
+test("extractCurrentVersion - should return unknown for unparseable range", () => {
+  process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
+  const provider = new GitHubSecurityProvider({ debug: false });
+  const alert: DependabotAlert = {
+    ...(MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert),
+    security_vulnerability: {
+      ...MOCK_DEPENDABOT_ALERT_LODASH.security_vulnerability,
+      vulnerable_version_range: "< 1.0.0",
+    },
+  };
+
+  const version = (provider as any).extractCurrentVersion(alert);
+  expect(version).toBe("unknown");
+});

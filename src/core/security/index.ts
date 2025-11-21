@@ -13,7 +13,7 @@ import {
   SecurityOverrideDetail,
 } from "../../types";
 import { PastoralistJSON, OverridesType } from "../../types";
-import { logger } from "../../utils";
+import { logger, LRUCache } from "../../utils";
 import { compareVersions } from "../../utils/semver";
 import {
   InteractiveSecurityManager,
@@ -31,6 +31,7 @@ export * from "./providers";
 export class SecurityChecker {
   private providers: SecurityProvider[];
   private log: ReturnType<typeof logger>;
+  private cache: LRUCache<string, SecurityAlert[]>;
 
   constructor(
     options: SecurityCheckOptions & {
@@ -41,6 +42,10 @@ export class SecurityChecker {
   ) {
     this.log = logger({ file: "security/index.ts", isLogging: options.debug });
     this.providers = this.createProviders(options);
+    this.cache = new LRUCache({
+      max: 500,
+      ttl: 1000 * 60 * 60,
+    });
   }
 
   private createProviders(
@@ -102,6 +107,20 @@ export class SecurityChecker {
     }
   }
 
+  private generateCacheKey(
+    packages: Array<{ name: string; version: string }>,
+  ): string {
+    const packageKeys = packages
+      .map((p) => `${p.name}@${p.version}`)
+      .sort()
+      .join("|");
+    const providerNames = this.providers
+      .map((p) => p.constructor.name)
+      .sort()
+      .join("|");
+    return `${providerNames}:${packageKeys}`;
+  }
+
   async checkSecurity(
     config: PastoralistJSON,
     options: SecurityCheckOptions & {
@@ -124,10 +143,21 @@ export class SecurityChecker {
         return { alerts: [], overrides: [], updates: [] };
       }
 
-      const allAlerts = await Promise.all(
-        this.providers.map((provider) => provider.fetchAlerts(packages)),
-      );
-      const alerts = allAlerts.flat();
+      const cacheKey = this.generateCacheKey(packages);
+      const cachedAlerts = this.cache.get(cacheKey);
+
+      let alerts: SecurityAlert[];
+
+      if (cachedAlerts) {
+        this.log.debug("Using cached security results", "checkSecurity");
+        alerts = cachedAlerts;
+      } else {
+        const allAlerts = await Promise.all(
+          this.providers.map((provider) => provider.fetchAlerts(packages)),
+        );
+        alerts = allAlerts.flat();
+        this.cache.set(cacheKey, alerts);
+      }
 
       this.log.debug(
         `Found ${alerts.length} security alerts from ${this.providers.length} provider(s)`,
@@ -238,13 +268,15 @@ export class SecurityChecker {
         absolute: true,
       });
 
-      const allVulnerabilities = packageFiles.reduce((acc, packageFile) => {
-        const pkgJson = this.readPackageFile(packageFile);
-        if (!pkgJson) return acc;
+      const vulnerabilityResults = await Promise.all(
+        packageFiles.map(async (packageFile) => {
+          const pkgJson = this.readPackageFile(packageFile);
+          if (!pkgJson) return [];
+          return this.extractNewVulnerabilities(pkgJson, alerts, []);
+        }),
+      );
 
-        const newVulns = this.extractNewVulnerabilities(pkgJson, alerts, acc);
-        return [...acc, ...newVulns];
-      }, [] as SecurityAlert[]);
+      const allVulnerabilities = vulnerabilityResults.flat();
 
       return allVulnerabilities;
     } catch (error) {

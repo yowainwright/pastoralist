@@ -1,5 +1,5 @@
 import { SecurityAlert, OSVVulnerability } from "../../../types";
-import { logger, createLimit, retry, type RetryOptions } from "../../../utils";
+import { logger, retry, type RetryOptions } from "../../../utils";
 import { TEST_FIXTURES } from "../../../constants";
 
 export class OSVProvider {
@@ -7,7 +7,6 @@ export class OSVProvider {
   protected isIRLFix: boolean;
   protected isIRLCatch: boolean;
   protected log: ReturnType<typeof logger>;
-  protected limit: ReturnType<typeof createLimit>;
   protected retryOptions: RetryOptions;
 
   constructor(
@@ -22,7 +21,6 @@ export class OSVProvider {
     this.isIRLFix = options.isIRLFix || false;
     this.isIRLCatch = options.isIRLCatch || false;
     this.log = logger({ file: "security/osv.ts", isLogging: this.debug });
-    this.limit = createLimit(5);
     this.retryOptions = options.retryOptions || {
       retries: 3,
       factor: 2,
@@ -43,91 +41,66 @@ export class OSVProvider {
     }
   }
 
-  private async fetchFromOSVAPI(pkg: {
-    name: string;
-    version: string;
-  }): Promise<{ vulns?: OSVVulnerability[] }> {
-    const response = await fetch("https://api.osv.dev/v1/query", {
+  private async fetchFromOSVBatchAPI(
+    packages: Array<{ name: string; version: string }>,
+  ): Promise<Array<{ vulns?: OSVVulnerability[] }>> {
+    const queries = packages.map((pkg) => ({
+      package: { name: pkg.name, ecosystem: "npm" },
+      version: pkg.version,
+    }));
+
+    const response = await fetch("https://api.osv.dev/v1/querybatch", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        package: { name: pkg.name, ecosystem: "npm" },
-        version: pkg.version,
-      }),
+      body: JSON.stringify({ queries }),
     });
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
 
-    return await response.json();
-  }
-
-  private handleFetchError(
-    pkg: { name: string; version: string },
-    error: unknown,
-  ): null {
-    this.log.debug(
-      `Failed to check ${pkg.name}@${pkg.version} after retries`,
-      "fetchAlerts",
-      { error },
-    );
-    return null;
-  }
-
-  private handleRetryAttempt(
-    pkg: { name: string; version: string },
-    attemptNumber: number,
-  ): void {
-    this.log.debug(
-      `Attempt ${attemptNumber} failed for ${pkg.name}@${pkg.version}`,
-      "fetchAlerts",
-    );
+    const data = await response.json();
+    return data.results || [];
   }
 
   async fetchAlerts(
     packages: Array<{ name: string; version: string }>,
   ): Promise<SecurityAlert[]> {
     this.log.debug(`OSV checking ${packages.length} packages`, "fetchAlerts");
-    type FetchResult = {
-      pkg: { name: string; version: string };
-      vulns: OSVVulnerability[];
-    } | null;
 
-    const fetchPackageVulnerabilities = (pkg: {
-      name: string;
-      version: string;
-    }): Promise<FetchResult> => {
-      return this.limit(() =>
-        retry(
-          async () => {
-            const data = await this.fetchFromOSVAPI(pkg);
-            const hasVulns = data.vulns && data.vulns.length > 0;
-            return hasVulns ? { pkg, vulns: data.vulns! } : null;
-          },
-          {
-            ...this.retryOptions,
-            onFailedAttempt: (error) => {
-              this.handleRetryAttempt(pkg, error.attemptNumber);
-            },
-          },
-        ).catch((error) => this.handleFetchError(pkg, error)),
+    if (packages.length === 0) {
+      return [];
+    }
+
+    const batchResults = await retry(
+      async () => {
+        return this.fetchFromOSVBatchAPI(packages);
+      },
+      {
+        ...this.retryOptions,
+        onFailedAttempt: (error) => {
+          this.log.debug(
+            `Batch API attempt ${error.attemptNumber} failed`,
+            "fetchAlerts",
+          );
+        },
+      },
+    ).catch((error) => {
+      this.log.debug(
+        "Failed to fetch batch results after retries",
+        "fetchAlerts",
+        { error },
       );
-    };
+      return [];
+    });
 
-    const isValidResult = (
-      result: FetchResult,
-    ): result is NonNullable<FetchResult> => {
-      return result !== null;
-    };
-
-    const results = await Promise.all(
-      packages.map(fetchPackageVulnerabilities),
-    );
-
-    const realAlerts = results
-      .filter(isValidResult)
-      .flatMap((result) => this.convertOSVAlerts(result.pkg, result.vulns));
+    const realAlerts = packages
+      .map((pkg, index) => {
+        const result = batchResults[index];
+        const hasVulns = result?.vulns && result.vulns.length > 0;
+        return hasVulns ? this.convertOSVAlerts(pkg, result.vulns!) : [];
+      })
+      .flat();
 
     const alertToResolve = this.isIRLFix
       ? [TEST_FIXTURES.ALERT_TO_RESOLVE]

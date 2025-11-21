@@ -24,6 +24,7 @@
     "clean-dist": "bun run scripts/clean.ts",
     "commit": "git-cz",
     "dev": "bun run --cwd app dev",
+    "dryrun": "bun run src/index.ts --dryRun",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
     "lint": "oxlint src app",

@@ -57,7 +57,7 @@ test("fetchAlerts - should return empty array when no vulnerabilities found", as
   global.fetch = mock(() => {
     return Promise.resolve({
       ok: true,
-      json: () => Promise.resolve({ vulns: [] }),
+      json: () => Promise.resolve({ results: [{ vulns: [] }] }),
     } as Response);
   });
 
@@ -108,7 +108,7 @@ test("fetchAlerts - should convert OSV vulnerabilities to SecurityAlerts", async
   global.fetch = mock(() => {
     return Promise.resolve({
       ok: true,
-      json: () => Promise.resolve({ vulns: [mockVuln] }),
+      json: () => Promise.resolve({ results: [{ vulns: [mockVuln] }] }),
     } as Response);
   });
 
@@ -133,41 +133,38 @@ test("fetchAlerts - should handle multiple packages", async () => {
   const provider = new OSVProvider({ debug: false });
   const originalFetch = global.fetch;
 
-  global.fetch = mock((url: string, options: any) => {
-    const body = JSON.parse(options.body);
-    const packageName = body.package.name;
-
-    if (packageName === "lodash") {
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            vulns: [
-              {
-                id: "OSV-2021-1234",
-                summary: "Vuln in lodash",
-                details: "Details",
-                affected: [
-                  {
-                    package: { name: "lodash", ecosystem: "npm" },
-                    ranges: [
-                      {
-                        type: "SEMVER",
-                        events: [{ introduced: "0" }, { fixed: "4.17.21" }],
-                      },
-                    ],
-                  },
-                ],
-                references: [{ type: "ADVISORY", url: "https://example.com" }],
-              },
-            ],
-          }),
-      } as Response);
-    }
-
+  global.fetch = mock(() => {
     return Promise.resolve({
       ok: true,
-      json: () => Promise.resolve({ vulns: [] }),
+      json: () =>
+        Promise.resolve({
+          results: [
+            {
+              vulns: [
+                {
+                  id: "OSV-2021-1234",
+                  summary: "Vuln in lodash",
+                  details: "Details",
+                  affected: [
+                    {
+                      package: { name: "lodash", ecosystem: "npm" },
+                      ranges: [
+                        {
+                          type: "SEMVER",
+                          events: [{ introduced: "0" }, { fixed: "4.17.21" }],
+                        },
+                      ],
+                    },
+                  ],
+                  references: [
+                    { type: "ADVISORY", url: "https://example.com" },
+                  ],
+                },
+              ],
+            },
+            { vulns: [] },
+          ],
+        }),
     } as Response);
   });
 
@@ -253,7 +250,7 @@ test("fetchAlerts - should extract severity correctly", async () => {
   global.fetch = mock(() => {
     return Promise.resolve({
       ok: true,
-      json: () => Promise.resolve({ vulns: [mockVuln] }),
+      json: () => Promise.resolve({ results: [{ vulns: [mockVuln] }] }),
     } as Response);
   });
 
@@ -291,7 +288,7 @@ test("fetchAlerts - should default to medium severity when not specified", async
   global.fetch = mock(() => {
     return Promise.resolve({
       ok: true,
-      json: () => Promise.resolve({ vulns: [mockVuln] }),
+      json: () => Promise.resolve({ results: [{ vulns: [mockVuln] }] }),
     } as Response);
   });
 
@@ -330,7 +327,7 @@ test("fetchAlerts - should extract CVE from aliases", async () => {
   global.fetch = mock(() => {
     return Promise.resolve({
       ok: true,
-      json: () => Promise.resolve({ vulns: [mockVuln] }),
+      json: () => Promise.resolve({ results: [{ vulns: [mockVuln] }] }),
     } as Response);
   });
 
@@ -369,7 +366,7 @@ test("fetchAlerts - should return undefined for CVE when not in aliases", async 
   global.fetch = mock(() => {
     return Promise.resolve({
       ok: true,
-      json: () => Promise.resolve({ vulns: [mockVuln] }),
+      json: () => Promise.resolve({ results: [{ vulns: [mockVuln] }] }),
     } as Response);
   });
 
@@ -407,7 +404,7 @@ test("fetchAlerts - should use default URL when no references", async () => {
   global.fetch = mock(() => {
     return Promise.resolve({
       ok: true,
-      json: () => Promise.resolve({ vulns: [mockVuln] }),
+      json: () => Promise.resolve({ results: [{ vulns: [mockVuln] }] }),
     } as Response);
   });
 

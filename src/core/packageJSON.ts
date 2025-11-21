@@ -274,6 +274,19 @@ const formatJson = (config: PastoralistJSON): string => {
   return JSON.stringify(config, null, 2) + "\n";
 };
 
+const countPastoralistLines = (config: PastoralistJSON): number => {
+  if (!config.pastoralist) return 0;
+
+  const pastoralistJson = JSON.stringify(config.pastoralist, null, 2);
+  const lines = pastoralistJson.split("\n");
+  return lines.length;
+};
+
+const shouldSuggestRcFile = (config: PastoralistJSON): boolean => {
+  const lineCount = countPastoralistLines(config);
+  return lineCount > 10;
+};
+
 const writeJsonFile = (path: string, content: string): void => {
   const jsonPath = resolve(path);
 
@@ -333,6 +346,14 @@ export const updatePackageJSON = ({
 
   const normalizedPath = resolve(path);
   jsonCache.delete(normalizedPath);
+
+  if (shouldSuggestRcFile(updatedConfig)) {
+    console.log(
+      "\n💡 Tip: Your pastoralist config is getting large (>10 lines).",
+    );
+    console.log("   Consider moving it to a .pastoralistrc file using:");
+    console.log("   pastoralist init --useRcConfigFile\n");
+  }
 };
 
 export const parseNpmLsOutput = (stdout: string): Record<string, boolean> => {

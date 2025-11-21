@@ -360,5 +360,10 @@ echo "=============================="
 /app/scripts/test-cli-flags.sh
 print_result $? "CLI flags tests completed"
 
+echo "\n📝 Running RC File Suggestion Tests..."
+echo "=============================="
+/app/scripts/test-rc-file-suggestion.sh
+print_result $? "RC file suggestion tests completed"
+
 echo "\n🎯 All E2E tests passed!"
 echo "===================================="

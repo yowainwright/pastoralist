@@ -1,5 +1,5 @@
 import { SecurityAlert, OSVVulnerability } from "../../../types";
-import { logger } from "../../../utils";
+import { logger, createLimit, retry, type RetryOptions } from "../../../utils";
 import { TEST_FIXTURES } from "../../../constants";
 
 export class OSVProvider {
@@ -7,14 +7,27 @@ export class OSVProvider {
   protected isIRLFix: boolean;
   protected isIRLCatch: boolean;
   protected log: ReturnType<typeof logger>;
+  protected limit: ReturnType<typeof createLimit>;
+  protected retryOptions: RetryOptions;
 
   constructor(
-    options: { debug?: boolean; isIRLFix?: boolean; isIRLCatch?: boolean } = {},
+    options: {
+      debug?: boolean;
+      isIRLFix?: boolean;
+      isIRLCatch?: boolean;
+      retryOptions?: RetryOptions;
+    } = {},
   ) {
     this.debug = options.debug || false;
     this.isIRLFix = options.isIRLFix || false;
     this.isIRLCatch = options.isIRLCatch || false;
     this.log = logger({ file: "security/osv.ts", isLogging: this.debug });
+    this.limit = createLimit(5);
+    this.retryOptions = options.retryOptions || {
+      retries: 3,
+      factor: 2,
+      minTimeout: 1000,
+    };
   }
 
   async isAvailable(): Promise<boolean> {
@@ -30,6 +43,48 @@ export class OSVProvider {
     }
   }
 
+  private async fetchFromOSVAPI(pkg: {
+    name: string;
+    version: string;
+  }): Promise<{ vulns?: OSVVulnerability[] }> {
+    const response = await fetch("https://api.osv.dev/v1/query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        package: { name: pkg.name, ecosystem: "npm" },
+        version: pkg.version,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    return await response.json();
+  }
+
+  private handleFetchError(
+    pkg: { name: string; version: string },
+    error: unknown,
+  ): null {
+    this.log.debug(
+      `Failed to check ${pkg.name}@${pkg.version} after retries`,
+      "fetchAlerts",
+      { error },
+    );
+    return null;
+  }
+
+  private handleRetryAttempt(
+    pkg: { name: string; version: string },
+    attemptNumber: number,
+  ): void {
+    this.log.debug(
+      `Attempt ${attemptNumber} failed for ${pkg.name}@${pkg.version}`,
+      "fetchAlerts",
+    );
+  }
+
   async fetchAlerts(
     packages: Array<{ name: string; version: string }>,
   ): Promise<SecurityAlert[]> {
@@ -43,32 +98,21 @@ export class OSVProvider {
       name: string;
       version: string;
     }): Promise<FetchResult> => {
-      return fetch("https://api.osv.dev/v1/query", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          package: { name: pkg.name, ecosystem: "npm" },
-          version: pkg.version,
-        }),
-      })
-        .then(async (response) => {
-          if (!response.ok) return null;
-
-          const data = (await response.json()) as {
-            vulns?: OSVVulnerability[];
-          };
-          const hasVulns = data.vulns && data.vulns.length > 0;
-
-          return hasVulns ? { pkg, vulns: data.vulns! } : null;
-        })
-        .catch((error) => {
-          this.log.debug(
-            `Failed to check ${pkg.name}@${pkg.version}`,
-            "fetchAlerts",
-            { error },
-          );
-          return null;
-        });
+      return this.limit(() =>
+        retry(
+          async () => {
+            const data = await this.fetchFromOSVAPI(pkg);
+            const hasVulns = data.vulns && data.vulns.length > 0;
+            return hasVulns ? { pkg, vulns: data.vulns! } : null;
+          },
+          {
+            ...this.retryOptions,
+            onFailedAttempt: (error) => {
+              this.handleRetryAttempt(pkg, error.attemptNumber);
+            },
+          },
+        ).catch((error) => this.handleFetchError(pkg, error)),
+      );
     };
 
     const isValidResult = (

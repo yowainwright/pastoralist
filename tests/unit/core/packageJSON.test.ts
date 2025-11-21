@@ -609,3 +609,131 @@ test("updatePackageJSON - should write to non-root package.json", () => {
   }
   validateRootPackageJsonIntegrity();
 });
+test("updatePackageJSON - should not show RC file suggestion for small config", () => {
+  validateRootPackageJsonIntegrity();
+  if (!existsSync(testDir)) {
+    mkdirSync(testDir, { recursive: true });
+  }
+
+  const config: PastoralistJSON = {
+    name: "test-pkg",
+    version: "1.0.0",
+  };
+
+  const smallAppendix = {
+    "lodash@4.17.21": {
+      dependents: { app: "lodash@^4.17.0" },
+    },
+  };
+
+  const overrides: OverridesType = { lodash: "4.17.21" };
+
+  const originalConsoleLog = console.log;
+  const logCalls: string[] = [];
+  console.log = (...args: any[]) => {
+    logCalls.push(args.join(" "));
+  };
+
+  writeFileSync(testPkgPath, JSON.stringify(config, null, 2));
+
+  updatePackageJSON({
+    path: testPkgPath,
+    config,
+    appendix: smallAppendix,
+    overrides,
+    isTesting: false,
+  });
+
+  console.log = originalConsoleLog;
+
+  const hasRcSuggestion = logCalls.some((log) =>
+    log.includes("pastoralist init --useRcConfigFile"),
+  );
+  expect(hasRcSuggestion).toBe(false);
+
+  if (existsSync(testDir)) {
+    rmSync(testDir, { recursive: true, force: true });
+  }
+  validateRootPackageJsonIntegrity();
+});
+
+test("updatePackageJSON - should show RC file suggestion for large config", () => {
+  validateRootPackageJsonIntegrity();
+  if (!existsSync(testDir)) {
+    mkdirSync(testDir, { recursive: true });
+  }
+
+  const config: PastoralistJSON = {
+    name: "test-pkg",
+    version: "1.0.0",
+  };
+
+  const largeAppendix: Record<string, any> = {};
+  for (let i = 0; i < 15; i++) {
+    largeAppendix[`package${i}@1.0.0`] = {
+      dependents: { app: `package${i}@^1.0.0` },
+    };
+  }
+
+  const overrides: OverridesType = { lodash: "4.17.21" };
+
+  const originalConsoleLog = console.log;
+  const logCalls: string[] = [];
+  console.log = (...args: any[]) => {
+    logCalls.push(args.join(" "));
+  };
+
+  writeFileSync(testPkgPath, JSON.stringify(config, null, 2));
+
+  updatePackageJSON({
+    path: testPkgPath,
+    config,
+    appendix: largeAppendix,
+    overrides,
+    isTesting: false,
+  });
+
+  console.log = originalConsoleLog;
+
+  const hasRcSuggestion = logCalls.some((log) =>
+    log.includes("pastoralist init --useRcConfigFile"),
+  );
+  expect(hasRcSuggestion).toBe(true);
+
+  const hasTipMessage = logCalls.some((log) =>
+    log.includes("Your pastoralist config is getting large"),
+  );
+  expect(hasTipMessage).toBe(true);
+
+  if (existsSync(testDir)) {
+    rmSync(testDir, { recursive: true, force: true });
+  }
+  validateRootPackageJsonIntegrity();
+});
+
+test("updatePackageJSON - should not show RC file suggestion in test mode", () => {
+  const config: PastoralistJSON = {
+    name: "test-pkg",
+    version: "1.0.0",
+  };
+
+  const largeAppendix: Record<string, any> = {};
+  for (let i = 0; i < 15; i++) {
+    largeAppendix[`package${i}@1.0.0`] = {
+      dependents: { app: `package${i}@^1.0.0` },
+    };
+  }
+
+  const overrides: OverridesType = { lodash: "4.17.21" };
+
+  const result = updatePackageJSON({
+    path: testPkgPath,
+    config,
+    appendix: largeAppendix,
+    overrides,
+    isTesting: true,
+  });
+
+  expect(result).toBeDefined();
+  expect(result?.pastoralist).toBeDefined();
+});

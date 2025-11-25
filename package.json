@@ -56,7 +56,7 @@
     "pnpm"
   ],
   "author": "Jeff Wainwright <https:jeffry.in> (yowainwright@gmail.com)",
-  "license": "MIT",
+  "license": "Elastic-2.0",
   "bugs": {
     "url": "https://github.com/yowainwright/pastoralist/issues"
   },

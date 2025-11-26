@@ -138,14 +138,16 @@ export const TransformDemo: React.FC = () => {
         <div className="flex flex-col flex-1">
           <div className="flex items-center gap-2 mb-3">
             <span className="text-base-content/60 text-sm">
-              Documented overrides
+              Undocumented overrides
             </span>
-            <span className="badge badge-success badge-lg">After</span>
+            <span
+              className="badge badge-lg text-white"
+              style={{ backgroundColor: "#ef4444", borderColor: "#ef4444" }}
+            >
+              Before
+            </span>
           </div>
-          <div
-            className="terminal-window flex-1"
-            style={{ minHeight: "420px" }}
-          >
+          <div className="terminal-window">
             <div className="terminal-header">
               <div className="terminal-dot terminal-dot-red" />
               <div className="terminal-dot terminal-dot-yellow" />
@@ -166,47 +168,15 @@ export const TransformDemo: React.FC = () => {
                 <span className="text-primary">"lodash"</span>:{" "}
                 <span className="text-success">"4.17.21"</span>
               </div>
-              <div className="terminal-line">
-                {"  }"}
-                {appendixLines > 0 ? "," : ""}
-              </div>
-              {appendixContent.slice(0, appendixLines).map((line, index) => (
-                <div key={index} className="terminal-line json-added">
-                  {line.includes('"pastoralist"') ||
-                  line.includes('"appendix"') ||
-                  line.includes('"lodash@') ||
-                  line.includes('"dependents"') ||
-                  line.includes('"express"') ||
-                  line.includes('"ledger"') ||
-                  line.includes('"reason"') ||
-                  line.includes('"cve"') ? (
-                    <span
-                      dangerouslySetInnerHTML={{
-                        __html: line
-                          .replace(
-                            /"([^"]+)":/g,
-                            '<span class="text-primary">"$1"</span>:',
-                          )
-                          .replace(
-                            /: "([^"]+)"/g,
-                            ': <span class="text-success">"$1"</span>',
-                          ),
-                      }}
-                    />
-                  ) : (
-                    line
-                  )}
-                </div>
-              ))}
-              {appendixLines < appendixContent.length &&
-                Array.from({
-                  length: appendixContent.length - appendixLines,
-                }).map((_, i) => (
-                  <div key={`placeholder-${i}`} className="terminal-line">
-                    &nbsp;
-                  </div>
-                ))}
+              <div className="terminal-line">{"  }"}</div>
               <div className="terminal-line text-base-content/50">{"}"}</div>
+              <div className="terminal-line">&nbsp;</div>
+              <div className="terminal-line text-base-content/40 italic">
+                // Why is this here?
+              </div>
+              <div className="terminal-line text-base-content/40 italic">
+                // Who depends on it?
+              </div>
             </div>
           </div>
         </div>
@@ -215,16 +185,11 @@ export const TransformDemo: React.FC = () => {
       <div className="flex flex-col">
         <div className="flex items-center gap-2 mb-3">
           <span className="text-base-content/60 text-sm">
-            Undocumented overrides
+            Documented overrides
           </span>
-          <span
-            className="badge badge-lg text-white"
-            style={{ backgroundColor: "#ef4444", borderColor: "#ef4444" }}
-          >
-            Before
-          </span>
+          <span className="badge badge-success badge-lg">After</span>
         </div>
-        <div className="terminal-window">
+        <div className="terminal-window flex-1" style={{ minHeight: "420px" }}>
           <div className="terminal-header">
             <div className="terminal-dot terminal-dot-red" />
             <div className="terminal-dot terminal-dot-yellow" />
@@ -242,15 +207,47 @@ export const TransformDemo: React.FC = () => {
               <span className="text-primary">"lodash"</span>:{" "}
               <span className="text-success">"4.17.21"</span>
             </div>
-            <div className="terminal-line">{"  }"}</div>
+            <div className="terminal-line">
+              {"  }"}
+              {appendixLines > 0 ? "," : ""}
+            </div>
+            {appendixContent.slice(0, appendixLines).map((line, index) => (
+              <div key={index} className="terminal-line json-added">
+                {line.includes('"pastoralist"') ||
+                line.includes('"appendix"') ||
+                line.includes('"lodash@') ||
+                line.includes('"dependents"') ||
+                line.includes('"express"') ||
+                line.includes('"ledger"') ||
+                line.includes('"reason"') ||
+                line.includes('"cve"') ? (
+                  <span
+                    dangerouslySetInnerHTML={{
+                      __html: line
+                        .replace(
+                          /"([^"]+)":/g,
+                          '<span class="text-primary">"$1"</span>:',
+                        )
+                        .replace(
+                          /: "([^"]+)"/g,
+                          ': <span class="text-success">"$1"</span>',
+                        ),
+                    }}
+                  />
+                ) : (
+                  line
+                )}
+              </div>
+            ))}
+            {appendixLines < appendixContent.length &&
+              Array.from({
+                length: appendixContent.length - appendixLines,
+              }).map((_, i) => (
+                <div key={`placeholder-${i}`} className="terminal-line">
+                  &nbsp;
+                </div>
+              ))}
             <div className="terminal-line text-base-content/50">{"}"}</div>
-            <div className="terminal-line">&nbsp;</div>
-            <div className="terminal-line text-base-content/40 italic">
-              // Why is this here?
-            </div>
-            <div className="terminal-line text-base-content/40 italic">
-              // Who depends on it?
-            </div>
           </div>
         </div>
       </div>

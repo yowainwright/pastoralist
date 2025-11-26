@@ -115,24 +115,21 @@ samp {
   background: linear-gradient(
     135deg,
     #ef4444 0%,
-    #f97316 14%,
-    #eab308 28%,
-    #22c55e 42%,
-    #14b8a6 56%,
-    #3b82f6 70%,
-    #8b5cf6 84%,
+    #f97316 12%,
+    #eab308 24%,
+    #22c55e 36%,
+    #14b8a6 48%,
+    #3b82f6 60%,
+    #7c3aed 75%,
+    #a855f7 85%,
     #ec4899 100%
   );
-  opacity: 0.15;
+  opacity: 0.2;
 }
 
 [data-theme="night"] .hero-blob {
-  background: linear-gradient(
-    to top right,
-    var(--fallback-p, oklch(var(--p) / 1)),
-    var(--fallback-p, oklch(var(--p) / 0.5))
-  );
-  opacity: 0.15;
+  background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #f472b6 100%);
+  opacity: 0.2;
 }
 
 /* Primary button - blue matching gradient start */

@@ -19,25 +19,16 @@ export const CodeBlockToggle: React.FC<CodeBlockToggleProps> = ({
           <div className="terminal-dot terminal-dot-green" />
         </div>
 
-        {/* Toggle buttons */}
-        <div className="flex gap-1 bg-slate-700/50 rounded-md p-1">
+        <div className="terminal-tabs">
           <button
             onClick={() => setActiveTab("cli")}
-            className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-              activeTab === "cli"
-                ? "bg-slate-600 text-white"
-                : "text-slate-400 hover:text-white"
-            }`}
+            className={`terminal-tab ${activeTab === "cli" ? "active" : ""}`}
           >
             CLI Output
           </button>
           <button
             onClick={() => setActiveTab("json")}
-            className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-              activeTab === "json"
-                ? "bg-slate-600 text-white"
-                : "text-slate-400 hover:text-white"
-            }`}
+            className={`terminal-tab ${activeTab === "json" ? "active" : ""}`}
           >
             package.json
           </button>

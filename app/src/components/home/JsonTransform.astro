@@ -1,10 +1,37 @@
 ---
+import { TransformDemo } from "./TransformDemo";
+import { CopyButton } from "../common/CopyButton";
 import { resolveDocsUrl } from "../../utils/urlResolver";
+import '../../styles/terminal.css';
 ---
 
-<div class="py-16 lg:py-24">
+<div class="relative py-16 lg:py-24 overflow-hidden">
+  <!-- Background gradient like Hero -->
+  <div
+    class="absolute inset-0 -z-10 transform-gpu overflow-hidden blur-3xl"
+    aria-hidden="true"
+  >
+    <div
+      class="hero-blob relative left-[calc(50%-11rem)] aspect-[1155/678] w-[40rem] -translate-x-1/2 rotate-[70deg] sm:left-[calc(50%-30rem)] sm:w-[72.1875rem]"
+      style={{
+        clipPath:
+          "polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 150%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)",
+      }}
+    >
+    </div>
+
+    <div
+      class="hero-blob relative left-[calc(50%-11rem)] aspect-[1155/678] w-[40rem] -translate-x-1/2 rotate-[70deg] sm:left-[calc(100%)] sm:w-[72.1875rem]"
+      style={{
+        clipPath:
+          "polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 150%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)",
+      }}
+    >
+    </div>
+  </div>
+
   <div class="max-w-2xl md:max-w-6xl mx-auto px-4">
-    <div class="text-center mb-12">
+    <div class="text-center mb-10">
       <h2 class="text-3xl lg:text-4xl font-black">
         See the <span class="gradient-text">Transformation</span>
       </h2>
@@ -14,63 +41,40 @@ import { resolveDocsUrl } from "../../utils/urlResolver";
       </p>
     </div>
 
-    <div class="grid md:grid-cols-2 gap-6 lg:gap-8">
-      <!-- Before -->
-      <div class="flex flex-col">
-        <div class="flex items-center gap-2 mb-3">
-          <span class="badge badge-outline badge-lg">Before</span>
-          <span class="text-base-content/60 text-sm">Undocumented overrides</span>
-        </div>
-        <div class="mockup-code bg-base-300 flex-1 text-sm">
-          <pre data-prefix=" "><code><span class="text-base-content/50">{"{"}</span></code></pre>
-          <pre data-prefix=" "><code>  <span class="text-primary">"name"</span>: <span class="text-success">"my-app"</span>,</code></pre>
-          <pre data-prefix=" "><code>  <span class="text-primary">"overrides"</span>: {"{"}</code></pre>
-          <pre data-prefix=" "><code>    <span class="text-primary">"lodash"</span>: <span class="text-success">"4.17.21"</span>,</code></pre>
-          <pre data-prefix=" "><code>    <span class="text-primary">"minimist"</span>: <span class="text-success">"1.2.8"</span></code></pre>
-          <pre data-prefix=" "><code>  {"}"}</code></pre>
-          <pre data-prefix=" "><code><span class="text-base-content/50">{"}"}</span></code></pre>
-          <pre data-prefix=" "><code></code></pre>
-          <pre data-prefix=" "><code class="text-base-content/40 italic">// Why are these here?</code></pre>
-          <pre data-prefix=" "><code class="text-base-content/40 italic">// Who depends on them?</code></pre>
-          <pre data-prefix=" "><code class="text-base-content/40 italic">// Are they still needed?</code></pre>
-        </div>
-      </div>
+    <!-- Animated Transform Demo -->
+    <TransformDemo client:only="react" />
 
-      <!-- After -->
-      <div class="flex flex-col">
-        <div class="flex items-center gap-2 mb-3">
-          <span class="badge badge-primary badge-lg">After</span>
-          <span class="text-base-content/60 text-sm">Full documentation</span>
+    <!-- Ready to get started -->
+    <div class="mt-16 text-center">
+      <h3 class="text-2xl lg:text-3xl font-black mb-6">
+        Ready to <span class="gradient-text">get started</span>?
+      </h3>
+      <div class="flex flex-col justify-center items-center gap-4">
+        <div class="flex items-center bg-base-300 rounded-lg shadow-sm h-12 px-4 border border-base-content/10">
+          <svg
+            width="22"
+            height="13"
+            viewBox="0 0 22 13"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            class="relative mr-2 block w-3 -rotate-90"
+          >
+            <path d="M1 1L11 11L21 1" stroke="currentColor" stroke-width="2"></path>
+          </svg>
+          <code class="flex-1 text-left leading-none text-base">
+            bun add -g pastoralist
+          </code>
+          <CopyButton client:only="react" />
         </div>
-        <div class="mockup-code bg-base-300 flex-1 text-sm overflow-x-auto">
-          <pre data-prefix=" "><code><span class="text-base-content/50">{"{"}</span></code></pre>
-          <pre data-prefix=" "><code>  <span class="text-primary">"name"</span>: <span class="text-success">"my-app"</span>,</code></pre>
-          <pre data-prefix=" "><code>  <span class="text-primary">"overrides"</span>: {"{"} <span class="text-base-content/40">/* ... */</span> {"}"},</code></pre>
-          <pre data-prefix="+"><code class="json-added">  <span class="text-primary">"pastoralist"</span>: {"{"}</code></pre>
-          <pre data-prefix="+"><code class="json-added">    <span class="text-primary">"appendix"</span>: {"{"}</code></pre>
-          <pre data-prefix="+"><code class="json-added">      <span class="text-primary">"lodash@4.17.21"</span>: {"{"}</code></pre>
-          <pre data-prefix="+"><code class="json-added">        <span class="text-primary">"dependents"</span>: {"{"}</code></pre>
-          <pre data-prefix="+"><code class="json-added">          <span class="text-primary">"express"</span>: <span class="text-success">"^4.18.0"</span></code></pre>
-          <pre data-prefix="+"><code class="json-added">        {"}"},</code></pre>
-          <pre data-prefix="+"><code class="json-added">        <span class="text-primary">"ledger"</span>: {"{"}</code></pre>
-          <pre data-prefix="+"><code class="json-added">          <span class="text-primary">"reason"</span>: <span class="text-success">"security"</span>,</code></pre>
-          <pre data-prefix="+"><code class="json-added">          <span class="text-primary">"cve"</span>: <span class="text-success">"CVE-2020-8203"</span></code></pre>
-          <pre data-prefix="+"><code class="json-added">        {"}"}</code></pre>
-          <pre data-prefix="+"><code class="json-added">      {"}"}</code></pre>
-          <pre data-prefix="+"><code class="json-added">    {"}"}</code></pre>
-          <pre data-prefix="+"><code class="json-added">  {"}"}</code></pre>
-          <pre data-prefix=" "><code><span class="text-base-content/50">{"}"}</span></code></pre>
-        </div>
+        <a href={resolveDocsUrl("introduction")}>
+          <button class="btn btn-lg btn-primary">
+            Learn More
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+            </svg>
+          </button>
+        </a>
       </div>
-    </div>
-
-    <div class="text-center mt-10">
-      <a href={resolveDocsUrl('configuration')} class="btn btn-outline btn-lg">
-        View Configuration Options
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-        </svg>
-      </a>
     </div>
   </div>
 </div>

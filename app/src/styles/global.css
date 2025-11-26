@@ -10,32 +10,29 @@
 }
 
 :root {
-  /* Light theme gradients */
+  /* Light theme gradients - blue to pink */
   --blue-teal-gradient: linear-gradient(
     90deg,
-    #1d4ed8 0%,
-    #3b82f6 35%,
-    #60a5fa 70%,
-    #93c5fd 100%
+    #3b82f6 0%,
+    #8b5cf6 50%,
+    #ec4899 100%
   );
   --blue-teal-gradient-light: linear-gradient(
     90deg,
-    rgba(29, 78, 216, 0.8) 0%,
-    rgba(59, 130, 246, 0.8) 35%,
-    rgba(96, 165, 250, 0.8) 70%,
-    rgba(147, 197, 253, 0.8) 100%
+    rgba(59, 130, 246, 0.8) 0%,
+    rgba(139, 92, 246, 0.8) 50%,
+    rgba(236, 72, 153, 0.8) 100%
   );
   --blue-teal-text-gradient: linear-gradient(
     90deg,
-    #1e40af 0%,
-    #1d4ed8 35%,
-    #3b82f6 70%,
-    #60a5fa 100%
+    #3b82f6 0%,
+    #8b5cf6 50%,
+    #f472b6 100%
   );
 
   /* Legacy variables for backward compatibility */
   --purple-gradient: var(--blue-teal-gradient);
-  --purple-dark: #1d4ed8;
+  --purple-dark: #3b82f6;
 }
 
 html,
@@ -72,32 +69,29 @@ samp {
 }
 
 [data-theme="night"] {
-  /* Dark theme gradients - slightly brighter for better contrast */
+  /* Dark theme gradients - blue to pink, brighter for dark mode */
   --blue-teal-gradient: linear-gradient(
     90deg,
-    #3b82f6 0%,
-    #60a5fa 35%,
-    #93c5fd 70%,
-    #bfdbfe 100%
+    #60a5fa 0%,
+    #a78bfa 50%,
+    #f472b6 100%
   );
   --blue-teal-gradient-light: linear-gradient(
     90deg,
-    rgba(59, 130, 246, 0.6) 0%,
-    rgba(96, 165, 250, 0.6) 35%,
-    rgba(147, 197, 253, 0.6) 70%,
-    rgba(191, 219, 254, 0.6) 100%
+    rgba(96, 165, 250, 0.6) 0%,
+    rgba(167, 139, 250, 0.6) 50%,
+    rgba(244, 114, 182, 0.6) 100%
   );
   --blue-teal-text-gradient: linear-gradient(
     90deg,
     #60a5fa 0%,
-    #3b82f6 35%,
-    #93c5fd 70%,
-    #bfdbfe 100%
+    #a78bfa 50%,
+    #f9a8d4 100%
   );
 
   /* Legacy variables for backward compatibility */
   --purple-gradient: var(--blue-teal-gradient);
-  --purple-dark: #3b82f6;
+  --purple-dark: #60a5fa;
 }
 
 /* Gradient utility classes */
@@ -114,6 +108,101 @@ samp {
 
 .gradient-bg-light {
   background: var(--blue-teal-gradient-light);
+}
+
+/* Hero background blobs - rainbow gradient in light mode */
+.hero-blob {
+  background: linear-gradient(
+    135deg,
+    #ef4444 0%,
+    #f97316 14%,
+    #eab308 28%,
+    #22c55e 42%,
+    #14b8a6 56%,
+    #3b82f6 70%,
+    #8b5cf6 84%,
+    #ec4899 100%
+  );
+  opacity: 0.15;
+}
+
+[data-theme="night"] .hero-blob {
+  background: linear-gradient(
+    to top right,
+    var(--fallback-p, oklch(var(--p) / 1)),
+    var(--fallback-p, oklch(var(--p) / 0.5))
+  );
+  opacity: 0.15;
+}
+
+/* Primary button - blue matching gradient start */
+.btn-primary {
+  background-color: #3b82f6 !important;
+  border-color: #3b82f6 !important;
+  color: white !important;
+  border-radius: 9999px !important;
+}
+
+.btn-primary:hover {
+  background-color: #2563eb !important;
+  border-color: #2563eb !important;
+}
+
+[data-theme="night"] .btn-primary {
+  background-color: #60a5fa !important;
+  border-color: #60a5fa !important;
+  color: #1e3a5f !important;
+}
+
+[data-theme="night"] .btn-primary:hover {
+  background-color: #3b82f6 !important;
+  border-color: #3b82f6 !important;
+}
+
+/* Check icon - teal */
+.check-icon {
+  color: #0d9488;
+}
+
+[data-theme="night"] .check-icon {
+  color: #2dd4bf;
+}
+
+/* Prose code blocks - Light mode */
+.prose pre {
+  background-color: #f8fafc !important;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #1e293b;
+}
+
+.prose code {
+  background-color: #f1f5f9;
+  color: #1e293b;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+}
+
+.prose pre code {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
+/* Prose code blocks - Dark mode */
+[data-theme="night"] .prose pre {
+  background-color: #1e293b !important;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+}
+
+[data-theme="night"] .prose code {
+  background-color: #334155;
+  color: #e2e8f0;
+}
+
+[data-theme="night"] .prose pre code {
+  background-color: transparent;
 }
 
 /* Improve mobile responsiveness */

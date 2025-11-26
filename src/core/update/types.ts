@@ -60,6 +60,6 @@ export interface WriteResultContext {
   config: PastoralistJSON;
   finalAppendix: Appendix;
   finalOverrides: OverridesType;
-  options: { dryRun?: boolean };
+  options: { dryRun?: boolean; outputFormat?: "text" | "json" };
   isTesting: boolean;
 }

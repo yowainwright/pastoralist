@@ -21,6 +21,7 @@ import {
   safeRmSync as rmSync,
   safeUnlinkSync as unlinkSync,
   safeExistsSync as existsSync,
+  safeReadFileSync,
   validateRootPackageJsonIntegrity,
 } from "../setup";
 
@@ -736,4 +737,89 @@ test("updatePackageJSON - should not show RC file suggestion in test mode", () =
 
   expect(result).toBeDefined();
   expect(result?.pastoralist).toBeDefined();
+});
+
+// =============================================================================
+// Silent option tests
+// =============================================================================
+
+test("updatePackageJSON - silent option suppresses dry-run output", () => {
+  const config: PastoralistJSON = {
+    name: "test-silent",
+    version: "1.0.0",
+  };
+
+  const consoleOutput: string[] = [];
+  const originalLog = console.log;
+  console.log = (msg: string) => consoleOutput.push(msg);
+
+  updatePackageJSON({
+    path: testPkgPath,
+    config,
+    appendix: { "lodash@4.17.21": { dependents: {} } },
+    overrides: { lodash: "4.17.21" },
+    dryRun: true,
+    silent: true,
+  });
+
+  console.log = originalLog;
+
+  const hasDryRunMessage = consoleOutput.some((msg) =>
+    msg.includes("[DRY RUN]"),
+  );
+  expect(hasDryRunMessage).toBe(false);
+});
+
+test("updatePackageJSON - dry-run without silent shows output", () => {
+  const config: PastoralistJSON = {
+    name: "test-not-silent",
+    version: "1.0.0",
+  };
+
+  const consoleOutput: string[] = [];
+  const originalLog = console.log;
+  console.log = (msg: string) => consoleOutput.push(msg);
+
+  updatePackageJSON({
+    path: testPkgPath,
+    config,
+    appendix: { "lodash@4.17.21": { dependents: {} } },
+    overrides: { lodash: "4.17.21" },
+    dryRun: true,
+    silent: false,
+  });
+
+  console.log = originalLog;
+
+  const hasDryRunMessage = consoleOutput.some((msg) =>
+    msg.includes("[DRY RUN]"),
+  );
+  expect(hasDryRunMessage).toBe(true);
+});
+
+test("updatePackageJSON - silent has no effect when not in dry-run mode", () => {
+  mkdirSync(testDir, { recursive: true });
+
+  const config: PastoralistJSON = {
+    name: "test-silent-no-dryrun",
+    version: "1.0.0",
+  };
+
+  writeFileSync(testPkgPath, JSON.stringify(config, null, 2));
+
+  const result = updatePackageJSON({
+    path: testPkgPath,
+    config,
+    appendix: { "lodash@4.17.21": { dependents: {} } },
+    overrides: { lodash: "4.17.21" },
+    dryRun: false,
+    silent: true,
+  });
+
+  expect(result).toBeUndefined();
+
+  const written = JSON.parse(safeReadFileSync(testPkgPath, "utf8"));
+  expect(written.overrides).toEqual({ lodash: "4.17.21" });
+
+  rmSync(testDir, { recursive: true, force: true });
 });

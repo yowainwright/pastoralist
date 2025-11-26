@@ -30,8 +30,8 @@ const { Content, headings } = await doc.render();
 ---
 
 <Layout title={doc.data.title}>
-  <div class="flex flex-col lg:flex-row p-4 sm:p-6 md:p-10 md:pt-10 font-spline-sans-mono">
-    <article class="flex flex-col w-full lg:max-w-4xl xl:max-w-5xl">
+  <div class="flex flex-col lg:flex-row p-4 sm:p-6 md:p-10 md:pt-10 font-spline-sans-mono gap-8">
+    <article class="flex flex-col w-full max-w-[600px]">
       <div class="text-base breadcrumbs pt-0 pb-4">
         <ul>
           <li><a href={resolveUrl("")} class="hover:text-primary">Home</a></li>
@@ -51,7 +51,7 @@ const { Content, headings } = await doc.render();
       <div class="divider"></div>
       <Pagination />
     </article>
-    <div class="hidden xl:block ml-auto pl-8">
+    <div class="hidden xl:block pl-8 sticky top-24 self-start">
       <TocWithScrollspy headings={headings} />
     </div>
   </div>

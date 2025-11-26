@@ -1,0 +1,139 @@
+# Example workflows for using the Pastoralist GitHub Action
+# Copy the relevant sections to your own workflow files
+
+name: Pastoralist Examples
+
+# =============================================================================
+# EXAMPLE 1: PR Check
+# Validates overrides on every pull request
+# =============================================================================
+# on:
+#   pull_request:
+#     branches: [main, master]
+#
+# jobs:
+#   check-overrides:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: yowainwright/pastoralist@v1
+#         with:
+#           mode: check
+#           fail-on-security: true
+
+# =============================================================================
+# EXAMPLE 2: Weekly Maintenance PR
+# Creates a PR with override updates every Monday
+# =============================================================================
+# on:
+#   schedule:
+#     - cron: '0 9 * * 1'  # Monday at 9am UTC
+#
+# jobs:
+#   maintain-overrides:
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: write
+#       pull-requests: write
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: yowainwright/pastoralist@v1
+#         with:
+#           mode: pr
+#           pr-title: 'chore(deps): weekly override maintenance'
+#           pr-labels: 'dependencies automated'
+
+# =============================================================================
+# EXAMPLE 3: Post-Install Hook
+# Updates overrides after dependency changes
+# =============================================================================
+# on:
+#   push:
+#     branches: [main]
+#     paths:
+#       - 'package.json'
+#       - 'bun.lock'
+#       - 'package-lock.json'
+#       - 'yarn.lock'
+#       - 'pnpm-lock.yaml'
+#
+# jobs:
+#   update-overrides:
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: write
+#       pull-requests: write
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: yowainwright/pastoralist@v1
+#         with:
+#           mode: pr
+#           pr-title: 'chore(deps): update override tracking'
+
+# =============================================================================
+# FULL EXAMPLE: Combined workflow for real-world use
+# =============================================================================
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+  schedule:
+    - cron: "0 0 * * 0" # Weekly on Sunday
+
+jobs:
+  # Run on PRs - check mode (no modifications)
+  pr-check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check overrides
+        uses: yowainwright/pastoralist@v1
+        with:
+          mode: check
+          fail-on-security: true
+          fail-on-unused: false
+
+  # Run on push to main - update and fail if changes needed
+  push-check:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update overrides
+        uses: yowainwright/pastoralist@v1
+        with:
+          mode: update
+
+      - name: Check for uncommitted changes
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::Pastoralist made changes. Run 'pastoralist' locally and commit."
+            git diff
+            exit 1
+          fi
+
+  # Run on schedule - create PR if changes needed
+  scheduled-maintenance:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Maintain overrides
+        id: pastoralist
+        uses: yowainwright/pastoralist@v1
+        with:
+          mode: pr
+          pr-title: "chore(deps): scheduled override maintenance"
+          pr-labels: "dependencies automated security"
+
+      - name: Summary
+        if: steps.pastoralist.outputs.pr-url != ''
+        run: echo "Created PR - ${{ steps.pastoralist.outputs.pr-url }}"

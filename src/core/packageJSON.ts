@@ -316,6 +316,7 @@ export const updatePackageJSON = ({
   overrides,
   isTesting = false,
   dryRun = false,
+  silent = false,
 }: UpdatePackageJSONOptions): PastoralistJSON | void => {
   const hasOverridesData = overrides && Object.keys(overrides).length > 0;
   const hasAppendixData = appendix && Object.keys(appendix).length > 0;
@@ -329,9 +330,13 @@ export const updatePackageJSON = ({
 
   const jsonString = formatJson(updatedConfig);
 
-  if (dryRun) {
+  const shouldLogDryRun = dryRun && !silent;
+  if (shouldLogDryRun) {
     console.log("\n[DRY RUN] Would write to package.json:");
     console.log(jsonString);
+  }
+
+  if (dryRun) {
     return updatedConfig;
   }
 

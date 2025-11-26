@@ -135,25 +135,33 @@ samp {
 /* Primary button - blue matching gradient start */
 .btn-primary {
   background-color: #3b82f6 !important;
-  border-color: #3b82f6 !important;
+  border-color: #2563eb !important;
   color: white !important;
   border-radius: 9999px !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 .btn-primary:hover {
   background-color: #2563eb !important;
-  border-color: #2563eb !important;
+  border-color: #1d4ed8 !important;
 }
 
 [data-theme="night"] .btn-primary {
   background-color: #60a5fa !important;
-  border-color: #60a5fa !important;
+  border-color: #3b82f6 !important;
   color: #1e3a5f !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.2);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 [data-theme="night"] .btn-primary:hover {
   background-color: #3b82f6 !important;
-  border-color: #3b82f6 !important;
+  border-color: #2563eb !important;
 }
 
 /* Check icon - teal */

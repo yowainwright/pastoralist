@@ -1,0 +1,247 @@
+name: Test Action
+
+on:
+  pull_request:
+    paths:
+      - "action.yml"
+      - "src/**"
+      - ".github/workflows/test-action.yml"
+  push:
+    branches: [main]
+    paths:
+      - "action.yml"
+      - "src/**"
+      - ".github/workflows/test-action.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Pastoralist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build
+        run: bun run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  test-check-mode:
+    name: Test Check Mode
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Test JSON output format
+        run: |
+          chmod +x dist/index.js
+          OUTPUT=$(node dist/index.js --outputFormat json --dry-run 2>&1 || true)
+          echo "Output: $OUTPUT"
+
+          # Validate JSON structure
+          echo "$OUTPUT" | jq -e '.success != null' || (echo "Missing 'success' field" && exit 1)
+          echo "$OUTPUT" | jq -e '.hasSecurityIssues != null' || (echo "Missing 'hasSecurityIssues' field" && exit 1)
+          echo "$OUTPUT" | jq -e '.updated != null' || (echo "Missing 'updated' field" && exit 1)
+          echo "JSON output validation passed"
+
+  test-action-check:
+    name: Test Action (Check Mode)
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Create test package.json
+        run: |
+          mkdir -p /tmp/test-pkg
+          cat > /tmp/test-pkg/package.json << 'EOF'
+          {
+            "name": "test-package",
+            "version": "1.0.0",
+            "dependencies": {
+              "lodash": "^4.17.0"
+            },
+            "overrides": {
+              "lodash": "4.17.21"
+            }
+          }
+          EOF
+        shell: bash
+
+      - name: Run Pastoralist Action (check mode)
+        id: pastoralist
+        uses: ./
+        with:
+          mode: check
+          check-security: false
+          root-dir: /tmp/test-pkg
+
+      - name: Verify outputs
+        run: |
+          echo "has-security-issues: ${{ steps.pastoralist.outputs.has-security-issues }}"
+          echo "has-unused-overrides: ${{ steps.pastoralist.outputs.has-unused-overrides }}"
+          echo "updated: ${{ steps.pastoralist.outputs.updated }}"
+
+          # In check mode, updated should be false (dry-run)
+          if [ "${{ steps.pastoralist.outputs.updated }}" = "true" ]; then
+            echo "ERROR: Check mode should not report updated=true"
+            exit 1
+          fi
+          echo "Check mode test passed"
+
+  test-action-update:
+    name: Test Action (Update Mode)
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Setup test directory
+        run: |
+          mkdir -p /tmp/test-update
+          cat > /tmp/test-update/package.json << 'EOF'
+          {
+            "name": "test-update-package",
+            "version": "1.0.0",
+            "dependencies": {
+              "lodash": "^4.17.0"
+            },
+            "overrides": {
+              "lodash": "4.17.21"
+            }
+          }
+          EOF
+          cd /tmp/test-update
+          git init
+          git config user.email "test@example.com"
+          git config user.name "Test Runner"
+          git add .
+          git commit -m "initial"
+
+      - name: Run Pastoralist Action (update mode)
+        id: pastoralist
+        uses: ./
+        with:
+          mode: update
+          check-security: false
+          root-dir: /tmp/test-update
+          fail-on-security: false
+
+      - name: Verify package.json was updated
+        run: |
+          echo "Checking /tmp/test-update/package.json"
+          cat /tmp/test-update/package.json
+
+          # Verify pastoralist section was added
+          if ! jq -e '.pastoralist' /tmp/test-update/package.json > /dev/null; then
+            echo "ERROR: pastoralist section not added to package.json"
+            exit 1
+          fi
+          echo "Update mode test passed"
+
+  test-action-security:
+    name: Test Action (Security Check)
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Setup test directory
+        run: |
+          mkdir -p /tmp/test-security
+          cat > /tmp/test-security/package.json << 'EOF'
+          {
+            "name": "test-security-package",
+            "version": "1.0.0",
+            "dependencies": {
+              "lodash": "^4.17.0"
+            }
+          }
+          EOF
+          cd /tmp/test-security
+          git init
+          git config user.email "test@example.com"
+          git config user.name "Test Runner"
+          git add .
+          git commit -m "initial"
+
+      - name: Run Pastoralist Action (with security)
+        id: pastoralist
+        uses: ./
+        with:
+          mode: check
+          check-security: true
+          security-provider: osv
+          root-dir: /tmp/test-security
+          fail-on-security: false
+
+      - name: Verify security output
+        run: |
+          echo "has-security-issues: ${{ steps.pastoralist.outputs.has-security-issues }}"
+          echo "security-count: ${{ steps.pastoralist.outputs.security-count }}"
+          echo "Security check test passed"
+
+  summary:
+    name: Test Summary
+    needs:
+      [
+        test-check-mode,
+        test-action-check,
+        test-action-update,
+        test-action-security,
+      ]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          if [ "${{ needs.test-check-mode.result }}" != "success" ] || \
+             [ "${{ needs.test-action-check.result }}" != "success" ] || \
+             [ "${{ needs.test-action-update.result }}" != "success" ] || \
+             [ "${{ needs.test-action-security.result }}" != "success" ]; then
+            echo "One or more tests failed"
+            exit 1
+          fi
+          echo "All action tests passed!"

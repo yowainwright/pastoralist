@@ -1397,7 +1397,7 @@ test("action - resolves package.json and runs update", async () => {
     handleSecurityResults: mock(() => {}),
     createSpinner: mock(() => mockSpinner),
     green: mock((text: string) => text),
-    update: mock(() => Promise.resolve()),
+    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     processExit: mock(() => {}),
   };
 

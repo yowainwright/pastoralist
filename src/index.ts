@@ -57,6 +57,7 @@ export type {
   Options,
   PastoralistJSON,
   PastoralistConfig,
+  PastoralistResult,
   Appendix,
   AppendixItem,
   OverridesType,

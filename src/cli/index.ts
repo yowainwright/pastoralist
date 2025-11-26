@@ -5,6 +5,7 @@ import { createSpinner, green } from "../utils";
 import {
   Options,
   PastoralistJSON,
+  PastoralistResult,
   SecurityAlert,
   SecurityOverride,
   SecurityOverrideDetail,
@@ -263,6 +264,86 @@ export function determineSecurityScanPaths(
   return [];
 }
 
+export const createEmptyResult = (): PastoralistResult => ({
+  success: true,
+  hasSecurityIssues: false,
+  hasUnusedOverrides: false,
+  updated: false,
+  securityAlertCount: 0,
+  unusedOverrideCount: 0,
+  overrideCount: 0,
+  errors: [],
+  securityAlerts: [],
+  unusedOverrides: [],
+  appliedOverrides: {},
+});
+
+export const createErrorResult = (error: unknown): PastoralistResult => {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  return {
+    ...createEmptyResult(),
+    success: false,
+    errors: [errorMessage],
+  };
+};
+
+export const buildSecurityResult = (
+  alerts: SecurityAlert[],
+): Pick<
+  PastoralistResult,
+  "hasSecurityIssues" | "securityAlertCount" | "securityAlerts"
+> => ({
+  hasSecurityIssues: alerts.length > 0,
+  securityAlertCount: alerts.length,
+  securityAlerts: alerts.map((alert) => ({
+    packageName: alert.packageName,
+    severity: alert.severity || "unknown",
+    cve: alert.cve,
+    description: alert.description,
+  })),
+});
+
+export const buildUpdateResult = (
+  updateResult: ReturnType<typeof update>,
+  config: PastoralistJSON | undefined,
+  isDryRun: boolean,
+): Pick<
+  PastoralistResult,
+  "overrideCount" | "appliedOverrides" | "updated"
+> => {
+  const finalOverrides = updateResult.finalOverrides || {};
+  const finalAppendix = updateResult.finalAppendix || {};
+  const overrideKeys = Object.keys(finalOverrides);
+
+  const appliedOverrides = Object.fromEntries(
+    overrideKeys
+      .filter((key) => typeof finalOverrides[key] === "string")
+      .map((key) => [key, finalOverrides[key] as string]),
+  );
+
+  const previousAppendix = config?.pastoralist?.appendix || {};
+  const previousOverrides =
+    config?.overrides || config?.resolutions || config?.pnpm?.overrides || {};
+  const hasChanges =
+    JSON.stringify(finalAppendix) !== JSON.stringify(previousAppendix) ||
+    JSON.stringify(finalOverrides) !== JSON.stringify(previousOverrides);
+
+  return {
+    overrideCount: overrideKeys.length,
+    appliedOverrides,
+    updated: hasChanges && !isDryRun,
+  };
+};
+
+export const outputResult = (
+  result: PastoralistResult,
+  isJsonOutput: boolean,
+): void => {
+  if (isJsonOutput) {
+    console.log(JSON.stringify(result));
+  }
+};
+
 export async function action(
   options: Options = {},
   deps = {
@@ -278,13 +359,23 @@ export async function action(
     update,
     processExit: (code: number) => process.exit(code),
   },
-): Promise<void> {
+): Promise<PastoralistResult> {
   const isLogging = IS_DEBUGGING || options.debug;
+  const isJsonOutput = options.outputFormat === "json";
   const log = deps.createLogger({ file: "program.ts", isLogging });
   const { isTestingCLI = false, init = false, ...rest } = options;
 
-  if (deps.handleTestMode(isTestingCLI, log, options)) return;
-  if (await deps.handleInitMode(init, options, rest)) return;
+  const emptyResult = createEmptyResult();
+
+  if (deps.handleTestMode(isTestingCLI, log, options)) {
+    outputResult(emptyResult, isJsonOutput);
+    return emptyResult;
+  }
+
+  if (await deps.handleInitMode(init, options, rest)) {
+    outputResult(emptyResult, isJsonOutput);
+    return emptyResult;
+  }
 
   try {
     const relativePath = options.path || "package.json";
@@ -310,6 +401,15 @@ export async function action(
       mergedOptions.root = options.root;
     }
 
+    let securityResult: Pick<
+      PastoralistResult,
+      "hasSecurityIssues" | "securityAlertCount" | "securityAlerts"
+    > = {
+      hasSecurityIssues: false,
+      securityAlertCount: 0,
+      securityAlerts: [],
+    };
+
     if (mergedOptions.checkSecurity) {
       const { spinner, securityChecker, alerts, securityOverrides, updates } =
         await deps.runSecurityCheck(
@@ -319,24 +419,66 @@ export async function action(
           log,
         );
 
-      deps.handleSecurityResults(
-        alerts,
-        securityOverrides,
-        securityChecker,
-        spinner,
-        mergedOptions,
-        updates,
-      );
+      securityResult = buildSecurityResult(alerts);
+
+      if (!isJsonOutput) {
+        deps.handleSecurityResults(
+          alerts,
+          securityOverrides,
+          securityChecker,
+          spinner,
+          mergedOptions,
+          updates,
+        );
+      } else {
+        spinner.stop();
+      }
     }
 
-    const spinner = deps
-      .createSpinner(`👩🏽‍🌾 ${deps.green(`pastoralist`)} checking herd...`)
-      .start();
-    await deps.update(mergedOptions);
-    spinner.succeed(`👩🏽‍🌾 ${deps.green(`pastoralist`)} the herd is safe!`);
+    const spinner = isJsonOutput
+      ? {
+          start: () => ({ succeed: () => {}, stop: () => {} }),
+          succeed: () => {},
+          stop: () => {},
+        }
+      : deps
+          .createSpinner(`👩🏽‍🌾 ${deps.green(`pastoralist`)} checking herd...`)
+          .start();
+
+    if (!isJsonOutput) {
+      (spinner as ReturnType<typeof deps.createSpinner>).start?.();
+    }
+
+    const updateContext = await deps.update(mergedOptions);
+    const updateResultData = buildUpdateResult(
+      updateContext,
+      config,
+      options.dryRun || false,
+    );
+
+    if (!isJsonOutput) {
+      spinner.succeed(`👩🏽‍🌾 ${deps.green(`pastoralist`)} the herd is safe!`);
+    }
+
+    const result: PastoralistResult = {
+      ...emptyResult,
+      ...securityResult,
+      ...updateResultData,
+    };
+
+    outputResult(result, isJsonOutput);
+    return result;
   } catch (err) {
-    log.error("action:fn", "action", { error: err });
+    const result = createErrorResult(err);
+
+    if (isJsonOutput) {
+      outputResult(result, isJsonOutput);
+    } else {
+      log.error("action:fn", "action", { error: err });
+    }
+
     deps.processExit(1);
+    return result;
   }
 }
 

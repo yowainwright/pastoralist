@@ -96,6 +96,7 @@ export interface Options {
   appendix?: Appendix;
   debug?: boolean;
   dryRun?: boolean;
+  outputFormat?: "text" | "json";
   exec?: Exec;
   help?: boolean;
   isTesting?: boolean;
@@ -129,6 +130,7 @@ export interface UpdatePackageJSONOptions {
   appendix?: Appendix;
   debug?: boolean;
   dryRun?: boolean;
+  silent?: boolean;
   path: string;
   config: PastoralistJSON;
   overrides?: OverridesType;
@@ -177,6 +179,25 @@ type ConsoleMethodFunc = (
   ...args: unknown[]
 ) => void;
 export type ConsoleObject = { [K in ConsoleMethod]: ConsoleMethodFunc };
+
+export interface PastoralistResult {
+  success: boolean;
+  hasSecurityIssues: boolean;
+  hasUnusedOverrides: boolean;
+  updated: boolean;
+  securityAlertCount: number;
+  unusedOverrideCount: number;
+  overrideCount: number;
+  errors: string[];
+  securityAlerts?: Array<{
+    packageName: string;
+    severity: string;
+    cve?: string;
+    description?: string;
+  }>;
+  unusedOverrides?: string[];
+  appliedOverrides?: Record<string, string>;
+}
 
 export * from "./core/security/types";
 export * from "./core/update/types";

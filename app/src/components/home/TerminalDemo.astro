@@ -1,0 +1,34 @@
+---
+import { AnimatedTerminal } from './AnimatedTerminal';
+import '../../styles/terminal.css';
+
+const demos = [
+  {
+    lines: [
+      { prefix: '$', text: 'pastoralist --checkSecurity', animate: true },
+      { prefix: '', text: '🔒 pastoralist checking for security vulnerabilities...', className: 'text-cyan-400', delay: 300, animate: false },
+      { prefix: '', text: '', delay: 150, animate: false },
+      { prefix: '', text: '🔒 Security Vulnerabilities Found', className: 'text-base-content', delay: 200, animate: false },
+      { prefix: '', text: '══════════════════════════════════════════════════', className: 'text-base-content/50', delay: 50, animate: false },
+      { prefix: '', text: 'Found 1 vulnerable package(s):', className: 'text-base-content/70', delay: 100, animate: false },
+      { prefix: '', text: '  [CRITICAL] 1', className: 'text-error', delay: 50, animate: false },
+      { prefix: '', text: '', delay: 100, animate: false },
+      { prefix: '', text: '📦 lodash', className: 'text-base-content', delay: 100, animate: false },
+      { prefix: '', text: '   Current: 4.17.19', className: 'text-base-content/70', delay: 50, animate: false },
+      { prefix: '', text: '   🔴 Prototype Pollution in lodash', className: 'text-error', delay: 50, animate: false },
+      { prefix: '', text: '   CVE: CVE-2020-8203', className: 'text-base-content/70', delay: 50, animate: false },
+      { prefix: '', text: '', delay: 150, animate: false },
+      { prefix: '', text: '✅ Auto-fix applied successfully!', className: 'text-success', delay: 300, animate: false },
+      { prefix: '', text: '   lodash: 4.17.19 → 4.17.21', className: 'text-base-content/70', delay: 50, animate: false },
+      { prefix: '', text: '', delay: 150, animate: false },
+      { prefix: '', text: '👩🏽‍🌾 pastoralist checking herd...', className: 'text-cyan-400', delay: 200, animate: false },
+      { prefix: '', text: '👩🏽‍🌾 pastoralist the herd is safe!', className: 'text-success', delay: 300, animate: false },
+    ],
+    pauseAfter: 3000,
+  },
+];
+---
+
+<div class="w-full max-w-3xl text-left">
+  <AnimatedTerminal client:only="react" demos={demos} loop={false} typingSpeed={20} height="400px" />
+</div>

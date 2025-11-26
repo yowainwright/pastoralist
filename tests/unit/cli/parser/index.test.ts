@@ -442,4 +442,45 @@ describe("parseArgs", () => {
       expect(result.options.isTestingCLI).toBe(true);
     });
   });
+
+  describe("outputFormat flag", () => {
+    test("should parse --outputFormat with json value", () => {
+      const result = parseArgs(["node", "script.js", "--outputFormat", "json"]);
+
+      expect(result.options.outputFormat).toBe("json");
+    });
+
+    test("should parse --outputFormat with text value", () => {
+      const result = parseArgs(["node", "script.js", "--outputFormat", "text"]);
+
+      expect(result.options.outputFormat).toBe("text");
+    });
+
+    test("should parse --outputFormat with equals syntax", () => {
+      const result = parseArgs(["node", "script.js", "--outputFormat=json"]);
+
+      expect(result.options.outputFormat).toBe("json");
+    });
+
+    test("should default to text when not specified", () => {
+      const result = parseArgs(["node", "script.js"]);
+
+      expect(result.options.outputFormat).toBe("text");
+    });
+
+    test("should work with other flags", () => {
+      const result = parseArgs([
+        "node",
+        "script.js",
+        "--outputFormat",
+        "json",
+        "--dry-run",
+        "--checkSecurity",
+      ]);
+
+      expect(result.options.outputFormat).toBe("json");
+      expect(result.options.dryRun).toBe(true);
+      expect(result.options.checkSecurity).toBe(true);
+    });
+  });
 });

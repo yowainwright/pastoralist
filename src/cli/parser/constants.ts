@@ -3,6 +3,7 @@ import type { OptionDefinition } from "./types";
 export const OPTION_DEFINITIONS: OptionDefinition[] = [
   { flags: ["--debug"], hasValue: false },
   { flags: ["--dry-run"], hasValue: false },
+  { flags: ["--outputFormat"], hasValue: true, defaultValue: "text" },
   { flags: ["-p", "--path"], hasValue: true, defaultValue: "package.json" },
   { flags: ["-d", "--depPaths"], hasValue: true, isArray: true },
   { flags: ["--ignore"], hasValue: true, isArray: true },
@@ -32,6 +33,7 @@ Commands:
 Options:
   --debug                               Enable debug mode
   --dry-run                             Preview changes without writing to package.json
+  --outputFormat <format>               Output format: text (default) or json
   -p, --path <path>                     Specifies a path to a package.json (default: "package.json")
   -d, --depPaths [paths...]             Specifies glob paths to package.jsons
   --ignore [paths...]                   Specifies glob paths to ignore

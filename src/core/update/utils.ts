@@ -24,12 +24,14 @@ export const findPackageFiles = (
 };
 
 export const writeResult = (ctx: WriteResultContext): void => {
+  const isJsonOutput = ctx.options?.outputFormat === "json";
   updatePackageJSON({
     appendix: ctx.finalAppendix,
     path: ctx.path,
     config: ctx.config,
     overrides: ctx.finalOverrides,
     dryRun: ctx.options?.dryRun || false,
+    silent: isJsonOutput,
     isTesting: ctx.isTesting,
   });
 };

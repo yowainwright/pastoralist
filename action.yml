@@ -1,0 +1,252 @@
+name: "Pastoralist"
+description: "Manage npm/yarn/pnpm overrides with automatic tracking, security scanning, and cleanup"
+author: "Jeff Wainwright"
+branding:
+  icon: "shield"
+  color: "green"
+
+inputs:
+  mode:
+    description: "Operation mode: check (validate only), update (modify files), or pr (create PR with changes)"
+    required: false
+    default: "update"
+  check-security:
+    description: "Enable security vulnerability scanning (true/false)"
+    required: false
+    default: "true"
+  security-provider:
+    description: "Security provider to use (osv, github, snyk, socket)"
+    required: false
+    default: "osv"
+  security-token:
+    description: "Token for security provider (required for github, snyk, socket)"
+    required: false
+  auto-fix:
+    description: "Automatically apply security fixes (true/false)"
+    required: false
+    default: "true"
+  dry-run:
+    description: "Preview changes without modifying files (true/false)"
+    required: false
+    default: "false"
+  root-dir:
+    description: "Root directory of the project"
+    required: false
+  dep-paths:
+    description: 'Workspace package.json patterns (space-separated globs or "workspace")'
+    required: false
+  config:
+    description: "Path to config file (.pastoralistrc or pastoralist.config.js)"
+    required: false
+  fail-on-security:
+    description: "Fail the action if security vulnerabilities are found (true/false)"
+    required: false
+    default: "true"
+  fail-on-unused:
+    description: "Fail the action if unused overrides are detected (true/false)"
+    required: false
+    default: "false"
+  silent:
+    description: "Suppress logging output (true/false)"
+    required: false
+    default: "false"
+  debug:
+    description: "Enable debug logging (true/false)"
+    required: false
+    default: "false"
+  pr-title:
+    description: "Title for auto-created PR (mode: pr only)"
+    required: false
+    default: "chore(deps): update dependency overrides"
+  pr-body:
+    description: "Body for auto-created PR (mode: pr only)"
+    required: false
+  pr-branch:
+    description: "Branch name for auto-created PR (mode: pr only)"
+    required: false
+    default: "pastoralist/updates"
+  pr-labels:
+    description: "Labels to add to PR (space-separated, mode: pr only)"
+    required: false
+    default: "dependencies"
+  github-token:
+    description: "GitHub token for creating PRs (defaults to GITHUB_TOKEN)"
+    required: false
+
+outputs:
+  has-security-issues:
+    description: "Whether security vulnerabilities were found (true/false)"
+    value: ${{ steps.pastoralist.outputs.has-security-issues }}
+  has-unused-overrides:
+    description: "Whether unused overrides were detected (true/false)"
+    value: ${{ steps.pastoralist.outputs.has-unused-overrides }}
+  updated:
+    description: "Whether package.json was modified (true/false)"
+    value: ${{ steps.pastoralist.outputs.updated }}
+  security-count:
+    description: "Number of security vulnerabilities found"
+    value: ${{ steps.pastoralist.outputs.security-count }}
+  pr-url:
+    description: "URL of created PR (mode: pr only, empty if no changes)"
+    value: ${{ steps.create-pr.outputs.pr-url }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+
+    - name: Install Pastoralist
+      shell: bash
+      run: npm install -g pastoralist
+
+    - name: Run Pastoralist
+      id: pastoralist
+      shell: bash
+      env:
+        PASTORALIST_SECURITY_TOKEN: ${{ inputs.security-token }}
+        GITHUB_TOKEN: ${{ inputs.github-token || github.token }}
+      run: |
+        set +e
+
+        CMD="pastoralist --outputFormat json"
+
+        # Security scanning
+        if [ "${{ inputs.check-security }}" = "true" ]; then
+          CMD="$CMD --checkSecurity"
+          CMD="$CMD --securityProvider ${{ inputs.security-provider }}"
+        fi
+
+        # Auto-fix security issues
+        [ "${{ inputs.auto-fix }}" = "true" ] && CMD="$CMD --forceSecurityRefactor"
+
+        # Dry run mode (check mode or explicit dry-run)
+        if [ "${{ inputs.mode }}" = "check" ] || [ "${{ inputs.dry-run }}" = "true" ]; then
+          CMD="$CMD --dry-run"
+        fi
+
+        # Root directory
+        [ -n "${{ inputs.root-dir }}" ] && CMD="$CMD --root ${{ inputs.root-dir }}"
+
+        # Dependency paths (workspace patterns)
+        if [ -n "${{ inputs.dep-paths }}" ]; then
+          for path in ${{ inputs.dep-paths }}; do
+            CMD="$CMD --depPaths \"$path\""
+          done
+        fi
+
+        # Config file
+        [ -n "${{ inputs.config }}" ] && CMD="$CMD --config ${{ inputs.config }}"
+
+        # Logging flags
+        [ "${{ inputs.debug }}" = "true" ] && CMD="$CMD --debug"
+
+        echo "Running: $CMD"
+        JSON_OUTPUT=$(eval $CMD 2>&1)
+        EXIT_CODE=$?
+
+        # Parse JSON output for structured results
+        HAS_SECURITY=$(echo "$JSON_OUTPUT" | jq -r '.hasSecurityIssues // false')
+        HAS_UNUSED=$(echo "$JSON_OUTPUT" | jq -r '.hasUnusedOverrides // false')
+        UPDATED=$(echo "$JSON_OUTPUT" | jq -r '.updated // false')
+        SUCCESS=$(echo "$JSON_OUTPUT" | jq -r '.success // false')
+        SECURITY_COUNT=$(echo "$JSON_OUTPUT" | jq -r '.securityAlertCount // 0')
+
+        # Set outputs from structured JSON
+        echo "has-security-issues=$HAS_SECURITY" >> $GITHUB_OUTPUT
+        echo "has-unused-overrides=$HAS_UNUSED" >> $GITHUB_OUTPUT
+        echo "updated=$UPDATED" >> $GITHUB_OUTPUT
+        echo "security-count=$SECURITY_COUNT" >> $GITHUB_OUTPUT
+
+        # Log summary
+        echo "Results: security=$HAS_SECURITY ($SECURITY_COUNT alerts), unused=$HAS_UNUSED, updated=$UPDATED"
+
+        # In check mode or pr mode, don't fail on issues (PR mode handles them via PR)
+        if [ "${{ inputs.mode }}" = "check" ] || [ "${{ inputs.mode }}" = "pr" ]; then
+          exit 0
+        fi
+
+        # Handle failure conditions (update mode only)
+        if [ "$HAS_SECURITY" = "true" ] && [ "${{ inputs.fail-on-security }}" = "true" ]; then
+          echo "::error::Security vulnerabilities detected ($SECURITY_COUNT). Run 'pastoralist --checkSecurity --forceSecurityRefactor' locally to fix."
+          exit 1
+        fi
+
+        if [ "$HAS_UNUSED" = "true" ] && [ "${{ inputs.fail-on-unused }}" = "true" ]; then
+          echo "::error::Unused overrides detected. Run 'pastoralist' locally to clean up."
+          exit 1
+        fi
+
+        # Exit with original code if command failed
+        if [ "$SUCCESS" = "false" ]; then
+          echo "::error::Pastoralist failed. Check logs for details."
+          exit 1
+        fi
+
+        exit 0
+
+    - name: Create Pull Request
+      id: create-pr
+      if: inputs.mode == 'pr' && steps.pastoralist.outputs.updated == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token || github.token }}
+      run: |
+        # Configure git
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+
+        BRANCH="${{ inputs.pr-branch }}"
+
+        # Check if branch exists and delete it if so (to get fresh changes)
+        git fetch origin "$BRANCH" 2>/dev/null && git push origin --delete "$BRANCH" 2>/dev/null || true
+
+        # Create new branch and commit
+        git checkout -b "$BRANCH"
+        git add -A
+        git commit -m "${{ inputs.pr-title }}"
+        git push -u origin "$BRANCH"
+
+        # Build PR body
+        PR_BODY="${{ inputs.pr-body }}"
+        if [ -z "$PR_BODY" ]; then
+          PR_BODY="## Pastoralist Override Updates
+
+        This PR was automatically created by [Pastoralist](https://github.com/yowainwright/pastoralist).
+
+        ### Changes
+        - Updated dependency override tracking in \`package.json\`
+        "
+
+          if [ "${{ steps.pastoralist.outputs.has-security-issues }}" = "true" ]; then
+            PR_BODY="$PR_BODY- Applied security fixes for detected vulnerabilities
+        "
+          fi
+
+          if [ "${{ steps.pastoralist.outputs.has-unused-overrides }}" = "true" ]; then
+            PR_BODY="$PR_BODY- Cleaned up unused overrides
+        "
+          fi
+
+          PR_BODY="$PR_BODY
+        ---
+        *Generated by Pastoralist GitHub Action*"
+        fi
+
+        # Build labels argument
+        LABELS_ARG=""
+        if [ -n "${{ inputs.pr-labels }}" ]; then
+          LABELS_ARG="--label ${{ inputs.pr-labels }}"
+        fi
+
+        # Create PR
+        PR_URL=$(gh pr create \
+          --title "${{ inputs.pr-title }}" \
+          --body "$PR_BODY" \
+          --base "${{ github.ref_name }}" \
+          $LABELS_ARG)
+
+        echo "pr-url=$PR_URL" >> $GITHUB_OUTPUT
+        echo "Created PR: $PR_URL"

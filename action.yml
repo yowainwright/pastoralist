@@ -96,11 +96,19 @@ runs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: "20"
+        node-version: "24"
 
     - name: Install Pastoralist
       shell: bash
-      run: npm install -g pastoralist
+      run: |
+        # Use local dist if available (for testing), otherwise install from npm
+        if [ -f "./dist/index.js" ]; then
+          echo "Using local build"
+          chmod +x ./dist/index.js
+          npm link .
+        else
+          npm install -g pastoralist
+        fi
 
     - name: Run Pastoralist
       id: pastoralist

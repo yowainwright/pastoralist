@@ -23,40 +23,36 @@
   </svg>
 </button>
 
-<script is:inline>
-  const theme = (() => {
-    if (typeof localStorage !== "undefined" && localStorage.getItem("theme")) {
-      return localStorage.getItem("theme");
-    }
-    if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-      return "night";
-    }
-    return "lofi";
-  })();
+<script>
+  function initThemeToggle() {
+    const toggle = document.getElementById("themeToggle");
+    if (!toggle) return;
 
-  if (theme === "lofi") {
-    document.documentElement.setAttribute("data-theme", "lofi");
-    document.getElementById("themeToggle").classList.remove("swap-active");
-  } else {
-    document.documentElement.setAttribute("data-theme", "night");
-    document.getElementById("themeToggle").classList.add("swap-active");
+    const currentTheme = document.documentElement.getAttribute("data-theme");
+    if (currentTheme === "night") {
+      toggle.classList.add("swap-active");
+    } else {
+      toggle.classList.remove("swap-active");
+    }
+
+    toggle.addEventListener("click", () => {
+      const isDark = document.documentElement.getAttribute("data-theme") === "night";
+      const newTheme = isDark ? "lofi" : "night";
+
+      document.documentElement.setAttribute("data-theme", newTheme);
+      localStorage.setItem("theme", newTheme);
+
+      if (newTheme === "night") {
+        toggle.classList.add("swap-active");
+      } else {
+        toggle.classList.remove("swap-active");
+      }
+    });
   }
 
-  window.localStorage.setItem("theme", theme);
-
-  const handleToggleClick = () => {
-    const element = document.documentElement;
-    const isDark = element.dataset.theme === "night";
-    localStorage.setItem("theme", isDark ? "lofi" : "night");
-    element.setAttribute("data-theme", isDark ? "lofi" : "night");
-    if (isDark) {
-      document.getElementById("themeToggle").classList.remove("swap-active");
-    } else {
-      document.getElementById("themeToggle").classList.add("swap-active");
-    }
-  };
-
-  document
-    .getElementById("themeToggle")
-    .addEventListener("click", handleToggleClick);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initThemeToggle);
+  } else {
+    initThemeToggle();
+  }
 </script>

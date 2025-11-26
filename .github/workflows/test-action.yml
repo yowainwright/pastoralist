@@ -83,6 +83,7 @@ jobs:
 
       - name: Create test package.json
         run: |
+          mkdir -p /tmp/test-pkg
           cat > /tmp/test-pkg/package.json << 'EOF'
           {
             "name": "test-package",
@@ -146,7 +147,12 @@ jobs:
             }
           }
           EOF
-          cd /tmp/test-update && git init && git add . && git commit -m "initial"
+          cd /tmp/test-update
+          git init
+          git config user.email "test@example.com"
+          git config user.name "Test Runner"
+          git add .
+          git commit -m "initial"
 
       - name: Run Pastoralist Action (update mode)
         id: pastoralist
@@ -194,7 +200,12 @@ jobs:
             }
           }
           EOF
-          cd /tmp/test-security && git init && git add . && git commit -m "initial"
+          cd /tmp/test-security
+          git init
+          git config user.email "test@example.com"
+          git config user.name "Test Runner"
+          git add .
+          git commit -m "initial"
 
       - name: Run Pastoralist Action (with security)
         id: pastoralist

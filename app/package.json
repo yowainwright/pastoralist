@@ -10,14 +10,14 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/check": "^0.9.5",
+    "@astrojs/check": "^0.9.6",
     "@astrojs/mdx": "^4.3.12",
     "@astrojs/react": "^4.4.2",
     "@docsearch/css": "^3.9.0",
     "@docsearch/js": "^3.9.0",
     "@tailwindcss/vite": "^4.1.17",
-    "astro": "^5.16.0",
-    "astro-mermaid": "^1.1.0",
+    "astro": "^5.16.2",
+    "astro-mermaid": "^1.2.0",
     "fuse.js": "^7.1.0",
     "mermaid": "^11.12.1",
     "react": "^19.2.0",
@@ -25,7 +25,7 @@
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.19",
-    "@types/react": "^19.2.6",
+    "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "daisyui": "^5.5.5",
     "tailwindcss": "^4.1.17",

@@ -1860,3 +1860,83 @@ test("determineSecurityScanPaths - handles workspace with hasWorkspaceSecurityCh
 
   expect(result).toEqual([]);
 });
+
+test("runSecurityCheck - handles error and calls spinner.fail", async () => {
+  const { runSecurityCheck } = require("../../../src/cli/index");
+
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+  };
+
+  const mergedOptions: Options = {
+    checkSecurity: true,
+    securityProvider: "osv",
+  };
+
+  const mockSpinner = {
+    start: mock(() => mockSpinner),
+    fail: mock(),
+  };
+
+  const testError = new Error("Security check failed");
+
+  const mockSecurityChecker = {
+    checkSecurity: mock(() => Promise.reject(testError)),
+  };
+
+  const deps = {
+    createSpinner: mock(() => mockSpinner),
+    SecurityChecker: mock(() => mockSecurityChecker),
+    determineSecurityScanPaths: mock(() => []),
+    green: mock((text: string) => text),
+  };
+
+  await expect(
+    runSecurityCheck(config, mergedOptions, false, log, deps),
+  ).rejects.toThrow("Security check failed");
+
+  expect(mockSpinner.fail).toHaveBeenCalled();
+  const failCall = mockSpinner.fail.mock.calls[0][0];
+  expect(failCall).toContain("security check failed");
+  expect(failCall).toContain("Security check failed");
+});
+
+test("runSecurityCheck - handles non-Error throws and calls spinner.fail", async () => {
+  const { runSecurityCheck } = require("../../../src/cli/index");
+
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+  };
+
+  const mergedOptions: Options = {
+    checkSecurity: true,
+    securityProvider: "osv",
+  };
+
+  const mockSpinner = {
+    start: mock(() => mockSpinner),
+    fail: mock(),
+  };
+
+  const mockSecurityChecker = {
+    checkSecurity: mock(() => Promise.reject("String error")),
+  };
+
+  const deps = {
+    createSpinner: mock(() => mockSpinner),
+    SecurityChecker: mock(() => mockSecurityChecker),
+    determineSecurityScanPaths: mock(() => []),
+    green: mock((text: string) => text),
+  };
+
+  await expect(
+    runSecurityCheck(config, mergedOptions, false, log, deps),
+  ).rejects.toBe("String error");
+
+  expect(mockSpinner.fail).toHaveBeenCalled();
+  const failCall = mockSpinner.fail.mock.calls[0][0];
+  expect(failCall).toContain("security check failed");
+  expect(failCall).toContain("String error");
+});

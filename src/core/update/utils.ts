@@ -131,8 +131,8 @@ export const hasOverrides = (
 
   return Boolean(
     (optionsOverrides && Object.keys(optionsOverrides).length > 0) ||
-      (configOverrides && Object.keys(configOverrides).length > 0) ||
-      (configResolutions && Object.keys(configResolutions).length > 0) ||
-      (configPnpmOverrides && Object.keys(configPnpmOverrides).length > 0),
+    (configOverrides && Object.keys(configOverrides).length > 0) ||
+    (configResolutions && Object.keys(configResolutions).length > 0) ||
+    (configPnpmOverrides && Object.keys(configPnpmOverrides).length > 0),
   );
 };

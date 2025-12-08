@@ -15,6 +15,9 @@ import {
 
 const execFileAsync = promisify(execFile);
 
+const DEFAULT_FETCH_TIMEOUT = 30000;
+const DEFAULT_CLI_TIMEOUT = 60000;
+
 export class GitHubSecurityProvider {
   private owner: string;
   private repo: string;
@@ -208,7 +211,9 @@ export class GitHubSecurityProvider {
       "executeGhCli",
     );
 
-    const { stdout } = await execFileAsync("gh", args);
+    const { stdout } = await execFileAsync("gh", args, {
+      timeout: DEFAULT_CLI_TIMEOUT,
+    });
     this.log.debug(`gh CLI stdout length: ${stdout.length}`, "executeGhCli");
     return stdout;
   }
@@ -246,23 +251,33 @@ export class GitHubSecurityProvider {
 
   private async fetchFromGitHubAPI(): Promise<DependabotAlert[]> {
     const url = `https://api.github.com/repos/${this.owner}/${this.repo}/dependabot/alerts`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(
+      () => controller.abort(),
+      DEFAULT_FETCH_TIMEOUT,
+    );
 
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${this.token}`,
-        Accept: "application/vnd.github.v3+json",
-      },
-    });
+    try {
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+        signal: controller.signal,
+      });
 
-    if (!response.ok) {
-      const error: GithubApiError = await response.json();
-      throw new Error(
-        `GitHub API error: ${error.message || response.statusText}`,
-      );
+      if (!response.ok) {
+        const error: GithubApiError = await response.json();
+        throw new Error(
+          `GitHub API error: ${error.message || response.statusText}`,
+        );
+      }
+
+      const alerts = await response.json();
+      return Array.isArray(alerts) ? alerts : [];
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    const alerts = await response.json();
-    return Array.isArray(alerts) ? alerts : [];
   }
 
   private async fetchAlertsWithApi(): Promise<DependabotAlert[]> {

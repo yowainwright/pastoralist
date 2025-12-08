@@ -12,6 +12,7 @@ export type Spinner = {
   fail: (text?: string) => Spinner;
   info: (text?: string) => Spinner;
   warn: (text?: string) => Spinner;
+  update: (text: string) => Spinner;
 };
 
 export type RGB = {
@@ -49,6 +50,7 @@ export interface RetryOptions {
   minTimeout?: number;
   maxTimeout?: number;
   onFailedAttempt?: (error: RetryError) => void | Promise<void>;
+  onRetry?: (attemptNumber: number, retriesLeft: number) => void;
 }
 
 export interface RetryError extends Error {

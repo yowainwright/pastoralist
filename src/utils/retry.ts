@@ -1,6 +1,8 @@
 import type { RetryOptions, RetryError } from "./types";
 
-const DEFAULT_OPTIONS: Required<Omit<RetryOptions, "onFailedAttempt">> = {
+const DEFAULT_OPTIONS: Required<
+  Omit<RetryOptions, "onFailedAttempt" | "onRetry">
+> = {
   retries: 3,
   factor: 2,
   minTimeout: 1000,
@@ -42,6 +44,7 @@ export const retry = async <T>(
     minTimeout = DEFAULT_OPTIONS.minTimeout,
     maxTimeout = DEFAULT_OPTIONS.maxTimeout,
     onFailedAttempt,
+    onRetry,
   } = options;
 
   let attemptNumber = 0;
@@ -67,6 +70,10 @@ export const retry = async <T>(
 
       if (onFailedAttempt) {
         await onFailedAttempt(retryError);
+      }
+
+      if (onRetry) {
+        onRetry(attemptNumber, clampedRetriesLeft);
       }
 
       const delay = calculateDelay(

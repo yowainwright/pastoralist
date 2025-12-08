@@ -361,9 +361,7 @@ test("createSpinner - should info with custom text", () => {
   const spinner = createSpinner("Loading...");
   spinner.info("FYI");
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith(
-    expect.stringContaining("ℹ FYI"),
-  );
+  expect(stdoutWriteSpy).toHaveBeenCalledWith(expect.stringContaining("ℹ FYI"));
 
   stdoutWriteSpy.mockRestore();
 });

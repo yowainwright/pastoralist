@@ -109,28 +109,39 @@ export const runSecurityCheck = async (
     )
     .start();
 
-  const securityChecker = new deps.SecurityChecker({
-    provider: mergedOptions.securityProvider,
-    forceRefactor: mergedOptions.forceSecurityRefactor,
-    interactive: mergedOptions.interactive,
-    token: mergedOptions.securityProviderToken,
-    debug: isLogging,
-    isIRLFix: mergedOptions.isIRLFix,
-    isIRLCatch: mergedOptions.isIRLCatch,
-  });
+  try {
+    const securityChecker = new deps.SecurityChecker({
+      provider: mergedOptions.securityProvider,
+      forceRefactor: mergedOptions.forceSecurityRefactor,
+      interactive: mergedOptions.interactive,
+      token: mergedOptions.securityProviderToken,
+      debug: isLogging,
+      isIRLFix: mergedOptions.isIRLFix,
+      isIRLCatch: mergedOptions.isIRLCatch,
+    });
 
-  const scanPaths = deps.determineSecurityScanPaths(config, mergedOptions, log);
-  const {
-    alerts,
-    overrides: securityOverrides,
-    updates,
-  } = await securityChecker.checkSecurity(config, {
-    ...mergedOptions,
-    depPaths: scanPaths,
-    root: mergedOptions.root || "./",
-  });
+    const scanPaths = deps.determineSecurityScanPaths(
+      config,
+      mergedOptions,
+      log,
+    );
+    const {
+      alerts,
+      overrides: securityOverrides,
+      updates,
+    } = await securityChecker.checkSecurity(config, {
+      ...mergedOptions,
+      depPaths: scanPaths,
+      root: mergedOptions.root || "./",
+    });
 
-  return { spinner, securityChecker, alerts, securityOverrides, updates };
+    return { spinner, securityChecker, alerts, securityOverrides, updates };
+  } catch (error) {
+    spinner.fail(
+      `🔒 ${deps.green(`pastoralist`)} security check failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    throw error;
+  }
 };
 
 export const handleSecurityResults = (

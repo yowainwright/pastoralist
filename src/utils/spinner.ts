@@ -120,6 +120,12 @@ export const warn = (state: SpinnerState, text?: string): Spinner => {
   return createSpinnerMethods(state);
 };
 
+export const update = (state: SpinnerState, text: string): Spinner => {
+  const newState = updateStateText(state, text);
+  Object.assign(state, newState);
+  return createSpinnerMethods(state);
+};
+
 export const createSpinnerMethods = (state: SpinnerState): Spinner => {
   return {
     start: () => start(state),
@@ -128,6 +134,7 @@ export const createSpinnerMethods = (state: SpinnerState): Spinner => {
     fail: (text?: string) => fail(state, text),
     info: (text?: string) => info(state, text),
     warn: (text?: string) => warn(state, text),
+    update: (text: string) => update(state, text),
   };
 };
 

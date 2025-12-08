@@ -9,6 +9,7 @@ import {
   updateStateText,
   incrementFrame,
   writeSymbol,
+  update,
 } from "../../../src/utils/spinner";
 import type { SpinnerState } from "../../../src/utils/types";
 
@@ -438,6 +439,98 @@ test("createSpinner - should handle stop when not spinning", () => {
   spinner.stop();
 
   expect(stdoutWriteSpy).not.toHaveBeenCalled();
+
+  stdoutWriteSpy.mockRestore();
+});
+
+test("update - should update text in state", () => {
+  const state: SpinnerState = {
+    text: "Old text",
+    isSpinning: false,
+    frameIndex: 0,
+    interval: null,
+  };
+
+  const result = update(state, "New text");
+
+  expect(state.text).toBe("New text");
+  expect(result.update).toBeFunction();
+});
+
+test("update - should preserve other state properties", () => {
+  const state: SpinnerState = {
+    text: "Old text",
+    isSpinning: true,
+    frameIndex: 5,
+    interval: null,
+  };
+
+  update(state, "New text");
+
+  expect(state.isSpinning).toBe(true);
+  expect(state.frameIndex).toBe(5);
+});
+
+test("update - should return spinner methods for chaining", () => {
+  const state: SpinnerState = {
+    text: "Test",
+    isSpinning: false,
+    frameIndex: 0,
+    interval: null,
+  };
+
+  const result = update(state, "New");
+
+  expect(result.start).toBeFunction();
+  expect(result.stop).toBeFunction();
+  expect(result.succeed).toBeFunction();
+  expect(result.fail).toBeFunction();
+  expect(result.info).toBeFunction();
+  expect(result.warn).toBeFunction();
+  expect(result.update).toBeFunction();
+});
+
+test("createSpinner - should have update method", () => {
+  const spinner = createSpinner("Loading...");
+
+  expect(spinner.update).toBeFunction();
+});
+
+test("createSpinner - should update spinner text", () => {
+  const spinner = createSpinner("Initial text");
+  const result = spinner.update("Updated text");
+
+  expect(result.update).toBeFunction();
+});
+
+test("createSpinner - update should allow chaining", () => {
+  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(
+    () => true,
+  );
+
+  const spinner = createSpinner("Initial");
+  spinner.update("Updated").succeed("Done!");
+
+  expect(stdoutWriteSpy).toHaveBeenCalledWith(
+    expect.stringContaining("✔ Done!"),
+  );
+
+  stdoutWriteSpy.mockRestore();
+});
+
+test("createSpinner - update during spinning should change text", () => {
+  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(
+    () => true,
+  );
+
+  const spinner = createSpinner("Initial");
+  spinner.start();
+  spinner.update("Updated text");
+  spinner.succeed();
+
+  expect(stdoutWriteSpy).toHaveBeenCalledWith(
+    expect.stringContaining("✔ Updated text"),
+  );
 
   stdoutWriteSpy.mockRestore();
 });

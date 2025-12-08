@@ -247,3 +247,92 @@ test("retry - should handle complex return types", async () => {
 
   expect(result).toEqual({ status: "ok", data: [1, 2, 3] });
 });
+
+test("retry - should call onRetry callback", async () => {
+  let attempts = 0;
+  const retryCalls: Array<{ attemptNumber: number; retriesLeft: number }> = [];
+
+  const fn = async () => {
+    attempts++;
+    if (attempts < 3) {
+      throw new Error("Fail");
+    }
+    return "success";
+  };
+
+  await retry(fn, {
+    retries: 3,
+    minTimeout: 10,
+    onRetry: (attemptNumber, retriesLeft) => {
+      retryCalls.push({ attemptNumber, retriesLeft });
+    },
+  });
+
+  expect(retryCalls).toEqual([
+    { attemptNumber: 1, retriesLeft: 2 },
+    { attemptNumber: 2, retriesLeft: 1 },
+  ]);
+});
+
+test("retry - should call onRetry after onFailedAttempt", async () => {
+  const callOrder: string[] = [];
+
+  const fn = async () => {
+    throw new Error("Fail");
+  };
+
+  await retry(fn, {
+    retries: 1,
+    minTimeout: 10,
+    onFailedAttempt: () => {
+      callOrder.push("onFailedAttempt");
+    },
+    onRetry: () => {
+      callOrder.push("onRetry");
+    },
+  }).catch(() => {});
+
+  expect(callOrder).toEqual(["onFailedAttempt", "onRetry"]);
+});
+
+test("retry - should not call onRetry when no retries left", async () => {
+  const retryCalls: number[] = [];
+
+  const fn = async () => {
+    throw new Error("Fail");
+  };
+
+  await retry(fn, {
+    retries: 0,
+    minTimeout: 10,
+    onRetry: (attemptNumber) => {
+      retryCalls.push(attemptNumber);
+    },
+  }).catch(() => {});
+
+  expect(retryCalls).toEqual([]);
+});
+
+test("retry - should work with onRetry but without onFailedAttempt", async () => {
+  let attempts = 0;
+  const retryCalls: number[] = [];
+
+  const fn = async () => {
+    attempts++;
+    if (attempts < 2) {
+      throw new Error("Fail");
+    }
+    return "success";
+  };
+
+  const result = await retry(fn, {
+    retries: 2,
+    minTimeout: 10,
+    onRetry: (attemptNumber) => {
+      retryCalls.push(attemptNumber);
+    },
+  });
+
+  expect(result).toBe("success");
+  expect(retryCalls).toEqual([1]);
+});

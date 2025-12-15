@@ -182,3 +182,65 @@ test("Version Extraction - should prefer fixedIn over upgradePath", () => {
   const version = (provider as any).extractPatchedVersion(vuln);
   expect(version).toBe("2.0.0");
 });
+
+test("Construction - should set strict mode when provided", () => {
+  const provider = new SnykCLIProvider({ debug: false, strict: true });
+  expect((provider as any).strict).toBe(true);
+});
+
+test("Construction - should default strict to false", () => {
+  const provider = new SnykCLIProvider({ debug: false });
+  expect((provider as any).strict).toBe(false);
+});
+
+test("fetchAlerts - should return empty array when prerequisites fail", async () => {
+  const provider = new SnykCLIProvider({ debug: false });
+  (provider as any).validatePrerequisites = async () => false;
+  const alerts = await provider.fetchAlerts();
+  expect(alerts).toEqual([]);
+});
+
+test("fetchAlerts - should throw when strict mode and scan fails", async () => {
+  const provider = new SnykCLIProvider({ debug: false, strict: true });
+  (provider as any).validatePrerequisites = async () => true;
+  (provider as any).runSnykScan = async () => {
+    throw new Error("Scan failed");
+  };
+  await expect(provider.fetchAlerts()).rejects.toThrow(
+    "Snyk security check failed",
+  );
+});
+
+test("fetchAlerts - should warn and return empty when not strict and scan fails", async () => {
+  const provider = new SnykCLIProvider({ debug: false, strict: false });
+  (provider as any).validatePrerequisites = async () => true;
+  (provider as any).runSnykScan = async () => {
+    throw new Error("Scan failed");
+  };
+  const alerts = await provider.fetchAlerts();
+  expect(alerts).toEqual([]);
+});
+
+test("fetchAlerts - should parse JSON from error stdout if available", async () => {
+  const provider = new SnykCLIProvider({ debug: false });
+  (provider as any).validatePrerequisites = async () => true;
+  (provider as any).runSnykScan = async () => {
+    const error = new Error("Scan failed") as Error & { stdout?: string };
+    error.stdout = JSON.stringify({ vulnerabilities: [] });
+    throw error;
+  };
+  const alerts = await provider.fetchAlerts();
+  expect(alerts).toEqual([]);
+});
+
+test("fetchAlerts - should handle invalid JSON in error stdout", async () => {
+  const provider = new SnykCLIProvider({ debug: false });
+  (provider as any).validatePrerequisites = async () => true;
+  (provider as any).runSnykScan = async () => {
+    const error = new Error("Scan failed") as Error & { stdout?: string };
+    error.stdout = "not valid json";
+    throw error;
+  };
+  const alerts = await provider.fetchAlerts();
+  expect(alerts).toEqual([]);
+});

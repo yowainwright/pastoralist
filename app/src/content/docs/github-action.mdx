@@ -1,0 +1,222 @@
+---
+title: GitHub Action
+description: Automated dependency override management for CI/CD
+---
+
+Pastoralist provides a GitHub Action for automated dependency override management in your CI/CD pipelines.
+
+## Quick Start
+
+### Basic PR Check
+
+```yaml
+name: Override Check
+on: [pull_request]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: yowainwright/pastoralist@v1
+```
+
+### Scheduled Maintenance with PR Creation
+
+```yaml
+name: Override Maintenance
+on:
+  schedule:
+    - cron: "0 0 * * 1" # Weekly on Monday
+
+jobs:
+  maintain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: yowainwright/pastoralist@v1
+        with:
+          mode: pr
+          pr-title: "chore(deps): update dependency overrides"
+          pr-labels: "dependencies automated"
+```
+
+## Modes
+
+| Mode     | Description                                            |
+| -------- | ------------------------------------------------------ |
+| `check`  | Validate only - reports issues without modifying files |
+| `update` | Modify package.json (default) - you handle commits     |
+| `pr`     | Create pull request with changes automatically         |
+
+### Check Mode
+
+Runs pastoralist in dry-run mode. Reports issues without modifying files.
+
+```yaml
+- uses: yowainwright/pastoralist@v1
+  with:
+    mode: check
+```
+
+### Update Mode (Default)
+
+Runs pastoralist and modifies `package.json`. Use when you want to handle commits yourself.
+
+```yaml
+- uses: yowainwright/pastoralist@v1
+  with:
+    mode: update
+
+- name: Commit changes
+  run: |
+    git config user.name github-actions[bot]
+    git config user.email github-actions[bot]@users.noreply.github.com
+    git add package.json
+    git diff --staged --quiet || git commit -m "chore: update overrides"
+    git push
+```
+
+### PR Mode
+
+Runs pastoralist and creates a PR if changes are needed. Ideal for scheduled workflows.
+
+```yaml
+- uses: yowainwright/pastoralist@v1
+  with:
+    mode: pr
+    pr-title: "fix(security): update vulnerable overrides"
+```
+
+## Inputs
+
+| Input               | Description                                 | Default                                    |
+| ------------------- | ------------------------------------------- | ------------------------------------------ |
+| `mode`              | Operation mode: `check`, `update`, or `pr`  | `update`                                   |
+| `check-security`    | Enable security scanning                    | `true`                                     |
+| `security-provider` | Provider: `osv`, `github`, `snyk`, `socket` | `osv`                                      |
+| `security-token`    | Token for security provider                 | -                                          |
+| `auto-fix`          | Apply security fixes automatically          | `true`                                     |
+| `dry-run`           | Preview changes only                        | `false`                                    |
+| `root-dir`          | Project root directory                      | -                                          |
+| `dep-paths`         | Workspace patterns (space-separated)        | -                                          |
+| `config`            | Config file path                            | -                                          |
+| `fail-on-security`  | Fail if vulnerabilities found               | `true`                                     |
+| `fail-on-unused`    | Fail if unused overrides found              | `false`                                    |
+| `silent`            | Suppress output                             | `false`                                    |
+| `debug`             | Enable debug logging                        | `false`                                    |
+| `pr-title`          | PR title (mode: pr)                         | `chore(deps): update dependency overrides` |
+| `pr-body`           | PR body (mode: pr)                          | Auto-generated                             |
+| `pr-branch`         | PR branch name (mode: pr)                   | `pastoralist/updates`                      |
+| `pr-labels`         | PR labels (space-separated)                 | `dependencies`                             |
+| `github-token`      | GitHub token for PR creation                | `GITHUB_TOKEN`                             |
+
+## Outputs
+
+| Output                 | Description                              |
+| ---------------------- | ---------------------------------------- |
+| `has-security-issues`  | `true` if vulnerabilities were found     |
+| `has-unused-overrides` | `true` if unused overrides detected      |
+| `updated`              | `true` if package.json was modified      |
+| `security-count`       | Number of security vulnerabilities found |
+| `pr-url`               | URL of created PR (mode: pr only)        |
+
+## Examples
+
+### PR Check with Security Gate
+
+```yaml
+name: Override Security
+on: [pull_request]
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: yowainwright/pastoralist@v1
+        with:
+          mode: check
+          fail-on-security: true
+          security-provider: osv
+```
+
+### Monorepo Support
+
+```yaml
+- uses: yowainwright/pastoralist@v1
+  with:
+    dep-paths: "packages/*/package.json apps/*/package.json"
+```
+
+### Using GitHub Security Provider
+
+```yaml
+- uses: yowainwright/pastoralist@v1
+  with:
+    security-provider: github
+    security-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+### Conditional PR on Vulnerabilities
+
+```yaml
+- uses: yowainwright/pastoralist@v1
+  id: pastoralist
+  with:
+    mode: check
+
+- name: Create security PR
+  if: steps.pastoralist.outputs.has-security-issues == 'true'
+  run: |
+    # Custom PR logic here
+```
+
+### Weekly Maintenance with Slack Notification
+
+```yaml
+name: Weekly Override Maintenance
+on:
+  schedule:
+    - cron: "0 9 * * 1"
+
+jobs:
+  maintain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: yowainwright/pastoralist@v1
+        id: pastoralist
+        with:
+          mode: pr
+
+      - name: Notify Slack
+        if: steps.pastoralist.outputs.pr-url != ''
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "Pastoralist created a PR: ${{ steps.pastoralist.outputs.pr-url }}"
+            }
+```
+
+## Permissions
+
+For `mode: pr`, the action needs write permissions:
+
+```yaml
+permissions:
+  contents: write
+  pull-requests: write
+```
+
+## Security Providers
+
+| Provider | Auth Required | Notes                                             |
+| -------- | ------------- | ------------------------------------------------- |
+| `osv`    | No            | Open Source Vulnerabilities database (default)    |
+| `github` | Yes           | GitHub Security API, good for transitive scanning |
+| `snyk`   | Yes           | Requires Snyk API token [EXPERIMENTAL]            |
+| `socket` | Yes           | Socket.dev, supply chain focused [EXPERIMENTAL]   |

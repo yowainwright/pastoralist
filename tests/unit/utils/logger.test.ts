@@ -1,5 +1,9 @@
 import { test, expect, spyOn } from "bun:test";
-import { logger as testLogger, logMethod } from "../../../src/utils/logger";
+import {
+  logger as testLogger,
+  logMethod,
+  warnMethod,
+} from "../../../src/utils/logger";
 
 test("logMethod should log when isLogging is true", () => {
   const consoleDebugSpy = spyOn(console, "debug");
@@ -99,4 +103,42 @@ test("logger should not log when isLogging is false", () => {
   log.debug("Debug");
   expect(consoleDebugSpy).not.toHaveBeenCalled();
   consoleDebugSpy.mockRestore();
+});
+
+test("logMethod should use warn method for warn logs", () => {
+  const consoleWarnSpy = spyOn(console, "warn");
+  const log = logMethod("warn", true, "test.ts");
+  log("Warn message");
+  expect(consoleWarnSpy).toHaveBeenCalled();
+  consoleWarnSpy.mockRestore();
+});
+
+test("warnMethod should always log regardless of isLogging", () => {
+  const consoleWarnSpy = spyOn(console, "warn");
+  const warn = warnMethod("test.ts");
+  warn("Warning message");
+  expect(consoleWarnSpy).toHaveBeenCalled();
+  consoleWarnSpy.mockRestore();
+});
+
+test("warnMethod should include file and caller in output", () => {
+  const consoleWarnSpy = spyOn(console, "warn");
+  const warn = warnMethod("test.ts");
+  warn("Warning message", "myCaller");
+  expect(consoleWarnSpy).toHaveBeenCalledWith(
+    expect.stringContaining("[test.ts]"),
+  );
+  expect(consoleWarnSpy).toHaveBeenCalledWith(
+    expect.stringContaining("[myCaller]"),
+  );
+  consoleWarnSpy.mockRestore();
+});
+
+test("logger should have warn method that always logs", () => {
+  const consoleWarnSpy = spyOn(console, "warn");
+  const log = testLogger({ file: "test.ts", isLogging: false });
+  expect(log.warn).toBeFunction();
+  log.warn("Warning");
+  expect(consoleWarnSpy).toHaveBeenCalled();
+  consoleWarnSpy.mockRestore();
 });

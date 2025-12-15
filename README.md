@@ -3,6 +3,7 @@
 [![npm version](https://badge.fury.io/js/pastoralist.svg)](https://badge.fury.io/js/pastoralist)
 ![ci](https://github.com/yowainwright/pastoralist/actions/workflows/ci.yml/badge.svg)
 [![codecov](https://codecov.io/gh/yowainwright/pastoralist/branch/main/graph/badge.svg)](https://codecov.io/gh/yowainwright/pastoralist)
+<img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=6f41d7dd-fce9-49ea-ae43-040a51f458bd" />
 
 Pastoralist provides a dead simple way to singularly maintain node module overrides AND security issues in dependencies.
 
@@ -240,8 +241,8 @@ flowchart TD
 
 - **OSV** (default) - No auth required
 - **GitHub** - Requires token
-- **Snyk** - Requires CLI
-- **Socket** - Requires CLI
+- **Snyk** [EXPERIMENTAL] - Requires CLI and token
+- **Socket** [EXPERIMENTAL] - Requires CLI and token
 
 ### 3. Automatic Cleanup
 
@@ -556,16 +557,16 @@ When both external config files and `package.json` configuration exist:
 
 #### Security Configuration
 
-| Option                       | Type                                              | Description                                                                                                                                                                     |
-| ---------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `enabled`                    | `boolean`                                         | Enable/disable security checks                                                                                                                                                  |
-| `provider`                   | `"osv"` \| `"github"` \| `"snyk"` \| `"socket"`   | Security provider: `osv` (free but only top-level), `github` (requires token but includes transitive deps), `snyk` (beta, requires API auth), `socket` (beta, requires API key) |
-| `autoFix`                    | `boolean`                                         | Automatically apply security fixes                                                                                                                                              |
-| `interactive`                | `boolean`                                         | Use interactive mode for security fixes                                                                                                                                         |
-| `securityProviderToken`      | `string`                                          | API token for providers that require auth                                                                                                                                       |
-| `severityThreshold`          | `"low"` \| `"medium"` \| `"high"` \| `"critical"` | Minimum severity level to report                                                                                                                                                |
-| `excludePackages`            | `string[]`                                        | Packages to exclude from security checks                                                                                                                                        |
-| `hasWorkspaceSecurityChecks` | `boolean`                                         | Include workspace packages in scans                                                                                                                                             |
+| Option                       | Type                                              | Description                                                                                                                                       |
+| ---------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`                    | `boolean`                                         | Enable/disable security checks                                                                                                                    |
+| `provider`                   | `"osv"` \| `"github"` \| `"snyk"` \| `"socket"`   | Security provider: `osv` (free, recommended), `github` (requires token, includes transitive deps), `snyk` [EXPERIMENTAL], `socket` [EXPERIMENTAL] |
+| `autoFix`                    | `boolean`                                         | Automatically apply security fixes                                                                                                                |
+| `interactive`                | `boolean`                                         | Use interactive mode for security fixes                                                                                                           |
+| `securityProviderToken`      | `string`                                          | API token for providers that require auth                                                                                                         |
+| `severityThreshold`          | `"low"` \| `"medium"` \| `"high"` \| `"critical"` | Minimum severity level to report                                                                                                                  |
+| `excludePackages`            | `string[]`                                        | Packages to exclude from security checks                                                                                                          |
+| `hasWorkspaceSecurityChecks` | `boolean`                                         | Include workspace packages in scans                                                                                                               |
 
 ### Security Tracking in Appendix
 
@@ -679,10 +680,59 @@ The workflow file is created at `.github/workflows/pastoralist.yml`. Commit it t
 
 ---
 
+## GitHub Action
+
+Pastoralist provides a GitHub Action for CI/CD integration.
+
+### Quick Start
+
+```yaml
+name: Override Check
+on: [pull_request]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: yowainwright/pastoralist@v1
+```
+
+### Scheduled Security Maintenance
+
+```yaml
+name: Override Maintenance
+on:
+  schedule:
+    - cron: "0 0 * * 1" # Weekly on Monday
+
+jobs:
+  maintain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: yowainwright/pastoralist@v1
+        with:
+          mode: pr
+          pr-title: "chore(deps): update dependency overrides"
+```
+
+### Modes
+
+| Mode     | Description                                            |
+| -------- | ------------------------------------------------------ |
+| `check`  | Validate only - reports issues without modifying files |
+| `update` | Modify package.json (default) - you handle commits     |
+| `pr`     | Create pull request with changes                       |
+
+See [ACTION.md](.github/ACTION.md) for full documentation including all inputs, outputs, and examples.
+
+---
+
 ## Thanks
 
 Shout out to [Bryant Cabrera](https://github.com/bryantcabrera) and the infamous [Mardin](https://github.com/mardinyadegar) for all the fun conversation, insights, and pairing around this topic.
 
 ---
 
-Made by [@yowainwright](https://github.com/yowainwright) for fun with passion! MIT, 2022
+Made by [@yowainwright](https://github.com/yowainwright) for fun with passion! [Elastic-2.0](LICENSE), 2022

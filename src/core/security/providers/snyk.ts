@@ -10,14 +10,22 @@ export class SnykCLIProvider {
   private log: ReturnType<typeof logger>;
   private installer: CLIInstaller;
   private token?: string;
+  private strict: boolean;
 
-  constructor(options: { debug?: boolean; token?: string } = {}) {
+  constructor(
+    options: { debug?: boolean; token?: string; strict?: boolean } = {},
+  ) {
     this.log = logger({
       file: "security/snyk.ts",
       isLogging: options.debug || false,
     });
     this.installer = new CLIInstaller({ debug: options.debug });
     this.token = options.token || process.env.SNYK_TOKEN;
+    this.strict = options.strict || false;
+    this.log.warn(
+      "Snyk provider is EXPERIMENTAL. Report issues at https://github.com/yowainwright/pastoralist/issues",
+      "constructor",
+    );
   }
 
   async ensureInstalled(): Promise<boolean> {
@@ -115,6 +123,17 @@ export class SnykCLIProvider {
       }
 
       this.log.debug("Snyk scan failed", "fetchAlerts", { error });
+      const reason = error instanceof Error ? error.message : "Unknown error";
+      if (this.strict) {
+        throw new Error(
+          `Snyk security check failed. Reason: ${reason}. Failing due to --strict mode.`,
+        );
+      }
+      this.log.warn(
+        `Snyk security check failed. Your dependencies were NOT checked. ` +
+          `Reason: ${reason}. Run with --debug for details or --strict to fail on errors.`,
+        "fetchAlerts",
+      );
       return [];
     }
   }

@@ -112,9 +112,9 @@ No more mysteries. Every override is tracked.
 ```mermaid
 flowchart LR
     Install[npm install] --> Auto[Pastoralist runs]
-    Auto --> Track[Auto-tracks dependencies]
-    Auto --> Scan[Auto-tracks security and maps overrides to resolve issues]
-    Auto --> Clean[Auto-removes unused overrides]
+    Auto --> Track[Tracks deps]
+    Auto --> Scan[Scans security]
+    Auto --> Clean[Cleans unused]
     Track --> Done[✓ Done]
     Scan --> Done
     Clean --> Done
@@ -284,12 +284,12 @@ Works seamlessly with `patch-package`. Automatically links patches to overrides 
 
 ```mermaid
 flowchart LR
-    You[You add override or request a security check] --> Install[npm install]
+    You[You add override] --> Install[npm install]
     Install --> Pastor[Pastoralist runs]
     Pastor --> Track[Tracks it]
-    Pastor --> Scan[Maps it]
-    Pastor --> Clean[Removes it from tracking if unused]
-    Track --> Chill[You go back to coding]
+    Pastor --> Scan[Scans it]
+    Pastor --> Clean[Cleans if unused]
+    Track --> Chill[Back to coding]
     Scan --> Chill
     Clean --> Chill
 

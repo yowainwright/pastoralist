@@ -416,3 +416,43 @@ test("fetchAlerts - should use default URL when no references", async () => {
 
   global.fetch = originalFetch;
 });
+
+test("fetchAlerts - should throw error when strict mode is enabled and fetch fails", async () => {
+  const provider = new OSVProvider({
+    debug: false,
+    strict: true,
+    retryOptions: { retries: 1, minTimeout: 10 },
+  });
+  const originalFetch = global.fetch;
+
+  global.fetch = mock(() => {
+    return Promise.reject(new Error("Network error"));
+  });
+
+  await expect(
+    provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]),
+  ).rejects.toThrow("OSV security check failed");
+
+  global.fetch = originalFetch;
+});
+
+test("fetchAlerts - should return empty array when strict is false and fetch fails", async () => {
+  const provider = new OSVProvider({
+    debug: false,
+    strict: false,
+    retryOptions: { retries: 1, minTimeout: 10 },
+  });
+  const originalFetch = global.fetch;
+
+  global.fetch = mock(() => {
+    return Promise.reject(new Error("Network error"));
+  });
+
+  const alerts = await provider.fetchAlerts([
+    { name: "lodash", version: "4.17.20" },
+  ]);
+
+  expect(alerts).toEqual([]);
+
+  global.fetch = originalFetch;
+});

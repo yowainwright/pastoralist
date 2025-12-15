@@ -220,3 +220,27 @@ test("fetchAlerts - should warn and return empty when not strict and scan fails"
   const alerts = await provider.fetchAlerts();
   expect(alerts).toEqual([]);
 });
+
+test("fetchAlerts - should parse JSON from error stdout if available", async () => {
+  const provider = new SnykCLIProvider({ debug: false });
+  (provider as any).validatePrerequisites = async () => true;
+  (provider as any).runSnykScan = async () => {
+    const error = new Error("Scan failed") as Error & { stdout?: string };
+    error.stdout = JSON.stringify({ vulnerabilities: [] });
+    throw error;
+  };
+  const alerts = await provider.fetchAlerts();
+  expect(alerts).toEqual([]);
+});
+
+test("fetchAlerts - should handle invalid JSON in error stdout", async () => {
+  const provider = new SnykCLIProvider({ debug: false });
+  (provider as any).validatePrerequisites = async () => true;
+  (provider as any).runSnykScan = async () => {
+    const error = new Error("Scan failed") as Error & { stdout?: string };
+    error.stdout = "not valid json";
+    throw error;
+  };
+  const alerts = await provider.fetchAlerts();
+  expect(alerts).toEqual([]);
+});

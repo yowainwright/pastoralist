@@ -21,6 +21,7 @@ export interface SecurityCheckOptions {
   owner?: string;
   repo?: string;
   token?: string;
+  strict?: boolean;
 }
 
 export interface SecurityOverride {

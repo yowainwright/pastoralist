@@ -20,6 +20,7 @@ export const OPTION_DEFINITIONS: OptionDefinition[] = [
   { flags: ["--interactive"], hasValue: false },
   { flags: ["--hasWorkspaceSecurityChecks"], hasValue: false },
   { flags: ["--promptForReasons"], hasValue: false },
+  { flags: ["--strict"], hasValue: false },
 ];
 
 export const HELP_TEXT = `
@@ -48,6 +49,7 @@ Options:
   --interactive                         Run security checks in interactive mode
   --hasWorkspaceSecurityChecks          Include workspace packages in security scan
   --promptForReasons                    Prompt for reasons when adding manual overrides
+  --strict                              Fail on any security check errors (network failures, API errors)
 `;
 
 export const ARGS_START_INDEX = 2;

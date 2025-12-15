@@ -62,16 +62,16 @@ You can configure security settings in your `package.json`:
 
 ### Configuration Options
 
-| Option                  | Type    | Default    | Description                                                    |
-| ----------------------- | ------- | ---------- | -------------------------------------------------------------- |
-| `enabled`               | boolean | `false`    | Enable automatic security checks when running pastoralist      |
-| `provider`              | string  | `"osv"`    | Security provider to use ("osv" or "github")                   |
-| `autoFix`               | boolean | `false`    | Automatically apply security fixes without prompting           |
-| `interactive`           | boolean | `false`    | Use interactive mode to select which fixes to apply            |
-| `securityProviderToken` | string  | `""`       | Authentication token for providers that require it             |
-| `includeWorkspaces`     | boolean | `false`    | Include workspace packages in security scan                    |
-| `severityThreshold`     | string  | `"medium"` | Minimum severity level to report (low, medium, high, critical) |
-| `excludePackages`       | array   | `[]`       | List of package names to exclude from security checks          |
+| Option                  | Type    | Default    | Description                                                                                      |
+| ----------------------- | ------- | ---------- | ------------------------------------------------------------------------------------------------ |
+| `enabled`               | boolean | `false`    | Enable automatic security checks when running pastoralist                                        |
+| `provider`              | string  | `"osv"`    | Security provider: "osv" (recommended), "github", "snyk" [EXPERIMENTAL], "socket" [EXPERIMENTAL] |
+| `autoFix`               | boolean | `false`    | Automatically apply security fixes without prompting                                             |
+| `interactive`           | boolean | `false`    | Use interactive mode to select which fixes to apply                                              |
+| `securityProviderToken` | string  | `""`       | Authentication token for providers that require it                                               |
+| `includeWorkspaces`     | boolean | `false`    | Include workspace packages in security scan                                                      |
+| `severityThreshold`     | string  | `"medium"` | Minimum severity level to report (low, medium, high, critical)                                   |
+| `excludePackages`       | array   | `[]`       | List of package names to exclude from security checks                                            |
 
 ## CLI Options
 
@@ -143,13 +143,37 @@ If you don't have the GitHub CLI, you can provide a GitHub token:
 - No additional API rate limits beyond GitHub's standard limits
 - Can be used in GitHub Actions without additional configuration
 
-### Snyk Provider
+### Snyk Provider [EXPERIMENTAL]
 
-Beta implementation with CLI - requires API authentication.
+:::caution[Experimental]
+The Snyk provider is experimental and may have breaking changes. Report issues at https://github.com/yowainwright/pastoralist/issues
+:::
 
-### Socket Provider
+Requires the Snyk CLI and API authentication token.
 
-Beta implementation with CLI - requires API key.
+```bash
+# Set your Snyk token
+export SNYK_TOKEN=your_token_here
+
+# Run with Snyk provider
+pastoralist --checkSecurity --securityProvider snyk
+```
+
+### Socket Provider [EXPERIMENTAL]
+
+:::caution[Experimental]
+The Socket provider is experimental and may have breaking changes. Report issues at https://github.com/yowainwright/pastoralist/issues
+:::
+
+Requires the Socket CLI and API key.
+
+```bash
+# Set your Socket API key
+export SOCKET_SECURITY_API_KEY=your_key_here
+
+# Run with Socket provider
+pastoralist --checkSecurity --securityProvider socket
+```
 
 ## How It Works
 

@@ -254,3 +254,13 @@ test("fetchAlerts - should warn and return empty when not strict and scan fails"
   const alerts = await provider.fetchAlerts();
   expect(alerts).toEqual([]);
 });
+
+test("fetchAlerts - should handle non-Error exceptions", async () => {
+  const provider = new SocketCLIProvider({ debug: false, strict: false });
+  (provider as any).validatePrerequisites = async () => true;
+  (provider as any).runSocketScan = async () => {
+    throw "string error";
+  };
+  const alerts = await provider.fetchAlerts();
+  expect(alerts).toEqual([]);
+});

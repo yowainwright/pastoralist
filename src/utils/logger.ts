@@ -1,6 +1,6 @@
 import { LOG_PREFIX } from "../constants";
 
-export type ConsoleMethod = "debug" | "error" | "info";
+export type ConsoleMethod = "debug" | "error" | "info" | "warn";
 type ConsoleMethodFunc = (
   msg: string,
   caller?: string,
@@ -28,7 +28,17 @@ export const logMethod = (
       console.error(message, ...args);
     } else if (type === "info") {
       console.info(message, ...args);
+    } else if (type === "warn") {
+      console.warn(message, ...args);
     }
+  };
+};
+
+export const warnMethod = (file: string) => {
+  return (msg: string, caller?: string, ...args: unknown[]) => {
+    const callerTxt = caller ? `[${caller}]` : "";
+    const message = `${LOG_PREFIX}[${file}]${callerTxt} ${msg}`;
+    console.warn(message, ...args);
   };
 };
 
@@ -36,4 +46,5 @@ export const logger = ({ file, isLogging = false }: LoggerOptions) => ({
   debug: logMethod("debug", isLogging, file),
   error: logMethod("error", isLogging, file),
   info: logMethod("info", isLogging, file),
+  warn: warnMethod(file),
 });

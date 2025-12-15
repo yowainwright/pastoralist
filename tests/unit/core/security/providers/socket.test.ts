@@ -216,3 +216,51 @@ test("convertSocketAlerts - should handle missing packages array", () => {
   const alerts = (provider as any).convertSocketAlerts({ packages: null });
   expect(alerts).toEqual([]);
 });
+
+test("Construction - should set strict mode when provided", () => {
+  const provider = new SocketCLIProvider({ debug: false, strict: true });
+  expect((provider as any).strict).toBe(true);
+});
+
+test("Construction - should default strict to false", () => {
+  const provider = new SocketCLIProvider({ debug: false });
+  expect((provider as any).strict).toBe(false);
+});
+
+test("fetchAlerts - should return empty array when prerequisites fail", async () => {
+  const provider = new SocketCLIProvider({ debug: false });
+  (provider as any).validatePrerequisites = async () => false;
+  const alerts = await provider.fetchAlerts();
+  expect(alerts).toEqual([]);
+});
+
+test("fetchAlerts - should throw when strict mode and scan fails", async () => {
+  const provider = new SocketCLIProvider({ debug: false, strict: true });
+  (provider as any).validatePrerequisites = async () => true;
+  (provider as any).runSocketScan = async () => {
+    throw new Error("Scan failed");
+  };
+  await expect(provider.fetchAlerts()).rejects.toThrow(
+    "Socket security check failed",
+  );
+});
+
+test("fetchAlerts - should warn and return empty when not strict and scan fails", async () => {
+  const provider = new SocketCLIProvider({ debug: false, strict: false });
+  (provider as any).validatePrerequisites = async () => true;
+  (provider as any).runSocketScan = async () => {
+    throw new Error("Scan failed");
+  };
+  const alerts = await provider.fetchAlerts();
+  expect(alerts).toEqual([]);
+});
+
+test("fetchAlerts - should handle non-Error exceptions", async () => {
+  const provider = new SocketCLIProvider({ debug: false, strict: false });
+  (provider as any).validatePrerequisites = async () => true;
+  (provider as any).runSocketScan = async () => {
+    throw "string error";
+  };
+  const alerts = await provider.fetchAlerts();
+  expect(alerts).toEqual([]);
+});

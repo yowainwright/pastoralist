@@ -70,6 +70,7 @@ export class SecurityChecker {
       debug?: boolean;
       isIRLFix?: boolean;
       isIRLCatch?: boolean;
+      strict?: boolean;
     },
   ): SecurityProvider {
     switch (providerType) {
@@ -78,6 +79,7 @@ export class SecurityChecker {
           debug: options.debug,
           isIRLFix: options.isIRLFix,
           isIRLCatch: options.isIRLCatch,
+          strict: options.strict,
         });
       case "github":
         return new GitHubSecurityProvider({
@@ -88,11 +90,13 @@ export class SecurityChecker {
         return new SnykCLIProvider({
           debug: options.debug,
           token: options.token,
+          strict: options.strict,
         });
       case "socket":
         return new SocketCLIProvider({
           debug: options.debug,
           token: options.token,
+          strict: options.strict,
         });
       default:
         this.log.debug(
@@ -103,6 +107,7 @@ export class SecurityChecker {
           debug: options.debug,
           isIRLFix: options.isIRLFix,
           isIRLCatch: options.isIRLCatch,
+          strict: options.strict,
         });
     }
   }

@@ -6,6 +6,7 @@ export class OSVProvider {
   protected debug: boolean;
   protected isIRLFix: boolean;
   protected isIRLCatch: boolean;
+  protected strict: boolean;
   protected log: ReturnType<typeof logger>;
   protected retryOptions: RetryOptions;
 
@@ -14,12 +15,14 @@ export class OSVProvider {
       debug?: boolean;
       isIRLFix?: boolean;
       isIRLCatch?: boolean;
+      strict?: boolean;
       retryOptions?: RetryOptions;
     } = {},
   ) {
     this.debug = options.debug || false;
     this.isIRLFix = options.isIRLFix || false;
     this.isIRLCatch = options.isIRLCatch || false;
+    this.strict = options.strict || false;
     this.log = logger({ file: "security/osv.ts", isLogging: this.debug });
     this.retryOptions = options.retryOptions || {
       retries: 3,
@@ -90,6 +93,19 @@ export class OSVProvider {
         "Failed to fetch batch results after retries",
         "fetchAlerts",
         { error },
+      );
+      const reason = error instanceof Error ? error.message : "Unknown error";
+      if (this.strict) {
+        throw new Error(
+          `OSV security check failed after ${this.retryOptions.retries} retries. ` +
+            `Reason: ${reason}. Failing due to --strict mode.`,
+        );
+      }
+      this.log.warn(
+        `OSV security check failed after ${this.retryOptions.retries} retries. ` +
+          `Your dependencies were NOT checked for vulnerabilities. ` +
+          `Reason: ${reason}. Run with --debug for details or --strict to fail on errors.`,
+        "fetchAlerts",
       );
       return [];
     });

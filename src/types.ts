@@ -55,6 +55,7 @@ export interface PastoralistConfig {
     severityThreshold?: "low" | "medium" | "high" | "critical";
     excludePackages?: string[];
     hasWorkspaceSecurityChecks?: boolean;
+    strict?: boolean;
   };
 }
 
@@ -120,6 +121,7 @@ export interface Options {
   promptForReasons?: boolean;
   manualOverrideReasons?: Record<string, string>;
   config?: PastoralistJSON;
+  strict?: boolean;
 }
 
 export interface OverridesType {

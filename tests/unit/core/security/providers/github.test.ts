@@ -887,3 +887,142 @@ test("fetchAlertsWithGhCli - handles non-array response", async () => {
   const alerts = await provider["fetchAlertsWithGhCli"]();
   expect(alerts).toEqual([]);
 });
+
+test("isPermissionError - detects 'Resource not accessible by integration' error", () => {
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false,
+  });
+
+  expect(
+    provider["isPermissionError"]("Resource not accessible by integration"),
+  ).toBe(true);
+});
+
+test("isPermissionError - detects 'Must have admin rights' error", () => {
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false,
+  });
+
+  expect(provider["isPermissionError"]("Must have admin rights")).toBe(true);
+});
+
+test("isPermissionError - detects 'Not Found' error", () => {
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false,
+  });
+
+  expect(provider["isPermissionError"]("Not Found")).toBe(true);
+});
+
+test("isPermissionError - detects 'Dependabot alerts are not enabled' error", () => {
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false,
+  });
+
+  expect(
+    provider["isPermissionError"]("Dependabot alerts are not enabled"),
+  ).toBe(true);
+});
+
+test("isPermissionError - detects 'vulnerability alerts are disabled' error", () => {
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false,
+  });
+
+  expect(
+    provider["isPermissionError"]("vulnerability alerts are disabled"),
+  ).toBe(true);
+});
+
+test("isPermissionError - is case insensitive", () => {
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false,
+  });
+
+  expect(
+    provider["isPermissionError"]("RESOURCE NOT ACCESSIBLE BY INTEGRATION"),
+  ).toBe(true);
+  expect(
+    provider["isPermissionError"]("resource not accessible by integration"),
+  ).toBe(true);
+});
+
+test("isPermissionError - returns false for non-permission errors", () => {
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false,
+  });
+
+  expect(provider["isPermissionError"]("Rate limit exceeded")).toBe(false);
+  expect(provider["isPermissionError"]("Server error")).toBe(false);
+  expect(provider["isPermissionError"]("Network timeout")).toBe(false);
+});
+
+test("fetchAlertsWithGhCli - throws SecurityProviderPermissionError for permission errors", async () => {
+  const { SecurityProviderPermissionError } =
+    await import("../../../../../src/core/security/types");
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false,
+  });
+
+  provider["executeGhCli"] = async () => {
+    throw new Error("Resource not accessible by integration");
+  };
+
+  await expect(provider["fetchAlertsWithGhCli"]()).rejects.toThrow(
+    SecurityProviderPermissionError,
+  );
+});
+
+test("fetchAlertsWithApi - throws SecurityProviderPermissionError for permission errors", async () => {
+  const { SecurityProviderPermissionError } =
+    await import("../../../../../src/core/security/types");
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    token: "test-token",
+    debug: false,
+  });
+
+  provider["fetchFromGitHubAPI"] = async () => {
+    throw new SecurityProviderPermissionError(
+      "GitHub",
+      "Resource not accessible by integration",
+    );
+  };
+
+  await expect(provider["fetchAlertsWithApi"]()).rejects.toThrow(
+    SecurityProviderPermissionError,
+  );
+});
+
+test("SecurityProviderPermissionError - has correct message format", async () => {
+  const { SecurityProviderPermissionError } =
+    await import("../../../../../src/core/security/types");
+
+  const error = new SecurityProviderPermissionError(
+    "GitHub",
+    "Resource not accessible by integration",
+  );
+
+  expect(error.name).toBe("SecurityProviderPermissionError");
+  expect(error.provider).toBe("GitHub");
+  expect(error.originalMessage).toBe("Resource not accessible by integration");
+  expect(error.message).toContain("GitHub");
+  expect(error.message).toContain("insufficient permissions");
+});

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { parseArgs, showHelp } from "./parser";
-import { createSpinner, green } from "../utils";
+import { createSpinner, green, yellow } from "../utils";
 import {
   Options,
   PastoralistJSON,
@@ -9,6 +9,7 @@ import {
   SecurityAlert,
   SecurityOverride,
   SecurityOverrideDetail,
+  SecurityProviderPermissionError,
 } from "../types";
 import { update } from "../core/update";
 import { logger as createLogger } from "../utils";
@@ -101,6 +102,7 @@ export const runSecurityCheck = async (
     SecurityChecker,
     determineSecurityScanPaths,
     green,
+    yellow,
   },
 ) => {
   const spinner = deps
@@ -137,6 +139,24 @@ export const runSecurityCheck = async (
 
     return { spinner, securityChecker, alerts, securityOverrides, updates };
   } catch (error) {
+    if (error instanceof SecurityProviderPermissionError) {
+      spinner.warn(`🔒 ${deps.yellow(`pastoralist`)} ${error.message}`);
+      const securityChecker = new deps.SecurityChecker({
+        provider: mergedOptions.securityProvider,
+        forceRefactor: mergedOptions.forceSecurityRefactor,
+        interactive: mergedOptions.interactive,
+        token: mergedOptions.securityProviderToken,
+        debug: isLogging,
+      });
+      return {
+        spinner,
+        securityChecker,
+        alerts: [],
+        securityOverrides: [],
+        updates: [],
+        skipped: true,
+      };
+    }
     spinner.fail(
       `🔒 ${deps.green(`pastoralist`)} security check failed: ${error instanceof Error ? error.message : String(error)}`,
     );

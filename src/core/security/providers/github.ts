@@ -5,6 +5,7 @@ import {
   SecurityAlert,
   SecurityCheckOptions,
   GithubApiError,
+  SecurityProviderPermissionError,
 } from "../../../types";
 import { logger, retry } from "../../../utils";
 import {
@@ -225,6 +226,13 @@ export class GitHubSecurityProvider {
         factor: 2,
         minTimeout: 1000,
         onFailedAttempt: (error) => {
+          const errorMessage = String(error);
+          if (this.isPermissionError(errorMessage)) {
+            throw new SecurityProviderPermissionError(
+              "GitHub CLI",
+              errorMessage,
+            );
+          }
           this.log.debug(
             `gh CLI attempt ${error.attemptNumber} failed`,
             "fetchAlertsWithGhCli",
@@ -240,6 +248,13 @@ export class GitHubSecurityProvider {
 
       return Array.isArray(alerts) ? alerts : [];
     } catch (error) {
+      if (error instanceof SecurityProviderPermissionError) {
+        throw error;
+      }
+      const errorMessage = String(error);
+      if (this.isPermissionError(errorMessage)) {
+        throw new SecurityProviderPermissionError("GitHub CLI", errorMessage);
+      }
       this.log.error(
         "Failed to fetch alerts with gh CLI",
         "fetchAlertsWithGhCli",
@@ -247,6 +262,19 @@ export class GitHubSecurityProvider {
       );
       throw new Error(`Failed to fetch Dependabot alerts: ${error}`);
     }
+  }
+
+  private isPermissionError(message: string): boolean {
+    const permissionPatterns = [
+      "Resource not accessible by integration",
+      "Must have admin rights",
+      "Not Found",
+      "Dependabot alerts are not enabled",
+      "vulnerability alerts are disabled",
+    ];
+    return permissionPatterns.some((pattern) =>
+      message.toLowerCase().includes(pattern.toLowerCase()),
+    );
   }
 
   private async fetchFromGitHubAPI(): Promise<DependabotAlert[]> {
@@ -268,9 +296,13 @@ export class GitHubSecurityProvider {
 
       if (!response.ok) {
         const error: GithubApiError = await response.json();
-        throw new Error(
-          `GitHub API error: ${error.message || response.statusText}`,
-        );
+        const errorMessage = error.message || response.statusText;
+
+        if (this.isPermissionError(errorMessage)) {
+          throw new SecurityProviderPermissionError("GitHub", errorMessage);
+        }
+
+        throw new Error(`GitHub API error: ${errorMessage}`);
       }
 
       const alerts = await response.json();
@@ -286,7 +318,12 @@ export class GitHubSecurityProvider {
         retries: 3,
         factor: 2,
         minTimeout: 1000,
-        onFailedAttempt: (error) => {
+        onFailedAttempt: (error: Error & { attemptNumber?: number }) => {
+          const isPermissionError =
+            error.name === "SecurityProviderPermissionError";
+          if (isPermissionError) {
+            throw error;
+          }
           this.log.debug(
             `GitHub API attempt ${error.attemptNumber} failed`,
             "fetchAlertsWithApi",
@@ -294,6 +331,9 @@ export class GitHubSecurityProvider {
         },
       });
     } catch (error) {
+      if (error instanceof SecurityProviderPermissionError) {
+        throw error;
+      }
       this.log.error("Failed to fetch alerts with API", "fetchAlertsWithApi", {
         error,
       });

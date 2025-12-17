@@ -102,6 +102,18 @@ export interface GithubApiError {
   status?: number;
 }
 
+export class SecurityProviderPermissionError extends Error {
+  constructor(
+    public provider: string,
+    public originalMessage: string,
+  ) {
+    super(
+      `${provider} security check skipped: insufficient permissions. ${originalMessage}`,
+    );
+    this.name = "SecurityProviderPermissionError";
+  }
+}
+
 import type {
   GitHubSecurityProvider,
   SnykCLIProvider,

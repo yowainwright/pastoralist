@@ -1940,3 +1940,99 @@ test("runSecurityCheck - handles non-Error throws and calls spinner.fail", async
   expect(failCall).toContain("security check failed");
   expect(failCall).toContain("String error");
 });
+
+test("runSecurityCheck - handles SecurityProviderPermissionError gracefully", async () => {
+  const { runSecurityCheck } = require("../../../src/cli/index");
+  const { SecurityProviderPermissionError } = require("../../../src/types");
+
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+  };
+
+  const mergedOptions: Options = {
+    checkSecurity: true,
+    securityProvider: "github",
+  };
+
+  const mockSpinner = {
+    start: mock(() => mockSpinner),
+    warn: mock(),
+  };
+
+  const permissionError = new SecurityProviderPermissionError(
+    "GitHub",
+    "Resource not accessible by integration",
+  );
+
+  const mockSecurityChecker = {
+    checkSecurity: mock(() => Promise.reject(permissionError)),
+  };
+
+  const deps = {
+    createSpinner: mock(() => mockSpinner),
+    SecurityChecker: mock(() => mockSecurityChecker),
+    determineSecurityScanPaths: mock(() => []),
+    green: mock((text: string) => text),
+    yellow: mock((text: string) => text),
+  };
+
+  const result = await runSecurityCheck(
+    config,
+    mergedOptions,
+    false,
+    log,
+    deps,
+  );
+
+  expect(mockSpinner.warn).toHaveBeenCalled();
+  expect(result.skipped).toBe(true);
+  expect(result.alerts).toEqual([]);
+  expect(result.securityOverrides).toEqual([]);
+  expect(result.updates).toEqual([]);
+});
+
+test("runSecurityCheck - permission error does not throw", async () => {
+  const { runSecurityCheck } = require("../../../src/cli/index");
+  const { SecurityProviderPermissionError } = require("../../../src/types");
+
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+  };
+
+  const mergedOptions: Options = {
+    checkSecurity: true,
+    securityProvider: "github",
+  };
+
+  const mockSpinner = {
+    start: mock(() => mockSpinner),
+    warn: mock(),
+    fail: mock(),
+  };
+
+  const permissionError = new SecurityProviderPermissionError(
+    "GitHub CLI",
+    "Resource not accessible by integration",
+  );
+
+  const mockSecurityChecker = {
+    checkSecurity: mock(() => Promise.reject(permissionError)),
+  };
+
+  const deps = {
+    createSpinner: mock(() => mockSpinner),
+    SecurityChecker: mock(() => mockSecurityChecker),
+    determineSecurityScanPaths: mock(() => []),
+    green: mock((text: string) => text),
+    yellow: mock((text: string) => text),
+  };
+
+  await expect(
+    runSecurityCheck(config, mergedOptions, false, log, deps),
+  ).resolves.toBeDefined();
+
+  expect(mockSpinner.fail).not.toHaveBeenCalled();
+  expect(mockSpinner.warn).toHaveBeenCalled();
+});

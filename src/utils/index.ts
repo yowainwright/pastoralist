@@ -1,5 +1,5 @@
 export { default as createSpinner } from "./spinner";
-export { green } from "./colors";
+export { green, yellow } from "./colors";
 export type { SpinnerState, Spinner } from "./types";
 export {
   hideCursor,

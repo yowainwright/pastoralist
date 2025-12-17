@@ -887,3 +887,356 @@ test("fetchAlertsWithGhCli - handles non-array response", async () => {
   const alerts = await provider["fetchAlertsWithGhCli"]();
   expect(alerts).toEqual([]);
 });
+
+test("isPermissionError - detects 'Resource not accessible by integration' error", () => {
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false,
+  });
+
+  expect(
+    provider["isPermissionError"]("Resource not accessible by integration"),
+  ).toBe(true);
+});
+
+test("isPermissionError - detects 'Must have admin rights' error", () => {
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false,
+  });
+
+  expect(provider["isPermissionError"]("Must have admin rights")).toBe(true);
+});
+
+test("isPermissionError - detects 'Not Found' error", () => {
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false,
+  });
+
+  expect(provider["isPermissionError"]("Not Found")).toBe(true);
+});
+
+test("isPermissionError - detects 'Dependabot alerts are not enabled' error", () => {
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false,
+  });
+
+  expect(
+    provider["isPermissionError"]("Dependabot alerts are not enabled"),
+  ).toBe(true);
+});
+
+test("isPermissionError - detects 'vulnerability alerts are disabled' error", () => {
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false,
+  });
+
+  expect(
+    provider["isPermissionError"]("vulnerability alerts are disabled"),
+  ).toBe(true);
+});
+
+test("isPermissionError - is case insensitive", () => {
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false,
+  });
+
+  expect(
+    provider["isPermissionError"]("RESOURCE NOT ACCESSIBLE BY INTEGRATION"),
+  ).toBe(true);
+  expect(
+    provider["isPermissionError"]("resource not accessible by integration"),
+  ).toBe(true);
+});
+
+test("isPermissionError - returns false for non-permission errors", () => {
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false,
+  });
+
+  expect(provider["isPermissionError"]("Rate limit exceeded")).toBe(false);
+  expect(provider["isPermissionError"]("Server error")).toBe(false);
+  expect(provider["isPermissionError"]("Network timeout")).toBe(false);
+});
+
+test("fetchAlertsWithGhCli - throws SecurityProviderPermissionError for permission errors", async () => {
+  const { SecurityProviderPermissionError } =
+    await import("../../../../../src/core/security/types");
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false,
+  });
+
+  provider["executeGhCli"] = async () => {
+    throw new Error("Resource not accessible by integration");
+  };
+
+  await expect(provider["fetchAlertsWithGhCli"]()).rejects.toThrow(
+    SecurityProviderPermissionError,
+  );
+});
+
+test("fetchAlertsWithApi - throws SecurityProviderPermissionError for permission errors", async () => {
+  const { SecurityProviderPermissionError } =
+    await import("../../../../../src/core/security/types");
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    token: "test-token",
+    debug: false,
+  });
+
+  provider["fetchFromGitHubAPI"] = async () => {
+    throw new SecurityProviderPermissionError(
+      "GitHub",
+      "Resource not accessible by integration",
+    );
+  };
+
+  await expect(provider["fetchAlertsWithApi"]()).rejects.toThrow(
+    SecurityProviderPermissionError,
+  );
+});
+
+test("SecurityProviderPermissionError - has correct message format", async () => {
+  const { SecurityProviderPermissionError } =
+    await import("../../../../../src/core/security/types");
+
+  const error = new SecurityProviderPermissionError(
+    "GitHub",
+    "Resource not accessible by integration",
+  );
+
+  expect(error.name).toBe("SecurityProviderPermissionError");
+  expect(error.provider).toBe("GitHub");
+  expect(error.originalMessage).toBe("Resource not accessible by integration");
+  expect(error.message).toContain("GitHub");
+  expect(error.message).toContain("insufficient permissions");
+});
+
+test("SecurityProviderPermissionError - extends Error", async () => {
+  const { SecurityProviderPermissionError } =
+    await import("../../../../../src/core/security/types");
+
+  const error = new SecurityProviderPermissionError("GitHub CLI", "Not Found");
+
+  expect(error instanceof Error).toBe(true);
+  expect(error.stack).toBeDefined();
+});
+
+test("fetchFromGitHubAPI - throws SecurityProviderPermissionError for permission error response", async () => {
+  const { SecurityProviderPermissionError } =
+    await import("../../../../../src/core/security/types");
+
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    token: "test-token",
+    debug: false,
+  });
+
+  const mockResponse = {
+    ok: false,
+    statusText: "Forbidden",
+    json: async () => ({ message: "Resource not accessible by integration" }),
+  };
+
+  const originalFetch = global.fetch;
+  global.fetch = async () => mockResponse as Response;
+
+  try {
+    await expect(provider["fetchFromGitHubAPI"]()).rejects.toThrow(
+      SecurityProviderPermissionError,
+    );
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test("fetchFromGitHubAPI - throws regular error for non-permission API errors", async () => {
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    token: "test-token",
+    debug: false,
+  });
+
+  const mockResponse = {
+    ok: false,
+    statusText: "Internal Server Error",
+    json: async () => ({ message: "Server error" }),
+  };
+
+  const originalFetch = global.fetch;
+  global.fetch = async () => mockResponse as Response;
+
+  try {
+    await expect(provider["fetchFromGitHubAPI"]()).rejects.toThrow(
+      "GitHub API error: Server error",
+    );
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test("fetchFromGitHubAPI - uses statusText when message is missing", async () => {
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    token: "test-token",
+    debug: false,
+  });
+
+  const mockResponse = {
+    ok: false,
+    statusText: "Bad Request",
+    json: async () => ({}),
+  };
+
+  const originalFetch = global.fetch;
+  global.fetch = async () => mockResponse as Response;
+
+  try {
+    await expect(provider["fetchFromGitHubAPI"]()).rejects.toThrow(
+      "GitHub API error: Bad Request",
+    );
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test("fetchFromGitHubAPI - returns alerts array on success", async () => {
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    token: "test-token",
+    debug: false,
+  });
+
+  const mockAlerts = [{ state: "open", security_vulnerability: {} }];
+  const mockResponse = {
+    ok: true,
+    json: async () => mockAlerts,
+  };
+
+  const originalFetch = global.fetch;
+  global.fetch = async () => mockResponse as Response;
+
+  try {
+    const result = await provider["fetchFromGitHubAPI"]();
+    expect(result).toEqual(mockAlerts);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test("fetchFromGitHubAPI - returns empty array for non-array response", async () => {
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    token: "test-token",
+    debug: false,
+  });
+
+  const mockResponse = {
+    ok: true,
+    json: async () => ({ message: "unexpected format" }),
+  };
+
+  const originalFetch = global.fetch;
+  global.fetch = async () => mockResponse as Response;
+
+  try {
+    const result = await provider["fetchFromGitHubAPI"]();
+    expect(result).toEqual([]);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test("fetchAlertsWithGhCli - does not retry on permission error", async () => {
+  const { SecurityProviderPermissionError } =
+    await import("../../../../../src/core/security/types");
+
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false,
+  });
+
+  let callCount = 0;
+  provider["executeGhCli"] = async () => {
+    callCount++;
+    throw new Error("Resource not accessible by integration");
+  };
+
+  await expect(provider["fetchAlertsWithGhCli"]()).rejects.toThrow(
+    SecurityProviderPermissionError,
+  );
+
+  expect(callCount).toBe(1);
+});
+
+test("fetchAlertsWithApi - does not retry on permission error", async () => {
+  const { SecurityProviderPermissionError } =
+    await import("../../../../../src/core/security/types");
+
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    token: "test-token",
+    debug: false,
+  });
+
+  let callCount = 0;
+  provider["fetchFromGitHubAPI"] = async () => {
+    callCount++;
+    throw new SecurityProviderPermissionError(
+      "GitHub",
+      "Resource not accessible by integration",
+    );
+  };
+
+  await expect(provider["fetchAlertsWithApi"]()).rejects.toThrow(
+    SecurityProviderPermissionError,
+  );
+
+  expect(callCount).toBe(1);
+});
+
+test("isPermissionError - detects error in longer message", () => {
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false,
+  });
+
+  const hasPermissionError = provider["isPermissionError"](
+    "Error: GitHub API error: Resource not accessible by integration (status 403)",
+  );
+
+  expect(hasPermissionError).toBe(true);
+});
+
+test("isPermissionError - handles empty string", () => {
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false,
+  });
+
+  expect(provider["isPermissionError"]("")).toBe(false);
+});

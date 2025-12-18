@@ -139,7 +139,8 @@ export const runSecurityCheck = async (
 
     return { spinner, securityChecker, alerts, securityOverrides, updates };
   } catch (error) {
-    if (error instanceof SecurityProviderPermissionError) {
+    const isPermissionError = error instanceof SecurityProviderPermissionError;
+    if (isPermissionError) {
       spinner.warn(`🔒 ${deps.yellow(`pastoralist`)} ${error.message}`);
       const securityChecker = new deps.SecurityChecker({
         provider: mergedOptions.securityProvider,
@@ -157,8 +158,9 @@ export const runSecurityCheck = async (
         skipped: true,
       };
     }
+    const errorMessage = error instanceof Error ? error.message : String(error);
     spinner.fail(
-      `🔒 ${deps.green(`pastoralist`)} security check failed: ${error instanceof Error ? error.message : String(error)}`,
+      `🔒 ${deps.green(`pastoralist`)} security check failed: ${errorMessage}`,
     );
     throw error;
   }

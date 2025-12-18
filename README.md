@@ -240,9 +240,23 @@ flowchart TD
 **Supported providers:**
 
 - **OSV** (default) - No auth required
-- **GitHub** - Requires token
+- **GitHub** - Requires token and permissions (see below)
 - **Snyk** [EXPERIMENTAL] - Requires CLI and token
 - **Socket** [EXPERIMENTAL] - Requires CLI and token
+
+#### GitHub Provider Setup
+
+When using the GitHub provider in CI workflows, add the `vulnerability-alerts: read` permission:
+
+```yaml
+permissions:
+  contents: write
+  vulnerability-alerts: read
+```
+
+You must also enable Dependabot alerts in your repository: **Settings > Code security and analysis > Dependabot alerts**.
+
+If permissions are insufficient, Pastoralist will warn and continue (your workflow won't fail).
 
 ### 3. Automatic Cleanup
 

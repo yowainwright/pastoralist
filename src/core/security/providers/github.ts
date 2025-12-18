@@ -228,7 +228,8 @@ export class GitHubSecurityProvider {
         minTimeout: 1000,
         onFailedAttempt: (error) => {
           const errorMessage = String(error);
-          if (this.isPermissionError(errorMessage)) {
+          const isPermissionError = this.isPermissionError(errorMessage);
+          if (isPermissionError) {
             throw new SecurityProviderPermissionError(
               "GitHub CLI",
               errorMessage,
@@ -242,18 +243,19 @@ export class GitHubSecurityProvider {
       });
 
       const alerts = JSON.parse(stdout);
-      this.log.debug(
-        `Parsed ${Array.isArray(alerts) ? alerts.length : "non-array"} alerts`,
-        "fetchAlertsWithGhCli",
-      );
+      const alertCount = Array.isArray(alerts) ? alerts.length : "non-array";
+      this.log.debug(`Parsed ${alertCount} alerts`, "fetchAlertsWithGhCli");
 
       return Array.isArray(alerts) ? alerts : [];
     } catch (error) {
-      if (error instanceof SecurityProviderPermissionError) {
+      const isAlreadyPermissionError =
+        error instanceof SecurityProviderPermissionError;
+      if (isAlreadyPermissionError) {
         throw error;
       }
       const errorMessage = String(error);
-      if (this.isPermissionError(errorMessage)) {
+      const isPermissionError = this.isPermissionError(errorMessage);
+      if (isPermissionError) {
         throw new SecurityProviderPermissionError("GitHub CLI", errorMessage);
       }
       this.log.error(
@@ -298,8 +300,9 @@ export class GitHubSecurityProvider {
       if (!response.ok) {
         const error: GithubApiError = await response.json();
         const errorMessage = error.message || response.statusText;
+        const isPermissionError = this.isPermissionError(errorMessage);
 
-        if (this.isPermissionError(errorMessage)) {
+        if (isPermissionError) {
           throw new SecurityProviderPermissionError("GitHub", errorMessage);
         }
 
@@ -332,7 +335,9 @@ export class GitHubSecurityProvider {
         },
       });
     } catch (error) {
-      if (error instanceof SecurityProviderPermissionError) {
+      const isPermissionError =
+        error instanceof SecurityProviderPermissionError;
+      if (isPermissionError) {
         throw error;
       }
       this.log.error("Failed to fetch alerts with API", "fetchAlertsWithApi", {

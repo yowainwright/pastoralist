@@ -1024,7 +1024,42 @@ test("SecurityProviderPermissionError - has correct message format", async () =>
   expect(error.provider).toBe("GitHub");
   expect(error.originalMessage).toBe("Resource not accessible by integration");
   expect(error.message).toContain("GitHub");
-  expect(error.message).toContain("insufficient permissions");
+  expect(error.message).toContain("Resource not accessible by integration");
+  expect(error.message).toContain("vulnerability-alerts: read");
+});
+
+test("SecurityProviderPermissionError - provides guidance for disabled alerts", async () => {
+  const { SecurityProviderPermissionError } =
+    await import("../../../../../src/core/security/types");
+
+  const error = new SecurityProviderPermissionError(
+    "GitHub",
+    "Dependabot alerts are not enabled",
+  );
+
+  expect(error.message).toContain("Enable Dependabot alerts");
+  expect(error.message).toContain("Settings > Code security");
+});
+
+test("SecurityProviderPermissionError - provides guidance for not found errors", async () => {
+  const { SecurityProviderPermissionError } =
+    await import("../../../../../src/core/security/types");
+
+  const error = new SecurityProviderPermissionError("GitHub", "Not Found");
+
+  expect(error.message).toContain("Verify the repository exists");
+});
+
+test("SecurityProviderPermissionError - provides fallback guidance for unknown errors", async () => {
+  const { SecurityProviderPermissionError } =
+    await import("../../../../../src/core/security/types");
+
+  const error = new SecurityProviderPermissionError(
+    "GitHub",
+    "Some other error",
+  );
+
+  expect(error.message).toContain("Check repository permissions");
 });
 
 test("SecurityProviderPermissionError - extends Error", async () => {
@@ -1239,4 +1274,224 @@ test("isPermissionError - handles empty string", () => {
   });
 
   expect(provider["isPermissionError"]("")).toBe(false);
+});
+
+test("getRepoOwner - extracts owner from HTTPS GitHub URL", async () => {
+  const provider = new GitHubSecurityProvider({ debug: false });
+
+  const mockExecFileAsync = async () => ({
+    stdout: "https://github.com/yowainwright/pastoralist.git\n",
+    stderr: "",
+  });
+
+  provider["execFileAsync"] = mockExecFileAsync as any;
+
+  const owner = await provider["getRepoOwner"]();
+  expect(owner).toBe("yowainwright");
+});
+
+test("getRepoOwner - extracts owner from SSH GitHub URL", async () => {
+  const provider = new GitHubSecurityProvider({ debug: false });
+
+  const mockExecFileAsync = async () => ({
+    stdout: "git@github.com:yowainwright/pastoralist.git\n",
+    stderr: "",
+  });
+
+  provider["execFileAsync"] = mockExecFileAsync as any;
+
+  const owner = await provider["getRepoOwner"]();
+  expect(owner).toBe("yowainwright");
+});
+
+test("getRepoOwner - throws for non-GitHub URL", async () => {
+  const provider = new GitHubSecurityProvider({ debug: false });
+
+  const mockExecFileAsync = async () => ({
+    stdout: "https://gitlab.com/user/repo.git\n",
+    stderr: "",
+  });
+
+  provider["execFileAsync"] = mockExecFileAsync as any;
+
+  await expect(provider["getRepoOwner"]()).rejects.toThrow(
+    "Unable to determine GitHub repository owner",
+  );
+});
+
+test("getRepoOwner - throws when git command fails", async () => {
+  const provider = new GitHubSecurityProvider({ debug: false });
+
+  const mockExecFileAsync = async () => {
+    throw new Error("git command failed");
+  };
+
+  provider["execFileAsync"] = mockExecFileAsync as any;
+
+  await expect(provider["getRepoOwner"]()).rejects.toThrow(
+    "Unable to determine GitHub repository owner",
+  );
+});
+
+test("getRepoName - extracts repo name from HTTPS GitHub URL", async () => {
+  const provider = new GitHubSecurityProvider({ debug: false });
+
+  const mockExecFileAsync = async () => ({
+    stdout: "https://github.com/yowainwright/pastoralist.git\n",
+    stderr: "",
+  });
+
+  provider["execFileAsync"] = mockExecFileAsync as any;
+
+  const repo = await provider["getRepoName"]();
+  expect(repo).toBe("pastoralist");
+});
+
+test("getRepoName - extracts repo name from SSH GitHub URL", async () => {
+  const provider = new GitHubSecurityProvider({ debug: false });
+
+  const mockExecFileAsync = async () => ({
+    stdout: "git@github.com:yowainwright/pastoralist.git\n",
+    stderr: "",
+  });
+
+  provider["execFileAsync"] = mockExecFileAsync as any;
+
+  const repo = await provider["getRepoName"]();
+  expect(repo).toBe("pastoralist");
+});
+
+test("getRepoName - throws for non-GitHub URL", async () => {
+  const provider = new GitHubSecurityProvider({ debug: false });
+
+  const mockExecFileAsync = async () => ({
+    stdout: "https://gitlab.com/user/repo.git\n",
+    stderr: "",
+  });
+
+  provider["execFileAsync"] = mockExecFileAsync as any;
+
+  await expect(provider["getRepoName"]()).rejects.toThrow(
+    "Unable to determine GitHub repository name",
+  );
+});
+
+test("getRepoName - throws when git command fails", async () => {
+  const provider = new GitHubSecurityProvider({ debug: false });
+
+  const mockExecFileAsync = async () => {
+    throw new Error("git command failed");
+  };
+
+  provider["execFileAsync"] = mockExecFileAsync as any;
+
+  await expect(provider["getRepoName"]()).rejects.toThrow(
+    "Unable to determine GitHub repository name",
+  );
+});
+
+test("getRepoOwner - handles URL without .git suffix", async () => {
+  const provider = new GitHubSecurityProvider({ debug: false });
+
+  const mockExecFileAsync = async () => ({
+    stdout: "https://github.com/yowainwright/pastoralist\n",
+    stderr: "",
+  });
+
+  provider["execFileAsync"] = mockExecFileAsync as any;
+
+  const owner = await provider["getRepoOwner"]();
+  expect(owner).toBe("yowainwright");
+});
+
+test("getRepoName - handles URL without .git suffix", async () => {
+  const provider = new GitHubSecurityProvider({ debug: false });
+
+  const mockExecFileAsync = async () => ({
+    stdout: "https://github.com/yowainwright/pastoralist\n",
+    stderr: "",
+  });
+
+  provider["execFileAsync"] = mockExecFileAsync as any;
+
+  const repo = await provider["getRepoName"]();
+  expect(repo).toBe("pastoralist");
+});
+
+test("isGhCliAvailable - returns true when gh CLI is available", async () => {
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false,
+  });
+
+  const mockExecFileAsync = async () => ({
+    stdout: "gh version 2.40.0\n",
+    stderr: "",
+  });
+
+  provider["execFileAsync"] = mockExecFileAsync as any;
+
+  const isAvailable = await provider["isGhCliAvailable"]();
+  expect(isAvailable).toBe(true);
+});
+
+test("isGhCliAvailable - returns false when gh CLI is not available", async () => {
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false,
+  });
+
+  const mockExecFileAsync = async () => {
+    throw new Error("command not found: gh");
+  };
+
+  provider["execFileAsync"] = mockExecFileAsync as any;
+
+  const isAvailable = await provider["isGhCliAvailable"]();
+  expect(isAvailable).toBe(false);
+});
+
+test("executeGhCli - returns stdout from gh CLI", async () => {
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    debug: false,
+  });
+
+  const mockAlerts = [{ state: "open" }];
+  const mockExecFileAsync = async () => ({
+    stdout: JSON.stringify(mockAlerts),
+    stderr: "",
+  });
+
+  provider["execFileAsync"] = mockExecFileAsync as any;
+
+  const result = await provider["executeGhCli"]();
+  expect(result).toBe(JSON.stringify(mockAlerts));
+});
+
+test("executeGhCli - uses correct API endpoint", async () => {
+  const provider = new GitHubSecurityProvider({
+    owner: "yowainwright",
+    repo: "pastoralist",
+    debug: false,
+  });
+
+  let capturedArgs: string[] = [];
+  const mockExecFileAsync = async (cmd: string, args: string[]) => {
+    capturedArgs = args;
+    return { stdout: "[]", stderr: "" };
+  };
+
+  provider["execFileAsync"] = mockExecFileAsync as any;
+
+  await provider["executeGhCli"]();
+
+  expect(capturedArgs).toContain("api");
+  expect(capturedArgs).toContain(
+    "repos/yowainwright/pastoralist/dependabot/alerts",
+  );
+  expect(capturedArgs).toContain("--paginate");
 });

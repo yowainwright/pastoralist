@@ -107,10 +107,39 @@ export class SecurityProviderPermissionError extends Error {
     public provider: string,
     public originalMessage: string,
   ) {
+    const guidance =
+      SecurityProviderPermissionError.getGuidance(originalMessage);
     super(
-      `${provider} security check skipped: insufficient permissions. ${originalMessage}`,
+      `${provider} security check skipped: ${originalMessage}. ${guidance}`,
     );
     this.name = "SecurityProviderPermissionError";
+  }
+
+  private static getGuidance(message: string): string {
+    const lowerMessage = message.toLowerCase();
+
+    const isAccessError =
+      lowerMessage.includes("resource not accessible") ||
+      lowerMessage.includes("must have admin");
+
+    const isNotEnabledError =
+      lowerMessage.includes("not enabled") || lowerMessage.includes("disabled");
+
+    const isNotFoundError = lowerMessage.includes("not found");
+
+    if (isAccessError) {
+      return "Add 'vulnerability-alerts: read' permission to your workflow or enable Dependabot alerts in repo settings.";
+    }
+
+    if (isNotEnabledError) {
+      return "Enable Dependabot alerts in Settings > Code security and analysis.";
+    }
+
+    if (isNotFoundError) {
+      return "Verify the repository exists and you have access, or enable Dependabot alerts.";
+    }
+
+    return "Check repository permissions and Dependabot settings.";
   }
 }
 

@@ -442,17 +442,24 @@ export async function action(
     };
 
     if (mergedOptions.checkSecurity) {
-      const { spinner, securityChecker, alerts, securityOverrides, updates } =
-        await deps.runSecurityCheck(
-          config!,
-          mergedOptions,
-          Boolean(isLogging),
-          log,
-        );
+      const {
+        spinner,
+        securityChecker,
+        alerts,
+        securityOverrides,
+        updates,
+        skipped,
+      } = await deps.runSecurityCheck(
+        config!,
+        mergedOptions,
+        Boolean(isLogging),
+        log,
+      );
 
       securityResult = buildSecurityResult(alerts);
 
-      if (!isJsonOutput) {
+      const shouldHandleResults = !skipped && !isJsonOutput;
+      if (shouldHandleResults) {
         deps.handleSecurityResults(
           alerts,
           securityOverrides,
@@ -461,7 +468,7 @@ export async function action(
           mergedOptions,
           updates,
         );
-      } else {
+      } else if (isJsonOutput) {
         spinner.stop();
       }
     }

@@ -136,12 +136,28 @@ If you don't have the GitHub CLI, you can provide a GitHub token:
    pastoralist --checkSecurity --securityProvider github --securityProviderToken your_token_here
    ```
 
+#### CI/CD Permissions
+
+When using the GitHub provider in CI workflows, you need to:
+
+1. **Add workflow permissions:**
+
+```yaml
+permissions:
+  contents: write
+  vulnerability-alerts: read
+```
+
+2. **Enable Dependabot alerts** in your repository: Settings → Code security and analysis → Dependabot alerts
+
+If permissions are insufficient, Pastoralist will display a warning with guidance and continue (your workflow won't fail).
+
 #### Benefits
 
 - Uses GitHub's official Dependabot alerts
 - Integrates with your existing GitHub security settings
 - No additional API rate limits beyond GitHub's standard limits
-- Can be used in GitHub Actions without additional configuration
+- Graceful handling when permissions are missing
 
 ### Snyk Provider [EXPERIMENTAL]
 
@@ -261,6 +277,16 @@ Found 3 vulnerable package(s):
 - Consider excluding large dependency trees with `excludePackages`
 - Use severity threshold to limit results
 
+### GitHub provider shows "security check skipped"
+
+This happens when the GitHub API can't access Dependabot alerts. To fix:
+
+1. Add `vulnerability-alerts: read` permission to your workflow
+2. Enable Dependabot alerts in Settings → Code security and analysis
+3. Ensure the `GITHUB_TOKEN` is available in your workflow
+
+Pastoralist will show specific guidance in the warning message.
+
 ## Example: CI/CD Integration
 
 ### GitHub Actions
@@ -272,9 +298,30 @@ on: [push, pull_request]
 jobs:
   security:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      vulnerability-alerts: read # Required for GitHub provider
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+      - run: npm install
+      - run: npx pastoralist --checkSecurity --securityProvider github
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+For OSV provider (no permissions needed):
+
+```yaml
+name: Security Check
+on: [push, pull_request]
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
       - run: npm install
       - run: npx pastoralist --checkSecurity
 ```

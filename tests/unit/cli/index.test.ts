@@ -2077,7 +2077,8 @@ test("runSecurityCheck - permission error warning contains error message", async
 
   const warnCall = mockSpinner.warn.mock.calls[0][0];
   expect(warnCall).toContain("pastoralist");
-  expect(warnCall).toContain("insufficient permissions");
+  expect(warnCall).toContain("Resource not accessible");
+  expect(warnCall).toContain("vulnerability-alerts: read");
 });
 
 test("runSecurityCheck - permission error creates new SecurityChecker for return", async () => {
@@ -2166,4 +2167,124 @@ test("runSecurityCheck - regular errors still throw after spinner.fail", async (
 
   expect(mockSpinner.fail).toHaveBeenCalled();
   expect(mockSpinner.warn).not.toHaveBeenCalled();
+});
+
+test("action - continues successfully when security check hits permission error", async () => {
+  const { action } = require("../../../src/cli/index");
+  const { SecurityProviderPermissionError } = require("../../../src/types");
+
+  const mockConfig: PastoralistJSON = {
+    name: "test-package",
+    version: "1.0.0",
+    pastoralist: {
+      security: {
+        enabled: true,
+        provider: "github",
+      },
+    },
+  };
+
+  const permissionError = new SecurityProviderPermissionError(
+    "GitHub",
+    "Resource not accessible by integration",
+  );
+
+  const mockSecuritySpinner = {
+    start: mock(() => mockSecuritySpinner),
+    warn: mock(),
+    info: mock(),
+    succeed: mock(),
+  };
+
+  const mockUpdateSpinner = {
+    start: mock(() => mockUpdateSpinner),
+    succeed: mock(),
+  };
+
+  let spinnerCount = 0;
+  const mockCreateSpinner = mock(() => {
+    spinnerCount++;
+    return spinnerCount === 1 ? mockSecuritySpinner : mockUpdateSpinner;
+  });
+
+  const mockSecurityChecker = {
+    checkSecurity: mock(() => Promise.reject(permissionError)),
+  };
+
+  const deps = {
+    createLogger: mock(() => log),
+    handleTestMode: mock(() => false),
+    handleInitMode: mock(() => Promise.resolve(false)),
+    resolveJSON: mock(() => Promise.resolve(mockConfig)),
+    buildMergedOptions: mock(() => ({ checkSecurity: true })),
+    runSecurityCheck: mock(() =>
+      Promise.resolve({
+        spinner: mockSecuritySpinner,
+        securityChecker: mockSecurityChecker,
+        alerts: [],
+        securityOverrides: [],
+        updates: [],
+        skipped: true,
+      }),
+    ),
+    handleSecurityResults: mock(() => {}),
+    createSpinner: mockCreateSpinner,
+    green: mock((text: string) => text),
+    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
+    processExit: mock(() => {}),
+  };
+
+  await action({}, deps);
+
+  expect(deps.processExit).not.toHaveBeenCalled();
+  expect(deps.update).toHaveBeenCalled();
+  expect(deps.runSecurityCheck).toHaveBeenCalled();
+});
+
+test("action - does not call handleSecurityResults when security check is skipped", async () => {
+  const { action } = require("../../../src/cli/index");
+
+  const mockConfig: PastoralistJSON = {
+    name: "test-package",
+    version: "1.0.0",
+    pastoralist: {
+      security: {
+        enabled: true,
+        provider: "github",
+      },
+    },
+  };
+
+  const mockSpinner = {
+    start: mock(() => mockSpinner),
+    warn: mock(),
+    succeed: mock(),
+  };
+
+  const deps = {
+    createLogger: mock(() => log),
+    handleTestMode: mock(() => false),
+    handleInitMode: mock(() => Promise.resolve(false)),
+    resolveJSON: mock(() => Promise.resolve(mockConfig)),
+    buildMergedOptions: mock(() => ({ checkSecurity: true })),
+    runSecurityCheck: mock(() =>
+      Promise.resolve({
+        spinner: mockSpinner,
+        securityChecker: {},
+        alerts: [],
+        securityOverrides: [],
+        updates: [],
+        skipped: true,
+      }),
+    ),
+    handleSecurityResults: mock(() => {}),
+    createSpinner: mock(() => mockSpinner),
+    green: mock((text: string) => text),
+    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
+    processExit: mock(() => {}),
+  };
+
+  await action({}, deps);
+
+  expect(deps.handleSecurityResults).not.toHaveBeenCalled();
 });

@@ -139,7 +139,8 @@ export const runSecurityCheck = async (
 
     return { spinner, securityChecker, alerts, securityOverrides, updates };
   } catch (error) {
-    if (error instanceof SecurityProviderPermissionError) {
+    const isPermissionError = error instanceof SecurityProviderPermissionError;
+    if (isPermissionError) {
       spinner.warn(`🔒 ${deps.yellow(`pastoralist`)} ${error.message}`);
       const securityChecker = new deps.SecurityChecker({
         provider: mergedOptions.securityProvider,
@@ -157,8 +158,9 @@ export const runSecurityCheck = async (
         skipped: true,
       };
     }
+    const errorMessage = error instanceof Error ? error.message : String(error);
     spinner.fail(
-      `🔒 ${deps.green(`pastoralist`)} security check failed: ${error instanceof Error ? error.message : String(error)}`,
+      `🔒 ${deps.green(`pastoralist`)} security check failed: ${errorMessage}`,
     );
     throw error;
   }
@@ -442,17 +444,24 @@ export async function action(
     };
 
     if (mergedOptions.checkSecurity) {
-      const { spinner, securityChecker, alerts, securityOverrides, updates } =
-        await deps.runSecurityCheck(
-          config!,
-          mergedOptions,
-          Boolean(isLogging),
-          log,
-        );
+      const {
+        spinner,
+        securityChecker,
+        alerts,
+        securityOverrides,
+        updates,
+        skipped,
+      } = await deps.runSecurityCheck(
+        config!,
+        mergedOptions,
+        Boolean(isLogging),
+        log,
+      );
 
       securityResult = buildSecurityResult(alerts);
 
-      if (!isJsonOutput) {
+      const shouldHandleResults = !skipped && !isJsonOutput;
+      if (shouldHandleResults) {
         deps.handleSecurityResults(
           alerts,
           securityOverrides,
@@ -461,7 +470,7 @@ export async function action(
           mergedOptions,
           updates,
         );
-      } else {
+      } else if (isJsonOutput) {
         spinner.stop();
       }
     }

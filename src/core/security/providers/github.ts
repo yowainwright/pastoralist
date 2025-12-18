@@ -14,7 +14,7 @@ import {
   MOCK_DEPENDABOT_ALERT_MINIMIST,
 } from "../../../constants";
 
-const execFileAsync = promisify(execFile);
+const defaultExecFileAsync = promisify(execFile);
 
 const DEFAULT_FETCH_TIMEOUT = 30000;
 const DEFAULT_CLI_TIMEOUT = 60000;
@@ -24,6 +24,7 @@ export class GitHubSecurityProvider {
   private repo: string;
   private token?: string;
   private log: ReturnType<typeof logger>;
+  protected execFileAsync: typeof defaultExecFileAsync = defaultExecFileAsync;
 
   constructor(options: SecurityCheckOptions & { debug?: boolean }) {
     this.token = options.token || process.env.GITHUB_TOKEN;
@@ -47,7 +48,7 @@ export class GitHubSecurityProvider {
 
   private async getRepoOwner(): Promise<string> {
     try {
-      const { stdout } = await execFileAsync("git", [
+      const { stdout } = await this.execFileAsync("git", [
         "config",
         "--get",
         "remote.origin.url",
@@ -68,7 +69,7 @@ export class GitHubSecurityProvider {
 
   private async getRepoName(): Promise<string> {
     try {
-      const { stdout } = await execFileAsync("git", [
+      const { stdout } = await this.execFileAsync("git", [
         "config",
         "--get",
         "remote.origin.url",
@@ -194,7 +195,7 @@ export class GitHubSecurityProvider {
 
   private async isGhCliAvailable(): Promise<boolean> {
     try {
-      await execFileAsync("gh", ["--version"]);
+      await this.execFileAsync("gh", ["--version"]);
       return true;
     } catch {
       return false;
@@ -212,7 +213,7 @@ export class GitHubSecurityProvider {
       "executeGhCli",
     );
 
-    const { stdout } = await execFileAsync("gh", args, {
+    const { stdout } = await this.execFileAsync("gh", args, {
       timeout: DEFAULT_CLI_TIMEOUT,
     });
     this.log.debug(`gh CLI stdout length: ${stdout.length}`, "executeGhCli");
@@ -227,7 +228,8 @@ export class GitHubSecurityProvider {
         minTimeout: 1000,
         onFailedAttempt: (error) => {
           const errorMessage = String(error);
-          if (this.isPermissionError(errorMessage)) {
+          const isPermissionError = this.isPermissionError(errorMessage);
+          if (isPermissionError) {
             throw new SecurityProviderPermissionError(
               "GitHub CLI",
               errorMessage,
@@ -241,18 +243,19 @@ export class GitHubSecurityProvider {
       });
 
       const alerts = JSON.parse(stdout);
-      this.log.debug(
-        `Parsed ${Array.isArray(alerts) ? alerts.length : "non-array"} alerts`,
-        "fetchAlertsWithGhCli",
-      );
+      const alertCount = Array.isArray(alerts) ? alerts.length : "non-array";
+      this.log.debug(`Parsed ${alertCount} alerts`, "fetchAlertsWithGhCli");
 
       return Array.isArray(alerts) ? alerts : [];
     } catch (error) {
-      if (error instanceof SecurityProviderPermissionError) {
+      const isAlreadyPermissionError =
+        error instanceof SecurityProviderPermissionError;
+      if (isAlreadyPermissionError) {
         throw error;
       }
       const errorMessage = String(error);
-      if (this.isPermissionError(errorMessage)) {
+      const isPermissionError = this.isPermissionError(errorMessage);
+      if (isPermissionError) {
         throw new SecurityProviderPermissionError("GitHub CLI", errorMessage);
       }
       this.log.error(
@@ -297,8 +300,9 @@ export class GitHubSecurityProvider {
       if (!response.ok) {
         const error: GithubApiError = await response.json();
         const errorMessage = error.message || response.statusText;
+        const isPermissionError = this.isPermissionError(errorMessage);
 
-        if (this.isPermissionError(errorMessage)) {
+        if (isPermissionError) {
           throw new SecurityProviderPermissionError("GitHub", errorMessage);
         }
 
@@ -331,7 +335,9 @@ export class GitHubSecurityProvider {
         },
       });
     } catch (error) {
-      if (error instanceof SecurityProviderPermissionError) {
+      const isPermissionError =
+        error instanceof SecurityProviderPermissionError;
+      if (isPermissionError) {
         throw error;
       }
       this.log.error("Failed to fetch alerts with API", "fetchAlertsWithApi", {

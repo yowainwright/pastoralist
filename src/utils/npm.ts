@@ -1,4 +1,5 @@
 import { retry } from "./retry";
+import { compareVersions } from "./semver";
 
 const NPM_REGISTRY_URL = "https://registry.npmjs.org";
 
@@ -10,11 +11,20 @@ interface NpmPackageInfo {
   versions: Record<string, unknown>;
 }
 
-export const fetchLatestVersion = async (
+const getMajorVersion = (version: string): number => {
+  const major = version.split(".")[0];
+  return parseInt(major, 10) || 0;
+};
+
+const isPrerelease = (version: string): boolean => {
+  return version.includes("-");
+};
+
+const fetchPackageInfo = async (
   packageName: string,
-): Promise<string | null> => {
+): Promise<NpmPackageInfo | null> => {
   try {
-    const response = await retry(
+    return await retry(
       async () => {
         const res = await fetch(
           `${NPM_REGISTRY_URL}/${encodeURIComponent(packageName)}`,
@@ -31,22 +41,57 @@ export const fetchLatestVersion = async (
       },
       { retries: 2, minTimeout: 500, maxTimeout: 3000 },
     );
-
-    return response["dist-tags"]?.latest ?? null;
   } catch {
     return null;
   }
 };
 
-export const fetchLatestVersions = async (
-  packageNames: string[],
+export const fetchLatestVersion = async (
+  packageName: string,
+): Promise<string | null> => {
+  const info = await fetchPackageInfo(packageName);
+  return info?.["dist-tags"]?.latest ?? null;
+};
+
+export const fetchLatestCompatibleVersion = async (
+  packageName: string,
+  minVersion: string,
+): Promise<string | null> => {
+  const info = await fetchPackageInfo(packageName);
+  if (!info) return null;
+
+  const targetMajor = getMajorVersion(minVersion);
+  const versions = Object.keys(info.versions);
+
+  const compatibleVersions = versions.filter((v) => {
+    const vMajor = getMajorVersion(v);
+    const isCompatible = vMajor === targetMajor;
+    const isStable = !isPrerelease(v);
+    const isNewerOrEqual = compareVersions(v, minVersion) >= 0;
+    return isCompatible && isStable && isNewerOrEqual;
+  });
+
+  if (compatibleVersions.length === 0) return null;
+
+  compatibleVersions.sort((a, b) => compareVersions(b, a));
+  return compatibleVersions[0];
+};
+
+export const fetchLatestCompatibleVersions = async (
+  packages: Array<{ name: string; minVersion: string }>,
 ): Promise<Map<string, string>> => {
   const results = new Map<string, string>();
-  const uniqueNames = [...new Set(packageNames)];
+
+  const uniquePackages = packages.reduce((acc, pkg) => {
+    if (!acc.has(pkg.name)) {
+      acc.set(pkg.name, pkg.minVersion);
+    }
+    return acc;
+  }, new Map<string, string>());
 
   const fetches = await Promise.all(
-    uniqueNames.map(async (name) => {
-      const version = await fetchLatestVersion(name);
+    Array.from(uniquePackages.entries()).map(async ([name, minVersion]) => {
+      const version = await fetchLatestCompatibleVersion(name, minVersion);
       return { name, version };
     }),
   );

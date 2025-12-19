@@ -13,7 +13,7 @@ import {
   SecurityOverrideDetail,
 } from "../../types";
 import { PastoralistJSON, OverridesType } from "../../types";
-import { logger, LRUCache, fetchLatestVersions } from "../../utils";
+import { logger, LRUCache, fetchLatestCompatibleVersions } from "../../utils";
 import { compareVersions } from "../../utils/semver";
 import {
   InteractiveSecurityManager,
@@ -357,11 +357,14 @@ export class SecurityChecker {
   private async fetchLatestForVulnerablePackages(
     vulnerablePackages: SecurityAlert[],
   ): Promise<Map<string, string>> {
-    const packageNames = vulnerablePackages
+    const packages = vulnerablePackages
       .filter((pkg) => pkg.fixAvailable && pkg.patchedVersion)
-      .map((pkg) => pkg.packageName);
+      .map((pkg) => ({
+        name: pkg.packageName,
+        minVersion: pkg.patchedVersion!,
+      }));
 
-    return fetchLatestVersions(packageNames);
+    return fetchLatestCompatibleVersions(packages);
   }
 
   private generateOverrides(

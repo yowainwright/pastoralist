@@ -56,6 +56,7 @@ export interface PastoralistConfig {
     excludePackages?: string[];
     hasWorkspaceSecurityChecks?: boolean;
     strict?: boolean;
+    preferLatest?: boolean;
   };
 }
 

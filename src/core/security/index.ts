@@ -13,7 +13,7 @@ import {
   SecurityOverrideDetail,
 } from "../../types";
 import { PastoralistJSON, OverridesType } from "../../types";
-import { logger, LRUCache } from "../../utils";
+import { logger, LRUCache, fetchLatestCompatibleVersions } from "../../utils";
 import { compareVersions } from "../../utils/semver";
 import {
   InteractiveSecurityManager,
@@ -194,7 +194,14 @@ export class SecurityChecker {
         "checkSecurity",
       );
 
-      let overrides = this.generateOverrides(allVulnerablePackages);
+      const latestVersions = await this.fetchLatestForVulnerablePackages(
+        allVulnerablePackages,
+      );
+
+      let overrides = this.generateOverrides(
+        allVulnerablePackages,
+        latestVersions,
+      );
 
       const updates = await this.checkOverrideUpdates(config, alerts);
 
@@ -347,16 +354,37 @@ export class SecurityChecker {
     return updates;
   }
 
+  private async fetchLatestForVulnerablePackages(
+    vulnerablePackages: SecurityAlert[],
+  ): Promise<Map<string, string>> {
+    const packages = vulnerablePackages
+      .filter((pkg) => pkg.fixAvailable && pkg.patchedVersion)
+      .map((pkg) => ({
+        name: pkg.packageName,
+        minVersion: pkg.patchedVersion!,
+      }));
+
+    return fetchLatestCompatibleVersions(packages);
+  }
+
   private generateOverrides(
     vulnerablePackages: SecurityAlert[],
+    latestVersions: Map<string, string>,
   ): SecurityOverride[] {
     return vulnerablePackages
       .filter((pkg) => pkg.fixAvailable && pkg.patchedVersion)
       .map((pkg) => {
+        const latestVersion = latestVersions.get(pkg.packageName);
+        const patchedVersion = pkg.patchedVersion!;
+
+        const shouldUseLatest =
+          latestVersion && compareVersions(latestVersion, patchedVersion) >= 0;
+        const targetVersion = shouldUseLatest ? latestVersion : patchedVersion;
+
         const base = {
           packageName: pkg.packageName,
           fromVersion: pkg.currentVersion,
-          toVersion: pkg.patchedVersion!,
+          toVersion: targetVersion,
           reason: `Security fix: ${pkg.title} (${pkg.severity})`,
           severity: pkg.severity,
         };

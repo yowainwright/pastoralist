@@ -15,52 +15,32 @@ import {
 } from "../../../../src/core/security/types";
 import * as fs from "fs";
 import * as path from "path";
+import {
+  BASE_SECURITY_ALERT,
+  BASE_DEPENDABOT_ALERT,
+  BASE_SECURITY_OVERRIDE,
+  LODASH_DEPENDENCY,
+  LODASH_VULNERABILITY,
+  LODASH_ADVISORY,
+  LODASH_CVE,
+  LODASH_URL,
+  LODASH_DESCRIPTION,
+  AXIOS_ALERT_FIELDS,
+  NO_FIX_FIELDS,
+  createAlert,
+} from "../../fixtures/security.fixtures";
 
 const mockDependabotAlert: DependabotAlert = {
-  number: 1,
-  state: "open",
-  dependency: {
-    package: {
-      ecosystem: "npm",
-      name: "lodash",
-    },
-    manifest_path: "package.json",
-    scope: "runtime",
-  },
+  ...BASE_DEPENDABOT_ALERT,
+  dependency: LODASH_DEPENDENCY,
   security_advisory: {
-    severity: "high",
-    summary: "Prototype Pollution in lodash",
-    description:
-      "Lodash versions before 4.17.21 are vulnerable to prototype pollution",
-    cve_id: "CVE-2021-23337",
-    vulnerabilities: [
-      {
-        package: {
-          ecosystem: "npm",
-          name: "lodash",
-        },
-        vulnerable_version_range: "< 4.17.21",
-        first_patched_version: {
-          identifier: "4.17.21",
-        },
-      },
-    ],
+    ...LODASH_ADVISORY,
+    vulnerabilities: [LODASH_VULNERABILITY],
   },
   security_vulnerability: {
-    package: {
-      ecosystem: "npm",
-      name: "lodash",
-    },
+    ...LODASH_VULNERABILITY,
     severity: "high",
-    vulnerable_version_range: "< 4.17.21",
-    first_patched_version: {
-      identifier: "4.17.21",
-    },
   },
-  url: "https://api.github.com/repos/owner/repo/dependabot/alerts/1",
-  html_url: "https://github.com/owner/repo/security/dependabot/1",
-  created_at: "2021-02-01T00:00:00Z",
-  updated_at: "2021-02-01T00:00:00Z",
 };
 
 const mockPackageJson: PastoralistJSON = {
@@ -137,18 +117,7 @@ test("Version Vulnerability Checking - should handle versions with semver prefix
 
 test("Override Generation - should generate correct overrides for vulnerable packages", () => {
   const checker = new SecurityChecker({ debug: false });
-
-  const vulnerablePackages: SecurityAlert[] = [
-    {
-      packageName: "lodash",
-      currentVersion: "4.17.20",
-      vulnerableVersions: "< 4.17.21",
-      patchedVersion: "4.17.21",
-      severity: "high",
-      title: "Prototype Pollution",
-      fixAvailable: true,
-    },
-  ];
+  const vulnerablePackages = [createAlert()];
 
   const latestVersions = new Map<string, string>();
   const overrides = (checker as any).generateOverrides(
@@ -165,17 +134,8 @@ test("Override Generation - should generate correct overrides for vulnerable pac
 
 test("Override Generation - should not generate overrides for packages without fixes", () => {
   const checker = new SecurityChecker({ debug: false });
-
-  const vulnerablePackages: SecurityAlert[] = [
-    {
-      packageName: "vulnerable-package",
-      currentVersion: "1.0.0",
-      vulnerableVersions: "< 2.0.0",
-      patchedVersion: undefined,
-      severity: "high",
-      title: "No fix available",
-      fixAvailable: false,
-    },
+  const vulnerablePackages = [
+    createAlert({ packageName: "vulnerable-package", ...NO_FIX_FIELDS }),
   ];
 
   const latestVersions = new Map<string, string>();
@@ -188,19 +148,7 @@ test("Override Generation - should not generate overrides for packages without f
 
 test("Override Generation - should include CVE in overrides when available", () => {
   const checker = new SecurityChecker({ debug: false });
-
-  const vulnerablePackages: SecurityAlert[] = [
-    {
-      packageName: "lodash",
-      currentVersion: "4.17.20",
-      vulnerableVersions: "< 4.17.21",
-      patchedVersion: "4.17.21",
-      severity: "high",
-      title: "Prototype Pollution",
-      fixAvailable: true,
-      cve: "CVE-2021-23337",
-    },
-  ];
+  const vulnerablePackages = [createAlert({ cve: LODASH_CVE })];
 
   const latestVersions = new Map<string, string>();
   const overrides = (checker as any).generateOverrides(
@@ -209,24 +157,12 @@ test("Override Generation - should include CVE in overrides when available", () 
   );
 
   expect(overrides.length).toBe(1);
-  expect(overrides[0].cve).toBe("CVE-2021-23337");
+  expect(overrides[0].cve).toBe(LODASH_CVE);
 });
 
 test("Override Generation - should include description in overrides when available", () => {
   const checker = new SecurityChecker({ debug: false });
-
-  const vulnerablePackages: SecurityAlert[] = [
-    {
-      packageName: "lodash",
-      currentVersion: "4.17.20",
-      vulnerableVersions: "< 4.17.21",
-      patchedVersion: "4.17.21",
-      severity: "high",
-      title: "Prototype Pollution",
-      fixAvailable: true,
-      description: "Lodash versions before 4.17.21 are vulnerable",
-    },
-  ];
+  const vulnerablePackages = [createAlert({ description: LODASH_DESCRIPTION })];
 
   const latestVersions = new Map<string, string>();
   const overrides = (checker as any).generateOverrides(
@@ -235,26 +171,12 @@ test("Override Generation - should include description in overrides when availab
   );
 
   expect(overrides.length).toBe(1);
-  expect(overrides[0].description).toBe(
-    "Lodash versions before 4.17.21 are vulnerable",
-  );
+  expect(overrides[0].description).toBe(LODASH_DESCRIPTION);
 });
 
 test("Override Generation - should include URL in overrides when available", () => {
   const checker = new SecurityChecker({ debug: false });
-
-  const vulnerablePackages: SecurityAlert[] = [
-    {
-      packageName: "lodash",
-      currentVersion: "4.17.20",
-      vulnerableVersions: "< 4.17.21",
-      patchedVersion: "4.17.21",
-      severity: "high",
-      title: "Prototype Pollution",
-      fixAvailable: true,
-      url: "https://nvd.nist.gov/vuln/detail/CVE-2021-23337",
-    },
-  ];
+  const vulnerablePackages = [createAlert({ url: LODASH_URL })];
 
   const latestVersions = new Map<string, string>();
   const overrides = (checker as any).generateOverrides(
@@ -263,25 +185,12 @@ test("Override Generation - should include URL in overrides when available", () 
   );
 
   expect(overrides.length).toBe(1);
-  expect(overrides[0].url).toBe(
-    "https://nvd.nist.gov/vuln/detail/CVE-2021-23337",
-  );
+  expect(overrides[0].url).toBe(LODASH_URL);
 });
 
 test("Override Generation - should use latest version when available and newer than patched", () => {
   const checker = new SecurityChecker({ debug: false });
-
-  const vulnerablePackages: SecurityAlert[] = [
-    {
-      packageName: "lodash",
-      currentVersion: "4.17.20",
-      vulnerableVersions: "< 4.17.21",
-      patchedVersion: "4.17.21",
-      severity: "high",
-      title: "Prototype Pollution",
-      fixAvailable: true,
-    },
-  ];
+  const vulnerablePackages = [createAlert()];
 
   const latestVersions = new Map<string, string>([["lodash", "4.17.25"]]);
   const overrides = (checker as any).generateOverrides(
@@ -291,6 +200,94 @@ test("Override Generation - should use latest version when available and newer t
 
   expect(overrides.length).toBe(1);
   expect(overrides[0].toVersion).toBe("4.17.25");
+});
+
+test("Override Generation - should use patched version when latest equals patched", () => {
+  const checker = new SecurityChecker({ debug: false });
+  const vulnerablePackages = [createAlert()];
+
+  const latestVersions = new Map<string, string>([["lodash", "4.17.21"]]);
+  const overrides = (checker as any).generateOverrides(
+    vulnerablePackages,
+    latestVersions,
+  );
+
+  expect(overrides.length).toBe(1);
+  expect(overrides[0].toVersion).toBe("4.17.21");
+});
+
+test("Override Generation - should use patched version when latest is not found", () => {
+  const checker = new SecurityChecker({ debug: false });
+  const vulnerablePackages = [createAlert()];
+
+  const latestVersions = new Map<string, string>();
+  const overrides = (checker as any).generateOverrides(
+    vulnerablePackages,
+    latestVersions,
+  );
+
+  expect(overrides.length).toBe(1);
+  expect(overrides[0].toVersion).toBe("4.17.21");
+});
+
+test("Override Generation - should handle multiple packages with different latest versions", () => {
+  const checker = new SecurityChecker({ debug: false });
+  const vulnerablePackages = [
+    createAlert(),
+    createAlert({ ...AXIOS_ALERT_FIELDS }),
+  ];
+
+  const latestVersions = new Map<string, string>([
+    ["lodash", "4.17.25"],
+    ["axios", "0.21.4"],
+  ]);
+  const overrides = (checker as any).generateOverrides(
+    vulnerablePackages,
+    latestVersions,
+  );
+
+  expect(overrides.length).toBe(2);
+
+  const lodashOverride = overrides.find((o: any) => o.packageName === "lodash");
+  const axiosOverride = overrides.find((o: any) => o.packageName === "axios");
+
+  expect(lodashOverride.toVersion).toBe("4.17.25");
+  expect(axiosOverride.toVersion).toBe("0.21.4");
+});
+
+test("Override Generation - should prefer patched when latest is older (edge case)", () => {
+  const checker = new SecurityChecker({ debug: false });
+  const vulnerablePackages = [
+    createAlert({
+      packageName: "some-package",
+      currentVersion: "1.0.0",
+      vulnerableVersions: "< 1.2.0",
+      patchedVersion: "1.2.0",
+    }),
+  ];
+
+  const latestVersions = new Map<string, string>([["some-package", "1.1.5"]]);
+  const overrides = (checker as any).generateOverrides(
+    vulnerablePackages,
+    latestVersions,
+  );
+
+  expect(overrides.length).toBe(1);
+  expect(overrides[0].toVersion).toBe("1.2.0");
+});
+
+test("fetchLatestForVulnerablePackages - should extract packages with fixes", async () => {
+  const checker = new SecurityChecker({ debug: false });
+  const vulnerablePackages = [
+    createAlert(),
+    createAlert({ packageName: "no-fix-pkg", ...NO_FIX_FIELDS }),
+  ];
+
+  const result = await (checker as any).fetchLatestForVulnerablePackages(
+    vulnerablePackages,
+  );
+
+  expect(result instanceof Map).toBe(true);
 });
 
 test("Severity Normalization - should normalize severity levels correctly", () => {

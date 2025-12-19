@@ -150,7 +150,11 @@ test("Override Generation - should generate correct overrides for vulnerable pac
     },
   ];
 
-  const overrides = (checker as any).generateOverrides(vulnerablePackages);
+  const latestVersions = new Map<string, string>();
+  const overrides = (checker as any).generateOverrides(
+    vulnerablePackages,
+    latestVersions,
+  );
 
   expect(overrides.length).toBe(1);
   expect(overrides[0].packageName).toBe("lodash");
@@ -174,7 +178,11 @@ test("Override Generation - should not generate overrides for packages without f
     },
   ];
 
-  const overrides = (checker as any).generateOverrides(vulnerablePackages);
+  const latestVersions = new Map<string, string>();
+  const overrides = (checker as any).generateOverrides(
+    vulnerablePackages,
+    latestVersions,
+  );
   expect(overrides.length).toBe(0);
 });
 
@@ -194,7 +202,11 @@ test("Override Generation - should include CVE in overrides when available", () 
     },
   ];
 
-  const overrides = (checker as any).generateOverrides(vulnerablePackages);
+  const latestVersions = new Map<string, string>();
+  const overrides = (checker as any).generateOverrides(
+    vulnerablePackages,
+    latestVersions,
+  );
 
   expect(overrides.length).toBe(1);
   expect(overrides[0].cve).toBe("CVE-2021-23337");
@@ -216,7 +228,11 @@ test("Override Generation - should include description in overrides when availab
     },
   ];
 
-  const overrides = (checker as any).generateOverrides(vulnerablePackages);
+  const latestVersions = new Map<string, string>();
+  const overrides = (checker as any).generateOverrides(
+    vulnerablePackages,
+    latestVersions,
+  );
 
   expect(overrides.length).toBe(1);
   expect(overrides[0].description).toBe(
@@ -240,12 +256,41 @@ test("Override Generation - should include URL in overrides when available", () 
     },
   ];
 
-  const overrides = (checker as any).generateOverrides(vulnerablePackages);
+  const latestVersions = new Map<string, string>();
+  const overrides = (checker as any).generateOverrides(
+    vulnerablePackages,
+    latestVersions,
+  );
 
   expect(overrides.length).toBe(1);
   expect(overrides[0].url).toBe(
     "https://nvd.nist.gov/vuln/detail/CVE-2021-23337",
   );
+});
+
+test("Override Generation - should use latest version when available and newer than patched", () => {
+  const checker = new SecurityChecker({ debug: false });
+
+  const vulnerablePackages: SecurityAlert[] = [
+    {
+      packageName: "lodash",
+      currentVersion: "4.17.20",
+      vulnerableVersions: "< 4.17.21",
+      patchedVersion: "4.17.21",
+      severity: "high",
+      title: "Prototype Pollution",
+      fixAvailable: true,
+    },
+  ];
+
+  const latestVersions = new Map<string, string>([["lodash", "4.17.25"]]);
+  const overrides = (checker as any).generateOverrides(
+    vulnerablePackages,
+    latestVersions,
+  );
+
+  expect(overrides.length).toBe(1);
+  expect(overrides[0].toVersion).toBe("4.17.25");
 });
 
 test("Severity Normalization - should normalize severity levels correctly", () => {

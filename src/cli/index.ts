@@ -107,7 +107,7 @@ export const runSecurityCheck = async (
 ) => {
   const spinner = deps
     .createSpinner(
-      `🔒 ${deps.green(`pastoralist`)} checking for security vulnerabilities...`,
+      `${deps.green(`pastoralist`)} checking for security vulnerabilities...`,
     )
     .start();
 
@@ -141,7 +141,7 @@ export const runSecurityCheck = async (
   } catch (error) {
     const isPermissionError = error instanceof SecurityProviderPermissionError;
     if (isPermissionError) {
-      spinner.warn(`🔒 ${deps.yellow(`pastoralist`)} ${error.message}`);
+      spinner.warn(`${deps.yellow(`pastoralist`)} ${error.message}`);
       const securityChecker = new deps.SecurityChecker({
         provider: mergedOptions.securityProvider,
         forceRefactor: mergedOptions.forceSecurityRefactor,
@@ -160,7 +160,7 @@ export const runSecurityCheck = async (
     }
     const errorMessage = error instanceof Error ? error.message : String(error);
     spinner.fail(
-      `🔒 ${deps.green(`pastoralist`)} security check failed: ${errorMessage}`,
+      `${deps.green(`pastoralist`)} security check failed: ${errorMessage}`,
     );
     throw error;
   }
@@ -234,7 +234,7 @@ export const handleSecurityResults = (
   const hasNoAlertsOrUpdates = !hasAlerts && !hasUpdates;
   if (hasNoAlertsOrUpdates) {
     spinner.succeed(
-      `🔒 ${green(`pastoralist`)} no security vulnerabilities found!`,
+      `${green(`pastoralist`)} no security vulnerabilities found!`,
     );
   }
 };
@@ -482,7 +482,7 @@ export async function action(
           stop: () => {},
         }
       : deps
-          .createSpinner(`👩🏽‍🌾 ${deps.green(`pastoralist`)} checking herd...`)
+          .createSpinner(`${deps.green(`pastoralist`)} checking herd...`)
           .start();
 
     if (!isJsonOutput) {
@@ -497,7 +497,7 @@ export async function action(
     );
 
     if (!isJsonOutput) {
-      spinner.succeed(`👩🏽‍🌾 ${deps.green(`pastoralist`)} the herd is safe!`);
+      spinner.succeed(`${deps.green(`pastoralist`)} the herd is safe!`);
     }
 
     const result: PastoralistResult = {

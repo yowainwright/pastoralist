@@ -1,6 +1,7 @@
 import { writeFileSync, existsSync } from "fs";
 import { resolve } from "path";
 import { green } from "../../../utils";
+import { BRAND } from "../../../utils/icons";
 import { createPrompt, Prompt } from "../../../utils/prompts";
 import type {
   PastoralistConfig,
@@ -319,10 +320,7 @@ function displayNextSteps(
     `   3. Check the documentation for advanced configuration options`,
     "displayNextSteps",
   );
-  log.info(
-    `\n👩🏽‍🌾 ${green("Pastoralist")} ${INIT_MESSAGES.initComplete}\n`,
-    "displayNextSteps",
-  );
+  log.info(`\n${BRAND} ${INIT_MESSAGES.initComplete}\n`, "displayNextSteps");
 }
 
 async function checkExistingConfig(
@@ -356,20 +354,11 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
   const hasFocusedContext = hasSecurityContext || hasWorkspaceContext;
 
   if (hasSecurityContext) {
-    log.info(
-      `\n👩🏽‍🌾 ${green("Pastoralist")} security configuration wizard\n`,
-      "initCommand",
-    );
+    log.info(`\n${BRAND} security configuration wizard\n`, "initCommand");
   } else if (hasWorkspaceContext) {
-    log.info(
-      `\n👩🏽‍🌾 ${green("Pastoralist")} workspace configuration wizard\n`,
-      "initCommand",
-    );
+    log.info(`\n${BRAND} workspace configuration wizard\n`, "initCommand");
   } else {
-    log.info(
-      `\n👩🏽‍🌾 ${green("Pastoralist")} initialization wizard\n`,
-      "initCommand",
-    );
+    log.info(`\n${BRAND} initialization wizard\n`, "initCommand");
     log.info(`${INIT_MESSAGES.welcome}\n`, "initCommand");
     log.info(`${INIT_MESSAGES.skipInfo}\n`, "initCommand");
   }

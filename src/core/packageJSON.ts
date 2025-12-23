@@ -353,9 +353,7 @@ export const updatePackageJSON = ({
   jsonCache.delete(normalizedPath);
 
   if (shouldSuggestRcFile(updatedConfig)) {
-    console.log(
-      "\n💡 Tip: Your pastoralist config is getting large (>10 lines).",
-    );
+    console.log("\nTip: Your pastoralist config is getting large (>10 lines).");
     console.log("   Consider moving it to a .pastoralistrc file using:");
     console.log("   pastoralist init --useRcConfigFile\n");
   }

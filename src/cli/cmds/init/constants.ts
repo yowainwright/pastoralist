@@ -55,32 +55,32 @@ export const INIT_MESSAGES = {
   welcome: "This wizard will help you set up your Pastoralist configuration.",
   skipInfo: "You can skip any step by selecting the skip option.",
   existingConfigWarning:
-    "⚠️  Existing Pastoralist configuration detected. Do you want to overwrite it?",
+    "Existing Pastoralist configuration detected. Do you want to overwrite it?",
   existingFileWarning: (filename: string) =>
-    `⚠️  ${filename} already exists. Overwrite?`,
-  configNotSaved: "✅ Configuration not saved. File preserved.",
-  configSaved: (path: string) => `✅ Configuration saved to ${path}`,
+    `${filename} already exists. Overwrite?`,
+  configNotSaved: "Configuration not saved. File preserved.",
+  configSaved: (path: string) => `Configuration saved to ${path}`,
   initCancelled:
-    "✅ Initialization cancelled. Your existing configuration is preserved.",
+    "Initialization cancelled. Your existing configuration is preserved.",
   initComplete: "initialization complete!",
-  packageJsonNotFound: "❌ Error: package.json not found",
+  packageJsonNotFound: "Error: package.json not found",
   noTokenProvided: () =>
-    `⚠️  No token provided. You can add it later to the config or use --securityProviderToken flag.`,
+    `No token provided. You can add it later to the config or use --securityProviderToken flag.`,
   tokenCreationInfo: (provider: string, url: string) =>
-    `💡 To create a ${provider} token, visit: ${url}`,
+    `To create a ${provider} token, visit: ${url}`,
   tokenRequiredWarning: (provider: string) =>
-    `⚠️  ${provider} requires a token to function. Security scanning will not work without it.`,
+    `${provider} requires a token to function. Security scanning will not work without it.`,
   workspacesDetected: (workspaces: string[]) =>
     `Detected workspaces in package.json: ${workspaces.join(", ")}`,
   noWorkspacesDetected: "No workspaces detected in package.json.",
-  savingConfig: "💾 Saving configuration...",
-  nextSteps: "📚 Next Steps:",
+  savingConfig: "Saving configuration...",
+  nextSteps: "Next Steps:",
 } as const;
 
 export const STEP_TITLES = {
-  configLocation: "📍 Step 1: Configuration Location",
-  workspace: "📦 Step 2: Workspace Configuration",
-  security: "🔒 Step 3: Security Configuration",
+  configLocation: "Step 1: Configuration Location",
+  workspace: "Step 2: Workspace Configuration",
+  security: "Step 3: Security Configuration",
 } as const;
 
 export const PROMPTS = {

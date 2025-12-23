@@ -331,7 +331,7 @@ export class InteractiveSecurityManager {
       return [];
     }
 
-    console.log("\n🔒 Security Vulnerabilities Found\n");
+    console.log("\nSecurity Vulnerabilities Found\n");
     console.log("═".repeat(50));
 
     const summary = this.generateSummary(vulnerablePackages);
@@ -355,7 +355,7 @@ export class InteractiveSecurityManager {
 
       if (!vuln) continue;
 
-      console.log(`\n📦 ${override.packageName}`);
+      console.log(`\n${override.packageName}`);
       console.log(`   Current: ${override.fromVersion}`);
       console.log(`   ${this.getSeverityEmoji(vuln.severity)} ${vuln.title}`);
       if (vuln.cve) {
@@ -366,15 +366,15 @@ export class InteractiveSecurityManager {
         "How would you like to handle this vulnerability?",
         [
           {
-            name: `✅ Apply fix: Update to ${override.toVersion}`,
+            name: `Apply fix: Update to ${override.toVersion}`,
             value: "apply",
           },
           {
-            name: "⏭️  Skip this vulnerability",
+            name: "Skip this vulnerability",
             value: "skip",
           },
           {
-            name: "📝 Enter custom version",
+            name: "Enter custom version",
             value: "custom",
           },
         ],
@@ -398,7 +398,7 @@ export class InteractiveSecurityManager {
 
     const hasSelectedOverrides = selectedOverrides.length > 0;
     if (hasSelectedOverrides) {
-      console.log("\n📋 Selected Overrides:\n");
+      console.log("\nSelected Overrides:\n");
       selectedOverrides.forEach((override) => {
         console.log(
           `  ${override.packageName}: ${override.fromVersion} → ${override.toVersion}`,

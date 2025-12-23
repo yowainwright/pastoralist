@@ -11,6 +11,7 @@ import {
   writeSymbol,
   update,
 } from "../../../src/utils/spinner";
+import { ICON } from "../../../src/utils/icons";
 import type { SpinnerState } from "../../../src/utils/types";
 
 test("hideCursor - should write hide cursor escape code", () => {
@@ -288,7 +289,7 @@ test("createSpinner - should succeed with default text", () => {
   spinner.succeed();
 
   expect(stdoutWriteSpy).toHaveBeenCalledWith(
-    expect.stringContaining("✔ Loading..."),
+    expect.stringContaining(`${ICON.success} Loading...`),
   );
 
   stdoutWriteSpy.mockRestore();
@@ -303,7 +304,7 @@ test("createSpinner - should succeed with custom text", () => {
   spinner.succeed("Done!");
 
   expect(stdoutWriteSpy).toHaveBeenCalledWith(
-    expect.stringContaining("✔ Done!"),
+    expect.stringContaining(`${ICON.success} Done!`),
   );
 
   stdoutWriteSpy.mockRestore();
@@ -318,7 +319,7 @@ test("createSpinner - should fail with default text", () => {
   spinner.fail();
 
   expect(stdoutWriteSpy).toHaveBeenCalledWith(
-    expect.stringContaining("✖ Loading..."),
+    expect.stringContaining(`${ICON.error} Loading...`),
   );
 
   stdoutWriteSpy.mockRestore();
@@ -333,7 +334,7 @@ test("createSpinner - should fail with custom text", () => {
   spinner.fail("Error occurred");
 
   expect(stdoutWriteSpy).toHaveBeenCalledWith(
-    expect.stringContaining("✖ Error occurred"),
+    expect.stringContaining(`${ICON.error} Error occurred`),
   );
 
   stdoutWriteSpy.mockRestore();
@@ -348,7 +349,7 @@ test("createSpinner - should info with default text", () => {
   spinner.info();
 
   expect(stdoutWriteSpy).toHaveBeenCalledWith(
-    expect.stringContaining("ℹ Loading..."),
+    expect.stringContaining(`${ICON.info} Loading...`),
   );
 
   stdoutWriteSpy.mockRestore();
@@ -362,7 +363,9 @@ test("createSpinner - should info with custom text", () => {
   const spinner = createSpinner("Loading...");
   spinner.info("FYI");
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith(expect.stringContaining("ℹ FYI"));
+  expect(stdoutWriteSpy).toHaveBeenCalledWith(
+    expect.stringContaining(`${ICON.info} FYI`),
+  );
 
   stdoutWriteSpy.mockRestore();
 });
@@ -376,7 +379,7 @@ test("createSpinner - should warn with default text", () => {
   spinner.warn();
 
   expect(stdoutWriteSpy).toHaveBeenCalledWith(
-    expect.stringContaining("⚠ Loading..."),
+    expect.stringContaining(`${ICON.warning} Loading...`),
   );
 
   stdoutWriteSpy.mockRestore();
@@ -391,7 +394,7 @@ test("createSpinner - should warn with custom text", () => {
   spinner.warn("Warning!");
 
   expect(stdoutWriteSpy).toHaveBeenCalledWith(
-    expect.stringContaining("⚠ Warning!"),
+    expect.stringContaining(`${ICON.warning} Warning!`),
   );
 
   stdoutWriteSpy.mockRestore();
@@ -512,7 +515,7 @@ test("createSpinner - update should allow chaining", () => {
   spinner.update("Updated").succeed("Done!");
 
   expect(stdoutWriteSpy).toHaveBeenCalledWith(
-    expect.stringContaining("✔ Done!"),
+    expect.stringContaining(`${ICON.success} Done!`),
   );
 
   stdoutWriteSpy.mockRestore();
@@ -529,7 +532,7 @@ test("createSpinner - update during spinning should change text", () => {
   spinner.succeed();
 
   expect(stdoutWriteSpy).toHaveBeenCalledWith(
-    expect.stringContaining("✔ Updated text"),
+    expect.stringContaining(`${ICON.success} Updated text`),
   );
 
   stdoutWriteSpy.mockRestore();

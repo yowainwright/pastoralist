@@ -1,5 +1,7 @@
 export { default as createSpinner } from "./spinner";
-export { green, yellow } from "./colors";
+export { green, yellow, red, cyan, gray } from "./colors";
+export { ICON, PREFIX, STEP, BRAND } from "./icons";
+export type { IconKey, PrefixKey } from "./icons";
 export type { SpinnerState, Spinner } from "./types";
 export {
   hideCursor,

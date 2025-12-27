@@ -50,11 +50,11 @@ export const checkMonorepoOverrides = (
 
   if (shouldShowInfo) {
     logInstance.info(
-      `🐑 Found overrides for packages not in root dependencies: ${missingInRoot.join(", ")}`,
+      `Found overrides for packages not in root dependencies: ${missingInRoot.join(", ")}`,
       "checkMonorepoOverrides",
     );
     logInstance.info(
-      `💡 For monorepo support, use --depPaths flag or add depPaths configuration in package.json`,
+      `For monorepo support, use --depPaths flag or add depPaths configuration in package.json`,
       "checkMonorepoOverrides",
     );
   }
@@ -361,7 +361,7 @@ export const cleanupUnusedOverrides = async (
   const hasTrackedPaths = trackedInPaths.length > 0;
   if (hasTrackedPaths) {
     logInstance.info(
-      `🐑 Keeping overrides for packages tracked in overridePaths: ${trackedInPaths.join(", ")}`,
+      `Keeping overrides for packages tracked in overridePaths: ${trackedInPaths.join(", ")}`,
       "cleanupUnusedOverrides",
     );
   }

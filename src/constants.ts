@@ -1,6 +1,7 @@
 export const IS_DEBUGGING = process.env.DEBUG === "true" || false;
 
-export const LOG_PREFIX = "🐑 👩🏽‍🌾 Pastoralist:";
+export const BRAND_PREFIX = "▪▫▪ Pastoralist";
+export const LOG_PREFIX = "Pastoralist:";
 
 export const SECURITY_ENV_VARS = {
   MOCK_MODE: "PASTORALIST_MOCK_SECURITY",

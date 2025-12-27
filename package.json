@@ -1,6 +1,6 @@
 {
   "name": "pastoralist",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "description": "A tool to watch over node module resolutions and overrides 🐑 👩🏽‍🌾",
   "main": "dist/index.cjs",
   "module": "dist/index.js",

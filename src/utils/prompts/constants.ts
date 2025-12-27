@@ -8,11 +8,11 @@ export const WORKSPACE_TYPES = {
 } as const;
 
 export const MAIN_ACTION_CHOICES: PromptChoice[] = [
-  { name: "🔍 Auto-detect workspace", value: "auto-detect" },
-  { name: "📝 Manual paths", value: "manual-paths" },
-  { name: "📁 Specific override path", value: "override-path" },
-  { name: "⏭️  Skip", value: "skip" },
-  { name: "❓ Help", value: "learn-more" },
+  { name: "Auto-detect workspace", value: "auto-detect" },
+  { name: "Manual paths", value: "manual-paths" },
+  { name: "Specific override path", value: "override-path" },
+  { name: "Skip", value: "skip" },
+  { name: "Help", value: "learn-more" },
 ];
 
 export const WORKSPACE_STRUCTURE_CHOICES: PromptChoice[] = [
@@ -30,11 +30,11 @@ export const DEFAULTS = {
 } as const;
 
 export const MESSAGES = {
-  monorepoDetected: "🔍 Monorepo configuration needed",
-  skipWarning: "⚠️  override(s) won't be tracked properly",
-  saveSuccess: "✅ Configuration will be saved to package.json",
-  useOnceSuccess: "✅ Using configuration for this run only",
-  helpTitle: "📚 Monorepo Support",
+  monorepoDetected: "Monorepo configuration needed",
+  skipWarning: "override(s) won't be tracked properly",
+  saveSuccess: "Configuration will be saved to package.json",
+  useOnceSuccess: "Using configuration for this run only",
+  helpTitle: "Monorepo Support",
 } as const;
 
 export const REVIEW_SECTION_CHOICES: PromptChoice[] = [
@@ -99,17 +99,17 @@ export const INTERACTIVE_MESSAGES = {
   welcome: "Interactive Configuration Review",
   selectSection: "What would you like to review?",
   currentConfig: "Current Configuration",
-  workspaceConfig: "📦 Workspace Configuration",
-  securityConfig: "🔒 Security Configuration",
-  overridesConfig: "🔧 Overrides",
-  resolutionsConfig: "🔗 Resolutions",
+  workspaceConfig: "Workspace Configuration",
+  securityConfig: "Security Configuration",
+  overridesConfig: "Overrides",
+  resolutionsConfig: "Resolutions",
   noOverrides: "No overrides configured",
   noResolutions: "No resolutions configured",
-  configSaved: "💾 Configuration saved successfully",
+  configSaved: "Configuration saved successfully",
   noChanges: "No changes were made",
   exitMessage: "Exiting interactive configuration review",
   noConfig:
-    "⚠️  No package.json found. Please run this command from your project root.",
+    "No package.json found. Please run this command from your project root.",
   overridesRemoved: (count: number) => `Removed ${count} override(s)`,
   resolutionsRemoved: (count: number) => `Removed ${count} resolution(s)`,
 } as const;

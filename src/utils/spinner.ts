@@ -1,4 +1,5 @@
 import type { SpinnerState, Spinner } from "./types";
+import { ICON } from "./icons";
 
 const FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
@@ -88,7 +89,7 @@ export const succeed = (state: SpinnerState, text?: string): Spinner => {
   const newState = stopInterval(state);
   Object.assign(state, newState);
   const displayText = text || state.text;
-  writeSymbol("✔", displayText);
+  writeSymbol(ICON.success, displayText);
   showCursor();
   return createSpinnerMethods(state);
 };
@@ -97,7 +98,7 @@ export const fail = (state: SpinnerState, text?: string): Spinner => {
   const newState = stopInterval(state);
   Object.assign(state, newState);
   const displayText = text || state.text;
-  writeSymbol("✖", displayText);
+  writeSymbol(ICON.error, displayText);
   showCursor();
   return createSpinnerMethods(state);
 };
@@ -106,7 +107,7 @@ export const info = (state: SpinnerState, text?: string): Spinner => {
   const newState = stopInterval(state);
   Object.assign(state, newState);
   const displayText = text || state.text;
-  writeSymbol("ℹ", displayText);
+  writeSymbol(ICON.info, displayText);
   showCursor();
   return createSpinnerMethods(state);
 };
@@ -115,7 +116,7 @@ export const warn = (state: SpinnerState, text?: string): Spinner => {
   const newState = stopInterval(state);
   Object.assign(state, newState);
   const displayText = text || state.text;
-  writeSymbol("⚠", displayText);
+  writeSymbol(ICON.warning, displayText);
   showCursor();
   return createSpinnerMethods(state);
 };

@@ -525,9 +525,7 @@ export class SecurityChecker {
   }
 
   private logInstallInstructions(packageManager: string): void {
-    console.log(
-      `\n⚠️  Don't forget to run your package manager install command:`,
-    );
+    console.log(`\nDon't forget to run your package manager install command:`);
     const commands = {
       yarn: "yarn install",
       pnpm: "pnpm install",
@@ -546,15 +544,15 @@ export class SecurityChecker {
     overrides: SecurityOverride[],
     packageManager: string,
   ): void {
-    console.log(`\n✅ Auto-fix applied successfully!`);
+    console.log(`\nAuto-fix applied successfully!`);
     console.log(
-      `📝 Updated ${pkgPath} with ${Object.keys(newOverrides).length} security override(s)`,
+      `Updated ${pkgPath} with ${Object.keys(newOverrides).length} security override(s)`,
     );
-    console.log(`💾 Backup saved to ${backupPath}`);
+    console.log(`Backup saved to ${backupPath}`);
 
     const hasOverrides = Object.keys(newOverrides).length > 0;
     if (hasOverrides) {
-      console.log(`\n📋 Applied overrides:`);
+      console.log(`\nApplied overrides:`);
       Object.entries(newOverrides).forEach(([pkg, version]) => {
         const override = overrides.find((o) => o.packageName === pkg);
         console.log(
@@ -700,7 +698,7 @@ export class SecurityChecker {
       const packageJsonPath = backupPath.replace(/\.backup-\d+$/, "");
       copyFileSync(backupPath, packageJsonPath);
 
-      console.log(`✅ Rolled back to ${backupPath}`);
+      console.log(`Rolled back to ${backupPath}`);
     } catch (error) {
       this.log.error("Failed to rollback", "rollbackAutoFix", { error });
       throw new Error(`Rollback failed: ${error}`);

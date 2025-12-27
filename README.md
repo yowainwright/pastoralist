@@ -5,24 +5,24 @@
 [![codecov](https://codecov.io/gh/yowainwright/pastoralist/branch/main/graph/badge.svg)](https://codecov.io/gh/yowainwright/pastoralist)
 <img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=6f41d7dd-fce9-49ea-ae43-040a51f458bd" />
 
-Pastoralist provides a dead simple way to singularly maintain node module overrides AND security issues in dependencies.
+Pastoralist helps you maintain node module overrides and address security issues in dependencies.
 
-1. Pastoralist IS _set-it-and-forget-it automation_ for dependency overrides. Pastoralist automatically tracks, secures, and cleans up your `overrides`, `resolutions`, and `patches`.
-2. Pastoralist also provides an out-of-the-box solution for resolving dependency security alerts using the same pattern of overriding and tracking security vulnerabilities in node modules.
+1. Pastoralist tracks, secures, and cleans up your `overrides`, `resolutions`, and `patches`.
+2. Pastoralist can help resolve dependency security alerts by creating overrides for vulnerable packages.
 
 ---
 
 ## TL;DR
 
-One command. Three automations. Zero maintenance.
+One command. Three features.
 
 ```bash
 npm i pastoralist -D && pastoralist --init
 ```
 
-- Auto-tracks why each override exists
-- Auto-scans for security vulnerabilities
-- Auto-removes unused overrides
+- Tracks why each override exists
+- Scans for security vulnerabilities
+- Removes unused overrides
 
 ---
 
@@ -148,7 +148,7 @@ Run once with `--checkSecurity` enabled:
 }
 ```
 
-Then forget about it. Pastoralist handles everything:
+Pastoralist tracks the fix:
 
 ```js
 "overrides": {
@@ -167,15 +167,15 @@ Then forget about it. Pastoralist handles everything:
 }
 ```
 
-Set it. Forget it. Done.
+Security fixes are tracked with full context.
 
 ---
 
 ## What Pastoralist Automates
 
-### 1. Automatic Tracking
+### 1. Override Tracking
 
-Pastoralist automatically documents every override, including nested dependencies.
+Pastoralist documents every override, including nested dependencies.
 
 ```js
 "overrides": {
@@ -210,9 +210,9 @@ flowchart TD
 }
 ```
 
-### 2. Automatic Depedency Security Checks
+### 2. Security Checks
 
-Enable once. Pastoralist handles the rest using your preferred security provider.
+Enable security scanning with your preferred provider.
 
 ```js
 "pastoralist": {
@@ -258,9 +258,9 @@ You must also enable Dependabot alerts in your repository: **Settings > Code sec
 
 If permissions are insufficient, Pastoralist will warn and continue (your workflow won't fail).
 
-### 3. Automatic Cleanup
+### 3. Cleanup
 
-When dependencies are removed, Pastoralist removes their overrides automatically. No manual intervention required.
+When dependencies are removed, Pastoralist removes their overrides.
 
 ```mermaid
 flowchart TD
@@ -273,9 +273,9 @@ flowchart TD
     style Done fill:#e8f5e9
 ```
 
-### 4. Automatic Patch Tracking
+### 4. Patch Tracking
 
-Works seamlessly with `patch-package`. Automatically links patches to overrides and warns about unused patches.
+Works with `patch-package`. Links patches to overrides and warns about unused patches.
 
 ```js
 "pastoralist": {
@@ -294,7 +294,7 @@ Works seamlessly with `patch-package`. Automatically links patches to overrides 
 
 **You:** Add an override when needed.
 
-**Pastoralist:** Handles everything else automatically.
+**Pastoralist:** Tracks, scans, and cleans up.
 
 ```mermaid
 flowchart LR
@@ -325,8 +325,8 @@ Add it to your postinstall script and forget about it:
 ### Key Notes
 
 - **You control** what goes into overrides/resolutions
-- **Pastoralist controls** tracking, security, and cleanup
-- **Fully automatic** - runs on every install via postinstall hook
+- **Pastoralist handles** tracking, security, and cleanup
+- Runs on every install via postinstall hook
 
 ### Using Pastoralist with Workspaces and Monorepos
 
@@ -710,6 +710,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: yowainwright/pastoralist@v1
+        with:
+          mode: check
+          fail-on-security: true
 ```
 
 ### Scheduled Security Maintenance
@@ -728,6 +731,8 @@ jobs:
       - uses: yowainwright/pastoralist@v1
         with:
           mode: pr
+          check-security: true
+          fail-on-security: true
           pr-title: "chore(deps): update dependency overrides"
 ```
 

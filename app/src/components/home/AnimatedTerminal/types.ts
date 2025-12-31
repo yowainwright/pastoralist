@@ -17,4 +17,6 @@ export interface AnimatedTerminalProps {
   typingSpeed?: number;
   height?: string;
   width?: string;
+  startAnimation?: boolean;
+  onComplete?: () => void;
 }

@@ -4,7 +4,7 @@ import { DEFAULT_ANIMATE, DEFAULT_LINE_DELAY } from "./constants";
 
 export const useLineProcessor = (
   currentLine: TerminalLine | undefined,
-  visibleLines: TerminalLine[],
+  _visibleLines: TerminalLine[],
   onLineComplete: () => void,
 ) => {
   const [isTyping, setIsTyping] = useState(false);

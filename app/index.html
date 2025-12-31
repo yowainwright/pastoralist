@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="description"
+      content="Pastoralist - Manage your package.json overrides, resolutions, and patches with ease"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Preload critical assets -->
+    <link rel="preload" href="/pastoralist/pastoralist-logo.svg" as="image" />
+    <link rel="modulepreload" href="/src/main.tsx" />
+
+    <!-- DNS prefetch for external resources -->
+    <link rel="dns-prefetch" href="https://badge.fury.io" />
+    <link rel="dns-prefetch" href="https://img.shields.io" />
+    <link rel="dns-prefetch" href="https://github.com" />
+
+    <!-- Favicons -->
+    <link rel="icon" type="image/svg+xml" href="/pastoralist/favicon.svg" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/pastoralist/favicon-32x32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="/pastoralist/favicon-16x16.png"
+    />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/pastoralist/apple-touch-icon.png"
+    />
+    <meta name="theme-color" content="#3b82f6" />
+    <title>Pastoralist - Dependency Management Tool</title>
+
+    <!-- Prevent FOUC with inline theme detection -->
+    <script>
+      const theme =
+        localStorage.getItem("theme") ||
+        (window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "night"
+          : "lofi");
+      document.documentElement.setAttribute("data-theme", theme);
+    </script>
+
+    <!-- Critical CSS for initial paint -->
+    <style>
+      #root {
+        min-height: 100vh;
+      }
+      .initial-loader {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--fallback-b1, oklch(var(--b1)));
+      }
+      .initial-loader::after {
+        content: "";
+        width: 2rem;
+        height: 2rem;
+        border: 2px solid transparent;
+        border-top-color: #3b82f6;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"><div class="initial-loader"></div></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

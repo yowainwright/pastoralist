@@ -16,17 +16,27 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
   typingSpeed = DEFAULT_TYPING_SPEED,
   height,
   width,
+  startAnimation,
+  onComplete,
 }) => {
   const [currentDemoIndex, setCurrentDemoIndex] = useState(0);
   const [currentLineIndex, setCurrentLineIndex] = useState(0);
   const [visibleLines, setVisibleLines] = useState<TerminalLine[]>([]);
   const [hasStarted, setHasStarted] = useState(false);
+  const [isFinished, setIsFinished] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const currentDemo = demos[currentDemoIndex];
   const currentLine = currentDemo?.lines[currentLineIndex];
 
   useEffect(() => {
+    if (startAnimation !== undefined) {
+      if (startAnimation && !hasStarted) {
+        setHasStarted(true);
+      }
+      return;
+    }
+
     const observer = new IntersectionObserver((entries) => {
       const isInView = entries[0]?.isIntersecting;
       if (isInView && !hasStarted) {
@@ -44,7 +54,7 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
         observer.unobserve(current);
       }
     };
-  }, [hasStarted]);
+  }, [hasStarted, startAnimation]);
 
   const resetAnimation = useCallback(() => {
     setCurrentLineIndex(0);
@@ -57,11 +67,14 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
     if (isLastDemo && loop) {
       setCurrentDemoIndex(0);
       resetAnimation();
+    } else if (isLastDemo && !loop) {
+      setIsFinished(true);
+      onComplete?.();
     } else if (!isLastDemo) {
       setCurrentDemoIndex(currentDemoIndex + 1);
       resetAnimation();
     }
-  }, [currentDemoIndex, demos.length, loop, resetAnimation]);
+  }, [currentDemoIndex, demos.length, loop, resetAnimation, onComplete]);
 
   const moveToNextLine = useCallback(() => {
     const isLastLine = currentLineIndex === currentDemo.lines.length - 1;
@@ -79,7 +92,7 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
   }, [currentLineIndex, currentDemo, moveToNextDemo, currentLine]);
 
   const { isTyping, setIsTyping } = useLineProcessor(
-    hasStarted ? currentLine : undefined,
+    hasStarted && !isFinished ? currentLine : undefined,
     visibleLines,
     moveToNextLine,
   );
@@ -110,6 +123,7 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
         <div className="terminal-dot terminal-dot-red" />
         <div className="terminal-dot terminal-dot-yellow" />
         <div className="terminal-dot terminal-dot-green" />
+        <span className="ml-3 text-slate-400 text-xs">terminal</span>
       </div>
 
       {/* Terminal content */}

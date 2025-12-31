@@ -13,10 +13,11 @@ export const CodeBlockToggle: React.FC<CodeBlockToggleProps> = ({
     <div className="terminal-window w-full">
       {/* Window chrome with traffic light buttons */}
       <div className="terminal-header flex justify-between items-center">
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           <div className="terminal-dot terminal-dot-red" />
           <div className="terminal-dot terminal-dot-yellow" />
           <div className="terminal-dot terminal-dot-green" />
+          <span className="ml-3 text-slate-400 text-xs">terminal</span>
         </div>
 
         <div className="terminal-tabs">

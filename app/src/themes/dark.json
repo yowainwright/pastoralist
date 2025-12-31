@@ -1,1 +1,59 @@
-/Users/jeffrywainwright/code/oss/projects/src/themes/dark.json
+{
+  "name": "pastoralist-dark",
+  "type": "dark",
+  "colors": {
+    "editor.background": "#1e293b",
+    "editor.foreground": "#e2e8f0"
+  },
+  "tokenColors": [
+    {
+      "scope": ["comment", "punctuation.definition.comment"],
+      "settings": { "foreground": "#94a3b8", "fontStyle": "italic" }
+    },
+    {
+      "scope": ["string", "string.quoted"],
+      "settings": { "foreground": "#34d399" }
+    },
+    {
+      "scope": ["constant.numeric", "constant.language"],
+      "settings": { "foreground": "#fbbf24" }
+    },
+    {
+      "scope": ["keyword", "storage.type", "storage.modifier"],
+      "settings": { "foreground": "#a78bfa" }
+    },
+    {
+      "scope": ["entity.name.function", "support.function"],
+      "settings": { "foreground": "#60a5fa" }
+    },
+    {
+      "scope": [
+        "entity.name.type",
+        "entity.name.class",
+        "support.type",
+        "support.class"
+      ],
+      "settings": { "foreground": "#22d3ee" }
+    },
+    {
+      "scope": ["variable", "variable.other"],
+      "settings": { "foreground": "#e2e8f0" }
+    },
+    {
+      "scope": ["variable.parameter"],
+      "settings": { "foreground": "#fb923c" }
+    },
+    {
+      "scope": ["punctuation", "meta.brace"],
+      "settings": { "foreground": "#94a3b8" }
+    },
+    {
+      "scope": ["entity.name.tag"],
+      "settings": { "foreground": "#f87171" }
+    },
+    {
+      "scope": ["entity.other.attribute-name"],
+      "settings": { "foreground": "#a78bfa" }
+    }
+  ]
+}

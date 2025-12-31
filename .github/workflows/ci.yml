@@ -33,6 +33,7 @@ jobs:
       - run: bun install
       - run: rm -rf dist .turbo
       - run: bun run build
+      - run: cd app && bun run build
         env:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_TEAM: ${{ secrets.TURBO_TEAM }}

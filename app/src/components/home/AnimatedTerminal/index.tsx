@@ -110,14 +110,11 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
     }
   }, [isComplete, isTyping, moveToNextLine, setIsTyping]);
 
+  const containerStyle = width ? { width } : undefined;
+  const contentStyle = height ? { height } : undefined;
+
   return (
-    <div
-      ref={containerRef}
-      className={TERMINAL_CLASSES}
-      style={{
-        ...(width ? { width } : {}),
-      }}
-    >
+    <div ref={containerRef} className={TERMINAL_CLASSES} style={containerStyle}>
       {/* Window chrome with traffic light buttons */}
       <div className="terminal-header">
         <div className="terminal-dot terminal-dot-red" />
@@ -127,12 +124,7 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
       </div>
 
       {/* Terminal content */}
-      <div
-        className="terminal-content"
-        style={{
-          ...(height ? { height } : {}),
-        }}
-      >
+      <div className="terminal-content" style={contentStyle}>
         {visibleLines.map((line, index) => (
           <div key={index} className={`terminal-line ${line.className ?? ""}`}>
             {line.prefix && (

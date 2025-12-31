@@ -186,11 +186,16 @@ const buildPreservedConfig = (config: PastoralistJSON) => {
 };
 
 const removeAllOverrides = (config: PastoralistJSON): PastoralistJSON => {
-  const { resolutions, overrides, pnpm, ...rest } = config;
+  const {
+    resolutions: _resolutions,
+    overrides: _overrides,
+    pnpm,
+    ...rest
+  } = config;
 
   if (!pnpm) return rest;
 
-  const { overrides: pnpmOverrides, ...restPnpm } = pnpm;
+  const { overrides: _pnpmOverrides, ...restPnpm } = pnpm;
   const hasPnpmConfig = Object.keys(restPnpm).length > 0;
 
   return {
@@ -205,7 +210,7 @@ const removePastoralistAppendix = (
   const hasOtherConfig = hasOtherPastoralistConfig(config);
 
   if (!hasOtherConfig) {
-    const { pastoralist, ...rest } = config;
+    const { pastoralist: _pastoralist, ...rest } = config;
     return rest;
   }
 
@@ -249,7 +254,7 @@ const processConfigWithOverrides = (
   } else {
     const preservedConfig = buildPreservedConfig(config);
     const hasPreservedConfig = Object.keys(preservedConfig).length > 0;
-    const { pastoralist, ...configWithoutPastoralist } = config;
+    const { pastoralist: _pastoralist, ...configWithoutPastoralist } = config;
 
     updatedConfig = hasPreservedConfig
       ? { ...configWithoutPastoralist, pastoralist: preservedConfig }

@@ -308,7 +308,7 @@ const removeAppendixEntries = (
         `Removed appendix entry for ${key}`,
         "removeAppendixEntries",
       );
-      const { [key]: removed, ...rest } = acc;
+      const { [key]: _removed, ...rest } = acc;
       return rest;
     }, updated);
   }, appendix);

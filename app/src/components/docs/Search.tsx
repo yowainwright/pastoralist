@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { Search as SearchIcon } from "lucide-react";
 import Fuse from "fuse.js";
 import { resolveDocsUrl } from "../../utils/urlResolver";
 
@@ -12,9 +13,10 @@ interface SearchResult {
 
 interface SearchProps {
   searchData: SearchResult[];
+  iconOnly?: boolean;
 }
 
-export default function Search({ searchData }: SearchProps) {
+export default function Search({ searchData, iconOnly = false }: SearchProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -72,35 +74,37 @@ export default function Search({ searchData }: SearchProps) {
     }
   }, [isOpen]);
 
+  const handleOpen = () => {
+    setIsOpen(true);
+    setTimeout(() => inputRef.current?.focus(), 100);
+  };
+
   return (
     <>
       {/* Search Button */}
-      <button
-        onClick={() => {
-          setIsOpen(true);
-          setTimeout(() => inputRef.current?.focus(), 100);
-        }}
-        className="flex items-center gap-2 px-3 py-1.5 text-sm bg-base-200/50 hover:bg-base-200 rounded-lg transition-colors min-w-[200px] md:min-w-[300px] text-base-content/60 hover:text-base-content/80"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-4 w-4"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
+      {iconOnly ? (
+        <button
+          onClick={handleOpen}
+          className="btn btn-sm btn-ghost gap-1"
+          aria-label="Search (⌘K)"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-          />
-        </svg>
-        <span className="flex-1 text-left">Search documentation...</span>
-        <kbd className="hidden md:inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium bg-base-300/50 rounded">
-          <span className="text-xs">⌘</span>K
-        </kbd>
-      </button>
+          <SearchIcon className="h-4 w-4" />
+          <kbd className="hidden lg:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-medium bg-base-200 text-base-content/60 rounded">
+            <span>⌘</span>K
+          </kbd>
+        </button>
+      ) : (
+        <button
+          onClick={handleOpen}
+          className="flex items-center gap-2 px-3 py-1.5 text-sm bg-base-200/50 hover:bg-base-200 rounded-lg transition-colors min-w-[200px] md:min-w-[300px] text-base-content/60 hover:text-base-content/80"
+        >
+          <SearchIcon className="h-4 w-4" />
+          <span className="flex-1 text-left">Search documentation...</span>
+          <kbd className="hidden md:inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium bg-base-300/50 rounded">
+            <span className="text-xs">⌘</span>K
+          </kbd>
+        </button>
+      )}
 
       {/* Search Modal */}
       {isOpen &&
@@ -121,20 +125,7 @@ export default function Search({ searchData }: SearchProps) {
                 >
                   {/* Search Input */}
                   <div className="flex items-center p-4 border-b border-base-content/10">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5 mr-3 text-[#1D4ED8]"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                      />
-                    </svg>
+                    <SearchIcon className="h-5 w-5 mr-3 text-[#1D4ED8]" />
                     <input
                       ref={inputRef}
                       type="text"

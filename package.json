@@ -55,7 +55,7 @@
     "yarn",
     "pnpm"
   ],
-  "author": "Jeff Wainwright <https:jeffry.in> (yowainwright@gmail.com)",
+  "author": "Jeff Wainwright <yowainwright@gmail.com> (https://jeffry.in)",
   "license": "Elastic-2.0",
   "bugs": {
     "url": "https://github.com/yowainwright/pastoralist/issues"

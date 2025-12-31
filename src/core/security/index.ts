@@ -505,9 +505,9 @@ export class SecurityChecker {
       return {
         ...packageJson,
         pnpm: {
-          ...(packageJson.pnpm || {}),
+          ...packageJson.pnpm,
           overrides: {
-            ...(packageJson.pnpm?.overrides || {}),
+            ...packageJson.pnpm?.overrides,
             ...newOverrides,
           },
         },
@@ -518,7 +518,7 @@ export class SecurityChecker {
     return {
       ...packageJson,
       [overrideField]: {
-        ...(packageJson[overrideField] || {}),
+        ...packageJson[overrideField],
         ...newOverrides,
       },
     };

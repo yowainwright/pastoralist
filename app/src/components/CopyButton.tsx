@@ -41,7 +41,7 @@ export const CopyButton = () => {
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        className="h-7 w-5 pointer-events-none"
+        className={`h-7 w-5 pointer-events-none ${isClicked ? "text-green-500" : ""}`}
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"

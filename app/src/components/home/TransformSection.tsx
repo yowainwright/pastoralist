@@ -1,6 +1,6 @@
 import { useState, lazy, Suspense } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, ChevronRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { CopyButton } from "@/components/CopyButton";
 import { TerminalLoader } from "@/components/TerminalLoader";
 import { useFadeInUp } from "@/hooks/useFadeInUp";
@@ -52,7 +52,6 @@ export function TransformSection() {
           </h3>
           <nav className="flex flex-col justify-center items-center gap-4">
             <figure className="flex items-center bg-base-100 rounded-lg shadow-sm h-12 px-4 border border-base-content/10">
-              <ChevronRight className="w-3 h-3 mr-2 -rotate-90" />
               <code className="flex-1 text-left leading-none text-base">
                 bun add -g pastoralist
               </code>

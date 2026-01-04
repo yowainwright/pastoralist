@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
 @plugin "daisyui" {
   themes:
     lofi --default,
@@ -17,6 +19,8 @@
     forwards;
   --animate-thumbs-up: thumbs-up 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   --animate-pop-in: pop-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  --animate-slide-in-right: slide-in-right 0.4s ease-out forwards;
+  --animate-rainbow-bounce: rainbow-bounce 0.6s ease-out forwards;
 
   @keyframes logo-glow {
     0%,
@@ -137,6 +141,133 @@
       opacity: 1;
     }
   }
+
+  @keyframes slide-in-right {
+    0% {
+      transform: translateX(20px);
+      opacity: 0;
+    }
+    100% {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes rainbow-bounce {
+    0% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.15);
+    }
+    75% {
+      transform: scale(0.95);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+}
+
+.text-glow {
+  text-shadow:
+    0 0 20px rgba(255, 255, 200, 1),
+    0 0 40px rgba(255, 255, 100, 0.8);
+  position: relative;
+}
+
+.text-glow-shimmer {
+  color: rgba(255, 255, 255, 0.5);
+  text-shadow:
+    0 0 20px rgba(0, 0, 0, 0.8),
+    0 0 40px rgba(0, 0, 0, 0.6);
+  position: relative;
+  animation: shimmer-glow 1.2s ease-out forwards;
+}
+
+@keyframes shimmer-glow {
+  0% {
+    color: rgba(255, 255, 255, 0.5);
+    text-shadow:
+      0 0 2px black,
+      0 0 4px black,
+      0 0 20px rgba(0, 0, 0, 0.8),
+      0 0 40px rgba(0, 0, 0, 0.6);
+  }
+  50% {
+    color: rgba(255, 255, 255, 0.75);
+    text-shadow:
+      0 0 3px black,
+      0 0 6px black,
+      0 0 30px rgba(0, 0, 0, 0.8),
+      0 0 60px rgba(0, 0, 0, 0.6);
+  }
+  100% {
+    color: white;
+    text-shadow:
+      0 0 5px black,
+      0 0 10px rgba(0, 0, 0, 0.9),
+      0 0 20px rgba(0, 0, 0, 0.8),
+      0 0 40px rgba(0, 0, 0, 0.6),
+      0 0 80px rgba(0, 0, 0, 0.4);
+  }
+}
+
+[data-theme="night"] .text-glow-shimmer {
+  color: rgba(0, 0, 0, 0.5);
+  text-shadow:
+    0 0 20px rgba(255, 255, 255, 1),
+    0 0 40px rgba(255, 255, 240, 0.9);
+  animation: shimmer-glow-dark 1.2s ease-out forwards;
+}
+
+@keyframes shimmer-glow-dark {
+  0% {
+    color: rgba(0, 0, 0, 0.5);
+    text-shadow:
+      0 0 2px white,
+      0 0 4px white,
+      0 0 20px white,
+      0 0 40px white;
+  }
+  50% {
+    color: rgba(0, 0, 0, 0.75);
+    text-shadow:
+      0 0 3px white,
+      0 0 6px white,
+      0 0 30px white,
+      0 0 60px white,
+      0 0 80px white;
+  }
+  100% {
+    color: black;
+    text-shadow:
+      0 0 5px white,
+      0 0 10px white,
+      0 0 20px white,
+      0 0 40px white,
+      0 0 80px white,
+      0 0 120px white,
+      0 0 160px rgba(255, 255, 255, 0.8);
+  }
+}
+
+.rainbow-text {
+  background:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.5) 50%,
+      transparent 100%
+    ),
+    linear-gradient(90deg, #ef4444, #eab308, #22c55e, #3b82f6, #8b5cf6);
+  background-size:
+    200% 100%,
+    100% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: gradient-shimmer 3s ease-in-out infinite;
 }
 
 :root {
@@ -226,10 +357,34 @@ samp {
 
 /* Gradient utility classes */
 .gradient-text {
-  background: var(--blue-teal-text-gradient);
+  background:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.4) 50%,
+      transparent 100%
+    ),
+    var(--blue-teal-text-gradient);
+  background-size:
+    200% 100%,
+    100% 100%;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  animation: gradient-shimmer 3s ease-in-out infinite;
+}
+
+@keyframes gradient-shimmer {
+  0% {
+    background-position:
+      -100% 0,
+      0 0;
+  }
+  100% {
+    background-position:
+      200% 0,
+      0 0;
+  }
 }
 
 .gradient-bg {

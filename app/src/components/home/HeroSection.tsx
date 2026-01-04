@@ -1,10 +1,10 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, ChevronRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import confetti from "canvas-confetti";
 import { CopyButton } from "@/components/CopyButton";
 import { TERMINAL_DEMOS } from "@/components/docs/Sidebar/constants";
 import { TerminalLoader } from "@/components/TerminalLoader";
-import { useTypewriter } from "@/hooks/useTypewriter";
 
 const AnimatedTerminal = lazy(() =>
   import("@/components/home/AnimatedTerminal").then((m) => ({
@@ -17,35 +17,15 @@ const base = BASE_URL.endsWith("/") ? BASE_URL : BASE_URL + "/";
 
 const LOGO_ANIMATION_DELAY = 500;
 const TEXT_FADE_DELAY = 200;
-const TYPING_SPEED = 50;
-
-const HEADLINE_TEXT = "Track security issues & ";
-const HEADLINE_HIGHLIGHT = "manage overrides";
-const HEADLINE_SUFFIX = " automatically";
 
 export function HeroSection() {
   const [logoShrunk, setLogoShrunk] = useState(false);
   const [textVisible, setTextVisible] = useState(false);
   const [terminalVisible, setTerminalVisible] = useState(false);
   const [terminalComplete, setTerminalComplete] = useState(false);
-
-  const fullHeadline = HEADLINE_TEXT + HEADLINE_HIGHLIGHT + HEADLINE_SUFFIX;
-  const { displayedText, isComplete: headlineComplete } = useTypewriter(
-    fullHeadline,
-    TYPING_SPEED,
-    textVisible,
-  );
-
-  const displayedPart1 = displayedText.slice(0, HEADLINE_TEXT.length);
-  const displayedPart2 = displayedText.slice(
-    HEADLINE_TEXT.length,
-    HEADLINE_TEXT.length + HEADLINE_HIGHLIGHT.length,
-  );
-  const displayedPart3 = displayedText.slice(
-    HEADLINE_TEXT.length + HEADLINE_HIGHLIGHT.length,
-  );
-
-  const showTwoColumns = headlineComplete;
+  const [showRainbow, setShowRainbow] = useState(false);
+  const [emojiVisible, setEmojiVisible] = useState(false);
+  const automaticallyRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     const logoTimer = setTimeout(
@@ -56,21 +36,55 @@ export function HeroSection() {
       () => setTextVisible(true),
       LOGO_ANIMATION_DELAY + TEXT_FADE_DELAY,
     );
+    const terminalTimer = setTimeout(
+      () => setTerminalVisible(true),
+      LOGO_ANIMATION_DELAY + TEXT_FADE_DELAY + 400,
+    );
     return () => {
       clearTimeout(logoTimer);
       clearTimeout(textTimer);
+      clearTimeout(terminalTimer);
     };
   }, []);
 
   useEffect(() => {
-    if (headlineComplete) {
-      const timer = setTimeout(() => setTerminalVisible(true), 400);
-      return () => clearTimeout(timer);
+    if (terminalComplete) {
+      const rainbowTimer = setTimeout(() => setShowRainbow(true), 1200);
+      const emojiTimer = setTimeout(() => setEmojiVisible(true), 1800);
+      return () => {
+        clearTimeout(rainbowTimer);
+        clearTimeout(emojiTimer);
+      };
     }
-  }, [headlineComplete]);
+  }, [terminalComplete]);
+
+  useEffect(() => {
+    if (showRainbow && automaticallyRef.current) {
+      const rect = automaticallyRef.current.getBoundingClientRect();
+      const x = (rect.left + rect.width / 2) / window.innerWidth;
+      const y = (rect.top + rect.height / 2) / window.innerHeight;
+
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { x, y },
+        colors: [
+          "#ff0000",
+          "#ff8000",
+          "#ffff00",
+          "#00ff00",
+          "#0080ff",
+          "#8000ff",
+        ],
+      });
+    }
+  }, [showRainbow]);
 
   return (
-    <section className="relative flex items-center justify-center px-3 md:px-10 xl:px-28 py-12 md:py-16 overflow-hidden min-h-screen">
+    <section
+      id="hero"
+      className="relative flex items-center justify-center px-3 md:px-10 xl:px-28 py-12 md:py-16 overflow-hidden min-h-screen"
+    >
       <HeroBackground />
 
       <article className="max-w-2xl md:max-w-6xl w-full">
@@ -86,68 +100,54 @@ export function HeroSection() {
           />
         </header>
 
-        <main
-          className={`flex flex-col-reverse lg:flex-row lg:items-center lg:gap-12 xl:gap-16 transition-all duration-700 ease-out ${
-            showTwoColumns ? "lg:justify-between" : "lg:justify-center"
-          }`}
-        >
+        <main className="flex flex-col-reverse lg:flex-row lg:items-center lg:gap-12 xl:gap-16 lg:justify-between">
           <aside
-            className={`mt-8 lg:mt-0 w-full max-w-3xl text-left transition-all duration-700 ease-out ${
-              showTwoColumns
-                ? "lg:flex-1 opacity-100"
-                : "lg:w-0 lg:overflow-hidden opacity-0"
+            className={`mt-8 lg:mt-0 w-full text-left transition-all duration-700 ease-out lg:flex-1 ${
+              terminalVisible
+                ? "opacity-100 translate-x-0"
+                : "opacity-0 -translate-x-8"
             }`}
           >
-            <div
-              className={`transition-all duration-700 ease-out ${
-                terminalVisible
-                  ? "opacity-100 translate-x-0"
-                  : "opacity-0 -translate-x-8"
-              }`}
-            >
-              <Suspense fallback={<TerminalLoader />}>
-                <AnimatedTerminal
-                  demos={TERMINAL_DEMOS}
-                  loop={false}
-                  typingSpeed={20}
-                  height="460px"
-                  startAnimation={terminalVisible}
-                  onComplete={() => setTerminalComplete(true)}
-                />
-              </Suspense>
-            </div>
+            <Suspense fallback={<TerminalLoader />}>
+              <AnimatedTerminal
+                demos={TERMINAL_DEMOS}
+                loop={false}
+                typingSpeed={20}
+                height="435px"
+                startAnimation={terminalVisible}
+                onComplete={() => setTerminalComplete(true)}
+              />
+            </Suspense>
           </aside>
 
           <header
-            className={`text-center ${
+            className={`text-center transition-all duration-700 ease-out lg:flex-1 lg:text-left ${
               textVisible
                 ? "opacity-100 translate-y-0"
                 : "opacity-0 translate-y-8"
-            } ${showTwoColumns ? "lg:flex-1 lg:text-left animate-slide-bounce" : "lg:max-w-3xl transition-all duration-700 ease-out"}`}
+            }`}
           >
             <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-4xl xl:text-5xl font-black leading-tight mb-8">
-              {displayedPart1}
-              {displayedPart2 && (
-                <span className="font-bold gradient-text">
-                  {displayedPart2}
+              <span className="font-bold gradient-text">Pastoralist</span> helps
+              you track npm dependency overrides and security issues
+              {terminalComplete && (
+                <span
+                  ref={automaticallyRef}
+                  className={`inline-block ml-2 ${
+                    showRainbow
+                      ? "rainbow-text animate-rainbow-bounce"
+                      : "text-glow-shimmer animate-slide-in-right"
+                  }`}
+                >
+                  automatically
                 </span>
               )}
-              {displayedPart3}
-              {!headlineComplete && textVisible && (
-                <span className="inline-block w-0.5 h-[1em] bg-current ml-1 animate-pulse" />
-              )}
-              {terminalComplete && (
-                <span className="inline-block ml-2 animate-thumbs-up">👍</span>
+              {emojiVisible && (
+                <span className="inline-block animate-thumbs-up">👍</span>
               )}
             </h1>
 
-            <nav
-              className={`flex flex-col sm:flex-row items-center sm:items-stretch gap-4 sm:gap-5 transition-all duration-500 ${
-                showTwoColumns
-                  ? "justify-center lg:justify-start"
-                  : "justify-center"
-              }`}
-            >
+            <nav className="flex flex-col sm:flex-row items-center sm:items-stretch gap-4 sm:gap-5 justify-center lg:justify-start">
               <Link
                 to="/docs/$slug"
                 params={{ slug: "introduction" }}
@@ -159,8 +159,7 @@ export function HeroSection() {
                 </button>
               </Link>
 
-              <figure className="flex lg:hidden items-center bg-base-100 rounded-lg shadow-sm justify-between h-12 px-4 border border-base-content/10">
-                <ChevronRight className="w-3 h-3 mr-2 -rotate-90" />
+              <figure className="flex lg:hidden items-center bg-base-100 rounded-lg shadow-sm justify-between h-12 px-4 border border-base-content/10 max-w-md">
                 <code className="flex-1 text-left leading-none text-base">
                   bun add -g pastoralist
                 </code>

@@ -1,26 +1,19 @@
-import { useState, useEffect, useRef } from "react";
+import { useInView } from "react-intersection-observer";
 
-export function useFadeInUp() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [isVisible, setIsVisible] = useState(false);
+interface UseFadeInUpOptions {
+  threshold?: number;
+  triggerOnce?: boolean;
+  onChange?: (inView: boolean, entry: IntersectionObserverEntry) => void;
+}
 
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.1 },
-    );
+export function useFadeInUp(options: UseFadeInUpOptions = {}) {
+  const { threshold = 0.1, triggerOnce = true, onChange } = options;
 
-    if (ref.current) {
-      observer.observe(ref.current);
-    }
+  const { ref, inView } = useInView({
+    threshold,
+    triggerOnce,
+    onChange,
+  });
 
-    return () => observer.disconnect();
-  }, []);
-
-  return { ref, isVisible };
+  return { ref, isVisible: inView };
 }

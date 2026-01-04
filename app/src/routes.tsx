@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import { createRootRoute, createRoute, Outlet } from "@tanstack/react-router";
+import { Loader2 } from "lucide-react";
 
 const HomeLayout = lazy(() =>
   import("./layouts/RootLayout").then((m) => ({ default: m.HomeLayout })),
@@ -16,8 +17,8 @@ const DocsPage = lazy(() =>
 
 function PageLoader() {
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-pulse text-base-content/50">Loading...</div>
+    <div className="min-h-[50vh] h-full flex items-center justify-center">
+      <Loader2 className="size-8 animate-spin text-base-content/50" />
     </div>
   );
 }

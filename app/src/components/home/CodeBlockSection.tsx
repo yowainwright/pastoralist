@@ -14,7 +14,10 @@ export function CodeBlockSection() {
   const { ref, isVisible } = useFadeInUp();
 
   return (
-    <section className="py-16 lg:py-24 bg-base-200/50 border-y border-base-content/10">
+    <section
+      id="features"
+      className="py-16 lg:py-24 bg-base-200/50 border-y border-base-content/10"
+    >
       <article
         ref={ref}
         className={`xl:flex gap-16 items-center max-w-2xl md:max-w-6xl mx-auto px-4 transition-all duration-700 ease-out ${

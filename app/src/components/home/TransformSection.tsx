@@ -1,7 +1,4 @@
-import { useState, lazy, Suspense } from "react";
-import { Link } from "@tanstack/react-router";
-import { ArrowRight } from "lucide-react";
-import { CopyButton } from "@/components/CopyButton";
+import { lazy, Suspense } from "react";
 import { TerminalLoader } from "@/components/TerminalLoader";
 import { useFadeInUp } from "@/hooks/useFadeInUp";
 
@@ -13,10 +10,9 @@ const TransformDemo = lazy(() =>
 
 export function TransformSection() {
   const { ref: headerRef, isVisible: headerVisible } = useFadeInUp();
-  const [demoComplete, setDemoComplete] = useState(false);
 
   return (
-    <section className="relative py-16 lg:py-24 overflow-hidden">
+    <section id="demo" className="relative py-16 lg:py-24 overflow-hidden">
       <TransformBackground />
 
       <article className="max-w-2xl md:max-w-6xl mx-auto px-4">
@@ -39,36 +35,8 @@ export function TransformSection() {
         </header>
 
         <Suspense fallback={<TerminalLoader />}>
-          <TransformDemo onComplete={() => setDemoComplete(true)} />
+          <TransformDemo />
         </Suspense>
-
-        <footer
-          className={`mt-16 text-center ${
-            demoComplete ? "animate-pop-in" : "opacity-0 scale-0"
-          }`}
-        >
-          <h3 className="text-2xl lg:text-3xl font-black text-base-content mb-6">
-            Ready to <span className="gradient-text">get started</span>?
-          </h3>
-          <nav className="flex flex-col justify-center items-center gap-4">
-            <figure className="flex items-center bg-base-100 rounded-lg shadow-sm h-12 px-4 border border-base-content/10">
-              <code className="flex-1 text-left leading-none text-base">
-                bun add -g pastoralist
-              </code>
-              <CopyButton />
-            </figure>
-            <Link
-              to="/docs/$slug"
-              params={{ slug: "introduction" }}
-              preload="intent"
-            >
-              <button className="btn btn-lg btn-primary">
-                Learn More
-                <ArrowRight className="size-4" />
-              </button>
-            </Link>
-          </nav>
-        </footer>
       </article>
     </section>
   );

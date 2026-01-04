@@ -10,7 +10,7 @@ export const CodeBlockToggle: React.FC<CodeBlockToggleProps> = ({
   const [activeTab, setActiveTab] = useState<"cli" | "json">("cli");
 
   return (
-    <div className="terminal-window w-full">
+    <div className="terminal-window max-w-3xl w-full">
       {/* Window chrome with traffic light buttons */}
       <div className="terminal-header flex justify-between items-center">
         <div className="flex gap-2 items-center">

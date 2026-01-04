@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
+import { useInView } from "react-intersection-observer";
 import type { AnimationPhase } from "./types";
 import { Popover } from "./Popover";
 import { BeforeTerminal } from "./BeforeTerminal";
@@ -6,11 +7,7 @@ import { CLITerminal } from "./CLITerminal";
 import { AfterTerminal } from "./AfterTerminal";
 import { STEP_POPOVERS, STEPS, APPENDIX_CONTENT, COMMAND } from "./constants";
 
-interface TransformDemoProps {
-  onComplete?: () => void;
-}
-
-export const TransformDemo: React.FC<TransformDemoProps> = ({ onComplete }) => {
+export function TransformDemo() {
   const [phase, setPhase] = useState<AnimationPhase>("idle");
   const [typedCommand, setTypedCommand] = useState("");
   const [showSpinner, setShowSpinner] = useState(false);
@@ -18,60 +15,44 @@ export const TransformDemo: React.FC<TransformDemoProps> = ({ onComplete }) => {
   const [appendixLines, setAppendixLines] = useState<number>(0);
   const [activeStep, setActiveStep] = useState<number>(0);
   const [showLightning, setShowLightning] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const [showAllPopovers, setShowAllPopovers] = useState(false);
   const hasStarted = useRef(false);
   const animationRef = useRef<NodeJS.Timeout | null>(null);
+  const pausedState = useRef<{
+    phase: AnimationPhase;
+    typedCommand: string;
+    appendixLines: number;
+  } | null>(null);
 
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting && !hasStarted.current) {
-          hasStarted.current = true;
-          startAnimation();
-        }
-      },
-      { threshold: 0.3 },
-    );
-
-    const current = containerRef.current;
-    if (current) {
-      observer.observe(current);
-    }
-
-    return () => {
-      if (current) {
-        observer.unobserve(current);
-      }
-    };
-  }, []);
-
-  const clearAnimations = () => {
+  const clearAnimations = useCallback(() => {
     if (animationRef.current) {
       clearInterval(animationRef.current);
       animationRef.current = null;
     }
-  };
+  }, []);
 
-  const resetState = () => {
-    clearAnimations();
-    setTypedCommand("");
-    setShowSpinner(false);
-    setShowSuccess(false);
-    setAppendixLines(0);
-    setShowLightning(false);
-  };
+  const animateAppendixFrom = useCallback(
+    (startIndex: number) => {
+      let lineIndex = startIndex;
+      animationRef.current = setInterval(() => {
+        if (lineIndex < APPENDIX_CONTENT.length) {
+          setAppendixLines(lineIndex + 1);
+          lineIndex++;
+        } else {
+          clearAnimations();
+          setPhase("complete");
+          setShowAllPopovers(true);
+          setTimeout(() => {
+            setShowLightning(true);
+          }, 150);
+        }
+      }, 60);
+    },
+    [clearAnimations],
+  );
 
-  const startAnimation = () => {
-    resetState();
-    setPhase("step1");
-    setActiveStep(1);
-
-    setTimeout(() => {
-      startTypingCommand();
-    }, 2000);
-  };
-
-  const startTypingCommand = () => {
+  const startTypingCommand = useCallback(() => {
     setPhase("step2");
     setActiveStep(2);
     let charIndex = 0;
@@ -90,51 +71,116 @@ export const TransformDemo: React.FC<TransformDemoProps> = ({ onComplete }) => {
             setTimeout(() => {
               setPhase("step3");
               setActiveStep(3);
-              animateAppendix();
-            }, 600);
-          }, 1000);
-        }, 200);
+              animateAppendixFrom(0);
+            }, 300);
+          }, 500);
+        }, 100);
       }
-    }, 30);
-  };
+    }, 20);
+  }, [clearAnimations, animateAppendixFrom]);
 
-  const animateAppendix = () => {
-    let lineIndex = 0;
-    animationRef.current = setInterval(() => {
-      if (lineIndex < APPENDIX_CONTENT.length) {
-        setAppendixLines(lineIndex + 1);
-        lineIndex++;
-      } else {
-        clearAnimations();
-        setPhase("complete");
-        setTimeout(() => {
-          setShowLightning(true);
-          onComplete?.();
-        }, 300);
+  const resetState = useCallback(() => {
+    clearAnimations();
+    setTypedCommand("");
+    setShowSpinner(false);
+    setShowSuccess(false);
+    setAppendixLines(0);
+    setShowLightning(false);
+  }, [clearAnimations]);
+
+  const startAnimation = useCallback(() => {
+    resetState();
+    setPhase("step1");
+    setActiveStep(1);
+
+    setTimeout(() => {
+      startTypingCommand();
+    }, 800);
+  }, [resetState, startTypingCommand]);
+
+  const resumeAnimation = useCallback(() => {
+    if (!isPaused || !pausedState.current) return;
+
+    setIsPaused(false);
+    const {
+      phase: savedPhase,
+      typedCommand: savedCommand,
+      appendixLines: savedLines,
+    } = pausedState.current;
+    pausedState.current = null;
+
+    if (savedPhase === "step2" && savedCommand.length < COMMAND.length) {
+      let charIndex = savedCommand.length;
+      animationRef.current = setInterval(() => {
+        if (charIndex < COMMAND.length) {
+          setTypedCommand(COMMAND.slice(0, charIndex + 1));
+          charIndex++;
+        } else {
+          clearAnimations();
+          setTimeout(() => {
+            setPhase("checking");
+            setShowSpinner(true);
+            setTimeout(() => {
+              setShowSpinner(false);
+              setShowSuccess(true);
+              setTimeout(() => {
+                setPhase("step3");
+                setActiveStep(3);
+                animateAppendixFrom(0);
+              }, 300);
+            }, 500);
+          }, 100);
+        }
+      }, 20);
+    } else if (savedPhase === "step3" && savedLines < APPENDIX_CONTENT.length) {
+      animateAppendixFrom(savedLines);
+    }
+  }, [isPaused, clearAnimations, animateAppendixFrom]);
+
+  const { ref: containerRef } = useInView({
+    threshold: 0.3,
+    onChange: (inView) => {
+      if (inView) {
+        if (!hasStarted.current) {
+          hasStarted.current = true;
+          startAnimation();
+        } else if (isPaused) {
+          resumeAnimation();
+        }
       }
-    }, 120);
-  };
+    },
+  });
 
   const handleStepClick = (step: number) => {
-    resetState();
+    clearAnimations();
+
+    pausedState.current = {
+      phase,
+      typedCommand,
+      appendixLines,
+    };
+    setIsPaused(true);
+    setShowAllPopovers(false);
+    setActiveStep(step);
+
     if (step === 1) {
-      startAnimation();
+      setPhase("step1");
     } else if (step === 2) {
       setPhase("step2");
-      setActiveStep(2);
-      startTypingCommand();
     } else if (step === 3) {
-      setTypedCommand(COMMAND);
-      setShowSuccess(true);
       setPhase("step3");
-      setActiveStep(3);
-      animateAppendix();
     }
   };
 
-  const isStep1Active = activeStep === 1;
-  const isStep2Active = activeStep === 2;
-  const isStep3Active = activeStep === 3;
+  const isStep1Active = isPaused
+    ? activeStep === 1
+    : activeStep >= 1 || showAllPopovers;
+  const isStep2Active = isPaused
+    ? activeStep === 2
+    : activeStep >= 2 || showAllPopovers;
+  const isStep3Active = isPaused
+    ? activeStep === 3
+    : activeStep >= 3 || showAllPopovers;
 
   return (
     <div ref={containerRef} className="flex flex-col gap-12">
@@ -166,7 +212,6 @@ export const TransformDemo: React.FC<TransformDemoProps> = ({ onComplete }) => {
 
       <div className="grid md:grid-cols-2 gap-6 lg:gap-8">
         <div className="flex flex-col gap-4">
-          {/* Before - Undocumented overrides */}
           <div className="relative flex flex-col">
             <Popover
               stepNumber={1}
@@ -185,7 +230,6 @@ export const TransformDemo: React.FC<TransformDemoProps> = ({ onComplete }) => {
             <BeforeTerminal isActive={isStep1Active} />
           </div>
 
-          {/* CLI execution */}
           <div className="relative">
             <Popover
               stepNumber={2}
@@ -211,7 +255,6 @@ export const TransformDemo: React.FC<TransformDemoProps> = ({ onComplete }) => {
           </div>
         </div>
 
-        {/* After - Documented overrides */}
         <div className="relative flex flex-col">
           <Popover
             stepNumber={3}
@@ -237,4 +280,4 @@ export const TransformDemo: React.FC<TransformDemoProps> = ({ onComplete }) => {
       </div>
     </div>
   );
-};
+}

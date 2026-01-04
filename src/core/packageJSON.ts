@@ -449,7 +449,6 @@ export const findPackageJsonFiles = (
       cwd: root,
       ignore,
       absolute: false,
-      onlyFiles: true,
     });
 
     const hasNoFiles = files.length === 0;

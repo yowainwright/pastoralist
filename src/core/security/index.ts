@@ -275,7 +275,7 @@ export class SecurityChecker {
   ): Promise<SecurityAlert[]> {
     try {
       const patterns = depPaths.map((p) => resolve(root, p));
-      const packageFiles = await glob(patterns, {
+      const packageFiles = glob(patterns, {
         ignore: ["**/node_modules/**"],
         absolute: true,
       });

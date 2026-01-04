@@ -1,6 +1,7 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
+import confetti from "canvas-confetti";
 import { CopyButton } from "@/components/CopyButton";
 import { TERMINAL_DEMOS } from "@/components/docs/Sidebar/constants";
 import { TerminalLoader } from "@/components/TerminalLoader";
@@ -22,6 +23,9 @@ export function HeroSection() {
   const [textVisible, setTextVisible] = useState(false);
   const [terminalVisible, setTerminalVisible] = useState(false);
   const [terminalComplete, setTerminalComplete] = useState(false);
+  const [showRainbow, setShowRainbow] = useState(false);
+  const [emojiVisible, setEmojiVisible] = useState(false);
+  const automaticallyRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     const logoTimer = setTimeout(
@@ -43,8 +47,44 @@ export function HeroSection() {
     };
   }, []);
 
+  useEffect(() => {
+    if (terminalComplete) {
+      const rainbowTimer = setTimeout(() => setShowRainbow(true), 1200);
+      const emojiTimer = setTimeout(() => setEmojiVisible(true), 1800);
+      return () => {
+        clearTimeout(rainbowTimer);
+        clearTimeout(emojiTimer);
+      };
+    }
+  }, [terminalComplete]);
+
+  useEffect(() => {
+    if (showRainbow && automaticallyRef.current) {
+      const rect = automaticallyRef.current.getBoundingClientRect();
+      const x = (rect.left + rect.width / 2) / window.innerWidth;
+      const y = (rect.top + rect.height / 2) / window.innerHeight;
+
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { x, y },
+        colors: [
+          "#ff0000",
+          "#ff8000",
+          "#ffff00",
+          "#00ff00",
+          "#0080ff",
+          "#8000ff",
+        ],
+      });
+    }
+  }, [showRainbow]);
+
   return (
-    <section className="relative flex items-center justify-center px-3 md:px-10 xl:px-28 py-12 md:py-16 overflow-hidden min-h-screen">
+    <section
+      id="hero"
+      className="relative flex items-center justify-center px-3 md:px-10 xl:px-28 py-12 md:py-16 overflow-hidden min-h-screen"
+    >
       <HeroBackground />
 
       <article className="max-w-2xl md:max-w-6xl w-full">
@@ -88,19 +128,22 @@ export function HeroSection() {
             }`}
           >
             <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-4xl xl:text-5xl font-black leading-tight mb-8">
-              Use <span className="font-bold gradient-text">Pastoralist</span>
-              <br />
-              {" to "}
-              <span className="font-bold gradient-text">
-                track security issues
-              </span>
-              <br />
-              {" & "}
-              <span className="font-bold gradient-text">manage overrides </span>
+              <span className="font-bold gradient-text">Pastoralist</span> helps
+              you track npm dependency overrides and security issues
               {terminalComplete && (
-                <span className="inline-block animate-thumbs-up">
-                  {" automatically"}👍
+                <span
+                  ref={automaticallyRef}
+                  className={`inline-block ml-2 ${
+                    showRainbow
+                      ? "rainbow-text animate-rainbow-bounce"
+                      : "text-glow-shimmer animate-slide-in-right"
+                  }`}
+                >
+                  automatically
                 </span>
+              )}
+              {emojiVisible && (
+                <span className="inline-block animate-thumbs-up">👍</span>
               )}
             </h1>
 
@@ -116,7 +159,7 @@ export function HeroSection() {
                 </button>
               </Link>
 
-              <figure className="flex lg:hidden items-center bg-base-100 rounded-lg shadow-sm justify-between h-12 px-4 border border-base-content/10">
+              <figure className="flex lg:hidden items-center bg-base-100 rounded-lg shadow-sm justify-between h-12 px-4 border border-base-content/10 max-w-md">
                 <code className="flex-1 text-left leading-none text-base">
                   bun add -g pastoralist
                 </code>

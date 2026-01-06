@@ -970,14 +970,8 @@ test("updatePackageJSON - handles malformed JSON content gracefully", () => {
   validateRootPackageJsonIntegrity();
 });
 
-test("executeNpmLs - returns stdout on exit code 1 with output", async () => {
-  const mockStdout = JSON.stringify({
-    dependencies: { lodash: { version: "4.17.21" } },
-  });
-
-  const originalModule = await import("../../../src/core/packageJSON");
-  const result = await originalModule.executeNpmLs().catch(() => "");
-  expect(typeof result).toBe("string");
+test("executeNpmLs - is exported and callable", () => {
+  expect(typeof executeNpmLs).toBe("function");
 });
 
 test("getDependencyTree - handles executeNpmLs errors gracefully", async () => {

@@ -1,5 +1,8 @@
+import { createLimit } from "./limit";
 import { retry } from "./retry";
 import { compareVersions } from "./semver";
+
+const npmLimit = createLimit(5);
 
 const NPM_REGISTRY_URL = "https://registry.npmjs.org";
 
@@ -83,17 +86,21 @@ export const fetchLatestCompatibleVersions = async (
   const results = new Map<string, string>();
 
   const uniquePackages = packages.reduce((acc, pkg) => {
-    if (!acc.has(pkg.name)) {
+    const hasPackage = acc.has(pkg.name);
+    if (!hasPackage) {
       acc.set(pkg.name, pkg.minVersion);
     }
     return acc;
   }, new Map<string, string>());
 
+  const entries = Array.from(uniquePackages.entries());
   const fetches = await Promise.all(
-    Array.from(uniquePackages.entries()).map(async ([name, minVersion]) => {
-      const version = await fetchLatestCompatibleVersion(name, minVersion);
-      return { name, version };
-    }),
+    entries.map(([name, minVersion]) =>
+      npmLimit(async () => {
+        const version = await fetchLatestCompatibleVersion(name, minVersion);
+        return { name, version };
+      }),
+    ),
   );
 
   for (const { name, version } of fetches) {

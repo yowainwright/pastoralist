@@ -178,15 +178,14 @@ const hasNoDependents = (item: AppendixItem): boolean => {
 
 export const removeEmptyEntries = (appendix: Appendix): Appendix => {
   const keys = Object.keys(appendix);
-
-  return keys.reduce((acc, key) => {
+  const nonEmptyKeys = keys.filter((key) => {
     const item = appendix[key];
-    const hasNoItem = !item;
-    const isEmpty = hasNoDependents(item);
+    return item && !hasNoDependents(item);
+  });
 
-    if (hasNoItem || isEmpty) return acc;
-
-    return { ...acc, [key]: item };
+  return nonEmptyKeys.reduce((acc, key) => {
+    acc[key] = appendix[key];
+    return acc;
   }, {} as Appendix);
 };
 
@@ -233,14 +232,8 @@ export const mergeAppendixDependents = (
   value: AppendixItem,
 ): Appendix => {
   const existingDependents = currentAppendix[key]?.dependents || {};
+  const mergedDependents = { ...existingDependents, ...value.dependents };
 
-  return {
-    ...currentAppendix,
-    [key]: {
-      dependents: {
-        ...existingDependents,
-        ...value.dependents,
-      },
-    },
-  };
+  currentAppendix[key] = { dependents: mergedDependents };
+  return currentAppendix;
 };

@@ -55,11 +55,12 @@ jobs:
         env:
           CI: true
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage/lcov.info
-          fail_ci_if_error: false
+          fail_ci_if_error: true
+          verbose: true
 
   node-compat:
     runs-on: ubuntu-latest

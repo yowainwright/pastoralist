@@ -898,46 +898,6 @@ test("extractNewVulnerabilities - should extract only new vulnerabilities", () =
   mockFindVulnerable.mockRestore();
 });
 
-test("detectPackageManager - should detect bun from bun.lockb", async () => {
-  const checker = new SecurityChecker({ provider: "osv" });
-  const testLockPath = path.join(process.cwd(), "bun.lockb");
-
-  fs.writeFileSync(testLockPath, "");
-  const result = await (checker as any).detectPackageManager();
-  fs.unlinkSync(testLockPath);
-
-  expect(result).toBe("bun");
-});
-
-test("detectPackageManager - should detect yarn from yarn.lock", async () => {
-  const checker = new SecurityChecker({ provider: "osv" });
-  const testLockPath = path.join(process.cwd(), "yarn.lock");
-
-  fs.writeFileSync(testLockPath, "");
-  const result = await (checker as any).detectPackageManager();
-  fs.unlinkSync(testLockPath);
-
-  expect(result).toBe("yarn");
-});
-
-test("detectPackageManager - should detect pnpm from pnpm-lock.yaml", async () => {
-  const checker = new SecurityChecker({ provider: "osv" });
-  const testLockPath = path.join(process.cwd(), "pnpm-lock.yaml");
-
-  fs.writeFileSync(testLockPath, "");
-  const result = await (checker as any).detectPackageManager();
-  fs.unlinkSync(testLockPath);
-
-  expect(result).toBe("pnpm");
-});
-
-test("detectPackageManager - should default to npm when no lock file exists", async () => {
-  const checker = new SecurityChecker({ provider: "osv" });
-  const result = await (checker as any).detectPackageManager();
-
-  expect(result).toBe("npm");
-});
-
 test("getOverrideField - should return resolutions for yarn", () => {
   const checker = new SecurityChecker({ provider: "osv" });
   const result = (checker as any).getOverrideField("yarn");

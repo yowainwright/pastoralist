@@ -264,3 +264,156 @@ test("fetchAlerts - should handle non-Error exceptions", async () => {
   const alerts = await provider.fetchAlerts();
   expect(alerts).toEqual([]);
 });
+
+test("ensureInstalled - should call installer", async () => {
+  const provider = new SocketCLIProvider({ debug: false });
+  (provider as any).installer.ensureInstalled = async () => true;
+
+  const result = await provider.ensureInstalled();
+  expect(result).toBe(true);
+});
+
+test("ensureInstalled - should return false when not installed", async () => {
+  const provider = new SocketCLIProvider({ debug: false });
+  (provider as any).installer.ensureInstalled = async () => false;
+
+  const result = await provider.ensureInstalled();
+  expect(result).toBe(false);
+});
+
+test("isAuthenticated - should return true when token exists", async () => {
+  const provider = new SocketCLIProvider({ token: "test-token", debug: false });
+  const result = await provider.isAuthenticated();
+  expect(result).toBe(true);
+});
+
+test("isAuthenticated - should return false when no token", async () => {
+  const provider = new SocketCLIProvider({ debug: false });
+  (provider as any).token = undefined;
+  const result = await provider.isAuthenticated();
+  expect(result).toBe(false);
+});
+
+test("validatePrerequisites - should return false when not installed", async () => {
+  const provider = new SocketCLIProvider({ debug: false });
+  (provider as any).ensureInstalled = async () => false;
+
+  const result = await (provider as any).validatePrerequisites();
+  expect(result).toBe(false);
+});
+
+test("validatePrerequisites - should return false when not authenticated", async () => {
+  const provider = new SocketCLIProvider({ debug: false });
+  (provider as any).ensureInstalled = async () => true;
+  (provider as any).isAuthenticated = async () => false;
+
+  const result = await (provider as any).validatePrerequisites();
+  expect(result).toBe(false);
+});
+
+test("validatePrerequisites - should return true when installed and authenticated", async () => {
+  const provider = new SocketCLIProvider({ token: "test-token", debug: false });
+  (provider as any).ensureInstalled = async () => true;
+
+  const result = await (provider as any).validatePrerequisites();
+  expect(result).toBe(true);
+});
+
+test("fetchAlerts - should return alerts on successful scan", async () => {
+  const provider = new SocketCLIProvider({ debug: false });
+  (provider as any).validatePrerequisites = async () => true;
+  (provider as any).runSocketScan = async () => ({
+    packages: [
+      {
+        name: "test-pkg",
+        version: "1.0.0",
+        issues: [
+          {
+            type: "vulnerability",
+            severity: "high",
+            title: "Test Issue",
+            description: "Test",
+            cve: "CVE-2024-1234",
+          },
+        ],
+      },
+    ],
+  });
+
+  const alerts = await provider.fetchAlerts();
+  expect(alerts.length).toBe(1);
+  expect(alerts[0].packageName).toBe("test-pkg");
+});
+
+test("Alert Conversion - should use issue type as title when title missing", () => {
+  const provider = new SocketCLIProvider({ debug: false });
+  const pkg = { name: "test-package", version: "1.0.0" };
+  const issue = {
+    type: "malware",
+    severity: "critical",
+    description: "Test",
+  };
+
+  const alert = (provider as any).convertIssueToAlert(pkg, issue);
+  expect(alert.title).toBe("malware");
+});
+
+test("Alert Conversion - should generate default url when not provided", () => {
+  const provider = new SocketCLIProvider({ debug: false });
+  const pkg = { name: "test-package", version: "1.0.0" };
+  const issue = {
+    type: "vulnerability",
+    severity: "high",
+    title: "Test",
+  };
+
+  const alert = (provider as any).convertIssueToAlert(pkg, issue);
+  expect(alert.url).toContain("socket.dev");
+  expect(alert.url).toContain("test-package");
+});
+
+test("runSocketScan - should parse JSON from successful scan", async () => {
+  const provider = new SocketCLIProvider({ token: "test-token", debug: false });
+  const mockResult = { packages: [] };
+
+  (provider as any).runSocketScan = async () => mockResult;
+  (provider as any).validatePrerequisites = async () => true;
+
+  const alerts = await provider.fetchAlerts();
+  expect(alerts).toEqual([]);
+});
+
+test("runSocketScan - should handle scan with issues", async () => {
+  const provider = new SocketCLIProvider({ token: "test-token", debug: false });
+  const mockResult = {
+    packages: [
+      {
+        name: "test-pkg",
+        version: "1.0.0",
+        issues: [
+          {
+            type: "vulnerability",
+            severity: "high",
+            title: "Test Vuln",
+            description: "Test",
+          },
+        ],
+      },
+    ],
+  };
+
+  (provider as any).runSocketScan = async () => mockResult;
+  (provider as any).validatePrerequisites = async () => true;
+
+  const alerts = await provider.fetchAlerts();
+  expect(alerts.length).toBe(1);
+  expect(alerts[0].packageName).toBe("test-pkg");
+});
+
+test("validatePrerequisites - should return true when fully setup", async () => {
+  const provider = new SocketCLIProvider({ token: "test-token", debug: false });
+  (provider as any).ensureInstalled = async () => true;
+
+  const result = await (provider as any).validatePrerequisites();
+  expect(result).toBe(true);
+});

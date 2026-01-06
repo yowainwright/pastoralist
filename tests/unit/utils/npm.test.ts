@@ -259,3 +259,25 @@ test("fetchLatestVersion - should encode package name in URL", async () => {
 
   expect(capturedUrl).toContain(encodeURIComponent("@scope/package-name"));
 });
+
+test("fetchLatestCompatibleVersions - should rate limit concurrent requests", async () => {
+  let maxConcurrent = 0;
+  let currentConcurrent = 0;
+
+  globalThis.fetch = mock(async () => {
+    currentConcurrent++;
+    maxConcurrent = Math.max(maxConcurrent, currentConcurrent);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    currentConcurrent--;
+    return mockOkResponse(BASE_NPM_PACKAGE_INFO);
+  });
+
+  const packages = Array.from({ length: 20 }, (_, i) => ({
+    name: `package-${i}`,
+    minVersion: "4.17.15",
+  }));
+
+  await fetchLatestCompatibleVersions(packages);
+
+  expect(maxConcurrent).toBeLessThanOrEqual(5);
+});

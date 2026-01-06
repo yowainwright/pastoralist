@@ -79,17 +79,15 @@ const collectPackageDependencies = (
 const aggregateWorkspaceDependencies = (
   packageJsonFiles: string[],
 ): Record<string, string> => {
-  const packageConfigs = packageJsonFiles.map((packagePath) =>
-    resolveJSON(packagePath),
-  );
+  const packageConfigs = packageJsonFiles
+    .map((packagePath) => resolveJSON(packagePath))
+    .filter(Boolean);
 
   return packageConfigs.reduce(
     (allDeps, packageConfig) => {
-      const hasConfig = Boolean(packageConfig);
-      if (!hasConfig) return allDeps;
-
       const deps = collectPackageDependencies(packageConfig);
-      return { ...allDeps, ...deps };
+      Object.assign(allDeps, deps);
+      return allDeps;
     },
     {} as Record<string, string>,
   );

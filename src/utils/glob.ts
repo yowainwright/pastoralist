@@ -16,7 +16,9 @@ interface GlobOptions {
   absolute?: boolean;
 }
 
-const patternToRegex = (pattern: string): RegExp => {
+const regexCache = new Map<string, RegExp>();
+
+const compilePattern = (pattern: string): RegExp => {
   const escaped = pattern.replace(GLOB_SPECIAL_CHARS, "\\$&");
   const withPlaceholder = escaped.replace(
     GLOB_DOUBLE_STAR,
@@ -27,6 +29,15 @@ const patternToRegex = (pattern: string): RegExp => {
   const final = withQuestion.replace(GLOBSTAR_PLACEHOLDER_PATTERN, ".*");
 
   return new RegExp(`^${final}$`);
+};
+
+const patternToRegex = (pattern: string): RegExp => {
+  let cached = regexCache.get(pattern);
+  if (!cached) {
+    cached = compilePattern(pattern);
+    regexCache.set(pattern, cached);
+  }
+  return cached;
 };
 
 const isLiteralPattern = (pattern: string): boolean =>

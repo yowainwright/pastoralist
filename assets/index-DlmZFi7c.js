@@ -880,6 +880,20 @@ flowchart TD
     style NestedDep fill:#e8f5e9
 \`\`\`
 
+## Design Decisions
+
+### Synchronous I/O
+
+Pastoralist uses sync file I/O intentionally. As a CLI tool, predictable execution and simple debugging outweigh async benefits.
+
+### Caching
+
+Two caches avoid redundant work: \`jsonCache\` (parsed package.json files) and \`dependencyTreeCache\` (npm ls output). Caches persist across \`update()\` calls - pass \`clearCache: true\` to reset.
+
+### Rate Limiting
+
+npm registry requests are limited to 5 concurrent to avoid rate limits during security scans.
+
 ## Dependency Resolution Flow
 
 Complete flow of how dependencies are resolved with overrides:
@@ -2910,5 +2924,5 @@ const base = require("./packages/base-config/overrides.json");
 - Choose a management strategy
 - Add automation scripts
 - Document your approach for the team
-`;function w(e){const n=e.match(/^---\n([\s\S]*?)\n---/);if(!n)return{};const t={},s=n[1].split(`
-`);for(const a of s){const o=a.indexOf(":");if(o===-1)continue;const c=a.slice(0,o).trim();let i=a.slice(o+1).trim();i=i.replace(/^["']|["']$/g,""),t[c]=i}return t}const r=Object.assign({"./docs/advanced-features.mdx":l,"./docs/api-reference.mdx":d,"./docs/architecture.mdx":u,"./docs/codelab.mdx":g,"./docs/configuration.mdx":h,"./docs/github-action.mdx":m,"./docs/introduction.mdx":y,"./docs/security.mdx":f,"./docs/setup.mdx":k,"./docs/troubleshooting.mdx":v,"./docs/workspaces.mdx":b}),p=Object.entries(r).map(([e,n])=>{const t=e.replace("./docs/","").replace(".mdx",""),s=w(n);return{slug:t,title:s.title??t,description:s.description??""}});function P(e){return p.find(n=>n.slug===e)}function j(e){const n=`./docs/${e}.mdx`;return r[n]}function x(){return p}export{P as a,j as b,x as g};
+`;function w(e){const n=e.match(/^---\n([\s\S]*?)\n---/);if(!n)return{};const s={},t=n[1].split(`
+`);for(const a of t){const o=a.indexOf(":");if(o===-1)continue;const c=a.slice(0,o).trim();let i=a.slice(o+1).trim();i=i.replace(/^["']|["']$/g,""),s[c]=i}return s}const r=Object.assign({"./docs/advanced-features.mdx":l,"./docs/api-reference.mdx":d,"./docs/architecture.mdx":u,"./docs/codelab.mdx":g,"./docs/configuration.mdx":h,"./docs/github-action.mdx":m,"./docs/introduction.mdx":y,"./docs/security.mdx":f,"./docs/setup.mdx":k,"./docs/troubleshooting.mdx":v,"./docs/workspaces.mdx":b}),p=Object.entries(r).map(([e,n])=>{const s=e.replace("./docs/","").replace(".mdx",""),t=w(n);return{slug:s,title:t.title??s,description:t.description??""}});function P(e){return p.find(n=>n.slug===e)}function j(e){const n=`./docs/${e}.mdx`;return r[n]}function x(){return p}export{P as a,j as b,x as g};

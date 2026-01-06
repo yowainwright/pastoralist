@@ -41,11 +41,14 @@ jobs:
         env:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
-      - run: bun test tests/unit/ --coverage --coverage-reporter=lcov
+      - name: Run tests with coverage
+        run: bun test tests/unit/ --coverage --coverage-reporter=lcov
         env:
           CI: true
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+      - name: Filter coverage to src only
+        run: sed -n '/^SF:src\//,$p' coverage/lcov.info > coverage/src.info && mv coverage/src.info coverage/lcov.info
       - run: bun run test:bench
         env:
           CI: true

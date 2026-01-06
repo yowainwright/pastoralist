@@ -23,6 +23,7 @@ export {
 } from "./spinner";
 export { logger, logMethod } from "./logger";
 export type { ConsoleObject, LoggerOptions } from "./logger";
+export { buildObject, mergeInto } from "./object";
 export { compareVersions } from "./semver";
 export { ConcurrencyLimiter, createLimit } from "./limit";
 export { LRUCache } from "./lru";

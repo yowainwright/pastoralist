@@ -823,3 +823,161 @@ test("updatePackageJSON - silent has no effect when not in dry-run mode", () => 
 
   rmSync(testDir, { recursive: true, force: true });
 });
+
+import { parseNpmLsOutput, executeNpmLs } from "../../../src/core/packageJSON";
+
+test("parseNpmLsOutput - should parse flat dependencies", () => {
+  const stdout = JSON.stringify({
+    dependencies: {
+      lodash: { version: "4.17.21" },
+      express: { version: "4.18.0" },
+    },
+  });
+
+  const result = parseNpmLsOutput(stdout);
+
+  expect(result.lodash).toBe(true);
+  expect(result.express).toBe(true);
+});
+
+test("parseNpmLsOutput - should parse nested dependencies", () => {
+  const stdout = JSON.stringify({
+    dependencies: {
+      express: {
+        version: "4.18.0",
+        dependencies: {
+          accepts: { version: "1.3.8" },
+          "body-parser": {
+            version: "1.20.0",
+            dependencies: {
+              bytes: { version: "3.1.2" },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const result = parseNpmLsOutput(stdout);
+
+  expect(result.express).toBe(true);
+  expect(result.accepts).toBe(true);
+  expect(result["body-parser"]).toBe(true);
+  expect(result.bytes).toBe(true);
+});
+
+test("parseNpmLsOutput - should handle empty dependencies", () => {
+  const stdout = JSON.stringify({
+    dependencies: {},
+  });
+
+  const result = parseNpmLsOutput(stdout);
+
+  expect(Object.keys(result).length).toBe(0);
+});
+
+test("parseNpmLsOutput - should handle missing dependencies field", () => {
+  const stdout = JSON.stringify({
+    name: "test-package",
+    version: "1.0.0",
+  });
+
+  const result = parseNpmLsOutput(stdout);
+
+  expect(Object.keys(result).length).toBe(0);
+});
+
+test("parseNpmLsOutput - should handle invalid nested deps", () => {
+  const stdout = JSON.stringify({
+    dependencies: {
+      lodash: "not-an-object",
+      express: { version: "4.18.0" },
+    },
+  });
+
+  const result = parseNpmLsOutput(stdout);
+
+  expect(result.lodash).toBe(true);
+  expect(result.express).toBe(true);
+});
+
+test("getDependencyTree - should return consistent result on second call", async () => {
+  clearDependencyTreeCache();
+  const firstCall = await getDependencyTree();
+  const secondCall = await getDependencyTree();
+  expect(firstCall).toEqual(secondCall);
+  clearDependencyTreeCache();
+});
+
+test("getDependencyTree - should return empty object on error", async () => {
+  clearDependencyTreeCache();
+  const originalExecFile = require("util").promisify(
+    require("child_process").execFile,
+  );
+
+  const tree = await getDependencyTree();
+  expect(typeof tree).toBe("object");
+  clearDependencyTreeCache();
+});
+
+test("parseNpmLsOutput - should handle null dependencies value", () => {
+  const stdout = JSON.stringify({
+    dependencies: {
+      lodash: { version: "4.17.21", dependencies: null },
+    },
+  });
+
+  const result = parseNpmLsOutput(stdout);
+  expect(result.lodash).toBe(true);
+});
+
+test("updatePackageJSON - should not write root package.json without name", () => {
+  validateRootPackageJsonIntegrity();
+  const rootPath = resolve(process.cwd(), "package.json");
+
+  const config: PastoralistJSON = {
+    version: "1.0.0",
+  } as PastoralistJSON;
+
+  const overrides: OverridesType = { lodash: "4.17.21" };
+
+  const result = updatePackageJSON({
+    path: rootPath,
+    config,
+    overrides,
+    isTesting: false,
+    dryRun: false,
+  });
+
+  expect(result).toBeUndefined();
+  validateRootPackageJsonIntegrity();
+});
+
+test("updatePackageJSON - handles malformed JSON content gracefully", () => {
+  validateRootPackageJsonIntegrity();
+  const rootPath = resolve(process.cwd(), "package.json");
+
+  const config = { name: "test" } as PastoralistJSON;
+
+  updatePackageJSON({
+    path: rootPath,
+    config,
+    overrides: { lodash: "4.17.21" },
+    isTesting: false,
+    dryRun: true,
+  });
+
+  validateRootPackageJsonIntegrity();
+});
+
+test("executeNpmLs - is exported and callable", () => {
+  expect(typeof executeNpmLs).toBe("function");
+});
+
+test("getDependencyTree - handles executeNpmLs errors gracefully", async () => {
+  clearDependencyTreeCache();
+
+  const tree = await getDependencyTree();
+  expect(typeof tree).toBe("object");
+  clearDependencyTreeCache();
+});

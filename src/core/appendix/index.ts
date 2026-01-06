@@ -37,21 +37,18 @@ const processSimpleOverride = (
   onlyUsedOverrides: boolean = false,
 ): Appendix => {
   const hasOverride = depList.includes(override);
-
-  if (onlyUsedOverrides && !hasOverride) {
-    return appendix;
-  }
+  const shouldSkip = onlyUsedOverrides && !hasOverride;
+  if (shouldSkip) return appendix;
 
   const key = `${override}@${overrideVersion}`;
-  const isCached = cache.has(key);
-
-  if (isCached) {
-    return { ...appendix, [key]: cache.get(key)! };
+  const cached = cache.get(key);
+  if (cached) {
+    appendix[key] = cached;
+    return appendix;
   }
 
   const currentDependents = appendix?.[key]?.dependents || {};
   const packageVersion = deps[override];
-
   const dependentInfo = buildDependentInfo(
     hasOverride,
     override,
@@ -72,7 +69,8 @@ const processSimpleOverride = (
   );
 
   cache.set(key, newAppendixItem);
-  return { ...appendix, [key]: newAppendixItem };
+  appendix[key] = newAppendixItem;
+  return appendix;
 };
 
 const processNestedOverrideEntry = (
@@ -89,10 +87,10 @@ const processNestedOverrideEntry = (
   cache: Map<string, AppendixItem>,
 ): Appendix => {
   const key = `${nestedPkg}@${nestedVersion}`;
-  const isCached = cache.has(key);
-
-  if (isCached) {
-    return { ...appendix, [key]: cache.get(key)! };
+  const cached = cache.get(key);
+  if (cached) {
+    appendix[key] = cached;
+    return appendix;
   }
 
   const currentDependents = appendix?.[key]?.dependents || {};
@@ -125,7 +123,8 @@ const processNestedOverrideEntry = (
   );
 
   cache.set(key, newAppendixItem);
-  return { ...appendix, [key]: newAppendixItem };
+  appendix[key] = newAppendixItem;
+  return appendix;
 };
 
 const processNestedOverride = (

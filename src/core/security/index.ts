@@ -13,6 +13,7 @@ import {
   SecurityOverrideDetail,
 } from "../../types";
 import { PastoralistJSON, OverridesType } from "../../types";
+import { detectPackageManager } from "../packageJSON";
 import { logger, LRUCache, fetchLatestCompatibleVersions } from "../../utils";
 import { compareVersions } from "../../utils/semver";
 import {
@@ -404,23 +405,16 @@ export class SecurityChecker {
   ): OverridesType {
     return securityOverrides.reduce((overrides, override) => {
       const existingVersion = overrides[override.packageName];
-      const shouldUseExisting =
+      const hasExisting =
         existingVersion && typeof existingVersion === "string";
+      const shouldSkip =
+        hasExisting &&
+        compareVersions(override.toVersion, existingVersion) <= 0;
 
-      if (shouldUseExisting) {
-        const isNewerVersion =
-          compareVersions(override.toVersion, existingVersion) > 0;
-        if (isNewerVersion) {
-          return Object.assign({}, overrides, {
-            [override.packageName]: override.toVersion,
-          });
-        }
-        return overrides;
+      if (!shouldSkip) {
+        overrides[override.packageName] = override.toVersion;
       }
-
-      return Object.assign({}, overrides, {
-        [override.packageName]: override.toVersion,
-      });
+      return overrides;
     }, {} as OverridesType);
   }
 
@@ -574,7 +568,7 @@ export class SecurityChecker {
 
       const backupPath = this.createBackup(pkgPath);
       const packageJson = JSON.parse(readFileSync(pkgPath, "utf-8"));
-      const packageManager = this.detectPackageManager();
+      const packageManager = detectPackageManager();
       const newOverrides = this.generatePackageOverrides(overrides);
 
       const securityOverrideDetails: SecurityOverrideDetail[] = overrides.map(
@@ -652,26 +646,6 @@ export class SecurityChecker {
     } catch (error) {
       this.log.error("Failed to apply auto-fix", "applyAutoFix", { error });
       throw new Error(`Auto-fix failed: ${error}`);
-    }
-  }
-
-  private detectPackageManager(): "npm" | "yarn" | "pnpm" | "bun" {
-    try {
-      const cwd = process.cwd();
-
-      if (existsSync(resolve(cwd, "bun.lockb"))) {
-        return "bun";
-      }
-      if (existsSync(resolve(cwd, "yarn.lock"))) {
-        return "yarn";
-      }
-      if (existsSync(resolve(cwd, "pnpm-lock.yaml"))) {
-        return "pnpm";
-      }
-
-      return "npm";
-    } catch {
-      return "npm";
     }
   }
 

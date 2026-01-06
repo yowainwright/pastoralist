@@ -286,8 +286,11 @@ export const update = (options: Options): UpdateContext => {
   const isLogging = IS_DEBUGGING || options?.debug || false;
   const log = logger({ file: "update", isLogging });
 
-  clearDependencyTreeCache();
-  jsonCache.clear();
+  const shouldClearCache = options?.clearCache === true;
+  if (shouldClearCache) {
+    clearDependencyTreeCache();
+    jsonCache.clear();
+  }
 
   if (!options.config) {
     log.debug("No config provided", "update");

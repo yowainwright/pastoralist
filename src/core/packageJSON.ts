@@ -396,7 +396,7 @@ export const executeNpmLs = async (): Promise<string> => {
     const { stdout } = await execFile("npm", ["ls", "--json", "--all"], {
       encoding: "utf8",
       maxBuffer: 1024 * 1024 * 10,
-      timeout: 3000,
+      timeout: 60000,
     });
     return stdout;
   } catch (error: unknown) {
@@ -448,7 +448,7 @@ export const findPackageJsonFiles = (
     const files = fg.sync(depPaths, {
       cwd: root,
       ignore,
-      absolute: false,
+      absolute: true,
     });
 
     const hasNoFiles = files.length === 0;

@@ -96,6 +96,7 @@ export interface UpdateAppendixOptions {
 
 export interface Options {
   appendix?: Appendix;
+  clearCache?: boolean;
   debug?: boolean;
   dryRun?: boolean;
   outputFormat?: "text" | "json";

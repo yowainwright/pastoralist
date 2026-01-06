@@ -151,6 +151,20 @@ flowchart TD
     style NestedDep fill:#e8f5e9
 ```
 
+## Design Decisions
+
+### Synchronous I/O
+
+Pastoralist uses sync file I/O intentionally. As a CLI tool, predictable execution and simple debugging outweigh async benefits.
+
+### Caching
+
+Two caches avoid redundant work: `jsonCache` (parsed package.json files) and `dependencyTreeCache` (npm ls output). Caches persist across `update()` calls - pass `clearCache: true` to reset.
+
+### Rate Limiting
+
+npm registry requests are limited to 5 concurrent to avoid rate limits during security scans.
+
 ## Dependency Resolution Flow
 
 Complete flow of how dependencies are resolved with overrides:

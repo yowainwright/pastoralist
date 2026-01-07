@@ -1,6 +1,6 @@
 {
   "name": "pastoralist",
-  "version": "1.9.3",
+  "version": "1.9.4",
   "description": "A tool to watch over node module resolutions and overrides 🐑 👩🏽‍🌾",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
@@ -56,7 +56,7 @@
     "pnpm"
   ],
   "author": "Jeff Wainwright <yowainwright@gmail.com> (https://jeffry.in)",
-  "license": "Elastic-2.0",
+  "license": "O'Sassy",
   "bugs": {
     "url": "https://github.com/yowainwright/pastoralist/issues"
   },
@@ -76,7 +76,8 @@
   },
   "release-it": {
     "git": {
-      "commitMessage": "chore: release"
+      "commitMessage": "chore: release",
+      "commitArgs": ["--no-verify"]
     }
   },
   "packageManager": "bun@1.3.1",

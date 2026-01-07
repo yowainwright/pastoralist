@@ -1,0 +1,33 @@
+name: codecov
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.1
+
+      - run: bun install
+
+      - name: Run tests with coverage
+        run: bun test tests/unit/ --coverage --coverage-reporter=lcov
+        env:
+          CI: true
+
+      - name: Filter coverage to src only
+        run: sed -n '/^SF:src\//,$p' coverage/lcov.info > coverage/src.info && mv coverage/src.info coverage/lcov.info
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
+          fail_ci_if_error: true

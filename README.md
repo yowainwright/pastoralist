@@ -754,4 +754,4 @@ Shout out to [Bryant Cabrera](https://github.com/bryantcabrera) and the infamous
 
 ---
 
-Made by [@yowainwright](https://github.com/yowainwright) for fun with passion! [Elastic-2.0](LICENSE), 2022
+Made by [@yowainwright](https://github.com/yowainwright) for fun with passion! [O'Sassy](https://osaasy.dev), 2022

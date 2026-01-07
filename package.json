@@ -76,7 +76,8 @@
   },
   "release-it": {
     "git": {
-      "commitMessage": "chore: release"
+      "commitMessage": "chore: release",
+      "commitArgs": ["--no-verify"]
     }
   },
   "packageManager": "bun@1.3.1",

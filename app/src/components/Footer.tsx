@@ -1,4 +1,5 @@
 import { Github } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 
 const BASE_URL = import.meta.env.BASE_URL || "/pastoralist";
 const base = BASE_URL.endsWith("/") ? BASE_URL : BASE_URL + "/";
@@ -13,11 +14,13 @@ export function Footer() {
       </div>
 
       <div className="flex items-center justify-center gap-2 order-1 sm:order-2">
-        <img
-          src={`${base}pastoralist-logo.svg`}
-          alt="Pastoralist Logo"
-          className="h-12 w-12"
-        />
+        <Link to="/" className="hover:opacity-80 transition-opacity">
+          <img
+            src={`${base}pastoralist-logo.svg`}
+            alt="Pastoralist Logo"
+            className="h-12 w-12"
+          />
+        </Link>
       </div>
 
       <nav className="flex justify-center sm:justify-end order-2 sm:order-3">

@@ -51,7 +51,11 @@ export function Header() {
                   <Link
                     to={item.href}
                     className={`hover:text-[#1D4ED8] hover:bg-[#1D4ED8]/10 transition flex ${
-                      pathname === item.href
+                      (
+                        item.href.includes("/docs")
+                          ? pathname.includes("/docs")
+                          : pathname === item.href
+                      )
                         ? "text-[#1D4ED8] bg-[#1D4ED8]/10"
                         : ""
                     }`}
@@ -80,7 +84,11 @@ export function Header() {
                   to={item.href}
                   preload="intent"
                   className={`hover:text-[#1D4ED8] hover:bg-[#1D4ED8]/10 transition flex ${
-                    pathname === item.href
+                    (
+                      item.href.includes("/docs")
+                        ? pathname.includes("/docs")
+                        : pathname === item.href
+                    )
                       ? "text-[#1D4ED8] bg-[#1D4ED8]/10"
                       : ""
                   }`}

@@ -7,13 +7,7 @@ export function Sidebar() {
   const location = useLocation();
   const pathname = location.pathname;
 
-  const expandedSections = SIDEBAR.map((section) =>
-    section.items.some((item) =>
-      pathname.endsWith(`/docs/${extractSlug(item.href)}`),
-    ),
-  );
-
-  const [sections, setSections] = useState(expandedSections);
+  const [sections, setSections] = useState(() => SIDEBAR.map(() => true));
 
   const toggleSection = (index: number) => {
     setSections((prev) => prev.map((open, i) => (i === index ? !open : open)));
@@ -26,8 +20,8 @@ export function Sidebar() {
         aria-label="close sidebar"
         className="drawer-overlay"
       />
-      <nav className="bg-base-100 min-h-screen w-64 sm:w-72 pt-4">
-        <section className="px-3 py-4 space-y-3">
+      <nav className="bg-base-100 min-h-screen w-64 sm:w-72">
+        <section className="sticky top-20 px-3 py-4 space-y-3 max-h-[calc(100vh-5rem)] overflow-y-auto">
           {SIDEBAR.map((navItem, index) => (
             <SidebarSection
               key={navItem.title}

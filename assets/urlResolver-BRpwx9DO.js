@@ -1,1 +1,0 @@
-function t(s){const e="/pastoralist";if(s==="")return e.endsWith("/")?e.slice(0,-1):e;const r=e.endsWith("/")?e:e+"/",n=s.startsWith("/")?s.slice(1):s;return r+n}function o(s){return t(`docs/${s}`)}export{o as r};

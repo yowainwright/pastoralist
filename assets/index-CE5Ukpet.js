@@ -439,7 +439,7 @@ description: Complete reference for pastoralist CLI and Node.js API
 Pastoralist provides both a CLI interface and a Node.js API for programmatic usage.
 
 :::tip[Configuration Files]
-Most CLI options can be configured using config files. See the [Configuration](/configuration) documentation for details on using \`.pastoralistrc\`, \`pastoralist.config.js\`, or \`package.json\` for persistent settings.
+Most CLI options can be configured using config files. See the [Configuration](/docs/configuration) documentation for details on using \`.pastoralistrc\`, \`pastoralist.config.js\`, or \`package.json\` for persistent settings.
 :::
 
 ## CLI
@@ -1067,14 +1067,13 @@ await runPastoralist({
 
 ## Try It Now
 
-[Open Interactive Demos](/docs/demos) to see pastoralist in action!
+[Open Interactive Demos](/docs/introduction) to see pastoralist in action!
 
 ## Resources
 
 - [GitHub](https://github.com/yowainwright/pastoralist)
 - [npm](https://www.npmjs.com/package/pastoralist)
-- [Issues](https://github.com/yowainwright/pastoralist/issues)
-- [Discussions](https://github.com/yowainwright/pastoralist/discussions)
+- [Issues & Questions](https://github.com/yowainwright/pastoralist/issues)
 `,h=`---
 title: Configuration
 description: Learn how to configure Pastoralist using config files or package.json
@@ -1642,11 +1641,7 @@ description: "Pastoralist is a dependency management tool that helps keep your p
       alt="TypeScript Ready"
     />
   </a>
-  <a
-    href="https://osaasy.dev"
-    target="_blank"
-    rel="noopener noreferrer"
-  >
+  <a href="https://osaasy.dev" target="_blank" rel="noopener noreferrer">
     <img
       src="https://img.shields.io/badge/License-O'Sassy-blue.svg"
       alt="License: O'Sassy"
@@ -2359,8 +2354,7 @@ Review and remove unused patches to keep your repo clean.
 
 ### Resources
 
-- [GitHub Issues](https://github.com/yowainwright/pastoralist/issues) - Report bugs
-- [Discussions](https://github.com/yowainwright/pastoralist/discussions) - Ask questions
+- [GitHub Issues](https://github.com/yowainwright/pastoralist/issues) - Report bugs & ask questions
 - [Stack Overflow](https://stackoverflow.com/questions/tagged/pastoralist) - Community help
 
 ### Before Filing an Issue
@@ -2924,5 +2918,5 @@ const base = require("./packages/base-config/overrides.json");
 - Choose a management strategy
 - Add automation scripts
 - Document your approach for the team
-`;function w(e){const n=e.match(/^---\n([\s\S]*?)\n---/);if(!n)return{};const s={},t=n[1].split(`
-`);for(const a of t){const o=a.indexOf(":");if(o===-1)continue;const c=a.slice(0,o).trim();let i=a.slice(o+1).trim();i=i.replace(/^["']|["']$/g,""),s[c]=i}return s}const r=Object.assign({"./docs/advanced-features.mdx":l,"./docs/api-reference.mdx":d,"./docs/architecture.mdx":u,"./docs/codelab.mdx":g,"./docs/configuration.mdx":h,"./docs/github-action.mdx":m,"./docs/introduction.mdx":y,"./docs/security.mdx":f,"./docs/setup.mdx":k,"./docs/troubleshooting.mdx":v,"./docs/workspaces.mdx":b}),p=Object.entries(r).map(([e,n])=>{const s=e.replace("./docs/","").replace(".mdx",""),t=w(n);return{slug:s,title:t.title??s,description:t.description??""}});function P(e){return p.find(n=>n.slug===e)}function j(e){const n=`./docs/${e}.mdx`;return r[n]}function x(){return p}export{P as a,j as b,x as g};
+`;function w(e){const n=e.match(/^---\n([\s\S]*?)\n---/);if(!n)return{};const t={},s=n[1].split(`
+`);for(const a of s){const o=a.indexOf(":");if(o===-1)continue;const c=a.slice(0,o).trim();let i=a.slice(o+1).trim();i=i.replace(/^["']|["']$/g,""),t[c]=i}return t}const r=Object.assign({"./docs/advanced-features.mdx":l,"./docs/api-reference.mdx":d,"./docs/architecture.mdx":u,"./docs/codelab.mdx":g,"./docs/configuration.mdx":h,"./docs/github-action.mdx":m,"./docs/introduction.mdx":y,"./docs/security.mdx":f,"./docs/setup.mdx":k,"./docs/troubleshooting.mdx":v,"./docs/workspaces.mdx":b}),p=Object.entries(r).map(([e,n])=>{const t=e.replace("./docs/","").replace(".mdx",""),s=w(n);return{slug:t,title:s.title??t,description:s.description??""}});function P(e){return p.find(n=>n.slug===e)}function j(e){const n=`./docs/${e}.mdx`;return r[n]}function x(){return p}export{P as a,j as b,x as g};

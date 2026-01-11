@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Search as SearchIcon } from "lucide-react";
 import Fuse from "fuse.js";
-import { resolveDocsUrl } from "../../utils/urlResolver";
+import { Link } from "@tanstack/react-router";
 
 interface SearchResult {
   title: string;
@@ -155,9 +155,10 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
                     {results.length > 0 && (
                       <div className="p-2">
                         {results.map((result, index) => (
-                          <a
+                          <Link
                             key={result.slug}
-                            href={resolveDocsUrl(result.slug)}
+                            to="/docs/$slug"
+                            params={{ slug: result.slug }}
                             className={`block px-4 py-3 rounded-lg hover:bg-base-200/50 transition-all ${
                               selectedIndex === index ? "bg-base-200/50" : ""
                             }`}
@@ -194,7 +195,7 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
                                 )}
                               </div>
                             </div>
-                          </a>
+                          </Link>
                         ))}
                       </div>
                     )}
@@ -210,8 +211,9 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
                           <div className="text-xs font-medium text-base-content/40 uppercase tracking-wider px-4">
                             Recent
                           </div>
-                          <a
-                            href={resolveDocsUrl("introduction")}
+                          <Link
+                            to="/docs/$slug"
+                            params={{ slug: "introduction" }}
                             className="block px-4 py-2 rounded-lg hover:bg-base-200/50 transition-all text-sm"
                             onClick={() => setIsOpen(false)}
                           >
@@ -234,9 +236,10 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
                                 Introduction to Pastoralist
                               </span>
                             </div>
-                          </a>
-                          <a
-                            href={resolveDocsUrl("setup")}
+                          </Link>
+                          <Link
+                            to="/docs/$slug"
+                            params={{ slug: "setup" }}
                             className="block px-4 py-2 rounded-lg hover:bg-base-200/50 transition-all text-sm"
                             onClick={() => setIsOpen(false)}
                           >
@@ -259,7 +262,7 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
                                 Setup Guide
                               </span>
                             </div>
-                          </a>
+                          </Link>
                         </div>
                       </div>
                     )}

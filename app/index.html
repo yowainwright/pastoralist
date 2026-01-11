@@ -39,14 +39,27 @@
     <meta name="theme-color" content="#3b82f6" />
     <title>Pastoralist - Dependency Management Tool</title>
 
-    <!-- Prevent FOUC with inline theme detection -->
     <script>
-      const theme =
-        localStorage.getItem("theme") ||
-        (window.matchMedia("(prefers-color-scheme: dark)").matches
-          ? "night"
-          : "lofi");
-      document.documentElement.setAttribute("data-theme", theme);
+      function getTheme() {
+        var saved = localStorage.getItem("theme");
+        if (saved) return saved;
+        var prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+        if (prefersDark) return "night";
+        return "lofi";
+      }
+      function handleRedirect() {
+        var redirect = sessionStorage.getItem("spa-redirect");
+        if (!redirect) return;
+        sessionStorage.removeItem("spa-redirect");
+        var base = "/pastoralist";
+        var path = redirect;
+        if (redirect.startsWith(base)) path = redirect.slice(base.length);
+        if (path && path !== "/") history.replaceState(null, "", base + path);
+      }
+      document.documentElement.setAttribute("data-theme", getTheme());
+      handleRedirect();
     </script>
 
     <!-- Critical CSS for initial paint -->

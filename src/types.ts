@@ -124,6 +124,7 @@ export interface Options {
   manualOverrideReasons?: Record<string, string>;
   config?: PastoralistJSON;
   strict?: boolean;
+  summary?: boolean;
 }
 
 export interface OverridesType {
@@ -184,6 +185,21 @@ type ConsoleMethodFunc = (
 ) => void;
 export type ConsoleObject = { [K in ConsoleMethod]: ConsoleMethodFunc };
 
+export interface PastoralistResultMetrics {
+  packagesScanned: number;
+  workspacePackagesScanned: number;
+  appendixEntriesUpdated: number;
+  vulnerabilitiesBlocked: number;
+  overridesAdded: number;
+  overridesRemoved: number;
+  severityCritical: number;
+  severityHigh: number;
+  severityMedium: number;
+  severityLow: number;
+  writeSuccess: boolean;
+  writeSkipped: boolean;
+}
+
 export interface PastoralistResult {
   success: boolean;
   hasSecurityIssues: boolean;
@@ -201,6 +217,7 @@ export interface PastoralistResult {
   }>;
   unusedOverrides?: string[];
   appliedOverrides?: Record<string, string>;
+  metrics?: PastoralistResultMetrics;
 }
 
 export * from "./core/security/types";

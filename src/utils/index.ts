@@ -1,9 +1,5 @@
-export { default as createSpinner } from "./spinner";
-export { green, yellow, red, cyan, gray } from "./colors";
-export { ICON, PREFIX, STEP, BRAND } from "./icons";
-export type { IconKey, PrefixKey } from "./icons";
-export type { SpinnerState, Spinner } from "./types";
 export {
+  createSpinner,
   hideCursor,
   showCursor,
   clearLine,
@@ -20,7 +16,23 @@ export {
   info,
   warn,
   createSpinnerMethods,
-} from "./spinner";
+  shimmerFrame,
+  playShimmer,
+} from "../dx";
+export type { SpinnerState, Spinner } from "../dx";
+export { gradientGreenTan } from "./gradient";
+export {
+  green,
+  yellow,
+  red,
+  cyan,
+  gray,
+  gold,
+  copper,
+  gradientPastoralist,
+} from "./colors";
+export { ICON, PREFIX, STEP, BRAND } from "./icons";
+export type { IconKey, PrefixKey } from "./icons";
 export { logger, logMethod } from "./logger";
 export type { ConsoleObject, LoggerOptions } from "./logger";
 export { buildObject, mergeInto } from "./object";

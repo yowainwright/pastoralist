@@ -1,0 +1,2 @@
+export const DEFAULT_MIN_LABEL_WIDTH = 20;
+export const DEFAULT_MIN_VALUE_WIDTH = 10;

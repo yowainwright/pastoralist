@@ -10,9 +10,9 @@ import {
   incrementFrame,
   writeSymbol,
   update,
-} from "../../../src/utils/spinner";
+} from "../../../src/dx/spinner";
 import { ICON } from "../../../src/utils/icons";
-import type { SpinnerState } from "../../../src/utils/types";
+import type { SpinnerState } from "../../../src/dx/types";
 
 test("hideCursor - should write hide cursor escape code", () => {
   const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(

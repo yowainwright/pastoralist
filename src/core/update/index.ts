@@ -1,7 +1,11 @@
 import { IS_DEBUGGING } from "../../constants";
 import type { Options } from "../../types";
 import { logger } from "../../utils";
-import { clearDependencyTreeCache, jsonCache } from "../packageJSON";
+import {
+  clearDependencyTreeCache,
+  jsonCache,
+  getFullDependencyCount,
+} from "../packageJSON";
 import {
   mergeOverridePaths,
   checkMonorepoOverrides,
@@ -135,6 +139,7 @@ const stepBuildAppendix = (ctx: UpdateContext): UpdateContext => {
 
   const appendix = updateAppendix({
     overrides: ctx.overrides,
+    appendix: ctx.existingAppendix || {},
     dependencies,
     devDependencies,
     peerDependencies,
@@ -191,7 +196,8 @@ const stepMergeOverridePaths = (ctx: UpdateContext): UpdateContext => {
 const stepLogUnusedPatches = (ctx: UpdateContext): UpdateContext => {
   if (!ctx.patchMap || !ctx.rootDeps) return ctx;
 
-  const unusedPatches = findUnusedPatches(ctx.patchMap, ctx.rootDeps);
+  const allDeps = Object.assign({}, ctx.rootDeps, ctx.allWorkspaceDeps || {});
+  const unusedPatches = findUnusedPatches(ctx.patchMap, allDeps);
 
   if (unusedPatches.length > 0) {
     ctx.log.info(
@@ -207,7 +213,7 @@ const stepLogUnusedPatches = (ctx: UpdateContext): UpdateContext => {
     );
   }
 
-  return { ...ctx, allDeps: ctx.rootDeps };
+  return { ...ctx, allDeps, unusedPatchCount: unusedPatches.length };
 };
 
 const stepCleanupOverrides = (ctx: UpdateContext): UpdateContext => {
@@ -230,24 +236,28 @@ const stepCleanupOverrides = (ctx: UpdateContext): UpdateContext => {
 };
 
 const stepWriteResult = (ctx: UpdateContext): UpdateContext => {
-  if (ctx.isTesting) return ctx;
+  if (ctx.isTesting) {
+    return Object.assign({}, ctx, { writeSkipped: false, writeSuccess: true });
+  }
 
   const hasNoData =
     !ctx.config ||
     ctx.finalAppendix === undefined ||
     ctx.finalOverrides === undefined;
+
   if (hasNoData) {
-    ctx.log.debug(
-      `Skipping write: config=${!!ctx.config}, appendix=${ctx.finalAppendix !== undefined}, overrides=${ctx.finalOverrides !== undefined}`,
+    ctx.log.info(
+      "No changes to write - missing required data",
       "stepWriteResult",
     );
-    return ctx;
+    return Object.assign({}, ctx, { writeSkipped: true, writeSuccess: false });
   }
 
   ctx.log.debug(
     `Writing results: appendix keys=${Object.keys(ctx.finalAppendix || {}).length}, override keys=${Object.keys(ctx.finalOverrides || {}).length}`,
     "stepWriteResult",
   );
+
   writeResult({
     path: ctx.path,
     config: ctx.config!,
@@ -257,7 +267,103 @@ const stepWriteResult = (ctx: UpdateContext): UpdateContext => {
     isTesting: ctx.isTesting,
   });
 
-  return ctx;
+  return Object.assign({}, ctx, { writeSkipped: false, writeSuccess: true });
+};
+
+const countKeys = (obj: Record<string, unknown> | undefined): number => {
+  if (!obj) return 0;
+  return Object.keys(obj).length;
+};
+
+const countAppendixUpdates = (
+  existing: Record<string, unknown> | undefined,
+  final: Record<string, unknown> | undefined,
+): number => {
+  if (!final) return 0;
+  if (!existing) return Object.keys(final).length;
+
+  const existingKeys = new Set(Object.keys(existing));
+  const finalKeys = Object.keys(final);
+  const newOrUpdated = finalKeys.filter((key) => !existingKeys.has(key));
+  return newOrUpdated.length;
+};
+
+type RemovedOverride = { packageName: string; version: string };
+
+const countOverrideChanges = (
+  previous: Record<string, unknown> | undefined,
+  current: Record<string, unknown> | undefined,
+): { added: number; removed: number; removedPackages: RemovedOverride[] } => {
+  const prevKeys = new Set(Object.keys(previous || {}));
+  const currKeys = new Set(Object.keys(current || {}));
+
+  const added = Array.from(currKeys).filter((k) => !prevKeys.has(k)).length;
+  const removedKeys = Array.from(prevKeys).filter((k) => !currKeys.has(k));
+  const removed = removedKeys.length;
+
+  const removedPackages = removedKeys.map((k) => ({
+    packageName: k,
+    version: String(previous?.[k] || ""),
+  }));
+
+  return { added, removed, removedPackages };
+};
+
+const countSeverities = (
+  details: Array<{ severity?: string }> | undefined,
+): { critical: number; high: number; medium: number; low: number } => {
+  const counts = { critical: 0, high: 0, medium: 0, low: 0 };
+  if (!details) return counts;
+
+  details.forEach((detail) => {
+    const rawSeverity = detail.severity;
+    const severity = rawSeverity ? rawSeverity.toLowerCase() : "medium";
+    if (severity === "critical") counts.critical++;
+    else if (severity === "high") counts.high++;
+    else if (severity === "medium") counts.medium++;
+    else if (severity === "low") counts.low++;
+  });
+
+  return counts;
+};
+
+const stepCollectMetrics = (ctx: UpdateContext): UpdateContext => {
+  const packagesScanned = getFullDependencyCount(ctx.root);
+  const workspacePackagesScanned = countKeys(ctx.allWorkspaceDeps);
+  const appendixEntriesUpdated = countAppendixUpdates(
+    ctx.existingAppendix,
+    ctx.finalAppendix,
+  );
+
+  const securityDetails = ctx.options?.securityOverrideDetails || [];
+  const vulnerabilitiesBlocked = securityDetails.length;
+  const severities = countSeverities(securityDetails);
+
+  const existingOverrides = ctx.config?.overrides || ctx.config?.resolutions;
+  const overrideChanges = countOverrideChanges(
+    existingOverrides,
+    ctx.finalOverrides,
+  );
+
+  const writeSuccess = ctx.writeSuccess || false;
+  const writeSkipped = ctx.writeSkipped || false;
+
+  const metrics = {
+    packagesScanned,
+    workspacePackagesScanned,
+    appendixEntriesUpdated,
+    vulnerabilitiesBlocked,
+    overridesAdded: overrideChanges.added,
+    overridesRemoved: overrideChanges.removed,
+    removedOverridePackages: overrideChanges.removedPackages,
+    severityCritical: severities.critical,
+    severityHigh: severities.high,
+    severityMedium: severities.medium,
+    severityLow: severities.low,
+    writeSuccess,
+    writeSkipped,
+  };
+  return Object.assign({}, ctx, { metrics });
 };
 
 const pipe = <T>(initialValue: T, ...fns: Array<(value: T) => T>): T => {
@@ -326,6 +432,7 @@ export const update = (options: Options): UpdateContext => {
     stepLogUnusedPatches,
     stepCleanupOverrides,
     stepWriteResult,
+    stepCollectMetrics,
   );
 
   if (IS_DEBUGGING) {

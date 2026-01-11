@@ -544,7 +544,18 @@ samp {
   background-color: transparent;
 }
 
-/* Improve mobile responsiveness */
+.shiki,
+.shiki span {
+  color: var(--shiki-light);
+  background-color: var(--shiki-light-bg);
+}
+
+[data-theme="night"] .shiki,
+[data-theme="night"] .shiki span {
+  color: var(--shiki-dark);
+  background-color: var(--shiki-dark-bg);
+}
+
 @media (max-width: 640px) {
   /* Ensure code blocks are scrollable on mobile */
   pre {

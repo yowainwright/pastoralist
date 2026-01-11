@@ -2,28 +2,6 @@
   "name": "security-test",
   "version": "1.0.0",
   "dependencies": {
-    "lodash": "^4.17.0"
-  },
-  "pastoralist": {
-    "appendix": {
-      "lodash@4.17.21": {
-        "dependents": {
-          "security-test": "lodash@^4.17.0"
-        },
-        "ledger": {
-          "addedDate": "2026-01-11T22:09:33.465Z",
-          "reason": "Security fix: Regular Expression Denial of Service (ReDoS) in lodash (medium)",
-          "securityChecked": true,
-          "securityCheckDate": "2026-01-11T22:09:33.465Z",
-          "securityProvider": "osv",
-          "cve": "CVE-2020-28500",
-          "severity": "medium",
-          "url": "https://nvd.nist.gov/vuln/detail/CVE-2020-28500"
-        }
-      }
-    }
-  },
-  "overrides": {
-    "lodash": "4.17.21"
+    "lodash": "4.17.15"
   }
 }

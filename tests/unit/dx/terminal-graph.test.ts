@@ -174,4 +174,91 @@ describe("terminal-graph", () => {
       expect(joined).toContain("CVE: CVE-2024-1234");
     });
   });
+
+  describe("item", () => {
+    test("renders item with success icon", () => {
+      const output = createMockOutput();
+      const graph = createTerminalGraph(output);
+
+      graph.item("Test item");
+
+      const joined = output.lines.join("\n");
+      expect(joined).toContain("Test item");
+    });
+
+    test("returns graph for chaining", () => {
+      const output = createMockOutput();
+      const graph = createTerminalGraph(output);
+
+      const result = graph.item("Chained item");
+      expect(result).toBe(graph);
+    });
+  });
+
+  describe("summary", () => {
+    test("renders overrides summary", () => {
+      const output = createMockOutput();
+      const graph = createTerminalGraph(output);
+
+      graph.summary({ lodash: "4.17.21", express: "4.18.2" });
+
+      const joined = output.lines.join("\n");
+      expect(joined).toContain("Overrides");
+      expect(joined).toContain("lodash: 4.17.21");
+      expect(joined).toContain("express: 4.18.2");
+    });
+
+    test("renders changes when provided", () => {
+      const output = createMockOutput();
+      const graph = createTerminalGraph(output);
+
+      graph.summary({}, ["Added lodash override", "Removed minimist"]);
+
+      const joined = output.lines.join("\n");
+      expect(joined).toContain("Changes");
+      expect(joined).toContain("Added lodash override");
+      expect(joined).toContain("Removed minimist");
+    });
+
+    test("renders both overrides and changes", () => {
+      const output = createMockOutput();
+      const graph = createTerminalGraph(output);
+
+      graph.summary({ lodash: "4.17.21" }, ["Updated lodash"]);
+
+      const joined = output.lines.join("\n");
+      expect(joined).toContain("Overrides");
+      expect(joined).toContain("lodash: 4.17.21");
+      expect(joined).toContain("Changes");
+      expect(joined).toContain("Updated lodash");
+    });
+
+    test("returns graph for chaining", () => {
+      const output = createMockOutput();
+      const graph = createTerminalGraph(output);
+
+      const result = graph.summary({});
+      expect(result).toBe(graph);
+    });
+  });
+
+  describe("stop", () => {
+    test("returns graph for chaining", () => {
+      const output = createMockOutput();
+      const graph = createTerminalGraph(output);
+
+      const result = graph.stop();
+      expect(result).toBe(graph);
+    });
+  });
+
+  describe("progress", () => {
+    test("returns graph for chaining", () => {
+      const output = createMockOutput();
+      const graph = createTerminalGraph(output);
+
+      const result = graph.progress(1, 5, "lodash");
+      expect(result).toBe(graph);
+    });
+  });
 });

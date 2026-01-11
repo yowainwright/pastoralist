@@ -21,6 +21,7 @@ export const OPTION_DEFINITIONS: OptionDefinition[] = [
   { flags: ["--hasWorkspaceSecurityChecks"], hasValue: false },
   { flags: ["--promptForReasons"], hasValue: false },
   { flags: ["--strict"], hasValue: false },
+  { flags: ["--summary"], hasValue: false },
 ];
 
 export const HELP_TEXT = `
@@ -50,6 +51,7 @@ Options:
   --hasWorkspaceSecurityChecks          Include workspace packages in security scan
   --promptForReasons                    Prompt for reasons when adding manual overrides
   --strict                              Fail on any security check errors (network failures, API errors)
+  --summary                             Show summary metrics table after run
 `;
 
 export const ARGS_START_INDEX = 2;

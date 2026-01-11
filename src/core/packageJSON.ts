@@ -426,6 +426,52 @@ export const clearDependencyTreeCache = (): void => {
   dependencyTreeCache = null;
 };
 
+const YARN_LOCK_PACKAGE_PATTERN = /^[\w@][\w\-./]*@/gm;
+const PNPM_LOCK_PACKAGE_PATTERN = /^\s{2}\/[\w@]/gm;
+
+export const getFullDependencyCount = (root: string = "./"): number => {
+  const npmLockPath = resolve(root, "package-lock.json");
+  const yarnLockPath = resolve(root, "yarn.lock");
+  const pnpmLockPath = resolve(root, "pnpm-lock.yaml");
+
+  const hasNpmLock = fs.existsSync(npmLockPath);
+  const hasYarnLock = fs.existsSync(yarnLockPath);
+  const hasPnpmLock = fs.existsSync(pnpmLockPath);
+
+  if (hasNpmLock) {
+    try {
+      const content = fs.readFileSync(npmLockPath, "utf8");
+      const lock = JSON.parse(content);
+      const packages = lock.packages || {};
+      return Math.max(0, Object.keys(packages).length - 1);
+    } catch {
+      return 0;
+    }
+  }
+
+  if (hasYarnLock) {
+    try {
+      const content = fs.readFileSync(yarnLockPath, "utf8");
+      const matches = content.match(YARN_LOCK_PACKAGE_PATTERN);
+      return matches ? matches.length : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  if (hasPnpmLock) {
+    try {
+      const content = fs.readFileSync(pnpmLockPath, "utf8");
+      const matches = content.match(PNPM_LOCK_PACKAGE_PATTERN);
+      return matches ? matches.length : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  return 0;
+};
+
 export const findPackageJsonFiles = (
   depPaths: string[],
   ignore: string[] = [],

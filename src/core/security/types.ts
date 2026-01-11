@@ -13,6 +13,13 @@ export interface SecurityAlert {
 
 export type SecurityProviderType = "osv" | "github" | "snyk" | "npm" | "socket";
 
+export interface SecurityCheckProgress {
+  phase: "extracting" | "fetching" | "analyzing" | "resolving";
+  message: string;
+  current?: number;
+  total?: number;
+}
+
 export interface SecurityCheckOptions {
   provider?: SecurityProviderType | SecurityProviderType[];
   forceRefactor?: boolean;
@@ -22,6 +29,7 @@ export interface SecurityCheckOptions {
   repo?: string;
   token?: string;
   strict?: boolean;
+  onProgress?: (progress: SecurityCheckProgress) => void;
 }
 
 export interface SecurityOverride {

@@ -3,8 +3,11 @@ import { promisify } from "util";
 import { SecurityAlert, SnykResult, SnykVulnerability } from "../../../types";
 import { logger } from "../../../utils";
 import { CLIInstaller } from "../utils";
+import { DEFAULT_CLI_TIMEOUT, AUTH_MESSAGES } from "../constants";
 
 const execFileAsync = promisify(execFile);
+
+const DEFAULT_SNYK_SCAN_TIMEOUT = 60000;
 
 export class SnykCLIProvider {
   private log: ReturnType<typeof logger>;
@@ -37,8 +40,9 @@ export class SnykCLIProvider {
 
   async isAuthenticated(): Promise<boolean> {
     if (!this.token) {
+      const execOptions = { timeout: DEFAULT_CLI_TIMEOUT };
       try {
-        await execFileAsync("snyk", ["config", "get", "api"]);
+        await execFileAsync("snyk", ["config", "get", "api"], execOptions);
         return true;
       } catch {
         return false;
@@ -49,15 +53,15 @@ export class SnykCLIProvider {
 
   async authenticate(): Promise<void> {
     if (this.token) {
-      await execFileAsync("snyk", ["config", "set", `api=${this.token}`]);
+      const execOptions = { timeout: DEFAULT_CLI_TIMEOUT };
+      const configArg = `api=${this.token}`;
+      await execFileAsync("snyk", ["config", "set", configArg], execOptions);
       this.log.debug(
         "Authenticated with Snyk using provided token",
         "authenticate",
       );
     } else {
-      throw new Error(
-        "Snyk requires authentication. Set SNYK_TOKEN or provide --securityProviderToken",
-      );
+      throw new Error(AUTH_MESSAGES.SNYK_AUTH_REQUIRED);
     }
   }
 
@@ -92,9 +96,12 @@ export class SnykCLIProvider {
   }
 
   private async runSnykScan(): Promise<any> {
-    const { stdout } = await execFileAsync("snyk", ["test", "--json"], {
-      timeout: 60000,
-    });
+    const execOptions = { timeout: DEFAULT_SNYK_SCAN_TIMEOUT };
+    const { stdout } = await execFileAsync(
+      "snyk",
+      ["test", "--json"],
+      execOptions,
+    );
 
     return JSON.parse(stdout);
   }
@@ -123,7 +130,8 @@ export class SnykCLIProvider {
       }
 
       this.log.debug("Snyk scan failed", "fetchAlerts", { error });
-      const reason = error instanceof Error ? error.message : "Unknown error";
+      const isErrorInstance = error instanceof Error;
+      const reason = isErrorInstance ? error.message : "Unknown error";
       if (this.strict) {
         throw new Error(
           `Snyk security check failed. Reason: ${reason}. Failing due to --strict mode.`,

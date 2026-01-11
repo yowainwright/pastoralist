@@ -8,6 +8,7 @@ import {
 } from "../../../types";
 import { logger } from "../../../utils";
 import { CLIInstaller } from "../utils";
+import { AUTH_MESSAGES } from "../constants";
 
 const execFileAsync = promisify(execFile);
 
@@ -59,7 +60,7 @@ export class SocketCLIProvider {
 
     if (!isAuthed) {
       this.log.info(
-        "Socket requires authentication. Set SOCKET_SECURITY_API_KEY or provide --securityProviderToken",
+        AUTH_MESSAGES.SOCKET_AUTH_REQUIRED,
         "validatePrerequisites",
       );
       return false;

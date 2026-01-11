@@ -14,9 +14,10 @@ import {
 import { update } from "../core/update";
 import { logger as createLogger } from "../utils";
 import { resolveJSON } from "../core/packageJSON";
-import { IS_DEBUGGING } from "../constants";
+import { IS_DEBUGGING, FARMER, MSG_SCANNING, SHEEP } from "../constants";
 import { SecurityChecker } from "../core/security";
 import { initCommand } from "./cmds/init/index";
+import { renderTable, createTerminalGraph } from "../dx";
 
 const logger = createLogger({ file: "program.ts", isLogging: false });
 
@@ -57,12 +58,15 @@ export const buildMergedOptions = (
   securityConfig: any,
   configProvider: any,
 ): Options => {
+  const providerFromOptions = options.securityProvider ?? configProvider;
+  const securityProvider = providerFromOptions ?? "osv";
+
   return {
     ...rest,
     checkSecurity: options.checkSecurity ?? securityConfig.enabled,
     forceSecurityRefactor:
       options.forceSecurityRefactor ?? securityConfig.autoFix,
-    securityProvider: options.securityProvider ?? configProvider ?? "osv",
+    securityProvider,
     securityProviderToken:
       options.securityProviderToken ?? securityConfig.securityProviderToken,
     interactive: options.interactive ?? securityConfig.interactive,
@@ -105,11 +109,7 @@ export const runSecurityCheck = async (
     yellow,
   },
 ) => {
-  const spinner = deps
-    .createSpinner(
-      `${deps.green(`pastoralist`)} checking for security vulnerabilities...`,
-    )
-    .start();
+  const spinner = deps.createSpinner(MSG_SCANNING).start();
 
   try {
     const securityChecker = new deps.SecurityChecker({
@@ -127,17 +127,31 @@ export const runSecurityCheck = async (
       mergedOptions,
       log,
     );
+
+    const onProgress = (progress: { message: string }) => {
+      spinner.update(progress.message);
+    };
+
     const {
       alerts,
       overrides: securityOverrides,
       updates,
+      packagesScanned,
     } = await securityChecker.checkSecurity(config, {
       ...mergedOptions,
       depPaths: scanPaths,
       root: mergedOptions.root || "./",
+      onProgress,
     });
 
-    return { spinner, securityChecker, alerts, securityOverrides, updates };
+    return {
+      spinner,
+      securityChecker,
+      alerts,
+      securityOverrides,
+      updates,
+      packagesScanned,
+    };
   } catch (error) {
     const isPermissionError = error instanceof SecurityProviderPermissionError;
     if (isPermissionError) {
@@ -155,6 +169,7 @@ export const runSecurityCheck = async (
         alerts: [],
         securityOverrides: [],
         updates: [],
+        packagesScanned: 0,
         skipped: true,
       };
     }
@@ -173,6 +188,7 @@ export const handleSecurityResults = (
   spinner: ReturnType<typeof createSpinner>,
   mergedOptions: Options,
   updates: import("../types").OverrideUpdate[] = [],
+  _packagesScanned: number = 0,
 ): void => {
   const hasAlerts = alerts.length > 0;
   const hasUpdates = updates.length > 0;
@@ -180,19 +196,6 @@ export const handleSecurityResults = (
     mergedOptions.forceSecurityRefactor || mergedOptions.interactive;
   const shouldGenerateOverrides = hasAlerts && shouldApplySecurityFixes;
   const shouldApplyUpdates = hasUpdates && shouldApplySecurityFixes;
-
-  if (hasAlerts) {
-    const report = securityChecker.formatSecurityReport(
-      alerts,
-      securityOverrides,
-    );
-    spinner.info(report);
-  }
-
-  if (hasUpdates) {
-    const updateReport = formatUpdateReport(updates);
-    spinner.info(updateReport);
-  }
 
   const allOverrides = [...securityOverrides];
 
@@ -231,12 +234,7 @@ export const handleSecurityResults = (
     }
   }
 
-  const hasNoAlertsOrUpdates = !hasAlerts && !hasUpdates;
-  if (hasNoAlertsOrUpdates) {
-    spinner.succeed(
-      `${green(`pastoralist`)} no security vulnerabilities found!`,
-    );
-  }
+  spinner.stop();
 };
 
 export const formatUpdateReport = (
@@ -333,6 +331,8 @@ export const buildSecurityResult = (
     severity: alert.severity || "unknown",
     cve: alert.cve,
     description: alert.description,
+    patchedVersion: alert.patchedVersion,
+    fixAvailable: alert.fixAvailable,
   })),
 });
 
@@ -377,6 +377,124 @@ export const outputResult = (
   }
 };
 
+type OverrideDisplayContext = {
+  finalOverrides: Record<string, unknown>;
+  finalAppendix: Record<string, import("../types").AppendixItem>;
+};
+
+const buildOverrideInfo = (
+  pkg: string,
+  version: string,
+  appendixEntry: import("../types").AppendixItem | undefined,
+): import("../dx/types").OverrideInfo => ({
+  packageName: pkg,
+  version,
+  reason: appendixEntry?.ledger?.reason,
+  dependents: appendixEntry?.dependents,
+  patches: appendixEntry?.patches,
+  isSecurityFix: appendixEntry?.ledger?.securityChecked,
+  cve: appendixEntry?.ledger?.cve,
+});
+
+const toOverrideEntry = (
+  pkg: string,
+  ctx: OverrideDisplayContext,
+): { pkg: string; version: string } | null => {
+  const version = ctx.finalOverrides[pkg];
+  const isStringVersion = typeof version === "string";
+  if (!isStringVersion) return null;
+  return { pkg, version };
+};
+
+const toOverrideInfo = (
+  entry: { pkg: string; version: string },
+  ctx: OverrideDisplayContext,
+): import("../dx/types").OverrideInfo => {
+  const appendixKey = `${entry.pkg}@${entry.version}`;
+  const appendixEntry = ctx.finalAppendix[appendixKey];
+  return buildOverrideInfo(entry.pkg, entry.version, appendixEntry);
+};
+
+export const displayOverrides = (
+  graph: ReturnType<typeof createTerminalGraph>,
+  ctx: OverrideDisplayContext,
+): void => {
+  Object.keys(ctx.finalOverrides)
+    .map((pkg) => toOverrideEntry(pkg, ctx))
+    .filter(
+      (entry): entry is { pkg: string; version: string } => entry !== null,
+    )
+    .map((entry) => toOverrideInfo(entry, ctx))
+    .forEach((info) => graph.override(info, false));
+};
+
+type MetricsKey = keyof NonNullable<PastoralistResult["metrics"]>;
+type SpecialKey = "total" | "writeStatus" | "severityHeader";
+type RowConfig = { label: string; key: MetricsKey | SpecialKey };
+
+const SUMMARY_ROW_CONFIG: RowConfig[] = [
+  { label: "Packages scanned", key: "total" },
+  { label: "Appendix entries updated", key: "appendixEntriesUpdated" },
+  { label: "Vulnerabilities blocked", key: "vulnerabilitiesBlocked" },
+  { label: "Overrides added", key: "overridesAdded" },
+  { label: "Overrides removed", key: "overridesRemoved" },
+  { label: "By severity:", key: "severityHeader" },
+  { label: "  Critical", key: "severityCritical" },
+  { label: "  High", key: "severityHigh" },
+  { label: "  Medium", key: "severityMedium" },
+  { label: "  Low", key: "severityLow" },
+  { label: "Write status", key: "writeStatus" },
+];
+
+const getRowValue = (
+  metrics: NonNullable<PastoralistResult["metrics"]>,
+  key: RowConfig["key"],
+): string | number => {
+  if (key === "total") return metrics.packagesScanned;
+  if (key === "severityHeader") return "";
+  if (key === "writeStatus") {
+    return metrics.writeSuccess ? "Success" : "Skipped";
+  }
+  const value = metrics[key as keyof typeof metrics];
+  const isMetricsBoolean = typeof value === "boolean";
+  if (isMetricsBoolean) return value ? 1 : 0;
+  return value;
+};
+
+type TableColor = "green" | "yellow" | "red" | "cyan" | "gray";
+
+const getRowColor = (
+  key: RowConfig["key"],
+  value: string | number,
+  metrics: NonNullable<PastoralistResult["metrics"]>,
+): TableColor | undefined => {
+  const numValue = typeof value === "number" ? value : 0;
+  const hasValue = numValue > 0;
+
+  if (key === "severityCritical" && hasValue) return "red";
+  if (key === "severityHigh" && hasValue) return "red";
+  if (key === "severityMedium" && hasValue) return "yellow";
+  if (key === "severityLow" && hasValue) return "gray";
+  if (key === "vulnerabilitiesBlocked" && hasValue) return "green";
+  if (key === "overridesAdded" && hasValue) return "cyan";
+  if (key === "writeStatus") return metrics.writeSuccess ? "green" : "yellow";
+  return undefined;
+};
+
+export const displaySummaryTable = (result: PastoralistResult): void => {
+  const metrics = result.metrics;
+  if (!metrics) return;
+
+  const rows = SUMMARY_ROW_CONFIG.map((config) => {
+    const value = getRowValue(metrics, config.key);
+    const color = getRowColor(config.key, value, metrics);
+    return { label: config.label, value, color };
+  });
+
+  const table = renderTable(rows, { title: `${FARMER} Pastoralist Summary` });
+  console.log("\n" + table);
+};
+
 export async function action(
   options: Options = {},
   deps = {
@@ -390,6 +508,7 @@ export async function action(
     createSpinner,
     green,
     update,
+    createTerminalGraph,
     processExit: (code: number) => process.exit(code),
   },
 ): Promise<PastoralistResult> {
@@ -397,6 +516,7 @@ export async function action(
   const isJsonOutput = options.outputFormat === "json";
   const log = deps.createLogger({ file: "program.ts", isLogging });
   const { isTestingCLI = false, init = false, ...rest } = options;
+  const graph = deps.createTerminalGraph();
 
   const emptyResult = createEmptyResult();
 
@@ -408,6 +528,10 @@ export async function action(
   if (await deps.handleInitMode(init, options, rest)) {
     outputResult(emptyResult, isJsonOutput);
     return emptyResult;
+  }
+
+  if (!isJsonOutput) {
+    graph.banner();
   }
 
   try {
@@ -443,13 +567,23 @@ export async function action(
       securityAlerts: [],
     };
 
-    if (mergedOptions.checkSecurity) {
+    let packagesScanned = 0;
+
+    const shouldRunSecurity = mergedOptions.checkSecurity;
+    const showSecurityPhase = shouldRunSecurity && !isJsonOutput;
+
+    if (showSecurityPhase) {
+      graph.startPhase("scanning", "Scanning packages");
+    }
+
+    if (shouldRunSecurity) {
       const {
         spinner,
         securityChecker,
         alerts,
         securityOverrides,
         updates,
+        packagesScanned: scanned,
         skipped,
       } = await deps.runSecurityCheck(
         config!,
@@ -458,6 +592,7 @@ export async function action(
         log,
       );
 
+      packagesScanned = scanned;
       securityResult = buildSecurityResult(alerts);
 
       const shouldHandleResults = !skipped && !isJsonOutput;
@@ -469,24 +604,69 @@ export async function action(
           spinner,
           mergedOptions,
           updates,
+          packagesScanned,
         );
-      } else if (isJsonOutput) {
+
+        const toVulnerabilityInfo = (
+          alert: SecurityAlert,
+        ): import("../dx/types").VulnerabilityInfo => ({
+          severity: alert.severity || "unknown",
+          packageName: alert.packageName,
+          currentVersion: alert.currentVersion || "?",
+          title: alert.title || alert.description || "Vulnerability",
+          cve: alert.cve,
+          fixAvailable: alert.fixAvailable,
+          patchedVersion: alert.patchedVersion,
+          url: alert.url,
+        });
+
+        alerts
+          .map(toVulnerabilityInfo)
+          .forEach((info) => graph.vulnerability(info, false));
+
+        const alertCount = alerts.length;
+        const hasAlerts = alertCount > 0;
+        const vulnPlural = alertCount === 1 ? "y" : "ies";
+        const securityMsg = hasAlerts
+          ? `${alertCount} vulnerabilit${vulnPlural} found`
+          : `No vulnerabilities in ${packagesScanned} packages`;
+        graph.endPhase(securityMsg);
+
+        const shouldShowFixesApplied =
+          securityOverrides.length > 0 &&
+          (mergedOptions.forceSecurityRefactor || mergedOptions.interactive);
+
+        if (shouldShowFixesApplied) {
+          graph.startPhase("resolving", "Fixes applied");
+
+          const toSecurityFixInfo = (
+            override: SecurityOverride,
+          ): import("../dx/types").SecurityFixInfo => ({
+            packageName: override.packageName,
+            fromVersion: override.fromVersion || "?",
+            toVersion: override.toVersion,
+            cve: override.cve,
+            severity: override.severity,
+            reason: override.reason,
+          });
+
+          securityOverrides
+            .map(toSecurityFixInfo)
+            .forEach((info) => graph.securityFix(info, false));
+
+          const fixCount = securityOverrides.length;
+          const fixPlural = fixCount === 1 ? "" : "s";
+          graph.endPhase(`${fixCount} override${fixPlural} added`);
+        }
+      }
+
+      if (isJsonOutput) {
         spinner.stop();
       }
     }
 
-    const spinner = isJsonOutput
-      ? {
-          start: () => ({ succeed: () => {}, stop: () => {} }),
-          succeed: () => {},
-          stop: () => {},
-        }
-      : deps
-          .createSpinner(`${deps.green(`pastoralist`)} checking herd...`)
-          .start();
-
     if (!isJsonOutput) {
-      (spinner as ReturnType<typeof deps.createSpinner>).start?.();
+      graph.startPhase("writing", "Updating overrides");
     }
 
     const updateContext = await deps.update(mergedOptions);
@@ -496,19 +676,73 @@ export async function action(
       options.dryRun || false,
     );
 
-    if (!isJsonOutput) {
-      spinner.succeed(`${deps.green(`pastoralist`)} the herd is safe!`);
+    const shouldDisplayOverrides = !isJsonOutput;
+    if (shouldDisplayOverrides) {
+      displayOverrides(graph, {
+        finalOverrides: updateContext.finalOverrides ?? {},
+        finalAppendix: updateContext.finalAppendix ?? {},
+      });
     }
 
-    const result: PastoralistResult = {
-      ...emptyResult,
-      ...securityResult,
-      ...updateResultData,
-    };
+    if (!isJsonOutput) {
+      const overrideCount = updateResultData.overrideCount;
+      const hasOverrides = overrideCount > 0;
+      const plural = overrideCount === 1 ? "" : "s";
+      const overrideMsg = hasOverrides
+        ? `${overrideCount} override${plural} applied`
+        : "No overrides to update";
+      graph.endPhase(overrideMsg);
+
+      const removedPackages =
+        updateContext.metrics?.removedOverridePackages ?? [];
+      const hasRemovedOverrides = removedPackages.length > 0;
+
+      if (hasRemovedOverrides) {
+        graph.startPhase("writing", "Cleaned up stale overrides");
+
+        removedPackages.forEach((removed) => {
+          graph.removedOverride(
+            {
+              packageName: removed.packageName,
+              version: removed.version,
+              reason: "Override no longer needed",
+            },
+            false,
+          );
+        });
+
+        const removedCount = removedPackages.length;
+        const removedPlural = removedCount === 1 ? "" : "s";
+        graph.endPhase(
+          `${removedCount} stale override${removedPlural} removed`,
+        );
+      }
+
+      graph.complete("The herd is safe!", ` ${SHEEP}`);
+
+      const shouldShowInstallNotice = updateResultData.updated;
+      if (shouldShowInstallNotice) {
+        graph.notice("Run an install to capture the updates!");
+      }
+    }
+
+    const result: PastoralistResult = Object.assign(
+      {},
+      emptyResult,
+      securityResult,
+      updateResultData,
+      { metrics: updateContext.metrics },
+    );
+
+    const shouldShowSummary = options.summary && !isJsonOutput;
+    if (shouldShowSummary) {
+      displaySummaryTable(result);
+    }
 
     outputResult(result, isJsonOutput);
     return result;
   } catch (err) {
+    graph.stop();
     const result = createErrorResult(err);
 
     if (isJsonOutput) {

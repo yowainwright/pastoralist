@@ -13,11 +13,12 @@ import {
   MOCK_DEPENDABOT_ALERT_LODASH,
   MOCK_DEPENDABOT_ALERT_MINIMIST,
 } from "../../../constants";
+import { DEFAULT_CLI_TIMEOUT, AUTH_MESSAGES } from "../constants";
 
 const defaultExecFileAsync = promisify(execFile);
 
 const DEFAULT_FETCH_TIMEOUT = 30000;
-const DEFAULT_CLI_TIMEOUT = 60000;
+const DEFAULT_GH_CLI_TIMEOUT = 60000;
 
 export class GitHubSecurityProvider {
   private owner: string;
@@ -47,12 +48,10 @@ export class GitHubSecurityProvider {
   }
 
   private async getRepoOwner(): Promise<string> {
+    const execOptions = { timeout: DEFAULT_CLI_TIMEOUT };
     try {
-      const { stdout } = await this.execFileAsync("git", [
-        "config",
-        "--get",
-        "remote.origin.url",
-      ]);
+      const args = ["config", "--get", "remote.origin.url"];
+      const { stdout } = await this.execFileAsync("git", args, execOptions);
       const remoteUrl = stdout.trim();
 
       if (this.isGitHubUrl(remoteUrl)) {
@@ -68,12 +67,10 @@ export class GitHubSecurityProvider {
   }
 
   private async getRepoName(): Promise<string> {
+    const execOptions = { timeout: DEFAULT_CLI_TIMEOUT };
     try {
-      const { stdout } = await this.execFileAsync("git", [
-        "config",
-        "--get",
-        "remote.origin.url",
-      ]);
+      const args = ["config", "--get", "remote.origin.url"];
+      const { stdout } = await this.execFileAsync("git", args, execOptions);
       const remoteUrl = stdout.trim();
 
       if (this.isGitHubUrl(remoteUrl)) {
@@ -143,9 +140,7 @@ export class GitHubSecurityProvider {
       return this.fetchAlertsWithGhCli();
     }
 
-    throw new Error(
-      "GitHub CLI not found and no GITHUB_TOKEN provided. Please install gh CLI or set GITHUB_TOKEN environment variable.",
-    );
+    throw new Error(AUTH_MESSAGES.GITHUB_CLI_NOT_FOUND);
   }
 
   private async fetchMockAlerts(): Promise<DependabotAlert[]> {
@@ -194,8 +189,9 @@ export class GitHubSecurityProvider {
   }
 
   private async isGhCliAvailable(): Promise<boolean> {
+    const execOptions = { timeout: DEFAULT_CLI_TIMEOUT };
     try {
-      await this.execFileAsync("gh", ["--version"]);
+      await this.execFileAsync("gh", ["--version"], execOptions);
       return true;
     } catch {
       return false;
@@ -213,9 +209,8 @@ export class GitHubSecurityProvider {
       "executeGhCli",
     );
 
-    const { stdout } = await this.execFileAsync("gh", args, {
-      timeout: DEFAULT_CLI_TIMEOUT,
-    });
+    const execOptions = { timeout: DEFAULT_GH_CLI_TIMEOUT };
+    const { stdout } = await this.execFileAsync("gh", args, execOptions);
     this.log.debug(`gh CLI stdout length: ${stdout.length}`, "executeGhCli");
     return stdout;
   }

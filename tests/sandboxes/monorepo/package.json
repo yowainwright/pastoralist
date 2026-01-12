@@ -1,17 +1,24 @@
 {
-  "name": "pastoralist-demo-monorepo",
+  "name": "pastoralist-sandbox-monorepo",
   "private": true,
+  "type": "module",
   "workspaces": [
     "packages/app",
     "packages/lib"
   ],
+  "bin": {
+    "pastoralist": "./dist/index.js"
+  },
   "scripts": {
-    "start": "pastoralist"
+    "clean": "bun run scripts/clean.ts",
+    "build": "bun run clean && bun build src/index.ts --outdir dist --target node",
+    "start": "bun run build && ./dist/index.js"
   },
   "overrides": {
     "lodash": "4.17.21"
   },
   "devDependencies": {
-    "pastoralist": "file:../../.."
+    "@types/bun": "latest",
+    "typescript": "5.9.3"
   }
 }

@@ -1,16 +1,15 @@
 {
   "$schema": "https://codesandbox.io/schemas/tasks.json",
   "setupTasks": [
+    { "name": "Copy src", "command": "cp -r ../../../src ." },
     {
-      "name": "Build Pastoralist",
-      "command": "cd ../../.. && bun install && bun run build-dist"
+      "name": "Copy scripts",
+      "command": "mkdir -p scripts && cp ../../../scripts/clean.ts scripts/"
     },
-    {
-      "name": "Install Demo",
-      "command": "bun install"
-    }
+    { "name": "Install", "command": "bun install" }
   ],
   "tasks": {
+    "build": { "name": "Build", "command": "bun run build" },
     "run": {
       "name": "Run Pastoralist",
       "command": "bun run start",

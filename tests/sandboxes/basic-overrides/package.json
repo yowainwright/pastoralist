@@ -1,0 +1,29 @@
+{
+  "name": "pastoralist-demo-basic-overrides",
+  "private": true,
+  "scripts": {
+    "start": "pastoralist"
+  },
+  "dependencies": {
+    "express": "^4.18.0",
+    "lodash": "^4.17.21"
+  },
+  "overrides": {
+    "lodash": "4.17.20"
+  },
+  "devDependencies": {
+    "pastoralist": "file:../../.."
+  },
+  "pastoralist": {
+    "appendix": {
+      "lodash@4.17.20": {
+        "dependents": {
+          "pastoralist-demo-basic-overrides": "lodash@^4.17.21"
+        },
+        "ledger": {
+          "addedDate": "2026-01-12T08:10:46.881Z"
+        }
+      }
+    }
+  }
+}

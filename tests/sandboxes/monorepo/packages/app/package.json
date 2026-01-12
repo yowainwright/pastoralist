@@ -1,0 +1,8 @@
+{
+  "name": "pastoralist-demo-monorepo-app",
+  "private": true,
+  "dependencies": {
+    "express": "^4.18.0",
+    "lodash": "^4.17.21"
+  }
+}

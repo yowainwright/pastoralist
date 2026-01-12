@@ -1,0 +1,8 @@
+{
+  "name": "pastoralist-demo-monorepo-lib",
+  "private": true,
+  "dependencies": {
+    "lodash": "^4.17.21",
+    "underscore": "^1.13.0"
+  }
+}

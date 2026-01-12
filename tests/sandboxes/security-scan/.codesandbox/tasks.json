@@ -1,6 +1,7 @@
 {
   "$schema": "https://codesandbox.io/schemas/tasks.json",
   "setupTasks": [
+    { "name": "Install bun", "command": "npm install -g bun" },
     { "name": "Copy src", "command": "cp -r ../../../src ." },
     {
       "name": "Copy scripts",

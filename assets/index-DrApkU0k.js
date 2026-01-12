@@ -144,6 +144,17 @@ When a dependency is removed, pastoralist alerts you:
 Consider removing these patches if the packages are no longer used.
 \`\`\`
 
+<a
+  href="https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/patches/README.md"
+  target="_blank"
+  rel="noopener noreferrer"
+>
+  <img
+    src="https://img.shields.io/badge/Try_Patches-CodeSandbox-blue?logo=codesandbox"
+    alt="Try Patches on CodeSandbox"
+  />
+</a>
+
 ## PeerDependencies Support
 
 Pastoralist now considers \`peerDependencies\` when tracking override usage.
@@ -208,6 +219,17 @@ When a dependency is updated and no longer needs an override:
   "overrides": {}
 }
 \`\`\`
+
+<a
+  href="https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/cleanup/README.md"
+  target="_blank"
+  rel="noopener noreferrer"
+>
+  <img
+    src="https://img.shields.io/badge/Try_Cleanup-CodeSandbox-blue?logo=codesandbox"
+    alt="Try Cleanup on CodeSandbox"
+  />
+</a>
 
 ### Transitive Dependency Tracking
 
@@ -1067,6 +1089,17 @@ await runPastoralist({
 
 ## Try It Now
 
+<a
+  href="https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/basic-overrides/README.md"
+  target="_blank"
+  rel="noopener noreferrer"
+>
+  <img
+    src="https://img.shields.io/badge/Try_it-CodeSandbox-blue?logo=codesandbox"
+    alt="Try it on CodeSandbox"
+  />
+</a>
+
 [Open Interactive Demos](/docs/introduction) to see pastoralist in action!
 
 ## Resources
@@ -1693,6 +1726,17 @@ With one simple command, you can ensure all your overrides are current:
 pastoralist
 \`\`\`
 
+<a
+  href="https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/basic-overrides/README.md"
+  target="_blank"
+  rel="noopener noreferrer"
+>
+  <img
+    src="https://img.shields.io/badge/Try_it-CodeSandbox-blue?logo=codesandbox"
+    alt="Try it on CodeSandbox"
+  />
+</a>
+
 ## Benefits
 
 - **Automated Updates**: No more manual version checking
@@ -1741,6 +1785,17 @@ pastoralist --checkSecurity --interactive
 # Include workspace packages in the scan
 pastoralist --checkSecurity --includeWorkspaces
 \`\`\`
+
+<a
+  href="https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/security-scan/README.md"
+  target="_blank"
+  rel="noopener noreferrer"
+>
+  <img
+    src="https://img.shields.io/badge/Try_Security_Scanning-CodeSandbox-blue?logo=codesandbox"
+    alt="Try Security Scanning on CodeSandbox"
+  />
+</a>
 
 ## Configuration
 
@@ -2432,6 +2487,17 @@ description: Using pastoralist in workspace and monorepo environments
 ---
 
 Pastoralist works seamlessly with workspace and monorepo setups. This guide covers how to effectively use pastoralist across multiple packages.
+
+<a
+  href="https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/monorepo/README.md"
+  target="_blank"
+  rel="noopener noreferrer"
+>
+  <img
+    src="https://img.shields.io/badge/Try_Monorepo-CodeSandbox-blue?logo=codesandbox"
+    alt="Try Monorepo on CodeSandbox"
+  />
+</a>
 
 ## How Pastoralist Works in Workspaces
 

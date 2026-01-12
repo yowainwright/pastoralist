@@ -1065,9 +1065,21 @@ await runPastoralist({
 });
 \`\`\`
 
-## Try It Now
+## Try It Live
 
-[Open Interactive Demos](/docs/introduction) to see pastoralist in action!
+Open any demo in CodeSandbox to see pastoralist in action:
+
+- [Basic Overrides][sandbox-basic] - Track override dependents
+- [Security Scan][sandbox-security] - Run --checkSecurity
+- [Monorepo][sandbox-monorepo] - Workspace support
+- [Cleanup][sandbox-cleanup] - Remove stale overrides
+- [Patches][sandbox-patches] - Patch file tracking
+
+[sandbox-basic]: https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/basic-overrides/package.json
+[sandbox-security]: https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/security-scan/package.json
+[sandbox-monorepo]: https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/monorepo/package.json
+[sandbox-cleanup]: https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/cleanup/package.json
+[sandbox-patches]: https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/patches/package.json
 
 ## Resources
 
@@ -2918,5 +2930,5 @@ const base = require("./packages/base-config/overrides.json");
 - Choose a management strategy
 - Add automation scripts
 - Document your approach for the team
-`;function w(e){const n=e.match(/^---\n([\s\S]*?)\n---/);if(!n)return{};const t={},s=n[1].split(`
-`);for(const a of s){const o=a.indexOf(":");if(o===-1)continue;const c=a.slice(0,o).trim();let i=a.slice(o+1).trim();i=i.replace(/^["']|["']$/g,""),t[c]=i}return t}const r=Object.assign({"./docs/advanced-features.mdx":l,"./docs/api-reference.mdx":d,"./docs/architecture.mdx":u,"./docs/codelab.mdx":g,"./docs/configuration.mdx":h,"./docs/github-action.mdx":m,"./docs/introduction.mdx":y,"./docs/security.mdx":f,"./docs/setup.mdx":k,"./docs/troubleshooting.mdx":v,"./docs/workspaces.mdx":b}),p=Object.entries(r).map(([e,n])=>{const t=e.replace("./docs/","").replace(".mdx",""),s=w(n);return{slug:t,title:s.title??t,description:s.description??""}});function P(e){return p.find(n=>n.slug===e)}function j(e){const n=`./docs/${e}.mdx`;return r[n]}function x(){return p}export{P as a,j as b,x as g};
+`;function w(e){const n=e.match(/^---\n([\s\S]*?)\n---/);if(!n)return{};const s={},t=n[1].split(`
+`);for(const a of t){const o=a.indexOf(":");if(o===-1)continue;const c=a.slice(0,o).trim();let i=a.slice(o+1).trim();i=i.replace(/^["']|["']$/g,""),s[c]=i}return s}const r=Object.assign({"./docs/advanced-features.mdx":l,"./docs/api-reference.mdx":d,"./docs/architecture.mdx":u,"./docs/codelab.mdx":g,"./docs/configuration.mdx":h,"./docs/github-action.mdx":m,"./docs/introduction.mdx":y,"./docs/security.mdx":f,"./docs/setup.mdx":k,"./docs/troubleshooting.mdx":v,"./docs/workspaces.mdx":b}),p=Object.entries(r).map(([e,n])=>{const s=e.replace("./docs/","").replace(".mdx",""),t=w(n);return{slug:s,title:t.title??s,description:t.description??""}});function P(e){return p.find(n=>n.slug===e)}function j(e){const n=`./docs/${e}.mdx`;return r[n]}function x(){return p}export{P as a,j as b,x as g};

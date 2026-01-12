@@ -1,5 +1,5 @@
 {
-  "name": "pastoralist-demo-monorepo-lib",
+  "name": "pastoralist-sandbox-monorepo-lib",
   "private": true,
   "dependencies": {
     "lodash": "^4.17.21",

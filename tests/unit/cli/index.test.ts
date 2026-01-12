@@ -2350,3 +2350,384 @@ test("action - does not call handleSecurityResults when security check is skippe
 
   expect(deps.handleSecurityResults).not.toHaveBeenCalled();
 });
+
+test("displaySummaryTable - renders table with metrics", () => {
+  const { displaySummaryTable } = require("../../../src/cli/index");
+
+  const originalLog = console.log;
+  const logged: string[] = [];
+  console.log = (msg: string) => logged.push(msg);
+
+  const result = {
+    success: true,
+    metrics: {
+      packagesScanned: 10,
+      vulnerabilitiesFound: 3,
+      vulnerabilitiesBlocked: 2,
+      overridesAdded: 2,
+      overridesRemoved: 1,
+      severityCritical: 0,
+      severityHigh: 1,
+      severityMedium: 1,
+      severityLow: 1,
+      writeSuccess: true,
+    },
+  };
+
+  displaySummaryTable(result);
+
+  console.log = originalLog;
+
+  const output = logged.join("\n");
+  expect(output).toContain("Pastoralist Summary");
+});
+
+test("displaySummaryTable - skips when no metrics", () => {
+  const { displaySummaryTable } = require("../../../src/cli/index");
+
+  const originalLog = console.log;
+  const logged: string[] = [];
+  console.log = (msg: string) => logged.push(msg);
+
+  const result = { success: true };
+
+  displaySummaryTable(result);
+
+  console.log = originalLog;
+
+  expect(logged.length).toBe(0);
+});
+
+test("displayOverrides - renders override info from context", () => {
+  const { displayOverrides } = require("../../../src/cli/index");
+  const { createTerminalGraph } = require("../../../src/dx/terminal-graph");
+  const { createOutput } = require("../../../src/dx/output");
+
+  const output = createOutput();
+  const graph = createTerminalGraph(output);
+
+  const ctx = {
+    finalOverrides: { lodash: "4.17.21" },
+    finalAppendix: {
+      "lodash@4.17.21": {
+        dependents: { "test-pkg": "lodash@^4.17.0" },
+        ledger: {
+          securityChecked: true,
+          cve: "CVE-2021-23337",
+          reason: "Security fix",
+        },
+      },
+    },
+  };
+
+  displayOverrides(graph, ctx);
+});
+
+test("runSecurityCheck - calls onProgress callback during check", async () => {
+  const { runSecurityCheck } = require("../../../src/cli/index");
+
+  const config = { name: "test", version: "1.0.0" };
+  const mergedOptions = { checkSecurity: true, securityProvider: "osv" };
+
+  const mockSpinner = {
+    start: mock(() => mockSpinner),
+    update: mock(),
+    fail: mock(),
+  };
+
+  let capturedOnProgress: ((p: { message: string }) => void) | null = null;
+
+  const mockSecurityChecker = {
+    checkSecurity: mock((_cfg: any, opts: any) => {
+      capturedOnProgress = opts.onProgress;
+      if (capturedOnProgress) {
+        capturedOnProgress({ message: "Checking lodash (1/5)" });
+      }
+      return Promise.resolve({
+        alerts: [],
+        overrides: [],
+        updates: [],
+        packagesScanned: 5,
+      });
+    }),
+  };
+
+  const deps = {
+    createSpinner: mock(() => mockSpinner),
+    SecurityChecker: mock(() => mockSecurityChecker),
+    determineSecurityScanPaths: mock(() => []),
+    green: mock((t: string) => t),
+  };
+
+  await runSecurityCheck(config, mergedOptions, false, log, deps);
+
+  expect(mockSpinner.update).toHaveBeenCalledWith("Checking lodash (1/5)");
+});
+
+test("action - displays security fixes when forceSecurityRefactor is true", async () => {
+  const { action } = require("../../../src/cli/index");
+
+  const mockConfig = {
+    name: "test",
+    version: "1.0.0",
+    pastoralist: { security: { enabled: true } },
+  };
+
+  const mockGraph = {
+    banner: mock(() => mockGraph),
+    startPhase: mock(() => mockGraph),
+    progress: mock(() => mockGraph),
+    item: mock(() => mockGraph),
+    vulnerability: mock(() => mockGraph),
+    override: mock(() => mockGraph),
+    endPhase: mock(() => mockGraph),
+    summary: mock(() => mockGraph),
+    complete: mock(() => mockGraph),
+    stop: mock(() => mockGraph),
+    notice: mock(() => mockGraph),
+    securityFix: mock(() => mockGraph),
+    removedOverride: mock(() => mockGraph),
+  };
+
+  const securityOverrides = [
+    {
+      packageName: "lodash",
+      fromVersion: "4.17.20",
+      toVersion: "4.17.21",
+      reason: "Security fix",
+      cve: "CVE-2021-23337",
+      severity: "high",
+    },
+  ];
+
+  const mockSpinner = {
+    start: mock(() => mockSpinner),
+    stop: mock(),
+    update: mock(),
+  };
+
+  const deps = {
+    createLogger: mock(() => log),
+    handleTestMode: mock(() => false),
+    handleInitMode: mock(() => Promise.resolve(false)),
+    resolveJSON: mock(() => Promise.resolve(mockConfig)),
+    buildMergedOptions: mock(() => ({
+      checkSecurity: true,
+      forceSecurityRefactor: true,
+    })),
+    runSecurityCheck: mock(() =>
+      Promise.resolve({
+        spinner: mockSpinner,
+        securityChecker: {
+          generatePackageOverrides: mock(() => ({})),
+          applyAutoFix: mock(),
+        },
+        alerts: [{ packageName: "lodash", severity: "high" }],
+        securityOverrides,
+        updates: [],
+        packagesScanned: 10,
+      }),
+    ),
+    handleSecurityResults: mock(() => {}),
+    createSpinner: mock(() => mockSpinner),
+    green: mock((t: string) => t),
+    update: mock(() => ({
+      finalOverrides: { lodash: "4.17.21" },
+      finalAppendix: {},
+      metrics: {},
+    })),
+    createTerminalGraph: mock(() => mockGraph),
+    processExit: mock(),
+  };
+
+  await action({}, deps);
+
+  expect(mockGraph.startPhase).toHaveBeenCalledWith(
+    "resolving",
+    "Fixes applied",
+  );
+  expect(mockGraph.securityFix).toHaveBeenCalled();
+  expect(mockGraph.endPhase).toHaveBeenCalledWith("1 override added");
+});
+
+test("action - displays removed overrides when present", async () => {
+  const { action } = require("../../../src/cli/index");
+
+  const mockConfig = { name: "test", version: "1.0.0" };
+
+  const mockGraph = {
+    banner: mock(() => mockGraph),
+    startPhase: mock(() => mockGraph),
+    progress: mock(() => mockGraph),
+    item: mock(() => mockGraph),
+    vulnerability: mock(() => mockGraph),
+    override: mock(() => mockGraph),
+    endPhase: mock(() => mockGraph),
+    summary: mock(() => mockGraph),
+    complete: mock(() => mockGraph),
+    stop: mock(() => mockGraph),
+    notice: mock(() => mockGraph),
+    securityFix: mock(() => mockGraph),
+    removedOverride: mock(() => mockGraph),
+  };
+
+  const mockSpinner = {
+    start: mock(() => mockSpinner),
+    stop: mock(),
+  };
+
+  const deps = {
+    createLogger: mock(() => log),
+    handleTestMode: mock(() => false),
+    handleInitMode: mock(() => Promise.resolve(false)),
+    resolveJSON: mock(() => Promise.resolve(mockConfig)),
+    buildMergedOptions: mock(() => ({ checkSecurity: false })),
+    runSecurityCheck: mock(() => Promise.resolve({})),
+    handleSecurityResults: mock(),
+    createSpinner: mock(() => mockSpinner),
+    green: mock((t: string) => t),
+    update: mock(() => ({
+      finalOverrides: {},
+      finalAppendix: {},
+      metrics: {
+        removedOverridePackages: [
+          { packageName: "old-pkg", version: "1.0.0" },
+          { packageName: "stale-pkg", version: "2.0.0" },
+        ],
+      },
+    })),
+    createTerminalGraph: mock(() => mockGraph),
+    processExit: mock(),
+  };
+
+  await action({}, deps);
+
+  expect(mockGraph.startPhase).toHaveBeenCalledWith(
+    "writing",
+    "Cleaned up stale overrides",
+  );
+  expect(mockGraph.removedOverride).toHaveBeenCalledTimes(2);
+  expect(mockGraph.endPhase).toHaveBeenCalledWith("2 stale overrides removed");
+});
+
+test("action - displays summary table when summary option is true", async () => {
+  const { action } = require("../../../src/cli/index");
+
+  const mockConfig = { name: "test", version: "1.0.0" };
+
+  const mockGraph = {
+    banner: mock(() => mockGraph),
+    startPhase: mock(() => mockGraph),
+    progress: mock(() => mockGraph),
+    item: mock(() => mockGraph),
+    vulnerability: mock(() => mockGraph),
+    override: mock(() => mockGraph),
+    endPhase: mock(() => mockGraph),
+    summary: mock(() => mockGraph),
+    complete: mock(() => mockGraph),
+    stop: mock(() => mockGraph),
+    notice: mock(() => mockGraph),
+    securityFix: mock(() => mockGraph),
+    removedOverride: mock(() => mockGraph),
+  };
+
+  const mockSpinner = { start: mock(() => mockSpinner), stop: mock() };
+
+  const originalLog = console.log;
+  const logged: string[] = [];
+  console.log = (msg: string) => logged.push(msg);
+
+  const deps = {
+    createLogger: mock(() => log),
+    handleTestMode: mock(() => false),
+    handleInitMode: mock(() => Promise.resolve(false)),
+    resolveJSON: mock(() => Promise.resolve(mockConfig)),
+    buildMergedOptions: mock(() => ({ checkSecurity: false, summary: true })),
+    runSecurityCheck: mock(() => Promise.resolve({})),
+    handleSecurityResults: mock(),
+    createSpinner: mock(() => mockSpinner),
+    green: mock((t: string) => t),
+    update: mock(() => ({
+      finalOverrides: {},
+      finalAppendix: {},
+      metrics: { packagesScanned: 5 },
+    })),
+    createTerminalGraph: mock(() => mockGraph),
+    processExit: mock(),
+  };
+
+  await action({ summary: true }, deps);
+
+  console.log = originalLog;
+
+  const output = logged.join("\n");
+  expect(output).toContain("Pastoralist Summary");
+});
+
+test("action - outputs JSON on error when outputFormat is json", async () => {
+  const { action } = require("../../../src/cli/index");
+
+  const mockGraph = {
+    banner: mock(() => mockGraph),
+    startPhase: mock(() => mockGraph),
+    stop: mock(() => mockGraph),
+  };
+
+  const originalLog = console.log;
+  const logged: string[] = [];
+  console.log = (msg: string) => logged.push(msg);
+
+  const deps = {
+    createLogger: mock(() => log),
+    handleTestMode: mock(() => false),
+    handleInitMode: mock(() => Promise.resolve(false)),
+    resolveJSON: mock(() => Promise.reject(new Error("File not found"))),
+    buildMergedOptions: mock(() => ({ outputFormat: "json" })),
+    runSecurityCheck: mock(() => Promise.resolve({})),
+    handleSecurityResults: mock(),
+    createSpinner: mock(() => ({ start: mock(), stop: mock() })),
+    green: mock((t: string) => t),
+    update: mock(() => ({})),
+    createTerminalGraph: mock(() => mockGraph),
+    processExit: mock(),
+  };
+
+  await action({ outputFormat: "json" }, deps);
+
+  console.log = originalLog;
+
+  const output = logged.join("\n");
+  expect(output).toContain('"success":false');
+  expect(output).toContain("File not found");
+  expect(deps.processExit).toHaveBeenCalledWith(1);
+});
+
+test("run - shows help and returns early when help flag is passed", async () => {
+  const { run } = require("../../../src/cli/index");
+
+  const originalLog = console.log;
+  const logged: string[] = [];
+  console.log = (msg: string) => logged.push(msg);
+
+  await run(["node", "pastoralist", "--help"]);
+
+  console.log = originalLog;
+
+  const output = logged.join("\n");
+  expect(output).toContain("pastoralist");
+});
+
+test("run - shows help with -h flag", async () => {
+  const { run } = require("../../../src/cli/index");
+
+  const originalLog = console.log;
+  const logged: string[] = [];
+  console.log = (msg: string) => logged.push(msg);
+
+  await run(["node", "pastoralist", "-h"]);
+
+  console.log = originalLog;
+
+  const output = logged.join("\n");
+  expect(output).toContain("pastoralist");
+});

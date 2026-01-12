@@ -5,8 +5,6 @@
 [![codecov](https://codecov.io/gh/yowainwright/pastoralist/branch/main/graph/badge.svg)](https://codecov.io/gh/yowainwright/pastoralist)
 <img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=6f41d7dd-fce9-49ea-ae43-040a51f458bd" />
 
-[![Open in CodeSandbox](https://codesandbox.io/static/img/play-codesandbox.svg)](https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/basic-overrides/package.json)
-
 Pastoralist helps you maintain node module overrides and address security issues in dependencies.
 
 1. Pastoralist tracks, secures, and cleans up your `overrides`, `resolutions`, and `patches`.

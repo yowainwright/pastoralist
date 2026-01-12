@@ -1,4 +1,5 @@
-import { test, expect, mock } from "bun:test";
+import { test, expect, mock, spyOn } from "bun:test";
+import * as readline from "readline/promises";
 import {
   CLIInstaller,
   getSeverityScore,
@@ -8,6 +9,9 @@ import {
   findVulnerablePackages,
   InteractiveSecurityManager,
   createPromptInterface,
+  promptConfirm,
+  promptSelect,
+  promptInput,
 } from "../../../../src/core/security/utils";
 import type { SecurityAlert } from "../../../../src/core/security/types";
 import type { PastoralistJSON, SecurityOverride } from "../../../../src/types";
@@ -928,4 +932,136 @@ test("createPromptInterface - creates readline interface", () => {
   expect(rl).toBeDefined();
   expect(rl.close).toBeDefined();
   rl.close();
+});
+
+const createMockReadline = (answer: string) => ({
+  question: () => Promise.resolve(answer),
+  close: mock(),
+});
+
+const createRejectingMockReadline = () => ({
+  question: () => Promise.reject(new Error("timeout")),
+  close: mock(),
+});
+
+test("promptConfirm - returns true when user enters y", async () => {
+  const mockRl = createMockReadline("y");
+  const spy = spyOn(readline, "createInterface").mockReturnValue(
+    mockRl as unknown as readline.Interface,
+  );
+
+  const result = await promptConfirm("Continue?");
+
+  expect(result).toBe(true);
+  spy.mockRestore();
+});
+
+test("promptConfirm - returns false when user enters n", async () => {
+  const mockRl = createMockReadline("n");
+  const spy = spyOn(readline, "createInterface").mockReturnValue(
+    mockRl as unknown as readline.Interface,
+  );
+
+  const result = await promptConfirm("Continue?");
+
+  expect(result).toBe(false);
+  spy.mockRestore();
+});
+
+test("promptConfirm - returns default when user enters empty", async () => {
+  const mockRl = createMockReadline("");
+  const spy = spyOn(readline, "createInterface").mockReturnValue(
+    mockRl as unknown as readline.Interface,
+  );
+
+  const result = await promptConfirm("Continue?", true);
+
+  expect(result).toBe(true);
+  spy.mockRestore();
+});
+
+test("promptConfirm - returns default on error", async () => {
+  const mockRl = createRejectingMockReadline();
+  const spy = spyOn(readline, "createInterface").mockReturnValue(
+    mockRl as unknown as readline.Interface,
+  );
+
+  const result = await promptConfirm("Continue?", true);
+
+  expect(result).toBe(true);
+  spy.mockRestore();
+});
+
+test("promptSelect - returns selected choice", async () => {
+  const mockRl = createMockReadline("1");
+  const spy = spyOn(readline, "createInterface").mockReturnValue(
+    mockRl as unknown as readline.Interface,
+  );
+  const originalLog = console.log;
+  console.log = mock();
+
+  const choices = [
+    { name: "Option A", value: "a" },
+    { name: "Option B", value: "b" },
+  ];
+  const result = await promptSelect("Choose:", choices);
+
+  expect(result).toBe("a");
+  console.log = originalLog;
+  spy.mockRestore();
+});
+
+test("promptSelect - returns default on error", async () => {
+  const mockRl = createRejectingMockReadline();
+  const spy = spyOn(readline, "createInterface").mockReturnValue(
+    mockRl as unknown as readline.Interface,
+  );
+  const originalLog = console.log;
+  console.log = mock();
+
+  const choices = [
+    { name: "Option A", value: "a" },
+    { name: "Option B", value: "b" },
+  ];
+  const result = await promptSelect("Choose:", choices);
+
+  expect(result).toBe("a");
+  console.log = originalLog;
+  spy.mockRestore();
+});
+
+test("promptInput - returns user input", async () => {
+  const mockRl = createMockReadline("user text");
+  const spy = spyOn(readline, "createInterface").mockReturnValue(
+    mockRl as unknown as readline.Interface,
+  );
+
+  const result = await promptInput("Enter value:");
+
+  expect(result).toBe("user text");
+  spy.mockRestore();
+});
+
+test("promptInput - returns default when empty", async () => {
+  const mockRl = createMockReadline("");
+  const spy = spyOn(readline, "createInterface").mockReturnValue(
+    mockRl as unknown as readline.Interface,
+  );
+
+  const result = await promptInput("Enter value:", "default");
+
+  expect(result).toBe("default");
+  spy.mockRestore();
+});
+
+test("promptInput - returns default on error", async () => {
+  const mockRl = createRejectingMockReadline();
+  const spy = spyOn(readline, "createInterface").mockReturnValue(
+    mockRl as unknown as readline.Interface,
+  );
+
+  const result = await promptInput("Enter value:", "fallback");
+
+  expect(result).toBe("fallback");
+  spy.mockRestore();
 });

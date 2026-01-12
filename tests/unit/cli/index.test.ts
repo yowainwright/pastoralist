@@ -5,6 +5,22 @@ import { determineSecurityScanPaths } from "../../../src/cli/index";
 
 const log = createLogger({ file: "test.ts", isLogging: false });
 
+const createMockTerminalGraph = () => {
+  const graph = {
+    banner: mock(() => graph),
+    startPhase: mock(() => graph),
+    progress: mock(() => graph),
+    item: mock(() => graph),
+    vulnerability: mock(() => graph),
+    override: mock(() => graph),
+    endPhase: mock(() => graph),
+    summary: mock(() => graph),
+    complete: mock(() => graph),
+    stop: mock(() => graph),
+  };
+  return graph;
+};
+
 test("handleTestMode - returns true when isTestingCLI is true", () => {
   const { handleTestMode } = require("../../../src/cli/index");
 
@@ -171,7 +187,7 @@ test("buildMergedOptions - defaults to osv provider when not specified", () => {
   expect(result.securityProvider).toBe("osv");
 });
 
-test("handleSecurityResults - formats report when alerts found", () => {
+test("handleSecurityResults - generates overrides when alerts found", () => {
   const { handleSecurityResults } = require("../../../src/cli/index");
 
   const alerts = [
@@ -194,13 +210,12 @@ test("handleSecurityResults - formats report when alerts found", () => {
   ];
 
   const mockSecurityChecker = {
-    formatSecurityReport: mock((alerts, overrides) => "Security Report"),
-    generatePackageOverrides: mock((overrides) => ({ lodash: "4.17.21" })),
+    generatePackageOverrides: mock(() => ({ lodash: "4.17.21" })),
     applyAutoFix: mock(() => {}),
   };
 
   const mockSpinner = {
-    info: mock(),
+    stop: mock(),
   };
 
   const mergedOptions: Options = {
@@ -219,8 +234,6 @@ test("handleSecurityResults - formats report when alerts found", () => {
     updates,
   );
 
-  expect(mockSecurityChecker.formatSecurityReport).toHaveBeenCalled();
-  expect(mockSpinner.info).toHaveBeenCalledWith("Security Report");
   expect(mockSecurityChecker.generatePackageOverrides).toHaveBeenCalled();
   expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
   expect(mergedOptions.securityOverrides).toEqual({ lodash: "4.17.21" });
@@ -255,6 +268,7 @@ test("handleSecurityResults - generates overrides in interactive mode", () => {
   };
 
   const mockSpinner = {
+    stop: mock(),
     info: mock(),
   };
 
@@ -284,21 +298,19 @@ test("handleSecurityResults - generates overrides in interactive mode", () => {
   expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
 });
 
-test("handleSecurityResults - shows success message when no alerts", () => {
+test("handleSecurityResults - stops spinner when no alerts", () => {
   const { handleSecurityResults } = require("../../../src/cli/index");
 
   const alerts: any[] = [];
   const securityOverrides: any[] = [];
 
   const mockSecurityChecker = {
-    formatSecurityReport: mock(() => ""),
     generatePackageOverrides: mock(() => ({})),
     applyAutoFix: mock(() => {}),
   };
 
   const mockSpinner = {
-    info: mock(),
-    succeed: mock(),
+    stop: mock(),
   };
 
   const mergedOptions: Options = {};
@@ -314,8 +326,7 @@ test("handleSecurityResults - shows success message when no alerts", () => {
     updates,
   );
 
-  expect(mockSpinner.succeed).toHaveBeenCalled();
-  expect(mockSecurityChecker.formatSecurityReport).not.toHaveBeenCalled();
+  expect(mockSpinner.stop).toHaveBeenCalled();
   expect(mockSecurityChecker.generatePackageOverrides).not.toHaveBeenCalled();
   expect(mockSecurityChecker.applyAutoFix).not.toHaveBeenCalled();
 });
@@ -329,13 +340,12 @@ test("handleSecurityResults - does not generate overrides without autofix or int
   ];
 
   const mockSecurityChecker = {
-    formatSecurityReport: mock(() => "Report"),
     generatePackageOverrides: mock(() => ({ test: "2.0.0" })),
     applyAutoFix: mock(() => {}),
   };
 
   const mockSpinner = {
-    info: mock(),
+    stop: mock(),
   };
 
   const mergedOptions: Options = {
@@ -354,7 +364,7 @@ test("handleSecurityResults - does not generate overrides without autofix or int
     updates,
   );
 
-  expect(mockSpinner.info).toHaveBeenCalled();
+  expect(mockSpinner.stop).toHaveBeenCalled();
   expect(mockSecurityChecker.generatePackageOverrides).not.toHaveBeenCalled();
   expect(mockSecurityChecker.applyAutoFix).not.toHaveBeenCalled();
   expect(mergedOptions.securityOverrides).toBeUndefined();
@@ -428,13 +438,12 @@ test("handleSecurityResults - applies updates when autoFix enabled", () => {
   ];
 
   const mockSecurityChecker = {
-    formatSecurityReport: mock(() => ""),
     generatePackageOverrides: mock(() => ({ vite: "6.4.1" })),
     applyAutoFix: mock(() => {}),
   };
 
   const mockSpinner = {
-    info: mock(),
+    stop: mock(),
   };
 
   const mergedOptions: Options = {
@@ -451,7 +460,7 @@ test("handleSecurityResults - applies updates when autoFix enabled", () => {
     updates,
   );
 
-  expect(mockSpinner.info).toHaveBeenCalled();
+  expect(mockSpinner.stop).toHaveBeenCalled();
   expect(mockSecurityChecker.generatePackageOverrides).toHaveBeenCalled();
   expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
   expect(mergedOptions.securityOverrides).toEqual({ vite: "6.4.1" });
@@ -497,6 +506,7 @@ test("handleSecurityResults - merges updates with new overrides", () => {
   };
 
   const mockSpinner = {
+    stop: mock(),
     info: mock(),
   };
 
@@ -748,7 +758,7 @@ test("buildSecurityOverrideDetail - handles all fields", () => {
   expect(result.url).toBe("https://github.com/advisories/GHSA-test");
 });
 
-test("handleSecurityResults - does not call formatSecurityReport when no alerts", () => {
+test("handleSecurityResults - does not generate overrides when no alerts and no autofix", () => {
   const { handleSecurityResults } = require("../../../src/cli/index");
 
   const alerts: any[] = [];
@@ -756,14 +766,12 @@ test("handleSecurityResults - does not call formatSecurityReport when no alerts"
   const updates: any[] = [];
 
   const mockSecurityChecker = {
-    formatSecurityReport: mock(() => ""),
     generatePackageOverrides: mock(() => ({})),
     applyAutoFix: mock(() => {}),
   };
 
   const mockSpinner = {
-    info: mock(),
-    succeed: mock(),
+    stop: mock(),
   };
 
   const mergedOptions: Options = {};
@@ -777,8 +785,8 @@ test("handleSecurityResults - does not call formatSecurityReport when no alerts"
     updates,
   );
 
-  expect(mockSecurityChecker.formatSecurityReport).not.toHaveBeenCalled();
-  expect(mockSpinner.succeed).toHaveBeenCalled();
+  expect(mockSecurityChecker.generatePackageOverrides).not.toHaveBeenCalled();
+  expect(mockSpinner.stop).toHaveBeenCalled();
 });
 
 test("handleSecurityResults - does not call applyAutoFix when no overrides to apply", () => {
@@ -813,6 +821,7 @@ test("handleSecurityResults - does not call applyAutoFix when no overrides to ap
   };
 
   const mockSpinner = {
+    stop: mock(),
     info: mock(),
   };
 
@@ -900,7 +909,7 @@ test("determineSecurityScanPaths - returns empty when security disabled with wor
   expect(result).toEqual([]);
 });
 
-test("handleSecurityResults - includes update report when updates exist", () => {
+test("handleSecurityResults - generates overrides when updates exist and autofix enabled", () => {
   const { handleSecurityResults } = require("../../../src/cli/index");
 
   const alerts: any[] = [];
@@ -915,13 +924,12 @@ test("handleSecurityResults - includes update report when updates exist", () => 
   ];
 
   const mockSecurityChecker = {
-    formatSecurityReport: mock(() => ""),
     generatePackageOverrides: mock(() => ({ lodash: "4.17.21" })),
     applyAutoFix: mock(() => {}),
   };
 
   const mockSpinner = {
-    info: mock(),
+    stop: mock(),
   };
 
   const mergedOptions: Options = {
@@ -938,12 +946,10 @@ test("handleSecurityResults - includes update report when updates exist", () => 
     updates,
   );
 
-  expect(mockSpinner.info).toHaveBeenCalled();
-  const infoCall = mockSpinner.info.mock.calls[0][0];
-  expect(infoCall).toContain("Security Override Updates");
-  expect(infoCall).toContain("lodash");
-  expect(infoCall).toContain("4.17.20");
-  expect(infoCall).toContain("4.17.21");
+  expect(mockSecurityChecker.generatePackageOverrides).toHaveBeenCalled();
+  expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
+  expect(mergedOptions.securityOverrides).toEqual({ lodash: "4.17.21" });
+  expect(mockSpinner.stop).toHaveBeenCalled();
 });
 
 test("determineSecurityScanPaths - handles undefined pastoralist config", () => {
@@ -1006,7 +1012,6 @@ test("handleSecurityResults - both alerts and updates with interactive mode", ()
   ];
 
   const mockSecurityChecker = {
-    formatSecurityReport: mock(() => "Security Report"),
     generatePackageOverrides: mock(() => ({
       lodash: "4.17.21",
       vite: "6.4.1",
@@ -1015,7 +1020,7 @@ test("handleSecurityResults - both alerts and updates with interactive mode", ()
   };
 
   const mockSpinner = {
-    info: mock(),
+    stop: mock(),
   };
 
   const mergedOptions: Options = {
@@ -1032,8 +1037,6 @@ test("handleSecurityResults - both alerts and updates with interactive mode", ()
     updates,
   );
 
-  expect(mockSpinner.info).toHaveBeenCalledTimes(2);
-  expect(mockSecurityChecker.formatSecurityReport).toHaveBeenCalled();
   expect(mockSecurityChecker.generatePackageOverrides).toHaveBeenCalled();
   expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
   expect(mergedOptions.securityOverrides).toEqual({
@@ -1041,6 +1044,7 @@ test("handleSecurityResults - both alerts and updates with interactive mode", ()
     vite: "6.4.1",
   });
   expect(mergedOptions.securityOverrideDetails).toBeDefined();
+  expect(mockSpinner.stop).toHaveBeenCalled();
 });
 
 test("handleSecurityResults - filters overrides to match final versions", () => {
@@ -1080,6 +1084,7 @@ test("handleSecurityResults - filters overrides to match final versions", () => 
   };
 
   const mockSpinner = {
+    stop: mock(),
     info: mock(),
   };
 
@@ -1147,7 +1152,7 @@ test("determineSecurityScanPaths - multiple workspace patterns", () => {
     "libs/*/package.json",
   ]);
 });
-import { test, expect, mock } from "bun:test";
+
 test("runSecurityCheck - creates spinner and security checker", async () => {
   const { runSecurityCheck } = require("../../../src/cli/index");
 
@@ -1166,6 +1171,7 @@ test("runSecurityCheck - creates spinner and security checker", async () => {
   };
 
   const mockSpinner = {
+    stop: mock(),
     start: mock(() => mockSpinner),
     succeed: mock(),
     info: mock(),
@@ -1177,6 +1183,7 @@ test("runSecurityCheck - creates spinner and security checker", async () => {
         alerts: [],
         overrides: [],
         updates: [],
+        packagesScanned: 0,
       }),
     ),
   };
@@ -1235,7 +1242,9 @@ test("runSecurityCheck - passes correct options to SecurityChecker", async () =>
   };
 
   const mockSpinner = {
+    stop: mock(),
     start: mock(() => mockSpinner),
+    fail: mock(),
   };
 
   const mockSecurityChecker = {
@@ -1244,6 +1253,7 @@ test("runSecurityCheck - passes correct options to SecurityChecker", async () =>
         alerts: [{ packageName: "lodash", severity: "high" }],
         overrides: [],
         updates: [],
+        packagesScanned: 1,
       }),
     ),
   };
@@ -1286,10 +1296,15 @@ test("runSecurityCheck - uses determineSecurityScanPaths for depPaths", async ()
     root: "./",
   };
 
-  const mockSpinner = { start: mock(() => mockSpinner) };
+  const mockSpinner = { start: mock(() => mockSpinner), fail: mock() };
   const mockSecurityChecker = {
     checkSecurity: mock(() =>
-      Promise.resolve({ alerts: [], overrides: [], updates: [] }),
+      Promise.resolve({
+        alerts: [],
+        overrides: [],
+        updates: [],
+        packagesScanned: 0,
+      }),
     ),
   };
 
@@ -1312,11 +1327,14 @@ test("runSecurityCheck - uses determineSecurityScanPaths for depPaths", async ()
     mergedOptions,
     log,
   );
-  expect(mockSecurityChecker.checkSecurity).toHaveBeenCalledWith(config, {
-    ...mergedOptions,
-    depPaths: ["packages/*/package.json", "apps/*/package.json"],
-    root: "./",
-  });
+  expect(mockSecurityChecker.checkSecurity).toHaveBeenCalledWith(
+    config,
+    expect.objectContaining({
+      ...mergedOptions,
+      depPaths: ["packages/*/package.json", "apps/*/package.json"],
+      root: "./",
+    }),
+  );
 });
 
 test("action - handles test mode early return", async () => {
@@ -1333,9 +1351,14 @@ test("action - handles test mode early return", async () => {
     buildMergedOptions: mock(() => ({})),
     runSecurityCheck: mock(() => Promise.resolve({})),
     handleSecurityResults: mock(() => {}),
-    createSpinner: mock(() => ({ start: mock(), succeed: mock() })),
+    createSpinner: mock(() => ({
+      start: mock(),
+      succeed: mock(),
+      stop: mock(),
+    })),
     green: mock((text: string) => text),
     update: mock(() => Promise.resolve()),
+    createTerminalGraph: mock(() => createMockTerminalGraph()),
     processExit: mock(() => {}),
   };
 
@@ -1359,9 +1382,14 @@ test("action - handles init mode early return", async () => {
     buildMergedOptions: mock(() => ({})),
     runSecurityCheck: mock(() => Promise.resolve({})),
     handleSecurityResults: mock(() => {}),
-    createSpinner: mock(() => ({ start: mock(), succeed: mock() })),
+    createSpinner: mock(() => ({
+      start: mock(),
+      succeed: mock(),
+      stop: mock(),
+    })),
     green: mock((text: string) => text),
     update: mock(() => Promise.resolve()),
+    createTerminalGraph: mock(() => createMockTerminalGraph()),
     processExit: mock(() => {}),
   };
 
@@ -1380,10 +1408,7 @@ test("action - resolves package.json and runs update", async () => {
     pastoralist: {},
   };
 
-  const mockSpinner = {
-    start: mock(() => mockSpinner),
-    succeed: mock(),
-  };
+  const mockGraph = createMockTerminalGraph();
 
   const deps = {
     createLogger: mock(() => log),
@@ -1395,9 +1420,14 @@ test("action - resolves package.json and runs update", async () => {
     ),
     runSecurityCheck: mock(() => Promise.resolve({})),
     handleSecurityResults: mock(() => {}),
-    createSpinner: mock(() => mockSpinner),
+    createSpinner: mock(() => ({
+      start: mock(),
+      succeed: mock(),
+      stop: mock(),
+    })),
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
+    createTerminalGraph: mock(() => mockGraph),
     processExit: mock(() => {}),
   };
 
@@ -1405,7 +1435,7 @@ test("action - resolves package.json and runs update", async () => {
 
   expect(deps.resolveJSON).toHaveBeenCalledWith("package.json");
   expect(deps.update).toHaveBeenCalled();
-  expect(mockSpinner.succeed).toHaveBeenCalled();
+  expect(mockGraph.endPhase).toHaveBeenCalled();
 });
 
 test("action - runs security check when enabled", async () => {
@@ -1423,16 +1453,19 @@ test("action - runs security check when enabled", async () => {
   };
 
   const mockSecurityResults = {
-    spinner: { info: mock(), succeed: mock() },
+    spinner: { info: mock(), succeed: mock(), stop: mock() },
     securityChecker: {},
     alerts: [{ packageName: "lodash", severity: "high" }],
     securityOverrides: [],
     updates: [],
+    packagesScanned: 100,
   };
 
   const mockSpinner = {
+    stop: mock(),
     start: mock(() => mockSpinner),
     succeed: mock(),
+    stop: mock(),
   };
 
   const deps = {
@@ -1446,6 +1479,7 @@ test("action - runs security check when enabled", async () => {
     createSpinner: mock(() => mockSpinner),
     green: mock((text: string) => text),
     update: mock(() => Promise.resolve()),
+    createTerminalGraph: mock(() => createMockTerminalGraph()),
     processExit: mock(() => {}),
   };
 
@@ -1459,6 +1493,7 @@ test("action - runs security check when enabled", async () => {
     mockSecurityResults.spinner,
     expect.anything(),
     mockSecurityResults.updates,
+    mockSecurityResults.packagesScanned,
   );
 });
 
@@ -1471,8 +1506,10 @@ test("action - handles path with root option", async () => {
   };
 
   const mockSpinner = {
+    stop: mock(),
     start: mock(() => mockSpinner),
     succeed: mock(),
+    stop: mock(),
   };
 
   const deps = {
@@ -1488,6 +1525,7 @@ test("action - handles path with root option", async () => {
     createSpinner: mock(() => mockSpinner),
     green: mock((text: string) => text),
     update: mock(() => Promise.resolve()),
+    createTerminalGraph: mock(() => createMockTerminalGraph()),
     processExit: mock(() => {}),
   };
 
@@ -1505,8 +1543,10 @@ test("action - handles absolute path without root", async () => {
   };
 
   const mockSpinner = {
+    stop: mock(),
     start: mock(() => mockSpinner),
     succeed: mock(),
+    stop: mock(),
   };
 
   const deps = {
@@ -1522,6 +1562,7 @@ test("action - handles absolute path without root", async () => {
     createSpinner: mock(() => mockSpinner),
     green: mock((text: string) => text),
     update: mock(() => Promise.resolve()),
+    createTerminalGraph: mock(() => createMockTerminalGraph()),
     processExit: mock(() => {}),
   };
 
@@ -1544,9 +1585,14 @@ test("action - calls processExit on error", async () => {
     buildMergedOptions: mock(() => ({})),
     runSecurityCheck: mock(() => Promise.resolve({})),
     handleSecurityResults: mock(() => {}),
-    createSpinner: mock(() => ({ start: mock(), succeed: mock() })),
+    createSpinner: mock(() => ({
+      start: mock(),
+      succeed: mock(),
+      stop: mock(),
+    })),
     green: mock((text: string) => text),
     update: mock(() => Promise.resolve()),
+    createTerminalGraph: mock(() => createMockTerminalGraph()),
     processExit: mockProcessExit,
   };
 
@@ -1569,8 +1615,10 @@ test("action - handles array security provider", async () => {
   };
 
   const mockSpinner = {
+    stop: mock(),
     start: mock(() => mockSpinner),
     succeed: mock(),
+    stop: mock(),
   };
 
   const mockBuildMergedOptions = mock(
@@ -1591,6 +1639,7 @@ test("action - handles array security provider", async () => {
     createSpinner: mock(() => mockSpinner),
     green: mock((text: string) => text),
     update: mock(() => Promise.resolve()),
+    createTerminalGraph: mock(() => createMockTerminalGraph()),
     processExit: mock(() => {}),
   };
 
@@ -1875,6 +1924,7 @@ test("runSecurityCheck - handles error and calls spinner.fail", async () => {
   };
 
   const mockSpinner = {
+    stop: mock(),
     start: mock(() => mockSpinner),
     fail: mock(),
   };
@@ -1916,6 +1966,7 @@ test("runSecurityCheck - handles non-Error throws and calls spinner.fail", async
   };
 
   const mockSpinner = {
+    stop: mock(),
     start: mock(() => mockSpinner),
     fail: mock(),
   };
@@ -1956,6 +2007,7 @@ test("runSecurityCheck - handles SecurityProviderPermissionError gracefully", as
   };
 
   const mockSpinner = {
+    stop: mock(),
     start: mock(() => mockSpinner),
     warn: mock(),
   };
@@ -2007,6 +2059,7 @@ test("runSecurityCheck - permission error does not throw", async () => {
   };
 
   const mockSpinner = {
+    stop: mock(),
     start: mock(() => mockSpinner),
     warn: mock(),
     fail: mock(),
@@ -2052,6 +2105,7 @@ test("runSecurityCheck - permission error warning contains error message", async
   };
 
   const mockSpinner = {
+    stop: mock(),
     start: mock(() => mockSpinner),
     warn: mock(),
   };
@@ -2099,6 +2153,7 @@ test("runSecurityCheck - permission error creates new SecurityChecker for return
   };
 
   const mockSpinner = {
+    stop: mock(),
     start: mock(() => mockSpinner),
     warn: mock(),
   };
@@ -2142,6 +2197,7 @@ test("runSecurityCheck - regular errors still throw after spinner.fail", async (
   };
 
   const mockSpinner = {
+    stop: mock(),
     start: mock(() => mockSpinner),
     fail: mock(),
     warn: mock(),
@@ -2194,11 +2250,13 @@ test("action - continues successfully when security check hits permission error"
     warn: mock(),
     info: mock(),
     succeed: mock(),
+    stop: mock(),
   };
 
   const mockUpdateSpinner = {
     start: mock(() => mockUpdateSpinner),
     succeed: mock(),
+    stop: mock(),
   };
 
   let spinnerCount = 0;
@@ -2231,6 +2289,7 @@ test("action - continues successfully when security check hits permission error"
     createSpinner: mockCreateSpinner,
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
+    createTerminalGraph: mock(() => createMockTerminalGraph()),
     processExit: mock(() => {}),
   };
 
@@ -2256,9 +2315,11 @@ test("action - does not call handleSecurityResults when security check is skippe
   };
 
   const mockSpinner = {
+    stop: mock(),
     start: mock(() => mockSpinner),
     warn: mock(),
     succeed: mock(),
+    stop: mock(),
   };
 
   const deps = {
@@ -2281,10 +2342,392 @@ test("action - does not call handleSecurityResults when security check is skippe
     createSpinner: mock(() => mockSpinner),
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
+    createTerminalGraph: mock(() => createMockTerminalGraph()),
     processExit: mock(() => {}),
   };
 
   await action({}, deps);
 
   expect(deps.handleSecurityResults).not.toHaveBeenCalled();
+});
+
+test("displaySummaryTable - renders table with metrics", () => {
+  const { displaySummaryTable } = require("../../../src/cli/index");
+
+  const originalLog = console.log;
+  const logged: string[] = [];
+  console.log = (msg: string) => logged.push(msg);
+
+  const result = {
+    success: true,
+    metrics: {
+      packagesScanned: 10,
+      vulnerabilitiesFound: 3,
+      vulnerabilitiesBlocked: 2,
+      overridesAdded: 2,
+      overridesRemoved: 1,
+      severityCritical: 0,
+      severityHigh: 1,
+      severityMedium: 1,
+      severityLow: 1,
+      writeSuccess: true,
+    },
+  };
+
+  displaySummaryTable(result);
+
+  console.log = originalLog;
+
+  const output = logged.join("\n");
+  expect(output).toContain("Pastoralist Summary");
+});
+
+test("displaySummaryTable - skips when no metrics", () => {
+  const { displaySummaryTable } = require("../../../src/cli/index");
+
+  const originalLog = console.log;
+  const logged: string[] = [];
+  console.log = (msg: string) => logged.push(msg);
+
+  const result = { success: true };
+
+  displaySummaryTable(result);
+
+  console.log = originalLog;
+
+  expect(logged.length).toBe(0);
+});
+
+test("displayOverrides - renders override info from context", () => {
+  const { displayOverrides } = require("../../../src/cli/index");
+  const { createTerminalGraph } = require("../../../src/dx/terminal-graph");
+  const { createOutput } = require("../../../src/dx/output");
+
+  const output = createOutput();
+  const graph = createTerminalGraph(output);
+
+  const ctx = {
+    finalOverrides: { lodash: "4.17.21" },
+    finalAppendix: {
+      "lodash@4.17.21": {
+        dependents: { "test-pkg": "lodash@^4.17.0" },
+        ledger: {
+          securityChecked: true,
+          cve: "CVE-2021-23337",
+          reason: "Security fix",
+        },
+      },
+    },
+  };
+
+  displayOverrides(graph, ctx);
+});
+
+test("runSecurityCheck - calls onProgress callback during check", async () => {
+  const { runSecurityCheck } = require("../../../src/cli/index");
+
+  const config = { name: "test", version: "1.0.0" };
+  const mergedOptions = { checkSecurity: true, securityProvider: "osv" };
+
+  const mockSpinner = {
+    start: mock(() => mockSpinner),
+    update: mock(),
+    fail: mock(),
+  };
+
+  let capturedOnProgress: ((p: { message: string }) => void) | null = null;
+
+  const mockSecurityChecker = {
+    checkSecurity: mock((_cfg: any, opts: any) => {
+      capturedOnProgress = opts.onProgress;
+      if (capturedOnProgress) {
+        capturedOnProgress({ message: "Checking lodash (1/5)" });
+      }
+      return Promise.resolve({
+        alerts: [],
+        overrides: [],
+        updates: [],
+        packagesScanned: 5,
+      });
+    }),
+  };
+
+  const deps = {
+    createSpinner: mock(() => mockSpinner),
+    SecurityChecker: mock(() => mockSecurityChecker),
+    determineSecurityScanPaths: mock(() => []),
+    green: mock((t: string) => t),
+  };
+
+  await runSecurityCheck(config, mergedOptions, false, log, deps);
+
+  expect(mockSpinner.update).toHaveBeenCalledWith("Checking lodash (1/5)");
+});
+
+test("action - displays security fixes when forceSecurityRefactor is true", async () => {
+  const { action } = require("../../../src/cli/index");
+
+  const mockConfig = {
+    name: "test",
+    version: "1.0.0",
+    pastoralist: { security: { enabled: true } },
+  };
+
+  const mockGraph = {
+    banner: mock(() => mockGraph),
+    startPhase: mock(() => mockGraph),
+    progress: mock(() => mockGraph),
+    item: mock(() => mockGraph),
+    vulnerability: mock(() => mockGraph),
+    override: mock(() => mockGraph),
+    endPhase: mock(() => mockGraph),
+    summary: mock(() => mockGraph),
+    complete: mock(() => mockGraph),
+    stop: mock(() => mockGraph),
+    notice: mock(() => mockGraph),
+    securityFix: mock(() => mockGraph),
+    removedOverride: mock(() => mockGraph),
+  };
+
+  const securityOverrides = [
+    {
+      packageName: "lodash",
+      fromVersion: "4.17.20",
+      toVersion: "4.17.21",
+      reason: "Security fix",
+      cve: "CVE-2021-23337",
+      severity: "high",
+    },
+  ];
+
+  const mockSpinner = {
+    start: mock(() => mockSpinner),
+    stop: mock(),
+    update: mock(),
+  };
+
+  const deps = {
+    createLogger: mock(() => log),
+    handleTestMode: mock(() => false),
+    handleInitMode: mock(() => Promise.resolve(false)),
+    resolveJSON: mock(() => Promise.resolve(mockConfig)),
+    buildMergedOptions: mock(() => ({
+      checkSecurity: true,
+      forceSecurityRefactor: true,
+    })),
+    runSecurityCheck: mock(() =>
+      Promise.resolve({
+        spinner: mockSpinner,
+        securityChecker: {
+          generatePackageOverrides: mock(() => ({})),
+          applyAutoFix: mock(),
+        },
+        alerts: [{ packageName: "lodash", severity: "high" }],
+        securityOverrides,
+        updates: [],
+        packagesScanned: 10,
+      }),
+    ),
+    handleSecurityResults: mock(() => {}),
+    createSpinner: mock(() => mockSpinner),
+    green: mock((t: string) => t),
+    update: mock(() => ({
+      finalOverrides: { lodash: "4.17.21" },
+      finalAppendix: {},
+      metrics: {},
+    })),
+    createTerminalGraph: mock(() => mockGraph),
+    processExit: mock(),
+  };
+
+  await action({}, deps);
+
+  expect(mockGraph.startPhase).toHaveBeenCalledWith(
+    "resolving",
+    "Fixes applied",
+  );
+  expect(mockGraph.securityFix).toHaveBeenCalled();
+  expect(mockGraph.endPhase).toHaveBeenCalledWith("1 override added");
+});
+
+test("action - displays removed overrides when present", async () => {
+  const { action } = require("../../../src/cli/index");
+
+  const mockConfig = { name: "test", version: "1.0.0" };
+
+  const mockGraph = {
+    banner: mock(() => mockGraph),
+    startPhase: mock(() => mockGraph),
+    progress: mock(() => mockGraph),
+    item: mock(() => mockGraph),
+    vulnerability: mock(() => mockGraph),
+    override: mock(() => mockGraph),
+    endPhase: mock(() => mockGraph),
+    summary: mock(() => mockGraph),
+    complete: mock(() => mockGraph),
+    stop: mock(() => mockGraph),
+    notice: mock(() => mockGraph),
+    securityFix: mock(() => mockGraph),
+    removedOverride: mock(() => mockGraph),
+  };
+
+  const mockSpinner = {
+    start: mock(() => mockSpinner),
+    stop: mock(),
+  };
+
+  const deps = {
+    createLogger: mock(() => log),
+    handleTestMode: mock(() => false),
+    handleInitMode: mock(() => Promise.resolve(false)),
+    resolveJSON: mock(() => Promise.resolve(mockConfig)),
+    buildMergedOptions: mock(() => ({ checkSecurity: false })),
+    runSecurityCheck: mock(() => Promise.resolve({})),
+    handleSecurityResults: mock(),
+    createSpinner: mock(() => mockSpinner),
+    green: mock((t: string) => t),
+    update: mock(() => ({
+      finalOverrides: {},
+      finalAppendix: {},
+      metrics: {
+        removedOverridePackages: [
+          { packageName: "old-pkg", version: "1.0.0" },
+          { packageName: "stale-pkg", version: "2.0.0" },
+        ],
+      },
+    })),
+    createTerminalGraph: mock(() => mockGraph),
+    processExit: mock(),
+  };
+
+  await action({}, deps);
+
+  expect(mockGraph.startPhase).toHaveBeenCalledWith(
+    "writing",
+    "Cleaned up stale overrides",
+  );
+  expect(mockGraph.removedOverride).toHaveBeenCalledTimes(2);
+  expect(mockGraph.endPhase).toHaveBeenCalledWith("2 stale overrides removed");
+});
+
+test("action - displays summary table when summary option is true", async () => {
+  const { action } = require("../../../src/cli/index");
+
+  const mockConfig = { name: "test", version: "1.0.0" };
+
+  const mockGraph = {
+    banner: mock(() => mockGraph),
+    startPhase: mock(() => mockGraph),
+    progress: mock(() => mockGraph),
+    item: mock(() => mockGraph),
+    vulnerability: mock(() => mockGraph),
+    override: mock(() => mockGraph),
+    endPhase: mock(() => mockGraph),
+    summary: mock(() => mockGraph),
+    complete: mock(() => mockGraph),
+    stop: mock(() => mockGraph),
+    notice: mock(() => mockGraph),
+    securityFix: mock(() => mockGraph),
+    removedOverride: mock(() => mockGraph),
+  };
+
+  const mockSpinner = { start: mock(() => mockSpinner), stop: mock() };
+
+  const originalLog = console.log;
+  const logged: string[] = [];
+  console.log = (msg: string) => logged.push(msg);
+
+  const deps = {
+    createLogger: mock(() => log),
+    handleTestMode: mock(() => false),
+    handleInitMode: mock(() => Promise.resolve(false)),
+    resolveJSON: mock(() => Promise.resolve(mockConfig)),
+    buildMergedOptions: mock(() => ({ checkSecurity: false, summary: true })),
+    runSecurityCheck: mock(() => Promise.resolve({})),
+    handleSecurityResults: mock(),
+    createSpinner: mock(() => mockSpinner),
+    green: mock((t: string) => t),
+    update: mock(() => ({
+      finalOverrides: {},
+      finalAppendix: {},
+      metrics: { packagesScanned: 5 },
+    })),
+    createTerminalGraph: mock(() => mockGraph),
+    processExit: mock(),
+  };
+
+  await action({ summary: true }, deps);
+
+  console.log = originalLog;
+
+  const output = logged.join("\n");
+  expect(output).toContain("Pastoralist Summary");
+});
+
+test("action - outputs JSON on error when outputFormat is json", async () => {
+  const { action } = require("../../../src/cli/index");
+
+  const mockGraph = {
+    banner: mock(() => mockGraph),
+    startPhase: mock(() => mockGraph),
+    stop: mock(() => mockGraph),
+  };
+
+  const originalLog = console.log;
+  const logged: string[] = [];
+  console.log = (msg: string) => logged.push(msg);
+
+  const deps = {
+    createLogger: mock(() => log),
+    handleTestMode: mock(() => false),
+    handleInitMode: mock(() => Promise.resolve(false)),
+    resolveJSON: mock(() => Promise.reject(new Error("File not found"))),
+    buildMergedOptions: mock(() => ({ outputFormat: "json" })),
+    runSecurityCheck: mock(() => Promise.resolve({})),
+    handleSecurityResults: mock(),
+    createSpinner: mock(() => ({ start: mock(), stop: mock() })),
+    green: mock((t: string) => t),
+    update: mock(() => ({})),
+    createTerminalGraph: mock(() => mockGraph),
+    processExit: mock(),
+  };
+
+  await action({ outputFormat: "json" }, deps);
+
+  console.log = originalLog;
+
+  const output = logged.join("\n");
+  expect(output).toContain('"success":false');
+  expect(output).toContain("File not found");
+  expect(deps.processExit).toHaveBeenCalledWith(1);
+});
+
+test("run - shows help and returns early when help flag is passed", async () => {
+  const { run } = require("../../../src/cli/index");
+
+  const originalLog = console.log;
+  const logged: string[] = [];
+  console.log = (msg: string) => logged.push(msg);
+
+  await run(["node", "pastoralist", "--help"]);
+
+  console.log = originalLog;
+
+  const output = logged.join("\n");
+  expect(output).toContain("pastoralist");
+});
+
+test("run - shows help with -h flag", async () => {
+  const { run } = require("../../../src/cli/index");
+
+  const originalLog = console.log;
+  const logged: string[] = [];
+  console.log = (msg: string) => logged.push(msg);
+
+  await run(["node", "pastoralist", "-h"]);
+
+  console.log = originalLog;
+
+  const output = logged.join("\n");
+  expect(output).toContain("pastoralist");
 });

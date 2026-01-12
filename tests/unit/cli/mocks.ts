@@ -14,6 +14,25 @@ export const createMockSpinner = () => {
   return spinner;
 };
 
+export const createMockTerminalGraph = () => {
+  const graph = {
+    banner: mock(() => graph),
+    startPhase: mock(() => graph),
+    progress: mock(() => graph),
+    item: mock(() => graph),
+    vulnerability: mock(() => graph),
+    override: mock(() => graph),
+    securityFix: mock(() => graph),
+    removedOverride: mock(() => graph),
+    endPhase: mock(() => graph),
+    summary: mock(() => graph),
+    complete: mock(() => graph),
+    notice: mock(() => graph),
+    stop: mock(() => graph),
+  };
+  return graph;
+};
+
 export const createMockConfig = (
   overrides: Partial<PastoralistJSON> = {},
 ): PastoralistJSON => ({
@@ -74,6 +93,7 @@ export const createActionDeps = (options: ActionDepsOptions = {}) => {
     createSpinner: mock(() => spinner),
     green: mock((text: string) => text),
     update: mock(() => updateContext),
+    createTerminalGraph: mock(() => createMockTerminalGraph()),
     processExit: mock(() => {}),
   };
 };

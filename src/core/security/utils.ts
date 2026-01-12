@@ -6,6 +6,11 @@ import { promisify } from "util";
 import { logger } from "../../utils";
 import { red, yellow, cyan, gray } from "../../utils/colors";
 import * as readline from "readline/promises";
+import {
+  DEFAULT_CLI_TIMEOUT,
+  DEFAULT_INSTALL_TIMEOUT,
+  DEFAULT_PROMPT_TIMEOUT,
+} from "./constants";
 
 const execFileAsync = promisify(execFile);
 
@@ -128,8 +133,9 @@ export class CLIInstaller {
   }
 
   async isInstalled(command: string): Promise<boolean> {
+    const execOptions = { timeout: DEFAULT_CLI_TIMEOUT };
     try {
-      await execFileAsync("which", [command]);
+      await execFileAsync("which", [command], execOptions);
       return true;
     } catch {
       return false;
@@ -137,13 +143,10 @@ export class CLIInstaller {
   }
 
   async isInstalledGlobally(packageName: string): Promise<boolean> {
+    const execOptions = { timeout: DEFAULT_CLI_TIMEOUT };
+    const args = ["list", "-g", packageName, "--depth=0"];
     try {
-      const { stdout } = await execFileAsync("npm", [
-        "list",
-        "-g",
-        packageName,
-        "--depth=0",
-      ]);
+      const { stdout } = await execFileAsync("npm", args, execOptions);
       return stdout.includes(packageName);
     } catch {
       return false;
@@ -152,11 +155,10 @@ export class CLIInstaller {
 
   async installGlobally(packageName: string): Promise<void> {
     this.log.info(`Installing ${packageName} globally...`, "installGlobally");
+    const execOptions = { timeout: DEFAULT_INSTALL_TIMEOUT };
 
     try {
-      await execFileAsync("npm", ["install", "-g", packageName], {
-        timeout: 120000,
-      });
+      await execFileAsync("npm", ["install", "-g", packageName], execOptions);
       this.log.info(`Successfully installed ${packageName}`, "installGlobally");
     } catch (error) {
       this.log.error(`Failed to install ${packageName}`, "installGlobally", {
@@ -214,8 +216,13 @@ export class CLIInstaller {
   }
 
   async getVersion(command: string): Promise<string | undefined> {
+    const execOptions = { timeout: DEFAULT_CLI_TIMEOUT };
     try {
-      const { stdout } = await execFileAsync(command, ["--version"]);
+      const { stdout } = await execFileAsync(
+        command,
+        ["--version"],
+        execOptions,
+      );
       return stdout.trim();
     } catch {
       return undefined;
@@ -230,22 +237,56 @@ export const createPromptInterface = () => {
   });
 };
 
+const questionWithTimeout = async (
+  rl: readline.Interface,
+  prompt: string,
+  timeout: number,
+): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      rl.close();
+      reject(new Error("Prompt timed out"));
+    }, timeout);
+
+    rl.question(prompt)
+      .then((answer) => {
+        clearTimeout(timeoutId);
+        resolve(answer);
+      })
+      .catch((err) => {
+        clearTimeout(timeoutId);
+        reject(err);
+      });
+  });
+};
+
 export const promptConfirm = async (
   message: string,
   defaultValue = true,
 ): Promise<boolean> => {
   const rl = createPromptInterface();
   const defaultText = defaultValue ? "Y/n" : "y/N";
-  const answer = await rl.question(`${message} (${defaultText}): `);
-  rl.close();
+  const promptText = `${message} (${defaultText}): `;
 
-  const trimmedAnswer = answer.trim();
-  if (trimmedAnswer === "") {
+  try {
+    const answer = await questionWithTimeout(
+      rl,
+      promptText,
+      DEFAULT_PROMPT_TIMEOUT,
+    );
+    rl.close();
+
+    const trimmedAnswer = answer.trim();
+    if (trimmedAnswer === "") {
+      return defaultValue;
+    }
+
+    const isYes = trimmedAnswer.toLowerCase().startsWith("y");
+    return isYes;
+  } catch {
+    rl.close();
     return defaultValue;
   }
-
-  const isYes = trimmedAnswer.toLowerCase().startsWith("y");
-  return isYes;
 };
 
 export const promptSelect = async (
@@ -253,28 +294,42 @@ export const promptSelect = async (
   choices: Array<{ name: string; value: string }>,
 ): Promise<string> => {
   const rl = createPromptInterface();
+  const defaultChoice = choices[0]?.value || "";
 
   console.log(message);
   choices.forEach((choice, i) => {
     console.log(`  ${i + 1}) ${choice.name}`);
   });
 
+  const selectPrompt = `Select (1-${choices.length}): `;
   let selectedValue: string | null = null;
+  let attempts = 0;
+  const maxAttempts = 5;
 
-  while (selectedValue === null) {
-    const input = await rl.question(`Select (1-${choices.length}): `);
-    const num = parseInt(input.trim(), 10);
-    const isValidSelection = num >= 1 && num <= choices.length;
+  while (selectedValue === null && attempts < maxAttempts) {
+    attempts++;
+    try {
+      const input = await questionWithTimeout(
+        rl,
+        selectPrompt,
+        DEFAULT_PROMPT_TIMEOUT,
+      );
+      const num = parseInt(input.trim(), 10);
+      const isValidSelection = num >= 1 && num <= choices.length;
 
-    if (isValidSelection) {
-      selectedValue = choices[num - 1].value;
-    } else {
-      console.log("Invalid selection. Please try again.");
+      if (isValidSelection) {
+        selectedValue = choices[num - 1].value;
+      } else {
+        console.log("Invalid selection. Please try again.");
+      }
+    } catch {
+      rl.close();
+      return defaultChoice;
     }
   }
 
   rl.close();
-  return selectedValue;
+  return selectedValue || defaultChoice;
 };
 
 export const promptInput = async (
@@ -282,15 +337,26 @@ export const promptInput = async (
   defaultValue = "",
 ): Promise<string> => {
   const rl = createPromptInterface();
-  const promptText = defaultValue
+  const hasDefault = defaultValue !== "";
+  const promptText = hasDefault
     ? `${message} (${defaultValue}): `
     : `${message}: `;
-  const answer = await rl.question(promptText);
-  rl.close();
 
-  const trimmedAnswer = answer.trim();
-  const finalValue = trimmedAnswer || defaultValue;
-  return finalValue;
+  try {
+    const answer = await questionWithTimeout(
+      rl,
+      promptText,
+      DEFAULT_PROMPT_TIMEOUT,
+    );
+    rl.close();
+
+    const trimmedAnswer = answer.trim();
+    const finalValue = trimmedAnswer || defaultValue;
+    return finalValue;
+  } catch {
+    rl.close();
+    return defaultValue;
+  }
 };
 
 export interface InteractivePrompt {

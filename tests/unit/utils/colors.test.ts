@@ -1,5 +1,10 @@
 import { test, expect } from "bun:test";
-import { green } from "../../../src/utils/colors";
+import {
+  green,
+  gold,
+  copper,
+  gradientPastoralist,
+} from "../../../src/utils/colors";
 
 test("green - should wrap text with green ANSI codes", () => {
   const result = green("test");
@@ -25,4 +30,23 @@ test("green - should start with green code", () => {
 test("green - should end with reset code", () => {
   const result = green("test");
   expect(result).toEndWith("\x1b[0m");
+});
+
+test("gold - should wrap text with gold ANSI codes", () => {
+  const result = gold("test");
+  expect(result).toContain("test");
+  expect(result).toEndWith("\x1b[0m");
+});
+
+test("copper - should wrap text with orange ANSI codes", () => {
+  const result = copper("test");
+  expect(result).toContain("test");
+  expect(result).toEndWith("\x1b[0m");
+});
+
+test("gradientPastoralist - should return styled text", () => {
+  const result = gradientPastoralist();
+  expect(result).toContain("Past");
+  expect(result).toContain("oral");
+  expect(result).toContain("ist");
 });

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://codesandbox.io/schemas/tasks.json",
+  "setupTasks": [
+    {
+      "name": "Build Pastoralist",
+      "command": "cd ../../.. && bun install && bun run build-dist"
+    },
+    {
+      "name": "Install Demo",
+      "command": "bun install"
+    }
+  ],
+  "tasks": {
+    "run": {
+      "name": "Run Pastoralist",
+      "command": "bun run start",
+      "runAtStart": true
+    }
+  }
+}

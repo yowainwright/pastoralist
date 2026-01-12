@@ -1,0 +1,20 @@
+{
+  "name": "pastoralist-demo-security-scan",
+  "private": true,
+  "scripts": {
+    "start": "pastoralist --checkSecurity"
+  },
+  "dependencies": {
+    "minimist": "^1.2.5",
+    "trim": "^0.0.1",
+    "lodash": "^4.17.15"
+  },
+  "overrides": {
+    "minimist": "1.2.6",
+    "trim": "0.0.3",
+    "lodash": "4.17.21"
+  },
+  "devDependencies": {
+    "pastoralist": "file:../../.."
+  }
+}

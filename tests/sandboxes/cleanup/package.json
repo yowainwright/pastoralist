@@ -1,0 +1,18 @@
+{
+  "name": "pastoralist-demo-cleanup",
+  "private": true,
+  "scripts": {
+    "start": "pastoralist"
+  },
+  "dependencies": {
+    "express": "^4.18.0"
+  },
+  "overrides": {
+    "lodash": "4.17.20",
+    "minimist": "1.2.6",
+    "qs": "6.11.0"
+  },
+  "devDependencies": {
+    "pastoralist": "file:../../.."
+  }
+}

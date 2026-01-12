@@ -1,0 +1,17 @@
+{
+  "name": "pastoralist-demo-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/app",
+    "packages/lib"
+  ],
+  "scripts": {
+    "start": "pastoralist"
+  },
+  "overrides": {
+    "lodash": "4.17.21"
+  },
+  "devDependencies": {
+    "pastoralist": "file:../../.."
+  }
+}

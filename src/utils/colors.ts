@@ -1,19 +1,29 @@
-export const green = (text: string): string => {
-  return `\x1b[32m${text}\x1b[0m`;
-};
+import { ANSI } from "../constants";
 
-export const red = (text: string): string => {
-  return `\x1b[31m${text}\x1b[0m`;
-};
+export const green = (text: string): string =>
+  `${ANSI.FG_GREEN}${text}${ANSI.RESET}`;
 
-export const yellow = (text: string): string => {
-  return `\x1b[33m${text}\x1b[0m`;
-};
+export const red = (text: string): string =>
+  `${ANSI.FG_RED}${text}${ANSI.RESET}`;
 
-export const cyan = (text: string): string => {
-  return `\x1b[36m${text}\x1b[0m`;
-};
+export const yellow = (text: string): string =>
+  `${ANSI.FG_YELLOW}${text}${ANSI.RESET}`;
 
-export const gray = (text: string): string => {
-  return `\x1b[90m${text}\x1b[0m`;
+export const gold = (text: string): string =>
+  `${ANSI.FG_GOLD}${text}${ANSI.RESET}`;
+
+export const copper = (text: string): string =>
+  `${ANSI.FG_ORANGE}${text}${ANSI.RESET}`;
+
+export const cyan = (text: string): string =>
+  `${ANSI.FG_CYAN}${text}${ANSI.RESET}`;
+
+export const gray = (text: string): string =>
+  `${ANSI.FG_GRAY}${text}${ANSI.RESET}`;
+
+export const gradientPastoralist = (): string => {
+  const p = green("Past");
+  const o = gold("oral");
+  const ist = copper("ist");
+  return `${p}${o}${ist}`;
 };

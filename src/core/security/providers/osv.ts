@@ -63,7 +63,50 @@ export class OSVProvider {
     }
 
     const data = await response.json();
-    return data.results || [];
+    const batchResults = data.results || [];
+
+    const enrichedResults = await Promise.all(
+      batchResults.map(async (result: { vulns?: Array<{ id: string }> }) => {
+        const vulns = result?.vulns;
+        const hasVulns = vulns && vulns.length > 0;
+        if (!hasVulns) return result;
+
+        const fullVulns = await this.fetchFullVulnerabilityDetails(vulns);
+        return { vulns: fullVulns };
+      }),
+    );
+
+    return enrichedResults;
+  }
+
+  private async fetchFullVulnerabilityDetails(
+    partialVulns: Array<{ id: string }>,
+  ): Promise<OSVVulnerability[]> {
+    const fullVulns = await Promise.all(
+      partialVulns.map(async (vuln) => {
+        try {
+          const response = await fetch(
+            `https://api.osv.dev/v1/vulns/${vuln.id}`,
+          );
+          if (!response.ok) {
+            this.log.debug(
+              `Failed to fetch details for ${vuln.id}`,
+              "fetchFullVulnerabilityDetails",
+            );
+            return vuln as OSVVulnerability;
+          }
+          return await response.json();
+        } catch (error) {
+          this.log.debug(
+            `Error fetching ${vuln.id}`,
+            "fetchFullVulnerabilityDetails",
+            { error },
+          );
+          return vuln as OSVVulnerability;
+        }
+      }),
+    );
+    return fullVulns;
   }
 
   async fetchAlerts(

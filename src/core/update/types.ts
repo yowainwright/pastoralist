@@ -30,6 +30,27 @@ export interface LoadedConfig {
   packageJsonConfig: PastoralistConfig | undefined;
 }
 
+export interface RemovedOverride {
+  packageName: string;
+  version: string;
+}
+
+export interface UpdateMetrics {
+  packagesScanned: number;
+  workspacePackagesScanned: number;
+  appendixEntriesUpdated: number;
+  vulnerabilitiesBlocked: number;
+  overridesAdded: number;
+  overridesRemoved: number;
+  removedOverridePackages: RemovedOverride[];
+  severityCritical: number;
+  severityHigh: number;
+  severityMedium: number;
+  severityLow: number;
+  writeSuccess: boolean;
+  writeSkipped: boolean;
+}
+
 export interface UpdateContext {
   options: Options;
   path: string;
@@ -53,6 +74,10 @@ export interface UpdateContext {
   overridePaths?: Record<string, Appendix>;
   finalOverrides?: OverridesType;
   finalAppendix?: Appendix;
+  unusedPatchCount?: number;
+  writeSkipped?: boolean;
+  writeSuccess?: boolean;
+  metrics?: UpdateMetrics;
 }
 
 export interface WriteResultContext {

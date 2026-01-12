@@ -1251,3 +1251,71 @@ test("update - fixture: adds workspace-only override entry (line 157)", () => {
   expect(result.appendix?.["express@4.18.2"]).toBeDefined();
   expect(result.appendix?.["lodash@4.17.21"]).toBeDefined();
 });
+
+test("update - metrics include medium severity count", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+  };
+
+  const options: Options = {
+    config,
+    securityOverrides: { lodash: "4.17.21" },
+    securityOverrideDetails: [
+      { packageName: "lodash", reason: "medium vuln", severity: "medium" },
+    ],
+    isTesting: true,
+  };
+
+  const result = update(options);
+
+  expect(result.metrics).toBeDefined();
+  expect(result.metrics?.severityMedium).toBe(1);
+});
+
+test("update - metrics include low severity count", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { express: "^4.17.0" },
+  };
+
+  const options: Options = {
+    config,
+    securityOverrides: { express: "4.18.2" },
+    securityOverrideDetails: [
+      { packageName: "express", reason: "low vuln", severity: "low" },
+    ],
+    isTesting: true,
+  };
+
+  const result = update(options);
+
+  expect(result.metrics).toBeDefined();
+  expect(result.metrics?.severityLow).toBe(1);
+});
+
+test("update - metrics track removed override packages", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    overrides: { lodash: "4.17.21" },
+    pastoralist: {
+      appendix: {
+        "lodash@4.17.21": { dependents: { "test-app": "lodash@^4.17.20" } },
+        "express@4.18.2": { dependents: {} },
+      },
+    },
+  };
+
+  const options: Options = {
+    config,
+    isTesting: true,
+  };
+
+  const result = update(options);
+
+  expect(result.metrics).toBeDefined();
+});

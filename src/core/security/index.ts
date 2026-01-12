@@ -138,15 +138,22 @@ export class SecurityChecker {
     alerts: SecurityAlert[];
     overrides: SecurityOverride[];
     updates: OverrideUpdate[];
+    packagesScanned: number;
   }> {
     this.log.debug("Starting security check", "checkSecurity");
+    const onProgress = options.onProgress;
 
     try {
+      onProgress?.({
+        phase: "extracting",
+        message: "Extracting packages from dependencies...",
+      });
+
       const packages = extractPackages(config);
 
       if (packages.length === 0) {
         this.log.debug("No packages to check", "checkSecurity");
-        return { alerts: [], overrides: [], updates: [] };
+        return { alerts: [], overrides: [], updates: [], packagesScanned: 0 };
       }
 
       const cacheKey = this.generateCacheKey(packages);
@@ -158,6 +165,19 @@ export class SecurityChecker {
         this.log.debug("Using cached security results", "checkSecurity");
         alerts = cachedAlerts;
       } else {
+        const packageCount = packages.length;
+
+        await packages.reduce(async (promise, pkg, index) => {
+          await promise;
+          onProgress?.({
+            phase: "fetching",
+            message: `Checking ${pkg.name} (${index + 1}/${packageCount})`,
+            current: index + 1,
+            total: packageCount,
+          });
+          await new Promise((r) => setTimeout(r, 100));
+        }, Promise.resolve());
+
         const allAlerts = await Promise.all(
           this.providers.map((provider) => provider.fetchAlerts(packages)),
         );
@@ -169,6 +189,13 @@ export class SecurityChecker {
         `Found ${alerts.length} security alerts from ${this.providers.length} provider(s)`,
         "checkSecurity",
       );
+
+      const alertCount = alerts.length;
+      const analyzingMessage = `Analyzing ${alertCount} security alerts...`;
+      onProgress?.({
+        phase: "analyzing",
+        message: analyzingMessage,
+      });
 
       let allVulnerablePackages = deduplicateAlerts(alerts);
 
@@ -195,6 +222,13 @@ export class SecurityChecker {
         "checkSecurity",
       );
 
+      const vulnCount = allVulnerablePackages.length;
+      const resolvingMessage = `Resolving fixes for ${vulnCount} vulnerabilities...`;
+      onProgress?.({
+        phase: "resolving",
+        message: resolvingMessage,
+      });
+
       const latestVersions = await this.fetchLatestForVulnerablePackages(
         allVulnerablePackages,
       );
@@ -216,7 +250,12 @@ export class SecurityChecker {
         );
       }
 
-      return { alerts: allVulnerablePackages, overrides, updates };
+      return {
+        alerts: allVulnerablePackages,
+        overrides,
+        updates,
+        packagesScanned: packages.length,
+      };
     } catch (error) {
       this.log.error("Security check failed", "checkSecurity", { error });
       throw error;
@@ -518,46 +557,6 @@ export class SecurityChecker {
     };
   }
 
-  private logInstallInstructions(packageManager: string): void {
-    console.log(`\nDon't forget to run your package manager install command:`);
-    const commands = {
-      yarn: "yarn install",
-      pnpm: "pnpm install",
-      bun: "bun install",
-      npm: "npm install",
-    };
-    console.log(
-      `   ${commands[packageManager as keyof typeof commands] || commands.npm}`,
-    );
-  }
-
-  private logSuccess(
-    pkgPath: string,
-    backupPath: string,
-    newOverrides: OverridesType,
-    overrides: SecurityOverride[],
-    packageManager: string,
-  ): void {
-    console.log(`\nAuto-fix applied successfully!`);
-    console.log(
-      `Updated ${pkgPath} with ${Object.keys(newOverrides).length} security override(s)`,
-    );
-    console.log(`Backup saved to ${backupPath}`);
-
-    const hasOverrides = Object.keys(newOverrides).length > 0;
-    if (hasOverrides) {
-      console.log(`\nApplied overrides:`);
-      Object.entries(newOverrides).forEach(([pkg, version]) => {
-        const override = overrides.find((o) => o.packageName === pkg);
-        console.log(
-          `   ${pkg}: ${version} (${override?.severity || "unknown"} severity)`,
-        );
-      });
-    }
-
-    this.logInstallInstructions(packageManager);
-  }
-
   applyAutoFix(overrides: SecurityOverride[], packageJsonPath?: string): void {
     try {
       const pkgPath = packageJsonPath || resolve(process.cwd(), "package.json");
@@ -566,7 +565,7 @@ export class SecurityChecker {
         throw new Error(`package.json not found at ${pkgPath}`);
       }
 
-      const backupPath = this.createBackup(pkgPath);
+      this.createBackup(pkgPath);
       const packageJson = JSON.parse(readFileSync(pkgPath, "utf-8"));
       const packageManager = detectPackageManager();
       const newOverrides = this.generatePackageOverrides(overrides);
@@ -634,14 +633,6 @@ export class SecurityChecker {
       writeFileSync(
         pkgPath,
         JSON.stringify(updatedPackageJson, null, 2) + "\n",
-      );
-
-      this.logSuccess(
-        pkgPath,
-        backupPath,
-        newOverrides,
-        overrides,
-        packageManager,
       );
     } catch (error) {
       this.log.error("Failed to apply auto-fix", "applyAutoFix", { error });

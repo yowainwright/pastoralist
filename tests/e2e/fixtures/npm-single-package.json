@@ -6,5 +6,17 @@
   },
   "overrides": {
     "react": "18.2.0"
+  },
+  "pastoralist": {
+    "appendix": {
+      "react@18.2.0": {
+        "dependents": {
+          "npm-single-test": "react@^18.0.0"
+        },
+        "ledger": {
+          "addedDate": "2026-01-11T17:18:20.677Z"
+        }
+      }
+    }
   }
 }

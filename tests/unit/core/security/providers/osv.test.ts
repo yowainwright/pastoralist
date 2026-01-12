@@ -105,10 +105,18 @@ test("fetchAlerts - should convert OSV vulnerabilities to SecurityAlerts", async
     ],
   };
 
-  global.fetch = mock(() => {
+  global.fetch = mock((url: string) => {
+    const isBatchCall = url.includes("querybatch");
+    if (isBatchCall) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
+      } as Response);
+    }
     return Promise.resolve({
       ok: true,
-      json: () => Promise.resolve({ results: [{ vulns: [mockVuln] }] }),
+      json: () => Promise.resolve(mockVuln),
     } as Response);
   });
 
@@ -133,38 +141,38 @@ test("fetchAlerts - should handle multiple packages", async () => {
   const provider = new OSVProvider({ debug: false });
   const originalFetch = global.fetch;
 
-  global.fetch = mock(() => {
+  const mockVuln = {
+    id: "OSV-2021-1234",
+    summary: "Vuln in lodash",
+    details: "Details",
+    affected: [
+      {
+        package: { name: "lodash", ecosystem: "npm" },
+        ranges: [
+          {
+            type: "SEMVER",
+            events: [{ introduced: "0" }, { fixed: "4.17.21" }],
+          },
+        ],
+      },
+    ],
+    references: [{ type: "ADVISORY", url: "https://example.com" }],
+  };
+
+  global.fetch = mock((url: string) => {
+    const isBatchCall = url.includes("querybatch");
+    if (isBatchCall) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            results: [{ vulns: [{ id: "OSV-2021-1234" }] }, { vulns: [] }],
+          }),
+      } as Response);
+    }
     return Promise.resolve({
       ok: true,
-      json: () =>
-        Promise.resolve({
-          results: [
-            {
-              vulns: [
-                {
-                  id: "OSV-2021-1234",
-                  summary: "Vuln in lodash",
-                  details: "Details",
-                  affected: [
-                    {
-                      package: { name: "lodash", ecosystem: "npm" },
-                      ranges: [
-                        {
-                          type: "SEMVER",
-                          events: [{ introduced: "0" }, { fixed: "4.17.21" }],
-                        },
-                      ],
-                    },
-                  ],
-                  references: [
-                    { type: "ADVISORY", url: "https://example.com" },
-                  ],
-                },
-              ],
-            },
-            { vulns: [] },
-          ],
-        }),
+      json: () => Promise.resolve(mockVuln),
     } as Response);
   });
 
@@ -247,10 +255,18 @@ test("fetchAlerts - should extract severity correctly", async () => {
     },
   };
 
-  global.fetch = mock(() => {
+  global.fetch = mock((url: string) => {
+    const isBatchCall = url.includes("querybatch");
+    if (isBatchCall) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
+      } as Response);
+    }
     return Promise.resolve({
       ok: true,
-      json: () => Promise.resolve({ results: [{ vulns: [mockVuln] }] }),
+      json: () => Promise.resolve(mockVuln),
     } as Response);
   });
 
@@ -285,10 +301,18 @@ test("fetchAlerts - should default to medium severity when not specified", async
     references: [],
   };
 
-  global.fetch = mock(() => {
+  global.fetch = mock((url: string) => {
+    const isBatchCall = url.includes("querybatch");
+    if (isBatchCall) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
+      } as Response);
+    }
     return Promise.resolve({
       ok: true,
-      json: () => Promise.resolve({ results: [{ vulns: [mockVuln] }] }),
+      json: () => Promise.resolve(mockVuln),
     } as Response);
   });
 
@@ -324,10 +348,18 @@ test("fetchAlerts - should extract CVE from aliases", async () => {
     references: [],
   };
 
-  global.fetch = mock(() => {
+  global.fetch = mock((url: string) => {
+    const isBatchCall = url.includes("querybatch");
+    if (isBatchCall) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
+      } as Response);
+    }
     return Promise.resolve({
       ok: true,
-      json: () => Promise.resolve({ results: [{ vulns: [mockVuln] }] }),
+      json: () => Promise.resolve(mockVuln),
     } as Response);
   });
 
@@ -363,10 +395,18 @@ test("fetchAlerts - should return undefined for CVE when not in aliases", async 
     references: [],
   };
 
-  global.fetch = mock(() => {
+  global.fetch = mock((url: string) => {
+    const isBatchCall = url.includes("querybatch");
+    if (isBatchCall) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
+      } as Response);
+    }
     return Promise.resolve({
       ok: true,
-      json: () => Promise.resolve({ results: [{ vulns: [mockVuln] }] }),
+      json: () => Promise.resolve(mockVuln),
     } as Response);
   });
 
@@ -401,10 +441,18 @@ test("fetchAlerts - should use default URL when no references", async () => {
     references: [],
   };
 
-  global.fetch = mock(() => {
+  global.fetch = mock((url: string) => {
+    const isBatchCall = url.includes("querybatch");
+    if (isBatchCall) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
+      } as Response);
+    }
     return Promise.resolve({
       ok: true,
-      json: () => Promise.resolve({ results: [{ vulns: [mockVuln] }] }),
+      json: () => Promise.resolve(mockVuln),
     } as Response);
   });
 

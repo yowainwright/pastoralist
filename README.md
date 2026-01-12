@@ -86,6 +86,8 @@ flowchart LR
 
 You end up with ghost overrides haunting your package.json forever.
 
+[Try it →](https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/basic-overrides/README.md)
+
 ---
 
 ## The Solution
@@ -258,6 +260,8 @@ You must also enable Dependabot alerts in your repository: **Settings > Code sec
 
 If permissions are insufficient, Pastoralist will warn and continue (your workflow won't fail).
 
+[Try Security Scanning →](https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/security-scan/README.md)
+
 ### 3. Cleanup
 
 When dependencies are removed, Pastoralist removes their overrides.
@@ -273,6 +277,8 @@ flowchart TD
     style Done fill:#e8f5e9
 ```
 
+[Try Cleanup →](https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/cleanup/README.md)
+
 ### 4. Patch Tracking
 
 Works with `patch-package`. Links patches to overrides and warns about unused patches.
@@ -287,6 +293,8 @@ Works with `patch-package`. Links patches to overrides and warns about unused pa
   }
 }
 ```
+
+[Try Patches →](https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/patches/README.md)
 
 ---
 
@@ -346,6 +354,8 @@ If your `package.json` has a `workspaces` field, Pastoralist automatically scans
 ```
 
 Run `pastoralist` and it automatically scans all workspace packages. No configuration needed.
+
+[Try Monorepo →](https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/monorepo/README.md)
 
 #### Manual Configuration
 

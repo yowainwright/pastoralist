@@ -1,8 +1,14 @@
 {
-  "name": "pastoralist-demo-security-scan",
+  "name": "pastoralist-sandbox-security-scan",
   "private": true,
+  "type": "module",
+  "bin": {
+    "pastoralist": "./dist/index.js"
+  },
   "scripts": {
-    "start": "pastoralist --checkSecurity"
+    "clean": "bun run scripts/clean.ts",
+    "build": "bun run clean && bun build src/index.ts --outdir dist --target node",
+    "start": "bun run build && ./dist/index.js --checkSecurity"
   },
   "dependencies": {
     "minimist": "^1.2.5",
@@ -15,6 +21,7 @@
     "lodash": "4.17.21"
   },
   "devDependencies": {
-    "pastoralist": "file:../../.."
+    "@types/bun": "latest",
+    "typescript": "5.9.3"
   }
 }

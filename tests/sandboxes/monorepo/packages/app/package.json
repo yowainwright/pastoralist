@@ -1,5 +1,5 @@
 {
-  "name": "pastoralist-demo-monorepo-app",
+  "name": "pastoralist-sandbox-monorepo-app",
   "private": true,
   "dependencies": {
     "express": "^4.18.0",

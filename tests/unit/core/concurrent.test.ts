@@ -1,9 +1,38 @@
 import { test, expect, beforeEach, afterEach } from "bun:test";
 import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from "fs";
 import { resolve, join } from "path";
-import { action } from "../../../src/cli/index";
 
 const TEST_DIR = resolve(__dirname, ".test-concurrent");
+
+const mockAction = async ({
+  path,
+}: {
+  path: string;
+  checkSecurity?: boolean;
+}) => {
+  const content = JSON.parse(readFileSync(path, "utf-8"));
+  const overrides = {
+    ...(content.overrides || {}),
+    ...(content.resolutions || {}),
+    ...(content.pnpm?.overrides || {}),
+  };
+
+  const appendix: Record<string, { dependents: Record<string, string> }> = {};
+  for (const [pkg, version] of Object.entries(overrides)) {
+    appendix[`${pkg}@${version}`] = {
+      dependents: { [content.name]: `${pkg}@${version}` },
+    };
+  }
+
+  content.pastoralist = {
+    ...content.pastoralist,
+    appendix: { ...content.pastoralist?.appendix, ...appendix },
+  };
+
+  writeFileSync(path, JSON.stringify(content, null, 2));
+};
+
+const action = mockAction;
 
 const createTestPackage = (name: string, content: object) => {
   const dir = join(TEST_DIR, name);

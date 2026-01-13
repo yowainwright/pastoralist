@@ -706,5 +706,5 @@ export class SecurityChecker {
 
 export * from "../../types";
 export * from "./providers";
-export { SecuritySetupWizard, promptForSetup } from "./setup";
-export type { SetupResult } from "./setup";
+export { SecuritySetupWizard, promptForSetup, createOutput } from "./setup";
+export type { SetupResult, OutputFunctions } from "./types";

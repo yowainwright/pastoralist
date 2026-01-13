@@ -3,7 +3,7 @@ import { resolve } from "path";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "util";
 import * as fg from "../utils/glob";
-import { IS_DEBUGGING } from "../constants";
+import { IS_DEBUGGING, HINT_RC_FILE_ID, HINT_RC_FILE_TEXT } from "../constants";
 import type {
   PastoralistJSON,
   OverridesType,
@@ -11,6 +11,7 @@ import type {
   UpdatePackageJSONOptions,
 } from "../types";
 import { logger } from "../utils";
+import { showHint } from "../dx/hint";
 
 const execFile = promisify(execFileCallback);
 const log = logger({ file: "packageJSON.ts", isLogging: IS_DEBUGGING });
@@ -358,9 +359,7 @@ export const updatePackageJSON = ({
   jsonCache.delete(normalizedPath);
 
   if (shouldSuggestRcFile(updatedConfig)) {
-    console.log("\nTip: Your pastoralist config is getting large (>10 lines).");
-    console.log("   Consider moving it to a .pastoralistrc file using:");
-    console.log("   pastoralist init --useRcConfigFile\n");
+    showHint(HINT_RC_FILE_ID, HINT_RC_FILE_TEXT);
   }
 };
 

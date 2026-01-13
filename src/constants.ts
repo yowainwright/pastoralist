@@ -37,6 +37,10 @@ const RESET = ANSI.RESET;
 export const MSG_SCANNING = `${FARMER} ${gradientGreenTan("Pastoralist")} is scanning overrides...`;
 export const MSG_HERD_SAFE = `${BRIGHT}${GOLD}The herd is safe!${RESET} ${SHEEP}`;
 
+export const HINT_RC_FILE_ID = "rc-file-suggestion";
+export const HINT_RC_FILE_TEXT =
+  "Your pastoralist config is getting large (>10 lines). Consider moving it to a .pastoralistrc file using: pastoralist init --useRcConfigFile";
+
 export const SECURITY_ENV_VARS = {
   MOCK_MODE: "PASTORALIST_MOCK_SECURITY",
   FORCE_VULNERABLE: "MOCK_FORCE_VULNERABLE",

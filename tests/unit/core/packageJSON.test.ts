@@ -15,6 +15,8 @@ import {
   clearDependencyTreeCache,
 } from "../../../src";
 import { getDependencyTree } from "../../../src/core/packageJSON";
+import { clearHintCache } from "../../../src/dx/hint";
+import { HINT_RC_FILE_TEXT } from "../../../src/constants";
 import {
   safeWriteFileSync as writeFileSync,
   safeMkdirSync as mkdirSync,
@@ -678,10 +680,13 @@ test("updatePackageJSON - should show RC file suggestion for large config", () =
 
   const overrides: OverridesType = { lodash: "4.17.21" };
 
-  const originalConsoleLog = console.log;
-  const logCalls: string[] = [];
-  console.log = (...args: any[]) => {
-    logCalls.push(args.join(" "));
+  clearHintCache();
+
+  const originalWrite = process.stdout.write.bind(process.stdout);
+  const writeCalls: string[] = [];
+  process.stdout.write = (chunk: any): boolean => {
+    writeCalls.push(String(chunk));
+    return true;
   };
 
   writeFileSync(testPkgPath, JSON.stringify(config, null, 2));
@@ -694,17 +699,12 @@ test("updatePackageJSON - should show RC file suggestion for large config", () =
     isTesting: false,
   });
 
-  console.log = originalConsoleLog;
+  process.stdout.write = originalWrite;
 
-  const hasRcSuggestion = logCalls.some((log) =>
-    log.includes("pastoralist init --useRcConfigFile"),
-  );
-  expect(hasRcSuggestion).toBe(true);
-
-  const hasTipMessage = logCalls.some((log) =>
-    log.includes("Your pastoralist config is getting large"),
-  );
-  expect(hasTipMessage).toBe(true);
+  const output = writeCalls.join("");
+  const hintWords = HINT_RC_FILE_TEXT.split(" ");
+  const hasHintContent = hintWords.every((word) => output.includes(word));
+  expect(hasHintContent).toBe(true);
 
   if (existsSync(testDir)) {
     rmSync(testDir, { recursive: true, force: true });
@@ -824,7 +824,11 @@ test("updatePackageJSON - silent has no effect when not in dry-run mode", () => 
   rmSync(testDir, { recursive: true, force: true });
 });
 
-import { parseNpmLsOutput, executeNpmLs } from "../../../src/core/packageJSON";
+import {
+  parseNpmLsOutput,
+  executeNpmLs,
+  getFullDependencyCount,
+} from "../../../src/core/packageJSON";
 
 test("parseNpmLsOutput - should parse flat dependencies", () => {
   const stdout = JSON.stringify({
@@ -980,4 +984,127 @@ test("getDependencyTree - handles executeNpmLs errors gracefully", async () => {
   const tree = await getDependencyTree();
   expect(typeof tree).toBe("object");
   clearDependencyTreeCache();
+});
+
+const lockTestDir = resolve(__dirname, "..", ".test-lock-files");
+
+test("getFullDependencyCount - counts npm lock file packages", () => {
+  validateRootPackageJsonIntegrity();
+  mkdirSync(lockTestDir, { recursive: true });
+
+  const lockContent = {
+    packages: {
+      "": {},
+      "node_modules/lodash": { version: "4.17.21" },
+      "node_modules/express": { version: "4.18.0" },
+    },
+  };
+
+  writeFileSync(
+    resolve(lockTestDir, "package-lock.json"),
+    JSON.stringify(lockContent),
+  );
+
+  const count = getFullDependencyCount(lockTestDir);
+  expect(count).toBe(2);
+
+  rmSync(lockTestDir, { recursive: true, force: true });
+  validateRootPackageJsonIntegrity();
+});
+
+test("getFullDependencyCount - handles invalid npm lock JSON", () => {
+  validateRootPackageJsonIntegrity();
+  mkdirSync(lockTestDir, { recursive: true });
+
+  writeFileSync(resolve(lockTestDir, "package-lock.json"), "{ invalid json");
+
+  const count = getFullDependencyCount(lockTestDir);
+  expect(count).toBe(0);
+
+  rmSync(lockTestDir, { recursive: true, force: true });
+  validateRootPackageJsonIntegrity();
+});
+
+test("getFullDependencyCount - counts yarn lock file packages", () => {
+  validateRootPackageJsonIntegrity();
+  mkdirSync(lockTestDir, { recursive: true });
+
+  const yarnLock = `lodash@^4.17.0:
+  version "4.17.21"
+  resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.21.tgz"
+
+express@^4.18.0:
+  version "4.18.0"
+  resolved "https://registry.yarnpkg.com/express/-/express-4.18.0.tgz"
+`;
+
+  writeFileSync(resolve(lockTestDir, "yarn.lock"), yarnLock);
+
+  const count = getFullDependencyCount(lockTestDir);
+  expect(count).toBe(2);
+
+  rmSync(lockTestDir, { recursive: true, force: true });
+  validateRootPackageJsonIntegrity();
+});
+
+test("getFullDependencyCount - handles empty yarn lock", () => {
+  validateRootPackageJsonIntegrity();
+  mkdirSync(lockTestDir, { recursive: true });
+
+  writeFileSync(resolve(lockTestDir, "yarn.lock"), "");
+
+  const count = getFullDependencyCount(lockTestDir);
+  expect(count).toBe(0);
+
+  rmSync(lockTestDir, { recursive: true, force: true });
+  validateRootPackageJsonIntegrity();
+});
+
+test("getFullDependencyCount - counts pnpm lock file packages", () => {
+  validateRootPackageJsonIntegrity();
+  mkdirSync(lockTestDir, { recursive: true });
+
+  const pnpmLock = `lockfileVersion: 5.4
+
+specifiers:
+  lodash: ^4.17.0
+
+packages:
+  /lodash@4.17.21:
+    resolution: {integrity: sha512}
+  /express@4.18.0:
+    resolution: {integrity: sha512}
+`;
+
+  writeFileSync(resolve(lockTestDir, "pnpm-lock.yaml"), pnpmLock);
+
+  const count = getFullDependencyCount(lockTestDir);
+  expect(count).toBe(2);
+
+  rmSync(lockTestDir, { recursive: true, force: true });
+  validateRootPackageJsonIntegrity();
+});
+
+test("getFullDependencyCount - handles empty pnpm lock", () => {
+  validateRootPackageJsonIntegrity();
+  mkdirSync(lockTestDir, { recursive: true });
+
+  writeFileSync(resolve(lockTestDir, "pnpm-lock.yaml"), "");
+
+  const count = getFullDependencyCount(lockTestDir);
+  expect(count).toBe(0);
+
+  rmSync(lockTestDir, { recursive: true, force: true });
+  validateRootPackageJsonIntegrity();
+});
+
+test("getFullDependencyCount - returns 0 when no lock files exist", () => {
+  validateRootPackageJsonIntegrity();
+  mkdirSync(lockTestDir, { recursive: true });
+
+  const count = getFullDependencyCount(lockTestDir);
+  expect(count).toBe(0);
+
+  rmSync(lockTestDir, { recursive: true, force: true });
+  validateRootPackageJsonIntegrity();
 });

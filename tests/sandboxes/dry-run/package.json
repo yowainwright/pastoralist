@@ -1,0 +1,27 @@
+{
+  "name": "pastoralist-sandbox-dry-run",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "pastoralist": "./dist/index.js"
+  },
+  "scripts": {
+    "clean": "bun run scripts/clean.ts",
+    "build": "bun run clean && bun build src/index.ts --outdir dist --target node",
+    "start": "bun run build && ./dist/index.js --dry-run"
+  },
+  "dependencies": {
+    "express": "^4.18.0",
+    "lodash": "^4.17.21",
+    "underscore": "^1.13.0"
+  },
+  "overrides": {
+    "lodash": "4.17.20",
+    "qs": "6.11.0",
+    "mime": "3.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "5.9.3"
+  }
+}

@@ -11,6 +11,7 @@ import {
   DEFAULT_INSTALL_TIMEOUT,
   DEFAULT_PROMPT_TIMEOUT,
 } from "./constants";
+import type { CLIInstallOptions, PromptFunctions, PromptChoice } from "./types";
 
 const execFileAsync = promisify(execFile);
 
@@ -115,12 +116,6 @@ export const findVulnerablePackages = (
     return isVersionVulnerable(currentVersion, alert.vulnerableVersions);
   });
 };
-
-export interface CLIInstallOptions {
-  packageName: string;
-  cliCommand: string;
-  debug?: boolean;
-}
 
 export class CLIInstaller {
   private log: ReturnType<typeof logger>;
@@ -260,13 +255,20 @@ const questionWithTimeout = async (
   });
 };
 
+const formatYesNo = (defaultValue: boolean): string => {
+  if (defaultValue) {
+    return `${cyan("Y")}/n`;
+  }
+  return `y/${cyan("N")}`;
+};
+
 export const promptConfirm = async (
   message: string,
   defaultValue = true,
 ): Promise<boolean> => {
   const rl = createPromptInterface();
-  const defaultText = defaultValue ? "Y/n" : "y/N";
-  const promptText = `${message} (${defaultText}): `;
+  const defaultText = formatYesNo(defaultValue);
+  const promptText = `${cyan("?")} ${message} (${defaultText}): `;
 
   try {
     const answer = await questionWithTimeout(
@@ -291,17 +293,18 @@ export const promptConfirm = async (
 
 export const promptSelect = async (
   message: string,
-  choices: Array<{ name: string; value: string }>,
+  choices: PromptChoice[],
 ): Promise<string> => {
   const rl = createPromptInterface();
   const defaultChoice = choices[0]?.value || "";
 
-  console.log(message);
+  console.log(`${cyan("?")} ${message}`);
   choices.forEach((choice, i) => {
-    console.log(`  ${i + 1}) ${choice.name}`);
+    const num = cyan(`${i + 1})`);
+    console.log(`  ${num} ${choice.name}`);
   });
 
-  const selectPrompt = `Select (1-${choices.length}): `;
+  const selectPrompt = `${gray("Select")} (1-${choices.length}): `;
   let selectedValue: string | null = null;
   let attempts = 0;
   const maxAttempts = 5;
@@ -332,15 +335,20 @@ export const promptSelect = async (
   return selectedValue || defaultChoice;
 };
 
+const formatInputPrompt = (message: string, defaultValue: string): string => {
+  const hasDefault = defaultValue !== "";
+  if (hasDefault) {
+    return `${cyan("?")} ${message} (${gray(defaultValue)}): `;
+  }
+  return `${cyan("?")} ${message}: `;
+};
+
 export const promptInput = async (
   message: string,
   defaultValue = "",
 ): Promise<string> => {
   const rl = createPromptInterface();
-  const hasDefault = defaultValue !== "";
-  const promptText = hasDefault
-    ? `${message} (${defaultValue}): `
-    : `${message}: `;
+  const promptText = formatInputPrompt(message, defaultValue);
 
   try {
     const answer = await questionWithTimeout(
@@ -358,23 +366,6 @@ export const promptInput = async (
     return defaultValue;
   }
 };
-
-export interface InteractivePrompt {
-  type: string;
-  name: string;
-  message: string;
-  choices?: Array<{ name: string; value: string }>;
-  default?: string | boolean;
-}
-
-export interface PromptFunctions {
-  confirm: (message: string, defaultValue?: boolean) => Promise<boolean>;
-  select: (
-    message: string,
-    choices: Array<{ name: string; value: string }>,
-  ) => Promise<string>;
-  input: (message: string, defaultValue?: string) => Promise<string>;
-}
 
 export class InteractiveSecurityManager {
   private prompts: PromptFunctions;

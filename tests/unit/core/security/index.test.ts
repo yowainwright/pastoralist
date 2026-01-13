@@ -1178,6 +1178,127 @@ test("findWorkspaceVulnerabilities - should find vulnerabilities in workspace pa
   expect(Array.isArray(result)).toBe(true);
 });
 
+test("isKnownSecurityProvider - returns true for github", () => {
+  const checker = new SecurityChecker({ provider: "osv" });
+  const result = (checker as any).isKnownSecurityProvider("github");
+  expect(result).toBe(true);
+});
+
+test("isKnownSecurityProvider - returns true for snyk", () => {
+  const checker = new SecurityChecker({ provider: "osv" });
+  const result = (checker as any).isKnownSecurityProvider("snyk");
+  expect(result).toBe(true);
+});
+
+test("isKnownSecurityProvider - returns true for socket", () => {
+  const checker = new SecurityChecker({ provider: "osv" });
+  const result = (checker as any).isKnownSecurityProvider("socket");
+  expect(result).toBe(true);
+});
+
+test("isKnownSecurityProvider - returns true for osv", () => {
+  const checker = new SecurityChecker({ provider: "osv" });
+  const result = (checker as any).isKnownSecurityProvider("osv");
+  expect(result).toBe(true);
+});
+
+test("isKnownSecurityProvider - returns false for unknown provider", () => {
+  const checker = new SecurityChecker({ provider: "osv" });
+  const result = (checker as any).isKnownSecurityProvider("unknown");
+  expect(result).toBe(false);
+});
+
+test("ensureProviderAuth - returns true for unknown provider", async () => {
+  const checker = new SecurityChecker({ provider: "osv" });
+  const result = await checker.ensureProviderAuth("unknown");
+  expect(result).toBe(true);
+});
+
+test("ensureProviderAuth - returns true for OSV provider", async () => {
+  const checker = new SecurityChecker({ provider: "osv" });
+  const result = await checker.ensureProviderAuth("osv");
+  expect(result).toBe(true);
+});
+
+test("ensureProviderAuth - returns true when token is available", async () => {
+  const originalToken = process.env.SNYK_TOKEN;
+  process.env.SNYK_TOKEN = "test-token";
+
+  const checker = new SecurityChecker({ provider: "osv" });
+  const result = await checker.ensureProviderAuth("snyk");
+  expect(result).toBe(true);
+
+  if (originalToken) {
+    process.env.SNYK_TOKEN = originalToken;
+  } else {
+    delete process.env.SNYK_TOKEN;
+  }
+});
+
+test("ensureProviderAuth - returns false when non-interactive and no token", async () => {
+  const originalToken = process.env.SNYK_TOKEN;
+  delete process.env.SNYK_TOKEN;
+
+  const checker = new SecurityChecker({ provider: "osv" });
+  const result = await checker.ensureProviderAuth("snyk", {
+    interactive: false,
+  });
+  expect(result).toBe(false);
+
+  if (originalToken) {
+    process.env.SNYK_TOKEN = originalToken;
+  }
+});
+
+test("ensureProviderAuth - returns false for socket with interactive disabled", async () => {
+  const originalToken = process.env.SOCKET_SECURITY_API_KEY;
+  delete process.env.SOCKET_SECURITY_API_KEY;
+
+  const checker = new SecurityChecker({ provider: "osv" });
+  const result = await checker.ensureProviderAuth("socket", {
+    interactive: false,
+  });
+  expect(result).toBe(false);
+
+  if (originalToken) {
+    process.env.SOCKET_SECURITY_API_KEY = originalToken;
+  }
+});
+
+test("ensureProviderAuth - accepts debug option", async () => {
+  const checker = new SecurityChecker({ provider: "osv" });
+  const result = await checker.ensureProviderAuth("osv", { debug: true });
+  expect(result).toBe(true);
+});
+
+test("generateCacheKey - generates unique key for packages", () => {
+  const checker = new SecurityChecker({ provider: "osv" });
+  const packages = [
+    { name: "lodash", version: "4.17.20" },
+    { name: "axios", version: "0.21.0" },
+  ];
+
+  const key = (checker as any).generateCacheKey(packages);
+  expect(key).toContain("lodash@4.17.20");
+  expect(key).toContain("axios@0.21.0");
+});
+
+test("generateCacheKey - sorts packages for consistent keys", () => {
+  const checker = new SecurityChecker({ provider: "osv" });
+  const packages1 = [
+    { name: "lodash", version: "4.17.20" },
+    { name: "axios", version: "0.21.0" },
+  ];
+  const packages2 = [
+    { name: "axios", version: "0.21.0" },
+    { name: "lodash", version: "4.17.20" },
+  ];
+
+  const key1 = (checker as any).generateCacheKey(packages1);
+  const key2 = (checker as any).generateCacheKey(packages2);
+  expect(key1).toBe(key2);
+});
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   console.log("Running security tests...");
 
@@ -1192,5 +1313,5 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     "Configuration Integration",
   ];
 
-  console.log(`✅ All ${tests.length} test suites passed!`);
+  console.log(`All ${tests.length} test suites passed!`);
 }

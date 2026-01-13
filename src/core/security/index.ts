@@ -22,6 +22,8 @@ import {
   extractPackages,
   findVulnerablePackages,
 } from "./utils";
+import { SecuritySetupWizard, promptForSetup } from "./setup";
+import type { SecurityProvider as SecurityProviderType } from "./constants";
 import { readFileSync, copyFileSync, writeFileSync, existsSync } from "fs";
 import { resolve } from "path";
 import { updateAppendix } from "../appendix";
@@ -63,6 +65,37 @@ export class SecurityChecker {
     return providerTypes.map((providerType) =>
       this.createProvider(providerType, options),
     );
+  }
+
+  private isKnownSecurityProvider(providerType: string): boolean {
+    const knownProviders = ["github", "snyk", "socket", "osv"];
+    return knownProviders.includes(providerType);
+  }
+
+  async ensureProviderAuth(
+    providerType: string,
+    options: { debug?: boolean; interactive?: boolean } = {},
+  ): Promise<boolean> {
+    const isKnown = this.isKnownSecurityProvider(providerType);
+    if (!isKnown) {
+      return true;
+    }
+
+    const provider = providerType as SecurityProviderType;
+    const wizard = new SecuritySetupWizard({ debug: options.debug });
+    const hasToken = await wizard.checkTokenAvailable(provider);
+
+    if (hasToken) {
+      return true;
+    }
+
+    const interactiveDisabled = options.interactive === false;
+    if (interactiveDisabled) {
+      return false;
+    }
+
+    const result = await promptForSetup(provider, { debug: options.debug });
+    return result.success;
   }
 
   private createProvider(
@@ -673,3 +706,5 @@ export class SecurityChecker {
 
 export * from "../../types";
 export * from "./providers";
+export { SecuritySetupWizard, promptForSetup } from "./setup";
+export type { SetupResult } from "./setup";

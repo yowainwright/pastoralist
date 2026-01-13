@@ -30,3 +30,4 @@ export type {
 } from "./types";
 export { shimmerFrame, playShimmer } from "./shimmer";
 export { createTerminalGraph } from "./terminal-graph";
+export { showHint, clearHintCache } from "./hint";

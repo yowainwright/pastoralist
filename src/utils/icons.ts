@@ -17,6 +17,7 @@ export const ICON = {
   folder: cyan("▸"),
   skip: gray("○"),
   help: cyan("◇"),
+  hint: yellow("\u{1F4A1}"),
 } as const;
 
 export const PREFIX = {

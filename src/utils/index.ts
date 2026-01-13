@@ -30,6 +30,7 @@ export {
   gold,
   copper,
   gradientPastoralist,
+  link,
 } from "./colors";
 export { ICON, PREFIX, STEP, BRAND } from "./icons";
 export type { IconKey, PrefixKey } from "./icons";

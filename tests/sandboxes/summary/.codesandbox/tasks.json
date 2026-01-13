@@ -1,0 +1,20 @@
+{
+  "$schema": "https://codesandbox.io/schemas/tasks.json",
+  "setupTasks": [
+    { "name": "Install bun", "command": "npm install -g bun" },
+    { "name": "Copy src", "command": "cp -r ../../../src ." },
+    {
+      "name": "Copy scripts",
+      "command": "mkdir -p scripts && cp ../../../scripts/clean.ts scripts/"
+    },
+    { "name": "Install", "command": "bun install" }
+  ],
+  "tasks": {
+    "build": { "name": "Build", "command": "bun run build" },
+    "run": {
+      "name": "Run Summary",
+      "command": "bun run start",
+      "runAtStart": true
+    }
+  }
+}

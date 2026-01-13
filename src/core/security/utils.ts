@@ -260,13 +260,20 @@ const questionWithTimeout = async (
   });
 };
 
+const formatYesNo = (defaultValue: boolean): string => {
+  if (defaultValue) {
+    return `${cyan("Y")}/n`;
+  }
+  return `y/${cyan("N")}`;
+};
+
 export const promptConfirm = async (
   message: string,
   defaultValue = true,
 ): Promise<boolean> => {
   const rl = createPromptInterface();
-  const defaultText = defaultValue ? "Y/n" : "y/N";
-  const promptText = `${message} (${defaultText}): `;
+  const defaultText = formatYesNo(defaultValue);
+  const promptText = `${cyan("?")} ${message} (${defaultText}): `;
 
   try {
     const answer = await questionWithTimeout(
@@ -296,12 +303,13 @@ export const promptSelect = async (
   const rl = createPromptInterface();
   const defaultChoice = choices[0]?.value || "";
 
-  console.log(message);
+  console.log(`${cyan("?")} ${message}`);
   choices.forEach((choice, i) => {
-    console.log(`  ${i + 1}) ${choice.name}`);
+    const num = cyan(`${i + 1})`);
+    console.log(`  ${num} ${choice.name}`);
   });
 
-  const selectPrompt = `Select (1-${choices.length}): `;
+  const selectPrompt = `${gray("Select")} (1-${choices.length}): `;
   let selectedValue: string | null = null;
   let attempts = 0;
   const maxAttempts = 5;
@@ -332,15 +340,20 @@ export const promptSelect = async (
   return selectedValue || defaultChoice;
 };
 
+const formatInputPrompt = (message: string, defaultValue: string): string => {
+  const hasDefault = defaultValue !== "";
+  if (hasDefault) {
+    return `${cyan("?")} ${message} (${gray(defaultValue)}): `;
+  }
+  return `${cyan("?")} ${message}: `;
+};
+
 export const promptInput = async (
   message: string,
   defaultValue = "",
 ): Promise<string> => {
   const rl = createPromptInterface();
-  const hasDefault = defaultValue !== "";
-  const promptText = hasDefault
-    ? `${message} (${defaultValue}): `
-    : `${message}: `;
+  const promptText = formatInputPrompt(message, defaultValue);
 
   try {
     const answer = await questionWithTimeout(

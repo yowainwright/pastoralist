@@ -27,3 +27,8 @@ export const gradientPastoralist = (): string => {
   const ist = copper("ist");
   return `${p}${o}${ist}`;
 };
+
+export const link = (url: string, text?: string): string => {
+  const displayText = text || url;
+  return `\x1b]8;;${url}\x07${displayText}\x1b]8;;\x07`;
+};

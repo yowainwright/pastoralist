@@ -1,0 +1,22 @@
+{
+  "name": "pastoralist-sandbox-provider-setup",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "pastoralist": "./dist/index.js"
+  },
+  "scripts": {
+    "clean": "bun run scripts/clean.ts",
+    "build": "bun run clean && bun build src/index.ts --outdir dist --target node",
+    "start": "bun run build && ./dist/index.js --checkSecurity --securityProvider github"
+  },
+  "dependencies": {
+    "minimist": "^1.2.5",
+    "lodash": "^4.17.15",
+    "express": "^4.17.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "5.9.3"
+  }
+}

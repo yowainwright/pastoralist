@@ -154,3 +154,20 @@ test("updateOverrides - should return undefined when no data", () => {
 
   expect(result).toBeUndefined();
 });
+
+test("updateOverrides - should return undefined when overrides are empty", () => {
+  const data = {
+    type: "npm" as const,
+    overrides: {},
+  };
+
+  const result = updateOverrides(data, []);
+
+  expect(result).toBeUndefined();
+});
+
+test("resolveOverrides - should return undefined when type is missing", () => {
+  const result = resolveOverrides({ config: {}, type: undefined as any });
+
+  expect(result).toBeUndefined();
+});

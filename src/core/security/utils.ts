@@ -11,6 +11,7 @@ import {
   DEFAULT_INSTALL_TIMEOUT,
   DEFAULT_PROMPT_TIMEOUT,
 } from "./constants";
+import type { CLIInstallOptions, PromptFunctions, PromptChoice } from "./types";
 
 const execFileAsync = promisify(execFile);
 
@@ -115,12 +116,6 @@ export const findVulnerablePackages = (
     return isVersionVulnerable(currentVersion, alert.vulnerableVersions);
   });
 };
-
-export interface CLIInstallOptions {
-  packageName: string;
-  cliCommand: string;
-  debug?: boolean;
-}
 
 export class CLIInstaller {
   private log: ReturnType<typeof logger>;
@@ -298,7 +293,7 @@ export const promptConfirm = async (
 
 export const promptSelect = async (
   message: string,
-  choices: Array<{ name: string; value: string }>,
+  choices: PromptChoice[],
 ): Promise<string> => {
   const rl = createPromptInterface();
   const defaultChoice = choices[0]?.value || "";
@@ -371,23 +366,6 @@ export const promptInput = async (
     return defaultValue;
   }
 };
-
-export interface InteractivePrompt {
-  type: string;
-  name: string;
-  message: string;
-  choices?: Array<{ name: string; value: string }>;
-  default?: string | boolean;
-}
-
-export interface PromptFunctions {
-  confirm: (message: string, defaultValue?: boolean) => Promise<boolean>;
-  select: (
-    message: string,
-    choices: Array<{ name: string; value: string }>,
-  ) => Promise<string>;
-  input: (message: string, defaultValue?: string) => Promise<string>;
-}
 
 export class InteractiveSecurityManager {
   private prompts: PromptFunctions;

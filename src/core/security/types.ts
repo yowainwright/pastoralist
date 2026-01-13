@@ -223,3 +223,44 @@ export interface SocketPackage {
 export interface SocketResult {
   packages: SocketPackage[];
 }
+
+export interface SetupResult {
+  success: boolean;
+  token?: string;
+  savedToProfile?: boolean;
+  usedCli?: boolean;
+  message: string;
+}
+
+export interface OutputFunctions {
+  log: (msg: string) => void;
+  success: (msg: string) => void;
+  warn: (msg: string) => void;
+  error: (msg: string) => void;
+  info: (msg: string) => void;
+}
+
+export interface CLIInstallOptions {
+  packageName: string;
+  cliCommand: string;
+  debug?: boolean;
+}
+
+export interface PromptChoice {
+  name: string;
+  value: string;
+}
+
+export interface InteractivePrompt {
+  type: string;
+  name: string;
+  message: string;
+  choices?: PromptChoice[];
+  default?: string | boolean;
+}
+
+export interface PromptFunctions {
+  confirm: (message: string, defaultValue?: boolean) => Promise<boolean>;
+  select: (message: string, choices: PromptChoice[]) => Promise<string>;
+  input: (message: string, defaultValue?: string) => Promise<string>;
+}

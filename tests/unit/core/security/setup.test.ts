@@ -2,6 +2,7 @@ import { test, expect, mock } from "bun:test";
 import {
   SecuritySetupWizard,
   promptForSetup,
+  createOutput,
 } from "../../../../src/core/security/setup";
 import {
   PROVIDER_CONFIGS,
@@ -388,4 +389,56 @@ test("findShellProfile - finds existing profile", () => {
     ".bash_profile",
   ]);
   expect(result).toContain(home);
+});
+
+test("createOutput - returns object with all output functions", () => {
+  const out = createOutput();
+  expect(typeof out.log).toBe("function");
+  expect(typeof out.success).toBe("function");
+  expect(typeof out.warn).toBe("function");
+  expect(typeof out.error).toBe("function");
+  expect(typeof out.info).toBe("function");
+});
+
+test("createOutput - log writes to stdout with newline", async () => {
+  await withMockedStdout(async (output) => {
+    const out = createOutput();
+    out.log("test message");
+    expect(output.some((o) => o === "test message\n")).toBe(true);
+  });
+});
+
+test("createOutput - success writes OK prefix", async () => {
+  await withMockedStdout(async (output) => {
+    const out = createOutput();
+    out.success("success message");
+    expect(output.some((o) => o.includes("[OK]"))).toBe(true);
+    expect(output.some((o) => o.includes("success message"))).toBe(true);
+  });
+});
+
+test("createOutput - warn writes WARN prefix", async () => {
+  await withMockedStdout(async (output) => {
+    const out = createOutput();
+    out.warn("warning message");
+    expect(output.some((o) => o.includes("[WARN]"))).toBe(true);
+    expect(output.some((o) => o.includes("warning message"))).toBe(true);
+  });
+});
+
+test("createOutput - error writes FAIL prefix", async () => {
+  await withMockedStdout(async (output) => {
+    const out = createOutput();
+    out.error("error message");
+    expect(output.some((o) => o.includes("[FAIL]"))).toBe(true);
+    expect(output.some((o) => o.includes("error message"))).toBe(true);
+  });
+});
+
+test("createOutput - info writes message", async () => {
+  await withMockedStdout(async (output) => {
+    const out = createOutput();
+    out.info("info message");
+    expect(output.some((o) => o.includes("info message"))).toBe(true);
+  });
 });

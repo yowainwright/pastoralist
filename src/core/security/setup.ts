@@ -5,12 +5,7 @@ import { homedir } from "os";
 import { join } from "path";
 import { logger } from "../../utils";
 import { green, yellow, cyan, gray, red } from "../../utils/colors";
-import {
-  promptConfirm,
-  promptSelect,
-  promptInput,
-  PromptFunctions,
-} from "./utils";
+import { promptConfirm, promptSelect, promptInput } from "./utils";
 import {
   DEFAULT_CLI_TIMEOUT,
   PROVIDER_CONFIGS,
@@ -18,26 +13,11 @@ import {
   GH_MESSAGES,
 } from "./constants";
 import type { SecurityProvider, ProviderConfig } from "./constants";
+import type { SetupResult, OutputFunctions, PromptFunctions } from "./types";
 
 const execFileAsync = promisify(execFile);
 
-export interface SetupResult {
-  success: boolean;
-  token?: string;
-  savedToProfile?: boolean;
-  usedCli?: boolean;
-  message: string;
-}
-
-interface OutputFunctions {
-  log: (msg: string) => void;
-  success: (msg: string) => void;
-  warn: (msg: string) => void;
-  error: (msg: string) => void;
-  info: (msg: string) => void;
-}
-
-const createOutput = (): OutputFunctions => ({
+export const createOutput = (): OutputFunctions => ({
   log: (msg: string) => process.stdout.write(`${msg}\n`),
   success: (msg: string) => process.stdout.write(`${green("[OK]")} ${msg}\n`),
   warn: (msg: string) => process.stdout.write(`${yellow("[WARN]")} ${msg}\n`),

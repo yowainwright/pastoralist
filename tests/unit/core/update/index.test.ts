@@ -1375,3 +1375,67 @@ test("update - parses lock file with json outputFormat", () => {
 
   expect(result.metrics?.packagesScanned).toBeGreaterThanOrEqual(0);
 });
+
+test("update - tracks removed overrides in metrics", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.21" },
+    overrides: {
+      "old-package": "1.0.0",
+      "another-old": "2.0.0",
+    },
+  };
+
+  const options: Options = {
+    config,
+    isTesting: true,
+  };
+
+  const result = update(options);
+
+  expect(result.metrics).toBeDefined();
+  expect(result.metrics?.overridesRemoved).toBeGreaterThanOrEqual(0);
+  expect(result.metrics?.removedOverridePackages).toBeDefined();
+});
+
+test("update - handles config with no overrides", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.21" },
+  };
+
+  const options: Options = {
+    config,
+    isTesting: true,
+  };
+
+  const result = update(options);
+
+  expect(result.mode?.hasRootOverrides).toBe(false);
+  expect(result.finalOverrides).toEqual({});
+  expect(result.finalAppendix).toEqual({});
+});
+
+test("update - reports removed overrides when existing overrides become stale", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.21" },
+    overrides: {
+      "stale-package": "1.0.0",
+    },
+  };
+
+  const options: Options = {
+    config,
+    isTesting: true,
+    summary: true,
+  };
+
+  const result = update(options);
+
+  expect(result.metrics).toBeDefined();
+  expect(Array.isArray(result.metrics?.removedOverridePackages)).toBe(true);
+});

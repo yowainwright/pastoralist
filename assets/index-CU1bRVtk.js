@@ -571,11 +571,50 @@ npx pastoralist --checkSecurity --interactive
 Enable detailed debug output.
 
 \`\`\`bash
-# Run with debug logging
 npx pastoralist --debug
+\`\`\`
 
-# Debug specific package
-npx pastoralist --path packages/app/package.json --debug
+### \`pastoralist --dry-run\`
+
+Preview changes without modifying package.json.
+
+\`\`\`bash
+npx pastoralist --dry-run
+\`\`\`
+
+### \`pastoralist --quiet\`
+
+Quiet mode for CI pipelines. Outputs minimal text and uses exit codes.
+
+- Exit 0: No vulnerabilities found
+- Exit 1: Vulnerabilities detected
+
+\`\`\`bash
+npx pastoralist --quiet --checkSecurity
+\`\`\`
+
+### \`pastoralist --summary\`
+
+Display metrics table after run.
+
+\`\`\`bash
+npx pastoralist --summary
+\`\`\`
+
+### \`pastoralist --setup-hook\`
+
+Add pastoralist to your postinstall script automatically.
+
+\`\`\`bash
+npx pastoralist --setup-hook
+\`\`\`
+
+### \`pastoralist --checkSecurity\`
+
+Enable security vulnerability scanning.
+
+\`\`\`bash
+npx pastoralist --checkSecurity
 \`\`\`
 
 ## Node.js API
@@ -934,7 +973,7 @@ flowchart TD
     style ApplyOverrides fill:#fff3cd
     style Done fill:#e8f5e9
 \`\`\`
-`,g=`---
+`,h=`---
 title: Interactive Tutorial
 description: Learn pastoralist step-by-step
 ---
@@ -1107,7 +1146,7 @@ await runPastoralist({
 - [GitHub](https://github.com/yowainwright/pastoralist)
 - [npm](https://www.npmjs.com/package/pastoralist)
 - [Issues & Questions](https://github.com/yowainwright/pastoralist/issues)
-`,h=`---
+`,g=`---
 title: Configuration
 description: Learn how to configure Pastoralist using config files or package.json
 ---
@@ -2169,7 +2208,11 @@ pastoralist
 }
 \`\`\`
 
-In the near future, Pastoralist will fully support a config file but this is it for now!
+Or automate it:
+
+\`\`\`bash
+pastoralist --setup-hook
+\`\`\`
 
 Read on to understand what is going on under the hood of Pastoralist!
 
@@ -2985,4 +3028,4 @@ const base = require("./packages/base-config/overrides.json");
 - Add automation scripts
 - Document your approach for the team
 `;function w(e){const n=e.match(/^---\n([\s\S]*?)\n---/);if(!n)return{};const t={},s=n[1].split(`
-`);for(const a of s){const o=a.indexOf(":");if(o===-1)continue;const c=a.slice(0,o).trim();let i=a.slice(o+1).trim();i=i.replace(/^["']|["']$/g,""),t[c]=i}return t}const r=Object.assign({"./docs/advanced-features.mdx":l,"./docs/api-reference.mdx":d,"./docs/architecture.mdx":u,"./docs/codelab.mdx":g,"./docs/configuration.mdx":h,"./docs/github-action.mdx":m,"./docs/introduction.mdx":y,"./docs/security.mdx":f,"./docs/setup.mdx":k,"./docs/troubleshooting.mdx":v,"./docs/workspaces.mdx":b}),p=Object.entries(r).map(([e,n])=>{const t=e.replace("./docs/","").replace(".mdx",""),s=w(n);return{slug:t,title:s.title??t,description:s.description??""}});function P(e){return p.find(n=>n.slug===e)}function j(e){const n=`./docs/${e}.mdx`;return r[n]}function x(){return p}export{P as a,j as b,x as g};
+`);for(const a of s){const o=a.indexOf(":");if(o===-1)continue;const c=a.slice(0,o).trim();let i=a.slice(o+1).trim();i=i.replace(/^["']|["']$/g,""),t[c]=i}return t}const r=Object.assign({"./docs/advanced-features.mdx":l,"./docs/api-reference.mdx":d,"./docs/architecture.mdx":u,"./docs/codelab.mdx":h,"./docs/configuration.mdx":g,"./docs/github-action.mdx":m,"./docs/introduction.mdx":y,"./docs/security.mdx":f,"./docs/setup.mdx":k,"./docs/troubleshooting.mdx":v,"./docs/workspaces.mdx":b}),p=Object.entries(r).map(([e,n])=>{const t=e.replace("./docs/","").replace(".mdx",""),s=w(n);return{slug:t,title:s.title??t,description:s.description??""}});function P(e){return p.find(n=>n.slug===e)}function j(e){const n=`./docs/${e}.mdx`;return r[n]}function x(){return p}export{P as a,j as b,x as g};

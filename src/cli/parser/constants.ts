@@ -22,6 +22,8 @@ export const OPTION_DEFINITIONS: OptionDefinition[] = [
   { flags: ["--promptForReasons"], hasValue: false },
   { flags: ["--strict"], hasValue: false },
   { flags: ["--summary"], hasValue: false },
+  { flags: ["-q", "--quiet"], hasValue: false },
+  { flags: ["--setup-hook"], hasValue: false },
 ];
 
 export const HELP_TEXT = `
@@ -52,6 +54,8 @@ Options:
   --promptForReasons                    Prompt for reasons when adding manual overrides
   --strict                              Fail on any security check errors (network failures, API errors)
   --summary                             Show summary metrics table after run
+  -q, --quiet                           Quiet mode for CI (exit 1 if vulnerabilities, 0 if clean)
+  --setup-hook                          Add postinstall script to run pastoralist automatically
 `;
 
 export const ARGS_START_INDEX = 2;

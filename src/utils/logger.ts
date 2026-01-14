@@ -1,50 +1,38 @@
 import { LOG_PREFIX } from "../constants";
+import type {
+  ConsoleMethod,
+  DebugLogFunc,
+  Logger,
+  LoggerOptions,
+} from "./types";
 
-export type ConsoleMethod = "debug" | "error" | "info" | "warn";
-type ConsoleMethodFunc = (
-  msg: string,
-  caller?: string,
-  ...args: unknown[]
-) => void;
-export type ConsoleObject = { [K in ConsoleMethod]: ConsoleMethodFunc };
-
-export interface LoggerOptions {
-  file: string;
-  isLogging?: boolean;
-}
-
-export const logMethod = (
+const createDebugMethod = (
   type: ConsoleMethod,
   isLogging: boolean,
   file: string,
-) => {
-  return (msg: string, caller?: string, ...args: unknown[]) => {
+): DebugLogFunc => {
+  return (msg: string, caller: string, ...args: unknown[]) => {
     if (!isLogging) return;
-    const callerTxt = caller ? `[${caller}]` : "";
-    const message = `${LOG_PREFIX}[${file}]${callerTxt} ${msg}`;
-    if (type === "debug") {
-      console.debug(message, ...args);
-    } else if (type === "error") {
-      console.error(message, ...args);
-    } else if (type === "info") {
-      console.info(message, ...args);
-    } else if (type === "warn") {
-      console.warn(message, ...args);
-    }
+    const message = `${LOG_PREFIX}[${file}][${caller}] ${msg}`;
+    console[type](message, ...args);
   };
 };
 
-export const warnMethod = (file: string) => {
-  return (msg: string, caller?: string, ...args: unknown[]) => {
-    const callerTxt = caller ? `[${caller}]` : "";
-    const message = `${LOG_PREFIX}[${file}]${callerTxt} ${msg}`;
+const createWarnMethod = (file: string): DebugLogFunc => {
+  return (msg: string, caller: string, ...args: unknown[]) => {
+    const message = `${LOG_PREFIX}[${file}][${caller}] ${msg}`;
     console.warn(message, ...args);
   };
 };
 
-export const logger = ({ file, isLogging = false }: LoggerOptions) => ({
-  debug: logMethod("debug", isLogging, file),
-  error: logMethod("error", isLogging, file),
-  info: logMethod("info", isLogging, file),
-  warn: warnMethod(file),
+const INDENT = "   ";
+
+export const logger = ({ file, isLogging = false }: LoggerOptions): Logger => ({
+  debug: createDebugMethod("debug", isLogging, file),
+  error: createDebugMethod("error", isLogging, file),
+  warn: createWarnMethod(file),
+  print: (msg: string) => console.log(msg),
+  line: (msg: string) => console.log("\n" + msg),
+  indent: (msg: string) => console.log(INDENT + msg),
+  item: (n: number, msg: string) => console.log(`${INDENT}${n}. ${msg}`),
 });

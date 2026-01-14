@@ -5,6 +5,7 @@ import { promisify } from "util";
 import * as fg from "../utils/glob";
 import { IS_DEBUGGING, HINT_RC_FILE_ID, HINT_RC_FILE_TEXT } from "../constants";
 import type {
+  Appendix,
   PastoralistJSON,
   OverridesType,
   OverrideValue,
@@ -221,7 +222,7 @@ const removePastoralistAppendix = (
 
 const addAppendixToConfig = (
   config: PastoralistJSON,
-  appendix: Record<string, any>,
+  appendix: Appendix,
 ): PastoralistJSON => {
   const preservedConfig = buildPreservedConfig(config);
 
@@ -243,7 +244,7 @@ const processConfigWithoutOverrides = (
 
 const processConfigWithOverrides = (
   config: PastoralistJSON,
-  appendix: Record<string, any> | undefined,
+  appendix: Appendix | undefined,
   overrides: OverridesType,
   isTesting: boolean,
 ): PastoralistJSON => {

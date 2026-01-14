@@ -10,6 +10,8 @@ export const ICON = {
   arrow: cyan("▸"),
   bullet: gray("▫"),
   check: green("●"),
+  CHECK: green("✓"),
+  SHIELD: cyan("⬢"),
   step: cyan("▶"),
   section: cyan("►"),
   search: cyan("◇"),

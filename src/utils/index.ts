@@ -34,8 +34,14 @@ export {
 } from "./colors";
 export { ICON, PREFIX, STEP, BRAND } from "./icons";
 export type { IconKey, PrefixKey } from "./icons";
-export { logger, logMethod } from "./logger";
-export type { ConsoleObject, LoggerOptions } from "./logger";
+export { logger } from "./logger";
+export type {
+  ConsoleMethod,
+  DebugLogFunc,
+  Logger,
+  LoggerOptions,
+  PrintFunc,
+} from "./types";
 export { buildObject, mergeInto } from "./object";
 export { compareVersions } from "./semver";
 export { ConcurrencyLimiter, createLimit } from "./limit";

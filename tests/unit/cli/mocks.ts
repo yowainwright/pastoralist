@@ -26,6 +26,7 @@ export const createMockTerminalGraph = () => {
     removedOverride: mock(() => graph),
     endPhase: mock(() => graph),
     summary: mock(() => graph),
+    executiveSummary: mock(() => graph),
     complete: mock(() => graph),
     notice: mock(() => graph),
     stop: mock(() => graph),

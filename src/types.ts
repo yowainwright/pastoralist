@@ -36,6 +36,7 @@ export interface Appendix {
 
 export interface PastoralistConfig {
   appendix?: Appendix;
+  compactAppendix?: boolean;
   depPaths?: "workspace" | "workspaces" | string[];
   checkSecurity?: boolean;
   overridePaths?: Record<string, Appendix>;
@@ -125,6 +126,8 @@ export interface Options {
   config?: PastoralistJSON;
   strict?: boolean;
   summary?: boolean;
+  quiet?: boolean;
+  setupHook?: boolean;
 }
 
 export interface OverridesType {
@@ -176,14 +179,6 @@ export interface OverridesWithType extends OverridesConfig {
   type: string;
 }
 export type ResolveOverrides = OverridesWithType | undefined;
-
-export type ConsoleMethod = "debug" | "error" | "info";
-type ConsoleMethodFunc = (
-  msg: string,
-  caller?: string,
-  ...args: unknown[]
-) => void;
-export type ConsoleObject = { [K in ConsoleMethod]: ConsoleMethodFunc };
 
 export interface PastoralistResultMetrics {
   packagesScanned: number;

@@ -6,7 +6,8 @@ import type {
   UpdateAppendixOptions,
 } from "../../types";
 import type { SecurityOverrideDetail } from "../../types";
-import type { ConsoleObject } from "../../utils";
+import type { Logger } from "../../utils";
+import type { PartialSecurityLedger } from "./types";
 import { resolveJSON } from "../packageJSON";
 import { getOverridesByType } from "../overrides";
 import {
@@ -32,7 +33,7 @@ const processSimpleOverride = (
   depList: string[],
   appendix: Appendix,
   packageReason: string | undefined,
-  securityLedger: Record<string, any>,
+  securityLedger: PartialSecurityLedger,
   cache: Map<string, AppendixItem>,
   onlyUsedOverrides: boolean = false,
 ): Appendix => {
@@ -332,7 +333,7 @@ const extractRootOverrides = (
 
 const extractWorkspaceOverrides = (
   packagePath: string,
-  logInstance: ConsoleObject,
+  logInstance: Logger,
 ): OverridesType | null => {
   const packageConfig = resolveJSON(packagePath);
   const hasConfig = Boolean(packageConfig);
@@ -357,7 +358,7 @@ const extractWorkspaceOverrides = (
 
 const collectAllWorkspaceOverrides = (
   packageJSONs: string[],
-  logInstance: ConsoleObject,
+  logInstance: Logger,
 ): Array<OverridesType | null> => {
   return packageJSONs.map((packagePath) =>
     extractWorkspaceOverrides(packagePath, logInstance),
@@ -437,7 +438,7 @@ const aggregateAppendices = (
 export const constructAppendix = (
   packageJSONs: string[],
   overridesData: ResolveOverrides,
-  logInstance: ConsoleObject,
+  logInstance: Logger,
 ): Appendix => {
   const rootOverrides = extractRootOverrides(overridesData);
   const hasRootOverrides = hasOverrides(rootOverrides);

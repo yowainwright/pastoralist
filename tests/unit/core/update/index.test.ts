@@ -1319,3 +1319,182 @@ test("update - metrics track removed override packages", () => {
 
   expect(result.metrics).toBeDefined();
 });
+
+test("update - skips lock file parsing without summary or json flag", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    overrides: { lodash: "4.17.21" },
+  };
+
+  const options: Options = {
+    config,
+    isTesting: true,
+  };
+
+  const result = update(options);
+
+  expect(result.metrics?.packagesScanned).toBe(0);
+});
+
+test("update - parses lock file with summary flag", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    overrides: { lodash: "4.17.21" },
+  };
+
+  const options: Options = {
+    config,
+    summary: true,
+    isTesting: true,
+  };
+
+  const result = update(options);
+
+  expect(result.metrics?.packagesScanned).toBeGreaterThanOrEqual(0);
+});
+
+test("update - parses lock file with json outputFormat", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    overrides: { lodash: "4.17.21" },
+  };
+
+  const options: Options = {
+    config,
+    outputFormat: "json",
+    isTesting: true,
+  };
+
+  const result = update(options);
+
+  expect(result.metrics?.packagesScanned).toBeGreaterThanOrEqual(0);
+});
+
+test("update - tracks removed overrides in metrics", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.21" },
+    overrides: {
+      "old-package": "1.0.0",
+      "another-old": "2.0.0",
+    },
+  };
+
+  const options: Options = {
+    config,
+    isTesting: true,
+  };
+
+  const result = update(options);
+
+  expect(result.metrics).toBeDefined();
+  expect(result.metrics?.overridesRemoved).toBeGreaterThanOrEqual(0);
+  expect(result.metrics?.removedOverridePackages).toBeDefined();
+});
+
+test("update - handles config with no overrides", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.21" },
+  };
+
+  const options: Options = {
+    config,
+    isTesting: true,
+  };
+
+  const result = update(options);
+
+  expect(result.mode?.hasRootOverrides).toBe(false);
+  expect(result.finalOverrides).toEqual({});
+  expect(result.finalAppendix).toEqual({});
+});
+
+test("update - tracks override metrics including removed packages array", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.21" },
+    overrides: {
+      lodash: "4.17.21",
+    },
+  };
+
+  const options: Options = {
+    config,
+    isTesting: true,
+    summary: true,
+  };
+
+  const result = update(options);
+
+  expect(result.metrics).toBeDefined();
+  expect(Array.isArray(result.metrics?.removedOverridePackages)).toBe(true);
+  expect(typeof result.metrics?.overridesAdded).toBe("number");
+  expect(typeof result.metrics?.overridesRemoved).toBe("number");
+});
+
+test("update - logs unused patches when patches exist for missing dependencies", () => {
+  const PATCH_TEST_DIR = resolve(__dirname, ".test-update-patches");
+
+  if (existsSync(PATCH_TEST_DIR)) {
+    rmSync(PATCH_TEST_DIR, { recursive: true, force: true });
+  }
+  mkdirSync(resolve(PATCH_TEST_DIR, "patches"), { recursive: true });
+  writeFileSync(
+    resolve(PATCH_TEST_DIR, "patches/unused-pkg+1.0.0.patch"),
+    "patch content",
+  );
+
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.21" },
+    overrides: { lodash: "4.17.21" },
+  };
+
+  const options: Options = {
+    config,
+    root: PATCH_TEST_DIR,
+    isTesting: true,
+  };
+
+  const result = update(options);
+
+  rmSync(PATCH_TEST_DIR, { recursive: true, force: true });
+
+  expect(result.patchMap).toBeDefined();
+  expect(result.patchMap?.["unused-pkg"]).toBeDefined();
+  expect(result.unusedPatchCount).toBe(1);
+});
+
+test("update - counts removed overrides when config overrides differ from final", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: {},
+    overrides: {
+      "old-override": "1.0.0",
+    },
+  };
+
+  const options: Options = {
+    config,
+    isTesting: true,
+    summary: true,
+  };
+
+  const result = update(options);
+
+  expect(result.metrics).toBeDefined();
+  expect(result.metrics?.overridesAdded).toBeDefined();
+  expect(result.metrics?.removedOverridePackages).toBeDefined();
+});

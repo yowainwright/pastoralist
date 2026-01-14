@@ -35,6 +35,7 @@ export class SecurityChecker {
   private providers: SecurityProvider[];
   private log: ReturnType<typeof logger>;
   private cache: LRUCache<string, SecurityAlert[]>;
+  private cacheConfigHash: string;
 
   constructor(
     options: SecurityCheckOptions & {
@@ -49,6 +50,19 @@ export class SecurityChecker {
       max: 500,
       ttl: 1000 * 60 * 60,
     });
+    this.cacheConfigHash = this.buildCacheConfigHash(options);
+  }
+
+  private buildCacheConfigHash(options: {
+    isIRLFix?: boolean;
+    isIRLCatch?: boolean;
+    strict?: boolean;
+  }): string {
+    const configParts: string[] = [];
+    if (options.isIRLFix) configParts.push("irlfix");
+    if (options.isIRLCatch) configParts.push("irlcatch");
+    if (options.strict) configParts.push("strict");
+    return configParts.length > 0 ? configParts.sort().join(":") : "default";
   }
 
   private createProviders(
@@ -154,10 +168,10 @@ export class SecurityChecker {
       .sort()
       .join("|");
     const providerNames = this.providers
-      .map((p) => p.constructor.name)
+      .map((p) => p.providerType)
       .sort()
       .join("|");
-    return `${providerNames}:${packageKeys}`;
+    return `${providerNames}:${this.cacheConfigHash}:${packageKeys}`;
   }
 
   async checkSecurity(
@@ -624,13 +638,8 @@ export class SecurityChecker {
         },
       );
 
-      const providerName =
-        this.providers[0]?.constructor.name.toLowerCase() || "";
-      let securityProvider: "osv" | "github" | "snyk" | "npm" | "socket" =
-        "osv";
-      if (providerName.includes("github")) securityProvider = "github";
-      else if (providerName.includes("snyk")) securityProvider = "snyk";
-      else if (providerName.includes("socket")) securityProvider = "socket";
+      const securityProvider: "osv" | "github" | "snyk" | "npm" | "socket" =
+        this.providers[0]?.providerType || "osv";
 
       const existingAppendix = packageJson.pastoralist?.appendix || {};
       const dependencies = packageJson.dependencies || {};

@@ -1,6 +1,11 @@
 import { test, expect } from "bun:test";
 import { SocketCLIProvider } from "../../../../../src/core/security/providers/socket";
 
+test("providerType - should be 'socket'", () => {
+  const provider = new SocketCLIProvider({ debug: false });
+  expect(provider.providerType).toBe("socket");
+});
+
 test("Construction - should create provider without token", () => {
   const provider = new SocketCLIProvider({ debug: false });
   expect(provider).toBeDefined();

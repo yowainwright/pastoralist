@@ -294,24 +294,27 @@ const shouldSuggestRcFile = (config: PastoralistJSON): boolean => {
   return lineCount > 10;
 };
 
+const isValidRootPackage = (content: string): boolean => {
+  try {
+    const parsed = JSON.parse(content);
+    return Boolean(parsed.name);
+  } catch {
+    return false;
+  }
+};
+
 const writeJsonFile = (path: string, content: string): void => {
   const jsonPath = resolve(path);
+  const isJsonFile = jsonPath.endsWith(".json");
+
+  if (!isJsonFile) {
+    log.error(`Invalid target file: ${jsonPath}`, "writeJsonFile");
+    return;
+  }
 
   const rootPkgPath = resolve(process.cwd(), "package.json");
   const isRootPackage = jsonPath === rootPkgPath;
-
-  if (isRootPackage) {
-    try {
-      const parsed = JSON.parse(content);
-      const hasName = Boolean(parsed.name);
-
-      if (!hasName) {
-        return;
-      }
-    } catch {
-      return;
-    }
-  }
+  if (isRootPackage && !isValidRootPackage(content)) return;
 
   fs.writeFileSync(jsonPath, content);
 };

@@ -2,15 +2,17 @@ import { test, expect } from "bun:test";
 import { OSVProvider } from "../../../../src/core/security/providers/osv";
 import { TEST_FIXTURES } from "../../../../src/constants";
 
+const mockFetchBatchAPI = () => Promise.resolve([{ vulns: [] }]);
+
 test("Test Fixtures - OSVProvider appends ALERT_TO_RESOLVE when isIRLFix is true", async () => {
   const provider = new OSVProvider({
     debug: false,
     isIRLFix: true,
     isIRLCatch: false,
   });
+  (provider as any).fetchFromOSVBatchAPI = mockFetchBatchAPI;
 
   const packages = [{ name: "express", version: "4.18.0" }];
-
   const alerts = await provider.fetchAlerts(packages);
 
   const hasFixtureAlert = alerts.some(
@@ -28,9 +30,9 @@ test("Test Fixtures - OSVProvider appends ALERT_TO_CAPTURE when isIRLCatch is tr
     isIRLFix: false,
     isIRLCatch: true,
   });
+  (provider as any).fetchFromOSVBatchAPI = mockFetchBatchAPI;
 
   const packages = [{ name: "express", version: "4.18.0" }];
-
   const alerts = await provider.fetchAlerts(packages);
 
   const hasCaptureAlert = alerts.some(
@@ -49,9 +51,9 @@ test("Test Fixtures - OSVProvider appends both fixtures when both flags are true
     isIRLFix: true,
     isIRLCatch: true,
   });
+  (provider as any).fetchFromOSVBatchAPI = mockFetchBatchAPI;
 
   const packages = [{ name: "express", version: "4.18.0" }];
-
   const alerts = await provider.fetchAlerts(packages);
 
   const hasFixAlert = alerts.some(
@@ -72,9 +74,9 @@ test("Test Fixtures - OSVProvider does not append fixtures when flags are false"
     isIRLFix: false,
     isIRLCatch: false,
   });
+  (provider as any).fetchFromOSVBatchAPI = mockFetchBatchAPI;
 
   const packages = [{ name: "express", version: "4.18.0" }];
-
   const alerts = await provider.fetchAlerts(packages);
 
   const hasAnyFixture = alerts.some(
@@ -135,11 +137,10 @@ test("Test Fixtures - OSVProvider uses concat for immutable array operations", a
     isIRLFix: true,
     isIRLCatch: false,
   });
+  (provider as any).fetchFromOSVBatchAPI = mockFetchBatchAPI;
 
   const packages = [{ name: "test-package", version: "1.0.0" }];
-
   const alerts = await provider.fetchAlerts(packages);
-  const originalLength = alerts.length;
 
   const hasFixture = alerts.some(
     (alert) => alert.packageName === TEST_FIXTURES.ALERT_TO_RESOLVE.packageName,

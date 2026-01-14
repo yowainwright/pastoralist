@@ -29,6 +29,10 @@ import {
   NO_FIX_FIELDS,
   createAlert,
 } from "../../fixtures/security.fixtures";
+import {
+  createMockFetch,
+  withMockedFetch,
+} from "../../fixtures/setup.fixtures";
 
 const mockDependabotAlert: DependabotAlert = {
   ...BASE_DEPENDABOT_ALERT,
@@ -532,23 +536,35 @@ test("createProvider - should create multiple providers", () => {
 });
 
 test("checkSecurity - should handle workspace scanning", async () => {
-  const config: PastoralistJSON = {
-    name: "test-workspace",
-    version: "1.0.0",
-    workspaces: ["packages/*"],
-    dependencies: {
-      lodash: "4.17.20",
-    },
-  };
+  const mockOsvResponse = { vulns: [] };
+  const mockFetch = createMockFetch({ ok: true });
+  mockFetch.mockImplementation(() =>
+    Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(mockOsvResponse),
+    } as Response),
+  );
 
-  const checker = new SecurityChecker({ provider: "osv" });
-  const result = await checker.checkSecurity(config, {
-    depPaths: ["packages/a/package.json"],
-    root: "./",
+  await withMockedFetch(mockFetch, async () => {
+    const config: PastoralistJSON = {
+      name: "test-workspace",
+      version: "1.0.0",
+      workspaces: ["packages/*"],
+      dependencies: {
+        lodash: "4.17.20",
+      },
+    };
+
+    const checker = new SecurityChecker({ provider: "osv" });
+    const result = await checker.checkSecurity(config, {
+      depPaths: ["packages/a/package.json"],
+      root: "./",
+    });
+
+    expect(Array.isArray(result.alerts)).toBe(true);
+    expect(Array.isArray(result.overrides)).toBe(true);
   });
-
-  expect(Array.isArray(result.alerts)).toBe(true);
-  expect(Array.isArray(result.overrides)).toBe(true);
 });
 
 test("checkSecurity - should handle config with no dependencies or devDependencies", async () => {

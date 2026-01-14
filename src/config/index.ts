@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "fs";
 import { resolve } from "path";
+import type { AppendixItem } from "../types";
 import { PastoralistConfig, safeValidateConfig } from "./constants";
 import { CONFIG_FILES } from "./constants";
 
@@ -78,7 +79,7 @@ const deepMergeAppendix = (
   if (!external) return packageJson;
   if (!packageJson) return external;
 
-  const mergeEntry = (key: string, value: any) => {
+  const mergeEntry = (key: string, value: AppendixItem) => {
     if (!external[key]) {
       return value;
     }

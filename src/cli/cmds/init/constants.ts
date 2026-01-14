@@ -37,9 +37,8 @@ export const SECURITY_PROVIDER_CHOICES: PromptChoice[] = [
     value: "osv",
   },
   { name: "GitHub Advisory Database", value: "github" },
-  { name: "npm audit", value: "npm" },
-  { name: "Snyk [EXPERIMENTAL] (requires token)", value: "snyk" },
-  { name: "Socket.dev [EXPERIMENTAL] (requires token)", value: "socket" },
+  { name: "Snyk (requires token)", value: "snyk" },
+  { name: "Socket.dev (requires token)", value: "socket" },
 ];
 
 export const SEVERITY_THRESHOLD_CHOICES: PromptChoice[] = [

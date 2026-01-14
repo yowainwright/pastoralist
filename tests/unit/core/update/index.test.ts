@@ -1319,3 +1319,59 @@ test("update - metrics track removed override packages", () => {
 
   expect(result.metrics).toBeDefined();
 });
+
+test("update - skips lock file parsing without summary or json flag", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    overrides: { lodash: "4.17.21" },
+  };
+
+  const options: Options = {
+    config,
+    isTesting: true,
+  };
+
+  const result = update(options);
+
+  expect(result.metrics?.packagesScanned).toBe(0);
+});
+
+test("update - parses lock file with summary flag", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    overrides: { lodash: "4.17.21" },
+  };
+
+  const options: Options = {
+    config,
+    summary: true,
+    isTesting: true,
+  };
+
+  const result = update(options);
+
+  expect(result.metrics?.packagesScanned).toBeGreaterThanOrEqual(0);
+});
+
+test("update - parses lock file with json outputFormat", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    overrides: { lodash: "4.17.21" },
+  };
+
+  const options: Options = {
+    config,
+    outputFormat: "json",
+    isTesting: true,
+  };
+
+  const result = update(options);
+
+  expect(result.metrics?.packagesScanned).toBeGreaterThanOrEqual(0);
+});

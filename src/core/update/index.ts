@@ -200,16 +200,12 @@ const stepLogUnusedPatches = (ctx: UpdateContext): UpdateContext => {
   const unusedPatches = findUnusedPatches(ctx.patchMap, allDeps);
 
   if (unusedPatches.length > 0) {
-    ctx.log.info(
+    ctx.log.line(
       `Found ${unusedPatches.length} potentially unused patch files:`,
-      "stepLogUnusedPatches",
     );
-    unusedPatches.forEach((patch) =>
-      ctx.log.info(`  - ${patch}`, "stepLogUnusedPatches"),
-    );
-    ctx.log.info(
+    unusedPatches.forEach((patch) => ctx.log.indent(`- ${patch}`));
+    ctx.log.print(
       "Consider removing these patches if the packages are no longer used.",
-      "stepLogUnusedPatches",
     );
   }
 
@@ -246,7 +242,7 @@ const stepWriteResult = (ctx: UpdateContext): UpdateContext => {
     ctx.finalOverrides === undefined;
 
   if (hasNoData) {
-    ctx.log.info(
+    ctx.log.debug(
       "No changes to write - missing required data",
       "stepWriteResult",
     );
@@ -327,8 +323,16 @@ const countSeverities = (
   return counts;
 };
 
+const getPackagesScanned = (ctx: UpdateContext): number => {
+  const opts = ctx.options;
+  const isJsonOutput = opts?.outputFormat === "json";
+  const needsMetrics = Boolean(opts && (opts.summary || isJsonOutput));
+  if (!needsMetrics) return 0;
+  return getFullDependencyCount(ctx.root);
+};
+
 const stepCollectMetrics = (ctx: UpdateContext): UpdateContext => {
-  const packagesScanned = getFullDependencyCount(ctx.root);
+  const packagesScanned = getPackagesScanned(ctx);
   const workspacePackagesScanned = countKeys(ctx.allWorkspaceDeps);
   const appendixEntriesUpdated = countAppendixUpdates(
     ctx.existingAppendix,

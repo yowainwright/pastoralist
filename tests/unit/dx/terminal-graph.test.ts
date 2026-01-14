@@ -18,7 +18,7 @@ describe("terminal-graph", () => {
   describe("notice", () => {
     test("renders boxed message with borders and content", () => {
       const output = createMockOutput();
-      const graph = createTerminalGraph(output);
+      const graph = createTerminalGraph({ out: output });
 
       graph.notice("Test message");
 
@@ -29,7 +29,7 @@ describe("terminal-graph", () => {
 
     test("includes bold white text styling", () => {
       const output = createMockOutput();
-      const graph = createTerminalGraph(output);
+      const graph = createTerminalGraph({ out: output });
 
       graph.notice("Styled text");
 
@@ -40,7 +40,7 @@ describe("terminal-graph", () => {
 
     test("includes red pipe borders", () => {
       const output = createMockOutput();
-      const graph = createTerminalGraph(output);
+      const graph = createTerminalGraph({ out: output });
 
       graph.notice("Bordered text");
 
@@ -50,7 +50,7 @@ describe("terminal-graph", () => {
 
     test("returns graph for chaining", () => {
       const output = createMockOutput();
-      const graph = createTerminalGraph(output);
+      const graph = createTerminalGraph({ out: output });
 
       const result = graph.notice("Chained");
       expect(result).toBe(graph);
@@ -60,7 +60,7 @@ describe("terminal-graph", () => {
   describe("securityFix", () => {
     test("renders security fix with version upgrade", () => {
       const output = createMockOutput();
-      const graph = createTerminalGraph(output);
+      const graph = createTerminalGraph({ out: output });
 
       graph.securityFix({
         packageName: "lodash",
@@ -75,7 +75,7 @@ describe("terminal-graph", () => {
 
     test("renders CVE when provided", () => {
       const output = createMockOutput();
-      const graph = createTerminalGraph(output);
+      const graph = createTerminalGraph({ out: output });
 
       graph.securityFix({
         packageName: "lodash",
@@ -90,7 +90,7 @@ describe("terminal-graph", () => {
 
     test("renders reason when provided", () => {
       const output = createMockOutput();
-      const graph = createTerminalGraph(output);
+      const graph = createTerminalGraph({ out: output });
 
       graph.securityFix({
         packageName: "lodash",
@@ -107,7 +107,7 @@ describe("terminal-graph", () => {
   describe("removedOverride", () => {
     test("renders removed override with package info", () => {
       const output = createMockOutput();
-      const graph = createTerminalGraph(output);
+      const graph = createTerminalGraph({ out: output });
 
       graph.removedOverride({
         packageName: "lodash",
@@ -124,7 +124,7 @@ describe("terminal-graph", () => {
   describe("vulnerability", () => {
     test("renders vulnerability with fix available", () => {
       const output = createMockOutput();
-      const graph = createTerminalGraph(output);
+      const graph = createTerminalGraph({ out: output });
 
       graph.vulnerability({
         severity: "high",
@@ -143,7 +143,7 @@ describe("terminal-graph", () => {
 
     test("renders vulnerability without fix available", () => {
       const output = createMockOutput();
-      const graph = createTerminalGraph(output);
+      const graph = createTerminalGraph({ out: output });
 
       graph.vulnerability({
         severity: "critical",
@@ -159,7 +159,7 @@ describe("terminal-graph", () => {
 
     test("renders CVE when provided", () => {
       const output = createMockOutput();
-      const graph = createTerminalGraph(output);
+      const graph = createTerminalGraph({ out: output });
 
       graph.vulnerability({
         severity: "medium",
@@ -178,7 +178,7 @@ describe("terminal-graph", () => {
   describe("item", () => {
     test("renders item with success icon", () => {
       const output = createMockOutput();
-      const graph = createTerminalGraph(output);
+      const graph = createTerminalGraph({ out: output });
 
       graph.item("Test item");
 
@@ -188,7 +188,7 @@ describe("terminal-graph", () => {
 
     test("returns graph for chaining", () => {
       const output = createMockOutput();
-      const graph = createTerminalGraph(output);
+      const graph = createTerminalGraph({ out: output });
 
       const result = graph.item("Chained item");
       expect(result).toBe(graph);
@@ -198,7 +198,7 @@ describe("terminal-graph", () => {
   describe("summary", () => {
     test("renders overrides summary", () => {
       const output = createMockOutput();
-      const graph = createTerminalGraph(output);
+      const graph = createTerminalGraph({ out: output });
 
       graph.summary({ lodash: "4.17.21", express: "4.18.2" });
 
@@ -210,7 +210,7 @@ describe("terminal-graph", () => {
 
     test("renders changes when provided", () => {
       const output = createMockOutput();
-      const graph = createTerminalGraph(output);
+      const graph = createTerminalGraph({ out: output });
 
       graph.summary({}, ["Added lodash override", "Removed minimist"]);
 
@@ -222,7 +222,7 @@ describe("terminal-graph", () => {
 
     test("renders both overrides and changes", () => {
       const output = createMockOutput();
-      const graph = createTerminalGraph(output);
+      const graph = createTerminalGraph({ out: output });
 
       graph.summary({ lodash: "4.17.21" }, ["Updated lodash"]);
 
@@ -235,7 +235,7 @@ describe("terminal-graph", () => {
 
     test("returns graph for chaining", () => {
       const output = createMockOutput();
-      const graph = createTerminalGraph(output);
+      const graph = createTerminalGraph({ out: output });
 
       const result = graph.summary({});
       expect(result).toBe(graph);
@@ -245,7 +245,7 @@ describe("terminal-graph", () => {
   describe("stop", () => {
     test("returns graph for chaining", () => {
       const output = createMockOutput();
-      const graph = createTerminalGraph(output);
+      const graph = createTerminalGraph({ out: output });
 
       const result = graph.stop();
       expect(result).toBe(graph);
@@ -255,7 +255,7 @@ describe("terminal-graph", () => {
   describe("progress", () => {
     test("returns graph for chaining", () => {
       const output = createMockOutput();
-      const graph = createTerminalGraph(output);
+      const graph = createTerminalGraph({ out: output });
 
       const result = graph.progress(1, 5, "lodash");
       expect(result).toBe(graph);

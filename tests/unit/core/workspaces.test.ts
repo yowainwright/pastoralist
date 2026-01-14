@@ -365,11 +365,15 @@ test("findUnusedOverrides - keeps override in dependency tree", async () => {
 });
 
 test("cleanupUnusedOverrides - logs tracked packages in overridePaths", async () => {
-  const infoLogs: string[] = [];
+  const debugLogs: string[] = [];
   const mockLog = {
-    debug: () => {},
+    debug: (msg: string) => debugLogs.push(msg),
     error: () => {},
-    info: (msg: string) => infoLogs.push(msg),
+    warn: () => {},
+    print: () => {},
+    line: () => {},
+    indent: () => {},
+    item: () => {},
   };
   const mockUpdateOverrides = () => ({ react: "18.0.0" });
 
@@ -393,7 +397,7 @@ test("cleanupUnusedOverrides - logs tracked packages in overridePaths", async ()
     mockUpdateOverrides,
   );
 
-  expect(infoLogs.some((log) => log.includes("overridePaths"))).toBe(true);
+  expect(debugLogs.some((log) => log.includes("overridePaths"))).toBe(true);
 });
 
 // =============================================================================

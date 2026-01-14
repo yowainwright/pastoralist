@@ -6,7 +6,7 @@ import type {
 } from "../../types";
 import type { PastoralistConfig } from "../../config";
 import type { ResolveOverrides } from "../../types";
-import type { ConsoleObject } from "../../utils";
+import type { Logger } from "../../utils";
 
 export interface ProcessingMode {
   mode: "workspace" | "root";
@@ -56,7 +56,7 @@ export interface UpdateContext {
   path: string;
   root: string;
   isTesting: boolean;
-  log: ConsoleObject;
+  log: Logger;
   config?: PastoralistJSON;
   patchMap?: Record<string, string[]>;
   overridesData?: ResolveOverrides;

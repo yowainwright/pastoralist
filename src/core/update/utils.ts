@@ -1,4 +1,5 @@
 import { findPackageJsonFiles, updatePackageJSON } from "../packageJSON";
+import { toCompactAppendix } from "../appendix/utils";
 import type {
   PastoralistJSON,
   Appendix,
@@ -12,21 +13,32 @@ import type {
   ProcessingMode,
   MergedConfig,
 } from "../../types";
-import type { ConsoleObject } from "../../utils";
+import type { Logger } from "../../utils";
 
 export const findPackageFiles = (
   patterns: string[],
   root: string,
   ignore: string[],
-  log: ConsoleObject,
+  log: Logger,
 ): string[] => {
   return findPackageJsonFiles(patterns, ignore, root, log);
 };
 
+const resolveAppendix = (
+  finalAppendix: Appendix,
+  useCompact: boolean,
+): Appendix => {
+  if (!useCompact) return finalAppendix;
+  return toCompactAppendix(finalAppendix) as Appendix;
+};
+
 export const writeResult = (ctx: WriteResultContext): void => {
   const isJsonOutput = ctx.options?.outputFormat === "json";
+  const useCompact = ctx.config?.pastoralist?.compactAppendix === true;
+  const appendix = resolveAppendix(ctx.finalAppendix, useCompact);
+
   updatePackageJSON({
-    appendix: ctx.finalAppendix,
+    appendix,
     path: ctx.path,
     config: ctx.config,
     overrides: ctx.finalOverrides,

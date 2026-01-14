@@ -35,7 +35,7 @@ async function collectConfigLocationAnswers(
   answers: InitAnswers,
   log: ReturnType<typeof createLogger>,
 ): Promise<void> {
-  log.info(`\n${STEP_TITLES.configLocation}`, "collectConfigLocationAnswers");
+  log.print(`\n${STEP_TITLES.configLocation}`);
 
   answers.configLocation = (await prompt.list(
     PROMPTS.configLocation,
@@ -70,10 +70,7 @@ async function promptForWorkspaceType(
     return "custom";
   }
 
-  log.info(
-    `\n   ${INIT_MESSAGES.workspacesDetected(workspaces)}`,
-    "promptForWorkspaceType",
-  );
+  log.print(`\n   ${INIT_MESSAGES.workspacesDetected(workspaces)}`);
   return (await prompt.list(PROMPTS.workspaceType, WORKSPACE_TYPE_CHOICES)) as
     | "workspace"
     | "custom";
@@ -85,7 +82,7 @@ async function collectWorkspaceAnswers(
   packageJson: PastoralistJSON | null | undefined,
   log: ReturnType<typeof createLogger>,
 ): Promise<void> {
-  log.info(`\n${STEP_TITLES.workspace}`, "collectWorkspaceAnswers");
+  log.print(`\n${STEP_TITLES.workspace}`);
 
   answers.setupWorkspaces = await prompt.confirm(PROMPTS.setupWorkspaces, true);
 
@@ -98,10 +95,7 @@ async function collectWorkspaceAnswers(
   );
 
   if (!hasWorkspaces) {
-    log.info(
-      `\n   ${INIT_MESSAGES.noWorkspacesDetected}`,
-      "collectWorkspaceAnswers",
-    );
+    log.print(`\n   ${INIT_MESSAGES.noWorkspacesDetected}`);
   }
 
   answers.workspaceType = await promptForWorkspaceType(
@@ -128,9 +122,8 @@ async function promptForSecurityToken(
   }
 
   if (tokenInfo.createUrl) {
-    log.info(
+    log.print(
       `\n   ${INIT_MESSAGES.tokenCreationInfo(provider, tokenInfo.createUrl)}`,
-      "promptForSecurityToken",
     );
   }
 
@@ -138,10 +131,7 @@ async function promptForSecurityToken(
 
   if (!hasToken) {
     if (tokenInfo.required) {
-      log.info(
-        `\n   ${INIT_MESSAGES.tokenRequiredWarning(provider)}`,
-        "promptForSecurityToken",
-      );
+      log.print(`\n   ${INIT_MESSAGES.tokenRequiredWarning(provider)}`);
     }
     return undefined;
   }
@@ -149,10 +139,7 @@ async function promptForSecurityToken(
   const token = await prompt.input(PROMPTS.enterToken(provider), "");
 
   if (!token) {
-    log.info(
-      `\n   ${INIT_MESSAGES.noTokenProvided()}`,
-      "promptForSecurityToken",
-    );
+    log.print(`\n   ${INIT_MESSAGES.noTokenProvided()}`);
     return undefined;
   }
 
@@ -199,7 +186,7 @@ async function collectSecurityAnswers(
   answers: InitAnswers,
   log: ReturnType<typeof createLogger>,
 ): Promise<void> {
-  log.info(`\n${STEP_TITLES.security}`, "collectSecurityAnswers");
+  log.print(`\n${STEP_TITLES.security}`);
 
   answers.setupSecurity = await prompt.confirm(PROMPTS.setupSecurity, true);
 
@@ -251,7 +238,7 @@ async function saveToPackageJson(
   isTesting: boolean = false,
 ): Promise<void> {
   if (!packageJson) {
-    log.info(INIT_MESSAGES.packageJsonNotFound, "saveToPackageJson");
+    log.print(INIT_MESSAGES.packageJsonNotFound);
     return;
   }
 
@@ -261,7 +248,7 @@ async function saveToPackageJson(
     writeFileSync(path, JSON.stringify(packageJson, null, 2) + "\n");
   }
 
-  log.info(INIT_MESSAGES.configSaved(path), "saveToPackageJson");
+  log.print(INIT_MESSAGES.configSaved(path));
 }
 
 async function saveToExternalFile(
@@ -285,7 +272,7 @@ async function saveToExternalFile(
     );
 
     if (!shouldOverwrite) {
-      log.info(`\n${INIT_MESSAGES.configNotSaved}`, "saveToExternalFile");
+      log.print(`\n${INIT_MESSAGES.configNotSaved}`);
       return;
     }
   }
@@ -296,31 +283,26 @@ async function saveToExternalFile(
     writeFileSync(configPath, content);
   }
 
-  log.info(INIT_MESSAGES.configSaved(configPath), "saveToExternalFile");
+  log.print(INIT_MESSAGES.configSaved(configPath));
 }
 
 function displayNextSteps(
   setupSecurity: boolean,
   log: ReturnType<typeof createLogger>,
 ): void {
-  log.info(`\n${INIT_MESSAGES.nextSteps}\n`, "displayNextSteps");
-  log.info(
+  log.print(`\n${INIT_MESSAGES.nextSteps}\n`);
+  log.print(
     `   1. Run ${green("pastoralist")} to check and update your dependencies`,
-    "displayNextSteps",
   );
 
   if (setupSecurity) {
-    log.info(
+    log.print(
       `   2. Run ${green("pastoralist --checkSecurity")} to scan for security vulnerabilities`,
-      "displayNextSteps",
     );
   }
 
-  log.info(
-    `   3. Check the documentation for advanced configuration options`,
-    "displayNextSteps",
-  );
-  log.info(`\n${BRAND} ${INIT_MESSAGES.initComplete}\n`, "displayNextSteps");
+  log.print(`   3. Check the documentation for advanced configuration options`);
+  log.print(`\n${BRAND} ${INIT_MESSAGES.initComplete}\n`);
 }
 
 async function checkExistingConfig(
@@ -354,13 +336,13 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
   const hasFocusedContext = hasSecurityContext || hasWorkspaceContext;
 
   if (hasSecurityContext) {
-    log.info(`\n${BRAND} security configuration wizard\n`, "initCommand");
+    log.print(`\n${BRAND} security configuration wizard\n`);
   } else if (hasWorkspaceContext) {
-    log.info(`\n${BRAND} workspace configuration wizard\n`, "initCommand");
+    log.print(`\n${BRAND} workspace configuration wizard\n`);
   } else {
-    log.info(`\n${BRAND} initialization wizard\n`, "initCommand");
-    log.info(`${INIT_MESSAGES.welcome}\n`, "initCommand");
-    log.info(`${INIT_MESSAGES.skipInfo}\n`, "initCommand");
+    log.print(`\n${BRAND} initialization wizard\n`);
+    log.print(`${INIT_MESSAGES.welcome}\n`);
+    log.print(`${INIT_MESSAGES.skipInfo}\n`);
   }
 
   const path = options.path || "package.json";
@@ -370,7 +352,7 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
     const shouldProceed = await checkExistingConfig(prompt, root, path);
 
     if (!shouldProceed) {
-      log.info(`\n${INIT_MESSAGES.initCancelled}`, "initCommand");
+      log.print(`\n${INIT_MESSAGES.initCancelled}`);
       return;
     }
 
@@ -412,7 +394,7 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
 
     const config = buildConfig(answers);
 
-    log.info(`\n${INIT_MESSAGES.savingConfig}\n`, "initCommand");
+    log.print(`\n${INIT_MESSAGES.savingConfig}\n`);
 
     const shouldSaveToPackageJson = answers.configLocation === "package.json";
     const shouldSaveToExternalFile =
@@ -448,7 +430,7 @@ async function collectSecurityAnswersWithContext(
   answers: InitAnswers,
   log: ReturnType<typeof createLogger>,
 ): Promise<void> {
-  log.info(`\n${STEP_TITLES.security}`, "collectSecurityAnswersWithContext");
+  log.print(`\n${STEP_TITLES.security}`);
 
   const needsProviderSelection = !answers.securityProvider;
 

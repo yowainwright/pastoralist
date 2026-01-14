@@ -1,8 +1,10 @@
 import { SecurityAlert, OSVVulnerability } from "../../../types";
 import { logger, retry, type RetryOptions } from "../../../utils";
 import { TEST_FIXTURES } from "../../../constants";
+import { OSV_API } from "../constants";
 
 export class OSVProvider {
+  readonly providerType = "osv" as const;
   protected debug: boolean;
   protected isIRLFix: boolean;
   protected isIRLCatch: boolean;
@@ -33,7 +35,7 @@ export class OSVProvider {
 
   async isAvailable(): Promise<boolean> {
     try {
-      const response = await fetch("https://api.osv.dev/v1/query", {
+      const response = await fetch(OSV_API.QUERY, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ package: { name: "test", ecosystem: "npm" } }),
@@ -52,7 +54,7 @@ export class OSVProvider {
       version: pkg.version,
     }));
 
-    const response = await fetch("https://api.osv.dev/v1/querybatch", {
+    const response = await fetch(OSV_API.QUERY_BATCH, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ queries }),
@@ -79,34 +81,57 @@ export class OSVProvider {
     return enrichedResults;
   }
 
+  private async fetchSingleVulnerability(vuln: {
+    id: string;
+  }): Promise<OSVVulnerability> {
+    const response = await fetch(OSV_API.VULN(vuln.id));
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    return response.json();
+  }
+
   private async fetchFullVulnerabilityDetails(
     partialVulns: Array<{ id: string }>,
   ): Promise<OSVVulnerability[]> {
-    const fullVulns = await Promise.all(
-      partialVulns.map(async (vuln) => {
-        try {
-          const response = await fetch(
-            `https://api.osv.dev/v1/vulns/${vuln.id}`,
-          );
-          if (!response.ok) {
-            this.log.debug(
-              `Failed to fetch details for ${vuln.id}`,
-              "fetchFullVulnerabilityDetails",
-            );
-            return vuln as OSVVulnerability;
-          }
-          return await response.json();
-        } catch (error) {
-          this.log.debug(
-            `Error fetching ${vuln.id}`,
-            "fetchFullVulnerabilityDetails",
-            { error },
-          );
-          return vuln as OSVVulnerability;
-        }
-      }),
+    const concurrency = 5;
+    const batches = partialVulns.reduce<Array<Array<{ id: string }>>>(
+      (acc, vuln, i) => {
+        const batchIndex = Math.floor(i / concurrency);
+        acc[batchIndex] = acc[batchIndex] || [];
+        acc[batchIndex].push(vuln);
+        return acc;
+      },
+      [],
     );
-    return fullVulns;
+
+    const processBatch = async (
+      batch: Array<{ id: string }>,
+    ): Promise<OSVVulnerability[]> => {
+      const results = await Promise.allSettled(
+        batch.map((vuln) => this.fetchSingleVulnerability(vuln)),
+      );
+
+      return results.map((result, i) => {
+        if (result.status === "fulfilled") return result.value;
+        this.log.debug(
+          `Failed to fetch ${batch[i].id}: ${result.reason}`,
+          "fetchFullVulnerabilityDetails",
+        );
+        return batch[i] as OSVVulnerability;
+      });
+    };
+
+    const batchResults = await batches.reduce<Promise<OSVVulnerability[]>>(
+      async (accPromise, batch) => {
+        const acc = await accPromise;
+        const results = await processBatch(batch);
+        return acc.concat(results);
+      },
+      Promise.resolve([]),
+    );
+
+    return batchResults;
   }
 
   async fetchAlerts(
@@ -157,7 +182,8 @@ export class OSVProvider {
       .map((pkg, index) => {
         const result = batchResults[index];
         const hasVulns = result?.vulns && result.vulns.length > 0;
-        return hasVulns ? this.convertOSVAlerts(pkg, result.vulns!) : [];
+        if (!hasVulns) return [];
+        return this.convertOSVAlerts(pkg, result.vulns!);
       })
       .flat();
 
@@ -192,13 +218,13 @@ export class OSVProvider {
 
   private extractVersionRange(vuln: OSVVulnerability): string {
     const affected = vuln.affected?.[0];
-    if (affected?.ranges?.[0]?.events) {
-      const events = affected.ranges[0].events;
-      const introduced = events.find((e) => e.introduced)?.introduced || "0";
-      const fixed = events.find((e) => e.fixed)?.fixed;
-      return fixed ? `>= ${introduced} < ${fixed}` : `>= ${introduced}`;
-    }
-    return "";
+    const events = affected?.ranges?.[0]?.events;
+    if (!events) return "";
+
+    const introduced = events.find((e) => e.introduced)?.introduced || "0";
+    const fixed = events.find((e) => e.fixed)?.fixed;
+    const range = fixed ? `>= ${introduced} < ${fixed}` : `>= ${introduced}`;
+    return range;
   }
 
   private extractPatchedVersion(vuln: OSVVulnerability): string | undefined {

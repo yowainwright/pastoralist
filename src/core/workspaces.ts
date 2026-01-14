@@ -150,7 +150,6 @@ export const mergeOverridePaths = (
     "mergeOverridePaths",
   );
 
-  // Merge overridePaths into appendix by mutating it in-place
   Object.values(overridePaths!).forEach((pathAppendix) => {
     Object.entries(pathAppendix).forEach(([key, value]) => {
       if (appendix[key]) {

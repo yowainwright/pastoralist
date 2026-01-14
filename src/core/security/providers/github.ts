@@ -21,6 +21,7 @@ const DEFAULT_FETCH_TIMEOUT = 30000;
 const DEFAULT_GH_CLI_TIMEOUT = 60000;
 
 export class GitHubSecurityProvider {
+  readonly providerType = "github" as const;
   private owner: string;
   private repo: string;
   private token?: string;

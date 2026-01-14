@@ -13,6 +13,7 @@ import { AUTH_MESSAGES } from "../constants";
 const execFileAsync = promisify(execFile);
 
 export class SocketCLIProvider {
+  readonly providerType = "socket" as const;
   private log: ReturnType<typeof logger>;
   private installer: CLIInstaller;
   private token?: string;

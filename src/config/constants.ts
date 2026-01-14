@@ -38,6 +38,7 @@ export type SecurityConfig = {
 
 export type PastoralistConfig = {
   appendix?: Appendix;
+  compactAppendix?: boolean;
   depPaths?: "workspace" | "workspaces" | string[];
   checkSecurity?: boolean;
   overridePaths?: Record<string, Appendix>;

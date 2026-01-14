@@ -1,8 +1,9 @@
 import { test, expect } from "bun:test";
-import type { SecurityOverrideDetail } from "../../../../src/types";
+import type { SecurityOverrideDetail, Appendix } from "../../../../src/types";
 import {
   mergeOverrideReasons,
   createSecurityLedger,
+  toCompactAppendix,
 } from "../../../../src/core/appendix/utils";
 
 test("mergeOverrideReasons - should return reason when provided", () => {
@@ -224,4 +225,62 @@ test("createSecurityLedger - should include all fields when provided", () => {
     severity: "high",
     url: "https://nvd.nist.gov/vuln/detail/CVE-2021-23337",
   });
+});
+
+test("toCompactAppendix - should compact simple entries", () => {
+  const appendix: Appendix = {
+    "lodash@4.17.21": {
+      dependents: { "my-app": "^4.17.0" },
+      ledger: { addedDate: "2024-01-15" },
+    },
+  };
+
+  const result = toCompactAppendix(appendix);
+
+  expect(result["lodash@4.17.21"]).toEqual({ addedDate: "2024-01-15" });
+});
+
+test("toCompactAppendix - should preserve entries with security info", () => {
+  const appendix: Appendix = {
+    "lodash@4.17.21": {
+      dependents: { "my-app": "^4.17.0" },
+      ledger: {
+        addedDate: "2024-01-15",
+        securityChecked: true,
+        cve: "CVE-2021-23337",
+      },
+    },
+  };
+
+  const result = toCompactAppendix(appendix);
+
+  expect(result["lodash@4.17.21"]).toHaveProperty("ledger");
+  expect(result["lodash@4.17.21"]).toHaveProperty("dependents");
+});
+
+test("toCompactAppendix - should preserve entries with patches", () => {
+  const appendix: Appendix = {
+    "lodash@4.17.21": {
+      dependents: { "my-app": "^4.17.0" },
+      patches: ["patches/lodash+4.17.21.patch"],
+      ledger: { addedDate: "2024-01-15" },
+    },
+  };
+
+  const result = toCompactAppendix(appendix);
+
+  expect(result["lodash@4.17.21"]).toHaveProperty("patches");
+});
+
+test("toCompactAppendix - should generate date if missing", () => {
+  const appendix: Appendix = {
+    "lodash@4.17.21": {
+      dependents: { "my-app": "^4.17.0" },
+    },
+  };
+
+  const result = toCompactAppendix(appendix);
+
+  expect(result["lodash@4.17.21"]).toHaveProperty("addedDate");
+  expect(typeof result["lodash@4.17.21"].addedDate).toBe("string");
 });

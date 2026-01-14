@@ -13,9 +13,13 @@ const createMockTerminalGraph = () => {
     item: mock(() => graph),
     vulnerability: mock(() => graph),
     override: mock(() => graph),
+    securityFix: mock(() => graph),
+    removedOverride: mock(() => graph),
     endPhase: mock(() => graph),
     summary: mock(() => graph),
+    executiveSummary: mock(() => graph),
     complete: mock(() => graph),
+    notice: mock(() => graph),
     stop: mock(() => graph),
   };
   return graph;
@@ -37,6 +41,111 @@ test("handleTestMode - returns false when isTestingCLI is false", () => {
   const result = handleTestMode(false, log, options);
 
   expect(result).toBe(false);
+});
+
+test("handleSetupHook - returns false when setupHook is not true", () => {
+  const { handleSetupHook } = require("../../../src/cli/index");
+
+  const options: Options = { setupHook: false };
+  const result = handleSetupHook(options, log);
+
+  expect(result).toBe(false);
+});
+
+test("handleSetupHook - returns false when setupHook is undefined", () => {
+  const { handleSetupHook } = require("../../../src/cli/index");
+
+  const options: Options = {};
+  const result = handleSetupHook(options, log);
+
+  expect(result).toBe(false);
+});
+
+test("handleSetupHook - returns true when postinstall already has pastoralist", () => {
+  const { handleSetupHook } = require("../../../src/cli/index");
+
+  const mockReadFileSync = mock(() =>
+    JSON.stringify({ scripts: { postinstall: "pastoralist" } }),
+  );
+  const mockWriteFileSync = mock(() => {});
+  const mockResolve = mock((p: string) => p);
+
+  const options: Options = { setupHook: true };
+  const result = handleSetupHook(options, log, {
+    readFileSync: mockReadFileSync,
+    writeFileSync: mockWriteFileSync,
+    resolve: mockResolve,
+  });
+
+  expect(result).toBe(true);
+  expect(mockWriteFileSync).not.toHaveBeenCalled();
+});
+
+test("handleSetupHook - adds pastoralist to empty scripts", () => {
+  const { handleSetupHook } = require("../../../src/cli/index");
+
+  let writtenContent = "";
+  const mockReadFileSync = mock(() => JSON.stringify({ name: "test" }));
+  const mockWriteFileSync = mock((_path: string, content: string) => {
+    writtenContent = content;
+  });
+  const mockResolve = mock((p: string) => p);
+
+  const options: Options = { setupHook: true };
+  const result = handleSetupHook(options, log, {
+    readFileSync: mockReadFileSync,
+    writeFileSync: mockWriteFileSync,
+    resolve: mockResolve,
+  });
+
+  expect(result).toBe(true);
+  expect(mockWriteFileSync).toHaveBeenCalled();
+  const parsed = JSON.parse(writtenContent);
+  expect(parsed.scripts.postinstall).toBe("pastoralist");
+});
+
+test("handleSetupHook - appends pastoralist to existing postinstall", () => {
+  const { handleSetupHook } = require("../../../src/cli/index");
+
+  let writtenContent = "";
+  const mockReadFileSync = mock(() =>
+    JSON.stringify({ scripts: { postinstall: "echo done" } }),
+  );
+  const mockWriteFileSync = mock((_path: string, content: string) => {
+    writtenContent = content;
+  });
+  const mockResolve = mock((p: string) => p);
+
+  const options: Options = { setupHook: true };
+  const result = handleSetupHook(options, log, {
+    readFileSync: mockReadFileSync,
+    writeFileSync: mockWriteFileSync,
+    resolve: mockResolve,
+  });
+
+  expect(result).toBe(true);
+  const parsed = JSON.parse(writtenContent);
+  expect(parsed.scripts.postinstall).toBe("echo done && pastoralist");
+});
+
+test("handleSetupHook - returns true on read error", () => {
+  const { handleSetupHook } = require("../../../src/cli/index");
+
+  const mockReadFileSync = mock(() => {
+    throw new Error("File not found");
+  });
+  const mockWriteFileSync = mock(() => {});
+  const mockResolve = mock((p: string) => p);
+
+  const options: Options = { setupHook: true };
+  const result = handleSetupHook(options, log, {
+    readFileSync: mockReadFileSync,
+    writeFileSync: mockWriteFileSync,
+    resolve: mockResolve,
+  });
+
+  expect(result).toBe(true);
+  expect(mockWriteFileSync).not.toHaveBeenCalled();
 });
 
 test("buildSecurityOverrideDetail - builds complete detail object", () => {
@@ -2482,6 +2591,7 @@ test("action - displays security fixes when forceSecurityRefactor is true", asyn
     override: mock(() => mockGraph),
     endPhase: mock(() => mockGraph),
     summary: mock(() => mockGraph),
+    executiveSummary: mock(() => mockGraph),
     complete: mock(() => mockGraph),
     stop: mock(() => mockGraph),
     notice: mock(() => mockGraph),
@@ -2564,6 +2674,7 @@ test("action - displays removed overrides when present", async () => {
     override: mock(() => mockGraph),
     endPhase: mock(() => mockGraph),
     summary: mock(() => mockGraph),
+    executiveSummary: mock(() => mockGraph),
     complete: mock(() => mockGraph),
     stop: mock(() => mockGraph),
     notice: mock(() => mockGraph),
@@ -2624,6 +2735,7 @@ test("action - displays summary table when summary option is true", async () => 
     override: mock(() => mockGraph),
     endPhase: mock(() => mockGraph),
     summary: mock(() => mockGraph),
+    executiveSummary: mock(() => mockGraph),
     complete: mock(() => mockGraph),
     stop: mock(() => mockGraph),
     notice: mock(() => mockGraph),

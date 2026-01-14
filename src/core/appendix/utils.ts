@@ -5,6 +5,7 @@ import type {
   OverridesType,
   OverrideValue,
 } from "../../types";
+import type { PartialSecurityLedger, CompactAppendix } from "./types";
 
 const getReasonFromSecurityDetails = (
   packageName: string,
@@ -56,40 +57,40 @@ const findSecurityDetail = (
   return securityOverrideDetails?.find((d) => d.packageName === packageName);
 };
 
-const buildBaseLedger = (): Record<string, any> => ({
+const buildBaseLedger = (): PartialSecurityLedger => ({
   securityChecked: true,
   securityCheckDate: new Date().toISOString(),
 });
 
 const addProviderToLedger = (
-  ledger: Record<string, any>,
+  ledger: PartialSecurityLedger,
   securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket",
-): Record<string, any> => {
+): PartialSecurityLedger => {
   const hasProvider = Boolean(securityProvider);
   if (!hasProvider) return ledger;
   return { ...ledger, securityProvider };
 };
 
 const addCveToLedger = (
-  ledger: Record<string, any>,
+  ledger: PartialSecurityLedger,
   detail?: SecurityOverrideDetail,
-): Record<string, any> => {
+): PartialSecurityLedger => {
   if (!detail?.cve) return ledger;
   return { ...ledger, cve: detail.cve };
 };
 
 const addSeverityToLedger = (
-  ledger: Record<string, any>,
+  ledger: PartialSecurityLedger,
   detail?: SecurityOverrideDetail,
-): Record<string, any> => {
+): PartialSecurityLedger => {
   if (!detail?.severity) return ledger;
   return { ...ledger, severity: detail.severity };
 };
 
 const addUrlToLedger = (
-  ledger: Record<string, any>,
+  ledger: PartialSecurityLedger,
   detail?: SecurityOverrideDetail,
-): Record<string, any> => {
+): PartialSecurityLedger => {
   if (!detail?.url) return ledger;
   return { ...ledger, url: detail.url };
 };
@@ -98,7 +99,7 @@ export const createSecurityLedger = (
   packageName: string,
   securityOverrideDetails?: SecurityOverrideDetail[],
   securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket",
-): Record<string, any> => {
+): PartialSecurityLedger => {
   const isSecurity = isPackageInSecurityDetails(
     packageName,
     securityOverrideDetails,
@@ -236,4 +237,43 @@ export const mergeAppendixDependents = (
 
   currentAppendix[key] = { dependents: mergedDependents };
   return currentAppendix;
+};
+
+const hasSecurityInfo = (item: AppendixItem): boolean => {
+  const ledger = item.ledger;
+  if (!ledger) return false;
+
+  return Boolean(
+    ledger.securityChecked ||
+    ledger.securityProvider ||
+    ledger.cve ||
+    ledger.severity,
+  );
+};
+
+const hasPatches = (item: AppendixItem): boolean => {
+  return Boolean(item.patches && item.patches.length > 0);
+};
+
+const canBeCompacted = (item: AppendixItem): boolean => {
+  return !hasSecurityInfo(item) && !hasPatches(item);
+};
+
+const getAddedDate = (item: AppendixItem): string => {
+  if (item.ledger?.addedDate) return item.ledger.addedDate;
+  return new Date().toISOString().split("T")[0];
+};
+
+export const toCompactAppendix = (appendix: Appendix): CompactAppendix => {
+  const compact: CompactAppendix = {};
+
+  for (const [key, item] of Object.entries(appendix)) {
+    if (canBeCompacted(item)) {
+      compact[key] = { addedDate: getAddedDate(item) };
+    } else {
+      compact[key] = item as unknown as CompactAppendix[string];
+    }
+  }
+
+  return compact;
 };

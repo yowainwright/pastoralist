@@ -51,7 +51,7 @@ export {
   clearConfigCache,
 } from "./config";
 
-export { logMethod, logger } from "./utils";
+export { logger } from "./utils";
 
 export type {
   Options,

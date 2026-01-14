@@ -24,9 +24,13 @@ test("initCommand - should initialize with default options", async () => {
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
   const mockLog = {
-    info: mock(() => {}),
     debug: mock(() => {}),
     error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
@@ -56,9 +60,13 @@ test("initCommand - should handle security context initialization", async () => 
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
   const mockLog = {
-    info: mock(() => {}),
     debug: mock(() => {}),
     error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
@@ -94,9 +102,13 @@ test("initCommand - should handle workspace context initialization", async () =>
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
   const mockLog = {
-    info: mock(() => {}),
     debug: mock(() => {}),
     error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
@@ -137,9 +149,13 @@ test("initCommand - should save to package.json", async () => {
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
   const mockLog = {
-    info: mock(() => {}),
     debug: mock(() => {}),
     error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
@@ -169,9 +185,13 @@ test("initCommand - should save to .pastoralistrc.json", async () => {
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
   const mockLog = {
-    info: mock(() => {}),
     debug: mock(() => {}),
     error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
@@ -209,9 +229,13 @@ test("initCommand - should prompt for overwrite if external config exists", asyn
   writeFileSync(configPath, JSON.stringify({ depPaths: "workspace" }, null, 2));
 
   const mockLog = {
-    info: mock(() => {}),
     debug: mock(() => {}),
     error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
@@ -251,9 +275,13 @@ test("initCommand - should configure workspace mode", async () => {
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
   const mockLog = {
-    info: mock(() => {}),
     debug: mock(() => {}),
     error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
@@ -299,9 +327,13 @@ test("initCommand - should configure custom workspace paths", async () => {
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
   const mockLog = {
-    info: mock(() => {}),
     debug: mock(() => {}),
     error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
@@ -345,9 +377,13 @@ test("initCommand - should handle no workspaces detected", async () => {
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
   const mockLog = {
-    info: mock(() => {}),
     debug: mock(() => {}),
     error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
@@ -391,9 +427,13 @@ test("initCommand - should skip workspace configuration when declined", async ()
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
   const mockLog = {
-    info: mock(() => {}),
     debug: mock(() => {}),
     error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
@@ -427,9 +467,13 @@ test("initCommand - should configure GitHub security provider", async () => {
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
   const mockLog = {
-    info: mock(() => {}),
     debug: mock(() => {}),
     error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
@@ -473,9 +517,13 @@ test("initCommand - should configure Snyk with token", async () => {
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
   const mockLog = {
-    info: mock(() => {}),
     debug: mock(() => {}),
     error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
@@ -523,9 +571,13 @@ test("initCommand - should configure Socket with token", async () => {
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
   const mockLog = {
-    info: mock(() => {}),
     debug: mock(() => {}),
     error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
@@ -573,9 +625,13 @@ test("initCommand - should handle missing token for required provider", async ()
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
   const mockLog = {
-    info: mock(() => {}),
     debug: mock(() => {}),
     error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
@@ -618,9 +674,13 @@ test("initCommand - should handle empty token input", async () => {
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
   const mockLog = {
-    info: mock(() => {}),
     debug: mock(() => {}),
     error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
@@ -666,9 +726,13 @@ test("initCommand - should configure workspace security checks", async () => {
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
   const mockLog = {
-    info: mock(() => {}),
     debug: mock(() => {}),
     error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
@@ -718,9 +782,13 @@ test("initCommand - should configure auto-fix when interactive is disabled", asy
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
   const mockLog = {
-    info: mock(() => {}),
     debug: mock(() => {}),
     error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
@@ -763,9 +831,13 @@ test("initCommand - should detect existing config in package.json", async () => 
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
   const mockLog = {
-    info: mock(() => {}),
     debug: mock(() => {}),
     error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
@@ -804,9 +876,13 @@ test("initCommand - should cancel when user declines overwrite", async () => {
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
   const mockLog = {
-    info: mock(() => {}),
     debug: mock(() => {}),
     error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
@@ -845,9 +921,13 @@ test("initCommand - should detect external config file", async () => {
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
   const mockLog = {
-    info: mock(() => {}),
     debug: mock(() => {}),
     error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
@@ -888,9 +968,13 @@ test("initCommand - should use security context with provider option", async () 
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
   const mockLog = {
-    info: mock(() => {}),
     debug: mock(() => {}),
     error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
@@ -933,9 +1017,13 @@ test("initCommand - should handle security context with workspace checks", async
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
   const mockLog = {
-    info: mock(() => {}),
     debug: mock(() => {}),
     error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
@@ -987,9 +1075,13 @@ test("initCommand - should create complete config with all features enabled", as
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
   const mockLog = {
-    info: mock(() => {}),
     debug: mock(() => {}),
     error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
@@ -1041,9 +1133,13 @@ test("initCommand - should create minimal config", async () => {
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
   const mockLog = {
-    info: mock(() => {}),
     debug: mock(() => {}),
     error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
@@ -1073,9 +1169,13 @@ test("initCommand - should handle missing package.json gracefully", async () => 
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
   const mockLog = {
-    info: mock(() => {}),
     debug: mock(() => {}),
     error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
@@ -1096,6 +1196,189 @@ test("initCommand - should handle missing package.json gracefully", async () => 
   expect(createPromptSpy).toHaveBeenCalled();
 
   mockResolveJSON.mockRestore();
+  loggerSpy?.mockRestore();
+  if (existsSync(testPath)) {
+    unlinkSync(testPath);
+  }
+  validateRootPackageJsonIntegrity();
+});
+
+test("initCommand - should handle snyk provider token info", async () => {
+  validateRootPackageJsonIntegrity();
+  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
+
+  const mockLog = {
+    debug: mock(() => {}),
+    error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
+  };
+  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
+    async (callback) => {
+      const mockPrompt = {
+        list: mock((msg: string) => {
+          if (msg.includes("config location"))
+            return Promise.resolve("package.json");
+          if (msg.includes("security provider")) return Promise.resolve("snyk");
+          if (msg.includes("severity")) return Promise.resolve("medium");
+          return Promise.resolve("back");
+        }),
+        confirm: mock((msg: string) => {
+          if (msg.includes("token")) return Promise.resolve(false);
+          return Promise.resolve(false);
+        }),
+        input: mock(() => Promise.resolve("")),
+      };
+      return callback(mockPrompt);
+    },
+  );
+
+  await initCommand({ path: testPath, checkSecurity: true, isTesting: true });
+  expect(createPromptSpy).toHaveBeenCalled();
+
+  loggerSpy?.mockRestore();
+  if (existsSync(testPath)) {
+    unlinkSync(testPath);
+  }
+  validateRootPackageJsonIntegrity();
+});
+
+test("initCommand - should handle socket provider token info", async () => {
+  validateRootPackageJsonIntegrity();
+  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
+
+  const mockLog = {
+    debug: mock(() => {}),
+    error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
+  };
+  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
+    async (callback) => {
+      const mockPrompt = {
+        list: mock((msg: string) => {
+          if (msg.includes("config location"))
+            return Promise.resolve("package.json");
+          if (msg.includes("security provider"))
+            return Promise.resolve("socket");
+          if (msg.includes("severity")) return Promise.resolve("medium");
+          return Promise.resolve("back");
+        }),
+        confirm: mock((msg: string) => {
+          if (msg.includes("token")) return Promise.resolve(false);
+          return Promise.resolve(false);
+        }),
+        input: mock(() => Promise.resolve("")),
+      };
+      return callback(mockPrompt);
+    },
+  );
+
+  await initCommand({ path: testPath, checkSecurity: true, isTesting: true });
+  expect(createPromptSpy).toHaveBeenCalled();
+
+  loggerSpy?.mockRestore();
+  if (existsSync(testPath)) {
+    unlinkSync(testPath);
+  }
+  validateRootPackageJsonIntegrity();
+});
+
+test("initCommand - should handle token input when user confirms but provides empty token", async () => {
+  validateRootPackageJsonIntegrity();
+  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
+
+  const mockLog = {
+    debug: mock(() => {}),
+    error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
+  };
+  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
+    async (callback) => {
+      const mockPrompt = {
+        list: mock((msg: string) => {
+          if (msg.includes("config location"))
+            return Promise.resolve("package.json");
+          if (msg.includes("security provider"))
+            return Promise.resolve("github");
+          if (msg.includes("severity")) return Promise.resolve("medium");
+          return Promise.resolve("back");
+        }),
+        confirm: mock((msg: string) => {
+          if (msg.includes("token")) return Promise.resolve(true);
+          return Promise.resolve(false);
+        }),
+        input: mock(() => Promise.resolve("")),
+      };
+      return callback(mockPrompt);
+    },
+  );
+
+  await initCommand({ path: testPath, checkSecurity: true, isTesting: true });
+  expect(createPromptSpy).toHaveBeenCalled();
+
+  loggerSpy?.mockRestore();
+  if (existsSync(testPath)) {
+    unlinkSync(testPath);
+  }
+  validateRootPackageJsonIntegrity();
+});
+
+test("initCommand - should handle token input when user provides valid token", async () => {
+  validateRootPackageJsonIntegrity();
+  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
+
+  const mockLog = {
+    debug: mock(() => {}),
+    error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
+  };
+  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
+    async (callback) => {
+      const mockPrompt = {
+        list: mock((msg: string) => {
+          if (msg.includes("config location"))
+            return Promise.resolve("package.json");
+          if (msg.includes("security provider"))
+            return Promise.resolve("github");
+          if (msg.includes("severity")) return Promise.resolve("medium");
+          return Promise.resolve("back");
+        }),
+        confirm: mock((msg: string) => {
+          if (msg.includes("token")) return Promise.resolve(true);
+          return Promise.resolve(false);
+        }),
+        input: mock(() => Promise.resolve("ghp_test_token_12345")),
+      };
+      return callback(mockPrompt);
+    },
+  );
+
+  await initCommand({ path: testPath, checkSecurity: true, isTesting: true });
+  expect(createPromptSpy).toHaveBeenCalled();
+
   loggerSpy?.mockRestore();
   if (existsSync(testPath)) {
     unlinkSync(testPath);

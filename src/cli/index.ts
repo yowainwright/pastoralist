@@ -18,8 +18,62 @@ import { IS_DEBUGGING, FARMER, MSG_SCANNING, SHEEP } from "../constants";
 import { SecurityChecker } from "../core/security";
 import { initCommand } from "./cmds/init/index";
 import { renderTable, createTerminalGraph } from "../dx";
+import * as fs from "fs";
+import { resolve } from "path";
 
 const logger = createLogger({ file: "program.ts", isLogging: false });
+
+export const handleSetupHook = (
+  options: Options,
+  log: ReturnType<typeof createLogger>,
+  deps = {
+    readFileSync: fs.readFileSync,
+    writeFileSync: fs.writeFileSync,
+    resolve,
+  },
+): boolean => {
+  const shouldSetup = options.setupHook === true;
+  if (!shouldSetup) return false;
+
+  const packagePath = deps.resolve(options.path || "package.json");
+
+  try {
+    const content = deps.readFileSync(packagePath, "utf8");
+    const config = JSON.parse(content) as PastoralistJSON & {
+      scripts?: Record<string, string>;
+    };
+
+    const scripts = config.scripts || {};
+    const existingPostinstall = scripts.postinstall || "";
+    const hasPastoralist = existingPostinstall.includes("pastoralist");
+
+    if (hasPastoralist) {
+      log.print("postinstall hook already configured");
+      return true;
+    }
+
+    const newPostinstall = existingPostinstall
+      ? `${existingPostinstall} && pastoralist`
+      : "pastoralist";
+
+    const updatedConfig = {
+      ...config,
+      scripts: {
+        ...scripts,
+        postinstall: newPostinstall,
+      },
+    };
+
+    const jsonString = JSON.stringify(updatedConfig, null, 2) + "\n";
+    deps.writeFileSync(packagePath, jsonString);
+
+    log.print("added postinstall hook to package.json");
+    return true;
+  } catch (err) {
+    log.error("Failed to setup hook", "handleSetupHook", err);
+    return true;
+  }
+};
 
 export const handleTestMode = (
   isTestingCLI: boolean,
@@ -52,11 +106,16 @@ export const handleInitMode = async (
   return false;
 };
 
+type SecurityConfig = NonNullable<
+  NonNullable<PastoralistJSON["pastoralist"]>["security"]
+>;
+type SecurityProviderOption = Options["securityProvider"];
+
 export const buildMergedOptions = (
   options: Options,
-  rest: any,
-  securityConfig: any,
-  configProvider: any,
+  rest: Omit<Options, "isTestingCLI" | "init">,
+  securityConfig: Partial<SecurityConfig>,
+  configProvider: SecurityProviderOption,
 ): Options => {
   const providerFromOptions = options.securityProvider ?? configProvider;
   const securityProvider = providerFromOptions ?? "osv";
@@ -514,9 +573,10 @@ export async function action(
 ): Promise<PastoralistResult> {
   const isLogging = IS_DEBUGGING || options.debug;
   const isJsonOutput = options.outputFormat === "json";
+  const isQuietMode = options.quiet === true;
   const log = deps.createLogger({ file: "program.ts", isLogging });
   const { isTestingCLI = false, init = false, ...rest } = options;
-  const graph = deps.createTerminalGraph();
+  const graph = deps.createTerminalGraph({ quiet: isQuietMode });
 
   const emptyResult = createEmptyResult();
 
@@ -530,7 +590,8 @@ export async function action(
     return emptyResult;
   }
 
-  if (!isJsonOutput) {
+  const shouldShowBanner = !isJsonOutput && !isQuietMode;
+  if (shouldShowBanner) {
     graph.banner();
   }
 
@@ -718,6 +779,16 @@ export async function action(
         );
       }
 
+      const securityFixCount = securityResult.securityAlertCount || 0;
+      const staleCount = removedPackages.length;
+      const protectedCount = packagesScanned;
+
+      graph.executiveSummary({
+        vulnerabilitiesFixed: securityFixCount,
+        staleOverridesRemoved: staleCount,
+        packagesProtected: protectedCount,
+      });
+
       graph.complete("The herd is safe!", ` ${SHEEP}`);
 
       const shouldShowInstallNotice = updateResultData.updated;
@@ -764,6 +835,12 @@ export const run = async (argv: string[] = process.argv): Promise<void> => {
     options.help || argv.includes("-h") || argv.includes("--help");
   if (isHelpRequested) {
     showHelp();
+    return;
+  }
+
+  const log = createLogger({ file: "program.ts", isLogging: false });
+  const didSetupHook = handleSetupHook(options, log);
+  if (didSetupHook) {
     return;
   }
 

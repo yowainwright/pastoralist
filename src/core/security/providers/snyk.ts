@@ -69,10 +69,7 @@ export class SnykCLIProvider {
     const isInstalled = await this.ensureInstalled();
 
     if (!isInstalled) {
-      this.log.info(
-        "Snyk CLI not available, skipping Snyk scan",
-        "validatePrerequisites",
-      );
+      this.log.print("Snyk CLI not available, skipping Snyk scan");
       return false;
     }
 
@@ -83,11 +80,7 @@ export class SnykCLIProvider {
         await this.authenticate();
         return true;
       } catch (error) {
-        this.log.info(
-          "Snyk authentication failed, skipping Snyk scan",
-          "validatePrerequisites",
-          { error },
-        );
+        this.log.print("Snyk authentication failed, skipping Snyk scan");
         return false;
       }
     }

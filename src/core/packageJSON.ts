@@ -304,16 +304,15 @@ const isValidRootPackage = (content: string): boolean => {
 };
 
 const writeJsonFile = (path: string, content: string): void => {
-  const cwd = resolve(process.cwd());
   const jsonPath = resolve(path);
+  const isJsonFile = jsonPath.endsWith(".json");
 
-  const isWithinCwd = jsonPath.startsWith(cwd + "/") || jsonPath === cwd;
-  if (!isWithinCwd) {
-    log.error(`Path traversal blocked: ${jsonPath}`, "writeJsonFile");
+  if (!isJsonFile) {
+    log.error(`Invalid target file: ${jsonPath}`, "writeJsonFile");
     return;
   }
 
-  const rootPkgPath = resolve(cwd, "package.json");
+  const rootPkgPath = resolve(process.cwd(), "package.json");
   const isRootPackage = jsonPath === rootPkgPath;
   if (isRootPackage && !isValidRootPackage(content)) return;
 

@@ -1,3 +1,4 @@
+import { writeFileSync } from "fs";
 import type {
   Appendix,
   AppendixItem,
@@ -9,7 +10,7 @@ import type { SecurityOverrideDetail } from "../../types";
 import type { Logger } from "../../utils";
 import type { PartialSecurityLedger } from "./types";
 import { resolveJSON } from "../packageJSON";
-import { getOverridesByType } from "../overrides";
+import { getOverridesByType, resolveOverrides } from "../overrides";
 import {
   mergeOverrideReasons,
   createSecurityLedger,
@@ -303,7 +304,6 @@ export const processPackageJSON = (
   const shouldWrite = shouldWriteAppendix(appendix, writeAppendixToFile);
 
   if (shouldWrite) {
-    const { writeFileSync } = require("fs");
     currentPackageJSON!.pastoralist = { appendix };
     writeFileSync(filePath, JSON.stringify(currentPackageJSON, null, 2));
   }
@@ -340,7 +340,6 @@ const extractWorkspaceOverrides = (
 
   if (!hasConfig) return null;
 
-  const { resolveOverrides } = require("../overrides");
   const workspaceOverridesData = resolveOverrides({ config: packageConfig });
   const workspaceOverrides =
     getOverridesByType(workspaceOverridesData!) || null;

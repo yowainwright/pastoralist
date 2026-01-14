@@ -2,6 +2,11 @@ import { test, expect, mock } from "bun:test";
 import { OSVProvider } from "../../../../../src/core/security/providers/osv";
 import type { OSVVulnerability } from "../../../../../src/types";
 
+test("providerType - should be 'osv'", () => {
+  const provider = new OSVProvider({ debug: false });
+  expect(provider.providerType).toBe("osv");
+});
+
 test("isAvailable - should return true when OSV API is accessible", async () => {
   const provider = new OSVProvider({ debug: false });
   const originalFetch = global.fetch;
@@ -480,6 +485,54 @@ test("fetchAlerts - should throw error when strict mode is enabled and fetch fai
   await expect(
     provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]),
   ).rejects.toThrow("OSV security check failed");
+
+  global.fetch = originalFetch;
+});
+
+test("fetchAlerts - strict mode error message includes retry count", async () => {
+  const provider = new OSVProvider({
+    debug: false,
+    strict: true,
+    retryOptions: { retries: 2, minTimeout: 10 },
+  });
+  const originalFetch = global.fetch;
+
+  global.fetch = mock(() => {
+    return Promise.reject(new Error("Connection refused"));
+  });
+
+  try {
+    await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]);
+    expect(true).toBe(false);
+  } catch (error) {
+    const message = (error as Error).message;
+    expect(message).toContain("OSV security check failed");
+    expect(message).toContain("2 retries");
+    expect(message).toContain("--strict mode");
+  }
+
+  global.fetch = originalFetch;
+});
+
+test("fetchAlerts - strict mode error message includes original error reason", async () => {
+  const provider = new OSVProvider({
+    debug: false,
+    strict: true,
+    retryOptions: { retries: 1, minTimeout: 10 },
+  });
+  const originalFetch = global.fetch;
+
+  global.fetch = mock(() => {
+    return Promise.reject(new Error("ENOTFOUND api.osv.dev"));
+  });
+
+  try {
+    await provider.fetchAlerts([{ name: "test", version: "1.0.0" }]);
+    expect(true).toBe(false);
+  } catch (error) {
+    const message = (error as Error).message;
+    expect(message).toContain("ENOTFOUND");
+  }
 
   global.fetch = originalFetch;
 });

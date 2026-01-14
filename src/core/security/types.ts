@@ -164,6 +164,14 @@ export type SecurityProvider =
   | SocketCLIProvider
   | OSVProvider;
 
+/** Common interface for security provider type identification */
+export interface SecurityProviderBase {
+  readonly providerType: "osv" | "github" | "snyk" | "socket";
+  fetchAlerts(
+    packages: Array<{ name: string; version: string }>,
+  ): Promise<SecurityAlert[]>;
+}
+
 export interface OSVVulnerability {
   id: string;
   summary?: string;

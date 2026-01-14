@@ -261,4 +261,127 @@ describe("terminal-graph", () => {
       expect(result).toBe(graph);
     });
   });
+
+  describe("executiveSummary", () => {
+    test("renders vulnerabilities fixed with plural form", () => {
+      const output = createMockOutput();
+      const graph = createTerminalGraph({ out: output });
+
+      graph.executiveSummary({ vulnerabilitiesFixed: 3 });
+
+      const joined = output.lines.join("\n");
+      expect(joined).toContain("3 vulnerabilities fixed");
+    });
+
+    test("renders vulnerabilities fixed with singular form", () => {
+      const output = createMockOutput();
+      const graph = createTerminalGraph({ out: output });
+
+      graph.executiveSummary({ vulnerabilitiesFixed: 1 });
+
+      const joined = output.lines.join("\n");
+      expect(joined).toContain("1 vulnerability fixed");
+    });
+
+    test("renders stale overrides removed with plural form", () => {
+      const output = createMockOutput();
+      const graph = createTerminalGraph({ out: output });
+
+      graph.executiveSummary({ staleOverridesRemoved: 2 });
+
+      const joined = output.lines.join("\n");
+      expect(joined).toContain("2 stale overrides removed");
+    });
+
+    test("renders stale overrides removed with singular form", () => {
+      const output = createMockOutput();
+      const graph = createTerminalGraph({ out: output });
+
+      graph.executiveSummary({ staleOverridesRemoved: 1 });
+
+      const joined = output.lines.join("\n");
+      expect(joined).toContain("1 stale override removed");
+    });
+
+    test("renders packages protected with plural form", () => {
+      const output = createMockOutput();
+      const graph = createTerminalGraph({ out: output });
+
+      graph.executiveSummary({ packagesProtected: 5 });
+
+      const joined = output.lines.join("\n");
+      expect(joined).toContain("5 packages protected");
+    });
+
+    test("renders packages protected with singular form", () => {
+      const output = createMockOutput();
+      const graph = createTerminalGraph({ out: output });
+
+      graph.executiveSummary({ packagesProtected: 1 });
+
+      const joined = output.lines.join("\n");
+      expect(joined).toContain("1 package protected");
+    });
+
+    test("renders all metrics together", () => {
+      const output = createMockOutput();
+      const graph = createTerminalGraph({ out: output });
+
+      graph.executiveSummary({
+        vulnerabilitiesFixed: 2,
+        staleOverridesRemoved: 1,
+        packagesProtected: 10,
+      });
+
+      const joined = output.lines.join("\n");
+      expect(joined).toContain("2 vulnerabilities fixed");
+      expect(joined).toContain("1 stale override removed");
+      expect(joined).toContain("10 packages protected");
+    });
+
+    test("renders nothing for zero values", () => {
+      const output = createMockOutput();
+      const graph = createTerminalGraph({ out: output });
+
+      graph.executiveSummary({
+        vulnerabilitiesFixed: 0,
+        staleOverridesRemoved: 0,
+        packagesProtected: 0,
+      });
+
+      const joined = output.lines.join("\n");
+      expect(joined).not.toContain("fixed");
+      expect(joined).not.toContain("removed");
+      expect(joined).not.toContain("protected");
+    });
+
+    test("returns graph for chaining", () => {
+      const output = createMockOutput();
+      const graph = createTerminalGraph({ out: output });
+
+      const result = graph.executiveSummary({ vulnerabilitiesFixed: 1 });
+      expect(result).toBe(graph);
+    });
+  });
+
+  describe("quiet mode", () => {
+    test("suppresses all output when quiet option is true", () => {
+      const output = createMockOutput();
+      const graph = createTerminalGraph({ quiet: true, out: output });
+
+      graph.notice("Test message");
+      graph.executiveSummary({ vulnerabilitiesFixed: 5 });
+
+      expect(output.lines.length).toBe(0);
+    });
+
+    test("produces output when quiet option is false", () => {
+      const output = createMockOutput();
+      const graph = createTerminalGraph({ quiet: false, out: output });
+
+      graph.notice("Test message");
+
+      expect(output.lines.length).toBeGreaterThan(0);
+    });
+  });
 });

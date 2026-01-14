@@ -7,6 +7,12 @@ import {
   SECURITY_ENV_VARS,
 } from "../../../../../src/constants";
 
+test("providerType - should be 'github'", () => {
+  process.env.PASTORALIST_MOCK_SECURITY = "true";
+  const provider = new GitHubSecurityProvider({ debug: false });
+  expect(provider.providerType).toBe("github");
+});
+
 test("constructor - initializes with token from environment", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const originalToken = process.env.GITHUB_TOKEN;

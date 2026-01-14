@@ -127,3 +127,10 @@ export const VALIDATION_ENDPOINTS = {
   snyk: "https://api.snyk.io/rest/self",
   socket: "https://api.socket.dev/v0/organizations",
 } as const;
+
+export const OSV_API = {
+  BASE: "https://api.osv.dev/v1",
+  QUERY: "https://api.osv.dev/v1/query",
+  QUERY_BATCH: "https://api.osv.dev/v1/querybatch",
+  VULN: (id: string) => `https://api.osv.dev/v1/vulns/${id}`,
+} as const;

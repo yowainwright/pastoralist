@@ -17,6 +17,11 @@ afterEach(() => {
   mock.restore();
 });
 
+test("providerType - should be 'snyk'", () => {
+  const provider = new SnykCLIProvider({ debug: false });
+  expect(provider.providerType).toBe("snyk");
+});
+
 test("Construction - should create provider without token", () => {
   const provider = new SnykCLIProvider({ debug: false });
   expect(provider).toBeDefined();
@@ -527,4 +532,63 @@ test("runSnykScan - handles multiple vulnerabilities", async () => {
 
   const alerts = await provider.fetchAlerts();
   expect(alerts.length).toBe(3);
+});
+
+test("fetchAlerts - strict mode error message includes original error reason", async () => {
+  const provider = new SnykCLIProvider({
+    token: "test-token",
+    debug: false,
+    strict: true,
+  });
+
+  (provider as any).runSnykScan = async () => {
+    throw new Error("ENOENT: snyk not found");
+  };
+  (provider as any).validatePrerequisites = async () => true;
+
+  try {
+    await provider.fetchAlerts();
+    expect(true).toBe(false);
+  } catch (error) {
+    const message = (error as Error).message;
+    expect(message).toContain("Snyk security check failed");
+    expect(message).toContain("ENOENT");
+    expect(message).toContain("--strict mode");
+  }
+});
+
+test("fetchAlerts - strict mode error message format is actionable", async () => {
+  const provider = new SnykCLIProvider({
+    token: "test-token",
+    debug: false,
+    strict: true,
+  });
+
+  (provider as any).runSnykScan = async () => {
+    throw new Error("Authentication failed");
+  };
+  (provider as any).validatePrerequisites = async () => true;
+
+  try {
+    await provider.fetchAlerts();
+    expect(true).toBe(false);
+  } catch (error) {
+    const message = (error as Error).message;
+    expect(message).toContain("Reason:");
+    expect(message).toContain("Authentication failed");
+  }
+});
+
+test("authenticate - error message includes token URL", async () => {
+  const provider = new SnykCLIProvider({ debug: false });
+  (provider as any).token = undefined;
+
+  try {
+    await provider.authenticate();
+    expect(true).toBe(false);
+  } catch (error) {
+    const message = (error as Error).message;
+    expect(message).toContain("Snyk requires authentication");
+    expect(message).toContain("SNYK_TOKEN");
+  }
 });

@@ -10,6 +10,7 @@ const execFileAsync = promisify(execFile);
 const DEFAULT_SNYK_SCAN_TIMEOUT = 60000;
 
 export class SnykCLIProvider {
+  readonly providerType = "snyk" as const;
   private log: ReturnType<typeof logger>;
   private installer: CLIInstaller;
   private token?: string;

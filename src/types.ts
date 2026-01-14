@@ -95,38 +95,55 @@ export interface UpdateAppendixOptions {
   onlyUsedOverrides?: boolean;
 }
 
-export interface Options {
-  appendix?: Appendix;
-  clearCache?: boolean;
-  debug?: boolean;
-  dryRun?: boolean;
+/** Security-related options */
+export interface SecurityOptions {
+  checkSecurity?: boolean;
+  forceSecurityRefactor?: boolean;
+  securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket";
+  securityProviderToken?: string;
+  hasWorkspaceSecurityChecks?: boolean;
+  securityOverrides?: OverridesType;
+  securityOverrideDetails?: SecurityOverrideDetail[];
+  strict?: boolean;
+}
+
+/** Output format and verbosity options */
+export interface OutputOptions {
   outputFormat?: "text" | "json";
-  exec?: Exec;
-  help?: boolean;
+  debug?: boolean;
+  summary?: boolean;
+  quiet?: boolean;
+  dryRun?: boolean;
+}
+
+/** Testing-specific options */
+export interface TestingOptions {
   isTesting?: boolean;
   isTestingCLI?: boolean;
   isIRLFix?: boolean;
   isIRLCatch?: boolean;
-  init?: boolean;
+}
+
+/** Path-related options */
+export interface PathOptions {
   path?: string;
   out?: string;
   root?: string;
   depPaths?: string[];
   ignore?: string[];
-  checkSecurity?: boolean;
-  forceSecurityRefactor?: boolean;
-  securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket";
-  securityProviderToken?: string;
+}
+
+export interface Options
+  extends SecurityOptions, OutputOptions, TestingOptions, PathOptions {
+  appendix?: Appendix;
+  clearCache?: boolean;
+  exec?: Exec;
+  help?: boolean;
+  init?: boolean;
   interactive?: boolean;
-  hasWorkspaceSecurityChecks?: boolean;
-  securityOverrides?: OverridesType;
-  securityOverrideDetails?: SecurityOverrideDetail[];
   promptForReasons?: boolean;
   manualOverrideReasons?: Record<string, string>;
   config?: PastoralistJSON;
-  strict?: boolean;
-  summary?: boolean;
-  quiet?: boolean;
   setupHook?: boolean;
 }
 

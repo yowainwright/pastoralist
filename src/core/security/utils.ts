@@ -149,12 +149,12 @@ export class CLIInstaller {
   }
 
   async installGlobally(packageName: string): Promise<void> {
-    this.log.info(`Installing ${packageName} globally...`, "installGlobally");
+    this.log.print(`Installing ${packageName} globally...`);
     const execOptions = { timeout: DEFAULT_INSTALL_TIMEOUT };
 
     try {
       await execFileAsync("npm", ["install", "-g", packageName], execOptions);
-      this.log.info(`Successfully installed ${packageName}`, "installGlobally");
+      this.log.print(`Successfully installed ${packageName}`);
     } catch (error) {
       this.log.error(`Failed to install ${packageName}`, "installGlobally", {
         error,
@@ -183,10 +183,7 @@ export class CLIInstaller {
       return true;
     }
 
-    this.log.info(
-      `${cliCommand} not found, installing ${packageName}...`,
-      "ensureInstalled",
-    );
+    this.log.print(`${cliCommand} not found, installing ${packageName}...`);
 
     try {
       await this.installGlobally(packageName);
@@ -194,9 +191,8 @@ export class CLIInstaller {
       const isNowInstalled = await this.isInstalled(cliCommand);
 
       if (!isNowInstalled) {
-        this.log.info(
+        this.log.print(
           `${packageName} was installed but ${cliCommand} is still not available. Please ensure it's in your PATH.`,
-          "ensureInstalled",
         );
         return false;
       }

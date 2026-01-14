@@ -49,20 +49,14 @@ export class SocketCLIProvider {
     const isInstalled = await this.ensureInstalled();
 
     if (!isInstalled) {
-      this.log.info(
-        "Socket CLI not available, skipping Socket scan",
-        "validatePrerequisites",
-      );
+      this.log.print("Socket CLI not available, skipping Socket scan");
       return false;
     }
 
     const isAuthed = await this.isAuthenticated();
 
     if (!isAuthed) {
-      this.log.info(
-        AUTH_MESSAGES.SOCKET_AUTH_REQUIRED,
-        "validatePrerequisites",
-      );
+      this.log.print(AUTH_MESSAGES.SOCKET_AUTH_REQUIRED);
       return false;
     }
 

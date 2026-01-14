@@ -1,9 +1,16 @@
+import type { Output } from "./output";
+
 export type SpinnerState = {
   text: string;
   isSpinning: boolean;
   frameIndex: number;
   interval: NodeJS.Timeout | null;
 };
+
+export interface TerminalGraphOptions {
+  out?: Output;
+  quiet?: boolean;
+}
 
 export type Spinner = {
   start: () => Spinner;
@@ -77,6 +84,12 @@ export type RemovedOverrideInfo = {
   reason: string;
 };
 
+export interface ExecutiveSummaryData {
+  vulnerabilitiesFixed?: number;
+  staleOverridesRemoved?: number;
+  packagesProtected?: number;
+}
+
 export type TerminalGraph = {
   banner: () => TerminalGraph;
   startPhase: (phase: TerminalPhase, text: string) => TerminalGraph;
@@ -91,6 +104,7 @@ export type TerminalGraph = {
   ) => TerminalGraph;
   endPhase: (text?: string) => TerminalGraph;
   summary: (overrides: OverridesMap, changes?: string[]) => TerminalGraph;
+  executiveSummary: (data: ExecutiveSummaryData) => TerminalGraph;
   complete: (text: string, suffix?: string) => TerminalGraph;
   notice: (text: string) => TerminalGraph;
   stop: () => TerminalGraph;

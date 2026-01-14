@@ -684,7 +684,39 @@ pastoralist
 pastoralist --dry-run
 ```
 
-This shows exactly what Pastoralist would change without modifying any files. Useful for understanding changes before applying them.
+This shows exactly what Pastoralist would change without modifying any files.
+
+[Try Dry Run →](https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/dry-run/README.md)
+
+**Quiet mode for CI:**
+
+```bash
+pastoralist --quiet --checkSecurity
+```
+
+Minimal output for CI pipelines. Exits with code 1 if vulnerabilities found, 0 if clean.
+
+[Try Quiet Mode →](https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/quiet/package.json)
+
+**Show summary metrics:**
+
+```bash
+pastoralist --summary
+```
+
+Displays metrics table with packages scanned, vulnerabilities blocked, and overrides managed.
+
+[Try Summary →](https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/summary/README.md)
+
+**Add postinstall hook:**
+
+```bash
+pastoralist --setup-hook
+```
+
+Adds `pastoralist` to your `postinstall` script automatically.
+
+[Try Setup Hook →](https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/setup-hook/package.json)
 
 **Set up automated CI/CD security checks:**
 

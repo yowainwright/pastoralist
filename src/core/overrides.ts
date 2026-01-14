@@ -3,40 +3,21 @@ import type {
   OverridesConfig,
   ResolveOverrides,
   OverridesType,
+  OverrideValue,
   ResolveResolutionOptions,
 } from "../types";
 import { logger } from "../utils";
 
 const log = logger({ file: "overrides.ts", isLogging: IS_DEBUGGING });
 
-const hasNpmOverrides = (overrides: Record<string, any>): boolean => {
-  return Object.keys(overrides).length > 0;
-};
+const hasEntries = (obj: Record<string, unknown> | undefined): boolean =>
+  Object.keys(obj ?? {}).length > 0;
 
-const hasPnpmOverrides = (
-  pnpm: { overrides?: Record<string, any> } | undefined,
-): boolean => {
-  const pnpmOverrides = pnpm?.overrides || {};
-  return Object.keys(pnpmOverrides).length > 0;
-};
-
-const hasResolutions = (resolutions: Record<string, string>): boolean => {
-  return Object.keys(resolutions).length > 0;
-};
-
-const hasAnyOverrides = (
-  npmOverrides: boolean,
-  pnpmOverrides: boolean,
-  resolutionsExist: boolean,
-): boolean => {
-  return npmOverrides || pnpmOverrides || resolutionsExist;
-};
-
-type OverrideType = { type: string; overrides: Record<string, any> };
+type OverrideType = { type: string; overrides: Record<string, OverrideValue> };
 
 const buildOverrideTypes = (
-  overrides: Record<string, any>,
-  pnpm: { overrides?: Record<string, any> } | undefined,
+  overrides: Record<string, OverrideValue>,
+  pnpm: { overrides?: Record<string, OverrideValue> } | undefined,
   resolutions: Record<string, string>,
 ): OverrideType[] => {
   const pnpmOverrides = pnpm?.overrides || {};
@@ -65,14 +46,10 @@ export const defineOverride = ({
   pnpm = {},
   resolutions = {},
 }: OverridesConfig = {}) => {
-  const npmOverrides = hasNpmOverrides(overrides);
-  const pnpmOverridesExist = hasPnpmOverrides(pnpm);
-  const resolutionsExist = hasResolutions(resolutions);
-  const hasAny = hasAnyOverrides(
-    npmOverrides,
-    pnpmOverridesExist,
-    resolutionsExist,
-  );
+  const hasOverrides = hasEntries(overrides);
+  const hasPnpmOverrides = hasEntries(pnpm?.overrides);
+  const hasResolutions = hasEntries(resolutions);
+  const hasAny = hasOverrides || hasPnpmOverrides || hasResolutions;
 
   if (!hasAny) return undefined;
 
@@ -89,7 +66,7 @@ export const defineOverride = ({
 };
 
 const normalizeOverrides = (
-  initialOverrides: Record<string, any>,
+  initialOverrides: Record<string, OverrideValue>,
 ): OverridesType => {
   const overridesItems = Object.keys(initialOverrides);
 

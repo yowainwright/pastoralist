@@ -7,7 +7,7 @@ import type {
   Options,
   PastoralistJSON,
 } from "../types";
-import type { ConsoleObject } from "../utils";
+import type { Logger } from "../utils";
 import { logger } from "../utils";
 import { resolveJSON, getDependencyTree } from "./packageJSON";
 
@@ -37,7 +37,7 @@ const shouldShowMonorepoInfo = (
 export const checkMonorepoOverrides = (
   overrides: OverridesType,
   rootDeps: Record<string, string>,
-  logInstance: ConsoleObject,
+  logInstance: Logger,
   options?: Options,
 ): string[] => {
   const overridesList = Object.keys(overrides);
@@ -49,11 +49,11 @@ export const checkMonorepoOverrides = (
   );
 
   if (shouldShowInfo) {
-    logInstance.info(
+    logInstance.debug(
       `Found overrides for packages not in root dependencies: ${missingInRoot.join(", ")}`,
       "checkMonorepoOverrides",
     );
-    logInstance.info(
+    logInstance.debug(
       `For monorepo support, use --depPaths flag or add depPaths configuration in package.json`,
       "checkMonorepoOverrides",
     );
@@ -96,11 +96,11 @@ const aggregateWorkspaceDependencies = (
 export const processWorkspacePackages = (
   packageJsonFiles: string[],
   overridesData: ResolveOverrides,
-  logInstance: ConsoleObject,
+  logInstance: Logger,
   constructAppendix: (
     files: string[],
     data: ResolveOverrides,
-    log: ConsoleObject,
+    log: Logger,
   ) => Appendix,
 ): { appendix: Appendix; allWorkspaceDeps: Record<string, string> } => {
   const appendix = constructAppendix(
@@ -139,7 +139,7 @@ export const mergeOverridePaths = (
   appendix: Appendix,
   overridePaths: Record<string, Appendix> | undefined,
   missingInRoot: string[],
-  logInstance: ConsoleObject,
+  logInstance: Logger,
 ): Appendix => {
   const canMerge = canMergeOverridePaths(overridePaths, missingInRoot);
 
@@ -294,7 +294,7 @@ const filterActuallyRemovable = (
 const removeAppendixEntries = (
   appendix: Appendix,
   packagesToRemove: string[],
-  logInstance: ConsoleObject,
+  logInstance: Logger,
 ): Appendix => {
   return packagesToRemove.reduce((updated, item) => {
     const keysToRemove = Object.keys(updated).filter((key) =>
@@ -319,7 +319,7 @@ export const cleanupUnusedOverrides = async (
   allDeps: Record<string, string>,
   missingInRoot: string[],
   overridePaths: Record<string, Appendix> | undefined,
-  logInstance: ConsoleObject,
+  logInstance: Logger,
   updateOverrides: (
     data: ResolveOverrides,
     removable: string[],
@@ -358,7 +358,7 @@ export const cleanupUnusedOverrides = async (
 
   const hasTrackedPaths = trackedInPaths.length > 0;
   if (hasTrackedPaths) {
-    logInstance.info(
+    logInstance.debug(
       `Keeping overrides for packages tracked in overridePaths: ${trackedInPaths.join(", ")}`,
       "cleanupUnusedOverrides",
     );

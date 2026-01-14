@@ -116,11 +116,50 @@ npx pastoralist --checkSecurity --interactive
 Enable detailed debug output.
 
 ```bash
-# Run with debug logging
 npx pastoralist --debug
+```
 
-# Debug specific package
-npx pastoralist --path packages/app/package.json --debug
+### `pastoralist --dry-run`
+
+Preview changes without modifying package.json.
+
+```bash
+npx pastoralist --dry-run
+```
+
+### `pastoralist --quiet`
+
+Quiet mode for CI pipelines. Outputs minimal text and uses exit codes.
+
+- Exit 0: No vulnerabilities found
+- Exit 1: Vulnerabilities detected
+
+```bash
+npx pastoralist --quiet --checkSecurity
+```
+
+### `pastoralist --summary`
+
+Display metrics table after run.
+
+```bash
+npx pastoralist --summary
+```
+
+### `pastoralist --setup-hook`
+
+Add pastoralist to your postinstall script automatically.
+
+```bash
+npx pastoralist --setup-hook
+```
+
+### `pastoralist --checkSecurity`
+
+Enable security vulnerability scanning.
+
+```bash
+npx pastoralist --checkSecurity
 ```
 
 ## Node.js API

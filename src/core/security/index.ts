@@ -563,10 +563,10 @@ export class SecurityChecker {
   }
 
   private applyOverridesToPackageJson(
-    packageJson: any,
+    packageJson: PastoralistJSON,
     packageManager: "npm" | "yarn" | "pnpm" | "bun",
     newOverrides: OverridesType,
-  ): any {
+  ): PastoralistJSON {
     if (packageManager === "pnpm") {
       return {
         ...packageJson,
@@ -675,7 +675,7 @@ export class SecurityChecker {
 
   private getOverrideField(
     packageManager: "npm" | "yarn" | "pnpm" | "bun",
-  ): string {
+  ): "overrides" | "resolutions" {
     switch (packageManager) {
       case "yarn":
         return "resolutions";

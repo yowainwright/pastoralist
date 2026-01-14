@@ -2,6 +2,8 @@ import type {
   TerminalGraphState,
   TerminalGraph,
   TerminalPhase,
+  TerminalGraphOptions,
+  ExecutiveSummaryData,
   OverridesMap,
   VulnerabilityInfo,
   OverrideInfo,
@@ -275,9 +277,18 @@ const buildNoticeBox = (text: string): string[] => {
   return [border, styledText, border];
 };
 
+const noopOutput: Output = {
+  write: () => {},
+  writeLine: () => {},
+  clearLine: () => {},
+  hideCursor: () => {},
+  showCursor: () => {},
+};
+
 export const createTerminalGraph = (
-  out: Output = defaultOutput,
+  options: TerminalGraphOptions = {},
 ): TerminalGraph => {
+  const out = options.quiet ? noopOutput : options.out || defaultOutput;
   const state = createState(createInitialState());
   const tree = createTreeWriter(out, state);
   const spinner = createSpinnerControl(out, state);
@@ -409,6 +420,38 @@ export const createTerminalGraph = (
               tree.line(isLastChange, change);
             });
           });
+        }
+      });
+      return methods;
+    },
+
+    executiveSummary: (data: ExecutiveSummaryData) => {
+      paused(() => {
+        const hasVulnFixes =
+          data.vulnerabilitiesFixed && data.vulnerabilitiesFixed > 0;
+        const hasStaleRemoved =
+          data.staleOverridesRemoved && data.staleOverridesRemoved > 0;
+        const hasProtected =
+          data.packagesProtected && data.packagesProtected > 0;
+
+        out.writeLine("");
+        if (hasVulnFixes) {
+          const plural = data.vulnerabilitiesFixed === 1 ? "y" : "ies";
+          out.writeLine(
+            `${ICON.CHECK} ${data.vulnerabilitiesFixed} vulnerabilit${plural} fixed`,
+          );
+        }
+        if (hasStaleRemoved) {
+          const plural = data.staleOverridesRemoved === 1 ? "" : "s";
+          out.writeLine(
+            `${ICON.CHECK} ${data.staleOverridesRemoved} stale override${plural} removed`,
+          );
+        }
+        if (hasProtected) {
+          const plural = data.packagesProtected === 1 ? "" : "s";
+          out.writeLine(
+            `${ICON.SHIELD} ${data.packagesProtected} package${plural} protected`,
+          );
         }
       });
       return methods;

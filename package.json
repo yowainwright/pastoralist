@@ -41,8 +41,7 @@
     "typecheck": "turbo run typecheck-src",
     "typecheck-src": "tsc --noEmit",
     "update": "codependence --update && bun run update-app-deps",
-    "update-app-deps": "cd app && bun update",
-    "postinstall": "pastoralist"
+    "update-app-deps": "cd app && bun update"
   },
   "repository": {
     "type": "git",

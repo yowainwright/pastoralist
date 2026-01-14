@@ -1108,3 +1108,45 @@ test("getFullDependencyCount - returns 0 when no lock files exist", () => {
   rmSync(lockTestDir, { recursive: true, force: true });
   validateRootPackageJsonIntegrity();
 });
+
+test("updatePackageJSON - should not write non-json files", () => {
+  validateRootPackageJsonIntegrity();
+  mkdirSync(testDir, { recursive: true });
+
+  const nonJsonPath = resolve(testDir, "config.txt");
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+  };
+
+  updatePackageJSON({
+    path: nonJsonPath,
+    config,
+    overrides: { lodash: "4.17.21" },
+    isTesting: false,
+  });
+
+  expect(existsSync(nonJsonPath)).toBe(false);
+
+  rmSync(testDir, { recursive: true, force: true });
+  validateRootPackageJsonIntegrity();
+});
+
+test("updatePackageJSON - should not write root package.json with invalid JSON content", () => {
+  validateRootPackageJsonIntegrity();
+  const rootPath = resolve(process.cwd(), "package.json");
+  const originalContent = safeReadFileSync(rootPath, "utf8");
+
+  const invalidConfig = {} as PastoralistJSON;
+
+  updatePackageJSON({
+    path: rootPath,
+    config: invalidConfig,
+    overrides: { lodash: "4.17.21" },
+    isTesting: false,
+  });
+
+  const currentContent = safeReadFileSync(rootPath, "utf8");
+  expect(currentContent).toBe(originalContent);
+  validateRootPackageJsonIntegrity();
+});

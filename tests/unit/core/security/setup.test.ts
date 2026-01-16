@@ -19,6 +19,7 @@ import {
   withEnvToken,
   withMockedFetch,
   withMockedStdout,
+  withMockedGhCliAuth,
   TOKEN_RESULT,
   CLI_RESULT,
   SUCCESS_RESULT,
@@ -219,9 +220,11 @@ test("promptForSetup - returns success for OSV", async () => {
 
 test("checkTokenAvailable - checks gh CLI auth when no GITHUB_TOKEN", async () => {
   await withEnvToken("github", null, async () => {
-    const wizard = new SecuritySetupWizard();
-    const result = await wizard.checkTokenAvailable("github");
-    expect(typeof result).toBe("boolean");
+    await withMockedGhCliAuth(false, async () => {
+      const wizard = new SecuritySetupWizard();
+      const result = await wizard.checkTokenAvailable("github");
+      expect(result).toBe(false);
+    });
   });
 });
 

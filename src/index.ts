@@ -27,6 +27,7 @@ export {
   constructAppendix,
   updateAppendix,
   processPackageJSON,
+  findRemovableAppendixItems,
 } from "./core/appendix";
 
 export {
@@ -69,22 +70,6 @@ export type {
   SecurityOverride,
   SecurityProvider,
 } from "./types";
-
-export const findRemovableAppendixItems = (
-  appendix: import("./types").Appendix,
-): Array<string> => {
-  if (!appendix) return [];
-
-  const appendixItems = Object.keys(appendix);
-  if (appendixItems.length === 0) return [];
-
-  return appendixItems
-    .filter((item) => {
-      const dependents = appendix[item]?.dependents;
-      return !dependents || Object.keys(dependents).length === 0;
-    })
-    .map((item) => item.split("@")[0]);
-};
 
 import { realpathSync } from "fs";
 import { fileURLToPath } from "url";

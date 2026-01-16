@@ -2,14 +2,13 @@
   "name": "pastoralist",
   "version": "1.10.0-0",
   "description": "A tool to watch over node module resolutions and overrides 🐑 👩🏽‍🌾",
-  "main": "dist/index.cjs",
-  "module": "dist/index.js",
+  "main": "dist/index.js",
   "type": "module",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "types": "./dist/index.d.ts"
     }
   },
   "files": [
@@ -20,7 +19,9 @@
   },
   "scripts": {
     "build": "turbo run build-dist",
-    "build-dist": "bun run clean-dist && bun build src/index.ts --outdir dist --target node --minify && tsc --emitDeclarationOnly --outDir dist",
+    "build-dist": "bun run clean-dist && bun run build-bundle && bun run build-types",
+    "build-bundle": "bun build src/index.ts --outdir dist --target node --minify",
+    "build-types": "tsc --emitDeclarationOnly --outDir dist",
     "clean-dist": "bun run scripts/clean.ts",
     "commit": "git-cz",
     "dev": "bun run --cwd app dev",

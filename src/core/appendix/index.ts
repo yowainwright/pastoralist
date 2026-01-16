@@ -482,3 +482,17 @@ export const constructAppendix = (
 
   return aggregateAppendices(results);
 };
+
+export const findRemovableAppendixItems = (appendix: Appendix): string[] => {
+  if (!appendix) return [];
+
+  const appendixItems = Object.keys(appendix);
+  if (appendixItems.length === 0) return [];
+
+  return appendixItems
+    .filter((item) => {
+      const dependents = appendix[item]?.dependents;
+      return !dependents || Object.keys(dependents).length === 0;
+    })
+    .map((item) => item.split("@")[0]);
+};

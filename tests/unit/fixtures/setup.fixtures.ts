@@ -136,3 +136,23 @@ export const TOKEN_RESULT = (
     ? "Token saved to shell profile"
     : "Token set for this session",
 });
+
+export const withMockedGhCliAuth = async <T>(
+  isAuthenticated: boolean,
+  fn: () => Promise<T>,
+): Promise<T> => {
+  const { spyOn } = await import("bun:test");
+  const { SecuritySetupWizard } =
+    await import("../../../src/core/security/setup");
+
+  const spy = spyOn(
+    SecuritySetupWizard.prototype,
+    "isGhCliAuthenticated" as keyof SecuritySetupWizard,
+  ).mockResolvedValue(isAuthenticated);
+
+  try {
+    return await fn();
+  } finally {
+    spy.mockRestore();
+  }
+};

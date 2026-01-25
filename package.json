@@ -42,7 +42,15 @@
     "typecheck": "turbo run typecheck-src",
     "typecheck-src": "tsc --noEmit",
     "update": "codependence --update && bun run update-app-deps",
-    "update-app-deps": "cd app && bun update"
+    "update-app-deps": "cd app && bun update",
+    "dev:cli": "command -v bun >/dev/null 2>&1 || (echo 'Error: bun is required but not installed.' && exit 1) && bun build src/index.ts --outdir dist --target node --watch",
+    "dev:link": "command -v npm >/dev/null 2>&1 || (echo 'Error: npm is required but not installed.' && exit 1) && npm link && echo '✓ pastoralist command now available globally'",
+    "dev:unlink": "command -v npm >/dev/null 2>&1 || (echo 'Error: npm is required but not installed.' && exit 1) && npm unlink -g pastoralist",
+    "test:watch": "bun test --watch",
+    "test:coverage:html": "bun test tests/unit/ --coverage --coverage-reporter=html && open coverage/index.html",
+    "validate": "turbo run typecheck lint test:unit --parallel",
+    "validate:full": "bun run validate && bun run test:e2e && bun run test:bench",
+    "setup": "bun install && bun run build && bun run test:unit && echo '✓ Setup complete! Run bun run dev:link to use pastoralist globally'"
   },
   "repository": {
     "type": "git",

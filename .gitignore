@@ -121,3 +121,4 @@ e2e/results/
 .kiro
 pnpm-lock.yaml
 tmp/
+CLAUDE.md

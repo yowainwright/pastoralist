@@ -4,6 +4,9 @@ const DEFAULT_WIDTH = 80;
 /** Standard indent size */
 export const INDENT_SIZE = 3;
 
+/** ANSI escape sequence pattern for performance */
+const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
+
 /** Get terminal width */
 export const width = (): number => {
   return process.stdout.columns || DEFAULT_WIDTH;
@@ -11,8 +14,7 @@ export const width = (): number => {
 
 /** Visible length of string (strips ANSI codes) */
 export const visibleLength = (str: string): number => {
-  const ansiPattern = /\x1b\[[0-9;]*m/g;
-  return str.replace(ansiPattern, "").length;
+  return str.replace(ANSI_PATTERN, "").length;
 };
 
 /** Pad string to width */
@@ -32,7 +34,52 @@ export const truncate = (str: string, maxLen: number): string => {
   const visible = visibleLength(str);
   if (visible <= maxLen) return str;
   if (maxLen <= 3) return ".".repeat(maxLen);
-  return str.slice(0, maxLen - 3) + "...";
+
+  // Create a new regex instance to avoid state issues
+  const ansiPattern = /\x1b\[[0-9;]*m/g;
+  let result = "";
+  let visibleCount = 0;
+  let lastIndex = 0;
+  let match;
+  let hasOpenAnsi = false;
+
+  while ((match = ansiPattern.exec(str)) !== null) {
+    const textBefore = str.substring(lastIndex, match.index);
+    const spaceLeft = maxLen - 3 - visibleCount;
+
+    if (textBefore.length <= spaceLeft) {
+      result += textBefore + match[0];
+      visibleCount += textBefore.length;
+      // Track if we have an open ANSI sequence
+      if (!match[0].includes("[0m") && !match[0].includes("[m")) {
+        hasOpenAnsi = true;
+      } else {
+        hasOpenAnsi = false;
+      }
+    } else {
+      // Need to truncate in the middle of text
+      result += textBefore.substring(0, spaceLeft);
+      // If there's an open ANSI code, close it before ellipsis
+      if (hasOpenAnsi) {
+        return result + "\x1b[0m...";
+      }
+      return result + "...";
+    }
+    lastIndex = ansiPattern.lastIndex;
+  }
+
+  const remaining = str.substring(lastIndex);
+  const spaceLeft = maxLen - 3 - visibleCount;
+  if (remaining.length <= spaceLeft) {
+    return result + remaining;
+  }
+  // Truncate the remaining text
+  result += remaining.substring(0, spaceLeft);
+  // If there's an open ANSI code, close it before ellipsis
+  if (hasOpenAnsi) {
+    return result + "\x1b[0m...";
+  }
+  return result + "...";
 };
 
 /** Create horizontal divider line */
@@ -74,14 +121,14 @@ export interface BoxOptions {
 
 /** Create bordered box around lines */
 export const box = (lines: string[], options: BoxOptions = {}): string[] => {
-  const boxWidth = options.width ?? width() - 2;
+  const boxWidth = options.width ?? (width() - 2); // Reserve space for terminal edges
   const padding = options.padding ?? 1;
   const innerWidth = boxWidth - 2 - padding * 2;
   const padStr = " ".repeat(padding);
 
   const horizontalLine = BOX.horizontal.repeat(boxWidth - 2);
   const top = options.title
-    ? `${BOX.topLeft}${BOX.horizontal} ${options.title} ${BOX.horizontal.repeat(Math.max(0, boxWidth - 5 - options.title.length))}${BOX.topRight}`
+    ? `${BOX.topLeft}${BOX.horizontal} ${options.title} ${BOX.horizontal.repeat(Math.max(0, boxWidth - 5 - visibleLength(options.title)))}${BOX.topRight}`
     : `${BOX.topLeft}${horizontalLine}${BOX.topRight}`;
   const bottom = `${BOX.bottomLeft}${horizontalLine}${BOX.bottomRight}`;
 

@@ -1,6 +1,11 @@
 import type { TableRow, TableOptions, TableColor } from "./types";
-import { DEFAULT_MIN_LABEL_WIDTH, DEFAULT_MIN_VALUE_WIDTH } from "./constants";
+import {
+  DEFAULT_MIN_LABEL_WIDTH,
+  DEFAULT_MIN_VALUE_WIDTH,
+  TABLE_COLUMN_SEPARATOR_WIDTH
+} from "./constants";
 import { green, yellow, red, cyan, gray } from "../../utils/colors";
+import { visibleLength } from "../format";
 
 export type { TableRow, TableOptions, TableColor } from "./types";
 
@@ -13,12 +18,12 @@ const colorFns: Record<TableColor, (s: string) => string> = {
 };
 
 const padRight = (str: string, len: number): string => {
-  const padLen = Math.max(0, len - str.length);
+  const padLen = Math.max(0, len - visibleLength(str));
   return str + " ".repeat(padLen);
 };
 
 const padLeft = (str: string, len: number): string => {
-  const padLen = Math.max(0, len - str.length);
+  const padLen = Math.max(0, len - visibleLength(str));
   return " ".repeat(padLen) + str;
 };
 
@@ -42,9 +47,9 @@ const calculateWidths = (
   minLabelWidth: number,
   minValueWidth: number,
 ): { labelWidth: number; valueWidth: number } => {
-  const maxLabel = rows.reduce((max, r) => Math.max(max, r.label.length), 0);
+  const maxLabel = rows.reduce((max, r) => Math.max(max, visibleLength(r.label)), 0);
   const maxValue = rows.reduce(
-    (max, r) => Math.max(max, String(r.value).length),
+    (max, r) => Math.max(max, visibleLength(String(r.value))),
     0,
   );
   return {
@@ -58,7 +63,7 @@ const buildTitleRow = (
   labelWidth: number,
   valueWidth: number,
 ): string => {
-  const titleWidth = labelWidth + valueWidth + 3;
+  const titleWidth = labelWidth + valueWidth + TABLE_COLUMN_SEPARATOR_WIDTH;
   return `| ${padRight(title, titleWidth)} |`;
 };
 

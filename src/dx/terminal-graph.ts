@@ -16,6 +16,7 @@ import { playShimmer } from "./shimmer";
 import { FARMER, ANSI } from "../constants";
 import { ICON } from "../utils/icons";
 import { green } from "../utils/colors";
+import { visibleLength } from "./format";
 
 const { BOLD, RESET, FG_RED, FG_WHITE } = ANSI;
 
@@ -270,7 +271,7 @@ const buildDashedBorder = (width: number): string => {
 
 const buildNoticeBox = (text: string): string[] => {
   const padding = 2;
-  const innerWidth = text.length + padding * 2;
+  const innerWidth = visibleLength(text) + padding * 2;
   const border = buildDashedBorder(innerWidth + 2);
   const paddedText = " ".repeat(padding) + text + " ".repeat(padding);
   const styledText = `${FG_RED}|${RESET}${BOLD}${FG_WHITE}${paddedText}${RESET}${FG_RED}|${RESET}`;
@@ -297,7 +298,15 @@ export const createTerminalGraph = (
 
   const methods: TerminalGraph = {
     banner: () => {
-      paused(() => out.writeLine(`\n${FARMER} ${green("Pastoralist")}\n`));
+      paused(() => {
+        // Batch output to avoid race condition
+        const bannerOutput = [
+          "",
+          `${FARMER} ${green("Pastoralist")}`,
+          ""
+        ].join("\n");
+        out.writeLine(bannerOutput);
+      });
       return methods;
     },
 

@@ -1404,7 +1404,9 @@ test("initCommand - enhanced UI integration with formatCompletion", async () => 
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
   const formatCompletionSpy = spyOn(dxPrompts, "formatCompletion");
-  const shimmerFrameSpy = spyOn(shimmer, "shimmerFrame").mockReturnValue("shimmered text");
+  const shimmerFrameSpy = spyOn(shimmer, "shimmerFrame").mockReturnValue(
+    "shimmered text",
+  );
 
   const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
     async (callback) => {
@@ -1414,7 +1416,7 @@ test("initCommand - enhanced UI integration with formatCompletion", async () => 
         input: mock(() => Promise.resolve("")),
       };
       return callback(mockPrompt);
-    }
+    },
   );
 
   await initCommand({ path: testPath, isTesting: true });
@@ -1450,15 +1452,17 @@ test("initCommand - enhanced UI with security enabled shows correct next steps",
     async (callback) => {
       const mockPrompt = {
         list: mock((msg: string) => {
-          if (msg.includes("config location")) return Promise.resolve("package.json");
-          if (msg.includes("security provider")) return Promise.resolve("github");
+          if (msg.includes("config location"))
+            return Promise.resolve("package.json");
+          if (msg.includes("security provider"))
+            return Promise.resolve("github");
           return Promise.resolve("back");
         }),
         confirm: mock(() => Promise.resolve(true)),
         input: mock(() => Promise.resolve("")),
       };
       return callback(mockPrompt);
-    }
+    },
   );
 
   await initCommand({ path: testPath, checkSecurity: true, isTesting: true });
@@ -1495,7 +1499,7 @@ test("initCommand - enhanced prompts use formatted UI components", async () => {
         input: mock(() => Promise.resolve("")),
       };
       return callback(mockPrompt);
-    }
+    },
   );
 
   await initCommand({ path: testPath, isTesting: true });

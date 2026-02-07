@@ -81,7 +81,11 @@ const matchesAnyIgnore = (
 const isIgnoredDirectory = (name: string): boolean =>
   IGNORED_DIRECTORIES.includes(name);
 
-const getAllFiles = (dir: string, baseDir: string, result: string[] = []): string[] => {
+const getAllFiles = (
+  dir: string,
+  baseDir: string,
+  result: string[] = [],
+): string[] => {
   if (!existsSync(dir)) return result;
 
   const entries = readdirSync(dir, { withFileTypes: true });

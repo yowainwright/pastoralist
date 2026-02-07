@@ -2,7 +2,7 @@ import type { TableRow, TableOptions, TableColor } from "./types";
 import {
   DEFAULT_MIN_LABEL_WIDTH,
   DEFAULT_MIN_VALUE_WIDTH,
-  TABLE_COLUMN_SEPARATOR_WIDTH
+  TABLE_COLUMN_SEPARATOR_WIDTH,
 } from "./constants";
 import { green, yellow, red, cyan, gray } from "../../utils/colors";
 import { visibleLength } from "../format";
@@ -47,7 +47,10 @@ const calculateWidths = (
   minLabelWidth: number,
   minValueWidth: number,
 ): { labelWidth: number; valueWidth: number } => {
-  const maxLabel = rows.reduce((max, r) => Math.max(max, visibleLength(r.label)), 0);
+  const maxLabel = rows.reduce(
+    (max, r) => Math.max(max, visibleLength(r.label)),
+    0,
+  );
   const maxValue = rows.reduce(
     (max, r) => Math.max(max, visibleLength(String(r.value))),
     0,

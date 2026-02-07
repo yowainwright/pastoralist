@@ -542,7 +542,9 @@ describe("terminal-graph", () => {
       graph.override(info);
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("Patches: fix-memory-leak.patch, security.patch");
+      expect(joined).toContain(
+        "Patches: fix-memory-leak.patch, security.patch",
+      );
     });
 
     test("renders override with dependents", () => {
@@ -554,8 +556,8 @@ describe("terminal-graph", () => {
         version: "4.17.21",
         reason: "Update",
         dependents: {
-          "express": "4.18.2",
-          "react": "18.2.0",
+          express: "4.18.2",
+          react: "18.2.0",
         },
       };
 
@@ -574,7 +576,7 @@ describe("terminal-graph", () => {
         version: "4.17.21",
         reason: "Update",
         dependents: {
-          "express": "4.18.2",
+          express: "4.18.2",
         },
       };
 

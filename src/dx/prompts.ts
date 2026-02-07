@@ -5,11 +5,16 @@ import { ICON } from "../utils/icons";
 /**
  * Format a confirm prompt with enhanced UX
  */
-export function formatConfirmPrompt(message: string, defaultValue: boolean = true): string {
+export function formatConfirmPrompt(
+  message: string,
+  defaultValue: boolean = true,
+): string {
   const icon = defaultValue ? green("●") : gray("○");
   const yesOption = defaultValue ? green("Y") : "y";
   const noOption = !defaultValue ? green("N") : "n";
-  const defaultHint = defaultValue ? green("[enter for yes]") : green("[enter for no]");
+  const defaultHint = defaultValue
+    ? green("[enter for yes]")
+    : green("[enter for no]");
 
   return `${icon} ${message} (${yesOption}/${noOption}) ${gray(defaultHint)}: `;
 }
@@ -17,7 +22,10 @@ export function formatConfirmPrompt(message: string, defaultValue: boolean = tru
 /**
  * Format a choice list with enhanced styling
  */
-export function formatChoiceList(message: string, choices: Array<{name: string, value: string}>): string {
+export function formatChoiceList(
+  message: string,
+  choices: Array<{ name: string; value: string }>,
+): string {
   const lines = [
     `${cyan("?")} ${message}`,
     "",
@@ -30,7 +38,7 @@ export function formatChoiceList(message: string, choices: Array<{name: string, 
   const boxed = box(lines, {
     title: yellow("Configuration"),
     padding: 1,
-    width: Math.min(width() - 4, 80)
+    width: Math.min(width() - 4, 80),
   });
 
   // Apply yellow color to the box borders
@@ -44,7 +52,7 @@ export function formatChoiceList(message: string, choices: Array<{name: string, 
     }
   });
 
-  return coloredBox.join('\n');
+  return coloredBox.join("\n");
 }
 
 /**
@@ -57,7 +65,10 @@ export function formatChoicePrompt(): string {
 /**
  * Format an input prompt with enhanced styling
  */
-export function formatInputPrompt(message: string, defaultValue?: string): string {
+export function formatInputPrompt(
+  message: string,
+  defaultValue?: string,
+): string {
   const icon = cyan("◆");
 
   if (defaultValue) {
@@ -77,7 +88,7 @@ export function formatStepHeader(stepNumber: number, title: string): string {
 
   const boxed = box(lines, {
     padding: 1,
-    width: Math.min(width() - 4, 60)
+    width: Math.min(width() - 4, 60),
   });
 
   // Apply yellow color to the box borders
@@ -91,7 +102,7 @@ export function formatStepHeader(stepNumber: number, title: string): string {
     }
   });
 
-  return `\n${coloredBox.join('\n')}\n`;
+  return `\n${coloredBox.join("\n")}\n`;
 }
 
 /**
@@ -118,17 +129,21 @@ export function formatWarning(message: string): string {
 /**
  * Create a completion box
  */
-export function formatCompletion(title: string, steps: string[], shimmerTitle?: string): string {
+export function formatCompletion(
+  title: string,
+  steps: string[],
+  shimmerTitle?: string,
+): string {
   const lines = [
     shimmerTitle || green(`✓ ${title}`),
     "",
-    ...steps.map((step, index) => `  ${cyan(`${index + 1}.`)} ${step}`)
+    ...steps.map((step, index) => `  ${cyan(`${index + 1}.`)} ${step}`),
   ];
 
   const boxed = box(lines, {
     title: yellow("Next Steps"),
     padding: 2,
-    width: Math.min(width() - 4, 80)
+    width: Math.min(width() - 4, 80),
   });
 
   const coloredBox = boxed.map((line, index) => {
@@ -139,5 +154,5 @@ export function formatCompletion(title: string, steps: string[], shimmerTitle?: 
     }
   });
 
-  return coloredBox.join('\n');
+  return coloredBox.join("\n");
 }

@@ -26,7 +26,8 @@ describe("dx/format", () => {
     });
 
     test("handles multiple ANSI codes", () => {
-      const multiColored = "\x1b[31mred\x1b[0m \x1b[32mgreen\x1b[0m \x1b[34mblue\x1b[0m";
+      const multiColored =
+        "\x1b[31mred\x1b[0m \x1b[32mgreen\x1b[0m \x1b[34mblue\x1b[0m";
       expect(visibleLength(multiColored)).toBe(14);
     });
 
@@ -68,7 +69,7 @@ describe("dx/format", () => {
     test("emoji count without farmer emoji", () => {
       // @ts-ignore - testing private implementation
       const originalIntl = globalThis.Intl;
-      if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+      if (typeof Intl !== "undefined" && Intl.Segmenter) {
         const result = visibleLength("Hello 👋 World");
         expect(result).toBe(13);
       }
@@ -103,7 +104,8 @@ describe("dx/format", () => {
     });
 
     test("handles multiple color changes", () => {
-      const multi = "\x1b[31mred\x1b[0m \x1b[32mgreen\x1b[0m \x1b[34mblue text\x1b[0m";
+      const multi =
+        "\x1b[31mred\x1b[0m \x1b[32mgreen\x1b[0m \x1b[34mblue text\x1b[0m";
       const result = truncate(multi, 12);
       expect(visibleLength(result)).toBe(12);
     });
@@ -354,7 +356,10 @@ describe("dx/format", () => {
 
     test("creates box with very long title", () => {
       const lines = ["Content"];
-      const result = box(lines, { width: 30, title: "This is a very long title that exceeds width" });
+      const result = box(lines, {
+        width: 30,
+        title: "This is a very long title that exceeds width",
+      });
       expect(result[0]).toContain("┌─");
       expect(result[0]).toContain("┐");
     });
@@ -444,9 +449,7 @@ describe("dx/format", () => {
     });
 
     test("respects minimum widths", () => {
-      const items = [
-        { label: "A", value: "B" },
-      ];
+      const items = [{ label: "A", value: "B" }];
       const result = calculateWidths(items, 10, 15);
       expect(result.labelWidth).toBe(10);
       expect(result.valueWidth).toBe(15);

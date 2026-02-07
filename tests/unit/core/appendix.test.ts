@@ -220,10 +220,10 @@ test("updateAppendix - should handle unused overrides", () => {
 test("updateAppendix - should reproduce dependency tree bug: keep used, remove unused", () => {
   const result = updateAppendix({
     overrides: {
-      "lodash": "4.17.21",
-      "axios": "1.0.0"
+      lodash: "4.17.21",
+      axios: "1.0.0",
     },
-    dependencies: { "lodash": "^4.17.0" },
+    dependencies: { lodash: "^4.17.0" },
     devDependencies: {},
     peerDependencies: {},
     packageName: "test",
@@ -232,19 +232,17 @@ test("updateAppendix - should reproduce dependency tree bug: keep used, remove u
   });
 
   expect(result["lodash@4.17.21"]).toBeDefined();
-  expect(result["lodash@4.17.21"].dependents["test"]).toBe(
-    "lodash@^4.17.0"
-  );
+  expect(result["lodash@4.17.21"].dependents["test"]).toBe("lodash@^4.17.0");
 
   expect(result["axios@1.0.0"]).toBeDefined();
   expect(result["axios@1.0.0"].dependents["test"]).toBe(
-    "axios (unused override)"
+    "axios (unused override)",
   );
 });
 
 test("updateAppendix - should not incorrectly label unused overrides as transitive deps (old bug)", () => {
   const result = updateAppendix({
-    overrides: { "axios": "1.0.0" },
+    overrides: { axios: "1.0.0" },
     dependencies: {},
     devDependencies: {},
     peerDependencies: {},
@@ -254,7 +252,7 @@ test("updateAppendix - should not incorrectly label unused overrides as transiti
 
   expect(result["axios@1.0.0"]).toBeDefined();
   expect(result["axios@1.0.0"].dependents["test"]).toBe(
-    "axios (unused override)"
+    "axios (unused override)",
   );
 });
 

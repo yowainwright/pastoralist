@@ -40,7 +40,7 @@ export class Prompt {
     return enhancedQuestion(
       this.rl,
       formatInputPrompt(message, defaultValue),
-      (answer: string) => answer.trim() || defaultValue || ""
+      (answer: string) => answer.trim() || defaultValue || "",
     );
   }
 
@@ -60,7 +60,7 @@ export class Prompt {
         } else {
           return normalized === "y" || normalized === "yes";
         }
-      }
+      },
     );
   }
 
@@ -68,23 +68,19 @@ export class Prompt {
     console.log(formatChoiceList(message, choices));
     this.ensureCookedMode();
 
-    return enhancedQuestion(
-      this.rl,
-      formatChoicePrompt(),
-      (answer: string) => {
-        const num = parseInt(answer.trim(), 10);
+    return enhancedQuestion(this.rl, formatChoicePrompt(), (answer: string) => {
+      const num = parseInt(answer.trim(), 10);
 
-        if (isNaN(num) || num < 1 || num > choices.length) {
-          console.log(
-            "Invalid choice. Please enter a number between 1 and " +
-              choices.length,
-          );
-          return choices[0].value;
-        }
-
-        return choices[num - 1].value;
+      if (isNaN(num) || num < 1 || num > choices.length) {
+        console.log(
+          "Invalid choice. Please enter a number between 1 and " +
+            choices.length,
+        );
+        return choices[0].value;
       }
-    );
+
+      return choices[num - 1].value;
+    });
   }
 
   async prompt(options: PromptOptions): Promise<string | boolean> {

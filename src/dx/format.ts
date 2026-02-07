@@ -17,14 +17,14 @@ export const visibleLength = (str: string): number => {
   const withoutAnsi = str.replace(ANSI_PATTERN, "");
 
   // Use Intl.Segmenter if available (modern browsers/Node) for proper Unicode handling
-  if (typeof Intl !== 'undefined' && Intl.Segmenter) {
-    const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+  if (typeof Intl !== "undefined" && Intl.Segmenter) {
+    const segmenter = new Intl.Segmenter("en", { granularity: "grapheme" });
     let length = Array.from(segmenter.segment(withoutAnsi)).length;
 
     // Adjust for emoji that display as 2 characters wide (like farmer emoji)
     // This is a heuristic for complex emoji sequences
     const emojiCount = (withoutAnsi.match(/\p{Emoji}/gu) || []).length;
-    if (emojiCount > 0 && withoutAnsi.includes('🧑‍🌾')) {
+    if (emojiCount > 0 && withoutAnsi.includes("🧑‍🌾")) {
       length += 1; // Farmer emoji displays wider than 1 character
     }
 
@@ -35,7 +35,7 @@ export const visibleLength = (str: string): number => {
   let length = Array.from(withoutAnsi).length;
 
   // Similar adjustment for fallback
-  if (withoutAnsi.includes('🧑‍🌾')) {
+  if (withoutAnsi.includes("🧑‍🌾")) {
     length += 1;
   }
 
@@ -146,7 +146,7 @@ export interface BoxOptions {
 
 /** Create bordered box around lines */
 export const box = (lines: string[], options: BoxOptions = {}): string[] => {
-  const boxWidth = options.width ?? (width() - 2); // Reserve space for terminal edges
+  const boxWidth = options.width ?? width() - 2; // Reserve space for terminal edges
   const padding = options.padding ?? 1;
   const innerWidth = boxWidth - 2 - padding * 2;
   const padStr = " ".repeat(padding);

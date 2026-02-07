@@ -1,4 +1,3 @@
-
 let pipedInputLines: string[] = [];
 let lineIndex = 0;
 let pipedInputReady = false;
@@ -10,15 +9,15 @@ export function initializePipedInput(): void {
   }
 
   pipedInputInitialized = true;
-  let input = '';
-  process.stdin.setEncoding('utf8');
+  let input = "";
+  process.stdin.setEncoding("utf8");
 
-  process.stdin.on('data', (chunk) => {
+  process.stdin.on("data", (chunk) => {
     input += chunk;
   });
 
-  process.stdin.on('end', () => {
-    pipedInputLines = input.trim().split('\n');
+  process.stdin.on("end", () => {
+    pipedInputLines = input.trim().split("\n");
     pipedInputReady = true;
   });
 }
@@ -35,7 +34,7 @@ export async function waitForPipedInputReady(): Promise<void> {
   initializePipedInput();
 
   while (!pipedInputReady) {
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await new Promise((resolve) => setTimeout(resolve, 10));
   }
 }
 
@@ -48,13 +47,13 @@ export function getNextPipedInput(): string | null {
     return pipedInputLines[lineIndex++];
   }
 
-  return '';
+  return "";
 }
 
 export async function enhancedQuestion(
   rl: any,
   prompt: string,
-  processor: (answer: string) => any = (answer) => answer.trim()
+  processor: (answer: string) => any = (answer) => answer.trim(),
 ): Promise<any> {
   await waitForPipedInputReady();
 

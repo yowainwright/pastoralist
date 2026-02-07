@@ -298,7 +298,9 @@ function displayNextSteps(
   ];
 
   if (setupSecurity) {
-    nextSteps.push(`Run ${green("pastoralist --checkSecurity")} to scan for security vulnerabilities`);
+    nextSteps.push(
+      `Run ${green("pastoralist --checkSecurity")} to scan for security vulnerabilities`,
+    );
   }
 
   nextSteps.push("Check the documentation for advanced configuration options");

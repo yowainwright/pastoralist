@@ -156,7 +156,7 @@ test("sync - cache eviction when MAX_CACHE_SIZE exceeded", () => {
     patterns.push(`pattern${i}*`);
   }
 
-  patterns.forEach(pattern => {
+  patterns.forEach((pattern) => {
     sync(pattern, { cwd: PROJECT_ROOT });
   });
 

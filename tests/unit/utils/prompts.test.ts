@@ -22,8 +22,15 @@ beforeEach(() => {
     resume: mock(),
   } as readline.Interface);
 
-  mockEnhancedQuestion = spyOn(inputModule, "enhancedQuestion").mockImplementation(
-    async (rl: any, prompt: string, processor: any = (answer: string) => answer.trim()) => {
+  mockEnhancedQuestion = spyOn(
+    inputModule,
+    "enhancedQuestion",
+  ).mockImplementation(
+    async (
+      rl: any,
+      prompt: string,
+      processor: any = (answer: string) => answer.trim(),
+    ) => {
       return new Promise((resolve) => {
         if (rl.question) {
           rl.question(prompt, (answer: string) => {
@@ -31,7 +38,7 @@ beforeEach(() => {
           });
         }
       });
-    }
+    },
   );
 });
 
@@ -52,7 +59,10 @@ interface MockRl {
 }
 
 class TestablePrompt extends Prompt {
-  private mockQuestion?: (msg: string, callback: (answer: string) => void) => void;
+  private mockQuestion?: (
+    msg: string,
+    callback: (answer: string) => void,
+  ) => void;
 
   constructor() {
     super();

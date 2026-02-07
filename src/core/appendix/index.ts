@@ -11,6 +11,7 @@ import type { Logger } from "../../utils";
 import type { PartialSecurityLedger } from "./types";
 import { resolveJSON } from "../packageJSON";
 import { getOverridesByType, resolveOverrides } from "../overrides";
+import { packageAtVersion } from "../../utils/string";
 import {
   mergeOverrideReasons,
   createSecurityLedger,
@@ -45,7 +46,7 @@ const processSimpleOverride = (
   const shouldSkip = onlyUsedOverrides && (isUnused || !hasOverride);
   if (shouldSkip) return appendix;
 
-  const key = `${override}@${overrideVersion}`;
+  const key = packageAtVersion(override)(overrideVersion);
   const cached = cache.get(key);
   if (cached) {
     appendix[key] = cached;
@@ -92,7 +93,7 @@ const processNestedOverrideEntry = (
   manualOverrideReasons: Record<string, string> | undefined,
   cache: Map<string, AppendixItem>,
 ): Appendix => {
-  const key = `${nestedPkg}@${nestedVersion}`;
+  const key = packageAtVersion(nestedPkg)(nestedVersion);
   const cached = cache.get(key);
   if (cached) {
     appendix[key] = cached;

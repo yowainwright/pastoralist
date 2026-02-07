@@ -10,9 +10,9 @@
     "checkJs": false,
     "forceConsistentCasingInFileNames": true,
     "importHelpers": true,
-    "lib": ["esnext", "dom", "es6", "dom.iterable"],
+    "lib": ["es2022", "dom", "dom.iterable"],
     "module": "esnext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "noEmit": false,
     "noImplicitReturns": true,
     "noUnusedLocals": true,
@@ -23,8 +23,10 @@
     "skipLibCheck": true,
     "sourceMap": false,
     "strict": true,
-    "target": "esnext",
-    "types": ["bun"]
+    "target": "es2022",
+    "types": ["bun"],
+    "incremental": true,
+    "tsBuildInfoFile": ".tsbuildinfo"
   },
   "include": ["src"],
   "exclude": ["app/**/*", "dist", "tests"]

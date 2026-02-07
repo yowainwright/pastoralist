@@ -11,9 +11,10 @@
     },
     "build-dist": {
       "dependsOn": ["^build-dist"],
-      "inputs": ["src/**/*.{ts,tsx}", "index.html"],
+      "inputs": ["src/**/*.ts", "tsconfig.json", "package.json"],
       "outputs": ["dist/**"],
-      "cache": true
+      "cache": true,
+      "env": ["NODE_ENV"]
     },
     "//#build-dist": {
       "inputs": ["src/**/*.ts"],

@@ -2,13 +2,10 @@
   "name": "pastoralist-sandbox-patches",
   "private": true,
   "type": "module",
-  "bin": {
-    "pastoralist": "./dist/index.js"
-  },
   "scripts": {
-    "clean": "bun run scripts/clean.ts",
-    "build": "bun run clean && bun build src/index.ts --outdir dist --target node",
-    "start": "bun run build && ./dist/index.js"
+    "demo": "pastoralist",
+    "demo:dry": "pastoralist --dry-run",
+    "demo:summary": "pastoralist --summary"
   },
   "dependencies": {
     "lodash": "^4.17.21"
@@ -19,7 +16,6 @@
     }
   },
   "devDependencies": {
-    "@types/bun": "latest",
-    "typescript": "5.9.3"
+    "pastoralist": "latest"
   }
 }

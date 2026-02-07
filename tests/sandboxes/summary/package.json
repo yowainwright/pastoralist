@@ -2,13 +2,9 @@
   "name": "pastoralist-sandbox-summary",
   "private": true,
   "type": "module",
-  "bin": {
-    "pastoralist": "./dist/index.js"
-  },
   "scripts": {
-    "clean": "bun run scripts/clean.ts",
-    "build": "bun run clean && bun build src/index.ts --outdir dist --target node",
-    "start": "bun run build && ./dist/index.js --summary"
+    "demo": "pastoralist --summary",
+    "demo:dry": "pastoralist --summary --dry-run"
   },
   "dependencies": {
     "express": "^4.18.0",
@@ -22,8 +18,7 @@
     "cookie": "0.7.0"
   },
   "devDependencies": {
-    "@types/bun": "latest",
-    "typescript": "5.9.3"
+    "pastoralist": "latest"
   },
   "pastoralist": {
     "appendix": {

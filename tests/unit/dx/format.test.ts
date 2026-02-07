@@ -34,6 +34,24 @@ describe("dx/format", () => {
       const complex = "\x1b[1;31;40mBold Red on Black\x1b[0m";
       expect(visibleLength(complex)).toBe(17);
     });
+
+    test("handles basic emoji correctly", () => {
+      const result = visibleLength("Hello 👋");
+      expect(result).toBe(7);
+    });
+
+    test("handles farmer emoji with width adjustment", () => {
+      const result = visibleLength("Hello 🧑‍🌾");
+      // Should be "Hello " (6) + farmer emoji (2 character width) = 8
+      expect(result).toBe(8);
+    });
+
+    test("handles complex text with ANSI codes and emoji", () => {
+      const complexText = "\x1b[32mSetup complete! 🧑‍🌾\x1b[0m";
+      const result = visibleLength(complexText);
+      // "Setup complete! " (16) + farmer emoji (2) = 18
+      expect(result).toBe(18);
+    });
   });
 
   describe("truncate", () => {
@@ -140,6 +158,19 @@ describe("dx/format", () => {
 
     test("handles zero target length", () => {
       expect(pad("hello", 0)).toBe("hello");
+    });
+
+    test("pads text with emoji correctly", () => {
+      const emojiText = "Done 🧑‍🌾";
+      const result = pad(emojiText, 10);
+      // Should pad to 10 visible characters accounting for emoji width
+      expect(visibleLength(result)).toBe(10);
+    });
+
+    test("pads colored text with emoji correctly", () => {
+      const coloredEmoji = "\x1b[32mComplete! 🧑‍🌾\x1b[0m";
+      const result = pad(coloredEmoji, 15);
+      expect(visibleLength(result)).toBe(15);
     });
   });
 

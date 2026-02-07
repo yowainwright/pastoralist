@@ -3,6 +3,8 @@ import { initCommand } from "../../../../../src/cli/cmds/init";
 import * as prompt from "../../../../../src/utils/prompts";
 import * as scripts from "../../../../../src";
 import * as configLoader from "../../../../../src/config";
+import * as dxPrompts from "../../../../../src/dx/prompts";
+import * as shimmer from "../../../../../src/dx/shimmer";
 import { resolve } from "path";
 import {
   safeWriteFileSync as writeFileSync,
@@ -1379,6 +1381,147 @@ test("initCommand - should handle token input when user provides valid token", a
   await initCommand({ path: testPath, checkSecurity: true, isTesting: true });
   expect(createPromptSpy).toHaveBeenCalled();
 
+  loggerSpy?.mockRestore();
+  if (existsSync(testPath)) {
+    unlinkSync(testPath);
+  }
+  validateRootPackageJsonIntegrity();
+});
+
+test("initCommand - enhanced UI integration with formatCompletion", async () => {
+  validateRootPackageJsonIntegrity();
+  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
+
+  const mockLog = {
+    debug: mock(() => {}),
+    error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
+  };
+  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+
+  const formatCompletionSpy = spyOn(dxPrompts, "formatCompletion");
+  const shimmerFrameSpy = spyOn(shimmer, "shimmerFrame").mockReturnValue("shimmered text");
+
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
+    async (callback) => {
+      const mockPrompt = {
+        list: mock(() => Promise.resolve("package.json")),
+        confirm: mock(() => Promise.resolve(false)),
+        input: mock(() => Promise.resolve("")),
+      };
+      return callback(mockPrompt);
+    }
+  );
+
+  await initCommand({ path: testPath, isTesting: true });
+
+  expect(formatCompletionSpy).toHaveBeenCalledWith(
+    "Pastoralist initialization complete!",
+    expect.any(Array),
+    expect.stringContaining("shimmered text")
+  );
+  expect(shimmerFrameSpy).toHaveBeenCalledWith("Pastoralist initialization complete!", 0);
+
+  formatCompletionSpy.mockRestore();
+  shimmerFrameSpy.mockRestore();
+  loggerSpy?.mockRestore();
+  if (existsSync(testPath)) {
+    unlinkSync(testPath);
+  }
+  validateRootPackageJsonIntegrity();
+});
+
+test("initCommand - enhanced UI with security enabled shows correct next steps", async () => {
+  validateRootPackageJsonIntegrity();
+  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
+
+  const mockLog = {
+    debug: mock(() => {}),
+    error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
+  };
+  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+
+  const formatCompletionSpy = spyOn(dxPrompts, "formatCompletion");
+
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
+    async (callback) => {
+      const mockPrompt = {
+        list: mock((msg: string) => {
+          if (msg.includes("config location")) return Promise.resolve("package.json");
+          if (msg.includes("security provider")) return Promise.resolve("github");
+          return Promise.resolve("back");
+        }),
+        confirm: mock(() => Promise.resolve(true)),
+        input: mock(() => Promise.resolve("")),
+      };
+      return callback(mockPrompt);
+    }
+  );
+
+  await initCommand({ path: testPath, checkSecurity: true, isTesting: true });
+
+  expect(formatCompletionSpy).toHaveBeenCalledWith(
+    "Pastoralist initialization complete!",
+    expect.arrayContaining([
+      expect.stringContaining("Run pastoralist to start dependency checking"),
+      expect.stringContaining("Security scanning enabled")
+    ]),
+    expect.any(String)
+  );
+
+  formatCompletionSpy.mockRestore();
+  loggerSpy?.mockRestore();
+  if (existsSync(testPath)) {
+    unlinkSync(testPath);
+  }
+  validateRootPackageJsonIntegrity();
+});
+
+test("initCommand - enhanced prompts use formatted UI components", async () => {
+  validateRootPackageJsonIntegrity();
+  writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
+
+  const mockLog = {
+    debug: mock(() => {}),
+    error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
+  };
+  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+
+  const formatChoiceListSpy = spyOn(dxPrompts, "formatChoiceList");
+  const formatConfirmPromptSpy = spyOn(dxPrompts, "formatConfirmPrompt");
+
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
+    async (callback) => {
+      const mockPrompt = {
+        list: mock(() => Promise.resolve("package.json")),
+        confirm: mock(() => Promise.resolve(false)),
+        input: mock(() => Promise.resolve("")),
+      };
+      return callback(mockPrompt);
+    }
+  );
+
+  await initCommand({ path: testPath, isTesting: true });
+
+  expect(formatChoiceListSpy).toHaveBeenCalled();
+  expect(formatConfirmPromptSpy).toHaveBeenCalled();
+
+  formatChoiceListSpy.mockRestore();
+  formatConfirmPromptSpy.mockRestore();
   loggerSpy?.mockRestore();
   if (existsSync(testPath)) {
     unlinkSync(testPath);

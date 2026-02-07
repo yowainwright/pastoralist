@@ -161,9 +161,16 @@ export const buildDependentInfo = (
   hasOverride: boolean,
   override: string,
   packageVersion: string | undefined,
+  dependencyTree?: Record<string, boolean>,
 ): string => {
-  if (!hasOverride) return `${override} (transitive dependency)`;
-  return `${override}@${packageVersion}`;
+  if (hasOverride) return `${override}@${packageVersion}`;
+
+  const isInDependencyTree = dependencyTree?.[override] || false;
+  if (isInDependencyTree) {
+    return `${override} (transitive dependency)`;
+  }
+
+  return `${override} (unused override)`;
 };
 
 export const isNestedOverride = (overrideValue: OverrideValue): boolean => {

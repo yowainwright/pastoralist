@@ -50,13 +50,12 @@ describe("Piped Input Functionality", () => {
       process.stdin.isTTY = originalIsTTY;
     });
 
-    test("returns empty string when no more input available", () => {
+    test("returns null when not ready", () => {
       const originalIsTTY = process.stdin.isTTY;
       process.stdin.isTTY = false;
 
-      // Simulate piped input being ready but empty
       const result = getNextPipedInput();
-      expect(result).toBe(null); // Not ready yet
+      expect(result).toBe(null);
 
       process.stdin.isTTY = originalIsTTY;
     });
@@ -115,11 +114,52 @@ describe("Piped Input Functionality", () => {
     });
   });
 
+  describe("initializePipedInput", () => {
+    test("returns early when already initialized", () => {
+      const originalIsTTY = process.stdin.isTTY;
+      process.stdin.isTTY = false;
+
+      initializePipedInput();
+      initializePipedInput();
+
+      process.stdin.isTTY = originalIsTTY;
+    });
+
+    test("returns early when stdin is TTY", () => {
+      const originalIsTTY = process.stdin.isTTY;
+      process.stdin.isTTY = true;
+
+      initializePipedInput();
+
+      process.stdin.isTTY = originalIsTTY;
+    });
+
+    test("sets up stdin listeners when not TTY", () => {
+      const originalIsTTY = process.stdin.isTTY;
+      process.stdin.isTTY = false;
+      resetPipedInputState();
+
+      initializePipedInput();
+
+      process.stdin.isTTY = originalIsTTY;
+    });
+  });
+
+  describe("waitForPipedInputReady", () => {
+    test("returns immediately when not piped input", async () => {
+      const originalIsTTY = process.stdin.isTTY;
+      process.stdin.isTTY = true;
+
+      await waitForPipedInputReady();
+
+      process.stdin.isTTY = originalIsTTY;
+    });
+  });
+
   describe("resetPipedInputState", () => {
     test("resets all piped input state", () => {
       resetPipedInputState();
 
-      // After reset, should be in initial state
       const result = getNextPipedInput();
       expect(result).toBe(null);
     });

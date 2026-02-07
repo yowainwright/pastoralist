@@ -2,13 +2,10 @@
   "name": "pastoralist-sandbox-basic-overrides",
   "private": true,
   "type": "module",
-  "bin": {
-    "pastoralist": "./dist/index.js"
-  },
   "scripts": {
-    "clean": "bun run scripts/clean.ts",
-    "build": "bun run clean && bun build src/index.ts --outdir dist --target node",
-    "start": "bun run build && ./dist/index.js"
+    "demo": "pastoralist",
+    "demo:dry": "pastoralist --dry-run",
+    "demo:summary": "pastoralist --summary"
   },
   "dependencies": {
     "express": "^4.18.0",
@@ -18,19 +15,6 @@
     "lodash": "4.17.20"
   },
   "devDependencies": {
-    "@types/bun": "latest",
-    "typescript": "5.9.3"
-  },
-  "pastoralist": {
-    "appendix": {
-      "lodash@4.17.20": {
-        "dependents": {
-          "pastoralist-sandbox-basic-overrides": "lodash@^4.17.21"
-        },
-        "ledger": {
-          "addedDate": "2026-01-12T18:20:21.109Z"
-        }
-      }
-    }
+    "pastoralist": "latest"
   }
 }

@@ -3,6 +3,9 @@ import { resolve } from "path";
 import { green } from "../../../utils";
 import { BRAND } from "../../../utils/icons";
 import { createPrompt, Prompt } from "../../../utils/prompts";
+import { formatStepHeader, formatInfo, formatCompletion } from "../../../dx";
+import { FARMER } from "../../../constants";
+import { shimmerFrame } from "../../../dx/shimmer";
 import type {
   PastoralistConfig,
   SecurityProvider,
@@ -35,7 +38,7 @@ async function collectConfigLocationAnswers(
   answers: InitAnswers,
   log: ReturnType<typeof createLogger>,
 ): Promise<void> {
-  log.print(`\n${STEP_TITLES.configLocation}`);
+  log.print(formatStepHeader(1, "Configuration Location"));
 
   answers.configLocation = (await prompt.list(
     PROMPTS.configLocation,
@@ -82,7 +85,7 @@ async function collectWorkspaceAnswers(
   packageJson: PastoralistJSON | null | undefined,
   log: ReturnType<typeof createLogger>,
 ): Promise<void> {
-  log.print(`\n${STEP_TITLES.workspace}`);
+  log.print(formatStepHeader(2, "Workspace Configuration"));
 
   answers.setupWorkspaces = await prompt.confirm(PROMPTS.setupWorkspaces, true);
 
@@ -95,7 +98,7 @@ async function collectWorkspaceAnswers(
   );
 
   if (!hasWorkspaces) {
-    log.print(`\n   ${INIT_MESSAGES.noWorkspacesDetected}`);
+    log.print(formatInfo(INIT_MESSAGES.noWorkspacesDetected));
   }
 
   answers.workspaceType = await promptForWorkspaceType(
@@ -186,7 +189,7 @@ async function collectSecurityAnswers(
   answers: InitAnswers,
   log: ReturnType<typeof createLogger>,
 ): Promise<void> {
-  log.print(`\n${STEP_TITLES.security}`);
+  log.print(formatStepHeader(3, "Security Configuration"));
 
   answers.setupSecurity = await prompt.confirm(PROMPTS.setupSecurity, true);
 
@@ -290,19 +293,21 @@ function displayNextSteps(
   setupSecurity: boolean,
   log: ReturnType<typeof createLogger>,
 ): void {
-  log.print(`\n${INIT_MESSAGES.nextSteps}\n`);
-  log.print(
-    `   1. Run ${green("pastoralist")} to check and update your dependencies`,
-  );
+  const nextSteps = [
+    `Run ${green("pastoralist")} to check and update your dependencies`,
+  ];
 
   if (setupSecurity) {
-    log.print(
-      `   2. Run ${green("pastoralist --checkSecurity")} to scan for security vulnerabilities`,
+    nextSteps.push(
+      `Run ${green("pastoralist --checkSecurity")} to scan for security vulnerabilities`,
     );
   }
 
-  log.print(`   3. Check the documentation for advanced configuration options`);
-  log.print(`\n${BRAND} ${INIT_MESSAGES.initComplete}\n`);
+  nextSteps.push("Check the documentation for advanced configuration options");
+
+  const baseText = "Pastoralist initialization complete!";
+  const shimmerTitle = shimmerFrame(baseText, 0) + ` ${FARMER}`;
+  log.print(formatCompletion(baseText, nextSteps, shimmerTitle));
 }
 
 async function checkExistingConfig(

@@ -31,3 +31,14 @@ export type {
 export { shimmerFrame, playShimmer } from "./shimmer";
 export { createTerminalGraph } from "./terminal-graph";
 export { showHint, clearHintCache } from "./hint";
+export {
+  formatConfirmPrompt,
+  formatChoiceList,
+  formatChoicePrompt,
+  formatInputPrompt,
+  formatStepHeader,
+  formatInfo,
+  formatSuccess,
+  formatWarning,
+  formatCompletion,
+} from "./prompts";

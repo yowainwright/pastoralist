@@ -17,6 +17,7 @@ interface GlobOptions {
 }
 
 const regexCache = new Map<string, RegExp>();
+const MAX_CACHE_SIZE = 200;
 
 const compilePattern = (pattern: string): RegExp => {
   const escaped = pattern.replace(GLOB_SPECIAL_CHARS, "\\$&");
@@ -34,6 +35,12 @@ const compilePattern = (pattern: string): RegExp => {
 const patternToRegex = (pattern: string): RegExp => {
   let cached = regexCache.get(pattern);
   if (!cached) {
+    if (regexCache.size >= MAX_CACHE_SIZE) {
+      const firstKey = regexCache.keys().next().value;
+      if (firstKey !== undefined) {
+        regexCache.delete(firstKey);
+      }
+    }
     cached = compilePattern(pattern);
     regexCache.set(pattern, cached);
   }
@@ -74,20 +81,27 @@ const matchesAnyIgnore = (
 const isIgnoredDirectory = (name: string): boolean =>
   IGNORED_DIRECTORIES.includes(name);
 
-const getAllFiles = (dir: string, baseDir: string): string[] => {
-  if (!existsSync(dir)) return [];
+const getAllFiles = (
+  dir: string,
+  baseDir: string,
+  result: string[] = [],
+): string[] => {
+  if (!existsSync(dir)) return result;
 
   const entries = readdirSync(dir, { withFileTypes: true });
 
-  return entries.flatMap((entry) => {
+  for (const entry of entries) {
     const fullPath = join(dir, entry.name);
     const relativePath = relative(baseDir, fullPath);
 
-    if (!entry.isDirectory()) return [relativePath];
-    if (isIgnoredDirectory(entry.name)) return [];
+    if (!entry.isDirectory()) {
+      result.push(relativePath);
+    } else if (!isIgnoredDirectory(entry.name)) {
+      getAllFiles(fullPath, baseDir, result);
+    }
+  }
 
-    return getAllFiles(fullPath, baseDir);
-  });
+  return result;
 };
 
 const toPatternArray = (patterns: string | string[]): string[] =>

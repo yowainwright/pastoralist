@@ -62,9 +62,7 @@ describe("dx/table", () => {
     });
 
     test("respects minimum label width", () => {
-      const rows: TableRow[] = [
-        { label: "A", value: "Value" },
-      ];
+      const rows: TableRow[] = [{ label: "A", value: "Value" }];
       const options: TableOptions = {
         minLabelWidth: 30,
       };
@@ -79,9 +77,7 @@ describe("dx/table", () => {
     });
 
     test("respects minimum value width", () => {
-      const rows: TableRow[] = [
-        { label: "Label", value: "V" },
-      ];
+      const rows: TableRow[] = [{ label: "Label", value: "V" }];
       const options: TableOptions = {
         minValueWidth: 25,
       };
@@ -121,7 +117,8 @@ describe("dx/table", () => {
       const rows: TableRow[] = [
         {
           label: "This is a very long label that should be handled correctly",
-          value: "This is a very long value that should also be handled correctly"
+          value:
+            "This is a very long value that should also be handled correctly",
         },
       ];
       const result = renderTable(rows);
@@ -144,9 +141,7 @@ describe("dx/table", () => {
     });
 
     test("uses default minimum widths", () => {
-      const rows: TableRow[] = [
-        { label: "L", value: "V" },
-      ];
+      const rows: TableRow[] = [{ label: "L", value: "V" }];
       const result = renderTable(rows);
       const lines = result.split("\n");
 
@@ -205,9 +200,7 @@ describe("dx/table", () => {
     });
 
     test("creates properly formatted separators", () => {
-      const rows: TableRow[] = [
-        { label: "Test", value: "Value" },
-      ];
+      const rows: TableRow[] = [{ label: "Test", value: "Value" }];
       const result = renderTable(rows);
       const lines = result.split("\n");
 

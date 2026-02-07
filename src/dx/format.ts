@@ -12,9 +12,34 @@ export const width = (): number => {
   return process.stdout.columns || DEFAULT_WIDTH;
 };
 
-/** Visible length of string (strips ANSI codes) */
+/** Visible length of string (strips ANSI codes and handles Unicode properly) */
 export const visibleLength = (str: string): number => {
-  return str.replace(ANSI_PATTERN, "").length;
+  const withoutAnsi = str.replace(ANSI_PATTERN, "");
+
+  // Use Intl.Segmenter if available (modern browsers/Node) for proper Unicode handling
+  if (typeof Intl !== "undefined" && Intl.Segmenter) {
+    const segmenter = new Intl.Segmenter("en", { granularity: "grapheme" });
+    let length = Array.from(segmenter.segment(withoutAnsi)).length;
+
+    // Adjust for emoji that display as 2 characters wide (like farmer emoji)
+    // This is a heuristic for complex emoji sequences
+    const emojiCount = (withoutAnsi.match(/\p{Emoji}/gu) || []).length;
+    if (emojiCount > 0 && withoutAnsi.includes("🧑‍🌾")) {
+      length += 1; // Farmer emoji displays wider than 1 character
+    }
+
+    return length;
+  }
+
+  // Fallback: Use Array.from to handle most Unicode cases properly
+  let length = Array.from(withoutAnsi).length;
+
+  // Similar adjustment for fallback
+  if (withoutAnsi.includes("🧑‍🌾")) {
+    length += 1;
+  }
+
+  return length;
 };
 
 /** Pad string to width */
@@ -35,8 +60,8 @@ export const truncate = (str: string, maxLen: number): string => {
   if (visible <= maxLen) return str;
   if (maxLen <= 3) return ".".repeat(maxLen);
 
-  // Create a new regex instance to avoid state issues
-  const ansiPattern = /\x1b\[[0-9;]*m/g;
+  ANSI_PATTERN.lastIndex = 0;
+  const ansiPattern = ANSI_PATTERN;
   let result = "";
   let visibleCount = 0;
   let lastIndex = 0;
@@ -121,7 +146,7 @@ export interface BoxOptions {
 
 /** Create bordered box around lines */
 export const box = (lines: string[], options: BoxOptions = {}): string[] => {
-  const boxWidth = options.width ?? (width() - 2); // Reserve space for terminal edges
+  const boxWidth = options.width ?? width() - 2; // Reserve space for terminal edges
   const padding = options.padding ?? 1;
   const innerWidth = boxWidth - 2 - padding * 2;
   const padStr = " ".repeat(padding);

@@ -191,11 +191,68 @@ test("updateAppendix - should handle packages not in dependencies", () => {
     peerDependencies: {},
     packageName: "test-package",
     onlyUsedOverrides: false,
+    dependencyTree: { "transitive-dep": true },
   });
 
   expect(result["transitive-dep@1.0.0"]).toBeDefined();
   expect(result["transitive-dep@1.0.0"].dependents["test-package"]).toBe(
     "transitive-dep (transitive dependency)",
+  );
+});
+
+test("updateAppendix - should handle unused overrides", () => {
+  const result = updateAppendix({
+    overrides: { "unused-pkg": "1.0.0" },
+    dependencies: {},
+    devDependencies: {},
+    peerDependencies: {},
+    packageName: "test-package",
+    onlyUsedOverrides: false,
+    dependencyTree: {},
+  });
+
+  expect(result["unused-pkg@1.0.0"]).toBeDefined();
+  expect(result["unused-pkg@1.0.0"].dependents["test-package"]).toBe(
+    "unused-pkg (unused override)",
+  );
+});
+
+test("updateAppendix - should reproduce dependency tree bug: keep used, remove unused", () => {
+  const result = updateAppendix({
+    overrides: {
+      lodash: "4.17.21",
+      axios: "1.0.0",
+    },
+    dependencies: { lodash: "^4.17.0" },
+    devDependencies: {},
+    peerDependencies: {},
+    packageName: "test",
+    onlyUsedOverrides: false,
+    dependencyTree: {},
+  });
+
+  expect(result["lodash@4.17.21"]).toBeDefined();
+  expect(result["lodash@4.17.21"].dependents["test"]).toBe("lodash@^4.17.0");
+
+  expect(result["axios@1.0.0"]).toBeDefined();
+  expect(result["axios@1.0.0"].dependents["test"]).toBe(
+    "axios (unused override)",
+  );
+});
+
+test("updateAppendix - should not incorrectly label unused overrides as transitive deps (old bug)", () => {
+  const result = updateAppendix({
+    overrides: { axios: "1.0.0" },
+    dependencies: {},
+    devDependencies: {},
+    peerDependencies: {},
+    packageName: "test",
+    onlyUsedOverrides: false,
+  });
+
+  expect(result["axios@1.0.0"]).toBeDefined();
+  expect(result["axios@1.0.0"].dependents["test"]).toBe(
+    "axios (unused override)",
   );
 });
 

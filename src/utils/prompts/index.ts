@@ -1,4 +1,11 @@
 import * as readline from "readline";
+import { enhancedQuestion } from "./input";
+import {
+  formatConfirmPrompt,
+  formatChoiceList,
+  formatChoicePrompt,
+  formatInputPrompt,
+} from "../../dx";
 import type {
   PromptChoice,
   PromptOptions,
@@ -28,61 +35,51 @@ export class Prompt {
   }
 
   async input(message: string, defaultValue?: string): Promise<string> {
-    return new Promise((resolve) => {
-      const prompt = defaultValue
-        ? `${message} (${defaultValue}): `
-        : `${message}: `;
-      this.ensureCookedMode();
-      this.rl.question(prompt, (answer) => {
-        resolve(answer.trim() || defaultValue || "");
-      });
-    });
+    this.ensureCookedMode();
+
+    return enhancedQuestion(
+      this.rl,
+      formatInputPrompt(message, defaultValue),
+      (answer: string) => answer.trim() || defaultValue || "",
+    );
   }
 
   async confirm(
     message: string,
     defaultValue: boolean = true,
   ): Promise<boolean> {
-    return new Promise((resolve) => {
-      const defaultText = defaultValue ? "Y/n" : "y/N";
-      this.ensureCookedMode();
-      this.rl.question(`${message} (${defaultText}): `, (answer) => {
+    this.ensureCookedMode();
+
+    return enhancedQuestion(
+      this.rl,
+      formatConfirmPrompt(message, defaultValue),
+      (answer: string) => {
         const normalized = answer.trim().toLowerCase();
         if (normalized === "") {
-          resolve(defaultValue);
+          return defaultValue;
         } else {
-          resolve(normalized === "y" || normalized === "yes");
+          return normalized === "y" || normalized === "yes";
         }
-      });
-    });
+      },
+    );
   }
 
   async list(message: string, choices: PromptChoice[]): Promise<string> {
-    console.log(`\n${message}`);
+    console.log(formatChoiceList(message, choices));
+    this.ensureCookedMode();
 
-    choices.forEach((choice, index) => {
-      console.log(`  ${index + 1}. ${choice.name}`);
-    });
+    return enhancedQuestion(this.rl, formatChoicePrompt(), (answer: string) => {
+      const num = parseInt(answer.trim(), 10);
 
-    return new Promise((resolve) => {
-      const askForChoice = () => {
-        this.ensureCookedMode();
-        this.rl.question("\nEnter your choice (number): ", (answer) => {
-          const num = parseInt(answer.trim(), 10);
+      if (isNaN(num) || num < 1 || num > choices.length) {
+        console.log(
+          "Invalid choice. Please enter a number between 1 and " +
+            choices.length,
+        );
+        return choices[0].value;
+      }
 
-          if (isNaN(num) || num < 1 || num > choices.length) {
-            console.log(
-              "Invalid choice. Please enter a number between 1 and " +
-                choices.length,
-            );
-            askForChoice();
-          } else {
-            resolve(choices[num - 1].value);
-          }
-        });
-      };
-
-      askForChoice();
+      return choices[num - 1].value;
     });
   }
 

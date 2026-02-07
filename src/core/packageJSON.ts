@@ -12,6 +12,7 @@ import type {
   UpdatePackageJSONOptions,
 } from "../types";
 import { logger } from "../utils";
+import { LRUCache } from "../utils/lru";
 import { showHint } from "../dx/hint";
 
 const execFile = promisify(execFileCallback);
@@ -19,7 +20,7 @@ const log = logger({ file: "packageJSON.ts", isLogging: IS_DEBUGGING });
 
 let dependencyTreeCache: Record<string, boolean> | null = null;
 
-export const jsonCache = new Map<string, PastoralistJSON>();
+export const jsonCache = new LRUCache<string, PastoralistJSON>({ max: 500 });
 
 export const getCacheStats = () => {
   return {

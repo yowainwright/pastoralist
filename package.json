@@ -20,7 +20,7 @@
   "scripts": {
     "build": "turbo run build-dist",
     "build-dist": "bun run clean-dist && bun run build-bundle && bun run build-types",
-    "build-bundle": "bun build src/index.ts --outdir dist --target node --minify",
+    "build-bundle": "bun build src/index.ts --outdir dist --target node --minify --splitting --external fs --external path --external crypto",
     "build-types": "tsc --emitDeclarationOnly --outDir dist",
     "clean-dist": "bun run scripts/clean.ts",
     "commit": "git-cz",

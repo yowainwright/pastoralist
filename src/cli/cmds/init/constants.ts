@@ -61,7 +61,7 @@ export const INIT_MESSAGES = {
   configSaved: (path: string) => `Configuration saved to ${path}`,
   initCancelled:
     "Initialization cancelled. Your existing configuration is preserved.",
-  initComplete: "initialization complete!",
+  initComplete: "▪▫▪ Pastoralist initialization complete! ▪▫▪",
   packageJsonNotFound: "Error: package.json not found",
   noTokenProvided: () =>
     `No token provided. You can add it later to the config or use --securityProviderToken flag.`,

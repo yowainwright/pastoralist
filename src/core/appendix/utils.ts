@@ -6,6 +6,7 @@ import type {
   OverrideValue,
 } from "../../types";
 import type { PartialSecurityLedger, CompactAppendix } from "./types";
+import { packageAtVersion } from "../../utils/string";
 
 const getReasonFromSecurityDetails = (
   packageName: string,
@@ -161,9 +162,16 @@ export const buildDependentInfo = (
   hasOverride: boolean,
   override: string,
   packageVersion: string | undefined,
+  dependencyTree?: Record<string, boolean>,
 ): string => {
-  if (!hasOverride) return `${override} (transitive dependency)`;
-  return `${override}@${packageVersion}`;
+  if (hasOverride) return packageAtVersion(override)(packageVersion ?? "");
+
+  const isInDependencyTree = dependencyTree?.[override] || false;
+  if (isInDependencyTree) {
+    return `${override} (transitive dependency)`;
+  }
+
+  return `${override} (unused override)`;
 };
 
 export const isNestedOverride = (overrideValue: OverrideValue): boolean => {
@@ -208,7 +216,8 @@ export const hasDependenciesMatchingOverrides = (
   depList: string[],
   overridesList: string[],
 ): boolean => {
-  return depList.some((dep) => overridesList.includes(dep));
+  const overridesSet = new Set(overridesList);
+  return depList.some((dep) => overridesSet.has(dep));
 };
 
 export const shouldWriteAppendix = (

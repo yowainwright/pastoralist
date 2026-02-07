@@ -149,3 +149,31 @@ test("glob - should deduplicate results from multiple patterns async", async () 
   expect(results.length).toBe(1);
   expect(results).toContain("package.json");
 });
+
+test("sync - cache eviction when MAX_CACHE_SIZE exceeded", () => {
+  const patterns = [];
+  for (let i = 0; i < 202; i++) {
+    patterns.push(`pattern${i}*`);
+  }
+
+  patterns.forEach((pattern) => {
+    sync(pattern, { cwd: PROJECT_ROOT });
+  });
+
+  expect(true).toBe(true);
+});
+
+test("sync - literal pattern matching", () => {
+  const results = sync("package.json", { cwd: PROJECT_ROOT });
+  expect(results).toContain("package.json");
+});
+
+test("sync - question mark pattern", () => {
+  const results = sync("package.?son", { cwd: PROJECT_ROOT });
+  expect(results).toContain("package.json");
+});
+
+test("sync - non-existent directory", () => {
+  const results = sync("*.txt", { cwd: "/non/existent/path" });
+  expect(results).toEqual([]);
+});

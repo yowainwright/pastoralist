@@ -11,6 +11,7 @@ import type { Logger } from "../../utils";
 import type { PartialSecurityLedger } from "./types";
 import { resolveJSON } from "../packageJSON";
 import { getOverridesByType, resolveOverrides } from "../overrides";
+import { packageAtVersion } from "../../utils/string";
 import {
   mergeOverrideReasons,
   createSecurityLedger,
@@ -37,12 +38,15 @@ const processSimpleOverride = (
   securityLedger: PartialSecurityLedger,
   cache: Map<string, AppendixItem>,
   onlyUsedOverrides: boolean = false,
+  dependencyTree?: Record<string, boolean>,
 ): Appendix => {
   const hasOverride = depList.includes(override);
-  const shouldSkip = onlyUsedOverrides && !hasOverride;
+  const isInDependencyTree = dependencyTree?.[override] || false;
+  const isUnused = !hasOverride && !isInDependencyTree;
+  const shouldSkip = onlyUsedOverrides && (isUnused || !hasOverride);
   if (shouldSkip) return appendix;
 
-  const key = `${override}@${overrideVersion}`;
+  const key = packageAtVersion(override)(overrideVersion);
   const cached = cache.get(key);
   if (cached) {
     appendix[key] = cached;
@@ -55,6 +59,7 @@ const processSimpleOverride = (
     hasOverride,
     override,
     packageVersion,
+    dependencyTree,
   );
   const newDependents = mergeDependents(
     currentDependents,
@@ -88,7 +93,7 @@ const processNestedOverrideEntry = (
   manualOverrideReasons: Record<string, string> | undefined,
   cache: Map<string, AppendixItem>,
 ): Appendix => {
-  const key = `${nestedPkg}@${nestedVersion}`;
+  const key = packageAtVersion(nestedPkg)(nestedVersion);
   const cached = cache.get(key);
   if (cached) {
     appendix[key] = cached;
@@ -177,6 +182,7 @@ const processOverrideEntry = (
   manualOverrideReasons: Record<string, string> | undefined,
   cache: Map<string, AppendixItem>,
   onlyUsedOverrides: boolean = false,
+  dependencyTree?: Record<string, boolean>,
 ): Appendix => {
   const overrideValue = overrides[override];
   const packageReason = mergeOverrideReasons(
@@ -220,6 +226,7 @@ const processOverrideEntry = (
     securityLedger,
     cache,
     onlyUsedOverrides,
+    dependencyTree,
   );
 };
 
@@ -236,9 +243,11 @@ export const updateAppendix = ({
   manualOverrideReasons,
   cache = new Map<string, AppendixItem>(),
   onlyUsedOverrides = false,
+  dependencyTree,
 }: UpdateAppendixOptions & {
   cache?: Map<string, AppendixItem>;
   manualOverrideReasons?: Record<string, string>;
+  dependencyTree?: Record<string, boolean>;
 }): Appendix => {
   const overridesList = Object.keys(overrides);
   const deps = { ...dependencies, ...devDependencies, ...peerDependencies };
@@ -259,6 +268,7 @@ export const updateAppendix = ({
         manualOverrideReasons,
         cache,
         onlyUsedOverrides,
+        dependencyTree,
       ),
     appendix,
   );

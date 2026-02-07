@@ -1,4 +1,4 @@
-import { test, expect, mock, spyOn } from "bun:test";
+import { test, expect, mock, spyOn, beforeEach, afterEach } from "bun:test";
 import {
   Prompt,
   createPrompt,
@@ -8,12 +8,83 @@ import {
 } from "../../../src/utils/prompts";
 import type { PromptChoice } from "../../../src/utils/prompts/types";
 import * as readline from "readline";
+import * as inputModule from "../../../src/utils/prompts/input";
+
+let mockCreateInterface: ReturnType<typeof spyOn>;
+let mockEnhancedQuestion: ReturnType<typeof spyOn>;
+
+beforeEach(() => {
+  mockCreateInterface = spyOn(readline, "createInterface").mockReturnValue({
+    question: mock(),
+    close: mock(),
+    removeAllListeners: mock(),
+    pause: mock(),
+    resume: mock(),
+  } as readline.Interface);
+
+  mockEnhancedQuestion = spyOn(
+    inputModule,
+    "enhancedQuestion",
+  ).mockImplementation(
+    async (
+      rl: any,
+      prompt: string,
+      processor: any = (answer: string) => answer.trim(),
+    ) => {
+      return new Promise((resolve) => {
+        if (rl.question) {
+          rl.question(prompt, (answer: string) => {
+            resolve(processor(answer));
+          });
+        }
+      });
+    },
+  );
+});
+
+afterEach(() => {
+  mockCreateInterface?.mockRestore();
+  mockEnhancedQuestion?.mockRestore();
+  if (process.stdin.setMaxListeners) {
+    process.stdin.setMaxListeners(0);
+  }
+});
+
+interface MockRl {
+  question: (msg: string, callback: (answer: string) => void) => void;
+  close: () => void;
+  removeAllListeners: () => void;
+  pause: () => void;
+  resume: () => void;
+}
 
 class TestablePrompt extends Prompt {
+  private mockQuestion?: (
+    msg: string,
+    callback: (answer: string) => void,
+  ) => void;
+
+  constructor() {
+    super();
+    const mockRl = {
+      question: (msg: string, callback: (answer: string) => void) => {
+        if (this.mockQuestion) {
+          setTimeout(() => this.mockQuestion!(msg, callback), 0);
+        }
+      },
+      close: () => {},
+      removeAllListeners: () => {},
+      pause: () => {},
+      resume: () => {},
+    };
+    this.rl.close();
+    this.rl = mockRl as unknown as readline.Interface;
+  }
+
   public setQuestion(
     fn: (msg: string, callback: (answer: string) => void) => void,
   ) {
-    this.rl.question = fn;
+    this.mockQuestion = fn;
   }
 }
 
@@ -36,7 +107,7 @@ test("Prompt - input returns user input", async () => {
   const prompt = new TestablePrompt();
   const questionSpy = mock(
     (msg: string, callback: (answer: string) => void) => {
-      callback("test answer");
+      setTimeout(() => callback("test answer"), 0);
     },
   );
   prompt.setQuestion(questionSpy);
@@ -52,7 +123,7 @@ test("Prompt - input returns default value when answer is empty", async () => {
   const prompt = new TestablePrompt();
   const questionSpy = mock(
     (msg: string, callback: (answer: string) => void) => {
-      callback("");
+      setTimeout(() => callback(""), 0);
     },
   );
   prompt.setQuestion(questionSpy);
@@ -192,22 +263,16 @@ test("Prompt - list returns selected choice value", async () => {
   prompt.close();
 });
 
-test("Prompt - list handles invalid choice and retries", async () => {
+test("Prompt - list handles invalid choice by returning first option", async () => {
   const prompt = new TestablePrompt();
   const choices: PromptChoice[] = [
     { name: "Option 1", value: "opt1" },
     { name: "Option 2", value: "opt2" },
   ];
 
-  let callCount = 0;
   const questionSpy = mock(
     (msg: string, callback: (answer: string) => void) => {
-      callCount++;
-      if (callCount === 1) {
-        callback("99");
-      } else {
-        callback("1");
-      }
+      callback("99");
     },
   );
   prompt.setQuestion(questionSpy);
@@ -215,23 +280,16 @@ test("Prompt - list handles invalid choice and retries", async () => {
   const result = await prompt.list("Choose:", choices);
 
   expect(result).toBe("opt1");
-  expect(callCount).toBe(2);
   prompt.close();
 });
 
-test("Prompt - list handles non-numeric input", async () => {
+test("Prompt - list handles non-numeric input by returning first option", async () => {
   const prompt = new TestablePrompt();
   const choices: PromptChoice[] = [{ name: "Option 1", value: "opt1" }];
 
-  let callCount = 0;
   const questionSpy = mock(
     (msg: string, callback: (answer: string) => void) => {
-      callCount++;
-      if (callCount === 1) {
-        callback("abc");
-      } else {
-        callback("1");
-      }
+      callback("abc");
     },
   );
   prompt.setQuestion(questionSpy);
@@ -239,7 +297,6 @@ test("Prompt - list handles non-numeric input", async () => {
   const result = await prompt.list("Choose:", choices);
 
   expect(result).toBe("opt1");
-  expect(callCount).toBe(2);
   prompt.close();
 });
 

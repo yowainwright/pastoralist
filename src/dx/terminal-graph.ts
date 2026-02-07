@@ -300,11 +300,9 @@ export const createTerminalGraph = (
     banner: () => {
       paused(() => {
         // Batch output to avoid race condition
-        const bannerOutput = [
-          "",
-          `${FARMER} ${green("Pastoralist")}`,
-          ""
-        ].join("\n");
+        const bannerOutput = ["", `${FARMER} ${green("Pastoralist")}`, ""].join(
+          "\n",
+        );
         out.writeLine(bannerOutput);
       });
       return methods;

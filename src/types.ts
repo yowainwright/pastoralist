@@ -93,6 +93,7 @@ export interface UpdateAppendixOptions {
   securityOverrideDetails?: SecurityOverrideDetail[];
   securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket";
   onlyUsedOverrides?: boolean;
+  dependencyTree?: Record<string, boolean>;
 }
 
 /** Security-related options */

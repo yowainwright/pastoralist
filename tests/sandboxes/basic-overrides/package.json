@@ -1,18 +1,18 @@
 {
   "name": "pastoralist-sandbox-basic-overrides",
   "private": true,
-  "type": "module",
+  "main": "index.js",
   "scripts": {
+    "start": "node index.js",
     "demo": "pastoralist",
     "demo:dry": "pastoralist --dry-run",
     "demo:summary": "pastoralist --summary"
   },
   "dependencies": {
-    "express": "^4.18.0",
-    "lodash": "^4.17.21"
+    "express": "^4.18.0"
   },
   "overrides": {
-    "lodash": "4.17.20"
+    "qs": "6.11.2"
   },
   "devDependencies": {
     "pastoralist": "latest"

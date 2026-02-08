@@ -4,8 +4,8 @@ Demonstrates appendix generation for override tracking using [Pastoralist](https
 
 ## Setup
 
-- lodash dependency at version `^4.17.21`
-- lodash override to version `4.17.20`
+- express dependency (which uses `qs` internally)
+- qs override to version `6.11.2` (controls transitive dependency)
 - pastoralist as devDependency
 
 ## Test
@@ -32,4 +32,4 @@ npm run demo:dry
 npm run demo:summary
 ```
 
-After running, check `package.json` to see the generated `pastoralist.appendix` section that tracks why the lodash override exists.
+After running, check `package.json` to see the generated `pastoralist.appendix` section that tracks why the qs override exists and which dependency uses it.

@@ -1,7 +1,6 @@
 {
   "name": "pastoralist-sandbox-provider-setup",
   "private": true,
-  "type": "module",
   "scripts": {
     "demo": "pastoralist --checkSecurity",
     "demo:github": "pastoralist --checkSecurity --securityProvider github",

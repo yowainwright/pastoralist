@@ -1,7 +1,6 @@
 {
   "name": "pastoralist-sandbox-json-output",
   "private": true,
-  "type": "module",
   "scripts": {
     "demo": "pastoralist --outputFormat json",
     "demo:summary": "pastoralist --outputFormat json --summary"

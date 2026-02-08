@@ -1,7 +1,6 @@
 {
   "name": "pastoralist-sandbox-quiet",
   "private": true,
-  "type": "module",
   "scripts": {
     "demo": "pastoralist --quiet --checkSecurity",
     "demo:dry": "pastoralist --quiet --checkSecurity --dry-run",

@@ -145,7 +145,7 @@ Consider removing these patches if the packages are no longer used.
 \`\`\`
 
 <a
-  href="https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/patches/README.md"
+  href="https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/patches"
   target="_blank"
   rel="noopener noreferrer"
 >
@@ -221,7 +221,7 @@ When a dependency is updated and no longer needs an override:
 \`\`\`
 
 <a
-  href="https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/cleanup/README.md"
+  href="https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/cleanup"
   target="_blank"
   rel="noopener noreferrer"
 >
@@ -1129,7 +1129,7 @@ await runPastoralist({
 ## Try It Now
 
 <a
-  href="https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/basic-overrides/README.md"
+  href="https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/basic-overrides"
   target="_blank"
   rel="noopener noreferrer"
 >
@@ -1766,7 +1766,7 @@ pastoralist
 \`\`\`
 
 <a
-  href="https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/basic-overrides/README.md"
+  href="https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/basic-overrides"
   target="_blank"
   rel="noopener noreferrer"
 >
@@ -1784,7 +1784,7 @@ pastoralist
 - **Clean**: Removes unnecessary overrides
 - **Fast**: Updates all overrides with one command
 - **Compatible**: Works with npm, yarn, pnpm, and bun
-`,f=`---
+`,k=`---
 title: Security Vulnerability Detection
 description: Detect and fix security vulnerabilities in your dependencies
 ---
@@ -1826,7 +1826,7 @@ pastoralist --checkSecurity --includeWorkspaces
 \`\`\`
 
 <a
-  href="https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/security-scan/README.md"
+  href="https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/security-scan"
   target="_blank"
   rel="noopener noreferrer"
 >
@@ -2145,7 +2145,7 @@ The security feature is experimental and we welcome contributions! Areas for imp
 - Performance optimizations
 
 Please see our [contributing guide](https://github.com/yowainwright/pastoralist/blob/main/CONTRIBUTING.md) for more information.
-`,k=`---
+`,f=`---
 title: Setup
 description: "Quick and easy setup guide for Pastoralist CLI"
 ---
@@ -2532,7 +2532,7 @@ description: Using pastoralist in workspace and monorepo environments
 Pastoralist works seamlessly with workspace and monorepo setups. This guide covers how to effectively use pastoralist across multiple packages.
 
 <a
-  href="https://codesandbox.io/p/github/yowainwright/pastoralist/main?file=/tests/sandboxes/monorepo/README.md"
+  href="https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/monorepo"
   target="_blank"
   rel="noopener noreferrer"
 >
@@ -3028,4 +3028,4 @@ const base = require("./packages/base-config/overrides.json");
 - Add automation scripts
 - Document your approach for the team
 `;function w(e){const n=e.match(/^---\n([\s\S]*?)\n---/);if(!n)return{};const t={},s=n[1].split(`
-`);for(const a of s){const o=a.indexOf(":");if(o===-1)continue;const c=a.slice(0,o).trim();let i=a.slice(o+1).trim();i=i.replace(/^["']|["']$/g,""),t[c]=i}return t}const r=Object.assign({"./docs/advanced-features.mdx":l,"./docs/api-reference.mdx":d,"./docs/architecture.mdx":u,"./docs/codelab.mdx":h,"./docs/configuration.mdx":g,"./docs/github-action.mdx":m,"./docs/introduction.mdx":y,"./docs/security.mdx":f,"./docs/setup.mdx":k,"./docs/troubleshooting.mdx":v,"./docs/workspaces.mdx":b}),p=Object.entries(r).map(([e,n])=>{const t=e.replace("./docs/","").replace(".mdx",""),s=w(n);return{slug:t,title:s.title??t,description:s.description??""}});function P(e){return p.find(n=>n.slug===e)}function j(e){const n=`./docs/${e}.mdx`;return r[n]}function x(){return p}export{P as a,j as b,x as g};
+`);for(const a of s){const o=a.indexOf(":");if(o===-1)continue;const c=a.slice(0,o).trim();let i=a.slice(o+1).trim();i=i.replace(/^["']|["']$/g,""),t[c]=i}return t}const r=Object.assign({"./docs/advanced-features.mdx":l,"./docs/api-reference.mdx":d,"./docs/architecture.mdx":u,"./docs/codelab.mdx":h,"./docs/configuration.mdx":g,"./docs/github-action.mdx":m,"./docs/introduction.mdx":y,"./docs/security.mdx":k,"./docs/setup.mdx":f,"./docs/troubleshooting.mdx":v,"./docs/workspaces.mdx":b}),p=Object.entries(r).map(([e,n])=>{const t=e.replace("./docs/","").replace(".mdx",""),s=w(n);return{slug:t,title:s.title??t,description:s.description??""}});function P(e){return p.find(n=>n.slug===e)}function j(e){const n=`./docs/${e}.mdx`;return r[n]}function x(){return p}export{P as a,j as b,x as g};

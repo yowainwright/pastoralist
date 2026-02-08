@@ -4,9 +4,7 @@ console.log("🐑 Pastoralist Basic Override Example");
 console.log("=====================================\n");
 
 console.log("This example demonstrates override tracking.");
-console.log(
-  "The package.json has a lodash override from ^4.17.21 to 4.17.20\n",
-);
+console.log("The package.json has a qs override to version 6.11.2\n");
 
 console.log("To try Pastoralist:");
 console.log("1. Run: npm install");

@@ -1,0 +1,4 @@
+{
+  "installDependencies": true,
+  "startCommand": "npm install && echo '🐑 Ready to try Pastoralist! Run: npm run demo'"
+}

@@ -1,7 +1,6 @@
 {
   "name": "pastoralist-sandbox-cleanup",
   "private": true,
-  "type": "module",
   "scripts": {
     "demo": "pastoralist",
     "demo:dry": "pastoralist --dry-run",

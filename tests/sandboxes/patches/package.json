@@ -1,7 +1,6 @@
 {
   "name": "pastoralist-sandbox-patches",
   "private": true,
-  "type": "module",
   "scripts": {
     "demo": "pastoralist",
     "demo:dry": "pastoralist --dry-run",

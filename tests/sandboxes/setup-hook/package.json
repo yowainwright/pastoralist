@@ -2,13 +2,10 @@
   "name": "pastoralist-sandbox-setup-hook",
   "private": true,
   "type": "module",
-  "bin": {
-    "pastoralist": "./dist/index.js"
-  },
   "scripts": {
-    "clean": "bun run scripts/clean.ts",
-    "build": "bun run clean && bun build src/index.ts --outdir dist --target node",
-    "start": "bun run build && ./dist/index.js --setup-hook"
+    "demo": "pastoralist --setup-hook",
+    "demo:dry": "pastoralist --setup-hook --dry-run",
+    "show-scripts": "node -e \"console.log(JSON.stringify(require('./package.json').scripts, null, 2))\""
   },
   "dependencies": {
     "express": "^4.18.0",
@@ -18,7 +15,6 @@
     "lodash": "4.17.20"
   },
   "devDependencies": {
-    "@types/bun": "latest",
-    "typescript": "5.9.3"
+    "pastoralist": "latest"
   }
 }

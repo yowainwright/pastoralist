@@ -1,7 +1,6 @@
 {
   "name": "pastoralist-sandbox-dry-run",
   "private": true,
-  "type": "module",
   "scripts": {
     "demo": "pastoralist --dry-run",
     "demo:summary": "pastoralist --dry-run --summary"

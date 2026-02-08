@@ -1,7 +1,6 @@
 {
   "name": "pastoralist-sandbox-monorepo",
   "private": true,
-  "type": "module",
   "workspaces": [
     "packages/app",
     "packages/lib"

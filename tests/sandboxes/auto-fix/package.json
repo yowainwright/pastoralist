@@ -1,7 +1,6 @@
 {
   "name": "pastoralist-sandbox-auto-fix",
   "private": true,
-  "type": "module",
   "scripts": {
     "demo": "pastoralist --checkSecurity",
     "demo:dry": "pastoralist --checkSecurity --dry-run"

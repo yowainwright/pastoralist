@@ -86,7 +86,7 @@ flowchart LR
 
 You end up with ghost overrides haunting your package.json forever.
 
-[Try it →](https://codesandbox.io/p/devbox/github/yowainwright/pastoralist/main?folder=/tests/sandboxes/basic-overrides)
+[Try it →](https://codesandbox.io/p/sandbox/github/yowainwright/pastoralist/tree/main/tests/sandboxes/basic-overrides)
 
 ---
 
@@ -260,7 +260,7 @@ You must also enable Dependabot alerts in your repository: **Settings > Code sec
 
 If permissions are insufficient, Pastoralist will warn and continue (your workflow won't fail).
 
-[Try Security Scanning →](https://codesandbox.io/p/devbox/github/yowainwright/pastoralist/main?folder=/tests/sandboxes/security-scan)
+[Try Security Scanning →](https://codesandbox.io/p/sandbox/github/yowainwright/pastoralist/tree/main/tests/sandboxes/security-scan)
 
 ### 3. Cleanup
 
@@ -277,7 +277,7 @@ flowchart TD
     style Done fill:#e8f5e9
 ```
 
-[Try Cleanup →](https://codesandbox.io/p/devbox/github/yowainwright/pastoralist/main?folder=/tests/sandboxes/cleanup)
+[Try Cleanup →](https://codesandbox.io/p/sandbox/github/yowainwright/pastoralist/tree/main/tests/sandboxes/cleanup)
 
 ### 4. Patch Tracking
 
@@ -294,7 +294,7 @@ Works with `patch-package`. Links patches to overrides and warns about unused pa
 }
 ```
 
-[Try Patches →](https://codesandbox.io/p/devbox/github/yowainwright/pastoralist/main?folder=/tests/sandboxes/patches)
+[Try Patches →](https://codesandbox.io/p/sandbox/github/yowainwright/pastoralist/tree/main/tests/sandboxes/patches)
 
 ---
 
@@ -355,7 +355,7 @@ If your `package.json` has a `workspaces` field, Pastoralist automatically scans
 
 Run `pastoralist` and it automatically scans all workspace packages. No configuration needed.
 
-[Try Monorepo →](https://codesandbox.io/p/devbox/github/yowainwright/pastoralist/main?folder=/tests/sandboxes/monorepo)
+[Try Monorepo →](https://codesandbox.io/p/sandbox/github/yowainwright/pastoralist/tree/main/tests/sandboxes/monorepo)
 
 #### Manual Configuration
 
@@ -686,7 +686,7 @@ pastoralist --dry-run
 
 This shows exactly what Pastoralist would change without modifying any files.
 
-[Try Dry Run →](https://codesandbox.io/p/devbox/github/yowainwright/pastoralist/main?folder=/tests/sandboxes/dry-run)
+[Try Dry Run →](https://codesandbox.io/p/sandbox/github/yowainwright/pastoralist/tree/main/tests/sandboxes/dry-run)
 
 **Quiet mode for CI:**
 
@@ -696,7 +696,7 @@ pastoralist --quiet --checkSecurity
 
 Minimal output for CI pipelines. Exits with code 1 if vulnerabilities found, 0 if clean.
 
-[Try Quiet Mode →](https://codesandbox.io/p/devbox/github/yowainwright/pastoralist/main?folder=/tests/sandboxes/quiet)
+[Try Quiet Mode →](https://codesandbox.io/p/sandbox/github/yowainwright/pastoralist/tree/main/tests/sandboxes/quiet)
 
 **Show summary metrics:**
 
@@ -706,7 +706,7 @@ pastoralist --summary
 
 Displays metrics table with packages scanned, vulnerabilities blocked, and overrides managed.
 
-[Try Summary →](https://codesandbox.io/p/devbox/github/yowainwright/pastoralist/main?folder=/tests/sandboxes/summary)
+[Try Summary →](https://codesandbox.io/p/sandbox/github/yowainwright/pastoralist/tree/main/tests/sandboxes/summary)
 
 **Add postinstall hook:**
 
@@ -716,7 +716,7 @@ pastoralist --setup-hook
 
 Adds `pastoralist` to your `postinstall` script automatically.
 
-[Try Setup Hook →](https://codesandbox.io/p/devbox/github/yowainwright/pastoralist/main?folder=/tests/sandboxes/setup-hook)
+[Try Setup Hook →](https://codesandbox.io/p/sandbox/github/yowainwright/pastoralist/tree/main/tests/sandboxes/setup-hook)
 
 **Set up automated CI/CD security checks:**
 

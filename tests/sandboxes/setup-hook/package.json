@@ -1,7 +1,6 @@
 {
   "name": "pastoralist-sandbox-setup-hook",
   "private": true,
-  "type": "module",
   "scripts": {
     "demo": "pastoralist --setup-hook",
     "demo:dry": "pastoralist --setup-hook --dry-run",

@@ -1,20 +1,19 @@
 {
   "$schema": "https://codesandbox.io/schemas/tasks.json",
-  "setupTasks": [
-    { "name": "Install bun", "command": "npm install -g bun" },
-    { "name": "Copy src", "command": "cp -r ../../../src ." },
-    {
-      "name": "Copy scripts",
-      "command": "mkdir -p scripts && cp ../../../scripts/clean.ts scripts/"
-    },
-    { "name": "Install", "command": "bun install" }
-  ],
+  "setupTasks": [{ "name": "Install", "command": "npm install" }],
   "tasks": {
-    "build": { "name": "Build", "command": "bun run build" },
-    "run": {
+    "demo": {
       "name": "Run Patches Demo",
-      "command": "bun run start",
+      "command": "npm run demo",
       "runAtStart": true
+    },
+    "dry-run": {
+      "name": "Run Patches (Dry Run)",
+      "command": "npm run demo:dry"
+    },
+    "summary": {
+      "name": "Show Patches Summary",
+      "command": "npm run demo:summary"
     }
   }
 }

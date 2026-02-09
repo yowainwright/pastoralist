@@ -47,6 +47,7 @@
         "@types/node": "^22.19.9",
         "@types/react": "^19.2.13",
         "@types/react-dom": "^19.2.3",
+        "@types/unist": "^3.0.3",
         "daisyui": "^5.5.18",
         "tailwindcss": "^4.1.18",
         "typescript": "^5.9.3",

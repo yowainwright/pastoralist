@@ -1,0 +1,1 @@
+import{a as r}from"./router-BhS44BMw.js";import{H as t,F as m}from"./Footer-D0KkVcuA.js";import"./react-vendor-C6WxKkic.js";import"./mermaid-DtbNh6En.js";import"./index-3f-l7NMk.js";import"./index-Dg1n7NUZ.js";function x({children:o}){return r.jsxs(r.Fragment,{children:[r.jsx(t,{}),r.jsx("main",{children:o}),r.jsx(m,{})]})}export{x as HomeLayout};

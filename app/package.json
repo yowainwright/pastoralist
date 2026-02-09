@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "serve": "vite preview --port 5174"
   },
   "dependencies": {
     "@mdx-js/mdx": "^3.1.1",
@@ -30,6 +31,7 @@
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.19",
+    "@tanstack/start": "^1.120.20",
     "@total-typescript/ts-reset": "^0.6.1",
     "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^22.19.9",

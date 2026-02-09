@@ -24,13 +24,13 @@ function parseFrontmatter(content: string): Record<string, string> {
   return frontmatter;
 }
 
-const mdxModules = import.meta.glob("./docs/*.mdx", {
+const eagerModules = import.meta.glob("./docs/*.mdx", {
   query: "?raw",
   import: "default",
   eager: true,
 }) as Record<string, string>;
 
-export const docs: DocMeta[] = Object.entries(mdxModules).map(
+export const docs: DocMeta[] = Object.entries(eagerModules).map(
   ([path, content]) => {
     const slug = path.replace("./docs/", "").replace(".mdx", "");
     const data = parseFrontmatter(content);
@@ -48,7 +48,7 @@ export function getDocBySlug(slug: string): DocMeta | undefined {
 
 export function getDocContent(slug: string): string | undefined {
   const path = `./docs/${slug}.mdx`;
-  return mdxModules[path];
+  return eagerModules[path];
 }
 
 export function getAllDocs(): DocMeta[] {

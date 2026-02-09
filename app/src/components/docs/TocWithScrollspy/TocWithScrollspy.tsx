@@ -1,6 +1,5 @@
 import { useCallback } from "react";
 import type { TocWithScrollspyProps, TocHeading } from "./types";
-import { SCROLL_OFFSET } from "./constants";
 import { useScrollspy } from "./useScrollspy";
 import { buildToc } from "./buildToc";
 import { parseInlineCode } from "./utils";
@@ -23,10 +22,32 @@ function getLinkClasses(isActive: boolean, isSubheading = false) {
 
 function scrollToElement(slug: string) {
   const target = document.getElementById(slug);
-  if (!target) return;
-  const y =
-    target.getBoundingClientRect().top + window.pageYOffset + SCROLL_OFFSET;
-  window.scrollTo({ top: y, behavior: "smooth" });
+  if (!target) {
+    return;
+  }
+
+  const rect = target.getBoundingClientRect();
+  const targetY = rect.top + window.scrollY - 80;
+
+  window.scrollTo({
+    top: targetY,
+    behavior: "smooth",
+  });
+
+  setTimeout(() => {
+    document.documentElement.scrollTo({
+      top: targetY,
+      behavior: "smooth",
+    });
+  }, 100);
+
+  setTimeout(() => {
+    target.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+      inline: "nearest",
+    });
+  }, 200);
 }
 
 export function TocWithScrollspy({ headings }: TocWithScrollspyProps) {

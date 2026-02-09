@@ -1,18 +1,14 @@
 import { useParams, Link, Navigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { getDocBySlug, getDocContent } from "@/content";
-import { extractHeadings } from "@/lib/mdx";
-import {
-  TocWithScrollspy,
-  type Heading,
-} from "@/components/docs/TocWithScrollspy";
+import { TocWithScrollspy } from "@/components/docs/TocWithScrollspy";
 import { mdxComponents } from "@/components/docs/MDXComponents";
 import { Pagination, getPagination } from "@/components/docs/Pagination";
+import type { Heading } from "@/components/docs/TocWithScrollspy/types";
 
 export function DocsPage() {
   const { slug } = useParams({ from: "/docs/$slug" });
   const doc = getDocBySlug(slug);
-  const rawContent = getDocContent(slug);
 
   const [Content, setContent] = useState<React.ComponentType<{
     components?: Record<string, React.ComponentType>;
@@ -21,45 +17,90 @@ export function DocsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!rawContent) {
-      setLoading(false);
-      return;
-    }
-
     let cancelled = false;
 
-    async function compile() {
-      const [{ compileMDX }, { run }, runtime] = await Promise.all([
-        import("@/lib/mdx/compileMDX"),
+    async function loadMDXContent() {
+      if (!doc) {
+        setLoading(false);
+        return;
+      }
+
+      const content = getDocContent(slug);
+      if (!content) {
+        setLoading(false);
+        return;
+      }
+
+      const [
+        { compile, run },
+        runtime,
+        { default: remarkGfm },
+        { default: rehypeSlug },
+      ] = await Promise.all([
         import("@mdx-js/mdx"),
         import("react/jsx-runtime"),
+        import("remark-gfm"),
+        import("rehype-slug"),
       ]);
       if (cancelled) return;
 
-      const compiled = await compileMDX(rawContent!);
-      if (cancelled) return;
+      const extractHeadings = () => {
+        const headingsArray: Heading[] = [];
 
-      const extracted = extractHeadings(rawContent!);
-      if (cancelled) return;
+        return (tree: any) => {
+          function visit(node: any) {
+            if (node.type === "element" && /^h[1-6]$/.test(node.tagName)) {
+              const depth = Number.parseInt(node.tagName[1], 10);
+              const text =
+                node.children
+                  ?.map((child: any) =>
+                    child.type === "text" ? child.value : "",
+                  )
+                  .join("") || "";
+              const slug = node.properties?.id || "";
 
-      const { default: MDXContent } = await run(compiled, {
-        ...runtime,
-        baseUrl: import.meta.url,
-      });
-      if (cancelled) return;
+              if (text && slug) {
+                headingsArray.push({ depth, text, slug });
+              }
+            }
+            if (node.children) {
+              node.children.forEach(visit);
+            }
+          }
+          visit(tree);
+          setHeadings(headingsArray);
+        };
+      };
 
-      setContent(() => MDXContent);
-      setHeadings(extracted);
-      setLoading(false);
+      try {
+        const code = String(
+          await compile(content, {
+            remarkPlugins: [remarkGfm],
+            rehypePlugins: [rehypeSlug, extractHeadings],
+            development: false,
+          }),
+        );
+        if (cancelled) return;
+
+        const { default: MDXContent } = await run(code, {
+          ...runtime,
+          baseUrl: import.meta.url,
+        });
+        setContent(() => MDXContent);
+        setLoading(false);
+      } catch (error) {
+        console.error("Failed to compile MDX:", error);
+        setLoading(false);
+      }
     }
 
-    compile();
+    loadMDXContent();
     return () => {
       cancelled = true;
     };
-  }, [rawContent]);
+  }, [doc]);
 
-  if (!doc || !rawContent) {
+  if (!doc) {
     return <Navigate to="/docs/$slug" params={{ slug: "introduction" }} />;
   }
 

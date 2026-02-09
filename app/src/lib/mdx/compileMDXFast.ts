@@ -1,14 +1,6 @@
 import { compile } from "@mdx-js/mdx";
-import rehypeShiki from "@shikijs/rehype";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
-import {
-  transformerNotationDiff,
-  transformerNotationHighlight,
-} from "@shikijs/transformers";
-import customDark from "@/themes/dark.json";
-import customLight from "@/themes/light.json";
-import type { ThemeRegistration } from "shiki";
 import { visit } from "unist-util-visit";
 import type { Node } from "unist";
 
@@ -18,7 +10,7 @@ function stripFrontmatter(source: string): string {
   return source.replace(FRONTMATTER_REGEX, "");
 }
 
-function preserveMermaidRemark() {
+function deferCodeBlocks() {
   return (tree: Node) => {
     visit(
       tree,
@@ -30,6 +22,10 @@ function preserveMermaidRemark() {
         value: string;
         data?: { hName?: string; hProperties?: Record<string, string> };
       }) => {
+        if (!node.lang) {
+          return;
+        }
+
         if (node.lang === "mermaid") {
           if (!node.data) {
             node.data = {};
@@ -40,33 +36,33 @@ function preserveMermaidRemark() {
             "data-mermaid-content": node.value,
           };
           node.lang = "text";
+          return;
         }
+
+        if (!node.data) {
+          node.data = {};
+        }
+        node.data.hName = "div";
+        node.data.hProperties = {
+          "data-code-content": node.value,
+          "data-code-lang": node.lang,
+          "data-code-meta": node.meta || "",
+          className: "lazy-code-block",
+        };
+        node.value = "";
+        delete node.lang;
+        delete node.meta;
       },
     );
   };
 }
 
-export async function compileMDX(source: string) {
+export async function compileMDXFast(source: string) {
   const content = stripFrontmatter(source);
   const compiled = await compile(content, {
     outputFormat: "function-body",
-    remarkPlugins: [remarkGfm, preserveMermaidRemark],
-    rehypePlugins: [
-      rehypeSlug,
-      [
-        rehypeShiki,
-        {
-          themes: {
-            light: customLight as unknown as ThemeRegistration,
-            dark: customDark as unknown as ThemeRegistration,
-          },
-          transformers: [
-            transformerNotationDiff(),
-            transformerNotationHighlight(),
-          ],
-        },
-      ],
-    ],
+    remarkPlugins: [remarkGfm, deferCodeBlocks],
+    rehypePlugins: [rehypeSlug],
   });
 
   return String(compiled);

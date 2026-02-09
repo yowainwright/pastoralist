@@ -8,7 +8,12 @@ export function Anchor({ href, children, className }: AnchorProps) {
 
   if (isExternal) {
     return (
-      <a href={href} className={className}>
+      <a
+        href={href}
+        className={className}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
         {children}
       </a>
     );

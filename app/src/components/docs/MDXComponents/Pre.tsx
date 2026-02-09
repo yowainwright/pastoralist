@@ -6,6 +6,23 @@ const Mermaid = lazy(() =>
 );
 
 export function Pre({ children, ...props }: PreProps) {
+  const isMermaidByLanguage = props["data-language"] === "mermaid";
+  const mermaidContent = props["data-mermaid-content"];
+
+  if (isMermaidByLanguage && mermaidContent) {
+    return (
+      <Suspense
+        fallback={
+          <div className="my-6 flex justify-center animate-pulse">
+            <div className="h-32 w-full max-w-md bg-base-content/10 rounded" />
+          </div>
+        }
+      >
+        <Mermaid chart={mermaidContent} />
+      </Suspense>
+    );
+  }
+
   const child = children as ReactElement<{
     className?: string;
     children?: string;

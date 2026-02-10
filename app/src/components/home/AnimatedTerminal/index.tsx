@@ -17,14 +17,25 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
   height,
   width,
   startAnimation,
+  shouldAnimate = true,
   onComplete,
+  hideHeader = false,
 }) => {
   const [currentDemoIndex, setCurrentDemoIndex] = useState(0);
   const [currentLineIndex, setCurrentLineIndex] = useState(0);
   const [visibleLines, setVisibleLines] = useState<TerminalLine[]>([]);
-  const [hasStarted, setHasStarted] = useState(false);
-  const [isFinished, setIsFinished] = useState(false);
+  const [hasStarted, setHasStarted] = useState(!shouldAnimate);
+  const [isFinished, setIsFinished] = useState(!shouldAnimate);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!shouldAnimate) {
+      const allLines = demos.flatMap((demo) => demo.lines);
+      setVisibleLines(allLines);
+      setIsFinished(true);
+      onComplete?.();
+    }
+  }, [shouldAnimate, demos, onComplete]);
 
   const currentDemo = demos[currentDemoIndex];
   const currentLine = currentDemo?.lines[currentLineIndex];
@@ -113,18 +124,25 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
   const containerStyle = width ? { width } : undefined;
   const contentStyle = height ? { height } : undefined;
 
+  const containerClasses = hideHeader ? "bg-transparent" : TERMINAL_CLASSES;
+
   return (
-    <div ref={containerRef} className={TERMINAL_CLASSES} style={containerStyle}>
+    <div ref={containerRef} className={containerClasses} style={containerStyle}>
       {/* Window chrome with traffic light buttons */}
-      <div className="terminal-header">
-        <div className="terminal-dot terminal-dot-red" />
-        <div className="terminal-dot terminal-dot-yellow" />
-        <div className="terminal-dot terminal-dot-green" />
-        <span className="ml-3 text-slate-400 text-xs">terminal</span>
-      </div>
+      {!hideHeader && (
+        <div className="terminal-header">
+          <div className="terminal-dot terminal-dot-red" />
+          <div className="terminal-dot terminal-dot-yellow" />
+          <div className="terminal-dot terminal-dot-green" />
+          <span className="ml-3 text-slate-400 text-xs">terminal</span>
+        </div>
+      )}
 
       {/* Terminal content */}
-      <div className="terminal-content" style={contentStyle}>
+      <div
+        className={hideHeader ? "p-4" : "terminal-content"}
+        style={contentStyle}
+      >
         {visibleLines.map((line, index) => (
           <div key={index} className={`terminal-line ${line.className ?? ""}`}>
             {line.prefix && (

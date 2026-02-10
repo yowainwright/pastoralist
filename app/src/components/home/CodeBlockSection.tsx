@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { TerminalLoader } from "@/components/TerminalLoader";
 import { CheckList } from "@/components/CheckList";
@@ -10,8 +10,23 @@ const CodeBlockToggle = lazy(() =>
   })),
 );
 
+const CODEBLOCK_ANIMATION_SEEN_KEY = "pastoralist-codeblock-animation-seen";
+
 export function CodeBlockSection() {
+  const [hasSeenCodeBlockAnimation, setHasSeenCodeBlockAnimation] = useState(
+    () => {
+      if (typeof window !== "undefined") {
+        return sessionStorage.getItem(CODEBLOCK_ANIMATION_SEEN_KEY) === "true";
+      }
+      return false;
+    },
+  );
   const { ref, isVisible } = useFadeInUp();
+
+  const handleAnimationComplete = () => {
+    setHasSeenCodeBlockAnimation(true);
+    sessionStorage.setItem(CODEBLOCK_ANIMATION_SEEN_KEY, "true");
+  };
 
   return (
     <section
@@ -21,7 +36,11 @@ export function CodeBlockSection() {
       <article
         ref={ref}
         className={`xl:flex gap-16 items-center max-w-2xl md:max-w-6xl mx-auto px-4 transition-all duration-700 ease-out ${
-          isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+          hasSeenCodeBlockAnimation
+            ? "opacity-100 translate-y-0"
+            : isVisible
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
         }`}
       >
         <header className="xl:max-w-xl flex flex-col justify-center">
@@ -36,7 +55,7 @@ export function CodeBlockSection() {
             longer needed.
           </p>
 
-          <CheckList isVisible={isVisible} />
+          <CheckList isVisible={hasSeenCodeBlockAnimation || isVisible} />
 
           <nav className="flex gap-4 mt-8">
             <Link
@@ -58,7 +77,11 @@ export function CodeBlockSection() {
 
         <aside className="flex-1 mt-8 xl:mt-0">
           <Suspense fallback={<TerminalLoader />}>
-            <CodeBlockToggle height="340px" />
+            <CodeBlockToggle
+              height="340px"
+              shouldAnimate={!hasSeenCodeBlockAnimation && isVisible}
+              onComplete={handleAnimationComplete}
+            />
           </Suspense>
         </aside>
       </article>

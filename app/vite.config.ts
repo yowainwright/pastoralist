@@ -20,6 +20,7 @@ export default defineConfig({
           router: ["@tanstack/react-router"],
           mermaid: ["mermaid"],
           fuse: ["fuse.js"],
+          shiki: ["shiki"],
         },
       },
     },

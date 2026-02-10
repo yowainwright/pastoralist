@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState } from "react";
 import { TerminalLoader } from "@/components/TerminalLoader";
 import { useFadeInUp } from "@/hooks/useFadeInUp";
 
@@ -8,8 +8,26 @@ const TransformDemo = lazy(() =>
   })),
 );
 
+const TransformDemoStatic = lazy(() =>
+  import("@/components/home/TransformDemo/static").then((m) => ({
+    default: m.TransformDemoStatic,
+  })),
+);
+
+const TRANSFORM_ANIMATION_SEEN_KEY = "pastoralist-transform-animation-seen";
+
 export function TransformSection() {
+  const [hasSeenAnimation] = useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem(TRANSFORM_ANIMATION_SEEN_KEY) === "true";
+    }
+    return false;
+  });
   const { ref: headerRef, isVisible: headerVisible } = useFadeInUp();
+
+  const handleAnimationComplete = () => {
+    sessionStorage.setItem(TRANSFORM_ANIMATION_SEEN_KEY, "true");
+  };
 
   return (
     <section id="demo" className="relative py-16 lg:py-24 overflow-hidden">
@@ -35,7 +53,14 @@ export function TransformSection() {
         </header>
 
         <Suspense fallback={<TerminalLoader />}>
-          <TransformDemo />
+          {hasSeenAnimation ? (
+            <TransformDemoStatic />
+          ) : (
+            <TransformDemo
+              shouldAnimate={true}
+              onComplete={handleAnimationComplete}
+            />
+          )}
         </Suspense>
       </article>
     </section>

@@ -7,8 +7,8 @@ import { getAllDocs } from "@/content";
 const Search = lazy(() => import("@/components/docs/Search"));
 
 const navigation = [
-  { title: "Home", href: "/" },
-  { title: "Docs", href: "/docs/introduction" },
+  { title: "Home", href: "/", preload: "intent" },
+  { title: "Docs", href: "/docs/introduction", preload: "intent" },
 ];
 
 export function Header() {
@@ -50,6 +50,14 @@ export function Header() {
                 <li key={item.href}>
                   <Link
                     to={item.href}
+                    preload={
+                      item.preload as unknown as
+                        | false
+                        | "intent"
+                        | "viewport"
+                        | "render"
+                        | undefined
+                    }
                     className={`hover:text-[#1D4ED8] hover:bg-[#1D4ED8]/10 transition flex ${
                       (
                         item.href.includes("/docs")
@@ -69,7 +77,7 @@ export function Header() {
         )}
 
         <div className="navbar-start">
-          <Link to="/" className="btn btn-ghost px-1 sm:px-2">
+          <Link to="/" preload="intent" className="btn btn-ghost px-1 sm:px-2">
             <h1 className="text-lg sm:text-xl md:text-2xl font-bold gradient-text">
               Pastoralist
             </h1>

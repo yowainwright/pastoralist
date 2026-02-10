@@ -1,27 +1,8 @@
-import { lazy, Suspense } from "react";
 import { createRootRoute, createRoute, Outlet } from "@tanstack/react-router";
-import { Loader2 } from "lucide-react";
-
-const HomeLayout = lazy(() =>
-  import("./layouts/RootLayout").then((m) => ({ default: m.HomeLayout })),
-);
-const DocsLayout = lazy(() =>
-  import("./layouts/DocsLayout").then((m) => ({ default: m.DocsLayout })),
-);
-const HomePage = lazy(() =>
-  import("./pages/HomePage").then((m) => ({ default: m.HomePage })),
-);
-const DocsPage = lazy(() =>
-  import("./pages/DocsPage").then((m) => ({ default: m.DocsPage })),
-);
-
-function PageLoader() {
-  return (
-    <div className="min-h-[50vh] h-full flex items-center justify-center">
-      <Loader2 className="size-8 animate-spin text-base-content/50" />
-    </div>
-  );
-}
+import { HomeLayout } from "./layouts/RootLayout";
+import { HomePage } from "./pages/HomePage";
+import { DocsLayout } from "./layouts/DocsLayout";
+import { DocsPage } from "./pages/DocsPage";
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
@@ -31,11 +12,9 @@ const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
   component: () => (
-    <Suspense fallback={<PageLoader />}>
-      <HomeLayout>
-        <HomePage />
-      </HomeLayout>
-    </Suspense>
+    <HomeLayout>
+      <HomePage />
+    </HomeLayout>
   ),
 });
 
@@ -43,11 +22,9 @@ const docsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/docs/$slug",
   component: () => (
-    <Suspense fallback={<PageLoader />}>
-      <DocsLayout>
-        <DocsPage />
-      </DocsLayout>
-    </Suspense>
+    <DocsLayout>
+      <DocsPage />
+    </DocsLayout>
   ),
 });
 

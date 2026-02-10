@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
-import confetti from "canvas-confetti";
 import { CopyButton } from "@/components/CopyButton";
 import { TERMINAL_DEMOS } from "@/components/docs/Sidebar/constants";
 import { TerminalLoader } from "@/components/TerminalLoader";
@@ -17,17 +16,58 @@ const base = BASE_URL.endsWith("/") ? BASE_URL : BASE_URL + "/";
 
 const LOGO_ANIMATION_DELAY = 500;
 const TEXT_FADE_DELAY = 200;
+const HERO_ANIMATION_SEEN_KEY = "pastoralist-hero-animation-seen";
 
 export function HeroSection() {
-  const [logoShrunk, setLogoShrunk] = useState(false);
-  const [textVisible, setTextVisible] = useState(false);
-  const [terminalVisible, setTerminalVisible] = useState(false);
-  const [terminalComplete, setTerminalComplete] = useState(false);
-  const [showRainbow, setShowRainbow] = useState(false);
-  const [emojiVisible, setEmojiVisible] = useState(false);
+  const [hasSeenHeroAnimation, setHasSeenHeroAnimation] = useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem(HERO_ANIMATION_SEEN_KEY) === "true";
+    }
+    return false;
+  });
+  const [logoShrunk, setLogoShrunk] = useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem(HERO_ANIMATION_SEEN_KEY) === "true";
+    }
+    return false;
+  });
+  const [textVisible, setTextVisible] = useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem(HERO_ANIMATION_SEEN_KEY) === "true";
+    }
+    return false;
+  });
+  const [terminalVisible, setTerminalVisible] = useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem(HERO_ANIMATION_SEEN_KEY) === "true";
+    }
+    return false;
+  });
+  const [terminalComplete, setTerminalComplete] = useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem(HERO_ANIMATION_SEEN_KEY) === "true";
+    }
+    return false;
+  });
+  const [showRainbow, setShowRainbow] = useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem(HERO_ANIMATION_SEEN_KEY) === "true";
+    }
+    return false;
+  });
+  const [emojiVisible, setEmojiVisible] = useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem(HERO_ANIMATION_SEEN_KEY) === "true";
+    }
+    return false;
+  });
   const automaticallyRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
+    if (hasSeenHeroAnimation) {
+      return;
+    }
+
     const logoTimer = setTimeout(
       () => setLogoShrunk(true),
       LOGO_ANIMATION_DELAY,
@@ -45,7 +85,7 @@ export function HeroSection() {
       clearTimeout(textTimer);
       clearTimeout(terminalTimer);
     };
-  }, []);
+  }, [hasSeenHeroAnimation]);
 
   useEffect(() => {
     if (terminalComplete) {
@@ -64,19 +104,25 @@ export function HeroSection() {
       const x = (rect.left + rect.width / 2) / window.innerWidth;
       const y = (rect.top + rect.height / 2) / window.innerHeight;
 
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { x, y },
-        colors: [
-          "#ff0000",
-          "#ff8000",
-          "#ffff00",
-          "#00ff00",
-          "#0080ff",
-          "#8000ff",
-        ],
-      });
+      import("canvas-confetti")
+        .then(({ default: confetti }) => {
+          confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { x, y },
+            colors: [
+              "#ff0000",
+              "#ff8000",
+              "#ffff00",
+              "#00ff00",
+              "#0080ff",
+              "#8000ff",
+            ],
+          });
+        })
+        .catch((error) => {
+          console.error("Failed to load confetti:", error);
+        });
     }
   }, [showRainbow]);
 
@@ -112,10 +158,15 @@ export function HeroSection() {
               <AnimatedTerminal
                 demos={TERMINAL_DEMOS}
                 loop={false}
-                typingSpeed={20}
+                typingSpeed={40}
                 height="435px"
                 startAnimation={terminalVisible}
-                onComplete={() => setTerminalComplete(true)}
+                shouldAnimate={!hasSeenHeroAnimation}
+                onComplete={() => {
+                  setTerminalComplete(true);
+                  setHasSeenHeroAnimation(true);
+                  sessionStorage.setItem(HERO_ANIMATION_SEEN_KEY, "true");
+                }}
               />
             </Suspense>
           </aside>

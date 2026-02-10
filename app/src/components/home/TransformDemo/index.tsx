@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useInView } from "react-intersection-observer";
 import type { AnimationPhase } from "./types";
 import { Popover } from "./Popover";
@@ -7,7 +7,15 @@ import { CLITerminal } from "./CLITerminal";
 import { AfterTerminal } from "./AfterTerminal";
 import { STEP_POPOVERS, STEPS, APPENDIX_CONTENT, COMMAND } from "./constants";
 
-export function TransformDemo() {
+interface TransformDemoProps {
+  shouldAnimate?: boolean;
+  onComplete?: () => void;
+}
+
+export function TransformDemo({
+  shouldAnimate = true,
+  onComplete,
+}: TransformDemoProps) {
   const [phase, setPhase] = useState<AnimationPhase>("idle");
   const [typedCommand, setTypedCommand] = useState("");
   const [showSpinner, setShowSpinner] = useState(false);
@@ -43,6 +51,7 @@ export function TransformDemo() {
           clearAnimations();
           setPhase("complete");
           setShowAllPopovers(true);
+          onComplete?.();
           setTimeout(() => {
             setShowLightning(true);
           }, 150);
@@ -140,7 +149,7 @@ export function TransformDemo() {
   const { ref: containerRef } = useInView({
     threshold: 0.3,
     onChange: (inView) => {
-      if (inView) {
+      if (inView && shouldAnimate) {
         if (!hasStarted.current) {
           hasStarted.current = true;
           startAnimation();
@@ -150,6 +159,19 @@ export function TransformDemo() {
       }
     },
   });
+
+  useEffect(() => {
+    if (!shouldAnimate && !hasStarted.current) {
+      hasStarted.current = true;
+      setPhase("complete");
+      setTypedCommand(COMMAND);
+      setAppendixLines(APPENDIX_CONTENT.length);
+      setActiveStep(3);
+      setShowAllPopovers(true);
+      setShowLightning(true);
+      setShowSuccess(true);
+    }
+  }, [shouldAnimate]);
 
   const handleStepClick = (step: number) => {
     clearAnimations();
@@ -193,8 +215,8 @@ export function TransformDemo() {
           const baseClass =
             "step cursor-pointer transition-all duration-200 text-base-content";
           const activeClass = isActive
-            ? "step-primary [&::before]:!bg-gradient-to-b [&::before]:!from-blue-400 [&::before]:!to-blue-500 [&::before]:!border-2 [&::before]:!border-blue-600 [&::before]:shadow-md [&::before]:shadow-blue-500/25 [&::before]:!text-white [&::after]:!bg-blue-500"
-            : "[&::before]:border-2 [&::before]:border-base-content/20 [&::before]:text-base-content";
+            ? "step-primary [&::before]:!bg-gradient-to-b [&::before]:!from-blue-400 [&::before]:!to-blue-500 [&::before]:shadow-md [&::before]:shadow-blue-500/25 [&::before]:!text-white [&::before]:!border [&::before]:!border-solid [&::before]:!border-[var(--step-bg)] [&::before]:!border-l-0 [&::before]:!border-r-0 [&::before]:!w-[calc(100%-29px)] [&::before]:!z-[999] [&::after]:!bg-blue-500"
+            : "[&::before]:text-base-content [&::before]:!border [&::before]:!border-solid [&::before]:!border-[var(--step-bg)] [&::before]:!border-l-0 [&::before]:!border-r-0 [&::before]:!w-[calc(100%-32px)] [&::before]:!z-[999]";
           const dataContent = isStepComplete ? "✓" : stepNum;
 
           return (

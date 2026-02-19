@@ -718,22 +718,6 @@ Adds `pastoralist` to your `postinstall` script automatically.
 
 [Try Setup Hook →](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/setup-hook)
 
-**Set up automated CI/CD security checks:**
-
-```bash
-pastoralist setup-ci
-```
-
-This generates a GitHub Actions workflow that:
-
-- Runs on pull requests and pushes to main/master
-- Runs weekly security scans
-- Auto-detects your package manager (npm, yarn, pnpm, bun)
-- Fails if package.json changes are uncommitted
-- Comments on PRs when changes are needed
-
-The workflow file is created at `.github/workflows/pastoralist.yml`. Commit it to enable automated security checks in CI.
-
 ---
 
 ## GitHub Action

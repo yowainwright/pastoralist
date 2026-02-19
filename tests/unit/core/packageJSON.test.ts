@@ -1,4 +1,4 @@
-import { test, expect } from "bun:test";
+import { test, expect, mock } from "bun:test";
 import { resolve } from "path";
 import type { PastoralistJSON, OverridesType } from "../../../src/types";
 import {
@@ -14,7 +14,7 @@ import {
   findPackageJsonFiles,
   clearDependencyTreeCache,
 } from "../../../src";
-import { getDependencyTree } from "../../../src/core/packageJSON";
+import { getDependencyTree, executeNpmLs } from "../../../src/core/packageJSON";
 import { clearHintCache } from "../../../src/dx/hint";
 import { HINT_RC_FILE_TEXT } from "../../../src/constants";
 import {
@@ -507,8 +507,19 @@ test("findPackageJsonFiles - should throw when no files found", () => {
 
 test("getDependencyTree - should return dependency tree", async () => {
   clearDependencyTreeCache();
-  const tree = await getDependencyTree();
+  const mockOutput = JSON.stringify({
+    dependencies: {
+      "lodash": { version: "4.17.21" },
+      "express": { version: "4.18.0" }
+    }
+  });
+
+  const mockExecuteNpmLs = () => Promise.resolve(mockOutput);
+  const tree = await getDependencyTree(mockExecuteNpmLs);
+
   expect(typeof tree).toBe("object");
+  expect(tree["lodash"]).toBe(true);
+  expect(tree["express"]).toBe(true);
 });
 
 test("updatePackageJSON - should handle existing override field", () => {
@@ -907,21 +918,35 @@ test("parseNpmLsOutput - should handle invalid nested deps", () => {
 
 test("getDependencyTree - should return consistent result on second call", async () => {
   clearDependencyTreeCache();
-  const firstCall = await getDependencyTree();
-  const secondCall = await getDependencyTree();
+  const mockOutput = JSON.stringify({
+    dependencies: {
+      "lodash": { version: "4.17.21" },
+      "express": { version: "4.18.0" }
+    }
+  });
+
+  let callCount = 0;
+  const mockExecuteNpmLs = () => {
+    callCount++;
+    return Promise.resolve(mockOutput);
+  };
+
+  const firstCall = await getDependencyTree(mockExecuteNpmLs);
+  const secondCall = await getDependencyTree(mockExecuteNpmLs);
+
   expect(firstCall).toEqual(secondCall);
+  expect(callCount).toBe(1);
   clearDependencyTreeCache();
 });
 
 test("getDependencyTree - should return empty object on error", async () => {
   clearDependencyTreeCache();
-  const originalExecFile = require("util").promisify(
-    require("child_process").execFile,
-  );
 
-  const tree = await getDependencyTree();
+  const mockExecuteNpmLs = () => Promise.reject(new Error("npm command failed"));
+  const tree = await getDependencyTree(mockExecuteNpmLs);
+
   expect(typeof tree).toBe("object");
-  clearDependencyTreeCache();
+  expect(Object.keys(tree)).toEqual([]);
 });
 
 test("parseNpmLsOutput - should handle null dependencies value", () => {
@@ -981,9 +1006,11 @@ test("executeNpmLs - is exported and callable", () => {
 test("getDependencyTree - handles executeNpmLs errors gracefully", async () => {
   clearDependencyTreeCache();
 
-  const tree = await getDependencyTree();
+  const mockExecuteNpmLs = () => Promise.reject(new Error("Command execution failed"));
+  const tree = await getDependencyTree(mockExecuteNpmLs);
+
   expect(typeof tree).toBe("object");
-  clearDependencyTreeCache();
+  expect(Object.keys(tree)).toEqual([]);
 });
 
 const lockTestDir = resolve(__dirname, "..", ".test-lock-files");

@@ -1,7 +1,7 @@
 {
   "name": "pastoralist",
   "version": "1.11.0",
-  "description": "A tool to watch over node module resolutions and overrides 🐑 👩🏽‍🌾",
+  "description": "A tool to watch over node module resolutions and overrides",
   "main": "dist/index.js",
   "type": "module",
   "types": "dist/index.d.ts",
@@ -66,15 +66,14 @@
     "pnpm"
   ],
   "author": "Jeff Wainwright <yowainwright@gmail.com> (https://jeffry.in)",
-  "license": "O'Sassy",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/yowainwright/pastoralist/issues"
   },
-  "homepage": "https://jeffry.in/pastoralist/",
+  "homepage": "https://jeffry.in/pastoralist",
   "workspaces": [
     "app"
   ],
-  "dependencies": {},
   "devDependencies": {
     "@types/bun": "latest",
     "codependence": "^0.3.1",

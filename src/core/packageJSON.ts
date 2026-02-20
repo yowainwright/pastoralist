@@ -412,7 +412,7 @@ export const executeNpmLs = async (): Promise<string> => {
 };
 
 export const getDependencyTree = async (
-  mockExecuteNpmLs?: () => Promise<string>
+  mockExecuteNpmLs?: () => Promise<string>,
 ): Promise<Record<string, boolean>> => {
   const hasCached = dependencyTreeCache !== null;
   if (hasCached) return dependencyTreeCache!;

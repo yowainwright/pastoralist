@@ -5,7 +5,7 @@ const DEFAULT_WIDTH = 80;
 export const INDENT_SIZE = 3;
 
 /** ANSI escape sequence pattern for performance */
-const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
+const ANSI_PATTERN = new RegExp(String.fromCharCode(27) + "\\[[0-9;]*m", "g");
 
 /** Get terminal width */
 export const width = (): number => {

@@ -80,7 +80,7 @@ export class SnykCLIProvider {
       try {
         await this.authenticate();
         return true;
-      } catch (error) {
+      } catch {
         this.log.print("Snyk authentication failed, skipping Snyk scan");
         return false;
       }

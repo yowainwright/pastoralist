@@ -1,4 +1,4 @@
-import { test, expect, mock, afterEach, beforeEach } from "bun:test";
+import { test, expect, mock, afterEach, beforeEach, spyOn } from "bun:test";
 import { mkdirSync, writeFileSync, rmSync, existsSync } from "fs";
 import { resolve } from "path";
 import type { Appendix, ResolveOverrides } from "../../../src/types";
@@ -11,10 +11,12 @@ import {
 } from "../../../src/core/workspaces";
 import { constructAppendix } from "../../../src/core/appendix";
 import * as packageJSON from "../../../src/core/packageJSON";
+import { clearDependencyTreeCache } from "../../../src/core/packageJSON";
 
 const TEST_DIR = resolve(__dirname, ".test-workspaces");
 
 beforeEach(() => {
+  clearDependencyTreeCache();
   if (existsSync(TEST_DIR)) {
     rmSync(TEST_DIR, { recursive: true, force: true });
   }
@@ -23,6 +25,7 @@ beforeEach(() => {
 
 afterEach(() => {
   mock.restore();
+  clearDependencyTreeCache();
   if (existsSync(TEST_DIR)) {
     rmSync(TEST_DIR, { recursive: true, force: true });
   }
@@ -132,10 +135,10 @@ test("cleanupUnusedOverrides", async () => {
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
   const mockUpdateOverrides = () => ({ "fake-pkg": "1.0.0" });
 
-  mock.module("../../../src/core/packageJSON", () => ({
-    ...packageJSON,
-    getDependencyTree: async () => ({ "fake-pkg": true }),
-  }));
+  // Spy on getDependencyTree to prevent cache pollution
+  const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({
+    "fake-pkg": true,
+  });
 
   const appendix: Appendix = {
     "fake-pkg@1.0.0": { dependents: { root: "fake-pkg@^1.0.0" } },
@@ -175,19 +178,23 @@ test("cleanupUnusedOverrides", async () => {
     mockUpdateOverrides2,
   );
   expect(result2.finalOverrides).toEqual({ react: "18.0.0" });
+
+  spy.mockRestore();
 });
 
 test("findUnusedOverrides - handles packages in dependency tree", async () => {
-  mock.module("../../../src/core/packageJSON", () => ({
-    ...packageJSON,
-    getDependencyTree: async () => ({ "transitive-pkg": true }),
-  }));
+  // Spy on getDependencyTree to prevent cache pollution
+  const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({
+    "transitive-pkg": true,
+  });
 
   const result = await findUnusedOverrides(
     { "transitive-pkg": "1.0.0" },
     { "other-dep": "^2.0.0" },
   );
   expect(result).not.toContain("transitive-pkg");
+
+  spy.mockRestore();
 });
 
 test("checkMonorepoOverrides - returns empty for matching deps", () => {

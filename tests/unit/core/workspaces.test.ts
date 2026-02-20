@@ -1,4 +1,4 @@
-import { test, expect, mock, afterEach, beforeEach } from "bun:test";
+import { test, expect, mock, afterEach, beforeEach, spyOn } from "bun:test";
 import { mkdirSync, writeFileSync, rmSync, existsSync } from "fs";
 import { resolve } from "path";
 import type { Appendix, ResolveOverrides } from "../../../src/types";
@@ -11,10 +11,12 @@ import {
 } from "../../../src/core/workspaces";
 import { constructAppendix } from "../../../src/core/appendix";
 import * as packageJSON from "../../../src/core/packageJSON";
+import { clearDependencyTreeCache } from "../../../src/core/packageJSON";
 
 const TEST_DIR = resolve(__dirname, ".test-workspaces");
 
 beforeEach(() => {
+  clearDependencyTreeCache();
   if (existsSync(TEST_DIR)) {
     rmSync(TEST_DIR, { recursive: true, force: true });
   }
@@ -23,6 +25,7 @@ beforeEach(() => {
 
 afterEach(() => {
   mock.restore();
+  clearDependencyTreeCache();
   if (existsSync(TEST_DIR)) {
     rmSync(TEST_DIR, { recursive: true, force: true });
   }
@@ -106,6 +109,11 @@ test("mergeOverridePaths", () => {
 });
 
 test("findUnusedOverrides", async () => {
+  // Spy on getDependencyTree to prevent real npm commands in CI
+  const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({
+    "fake-pkg": true,
+  });
+
   const result = await findUnusedOverrides(
     { "fake-pkg": "1.0.0" },
     { "fake-pkg": "^1.0.0" },
@@ -126,16 +134,18 @@ test("findUnusedOverrides", async () => {
     { react: "^18.0.0" },
   );
   expect(result4).toEqual([]);
+
+  spy.mockRestore();
 });
 
 test("cleanupUnusedOverrides", async () => {
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
   const mockUpdateOverrides = () => ({ "fake-pkg": "1.0.0" });
 
-  mock.module("../../../src/core/packageJSON", () => ({
-    ...packageJSON,
-    getDependencyTree: async () => ({ "fake-pkg": true }),
-  }));
+  // Spy on getDependencyTree to prevent cache pollution
+  const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({
+    "fake-pkg": true,
+  });
 
   const appendix: Appendix = {
     "fake-pkg@1.0.0": { dependents: { root: "fake-pkg@^1.0.0" } },
@@ -175,19 +185,23 @@ test("cleanupUnusedOverrides", async () => {
     mockUpdateOverrides2,
   );
   expect(result2.finalOverrides).toEqual({ react: "18.0.0" });
+
+  spy.mockRestore();
 });
 
 test("findUnusedOverrides - handles packages in dependency tree", async () => {
-  mock.module("../../../src/core/packageJSON", () => ({
-    ...packageJSON,
-    getDependencyTree: async () => ({ "transitive-pkg": true }),
-  }));
+  // Spy on getDependencyTree to prevent cache pollution
+  const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({
+    "transitive-pkg": true,
+  });
 
   const result = await findUnusedOverrides(
     { "transitive-pkg": "1.0.0" },
     { "other-dep": "^2.0.0" },
   );
   expect(result).not.toContain("transitive-pkg");
+
+  spy.mockRestore();
 });
 
 test("checkMonorepoOverrides - returns empty for matching deps", () => {
@@ -226,6 +240,9 @@ test("cleanupUnusedOverrides - handles empty appendix", async () => {
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
   const mockUpdateOverrides = () => ({});
 
+  // Spy on getDependencyTree to prevent real npm commands in CI
+  const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({});
+
   const result = await cleanupUnusedOverrides(
     {},
     {} as ResolveOverrides,
@@ -239,6 +256,8 @@ test("cleanupUnusedOverrides - handles empty appendix", async () => {
 
   expect(result.finalOverrides).toEqual({});
   expect(result.finalAppendix).toEqual({});
+
+  spy.mockRestore();
 });
 
 test("processWorkspacePackages - returns appendix for valid packages", async () => {
@@ -304,16 +323,28 @@ test("mergeOverridePaths - merges dependents from multiple packages", () => {
 });
 
 test("findUnusedOverrides - returns empty for nested override with matching parent", async () => {
+  // Spy on getDependencyTree to prevent real npm commands in CI
+  const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({
+    parent: true,
+  });
+
   const result = await findUnusedOverrides(
     { parent: { child: "2.0.0" } },
     { parent: "^1.0.0" },
   );
   expect(result).toEqual([]);
+
+  spy.mockRestore();
 });
 
 test("cleanupUnusedOverrides - preserves overrides with dependents", async () => {
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
   const mockUpdateOverrides = () => ({ lodash: "4.17.21" });
+
+  // Spy on getDependencyTree to prevent real npm commands in CI
+  const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({
+    lodash: true,
+  });
 
   const appendix: Appendix = {
     "lodash@4.17.21": {
@@ -337,6 +368,8 @@ test("cleanupUnusedOverrides - preserves overrides with dependents", async () =>
 
   expect(result.finalOverrides["lodash"]).toBe("4.17.21");
   expect(result.finalAppendix["lodash@4.17.21"]).toBeDefined();
+
+  spy.mockRestore();
 });
 
 test("processWorkspacePackages - aggregates dependencies from multiple packages", async () => {
@@ -357,11 +390,18 @@ test("processWorkspacePackages - aggregates dependencies from multiple packages"
 });
 
 test("findUnusedOverrides - keeps override in dependency tree", async () => {
+  // Spy on getDependencyTree to prevent real npm commands in CI
+  const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({
+    "transitive-dep": true,
+  });
+
   const result = await findUnusedOverrides(
     { "transitive-dep": "1.0.0" },
     { "other-dep": "^1.0.0" },
   );
   expect(Array.isArray(result)).toBe(true);
+
+  spy.mockRestore();
 });
 
 test("cleanupUnusedOverrides - logs tracked packages in overridePaths", async () => {
@@ -376,6 +416,11 @@ test("cleanupUnusedOverrides - logs tracked packages in overridePaths", async ()
     item: () => {},
   };
   const mockUpdateOverrides = () => ({ react: "18.0.0" });
+
+  // Spy on getDependencyTree to prevent real npm commands in CI
+  const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({
+    react: true,
+  });
 
   const appendix: Appendix = {
     "react@18.0.0": { dependents: {} },
@@ -398,6 +443,8 @@ test("cleanupUnusedOverrides - logs tracked packages in overridePaths", async ()
   );
 
   expect(debugLogs.some((log) => log.includes("overridePaths"))).toBe(true);
+
+  spy.mockRestore();
 });
 
 // =============================================================================

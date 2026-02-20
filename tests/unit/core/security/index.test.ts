@@ -492,10 +492,19 @@ test("checkSecurity - should handle both dependencies and devDependencies", asyn
   };
 
   const checker = new SecurityChecker({ provider: "osv" });
+
+  // Mock the OSV provider to prevent real API calls
+  const mockFetchAlerts = spyOn(
+    checker["providers"][0],
+    "fetchAlerts",
+  ).mockResolvedValue([]);
+
   const result = await checker.checkSecurity(config);
 
   expect(Array.isArray(result.alerts)).toBe(true);
   expect(Array.isArray(result.overrides)).toBe(true);
+
+  mockFetchAlerts.mockRestore();
 });
 
 test("createProvider - should create OSV provider", () => {

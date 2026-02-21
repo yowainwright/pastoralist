@@ -6,7 +6,7 @@ import { extractHeadings } from "@/lib/mdx/extractHeadings";
 import { TocWithScrollspy } from "@/components/docs/TocWithScrollspy";
 import { mdxComponents } from "@/components/docs/MDXComponents";
 import { Pagination, getPagination } from "@/components/docs/Pagination";
-import { getMDXRuntime } from "@/lib/mdx/mdxCache";
+import { mdxCache, getMDXRuntime } from "@/lib/mdx/mdxCache";
 import type { Heading } from "@/lib/mdx/types";
 
 export function DocsPage() {
@@ -28,18 +28,16 @@ export function DocsPage() {
         return;
       }
 
-      const content = getDocContent(slug);
-      if (!content) {
-        setLoading(false);
-        return;
-      }
-
       try {
+        const cachedEntry = mdxCache.get(slug);
         const { mdxRuntime, reactRuntime } = await getMDXRuntime();
         if (cancelled) return;
 
-        const compiled = await compileMDXFast(content);
-        const headingsArray = extractHeadings(content);
+        const compiled =
+          cachedEntry?.compiled ??
+          (await compileMDXFast(getDocContent(slug) ?? ""));
+        const headingsArray =
+          cachedEntry?.headings ?? extractHeadings(getDocContent(slug) ?? "");
 
         if (cancelled) return;
 
@@ -51,6 +49,8 @@ export function DocsPage() {
         );
         if (cancelled) return;
 
+        mdxCache.set(slug, { compiled, headings: headingsArray });
+
         setContent(() => MDXContent);
         setLoading(false);
       } catch (error) {
@@ -59,6 +59,7 @@ export function DocsPage() {
       }
     }
 
+    setLoading(true);
     loadMDXContent();
     return () => {
       cancelled = true;

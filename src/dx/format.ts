@@ -7,6 +7,8 @@ export const INDENT_SIZE = 3;
 /** ANSI escape sequence pattern for performance */
 const ANSI_PATTERN = new RegExp(String.fromCharCode(27) + "\\[[0-9;]*m", "g");
 
+const WIDE_EMOJI_PATTERN = /\p{Emoji_Presentation}/u;
+
 /** Get terminal width */
 export const width = (): number => {
   return process.stdout.columns || DEFAULT_WIDTH;
@@ -16,30 +18,18 @@ export const width = (): number => {
 export const visibleLength = (str: string): number => {
   const withoutAnsi = str.replace(ANSI_PATTERN, "");
 
-  // Use Intl.Segmenter if available (modern browsers/Node) for proper Unicode handling
   if (typeof Intl !== "undefined" && Intl.Segmenter) {
     const segmenter = new Intl.Segmenter("en", { granularity: "grapheme" });
-    let length = Array.from(segmenter.segment(withoutAnsi)).length;
-
-    // Adjust for emoji that display as 2 characters wide (like farmer emoji)
-    // This is a heuristic for complex emoji sequences
-    const emojiCount = (withoutAnsi.match(/\p{Emoji}/gu) || []).length;
-    if (emojiCount > 0 && withoutAnsi.includes("🧑‍🌾")) {
-      length += 1; // Farmer emoji displays wider than 1 character
-    }
-
-    return length;
+    const graphemes = Array.from(segmenter.segment(withoutAnsi));
+    const wideCount = graphemes.filter((g) =>
+      WIDE_EMOJI_PATTERN.test(g.segment),
+    ).length;
+    return graphemes.length + wideCount;
   }
 
-  // Fallback: Use Array.from to handle most Unicode cases properly
-  let length = Array.from(withoutAnsi).length;
-
-  // Similar adjustment for fallback
-  if (withoutAnsi.includes("🧑‍🌾")) {
-    length += 1;
-  }
-
-  return length;
+  const chars = Array.from(withoutAnsi);
+  const wideCount = chars.filter((c) => WIDE_EMOJI_PATTERN.test(c)).length;
+  return chars.length + wideCount;
 };
 
 /** Pad string to width */

@@ -2716,6 +2716,7 @@ test("action - displays removed overrides when present", async () => {
   expect(mockGraph.startPhase).toHaveBeenCalledWith(
     "writing",
     "Cleaned up stale overrides",
+    true,
   );
   expect(mockGraph.removedOverride).toHaveBeenCalledTimes(2);
   expect(mockGraph.endPhase).toHaveBeenCalledWith("2 stale overrides removed");

@@ -726,10 +726,6 @@ export async function action(
       }
     }
 
-    if (!isJsonOutput) {
-      graph.startPhase("writing", "Updating overrides");
-    }
-
     const updateContext = await deps.update(mergedOptions);
     const updateResultData = buildUpdateResult(
       updateContext,
@@ -737,15 +733,19 @@ export async function action(
       options.dryRun || false,
     );
 
-    const shouldDisplayOverrides = !isJsonOutput;
-    if (shouldDisplayOverrides) {
+    if (!isJsonOutput) {
+      const removedPackages =
+        updateContext.metrics?.removedOverridePackages ?? [];
+      const hasRemovedOverrides = removedPackages.length > 0;
+      const isLastPhase = !hasRemovedOverrides;
+
+      graph.startPhase("writing", "Updating overrides", isLastPhase);
+
       displayOverrides(graph, {
         finalOverrides: updateContext.finalOverrides ?? {},
         finalAppendix: updateContext.finalAppendix ?? {},
       });
-    }
 
-    if (!isJsonOutput) {
       const overrideCount = updateResultData.overrideCount;
       const hasOverrides = overrideCount > 0;
       const plural = overrideCount === 1 ? "" : "s";
@@ -754,12 +754,8 @@ export async function action(
         : "No overrides to update";
       graph.endPhase(overrideMsg);
 
-      const removedPackages =
-        updateContext.metrics?.removedOverridePackages ?? [];
-      const hasRemovedOverrides = removedPackages.length > 0;
-
       if (hasRemovedOverrides) {
-        graph.startPhase("writing", "Cleaned up stale overrides");
+        graph.startPhase("writing", "Cleaned up stale overrides", true);
 
         removedPackages.forEach((removed) => {
           graph.removedOverride(

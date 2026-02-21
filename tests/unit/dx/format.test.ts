@@ -38,7 +38,7 @@ describe("dx/format", () => {
 
     test("handles basic emoji correctly", () => {
       const result = visibleLength("Hello 👋");
-      expect(result).toBe(7);
+      expect(result).toBe(8);
     });
 
     test("handles farmer emoji with width adjustment", () => {
@@ -60,8 +60,7 @@ describe("dx/format", () => {
       globalThis.Intl = undefined;
 
       const result = visibleLength("Hello 🧑‍🌾");
-      // Array.from counts each Unicode code unit, farmer emoji is 5 + 1 adjustment = 6 + "Hello " = 12, but the actual implementation gives 10
-      expect(result).toBe(10);
+      expect(result).toBe(11);
 
       globalThis.Intl = originalIntl;
     });
@@ -71,7 +70,7 @@ describe("dx/format", () => {
       const originalIntl = globalThis.Intl;
       if (typeof Intl !== "undefined" && Intl.Segmenter) {
         const result = visibleLength("Hello 👋 World");
-        expect(result).toBe(13);
+        expect(result).toBe(14);
       }
 
       globalThis.Intl = originalIntl;

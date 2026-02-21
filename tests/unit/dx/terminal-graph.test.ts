@@ -361,6 +361,19 @@ describe("terminal-graph", () => {
       expect(joined).not.toContain("protected");
     });
 
+    test("does not emit blank line for zero values", () => {
+      const output = createMockOutput();
+      const graph = createTerminalGraph({ out: output });
+
+      graph.executiveSummary({
+        vulnerabilitiesFixed: 0,
+        staleOverridesRemoved: 0,
+        packagesProtected: 0,
+      });
+
+      expect(output.lines).toEqual([]);
+    });
+
     test("returns graph for chaining", () => {
       const output = createMockOutput();
       const graph = createTerminalGraph({ out: output });

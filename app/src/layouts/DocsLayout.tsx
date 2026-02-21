@@ -17,7 +17,7 @@ export function DocsLayout({ children }: DocsLayoutProps) {
 
       <Header />
 
-      <main className="drawer lg:drawer-open flex-1">
+      <main className="drawer lg:drawer-open flex-1 relative">
         <input
           id="my-drawer-2"
           type="checkbox"
@@ -25,7 +25,7 @@ export function DocsLayout({ children }: DocsLayoutProps) {
           checked={drawerOpen}
           onChange={(e) => setDrawerOpen(e.target.checked)}
         />
-        <section className="drawer-content flex flex-col">
+        <section className="drawer-content flex flex-col pt-[68px]">
           <article className="flex-1">{children}</article>
         </section>
         <Sidebar />

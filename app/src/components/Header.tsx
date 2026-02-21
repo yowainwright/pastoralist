@@ -24,8 +24,8 @@ export function Header() {
   }));
 
   return (
-    <header className="sticky top-0 z-30">
-      <nav className="navbar bg-base-100/80 border-b border-base-content/10 backdrop-blur-3xl justify-center items-center py-2 px-4 sm:px-6 md:px-20">
+    <header className="fixed top-0 z-30 w-full">
+      <nav className="navbar bg-base-100/80 border-b border-base-content/10 backdrop-blur-3xl justify-center items-center py-2 px-4 h-[68px]">
         {isDocsPage ? (
           <label
             htmlFor="my-drawer-2"
@@ -77,10 +77,8 @@ export function Header() {
         )}
 
         <div className="navbar-start">
-          <Link to="/" preload="intent" className="btn btn-ghost px-1 sm:px-2">
-            <h1 className="text-lg sm:text-xl md:text-2xl font-bold gradient-text">
-              Pastoralist
-            </h1>
+          <Link to="/" preload="intent" className="btn btn-ghost px-2">
+            <h1 className="text-2xl font-bold gradient-text">Pastoralist</h1>
           </Link>
         </div>
 

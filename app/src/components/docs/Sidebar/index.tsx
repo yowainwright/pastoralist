@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
 import SIDEBAR from "./constants";
@@ -6,6 +6,8 @@ import SIDEBAR from "./constants";
 export function Sidebar() {
   const location = useLocation();
   const pathname = location.pathname;
+  const navRef = useRef<HTMLElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
 
   const [sections, setSections] = useState(() => SIDEBAR.map(() => true));
 
@@ -13,15 +15,55 @@ export function Sidebar() {
     setSections((prev) => prev.map((open, i) => (i === index ? !open : open)));
   };
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (window.innerWidth >= 1024) return; // Only on mobile
+      if (!isOpen) return; // Only if sidebar is open
+
+      // Don't close if clicking the menu button itself
+      const menuButton = document.querySelector('label[for="my-drawer-2"]');
+      if (menuButton?.contains(event.target as Node)) return;
+
+      if (navRef.current && !navRef.current.contains(event.target as Node)) {
+        const drawer = document.getElementById(
+          "my-drawer-2",
+        ) as HTMLInputElement;
+        if (drawer) {
+          drawer.checked = false;
+          setIsOpen(false);
+        }
+      }
+    };
+
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, [isOpen]);
+
+  useEffect(() => {
+    const handleDrawerChange = () => {
+      const drawer = document.getElementById("my-drawer-2") as HTMLInputElement;
+      setIsOpen(drawer?.checked || false);
+    };
+
+    const drawer = document.getElementById("my-drawer-2");
+    if (drawer) {
+      drawer.addEventListener("change", handleDrawerChange);
+      return () => drawer.removeEventListener("change", handleDrawerChange);
+    }
+  }, []);
+
   return (
-    <aside className="drawer-side z-40 md:border-r md:border-base-content/10">
+    <aside className="drawer-side">
       <label
         htmlFor="my-drawer-2"
-        aria-label="close sidebar"
-        className="drawer-overlay"
+        className="drawer-overlay lg:hidden bg-transparent"
+        onClick={() => setIsOpen(false)}
       />
-      <nav className="bg-base-100 min-h-screen w-64 sm:w-72">
-        <section className="sticky top-20 px-3 py-4 space-y-3 max-h-[calc(100vh-5rem)] overflow-y-auto">
+      <nav
+        ref={navRef}
+        className="w-64 bg-base-100 z-20 sticky h-screen lg:h-full overflow-y-auto mt-[68px] border-r border-base-content/10"
+      >
+        <section className="px-3 pt-2 space-y-3">
           {SIDEBAR.map((navItem, index) => (
             <SidebarSection
               key={navItem.title}

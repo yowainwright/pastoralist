@@ -2,8 +2,11 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routes";
+import { precompileDefaultDoc } from "./lib/mdx/precompile";
 import "./styles/global.css";
 import "./styles/terminal.css";
+
+precompileDefaultDoc();
 
 const router = createRouter({
   routeTree,

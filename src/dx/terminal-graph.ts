@@ -308,12 +308,13 @@ export const createTerminalGraph = (
       return methods;
     },
 
-    startPhase: (phase: TerminalPhase, text: string) => {
+    startPhase: (phase: TerminalPhase, text: string, isLast = false) => {
       paused(() => {
         const s = state.get();
         state.set({ ...s, phase });
-        tree.line(false, text);
-        tree.open();
+        tree.line(isLast, text);
+        const after = state.get();
+        state.set({ ...after, ancestors: [...after.ancestors, !isLast] });
       });
       return methods;
     },
@@ -441,7 +442,8 @@ export const createTerminalGraph = (
         const hasProtected =
           data.packagesProtected && data.packagesProtected > 0;
 
-        out.writeLine("");
+        const hasAnyMetric = hasVulnFixes || hasStaleRemoved || hasProtected;
+        if (!hasAnyMetric) return;
         if (hasVulnFixes) {
           const plural = data.vulnerabilitiesFixed === 1 ? "y" : "ies";
           out.writeLine(

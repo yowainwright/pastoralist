@@ -3,6 +3,7 @@ import { homedir } from "os";
 import { join } from "path";
 import { gold } from "../utils/colors";
 import { ICON } from "../utils/icons";
+import { pad } from "./format";
 import type { Output } from "./output";
 import { defaultOutput } from "./output";
 
@@ -71,7 +72,8 @@ function renderHintBox(text: string, width = DEFAULT_BOX_WIDTH): string {
   const border = gold("+" + "-".repeat(width - 2) + "+");
   const content = lines.map((line, i) => {
     const prefix = i === 0 ? ICON.hint + " " : "   ";
-    return gold("| " + (prefix + line).padEnd(innerWidth) + " |");
+    const padded = pad(prefix + line, innerWidth);
+    return gold("| " + padded + " |");
   });
   return [border, ...content, border].join("\n");
 }

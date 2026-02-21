@@ -6,20 +6,29 @@ import { extractHeadings } from "@/lib/mdx/extractHeadings";
 import { TocWithScrollspy } from "@/components/docs/TocWithScrollspy";
 import { mdxComponents } from "@/components/docs/MDXComponents";
 import { Pagination, getPagination } from "@/components/docs/Pagination";
-import { getMDXRuntime } from "@/lib/mdx/mdxCache";
+import { mdxCache, getMDXRuntime } from "@/lib/mdx/mdxCache";
 import type { Heading } from "@/lib/mdx/types";
 
 export function DocsPage() {
   const { slug } = useParams({ from: "/docs/$slug" });
   const doc = getDocBySlug(slug);
 
+  const cached = mdxCache.get(slug);
   const [Content, setContent] = useState<React.ComponentType<{
     components?: Record<string, React.ComponentType>;
-  }> | null>(null);
-  const [headings, setHeadings] = useState<Heading[]>([]);
-  const [loading, setLoading] = useState(true);
+  }> | null>(cached?.component ?? null);
+  const [headings, setHeadings] = useState<Heading[]>(cached?.headings ?? []);
+  const [loading, setLoading] = useState(!cached?.component);
 
   useEffect(() => {
+    const cachedEntry = mdxCache.get(slug);
+    if (cachedEntry?.component) {
+      setContent(() => cachedEntry.component ?? null);
+      setHeadings(cachedEntry.headings);
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
     async function loadMDXContent() {
@@ -51,6 +60,12 @@ export function DocsPage() {
         );
         if (cancelled) return;
 
+        mdxCache.set(slug, {
+          compiled,
+          headings: headingsArray,
+          component: MDXContent,
+        });
+
         setContent(() => MDXContent);
         setLoading(false);
       } catch (error) {
@@ -59,6 +74,7 @@ export function DocsPage() {
       }
     }
 
+    setLoading(true);
     loadMDXContent();
     return () => {
       cancelled = true;

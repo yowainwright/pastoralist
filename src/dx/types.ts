@@ -92,7 +92,11 @@ export interface ExecutiveSummaryData {
 
 export type TerminalGraph = {
   banner: () => TerminalGraph;
-  startPhase: (phase: TerminalPhase, text: string) => TerminalGraph;
+  startPhase: (
+    phase: TerminalPhase,
+    text: string,
+    isLast?: boolean,
+  ) => TerminalGraph;
   progress: (current: number, total: number, item: string) => TerminalGraph;
   item: (text: string, isLast?: boolean) => TerminalGraph;
   vulnerability: (info: VulnerabilityInfo, isLast?: boolean) => TerminalGraph;

@@ -13,22 +13,13 @@ export function DocsPage() {
   const { slug } = useParams({ from: "/docs/$slug" });
   const doc = getDocBySlug(slug);
 
-  const cached = mdxCache.get(slug);
   const [Content, setContent] = useState<React.ComponentType<{
     components?: Record<string, React.ComponentType>;
-  }> | null>(cached?.component ?? null);
-  const [headings, setHeadings] = useState<Heading[]>(cached?.headings ?? []);
-  const [loading, setLoading] = useState(!cached?.component);
+  }> | null>(null);
+  const [headings, setHeadings] = useState<Heading[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const cachedEntry = mdxCache.get(slug);
-    if (cachedEntry?.component) {
-      setContent(() => cachedEntry.component ?? null);
-      setHeadings(cachedEntry.headings);
-      setLoading(false);
-      return;
-    }
-
     let cancelled = false;
 
     async function loadMDXContent() {
@@ -37,18 +28,16 @@ export function DocsPage() {
         return;
       }
 
-      const content = getDocContent(slug);
-      if (!content) {
-        setLoading(false);
-        return;
-      }
-
       try {
+        const cachedEntry = mdxCache.get(slug);
         const { mdxRuntime, reactRuntime } = await getMDXRuntime();
         if (cancelled) return;
 
-        const compiled = await compileMDXFast(content);
-        const headingsArray = extractHeadings(content);
+        const compiled =
+          cachedEntry?.compiled ??
+          (await compileMDXFast(getDocContent(slug) ?? ""));
+        const headingsArray =
+          cachedEntry?.headings ?? extractHeadings(getDocContent(slug) ?? "");
 
         if (cancelled) return;
 
@@ -60,11 +49,7 @@ export function DocsPage() {
         );
         if (cancelled) return;
 
-        mdxCache.set(slug, {
-          compiled,
-          headings: headingsArray,
-          component: MDXContent,
-        });
+        mdxCache.set(slug, { compiled, headings: headingsArray });
 
         setContent(() => MDXContent);
         setLoading(false);

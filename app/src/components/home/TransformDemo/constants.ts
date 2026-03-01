@@ -16,6 +16,12 @@ export const STEP_POPOVERS = [
   },
 ];
 
+import {
+  TERMINAL_LINE_HEIGHT_PX,
+  TERMINAL_HEADER_HEIGHT_PX,
+  TERMINAL_PADDING_PX,
+} from "@/components/TerminalWindow/constants";
+
 export const STEPS = [
   "Undocumented overrides",
   "Execute pastoralist",
@@ -23,9 +29,6 @@ export const STEPS = [
 ];
 
 const BASE_LINES = 5;
-const LINE_HEIGHT_PX = 24;
-const HEADER_HEIGHT_PX = 44;
-const PADDING_PX = 32;
 
 export const APPENDIX_CONTENT = [
   '  "pastoralist": {',
@@ -44,12 +47,12 @@ export const APPENDIX_CONTENT = [
 ];
 
 export const AFTER_TERMINAL_HEIGHT =
-  HEADER_HEIGHT_PX +
-  PADDING_PX +
-  (BASE_LINES + APPENDIX_CONTENT.length) * LINE_HEIGHT_PX;
+  TERMINAL_HEADER_HEIGHT_PX +
+  TERMINAL_PADDING_PX +
+  (BASE_LINES + APPENDIX_CONTENT.length) * TERMINAL_LINE_HEIGHT_PX;
 
 export const AFTER_CONTENT_HEIGHT =
-  (BASE_LINES + APPENDIX_CONTENT.length) * LINE_HEIGHT_PX;
+  (BASE_LINES + APPENDIX_CONTENT.length) * TERMINAL_LINE_HEIGHT_PX;
 
 export const COMMAND = "pastoralist";
 

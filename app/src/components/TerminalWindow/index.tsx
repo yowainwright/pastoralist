@@ -7,7 +7,6 @@ export { STYLES } from "./constants";
 export const TerminalWindow: React.FC<TerminalWindowProps> = ({
   isActive = false,
   minHeight,
-  height,
   fileName,
   tabs,
   activeTab,
@@ -20,7 +19,7 @@ export const TerminalWindow: React.FC<TerminalWindowProps> = ({
   const baseClass = className ?? STYLES.window;
   const windowClass =
     `${baseClass} transition-all duration-300 ${activeClass}`.trim();
-  const style = minHeight || height ? { minHeight, height } : undefined;
+  const style = minHeight ? { minHeight } : undefined;
   const hasTabs = tabs && tabs.length > 0;
   const headerClass = hasTabs ? STYLES.headerWithTabs : STYLES.header;
   const label = fileName ?? "terminal";
@@ -61,8 +60,10 @@ export const TerminalWindow: React.FC<TerminalWindowProps> = ({
   );
 };
 
-export const TerminalLoader: React.FC = () => (
-  <TerminalWindow className={STYLES.loader}>
+export const TerminalLoader: React.FC<{ minHeight?: string }> = ({
+  minHeight,
+}) => (
+  <TerminalWindow className={STYLES.loader} minHeight={minHeight}>
     <div className={STYLES.content}>
       <div className={`${STYLES.loaderBar} w-3/4 mb-2`} />
       <div className={`${STYLES.loaderBar} w-1/2 mb-2`} />

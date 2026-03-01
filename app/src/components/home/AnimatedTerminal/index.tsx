@@ -7,15 +7,40 @@ import {
   INTERSECTION_OBSERVER_OPTIONS,
   TERMINAL_CLASSES,
 } from "./constants";
+import { TerminalWindow } from "@/components/TerminalWindow";
+import { STYLES } from "@/components/TerminalWindow/constants";
 import { useTypingAnimation } from "./useTypingAnimation";
 import { useLineProcessor } from "./useLineProcessor";
+
+const TerminalLines: React.FC<{
+  visibleLines: TerminalLine[];
+  isTyping: boolean;
+  currentLine: TerminalLine | undefined;
+  displayedText: string;
+}> = ({ visibleLines, isTyping, currentLine, displayedText }) => (
+  <>
+    {visibleLines.map((line, index) => (
+      <div key={index} className={`${STYLES.line} ${line.className ?? ""}`}>
+        {line.prefix && <span className={STYLES.prefix}>{line.prefix}</span>}
+        <span dangerouslySetInnerHTML={{ __html: line.text }} />
+      </div>
+    ))}
+    {isTyping && currentLine && (
+      <div className={`${STYLES.line} ${currentLine.className ?? ""}`}>
+        {currentLine.prefix && (
+          <span className={STYLES.prefix}>{currentLine.prefix}</span>
+        )}
+        <span dangerouslySetInnerHTML={{ __html: displayedText }} />
+        <span className={STYLES.cursor} />
+      </div>
+    )}
+  </>
+);
 
 export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
   demos,
   loop = DEFAULT_LOOP,
   typingSpeed = DEFAULT_TYPING_SPEED,
-  height,
-  width,
   startAnimation,
   shouldAnimate = true,
   onComplete,
@@ -121,46 +146,30 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
     }
   }, [isComplete, isTyping, moveToNextLine, setIsTyping]);
 
-  const containerStyle = width ? { width } : undefined;
-  const contentStyle = height ? { height } : undefined;
+  const lineProps = {
+    visibleLines,
+    isTyping,
+    currentLine,
+    displayedText,
+  };
 
-  const containerClasses = hideHeader ? "bg-transparent" : TERMINAL_CLASSES;
+  if (hideHeader) {
+    return (
+      <div ref={containerRef} className="bg-transparent">
+        <div className="p-4">
+          <TerminalLines {...lineProps} />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div ref={containerRef} className={containerClasses} style={containerStyle}>
-      {/* Window chrome with traffic light buttons */}
-      {!hideHeader && (
-        <div className="terminal-header">
-          <div className="terminal-dot terminal-dot-red" />
-          <div className="terminal-dot terminal-dot-yellow" />
-          <div className="terminal-dot terminal-dot-green" />
-          <span className="ml-3 text-slate-400 text-xs">terminal</span>
+    <div ref={containerRef}>
+      <TerminalWindow className={TERMINAL_CLASSES}>
+        <div className={STYLES.content}>
+          <TerminalLines {...lineProps} />
         </div>
-      )}
-
-      {/* Terminal content */}
-      <div
-        className={hideHeader ? "p-4" : "terminal-content"}
-        style={contentStyle}
-      >
-        {visibleLines.map((line, index) => (
-          <div key={index} className={`terminal-line ${line.className ?? ""}`}>
-            {line.prefix && (
-              <span className="terminal-prefix">{line.prefix}</span>
-            )}
-            <span dangerouslySetInnerHTML={{ __html: line.text }} />
-          </div>
-        ))}
-        {isTyping && currentLine && (
-          <div className={`terminal-line ${currentLine.className ?? ""}`}>
-            {currentLine.prefix && (
-              <span className="terminal-prefix">{currentLine.prefix}</span>
-            )}
-            <span dangerouslySetInnerHTML={{ __html: displayedText }} />
-            <span className="cursor" />
-          </div>
-        )}
-      </div>
+      </TerminalWindow>
     </div>
   );
 };

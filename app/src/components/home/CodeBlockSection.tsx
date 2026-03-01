@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { TerminalLoader } from "@/components/TerminalLoader";
+import { TerminalLoader } from "@/components/TerminalWindow";
 import { CheckList } from "@/components/CheckList";
 import { useFadeInUp } from "@/hooks/useFadeInUp";
 
@@ -78,7 +78,6 @@ export function CodeBlockSection() {
         <aside className="flex-1 mt-8 xl:mt-0">
           <Suspense fallback={<TerminalLoader />}>
             <CodeBlockToggle
-              height="340px"
               shouldAnimate={!hasSeenCodeBlockAnimation && isVisible}
               onComplete={handleAnimationComplete}
             />

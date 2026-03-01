@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState } from "react";
-import { TerminalLoader } from "@/components/TerminalLoader";
+import { TerminalLoader } from "@/components/TerminalWindow";
 import { useFadeInUp } from "@/hooks/useFadeInUp";
 
 const TransformDemo = lazy(() =>

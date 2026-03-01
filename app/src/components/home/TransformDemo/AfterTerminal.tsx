@@ -1,21 +1,12 @@
-import { APPENDIX_CONTENT } from "./constants";
-import { TerminalWindow } from "./TerminalWindow";
-import { TerminalHeader } from "./TerminalHeader";
+import {
+  APPENDIX_CONTENT,
+  AFTER_TERMINAL_HEIGHT,
+  AFTER_CONTENT_HEIGHT,
+} from "./constants";
+import type { AfterTerminalProps } from "./types";
+import { TerminalWindow } from "@/components/TerminalWindow";
+import { STYLES } from "@/components/TerminalWindow/constants";
 import { JsonLine } from "./JsonLine";
-
-interface AfterTerminalProps {
-  isActive: boolean;
-  appendixLines: number;
-}
-
-const BASE_LINES = 5;
-const LINE_HEIGHT_PX = 24;
-const HEADER_HEIGHT_PX = 44;
-const PADDING_PX = 32;
-const TOTAL_HEIGHT =
-  HEADER_HEIGHT_PX +
-  PADDING_PX +
-  (BASE_LINES + APPENDIX_CONTENT.length) * LINE_HEIGHT_PX;
 
 export const AfterTerminal: React.FC<AfterTerminalProps> = ({
   isActive,
@@ -26,25 +17,26 @@ export const AfterTerminal: React.FC<AfterTerminalProps> = ({
   const showComma = appendixLines > 0;
 
   return (
-    <TerminalWindow isActive={isActive} minHeight={`${TOTAL_HEIGHT}px`}>
-      <TerminalHeader fileName="package.json" />
+    <TerminalWindow
+      isActive={isActive}
+      fileName="package.json"
+      minHeight={`${AFTER_TERMINAL_HEIGHT}px`}
+    >
       <div
-        className="terminal-content text-sm"
-        style={{
-          minHeight: `${(BASE_LINES + APPENDIX_CONTENT.length) * LINE_HEIGHT_PX}px`,
-        }}
+        className={STYLES.contentPadding}
+        style={{ minHeight: `${AFTER_CONTENT_HEIGHT}px` }}
       >
-        <div className="terminal-line text-base-content/50">{"{"}</div>
-        <div className="terminal-line">
+        <div className={`${STYLES.line} text-base-content/50`}>{"{"}</div>
+        <div className={STYLES.line}>
           {"  "}
           <span className="text-primary">"overrides"</span>: {"{"}
         </div>
-        <div className="terminal-line">
+        <div className={STYLES.line}>
           {"    "}
           <span className="text-primary">"lodash"</span>:{" "}
           <span className="text-success">"4.17.21"</span>
         </div>
-        <div className="terminal-line">
+        <div className={STYLES.line}>
           {"  }"}
           {showComma && ","}
         </div>
@@ -59,7 +51,7 @@ export const AfterTerminal: React.FC<AfterTerminalProps> = ({
             className="invisible"
           />
         ))}
-        <div className="terminal-line text-base-content/50">{"}"}</div>
+        <div className={`${STYLES.line} text-base-content/50`}>{"}"}</div>
       </div>
     </TerminalWindow>
   );

@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { CopyButton } from "@/components/CopyButton";
-import { TERMINAL_DEMOS } from "@/components/docs/Sidebar/constants";
-import { TerminalLoader } from "@/components/TerminalLoader";
+import { CLI_SECURITY_DEMO } from "@/components/home/AnimatedTerminal/constants";
+import { TerminalLoader } from "@/components/TerminalWindow";
 
 const AnimatedTerminal = lazy(() =>
   import("@/components/home/AnimatedTerminal").then((m) => ({
@@ -156,10 +156,9 @@ export function HeroSection() {
           >
             <Suspense fallback={<TerminalLoader />}>
               <AnimatedTerminal
-                demos={TERMINAL_DEMOS}
+                demos={CLI_SECURITY_DEMO}
                 loop={false}
                 typingSpeed={40}
-                height="435px"
                 startAnimation={terminalVisible}
                 shouldAnimate={!hasSeenHeroAnimation}
                 onComplete={() => {

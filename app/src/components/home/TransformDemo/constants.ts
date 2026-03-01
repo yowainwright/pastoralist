@@ -22,6 +22,11 @@ export const STEPS = [
   "Pastoralist manages the rest",
 ];
 
+const BASE_LINES = 5;
+const LINE_HEIGHT_PX = 24;
+const HEADER_HEIGHT_PX = 44;
+const PADDING_PX = 32;
+
 export const APPENDIX_CONTENT = [
   '  "pastoralist": {',
   '    "appendix": {',
@@ -38,7 +43,33 @@ export const APPENDIX_CONTENT = [
   "  }",
 ];
 
+export const AFTER_TERMINAL_HEIGHT =
+  HEADER_HEIGHT_PX +
+  PADDING_PX +
+  (BASE_LINES + APPENDIX_CONTENT.length) * LINE_HEIGHT_PX;
+
+export const AFTER_CONTENT_HEIGHT =
+  (BASE_LINES + APPENDIX_CONTENT.length) * LINE_HEIGHT_PX;
+
 export const COMMAND = "pastoralist";
+
+/** @tw */
+export const STEP_STYLES = {
+  base: "step cursor-pointer transition-all duration-200 text-base-content",
+  active:
+    "step-primary [&::before]:!bg-gradient-to-b [&::before]:!from-blue-400 [&::before]:!to-blue-500 [&::before]:shadow-md [&::before]:shadow-blue-500/25 [&::before]:!text-white [&::before]:!border [&::before]:!border-solid [&::before]:!border-[var(--step-bg)] [&::before]:!border-l-0 [&::before]:!border-r-0 [&::before]:!w-[calc(100%-29px)] [&::before]:!z-[999] [&::after]:!bg-blue-500",
+  inactive:
+    "[&::before]:text-base-content [&::before]:!border [&::before]:!border-solid [&::before]:!border-[var(--step-bg)] [&::before]:!border-l-0 [&::before]:!border-r-0 [&::before]:!w-[calc(100%-32px)] [&::before]:!z-[999]",
+} as const;
+
+/** @tw */
+export const BADGE_STYLES = {
+  before:
+    "badge badge-lg text-white bg-gradient-to-b from-red-400 to-red-500 border-2 border-red-600 shadow-md shadow-red-500/25",
+  cli: "badge badge-lg text-white bg-gradient-to-b from-blue-400 to-blue-500 border-2 border-blue-600 shadow-md shadow-blue-500/25",
+  after:
+    "badge badge-lg text-white bg-gradient-to-b from-green-400 to-green-500 border-2 border-green-600 shadow-md shadow-green-500/25",
+} as const;
 
 // JSON syntax highlighting
 const JSON_KEY_PATTERN = /"([^"]+)":/g;

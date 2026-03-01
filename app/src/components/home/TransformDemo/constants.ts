@@ -1,3 +1,9 @@
+import {
+  TERMINAL_LINE_HEIGHT_PX,
+  TERMINAL_HEADER_HEIGHT_PX,
+  TERMINAL_PADDING_PX,
+} from "@/components/TerminalWindow/constants";
+
 export const STEP_POPOVERS = [
   {
     title: "The Problem",
@@ -15,12 +21,6 @@ export const STEP_POPOVERS = [
       "Now you know why each override exists, what depends on it, and any associated CVEs.",
   },
 ];
-
-import {
-  TERMINAL_LINE_HEIGHT_PX,
-  TERMINAL_HEADER_HEIGHT_PX,
-  TERMINAL_PADDING_PX,
-} from "@/components/TerminalWindow/constants";
 
 export const STEPS = [
   "Undocumented overrides",

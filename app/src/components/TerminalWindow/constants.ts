@@ -1,3 +1,7 @@
+export const TERMINAL_LINE_HEIGHT_PX = 24;
+export const TERMINAL_HEADER_HEIGHT_PX = 44;
+export const TERMINAL_PADDING_PX = 32;
+
 /** @tw - enables Tailwind IntelliSense */
 export const STYLES = {
   window: "terminal-window",

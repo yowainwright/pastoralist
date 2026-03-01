@@ -19,4 +19,5 @@ export interface AnimatedTerminalProps {
   shouldAnimate?: boolean;
   onComplete?: () => void;
   hideHeader?: boolean;
+  minHeight?: string;
 }

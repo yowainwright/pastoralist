@@ -27,6 +27,7 @@ export const CodeBlockToggle: React.FC<CodeBlockToggleProps> = ({
       tabs={TABS}
       activeTab={activeTab}
       onTabChange={setActiveTab}
+      minHeight="430px"
     >
       {activeTab === "cli" ? (
         shouldAnimate ? (

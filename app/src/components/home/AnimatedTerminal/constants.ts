@@ -1,4 +1,9 @@
 import type { TerminalDemo } from "./types";
+import {
+  TERMINAL_LINE_HEIGHT_PX,
+  TERMINAL_HEADER_HEIGHT_PX,
+  TERMINAL_PADDING_PX,
+} from "@/components/TerminalWindow/constants";
 
 export const DEFAULT_TYPING_SPEED = 30;
 export const DEFAULT_LOOP = true;
@@ -11,6 +16,9 @@ export const INTERSECTION_OBSERVER_OPTIONS = {
 };
 
 export const TERMINAL_CLASSES = "terminal-window max-w-3xl w-full my-4";
+
+const SECURITY_DEMO_LINES = 23;
+export const HERO_TERMINAL_MIN_HEIGHT = `${TERMINAL_HEADER_HEIGHT_PX + TERMINAL_PADDING_PX + SECURITY_DEMO_LINES * TERMINAL_LINE_HEIGHT_PX}px`;
 
 const TREE_BRANCH = "\u251C\u2500\u2500";
 const TREE_LAST = "\u2514\u2500\u2500";

@@ -45,6 +45,7 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
   shouldAnimate = true,
   onComplete,
   hideHeader = false,
+  minHeight,
 }) => {
   const [currentDemoIndex, setCurrentDemoIndex] = useState(0);
   const [currentLineIndex, setCurrentLineIndex] = useState(0);
@@ -165,7 +166,7 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
 
   return (
     <div ref={containerRef}>
-      <TerminalWindow className={TERMINAL_CLASSES}>
+      <TerminalWindow className={TERMINAL_CLASSES} minHeight={minHeight}>
         <div className={STYLES.content}>
           <TerminalLines {...lineProps} />
         </div>

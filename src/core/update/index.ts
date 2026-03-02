@@ -19,6 +19,12 @@ import {
 import { resolveOverrides, getOverridesByType } from "../overrides";
 import { updateAppendix, constructAppendix } from "../appendix";
 import {
+  findUnusedAppendixEntries,
+  removeAppendixKeys,
+  extractPackageNames,
+  removeOverrideKeys,
+} from "../appendix/utils";
+import {
   writeResult,
   determineProcessingMode,
   findPackageFiles,
@@ -147,6 +153,7 @@ const stepBuildAppendix = (ctx: UpdateContext): UpdateContext => {
     securityOverrideDetails: ctx.options?.securityOverrideDetails,
     securityProvider: ctx.options?.securityProvider,
     manualOverrideReasons: ctx.options?.manualOverrideReasons,
+    addedDate: ctx.options?.addedDate,
   });
 
   if (!ctx.workspaceAppendix) return { ...ctx, appendix };
@@ -229,6 +236,30 @@ const stepCleanupOverrides = (ctx: UpdateContext): UpdateContext => {
   }
 
   return { ...ctx, finalOverrides: ctx.overrides, finalAppendix: ctx.appendix };
+};
+
+const stepRemoveUnused = (ctx: UpdateContext): UpdateContext => {
+  const shouldRemove = ctx.options?.removeUnused === true;
+  if (!shouldRemove) return ctx;
+
+  const appendix = ctx.finalAppendix || ctx.appendix || {};
+  const overrides = ctx.finalOverrides || ctx.overrides || {};
+
+  const unusedKeys = findUnusedAppendixEntries(appendix);
+  const hasUnused = unusedKeys.length > 0;
+  if (!hasUnused) return ctx;
+
+  const packageNames = extractPackageNames(unusedKeys);
+
+  ctx.log.debug(
+    `Removing ${unusedKeys.length} unused overrides: ${packageNames.join(", ")}`,
+    "stepRemoveUnused",
+  );
+
+  const finalAppendix = removeAppendixKeys(appendix, unusedKeys);
+  const finalOverrides = removeOverrideKeys(overrides, packageNames);
+
+  return { ...ctx, finalOverrides, finalAppendix };
 };
 
 const stepWriteResult = (ctx: UpdateContext): UpdateContext => {
@@ -435,6 +466,7 @@ export const update = (options: Options): UpdateContext => {
     stepMergeOverridePaths,
     stepLogUnusedPatches,
     stepCleanupOverrides,
+    stepRemoveUnused,
     stepWriteResult,
     stepCollectMetrics,
   );

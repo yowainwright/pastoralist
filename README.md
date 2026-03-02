@@ -277,6 +277,12 @@ flowchart TD
     style Done fill:#e8f5e9
 ```
 
+Pastoralist also detects overrides that no package depends on and labels them as `(unused override)`. To remove them:
+
+```bash
+pastoralist --remove-unused
+```
+
 [Try Cleanup →](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/cleanup)
 
 ### 4. Patch Tracking
@@ -717,6 +723,14 @@ pastoralist --setup-hook
 Adds `pastoralist` to your `postinstall` script automatically.
 
 [Try Setup Hook →](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/setup-hook)
+
+**Remove unused overrides:**
+
+```bash
+pastoralist --remove-unused
+```
+
+Removes overrides that no package depends on. When unused overrides are detected, Pastoralist displays a notice suggesting this flag.
 
 ---
 

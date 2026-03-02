@@ -8,6 +8,8 @@ import type {
 import type { PartialSecurityLedger, CompactAppendix } from "./types";
 import { packageAtVersion } from "../../utils/string";
 
+const UNUSED_OVERRIDE_LABEL = "(unused override)";
+
 const getReasonFromSecurityDetails = (
   packageName: string,
   securityOverrideDetails?: SecurityOverrideDetail[],
@@ -124,8 +126,10 @@ const buildNewLedger = (
     NonNullable<AppendixItem["ledger"]>,
     "addedDate" | "reason"
   >,
+  addedDate?: string,
 ): NonNullable<AppendixItem["ledger"]> => {
-  const baseLedger = { addedDate: new Date().toISOString() };
+  const resolvedDate = addedDate || new Date().toISOString();
+  const baseLedger = { addedDate: resolvedDate };
   const ledgerWithReason = reason ? { ...baseLedger, reason } : baseLedger;
   return { ...ledgerWithReason, ...securityLedger };
 };
@@ -138,11 +142,12 @@ export const buildAppendixItem = (
     NonNullable<AppendixItem["ledger"]>,
     "addedDate" | "reason"
   >,
+  addedDate?: string,
 ): AppendixItem => {
   const hasExistingLedger = Boolean(existingLedger);
   const ledger = hasExistingLedger
     ? existingLedger
-    : buildNewLedger(reason, securityLedger);
+    : buildNewLedger(reason, securityLedger, addedDate);
 
   return { dependents, ledger };
 };
@@ -171,7 +176,7 @@ export const buildDependentInfo = (
     return `${override} (transitive dependency)`;
   }
 
-  return `${override} (unused override)`;
+  return `${override} ${UNUSED_OVERRIDE_LABEL}`;
 };
 
 export const isNestedOverride = (overrideValue: OverrideValue): boolean => {
@@ -268,21 +273,79 @@ const canBeCompacted = (item: AppendixItem): boolean => {
   return !hasSecurityInfo(item) && !hasPatches(item);
 };
 
-const getAddedDate = (item: AppendixItem): string => {
+const getAddedDate = (item: AppendixItem, addedDate?: string): string => {
   if (item.ledger?.addedDate) return item.ledger.addedDate;
+  if (addedDate) return addedDate;
   return new Date().toISOString().split("T")[0];
 };
 
-export const toCompactAppendix = (appendix: Appendix): CompactAppendix => {
+export const toCompactAppendix = (
+  appendix: Appendix,
+  addedDate?: string,
+): CompactAppendix => {
   const compact: CompactAppendix = {};
 
   for (const [key, item] of Object.entries(appendix)) {
     if (canBeCompacted(item)) {
-      compact[key] = { addedDate: getAddedDate(item) };
+      compact[key] = { addedDate: getAddedDate(item, addedDate) };
     } else {
       compact[key] = item as unknown as CompactAppendix[string];
     }
   }
 
   return compact;
+};
+
+const isUnusedEntry = (item: AppendixItem): boolean => {
+  const dependents = item?.dependents;
+  if (!dependents) return false;
+
+  const values = Object.values(dependents);
+  const hasValues = values.length > 0;
+  if (!hasValues) return false;
+
+  return values.every((v) => v.includes(UNUSED_OVERRIDE_LABEL));
+};
+
+export const findUnusedAppendixEntries = (appendix: Appendix): string[] => {
+  if (!appendix) return [];
+
+  return Object.keys(appendix).filter((key) => isUnusedEntry(appendix[key]));
+};
+
+export const removeAppendixKeys = (
+  appendix: Appendix,
+  keys: string[],
+): Appendix => {
+  const keySet = new Set(keys);
+  return Object.keys(appendix)
+    .filter((key) => !keySet.has(key))
+    .reduce((acc, key) => {
+      acc[key] = appendix[key];
+      return acc;
+    }, {} as Appendix);
+};
+
+export const extractPackageNames = (appendixKeys: string[]): string[] => {
+  return appendixKeys.map((key) => {
+    const lastAtIndex = key.lastIndexOf("@");
+    const isScoped = lastAtIndex > 0;
+    return isScoped ? key.slice(0, lastAtIndex) : key;
+  });
+};
+
+export const removeOverrideKeys = (
+  overrides: Record<string, string | Record<string, string>>,
+  packageNames: string[],
+): Record<string, string | Record<string, string>> => {
+  const nameSet = new Set(packageNames);
+  return Object.keys(overrides)
+    .filter((key) => !nameSet.has(key))
+    .reduce(
+      (acc, key) => {
+        acc[key] = overrides[key];
+        return acc;
+      },
+      {} as Record<string, string | Record<string, string>>,
+    );
 };

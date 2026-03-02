@@ -39,6 +39,7 @@ const processSimpleOverride = (
   cache: Map<string, AppendixItem>,
   onlyUsedOverrides: boolean = false,
   dependencyTree?: Record<string, boolean>,
+  addedDate?: string,
 ): Appendix => {
   const hasOverride = depList.includes(override);
   const isInDependencyTree = dependencyTree?.[override] || false;
@@ -73,6 +74,7 @@ const processSimpleOverride = (
     existingLedger,
     packageReason,
     securityLedger,
+    addedDate,
   );
 
   cache.set(key, newAppendixItem);
@@ -92,6 +94,7 @@ const processNestedOverrideEntry = (
   securityProvider: "osv" | "github" | "snyk" | "npm" | "socket" | undefined,
   manualOverrideReasons: Record<string, string> | undefined,
   cache: Map<string, AppendixItem>,
+  addedDate?: string,
 ): Appendix => {
   const key = packageAtVersion(nestedPkg)(nestedVersion);
   const cached = cache.get(key);
@@ -127,6 +130,7 @@ const processNestedOverrideEntry = (
     existingLedger,
     nestedReason,
     nestedSecurityLedger,
+    addedDate,
   );
 
   cache.set(key, newAppendixItem);
@@ -146,6 +150,7 @@ const processNestedOverride = (
   securityProvider: "osv" | "github" | "snyk" | "npm" | "socket" | undefined,
   manualOverrideReasons: Record<string, string> | undefined,
   cache: Map<string, AppendixItem>,
+  addedDate?: string,
 ): Appendix => {
   const hasOverride = depList.includes(override);
   if (!hasOverride) return appendix;
@@ -164,6 +169,7 @@ const processNestedOverride = (
         securityProvider,
         manualOverrideReasons,
         cache,
+        addedDate,
       ),
     appendix,
   );
@@ -183,6 +189,7 @@ const processOverrideEntry = (
   cache: Map<string, AppendixItem>,
   onlyUsedOverrides: boolean = false,
   dependencyTree?: Record<string, boolean>,
+  addedDate?: string,
 ): Appendix => {
   const overrideValue = overrides[override];
   const packageReason = mergeOverrideReasons(
@@ -212,6 +219,7 @@ const processOverrideEntry = (
       securityProvider,
       manualOverrideReasons,
       cache,
+      addedDate,
     );
   }
 
@@ -227,6 +235,7 @@ const processOverrideEntry = (
     cache,
     onlyUsedOverrides,
     dependencyTree,
+    addedDate,
   );
 };
 
@@ -244,10 +253,12 @@ export const updateAppendix = ({
   cache = new Map<string, AppendixItem>(),
   onlyUsedOverrides = false,
   dependencyTree,
+  addedDate,
 }: UpdateAppendixOptions & {
   cache?: Map<string, AppendixItem>;
   manualOverrideReasons?: Record<string, string>;
   dependencyTree?: Record<string, boolean>;
+  addedDate?: string;
 }): Appendix => {
   const overridesList = Object.keys(overrides);
   const deps = { ...dependencies, ...devDependencies, ...peerDependencies };
@@ -269,6 +280,7 @@ export const updateAppendix = ({
         cache,
         onlyUsedOverrides,
         dependencyTree,
+        addedDate,
       ),
     appendix,
   );

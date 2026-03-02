@@ -18,6 +18,8 @@ import { IS_DEBUGGING, FARMER, MSG_SCANNING, SHEEP } from "../constants";
 import { SecurityChecker } from "../core/security";
 import { initCommand } from "./cmds/init/index";
 import { renderTable, createTerminalGraph } from "../dx";
+import { getOverrideGitDate } from "../utils/git";
+import { findUnusedAppendixEntries } from "../core/appendix/utils";
 import * as fs from "fs";
 import { resolve } from "path";
 
@@ -568,6 +570,7 @@ export async function action(
     green,
     update,
     createTerminalGraph,
+    getOverrideGitDate,
     processExit: (code: number) => process.exit(code),
   },
 ): Promise<PastoralistResult> {
@@ -726,6 +729,9 @@ export async function action(
       }
     }
 
+    const addedDate = await deps.getOverrideGitDate(path);
+    mergedOptions.addedDate = addedDate;
+
     const updateContext = await deps.update(mergedOptions);
     const updateResultData = buildUpdateResult(
       updateContext,
@@ -790,6 +796,19 @@ export async function action(
       const shouldShowInstallNotice = updateResultData.updated;
       if (shouldShowInstallNotice) {
         graph.notice("Run an install to capture the updates!");
+      }
+
+      const finalAppendix = updateContext.finalAppendix ?? {};
+      const unusedEntries = findUnusedAppendixEntries(finalAppendix);
+      const hasUnusedOverrides = unusedEntries.length > 0;
+      const didNotRemoveUnused = !options.removeUnused;
+      const shouldSuggestRemoval = hasUnusedOverrides && didNotRemoveUnused;
+      if (shouldSuggestRemoval) {
+        const count = unusedEntries.length;
+        const plural = count === 1 ? "" : "s";
+        graph.notice(
+          `${count} unused override${plural} detected. Run with --remove-unused to clean up.`,
+        );
       }
     }
 

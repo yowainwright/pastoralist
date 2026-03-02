@@ -442,6 +442,25 @@ test("extractPackageNames - should extract names from appendix keys", () => {
   expect(result).toEqual(["lodash", "axios"]);
 });
 
+test("extractPackageNames - should handle scoped packages", () => {
+  const result = extractPackageNames([
+    "@babel/core@7.20.0",
+    "@scope/pkg@1.0.0",
+  ]);
+
+  expect(result).toEqual(["@babel/core", "@scope/pkg"]);
+});
+
+test("extractPackageNames - should handle mixed scoped and unscoped", () => {
+  const result = extractPackageNames([
+    "lodash@4.17.21",
+    "@babel/core@7.20.0",
+    "axios@1.0.0",
+  ]);
+
+  expect(result).toEqual(["lodash", "@babel/core", "axios"]);
+});
+
 test("removeOverrideKeys - should remove specified package names", () => {
   const overrides = { lodash: "4.17.21", axios: "1.0.0", react: "18.2.0" };
 

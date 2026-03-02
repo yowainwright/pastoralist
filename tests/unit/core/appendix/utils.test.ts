@@ -3,7 +3,12 @@ import type { SecurityOverrideDetail, Appendix } from "../../../../src/types";
 import {
   mergeOverrideReasons,
   createSecurityLedger,
+  buildAppendixItem,
   toCompactAppendix,
+  findUnusedAppendixEntries,
+  removeAppendixKeys,
+  extractPackageNames,
+  removeOverrideKeys,
 } from "../../../../src/core/appendix/utils";
 
 test("mergeOverrideReasons - should return reason when provided", () => {
@@ -283,4 +288,164 @@ test("toCompactAppendix - should generate date if missing", () => {
 
   expect(result["lodash@4.17.21"]).toHaveProperty("addedDate");
   expect(typeof result["lodash@4.17.21"].addedDate).toBe("string");
+});
+
+test("toCompactAppendix - should use provided addedDate when ledger is missing", () => {
+  const appendix: Appendix = {
+    "lodash@4.17.21": {
+      dependents: { "my-app": "^4.17.0" },
+    },
+  };
+  const gitDate = "2023-03-15T12:00:00+00:00";
+
+  const result = toCompactAppendix(appendix, gitDate);
+
+  expect(result["lodash@4.17.21"].addedDate).toBe(gitDate);
+});
+
+test("toCompactAppendix - should prefer existing ledger addedDate over provided date", () => {
+  const appendix: Appendix = {
+    "lodash@4.17.21": {
+      dependents: { "my-app": "^4.17.0" },
+      ledger: { addedDate: "2024-01-15" },
+    },
+  };
+  const gitDate = "2023-03-15T12:00:00+00:00";
+
+  const result = toCompactAppendix(appendix, gitDate);
+
+  expect(result["lodash@4.17.21"].addedDate).toBe("2024-01-15");
+});
+
+test("buildAppendixItem - should use provided addedDate for new ledger", () => {
+  const gitDate = "2023-06-01T10:00:00+00:00";
+
+  const result = buildAppendixItem(
+    { "my-app": "lodash@^4.17.0" },
+    undefined,
+    "security fix",
+    {},
+    gitDate,
+  );
+
+  expect(result.ledger?.addedDate).toBe(gitDate);
+  expect(result.ledger?.reason).toBe("security fix");
+});
+
+test("buildAppendixItem - should fallback to current date when no addedDate provided", () => {
+  const before = new Date().toISOString();
+
+  const result = buildAppendixItem(
+    { "my-app": "lodash@^4.17.0" },
+    undefined,
+    undefined,
+    {},
+  );
+
+  const after = new Date().toISOString();
+  const addedDate = result.ledger?.addedDate || "";
+  const isInRange = addedDate >= before && addedDate <= after;
+  expect(isInRange).toBe(true);
+});
+
+test("buildAppendixItem - should preserve existing ledger over provided addedDate", () => {
+  const existingLedger = {
+    addedDate: "2022-01-01T00:00:00.000Z",
+    reason: "old reason",
+  };
+  const gitDate = "2023-06-01T10:00:00+00:00";
+
+  const result = buildAppendixItem(
+    { "my-app": "lodash@^4.17.0" },
+    existingLedger,
+    "new reason",
+    {},
+    gitDate,
+  );
+
+  expect(result.ledger?.addedDate).toBe("2022-01-01T00:00:00.000Z");
+  expect(result.ledger?.reason).toBe("old reason");
+});
+
+test("findUnusedAppendixEntries - should find entries where all dependents are unused", () => {
+  const appendix: Appendix = {
+    "lodash@4.17.21": {
+      dependents: { root: "lodash (unused override)" },
+    },
+    "axios@1.0.0": {
+      dependents: { root: "axios@^1.0.0" },
+    },
+  };
+
+  const result = findUnusedAppendixEntries(appendix);
+
+  expect(result).toEqual(["lodash@4.17.21"]);
+});
+
+test("findUnusedAppendixEntries - should return empty when no unused entries", () => {
+  const appendix: Appendix = {
+    "lodash@4.17.21": {
+      dependents: { root: "lodash@^4.17.0" },
+    },
+  };
+
+  const result = findUnusedAppendixEntries(appendix);
+
+  expect(result).toEqual([]);
+});
+
+test("findUnusedAppendixEntries - should handle multiple dependents all unused", () => {
+  const appendix: Appendix = {
+    "lodash@4.17.21": {
+      dependents: {
+        "pkg-a": "lodash (unused override)",
+        "pkg-b": "lodash (unused override)",
+      },
+    },
+  };
+
+  const result = findUnusedAppendixEntries(appendix);
+
+  expect(result).toEqual(["lodash@4.17.21"]);
+});
+
+test("findUnusedAppendixEntries - should not flag mixed dependents", () => {
+  const appendix: Appendix = {
+    "lodash@4.17.21": {
+      dependents: {
+        "pkg-a": "lodash (unused override)",
+        "pkg-b": "lodash@^4.17.0",
+      },
+    },
+  };
+
+  const result = findUnusedAppendixEntries(appendix);
+
+  expect(result).toEqual([]);
+});
+
+test("removeAppendixKeys - should remove specified keys", () => {
+  const appendix: Appendix = {
+    "lodash@4.17.21": { dependents: { root: "lodash (unused override)" } },
+    "axios@1.0.0": { dependents: { root: "axios@^1.0.0" } },
+  };
+
+  const result = removeAppendixKeys(appendix, ["lodash@4.17.21"]);
+
+  expect(result["lodash@4.17.21"]).toBeUndefined();
+  expect(result["axios@1.0.0"]).toBeDefined();
+});
+
+test("extractPackageNames - should extract names from appendix keys", () => {
+  const result = extractPackageNames(["lodash@4.17.21", "axios@1.0.0"]);
+
+  expect(result).toEqual(["lodash", "axios"]);
+});
+
+test("removeOverrideKeys - should remove specified package names", () => {
+  const overrides = { lodash: "4.17.21", axios: "1.0.0", react: "18.2.0" };
+
+  const result = removeOverrideKeys(overrides, ["lodash"]);
+
+  expect(result).toEqual({ axios: "1.0.0", react: "18.2.0" });
 });

@@ -1468,6 +1468,7 @@ test("action - handles test mode early return", async () => {
     green: mock((text: string) => text),
     update: mock(() => Promise.resolve()),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(() => {}),
   };
 
@@ -1499,6 +1500,7 @@ test("action - handles init mode early return", async () => {
     green: mock((text: string) => text),
     update: mock(() => Promise.resolve()),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(() => {}),
   };
 
@@ -1537,6 +1539,7 @@ test("action - resolves package.json and runs update", async () => {
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => mockGraph),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(() => {}),
   };
 
@@ -1589,6 +1592,7 @@ test("action - runs security check when enabled", async () => {
     green: mock((text: string) => text),
     update: mock(() => Promise.resolve()),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(() => {}),
   };
 
@@ -1635,6 +1639,7 @@ test("action - handles path with root option", async () => {
     green: mock((text: string) => text),
     update: mock(() => Promise.resolve()),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(() => {}),
   };
 
@@ -1672,6 +1677,7 @@ test("action - handles absolute path without root", async () => {
     green: mock((text: string) => text),
     update: mock(() => Promise.resolve()),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(() => {}),
   };
 
@@ -1702,6 +1708,7 @@ test("action - calls processExit on error", async () => {
     green: mock((text: string) => text),
     update: mock(() => Promise.resolve()),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mockProcessExit,
   };
 
@@ -1749,6 +1756,7 @@ test("action - handles array security provider", async () => {
     green: mock((text: string) => text),
     update: mock(() => Promise.resolve()),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(() => {}),
   };
 
@@ -2399,6 +2407,7 @@ test("action - continues successfully when security check hits permission error"
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(() => {}),
   };
 
@@ -2452,6 +2461,7 @@ test("action - does not call handleSecurityResults when security check is skippe
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(() => {}),
   };
 
@@ -2647,6 +2657,7 @@ test("action - displays security fixes when forceSecurityRefactor is true", asyn
       metrics: {},
     })),
     createTerminalGraph: mock(() => mockGraph),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(),
   };
 
@@ -2708,6 +2719,7 @@ test("action - displays removed overrides when present", async () => {
       },
     })),
     createTerminalGraph: mock(() => mockGraph),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(),
   };
 
@@ -2766,6 +2778,7 @@ test("action - displays summary table when summary option is true", async () => 
       metrics: { packagesScanned: 5 },
     })),
     createTerminalGraph: mock(() => mockGraph),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(),
   };
 
@@ -2802,6 +2815,7 @@ test("action - outputs JSON on error when outputFormat is json", async () => {
     green: mock((t: string) => t),
     update: mock(() => ({})),
     createTerminalGraph: mock(() => mockGraph),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(),
   };
 

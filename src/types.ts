@@ -94,6 +94,7 @@ export interface UpdateAppendixOptions {
   securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket";
   onlyUsedOverrides?: boolean;
   dependencyTree?: Record<string, boolean>;
+  addedDate?: string;
 }
 
 /** Security-related options */
@@ -146,6 +147,8 @@ export interface Options
   manualOverrideReasons?: Record<string, string>;
   config?: PastoralistJSON;
   setupHook?: boolean;
+  addedDate?: string;
+  removeUnused?: boolean;
 }
 
 export interface OverridesType {

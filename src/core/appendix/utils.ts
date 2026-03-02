@@ -327,7 +327,11 @@ export const removeAppendixKeys = (
 };
 
 export const extractPackageNames = (appendixKeys: string[]): string[] => {
-  return appendixKeys.map((key) => key.split("@")[0]);
+  return appendixKeys.map((key) => {
+    const lastAtIndex = key.lastIndexOf("@");
+    const isScoped = lastAtIndex > 0;
+    return isScoped ? key.slice(0, lastAtIndex) : key;
+  });
 };
 
 export const removeOverrideKeys = (

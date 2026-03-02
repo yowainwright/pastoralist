@@ -1498,3 +1498,65 @@ test("update - counts removed overrides when config overrides differ from final"
   expect(result.metrics?.overridesAdded).toBeDefined();
   expect(result.metrics?.removedOverridePackages).toBeDefined();
 });
+
+test("update - stepRemoveUnused removes unused overrides when removeUnused is true", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    overrides: { lodash: "4.17.21", "unused-pkg": "1.0.0" },
+  };
+
+  const options: Options = {
+    config,
+    isTesting: true,
+    removeUnused: true,
+  };
+
+  const result = update(options);
+
+  expect(result.finalOverrides?.lodash).toBe("4.17.21");
+  expect(result.finalOverrides?.["unused-pkg"]).toBeUndefined();
+  expect(result.finalAppendix?.["unused-pkg@1.0.0"]).toBeUndefined();
+  expect(result.finalAppendix?.["lodash@4.17.21"]).toBeDefined();
+});
+
+test("update - stepRemoveUnused skips when removeUnused is false", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    overrides: { lodash: "4.17.21", "unused-pkg": "1.0.0" },
+  };
+
+  const options: Options = {
+    config,
+    isTesting: true,
+    removeUnused: false,
+  };
+
+  const result = update(options);
+
+  expect(result.finalOverrides?.["unused-pkg"]).toBe("1.0.0");
+  expect(result.finalAppendix?.["unused-pkg@1.0.0"]).toBeDefined();
+});
+
+test("update - stepRemoveUnused handles scoped packages", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    overrides: { lodash: "4.17.21", "@babel/core": "7.20.0" },
+  };
+
+  const options: Options = {
+    config,
+    isTesting: true,
+    removeUnused: true,
+  };
+
+  const result = update(options);
+
+  expect(result.finalOverrides?.["@babel/core"]).toBeUndefined();
+  expect(result.finalOverrides?.lodash).toBe("4.17.21");
+});

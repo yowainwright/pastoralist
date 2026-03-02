@@ -564,10 +564,6 @@ test("updateAppendix - should hit cache for nested override key", () => {
   expect(result["nested@2.0.0"]).toBe(cachedItem);
 });
 
-// =============================================================================
-// constructAppendix tests with workspace fixtures
-// =============================================================================
-
 test("constructAppendix - handles workspace packages with overrides", () => {
   const workspaceDir = resolve(TEST_DIR, "workspace-test");
   const pkgADir = resolve(workspaceDir, "packages", "pkg-a");

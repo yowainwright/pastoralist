@@ -2829,6 +2829,111 @@ test("action - outputs JSON on error when outputFormat is json", async () => {
   expect(deps.processExit).toHaveBeenCalledWith(1);
 });
 
+test("action - displays unused override notice when unused overrides exist", async () => {
+  const { action } = require("../../../src/cli/index");
+
+  const mockConfig: PastoralistJSON = {
+    name: "test-package",
+    version: "1.0.0",
+    pastoralist: {},
+  };
+
+  const mockGraph = createMockTerminalGraph();
+
+  const unusedAppendix = {
+    "lodash@4.17.21": {
+      dependents: { "test-package": "lodash@^4.17.0" },
+    },
+    "unused-pkg@1.0.0": {
+      dependents: { root: "unused-pkg (unused override)" },
+    },
+  };
+
+  const deps = {
+    createLogger: mock(() => log),
+    handleTestMode: mock(() => false),
+    handleInitMode: mock(() => Promise.resolve(false)),
+    resolveJSON: mock(() => Promise.resolve(mockConfig)),
+    buildMergedOptions: mock((options: any, rest: any) =>
+      Object.assign({}, options, rest, { checkSecurity: false }),
+    ),
+    runSecurityCheck: mock(() => Promise.resolve({})),
+    handleSecurityResults: mock(() => {}),
+    createSpinner: mock(() => ({
+      start: mock(),
+      succeed: mock(),
+      stop: mock(),
+    })),
+    green: mock((text: string) => text),
+    update: mock(() => ({
+      finalOverrides: { lodash: "4.17.21", "unused-pkg": "1.0.0" },
+      finalAppendix: unusedAppendix,
+    })),
+    createTerminalGraph: mock(() => mockGraph),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
+    processExit: mock(() => {}),
+  };
+
+  await action({ path: "package.json" }, deps);
+
+  const noticeCalls = mockGraph.notice.mock.calls;
+  const hasRemoveUnusedNotice = noticeCalls.some(
+    (call: unknown[]) =>
+      typeof call[0] === "string" && call[0].includes("--remove-unused"),
+  );
+  expect(hasRemoveUnusedNotice).toBe(true);
+});
+
+test("action - does not display unused override notice when removeUnused is true", async () => {
+  const { action } = require("../../../src/cli/index");
+
+  const mockConfig: PastoralistJSON = {
+    name: "test-package",
+    version: "1.0.0",
+    pastoralist: {},
+  };
+
+  const mockGraph = createMockTerminalGraph();
+
+  const deps = {
+    createLogger: mock(() => log),
+    handleTestMode: mock(() => false),
+    handleInitMode: mock(() => Promise.resolve(false)),
+    resolveJSON: mock(() => Promise.resolve(mockConfig)),
+    buildMergedOptions: mock((options: any, rest: any) =>
+      Object.assign({}, options, rest, { checkSecurity: false }),
+    ),
+    runSecurityCheck: mock(() => Promise.resolve({})),
+    handleSecurityResults: mock(() => {}),
+    createSpinner: mock(() => ({
+      start: mock(),
+      succeed: mock(),
+      stop: mock(),
+    })),
+    green: mock((text: string) => text),
+    update: mock(() => ({
+      finalOverrides: { lodash: "4.17.21" },
+      finalAppendix: {
+        "lodash@4.17.21": {
+          dependents: { "test-package": "lodash@^4.17.0" },
+        },
+      },
+    })),
+    createTerminalGraph: mock(() => mockGraph),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
+    processExit: mock(() => {}),
+  };
+
+  await action({ path: "package.json", removeUnused: true }, deps);
+
+  const noticeCalls = mockGraph.notice.mock.calls;
+  const hasRemoveUnusedNotice = noticeCalls.some(
+    (call: unknown[]) =>
+      typeof call[0] === "string" && call[0].includes("--remove-unused"),
+  );
+  expect(hasRemoveUnusedNotice).toBe(false);
+});
+
 test("run - shows help and returns early when help flag is passed", async () => {
   const { run } = require("../../../src/cli/index");
 

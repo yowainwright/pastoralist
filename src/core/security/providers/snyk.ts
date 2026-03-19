@@ -89,7 +89,7 @@ export class SnykCLIProvider {
     return true;
   }
 
-  private async runSnykScan(): Promise<any> {
+  private async runSnykScan(): Promise<SnykResult> {
     const execOptions = { timeout: DEFAULT_SNYK_SCAN_TIMEOUT };
     const { stdout } = await execFileAsync(
       "snyk",

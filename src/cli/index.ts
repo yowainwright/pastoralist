@@ -73,7 +73,7 @@ export const handleSetupHook = (
     return true;
   } catch (err) {
     log.error("Failed to setup hook", "handleSetupHook", err);
-    return true;
+    return false;
   }
 };
 
@@ -250,7 +250,7 @@ export const handleSecurityResults = (
   mergedOptions: Options,
   updates: import("../types").OverrideUpdate[] = [],
   _packagesScanned: number = 0,
-): void => {
+): Pick<Options, "securityOverrides" | "securityOverrideDetails"> => {
   const hasAlerts = alerts.length > 0;
   const hasUpdates = updates.length > 0;
   const shouldApplySecurityFixes =
@@ -258,23 +258,20 @@ export const handleSecurityResults = (
   const shouldGenerateOverrides = hasAlerts && shouldApplySecurityFixes;
   const shouldApplyUpdates = hasUpdates && shouldApplySecurityFixes;
 
-  const allOverrides = [...securityOverrides];
-
-  if (shouldApplyUpdates) {
-    const updateOverrides = updates.map((update) => ({
-      packageName: update.packageName,
-      fromVersion: update.currentOverride,
-      toVersion: update.newerVersion,
-      reason: update.reason,
-      severity: "medium" as const,
-    }));
-    allOverrides.push(...updateOverrides);
-  }
+  const updateOverrides = shouldApplyUpdates
+    ? updates.map((update) => ({
+        packageName: update.packageName,
+        fromVersion: update.currentOverride,
+        toVersion: update.newerVersion,
+        reason: update.reason,
+        severity: "medium" as const,
+      }))
+    : [];
+  const allOverrides = [...securityOverrides, ...updateOverrides];
 
   if (shouldGenerateOverrides || shouldApplyUpdates) {
     const finalOverrides =
       securityChecker.generatePackageOverrides(allOverrides);
-    mergedOptions.securityOverrides = finalOverrides;
 
     const overridesToApply = allOverrides.filter((override) => {
       const finalVersion = finalOverrides[override.packageName];
@@ -283,7 +280,7 @@ export const handleSecurityResults = (
       return isStringMatch;
     });
 
-    mergedOptions.securityOverrideDetails = overridesToApply.map(
+    const securityOverrideDetails = overridesToApply.map(
       buildSecurityOverrideDetail,
     );
 
@@ -293,9 +290,13 @@ export const handleSecurityResults = (
     if (shouldAutoFix) {
       securityChecker.applyAutoFix(overridesToApply, mergedOptions.path);
     }
+
+    spinner.stop();
+    return { securityOverrides: finalOverrides, securityOverrideDetails };
   }
 
   spinner.stop();
+  return {};
 };
 
 export const formatUpdateReport = (
@@ -604,23 +605,24 @@ export async function action(
       options.root && !relativePath.startsWith("/")
         ? `${options.root}/${relativePath}`
         : relativePath;
-    const config = await deps.resolveJSON(path);
+    const config = deps.resolveJSON(path);
     const securityConfig = config?.pastoralist?.security || {};
     const configProvider = Array.isArray(securityConfig.provider)
       ? securityConfig.provider[0]
       : securityConfig.provider;
 
-    const mergedOptions = deps.buildMergedOptions(
+    const baseOptions = deps.buildMergedOptions(
       options,
       rest,
       securityConfig,
       configProvider,
     );
-    mergedOptions.config = config;
-    mergedOptions.path = path;
-    if (options.root) {
-      mergedOptions.root = options.root;
-    }
+    let mergedOptions: Options = {
+      ...baseOptions,
+      config,
+      path,
+      ...(options.root && { root: options.root }),
+    };
 
     let securityResult: Pick<
       PastoralistResult,
@@ -661,7 +663,7 @@ export async function action(
 
       const shouldHandleResults = !skipped && !isJsonOutput;
       if (shouldHandleResults) {
-        deps.handleSecurityResults(
+        const securityUpdates = deps.handleSecurityResults(
           alerts,
           securityOverrides,
           securityChecker,
@@ -670,6 +672,7 @@ export async function action(
           updates,
           packagesScanned,
         );
+        mergedOptions = { ...mergedOptions, ...securityUpdates };
 
         const toVulnerabilityInfo = (
           alert: SecurityAlert,
@@ -730,7 +733,7 @@ export async function action(
     }
 
     const addedDate = await deps.getOverrideGitDate(path);
-    mergedOptions.addedDate = addedDate;
+    mergedOptions = { ...mergedOptions, addedDate };
 
     const updateContext = await deps.update(mergedOptions);
     const updateResultData = buildUpdateResult(

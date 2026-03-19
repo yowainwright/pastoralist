@@ -1,4 +1,4 @@
-export type Exec = (runner: string, cmds: Array<string>) => Promise<any>;
+export type Exec = (runner: string, cmds: Array<string>) => Promise<unknown>;
 export type OverrideValue = string | Record<string, string>;
 
 export interface PastoralistJSON {

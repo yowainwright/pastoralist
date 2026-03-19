@@ -24,8 +24,8 @@ import {
 } from "./utils";
 import { SecuritySetupWizard, promptForSetup } from "./setup";
 import type { SecurityProvider as SecurityProviderType } from "./constants";
-import { readFileSync, copyFileSync, writeFileSync, existsSync } from "fs";
-import { resolve } from "path";
+import { readFileSync, copyFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import { resolve, dirname, basename } from "path";
 import { updateAppendix } from "../appendix";
 import { glob } from "../../utils/glob";
 
@@ -562,7 +562,9 @@ export class SecurityChecker {
   }
 
   private createBackup(pkgPath: string): string {
-    const backupPath = `${pkgPath}.backup-${Date.now()}`;
+    const cacheDir = resolve(dirname(pkgPath), "node_modules", ".cache", "pastoralist");
+    mkdirSync(cacheDir, { recursive: true });
+    const backupPath = resolve(cacheDir, `${basename(pkgPath)}.backup-${Date.now()}`);
     copyFileSync(pkgPath, backupPath);
     this.log.debug(`Created backup at ${backupPath}`, "createBackup");
     return backupPath;
@@ -596,7 +598,7 @@ export class SecurityChecker {
     };
   }
 
-  applyAutoFix(overrides: SecurityOverride[], packageJsonPath?: string): void {
+  applyAutoFix(overrides: SecurityOverride[], packageJsonPath?: string): string | void {
     try {
       const pkgPath = packageJsonPath || resolve(process.cwd(), "package.json");
 
@@ -604,7 +606,7 @@ export class SecurityChecker {
         throw new Error(`package.json not found at ${pkgPath}`);
       }
 
-      this.createBackup(pkgPath);
+      const backupPath = this.createBackup(pkgPath);
       const packageJson = JSON.parse(readFileSync(pkgPath, "utf-8"));
       const packageManager = detectPackageManager();
       const newOverrides = this.generatePackageOverrides(overrides);
@@ -668,6 +670,8 @@ export class SecurityChecker {
         pkgPath,
         JSON.stringify(updatedPackageJson, null, 2) + "\n",
       );
+
+      return backupPath;
     } catch (error) {
       this.log.error("Failed to apply auto-fix", "applyAutoFix", { error });
       throw new Error(`Auto-fix failed: ${error}`);
@@ -688,13 +692,13 @@ export class SecurityChecker {
     }
   }
 
-  rollbackAutoFix(backupPath: string): void {
+  rollbackAutoFix(backupPath: string, originalPath?: string): void {
     try {
       if (!existsSync(backupPath)) {
         throw new Error(`Backup file not found at ${backupPath}`);
       }
 
-      const packageJsonPath = backupPath.replace(/\.backup-\d+$/, "");
+      const packageJsonPath = originalPath || backupPath.replace(/\.backup-\d+$/, "");
       copyFileSync(backupPath, packageJsonPath);
 
       this.log.print(`Rolled back to ${backupPath}`);

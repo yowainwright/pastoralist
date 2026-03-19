@@ -419,7 +419,6 @@ test("updatePackageJSON - skips write when content is unchanged", () => {
     overrides: { lodash: "4.17.21" },
   };
 
-  writeFileSync(testPkgPath, JSON.stringify(config, null, 2) + "\n");
   writeFileSync(testPkgPath, "SENTINEL");
 
   updatePackageJSON({
@@ -897,6 +896,33 @@ test("updatePackageJSON - dry-run without silent shows output", () => {
     msg.includes("[DRY RUN]"),
   );
   expect(hasDryRunMessage).toBe(true);
+});
+
+test("updatePackageJSON - dry-run with unchanged content logs no-op message", () => {
+  const config: PastoralistJSON = {
+    name: "test-dryrun-unchanged",
+    version: "1.0.0",
+    overrides: { lodash: "4.17.21" },
+  };
+
+  const consoleOutput: string[] = [];
+  const originalLog = console.log;
+  console.log = (msg: string) => consoleOutput.push(msg);
+
+  updatePackageJSON({
+    path: testPkgPath,
+    config,
+    overrides: { lodash: "4.17.21" },
+    dryRun: true,
+    silent: false,
+  });
+
+  console.log = originalLog;
+
+  const hasNoChangesMessage = consoleOutput.some((msg) =>
+    msg.includes("No changes detected"),
+  );
+  expect(hasNoChangesMessage).toBe(true);
 });
 
 test("updatePackageJSON - silent has no effect when not in dry-run mode", () => {

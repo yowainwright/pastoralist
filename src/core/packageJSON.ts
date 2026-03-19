@@ -340,12 +340,20 @@ export const updatePackageJSON = ({
   if (isTesting) return updatedConfig;
 
   const jsonString = formatJson(updatedConfig);
+  const currentJson = formatJson(config);
+  const isUnchanged = jsonString === currentJson;
 
   const shouldLogDryRun = dryRun && !silent;
   if (shouldLogDryRun) {
-    log.print("\n[DRY RUN] Would write to package.json:");
-    log.print(jsonString);
+    if (isUnchanged) {
+      log.print("\n[DRY RUN] No changes detected, skipping write.");
+    } else {
+      log.print("\n[DRY RUN] Would write to package.json:");
+      log.print(jsonString);
+    }
   }
+
+  if (isUnchanged) return;
 
   if (dryRun) {
     return updatedConfig;

@@ -128,7 +128,7 @@ test("handleSetupHook - appends pastoralist to existing postinstall", () => {
   expect(parsed.scripts.postinstall).toBe("echo done && pastoralist");
 });
 
-test("handleSetupHook - returns true on read error", () => {
+test("handleSetupHook - returns false on read error", () => {
   const { handleSetupHook } = require("../../../src/cli/index");
 
   const mockReadFileSync = mock(() => {
@@ -144,7 +144,7 @@ test("handleSetupHook - returns true on read error", () => {
     resolve: mockResolve,
   });
 
-  expect(result).toBe(true);
+  expect(result).toBe(false);
   expect(mockWriteFileSync).not.toHaveBeenCalled();
 });
 
@@ -334,7 +334,7 @@ test("handleSecurityResults - generates overrides when alerts found", () => {
 
   const updates: any[] = [];
 
-  handleSecurityResults(
+  const result = handleSecurityResults(
     alerts,
     securityOverrides,
     mockSecurityChecker as any,
@@ -345,7 +345,7 @@ test("handleSecurityResults - generates overrides when alerts found", () => {
 
   expect(mockSecurityChecker.generatePackageOverrides).toHaveBeenCalled();
   expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
-  expect(mergedOptions.securityOverrides).toEqual({ lodash: "4.17.21" });
+  expect(result.securityOverrides).toEqual({ lodash: "4.17.21" });
 });
 
 test("handleSecurityResults - generates overrides in interactive mode", () => {
@@ -388,7 +388,7 @@ test("handleSecurityResults - generates overrides in interactive mode", () => {
 
   const updates: any[] = [];
 
-  handleSecurityResults(
+  const result = handleSecurityResults(
     alerts,
     securityOverrides,
     mockSecurityChecker as any,
@@ -397,13 +397,11 @@ test("handleSecurityResults - generates overrides in interactive mode", () => {
     updates,
   );
 
-  expect(mergedOptions.securityOverrides).toEqual({ express: "4.18.2" });
-  expect(mergedOptions.securityOverrideDetails).toBeDefined();
-  expect(mergedOptions.securityOverrideDetails?.length).toBe(1);
-  expect(mergedOptions.securityOverrideDetails?.[0].packageName).toBe(
-    "express",
-  );
-  expect(mergedOptions.securityOverrideDetails?.[0].cve).toBe("CVE-2024-1234");
+  expect(result.securityOverrides).toEqual({ express: "4.18.2" });
+  expect(result.securityOverrideDetails).toBeDefined();
+  expect(result.securityOverrideDetails?.length).toBe(1);
+  expect(result.securityOverrideDetails?.[0].packageName).toBe("express");
+  expect(result.securityOverrideDetails?.[0].cve).toBe("CVE-2024-1234");
   expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
 });
 
@@ -464,7 +462,7 @@ test("handleSecurityResults - does not generate overrides without autofix or int
 
   const updates: any[] = [];
 
-  handleSecurityResults(
+  const result = handleSecurityResults(
     alerts,
     securityOverrides,
     mockSecurityChecker as any,
@@ -476,7 +474,7 @@ test("handleSecurityResults - does not generate overrides without autofix or int
   expect(mockSpinner.stop).toHaveBeenCalled();
   expect(mockSecurityChecker.generatePackageOverrides).not.toHaveBeenCalled();
   expect(mockSecurityChecker.applyAutoFix).not.toHaveBeenCalled();
-  expect(mergedOptions.securityOverrides).toBeUndefined();
+  expect(result.securityOverrides).toBeUndefined();
 });
 
 test("formatUpdateReport - formats single update", () => {
@@ -560,7 +558,7 @@ test("handleSecurityResults - applies updates when autoFix enabled", () => {
     path: "package.json",
   };
 
-  handleSecurityResults(
+  const result = handleSecurityResults(
     alerts,
     securityOverrides,
     mockSecurityChecker as any,
@@ -572,7 +570,7 @@ test("handleSecurityResults - applies updates when autoFix enabled", () => {
   expect(mockSpinner.stop).toHaveBeenCalled();
   expect(mockSecurityChecker.generatePackageOverrides).toHaveBeenCalled();
   expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
-  expect(mergedOptions.securityOverrides).toEqual({ vite: "6.4.1" });
+  expect(result.securityOverrides).toEqual({ vite: "6.4.1" });
 });
 
 test("handleSecurityResults - merges updates with new overrides", () => {
@@ -624,7 +622,7 @@ test("handleSecurityResults - merges updates with new overrides", () => {
     path: "package.json",
   };
 
-  handleSecurityResults(
+  const result = handleSecurityResults(
     alerts,
     securityOverrides,
     mockSecurityChecker as any,
@@ -635,7 +633,7 @@ test("handleSecurityResults - merges updates with new overrides", () => {
 
   expect(mockSecurityChecker.generatePackageOverrides).toHaveBeenCalled();
   expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
-  expect(mergedOptions.securityOverrides).toEqual({
+  expect(result.securityOverrides).toEqual({
     express: "4.18.2",
     vite: "6.4.1",
   });
@@ -1046,7 +1044,7 @@ test("handleSecurityResults - generates overrides when updates exist and autofix
     path: "package.json",
   };
 
-  handleSecurityResults(
+  const result = handleSecurityResults(
     alerts,
     securityOverrides,
     mockSecurityChecker as any,
@@ -1057,7 +1055,7 @@ test("handleSecurityResults - generates overrides when updates exist and autofix
 
   expect(mockSecurityChecker.generatePackageOverrides).toHaveBeenCalled();
   expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
-  expect(mergedOptions.securityOverrides).toEqual({ lodash: "4.17.21" });
+  expect(result.securityOverrides).toEqual({ lodash: "4.17.21" });
   expect(mockSpinner.stop).toHaveBeenCalled();
 });
 
@@ -1137,7 +1135,7 @@ test("handleSecurityResults - both alerts and updates with interactive mode", ()
     path: "package.json",
   };
 
-  handleSecurityResults(
+  const result = handleSecurityResults(
     alerts,
     securityOverrides,
     mockSecurityChecker as any,
@@ -1148,11 +1146,11 @@ test("handleSecurityResults - both alerts and updates with interactive mode", ()
 
   expect(mockSecurityChecker.generatePackageOverrides).toHaveBeenCalled();
   expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
-  expect(mergedOptions.securityOverrides).toEqual({
+  expect(result.securityOverrides).toEqual({
     lodash: "4.17.21",
     vite: "6.4.1",
   });
-  expect(mergedOptions.securityOverrideDetails).toBeDefined();
+  expect(result.securityOverrideDetails).toBeDefined();
   expect(mockSpinner.stop).toHaveBeenCalled();
 });
 
@@ -1202,7 +1200,7 @@ test("handleSecurityResults - filters overrides to match final versions", () => 
     path: "package.json",
   };
 
-  handleSecurityResults(
+  const result = handleSecurityResults(
     alerts,
     securityOverrides,
     mockSecurityChecker as any,
@@ -1211,9 +1209,9 @@ test("handleSecurityResults - filters overrides to match final versions", () => 
     [],
   );
 
-  expect(mergedOptions.securityOverrideDetails).toBeDefined();
-  expect(mergedOptions.securityOverrideDetails?.length).toBe(1);
-  expect(mergedOptions.securityOverrideDetails?.[0].reason).toBe("Fix 2");
+  expect(result.securityOverrideDetails).toBeDefined();
+  expect(result.securityOverrideDetails?.length).toBe(1);
+  expect(result.securityOverrideDetails?.[0].reason).toBe("Fix 2");
 });
 
 test("buildSecurityOverrideDetail - handles only packageName and reason", () => {
@@ -1696,7 +1694,9 @@ test("action - calls processExit on error", async () => {
     createLogger: mock(() => log),
     handleTestMode: mock(() => false),
     handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => Promise.reject(mockError)),
+    resolveJSON: mock(() => {
+      throw mockError;
+    }),
     buildMergedOptions: mock(() => ({})),
     runSecurityCheck: mock(() => Promise.resolve({})),
     handleSecurityResults: mock(() => {}),
@@ -2807,7 +2807,9 @@ test("action - outputs JSON on error when outputFormat is json", async () => {
     createLogger: mock(() => log),
     handleTestMode: mock(() => false),
     handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => Promise.reject(new Error("File not found"))),
+    resolveJSON: mock(() => {
+      throw new Error("File not found");
+    }),
     buildMergedOptions: mock(() => ({ outputFormat: "json" })),
     runSecurityCheck: mock(() => Promise.resolve({})),
     handleSecurityResults: mock(),
@@ -2962,4 +2964,110 @@ test("run - shows help with -h flag", async () => {
 
   const output = logged.join("\n");
   expect(output).toContain("pastoralist");
+});
+
+test("handleSetupHook - error does not cause early exit in run", async () => {
+  const { handleSetupHook } = require("../../../src/cli/index");
+
+  const mockReadFileSync = mock(() => {
+    throw new Error("ENOENT");
+  });
+  const mockWriteFileSync = mock(() => {});
+  const mockResolve = mock((p: string) => p);
+
+  const options: Options = { setupHook: true };
+  const result = handleSetupHook(options, log, {
+    readFileSync: mockReadFileSync,
+    writeFileSync: mockWriteFileSync,
+    resolve: mockResolve,
+  });
+
+  expect(result).toBe(false);
+});
+
+test("handleSecurityResults - returned values are used by action via spread", async () => {
+  const { action } = require("../../../src/cli/index");
+
+  const mockConfig: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    overrides: { lodash: "4.17.21" },
+  };
+
+  const mockGraph = createMockTerminalGraph();
+
+  const securityOverridesResult = { lodash: "4.17.21" };
+  const securityDetailResult = [
+    { packageName: "lodash", reason: "Security fix" },
+  ];
+
+  const capturedUpdateOptions: Options[] = [];
+
+  const deps = {
+    createLogger: mock(() => log),
+    handleTestMode: mock(() => false),
+    handleInitMode: mock(() => Promise.resolve(false)),
+    resolveJSON: mock(() => mockConfig),
+    buildMergedOptions: mock(() => ({
+      checkSecurity: true,
+      path: "package.json",
+    })),
+    runSecurityCheck: mock(() =>
+      Promise.resolve({
+        spinner: { stop: mock() },
+        securityChecker: {},
+        alerts: [{ packageName: "lodash", severity: "high", title: "Vuln" }],
+        securityOverrides: [],
+        updates: [],
+        packagesScanned: 1,
+        skipped: false,
+      }),
+    ),
+    handleSecurityResults: mock(() => ({
+      securityOverrides: securityOverridesResult,
+      securityOverrideDetails: securityDetailResult,
+    })),
+    createSpinner: mock(() => ({
+      start: mock(),
+      stop: mock(),
+    })),
+    green: mock((t: string) => t),
+    update: mock((opts: Options) => {
+      capturedUpdateOptions.push(opts);
+      return { finalOverrides: {}, finalAppendix: {} };
+    }),
+    createTerminalGraph: mock(() => mockGraph),
+    getOverrideGitDate: mock(() => Promise.resolve("2024-01-01")),
+    processExit: mock(() => {}),
+  };
+
+  await action({}, deps);
+
+  expect(capturedUpdateOptions.length).toBe(1);
+  const passedOptions = capturedUpdateOptions[0];
+  expect(passedOptions.securityOverrides).toEqual(securityOverridesResult);
+  expect(passedOptions.securityOverrideDetails).toEqual(securityDetailResult);
+});
+
+test("handleSecurityResults - returns empty object when no fixes needed", () => {
+  const { handleSecurityResults } = require("../../../src/cli/index");
+
+  const mockSpinner = { stop: mock() };
+  const mockChecker = {
+    generatePackageOverrides: mock(() => ({})),
+    applyAutoFix: mock(() => {}),
+  };
+
+  const result = handleSecurityResults(
+    [],
+    [],
+    mockChecker as any,
+    mockSpinner as any,
+    { forceSecurityRefactor: false, interactive: false },
+    [],
+  );
+
+  expect(result).toEqual({});
+  expect(mockChecker.generatePackageOverrides).not.toHaveBeenCalled();
 });

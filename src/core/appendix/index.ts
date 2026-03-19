@@ -50,8 +50,7 @@ const processSimpleOverride = (
   const key = packageAtVersion(override)(overrideVersion);
   const cached = cache.get(key);
   if (cached) {
-    appendix[key] = cached;
-    return appendix;
+    return { ...appendix, [key]: cached };
   }
 
   const currentDependents = appendix?.[key]?.dependents || {};
@@ -78,8 +77,7 @@ const processSimpleOverride = (
   );
 
   cache.set(key, newAppendixItem);
-  appendix[key] = newAppendixItem;
-  return appendix;
+  return { ...appendix, [key]: newAppendixItem };
 };
 
 const processNestedOverrideEntry = (
@@ -99,8 +97,7 @@ const processNestedOverrideEntry = (
   const key = packageAtVersion(nestedPkg)(nestedVersion);
   const cached = cache.get(key);
   if (cached) {
-    appendix[key] = cached;
-    return appendix;
+    return { ...appendix, [key]: cached };
   }
 
   const currentDependents = appendix?.[key]?.dependents || {};
@@ -134,8 +131,7 @@ const processNestedOverrideEntry = (
   );
 
   cache.set(key, newAppendixItem);
-  appendix[key] = newAppendixItem;
-  return appendix;
+  return { ...appendix, [key]: newAppendixItem };
 };
 
 const processNestedOverride = (
@@ -326,8 +322,13 @@ export const processPackageJSON = (
   const shouldWrite = shouldWriteAppendix(appendix, writeAppendixToFile);
 
   if (shouldWrite) {
-    currentPackageJSON!.pastoralist = { appendix };
-    writeFileSync(filePath, JSON.stringify(currentPackageJSON, null, 2));
+    try {
+      currentPackageJSON!.pastoralist = { appendix };
+      writeFileSync(filePath, JSON.stringify(currentPackageJSON, null, 2));
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      throw new Error(`Failed to write ${filePath}: ${reason}`);
+    }
   }
 
   return {

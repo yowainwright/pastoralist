@@ -50,11 +50,15 @@ export function getNextPipedInput(): string | null {
   return "";
 }
 
-export async function enhancedQuestion(
-  rl: any,
+export async function enhancedQuestion<T = string>(
+  rl: {
+    question: (prompt: string, callback: (answer: string) => void) => void;
+  },
   prompt: string,
-  processor: (answer: string) => any = (answer) => answer.trim(),
-): Promise<any> {
+  processor: (answer: string) => T = ((answer: string) => answer.trim()) as (
+    answer: string,
+  ) => T,
+): Promise<T> {
   await waitForPipedInputReady();
 
   return new Promise((resolve) => {

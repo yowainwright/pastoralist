@@ -343,8 +343,8 @@ export const updatePackageJSON = ({
 
   const shouldLogDryRun = dryRun && !silent;
   if (shouldLogDryRun) {
-    console.log("\n[DRY RUN] Would write to package.json:");
-    console.log(jsonString);
+    log.print("\n[DRY RUN] Would write to package.json:");
+    log.print(jsonString);
   }
 
   if (dryRun) {

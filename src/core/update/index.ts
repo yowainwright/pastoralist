@@ -126,7 +126,7 @@ const stepProcessWorkspaces = (ctx: UpdateContext): UpdateContext => {
   return { ...ctx, workspaceAppendix, allWorkspaceDeps };
 };
 
-const stepPromptForReasons = (ctx: UpdateContext): UpdateContext => {
+const stepExtractExistingAppendix = (ctx: UpdateContext): UpdateContext => {
   if (!ctx.config || !ctx.overrides) return ctx;
 
   const existingAppendix = ctx.config.pastoralist?.appendix || {};
@@ -460,7 +460,7 @@ export const update = (options: Options): UpdateContext => {
     stepDetermineMode,
     stepProcessWorkspaces,
     stepHandleNoOverrides,
-    stepPromptForReasons,
+    stepExtractExistingAppendix,
     stepBuildAppendix,
     stepAttachPatches,
     stepMergeOverridePaths,

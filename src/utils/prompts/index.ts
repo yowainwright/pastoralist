@@ -128,7 +128,7 @@ export class Prompt {
   }
 }
 
-export async function createPrompt<T = any>(
+export async function createPrompt<T = unknown>(
   callback: (prompt: Prompt) => Promise<T>,
 ): Promise<T> {
   const prompt = new Prompt();

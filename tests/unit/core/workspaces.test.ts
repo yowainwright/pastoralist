@@ -610,3 +610,67 @@ test("processWorkspacePackages - handles empty package.json files", async () => 
 
   expect(result.allWorkspaceDeps).toEqual({});
 });
+
+test("mergeOverridePaths - does not mutate original appendix", () => {
+  const originalAppendix: Appendix = {
+    "lodash@4.17.21": {
+      dependents: { root: "lodash@^4.17.20" },
+    },
+  };
+
+  const appendixSnapshot = JSON.parse(JSON.stringify(originalAppendix));
+
+  const overridePaths = {
+    "packages/app": {
+      "lodash@4.17.21": {
+        dependents: { app: "lodash@^4.17.20" },
+      },
+      "express@4.18.2": {
+        dependents: { app: "express@^4.18.0" },
+      },
+    },
+  };
+
+  const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
+
+  const result = mergeOverridePaths(
+    originalAppendix,
+    overridePaths,
+    ["express"],
+    mockLog,
+  );
+
+  expect(result["express@4.18.2"]).toBeDefined();
+  expect(result["lodash@4.17.21"].dependents).toHaveProperty("app");
+
+  expect(originalAppendix).toEqual(appendixSnapshot);
+});
+
+test("mergeOverridePaths - merges dependents for existing entries", () => {
+  const appendix: Appendix = {
+    "lodash@4.17.21": {
+      dependents: { root: "lodash@^4.17.20" },
+    },
+  };
+
+  const overridePaths = {
+    "packages/app": {
+      "lodash@4.17.21": {
+        dependents: { "workspace-app": "lodash@^4.17.20" },
+      },
+    },
+  };
+
+  const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
+
+  const result = mergeOverridePaths(
+    appendix,
+    overridePaths,
+    ["lodash"],
+    mockLog,
+  );
+
+  const dependents = result["lodash@4.17.21"].dependents || {};
+  expect(dependents).toHaveProperty("root");
+  expect(dependents).toHaveProperty("workspace-app");
+});

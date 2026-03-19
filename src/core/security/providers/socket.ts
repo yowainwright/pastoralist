@@ -64,7 +64,7 @@ export class SocketCLIProvider {
     return true;
   }
 
-  private async runSocketScan(): Promise<any> {
+  private async runSocketScan(): Promise<SocketResult> {
     const env = {
       ...process.env,
       SOCKET_SECURITY_API_KEY: this.token,

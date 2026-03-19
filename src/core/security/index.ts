@@ -24,7 +24,13 @@ import {
 } from "./utils";
 import { SecuritySetupWizard, promptForSetup } from "./setup";
 import type { SecurityProvider as SecurityProviderType } from "./constants";
-import { readFileSync, copyFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import {
+  readFileSync,
+  copyFileSync,
+  writeFileSync,
+  existsSync,
+  mkdirSync,
+} from "fs";
 import { resolve, dirname, basename } from "path";
 import { updateAppendix } from "../appendix";
 import { glob } from "../../utils/glob";
@@ -562,9 +568,17 @@ export class SecurityChecker {
   }
 
   private createBackup(pkgPath: string): string {
-    const cacheDir = resolve(dirname(pkgPath), "node_modules", ".cache", "pastoralist");
+    const cacheDir = resolve(
+      dirname(pkgPath),
+      "node_modules",
+      ".cache",
+      "pastoralist",
+    );
     mkdirSync(cacheDir, { recursive: true });
-    const backupPath = resolve(cacheDir, `${basename(pkgPath)}.backup-${Date.now()}`);
+    const backupPath = resolve(
+      cacheDir,
+      `${basename(pkgPath)}.backup-${Date.now()}`,
+    );
     copyFileSync(pkgPath, backupPath);
     this.log.debug(`Created backup at ${backupPath}`, "createBackup");
     return backupPath;
@@ -598,7 +612,10 @@ export class SecurityChecker {
     };
   }
 
-  applyAutoFix(overrides: SecurityOverride[], packageJsonPath?: string): string | void {
+  applyAutoFix(
+    overrides: SecurityOverride[],
+    packageJsonPath?: string,
+  ): string | void {
     try {
       const pkgPath = packageJsonPath || resolve(process.cwd(), "package.json");
 
@@ -692,14 +709,13 @@ export class SecurityChecker {
     }
   }
 
-  rollbackAutoFix(backupPath: string, originalPath?: string): void {
+  rollbackAutoFix(backupPath: string, originalPath: string): void {
     try {
       if (!existsSync(backupPath)) {
         throw new Error(`Backup file not found at ${backupPath}`);
       }
 
-      const packageJsonPath = originalPath || backupPath.replace(/\.backup-\d+$/, "");
-      copyFileSync(backupPath, packageJsonPath);
+      copyFileSync(backupPath, originalPath);
 
       this.log.print(`Rolled back to ${backupPath}`);
     } catch (error) {

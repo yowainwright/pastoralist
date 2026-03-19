@@ -1107,7 +1107,10 @@ test("applyAutoFix - should apply security overrides to package.json", async () 
 
   const mockConsoleLog = spyOn(console, "log").mockImplementation(() => {});
 
-  const backupPath = await checker.applyAutoFix(overrides, testPath) as string;
+  const backupPath = (await checker.applyAutoFix(
+    overrides,
+    testPath,
+  )) as string;
 
   const updated = JSON.parse(fs.readFileSync(testPath, "utf-8"));
   expect(updated.overrides).toEqual({ lodash: "4.17.21" });
@@ -1164,7 +1167,7 @@ test("applyAutoFix - should use cwd when no path provided", async () => {
   const mockConsoleLog = spyOn(console, "log").mockImplementation(() => {});
 
   if (originalExists) {
-    const backupPath = await checker.applyAutoFix(overrides) as string;
+    const backupPath = (await checker.applyAutoFix(overrides)) as string;
 
     expect(backupPath).toBeTruthy();
     expect(fs.existsSync(backupPath as string)).toBe(true);
@@ -1201,7 +1204,10 @@ test("rollbackAutoFix - should throw error when backup not found", async () => {
   const checker = new SecurityChecker({ provider: "osv" });
 
   try {
-    await checker.rollbackAutoFix("/non/existent/backup.json");
+    await checker.rollbackAutoFix(
+      "/non/existent/backup.json",
+      "/non/existent/package.json",
+    );
     expect(true).toBe(false);
   } catch (error: any) {
     expect(error.message).toContain("Backup file not found");
@@ -1413,7 +1419,13 @@ test("applyAutoFix creates backup before modifying", () => {
 
   checker.applyAutoFix(overrides, pkgPath);
 
-  const cacheDir = path.join(TEST_DIR, "backup-test", "node_modules", ".cache", "pastoralist");
+  const cacheDir = path.join(
+    TEST_DIR,
+    "backup-test",
+    "node_modules",
+    ".cache",
+    "pastoralist",
+  );
   const files = fs.readdirSync(cacheDir);
   const backupFiles = files.filter((f: string) => f.includes(".backup-"));
   expect(backupFiles.length).toBe(1);
@@ -1457,6 +1469,41 @@ test("applyAutoFix preserves existing overrides", () => {
   const result = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
   expect(result.overrides.minimist).toBe("1.2.8");
   expect(result.overrides.lodash).toBe("4.17.21");
+});
+
+test("rollbackAutoFix restores to originalPath, not cache dir", () => {
+  const pkgPath = createTestPackage("rollback-path-test", {
+    name: "rollback-path-test",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+  });
+
+  const checker = new SecurityChecker({ provider: "osv" });
+  const backupPath = checker.applyAutoFix(
+    [
+      {
+        packageName: "lodash",
+        fromVersion: "4.17.20",
+        toVersion: "4.17.21",
+        reason: "fix",
+        severity: "high",
+      },
+    ],
+    pkgPath,
+  ) as string;
+
+  expect(backupPath).toContain("node_modules/.cache/pastoralist");
+
+  checker.rollbackAutoFix(backupPath, pkgPath);
+
+  const cacheDir = path.dirname(backupPath);
+  const cacheFiles = fs
+    .readdirSync(cacheDir)
+    .filter((f) => f === "package.json");
+  expect(cacheFiles.length).toBe(0);
+
+  const restored = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+  expect(restored.overrides).toBeUndefined();
 });
 
 test("rollbackAutoFix restores original file", () => {

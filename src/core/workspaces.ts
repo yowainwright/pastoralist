@@ -122,7 +122,7 @@ const canMergeOverridePaths = (
   return hasOverridePaths && hasMissingPackages;
 };
 
-const mergeAppendixEntry = (
+const mergeWorkspaceAppendixEntry = (
   existingEntry: AppendixItem,
   newEntry: AppendixItem,
 ): AppendixItem => {
@@ -150,19 +150,19 @@ export const mergeOverridePaths = (
     "mergeOverridePaths",
   );
 
-  Object.values(overridePaths!).forEach((pathAppendix) => {
-    Object.entries(pathAppendix).forEach(([key, value]) => {
-      if (appendix[key]) {
-        // Merge dependents if entry already exists
-        appendix[key] = mergeAppendixEntry(appendix[key], value);
-      } else {
-        // Add new entry
-        appendix[key] = value;
-      }
-    });
-  });
+  const merged = Object.values(overridePaths!).reduce(
+    (acc, pathAppendix) =>
+      Object.entries(pathAppendix).reduce((innerAcc, [key, value]) => {
+        const existing = innerAcc[key];
+        const entry = existing
+          ? mergeWorkspaceAppendixEntry(existing, value)
+          : value;
+        return { ...innerAcc, [key]: entry };
+      }, acc),
+    { ...appendix },
+  );
 
-  return appendix;
+  return merged;
 };
 
 const isNestedOverride = (
@@ -287,7 +287,8 @@ const filterActuallyRemovable = (
   removableItems: string[],
   trackedInPaths: string[],
 ): string[] => {
-  return removableItems.filter((pkg) => !trackedInPaths.includes(pkg));
+  const trackedSet = new Set(trackedInPaths);
+  return removableItems.filter((pkg) => !trackedSet.has(pkg));
 };
 
 const removeAppendixEntries = (

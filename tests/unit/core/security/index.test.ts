@@ -859,9 +859,9 @@ test("isNewVulnerability - should return true for new vulnerability", () => {
     title: "Prototype Pollution",
     fixAvailable: true,
   };
-  const existing: SecurityAlert[] = [];
+  const existingKeys = new Set<string>();
 
-  const result = (checker as any).isNewVulnerability(vuln, existing);
+  const result = (checker as any).isNewVulnerability(vuln, existingKeys);
 
   expect(result).toBe(true);
 });
@@ -877,9 +877,9 @@ test("isNewVulnerability - should return false for existing vulnerability", () =
     title: "Prototype Pollution",
     fixAvailable: true,
   };
-  const existing: SecurityAlert[] = [vuln];
+  const existingKeys = new Set(["lodash@4.17.20"]);
 
-  const result = (checker as any).isNewVulnerability(vuln, existing);
+  const result = (checker as any).isNewVulnerability(vuln, existingKeys);
 
   expect(result).toBe(false);
 });
@@ -904,7 +904,7 @@ test("extractNewVulnerabilities - should extract only new vulnerabilities", () =
       fixAvailable: true,
     },
   ];
-  const existing: SecurityAlert[] = [];
+  const existingKeys = new Set<string>();
 
   const mockFindVulnerable = spyOn(
     securityUtils,
@@ -914,13 +914,67 @@ test("extractNewVulnerabilities - should extract only new vulnerabilities", () =
   const result = (checker as any).extractNewVulnerabilities(
     pkgJson,
     alerts,
-    existing,
+    existingKeys,
   );
 
   expect(result.length).toBe(1);
   expect(result[0].packageName).toBe("lodash");
 
   mockFindVulnerable.mockRestore();
+});
+
+test("extractNewVulnerabilities - Set correctly filters duplicates across workspaces", () => {
+  const checker = new SecurityChecker({ provider: "osv" });
+
+  const existingKeys = new Set(["lodash@4.17.20"]);
+
+  const vuln1: SecurityAlert = {
+    packageName: "lodash",
+    currentVersion: "4.17.20",
+    vulnerableVersions: "< 4.17.21",
+    patchedVersion: "4.17.21",
+    severity: "high",
+    title: "Prototype Pollution",
+    fixAvailable: true,
+  };
+
+  const vuln2: SecurityAlert = {
+    packageName: "express",
+    currentVersion: "4.17.0",
+    vulnerableVersions: "< 4.18.2",
+    patchedVersion: "4.18.2",
+    severity: "medium",
+    title: "XSS",
+    fixAvailable: true,
+  };
+
+  const isNew1 = (checker as any).isNewVulnerability(vuln1, existingKeys);
+  const isNew2 = (checker as any).isNewVulnerability(vuln2, existingKeys);
+
+  expect(isNew1).toBe(false);
+  expect(isNew2).toBe(true);
+});
+
+test("isNewVulnerability - Set key format matches packageName@currentVersion", () => {
+  const checker = new SecurityChecker({ provider: "osv" });
+
+  const vuln: SecurityAlert = {
+    packageName: "@scope/pkg",
+    currentVersion: "2.0.0",
+    vulnerableVersions: "< 2.1.0",
+    patchedVersion: "2.1.0",
+    severity: "high",
+    title: "Issue",
+    fixAvailable: true,
+  };
+
+  const existingKeys = new Set(["@scope/pkg@2.0.0"]);
+  const result = (checker as any).isNewVulnerability(vuln, existingKeys);
+  expect(result).toBe(false);
+
+  const otherKeys = new Set(["@scope/pkg@1.0.0"]);
+  const result2 = (checker as any).isNewVulnerability(vuln, otherKeys);
+  expect(result2).toBe(true);
 });
 
 test("getOverrideField - should return resolutions for yarn", () => {

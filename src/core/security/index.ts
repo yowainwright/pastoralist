@@ -214,16 +214,12 @@ export class SecurityChecker {
       } else {
         const packageCount = packages.length;
 
-        await packages.reduce(async (promise, pkg, index) => {
-          await promise;
-          onProgress?.({
-            phase: "fetching",
-            message: `Checking ${pkg.name} (${index + 1}/${packageCount})`,
-            current: index + 1,
-            total: packageCount,
-          });
-          await new Promise((r) => setTimeout(r, 100));
-        }, Promise.resolve());
+        onProgress?.({
+          phase: "fetching",
+          message: `Checking ${packageCount} packages...`,
+          current: 0,
+          total: packageCount,
+        });
 
         const allAlerts = await Promise.all(
           this.providers.map((provider) => provider.fetchAlerts(packages)),
@@ -334,24 +330,20 @@ export class SecurityChecker {
 
   private isNewVulnerability(
     vuln: SecurityAlert,
-    vulnerablePackages: SecurityAlert[],
+    existingKeys: Set<string>,
   ): boolean {
-    const existing = vulnerablePackages.find(
-      (v) =>
-        v.packageName === vuln.packageName &&
-        v.currentVersion === vuln.currentVersion,
-    );
-    return !existing;
+    const key = `${vuln.packageName}@${vuln.currentVersion}`;
+    return !existingKeys.has(key);
   }
 
   private extractNewVulnerabilities(
     pkgJson: PastoralistJSON,
     alerts: SecurityAlert[],
-    vulnerablePackages: SecurityAlert[],
+    existingKeys: Set<string>,
   ): SecurityAlert[] {
     const pkgVulnerable = findVulnerablePackages(pkgJson, alerts);
     return pkgVulnerable.filter((vuln) =>
-      this.isNewVulnerability(vuln, vulnerablePackages),
+      this.isNewVulnerability(vuln, existingKeys),
     );
   }
 
@@ -371,7 +363,7 @@ export class SecurityChecker {
         packageFiles.map(async (packageFile) => {
           const pkgJson = this.readPackageFile(packageFile);
           if (!pkgJson) return [];
-          return this.extractNewVulnerabilities(pkgJson, alerts, []);
+          return this.extractNewVulnerabilities(pkgJson, alerts, new Set());
         }),
       );
 
@@ -705,7 +697,7 @@ export class SecurityChecker {
       const packageJsonPath = backupPath.replace(/\.backup-\d+$/, "");
       copyFileSync(backupPath, packageJsonPath);
 
-      console.log(`Rolled back to ${backupPath}`);
+      this.log.print(`Rolled back to ${backupPath}`);
     } catch (error) {
       this.log.error("Failed to rollback", "rollbackAutoFix", { error });
       throw new Error(`Rollback failed: ${error}`);

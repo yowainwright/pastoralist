@@ -406,6 +406,67 @@ test("updatePackageJSON - should preserve other pastoralist config when removing
   expect(result?.pastoralist?.appendix).toBeUndefined();
 });
 
+test("updatePackageJSON - skips write when content is unchanged", () => {
+  validateRootPackageJsonIntegrity();
+  if (!existsSync(testDir)) {
+    mkdirSync(testDir, { recursive: true });
+  }
+  jsonCache.clear();
+
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    overrides: { lodash: "4.17.21" },
+  };
+
+  writeFileSync(testPkgPath, JSON.stringify(config, null, 2) + "\n");
+  writeFileSync(testPkgPath, "SENTINEL");
+
+  updatePackageJSON({
+    path: testPkgPath,
+    config,
+    overrides: { lodash: "4.17.21" },
+    isTesting: false,
+  });
+
+  const content = safeReadFileSync(testPkgPath, "utf8");
+  expect(content).toBe("SENTINEL");
+
+  rmSync(testDir, { recursive: true, force: true });
+  jsonCache.clear();
+  validateRootPackageJsonIntegrity();
+});
+
+test("updatePackageJSON - writes file when content changes", () => {
+  validateRootPackageJsonIntegrity();
+  if (!existsSync(testDir)) {
+    mkdirSync(testDir, { recursive: true });
+  }
+  jsonCache.clear();
+
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+  };
+
+  writeFileSync(testPkgPath, JSON.stringify(config, null, 2) + "\n");
+  writeFileSync(testPkgPath, "SENTINEL");
+
+  updatePackageJSON({
+    path: testPkgPath,
+    config,
+    overrides: { lodash: "4.17.21" },
+    isTesting: false,
+  });
+
+  const content = safeReadFileSync(testPkgPath, "utf8");
+  expect(content).not.toBe("SENTINEL");
+
+  rmSync(testDir, { recursive: true, force: true });
+  jsonCache.clear();
+  validateRootPackageJsonIntegrity();
+});
+
 test("updatePackageJSON - should write file when not in testing mode", () => {
   validateRootPackageJsonIntegrity();
   if (!existsSync(testDir)) {

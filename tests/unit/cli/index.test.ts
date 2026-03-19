@@ -3071,3 +3071,51 @@ test("handleSecurityResults - returns empty object when no fixes needed", () => 
   expect(result).toEqual({});
   expect(mockChecker.generatePackageOverrides).not.toHaveBeenCalled();
 });
+
+test("handleSecurityResults - does not mutate mergedOptions", () => {
+  const { handleSecurityResults } = require("../../../src/cli/index");
+
+  const alerts = [
+    {
+      packageName: "lodash",
+      severity: "high",
+      title: "Prototype Pollution",
+      cve: "CVE-2021-23337",
+    },
+  ];
+
+  const securityOverrides = [
+    {
+      packageName: "lodash",
+      fromVersion: "4.17.20",
+      toVersion: "4.17.21",
+      reason: "Security fix",
+      severity: "high" as const,
+    },
+  ];
+
+  const mockSecurityChecker = {
+    generatePackageOverrides: mock(() => ({ lodash: "4.17.21" })),
+    applyAutoFix: mock(() => {}),
+  };
+
+  const mockSpinner = { stop: mock() };
+
+  const mergedOptions: Options = {
+    forceSecurityRefactor: true,
+    path: "package.json",
+  };
+
+  const optionsSnapshot = JSON.parse(JSON.stringify(mergedOptions));
+
+  handleSecurityResults(
+    alerts,
+    securityOverrides,
+    mockSecurityChecker as any,
+    mockSpinner as any,
+    mergedOptions,
+    [],
+  );
+
+  expect(mergedOptions).toEqual(optionsSnapshot);
+});

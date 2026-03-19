@@ -340,6 +340,10 @@ export const updatePackageJSON = ({
   if (isTesting) return updatedConfig;
 
   const jsonString = formatJson(updatedConfig);
+  const currentJson = formatJson(config);
+  const isUnchanged = jsonString === currentJson;
+
+  if (isUnchanged) return;
 
   const shouldLogDryRun = dryRun && !silent;
   if (shouldLogDryRun) {

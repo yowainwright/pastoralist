@@ -152,7 +152,7 @@ test("Override Generation - should not generate overrides for packages without f
 
 test("Override Generation - should include CVE in overrides when available", () => {
   const checker = new SecurityChecker({ debug: false });
-  const vulnerablePackages = [createAlert({ cve: LODASH_CVE })];
+  const vulnerablePackages = [createAlert({ cves: [LODASH_CVE] })];
 
   const latestVersions = new Map<string, string>();
   const overrides = (checker as any).generateOverrides(
@@ -161,7 +161,7 @@ test("Override Generation - should include CVE in overrides when available", () 
   );
 
   expect(overrides.length).toBe(1);
-  expect(overrides[0].cve).toBe(LODASH_CVE);
+  expect(overrides[0].cves?.[0]).toBe(LODASH_CVE);
 });
 
 test("Override Generation - should include description in overrides when available", () => {
@@ -725,7 +725,7 @@ test("formatSecurityReport - should include CVE when available", () => {
       severity: "high",
       title: "Prototype Pollution",
       fixAvailable: true,
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
     },
   ];
 

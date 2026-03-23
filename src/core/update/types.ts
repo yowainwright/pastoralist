@@ -3,6 +3,7 @@ import type {
   Appendix,
   OverridesType,
   PastoralistJSON,
+  SecurityAlert,
 } from "../../types";
 import type { PastoralistConfig } from "../../config";
 import type { ResolveOverrides } from "../../types";
@@ -78,6 +79,7 @@ export interface UpdateContext {
   writeSkipped?: boolean;
   writeSuccess?: boolean;
   metrics?: UpdateMetrics;
+  securityAlerts?: SecurityAlert[];
 }
 
 export interface WriteResultContext {

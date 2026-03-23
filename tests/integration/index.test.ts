@@ -119,7 +119,7 @@ test("update - should handle security overrides", () => {
       {
         packageName: "express",
         reason: "Security fix for CVE-2021-1234",
-        cve: "CVE-2021-1234",
+        cves: ["CVE-2021-1234"],
         severity: "critical",
       },
     ],

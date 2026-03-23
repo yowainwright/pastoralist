@@ -1,4 +1,5 @@
 import type { Output } from "./output";
+import type { KeepConstraint } from "../types";
 
 export type SpinnerState = {
   text: string;
@@ -53,7 +54,7 @@ export type VulnerabilityInfo = {
   packageName: string;
   currentVersion: string;
   title: string;
-  cve?: string;
+  cves?: string[];
   fixAvailable: boolean;
   patchedVersion?: string;
   url?: string;
@@ -66,14 +67,16 @@ export type OverrideInfo = {
   dependents?: Record<string, string>;
   patches?: string[];
   isSecurityFix?: boolean;
-  cve?: string;
+  cves?: string[];
+  keep?: boolean | KeepConstraint;
+  potentiallyFixedIn?: string;
 };
 
 export type SecurityFixInfo = {
   packageName: string;
   fromVersion: string;
   toVersion: string;
-  cve?: string;
+  cves?: string[];
   severity?: string;
   reason?: string;
 };

@@ -19,7 +19,10 @@ import { SecurityChecker } from "../core/security";
 import { initCommand } from "./cmds/init/index";
 import { renderTable, createTerminalGraph } from "../dx";
 import { getOverrideGitDate } from "../utils/git";
-import { findUnusedAppendixEntries } from "../core/appendix/utils";
+import {
+  findUnusedAppendixEntries,
+  extractPackageNames,
+} from "../core/appendix/utils";
 import * as fs from "fs";
 import { resolve } from "path";
 
@@ -140,21 +143,23 @@ export const buildMergedOptions = (
 export const buildSecurityOverrideDetail = (
   override: SecurityOverride,
 ): SecurityOverrideDetail => {
-  const hasCve = Boolean(override.cve);
-  const hasSeverity = Boolean(override.severity);
-  const hasDescription = Boolean(override.description);
-  const hasUrl = Boolean(override.url);
-
-  return {
+  const detail: SecurityOverrideDetail = {
     packageName: override.packageName,
     reason: override.reason,
-    ...(hasCve && { cve: override.cve }),
-    ...(hasSeverity && {
-      severity: override.severity as "low" | "medium" | "high" | "critical",
-    }),
-    ...(hasDescription && { description: override.description }),
-    ...(hasUrl && { url: override.url }),
   };
+  if (override.cves?.length) detail.cves = override.cves;
+  if (override.severity)
+    detail.severity = override.severity as
+      | "low"
+      | "medium"
+      | "high"
+      | "critical";
+  if (override.description) detail.description = override.description;
+  if (override.url) detail.url = override.url;
+  if (override.vulnerableRange)
+    detail.vulnerableRange = override.vulnerableRange;
+  if (override.patchedVersion) detail.patchedVersion = override.patchedVersion;
+  return detail;
 };
 
 export const runSecurityCheck = async (
@@ -391,7 +396,7 @@ export const buildSecurityResult = (
   securityAlerts: alerts.map((alert) => ({
     packageName: alert.packageName,
     severity: alert.severity || "unknown",
-    cve: alert.cve,
+    cves: alert.cves,
     description: alert.description,
     patchedVersion: alert.patchedVersion,
     fixAvailable: alert.fixAvailable,
@@ -455,7 +460,9 @@ const buildOverrideInfo = (
   dependents: appendixEntry?.dependents,
   patches: appendixEntry?.patches,
   isSecurityFix: appendixEntry?.ledger?.securityChecked,
-  cve: appendixEntry?.ledger?.cve,
+  cves: appendixEntry?.ledger?.cves,
+  keep: appendixEntry?.ledger?.keep,
+  potentiallyFixedIn: appendixEntry?.ledger?.potentiallyFixedIn,
 });
 
 const toOverrideEntry = (
@@ -555,6 +562,46 @@ export const displaySummaryTable = (result: PastoralistResult): void => {
 
   const table = renderTable(rows, { title: `${FARMER} Pastoralist Summary` });
   console.log("\n" + table);
+};
+
+export const checkRemovalSafety = async (
+  config: PastoralistJSON,
+  securityChecker: SecurityChecker,
+  mergedOptions: Options,
+): Promise<string[]> => {
+  const appendix = config.pastoralist?.appendix || {};
+  const unusedKeys = findUnusedAppendixEntries(appendix);
+  if (unusedKeys.length === 0) return [];
+
+  const allDeps = {
+    ...config.dependencies,
+    ...config.devDependencies,
+    ...config.peerDependencies,
+  };
+  const packageNames = extractPackageNames(unusedKeys);
+  const candidateDeps = Object.fromEntries(
+    packageNames
+      .filter((name) => Boolean(allDeps[name]))
+      .map((name) => [name, allDeps[name] as string]),
+  );
+
+  if (Object.keys(candidateDeps).length === 0) return [];
+
+  const syntheticConfig: PastoralistJSON = {
+    name: config.name,
+    version: config.version,
+    dependencies: candidateDeps,
+  };
+
+  const { alerts } = await securityChecker.checkSecurity(syntheticConfig, {
+    root: mergedOptions.root || "./",
+  });
+
+  const vulnerablePackageNames = new Set(alerts.map((a) => a.packageName));
+  return unusedKeys.filter((key) => {
+    const pkgName = extractPackageNames([key])[0];
+    return vulnerablePackageNames.has(pkgName);
+  });
 };
 
 export async function action(
@@ -661,6 +708,20 @@ export async function action(
       packagesScanned = scanned;
       securityResult = buildSecurityResult(alerts);
 
+      mergedOptions = { ...mergedOptions, securityAlerts: alerts };
+
+      const shouldCheckRemovalSafety = mergedOptions.removeUnused && config;
+      if (shouldCheckRemovalSafety) {
+        const skipKeys = await checkRemovalSafety(
+          config!,
+          securityChecker,
+          mergedOptions,
+        );
+        if (skipKeys.length > 0) {
+          mergedOptions = { ...mergedOptions, skipRemovalKeys: skipKeys };
+        }
+      }
+
       const shouldHandleResults = !skipped && !isJsonOutput;
       if (shouldHandleResults) {
         const securityUpdates = deps.handleSecurityResults(
@@ -681,7 +742,7 @@ export async function action(
           packageName: alert.packageName,
           currentVersion: alert.currentVersion || "?",
           title: alert.title || alert.description || "Vulnerability",
-          cve: alert.cve,
+          cves: alert.cves,
           fixAvailable: alert.fixAvailable,
           patchedVersion: alert.patchedVersion,
           url: alert.url,
@@ -712,7 +773,7 @@ export async function action(
             packageName: override.packageName,
             fromVersion: override.fromVersion || "?",
             toVersion: override.toVersion,
-            cve: override.cve,
+            cves: override.cves,
             severity: override.severity,
             reason: override.reason,
           });
@@ -799,6 +860,16 @@ export async function action(
       const shouldShowInstallNotice = updateResultData.updated;
       if (shouldShowInstallNotice) {
         graph.notice("Run an install to capture the updates!");
+      }
+
+      const blockedKeys = mergedOptions.skipRemovalKeys || [];
+      const hasBlockedRemovals = blockedKeys.length > 0;
+      if (hasBlockedRemovals) {
+        const count = blockedKeys.length;
+        const plural = count === 1 ? "" : "s";
+        graph.notice(
+          `${count} override${plural} kept: still vulnerable at declared versions - ${blockedKeys.join(", ")}`,
+        );
       }
 
       const finalAppendix = updateContext.finalAppendix ?? {};

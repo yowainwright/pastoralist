@@ -238,6 +238,50 @@ const stepCleanupOverrides = (ctx: UpdateContext): UpdateContext => {
   return { ...ctx, finalOverrides: ctx.overrides, finalAppendix: ctx.appendix };
 };
 
+const stepUpdateKeptOverrides = (ctx: UpdateContext): UpdateContext => {
+  const appendix = ctx.appendix;
+  if (!appendix) return ctx;
+
+  const alerts = ctx.securityAlerts || ctx.options?.securityAlerts || [];
+
+  const updatedAppendix = { ...appendix };
+  let hasChanges = false;
+
+  Object.keys(updatedAppendix).forEach((key) => {
+    const item = updatedAppendix[key];
+    if (item.ledger?.keep !== true) return;
+
+    const entryCves = item.ledger.cves || [];
+    if (entryCves.length === 0) return;
+
+    const matchingAlert = alerts.find(
+      (a) =>
+        a.cves &&
+        a.cves.some((c: string) => entryCves.includes(c)) &&
+        a.patchedVersion,
+    );
+
+    const currentFixedIn = item.ledger.potentiallyFixedIn;
+    const newFixedIn = matchingAlert?.patchedVersion;
+
+    if (currentFixedIn === newFixedIn) return;
+
+    updatedAppendix[key] = {
+      ...item,
+      ledger: newFixedIn
+        ? { ...item.ledger, potentiallyFixedIn: newFixedIn }
+        : (() => {
+            const { potentiallyFixedIn: _, ...rest } = item.ledger!;
+            return rest;
+          })(),
+    };
+    hasChanges = true;
+  });
+
+  if (!hasChanges) return ctx;
+  return { ...ctx, appendix: updatedAppendix };
+};
+
 const stepRemoveUnused = (ctx: UpdateContext): UpdateContext => {
   const shouldRemove = ctx.options?.removeUnused === true;
   if (!shouldRemove) return ctx;
@@ -246,17 +290,31 @@ const stepRemoveUnused = (ctx: UpdateContext): UpdateContext => {
   const overrides = ctx.finalOverrides || ctx.overrides || {};
 
   const unusedKeys = findUnusedAppendixEntries(appendix);
-  const hasUnused = unusedKeys.length > 0;
+  const skipKeys = new Set(ctx.options?.skipRemovalKeys || []);
+  const removableKeys = unusedKeys.filter((key) => !skipKeys.has(key));
+  const hasUnused = removableKeys.length > 0;
   if (!hasUnused) return ctx;
 
-  const packageNames = extractPackageNames(unusedKeys);
+  const packageNames = extractPackageNames(removableKeys);
+
+  const keysWithCves = removableKeys.filter((key) => {
+    const item = appendix[key];
+    return item?.ledger?.cves && item.ledger.cves.length > 0;
+  });
+
+  if (keysWithCves.length > 0) {
+    ctx.log.warn(
+      `Removing ${keysWithCves.length} override(s) that had tracked CVEs: ${keysWithCves.join(", ")}. Verify the base versions are not vulnerable.`,
+      "stepRemoveUnused",
+    );
+  }
 
   ctx.log.debug(
-    `Removing ${unusedKeys.length} unused overrides: ${packageNames.join(", ")}`,
+    `Removing ${removableKeys.length} unused overrides: ${packageNames.join(", ")}`,
     "stepRemoveUnused",
   );
 
-  const finalAppendix = removeAppendixKeys(appendix, unusedKeys);
+  const finalAppendix = removeAppendixKeys(appendix, removableKeys);
   const finalOverrides = removeOverrideKeys(overrides, packageNames);
 
   return { ...ctx, finalOverrides, finalAppendix };
@@ -451,6 +509,7 @@ export const update = (options: Options): UpdateContext => {
     isTesting,
     log,
     config: options.config,
+    securityAlerts: options.securityAlerts,
   };
 
   const ctx = pipe(
@@ -462,6 +521,7 @@ export const update = (options: Options): UpdateContext => {
     stepHandleNoOverrides,
     stepExtractExistingAppendix,
     stepBuildAppendix,
+    stepUpdateKeptOverrides,
     stepAttachPatches,
     stepMergeOverridePaths,
     stepLogUnusedPatches,

@@ -1,5 +1,9 @@
 import { test, expect } from "bun:test";
-import type { SecurityOverrideDetail, Appendix } from "../../../../src/types";
+import type {
+  SecurityOverrideDetail,
+  Appendix,
+  AppendixItem,
+} from "../../../../src/types";
 import {
   mergeOverrideReasons,
   createSecurityLedger,
@@ -9,6 +13,9 @@ import {
   removeAppendixKeys,
   extractPackageNames,
   removeOverrideKeys,
+  normalizeLedgerCveField,
+  isKeptEntry,
+  isKeepExpired,
 } from "../../../../src/core/appendix/utils";
 
 test("mergeOverrideReasons - should return reason when provided", () => {
@@ -27,7 +34,7 @@ test("mergeOverrideReasons - should return security reason when no reason provid
     {
       packageName: "lodash",
       reason: "CVE-2021-23337",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
       severity: "high",
     },
   ];
@@ -71,7 +78,7 @@ test("mergeOverrideReasons - should prioritize reason over security details", ()
     {
       packageName: "lodash",
       reason: "CVE-2021-23337",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
       severity: "high",
     },
   ];
@@ -91,7 +98,7 @@ test("mergeOverrideReasons - should prioritize security details over manual reas
     {
       packageName: "lodash",
       reason: "CVE-2021-23337",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
       severity: "high",
     },
   ];
@@ -118,7 +125,7 @@ test("createSecurityLedger - should return empty object when package not in secu
     {
       packageName: "axios",
       reason: "CVE-2021-1234",
-      cve: "CVE-2021-1234",
+      cves: ["CVE-2021-1234"],
       severity: "high",
     },
   ];
@@ -133,7 +140,7 @@ test("createSecurityLedger - should create basic security ledger", () => {
     {
       packageName: "lodash",
       reason: "CVE-2021-23337",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
       severity: "high",
     },
   ];
@@ -149,7 +156,7 @@ test("createSecurityLedger - should include provider in ledger", () => {
     {
       packageName: "lodash",
       reason: "CVE-2021-23337",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
       severity: "high",
     },
   ];
@@ -164,14 +171,14 @@ test("createSecurityLedger - should include CVE in ledger", () => {
     {
       packageName: "lodash",
       reason: "CVE-2021-23337",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
       severity: "high",
     },
   ];
 
   const result = createSecurityLedger("lodash", securityDetails, undefined);
 
-  expect(result).toHaveProperty("cve", "CVE-2021-23337");
+  expect(result).toHaveProperty("cves", ["CVE-2021-23337"]);
 });
 
 test("createSecurityLedger - should include severity in ledger", () => {
@@ -179,7 +186,7 @@ test("createSecurityLedger - should include severity in ledger", () => {
     {
       packageName: "lodash",
       reason: "CVE-2021-23337",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
       severity: "high",
     },
   ];
@@ -194,7 +201,7 @@ test("createSecurityLedger - should include URL in ledger", () => {
     {
       packageName: "lodash",
       reason: "CVE-2021-23337",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
       severity: "high",
       url: "https://nvd.nist.gov/vuln/detail/CVE-2021-23337",
     },
@@ -213,7 +220,7 @@ test("createSecurityLedger - should include all fields when provided", () => {
     {
       packageName: "lodash",
       reason: "CVE-2021-23337",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
       severity: "high",
       description: "Prototype pollution",
       url: "https://nvd.nist.gov/vuln/detail/CVE-2021-23337",
@@ -226,7 +233,8 @@ test("createSecurityLedger - should include all fields when provided", () => {
     securityChecked: true,
     securityCheckDate: expect.any(String),
     securityProvider: "github",
-    cve: "CVE-2021-23337",
+    cves: ["CVE-2021-23337"],
+    cveDetails: [{ cve: "CVE-2021-23337", severity: "high" }],
     severity: "high",
     url: "https://nvd.nist.gov/vuln/detail/CVE-2021-23337",
   });
@@ -252,7 +260,7 @@ test("toCompactAppendix - should preserve entries with security info", () => {
       ledger: {
         addedDate: "2024-01-15",
         securityChecked: true,
-        cve: "CVE-2021-23337",
+        cves: ["CVE-2021-23337"],
       },
     },
   };
@@ -467,4 +475,220 @@ test("removeOverrideKeys - should remove specified package names", () => {
   const result = removeOverrideKeys(overrides, ["lodash"]);
 
   expect(result).toEqual({ axios: "1.0.0", react: "18.2.0" });
+});
+
+test("normalizeLedgerCveField - converts legacy cve string to cves array", () => {
+  const ledger = {
+    addedDate: "2024-01-01",
+    cve: "CVE-2021-23337",
+  } as NonNullable<AppendixItem["ledger"]> & { cve?: string };
+  const result = normalizeLedgerCveField(
+    ledger as NonNullable<AppendixItem["ledger"]>,
+  );
+  expect(result.cves).toEqual(["CVE-2021-23337"]);
+  expect((result as { cve?: string }).cve).toBeUndefined();
+});
+
+test("normalizeLedgerCveField - merges legacy cve into existing cves", () => {
+  const ledger = {
+    addedDate: "2024-01-01",
+    cves: ["CVE-2021-0001"],
+    cve: "CVE-2021-0002",
+  } as NonNullable<AppendixItem["ledger"]> & { cve?: string };
+  const result = normalizeLedgerCveField(
+    ledger as NonNullable<AppendixItem["ledger"]>,
+  );
+  expect(result.cves).toEqual(["CVE-2021-0001", "CVE-2021-0002"]);
+});
+
+test("normalizeLedgerCveField - returns ledger unchanged when no cve field", () => {
+  const ledger: NonNullable<AppendixItem["ledger"]> = {
+    addedDate: "2024-01-01",
+    cves: ["CVE-2021-23337"],
+  };
+  const result = normalizeLedgerCveField(ledger);
+  expect(result).toEqual(ledger);
+});
+
+test("normalizeLedgerCveField - deduplicates when cve is already in cves", () => {
+  const ledger = {
+    addedDate: "2024-01-01",
+    cves: ["CVE-2021-23337"],
+    cve: "CVE-2021-23337",
+  } as NonNullable<AppendixItem["ledger"]> & { cve?: string };
+  const result = normalizeLedgerCveField(
+    ledger as NonNullable<AppendixItem["ledger"]>,
+  );
+  expect(result.cves).toEqual(["CVE-2021-23337"]);
+});
+
+test("createSecurityLedger - aggregates cves from multiple details for same package", () => {
+  const securityDetails: SecurityOverrideDetail[] = [
+    { packageName: "lodash", reason: "vuln 1", cves: ["CVE-2021-0001"] },
+    { packageName: "lodash", reason: "vuln 2", cves: ["CVE-2021-0002"] },
+  ];
+  const result = createSecurityLedger("lodash", securityDetails, undefined);
+  expect(result.cves).toEqual(["CVE-2021-0001", "CVE-2021-0002"]);
+});
+
+test("createSecurityLedger - deduplicates cves across multiple details", () => {
+  const securityDetails: SecurityOverrideDetail[] = [
+    { packageName: "lodash", reason: "vuln 1", cves: ["CVE-2021-0001"] },
+    {
+      packageName: "lodash",
+      reason: "vuln 2",
+      cves: ["CVE-2021-0001", "CVE-2021-0002"],
+    },
+  ];
+  const result = createSecurityLedger("lodash", securityDetails, undefined);
+  expect(result.cves).toEqual(["CVE-2021-0001", "CVE-2021-0002"]);
+});
+
+test("isUnusedEntry via findUnusedAppendixEntries - skips entries with keep: true", () => {
+  const appendix: Appendix = {
+    "lodash@4.17.21": {
+      dependents: { root: "lodash (unused override)" },
+      ledger: { addedDate: "2024-01-01", keep: true },
+    },
+    "axios@1.0.0": {
+      dependents: { root: "axios (unused override)" },
+    },
+  };
+
+  const result = findUnusedAppendixEntries(appendix);
+
+  expect(result).not.toContain("lodash@4.17.21");
+  expect(result).toContain("axios@1.0.0");
+});
+
+test("toCompactAppendix - preserves full ledger for kept entries", () => {
+  const appendix: Appendix = {
+    "lodash@4.17.21": {
+      dependents: { root: "root@1.0.0" },
+      ledger: { addedDate: "2024-01-01", keep: true, cves: ["CVE-2021-23337"] },
+    },
+  };
+
+  const result = toCompactAppendix(appendix);
+
+  expect(result["lodash@4.17.21"]).toHaveProperty("ledger");
+  expect((result["lodash@4.17.21"] as AppendixItem).ledger?.keep).toBe(true);
+});
+
+test("isKeptEntry - returns true for keep: true", () => {
+  const item: AppendixItem = {
+    ledger: { addedDate: "2024-01-01", keep: true },
+  };
+  expect(isKeptEntry(item)).toBe(true);
+});
+
+test("isKeptEntry - returns true for KeepConstraint object", () => {
+  const item: AppendixItem = {
+    ledger: { addedDate: "2024-01-01", keep: { reason: "pending review" } },
+  };
+  expect(isKeptEntry(item)).toBe(true);
+});
+
+test("isKeptEntry - returns false when keep is absent", () => {
+  const item: AppendixItem = { ledger: { addedDate: "2024-01-01" } };
+  expect(isKeptEntry(item)).toBe(false);
+});
+
+test("isKeptEntry - returns false when no ledger", () => {
+  const item: AppendixItem = { dependents: {} };
+  expect(isKeptEntry(item)).toBe(false);
+});
+
+test("isKeepExpired - returns false for keep: true (no expiry possible)", () => {
+  const item: AppendixItem = {
+    ledger: { addedDate: "2024-01-01", keep: true },
+  };
+  expect(isKeepExpired(item, "lodash", {})).toBe(false);
+});
+
+test("isKeepExpired - returns false when no keep", () => {
+  const item: AppendixItem = { ledger: { addedDate: "2024-01-01" } };
+  expect(isKeepExpired(item, "lodash", {})).toBe(false);
+});
+
+test("isKeepExpired - returns true when until date is in the past", () => {
+  const item: AppendixItem = {
+    ledger: {
+      addedDate: "2024-01-01",
+      keep: { reason: "temp", until: "2020-01-01" },
+    },
+  };
+  expect(isKeepExpired(item, "lodash", {})).toBe(true);
+});
+
+test("isKeepExpired - returns false when until date is in the future", () => {
+  const item: AppendixItem = {
+    ledger: {
+      addedDate: "2024-01-01",
+      keep: { reason: "temp", until: "2099-01-01" },
+    },
+  };
+  expect(isKeepExpired(item, "lodash", {})).toBe(false);
+});
+
+test("isKeepExpired - returns true when dep version meets untilVersion", () => {
+  const item: AppendixItem = {
+    ledger: {
+      addedDate: "2024-01-01",
+      keep: { reason: "patch pending", untilVersion: "4.18.0" },
+    },
+  };
+  const rootDeps = { lodash: "^4.18.0" };
+  expect(isKeepExpired(item, "lodash", rootDeps)).toBe(true);
+});
+
+test("isKeepExpired - returns false when dep version is below untilVersion", () => {
+  const item: AppendixItem = {
+    ledger: {
+      addedDate: "2024-01-01",
+      keep: { reason: "patch pending", untilVersion: "4.18.0" },
+    },
+  };
+  const rootDeps = { lodash: "^4.17.21" };
+  expect(isKeepExpired(item, "lodash", rootDeps)).toBe(false);
+});
+
+test("isKeepExpired - returns false when dep is missing from rootDeps", () => {
+  const item: AppendixItem = {
+    ledger: {
+      addedDate: "2024-01-01",
+      keep: { reason: "patch pending", untilVersion: "4.18.0" },
+    },
+  };
+  expect(isKeepExpired(item, "lodash", {})).toBe(false);
+});
+
+test("findUnusedAppendixEntries - skips entries with KeepConstraint object", () => {
+  const appendix: Appendix = {
+    "lodash@4.17.21": {
+      dependents: { root: "lodash (unused override)" },
+      ledger: {
+        addedDate: "2024-01-01",
+        keep: { reason: "awaiting upstream fix" },
+      },
+    },
+  };
+
+  const result = findUnusedAppendixEntries(appendix);
+  expect(result).not.toContain("lodash@4.17.21");
+});
+
+test("toCompactAppendix - preserves full ledger for KeepConstraint entries", () => {
+  const appendix: Appendix = {
+    "lodash@4.17.21": {
+      dependents: { root: "root@1.0.0" },
+      ledger: {
+        addedDate: "2024-01-01",
+        keep: { reason: "awaiting upstream fix", untilVersion: "4.18.0" },
+      },
+    },
+  };
+
+  const result = toCompactAppendix(appendix);
+  expect(result["lodash@4.17.21"]).toHaveProperty("ledger");
 });

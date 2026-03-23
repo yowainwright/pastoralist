@@ -344,7 +344,7 @@ test("update - includes security override details in appendix", () => {
       {
         packageName: "lodash",
         reason: "Security vulnerability CVE-2021-23337",
-        cve: "CVE-2021-23337",
+        cves: ["CVE-2021-23337"],
         severity: "high",
       },
     ],
@@ -1559,4 +1559,169 @@ test("update - stepRemoveUnused handles scoped packages", () => {
 
   expect(result.finalOverrides?.["@babel/core"]).toBeUndefined();
   expect(result.finalOverrides?.lodash).toBe("4.17.21");
+});
+
+test("update - stepRemoveUnused respects keep: true, does not remove kept overrides", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    overrides: { lodash: "4.17.21", "kept-pkg": "2.0.0" },
+    pastoralist: {
+      appendix: {
+        "kept-pkg@2.0.0": {
+          dependents: { root: "kept-pkg (unused override)" },
+          ledger: {
+            addedDate: "2024-01-01",
+            keep: true,
+            cves: ["CVE-2024-1234"],
+          },
+        },
+      },
+    },
+  };
+
+  const options: Options = {
+    config,
+    isTesting: true,
+    removeUnused: true,
+  };
+
+  const result = update(options);
+
+  expect(result.finalOverrides?.["kept-pkg"]).toBe("2.0.0");
+  expect(result.finalAppendix?.["kept-pkg@2.0.0"]).toBeDefined();
+});
+
+test("update - stepUpdateKeptOverrides populates potentiallyFixedIn from matching alert", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { "some-pkg": "^1.0.0" },
+    overrides: { "some-pkg": "1.0.0" },
+    pastoralist: {
+      appendix: {
+        "some-pkg@1.0.0": {
+          dependents: { root: "some-pkg@^1.0.0" },
+          ledger: {
+            addedDate: "2024-01-01",
+            keep: true,
+            cves: ["CVE-2024-9999"],
+          },
+        },
+      },
+    },
+  };
+
+  const options: Options = {
+    config,
+    isTesting: true,
+    securityAlerts: [
+      {
+        packageName: "some-pkg",
+        currentVersion: "1.0.0",
+        vulnerableVersions: "< 2.0.0",
+        patchedVersion: "2.0.0",
+        severity: "high",
+        title: "Test vuln",
+        cves: ["CVE-2024-9999"],
+        fixAvailable: true,
+      },
+    ],
+  };
+
+  const result = update(options);
+
+  expect(result.appendix?.["some-pkg@1.0.0"]?.ledger?.potentiallyFixedIn).toBe(
+    "2.0.0",
+  );
+});
+
+test("update - stepUpdateKeptOverrides clears potentiallyFixedIn when no matching alert", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { "some-pkg": "^1.0.0" },
+    overrides: { "some-pkg": "1.0.0" },
+    pastoralist: {
+      appendix: {
+        "some-pkg@1.0.0": {
+          dependents: { root: "some-pkg@^1.0.0" },
+          ledger: {
+            addedDate: "2024-01-01",
+            keep: true,
+            cves: ["CVE-2024-9999"],
+            potentiallyFixedIn: "2.0.0",
+          },
+        },
+      },
+    },
+  };
+
+  const options: Options = {
+    config,
+    isTesting: true,
+    securityAlerts: [],
+  };
+
+  const result = update(options);
+
+  expect(
+    result.appendix?.["some-pkg@1.0.0"]?.ledger?.potentiallyFixedIn,
+  ).toBeUndefined();
+});
+
+test("update - stepRemoveUnused respects skipRemovalKeys, keeps blocked overrides", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: {},
+    overrides: { "removable-fake-pkg": "1.0.0", "blocked-fake-pkg": "2.0.0" },
+  };
+
+  const options: Options = {
+    config,
+    isTesting: true,
+    removeUnused: true,
+    skipRemovalKeys: ["blocked-fake-pkg@2.0.0"],
+  };
+
+  const result = update(options);
+
+  expect(result.finalOverrides?.["removable-fake-pkg"]).toBeUndefined();
+  expect(result.finalOverrides?.["blocked-fake-pkg"]).toBe("2.0.0");
+  expect(result.finalAppendix?.["removable-fake-pkg@1.0.0"]).toBeUndefined();
+  expect(result.finalAppendix?.["blocked-fake-pkg@2.0.0"]).toBeDefined();
+});
+
+test("update - stepRemoveUnused respects keep: KeepConstraint, does not remove kept overrides", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    overrides: { lodash: "4.17.21", "kept-constraint-pkg": "2.0.0" },
+    pastoralist: {
+      appendix: {
+        "kept-constraint-pkg@2.0.0": {
+          dependents: { root: "kept-constraint-pkg (unused override)" },
+          ledger: {
+            addedDate: "2024-01-01",
+            keep: { reason: "awaiting upstream fix", untilVersion: "3.0.0" },
+            cves: ["CVE-2024-5678"],
+          },
+        },
+      },
+    },
+  };
+
+  const options: Options = {
+    config,
+    isTesting: true,
+    removeUnused: true,
+  };
+
+  const result = update(options);
+
+  expect(result.finalOverrides?.["kept-constraint-pkg"]).toBe("2.0.0");
+  expect(result.finalAppendix?.["kept-constraint-pkg@2.0.0"]).toBeDefined();
 });

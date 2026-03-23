@@ -64,7 +64,7 @@ test("Alert Conversion - should convert Socket issue to SecurityAlert", () => {
   expect(alert.currentVersion).toBe("1.0.0");
   expect(alert.severity).toBe("high");
   expect(alert.title).toBe("Test Vulnerability");
-  expect(alert.cve).toBe("CVE-2024-12345");
+  expect(alert.cves?.[0]).toBe("CVE-2024-12345");
   expect(alert.fixAvailable).toBe(false);
 });
 
@@ -86,7 +86,7 @@ test("Alert Conversion - should handle non-CVE issues", () => {
 
   expect(alert.packageName).toBe("test-package");
   expect(alert.vulnerableVersions).toBe("");
-  expect(alert.cve).toBeUndefined();
+  expect(alert.cves).toBeUndefined();
 });
 
 test("Alert Conversion - should set vulnerableVersions for CVE issues", () => {

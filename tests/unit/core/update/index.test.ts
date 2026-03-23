@@ -1725,3 +1725,73 @@ test("update - stepRemoveUnused respects keep: KeepConstraint, does not remove k
   expect(result.finalOverrides?.["kept-constraint-pkg"]).toBe("2.0.0");
   expect(result.finalAppendix?.["kept-constraint-pkg@2.0.0"]).toBeDefined();
 });
+
+test("update - stepRemoveUnused warns when removing overrides with tracked CVEs", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: {},
+    overrides: { "vuln-pkg": "1.2.3" },
+    pastoralist: {
+      appendix: {
+        "vuln-pkg@1.2.3": {
+          dependents: { root: "vuln-pkg (unused override)" },
+          ledger: {
+            addedDate: "2024-01-01",
+            cves: ["CVE-2024-0001"],
+          },
+        },
+      },
+    },
+  };
+
+  const options: Options = { config, isTesting: true, removeUnused: true };
+  const result = update(options);
+
+  expect(result.finalOverrides?.["vuln-pkg"]).toBeUndefined();
+  expect(result.finalAppendix?.["vuln-pkg@1.2.3"]).toBeUndefined();
+});
+
+test("update - stepUpdateKeptOverrides handles keep: KeepConstraint entries", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { "some-pkg": "^1.0.0" },
+    overrides: { "some-pkg": "1.0.0" },
+    pastoralist: {
+      appendix: {
+        "some-pkg@1.0.0": {
+          dependents: { root: "some-pkg@^1.0.0" },
+          ledger: {
+            addedDate: "2024-01-01",
+            keep: { reason: "awaiting upstream fix" },
+            cves: ["CVE-2024-9999"],
+          },
+        },
+      },
+    },
+  };
+
+  const options: Options = {
+    config,
+    isTesting: true,
+    securityAlerts: [
+      {
+        packageName: "some-pkg",
+        currentVersion: "1.0.0",
+        vulnerableVersions: "< 2.0.0",
+        patchedVersion: "2.0.0",
+        severity: "high",
+        title: "Test vuln",
+        cves: ["CVE-2024-9999"],
+        fixAvailable: true,
+      },
+    ],
+  };
+
+  const result = update(options);
+
+  expect(result.appendix?.["some-pkg@1.0.0"]?.ledger?.potentiallyFixedIn).toBe(
+    "2.0.0",
+  );
+});

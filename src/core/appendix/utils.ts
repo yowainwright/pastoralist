@@ -357,7 +357,9 @@ const hasPatches = (item: AppendixItem): boolean => {
 
 export const isKeptEntry = (item: AppendixItem): boolean => {
   const keep = item.ledger?.keep;
-  return keep === true || (typeof keep === "object" && keep !== null);
+  const keepIsObject = typeof keep === "object";
+  const isConstraintObject = keepIsObject && keep !== null;
+  return keep === true || isConstraintObject;
 };
 
 export const isKeepExpired = (
@@ -368,18 +370,19 @@ export const isKeepExpired = (
   const keep = item.ledger?.keep;
   if (!keep || keep === true) return false;
 
-  const isExpiredByDate = Boolean(
-    keep.until && new Date() >= new Date(keep.until),
-  );
+  const now = new Date();
+  const keepUntilDate = keep.until ? new Date(keep.until) : null;
+  const isExpiredByDate = keepUntilDate ? now >= keepUntilDate : false;
   if (isExpiredByDate) return true;
 
   if (keep.untilVersion) {
     const rawVersion = rootDeps[pkgName];
     const depVersion = rawVersion?.replace(/^[\^~]/, "");
-    const hasNewerVersion = Boolean(
-      depVersion && compareVersions(depVersion, keep.untilVersion) >= 0,
-    );
-    if (hasNewerVersion) return true;
+    const comparison = depVersion
+      ? compareVersions(depVersion, keep.untilVersion)
+      : -1;
+    const isVersionExpired = comparison >= 0;
+    if (isVersionExpired) return true;
   }
 
   return false;
@@ -420,7 +423,8 @@ const isUnusedEntry = (
 ): boolean => {
   const isKept = isKeptEntry(item);
   const isExpired = isKept && isKeepExpired(item, pkgName, rootDeps);
-  if (isKept && !isExpired) return false;
+  const isProtected = isKept && !isExpired;
+  if (isProtected) return false;
 
   const dependents = item?.dependents;
   if (!dependents) return false;

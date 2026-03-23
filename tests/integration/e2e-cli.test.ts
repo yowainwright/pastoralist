@@ -462,7 +462,7 @@ test("e2e: full scan pipeline — mocked OSV fetch populates vulnerableRange and
 
   const originalFetch = global.fetch;
   global.fetch = mock((url: string) => {
-    if ((url as string).includes("registry.npmjs.org")) {
+    if (new URL(url).hostname === "registry.npmjs.org") {
       return Promise.resolve({
         ok: true,
         json: () => Promise.resolve(mockNpmResponse),

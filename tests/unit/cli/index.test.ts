@@ -154,7 +154,7 @@ test("buildSecurityOverrideDetail - builds complete detail object", () => {
   const override = {
     packageName: "lodash",
     reason: "Security vulnerability",
-    cve: "CVE-2021-23337",
+    cves: ["CVE-2021-23337"],
     severity: "high",
     description: "Prototype pollution vulnerability",
     url: "https://nvd.nist.gov/vuln/detail/CVE-2021-23337",
@@ -164,7 +164,7 @@ test("buildSecurityOverrideDetail - builds complete detail object", () => {
 
   expect(result.packageName).toBe("lodash");
   expect(result.reason).toBe("Security vulnerability");
-  expect(result.cve).toBe("CVE-2021-23337");
+  expect(result.cves?.[0]).toBe("CVE-2021-23337");
   expect(result.severity).toBe("high");
   expect(result.description).toBe("Prototype pollution vulnerability");
   expect(result.url).toBe("https://nvd.nist.gov/vuln/detail/CVE-2021-23337");
@@ -182,7 +182,7 @@ test("buildSecurityOverrideDetail - excludes missing optional fields", () => {
 
   expect(result.packageName).toBe("express");
   expect(result.reason).toBe("Security fix");
-  expect(result.cve).toBeUndefined();
+  expect(result.cves).toBeUndefined();
   expect(result.severity).toBeUndefined();
   expect(result.description).toBeUndefined();
   expect(result.url).toBeUndefined();
@@ -194,7 +194,7 @@ test("buildSecurityOverrideDetail - includes only present optional fields", () =
   const override = {
     packageName: "react",
     reason: "Security update",
-    cve: "CVE-2024-1234",
+    cves: ["CVE-2024-1234"],
     severity: "medium",
   };
 
@@ -202,7 +202,7 @@ test("buildSecurityOverrideDetail - includes only present optional fields", () =
 
   expect(result.packageName).toBe("react");
   expect(result.reason).toBe("Security update");
-  expect(result.cve).toBe("CVE-2024-1234");
+  expect(result.cves?.[0]).toBe("CVE-2024-1234");
   expect(result.severity).toBe("medium");
   expect(result.description).toBeUndefined();
   expect(result.url).toBeUndefined();
@@ -304,7 +304,7 @@ test("handleSecurityResults - generates overrides when alerts found", () => {
       packageName: "lodash",
       severity: "high",
       title: "Prototype Pollution",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
     },
   ];
 
@@ -365,7 +365,7 @@ test("handleSecurityResults - generates overrides in interactive mode", () => {
       fromVersion: "4.17.0",
       toVersion: "4.18.2",
       reason: "Security fix",
-      cve: "CVE-2024-1234",
+      cves: ["CVE-2024-1234"],
       severity: "medium",
     },
   ];
@@ -401,7 +401,7 @@ test("handleSecurityResults - generates overrides in interactive mode", () => {
   expect(result.securityOverrideDetails).toBeDefined();
   expect(result.securityOverrideDetails?.length).toBe(1);
   expect(result.securityOverrideDetails?.[0].packageName).toBe("express");
-  expect(result.securityOverrideDetails?.[0].cve).toBe("CVE-2024-1234");
+  expect(result.securityOverrideDetails?.[0].cves?.[0]).toBe("CVE-2024-1234");
   expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
 });
 
@@ -849,20 +849,24 @@ test("buildSecurityOverrideDetail - handles all fields", () => {
     fromVersion: "17.0.0",
     toVersion: "18.2.0",
     reason: "Critical security update",
-    cve: "CVE-2024-5678",
+    cves: ["CVE-2024-5678"],
     severity: "critical",
     description: "XSS vulnerability in React",
     url: "https://github.com/advisories/GHSA-test",
+    vulnerableRange: ">= 0 < 18.2.0",
+    patchedVersion: "18.2.0",
   };
 
   const result = buildSecurityOverrideDetail(override);
 
   expect(result.packageName).toBe("react");
   expect(result.reason).toBe("Critical security update");
-  expect(result.cve).toBe("CVE-2024-5678");
+  expect(result.cves?.[0]).toBe("CVE-2024-5678");
   expect(result.severity).toBe("critical");
   expect(result.description).toBe("XSS vulnerability in React");
   expect(result.url).toBe("https://github.com/advisories/GHSA-test");
+  expect(result.vulnerableRange).toBe(">= 0 < 18.2.0");
+  expect(result.patchedVersion).toBe("18.2.0");
 });
 
 test("handleSecurityResults - does not generate overrides when no alerts and no autofix", () => {
@@ -1105,7 +1109,7 @@ test("handleSecurityResults - both alerts and updates with interactive mode", ()
       toVersion: "4.17.21",
       reason: "Security fix",
       severity: "high",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
     },
   ];
 
@@ -1228,7 +1232,7 @@ test("buildSecurityOverrideDetail - handles only packageName and reason", () => 
 
   expect(result.packageName).toBe("minimal-pkg");
   expect(result.reason).toBe("Update required");
-  expect(result.cve).toBeUndefined();
+  expect(result.cves).toBeUndefined();
   expect(result.severity).toBeUndefined();
   expect(result.description).toBeUndefined();
   expect(result.url).toBeUndefined();
@@ -2532,7 +2536,7 @@ test("displayOverrides - renders override info from context", () => {
         dependents: { "test-pkg": "lodash@^4.17.0" },
         ledger: {
           securityChecked: true,
-          cve: "CVE-2021-23337",
+          cves: ["CVE-2021-23337"],
           reason: "Security fix",
         },
       },
@@ -2615,7 +2619,7 @@ test("action - displays security fixes when forceSecurityRefactor is true", asyn
       fromVersion: "4.17.20",
       toVersion: "4.17.21",
       reason: "Security fix",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
       severity: "high",
     },
   ];
@@ -3080,7 +3084,7 @@ test("handleSecurityResults - does not mutate mergedOptions", () => {
       packageName: "lodash",
       severity: "high",
       title: "Prototype Pollution",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
     },
   ];
 
@@ -3118,4 +3122,108 @@ test("handleSecurityResults - does not mutate mergedOptions", () => {
   );
 
   expect(mergedOptions).toEqual(optionsSnapshot);
+});
+
+test("checkRemovalSafety - returns empty array when no unused entries", async () => {
+  const { checkRemovalSafety } = require("../../../src/cli/index");
+
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    pastoralist: { appendix: {} },
+  };
+
+  const mockSecurityChecker = {
+    checkSecurity: mock(async () => ({
+      alerts: [],
+      overrides: [],
+      updates: [],
+      packagesScanned: 0,
+    })),
+  };
+
+  const result = await checkRemovalSafety(
+    config,
+    mockSecurityChecker as any,
+    {},
+  );
+
+  expect(result).toEqual([]);
+  expect(mockSecurityChecker.checkSecurity).not.toHaveBeenCalled();
+});
+
+test("checkRemovalSafety - returns keys for packages still vulnerable at declared versions", async () => {
+  const { checkRemovalSafety } = require("../../../src/cli/index");
+
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20", safe: "^2.0.0" },
+    overrides: { lodash: "4.17.21", safe: "2.1.0" },
+    pastoralist: {
+      appendix: {
+        "lodash@4.17.21": { dependents: { root: "lodash (unused override)" } },
+        "safe@2.1.0": { dependents: { root: "safe (unused override)" } },
+      },
+    },
+  };
+
+  const mockSecurityChecker = {
+    checkSecurity: mock(async () => ({
+      alerts: [
+        { packageName: "lodash", severity: "high", currentVersion: "4.17.20" },
+      ],
+      overrides: [],
+      updates: [],
+      packagesScanned: 1,
+    })),
+  };
+
+  const result = await checkRemovalSafety(config, mockSecurityChecker as any, {
+    root: "./",
+  });
+
+  expect(result).toEqual(["lodash@4.17.21"]);
+  expect(mockSecurityChecker.checkSecurity).toHaveBeenCalledWith(
+    {
+      name: "test-app",
+      version: "1.0.0",
+      dependencies: { lodash: "^4.17.20", safe: "^2.0.0" },
+    },
+    { root: "./" },
+  );
+});
+
+test("checkRemovalSafety - returns empty array when re-scan finds no vulnerabilities", async () => {
+  const { checkRemovalSafety } = require("../../../src/cli/index");
+
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    overrides: { lodash: "4.17.21" },
+    pastoralist: {
+      appendix: {
+        "lodash@4.17.21": { dependents: { root: "lodash (unused override)" } },
+      },
+    },
+  };
+
+  const mockSecurityChecker = {
+    checkSecurity: mock(async () => ({
+      alerts: [],
+      overrides: [],
+      updates: [],
+      packagesScanned: 1,
+    })),
+  };
+
+  const result = await checkRemovalSafety(
+    config,
+    mockSecurityChecker as any,
+    {},
+  );
+
+  expect(result).toEqual([]);
 });

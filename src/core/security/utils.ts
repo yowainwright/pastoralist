@@ -27,14 +27,21 @@ export const getSeverityScore = (severity: string): number => {
 
 export const deduplicateAlerts = (alerts: SecurityAlert[]): SecurityAlert[] => {
   const seen = alerts.reduce((map, alert) => {
-    const key = `${alert.packageName}@${alert.currentVersion}:${alert.cve || alert.title}`;
+    const key = `${alert.packageName}@${alert.currentVersion}:${alert.cves?.[0] || alert.title}`;
     const existing = map.get(key);
     const shouldReplace =
       !existing ||
       getSeverityScore(alert.severity) > getSeverityScore(existing.severity);
 
     if (shouldReplace) {
-      map.set(key, alert);
+      const mergedCves = existing
+        ? [...new Set([...(existing.cves || []), ...(alert.cves || [])])]
+        : alert.cves;
+      const merged =
+        mergedCves && mergedCves.length > 0
+          ? { ...alert, cves: mergedCves }
+          : alert;
+      map.set(key, merged);
     }
 
     return map;
@@ -411,8 +418,8 @@ export class InteractiveSecurityManager {
       console.log(`\n${override.packageName}`);
       console.log(`   Current: ${override.fromVersion}`);
       console.log(`   ${this.getSeverityEmoji(vuln.severity)} ${vuln.title}`);
-      if (vuln.cve) {
-        console.log(`   CVE: ${vuln.cve}`);
+      if (vuln.cves && vuln.cves.length > 0) {
+        console.log(`   CVE: ${vuln.cves.join(", ")}`);
       }
 
       const action = await this.prompts.select(

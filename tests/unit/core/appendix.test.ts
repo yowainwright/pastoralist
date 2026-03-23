@@ -142,7 +142,7 @@ test("updateAppendix - should handle security override details", () => {
       {
         packageName: "lodash",
         reason: "CVE-2021-23337",
-        cve: "CVE-2021-23337",
+        cves: ["CVE-2021-23337"],
         severity: "high",
       },
     ],

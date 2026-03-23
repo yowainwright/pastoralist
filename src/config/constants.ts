@@ -10,6 +10,13 @@ export type SecurityProvider = "osv" | "github" | "snyk" | "npm" | "socket";
 export type SecurityProviders = SecurityProvider | SecurityProvider[];
 export type SeverityThreshold = "low" | "medium" | "high" | "critical";
 
+export type KeepConstraint = {
+  reason: string;
+  until?: string;
+  untilVersion?: string;
+  reviewBy?: string;
+};
+
 export type AppendixItem = {
   rootDeps?: string[];
   dependents?: Record<string, string>;
@@ -19,7 +26,19 @@ export type AppendixItem = {
     reason?: string;
     securityChecked?: boolean;
     securityCheckDate?: string;
+    securityCheckResult?: "clean" | "error" | "skipped";
     securityProvider?: SecurityProvider;
+    cves?: string[];
+    severity?: "low" | "medium" | "high" | "critical";
+    description?: string;
+    url?: string;
+    vulnerableRange?: string;
+    patchedVersion?: string;
+    keep?: boolean | KeepConstraint;
+    potentiallyFixedIn?: string;
+    resolvedAt?: string;
+    resolvedBy?: "upgrade" | "not-applicable" | "disputed";
+    resolvedVersion?: string;
   };
 };
 
@@ -116,6 +135,59 @@ const validateLedger = (value: unknown): boolean => {
     "securityProvider" in value &&
     value.securityProvider !== undefined &&
     !isSecurityProvider(value.securityProvider)
+  )
+    return false;
+  if ("cves" in value && value.cves !== undefined && !isStringArray(value.cves))
+    return false;
+  if ("keep" in value && value.keep !== undefined) {
+    const isValidKeep =
+      isBoolean(value.keep) ||
+      (isObject(value.keep) &&
+        isString((value.keep as Record<string, unknown>).reason));
+    if (!isValidKeep) return false;
+  }
+  if (
+    "potentiallyFixedIn" in value &&
+    value.potentiallyFixedIn !== undefined &&
+    !isString(value.potentiallyFixedIn)
+  )
+    return false;
+  if (
+    "vulnerableRange" in value &&
+    value.vulnerableRange !== undefined &&
+    !isString(value.vulnerableRange)
+  )
+    return false;
+  if (
+    "patchedVersion" in value &&
+    value.patchedVersion !== undefined &&
+    !isString(value.patchedVersion)
+  )
+    return false;
+  if (
+    "securityCheckResult" in value &&
+    value.securityCheckResult !== undefined &&
+    !["clean", "error", "skipped"].includes(value.securityCheckResult as string)
+  )
+    return false;
+  if (
+    "resolvedAt" in value &&
+    value.resolvedAt !== undefined &&
+    !isString(value.resolvedAt)
+  )
+    return false;
+  if (
+    "resolvedBy" in value &&
+    value.resolvedBy !== undefined &&
+    !["upgrade", "not-applicable", "disputed"].includes(
+      value.resolvedBy as string,
+    )
+  )
+    return false;
+  if (
+    "resolvedVersion" in value &&
+    value.resolvedVersion !== undefined &&
+    !isString(value.resolvedVersion)
   )
     return false;
 

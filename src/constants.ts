@@ -170,7 +170,7 @@ export const TEST_FIXTURES = {
     severity: "critical" as const,
     title:
       "Critical vulnerability in fake-pastoralist-check-2 (transitive from fake-pastoralist-check-1)",
-    cve: "CVE-FAKE-PASTORALIST-2024-0001",
+    cves: ["CVE-FAKE-PASTORALIST-2024-0001"] as string[],
     fixAvailable: true,
     description:
       "Fake critical security vulnerability in fake-pastoralist-check-2. Used by fake-pastoralist-check-1@1.0.0.",
@@ -184,7 +184,7 @@ export const TEST_FIXTURES = {
     severity: "high" as const,
     title:
       "High severity issue in fake-pastoralist-check-4 with no patch available",
-    cve: "CVE-FAKE-PASTORALIST-2024-0002",
+    cves: ["CVE-FAKE-PASTORALIST-2024-0002"] as string[],
     fixAvailable: false,
     description:
       "Fake high severity vulnerability with no available patch for testing alert capture functionality.",

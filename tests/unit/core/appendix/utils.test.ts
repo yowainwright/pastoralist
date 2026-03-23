@@ -678,6 +678,36 @@ test("findUnusedAppendixEntries - skips entries with KeepConstraint object", () 
   expect(result).not.toContain("lodash@4.17.21");
 });
 
+test("findUnusedAppendixEntries - includes expired KeepConstraint entries", () => {
+  const appendix: Appendix = {
+    "lodash@4.17.21": {
+      dependents: { root: "lodash (unused override)" },
+      ledger: {
+        addedDate: "2024-01-01",
+        keep: { reason: "expired keep", until: "2020-01-01" },
+      },
+    },
+  };
+
+  const result = findUnusedAppendixEntries(appendix);
+  expect(result).toContain("lodash@4.17.21");
+});
+
+test("findUnusedAppendixEntries - includes version-expired KeepConstraint entries", () => {
+  const appendix: Appendix = {
+    "lodash@4.17.21": {
+      dependents: { root: "lodash (unused override)" },
+      ledger: {
+        addedDate: "2024-01-01",
+        keep: { reason: "version-bounded keep", untilVersion: "4.18.0" },
+      },
+    },
+  };
+
+  const result = findUnusedAppendixEntries(appendix, { lodash: "^4.18.0" });
+  expect(result).toContain("lodash@4.17.21");
+});
+
 test("toCompactAppendix - preserves full ledger for KeepConstraint entries", () => {
   const appendix: Appendix = {
     "lodash@4.17.21": {

@@ -140,26 +140,31 @@ export const buildMergedOptions = (
   };
 };
 
+type OptionalDetail = Omit<SecurityOverrideDetail, "packageName" | "reason">;
+
 export const buildSecurityOverrideDetail = (
   override: SecurityOverride,
 ): SecurityOverrideDetail => {
-  const detail: SecurityOverrideDetail = {
+  const optionalEntries: [keyof OptionalDetail, unknown][] = [
+    ["cves", override.cves?.length ? override.cves : undefined],
+    ["severity", override.severity],
+    ["description", override.description],
+    ["url", override.url],
+    ["vulnerableRange", override.vulnerableRange],
+    ["patchedVersion", override.patchedVersion],
+  ];
+
+  const optionalFields = optionalEntries
+    .filter(([, value]) => value !== undefined)
+    .reduce<
+      Partial<OptionalDetail>
+    >((acc, [key, value]) => ({ ...acc, [key]: value }), {});
+
+  return {
     packageName: override.packageName,
     reason: override.reason,
+    ...optionalFields,
   };
-  if (override.cves?.length) detail.cves = override.cves;
-  if (override.severity)
-    detail.severity = override.severity as
-      | "low"
-      | "medium"
-      | "high"
-      | "critical";
-  if (override.description) detail.description = override.description;
-  if (override.url) detail.url = override.url;
-  if (override.vulnerableRange)
-    detail.vulnerableRange = override.vulnerableRange;
-  if (override.patchedVersion) detail.patchedVersion = override.patchedVersion;
-  return detail;
 };
 
 export const runSecurityCheck = async (
@@ -599,10 +604,12 @@ export const checkRemovalSafety = async (
 
   const vulnerablePackageNames = new Set(alerts.map((a) => a.packageName));
   return unusedKeys.filter((key) => {
-    const pkgName = extractPackageNames([key])[0];
+    const [pkgName] = extractPackageNames([key]);
     return vulnerablePackageNames.has(pkgName);
   });
 };
+
+const pluralSuffix = (count: number): string => (count === 1 ? "" : "s");
 
 export async function action(
   options: Options = {},
@@ -818,9 +825,8 @@ export async function action(
 
       const overrideCount = updateResultData.overrideCount;
       const hasOverrides = overrideCount > 0;
-      const plural = overrideCount === 1 ? "" : "s";
       const overrideMsg = hasOverrides
-        ? `${overrideCount} override${plural} applied`
+        ? `${overrideCount} override${pluralSuffix(overrideCount)} applied`
         : "No overrides to update";
       graph.endPhase(overrideMsg);
 
@@ -866,9 +872,8 @@ export async function action(
       const hasBlockedRemovals = blockedKeys.length > 0;
       if (hasBlockedRemovals) {
         const count = blockedKeys.length;
-        const plural = count === 1 ? "" : "s";
         graph.notice(
-          `${count} override${plural} kept: still vulnerable at declared versions - ${blockedKeys.join(", ")}`,
+          `${count} override${pluralSuffix(count)} kept: still vulnerable at declared versions - ${blockedKeys.join(", ")}`,
         );
       }
 
@@ -879,9 +884,8 @@ export async function action(
       const shouldSuggestRemoval = hasUnusedOverrides && didNotRemoveUnused;
       if (shouldSuggestRemoval) {
         const count = unusedEntries.length;
-        const plural = count === 1 ? "" : "s";
         graph.notice(
-          `${count} unused override${plural} detected. Run with --remove-unused to clean up.`,
+          `${count} unused override${pluralSuffix(count)} detected. Run with --remove-unused to clean up.`,
         );
       }
     }

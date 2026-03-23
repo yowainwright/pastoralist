@@ -104,91 +104,89 @@ const isRecord = (value: unknown): value is Record<string, unknown> => {
   return isObject(value);
 };
 
+const isFieldValid = (
+  value: Record<string, unknown>,
+  field: string,
+  validator: (v: unknown) => boolean,
+): boolean => {
+  const fieldPresent = field in value && value[field] !== undefined;
+  return !fieldPresent || validator(value[field]);
+};
+
+const isValidKeepObject = (v: unknown): boolean => {
+  const isObj = isObject(v);
+  const reason = isObj ? (v as Record<string, unknown>).reason : undefined;
+  return isObj && isString(reason);
+};
+
+const isValidKeep = (v: unknown): boolean =>
+  isBoolean(v) || isValidKeepObject(v);
+
+const isSecurityCheckResult = (v: unknown): boolean =>
+  ["clean", "error", "skipped"].includes(v as string);
+
+const isResolvedBy = (v: unknown): boolean =>
+  ["upgrade", "not-applicable", "disputed"].includes(v as string);
+
 const validateLedger = (value: unknown): boolean => {
   if (!isObject(value)) return false;
 
   const hasAddedDate = "addedDate" in value && isString(value.addedDate);
   if (!hasAddedDate) return false;
 
-  if (
-    "reason" in value &&
-    value.reason !== undefined &&
-    !isString(value.reason)
-  )
-    return false;
-  if (
-    "securityChecked" in value &&
-    value.securityChecked !== undefined &&
-    !isBoolean(value.securityChecked)
-  )
-    return false;
-  if (
-    "securityCheckDate" in value &&
-    value.securityCheckDate !== undefined &&
-    !isString(value.securityCheckDate)
-  )
-    return false;
-  if (
-    "securityProvider" in value &&
-    value.securityProvider !== undefined &&
-    !isSecurityProvider(value.securityProvider)
-  )
-    return false;
-  if ("cves" in value && value.cves !== undefined && !isStringArray(value.cves))
-    return false;
-  if ("keep" in value && value.keep !== undefined) {
-    const isValidKeep =
-      isBoolean(value.keep) ||
-      (isObject(value.keep) &&
-        isString((value.keep as Record<string, unknown>).reason));
-    if (!isValidKeep) return false;
-  }
-  if (
-    "potentiallyFixedIn" in value &&
-    value.potentiallyFixedIn !== undefined &&
-    !isString(value.potentiallyFixedIn)
-  )
-    return false;
-  if (
-    "vulnerableRange" in value &&
-    value.vulnerableRange !== undefined &&
-    !isString(value.vulnerableRange)
-  )
-    return false;
-  if (
-    "patchedVersion" in value &&
-    value.patchedVersion !== undefined &&
-    !isString(value.patchedVersion)
-  )
-    return false;
-  if (
-    "securityCheckResult" in value &&
-    value.securityCheckResult !== undefined &&
-    !["clean", "error", "skipped"].includes(value.securityCheckResult as string)
-  )
-    return false;
-  if (
-    "resolvedAt" in value &&
-    value.resolvedAt !== undefined &&
-    !isString(value.resolvedAt)
-  )
-    return false;
-  if (
-    "resolvedBy" in value &&
-    value.resolvedBy !== undefined &&
-    !["upgrade", "not-applicable", "disputed"].includes(
-      value.resolvedBy as string,
-    )
-  )
-    return false;
-  if (
-    "resolvedVersion" in value &&
-    value.resolvedVersion !== undefined &&
-    !isString(value.resolvedVersion)
-  )
-    return false;
+  const reasonValid = isFieldValid(value, "reason", isString);
+  if (!reasonValid) return false;
 
-  return true;
+  const securityCheckedValid = isFieldValid(
+    value,
+    "securityChecked",
+    isBoolean,
+  );
+  const securityCheckDateValid = isFieldValid(
+    value,
+    "securityCheckDate",
+    isString,
+  );
+  const securityDatesValid = securityCheckedValid && securityCheckDateValid;
+  if (!securityDatesValid) return false;
+
+  const securityProviderValid = isFieldValid(
+    value,
+    "securityProvider",
+    isSecurityProvider,
+  );
+  const securityCheckResultValid = isFieldValid(
+    value,
+    "securityCheckResult",
+    isSecurityCheckResult,
+  );
+  const securitySourceValid = securityProviderValid && securityCheckResultValid;
+  if (!securitySourceValid) return false;
+
+  const cvesValid = isFieldValid(value, "cves", isStringArray);
+  if (!cvesValid) return false;
+
+  const vulnerableRangeValid = isFieldValid(value, "vulnerableRange", isString);
+  const patchedVersionValid = isFieldValid(value, "patchedVersion", isString);
+  const vulnerabilityDetailsValid = vulnerableRangeValid && patchedVersionValid;
+  if (!vulnerabilityDetailsValid) return false;
+
+  const keepValid = isFieldValid(value, "keep", isValidKeep);
+  const potentiallyFixedInValid = isFieldValid(
+    value,
+    "potentiallyFixedIn",
+    isString,
+  );
+  const overrideControlValid = keepValid && potentiallyFixedInValid;
+  if (!overrideControlValid) return false;
+
+  const resolvedAtValid = isFieldValid(value, "resolvedAt", isString);
+  const resolvedByValid = isFieldValid(value, "resolvedBy", isResolvedBy);
+  const resolutionSourceValid = resolvedAtValid && resolvedByValid;
+  if (!resolutionSourceValid) return false;
+
+  const resolvedVersionValid = isFieldValid(value, "resolvedVersion", isString);
+  return resolvedVersionValid;
 };
 
 const validateAppendixItem = (value: unknown): boolean => {

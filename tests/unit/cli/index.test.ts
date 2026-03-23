@@ -3227,3 +3227,71 @@ test("checkRemovalSafety - returns empty array when re-scan finds no vulnerabili
 
   expect(result).toEqual([]);
 });
+
+test("checkRemovalSafety - returns empty when unused packages not in any deps", async () => {
+  const { checkRemovalSafety } = require("../../../src/cli/index");
+
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    pastoralist: {
+      appendix: {
+        "orphan-pkg@1.0.0": {
+          dependents: { root: "orphan-pkg (unused override)" },
+        },
+      },
+    },
+  };
+
+  const mockSecurityChecker = {
+    checkSecurity: mock(async () => ({
+      alerts: [],
+      overrides: [],
+      updates: [],
+      packagesScanned: 0,
+    })),
+  };
+
+  const result = await checkRemovalSafety(
+    config,
+    mockSecurityChecker as any,
+    {},
+  );
+
+  expect(result).toEqual([]);
+  expect(mockSecurityChecker.checkSecurity).not.toHaveBeenCalled();
+});
+
+test("checkRemovalSafety - finds packages in devDependencies", async () => {
+  const { checkRemovalSafety } = require("../../../src/cli/index");
+
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    devDependencies: { "dev-pkg": "^1.0.0" },
+    pastoralist: {
+      appendix: {
+        "dev-pkg@1.0.0": { dependents: { root: "dev-pkg (unused override)" } },
+      },
+    },
+  };
+
+  const mockSecurityChecker = {
+    checkSecurity: mock(async () => ({
+      alerts: [
+        { packageName: "dev-pkg", severity: "high", currentVersion: "1.0.0" },
+      ],
+      overrides: [],
+      updates: [],
+      packagesScanned: 1,
+    })),
+  };
+
+  const result = await checkRemovalSafety(
+    config,
+    mockSecurityChecker as any,
+    {},
+  );
+
+  expect(result).toEqual(["dev-pkg@1.0.0"]);
+});

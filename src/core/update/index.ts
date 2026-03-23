@@ -1,5 +1,5 @@
 import { IS_DEBUGGING } from "../../constants";
-import type { Options } from "../../types";
+import type { Options, SecurityAlert, AppendixItem } from "../../types";
 import { logger } from "../../utils";
 import {
   clearDependencyTreeCache,
@@ -239,14 +239,39 @@ const stepCleanupOverrides = (ctx: UpdateContext): UpdateContext => {
   return { ...ctx, finalOverrides: ctx.overrides, finalAppendix: ctx.appendix };
 };
 
+const findAlertMatchingCves = (
+  alerts: SecurityAlert[],
+  entryCves: string[],
+): SecurityAlert | undefined =>
+  alerts.find((alert) => {
+    const alertCves = alert.cves || [];
+    const hasOverlap = alertCves.some((c) => entryCves.includes(c));
+    return hasOverlap && Boolean(alert.patchedVersion);
+  });
+
+const withPotentiallyFixedIn = (
+  ledger: NonNullable<AppendixItem["ledger"]>,
+  version: string,
+): NonNullable<AppendixItem["ledger"]> => ({
+  ...ledger,
+  potentiallyFixedIn: version,
+});
+
+const withoutPotentiallyFixedIn = (
+  ledger: NonNullable<AppendixItem["ledger"]>,
+): NonNullable<AppendixItem["ledger"]> => {
+  const { potentiallyFixedIn: _, ...rest } = ledger;
+  return rest;
+};
+
 const stepUpdateKeptOverrides = (ctx: UpdateContext): UpdateContext => {
   const appendix = ctx.appendix;
   if (!appendix) return ctx;
 
   const alerts = ctx.securityAlerts || ctx.options?.securityAlerts || [];
+  let hasChanges = false;
 
   const updatedAppendix = { ...appendix };
-  let hasChanges = false;
 
   Object.keys(updatedAppendix).forEach((key) => {
     const item = updatedAppendix[key];
@@ -256,27 +281,17 @@ const stepUpdateKeptOverrides = (ctx: UpdateContext): UpdateContext => {
     const entryCves = item.ledger.cves || [];
     if (entryCves.length === 0) return;
 
-    const matchingAlert = alerts.find(
-      (a) =>
-        a.cves &&
-        a.cves.some((c: string) => entryCves.includes(c)) &&
-        a.patchedVersion,
-    );
-
+    const matchingAlert = findAlertMatchingCves(alerts, entryCves);
     const currentFixedIn = item.ledger.potentiallyFixedIn;
     const newFixedIn = matchingAlert?.patchedVersion;
 
     if (currentFixedIn === newFixedIn) return;
 
-    updatedAppendix[key] = {
-      ...item,
-      ledger: newFixedIn
-        ? { ...item.ledger, potentiallyFixedIn: newFixedIn }
-        : (() => {
-            const { potentiallyFixedIn: _, ...rest } = item.ledger!;
-            return rest;
-          })(),
-    };
+    const updatedLedger = newFixedIn
+      ? withPotentiallyFixedIn(item.ledger, newFixedIn)
+      : withoutPotentiallyFixedIn(item.ledger);
+
+    updatedAppendix[key] = { ...item, ledger: updatedLedger };
     hasChanges = true;
   });
 
@@ -299,10 +314,11 @@ const stepRemoveUnused = (ctx: UpdateContext): UpdateContext => {
 
   const packageNames = extractPackageNames(removableKeys);
 
-  const keysWithCves = removableKeys.filter((key) => {
-    const item = appendix[key];
-    return item?.ledger?.cves && item.ledger.cves.length > 0;
-  });
+  const keyHasCves = (key: string): boolean => {
+    const cves = appendix[key]?.ledger?.cves;
+    return Boolean(cves?.length);
+  };
+  const keysWithCves = removableKeys.filter(keyHasCves);
 
   if (keysWithCves.length > 0) {
     ctx.log.warn(

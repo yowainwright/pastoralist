@@ -23,6 +23,7 @@ import {
   removeAppendixKeys,
   extractPackageNames,
   removeOverrideKeys,
+  isKeptEntry,
 } from "../appendix/utils";
 import {
   writeResult,
@@ -249,7 +250,8 @@ const stepUpdateKeptOverrides = (ctx: UpdateContext): UpdateContext => {
 
   Object.keys(updatedAppendix).forEach((key) => {
     const item = updatedAppendix[key];
-    if (item.ledger?.keep !== true) return;
+    if (!isKeptEntry(item)) return;
+    if (!item.ledger) return;
 
     const entryCves = item.ledger.cves || [];
     if (entryCves.length === 0) return;
@@ -289,7 +291,7 @@ const stepRemoveUnused = (ctx: UpdateContext): UpdateContext => {
   const appendix = ctx.finalAppendix || ctx.appendix || {};
   const overrides = ctx.finalOverrides || ctx.overrides || {};
 
-  const unusedKeys = findUnusedAppendixEntries(appendix);
+  const unusedKeys = findUnusedAppendixEntries(appendix, ctx.rootDeps);
   const skipKeys = new Set(ctx.options?.skipRemovalKeys || []);
   const removableKeys = unusedKeys.filter((key) => !skipKeys.has(key));
   const hasUnused = removableKeys.length > 0;

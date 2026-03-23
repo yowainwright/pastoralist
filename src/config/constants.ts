@@ -1,3 +1,5 @@
+import type { KeepConstraint } from "../types";
+
 export const CONFIG_FILES = [
   ".pastoralistrc",
   ".pastoralistrc.json",
@@ -10,12 +12,7 @@ export type SecurityProvider = "osv" | "github" | "snyk" | "npm" | "socket";
 export type SecurityProviders = SecurityProvider | SecurityProvider[];
 export type SeverityThreshold = "low" | "medium" | "high" | "critical";
 
-export type KeepConstraint = {
-  reason: string;
-  until?: string;
-  untilVersion?: string;
-  reviewBy?: string;
-};
+export type { KeepConstraint };
 
 export type AppendixItem = {
   rootDeps?: string[];

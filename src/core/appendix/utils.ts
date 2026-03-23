@@ -413,8 +413,14 @@ export const toCompactAppendix = (
   return compact;
 };
 
-const isUnusedEntry = (item: AppendixItem): boolean => {
-  if (isKeptEntry(item)) return false;
+const isUnusedEntry = (
+  item: AppendixItem,
+  pkgName: string,
+  rootDeps: Record<string, string>,
+): boolean => {
+  const isKept = isKeptEntry(item);
+  const isExpired = isKept && isKeepExpired(item, pkgName, rootDeps);
+  if (isKept && !isExpired) return false;
 
   const dependents = item?.dependents;
   if (!dependents) return false;
@@ -426,10 +432,17 @@ const isUnusedEntry = (item: AppendixItem): boolean => {
   return values.every((v) => v.includes(UNUSED_OVERRIDE_LABEL));
 };
 
-export const findUnusedAppendixEntries = (appendix: Appendix): string[] => {
+export const findUnusedAppendixEntries = (
+  appendix: Appendix,
+  rootDeps: Record<string, string> = {},
+): string[] => {
   if (!appendix) return [];
 
-  return Object.keys(appendix).filter((key) => isUnusedEntry(appendix[key]));
+  return Object.keys(appendix).filter((key) => {
+    const pkgName =
+      key.lastIndexOf("@") > 0 ? key.slice(0, key.lastIndexOf("@")) : key;
+    return isUnusedEntry(appendix[key], pkgName, rootDeps);
+  });
 };
 
 export const removeAppendixKeys = (

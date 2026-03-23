@@ -602,23 +602,36 @@ When both external config files and `package.json` configuration exist:
 
 When security vulnerabilities are detected and fixed, Pastoralist tracks complete vulnerability information in the appendix ledger:
 
-```js
-"pastoralist": {
-  "appendix": {
-    "lodash@4.17.21": {
-      "dependents": {
-        "my-app": "lodash@^4.17.0"
-      },
-      "ledger": {
-        "addedDate": "2024-01-15T10:30:00.000Z",
-        "reason": "Security vulnerability CVE-2021-23337",
-        "securityChecked": true,
-        "securityCheckDate": "2024-01-15T10:30:00.000Z",
-        "securityProvider": "osv",
-        "cve": "CVE-2021-23337",
-        "severity": "high",
-        "description": "Command injection in lodash",
-        "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-23337"
+```json
+{
+  "pastoralist": {
+    "appendix": {
+      "lodash@4.17.21": {
+        "dependents": {
+          "my-app": "lodash@^4.17.0"
+        },
+        "ledger": {
+          "addedDate": "2024-01-15T10:30:00.000Z",
+          "reason": "Security vulnerability CVE-2021-23337",
+          "securityChecked": true,
+          "securityCheckDate": "2024-01-15T10:30:00.000Z",
+          "securityCheckResult": "clean",
+          "securityProvider": "osv",
+          "cves": ["CVE-2021-23337"],
+          "cveDetails": [
+            {
+              "cve": "CVE-2021-23337",
+              "severity": "high",
+              "patchedVersion": "4.17.21"
+            }
+          ],
+          "severity": "high",
+          "description": "Command injection in lodash",
+          "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-23337",
+          "vulnerableRange": ">= 0 < 4.17.21",
+          "patchedVersion": "4.17.21",
+          "keep": true
+        }
       }
     }
   }
@@ -631,11 +644,16 @@ The ledger tracks:
 - `reason`: Why the override was needed
 - `securityChecked`: Whether a security check was performed
 - `securityCheckDate`: When the last security check occurred
+- `securityCheckResult`: Result of the last check — `"clean"`, `"error"`, or `"skipped"`
 - `securityProvider`: Which provider detected the vulnerability
-- `cve`: CVE identifier (if applicable)
-- `severity`: Vulnerability severity level (low, medium, high, critical)
+- `cves`: All CVE identifiers related to this vulnerability (replaces the legacy `cve` string field)
+- `cveDetails`: Per-CVE detail objects with `cve`, `severity`, and `patchedVersion`
+- `severity`: Highest vulnerability severity across all CVEs (low, medium, high, critical)
 - `description`: Brief description of the vulnerability
 - `url`: Link to full vulnerability details
+- `vulnerableRange`: Semver range that is affected (e.g. `">= 0 < 4.17.21"`)
+- `patchedVersion`: Version that resolves the vulnerability
+- `keep`: Prevent `--remove-unused` from removing this override. Set to `true` or a `KeepConstraint` object: `{ "reason": "...", "until": "2025-01-01", "untilVersion": "4.18.0" }`
 
 This complete audit trail lets you understand exactly which security issues were fixed and provides full context for future reference.
 

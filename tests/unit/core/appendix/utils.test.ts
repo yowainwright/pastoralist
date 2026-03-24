@@ -544,6 +544,29 @@ test("createSecurityLedger - deduplicates cves across multiple details", () => {
   expect(result.cves).toEqual(["CVE-2021-0001", "CVE-2021-0002"]);
 });
 
+test("createSecurityLedger - deduplicates cveDetails when multiple details share the same CVE", () => {
+  const securityDetails: SecurityOverrideDetail[] = [
+    {
+      packageName: "lodash",
+      reason: "vuln 1",
+      cves: ["CVE-2021-0001"],
+      severity: "high",
+    },
+    {
+      packageName: "lodash",
+      reason: "vuln 2",
+      cves: ["CVE-2021-0001", "CVE-2021-0002"],
+      severity: "medium",
+    },
+  ];
+  const result = createSecurityLedger("lodash", securityDetails, undefined);
+  const cveIds = result.cveDetails?.map((d) => d.cve);
+  expect(cveIds).toEqual(["CVE-2021-0001", "CVE-2021-0002"]);
+  expect(
+    result.cveDetails?.filter((d) => d.cve === "CVE-2021-0001").length,
+  ).toBe(1);
+});
+
 test("isUnusedEntry via findUnusedAppendixEntries - skips entries with keep: true", () => {
   const appendix: Appendix = {
     "lodash@4.17.21": {

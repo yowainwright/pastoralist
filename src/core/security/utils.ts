@@ -42,6 +42,11 @@ export const deduplicateAlerts = (alerts: SecurityAlert[]): SecurityAlert[] => {
           ? { ...alert, cves: mergedCves }
           : alert;
       map.set(key, merged);
+    } else if (existing && alert.cves?.length) {
+      const mergedCves = [
+        ...new Set([...(existing.cves || []), ...alert.cves]),
+      ];
+      map.set(key, { ...existing, cves: mergedCves });
     }
 
     return map;
@@ -105,23 +110,21 @@ export const findVulnerablePackages = (
   config: PastoralistJSON,
   alerts: SecurityAlert[],
 ): SecurityAlert[] => {
-  const allDeps = Object.assign(
-    {},
-    config.dependencies,
-    config.devDependencies,
-    config.peerDependencies,
-  );
+  const allDeps = {
+    ...config.dependencies,
+    ...config.devDependencies,
+    ...config.peerDependencies,
+  };
 
-  return alerts.filter((alert) => {
-    const currentVersion = allDeps[alert.packageName];
-    if (!currentVersion) {
-      return false;
-    }
-
-    alert.currentVersion = currentVersion;
-
-    return isVersionVulnerable(currentVersion, alert.vulnerableVersions);
-  });
+  return alerts
+    .map((alert) => ({ ...alert, currentVersion: allDeps[alert.packageName] }))
+    .filter((alert) => {
+      const hasVersion = Boolean(alert.currentVersion);
+      return (
+        hasVersion &&
+        isVersionVulnerable(alert.currentVersion!, alert.vulnerableVersions)
+      );
+    });
 };
 
 export class CLIInstaller {

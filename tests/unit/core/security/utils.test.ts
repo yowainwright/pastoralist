@@ -333,6 +333,38 @@ test("deduplicateAlerts - merges cves arrays when deduplicating same-key alert a
   expect(result[0].cves).toContain("CVE-2021-99999");
 });
 
+test("deduplicateAlerts - merges cves from lower-severity duplicate into existing alert", () => {
+  const alerts: SecurityAlert[] = [
+    {
+      packageName: "lodash",
+      currentVersion: "4.17.20",
+      vulnerableVersions: "< 4.17.21",
+      patchedVersion: "4.17.21",
+      severity: "high",
+      title: "Prototype pollution",
+      cves: ["CVE-2021-23337", "CVE-A"],
+      fixAvailable: true,
+    },
+    {
+      packageName: "lodash",
+      currentVersion: "4.17.20",
+      vulnerableVersions: "< 4.17.21",
+      patchedVersion: "4.17.21",
+      severity: "medium",
+      title: "Prototype pollution",
+      cves: ["CVE-2021-23337", "CVE-B"],
+      fixAvailable: true,
+    },
+  ];
+
+  const result = deduplicateAlerts(alerts);
+  expect(result.length).toBe(1);
+  expect(result[0].severity).toBe("high");
+  expect(result[0].cves).toContain("CVE-2021-23337");
+  expect(result[0].cves).toContain("CVE-A");
+  expect(result[0].cves).toContain("CVE-B");
+});
+
 // =============================================================================
 // extractPackages tests
 // =============================================================================

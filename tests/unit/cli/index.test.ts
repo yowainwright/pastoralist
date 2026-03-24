@@ -3295,3 +3295,94 @@ test("checkRemovalSafety - finds packages in devDependencies", async () => {
 
   expect(result).toEqual(["dev-pkg@1.0.0"]);
 });
+
+test("action - displays blocked removals notice when skipRemovalKeys set", async () => {
+  const { action } = require("../../../src/cli/index");
+
+  const mockConfig: PastoralistJSON = {
+    name: "test-package",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    overrides: { lodash: "4.17.21" },
+    pastoralist: {
+      appendix: {
+        "lodash@4.17.21": {
+          dependents: { root: "lodash (unused override)" },
+          ledger: { addedDate: "2024-01-01", cves: ["CVE-2021-23337"] },
+        },
+      },
+    },
+  };
+
+  const mockGraph = createMockTerminalGraph();
+
+  const deps = {
+    createLogger: mock(() => log),
+    handleTestMode: mock(() => false),
+    handleInitMode: mock(() => Promise.resolve(false)),
+    resolveJSON: mock(() => mockConfig),
+    buildMergedOptions: mock((options: any, rest: any) =>
+      Object.assign({}, options, rest, {
+        checkSecurity: true,
+        removeUnused: true,
+      }),
+    ),
+    runSecurityCheck: mock(() =>
+      Promise.resolve({
+        alerts: [
+          {
+            packageName: "lodash",
+            severity: "high",
+            currentVersion: "4.17.20",
+            cves: ["CVE-2021-23337"],
+          },
+        ],
+        securityOverrides: [],
+        updates: [],
+        packagesScanned: 1,
+        skipped: false,
+        spinner: { start: mock(), succeed: mock(), stop: mock() },
+        securityChecker: {
+          checkSecurity: mock(() =>
+            Promise.resolve({
+              alerts: [
+                {
+                  packageName: "lodash",
+                  severity: "high",
+                  currentVersion: "4.17.20",
+                  cves: ["CVE-2021-23337"],
+                },
+              ],
+              overrides: [],
+              updates: [],
+              packagesScanned: 1,
+            }),
+          ),
+        },
+      }),
+    ),
+    handleSecurityResults: mock(() => ({})),
+    createSpinner: mock(() => ({
+      start: mock(),
+      succeed: mock(),
+      stop: mock(),
+    })),
+    green: mock((text: string) => text),
+    update: mock(() => ({
+      finalOverrides: { lodash: "4.17.21" },
+      finalAppendix: mockConfig.pastoralist!.appendix,
+    })),
+    createTerminalGraph: mock(() => mockGraph),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
+    processExit: mock(() => {}),
+  };
+
+  await action({ path: "package.json", removeUnused: true }, deps);
+
+  const noticeCalls = mockGraph.notice.mock.calls;
+  const hasBlockedNotice = noticeCalls.some(
+    (call: unknown[]) =>
+      typeof call[0] === "string" && call[0].includes("still vulnerable"),
+  );
+  expect(hasBlockedNotice).toBe(true);
+});

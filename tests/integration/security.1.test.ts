@@ -52,7 +52,7 @@ describe("Security Integration - OSV Full Details", () => {
     expect(lodashAlert).toBeDefined();
     if (!lodashAlert) throw new Error("lodashAlert not found");
     expect(lodashAlert.severity).toBeDefined();
-    expect(lodashAlert.cve).toBeDefined();
+    expect(lodashAlert.cves).toBeDefined();
   }, 60000);
 
   test("OSV provides patchedVersion for fixable vulnerabilities", async () => {

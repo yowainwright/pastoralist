@@ -202,6 +202,67 @@ export SOCKET_SECURITY_API_KEY=your_key_here
 pastoralist --checkSecurity --securityProvider socket
 ```
 
+## CVE Tracking in the Ledger
+
+When Pastoralist applies a security override, it records full vulnerability context in the appendix ledger:
+
+```json
+{
+  "lodash@4.17.21": {
+    "dependents": { "my-app": "lodash@^4.17.0" },
+    "ledger": {
+      "addedDate": "2024-01-15T10:30:00.000Z",
+      "securityChecked": true,
+      "securityProvider": "osv",
+      "cves": ["CVE-2021-23337"],
+      "cveDetails": [
+        {
+          "cve": "CVE-2021-23337",
+          "severity": "high",
+          "patchedVersion": "4.17.21"
+        }
+      ],
+      "severity": "high",
+      "vulnerableRange": ">= 0 < 4.17.21",
+      "patchedVersion": "4.17.21"
+    }
+  }
+}
+```
+
+Multiple CVEs from the same package are aggregated — `cveDetails` gives per-CVE granularity (severity and patched version per identifier), while `cves` is the deduplicated flat list for quick reference.
+
+## Keeping Security Overrides with `keep`
+
+By default, `--remove-unused` will remove overrides whose dependents no longer require them. For security overrides you want to retain regardless, set `keep` on the ledger:
+
+```json
+{
+  "ledger": {
+    "addedDate": "2024-01-01",
+    "cves": ["CVE-2024-12345"],
+    "keep": true
+  }
+}
+```
+
+For expiring keeps, use a `KeepConstraint` object:
+
+```json
+{
+  "ledger": {
+    "addedDate": "2024-01-01",
+    "cves": ["CVE-2024-12345"],
+    "keep": {
+      "reason": "Waiting for upstream patch",
+      "untilVersion": "4.18.0"
+    }
+  }
+}
+```
+
+Once the root dependency reaches `4.18.0`, the keep is considered expired and `--remove-unused` will treat it as removable again.
+
 ## How It Works
 
 1. **Scanning**: Pastoralist extracts all dependencies from your `package.json` (and optionally workspace packages)
@@ -211,7 +272,7 @@ pastoralist --checkSecurity --securityProvider socket
    - Display them for review
    - Apply them automatically (with `--forceSecurityRefactor`)
    - Let you choose interactively (with `--interactive`)
-5. **Applying**: Selected fixes are added to your `package.json` overrides section
+5. **Applying**: Selected fixes are added to your `package.json` overrides section with full CVE context in the ledger
 
 ## Example Output
 

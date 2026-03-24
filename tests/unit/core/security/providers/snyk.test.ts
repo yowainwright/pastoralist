@@ -106,7 +106,7 @@ test("Vulnerability Conversion - should convert Snyk vulnerability to SecurityAl
   expect(alert.severity).toBe("high");
   expect(alert.title).toBe("Prototype Pollution");
   expect(alert.patchedVersion).toBe("4.17.21");
-  expect(alert.cve).toBe("CVE-2021-23337");
+  expect(alert.cves?.[0]).toBe("CVE-2021-23337");
   expect(alert.fixAvailable).toBe(true);
 });
 
@@ -124,7 +124,7 @@ test("Vulnerability Conversion - should handle vulnerability without CVE", () =>
   const alert = (provider as any).convertVulnToAlert(vuln);
 
   expect(alert.packageName).toBe("test-package");
-  expect(alert.cve).toBeUndefined();
+  expect(alert.cves).toBeUndefined();
   expect(alert.url).toBe("https://snyk.io/vuln/SNYK-JS-TEST-123");
 });
 
@@ -493,7 +493,7 @@ test("runSnykScan - parses vulnerabilities with CVE identifiers", async () => {
 
   const alerts = await provider.fetchAlerts();
   expect(alerts.length).toBe(1);
-  expect(alerts[0].cve).toBe("CVE-2021-3749");
+  expect(alerts[0].cves?.[0]).toBe("CVE-2021-3749");
   expect(alerts[0].patchedVersion).toBe("0.21.1");
   expect(alerts[0].fixAvailable).toBe(true);
 });

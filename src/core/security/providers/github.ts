@@ -353,7 +353,8 @@ export class GitHubSecurityProvider {
         const advisory = alert.security_advisory;
         const currentVersion = this.extractCurrentVersion(alert);
 
-        return {
+        const cves = advisory.cve_id ? [advisory.cve_id] : [];
+        const base = {
           packageName: vulnerability.package.name,
           currentVersion,
           vulnerableVersions: vulnerability.vulnerable_version_range,
@@ -361,10 +362,10 @@ export class GitHubSecurityProvider {
           severity: this.normalizeSeverity(vulnerability.severity),
           title: advisory.summary,
           description: advisory.description,
-          cve: advisory.cve_id,
           url: alert.html_url,
           fixAvailable: !!vulnerability.first_patched_version,
         };
+        return cves.length > 0 ? { ...base, cves } : base;
       });
   }
 

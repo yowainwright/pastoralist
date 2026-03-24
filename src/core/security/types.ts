@@ -6,7 +6,7 @@ export interface SecurityAlert {
   severity: "low" | "medium" | "high" | "critical";
   title: string;
   description?: string;
-  cve?: string;
+  cves?: string[];
   url?: string;
   fixAvailable: boolean;
 }
@@ -38,9 +38,11 @@ export interface SecurityOverride {
   toVersion: string;
   reason: string;
   severity: string;
-  cve?: string;
+  cves?: string[];
   description?: string;
   url?: string;
+  vulnerableRange?: string;
+  patchedVersion?: string;
 }
 
 export interface OverrideUpdate {

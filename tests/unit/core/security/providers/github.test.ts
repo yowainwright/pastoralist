@@ -125,7 +125,7 @@ test("convertToSecurityAlerts - handles alerts without CVE", () => {
   const alerts = provider.convertToSecurityAlerts([alertWithoutCve]);
 
   expect(alerts).toHaveLength(1);
-  expect(alerts[0].cve).toBeNull();
+  expect(alerts[0].cves?.length).toBeFalsy();
 });
 
 test("convertToSecurityAlerts - handles alerts without patched version", () => {
@@ -192,7 +192,7 @@ test("convertToSecurityAlerts - maps fields correctly", () => {
   expect(alerts[0].severity).toBe("critical");
   expect(alerts[0].title).toBe("Security Issue");
   expect(alerts[0].description).toBe("Detailed description");
-  expect(alerts[0].cve).toBe("CVE-2024-1234");
+  expect(alerts[0].cves?.[0]).toBe("CVE-2024-1234");
   expect(alerts[0].url).toBe(
     "https://github.com/test/test/security/dependabot/1",
   );

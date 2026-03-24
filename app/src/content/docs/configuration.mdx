@@ -211,7 +211,20 @@ When security vulnerabilities are detected and fixed, Pastoralist tracks this in
           "reason": "Security vulnerability CVE-2021-23337",
           "securityChecked": true,
           "securityCheckDate": "2024-01-15T10:30:00.000Z",
-          "securityProvider": "osv"
+          "securityCheckResult": "clean",
+          "securityProvider": "osv",
+          "cves": ["CVE-2021-23337"],
+          "cveDetails": [
+            {
+              "cve": "CVE-2021-23337",
+              "severity": "high",
+              "patchedVersion": "4.17.21"
+            }
+          ],
+          "severity": "high",
+          "vulnerableRange": ">= 0 < 4.17.21",
+          "patchedVersion": "4.17.21",
+          "keep": true
         }
       }
     }
@@ -225,7 +238,49 @@ When security vulnerabilities are detected and fixed, Pastoralist tracks this in
 - **`reason`**: Why the override was needed (e.g., security issue description)
 - **`securityChecked`**: Whether a security check was performed
 - **`securityCheckDate`**: When the last security check occurred
+- **`securityCheckResult`**: Result of the last check — `"clean"`, `"error"`, or `"skipped"`
 - **`securityProvider`**: Which provider detected the vulnerability
+- **`cves`**: All CVE identifiers related to this vulnerability
+- **`cveDetails`**: Per-CVE objects with `cve`, `severity`, and `patchedVersion`
+- **`severity`**: Highest severity across all CVEs (`low`, `medium`, `high`, `critical`)
+- **`vulnerableRange`**: Semver range that is affected
+- **`patchedVersion`**: Version that resolves the vulnerability
+- **`keep`**: Prevent `--remove-unused` from removing this entry. Set to `true` or a `KeepConstraint` object
+
+### Keeping Overrides with `keep`
+
+To pin an override so `--remove-unused` never removes it, set `keep: true` on the ledger:
+
+```json
+{
+  "ledger": {
+    "addedDate": "2024-01-01",
+    "keep": true
+  }
+}
+```
+
+For time-bounded or version-bounded keeps, use a `KeepConstraint` object:
+
+```json
+{
+  "ledger": {
+    "addedDate": "2024-01-01",
+    "keep": {
+      "reason": "Waiting for upstream patch",
+      "until": "2025-06-01",
+      "untilVersion": "4.18.0"
+    }
+  }
+}
+```
+
+`KeepConstraint` fields:
+
+- **`reason`** _(required)_: Why this override is being kept
+- **`until`**: ISO date after which the keep is considered expired
+- **`untilVersion`**: Semver — keep expires once the root dependency meets or exceeds this version
+- **`reviewBy`**: Freeform field for tracking who should review the decision
 
 This allows you to see at a glance which packages were overridden due to security issues and when they were last verified.
 

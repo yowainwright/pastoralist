@@ -472,15 +472,18 @@ export class SecurityChecker {
           toVersion: targetVersion,
           reason: `Security fix: ${pkg.title} (${pkg.severity})`,
           severity: pkg.severity,
+          vulnerableRange: pkg.vulnerableVersions,
+          patchedVersion,
         };
 
-        const cveField = pkg.cve ? { cve: pkg.cve } : {};
+        const cvesField =
+          pkg.cves && pkg.cves.length > 0 ? { cves: pkg.cves } : {};
         const descriptionField = pkg.description
           ? { description: pkg.description }
           : {};
         const urlField = pkg.url ? { url: pkg.url } : {};
 
-        return Object.assign({}, base, cveField, descriptionField, urlField);
+        return Object.assign({}, base, cvesField, descriptionField, urlField);
       });
   }
 
@@ -509,9 +512,9 @@ export class SecurityChecker {
     );
     lines.push(`   ${pkg.title}\n`);
 
-    const hasCVE = Boolean(pkg.cve);
-    if (hasCVE) {
-      lines.push(`   CVE: ${pkg.cve}\n`);
+    const hasCVEs = pkg.cves && pkg.cves.length > 0;
+    if (hasCVEs) {
+      lines.push(`   CVE: ${pkg.cves!.join(", ")}\n`);
     }
 
     const hasFixAvailable = pkg.fixAvailable && pkg.patchedVersion;
@@ -635,7 +638,8 @@ export class SecurityChecker {
             reason: override.reason,
           };
 
-          if (override.cve) detail.cve = override.cve;
+          if (override.cves && override.cves.length > 0)
+            detail.cves = override.cves;
           if (override.severity)
             detail.severity = override.severity as
               | "low"

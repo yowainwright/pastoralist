@@ -87,7 +87,7 @@ describe("terminal-graph", () => {
         packageName: "lodash",
         fromVersion: "4.17.20",
         toVersion: "4.17.21",
-        cve: "CVE-2021-23337",
+        cves: ["CVE-2021-23337"],
       });
 
       const joined = output.lines.join("\n");
@@ -173,7 +173,7 @@ describe("terminal-graph", () => {
         currentVersion: "1.0.0",
         title: "Test vulnerability",
         fixAvailable: false,
-        cve: "CVE-2024-1234",
+        cves: ["CVE-2024-1234"],
       });
 
       const joined = output.lines.join("\n");
@@ -532,7 +532,7 @@ describe("terminal-graph", () => {
         packageName: "minimist",
         version: "1.2.6",
         reason: "Fix vulnerability",
-        cve: "CVE-2021-44906",
+        cves: ["CVE-2021-44906"],
       };
 
       graph.override(info);
@@ -968,6 +968,85 @@ describe("terminal-graph", () => {
       expect(joined).not.toContain("fixed");
       expect(joined).not.toContain("removed");
       expect(joined).not.toContain("protected");
+    });
+  });
+
+  describe("formatCves - multiple CVEs display", () => {
+    test("renders multiple CVEs joined by comma", () => {
+      const output = createMockOutput();
+      const graph = createTerminalGraph({ out: output });
+
+      const info: VulnerabilityInfo = {
+        severity: "high",
+        packageName: "lodash",
+        currentVersion: "4.17.20",
+        title: "Prototype pollution",
+        cves: ["CVE-2021-23337", "CVE-2020-28500"],
+        fixAvailable: true,
+        patchedVersion: "4.17.21",
+      };
+
+      graph.vulnerability(info);
+
+      const joined = output.lines.join("\n");
+      expect(joined).toContain("CVE: CVE-2021-23337, CVE-2020-28500");
+    });
+
+    test("omits CVE line when cves is empty", () => {
+      const output = createMockOutput();
+      const graph = createTerminalGraph({ out: output });
+
+      const info: VulnerabilityInfo = {
+        severity: "medium",
+        packageName: "axios",
+        currentVersion: "1.0.0",
+        title: "SSRF",
+        fixAvailable: false,
+      };
+
+      graph.vulnerability(info);
+
+      const joined = output.lines.join("\n");
+      expect(joined).not.toContain("CVE:");
+    });
+  });
+
+  describe("kept override display", () => {
+    test("renders keep status and potentiallyFixedIn", () => {
+      const output = createMockOutput();
+      const graph = createTerminalGraph({ out: output });
+
+      const info: OverrideInfo = {
+        packageName: "lodash",
+        version: "4.17.21",
+        reason: "Security fix",
+        cves: ["CVE-2021-23337"],
+        keep: true,
+        potentiallyFixedIn: "4.18.0",
+      };
+
+      graph.override(info);
+
+      const joined = output.lines.join("\n");
+      expect(joined).toContain("Kept by user");
+      expect(joined).toContain("Potentially fixed in 4.18.0");
+    });
+
+    test("does not render keep/potentiallyFixedIn when not set", () => {
+      const output = createMockOutput();
+      const graph = createTerminalGraph({ out: output });
+
+      const info: OverrideInfo = {
+        packageName: "lodash",
+        version: "4.17.21",
+        reason: "Security fix",
+      };
+
+      graph.override(info);
+
+      const joined = output.lines.join("\n");
+      expect(joined).not.toContain("Kept by user");
+      expect(joined).not.toContain("Potentially fixed in");
     });
   });
 });

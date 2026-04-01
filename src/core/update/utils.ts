@@ -1,4 +1,9 @@
 import { findPackageJsonFiles, updatePackageJSON } from "../packageJSON";
+
+export const WORKSPACE_MODES = {
+  SINGLE: "workspace",
+  MULTIPLE: "workspaces",
+} as const;
 import { toCompactAppendix } from "../appendix/utils";
 import type {
   PastoralistJSON,
@@ -77,7 +82,10 @@ export const resolveDepPaths = (
 
   const configDepPaths = config.pastoralist?.depPaths;
 
-  if (configDepPaths === "workspace" || configDepPaths === "workspaces") {
+  if (
+    configDepPaths === WORKSPACE_MODES.SINGLE ||
+    configDepPaths === WORKSPACE_MODES.MULTIPLE
+  ) {
     return config.workspaces?.map((ws: string) => `${ws}/package.json`) || null;
   }
 

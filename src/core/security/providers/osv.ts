@@ -113,11 +113,16 @@ export class OSVProvider {
       );
 
       return results.map((result, i) => {
-        if (result.status === "fulfilled") return result.value;
-        this.log.debug(
-          `Failed to fetch ${batch[i].id}: ${result.reason}`,
-          "fetchFullVulnerabilityDetails",
-        );
+        const isFulfilled = result.status === "fulfilled";
+        if (isFulfilled) return result.value;
+
+        const errorMsg = `Failed to fetch ${batch[i].id}: ${result.reason}`;
+
+        if (this.strict) {
+          throw new Error(errorMsg);
+        }
+
+        this.log.debug(errorMsg, "fetchFullVulnerabilityDetails");
         return batch[i] as OSVVulnerability;
       });
     };

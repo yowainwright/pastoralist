@@ -18,6 +18,7 @@ import {
 } from "../patches";
 import { resolveOverrides, getOverridesByType } from "../overrides";
 import { updateAppendix, constructAppendix } from "../appendix";
+import { mergeAppendixDependents } from "../appendix/utils";
 import {
   writeResult,
   determineProcessingMode,
@@ -156,19 +157,12 @@ const stepBuildAppendix = (ctx: UpdateContext): UpdateContext => {
     "stepBuildAppendix",
   );
 
-  Object.entries(ctx.workspaceAppendix).forEach(([key, value]) => {
-    const existing = appendix[key];
-    if (!existing) {
-      appendix[key] = value;
-    } else {
-      existing.dependents = {
-        ...existing.dependents,
-        ...value.dependents,
-      };
-    }
-  });
+  const mergedAppendix = Object.entries(ctx.workspaceAppendix).reduce(
+    (acc, [key, value]) => mergeAppendixDependents(acc, key, value),
+    appendix,
+  );
 
-  return { ...ctx, appendix };
+  return { ...ctx, appendix: mergedAppendix };
 };
 
 const stepAttachPatches = (ctx: UpdateContext): UpdateContext => {
@@ -188,9 +182,14 @@ const stepMergeOverridePaths = (ctx: UpdateContext): UpdateContext => {
   const overridePaths =
     ctx.config.pastoralist?.overridePaths ||
     ctx.config.pastoralist?.resolutionPaths;
-  mergeOverridePaths(ctx.appendix, overridePaths, ctx.missingInRoot, ctx.log);
+  const appendix = mergeOverridePaths(
+    ctx.appendix,
+    overridePaths,
+    ctx.missingInRoot,
+    ctx.log,
+  );
 
-  return { ...ctx, overridePaths };
+  return { ...ctx, appendix, overridePaths };
 };
 
 const stepLogUnusedPatches = (ctx: UpdateContext): UpdateContext => {

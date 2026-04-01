@@ -218,6 +218,7 @@ test("createSecurityLedger - should include all fields when provided", () => {
   const result = createSecurityLedger("lodash", securityDetails, "github");
 
   expect(result).toEqual({
+    source: "security",
     securityChecked: true,
     securityCheckDate: expect.any(String),
     securityProvider: "github",

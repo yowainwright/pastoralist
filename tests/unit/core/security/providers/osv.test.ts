@@ -557,3 +557,123 @@ test("fetchAlerts - should return empty array when strict is false and fetch fai
 
   global.fetch = originalFetch;
 });
+
+// =============================================================================
+// strict mode - individual vulnerability fetch failures
+// =============================================================================
+
+test("fetchAlerts - strict mode throws when individual vuln detail fetch fails", async () => {
+  const provider = new OSVProvider({
+    debug: false,
+    strict: true,
+  });
+  const originalFetch = global.fetch;
+
+  global.fetch = mock((url: string) => {
+    const isBatchCall = typeof url === "string" && url.includes("querybatch");
+    if (isBatchCall) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            results: [{ vulns: [{ id: "GOOD-1" }, { id: "BAD-1" }] }],
+          }),
+      } as Response);
+    }
+    const isBadVuln = typeof url === "string" && url.includes("BAD-1");
+    if (isBadVuln) {
+      return Promise.resolve({
+        ok: false,
+        status: 500,
+      } as Response);
+    }
+    return Promise.resolve({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          id: "GOOD-1",
+          summary: "Good vuln",
+          details: "Details",
+          affected: [
+            {
+              package: { name: "lodash", ecosystem: "npm" },
+              ranges: [
+                {
+                  type: "SEMVER",
+                  events: [{ introduced: "0" }, { fixed: "4.17.21" }],
+                },
+              ],
+            },
+          ],
+          references: [],
+        }),
+    } as Response);
+  });
+
+  try {
+    await expect(
+      provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]),
+    ).rejects.toThrow();
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test("fetchAlerts - non-strict returns partial results when individual vuln detail fetch fails", async () => {
+  const provider = new OSVProvider({
+    debug: false,
+    strict: false,
+  });
+  const originalFetch = global.fetch;
+
+  global.fetch = mock((url: string) => {
+    const isBatchCall = typeof url === "string" && url.includes("querybatch");
+    if (isBatchCall) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            results: [{ vulns: [{ id: "GOOD-1" }, { id: "BAD-1" }] }],
+          }),
+      } as Response);
+    }
+    const isBadVuln = typeof url === "string" && url.includes("BAD-1");
+    if (isBadVuln) {
+      return Promise.resolve({
+        ok: false,
+        status: 500,
+      } as Response);
+    }
+    return Promise.resolve({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          id: "GOOD-1",
+          summary: "Good vuln",
+          details: "Details",
+          affected: [
+            {
+              package: { name: "lodash", ecosystem: "npm" },
+              ranges: [
+                {
+                  type: "SEMVER",
+                  events: [{ introduced: "0" }, { fixed: "4.17.21" }],
+                },
+              ],
+            },
+          ],
+          references: [],
+        }),
+    } as Response);
+  });
+
+  try {
+    const alerts = await provider.fetchAlerts([
+      { name: "lodash", version: "4.17.20" },
+    ]);
+    const hasAlerts = alerts.length > 0;
+    expect(hasAlerts).toBe(true);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});

@@ -3,7 +3,7 @@ import type { Task, QueueItem } from "./types";
 export class ConcurrencyLimiter {
   private concurrency: number;
   private running: number;
-  private queue: QueueItem<any>[];
+  private queue: QueueItem<unknown>[];
 
   constructor(concurrency: number) {
     if (concurrency < 1) {
@@ -16,7 +16,11 @@ export class ConcurrencyLimiter {
 
   run<T>(task: Task<T>): Promise<T> {
     return new Promise<T>((resolve, reject) => {
-      this.queue.push({ task, resolve, reject });
+      this.queue.push({
+        task: task as Task<unknown>,
+        resolve: resolve as (value: unknown) => void,
+        reject,
+      });
       this.process();
     });
   }

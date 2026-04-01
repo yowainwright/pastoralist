@@ -59,6 +59,7 @@ const findSecurityDetail = (
 };
 
 const buildBaseLedger = (): PartialSecurityLedger => ({
+  source: "security",
   securityChecked: true,
   securityCheckDate: new Date().toISOString(),
 });
@@ -241,11 +242,12 @@ export const mergeAppendixDependents = (
   key: string,
   value: AppendixItem,
 ): Appendix => {
-  const existingDependents = currentAppendix[key]?.dependents || {};
-  const mergedDependents = { ...existingDependents, ...value.dependents };
-
-  currentAppendix[key] = { dependents: mergedDependents };
-  return currentAppendix;
+  const existing = currentAppendix[key];
+  const mergedDependents = { ...existing?.dependents, ...value.dependents };
+  const mergedItem: AppendixItem = existing
+    ? { ...existing, dependents: mergedDependents }
+    : { dependents: mergedDependents };
+  return { ...currentAppendix, [key]: mergedItem };
 };
 
 const hasSecurityInfo = (item: AppendixItem): boolean => {

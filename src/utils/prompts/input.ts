@@ -1,3 +1,5 @@
+import * as readline from "readline";
+
 let pipedInputLines: string[] = [];
 let lineIndex = 0;
 let pipedInputReady = false;
@@ -50,11 +52,13 @@ export function getNextPipedInput(): string | null {
   return "";
 }
 
-export async function enhancedQuestion(
-  rl: any,
+export async function enhancedQuestion<T = string>(
+  rl: readline.Interface,
   prompt: string,
-  processor: (answer: string) => any = (answer) => answer.trim(),
-): Promise<any> {
+  processor: (answer: string) => T = ((answer: string) => answer.trim()) as (
+    answer: string,
+  ) => T,
+): Promise<T> {
   await waitForPipedInputReady();
 
   return new Promise((resolve) => {

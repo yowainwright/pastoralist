@@ -59,6 +59,40 @@ export const extractPackages = (
   }));
 };
 
+const checkBoundedRange = (version: string, range: string): boolean | null => {
+  const isRangeBounded = range.includes(">=") && range.includes("<");
+  if (!isRangeBounded) return null;
+
+  const [, minVersion] = range.match(/>= ?([^\s,]+)/) || [];
+  const [, maxVersion] = range.match(/< ?([^\s,]+)/) || [];
+  const hasValidBounds = Boolean(minVersion && maxVersion);
+  if (!hasValidBounds) return null;
+
+  return (
+    compareVersions(version, minVersion) >= 0 &&
+    compareVersions(version, maxVersion) < 0
+  );
+};
+
+const checkLessThanOrEqual = (
+  version: string,
+  range: string,
+): boolean | null => {
+  const isLessThanOrEqual = range.startsWith("<=");
+  if (!isLessThanOrEqual) return null;
+
+  const maxVersion = range.replace(/<= ?/, "");
+  return compareVersions(version, maxVersion) <= 0;
+};
+
+const checkLessThan = (version: string, range: string): boolean | null => {
+  const isLessThan = range.startsWith("<");
+  if (!isLessThan) return null;
+
+  const maxVersion = range.replace(/< ?/, "");
+  return compareVersions(version, maxVersion) < 0;
+};
+
 export const isVersionVulnerable = (
   currentVersion: string,
   vulnerableRange: string,
@@ -66,29 +100,12 @@ export const isVersionVulnerable = (
   try {
     const cleanVersion = currentVersion.replace(/^[\^~]/, "");
 
-    if (vulnerableRange.includes(">=") && vulnerableRange.includes("<")) {
-      const [, minVersion] = vulnerableRange.match(/>= ?([^\s,]+)/) || [];
-      const [, maxVersion] = vulnerableRange.match(/< ?([^\s,]+)/) || [];
-
-      if (minVersion && maxVersion) {
-        return (
-          compareVersions(cleanVersion, minVersion) >= 0 &&
-          compareVersions(cleanVersion, maxVersion) < 0
-        );
-      }
-    }
-
-    if (vulnerableRange.startsWith("<")) {
-      const maxVersion = vulnerableRange.replace(/< ?/, "");
-      return compareVersions(cleanVersion, maxVersion) < 0;
-    }
-
-    if (vulnerableRange.startsWith("<=")) {
-      const maxVersion = vulnerableRange.replace(/<= ?/, "");
-      return compareVersions(cleanVersion, maxVersion) <= 0;
-    }
-
-    return false;
+    return (
+      checkBoundedRange(cleanVersion, vulnerableRange) ??
+      checkLessThanOrEqual(cleanVersion, vulnerableRange) ??
+      checkLessThan(cleanVersion, vulnerableRange) ??
+      false
+    );
   } catch {
     return false;
   }
@@ -105,16 +122,18 @@ export const findVulnerablePackages = (
     config.peerDependencies,
   );
 
-  return alerts.filter((alert) => {
-    const currentVersion = allDeps[alert.packageName];
-    if (!currentVersion) {
-      return false;
-    }
-
-    alert.currentVersion = currentVersion;
-
-    return isVersionVulnerable(currentVersion, alert.vulnerableVersions);
-  });
+  return alerts
+    .filter((alert) => {
+      const currentVersion = allDeps[alert.packageName];
+      const hasDep = Boolean(currentVersion);
+      return (
+        hasDep && isVersionVulnerable(currentVersion, alert.vulnerableVersions)
+      );
+    })
+    .map((alert) => ({
+      ...alert,
+      currentVersion: allDeps[alert.packageName],
+    }));
 };
 
 export class CLIInstaller {

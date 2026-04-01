@@ -1,4 +1,4 @@
-export type Exec = (runner: string, cmds: Array<string>) => Promise<any>;
+export type Exec = (runner: string, cmds: Array<string>) => Promise<void>;
 export type OverrideValue = string | Record<string, string>;
 
 export interface PastoralistJSON {
@@ -21,6 +21,8 @@ export interface AppendixItem {
   ledger?: {
     addedDate: string;
     reason?: string;
+    source?: "security" | "manual";
+    resolvedAt?: string;
     securityChecked?: boolean;
     securityCheckDate?: string;
     securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket";

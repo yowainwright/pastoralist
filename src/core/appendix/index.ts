@@ -374,6 +374,30 @@ const collectAllWorkspaceOverrides = (
   );
 };
 
+const detectWorkspaceConflicts = (
+  workspaceOverridesResults: Array<OverridesType | null>,
+  rootOverrides: OverridesType | null,
+  logInstance: Logger,
+): void => {
+  if (!hasOverrides(rootOverrides)) return;
+
+  const validOverrides = workspaceOverridesResults.filter(
+    (overrides): overrides is OverridesType => overrides !== null,
+  );
+
+  validOverrides.forEach((wsOverrides) => {
+    Object.entries(wsOverrides).forEach(([pkg, wsVersion]) => {
+      const rootVersion = rootOverrides![pkg];
+      if (rootVersion && rootVersion !== wsVersion) {
+        logInstance.debug(
+          `Override conflict for "${pkg}": root has "${rootVersion}", workspace has "${wsVersion}" — workspace wins`,
+          "constructAppendix",
+        );
+      }
+    });
+  });
+};
+
 const mergeAllOverrides = (
   workspaceOverridesResults: Array<OverridesType | null>,
   rootOverrides: OverridesType | null,
@@ -410,22 +434,12 @@ const processAllPackageFiles = (
   );
 };
 
-const mergeAppendixEntry = (
-  acc: Appendix,
-  key: string,
-  value: AppendixItem,
-): Appendix => {
-  return mergeAppendixDependents(acc, key, value);
-};
-
 const mergeResultAppendix = (
   currentAppendix: Appendix,
   resultAppendix: Appendix,
 ): Appendix => {
-  const entries = Object.entries(resultAppendix);
-
-  return entries.reduce(
-    (acc, [key, value]) => mergeAppendixEntry(acc, key, value),
+  return Object.entries(resultAppendix).reduce(
+    (acc, [key, value]) => mergeAppendixDependents(acc, key, value),
     currentAppendix,
   );
 };
@@ -461,6 +475,11 @@ export const constructAppendix = (
 
   const workspaceOverridesResults = collectAllWorkspaceOverrides(
     packageJSONs,
+    logInstance,
+  );
+  detectWorkspaceConflicts(
+    workspaceOverridesResults,
+    rootOverrides,
     logInstance,
   );
   const allOverrides = mergeAllOverrides(

@@ -4,6 +4,7 @@ export type Ledger = NonNullable<AppendixItem["ledger"]>;
 
 export type SecurityLedgerFields = Pick<
   Ledger,
+  | "source"
   | "securityChecked"
   | "securityCheckDate"
   | "securityProvider"

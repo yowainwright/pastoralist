@@ -93,6 +93,18 @@ const checkLessThan = (version: string, range: string): boolean | null => {
   return compareVersions(version, maxVersion) < 0;
 };
 
+const checkGreaterThanOrEqual = (
+  version: string,
+  range: string,
+): boolean | null => {
+  // Matches open-ended ranges like ">= 1.0.0" with no upper bound
+  const isOpenEnded = range.startsWith(">=") && !range.includes("<");
+  if (!isOpenEnded) return null;
+
+  const minVersion = range.replace(/>= ?/, "");
+  return compareVersions(version, minVersion) >= 0;
+};
+
 export const isVersionVulnerable = (
   currentVersion: string,
   vulnerableRange: string,
@@ -102,6 +114,7 @@ export const isVersionVulnerable = (
 
     return (
       checkBoundedRange(cleanVersion, vulnerableRange) ??
+      checkGreaterThanOrEqual(cleanVersion, vulnerableRange) ??
       checkLessThanOrEqual(cleanVersion, vulnerableRange) ??
       checkLessThan(cleanVersion, vulnerableRange) ??
       false

@@ -71,7 +71,7 @@ export const handleSetupHook = (
     return true;
   } catch (err) {
     log.error("Failed to setup hook", "handleSetupHook", err);
-    return true;
+    return false;
   }
 };
 
@@ -234,7 +234,7 @@ export const runSecurityCheck = async (
     }
     const errorMessage = error instanceof Error ? error.message : String(error);
     spinner.fail(
-      `${deps.green(`pastoralist`)} security check failed: ${errorMessage}`,
+      `${deps.yellow(`pastoralist`)} security check failed: ${errorMessage}`,
     );
     throw error;
   }

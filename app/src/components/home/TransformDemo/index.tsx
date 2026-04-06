@@ -1,11 +1,109 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useInView } from "react-intersection-observer";
+import { setup, assign, fromCallback } from "xstate";
+import { useMachine } from "@xstate/react";
 import type { AnimationPhase } from "./types";
 import { Popover } from "./Popover";
 import { BeforeTerminal } from "./BeforeTerminal";
 import { CLITerminal } from "./CLITerminal";
 import { AfterTerminal } from "./AfterTerminal";
-import { STEP_POPOVERS, STEPS, APPENDIX_CONTENT, COMMAND } from "./constants";
+import {
+  STEP_POPOVERS,
+  STEPS,
+  APPENDIX_CONTENT,
+  COMMAND,
+  STEP_SNAPSHOTS,
+  MACHINE_CONFIG,
+} from "./constants";
+
+type TransformContext = {
+  typedCommand: string;
+  appendixLines: number;
+  activeStep: number;
+  showAll: boolean;
+};
+
+type TransformEvent =
+  | { type: "START" }
+  | { type: "SKIP" }
+  | { type: "STEP_CLICK"; step: 1 | 2 | 3 }
+  | { type: "TYPING_TICK"; index: number }
+  | { type: "TYPING_DONE" }
+  | { type: "APPENDIX_TICK"; index: number }
+  | { type: "APPENDIX_DONE" };
+
+const typingActor = fromCallback<
+  { type: "TYPING_TICK"; index: number } | { type: "TYPING_DONE" }
+>(({ sendBack }) => {
+  let index = 0;
+  const id = setInterval(() => {
+    const isDone = index >= COMMAND.length;
+    if (isDone) {
+      clearInterval(id);
+      sendBack({ type: "TYPING_DONE" });
+    } else {
+      sendBack({ type: "TYPING_TICK", index });
+      index++;
+    }
+  }, 20);
+  return () => clearInterval(id);
+});
+
+const appendixActor = fromCallback<
+  { type: "APPENDIX_TICK"; index: number } | { type: "APPENDIX_DONE" }
+>(({ sendBack }) => {
+  let index = 0;
+  const id = setInterval(() => {
+    const isDone = index >= APPENDIX_CONTENT.length;
+    if (isDone) {
+      clearInterval(id);
+      sendBack({ type: "APPENDIX_DONE" });
+    } else {
+      sendBack({ type: "APPENDIX_TICK", index });
+      index++;
+    }
+  }, 60);
+  return () => clearInterval(id);
+});
+
+const transformMachine = setup({
+  types: {} as { context: TransformContext; events: TransformEvent },
+  actors: { typingActor, appendixActor },
+  actions: {
+    applyStepSnapshot: assign(({ event }) => {
+      const e = event as Extract<TransformEvent, { type: "STEP_CLICK" }>;
+      return STEP_SNAPSHOTS[e.step];
+    }),
+    applySkip: assign(() => STEP_SNAPSHOTS[3]),
+    resetStep1: assign({
+      activeStep: 1,
+      typedCommand: "",
+      appendixLines: 0,
+      showAll: false,
+    }),
+    setActiveStep2: assign({ activeStep: 2 }),
+    setActiveStep3: assign({ activeStep: 3 }),
+    updateTypedCommand: assign({
+      typedCommand: ({ event }) => {
+        const e = event as Extract<TransformEvent, { type: "TYPING_TICK" }>;
+        return COMMAND.slice(0, e.index + 1);
+      },
+    }),
+    updateAppendixLines: assign({
+      appendixLines: ({ event }) => {
+        const e = event as Extract<TransformEvent, { type: "APPENDIX_TICK" }>;
+        return e.index + 1;
+      },
+    }),
+    setCompleteContext: assign({ activeStep: 3, showAll: true }),
+    resetContext: assign({
+      typedCommand: "",
+      appendixLines: 0,
+      activeStep: 0,
+      showAll: false,
+    }),
+  },
+}).createMachine(MACHINE_CONFIG);
 
 interface TransformDemoProps {
   shouldAnimate?: boolean;
@@ -16,201 +114,86 @@ export function TransformDemo({
   shouldAnimate = true,
   onComplete,
 }: TransformDemoProps) {
-  const [phase, setPhase] = useState<AnimationPhase>("idle");
-  const [typedCommand, setTypedCommand] = useState("");
-  const [showSpinner, setShowSpinner] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [appendixLines, setAppendixLines] = useState<number>(0);
-  const [activeStep, setActiveStep] = useState<number>(0);
-  const [showLightning, setShowLightning] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [showAllPopovers, setShowAllPopovers] = useState(false);
-  const hasStarted = useRef(false);
-  const animationRef = useRef<NodeJS.Timeout | null>(null);
-  const pausedState = useRef<{
-    phase: AnimationPhase;
-    typedCommand: string;
-    appendixLines: number;
-  } | null>(null);
+  const [snapshot, send] = useMachine(transformMachine);
+  const { typedCommand, appendixLines, activeStep, showAll } = snapshot.context;
 
-  const clearAnimations = useCallback(() => {
-    if (animationRef.current) {
-      clearInterval(animationRef.current);
-      animationRef.current = null;
-    }
-  }, []);
+  const isPreviewing = snapshot.matches("previewing");
+  const isInStep1 = snapshot.matches({ animating: "step1" });
+  const isTyping = snapshot.matches({ animating: "typing" });
+  const isChecking = snapshot.matches({ animating: "checking" });
+  const isSuccessPhase = snapshot.matches({ animating: "success" });
+  const isInStep3 = snapshot.matches({ animating: "step3" });
+  const isAnimatingComplete = snapshot.matches({ animating: "complete" });
+  const isLightningVisible = snapshot.matches({
+    animating: { complete: "done" },
+  });
 
-  const animateAppendixFrom = useCallback(
-    (startIndex: number) => {
-      let lineIndex = startIndex;
-      animationRef.current = setInterval(() => {
-        if (lineIndex < APPENDIX_CONTENT.length) {
-          setAppendixLines(lineIndex + 1);
-          lineIndex++;
-        } else {
-          clearAnimations();
-          setPhase("complete");
-          setShowAllPopovers(true);
-          onComplete?.();
-          setTimeout(() => {
-            setShowLightning(true);
-          }, 150);
-        }
-      }, 60);
-    },
-    [clearAnimations],
-  );
+  const isStep2Phase = isTyping || isChecking || isSuccessPhase;
+  const showSpinner = isChecking;
+  const showSuccess =
+    isSuccessPhase ||
+    isInStep3 ||
+    isAnimatingComplete ||
+    (isPreviewing && activeStep >= 2);
+  const showLightning = isLightningVisible || (isPreviewing && showAll);
+  const showAllPopovers = isAnimatingComplete || showAll;
 
-  const startTypingCommand = useCallback(() => {
-    setPhase("step2");
-    setActiveStep(2);
-    let charIndex = 0;
-    animationRef.current = setInterval(() => {
-      if (charIndex < COMMAND.length) {
-        setTypedCommand(COMMAND.slice(0, charIndex + 1));
-        charIndex++;
-      } else {
-        clearAnimations();
-        setTimeout(() => {
-          setPhase("checking");
-          setShowSpinner(true);
-          setTimeout(() => {
-            setShowSpinner(false);
-            setShowSuccess(true);
-            setTimeout(() => {
-              setPhase("step3");
-              setActiveStep(3);
-              animateAppendixFrom(0);
-            }, 300);
-          }, 500);
-        }, 100);
-      }
-    }, 20);
-  }, [clearAnimations, animateAppendixFrom]);
+  const isStep1Active = isPreviewing
+    ? showAll || activeStep === 1
+    : activeStep >= 1 || showAllPopovers;
+  const isStep2Active = isPreviewing
+    ? showAll || activeStep === 2
+    : activeStep >= 2 || showAllPopovers;
+  const isStep3Active = isPreviewing
+    ? showAll || activeStep === 3
+    : activeStep >= 3 || showAllPopovers;
 
-  const resetState = useCallback(() => {
-    clearAnimations();
-    setTypedCommand("");
-    setShowSpinner(false);
-    setShowSuccess(false);
-    setAppendixLines(0);
-    setShowLightning(false);
-  }, [clearAnimations]);
+  const phase: AnimationPhase = isStep2Phase
+    ? "step2"
+    : isInStep3
+      ? "step3"
+      : isAnimatingComplete
+        ? "complete"
+        : isInStep1 || activeStep === 1
+          ? "step1"
+          : activeStep === 2
+            ? "step2"
+            : activeStep === 3
+              ? "step3"
+              : "idle";
 
-  const startAnimation = useCallback(() => {
-    resetState();
-    setPhase("step1");
-    setActiveStep(1);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
-    setTimeout(() => {
-      startTypingCommand();
-    }, 800);
-  }, [resetState, startTypingCommand]);
+  useEffect(() => {
+    if (isAnimatingComplete) onCompleteRef.current?.();
+  }, [isAnimatingComplete]);
 
-  const resumeAnimation = useCallback(() => {
-    if (!isPaused || !pausedState.current) return;
+  useEffect(() => {
+    const shouldSkip = !shouldAnimate;
+    if (shouldSkip) send({ type: "SKIP" });
+  }, [shouldAnimate, send]);
 
-    setIsPaused(false);
-    const {
-      phase: savedPhase,
-      typedCommand: savedCommand,
-      appendixLines: savedLines,
-    } = pausedState.current;
-    pausedState.current = null;
-
-    if (savedPhase === "step2" && savedCommand.length < COMMAND.length) {
-      let charIndex = savedCommand.length;
-      animationRef.current = setInterval(() => {
-        if (charIndex < COMMAND.length) {
-          setTypedCommand(COMMAND.slice(0, charIndex + 1));
-          charIndex++;
-        } else {
-          clearAnimations();
-          setTimeout(() => {
-            setPhase("checking");
-            setShowSpinner(true);
-            setTimeout(() => {
-              setShowSpinner(false);
-              setShowSuccess(true);
-              setTimeout(() => {
-                setPhase("step3");
-                setActiveStep(3);
-                animateAppendixFrom(0);
-              }, 300);
-            }, 500);
-          }, 100);
-        }
-      }, 20);
-    } else if (savedPhase === "step3" && savedLines < APPENDIX_CONTENT.length) {
-      animateAppendixFrom(savedLines);
-    }
-  }, [isPaused, clearAnimations, animateAppendixFrom]);
+  const snapshotRef = useRef(snapshot);
+  snapshotRef.current = snapshot;
 
   const { ref: containerRef } = useInView({
     threshold: 0.3,
-    onChange: (inView) => {
-      if (inView && shouldAnimate) {
-        if (!hasStarted.current) {
-          hasStarted.current = true;
-          startAnimation();
-        } else if (isPaused) {
-          resumeAnimation();
-        }
-      }
+    onChange: (inView: boolean) => {
+      const current = snapshotRef.current;
+      const canStart = current.matches("idle") || current.matches("previewing");
+      const shouldStart = inView && shouldAnimate && canStart;
+      if (shouldStart) send({ type: "START" });
     },
   });
-
-  useEffect(() => {
-    if (!shouldAnimate && !hasStarted.current) {
-      hasStarted.current = true;
-      setPhase("complete");
-      setTypedCommand(COMMAND);
-      setAppendixLines(APPENDIX_CONTENT.length);
-      setActiveStep(3);
-      setShowAllPopovers(true);
-      setShowLightning(true);
-      setShowSuccess(true);
-    }
-  }, [shouldAnimate]);
-
-  const handleStepClick = (step: number) => {
-    clearAnimations();
-
-    pausedState.current = {
-      phase,
-      typedCommand,
-      appendixLines,
-    };
-    setIsPaused(true);
-    setShowAllPopovers(false);
-    setActiveStep(step);
-
-    if (step === 1) {
-      setPhase("step1");
-    } else if (step === 2) {
-      setPhase("step2");
-    } else if (step === 3) {
-      setPhase("step3");
-    }
-  };
-
-  const isStep1Active = isPaused
-    ? activeStep === 1
-    : activeStep >= 1 || showAllPopovers;
-  const isStep2Active = isPaused
-    ? activeStep === 2
-    : activeStep >= 2 || showAllPopovers;
-  const isStep3Active = isPaused
-    ? activeStep === 3
-    : activeStep >= 3 || showAllPopovers;
 
   return (
     <div ref={containerRef} className="flex flex-col gap-12">
       <ul className="steps w-full">
         {STEPS.map((step, index) => {
-          const stepNum = index + 1;
+          const stepNum = (index + 1) as 1 | 2 | 3;
           const isStepComplete =
-            activeStep > stepNum || (stepNum === 3 && phase === "complete");
+            activeStep > stepNum || (stepNum === 3 && isAnimatingComplete);
           const isActive = activeStep >= stepNum;
           const baseClass =
             "step cursor-pointer transition-all duration-200 text-base-content";
@@ -223,7 +206,7 @@ export function TransformDemo({
             <li
               key={index}
               className={`${baseClass} ${activeClass}`}
-              onClick={() => handleStepClick(stepNum)}
+              onClick={() => send({ type: "STEP_CLICK", step: stepNum })}
               data-content={dataContent}
             >
               {step}

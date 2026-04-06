@@ -8,6 +8,7 @@ import {
   updateAppendix,
   processPackageJSON,
   constructAppendix,
+  findRemovableAppendixItems,
 } from "../../../../src/core/appendix";
 
 test("updateAppendix - simple override", () => {
@@ -59,4 +60,58 @@ test("constructAppendix", async () => {
   );
 
   expect(result).toBeDefined();
+});
+
+test("findRemovableAppendixItems - extracts plain package names correctly", () => {
+  const appendix: Appendix = {
+    "lodash@4.17.21": { dependents: {} },
+  };
+  const result = findRemovableAppendixItems(appendix);
+  expect(result).toEqual(["lodash"]);
+});
+
+test("findRemovableAppendixItems - extracts scoped package names correctly", () => {
+  const appendix: Appendix = {
+    "@scope/pkg@1.2.3": { dependents: {} },
+  };
+  const result = findRemovableAppendixItems(appendix);
+  expect(result).toEqual(["@scope/pkg"]);
+});
+
+test("findRemovableAppendixItems - handles mixed scoped and plain packages", () => {
+  const appendix: Appendix = {
+    "lodash@4.17.21": { dependents: {} },
+    "@scope/pkg@2.0.0": { dependents: {} },
+    "express@4.18.0": { dependents: { root: "1.0.0" } },
+  };
+  const result = findRemovableAppendixItems(appendix);
+  expect(result).toEqual(["lodash", "@scope/pkg"]);
+});
+
+test("updateAppendix - does not skip transitive override when onlyUsedOverrides=true", () => {
+  const overrides: OverridesType = { lodash: "4.17.21" };
+  const result = updateAppendix({
+    overrides,
+    appendix: {},
+    dependencies: {},
+    devDependencies: {},
+    packageName: "root",
+    onlyUsedOverrides: true,
+    dependencyTree: { lodash: true },
+  });
+  expect(result["lodash@4.17.21"]).toBeDefined();
+});
+
+test("updateAppendix - skips genuinely unused override when onlyUsedOverrides=true", () => {
+  const overrides: OverridesType = { lodash: "4.17.21" };
+  const result = updateAppendix({
+    overrides,
+    appendix: {},
+    dependencies: {},
+    devDependencies: {},
+    packageName: "root",
+    onlyUsedOverrides: true,
+    dependencyTree: {},
+  });
+  expect(result["lodash@4.17.21"]).toBeUndefined();
 });

@@ -128,7 +128,7 @@ test("handleSetupHook - appends pastoralist to existing postinstall", () => {
   expect(parsed.scripts.postinstall).toBe("echo done && pastoralist");
 });
 
-test("handleSetupHook - returns true on read error", () => {
+test("handleSetupHook - returns false on read error", () => {
   const { handleSetupHook } = require("../../../src/cli/index");
 
   const mockReadFileSync = mock(() => {
@@ -144,7 +144,7 @@ test("handleSetupHook - returns true on read error", () => {
     resolve: mockResolve,
   });
 
-  expect(result).toBe(true);
+  expect(result).toBe(false);
   expect(mockWriteFileSync).not.toHaveBeenCalled();
 });
 
@@ -2048,7 +2048,7 @@ test("runSecurityCheck - handles error and calls spinner.fail", async () => {
     createSpinner: mock(() => mockSpinner),
     SecurityChecker: mock(() => mockSecurityChecker),
     determineSecurityScanPaths: mock(() => []),
-    green: mock((text: string) => text),
+    yellow: mock((text: string) => text),
   };
 
   await expect(
@@ -2088,7 +2088,7 @@ test("runSecurityCheck - handles non-Error throws and calls spinner.fail", async
     createSpinner: mock(() => mockSpinner),
     SecurityChecker: mock(() => mockSecurityChecker),
     determineSecurityScanPaths: mock(() => []),
-    green: mock((text: string) => text),
+    yellow: mock((text: string) => text),
   };
 
   await expect(

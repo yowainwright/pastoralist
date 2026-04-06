@@ -459,6 +459,32 @@ test("isVersionVulnerable - distinguishes <= from < at boundary", () => {
 });
 
 // =============================================================================
+// isVersionVulnerable - open-ended >= range tests
+// =============================================================================
+
+test("isVersionVulnerable - open-ended >= flags any version at or above minimum", () => {
+  expect(isVersionVulnerable("1.0.0", ">= 0")).toBe(true);
+  expect(isVersionVulnerable("99.0.0", ">= 0")).toBe(true);
+});
+
+test("isVersionVulnerable - open-ended >= returns false when below minimum", () => {
+  expect(isVersionVulnerable("0.9.0", ">= 1.0.0")).toBe(false);
+});
+
+test("isVersionVulnerable - open-ended >= returns true when exactly at minimum", () => {
+  expect(isVersionVulnerable("1.0.0", ">= 1.0.0")).toBe(true);
+});
+
+test("isVersionVulnerable - open-ended >= returns true when above minimum", () => {
+  expect(isVersionVulnerable("2.5.3", ">= 1.0.0")).toBe(true);
+});
+
+test("isVersionVulnerable - bounded >= < range still works correctly", () => {
+  expect(isVersionVulnerable("1.5.0", ">= 1.0.0 < 2.0.0")).toBe(true);
+  expect(isVersionVulnerable("2.0.0", ">= 1.0.0 < 2.0.0")).toBe(false);
+});
+
+// =============================================================================
 // findVulnerablePackages tests
 // =============================================================================
 

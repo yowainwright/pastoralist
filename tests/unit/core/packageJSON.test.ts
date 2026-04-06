@@ -84,7 +84,7 @@ test("detectPackageManager - should detect bun when bun.lockb exists", () => {
 });
 
 test("detectPackageManager - should detect npm as fallback", () => {
-  const locks = ["bun.lockb", "yarn.lock", "pnpm-lock.yaml"];
+  const locks = ["bun.lockb", "bun.lock", "yarn.lock", "pnpm-lock.yaml"];
   const existing = locks.filter((f) => existsSync(resolve(process.cwd(), f)));
 
   const pm = detectPackageManager();

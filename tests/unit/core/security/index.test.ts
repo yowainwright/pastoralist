@@ -1431,6 +1431,18 @@ test("checkSecurity - returns results when provider fetch succeeds", async () =>
         json: () => Promise.resolve(mockVuln),
       } as Response);
     }
+    const isRegistryCall =
+      typeof url === "string" && url.includes("registry.npmjs.org");
+    if (isRegistryCall) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            "dist-tags": { latest: "4.17.21" },
+            versions: { "4.17.20": {}, "4.17.21": {} },
+          }),
+      } as Response);
+    }
     return Promise.resolve({
       ok: true,
       json: () => Promise.resolve({}),

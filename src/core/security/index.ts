@@ -82,7 +82,7 @@ export class SecurityChecker {
   }
 
   private isKnownSecurityProvider(providerType: string): boolean {
-    const knownProviders = ["github", "snyk", "socket", "osv"];
+    const knownProviders = ["github", "snyk", "socket", "osv", "npm"];
     return knownProviders.includes(providerType);
   }
 
@@ -698,7 +698,8 @@ export class SecurityChecker {
       );
     } catch (error) {
       this.log.error("Failed to apply auto-fix", "applyAutoFix", { error });
-      throw new Error(`Auto-fix failed: ${error}`);
+      const cause = error instanceof Error ? error : new Error(String(error));
+      throw new Error(`Auto-fix failed: ${cause.message}`, { cause });
     }
   }
 

@@ -5,11 +5,13 @@ export function useScrollspy(headingCount: number) {
   const [activeId, setActiveId] = useState<string | null>(null);
 
   useEffect(() => {
+    let observer: IntersectionObserver | null = null;
+
     const timer = setTimeout(() => {
       const headings = document.querySelectorAll(HEADING_SELECTORS);
       if (headings.length === 0) return;
 
-      const observer = new IntersectionObserver((entries) => {
+      observer = new IntersectionObserver((entries) => {
         const visibleEntries = entries.filter((entry) => entry.isIntersecting);
         if (visibleEntries.length > 0) {
           const topMostEntry = visibleEntries.reduce((prev, curr) => {
@@ -21,12 +23,13 @@ export function useScrollspy(headingCount: number) {
         }
       }, INTERSECTION_OBSERVER_OPTIONS);
 
-      headings.forEach((heading) => observer.observe(heading));
-
-      return () => observer.disconnect();
+      headings.forEach((heading) => observer!.observe(heading));
     }, 100);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      observer?.disconnect();
+    };
   }, [headingCount]);
 
   return activeId;

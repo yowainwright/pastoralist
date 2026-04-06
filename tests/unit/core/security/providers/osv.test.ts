@@ -377,6 +377,170 @@ test("fetchAlerts - should extract CVE from aliases", async () => {
   global.fetch = originalFetch;
 });
 
+test("fetchAlerts - should map numeric CVSS score 9.5 to critical", async () => {
+  const provider = new OSVProvider({ debug: false });
+  const originalFetch = global.fetch;
+
+  const mockVuln: OSVVulnerability = {
+    id: "OSV-2021-1234",
+    summary: "Critical vuln",
+    details: "Details",
+    affected: [
+      {
+        package: { name: "test", ecosystem: "npm" },
+        ranges: [{ type: "SEMVER", events: [{ introduced: "0" }] }],
+      },
+    ],
+    references: [],
+    severity: [{ type: "CVSS_V3", score: "9.5" }],
+  };
+
+  global.fetch = mock((url: string) => {
+    const isBatchCall = url.includes("querybatch");
+    if (isBatchCall) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
+      } as Response);
+    }
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve(mockVuln),
+    } as Response);
+  });
+
+  const alerts = await provider.fetchAlerts([
+    { name: "test", version: "1.0.0" },
+  ]);
+  expect(alerts[0].severity).toBe("critical");
+
+  global.fetch = originalFetch;
+});
+
+test("fetchAlerts - should map numeric CVSS score 7.5 to high", async () => {
+  const provider = new OSVProvider({ debug: false });
+  const originalFetch = global.fetch;
+
+  const mockVuln: OSVVulnerability = {
+    id: "OSV-2021-1234",
+    summary: "High vuln",
+    details: "Details",
+    affected: [
+      {
+        package: { name: "test", ecosystem: "npm" },
+        ranges: [{ type: "SEMVER", events: [{ introduced: "0" }] }],
+      },
+    ],
+    references: [],
+    severity: [{ type: "CVSS_V3", score: "7.5 HIGH" }],
+  };
+
+  global.fetch = mock((url: string) => {
+    const isBatchCall = url.includes("querybatch");
+    if (isBatchCall) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
+      } as Response);
+    }
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve(mockVuln),
+    } as Response);
+  });
+
+  const alerts = await provider.fetchAlerts([
+    { name: "test", version: "1.0.0" },
+  ]);
+  expect(alerts[0].severity).toBe("high");
+
+  global.fetch = originalFetch;
+});
+
+test("fetchAlerts - should map numeric CVSS score 5.0 to medium", async () => {
+  const provider = new OSVProvider({ debug: false });
+  const originalFetch = global.fetch;
+
+  const mockVuln: OSVVulnerability = {
+    id: "OSV-2021-1234",
+    summary: "Medium vuln",
+    details: "Details",
+    affected: [
+      {
+        package: { name: "test", ecosystem: "npm" },
+        ranges: [{ type: "SEMVER", events: [{ introduced: "0" }] }],
+      },
+    ],
+    references: [],
+    severity: [{ type: "CVSS_V3", score: "5.0" }],
+  };
+
+  global.fetch = mock((url: string) => {
+    const isBatchCall = url.includes("querybatch");
+    if (isBatchCall) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
+      } as Response);
+    }
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve(mockVuln),
+    } as Response);
+  });
+
+  const alerts = await provider.fetchAlerts([
+    { name: "test", version: "1.0.0" },
+  ]);
+  expect(alerts[0].severity).toBe("medium");
+
+  global.fetch = originalFetch;
+});
+
+test("fetchAlerts - should map numeric CVSS score 2.0 to low", async () => {
+  const provider = new OSVProvider({ debug: false });
+  const originalFetch = global.fetch;
+
+  const mockVuln: OSVVulnerability = {
+    id: "OSV-2021-1234",
+    summary: "Low vuln",
+    details: "Details",
+    affected: [
+      {
+        package: { name: "test", ecosystem: "npm" },
+        ranges: [{ type: "SEMVER", events: [{ introduced: "0" }] }],
+      },
+    ],
+    references: [],
+    severity: [{ type: "CVSS_V3", score: "2.0" }],
+  };
+
+  global.fetch = mock((url: string) => {
+    const isBatchCall = url.includes("querybatch");
+    if (isBatchCall) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
+      } as Response);
+    }
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve(mockVuln),
+    } as Response);
+  });
+
+  const alerts = await provider.fetchAlerts([
+    { name: "test", version: "1.0.0" },
+  ]);
+  expect(alerts[0].severity).toBe("low");
+
+  global.fetch = originalFetch;
+});
+
 test("fetchAlerts - should return undefined for CVE when not in aliases", async () => {
   const provider = new OSVProvider({ debug: false });
   const originalFetch = global.fetch;
@@ -566,6 +730,7 @@ test("fetchAlerts - strict mode throws when individual vuln detail fetch fails",
   const provider = new OSVProvider({
     debug: false,
     strict: true,
+    retryOptions: { retries: 1, minTimeout: 10 },
   });
   const originalFetch = global.fetch;
 
@@ -623,6 +788,7 @@ test("fetchAlerts - non-strict returns partial results when individual vuln deta
   const provider = new OSVProvider({
     debug: false,
     strict: false,
+    retryOptions: { retries: 1, minTimeout: 10 },
   });
   const originalFetch = global.fetch;
 

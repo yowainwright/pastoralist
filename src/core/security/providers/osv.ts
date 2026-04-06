@@ -247,12 +247,30 @@ export class OSVProvider {
 
     if (typeof severity === "string") {
       const s = severity.toLowerCase();
-      if (["low", "medium", "high", "critical"].includes(s)) {
-        return s as "low" | "medium" | "high" | "critical";
-      }
+      const isLabel = ["low", "medium", "high", "critical"].includes(s);
+      if (isLabel) return s as "low" | "medium" | "high" | "critical";
+
+      const numScore = parseFloat(s);
+      const isNumericScore = !isNaN(numScore);
+      if (isNumericScore) return this.cvssScoreToSeverity(numScore);
     }
 
+    const isNumber = typeof severity === "number";
+    if (isNumber) return this.cvssScoreToSeverity(severity as number);
+
     return "medium";
+  }
+
+  private cvssScoreToSeverity(
+    score: number,
+  ): "low" | "medium" | "high" | "critical" {
+    const isCritical = score >= 9.0;
+    const isHigh = score >= 7.0;
+    const isMedium = score >= 4.0;
+    if (isCritical) return "critical";
+    if (isHigh) return "high";
+    if (isMedium) return "medium";
+    return "low";
   }
 
   private extractCVE(vuln: OSVVulnerability): string | undefined {

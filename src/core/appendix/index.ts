@@ -1,4 +1,5 @@
 import { writeFileSync } from "fs";
+import { resolve } from "path";
 import type {
   Appendix,
   AppendixItem,
@@ -9,7 +10,7 @@ import type {
 import type { SecurityOverrideDetail } from "../../types";
 import type { Logger } from "../../utils";
 import type { PartialSecurityLedger } from "./types";
-import { resolveJSON } from "../packageJSON";
+import { resolveJSON, jsonCache } from "../packageJSON";
 import { getOverridesByType, resolveOverrides } from "../overrides";
 import { packageAtVersion } from "../../utils/string";
 import {
@@ -43,7 +44,7 @@ const processSimpleOverride = (
   const hasOverride = depList.includes(override);
   const isInDependencyTree = dependencyTree?.[override] || false;
   const isUnused = !hasOverride && !isInDependencyTree;
-  const shouldSkip = onlyUsedOverrides && (isUnused || !hasOverride);
+  const shouldSkip = onlyUsedOverrides && isUnused;
   if (shouldSkip) return appendix;
 
   const key = packageAtVersion(override)(overrideVersion);
@@ -314,8 +315,10 @@ export const processPackageJSON = (
   const shouldWrite = shouldWriteAppendix(appendix, writeAppendixToFile);
 
   if (shouldWrite) {
-    currentPackageJSON!.pastoralist = { appendix };
-    writeFileSync(filePath, JSON.stringify(currentPackageJSON, null, 2));
+    const normalizedPath = resolve(filePath);
+    const updatedConfig = { ...currentPackageJSON!, pastoralist: { appendix } };
+    writeFileSync(filePath, JSON.stringify(updatedConfig, null, 2));
+    jsonCache.delete(normalizedPath);
   }
 
   return {
@@ -523,5 +526,5 @@ export const findRemovableAppendixItems = (appendix: Appendix): string[] => {
       const dependents = appendix[item]?.dependents;
       return !dependents || Object.keys(dependents).length === 0;
     })
-    .map((item) => item.split("@")[0]);
+    .map((item) => item.replace(/@[^@]+$/, ""));
 };

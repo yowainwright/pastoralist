@@ -2,14 +2,13 @@ import GithubSlugger from "github-slugger";
 import type { Heading } from "./types";
 import { HEADING_REGEX } from "./constants";
 
-const slugger = new GithubSlugger();
-
 export function slugify(text: string): string {
-  slugger.reset();
+  const slugger = new GithubSlugger();
   return slugger.slug(text);
 }
 
 export function extractHeadings(source: string): Heading[] {
+  const slugger = new GithubSlugger();
   const headings: Heading[] = [];
   const regex = new RegExp(HEADING_REGEX.source, HEADING_REGEX.flags);
 
@@ -17,7 +16,7 @@ export function extractHeadings(source: string): Heading[] {
   while ((match = regex.exec(source)) !== null) {
     const depth = match[1].length;
     const text = match[2].trim();
-    const slug = slugify(text);
+    const slug = slugger.slug(text);
     headings.push({ depth, slug, text });
   }
 

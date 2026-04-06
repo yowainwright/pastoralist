@@ -5,19 +5,8 @@ export const WORKSPACE_MODES = {
   MULTIPLE: "workspaces",
 } as const;
 import { toCompactAppendix } from "../appendix/utils";
-import type {
-  PastoralistJSON,
-  Appendix,
-  OverridesType,
-  Options,
-  ResolveOverrides,
-} from "../../types";
-import type { PastoralistConfig } from "../../config";
-import type {
-  WriteResultContext,
-  ProcessingMode,
-  MergedConfig,
-} from "../../types";
+import type { PastoralistJSON, Appendix, Options } from "../../types";
+import type { WriteResultContext, ProcessingMode } from "../../types";
 import type { Logger } from "../../utils";
 
 export const findPackageFiles = (
@@ -96,46 +85,6 @@ export const resolveDepPaths = (
   }
 
   return null;
-};
-
-export const mergeAllConfigs = (
-  cliOptions: Options,
-  packageJsonConfig: PastoralistConfig | undefined,
-  overridesData: ResolveOverrides,
-  overrides: OverridesType,
-): MergedConfig => {
-  const base = packageJsonConfig || {};
-
-  return {
-    overrides,
-    overridesData,
-    appendix: base.appendix,
-    depPaths: cliOptions.depPaths || base.depPaths,
-    securityOverrideDetails: cliOptions.securityOverrideDetails,
-    securityProvider: cliOptions.securityProvider,
-    manualOverrideReasons: cliOptions.manualOverrideReasons,
-  };
-};
-
-export const findRemovableOverrides = (
-  overrides: OverridesType,
-  appendix: Appendix,
-  allDeps: Record<string, string>,
-  missingInRoot: string[],
-): string[] => {
-  const removable: string[] = [];
-
-  for (const pkg of Object.keys(overrides)) {
-    const isUsed = appendix[`${pkg}@${overrides[pkg]}`];
-    const hasRootDep = allDeps[pkg];
-    const isMissing = missingInRoot.includes(pkg);
-
-    if (!isUsed && !hasRootDep && !isMissing) {
-      removable.push(pkg);
-    }
-  }
-
-  return removable;
 };
 
 export const hasOverrides = (

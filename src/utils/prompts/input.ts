@@ -1,5 +1,3 @@
-import * as readline from "readline";
-
 let pipedInputLines: string[] = [];
 let lineIndex = 0;
 let pipedInputReady = false;
@@ -53,7 +51,9 @@ export function getNextPipedInput(): string | null {
 }
 
 export async function enhancedQuestion<T = string>(
-  rl: readline.Interface,
+  rl: {
+    question: (prompt: string, callback: (answer: string) => void) => void;
+  },
   prompt: string,
   processor: (answer: string) => T = ((answer: string) => answer.trim()) as (
     answer: string,

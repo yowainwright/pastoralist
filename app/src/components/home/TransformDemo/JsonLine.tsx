@@ -1,10 +1,5 @@
 import { shouldHighlightLine, highlightJsonSyntax } from "./constants";
-
-interface JsonLineProps {
-  line: string;
-  isAdded?: boolean;
-  className?: string;
-}
+import type { JsonLineProps } from "./types";
 
 export const JsonLine: React.FC<JsonLineProps> = ({
   line,

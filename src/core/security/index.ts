@@ -26,8 +26,14 @@ import {
 import { SecuritySetupWizard, promptForSetup } from "./setup";
 import type { SecurityProvider as SecurityProviderType } from "./constants";
 import { KNOWN_PROVIDERS } from "./constants";
-import { readFileSync, copyFileSync, writeFileSync, existsSync } from "fs";
-import { resolve } from "path";
+import {
+  readFileSync,
+  copyFileSync,
+  writeFileSync,
+  existsSync,
+  mkdirSync,
+} from "fs";
+import { resolve, dirname, basename } from "path";
 import { updateAppendix } from "../appendix";
 import { glob } from "../../utils/glob";
 
@@ -343,24 +349,20 @@ export class SecurityChecker {
 
   private isNewVulnerability(
     vuln: SecurityAlert,
-    vulnerablePackages: SecurityAlert[],
+    existingKeys: Set<string>,
   ): boolean {
-    const existing = vulnerablePackages.find(
-      (v) =>
-        v.packageName === vuln.packageName &&
-        v.currentVersion === vuln.currentVersion,
-    );
-    return !existing;
+    const key = `${vuln.packageName}@${vuln.currentVersion}`;
+    return !existingKeys.has(key);
   }
 
   private extractNewVulnerabilities(
     pkgJson: PastoralistJSON,
     alerts: SecurityAlert[],
-    vulnerablePackages: SecurityAlert[],
+    existingKeys: Set<string>,
   ): SecurityAlert[] {
     const pkgVulnerable = findVulnerablePackages(pkgJson, alerts);
     return pkgVulnerable.filter((vuln) =>
-      this.isNewVulnerability(vuln, vulnerablePackages),
+      this.isNewVulnerability(vuln, existingKeys),
     );
   }
 
@@ -381,7 +383,14 @@ export class SecurityChecker {
           const pkgJson = this.readPackageFile(packageFile);
           if (!pkgJson) return acc;
 
-          const newVulns = this.extractNewVulnerabilities(pkgJson, alerts, acc);
+          const existingKeys = new Set(
+            acc.map((v) => `${v.packageName}@${v.currentVersion}`),
+          );
+          const newVulns = this.extractNewVulnerabilities(
+            pkgJson,
+            alerts,
+            existingKeys,
+          );
           return acc.concat(newVulns);
         },
         [],
@@ -497,15 +506,18 @@ export class SecurityChecker {
           toVersion: targetVersion,
           reason: `Security fix: ${pkg.title} (${pkg.severity})`,
           severity: pkg.severity,
+          vulnerableRange: pkg.vulnerableVersions,
+          patchedVersion,
         };
 
-        const cveField = pkg.cve ? { cve: pkg.cve } : {};
+        const cvesField =
+          pkg.cves && pkg.cves.length > 0 ? { cves: pkg.cves } : {};
         const descriptionField = pkg.description
           ? { description: pkg.description }
           : {};
         const urlField = pkg.url ? { url: pkg.url } : {};
 
-        return Object.assign({}, base, cveField, descriptionField, urlField);
+        return Object.assign({}, base, cvesField, descriptionField, urlField);
       });
   }
 
@@ -538,9 +550,9 @@ export class SecurityChecker {
     );
     lines.push(`   ${pkg.title}\n`);
 
-    const hasCVE = Boolean(pkg.cve);
-    if (hasCVE) {
-      lines.push(`   CVE: ${pkg.cve}\n`);
+    const hasCVEs = pkg.cves && pkg.cves.length > 0;
+    if (hasCVEs) {
+      lines.push(`   CVE: ${pkg.cves!.join(", ")}\n`);
     }
 
     const hasFixAvailable = pkg.fixAvailable && pkg.patchedVersion;
@@ -597,7 +609,17 @@ export class SecurityChecker {
   }
 
   private createBackup(pkgPath: string): string {
-    const backupPath = `${pkgPath}.backup-${Date.now()}`;
+    const cacheDir = resolve(
+      dirname(pkgPath),
+      "node_modules",
+      ".cache",
+      "pastoralist",
+    );
+    mkdirSync(cacheDir, { recursive: true });
+    const backupPath = resolve(
+      cacheDir,
+      `${basename(pkgPath)}.backup-${Date.now()}`,
+    );
     copyFileSync(pkgPath, backupPath);
     this.log.debug(`Created backup at ${backupPath}`, "createBackup");
     return backupPath;
@@ -631,7 +653,10 @@ export class SecurityChecker {
     };
   }
 
-  applyAutoFix(overrides: SecurityOverride[], packageJsonPath?: string): void {
+  applyAutoFix(
+    overrides: SecurityOverride[],
+    packageJsonPath?: string,
+  ): string | void {
     try {
       const pkgPath = packageJsonPath || resolve(process.cwd(), "package.json");
 
@@ -639,7 +664,7 @@ export class SecurityChecker {
         throw new Error(`package.json not found at ${pkgPath}`);
       }
 
-      this.createBackup(pkgPath);
+      const backupPath = this.createBackup(pkgPath);
       const packageJson = JSON.parse(readFileSync(pkgPath, "utf-8"));
       const packageManager = detectPackageManager();
       const newOverrides = this.generatePackageOverrides(overrides);
@@ -651,7 +676,8 @@ export class SecurityChecker {
             reason: override.reason,
           };
 
-          if (override.cve) detail.cve = override.cve;
+          if (override.cves && override.cves.length > 0)
+            detail.cves = override.cves;
           if (override.severity)
             detail.severity = override.severity as
               | "low"
@@ -702,6 +728,8 @@ export class SecurityChecker {
         pkgPath,
         JSON.stringify(updatedPackageJson, null, 2) + "\n",
       );
+
+      return backupPath;
     } catch (error) {
       this.log.error("Failed to apply auto-fix", "applyAutoFix", { error });
       const cause = error instanceof Error ? error : new Error(String(error));
@@ -723,16 +751,15 @@ export class SecurityChecker {
     }
   }
 
-  rollbackAutoFix(backupPath: string): void {
+  rollbackAutoFix(backupPath: string, originalPath: string): void {
     try {
       if (!existsSync(backupPath)) {
         throw new Error(`Backup file not found at ${backupPath}`);
       }
 
-      const packageJsonPath = backupPath.replace(/\.backup-\d+$/, "");
-      copyFileSync(backupPath, packageJsonPath);
+      copyFileSync(backupPath, originalPath);
 
-      console.log(`Rolled back to ${backupPath}`);
+      this.log.print(`Rolled back to ${backupPath}`);
     } catch (error) {
       this.log.error("Failed to rollback", "rollbackAutoFix", { error });
       throw new Error(`Rollback failed: ${error}`);

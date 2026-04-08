@@ -15,7 +15,6 @@ export function Header() {
   const { theme, toggle } = useTheme();
   const location = useLocation();
   const pathname = location.pathname;
-  const isDocsPage = pathname.includes("/docs");
   const searchData = getAllDocs().map((doc) => ({
     title: doc.title,
     description: doc.description,
@@ -24,63 +23,18 @@ export function Header() {
   }));
 
   return (
-    <header className="sticky top-0 z-30">
-      <nav className="navbar bg-base-100/80 border-b border-base-content/10 backdrop-blur-3xl justify-center items-center py-2 px-4 sm:px-6 md:px-20">
-        {isDocsPage ? (
-          <label
-            htmlFor="my-drawer-2"
-            className="btn btn-ghost btn-square lg:hidden"
-          >
-            <Menu className="h-5 w-5" />
-          </label>
-        ) : (
-          <div className="dropdown">
-            <div
-              tabIndex={0}
-              role="button"
-              className="btn btn-ghost btn-square lg:hidden"
-            >
-              <Menu className="h-5 w-5" />
-            </div>
-            <ul
-              tabIndex={0}
-              className="menu menu-sm dropdown-content mt-3 z-[50] p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-content/10"
-            >
-              {navigation.map((item) => (
-                <li key={item.href}>
-                  <Link
-                    to={item.href}
-                    preload={
-                      item.preload as unknown as
-                        | false
-                        | "intent"
-                        | "viewport"
-                        | "render"
-                        | undefined
-                    }
-                    className={`hover:text-[#1D4ED8] hover:bg-[#1D4ED8]/10 transition flex ${
-                      (
-                        item.href.includes("/docs")
-                          ? pathname.includes("/docs")
-                          : pathname === item.href
-                      )
-                        ? "text-[#1D4ED8] bg-[#1D4ED8]/10"
-                        : ""
-                    }`}
-                  >
-                    {item.title}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+    <header className="fixed top-0 z-30 w-full">
+      <nav className="navbar bg-base-100/80 border-b border-base-content/10 backdrop-blur-3xl justify-center items-center py-2 px-4 h-[68px]">
+        <label
+          htmlFor="my-drawer-2"
+          className="btn btn-ghost btn-square lg:hidden"
+        >
+          <Menu className="h-5 w-5" />
+        </label>
 
         <div className="navbar-start">
-          <Link to="/" preload="intent" className="btn btn-ghost px-1 sm:px-2">
-            <h1 className="text-lg sm:text-xl md:text-2xl font-bold gradient-text">
-              Pastoralist
-            </h1>
+          <Link to="/" preload="intent" className="btn btn-ghost px-2">
+            <h1 className="text-2xl font-bold gradient-text">Pastoralist</h1>
           </Link>
         </div>
 

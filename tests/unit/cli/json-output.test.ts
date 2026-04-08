@@ -81,13 +81,13 @@ describe("JSON Output Result Builders", () => {
         {
           packageName: "lodash",
           severity: "high",
-          cve: "CVE-2021-23337",
+          cves: ["CVE-2021-23337"],
           description: "Prototype pollution",
         },
         {
           packageName: "axios",
           severity: "medium",
-          cve: "CVE-2022-12345",
+          cves: ["CVE-2022-12345"],
           description: "SSRF vulnerability",
         },
       ];
@@ -100,7 +100,7 @@ describe("JSON Output Result Builders", () => {
       expect(result.securityAlerts[0]).toEqual({
         packageName: "lodash",
         severity: "high",
-        cve: "CVE-2021-23337",
+        cves: ["CVE-2021-23337"],
         description: "Prototype pollution",
       });
     });
@@ -249,7 +249,7 @@ describe("action with JSON output", () => {
     const { action } = require("../../../src/cli/index");
 
     const securityResults = createMockSecurityResults([
-      { packageName: "lodash", severity: "high", cve: "CVE-2021-23337" },
+      { packageName: "lodash", severity: "high", cves: ["CVE-2021-23337"] },
     ]);
     const deps = createActionDeps({
       checkSecurity: true,

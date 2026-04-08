@@ -95,6 +95,7 @@ export const createActionDeps = (options: ActionDepsOptions = {}) => {
     green: mock((text: string) => text),
     update: mock(() => updateContext),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(() => {}),
   };
 };

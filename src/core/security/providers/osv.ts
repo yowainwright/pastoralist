@@ -206,19 +206,23 @@ export class OSVProvider {
     pkg: { name: string; version: string },
     vulns: OSVVulnerability[],
   ): SecurityAlert[] {
-    return vulns.map((vuln) => ({
-      packageName: pkg.name,
-      currentVersion: pkg.version,
-      vulnerableVersions: this.extractVersionRange(vuln),
-      patchedVersion: this.extractPatchedVersion(vuln),
-      severity: this.extractSeverity(vuln),
-      title: vuln.summary || vuln.details || `Vulnerability in ${pkg.name}`,
-      description: vuln.details,
-      cve: this.extractCVE(vuln),
-      url:
-        vuln.references?.[0]?.url || `https://osv.dev/vulnerability/${vuln.id}`,
-      fixAvailable: !!this.extractPatchedVersion(vuln),
-    }));
+    return vulns.map((vuln) => {
+      const cves = this.extractCVEs(vuln);
+      const base = {
+        packageName: pkg.name,
+        currentVersion: pkg.version,
+        vulnerableVersions: this.extractVersionRange(vuln),
+        patchedVersion: this.extractPatchedVersion(vuln),
+        severity: this.extractSeverity(vuln),
+        title: vuln.summary || vuln.details || `Vulnerability in ${pkg.name}`,
+        description: vuln.details,
+        url:
+          vuln.references?.[0]?.url ||
+          `https://osv.dev/vulnerability/${vuln.id}`,
+        fixAvailable: !!this.extractPatchedVersion(vuln),
+      };
+      return cves.length > 0 ? { ...base, cves } : base;
+    });
   }
 
   private extractVersionRange(vuln: OSVVulnerability): string {
@@ -273,7 +277,7 @@ export class OSVProvider {
     return "low";
   }
 
-  private extractCVE(vuln: OSVVulnerability): string | undefined {
-    return vuln.aliases?.find((a) => a.startsWith("CVE-"));
+  private extractCVEs(vuln: OSVVulnerability): string[] {
+    return vuln.aliases?.filter((a) => a.startsWith("CVE-")) || [];
   }
 }

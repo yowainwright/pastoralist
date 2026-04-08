@@ -47,6 +47,7 @@ export { compareVersions } from "./semver";
 export { ConcurrencyLimiter, createLimit } from "./limit";
 export { LRUCache } from "./lru";
 export { retry } from "./retry";
+export { getOverrideGitDate } from "./git";
 export {
   fetchLatestVersion,
   fetchLatestCompatibleVersion,

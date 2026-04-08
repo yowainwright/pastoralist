@@ -19,7 +19,7 @@ const convertVulnerability = (vuln: unknown): SecurityAlert | null => {
     severity: mapSeverity(String(v.severity ?? "")),
     title: String(v.title ?? v.description ?? "Vulnerability"),
     description: v.description ? String(v.description) : undefined,
-    cve: v.cve ? String(v.cve) : undefined,
+    cves: v.cve ? [String(v.cve)] : undefined,
     url: v.url ? String(v.url) : undefined,
     fixAvailable: Boolean(patchedVersion),
   };

@@ -1,4 +1,4 @@
-import { test, expect } from "bun:test";
+import { test, expect, beforeEach, afterEach, mock } from "bun:test";
 import { resolve } from "path";
 import type { PastoralistJSON, OverridesType } from "../../../src/types";
 import {
@@ -14,7 +14,12 @@ import {
   findPackageJsonFiles,
   clearDependencyTreeCache,
 } from "../../../src";
-import { getDependencyTree } from "../../../src/core/packageJSON";
+import {
+  getDependencyTree,
+  parseNpmLsOutput,
+  executeNpmLs,
+  getFullDependencyCount,
+} from "../../../src/core/packageJSON";
 import { clearHintCache } from "../../../src/dx/hint";
 import { HINT_RC_FILE_TEXT } from "../../../src/constants";
 import {
@@ -27,8 +32,32 @@ import {
   validateRootPackageJsonIntegrity,
 } from "../setup";
 
+// Mock execFile at module level to prevent any real npm commands
+mock.module("node:child_process", () => ({
+  ...require("node:child_process"),
+  promisify: (fn: any) => {
+    if (fn.name === "execFile") {
+      // Return a mock that tests should never actually call
+      return async (cmd: string, args: string[], options: any) => {
+        throw new Error(
+          `Unexpected execFile call in tests: ${cmd} ${args.join(" ")}`,
+        );
+      };
+    }
+    return require("util").promisify(fn);
+  },
+}));
+
 const testDir = resolve(__dirname, "..", ".test-packagejson-core");
 const testPkgPath = resolve(testDir, "package.json");
+
+beforeEach(() => {
+  clearDependencyTreeCache();
+});
+
+afterEach(() => {
+  clearDependencyTreeCache();
+});
 
 test("getCacheStats - should return cache size and keys", () => {
   jsonCache.clear();
@@ -377,6 +406,66 @@ test("updatePackageJSON - should preserve other pastoralist config when removing
   expect(result?.pastoralist?.appendix).toBeUndefined();
 });
 
+test("updatePackageJSON - skips write when content is unchanged", () => {
+  validateRootPackageJsonIntegrity();
+  if (!existsSync(testDir)) {
+    mkdirSync(testDir, { recursive: true });
+  }
+  jsonCache.clear();
+
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    overrides: { lodash: "4.17.21" },
+  };
+
+  writeFileSync(testPkgPath, "SENTINEL");
+
+  updatePackageJSON({
+    path: testPkgPath,
+    config,
+    overrides: { lodash: "4.17.21" },
+    isTesting: false,
+  });
+
+  const content = safeReadFileSync(testPkgPath, "utf8");
+  expect(content).toBe("SENTINEL");
+
+  rmSync(testDir, { recursive: true, force: true });
+  jsonCache.clear();
+  validateRootPackageJsonIntegrity();
+});
+
+test("updatePackageJSON - writes file when content changes", () => {
+  validateRootPackageJsonIntegrity();
+  if (!existsSync(testDir)) {
+    mkdirSync(testDir, { recursive: true });
+  }
+  jsonCache.clear();
+
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+  };
+
+  writeFileSync(testPkgPath, JSON.stringify(config, null, 2) + "\n");
+  writeFileSync(testPkgPath, "SENTINEL");
+
+  updatePackageJSON({
+    path: testPkgPath,
+    config,
+    overrides: { lodash: "4.17.21" },
+    isTesting: false,
+  });
+
+  const content = safeReadFileSync(testPkgPath, "utf8");
+  expect(content).not.toBe("SENTINEL");
+
+  rmSync(testDir, { recursive: true, force: true });
+  jsonCache.clear();
+  validateRootPackageJsonIntegrity();
+});
+
 test("updatePackageJSON - should write file when not in testing mode", () => {
   validateRootPackageJsonIntegrity();
   if (!existsSync(testDir)) {
@@ -507,8 +596,20 @@ test("findPackageJsonFiles - should throw when no files found", () => {
 
 test("getDependencyTree - should return dependency tree", async () => {
   clearDependencyTreeCache();
-  const tree = await getDependencyTree();
+  const mockOutput = JSON.stringify({
+    dependencies: {
+      lodash: { version: "4.17.21" },
+      express: { version: "4.18.0" },
+    },
+  });
+
+  const mockExecuteNpmLs = async () => mockOutput;
+  const tree = await getDependencyTree(mockExecuteNpmLs);
+
   expect(typeof tree).toBe("object");
+  expect(tree["lodash"]).toBe(true);
+  expect(tree["express"]).toBe(true);
+  clearDependencyTreeCache();
 });
 
 test("updatePackageJSON - should handle existing override field", () => {
@@ -797,6 +898,33 @@ test("updatePackageJSON - dry-run without silent shows output", () => {
   expect(hasDryRunMessage).toBe(true);
 });
 
+test("updatePackageJSON - dry-run with unchanged content logs no-op message", () => {
+  const config: PastoralistJSON = {
+    name: "test-dryrun-unchanged",
+    version: "1.0.0",
+    overrides: { lodash: "4.17.21" },
+  };
+
+  const consoleOutput: string[] = [];
+  const originalLog = console.log;
+  console.log = (msg: string) => consoleOutput.push(msg);
+
+  updatePackageJSON({
+    path: testPkgPath,
+    config,
+    overrides: { lodash: "4.17.21" },
+    dryRun: true,
+    silent: false,
+  });
+
+  console.log = originalLog;
+
+  const hasNoChangesMessage = consoleOutput.some((msg) =>
+    msg.includes("No changes detected"),
+  );
+  expect(hasNoChangesMessage).toBe(true);
+});
+
 test("updatePackageJSON - silent has no effect when not in dry-run mode", () => {
   mkdirSync(testDir, { recursive: true });
 
@@ -823,12 +951,6 @@ test("updatePackageJSON - silent has no effect when not in dry-run mode", () => 
 
   rmSync(testDir, { recursive: true, force: true });
 });
-
-import {
-  parseNpmLsOutput,
-  executeNpmLs,
-  getFullDependencyCount,
-} from "../../../src/core/packageJSON";
 
 test("parseNpmLsOutput - should parse flat dependencies", () => {
   const stdout = JSON.stringify({
@@ -905,22 +1027,39 @@ test("parseNpmLsOutput - should handle invalid nested deps", () => {
   expect(result.express).toBe(true);
 });
 
-test("getDependencyTree - should return consistent result on second call", async () => {
+test("getDependencyTree - should cache results on second call", async () => {
   clearDependencyTreeCache();
-  const firstCall = await getDependencyTree();
-  const secondCall = await getDependencyTree();
+  const mockOutput = JSON.stringify({
+    dependencies: {
+      lodash: { version: "4.17.21" },
+      express: { version: "4.18.0" },
+    },
+  });
+
+  let callCount = 0;
+  const mockExecuteNpmLs = async () => {
+    callCount++;
+    return mockOutput;
+  };
+
+  const firstCall = await getDependencyTree(mockExecuteNpmLs);
+  const secondCall = await getDependencyTree(); // No mock - should use cache
+
   expect(firstCall).toEqual(secondCall);
+  expect(callCount).toBe(1); // Mock should only be called once due to caching
   clearDependencyTreeCache();
 });
 
 test("getDependencyTree - should return empty object on error", async () => {
   clearDependencyTreeCache();
-  const originalExecFile = require("util").promisify(
-    require("child_process").execFile,
-  );
 
-  const tree = await getDependencyTree();
+  const mockExecuteNpmLs = async () => {
+    throw new Error("npm command failed");
+  };
+  const tree = await getDependencyTree(mockExecuteNpmLs);
+
   expect(typeof tree).toBe("object");
+  expect(Object.keys(tree)).toEqual([]);
   clearDependencyTreeCache();
 });
 
@@ -981,8 +1120,13 @@ test("executeNpmLs - is exported and callable", () => {
 test("getDependencyTree - handles executeNpmLs errors gracefully", async () => {
   clearDependencyTreeCache();
 
-  const tree = await getDependencyTree();
+  const mockExecuteNpmLs = async () => {
+    throw new Error("Command execution failed");
+  };
+  const tree = await getDependencyTree(mockExecuteNpmLs);
+
   expect(typeof tree).toBe("object");
+  expect(Object.keys(tree)).toEqual([]);
   clearDependencyTreeCache();
 });
 

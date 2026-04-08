@@ -1,6 +1,6 @@
 process.env.PASTORALIST_MOCK_SECURITY = "true";
 
-import { test, expect, mock, spyOn } from "bun:test";
+import { test, expect, mock, spyOn, beforeEach, afterEach } from "bun:test";
 import { SecurityChecker } from "../../../../src/core/security";
 import { GitHubSecurityProvider } from "../../../../src/core/security/providers/github";
 import {
@@ -8,7 +8,7 @@ import {
   findVulnerablePackages,
 } from "../../../../src/core/security/utils";
 import * as securityUtils from "../../../../src/core/security/utils";
-import { PastoralistJSON } from "../../../../src/types";
+import { PastoralistJSON, SecurityOverride } from "../../../../src/types";
 import {
   DependabotAlert,
   SecurityAlert,
@@ -152,7 +152,7 @@ test("Override Generation - should not generate overrides for packages without f
 
 test("Override Generation - should include CVE in overrides when available", () => {
   const checker = new SecurityChecker({ debug: false });
-  const vulnerablePackages = [createAlert({ cve: LODASH_CVE })];
+  const vulnerablePackages = [createAlert({ cves: [LODASH_CVE] })];
 
   const latestVersions = new Map<string, string>();
   const overrides = (checker as any).generateOverrides(
@@ -161,7 +161,7 @@ test("Override Generation - should include CVE in overrides when available", () 
   );
 
   expect(overrides.length).toBe(1);
-  expect(overrides[0].cve).toBe(LODASH_CVE);
+  expect(overrides[0].cves?.[0]).toBe(LODASH_CVE);
 });
 
 test("Override Generation - should include description in overrides when available", () => {
@@ -492,10 +492,19 @@ test("checkSecurity - should handle both dependencies and devDependencies", asyn
   };
 
   const checker = new SecurityChecker({ provider: "osv" });
+
+  // Mock the OSV provider to prevent real API calls
+  const mockFetchAlerts = spyOn(
+    checker["providers"][0],
+    "fetchAlerts",
+  ).mockResolvedValue([]);
+
   const result = await checker.checkSecurity(config);
 
   expect(Array.isArray(result.alerts)).toBe(true);
   expect(Array.isArray(result.overrides)).toBe(true);
+
+  mockFetchAlerts.mockRestore();
 });
 
 test("createProvider - should create OSV provider", () => {
@@ -716,7 +725,7 @@ test("formatSecurityReport - should include CVE when available", () => {
       severity: "high",
       title: "Prototype Pollution",
       fixAvailable: true,
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
     },
   ];
 
@@ -850,9 +859,9 @@ test("isNewVulnerability - should return true for new vulnerability", () => {
     title: "Prototype Pollution",
     fixAvailable: true,
   };
-  const existing: SecurityAlert[] = [];
+  const existingKeys = new Set<string>();
 
-  const result = (checker as any).isNewVulnerability(vuln, existing);
+  const result = (checker as any).isNewVulnerability(vuln, existingKeys);
 
   expect(result).toBe(true);
 });
@@ -868,9 +877,9 @@ test("isNewVulnerability - should return false for existing vulnerability", () =
     title: "Prototype Pollution",
     fixAvailable: true,
   };
-  const existing: SecurityAlert[] = [vuln];
+  const existingKeys = new Set(["lodash@4.17.20"]);
 
-  const result = (checker as any).isNewVulnerability(vuln, existing);
+  const result = (checker as any).isNewVulnerability(vuln, existingKeys);
 
   expect(result).toBe(false);
 });
@@ -895,7 +904,7 @@ test("extractNewVulnerabilities - should extract only new vulnerabilities", () =
       fixAvailable: true,
     },
   ];
-  const existing: SecurityAlert[] = [];
+  const existingKeys = new Set<string>();
 
   const mockFindVulnerable = spyOn(
     securityUtils,
@@ -905,13 +914,67 @@ test("extractNewVulnerabilities - should extract only new vulnerabilities", () =
   const result = (checker as any).extractNewVulnerabilities(
     pkgJson,
     alerts,
-    existing,
+    existingKeys,
   );
 
   expect(result.length).toBe(1);
   expect(result[0].packageName).toBe("lodash");
 
   mockFindVulnerable.mockRestore();
+});
+
+test("extractNewVulnerabilities - Set correctly filters duplicates across workspaces", () => {
+  const checker = new SecurityChecker({ provider: "osv" });
+
+  const existingKeys = new Set(["lodash@4.17.20"]);
+
+  const vuln1: SecurityAlert = {
+    packageName: "lodash",
+    currentVersion: "4.17.20",
+    vulnerableVersions: "< 4.17.21",
+    patchedVersion: "4.17.21",
+    severity: "high",
+    title: "Prototype Pollution",
+    fixAvailable: true,
+  };
+
+  const vuln2: SecurityAlert = {
+    packageName: "express",
+    currentVersion: "4.17.0",
+    vulnerableVersions: "< 4.18.2",
+    patchedVersion: "4.18.2",
+    severity: "medium",
+    title: "XSS",
+    fixAvailable: true,
+  };
+
+  const isNew1 = (checker as any).isNewVulnerability(vuln1, existingKeys);
+  const isNew2 = (checker as any).isNewVulnerability(vuln2, existingKeys);
+
+  expect(isNew1).toBe(false);
+  expect(isNew2).toBe(true);
+});
+
+test("isNewVulnerability - Set key format matches packageName@currentVersion", () => {
+  const checker = new SecurityChecker({ provider: "osv" });
+
+  const vuln: SecurityAlert = {
+    packageName: "@scope/pkg",
+    currentVersion: "2.0.0",
+    vulnerableVersions: "< 2.1.0",
+    patchedVersion: "2.1.0",
+    severity: "high",
+    title: "Issue",
+    fixAvailable: true,
+  };
+
+  const existingKeys = new Set(["@scope/pkg@2.0.0"]);
+  const result = (checker as any).isNewVulnerability(vuln, existingKeys);
+  expect(result).toBe(false);
+
+  const otherKeys = new Set(["@scope/pkg@1.0.0"]);
+  const result2 = (checker as any).isNewVulnerability(vuln, otherKeys);
+  expect(result2).toBe(true);
 });
 
 test("getOverrideField - should return resolutions for yarn", () => {
@@ -1044,20 +1107,19 @@ test("applyAutoFix - should apply security overrides to package.json", async () 
 
   const mockConsoleLog = spyOn(console, "log").mockImplementation(() => {});
 
-  await checker.applyAutoFix(overrides, testPath);
+  const backupPath = (await checker.applyAutoFix(
+    overrides,
+    testPath,
+  )) as string;
 
   const updated = JSON.parse(fs.readFileSync(testPath, "utf-8"));
   expect(updated.overrides).toEqual({ lodash: "4.17.21" });
 
-  const backupFiles = fs
-    .readdirSync(process.cwd())
-    .filter((f) => f.startsWith("test-autofix.json.backup-"));
-  expect(backupFiles.length).toBeGreaterThan(0);
+  expect(backupPath).toBeTruthy();
+  expect(fs.existsSync(backupPath as string)).toBe(true);
 
   fs.unlinkSync(testPath);
-  for (const backup of backupFiles) {
-    fs.unlinkSync(path.join(process.cwd(), backup));
-  }
+  fs.unlinkSync(backupPath as string);
 
   mockConsoleLog.mockRestore();
 });
@@ -1105,17 +1167,13 @@ test("applyAutoFix - should use cwd when no path provided", async () => {
   const mockConsoleLog = spyOn(console, "log").mockImplementation(() => {});
 
   if (originalExists) {
-    await checker.applyAutoFix(overrides);
+    const backupPath = (await checker.applyAutoFix(overrides)) as string;
 
-    const backupFiles = fs
-      .readdirSync(process.cwd())
-      .filter((f) => f.startsWith("package.json.backup-"));
-    expect(backupFiles.length).toBeGreaterThan(0);
+    expect(backupPath).toBeTruthy();
+    expect(fs.existsSync(backupPath as string)).toBe(true);
 
     fs.writeFileSync(testPath, originalContent);
-    for (const backup of backupFiles) {
-      fs.unlinkSync(path.join(process.cwd(), backup));
-    }
+    fs.unlinkSync(backupPath as string);
   }
 
   mockConsoleLog.mockRestore();
@@ -1132,7 +1190,7 @@ test("rollbackAutoFix - should restore from backup", async () => {
   fs.writeFileSync(testPath, JSON.stringify({ name: "modified" }));
 
   const mockConsoleLog = spyOn(console, "log").mockImplementation(() => {});
-  await checker.rollbackAutoFix(backupPath);
+  await checker.rollbackAutoFix(backupPath, testPath);
   mockConsoleLog.mockRestore();
 
   const restored = JSON.parse(fs.readFileSync(testPath, "utf-8"));
@@ -1146,7 +1204,10 @@ test("rollbackAutoFix - should throw error when backup not found", async () => {
   const checker = new SecurityChecker({ provider: "osv" });
 
   try {
-    await checker.rollbackAutoFix("/non/existent/backup.json");
+    await checker.rollbackAutoFix(
+      "/non/existent/backup.json",
+      "/non/existent/package.json",
+    );
     expect(true).toBe(false);
   } catch (error: any) {
     expect(error.message).toContain("Backup file not found");
@@ -1456,6 +1517,234 @@ test("checkSecurity - returns results when provider fetch succeeds", async () =>
     expect(result.packagesScanned).toBe(1);
   } finally {
     global.fetch = originalFetch;
+  }
+});
+
+const TEST_DIR = path.resolve(__dirname, ".test-autofix");
+
+const createTestPackage = (name: string, content: object) => {
+  const dir = path.join(TEST_DIR, name);
+  fs.mkdirSync(dir, { recursive: true });
+  const pkgPath = path.join(dir, "package.json");
+  fs.writeFileSync(pkgPath, JSON.stringify(content, null, 2));
+  return pkgPath;
+};
+
+beforeEach(() => {
+  if (fs.existsSync(TEST_DIR)) {
+    fs.rmSync(TEST_DIR, { recursive: true, force: true });
+  }
+  fs.mkdirSync(TEST_DIR, { recursive: true });
+});
+
+afterEach(() => {
+  if (fs.existsSync(TEST_DIR)) {
+    fs.rmSync(TEST_DIR, { recursive: true, force: true });
+  }
+});
+
+test("applyAutoFix creates backup before modifying", () => {
+  const pkgPath = createTestPackage("backup-test", {
+    name: "backup-test",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+  });
+
+  const checker = new SecurityChecker({ provider: "osv" });
+  const overrides: SecurityOverride[] = [
+    {
+      packageName: "lodash",
+      fromVersion: "4.17.20",
+      toVersion: "4.17.21",
+      reason: "Security fix",
+      severity: "high",
+    },
+  ];
+
+  checker.applyAutoFix(overrides, pkgPath);
+
+  const cacheDir = path.join(
+    TEST_DIR,
+    "backup-test",
+    "node_modules",
+    ".cache",
+    "pastoralist",
+  );
+  const files = fs.readdirSync(cacheDir);
+  const backupFiles = files.filter((f: string) => f.includes(".backup-"));
+  expect(backupFiles.length).toBe(1);
+});
+
+test("applyAutoFix handles empty overrides array", () => {
+  const pkgPath = createTestPackage("empty-overrides", {
+    name: "empty-test",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.21" },
+  });
+
+  const checker = new SecurityChecker({ provider: "osv" });
+  checker.applyAutoFix([], pkgPath);
+
+  const result = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+  expect(result.pastoralist).toBeDefined();
+});
+
+test("applyAutoFix preserves existing overrides", () => {
+  const pkgPath = createTestPackage("preserve-overrides", {
+    name: "preserve-test",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    overrides: { minimist: "1.2.8" },
+  });
+
+  const checker = new SecurityChecker({ provider: "osv" });
+  const overrides: SecurityOverride[] = [
+    {
+      packageName: "lodash",
+      fromVersion: "4.17.20",
+      toVersion: "4.17.21",
+      reason: "Security fix",
+      severity: "high",
+    },
+  ];
+
+  checker.applyAutoFix(overrides, pkgPath);
+
+  const result = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+  expect(result.overrides.minimist).toBe("1.2.8");
+  expect(result.overrides.lodash).toBe("4.17.21");
+});
+
+test("rollbackAutoFix restores to originalPath, not cache dir", () => {
+  const pkgPath = createTestPackage("rollback-path-test", {
+    name: "rollback-path-test",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+  });
+
+  const checker = new SecurityChecker({ provider: "osv" });
+  const backupPath = checker.applyAutoFix(
+    [
+      {
+        packageName: "lodash",
+        fromVersion: "4.17.20",
+        toVersion: "4.17.21",
+        reason: "fix",
+        severity: "high",
+      },
+    ],
+    pkgPath,
+  ) as string;
+
+  expect(backupPath).toContain("node_modules/.cache/pastoralist");
+
+  checker.rollbackAutoFix(backupPath, pkgPath);
+
+  const cacheDir = path.dirname(backupPath);
+  const cacheFiles = fs
+    .readdirSync(cacheDir)
+    .filter((f) => f === "package.json");
+  expect(cacheFiles.length).toBe(0);
+
+  const restored = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+  expect(restored.overrides).toBeUndefined();
+});
+
+test("rollbackAutoFix restores original file", () => {
+  const originalContent = {
+    name: "rollback-test",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+  };
+
+  const pkgPath = createTestPackage("rollback-test", originalContent);
+  const checker = new SecurityChecker({ provider: "osv" });
+  const overrides: SecurityOverride[] = [
+    {
+      packageName: "lodash",
+      fromVersion: "4.17.20",
+      toVersion: "4.17.21",
+      reason: "Security fix",
+      severity: "high",
+    },
+  ];
+
+  const backupPath = checker.applyAutoFix(overrides, pkgPath) as string;
+
+  const modified = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+  expect(modified.overrides).toBeDefined();
+
+  checker.rollbackAutoFix(backupPath, pkgPath);
+
+  const restored = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+  expect(restored.overrides).toBeUndefined();
+  expect(restored.name).toBe("rollback-test");
+});
+
+test("applyAutoFix handles pnpm override format", () => {
+  const pkgPath = createTestPackage("pnpm-format", {
+    name: "pnpm-test",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    pnpm: { overrides: {} },
+  });
+
+  fs.writeFileSync(path.join(TEST_DIR, "pnpm-format", "pnpm-lock.yaml"), "");
+
+  const originalCwd = process.cwd();
+  process.chdir(path.join(TEST_DIR, "pnpm-format"));
+
+  try {
+    const checker = new SecurityChecker({ provider: "osv" });
+    const overrides: SecurityOverride[] = [
+      {
+        packageName: "lodash",
+        fromVersion: "4.17.20",
+        toVersion: "4.17.21",
+        reason: "Security fix",
+        severity: "high",
+      },
+    ];
+
+    checker.applyAutoFix(overrides, pkgPath);
+
+    const result = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+    expect(result.pnpm.overrides.lodash).toBe("4.17.21");
+  } finally {
+    process.chdir(originalCwd);
+  }
+});
+
+test("applyAutoFix handles yarn resolutions format", () => {
+  const pkgPath = createTestPackage("yarn-format", {
+    name: "yarn-test",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+  });
+
+  fs.writeFileSync(path.join(TEST_DIR, "yarn-format", "yarn.lock"), "");
+
+  const originalCwd = process.cwd();
+  process.chdir(path.join(TEST_DIR, "yarn-format"));
+
+  try {
+    const checker = new SecurityChecker({ provider: "osv" });
+    const overrides: SecurityOverride[] = [
+      {
+        packageName: "lodash",
+        fromVersion: "4.17.20",
+        toVersion: "4.17.21",
+        reason: "Security fix",
+        severity: "high",
+      },
+    ];
+
+    checker.applyAutoFix(overrides, pkgPath);
+
+    const result = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+    expect(result.resolutions.lodash).toBe("4.17.21");
+  } finally {
+    process.chdir(originalCwd);
   }
 });
 

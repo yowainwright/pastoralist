@@ -154,6 +154,14 @@ Add pastoralist to your postinstall script automatically.
 npx pastoralist --setup-hook
 ```
 
+### `pastoralist --remove-unused`
+
+Remove overrides that no package in your project depends on. When Pastoralist detects unused overrides during a run, it displays a notice suggesting this flag.
+
+```bash
+npx pastoralist --remove-unused
+```
+
 ### `pastoralist --checkSecurity`
 
 Enable security vulnerability scanning.

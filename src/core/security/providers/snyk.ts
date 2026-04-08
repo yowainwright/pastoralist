@@ -79,7 +79,7 @@ export class SnykCLIProvider {
       try {
         await this.authenticate();
         return true;
-      } catch (error) {
+      } catch {
         this.log.print("Snyk authentication failed, skipping Snyk scan");
         return false;
       }
@@ -170,11 +170,11 @@ export class SnykCLIProvider {
     const severity = this.normalizeSeverity(vuln.severity);
     const title = vuln.title;
     const description = vuln.description;
-    const cve = vuln.identifiers?.CVE?.[0];
+    const cves = vuln.identifiers?.CVE || [];
     const url = vuln.url || `https://snyk.io/vuln/${vuln.id}`;
     const fixAvailable = !!patchedVersion;
 
-    return {
+    const base = {
       packageName,
       currentVersion,
       vulnerableVersions,
@@ -182,10 +182,10 @@ export class SnykCLIProvider {
       severity,
       title,
       description,
-      cve,
       url,
       fixAvailable,
     };
+    return cves.length > 0 ? { ...base, cves } : base;
   }
 
   private extractPatchedVersion(

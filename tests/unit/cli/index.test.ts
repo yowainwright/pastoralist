@@ -154,7 +154,7 @@ test("buildSecurityOverrideDetail - builds complete detail object", () => {
   const override = {
     packageName: "lodash",
     reason: "Security vulnerability",
-    cve: "CVE-2021-23337",
+    cves: ["CVE-2021-23337"],
     severity: "high",
     description: "Prototype pollution vulnerability",
     url: "https://nvd.nist.gov/vuln/detail/CVE-2021-23337",
@@ -164,7 +164,7 @@ test("buildSecurityOverrideDetail - builds complete detail object", () => {
 
   expect(result.packageName).toBe("lodash");
   expect(result.reason).toBe("Security vulnerability");
-  expect(result.cve).toBe("CVE-2021-23337");
+  expect(result.cves?.[0]).toBe("CVE-2021-23337");
   expect(result.severity).toBe("high");
   expect(result.description).toBe("Prototype pollution vulnerability");
   expect(result.url).toBe("https://nvd.nist.gov/vuln/detail/CVE-2021-23337");
@@ -182,7 +182,7 @@ test("buildSecurityOverrideDetail - excludes missing optional fields", () => {
 
   expect(result.packageName).toBe("express");
   expect(result.reason).toBe("Security fix");
-  expect(result.cve).toBeUndefined();
+  expect(result.cves).toBeUndefined();
   expect(result.severity).toBeUndefined();
   expect(result.description).toBeUndefined();
   expect(result.url).toBeUndefined();
@@ -194,7 +194,7 @@ test("buildSecurityOverrideDetail - includes only present optional fields", () =
   const override = {
     packageName: "react",
     reason: "Security update",
-    cve: "CVE-2024-1234",
+    cves: ["CVE-2024-1234"],
     severity: "medium",
   };
 
@@ -202,7 +202,7 @@ test("buildSecurityOverrideDetail - includes only present optional fields", () =
 
   expect(result.packageName).toBe("react");
   expect(result.reason).toBe("Security update");
-  expect(result.cve).toBe("CVE-2024-1234");
+  expect(result.cves?.[0]).toBe("CVE-2024-1234");
   expect(result.severity).toBe("medium");
   expect(result.description).toBeUndefined();
   expect(result.url).toBeUndefined();
@@ -304,7 +304,7 @@ test("handleSecurityResults - generates overrides when alerts found", () => {
       packageName: "lodash",
       severity: "high",
       title: "Prototype Pollution",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
     },
   ];
 
@@ -334,7 +334,7 @@ test("handleSecurityResults - generates overrides when alerts found", () => {
 
   const updates: any[] = [];
 
-  handleSecurityResults(
+  const result = handleSecurityResults(
     alerts,
     securityOverrides,
     mockSecurityChecker as any,
@@ -345,7 +345,7 @@ test("handleSecurityResults - generates overrides when alerts found", () => {
 
   expect(mockSecurityChecker.generatePackageOverrides).toHaveBeenCalled();
   expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
-  expect(mergedOptions.securityOverrides).toEqual({ lodash: "4.17.21" });
+  expect(result.securityOverrides).toEqual({ lodash: "4.17.21" });
 });
 
 test("handleSecurityResults - generates overrides in interactive mode", () => {
@@ -365,7 +365,7 @@ test("handleSecurityResults - generates overrides in interactive mode", () => {
       fromVersion: "4.17.0",
       toVersion: "4.18.2",
       reason: "Security fix",
-      cve: "CVE-2024-1234",
+      cves: ["CVE-2024-1234"],
       severity: "medium",
     },
   ];
@@ -388,7 +388,7 @@ test("handleSecurityResults - generates overrides in interactive mode", () => {
 
   const updates: any[] = [];
 
-  handleSecurityResults(
+  const result = handleSecurityResults(
     alerts,
     securityOverrides,
     mockSecurityChecker as any,
@@ -397,13 +397,11 @@ test("handleSecurityResults - generates overrides in interactive mode", () => {
     updates,
   );
 
-  expect(mergedOptions.securityOverrides).toEqual({ express: "4.18.2" });
-  expect(mergedOptions.securityOverrideDetails).toBeDefined();
-  expect(mergedOptions.securityOverrideDetails?.length).toBe(1);
-  expect(mergedOptions.securityOverrideDetails?.[0].packageName).toBe(
-    "express",
-  );
-  expect(mergedOptions.securityOverrideDetails?.[0].cve).toBe("CVE-2024-1234");
+  expect(result.securityOverrides).toEqual({ express: "4.18.2" });
+  expect(result.securityOverrideDetails).toBeDefined();
+  expect(result.securityOverrideDetails?.length).toBe(1);
+  expect(result.securityOverrideDetails?.[0].packageName).toBe("express");
+  expect(result.securityOverrideDetails?.[0].cves?.[0]).toBe("CVE-2024-1234");
   expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
 });
 
@@ -464,7 +462,7 @@ test("handleSecurityResults - does not generate overrides without autofix or int
 
   const updates: any[] = [];
 
-  handleSecurityResults(
+  const result = handleSecurityResults(
     alerts,
     securityOverrides,
     mockSecurityChecker as any,
@@ -476,7 +474,7 @@ test("handleSecurityResults - does not generate overrides without autofix or int
   expect(mockSpinner.stop).toHaveBeenCalled();
   expect(mockSecurityChecker.generatePackageOverrides).not.toHaveBeenCalled();
   expect(mockSecurityChecker.applyAutoFix).not.toHaveBeenCalled();
-  expect(mergedOptions.securityOverrides).toBeUndefined();
+  expect(result.securityOverrides).toBeUndefined();
 });
 
 test("formatUpdateReport - formats single update", () => {
@@ -560,7 +558,7 @@ test("handleSecurityResults - applies updates when autoFix enabled", () => {
     path: "package.json",
   };
 
-  handleSecurityResults(
+  const result = handleSecurityResults(
     alerts,
     securityOverrides,
     mockSecurityChecker as any,
@@ -572,7 +570,7 @@ test("handleSecurityResults - applies updates when autoFix enabled", () => {
   expect(mockSpinner.stop).toHaveBeenCalled();
   expect(mockSecurityChecker.generatePackageOverrides).toHaveBeenCalled();
   expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
-  expect(mergedOptions.securityOverrides).toEqual({ vite: "6.4.1" });
+  expect(result.securityOverrides).toEqual({ vite: "6.4.1" });
 });
 
 test("handleSecurityResults - merges updates with new overrides", () => {
@@ -624,7 +622,7 @@ test("handleSecurityResults - merges updates with new overrides", () => {
     path: "package.json",
   };
 
-  handleSecurityResults(
+  const result = handleSecurityResults(
     alerts,
     securityOverrides,
     mockSecurityChecker as any,
@@ -635,7 +633,7 @@ test("handleSecurityResults - merges updates with new overrides", () => {
 
   expect(mockSecurityChecker.generatePackageOverrides).toHaveBeenCalled();
   expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
-  expect(mergedOptions.securityOverrides).toEqual({
+  expect(result.securityOverrides).toEqual({
     express: "4.18.2",
     vite: "6.4.1",
   });
@@ -851,20 +849,24 @@ test("buildSecurityOverrideDetail - handles all fields", () => {
     fromVersion: "17.0.0",
     toVersion: "18.2.0",
     reason: "Critical security update",
-    cve: "CVE-2024-5678",
+    cves: ["CVE-2024-5678"],
     severity: "critical",
     description: "XSS vulnerability in React",
     url: "https://github.com/advisories/GHSA-test",
+    vulnerableRange: ">= 0 < 18.2.0",
+    patchedVersion: "18.2.0",
   };
 
   const result = buildSecurityOverrideDetail(override);
 
   expect(result.packageName).toBe("react");
   expect(result.reason).toBe("Critical security update");
-  expect(result.cve).toBe("CVE-2024-5678");
+  expect(result.cves?.[0]).toBe("CVE-2024-5678");
   expect(result.severity).toBe("critical");
   expect(result.description).toBe("XSS vulnerability in React");
   expect(result.url).toBe("https://github.com/advisories/GHSA-test");
+  expect(result.vulnerableRange).toBe(">= 0 < 18.2.0");
+  expect(result.patchedVersion).toBe("18.2.0");
 });
 
 test("handleSecurityResults - does not generate overrides when no alerts and no autofix", () => {
@@ -1046,7 +1048,7 @@ test("handleSecurityResults - generates overrides when updates exist and autofix
     path: "package.json",
   };
 
-  handleSecurityResults(
+  const result = handleSecurityResults(
     alerts,
     securityOverrides,
     mockSecurityChecker as any,
@@ -1057,7 +1059,7 @@ test("handleSecurityResults - generates overrides when updates exist and autofix
 
   expect(mockSecurityChecker.generatePackageOverrides).toHaveBeenCalled();
   expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
-  expect(mergedOptions.securityOverrides).toEqual({ lodash: "4.17.21" });
+  expect(result.securityOverrides).toEqual({ lodash: "4.17.21" });
   expect(mockSpinner.stop).toHaveBeenCalled();
 });
 
@@ -1107,7 +1109,7 @@ test("handleSecurityResults - both alerts and updates with interactive mode", ()
       toVersion: "4.17.21",
       reason: "Security fix",
       severity: "high",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
     },
   ];
 
@@ -1137,7 +1139,7 @@ test("handleSecurityResults - both alerts and updates with interactive mode", ()
     path: "package.json",
   };
 
-  handleSecurityResults(
+  const result = handleSecurityResults(
     alerts,
     securityOverrides,
     mockSecurityChecker as any,
@@ -1148,11 +1150,11 @@ test("handleSecurityResults - both alerts and updates with interactive mode", ()
 
   expect(mockSecurityChecker.generatePackageOverrides).toHaveBeenCalled();
   expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
-  expect(mergedOptions.securityOverrides).toEqual({
+  expect(result.securityOverrides).toEqual({
     lodash: "4.17.21",
     vite: "6.4.1",
   });
-  expect(mergedOptions.securityOverrideDetails).toBeDefined();
+  expect(result.securityOverrideDetails).toBeDefined();
   expect(mockSpinner.stop).toHaveBeenCalled();
 });
 
@@ -1202,7 +1204,7 @@ test("handleSecurityResults - filters overrides to match final versions", () => 
     path: "package.json",
   };
 
-  handleSecurityResults(
+  const result = handleSecurityResults(
     alerts,
     securityOverrides,
     mockSecurityChecker as any,
@@ -1211,9 +1213,9 @@ test("handleSecurityResults - filters overrides to match final versions", () => 
     [],
   );
 
-  expect(mergedOptions.securityOverrideDetails).toBeDefined();
-  expect(mergedOptions.securityOverrideDetails?.length).toBe(1);
-  expect(mergedOptions.securityOverrideDetails?.[0].reason).toBe("Fix 2");
+  expect(result.securityOverrideDetails).toBeDefined();
+  expect(result.securityOverrideDetails?.length).toBe(1);
+  expect(result.securityOverrideDetails?.[0].reason).toBe("Fix 2");
 });
 
 test("buildSecurityOverrideDetail - handles only packageName and reason", () => {
@@ -1230,7 +1232,7 @@ test("buildSecurityOverrideDetail - handles only packageName and reason", () => 
 
   expect(result.packageName).toBe("minimal-pkg");
   expect(result.reason).toBe("Update required");
-  expect(result.cve).toBeUndefined();
+  expect(result.cves).toBeUndefined();
   expect(result.severity).toBeUndefined();
   expect(result.description).toBeUndefined();
   expect(result.url).toBeUndefined();
@@ -1462,6 +1464,7 @@ test("action - handles test mode early return", async () => {
     green: mock((text: string) => text),
     update: mock(() => Promise.resolve()),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(() => {}),
   };
 
@@ -1493,6 +1496,7 @@ test("action - handles init mode early return", async () => {
     green: mock((text: string) => text),
     update: mock(() => Promise.resolve()),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(() => {}),
   };
 
@@ -1531,6 +1535,7 @@ test("action - resolves package.json and runs update", async () => {
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => mockGraph),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(() => {}),
   };
 
@@ -1583,6 +1588,7 @@ test("action - runs security check when enabled", async () => {
     green: mock((text: string) => text),
     update: mock(() => Promise.resolve()),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(() => {}),
   };
 
@@ -1628,6 +1634,7 @@ test("action - handles path with root option", async () => {
     green: mock((text: string) => text),
     update: mock(() => Promise.resolve()),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(() => {}),
   };
 
@@ -1665,6 +1672,7 @@ test("action - handles absolute path without root", async () => {
     green: mock((text: string) => text),
     update: mock(() => Promise.resolve()),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(() => {}),
   };
 
@@ -1683,7 +1691,9 @@ test("action - calls processExit on error", async () => {
     createLogger: mock(() => log),
     handleTestMode: mock(() => false),
     handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => Promise.reject(mockError)),
+    resolveJSON: mock(() => {
+      throw mockError;
+    }),
     buildMergedOptions: mock(() => ({})),
     runSecurityCheck: mock(() => Promise.resolve({})),
     handleSecurityResults: mock(() => {}),
@@ -1695,6 +1705,7 @@ test("action - calls processExit on error", async () => {
     green: mock((text: string) => text),
     update: mock(() => Promise.resolve()),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mockProcessExit,
   };
 
@@ -1742,6 +1753,7 @@ test("action - handles array security provider", async () => {
     green: mock((text: string) => text),
     update: mock(() => Promise.resolve()),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(() => {}),
   };
 
@@ -2392,6 +2404,7 @@ test("action - continues successfully when security check hits permission error"
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(() => {}),
   };
 
@@ -2445,6 +2458,7 @@ test("action - does not call handleSecurityResults when security check is skippe
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(() => {}),
   };
 
@@ -2515,7 +2529,7 @@ test("displayOverrides - renders override info from context", () => {
         dependents: { "test-pkg": "lodash@^4.17.0" },
         ledger: {
           securityChecked: true,
-          cve: "CVE-2021-23337",
+          cves: ["CVE-2021-23337"],
           reason: "Security fix",
         },
       },
@@ -2598,7 +2612,7 @@ test("action - displays security fixes when forceSecurityRefactor is true", asyn
       fromVersion: "4.17.20",
       toVersion: "4.17.21",
       reason: "Security fix",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
       severity: "high",
     },
   ];
@@ -2640,6 +2654,7 @@ test("action - displays security fixes when forceSecurityRefactor is true", asyn
       metrics: {},
     })),
     createTerminalGraph: mock(() => mockGraph),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(),
   };
 
@@ -2701,6 +2716,7 @@ test("action - displays removed overrides when present", async () => {
       },
     })),
     createTerminalGraph: mock(() => mockGraph),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(),
   };
 
@@ -2709,6 +2725,7 @@ test("action - displays removed overrides when present", async () => {
   expect(mockGraph.startPhase).toHaveBeenCalledWith(
     "writing",
     "Cleaned up stale overrides",
+    true,
   );
   expect(mockGraph.removedOverride).toHaveBeenCalledTimes(2);
   expect(mockGraph.endPhase).toHaveBeenCalledWith("2 stale overrides removed");
@@ -2758,6 +2775,7 @@ test("action - displays summary table when summary option is true", async () => 
       metrics: { packagesScanned: 5 },
     })),
     createTerminalGraph: mock(() => mockGraph),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(),
   };
 
@@ -2786,7 +2804,9 @@ test("action - outputs JSON on error when outputFormat is json", async () => {
     createLogger: mock(() => log),
     handleTestMode: mock(() => false),
     handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => Promise.reject(new Error("File not found"))),
+    resolveJSON: mock(() => {
+      throw new Error("File not found");
+    }),
     buildMergedOptions: mock(() => ({ outputFormat: "json" })),
     runSecurityCheck: mock(() => Promise.resolve({})),
     handleSecurityResults: mock(),
@@ -2794,6 +2814,7 @@ test("action - outputs JSON on error when outputFormat is json", async () => {
     green: mock((t: string) => t),
     update: mock(() => ({})),
     createTerminalGraph: mock(() => mockGraph),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(),
   };
 
@@ -2805,6 +2826,111 @@ test("action - outputs JSON on error when outputFormat is json", async () => {
   expect(output).toContain('"success":false');
   expect(output).toContain("File not found");
   expect(deps.processExit).toHaveBeenCalledWith(1);
+});
+
+test("action - displays unused override notice when unused overrides exist", async () => {
+  const { action } = require("../../../src/cli/index");
+
+  const mockConfig: PastoralistJSON = {
+    name: "test-package",
+    version: "1.0.0",
+    pastoralist: {},
+  };
+
+  const mockGraph = createMockTerminalGraph();
+
+  const unusedAppendix = {
+    "lodash@4.17.21": {
+      dependents: { "test-package": "lodash@^4.17.0" },
+    },
+    "unused-pkg@1.0.0": {
+      dependents: { root: "unused-pkg (unused override)" },
+    },
+  };
+
+  const deps = {
+    createLogger: mock(() => log),
+    handleTestMode: mock(() => false),
+    handleInitMode: mock(() => Promise.resolve(false)),
+    resolveJSON: mock(() => Promise.resolve(mockConfig)),
+    buildMergedOptions: mock((options: any, rest: any) =>
+      Object.assign({}, options, rest, { checkSecurity: false }),
+    ),
+    runSecurityCheck: mock(() => Promise.resolve({})),
+    handleSecurityResults: mock(() => {}),
+    createSpinner: mock(() => ({
+      start: mock(),
+      succeed: mock(),
+      stop: mock(),
+    })),
+    green: mock((text: string) => text),
+    update: mock(() => ({
+      finalOverrides: { lodash: "4.17.21", "unused-pkg": "1.0.0" },
+      finalAppendix: unusedAppendix,
+    })),
+    createTerminalGraph: mock(() => mockGraph),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
+    processExit: mock(() => {}),
+  };
+
+  await action({ path: "package.json" }, deps);
+
+  const noticeCalls = mockGraph.notice.mock.calls;
+  const hasRemoveUnusedNotice = noticeCalls.some(
+    (call: unknown[]) =>
+      typeof call[0] === "string" && call[0].includes("--remove-unused"),
+  );
+  expect(hasRemoveUnusedNotice).toBe(true);
+});
+
+test("action - does not display unused override notice when removeUnused is true", async () => {
+  const { action } = require("../../../src/cli/index");
+
+  const mockConfig: PastoralistJSON = {
+    name: "test-package",
+    version: "1.0.0",
+    pastoralist: {},
+  };
+
+  const mockGraph = createMockTerminalGraph();
+
+  const deps = {
+    createLogger: mock(() => log),
+    handleTestMode: mock(() => false),
+    handleInitMode: mock(() => Promise.resolve(false)),
+    resolveJSON: mock(() => Promise.resolve(mockConfig)),
+    buildMergedOptions: mock((options: any, rest: any) =>
+      Object.assign({}, options, rest, { checkSecurity: false }),
+    ),
+    runSecurityCheck: mock(() => Promise.resolve({})),
+    handleSecurityResults: mock(() => {}),
+    createSpinner: mock(() => ({
+      start: mock(),
+      succeed: mock(),
+      stop: mock(),
+    })),
+    green: mock((text: string) => text),
+    update: mock(() => ({
+      finalOverrides: { lodash: "4.17.21" },
+      finalAppendix: {
+        "lodash@4.17.21": {
+          dependents: { "test-package": "lodash@^4.17.0" },
+        },
+      },
+    })),
+    createTerminalGraph: mock(() => mockGraph),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
+    processExit: mock(() => {}),
+  };
+
+  await action({ path: "package.json", removeUnused: true }, deps);
+
+  const noticeCalls = mockGraph.notice.mock.calls;
+  const hasRemoveUnusedNotice = noticeCalls.some(
+    (call: unknown[]) =>
+      typeof call[0] === "string" && call[0].includes("--remove-unused"),
+  );
+  expect(hasRemoveUnusedNotice).toBe(false);
 });
 
 test("run - shows help and returns early when help flag is passed", async () => {
@@ -2835,4 +2961,421 @@ test("run - shows help with -h flag", async () => {
 
   const output = logged.join("\n");
   expect(output).toContain("pastoralist");
+});
+
+test("handleSetupHook - error does not cause early exit in run", async () => {
+  const { handleSetupHook } = require("../../../src/cli/index");
+
+  const mockReadFileSync = mock(() => {
+    throw new Error("ENOENT");
+  });
+  const mockWriteFileSync = mock(() => {});
+  const mockResolve = mock((p: string) => p);
+
+  const options: Options = { setupHook: true };
+  const result = handleSetupHook(options, log, {
+    readFileSync: mockReadFileSync,
+    writeFileSync: mockWriteFileSync,
+    resolve: mockResolve,
+  });
+
+  expect(result).toBe(false);
+});
+
+test("handleSecurityResults - returned values are used by action via spread", async () => {
+  const { action } = require("../../../src/cli/index");
+
+  const mockConfig: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    overrides: { lodash: "4.17.21" },
+  };
+
+  const mockGraph = createMockTerminalGraph();
+
+  const securityOverridesResult = { lodash: "4.17.21" };
+  const securityDetailResult = [
+    { packageName: "lodash", reason: "Security fix" },
+  ];
+
+  const capturedUpdateOptions: Options[] = [];
+
+  const deps = {
+    createLogger: mock(() => log),
+    handleTestMode: mock(() => false),
+    handleInitMode: mock(() => Promise.resolve(false)),
+    resolveJSON: mock(() => mockConfig),
+    buildMergedOptions: mock(() => ({
+      checkSecurity: true,
+      path: "package.json",
+    })),
+    runSecurityCheck: mock(() =>
+      Promise.resolve({
+        spinner: { stop: mock() },
+        securityChecker: {},
+        alerts: [{ packageName: "lodash", severity: "high", title: "Vuln" }],
+        securityOverrides: [],
+        updates: [],
+        packagesScanned: 1,
+        skipped: false,
+      }),
+    ),
+    handleSecurityResults: mock(() => ({
+      securityOverrides: securityOverridesResult,
+      securityOverrideDetails: securityDetailResult,
+    })),
+    createSpinner: mock(() => ({
+      start: mock(),
+      stop: mock(),
+    })),
+    green: mock((t: string) => t),
+    update: mock((opts: Options) => {
+      capturedUpdateOptions.push(opts);
+      return { finalOverrides: {}, finalAppendix: {} };
+    }),
+    createTerminalGraph: mock(() => mockGraph),
+    getOverrideGitDate: mock(() => Promise.resolve("2024-01-01")),
+    processExit: mock(() => {}),
+  };
+
+  await action({}, deps);
+
+  expect(capturedUpdateOptions.length).toBe(1);
+  const passedOptions = capturedUpdateOptions[0];
+  expect(passedOptions.securityOverrides).toEqual(securityOverridesResult);
+  expect(passedOptions.securityOverrideDetails).toEqual(securityDetailResult);
+});
+
+test("handleSecurityResults - returns empty object when no fixes needed", () => {
+  const { handleSecurityResults } = require("../../../src/cli/index");
+
+  const mockSpinner = { stop: mock() };
+  const mockChecker = {
+    generatePackageOverrides: mock(() => ({})),
+    applyAutoFix: mock(() => {}),
+  };
+
+  const result = handleSecurityResults(
+    [],
+    [],
+    mockChecker as any,
+    mockSpinner as any,
+    { forceSecurityRefactor: false, interactive: false },
+    [],
+  );
+
+  expect(result).toEqual({});
+  expect(mockChecker.generatePackageOverrides).not.toHaveBeenCalled();
+});
+
+test("handleSecurityResults - does not mutate mergedOptions", () => {
+  const { handleSecurityResults } = require("../../../src/cli/index");
+
+  const alerts = [
+    {
+      packageName: "lodash",
+      severity: "high",
+      title: "Prototype Pollution",
+      cves: ["CVE-2021-23337"],
+    },
+  ];
+
+  const securityOverrides = [
+    {
+      packageName: "lodash",
+      fromVersion: "4.17.20",
+      toVersion: "4.17.21",
+      reason: "Security fix",
+      severity: "high" as const,
+    },
+  ];
+
+  const mockSecurityChecker = {
+    generatePackageOverrides: mock(() => ({ lodash: "4.17.21" })),
+    applyAutoFix: mock(() => {}),
+  };
+
+  const mockSpinner = { stop: mock() };
+
+  const mergedOptions: Options = {
+    forceSecurityRefactor: true,
+    path: "package.json",
+  };
+
+  const optionsSnapshot = JSON.parse(JSON.stringify(mergedOptions));
+
+  handleSecurityResults(
+    alerts,
+    securityOverrides,
+    mockSecurityChecker as any,
+    mockSpinner as any,
+    mergedOptions,
+    [],
+  );
+
+  expect(mergedOptions).toEqual(optionsSnapshot);
+});
+
+test("checkRemovalSafety - returns empty array when no unused entries", async () => {
+  const { checkRemovalSafety } = require("../../../src/cli/index");
+
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    pastoralist: { appendix: {} },
+  };
+
+  const mockSecurityChecker = {
+    checkSecurity: mock(async () => ({
+      alerts: [],
+      overrides: [],
+      updates: [],
+      packagesScanned: 0,
+    })),
+  };
+
+  const result = await checkRemovalSafety(
+    config,
+    mockSecurityChecker as any,
+    {},
+  );
+
+  expect(result).toEqual([]);
+  expect(mockSecurityChecker.checkSecurity).not.toHaveBeenCalled();
+});
+
+test("checkRemovalSafety - returns keys for packages still vulnerable at declared versions", async () => {
+  const { checkRemovalSafety } = require("../../../src/cli/index");
+
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20", safe: "^2.0.0" },
+    overrides: { lodash: "4.17.21", safe: "2.1.0" },
+    pastoralist: {
+      appendix: {
+        "lodash@4.17.21": { dependents: { root: "lodash (unused override)" } },
+        "safe@2.1.0": { dependents: { root: "safe (unused override)" } },
+      },
+    },
+  };
+
+  const mockSecurityChecker = {
+    checkSecurity: mock(async () => ({
+      alerts: [
+        { packageName: "lodash", severity: "high", currentVersion: "4.17.20" },
+      ],
+      overrides: [],
+      updates: [],
+      packagesScanned: 1,
+    })),
+  };
+
+  const result = await checkRemovalSafety(config, mockSecurityChecker as any, {
+    root: "./",
+  });
+
+  expect(result).toEqual(["lodash@4.17.21"]);
+  expect(mockSecurityChecker.checkSecurity).toHaveBeenCalledWith(
+    {
+      name: "test-app",
+      version: "1.0.0",
+      dependencies: { lodash: "^4.17.20", safe: "^2.0.0" },
+    },
+    { root: "./" },
+  );
+});
+
+test("checkRemovalSafety - returns empty array when re-scan finds no vulnerabilities", async () => {
+  const { checkRemovalSafety } = require("../../../src/cli/index");
+
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    overrides: { lodash: "4.17.21" },
+    pastoralist: {
+      appendix: {
+        "lodash@4.17.21": { dependents: { root: "lodash (unused override)" } },
+      },
+    },
+  };
+
+  const mockSecurityChecker = {
+    checkSecurity: mock(async () => ({
+      alerts: [],
+      overrides: [],
+      updates: [],
+      packagesScanned: 1,
+    })),
+  };
+
+  const result = await checkRemovalSafety(
+    config,
+    mockSecurityChecker as any,
+    {},
+  );
+
+  expect(result).toEqual([]);
+});
+
+test("checkRemovalSafety - returns empty when unused packages not in any deps", async () => {
+  const { checkRemovalSafety } = require("../../../src/cli/index");
+
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    pastoralist: {
+      appendix: {
+        "orphan-pkg@1.0.0": {
+          dependents: { root: "orphan-pkg (unused override)" },
+        },
+      },
+    },
+  };
+
+  const mockSecurityChecker = {
+    checkSecurity: mock(async () => ({
+      alerts: [],
+      overrides: [],
+      updates: [],
+      packagesScanned: 0,
+    })),
+  };
+
+  const result = await checkRemovalSafety(
+    config,
+    mockSecurityChecker as any,
+    {},
+  );
+
+  expect(result).toEqual([]);
+  expect(mockSecurityChecker.checkSecurity).not.toHaveBeenCalled();
+});
+
+test("checkRemovalSafety - finds packages in devDependencies", async () => {
+  const { checkRemovalSafety } = require("../../../src/cli/index");
+
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    devDependencies: { "dev-pkg": "^1.0.0" },
+    pastoralist: {
+      appendix: {
+        "dev-pkg@1.0.0": { dependents: { root: "dev-pkg (unused override)" } },
+      },
+    },
+  };
+
+  const mockSecurityChecker = {
+    checkSecurity: mock(async () => ({
+      alerts: [
+        { packageName: "dev-pkg", severity: "high", currentVersion: "1.0.0" },
+      ],
+      overrides: [],
+      updates: [],
+      packagesScanned: 1,
+    })),
+  };
+
+  const result = await checkRemovalSafety(
+    config,
+    mockSecurityChecker as any,
+    {},
+  );
+
+  expect(result).toEqual(["dev-pkg@1.0.0"]);
+});
+
+test("action - displays blocked removals notice when skipRemovalKeys set", async () => {
+  const { action } = require("../../../src/cli/index");
+
+  const mockConfig: PastoralistJSON = {
+    name: "test-package",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    overrides: { lodash: "4.17.21" },
+    pastoralist: {
+      appendix: {
+        "lodash@4.17.21": {
+          dependents: { root: "lodash (unused override)" },
+          ledger: { addedDate: "2024-01-01", cves: ["CVE-2021-23337"] },
+        },
+      },
+    },
+  };
+
+  const mockGraph = createMockTerminalGraph();
+
+  const deps = {
+    createLogger: mock(() => log),
+    handleTestMode: mock(() => false),
+    handleInitMode: mock(() => Promise.resolve(false)),
+    resolveJSON: mock(() => mockConfig),
+    buildMergedOptions: mock((options: any, rest: any) =>
+      Object.assign({}, options, rest, {
+        checkSecurity: true,
+        removeUnused: true,
+      }),
+    ),
+    runSecurityCheck: mock(() =>
+      Promise.resolve({
+        alerts: [
+          {
+            packageName: "lodash",
+            severity: "high",
+            currentVersion: "4.17.20",
+            cves: ["CVE-2021-23337"],
+          },
+        ],
+        securityOverrides: [],
+        updates: [],
+        packagesScanned: 1,
+        skipped: false,
+        spinner: { start: mock(), succeed: mock(), stop: mock() },
+        securityChecker: {
+          checkSecurity: mock(() =>
+            Promise.resolve({
+              alerts: [
+                {
+                  packageName: "lodash",
+                  severity: "high",
+                  currentVersion: "4.17.20",
+                  cves: ["CVE-2021-23337"],
+                },
+              ],
+              overrides: [],
+              updates: [],
+              packagesScanned: 1,
+            }),
+          ),
+        },
+      }),
+    ),
+    handleSecurityResults: mock(() => ({})),
+    createSpinner: mock(() => ({
+      start: mock(),
+      succeed: mock(),
+      stop: mock(),
+    })),
+    green: mock((text: string) => text),
+    update: mock(() => ({
+      finalOverrides: { lodash: "4.17.21" },
+      finalAppendix: mockConfig.pastoralist!.appendix,
+    })),
+    createTerminalGraph: mock(() => mockGraph),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
+    processExit: mock(() => {}),
+  };
+
+  await action({ path: "package.json", removeUnused: true }, deps);
+
+  const noticeCalls = mockGraph.notice.mock.calls;
+  const hasBlockedNotice = noticeCalls.some(
+    (call: unknown[]) =>
+      typeof call[0] === "string" && call[0].includes("still vulnerable"),
+  );
+  expect(hasBlockedNotice).toBe(true);
 });

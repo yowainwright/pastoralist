@@ -269,7 +269,8 @@ const filterActuallyRemovable = (
   removableItems: string[],
   trackedInPaths: string[],
 ): string[] => {
-  return removableItems.filter((pkg) => !trackedInPaths.includes(pkg));
+  const trackedSet = new Set(trackedInPaths);
+  return removableItems.filter((pkg) => !trackedSet.has(pkg));
 };
 
 const removeAppendixEntries = (

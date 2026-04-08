@@ -7,7 +7,7 @@ import type {
   ResolveOverrides,
   UpdateAppendixOptions,
 } from "../../types";
-import type { SecurityOverrideDetail } from "../../types";
+import type { SecurityOverrideDetail, SecurityProviderType } from "../../types";
 import type { Logger } from "../../utils";
 import type { PartialSecurityLedger } from "./types";
 import { resolveJSON, jsonCache } from "../packageJSON";
@@ -90,7 +90,7 @@ const processNestedOverrideEntry = (
   appendix: Appendix,
   packageReason: string | undefined,
   securityOverrideDetails: SecurityOverrideDetail[] | undefined,
-  securityProvider: "osv" | "github" | "snyk" | "npm" | "socket" | undefined,
+  securityProvider: SecurityProviderType | undefined,
   manualOverrideReasons: Record<string, string> | undefined,
   cache: Map<string, AppendixItem>,
 ): Appendix => {
@@ -144,7 +144,7 @@ const processNestedOverride = (
   appendix: Appendix,
   packageReason: string | undefined,
   securityOverrideDetails: SecurityOverrideDetail[] | undefined,
-  securityProvider: "osv" | "github" | "snyk" | "npm" | "socket" | undefined,
+  securityProvider: SecurityProviderType | undefined,
   manualOverrideReasons: Record<string, string> | undefined,
   cache: Map<string, AppendixItem>,
 ): Appendix => {
@@ -179,7 +179,7 @@ const processOverrideEntry = (
   appendix: Appendix,
   reason: string | undefined,
   securityOverrideDetails: SecurityOverrideDetail[] | undefined,
-  securityProvider: "osv" | "github" | "snyk" | "npm" | "socket" | undefined,
+  securityProvider: SecurityProviderType | undefined,
   manualOverrideReasons: Record<string, string> | undefined,
   cache: Map<string, AppendixItem>,
   onlyUsedOverrides: boolean = false,

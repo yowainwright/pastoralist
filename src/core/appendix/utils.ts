@@ -1,4 +1,8 @@
-import type { SecurityOverrideDetail, PastoralistJSON } from "../../types";
+import type {
+  SecurityOverrideDetail,
+  PastoralistJSON,
+  SecurityProviderType,
+} from "../../types";
 import type {
   Appendix,
   AppendixItem,
@@ -66,7 +70,7 @@ const buildBaseLedger = (): PartialSecurityLedger => ({
 
 const addProviderToLedger = (
   ledger: PartialSecurityLedger,
-  securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket",
+  securityProvider?: SecurityProviderType,
 ): PartialSecurityLedger => {
   const hasProvider = Boolean(securityProvider);
   if (!hasProvider) return ledger;
@@ -100,7 +104,7 @@ const addUrlToLedger = (
 export const createSecurityLedger = (
   packageName: string,
   securityOverrideDetails?: SecurityOverrideDetail[],
-  securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket",
+  securityProvider?: SecurityProviderType,
 ): PartialSecurityLedger => {
   const isSecurity = isPackageInSecurityDetails(
     packageName,
@@ -275,16 +279,8 @@ const getAddedDate = (item: AppendixItem): string => {
   return new Date().toISOString().split("T")[0];
 };
 
-export const toCompactAppendix = (appendix: Appendix): CompactAppendix => {
-  const compact: CompactAppendix = {};
-
-  for (const [key, item] of Object.entries(appendix)) {
-    if (canBeCompacted(item)) {
-      compact[key] = { addedDate: getAddedDate(item) };
-    } else {
-      compact[key] = item as unknown as CompactAppendix[string];
-    }
-  }
-
-  return compact;
-};
+export const toCompactAppendix = (appendix: Appendix): CompactAppendix =>
+  Object.entries(appendix).reduce<CompactAppendix>((acc, [key, item]) => {
+    acc[key] = canBeCompacted(item) ? { addedDate: getAddedDate(item) } : item;
+    return acc;
+  }, {});

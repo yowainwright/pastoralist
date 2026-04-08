@@ -5,7 +5,15 @@ export const WORKSPACE_MODES = {
   MULTIPLE: "workspaces",
 } as const;
 import { toCompactAppendix } from "../appendix/utils";
-import type { PastoralistJSON, Appendix, Options } from "../../types";
+import type {
+  PastoralistJSON,
+  PastoralistConfig,
+  Appendix,
+  Options,
+  OverridesType,
+  ResolveOverrides,
+  MergedConfig,
+} from "../../types";
 import type { WriteResultContext, ProcessingMode } from "../../types";
 import type { Logger } from "../../utils";
 
@@ -87,7 +95,47 @@ export const resolveDepPaths = (
   return null;
 };
 
-export const hasOverrides = (
+export const findRemovableOverrides = (
+  overrides: OverridesType,
+  appendix: Appendix,
+  allDeps: Record<string, string>,
+  missingInRoot: string[],
+): string[] => {
+  const appendixPackagesWithDependents = new Set(
+    Object.entries(appendix)
+      .filter(
+        ([, item]) => item.dependents && Object.keys(item.dependents).length,
+      )
+      .map(([key]) => key.replace(/@[^@]+$/, "")),
+  );
+  const missingSet = new Set(missingInRoot);
+
+  return Object.keys(overrides).filter((pkg) => {
+    const isInAppendix = appendixPackagesWithDependents.has(pkg);
+    const isInDeps = pkg in allDeps;
+    const isMissingInRoot = missingSet.has(pkg);
+    return !isInAppendix && !isInDeps && !isMissingInRoot;
+  });
+};
+
+export const mergeAllConfigs = (
+  cliOptions: Options,
+  packageJsonConfig: PastoralistConfig | undefined,
+  overridesData: ResolveOverrides,
+  overrides: OverridesType,
+): MergedConfig => {
+  const depPaths = cliOptions.depPaths ?? packageJsonConfig?.depPaths;
+  return {
+    overrides,
+    overridesData,
+    appendix: packageJsonConfig?.appendix,
+    depPaths,
+    securityOverrideDetails: cliOptions.securityOverrideDetails,
+    securityProvider: cliOptions.securityProvider,
+  };
+};
+
+export const hasConfigOverrides = (
   options: Options | undefined,
   config: PastoralistJSON,
 ): boolean => {

@@ -1323,8 +1323,6 @@ test("runSecurityCheck - creates spinner and security checker", async () => {
     interactive: undefined,
     token: undefined,
     debug: false,
-    isIRLFix: undefined,
-    isIRLCatch: undefined,
   });
   expect(mockSecurityChecker.checkSecurity).toHaveBeenCalled();
   expect(result.alerts).toEqual([]);
@@ -1346,8 +1344,6 @@ test("runSecurityCheck - passes correct options to SecurityChecker", async () =>
     forceSecurityRefactor: true,
     interactive: true,
     securityProviderToken: "test-token",
-    isIRLFix: true,
-    isIRLCatch: false,
   };
 
   const mockSpinner = {
@@ -1382,8 +1378,6 @@ test("runSecurityCheck - passes correct options to SecurityChecker", async () =>
     interactive: true,
     token: "test-token",
     debug: true,
-    isIRLFix: true,
-    isIRLCatch: false,
   });
 });
 
@@ -1602,7 +1596,6 @@ test("action - runs security check when enabled", async () => {
     mockSecurityResults.spinner,
     expect.anything(),
     mockSecurityResults.updates,
-    mockSecurityResults.packagesScanned,
   );
 });
 

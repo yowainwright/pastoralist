@@ -11,7 +11,13 @@ export interface SecurityAlert {
   fixAvailable: boolean;
 }
 
-export type SecurityProviderType = "osv" | "github" | "snyk" | "npm" | "socket";
+export type SecurityProviderType =
+  | "osv"
+  | "github"
+  | "snyk"
+  | "npm"
+  | "socket"
+  | "spektion";
 
 export interface SecurityCheckProgress {
   phase: "extracting" | "fetching" | "analyzing" | "resolving";
@@ -156,17 +162,19 @@ import type {
   SnykCLIProvider,
   SocketCLIProvider,
   OSVProvider,
+  SpektionProvider,
 } from "./providers";
 
 export type SecurityProvider =
   | GitHubSecurityProvider
   | SnykCLIProvider
   | SocketCLIProvider
-  | OSVProvider;
+  | OSVProvider
+  | SpektionProvider;
 
 /** Common interface for security provider type identification */
 export interface SecurityProviderBase {
-  readonly providerType: "osv" | "github" | "snyk" | "socket";
+  readonly providerType: SecurityProviderType;
   fetchAlerts(
     packages: Array<{ name: string; version: string }>,
   ): Promise<SecurityAlert[]>;

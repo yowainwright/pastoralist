@@ -55,7 +55,7 @@ export interface WorkspaceConfigUpdate {
 
 export interface SecurityConfigUpdate {
   enabled?: boolean;
-  provider?: "osv" | "github" | "snyk" | "npm" | "socket";
+  provider?: "osv" | "github" | "snyk" | "npm" | "socket" | "spektion";
   interactive?: boolean;
   autoFix?: boolean;
   severityThreshold?: "low" | "medium" | "high" | "critical";

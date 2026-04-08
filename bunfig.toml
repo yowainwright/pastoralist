@@ -1,2 +1,2 @@
 [install.security]
-scanner = "@acme/bun-security-scanner"
+scanner = "@socketsecurity/bun-security-scanner"

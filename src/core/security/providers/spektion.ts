@@ -1,4 +1,4 @@
-import { SecurityAlert } from "../../../types";
+import type { SecurityAlert } from "../../../types";
 import { logger } from "../../../utils";
 import { SPEKTION_API, SEVERITY_MAP, Severity } from "../constants";
 

@@ -70,7 +70,7 @@ export const CLI_DEMO: TerminalDemo[] = [
         className: "text-cyan-400",
       },
       {
-        text: `${TREE_LAST} The herd is safe! ${SHEEP}`,
+        text: `${ICON_CHECK} The herd is safe! ${SHEEP}`,
         className: "text-success",
       },
     ],
@@ -183,7 +183,7 @@ export const CLI_SECURITY_DEMO: TerminalDemo[] = [
         animate: false,
       },
       {
-        text: `${TREE_LAST} The herd is safe! ${SHEEP}`,
+        text: `${ICON_CHECK} The herd is safe! ${SHEEP}`,
         className: "text-success",
         delay: 80,
         animate: false,

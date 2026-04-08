@@ -98,7 +98,7 @@ const checkLessThanOrEqual = (
 };
 
 const checkLessThan = (version: string, range: string): boolean | null => {
-  const isLessThan = range.startsWith("<");
+  const isLessThan = range.startsWith("<") && !range.startsWith("<=");
   if (!isLessThan) return null;
 
   const maxVersion = range.replace(/< ?/, "");

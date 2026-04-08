@@ -57,8 +57,6 @@ export class SnykCLIProvider {
     if (!hasToken) {
       throw new Error(AUTH_MESSAGES.SNYK_AUTH_REQUIRED);
     }
-
-    process.env.SNYK_TOKEN = this.token;
     this.log.debug(
       "Authenticated with Snyk using environment variable",
       "authenticate",

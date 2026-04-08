@@ -18,6 +18,11 @@ import { IS_DEBUGGING, FARMER, MSG_SCANNING, SHEEP } from "../constants";
 import { SecurityChecker } from "../core/security";
 import { initCommand } from "./cmds/init/index";
 import { renderTable, createTerminalGraph } from "../dx";
+import { getOverrideGitDate } from "../utils/git";
+import {
+  findUnusedAppendixEntries,
+  extractPackageNames,
+} from "../core/appendix/utils";
 import * as fs from "fs";
 import { resolve } from "path";
 
@@ -135,23 +140,30 @@ export const buildMergedOptions = (
   };
 };
 
+type OptionalDetail = Omit<SecurityOverrideDetail, "packageName" | "reason">;
+
 export const buildSecurityOverrideDetail = (
   override: SecurityOverride,
 ): SecurityOverrideDetail => {
-  const hasCve = Boolean(override.cve);
-  const hasSeverity = Boolean(override.severity);
-  const hasDescription = Boolean(override.description);
-  const hasUrl = Boolean(override.url);
+  const optionalEntries: [keyof OptionalDetail, unknown][] = [
+    ["cves", override.cves?.length ? override.cves : undefined],
+    ["severity", override.severity],
+    ["description", override.description],
+    ["url", override.url],
+    ["vulnerableRange", override.vulnerableRange],
+    ["patchedVersion", override.patchedVersion],
+  ];
+
+  const optionalFields = optionalEntries
+    .filter(([, value]) => value !== undefined)
+    .reduce<
+      Partial<OptionalDetail>
+    >((acc, [key, value]) => ({ ...acc, [key]: value }), {});
 
   return {
     packageName: override.packageName,
     reason: override.reason,
-    ...(hasCve && { cve: override.cve }),
-    ...(hasSeverity && {
-      severity: override.severity as "low" | "medium" | "high" | "critical",
-    }),
-    ...(hasDescription && { description: override.description }),
-    ...(hasUrl && { url: override.url }),
+    ...optionalFields,
   };
 };
 
@@ -245,7 +257,7 @@ export const handleSecurityResults = (
   spinner: ReturnType<typeof createSpinner>,
   mergedOptions: Options,
   updates: import("../types").OverrideUpdate[] = [],
-): void => {
+): Pick<Options, "securityOverrides" | "securityOverrideDetails"> => {
   const hasAlerts = alerts.length > 0;
   const hasUpdates = updates.length > 0;
   const shouldApplySecurityFixes =
@@ -253,23 +265,20 @@ export const handleSecurityResults = (
   const shouldGenerateOverrides = hasAlerts && shouldApplySecurityFixes;
   const shouldApplyUpdates = hasUpdates && shouldApplySecurityFixes;
 
-  const allOverrides = [...securityOverrides];
-
-  if (shouldApplyUpdates) {
-    const updateOverrides = updates.map((update) => ({
-      packageName: update.packageName,
-      fromVersion: update.currentOverride,
-      toVersion: update.newerVersion,
-      reason: update.reason,
-      severity: "medium" as const,
-    }));
-    allOverrides.push(...updateOverrides);
-  }
+  const updateOverrides = shouldApplyUpdates
+    ? updates.map((update) => ({
+        packageName: update.packageName,
+        fromVersion: update.currentOverride,
+        toVersion: update.newerVersion,
+        reason: update.reason,
+        severity: "medium" as const,
+      }))
+    : [];
+  const allOverrides = [...securityOverrides, ...updateOverrides];
 
   if (shouldGenerateOverrides || shouldApplyUpdates) {
     const finalOverrides =
       securityChecker.generatePackageOverrides(allOverrides);
-    mergedOptions.securityOverrides = finalOverrides;
 
     const overridesToApply = allOverrides.filter((override) => {
       const finalVersion = finalOverrides[override.packageName];
@@ -278,7 +287,7 @@ export const handleSecurityResults = (
       return isStringMatch;
     });
 
-    mergedOptions.securityOverrideDetails = overridesToApply.map(
+    const securityOverrideDetails = overridesToApply.map(
       buildSecurityOverrideDetail,
     );
 
@@ -288,9 +297,13 @@ export const handleSecurityResults = (
     if (shouldAutoFix) {
       securityChecker.applyAutoFix(overridesToApply, mergedOptions.path);
     }
+
+    spinner.stop();
+    return { securityOverrides: finalOverrides, securityOverrideDetails };
   }
 
   spinner.stop();
+  return {};
 };
 
 export const formatUpdateReport = (
@@ -385,7 +398,7 @@ export const buildSecurityResult = (
   securityAlerts: alerts.map((alert) => ({
     packageName: alert.packageName,
     severity: alert.severity || "unknown",
-    cve: alert.cve,
+    cves: alert.cves,
     description: alert.description,
     patchedVersion: alert.patchedVersion,
     fixAvailable: alert.fixAvailable,
@@ -449,7 +462,9 @@ const buildOverrideInfo = (
   dependents: appendixEntry?.dependents,
   patches: appendixEntry?.patches,
   isSecurityFix: appendixEntry?.ledger?.securityChecked,
-  cve: appendixEntry?.ledger?.cve,
+  cves: appendixEntry?.ledger?.cves,
+  keep: appendixEntry?.ledger?.keep,
+  potentiallyFixedIn: appendixEntry?.ledger?.potentiallyFixedIn,
 });
 
 const toOverrideEntry = (
@@ -551,6 +566,48 @@ export const displaySummaryTable = (result: PastoralistResult): void => {
   console.log("\n" + table);
 };
 
+export const checkRemovalSafety = async (
+  config: PastoralistJSON,
+  securityChecker: SecurityChecker,
+  mergedOptions: Options,
+): Promise<string[]> => {
+  const appendix = config.pastoralist?.appendix || {};
+  const unusedKeys = findUnusedAppendixEntries(appendix);
+  if (unusedKeys.length === 0) return [];
+
+  const allDeps = {
+    ...config.dependencies,
+    ...config.devDependencies,
+    ...config.peerDependencies,
+  };
+  const packageNames = extractPackageNames(unusedKeys);
+  const candidateDeps = Object.fromEntries(
+    packageNames
+      .filter((name) => Boolean(allDeps[name]))
+      .map((name) => [name, allDeps[name] as string]),
+  );
+
+  if (Object.keys(candidateDeps).length === 0) return [];
+
+  const syntheticConfig: PastoralistJSON = {
+    name: config.name,
+    version: config.version,
+    dependencies: candidateDeps,
+  };
+
+  const { alerts } = await securityChecker.checkSecurity(syntheticConfig, {
+    root: mergedOptions.root || "./",
+  });
+
+  const vulnerablePackageNames = new Set(alerts.map((a) => a.packageName));
+  return unusedKeys.filter((key) => {
+    const [pkgName] = extractPackageNames([key]);
+    return vulnerablePackageNames.has(pkgName);
+  });
+};
+
+const pluralSuffix = (count: number): string => (count === 1 ? "" : "s");
+
 export async function action(
   options: Options = {},
   deps = {
@@ -565,6 +622,7 @@ export async function action(
     green,
     update,
     createTerminalGraph,
+    getOverrideGitDate,
     processExit: (code: number) => process.exit(code),
   },
 ): Promise<PastoralistResult> {
@@ -598,23 +656,24 @@ export async function action(
       options.root && !relativePath.startsWith("/")
         ? `${options.root}/${relativePath}`
         : relativePath;
-    const config = await deps.resolveJSON(path);
+    const config = deps.resolveJSON(path);
     const securityConfig = config?.pastoralist?.security || {};
     const configProvider = Array.isArray(securityConfig.provider)
       ? securityConfig.provider[0]
       : securityConfig.provider;
 
-    const mergedOptions = deps.buildMergedOptions(
+    const baseOptions = deps.buildMergedOptions(
       options,
       rest,
       securityConfig,
       configProvider,
     );
-    mergedOptions.config = config;
-    mergedOptions.path = path;
-    if (options.root) {
-      mergedOptions.root = options.root;
-    }
+    let mergedOptions: Options = {
+      ...baseOptions,
+      config,
+      path,
+      ...(options.root && { root: options.root }),
+    };
 
     let securityResult: Pick<
       PastoralistResult,
@@ -653,9 +712,23 @@ export async function action(
       packagesScanned = scanned;
       securityResult = buildSecurityResult(alerts);
 
+      mergedOptions = { ...mergedOptions, securityAlerts: alerts };
+
+      const shouldCheckRemovalSafety = mergedOptions.removeUnused && config;
+      if (shouldCheckRemovalSafety) {
+        const skipKeys = await checkRemovalSafety(
+          config!,
+          securityChecker,
+          mergedOptions,
+        );
+        if (skipKeys.length > 0) {
+          mergedOptions = { ...mergedOptions, skipRemovalKeys: skipKeys };
+        }
+      }
+
       const shouldHandleResults = !skipped && !isJsonOutput;
       if (shouldHandleResults) {
-        deps.handleSecurityResults(
+        const securityUpdates = deps.handleSecurityResults(
           alerts,
           securityOverrides,
           securityChecker,
@@ -663,6 +736,7 @@ export async function action(
           mergedOptions,
           updates,
         );
+        mergedOptions = { ...mergedOptions, ...securityUpdates };
 
         const toVulnerabilityInfo = (
           alert: SecurityAlert,
@@ -671,7 +745,7 @@ export async function action(
           packageName: alert.packageName,
           currentVersion: alert.currentVersion || "?",
           title: alert.title || alert.description || "Vulnerability",
-          cve: alert.cve,
+          cves: alert.cves,
           fixAvailable: alert.fixAvailable,
           patchedVersion: alert.patchedVersion,
           url: alert.url,
@@ -702,7 +776,7 @@ export async function action(
             packageName: override.packageName,
             fromVersion: override.fromVersion || "?",
             toVersion: override.toVersion,
-            cve: override.cve,
+            cves: override.cves,
             severity: override.severity,
             reason: override.reason,
           });
@@ -722,9 +796,8 @@ export async function action(
       }
     }
 
-    if (!isJsonOutput) {
-      graph.startPhase("writing", "Updating overrides");
-    }
+    const addedDate = await deps.getOverrideGitDate(path);
+    mergedOptions = { ...mergedOptions, addedDate };
 
     const updateContext = await deps.update(mergedOptions);
     const updateResultData = buildUpdateResult(
@@ -733,29 +806,28 @@ export async function action(
       options.dryRun || false,
     );
 
-    const shouldDisplayOverrides = !isJsonOutput;
-    if (shouldDisplayOverrides) {
+    if (!isJsonOutput) {
+      const removedPackages =
+        updateContext.metrics?.removedOverridePackages ?? [];
+      const hasRemovedOverrides = removedPackages.length > 0;
+      const isLastPhase = !hasRemovedOverrides;
+
+      graph.startPhase("writing", "Updating overrides", isLastPhase);
+
       displayOverrides(graph, {
         finalOverrides: updateContext.finalOverrides ?? {},
         finalAppendix: updateContext.finalAppendix ?? {},
       });
-    }
 
-    if (!isJsonOutput) {
       const overrideCount = updateResultData.overrideCount;
       const hasOverrides = overrideCount > 0;
-      const plural = overrideCount === 1 ? "" : "s";
       const overrideMsg = hasOverrides
-        ? `${overrideCount} override${plural} applied`
+        ? `${overrideCount} override${pluralSuffix(overrideCount)} applied`
         : "No overrides to update";
       graph.endPhase(overrideMsg);
 
-      const removedPackages =
-        updateContext.metrics?.removedOverridePackages ?? [];
-      const hasRemovedOverrides = removedPackages.length > 0;
-
       if (hasRemovedOverrides) {
-        graph.startPhase("writing", "Cleaned up stale overrides");
+        graph.startPhase("writing", "Cleaned up stale overrides", true);
 
         removedPackages.forEach((removed) => {
           graph.removedOverride(
@@ -790,6 +862,27 @@ export async function action(
       const shouldShowInstallNotice = updateResultData.updated;
       if (shouldShowInstallNotice) {
         graph.notice("Run an install to capture the updates!");
+      }
+
+      const blockedKeys = mergedOptions.skipRemovalKeys || [];
+      const hasBlockedRemovals = blockedKeys.length > 0;
+      if (hasBlockedRemovals) {
+        const count = blockedKeys.length;
+        graph.notice(
+          `${count} override${pluralSuffix(count)} kept: still vulnerable at declared versions - ${blockedKeys.join(", ")}`,
+        );
+      }
+
+      const finalAppendix = updateContext.finalAppendix ?? {};
+      const unusedEntries = findUnusedAppendixEntries(finalAppendix);
+      const hasUnusedOverrides = unusedEntries.length > 0;
+      const didNotRemoveUnused = !options.removeUnused;
+      const shouldSuggestRemoval = hasUnusedOverrides && didNotRemoveUnused;
+      if (shouldSuggestRemoval) {
+        const count = unusedEntries.length;
+        graph.notice(
+          `${count} unused override${pluralSuffix(count)} detected. Run with --remove-unused to clean up.`,
+        );
       }
     }
 

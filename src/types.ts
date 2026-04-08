@@ -1,3 +1,5 @@
+import type { SecurityAlert } from "./core/security/types";
+
 export type Exec = (runner: string, cmds: Array<string>) => Promise<void>;
 export type OverrideValue = string | Record<string, string>;
 
@@ -14,6 +16,19 @@ export interface PastoralistJSON {
   pastoralist?: PastoralistConfig;
 }
 
+export interface KeepConstraint {
+  reason: string;
+  until?: string;
+  untilVersion?: string;
+  reviewBy?: string;
+}
+
+export interface CveDetail {
+  cve: string;
+  severity?: "low" | "medium" | "high" | "critical";
+  patchedVersion?: string;
+}
+
 export interface AppendixItem {
   rootDeps?: Array<string>;
   dependents?: Record<string, string>;
@@ -22,9 +37,9 @@ export interface AppendixItem {
     addedDate: string;
     reason?: string;
     source?: "security" | "manual";
-    resolvedAt?: string;
     securityChecked?: boolean;
     securityCheckDate?: string;
+    securityCheckResult?: "clean" | "error" | "skipped";
     securityProvider?:
       | "osv"
       | "github"
@@ -32,10 +47,18 @@ export interface AppendixItem {
       | "npm"
       | "socket"
       | "spektion";
-    cve?: string;
+    cves?: string[];
+    cveDetails?: CveDetail[];
     severity?: "low" | "medium" | "high" | "critical";
     description?: string;
     url?: string;
+    vulnerableRange?: string;
+    patchedVersion?: string;
+    keep?: boolean | KeepConstraint;
+    potentiallyFixedIn?: string;
+    resolvedAt?: string;
+    resolvedBy?: "upgrade" | "not-applicable" | "disputed";
+    resolvedVersion?: string;
   };
 }
 export interface Appendix {
@@ -84,10 +107,12 @@ export interface ResolveResolutionOptions {
 export interface SecurityOverrideDetail {
   packageName: string;
   reason: string;
-  cve?: string;
+  cves?: string[];
   severity?: "low" | "medium" | "high" | "critical";
   description?: string;
   url?: string;
+  vulnerableRange?: string;
+  patchedVersion?: string;
 }
 
 export interface UpdateAppendixOptions {
@@ -103,6 +128,7 @@ export interface UpdateAppendixOptions {
   securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket" | "spektion";
   onlyUsedOverrides?: boolean;
   dependencyTree?: Record<string, boolean>;
+  addedDate?: string;
 }
 
 /** Security-related options */
@@ -114,6 +140,7 @@ export interface SecurityOptions {
   hasWorkspaceSecurityChecks?: boolean;
   securityOverrides?: OverridesType;
   securityOverrideDetails?: SecurityOverrideDetail[];
+  securityAlerts?: SecurityAlert[];
   strict?: boolean;
 }
 
@@ -153,6 +180,10 @@ export interface Options
   manualOverrideReasons?: Record<string, string>;
   config?: PastoralistJSON;
   setupHook?: boolean;
+  addedDate?: string;
+  removeUnused?: boolean;
+  skipRemovalKeys?: string[];
+  removeSafelyResolved?: boolean;
 }
 
 export interface OverridesType {
@@ -241,7 +272,7 @@ export interface PastoralistResult {
   securityAlerts?: Array<{
     packageName: string;
     severity: string;
-    cve?: string;
+    cves?: string[];
     description?: string;
   }>;
   unusedOverrides?: string[];

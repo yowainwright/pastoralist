@@ -184,7 +184,7 @@ test("deduplicateAlerts - removes duplicate alerts", () => {
       severity: "high",
       title: "Prototype Pollution",
       description: "Test",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
       url: "https://example.com",
       fixAvailable: true,
     },
@@ -196,7 +196,7 @@ test("deduplicateAlerts - removes duplicate alerts", () => {
       severity: "high",
       title: "Prototype Pollution",
       description: "Test",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
       url: "https://example.com",
       fixAvailable: true,
     },
@@ -216,7 +216,7 @@ test("deduplicateAlerts - keeps higher severity alert when duplicate", () => {
       severity: "medium",
       title: "Prototype Pollution",
       description: "Test",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
       url: "https://example.com",
       fixAvailable: true,
     },
@@ -228,7 +228,7 @@ test("deduplicateAlerts - keeps higher severity alert when duplicate", () => {
       severity: "critical",
       title: "Prototype Pollution",
       description: "Test",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
       url: "https://example.com",
       fixAvailable: true,
     },
@@ -249,7 +249,7 @@ test("deduplicateAlerts - keeps all alerts with different CVEs", () => {
       severity: "high",
       title: "Prototype Pollution",
       description: "Test",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
       url: "https://example.com",
       fixAvailable: true,
     },
@@ -261,7 +261,7 @@ test("deduplicateAlerts - keeps all alerts with different CVEs", () => {
       severity: "high",
       title: "Different Issue",
       description: "Test",
-      cve: "CVE-2021-99999",
+      cves: ["CVE-2021-99999"],
       url: "https://example.com",
       fixAvailable: true,
     },
@@ -299,6 +299,70 @@ test("deduplicateAlerts - handles alerts without CVE using title", () => {
 
   const result = deduplicateAlerts(alerts);
   expect(result.length).toBe(1);
+});
+
+test("deduplicateAlerts - merges cves arrays when deduplicating same-key alert at higher severity", () => {
+  const alerts: SecurityAlert[] = [
+    {
+      packageName: "lodash",
+      currentVersion: "4.17.20",
+      vulnerableVersions: "< 4.17.21",
+      patchedVersion: "4.17.21",
+      severity: "medium",
+      title: "Prototype pollution",
+      cves: ["CVE-2021-23337", "CVE-2020-28500"],
+      fixAvailable: true,
+    },
+    {
+      packageName: "lodash",
+      currentVersion: "4.17.20",
+      vulnerableVersions: "< 4.17.21",
+      patchedVersion: "4.17.21",
+      severity: "high",
+      title: "Prototype pollution",
+      cves: ["CVE-2021-23337", "CVE-2021-99999"],
+      fixAvailable: true,
+    },
+  ];
+
+  const result = deduplicateAlerts(alerts);
+  expect(result.length).toBe(1);
+  expect(result[0].severity).toBe("high");
+  expect(result[0].cves).toContain("CVE-2021-23337");
+  expect(result[0].cves).toContain("CVE-2020-28500");
+  expect(result[0].cves).toContain("CVE-2021-99999");
+});
+
+test("deduplicateAlerts - merges cves from lower-severity duplicate into existing alert", () => {
+  const alerts: SecurityAlert[] = [
+    {
+      packageName: "lodash",
+      currentVersion: "4.17.20",
+      vulnerableVersions: "< 4.17.21",
+      patchedVersion: "4.17.21",
+      severity: "high",
+      title: "Prototype pollution",
+      cves: ["CVE-2021-23337", "CVE-A"],
+      fixAvailable: true,
+    },
+    {
+      packageName: "lodash",
+      currentVersion: "4.17.20",
+      vulnerableVersions: "< 4.17.21",
+      patchedVersion: "4.17.21",
+      severity: "medium",
+      title: "Prototype pollution",
+      cves: ["CVE-2021-23337", "CVE-B"],
+      fixAvailable: true,
+    },
+  ];
+
+  const result = deduplicateAlerts(alerts);
+  expect(result.length).toBe(1);
+  expect(result[0].severity).toBe("high");
+  expect(result[0].cves).toContain("CVE-2021-23337");
+  expect(result[0].cves).toContain("CVE-A");
+  expect(result[0].cves).toContain("CVE-B");
 });
 
 // =============================================================================
@@ -506,7 +570,7 @@ test("findVulnerablePackages - finds vulnerable packages", () => {
       severity: "high",
       title: "Prototype Pollution",
       description: "Test",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
       url: "https://example.com",
       fixAvailable: true,
     },
@@ -536,7 +600,7 @@ test("findVulnerablePackages - filters out non-vulnerable packages", () => {
       severity: "high",
       title: "Prototype Pollution",
       description: "Test",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
       url: "https://example.com",
       fixAvailable: true,
     },
@@ -564,7 +628,7 @@ test("findVulnerablePackages - filters out packages not in config", () => {
       severity: "high",
       title: "Prototype Pollution",
       description: "Test",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
       url: "https://example.com",
       fixAvailable: true,
     },
@@ -592,7 +656,7 @@ test("findVulnerablePackages - checks devDependencies", () => {
       severity: "high",
       title: "Prototype Pollution",
       description: "Test",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
       url: "https://example.com",
       fixAvailable: true,
     },
@@ -620,7 +684,7 @@ test("findVulnerablePackages - checks peerDependencies", () => {
       severity: "high",
       title: "Prototype Pollution",
       description: "Test",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
       url: "https://example.com",
       fixAvailable: true,
     },
@@ -725,7 +789,7 @@ test("InteractiveSecurityManager - promptForSecurityActions with vulnerabilities
       severity: "high",
       title: "Prototype Pollution",
       description: "Test vulnerability",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
       url: "https://example.com",
       fixAvailable: true,
     },
@@ -770,7 +834,7 @@ test("InteractiveSecurityManager - promptForSecurityActions user applies fix", a
       severity: "critical",
       title: "Prototype Pollution",
       description: "Test vulnerability",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
       url: "https://example.com",
       fixAvailable: true,
     },
@@ -910,7 +974,7 @@ test("InteractiveSecurityManager - promptForSecurityActions user declines final 
       severity: "high",
       title: "Prototype Pollution",
       description: "Test",
-      cve: "CVE-2021-23337",
+      cves: ["CVE-2021-23337"],
       url: "https://example.com",
       fixAvailable: true,
     },

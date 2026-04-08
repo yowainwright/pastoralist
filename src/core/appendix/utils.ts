@@ -2,6 +2,7 @@ import type {
   SecurityOverrideDetail,
   PastoralistJSON,
   SecurityProviderType,
+  CveDetail,
 } from "../../types";
 import type {
   Appendix,
@@ -11,6 +12,9 @@ import type {
 } from "../../types";
 import type { PartialSecurityLedger, CompactAppendix } from "./types";
 import { packageAtVersion } from "../../utils/string";
+import { compareVersions } from "../../utils/semver";
+
+const UNUSED_OVERRIDE_LABEL = "(unused override)";
 
 const getReasonFromSecurityDetails = (
   packageName: string,
@@ -55,11 +59,13 @@ const isPackageInSecurityDetails = (
   return securityOverrideDetails!.some((d) => d.packageName === packageName);
 };
 
-const findSecurityDetail = (
+const findAllSecurityDetails = (
   packageName: string,
   securityOverrideDetails?: SecurityOverrideDetail[],
-): SecurityOverrideDetail | undefined => {
-  return securityOverrideDetails?.find((d) => d.packageName === packageName);
+): SecurityOverrideDetail[] => {
+  return (
+    securityOverrideDetails?.filter((d) => d.packageName === packageName) || []
+  );
 };
 
 const buildBaseLedger = (): PartialSecurityLedger => ({
@@ -77,29 +83,96 @@ const addProviderToLedger = (
   return { ...ledger, securityProvider };
 };
 
-const addCveToLedger = (
+const addCvesToLedger = (
   ledger: PartialSecurityLedger,
-  detail?: SecurityOverrideDetail,
+  details: SecurityOverrideDetail[],
 ): PartialSecurityLedger => {
-  if (!detail?.cve) return ledger;
-  return { ...ledger, cve: detail.cve };
+  const allCves = details.flatMap((d) => d.cves || []);
+  const uniqueCves = [...new Set(allCves)];
+  if (uniqueCves.length === 0) return ledger;
+  return { ...ledger, cves: uniqueCves };
+};
+
+const getSeverityScore = (severity: string): number => {
+  const scores: Record<string, number> = {
+    low: 1,
+    medium: 2,
+    high: 3,
+    critical: 4,
+  };
+  return scores[severity.toLowerCase()] || 0;
 };
 
 const addSeverityToLedger = (
   ledger: PartialSecurityLedger,
-  detail?: SecurityOverrideDetail,
+  details: SecurityOverrideDetail[],
 ): PartialSecurityLedger => {
-  if (!detail?.severity) return ledger;
-  return { ...ledger, severity: detail.severity };
+  const severities = details.map((d) => d.severity).filter(Boolean) as Array<
+    "low" | "medium" | "high" | "critical"
+  >;
+  if (severities.length === 0) return ledger;
+  const highest = severities.reduce((best, s) => {
+    const isBetter = getSeverityScore(s) > getSeverityScore(best);
+    return isBetter ? s : best;
+  });
+  return { ...ledger, severity: highest };
 };
 
 const addUrlToLedger = (
   ledger: PartialSecurityLedger,
-  detail?: SecurityOverrideDetail,
+  details: SecurityOverrideDetail[],
 ): PartialSecurityLedger => {
-  if (!detail?.url) return ledger;
-  return { ...ledger, url: detail.url };
+  const url = details.find((d) => d.url)?.url;
+  if (!url) return ledger;
+  return { ...ledger, url };
 };
+
+const addVulnerableRangeToLedger = (
+  ledger: PartialSecurityLedger,
+  details: SecurityOverrideDetail[],
+): PartialSecurityLedger => {
+  const vulnerableRange = details.find(
+    (d) => d.vulnerableRange,
+  )?.vulnerableRange;
+  if (!vulnerableRange) return ledger;
+  return { ...ledger, vulnerableRange };
+};
+
+const addPatchedVersionToLedger = (
+  ledger: PartialSecurityLedger,
+  details: SecurityOverrideDetail[],
+): PartialSecurityLedger => {
+  const patchedVersion = details.find((d) => d.patchedVersion)?.patchedVersion;
+  if (!patchedVersion) return ledger;
+  return { ...ledger, patchedVersion };
+};
+
+const buildCveDetails = (details: SecurityOverrideDetail[]): CveDetail[] => {
+  const allEntries = details.flatMap((d) =>
+    (d.cves || []).map((cve): [string, CveDetail] => {
+      const detail: CveDetail = { cve };
+      if (d.severity) detail.severity = d.severity;
+      if (d.patchedVersion) detail.patchedVersion = d.patchedVersion;
+      return [cve, detail];
+    }),
+  );
+  const cveMap = allEntries.reduce((map, [cve, detail]) => {
+    if (!map.has(cve)) map.set(cve, detail);
+    return map;
+  }, new Map<string, CveDetail>());
+  return Array.from(cveMap.values());
+};
+
+const addCveDetailsToLedger = (
+  ledger: PartialSecurityLedger,
+  details: SecurityOverrideDetail[],
+): PartialSecurityLedger => {
+  const cveDetails = buildCveDetails(details);
+  if (cveDetails.length === 0) return ledger;
+  return { ...ledger, cveDetails };
+};
+
+type LedgerTransform = (ledger: PartialSecurityLedger) => PartialSecurityLedger;
 
 export const createSecurityLedger = (
   packageName: string,
@@ -112,15 +185,32 @@ export const createSecurityLedger = (
   );
   if (!isSecurity) return {};
 
-  const detail = findSecurityDetail(packageName, securityOverrideDetails);
-  let ledger = buildBaseLedger();
+  const details = findAllSecurityDetails(packageName, securityOverrideDetails);
 
-  ledger = addProviderToLedger(ledger, securityProvider);
-  ledger = addCveToLedger(ledger, detail);
-  ledger = addSeverityToLedger(ledger, detail);
-  ledger = addUrlToLedger(ledger, detail);
+  const transforms: LedgerTransform[] = [
+    (l) => addProviderToLedger(l, securityProvider),
+    (l) => addCvesToLedger(l, details),
+    (l) => addCveDetailsToLedger(l, details),
+    (l) => addSeverityToLedger(l, details),
+    (l) => addUrlToLedger(l, details),
+    (l) => addVulnerableRangeToLedger(l, details),
+    (l) => addPatchedVersionToLedger(l, details),
+  ];
 
-  return ledger;
+  return transforms.reduce((acc, fn) => fn(acc), buildBaseLedger());
+};
+
+export const normalizeLedgerCveField = (
+  ledger: NonNullable<AppendixItem["ledger"]>,
+): NonNullable<AppendixItem["ledger"]> => {
+  const legacyLedger = ledger as NonNullable<AppendixItem["ledger"]> & {
+    cve?: string;
+  };
+  if (!legacyLedger.cve) return ledger;
+  const { cve, ...rest } = legacyLedger;
+  const existingCves = rest.cves || [];
+  const merged = [...new Set([...existingCves, cve])];
+  return { ...rest, cves: merged };
 };
 
 const buildNewLedger = (
@@ -129,8 +219,10 @@ const buildNewLedger = (
     NonNullable<AppendixItem["ledger"]>,
     "addedDate" | "reason"
   >,
+  addedDate?: string,
 ): NonNullable<AppendixItem["ledger"]> => {
-  const baseLedger = { addedDate: new Date().toISOString() };
+  const resolvedDate = addedDate || new Date().toISOString();
+  const baseLedger = { addedDate: resolvedDate };
   const ledgerWithReason = reason ? { ...baseLedger, reason } : baseLedger;
   return { ...ledgerWithReason, ...securityLedger };
 };
@@ -143,11 +235,13 @@ export const buildAppendixItem = (
     NonNullable<AppendixItem["ledger"]>,
     "addedDate" | "reason"
   >,
+  addedDate?: string,
 ): AppendixItem => {
   const hasExistingLedger = Boolean(existingLedger);
-  const ledger = hasExistingLedger
+  const rawLedger = hasExistingLedger
     ? existingLedger
-    : buildNewLedger(reason, securityLedger);
+    : buildNewLedger(reason, securityLedger, addedDate);
+  const ledger = rawLedger ? normalizeLedgerCveField(rawLedger) : rawLedger;
 
   return { dependents, ledger };
 };
@@ -176,7 +270,7 @@ export const buildDependentInfo = (
     return `${override} (transitive dependency)`;
   }
 
-  return `${override} (unused override)`;
+  return `${override} ${UNUSED_OVERRIDE_LABEL}`;
 };
 
 export const isNestedOverride = (overrideValue: OverrideValue): boolean => {
@@ -261,7 +355,7 @@ const hasSecurityInfo = (item: AppendixItem): boolean => {
   return Boolean(
     ledger.securityChecked ||
     ledger.securityProvider ||
-    ledger.cve ||
+    ledger.cves?.length ||
     ledger.severity,
   );
 };
@@ -270,17 +364,118 @@ const hasPatches = (item: AppendixItem): boolean => {
   return Boolean(item.patches && item.patches.length > 0);
 };
 
+export const isKeptEntry = (item: AppendixItem): boolean => {
+  const keep = item.ledger?.keep;
+  const keepIsObject = typeof keep === "object";
+  const isConstraintObject = keepIsObject && keep !== null;
+  return keep === true || isConstraintObject;
+};
+
+export const isKeepExpired = (
+  item: AppendixItem,
+  pkgName: string,
+  rootDeps: Record<string, string>,
+): boolean => {
+  const keep = item.ledger?.keep;
+  if (!keep || keep === true) return false;
+
+  const now = new Date();
+  const keepUntilDate = keep.until ? new Date(keep.until) : null;
+  const isExpiredByDate = keepUntilDate ? now >= keepUntilDate : false;
+  if (isExpiredByDate) return true;
+
+  if (keep.untilVersion) {
+    const rawVersion = rootDeps[pkgName];
+    const depVersion = rawVersion?.replace(/^[\^~]/, "");
+    const comparison = depVersion
+      ? compareVersions(depVersion, keep.untilVersion)
+      : -1;
+    const isVersionExpired = comparison >= 0;
+    if (isVersionExpired) return true;
+  }
+
+  return false;
+};
+
 const canBeCompacted = (item: AppendixItem): boolean => {
+  if (isKeptEntry(item)) return false;
   return !hasSecurityInfo(item) && !hasPatches(item);
 };
 
-const getAddedDate = (item: AppendixItem): string => {
+const getAddedDate = (item: AppendixItem, addedDate?: string): string => {
   if (item.ledger?.addedDate) return item.ledger.addedDate;
+  if (addedDate) return addedDate;
   return new Date().toISOString().split("T")[0];
 };
 
-export const toCompactAppendix = (appendix: Appendix): CompactAppendix =>
+export const toCompactAppendix = (
+  appendix: Appendix,
+  addedDate?: string,
+): CompactAppendix =>
   Object.entries(appendix).reduce<CompactAppendix>((acc, [key, item]) => {
-    acc[key] = canBeCompacted(item) ? { addedDate: getAddedDate(item) } : item;
+    acc[key] = canBeCompacted(item)
+      ? { addedDate: getAddedDate(item, addedDate) }
+      : item;
     return acc;
   }, {});
+
+const isUnusedEntry = (
+  item: AppendixItem,
+  pkgName: string,
+  rootDeps: Record<string, string>,
+): boolean => {
+  const isKept = isKeptEntry(item);
+  const isExpired = isKept && isKeepExpired(item, pkgName, rootDeps);
+  const isProtected = isKept && !isExpired;
+  if (isProtected) return false;
+
+  const dependents = item?.dependents;
+  if (!dependents) return false;
+
+  const values = Object.values(dependents);
+  if (!values.length) return false;
+
+  return values.every((v) => v.includes(UNUSED_OVERRIDE_LABEL));
+};
+
+export const findUnusedAppendixEntries = (
+  appendix: Appendix,
+  rootDeps: Record<string, string> = {},
+): string[] => {
+  if (!appendix) return [];
+
+  return Object.keys(appendix).filter((key) => {
+    const pkgName =
+      key.lastIndexOf("@") > 0 ? key.slice(0, key.lastIndexOf("@")) : key;
+    return isUnusedEntry(appendix[key], pkgName, rootDeps);
+  });
+};
+
+export const removeAppendixKeys = (
+  appendix: Appendix,
+  keys: string[],
+): Appendix => {
+  const keySet = new Set(keys);
+  return Object.keys(appendix)
+    .filter((key) => !keySet.has(key))
+    .reduce((acc, key) => ({ ...acc, [key]: appendix[key] }), {} as Appendix);
+};
+
+export const extractPackageNames = (appendixKeys: string[]): string[] =>
+  appendixKeys.map((key) => {
+    const lastAtIndex = key.lastIndexOf("@");
+    return lastAtIndex > 0 ? key.slice(0, lastAtIndex) : key;
+  });
+
+export const removeOverrideKeys = (
+  overrides: Record<string, string | Record<string, string>>,
+  packageNames: string[],
+): Record<string, string | Record<string, string>> => {
+  const nameSet = new Set(packageNames);
+  return Object.keys(overrides)
+    .filter((key) => !nameSet.has(key))
+    .reduce(
+      (acc, key) => ({ ...acc, [key]: overrides[key] }),
+      {} as Record<string, string | Record<string, string>>,
+    );
+};

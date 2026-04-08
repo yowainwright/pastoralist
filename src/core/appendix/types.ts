@@ -7,10 +7,14 @@ export type SecurityLedgerFields = Pick<
   | "source"
   | "securityChecked"
   | "securityCheckDate"
+  | "securityCheckResult"
   | "securityProvider"
-  | "cve"
+  | "cves"
+  | "cveDetails"
   | "severity"
   | "url"
+  | "vulnerableRange"
+  | "patchedVersion"
 >;
 
 export type PartialSecurityLedger = Partial<SecurityLedgerFields>;

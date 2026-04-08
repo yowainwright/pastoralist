@@ -340,12 +340,20 @@ export const updatePackageJSON = ({
   if (isTesting) return updatedConfig;
 
   const jsonString = formatJson(updatedConfig);
+  const currentJson = formatJson(config);
+  const isUnchanged = jsonString === currentJson;
 
   const shouldLogDryRun = dryRun && !silent;
   if (shouldLogDryRun) {
-    console.log("\n[DRY RUN] Would write to package.json:");
-    console.log(jsonString);
+    if (isUnchanged) {
+      log.print("\n[DRY RUN] No changes detected, skipping write.");
+    } else {
+      log.print("\n[DRY RUN] Would write to package.json:");
+      log.print(jsonString);
+    }
   }
+
+  if (isUnchanged) return;
 
   if (dryRun) {
     return updatedConfig;
@@ -416,12 +424,15 @@ export const executeNpmLs = async (): Promise<string> => {
   }
 };
 
-export const getDependencyTree = async (): Promise<Record<string, boolean>> => {
+export const getDependencyTree = async (
+  mockExecuteNpmLs?: () => Promise<string>,
+): Promise<Record<string, boolean>> => {
   const hasCached = dependencyTreeCache !== null;
   if (hasCached) return dependencyTreeCache!;
 
   try {
-    const stdout = await executeNpmLs();
+    const execute = mockExecuteNpmLs || executeNpmLs;
+    const stdout = await execute();
     const packageMap = parseNpmLsOutput(stdout);
     dependencyTreeCache = packageMap;
     return packageMap;

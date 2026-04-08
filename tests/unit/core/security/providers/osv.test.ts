@@ -134,8 +134,9 @@ test("fetchAlerts - should convert OSV vulnerabilities to SecurityAlerts", async
     packageName: "lodash",
     currentVersion: "4.17.20",
     patchedVersion: "4.17.21",
+    vulnerableVersions: ">= 0 < 4.17.21",
     title: "Prototype Pollution in lodash",
-    cve: "CVE-2021-1234",
+    cves: ["CVE-2021-1234"],
     fixAvailable: true,
   });
 
@@ -372,7 +373,7 @@ test("fetchAlerts - should extract CVE from aliases", async () => {
     { name: "test", version: "1.0.0" },
   ]);
 
-  expect(alerts[0].cve).toBe("CVE-2021-9999");
+  expect(alerts[0].cves?.[0]).toBe("CVE-2021-9999");
 
   global.fetch = originalFetch;
 });
@@ -583,7 +584,7 @@ test("fetchAlerts - should return undefined for CVE when not in aliases", async 
     { name: "test", version: "1.0.0" },
   ]);
 
-  expect(alerts[0].cve).toBeUndefined();
+  expect(alerts[0].cves).toBeUndefined();
 
   global.fetch = originalFetch;
 });
@@ -718,6 +719,53 @@ test("fetchAlerts - should return empty array when strict is false and fetch fai
   ]);
 
   expect(alerts).toEqual([]);
+
+  global.fetch = originalFetch;
+});
+
+test("fetchAlerts - should extract all CVE aliases when multiple CVEs exist", async () => {
+  const provider = new OSVProvider({ debug: false });
+  const originalFetch = global.fetch;
+
+  const mockVuln: OSVVulnerability = {
+    id: "OSV-2021-multi",
+    summary: "Vuln with multiple CVEs",
+    details: "Details",
+    aliases: ["GHSA-xxxx-yyyy-zzzz", "CVE-2021-0001", "CVE-2021-0002"],
+    affected: [
+      {
+        package: { name: "test", ecosystem: "npm" },
+        ranges: [
+          {
+            type: "SEMVER",
+            events: [{ introduced: "0" }, { fixed: "2.0.0" }],
+          },
+        ],
+      },
+    ],
+    references: [{ type: "WEB", url: "https://example.com" }],
+  };
+
+  global.fetch = mock((url: string) => {
+    const isBatchCall = url.includes("querybatch");
+    if (isBatchCall) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-multi" }] }] }),
+      } as Response);
+    }
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve(mockVuln),
+    } as Response);
+  });
+
+  const alerts = await provider.fetchAlerts([
+    { name: "test", version: "1.0.0" },
+  ]);
+
+  expect(alerts[0].cves).toEqual(["CVE-2021-0001", "CVE-2021-0002"]);
 
   global.fetch = originalFetch;
 });

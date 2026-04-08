@@ -18,7 +18,7 @@ test("Test Fixtures - OSVProvider appends ALERT_TO_RESOLVE when isIRLFix is true
   const hasFixtureAlert = alerts.some(
     (alert) =>
       alert.packageName === TEST_FIXTURES.ALERT_TO_RESOLVE.packageName &&
-      alert.cve === TEST_FIXTURES.ALERT_TO_RESOLVE.cve,
+      alert.cves?.[0] === TEST_FIXTURES.ALERT_TO_RESOLVE.cves?.[0],
   );
 
   expect(hasFixtureAlert).toBe(true);
@@ -38,7 +38,7 @@ test("Test Fixtures - OSVProvider appends ALERT_TO_CAPTURE when isIRLCatch is tr
   const hasCaptureAlert = alerts.some(
     (alert) =>
       alert.packageName === TEST_FIXTURES.ALERT_TO_CAPTURE.packageName &&
-      alert.cve === TEST_FIXTURES.ALERT_TO_CAPTURE.cve &&
+      alert.cves?.[0] === TEST_FIXTURES.ALERT_TO_CAPTURE.cves?.[0] &&
       alert.fixAvailable === false,
   );
 
@@ -96,7 +96,7 @@ test("Test Fixtures - ALERT_TO_RESOLVE has correct properties", () => {
   expect(fixture.patchedVersion).toBe("2.1.0");
   expect(fixture.severity).toBe("critical");
   expect(fixture.fixAvailable).toBe(true);
-  expect(fixture.cve).toBe("CVE-FAKE-PASTORALIST-2024-0001");
+  expect(fixture.cves?.[0]).toBe("CVE-FAKE-PASTORALIST-2024-0001");
 });
 
 test("Test Fixtures - ALERT_TO_CAPTURE has correct properties", () => {
@@ -107,7 +107,7 @@ test("Test Fixtures - ALERT_TO_CAPTURE has correct properties", () => {
   expect(fixture.patchedVersion).toBeUndefined();
   expect(fixture.severity).toBe("high");
   expect(fixture.fixAvailable).toBe(false);
-  expect(fixture.cve).toBe("CVE-FAKE-PASTORALIST-2024-0002");
+  expect(fixture.cves?.[0]).toBe("CVE-FAKE-PASTORALIST-2024-0002");
 });
 
 test("Test Fixtures - OVERRIDE_TO_KEEP has dependents", () => {

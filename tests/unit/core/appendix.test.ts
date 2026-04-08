@@ -6,6 +6,12 @@ import {
   processPackageJSON,
   constructAppendix,
 } from "../../../src/core/appendix";
+import {
+  findUnusedAppendixEntries,
+  removeAppendixKeys,
+  extractPackageNames,
+  removeOverrideKeys,
+} from "../../../src/core/appendix/utils";
 import { logger } from "../../../src/utils";
 
 const TEST_DIR = resolve(__dirname, ".test-appendix");
@@ -136,7 +142,7 @@ test("updateAppendix - should handle security override details", () => {
       {
         packageName: "lodash",
         reason: "CVE-2021-23337",
-        cve: "CVE-2021-23337",
+        cves: ["CVE-2021-23337"],
         severity: "high",
       },
     ],
@@ -294,6 +300,58 @@ test("updateAppendix - should use cache for repeated keys", () => {
 
   expect(secondResult["lodash@4.17.21"].dependents["package-a"]).toBeDefined();
   expect(secondResult["lodash@4.17.21"].dependents["package-b"]).toBeDefined();
+});
+
+test("updateAppendix - should use provided addedDate in ledger", () => {
+  const gitDate = "2023-06-15T10:30:00+00:00";
+  const result = updateAppendix({
+    overrides: { lodash: "4.17.21" },
+    dependencies: { lodash: "^4.17.0" },
+    devDependencies: {},
+    peerDependencies: {},
+    packageName: "test-package",
+    addedDate: gitDate,
+  });
+
+  expect(result["lodash@4.17.21"].ledger?.addedDate).toBe(gitDate);
+});
+
+test("updateAppendix - should preserve existing ledger addedDate over provided addedDate", () => {
+  const existingAppendix = {
+    "lodash@4.17.21": {
+      dependents: { "other-package": "lodash@^4.0.0" },
+      ledger: { addedDate: "2022-01-01T00:00:00.000Z" },
+    },
+  };
+  const gitDate = "2023-06-15T10:30:00+00:00";
+
+  const result = updateAppendix({
+    overrides: { lodash: "4.17.21" },
+    dependencies: { lodash: "^4.17.0" },
+    devDependencies: {},
+    peerDependencies: {},
+    packageName: "test-package",
+    appendix: existingAppendix,
+    addedDate: gitDate,
+  });
+
+  expect(result["lodash@4.17.21"].ledger?.addedDate).toBe(
+    "2022-01-01T00:00:00.000Z",
+  );
+});
+
+test("updateAppendix - should use addedDate for nested overrides", () => {
+  const gitDate = "2023-06-15T10:30:00+00:00";
+  const result = updateAppendix({
+    overrides: { parent: { nested: "2.0.0" } },
+    dependencies: { parent: "^1.0.0" },
+    devDependencies: {},
+    peerDependencies: {},
+    packageName: "test-package",
+    addedDate: gitDate,
+  });
+
+  expect(result["nested@2.0.0"].ledger?.addedDate).toBe(gitDate);
 });
 
 test("updateAppendix - should handle nested override cache hits", () => {
@@ -506,10 +564,6 @@ test("updateAppendix - should hit cache for nested override key", () => {
   expect(result["nested@2.0.0"]).toBe(cachedItem);
 });
 
-// =============================================================================
-// constructAppendix tests with workspace fixtures
-// =============================================================================
-
 test("constructAppendix - handles workspace packages with overrides", () => {
   const workspaceDir = resolve(TEST_DIR, "workspace-test");
   const pkgADir = resolve(workspaceDir, "packages", "pkg-a");
@@ -696,4 +750,36 @@ test("constructAppendix - aggregates appendices from multiple results", () => {
   expect(result["lodash@4.17.21"]).toBeDefined();
   expect(result["lodash@4.17.21"].dependents["pkg-a"]).toBeDefined();
   expect(result["lodash@4.17.21"].dependents["pkg-b"]).toBeDefined();
+});
+
+test("remove-unused integration - finds and removes unused overrides from appendix", () => {
+  const appendix = updateAppendix({
+    overrides: { lodash: "4.17.21", "unused-pkg": "1.0.0" },
+    dependencies: { lodash: "^4.17.0" },
+    devDependencies: {},
+    peerDependencies: {},
+    packageName: "root",
+    onlyUsedOverrides: false,
+    dependencyTree: {},
+  });
+
+  const unusedKeys = findUnusedAppendixEntries(appendix);
+
+  expect(unusedKeys).toEqual(["unused-pkg@1.0.0"]);
+
+  const packageNames = extractPackageNames(unusedKeys);
+
+  expect(packageNames).toEqual(["unused-pkg"]);
+
+  const cleanedAppendix = removeAppendixKeys(appendix, unusedKeys);
+
+  expect(cleanedAppendix["lodash@4.17.21"]).toBeDefined();
+  expect(cleanedAppendix["unused-pkg@1.0.0"]).toBeUndefined();
+
+  const cleanedOverrides = removeOverrideKeys(
+    { lodash: "4.17.21", "unused-pkg": "1.0.0" },
+    packageNames,
+  );
+
+  expect(cleanedOverrides).toEqual({ lodash: "4.17.21" });
 });

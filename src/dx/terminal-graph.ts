@@ -185,9 +185,9 @@ const createShimmerCompleter =
     playShimmer(text, 50, out, prefix, suffix);
   };
 
-const formatCve = (cve: string | undefined): string | undefined => {
-  if (!cve) return undefined;
-  return `CVE: ${cve}`;
+const formatCves = (cves: string[] | undefined): string | undefined => {
+  if (!cves || cves.length === 0) return undefined;
+  return `CVE: ${cves.join(", ")}`;
 };
 
 const formatVulnFix = (
@@ -200,7 +200,7 @@ const formatVulnFix = (
 };
 
 const buildVulnDetails = (info: VulnerabilityInfo): string[] => {
-  const cve = formatCve(info.cve);
+  const cve = formatCves(info.cves);
   const fix = formatVulnFix(info.fixAvailable, info.patchedVersion);
   return [info.title, cve, fix, info.url].filter(
     (x): x is string => x !== undefined,
@@ -228,24 +228,48 @@ const formatDependentCount = (
   return `Used by: ${count} package${plural}`;
 };
 
+const formatKeepStatus = (
+  keep: boolean | import("../types").KeepConstraint | undefined,
+): string | undefined => {
+  if (!keep) return undefined;
+  if (typeof keep === "object" && keep.reason) return `Kept: ${keep.reason}`;
+  return "Kept by user";
+};
+
+const formatPotentiallyFixedIn = (
+  version: string | undefined,
+): string | undefined => {
+  if (!version) return undefined;
+  return `Potentially fixed in ${version}, maybe removable`;
+};
+
 const buildOverrideDetails = (info: OverrideInfo): string[] => {
-  const cve = formatCve(info.cve);
+  const cve = formatCves(info.cves);
   const patches = formatPatches(info.patches);
   const dependents = formatDependentCount(info.dependents);
-  return [info.reason, cve, patches, dependents].filter(
+  const kept = formatKeepStatus(info.keep);
+  const fixedIn = formatPotentiallyFixedIn(info.potentiallyFixedIn);
+  return [info.reason, cve, patches, dependents, kept, fixedIn].filter(
     (x): x is string => x !== undefined,
   );
 };
 
-const selectOverrideIcon = (isSecurityFix: boolean | undefined): string => {
+const selectOverrideIcon = (
+  isSecurityFix: boolean | undefined,
+  keep: boolean | import("../types").KeepConstraint | undefined,
+): string => {
+  if (keep) return ICON.info;
   if (isSecurityFix) return ICON.warning;
   return ICON.success;
 };
 
 const buildSecurityFixDetails = (info: SecurityFixInfo): string[] => {
   const upgrade = `${info.fromVersion} → ${info.toVersion}`;
-  const cve = info.cve ? `Blocks ${info.cve}` : undefined;
-  return [upgrade, cve, info.reason].filter(
+  const cves =
+    info.cves && info.cves.length > 0
+      ? `Blocks ${info.cves.join(", ")}`
+      : undefined;
+  return [upgrade, cves, info.reason].filter(
     (x): x is string => x !== undefined,
   );
 };
@@ -308,12 +332,13 @@ export const createTerminalGraph = (
       return methods;
     },
 
-    startPhase: (phase: TerminalPhase, text: string) => {
+    startPhase: (phase: TerminalPhase, text: string, isLast = false) => {
       paused(() => {
         const s = state.get();
         state.set({ ...s, phase });
-        tree.line(false, text);
-        tree.open();
+        tree.line(isLast, text);
+        const after = state.get();
+        state.set({ ...after, ancestors: [...after.ancestors, !isLast] });
       });
       return methods;
     },
@@ -355,7 +380,7 @@ export const createTerminalGraph = (
 
     override: (info: OverrideInfo, isLast = false) => {
       paused(() => {
-        const icon = selectOverrideIcon(info.isSecurityFix);
+        const icon = selectOverrideIcon(info.isSecurityFix, info.keep);
         const header = `${info.packageName}@${info.version}`;
         const details = buildOverrideDetails(info);
 
@@ -441,7 +466,8 @@ export const createTerminalGraph = (
         const hasProtected =
           data.packagesProtected && data.packagesProtected > 0;
 
-        out.writeLine("");
+        const hasAnyMetric = hasVulnFixes || hasStaleRemoved || hasProtected;
+        if (!hasAnyMetric) return;
         if (hasVulnFixes) {
           const plural = data.vulnerabilitiesFixed === 1 ? "y" : "ies";
           out.writeLine(

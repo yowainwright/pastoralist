@@ -133,13 +133,13 @@ export class SocketCLIProvider {
     const severity = this.mapSocketSeverity(issue.severity);
     const title = issue.title || issue.type;
     const description = issue.description;
-    const cve = isCVE ? issue.cve : undefined;
+    const cves = isCVE && issue.cve ? [issue.cve] : [];
     const url =
       issue.url ||
       `https://socket.dev/npm/package/${packageName}/overview/${currentVersion}`;
     const fixAvailable = false;
 
-    return {
+    const base = {
       packageName,
       currentVersion,
       vulnerableVersions,
@@ -147,10 +147,10 @@ export class SocketCLIProvider {
       severity,
       title,
       description,
-      cve,
       url,
       fixAvailable,
     };
+    return cves.length > 0 ? { ...base, cves } : base;
   }
 
   private mapSocketSeverity(

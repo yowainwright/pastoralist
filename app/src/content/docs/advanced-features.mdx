@@ -231,6 +231,72 @@ When a dependency is updated and no longer needs an override:
   />
 </a>
 
+### Unused Override Detection
+
+When an override exists but no package in your project depends on it, Pastoralist labels it as `(unused override)` in the appendix:
+
+```json
+{
+  "pastoralist": {
+    "appendix": {
+      "stale-pkg@1.0.0": {
+        "dependents": {
+          "root": "stale-pkg (unused override)"
+        }
+      }
+    }
+  }
+}
+```
+
+Pastoralist displays a notice when unused overrides are detected:
+
+```
+|  1 unused override detected. Run with --remove-unused to clean up.  |
+```
+
+To remove them, run with the `--remove-unused` flag:
+
+```bash
+pastoralist --remove-unused
+```
+
+This removes both the override from `overrides` and its entry from the appendix.
+
+### Protecting Overrides from Removal
+
+Set `keep: true` on a ledger entry to prevent `--remove-unused` from ever removing it:
+
+```json
+{
+  "lodash@4.17.21": {
+    "ledger": {
+      "addedDate": "2024-01-01",
+      "keep": true
+    }
+  }
+}
+```
+
+For time- or version-bounded protection, use a `KeepConstraint`:
+
+```json
+{
+  "lodash@4.17.21": {
+    "ledger": {
+      "addedDate": "2024-01-01",
+      "keep": {
+        "reason": "Waiting for upstream patch",
+        "untilVersion": "4.18.0",
+        "until": "2025-06-01"
+      }
+    }
+  }
+}
+```
+
+The keep expires automatically once the condition is met — no manual cleanup needed.
+
 ### Transitive Dependency Tracking
 
 Pastoralist tracks overrides needed by transitive dependencies:

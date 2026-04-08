@@ -5,8 +5,11 @@ import { motion } from "framer-motion";
 import { createMachine } from "xstate";
 import { useMachine } from "@xstate/react";
 import { CopyButton } from "@/components/CopyButton";
-import { TERMINAL_DEMOS } from "@/components/docs/Sidebar/constants";
-import { TerminalLoader } from "@/components/TerminalLoader";
+import {
+  CLI_SECURITY_DEMO,
+  HERO_TERMINAL_MIN_HEIGHT,
+} from "@/components/home/AnimatedTerminal/constants";
+import { TerminalLoader } from "@/components/TerminalWindow";
 
 const AnimatedTerminal = lazy(() =>
   import("@/components/home/AnimatedTerminal").then((m) => ({
@@ -149,14 +152,16 @@ export function HeroSection() {
             animate={terminalVisible ? { opacity: 1, x: 0 } : undefined}
             transition={{ duration: 0.7, ease: EASE }}
           >
-            <Suspense fallback={<TerminalLoader />}>
+            <Suspense
+              fallback={<TerminalLoader minHeight={HERO_TERMINAL_MIN_HEIGHT} />}
+            >
               <AnimatedTerminal
-                demos={TERMINAL_DEMOS}
+                demos={CLI_SECURITY_DEMO}
                 loop={false}
                 typingSpeed={40}
-                height="435px"
                 startAnimation={terminalVisible}
                 shouldAnimate={!wasAlreadySeen}
+                minHeight={HERO_TERMINAL_MIN_HEIGHT}
                 onComplete={handleTerminalComplete}
               />
             </Suspense>

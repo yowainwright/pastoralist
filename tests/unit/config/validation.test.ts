@@ -344,3 +344,210 @@ test("safeValidateConfig - should return undefined for all invalid inputs", () =
     expect(result).toBeUndefined();
   });
 });
+
+test("validateConfig - accepts valid cves array in ledger", () => {
+  const config = {
+    appendix: {
+      "lodash@4.17.21": {
+        ledger: {
+          addedDate: "2024-01-01",
+          cves: ["CVE-2021-23337", "CVE-2020-28500"],
+        },
+      },
+    },
+  };
+  expect(() => validateConfig(config)).not.toThrow();
+});
+
+test("validateConfig - rejects non-array cves in ledger", () => {
+  const config = {
+    appendix: {
+      "lodash@4.17.21": {
+        ledger: {
+          addedDate: "2024-01-01",
+          cves: "CVE-2021-23337",
+        },
+      },
+    },
+  };
+  expect(() => validateConfig(config)).toThrow();
+});
+
+test("validateConfig - accepts keep: true in ledger", () => {
+  const config = {
+    appendix: {
+      "lodash@4.17.21": {
+        ledger: {
+          addedDate: "2024-01-01",
+          keep: true,
+        },
+      },
+    },
+  };
+  expect(() => validateConfig(config)).not.toThrow();
+});
+
+test("validateConfig - rejects non-boolean keep in ledger", () => {
+  const config = {
+    appendix: {
+      "lodash@4.17.21": {
+        ledger: {
+          addedDate: "2024-01-01",
+          keep: "yes",
+        },
+      },
+    },
+  };
+  expect(() => validateConfig(config)).toThrow();
+});
+
+test("validateConfig - accepts potentiallyFixedIn string in ledger", () => {
+  const config = {
+    appendix: {
+      "lodash@4.17.21": {
+        ledger: {
+          addedDate: "2024-01-01",
+          potentiallyFixedIn: "4.18.0",
+        },
+      },
+    },
+  };
+  expect(() => validateConfig(config)).not.toThrow();
+});
+
+test("validateConfig - rejects non-string potentiallyFixedIn in ledger", () => {
+  const config = {
+    appendix: {
+      "lodash@4.17.21": {
+        ledger: {
+          addedDate: "2024-01-01",
+          potentiallyFixedIn: 418,
+        },
+      },
+    },
+  };
+  expect(() => validateConfig(config)).toThrow();
+});
+
+test("validateConfig - accepts keep as KeepConstraint object with reason", () => {
+  const config = {
+    appendix: {
+      "lodash@4.17.21": {
+        ledger: {
+          addedDate: "2024-01-01",
+          keep: { reason: "awaiting upstream fix", untilVersion: "4.18.0" },
+        },
+      },
+    },
+  };
+  expect(() => validateConfig(config)).not.toThrow();
+});
+
+test("validateConfig - rejects keep object without reason", () => {
+  const config = {
+    appendix: {
+      "lodash@4.17.21": {
+        ledger: {
+          addedDate: "2024-01-01",
+          keep: { untilVersion: "4.18.0" },
+        },
+      },
+    },
+  };
+  expect(() => validateConfig(config)).toThrow();
+});
+
+test("validateConfig - accepts vulnerableRange string in ledger", () => {
+  const config = {
+    appendix: {
+      "lodash@4.17.21": {
+        ledger: { addedDate: "2024-01-01", vulnerableRange: "< 4.17.21" },
+      },
+    },
+  };
+  expect(() => validateConfig(config)).not.toThrow();
+});
+
+test("validateConfig - rejects non-string vulnerableRange in ledger", () => {
+  const config = {
+    appendix: {
+      "lodash@4.17.21": {
+        ledger: { addedDate: "2024-01-01", vulnerableRange: 42 },
+      },
+    },
+  };
+  expect(() => validateConfig(config)).toThrow();
+});
+
+test("validateConfig - accepts valid securityCheckResult values", () => {
+  for (const result of ["clean", "error", "skipped"] as const) {
+    const config = {
+      appendix: {
+        "lodash@4.17.21": {
+          ledger: { addedDate: "2024-01-01", securityCheckResult: result },
+        },
+      },
+    };
+    expect(() => validateConfig(config)).not.toThrow();
+  }
+});
+
+test("validateConfig - rejects invalid securityCheckResult value", () => {
+  const config = {
+    appendix: {
+      "lodash@4.17.21": {
+        ledger: { addedDate: "2024-01-01", securityCheckResult: "unknown" },
+      },
+    },
+  };
+  expect(() => validateConfig(config)).toThrow();
+});
+
+test("validateConfig - accepts resolvedAt string in ledger", () => {
+  const config = {
+    appendix: {
+      "lodash@4.17.21": {
+        ledger: {
+          addedDate: "2024-01-01",
+          resolvedAt: "2024-06-01T00:00:00.000Z",
+        },
+      },
+    },
+  };
+  expect(() => validateConfig(config)).not.toThrow();
+});
+
+test("validateConfig - accepts valid resolvedBy values", () => {
+  for (const resolvedBy of ["upgrade", "not-applicable", "disputed"] as const) {
+    const config = {
+      appendix: {
+        "lodash@4.17.21": {
+          ledger: { addedDate: "2024-01-01", resolvedBy },
+        },
+      },
+    };
+    expect(() => validateConfig(config)).not.toThrow();
+  }
+});
+
+test("validateConfig - rejects invalid resolvedBy value", () => {
+  const config = {
+    appendix: {
+      "lodash@4.17.21": {
+        ledger: { addedDate: "2024-01-01", resolvedBy: "deleted" },
+      },
+    },
+  };
+  expect(() => validateConfig(config)).toThrow();
+});
+
+test("validateConfig - accepts resolvedVersion string in ledger", () => {
+  const config = {
+    appendix: {
+      "lodash@4.17.21": {
+        ledger: { addedDate: "2024-01-01", resolvedVersion: "4.18.0" },
+      },
+    },
+  };
+  expect(() => validateConfig(config)).not.toThrow();
+});

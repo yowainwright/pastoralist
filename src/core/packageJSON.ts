@@ -393,8 +393,7 @@ export const parseNpmLsOutput = (stdout: string): Record<string, boolean> => {
     });
   };
 
-  const hasDependencies = tree.dependencies;
-  if (hasDependencies) {
+  if (tree.dependencies) {
     traverseDependencies(tree.dependencies);
   }
 

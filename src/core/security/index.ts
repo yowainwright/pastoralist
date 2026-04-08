@@ -3,6 +3,7 @@ import {
   SnykCLIProvider,
   SocketCLIProvider,
   OSVProvider,
+  SpektionProvider,
 } from "./providers";
 import {
   SecurityAlert,
@@ -24,6 +25,7 @@ import {
 } from "./utils";
 import { SecuritySetupWizard, promptForSetup } from "./setup";
 import type { SecurityProvider as SecurityProviderType } from "./constants";
+import { KNOWN_PROVIDERS } from "./constants";
 import { readFileSync, copyFileSync, writeFileSync, existsSync } from "fs";
 import { resolve } from "path";
 import { updateAppendix } from "../appendix";
@@ -82,8 +84,7 @@ export class SecurityChecker {
   }
 
   private isKnownSecurityProvider(providerType: string): boolean {
-    const knownProviders = ["github", "snyk", "socket", "osv", "npm"];
-    return knownProviders.includes(providerType);
+    return (KNOWN_PROVIDERS as readonly string[]).includes(providerType);
   }
 
   async ensureProviderAuth(
@@ -142,6 +143,12 @@ export class SecurityChecker {
         });
       case "socket":
         return new SocketCLIProvider({
+          debug: options.debug,
+          token: options.token,
+          strict: options.strict,
+        });
+      case "spektion":
+        return new SpektionProvider({
           debug: options.debug,
           token: options.token,
           strict: options.strict,
@@ -658,8 +665,7 @@ export class SecurityChecker {
         },
       );
 
-      const securityProvider: "osv" | "github" | "snyk" | "npm" | "socket" =
-        this.providers[0]?.providerType || "osv";
+      const securityProvider = this.providers[0]?.providerType ?? "osv";
 
       const existingAppendix = packageJson.pastoralist?.appendix || {};
       const dependencies = packageJson.dependencies || {};

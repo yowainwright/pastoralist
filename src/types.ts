@@ -25,7 +25,13 @@ export interface AppendixItem {
     resolvedAt?: string;
     securityChecked?: boolean;
     securityCheckDate?: string;
-    securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket";
+    securityProvider?:
+      | "osv"
+      | "github"
+      | "snyk"
+      | "npm"
+      | "socket"
+      | "spektion";
     cve?: string;
     severity?: "low" | "medium" | "high" | "critical";
     description?: string;
@@ -51,7 +57,8 @@ export interface PastoralistConfig {
       | "snyk"
       | "npm"
       | "socket"
-      | ("osv" | "github" | "snyk" | "npm" | "socket")[];
+      | "spektion"
+      | ("osv" | "github" | "snyk" | "npm" | "socket" | "spektion")[];
     autoFix?: boolean;
     interactive?: boolean;
     securityProviderToken?: string;
@@ -93,7 +100,7 @@ export interface UpdateAppendixOptions {
   debug?: boolean;
   reason?: string;
   securityOverrideDetails?: SecurityOverrideDetail[];
-  securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket";
+  securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket" | "spektion";
   onlyUsedOverrides?: boolean;
   dependencyTree?: Record<string, boolean>;
 }
@@ -102,7 +109,7 @@ export interface UpdateAppendixOptions {
 export interface SecurityOptions {
   checkSecurity?: boolean;
   forceSecurityRefactor?: boolean;
-  securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket";
+  securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket" | "spektion";
   securityProviderToken?: string;
   hasWorkspaceSecurityChecks?: boolean;
   securityOverrides?: OverridesType;
@@ -123,8 +130,6 @@ export interface OutputOptions {
 export interface TestingOptions {
   isTesting?: boolean;
   isTestingCLI?: boolean;
-  isIRLFix?: boolean;
-  isIRLCatch?: boolean;
 }
 
 /** Path-related options */
@@ -199,6 +204,15 @@ export interface OverridesWithType extends OverridesConfig {
   type: string;
 }
 export type ResolveOverrides = OverridesWithType | undefined;
+
+export interface MergedConfig {
+  overrides: OverridesType;
+  overridesData: ResolveOverrides;
+  appendix: Appendix | undefined;
+  depPaths: PastoralistConfig["depPaths"] | Options["depPaths"];
+  securityOverrideDetails: Options["securityOverrideDetails"];
+  securityProvider: Options["securityProvider"];
+}
 
 export interface PastoralistResultMetrics {
   packagesScanned: number;

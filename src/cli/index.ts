@@ -177,8 +177,6 @@ export const runSecurityCheck = async (
       interactive: mergedOptions.interactive,
       token: mergedOptions.securityProviderToken,
       debug: isLogging,
-      isIRLFix: mergedOptions.isIRLFix,
-      isIRLCatch: mergedOptions.isIRLCatch,
     });
 
     const scanPaths = deps.determineSecurityScanPaths(
@@ -247,7 +245,6 @@ export const handleSecurityResults = (
   spinner: ReturnType<typeof createSpinner>,
   mergedOptions: Options,
   updates: import("../types").OverrideUpdate[] = [],
-  _packagesScanned: number = 0,
 ): void => {
   const hasAlerts = alerts.length > 0;
   const hasUpdates = updates.length > 0;
@@ -665,7 +662,6 @@ export async function action(
           spinner,
           mergedOptions,
           updates,
-          packagesScanned,
         );
 
         const toVulnerabilityInfo = (

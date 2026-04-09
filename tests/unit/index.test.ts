@@ -79,5 +79,5 @@ test("findRemovableAppendixItems - should handle scoped packages", () => {
   };
 
   const result = findRemovableAppendixItems(appendix);
-  expect(result[0]).toBe("");
+  expect(result[0]).toBe("@babel/core");
 });

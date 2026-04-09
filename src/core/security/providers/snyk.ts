@@ -53,17 +53,14 @@ export class SnykCLIProvider {
   }
 
   async authenticate(): Promise<void> {
-    if (this.token) {
-      const execOptions = { timeout: DEFAULT_CLI_TIMEOUT };
-      const configArg = `api=${this.token}`;
-      await execFileAsync("snyk", ["config", "set", configArg], execOptions);
-      this.log.debug(
-        "Authenticated with Snyk using provided token",
-        "authenticate",
-      );
-    } else {
+    const hasToken = Boolean(this.token);
+    if (!hasToken) {
       throw new Error(AUTH_MESSAGES.SNYK_AUTH_REQUIRED);
     }
+    this.log.debug(
+      "Authenticated with Snyk using environment variable",
+      "authenticate",
+    );
   }
 
   private async validatePrerequisites(): Promise<boolean> {
@@ -90,7 +87,10 @@ export class SnykCLIProvider {
   }
 
   private async runSnykScan(): Promise<SnykResult> {
-    const execOptions = { timeout: DEFAULT_SNYK_SCAN_TIMEOUT };
+    const env = this.token
+      ? { ...process.env, SNYK_TOKEN: this.token }
+      : process.env;
+    const execOptions = { timeout: DEFAULT_SNYK_SCAN_TIMEOUT, env };
     const { stdout } = await execFileAsync(
       "snyk",
       ["test", "--json"],

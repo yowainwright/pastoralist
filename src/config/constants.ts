@@ -8,7 +8,13 @@ export const CONFIG_FILES = [
   "pastoralist.config.ts",
 ] as const;
 
-export type SecurityProvider = "osv" | "github" | "snyk" | "npm" | "socket";
+export type SecurityProvider =
+  | "osv"
+  | "github"
+  | "snyk"
+  | "npm"
+  | "socket"
+  | "spektion";
 export type SecurityProviders = SecurityProvider | SecurityProvider[];
 export type SeverityThreshold = "low" | "medium" | "high" | "critical";
 
@@ -85,7 +91,7 @@ const isStringArray = (value: unknown): value is string[] => {
 const isSecurityProvider = (value: unknown): value is SecurityProvider => {
   return (
     isString(value) &&
-    ["osv", "github", "snyk", "npm", "socket"].includes(value)
+    ["osv", "github", "snyk", "npm", "socket", "spektion"].includes(value)
   );
 };
 

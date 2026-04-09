@@ -32,7 +32,7 @@ test("constructor - should initialize with debug option", () => {
 
 test("isInstalled - should return true for installed command", async () => {
   const installer = new CLIInstaller({ debug: false });
-  const result = await installer.isInstalled("node");
+  const result = await installer.isInstalled("bun");
   expect(result).toBe(true);
 });
 
@@ -50,9 +50,9 @@ test("isInstalled - should return true for bun", async () => {
   expect(result).toBe(true);
 });
 
-test("isInstalled - should return true for npm", async () => {
+test("isInstalled - should return true for git", async () => {
   const installer = new CLIInstaller({ debug: false });
-  const result = await installer.isInstalled("npm");
+  const result = await installer.isInstalled("git");
   expect(result).toBe(true);
 });
 
@@ -78,17 +78,17 @@ test("isInstalledGlobally - should handle npm list errors gracefully", async () 
   expect(result).toBe(false);
 }, 30000);
 
-test("getVersion - should return version for node", async () => {
+test("getVersion - should return version for bun", async () => {
   const installer = new CLIInstaller({ debug: false });
-  const version = await installer.getVersion("node");
+  const version = await installer.getVersion("bun");
   expect(version).toBeDefined();
   expect(typeof version).toBe("string");
   expect(version!.length).toBeGreaterThan(0);
 });
 
-test("getVersion - should return version for npm", async () => {
+test("getVersion - should return version for git", async () => {
   const installer = new CLIInstaller({ debug: false });
-  const version = await installer.getVersion("npm");
+  const version = await installer.getVersion("git");
   expect(version).toBeDefined();
   expect(typeof version).toBe("string");
 });
@@ -109,8 +109,8 @@ test("getVersion - should return undefined for non-existent command", async () =
 test("ensureInstalled - should return true if command is already available", async () => {
   const installer = new CLIInstaller({ debug: false });
   const result = await installer.ensureInstalled({
-    packageName: "npm",
-    cliCommand: "npm",
+    packageName: "bun",
+    cliCommand: "bun",
   });
 
   expect(result).toBe(true);
@@ -482,6 +482,73 @@ test("isVersionVulnerable - returns false for invalid range format", () => {
 });
 
 // =============================================================================
+// isVersionVulnerable <= operator tests
+// =============================================================================
+
+test("isVersionVulnerable - <= returns true when version equals bound", () => {
+  expect(isVersionVulnerable("4.17.20", "<= 4.17.20")).toBe(true);
+});
+
+test("isVersionVulnerable - <= returns true when version is below bound", () => {
+  expect(isVersionVulnerable("4.17.19", "<= 4.17.20")).toBe(true);
+});
+
+test("isVersionVulnerable - <= returns false when version is above bound", () => {
+  expect(isVersionVulnerable("4.17.21", "<= 4.17.20")).toBe(false);
+});
+
+test("isVersionVulnerable - <= exact match at 1.0.0", () => {
+  expect(isVersionVulnerable("1.0.0", "<= 1.0.0")).toBe(true);
+});
+
+test("isVersionVulnerable - <= handles caret prefix", () => {
+  expect(isVersionVulnerable("^4.17.20", "<= 4.17.20")).toBe(true);
+});
+
+test("isVersionVulnerable - <= handles tilde prefix", () => {
+  expect(isVersionVulnerable("~4.17.20", "<= 4.17.20")).toBe(true);
+});
+
+test("isVersionVulnerable - <= without space after operator", () => {
+  expect(isVersionVulnerable("4.17.20", "<=4.17.20")).toBe(true);
+});
+
+test("isVersionVulnerable - distinguishes <= from < at boundary", () => {
+  const atBoundary = "4.17.21";
+  const isVulnerableLTE = isVersionVulnerable(atBoundary, "<= 4.17.21");
+  const isVulnerableLT = isVersionVulnerable(atBoundary, "< 4.17.21");
+
+  expect(isVulnerableLTE).toBe(true);
+  expect(isVulnerableLT).toBe(false);
+});
+
+// =============================================================================
+// isVersionVulnerable - open-ended >= range tests
+// =============================================================================
+
+test("isVersionVulnerable - open-ended >= flags any version at or above minimum", () => {
+  expect(isVersionVulnerable("1.0.0", ">= 0")).toBe(true);
+  expect(isVersionVulnerable("99.0.0", ">= 0")).toBe(true);
+});
+
+test("isVersionVulnerable - open-ended >= returns false when below minimum", () => {
+  expect(isVersionVulnerable("0.9.0", ">= 1.0.0")).toBe(false);
+});
+
+test("isVersionVulnerable - open-ended >= returns true when exactly at minimum", () => {
+  expect(isVersionVulnerable("1.0.0", ">= 1.0.0")).toBe(true);
+});
+
+test("isVersionVulnerable - open-ended >= returns true when above minimum", () => {
+  expect(isVersionVulnerable("2.5.3", ">= 1.0.0")).toBe(true);
+});
+
+test("isVersionVulnerable - bounded >= < range still works correctly", () => {
+  expect(isVersionVulnerable("1.5.0", ">= 1.0.0 < 2.0.0")).toBe(true);
+  expect(isVersionVulnerable("2.0.0", ">= 1.0.0 < 2.0.0")).toBe(false);
+});
+
+// =============================================================================
 // findVulnerablePackages tests
 // =============================================================================
 
@@ -625,6 +692,66 @@ test("findVulnerablePackages - checks peerDependencies", () => {
 
   const result = findVulnerablePackages(config, alerts);
   expect(result.length).toBe(1);
+});
+
+// =============================================================================
+// findVulnerablePackages immutability tests
+// =============================================================================
+
+test("findVulnerablePackages - does not mutate input alert objects", () => {
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+    dependencies: {
+      lodash: "4.17.20",
+    },
+  };
+
+  const originalAlert: SecurityAlert = {
+    packageName: "lodash",
+    currentVersion: "original-should-not-change",
+    vulnerableVersions: "< 4.17.21",
+    patchedVersion: "4.17.21",
+    severity: "high",
+    title: "Prototype Pollution",
+    description: "Test",
+    cve: "CVE-2021-23337",
+    url: "https://example.com",
+    fixAvailable: true,
+  };
+
+  findVulnerablePackages(config, [originalAlert]);
+
+  expect(originalAlert.currentVersion).toBe("original-should-not-change");
+});
+
+test("findVulnerablePackages - returns new objects with correct currentVersion", () => {
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+    dependencies: {
+      lodash: "4.17.20",
+    },
+  };
+
+  const alert: SecurityAlert = {
+    packageName: "lodash",
+    currentVersion: "",
+    vulnerableVersions: "< 4.17.21",
+    patchedVersion: "4.17.21",
+    severity: "high",
+    title: "Prototype Pollution",
+    description: "Test",
+    cve: "CVE-2021-23337",
+    url: "https://example.com",
+    fixAvailable: true,
+  };
+
+  const results = findVulnerablePackages(config, [alert]);
+
+  expect(results.length).toBe(1);
+  expect(results[0].currentVersion).toBe("4.17.20");
+  expect(results[0]).not.toBe(alert);
 });
 
 // =============================================================================

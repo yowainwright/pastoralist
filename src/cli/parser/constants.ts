@@ -10,8 +10,6 @@ export const OPTION_DEFINITIONS: OptionDefinition[] = [
   { flags: ["-r", "--root"], hasValue: true },
   { flags: ["-t", "--isTestingCLI"], hasValue: false },
   { flags: ["--isTesting"], hasValue: false },
-  { flags: ["--isIRLFix"], hasValue: false },
-  { flags: ["--isIRLCatch"], hasValue: false },
   { flags: ["--init"], hasValue: false },
   { flags: ["--checkSecurity"], hasValue: false },
   { flags: ["--forceSecurityRefactor"], hasValue: false },
@@ -48,7 +46,7 @@ Options:
   --init                                Initialize Pastoralist configuration interactively
   --checkSecurity                       Check for security vulnerabilities and generate overrides
   --forceSecurityRefactor               Automatically apply security overrides without prompting
-  --securityProvider <provider...>      Security provider(s) to use (osv, github, snyk, npm, socket)
+  --securityProvider <provider...>      Security provider(s) to use (osv, github, snyk, npm, socket, spektion)
   --securityProviderToken <token>       Security provider token for API access
   --interactive                         Run security checks in interactive mode
   --hasWorkspaceSecurityChecks          Include workspace packages in security scan

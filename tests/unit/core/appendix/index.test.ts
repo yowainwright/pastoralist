@@ -1,4 +1,7 @@
 import { test, expect } from "bun:test";
+import { writeFileSync, unlinkSync, readFileSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
 import type {
   Appendix,
   OverridesType,
@@ -8,6 +11,7 @@ import {
   updateAppendix,
   processPackageJSON,
   constructAppendix,
+  findRemovableAppendixItems,
 } from "../../../../src/core/appendix";
 
 test("updateAppendix - simple override", () => {
@@ -59,6 +63,60 @@ test("constructAppendix", async () => {
   );
 
   expect(result).toBeDefined();
+});
+
+test("findRemovableAppendixItems - extracts plain package names correctly", () => {
+  const appendix: Appendix = {
+    "lodash@4.17.21": { dependents: {} },
+  };
+  const result = findRemovableAppendixItems(appendix);
+  expect(result).toEqual(["lodash"]);
+});
+
+test("findRemovableAppendixItems - extracts scoped package names correctly", () => {
+  const appendix: Appendix = {
+    "@scope/pkg@1.2.3": { dependents: {} },
+  };
+  const result = findRemovableAppendixItems(appendix);
+  expect(result).toEqual(["@scope/pkg"]);
+});
+
+test("findRemovableAppendixItems - handles mixed scoped and plain packages", () => {
+  const appendix: Appendix = {
+    "lodash@4.17.21": { dependents: {} },
+    "@scope/pkg@2.0.0": { dependents: {} },
+    "express@4.18.0": { dependents: { root: "1.0.0" } },
+  };
+  const result = findRemovableAppendixItems(appendix);
+  expect(result).toEqual(["lodash", "@scope/pkg"]);
+});
+
+test("updateAppendix - does not skip transitive override when onlyUsedOverrides=true", () => {
+  const overrides: OverridesType = { lodash: "4.17.21" };
+  const result = updateAppendix({
+    overrides,
+    appendix: {},
+    dependencies: {},
+    devDependencies: {},
+    packageName: "root",
+    onlyUsedOverrides: true,
+    dependencyTree: { lodash: true },
+  });
+  expect(result["lodash@4.17.21"]).toBeDefined();
+});
+
+test("updateAppendix - skips genuinely unused override when onlyUsedOverrides=true", () => {
+  const overrides: OverridesType = { lodash: "4.17.21" };
+  const result = updateAppendix({
+    overrides,
+    appendix: {},
+    dependencies: {},
+    devDependencies: {},
+    packageName: "root",
+    onlyUsedOverrides: true,
+    dependencyTree: {},
+  });
+  expect(result["lodash@4.17.21"]).toBeUndefined();
 });
 
 test("updateAppendix - does not mutate original appendix", () => {
@@ -145,4 +203,23 @@ test("updateAppendix - does not mutate original appendix with nested overrides",
 
   expect(result["react-dom@18.0.0"]).toBeDefined();
   expect(Object.keys(appendixRef).length).toBe(0);
+});
+
+test("processPackageJSON - writes appendix to file when writeAppendixToFile=true", () => {
+  const tempPath = join(tmpdir(), `pastoralist-test-${Date.now()}.json`);
+  const pkg = {
+    name: "test-pkg",
+    dependencies: { lodash: "^4.17.20" },
+  };
+  writeFileSync(tempPath, JSON.stringify(pkg, null, 2));
+
+  try {
+    const overrides: OverridesType = { lodash: "4.17.21" };
+    processPackageJSON(tempPath, overrides, ["lodash"], true);
+    const written = JSON.parse(readFileSync(tempPath, "utf8"));
+    expect(written.pastoralist).toBeDefined();
+    expect(written.pastoralist.appendix).toBeDefined();
+  } finally {
+    unlinkSync(tempPath);
+  }
 });

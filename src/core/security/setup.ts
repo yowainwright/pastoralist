@@ -331,9 +331,12 @@ export class SecuritySetupWizard {
 
     this.out.success("Token is valid!\n");
 
+    this.out.warn(
+      "Note: This saves the token as plaintext in your shell profile.",
+    );
     const saveToProfile = await this.prompts.confirm(
       "Save token to your shell profile for future use?",
-      true,
+      false,
     );
 
     const savedToProfile = saveToProfile

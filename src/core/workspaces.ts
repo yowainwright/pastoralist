@@ -1,7 +1,6 @@
 import { IS_DEBUGGING } from "../constants";
 import type {
   Appendix,
-  AppendixItem,
   OverridesType,
   ResolveOverrides,
   Options,
@@ -10,6 +9,7 @@ import type {
 import type { Logger } from "../utils";
 import { logger } from "../utils";
 import { resolveJSON, getDependencyTree } from "./packageJSON";
+import { mergeAppendixDependents } from "./appendix/utils";
 
 const log = logger({ file: "workspace.ts", isLogging: IS_DEBUGGING });
 
@@ -122,19 +122,6 @@ const canMergeOverridePaths = (
   return hasOverridePaths && hasMissingPackages;
 };
 
-const mergeWorkspaceAppendixEntry = (
-  existingEntry: AppendixItem,
-  newEntry: AppendixItem,
-): AppendixItem => {
-  return {
-    ...existingEntry,
-    dependents: {
-      ...existingEntry.dependents,
-      ...newEntry.dependents,
-    },
-  };
-};
-
 export const mergeOverridePaths = (
   appendix: Appendix,
   overridePaths: Record<string, Appendix> | undefined,
@@ -150,19 +137,14 @@ export const mergeOverridePaths = (
     "mergeOverridePaths",
   );
 
-  const merged = Object.values(overridePaths!).reduce(
+  return Object.values(overridePaths!).reduce(
     (acc, pathAppendix) =>
-      Object.entries(pathAppendix).reduce((innerAcc, [key, value]) => {
-        const existing = innerAcc[key];
-        const entry = existing
-          ? mergeWorkspaceAppendixEntry(existing, value)
-          : value;
-        return { ...innerAcc, [key]: entry };
-      }, acc),
-    { ...appendix },
+      Object.entries(pathAppendix).reduce(
+        (inner, [key, value]) => mergeAppendixDependents(inner, key, value),
+        acc,
+      ),
+    appendix,
   );
-
-  return merged;
 };
 
 const isNestedOverride = (

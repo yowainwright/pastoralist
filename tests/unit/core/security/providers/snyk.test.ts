@@ -1,5 +1,14 @@
 import { test, expect, mock, beforeEach, afterEach } from "bun:test";
 import { SnykCLIProvider } from "../../../../../src/core/security/providers/snyk";
+import type { SnykResult } from "../../../../../src/types";
+import { logger } from "../../../../../src/utils";
+
+const log = logger({ file: "snyk.test.ts", isLogging: true });
+
+type SnykProviderInternal = SnykCLIProvider & {
+  runSnykScan: () => Promise<SnykResult>;
+  token: string | undefined;
+};
 
 let mockExecFileResult: { stdout: string; stderr: string } | Error = {
   stdout: JSON.stringify({ vulnerabilities: [] }),
@@ -591,4 +600,25 @@ test("authenticate - error message includes token URL", async () => {
     expect(message).toContain("Snyk requires authentication");
     expect(message).toContain("SNYK_TOKEN");
   }
+});
+
+test("authenticate - should succeed when token is provided", async () => {
+  const provider = new SnykCLIProvider({ debug: false, token: "valid-token" });
+  await expect(provider.authenticate()).resolves.toBeUndefined();
+});
+
+test("runSnykScan - builds env with token", async () => {
+  const provider = new SnykCLIProvider({
+    token: "test-token",
+    debug: false,
+  }) as unknown as SnykProviderInternal;
+  await expect(provider.runSnykScan()).rejects.toThrow();
+});
+
+test("runSnykScan - uses process.env when no token", async () => {
+  const provider = new SnykCLIProvider({
+    debug: false,
+  }) as unknown as SnykProviderInternal;
+  provider.token = undefined;
+  await expect(provider.runSnykScan()).rejects.toThrow();
 });

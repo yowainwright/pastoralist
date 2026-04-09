@@ -3,6 +3,7 @@ import {
   SnykCLIProvider,
   SocketCLIProvider,
   OSVProvider,
+  SpektionProvider,
 } from "./providers";
 import {
   SecurityAlert,
@@ -24,6 +25,7 @@ import {
 } from "./utils";
 import { SecuritySetupWizard, promptForSetup } from "./setup";
 import type { SecurityProvider as SecurityProviderType } from "./constants";
+import { KNOWN_PROVIDERS } from "./constants";
 import {
   readFileSync,
   copyFileSync,
@@ -88,8 +90,7 @@ export class SecurityChecker {
   }
 
   private isKnownSecurityProvider(providerType: string): boolean {
-    const knownProviders = ["github", "snyk", "socket", "osv"];
-    return knownProviders.includes(providerType);
+    return (KNOWN_PROVIDERS as readonly string[]).includes(providerType);
   }
 
   async ensureProviderAuth(
@@ -148,6 +149,12 @@ export class SecurityChecker {
         });
       case "socket":
         return new SocketCLIProvider({
+          debug: options.debug,
+          token: options.token,
+          strict: options.strict,
+        });
+      case "spektion":
+        return new SpektionProvider({
           debug: options.debug,
           token: options.token,
           strict: options.strict,
@@ -218,19 +225,25 @@ export class SecurityChecker {
         this.log.debug("Using cached security results", "checkSecurity");
         alerts = cachedAlerts;
       } else {
-        const packageCount = packages.length;
-
         onProgress?.({
           phase: "fetching",
-          message: `Checking ${packageCount} packages...`,
+          message: `Checking ${packages.length} packages...`,
           current: 0,
-          total: packageCount,
+          total: packages.length,
         });
 
-        const allAlerts = await Promise.all(
+        const results = await Promise.allSettled(
           this.providers.map((provider) => provider.fetchAlerts(packages)),
         );
-        alerts = allAlerts.flat();
+        alerts = results
+          .map((result) => {
+            const isFulfilled = result.status === "fulfilled";
+            if (isFulfilled) return result.value;
+
+            this.log.warn(`Provider failed: ${result.reason}`, "checkSecurity");
+            return [];
+          })
+          .flat();
         this.cache.set(cacheKey, alerts);
       }
 
@@ -365,15 +378,23 @@ export class SecurityChecker {
         absolute: true,
       });
 
-      const vulnerabilityResults = await Promise.all(
-        packageFiles.map(async (packageFile) => {
+      const allVulnerabilities = packageFiles.reduce<SecurityAlert[]>(
+        (acc, packageFile) => {
           const pkgJson = this.readPackageFile(packageFile);
-          if (!pkgJson) return [];
-          return this.extractNewVulnerabilities(pkgJson, alerts, new Set());
-        }),
-      );
+          if (!pkgJson) return acc;
 
-      const allVulnerabilities = vulnerabilityResults.flat();
+          const existingKeys = new Set(
+            acc.map((v) => `${v.packageName}@${v.currentVersion}`),
+          );
+          const newVulns = this.extractNewVulnerabilities(
+            pkgJson,
+            alerts,
+            existingKeys,
+          );
+          return acc.concat(newVulns);
+        },
+        [],
+      );
 
       return allVulnerabilities;
     } catch (error) {
@@ -394,7 +415,20 @@ export class SecurityChecker {
       config.overrides || config.pnpm?.overrides || config.resolutions || {};
     const appendix = config.pastoralist?.appendix || {};
 
-    const overrideEntries = Object.entries(existingOverrides).filter(
+    const allEntries = Object.entries(existingOverrides);
+    const nestedCount = allEntries.filter(
+      ([_, version]) => typeof version !== "string",
+    ).length;
+    const hasNested = nestedCount > 0;
+
+    if (hasNested) {
+      this.log.debug(
+        `Skipping ${nestedCount} nested override(s) for security update check`,
+        "checkOverrideUpdates",
+      );
+    }
+
+    const overrideEntries = allEntries.filter(
       ([_, version]) => typeof version === "string",
     );
 
@@ -492,10 +526,14 @@ export class SecurityChecker {
   ): OverridesType {
     return securityOverrides.reduce((overrides, override) => {
       const existingVersion = overrides[override.packageName];
-      const hasExisting =
-        existingVersion && typeof existingVersion === "string";
+      const isStringVersion = typeof existingVersion === "string";
+      const isNestedOverride =
+        existingVersion && typeof existingVersion === "object";
+
+      if (isNestedOverride) return overrides;
+
       const shouldSkip =
-        hasExisting &&
+        isStringVersion &&
         compareVersions(override.toVersion, existingVersion) <= 0;
 
       if (!shouldSkip) {
@@ -653,8 +691,7 @@ export class SecurityChecker {
         },
       );
 
-      const securityProvider: "osv" | "github" | "snyk" | "npm" | "socket" =
-        this.providers[0]?.providerType || "osv";
+      const securityProvider = this.providers[0]?.providerType ?? "osv";
 
       const existingAppendix = packageJson.pastoralist?.appendix || {};
       const dependencies = packageJson.dependencies || {};
@@ -695,7 +732,8 @@ export class SecurityChecker {
       return backupPath;
     } catch (error) {
       this.log.error("Failed to apply auto-fix", "applyAutoFix", { error });
-      throw new Error(`Auto-fix failed: ${error}`);
+      const cause = error instanceof Error ? error : new Error(String(error));
+      throw new Error(`Auto-fix failed: ${cause.message}`, { cause });
     }
   }
 

@@ -28,8 +28,8 @@ export const mdxCache = {
   },
 };
 
-let mdxRuntime: any = null;
-let reactRuntime: any = null;
+let mdxRuntime: typeof import("@mdx-js/mdx") | null = null;
+let reactRuntime: typeof import("react/jsx-runtime") | null = null;
 
 export async function getMDXRuntime() {
   if (!mdxRuntime || !reactRuntime) {

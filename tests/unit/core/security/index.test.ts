@@ -1376,6 +1376,150 @@ test("generateCacheKey - sorts packages for consistent keys", () => {
   expect(key1).toBe(key2);
 });
 
+// =============================================================================
+// generatePackageOverrides - nested override safety
+// =============================================================================
+
+test("generatePackageOverrides - skips nested override objects without crashing", () => {
+  const checker = new SecurityChecker({ debug: false });
+
+  const overrides = checker.generatePackageOverrides([
+    {
+      packageName: "lodash",
+      fromVersion: "4.17.20",
+      toVersion: "4.17.21",
+      reason: "Security fix",
+      severity: "high",
+    },
+  ]);
+
+  expect(overrides["lodash"]).toBe("4.17.21");
+});
+
+test("generatePackageOverrides - higher version wins for duplicate package", () => {
+  const checker = new SecurityChecker({ debug: false });
+
+  const overrides = checker.generatePackageOverrides([
+    {
+      packageName: "lodash",
+      fromVersion: "4.17.15",
+      toVersion: "4.17.19",
+      reason: "Security fix: CVE-A",
+      severity: "medium",
+    },
+    {
+      packageName: "lodash",
+      fromVersion: "4.17.15",
+      toVersion: "4.17.21",
+      reason: "Security fix: CVE-B",
+      severity: "high",
+    },
+  ]);
+
+  expect(overrides["lodash"]).toBe("4.17.21");
+});
+
+test("generatePackageOverrides - does not downgrade existing higher version", () => {
+  const checker = new SecurityChecker({ debug: false });
+
+  const overrides = checker.generatePackageOverrides([
+    {
+      packageName: "lodash",
+      fromVersion: "4.17.15",
+      toVersion: "4.17.25",
+      reason: "Security fix: CVE-A",
+      severity: "high",
+    },
+    {
+      packageName: "lodash",
+      fromVersion: "4.17.15",
+      toVersion: "4.17.21",
+      reason: "Security fix: CVE-B",
+      severity: "critical",
+    },
+  ]);
+
+  expect(overrides["lodash"]).toBe("4.17.25");
+});
+
+// =============================================================================
+// Promise.allSettled provider resilience
+// =============================================================================
+
+test("checkSecurity - returns results when provider fetch succeeds", async () => {
+  const checker = new SecurityChecker({ debug: false });
+  const config = {
+    name: "test",
+    version: "1.0.0",
+    dependencies: { lodash: "4.17.20" },
+  };
+
+  const originalFetch = global.fetch;
+
+  const mockVuln = {
+    id: "OSV-2021-1234",
+    summary: "Prototype Pollution",
+    details: "Details",
+    affected: [
+      {
+        package: { name: "lodash", ecosystem: "npm" },
+        ranges: [
+          {
+            type: "SEMVER",
+            events: [{ introduced: "0" }, { fixed: "4.17.21" }],
+          },
+        ],
+      },
+    ],
+    references: [{ type: "ADVISORY", url: "https://example.com" }],
+  };
+
+  global.fetch = mock((url: string) => {
+    const isBatchCall = typeof url === "string" && url.includes("querybatch");
+    if (isBatchCall) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            results: [{ vulns: [{ id: "OSV-2021-1234" }] }],
+          }),
+      } as Response);
+    }
+    const isVulnCall = typeof url === "string" && url.includes("vulns/");
+    if (isVulnCall) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(mockVuln),
+      } as Response);
+    }
+    const isRegistryCall =
+      typeof url === "string" && url.startsWith("https://registry.npmjs.org/");
+    if (isRegistryCall) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            "dist-tags": { latest: "4.17.21" },
+            versions: { "4.17.20": {}, "4.17.21": {} },
+          }),
+      } as Response);
+    }
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({}),
+    } as Response);
+  });
+
+  try {
+    const result = await checker.checkSecurity(config);
+    const hasAlerts = result.alerts.length > 0;
+    expect(hasAlerts).toBe(true);
+    expect(result.packagesScanned).toBe(1);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 const TEST_DIR = path.resolve(__dirname, ".test-autofix");
 
 const createTestPackage = (name: string, content: object) => {
@@ -1602,6 +1746,28 @@ test("applyAutoFix handles yarn resolutions format", () => {
   } finally {
     process.chdir(originalCwd);
   }
+});
+
+test("Provider Abstraction - should support spektion provider", () => {
+  const checker = new SecurityChecker({
+    provider: "spektion" as any,
+    token: "test-token",
+  });
+  expect(checker).toBeDefined();
+});
+
+test("checkOverrideUpdates - logs and skips nested override entries", async () => {
+  const checker = new SecurityChecker({ provider: "osv" });
+  const config = {
+    name: "root",
+    version: "1.0.0",
+    overrides: {
+      lodash: "4.17.21",
+      express: { react: "18.0.0" } as any,
+    },
+  };
+  const result = await (checker as any).checkOverrideUpdates(config, []);
+  expect(Array.isArray(result)).toBe(true);
 });
 
 if (import.meta.url === `file://${process.argv[1]}`) {

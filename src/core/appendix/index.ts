@@ -1,4 +1,5 @@
 import { writeFileSync } from "fs";
+import { resolve } from "path";
 import type {
   Appendix,
   AppendixItem,
@@ -6,10 +7,10 @@ import type {
   ResolveOverrides,
   UpdateAppendixOptions,
 } from "../../types";
-import type { SecurityOverrideDetail } from "../../types";
+import type { SecurityOverrideDetail, SecurityProviderType } from "../../types";
 import type { Logger } from "../../utils";
 import type { PartialSecurityLedger } from "./types";
-import { resolveJSON } from "../packageJSON";
+import { resolveJSON, jsonCache } from "../packageJSON";
 import { getOverridesByType, resolveOverrides } from "../overrides";
 import { packageAtVersion } from "../../utils/string";
 import {
@@ -44,7 +45,7 @@ const processSimpleOverride = (
   const hasOverride = depList.includes(override);
   const isInDependencyTree = dependencyTree?.[override] || false;
   const isUnused = !hasOverride && !isInDependencyTree;
-  const shouldSkip = onlyUsedOverrides && (isUnused || !hasOverride);
+  const shouldSkip = onlyUsedOverrides && isUnused;
   if (shouldSkip) return appendix;
 
   const key = packageAtVersion(override)(overrideVersion);
@@ -89,7 +90,7 @@ const processNestedOverrideEntry = (
   appendix: Appendix,
   packageReason: string | undefined,
   securityOverrideDetails: SecurityOverrideDetail[] | undefined,
-  securityProvider: "osv" | "github" | "snyk" | "npm" | "socket" | undefined,
+  securityProvider: SecurityProviderType | undefined,
   manualOverrideReasons: Record<string, string> | undefined,
   cache: Map<string, AppendixItem>,
   addedDate?: string,
@@ -143,7 +144,7 @@ const processNestedOverride = (
   appendix: Appendix,
   packageReason: string | undefined,
   securityOverrideDetails: SecurityOverrideDetail[] | undefined,
-  securityProvider: "osv" | "github" | "snyk" | "npm" | "socket" | undefined,
+  securityProvider: SecurityProviderType | undefined,
   manualOverrideReasons: Record<string, string> | undefined,
   cache: Map<string, AppendixItem>,
   addedDate?: string,
@@ -180,7 +181,7 @@ const processOverrideEntry = (
   appendix: Appendix,
   reason: string | undefined,
   securityOverrideDetails: SecurityOverrideDetail[] | undefined,
-  securityProvider: "osv" | "github" | "snyk" | "npm" | "socket" | undefined,
+  securityProvider: SecurityProviderType | undefined,
   manualOverrideReasons: Record<string, string> | undefined,
   cache: Map<string, AppendixItem>,
   onlyUsedOverrides: boolean = false,
@@ -323,8 +324,13 @@ export const processPackageJSON = (
 
   if (shouldWrite) {
     try {
-      currentPackageJSON!.pastoralist = { appendix };
-      writeFileSync(filePath, JSON.stringify(currentPackageJSON, null, 2));
+      const normalizedPath = resolve(filePath);
+      const updatedConfig = {
+        ...currentPackageJSON!,
+        pastoralist: { appendix },
+      };
+      writeFileSync(filePath, JSON.stringify(updatedConfig, null, 2));
+      jsonCache.delete(normalizedPath);
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
       throw new Error(`Failed to write ${filePath}: ${reason}`);
@@ -387,6 +393,30 @@ const collectAllWorkspaceOverrides = (
   );
 };
 
+const detectWorkspaceConflicts = (
+  workspaceOverridesResults: Array<OverridesType | null>,
+  rootOverrides: OverridesType | null,
+  logInstance: Logger,
+): void => {
+  if (!hasOverrides(rootOverrides)) return;
+
+  const validOverrides = workspaceOverridesResults.filter(
+    (overrides): overrides is OverridesType => overrides !== null,
+  );
+
+  validOverrides.forEach((wsOverrides) => {
+    Object.entries(wsOverrides).forEach(([pkg, wsVersion]) => {
+      const rootVersion = rootOverrides![pkg];
+      if (rootVersion && rootVersion !== wsVersion) {
+        logInstance.debug(
+          `Override conflict for "${pkg}": root has "${rootVersion}", workspace has "${wsVersion}" — workspace wins`,
+          "constructAppendix",
+        );
+      }
+    });
+  });
+};
+
 const mergeAllOverrides = (
   workspaceOverridesResults: Array<OverridesType | null>,
   rootOverrides: OverridesType | null,
@@ -423,22 +453,12 @@ const processAllPackageFiles = (
   );
 };
 
-const mergeAppendixEntry = (
-  acc: Appendix,
-  key: string,
-  value: AppendixItem,
-): Appendix => {
-  return mergeAppendixDependents(acc, key, value);
-};
-
 const mergeResultAppendix = (
   currentAppendix: Appendix,
   resultAppendix: Appendix,
 ): Appendix => {
-  const entries = Object.entries(resultAppendix);
-
-  return entries.reduce(
-    (acc, [key, value]) => mergeAppendixEntry(acc, key, value),
+  return Object.entries(resultAppendix).reduce(
+    (acc, [key, value]) => mergeAppendixDependents(acc, key, value),
     currentAppendix,
   );
 };
@@ -474,6 +494,11 @@ export const constructAppendix = (
 
   const workspaceOverridesResults = collectAllWorkspaceOverrides(
     packageJSONs,
+    logInstance,
+  );
+  detectWorkspaceConflicts(
+    workspaceOverridesResults,
+    rootOverrides,
     logInstance,
   );
   const allOverrides = mergeAllOverrides(
@@ -517,5 +542,5 @@ export const findRemovableAppendixItems = (appendix: Appendix): string[] => {
       const dependents = appendix[item]?.dependents;
       return !dependents || Object.keys(dependents).length === 0;
     })
-    .map((item) => item.split("@")[0]);
+    .map((item) => item.replace(/@[^@]+$/, ""));
 };

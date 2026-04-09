@@ -43,7 +43,7 @@ const lockFileExists = (filename: string): boolean => {
 };
 
 export const detectPackageManager = (): "npm" | "yarn" | "pnpm" | "bun" => {
-  const isBun = lockFileExists("bun.lockb");
+  const isBun = lockFileExists("bun.lockb") || lockFileExists("bun.lock");
   if (isBun) return "bun";
 
   const isYarn = lockFileExists("yarn.lock");
@@ -377,7 +377,13 @@ export const updatePackageJSON = ({
 };
 
 export const parseNpmLsOutput = (stdout: string): Record<string, boolean> => {
-  const tree = JSON.parse(stdout);
+  let tree: { dependencies?: Record<string, unknown> };
+  try {
+    tree = JSON.parse(stdout);
+  } catch (err) {
+    log.debug("Failed to parse npm ls output", "parseNpmLsOutput", err);
+    return {};
+  }
   const packageMap: Record<string, boolean> = {};
 
   const traverseDependencies = (deps: Record<string, unknown>): void => {
@@ -395,8 +401,7 @@ export const parseNpmLsOutput = (stdout: string): Record<string, boolean> => {
     });
   };
 
-  const hasDependencies = tree.dependencies;
-  if (hasDependencies) {
+  if (tree.dependencies) {
     traverseDependencies(tree.dependencies);
   }
 

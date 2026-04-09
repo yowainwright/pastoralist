@@ -157,7 +157,7 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
   if (hideHeader) {
     return (
       <div ref={containerRef} className="bg-transparent">
-        <div className="p-4">
+        <div className={STYLES.content}>
           <TerminalLines {...lineProps} />
         </div>
       </div>

@@ -1,6 +1,6 @@
 import type { SecurityAlert } from "./core/security/types";
 
-export type Exec = (runner: string, cmds: Array<string>) => Promise<unknown>;
+export type Exec = (runner: string, cmds: Array<string>) => Promise<void>;
 export type OverrideValue = string | Record<string, string>;
 
 export interface PastoralistJSON {
@@ -36,10 +36,17 @@ export interface AppendixItem {
   ledger?: {
     addedDate: string;
     reason?: string;
+    source?: "security" | "manual";
     securityChecked?: boolean;
     securityCheckDate?: string;
     securityCheckResult?: "clean" | "error" | "skipped";
-    securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket";
+    securityProvider?:
+      | "osv"
+      | "github"
+      | "snyk"
+      | "npm"
+      | "socket"
+      | "spektion";
     cves?: string[];
     cveDetails?: CveDetail[];
     severity?: "low" | "medium" | "high" | "critical";
@@ -73,7 +80,8 @@ export interface PastoralistConfig {
       | "snyk"
       | "npm"
       | "socket"
-      | ("osv" | "github" | "snyk" | "npm" | "socket")[];
+      | "spektion"
+      | ("osv" | "github" | "snyk" | "npm" | "socket" | "spektion")[];
     autoFix?: boolean;
     interactive?: boolean;
     securityProviderToken?: string;
@@ -117,7 +125,7 @@ export interface UpdateAppendixOptions {
   debug?: boolean;
   reason?: string;
   securityOverrideDetails?: SecurityOverrideDetail[];
-  securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket";
+  securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket" | "spektion";
   onlyUsedOverrides?: boolean;
   dependencyTree?: Record<string, boolean>;
   addedDate?: string;
@@ -127,7 +135,7 @@ export interface UpdateAppendixOptions {
 export interface SecurityOptions {
   checkSecurity?: boolean;
   forceSecurityRefactor?: boolean;
-  securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket";
+  securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket" | "spektion";
   securityProviderToken?: string;
   hasWorkspaceSecurityChecks?: boolean;
   securityOverrides?: OverridesType;
@@ -149,8 +157,6 @@ export interface OutputOptions {
 export interface TestingOptions {
   isTesting?: boolean;
   isTestingCLI?: boolean;
-  isIRLFix?: boolean;
-  isIRLCatch?: boolean;
 }
 
 /** Path-related options */
@@ -229,6 +235,15 @@ export interface OverridesWithType extends OverridesConfig {
   type: string;
 }
 export type ResolveOverrides = OverridesWithType | undefined;
+
+export interface MergedConfig {
+  overrides: OverridesType;
+  overridesData: ResolveOverrides;
+  appendix: Appendix | undefined;
+  depPaths: PastoralistConfig["depPaths"] | Options["depPaths"];
+  securityOverrideDetails: Options["securityOverrideDetails"];
+  securityProvider: Options["securityProvider"];
+}
 
 export interface PastoralistResultMetrics {
   packagesScanned: number;

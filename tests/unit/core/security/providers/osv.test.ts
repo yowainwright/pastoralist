@@ -378,6 +378,170 @@ test("fetchAlerts - should extract CVE from aliases", async () => {
   global.fetch = originalFetch;
 });
 
+test("fetchAlerts - should map numeric CVSS score 9.5 to critical", async () => {
+  const provider = new OSVProvider({ debug: false });
+  const originalFetch = global.fetch;
+
+  const mockVuln: OSVVulnerability = {
+    id: "OSV-2021-1234",
+    summary: "Critical vuln",
+    details: "Details",
+    affected: [
+      {
+        package: { name: "test", ecosystem: "npm" },
+        ranges: [{ type: "SEMVER", events: [{ introduced: "0" }] }],
+      },
+    ],
+    references: [],
+    severity: [{ type: "CVSS_V3", score: "9.5" }],
+  };
+
+  global.fetch = mock((url: string) => {
+    const isBatchCall = url.includes("querybatch");
+    if (isBatchCall) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
+      } as Response);
+    }
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve(mockVuln),
+    } as Response);
+  });
+
+  const alerts = await provider.fetchAlerts([
+    { name: "test", version: "1.0.0" },
+  ]);
+  expect(alerts[0].severity).toBe("critical");
+
+  global.fetch = originalFetch;
+});
+
+test("fetchAlerts - should map numeric CVSS score 7.5 to high", async () => {
+  const provider = new OSVProvider({ debug: false });
+  const originalFetch = global.fetch;
+
+  const mockVuln: OSVVulnerability = {
+    id: "OSV-2021-1234",
+    summary: "High vuln",
+    details: "Details",
+    affected: [
+      {
+        package: { name: "test", ecosystem: "npm" },
+        ranges: [{ type: "SEMVER", events: [{ introduced: "0" }] }],
+      },
+    ],
+    references: [],
+    severity: [{ type: "CVSS_V3", score: "7.5 HIGH" }],
+  };
+
+  global.fetch = mock((url: string) => {
+    const isBatchCall = url.includes("querybatch");
+    if (isBatchCall) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
+      } as Response);
+    }
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve(mockVuln),
+    } as Response);
+  });
+
+  const alerts = await provider.fetchAlerts([
+    { name: "test", version: "1.0.0" },
+  ]);
+  expect(alerts[0].severity).toBe("high");
+
+  global.fetch = originalFetch;
+});
+
+test("fetchAlerts - should map numeric CVSS score 5.0 to medium", async () => {
+  const provider = new OSVProvider({ debug: false });
+  const originalFetch = global.fetch;
+
+  const mockVuln: OSVVulnerability = {
+    id: "OSV-2021-1234",
+    summary: "Medium vuln",
+    details: "Details",
+    affected: [
+      {
+        package: { name: "test", ecosystem: "npm" },
+        ranges: [{ type: "SEMVER", events: [{ introduced: "0" }] }],
+      },
+    ],
+    references: [],
+    severity: [{ type: "CVSS_V3", score: "5.0" }],
+  };
+
+  global.fetch = mock((url: string) => {
+    const isBatchCall = url.includes("querybatch");
+    if (isBatchCall) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
+      } as Response);
+    }
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve(mockVuln),
+    } as Response);
+  });
+
+  const alerts = await provider.fetchAlerts([
+    { name: "test", version: "1.0.0" },
+  ]);
+  expect(alerts[0].severity).toBe("medium");
+
+  global.fetch = originalFetch;
+});
+
+test("fetchAlerts - should map numeric CVSS score 2.0 to low", async () => {
+  const provider = new OSVProvider({ debug: false });
+  const originalFetch = global.fetch;
+
+  const mockVuln: OSVVulnerability = {
+    id: "OSV-2021-1234",
+    summary: "Low vuln",
+    details: "Details",
+    affected: [
+      {
+        package: { name: "test", ecosystem: "npm" },
+        ranges: [{ type: "SEMVER", events: [{ introduced: "0" }] }],
+      },
+    ],
+    references: [],
+    severity: [{ type: "CVSS_V3", score: "2.0" }],
+  };
+
+  global.fetch = mock((url: string) => {
+    const isBatchCall = url.includes("querybatch");
+    if (isBatchCall) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
+      } as Response);
+    }
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve(mockVuln),
+    } as Response);
+  });
+
+  const alerts = await provider.fetchAlerts([
+    { name: "test", version: "1.0.0" },
+  ]);
+  expect(alerts[0].severity).toBe("low");
+
+  global.fetch = originalFetch;
+});
+
 test("fetchAlerts - should return undefined for CVE when not in aliases", async () => {
   const provider = new OSVProvider({ debug: false });
   const originalFetch = global.fetch;
@@ -604,4 +768,126 @@ test("fetchAlerts - should extract all CVE aliases when multiple CVEs exist", as
   expect(alerts[0].cves).toEqual(["CVE-2021-0001", "CVE-2021-0002"]);
 
   global.fetch = originalFetch;
+});
+
+// =============================================================================
+// strict mode - individual vulnerability fetch failures
+// =============================================================================
+
+test("fetchAlerts - strict mode throws when individual vuln detail fetch fails", async () => {
+  const provider = new OSVProvider({
+    debug: false,
+    strict: true,
+    retryOptions: { retries: 1, minTimeout: 10 },
+  });
+  const originalFetch = global.fetch;
+
+  global.fetch = mock((url: string) => {
+    const isBatchCall = typeof url === "string" && url.includes("querybatch");
+    if (isBatchCall) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            results: [{ vulns: [{ id: "GOOD-1" }, { id: "BAD-1" }] }],
+          }),
+      } as Response);
+    }
+    const isBadVuln = typeof url === "string" && url.includes("BAD-1");
+    if (isBadVuln) {
+      return Promise.resolve({
+        ok: false,
+        status: 500,
+      } as Response);
+    }
+    return Promise.resolve({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          id: "GOOD-1",
+          summary: "Good vuln",
+          details: "Details",
+          affected: [
+            {
+              package: { name: "lodash", ecosystem: "npm" },
+              ranges: [
+                {
+                  type: "SEMVER",
+                  events: [{ introduced: "0" }, { fixed: "4.17.21" }],
+                },
+              ],
+            },
+          ],
+          references: [],
+        }),
+    } as Response);
+  });
+
+  try {
+    await expect(
+      provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]),
+    ).rejects.toThrow();
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test("fetchAlerts - non-strict returns partial results when individual vuln detail fetch fails", async () => {
+  const provider = new OSVProvider({
+    debug: false,
+    strict: false,
+    retryOptions: { retries: 1, minTimeout: 10 },
+  });
+  const originalFetch = global.fetch;
+
+  global.fetch = mock((url: string) => {
+    const isBatchCall = typeof url === "string" && url.includes("querybatch");
+    if (isBatchCall) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            results: [{ vulns: [{ id: "GOOD-1" }, { id: "BAD-1" }] }],
+          }),
+      } as Response);
+    }
+    const isBadVuln = typeof url === "string" && url.includes("BAD-1");
+    if (isBadVuln) {
+      return Promise.resolve({
+        ok: false,
+        status: 500,
+      } as Response);
+    }
+    return Promise.resolve({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          id: "GOOD-1",
+          summary: "Good vuln",
+          details: "Details",
+          affected: [
+            {
+              package: { name: "lodash", ecosystem: "npm" },
+              ranges: [
+                {
+                  type: "SEMVER",
+                  events: [{ introduced: "0" }, { fixed: "4.17.21" }],
+                },
+              ],
+            },
+          ],
+          references: [],
+        }),
+    } as Response);
+  });
+
+  try {
+    const alerts = await provider.fetchAlerts([
+      { name: "lodash", version: "4.17.20" },
+    ]);
+    const hasAlerts = alerts.length > 0;
+    expect(hasAlerts).toBe(true);
+  } finally {
+    global.fetch = originalFetch;
+  }
 });

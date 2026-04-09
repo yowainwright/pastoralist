@@ -1,18 +1,20 @@
 import { findPackageJsonFiles, updatePackageJSON } from "../packageJSON";
+
+export const WORKSPACE_MODES = {
+  SINGLE: "workspace",
+  MULTIPLE: "workspaces",
+} as const;
 import { toCompactAppendix } from "../appendix/utils";
 import type {
   PastoralistJSON,
+  PastoralistConfig,
   Appendix,
-  OverridesType,
   Options,
+  OverridesType,
   ResolveOverrides,
-} from "../../types";
-import type { PastoralistConfig } from "../../config";
-import type {
-  WriteResultContext,
-  ProcessingMode,
   MergedConfig,
 } from "../../types";
+import type { WriteResultContext, ProcessingMode } from "../../types";
 import type { Logger } from "../../utils";
 
 export const findPackageFiles = (
@@ -77,7 +79,10 @@ export const resolveDepPaths = (
 
   const configDepPaths = config.pastoralist?.depPaths;
 
-  if (configDepPaths === "workspace" || configDepPaths === "workspaces") {
+  if (
+    configDepPaths === WORKSPACE_MODES.SINGLE ||
+    configDepPaths === WORKSPACE_MODES.MULTIPLE
+  ) {
     return config.workspaces?.map((ws: string) => `${ws}/package.json`) || null;
   }
 
@@ -90,47 +95,47 @@ export const resolveDepPaths = (
   return null;
 };
 
-export const mergeAllConfigs = (
-  cliOptions: Options,
-  packageJsonConfig: PastoralistConfig | undefined,
-  overridesData: ResolveOverrides,
-  overrides: OverridesType,
-): MergedConfig => {
-  const base = packageJsonConfig || {};
-
-  return {
-    overrides,
-    overridesData,
-    appendix: base.appendix,
-    depPaths: cliOptions.depPaths || base.depPaths,
-    securityOverrideDetails: cliOptions.securityOverrideDetails,
-    securityProvider: cliOptions.securityProvider,
-    manualOverrideReasons: cliOptions.manualOverrideReasons,
-  };
-};
-
 export const findRemovableOverrides = (
   overrides: OverridesType,
   appendix: Appendix,
   allDeps: Record<string, string>,
   missingInRoot: string[],
 ): string[] => {
-  const removable: string[] = [];
+  const appendixPackagesWithDependents = new Set(
+    Object.entries(appendix)
+      .filter(
+        ([, item]) => item.dependents && Object.keys(item.dependents).length,
+      )
+      .map(([key]) => key.replace(/@[^@]+$/, "")),
+  );
+  const missingSet = new Set(missingInRoot);
 
-  for (const pkg of Object.keys(overrides)) {
-    const isUsed = appendix[`${pkg}@${overrides[pkg]}`];
-    const hasRootDep = allDeps[pkg];
-    const isMissing = missingInRoot.includes(pkg);
-
-    if (!isUsed && !hasRootDep && !isMissing) {
-      removable.push(pkg);
-    }
-  }
-
-  return removable;
+  return Object.keys(overrides).filter((pkg) => {
+    const isInAppendix = appendixPackagesWithDependents.has(pkg);
+    const isInDeps = pkg in allDeps;
+    const isMissingInRoot = missingSet.has(pkg);
+    return !isInAppendix && !isInDeps && !isMissingInRoot;
+  });
 };
 
-export const hasOverrides = (
+export const mergeAllConfigs = (
+  cliOptions: Options,
+  packageJsonConfig: PastoralistConfig | undefined,
+  overridesData: ResolveOverrides,
+  overrides: OverridesType,
+): MergedConfig => {
+  const depPaths = cliOptions.depPaths ?? packageJsonConfig?.depPaths;
+  return {
+    overrides,
+    overridesData,
+    appendix: packageJsonConfig?.appendix,
+    depPaths,
+    securityOverrideDetails: cliOptions.securityOverrideDetails,
+    securityProvider: cliOptions.securityProvider,
+  };
+};
+
+export const hasConfigOverrides = (
   options: Options | undefined,
   config: PastoralistJSON,
 ): boolean => {

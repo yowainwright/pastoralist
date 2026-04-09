@@ -84,3 +84,125 @@ describe("Real Security Checks", () => {
     expect(minimistAlert).toBeDefined();
   }, 60000);
 });
+
+describe("Security Overrides - Nested Override Preservation", () => {
+  test("preserves existing nested overrides when adding security overrides", async () => {
+    const { dir, pkgPath } = createFixture("nested-overrides", {
+      name: "test-nested-overrides",
+      version: "1.0.0",
+      dependencies: {
+        lodash: "4.17.15",
+      },
+      overrides: {
+        express: { qs: "6.11.0" },
+      },
+    });
+
+    execSync("npm install --silent", { cwd: dir, stdio: "pipe" });
+
+    await action({
+      path: pkgPath,
+      root: dir,
+      checkSecurity: true,
+      forceSecurityRefactor: true,
+      securityProvider: "osv",
+    });
+
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+    const hasNestedOverride = typeof pkg.overrides?.express === "object";
+    const hasSecurityOverride = typeof pkg.overrides?.lodash === "string";
+
+    expect(hasNestedOverride).toBe(true);
+    expect(pkg.overrides.express.qs).toBe("6.11.0");
+    expect(hasSecurityOverride).toBe(true);
+  }, 60000);
+});
+
+describe("Security Overrides - Workspace Deduplication", () => {
+  test("deduplicates vulnerabilities across workspace packages", async () => {
+    const rootDir = join(TEST_DIR, "workspace-dedup");
+    mkdirSync(rootDir, { recursive: true });
+
+    const rootPkg = {
+      name: "monorepo",
+      version: "1.0.0",
+      workspaces: ["packages/*"],
+      dependencies: {
+        lodash: "4.17.15",
+      },
+    };
+    const rootPkgPath = join(rootDir, "package.json");
+    writeFileSync(rootPkgPath, JSON.stringify(rootPkg, null, 2));
+
+    const appADir = join(rootDir, "packages", "app-a");
+    mkdirSync(appADir, { recursive: true });
+    writeFileSync(
+      join(appADir, "package.json"),
+      JSON.stringify({
+        name: "app-a",
+        version: "1.0.0",
+        dependencies: { lodash: "4.17.15" },
+      }),
+    );
+
+    const appBDir = join(rootDir, "packages", "app-b");
+    mkdirSync(appBDir, { recursive: true });
+    writeFileSync(
+      join(appBDir, "package.json"),
+      JSON.stringify({
+        name: "app-b",
+        version: "1.0.0",
+        dependencies: { lodash: "4.17.15" },
+      }),
+    );
+
+    execSync("npm install --silent", { cwd: rootDir, stdio: "pipe" });
+
+    const result = await action({
+      path: rootPkgPath,
+      root: rootDir,
+      checkSecurity: true,
+      forceSecurityRefactor: true,
+      securityProvider: "osv",
+      hasWorkspaceSecurityChecks: true,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.hasSecurityIssues).toBe(true);
+
+    const lodashAlerts = (result.securityAlerts || []).filter(
+      (a) => a.packageName === "lodash",
+    );
+    const lodashCVEs = lodashAlerts.map((a) => a.cve).filter(Boolean);
+    const uniqueCVEs = new Set(lodashCVEs);
+    const hasDuplicateCVEs = lodashCVEs.length > uniqueCVEs.size;
+
+    expect(hasDuplicateCVEs).toBe(false);
+  }, 60000);
+});
+
+describe("Security Overrides - Provider Resilience", () => {
+  test("completes successfully with OSV provider", async () => {
+    const { dir, pkgPath } = createFixture("provider-resilience", {
+      name: "test-provider-resilience",
+      version: "1.0.0",
+      dependencies: {
+        lodash: "4.17.15",
+      },
+    });
+
+    execSync("npm install --silent", { cwd: dir, stdio: "pipe" });
+
+    const result = await action({
+      path: pkgPath,
+      root: dir,
+      checkSecurity: true,
+      forceSecurityRefactor: true,
+      securityProvider: "osv",
+    });
+
+    expect(result.success).toBe(true);
+    const hasValidCount = result.securityAlertCount >= 0;
+    expect(hasValidCount).toBe(true);
+  }, 60000);
+});

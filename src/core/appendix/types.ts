@@ -4,6 +4,7 @@ export type Ledger = NonNullable<AppendixItem["ledger"]>;
 
 export type SecurityLedgerFields = Pick<
   Ledger,
+  | "source"
   | "securityChecked"
   | "securityCheckDate"
   | "securityCheckResult"
@@ -20,4 +21,7 @@ export type PartialSecurityLedger = Partial<SecurityLedgerFields>;
 
 export type CompactAppendixItem = { addedDate: string };
 
-export type CompactAppendix = Record<string, CompactAppendixItem>;
+export type CompactAppendix = Record<
+  string,
+  CompactAppendixItem | AppendixItem
+>;

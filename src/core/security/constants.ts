@@ -7,18 +7,26 @@ export const DEFAULT_PROMPT_TIMEOUT = 60000;
 export const GITHUB_TOKEN_URL = "https://github.com/settings/tokens";
 export const SNYK_TOKEN_URL = "https://app.snyk.io/account";
 export const SOCKET_TOKEN_URL = "https://socket.dev/dashboard/api-keys";
+export const SPEKTION_TOKEN_URL = "https://spektion.com";
 
 const githubAuthMessage = `GitHub CLI not found and no GITHUB_TOKEN provided. Please install gh CLI or set GITHUB_TOKEN environment variable. Create a token at: ${GITHUB_TOKEN_URL}`;
 const snykAuthMessage = `Snyk requires authentication. Set SNYK_TOKEN or provide --securityProviderToken. Create a token at: ${SNYK_TOKEN_URL}`;
 const socketAuthMessage = `Socket requires authentication. Set SOCKET_SECURITY_API_KEY or provide --securityProviderToken. Create an API key at: ${SOCKET_TOKEN_URL}`;
+const spektionAuthMessage = `Spektion requires authentication. Set SPEKTION_API_KEY or provide --securityProviderToken. Get an API key at: ${SPEKTION_TOKEN_URL}`;
 
 export const AUTH_MESSAGES = {
   GITHUB_CLI_NOT_FOUND: githubAuthMessage,
   SNYK_AUTH_REQUIRED: snykAuthMessage,
   SOCKET_AUTH_REQUIRED: socketAuthMessage,
+  SPEKTION_AUTH_REQUIRED: spektionAuthMessage,
 } as const;
 
-export type SecurityProvider = "github" | "snyk" | "socket" | "osv";
+export type SecurityProvider =
+  | "github"
+  | "snyk"
+  | "socket"
+  | "osv"
+  | "spektion";
 
 export interface ProviderConfig {
   name: string;
@@ -32,6 +40,16 @@ export interface ProviderConfig {
 const githubTokenLink = link(GITHUB_TOKEN_URL, "GitHub Tokens");
 const snykTokenLink = link(SNYK_TOKEN_URL, "Snyk Account");
 const socketTokenLink = link(SOCKET_TOKEN_URL, "Socket API Keys");
+const spektionTokenLink = link(SPEKTION_TOKEN_URL, "Spektion");
+
+export const KNOWN_PROVIDERS = [
+  "github",
+  "snyk",
+  "socket",
+  "osv",
+  "npm",
+  "spektion",
+] as const;
 
 export const PROVIDER_CONFIGS: Record<SecurityProvider, ProviderConfig> = {
   github: {
@@ -73,6 +91,16 @@ export const PROVIDER_CONFIGS: Record<SecurityProvider, ProviderConfig> = {
     envVar: null,
     tokenUrl: null,
     setupSteps: ["OSV is free and requires no authentication!"],
+  },
+  spektion: {
+    name: "Spektion",
+    envVar: "SPEKTION_API_KEY",
+    tokenUrl: SPEKTION_TOKEN_URL,
+    setupSteps: [
+      `1. Open ${spektionTokenLink}`,
+      "2. Create an account and generate an API key",
+      "3. Set SPEKTION_API_KEY in your environment",
+    ],
   },
 };
 
@@ -134,3 +162,18 @@ export const OSV_API = {
   QUERY_BATCH: "https://api.osv.dev/v1/querybatch",
   VULN: (id: string) => `https://api.osv.dev/v1/vulns/${id}`,
 } as const;
+
+export const SPEKTION_API = {
+  SCAN: "https://api.spektion.com/v1/scan",
+} as const;
+
+export type Severity = "low" | "medium" | "high" | "critical";
+
+export const SEVERITY_MAP: Record<string, Severity> = {
+  critical: "critical",
+  high: "high",
+  medium: "medium",
+  moderate: "medium",
+  low: "low",
+  info: "low",
+};

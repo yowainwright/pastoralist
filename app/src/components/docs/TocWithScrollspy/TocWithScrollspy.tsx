@@ -22,32 +22,12 @@ function getLinkClasses(isActive: boolean, isSubheading = false) {
 
 function scrollToElement(slug: string) {
   const target = document.getElementById(slug);
-  if (!target) {
-    return;
-  }
+  if (!target) return;
 
   const rect = target.getBoundingClientRect();
   const targetY = rect.top + window.scrollY - 80;
 
-  window.scrollTo({
-    top: targetY,
-    behavior: "smooth",
-  });
-
-  setTimeout(() => {
-    document.documentElement.scrollTo({
-      top: targetY,
-      behavior: "smooth",
-    });
-  }, 100);
-
-  setTimeout(() => {
-    target.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-      inline: "nearest",
-    });
-  }, 200);
+  window.scrollTo({ top: targetY, behavior: "smooth" });
 }
 
 export function TocWithScrollspy({ headings }: TocWithScrollspyProps) {

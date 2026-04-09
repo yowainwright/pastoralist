@@ -280,14 +280,10 @@ describe("parseArgs", () => {
         "script.js",
         "--isTesting",
         "--isTestingCLI",
-        "--isIRLFix",
-        "--isIRLCatch",
       ]);
 
       expect(result.options.isTesting).toBe(true);
       expect(result.options.isTestingCLI).toBe(true);
-      expect(result.options.isIRLFix).toBe(true);
-      expect(result.options.isIRLCatch).toBe(true);
     });
   });
 
@@ -381,8 +377,6 @@ describe("parseArgs", () => {
         "/root",
         "-t",
         "--isTesting",
-        "--isIRLFix",
-        "--isIRLCatch",
         "--init",
         "--checkSecurity",
         "--forceSecurityRefactor",
@@ -404,8 +398,6 @@ describe("parseArgs", () => {
       expect(result.options.root).toBe("/root");
       expect(result.options.isTestingCLI).toBe(true);
       expect(result.options.isTesting).toBe(true);
-      expect(result.options.isIRLFix).toBe(true);
-      expect(result.options.isIRLCatch).toBe(true);
       expect(result.options.init).toBe(true);
       expect(result.options.checkSecurity).toBe(true);
       expect(result.options.forceSecurityRefactor).toBe(true);

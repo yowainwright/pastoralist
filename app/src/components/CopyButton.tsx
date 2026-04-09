@@ -1,67 +1,49 @@
-import React, { useState } from "react";
+import React from "react";
+import { createMachine } from "xstate";
+import { useMachine } from "@xstate/react";
+import { Copy, Check } from "lucide-react";
 
-export const CopyButton = () => {
-  const [isClicked, setIsClicked] = useState(false);
+const copyMachine = createMachine({
+  id: "copy",
+  initial: "idle",
+  states: {
+    idle: { on: { COPY: "copied" } },
+    copied: { after: { 800: "idle" } },
+  },
+});
 
-  const handleCopy = (e: React.MouseEvent<HTMLButtonElement>) => {
-    const target = e.currentTarget;
-    const codeElement = target.closest("div")?.querySelector("code");
+const styles = {
+  button: "btn btn-ghost btn-square rounded-s-none",
+  icon: "h-5 w-5 pointer-events-none",
+  iconSuccess: "h-5 w-5 pointer-events-none text-green-500",
+};
 
-    if (!codeElement) {
-      console.log("Code not found");
-      return;
-    }
+export function CopyButton() {
+  const [snapshot, send] = useMachine(copyMachine);
+  const copied = snapshot.matches("copied");
 
-    const code = codeElement.textContent;
-
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard
-        .writeText(code)
-        .then(() => {
-          setIsClicked(true);
-          target.disabled = true;
-          setTimeout(() => {
-            setIsClicked(false);
-            target.disabled = false;
-          }, 800);
-        })
-        .catch((error) => {
-          console.error("Failed to save text to clipboard:", error);
-        });
-    } else {
-      console.error("Clipboard API is not supported");
+  const handleCopy = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    const codeEl = e.currentTarget.closest("div")?.querySelector("code");
+    if (!codeEl) return;
+    try {
+      await navigator.clipboard.writeText(codeEl.textContent ?? "");
+      send({ type: "COPY" });
+    } catch (err) {
+      console.error("Failed to copy:", err);
     }
   };
 
   return (
     <button
-      className="btn btn-ghost btn-square rounded-s-none"
+      className={styles.button}
       onClick={handleCopy}
-      aria-label="Copy"
+      aria-label={copied ? "Copied!" : "Copy"}
     >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        className={`h-7 w-5 pointer-events-none ${isClicked ? "text-green-500" : ""}`}
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-      >
-        {isClicked ? (
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M5 13l4 4L19 7"
-          />
-        ) : (
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"
-          />
-        )}
-      </svg>
+      {copied ? (
+        <Check className={styles.iconSuccess} />
+      ) : (
+        <Copy className={styles.icon} />
+      )}
     </button>
   );
-};
+}

@@ -189,8 +189,6 @@ export const runSecurityCheck = async (
       interactive: mergedOptions.interactive,
       token: mergedOptions.securityProviderToken,
       debug: isLogging,
-      isIRLFix: mergedOptions.isIRLFix,
-      isIRLCatch: mergedOptions.isIRLCatch,
     });
 
     const scanPaths = deps.determineSecurityScanPaths(
@@ -246,7 +244,7 @@ export const runSecurityCheck = async (
     }
     const errorMessage = error instanceof Error ? error.message : String(error);
     spinner.fail(
-      `${deps.green(`pastoralist`)} security check failed: ${errorMessage}`,
+      `${deps.yellow(`pastoralist`)} security check failed: ${errorMessage}`,
     );
     throw error;
   }
@@ -259,7 +257,6 @@ export const handleSecurityResults = (
   spinner: ReturnType<typeof createSpinner>,
   mergedOptions: Options,
   updates: import("../types").OverrideUpdate[] = [],
-  _packagesScanned: number = 0,
 ): Pick<Options, "securityOverrides" | "securityOverrideDetails"> => {
   const hasAlerts = alerts.length > 0;
   const hasUpdates = updates.length > 0;
@@ -738,7 +735,6 @@ export async function action(
           spinner,
           mergedOptions,
           updates,
-          packagesScanned,
         );
         mergedOptions = { ...mergedOptions, ...securityUpdates };
 

@@ -1,6 +1,7 @@
 import type {
   SecurityOverrideDetail,
   PastoralistJSON,
+  SecurityProviderType,
   CveDetail,
 } from "../../types";
 import type {
@@ -68,13 +69,14 @@ const findAllSecurityDetails = (
 };
 
 const buildBaseLedger = (): PartialSecurityLedger => ({
+  source: "security",
   securityChecked: true,
   securityCheckDate: new Date().toISOString(),
 });
 
 const addProviderToLedger = (
   ledger: PartialSecurityLedger,
-  securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket",
+  securityProvider?: SecurityProviderType,
 ): PartialSecurityLedger => {
   const hasProvider = Boolean(securityProvider);
   if (!hasProvider) return ledger;
@@ -175,7 +177,7 @@ type LedgerTransform = (ledger: PartialSecurityLedger) => PartialSecurityLedger;
 export const createSecurityLedger = (
   packageName: string,
   securityOverrideDetails?: SecurityOverrideDetail[],
-  securityProvider?: "osv" | "github" | "snyk" | "npm" | "socket",
+  securityProvider?: SecurityProviderType,
 ): PartialSecurityLedger => {
   const isSecurity = isPackageInSecurityDetails(
     packageName,
@@ -338,9 +340,12 @@ export const mergeAppendixDependents = (
   key: string,
   value: AppendixItem,
 ): Appendix => {
-  const existingDependents = currentAppendix[key]?.dependents || {};
-  const mergedDependents = { ...existingDependents, ...value.dependents };
-  return { ...currentAppendix, [key]: { dependents: mergedDependents } };
+  const existing = currentAppendix[key];
+  const mergedDependents = { ...existing?.dependents, ...value.dependents };
+  const mergedItem: AppendixItem = existing
+    ? { ...existing, dependents: mergedDependents }
+    : { dependents: mergedDependents };
+  return { ...currentAppendix, [key]: mergedItem };
 };
 
 const hasSecurityInfo = (item: AppendixItem): boolean => {
@@ -406,19 +411,13 @@ const getAddedDate = (item: AppendixItem, addedDate?: string): string => {
 export const toCompactAppendix = (
   appendix: Appendix,
   addedDate?: string,
-): CompactAppendix => {
-  const compact: CompactAppendix = {};
-
-  for (const [key, item] of Object.entries(appendix)) {
-    if (canBeCompacted(item)) {
-      compact[key] = { addedDate: getAddedDate(item, addedDate) };
-    } else {
-      compact[key] = item as unknown as CompactAppendix[string];
-    }
-  }
-
-  return compact;
-};
+): CompactAppendix =>
+  Object.entries(appendix).reduce<CompactAppendix>((acc, [key, item]) => {
+    acc[key] = canBeCompacted(item)
+      ? { addedDate: getAddedDate(item, addedDate) }
+      : item;
+    return acc;
+  }, {});
 
 const isUnusedEntry = (
   item: AppendixItem,
@@ -434,8 +433,7 @@ const isUnusedEntry = (
   if (!dependents) return false;
 
   const values = Object.values(dependents);
-  const hasValues = values.length > 0;
-  if (!hasValues) return false;
+  if (!values.length) return false;
 
   return values.every((v) => v.includes(UNUSED_OVERRIDE_LABEL));
 };
@@ -460,19 +458,14 @@ export const removeAppendixKeys = (
   const keySet = new Set(keys);
   return Object.keys(appendix)
     .filter((key) => !keySet.has(key))
-    .reduce((acc, key) => {
-      acc[key] = appendix[key];
-      return acc;
-    }, {} as Appendix);
+    .reduce((acc, key) => ({ ...acc, [key]: appendix[key] }), {} as Appendix);
 };
 
-export const extractPackageNames = (appendixKeys: string[]): string[] => {
-  return appendixKeys.map((key) => {
+export const extractPackageNames = (appendixKeys: string[]): string[] =>
+  appendixKeys.map((key) => {
     const lastAtIndex = key.lastIndexOf("@");
-    const isScoped = lastAtIndex > 0;
-    return isScoped ? key.slice(0, lastAtIndex) : key;
+    return lastAtIndex > 0 ? key.slice(0, lastAtIndex) : key;
   });
-};
 
 export const removeOverrideKeys = (
   overrides: Record<string, string | Record<string, string>>,
@@ -482,10 +475,7 @@ export const removeOverrideKeys = (
   return Object.keys(overrides)
     .filter((key) => !nameSet.has(key))
     .reduce(
-      (acc, key) => {
-        acc[key] = overrides[key];
-        return acc;
-      },
+      (acc, key) => ({ ...acc, [key]: overrides[key] }),
       {} as Record<string, string | Record<string, string>>,
     );
 };

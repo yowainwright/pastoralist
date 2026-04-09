@@ -5,7 +5,7 @@ import {
   resolveDepPaths,
   mergeAllConfigs,
   findRemovableOverrides,
-  hasOverrides,
+  hasConfigOverrides,
   findPackageFiles,
   writeResult,
 } from "../../../../src/core/update/utils";
@@ -352,18 +352,18 @@ test("findRemovableOverrides - should return empty array when all overrides are 
   expect(result).toEqual([]);
 });
 
-test("hasOverrides - should return true for options securityOverrides", () => {
+test("hasConfigOverrides - should return true for options securityOverrides", () => {
   const options: Options = {
     securityOverrides: { lodash: "4.17.21" },
   };
   const config: PastoralistJSON = { name: "test", version: "1.0.0" };
 
-  const result = hasOverrides(options, config);
+  const result = hasConfigOverrides(options, config);
 
   expect(result).toBe(true);
 });
 
-test("hasOverrides - should return true for config overrides", () => {
+test("hasConfigOverrides - should return true for config overrides", () => {
   const options: Options = {};
   const config: PastoralistJSON = {
     name: "test",
@@ -371,12 +371,12 @@ test("hasOverrides - should return true for config overrides", () => {
     overrides: { lodash: "4.17.21" },
   };
 
-  const result = hasOverrides(options, config);
+  const result = hasConfigOverrides(options, config);
 
   expect(result).toBe(true);
 });
 
-test("hasOverrides - should return true for config resolutions", () => {
+test("hasConfigOverrides - should return true for config resolutions", () => {
   const options: Options = {};
   const config: PastoralistJSON = {
     name: "test",
@@ -384,12 +384,12 @@ test("hasOverrides - should return true for config resolutions", () => {
     resolutions: { lodash: "4.17.21" },
   };
 
-  const result = hasOverrides(options, config);
+  const result = hasConfigOverrides(options, config);
 
   expect(result).toBe(true);
 });
 
-test("hasOverrides - should return true for pnpm overrides", () => {
+test("hasConfigOverrides - should return true for pnpm overrides", () => {
   const options: Options = {};
   const config: PastoralistJSON = {
     name: "test",
@@ -397,24 +397,24 @@ test("hasOverrides - should return true for pnpm overrides", () => {
     pnpm: { overrides: { lodash: "4.17.21" } },
   };
 
-  const result = hasOverrides(options, config);
+  const result = hasConfigOverrides(options, config);
 
   expect(result).toBe(true);
 });
 
-test("hasOverrides - should return false when no overrides", () => {
+test("hasConfigOverrides - should return false when no overrides", () => {
   const options: Options = {};
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
   };
 
-  const result = hasOverrides(options, config);
+  const result = hasConfigOverrides(options, config);
 
   expect(result).toBe(false);
 });
 
-test("hasOverrides - should return false for empty overrides", () => {
+test("hasConfigOverrides - should return false for empty overrides", () => {
   const options: Options = { securityOverrides: {} };
   const config: PastoralistJSON = {
     name: "test",
@@ -422,13 +422,13 @@ test("hasOverrides - should return false for empty overrides", () => {
     overrides: {},
   };
 
-  const result = hasOverrides(options, config);
+  const result = hasConfigOverrides(options, config);
 
   expect(result).toBe(false);
 });
 
-test("hasOverrides - should return false when both undefined", () => {
-  const result = hasOverrides(undefined, {} as PastoralistJSON);
+test("hasConfigOverrides - should return false when both undefined", () => {
+  const result = hasConfigOverrides(undefined, {} as PastoralistJSON);
 
   expect(result).toBe(false);
 });

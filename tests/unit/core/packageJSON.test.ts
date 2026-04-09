@@ -1294,3 +1294,27 @@ test("updatePackageJSON - should not write root package.json with invalid JSON c
   expect(currentContent).toBe(originalContent);
   validateRootPackageJsonIntegrity();
 });
+
+test("detectPackageManager - should detect bun via bun.lock when only bun.lock exists", () => {
+  const lockbPath = resolve(process.cwd(), "bun.lockb");
+  const lockPath = resolve(process.cwd(), "bun.lock");
+
+  const hadLockb = existsSync(lockbPath);
+  const hadLock = existsSync(lockPath);
+
+  if (hadLockb) unlinkSync(lockbPath);
+  if (!hadLock) writeFileSync(lockPath, "");
+
+  try {
+    const pm = detectPackageManager();
+    expect(pm).toBe("bun");
+  } finally {
+    if (hadLockb) writeFileSync(lockbPath, "");
+    if (!hadLock && existsSync(lockPath)) unlinkSync(lockPath);
+  }
+});
+
+test("parseNpmLsOutput - should return empty object for invalid JSON", () => {
+  const result = parseNpmLsOutput("not valid json {{{");
+  expect(result).toEqual({});
+});

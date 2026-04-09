@@ -1493,7 +1493,7 @@ test("checkSecurity - returns results when provider fetch succeeds", async () =>
       } as Response);
     }
     const isRegistryCall =
-      typeof url === "string" && url.startsWith("https://registry.npmjs.org");
+      typeof url === "string" && url.startsWith("https://registry.npmjs.org/");
     if (isRegistryCall) {
       return Promise.resolve({
         ok: true,

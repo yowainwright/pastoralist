@@ -1748,6 +1748,28 @@ test("applyAutoFix handles yarn resolutions format", () => {
   }
 });
 
+test("Provider Abstraction - should support spektion provider", () => {
+  const checker = new SecurityChecker({
+    provider: "spektion" as any,
+    token: "test-token",
+  });
+  expect(checker).toBeDefined();
+});
+
+test("checkOverrideUpdates - logs and skips nested override entries", async () => {
+  const checker = new SecurityChecker({ provider: "osv" });
+  const config = {
+    name: "root",
+    version: "1.0.0",
+    overrides: {
+      lodash: "4.17.21",
+      express: { react: "18.0.0" } as any,
+    },
+  };
+  const result = await (checker as any).checkOverrideUpdates(config, []);
+  expect(Array.isArray(result)).toBe(true);
+});
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   console.log("Running security tests...");
 

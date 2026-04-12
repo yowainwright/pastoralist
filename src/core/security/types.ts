@@ -49,6 +49,7 @@ export interface SecurityOverride {
   url?: string;
   vulnerableRange?: string;
   patchedVersion?: string;
+  targetStillVulnerable?: boolean;
 }
 
 export interface OverrideUpdate {

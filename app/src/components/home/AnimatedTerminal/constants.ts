@@ -17,22 +17,15 @@ export const INTERSECTION_OBSERVER_OPTIONS = {
 
 export const TERMINAL_CLASSES = "terminal-window max-w-3xl w-full my-4";
 
-const SECURITY_DEMO_LINES = 23;
+const SECURITY_DEMO_LINES = 21;
 export const HERO_TERMINAL_MIN_HEIGHT = `${TERMINAL_HEADER_HEIGHT_PX + TERMINAL_PADDING_PX + SECURITY_DEMO_LINES * TERMINAL_LINE_HEIGHT_PX}px`;
 
-const TREE_BRANCH = "\u251C\u2500\u2500";
-const TREE_LAST = "\u2514\u2500\u2500";
-const TREE_PIPE = "\u2502";
-const TREE_INDENT = "   ";
 const ICON_SUCCESS = "\u25CF";
 const ICON_CHECK = "\u2713";
 const ICON_SHIELD = "\u2B22";
 const ICON_WARNING = "\u25B2";
 const FARMER = "\u{1F9D1}\u{200D}\u{1F33E}";
 const SHEEP = "\u{1F411}";
-
-const pipe = (depth: number): string =>
-  Array.from({ length: depth }, () => `${TREE_PIPE}${TREE_INDENT}`).join("");
 
 export const CLI_DEMO: TerminalDemo[] = [
   {
@@ -42,24 +35,39 @@ export const CLI_DEMO: TerminalDemo[] = [
       { text: `${FARMER} Pastoralist`, className: "text-success" },
       { text: "&nbsp;" },
       {
-        text: `${TREE_BRANCH} Updating overrides`,
+        text: "Updating overrides",
         className: "text-base-content/70",
+        depth: 0,
+        isLast: true,
+        connectors: [],
       },
       {
-        text: `${pipe(1)}${TREE_BRANCH} ${ICON_SUCCESS} lodash@4.17.21`,
+        text: `${ICON_SUCCESS} lodash@4.17.21`,
         className: "text-success",
+        depth: 1,
+        isLast: false,
+        connectors: [false],
       },
       {
-        text: `${pipe(1)}${pipe(1)}${TREE_BRANCH} Security fix`,
+        text: "Security fix",
         className: "text-base-content/70",
+        depth: 2,
+        isLast: false,
+        connectors: [true, true],
       },
       {
-        text: `${pipe(1)}${pipe(1)}${TREE_LAST} Used by: 1 package`,
+        text: "Used by: 1 package",
         className: "text-base-content/70",
+        depth: 2,
+        isLast: true,
+        connectors: [true, false],
       },
       {
-        text: `${pipe(1)}${TREE_LAST} ${ICON_SUCCESS} 1 override applied`,
+        text: `${ICON_SUCCESS} 1 override applied`,
         className: "text-success",
+        depth: 1,
+        isLast: true,
+        connectors: [false],
       },
       {
         text: `${ICON_CHECK} 1 vulnerability fixed`,
@@ -71,7 +79,11 @@ export const CLI_DEMO: TerminalDemo[] = [
       },
       {
         text: `${ICON_CHECK} The herd is safe! ${SHEEP}`,
-        className: "text-success",
+        className: "text-gold",
+      },
+      {
+        text: '<span class="text-error">\u25A0</span> 0 crit \u00B7 <span class="text-warning">\u25B2</span> 1 high \u00B7 <span class="text-cyan-400">\u25C6</span> 0 med \u00B7 <span class="text-success">\u25CF</span> 0 low \u00B7 <span class="text-cyan-400">\u25B8</span> 1 tracked \u00B7 \u25CB 0 removed \u00B7 10 scanned',
+        className: "text-base-content/50",
       },
     ],
     pauseAfter: 0,
@@ -90,86 +102,122 @@ export const CLI_SECURITY_DEMO: TerminalDemo[] = [
       { text: `${FARMER} Pastoralist`, className: "text-success" },
       { text: "&nbsp;" },
       {
-        text: `${TREE_BRANCH} Scanning packages`,
+        text: "Scanning packages",
         className: "text-base-content/70",
+        depth: 0,
+        isLast: false,
+        connectors: [],
         delay: 60,
         animate: false,
       },
       {
-        text: `${pipe(1)}${TREE_BRANCH} ${ICON_WARNING} [HIGH] lodash@4.17.19`,
+        text: `${ICON_WARNING} [HIGH] lodash@4.17.19`,
         className: "text-warning",
+        depth: 1,
+        isLast: false,
+        connectors: [true],
         delay: 30,
         animate: false,
       },
       {
-        text: `${pipe(1)}${pipe(1)}${TREE_BRANCH} Prototype Pollution in lodash`,
+        text: "Prototype Pollution in lodash",
         className: "text-base-content/70",
+        depth: 2,
+        isLast: false,
+        connectors: [true, true],
         delay: 20,
         animate: false,
       },
       {
-        text: `${pipe(1)}${pipe(1)}${TREE_BRANCH} CVE: CVE-2020-8203`,
+        text: "CVE: CVE-2020-8203",
         className: "text-base-content/70",
+        depth: 2,
+        isLast: false,
+        connectors: [true, true],
         delay: 20,
         animate: false,
       },
       {
-        text: `${pipe(1)}${pipe(1)}${TREE_LAST} Fix: upgrade to 4.17.21`,
+        text: "Fix: upgrade to 4.17.21",
         className: "text-base-content/70",
+        depth: 2,
+        isLast: true,
+        connectors: [true, true],
         delay: 20,
         animate: false,
       },
       {
-        text: `${pipe(1)}${TREE_LAST} ${ICON_SUCCESS} 1 vulnerability found`,
+        text: `${ICON_SUCCESS} 1 vulnerability found`,
         className: "text-success",
-        delay: 30,
-        animate: false,
-      },
-      { text: "&nbsp;", delay: 40, animate: false },
-      {
-        text: `${TREE_BRANCH} Fixes applied`,
-        className: "text-base-content/70",
-        delay: 30,
-        animate: false,
-      },
-      {
-        text: `${pipe(1)}${TREE_BRANCH} ${ICON_SUCCESS} lodash@4.17.21`,
-        className: "text-success",
-        delay: 20,
-        animate: false,
-      },
-      {
-        text: `${pipe(1)}${pipe(1)}${TREE_BRANCH} 4.17.19 \u2192 4.17.21`,
-        className: "text-base-content/70",
-        delay: 20,
-        animate: false,
-      },
-      {
-        text: `${pipe(1)}${pipe(1)}${TREE_LAST} Blocks CVE-2020-8203`,
-        className: "text-base-content/70",
-        delay: 20,
-        animate: false,
-      },
-      {
-        text: `${pipe(1)}${TREE_LAST} ${ICON_SUCCESS} 1 override added`,
-        className: "text-success",
-        delay: 20,
-        animate: false,
-      },
-      { text: "&nbsp;", delay: 40, animate: false },
-      {
-        text: `${TREE_LAST} Updating overrides`,
-        className: "text-base-content/70",
+        depth: 1,
+        isLast: true,
+        connectors: [true],
         delay: 30,
         animate: false,
       },
       {
-        text: `    ${TREE_LAST} ${ICON_SUCCESS} 1 override applied`,
+        text: "Fixes applied",
+        className: "text-base-content/70",
+        depth: 0,
+        isLast: false,
+        connectors: [],
+        delay: 30,
+        animate: false,
+      },
+      {
+        text: `${ICON_SUCCESS} lodash@4.17.21`,
         className: "text-success",
+        depth: 1,
+        isLast: false,
+        connectors: [true],
         delay: 20,
         animate: false,
       },
-      { text: "&nbsp;", delay: 30, animate: false },
+      {
+        text: "4.17.19 \u2192 4.17.21",
+        className: "text-base-content/70",
+        depth: 2,
+        isLast: false,
+        connectors: [true, true],
+        delay: 20,
+        animate: false,
+      },
+      {
+        text: "Blocks CVE-2020-8203",
+        className: "text-base-content/70",
+        depth: 2,
+        isLast: true,
+        connectors: [true, true],
+        delay: 20,
+        animate: false,
+      },
+      {
+        text: `${ICON_SUCCESS} 1 override added`,
+        className: "text-success",
+        depth: 1,
+        isLast: true,
+        connectors: [true],
+        delay: 20,
+        animate: false,
+      },
+      {
+        text: "Updating overrides",
+        className: "text-base-content/70",
+        depth: 0,
+        isLast: true,
+        connectors: [],
+        delay: 30,
+        animate: false,
+      },
+      {
+        text: `${ICON_SUCCESS} 1 override applied`,
+        className: "text-success",
+        depth: 1,
+        isLast: true,
+        connectors: [false],
+        delay: 20,
+        animate: false,
+      },
       {
         text: `${ICON_CHECK} 1 vulnerability fixed`,
         className: "text-success",
@@ -184,8 +232,14 @@ export const CLI_SECURITY_DEMO: TerminalDemo[] = [
       },
       {
         text: `${ICON_CHECK} The herd is safe! ${SHEEP}`,
-        className: "text-success",
+        className: "text-gold",
         delay: 80,
+        animate: false,
+      },
+      {
+        text: '<span class="text-error">\u25A0</span> 0 crit \u00B7 <span class="text-warning">\u25B2</span> 1 high \u00B7 <span class="text-cyan-400">\u25C6</span> 0 med \u00B7 <span class="text-success">\u25CF</span> 0 low \u00B7 <span class="text-cyan-400">\u25B8</span> 1 tracked \u00B7 \u25CB 0 removed \u00B7 10 scanned',
+        className: "text-base-content/50",
+        delay: 40,
         animate: false,
       },
     ],

@@ -4,6 +4,9 @@ export interface TerminalLine {
   className?: string;
   delay?: number;
   animate?: boolean;
+  depth?: number;
+  isLast?: boolean;
+  connectors?: boolean[];
 }
 
 export interface TerminalDemo {

@@ -27,6 +27,7 @@ export const createMockTerminalGraph = () => {
     endPhase: mock(() => graph),
     summary: mock(() => graph),
     executiveSummary: mock(() => graph),
+    compactSummary: mock(() => graph),
     complete: mock(() => graph),
     notice: mock(() => graph),
     stop: mock(() => graph),

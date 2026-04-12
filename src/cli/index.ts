@@ -857,6 +857,17 @@ export async function action(
         packagesProtected: protectedCount,
       });
 
+      const metrics = updateContext.metrics;
+      graph.compactSummary({
+        severityCritical: metrics?.severityCritical ?? 0,
+        severityHigh: metrics?.severityHigh ?? 0,
+        severityMedium: metrics?.severityMedium ?? 0,
+        severityLow: metrics?.severityLow ?? 0,
+        overridesTracked: metrics?.appendixEntriesUpdated ?? 0,
+        overridesRemoved: metrics?.overridesRemoved ?? 0,
+        packagesScanned: metrics?.packagesScanned ?? 0,
+      });
+
       graph.complete("The herd is safe!", ` ${SHEEP}`);
 
       const shouldShowInstallNotice = updateResultData.updated;

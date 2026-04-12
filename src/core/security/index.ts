@@ -22,6 +22,7 @@ import {
   deduplicateAlerts,
   extractPackages,
   findVulnerablePackages,
+  computeVulnerabilityReduction,
 } from "./utils";
 import { SecuritySetupWizard, promptForSetup } from "./setup";
 import type { SecurityProvider as SecurityProviderType } from "./constants";
@@ -492,13 +493,22 @@ export class SecurityChecker {
   ): SecurityOverride[] {
     return vulnerablePackages
       .filter((pkg) => pkg.fixAvailable && pkg.patchedVersion)
-      .map((pkg) => {
+      .flatMap((pkg) => {
         const latestVersion = latestVersions.get(pkg.packageName);
         const patchedVersion = pkg.patchedVersion!;
 
         const shouldUseLatest =
           latestVersion && compareVersions(latestVersion, patchedVersion) >= 0;
         const targetVersion = shouldUseLatest ? latestVersion : patchedVersion;
+
+        const { skip, targetStillVulnerable } = computeVulnerabilityReduction(
+          pkg.packageName,
+          pkg.currentVersion,
+          targetVersion,
+          vulnerablePackages,
+        );
+
+        if (skip) return [];
 
         const base = {
           packageName: pkg.packageName,
@@ -509,15 +519,26 @@ export class SecurityChecker {
           vulnerableRange: pkg.vulnerableVersions,
           patchedVersion,
         };
-
         const cvesField =
           pkg.cves && pkg.cves.length > 0 ? { cves: pkg.cves } : {};
         const descriptionField = pkg.description
           ? { description: pkg.description }
           : {};
         const urlField = pkg.url ? { url: pkg.url } : {};
+        const targetVulnField = targetStillVulnerable
+          ? { targetStillVulnerable: true }
+          : {};
 
-        return Object.assign({}, base, cvesField, descriptionField, urlField);
+        return [
+          Object.assign(
+            {},
+            base,
+            cvesField,
+            descriptionField,
+            urlField,
+            targetVulnField,
+          ),
+        ];
       });
   }
 

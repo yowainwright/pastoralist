@@ -27,12 +27,14 @@ export function TransformDemo({
   } = useTransformAnimation(shouldAnimate, onComplete);
 
   return (
-    <div ref={containerRef} className="flex flex-col gap-12">
+    <div ref={containerRef} className="flex flex-col gap-6">
       <StepIndicator
         activeStep={activeStep}
         phase={phase}
         onStepClick={handleStepClick}
       />
+
+      <div className="h-6 w-px bg-primary/20 mx-auto" />
 
       <div className="grid md:grid-cols-2 gap-6 lg:gap-8">
         <div className="flex flex-col gap-4">

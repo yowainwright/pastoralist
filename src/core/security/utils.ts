@@ -136,6 +136,32 @@ export const isVersionVulnerable = (
   }
 };
 
+export const computeVulnerabilityReduction = (
+  packageName: string,
+  currentVersion: string,
+  targetVersion: string,
+  allAlerts: SecurityAlert[],
+): { skip: boolean; targetStillVulnerable: boolean } => {
+  const packageAlerts = allAlerts.filter(
+    (a) => a.packageName === packageName && a.vulnerableVersions,
+  );
+  const hasVulnerableRanges = packageAlerts.length > 0;
+  if (!hasVulnerableRanges)
+    return { skip: false, targetStillVulnerable: false };
+
+  const currentCount = packageAlerts.filter((a) =>
+    isVersionVulnerable(currentVersion, a.vulnerableVersions!),
+  ).length;
+  const targetCount = packageAlerts.filter((a) =>
+    isVersionVulnerable(targetVersion, a.vulnerableVersions!),
+  ).length;
+
+  return {
+    skip: targetCount >= currentCount,
+    targetStillVulnerable: targetCount > 0,
+  };
+};
+
 export const findVulnerablePackages = (
   config: PastoralistJSON,
   alerts: SecurityAlert[],

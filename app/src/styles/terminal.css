@@ -136,7 +136,7 @@
     ui-monospace, SFMono-Regular, "SF Mono", Monaco, "Cascadia Mono",
     "Roboto Mono", Consolas, "Courier New", monospace;
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.4;
   color: #1e293b;
 }
 
@@ -148,6 +148,78 @@
   min-height: 1.4em;
   white-space: pre-wrap;
   word-break: break-word;
+  display: flex;
+  align-items: stretch;
+}
+
+.tree-connector {
+  display: inline-flex;
+  flex-shrink: 0;
+  position: relative;
+  width: 2em;
+  align-self: stretch;
+}
+
+.tree-connector-empty {
+}
+
+.tree-connector-pipe::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid rgba(30, 41, 59, 0.3);
+}
+
+[data-theme="night"] .tree-connector-pipe::before {
+  border-left-color: rgba(226, 232, 240, 0.3);
+}
+
+.tree-connector-mid::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid rgba(30, 41, 59, 0.3);
+}
+
+.tree-connector-mid::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 50%;
+  right: 0;
+  border-top: 1px solid rgba(30, 41, 59, 0.3);
+}
+
+[data-theme="night"] .tree-connector-mid::before,
+[data-theme="night"] .tree-connector-mid::after {
+  border-color: rgba(226, 232, 240, 0.3);
+}
+
+.tree-connector-last::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 0;
+  bottom: 50%;
+  border-left: 1px solid rgba(30, 41, 59, 0.3);
+}
+
+.tree-connector-last::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 50%;
+  right: 0;
+  border-top: 1px solid rgba(30, 41, 59, 0.3);
+}
+
+[data-theme="night"] .tree-connector-last::before,
+[data-theme="night"] .tree-connector-last::after {
+  border-color: rgba(226, 232, 240, 0.3);
 }
 
 .terminal-prefix {
@@ -275,6 +347,18 @@
 [data-theme="night"] .terminal-content .text-primary,
 [data-theme="night"] .terminal-window .text-primary {
   color: #60a5fa !important;
+}
+
+.terminal-content .text-gold,
+.terminal-window .text-gold {
+  color: #ca8a04 !important;
+  font-weight: 700;
+}
+
+[data-theme="night"] .terminal-content .text-gold,
+[data-theme="night"] .terminal-window .text-gold {
+  color: #fbbf24 !important;
+  font-weight: 700;
 }
 
 /* Static mockup-code terminal styling (for non-animated blocks) */

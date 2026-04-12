@@ -93,6 +93,16 @@ export interface ExecutiveSummaryData {
   packagesProtected?: number;
 }
 
+export interface CompactSummaryData {
+  severityCritical: number;
+  severityHigh: number;
+  severityMedium: number;
+  severityLow: number;
+  overridesTracked: number;
+  overridesRemoved: number;
+  packagesScanned: number;
+}
+
 export type TerminalGraph = {
   banner: () => TerminalGraph;
   startPhase: (
@@ -112,6 +122,7 @@ export type TerminalGraph = {
   endPhase: (text?: string) => TerminalGraph;
   summary: (overrides: OverridesMap, changes?: string[]) => TerminalGraph;
   executiveSummary: (data: ExecutiveSummaryData) => TerminalGraph;
+  compactSummary: (data: CompactSummaryData) => TerminalGraph;
   complete: (text: string, suffix?: string) => TerminalGraph;
   notice: (text: string) => TerminalGraph;
   stop: () => TerminalGraph;

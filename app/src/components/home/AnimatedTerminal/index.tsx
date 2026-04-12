@@ -12,6 +12,31 @@ import { STYLES } from "@/components/TerminalWindow/constants";
 import { useTypingAnimation } from "./useTypingAnimation";
 import { useLineProcessor } from "./useLineProcessor";
 
+export const TreeConnectors: React.FC<{ line: TerminalLine }> = ({ line }) => {
+  const depth = line.depth ?? 0;
+  if (depth === 0) return null;
+
+  const ancestorSpans = (line.connectors ?? [])
+    .slice(0, depth - 1)
+    .map((hasPipe, i) => (
+      <span
+        key={i}
+        className={`tree-connector ${hasPipe ? "tree-connector-pipe" : "tree-connector-empty"}`}
+      />
+    ));
+
+  const branchClass = line.isLast
+    ? "tree-connector-last"
+    : "tree-connector-mid";
+
+  return (
+    <>
+      {ancestorSpans}
+      <span className={`tree-connector ${branchClass}`} />
+    </>
+  );
+};
+
 const TerminalLines: React.FC<{
   visibleLines: TerminalLine[];
   isTyping: boolean;
@@ -22,6 +47,7 @@ const TerminalLines: React.FC<{
     {visibleLines.map((line, index) => (
       <div key={index} className={`${STYLES.line} ${line.className ?? ""}`}>
         {line.prefix && <span className={STYLES.prefix}>{line.prefix}</span>}
+        <TreeConnectors line={line} />
         <span dangerouslySetInnerHTML={{ __html: line.text }} />
       </div>
     ))}
@@ -30,6 +56,7 @@ const TerminalLines: React.FC<{
         {currentLine.prefix && (
           <span className={STYLES.prefix}>{currentLine.prefix}</span>
         )}
+        <TreeConnectors line={currentLine} />
         <span dangerouslySetInnerHTML={{ __html: displayedText }} />
         <span className={STYLES.cursor} />
       </div>

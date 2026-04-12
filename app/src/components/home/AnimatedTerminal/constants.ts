@@ -78,12 +78,12 @@ export const CLI_DEMO: TerminalDemo[] = [
         className: "text-cyan-400",
       },
       {
-        text: `${ICON_CHECK} The herd is safe! ${SHEEP}`,
-        className: "text-gold",
-      },
-      {
         text: '<span class="text-error">\u25A0</span> 0 crit \u00B7 <span class="text-warning">\u25B2</span> 1 high \u00B7 <span class="text-cyan-400">\u25C6</span> 0 med \u00B7 <span class="text-success">\u25CF</span> 0 low \u00B7 <span class="text-cyan-400">\u25B8</span> 1 tracked \u00B7 \u25CB 0 removed \u00B7 10 scanned',
         className: "text-base-content/50",
+      },
+      {
+        text: `${ICON_CHECK} The herd is safe! ${SHEEP}`,
+        className: "text-gold",
       },
     ],
     pauseAfter: 0,
@@ -231,15 +231,15 @@ export const CLI_SECURITY_DEMO: TerminalDemo[] = [
         animate: false,
       },
       {
-        text: `${ICON_CHECK} The herd is safe! ${SHEEP}`,
-        className: "text-gold",
-        delay: 80,
-        animate: false,
-      },
-      {
         text: '<span class="text-error">\u25A0</span> 0 crit \u00B7 <span class="text-warning">\u25B2</span> 1 high \u00B7 <span class="text-cyan-400">\u25C6</span> 0 med \u00B7 <span class="text-success">\u25CF</span> 0 low \u00B7 <span class="text-cyan-400">\u25B8</span> 1 tracked \u00B7 \u25CB 0 removed \u00B7 10 scanned',
         className: "text-base-content/50",
         delay: 40,
+        animate: false,
+      },
+      {
+        text: `${ICON_CHECK} The herd is safe! ${SHEEP}`,
+        className: "text-gold",
+        delay: 80,
         animate: false,
       },
     ],

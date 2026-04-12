@@ -1,4 +1,4 @@
-export const TERMINAL_LINE_HEIGHT_PX = 24;
+export const TERMINAL_LINE_HEIGHT_PX = 20;
 export const TERMINAL_HEADER_HEIGHT_PX = 44;
 export const TERMINAL_PADDING_PX = 32;
 

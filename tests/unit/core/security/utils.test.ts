@@ -7,6 +7,7 @@ import {
   extractPackages,
   isVersionVulnerable,
   findVulnerablePackages,
+  computeVulnerabilityReduction,
   InteractiveSecurityManager,
   createPromptInterface,
   promptConfirm,
@@ -1255,4 +1256,78 @@ test("promptInput - returns default on error", async () => {
 
   expect(result).toBe("fallback");
   spy.mockRestore();
+});
+
+// =============================================================================
+// computeVulnerabilityReduction tests
+// =============================================================================
+
+const makeAlert = (
+  packageName: string,
+  vulnerableVersions: string,
+): SecurityAlert => ({
+  packageName,
+  currentVersion: "1.0.0",
+  vulnerableVersions,
+  fixAvailable: true,
+  severity: "high",
+  title: "Test Vulnerability",
+});
+
+test("computeVulnerabilityReduction - no skip when target fully resolves vulnerability", () => {
+  const alerts: SecurityAlert[] = [makeAlert("lodash", "< 4.17.21")];
+  const result = computeVulnerabilityReduction(
+    "lodash",
+    "4.17.15",
+    "4.17.21",
+    alerts,
+  );
+  expect(result.skip).toBe(false);
+  expect(result.targetStillVulnerable).toBe(false);
+});
+
+test("computeVulnerabilityReduction - skips when target has no net reduction", () => {
+  const alerts: SecurityAlert[] = [makeAlert("bad-pkg", "< 3.0.0")];
+  const result = computeVulnerabilityReduction(
+    "bad-pkg",
+    "1.0.0",
+    "2.0.0",
+    alerts,
+  );
+  expect(result.skip).toBe(true);
+});
+
+test("computeVulnerabilityReduction - targetStillVulnerable when target reduces but does not eliminate", () => {
+  const alerts: SecurityAlert[] = [
+    makeAlert("multi-vuln", "< 2.0.0"),
+    makeAlert("multi-vuln", "< 3.0.0"),
+  ];
+  const result = computeVulnerabilityReduction(
+    "multi-vuln",
+    "1.0.0",
+    "2.0.0",
+    alerts,
+  );
+  expect(result.skip).toBe(false);
+  expect(result.targetStillVulnerable).toBe(true);
+});
+
+test("computeVulnerabilityReduction - no skip and no targetStillVulnerable when no vulnerableVersions present", () => {
+  const alerts: SecurityAlert[] = [
+    {
+      packageName: "safe-pkg",
+      currentVersion: "1.0.0",
+      fixAvailable: true,
+      severity: "low",
+      title: "Safe vulnerability",
+    },
+  ];
+  const result = computeVulnerabilityReduction(
+    "safe-pkg",
+    "1.0.0",
+    "2.0.0",
+    alerts,
+  );
+  expect(result.skip).toBe(false);
+  expect(result.targetStillVulnerable).toBe(false);
 });

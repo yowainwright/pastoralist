@@ -6,7 +6,7 @@ import { STEP_POPOVERS, STEPS, APPENDIX_CONTENT, COMMAND } from "./constants";
 
 export function TransformDemoStatic() {
   return (
-    <div className="flex flex-col gap-12">
+    <div className="flex flex-col gap-6">
       <ul className="steps w-full">
         {STEPS.map((step, index) => {
           const baseClass =
@@ -26,6 +26,8 @@ export function TransformDemoStatic() {
           );
         })}
       </ul>
+
+      <div className="h-6 w-px bg-primary/20 mx-auto" />
 
       <div className="grid md:grid-cols-2 gap-6 lg:gap-8">
         <div className="flex flex-col gap-4">

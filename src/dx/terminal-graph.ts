@@ -4,6 +4,7 @@ import type {
   TerminalPhase,
   TerminalGraphOptions,
   ExecutiveSummaryData,
+  CompactSummaryData,
   OverridesMap,
   VulnerabilityInfo,
   OverrideInfo,
@@ -15,7 +16,7 @@ import { defaultOutput } from "./output";
 import { playShimmer } from "./shimmer";
 import { FARMER, ANSI } from "../constants";
 import { ICON } from "../utils/icons";
-import { green } from "../utils/colors";
+import { green, gray } from "../utils/colors";
 import { visibleLength } from "./format";
 
 const { BOLD, RESET, FG_RED, FG_WHITE } = ANSI;
@@ -486,6 +487,23 @@ export const createTerminalGraph = (
             `${ICON.SHIELD} ${data.packagesProtected} package${plural} protected`,
           );
         }
+      });
+      return methods;
+    },
+
+    compactSummary: (data: CompactSummaryData) => {
+      paused(() => {
+        const sep = gray(" . ");
+        const parts = [
+          `${ICON.error} ${data.severityCritical} crit`,
+          `${ICON.warning} ${data.severityHigh} high`,
+          `${ICON.info} ${data.severityMedium} med`,
+          `${ICON.check} ${data.severityLow} low`,
+          `${ICON.arrow} ${data.overridesTracked} tracked`,
+          `${ICON.skip} ${data.overridesRemoved} removed`,
+          `${data.packagesScanned} scanned`,
+        ];
+        out.writeLine(parts.join(sep));
       });
       return methods;
     },

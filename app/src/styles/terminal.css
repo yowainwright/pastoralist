@@ -160,6 +160,9 @@
   align-self: stretch;
 }
 
+.tree-connector-empty {
+}
+
 .tree-connector-pipe::before {
   content: "";
   position: absolute;

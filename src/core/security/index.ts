@@ -23,6 +23,7 @@ import {
   extractPackages,
   findVulnerablePackages,
   computeVulnerabilityReduction,
+  getSeverityScore,
 } from "./utils";
 import { SecuritySetupWizard, promptForSetup } from "./setup";
 import type { SecurityProvider as SecurityProviderType } from "./constants";
@@ -210,7 +211,7 @@ export class SecurityChecker {
         message: "Extracting packages from dependencies...",
       });
 
-      const packages = extractPackages(config);
+      const packages = extractPackages(config, options.excludePackages || []);
 
       if (packages.length === 0) {
         this.log.debug("No packages to check", "checkSecurity");
@@ -261,6 +262,13 @@ export class SecurityChecker {
       });
 
       let allVulnerablePackages = deduplicateAlerts(alerts);
+
+      if (options.severityThreshold) {
+        const thresholdScore = getSeverityScore(options.severityThreshold);
+        allVulnerablePackages = allVulnerablePackages.filter(
+          (alert) => getSeverityScore(alert.severity) >= thresholdScore,
+        );
+      }
 
       const shouldScanWorkspaces =
         options.depPaths && options.depPaths.length > 0;

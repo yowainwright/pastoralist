@@ -41,7 +41,7 @@ description: "Pastoralist is a dependency management tool that helps keep your p
 
 ## What is Pastoralist?
 
-Pastoralist is a command-line tool that helps manage and update your package.json overrides, resolutions, and patches. It helps keep your dependency overrides up-to-date, saving you time and helping reduce security vulnerabilities.
+Pastoralist is the audit trail for your dependency overrides. It documents why each override exists, tracks what depends on it, and cleans up overrides you no longer need. It can also detect security vulnerabilities and generate overrides to fix them.
 
 ## Why Pastoralist?
 
@@ -72,10 +72,10 @@ Over time, these overrides become outdated, and you might miss important securit
 
 Pastoralist automates this process by:
 
-- Scanning your package.json for overrides, resolutions, and patches
-- Checking for newer versions of overridden packages
-- Updating them while maintaining compatibility
-- Removing overrides that are no longer needed
+- Documenting why each override exists and who depends on it
+- Removing stale overrides automatically when they're no longer needed
+- Tracking patches linked to your overrides
+- Optionally scanning for security vulnerabilities and generating overrides to fix them
 
 With one simple command, you can ensure all your overrides are current:
 
@@ -96,9 +96,9 @@ pastoralist
 
 ## Benefits
 
+- **Transparency**: Clear audit trail for every override — why it exists, what depends on it
+- **Clean**: Removes stale overrides automatically
 - **Automated Updates**: No more manual version checking
-- **Security**: Stay current with security patches
-- **Transparency**: Clear tracking of all overrides
-- **Clean**: Removes unnecessary overrides
+- **Security**: Scan for vulnerabilities and generate overrides to fix them
 - **Fast**: Updates all overrides with one command
 - **Compatible**: Works with npm, yarn, pnpm, and bun

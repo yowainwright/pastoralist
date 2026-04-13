@@ -9,7 +9,7 @@ import type {
 } from "../../../../src/types";
 import {
   updateAppendix,
-  processPackageJSON,
+  processAndWritePackageJSON,
   constructAppendix,
   findRemovableAppendixItems,
 } from "../../../../src/core/appendix";
@@ -205,7 +205,7 @@ test("updateAppendix - does not mutate original appendix with nested overrides",
   expect(Object.keys(appendixRef).length).toBe(0);
 });
 
-test("processPackageJSON - writes appendix to file when writeAppendixToFile=true", () => {
+test("processAndWritePackageJSON - writes appendix to file when writeAppendixToFile=true", () => {
   const tempPath = join(tmpdir(), `pastoralist-test-${Date.now()}.json`);
   const pkg = {
     name: "test-pkg",
@@ -215,11 +215,64 @@ test("processPackageJSON - writes appendix to file when writeAppendixToFile=true
 
   try {
     const overrides: OverridesType = { lodash: "4.17.21" };
-    processPackageJSON(tempPath, overrides, ["lodash"], true);
+    processAndWritePackageJSON(tempPath, overrides, ["lodash"], true);
     const written = JSON.parse(readFileSync(tempPath, "utf8"));
     expect(written.pastoralist).toBeDefined();
     expect(written.pastoralist.appendix).toBeDefined();
   } finally {
     unlinkSync(tempPath);
   }
+});
+
+test("processOverrideEntry - simple override produces correct appendix", () => {
+  const result = updateAppendix({
+    overrides: { lodash: "4.17.21" },
+    dependencies: { lodash: "4.17.19" },
+    packageName: "my-app",
+  });
+  const key = "lodash@4.17.21";
+  expect(result[key]).toBeDefined();
+  expect(result[key].dependents?.["my-app"]).toBeDefined();
+});
+
+test("processOverrideEntry - nested override produces correct appendix", () => {
+  const result = updateAppendix({
+    overrides: { express: { "body-parser": "1.20.0" } },
+    dependencies: { express: "4.18.0" },
+    packageName: "my-app",
+  });
+  const key = "body-parser@1.20.0";
+  expect(result[key]).toBeDefined();
+});
+
+test("processOverrideEntry - cache hit returns cached item", () => {
+  const cache = new Map();
+  const firstResult = updateAppendix({
+    overrides: { lodash: "4.17.21" },
+    dependencies: { lodash: "4.17.19" },
+    packageName: "pkg-a",
+    cache,
+  });
+
+  const secondResult = updateAppendix({
+    overrides: { lodash: "4.17.21" },
+    dependencies: { lodash: "4.17.19" },
+    packageName: "pkg-b",
+    cache,
+  });
+
+  const key = "lodash@4.17.21";
+  expect(firstResult[key]).toBeDefined();
+  expect(secondResult[key]).toBeDefined();
+});
+
+test("processOverrideEntry - onlyUsedOverrides skips unused packages", () => {
+  const result = updateAppendix({
+    overrides: { lodash: "4.17.21", "unused-pkg": "1.0.0" },
+    dependencies: { lodash: "4.17.19" },
+    packageName: "my-app",
+    onlyUsedOverrides: true,
+  });
+  expect(result["lodash@4.17.21"]).toBeDefined();
+  expect(result["unused-pkg@1.0.0"]).toBeUndefined();
 });

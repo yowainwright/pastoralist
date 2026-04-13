@@ -1,6 +1,5 @@
 import { SecurityAlert, OSVVulnerability } from "../../../types";
 import { logger, retry, type RetryOptions } from "../../../utils";
-import { TEST_FIXTURES } from "../../../constants";
 import { OSV_API } from "../constants";
 
 export class OSVProvider {
@@ -193,10 +192,40 @@ export class OSVProvider {
       .flat();
 
     const alertToResolve = this.isIRLFix
-      ? [TEST_FIXTURES.ALERT_TO_RESOLVE]
+      ? [
+          {
+            packageName: "fake-pastoralist-check-2",
+            currentVersion: "1.0.0",
+            vulnerableVersions: "< 2.1.0",
+            patchedVersion: "2.1.0",
+            severity: "critical" as const,
+            title:
+              "Critical vulnerability in fake-pastoralist-check-2 (transitive from fake-pastoralist-check-1)",
+            cves: ["CVE-FAKE-PASTORALIST-2024-0001"],
+            fixAvailable: true,
+            description:
+              "Fake critical security vulnerability in fake-pastoralist-check-2. Used by fake-pastoralist-check-1@1.0.0.",
+            url: "https://example.com/fake-pastoralist-advisory-0001",
+          },
+        ]
       : [];
     const alertToCapture = this.isIRLCatch
-      ? [TEST_FIXTURES.ALERT_TO_CAPTURE]
+      ? [
+          {
+            packageName: "fake-pastoralist-check-4",
+            currentVersion: "0.5.0",
+            vulnerableVersions: "< 1.0.0",
+            patchedVersion: undefined,
+            severity: "high" as const,
+            title:
+              "High severity issue in fake-pastoralist-check-4 with no patch available",
+            cves: ["CVE-FAKE-PASTORALIST-2024-0002"],
+            fixAvailable: false,
+            description:
+              "Fake high severity vulnerability with no available patch for testing alert capture functionality.",
+            url: "https://example.com/fake-pastoralist-advisory-0002",
+          },
+        ]
       : [];
 
     return realAlerts.concat(alertToResolve).concat(alertToCapture);

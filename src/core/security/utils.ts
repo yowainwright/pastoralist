@@ -57,6 +57,7 @@ export const deduplicateAlerts = (alerts: SecurityAlert[]): SecurityAlert[] => {
 
 export const extractPackages = (
   config: PastoralistJSON,
+  excludePackages: string[] = [],
 ): Array<{ name: string; version: string }> => {
   const allDeps = Object.assign(
     {},
@@ -65,10 +66,12 @@ export const extractPackages = (
     config.peerDependencies,
   );
 
-  return Object.entries(allDeps).map(([name, version]) => ({
-    name,
-    version: version.replace(/^[\^~]/, ""),
-  }));
+  return Object.entries(allDeps)
+    .filter(([name]) => !excludePackages.includes(name))
+    .map(([name, version]) => ({
+      name,
+      version: version.replace(/^[\^~]/, ""),
+    }));
 };
 
 const checkBoundedRange = (version: string, range: string): boolean | null => {

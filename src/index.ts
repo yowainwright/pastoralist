@@ -26,7 +26,7 @@ export {
 export {
   constructAppendix,
   updateAppendix,
-  processPackageJSON,
+  processAndWritePackageJSON,
   findRemovableAppendixItems,
 } from "./core/appendix";
 

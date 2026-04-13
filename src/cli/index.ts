@@ -211,6 +211,8 @@ export const runSecurityCheck = async (
       depPaths: scanPaths,
       root: mergedOptions.root || "./",
       onProgress,
+      severityThreshold: config?.pastoralist?.security?.severityThreshold,
+      excludePackages: config?.pastoralist?.security?.excludePackages,
     });
 
     return {

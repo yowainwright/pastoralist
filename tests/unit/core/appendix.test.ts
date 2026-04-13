@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from "fs";
 import { resolve } from "path";
 import {
   updateAppendix,
-  processPackageJSON,
+  processAndWritePackageJSON,
   constructAppendix,
 } from "../../../src/core/appendix";
 import {
@@ -375,8 +375,8 @@ test("updateAppendix - should handle nested override cache hits", () => {
   expect(secondResult["nested@1.0.0"]).toBeDefined();
 });
 
-test("processPackageJSON - should return undefined for non-existent file", () => {
-  const result = processPackageJSON(
+test("processAndWritePackageJSON - should return undefined for non-existent file", () => {
+  const result = processAndWritePackageJSON(
     "/non/existent/path/package.json",
     { lodash: "4.17.21" },
     ["lodash"],
@@ -386,7 +386,7 @@ test("processPackageJSON - should return undefined for non-existent file", () =>
   expect(result).toBeUndefined();
 });
 
-test("processPackageJSON - should return undefined for package without matching deps", () => {
+test("processAndWritePackageJSON - should return undefined for package without matching deps", () => {
   const testPkgPath = resolve(TEST_DIR, "no-match-package.json");
   writeFileSync(
     testPkgPath,
@@ -397,7 +397,7 @@ test("processPackageJSON - should return undefined for package without matching 
     }),
   );
 
-  const result = processPackageJSON(
+  const result = processAndWritePackageJSON(
     testPkgPath,
     { lodash: "4.17.21" },
     ["lodash"],
@@ -407,7 +407,7 @@ test("processPackageJSON - should return undefined for package without matching 
   expect(result).toBeUndefined();
 });
 
-test("processPackageJSON - should process package with matching dependency", () => {
+test("processAndWritePackageJSON - should process package with matching dependency", () => {
   const testPkgPath = resolve(TEST_DIR, "match-package.json");
   writeFileSync(
     testPkgPath,
@@ -418,7 +418,7 @@ test("processPackageJSON - should process package with matching dependency", () 
     }),
   );
 
-  const result = processPackageJSON(
+  const result = processAndWritePackageJSON(
     testPkgPath,
     { lodash: "4.17.21" },
     ["lodash"],
@@ -430,7 +430,7 @@ test("processPackageJSON - should process package with matching dependency", () 
   expect(result?.appendix["lodash@4.17.21"]).toBeDefined();
 });
 
-test("processPackageJSON - should handle devDependencies", () => {
+test("processAndWritePackageJSON - should handle devDependencies", () => {
   const testPkgPath = resolve(TEST_DIR, "dev-dep-package.json");
   writeFileSync(
     testPkgPath,
@@ -441,7 +441,7 @@ test("processPackageJSON - should handle devDependencies", () => {
     }),
   );
 
-  const result = processPackageJSON(
+  const result = processAndWritePackageJSON(
     testPkgPath,
     { lodash: "4.17.21" },
     ["lodash"],
@@ -452,7 +452,7 @@ test("processPackageJSON - should handle devDependencies", () => {
   expect(result?.appendix["lodash@4.17.21"]).toBeDefined();
 });
 
-test("processPackageJSON - should handle peerDependencies", () => {
+test("processAndWritePackageJSON - should handle peerDependencies", () => {
   const testPkgPath = resolve(TEST_DIR, "peer-dep-package.json");
   writeFileSync(
     testPkgPath,
@@ -463,7 +463,7 @@ test("processPackageJSON - should handle peerDependencies", () => {
     }),
   );
 
-  const result = processPackageJSON(
+  const result = processAndWritePackageJSON(
     testPkgPath,
     { react: "18.2.0" },
     ["react"],
@@ -474,7 +474,7 @@ test("processPackageJSON - should handle peerDependencies", () => {
   expect(result?.appendix["react@18.2.0"]).toBeDefined();
 });
 
-test("processPackageJSON - should write appendix to file when writeAppendixToFile is true", () => {
+test("processAndWritePackageJSON - should write appendix to file when writeAppendixToFile is true", () => {
   const testPkgPath = resolve(TEST_DIR, "write-appendix-package.json");
   writeFileSync(
     testPkgPath,
@@ -485,7 +485,7 @@ test("processPackageJSON - should write appendix to file when writeAppendixToFil
     }),
   );
 
-  const result = processPackageJSON(
+  const result = processAndWritePackageJSON(
     testPkgPath,
     { lodash: "4.17.21" },
     ["lodash"],
@@ -499,7 +499,7 @@ test("processPackageJSON - should write appendix to file when writeAppendixToFil
   expect(updatedPkg.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
 });
 
-test("processPackageJSON - should handle multiple dependency types", () => {
+test("processAndWritePackageJSON - should handle multiple dependency types", () => {
   const testPkgPath = resolve(TEST_DIR, "multi-dep-package.json");
   writeFileSync(
     testPkgPath,
@@ -512,7 +512,7 @@ test("processPackageJSON - should handle multiple dependency types", () => {
     }),
   );
 
-  const result = processPackageJSON(
+  const result = processAndWritePackageJSON(
     testPkgPath,
     { lodash: "4.17.21", typescript: "5.3.0", react: "18.2.0" },
     ["lodash", "typescript", "react"],

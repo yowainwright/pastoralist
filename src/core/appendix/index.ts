@@ -7,9 +7,8 @@ import type {
   ResolveOverrides,
   UpdateAppendixOptions,
 } from "../../types";
-import type { SecurityOverrideDetail, SecurityProviderType } from "../../types";
 import type { Logger } from "../../utils";
-import type { PartialSecurityLedger } from "./types";
+import type { ProcessOverrideOptions } from "./types";
 import { resolveJSON, jsonCache } from "../packageJSON";
 import { getOverridesByType, resolveOverrides } from "../overrides";
 import { packageAtVersion } from "../../utils/string";
@@ -28,20 +27,20 @@ import {
   mergeAppendixDependents,
 } from "./utils";
 
-const processSimpleOverride = (
-  override: string,
-  overrideVersion: string,
-  packageName: string,
-  deps: Record<string, string>,
-  depList: string[],
-  appendix: Appendix,
-  packageReason: string | undefined,
-  securityLedger: PartialSecurityLedger,
-  cache: Map<string, AppendixItem>,
-  onlyUsedOverrides: boolean = false,
-  dependencyTree?: Record<string, boolean>,
-  addedDate?: string,
-): Appendix => {
+const processSimpleOverride = ({
+  override,
+  overrideVersion = "",
+  packageName,
+  deps,
+  depList,
+  appendix,
+  packageReason,
+  securityLedger = {},
+  cache,
+  onlyUsedOverrides = false,
+  dependencyTree,
+  addedDate,
+}: ProcessOverrideOptions): Appendix => {
   const hasOverride = depList.includes(override);
   const isInDependencyTree = dependencyTree?.[override] || false;
   const isUnused = !hasOverride && !isInDependencyTree;
@@ -81,20 +80,20 @@ const processSimpleOverride = (
   return { ...appendix, [key]: newAppendixItem };
 };
 
-const processNestedOverrideEntry = (
-  nestedPkg: string,
-  nestedVersion: string,
-  packageName: string,
-  override: string,
-  deps: Record<string, string>,
-  appendix: Appendix,
-  packageReason: string | undefined,
-  securityOverrideDetails: SecurityOverrideDetail[] | undefined,
-  securityProvider: SecurityProviderType | undefined,
-  manualOverrideReasons: Record<string, string> | undefined,
-  cache: Map<string, AppendixItem>,
-  addedDate?: string,
-): Appendix => {
+const processNestedOverrideEntry = ({
+  override: nestedPkg,
+  overrideVersion: nestedVersion = "",
+  packageName,
+  parentOverride = "",
+  deps,
+  appendix,
+  packageReason,
+  securityOverrideDetails,
+  securityProvider,
+  manualOverrideReasons,
+  cache,
+  addedDate,
+}: ProcessOverrideOptions): Appendix => {
   const key = packageAtVersion(nestedPkg)(nestedVersion);
   const cached = cache.get(key);
   if (cached) {
@@ -102,7 +101,7 @@ const processNestedOverrideEntry = (
   }
 
   const currentDependents = appendix?.[key]?.dependents || {};
-  const dependentValue = `${override}@${deps[override]} (nested override)`;
+  const dependentValue = `${parentOverride}@${deps[parentOverride]} (nested override)`;
   const newDependents = mergeDependents(
     currentDependents,
     packageName,
@@ -135,59 +134,62 @@ const processNestedOverrideEntry = (
   return { ...appendix, [key]: newAppendixItem };
 };
 
-const processNestedOverride = (
-  override: string,
-  overrideValue: Record<string, string>,
-  packageName: string,
-  deps: Record<string, string>,
-  depList: string[],
-  appendix: Appendix,
-  packageReason: string | undefined,
-  securityOverrideDetails: SecurityOverrideDetail[] | undefined,
-  securityProvider: SecurityProviderType | undefined,
-  manualOverrideReasons: Record<string, string> | undefined,
-  cache: Map<string, AppendixItem>,
-  addedDate?: string,
-): Appendix => {
+const processNestedOverride = ({
+  override,
+  overrides = {},
+  packageName,
+  deps,
+  depList,
+  appendix,
+  packageReason,
+  securityOverrideDetails,
+  securityProvider,
+  manualOverrideReasons,
+  cache,
+  addedDate,
+}: ProcessOverrideOptions): Appendix => {
   const hasOverride = depList.includes(override);
   if (!hasOverride) return appendix;
 
+  const overrideValue = overrides[override] as Record<string, string>;
+
   return Object.entries(overrideValue).reduce(
     (updated, [nestedPkg, nestedVersion]) =>
-      processNestedOverrideEntry(
-        nestedPkg,
-        nestedVersion,
+      processNestedOverrideEntry({
+        override: nestedPkg,
+        overrideVersion: nestedVersion,
         packageName,
-        override,
+        parentOverride: override,
         deps,
-        updated,
+        depList,
+        appendix: updated,
         packageReason,
         securityOverrideDetails,
         securityProvider,
         manualOverrideReasons,
         cache,
         addedDate,
-      ),
+      }),
     appendix,
   );
 };
 
-const processOverrideEntry = (
-  override: string,
-  overrides: OverridesType,
-  packageName: string,
-  deps: Record<string, string>,
-  depList: string[],
-  appendix: Appendix,
-  reason: string | undefined,
-  securityOverrideDetails: SecurityOverrideDetail[] | undefined,
-  securityProvider: SecurityProviderType | undefined,
-  manualOverrideReasons: Record<string, string> | undefined,
-  cache: Map<string, AppendixItem>,
-  onlyUsedOverrides: boolean = false,
-  dependencyTree?: Record<string, boolean>,
-  addedDate?: string,
-): Appendix => {
+const processOverrideEntry = ({
+  override,
+  overrides = {},
+  packageName,
+  deps,
+  depList,
+  appendix,
+  reason,
+  securityOverrideDetails,
+  securityProvider,
+  manualOverrideReasons,
+  cache,
+  onlyUsedOverrides = false,
+  dependencyTree,
+  addedDate,
+}: ProcessOverrideOptions): Appendix => {
   const overrideValue = overrides[override];
   const packageReason = mergeOverrideReasons(
     override,
@@ -204,9 +206,9 @@ const processOverrideEntry = (
   const isNested = isNestedOverride(overrideValue);
 
   if (isNested) {
-    return processNestedOverride(
+    return processNestedOverride({
       override,
-      overrideValue as Record<string, string>,
+      overrides,
       packageName,
       deps,
       depList,
@@ -217,12 +219,12 @@ const processOverrideEntry = (
       manualOverrideReasons,
       cache,
       addedDate,
-    );
+    });
   }
 
-  return processSimpleOverride(
+  return processSimpleOverride({
     override,
-    overrideValue as string,
+    overrideVersion: overrideValue as string,
     packageName,
     deps,
     depList,
@@ -233,7 +235,7 @@ const processOverrideEntry = (
     onlyUsedOverrides,
     dependencyTree,
     addedDate,
-  );
+  });
 };
 
 export const updateAppendix = ({
@@ -263,13 +265,13 @@ export const updateAppendix = ({
 
   const updated = overridesList.reduce(
     (acc, override) =>
-      processOverrideEntry(
+      processOverrideEntry({
         override,
         overrides,
         packageName,
         deps,
         depList,
-        acc,
+        appendix: acc,
         reason,
         securityOverrideDetails,
         securityProvider,
@@ -278,14 +280,14 @@ export const updateAppendix = ({
         onlyUsedOverrides,
         dependencyTree,
         addedDate,
-      ),
+      }),
     appendix,
   );
 
   return removeEmptyEntries(updated);
 };
 
-export const processPackageJSON = (
+export const processAndWritePackageJSON = (
   filePath: string,
   overrides: OverridesType,
   overridesList: string[],
@@ -345,19 +347,11 @@ export const processPackageJSON = (
   };
 };
 
-const hasRootOverridesData = (
-  overridesData: ResolveOverrides | undefined,
-): boolean => {
-  return Boolean(overridesData);
-};
-
 const extractRootOverrides = (
   overridesData: ResolveOverrides | undefined,
 ): OverridesType | null => {
-  const hasData = hasRootOverridesData(overridesData);
-  if (!hasData) return null;
-
-  return getOverridesByType(overridesData!) || null;
+  if (!overridesData) return null;
+  return getOverridesByType(overridesData) || null;
 };
 
 const extractWorkspaceOverrides = (
@@ -449,7 +443,7 @@ const processAllPackageFiles = (
   | undefined
 > => {
   return packageJSONs.map((path) =>
-    processPackageJSON(path, allOverrides, overridesList, false),
+    processAndWritePackageJSON(path, allOverrides, overridesList, false),
   );
 };
 

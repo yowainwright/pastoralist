@@ -1,0 +1,8 @@
+coverage:
+  ignore:
+    - "src/**/types.ts"
+    - "src/constants.ts"
+    - "src/utils/constants.ts"
+    - "src/core/security/constants.ts"
+    - "src/cli/parser/constants.ts"
+    - "src/utils/prompts/constants.ts"

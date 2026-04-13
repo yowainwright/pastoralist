@@ -6,7 +6,7 @@ import { createMachine } from "xstate";
 import { useMachine } from "@xstate/react";
 import { CopyButton } from "@/components/CopyButton";
 import {
-  CLI_SECURITY_DEMO,
+  CLI_OVERRIDE_DEMO,
   HERO_TERMINAL_MIN_HEIGHT,
 } from "@/components/home/AnimatedTerminal/constants";
 import { TerminalLoader } from "@/components/TerminalWindow";
@@ -57,7 +57,7 @@ const styles = {
 const CONTENT = {
   logoAlt: "Pastoralist Logo",
   headingStart: "Pastoralist",
-  headingMid: "helps you track npm dependency overrides and security issues",
+  headingMid: "tracks, documents, and cleans up your npm dependency overrides",
   headingHighlight: "automatically",
   emoji: "👍",
   command: "bun add -g pastoralist",
@@ -156,7 +156,7 @@ export function HeroSection() {
               fallback={<TerminalLoader minHeight={HERO_TERMINAL_MIN_HEIGHT} />}
             >
               <AnimatedTerminal
-                demos={CLI_SECURITY_DEMO}
+                demos={CLI_OVERRIDE_DEMO}
                 loop={false}
                 typingSpeed={40}
                 startAnimation={terminalVisible}

@@ -17,8 +17,9 @@ export const INTERSECTION_OBSERVER_OPTIONS = {
 
 export const TERMINAL_CLASSES = "terminal-window max-w-3xl w-full my-4";
 
+const OVERRIDE_DEMO_LINES = 16;
 const SECURITY_DEMO_LINES = 21;
-export const HERO_TERMINAL_MIN_HEIGHT = `${TERMINAL_HEADER_HEIGHT_PX + TERMINAL_PADDING_PX + SECURITY_DEMO_LINES * TERMINAL_LINE_HEIGHT_PX}px`;
+export const HERO_TERMINAL_MIN_HEIGHT = `${TERMINAL_HEADER_HEIGHT_PX + TERMINAL_PADDING_PX + Math.max(OVERRIDE_DEMO_LINES, SECURITY_DEMO_LINES) * TERMINAL_LINE_HEIGHT_PX}px`;
 
 const ICON_SUCCESS = "\u25CF";
 const ICON_CHECK = "\u2713";
@@ -70,11 +71,11 @@ export const CLI_DEMO: TerminalDemo[] = [
         connectors: [false],
       },
       {
-        text: `${ICON_CHECK} 1 vulnerability fixed`,
+        text: `${ICON_CHECK} 1 override tracked`,
         className: "text-success",
       },
       {
-        text: `${ICON_SHIELD} 1 package protected`,
+        text: `${ICON_SHIELD} 1 dependent documented`,
         className: "text-cyan-400",
       },
       {
@@ -84,6 +85,91 @@ export const CLI_DEMO: TerminalDemo[] = [
       {
         text: `${ICON_CHECK} The herd is safe! ${SHEEP}`,
         className: "text-gold",
+      },
+    ],
+    pauseAfter: 0,
+  },
+];
+
+export const CLI_OVERRIDE_DEMO: TerminalDemo[] = [
+  {
+    lines: [
+      { prefix: "$", text: "pastoralist", animate: true },
+      { text: "&nbsp;" },
+      { text: `${FARMER} Pastoralist`, className: "text-success" },
+      { text: "&nbsp;" },
+      {
+        text: "Scanning overrides",
+        className: "text-base-content/70",
+        depth: 0,
+        isLast: false,
+        connectors: [],
+      },
+      {
+        text: `${ICON_SUCCESS} lodash@4.17.21`,
+        className: "text-success",
+        depth: 1,
+        isLast: false,
+        connectors: [true],
+        delay: 30,
+      },
+      {
+        text: "Reason: Security fix CVE-2021-23337",
+        className: "text-base-content/70",
+        depth: 2,
+        isLast: false,
+        connectors: [true, true],
+        delay: 20,
+      },
+      {
+        text: "Used by: my-app@1.0.0",
+        className: "text-base-content/70",
+        depth: 2,
+        isLast: true,
+        connectors: [true, false],
+        delay: 20,
+      },
+      {
+        text: `${ICON_WARNING} minimist@1.2.5`,
+        className: "text-warning",
+        depth: 1,
+        isLast: true,
+        connectors: [false],
+        delay: 30,
+      },
+      {
+        text: "Stale: no package depends on this override",
+        className: "text-base-content/70",
+        depth: 2,
+        isLast: true,
+        connectors: [false, false],
+        delay: 20,
+      },
+      {
+        text: "Cleanup",
+        className: "text-base-content/70",
+        depth: 0,
+        isLast: true,
+        connectors: [],
+        delay: 30,
+      },
+      {
+        text: `${ICON_SUCCESS} Removed 1 stale override`,
+        className: "text-success",
+        depth: 1,
+        isLast: true,
+        connectors: [false],
+        delay: 20,
+      },
+      {
+        text: '<span class="text-cyan-400">\u25B8</span> 1 tracked \u00B7 \u25CB 1 removed \u00B7 10 scanned',
+        className: "text-base-content/50",
+        delay: 40,
+      },
+      {
+        text: `${ICON_CHECK} The herd is safe! ${SHEEP}`,
+        className: "text-gold",
+        delay: 60,
       },
     ],
     pauseAfter: 0,

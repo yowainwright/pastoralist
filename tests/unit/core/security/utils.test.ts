@@ -1331,3 +1331,86 @@ test("computeVulnerabilityReduction - no skip and no targetStillVulnerable when 
   expect(result.skip).toBe(false);
   expect(result.targetStillVulnerable).toBe(false);
 });
+
+const excludeConfig: PastoralistJSON = {
+  name: "test-app",
+  version: "1.0.0",
+  dependencies: {
+    lodash: "4.17.21",
+    minimist: "1.2.5",
+    express: "4.18.0",
+  },
+};
+
+test("extractPackages - excluded package is not scanned", () => {
+  const packages = extractPackages(excludeConfig, ["lodash"]);
+  const names = packages.map((p) => p.name);
+  expect(names).not.toContain("lodash");
+});
+
+test("extractPackages - non-excluded packages are scanned", () => {
+  const packages = extractPackages(excludeConfig, ["lodash"]);
+  const names = packages.map((p) => p.name);
+  expect(names).toContain("minimist");
+  expect(names).toContain("express");
+});
+
+test("extractPackages - empty exclude list scans everything", () => {
+  const packages = extractPackages(excludeConfig, []);
+  expect(packages.length).toBe(3);
+});
+
+test("extractPackages - multiple packages can be excluded", () => {
+  const packages = extractPackages(excludeConfig, ["lodash", "minimist"]);
+  expect(packages.length).toBe(1);
+  expect(packages[0].name).toBe("express");
+});
+
+const makeSeverityAlert = (
+  severity: "low" | "medium" | "high" | "critical",
+): SecurityAlert => ({
+  packageName: `pkg-${severity}`,
+  currentVersion: "1.0.0",
+  vulnerableVersions: "< 2.0.0",
+  severity,
+  title: `${severity} vulnerability`,
+  fixAvailable: true,
+});
+
+const severityAlerts: SecurityAlert[] = [
+  makeSeverityAlert("low"),
+  makeSeverityAlert("medium"),
+  makeSeverityAlert("high"),
+  makeSeverityAlert("critical"),
+];
+
+const filterBySeverityThreshold = (
+  alerts: SecurityAlert[],
+  threshold: string,
+): SecurityAlert[] => {
+  const thresholdScore = getSeverityScore(threshold);
+  return alerts.filter(
+    (alert) => getSeverityScore(alert.severity) >= thresholdScore,
+  );
+};
+
+test("getSeverityScore - 'high' threshold filters out low and medium alerts", () => {
+  const filtered = filterBySeverityThreshold(severityAlerts, "high");
+  expect(filtered.length).toBe(2);
+  expect(
+    filtered.every(
+      (a) => getSeverityScore(a.severity) >= getSeverityScore("high"),
+    ),
+  ).toBe(true);
+});
+
+test("getSeverityScore - 'low' threshold keeps all alerts", () => {
+  const filtered = filterBySeverityThreshold(severityAlerts, "low");
+  expect(filtered.length).toBe(4);
+});
+
+test("getSeverityScore - 'critical' threshold keeps only critical alerts", () => {
+  const filtered = filterBySeverityThreshold(severityAlerts, "critical");
+  expect(filtered.length).toBe(1);
+  expect(filtered[0].severity).toBe("critical");
+});

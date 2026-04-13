@@ -1795,3 +1795,70 @@ test("update - stepUpdateKeptOverrides handles keep: KeepConstraint entries", ()
     "2.0.0",
   );
 });
+
+const countSeveritiesConfig = {
+  name: "test-pkg",
+  version: "1.0.0",
+  overrides: { lodash: "4.17.21" },
+  dependencies: { lodash: "4.17.19" },
+};
+
+test("countSeverities - empty securityOverrideDetails produces zero severity counts", () => {
+  const result = update({
+    config: countSeveritiesConfig,
+    isTesting: true,
+    summary: true,
+    securityOverrideDetails: [],
+  });
+  expect(result.metrics?.severityCritical).toBe(0);
+  expect(result.metrics?.severityHigh).toBe(0);
+  expect(result.metrics?.severityMedium).toBe(0);
+  expect(result.metrics?.severityLow).toBe(0);
+});
+
+test("countSeverities - mixed severities are counted correctly", () => {
+  const result = update({
+    config: countSeveritiesConfig,
+    isTesting: true,
+    summary: true,
+    securityOverrideDetails: [
+      { packageName: "a", reason: "fix", severity: "critical" },
+      { packageName: "b", reason: "fix", severity: "high" },
+      { packageName: "c", reason: "fix", severity: "high" },
+      { packageName: "d", reason: "fix", severity: "medium" },
+      { packageName: "e", reason: "fix", severity: "low" },
+    ],
+  });
+  expect(result.metrics?.severityCritical).toBe(1);
+  expect(result.metrics?.severityHigh).toBe(2);
+  expect(result.metrics?.severityMedium).toBe(1);
+  expect(result.metrics?.severityLow).toBe(1);
+});
+
+test("countSeverities - missing severity defaults to medium", () => {
+  const result = update({
+    config: countSeveritiesConfig,
+    isTesting: true,
+    summary: true,
+    securityOverrideDetails: [
+      { packageName: "a", reason: "fix" },
+      { packageName: "b", reason: "fix", severity: undefined },
+    ],
+  });
+  expect(result.metrics?.severityMedium).toBe(2);
+  expect(result.metrics?.severityCritical).toBe(0);
+});
+
+test("countSeverities - severity matching is case-insensitive", () => {
+  const result = update({
+    config: countSeveritiesConfig,
+    isTesting: true,
+    summary: true,
+    securityOverrideDetails: [
+      { packageName: "a", reason: "fix", severity: "HIGH" },
+      { packageName: "b", reason: "fix", severity: "Critical" },
+    ],
+  });
+  expect(result.metrics?.severityHigh).toBe(1);
+  expect(result.metrics?.severityCritical).toBe(1);
+});

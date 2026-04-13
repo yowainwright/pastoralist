@@ -219,25 +219,6 @@ const stepLogUnusedPatches = (ctx: UpdateContext): UpdateContext => {
   return { ...ctx, allDeps, unusedPatchCount: unusedPatches.length };
 };
 
-const stepCleanupOverrides = (ctx: UpdateContext): UpdateContext => {
-  if (ctx.finalOverrides !== undefined && ctx.finalAppendix !== undefined) {
-    return ctx;
-  }
-
-  const defaultFinalOverrides = ctx.overrides || {};
-  const defaultFinalAppendix = ctx.appendix || {};
-
-  if (!ctx.overrides || !ctx.overridesData || !ctx.appendix) {
-    return {
-      ...ctx,
-      finalOverrides: defaultFinalOverrides,
-      finalAppendix: defaultFinalAppendix,
-    };
-  }
-
-  return { ...ctx, finalOverrides: ctx.overrides, finalAppendix: ctx.appendix };
-};
-
 const findAlertMatchingCves = (
   alerts: SecurityAlert[],
   entryCves: string[],
@@ -299,17 +280,18 @@ const stepUpdateKeptOverrides = (ctx: UpdateContext): UpdateContext => {
 };
 
 const stepRemoveUnused = (ctx: UpdateContext): UpdateContext => {
-  const shouldRemove = ctx.options?.removeUnused === true;
-  if (!shouldRemove) return ctx;
-
   const appendix = ctx.finalAppendix || ctx.appendix || {};
   const overrides = ctx.finalOverrides || ctx.overrides || {};
+  const base = { ...ctx, finalOverrides: overrides, finalAppendix: appendix };
+
+  const shouldRemove = ctx.options?.removeUnused === true;
+  if (!shouldRemove) return base;
 
   const unusedKeys = findUnusedAppendixEntries(appendix, ctx.rootDeps);
   const skipKeys = new Set(ctx.options?.skipRemovalKeys || []);
   const removableKeys = unusedKeys.filter((key) => !skipKeys.has(key));
   const hasUnused = removableKeys.length > 0;
-  if (!hasUnused) return ctx;
+  if (!hasUnused) return base;
 
   const packageNames = extractPackageNames(removableKeys);
 
@@ -334,7 +316,7 @@ const stepRemoveUnused = (ctx: UpdateContext): UpdateContext => {
   const finalAppendix = removeAppendixKeys(appendix, removableKeys);
   const finalOverrides = removeOverrideKeys(overrides, packageNames);
 
-  return { ...ctx, finalOverrides, finalAppendix };
+  return { ...base, finalOverrides, finalAppendix };
 };
 
 const stepWriteResult = (ctx: UpdateContext): UpdateContext => {
@@ -414,19 +396,20 @@ const countOverrideChanges = (
 const countSeverities = (
   details: Array<{ severity?: string }> | undefined,
 ): { critical: number; high: number; medium: number; low: number } => {
-  const counts = { critical: 0, high: 0, medium: 0, low: 0 };
-  if (!details) return counts;
+  if (!details) return { critical: 0, high: 0, medium: 0, low: 0 };
 
-  details.forEach((detail) => {
-    const rawSeverity = detail.severity;
-    const severity = rawSeverity ? rawSeverity.toLowerCase() : "medium";
-    if (severity === "critical") counts.critical++;
-    else if (severity === "high") counts.high++;
-    else if (severity === "medium") counts.medium++;
-    else if (severity === "low") counts.low++;
-  });
-
-  return counts;
+  return details.reduce(
+    (counts, detail) => {
+      const severity = (detail.severity || "medium").toLowerCase();
+      return {
+        critical: counts.critical + (severity === "critical" ? 1 : 0),
+        high: counts.high + (severity === "high" ? 1 : 0),
+        medium: counts.medium + (severity === "medium" ? 1 : 0),
+        low: counts.low + (severity === "low" ? 1 : 0),
+      };
+    },
+    { critical: 0, high: 0, medium: 0, low: 0 },
+  );
 };
 
 const getPackagesScanned = (ctx: UpdateContext): number => {
@@ -542,7 +525,6 @@ export const update = (options: Options): UpdateContext => {
     stepAttachPatches,
     stepMergeOverridePaths,
     stepLogUnusedPatches,
-    stepCleanupOverrides,
     stepRemoveUnused,
     stepWriteResult,
     stepCollectMetrics,

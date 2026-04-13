@@ -1,11 +1,11 @@
 import { test, expect } from "bun:test";
 import { GitHubSecurityProvider } from "../../../../../src/core/security/providers/github";
 import { DependabotAlert } from "../../../../../src/core/security/types";
+import { SECURITY_ENV_VARS } from "../../../../../src/constants";
 import {
   MOCK_DEPENDABOT_ALERT_LODASH,
   MOCK_DEPENDABOT_ALERT_MINIMIST,
-  SECURITY_ENV_VARS,
-} from "../../../../../src/constants";
+} from "../../../fixtures/github";
 
 test("providerType - should be 'github'", () => {
   process.env.PASTORALIST_MOCK_SECURITY = "true";

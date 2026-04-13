@@ -36,6 +36,8 @@ export interface SecurityCheckOptions {
   token?: string;
   strict?: boolean;
   onProgress?: (progress: SecurityCheckProgress) => void;
+  severityThreshold?: "low" | "medium" | "high" | "critical";
+  excludePackages?: string[];
 }
 
 export interface SecurityOverride {

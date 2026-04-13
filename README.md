@@ -5,10 +5,9 @@
 [![codecov](https://codecov.io/gh/yowainwright/pastoralist/branch/main/graph/badge.svg)](https://codecov.io/gh/yowainwright/pastoralist)
 <img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=6f41d7dd-fce9-49ea-ae43-040a51f458bd" />
 
-Pastoralist helps you maintain node module overrides and address security issues in dependencies.
+Pastoralist is the audit trail for your npm dependency overrides — it tracks why each override exists, who depends on it, and removes it when it's no longer needed.
 
-1. Pastoralist tracks, secures, and cleans up your `overrides`, `resolutions`, and `patches`.
-2. Pastoralist can help resolve dependency security alerts by creating overrides for vulnerable packages.
+Pastoralist creates an appendix that documents every override in your package.json. It can also detect security vulnerabilities and generate overrides to fix them.
 
 ---
 
@@ -20,9 +19,9 @@ One command. Three features.
 npm i pastoralist -D && pastoralist --init
 ```
 
-- Tracks why each override exists
-- Scans for security vulnerabilities
-- Removes unused overrides
+- Tracks why each override exists and who depends on it
+- Removes stale overrides automatically
+- Optionally scans for security vulnerabilities
 
 ---
 
@@ -173,6 +172,25 @@ Security fixes are tracked with full context.
 
 ---
 
+## Why Pastoralist
+
+Pastoralist manages your package overrides so you don't have to. It's built to be hands-off and work hand-in-hand with security tools to help you more safely manage your project's dependencies.
+
+## Works Alongside Your Existing Tools
+
+Pastoralist is not a replacement for anything. It plugs into the tools you already use:
+
+| Your tool                 | What it does               | What Pastoralist adds                                   |
+| ------------------------- | -------------------------- | ------------------------------------------------------- |
+| **npm audit / OSV**       | Finds vulnerabilities      | Tracks the overrides you create to fix them             |
+| **Renovate / Dependabot** | Proposes version updates   | Documents why overrides were needed before updates land |
+| **patch-package**         | Applies source patches     | Links patch files to the overrides they accompany       |
+| **syncpack / depcheck**   | Checks version consistency | Tracks which overrides are still depended on            |
+
+Use all of them. Pastoralist just makes sure the overrides those tools lead you to create don't become invisible technical debt.
+
+---
+
 ## What Pastoralist Automates
 
 ### 1. Override Tracking
@@ -212,7 +230,47 @@ flowchart TD
 }
 ```
 
-### 2. Security Checks
+### 2. Cleanup
+
+When dependencies are removed, Pastoralist removes their overrides.
+
+```mermaid
+flowchart TD
+    Start([Dependency removed or updated]) --> Check[Check if override still needed]
+    Check --> Remove[Auto-remove from overrides & appendix]
+    Remove --> Done[✓ Cleaned up]
+
+    style Start fill:#e3f2fd
+    style Remove fill:#f3e5f5
+    style Done fill:#e8f5e9
+```
+
+Pastoralist also detects overrides that no package depends on and labels them as `(unused override)`. To remove them:
+
+```bash
+pastoralist --remove-unused
+```
+
+[Try Cleanup →](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/cleanup)
+
+### 3. Patch Tracking
+
+Works with `patch-package`. Links patches to overrides and warns about unused patches.
+
+```js
+"pastoralist": {
+  "appendix": {
+    "lodash@4.17.21": {
+      "dependents": {"my-app": "lodash@^4.17.0"},
+      "patches": ["patches/lodash+4.17.21.patch"]  // ← Auto-tracked
+    }
+  }
+}
+```
+
+[Try Patches →](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/patches)
+
+### 4. Security Checks
 
 Enable security scanning with your preferred provider.
 
@@ -261,46 +319,6 @@ You must also enable Dependabot alerts in your repository: **Settings > Code sec
 If permissions are insufficient, Pastoralist will warn and continue (your workflow won't fail).
 
 [Try Security Scanning →](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/security-scan)
-
-### 3. Cleanup
-
-When dependencies are removed, Pastoralist removes their overrides.
-
-```mermaid
-flowchart TD
-    Start([Dependency removed or updated]) --> Check[Check if override still needed]
-    Check --> Remove[Auto-remove from overrides & appendix]
-    Remove --> Done[✓ Cleaned up]
-
-    style Start fill:#e3f2fd
-    style Remove fill:#f3e5f5
-    style Done fill:#e8f5e9
-```
-
-Pastoralist also detects overrides that no package depends on and labels them as `(unused override)`. To remove them:
-
-```bash
-pastoralist --remove-unused
-```
-
-[Try Cleanup →](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/cleanup)
-
-### 4. Patch Tracking
-
-Works with `patch-package`. Links patches to overrides and warns about unused patches.
-
-```js
-"pastoralist": {
-  "appendix": {
-    "lodash@4.17.21": {
-      "dependents": {"my-app": "lodash@^4.17.0"},
-      "patches": ["patches/lodash+4.17.21.patch"]  // ← Auto-tracked
-    }
-  }
-}
-```
-
-[Try Patches →](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/patches)
 
 ---
 

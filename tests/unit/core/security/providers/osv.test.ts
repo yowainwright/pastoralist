@@ -1,6 +1,13 @@
-import { test, expect, mock } from "bun:test";
-import { OSVProvider } from "../../../../../src/core/security/providers/osv";
+import { test, expect, mock, afterEach } from "bun:test";
+import {
+  OSVProvider,
+  clearOSVCache,
+} from "../../../../../src/core/security/providers/osv";
 import type { OSVVulnerability } from "../../../../../src/types";
+
+afterEach(() => {
+  clearOSVCache();
+});
 
 test("providerType - should be 'osv'", () => {
   const provider = new OSVProvider({ debug: false });

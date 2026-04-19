@@ -4,6 +4,7 @@ import {
   SocketCLIProvider,
   OSVProvider,
   SpektionProvider,
+  PackageManagerAuditProvider,
 } from "./providers";
 import {
   SecurityAlert,
@@ -15,7 +16,19 @@ import {
 } from "../../types";
 import { PastoralistJSON, OverridesType } from "../../types";
 import { detectPackageManager } from "../packageJSON";
-import { logger, LRUCache, fetchLatestCompatibleVersions } from "../../utils";
+import {
+  logger,
+  LRUCache,
+  DiskCache,
+  hashLockfile,
+  resolveCacheDir,
+  fetchLatestCompatibleVersions,
+} from "../../utils";
+import {
+  CACHE_NAMESPACES,
+  CACHE_TTLS,
+  CACHE_NS_VERSIONS,
+} from "../../utils/cache";
 import { compareVersions } from "../../utils/semver";
 import {
   InteractiveSecurityManager,
@@ -24,6 +37,7 @@ import {
   findVulnerablePackages,
   computeVulnerabilityReduction,
   getSeverityScore,
+  sortAlertsByPriority,
 } from "./utils";
 import { SecuritySetupWizard, promptForSetup } from "./setup";
 import type { SecurityProvider as SecurityProviderType } from "./constants";
@@ -46,6 +60,9 @@ export class SecurityChecker {
   private log: ReturnType<typeof logger>;
   private cache: LRUCache<string, SecurityAlert[]>;
   private cacheConfigHash: string;
+  private readonly diskAlertsCache: DiskCache<SecurityAlert[]>;
+  private readonly noCache: boolean;
+  private readonly refreshCache: boolean;
 
   constructor(
     options: SecurityCheckOptions & {
@@ -61,6 +78,18 @@ export class SecurityChecker {
       ttl: 1000 * 60 * 60,
     });
     this.cacheConfigHash = this.buildCacheConfigHash(options);
+    this.noCache = options.noCache ?? false;
+    this.refreshCache = options.refreshCache ?? false;
+    this.diskAlertsCache = new DiskCache<SecurityAlert[]>(
+      CACHE_NAMESPACES.ALERTS,
+      {
+        dir: options.cacheDir ?? resolveCacheDir(),
+        ttl: CACHE_TTLS.ALERTS,
+        version: CACHE_NS_VERSIONS.ALERTS,
+        maxEntries: 50,
+        enabled: !this.noCache,
+      },
+    );
   }
 
   private buildCacheConfigHash(options: {
@@ -161,6 +190,11 @@ export class SecurityChecker {
           token: options.token,
           strict: options.strict,
         });
+      case "npm":
+        return new PackageManagerAuditProvider({
+          debug: options.debug,
+          strict: options.strict,
+        });
       default:
         this.log.debug(
           `Provider ${providerType} not yet implemented, using OSV`,
@@ -187,6 +221,15 @@ export class SecurityChecker {
       .sort()
       .join("|");
     return `${providerNames}:${this.cacheConfigHash}:${packageKeys}`;
+  }
+
+  private generateDiskCacheKey(root?: string): string {
+    const lockfileHash = hashLockfile(root);
+    const providerNames = this.providers
+      .map((p) => p.providerType)
+      .sort()
+      .join("|");
+    return `alerts:${lockfileHash}:${providerNames}`;
   }
 
   async checkSecurity(
@@ -219,13 +262,22 @@ export class SecurityChecker {
       }
 
       const cacheKey = this.generateCacheKey(packages);
+      const diskCacheKey = this.generateDiskCacheKey(options.root);
       const cachedAlerts = this.cache.get(cacheKey);
+      const shouldReadDisk = !this.noCache && !this.refreshCache;
+      const diskCachedAlerts = shouldReadDisk
+        ? this.diskAlertsCache.get(diskCacheKey)
+        : undefined;
 
       let alerts: SecurityAlert[];
 
       if (cachedAlerts) {
         this.log.debug("Using cached security results", "checkSecurity");
         alerts = cachedAlerts;
+      } else if (diskCachedAlerts) {
+        this.log.debug("Using disk-cached security alerts", "checkSecurity");
+        alerts = diskCachedAlerts;
+        this.cache.set(cacheKey, alerts);
       } else {
         onProgress?.({
           phase: "fetching",
@@ -237,16 +289,22 @@ export class SecurityChecker {
         const results = await Promise.allSettled(
           this.providers.map((provider) => provider.fetchAlerts(packages)),
         );
-        alerts = results
-          .map((result) => {
-            const isFulfilled = result.status === "fulfilled";
-            if (isFulfilled) return result.value;
-
-            this.log.warn(`Provider failed: ${result.reason}`, "checkSecurity");
-            return [];
-          })
-          .flat();
+        alerts = results.flatMap((result, i) => {
+          const isFulfilled = result.status === "fulfilled";
+          const providerType = this.providers[i].providerType;
+          if (isFulfilled) {
+            return result.value.map((alert) => ({
+              ...alert,
+              sources: [...new Set([...(alert.sources || []), providerType])],
+            }));
+          }
+          this.log.warn(`Provider failed: ${result.reason}`, "checkSecurity");
+          return [];
+        });
         this.cache.set(cacheKey, alerts);
+        if (!this.noCache) {
+          this.diskAlertsCache.set(diskCacheKey, alerts);
+        }
       }
 
       this.log.debug(
@@ -261,7 +319,9 @@ export class SecurityChecker {
         message: analyzingMessage,
       });
 
-      let allVulnerablePackages = deduplicateAlerts(alerts);
+      let allVulnerablePackages = sortAlertsByPriority(
+        deduplicateAlerts(alerts),
+      );
 
       if (options.severityThreshold) {
         const thresholdScore = getSeverityScore(options.severityThreshold);
@@ -536,6 +596,8 @@ export class SecurityChecker {
         const targetVulnField = targetStillVulnerable
           ? { targetStillVulnerable: true }
           : {};
+        const sourcesField =
+          pkg.sources && pkg.sources.length > 0 ? { sources: pkg.sources } : {};
 
         return [
           Object.assign(
@@ -545,6 +607,7 @@ export class SecurityChecker {
             descriptionField,
             urlField,
             targetVulnField,
+            sourcesField,
           ),
         ];
       });
@@ -715,6 +778,8 @@ export class SecurityChecker {
               | "critical";
           if (override.description) detail.description = override.description;
           if (override.url) detail.url = override.url;
+          if (override.sources && override.sources.length > 0)
+            detail.sources = override.sources;
 
           return detail;
         },

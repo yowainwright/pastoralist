@@ -147,6 +147,28 @@ const addPatchedVersionToLedger = (
   return { ...ledger, patchedVersion };
 };
 
+const addSourcesToLedger = (
+  ledger: PartialSecurityLedger,
+  details: SecurityOverrideDetail[],
+): PartialSecurityLedger => {
+  const allSources = details.flatMap((d) => d.sources || []);
+  const uniqueSources = [...new Set(allSources)] as SecurityProviderType[];
+  if (uniqueSources.length === 0) return ledger;
+  return { ...ledger, sources: uniqueSources };
+};
+
+const addConfidenceToLedger = (
+  ledger: PartialSecurityLedger,
+  details: SecurityOverrideDetail[],
+): PartialSecurityLedger => {
+  const allSources = details.flatMap((d) => d.sources || []);
+  const uniqueSources = [...new Set(allSources)];
+  if (uniqueSources.length === 0) return ledger;
+  const isConfirmed = uniqueSources.length >= 2;
+  const confidence = isConfirmed ? "confirmed" : "possible";
+  return { ...ledger, confidence };
+};
+
 const buildCveDetails = (details: SecurityOverrideDetail[]): CveDetail[] => {
   const allEntries = details.flatMap((d) =>
     (d.cves || []).map((cve): [string, CveDetail] => {
@@ -195,6 +217,8 @@ export const createSecurityLedger = (
     (l) => addUrlToLedger(l, details),
     (l) => addVulnerableRangeToLedger(l, details),
     (l) => addPatchedVersionToLedger(l, details),
+    (l) => addSourcesToLedger(l, details),
+    (l) => addConfidenceToLedger(l, details),
   ];
 
   return transforms.reduce((acc, fn) => fn(acc), buildBaseLedger());

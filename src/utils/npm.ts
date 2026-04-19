@@ -1,10 +1,37 @@
 import { createLimit } from "./limit";
 import { retry } from "./retry";
 import { compareVersions } from "./semver";
+import {
+  DiskCache,
+  resolveCacheDir,
+  CACHE_NAMESPACES,
+  CACHE_TTLS,
+  CACHE_NS_VERSIONS,
+} from "./cache";
 
 const npmLimit = createLimit(5);
 
 const NPM_REGISTRY_URL = "https://registry.npmjs.org";
+
+let _registryCache: DiskCache<NpmPackageInfo> | null = null;
+
+const getRegistryCache = (): DiskCache<NpmPackageInfo> => {
+  if (!_registryCache) {
+    _registryCache = new DiskCache<NpmPackageInfo>(CACHE_NAMESPACES.REGISTRY, {
+      dir: resolveCacheDir(),
+      ttl: CACHE_TTLS.REGISTRY,
+      version: CACHE_NS_VERSIONS.REGISTRY,
+      maxEntries: 1000,
+    });
+  }
+  return _registryCache;
+};
+
+export const clearRegistryCache = (): void => {
+  const cache = _registryCache ?? getRegistryCache();
+  cache.clear();
+  _registryCache = null;
+};
 
 interface NpmPackageInfo {
   "dist-tags": {
@@ -26,8 +53,13 @@ const isPrerelease = (version: string): boolean => {
 const fetchPackageInfo = async (
   packageName: string,
 ): Promise<NpmPackageInfo | null> => {
+  const cache = getRegistryCache();
+  const cacheKey = `pkg:${packageName}`;
+  const cached = cache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
   try {
-    return await retry(
+    const result = await retry(
       async () => {
         const res = await fetch(
           `${NPM_REGISTRY_URL}/${encodeURIComponent(packageName)}`,
@@ -44,6 +76,8 @@ const fetchPackageInfo = async (
       },
       { retries: 2, minTimeout: 500, maxTimeout: 3000 },
     );
+    cache.set(cacheKey, result);
+    return result;
   } catch {
     return null;
   }

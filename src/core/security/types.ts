@@ -9,6 +9,7 @@ export interface SecurityAlert {
   cves?: string[];
   url?: string;
   fixAvailable: boolean;
+  sources?: SecurityProviderType[];
 }
 
 export type SecurityProviderType =
@@ -38,6 +39,9 @@ export interface SecurityCheckOptions {
   onProgress?: (progress: SecurityCheckProgress) => void;
   severityThreshold?: "low" | "medium" | "high" | "critical";
   excludePackages?: string[];
+  cacheDir?: string;
+  noCache?: boolean;
+  refreshCache?: boolean;
 }
 
 export interface SecurityOverride {
@@ -52,6 +56,7 @@ export interface SecurityOverride {
   vulnerableRange?: string;
   patchedVersion?: string;
   targetStillVulnerable?: boolean;
+  sources?: SecurityProviderType[];
 }
 
 export interface OverrideUpdate {
@@ -168,6 +173,7 @@ import type {
   SocketCLIProvider,
   OSVProvider,
   SpektionProvider,
+  PackageManagerAuditProvider,
 } from "./providers";
 
 export type SecurityProvider =
@@ -175,7 +181,8 @@ export type SecurityProvider =
   | SnykCLIProvider
   | SocketCLIProvider
   | OSVProvider
-  | SpektionProvider;
+  | SpektionProvider
+  | PackageManagerAuditProvider;
 
 /** Common interface for security provider type identification */
 export interface SecurityProviderBase {
@@ -284,4 +291,50 @@ export interface PromptFunctions {
   confirm: (message: string, defaultValue?: boolean) => Promise<boolean>;
   select: (message: string, choices: PromptChoice[]) => Promise<string>;
   input: (message: string, defaultValue?: string) => Promise<string>;
+}
+
+export interface NpmAuditAdvisory {
+  source: number;
+  name: string;
+  dependency: string;
+  title: string;
+  url: string;
+  severity: string;
+  cwe?: string[];
+  cvss?: { score: number; vectorString?: string };
+  range: string;
+}
+
+export interface NpmAuditVulnerability {
+  name: string;
+  severity: string;
+  isDirect?: boolean;
+  via: Array<NpmAuditAdvisory | string>;
+  range: string;
+  fixAvailable:
+    | boolean
+    | { name: string; version: string; isSemVerMajor: boolean };
+}
+
+export interface NpmAuditResult {
+  auditReportVersion?: number;
+  vulnerabilities: Record<string, NpmAuditVulnerability>;
+}
+
+export interface YarnAuditAdvisory {
+  module_name: string;
+  severity: string;
+  title: string;
+  url: string;
+  cves?: string[];
+  vulnerable_versions: string;
+  patched_versions: string;
+}
+
+export interface YarnAuditLine {
+  type: "auditAdvisory" | "auditSummary" | string;
+  data: {
+    advisory?: YarnAuditAdvisory;
+    resolution?: { id: number; path: string; dev: boolean };
+  };
 }

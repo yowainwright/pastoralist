@@ -1,4 +1,8 @@
-import { SecurityAlert, SecurityOverride } from "../../types";
+import {
+  SecurityAlert,
+  SecurityOverride,
+  SecurityProviderType,
+} from "../../types";
 import { PastoralistJSON } from "../../types";
 import { compareVersions } from "../../utils/semver";
 import { execFile } from "child_process";
@@ -25,6 +29,14 @@ export const getSeverityScore = (severity: string): number => {
   return scores[severity.toLowerCase()] || 0;
 };
 
+const mergeSources = (
+  a: SecurityAlert,
+  b: SecurityAlert,
+): SecurityProviderType[] => {
+  const combined = [...(a.sources || []), ...(b.sources || [])];
+  return [...new Set(combined)] as SecurityProviderType[];
+};
+
 export const deduplicateAlerts = (alerts: SecurityAlert[]): SecurityAlert[] => {
   const seen = alerts.reduce((map, alert) => {
     const key = `${alert.packageName}@${alert.currentVersion}:${alert.cves?.[0] || alert.title}`;
@@ -37,16 +49,24 @@ export const deduplicateAlerts = (alerts: SecurityAlert[]): SecurityAlert[] => {
       const mergedCves = existing
         ? [...new Set([...(existing.cves || []), ...(alert.cves || [])])]
         : alert.cves;
-      const merged =
-        mergedCves && mergedCves.length > 0
-          ? { ...alert, cves: mergedCves }
-          : alert;
-      map.set(key, merged);
-    } else if (existing && alert.cves?.length) {
-      const mergedCves = [
-        ...new Set([...(existing.cves || []), ...alert.cves]),
-      ];
-      map.set(key, { ...existing, cves: mergedCves });
+      const mergedSources = existing
+        ? mergeSources(existing, alert)
+        : alert.sources;
+      const withCves =
+        mergedCves && mergedCves.length > 0 ? { cves: mergedCves } : {};
+      const withSources =
+        mergedSources && mergedSources.length > 0
+          ? { sources: mergedSources }
+          : {};
+      map.set(key, { ...alert, ...withCves, ...withSources });
+    } else if (existing) {
+      const allCves = [...(existing.cves || []), ...(alert.cves || [])];
+      const mergedCves = [...new Set(allCves)];
+      const mergedSources = mergeSources(existing, alert);
+      const withCves = mergedCves.length > 0 ? { cves: mergedCves } : {};
+      const withSources =
+        mergedSources.length > 0 ? { sources: mergedSources } : {};
+      map.set(key, { ...existing, ...withCves, ...withSources });
     }
 
     return map;
@@ -54,6 +74,28 @@ export const deduplicateAlerts = (alerts: SecurityAlert[]): SecurityAlert[] => {
 
   return Array.from(seen.values());
 };
+
+export const computeConfidence = (
+  sources: SecurityProviderType[],
+): "confirmed" | "possible" => (sources.length >= 2 ? "confirmed" : "possible");
+
+const CONFIDENCE_WEIGHTS: Record<"confirmed" | "possible", number> = {
+  confirmed: 2,
+  possible: 1,
+};
+
+export const sortAlertsByPriority = (
+  alerts: SecurityAlert[],
+): SecurityAlert[] =>
+  [...alerts].sort((a, b) => {
+    const sourcesA = a.sources ?? [];
+    const sourcesB = b.sources ?? [];
+    const weightA = CONFIDENCE_WEIGHTS[computeConfidence(sourcesA)];
+    const weightB = CONFIDENCE_WEIGHTS[computeConfidence(sourcesB)];
+    const priorityA = getSeverityScore(a.severity) * weightA;
+    const priorityB = getSeverityScore(b.severity) * weightB;
+    return priorityB - priorityA;
+  });
 
 export const extractPackages = (
   config: PastoralistJSON,

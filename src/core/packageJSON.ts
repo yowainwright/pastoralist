@@ -12,13 +12,37 @@ import type {
   UpdatePackageJSONOptions,
 } from "../types";
 import { logger } from "../utils";
-import { LRUCache } from "../utils/lru";
+import {
+  LRUCache,
+  DiskCache,
+  hashLockfile,
+  resolveCacheDir,
+} from "../utils/cache";
+import {
+  CACHE_NAMESPACES,
+  CACHE_TTLS,
+  CACHE_NS_VERSIONS,
+} from "../utils/cache";
 import { showHint } from "../dx/hint";
 
 const execFile = promisify(execFileCallback);
 const log = logger({ file: "packageJSON.ts", isLogging: IS_DEBUGGING });
 
-let dependencyTreeCache: Record<string, boolean> | null = null;
+let _treeCache: DiskCache<Record<string, boolean>> | null = null;
+
+const getTreeCache = (
+  cacheDir?: string,
+): DiskCache<Record<string, boolean>> => {
+  if (!_treeCache) {
+    _treeCache = new DiskCache<Record<string, boolean>>(CACHE_NAMESPACES.TREE, {
+      dir: cacheDir ?? resolveCacheDir(),
+      ttl: CACHE_TTLS.TREE,
+      version: CACHE_NS_VERSIONS.TREE,
+      maxEntries: 50,
+    });
+  }
+  return _treeCache;
+};
 
 export const jsonCache = new LRUCache<string, PastoralistJSON>({ max: 500 });
 
@@ -426,15 +450,22 @@ export const executeNpmLs = async (): Promise<string> => {
 
 export const getDependencyTree = async (
   mockExecuteNpmLs?: () => Promise<string>,
+  cacheDir?: string,
 ): Promise<Record<string, boolean>> => {
-  const hasCached = dependencyTreeCache !== null;
-  if (hasCached) return dependencyTreeCache!;
+  const lockfileHash = hashLockfile();
+  const pm = detectPackageManager();
+  const nodeVersion = process.versions.node;
+  const cacheKey = `tree:${lockfileHash}:${pm}:${nodeVersion}`;
+
+  const cache = getTreeCache(cacheDir);
+  const cached = cache.get(cacheKey);
+  if (cached) return cached;
 
   try {
     const execute = mockExecuteNpmLs || executeNpmLs;
     const stdout = await execute();
     const packageMap = parseNpmLsOutput(stdout);
-    dependencyTreeCache = packageMap;
+    cache.set(cacheKey, packageMap);
     return packageMap;
   } catch (error) {
     log.debug("Failed to get dependency tree", "getDependencyTree", error);
@@ -443,7 +474,8 @@ export const getDependencyTree = async (
 };
 
 export const clearDependencyTreeCache = (): void => {
-  dependencyTreeCache = null;
+  _treeCache?.clear();
+  _treeCache = null;
 };
 
 const YARN_LOCK_PACKAGE_PATTERN = /^[\w@][\w\-./]*@/gm;

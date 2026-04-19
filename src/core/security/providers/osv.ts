@@ -1,6 +1,22 @@
 import { SecurityAlert, OSVVulnerability } from "../../../types";
 import { logger, retry, type RetryOptions } from "../../../utils";
 import { OSV_API } from "../constants";
+import {
+  DiskCache,
+  resolveCacheDir,
+  CACHE_NAMESPACES,
+  CACHE_TTLS,
+  CACHE_NS_VERSIONS,
+} from "../../../utils/cache";
+
+export const clearOSVCache = (): void => {
+  const cache = new DiskCache<OSVVulnerability>(CACHE_NAMESPACES.OSV, {
+    dir: resolveCacheDir(),
+    ttl: CACHE_TTLS.OSV,
+    version: CACHE_NS_VERSIONS.OSV,
+  });
+  cache.clear();
+};
 
 export class OSVProvider {
   readonly providerType = "osv" as const;
@@ -10,6 +26,7 @@ export class OSVProvider {
   protected strict: boolean;
   protected log: ReturnType<typeof logger>;
   protected retryOptions: RetryOptions;
+  private readonly osvCache: DiskCache<OSVVulnerability>;
 
   constructor(
     options: {
@@ -18,6 +35,8 @@ export class OSVProvider {
       isIRLCatch?: boolean;
       strict?: boolean;
       retryOptions?: RetryOptions;
+      cacheDir?: string;
+      noCache?: boolean;
     } = {},
   ) {
     this.debug = options.debug || false;
@@ -30,6 +49,13 @@ export class OSVProvider {
       factor: 2,
       minTimeout: 1000,
     };
+    this.osvCache = new DiskCache<OSVVulnerability>(CACHE_NAMESPACES.OSV, {
+      dir: options.cacheDir ?? resolveCacheDir(),
+      ttl: CACHE_TTLS.OSV,
+      version: CACHE_NS_VERSIONS.OSV,
+      maxEntries: 500,
+      enabled: !(options.noCache ?? false),
+    });
   }
 
   async isAvailable(): Promise<boolean> {
@@ -83,11 +109,17 @@ export class OSVProvider {
   private async fetchSingleVulnerability(vuln: {
     id: string;
   }): Promise<OSVVulnerability> {
+    const cacheKey = `osv:${vuln.id}`;
+    const cached = this.osvCache.get(cacheKey);
+    if (cached) return cached;
+
     const response = await fetch(OSV_API.VULN(vuln.id));
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
-    return response.json();
+    const result = (await response.json()) as OSVVulnerability;
+    this.osvCache.set(cacheKey, result);
+    return result;
   }
 
   private async fetchFullVulnerabilityDetails(

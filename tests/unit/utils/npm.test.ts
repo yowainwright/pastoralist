@@ -3,6 +3,7 @@ import {
   fetchLatestVersion,
   fetchLatestCompatibleVersion,
   fetchLatestCompatibleVersions,
+  clearRegistryCache,
 } from "../../../src/utils/npm";
 import {
   BASE_NPM_PACKAGE_INFO,
@@ -18,10 +19,12 @@ let originalFetch: typeof globalThis.fetch;
 
 beforeEach(() => {
   originalFetch = globalThis.fetch;
+  clearRegistryCache();
 });
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  clearRegistryCache();
 });
 
 test("fetchLatestVersion - should return latest version from dist-tags", async () => {

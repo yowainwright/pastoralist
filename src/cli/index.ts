@@ -1,7 +1,13 @@
 #!/usr/bin/env node
 
 import { parseArgs, showHelp } from "./parser";
-import { createSpinner, green, yellow } from "../utils";
+import {
+  createSpinner,
+  green,
+  yellow,
+  resolveCacheDir,
+  pruneBackups,
+} from "../utils";
 import {
   Options,
   PastoralistJSON,
@@ -189,6 +195,9 @@ export const runSecurityCheck = async (
       interactive: mergedOptions.interactive,
       token: mergedOptions.securityProviderToken,
       debug: isLogging,
+      cacheDir: mergedOptions.cacheDir,
+      noCache: mergedOptions.noCache,
+      refreshCache: mergedOptions.refreshCache,
     });
 
     const scanPaths = deps.determineSecurityScanPaths(
@@ -632,6 +641,12 @@ export async function action(
   const isJsonOutput = options.outputFormat === "json";
   const isQuietMode = options.quiet === true;
   const log = deps.createLogger({ file: "program.ts", isLogging });
+
+  const cacheDir = resolveCacheDir({
+    cacheDir: options.cacheDir,
+    root: options.root,
+  });
+  pruneBackups(cacheDir);
   const { isTestingCLI = false, init = false, ...rest } = options;
   const graph = deps.createTerminalGraph({ quiet: isQuietMode });
 

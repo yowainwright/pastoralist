@@ -498,7 +498,11 @@ const makeYarnLine = (pkgName: string): string =>
     },
   } as YarnAuditLine);
 
-type ExecAsync = (cmd: string, args: string[], opts: object) => Promise<{ stdout: string }>;
+type ExecAsync = (
+  cmd: string,
+  args: string[],
+  opts: object,
+) => Promise<{ stdout: string }>;
 
 const withExec = (impl: ExecAsync) => {
   const provider = new PackageManagerAuditProvider();

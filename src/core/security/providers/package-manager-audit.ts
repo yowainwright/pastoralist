@@ -10,14 +10,13 @@ import { logger } from "../../../utils";
 import { detectPackageManager } from "../../packageJSON";
 import { SEVERITY_MAP } from "../constants";
 
-const execFileAsync = promisify(execFile);
-
 const DEFAULT_AUDIT_TIMEOUT = 120000;
 
 export class PackageManagerAuditProvider {
   readonly providerType = "npm" as const;
   private log: ReturnType<typeof logger>;
   private strict: boolean;
+  private exec = promisify(execFile);
 
   constructor(options: { debug?: boolean; strict?: boolean } = {}) {
     this.log = logger({
@@ -72,7 +71,7 @@ export class PackageManagerAuditProvider {
     const execOptions = { timeout: DEFAULT_AUDIT_TIMEOUT };
 
     if (pm === "yarn") {
-      const { stdout } = await execFileAsync(
+      const { stdout } = await this.exec(
         "yarn",
         ["audit", "--json"],
         execOptions,
@@ -85,7 +84,7 @@ export class PackageManagerAuditProvider {
     }
 
     const cmd = pm === "bun" ? "bun" : pm;
-    const { stdout } = await execFileAsync(
+    const { stdout } = await this.exec(
       cmd,
       ["audit", "--json"],
       execOptions,

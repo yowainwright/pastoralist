@@ -1,4 +1,4 @@
-import { test, expect, mock, spyOn, afterEach } from "bun:test";
+import { test, describe, expect, mock, spyOn, afterEach } from "bun:test";
 import { PackageManagerAuditProvider } from "../../../../../src/core/security/providers/package-manager-audit";
 import type { NpmAuditResult, YarnAuditLine } from "../../../../../src/types";
 
@@ -454,4 +454,130 @@ test("fetchAlerts - strict mode error includes reason", async () => {
   }
 
   spy.mockRestore();
+});
+
+// =============================================================================
+// runAudit
+// =============================================================================
+
+const makeNpmResult = (pkgName: string): NpmAuditResult => ({
+  vulnerabilities: {
+    [pkgName]: {
+      name: pkgName,
+      severity: "high",
+      via: [
+        {
+          source: 1,
+          name: pkgName,
+          dependency: pkgName,
+          title: "Test vuln",
+          url: "https://example.com",
+          severity: "high",
+          range: "<2.0.0",
+        },
+      ],
+      range: "<2.0.0",
+      fixAvailable: false,
+    },
+  },
+});
+
+const makeYarnLine = (pkgName: string): string =>
+  JSON.stringify({
+    type: "auditAdvisory",
+    data: {
+      resolution: { id: 1, path: pkgName, dev: false },
+      advisory: {
+        module_name: pkgName,
+        severity: "high",
+        title: "Test vuln",
+        url: "https://example.com",
+        vulnerable_versions: "<2.0.0",
+        patched_versions: ">=2.0.0",
+      },
+    },
+  } as YarnAuditLine);
+
+type ExecAsync = (cmd: string, args: string[], opts: object) => Promise<{ stdout: string }>;
+
+const withExec = (impl: ExecAsync) => {
+  const provider = new PackageManagerAuditProvider();
+  (provider as any).exec = impl;
+  return provider;
+};
+
+describe("runAudit", () => {
+  test("npm - returns parsed alerts from stdout", async () => {
+    const provider = withExec(async () => ({
+      stdout: JSON.stringify(makeNpmResult("lodash")),
+    }));
+    const result = await (provider as any).runAudit("npm");
+    expect(result).toHaveLength(1);
+    expect(result[0].packageName).toBe("lodash");
+  });
+
+  test("npm - recovers stdout from non-zero exit error", async () => {
+    const provider = withExec(async () => {
+      throw Object.assign(new Error("exit 1"), {
+        stdout: JSON.stringify(makeNpmResult("axios")),
+      });
+    });
+    const result = await (provider as any).runAudit("npm");
+    expect(result).toHaveLength(1);
+    expect(result[0].packageName).toBe("axios");
+  });
+
+  test("npm - rethrows error with no stdout", async () => {
+    const provider = withExec(async () => {
+      throw new Error("npm: command not found");
+    });
+    await expect((provider as any).runAudit("npm")).rejects.toThrow(
+      "npm: command not found",
+    );
+  });
+
+  test("bun - uses bun command path", async () => {
+    const provider = withExec(async () => ({
+      stdout: JSON.stringify({ vulnerabilities: {} }),
+    }));
+    const result = await (provider as any).runAudit("bun");
+    expect(result).toEqual([]);
+  });
+
+  test("pnpm - uses pnpm command path", async () => {
+    const provider = withExec(async () => ({
+      stdout: JSON.stringify({ vulnerabilities: {} }),
+    }));
+    const result = await (provider as any).runAudit("pnpm");
+    expect(result).toEqual([]);
+  });
+
+  test("yarn - returns parsed alerts from stdout", async () => {
+    const provider = withExec(async () => ({
+      stdout: makeYarnLine("lodash"),
+    }));
+    const result = await (provider as any).runAudit("yarn");
+    expect(result).toHaveLength(1);
+    expect(result[0].packageName).toBe("lodash");
+  });
+
+  test("yarn - recovers stdout from non-zero exit error", async () => {
+    const provider = withExec(async () => {
+      throw Object.assign(new Error("yarn audit exit 16"), {
+        stdout: makeYarnLine("react"),
+      });
+    });
+    const result = await (provider as any).runAudit("yarn");
+    expect(result).toHaveLength(1);
+    expect(result[0].packageName).toBe("react");
+  });
+
+  test("yarn - rethrows error with no stdout", async () => {
+    const provider = withExec(async () => {
+      throw new Error("yarn: command not found");
+    });
+    await expect((provider as any).runAudit("yarn")).rejects.toThrow(
+      "yarn: command not found",
+    );
+  });
 });

@@ -765,7 +765,7 @@ export class SecurityChecker {
 
       const backupPath = this.createBackup(pkgPath);
       const packageJson = JSON.parse(readFileSync(pkgPath, "utf-8"));
-      const packageManager = detectPackageManager();
+      const packageManager = detectPackageManager(dirname(pkgPath));
       const newOverrides = this.generatePackageOverrides(overrides);
 
       const securityOverrideDetails: SecurityOverrideDetail[] = overrides.map(

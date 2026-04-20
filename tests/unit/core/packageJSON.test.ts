@@ -123,6 +123,20 @@ test("detectPackageManager - should detect npm as fallback", () => {
   }
 });
 
+test("detectPackageManager - should detect package manager from provided root", () => {
+  const customRoot = resolve(testDir, "pm-detect-root");
+  const yarnLockPath = resolve(customRoot, "yarn.lock");
+
+  mkdirSync(customRoot, { recursive: true });
+  writeFileSync(yarnLockPath, "");
+
+  const pm = detectPackageManager(customRoot);
+
+  expect(pm).toBe("yarn");
+
+  rmSync(customRoot, { recursive: true, force: true });
+});
+
 test("getExistingOverrideField - should return resolutions when present", () => {
   const config: PastoralistJSON = {
     name: "test",

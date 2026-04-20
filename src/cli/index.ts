@@ -343,7 +343,8 @@ export function determineSecurityScanPaths(
   const isArray = Array.isArray(configDepPaths);
   const workspaces = config?.workspaces || [];
   const hasWorkspaces = workspaces.length > 0;
-  const isWorkspaceString = configDepPaths === "workspace";
+  const isWorkspaceString =
+    configDepPaths === "workspace" || configDepPaths === "workspaces";
   const hasWorkspaceSecurityChecks =
     mergedOptions.hasWorkspaceSecurityChecks || false;
   const hasSecurityEnabled =
@@ -743,8 +744,8 @@ export async function action(
         }
       }
 
-      const shouldHandleResults = !skipped && !isJsonOutput;
-      if (shouldHandleResults) {
+      const shouldApplySecurityResults = !skipped;
+      if (shouldApplySecurityResults) {
         const securityUpdates = deps.handleSecurityResults(
           alerts,
           securityOverrides,
@@ -754,7 +755,9 @@ export async function action(
           updates,
         );
         mergedOptions = { ...mergedOptions, ...securityUpdates };
+      }
 
+      if (!skipped && !isJsonOutput) {
         const toVulnerabilityInfo = (
           alert: SecurityAlert,
         ): import("../dx/types").VulnerabilityInfo => ({
@@ -806,10 +809,6 @@ export async function action(
           const fixPlural = fixCount === 1 ? "" : "s";
           graph.endPhase(`${fixCount} override${fixPlural} added`);
         }
-      }
-
-      if (isJsonOutput) {
-        spinner.stop();
       }
     }
 

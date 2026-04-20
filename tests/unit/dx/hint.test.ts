@@ -1,9 +1,9 @@
 import { test, expect, beforeEach } from "bun:test";
 import { existsSync, mkdirSync, writeFileSync, rmSync } from "fs";
-import { homedir } from "os";
 import { join } from "path";
 import { showHint, clearHintCache } from "../../../src/dx/hint";
 import type { Output } from "../../../src/dx/output";
+import { resolveCacheDir } from "../../../src/utils/cache";
 
 function createMockOutput(): { output: Output; calls: string[] } {
   const calls: string[] = [];
@@ -89,7 +89,7 @@ test("showHint - wraps long text", () => {
 });
 
 test("showHint - handles corrupt cache file gracefully", () => {
-  const cacheDir = join(homedir(), ".pastoralist");
+  const cacheDir = resolveCacheDir();
   const cacheFile = join(cacheDir, "hints.json");
 
   if (!existsSync(cacheDir)) {

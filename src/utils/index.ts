@@ -45,7 +45,14 @@ export type {
 export { buildObject, mergeInto } from "./object";
 export { compareVersions } from "./semver";
 export { ConcurrencyLimiter, createLimit } from "./limit";
-export { LRUCache } from "./lru";
+export {
+  LRUCache,
+  DiskCache,
+  hashLockfile,
+  resolveCacheDir,
+  detectCIEnv,
+  pruneBackups,
+} from "./cache";
 export { retry } from "./retry";
 export { getOverrideGitDate } from "./git";
 export {
@@ -57,6 +64,9 @@ export type {
   Task,
   QueueItem,
   LRUCacheOptions,
+  DiskCacheOptions,
+  DiskCacheEnvelope,
+  CacheContext,
   RetryOptions,
   RetryError,
 } from "./types";

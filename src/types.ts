@@ -55,6 +55,8 @@ export interface AppendixItem {
     resolvedAt?: string;
     resolvedBy?: "upgrade" | "not-applicable" | "disputed";
     resolvedVersion?: string;
+    confidence?: "confirmed" | "possible";
+    sources?: SecurityProviderType[];
   };
 }
 export interface Appendix {
@@ -102,6 +104,7 @@ export interface SecurityOverrideDetail {
   url?: string;
   vulnerableRange?: string;
   patchedVersion?: string;
+  sources?: SecurityProviderType[];
 }
 
 export interface UpdateAppendixOptions {
@@ -171,6 +174,10 @@ export interface Options
   addedDate?: string;
   removeUnused?: boolean;
   skipRemovalKeys?: string[];
+  cacheDir?: string;
+  cacheTtl?: number;
+  noCache?: boolean;
+  refreshCache?: boolean;
 }
 
 export interface OverridesType {

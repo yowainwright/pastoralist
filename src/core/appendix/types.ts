@@ -21,6 +21,8 @@ export type SecurityLedgerFields = Pick<
   | "url"
   | "vulnerableRange"
   | "patchedVersion"
+  | "confidence"
+  | "sources"
 >;
 
 export type PartialSecurityLedger = Partial<SecurityLedgerFields>;

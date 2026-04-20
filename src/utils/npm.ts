@@ -15,7 +15,21 @@ const NPM_REGISTRY_URL = "https://registry.npmjs.org";
 
 let _registryCache: DiskCache<NpmPackageInfo> | null = null;
 
-const getRegistryCache = (): DiskCache<NpmPackageInfo> => {
+interface CacheOptions {
+  cacheDir?: string;
+  noCache?: boolean;
+}
+
+const getRegistryCache = (opts?: CacheOptions): DiskCache<NpmPackageInfo> => {
+  if (opts?.cacheDir || opts?.noCache) {
+    return new DiskCache<NpmPackageInfo>(CACHE_NAMESPACES.REGISTRY, {
+      dir: opts.cacheDir ?? resolveCacheDir(),
+      ttl: CACHE_TTLS.REGISTRY,
+      version: CACHE_NS_VERSIONS.REGISTRY,
+      maxEntries: 1000,
+      enabled: !opts.noCache,
+    });
+  }
   if (!_registryCache) {
     _registryCache = new DiskCache<NpmPackageInfo>(CACHE_NAMESPACES.REGISTRY, {
       dir: resolveCacheDir(),
@@ -52,8 +66,9 @@ const isPrerelease = (version: string): boolean => {
 
 const fetchPackageInfo = async (
   packageName: string,
+  opts?: CacheOptions,
 ): Promise<NpmPackageInfo | null> => {
-  const cache = getRegistryCache();
+  const cache = getRegistryCache(opts);
   const cacheKey = `pkg:${packageName}`;
   const cached = cache.get(cacheKey);
   if (cached !== undefined) return cached;
@@ -85,16 +100,18 @@ const fetchPackageInfo = async (
 
 export const fetchLatestVersion = async (
   packageName: string,
+  opts?: CacheOptions,
 ): Promise<string | null> => {
-  const info = await fetchPackageInfo(packageName);
+  const info = await fetchPackageInfo(packageName, opts);
   return info?.["dist-tags"]?.latest ?? null;
 };
 
 export const fetchLatestCompatibleVersion = async (
   packageName: string,
   minVersion: string,
+  opts?: CacheOptions,
 ): Promise<string | null> => {
-  const info = await fetchPackageInfo(packageName);
+  const info = await fetchPackageInfo(packageName, opts);
   if (!info) return null;
 
   const targetMajor = getMajorVersion(minVersion);
@@ -116,6 +133,7 @@ export const fetchLatestCompatibleVersion = async (
 
 export const fetchLatestCompatibleVersions = async (
   packages: Array<{ name: string; minVersion: string }>,
+  opts?: CacheOptions,
 ): Promise<Map<string, string>> => {
   const results = new Map<string, string>();
 
@@ -131,7 +149,11 @@ export const fetchLatestCompatibleVersions = async (
   const fetches = await Promise.all(
     entries.map(([name, minVersion]) =>
       npmLimit(async () => {
-        const version = await fetchLatestCompatibleVersion(name, minVersion);
+        const version = await fetchLatestCompatibleVersion(
+          name,
+          minVersion,
+          opts,
+        );
         return { name, version };
       }),
     ),

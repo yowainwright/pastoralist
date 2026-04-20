@@ -63,6 +63,7 @@ export class SecurityChecker {
   private readonly diskAlertsCache: DiskCache<SecurityAlert[]>;
   private readonly noCache: boolean;
   private readonly refreshCache: boolean;
+  private readonly cacheDir: string | undefined;
 
   constructor(
     options: SecurityCheckOptions & {
@@ -80,6 +81,7 @@ export class SecurityChecker {
     this.cacheConfigHash = this.buildCacheConfigHash(options);
     this.noCache = options.noCache ?? false;
     this.refreshCache = options.refreshCache ?? false;
+    this.cacheDir = options.cacheDir;
     this.diskAlertsCache = new DiskCache<SecurityAlert[]>(
       CACHE_NAMESPACES.ALERTS,
       {
@@ -166,6 +168,8 @@ export class SecurityChecker {
           isIRLFix: options.isIRLFix,
           isIRLCatch: options.isIRLCatch,
           strict: options.strict,
+          cacheDir: options.cacheDir,
+          noCache: options.noCache,
         });
       case "github":
         return new GitHubSecurityProvider({
@@ -552,7 +556,10 @@ export class SecurityChecker {
         minVersion: pkg.patchedVersion!,
       }));
 
-    return fetchLatestCompatibleVersions(packages);
+    return fetchLatestCompatibleVersions(packages, {
+      cacheDir: this.cacheDir,
+      noCache: this.noCache,
+    });
   }
 
   private generateOverrides(

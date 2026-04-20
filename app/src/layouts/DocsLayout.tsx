@@ -32,8 +32,6 @@ export function DocsLayout({ children }: DocsLayoutProps) {
       </main>
 
       <Footer />
-
-      <TrackingPixel />
     </section>
   );
 }
@@ -59,17 +57,5 @@ function BackgroundBlobs() {
         }}
       />
     </figure>
-  );
-}
-
-function TrackingPixel() {
-  return (
-    <img
-      referrerPolicy="no-referrer-when-downgrade"
-      src="https://static.scarf.sh/a.png?x-pxid=6f41d7dd-fce9-49ea-ae43-040a51f458bd"
-      alt=""
-      aria-hidden="true"
-      style={{ position: "absolute", width: 1, height: 1, opacity: 0 }}
-    />
   );
 }

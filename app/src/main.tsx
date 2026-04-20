@@ -3,11 +3,8 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { routeTree } from "./routes";
-import { precompileDefaultDoc } from "./lib/mdx/precompile";
 import "./styles/global.css";
 import "./styles/terminal.css";
-
-precompileDefaultDoc();
 
 const router = createRouter({
   routeTree,

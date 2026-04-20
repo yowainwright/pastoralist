@@ -547,14 +547,14 @@ samp {
   color: #2dd4bf;
 }
 
-/* Prose code blocks - Light mode */
-.prose pre {
+/* Docs prose code - Light mode */
+.docs-prose pre:not(.shiki) {
   background-color: #f8fafc !important;
   border: 1px solid rgba(0, 0, 0, 0.1);
   color: #1e293b;
 }
 
-.prose code {
+.docs-prose :not(pre) > code {
   background-color: #f1f5f9;
   color: #1e293b;
   padding: 0.125rem 0.25rem;
@@ -562,25 +562,25 @@ samp {
   font-size: 0.875em;
 }
 
-.prose pre code {
+.docs-prose pre:not(.shiki) code {
   background-color: transparent;
   padding: 0;
   border-radius: 0;
 }
 
-/* Prose code blocks - Dark mode */
-[data-theme="night"] .prose pre {
+/* Docs prose code - Dark mode */
+[data-theme="night"] .docs-prose pre:not(.shiki) {
   background-color: #1e293b !important;
   border-color: rgba(255, 255, 255, 0.1);
   color: #e2e8f0;
 }
 
-[data-theme="night"] .prose code {
+[data-theme="night"] .docs-prose :not(pre) > code {
   background-color: #334155;
   color: #e2e8f0;
 }
 
-[data-theme="night"] .prose pre code {
+[data-theme="night"] .docs-prose pre:not(.shiki) code {
   background-color: transparent;
 }
 

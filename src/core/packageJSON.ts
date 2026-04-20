@@ -32,10 +32,20 @@ let _treeCache: DiskCache<Record<string, boolean>> | null = null;
 
 const getTreeCache = (
   cacheDir?: string,
+  noCache?: boolean,
 ): DiskCache<Record<string, boolean>> => {
+  if (cacheDir || noCache) {
+    return new DiskCache<Record<string, boolean>>(CACHE_NAMESPACES.TREE, {
+      dir: cacheDir ?? resolveCacheDir(),
+      ttl: CACHE_TTLS.TREE,
+      version: CACHE_NS_VERSIONS.TREE,
+      maxEntries: 50,
+      enabled: !noCache,
+    });
+  }
   if (!_treeCache) {
     _treeCache = new DiskCache<Record<string, boolean>>(CACHE_NAMESPACES.TREE, {
-      dir: cacheDir ?? resolveCacheDir(),
+      dir: resolveCacheDir(),
       ttl: CACHE_TTLS.TREE,
       version: CACHE_NS_VERSIONS.TREE,
       maxEntries: 50,
@@ -451,13 +461,14 @@ export const executeNpmLs = async (): Promise<string> => {
 export const getDependencyTree = async (
   mockExecuteNpmLs?: () => Promise<string>,
   cacheDir?: string,
+  noCache?: boolean,
 ): Promise<Record<string, boolean>> => {
   const lockfileHash = hashLockfile();
   const pm = detectPackageManager();
   const nodeVersion = process.versions.node;
   const cacheKey = `tree:${lockfileHash}:${pm}:${nodeVersion}`;
 
-  const cache = getTreeCache(cacheDir);
+  const cache = getTreeCache(cacheDir, noCache);
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 

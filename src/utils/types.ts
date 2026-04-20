@@ -27,6 +27,32 @@ export interface LRUCacheOptions {
   ttl?: number;
 }
 
+export interface DiskCacheOptions {
+  dir: string;
+  ttl: number;
+  version: number;
+  maxEntries?: number;
+  enabled?: boolean;
+}
+
+export interface DiskCacheEntry<V> {
+  v: V;
+  t: number;
+}
+
+export interface DiskCacheEnvelope<V> {
+  schema: number;
+  version: number;
+  entries: Record<string, DiskCacheEntry<V>>;
+}
+
+export interface CacheContext {
+  cacheDir: string;
+  noCache: boolean;
+  refreshCache: boolean;
+  ttlOverride?: number;
+}
+
 export interface RetryOptions {
   retries?: number;
   factor?: number;

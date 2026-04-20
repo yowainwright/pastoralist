@@ -23,6 +23,10 @@ export const OPTION_DEFINITIONS: OptionDefinition[] = [
   { flags: ["-q", "--quiet"], hasValue: false },
   { flags: ["--setup-hook"], hasValue: false },
   { flags: ["--remove-unused"], hasValue: false },
+  { flags: ["--cache-dir"], hasValue: true },
+  { flags: ["--cache-ttl"], hasValue: true },
+  { flags: ["--no-cache"], hasValue: false },
+  { flags: ["--refresh-cache"], hasValue: false },
 ];
 
 export const HELP_TEXT = `
@@ -56,6 +60,10 @@ Options:
   -q, --quiet                           Quiet mode for CI (exit 1 if vulnerabilities, 0 if clean)
   --setup-hook                          Add postinstall script to run pastoralist automatically
   --remove-unused                       Remove unused overrides from package.json
+  --cache-dir <path>                    Cache directory (default: node_modules/.cache/pastoralist/)
+  --cache-ttl <seconds>                 Override cache TTL in seconds
+  --no-cache                            Bypass cache reads and writes
+  --refresh-cache                       Bypass cache reads, force refresh (still writes)
 `;
 
 export const ARGS_START_INDEX = 2;

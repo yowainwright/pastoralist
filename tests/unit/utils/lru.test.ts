@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { LRUCache } from "../../../src/utils/lru";
+import { LRUCache } from "../../../src/utils/cache";
 
 test("LRUCache - should set and get values", () => {
   const cache = new LRUCache<string, number>({ max: 3 });

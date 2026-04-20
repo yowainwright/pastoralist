@@ -111,6 +111,7 @@ docs/app/page
 tests/fixtures/package.json
 tests/fixtures/package-overrides.json
 tests/.test-monorepo*/
+tests/integration/.test-*/
 test-update-depPaths.json
 tests/fixtures/temp-*/
 e2e/test-project/

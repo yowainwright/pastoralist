@@ -113,6 +113,7 @@ export const fetchLatestCompatibleVersion = async (
 ): Promise<string | null> => {
   const info = await fetchPackageInfo(packageName, opts);
   if (!info) return null;
+  if (!info.versions || typeof info.versions !== "object") return null;
 
   const targetMajor = getMajorVersion(minVersion);
   const versions = Object.keys(info.versions);

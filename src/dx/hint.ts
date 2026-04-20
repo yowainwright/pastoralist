@@ -1,33 +1,42 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
-import { homedir } from "os";
 import { join } from "path";
 import { gold } from "../utils/colors";
 import { ICON } from "../utils/icons";
+import { resolveCacheDir } from "../utils/cache";
 import { pad } from "./format";
 import type { Output } from "./output";
 import { defaultOutput } from "./output";
 
-const HINT_CACHE_DIR = join(homedir(), ".pastoralist");
-const HINT_CACHE_FILE = join(HINT_CACHE_DIR, "hints.json");
 const DEFAULT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const DEFAULT_BOX_WIDTH = 50;
 
 type HintCache = Record<string, number>;
 
+const getHintCacheDir = (): string => resolveCacheDir();
+
+const getHintCacheFile = (): string => join(getHintCacheDir(), "hints.json");
+
 function loadHintCache(): HintCache {
-  if (!existsSync(HINT_CACHE_FILE)) return {};
+  const hintCacheFile = getHintCacheFile();
+  if (!existsSync(hintCacheFile)) return {};
   try {
-    return JSON.parse(readFileSync(HINT_CACHE_FILE, "utf8"));
+    return JSON.parse(readFileSync(hintCacheFile, "utf8"));
   } catch {
     return {};
   }
 }
 
 function saveHintCache(cache: HintCache): void {
-  if (!existsSync(HINT_CACHE_DIR)) {
-    mkdirSync(HINT_CACHE_DIR, { recursive: true });
+  const hintCacheDir = getHintCacheDir();
+  const hintCacheFile = getHintCacheFile();
+  try {
+    if (!existsSync(hintCacheDir)) {
+      mkdirSync(hintCacheDir, { recursive: true });
+    }
+    writeFileSync(hintCacheFile, JSON.stringify(cache));
+  } catch {
+    // Hints are best-effort and must not fail the CLI.
   }
-  writeFileSync(HINT_CACHE_FILE, JSON.stringify(cache));
 }
 
 function shouldShowHint(hintId: string, ttlMs = DEFAULT_TTL_MS): boolean {
@@ -44,8 +53,13 @@ function markHintShown(hintId: string): void {
 }
 
 export function clearHintCache(): void {
-  if (existsSync(HINT_CACHE_FILE)) {
-    writeFileSync(HINT_CACHE_FILE, "{}");
+  const hintCacheFile = getHintCacheFile();
+  try {
+    if (existsSync(hintCacheFile)) {
+      writeFileSync(hintCacheFile, "{}");
+    }
+  } catch {
+    // Hints are best-effort and must not fail the CLI.
   }
 }
 

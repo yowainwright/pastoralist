@@ -173,9 +173,13 @@ export class DiskCache<V> {
     const rand = Math.random().toString(36).slice(2);
     const tmpName = `${basename(this.filePath)}.tmp-${process.pid}-${rand}`;
     const tmpPath = join(dir, tmpName);
-    writeFileSync(tmpPath, JSON.stringify(envelope));
-    renameSync(tmpPath, this.filePath);
-    this.data = envelope;
+    try {
+      writeFileSync(tmpPath, JSON.stringify(envelope));
+      renameSync(tmpPath, this.filePath);
+      this.data = envelope;
+    } catch {
+      // silently skip — cache is best-effort; filesystem errors must not crash the caller
+    }
   }
 
   private isExpired(entry: { v: V; t: number }): boolean {

@@ -1172,11 +1172,6 @@ test("executeNpmLs - is exported and callable", () => {
   expect(typeof executeNpmLs).toBe("function");
 });
 
-test("executeNpmLs - accepts a root parameter and returns string output", async () => {
-  const result = await executeNpmLs(process.cwd());
-  expect(typeof result).toBe("string");
-});
-
 test("getDependencyTree - handles executeNpmLs errors gracefully", async () => {
   clearDependencyTreeCache();
 

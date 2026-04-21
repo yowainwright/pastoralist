@@ -626,6 +626,22 @@ test("getDependencyTree - should return dependency tree", async () => {
   clearDependencyTreeCache();
 });
 
+test("getDependencyTree - passes root parameter to executeNpmLs mock", async () => {
+  clearDependencyTreeCache();
+  let capturedRoot: string | undefined;
+  const mockOutput = JSON.stringify({ dependencies: { lodash: {} } });
+  const mockExecuteNpmLs = async (root?: string) => {
+    capturedRoot = root;
+    return mockOutput;
+  };
+
+  const customRoot = resolve(testDir, "custom-root");
+  await getDependencyTree(mockExecuteNpmLs, undefined, undefined, customRoot);
+
+  expect(capturedRoot).toBe(customRoot);
+  clearDependencyTreeCache();
+});
+
 test("updatePackageJSON - should handle existing override field", () => {
   const config: PastoralistJSON = {
     name: "test",
@@ -1041,6 +1057,31 @@ test("parseNpmLsOutput - should handle invalid nested deps", () => {
   expect(result.express).toBe(true);
 });
 
+test("getDependencyTree - uses custom cacheDir when provided", async () => {
+  clearDependencyTreeCache();
+  const customCacheDir = resolve(testDir, "custom-cache");
+  mkdirSync(customCacheDir, { recursive: true });
+  const mockOutput = JSON.stringify({ dependencies: { lodash: {} } });
+  const mockExecuteNpmLs = async () => mockOutput;
+
+  const tree = await getDependencyTree(mockExecuteNpmLs, customCacheDir);
+
+  expect(tree["lodash"]).toBe(true);
+  clearDependencyTreeCache();
+  rmSync(customCacheDir, { recursive: true, force: true });
+});
+
+test("getDependencyTree - skips cache when noCache is true", async () => {
+  clearDependencyTreeCache();
+  const mockOutput = JSON.stringify({ dependencies: { express: {} } });
+  const mockExecuteNpmLs = async () => mockOutput;
+
+  const tree = await getDependencyTree(mockExecuteNpmLs, undefined, true);
+
+  expect(tree["express"]).toBe(true);
+  clearDependencyTreeCache();
+});
+
 test("getDependencyTree - should cache results on second call", async () => {
   clearDependencyTreeCache();
   const mockOutput = JSON.stringify({
@@ -1129,6 +1170,11 @@ test("updatePackageJSON - handles malformed JSON content gracefully", () => {
 
 test("executeNpmLs - is exported and callable", () => {
   expect(typeof executeNpmLs).toBe("function");
+});
+
+test("executeNpmLs - accepts a root parameter and returns string output", async () => {
+  const result = await executeNpmLs(process.cwd());
+  expect(typeof result).toBe("string");
 });
 
 test("getDependencyTree - handles executeNpmLs errors gracefully", async () => {

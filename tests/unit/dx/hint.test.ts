@@ -1,4 +1,4 @@
-import { test, expect, beforeEach } from "bun:test";
+import { test, expect, beforeEach, mock, spyOn } from "bun:test";
 import { existsSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { join } from "path";
 import { showHint, clearHintCache } from "../../../src/dx/hint";
@@ -101,4 +101,46 @@ test("showHint - handles corrupt cache file gracefully", () => {
   showHint("corrupt-test", "Message after corrupt", undefined, output);
   expect(calls.length).toBeGreaterThan(0);
   expect(calls.join("")).toContain("Message");
+});
+
+test("saveHintCache - creates cache dir when it does not exist", () => {
+  const cacheDir = resolveCacheDir();
+  const cacheFile = join(cacheDir, "hints.json");
+
+  if (existsSync(cacheFile)) rmSync(cacheFile);
+  if (existsSync(cacheDir)) rmSync(cacheDir, { recursive: true, force: true });
+
+  const { output, calls } = createMockOutput();
+  showHint("new-dir-test", "Message", undefined, output);
+
+  expect(calls.join("")).toContain("Message");
+  expect(existsSync(cacheDir)).toBe(true);
+});
+
+test("clearHintCache - does not throw when writeFileSync fails", () => {
+  const cacheDir = resolveCacheDir();
+  const cacheFile = join(cacheDir, "hints.json");
+  if (!existsSync(cacheDir)) mkdirSync(cacheDir, { recursive: true });
+  writeFileSync(cacheFile, "{}");
+
+  const fs = require("fs");
+  const spy = spyOn(fs, "writeFileSync").mockImplementationOnce(() => {
+    throw new Error("disk full");
+  });
+
+  expect(() => clearHintCache()).not.toThrow();
+  spy.mockRestore();
+});
+
+test("saveHintCache - does not throw when write fails", () => {
+  const fs = require("fs");
+  const spy = spyOn(fs, "writeFileSync").mockImplementationOnce(() => {
+    throw new Error("disk full");
+  });
+
+  const { output } = createMockOutput();
+  expect(() =>
+    showHint("write-fail-test", "Message", undefined, output),
+  ).not.toThrow();
+  spy.mockRestore();
 });

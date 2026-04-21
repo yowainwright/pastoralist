@@ -1098,7 +1098,11 @@ test("getDependencyTree - should cache results on second call", async () => {
   };
 
   const firstCall = await getDependencyTree(mockExecuteNpmLs);
-  const secondCall = await getDependencyTree(); // No mock - should use cache
+  // Second call with a mock that throws — verifies cache is used (mock never invoked)
+  const failMock = async () => {
+    throw new Error("should not be called");
+  };
+  const secondCall = await getDependencyTree(failMock);
 
   expect(firstCall).toEqual(secondCall);
   expect(callCount).toBe(1); // Mock should only be called once due to caching

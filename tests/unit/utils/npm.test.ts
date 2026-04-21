@@ -120,6 +120,21 @@ test("fetchLatestCompatibleVersion - should return null when versions metadata i
   expect(result).toBeNull();
 });
 
+test("fetchLatestCompatibleVersion - should return null when versions is not an object", async () => {
+  globalThis.fetch = mock(() =>
+    Promise.resolve(
+      mockOkResponse({
+        "dist-tags": { latest: "4.17.21" },
+        versions: "invalid",
+      }),
+    ),
+  );
+
+  const result = await fetchLatestCompatibleVersion("some-package", "4.17.20");
+
+  expect(result).toBeNull();
+});
+
 test("fetchLatestCompatibleVersion - should return minVersion when it is the latest", async () => {
   globalThis.fetch = mock(() =>
     Promise.resolve(mockOkResponse(BASE_NPM_PACKAGE_INFO)),

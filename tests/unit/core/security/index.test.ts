@@ -59,6 +59,37 @@ const mockPackageJson: PastoralistJSON = {
   },
 };
 
+const mockProviderAlerts = (
+  checker: SecurityChecker,
+  alerts: SecurityAlert[] = [],
+): SecurityChecker => {
+  for (const provider of (checker as any).providers) {
+    spyOn(provider, "fetchAlerts").mockResolvedValue(alerts);
+  }
+  return checker;
+};
+
+const createCheckerWithMockAlerts = (
+  options: ConstructorParameters<typeof SecurityChecker>[0] = {},
+  alerts: SecurityAlert[] = [],
+): SecurityChecker => {
+  const checker = new SecurityChecker({
+    provider: "osv",
+    noCache: true,
+    ...options,
+  });
+  return mockProviderAlerts(checker, alerts);
+};
+
+const createTempCacheDir = (name: string): string => {
+  const dir = path.join(
+    TEST_DIR,
+    `${name}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  );
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+};
+
 test("Security Alert Detection - should identify vulnerable packages in dependencies", () => {
   const checker = new SecurityChecker({ debug: false });
   const provider = new GitHubSecurityProvider({ debug: false });
@@ -281,17 +312,30 @@ test("Override Generation - should prefer patched when latest is older (edge cas
 });
 
 test("fetchLatestForVulnerablePackages - should extract packages with fixes", async () => {
-  const checker = new SecurityChecker({ debug: false });
+  const checker = new SecurityChecker({ debug: false, noCache: true });
   const vulnerablePackages = [
     createAlert(),
     createAlert({ packageName: "no-fix-pkg", ...NO_FIX_FIELDS }),
   ];
 
-  const result = await (checker as any).fetchLatestForVulnerablePackages(
-    vulnerablePackages,
+  const mockFetch = mock(() =>
+    Promise.resolve({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          "dist-tags": { latest: "4.17.21" },
+          versions: { "4.17.20": {}, "4.17.21": {} },
+        }),
+    } as Response),
+  );
+
+  const result = await withMockedFetch(mockFetch, () =>
+    (checker as any).fetchLatestForVulnerablePackages(vulnerablePackages),
   );
 
   expect(result instanceof Map).toBe(true);
+  expect(result.get("lodash")).toBe("4.17.21");
+  expect(result.has("no-fix-pkg")).toBe(false);
 });
 
 test("Severity Normalization - should normalize severity levels correctly", () => {
@@ -312,7 +356,7 @@ test("Severity Normalization - should normalize severity levels correctly", () =
 });
 
 test("OSV Provider - should initialize without authentication", () => {
-  const checker = new SecurityChecker({ provider: "osv" });
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
   expect(checker).toBeDefined();
 });
 
@@ -344,7 +388,7 @@ test("Provider Abstraction - should deduplicate alerts from multiple providers",
     },
   };
 
-  const checker = new SecurityChecker({ provider: ["osv"] });
+  const checker = createCheckerWithMockAlerts({ provider: ["osv"] });
   const result = await checker.checkSecurity(config);
 
   expect(Array.isArray(result.alerts)).toBe(true);
@@ -373,7 +417,7 @@ test("Workspace Security Scanning - should not scan workspaces by default", asyn
     },
   };
 
-  const checker = new SecurityChecker({});
+  const checker = createCheckerWithMockAlerts();
   const result = await checker.checkSecurity(config);
 
   expect(Array.isArray(result.alerts)).toBe(true);
@@ -388,7 +432,7 @@ test("Workspace Security Scanning - should scan workspaces when explicitly enabl
     dependencies: {},
   };
 
-  const checker = new SecurityChecker({});
+  const checker = createCheckerWithMockAlerts();
   const result = await checker.checkSecurity(config, {
     depPaths: ["packages/*/package.json"],
     root: "./",
@@ -440,7 +484,7 @@ test("checkSecurity - should check security with empty dependencies", async () =
     dependencies: {},
   };
 
-  const checker = new SecurityChecker({ provider: "osv" });
+  const checker = createCheckerWithMockAlerts({ provider: "osv" });
   const result = await checker.checkSecurity(config);
 
   expect(Array.isArray(result.alerts)).toBe(true);
@@ -457,7 +501,7 @@ test("checkSecurity - should check security with multiple dependencies", async (
     },
   };
 
-  const checker = new SecurityChecker({ provider: "osv" });
+  const checker = createCheckerWithMockAlerts({ provider: "osv" });
   const result = await checker.checkSecurity(config);
 
   expect(Array.isArray(result.alerts)).toBe(true);
@@ -473,7 +517,7 @@ test("checkSecurity - should handle devDependencies", async () => {
     },
   };
 
-  const checker = new SecurityChecker({ provider: "osv" });
+  const checker = createCheckerWithMockAlerts({ provider: "osv" });
   const result = await checker.checkSecurity(config);
 
   expect(Array.isArray(result.alerts)).toBe(true);
@@ -565,7 +609,7 @@ test("checkSecurity - should handle workspace scanning", async () => {
       },
     };
 
-    const checker = new SecurityChecker({ provider: "osv" });
+    const checker = new SecurityChecker({ provider: "osv", noCache: true });
     const result = await checker.checkSecurity(config, {
       depPaths: ["packages/a/package.json"],
       root: "./",
@@ -582,7 +626,7 @@ test("checkSecurity - should handle config with no dependencies or devDependenci
     version: "1.0.0",
   };
 
-  const checker = new SecurityChecker({ provider: "osv" });
+  const checker = createCheckerWithMockAlerts({ provider: "osv" });
   const result = await checker.checkSecurity(config);
 
   expect(Array.isArray(result.alerts)).toBe(true);
@@ -612,7 +656,7 @@ test("checkSecurity - should check for override updates", async () => {
     },
   };
 
-  const checker = new SecurityChecker({ provider: "osv" });
+  const checker = createCheckerWithMockAlerts({ provider: "osv" });
   const result = await checker.checkSecurity(config);
 
   expect(Array.isArray(result.updates)).toBe(true);
@@ -632,7 +676,7 @@ test("checkSecurity - should handle pnpm overrides", async () => {
     },
   };
 
-  const checker = new SecurityChecker({ provider: "osv" });
+  const checker = createCheckerWithMockAlerts({ provider: "osv" });
   const result = await checker.checkSecurity(config);
 
   expect(Array.isArray(result.updates)).toBe(true);
@@ -650,7 +694,7 @@ test("checkSecurity - should handle resolutions", async () => {
     },
   };
 
-  const checker = new SecurityChecker({ provider: "osv" });
+  const checker = createCheckerWithMockAlerts({ provider: "osv" });
   const result = await checker.checkSecurity(config);
 
   expect(Array.isArray(result.updates)).toBe(true);
@@ -1376,6 +1420,22 @@ test("generateCacheKey - sorts packages for consistent keys", () => {
   expect(key1).toBe(key2);
 });
 
+test("generateDiskCacheKey - separates different package scans", () => {
+  const checker = new SecurityChecker({ provider: "osv" });
+  const root = createTempCacheDir("cache-key-root");
+
+  const lodashKey = (checker as any).generateDiskCacheKey(
+    [{ name: "lodash", version: "4.17.20" }],
+    root,
+  );
+  const axiosKey = (checker as any).generateDiskCacheKey(
+    [{ name: "axios", version: "0.21.0" }],
+    root,
+  );
+
+  expect(lodashKey).not.toBe(axiosKey);
+});
+
 // =============================================================================
 // generatePackageOverrides - nested override safety
 // =============================================================================
@@ -1447,7 +1507,7 @@ test("generatePackageOverrides - does not downgrade existing higher version", ()
 // =============================================================================
 
 test("checkSecurity - returns results when provider fetch succeeds", async () => {
-  const checker = new SecurityChecker({ debug: false });
+  const checker = new SecurityChecker({ debug: false, noCache: true });
   const config = {
     name: "test",
     version: "1.0.0",

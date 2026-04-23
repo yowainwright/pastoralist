@@ -49,6 +49,7 @@ import {
   existsSync,
   mkdirSync,
 } from "fs";
+import { createHash } from "crypto";
 import { resolve, dirname, basename } from "path";
 import { updateAppendix } from "../appendix";
 import { glob } from "../../utils/glob";
@@ -227,13 +228,16 @@ export class SecurityChecker {
     return `${providerNames}:${this.cacheConfigHash}:${packageKeys}`;
   }
 
-  private generateDiskCacheKey(root?: string): string {
+  private generateDiskCacheKey(
+    packages: Array<{ name: string; version: string }>,
+    root?: string,
+  ): string {
     const lockfileHash = hashLockfile(root);
-    const providerNames = this.providers
-      .map((p) => p.providerType)
-      .sort()
-      .join("|");
-    return `alerts:${lockfileHash}:${providerNames}`;
+    const scanHash = createHash("sha256")
+      .update(this.generateCacheKey(packages))
+      .digest("hex")
+      .slice(0, 16);
+    return `alerts:${lockfileHash}:${scanHash}`;
   }
 
   async checkSecurity(
@@ -266,7 +270,7 @@ export class SecurityChecker {
       }
 
       const cacheKey = this.generateCacheKey(packages);
-      const diskCacheKey = this.generateDiskCacheKey(options.root);
+      const diskCacheKey = this.generateDiskCacheKey(packages, options.root);
       const cachedAlerts = this.cache.get(cacheKey);
       const shouldReadDisk = !this.noCache && !this.refreshCache;
       const diskCachedAlerts = shouldReadDisk

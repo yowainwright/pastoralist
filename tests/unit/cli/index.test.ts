@@ -1866,6 +1866,23 @@ test("determineSecurityScanPaths - uses workspace paths when depPaths is workspa
   expect(result).toEqual(["packages/*/package.json", "apps/*/package.json"]);
 });
 
+test("determineSecurityScanPaths - uses workspace paths when depPaths is workspaces", () => {
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+    workspaces: ["packages/*", "apps/*"],
+    pastoralist: {
+      depPaths: "workspaces",
+      checkSecurity: true,
+    },
+  };
+  const options: Options = { checkSecurity: true };
+
+  const result = determineSecurityScanPaths(config, options, log);
+
+  expect(result).toEqual(["packages/*/package.json", "apps/*/package.json"]);
+});
+
 test("determineSecurityScanPaths - uses workspace paths when hasWorkspaceSecurityChecks is true", () => {
   const config: PastoralistJSON = {
     name: "test",
@@ -2830,6 +2847,72 @@ test("action - outputs JSON on error when outputFormat is json", async () => {
   expect(output).toContain('"success":false');
   expect(output).toContain("File not found");
   expect(deps.processExit).toHaveBeenCalledWith(1);
+});
+
+test("action - applies security results when outputFormat is json", async () => {
+  const { action } = require("../../../src/cli/index");
+
+  const mockConfig: PastoralistJSON = {
+    name: "test-package",
+    version: "1.0.0",
+    dependencies: {
+      lodash: "4.17.20",
+    },
+    pastoralist: {},
+  };
+
+  const mockSpinner = {
+    start: mock(() => mockSpinner),
+    stop: mock(() => mockSpinner),
+    succeed: mock(() => mockSpinner),
+    warn: mock(() => mockSpinner),
+  };
+
+  const handleSecurityResults = mock(() => ({
+    securityOverrides: { lodash: "4.17.21" },
+    securityOverrideDetails: [],
+  }));
+
+  const originalLog = console.log;
+  console.log = mock(() => {});
+
+  const deps = {
+    createLogger: mock(() => log),
+    handleTestMode: mock(() => false),
+    handleInitMode: mock(() => Promise.resolve(false)),
+    resolveJSON: mock(() => Promise.resolve(mockConfig)),
+    buildMergedOptions: mock((options: any, rest: any) =>
+      Object.assign({}, options, rest, { checkSecurity: true }),
+    ),
+    runSecurityCheck: mock(() =>
+      Promise.resolve({
+        spinner: mockSpinner,
+        securityChecker: {},
+        alerts: [],
+        securityOverrides: [],
+        updates: [],
+        packagesScanned: 1,
+        skipped: false,
+      }),
+    ),
+    handleSecurityResults,
+    createSpinner: mock(() => mockSpinner),
+    green: mock((text: string) => text),
+    update: mock(() => ({
+      finalOverrides: { lodash: "4.17.21" },
+      finalAppendix: {},
+      metrics: {},
+    })),
+    createTerminalGraph: mock(() => createMockTerminalGraph()),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
+    processExit: mock(),
+  };
+
+  await action({ outputFormat: "json" }, deps);
+
+  console.log = originalLog;
+
+  expect(handleSecurityResults).toHaveBeenCalled();
 });
 
 test("action - displays unused override notice when unused overrides exist", async () => {

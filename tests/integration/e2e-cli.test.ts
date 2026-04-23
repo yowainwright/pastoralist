@@ -4,6 +4,8 @@ import { resolve, join } from "path";
 import { action } from "../../src/cli/index";
 import type { Options, KeepConstraint } from "../../src/types";
 import * as packageJSON from "../../src/core/packageJSON";
+import { clearOSVCache } from "../../src/core/security/providers/osv";
+import { clearRegistryCache } from "../../src/utils/npm";
 
 const TEST_DIR = resolve(__dirname, ".test-e2e-cli");
 
@@ -20,6 +22,8 @@ beforeEach(() => {
   }
   mkdirSync(TEST_DIR, { recursive: true });
   packageJSON.clearDependencyTreeCache();
+  clearOSVCache();
+  clearRegistryCache();
 });
 
 afterEach(() => {
@@ -489,6 +493,7 @@ test("e2e: full scan pipeline — mocked OSV fetch populates vulnerableRange and
       checkSecurity: true,
       forceSecurityRefactor: true,
       securityProvider: "osv",
+      noCache: true,
     });
   } finally {
     global.fetch = originalFetch;

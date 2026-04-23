@@ -30,14 +30,18 @@ export function DocsPage() {
 
       try {
         const cachedEntry = mdxCache.get(slug);
+        const content = await getDocContent(slug);
+        if (cancelled) return;
+        if (!content) {
+          setLoading(false);
+          return;
+        }
         const { mdxRuntime, reactRuntime } = await getMDXRuntime();
         if (cancelled) return;
 
         const compiled =
-          cachedEntry?.compiled ??
-          (await compileMDXFast(getDocContent(slug) ?? ""));
-        const headingsArray =
-          cachedEntry?.headings ?? extractHeadings(getDocContent(slug) ?? "");
+          cachedEntry?.compiled ?? (await compileMDXFast(content));
+        const headingsArray = cachedEntry?.headings ?? extractHeadings(content);
 
         if (cancelled) return;
 
@@ -77,7 +81,7 @@ export function DocsPage() {
       <article className="flex flex-col w-full max-w-[600px]">
         <Breadcrumbs title={doc.title} />
 
-        <section className="prose prose-sm sm:prose-base md:prose-md mb-10 max-w-none prose-pre:max-w-[90vw] prose-pre:overflow-x-auto">
+        <section className="docs-prose prose prose-sm sm:prose-base md:prose-md mb-10 max-w-none prose-pre:max-w-[90vw] prose-pre:overflow-x-auto">
           <header>
             <h1>{doc.title}</h1>
             <p>{doc.description}</p>

@@ -8,7 +8,7 @@ const DEFAULT_SLUG = "introduction";
 export async function precompileDefaultDoc(): Promise<void> {
   if (mdxCache.has(DEFAULT_SLUG)) return;
 
-  const content = getDocContent(DEFAULT_SLUG);
+  const content = await getDocContent(DEFAULT_SLUG);
   if (!content) return;
 
   const compiled = await compileMDXFast(content);

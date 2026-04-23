@@ -119,13 +119,19 @@ test("ensureInstalled - should return true if command is already available", asy
 
 test("ensureInstalled - should handle non-existent package without throwing", async () => {
   const installer = new CLIInstaller({ debug: false });
+  spyOn(installer, "isInstalled").mockResolvedValue(false);
+  spyOn(installer, "isInstalledGlobally").mockResolvedValue(false);
+  spyOn(installer, "installGlobally").mockRejectedValue(
+    new Error("Install failed"),
+  );
   const result = await installer.ensureInstalled({
     packageName: "definitely-not-a-real-package-xyz",
     cliCommand: "definitely-not-a-real-command-xyz",
   });
 
   expect(typeof result).toBe("boolean");
-}, 30000);
+  expect(result).toBe(false);
+});
 
 test("installGlobally - should throw error for invalid package name", async () => {
   const installer = new CLIInstaller({ debug: false });

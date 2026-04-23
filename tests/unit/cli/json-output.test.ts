@@ -289,7 +289,7 @@ describe("action with JSON output", () => {
     expect(isValidJson()).toBe(true);
   });
 
-  test("JSON mode suppresses handleSecurityResults output", async () => {
+  test("JSON mode still applies handleSecurityResults", async () => {
     const { action } = require("../../../src/cli/index");
 
     const securityResults = createMockSecurityResults([
@@ -302,7 +302,7 @@ describe("action with JSON output", () => {
 
     await action({ outputFormat: "json" }, deps);
 
-    expect(deps.handleSecurityResults).not.toHaveBeenCalled();
+    expect(deps.handleSecurityResults).toHaveBeenCalled();
   });
 
   test("text mode calls handleSecurityResults", async () => {

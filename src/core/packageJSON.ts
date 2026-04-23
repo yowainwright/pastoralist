@@ -1,5 +1,5 @@
 import * as fs from "fs";
-import { resolve } from "path";
+import { dirname, resolve } from "path";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "util";
 import * as fg from "../utils/glob";
@@ -70,20 +70,25 @@ export const forceClearCache = () => {
   return sizeBefore;
 };
 
-const lockFileExists = (filename: string): boolean => {
-  const cwd = process.cwd();
-  const filePath = resolve(cwd, filename);
+const lockFileExists = (
+  filename: string,
+  root: string = process.cwd(),
+): boolean => {
+  const filePath = resolve(root, filename);
   return fs.existsSync(filePath);
 };
 
-export const detectPackageManager = (): "npm" | "yarn" | "pnpm" | "bun" => {
-  const isBun = lockFileExists("bun.lockb") || lockFileExists("bun.lock");
+export const detectPackageManager = (
+  root: string = process.cwd(),
+): "npm" | "yarn" | "pnpm" | "bun" => {
+  const isBun =
+    lockFileExists("bun.lockb", root) || lockFileExists("bun.lock", root);
   if (isBun) return "bun";
 
-  const isYarn = lockFileExists("yarn.lock");
+  const isYarn = lockFileExists("yarn.lock", root);
   if (isYarn) return "yarn";
 
-  const isPnpm = lockFileExists("pnpm-lock.yaml");
+  const isPnpm = lockFileExists("pnpm-lock.yaml", root);
   if (isPnpm) return "pnpm";
 
   return "npm";
@@ -282,6 +287,7 @@ const processConfigWithOverrides = (
   appendix: Appendix | undefined,
   overrides: OverridesType,
   isTesting: boolean,
+  path: string,
 ): PastoralistJSON => {
   const shouldAddAppendix = appendix && Object.keys(appendix).length > 0;
   let updatedConfig: PastoralistJSON;
@@ -303,11 +309,12 @@ const processConfigWithOverrides = (
   if (!shouldAddOverrides) return updatedConfig;
 
   const existingField = getExistingOverrideField(updatedConfig);
+  const projectRoot = dirname(resolve(path));
   const overrideField =
     existingField ||
     (isTesting
       ? null
-      : getOverrideFieldForPackageManager(detectPackageManager()));
+      : getOverrideFieldForPackageManager(detectPackageManager(projectRoot)));
 
   return applyOverridesToConfig(updatedConfig, overrides, overrideField);
 };
@@ -368,7 +375,13 @@ export const updatePackageJSON = ({
   const hasAnyData = hasOverridesData || hasAppendixData;
 
   const updatedConfig = hasAnyData
-    ? processConfigWithOverrides(config, appendix, overrides || {}, isTesting)
+    ? processConfigWithOverrides(
+        config,
+        appendix,
+        overrides || {},
+        isTesting,
+        path,
+      )
     : processConfigWithoutOverrides(config);
 
   if (isTesting) return updatedConfig;
@@ -442,9 +455,12 @@ export const parseNpmLsOutput = (stdout: string): Record<string, boolean> => {
   return packageMap;
 };
 
-export const executeNpmLs = async (): Promise<string> => {
+export const executeNpmLs = async (
+  root: string = process.cwd(),
+): Promise<string> => {
   try {
     const { stdout } = await execFile("npm", ["ls", "--json", "--all"], {
+      cwd: root,
       encoding: "utf8",
       maxBuffer: 1024 * 1024 * 10,
       timeout: 60000,
@@ -459,12 +475,13 @@ export const executeNpmLs = async (): Promise<string> => {
 };
 
 export const getDependencyTree = async (
-  mockExecuteNpmLs?: () => Promise<string>,
+  mockExecuteNpmLs?: (root?: string) => Promise<string>,
   cacheDir?: string,
   noCache?: boolean,
+  root: string = process.cwd(),
 ): Promise<Record<string, boolean>> => {
-  const lockfileHash = hashLockfile();
-  const pm = detectPackageManager();
+  const lockfileHash = hashLockfile(root);
+  const pm = detectPackageManager(root);
   const nodeVersion = process.versions.node;
   const cacheKey = `tree:${lockfileHash}:${pm}:${nodeVersion}`;
 
@@ -474,7 +491,7 @@ export const getDependencyTree = async (
 
   try {
     const execute = mockExecuteNpmLs || executeNpmLs;
-    const stdout = await execute();
+    const stdout = await execute(root);
     const packageMap = parseNpmLsOutput(stdout);
     cache.set(cacheKey, packageMap);
     return packageMap;

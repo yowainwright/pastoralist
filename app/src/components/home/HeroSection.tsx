@@ -1,21 +1,15 @@
-import { lazy, Suspense, useRef, useEffect } from "react";
+import { useRef, useEffect } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { createMachine } from "xstate";
 import { useMachine } from "@xstate/react";
 import { CopyButton } from "@/components/CopyButton";
+import { AnimatedTerminal } from "@/components/home/AnimatedTerminal";
 import {
   CLI_OVERRIDE_DEMO,
   HERO_TERMINAL_MIN_HEIGHT,
 } from "@/components/home/AnimatedTerminal/constants";
-import { TerminalLoader } from "@/components/TerminalWindow";
-
-const AnimatedTerminal = lazy(() =>
-  import("@/components/home/AnimatedTerminal").then((m) => ({
-    default: m.AnimatedTerminal,
-  })),
-);
 
 const HERO_SEEN_KEY = "pastoralist-hero-animation-seen";
 const hadSeen = () =>
@@ -24,7 +18,7 @@ const hadSeen = () =>
 
 const heroMachine = createMachine({
   id: "hero",
-  initial: hadSeen() ? "done" : "idle",
+  initial: hadSeen() ? "done" : "terminalVisible",
   states: {
     idle: { after: { 500: "logoVisible" } },
     logoVisible: { after: { 700: "textVisible" } },
@@ -152,19 +146,15 @@ export function HeroSection() {
             animate={terminalVisible ? { opacity: 1, x: 0 } : undefined}
             transition={{ duration: 0.7, ease: EASE }}
           >
-            <Suspense
-              fallback={<TerminalLoader minHeight={HERO_TERMINAL_MIN_HEIGHT} />}
-            >
-              <AnimatedTerminal
-                demos={CLI_OVERRIDE_DEMO}
-                loop={false}
-                typingSpeed={40}
-                startAnimation={terminalVisible}
-                shouldAnimate={!wasAlreadySeen}
-                minHeight={HERO_TERMINAL_MIN_HEIGHT}
-                onComplete={handleTerminalComplete}
-              />
-            </Suspense>
+            <AnimatedTerminal
+              demos={CLI_OVERRIDE_DEMO}
+              loop={false}
+              typingSpeed={40}
+              startAnimation={terminalVisible}
+              shouldAnimate={!wasAlreadySeen}
+              minHeight={HERO_TERMINAL_MIN_HEIGHT}
+              onComplete={handleTerminalComplete}
+            />
           </motion.aside>
 
           <motion.header

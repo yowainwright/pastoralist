@@ -15,6 +15,7 @@ export function Header() {
   const { theme, toggle } = useTheme();
   const location = useLocation();
   const pathname = location.pathname;
+  const isDocsRoute = pathname.includes("/docs");
   const searchData = getAllDocs().map((doc) => ({
     title: doc.title,
     description: doc.description,
@@ -25,12 +26,14 @@ export function Header() {
   return (
     <header className="fixed top-0 z-30 w-full">
       <nav className="navbar bg-base-100/80 border-b border-base-content/10 backdrop-blur-3xl justify-center items-center py-2 px-4 h-[68px]">
-        <label
-          htmlFor="my-drawer-2"
-          className="btn btn-ghost btn-square lg:hidden"
-        >
-          <Menu className="h-5 w-5" />
-        </label>
+        {isDocsRoute && (
+          <label
+            htmlFor="my-drawer-2"
+            className="btn btn-ghost btn-square lg:hidden"
+          >
+            <Menu className="h-5 w-5" />
+          </label>
+        )}
 
         <div className="navbar-start">
           <Link to="/" preload="intent" className="btn btn-ghost px-2">
@@ -63,15 +66,17 @@ export function Header() {
         </div>
 
         <div className="navbar-end">
-          <Suspense
-            fallback={
-              <button className="btn btn-sm btn-ghost gap-1">
-                <SearchIcon className="h-4 w-4" />
-              </button>
-            }
-          >
-            <Search searchData={searchData} iconOnly />
-          </Suspense>
+          {isDocsRoute && (
+            <Suspense
+              fallback={
+                <button className="btn btn-sm btn-ghost gap-1">
+                  <SearchIcon className="h-4 w-4" />
+                </button>
+              }
+            >
+              <Search searchData={searchData} iconOnly />
+            </Suspense>
+          )}
           <a
             className="btn btn-sm btn-ghost btn-square"
             href="https://github.com/yowainwright/pastoralist"

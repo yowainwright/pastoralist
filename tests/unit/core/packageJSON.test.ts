@@ -123,6 +123,20 @@ test("detectPackageManager - should detect npm as fallback", () => {
   }
 });
 
+test("detectPackageManager - should detect package manager from provided root", () => {
+  const customRoot = resolve(testDir, "pm-detect-root");
+  const yarnLockPath = resolve(customRoot, "yarn.lock");
+
+  mkdirSync(customRoot, { recursive: true });
+  writeFileSync(yarnLockPath, "");
+
+  const pm = detectPackageManager(customRoot);
+
+  expect(pm).toBe("yarn");
+
+  rmSync(customRoot, { recursive: true, force: true });
+});
+
 test("getExistingOverrideField - should return resolutions when present", () => {
   const config: PastoralistJSON = {
     name: "test",
@@ -612,6 +626,22 @@ test("getDependencyTree - should return dependency tree", async () => {
   clearDependencyTreeCache();
 });
 
+test("getDependencyTree - passes root parameter to executeNpmLs mock", async () => {
+  clearDependencyTreeCache();
+  let capturedRoot: string | undefined;
+  const mockOutput = JSON.stringify({ dependencies: { lodash: {} } });
+  const mockExecuteNpmLs = async (root?: string) => {
+    capturedRoot = root;
+    return mockOutput;
+  };
+
+  const customRoot = resolve(testDir, "custom-root");
+  await getDependencyTree(mockExecuteNpmLs, undefined, undefined, customRoot);
+
+  expect(capturedRoot).toBe(customRoot);
+  clearDependencyTreeCache();
+});
+
 test("updatePackageJSON - should handle existing override field", () => {
   const config: PastoralistJSON = {
     name: "test",
@@ -1027,6 +1057,31 @@ test("parseNpmLsOutput - should handle invalid nested deps", () => {
   expect(result.express).toBe(true);
 });
 
+test("getDependencyTree - uses custom cacheDir when provided", async () => {
+  clearDependencyTreeCache();
+  const customCacheDir = resolve(testDir, "custom-cache");
+  mkdirSync(customCacheDir, { recursive: true });
+  const mockOutput = JSON.stringify({ dependencies: { lodash: {} } });
+  const mockExecuteNpmLs = async () => mockOutput;
+
+  const tree = await getDependencyTree(mockExecuteNpmLs, customCacheDir);
+
+  expect(tree["lodash"]).toBe(true);
+  clearDependencyTreeCache();
+  rmSync(customCacheDir, { recursive: true, force: true });
+});
+
+test("getDependencyTree - skips cache when noCache is true", async () => {
+  clearDependencyTreeCache();
+  const mockOutput = JSON.stringify({ dependencies: { express: {} } });
+  const mockExecuteNpmLs = async () => mockOutput;
+
+  const tree = await getDependencyTree(mockExecuteNpmLs, undefined, true);
+
+  expect(tree["express"]).toBe(true);
+  clearDependencyTreeCache();
+});
+
 test("getDependencyTree - should cache results on second call", async () => {
   clearDependencyTreeCache();
   const mockOutput = JSON.stringify({
@@ -1043,7 +1098,11 @@ test("getDependencyTree - should cache results on second call", async () => {
   };
 
   const firstCall = await getDependencyTree(mockExecuteNpmLs);
-  const secondCall = await getDependencyTree(); // No mock - should use cache
+  // Second call with a mock that throws — verifies cache is used (mock never invoked)
+  const failMock = async () => {
+    throw new Error("should not be called");
+  };
+  const secondCall = await getDependencyTree(failMock);
 
   expect(firstCall).toEqual(secondCall);
   expect(callCount).toBe(1); // Mock should only be called once due to caching

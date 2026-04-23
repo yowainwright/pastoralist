@@ -1,0 +1,186 @@
+const e=`---
+title: Architecture
+description: "Deep dive into how Pastoralist works, including overrides, resolutions, patches, and the object anatomy"
+---
+
+## How Pastoralist Works
+
+\`\`\`mermaid
+flowchart LR
+    You[You add override] --> Install[npm install]
+    Install --> Pastor[Pastoralist runs]
+    Pastor --> Track[Tracks it]
+    Pastor --> Scan[Scans it]
+    Pastor --> Clean[Cleans if unused]
+    Track --> Chill[You go back to coding]
+    Scan --> Chill
+    Clean --> Chill
+
+    style You fill:#e3f2fd
+    style Pastor fill:#f3e5f5
+    style Chill fill:#e8f5e9
+\`\`\`
+
+Pastoralist manages overrides, resolutions, and patches so you don't have to!
+
+It is comprised of a few functions which read the root package.json file's overrides or resolutions and map the packages in them to a \`pastoralist.appendix\` object. Additionally, it automatically detects and tracks patches in your project (such as those created by \`patch-package\`).
+
+If Pastoralist observes an override, resolution, or patch is no longer needed, it removes it from the respective objects and the pastoralist appendix object, and notifies you about unused patches.
+
+This means with Pastoralist, your only concern is adding dependencies to the overrides and resolutions objects - patch tracking happens automatically.
+
+### Workspace Support
+
+In workspace/monorepo setups, Pastoralist:
+
+- Reads the root package.json or project manifest file
+- Maps all overrides, resolutions, and patches to the \`pastoralist.appendix\` object
+- Updates dependencies across all workspaces
+- Maintains consistency throughout your monorepo
+
+## Simple Project Architecture
+
+Standard single-package project with overrides:
+
+\`\`\`mermaid
+flowchart TD
+    PkgJson[package.json] --> Pastoralist[Pastoralist]
+    NodeModules[node_modules] --> Pastoralist
+    Pastoralist --> UpdatedPkg[Updated package.json with appendix]
+
+    style PkgJson fill:#e3f2fd
+    style Pastoralist fill:#f3e5f5
+    style UpdatedPkg fill:#e8f5e9
+\`\`\`
+
+## Monorepo Architecture
+
+Complex workspace setup with shared overrides:
+
+\`\`\`mermaid
+flowchart TD
+    Root[Root package.json] --> Pastoralist[Pastoralist]
+    WS1[Workspace A] --> Pastoralist
+    WS2[Workspace B] --> Pastoralist
+    Pastoralist --> Output[Root package.json with consolidated appendix]
+
+    style Root fill:#e3f2fd
+    style Pastoralist fill:#f3e5f5
+    style Output fill:#e8f5e9
+\`\`\`
+
+## What Are Overrides, Resolutions, and Patches?
+
+### Overrides (npm)
+
+Overrides allow you to replace a package version in your dependency tree with a different version. This is npm's way of handling dependency conflicts:
+
+\`\`\`json
+{
+  "overrides": {
+    "foo": "1.0.0",
+    "bar": {
+      "baz": "1.0.0"
+    }
+  }
+}
+\`\`\`
+
+### Resolutions (Yarn)
+
+Resolutions serve the same purpose for Yarn users, allowing you to force specific versions:
+
+\`\`\`json
+{
+  "resolutions": {
+    "foo": "1.0.0",
+    "**/bar/baz": "1.0.0"
+  }
+}
+\`\`\`
+
+### Patches
+
+Patches are custom modifications to node_modules packages, typically created with tools like \`patch-package\`. Pastoralist automatically detects and tracks these patches.
+
+## Object Anatomy
+
+The Pastoralist object in your package.json provides full transparency into what's being managed:
+
+\`\`\`json
+{
+  "overrides": {
+    "minimist": "1.2.8"
+  },
+  "pastoralist": {
+    "appendix": {
+      "minimist": {
+        "key": "minimist",
+        "version": "1.2.8",
+        "parentKeys": [".", "mkdirp"],
+        "hasOverride": true,
+        "hasResolution": false,
+        "hasPatch": false
+      }
+    }
+  }
+}
+\`\`\`
+
+### Appendix Properties
+
+- **key**: The package name
+- **version**: Current override version
+- **parentKeys**: Where this dependency appears in your tree
+- **hasOverride**: Whether an npm override exists
+- **hasResolution**: Whether a Yarn resolution exists
+- **hasPatch**: Whether a patch file exists
+
+## Nested Override Architecture
+
+How nested overrides work for transitive dependencies:
+
+\`\`\`mermaid
+flowchart TD
+    App[Your App] --> ParentPkg[Parent Package]
+    ParentPkg --> NestedDep[Nested Dependency]
+    Override[Override in package.json] -.->|Forces version| NestedDep
+
+    style App fill:#e3f2fd
+    style Override fill:#fff3cd
+    style NestedDep fill:#e8f5e9
+\`\`\`
+
+## Design Decisions
+
+### Synchronous I/O
+
+Pastoralist uses sync file I/O intentionally. As a CLI tool, predictable execution and simple debugging outweigh async benefits.
+
+### Caching
+
+Two caches avoid redundant work: \`jsonCache\` (parsed package.json files) and \`dependencyTreeCache\` (npm ls output). Caches persist across \`update()\` calls - pass \`clearCache: true\` to reset.
+
+### Rate Limiting
+
+npm registry requests are limited to 5 concurrent to avoid rate limits during security scans.
+
+## Dependency Resolution Flow
+
+Complete flow of how dependencies are resolved with overrides:
+
+\`\`\`mermaid
+flowchart TD
+    Install[npm install] --> ReadPkg[Read package.json]
+    ReadPkg --> CheckOverrides{Overrides exist?}
+    CheckOverrides -->|Yes| ApplyOverrides[Apply overrides to dependency tree]
+    CheckOverrides -->|No| NormalInstall[Normal install]
+    ApplyOverrides --> UpdateLock[Update lock file]
+    NormalInstall --> UpdateLock
+    UpdateLock --> Done[✓ Dependencies installed]
+
+    style Install fill:#e3f2fd
+    style ApplyOverrides fill:#fff3cd
+    style Done fill:#e8f5e9
+\`\`\`
+`;export{e as default};

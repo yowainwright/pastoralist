@@ -1,0 +1,344 @@
+const n=`---
+title: API Reference
+description: Complete reference for pastoralist CLI and Node.js API
+---
+
+Pastoralist provides both a CLI interface and a Node.js API for programmatic usage.
+
+:::tip[Configuration Files]
+Most CLI options can be configured using config files. See the [Configuration](/docs/configuration) documentation for details on using \`.pastoralistrc\`, \`pastoralist.config.js\`, or \`package.json\` for persistent settings.
+:::
+
+## CLI
+
+### \`pastoralist\`
+
+Run pastoralist on the current directory's package.json.
+
+\`\`\`bash
+npx pastoralist
+\`\`\`
+
+### \`pastoralist --path <path>\`
+
+Run pastoralist on a specific package.json file.
+
+**params:**
+
+- \`<path>\`: path to a package.json file
+
+\`\`\`bash
+# Run on a specific package
+npx pastoralist --path packages/app/package.json
+
+# Run on a nested project
+npx pastoralist --path ./nested/project/package.json
+\`\`\`
+
+### \`pastoralist --depPaths [paths...]\`
+
+Run pastoralist on multiple package.json files using glob patterns.
+
+**params:**
+
+- \`[paths...]\`: array of glob patterns
+
+\`\`\`bash
+# Run on all packages in monorepo
+npx pastoralist --depPaths "packages/*/package.json"
+
+# Run on multiple directories
+npx pastoralist --depPaths "packages/*/package.json" "apps/*/package.json"
+\`\`\`
+
+### \`pastoralist --ignore [patterns...]\`
+
+Exclude files matching glob patterns.
+
+**params:**
+
+- \`[patterns...]\`: array of glob patterns to ignore
+
+\`\`\`bash
+# Ignore test directories
+npx pastoralist --ignore "**/test/**" "**/dist/**"
+
+# Ignore specific packages
+npx pastoralist --depPaths "**/*package.json" --ignore "**/node_modules/**" "**/legacy/**"
+\`\`\`
+
+### \`pastoralist --root <root>\`
+
+Set the root directory for all operations.
+
+**params:**
+
+- \`<root>\`: root directory path
+
+\`\`\`bash
+# Run from different directory
+npx pastoralist --root /path/to/project
+
+# Combine with other options
+npx pastoralist --root ../my-project --path package.json
+\`\`\`
+
+### \`pastoralist --init\`
+
+Initialize interactive configuration for monorepo support. This will guide you through setting up workspace paths and configuration.
+
+\`\`\`bash
+# Start interactive setup
+npx pastoralist --init
+\`\`\`
+
+When run, this will:
+
+- Detect if you have overrides for packages not in root dependencies
+- Prompt you to choose between auto-detection or manual configuration
+- Offer common workspace structures (standard, packages-only, apps-only, custom)
+- Optionally save configuration to your package.json
+
+### \`pastoralist --interactive\`
+
+Run pastoralist in interactive mode. When overrides are detected for packages not in root dependencies, you'll be prompted to configure monorepo support.
+
+\`\`\`bash
+# Run with interactive prompts
+npx pastoralist --interactive
+
+# Combine with security checks
+npx pastoralist --checkSecurity --interactive
+\`\`\`
+
+### \`pastoralist --debug\`
+
+Enable detailed debug output.
+
+\`\`\`bash
+npx pastoralist --debug
+\`\`\`
+
+### \`pastoralist --dry-run\`
+
+Preview changes without modifying package.json.
+
+\`\`\`bash
+npx pastoralist --dry-run
+\`\`\`
+
+### \`pastoralist --quiet\`
+
+Quiet mode for CI pipelines. Outputs minimal text and uses exit codes.
+
+- Exit 0: No vulnerabilities found
+- Exit 1: Vulnerabilities detected
+
+\`\`\`bash
+npx pastoralist --quiet --checkSecurity
+\`\`\`
+
+### \`pastoralist --summary\`
+
+Display metrics table after run.
+
+\`\`\`bash
+npx pastoralist --summary
+\`\`\`
+
+### \`pastoralist --setup-hook\`
+
+Add pastoralist to your postinstall script automatically.
+
+\`\`\`bash
+npx pastoralist --setup-hook
+\`\`\`
+
+### \`pastoralist --remove-unused\`
+
+Remove overrides that no package in your project depends on. When Pastoralist detects unused overrides during a run, it displays a notice suggesting this flag.
+
+\`\`\`bash
+npx pastoralist --remove-unused
+\`\`\`
+
+### \`pastoralist --checkSecurity\`
+
+Enable security vulnerability scanning.
+
+\`\`\`bash
+npx pastoralist --checkSecurity
+\`\`\`
+
+## Node.js API
+
+### Installation
+
+\`\`\`bash
+npm install pastoralist
+\`\`\`
+
+### \`update(options)\`
+
+Update package.json overrides and manage the appendix.
+
+**params:**
+
+- \`options\`: configuration object (optional)
+  - \`path\`: path to package.json (default: './package.json')
+  - \`depPaths\`: array of glob patterns for multiple files
+  - \`ignore\`: array of glob patterns to ignore
+  - \`root\`: root directory path
+  - \`debug\`: enable debug logging
+
+\`\`\`javascript
+import { update } from "pastoralist";
+
+// Basic usage
+await update();
+
+// With specific path
+await update({
+  path: "./packages/app/package.json",
+});
+
+// With debug mode
+await update({
+  debug: true,
+});
+
+// Multiple packages
+await update({
+  depPaths: ["packages/*/package.json"],
+  ignore: ["**/test/**"],
+});
+\`\`\`
+
+### \`logger(config)\`
+
+Create a logger instance for custom debugging.
+
+**params:**
+
+- \`config\`: logger configuration
+  - \`file\`: source file name
+  - \`isLogging\`: enable/disable logging
+
+\`\`\`javascript
+import { logger } from "pastoralist";
+
+// Create logger
+const log = logger({
+  file: "my-script.js",
+  isLogging: true,
+});
+
+// Use logger
+log.debug("method-name", "action", { data: "value" });
+log.error("method-name", "error", { error: err });
+\`\`\`
+
+## Examples
+
+### Build Tool Integration
+
+\`\`\`javascript
+import { update } from "pastoralist";
+
+// Ensure overrides are up-to-date before building
+await update();
+console.log("✓ Package overrides verified");
+\`\`\`
+
+### Workspace Automation
+
+\`\`\`javascript
+import { update } from "pastoralist";
+import glob from "glob";
+
+// Update all workspace packages
+const packages = glob.sync("packages/*/package.json");
+
+for (const pkgPath of packages) {
+  await update({ path: pkgPath });
+  console.log(\`✓ Updated \${pkgPath}\`);
+}
+\`\`\`
+
+### CI/CD Validation
+
+\`\`\`javascript
+import { update } from "pastoralist";
+import { execSync } from "child_process";
+
+// Check if overrides are up-to-date
+const before = execSync("git status --porcelain").toString();
+await update();
+const after = execSync("git status --porcelain").toString();
+
+if (before !== after) {
+  console.error("❌ Package.json overrides need updating");
+  process.exit(1);
+}
+\`\`\`
+
+### Custom Logger
+
+\`\`\`javascript
+import { update, logger } from "pastoralist";
+
+// Create custom logger
+const log = logger({
+  file: "my-script.js",
+  isLogging: process.env.DEBUG === "true",
+});
+
+// Log custom events
+log.debug("custom-action", "starting", { time: Date.now() });
+
+await update({ debug: true });
+
+log.debug("custom-action", "completed", { time: Date.now() });
+\`\`\`
+
+### Error Handling
+
+\`\`\`javascript
+import { update } from "pastoralist";
+
+try {
+  await update({ path: "./package.json" });
+} catch (error) {
+  if (error.code === "ENOENT") {
+    console.error("Package.json not found");
+  } else {
+    console.error("Unexpected error:", error);
+  }
+}
+\`\`\`
+
+## Environment Variables
+
+### \`DEBUG=pastoralist*\`
+
+Enable debug output (equivalent to --debug flag).
+
+\`\`\`bash
+DEBUG=pastoralist* npx pastoralist
+\`\`\`
+
+## TypeScript
+
+Pastoralist includes full TypeScript support.
+
+\`\`\`typescript
+import { update, Options } from "pastoralist";
+
+const options: Options = {
+  path: "./package.json",
+  debug: true,
+};
+
+await update(options);
+\`\`\`
+`;export{n as default};

@@ -1,0 +1,174 @@
+const n=`---
+title: Interactive Tutorial
+description: Learn pastoralist step-by-step
+---
+
+## The Problem
+
+When using npm overrides or yarn resolutions, you often:
+
+- Forget why an override was added
+- Leave outdated overrides in place
+- Don't know which packages need them
+
+## The Solution
+
+Pastoralist automatically:
+
+- Documents each override with an appendix
+- Shows which packages require each override
+- Removes unnecessary overrides
+- Runs via postinstall hooks
+
+## Quick Start
+
+\`\`\`bash
+# Create a test project
+mkdir test-pastoralist && cd test-pastoralist
+
+# Create package.json with overrides
+echo '{
+  "name": "test",
+  "dependencies": {
+    "lodash": "^4.17.21"
+  },
+  "overrides": {
+    "lodash": "4.17.20"
+  }
+}' > package.json
+
+# Install and run pastoralist
+npm install
+npm install --save-dev pastoralist
+npx pastoralist
+
+# See the result - an appendix was added!
+cat package.json
+\`\`\`
+
+## How It Works
+
+### Before Pastoralist
+
+\`\`\`json
+{
+  "dependencies": {
+    "lodash": "^4.17.21",
+    "express": "^4.18.0"
+  },
+  "overrides": {
+    "lodash": "4.17.20" // Why is this here?
+  }
+}
+\`\`\`
+
+### After Pastoralist
+
+\`\`\`json
+{
+  "overrides": {
+    "lodash": "4.17.20"
+  },
+  "pastoralist": {
+    "appendix": {
+      "lodash@4.17.20": {
+        "dependents": {
+          "express": "^4.18.0" // Now we know!
+        }
+      }
+    }
+  }
+}
+\`\`\`
+
+### Automatic Cleanup
+
+When dependencies no longer need an override, pastoralist removes it automatically:
+
+\`\`\`bash
+🐑 Removed 1 unnecessary override:
+  - lodash@4.17.20
+\`\`\`
+
+## Setup
+
+### Install
+
+\`\`\`bash
+npm install --save-dev pastoralist
+\`\`\`
+
+### Add to postinstall
+
+\`\`\`json
+{
+  "scripts": {
+    "postinstall": "pastoralist"
+  }
+}
+\`\`\`
+
+### For Monorepos
+
+\`\`\`bash
+# Root package
+pastoralist
+
+# Specific workspace
+pastoralist --path packages/app/package.json
+\`\`\`
+
+## Common Use Cases
+
+### Security Patches
+
+\`\`\`json
+"overrides": {
+  "minimist": "1.2.6"  // Security fix
+}
+\`\`\`
+
+Pastoralist tracks when the fix is incorporated upstream and removes the override.
+
+### Version Conflicts
+
+\`\`\`json
+"overrides": {
+  "react": "17.0.2"  // Some packages need React 17
+}
+\`\`\`
+
+The appendix shows which packages aren't ready for React 18.
+
+### API Usage
+
+\`\`\`javascript
+import { runPastoralist } from "pastoralist";
+
+await runPastoralist({
+  path: "./package.json",
+  silent: false,
+});
+\`\`\`
+
+## Try It Now
+
+<a
+  href="https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/basic-overrides"
+  target="_blank"
+  rel="noopener noreferrer"
+>
+  <img
+    src="https://img.shields.io/badge/Try_it-CodeSandbox-blue?logo=codesandbox"
+    alt="Try it on CodeSandbox"
+  />
+</a>
+
+[Open Interactive Demos](/docs/introduction) to see pastoralist in action!
+
+## Resources
+
+- [GitHub](https://github.com/yowainwright/pastoralist)
+- [npm](https://www.npmjs.com/package/pastoralist)
+- [Issues & Questions](https://github.com/yowainwright/pastoralist/issues)
+`;export{n as default};

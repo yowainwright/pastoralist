@@ -183,6 +183,8 @@ const isUnusedSimpleOverride = async (
   packageName: string,
   overrides: OverridesType,
   allDependencies: Record<string, string>,
+  dependencyTree: Record<string, boolean>,
+  hasAnyDeps: boolean,
 ): Promise<boolean> => {
   const isNested = isNestedOverride(packageName, overrides);
   if (isNested) return false;
@@ -190,7 +192,6 @@ const isUnusedSimpleOverride = async (
   const inDeps = isInDirectDeps(packageName, allDependencies);
   if (inDeps) return false;
 
-  const hasAnyDeps = Object.keys(allDependencies).length > 0;
   if (!hasAnyDeps) {
     log.debug(
       `Found unused override for ${packageName}: no dependencies at all`,
@@ -199,7 +200,6 @@ const isUnusedSimpleOverride = async (
     return true;
   }
 
-  const dependencyTree = await getDependencyTree();
   const isInTree = Boolean(dependencyTree[packageName]);
 
   if (isInTree) {
@@ -221,6 +221,8 @@ const checkIfUnused = async (
   packageName: string,
   overrides: OverridesType,
   allDependencies: Record<string, string>,
+  dependencyTree: Record<string, boolean>,
+  hasAnyDeps: boolean,
 ): Promise<boolean> => {
   const isUnusedNested = isUnusedNestedOverride(
     packageName,
@@ -229,7 +231,13 @@ const checkIfUnused = async (
   );
   if (isUnusedNested) return true;
 
-  return isUnusedSimpleOverride(packageName, overrides, allDependencies);
+  return isUnusedSimpleOverride(
+    packageName,
+    overrides,
+    allDependencies,
+    dependencyTree,
+    hasAnyDeps,
+  );
 };
 
 export const findUnusedOverrides = async (
@@ -237,9 +245,19 @@ export const findUnusedOverrides = async (
   allDependencies: Record<string, string>,
 ): Promise<string[]> => {
   const packageNames = Object.keys(overrides);
+  const hasAnyDeps = Object.keys(allDependencies).length > 0;
+  const dependencyTree = hasAnyDeps ? await getDependencyTree() : {};
 
   const results = await Promise.all(
-    packageNames.map((name) => checkIfUnused(name, overrides, allDependencies)),
+    packageNames.map((name) =>
+      checkIfUnused(
+        name,
+        overrides,
+        allDependencies,
+        dependencyTree,
+        hasAnyDeps,
+      ),
+    ),
   );
 
   return packageNames.filter((_, index) => results[index]);

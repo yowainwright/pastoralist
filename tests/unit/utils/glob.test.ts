@@ -44,6 +44,15 @@ test("sync - should return absolute paths when absolute option is true", () => {
   expect(results[0]).toBe(resolve(PROJECT_ROOT, "package.json"));
 });
 
+test("sync - should match absolute patterns", () => {
+  const results = sync(resolve(PROJECT_ROOT, "package.json"), {
+    cwd: PROJECT_ROOT,
+    absolute: true,
+  });
+
+  expect(results).toEqual([resolve(PROJECT_ROOT, "package.json")]);
+});
+
 test("sync - should return relative paths when absolute option is false", () => {
   const results = sync("package.json", { cwd: PROJECT_ROOT, absolute: false });
 

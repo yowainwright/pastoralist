@@ -35,17 +35,18 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 const styles = {
   section:
     "relative flex items-center justify-center px-3 md:px-10 xl:px-28 py-12 md:py-16 overflow-hidden min-h-screen",
-  article: "max-w-2xl md:max-w-6xl w-full",
-  logoHeader: "text-center mb-8",
+  article: "max-w-2xl md:max-w-7xl w-full",
+  logoHeader: "text-center mb-10 md:mb-12",
   logo: "mx-auto h-24 w-24 md:h-36 md:w-36",
-  main: "flex flex-col-reverse lg:flex-row lg:items-center lg:gap-12 xl:gap-16 lg:justify-between",
-  aside: "mt-8 lg:mt-0 w-full text-left lg:flex-1",
-  contentHeader: "text-center lg:flex-1 lg:text-left",
-  h1: "text-2xl sm:text-3xl md:text-4xl lg:text-4xl xl:text-5xl font-black leading-tight mb-8",
+  main: "flex flex-col-reverse gap-10 lg:flex-row lg:items-center lg:gap-14 xl:gap-16 lg:justify-between",
+  aside: "mt-6 lg:mt-0 w-full text-left lg:flex-[1.05]",
+  terminalFrame: "relative mx-auto w-full max-w-[36rem] lg:mx-0",
+  contentHeader: "text-center lg:max-w-2xl lg:flex-[0.95] lg:text-left",
+  h1: "text-3xl sm:text-4xl md:text-5xl lg:text-[3.35rem] xl:text-[3.85rem] font-black leading-[1.05] tracking-tight mb-8",
   nav: "flex flex-col sm:flex-row items-center sm:items-stretch gap-4 sm:gap-5 justify-center lg:justify-start",
   codeBlock:
-    "flex lg:hidden items-center bg-base-100 rounded-lg shadow-sm justify-between h-12 px-4 border border-base-content/10 max-w-md",
-  code: "flex-1 text-left leading-none text-base",
+    "flex w-full max-w-md items-center gap-3 rounded-2xl border border-base-content/10 bg-base-100/85 px-3 py-3 shadow-sm shadow-base-content/5 backdrop-blur sm:w-auto",
+  code: "min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-left text-[0.95rem] font-medium",
 } as const;
 
 const CONTENT = {
@@ -146,15 +147,21 @@ export function HeroSection() {
             animate={terminalVisible ? { opacity: 1, x: 0 } : undefined}
             transition={{ duration: 0.7, ease: EASE }}
           >
-            <AnimatedTerminal
-              demos={CLI_OVERRIDE_DEMO}
-              loop={false}
-              typingSpeed={40}
-              startAnimation={terminalVisible}
-              shouldAnimate={!wasAlreadySeen}
-              minHeight={HERO_TERMINAL_MIN_HEIGHT}
-              onComplete={handleTerminalComplete}
-            />
+            <div className={styles.terminalFrame}>
+              <div
+                className="pointer-events-none absolute inset-x-8 bottom-2 h-24 rounded-full bg-gradient-to-r from-sky-500/18 via-cyan-400/10 to-emerald-400/16 blur-3xl"
+                aria-hidden="true"
+              />
+              <AnimatedTerminal
+                demos={CLI_OVERRIDE_DEMO}
+                loop={false}
+                typingSpeed={18}
+                startAnimation={terminalVisible}
+                shouldAnimate={!wasAlreadySeen}
+                minHeight={HERO_TERMINAL_MIN_HEIGHT}
+                onComplete={handleTerminalComplete}
+              />
+            </div>
           </motion.aside>
 
           <motion.header

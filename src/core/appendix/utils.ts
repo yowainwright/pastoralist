@@ -480,9 +480,15 @@ export const removeAppendixKeys = (
   keys: string[],
 ): Appendix => {
   const keySet = new Set(keys);
-  return Object.keys(appendix)
-    .filter((key) => !keySet.has(key))
-    .reduce((acc, key) => ({ ...acc, [key]: appendix[key] }), {} as Appendix);
+  const result: Appendix = {};
+
+  for (const key of Object.keys(appendix)) {
+    if (!keySet.has(key)) {
+      result[key] = appendix[key];
+    }
+  }
+
+  return result;
 };
 
 export const extractPackageNames = (appendixKeys: string[]): string[] =>
@@ -496,10 +502,13 @@ export const removeOverrideKeys = (
   packageNames: string[],
 ): Record<string, string | Record<string, string>> => {
   const nameSet = new Set(packageNames);
-  return Object.keys(overrides)
-    .filter((key) => !nameSet.has(key))
-    .reduce(
-      (acc, key) => ({ ...acc, [key]: overrides[key] }),
-      {} as Record<string, string | Record<string, string>>,
-    );
+  const result: Record<string, string | Record<string, string>> = {};
+
+  for (const key of Object.keys(overrides)) {
+    if (!nameSet.has(key)) {
+      result[key] = overrides[key];
+    }
+  }
+
+  return result;
 };

@@ -56,6 +56,7 @@ export type SecurityConfig = {
   severityThreshold?: SeverityThreshold;
   excludePackages?: string[];
   hasWorkspaceSecurityChecks?: boolean;
+  strict?: boolean;
 };
 
 export type PastoralistConfig = {
@@ -280,6 +281,12 @@ const validateSecurityConfig = (value: unknown): boolean => {
     "hasWorkspaceSecurityChecks" in value &&
     value.hasWorkspaceSecurityChecks !== undefined &&
     !isBoolean(value.hasWorkspaceSecurityChecks)
+  )
+    return false;
+  if (
+    "strict" in value &&
+    value.strict !== undefined &&
+    !isBoolean(value.strict)
   )
     return false;
 

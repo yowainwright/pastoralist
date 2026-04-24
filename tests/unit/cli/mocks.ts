@@ -86,7 +86,10 @@ export const createActionDeps = (options: ActionDepsOptions = {}) => {
     createLogger: mock(() => log),
     handleTestMode: mock(() => false),
     handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => Promise.resolve(config)),
+    resolveJSON: mock(() => config),
+    loadConfig: mock((_root: string, packageJsonConfig: unknown) =>
+      Promise.resolve(packageJsonConfig),
+    ),
     buildMergedOptions: mock((opts: unknown, rest: unknown) =>
       Object.assign({}, opts, rest, { checkSecurity }),
     ),

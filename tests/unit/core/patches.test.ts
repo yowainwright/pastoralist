@@ -328,3 +328,20 @@ test("attachPatchesToAppendix - should preserve existing appendix properties", (
     "patches/lodash+4.17.21.patch",
   ]);
 });
+
+test("attachPatchesToAppendix - should attach patches to scoped package entries", () => {
+  const appendix: Appendix = {
+    "@babel/core@7.20.0": {
+      dependents: { root: "@babel/core@^7.20.0" },
+    },
+  };
+  const patchMap = {
+    "@babel/core": ["patches/@babel+core+7.20.0.patch"],
+  };
+
+  const result = attachPatchesToAppendix(appendix, patchMap);
+
+  expect(result["@babel/core@7.20.0"].patches).toEqual([
+    "patches/@babel+core+7.20.0.patch",
+  ]);
+});

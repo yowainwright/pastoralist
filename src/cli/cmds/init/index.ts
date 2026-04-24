@@ -316,7 +316,7 @@ async function checkExistingConfig(
   path: string,
 ): Promise<boolean> {
   const existingConfig = await loadExternalConfig(root, false);
-  const packageJson = await resolveJSON(path);
+  const packageJson = resolveJSON(path);
   const hasExistingConfig = existingConfig || packageJson?.pastoralist;
 
   if (!hasExistingConfig) {
@@ -361,7 +361,7 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
       return;
     }
 
-    const packageJson = await resolveJSON(path);
+    const packageJson = resolveJSON(path);
 
     const answers: InitAnswers = {
       configLocation: "package.json",

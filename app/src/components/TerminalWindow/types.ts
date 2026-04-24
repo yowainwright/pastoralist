@@ -11,6 +11,8 @@ export interface TerminalWindowProps {
   activeTab?: string;
   onTabChange?: (tabId: string) => void;
   hideHeader?: boolean;
+  footer?: React.ReactNode;
+  footerClassName?: string;
   children: React.ReactNode;
   className?: string;
 }

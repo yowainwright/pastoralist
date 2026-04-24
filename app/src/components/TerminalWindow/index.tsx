@@ -1,5 +1,6 @@
 import type { TerminalWindowProps } from "./types";
 import { STYLES } from "./constants";
+import { cn } from "@/lib/utils";
 
 export type { TerminalTab, TerminalWindowProps } from "./types";
 export { STYLES } from "./constants";
@@ -12,13 +13,14 @@ export const TerminalWindow: React.FC<TerminalWindowProps> = ({
   activeTab,
   onTabChange,
   hideHeader = false,
+  footer,
+  footerClassName,
   children,
   className,
 }) => {
   const activeClass = isActive ? STYLES.windowActive : "";
   const baseClass = className ?? STYLES.window;
-  const windowClass =
-    `${baseClass} transition-all duration-300 ${activeClass}`.trim();
+  const windowClass = cn(baseClass, "transition-all duration-300", activeClass);
   const style = minHeight ? { minHeight } : undefined;
   const hasTabs = tabs && tabs.length > 0;
   const headerClass = hasTabs ? STYLES.headerWithTabs : STYLES.header;
@@ -56,6 +58,9 @@ export const TerminalWindow: React.FC<TerminalWindowProps> = ({
         </div>
       )}
       {children}
+      {footer && (
+        <div className={cn(STYLES.footer, footerClassName)}>{footer}</div>
+      )}
     </div>
   );
 };

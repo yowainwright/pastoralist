@@ -162,7 +162,7 @@ export const CLI_OVERRIDE_DEMO: TerminalDemo[] = [
         delay: 20,
       },
       {
-        text: '<span class="text-cyan-400">\u25B8</span> 1 tracked \u00B7 \u25CB 1 removed \u00B7 10 scanned',
+        text: '<span class="text-error">\u25A0</span> 0 crit \u00B7 <span class="text-warning">\u25B2</span> 0 high \u00B7 <span class="text-cyan-400">\u25C6</span> 0 med \u00B7 <span class="text-success">\u25CF</span> 0 low \u00B7 <span class="text-cyan-400">\u25B8</span> 1 tracked \u00B7 \u25CB 1 removed \u00B7 10 scanned',
         className: "text-base-content/50",
         delay: 40,
       },

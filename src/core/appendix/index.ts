@@ -27,12 +27,16 @@ import {
   mergeAppendixDependents,
 } from "./utils";
 
+const hasDependency = (
+  deps: Record<string, string>,
+  packageName: string,
+): boolean => Object.prototype.hasOwnProperty.call(deps, packageName);
+
 const processSimpleOverride = ({
   override,
   overrideVersion = "",
   packageName,
   deps,
-  depList,
   appendix,
   packageReason,
   securityLedger = {},
@@ -41,7 +45,7 @@ const processSimpleOverride = ({
   dependencyTree,
   addedDate,
 }: ProcessOverrideOptions): Appendix => {
-  const hasOverride = depList.includes(override);
+  const hasOverride = hasDependency(deps, override);
   const isInDependencyTree = dependencyTree?.[override] || false;
   const isUnused = !hasOverride && !isInDependencyTree;
   const shouldSkip = onlyUsedOverrides && isUnused;
@@ -50,10 +54,11 @@ const processSimpleOverride = ({
   const key = packageAtVersion(override)(overrideVersion);
   const cached = cache.get(key);
   if (cached) {
-    return { ...appendix, [key]: cached };
+    appendix[key] = cached;
+    return appendix;
   }
 
-  const currentDependents = appendix?.[key]?.dependents || {};
+  const currentDependents = appendix[key]?.dependents || {};
   const packageVersion = deps[override];
   const dependentInfo = buildDependentInfo(
     hasOverride,
@@ -67,7 +72,7 @@ const processSimpleOverride = ({
     dependentInfo,
   );
 
-  const existingLedger = appendix?.[key]?.ledger;
+  const existingLedger = appendix[key]?.ledger;
   const newAppendixItem = buildAppendixItem(
     newDependents,
     existingLedger,
@@ -77,7 +82,8 @@ const processSimpleOverride = ({
   );
 
   cache.set(key, newAppendixItem);
-  return { ...appendix, [key]: newAppendixItem };
+  appendix[key] = newAppendixItem;
+  return appendix;
 };
 
 const processNestedOverrideEntry = ({
@@ -97,10 +103,11 @@ const processNestedOverrideEntry = ({
   const key = packageAtVersion(nestedPkg)(nestedVersion);
   const cached = cache.get(key);
   if (cached) {
-    return { ...appendix, [key]: cached };
+    appendix[key] = cached;
+    return appendix;
   }
 
-  const currentDependents = appendix?.[key]?.dependents || {};
+  const currentDependents = appendix[key]?.dependents || {};
   const dependentValue = `${parentOverride}@${deps[parentOverride]} (nested override)`;
   const newDependents = mergeDependents(
     currentDependents,
@@ -108,7 +115,7 @@ const processNestedOverrideEntry = ({
     dependentValue,
   );
 
-  const existingLedger = appendix?.[key]?.ledger;
+  const existingLedger = appendix[key]?.ledger;
   const nestedReason =
     mergeOverrideReasons(
       nestedPkg,
@@ -131,7 +138,8 @@ const processNestedOverrideEntry = ({
   );
 
   cache.set(key, newAppendixItem);
-  return { ...appendix, [key]: newAppendixItem };
+  appendix[key] = newAppendixItem;
+  return appendix;
 };
 
 const processNestedOverride = ({
@@ -139,7 +147,6 @@ const processNestedOverride = ({
   overrides = {},
   packageName,
   deps,
-  depList,
   appendix,
   packageReason,
   securityOverrideDetails,
@@ -148,7 +155,7 @@ const processNestedOverride = ({
   cache,
   addedDate,
 }: ProcessOverrideOptions): Appendix => {
-  const hasOverride = depList.includes(override);
+  const hasOverride = hasDependency(deps, override);
   if (!hasOverride) return appendix;
 
   const overrideValue = overrides[override] as Record<string, string>;
@@ -161,7 +168,6 @@ const processNestedOverride = ({
         packageName,
         parentOverride: override,
         deps,
-        depList,
         appendix: updated,
         packageReason,
         securityOverrideDetails,
@@ -179,7 +185,6 @@ const processOverrideEntry = ({
   overrides = {},
   packageName,
   deps,
-  depList,
   appendix,
   reason,
   securityOverrideDetails,
@@ -211,7 +216,6 @@ const processOverrideEntry = ({
       overrides,
       packageName,
       deps,
-      depList,
       appendix,
       packageReason,
       securityOverrideDetails,
@@ -227,7 +231,6 @@ const processOverrideEntry = ({
     overrideVersion: overrideValue as string,
     packageName,
     deps,
-    depList,
     appendix,
     packageReason,
     securityLedger,
@@ -261,7 +264,7 @@ export const updateAppendix = ({
 }): Appendix => {
   const overridesList = Object.keys(overrides);
   const deps = { ...dependencies, ...devDependencies, ...peerDependencies };
-  const depList = Object.keys(deps);
+  const workingAppendix = { ...appendix };
 
   const updated = overridesList.reduce(
     (acc, override) =>
@@ -270,7 +273,6 @@ export const updateAppendix = ({
         overrides,
         packageName,
         deps,
-        depList,
         appendix: acc,
         reason,
         securityOverrideDetails,
@@ -281,7 +283,7 @@ export const updateAppendix = ({
         dependencyTree,
         addedDate,
       }),
-    appendix,
+    workingAppendix,
   );
 
   return removeEmptyEntries(updated);

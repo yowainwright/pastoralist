@@ -68,7 +68,7 @@ function Pre({
   }
 
   return (
-    <div className="my-6">
+    <div className="not-prose my-6">
       <Codeblock code={code} lang={lang} showCopy showLanguage />
     </div>
   );

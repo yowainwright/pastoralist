@@ -14,6 +14,8 @@ import { CopyButton } from "./CopyButton";
 import { SHIKI_LANGS, CODEBLOCK_CLASSES } from "./constants";
 import type { CodeblockProps } from "./types";
 
+const WINDOW_DOTS = ["bg-rose-400", "bg-amber-400", "bg-emerald-400"] as const;
+
 // Singleton highlighter promise — created once, reused forever
 let highlighterPromise: Promise<Highlighter> | null = null;
 
@@ -86,20 +88,33 @@ export function Codeblock({
     <div className={cn(CODEBLOCK_CLASSES.wrapper, className)}>
       {hasHeader && (
         <div className={CODEBLOCK_CLASSES.header}>
-          <div className="flex items-center gap-2">
-            {title && (
-              <span className="text-xs text-base-content/70 font-medium">
-                {title}
-              </span>
-            )}
-            {showLanguage && lang && lang !== "text" && (
-              <Badge
-                variant="secondary"
-                className="text-xs px-1.5 py-0 h-5 font-mono"
-              >
-                {lang}
-              </Badge>
-            )}
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex items-center gap-1.5" aria-hidden="true">
+              {WINDOW_DOTS.map((tone) => (
+                <span
+                  key={tone}
+                  className={cn(
+                    "h-2.5 w-2.5 rounded-full ring-1 ring-black/5",
+                    tone,
+                  )}
+                />
+              ))}
+            </div>
+            <div className="flex min-w-0 items-center gap-2">
+              {title && (
+                <span className="truncate text-xs font-medium text-base-content/70">
+                  {title}
+                </span>
+              )}
+              {showLanguage && lang && lang !== "text" && (
+                <Badge
+                  variant="secondary"
+                  className="h-5 px-1.5 py-0 font-mono text-xs"
+                >
+                  {lang}
+                </Badge>
+              )}
+            </div>
           </div>
           {showCopy && <CopyButton code={code} />}
         </div>

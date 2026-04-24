@@ -75,6 +75,18 @@ test("safeValidateConfig - should return parsed config for valid input", () => {
   expect(result).toEqual(config);
 });
 
+test("safeValidateConfig - should allow security strict config", () => {
+  const config = {
+    security: {
+      enabled: true,
+      strict: true,
+    },
+  };
+
+  const result = safeValidateConfig(config);
+  expect(result).toEqual(config);
+});
+
 test("loadConfig - should return undefined when no config", async () => {
   validateRootPackageJsonIntegrity();
   if (!existsSync(testDir)) {

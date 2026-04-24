@@ -20,6 +20,7 @@ import {
 import { update } from "../core/update";
 import { logger as createLogger } from "../utils";
 import { resolveJSON } from "../core/packageJSON";
+import { loadConfig } from "../config";
 import { IS_DEBUGGING, FARMER, MSG_SCANNING, SHEEP } from "../constants";
 import { SecurityChecker } from "../core/security";
 import { initCommand } from "./cmds/init/index";
@@ -30,7 +31,7 @@ import {
   extractPackageNames,
 } from "../core/appendix/utils";
 import * as fs from "fs";
-import { resolve } from "path";
+import { dirname, resolve } from "path";
 
 const logger = createLogger({ file: "program.ts", isLogging: false });
 
@@ -143,6 +144,7 @@ export const buildMergedOptions = (
     hasWorkspaceSecurityChecks:
       options.hasWorkspaceSecurityChecks ??
       securityConfig.hasWorkspaceSecurityChecks,
+    strict: options.strict ?? securityConfig.strict,
   };
 };
 
@@ -195,6 +197,7 @@ export const runSecurityCheck = async (
       interactive: mergedOptions.interactive,
       token: mergedOptions.securityProviderToken,
       debug: isLogging,
+      strict: mergedOptions.strict,
       cacheDir: mergedOptions.cacheDir,
       noCache: mergedOptions.noCache,
       refreshCache: mergedOptions.refreshCache,
@@ -242,6 +245,7 @@ export const runSecurityCheck = async (
         interactive: mergedOptions.interactive,
         token: mergedOptions.securityProviderToken,
         debug: isLogging,
+        strict: mergedOptions.strict,
       });
       return {
         spinner,
@@ -304,7 +308,8 @@ export const handleSecurityResults = (
 
     const shouldAutoFix =
       (shouldGenerateOverrides || shouldApplyUpdates) &&
-      overridesToApply.length > 0;
+      overridesToApply.length > 0 &&
+      !mergedOptions.dryRun;
     if (shouldAutoFix) {
       securityChecker.applyAutoFix(overridesToApply, mergedOptions.path);
     }
@@ -635,6 +640,7 @@ export async function action(
     update,
     createTerminalGraph,
     getOverrideGitDate,
+    loadConfig,
     processExit: (code: number) => process.exit(code),
   },
 ): Promise<PastoralistResult> {
@@ -674,8 +680,21 @@ export async function action(
       options.root && !relativePath.startsWith("/")
         ? `${options.root}/${relativePath}`
         : relativePath;
-    const config = deps.resolveJSON(path);
-    const securityConfig = config?.pastoralist?.security || {};
+    const packageConfig = deps.resolveJSON(path);
+    if (!packageConfig) {
+      throw new Error(`Unable to load package.json at ${path}`);
+    }
+
+    const configRoot = options.root || dirname(resolve(path));
+    const mergedPastoralistConfig = await (deps.loadConfig ?? loadConfig)(
+      configRoot,
+      packageConfig.pastoralist,
+    );
+    const config: PastoralistJSON = {
+      ...packageConfig,
+      ...(mergedPastoralistConfig && { pastoralist: mergedPastoralistConfig }),
+    };
+    const securityConfig = config.pastoralist?.security || {};
     const configProvider = Array.isArray(securityConfig.provider)
       ? securityConfig.provider[0]
       : securityConfig.provider;
@@ -815,7 +834,7 @@ export async function action(
     const addedDate = await deps.getOverrideGitDate(path);
     mergedOptions = { ...mergedOptions, addedDate };
 
-    const updateContext = await deps.update(mergedOptions);
+    const updateContext = deps.update(mergedOptions);
     const updateResultData = buildUpdateResult(
       updateContext,
       config,

@@ -138,6 +138,24 @@ test("findUnusedOverrides", async () => {
   spy.mockRestore();
 });
 
+test("findUnusedOverrides - reads dependency tree once per run", async () => {
+  const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({});
+
+  const result = await findUnusedOverrides(
+    {
+      alpha: "1.0.0",
+      beta: "2.0.0",
+      gamma: "3.0.0",
+    },
+    { root: "^1.0.0" },
+  );
+
+  expect(result).toEqual(["alpha", "beta", "gamma"]);
+  expect(spy).toHaveBeenCalledTimes(1);
+
+  spy.mockRestore();
+});
+
 test("cleanupUnusedOverrides", async () => {
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
   const mockUpdateOverrides = () => ({ "fake-pkg": "1.0.0" });

@@ -9,7 +9,7 @@ import {
   unlinkSync,
 } from "fs";
 import { join, dirname, basename } from "path";
-import { homedir } from "os";
+import { homedir, tmpdir } from "os";
 import { createHash } from "crypto";
 import type { DiskCacheOptions, DiskCacheEnvelope } from "../types";
 
@@ -82,9 +82,21 @@ export const resolveCacheDir = (
     mkdirSync(nodeModulesCache, { recursive: true });
     return nodeModulesCache;
   } catch {
-    const fallback = join(homedir(), ".pastoralist", "cache");
-    mkdirSync(fallback, { recursive: true });
-    return fallback;
+    const fallbacks = [
+      join(homedir(), ".pastoralist", "cache"),
+      join(tmpdir(), "pastoralist", "cache"),
+    ];
+
+    for (const fallback of fallbacks) {
+      try {
+        mkdirSync(fallback, { recursive: true });
+        return fallback;
+      } catch {
+        // try the next fallback
+      }
+    }
+
+    throw new Error("Unable to create a writable cache directory");
   }
 };
 

@@ -3,6 +3,8 @@
   background-color: #f8fafc;
   border-radius: 0.5rem;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
   border: 1px solid rgba(0, 0, 0, 0.1);
   box-shadow:
     0 10px 15px -3px rgba(0, 0, 0, 0.1),
@@ -58,6 +60,21 @@
 
 [data-theme="night"] .terminal-header {
   background-color: #334155;
+}
+
+.terminal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  background-color: rgba(255, 255, 255, 0.6);
+  padding: 0.75rem 1rem;
+}
+
+[data-theme="night"] .terminal-footer {
+  border-top-color: rgba(255, 255, 255, 0.08);
+  background-color: rgba(30, 41, 59, 0.75);
 }
 
 /* Terminal tabs */

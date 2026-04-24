@@ -455,23 +455,24 @@ export class SecurityChecker {
         absolute: true,
       });
 
-      const allVulnerabilities = packageFiles.reduce<SecurityAlert[]>(
-        (acc, packageFile) => {
-          const pkgJson = this.readPackageFile(packageFile);
-          if (!pkgJson) return acc;
+      const allVulnerabilities: SecurityAlert[] = [];
+      const existingKeys = new Set<string>();
 
-          const existingKeys = new Set(
-            acc.map((v) => `${v.packageName}@${v.currentVersion}`),
-          );
-          const newVulns = this.extractNewVulnerabilities(
-            pkgJson,
-            alerts,
-            existingKeys,
-          );
-          return acc.concat(newVulns);
-        },
-        [],
-      );
+      for (const packageFile of packageFiles) {
+        const pkgJson = this.readPackageFile(packageFile);
+        if (!pkgJson) continue;
+
+        const newVulns = this.extractNewVulnerabilities(
+          pkgJson,
+          alerts,
+          existingKeys,
+        );
+
+        for (const vuln of newVulns) {
+          existingKeys.add(`${vuln.packageName}@${vuln.currentVersion}`);
+          allVulnerabilities.push(vuln);
+        }
+      }
 
       return allVulnerabilities;
     } catch (error) {
@@ -508,6 +509,18 @@ export class SecurityChecker {
     const overrideEntries = allEntries.filter(
       ([_, version]) => typeof version === "string",
     );
+    const alertsByPackage = alerts.reduce((map, alert) => {
+      if (!alert.patchedVersion) return map;
+
+      const existing = map.get(alert.packageName);
+      if (existing) {
+        existing.push(alert);
+      } else {
+        map.set(alert.packageName, [alert]);
+      }
+
+      return map;
+    }, new Map<string, SecurityAlert[]>());
 
     const updates = overrideEntries
       .map(([packageName, version]) => {
@@ -517,9 +530,7 @@ export class SecurityChecker {
 
         if (!isSecurityOverride) return null;
 
-        const alertsForPackage = alerts.filter(
-          (a) => a.packageName === packageName && a.patchedVersion,
-        );
+        const alertsForPackage = alertsByPackage.get(packageName) || [];
         const newerAlert = alertsForPackage.find(
           (a) => compareVersions(a.patchedVersion!, version as string) > 0,
         );

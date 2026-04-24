@@ -1,6 +1,6 @@
-export const TERMINAL_LINE_HEIGHT_PX = 20;
+export const TERMINAL_LINE_HEIGHT_PX = 16;
 export const TERMINAL_HEADER_HEIGHT_PX = 44;
-export const TERMINAL_PADDING_PX = 32;
+export const TERMINAL_PADDING_PX = 0;
 
 /** @tw - enables Tailwind IntelliSense */
 export const STYLES = {
@@ -22,6 +22,7 @@ export const STYLES = {
   line: "terminal-line",
   prefix: "terminal-prefix",
   cursor: "cursor",
+  footer: "terminal-footer",
   loader: "terminal-window w-full animate-pulse",
   loaderBar: "h-4 bg-base-content/10 rounded",
 } as const;

@@ -17,7 +17,7 @@ export const STYLES = {
   heading: "text-2xl lg:text-3xl font-black text-base-content mb-6",
   nav: "flex flex-col justify-center items-center gap-4",
   codeBlock:
-    "flex items-center bg-base-100 rounded-lg shadow-sm h-12 px-4 border border-base-content/10 max-w-md",
-  code: "flex-1 text-left leading-none text-base",
+    "flex w-full max-w-md items-center gap-3 rounded-2xl border border-base-content/10 bg-base-100/85 px-3 py-3 shadow-sm shadow-base-content/5 backdrop-blur",
+  code: "min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-left text-[0.95rem] font-medium",
   button: "btn btn-lg btn-primary",
 } as const;

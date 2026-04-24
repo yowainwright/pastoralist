@@ -38,7 +38,6 @@ export interface ProcessOverrideOptions {
   override: string;
   packageName: string;
   deps: Record<string, string>;
-  depList: string[];
   appendix: Appendix;
   cache: Map<string, AppendixItem>;
   reason?: string;

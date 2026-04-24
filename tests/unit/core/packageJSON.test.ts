@@ -1109,6 +1109,33 @@ test("getDependencyTree - should cache results on second call", async () => {
   clearDependencyTreeCache();
 });
 
+test("getDependencyTree - coalesces concurrent requests", async () => {
+  clearDependencyTreeCache();
+  const mockOutput = JSON.stringify({
+    dependencies: {
+      lodash: { version: "4.17.21" },
+    },
+  });
+
+  let callCount = 0;
+  const mockExecuteNpmLs = async () => {
+    callCount++;
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 10));
+    return mockOutput;
+  };
+
+  const [first, second, third] = await Promise.all([
+    getDependencyTree(mockExecuteNpmLs),
+    getDependencyTree(mockExecuteNpmLs),
+    getDependencyTree(mockExecuteNpmLs),
+  ]);
+
+  expect(first).toEqual(second);
+  expect(second).toEqual(third);
+  expect(callCount).toBe(1);
+  clearDependencyTreeCache();
+});
+
 test("getDependencyTree - should return empty object on error", async () => {
   clearDependencyTreeCache();
 

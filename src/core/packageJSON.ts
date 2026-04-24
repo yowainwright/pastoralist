@@ -29,6 +29,8 @@ const execFile = promisify(execFileCallback);
 const log = logger({ file: "packageJSON.ts", isLogging: IS_DEBUGGING });
 
 let _treeCache: DiskCache<Record<string, boolean>> | null = null;
+let _pendingTreeRequests: Map<string, Promise<Record<string, boolean>>> | null =
+  null;
 
 const getTreeCache = (
   cacheDir?: string,
@@ -489,21 +491,37 @@ export const getDependencyTree = async (
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 
-  try {
-    const execute = mockExecuteNpmLs || executeNpmLs;
-    const stdout = await execute(root);
-    const packageMap = parseNpmLsOutput(stdout);
-    cache.set(cacheKey, packageMap);
-    return packageMap;
-  } catch (error) {
-    log.debug("Failed to get dependency tree", "getDependencyTree", error);
-    return {};
+  if (!_pendingTreeRequests) {
+    _pendingTreeRequests = new Map();
   }
+
+  const pending = _pendingTreeRequests.get(cacheKey);
+  if (pending) return pending;
+
+  const request = (async () => {
+    try {
+      const execute = mockExecuteNpmLs || executeNpmLs;
+      const stdout = await execute(root);
+      const packageMap = parseNpmLsOutput(stdout);
+      cache.set(cacheKey, packageMap);
+      return packageMap;
+    } catch (error) {
+      log.debug("Failed to get dependency tree", "getDependencyTree", error);
+      return {};
+    } finally {
+      _pendingTreeRequests?.delete(cacheKey);
+    }
+  })();
+
+  _pendingTreeRequests.set(cacheKey, request);
+  return request;
 };
 
 export const clearDependencyTreeCache = (): void => {
   _treeCache?.clear();
   _treeCache = null;
+  _pendingTreeRequests?.clear();
+  _pendingTreeRequests = null;
 };
 
 const YARN_LOCK_PACKAGE_PATTERN = /^[\w@][\w\-./]*@/gm;

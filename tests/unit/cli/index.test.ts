@@ -297,6 +297,21 @@ test("buildMergedOptions - defaults to osv provider when not specified", () => {
   expect(result.securityProvider).toBe("osv");
 });
 
+test("buildMergedOptions - carries strict from CLI or config", () => {
+  const { buildMergedOptions } = require("../../../src/cli/index");
+
+  const cliResult = buildMergedOptions(
+    { strict: true },
+    {},
+    { strict: false },
+    undefined,
+  );
+  expect(cliResult.strict).toBe(true);
+
+  const configResult = buildMergedOptions({}, {}, { strict: true }, undefined);
+  expect(configResult.strict).toBe(true);
+});
+
 test("handleSecurityResults - generates overrides when alerts found", () => {
   const { handleSecurityResults } = require("../../../src/cli/index");
 
@@ -955,6 +970,51 @@ test("handleSecurityResults - does not call applyAutoFix when no overrides to ap
   expect(mockSecurityChecker.applyAutoFix).not.toHaveBeenCalled();
 });
 
+test("handleSecurityResults - does not call applyAutoFix during dry run", () => {
+  const { handleSecurityResults } = require("../../../src/cli/index");
+
+  const alerts = [
+    {
+      packageName: "lodash",
+      severity: "high",
+      title: "Prototype Pollution",
+    },
+  ];
+  const securityOverrides = [
+    {
+      packageName: "lodash",
+      fromVersion: "4.17.20",
+      toVersion: "4.17.21",
+      reason: "Security fix",
+      severity: "high",
+    },
+  ];
+
+  const mockSecurityChecker = {
+    generatePackageOverrides: mock(() => ({ lodash: "4.17.21" })),
+    applyAutoFix: mock(() => {}),
+  };
+  const mockSpinner = {
+    stop: mock(),
+  };
+
+  const result = handleSecurityResults(
+    alerts,
+    securityOverrides,
+    mockSecurityChecker as any,
+    mockSpinner as any,
+    {
+      dryRun: true,
+      forceSecurityRefactor: true,
+      path: "package.json",
+    },
+    [],
+  );
+
+  expect(result.securityOverrides).toEqual({ lodash: "4.17.21" });
+  expect(mockSecurityChecker.applyAutoFix).not.toHaveBeenCalled();
+});
+
 test("formatUpdateReport - formats updates without addedDate", () => {
   const { formatUpdateReport } = require("../../../src/cli/index");
 
@@ -1453,7 +1513,7 @@ test("action - handles test mode early return", async () => {
     createLogger: mock(() => log),
     handleTestMode: mockHandleTestMode,
     handleInitMode: mockHandleInitMode,
-    resolveJSON: mock(() => Promise.resolve({})),
+    resolveJSON: mock(() => ({})),
     buildMergedOptions: mock(() => ({})),
     runSecurityCheck: mock(() => Promise.resolve({})),
     handleSecurityResults: mock(() => {}),
@@ -1463,7 +1523,7 @@ test("action - handles test mode early return", async () => {
       stop: mock(),
     })),
     green: mock((text: string) => text),
-    update: mock(() => Promise.resolve()),
+    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
     getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(() => {}),
@@ -1485,7 +1545,7 @@ test("action - handles init mode early return", async () => {
     createLogger: mock(() => log),
     handleTestMode: mock(() => false),
     handleInitMode: mockHandleInitMode,
-    resolveJSON: mock(() => Promise.resolve({})),
+    resolveJSON: mock(() => ({})),
     buildMergedOptions: mock(() => ({})),
     runSecurityCheck: mock(() => Promise.resolve({})),
     handleSecurityResults: mock(() => {}),
@@ -1495,7 +1555,7 @@ test("action - handles init mode early return", async () => {
       stop: mock(),
     })),
     green: mock((text: string) => text),
-    update: mock(() => Promise.resolve()),
+    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
     getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(() => {}),
@@ -1522,7 +1582,7 @@ test("action - resolves package.json and runs update", async () => {
     createLogger: mock(() => log),
     handleTestMode: mock(() => false),
     handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => Promise.resolve(mockConfig)),
+    resolveJSON: mock(() => mockConfig),
     buildMergedOptions: mock((options: any, rest: any) =>
       Object.assign({}, options, rest, { checkSecurity: false }),
     ),
@@ -1581,13 +1641,13 @@ test("action - runs security check when enabled", async () => {
     createLogger: mock(() => log),
     handleTestMode: mock(() => false),
     handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => Promise.resolve(mockConfig)),
+    resolveJSON: mock(() => mockConfig),
     buildMergedOptions: mock(() => ({ checkSecurity: true })),
     runSecurityCheck: mock(() => Promise.resolve(mockSecurityResults)),
     handleSecurityResults: mock(() => {}),
     createSpinner: mock(() => mockSpinner),
     green: mock((text: string) => text),
-    update: mock(() => Promise.resolve()),
+    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
     getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(() => {}),
@@ -1625,7 +1685,7 @@ test("action - handles path with root option", async () => {
     createLogger: mock(() => log),
     handleTestMode: mock(() => false),
     handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => Promise.resolve(mockConfig)),
+    resolveJSON: mock(() => mockConfig),
     buildMergedOptions: mock((options: any, rest: any) =>
       Object.assign({}, options, rest),
     ),
@@ -1633,7 +1693,7 @@ test("action - handles path with root option", async () => {
     handleSecurityResults: mock(() => {}),
     createSpinner: mock(() => mockSpinner),
     green: mock((text: string) => text),
-    update: mock(() => Promise.resolve()),
+    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
     getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(() => {}),
@@ -1663,7 +1723,7 @@ test("action - handles absolute path without root", async () => {
     createLogger: mock(() => log),
     handleTestMode: mock(() => false),
     handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => Promise.resolve(mockConfig)),
+    resolveJSON: mock(() => mockConfig),
     buildMergedOptions: mock((options: any, rest: any) =>
       Object.assign({}, options, rest),
     ),
@@ -1671,7 +1731,7 @@ test("action - handles absolute path without root", async () => {
     handleSecurityResults: mock(() => {}),
     createSpinner: mock(() => mockSpinner),
     green: mock((text: string) => text),
-    update: mock(() => Promise.resolve()),
+    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
     getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(() => {}),
@@ -1704,7 +1764,7 @@ test("action - calls processExit on error", async () => {
       stop: mock(),
     })),
     green: mock((text: string) => text),
-    update: mock(() => Promise.resolve()),
+    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
     getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mockProcessExit,
@@ -1713,6 +1773,91 @@ test("action - calls processExit on error", async () => {
   await action({}, deps);
 
   expect(mockProcessExit).toHaveBeenCalledWith(1);
+});
+
+test("action - fails when package.json cannot be loaded", async () => {
+  const { action } = require("../../../src/cli/index");
+
+  const mockProcessExit = mock(() => {});
+  const deps = {
+    createLogger: mock(() => log),
+    handleTestMode: mock(() => false),
+    handleInitMode: mock(() => Promise.resolve(false)),
+    resolveJSON: mock(() => undefined),
+    loadConfig: mock(() => Promise.resolve(undefined)),
+    buildMergedOptions: mock(() => ({})),
+    runSecurityCheck: mock(() => Promise.resolve({})),
+    handleSecurityResults: mock(() => {}),
+    createSpinner: mock(() => ({
+      start: mock(),
+      succeed: mock(),
+      stop: mock(),
+    })),
+    green: mock((text: string) => text),
+    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
+    createTerminalGraph: mock(() => createMockTerminalGraph()),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
+    processExit: mockProcessExit,
+  };
+
+  const result = await action(
+    { path: "/tmp/missing-package.json", outputFormat: "json" },
+    deps,
+  );
+
+  expect(result.success).toBe(false);
+  expect(result.errors[0]).toContain(
+    "Unable to load package.json at /tmp/missing-package.json",
+  );
+  expect(deps.update).not.toHaveBeenCalled();
+  expect(mockProcessExit).toHaveBeenCalledWith(1);
+});
+
+test("action - merges external config into package config", async () => {
+  const { action } = require("../../../src/cli/index");
+
+  const mockConfig: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+  };
+  const externalConfig = {
+    depPaths: ["packages/*/package.json"],
+    security: {
+      enabled: false,
+      provider: "osv",
+    },
+  };
+
+  const deps = {
+    createLogger: mock(() => log),
+    handleTestMode: mock(() => false),
+    handleInitMode: mock(() => Promise.resolve(false)),
+    resolveJSON: mock(() => mockConfig),
+    loadConfig: mock(() => Promise.resolve(externalConfig)),
+    buildMergedOptions: mock((options: any, rest: any) =>
+      Object.assign({}, options, rest, { checkSecurity: false }),
+    ),
+    runSecurityCheck: mock(() => Promise.resolve({})),
+    handleSecurityResults: mock(() => {}),
+    createSpinner: mock(() => ({
+      start: mock(),
+      succeed: mock(),
+      stop: mock(),
+    })),
+    green: mock((text: string) => text),
+    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
+    createTerminalGraph: mock(() => createMockTerminalGraph()),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
+    processExit: mock(() => {}),
+  };
+
+  await action({ path: "package.json", root: "/repo" }, deps);
+
+  expect(deps.loadConfig).toHaveBeenCalledWith("/repo", undefined);
+  const updateOptions = deps.update.mock.calls[0][0] as Options;
+  expect(updateOptions.config?.pastoralist?.depPaths).toEqual([
+    "packages/*/package.json",
+  ]);
 });
 
 test("action - handles array security provider", async () => {
@@ -1746,13 +1891,13 @@ test("action - handles array security provider", async () => {
     createLogger: mock(() => log),
     handleTestMode: mock(() => false),
     handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => Promise.resolve(mockConfig)),
+    resolveJSON: mock(() => mockConfig),
     buildMergedOptions: mockBuildMergedOptions,
     runSecurityCheck: mock(() => Promise.resolve({})),
     handleSecurityResults: mock(() => {}),
     createSpinner: mock(() => mockSpinner),
     green: mock((text: string) => text),
-    update: mock(() => Promise.resolve()),
+    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
     getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
     processExit: mock(() => {}),
@@ -2405,7 +2550,7 @@ test("action - continues successfully when security check hits permission error"
     createLogger: mock(() => log),
     handleTestMode: mock(() => false),
     handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => Promise.resolve(mockConfig)),
+    resolveJSON: mock(() => mockConfig),
     buildMergedOptions: mock(() => ({ checkSecurity: true })),
     runSecurityCheck: mock(() =>
       Promise.resolve({
@@ -2459,7 +2604,7 @@ test("action - does not call handleSecurityResults when security check is skippe
     createLogger: mock(() => log),
     handleTestMode: mock(() => false),
     handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => Promise.resolve(mockConfig)),
+    resolveJSON: mock(() => mockConfig),
     buildMergedOptions: mock(() => ({ checkSecurity: true })),
     runSecurityCheck: mock(() =>
       Promise.resolve({
@@ -2646,7 +2791,7 @@ test("action - displays security fixes when forceSecurityRefactor is true", asyn
     createLogger: mock(() => log),
     handleTestMode: mock(() => false),
     handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => Promise.resolve(mockConfig)),
+    resolveJSON: mock(() => mockConfig),
     buildMergedOptions: mock(() => ({
       checkSecurity: true,
       forceSecurityRefactor: true,
@@ -2719,7 +2864,7 @@ test("action - displays removed overrides when present", async () => {
     createLogger: mock(() => log),
     handleTestMode: mock(() => false),
     handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => Promise.resolve(mockConfig)),
+    resolveJSON: mock(() => mockConfig),
     buildMergedOptions: mock(() => ({ checkSecurity: false })),
     runSecurityCheck: mock(() => Promise.resolve({})),
     handleSecurityResults: mock(),
@@ -2784,7 +2929,7 @@ test("action - displays summary table when summary option is true", async () => 
     createLogger: mock(() => log),
     handleTestMode: mock(() => false),
     handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => Promise.resolve(mockConfig)),
+    resolveJSON: mock(() => mockConfig),
     buildMergedOptions: mock(() => ({ checkSecurity: false, summary: true })),
     runSecurityCheck: mock(() => Promise.resolve({})),
     handleSecurityResults: mock(),
@@ -2880,7 +3025,7 @@ test("action - applies security results when outputFormat is json", async () => 
     createLogger: mock(() => log),
     handleTestMode: mock(() => false),
     handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => Promise.resolve(mockConfig)),
+    resolveJSON: mock(() => mockConfig),
     buildMergedOptions: mock((options: any, rest: any) =>
       Object.assign({}, options, rest, { checkSecurity: true }),
     ),
@@ -2939,7 +3084,7 @@ test("action - displays unused override notice when unused overrides exist", asy
     createLogger: mock(() => log),
     handleTestMode: mock(() => false),
     handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => Promise.resolve(mockConfig)),
+    resolveJSON: mock(() => mockConfig),
     buildMergedOptions: mock((options: any, rest: any) =>
       Object.assign({}, options, rest, { checkSecurity: false }),
     ),
@@ -2985,7 +3130,7 @@ test("action - does not display unused override notice when removeUnused is true
     createLogger: mock(() => log),
     handleTestMode: mock(() => false),
     handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => Promise.resolve(mockConfig)),
+    resolveJSON: mock(() => mockConfig),
     buildMergedOptions: mock((options: any, rest: any) =>
       Object.assign({}, options, rest, { checkSecurity: false }),
     ),

@@ -133,7 +133,8 @@ export const findUnusedPatches = (
 };
 
 const extractPackageNameFromKey = (key: string): string => {
-  return key.split("@")[0];
+  const lastAtIndex = key.lastIndexOf("@");
+  return lastAtIndex > 0 ? key.slice(0, lastAtIndex) : key;
 };
 
 const addPatchesToAppendixEntry = (

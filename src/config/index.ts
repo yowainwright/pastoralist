@@ -29,7 +29,7 @@ const loadConfigFile = async (
   path: string,
 ): Promise<unknown | null> => {
   if (isJsonFile(filename)) return loadJsonConfig(path);
-  return await loadJsConfig(path);
+  return loadJsConfig(path);
 };
 
 const validateAndReturn = (

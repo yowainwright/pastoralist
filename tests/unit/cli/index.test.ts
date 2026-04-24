@@ -2,8 +2,21 @@ import { test, expect, mock } from "bun:test";
 import type { Options, PastoralistJSON } from "../../../src/types";
 import { logger as createLogger } from "../../../src/utils";
 import { determineSecurityScanPaths } from "../../../src/cli/index";
+import { clearConfigCache } from "../../../src/config";
+import { resolve } from "path";
+import {
+  safeWriteFileSync as writeFileSync,
+  safeMkdirSync as mkdirSync,
+  safeRmSync as rmSync,
+  safeExistsSync as existsSync,
+} from "../setup";
 
 const log = createLogger({ file: "test.ts", isLogging: false });
+const actionExternalConfigDir = resolve(
+  __dirname,
+  "..",
+  ".test-action-external-config",
+);
 
 const createMockTerminalGraph = () => {
   const graph = {
@@ -1858,6 +1871,82 @@ test("action - merges external config into package config", async () => {
   expect(updateOptions.config?.pastoralist?.depPaths).toEqual([
     "packages/*/package.json",
   ]);
+});
+
+test("action - loads external config when package.json has no pastoralist config", async () => {
+  const { action } = require("../../../src/cli/index");
+  const {
+    resolveJSON,
+    forceClearCache,
+  } = require("../../../src/core/packageJSON");
+
+  const packagePath = resolve(actionExternalConfigDir, "package.json");
+  const configPath = resolve(actionExternalConfigDir, ".pastoralistrc.json");
+  const externalConfig = {
+    depPaths: ["packages/*/package.json"],
+    security: {
+      enabled: false,
+      provider: "osv",
+    },
+  };
+
+  clearConfigCache();
+  forceClearCache();
+  if (existsSync(actionExternalConfigDir)) {
+    rmSync(actionExternalConfigDir, { recursive: true, force: true });
+  }
+  mkdirSync(actionExternalConfigDir, { recursive: true });
+  writeFileSync(
+    packagePath,
+    JSON.stringify({ name: "test", version: "1.0.0" }, null, 2),
+  );
+  writeFileSync(configPath, JSON.stringify(externalConfig, null, 2));
+
+  const deps = {
+    createLogger: mock(() => log),
+    handleTestMode: mock(() => false),
+    handleInitMode: mock(() => Promise.resolve(false)),
+    resolveJSON: mock((path: string) => resolveJSON(path)),
+    buildMergedOptions: mock((options: any, rest: any) =>
+      Object.assign({}, options, rest, { checkSecurity: false }),
+    ),
+    runSecurityCheck: mock(() => Promise.resolve({})),
+    handleSecurityResults: mock(() => {}),
+    createSpinner: mock(() => ({
+      start: mock(),
+      succeed: mock(),
+      stop: mock(),
+    })),
+    green: mock((text: string) => text),
+    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
+    createTerminalGraph: mock(() => createMockTerminalGraph()),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
+    processExit: mock(() => {}),
+  };
+
+  try {
+    await action(
+      { path: "package.json", root: actionExternalConfigDir },
+      deps as any,
+    );
+
+    const updateOptions = deps.update.mock.calls[0][0] as Options;
+    expect(updateOptions.config?.pastoralist?.depPaths).toEqual(
+      externalConfig.depPaths,
+    );
+    expect(deps.buildMergedOptions).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining(externalConfig.security),
+      "osv",
+    );
+  } finally {
+    clearConfigCache();
+    forceClearCache();
+    if (existsSync(actionExternalConfigDir)) {
+      rmSync(actionExternalConfigDir, { recursive: true, force: true });
+    }
+  }
 });
 
 test("action - handles array security provider", async () => {

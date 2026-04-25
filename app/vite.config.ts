@@ -18,6 +18,8 @@ export default defineConfig({
         manualChunks: {
           "react-vendor": ["react", "react-dom"],
           router: ["@tanstack/react-router"],
+          motion: ["framer-motion"],
+          state: ["xstate", "@xstate/react"],
           mermaid: ["mermaid"],
           fuse: ["fuse.js"],
           shiki: ["shiki"],

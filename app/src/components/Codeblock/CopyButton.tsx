@@ -1,7 +1,6 @@
 import { createMachine } from "xstate";
 import { useMachine } from "@xstate/react";
 import { Copy, Check } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 const copyMachine = createMachine({
   id: "copy",
@@ -30,10 +29,9 @@ export function CopyButton({ code }: CopyButtonProps) {
   };
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+    <button
+      type="button"
+      className="flex items-center justify-center h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
       onClick={handleCopy}
       aria-label={copied ? "Copied!" : "Copy code"}
     >
@@ -42,6 +40,6 @@ export function CopyButton({ code }: CopyButtonProps) {
       ) : (
         <Copy className="h-4 w-4" />
       )}
-    </Button>
+    </button>
   );
 }

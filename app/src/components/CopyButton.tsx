@@ -14,9 +14,9 @@ const copyMachine = createMachine({
 
 const styles = {
   button:
-    "btn btn-ghost btn-sm size-9 shrink-0 rounded-xl border border-base-content/10 bg-base-100/70 hover:bg-base-200/80",
+    "flex items-center justify-center size-9 shrink-0 rounded-xl bg-base-100/70 hover:bg-base-200/80 transition-colors cursor-pointer",
   icon: "h-5 w-5 pointer-events-none",
-  iconSuccess: "h-5 w-5 pointer-events-none text-green-500",
+  iconSuccess: "h-6 w-6 pointer-events-none text-green-500",
 };
 
 export function CopyButton() {

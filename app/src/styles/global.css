@@ -350,6 +350,10 @@ samp {
     "Roboto Mono", Consolas, "Courier New", monospace;
 }
 
+[data-theme="night"] a:hover {
+  color: #3b82f6;
+}
+
 [data-theme="night"] {
   /* Dark theme gradients - blue to pink, brighter for dark mode */
   --blue-teal-gradient: linear-gradient(
@@ -599,6 +603,23 @@ samp {
 .docs-prose .shiki-wrapper code::before,
 .docs-prose .shiki-wrapper code::after {
   content: none !important;
+}
+
+.shiki-wrapper {
+  background-color: #f8fafc;
+}
+
+[data-theme="night"] .shiki-wrapper {
+  background-color: #1e293b;
+  box-shadow: 0 18px 45px -32px rgba(15, 23, 42, 0.55);
+}
+
+.shiki-header {
+  background-color: #e2e8f0;
+}
+
+[data-theme="night"] .shiki-header {
+  background-color: #334155;
 }
 
 .shiki {

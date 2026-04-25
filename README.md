@@ -5,9 +5,12 @@
 [![codecov](https://codecov.io/gh/yowainwright/pastoralist/branch/main/graph/badge.svg)](https://codecov.io/gh/yowainwright/pastoralist)
 <img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=6f41d7dd-fce9-49ea-ae43-040a51f458bd" />
 
-Pastoralist is the audit trail for your npm dependency overrides — it tracks why each override exists, who depends on it, and removes it when it's no longer needed.
+Pastoralist is a hands off manager for your project's npm dependency overrides. If you deal with npm overrides, then you may have felt there is not a good way to manage them.  
+This is where Pastorlaist can help.
 
-Pastoralist creates an appendix that documents every override in your package.json. It can also detect security vulnerabilities and generate overrides to fix them.
+Pastoralist tracks why each override exists, what depends on it, and remove it when it's no longer needed based on your configuration.
+
+Pastoralist does this by creating an appendix that documents every override in your package.json. It can also detect security vulnerabilities and manage overrides to help you fix them.
 
 ---
 
@@ -19,9 +22,9 @@ One command. Three features.
 npm i pastoralist -D && pastoralist --init
 ```
 
-- Tracks why each override exists and who depends on it
-- Removes stale overrides automatically
-- Optionally scans for security vulnerabilities
+1. Tracks why each override exists and who depends on it
+2. Removes stale overrides automatically
+3. Optionally scans for security vulnerabilities and updates your appendix and overrides accordingly.
 
 ---
 
@@ -85,7 +88,7 @@ flowchart LR
 
 You end up with ghost overrides haunting your package.json forever.
 
-[Try it →](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/basic-overrides)
+[Try it →](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/basic-overrides?file=README.md)
 
 ---
 
@@ -251,7 +254,7 @@ Pastoralist also detects overrides that no package depends on and labels them as
 pastoralist --remove-unused
 ```
 
-[Try Cleanup →](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/cleanup)
+[Try Cleanup →](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/cleanup?file=README.md)
 
 ### 3. Patch Tracking
 
@@ -268,7 +271,7 @@ Works with `patch-package`. Links patches to overrides and warns about unused pa
 }
 ```
 
-[Try Patches →](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/patches)
+[Try Patches →](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/patches?file=README.md)
 
 ### 4. Security Checks
 
@@ -318,7 +321,7 @@ You must also enable Dependabot alerts in your repository: **Settings > Code sec
 
 If permissions are insufficient, Pastoralist will warn and continue (your workflow won't fail).
 
-[Try Security Scanning →](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/security-scan)
+[Try Security Scanning →](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/security-scan?file=README.md)
 
 ---
 
@@ -352,7 +355,7 @@ Add it to your postinstall script and forget about it:
 }
 ```
 
-**For detailed architecture, code flows, and user journeys**, see [Architecture and User Journeys](docs/architecture-and-user-journeys.md)
+**For detailed architecture, code flows, and user journeys**, see [Architecture and User Journeys](https://jeffry.in/pastoralist/docs/architecture)
 
 ### Key Notes
 
@@ -379,7 +382,7 @@ If your `package.json` has a `workspaces` field, Pastoralist automatically scans
 
 Run `pastoralist` and it automatically scans all workspace packages. No configuration needed.
 
-[Try Monorepo →](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/monorepo)
+[Try Monorepo →](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/monorepo?file=README.md)
 
 #### Manual Configuration
 
@@ -728,7 +731,7 @@ pastoralist --dry-run
 
 This shows exactly what Pastoralist would change without modifying any files.
 
-[Try Dry Run →](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/dry-run)
+[Try Dry Run →](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/dry-run?file=package.json)
 
 **Quiet mode for CI:**
 
@@ -738,7 +741,7 @@ pastoralist --quiet --checkSecurity
 
 Minimal output for CI pipelines. Exits with code 1 if vulnerabilities found, 0 if clean.
 
-[Try Quiet Mode →](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/quiet)
+[Try Quiet Mode →](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/quiet?file=README.md)
 
 **Show summary metrics:**
 
@@ -748,7 +751,7 @@ pastoralist --summary
 
 Displays metrics table with packages scanned, vulnerabilities blocked, and overrides managed.
 
-[Try Summary →](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/summary)
+[Try Summary →](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/summary?file=package.json)
 
 **Add postinstall hook:**
 
@@ -758,7 +761,7 @@ pastoralist --setup-hook
 
 Adds `pastoralist` to your `postinstall` script automatically.
 
-[Try Setup Hook →](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/setup-hook)
+[Try Setup Hook →](https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/setup-hook?file=README.md)
 
 **Remove unused overrides:**
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Search as SearchIcon } from "lucide-react";
 import Fuse from "fuse.js";
@@ -24,12 +24,15 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Initialize Fuse.js
-  const fuse = new Fuse(searchData, {
-    keys: ["title", "description", "content"],
-    threshold: 0.3,
-    includeScore: true,
-  });
+  const fuse = useMemo(
+    () =>
+      new Fuse(searchData, {
+        keys: ["title", "description", "content"],
+        threshold: 0.3,
+        includeScore: true,
+      }),
+    [searchData],
+  );
 
   // Handle search
   useEffect(() => {

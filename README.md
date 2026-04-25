@@ -6,7 +6,7 @@
 <img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=6f41d7dd-fce9-49ea-ae43-040a51f458bd" />
 
 Pastoralist is a hands off manager for your project's npm dependency overrides. If you deal with npm overrides, then you may have felt there is not a good way to manage them.  
-This is where Pastorlaist can help.
+This is where Pastoralist can help.
 
 Pastoralist tracks why each override exists, what depends on it, and remove it when it's no longer needed based on your configuration.
 

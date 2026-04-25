@@ -61,7 +61,7 @@ export function Sidebar() {
       />
       <nav
         ref={navRef}
-        className="w-64 bg-base-100 z-20 sticky h-screen lg:h-full overflow-y-auto mt-[68px] border-r border-base-content/10"
+        className="w-64 bg-base-100 z-20 sticky top-[68px] h-[calc(100vh-68px)] overflow-y-auto border-r border-base-content/10"
       >
         <section className="px-3 pt-2 space-y-3">
           {SIDEBAR.map((navItem, index) => (

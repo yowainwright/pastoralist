@@ -8,7 +8,6 @@ import {
 import customDark from "@/themes/dark.json";
 import customLight from "@/themes/light.json";
 import type { ThemeRegistration } from "shiki";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { CopyButton } from "./CopyButton";
 import { SHIKI_LANGS, CODEBLOCK_CLASSES } from "./constants";
@@ -107,12 +106,9 @@ export function Codeblock({
                 </span>
               )}
               {showLanguage && lang && lang !== "text" && (
-                <Badge
-                  variant="secondary"
-                  className="h-5 px-1.5 py-0 font-mono text-xs"
-                >
+                <span className="font-mono text-xs text-base-content/50">
                   {lang}
-                </Badge>
+                </span>
               )}
             </div>
           </div>

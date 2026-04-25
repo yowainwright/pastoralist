@@ -6,7 +6,7 @@ const base = BASE_URL.endsWith("/") ? BASE_URL : BASE_URL + "/";
 
 export function Footer() {
   return (
-    <footer className="w-full px-4 sm:px-6 md:px-10 xl:px-28 py-6 sm:py-7 border-t border-base-300 flex flex-col gap-4 sm:grid sm:grid-cols-3 sm:gap-4 sm:items-center">
+    <footer className="w-full px-4 sm:px-6 md:px-10 xl:px-28 py-6 sm:py-7 border-t border-base-content/10 flex flex-col gap-4 sm:grid sm:grid-cols-3 sm:gap-4 sm:items-center">
       <div className="flex items-center justify-center sm:justify-start gap-2 order-3 sm:order-1">
         <p className="text-sm sm:text-base text-center sm:text-left">
           Copyright © {new Date().getFullYear()} - All rights reserved

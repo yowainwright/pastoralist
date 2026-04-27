@@ -112,12 +112,14 @@ export class LRUCache<K, V> {
   }
 
   private isExpired(node: CacheNode<K, V>): boolean {
-    if (!this.ttl) {
+    const ttl = this.ttl;
+    const hasNoTtl = ttl === undefined;
+    if (hasNoTtl) {
       return false;
     }
 
     const age = Date.now() - node.timestamp;
-    return age > this.ttl;
+    return age > ttl;
   }
 
   private moveToFront(node: CacheNode<K, V>): void {

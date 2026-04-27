@@ -36,6 +36,7 @@ export class OSVProvider {
       strict?: boolean;
       retryOptions?: RetryOptions;
       cacheDir?: string;
+      cacheTtl?: number;
       noCache?: boolean;
     } = {},
   ) {
@@ -49,9 +50,14 @@ export class OSVProvider {
       factor: 2,
       minTimeout: 1000,
     };
+
+    const cacheTtl = options.cacheTtl;
+    const hasCustomCacheTtl = cacheTtl !== undefined;
+    const cacheTtlMs = hasCustomCacheTtl ? cacheTtl * 1000 : CACHE_TTLS.OSV;
+
     this.osvCache = new DiskCache<OSVVulnerability>(CACHE_NAMESPACES.OSV, {
       dir: options.cacheDir ?? resolveCacheDir(),
-      ttl: CACHE_TTLS.OSV,
+      ttl: cacheTtlMs,
       version: CACHE_NS_VERSIONS.OSV,
       maxEntries: 500,
       enabled: !(options.noCache ?? false),

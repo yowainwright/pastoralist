@@ -14,12 +14,12 @@ export const docs: DocMeta[] = [
     slug: "introduction",
     title: "Introduction to Pastoralist",
     description:
-      "Pastoralist is a dependency management tool that helps keep your package.json overrides, resolutions, and patches up-to-date",
+      "Pastoralist keeps dependency overrides explainable, current, and removable",
   },
   {
     slug: "setup",
     title: "Setup",
-    description: "Quick and easy setup guide for Pastoralist CLI",
+    description: "Install Pastoralist and keep your override appendix current",
   },
   {
     slug: "security",
@@ -34,7 +34,8 @@ export const docs: DocMeta[] = [
   {
     slug: "advanced-features",
     title: "Advanced Features",
-    description: "Deep dive into pastoralist's advanced capabilities",
+    description:
+      "Advanced cleanup, patch tracking, and override management workflows",
   },
   {
     slug: "codelab",
@@ -61,7 +62,7 @@ export const docs: DocMeta[] = [
     slug: "configuration",
     title: "Configuration",
     description:
-      "Learn how to configure Pastoralist using config files or package.json",
+      "Configure Pastoralist with package.json, rc files, or JavaScript and TypeScript config files",
   },
   {
     slug: "github-action",

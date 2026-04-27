@@ -11,8 +11,8 @@ Pastoralist works seamlessly with workspace and monorepo setups. This guide cove
   rel="noopener noreferrer"
 >
   <img
-    src="https://img.shields.io/badge/Try_Monorepo-CodeSandbox-blue?logo=codesandbox"
-    alt="Try Monorepo on CodeSandbox"
+    src="https://img.shields.io/badge/Try_Monorepo-StackBlitz-blue?logo=stackblitz"
+    alt="Try Monorepo on StackBlitz"
   />
 </a>
 

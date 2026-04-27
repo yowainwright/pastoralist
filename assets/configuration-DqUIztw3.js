@@ -5,6 +5,9 @@ description: Learn how to configure Pastoralist using config files or package.js
 
 Pastoralist supports multiple configuration methods to fit your project's needs. Configuration can be defined in external files or directly in your \`package.json\`.
 
+For most projects, start small: enable workspace scanning only if you have
+workspaces, and enable security checks only where you want advisory data.
+
 ## Configuration Files
 
 Pastoralist searches for configuration files in this order (first found wins):
@@ -23,9 +26,10 @@ Enable security checks with defaults:
 
 \`\`\`json
 {
-  "depPaths": "workspaces",
+  "checkSecurity": true,
+  "depPaths": "workspace",
   "security": {
-    "enabled": true
+    "provider": "osv"
   }
 }
 \`\`\`
@@ -34,9 +38,9 @@ Enable security checks with defaults:
 
 \`\`\`json
 {
-  "depPaths": "workspaces",
+  "checkSecurity": true,
+  "depPaths": "workspace",
   "security": {
-    "enabled": true,
     "provider": "osv",
     "severityThreshold": "medium"
   }
@@ -48,8 +52,8 @@ Enable security checks with defaults:
 \`\`\`js
 module.exports = {
   depPaths: ["packages/*/package.json", "apps/*/package.json"],
+  checkSecurity: true,
   security: {
-    enabled: true,
     provider: "osv",
     severityThreshold: "high",
     excludePackages: ["@types/*"],
@@ -63,9 +67,9 @@ module.exports = {
 import { PastoralistConfig } from "pastoralist";
 
 const config: PastoralistConfig = {
-  depPaths: "workspaces",
+  checkSecurity: true,
+  depPaths: "workspace",
   security: {
-    enabled: true,
     provider: "osv",
     severityThreshold: "critical",
   },
@@ -88,7 +92,7 @@ When both external config files and \`package.json\` configuration exist, they a
 // .pastoralistrc.json
 {
   "checkSecurity": true,
-  "depPaths": "workspaces",
+  "depPaths": "workspace",
   "security": {
     "provider": "osv",
     "severityThreshold": "medium"
@@ -107,7 +111,7 @@ When both external config files and \`package.json\` configuration exist, they a
 // Effective configuration:
 {
   "checkSecurity": true,
-  "depPaths": "workspaces",
+  "depPaths": "workspace",
   "security": {
     "provider": "osv",
     "severityThreshold": "high"  // From package.json
@@ -122,6 +126,7 @@ When both external config files and \`package.json\` configuration exist, they a
 | Option            | Type                                          | Description                                                 |
 | ----------------- | --------------------------------------------- | ----------------------------------------------------------- |
 | \`checkSecurity\`   | \`boolean\`                                     | Enable security vulnerability scanning                      |
+| \`compactAppendix\` | \`boolean\`                                     | Store appendix entries in the compact format                |
 | \`depPaths\`        | \`"workspace"\` \\| \`"workspaces"\` \\| \`string[]\` | Paths to scan for dependencies in monorepos                 |
 | \`appendix\`        | \`object\`                                      | Auto-generated dependency tracking (managed by Pastoralist) |
 | \`overridePaths\`   | \`object\`                                      | Manual override tracking for specific paths                 |
@@ -132,16 +137,18 @@ When both external config files and \`package.json\` configuration exist, they a
 
 The \`security\` object supports the following options:
 
-| Option                       | Type                                                       | Description                                           |
-| ---------------------------- | ---------------------------------------------------------- | ----------------------------------------------------- |
-| \`enabled\`                    | \`boolean\`                                                  | Enable/disable security checks                        |
-| \`provider\`                   | \`"osv"\` \\| \`"github"\` \\| \`"snyk"\` \\| \`"npm"\` \\| \`"socket"\` | Security provider (currently only OSV is implemented) |
-| \`autoFix\`                    | \`boolean\`                                                  | Automatically apply security fixes                    |
-| \`interactive\`                | \`boolean\`                                                  | Use interactive mode for security fixes               |
-| \`securityProviderToken\`      | \`string\`                                                   | API token for providers that require authentication   |
-| \`severityThreshold\`          | \`"low"\` \\| \`"medium"\` \\| \`"high"\` \\| \`"critical"\`          | Minimum severity level to report                      |
-| \`excludePackages\`            | \`string[]\`                                                 | Packages to exclude from security checks              |
-| \`hasWorkspaceSecurityChecks\` | \`boolean\`                                                  | Include workspace packages in security scans          |
+| Option                       | Type                                                                                | Description                                            |
+| ---------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| \`enabled\`                    | \`boolean\`                                                                           | Enable/disable security checks                         |
+| \`provider\`                   | \`"osv"\` \\| \`"github"\` \\| \`"snyk"\` \\| \`"npm"\` \\| \`"socket"\` \\| \`"spektion"\` \\| array | Security provider or providers to use                  |
+| \`autoFix\`                    | \`boolean\`                                                                           | Automatically apply security fixes                     |
+| \`interactive\`                | \`boolean\`                                                                           | Use interactive mode for security fixes                |
+| \`securityProviderToken\`      | \`string\`                                                                            | API token for providers that require authentication    |
+| \`severityThreshold\`          | \`"low"\` \\| \`"medium"\` \\| \`"high"\` \\| \`"critical"\`                                   | Minimum severity level to report                       |
+| \`excludePackages\`            | \`string[]\`                                                                          | Packages to exclude from security checks               |
+| \`hasWorkspaceSecurityChecks\` | \`boolean\`                                                                           | Include workspace packages in security scans           |
+| \`strict\`                     | \`boolean\`                                                                           | Fail when a security provider cannot complete          |
+| \`preferLatest\`               | \`boolean\`                                                                           | Prefer the newest safe version when fixes are resolved |
 
 ## Package.json Configuration
 
@@ -153,7 +160,7 @@ You can configure Pastoralist directly in your \`package.json\`:
   "version": "1.0.0",
   "pastoralist": {
     "checkSecurity": true,
-    "depPaths": "workspaces",
+    "depPaths": "workspace",
     "security": {
       "provider": "osv",
       "severityThreshold": "medium",
@@ -167,7 +174,7 @@ You can configure Pastoralist directly in your \`package.json\`:
 
 For monorepos, use \`depPaths\` to specify which package.json files to scan:
 
-### Using "workspaces"
+### Using "workspace"
 
 The simplest approach for monorepos with a \`workspaces\` field:
 
@@ -175,12 +182,13 @@ The simplest approach for monorepos with a \`workspaces\` field:
 {
   "workspaces": ["packages/*", "apps/*"],
   "pastoralist": {
-    "depPaths": "workspaces"
+    "depPaths": "workspace"
   }
 }
 \`\`\`
 
 This automatically scans all workspace packages defined in your \`workspaces\` field.
+\`"workspaces"\` is accepted as an alias.
 
 ### Using Custom Paths
 
@@ -279,7 +287,7 @@ For time-bounded or version-bounded keeps, use a \`KeepConstraint\` object:
 
 - **\`reason\`** _(required)_: Why this override is being kept
 - **\`until\`**: ISO date after which the keep is considered expired
-- **\`untilVersion\`**: Semver — keep expires once the root dependency meets or exceeds this version
+- **\`untilVersion\`**: Semver. The keep expires once the root dependency meets or exceeds this version
 - **\`reviewBy\`**: Freeform field for tracking who should review the decision
 
 This allows you to see at a glance which packages were overridden due to security issues and when they were last verified.
@@ -289,7 +297,7 @@ This allows you to see at a glance which packages were overridden due to securit
 1. **Use external config files** for shared settings across teams
 2. **Use \`package.json\`** for project-specific overrides
 3. **Commit config files** to version control
-4. **Use \`depPaths: "workspaces"\`** for most monorepos
+4. **Use \`depPaths: "workspace"\`** for most monorepos
 5. **Enable security checks** in CI/CD pipelines with \`--checkSecurity\`
 6. **Version control** your \`.pastoralistrc\` or config files
 7. **Document custom configurations** in your project README
@@ -311,7 +319,7 @@ import type { PastoralistConfig } from "pastoralist";
 
 const config: PastoralistConfig = {
   checkSecurity: true,
-  depPaths: "workspaces",
+  depPaths: "workspace",
   security: {
     provider: "osv",
     severityThreshold: "high",
@@ -332,7 +340,7 @@ const isCI = process.env.CI === "true";
 
 module.exports = {
   checkSecurity: !isDev, // Only check in production/CI
-  depPaths: "workspaces",
+  depPaths: "workspace",
   security: {
     provider: "osv",
     severityThreshold: isCI ? "high" : "medium",

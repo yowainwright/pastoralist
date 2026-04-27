@@ -1,0 +1,158 @@
+const n=`---
+title: Introduction to Pastoralist
+description: "Pastoralist keeps dependency overrides explainable, current, and removable"
+---
+
+<div className="flex flex-wrap gap-2 mb-8">
+  <a
+    href="https://www.npmjs.com/package/pastoralist"
+    target="_blank"
+    rel="noopener noreferrer"
+  >
+    <img src="https://img.shields.io/npm/v/pastoralist.svg" alt="npm version" />
+  </a>
+  <a
+    href="https://www.npmjs.com/package/pastoralist"
+    target="_blank"
+    rel="noopener noreferrer"
+  >
+    <img
+      src="https://img.shields.io/npm/dm/pastoralist.svg"
+      alt="npm downloads"
+    />
+  </a>
+  <a
+    href="https://github.com/yowainwright/pastoralist"
+    target="_blank"
+    rel="noopener noreferrer"
+  >
+    <img
+      src="https://img.shields.io/github/stars/yowainwright/pastoralist?style=social"
+      alt="GitHub stars"
+    />
+  </a>
+  <a
+    href="https://www.typescriptlang.org/"
+    target="_blank"
+    rel="noopener noreferrer"
+  >
+    <img
+      src="https://img.shields.io/badge/TypeScript-types%20included-blue"
+      alt="TypeScript types included"
+    />
+  </a>
+</div>
+
+Pastoralist is the audit trail for package manager overrides.
+
+If your project uses \`overrides\`, \`pnpm.overrides\`, or \`resolutions\`,
+Pastoralist records why each entry exists, which packages still need it, and
+when it can be removed. It can also connect security fixes, patch files,
+workspace packages, and CI checks to the same record.
+
+## Why This Matters
+
+Overrides usually start with a good reason:
+
+\`\`\`json
+{
+  "overrides": {
+    "lodash": "4.17.21"
+  }
+}
+\`\`\`
+
+Months later, the context is gone. Was it a security fix? A transitive bug? Is
+it still needed? Pastoralist makes that visible:
+
+\`\`\`json
+{
+  "overrides": {
+    "lodash": "4.17.21"
+  },
+  "pastoralist": {
+    "appendix": {
+      "lodash@4.17.21": {
+        "dependents": {
+          "my-app": "lodash@^4.17.0"
+        },
+        "ledger": {
+          "reason": "Security vulnerability CVE-2021-23337",
+          "securityProvider": "osv",
+          "keep": true
+        }
+      }
+    }
+  }
+}
+\`\`\`
+
+The override controls the installed version. The appendix explains why that
+control exists.
+
+## What Pastoralist Handles
+
+- Tracks npm and Bun \`overrides\`, pnpm \`pnpm.overrides\`, and Yarn
+  \`resolutions\`
+- Shows which direct or workspace packages still depend on each override
+- Removes stale overrides with \`--remove-unused\`
+- Links \`patch-package\` files to the overrides they support
+- Checks security advisories with OSV, GitHub Dependabot alerts, npm audit,
+  Snyk, Socket, or Spektion
+- Supports monorepos through \`workspaces\`, \`depPaths\`, \`overridePaths\`, and
+  \`resolutionPaths\`
+- Provides CI-friendly output with \`--dry-run\`, \`--quiet\`, \`--summary\`, and
+  \`--outputFormat json\`
+
+## At A Glance
+
+| Area               | Details                                                      |
+| ------------------ | ------------------------------------------------------------ |
+| Package managers   | npm, pnpm, Yarn, Bun                                         |
+| Runtime            | Node 20+                                                     |
+| Security default   | OSV, no token required                                       |
+| Optional providers | GitHub, npm audit, Snyk, Socket, Spektion                    |
+| Monorepos          | Auto-detects \`workspaces\`; accepts explicit package globs    |
+| CI                 | CLI flags plus a GitHub Action                               |
+| Test surface       | 1,700+ test cases across unit, integration, and e2e fixtures |
+
+## When To Use It
+
+Use Pastoralist when your project has overrides that need a durable reason, a
+regular cleanup path, or a security audit trail.
+
+It is designed to sit beside tools such as npm audit, Dependabot, Renovate,
+patch-package, syncpack, and depcheck. Those tools find or apply dependency
+changes. Pastoralist keeps the resulting overrides from becoming invisible
+technical debt.
+
+## Start Here
+
+\`\`\`bash
+npm install pastoralist --save-dev
+npx pastoralist --init
+\`\`\`
+
+Then add it to \`postinstall\`:
+
+\`\`\`json
+{
+  "scripts": {
+    "postinstall": "pastoralist"
+  }
+}
+\`\`\`
+
+Continue with the [setup guide](/docs/setup), or try a sandbox:
+
+<a
+  href="https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/basic-overrides"
+  target="_blank"
+  rel="noopener noreferrer"
+>
+  <img
+    src="https://img.shields.io/badge/Try_it-StackBlitz-blue?logo=stackblitz"
+    alt="Try it on StackBlitz"
+  />
+</a>
+`;export{n as default};

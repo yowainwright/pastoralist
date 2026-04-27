@@ -159,8 +159,8 @@ await runPastoralist({
   rel="noopener noreferrer"
 >
   <img
-    src="https://img.shields.io/badge/Try_it-CodeSandbox-blue?logo=codesandbox"
-    alt="Try it on CodeSandbox"
+    src="https://img.shields.io/badge/Try_it-StackBlitz-blue?logo=stackblitz"
+    alt="Try it on StackBlitz"
   />
 </a>
 

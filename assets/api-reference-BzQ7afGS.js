@@ -127,6 +127,14 @@ Preview changes without modifying package.json.
 npx pastoralist --dry-run
 \`\`\`
 
+### \`pastoralist --outputFormat json\`
+
+Return machine-readable output for CI or custom tooling.
+
+\`\`\`bash
+npx pastoralist --summary --outputFormat json
+\`\`\`
+
 ### \`pastoralist --quiet\`
 
 Quiet mode for CI pipelines. Outputs minimal text and uses exit codes.
@@ -170,6 +178,42 @@ Enable security vulnerability scanning.
 npx pastoralist --checkSecurity
 \`\`\`
 
+### \`pastoralist --securityProvider <provider...>\`
+
+Choose one or more security providers. Supported values are \`osv\`, \`github\`,
+\`npm\`, \`snyk\`, \`socket\`, and \`spektion\`.
+
+\`\`\`bash
+npx pastoralist --checkSecurity --securityProvider osv npm
+\`\`\`
+
+### \`pastoralist --forceSecurityRefactor\`
+
+Apply security override fixes without prompting.
+
+\`\`\`bash
+npx pastoralist --checkSecurity --forceSecurityRefactor
+\`\`\`
+
+### \`pastoralist --strict\`
+
+Fail when a security provider, network request, or API call cannot complete.
+
+\`\`\`bash
+npx pastoralist --checkSecurity --strict
+\`\`\`
+
+### Cache Options
+
+Control provider cache behavior for security checks.
+
+\`\`\`bash
+npx pastoralist --checkSecurity --cache-dir .cache/pastoralist
+npx pastoralist --checkSecurity --cache-ttl 3600
+npx pastoralist --checkSecurity --no-cache
+npx pastoralist --checkSecurity --refresh-cache
+\`\`\`
+
 ## Node.js API
 
 ### Installation
@@ -190,6 +234,13 @@ Update package.json overrides and manage the appendix.
   - \`ignore\`: array of glob patterns to ignore
   - \`root\`: root directory path
   - \`debug\`: enable debug logging
+  - \`dryRun\`: preview changes without writing package.json
+  - \`summary\`: include summary metrics
+  - \`removeUnused\`: remove overrides with no active dependents
+  - \`checkSecurity\`: enable security checks
+  - \`securityProvider\`: security provider to use
+  - \`forceSecurityRefactor\`: apply security fixes without prompting
+  - \`strict\`: fail on security provider errors
 
 \`\`\`javascript
 import { update } from "pastoralist";
@@ -247,7 +298,7 @@ import { update } from "pastoralist";
 
 // Ensure overrides are up-to-date before building
 await update();
-console.log("✓ Package overrides verified");
+console.log("Package overrides verified");
 \`\`\`
 
 ### Workspace Automation
@@ -261,7 +312,7 @@ const packages = glob.sync("packages/*/package.json");
 
 for (const pkgPath of packages) {
   await update({ path: pkgPath });
-  console.log(\`✓ Updated \${pkgPath}\`);
+  console.log(\`Updated \${pkgPath}\`);
 }
 \`\`\`
 
@@ -277,7 +328,7 @@ await update();
 const after = execSync("git status --porcelain").toString();
 
 if (before !== after) {
-  console.error("❌ Package.json overrides need updating");
+  console.error("Package.json overrides need updating");
   process.exit(1);
 }
 \`\`\`

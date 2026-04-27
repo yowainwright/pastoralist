@@ -124,14 +124,18 @@ type SecurityConfig = NonNullable<
 type SecurityProviderOption = Options["securityProvider"];
 
 export const normalizeCacheTtl = (value: unknown): number | undefined => {
-  if (value === undefined) return undefined;
+  const isUndefined = value === undefined;
+  if (isUndefined) return undefined;
 
-  const numberValue =
-    typeof value === "number"
-      ? value
-      : typeof value === "string" && value.trim() !== ""
-        ? Number(value)
-        : Number.NaN;
+  const isNumber = typeof value === "number";
+  const isNonEmptyString = typeof value === "string" && value.trim() !== "";
+
+  let numberValue = Number.NaN;
+  if (isNumber) {
+    numberValue = value;
+  } else if (isNonEmptyString) {
+    numberValue = Number(value);
+  }
 
   const isValid = Number.isFinite(numberValue) && numberValue >= 0;
   if (!isValid) {
@@ -149,7 +153,8 @@ export const buildMergedOptions = (
 ): Options => {
   const providerFromOptions = options.securityProvider ?? configProvider;
   const securityProvider = providerFromOptions ?? "osv";
-  const cacheTtl = normalizeCacheTtl(options.cacheTtl ?? rest.cacheTtl);
+  const cacheTtlInput = options.cacheTtl ?? rest.cacheTtl;
+  const cacheTtl = normalizeCacheTtl(cacheTtlInput);
 
   return {
     ...rest,
@@ -716,11 +721,22 @@ export async function action(
       ...packageConfig,
       ...(mergedPastoralistConfig && { pastoralist: mergedPastoralistConfig }),
     };
-    const pastoralistConfig = config.pastoralist || {};
-    const securityConfig = {
-      ...pastoralistConfig.security,
-      enabled:
-        pastoralistConfig.security?.enabled ?? pastoralistConfig.checkSecurity,
+    const pastoralistConfig = config.pastoralist ?? {};
+    const pastoralistSecurityConfig = pastoralistConfig.security;
+    const securityEnabled =
+      pastoralistSecurityConfig?.enabled ?? pastoralistConfig.checkSecurity;
+    const securityConfig: Partial<SecurityConfig> = {
+      enabled: securityEnabled,
+      provider: pastoralistSecurityConfig?.provider,
+      autoFix: pastoralistSecurityConfig?.autoFix,
+      interactive: pastoralistSecurityConfig?.interactive,
+      securityProviderToken: pastoralistSecurityConfig?.securityProviderToken,
+      severityThreshold: pastoralistSecurityConfig?.severityThreshold,
+      excludePackages: pastoralistSecurityConfig?.excludePackages,
+      hasWorkspaceSecurityChecks:
+        pastoralistSecurityConfig?.hasWorkspaceSecurityChecks,
+      strict: pastoralistSecurityConfig?.strict,
+      preferLatest: pastoralistSecurityConfig?.preferLatest,
     };
     const configProvider = Array.isArray(securityConfig.provider)
       ? securityConfig.provider[0]
@@ -973,7 +989,9 @@ export async function action(
     }
 
     outputResult(result, isJsonOutput);
-    if (isQuietMode && result.hasSecurityIssues) {
+    const shouldExitForQuietSecurityIssues =
+      isQuietMode && result.hasSecurityIssues;
+    if (shouldExitForQuietSecurityIssues) {
       deps.processExit(1);
     }
     return result;

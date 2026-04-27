@@ -327,10 +327,11 @@ export class SecurityChecker {
           }
           this.log.warn(`Provider failed: ${result.reason}`, "checkSecurity");
           if (this.strict) {
-            const reason =
-              result.reason instanceof Error
-                ? result.reason.message
-                : String(result.reason);
+            const isErrorReason = result.reason instanceof Error;
+            const reason = isErrorReason
+              ? result.reason.message
+              : String(result.reason);
+
             throw new Error(`Provider ${providerType} failed: ${reason}`);
           }
           return [];

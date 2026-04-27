@@ -123,6 +123,24 @@ type SecurityConfig = NonNullable<
 >;
 type SecurityProviderOption = Options["securityProvider"];
 
+export const normalizeCacheTtl = (value: unknown): number | undefined => {
+  if (value === undefined) return undefined;
+
+  const numberValue =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim() !== ""
+        ? Number(value)
+        : Number.NaN;
+
+  const isValid = Number.isFinite(numberValue) && numberValue >= 0;
+  if (!isValid) {
+    throw new Error("--cache-ttl must be a non-negative number of seconds");
+  }
+
+  return numberValue;
+};
+
 export const buildMergedOptions = (
   options: Options,
   rest: Omit<Options, "isTestingCLI" | "init">,
@@ -131,6 +149,7 @@ export const buildMergedOptions = (
 ): Options => {
   const providerFromOptions = options.securityProvider ?? configProvider;
   const securityProvider = providerFromOptions ?? "osv";
+  const cacheTtl = normalizeCacheTtl(options.cacheTtl ?? rest.cacheTtl);
 
   return {
     ...rest,
@@ -145,6 +164,7 @@ export const buildMergedOptions = (
       options.hasWorkspaceSecurityChecks ??
       securityConfig.hasWorkspaceSecurityChecks,
     strict: options.strict ?? securityConfig.strict,
+    cacheTtl,
   };
 };
 
@@ -199,6 +219,7 @@ export const runSecurityCheck = async (
       debug: isLogging,
       strict: mergedOptions.strict,
       cacheDir: mergedOptions.cacheDir,
+      cacheTtl: mergedOptions.cacheTtl,
       noCache: mergedOptions.noCache,
       refreshCache: mergedOptions.refreshCache,
     });
@@ -246,6 +267,7 @@ export const runSecurityCheck = async (
         token: mergedOptions.securityProviderToken,
         debug: isLogging,
         strict: mergedOptions.strict,
+        cacheTtl: mergedOptions.cacheTtl,
       });
       return {
         spinner,
@@ -694,7 +716,12 @@ export async function action(
       ...packageConfig,
       ...(mergedPastoralistConfig && { pastoralist: mergedPastoralistConfig }),
     };
-    const securityConfig = config.pastoralist?.security || {};
+    const pastoralistConfig = config.pastoralist || {};
+    const securityConfig = {
+      ...pastoralistConfig.security,
+      enabled:
+        pastoralistConfig.security?.enabled ?? pastoralistConfig.checkSecurity,
+    };
     const configProvider = Array.isArray(securityConfig.provider)
       ? securityConfig.provider[0]
       : securityConfig.provider;
@@ -946,6 +973,9 @@ export async function action(
     }
 
     outputResult(result, isJsonOutput);
+    if (isQuietMode && result.hasSecurityIssues) {
+      deps.processExit(1);
+    }
     return result;
   } catch (err) {
     graph.stop();

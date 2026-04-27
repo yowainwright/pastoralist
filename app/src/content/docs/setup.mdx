@@ -1,59 +1,49 @@
 ---
 title: Setup
-description: "Quick and easy setup guide for Pastoralist CLI"
+description: "Install Pastoralist and keep your override appendix current"
 ---
 
-<section>
+## Install
 
-## Getting Started
-
-1. Install Pastoralist globally:
-
-   ```bash
-   bun add -g pastoralist
-   ```
-
-2. Run it in your project:
-
-   ```bash
-   pastoralist
-   ```
-
-3. That's it! Pastoralist will automatically:
-   - Scan for overrides and resolutions
-   - Check for updates
-   - Update your package.json
-   - Track everything in the appendix
-
-## Setup
-
-Okay! Hopefully the breakdowns above were clear enough on why you might want to use Pastoralist!
-Please submit a [pull request](https://github.com/yowainwright/pastoralist/pulls) or [issue](https://github.com/yowainwright/pastoralist/issues) if it wasn't!
-
-Now for the super simple setup!
-
-1. Install
+Add Pastoralist as a dev dependency:
 
 ```bash
+npm install pastoralist --save-dev
+```
+
+Other package managers work too:
+
+```bash
+pnpm add pastoralist --save-dev
+yarn add pastoralist --dev
 bun add pastoralist --dev
-# pastoralist does not expect to be a dependency! It's a tool!!!
 ```
 
-2. run
+## Initialize
+
+Run the guided setup:
 
 ```bash
-pastoralist
-# => That's it! Check out your package.json
-# Pastoralist will automatically detect and track:
-# - Overrides and resolutions
-# - Patches (from patch-package and similar tools)
-# - All dependency types (dependencies, devDependencies, peerDependencies)
+npx pastoralist --init
 ```
 
-3. (recommended) add Pastoralist to a postInstall script
+The initializer can detect workspace packages, ask whether security checks
+should run, and save the configuration in `package.json` or a config file.
 
-```js
-// package.json
+For a simple project, you can also run Pastoralist directly:
+
+```bash
+npx pastoralist
+```
+
+It will scan your package manager overrides or resolutions, update the
+`pastoralist.appendix`, and leave unrelated package fields alone.
+
+## Add The Install Hook
+
+Most projects should run Pastoralist after dependency installs:
+
+```json
 {
   "scripts": {
     "postinstall": "pastoralist"
@@ -61,14 +51,49 @@ pastoralist
 }
 ```
 
-Or automate it:
+Pastoralist can add that hook automatically:
 
 ```bash
-pastoralist --setup-hook
+npx pastoralist --setup-hook
 ```
 
-Read on to understand what is going on under the hood of Pastoralist!
+## Verify Changes
 
----
+Preview the package.json update before writing anything:
 
-</section>
+```bash
+npx pastoralist --dry-run
+```
+
+Print summary metrics for CI or release checks:
+
+```bash
+npx pastoralist --summary
+```
+
+Remove overrides that no package still depends on:
+
+```bash
+npx pastoralist --remove-unused
+```
+
+## Common Starting Config
+
+For a workspace project with OSV security checks:
+
+```json
+{
+  "pastoralist": {
+    "depPaths": "workspace",
+    "checkSecurity": true,
+    "security": {
+      "provider": "osv",
+      "severityThreshold": "medium",
+      "hasWorkspaceSecurityChecks": true
+    }
+  }
+}
+```
+
+Next, read [Configuration](/docs/configuration) for all options or
+[Workspaces & Monorepos](/docs/workspaces) for monorepo setup.

@@ -50,12 +50,14 @@ export class OSVProvider {
       factor: 2,
       minTimeout: 1000,
     };
+
+    const cacheTtl = options.cacheTtl;
+    const hasCustomCacheTtl = cacheTtl !== undefined;
+    const cacheTtlMs = hasCustomCacheTtl ? cacheTtl * 1000 : CACHE_TTLS.OSV;
+
     this.osvCache = new DiskCache<OSVVulnerability>(CACHE_NAMESPACES.OSV, {
       dir: options.cacheDir ?? resolveCacheDir(),
-      ttl:
-        options.cacheTtl === undefined
-          ? CACHE_TTLS.OSV
-          : options.cacheTtl * 1000,
+      ttl: cacheTtlMs,
       version: CACHE_NS_VERSIONS.OSV,
       maxEntries: 500,
       enabled: !(options.noCache ?? false),

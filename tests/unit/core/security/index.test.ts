@@ -59,11 +59,23 @@ const mockPackageJson: PastoralistJSON = {
   },
 };
 
+type FetchAlertsProvider = {
+  fetchAlerts: (
+    packages: Array<{ name: string; version: string }>,
+  ) => Promise<SecurityAlert[]>;
+};
+
+type SecurityCheckerProviderHarness = {
+  providers: FetchAlertsProvider[];
+};
+
 const mockProviderAlerts = (
   checker: SecurityChecker,
   alerts: SecurityAlert[] = [],
 ): SecurityChecker => {
-  for (const provider of (checker as any).providers) {
+  const providers = (checker as unknown as SecurityCheckerProviderHarness)
+    .providers;
+  for (const provider of providers) {
     spyOn(provider, "fetchAlerts").mockResolvedValue(alerts);
   }
   return checker;
@@ -1506,6 +1518,45 @@ test("generatePackageOverrides - does not downgrade existing higher version", ()
 // Promise.allSettled provider resilience
 // =============================================================================
 
+test("checkSecurity - expires in-memory alerts using cache TTL seconds", async () => {
+  const checker = new SecurityChecker({
+    provider: "osv",
+    cacheTtl: 1,
+    noCache: true,
+  });
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+    dependencies: { lodash: "4.17.20" },
+  };
+
+  const originalFetch = global.fetch;
+  let now = 1_000;
+  const nowSpy = spyOn(Date, "now").mockImplementation(() => now);
+  const fetchMock = mock(async () => {
+    return new Response(JSON.stringify({ results: [{}] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  });
+  global.fetch = fetchMock as unknown as typeof fetch;
+
+  try {
+    await checker.checkSecurity(config);
+    await checker.checkSecurity(config);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    now += 1_001;
+    await checker.checkSecurity(config);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  } finally {
+    nowSpy.mockRestore();
+    global.fetch = originalFetch;
+  }
+});
+
 test("checkSecurity - returns results when provider fetch succeeds", async () => {
   const checker = new SecurityChecker({ debug: false, noCache: true });
   const config = {
@@ -1578,6 +1629,24 @@ test("checkSecurity - returns results when provider fetch succeeds", async () =>
   } finally {
     global.fetch = originalFetch;
   }
+});
+
+test("checkSecurity - throws provider errors in strict mode", async () => {
+  const checker = new SecurityChecker({
+    provider: "osv",
+    strict: true,
+    noCache: true,
+  });
+
+  const providers = (checker as unknown as SecurityCheckerProviderHarness)
+    .providers;
+  for (const provider of providers) {
+    spyOn(provider, "fetchAlerts").mockRejectedValue(new Error("boom"));
+  }
+
+  await expect(checker.checkSecurity(mockPackageJson)).rejects.toThrow(
+    "Provider osv failed: boom",
+  );
 });
 
 const TEST_DIR = path.resolve(__dirname, ".test-autofix");

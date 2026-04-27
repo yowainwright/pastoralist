@@ -40,6 +40,7 @@ export interface SecurityCheckOptions {
   severityThreshold?: "low" | "medium" | "high" | "critical";
   excludePackages?: string[];
   cacheDir?: string;
+  cacheTtl?: number;
   noCache?: boolean;
   refreshCache?: boolean;
 }

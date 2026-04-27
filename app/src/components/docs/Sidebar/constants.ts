@@ -48,6 +48,10 @@ export const SIDEBAR = [
         href: resolveDocsUrl("api-reference"),
       },
       {
+        title: "GitHub Action",
+        href: resolveDocsUrl("github-action"),
+      },
+      {
         title: "Architecture",
         href: resolveDocsUrl("architecture"),
       },

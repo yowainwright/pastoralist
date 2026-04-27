@@ -325,6 +325,32 @@ test("buildMergedOptions - carries strict from CLI or config", () => {
   expect(configResult.strict).toBe(true);
 });
 
+test("buildMergedOptions - normalizes cache TTL from CLI seconds", () => {
+  const { buildMergedOptions } = require("../../../src/cli/index");
+
+  const result = buildMergedOptions(
+    { cacheTtl: "3600" as unknown as number },
+    {},
+    {},
+    undefined,
+  );
+
+  expect(result.cacheTtl).toBe(3600);
+});
+
+test("buildMergedOptions - rejects invalid cache TTL", () => {
+  const { buildMergedOptions } = require("../../../src/cli/index");
+
+  expect(() =>
+    buildMergedOptions(
+      { cacheTtl: "-1" as unknown as number },
+      {},
+      {},
+      undefined,
+    ),
+  ).toThrow("--cache-ttl must be a non-negative number of seconds");
+});
+
 test("handleSecurityResults - generates overrides when alerts found", () => {
   const { handleSecurityResults } = require("../../../src/cli/index");
 
@@ -1420,6 +1446,7 @@ test("runSecurityCheck - passes correct options to SecurityChecker", async () =>
     forceSecurityRefactor: true,
     interactive: true,
     securityProviderToken: "test-token",
+    cacheTtl: 600,
   };
 
   const mockSpinner = {
@@ -1454,6 +1481,7 @@ test("runSecurityCheck - passes correct options to SecurityChecker", async () =>
     interactive: true,
     token: "test-token",
     debug: true,
+    cacheTtl: 600,
   });
 });
 
@@ -1677,6 +1705,64 @@ test("action - runs security check when enabled", async () => {
     expect.anything(),
     mockSecurityResults.updates,
   );
+});
+
+test("action - runs security check from top-level config", async () => {
+  const { action, buildMergedOptions } = require("../../../src/cli/index");
+
+  const mockConfig: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+    pastoralist: {
+      checkSecurity: true,
+    },
+  };
+
+  const mockSpinner = {
+    stop: mock(() => mockSpinner),
+    start: mock(() => mockSpinner),
+    warn: mock(() => mockSpinner),
+    fail: mock(() => mockSpinner),
+    update: mock(() => mockSpinner),
+  };
+
+  const originalLog = console.log;
+  console.log = mock(() => {});
+
+  const deps = {
+    createLogger: mock(() => log),
+    handleTestMode: mock(() => false),
+    handleInitMode: mock(() => Promise.resolve(false)),
+    resolveJSON: mock(() => mockConfig),
+    loadConfig: mock((_root: string, config: unknown) =>
+      Promise.resolve(config),
+    ),
+    buildMergedOptions,
+    runSecurityCheck: mock(() =>
+      Promise.resolve({
+        spinner: mockSpinner,
+        securityChecker: {},
+        alerts: [],
+        securityOverrides: [],
+        updates: [],
+        packagesScanned: 1,
+        skipped: false,
+      }),
+    ),
+    handleSecurityResults: mock(() => ({})),
+    createSpinner: mock(() => mockSpinner),
+    green: mock((text: string) => text),
+    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
+    createTerminalGraph: mock(() => createMockTerminalGraph()),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
+    processExit: mock(() => {}),
+  };
+
+  await action({ outputFormat: "json" }, deps);
+
+  console.log = originalLog;
+
+  expect(deps.runSecurityCheck).toHaveBeenCalled();
 });
 
 test("action - handles path with root option", async () => {
@@ -3115,7 +3201,7 @@ test("action - applies security results when outputFormat is json", async () => 
     handleTestMode: mock(() => false),
     handleInitMode: mock(() => Promise.resolve(false)),
     resolveJSON: mock(() => mockConfig),
-    buildMergedOptions: mock((options: any, rest: any) =>
+    buildMergedOptions: mock((options: Options, rest: Options) =>
       Object.assign({}, options, rest, { checkSecurity: true }),
     ),
     runSecurityCheck: mock(() =>
@@ -3147,6 +3233,66 @@ test("action - applies security results when outputFormat is json", async () => 
   console.log = originalLog;
 
   expect(handleSecurityResults).toHaveBeenCalled();
+});
+
+test("action - exits non-zero in quiet mode when vulnerabilities are found", async () => {
+  const { action } = require("../../../src/cli/index");
+
+  const mockConfig: PastoralistJSON = {
+    name: "test-package",
+    version: "1.0.0",
+    dependencies: {
+      lodash: "4.17.20",
+    },
+  };
+
+  const mockAlert = {
+    packageName: "lodash",
+    currentVersion: "4.17.20",
+    vulnerableVersions: "<4.17.21",
+    patchedVersion: "4.17.21",
+    severity: "high",
+    title: "Prototype pollution",
+    fixAvailable: true,
+  };
+  const mockExit = mock(() => {});
+
+  const deps = {
+    createLogger: mock(() => log),
+    handleTestMode: mock(() => false),
+    handleInitMode: mock(() => Promise.resolve(false)),
+    resolveJSON: mock(() => mockConfig),
+    buildMergedOptions: mock((options: any, rest: any) =>
+      Object.assign({}, options, rest, { checkSecurity: true }),
+    ),
+    runSecurityCheck: mock(() =>
+      Promise.resolve({
+        spinner: { stop: mock() },
+        securityChecker: {},
+        alerts: [mockAlert],
+        securityOverrides: [],
+        updates: [],
+        packagesScanned: 1,
+        skipped: false,
+      }),
+    ),
+    handleSecurityResults: mock(() => ({})),
+    createSpinner: mock(() => ({ start: mock(), stop: mock() })),
+    green: mock((text: string) => text),
+    update: mock(() => ({
+      finalOverrides: {},
+      finalAppendix: {},
+      metrics: {},
+    })),
+    createTerminalGraph: mock(() => createMockTerminalGraph()),
+    getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),
+    processExit: mockExit,
+  };
+
+  const result = await action({ quiet: true, checkSecurity: true }, deps);
+
+  expect(result.hasSecurityIssues).toBe(true);
+  expect(mockExit).toHaveBeenCalledWith(1);
 });
 
 test("action - displays unused override notice when unused overrides exist", async () => {

@@ -150,8 +150,8 @@ Consider removing these patches if the packages are no longer used.
   rel="noopener noreferrer"
 >
   <img
-    src="https://img.shields.io/badge/Try_Patches-CodeSandbox-blue?logo=codesandbox"
-    alt="Try Patches on CodeSandbox"
+    src="https://img.shields.io/badge/Try_Patches-StackBlitz-blue?logo=stackblitz"
+    alt="Try Patches on StackBlitz"
   />
 </a>
 
@@ -226,8 +226,8 @@ When a dependency is updated and no longer needs an override:
   rel="noopener noreferrer"
 >
   <img
-    src="https://img.shields.io/badge/Try_Cleanup-CodeSandbox-blue?logo=codesandbox"
-    alt="Try Cleanup on CodeSandbox"
+    src="https://img.shields.io/badge/Try_Cleanup-StackBlitz-blue?logo=stackblitz"
+    alt="Try Cleanup on StackBlitz"
   />
 </a>
 

@@ -123,6 +123,28 @@ type SecurityConfig = NonNullable<
 >;
 type SecurityProviderOption = Options["securityProvider"];
 
+export const normalizeCacheTtl = (value: unknown): number | undefined => {
+  const isUndefined = value === undefined;
+  if (isUndefined) return undefined;
+
+  const isNumber = typeof value === "number";
+  const isNonEmptyString = typeof value === "string" && value.trim() !== "";
+
+  let numberValue = Number.NaN;
+  if (isNumber) {
+    numberValue = value;
+  } else if (isNonEmptyString) {
+    numberValue = Number(value);
+  }
+
+  const isValid = Number.isFinite(numberValue) && numberValue >= 0;
+  if (!isValid) {
+    throw new Error("--cache-ttl must be a non-negative number of seconds");
+  }
+
+  return numberValue;
+};
+
 export const buildMergedOptions = (
   options: Options,
   rest: Omit<Options, "isTestingCLI" | "init">,
@@ -131,6 +153,8 @@ export const buildMergedOptions = (
 ): Options => {
   const providerFromOptions = options.securityProvider ?? configProvider;
   const securityProvider = providerFromOptions ?? "osv";
+  const cacheTtlInput = options.cacheTtl ?? rest.cacheTtl;
+  const cacheTtl = normalizeCacheTtl(cacheTtlInput);
 
   return {
     ...rest,
@@ -145,6 +169,7 @@ export const buildMergedOptions = (
       options.hasWorkspaceSecurityChecks ??
       securityConfig.hasWorkspaceSecurityChecks,
     strict: options.strict ?? securityConfig.strict,
+    cacheTtl,
   };
 };
 
@@ -199,6 +224,7 @@ export const runSecurityCheck = async (
       debug: isLogging,
       strict: mergedOptions.strict,
       cacheDir: mergedOptions.cacheDir,
+      cacheTtl: mergedOptions.cacheTtl,
       noCache: mergedOptions.noCache,
       refreshCache: mergedOptions.refreshCache,
     });
@@ -246,6 +272,7 @@ export const runSecurityCheck = async (
         token: mergedOptions.securityProviderToken,
         debug: isLogging,
         strict: mergedOptions.strict,
+        cacheTtl: mergedOptions.cacheTtl,
       });
       return {
         spinner,
@@ -694,7 +721,23 @@ export async function action(
       ...packageConfig,
       ...(mergedPastoralistConfig && { pastoralist: mergedPastoralistConfig }),
     };
-    const securityConfig = config.pastoralist?.security || {};
+    const pastoralistConfig = config.pastoralist ?? {};
+    const pastoralistSecurityConfig = pastoralistConfig.security;
+    const securityEnabled =
+      pastoralistSecurityConfig?.enabled ?? pastoralistConfig.checkSecurity;
+    const securityConfig: Partial<SecurityConfig> = {
+      enabled: securityEnabled,
+      provider: pastoralistSecurityConfig?.provider,
+      autoFix: pastoralistSecurityConfig?.autoFix,
+      interactive: pastoralistSecurityConfig?.interactive,
+      securityProviderToken: pastoralistSecurityConfig?.securityProviderToken,
+      severityThreshold: pastoralistSecurityConfig?.severityThreshold,
+      excludePackages: pastoralistSecurityConfig?.excludePackages,
+      hasWorkspaceSecurityChecks:
+        pastoralistSecurityConfig?.hasWorkspaceSecurityChecks,
+      strict: pastoralistSecurityConfig?.strict,
+      preferLatest: pastoralistSecurityConfig?.preferLatest,
+    };
     const configProvider = Array.isArray(securityConfig.provider)
       ? securityConfig.provider[0]
       : securityConfig.provider;
@@ -946,6 +989,11 @@ export async function action(
     }
 
     outputResult(result, isJsonOutput);
+    const shouldExitForQuietSecurityIssues =
+      isQuietMode && result.hasSecurityIssues;
+    if (shouldExitForQuietSecurityIssues) {
+      deps.processExit(1);
+    }
     return result;
   } catch (err) {
     graph.stop();

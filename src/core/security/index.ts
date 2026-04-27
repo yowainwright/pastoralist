@@ -57,11 +57,13 @@ import { glob } from "../../utils/glob";
 export * from "./providers";
 
 export class SecurityChecker {
+  private static readonly DEFAULT_MEMORY_CACHE_TTL = 1000 * 60 * 60;
   private providers: SecurityProvider[];
   private log: ReturnType<typeof logger>;
   private cache: LRUCache<string, SecurityAlert[]>;
   private cacheConfigHash: string;
   private readonly diskAlertsCache: DiskCache<SecurityAlert[]>;
+  private readonly strict: boolean;
   private readonly noCache: boolean;
   private readonly refreshCache: boolean;
   private readonly cacheDir: string | undefined;
@@ -75,11 +77,20 @@ export class SecurityChecker {
   ) {
     this.log = logger({ file: "security/index.ts", isLogging: options.debug });
     this.providers = this.createProviders(options);
+    const cacheTtlMs = this.resolveCacheTtlMs(
+      options.cacheTtl,
+      SecurityChecker.DEFAULT_MEMORY_CACHE_TTL,
+    );
+    const alertDiskCacheTtlMs = this.resolveCacheTtlMs(
+      options.cacheTtl,
+      CACHE_TTLS.ALERTS,
+    );
     this.cache = new LRUCache({
       max: 500,
-      ttl: 1000 * 60 * 60,
+      ttl: cacheTtlMs,
     });
     this.cacheConfigHash = this.buildCacheConfigHash(options);
+    this.strict = options.strict ?? false;
     this.noCache = options.noCache ?? false;
     this.refreshCache = options.refreshCache ?? false;
     this.cacheDir = options.cacheDir;
@@ -87,12 +98,19 @@ export class SecurityChecker {
       CACHE_NAMESPACES.ALERTS,
       {
         dir: options.cacheDir ?? resolveCacheDir(),
-        ttl: CACHE_TTLS.ALERTS,
+        ttl: alertDiskCacheTtlMs,
         version: CACHE_NS_VERSIONS.ALERTS,
         maxEntries: 50,
         enabled: !this.noCache,
       },
     );
+  }
+
+  private resolveCacheTtlMs(
+    value: number | undefined,
+    fallback: number,
+  ): number {
+    return value === undefined ? fallback : value * 1000;
   }
 
   private buildCacheConfigHash(options: {
@@ -170,6 +188,7 @@ export class SecurityChecker {
           isIRLCatch: options.isIRLCatch,
           strict: options.strict,
           cacheDir: options.cacheDir,
+          cacheTtl: options.cacheTtl,
           noCache: options.noCache,
         });
       case "github":
@@ -307,6 +326,14 @@ export class SecurityChecker {
             }));
           }
           this.log.warn(`Provider failed: ${result.reason}`, "checkSecurity");
+          if (this.strict) {
+            const isErrorReason = result.reason instanceof Error;
+            const reason = isErrorReason
+              ? result.reason.message
+              : String(result.reason);
+
+            throw new Error(`Provider ${providerType} failed: ${reason}`);
+          }
           return [];
         });
         this.cache.set(cacheKey, alerts);

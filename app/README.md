@@ -1,54 +1,99 @@
-# Documentation Template
+# Pastoralist Docs App
 
-Thank you for purchasing this template. I hope you build something great with it!
+This package powers the Pastoralist docs site at
+[jeffry.in/pastoralist](https://jeffry.in/pastoralist/).
 
-## Features
+It is a Vite + React app for the marketing homepage, docs pages, local search,
+syntax-highlighted examples, Mermaid diagrams, and theme switching.
 
-- Made with Astro, Markdown, Tailwind CSS and daisyUI
-- Search functionality
-- SEO friendly, Lightweight and fast
-- Dark mode and Light mode
+## Stack
 
-## Including
+| Area           | Tooling                                  |
+| -------------- | ---------------------------------------- |
+| App shell      | Vite, React 19, TanStack Router          |
+| Docs content   | MDX files loaded from `src/content/docs` |
+| Code examples  | Shiki, remark-gfm, rehype-slug           |
+| Diagrams       | Mermaid                                  |
+| Search         | Fuse.js local search                     |
+| Styling        | Tailwind CSS 4, daisyUI, shadcn-style UI |
+| Motion         | Framer Motion, XState                    |
+| Build contract | `tsc && vite build`                      |
 
-- Homepage with features sections, code demo, contributors images, testimonials and installation guide
-- Document pages made from Markdown files with Sidebar, page content links, sponsors section
-- Search bar using Algolia DocSearch
-- Theme switch button with dark theme and light theme (compatible with all daisyUI themes)
+## Current Shape
 
-## Getting Started
+| Area        | Count / Detail                             |
+| ----------- | ------------------------------------------ |
+| Docs pages  | 11 MDX pages                               |
+| Components  | 35 TSX component files                     |
+| Source size | 98 TS, TSX, MDX, and CSS source files      |
+| Routes      | `/`, `/docs/$slug`                         |
+| Entry point | `src/main.tsx`                             |
+| Docs order  | `src/content/index.ts`                     |
+| Sidebar     | `src/components/docs/Sidebar/constants.ts` |
 
-1. Install dependencies
+## Commands
 
-```
+From this directory:
+
+```bash
 bun install
-```
-
-2. Run the dev server
-
-```
 bun run dev
+bun run build
+bun run preview
 ```
 
-3. Build for production
+From the repository root:
 
+```bash
+bun run dev
+bun run --cwd app build
 ```
+
+`bun run serve` starts the Vite preview server on port `5174`.
+
+## Editing Docs
+
+Docs live in `src/content/docs/*.mdx`.
+
+When adding or renaming a page:
+
+1. Add the MDX file in `src/content/docs`.
+2. Add its metadata and order in `src/content/index.ts`.
+3. Add it to the sidebar in `src/components/docs/Sidebar/constants.ts` when it
+   should be navigable.
+4. Run `bun run build` to catch MDX, route, and type errors.
+
+Use internal docs links like `/docs/security`. The MDX anchor component converts
+those links into router links.
+
+## Important Files
+
+| File / directory         | Purpose                                      |
+| ------------------------ | -------------------------------------------- |
+| `src/pages/HomePage.tsx` | Homepage route                               |
+| `src/pages/DocsPage.tsx` | Docs route, MDX loading, TOC, pagination     |
+| `src/content/docs`       | Product documentation                        |
+| `src/lib/mdx`            | MDX compilation, caching, heading extraction |
+| `src/components/docs`    | Sidebar, search, TOC, pagination, MDX UI     |
+| `src/components/home`    | Homepage sections and demos                  |
+| `src/styles/global.css`  | Tailwind, daisyUI, themes, docs prose        |
+| `src/themes`             | Shiki light and dark themes                  |
+| `vite.config.ts`         | Build, aliases, manual chunks                |
+
+## Release Checks
+
+For docs-only changes, run:
+
+```bash
 bun run build
 ```
 
-## Setup Algolia DocSearch
+From the repository root, the broader check is:
 
-1. Create an account on [Algolia DocSearch](https://docsearch.algolia.com/)
-2. Add your website
-3. Create a `.env` file in the root directory
-4. Add your Algolia DocSearch API details to the `.env` file like this:
-
-```
-VITE_ALGOLIA_APP_ID=XXXXXXXXXX
-VITE_ALGOLIA_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-VITE_ALGOLIA_INDEX_NAME=xxxxxxxx
+```bash
+bun run format
+bun run --cwd app build
 ```
 
-## Icons credit
-
-[Credit: Icons from Flat Icons](https://www.flaticon.com/free-icons)
+The build currently emits known warnings for daisyUI's `@property` rule and
+large Vite chunks from syntax highlighting and Mermaid bundles.

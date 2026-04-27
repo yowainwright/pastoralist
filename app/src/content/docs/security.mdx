@@ -3,11 +3,15 @@ title: Security Vulnerability Detection
 description: Detect and fix security vulnerabilities in your dependencies
 ---
 
-Pastoralist includes an experimental security feature that can detect vulnerabilities in your dependencies and automatically generate package overrides to fix them.
+Pastoralist can check dependencies against security providers and connect fixes
+to the same appendix used for override tracking.
 
 ## Overview
 
-The security feature scans your project's dependencies against vulnerability databases and suggests or applies fixes through package overrides. This helps maintain secure dependencies without manual intervention.
+Security checks scan your dependencies, report vulnerable packages, and can
+suggest or apply package manager overrides when a safe version is available. The
+appendix keeps the CVE, provider, severity, patched version, and reason with the
+override.
 
 ## Quick Start
 
@@ -36,7 +40,7 @@ pastoralist --checkSecurity --interactive
 
 ```bash
 # Include workspace packages in the scan
-pastoralist --checkSecurity --includeWorkspaces
+pastoralist --checkSecurity --hasWorkspaceSecurityChecks
 ```
 
 <a
@@ -45,8 +49,8 @@ pastoralist --checkSecurity --includeWorkspaces
   rel="noopener noreferrer"
 >
   <img
-    src="https://img.shields.io/badge/Try_Security_Scanning-CodeSandbox-blue?logo=codesandbox"
-    alt="Try Security Scanning on CodeSandbox"
+    src="https://img.shields.io/badge/Try_Security_Scanning-StackBlitz-blue?logo=stackblitz"
+    alt="Try Security Scanning on StackBlitz"
   />
 </a>
 
@@ -63,7 +67,7 @@ You can configure security settings in your `package.json`:
       "autoFix": false,
       "interactive": false,
       "securityProviderToken": "",
-      "includeWorkspaces": false,
+      "hasWorkspaceSecurityChecks": false,
       "severityThreshold": "medium",
       "excludePackages": []
     }
@@ -73,16 +77,17 @@ You can configure security settings in your `package.json`:
 
 ### Configuration Options
 
-| Option                  | Type    | Default    | Description                                                                                      |
-| ----------------------- | ------- | ---------- | ------------------------------------------------------------------------------------------------ |
-| `enabled`               | boolean | `false`    | Enable automatic security checks when running pastoralist                                        |
-| `provider`              | string  | `"osv"`    | Security provider: "osv" (recommended), "github", "snyk" [EXPERIMENTAL], "socket" [EXPERIMENTAL] |
-| `autoFix`               | boolean | `false`    | Automatically apply security fixes without prompting                                             |
-| `interactive`           | boolean | `false`    | Use interactive mode to select which fixes to apply                                              |
-| `securityProviderToken` | string  | `""`       | Authentication token for providers that require it                                               |
-| `includeWorkspaces`     | boolean | `false`    | Include workspace packages in security scan                                                      |
-| `severityThreshold`     | string  | `"medium"` | Minimum severity level to report (low, medium, high, critical)                                   |
-| `excludePackages`       | array   | `[]`       | List of package names to exclude from security checks                                            |
+| Option                       | Type    | Default    | Description                                                                                                 |
+| ---------------------------- | ------- | ---------- | ----------------------------------------------------------------------------------------------------------- |
+| `enabled`                    | boolean | `false`    | Enable automatic security checks when running pastoralist                                                   |
+| `provider`                   | string  | `"osv"`    | Provider: "osv", "github", "npm", "snyk" [EXPERIMENTAL], "socket" [EXPERIMENTAL], "spektion" [EXPERIMENTAL] |
+| `autoFix`                    | boolean | `false`    | Automatically apply security fixes without prompting                                                        |
+| `interactive`                | boolean | `false`    | Use interactive mode to select which fixes to apply                                                         |
+| `securityProviderToken`      | string  | `""`       | Authentication token for providers that require it                                                          |
+| `hasWorkspaceSecurityChecks` | boolean | `false`    | Include workspace packages in security scan                                                                 |
+| `severityThreshold`          | string  | `"medium"` | Minimum severity level to report (low, medium, high, critical)                                              |
+| `excludePackages`            | array   | `[]`       | List of package names to exclude from security checks                                                       |
+| `strict`                     | boolean | `false`    | Fail when a provider cannot complete                                                                        |
 
 ## CLI Options
 
@@ -90,16 +95,17 @@ You can configure security settings in your `package.json`:
 | --------------------------------- | ------------------------------------------------------ |
 | `--checkSecurity`                 | Enable security vulnerability checking                 |
 | `--forceSecurityRefactor`         | Automatically apply security fixes without prompting   |
-| `--securityProvider <provider>`   | Specify the security provider (default: "osv")         |
+| `--securityProvider <provider>`   | Specify one or more security providers                 |
 | `--securityProviderToken <token>` | Provide authentication token for the security provider |
 | `--interactive`                   | Use interactive mode to select fixes                   |
-| `--includeWorkspaces`             | Include workspace packages in the security scan        |
+| `--hasWorkspaceSecurityChecks`    | Include workspace packages in the security scan        |
+| `--strict`                        | Fail on provider, network, or API errors               |
 
 ## Security Providers
 
 ### OSV (Open Source Vulnerabilities)
 
-Free but only checks top-level dependencies from `package.json`.
+Free and requires no token.
 
 The [OSV database](https://osv.dev/) is a distributed vulnerability database for open source, created by Google and the open source community.
 
@@ -170,6 +176,18 @@ If permissions are insufficient, Pastoralist will display a warning with guidanc
 - No additional API rate limits beyond GitHub's standard limits
 - Graceful handling when permissions are missing
 
+### npm Audit Provider
+
+Runs the current package manager's audit command and converts the result into
+Pastoralist security alerts.
+
+```bash
+pastoralist --checkSecurity --securityProvider npm
+```
+
+This provider uses the package manager detected for the project: npm, Yarn,
+pnpm, or Bun.
+
 ### Snyk Provider [EXPERIMENTAL]
 
 :::caution[Experimental]
@@ -200,6 +218,22 @@ export SOCKET_SECURITY_API_KEY=your_key_here
 
 # Run with Socket provider
 pastoralist --checkSecurity --securityProvider socket
+```
+
+### Spektion Provider [EXPERIMENTAL]
+
+:::caution[Experimental]
+The Spektion provider is experimental and may have breaking changes. Report issues at https://github.com/yowainwright/pastoralist/issues
+:::
+
+Requires a Spektion API key.
+
+```bash
+# Set your Spektion API key
+export SPEKTION_API_KEY=your_key_here
+
+# Run with Spektion provider
+pastoralist --checkSecurity --securityProvider spektion
 ```
 
 ## CVE Tracking in the Ledger
@@ -266,7 +300,7 @@ Once the root dependency reaches `4.18.0`, the keep is considered expired and `-
 ## How It Works
 
 1. **Scanning**: Pastoralist extracts all dependencies from your `package.json` (and optionally workspace packages)
-2. **Checking**: Dependencies are checked against the OSV database for known vulnerabilities
+2. **Checking**: Dependencies are checked against the configured provider or providers
 3. **Reporting**: Vulnerable packages are displayed with severity levels and available fixes
 4. **Fixing**: If fixes are available, Pastoralist can:
    - Display them for review
@@ -276,27 +310,27 @@ Once the root dependency reaches `4.18.0`, the keep is considered expired and `-
 
 ## Example Output
 
-```
-🔒 pastoralist checking for security vulnerabilities...
+```text
+pastoralist checking for security vulnerabilities...
 
-🔒 Security Check Report
-══════════════════════════════════════════════════
+Security Check Report
+==================================================
 
 Found 3 vulnerable package(s):
 
-🔥 lodash@4.17.20
+lodash@4.17.20
    Prototype Pollution
    CVE: CVE-2021-23337
-   ✅ Fix available: 4.17.21
-   🔗 https://osv.dev/vulnerability/GHSA-35jh-r3h4-6jhm
+   Fix available: 4.17.21
+   https://osv.dev/vulnerability/GHSA-35jh-r3h4-6jhm
 
-⚠️ minimist@1.2.5
+minimist@1.2.5
    Prototype Pollution
    CVE: CVE-2021-44906
-   ✅ Fix available: 1.2.6
-   🔗 https://osv.dev/vulnerability/GHSA-xvch-5gv4-984h
+   Fix available: 1.2.6
+   https://osv.dev/vulnerability/GHSA-xvch-5gv4-984h
 
-📝 Generated 2 override(s):
+Generated 2 override(s):
 
   "lodash": "4.17.21" // Security fix: Prototype Pollution (high)
   "minimist": "1.2.6" // Security fix: Prototype Pollution (medium)
@@ -307,8 +341,9 @@ Found 3 vulnerable package(s):
 :::caution[Performance Impact]
 
 - Security scanning is **disabled by default** to maintain fast performance
-- Workspace scanning is **opt-in** via the `includeWorkspaces` option
+- Workspace scanning is **opt-in** via the `hasWorkspaceSecurityChecks` option
 - The OSV provider is optimized for batch queries
+- Provider results can be cached using the CLI cache options
 - Results are processed in parallel when possible
   :::
 
@@ -323,8 +358,8 @@ Found 3 vulnerable package(s):
 
 :::note[Current Limitations]
 
-- Currently only supports npm packages
-- Only the OSV provider is implemented
+- Security checks focus on npm ecosystem packages
+- Some providers require credentials or local CLI access
 - Interactive mode requires the `inquirer` package (installed on demand)
 - Some vulnerabilities may not have available fixes
   :::
@@ -412,9 +447,8 @@ security:
 
 ## Contributing
 
-The security feature is experimental and we welcome contributions! Areas for improvement:
+Security provider integrations are actively evolving. Areas for improvement:
 
-- Additional security provider implementations
 - Enhanced vulnerability filtering
 - Better workspace integration
 - Performance optimizations

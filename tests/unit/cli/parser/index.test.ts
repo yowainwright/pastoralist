@@ -77,6 +77,12 @@ describe("parseArgs", () => {
 
       expect(result.options.securityProviderToken).toBe("abc123");
     });
+
+    test("should parse --cache-ttl with value", () => {
+      const result = parseArgs(["node", "script.js", "--cache-ttl", "3600"]);
+
+      expect(result.options.cacheTtl).toBe("3600");
+    });
   });
 
   describe("array flags", () => {

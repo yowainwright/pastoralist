@@ -155,6 +155,17 @@ Consider removing these patches if the packages are no longer used.
   />
 </a>
 
+<video
+  aria-label="Patch support sandbox demo"
+  className="my-6 w-full rounded-lg border border-base-content/10"
+  height="560"
+  width="786"
+  controls
+  playsInline
+  preload="none"
+  src="../episodes/pastoralist/07-sandbox-patches/final.mp4"
+></video>
+
 ## PeerDependencies Support
 
 Pastoralist now considers `peerDependencies` when tracking override usage.
@@ -231,6 +242,17 @@ When a dependency is updated and no longer needs an override:
   />
 </a>
 
+<video
+  aria-label="Cleanup sandbox demo"
+  className="my-6 w-full rounded-lg border border-base-content/10"
+  height="560"
+  width="786"
+  controls
+  playsInline
+  preload="none"
+  src="../episodes/pastoralist/05-sandbox-cleanup/final.mp4"
+></video>
+
 ### Unused Override Detection
 
 When an override exists but no package in your project depends on it, Pastoralist labels it as `(unused override)` in the appendix:
@@ -260,6 +282,17 @@ To remove them, run with the `--remove-unused` flag:
 ```bash
 pastoralist --remove-unused
 ```
+
+<video
+  aria-label="Unused override cleanup demo"
+  className="my-6 w-full rounded-lg border border-base-content/10"
+  height="560"
+  width="786"
+  controls
+  playsInline
+  preload="none"
+  src="../episodes/pastoralist/02-cleanup-unused/final.mp4"
+></video>
 
 This removes both the override from `overrides` and its entry from the appendix.
 

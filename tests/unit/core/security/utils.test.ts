@@ -64,20 +64,42 @@ test("isInstalled - should return true for git", async () => {
 });
 
 test("isInstalledGlobally - should return false for non-installed package", async () => {
-  const installer = new CLIInstaller({ debug: false });
+  const execFileAsync = mock(async () => ({ stdout: "", stderr: "" }));
+  const installer = new CLIInstaller({
+    debug: false,
+    execFileAsync: execFileAsync as any,
+  });
   const result = await installer.isInstalledGlobally(
     "definitely-not-a-real-package-xyz",
   );
+
   expect(result).toBe(false);
-}, 30000);
+  expect(execFileAsync).toHaveBeenCalledWith(
+    "npm",
+    ["list", "-g", "definitely-not-a-real-package-xyz", "--depth=0"],
+    { timeout: 30000 },
+  );
+});
 
 test("isInstalledGlobally - should handle npm list errors gracefully", async () => {
-  const installer = new CLIInstaller({ debug: false });
+  const execFileAsync = mock(async () => {
+    throw new Error("npm list failed");
+  });
+  const installer = new CLIInstaller({
+    debug: false,
+    execFileAsync: execFileAsync as any,
+  });
   const result = await installer.isInstalledGlobally(
     "non-existent-package-12345",
   );
+
   expect(result).toBe(false);
-}, 30000);
+  expect(execFileAsync).toHaveBeenCalledWith(
+    "npm",
+    ["list", "-g", "non-existent-package-12345", "--depth=0"],
+    { timeout: 30000 },
+  );
+});
 
 test("getVersion - should return version for bun", async () => {
   const installer = new CLIInstaller({ debug: false });
@@ -134,14 +156,22 @@ test("ensureInstalled - should handle non-existent package without throwing", as
 });
 
 test("installGlobally - should throw error for invalid package name", async () => {
-  const installer = new CLIInstaller({ debug: false });
-  let errorThrown = false;
-  try {
-    await installer.installGlobally("invalid@#$%package!@#$name");
-  } catch (error) {
-    errorThrown = true;
-  }
-  expect(errorThrown).toBe(true);
+  const execFileAsync = mock(async () => {
+    throw new Error("invalid package name");
+  });
+  const installer = new CLIInstaller({
+    debug: false,
+    execFileAsync: execFileAsync as any,
+  });
+
+  await expect(
+    installer.installGlobally("invalid@#$%package!@#$name"),
+  ).rejects.toThrow("Failed to install invalid@#$%package!@#$name");
+  expect(execFileAsync).toHaveBeenCalledWith(
+    "npm",
+    ["install", "-g", "invalid@#$%package!@#$name"],
+    { timeout: 120000 },
+  );
 });
 
 // =============================================================================

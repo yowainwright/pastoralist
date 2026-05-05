@@ -18,6 +18,7 @@ import {
 import type { CLIInstallOptions, PromptFunctions, PromptChoice } from "./types";
 
 const execFileAsync = promisify(execFile);
+type ExecFileAsync = typeof execFileAsync;
 
 export const getSeverityScore = (severity: string): number => {
   const scores: Record<string, number> = {
@@ -233,18 +234,22 @@ export const findVulnerablePackages = (
 
 export class CLIInstaller {
   private log: ReturnType<typeof logger>;
+  private execFileAsync: ExecFileAsync;
 
-  constructor(options: { debug?: boolean } = {}) {
+  constructor(
+    options: { debug?: boolean; execFileAsync?: ExecFileAsync } = {},
+  ) {
     this.log = logger({
       file: "security/cli-installer.ts",
       isLogging: options.debug,
     });
+    this.execFileAsync = options.execFileAsync ?? execFileAsync;
   }
 
   async isInstalled(command: string): Promise<boolean> {
     const execOptions = { timeout: DEFAULT_CLI_TIMEOUT };
     try {
-      await execFileAsync("which", [command], execOptions);
+      await this.execFileAsync("which", [command], execOptions);
       return true;
     } catch {
       return false;
@@ -255,7 +260,7 @@ export class CLIInstaller {
     const execOptions = { timeout: DEFAULT_CLI_TIMEOUT };
     const args = ["list", "-g", packageName, "--depth=0"];
     try {
-      const { stdout } = await execFileAsync("npm", args, execOptions);
+      const { stdout } = await this.execFileAsync("npm", args, execOptions);
       return stdout.includes(packageName);
     } catch {
       return false;
@@ -267,7 +272,11 @@ export class CLIInstaller {
     const execOptions = { timeout: DEFAULT_INSTALL_TIMEOUT };
 
     try {
-      await execFileAsync("npm", ["install", "-g", packageName], execOptions);
+      await this.execFileAsync(
+        "npm",
+        ["install", "-g", packageName],
+        execOptions,
+      );
       this.log.print(`Successfully installed ${packageName}`);
     } catch (error) {
       this.log.error(`Failed to install ${packageName}`, "installGlobally", {
@@ -323,7 +332,7 @@ export class CLIInstaller {
   async getVersion(command: string): Promise<string | undefined> {
     const execOptions = { timeout: DEFAULT_CLI_TIMEOUT };
     try {
-      const { stdout } = await execFileAsync(
+      const { stdout } = await this.execFileAsync(
         command,
         ["--version"],
         execOptions,

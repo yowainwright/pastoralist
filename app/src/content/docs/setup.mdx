@@ -57,16 +57,11 @@ Pastoralist can add that hook automatically:
 npx pastoralist --setup-hook
 ```
 
-<video
-  aria-label="Setup hook sandbox demo"
-  className="my-6 w-full rounded-lg border border-base-content/10"
-  height="560"
-  width="786"
-  controls
-  playsInline
-  preload="none"
-  src="../episodes/pastoralist/12-sandbox-setup-hook/final.mp4"
-></video>
+<EpisodeVideo slug="12-sandbox-setup-hook" label="Setup hook sandbox demo">
+  **Look for `postinstall: pastoralist`:** Pastoralist checks the package
+  scripts and confirms the install hook, so the appendix can be refreshed after
+  dependency installs.
+</EpisodeVideo>
 
 ## Verify Changes
 
@@ -76,16 +71,11 @@ Preview the package.json update before writing anything:
 npx pastoralist --dry-run
 ```
 
-<video
-  aria-label="Dry-run sandbox demo"
-  className="my-6 w-full rounded-lg border border-base-content/10"
-  height="560"
-  width="786"
-  controls
-  playsInline
-  preload="none"
-  src="../episodes/pastoralist/08-sandbox-dry-run/final.mp4"
-></video>
+<EpisodeVideo slug="08-sandbox-dry-run" label="Dry-run sandbox demo">
+  **Look for `lodash@4.17.20`, `qs@6.11.0`, `mime@3.0.0`, and `3 overrides
+  applied`:** dry-run prints the package.json change and reports the tracked
+  overrides without writing the file.
+</EpisodeVideo>
 
 Print summary metrics for CI or release checks:
 
@@ -93,16 +83,11 @@ Print summary metrics for CI or release checks:
 npx pastoralist --summary
 ```
 
-<video
-  aria-label="Summary sandbox demo"
-  className="my-6 w-full rounded-lg border border-base-content/10"
-  height="560"
-  width="786"
-  controls
-  playsInline
-  preload="none"
-  src="../episodes/pastoralist/10-sandbox-summary/final.mp4"
-></video>
+<EpisodeVideo slug="10-sandbox-summary" label="Summary sandbox demo">
+  **Look for `lodash@4.17.20`, `qs@6.11.0`, `cookie@0.7.0`, and `Appendix
+  entries updated`:** the summary turns those override updates into reviewable
+  counts, including the unused override warning.
+</EpisodeVideo>
 
 Remove overrides that no package still depends on:
 

@@ -155,16 +155,11 @@ Consider removing these patches if the packages are no longer used.
   />
 </a>
 
-<video
-  aria-label="Patch support sandbox demo"
-  className="my-6 w-full rounded-lg border border-base-content/10"
-  height="560"
-  width="786"
-  controls
-  playsInline
-  preload="none"
-  src="../episodes/pastoralist/07-sandbox-patches/final.mp4"
-></video>
+<EpisodeVideo slug="07-sandbox-patches" label="Patch support sandbox demo">
+  **Look for `lodash@4.17.21` and `1 override applied`:** Pastoralist keeps the
+  `lodash` override tied to the same review flow as local patch files, so the
+  pin and patch can be reviewed together.
+</EpisodeVideo>
 
 ## PeerDependencies Support
 
@@ -242,16 +237,11 @@ When a dependency is updated and no longer needs an override:
   />
 </a>
 
-<video
-  aria-label="Cleanup sandbox demo"
-  className="my-6 w-full rounded-lg border border-base-content/10"
-  height="560"
-  width="786"
-  controls
-  playsInline
-  preload="none"
-  src="../episodes/pastoralist/05-sandbox-cleanup/final.mp4"
-></video>
+<EpisodeVideo slug="05-sandbox-cleanup" label="Cleanup sandbox demo">
+  **Look for `lodash@4.17.20`, `minimist@1.2.6`, `qs@6.11.0`, and `3 stale
+  overrides removed`:** Pastoralist removes those stale pins from the preview
+  because `express` no longer needs them.
+</EpisodeVideo>
 
 ### Unused Override Detection
 
@@ -283,16 +273,11 @@ To remove them, run with the `--remove-unused` flag:
 pastoralist --remove-unused
 ```
 
-<video
-  aria-label="Unused override cleanup demo"
-  className="my-6 w-full rounded-lg border border-base-content/10"
-  height="560"
-  width="786"
-  controls
-  playsInline
-  preload="none"
-  src="../episodes/pastoralist/02-cleanup-unused/final.mp4"
-></video>
+<EpisodeVideo slug="02-cleanup-unused" label="Unused override cleanup demo">
+  **Look for `lodash@4.17.20`, `minimist@1.2.6`, `qs@6.11.0`, and `Override no
+  longer needed`:** with `--remove-unused --dry-run`, Pastoralist shows exactly
+  which unused overrides would be deleted before writing.
+</EpisodeVideo>
 
 This removes both the override from `overrides` and its entry from the appendix.
 

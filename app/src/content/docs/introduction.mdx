@@ -62,8 +62,9 @@ Overrides usually start with a good reason:
 }
 ```
 
-Months later, the context is gone. Was it a security fix? A transitive bug? Is
-it still needed? Pastoralist makes that visible:
+Months later, the context is gone. Was it a security fix? A transitive bug? Who
+still needs it? Is it safe to remove? The override should stay as the package
+manager instruction; the appendix carries the review detail:
 
 ```json
 {
@@ -74,12 +75,30 @@ it still needed? Pastoralist makes that visible:
     "appendix": {
       "lodash@4.17.21": {
         "dependents": {
-          "my-app": "lodash@^4.17.0"
+          "web-app": "lodash@^4.17.20",
+          "admin-ui": "lodash@^4.17.19"
         },
         "ledger": {
-          "reason": "Security vulnerability CVE-2021-23337",
+          "addedDate": "2026-05-06T00:00:00.000Z",
+          "reason": "Pin lodash to a patched version while workspace packages finish upgrades.",
+          "source": "manual-review",
+          "securityChecked": true,
           "securityProvider": "osv",
-          "keep": true
+          "cves": ["CVE-2021-23337"],
+          "cveDetails": [
+            {
+              "cve": "CVE-2021-23337",
+              "severity": "high",
+              "patchedVersion": "4.17.21"
+            }
+          ],
+          "severity": "high",
+          "vulnerableRange": "<4.17.21",
+          "patchedVersion": "4.17.21",
+          "keep": {
+            "reason": "Keep until each workspace requests lodash 4.17.21 or newer.",
+            "untilVersion": "4.17.21"
+          }
         }
       }
     }
@@ -88,18 +107,14 @@ it still needed? Pastoralist makes that visible:
 ```
 
 The override controls the installed version. The appendix explains why that
-control exists.
+control exists, who still depends on it, what scanner or reviewer justified it,
+and what condition makes it removable.
 
-<video
-  aria-label="Pastoralist override tracking demo"
-  className="my-6 w-full rounded-lg border border-base-content/10"
-  height="560"
-  width="786"
-  controls
-  playsInline
-  preload="none"
-  src="../episodes/pastoralist/01-overrides/final.mp4"
-></video>
+<EpisodeVideo slug="01-overrides" label="Pastoralist override tracking demo">
+  **Look for `ansi-regex@5.0.1` and `Used by: 2 packages`:** Pastoralist turns
+  the override into an appendix entry with dependents, the review reason, and
+  `Kept by user` so cleanup will not remove it accidentally.
+</EpisodeVideo>
 
 ## What Pastoralist Handles
 

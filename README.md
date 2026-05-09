@@ -128,6 +128,18 @@ npx pastoralist --quiet --checkSecurity
 npx pastoralist --summary
 ```
 
+## Video Walkthroughs
+
+Short MP4 walkthroughs live beside the docs they explain:
+
+- [Override tracking](https://jeffry.in/pastoralist/docs/introduction)
+- [Basic sandbox](https://jeffry.in/pastoralist/docs/codelab)
+- [Setup hook, dry-run, and summary output](https://jeffry.in/pastoralist/docs/setup)
+- [Workspaces and monorepos](https://jeffry.in/pastoralist/docs/workspaces)
+- [Patches, cleanup, and unused overrides](https://jeffry.in/pastoralist/docs/advanced-features)
+- [Debug, JSON, and quiet CLI output](https://jeffry.in/pastoralist/docs/api-reference)
+- [Security scanning, providers, and auto-fix](https://jeffry.in/pastoralist/docs/security)
+
 ## Minimal Config
 
 Pastoralist can be configured in `package.json`, `.pastoralistrc.json`,

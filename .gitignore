@@ -82,6 +82,12 @@ typings/
 .nuxt
 dist
 
+# Generated tutorial media. Keep only the app-served final videos trackable.
+app/public/episodes/**
+!app/public/episodes/
+!app/public/episodes/**/
+!app/public/episodes/**/final.mp4
+
 # Gatsby files
 .cache/
 # Comment in the public line in if your project uses Gatsby and *not* Next.js

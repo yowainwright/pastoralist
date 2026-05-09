@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { EPISODE_VIDEO_PATH } from "./constants";
 
 interface EpisodeVideoProps {
   children?: ReactNode;
@@ -7,6 +8,7 @@ interface EpisodeVideoProps {
 }
 
 export function EpisodeVideo({ children, label, slug }: EpisodeVideoProps) {
+  const src = EPISODE_VIDEO_PATH(slug);
   return (
     <figure className="not-prose my-6">
       <video
@@ -17,7 +19,7 @@ export function EpisodeVideo({ children, label, slug }: EpisodeVideoProps) {
         controls
         playsInline
         preload="none"
-        src={`/episodes/${slug}/final.mp4`}
+        src={src}
       />
       {children ? (
         <figcaption className="mt-3 rounded-md border border-base-content/10 bg-base-200/40 px-4 py-3 text-sm leading-6 text-base-content/75">

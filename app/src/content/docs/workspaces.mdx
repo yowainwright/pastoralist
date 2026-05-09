@@ -24,6 +24,12 @@ Pastoralist operates on a single `package.json` at a time. In a workspace setup,
 - Individual workspace packages
 - Multiple packages using scripts
 
+<EpisodeVideo slug="03-workspaces" label="Workspace override tracking demo">
+  **Look for `lodash@4.17.21`, `workspace-demo-app`, `workspace-demo-lib`, and
+  `Used by: 3 packages`:** Pastoralist keeps the root override connected to the
+  workspace packages that still depend on it.
+</EpisodeVideo>
+
 ## Configuration Methods
 
 Pastoralist provides multiple ways to configure workspace scanning in monorepos:
@@ -91,6 +97,13 @@ After running `pastoralist`, your root package.json will contain:
 ```
 
 The workspace packages (`packages/*/package.json` and `apps/*/package.json`) remain clean without any pastoralist appendix.
+
+<EpisodeVideo slug="06-sandbox-monorepo" label="Monorepo sandbox demo">
+  **Look for `lodash@4.17.21`, `pastoralist-sandbox-monorepo-app`,
+  `pastoralist-sandbox-monorepo-lib`, and `1 override applied`:** one root
+  appendix records workspace usage instead of duplicating records in each
+  package.
+</EpisodeVideo>
 
 ### Method 2: CLI depPaths Flag
 

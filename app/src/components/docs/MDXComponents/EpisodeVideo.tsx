@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { resolveUrl } from "@/utils/urlResolver";
+import { EPISODE_VIDEO_PATH } from "./constants";
 
 interface EpisodeVideoProps {
   children?: ReactNode;
@@ -8,8 +8,7 @@ interface EpisodeVideoProps {
 }
 
 export function EpisodeVideo({ children, label, slug }: EpisodeVideoProps) {
-  const src = resolveUrl(`episodes/${slug}/final.mp4`);
-
+  const src = EPISODE_VIDEO_PATH(slug);
   return (
     <figure className="not-prose my-6">
       <video

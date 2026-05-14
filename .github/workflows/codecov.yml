@@ -11,13 +11,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@v2.2.0
         with:
-          bun-version: 1.3.1
+          bun-version: latest
 
-      - run: bun install
+      - run: bun install --frozen-lockfile
 
       - name: Run tests with coverage
         run: bun test tests/unit/ --coverage --coverage-reporter=lcov
@@ -28,7 +28,7 @@ jobs:
         run: sed -n '/^SF:src\//,$p' coverage/lcov.info > coverage/src.info && mv coverage/src.info coverage/lcov.info
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage/lcov.info

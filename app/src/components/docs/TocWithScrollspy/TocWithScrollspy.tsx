@@ -20,14 +20,13 @@ function getLinkClasses(isActive: boolean, isSubheading = false) {
   return `${BASE_LINK_CLASSES} ${padding} ${stateClasses}`;
 }
 
-function scrollToElement(slug: string) {
+function scrollToElement(slug: string): boolean {
   const target = document.getElementById(slug);
-  if (!target) return;
+  if (!target) return false;
 
-  const rect = target.getBoundingClientRect();
-  const targetY = rect.top + window.scrollY - 80;
-
-  window.scrollTo({ top: targetY, behavior: "smooth" });
+  target.scrollIntoView({ behavior: "smooth", block: "start" });
+  history.pushState(null, "", `#${slug}`);
+  return true;
 }
 
 export function TocWithScrollspy({ headings }: TocWithScrollspyProps) {
@@ -36,8 +35,8 @@ export function TocWithScrollspy({ headings }: TocWithScrollspyProps) {
 
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLAnchorElement>, slug: string) => {
+      if (!scrollToElement(slug)) return;
       e.preventDefault();
-      scrollToElement(slug);
     },
     [],
   );

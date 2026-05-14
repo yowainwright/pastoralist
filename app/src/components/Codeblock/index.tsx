@@ -63,10 +63,7 @@ function CodeblockContent({
 
   return (
     <div
-      className={cn(
-        CODEBLOCK_CLASSES.content,
-        showLineNumbers && "show-line-numbers",
-      )}
+      className={CODEBLOCK_CLASSES.content}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
@@ -84,7 +81,13 @@ export function Codeblock({
   const hasHeader = title || showLanguage || showCopy;
 
   return (
-    <div className={cn(CODEBLOCK_CLASSES.wrapper, className)}>
+    <div
+      className={cn(
+        CODEBLOCK_CLASSES.wrapper,
+        showLineNumbers && "show-line-numbers",
+        className,
+      )}
+    >
       {hasHeader && (
         <div className={CODEBLOCK_CLASSES.header}>
           <div className="flex min-w-0 items-center gap-3">

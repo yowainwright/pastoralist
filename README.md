@@ -172,7 +172,7 @@ jobs:
   pastoralist:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
       - uses: yowainwright/pastoralist@v1
         with:
           mode: check

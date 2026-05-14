@@ -6,29 +6,45 @@ import type { Node } from "unist";
 
 const FRONTMATTER_REGEX = /^---\n[\s\S]*?\n---\n?/;
 
+type MermaidCodeNode = {
+  type: string;
+  lang?: string;
+  value: string;
+};
+
+type MermaidParentNode = {
+  children?: unknown[];
+};
+
 function stripFrontmatter(source: string): string {
   return source.replace(FRONTMATTER_REGEX, "");
 }
 
-function preserveMermaidRemark() {
+function renderMermaidRemark() {
   return (tree: Node) => {
     visit(
       tree,
       "code",
-      (node: {
-        type: string;
-        lang?: string;
-        value: string;
-        data?: { hName?: string; hProperties?: Record<string, string> };
-      }) => {
+      (
+        node: MermaidCodeNode,
+        index: number | undefined,
+        parent: MermaidParentNode | undefined,
+      ) => {
         if (node.lang !== "mermaid") return;
-        if (!node.data) node.data = {};
-        node.data.hName = "pre";
-        node.data.hProperties = {
-          "data-language": "mermaid",
-          "data-mermaid-content": node.value,
+        if (typeof index !== "number" || !parent?.children) return;
+
+        parent.children[index] = {
+          type: "mdxJsxFlowElement",
+          name: "Mermaid",
+          attributes: [
+            {
+              type: "mdxJsxAttribute",
+              name: "chart",
+              value: node.value,
+            },
+          ],
+          children: [],
         };
-        node.lang = "text";
       },
     );
   };
@@ -38,7 +54,7 @@ export async function compileMDXFast(source: string) {
   const content = stripFrontmatter(source);
   const compiled = await compile(content, {
     outputFormat: "function-body",
-    remarkPlugins: [remarkGfm, preserveMermaidRemark],
+    remarkPlugins: [remarkGfm, renderMermaidRemark],
     rehypePlugins: [rehypeSlug],
   });
 

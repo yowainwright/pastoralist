@@ -13,27 +13,26 @@ export function Mermaid({ chart }: MermaidProps) {
   const [svg, setSvg] = useState<string>("");
 
   useEffect(() => {
-    if (!ref.current || !chart) {
-      console.log("Mermaid: missing ref or chart", {
-        hasRef: !!ref.current,
-        chartLength: chart?.length,
-      });
-      return;
-    }
+    if (!ref.current || !chart) return;
 
+    let cancelled = false;
     const id = `mermaid-${Math.random().toString(36).slice(2, 9)}`;
-
-    console.log("Mermaid: rendering chart", { id, chart: chart.slice(0, 100) });
+    setSvg("");
 
     mermaid
       .render(id, chart)
       .then(({ svg }) => {
-        console.log("Mermaid: rendered successfully", svg.slice(0, 100));
+        if (cancelled) return;
         setSvg(svg);
       })
       .catch((error) => {
+        if (cancelled) return;
         console.error("Mermaid: render error", error);
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, [chart]);
 
   return (

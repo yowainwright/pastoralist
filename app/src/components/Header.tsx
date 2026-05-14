@@ -24,7 +24,7 @@ export function Header() {
   }));
 
   const navItemClassName = (href: string) =>
-    `hover:text-[#1D4ED8] hover:bg-[#1D4ED8]/10 transition flex ${
+    `rounded-lg hover:text-[#1D4ED8] hover:bg-[#1D4ED8]/10 transition flex ${
       (href.includes("/docs") ? pathname.includes("/docs") : pathname === href)
         ? "text-[#1D4ED8] bg-[#1D4ED8]/10"
         : ""
@@ -46,7 +46,7 @@ export function Header() {
         </div>
 
         <div className="justify-self-center">
-          <ul className="menu menu-horizontal flex-nowrap p-0 text-sm font-medium sm:text-base">
+          <ul className="menu menu-horizontal flex-nowrap gap-1 p-0 text-sm font-medium sm:text-base">
             {navigation.map((item) => (
               <li key={item.href}>
                 <Link

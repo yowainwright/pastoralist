@@ -156,9 +156,9 @@ Consider removing these patches if the packages are no longer used.
 </a>
 
 <EpisodeVideo slug="07-sandbox-patches" label="Patch support sandbox demo">
-  **Look for `lodash@4.17.21` and `1 override applied`:** Pastoralist keeps the
-  `lodash` override tied to the same review flow as local patch files, so the
-  pin and patch can be reviewed together.
+  **Watch the highlighted patch file and dry-run summary:** Pastoralist keeps
+  the `lodash@4.17.21` override tied to the same review flow as local patch
+  files, so the pin and patch can be reviewed together.
 </EpisodeVideo>
 
 ## PeerDependencies Support
@@ -238,9 +238,9 @@ When a dependency is updated and no longer needs an override:
 </a>
 
 <EpisodeVideo slug="05-sandbox-cleanup" label="Cleanup sandbox demo">
-  **Look for `lodash@4.17.20`, `minimist@1.2.6`, `qs@6.11.0`, and `3 stale
-  overrides removed`:** Pastoralist removes those stale pins from the preview
-  because `express` no longer needs them.
+  **Watch the highlighted stale override list:** Pastoralist previews removal
+  for `lodash@4.17.20`, `minimist@1.2.6`, and `qs@6.11.0` because `express` no
+  longer needs those pins.
 </EpisodeVideo>
 
 ### Unused Override Detection
@@ -274,9 +274,9 @@ pastoralist --remove-unused
 ```
 
 <EpisodeVideo slug="02-cleanup-unused" label="Unused override cleanup demo">
-  **Look for `lodash@4.17.20`, `minimist@1.2.6`, `qs@6.11.0`, and `Override no
-  longer needed`:** with `--remove-unused --dry-run`, Pastoralist shows exactly
-  which unused overrides would be deleted before writing.
+  **Watch the highlighted cleanup result:** with `--remove-unused --dry-run`,
+  Pastoralist shows `lodash@4.17.20`, `minimist@1.2.6`, and `qs@6.11.0` as
+  unused overrides before anything is written.
 </EpisodeVideo>
 
 This removes both the override from `overrides` and its entry from the appendix.

@@ -1014,7 +1014,15 @@ export async function action(
   }
 }
 
-export const run = async (argv: string[] = process.argv): Promise<void> => {
+type RunDeps = {
+  initCommand: typeof initCommand;
+  action: typeof action;
+};
+
+export const run = async (
+  argv: string[] = process.argv,
+  deps: RunDeps = { initCommand, action },
+): Promise<void> => {
   let parsed: ReturnType<typeof parseArgs>;
   try {
     parsed = parseArgs(argv);
@@ -1043,7 +1051,7 @@ export const run = async (argv: string[] = process.argv): Promise<void> => {
 
   const isInitCommand = parsed.command === "init";
   if (isInitCommand) {
-    await initCommand({
+    await deps.initCommand({
       ...options,
       securityProvider: Array.isArray(options.securityProvider)
         ? options.securityProvider[0]
@@ -1052,5 +1060,5 @@ export const run = async (argv: string[] = process.argv): Promise<void> => {
     return;
   }
 
-  await action(options);
+  await deps.action(options);
 };

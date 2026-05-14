@@ -205,7 +205,18 @@ runs:
           echo "$RAW_OUTPUT"
         fi
 
-        JSON_OUTPUT=$(printf '%s\n' "$RAW_OUTPUT" | awk '/^\{.*\}$/ { line=$0 } END { print line }')
+        JSON_OUTPUT=$(printf '%s\n' "$RAW_OUTPUT" | awk '
+          {
+            start = index($0, "{")
+            if (start > 0) {
+              candidate = substr($0, start)
+              if (candidate ~ /^\{.*\}$/) {
+                line = candidate
+              }
+            }
+          }
+          END { print line }
+        ')
 
         if [ -z "$JSON_OUTPUT" ]; then
           echo "::error::Pastoralist did not produce JSON output."

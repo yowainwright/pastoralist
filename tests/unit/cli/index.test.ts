@@ -3484,6 +3484,25 @@ test("run - handles unknown flags without throwing", async () => {
   expect(exitCode).toBe(1);
 });
 
+test("run - calls init command with first parsed security provider", async () => {
+  const { run } = require("../../../src/cli/index");
+  const mockInitCommand = mock(() => Promise.resolve());
+  const mockAction = mock(() => Promise.resolve());
+
+  await run(
+    ["node", "pastoralist", "init", "--securityProvider", "snyk", "socket"],
+    {
+      action: mockAction,
+      initCommand: mockInitCommand,
+    },
+  );
+
+  expect(mockInitCommand).toHaveBeenCalledWith(
+    expect.objectContaining({ securityProvider: "snyk" }),
+  );
+  expect(mockAction).not.toHaveBeenCalled();
+});
+
 test("handleSetupHook - error does not cause early exit in run", async () => {
   const { handleSetupHook } = require("../../../src/cli/index");
 

@@ -379,7 +379,7 @@ async function readCast(path: string): Promise<CastEvent[]> {
     if (parsed[1] !== "o") {
       continue;
     }
-    time += parsed[0];
+    time = parsed[0];
     events.push({ time, output: parsed[2] });
   }
 
@@ -449,8 +449,18 @@ function createTerminal(
       for (let index = 0; index < text.length; index += 1) {
         const char = text[index];
         if (char === "\x1b") {
-          const next = parseEscapeSequence(text, index, screen[row], col);
-          index = next;
+          const next = parseEscapeSequence(
+            text,
+            index,
+            screen,
+            rows,
+            cols,
+            row,
+            col,
+          );
+          index = next.index;
+          row = next.row;
+          col = next.col;
           continue;
         }
         if (char === "\r") {
@@ -481,25 +491,53 @@ function createTerminal(
 function parseEscapeSequence(
   text: string,
   start: number,
-  line: string[],
+  screen: string[][],
+  rows: number,
+  cols: number,
+  row: number,
   col: number,
-): number {
+): { index: number; row: number; col: number } {
   let index = start + 1;
   if (text[index] !== "[") {
-    return index;
+    return { index, row, col };
   }
+  index += 1;
 
+  let paramStr = "";
   while (index < text.length && !/[A-Za-z~]/.test(text[index])) {
+    paramStr += text[index];
     index += 1;
   }
 
-  if (text[index] === "K") {
+  const params = paramStr
+    .split(";")
+    .map((p) => (p === "" ? 1 : parseInt(p, 10)));
+  const n = params[0] ?? 1;
+  const cmd = text[index];
+
+  if (cmd === "A") return { index, row: clamp(row - n, 0, rows - 1), col };
+  if (cmd === "B") return { index, row: clamp(row + n, 0, rows - 1), col };
+  if (cmd === "C") return { index, row, col: clamp(col + n, 0, cols - 1) };
+  if (cmd === "D") return { index, row, col: clamp(col - n, 0, cols - 1) };
+  if (cmd === "H") {
+    return {
+      index,
+      row: clamp((params[0] ?? 1) - 1, 0, rows - 1),
+      col: clamp((params[1] ?? 1) - 1, 0, cols - 1),
+    };
+  }
+  if (cmd === "J" && n === 2) {
+    screen.forEach((line) => line.fill(" "));
+    return { index, row: 0, col: 0 };
+  }
+  if (cmd === "K") {
+    const line = screen[row];
     for (let cursor = col; cursor < line.length; cursor += 1) {
       line[cursor] = " ";
     }
   }
 
-  return index;
+  return { index, row, col };
 }
 
 function normalizeText(value: string): string {

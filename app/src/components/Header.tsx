@@ -33,7 +33,16 @@ export function Header() {
   return (
     <header className="fixed top-0 z-30 w-full">
       <nav className="grid h-[68px] w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1 border-b border-base-content/10 bg-base-100/80 px-2 py-2 backdrop-blur-3xl sm:gap-2 sm:px-4">
-        <div className="min-w-0 justify-self-start">
+        <div className="flex min-w-0 items-center gap-1 justify-self-start">
+          {isDocsRoute && (
+            <label
+              htmlFor="my-drawer-2"
+              className="btn btn-sm btn-ghost btn-square lg:hidden"
+              aria-label="toggle sidebar"
+            >
+              &#9776;
+            </label>
+          )}
           <Link
             to="/"
             preload="intent"

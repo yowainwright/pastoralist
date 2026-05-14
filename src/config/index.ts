@@ -23,7 +23,7 @@ const loadJsonConfig = (path: string): unknown => {
 
 const unwrapModuleConfig = (moduleValue: unknown): unknown => {
   const maybeModule = moduleValue as { default?: unknown };
-  return maybeModule?.default || moduleValue;
+  return maybeModule?.default ?? moduleValue;
 };
 
 const evaluateCommonJsConfig = (path: string, source: string): unknown => {

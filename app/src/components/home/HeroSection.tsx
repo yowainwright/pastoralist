@@ -45,7 +45,7 @@ const styles = {
   h1: "text-3xl sm:text-4xl md:text-5xl lg:text-[3.35rem] xl:text-[3.85rem] font-black leading-[1.05] tracking-tight mb-8",
   nav: "flex flex-col sm:flex-row items-center sm:items-stretch gap-4 sm:gap-5 justify-center lg:justify-start",
   codeBlock:
-    "flex w-full max-w-md items-center gap-3 rounded-2xl border border-base-content/10 bg-base-100/85 px-3 py-3 shadow-sm shadow-base-content/5 backdrop-blur sm:w-auto",
+    "flex h-12 w-full max-w-md items-center gap-3 rounded-2xl border border-base-content/10 bg-base-100/85 px-3 shadow-sm shadow-base-content/5 backdrop-blur sm:w-auto",
   code: "min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-left text-[0.95rem] font-medium",
 } as const;
 
@@ -203,7 +203,7 @@ export function HeroSection() {
                 params={{ slug: CONTENT.docsSlug }}
                 preload="intent"
               >
-                <button className="btn btn-lg btn-primary">
+                <button className="btn btn-lg btn-primary rounded-2xl">
                   {CONTENT.buttonText}
                   <ArrowRight className="size-4" />
                 </button>

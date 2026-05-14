@@ -61,11 +61,14 @@ export function CodeBlockSection() {
               to="/docs/$slug"
               params={{ slug: CONTENT.learnMoreSlug }}
               preload="intent"
-              className="btn btn-lg btn-primary"
+              className="btn btn-lg btn-primary rounded-2xl"
             >
               Learn More
             </Link>
-            <a href={CONTENT.githubHref} className="btn btn-lg btn-ghost">
+            <a
+              href={CONTENT.githubHref}
+              className="btn btn-lg btn-ghost rounded-2xl"
+            >
               View on GitHub
             </a>
           </nav>

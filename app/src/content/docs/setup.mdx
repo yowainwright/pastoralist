@@ -57,12 +57,6 @@ Pastoralist can add that hook automatically:
 npx pastoralist --setup-hook
 ```
 
-<EpisodeVideo slug="12-sandbox-setup-hook" label="Setup hook sandbox demo">
-  **Watch the highlighted `postinstall` script:** Pastoralist checks the package
-  scripts and confirms the install hook, so the appendix can be refreshed after
-  dependency installs.
-</EpisodeVideo>
-
 ## Verify Changes
 
 Preview the package.json update before writing anything:
@@ -71,22 +65,11 @@ Preview the package.json update before writing anything:
 npx pastoralist --dry-run
 ```
 
-<EpisodeVideo slug="08-sandbox-dry-run" label="Dry-run sandbox demo">
-  **Watch the highlighted dry-run package update:** Pastoralist prints the
-  `package.json` change for `lodash`, `qs`, and `mime` without writing the file.
-</EpisodeVideo>
-
 Print summary metrics for CI or release checks:
 
 ```bash
 npx pastoralist --summary
 ```
-
-<EpisodeVideo slug="10-sandbox-summary" label="Summary sandbox demo">
-  **Watch the highlighted summary rows:** the summary turns updates for
-  `lodash@4.17.20`, `qs@6.11.0`, and `cookie@0.7.0` into reviewable counts,
-  including the unused override warning.
-</EpisodeVideo>
 
 Remove overrides that no package still depends on:
 

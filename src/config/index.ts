@@ -1,5 +1,7 @@
+import { createRequire } from "module";
 import { existsSync, readFileSync } from "fs";
-import { resolve } from "path";
+import { dirname, resolve } from "path";
+import { pathToFileURL } from "url";
 import type { AppendixItem } from "../types";
 import { PastoralistConfig, safeValidateConfig } from "./constants";
 import { CONFIG_FILES } from "./constants";
@@ -18,10 +20,57 @@ const loadJsonConfig = (path: string): unknown => {
   return JSON.parse(content);
 };
 
-const loadJsConfig = async (path: string): Promise<unknown> => {
+const unwrapModuleConfig = (moduleValue: unknown): unknown => {
+  const maybeModule = moduleValue as { default?: unknown };
+  return maybeModule?.default || moduleValue;
+};
+
+const evaluateCommonJsConfig = (path: string, source: string): unknown => {
+  const module = { exports: {} as unknown };
+  const localRequire = createRequire(path);
+  const evaluate = new Function(
+    "module",
+    "exports",
+    "require",
+    "__filename",
+    "__dirname",
+    source,
+  );
+
+  evaluate(module, module.exports, localRequire, path, dirname(path));
+  return unwrapModuleConfig(module.exports);
+};
+
+const hasCommonJsExports = (source: string): boolean =>
+  /\bmodule\.exports\b|\bexports\./.test(source);
+
+const transformTypeScriptConfig = (source: string): string =>
+  source
+    .replace(/^\s*import\s+type\s+[^;]+;\s*$/gm, "")
+    .replace(/:\s*PastoralistConfig(\s*=)/g, "$1")
+    .replace(/\s+satisfies\s+PastoralistConfig/g, "")
+    .replace(/\bexport\s+default\s+/g, "module.exports = ");
+
+const loadTypeScriptConfig = (path: string): unknown => {
+  const source = readFileSync(path, "utf8");
+  return evaluateCommonJsConfig(path, transformTypeScriptConfig(source));
+};
+
+const loadJsConfig = async (
+  filename: string,
+  path: string,
+): Promise<unknown> => {
+  const source = readFileSync(path, "utf8");
+  const canUseCommonJsFallback =
+    filename.endsWith(".cjs") || filename.endsWith(".js");
+
+  if (canUseCommonJsFallback && hasCommonJsExports(source)) {
+    return evaluateCommonJsConfig(path, source);
+  }
+
   const resolvedPath = resolve(path);
-  const module = await import(resolvedPath);
-  return module.default || module;
+  const module = await import(pathToFileURL(resolvedPath).href);
+  return unwrapModuleConfig(module);
 };
 
 const loadConfigFile = async (
@@ -29,7 +78,8 @@ const loadConfigFile = async (
   path: string,
 ): Promise<unknown | null> => {
   if (isJsonFile(filename)) return loadJsonConfig(path);
-  return loadJsConfig(path);
+  if (filename.endsWith(".ts")) return loadTypeScriptConfig(path);
+  return loadJsConfig(filename, path);
 };
 
 const validateAndReturn = (

@@ -188,6 +188,12 @@ export const computeVulnerabilityReduction = (
   targetVersion: string,
   allAlerts: SecurityAlert[],
 ): { skip: boolean; targetStillVulnerable: boolean } => {
+  const hasKnownCurrentVersion =
+    Boolean(currentVersion) && currentVersion !== "unknown";
+  if (!hasKnownCurrentVersion) {
+    return { skip: false, targetStillVulnerable: false };
+  }
+
   const packageAlerts = allAlerts.filter(
     (a) => a.packageName === packageName && a.vulnerableVersions,
   );

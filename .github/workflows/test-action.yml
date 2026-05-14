@@ -223,6 +223,102 @@ jobs:
           echo "security-count: ${{ steps.pastoralist.outputs.security-count }}"
           echo "Security check test passed"
 
+  test-action-security-fail:
+    name: Test Action (Security Failure Gate)
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: dist
+          path: dist/
+
+      - name: Setup test directory
+        run: |
+          mkdir -p /tmp/test-security-fail
+          cat > /tmp/test-security-fail/package.json << 'EOF'
+          {
+            "name": "test-security-fail-package",
+            "version": "1.0.0",
+            "dependencies": {
+              "lodash": "^4.17.0"
+            }
+          }
+          EOF
+
+      - name: Run Pastoralist Action (expected failure)
+        id: fail-security
+        uses: ./
+        continue-on-error: true
+        env:
+          PASTORALIST_MOCK_SECURITY: "true"
+          MOCK_FORCE_VULNERABLE: "true"
+        with:
+          mode: check
+          check-security: true
+          security-provider: github
+          root-dir: /tmp/test-security-fail
+          fail-on-security: true
+
+      - name: Verify security gate failed
+        run: |
+          echo "outcome: ${{ steps.fail-security.outcome }}"
+          if [ "${{ steps.fail-security.outcome }}" != "failure" ]; then
+            echo "ERROR: fail-on-security should fail check mode when vulnerabilities are found"
+            exit 1
+          fi
+          echo "Security failure gate test passed"
+
+  test-action-pr-dry-run:
+    name: Test Action (PR Dry Run)
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: dist
+          path: dist/
+
+      - name: Setup test directory
+        run: |
+          mkdir -p /tmp/test-pr-dry-run
+          cat > /tmp/test-pr-dry-run/package.json << 'EOF'
+          {
+            "name": "test-pr-dry-run-package",
+            "version": "1.0.0",
+            "dependencies": {
+              "lodash": "^4.17.0"
+            },
+            "overrides": {
+              "lodash": "4.17.21"
+            }
+          }
+          EOF
+
+      - name: Run Pastoralist Action (PR dry-run mode)
+        id: pastoralist
+        uses: ./
+        with:
+          mode: pr
+          dry-run: true
+          check-security: false
+          root-dir: /tmp/test-pr-dry-run
+
+      - name: Verify PR dry-run did not report updates
+        run: |
+          echo "updated: ${{ steps.pastoralist.outputs.updated }}"
+          if [ "${{ steps.pastoralist.outputs.updated }}" = "true" ]; then
+            echo "ERROR: pr mode with dry-run should not report updated=true"
+            exit 1
+          fi
+          echo "PR dry-run test passed"
+
   summary:
     name: Test Summary
     needs:
@@ -231,6 +327,8 @@ jobs:
         test-action-check,
         test-action-update,
         test-action-security,
+        test-action-security-fail,
+        test-action-pr-dry-run,
       ]
     runs-on: ubuntu-latest
     if: always()
@@ -240,7 +338,9 @@ jobs:
           if [ "${{ needs.test-check-mode.result }}" != "success" ] || \
              [ "${{ needs.test-action-check.result }}" != "success" ] || \
              [ "${{ needs.test-action-update.result }}" != "success" ] || \
-             [ "${{ needs.test-action-security.result }}" != "success" ]; then
+             [ "${{ needs.test-action-security.result }}" != "success" ] || \
+             [ "${{ needs.test-action-security-fail.result }}" != "success" ] || \
+             [ "${{ needs.test-action-pr-dry-run.result }}" != "success" ]; then
             echo "One or more tests failed"
             exit 1
           fi

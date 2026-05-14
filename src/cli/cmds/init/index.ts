@@ -1,5 +1,5 @@
 import { writeFileSync, existsSync } from "fs";
-import { resolve } from "path";
+import { isAbsolute, resolve } from "path";
 import { green } from "../../../utils";
 import { BRAND } from "../../../utils/icons";
 import { createPrompt, Prompt } from "../../../utils/prompts";
@@ -331,6 +331,9 @@ async function checkExistingConfig(
   return shouldOverwrite;
 }
 
+const resolvePathFromRoot = (path: string, root: string): string =>
+  !isAbsolute(path) ? resolve(root, path) : path;
+
 export async function initCommand(options: InitOptions = {}): Promise<void> {
   const log = createLogger({ file: "init/index.ts", isLogging: true });
 
@@ -350,8 +353,8 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
     log.print(`${INIT_MESSAGES.skipInfo}\n`);
   }
 
-  const path = options.path || "package.json";
   const root = options.root || process.cwd();
+  const path = resolvePathFromRoot(options.path || "package.json", root);
 
   await createPrompt(async (prompt: Prompt) => {
     const shouldProceed = await checkExistingConfig(prompt, root, path);

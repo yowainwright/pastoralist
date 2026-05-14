@@ -36,7 +36,7 @@ inputs:
     description: 'Workspace package.json patterns (space-separated globs or "workspace")'
     required: false
   config:
-    description: "Path to config file (.pastoralistrc or pastoralist.config.js)"
+    description: "Deprecated. Config files are auto-detected from root-dir"
     required: false
   fail-on-security:
     description: "Fail the action if security vulnerabilities are found (true/false)"
@@ -101,95 +101,149 @@ runs:
     - name: Install Pastoralist
       shell: bash
       run: |
-        # Use local dist if available (for testing), otherwise install from npm
-        if [ -f "./dist/index.js" ]; then
+        set -euo pipefail
+
+        ACTION_PATH="${GITHUB_ACTION_PATH:-$PWD}"
+
+        # Use the action checkout when it has a build artifact. This keeps local
+        # action tests pinned to the checked-out ref instead of a caller repo.
+        if [ -f "$ACTION_PATH/dist/index.js" ]; then
           echo "Using local build"
-          chmod +x ./dist/index.js
-          npm link .
+          chmod +x "$ACTION_PATH/dist/index.js"
+          npm install -g "$ACTION_PATH" --ignore-scripts
         else
-          npm install -g pastoralist
+          VERSION=$(node -p "require(process.argv[1]).version" "$ACTION_PATH/package.json" 2>/dev/null || true)
+          if [ -n "$VERSION" ]; then
+            npm install -g "pastoralist@$VERSION"
+          else
+            npm install -g pastoralist
+          fi
         fi
 
     - name: Run Pastoralist
       id: pastoralist
       shell: bash
       env:
-        PASTORALIST_SECURITY_TOKEN: ${{ inputs.security-token }}
+        INPUT_AUTO_FIX: ${{ inputs.auto-fix }}
+        INPUT_CHECK_SECURITY: ${{ inputs.check-security }}
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_DEBUG: ${{ inputs.debug }}
+        INPUT_DEP_PATHS: ${{ inputs.dep-paths }}
+        INPUT_DRY_RUN: ${{ inputs.dry-run }}
+        INPUT_FAIL_ON_SECURITY: ${{ inputs.fail-on-security }}
+        INPUT_FAIL_ON_UNUSED: ${{ inputs.fail-on-unused }}
+        INPUT_MODE: ${{ inputs.mode }}
+        INPUT_ROOT_DIR: ${{ inputs.root-dir }}
+        INPUT_SECURITY_PROVIDER: ${{ inputs.security-provider }}
+        INPUT_SECURITY_TOKEN: ${{ inputs.security-token }}
         GITHUB_TOKEN: ${{ inputs.github-token || github.token }}
       run: |
-        set +e
+        set -u
 
-        CMD="pastoralist --outputFormat json"
+        case "$INPUT_MODE" in
+          check|update|pr) ;;
+          *)
+            echo "::error::Invalid mode '$INPUT_MODE'. Expected check, update, or pr."
+            exit 1
+            ;;
+        esac
 
-        # Security scanning
-        if [ "${{ inputs.check-security }}" = "true" ]; then
-          CMD="$CMD --checkSecurity"
-          CMD="$CMD --securityProvider ${{ inputs.security-provider }}"
-        fi
+        cmd=(pastoralist --outputFormat json)
 
-        # Auto-fix security issues
-        [ "${{ inputs.auto-fix }}" = "true" ] && CMD="$CMD --forceSecurityRefactor"
+        append_list_flag() {
+          local flag="$1"
+          local values="$2"
 
-        # Dry run mode (check mode or explicit dry-run)
-        if [ "${{ inputs.mode }}" = "check" ] || [ "${{ inputs.dry-run }}" = "true" ]; then
-          CMD="$CMD --dry-run"
-        fi
+          [ -n "$values" ] || return 0
 
-        # Root directory
-        [ -n "${{ inputs.root-dir }}" ] && CMD="$CMD --root ${{ inputs.root-dir }}"
-
-        # Dependency paths (workspace patterns)
-        if [ -n "${{ inputs.dep-paths }}" ]; then
-          for path in ${{ inputs.dep-paths }}; do
-            CMD="$CMD --depPaths \"$path\""
+          cmd+=("$flag")
+          for value in $values; do
+            cmd+=("$value")
           done
+        }
+
+        if [ "$INPUT_CHECK_SECURITY" = "true" ]; then
+          cmd+=(--checkSecurity)
+          append_list_flag --securityProvider "$INPUT_SECURITY_PROVIDER"
         fi
 
-        # Config file
-        [ -n "${{ inputs.config }}" ] && CMD="$CMD --config ${{ inputs.config }}"
+        if [ -n "$INPUT_SECURITY_TOKEN" ]; then
+          cmd+=(--securityProviderToken "$INPUT_SECURITY_TOKEN")
+        fi
 
-        # Logging flags
-        [ "${{ inputs.debug }}" = "true" ] && CMD="$CMD --debug"
+        if [ "$INPUT_AUTO_FIX" = "true" ]; then
+          cmd+=(--forceSecurityRefactor)
+        fi
 
-        echo "Running: $CMD"
-        JSON_OUTPUT=$(eval $CMD 2>&1)
+        # Check mode validates without modifying files. PR mode must write files
+        # so the following step has a diff to commit.
+        if [ "$INPUT_MODE" = "check" ] || [ "$INPUT_DRY_RUN" = "true" ]; then
+          cmd+=(--dry-run)
+        fi
+
+        if [ -n "$INPUT_ROOT_DIR" ]; then
+          cmd+=(--root "$INPUT_ROOT_DIR")
+        fi
+
+        append_list_flag --depPaths "$INPUT_DEP_PATHS"
+
+        if [ -n "$INPUT_CONFIG" ]; then
+          echo "::warning::The config input is deprecated. Put the config file in root-dir so Pastoralist can auto-detect it."
+        fi
+
+        if [ "$INPUT_DEBUG" = "true" ]; then
+          cmd+=(--debug)
+        fi
+
+        echo "Running Pastoralist in $INPUT_MODE mode"
+        set +e
+        RAW_OUTPUT=$("${cmd[@]}" 2>&1)
         EXIT_CODE=$?
+        set -e
 
-        # Parse JSON output for structured results
+        if [ -n "$RAW_OUTPUT" ]; then
+          echo "$RAW_OUTPUT"
+        fi
+
+        JSON_OUTPUT=$(printf '%s\n' "$RAW_OUTPUT" | awk '/^\{.*\}$/ { line=$0 } END { print line }')
+
+        if [ -z "$JSON_OUTPUT" ]; then
+          echo "::error::Pastoralist did not produce JSON output."
+          exit 1
+        fi
+
         HAS_SECURITY=$(echo "$JSON_OUTPUT" | jq -r '.hasSecurityIssues // false')
         HAS_UNUSED=$(echo "$JSON_OUTPUT" | jq -r '.hasUnusedOverrides // false')
         UPDATED=$(echo "$JSON_OUTPUT" | jq -r '.updated // false')
         SUCCESS=$(echo "$JSON_OUTPUT" | jq -r '.success // false')
         SECURITY_COUNT=$(echo "$JSON_OUTPUT" | jq -r '.securityAlertCount // 0')
 
-        # Set outputs from structured JSON
-        echo "has-security-issues=$HAS_SECURITY" >> $GITHUB_OUTPUT
-        echo "has-unused-overrides=$HAS_UNUSED" >> $GITHUB_OUTPUT
-        echo "updated=$UPDATED" >> $GITHUB_OUTPUT
-        echo "security-count=$SECURITY_COUNT" >> $GITHUB_OUTPUT
+        {
+          echo "has-security-issues=$HAS_SECURITY"
+          echo "has-unused-overrides=$HAS_UNUSED"
+          echo "updated=$UPDATED"
+          echo "security-count=$SECURITY_COUNT"
+        } >> "$GITHUB_OUTPUT"
 
         # Log summary
         echo "Results: security=$HAS_SECURITY ($SECURITY_COUNT alerts), unused=$HAS_UNUSED, updated=$UPDATED"
 
-        # In check mode or pr mode, don't fail on issues (PR mode handles them via PR)
-        if [ "${{ inputs.mode }}" = "check" ] || [ "${{ inputs.mode }}" = "pr" ]; then
+        if [ "$EXIT_CODE" -ne 0 ] || [ "$SUCCESS" != "true" ]; then
+          echo "::error::Pastoralist failed. Check logs for details."
+          exit 1
+        fi
+
+        if [ "$INPUT_MODE" = "pr" ]; then
           exit 0
         fi
 
-        # Handle failure conditions (update mode only)
-        if [ "$HAS_SECURITY" = "true" ] && [ "${{ inputs.fail-on-security }}" = "true" ]; then
+        if [ "$HAS_SECURITY" = "true" ] && [ "$INPUT_FAIL_ON_SECURITY" = "true" ]; then
           echo "::error::Security vulnerabilities detected ($SECURITY_COUNT). Run 'pastoralist --checkSecurity --forceSecurityRefactor' locally to fix."
           exit 1
         fi
 
-        if [ "$HAS_UNUSED" = "true" ] && [ "${{ inputs.fail-on-unused }}" = "true" ]; then
+        if [ "$HAS_UNUSED" = "true" ] && [ "$INPUT_FAIL_ON_UNUSED" = "true" ]; then
           echo "::error::Unused overrides detected. Run 'pastoralist' locally to clean up."
-          exit 1
-        fi
-
-        # Exit with original code if command failed
-        if [ "$SUCCESS" = "false" ]; then
-          echo "::error::Pastoralist failed. Check logs for details."
           exit 1
         fi
 
@@ -201,60 +255,72 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github-token || github.token }}
+        INPUT_BASE_REF: ${{ github.ref_name }}
+        INPUT_HAS_SECURITY: ${{ steps.pastoralist.outputs.has-security-issues }}
+        INPUT_HAS_UNUSED: ${{ steps.pastoralist.outputs.has-unused-overrides }}
+        INPUT_PR_BODY: ${{ inputs.pr-body }}
+        INPUT_PR_BRANCH: ${{ inputs.pr-branch }}
+        INPUT_PR_LABELS: ${{ inputs.pr-labels }}
+        INPUT_PR_TITLE: ${{ inputs.pr-title }}
       run: |
-        # Configure git
+        set -euo pipefail
+
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
 
-        BRANCH="${{ inputs.pr-branch }}"
-
-        # Check if branch exists and delete it if so (to get fresh changes)
-        git fetch origin "$BRANCH" 2>/dev/null && git push origin --delete "$BRANCH" 2>/dev/null || true
-
-        # Create new branch and commit
-        git checkout -b "$BRANCH"
+        git checkout -B "$INPUT_PR_BRANCH"
         git add -A
-        git commit -m "${{ inputs.pr-title }}"
-        git push -u origin "$BRANCH"
 
-        # Build PR body
-        PR_BODY="${{ inputs.pr-body }}"
-        if [ -z "$PR_BODY" ]; then
-          PR_BODY="## Pastoralist Override Updates
+        if git diff --cached --quiet; then
+          echo "No changes to commit."
+          exit 0
+        fi
+
+        git commit -m "$INPUT_PR_TITLE"
+        git push --force-with-lease -u origin "$INPUT_PR_BRANCH"
+
+        BODY_FILE=$(mktemp)
+        if [ -n "$INPUT_PR_BODY" ]; then
+          printf '%s\n' "$INPUT_PR_BODY" > "$BODY_FILE"
+        else
+          cat > "$BODY_FILE" <<'EOF'
+        ## Pastoralist Override Updates
 
         This PR was automatically created by [Pastoralist](https://github.com/yowainwright/pastoralist).
 
         ### Changes
         - Updated dependency override tracking in \`package.json\`
-        "
+        EOF
 
-          if [ "${{ steps.pastoralist.outputs.has-security-issues }}" = "true" ]; then
-            PR_BODY="$PR_BODY- Applied security fixes for detected vulnerabilities
-        "
+          if [ "$INPUT_HAS_SECURITY" = "true" ]; then
+            echo "- Applied security fixes for detected vulnerabilities" >> "$BODY_FILE"
           fi
 
-          if [ "${{ steps.pastoralist.outputs.has-unused-overrides }}" = "true" ]; then
-            PR_BODY="$PR_BODY- Cleaned up unused overrides
-        "
+          if [ "$INPUT_HAS_UNUSED" = "true" ]; then
+            echo "- Cleaned up unused overrides" >> "$BODY_FILE"
           fi
 
-          PR_BODY="$PR_BODY
+          cat >> "$BODY_FILE" <<'EOF'
+
         ---
-        *Generated by Pastoralist GitHub Action*"
+        *Generated by Pastoralist GitHub Action*
+        EOF
         fi
 
-        # Build labels argument
-        LABELS_ARG=""
-        if [ -n "${{ inputs.pr-labels }}" ]; then
-          LABELS_ARG="--label ${{ inputs.pr-labels }}"
+        label_args=()
+        for label in $INPUT_PR_LABELS; do
+          label_args+=(--label "$label")
+        done
+
+        PR_URL=$(gh pr view "$INPUT_PR_BRANCH" --json url --jq .url 2>/dev/null || true)
+
+        if [ -z "$PR_URL" ]; then
+          PR_URL=$(gh pr create \
+            --title "$INPUT_PR_TITLE" \
+            --body-file "$BODY_FILE" \
+            --base "$INPUT_BASE_REF" \
+            "${label_args[@]}")
         fi
 
-        # Create PR
-        PR_URL=$(gh pr create \
-          --title "${{ inputs.pr-title }}" \
-          --body "$PR_BODY" \
-          --base "${{ github.ref_name }}" \
-          $LABELS_ARG)
-
-        echo "pr-url=$PR_URL" >> $GITHUB_OUTPUT
+        echo "pr-url=$PR_URL" >> "$GITHUB_OUTPUT"
         echo "Created PR: $PR_URL"

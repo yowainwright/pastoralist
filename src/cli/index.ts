@@ -31,9 +31,12 @@ import {
   extractPackageNames,
 } from "../core/appendix/utils";
 import * as fs from "fs";
-import { dirname, resolve } from "path";
+import { dirname, isAbsolute, resolve } from "path";
 
 const logger = createLogger({ file: "program.ts", isLogging: false });
+
+const resolvePathFromRoot = (path: string, root?: string): string =>
+  root && !isAbsolute(path) ? resolve(root, path) : path;
 
 export const handleSetupHook = (
   options: Options,
@@ -47,7 +50,9 @@ export const handleSetupHook = (
   const shouldSetup = options.setupHook === true;
   if (!shouldSetup) return false;
 
-  const packagePath = deps.resolve(options.path || "package.json");
+  const packagePath = deps.resolve(
+    resolvePathFromRoot(options.path || "package.json", options.root),
+  );
 
   try {
     const content = deps.readFileSync(packagePath, "utf8");
@@ -106,11 +111,14 @@ export const handleInitMode = async (
   deps = { initCommand },
 ): Promise<boolean> => {
   if (init) {
+    const securityProvider = Array.isArray(rest.securityProvider)
+      ? rest.securityProvider[0]
+      : rest.securityProvider;
     await deps.initCommand({
       path: options.path,
       root: options.root,
       checkSecurity: rest.checkSecurity,
-      securityProvider: rest.securityProvider,
+      securityProvider,
       hasWorkspaceSecurityChecks: rest.hasWorkspaceSecurityChecks,
     });
     return true;
@@ -185,6 +193,7 @@ export const buildSecurityOverrideDetail = (
     ["url", override.url],
     ["vulnerableRange", override.vulnerableRange],
     ["patchedVersion", override.patchedVersion],
+    ["sources", override.sources],
   ];
 
   const optionalFields = optionalEntries
@@ -703,10 +712,7 @@ export async function action(
 
   try {
     const relativePath = options.path || "package.json";
-    const path =
-      options.root && !relativePath.startsWith("/")
-        ? `${options.root}/${relativePath}`
-        : relativePath;
+    const path = resolvePathFromRoot(relativePath, options.root);
     const packageConfig = deps.resolveJSON(path);
     if (!packageConfig) {
       throw new Error(`Unable to load package.json at ${path}`);
@@ -738,9 +744,7 @@ export async function action(
       strict: pastoralistSecurityConfig?.strict,
       preferLatest: pastoralistSecurityConfig?.preferLatest,
     };
-    const configProvider = Array.isArray(securityConfig.provider)
-      ? securityConfig.provider[0]
-      : securityConfig.provider;
+    const configProvider = securityConfig.provider;
 
     const baseOptions = deps.buildMergedOptions(
       options,
@@ -1029,7 +1033,12 @@ export const run = async (argv: string[] = process.argv): Promise<void> => {
 
   const isInitCommand = parsed.command === "init";
   if (isInitCommand) {
-    await initCommand(options);
+    await initCommand({
+      ...options,
+      securityProvider: Array.isArray(options.securityProvider)
+        ? options.securityProvider[0]
+        : options.securityProvider,
+    });
     return;
   }
 

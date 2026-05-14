@@ -32,6 +32,12 @@ import {
   findPackageFiles,
 } from "./utils";
 import type { UpdateContext } from "../../types";
+import type { SecurityProviderType } from "../security/types";
+
+const getPrimarySecurityProvider = (
+  provider: Options["securityProvider"],
+): SecurityProviderType | undefined =>
+  Array.isArray(provider) ? provider[0] : provider;
 
 const stepDetectPatches = (ctx: UpdateContext): UpdateContext => {
   const patchMap = detectPatches(ctx.root);
@@ -153,7 +159,7 @@ const stepBuildAppendix = (ctx: UpdateContext): UpdateContext => {
     peerDependencies,
     packageName: ctx.config.name || "root",
     securityOverrideDetails: ctx.options?.securityOverrideDetails,
-    securityProvider: ctx.options?.securityProvider,
+    securityProvider: getPrimarySecurityProvider(ctx.options?.securityProvider),
     manualOverrideReasons: ctx.options?.manualOverrideReasons,
     addedDate: ctx.options?.addedDate,
   });

@@ -95,14 +95,20 @@ export class GitHubSecurityProvider {
     }
   }
 
-  async fetchAlerts(): Promise<SecurityAlert[]> {
+  async fetchAlerts(
+    packages: Array<{ name: string; version: string }> = [],
+    _options: { root?: string } = {},
+  ): Promise<SecurityAlert[]> {
     this.log.debug("Fetching GitHub Dependabot alerts", "fetchAlerts");
     const dependabotAlerts = await this.fetchDependabotAlerts();
     this.log.debug(
       `Found ${dependabotAlerts.length} Dependabot alerts`,
       "fetchAlerts",
     );
-    const securityAlerts = this.convertToSecurityAlerts(dependabotAlerts);
+    const securityAlerts = this.convertToSecurityAlerts(
+      dependabotAlerts,
+      packages,
+    );
     this.log.debug(
       `Converted to ${securityAlerts.length} security alerts`,
       "fetchAlerts",
@@ -401,13 +407,26 @@ export class GitHubSecurityProvider {
 
   convertToSecurityAlerts(
     dependabotAlerts: DependabotAlert[],
+    packages: Array<{ name: string; version: string }> = [],
   ): SecurityAlert[] {
+    const packageVersions = new Map(
+      packages.map((pkg) => [pkg.name, pkg.version]),
+    );
+    const shouldFilterPackages = packageVersions.size > 0;
+
     return dependabotAlerts
       .filter((alert) => alert.state === "open")
+      .filter((alert) => this.isNpmAlert(alert))
+      .filter((alert) => {
+        if (!shouldFilterPackages) return true;
+        return packageVersions.has(alert.security_vulnerability.package.name);
+      })
       .map((alert) => {
         const vulnerability = alert.security_vulnerability;
         const advisory = alert.security_advisory;
-        const currentVersion = this.extractCurrentVersion(alert);
+        const currentVersion =
+          packageVersions.get(vulnerability.package.name) ||
+          this.extractCurrentVersion(alert);
 
         const cves = advisory.cve_id ? [advisory.cve_id] : [];
         const base = {
@@ -423,6 +442,14 @@ export class GitHubSecurityProvider {
         };
         return cves.length > 0 ? { ...base, cves } : base;
       });
+  }
+
+  private isNpmAlert(alert: DependabotAlert): boolean {
+    const dependencyEcosystem = alert.dependency?.package?.ecosystem;
+    const vulnerabilityEcosystem =
+      alert.security_vulnerability?.package?.ecosystem;
+    if (!dependencyEcosystem && !vulnerabilityEcosystem) return true;
+    return dependencyEcosystem === "npm" || vulnerabilityEcosystem === "npm";
   }
 
   private extractCurrentVersion(alert: DependabotAlert): string {

@@ -159,6 +159,46 @@ test("convertToSecurityAlerts - converts multiple alerts", () => {
   expect(alerts[1].packageName).toBe("minimist");
 });
 
+test("convertToSecurityAlerts - filters alerts to scanned npm packages", () => {
+  process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
+  const provider = new GitHubSecurityProvider({ debug: false });
+  const alerts = provider.convertToSecurityAlerts(
+    [
+      MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert,
+      MOCK_DEPENDABOT_ALERT_MINIMIST as DependabotAlert,
+    ],
+    [{ name: "lodash", version: "4.17.20" }],
+  );
+
+  expect(alerts).toHaveLength(1);
+  expect(alerts[0].packageName).toBe("lodash");
+  expect(alerts[0].currentVersion).toBe("4.17.20");
+});
+
+test("convertToSecurityAlerts - filters non-npm alerts when ecosystem is known", () => {
+  process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
+  const provider = new GitHubSecurityProvider({ debug: false });
+  const pipAlert: DependabotAlert = {
+    ...(MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert),
+    dependency: {
+      ...(MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert).dependency,
+      package: { ecosystem: "pip", name: "lodash" },
+    },
+    security_vulnerability: {
+      ...(MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert)
+        .security_vulnerability,
+      package: { ecosystem: "pip", name: "lodash" },
+    },
+  };
+
+  const alerts = provider.convertToSecurityAlerts(
+    [pipAlert],
+    [{ name: "lodash", version: "4.17.20" }],
+  );
+
+  expect(alerts).toHaveLength(0);
+});
+
 test("convertToSecurityAlerts - maps fields correctly", () => {
   const provider = new GitHubSecurityProvider({
     owner: "test-owner",

@@ -4,8 +4,9 @@ export const CONFIG_FILES = [
   ".pastoralistrc",
   ".pastoralistrc.json",
   "pastoralist.json",
+  "pastoralist.config.cjs",
   "pastoralist.config.js",
-  "pastoralist.config.ts",
+  "pastoralist.config.mjs",
 ] as const;
 
 export type SecurityProvider =

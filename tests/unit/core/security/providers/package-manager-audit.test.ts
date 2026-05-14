@@ -357,11 +357,11 @@ test("enrichWithVersions - fills currentVersion from packages map", () => {
   expect(result[0].currentVersion).toBe("4.17.20");
 });
 
-test("enrichWithVersions - filters alerts for unknown packages", () => {
+test("enrichWithVersions - keeps transitive alerts for unknown direct packages", () => {
   const provider = new PackageManagerAuditProvider();
   const alerts = [
     {
-      packageName: "unknown-pkg",
+      packageName: "transitive-pkg",
       currentVersion: "",
       vulnerableVersions: "<1.0.0",
       severity: "low" as const,
@@ -372,7 +372,9 @@ test("enrichWithVersions - filters alerts for unknown packages", () => {
   const packages = [{ name: "lodash", version: "4.17.20" }];
 
   const result = (provider as any).enrichWithVersions(alerts, packages);
-  expect(result).toHaveLength(0);
+  expect(result).toHaveLength(1);
+  expect(result[0].packageName).toBe("transitive-pkg");
+  expect(result[0].currentVersion).toBe("unknown");
 });
 
 // =============================================================================
@@ -408,6 +410,24 @@ test("fetchAlerts - returns enriched alerts from runAudit", async () => {
   expect(alerts[0].packageName).toBe("lodash");
   expect(alerts[0].currentVersion).toBe("4.17.20");
 
+  spy.mockRestore();
+});
+
+test("fetchAlerts - passes root to package-manager detection and audit cwd", async () => {
+  const provider = new PackageManagerAuditProvider();
+  let capturedRoot: string | undefined;
+  const spy = spyOn(provider as any, "runAudit").mockImplementation(
+    async (_pm: string, root: string) => {
+      capturedRoot = root;
+      return [];
+    },
+  );
+
+  await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }], {
+    root: "/repo/app",
+  });
+
+  expect(capturedRoot).toBe("/repo/app");
   spy.mockRestore();
 });
 
@@ -518,6 +538,20 @@ describe("runAudit", () => {
     const result = await (provider as any).runAudit("npm");
     expect(result).toHaveLength(1);
     expect(result[0].packageName).toBe("lodash");
+  });
+
+  test("npm - runs audit in provided root", async () => {
+    let capturedOptions: object | undefined;
+    const provider = withExec(async (_cmd, _args, opts) => {
+      capturedOptions = opts;
+      return { stdout: JSON.stringify({ vulnerabilities: {} }) };
+    });
+
+    await (provider as any).runAudit("npm", "/repo/app");
+
+    expect(capturedOptions).toEqual(
+      expect.objectContaining({ cwd: "/repo/app" }),
+    );
   });
 
   test("npm - recovers stdout from non-zero exit error", async () => {

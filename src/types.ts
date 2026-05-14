@@ -127,7 +127,7 @@ export interface UpdateAppendixOptions {
 export interface SecurityOptions {
   checkSecurity?: boolean;
   forceSecurityRefactor?: boolean;
-  securityProvider?: SecurityProviderType;
+  securityProvider?: SecurityProviderType | SecurityProviderType[];
   securityProviderToken?: string;
   hasWorkspaceSecurityChecks?: boolean;
   securityOverrides?: OverridesType;

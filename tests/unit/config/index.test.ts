@@ -290,6 +290,84 @@ test("loadExternalConfig - loads JS config file", async () => {
   validateRootPackageJsonIntegrity();
 });
 
+test("loadExternalConfig - ignores TypeScript config files", async () => {
+  validateRootPackageJsonIntegrity();
+
+  if (!existsSync(testDir)) {
+    mkdirSync(testDir, { recursive: true });
+  }
+
+  const configPath = resolve(testDir, "pastoralist.config.ts");
+
+  if (existsSync(configPath)) {
+    rmSync(configPath);
+  }
+
+  const configContent = `
+    import type { PastoralistConfig } from "pastoralist";
+
+    const config: PastoralistConfig = {
+      depPaths: ["packages/*/package.json"]
+    };
+
+    export default config;
+  `;
+  writeFileSync(configPath, configContent);
+
+  clearConfigCache();
+  const originalWarn = console.warn;
+  const warnings: string[] = [];
+  console.warn = (message: string) => warnings.push(message);
+  let config: Awaited<ReturnType<typeof loadExternalConfig>>;
+  try {
+    config = await loadExternalConfig(testDir);
+  } finally {
+    console.warn = originalWarn;
+  }
+
+  expect(config).toBeUndefined();
+  expect(warnings.join("\n")).toContain(
+    "pastoralist.config.ts is not supported",
+  );
+
+  if (existsSync(configPath)) {
+    rmSync(configPath);
+  }
+
+  validateRootPackageJsonIntegrity();
+});
+
+test("loadExternalConfig - loads ESM config file", async () => {
+  validateRootPackageJsonIntegrity();
+
+  if (!existsSync(testDir)) {
+    mkdirSync(testDir, { recursive: true });
+  }
+
+  const configPath = resolve(testDir, "pastoralist.config.mjs");
+
+  if (existsSync(configPath)) {
+    rmSync(configPath);
+  }
+
+  writeFileSync(
+    configPath,
+    `export default { depPaths: ["apps/*/package.json"] };\n`,
+  );
+
+  clearConfigCache();
+  const config = await loadExternalConfig(testDir);
+
+  expect(config).toBeDefined();
+  expect(config?.depPaths).toEqual(["apps/*/package.json"]);
+
+  if (existsSync(configPath)) {
+    rmSync(configPath);
+  }
+
+  validateRootPackageJsonIntegrity();
+});
+
 test("mergeConfigs - merges appendix entries with no overlap", () => {
   const external: PastoralistConfig = {
     appendix: {

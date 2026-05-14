@@ -1,6 +1,7 @@
 import type { OptionDefinition } from "./types";
 
 export const OPTION_DEFINITIONS: OptionDefinition[] = [
+  { flags: ["-h", "--help"], hasValue: false },
   { flags: ["--debug"], hasValue: false },
   { flags: ["--dry-run"], hasValue: false },
   { flags: ["--outputFormat"], hasValue: true, defaultValue: "text" },

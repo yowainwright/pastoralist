@@ -1,10 +1,13 @@
+import { createRequire } from "module";
 import { existsSync, readFileSync } from "fs";
-import { resolve } from "path";
+import { dirname, resolve } from "path";
+import { pathToFileURL } from "url";
 import type { AppendixItem } from "../types";
 import { PastoralistConfig, safeValidateConfig } from "./constants";
 import { CONFIG_FILES } from "./constants";
 
 const configCache = new Map<string, PastoralistConfig>();
+const UNSUPPORTED_TYPESCRIPT_CONFIG = "pastoralist.config.ts";
 
 export const clearConfigCache = (): void => {
   configCache.clear();
@@ -18,10 +21,45 @@ const loadJsonConfig = (path: string): unknown => {
   return JSON.parse(content);
 };
 
-const loadJsConfig = async (path: string): Promise<unknown> => {
+const unwrapModuleConfig = (moduleValue: unknown): unknown => {
+  const maybeModule = moduleValue as { default?: unknown };
+  return maybeModule?.default ?? moduleValue;
+};
+
+const evaluateCommonJsConfig = (path: string, source: string): unknown => {
+  const module = { exports: {} as unknown };
+  const localRequire = createRequire(path);
+  const evaluate = new Function(
+    "module",
+    "exports",
+    "require",
+    "__filename",
+    "__dirname",
+    source,
+  );
+
+  evaluate(module, module.exports, localRequire, path, dirname(path));
+  return unwrapModuleConfig(module.exports);
+};
+
+const hasCommonJsExports = (source: string): boolean =>
+  /\bmodule\.exports\b|\bexports\./.test(source);
+
+const loadJsConfig = async (
+  filename: string,
+  path: string,
+): Promise<unknown> => {
+  const source = readFileSync(path, "utf8");
+  const canUseCommonJsFallback =
+    filename.endsWith(".cjs") || filename.endsWith(".js");
+
+  if (canUseCommonJsFallback && hasCommonJsExports(source)) {
+    return evaluateCommonJsConfig(path, source);
+  }
+
   const resolvedPath = resolve(path);
-  const module = await import(resolvedPath);
-  return module.default || module;
+  const module = await import(pathToFileURL(resolvedPath).href);
+  return unwrapModuleConfig(module);
 };
 
 const loadConfigFile = async (
@@ -29,7 +67,7 @@ const loadConfigFile = async (
   path: string,
 ): Promise<unknown | null> => {
   if (isJsonFile(filename)) return loadJsonConfig(path);
-  return loadJsConfig(path);
+  return loadJsConfig(filename, path);
 };
 
 const validateAndReturn = (
@@ -60,6 +98,15 @@ const tryLoadConfig = async (
   }
 };
 
+const warnIfUnsupportedTypeScriptConfigExists = (root: string): void => {
+  const path = resolve(root, UNSUPPORTED_TYPESCRIPT_CONFIG);
+  if (!existsSync(path)) return;
+
+  console.warn(
+    `${UNSUPPORTED_TYPESCRIPT_CONFIG} is not supported. Use .pastoralistrc.json, pastoralist.config.cjs, pastoralist.config.js, or pastoralist.config.mjs.`,
+  );
+};
+
 export const loadExternalConfig = async (
   root: string = process.cwd(),
   validate: boolean = true,
@@ -68,6 +115,7 @@ export const loadExternalConfig = async (
     const config = await tryLoadConfig(filename, root, validate);
     if (config !== null) return config;
   }
+  warnIfUnsupportedTypeScriptConfigExists(root);
   return undefined;
 };
 

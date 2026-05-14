@@ -23,6 +23,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6.0.2
       - uses: yowainwright/pastoralist@v1
+        with:
+          mode: check
 ```
 
 ### Scheduled PR Creation
@@ -47,26 +49,26 @@ jobs:
 
 ## Inputs
 
-| Input               | Description                                 | Default                                    |
-| ------------------- | ------------------------------------------- | ------------------------------------------ |
-| `mode`              | Operation mode: `check`, `update`, or `pr`  | `update`                                   |
-| `check-security`    | Enable security scanning                    | `true`                                     |
-| `security-provider` | Provider: `osv`, `github`, `snyk`, `socket` | `osv`                                      |
-| `security-token`    | Token for security provider                 | -                                          |
-| `auto-fix`          | Apply security fixes automatically          | `true`                                     |
-| `dry-run`           | Preview changes only                        | `false`                                    |
-| `root-dir`          | Project root directory                      | -                                          |
-| `dep-paths`         | Workspace patterns (space-separated)        | -                                          |
-| `config`            | Config file path                            | -                                          |
-| `fail-on-security`  | Fail if vulnerabilities found               | `true`                                     |
-| `fail-on-unused`    | Fail if unused overrides found              | `false`                                    |
-| `silent`            | Suppress output                             | `false`                                    |
-| `debug`             | Enable debug logging                        | `false`                                    |
-| `pr-title`          | PR title (mode: pr)                         | `chore(deps): update dependency overrides` |
-| `pr-body`           | PR body (mode: pr)                          | Auto-generated                             |
-| `pr-branch`         | PR branch name (mode: pr)                   | `pastoralist/updates`                      |
-| `pr-labels`         | PR labels (space-separated)                 | `dependencies`                             |
-| `github-token`      | GitHub token for PR creation                | `GITHUB_TOKEN`                             |
+| Input               | Description                                                | Default                                    |
+| ------------------- | ---------------------------------------------------------- | ------------------------------------------ |
+| `mode`              | Operation mode: `check`, `update`, or `pr`                 | `update`                                   |
+| `check-security`    | Enable security scanning                                   | `true`                                     |
+| `security-provider` | Provider: `osv`, `github`, `snyk`, `socket`                | `osv`                                      |
+| `security-token`    | Token for security provider                                | -                                          |
+| `auto-fix`          | Apply security fixes automatically                         | `true`                                     |
+| `dry-run`           | Preview changes only                                       | `false`                                    |
+| `root-dir`          | Project root directory                                     | -                                          |
+| `dep-paths`         | Workspace patterns (space-separated)                       | -                                          |
+| `config`            | Deprecated; config files are auto-detected from `root-dir` | -                                          |
+| `fail-on-security`  | Fail if vulnerabilities found                              | `true`                                     |
+| `fail-on-unused`    | Fail if unused overrides found                             | `false`                                    |
+| `silent`            | Suppress output                                            | `false`                                    |
+| `debug`             | Enable debug logging                                       | `false`                                    |
+| `pr-title`          | PR title (mode: pr)                                        | `chore(deps): update dependency overrides` |
+| `pr-body`           | PR body (mode: pr)                                         | Auto-generated                             |
+| `pr-branch`         | PR branch name (mode: pr)                                  | `pastoralist/updates`                      |
+| `pr-labels`         | PR labels (space-separated)                                | `dependencies`                             |
+| `github-token`      | GitHub token for PR creation                               | `GITHUB_TOKEN`                             |
 
 ## Outputs
 

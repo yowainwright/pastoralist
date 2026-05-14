@@ -13,6 +13,7 @@ import {
   promptConfirm,
   promptSelect,
   promptInput,
+  promptSecret,
 } from "../../../../src/core/security/utils";
 import type { SecurityAlert } from "../../../../src/core/security/types";
 import type { PastoralistJSON, SecurityOverride } from "../../../../src/types";
@@ -1294,6 +1295,212 @@ test("promptInput - returns default on error", async () => {
   spy.mockRestore();
 });
 
+const restoreDescriptor = (
+  target: object,
+  property: string,
+  descriptor: PropertyDescriptor | undefined,
+) => {
+  if (descriptor) {
+    Object.defineProperty(target, property, descriptor);
+    return;
+  }
+
+  delete (target as Record<string, unknown>)[property];
+};
+
+const createMockSecretIO = () => {
+  const input = process.stdin as typeof process.stdin & Record<string, any>;
+  const output = process.stdout as typeof process.stdout & Record<string, any>;
+  const stdinIsTTY = Object.getOwnPropertyDescriptor(input, "isTTY");
+  const stdinIsRaw = Object.getOwnPropertyDescriptor(input, "isRaw");
+  const stdoutIsTTY = Object.getOwnPropertyDescriptor(output, "isTTY");
+  const originalSetRawMode = input.setRawMode;
+  const originalResume = input.resume;
+  const originalPause = input.pause;
+  const originalOn = input.on;
+  const originalOff = input.off;
+  const originalWrite = output.write;
+  const writes: string[] = [];
+  const rawModes: Array<boolean | undefined> = [];
+  let dataHandler: ((chunk: Buffer) => void) | undefined;
+
+  Object.defineProperty(input, "isTTY", { configurable: true, value: true });
+  Object.defineProperty(input, "isRaw", { configurable: true, value: false });
+  Object.defineProperty(output, "isTTY", { configurable: true, value: true });
+
+  input.setRawMode = mock((mode: boolean | undefined) => {
+    rawModes.push(mode);
+    return input;
+  });
+  input.resume = mock(() => input);
+  input.pause = mock(() => input);
+  input.on = mock((event: string, listener: (...args: unknown[]) => void) => {
+    if (event === "data") {
+      dataHandler = listener as (chunk: Buffer) => void;
+    }
+    return input;
+  });
+  input.off = mock((event: string, listener: (...args: unknown[]) => void) => {
+    if (event === "data" && dataHandler === listener) {
+      dataHandler = undefined;
+    }
+    return input;
+  });
+  output.write = mock(
+    (
+      chunk: string | Uint8Array,
+      encodingOrCallback?: BufferEncoding | ((error?: Error | null) => void),
+      callback?: (error?: Error | null) => void,
+    ) => {
+      writes.push(String(chunk));
+
+      if (typeof encodingOrCallback === "function") {
+        encodingOrCallback();
+      }
+
+      callback?.();
+      return true;
+    },
+  );
+
+  return {
+    rawModes,
+    restore: () => {
+      restoreDescriptor(input, "isTTY", stdinIsTTY);
+      restoreDescriptor(input, "isRaw", stdinIsRaw);
+      restoreDescriptor(output, "isTTY", stdoutIsTTY);
+      input.setRawMode = originalSetRawMode;
+      input.resume = originalResume;
+      input.pause = originalPause;
+      input.on = originalOn;
+      input.off = originalOff;
+      output.write = originalWrite;
+    },
+    send: (value: string) => {
+      if (!dataHandler) {
+        throw new Error("promptSecret did not attach a data handler");
+      }
+      dataHandler(Buffer.from(value, "utf8"));
+    },
+    writes,
+  };
+};
+
+test("promptSecret - reads input without echoing the secret", async () => {
+  const io = createMockSecretIO();
+
+  try {
+    const resultPromise = promptSecret("Enter token:");
+    io.send("secret-token\n");
+    const result = await resultPromise;
+
+    expect(result).toBe("secret-token");
+    expect(io.writes.join("")).toContain("Enter token:");
+    expect(io.writes.join("")).not.toContain("secret-token");
+    expect(io.rawModes).toEqual([true, false]);
+  } finally {
+    io.restore();
+  }
+});
+
+test("promptSecret - falls back to normal prompt outside TTY", async () => {
+  const input = process.stdin as typeof process.stdin & Record<string, any>;
+  const output = process.stdout as typeof process.stdout & Record<string, any>;
+  const stdinIsTTY = Object.getOwnPropertyDescriptor(input, "isTTY");
+  const stdoutIsTTY = Object.getOwnPropertyDescriptor(output, "isTTY");
+  const mockRl = createMockReadline("secret-token");
+  const spy = spyOn(readline, "createInterface").mockReturnValue(
+    mockRl as unknown as readline.Interface,
+  );
+
+  Object.defineProperty(input, "isTTY", { configurable: true, value: false });
+  Object.defineProperty(output, "isTTY", { configurable: true, value: true });
+
+  try {
+    const result = await promptSecret("Enter token:");
+
+    expect(result).toBe("secret-token");
+    expect(mockRl.close).toHaveBeenCalled();
+  } finally {
+    restoreDescriptor(input, "isTTY", stdinIsTTY);
+    restoreDescriptor(output, "isTTY", stdoutIsTTY);
+    spy.mockRestore();
+  }
+});
+
+test("promptSecret - supports backspace while hiding input", async () => {
+  const io = createMockSecretIO();
+
+  try {
+    const resultPromise = promptSecret("Enter token:");
+    io.send("ab\u007fc\n");
+    const result = await resultPromise;
+
+    expect(result).toBe("ac");
+    expect(io.writes.join("")).not.toContain("ab");
+    expect(io.rawModes).toEqual([true, false]);
+  } finally {
+    io.restore();
+  }
+});
+
+test("promptSecret - returns default for empty input", async () => {
+  const io = createMockSecretIO();
+
+  try {
+    const resultPromise = promptSecret("Enter token:", "fallback");
+    io.send("\n");
+    const result = await resultPromise;
+
+    expect(result).toBe("fallback");
+    expect(io.rawModes).toEqual([true, false]);
+  } finally {
+    io.restore();
+  }
+});
+
+test("promptSecret - returns default on interrupt", async () => {
+  const io = createMockSecretIO();
+
+  try {
+    const resultPromise = promptSecret("Enter token:", "fallback");
+    io.send("\u0003");
+    const result = await resultPromise;
+
+    expect(result).toBe("fallback");
+    expect(io.rawModes).toEqual([true, false]);
+  } finally {
+    io.restore();
+  }
+});
+
+test("promptSecret - returns default on timeout", async () => {
+  const io = createMockSecretIO();
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalClearTimeout = globalThis.clearTimeout;
+  const timer = { unref: mock() };
+
+  globalThis.setTimeout = mock((callback: () => void) => {
+    queueMicrotask(callback);
+    return timer as unknown as ReturnType<typeof setTimeout>;
+  }) as unknown as typeof setTimeout;
+  globalThis.clearTimeout = mock(
+    () => undefined,
+  ) as unknown as typeof clearTimeout;
+
+  try {
+    const result = await promptSecret("Enter token:", "fallback");
+
+    expect(result).toBe("fallback");
+    expect(timer.unref).toHaveBeenCalled();
+    expect(io.rawModes).toEqual([true, false]);
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.clearTimeout = originalClearTimeout;
+    io.restore();
+  }
+});
+
 // =============================================================================
 // computeVulnerabilityReduction tests
 // =============================================================================
@@ -1361,6 +1568,18 @@ test("computeVulnerabilityReduction - no skip and no targetStillVulnerable when 
   const result = computeVulnerabilityReduction(
     "safe-pkg",
     "1.0.0",
+    "2.0.0",
+    alerts,
+  );
+  expect(result.skip).toBe(false);
+  expect(result.targetStillVulnerable).toBe(false);
+});
+
+test("computeVulnerabilityReduction - does not suppress fixes when current version is unknown", () => {
+  const alerts: SecurityAlert[] = [makeAlert("transitive-pkg", "< 2.0.0")];
+  const result = computeVulnerabilityReduction(
+    "transitive-pkg",
+    "unknown",
     "2.0.0",
     alerts,
   );

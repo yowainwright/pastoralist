@@ -41,8 +41,9 @@
     "test:integration:docker": "cd tests/e2e && docker compose up --abort-on-container-exit",
     "typecheck": "turbo run typecheck-src",
     "typecheck-src": "tsc --noEmit",
-    "update": "codependence --update && bun run update-app-deps",
-    "update-app-deps": "cd app && bun update",
+    "deps:check": "codependence",
+    "deps:update": "codependence --update",
+    "update": "bun run deps:update",
     "dev:cli": "command -v bun >/dev/null 2>&1 || (echo 'Error: bun is required but not installed.' && exit 1) && bun build src/index.ts --outdir dist --target node --watch",
     "dev:link": "command -v npm >/dev/null 2>&1 || (echo 'Error: npm is required but not installed.' && exit 1) && npm link && echo '✓ pastoralist command now available globally'",
     "dev:unlink": "command -v npm >/dev/null 2>&1 || (echo 'Error: npm is required but not installed.' && exit 1) && npm unlink -g pastoralist",
@@ -77,12 +78,12 @@
   ],
   "devDependencies": {
     "@socketsecurity/bun-security-scanner": "^1.1.2",
-    "@types/bun": "latest",
+    "@types/bun": "1.3.14",
     "codependence": "^0.3.1",
-    "oxlint": "^1.25.0",
+    "oxlint": "^1.64.0",
     "prettier": "3.8.3",
     "release-it": "20.0.1",
-    "turbo": "2.9.7",
+    "turbo": "2.9.12",
     "typescript": "6.0.3"
   },
   "release-it": {
@@ -93,7 +94,7 @@
       ]
     }
   },
-  "packageManager": "bun@1.3.1",
+  "packageManager": "bun@1.3.9",
   "engines": {
     "node": ">=20"
   }

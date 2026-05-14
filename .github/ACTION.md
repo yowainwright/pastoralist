@@ -21,7 +21,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
       - uses: yowainwright/pastoralist@v1
 ```
 
@@ -37,7 +37,7 @@ jobs:
   maintain:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
       - uses: yowainwright/pastoralist@v1
         with:
           mode: pr
@@ -131,7 +131,7 @@ jobs:
   security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
 
       - uses: yowainwright/pastoralist@v1
         with:
@@ -183,7 +183,7 @@ jobs:
   maintain:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
 
       - uses: yowainwright/pastoralist@v1
         id: pastoralist
@@ -192,7 +192,7 @@ jobs:
 
       - name: Notify Slack
         if: steps.pastoralist.outputs.pr-url != ''
-        uses: slackapi/slack-github-action@v1
+        uses: slackapi/slack-github-action@v3.0.3
         with:
           payload: |
             {

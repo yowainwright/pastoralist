@@ -16,7 +16,7 @@ export function Pagination({ prevItem, nextItem }: PaginationProps) {
           preload="intent"
           className="mr-auto flex"
         >
-          <button className="btn btn-primary rounded-full">
+          <button className="btn rounded-full bg-base-100 border border-base-content/10 text-base-content/80 shadow-sm shadow-base-content/5 hover:bg-base-content/5 hover:text-[#1D4ED8] transition-all">
             <ChevronLeft className="w-6 h-6" />
             <span className="text-xs md:text-sm font-medium">
               {prevItem.title}
@@ -32,7 +32,7 @@ export function Pagination({ prevItem, nextItem }: PaginationProps) {
           preload="intent"
           className="ml-auto flex"
         >
-          <button className="btn btn-primary rounded-full">
+          <button className="btn rounded-full bg-base-100 border border-base-content/10 text-base-content/80 shadow-sm shadow-base-content/5 hover:bg-base-content/5 hover:text-[#1D4ED8] transition-all">
             <span className="text-xs md:text-sm font-medium">
               {nextItem.title}
             </span>

@@ -22,27 +22,12 @@ override.
 pastoralist --checkSecurity
 ```
 
-<EpisodeVideo
-  slug="14-sandbox-security-scan"
-  label="Security scan sandbox demo"
->
-  **Look for `minimist@1.2.6`, `trim@0.0.3`, `lodash@4.17.21`, and `4 packages
-  protected`:** Pastoralist records the security scan result and keeps those
-  protected packages connected to the appendix.
-</EpisodeVideo>
-
 ### Auto Fix
 
 ```bash
 # Automatically apply security fixes
 pastoralist --checkSecurity --forceSecurityRefactor
 ```
-
-<EpisodeVideo slug="16-sandbox-auto-fix" label="Security auto-fix sandbox demo">
-  **Look for `minimist`, `trim`, `lodash`, `express`, and `5 packages
-  protected`:** the auto-fix dry run checks the older dependency ranges, reports
-  that no write is needed, and leaves the sandbox unchanged.
-</EpisodeVideo>
 
 ### Interactive
 
@@ -117,15 +102,6 @@ You can configure security settings in your `package.json`:
 | `--strict`                        | Fail on provider, network, or API errors               |
 
 ## Security Providers
-
-<EpisodeVideo
-  slug="15-sandbox-provider-setup"
-  label="Security provider setup sandbox demo"
->
-  **Look for `provider: osv`, `No vulnerabilities in 4 packages`, and `4
-  packages protected`:** the scanner choice is explicit, and Pastoralist shows
-  the provider run completed without adding overrides.
-</EpisodeVideo>
 
 ### OSV (Open Source Vulnerabilities)
 

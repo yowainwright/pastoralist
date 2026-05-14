@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { Github, Sun, Moon, Menu, Search as SearchIcon } from "lucide-react";
+import { GitFork, Sun, Moon, Search as SearchIcon } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { getAllDocs } from "@/content";
 
@@ -23,40 +23,45 @@ export function Header() {
     slug: doc.slug,
   }));
 
+  const navItemClassName = (href: string) =>
+    `rounded-lg hover:text-[#1D4ED8] hover:bg-[#1D4ED8]/10 transition flex ${
+      (href.includes("/docs") ? pathname.includes("/docs") : pathname === href)
+        ? "text-[#1D4ED8] bg-[#1D4ED8]/10"
+        : ""
+    }`;
+
   return (
     <header className="fixed top-0 z-30 w-full">
-      <nav className="navbar bg-base-100/80 border-b border-base-content/10 backdrop-blur-3xl justify-center items-center py-2 px-4 h-[68px]">
-        {isDocsRoute && (
-          <label
-            htmlFor="my-drawer-2"
-            className="btn btn-ghost btn-square lg:hidden"
+      <nav className="grid h-[68px] w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1 border-b border-base-content/10 bg-base-100/80 px-2 py-2 backdrop-blur-3xl sm:gap-2 sm:px-4">
+        <div className="flex min-w-0 items-center gap-1 justify-self-start">
+          {isDocsRoute && (
+            <label
+              htmlFor="my-drawer-2"
+              className="btn btn-sm btn-ghost btn-square lg:hidden"
+              aria-label="toggle sidebar"
+            >
+              &#9776;
+            </label>
+          )}
+          <Link
+            to="/"
+            preload="intent"
+            className="btn btn-ghost min-w-0 px-1.5 sm:px-2"
           >
-            <Menu className="h-5 w-5" />
-          </label>
-        )}
-
-        <div className="navbar-start">
-          <Link to="/" preload="intent" className="btn btn-ghost px-2">
-            <h1 className="text-2xl font-bold gradient-text">Pastoralist</h1>
+            <h1 className="gradient-text truncate text-lg font-bold sm:text-2xl">
+              Pastoralist
+            </h1>
           </Link>
         </div>
 
-        <div className="navbar-center hidden lg:flex">
-          <ul className="menu menu-horizontal text-base font-medium space-x-2">
+        <div className="justify-self-center">
+          <ul className="menu menu-horizontal flex-nowrap gap-1 p-0 text-sm font-medium sm:text-base">
             {navigation.map((item) => (
               <li key={item.href}>
                 <Link
                   to={item.href}
                   preload="intent"
-                  className={`hover:text-[#1D4ED8] hover:bg-[#1D4ED8]/10 transition flex ${
-                    (
-                      item.href.includes("/docs")
-                        ? pathname.includes("/docs")
-                        : pathname === item.href
-                    )
-                      ? "text-[#1D4ED8] bg-[#1D4ED8]/10"
-                      : ""
-                  }`}
+                  className={navItemClassName(item.href)}
                 >
                   {item.title}
                 </Link>
@@ -65,7 +70,7 @@ export function Header() {
           </ul>
         </div>
 
-        <div className="navbar-end">
+        <div className="flex items-center gap-1 justify-self-end">
           {isDocsRoute && (
             <Suspense
               fallback={
@@ -82,7 +87,7 @@ export function Header() {
             href="https://github.com/yowainwright/pastoralist"
             aria-label="github"
           >
-            <Github className="h-4 w-4" />
+            <GitFork className="h-4 w-4" />
           </a>
           <button
             aria-label="theme-toggle"

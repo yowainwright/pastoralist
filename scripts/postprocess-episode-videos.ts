@@ -40,8 +40,8 @@ const speed = Number(args.speed ?? DEFAULT_SPEED);
 const onlyEpisode = args.episode;
 const dryRun = args.dryRun === "true";
 
-if (!Number.isFinite(speed) || speed <= 0 || speed > 2) {
-  throw new Error("--speed must be a positive number up to 2.");
+if (!Number.isFinite(speed) || speed < 0.5 || speed > 2) {
+  throw new Error("--speed must be a number between 0.5 and 2.");
 }
 
 const episodeDirs = (await readdir(episodesDir, { withFileTypes: true }))

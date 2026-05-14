@@ -1,4 +1,4 @@
-import { Github } from "lucide-react";
+import { GitFork } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 const BASE_URL = import.meta.env.BASE_URL || "/pastoralist";
@@ -32,7 +32,7 @@ export function Footer() {
             target="_blank"
             rel="noopener noreferrer"
           >
-            <Github className="h-5 w-5" />
+            <GitFork className="h-5 w-5" />
           </a>
         </div>
       </nav>

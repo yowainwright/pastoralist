@@ -15,7 +15,7 @@ name: Pastoralist Examples
 #   check-overrides:
 #     runs-on: ubuntu-latest
 #     steps:
-#       - uses: actions/checkout@v4
+#       - uses: actions/checkout@v6.0.2
 #       - uses: yowainwright/pastoralist@v1
 #         with:
 #           mode: check
@@ -36,7 +36,7 @@ name: Pastoralist Examples
 #       contents: write
 #       pull-requests: write
 #     steps:
-#       - uses: actions/checkout@v4
+#       - uses: actions/checkout@v6.0.2
 #       - uses: yowainwright/pastoralist@v1
 #         with:
 #           mode: pr
@@ -64,7 +64,7 @@ name: Pastoralist Examples
 #       contents: write
 #       pull-requests: write
 #     steps:
-#       - uses: actions/checkout@v4
+#       - uses: actions/checkout@v6.0.2
 #       - uses: yowainwright/pastoralist@v1
 #         with:
 #           mode: pr
@@ -87,7 +87,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
 
       - name: Check overrides
         uses: yowainwright/pastoralist@v1
@@ -101,7 +101,7 @@ jobs:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
 
       - name: Update overrides
         uses: yowainwright/pastoralist@v1
@@ -124,7 +124,7 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
 
       - name: Maintain overrides
         id: pastoralist

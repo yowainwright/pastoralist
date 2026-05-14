@@ -2,6 +2,7 @@ import { lazy, Suspense, type ReactElement } from "react";
 import { Codeblock } from "@/components/Codeblock";
 import { Anchor } from "./Anchor";
 import { EpisodeVideo } from "./EpisodeVideo";
+import type { MermaidProps } from "../Mermaid";
 
 const Mermaid = lazy(() =>
   import("../Mermaid").then((m) => ({ default: m.Mermaid })),
@@ -17,6 +18,20 @@ function extractText(node: unknown): string {
   return "";
 }
 
+function MermaidBlock({ chart }: MermaidProps) {
+  return (
+    <Suspense
+      fallback={
+        <div className="my-6 flex justify-center animate-pulse">
+          <div className="h-32 w-full max-w-md bg-base-content/10 rounded" />
+        </div>
+      }
+    >
+      <Mermaid chart={chart} />
+    </Suspense>
+  );
+}
+
 function Pre({
   children,
   ...props
@@ -29,54 +44,52 @@ function Pre({
 
   // Handle mermaid from remark plugin data attributes
   if (dataLanguage === "mermaid" && mermaidContent) {
-    return (
-      <Suspense
-        fallback={
-          <div className="my-6 flex justify-center animate-pulse">
-            <div className="h-32 w-full max-w-md bg-base-content/10 rounded" />
-          </div>
-        }
-      >
-        <Mermaid chart={mermaidContent} />
-      </Suspense>
-    );
+    return <MermaidBlock chart={mermaidContent} />;
   }
 
   // Extract language and code from children
   const child = children as ReactElement<{
     className?: string;
     children?: unknown;
+    "data-language"?: string;
+    "data-mermaid-content"?: string;
   }>;
+  const childMermaidContent = child?.props?.["data-mermaid-content"];
+  const childDataLanguage = child?.props?.["data-language"];
+  if (childDataLanguage === "mermaid" && childMermaidContent) {
+    return <MermaidBlock chart={childMermaidContent} />;
+  }
+
   const className = child?.props?.className ?? "";
   const rawLang =
-    className.match(/language-(\S+)/)?.[1] ?? dataLanguage ?? "text";
+    className.match(/language-(\S+)/)?.[1] ??
+    childDataLanguage ??
+    dataLanguage ??
+    "text";
   const lang = rawLang.replace(/^language-/, "");
   const code = extractText(child?.props?.children ?? children);
 
   // Handle mermaid from className
   if (lang === "mermaid") {
-    return (
-      <Suspense
-        fallback={
-          <div className="my-6 flex justify-center animate-pulse">
-            <div className="h-32 w-full max-w-md bg-base-content/10 rounded" />
-          </div>
-        }
-      >
-        <Mermaid chart={code} />
-      </Suspense>
-    );
+    return <MermaidBlock chart={code} />;
   }
 
   return (
-    <div className="not-prose my-6">
-      <Codeblock code={code} lang={lang} showCopy showLanguage />
+    <div className="not-prose my-4">
+      <Codeblock
+        code={code}
+        lang={lang}
+        showCopy={false}
+        showLanguage={false}
+        showLineNumbers
+      />
     </div>
   );
 }
 
 export const mdxComponents = {
   EpisodeVideo,
+  Mermaid: MermaidBlock,
   pre: Pre,
   a: Anchor,
   h1: "h1" as const,

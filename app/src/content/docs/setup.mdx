@@ -58,7 +58,7 @@ npx pastoralist --setup-hook
 ```
 
 <EpisodeVideo slug="12-sandbox-setup-hook" label="Setup hook sandbox demo">
-  **Look for `postinstall: pastoralist`:** Pastoralist checks the package
+  **Watch the highlighted `postinstall` script:** Pastoralist checks the package
   scripts and confirms the install hook, so the appendix can be refreshed after
   dependency installs.
 </EpisodeVideo>
@@ -72,9 +72,8 @@ npx pastoralist --dry-run
 ```
 
 <EpisodeVideo slug="08-sandbox-dry-run" label="Dry-run sandbox demo">
-  **Look for `lodash@4.17.20`, `qs@6.11.0`, `mime@3.0.0`, and `3 overrides
-  applied`:** dry-run prints the package.json change and reports the tracked
-  overrides without writing the file.
+  **Watch the highlighted dry-run package update:** Pastoralist prints the
+  `package.json` change for `lodash`, `qs`, and `mime` without writing the file.
 </EpisodeVideo>
 
 Print summary metrics for CI or release checks:
@@ -84,9 +83,9 @@ npx pastoralist --summary
 ```
 
 <EpisodeVideo slug="10-sandbox-summary" label="Summary sandbox demo">
-  **Look for `lodash@4.17.20`, `qs@6.11.0`, `cookie@0.7.0`, and `Appendix
-  entries updated`:** the summary turns those override updates into reviewable
-  counts, including the unused override warning.
+  **Watch the highlighted summary rows:** the summary turns updates for
+  `lodash@4.17.20`, `qs@6.11.0`, and `cookie@0.7.0` into reviewable counts,
+  including the unused override warning.
 </EpisodeVideo>
 
 Remove overrides that no package still depends on:

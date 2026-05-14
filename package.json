@@ -50,6 +50,7 @@
     "test:coverage:html": "bun test tests/unit/ --coverage --coverage-reporter=html && open coverage/index.html",
     "validate": "bun run typecheck-src && bun run lint && bun run test:unit",
     "validate:full": "bun run validate && bun run test:e2e && bun run test:bench",
+    "videos:postprocess": "bun scripts/postprocess-episode-videos.ts",
     "setup": "bun install && bun run build && bun run test:unit && echo '✓ Setup complete! Run bun run dev:link to use pastoralist globally'"
   },
   "repository": {

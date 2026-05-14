@@ -120,8 +120,9 @@ npx pastoralist --debug
 ```
 
 <EpisodeVideo slug="11-sandbox-debug" label="Debug output sandbox demo">
-  **Look for `lodash@4.17.20`, `qs@6.11.0`, and `2 overrides applied`:** debug
-  output shows the decision trail, then warns that one override is unused.
+  **Watch the highlighted debug line and summary rows:** debug output shows the
+  decision trail for `lodash@4.17.20` and `qs@6.11.0`, then warns that one
+  override is unused.
 </EpisodeVideo>
 
 ### `pastoralist --dry-run`
@@ -141,9 +142,9 @@ npx pastoralist --summary --outputFormat json
 ```
 
 <EpisodeVideo slug="09-sandbox-json-output" label="JSON output sandbox demo">
-  **Look for `appliedOverrides`, `lodash: 4.17.20`, and `qs: 6.11.0`:** JSON
-  output exposes the same result as structured fields, including
-  `appendixEntriesUpdated: 2`.
+  **Watch the highlighted JSON fields:** `appliedOverrides`,
+  `appendixEntriesUpdated`, and `removedOverridePackages` expose the same result
+  as structured data.
 </EpisodeVideo>
 
 ### `pastoralist --quiet`
@@ -158,8 +159,8 @@ npx pastoralist --quiet --checkSecurity
 ```
 
 <EpisodeVideo slug="13-sandbox-quiet" label="Quiet mode sandbox demo">
-  **Look for `minimist@1.2.6`, `lodash@4.17.21`, and `Appendix entries updated:
-  2`:** quiet mode keeps the output compact while preserving the CI status
+  **Watch the highlighted dry-run update and compact summary:** quiet mode keeps
+  the `minimist` and `lodash` output compact while preserving the CI status
   signal.
 </EpisodeVideo>
 

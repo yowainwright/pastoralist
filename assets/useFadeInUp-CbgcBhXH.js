@@ -1,0 +1,1 @@
+import{t as e}from"./dist-BcMHcOUK.js";function t(t={}){let{threshold:n=.1,triggerOnce:r=!0,onChange:i}=t,{ref:a,inView:o}=e({threshold:n,triggerOnce:r,onChange:i});return{ref:a,isVisible:o}}export{t};

@@ -290,7 +290,7 @@ test("loadExternalConfig - loads JS config file", async () => {
   validateRootPackageJsonIntegrity();
 });
 
-test("loadExternalConfig - loads generated TypeScript config file", async () => {
+test("loadExternalConfig - ignores TypeScript config files", async () => {
   validateRootPackageJsonIntegrity();
 
   if (!existsSync(testDir)) {
@@ -315,10 +315,20 @@ test("loadExternalConfig - loads generated TypeScript config file", async () => 
   writeFileSync(configPath, configContent);
 
   clearConfigCache();
-  const config = await loadExternalConfig(testDir);
+  const originalWarn = console.warn;
+  const warnings: string[] = [];
+  console.warn = (message: string) => warnings.push(message);
+  let config: Awaited<ReturnType<typeof loadExternalConfig>>;
+  try {
+    config = await loadExternalConfig(testDir);
+  } finally {
+    console.warn = originalWarn;
+  }
 
-  expect(config).toBeDefined();
-  expect(config?.depPaths).toEqual(["packages/*/package.json"]);
+  expect(config).toBeUndefined();
+  expect(warnings.join("\n")).toContain(
+    "pastoralist.config.ts is not supported",
+  );
 
   if (existsSync(configPath)) {
     rmSync(configPath);

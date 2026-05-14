@@ -1015,7 +1015,17 @@ export async function action(
 }
 
 export const run = async (argv: string[] = process.argv): Promise<void> => {
-  const parsed = parseArgs(argv);
+  let parsed: ReturnType<typeof parseArgs>;
+  try {
+    parsed = parseArgs(argv);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Error: ${message}`);
+    showHelp();
+    process.exitCode = 1;
+    return;
+  }
+
   const options = parsed.options as Options;
 
   const isHelpRequested =

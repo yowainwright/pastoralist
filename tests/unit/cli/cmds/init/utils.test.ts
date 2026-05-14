@@ -110,8 +110,8 @@ test("buildConfig - should build config with security enabled", () => {
   });
 });
 
-test("buildConfig - should include security token when provided", () => {
-  const answers: InitAnswers = {
+test("buildConfig - should not write security token when provided", () => {
+  const answers: InitAnswers & { securityProviderToken: string } = {
     configLocation: "package.json",
     setupWorkspaces: false,
     setupSecurity: true,
@@ -122,7 +122,7 @@ test("buildConfig - should include security token when provided", () => {
   };
 
   const result = buildConfig(answers);
-  expect(result.security?.securityProviderToken).toBe("test-token-123");
+  expect(result.security?.securityProviderToken).toBeUndefined();
 });
 
 test("buildConfig - should build complete config with all options", () => {
@@ -137,7 +137,6 @@ test("buildConfig - should build complete config with all options", () => {
     securityAutoFix: false,
     severityThreshold: "high",
     hasWorkspaceSecurityChecks: true,
-    securityProviderToken: "github-token",
   };
 
   const result = buildConfig(answers);
@@ -151,7 +150,6 @@ test("buildConfig - should build complete config with all options", () => {
       autoFix: false,
       severityThreshold: "high",
       hasWorkspaceSecurityChecks: true,
-      securityProviderToken: "github-token",
     },
   });
 });
@@ -186,7 +184,7 @@ test("generateConfigContent - should generate JS module config", () => {
   expect(result).toBe(expected);
 });
 
-test("generateConfigContent - should generate TypeScript module config", () => {
+test("generateConfigContent - should generate CommonJS module config", () => {
   const mockConfig = {
     depPaths: "workspace" as const,
     checkSecurity: true,
@@ -196,8 +194,23 @@ test("generateConfigContent - should generate TypeScript module config", () => {
     },
   };
 
-  const result = generateConfigContent(mockConfig, "pastoralist.config.ts");
-  const expected = `import type { PastoralistConfig } from 'pastoralist';\n\nconst config: PastoralistConfig = ${JSON.stringify(mockConfig, null, 2)};\n\nexport default config;\n`;
+  const result = generateConfigContent(mockConfig, "pastoralist.config.cjs");
+  const expected = `module.exports = ${JSON.stringify(mockConfig, null, 2)};\n`;
+  expect(result).toBe(expected);
+});
+
+test("generateConfigContent - should generate ESM module config", () => {
+  const mockConfig = {
+    depPaths: "workspace" as const,
+    checkSecurity: true,
+    security: {
+      enabled: true,
+      provider: "osv" as const,
+    },
+  };
+
+  const result = generateConfigContent(mockConfig, "pastoralist.config.mjs");
+  const expected = `export default ${JSON.stringify(mockConfig, null, 2)};\n`;
   expect(result).toBe(expected);
 });
 

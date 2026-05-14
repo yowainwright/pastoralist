@@ -13,8 +13,9 @@ export interface InitAnswers {
   configLocation: "package.json" | "external";
   configFormat?:
     | ".pastoralistrc.json"
+    | "pastoralist.config.cjs"
     | "pastoralist.config.js"
-    | "pastoralist.config.ts";
+    | "pastoralist.config.mjs";
   setupWorkspaces: boolean;
   workspaceType?: "workspace" | "custom";
   customWorkspacePaths?: string[];
@@ -24,5 +25,4 @@ export interface InitAnswers {
   securityAutoFix?: boolean;
   severityThreshold?: SeverityThreshold;
   hasWorkspaceSecurityChecks?: boolean;
-  securityProviderToken?: string;
 }

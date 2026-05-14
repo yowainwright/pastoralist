@@ -297,6 +297,7 @@ export interface PromptFunctions {
   confirm: (message: string, defaultValue?: boolean) => Promise<boolean>;
   select: (message: string, choices: PromptChoice[]) => Promise<string>;
   input: (message: string, defaultValue?: string) => Promise<string>;
+  secret?: (message: string, defaultValue?: string) => Promise<string>;
 }
 
 export interface NpmAuditAdvisory {

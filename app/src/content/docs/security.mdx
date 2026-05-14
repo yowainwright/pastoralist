@@ -66,7 +66,6 @@ You can configure security settings in your `package.json`:
       "provider": "osv",
       "autoFix": false,
       "interactive": false,
-      "securityProviderToken": "",
       "hasWorkspaceSecurityChecks": false,
       "severityThreshold": "medium",
       "excludePackages": []
@@ -77,29 +76,36 @@ You can configure security settings in your `package.json`:
 
 ### Configuration Options
 
-| Option                       | Type    | Default    | Description                                                                                                 |
-| ---------------------------- | ------- | ---------- | ----------------------------------------------------------------------------------------------------------- |
-| `enabled`                    | boolean | `false`    | Enable automatic security checks when running pastoralist                                                   |
-| `provider`                   | string  | `"osv"`    | Provider: "osv", "github", "npm", "snyk" [EXPERIMENTAL], "socket" [EXPERIMENTAL], "spektion" [EXPERIMENTAL] |
-| `autoFix`                    | boolean | `false`    | Automatically apply security fixes without prompting                                                        |
-| `interactive`                | boolean | `false`    | Use interactive mode to select which fixes to apply                                                         |
-| `securityProviderToken`      | string  | `""`       | Authentication token for providers that require it                                                          |
-| `hasWorkspaceSecurityChecks` | boolean | `false`    | Include workspace packages in security scan                                                                 |
-| `severityThreshold`          | string  | `"medium"` | Minimum severity level to report (low, medium, high, critical)                                              |
-| `excludePackages`            | array   | `[]`       | List of package names to exclude from security checks                                                       |
-| `strict`                     | boolean | `false`    | Fail when a provider cannot complete                                                                        |
+| Option                       | Type    | Default    | Description                                                                                                                                                |
+| ---------------------------- | ------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`                    | boolean | `false`    | Enable automatic security checks when running pastoralist                                                                                                  |
+| `provider`                   | string  | `"osv"`    | Provider: "osv", "github", "npm", "snyk" [EXPERIMENTAL], "socket" [EXPERIMENTAL], "spektion" [EXPERIMENTAL]                                                |
+| `autoFix`                    | boolean | `false`    | Automatically apply security fixes without prompting                                                                                                       |
+| `interactive`                | boolean | `false`    | Use interactive mode to select which fixes to apply                                                                                                        |
+| `securityProviderToken`      | string  | `""`       | Authentication token for providers that require it. Prefer provider environment variables; use this only for controlled config that will not be committed. |
+| `hasWorkspaceSecurityChecks` | boolean | `false`    | Include workspace packages in security scan                                                                                                                |
+| `severityThreshold`          | string  | `"medium"` | Minimum severity level to report (low, medium, high, critical)                                                                                             |
+| `excludePackages`            | array   | `[]`       | List of package names to exclude from security checks                                                                                                      |
+| `strict`                     | boolean | `false`    | Fail when a provider cannot complete                                                                                                                       |
 
 ## CLI Options
 
-| Option                            | Description                                            |
-| --------------------------------- | ------------------------------------------------------ |
-| `--checkSecurity`                 | Enable security vulnerability checking                 |
-| `--forceSecurityRefactor`         | Automatically apply security fixes without prompting   |
-| `--securityProvider <provider>`   | Specify one or more security providers                 |
-| `--securityProviderToken <token>` | Provide authentication token for the security provider |
-| `--interactive`                   | Use interactive mode to select fixes                   |
-| `--hasWorkspaceSecurityChecks`    | Include workspace packages in the security scan        |
-| `--strict`                        | Fail on provider, network, or API errors               |
+| Option                            | Description                                           |
+| --------------------------------- | ----------------------------------------------------- |
+| `--checkSecurity`                 | Enable security vulnerability checking                |
+| `--forceSecurityRefactor`         | Automatically apply security fixes without prompting  |
+| `--securityProvider <provider>`   | Specify one or more security providers                |
+| `--securityProviderToken <token>` | Provide an authentication token for one-off/local use |
+| `--interactive`                   | Use interactive mode to select fixes                  |
+| `--hasWorkspaceSecurityChecks`    | Include workspace packages in the security scan       |
+| `--strict`                        | Fail on provider, network, or API errors              |
+
+### Token Handling
+
+Set provider tokens with environment variables whenever possible:
+`GITHUB_TOKEN`, `SNYK_TOKEN`, or `SOCKET_SECURITY_API_KEY`.
+`securityProviderToken` remains available for controlled local or generated
+config, but do not commit real tokens to the repository.
 
 ## Security Providers
 
@@ -148,7 +154,7 @@ If you don't have the GitHub CLI, you can provide a GitHub token:
    ```bash
    export GITHUB_TOKEN=your_token_here
    ```
-3. Or pass it via CLI:
+3. Or pass it via CLI in one-off/local use:
    ```bash
    pastoralist --checkSecurity --securityProvider github --securityProviderToken your_token_here
    ```

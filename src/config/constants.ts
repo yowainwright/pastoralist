@@ -7,7 +7,6 @@ export const CONFIG_FILES = [
   "pastoralist.config.cjs",
   "pastoralist.config.js",
   "pastoralist.config.mjs",
-  "pastoralist.config.ts",
 ] as const;
 
 export type SecurityProvider =

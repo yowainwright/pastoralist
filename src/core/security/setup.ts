@@ -5,7 +5,12 @@ import { homedir } from "os";
 import { join } from "path";
 import { logger } from "../../utils";
 import { green, yellow, cyan, gray, red } from "../../utils/colors";
-import { promptConfirm, promptSelect, promptInput } from "./utils";
+import {
+  promptConfirm,
+  promptSelect,
+  promptInput,
+  promptSecret,
+} from "./utils";
 import {
   DEFAULT_CLI_TIMEOUT,
   PROVIDER_CONFIGS,
@@ -40,6 +45,7 @@ export class SecuritySetupWizard {
       confirm: promptConfirm,
       select: promptSelect,
       input: promptInput,
+      secret: promptSecret,
     };
     this.skipBrowserOpen = options.skipBrowserOpen || false;
     this.out = createOutput();
@@ -313,9 +319,8 @@ export class SecuritySetupWizard {
 
     this.out.info("Tip: The token will be hidden as you type for security.\n");
 
-    const token = await this.prompts.input(
-      `Paste your ${config.name} token here`,
-    );
+    const readToken = this.prompts.secret ?? this.prompts.input;
+    const token = await readToken(`Paste your ${config.name} token here`);
 
     const noTokenProvided = !token;
     if (noTokenProvided) {
@@ -345,8 +350,7 @@ export class SecuritySetupWizard {
 
     process.env[config.envVar!] = token;
 
-    const tokenPreview = `${token.slice(0, 8)}...`;
-    const persistMessage = `Token set for this session. Set ${config.envVar}=${tokenPreview} in your environment to persist.`;
+    const persistMessage = `Token set for this session. Set ${config.envVar} in your environment to persist.`;
     const savedMessage =
       "Token saved to shell profile. Restart your terminal or run 'source ~/.zshrc' to use it globally.";
     const message = savedToProfile ? savedMessage : persistMessage;
@@ -511,7 +515,7 @@ export class SecuritySetupWizard {
       });
       this.out.warn(`Couldn't write to ${profilePath}.`);
       this.out.log(`Add this to your shell profile manually:`);
-      this.out.log(`  export ${envVar}="${token}"`);
+      this.out.log(`  export ${envVar}="<paste-token-here>"`);
       return false;
     }
   }

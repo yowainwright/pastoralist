@@ -33,11 +33,6 @@ export function buildConfig(answers: InitAnswers): PastoralistConfig {
       severityThreshold: answers.severityThreshold,
       hasWorkspaceSecurityChecks: answers.hasWorkspaceSecurityChecks,
     };
-
-    const hasToken = Boolean(answers.securityProviderToken);
-    if (hasToken) {
-      config.security.securityProviderToken = answers.securityProviderToken;
-    }
   }
 
   return config;
@@ -47,18 +42,19 @@ export function generateConfigContent(
   config: PastoralistConfig,
   format:
     | ".pastoralistrc.json"
+    | "pastoralist.config.cjs"
     | "pastoralist.config.js"
-    | "pastoralist.config.ts",
+    | "pastoralist.config.mjs",
 ): string {
   const isJson = format.endsWith(".json");
   if (isJson) {
     return JSON.stringify(config, null, 2) + "\n";
   }
 
-  const isJs = format.endsWith(".js");
-  if (isJs) {
+  const isCommonJs = format.endsWith(".js") || format.endsWith(".cjs");
+  if (isCommonJs) {
     return `module.exports = ${JSON.stringify(config, null, 2)};\n`;
   }
 
-  return `import type { PastoralistConfig } from 'pastoralist';\n\nconst config: PastoralistConfig = ${JSON.stringify(config, null, 2)};\n\nexport default config;\n`;
+  return `export default ${JSON.stringify(config, null, 2)};\n`;
 }

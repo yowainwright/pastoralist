@@ -1,7 +1,6 @@
 import { lazy, Suspense, type ReactElement } from "react";
 import { Codeblock } from "@/components/Codeblock";
 import { Anchor } from "./Anchor";
-import { EpisodeVideo } from "./EpisodeVideo";
 import type { MermaidProps } from "../Mermaid";
 
 const Mermaid = lazy(() =>
@@ -88,7 +87,6 @@ function Pre({
 }
 
 export const mdxComponents = {
-  EpisodeVideo,
   Mermaid: MermaidBlock,
   pre: Pre,
   a: Anchor,

@@ -7,7 +7,10 @@ import * as dxPrompts from "../../../../../src/dx/prompts";
 import * as shimmer from "../../../../../src/dx/shimmer";
 import { resolve } from "path";
 import {
+  safeReadFileSync as readFileSync,
   safeWriteFileSync as writeFileSync,
+  safeMkdirSync as mkdirSync,
+  safeRmSync as rmSync,
   safeExistsSync as existsSync,
   safeUnlinkSync as unlinkSync,
   validateRootPackageJsonIntegrity,
@@ -20,6 +23,7 @@ const testPath = resolve(
   "..",
   ".test-init-package.json",
 );
+const testRoot = resolve(__dirname, "..", "..", "..", ".test-init-root");
 
 test("initCommand - should initialize with default options", async () => {
   validateRootPackageJsonIntegrity();
@@ -178,6 +182,51 @@ test("initCommand - should save to package.json", async () => {
   loggerSpy?.mockRestore();
   if (existsSync(testPath)) {
     unlinkSync(testPath);
+  }
+  validateRootPackageJsonIntegrity();
+});
+
+test("initCommand - should resolve relative package path under root", async () => {
+  validateRootPackageJsonIntegrity();
+  if (existsSync(testRoot)) {
+    rmSync(testRoot, { recursive: true, force: true });
+  }
+  mkdirSync(testRoot, { recursive: true });
+  const packagePath = resolve(testRoot, "package.json");
+  writeFileSync(packagePath, JSON.stringify({ name: "rooted" }, null, 2));
+
+  const mockLog = {
+    debug: mock(() => {}),
+    error: mock(() => {}),
+    warn: mock(() => {}),
+    print: mock(() => {}),
+    line: mock(() => {}),
+    indent: mock(() => {}),
+    item: mock(() => {}),
+  };
+  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
+    async (callback) => {
+      const mockPrompt = {
+        list: mock(() => Promise.resolve("package.json")),
+        confirm: mock(() => Promise.resolve(false)),
+        input: mock(() => Promise.resolve("")),
+      };
+      return callback(mockPrompt);
+    },
+  );
+
+  await initCommand({ path: "package.json", root: testRoot });
+
+  const updated = JSON.parse(readFileSync(packagePath, "utf8"));
+  expect(updated.name).toBe("rooted");
+  expect(updated.pastoralist).toEqual({});
+
+  createPromptSpy?.mockRestore();
+  loggerSpy?.mockRestore();
+  if (existsSync(testRoot)) {
+    rmSync(testRoot, { recursive: true, force: true });
   }
   validateRootPackageJsonIntegrity();
 });

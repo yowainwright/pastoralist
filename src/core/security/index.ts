@@ -314,7 +314,9 @@ export class SecurityChecker {
         });
 
         const results = await Promise.allSettled(
-          this.providers.map((provider) => provider.fetchAlerts(packages)),
+          this.providers.map((provider) =>
+            provider.fetchAlerts(packages, { root: options.root }),
+          ),
         );
         alerts = results.flatMap((result, i) => {
           const isFulfilled = result.status === "fulfilled";

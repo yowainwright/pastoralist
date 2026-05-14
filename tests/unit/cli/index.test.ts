@@ -142,6 +142,34 @@ test("handleSetupHook - appends pastoralist to existing postinstall", () => {
   expect(parsed.scripts.postinstall).toBe("echo done && pastoralist");
 });
 
+test("handleSetupHook - resolves relative path under root", () => {
+  const { handleSetupHook } = require("../../../src/cli/index");
+
+  const mockReadFileSync = mock(() => JSON.stringify({ name: "test" }));
+  const mockWriteFileSync = mock(() => {});
+  const mockResolve = mock((...parts: string[]) => parts.join("/"));
+
+  const options: Options = {
+    setupHook: true,
+    root: "/repo",
+    path: "packages/app/package.json",
+  };
+  const result = handleSetupHook(options, log, {
+    readFileSync: mockReadFileSync,
+    writeFileSync: mockWriteFileSync,
+    resolve: mockResolve,
+  });
+
+  expect(result).toBe(true);
+  expect(mockReadFileSync).toHaveBeenCalledWith(
+    "/repo/packages/app/package.json",
+    "utf8",
+  );
+  expect(mockWriteFileSync.mock.calls[0][0]).toBe(
+    "/repo/packages/app/package.json",
+  );
+});
+
 test("handleSetupHook - returns false on read error", () => {
   const { handleSetupHook } = require("../../../src/cli/index");
 
@@ -2057,7 +2085,7 @@ test("action - handles array security provider", async () => {
 
   const mockBuildMergedOptions = mock(
     (options: any, rest: any, securityConfig: any, configProvider: any) => {
-      expect(configProvider).toBe("github");
+      expect(configProvider).toEqual(["github", "osv"]);
       return Object.assign({}, options, rest);
     },
   );

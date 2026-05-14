@@ -80,6 +80,7 @@ export class SpektionProvider {
 
   async fetchAlerts(
     packages: Array<{ name: string; version: string }>,
+    _options: { root?: string } = {},
   ): Promise<SecurityAlert[]> {
     if (!this.token) {
       this.log.print(

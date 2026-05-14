@@ -82,7 +82,10 @@ export class SocketCLIProvider {
     return JSON.parse(stdout);
   }
 
-  async fetchAlerts(): Promise<SecurityAlert[]> {
+  async fetchAlerts(
+    _packages: Array<{ name: string; version: string }> = [],
+    _options: { root?: string } = {},
+  ): Promise<SecurityAlert[]> {
     const isValid = await this.validatePrerequisites();
 
     if (!isValid) {

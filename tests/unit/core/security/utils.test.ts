@@ -1368,6 +1368,18 @@ test("computeVulnerabilityReduction - no skip and no targetStillVulnerable when 
   expect(result.targetStillVulnerable).toBe(false);
 });
 
+test("computeVulnerabilityReduction - does not suppress fixes when current version is unknown", () => {
+  const alerts: SecurityAlert[] = [makeAlert("transitive-pkg", "< 2.0.0")];
+  const result = computeVulnerabilityReduction(
+    "transitive-pkg",
+    "unknown",
+    "2.0.0",
+    alerts,
+  );
+  expect(result.skip).toBe(false);
+  expect(result.targetStillVulnerable).toBe(false);
+});
+
 const excludeConfig: PastoralistJSON = {
   name: "test-app",
   version: "1.0.0",

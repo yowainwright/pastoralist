@@ -45,6 +45,10 @@ export interface SecurityCheckOptions {
   refreshCache?: boolean;
 }
 
+export interface SecurityProviderScanOptions {
+  root?: string;
+}
+
 export interface SecurityOverride {
   packageName: string;
   fromVersion: string;
@@ -190,6 +194,7 @@ export interface SecurityProviderBase {
   readonly providerType: SecurityProviderType;
   fetchAlerts(
     packages: Array<{ name: string; version: string }>,
+    options?: SecurityProviderScanOptions,
   ): Promise<SecurityAlert[]>;
 }
 

@@ -294,18 +294,24 @@ describe("parseArgs", () => {
   });
 
   describe("unknown flags", () => {
-    test("should ignore unknown flags", () => {
-      const result = parseArgs(["node", "script.js", "--unknown", "--debug"]);
-
-      expect(result.options.debug).toBe(true);
-      expect(result.options.unknown).toBeUndefined();
+    test("should throw for unknown flags", () => {
+      expect(() =>
+        parseArgs(["node", "script.js", "--unknown", "--debug"]),
+      ).toThrow("Unknown option: --unknown");
     });
 
-    test("should ignore unknown short flags", () => {
-      const result = parseArgs(["node", "script.js", "-x", "-p", "test.json"]);
+    test("should throw for unknown short flags", () => {
+      expect(() =>
+        parseArgs(["node", "script.js", "-x", "-p", "test.json"]),
+      ).toThrow("Unknown option: -x");
+    });
 
-      expect(result.options.path).toBe("test.json");
-      expect(result.options.x).toBeUndefined();
+    test("should parse help flags", () => {
+      const longHelp = parseArgs(["node", "script.js", "--help"]);
+      const shortHelp = parseArgs(["node", "script.js", "-h"]);
+
+      expect(longHelp.options.help).toBe(true);
+      expect(shortHelp.options.help).toBe(true);
     });
   });
 

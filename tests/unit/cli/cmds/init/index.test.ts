@@ -563,7 +563,7 @@ test("initCommand - should configure GitHub security provider", async () => {
   validateRootPackageJsonIntegrity();
 });
 
-test("initCommand - should configure Snyk with token", async () => {
+test("initCommand - should configure Snyk token environment guidance", async () => {
   validateRootPackageJsonIntegrity();
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
@@ -617,7 +617,7 @@ test("initCommand - should configure Snyk with token", async () => {
   validateRootPackageJsonIntegrity();
 });
 
-test("initCommand - should configure Socket with token", async () => {
+test("initCommand - should configure Socket token environment guidance", async () => {
   validateRootPackageJsonIntegrity();
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
@@ -720,7 +720,7 @@ test("initCommand - should handle missing token for required provider", async ()
   validateRootPackageJsonIntegrity();
 });
 
-test("initCommand - should handle empty token input", async () => {
+test("initCommand - should not collect token input", async () => {
   validateRootPackageJsonIntegrity();
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
@@ -1345,7 +1345,7 @@ test("initCommand - should handle socket provider token info", async () => {
   validateRootPackageJsonIntegrity();
 });
 
-test("initCommand - should handle token input when user confirms but provides empty token", async () => {
+test("initCommand - should continue when token environment is confirmed", async () => {
   validateRootPackageJsonIntegrity();
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
@@ -1391,7 +1391,7 @@ test("initCommand - should handle token input when user confirms but provides em
   validateRootPackageJsonIntegrity();
 });
 
-test("initCommand - should handle token input when user provides valid token", async () => {
+test("initCommand - should ignore raw token input mocks", async () => {
   validateRootPackageJsonIntegrity();
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 

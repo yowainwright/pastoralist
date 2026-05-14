@@ -7,6 +7,7 @@ import { PastoralistConfig, safeValidateConfig } from "./constants";
 import { CONFIG_FILES } from "./constants";
 
 const configCache = new Map<string, PastoralistConfig>();
+const UNSUPPORTED_TYPESCRIPT_CONFIG = "pastoralist.config.ts";
 
 export const clearConfigCache = (): void => {
   configCache.clear();
@@ -44,18 +45,6 @@ const evaluateCommonJsConfig = (path: string, source: string): unknown => {
 const hasCommonJsExports = (source: string): boolean =>
   /\bmodule\.exports\b|\bexports\./.test(source);
 
-const transformTypeScriptConfig = (source: string): string =>
-  source
-    .replace(/^\s*import\s+type\s+[^;]+;\s*$/gm, "")
-    .replace(/:\s*PastoralistConfig(\s*=)/g, "$1")
-    .replace(/\s+satisfies\s+PastoralistConfig/g, "")
-    .replace(/\bexport\s+default\s+/g, "module.exports = ");
-
-const loadTypeScriptConfig = (path: string): unknown => {
-  const source = readFileSync(path, "utf8");
-  return evaluateCommonJsConfig(path, transformTypeScriptConfig(source));
-};
-
 const loadJsConfig = async (
   filename: string,
   path: string,
@@ -78,7 +67,6 @@ const loadConfigFile = async (
   path: string,
 ): Promise<unknown | null> => {
   if (isJsonFile(filename)) return loadJsonConfig(path);
-  if (filename.endsWith(".ts")) return loadTypeScriptConfig(path);
   return loadJsConfig(filename, path);
 };
 
@@ -110,6 +98,15 @@ const tryLoadConfig = async (
   }
 };
 
+const warnIfUnsupportedTypeScriptConfigExists = (root: string): void => {
+  const path = resolve(root, UNSUPPORTED_TYPESCRIPT_CONFIG);
+  if (!existsSync(path)) return;
+
+  console.warn(
+    `${UNSUPPORTED_TYPESCRIPT_CONFIG} is not supported. Use .pastoralistrc.json, pastoralist.config.cjs, pastoralist.config.js, or pastoralist.config.mjs.`,
+  );
+};
+
 export const loadExternalConfig = async (
   root: string = process.cwd(),
   validate: boolean = true,
@@ -118,6 +115,7 @@ export const loadExternalConfig = async (
     const config = await tryLoadConfig(filename, root, validate);
     if (config !== null) return config;
   }
+  warnIfUnsupportedTypeScriptConfigExists(root);
   return undefined;
 };
 

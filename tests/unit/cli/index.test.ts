@@ -3458,6 +3458,32 @@ test("run - shows help with -h flag", async () => {
   expect(output).toContain("pastoralist");
 });
 
+test("run - handles unknown flags without throwing", async () => {
+  const { run } = require("../../../src/cli/index");
+
+  const originalLog = console.log;
+  const originalError = console.error;
+  const originalExitCode = process.exitCode;
+  const logged: string[] = [];
+  const errors: string[] = [];
+  let exitCode: string | number | undefined;
+  console.log = (msg: string) => logged.push(msg);
+  console.error = (msg: string) => errors.push(msg);
+
+  try {
+    await run(["node", "pastoralist", "--wat"]);
+    exitCode = process.exitCode;
+  } finally {
+    console.log = originalLog;
+    console.error = originalError;
+    process.exitCode = originalExitCode ?? 0;
+  }
+
+  expect(errors.join("\n")).toContain("Unknown option: --wat");
+  expect(logged.join("\n")).toContain("pastoralist");
+  expect(exitCode).toBe(1);
+});
+
 test("handleSetupHook - error does not cause early exit in run", async () => {
   const { handleSetupHook } = require("../../../src/cli/index");
 

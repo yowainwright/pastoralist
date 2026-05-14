@@ -492,6 +492,79 @@ export const promptInput = async (
   }
 };
 
+export const promptSecret = async (
+  message: string,
+  defaultValue = "",
+): Promise<string> => {
+  const input = process.stdin;
+  const output = process.stdout;
+  const isInteractive = Boolean(input.isTTY && output.isTTY);
+
+  if (!isInteractive) {
+    return promptInput(message, defaultValue);
+  }
+
+  const promptText = formatInputPrompt(message, defaultValue);
+
+  return new Promise((resolvePrompt) => {
+    let value = "";
+    const wasRaw = input.isRaw;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+
+    const cleanup = () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      input.off("data", onData);
+      input.setRawMode(wasRaw);
+      input.pause();
+    };
+
+    const finish = () => {
+      cleanup();
+      output.write("\n");
+      resolvePrompt(value.trim() || defaultValue);
+    };
+
+    const onData = (chunk: Buffer) => {
+      const chars = chunk.toString("utf8");
+
+      for (const char of chars) {
+        if (char === "\u0003") {
+          cleanup();
+          output.write("\n");
+          resolvePrompt(defaultValue);
+          return;
+        }
+
+        if (char === "\r" || char === "\n") {
+          finish();
+          return;
+        }
+
+        if (char === "\u007f" || char === "\b") {
+          value = value.slice(0, -1);
+          continue;
+        }
+
+        value += char;
+      }
+    };
+
+    output.write(promptText);
+    input.setRawMode(true);
+    input.resume();
+    input.on("data", onData);
+
+    timeout = setTimeout(() => {
+      cleanup();
+      output.write("\n");
+      resolvePrompt(defaultValue);
+    }, DEFAULT_PROMPT_TIMEOUT);
+    timeout.unref();
+  });
+};
+
 export class InteractiveSecurityManager {
   private prompts: PromptFunctions;
 

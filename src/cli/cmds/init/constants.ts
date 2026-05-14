@@ -14,12 +14,16 @@ export const CONFIG_LOCATION_CHOICES: PromptChoice[] = [
 export const CONFIG_FORMAT_CHOICES: PromptChoice[] = [
   { name: ".pastoralistrc.json (JSON format)", value: ".pastoralistrc.json" },
   {
+    name: "pastoralist.config.cjs (CommonJS module)",
+    value: "pastoralist.config.cjs",
+  },
+  {
     name: "pastoralist.config.js (JavaScript module)",
     value: "pastoralist.config.js",
   },
   {
-    name: "pastoralist.config.ts (TypeScript module)",
-    value: "pastoralist.config.ts",
+    name: "pastoralist.config.mjs (ESM module)",
+    value: "pastoralist.config.mjs",
   },
 ];
 
@@ -63,8 +67,8 @@ export const INIT_MESSAGES = {
     "Initialization cancelled. Your existing configuration is preserved.",
   initComplete: "▪▫▪ Pastoralist initialization complete! ▪▫▪",
   packageJsonNotFound: "Error: package.json not found",
-  noTokenProvided: () =>
-    `No token provided. You can add it later to the config or use --securityProviderToken flag.`,
+  tokenEnvironmentInfo: (envVar: string) =>
+    `Pastoralist reads this token from ${envVar} or --securityProviderToken. The init wizard will not write tokens to project config.`,
   tokenCreationInfo: (provider: string, url: string) =>
     `To create a ${provider} token, visit: ${url}`,
   tokenRequiredWarning: (provider: string) =>
@@ -91,9 +95,8 @@ export const PROMPTS = {
   customWorkspacePaths: "Enter workspace paths (comma-separated glob patterns)",
   setupSecurity: "Do you want to enable security vulnerability scanning?",
   securityProvider: "Choose a security provider:",
-  hasToken: (provider: string) => `Do you have a ${provider} API token?`,
-  enterToken: (provider: string) =>
-    `Enter your ${provider} API token (will be stored in config)`,
+  hasToken: (provider: string) =>
+    `Have you configured a ${provider} API token in your environment?`,
   securityInteractive:
     "Enable interactive mode for security fixes? (allows you to review/approve each fix)",
   securityAutoFix:

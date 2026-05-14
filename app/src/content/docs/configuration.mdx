@@ -15,8 +15,9 @@ Pastoralist searches for configuration files in this order (first found wins):
 1. `.pastoralistrc` (JSON format)
 2. `.pastoralistrc.json`
 3. `pastoralist.json`
-4. `pastoralist.config.js`
-5. `pastoralist.config.ts`
+4. `pastoralist.config.cjs`
+5. `pastoralist.config.js`
+6. `pastoralist.config.mjs`
 
 ### Example Configurations
 
@@ -61,12 +62,10 @@ module.exports = {
 };
 ```
 
-#### `pastoralist.config.ts`
+#### `pastoralist.config.mjs`
 
-```ts
-import { PastoralistConfig } from "pastoralist";
-
-const config: PastoralistConfig = {
+```js
+export default {
   checkSecurity: true,
   depPaths: "workspace",
   security: {
@@ -74,8 +73,6 @@ const config: PastoralistConfig = {
     severityThreshold: "critical",
   },
 };
-
-export default config;
 ```
 
 ## Configuration Priority
@@ -137,18 +134,18 @@ When both external config files and `package.json` configuration exist, they are
 
 The `security` object supports the following options:
 
-| Option                       | Type                                                                                | Description                                            |
-| ---------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `enabled`                    | `boolean`                                                                           | Enable/disable security checks                         |
-| `provider`                   | `"osv"` \| `"github"` \| `"snyk"` \| `"npm"` \| `"socket"` \| `"spektion"` \| array | Security provider or providers to use                  |
-| `autoFix`                    | `boolean`                                                                           | Automatically apply security fixes                     |
-| `interactive`                | `boolean`                                                                           | Use interactive mode for security fixes                |
-| `securityProviderToken`      | `string`                                                                            | API token for providers that require authentication    |
-| `severityThreshold`          | `"low"` \| `"medium"` \| `"high"` \| `"critical"`                                   | Minimum severity level to report                       |
-| `excludePackages`            | `string[]`                                                                          | Packages to exclude from security checks               |
-| `hasWorkspaceSecurityChecks` | `boolean`                                                                           | Include workspace packages in security scans           |
-| `strict`                     | `boolean`                                                                           | Fail when a security provider cannot complete          |
-| `preferLatest`               | `boolean`                                                                           | Prefer the newest safe version when fixes are resolved |
+| Option                       | Type                                                                                | Description                                                                                                                                                 |
+| ---------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`                    | `boolean`                                                                           | Enable/disable security checks                                                                                                                              |
+| `provider`                   | `"osv"` \| `"github"` \| `"snyk"` \| `"npm"` \| `"socket"` \| `"spektion"` \| array | Security provider or providers to use                                                                                                                       |
+| `autoFix`                    | `boolean`                                                                           | Automatically apply security fixes                                                                                                                          |
+| `interactive`                | `boolean`                                                                           | Use interactive mode for security fixes                                                                                                                     |
+| `securityProviderToken`      | `string`                                                                            | API token for providers that require authentication. Prefer provider environment variables; use this only for controlled config that will not be committed. |
+| `severityThreshold`          | `"low"` \| `"medium"` \| `"high"` \| `"critical"`                                   | Minimum severity level to report                                                                                                                            |
+| `excludePackages`            | `string[]`                                                                          | Packages to exclude from security checks                                                                                                                    |
+| `hasWorkspaceSecurityChecks` | `boolean`                                                                           | Include workspace packages in security scans                                                                                                                |
+| `strict`                     | `boolean`                                                                           | Fail when a security provider cannot complete                                                                                                               |
+| `preferLatest`               | `boolean`                                                                           | Prefer the newest safe version when fixes are resolved                                                                                                      |
 
 ## Package.json Configuration
 
@@ -302,22 +299,12 @@ This allows you to see at a glance which packages were overridden due to securit
 6. **Version control** your `.pastoralistrc` or config files
 7. **Document custom configurations** in your project README
 
-## TypeScript Support
+## JavaScript Config Files
 
-When using TypeScript config files, Pastoralist will attempt to load them using `tsx` or `ts-node`. Install one of these as a dev dependency:
+Use `pastoralist.config.cjs` for CommonJS or `pastoralist.config.mjs` for ESM:
 
-```bash
-npm install tsx --save-dev
-# or
-npm install ts-node --save-dev
-```
-
-Then create your `pastoralist.config.ts`:
-
-```ts
-import type { PastoralistConfig } from "pastoralist";
-
-const config: PastoralistConfig = {
+```js
+export default {
   checkSecurity: true,
   depPaths: "workspace",
   security: {
@@ -325,9 +312,10 @@ const config: PastoralistConfig = {
     severityThreshold: "high",
   },
 };
-
-export default config;
 ```
+
+TypeScript config files are not loaded directly. Use JSON, CJS, JS, or MJS
+config files.
 
 ## Environment-Specific Configuration
 

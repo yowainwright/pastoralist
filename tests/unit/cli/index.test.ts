@@ -142,6 +142,34 @@ test("handleSetupHook - appends pastoralist to existing postinstall", () => {
   expect(parsed.scripts.postinstall).toBe("echo done && pastoralist");
 });
 
+test("handleSetupHook - resolves relative path under root", () => {
+  const { handleSetupHook } = require("../../../src/cli/index");
+
+  const mockReadFileSync = mock(() => JSON.stringify({ name: "test" }));
+  const mockWriteFileSync = mock(() => {});
+  const mockResolve = mock((...parts: string[]) => parts.join("/"));
+
+  const options: Options = {
+    setupHook: true,
+    root: "/repo",
+    path: "packages/app/package.json",
+  };
+  const result = handleSetupHook(options, log, {
+    readFileSync: mockReadFileSync,
+    writeFileSync: mockWriteFileSync,
+    resolve: mockResolve,
+  });
+
+  expect(result).toBe(true);
+  expect(mockReadFileSync).toHaveBeenCalledWith(
+    "/repo/packages/app/package.json",
+    "utf8",
+  );
+  expect(mockWriteFileSync.mock.calls[0][0]).toBe(
+    "/repo/packages/app/package.json",
+  );
+});
+
 test("handleSetupHook - returns false on read error", () => {
   const { handleSetupHook } = require("../../../src/cli/index");
 
@@ -2057,7 +2085,7 @@ test("action - handles array security provider", async () => {
 
   const mockBuildMergedOptions = mock(
     (options: any, rest: any, securityConfig: any, configProvider: any) => {
-      expect(configProvider).toBe("github");
+      expect(configProvider).toEqual(["github", "osv"]);
       return Object.assign({}, options, rest);
     },
   );
@@ -3428,6 +3456,51 @@ test("run - shows help with -h flag", async () => {
 
   const output = logged.join("\n");
   expect(output).toContain("pastoralist");
+});
+
+test("run - handles unknown flags without throwing", async () => {
+  const { run } = require("../../../src/cli/index");
+
+  const originalLog = console.log;
+  const originalError = console.error;
+  const originalExitCode = process.exitCode;
+  const logged: string[] = [];
+  const errors: string[] = [];
+  let exitCode: string | number | undefined;
+  console.log = (msg: string) => logged.push(msg);
+  console.error = (msg: string) => errors.push(msg);
+
+  try {
+    await run(["node", "pastoralist", "--wat"]);
+    exitCode = process.exitCode;
+  } finally {
+    console.log = originalLog;
+    console.error = originalError;
+    process.exitCode = originalExitCode ?? 0;
+  }
+
+  expect(errors.join("\n")).toContain("Unknown option: --wat");
+  expect(logged.join("\n")).toContain("pastoralist");
+  expect(exitCode).toBe(1);
+});
+
+test("run - calls init command with first parsed security provider", async () => {
+  const { run } = require("../../../src/cli/index");
+  const mockInitCommand = mock(() => Promise.resolve());
+  const mockAction = mock(() => Promise.resolve());
+
+  await run(
+    ["node", "pastoralist", "init", "--securityProvider", "snyk", "socket"],
+    {
+      action: mockAction,
+      initCommand: mockInitCommand,
+    },
+  );
+
+  expect(mockInitCommand).toHaveBeenCalledWith(
+    expect.objectContaining({ securityProvider: "snyk" }),
+  );
+  expect(mockAction).not.toHaveBeenCalled();
 });
 
 test("handleSetupHook - error does not cause early exit in run", async () => {

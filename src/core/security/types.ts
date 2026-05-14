@@ -45,6 +45,10 @@ export interface SecurityCheckOptions {
   refreshCache?: boolean;
 }
 
+export interface SecurityProviderScanOptions {
+  root?: string;
+}
+
 export interface SecurityOverride {
   packageName: string;
   fromVersion: string;
@@ -190,6 +194,7 @@ export interface SecurityProviderBase {
   readonly providerType: SecurityProviderType;
   fetchAlerts(
     packages: Array<{ name: string; version: string }>,
+    options?: SecurityProviderScanOptions,
   ): Promise<SecurityAlert[]>;
 }
 
@@ -292,6 +297,7 @@ export interface PromptFunctions {
   confirm: (message: string, defaultValue?: boolean) => Promise<boolean>;
   select: (message: string, choices: PromptChoice[]) => Promise<string>;
   input: (message: string, defaultValue?: string) => Promise<string>;
+  secret?: (message: string, defaultValue?: string) => Promise<string>;
 }
 
 export interface NpmAuditAdvisory {

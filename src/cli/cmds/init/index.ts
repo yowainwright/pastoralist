@@ -1,5 +1,5 @@
 import { writeFileSync, existsSync } from "fs";
-import { resolve } from "path";
+import { isAbsolute, resolve } from "path";
 import { green } from "../../../utils";
 import { BRAND } from "../../../utils/icons";
 import { createPrompt, Prompt } from "../../../utils/prompts";
@@ -113,15 +113,15 @@ async function collectWorkspaceAnswers(
   }
 }
 
-async function promptForSecurityToken(
+async function promptForSecurityTokenEnvironment(
   prompt: Prompt,
   provider: SecurityProvider,
   log: ReturnType<typeof createLogger>,
-): Promise<string | undefined> {
+): Promise<void> {
   const tokenInfo = getTokenInfoForProvider(provider);
 
   if (!tokenInfo.required && !tokenInfo.optional) {
-    return undefined;
+    return;
   }
 
   if (tokenInfo.createUrl) {
@@ -130,29 +130,25 @@ async function promptForSecurityToken(
     );
   }
 
-  const hasToken = await prompt.confirm(PROMPTS.hasToken(provider), false);
+  if (tokenInfo.envVar) {
+    log.print(`\n   ${INIT_MESSAGES.tokenEnvironmentInfo(tokenInfo.envVar)}`);
+  }
 
-  if (!hasToken) {
+  const isConfigured = await prompt.confirm(PROMPTS.hasToken(provider), false);
+
+  if (!isConfigured) {
     if (tokenInfo.required) {
       log.print(`\n   ${INIT_MESSAGES.tokenRequiredWarning(provider)}`);
     }
-    return undefined;
+    return;
   }
-
-  const token = await prompt.input(PROMPTS.enterToken(provider), "");
-
-  if (!token) {
-    log.print(`\n   ${INIT_MESSAGES.noTokenProvided()}`);
-    return undefined;
-  }
-
-  return token;
 }
 
 function getTokenInfoForProvider(provider: SecurityProvider): {
   required: boolean;
   optional: boolean;
   createUrl?: string;
+  envVar?: string;
   scopes?: string[];
 } {
   switch (provider) {
@@ -160,6 +156,7 @@ function getTokenInfoForProvider(provider: SecurityProvider): {
       return {
         required: false,
         optional: true,
+        envVar: "GITHUB_TOKEN",
         createUrl:
           "https://github.com/settings/tokens/new?description=Pastoralist%20Security&scopes=repo",
         scopes: ["repo"],
@@ -168,12 +165,14 @@ function getTokenInfoForProvider(provider: SecurityProvider): {
       return {
         required: true,
         optional: false,
+        envVar: "SNYK_TOKEN",
         createUrl: "https://app.snyk.io/account",
       };
     case "socket":
       return {
         required: true,
         optional: false,
+        envVar: "SOCKET_SECURITY_API_KEY",
         createUrl: "https://socket.dev/dashboard/settings",
       };
     default:
@@ -202,7 +201,7 @@ async function collectSecurityAnswers(
     SECURITY_PROVIDER_CHOICES,
   )) as SecurityProvider;
 
-  answers.securityProviderToken = await promptForSecurityToken(
+  await promptForSecurityTokenEnvironment(
     prompt,
     answers.securityProvider,
     log,
@@ -256,10 +255,7 @@ async function saveToPackageJson(
 
 async function saveToExternalFile(
   config: PastoralistConfig,
-  configFormat:
-    | ".pastoralistrc.json"
-    | "pastoralist.config.js"
-    | "pastoralist.config.ts",
+  configFormat: NonNullable<InitAnswers["configFormat"]>,
   root: string,
   prompt: Prompt,
   log: ReturnType<typeof createLogger>,
@@ -331,6 +327,9 @@ async function checkExistingConfig(
   return shouldOverwrite;
 }
 
+const resolvePathFromRoot = (path: string, root: string): string =>
+  !isAbsolute(path) ? resolve(root, path) : path;
+
 export async function initCommand(options: InitOptions = {}): Promise<void> {
   const log = createLogger({ file: "init/index.ts", isLogging: true });
 
@@ -350,8 +349,8 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
     log.print(`${INIT_MESSAGES.skipInfo}\n`);
   }
 
-  const path = options.path || "package.json";
   const root = options.root || process.cwd();
+  const path = resolvePathFromRoot(options.path || "package.json", root);
 
   await createPrompt(async (prompt: Prompt) => {
     const shouldProceed = await checkExistingConfig(prompt, root, path);
@@ -446,7 +445,7 @@ async function collectSecurityAnswersWithContext(
     )) as SecurityProvider;
   }
 
-  answers.securityProviderToken = await promptForSecurityToken(
+  await promptForSecurityTokenEnvironment(
     prompt,
     answers.securityProvider!,
     log,

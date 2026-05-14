@@ -21,7 +21,7 @@
     "build": "turbo run build-dist",
     "build-dist": "bun run clean-dist && bun run build-bundle && bun run build-types",
     "build-bundle": "bun build src/index.ts --outdir dist --target node --minify --splitting --external fs --external path --external crypto",
-    "build-types": "tsc --emitDeclarationOnly --outDir dist",
+    "build-types": "tsc --emitDeclarationOnly --outDir dist --incremental false",
     "clean-dist": "bun run scripts/clean.ts",
     "commit": "git-cz",
     "dev": "bun run --cwd app dev",
@@ -83,7 +83,7 @@
     "oxlint": "^1.64.0",
     "prettier": "3.8.3",
     "release-it": "20.0.1",
-    "turbo": "2.9.12",
+    "turbo": "2.9.14",
     "typescript": "6.0.3"
   },
   "release-it": {

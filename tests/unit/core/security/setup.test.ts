@@ -581,6 +581,30 @@ test("runTokenSetup - returns success with valid token", async () => {
   });
 });
 
+test("runTokenSetup - uses secret prompt when available", async () => {
+  await withMockedFetch(createMockFetch({ ok: true }), async () => {
+    await withMockedStdout(async () => {
+      const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
+      const input = mock(() => Promise.resolve("plain-input-token"));
+      const secret = mock(() => Promise.resolve(MOCK_TOKENS.snyk));
+      (wizard as any).prompts = {
+        confirm: mock(() => Promise.resolve(false)),
+        select: mock(() => Promise.resolve("token")),
+        input,
+        secret,
+      };
+
+      const config = PROVIDER_CONFIGS.snyk;
+      const result = await (wizard as any).runTokenSetup("snyk", config);
+
+      expect(result.success).toBe(true);
+      expect(result.token).toBe(MOCK_TOKENS.snyk);
+      expect(secret).toHaveBeenCalled();
+      expect(input).not.toHaveBeenCalled();
+    });
+  });
+});
+
 test("runTokenSetup - prints setup steps", async () => {
   await withMockedFetch(createMockFetch({ ok: true }), async () => {
     await withMockedStdout(async (output) => {
@@ -920,6 +944,8 @@ test("saveToShellProfile - outputs manual instructions on error", async () => {
       o.includes("export TEST_VAR"),
     );
     expect(hasManualInstructions).toBe(true);
+    const leakedToken = output.some((o) => o.includes("test-value"));
+    expect(leakedToken).toBe(false);
   });
 });
 

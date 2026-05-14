@@ -100,11 +100,7 @@ const processArgument = (
   const isUnknownFlag = !def;
 
   if (isUnknownFlag) {
-    return {
-      nextIndex: index + 1,
-      options: state.options,
-      command: state.command,
-    };
+    throw new Error(`Unknown option: ${flag}`);
   }
 
   const key = getOptionKey(def);

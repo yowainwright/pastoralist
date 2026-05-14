@@ -28,13 +28,15 @@ export class PackageManagerAuditProvider {
 
   async fetchAlerts(
     packages: Array<{ name: string; version: string }>,
+    options: { root?: string } = {},
   ): Promise<SecurityAlert[]> {
     if (packages.length === 0) return [];
 
-    const pm = detectPackageManager();
+    const root = options.root || process.cwd();
+    const pm = detectPackageManager(root);
 
     try {
-      const rawAlerts = await this.runAudit(pm);
+      const rawAlerts = await this.runAudit(pm, root);
       return this.enrichWithVersions(rawAlerts, packages);
     } catch (error) {
       const reason = error instanceof Error ? error.message : "Unknown error";
@@ -57,18 +59,21 @@ export class PackageManagerAuditProvider {
     packages: Array<{ name: string; version: string }>,
   ): SecurityAlert[] {
     const packageMap = new Map(packages.map((p) => [p.name, p.version]));
-    return alerts
-      .map((alert) => {
-        const version = packageMap.get(alert.packageName);
-        return version ? { ...alert, currentVersion: version } : null;
-      })
-      .filter((alert): alert is SecurityAlert => alert !== null);
+    return alerts.map((alert) => {
+      const version = packageMap.get(alert.packageName);
+      if (version) return { ...alert, currentVersion: version };
+      return {
+        ...alert,
+        currentVersion: alert.currentVersion || "unknown",
+      };
+    });
   }
 
   private async runAudit(
     pm: "npm" | "yarn" | "pnpm" | "bun",
+    root: string = process.cwd(),
   ): Promise<SecurityAlert[]> {
-    const execOptions = { timeout: DEFAULT_AUDIT_TIMEOUT };
+    const execOptions = { timeout: DEFAULT_AUDIT_TIMEOUT, cwd: root };
 
     if (pm === "yarn") {
       const { stdout } = await this.exec(

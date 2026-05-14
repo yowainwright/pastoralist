@@ -143,7 +143,7 @@ Short MP4 walkthroughs live beside the docs they explain:
 ## Minimal Config
 
 Pastoralist can be configured in `package.json`, `.pastoralistrc.json`,
-`pastoralist.config.js`, or `pastoralist.config.ts`.
+`pastoralist.config.cjs`, `pastoralist.config.js`, or `pastoralist.config.mjs`.
 
 ```json
 {

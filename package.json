@@ -31,7 +31,7 @@
     "lint": "oxlint src app/src app/tests",
     "lint-fix": "oxlint src app/src app/tests --fix",
     "prepare": "sh scripts/prepare.sh",
-    "prepublishOnly": "bun run test:unit && bun run build-dist",
+    "prepublishOnly": "bun run test:unit",
     "preview": "bun run --cwd app preview",
     "release": "release-it",
     "test": "bun test",
@@ -92,6 +92,9 @@
       "commitArgs": [
         "--no-verify"
       ]
+    },
+    "npm": {
+      "publish": false
     }
   },
   "packageManager": "bun@1.3.9",

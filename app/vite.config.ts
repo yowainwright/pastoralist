@@ -11,6 +11,7 @@ const manualChunkPackages: Record<string, string[]> = {
   mermaid: ["mermaid"],
   fuse: ["fuse.js"],
   shiki: ["shiki"],
+  shaders: ["shaders"],
 };
 
 const manualChunks = (id: string) => {
@@ -31,6 +32,7 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    dedupe: ["react", "react-dom"],
   },
   build: {
     rollupOptions: {

@@ -37,7 +37,7 @@ const CONTENT = {
 } as const;
 
 export function TransformSection() {
-  const [hasSeenAnimation, setHasSeenAnimation] = useState(
+  const [hasSeenAnimation] = useState(
     () =>
       typeof window !== "undefined" &&
       sessionStorage.getItem(SEEN_KEY) === "true",
@@ -65,10 +65,7 @@ export function TransformSection() {
           ) : (
             <TransformDemo
               shouldAnimate
-              onComplete={() => {
-                setHasSeenAnimation(true);
-                sessionStorage.setItem(SEEN_KEY, "true");
-              }}
+              onComplete={() => sessionStorage.setItem(SEEN_KEY, "true")}
             />
           )}
         </Suspense>

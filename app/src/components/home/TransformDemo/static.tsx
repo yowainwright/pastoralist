@@ -42,7 +42,7 @@ export function TransformDemoStatic() {
               <span className="text-base-content/60 text-sm">
                 Undocumented overrides
               </span>
-              <span className="badge badge-lg text-white bg-gradient-to-b from-red-400 to-red-500 border-2 border-red-600 shadow-md shadow-red-500/25 py-1">
+              <span className="badge badge-lg text-white bg-gradient-to-b from-red-400 to-red-500 border-2 border-red-600 shadow-md shadow-red-500/25 p-2">
                 Before
               </span>
             </div>
@@ -60,7 +60,7 @@ export function TransformDemoStatic() {
               <span className="text-base-content/60 text-sm">
                 Execute the pastoralist cli
               </span>
-              <span className="badge badge-lg text-white bg-gradient-to-b from-blue-400 to-blue-500 border-2 border-blue-600 shadow-md shadow-blue-500/25 py-1">
+              <span className="badge badge-lg text-white bg-gradient-to-b from-blue-400 to-blue-500 border-2 border-blue-600 shadow-md shadow-blue-500/25 p-2">
                 CLI
               </span>
             </div>
@@ -87,7 +87,7 @@ export function TransformDemoStatic() {
             <span className="text-base-content/60 text-sm">
               Documented overrides
             </span>
-            <span className="badge badge-lg text-white bg-gradient-to-b from-green-400 to-green-500 border-2 border-green-600 shadow-md shadow-green-500/25">
+            <span className="badge badge-lg text-white bg-gradient-to-b from-green-400 to-green-500 border-2 border-green-600 shadow-md shadow-green-500/25 p-2">
               After
             </span>
           </div>

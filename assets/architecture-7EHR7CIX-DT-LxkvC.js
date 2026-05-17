@@ -1,0 +1,1 @@
+import{Q as e}from"./mermaid-BFwlnTfx.js";export{e as createArchitectureServices};

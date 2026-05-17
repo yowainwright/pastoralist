@@ -1,1 +1,0 @@
-import{Q as e}from"./mermaid-Dp4kXAUg.js";export{e as createArchitectureServices};

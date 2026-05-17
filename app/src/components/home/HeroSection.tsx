@@ -1,14 +1,10 @@
-import { useRef, useEffect, lazy, Suspense } from "react";
+import { useRef, useEffect } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { createMachine } from "xstate";
 import { useMachine } from "@xstate/react";
 import { CopyButton } from "@/components/CopyButton";
-
-const HeroShaderBackground = lazy(
-  () => import("@/components/home/HeroShaderBackground"),
-);
 import { AnimatedTerminal } from "@/components/home/AnimatedTerminal";
 import {
   CLI_OVERRIDE_DEMO,
@@ -225,12 +221,23 @@ export function HeroSection() {
   );
 }
 
+const BLOB_CLIP =
+  "polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 150%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)";
+
 function HeroBackground() {
   return (
-    <div className="absolute inset-0 -z-10" aria-hidden="true">
-      <Suspense fallback={null}>
-        <HeroShaderBackground />
-      </Suspense>
-    </div>
+    <figure
+      className="absolute inset-0 -z-10 transform-gpu overflow-hidden blur-3xl"
+      aria-hidden="true"
+    >
+      <span
+        className="hero-blob relative left-[calc(50%-11rem)] aspect-[1155/678] w-[40rem] -translate-x-1/2 rotate-[70deg] sm:left-[calc(50%-30rem)] sm:w-[72.1875rem] block"
+        style={{ clipPath: BLOB_CLIP }}
+      />
+      <span
+        className="hero-blob relative left-[calc(50%-11rem)] aspect-[1155/678] w-[40rem] -translate-x-1/2 rotate-[70deg] sm:left-[calc(100%)] sm:w-[72.1875rem] block"
+        style={{ clipPath: BLOB_CLIP }}
+      />
+    </figure>
   );
 }

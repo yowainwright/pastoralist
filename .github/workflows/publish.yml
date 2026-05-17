@@ -33,6 +33,16 @@ jobs:
 
       - run: bun run build-dist
 
-      - run: npm publish --provenance --access public
+      - name: Resolve npm dist-tag
+        id: dist-tag
+        run: |
+          VERSION="${{ github.ref_name }}"
+          if [[ "$VERSION" =~ -(alpha|beta|rc) ]]; then
+            echo "tag=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=latest" >> $GITHUB_OUTPUT
+          fi
+
+      - run: npm publish --provenance --access public --tag ${{ steps.dist-tag.outputs.tag }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

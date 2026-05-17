@@ -94,7 +94,8 @@
       "commitMessage": "chore: release",
       "commitArgs": [
         "--no-verify"
-      ]
+      ],
+      "tagName": "v${version}"
     },
     "npm": {
       "publish": false

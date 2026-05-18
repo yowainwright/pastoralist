@@ -3,14 +3,11 @@ import { join } from "path";
 import { gold } from "../utils/colors";
 import { ICON } from "../utils/icons";
 import { resolveCacheDir } from "../utils/cache";
+import type { HintCache } from "./types";
+import { DEFAULT_HINT_BOX_WIDTH, DEFAULT_HINT_TTL_MS } from "./constants";
 import { pad } from "./format";
 import type { Output } from "./output";
 import { defaultOutput } from "./output";
-
-const DEFAULT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const DEFAULT_BOX_WIDTH = 50;
-
-type HintCache = Record<string, number>;
 
 const getHintCacheDir = (): string => resolveCacheDir();
 
@@ -39,7 +36,7 @@ function saveHintCache(cache: HintCache): void {
   }
 }
 
-function shouldShowHint(hintId: string, ttlMs = DEFAULT_TTL_MS): boolean {
+function shouldShowHint(hintId: string, ttlMs = DEFAULT_HINT_TTL_MS): boolean {
   const cache = loadHintCache();
   const lastShown = cache[hintId];
   if (!lastShown) return true;
@@ -79,7 +76,7 @@ function wrapText(text: string, width: number): string[] {
   return lines;
 }
 
-function renderHintBox(text: string, width = DEFAULT_BOX_WIDTH): string {
+function renderHintBox(text: string, width = DEFAULT_HINT_BOX_WIDTH): string {
   const innerWidth = width - 4;
   const textWidth = innerWidth - 3;
   const lines = wrapText(text, textWidth);
@@ -95,7 +92,7 @@ function renderHintBox(text: string, width = DEFAULT_BOX_WIDTH): string {
 export function showHint(
   hintId: string,
   text: string,
-  ttlMs = DEFAULT_TTL_MS,
+  ttlMs = DEFAULT_HINT_TTL_MS,
   out: Output = defaultOutput,
 ): void {
   if (!shouldShowHint(hintId, ttlMs)) return;

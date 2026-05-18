@@ -1,17 +1,19 @@
-/** Default terminal width if detection fails */
-const DEFAULT_WIDTH = 80;
+import type { AnsiMatch, BoxOptions, ProgressOptions, TruncateState } from "./types";
+import {
+  ANSI_PATTERN,
+  ANSI_RESET_PATTERN,
+  BOX_CHARS,
+  DEFAULT_INDENT_SIZE,
+  DEFAULT_PROGRESS_WIDTH,
+  DEFAULT_TERMINAL_WIDTH,
+  WIDE_EMOJI_PATTERN,
+} from "./constants";
 
-/** Standard indent size */
-export const INDENT_SIZE = 3;
-
-/** ANSI escape sequence pattern for performance */
-const ANSI_PATTERN = new RegExp(String.fromCharCode(27) + "\\[[0-9;]*m", "g");
-
-const WIDE_EMOJI_PATTERN = /\p{Emoji_Presentation}/u;
+export const INDENT_SIZE = DEFAULT_INDENT_SIZE;
 
 /** Get terminal width */
 export const width = (): number => {
-  return process.stdout.columns || DEFAULT_WIDTH;
+  return process.stdout.columns || DEFAULT_TERMINAL_WIDTH;
 };
 
 /** Visible length of string (strips ANSI codes and handles Unicode properly) */
@@ -21,9 +23,7 @@ export const visibleLength = (str: string): number => {
   if (typeof Intl !== "undefined" && Intl.Segmenter) {
     const segmenter = new Intl.Segmenter("en", { granularity: "grapheme" });
     const graphemes = Array.from(segmenter.segment(withoutAnsi));
-    const wideCount = graphemes.filter((g) =>
-      WIDE_EMOJI_PATTERN.test(g.segment),
-    ).length;
+    const wideCount = graphemes.filter((g) => WIDE_EMOJI_PATTERN.test(g.segment)).length;
     return graphemes.length + wideCount;
   }
 
@@ -33,15 +33,81 @@ export const visibleLength = (str: string): number => {
 };
 
 /** Pad string to width */
-export const pad = (
-  str: string,
-  len: number,
-  align: "left" | "right" = "left",
-): string => {
+export const pad = (str: string, len: number, align: "left" | "right" = "left"): string => {
   const visible = visibleLength(str);
   const padLen = Math.max(0, len - visible);
   const padding = " ".repeat(padLen);
-  return align === "left" ? str + padding : padding + str;
+  if (align === "left") return str + padding;
+  return padding + str;
+};
+
+const isAnsiReset = (code: string): boolean => ANSI_RESET_PATTERN.test(code);
+
+const appendAnsiCode = (state: TruncateState, code: string): TruncateState => ({
+  ...state,
+  result: state.result + code,
+  hasOpenAnsi: !isAnsiReset(code),
+});
+
+const appendTruncatedText = (state: TruncateState, text: string, maxLen: number): TruncateState => {
+  const spaceLeft = maxLen - 3 - state.visibleCount;
+  const result = state.result + text.substring(0, spaceLeft);
+  return { ...state, result, isTruncated: true };
+};
+
+const appendVisibleText = (state: TruncateState, text: string, maxLen: number): TruncateState => {
+  const spaceLeft = maxLen - 3 - state.visibleCount;
+  if (text.length > spaceLeft) return appendTruncatedText(state, text, maxLen);
+  return {
+    ...state,
+    result: state.result + text,
+    visibleCount: state.visibleCount + text.length,
+  };
+};
+
+const createInitialTruncateState = (): TruncateState => ({
+  result: "",
+  visibleCount: 0,
+  hasOpenAnsi: false,
+  isTruncated: false,
+});
+
+const finalizeTruncated = (state: TruncateState): string => {
+  if (state.hasOpenAnsi) return state.result + "\x1b[0m...";
+  return state.result + "...";
+};
+
+const getAnsiMatches = (str: string): AnsiMatch[] =>
+  Array.from(str.matchAll(ANSI_PATTERN), (match) => match as AnsiMatch);
+
+const getTextBeforeMatch = (str: string, matches: AnsiMatch[], index: number): string => {
+  const previous = matches[index - 1];
+  const start = previous ? previous.index + previous[0].length : 0;
+  return str.substring(start, matches[index].index);
+};
+
+const applyAnsiMatch = (
+  state: TruncateState,
+  textBefore: string,
+  code: string,
+  maxLen: number,
+): TruncateState => {
+  const next = appendVisibleText(state, textBefore, maxLen);
+  if (next.isTruncated) return next;
+  return appendAnsiCode(next, code);
+};
+
+const consumeAnsiMatches = (str: string, matches: AnsiMatch[], maxLen: number): TruncateState =>
+  matches.reduce((state, match, index) => {
+    if (state.isTruncated) return state;
+    const textBefore = getTextBeforeMatch(str, matches, index);
+    return applyAnsiMatch(state, textBefore, match[0], maxLen);
+  }, createInitialTruncateState());
+
+const getRemainingText = (str: string, matches: AnsiMatch[]): string => {
+  const lastMatch = matches[matches.length - 1];
+  if (!lastMatch) return str;
+  return str.substring(lastMatch.index + lastMatch[0].length);
 };
 
 /** Truncate string to width with ellipsis */
@@ -50,51 +116,15 @@ export const truncate = (str: string, maxLen: number): string => {
   if (visible <= maxLen) return str;
   if (maxLen <= 3) return ".".repeat(maxLen);
 
-  ANSI_PATTERN.lastIndex = 0;
-  const ansiPattern = ANSI_PATTERN;
-  let result = "";
-  let visibleCount = 0;
-  let lastIndex = 0;
-  let match;
-  let hasOpenAnsi = false;
+  const matches = getAnsiMatches(str);
+  const state = consumeAnsiMatches(str, matches, maxLen);
+  if (state.isTruncated) return finalizeTruncated(state);
 
-  while ((match = ansiPattern.exec(str)) !== null) {
-    const textBefore = str.substring(lastIndex, match.index);
-    const spaceLeft = maxLen - 3 - visibleCount;
+  const remaining = getRemainingText(str, matches);
+  const finalState = appendVisibleText(state, remaining, maxLen);
+  if (finalState.isTruncated) return finalizeTruncated(finalState);
 
-    if (textBefore.length <= spaceLeft) {
-      result += textBefore + match[0];
-      visibleCount += textBefore.length;
-      // Track if we have an open ANSI sequence
-      if (!match[0].includes("[0m") && !match[0].includes("[m")) {
-        hasOpenAnsi = true;
-      } else {
-        hasOpenAnsi = false;
-      }
-    } else {
-      // Need to truncate in the middle of text
-      result += textBefore.substring(0, spaceLeft);
-      // If there's an open ANSI code, close it before ellipsis
-      if (hasOpenAnsi) {
-        return result + "\x1b[0m...";
-      }
-      return result + "...";
-    }
-    lastIndex = ansiPattern.lastIndex;
-  }
-
-  const remaining = str.substring(lastIndex);
-  const spaceLeft = maxLen - 3 - visibleCount;
-  if (remaining.length <= spaceLeft) {
-    return result + remaining;
-  }
-  // Truncate the remaining text
-  result += remaining.substring(0, spaceLeft);
-  // If there's an open ANSI code, close it before ellipsis
-  if (hasOpenAnsi) {
-    return result + "\x1b[0m...";
-  }
-  return result + "...";
+  return finalState.result;
 };
 
 /** Create horizontal divider line */
@@ -118,21 +148,20 @@ export const item = (n: number, str: string, spaces = INDENT_SIZE): string => {
   return " ".repeat(spaces) + `${n}. ${str}`;
 };
 
-/** Box border characters */
-const BOX = {
-  topLeft: "┌",
-  topRight: "┐",
-  bottomLeft: "└",
-  bottomRight: "┘",
-  horizontal: "─",
-  vertical: "│",
-} as const;
+const buildPlainTopBorder = (boxWidth: number): string =>
+  `${BOX_CHARS.topLeft}${BOX_CHARS.horizontal.repeat(boxWidth - 2)}${BOX_CHARS.topRight}`;
 
-export interface BoxOptions {
-  width?: number;
-  padding?: number;
-  title?: string;
-}
+const buildTitledTopBorder = (boxWidth: number, title: string): string => {
+  const titleWidth = visibleLength(title);
+  const titlePadding = Math.max(0, boxWidth - 5 - titleWidth);
+  const rightRule = BOX_CHARS.horizontal.repeat(titlePadding);
+  return `${BOX_CHARS.topLeft}${BOX_CHARS.horizontal} ${title} ${rightRule}${BOX_CHARS.topRight}`;
+};
+
+const buildTopBorder = (boxWidth: number, title?: string): string => {
+  if (title) return buildTitledTopBorder(boxWidth, title);
+  return buildPlainTopBorder(boxWidth);
+};
 
 /** Create bordered box around lines */
 export const box = (lines: string[], options: BoxOptions = {}): string[] => {
@@ -141,34 +170,22 @@ export const box = (lines: string[], options: BoxOptions = {}): string[] => {
   const innerWidth = boxWidth - 2 - padding * 2;
   const padStr = " ".repeat(padding);
 
-  const horizontalLine = BOX.horizontal.repeat(boxWidth - 2);
-  const top = options.title
-    ? `${BOX.topLeft}${BOX.horizontal} ${options.title} ${BOX.horizontal.repeat(Math.max(0, boxWidth - 5 - visibleLength(options.title)))}${BOX.topRight}`
-    : `${BOX.topLeft}${horizontalLine}${BOX.topRight}`;
-  const bottom = `${BOX.bottomLeft}${horizontalLine}${BOX.bottomRight}`;
+  const horizontalLine = BOX_CHARS.horizontal.repeat(boxWidth - 2);
+  const top = buildTopBorder(boxWidth, options.title);
+  const bottom = `${BOX_CHARS.bottomLeft}${horizontalLine}${BOX_CHARS.bottomRight}`;
 
   const contentLines = lines.map((l) => {
     const truncated = truncate(l, innerWidth);
     const padded = pad(truncated, innerWidth);
-    return `${BOX.vertical}${padStr}${padded}${padStr}${BOX.vertical}`;
+    return `${BOX_CHARS.vertical}${padStr}${padded}${padStr}${BOX_CHARS.vertical}`;
   });
 
   return [top, ...contentLines, bottom];
 };
 
-export interface ProgressOptions {
-  width?: number;
-  filled?: string;
-  empty?: string;
-  showPercent?: boolean;
-}
-
 /** Create progress bar string */
-export const progress = (
-  percent: number,
-  options: ProgressOptions = {},
-): string => {
-  const barWidth = options.width ?? 20;
+export const progress = (percent: number, options: ProgressOptions = {}): string => {
+  const barWidth = options.width ?? DEFAULT_PROGRESS_WIDTH;
   const filled = options.filled ?? "█";
   const empty = options.empty ?? "░";
   const showPercent = options.showPercent ?? true;
@@ -178,7 +195,8 @@ export const progress = (
   const emptyLen = barWidth - filledLen;
 
   const bar = filled.repeat(filledLen) + empty.repeat(emptyLen);
-  return showPercent ? `${bar} ${Math.round(clamped)}%` : bar;
+  if (showPercent) return `${bar} ${Math.round(clamped)}%`;
+  return bar;
 };
 
 /** Calculate column widths from data */
@@ -188,10 +206,7 @@ export const calculateWidths = (
   minValue = 0,
 ): { labelWidth: number; valueWidth: number } => {
   const maxLabel = items.reduce((max, r) => Math.max(max, r.label.length), 0);
-  const maxValue = items.reduce(
-    (max, r) => Math.max(max, String(r.value).length),
-    0,
-  );
+  const maxValue = items.reduce((max, r) => Math.max(max, String(r.value).length), 0);
   return {
     labelWidth: Math.max(minLabel, maxLabel),
     valueWidth: Math.max(minValue, maxValue),

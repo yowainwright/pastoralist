@@ -6,7 +6,7 @@ import type {
   VulnerabilityInfo,
   SecurityFixInfo,
   RemovedOverrideInfo,
-} from "../../../src/dx/terminal-graph/types";
+} from "../../../src/dx/tree/types";
 
 const createMockOutput = (): Output & { lines: string[] } => {
   const lines: string[] = [];
@@ -555,9 +555,7 @@ describe("terminal-graph", () => {
       graph.override(info);
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain(
-        "Patches: fix-memory-leak.patch, security.patch",
-      );
+      expect(joined).toContain("Patches: fix-memory-leak.patch, security.patch");
     });
 
     test("renders override with dependents", () => {

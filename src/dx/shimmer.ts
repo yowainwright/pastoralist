@@ -1,15 +1,17 @@
 import type { Output } from "./output";
+import type { RgbTuple } from "./types";
 import { defaultOutput } from "./output";
+import {
+  SHIMMER_CYCLES,
+  SHIMMER_DEFAULT_FRAME_INTERVAL_MS,
+  SHIMMER_FRAMES_PER_CYCLE,
+  SHIMMER_GOLD,
+  SHIMMER_WAVE_WIDTH,
+  SHIMMER_WHITE,
+} from "./constants";
 import { ANSI, rgb } from "../constants";
 
-type RGB = [number, number, number];
-
-const GOLD: RGB = [255, 215, 0];
-const WHITE: RGB = [255, 255, 255];
-
-const WAVE_WIDTH = 0.25;
-
-const lerpColor = (base: RGB, highlight: RGB, t: number): RGB => [
+const lerpColor = (base: RgbTuple, highlight: RgbTuple, t: number): RgbTuple => [
   Math.round(base[0] + (highlight[0] - base[0]) * t),
   Math.round(base[1] + (highlight[1] - base[1]) * t),
   Math.round(base[2] + (highlight[2] - base[2]) * t),
@@ -29,9 +31,9 @@ export const shimmerFrame = (text: string, offset: number): string => {
     const charPos = i / len;
     const dist = Math.abs(charPos - offset);
     const wrapDist = Math.min(dist, 1 - dist);
-    const intensity = Math.max(0, 1 - wrapDist / WAVE_WIDTH);
+    const intensity = Math.max(0, 1 - wrapDist / SHIMMER_WAVE_WIDTH);
 
-    const [r, g, b] = lerpColor(GOLD, WHITE, intensity);
+    const [r, g, b] = lerpColor(SHIMMER_GOLD, SHIMMER_WHITE, intensity);
     return `${rgb(r, g, b)}${char}`;
   });
 
@@ -44,22 +46,20 @@ const sleep = (ms: number): void => {
 
 export const playShimmer = (
   text: string,
-  frameInterval: number = 50,
+  frameInterval: number = SHIMMER_DEFAULT_FRAME_INTERVAL_MS,
   out: Output = defaultOutput,
   prefix: string = "",
   suffix: string = "",
   isTTY: boolean = process.stdout.isTTY ?? false,
 ): void => {
   const shouldAnimate = isTTY;
-  const framesPerCycle = 20;
-  const cycles = 2;
   const offsets = Array.from(
-    { length: framesPerCycle },
-    (_, i) => i / framesPerCycle,
+    { length: SHIMMER_FRAMES_PER_CYCLE },
+    (_, i) => i / SHIMMER_FRAMES_PER_CYCLE,
   );
 
   if (shouldAnimate) {
-    Array.from({ length: cycles }).forEach(() =>
+    Array.from({ length: SHIMMER_CYCLES }).forEach(() =>
       offsets.forEach((offset) => {
         out.clearLine();
         out.write(`${prefix}${shimmerFrame(text, offset)}${suffix}`);

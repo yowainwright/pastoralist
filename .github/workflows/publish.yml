@@ -59,4 +59,4 @@ jobs:
         with:
           subject-path: ${{ steps.pack.outputs.tarball }}
 
-      - run: npm publish "${{ steps.pack.outputs.tarball }}" --provenance --access public --tag ${{ steps.dist-tag.outputs.tag }}
+      - run: npm publish "${{ steps.pack.outputs.tarball }}" --provenance --access public --tag "${{ steps.dist-tag.outputs.tag }}"

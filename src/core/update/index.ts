@@ -1,5 +1,5 @@
 import { IS_DEBUGGING } from "../../constants";
-import type { Options, SecurityAlert, AppendixItem } from "../../types";
+import type { Appendix, Options, SecurityAlert, AppendixItem } from "../../types";
 import { logger } from "../../utils";
 import { clearDependencyTreeCache, jsonCache, getFullDependencyCount } from "../packageJSON";
 import {
@@ -19,8 +19,14 @@ import {
   isKeptEntry,
 } from "../appendix/utils";
 import { writeResult, determineProcessingMode, findPackageFiles } from "./utils";
-import type { UpdateContext } from "../../types";
 import type { SecurityProviderType } from "../security/types";
+import type {
+  OverrideChangeCounts,
+  SeverityCounts,
+  UpdateContext,
+  UpdateMetrics,
+  UpdateRuntime,
+} from "./types";
 
 const getPrimarySecurityProvider = (
   provider: Options["securityProvider"],
@@ -198,74 +204,99 @@ const withoutPotentiallyFixedIn = (
   return rest;
 };
 
+const getKeptOverrideLedger = (
+  item: AppendixItem,
+  alerts: SecurityAlert[],
+): AppendixItem["ledger"] => {
+  if (!isKeptEntry(item)) return item.ledger;
+  if (!item.ledger) return item.ledger;
+
+  const entryCves = item.ledger.cves || [];
+  if (entryCves.length === 0) return item.ledger;
+
+  const matchingAlert = findAlertMatchingCves(alerts, entryCves);
+  const newFixedIn = matchingAlert?.patchedVersion;
+  if (item.ledger.potentiallyFixedIn === newFixedIn) return item.ledger;
+
+  if (newFixedIn) return withPotentiallyFixedIn(item.ledger, newFixedIn);
+  return withoutPotentiallyFixedIn(item.ledger);
+};
+
+const updateKeptAppendixItem = (item: AppendixItem, alerts: SecurityAlert[]): AppendixItem => {
+  const ledger = getKeptOverrideLedger(item, alerts);
+  if (ledger === item.ledger) return item;
+  return { ...item, ledger };
+};
+
+const refreshKeptAppendix = (appendix: Appendix, alerts: SecurityAlert[]): Appendix =>
+  Object.fromEntries(
+    Object.entries(appendix).map(([key, item]) => [key, updateKeptAppendixItem(item, alerts)]),
+  );
+
+const didAppendixChange = (previous: Appendix, next: Appendix): boolean =>
+  Object.keys(next).some((key) => previous[key] !== next[key]);
+
 const stepUpdateKeptOverrides = (ctx: UpdateContext): UpdateContext => {
   const appendix = ctx.appendix;
   if (!appendix) return ctx;
 
   const alerts = ctx.securityAlerts || ctx.options?.securityAlerts || [];
-  let hasChanges = false;
-
-  const updatedAppendix = { ...appendix };
-
-  Object.keys(updatedAppendix).forEach((key) => {
-    const item = updatedAppendix[key];
-    if (!isKeptEntry(item)) return;
-    if (!item.ledger) return;
-
-    const entryCves = item.ledger.cves || [];
-    if (entryCves.length === 0) return;
-
-    const matchingAlert = findAlertMatchingCves(alerts, entryCves);
-    const currentFixedIn = item.ledger.potentiallyFixedIn;
-    const newFixedIn = matchingAlert?.patchedVersion;
-
-    if (currentFixedIn === newFixedIn) return;
-
-    const updatedLedger = newFixedIn
-      ? withPotentiallyFixedIn(item.ledger, newFixedIn)
-      : withoutPotentiallyFixedIn(item.ledger);
-
-    updatedAppendix[key] = { ...item, ledger: updatedLedger };
-    hasChanges = true;
-  });
-
-  if (!hasChanges) return ctx;
+  const updatedAppendix = refreshKeptAppendix(appendix, alerts);
+  if (!didAppendixChange(appendix, updatedAppendix)) return ctx;
   return { ...ctx, appendix: updatedAppendix };
 };
 
-const stepRemoveUnused = (ctx: UpdateContext): UpdateContext => {
+const createRemovalBaseContext = (ctx: UpdateContext): UpdateContext => {
   const appendix = ctx.finalAppendix || ctx.appendix || {};
   const overrides = ctx.finalOverrides || ctx.overrides || {};
-  const base = { ...ctx, finalOverrides: overrides, finalAppendix: appendix };
+  return { ...ctx, finalOverrides: overrides, finalAppendix: appendix };
+};
 
-  const shouldRemove = ctx.options?.removeUnused === true;
-  if (!shouldRemove) return base;
-
+const getRemovableAppendixKeys = (ctx: UpdateContext, appendix: Appendix): string[] => {
   const unusedKeys = findUnusedAppendixEntries(appendix, ctx.rootDeps);
   const skipKeys = new Set(ctx.options?.skipRemovalKeys || []);
-  const removableKeys = unusedKeys.filter((key) => !skipKeys.has(key));
-  const hasUnused = removableKeys.length > 0;
-  if (!hasUnused) return base;
+  return unusedKeys.filter((key) => !skipKeys.has(key));
+};
 
-  const packageNames = extractPackageNames(removableKeys);
-
-  const keyHasCves = (key: string): boolean => {
+const appendixKeyHasCves =
+  (appendix: Appendix) =>
+  (key: string): boolean => {
     const cves = appendix[key]?.ledger?.cves;
     return Boolean(cves?.length);
   };
-  const keysWithCves = removableKeys.filter(keyHasCves);
 
-  if (keysWithCves.length > 0) {
-    ctx.log.warn(
-      `Removing ${keysWithCves.length} override(s) that had tracked CVEs: ${keysWithCves.join(", ")}. Verify the base versions are not vulnerable.`,
-      "stepRemoveUnused",
-    );
-  }
+const warnCveRemovals = (ctx: UpdateContext, appendix: Appendix, removableKeys: string[]): void => {
+  const keysWithCves = removableKeys.filter(appendixKeyHasCves(appendix));
+  if (keysWithCves.length === 0) return;
+  ctx.log.warn(
+    `Removing ${keysWithCves.length} override(s) that had tracked CVEs: ${keysWithCves.join(", ")}. Verify the base versions are not vulnerable.`,
+    "stepRemoveUnused",
+  );
+};
 
+const logUnusedRemoval = (
+  ctx: UpdateContext,
+  removableKeys: string[],
+  packageNames: string[],
+): void => {
   ctx.log.debug(
     `Removing ${removableKeys.length} unused overrides: ${packageNames.join(", ")}`,
     "stepRemoveUnused",
   );
+};
+
+const stepRemoveUnused = (ctx: UpdateContext): UpdateContext => {
+  const base = createRemovalBaseContext(ctx);
+  if (ctx.options?.removeUnused !== true) return base;
+
+  const appendix = base.finalAppendix || {};
+  const overrides = base.finalOverrides || {};
+  const removableKeys = getRemovableAppendixKeys(ctx, appendix);
+  if (removableKeys.length === 0) return base;
+  const packageNames = extractPackageNames(removableKeys);
+
+  warnCveRemovals(ctx, appendix, removableKeys);
+  logUnusedRemoval(ctx, removableKeys, packageNames);
 
   const finalAppendix = removeAppendixKeys(appendix, removableKeys);
   const finalOverrides = removeOverrideKeys(overrides, packageNames);
@@ -321,12 +352,10 @@ const countAppendixUpdates = (
   return newOrUpdated.length;
 };
 
-type RemovedOverride = { packageName: string; version: string };
-
 const countOverrideChanges = (
   previous: Record<string, unknown> | undefined,
   current: Record<string, unknown> | undefined,
-): { added: number; removed: number; removedPackages: RemovedOverride[] } => {
+): OverrideChangeCounts => {
   const prevKeys = new Set(Object.keys(previous || {}));
   const currKeys = new Set(Object.keys(current || {}));
 
@@ -342,9 +371,7 @@ const countOverrideChanges = (
   return { added, removed, removedPackages };
 };
 
-const countSeverities = (
-  details: Array<{ severity?: string }> | undefined,
-): { critical: number; high: number; medium: number; low: number } => {
+const countSeverities = (details: Array<{ severity?: string }> | undefined): SeverityCounts => {
   if (!details) return { critical: 0, high: 0, medium: 0, low: 0 };
 
   return details.reduce(
@@ -369,26 +396,23 @@ const getPackagesScanned = (ctx: UpdateContext): number => {
   return getFullDependencyCount(ctx.root);
 };
 
-const stepCollectMetrics = (ctx: UpdateContext): UpdateContext => {
-  const packagesScanned = getPackagesScanned(ctx);
-  const workspacePackagesScanned = countKeys(ctx.allWorkspaceDeps);
-  const appendixEntriesUpdated = countAppendixUpdates(ctx.existingAppendix, ctx.finalAppendix);
+const getSecurityDetails = (ctx: UpdateContext): NonNullable<Options["securityOverrideDetails"]> =>
+  ctx.options?.securityOverrideDetails || [];
 
-  const securityDetails = ctx.options?.securityOverrideDetails || [];
-  const vulnerabilitiesBlocked = securityDetails.length;
+const getExistingOverrides = (ctx: UpdateContext): Record<string, unknown> | undefined =>
+  ctx.config?.overrides || ctx.config?.resolutions;
+
+const buildUpdateMetrics = (ctx: UpdateContext): UpdateMetrics => {
+  const securityDetails = getSecurityDetails(ctx);
+  const overrideChanges = countOverrideChanges(getExistingOverrides(ctx), ctx.finalOverrides);
+  const appendixEntriesUpdated = countAppendixUpdates(ctx.existingAppendix, ctx.finalAppendix);
   const severities = countSeverities(securityDetails);
 
-  const existingOverrides = ctx.config?.overrides || ctx.config?.resolutions;
-  const overrideChanges = countOverrideChanges(existingOverrides, ctx.finalOverrides);
-
-  const writeSuccess = ctx.writeSuccess || false;
-  const writeSkipped = ctx.writeSkipped || false;
-
-  const metrics = {
-    packagesScanned,
-    workspacePackagesScanned,
+  return {
+    packagesScanned: getPackagesScanned(ctx),
+    workspacePackagesScanned: countKeys(ctx.allWorkspaceDeps),
     appendixEntriesUpdated,
-    vulnerabilitiesBlocked,
+    vulnerabilitiesBlocked: securityDetails.length,
     overridesAdded: overrideChanges.added,
     overridesRemoved: overrideChanges.removed,
     removedOverridePackages: overrideChanges.removedPackages,
@@ -396,9 +420,13 @@ const stepCollectMetrics = (ctx: UpdateContext): UpdateContext => {
     severityHigh: severities.high,
     severityMedium: severities.medium,
     severityLow: severities.low,
-    writeSuccess,
-    writeSkipped,
+    writeSuccess: ctx.writeSuccess || false,
+    writeSkipped: ctx.writeSkipped || false,
   };
+};
+
+const stepCollectMetrics = (ctx: UpdateContext): UpdateContext => {
+  const metrics = buildUpdateMetrics(ctx);
   return Object.assign({}, ctx, { metrics });
 };
 
@@ -421,41 +449,43 @@ const stepHandleNoOverrides = (ctx: UpdateContext): UpdateContext => {
   return { ...ctx, finalOverrides: {}, finalAppendix: {} };
 };
 
-export const update = (options: Options): UpdateContext => {
+const clearUpdateCaches = (): void => {
+  clearDependencyTreeCache();
+  jsonCache.clear();
+};
+
+const createUpdateRuntime = (options: Options): UpdateRuntime => {
   const path = options?.path || "package.json";
   const root = options?.root || "./";
   const isTesting = options?.isTesting || false;
-  const isLogging = IS_DEBUGGING || options?.debug || false;
+  const isLogging = Boolean(IS_DEBUGGING || options?.debug);
   const log = logger({ file: "update", isLogging });
+  return { path, root, isTesting, isLogging, log };
+};
 
-  const shouldClearCache = options?.clearCache === true;
-  if (shouldClearCache) {
-    clearDependencyTreeCache();
-    jsonCache.clear();
-  }
-
-  if (!options.config) {
-    log.debug("No config provided", "update");
-    return {
-      options,
-      path,
-      root,
-      isTesting,
-      log,
-    };
-  }
-
-  const initialContext: UpdateContext = {
+const createMissingConfigContext = (options: Options, runtime: UpdateRuntime): UpdateContext => {
+  runtime.log.debug("No config provided", "update");
+  return {
     options,
-    path,
-    root,
-    isTesting,
-    log,
-    config: options.config,
-    securityAlerts: options.securityAlerts,
+    path: runtime.path,
+    root: runtime.root,
+    isTesting: runtime.isTesting,
+    log: runtime.log,
   };
+};
 
-  const ctx = pipe(
+const createInitialContext = (options: Options, runtime: UpdateRuntime): UpdateContext => ({
+  options,
+  path: runtime.path,
+  root: runtime.root,
+  isTesting: runtime.isTesting,
+  log: runtime.log,
+  config: options.config,
+  securityAlerts: options.securityAlerts,
+});
+
+const runUpdatePipeline = (initialContext: UpdateContext): UpdateContext =>
+  pipe(
     initialContext,
     stepDetectPatches,
     stepPrepareOverrides,
@@ -473,9 +503,19 @@ export const update = (options: Options): UpdateContext => {
     stepCollectMetrics,
   );
 
+const logUpdateComplete = (ctx: UpdateContext): void => {
   if (IS_DEBUGGING) {
     ctx.log.debug("Update complete", "update");
   }
+};
 
+export const update = (options: Options): UpdateContext => {
+  if (options?.clearCache === true) clearUpdateCaches();
+
+  const runtime = createUpdateRuntime(options);
+  if (!options.config) return createMissingConfigContext(options, runtime);
+
+  const ctx = runUpdatePipeline(createInitialContext(options, runtime));
+  logUpdateComplete(ctx);
   return ctx;
 };

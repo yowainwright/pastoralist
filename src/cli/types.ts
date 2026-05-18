@@ -9,6 +9,8 @@ import type { update } from "../core/update";
 import type { createTerminalGraph } from "../dx";
 import type { resolveJSON } from "../core/packageJSON";
 import type { loadConfig } from "../config";
+import type { getOverrideGitDate } from "../utils/git";
+import type { createSpinner, green, logger as createLogger } from "../utils";
 import type { initCommand } from "./cmds/init";
 import type { buildMergedOptions, handleSecurityResults, runSecurityCheck } from "./security";
 
@@ -65,12 +67,76 @@ export type CliConfigDeps = {
   loadConfig?: typeof loadConfig;
 };
 
+export type RuntimeDeps = {
+  createLogger: typeof createLogger;
+  createTerminalGraph: typeof createTerminalGraph;
+};
+
+export type HandleTestMode = (
+  isTestingCLI: boolean,
+  log: ReturnType<typeof createLogger>,
+  options: Options,
+) => boolean;
+
+export type HandleInitMode = (
+  init: boolean,
+  options: Options,
+  rest: Omit<Options, "isTestingCLI" | "init">,
+  deps?: Pick<RunDeps, "initCommand">,
+) => Promise<boolean>;
+
+export type EarlyActionDeps = {
+  handleTestMode: HandleTestMode;
+  handleInitMode: HandleInitMode;
+};
+
+export type UpdateWorkflowDeps = CliConfigDeps & {
+  getOverrideGitDate: typeof getOverrideGitDate;
+  update: typeof update;
+  runSecurityCheck: typeof runSecurityCheck;
+  handleSecurityResults: typeof handleSecurityResults;
+};
+
+export type ActionWorkflowDeps = UpdateWorkflowDeps & {
+  processExit: (code: number) => void;
+};
+
+export type ActionDeps = ActionWorkflowDeps &
+  EarlyActionDeps &
+  RuntimeDeps & {
+    createSpinner: typeof createSpinner;
+    green: typeof green;
+  };
+
+export type InitSecurityProvider = NonNullable<
+  Parameters<typeof initCommand>[0]
+>["securityProvider"];
+
+export type ActionRuntime = {
+  emptyResult: PastoralistResult;
+  graph: CliGraph;
+  init: boolean;
+  isJsonOutput: boolean;
+  isLogging: boolean;
+  isQuietMode: boolean;
+  isTestingCLI: boolean;
+  log: ReturnType<typeof createLogger>;
+  rest: Omit<Options, "isTestingCLI" | "init">;
+};
+
+export type UpdateWorkflow = LoadedCliConfig & {
+  mergedOptions: Options;
+  securityPhase: SecurityPhaseResult;
+  updateContext: UpdateContext;
+  updateResultData: UpdateResultData;
+};
+
 export type SecurityPhaseDeps = {
   runSecurityCheck: typeof runSecurityCheck;
   handleSecurityResults: typeof handleSecurityResults;
 };
 
-export type CliAction = (options?: Options) => Promise<PastoralistResult>;
+export type CliAction = (options?: Options, deps?: ActionDeps) => Promise<PastoralistResult>;
 
 export type RunDeps = {
   initCommand: typeof initCommand;

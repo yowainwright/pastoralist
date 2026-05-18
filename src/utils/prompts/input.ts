@@ -2,6 +2,21 @@ let pipedInputLines: string[] = [];
 let lineIndex = 0;
 let pipedInputReady = false;
 let pipedInputInitialized = false;
+let pipedInputReadyWaiters: Array<() => void> = [];
+
+const resolvePipedInputReady = (): void => {
+  pipedInputReady = true;
+  const waiters = pipedInputReadyWaiters;
+  pipedInputReadyWaiters = [];
+  waiters.forEach((resolve) => resolve());
+};
+
+const waitForPipedInput = (): Promise<void> => {
+  if (pipedInputReady) return Promise.resolve();
+  return new Promise((resolve) => {
+    pipedInputReadyWaiters = [...pipedInputReadyWaiters, resolve];
+  });
+};
 
 export function initializePipedInput(): void {
   if (pipedInputInitialized || process.stdin.isTTY) {
@@ -18,7 +33,7 @@ export function initializePipedInput(): void {
 
   process.stdin.on("end", () => {
     pipedInputLines = input.trim().split("\n");
-    pipedInputReady = true;
+    resolvePipedInputReady();
   });
 }
 
@@ -32,10 +47,7 @@ export async function waitForPipedInputReady(): Promise<void> {
   }
 
   initializePipedInput();
-
-  while (!pipedInputReady) {
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
+  await waitForPipedInput();
 }
 
 export function getNextPipedInput(): string | null {
@@ -77,4 +89,5 @@ export function resetPipedInputState(): void {
   lineIndex = 0;
   pipedInputReady = false;
   pipedInputInitialized = false;
+  pipedInputReadyWaiters = [];
 }

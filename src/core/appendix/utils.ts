@@ -443,15 +443,9 @@ export const findUnusedAppendixEntries = (
 
 export const removeAppendixKeys = (appendix: Appendix, keys: string[]): Appendix => {
   const keySet = new Set(keys);
-  const result: Appendix = {};
-
-  for (const key of Object.keys(appendix)) {
-    if (!keySet.has(key)) {
-      result[key] = appendix[key];
-    }
-  }
-
-  return result;
+  return Object.fromEntries(
+    Object.entries(appendix).filter(([key]) => !keySet.has(key)),
+  ) as Appendix;
 };
 
 export const extractPackageNames = (appendixKeys: string[]): string[] =>
@@ -465,13 +459,5 @@ export const removeOverrideKeys = (
   packageNames: string[],
 ): Record<string, string | Record<string, string>> => {
   const nameSet = new Set(packageNames);
-  const result: Record<string, string | Record<string, string>> = {};
-
-  for (const key of Object.keys(overrides)) {
-    if (!nameSet.has(key)) {
-      result[key] = overrides[key];
-    }
-  }
-
-  return result;
+  return Object.fromEntries(Object.entries(overrides).filter(([key]) => !nameSet.has(key)));
 };

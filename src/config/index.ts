@@ -89,14 +89,27 @@ const warnIfUnsupportedTypeScriptConfigExists = (root: string): void => {
   );
 };
 
+const loadFirstAvailableConfig = async (
+  filenames: readonly string[],
+  root: string,
+  validate: boolean,
+): Promise<PastoralistConfig | undefined> => {
+  const [filename, ...remaining] = filenames;
+  if (!filename) return undefined;
+
+  const config = await tryLoadConfig(filename, root, validate);
+  if (config !== null) return config;
+
+  return loadFirstAvailableConfig(remaining, root, validate);
+};
+
 export const loadExternalConfig = async (
   root: string = process.cwd(),
   validate: boolean = true,
 ): Promise<PastoralistConfig | undefined> => {
-  for (const filename of CONFIG_FILES) {
-    const config = await tryLoadConfig(filename, root, validate);
-    if (config !== null) return config;
-  }
+  const config = await loadFirstAvailableConfig(CONFIG_FILES, root, validate);
+  if (config !== undefined) return config;
+
   warnIfUnsupportedTypeScriptConfigExists(root);
   return undefined;
 };

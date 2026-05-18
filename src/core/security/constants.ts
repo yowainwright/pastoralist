@@ -21,12 +21,7 @@ export const AUTH_MESSAGES = {
   SPEKTION_AUTH_REQUIRED: spektionAuthMessage,
 } as const;
 
-export type SecurityProvider =
-  | "github"
-  | "snyk"
-  | "socket"
-  | "osv"
-  | "spektion";
+export type SecurityProvider = "github" | "snyk" | "socket" | "osv" | "spektion";
 
 export interface ProviderConfig {
   name: string;
@@ -42,14 +37,7 @@ const snykTokenLink = link(SNYK_TOKEN_URL, "Snyk Account");
 const socketTokenLink = link(SOCKET_TOKEN_URL, "Socket API Keys");
 const spektionTokenLink = link(SPEKTION_TOKEN_URL, "Spektion");
 
-export const KNOWN_PROVIDERS = [
-  "github",
-  "snyk",
-  "socket",
-  "osv",
-  "npm",
-  "spektion",
-] as const;
+export const KNOWN_PROVIDERS = ["github", "snyk", "socket", "osv", "npm", "spektion"] as const;
 
 export const PROVIDER_CONFIGS: Record<SecurityProvider, ProviderConfig> = {
   github: {
@@ -80,11 +68,7 @@ export const PROVIDER_CONFIGS: Record<SecurityProvider, ProviderConfig> = {
     name: "Socket.dev",
     envVar: "SOCKET_SECURITY_API_KEY",
     tokenUrl: SOCKET_TOKEN_URL,
-    setupSteps: [
-      `1. Open ${socketTokenLink}`,
-      "2. Create a new API key",
-      "3. Copy the key",
-    ],
+    setupSteps: [`1. Open ${socketTokenLink}`, "2. Create a new API key", "3. Copy the key"],
   },
   osv: {
     name: "OSV (Open Source Vulnerabilities)",
@@ -113,15 +97,11 @@ export const SETUP_MESSAGES = {
   BROWSER_OPENED: "Browser opened. Create your token there.",
   TOKEN_TIP: "Tip: The token will be hidden as you type for security.",
   SAVE_PROMPT: "Save token to your shell profile for future use?",
-  CHECK_ITEMS: [
-    "The token was copied correctly",
-    "The token has the required permissions",
-  ],
+  CHECK_ITEMS: ["The token was copied correctly", "The token has the required permissions"],
 } as const;
 
 const ghCliUrl = "https://cli.github.com/";
-const ghLinuxUrl =
-  "https://github.com/cli/cli/blob/trunk/docs/install_linux.md";
+const ghLinuxUrl = "https://github.com/cli/cli/blob/trunk/docs/install_linux.md";
 const ghCliLink = link(ghCliUrl, "cli.github.com");
 const ghLinuxLink = link(ghLinuxUrl, "GitHub CLI Linux install guide");
 

@@ -16,9 +16,7 @@ export class SnykCLIProvider {
   private token?: string;
   private strict: boolean;
 
-  constructor(
-    options: { debug?: boolean; token?: string; strict?: boolean } = {},
-  ) {
+  constructor(options: { debug?: boolean; token?: string; strict?: boolean } = {}) {
     this.log = logger({
       file: "security/snyk.ts",
       isLogging: options.debug || false,
@@ -57,10 +55,7 @@ export class SnykCLIProvider {
     if (!hasToken) {
       throw new Error(AUTH_MESSAGES.SNYK_AUTH_REQUIRED);
     }
-    this.log.debug(
-      "Authenticated with Snyk using environment variable",
-      "authenticate",
-    );
+    this.log.debug("Authenticated with Snyk using environment variable", "authenticate");
   }
 
   private async validatePrerequisites(): Promise<boolean> {
@@ -87,15 +82,9 @@ export class SnykCLIProvider {
   }
 
   private async runSnykScan(): Promise<SnykResult> {
-    const env = this.token
-      ? { ...process.env, SNYK_TOKEN: this.token }
-      : process.env;
+    const env = this.token ? { ...process.env, SNYK_TOKEN: this.token } : process.env;
     const execOptions = { timeout: DEFAULT_SNYK_SCAN_TIMEOUT, env };
-    const { stdout } = await execFileAsync(
-      "snyk",
-      ["test", "--json"],
-      execOptions,
-    );
+    const { stdout } = await execFileAsync("snyk", ["test", "--json"], execOptions);
 
     return JSON.parse(stdout);
   }
@@ -144,16 +133,11 @@ export class SnykCLIProvider {
   }
 
   private convertSnykVulnerabilities(snykResult: SnykResult): SecurityAlert[] {
-    if (
-      !snykResult.vulnerabilities ||
-      !Array.isArray(snykResult.vulnerabilities)
-    ) {
+    if (!snykResult.vulnerabilities || !Array.isArray(snykResult.vulnerabilities)) {
       return [];
     }
 
-    return snykResult.vulnerabilities.map((vuln) =>
-      this.convertVulnToAlert(vuln),
-    );
+    return snykResult.vulnerabilities.map((vuln) => this.convertVulnToAlert(vuln));
   }
 
   private convertVulnToAlert(
@@ -206,9 +190,7 @@ export class SnykCLIProvider {
     return undefined;
   }
 
-  private normalizeSeverity(
-    severity: string,
-  ): "low" | "medium" | "high" | "critical" {
+  private normalizeSeverity(severity: string): "low" | "medium" | "high" | "critical" {
     const normalized = severity.toLowerCase();
     switch (normalized) {
       case "low":

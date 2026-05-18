@@ -40,9 +40,7 @@ test("isInstalled - should return true for installed command", async () => {
 
 test("isInstalled - should return false for non-existent command", async () => {
   const installer = new CLIInstaller({ debug: false });
-  const result = await installer.isInstalled(
-    "definitely-not-a-real-command-xyz",
-  );
+  const result = await installer.isInstalled("definitely-not-a-real-command-xyz");
   expect(result).toBe(false);
 });
 
@@ -70,9 +68,7 @@ test("isInstalledGlobally - should return false for non-installed package", asyn
     debug: false,
     execFileAsync: execFileAsync as any,
   });
-  const result = await installer.isInstalledGlobally(
-    "definitely-not-a-real-package-xyz",
-  );
+  const result = await installer.isInstalledGlobally("definitely-not-a-real-package-xyz");
 
   expect(result).toBe(false);
   expect(execFileAsync).toHaveBeenCalledWith(
@@ -90,9 +86,7 @@ test("isInstalledGlobally - should handle npm list errors gracefully", async () 
     debug: false,
     execFileAsync: execFileAsync as any,
   });
-  const result = await installer.isInstalledGlobally(
-    "non-existent-package-12345",
-  );
+  const result = await installer.isInstalledGlobally("non-existent-package-12345");
 
   expect(result).toBe(false);
   expect(execFileAsync).toHaveBeenCalledWith(
@@ -144,9 +138,7 @@ test("ensureInstalled - should handle non-existent package without throwing", as
   const installer = new CLIInstaller({ debug: false });
   spyOn(installer, "isInstalled").mockResolvedValue(false);
   spyOn(installer, "isInstalledGlobally").mockResolvedValue(false);
-  spyOn(installer, "installGlobally").mockRejectedValue(
-    new Error("Install failed"),
-  );
+  spyOn(installer, "installGlobally").mockRejectedValue(new Error("Install failed"));
   const result = await installer.ensureInstalled({
     packageName: "definitely-not-a-real-package-xyz",
     cliCommand: "definitely-not-a-real-command-xyz",
@@ -165,9 +157,9 @@ test("installGlobally - should throw error for invalid package name", async () =
     execFileAsync: execFileAsync as any,
   });
 
-  await expect(
-    installer.installGlobally("invalid@#$%package!@#$name"),
-  ).rejects.toThrow("Failed to install invalid@#$%package!@#$name");
+  await expect(installer.installGlobally("invalid@#$%package!@#$name")).rejects.toThrow(
+    "Failed to install invalid@#$%package!@#$name",
+  );
   expect(execFileAsync).toHaveBeenCalledWith(
     "npm",
     ["install", "-g", "invalid@#$%package!@#$name"],
@@ -844,10 +836,7 @@ test("InteractiveSecurityManager - promptForSecurityActions with vulnerabilities
   const mockLog = console.log;
   console.log = mock();
 
-  const result = await manager.promptForSecurityActions(
-    vulnerablePackages,
-    suggestedOverrides,
-  );
+  const result = await manager.promptForSecurityActions(vulnerablePackages, suggestedOverrides);
 
   expect(result).toEqual([]);
 
@@ -889,10 +878,7 @@ test("InteractiveSecurityManager - promptForSecurityActions user applies fix", a
   const mockLog = console.log;
   console.log = mock();
 
-  const result = await manager.promptForSecurityActions(
-    vulnerablePackages,
-    suggestedOverrides,
-  );
+  const result = await manager.promptForSecurityActions(vulnerablePackages, suggestedOverrides);
 
   expect(result.length).toBe(1);
   expect(result[0].packageName).toBe("lodash");
@@ -935,10 +921,7 @@ test("InteractiveSecurityManager - promptForSecurityActions user skips vulnerabi
   const mockLog = console.log;
   console.log = mock();
 
-  const result = await manager.promptForSecurityActions(
-    vulnerablePackages,
-    suggestedOverrides,
-  );
+  const result = await manager.promptForSecurityActions(vulnerablePackages, suggestedOverrides);
 
   expect(result.length).toBe(0);
 
@@ -979,10 +962,7 @@ test("InteractiveSecurityManager - promptForSecurityActions user provides custom
   const mockLog = console.log;
   console.log = mock();
 
-  const result = await manager.promptForSecurityActions(
-    vulnerablePackages,
-    suggestedOverrides,
-  );
+  const result = await manager.promptForSecurityActions(vulnerablePackages, suggestedOverrides);
 
   expect(result.length).toBe(1);
   expect(result[0].toVersion).toBe("18.0.0");
@@ -1029,10 +1009,7 @@ test("InteractiveSecurityManager - promptForSecurityActions user declines final 
   const mockLog = console.log;
   console.log = mock();
 
-  const result = await manager.promptForSecurityActions(
-    vulnerablePackages,
-    suggestedOverrides,
-  );
+  const result = await manager.promptForSecurityActions(vulnerablePackages, suggestedOverrides);
 
   expect(result.length).toBe(0);
 
@@ -1142,10 +1119,7 @@ test("InteractiveSecurityManager - handles vulnerability without CVE", async () 
   const mockLog = console.log;
   console.log = mock();
 
-  const result = await manager.promptForSecurityActions(
-    vulnerablePackages,
-    suggestedOverrides,
-  );
+  const result = await manager.promptForSecurityActions(vulnerablePackages, suggestedOverrides);
 
   expect(result.length).toBe(1);
 
@@ -1484,9 +1458,7 @@ test("promptSecret - returns default on timeout", async () => {
     queueMicrotask(callback);
     return timer as unknown as ReturnType<typeof setTimeout>;
   }) as unknown as typeof setTimeout;
-  globalThis.clearTimeout = mock(
-    () => undefined,
-  ) as unknown as typeof clearTimeout;
+  globalThis.clearTimeout = mock(() => undefined) as unknown as typeof clearTimeout;
 
   try {
     const result = await promptSecret("Enter token:", "fallback");
@@ -1505,10 +1477,7 @@ test("promptSecret - returns default on timeout", async () => {
 // computeVulnerabilityReduction tests
 // =============================================================================
 
-const makeAlert = (
-  packageName: string,
-  vulnerableVersions: string,
-): SecurityAlert => ({
+const makeAlert = (packageName: string, vulnerableVersions: string): SecurityAlert => ({
   packageName,
   currentVersion: "1.0.0",
   vulnerableVersions,
@@ -1519,24 +1488,14 @@ const makeAlert = (
 
 test("computeVulnerabilityReduction - no skip when target fully resolves vulnerability", () => {
   const alerts: SecurityAlert[] = [makeAlert("lodash", "< 4.17.21")];
-  const result = computeVulnerabilityReduction(
-    "lodash",
-    "4.17.15",
-    "4.17.21",
-    alerts,
-  );
+  const result = computeVulnerabilityReduction("lodash", "4.17.15", "4.17.21", alerts);
   expect(result.skip).toBe(false);
   expect(result.targetStillVulnerable).toBe(false);
 });
 
 test("computeVulnerabilityReduction - skips when target has no net reduction", () => {
   const alerts: SecurityAlert[] = [makeAlert("bad-pkg", "< 3.0.0")];
-  const result = computeVulnerabilityReduction(
-    "bad-pkg",
-    "1.0.0",
-    "2.0.0",
-    alerts,
-  );
+  const result = computeVulnerabilityReduction("bad-pkg", "1.0.0", "2.0.0", alerts);
   expect(result.skip).toBe(true);
 });
 
@@ -1545,12 +1504,7 @@ test("computeVulnerabilityReduction - targetStillVulnerable when target reduces 
     makeAlert("multi-vuln", "< 2.0.0"),
     makeAlert("multi-vuln", "< 3.0.0"),
   ];
-  const result = computeVulnerabilityReduction(
-    "multi-vuln",
-    "1.0.0",
-    "2.0.0",
-    alerts,
-  );
+  const result = computeVulnerabilityReduction("multi-vuln", "1.0.0", "2.0.0", alerts);
   expect(result.skip).toBe(false);
   expect(result.targetStillVulnerable).toBe(true);
 });
@@ -1565,24 +1519,14 @@ test("computeVulnerabilityReduction - no skip and no targetStillVulnerable when 
       title: "Safe vulnerability",
     },
   ];
-  const result = computeVulnerabilityReduction(
-    "safe-pkg",
-    "1.0.0",
-    "2.0.0",
-    alerts,
-  );
+  const result = computeVulnerabilityReduction("safe-pkg", "1.0.0", "2.0.0", alerts);
   expect(result.skip).toBe(false);
   expect(result.targetStillVulnerable).toBe(false);
 });
 
 test("computeVulnerabilityReduction - does not suppress fixes when current version is unknown", () => {
   const alerts: SecurityAlert[] = [makeAlert("transitive-pkg", "< 2.0.0")];
-  const result = computeVulnerabilityReduction(
-    "transitive-pkg",
-    "unknown",
-    "2.0.0",
-    alerts,
-  );
+  const result = computeVulnerabilityReduction("transitive-pkg", "unknown", "2.0.0", alerts);
   expect(result.skip).toBe(false);
   expect(result.targetStillVulnerable).toBe(false);
 });
@@ -1621,9 +1565,7 @@ test("extractPackages - multiple packages can be excluded", () => {
   expect(packages[0].name).toBe("express");
 });
 
-const makeSeverityAlert = (
-  severity: "low" | "medium" | "high" | "critical",
-): SecurityAlert => ({
+const makeSeverityAlert = (severity: "low" | "medium" | "high" | "critical"): SecurityAlert => ({
   packageName: `pkg-${severity}`,
   currentVersion: "1.0.0",
   vulnerableVersions: "< 2.0.0",
@@ -1639,24 +1581,17 @@ const severityAlerts: SecurityAlert[] = [
   makeSeverityAlert("critical"),
 ];
 
-const filterBySeverityThreshold = (
-  alerts: SecurityAlert[],
-  threshold: string,
-): SecurityAlert[] => {
+const filterBySeverityThreshold = (alerts: SecurityAlert[], threshold: string): SecurityAlert[] => {
   const thresholdScore = getSeverityScore(threshold);
-  return alerts.filter(
-    (alert) => getSeverityScore(alert.severity) >= thresholdScore,
-  );
+  return alerts.filter((alert) => getSeverityScore(alert.severity) >= thresholdScore);
 };
 
 test("getSeverityScore - 'high' threshold filters out low and medium alerts", () => {
   const filtered = filterBySeverityThreshold(severityAlerts, "high");
   expect(filtered.length).toBe(2);
-  expect(
-    filtered.every(
-      (a) => getSeverityScore(a.severity) >= getSeverityScore("high"),
-    ),
-  ).toBe(true);
+  expect(filtered.every((a) => getSeverityScore(a.severity) >= getSeverityScore("high"))).toBe(
+    true,
+  );
 });
 
 test("getSeverityScore - 'low' threshold keeps all alerts", () => {

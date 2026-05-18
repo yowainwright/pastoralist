@@ -28,10 +28,7 @@ test("Security - applyAutoFix adds security overrides to appendix", async () => 
     },
   };
 
-  fs.writeFileSync(
-    testPackageJsonPath,
-    JSON.stringify(initialPackageJson, null, 2),
-  );
+  fs.writeFileSync(testPackageJsonPath, JSON.stringify(initialPackageJson, null, 2));
 
   const overrides: SecurityOverride[] = [
     {
@@ -94,10 +91,7 @@ test("Security - applyAutoFix preserves existing appendix entries", async () => 
     },
   };
 
-  fs.writeFileSync(
-    testPackageJsonPath,
-    JSON.stringify(initialPackageJson, null, 2),
-  );
+  fs.writeFileSync(testPackageJsonPath, JSON.stringify(initialPackageJson, null, 2));
 
   const overrides: SecurityOverride[] = [
     {
@@ -115,8 +109,7 @@ test("Security - applyAutoFix preserves existing appendix entries", async () => 
   const updatedContent = fs.readFileSync(testPackageJsonPath, "utf-8");
   const updatedPackageJson = JSON.parse(updatedContent);
 
-  const existingEntry =
-    updatedPackageJson.pastoralist.appendix["existing-dep@2.1.0"];
+  const existingEntry = updatedPackageJson.pastoralist.appendix["existing-dep@2.1.0"];
   expect(existingEntry).toBeDefined();
   expect(existingEntry.ledger.reason).toBe("Manual override for testing");
 
@@ -134,10 +127,7 @@ test("Security - applyAutoFix includes CVE and severity in appendix", async () =
     },
   };
 
-  fs.writeFileSync(
-    testPackageJsonPath,
-    JSON.stringify(initialPackageJson, null, 2),
-  );
+  fs.writeFileSync(testPackageJsonPath, JSON.stringify(initialPackageJson, null, 2));
 
   const overrides: SecurityOverride[] = [
     {
@@ -176,10 +166,7 @@ test("Security - applyAutoFix handles multiple overrides", async () => {
     },
   };
 
-  fs.writeFileSync(
-    testPackageJsonPath,
-    JSON.stringify(initialPackageJson, null, 2),
-  );
+  fs.writeFileSync(testPackageJsonPath, JSON.stringify(initialPackageJson, null, 2));
 
   const overrides: SecurityOverride[] = [
     {
@@ -213,26 +200,17 @@ test("Security - applyAutoFix handles multiple overrides", async () => {
 
   expect(Object.keys(updatedPackageJson.pastoralist.appendix)).toHaveLength(3);
 
-  expect(
-    updatedPackageJson.pastoralist.appendix["package-a@1.1.0"],
-  ).toBeDefined();
-  expect(
-    updatedPackageJson.pastoralist.appendix["package-b@2.1.0"],
-  ).toBeDefined();
-  expect(
-    updatedPackageJson.pastoralist.appendix["package-c@3.1.0"],
-  ).toBeDefined();
+  expect(updatedPackageJson.pastoralist.appendix["package-a@1.1.0"]).toBeDefined();
+  expect(updatedPackageJson.pastoralist.appendix["package-b@2.1.0"]).toBeDefined();
+  expect(updatedPackageJson.pastoralist.appendix["package-c@3.1.0"]).toBeDefined();
 
-  expect(
-    updatedPackageJson.pastoralist.appendix["package-a@1.1.0"].ledger
-      .securityChecked,
-  ).toBe(true);
-  expect(
-    updatedPackageJson.pastoralist.appendix["package-b@2.1.0"].ledger
-      .securityChecked,
-  ).toBe(true);
-  expect(
-    updatedPackageJson.pastoralist.appendix["package-c@3.1.0"].ledger
-      .securityChecked,
-  ).toBe(true);
+  expect(updatedPackageJson.pastoralist.appendix["package-a@1.1.0"].ledger.securityChecked).toBe(
+    true,
+  );
+  expect(updatedPackageJson.pastoralist.appendix["package-b@2.1.0"].ledger.securityChecked).toBe(
+    true,
+  );
+  expect(updatedPackageJson.pastoralist.appendix["package-c@3.1.0"].ledger.securityChecked).toBe(
+    true,
+  );
 });

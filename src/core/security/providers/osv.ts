@@ -112,9 +112,7 @@ export class OSVProvider {
     return enrichedResults;
   }
 
-  private async fetchSingleVulnerability(vuln: {
-    id: string;
-  }): Promise<OSVVulnerability> {
+  private async fetchSingleVulnerability(vuln: { id: string }): Promise<OSVVulnerability> {
     const cacheKey = `osv:${vuln.id}`;
     const cached = this.osvCache.get(cacheKey);
     if (cached) return cached;
@@ -132,19 +130,14 @@ export class OSVProvider {
     partialVulns: Array<{ id: string }>,
   ): Promise<OSVVulnerability[]> {
     const concurrency = 5;
-    const batches = partialVulns.reduce<Array<Array<{ id: string }>>>(
-      (acc, vuln, i) => {
-        const batchIndex = Math.floor(i / concurrency);
-        acc[batchIndex] = acc[batchIndex] || [];
-        acc[batchIndex].push(vuln);
-        return acc;
-      },
-      [],
-    );
+    const batches = partialVulns.reduce<Array<Array<{ id: string }>>>((acc, vuln, i) => {
+      const batchIndex = Math.floor(i / concurrency);
+      acc[batchIndex] = acc[batchIndex] || [];
+      acc[batchIndex].push(vuln);
+      return acc;
+    }, []);
 
-    const processBatch = async (
-      batch: Array<{ id: string }>,
-    ): Promise<OSVVulnerability[]> => {
+    const processBatch = async (batch: Array<{ id: string }>): Promise<OSVVulnerability[]> => {
       const results = await Promise.allSettled(
         batch.map((vuln) => this.fetchSingleVulnerability(vuln)),
       );
@@ -193,18 +186,11 @@ export class OSVProvider {
       {
         ...this.retryOptions,
         onFailedAttempt: (error) => {
-          this.log.debug(
-            `Batch API attempt ${error.attemptNumber} failed`,
-            "fetchAlerts",
-          );
+          this.log.debug(`Batch API attempt ${error.attemptNumber} failed`, "fetchAlerts");
         },
       },
     ).catch((error) => {
-      this.log.debug(
-        "Failed to fetch batch results after retries",
-        "fetchAlerts",
-        { error },
-      );
+      this.log.debug("Failed to fetch batch results after retries", "fetchAlerts", { error });
       const reason = error instanceof Error ? error.message : "Unknown error";
       if (this.strict) {
         throw new Error(
@@ -256,8 +242,7 @@ export class OSVProvider {
             vulnerableVersions: "< 1.0.0",
             patchedVersion: undefined,
             severity: "high" as const,
-            title:
-              "High severity issue in fake-pastoralist-check-4 with no patch available",
+            title: "High severity issue in fake-pastoralist-check-4 with no patch available",
             cves: ["CVE-FAKE-PASTORALIST-2024-0002"],
             fixAvailable: false,
             description:
@@ -284,9 +269,7 @@ export class OSVProvider {
         severity: this.extractSeverity(vuln),
         title: vuln.summary || vuln.details || `Vulnerability in ${pkg.name}`,
         description: vuln.details,
-        url:
-          vuln.references?.[0]?.url ||
-          `https://osv.dev/vulnerability/${vuln.id}`,
+        url: vuln.references?.[0]?.url || `https://osv.dev/vulnerability/${vuln.id}`,
         fixAvailable: !!this.extractPatchedVersion(vuln),
       };
       return cves.length > 0 ? { ...base, cves } : base;
@@ -314,8 +297,7 @@ export class OSVProvider {
   private extractSeverity(
     vuln: OSVVulnerability & { database_specific?: { severity?: string } },
   ): "low" | "medium" | "high" | "critical" {
-    const severity =
-      vuln.database_specific?.severity || vuln.severity?.[0]?.score || "medium";
+    const severity = vuln.database_specific?.severity || vuln.severity?.[0]?.score || "medium";
 
     if (typeof severity === "string") {
       const s = severity.toLowerCase();
@@ -333,9 +315,7 @@ export class OSVProvider {
     return "medium";
   }
 
-  private cvssScoreToSeverity(
-    score: number,
-  ): "low" | "medium" | "high" | "critical" {
+  private cvssScoreToSeverity(score: number): "low" | "medium" | "high" | "critical" {
     const isCritical = score >= 9.0;
     const isHigh = score >= 7.0;
     const isMedium = score >= 4.0;

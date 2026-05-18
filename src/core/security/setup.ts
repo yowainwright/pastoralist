@@ -5,12 +5,7 @@ import { homedir } from "os";
 import { join } from "path";
 import { logger } from "../../utils";
 import { green, yellow, cyan, gray, red } from "../../utils/colors";
-import {
-  promptConfirm,
-  promptSelect,
-  promptInput,
-  promptSecret,
-} from "./utils";
+import { promptConfirm, promptSelect, promptInput, promptSecret } from "./utils";
 import {
   DEFAULT_CLI_TIMEOUT,
   PROVIDER_CONFIGS,
@@ -141,9 +136,7 @@ export class SecuritySetupWizard {
     };
   }
 
-  private async tryGitHubCliIfApplicable(
-    provider: SecurityProvider,
-  ): Promise<SetupResult | null> {
+  private async tryGitHubCliIfApplicable(provider: SecurityProvider): Promise<SetupResult | null> {
     const isGitHub = provider === "github";
     if (!isGitHub) {
       return null;
@@ -237,13 +230,9 @@ export class SecuritySetupWizard {
 
   private spawnGhAuth(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const child = spawn(
-        "gh",
-        ["auth", "login", "--web", "-h", "github.com"],
-        {
-          stdio: "inherit",
-        },
-      );
+      const child = spawn("gh", ["auth", "login", "--web", "-h", "github.com"], {
+        stdio: "inherit",
+      });
 
       child.on("close", (code) => {
         const success = code === 0;
@@ -336,9 +325,7 @@ export class SecuritySetupWizard {
 
     this.out.success("Token is valid!\n");
 
-    this.out.warn(
-      "Note: This saves the token as plaintext in your shell profile.",
-    );
+    this.out.warn("Note: This saves the token as plaintext in your shell profile.");
     const saveToProfile = await this.prompts.confirm(
       "Save token to your shell profile for future use?",
       false,
@@ -377,10 +364,7 @@ export class SecuritySetupWizard {
     return { success: false, message: "Token validation failed" };
   }
 
-  async validateToken(
-    provider: SecurityProvider,
-    token: string,
-  ): Promise<boolean> {
+  async validateToken(provider: SecurityProvider, token: string): Promise<boolean> {
     try {
       const isGitHub = provider === "github";
       if (isGitHub) {
@@ -485,10 +469,7 @@ export class SecuritySetupWizard {
     this.out.log(`Please open manually: ${url}`);
   }
 
-  private async saveToShellProfile(
-    envVar: string,
-    token: string,
-  ): Promise<boolean> {
+  private async saveToShellProfile(envVar: string, token: string): Promise<boolean> {
     const home = homedir();
     const shellProfiles = [".zshrc", ".bashrc", ".bash_profile"];
     const profilePath = this.findShellProfile(home, shellProfiles);
@@ -547,10 +528,7 @@ export async function promptForSetup(
 
   out.warn(`No ${config.name} authentication found.\n`);
 
-  const wantsSetup = await promptConfirm(
-    `Would you like help setting up ${config.name}?`,
-    true,
-  );
+  const wantsSetup = await promptConfirm(`Would you like help setting up ${config.name}?`, true);
 
   if (!wantsSetup) {
     return {

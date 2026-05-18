@@ -3,16 +3,10 @@ process.env.PASTORALIST_MOCK_SECURITY = "true";
 import { test, expect, mock, spyOn, beforeEach, afterEach } from "bun:test";
 import { SecurityChecker } from "../../../../src/core/security";
 import { GitHubSecurityProvider } from "../../../../src/core/security/providers/github";
-import {
-  isVersionVulnerable,
-  findVulnerablePackages,
-} from "../../../../src/core/security/utils";
+import { isVersionVulnerable, findVulnerablePackages } from "../../../../src/core/security/utils";
 import * as securityUtils from "../../../../src/core/security/utils";
 import { PastoralistJSON, SecurityOverride } from "../../../../src/types";
-import {
-  DependabotAlert,
-  SecurityAlert,
-} from "../../../../src/core/security/types";
+import { DependabotAlert, SecurityAlert } from "../../../../src/core/security/types";
 import * as fs from "fs";
 import * as path from "path";
 import {
@@ -29,10 +23,7 @@ import {
   NO_FIX_FIELDS,
   createAlert,
 } from "../../fixtures/security.fixtures";
-import {
-  createMockFetch,
-  withMockedFetch,
-} from "../../fixtures/setup.fixtures";
+import { createMockFetch, withMockedFetch } from "../../fixtures/setup.fixtures";
 
 const mockDependabotAlert: DependabotAlert = {
   ...BASE_DEPENDABOT_ALERT,
@@ -60,9 +51,7 @@ const mockPackageJson: PastoralistJSON = {
 };
 
 type FetchAlertsProvider = {
-  fetchAlerts: (
-    packages: Array<{ name: string; version: string }>,
-  ) => Promise<SecurityAlert[]>;
+  fetchAlerts: (packages: Array<{ name: string; version: string }>) => Promise<SecurityAlert[]>;
 };
 
 type SecurityCheckerProviderHarness = {
@@ -73,8 +62,7 @@ const mockProviderAlerts = (
   checker: SecurityChecker,
   alerts: SecurityAlert[] = [],
 ): SecurityChecker => {
-  const providers = (checker as unknown as SecurityCheckerProviderHarness)
-    .providers;
+  const providers = (checker as unknown as SecurityCheckerProviderHarness).providers;
   for (const provider of providers) {
     spyOn(provider, "fetchAlerts").mockResolvedValue(alerts);
   }
@@ -94,10 +82,7 @@ const createCheckerWithMockAlerts = (
 };
 
 const createTempCacheDir = (name: string): string => {
-  const dir = path.join(
-    TEST_DIR,
-    `${name}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-  );
+  const dir = path.join(TEST_DIR, `${name}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 };
@@ -167,10 +152,7 @@ test("Override Generation - should generate correct overrides for vulnerable pac
   const vulnerablePackages = [createAlert()];
 
   const latestVersions = new Map<string, string>();
-  const overrides = (checker as any).generateOverrides(
-    vulnerablePackages,
-    latestVersions,
-  );
+  const overrides = (checker as any).generateOverrides(vulnerablePackages, latestVersions);
 
   expect(overrides.length).toBe(1);
   expect(overrides[0].packageName).toBe("lodash");
@@ -181,15 +163,10 @@ test("Override Generation - should generate correct overrides for vulnerable pac
 
 test("Override Generation - should not generate overrides for packages without fixes", () => {
   const checker = new SecurityChecker({ debug: false });
-  const vulnerablePackages = [
-    createAlert({ packageName: "vulnerable-package", ...NO_FIX_FIELDS }),
-  ];
+  const vulnerablePackages = [createAlert({ packageName: "vulnerable-package", ...NO_FIX_FIELDS })];
 
   const latestVersions = new Map<string, string>();
-  const overrides = (checker as any).generateOverrides(
-    vulnerablePackages,
-    latestVersions,
-  );
+  const overrides = (checker as any).generateOverrides(vulnerablePackages, latestVersions);
   expect(overrides.length).toBe(0);
 });
 
@@ -198,10 +175,7 @@ test("Override Generation - should include CVE in overrides when available", () 
   const vulnerablePackages = [createAlert({ cves: [LODASH_CVE] })];
 
   const latestVersions = new Map<string, string>();
-  const overrides = (checker as any).generateOverrides(
-    vulnerablePackages,
-    latestVersions,
-  );
+  const overrides = (checker as any).generateOverrides(vulnerablePackages, latestVersions);
 
   expect(overrides.length).toBe(1);
   expect(overrides[0].cves?.[0]).toBe(LODASH_CVE);
@@ -212,10 +186,7 @@ test("Override Generation - should include description in overrides when availab
   const vulnerablePackages = [createAlert({ description: LODASH_DESCRIPTION })];
 
   const latestVersions = new Map<string, string>();
-  const overrides = (checker as any).generateOverrides(
-    vulnerablePackages,
-    latestVersions,
-  );
+  const overrides = (checker as any).generateOverrides(vulnerablePackages, latestVersions);
 
   expect(overrides.length).toBe(1);
   expect(overrides[0].description).toBe(LODASH_DESCRIPTION);
@@ -226,10 +197,7 @@ test("Override Generation - should include URL in overrides when available", () 
   const vulnerablePackages = [createAlert({ url: LODASH_URL })];
 
   const latestVersions = new Map<string, string>();
-  const overrides = (checker as any).generateOverrides(
-    vulnerablePackages,
-    latestVersions,
-  );
+  const overrides = (checker as any).generateOverrides(vulnerablePackages, latestVersions);
 
   expect(overrides.length).toBe(1);
   expect(overrides[0].url).toBe(LODASH_URL);
@@ -240,10 +208,7 @@ test("Override Generation - should use latest version when available and newer t
   const vulnerablePackages = [createAlert()];
 
   const latestVersions = new Map<string, string>([["lodash", "4.17.25"]]);
-  const overrides = (checker as any).generateOverrides(
-    vulnerablePackages,
-    latestVersions,
-  );
+  const overrides = (checker as any).generateOverrides(vulnerablePackages, latestVersions);
 
   expect(overrides.length).toBe(1);
   expect(overrides[0].toVersion).toBe("4.17.25");
@@ -254,10 +219,7 @@ test("Override Generation - should use patched version when latest equals patche
   const vulnerablePackages = [createAlert()];
 
   const latestVersions = new Map<string, string>([["lodash", "4.17.21"]]);
-  const overrides = (checker as any).generateOverrides(
-    vulnerablePackages,
-    latestVersions,
-  );
+  const overrides = (checker as any).generateOverrides(vulnerablePackages, latestVersions);
 
   expect(overrides.length).toBe(1);
   expect(overrides[0].toVersion).toBe("4.17.21");
@@ -268,10 +230,7 @@ test("Override Generation - should use patched version when latest is not found"
   const vulnerablePackages = [createAlert()];
 
   const latestVersions = new Map<string, string>();
-  const overrides = (checker as any).generateOverrides(
-    vulnerablePackages,
-    latestVersions,
-  );
+  const overrides = (checker as any).generateOverrides(vulnerablePackages, latestVersions);
 
   expect(overrides.length).toBe(1);
   expect(overrides[0].toVersion).toBe("4.17.21");
@@ -279,19 +238,13 @@ test("Override Generation - should use patched version when latest is not found"
 
 test("Override Generation - should handle multiple packages with different latest versions", () => {
   const checker = new SecurityChecker({ debug: false });
-  const vulnerablePackages = [
-    createAlert(),
-    createAlert({ ...AXIOS_ALERT_FIELDS }),
-  ];
+  const vulnerablePackages = [createAlert(), createAlert({ ...AXIOS_ALERT_FIELDS })];
 
   const latestVersions = new Map<string, string>([
     ["lodash", "4.17.25"],
     ["axios", "0.21.4"],
   ]);
-  const overrides = (checker as any).generateOverrides(
-    vulnerablePackages,
-    latestVersions,
-  );
+  const overrides = (checker as any).generateOverrides(vulnerablePackages, latestVersions);
 
   expect(overrides.length).toBe(2);
 
@@ -314,10 +267,7 @@ test("Override Generation - should prefer patched when latest is older (edge cas
   ];
 
   const latestVersions = new Map<string, string>([["some-package", "1.1.5"]]);
-  const overrides = (checker as any).generateOverrides(
-    vulnerablePackages,
-    latestVersions,
-  );
+  const overrides = (checker as any).generateOverrides(vulnerablePackages, latestVersions);
 
   expect(overrides.length).toBe(1);
   expect(overrides[0].toVersion).toBe("1.2.0");
@@ -550,10 +500,7 @@ test("checkSecurity - should handle both dependencies and devDependencies", asyn
   const checker = new SecurityChecker({ provider: "osv" });
 
   // Mock the OSV provider to prevent real API calls
-  const mockFetchAlerts = spyOn(
-    checker["providers"][0],
-    "fetchAlerts",
-  ).mockResolvedValue([]);
+  const mockFetchAlerts = spyOn(checker["providers"][0], "fetchAlerts").mockResolvedValue([]);
 
   const result = await checker.checkSecurity(config);
 
@@ -852,10 +799,7 @@ test("formatSecurityReport - should include overrides section when overrides exi
     },
   ];
 
-  const report = checker.formatSecurityReport(
-    vulnerablePackages,
-    securityOverrides,
-  );
+  const report = checker.formatSecurityReport(vulnerablePackages, securityOverrides);
 
   expect(report).toContain("Generated 1 override(s)");
   expect(report).toContain('"lodash": "4.17.21"');
@@ -865,10 +809,7 @@ test("readPackageFile - should read valid package.json", () => {
   const checker = new SecurityChecker({ provider: "osv" });
   const testPath = path.join(process.cwd(), "test-package.json");
 
-  fs.writeFileSync(
-    testPath,
-    JSON.stringify({ name: "test", version: "1.0.0" }),
-  );
+  fs.writeFileSync(testPath, JSON.stringify({ name: "test", version: "1.0.0" }));
   const result = (checker as any).readPackageFile(testPath);
   fs.unlinkSync(testPath);
 
@@ -962,16 +903,9 @@ test("extractNewVulnerabilities - should extract only new vulnerabilities", () =
   ];
   const existingKeys = new Set<string>();
 
-  const mockFindVulnerable = spyOn(
-    securityUtils,
-    "findVulnerablePackages",
-  ).mockReturnValue(alerts);
+  const mockFindVulnerable = spyOn(securityUtils, "findVulnerablePackages").mockReturnValue(alerts);
 
-  const result = (checker as any).extractNewVulnerabilities(
-    pkgJson,
-    alerts,
-    existingKeys,
-  );
+  const result = (checker as any).extractNewVulnerabilities(pkgJson, alerts, existingKeys);
 
   expect(result.length).toBe(1);
   expect(result[0].packageName).toBe("lodash");
@@ -1066,11 +1000,7 @@ test("applyOverridesToPackageJson - should apply overrides for npm", () => {
   const packageJson = { name: "test", version: "1.0.0" };
   const newOverrides = { lodash: "4.17.21" };
 
-  const result = (checker as any).applyOverridesToPackageJson(
-    packageJson,
-    "npm",
-    newOverrides,
-  );
+  const result = (checker as any).applyOverridesToPackageJson(packageJson, "npm", newOverrides);
 
   expect(result.overrides).toEqual({ lodash: "4.17.21" });
 });
@@ -1080,11 +1010,7 @@ test("applyOverridesToPackageJson - should apply resolutions for yarn", () => {
   const packageJson = { name: "test", version: "1.0.0" };
   const newOverrides = { lodash: "4.17.21" };
 
-  const result = (checker as any).applyOverridesToPackageJson(
-    packageJson,
-    "yarn",
-    newOverrides,
-  );
+  const result = (checker as any).applyOverridesToPackageJson(packageJson, "yarn", newOverrides);
 
   expect(result.resolutions).toEqual({ lodash: "4.17.21" });
 });
@@ -1094,11 +1020,7 @@ test("applyOverridesToPackageJson - should apply pnpm overrides", () => {
   const packageJson = { name: "test", version: "1.0.0" };
   const newOverrides = { lodash: "4.17.21" };
 
-  const result = (checker as any).applyOverridesToPackageJson(
-    packageJson,
-    "pnpm",
-    newOverrides,
-  );
+  const result = (checker as any).applyOverridesToPackageJson(packageJson, "pnpm", newOverrides);
 
   expect(result.pnpm.overrides).toEqual({ lodash: "4.17.21" });
 });
@@ -1112,11 +1034,7 @@ test("applyOverridesToPackageJson - should merge with existing overrides", () =>
   };
   const newOverrides = { lodash: "4.17.21" };
 
-  const result = (checker as any).applyOverridesToPackageJson(
-    packageJson,
-    "npm",
-    newOverrides,
-  );
+  const result = (checker as any).applyOverridesToPackageJson(packageJson, "npm", newOverrides);
 
   expect(result.overrides).toEqual({
     axios: "1.0.0",
@@ -1163,10 +1081,7 @@ test("applyAutoFix - should apply security overrides to package.json", async () 
 
   const mockConsoleLog = spyOn(console, "log").mockImplementation(() => {});
 
-  const backupPath = (await checker.applyAutoFix(
-    overrides,
-    testPath,
-  )) as string;
+  const backupPath = (await checker.applyAutoFix(overrides, testPath)) as string;
 
   const updated = JSON.parse(fs.readFileSync(testPath, "utf-8"));
   expect(updated.overrides).toEqual({ lodash: "4.17.21" });
@@ -1260,10 +1175,7 @@ test("rollbackAutoFix - should throw error when backup not found", async () => {
   const checker = new SecurityChecker({ provider: "osv" });
 
   try {
-    await checker.rollbackAutoFix(
-      "/non/existent/backup.json",
-      "/non/existent/package.json",
-    );
+    await checker.rollbackAutoFix("/non/existent/backup.json", "/non/existent/package.json");
     expect(true).toBe(false);
   } catch (error: any) {
     expect(error.message).toContain("Backup file not found");
@@ -1603,8 +1515,7 @@ test("checkSecurity - returns results when provider fetch succeeds", async () =>
         json: () => Promise.resolve(mockVuln),
       } as Response);
     }
-    const isRegistryCall =
-      typeof url === "string" && url.startsWith("https://registry.npmjs.org/");
+    const isRegistryCall = typeof url === "string" && url.startsWith("https://registry.npmjs.org/");
     if (isRegistryCall) {
       return Promise.resolve({
         ok: true,
@@ -1638,15 +1549,12 @@ test("checkSecurity - throws provider errors in strict mode", async () => {
     noCache: true,
   });
 
-  const providers = (checker as unknown as SecurityCheckerProviderHarness)
-    .providers;
+  const providers = (checker as unknown as SecurityCheckerProviderHarness).providers;
   for (const provider of providers) {
     spyOn(provider, "fetchAlerts").mockRejectedValue(new Error("boom"));
   }
 
-  await expect(checker.checkSecurity(mockPackageJson)).rejects.toThrow(
-    "Provider osv failed: boom",
-  );
+  await expect(checker.checkSecurity(mockPackageJson)).rejects.toThrow("Provider osv failed: boom");
 });
 
 const TEST_DIR = path.resolve(__dirname, ".test-autofix");
@@ -1692,13 +1600,7 @@ test("applyAutoFix creates backup before modifying", () => {
 
   checker.applyAutoFix(overrides, pkgPath);
 
-  const cacheDir = path.join(
-    TEST_DIR,
-    "backup-test",
-    "node_modules",
-    ".cache",
-    "pastoralist",
-  );
+  const cacheDir = path.join(TEST_DIR, "backup-test", "node_modules", ".cache", "pastoralist");
   const files = fs.readdirSync(cacheDir);
   const backupFiles = files.filter((f: string) => f.includes(".backup-"));
   expect(backupFiles.length).toBe(1);
@@ -1770,9 +1672,7 @@ test("rollbackAutoFix restores to originalPath, not cache dir", () => {
   checker.rollbackAutoFix(backupPath, pkgPath);
 
   const cacheDir = path.dirname(backupPath);
-  const cacheFiles = fs
-    .readdirSync(cacheDir)
-    .filter((f) => f === "package.json");
+  const cacheFiles = fs.readdirSync(cacheDir).filter((f) => f === "package.json");
   expect(cacheFiles.length).toBe(0);
 
   const restored = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));

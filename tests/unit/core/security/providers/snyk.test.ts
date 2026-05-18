@@ -236,9 +236,7 @@ test("fetchAlerts - should throw when strict mode and scan fails", async () => {
   (provider as any).runSnykScan = async () => {
     throw new Error("Scan failed");
   };
-  await expect(provider.fetchAlerts()).rejects.toThrow(
-    "Snyk security check failed",
-  );
+  await expect(provider.fetchAlerts()).rejects.toThrow("Snyk security check failed");
 });
 
 test("fetchAlerts - should warn and return empty when not strict and scan fails", async () => {
@@ -295,9 +293,7 @@ test("authenticate - should throw without token", async () => {
   const provider = new SnykCLIProvider({ debug: false });
   (provider as any).token = undefined;
 
-  await expect(provider.authenticate()).rejects.toThrow(
-    "Snyk requires authentication",
-  );
+  await expect(provider.authenticate()).rejects.toThrow("Snyk requires authentication");
 });
 
 test("validatePrerequisites - should return false when not installed", async () => {
@@ -473,9 +469,7 @@ test("runSnykScan - throws in strict mode on scan failure", async () => {
   };
   (provider as any).validatePrerequisites = async () => true;
 
-  await expect(provider.fetchAlerts()).rejects.toThrow(
-    "Snyk security check failed",
-  );
+  await expect(provider.fetchAlerts()).rejects.toThrow("Snyk security check failed");
 });
 
 test("runSnykScan - parses vulnerabilities with CVE identifiers", async () => {

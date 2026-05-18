@@ -50,9 +50,7 @@ describe("Real Security Checks", () => {
     expect(actionResult.hasSecurityIssues).toBe(true);
     expect(actionResult.securityAlertCount).toBeGreaterThan(0);
 
-    const lodashAlert = actionResult.securityAlerts?.find(
-      (a) => a.packageName === "lodash",
-    );
+    const lodashAlert = actionResult.securityAlerts?.find((a) => a.packageName === "lodash");
     expect(lodashAlert).toBeDefined();
   }, 60000);
 
@@ -78,9 +76,7 @@ describe("Real Security Checks", () => {
     expect(actionResult.success).toBe(true);
     expect(actionResult.hasSecurityIssues).toBe(true);
 
-    const minimistAlert = actionResult.securityAlerts?.find(
-      (a) => a.packageName === "minimist",
-    );
+    const minimistAlert = actionResult.securityAlerts?.find((a) => a.packageName === "minimist");
     expect(minimistAlert).toBeDefined();
   }, 60000);
 });
@@ -170,9 +166,7 @@ describe("Security Overrides - Workspace Deduplication", () => {
     expect(result.success).toBe(true);
     expect(result.hasSecurityIssues).toBe(true);
 
-    const lodashAlerts = (result.securityAlerts || []).filter(
-      (a) => a.packageName === "lodash",
-    );
+    const lodashAlerts = (result.securityAlerts || []).filter((a) => a.packageName === "lodash");
     const lodashCVEs = lodashAlerts.map((a) => a.cve).filter(Boolean);
     const uniqueCVEs = new Set(lodashCVEs);
     const hasDuplicateCVEs = lodashCVEs.length > uniqueCVEs.size;

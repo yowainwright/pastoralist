@@ -1,8 +1,5 @@
 import { test, expect, mock, afterEach } from "bun:test";
-import {
-  OSVProvider,
-  clearOSVCache,
-} from "../../../../../src/core/security/providers/osv";
+import { OSVProvider, clearOSVCache } from "../../../../../src/core/security/providers/osv";
 import type { OSVVulnerability } from "../../../../../src/types";
 
 afterEach(() => {
@@ -73,9 +70,7 @@ test("fetchAlerts - should return empty array when no vulnerabilities found", as
     } as Response);
   });
 
-  const alerts = await provider.fetchAlerts([
-    { name: "lodash", version: "4.17.21" },
-  ]);
+  const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.21" }]);
 
   expect(alerts).toEqual([]);
 
@@ -89,8 +84,7 @@ test("fetchAlerts - should convert OSV vulnerabilities to SecurityAlerts", async
   const mockVuln: OSVVulnerability = {
     id: "OSV-2021-1234",
     summary: "Prototype Pollution in lodash",
-    details:
-      "lodash versions prior to 4.17.21 are vulnerable to prototype pollution",
+    details: "lodash versions prior to 4.17.21 are vulnerable to prototype pollution",
     aliases: ["CVE-2021-1234"],
     affected: [
       {
@@ -122,8 +116,7 @@ test("fetchAlerts - should convert OSV vulnerabilities to SecurityAlerts", async
     if (isBatchCall) {
       return Promise.resolve({
         ok: true,
-        json: () =>
-          Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
+        json: () => Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
       } as Response);
     }
     return Promise.resolve({
@@ -132,9 +125,7 @@ test("fetchAlerts - should convert OSV vulnerabilities to SecurityAlerts", async
     } as Response);
   });
 
-  const alerts = await provider.fetchAlerts([
-    { name: "lodash", version: "4.17.20" },
-  ]);
+  const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]);
 
   expect(alerts).toHaveLength(1);
   expect(alerts[0]).toMatchObject({
@@ -211,9 +202,7 @@ test("fetchAlerts - should handle fetch errors gracefully", async () => {
     return Promise.reject(new Error("Network error"));
   });
 
-  const alerts = await provider.fetchAlerts([
-    { name: "lodash", version: "4.17.20" },
-  ]);
+  const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]);
 
   expect(alerts).toEqual([]);
 
@@ -234,9 +223,7 @@ test("fetchAlerts - should handle non-ok responses", async () => {
     } as Response);
   });
 
-  const alerts = await provider.fetchAlerts([
-    { name: "lodash", version: "4.17.20" },
-  ]);
+  const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]);
 
   expect(alerts).toEqual([]);
 
@@ -273,8 +260,7 @@ test("fetchAlerts - should extract severity correctly", async () => {
     if (isBatchCall) {
       return Promise.resolve({
         ok: true,
-        json: () =>
-          Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
+        json: () => Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
       } as Response);
     }
     return Promise.resolve({
@@ -283,9 +269,7 @@ test("fetchAlerts - should extract severity correctly", async () => {
     } as Response);
   });
 
-  const alerts = await provider.fetchAlerts([
-    { name: "test", version: "1.0.0" },
-  ]);
+  const alerts = await provider.fetchAlerts([{ name: "test", version: "1.0.0" }]);
 
   expect(alerts[0].severity).toBe("high");
 
@@ -319,8 +303,7 @@ test("fetchAlerts - should default to medium severity when not specified", async
     if (isBatchCall) {
       return Promise.resolve({
         ok: true,
-        json: () =>
-          Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
+        json: () => Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
       } as Response);
     }
     return Promise.resolve({
@@ -329,9 +312,7 @@ test("fetchAlerts - should default to medium severity when not specified", async
     } as Response);
   });
 
-  const alerts = await provider.fetchAlerts([
-    { name: "test", version: "1.0.0" },
-  ]);
+  const alerts = await provider.fetchAlerts([{ name: "test", version: "1.0.0" }]);
 
   expect(alerts[0].severity).toBe("medium");
 
@@ -366,8 +347,7 @@ test("fetchAlerts - should extract CVE from aliases", async () => {
     if (isBatchCall) {
       return Promise.resolve({
         ok: true,
-        json: () =>
-          Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
+        json: () => Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
       } as Response);
     }
     return Promise.resolve({
@@ -376,9 +356,7 @@ test("fetchAlerts - should extract CVE from aliases", async () => {
     } as Response);
   });
 
-  const alerts = await provider.fetchAlerts([
-    { name: "test", version: "1.0.0" },
-  ]);
+  const alerts = await provider.fetchAlerts([{ name: "test", version: "1.0.0" }]);
 
   expect(alerts[0].cves?.[0]).toBe("CVE-2021-9999");
 
@@ -408,8 +386,7 @@ test("fetchAlerts - should map numeric CVSS score 9.5 to critical", async () => 
     if (isBatchCall) {
       return Promise.resolve({
         ok: true,
-        json: () =>
-          Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
+        json: () => Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
       } as Response);
     }
     return Promise.resolve({
@@ -418,9 +395,7 @@ test("fetchAlerts - should map numeric CVSS score 9.5 to critical", async () => 
     } as Response);
   });
 
-  const alerts = await provider.fetchAlerts([
-    { name: "test", version: "1.0.0" },
-  ]);
+  const alerts = await provider.fetchAlerts([{ name: "test", version: "1.0.0" }]);
   expect(alerts[0].severity).toBe("critical");
 
   global.fetch = originalFetch;
@@ -449,8 +424,7 @@ test("fetchAlerts - should map numeric CVSS score 7.5 to high", async () => {
     if (isBatchCall) {
       return Promise.resolve({
         ok: true,
-        json: () =>
-          Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
+        json: () => Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
       } as Response);
     }
     return Promise.resolve({
@@ -459,9 +433,7 @@ test("fetchAlerts - should map numeric CVSS score 7.5 to high", async () => {
     } as Response);
   });
 
-  const alerts = await provider.fetchAlerts([
-    { name: "test", version: "1.0.0" },
-  ]);
+  const alerts = await provider.fetchAlerts([{ name: "test", version: "1.0.0" }]);
   expect(alerts[0].severity).toBe("high");
 
   global.fetch = originalFetch;
@@ -490,8 +462,7 @@ test("fetchAlerts - should map numeric CVSS score 5.0 to medium", async () => {
     if (isBatchCall) {
       return Promise.resolve({
         ok: true,
-        json: () =>
-          Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
+        json: () => Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
       } as Response);
     }
     return Promise.resolve({
@@ -500,9 +471,7 @@ test("fetchAlerts - should map numeric CVSS score 5.0 to medium", async () => {
     } as Response);
   });
 
-  const alerts = await provider.fetchAlerts([
-    { name: "test", version: "1.0.0" },
-  ]);
+  const alerts = await provider.fetchAlerts([{ name: "test", version: "1.0.0" }]);
   expect(alerts[0].severity).toBe("medium");
 
   global.fetch = originalFetch;
@@ -531,8 +500,7 @@ test("fetchAlerts - should map numeric CVSS score 2.0 to low", async () => {
     if (isBatchCall) {
       return Promise.resolve({
         ok: true,
-        json: () =>
-          Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
+        json: () => Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
       } as Response);
     }
     return Promise.resolve({
@@ -541,9 +509,7 @@ test("fetchAlerts - should map numeric CVSS score 2.0 to low", async () => {
     } as Response);
   });
 
-  const alerts = await provider.fetchAlerts([
-    { name: "test", version: "1.0.0" },
-  ]);
+  const alerts = await provider.fetchAlerts([{ name: "test", version: "1.0.0" }]);
   expect(alerts[0].severity).toBe("low");
 
   global.fetch = originalFetch;
@@ -577,8 +543,7 @@ test("fetchAlerts - should return undefined for CVE when not in aliases", async 
     if (isBatchCall) {
       return Promise.resolve({
         ok: true,
-        json: () =>
-          Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
+        json: () => Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
       } as Response);
     }
     return Promise.resolve({
@@ -587,9 +552,7 @@ test("fetchAlerts - should return undefined for CVE when not in aliases", async 
     } as Response);
   });
 
-  const alerts = await provider.fetchAlerts([
-    { name: "test", version: "1.0.0" },
-  ]);
+  const alerts = await provider.fetchAlerts([{ name: "test", version: "1.0.0" }]);
 
   expect(alerts[0].cves).toBeUndefined();
 
@@ -623,8 +586,7 @@ test("fetchAlerts - should use default URL when no references", async () => {
     if (isBatchCall) {
       return Promise.resolve({
         ok: true,
-        json: () =>
-          Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
+        json: () => Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-1234" }] }] }),
       } as Response);
     }
     return Promise.resolve({
@@ -633,9 +595,7 @@ test("fetchAlerts - should use default URL when no references", async () => {
     } as Response);
   });
 
-  const alerts = await provider.fetchAlerts([
-    { name: "test", version: "1.0.0" },
-  ]);
+  const alerts = await provider.fetchAlerts([{ name: "test", version: "1.0.0" }]);
 
   expect(alerts[0].url).toBe("https://osv.dev/vulnerability/OSV-2021-1234");
 
@@ -654,9 +614,9 @@ test("fetchAlerts - should throw error when strict mode is enabled and fetch fai
     return Promise.reject(new Error("Network error"));
   });
 
-  await expect(
-    provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]),
-  ).rejects.toThrow("OSV security check failed");
+  await expect(provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }])).rejects.toThrow(
+    "OSV security check failed",
+  );
 
   global.fetch = originalFetch;
 });
@@ -721,9 +681,7 @@ test("fetchAlerts - should return empty array when strict is false and fetch fai
     return Promise.reject(new Error("Network error"));
   });
 
-  const alerts = await provider.fetchAlerts([
-    { name: "lodash", version: "4.17.20" },
-  ]);
+  const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]);
 
   expect(alerts).toEqual([]);
 
@@ -758,8 +716,7 @@ test("fetchAlerts - should extract all CVE aliases when multiple CVEs exist", as
     if (isBatchCall) {
       return Promise.resolve({
         ok: true,
-        json: () =>
-          Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-multi" }] }] }),
+        json: () => Promise.resolve({ results: [{ vulns: [{ id: "OSV-2021-multi" }] }] }),
       } as Response);
     }
     return Promise.resolve({
@@ -768,9 +725,7 @@ test("fetchAlerts - should extract all CVE aliases when multiple CVEs exist", as
     } as Response);
   });
 
-  const alerts = await provider.fetchAlerts([
-    { name: "test", version: "1.0.0" },
-  ]);
+  const alerts = await provider.fetchAlerts([{ name: "test", version: "1.0.0" }]);
 
   expect(alerts[0].cves).toEqual(["CVE-2021-0001", "CVE-2021-0002"]);
 
@@ -831,9 +786,7 @@ test("fetchAlerts - strict mode throws when individual vuln detail fetch fails",
   });
 
   try {
-    await expect(
-      provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]),
-    ).rejects.toThrow();
+    await expect(provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }])).rejects.toThrow();
   } finally {
     global.fetch = originalFetch;
   }
@@ -889,9 +842,7 @@ test("fetchAlerts - non-strict returns partial results when individual vuln deta
   });
 
   try {
-    const alerts = await provider.fetchAlerts([
-      { name: "lodash", version: "4.17.20" },
-    ]);
+    const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]);
     const hasAlerts = alerts.length > 0;
     expect(hasAlerts).toBe(true);
   } finally {

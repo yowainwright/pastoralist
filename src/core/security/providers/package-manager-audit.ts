@@ -76,28 +76,24 @@ export class PackageManagerAuditProvider {
     const execOptions = { timeout: DEFAULT_AUDIT_TIMEOUT, cwd: root };
 
     if (pm === "yarn") {
-      const { stdout } = await this.exec(
-        "yarn",
-        ["audit", "--json"],
-        execOptions,
-      ).catch((err: Error & { stdout?: string }) => {
-        const hasOutput = Boolean(err.stdout);
-        if (hasOutput) return { stdout: err.stdout! };
-        throw err;
-      });
+      const { stdout } = await this.exec("yarn", ["audit", "--json"], execOptions).catch(
+        (err: Error & { stdout?: string }) => {
+          const hasOutput = Boolean(err.stdout);
+          if (hasOutput) return { stdout: err.stdout! };
+          throw err;
+        },
+      );
       return this.parseYarnAuditOutput(stdout);
     }
 
     const cmd = pm === "bun" ? "bun" : pm;
-    const { stdout } = await this.exec(
-      cmd,
-      ["audit", "--json"],
-      execOptions,
-    ).catch((err: Error & { stdout?: string }) => {
-      const hasOutput = Boolean(err.stdout);
-      if (hasOutput) return { stdout: err.stdout! };
-      throw err;
-    });
+    const { stdout } = await this.exec(cmd, ["audit", "--json"], execOptions).catch(
+      (err: Error & { stdout?: string }) => {
+        const hasOutput = Boolean(err.stdout);
+        if (hasOutput) return { stdout: err.stdout! };
+        throw err;
+      },
+    );
 
     const parsed = JSON.parse(stdout) as NpmAuditResult;
     return this.parseNpmCompatibleOutput(parsed);
@@ -142,9 +138,7 @@ export class PackageManagerAuditProvider {
       .flatMap(({ data }) => {
         const { advisory } = data;
         if (!advisory) return [];
-        const patchedVersion = this.extractYarnPatchedVersion(
-          advisory.patched_versions,
-        );
+        const patchedVersion = this.extractYarnPatchedVersion(advisory.patched_versions);
         const base: SecurityAlert = {
           packageName: advisory.module_name,
           currentVersion: "",
@@ -155,40 +149,28 @@ export class PackageManagerAuditProvider {
           url: advisory.url,
           fixAvailable: Boolean(patchedVersion),
         };
-        const cvesField =
-          advisory.cves && advisory.cves.length > 0
-            ? { cves: advisory.cves }
-            : {};
+        const cvesField = advisory.cves && advisory.cves.length > 0 ? { cves: advisory.cves } : {};
         return [{ ...base, ...cvesField }];
       });
   }
 
   private extractNpmPatchedVersion(
-    fixAvailable:
-      | boolean
-      | { name: string; version: string; isSemVerMajor: boolean }
-      | undefined,
+    fixAvailable: boolean | { name: string; version: string; isSemVerMajor: boolean } | undefined,
   ): string | undefined {
     const isObject = typeof fixAvailable === "object" && fixAvailable !== null;
     if (!isObject) return undefined;
     return fixAvailable.version;
   }
 
-  private extractYarnPatchedVersion(
-    patchedVersions: string,
-  ): string | undefined {
+  private extractYarnPatchedVersion(patchedVersions: string): string | undefined {
     const hasNoFix =
-      !patchedVersions ||
-      patchedVersions === "<0.0.0" ||
-      patchedVersions === "No fix available";
+      !patchedVersions || patchedVersions === "<0.0.0" || patchedVersions === "No fix available";
     if (hasNoFix) return undefined;
     const match = patchedVersions.match(/>=\s*([\d.]+)/);
     return match?.[1];
   }
 
-  private normalizeSeverity(
-    severity: string,
-  ): "low" | "medium" | "high" | "critical" {
+  private normalizeSeverity(severity: string): "low" | "medium" | "high" | "critical" {
     const normalized = SEVERITY_MAP[severity.toLowerCase()];
     return normalized || "medium";
   }

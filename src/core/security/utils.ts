@@ -1,8 +1,4 @@
-import {
-  SecurityAlert,
-  SecurityOverride,
-  SecurityProviderType,
-} from "../../types";
+import { SecurityAlert, SecurityOverride, SecurityProviderType } from "../../types";
 import { PastoralistJSON } from "../../types";
 import { compareVersions } from "../../utils/semver";
 import { execFile } from "child_process";
@@ -10,11 +6,7 @@ import { promisify } from "util";
 import { logger } from "../../utils";
 import { red, yellow, cyan, gray } from "../../utils/colors";
 import * as readline from "readline/promises";
-import {
-  DEFAULT_CLI_TIMEOUT,
-  DEFAULT_INSTALL_TIMEOUT,
-  DEFAULT_PROMPT_TIMEOUT,
-} from "./constants";
+import { DEFAULT_CLI_TIMEOUT, DEFAULT_INSTALL_TIMEOUT, DEFAULT_PROMPT_TIMEOUT } from "./constants";
 import type { CLIInstallOptions, PromptFunctions, PromptChoice } from "./types";
 
 const execFileAsync = promisify(execFile);
@@ -30,10 +22,7 @@ export const getSeverityScore = (severity: string): number => {
   return scores[severity.toLowerCase()] || 0;
 };
 
-const mergeSources = (
-  a: SecurityAlert,
-  b: SecurityAlert,
-): SecurityProviderType[] => {
+const mergeSources = (a: SecurityAlert, b: SecurityAlert): SecurityProviderType[] => {
   const combined = [...(a.sources || []), ...(b.sources || [])];
   return [...new Set(combined)] as SecurityProviderType[];
 };
@@ -43,30 +32,23 @@ export const deduplicateAlerts = (alerts: SecurityAlert[]): SecurityAlert[] => {
     const key = `${alert.packageName}@${alert.currentVersion}:${alert.cves?.[0] || alert.title}`;
     const existing = map.get(key);
     const shouldReplace =
-      !existing ||
-      getSeverityScore(alert.severity) > getSeverityScore(existing.severity);
+      !existing || getSeverityScore(alert.severity) > getSeverityScore(existing.severity);
 
     if (shouldReplace) {
       const mergedCves = existing
         ? [...new Set([...(existing.cves || []), ...(alert.cves || [])])]
         : alert.cves;
-      const mergedSources = existing
-        ? mergeSources(existing, alert)
-        : alert.sources;
-      const withCves =
-        mergedCves && mergedCves.length > 0 ? { cves: mergedCves } : {};
+      const mergedSources = existing ? mergeSources(existing, alert) : alert.sources;
+      const withCves = mergedCves && mergedCves.length > 0 ? { cves: mergedCves } : {};
       const withSources =
-        mergedSources && mergedSources.length > 0
-          ? { sources: mergedSources }
-          : {};
+        mergedSources && mergedSources.length > 0 ? { sources: mergedSources } : {};
       map.set(key, { ...alert, ...withCves, ...withSources });
     } else if (existing) {
       const allCves = [...(existing.cves || []), ...(alert.cves || [])];
       const mergedCves = [...new Set(allCves)];
       const mergedSources = mergeSources(existing, alert);
       const withCves = mergedCves.length > 0 ? { cves: mergedCves } : {};
-      const withSources =
-        mergedSources.length > 0 ? { sources: mergedSources } : {};
+      const withSources = mergedSources.length > 0 ? { sources: mergedSources } : {};
       map.set(key, { ...existing, ...withCves, ...withSources });
     }
 
@@ -76,18 +58,15 @@ export const deduplicateAlerts = (alerts: SecurityAlert[]): SecurityAlert[] => {
   return Array.from(seen.values());
 };
 
-export const computeConfidence = (
-  sources: SecurityProviderType[],
-): "confirmed" | "possible" => (sources.length >= 2 ? "confirmed" : "possible");
+export const computeConfidence = (sources: SecurityProviderType[]): "confirmed" | "possible" =>
+  sources.length >= 2 ? "confirmed" : "possible";
 
 const CONFIDENCE_WEIGHTS: Record<"confirmed" | "possible", number> = {
   confirmed: 2,
   possible: 1,
 };
 
-export const sortAlertsByPriority = (
-  alerts: SecurityAlert[],
-): SecurityAlert[] =>
+export const sortAlertsByPriority = (alerts: SecurityAlert[]): SecurityAlert[] =>
   [...alerts].sort((a, b) => {
     const sourcesA = a.sources ?? [];
     const sourcesB = b.sources ?? [];
@@ -126,16 +105,10 @@ const checkBoundedRange = (version: string, range: string): boolean | null => {
   const hasValidBounds = Boolean(minVersion && maxVersion);
   if (!hasValidBounds) return null;
 
-  return (
-    compareVersions(version, minVersion) >= 0 &&
-    compareVersions(version, maxVersion) < 0
-  );
+  return compareVersions(version, minVersion) >= 0 && compareVersions(version, maxVersion) < 0;
 };
 
-const checkLessThanOrEqual = (
-  version: string,
-  range: string,
-): boolean | null => {
+const checkLessThanOrEqual = (version: string, range: string): boolean | null => {
   const isLessThanOrEqual = range.startsWith("<=");
   if (!isLessThanOrEqual) return null;
 
@@ -151,10 +124,7 @@ const checkLessThan = (version: string, range: string): boolean | null => {
   return compareVersions(version, maxVersion) < 0;
 };
 
-const checkGreaterThanOrEqual = (
-  version: string,
-  range: string,
-): boolean | null => {
+const checkGreaterThanOrEqual = (version: string, range: string): boolean | null => {
   // Matches open-ended ranges like ">= 1.0.0" with no upper bound
   const isOpenEnded = range.startsWith(">=") && !range.includes("<");
   if (!isOpenEnded) return null;
@@ -163,10 +133,7 @@ const checkGreaterThanOrEqual = (
   return compareVersions(version, minVersion) >= 0;
 };
 
-export const isVersionVulnerable = (
-  currentVersion: string,
-  vulnerableRange: string,
-): boolean => {
+export const isVersionVulnerable = (currentVersion: string, vulnerableRange: string): boolean => {
   try {
     const cleanVersion = currentVersion.replace(/^[\^~]/, "");
 
@@ -188,8 +155,7 @@ export const computeVulnerabilityReduction = (
   targetVersion: string,
   allAlerts: SecurityAlert[],
 ): { skip: boolean; targetStillVulnerable: boolean } => {
-  const hasKnownCurrentVersion =
-    Boolean(currentVersion) && currentVersion !== "unknown";
+  const hasKnownCurrentVersion = Boolean(currentVersion) && currentVersion !== "unknown";
   if (!hasKnownCurrentVersion) {
     return { skip: false, targetStillVulnerable: false };
   }
@@ -198,8 +164,7 @@ export const computeVulnerabilityReduction = (
     (a) => a.packageName === packageName && a.vulnerableVersions,
   );
   const hasVulnerableRanges = packageAlerts.length > 0;
-  if (!hasVulnerableRanges)
-    return { skip: false, targetStillVulnerable: false };
+  if (!hasVulnerableRanges) return { skip: false, targetStillVulnerable: false };
 
   const currentCount = packageAlerts.filter((a) =>
     isVersionVulnerable(currentVersion, a.vulnerableVersions!),
@@ -228,9 +193,7 @@ export const findVulnerablePackages = (
     .filter((alert) => {
       const currentVersion = allDeps[alert.packageName];
       const hasDep = Boolean(currentVersion);
-      return (
-        hasDep && isVersionVulnerable(currentVersion, alert.vulnerableVersions)
-      );
+      return hasDep && isVersionVulnerable(currentVersion, alert.vulnerableVersions);
     })
     .map((alert) => ({
       ...alert,
@@ -242,9 +205,7 @@ export class CLIInstaller {
   private log: ReturnType<typeof logger>;
   private execFileAsync: ExecFileAsync;
 
-  constructor(
-    options: { debug?: boolean; execFileAsync?: ExecFileAsync } = {},
-  ) {
+  constructor(options: { debug?: boolean; execFileAsync?: ExecFileAsync } = {}) {
     this.log = logger({
       file: "security/cli-installer.ts",
       isLogging: options.debug,
@@ -278,11 +239,7 @@ export class CLIInstaller {
     const execOptions = { timeout: DEFAULT_INSTALL_TIMEOUT };
 
     try {
-      await this.execFileAsync(
-        "npm",
-        ["install", "-g", packageName],
-        execOptions,
-      );
+      await this.execFileAsync("npm", ["install", "-g", packageName], execOptions);
       this.log.print(`Successfully installed ${packageName}`);
     } catch (error) {
       this.log.error(`Failed to install ${packageName}`, "installGlobally", {
@@ -338,11 +295,7 @@ export class CLIInstaller {
   async getVersion(command: string): Promise<string | undefined> {
     const execOptions = { timeout: DEFAULT_CLI_TIMEOUT };
     try {
-      const { stdout } = await this.execFileAsync(
-        command,
-        ["--version"],
-        execOptions,
-      );
+      const { stdout } = await this.execFileAsync(command, ["--version"], execOptions);
       return stdout.trim();
     } catch {
       return undefined;
@@ -387,20 +340,13 @@ const formatYesNo = (defaultValue: boolean): string => {
   return `y/${cyan("N")}`;
 };
 
-export const promptConfirm = async (
-  message: string,
-  defaultValue = true,
-): Promise<boolean> => {
+export const promptConfirm = async (message: string, defaultValue = true): Promise<boolean> => {
   const rl = createPromptInterface();
   const defaultText = formatYesNo(defaultValue);
   const promptText = `${cyan("?")} ${message} (${defaultText}): `;
 
   try {
-    const answer = await questionWithTimeout(
-      rl,
-      promptText,
-      DEFAULT_PROMPT_TIMEOUT,
-    );
+    const answer = await questionWithTimeout(rl, promptText, DEFAULT_PROMPT_TIMEOUT);
     rl.close();
 
     const trimmedAnswer = answer.trim();
@@ -416,10 +362,7 @@ export const promptConfirm = async (
   }
 };
 
-export const promptSelect = async (
-  message: string,
-  choices: PromptChoice[],
-): Promise<string> => {
+export const promptSelect = async (message: string, choices: PromptChoice[]): Promise<string> => {
   const rl = createPromptInterface();
   const defaultChoice = choices[0]?.value || "";
 
@@ -437,11 +380,7 @@ export const promptSelect = async (
   while (selectedValue === null && attempts < maxAttempts) {
     attempts++;
     try {
-      const input = await questionWithTimeout(
-        rl,
-        selectPrompt,
-        DEFAULT_PROMPT_TIMEOUT,
-      );
+      const input = await questionWithTimeout(rl, selectPrompt, DEFAULT_PROMPT_TIMEOUT);
       const num = parseInt(input.trim(), 10);
       const isValidSelection = num >= 1 && num <= choices.length;
 
@@ -468,19 +407,12 @@ const formatInputPrompt = (message: string, defaultValue: string): string => {
   return `${cyan("?")} ${message}: `;
 };
 
-export const promptInput = async (
-  message: string,
-  defaultValue = "",
-): Promise<string> => {
+export const promptInput = async (message: string, defaultValue = ""): Promise<string> => {
   const rl = createPromptInterface();
   const promptText = formatInputPrompt(message, defaultValue);
 
   try {
-    const answer = await questionWithTimeout(
-      rl,
-      promptText,
-      DEFAULT_PROMPT_TIMEOUT,
-    );
+    const answer = await questionWithTimeout(rl, promptText, DEFAULT_PROMPT_TIMEOUT);
     rl.close();
 
     const trimmedAnswer = answer.trim();
@@ -492,10 +424,7 @@ export const promptInput = async (
   }
 };
 
-export const promptSecret = async (
-  message: string,
-  defaultValue = "",
-): Promise<string> => {
+export const promptSecret = async (message: string, defaultValue = ""): Promise<string> => {
   const input = process.stdin;
   const output = process.stdout;
   const isInteractive = Boolean(input.isTTY && output.isTTY);
@@ -604,9 +533,7 @@ export class InteractiveSecurityManager {
     const selectedOverrides: SecurityOverride[] = [];
 
     for (const override of suggestedOverrides) {
-      const vuln = vulnerablePackages.find(
-        (v) => v.packageName === override.packageName,
-      );
+      const vuln = vulnerablePackages.find((v) => v.packageName === override.packageName);
 
       if (!vuln) continue;
 
@@ -617,23 +544,20 @@ export class InteractiveSecurityManager {
         console.log(`   CVE: ${vuln.cves.join(", ")}`);
       }
 
-      const action = await this.prompts.select(
-        "How would you like to handle this vulnerability?",
-        [
-          {
-            name: `Apply fix: Update to ${override.toVersion}`,
-            value: "apply",
-          },
-          {
-            name: "Skip this vulnerability",
-            value: "skip",
-          },
-          {
-            name: "Enter custom version",
-            value: "custom",
-          },
-        ],
-      );
+      const action = await this.prompts.select("How would you like to handle this vulnerability?", [
+        {
+          name: `Apply fix: Update to ${override.toVersion}`,
+          value: "apply",
+        },
+        {
+          name: "Skip this vulnerability",
+          value: "skip",
+        },
+        {
+          name: "Enter custom version",
+          value: "custom",
+        },
+      ]);
 
       if (action === "apply") {
         selectedOverrides.push(override);
@@ -655,9 +579,7 @@ export class InteractiveSecurityManager {
     if (hasSelectedOverrides) {
       console.log("\nSelected Overrides:\n");
       selectedOverrides.forEach((override) => {
-        console.log(
-          `  ${override.packageName}: ${override.fromVersion} → ${override.toVersion}`,
-        );
+        console.log(`  ${override.packageName}: ${override.fromVersion} → ${override.toVersion}`);
       });
 
       const confirm = await this.prompts.confirm(

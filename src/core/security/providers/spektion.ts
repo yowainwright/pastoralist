@@ -8,9 +8,7 @@ const mapSeverity = (severity: string): Severity =>
 const convertVulnerability = (vuln: unknown): SecurityAlert | null => {
   if (!vuln || typeof vuln !== "object") return null;
   const v = vuln as Record<string, unknown>;
-  const patchedVersion = v.patchedVersion
-    ? String(v.patchedVersion)
-    : undefined;
+  const patchedVersion = v.patchedVersion ? String(v.patchedVersion) : undefined;
   return {
     packageName: String(v.package ?? ""),
     currentVersion: String(v.version ?? ""),
@@ -59,19 +57,14 @@ export class SpektionProvider {
   private token?: string;
   private strict: boolean;
 
-  constructor(
-    options: { debug?: boolean; token?: string; strict?: boolean } = {},
-  ) {
+  constructor(options: { debug?: boolean; token?: string; strict?: boolean } = {}) {
     this.log = logger({
       file: "security/spektion.ts",
       isLogging: options.debug || false,
     });
     this.token = options.token || process.env.SPEKTION_API_KEY;
     this.strict = options.strict || false;
-    this.log.debug(
-      "SpektionProvider initialized (experimental)",
-      "constructor",
-    );
+    this.log.debug("SpektionProvider initialized (experimental)", "constructor");
   }
 
   async isAuthenticated(): Promise<boolean> {

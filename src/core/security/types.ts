@@ -12,13 +12,7 @@ export interface SecurityAlert {
   sources?: SecurityProviderType[];
 }
 
-export type SecurityProviderType =
-  | "osv"
-  | "github"
-  | "snyk"
-  | "npm"
-  | "socket"
-  | "spektion";
+export type SecurityProviderType = "osv" | "github" | "snyk" | "npm" | "socket" | "spektion";
 
 export interface SecurityCheckProgress {
   phase: "extracting" | "fetching" | "analyzing" | "resolving";
@@ -43,6 +37,35 @@ export interface SecurityCheckOptions {
   cacheTtl?: number;
   noCache?: boolean;
   refreshCache?: boolean;
+}
+
+export interface SecurityProviderFactoryOptions extends SecurityCheckOptions {
+  debug?: boolean;
+  isIRLFix?: boolean;
+  isIRLCatch?: boolean;
+}
+
+export interface SecurityCheckRuntimeOptions extends SecurityCheckOptions {
+  depPaths?: string[];
+  root?: string;
+  packageJsonPath?: string;
+}
+
+export interface SecurityCheckResult {
+  alerts: SecurityAlert[];
+  overrides: SecurityOverride[];
+  updates: OverrideUpdate[];
+  packagesScanned: number;
+}
+
+export interface SecurityPackage {
+  name: string;
+  version: string;
+}
+
+export interface WorkspaceVulnerabilityState {
+  existingKeys: Set<string>;
+  vulnerabilities: SecurityAlert[];
 }
 
 export interface SecurityProviderScanOptions {
@@ -136,11 +159,8 @@ export class SecurityProviderPermissionError extends Error {
     public provider: string,
     public originalMessage: string,
   ) {
-    const guidance =
-      SecurityProviderPermissionError.getGuidance(originalMessage);
-    super(
-      `${provider} security check skipped: ${originalMessage}. ${guidance}`,
-    );
+    const guidance = SecurityProviderPermissionError.getGuidance(originalMessage);
+    super(`${provider} security check skipped: ${originalMessage}. ${guidance}`);
     this.name = "SecurityProviderPermissionError";
   }
 
@@ -148,8 +168,7 @@ export class SecurityProviderPermissionError extends Error {
     const lowerMessage = message.toLowerCase();
 
     const isAccessError =
-      lowerMessage.includes("resource not accessible") ||
-      lowerMessage.includes("must have admin");
+      lowerMessage.includes("resource not accessible") || lowerMessage.includes("must have admin");
 
     const isNotEnabledError =
       lowerMessage.includes("not enabled") || lowerMessage.includes("disabled");
@@ -318,9 +337,7 @@ export interface NpmAuditVulnerability {
   isDirect?: boolean;
   via: Array<NpmAuditAdvisory | string>;
   range: string;
-  fixAvailable:
-    | boolean
-    | { name: string; version: string; isSemVerMajor: boolean };
+  fixAvailable: boolean | { name: string; version: string; isSemVerMajor: boolean };
 }
 
 export interface NpmAuditResult {

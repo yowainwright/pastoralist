@@ -72,8 +72,7 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
 
     if (isOpen) {
       document.addEventListener("mousedown", handleClickOutside);
-      return () =>
-        document.removeEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [isOpen]);
 
@@ -146,12 +145,8 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
                   <div className="max-h-[60vh] overflow-y-auto">
                     {query.length > 0 && results.length === 0 && (
                       <div className="p-8 text-center text-base-content/50">
-                        <div className="text-lg font-medium mb-2">
-                          No results found
-                        </div>
-                        <div className="text-sm">
-                          Try searching for something else
-                        </div>
+                        <div className="text-lg font-medium mb-2">No results found</div>
+                        <div className="text-sm">Try searching for something else</div>
                       </div>
                     )}
 
@@ -206,9 +201,7 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
                     {query.length === 0 && (
                       <div className="p-8">
                         <div className="text-center mb-6">
-                          <div className="text-base-content/60 text-sm">
-                            Start typing to search
-                          </div>
+                          <div className="text-base-content/60 text-sm">Start typing to search</div>
                         </div>
                         <div className="space-y-2">
                           <div className="text-xs font-medium text-base-content/40 uppercase tracking-wider px-4">
@@ -261,9 +254,7 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
                                   d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                                 />
                               </svg>
-                              <span className="text-base-content/70">
-                                Setup Guide
-                              </span>
+                              <span className="text-base-content/70">Setup Guide</span>
                             </div>
                           </Link>
                         </div>

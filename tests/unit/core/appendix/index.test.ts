@@ -2,11 +2,7 @@ import { test, expect } from "bun:test";
 import { writeFileSync, unlinkSync, readFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import type {
-  Appendix,
-  OverridesType,
-  ResolveOverrides,
-} from "../../../../src/types";
+import type { Appendix, OverridesType, ResolveOverrides } from "../../../../src/types";
 import {
   updateAppendix,
   processAndWritePackageJSON,

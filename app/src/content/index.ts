@@ -13,8 +13,7 @@ export const docs: DocMeta[] = [
   {
     slug: "introduction",
     title: "Introduction to Pastoralist",
-    description:
-      "Pastoralist keeps dependency overrides explainable, current, and removable",
+    description: "Pastoralist keeps dependency overrides explainable, current, and removable",
   },
   {
     slug: "setup",
@@ -34,8 +33,7 @@ export const docs: DocMeta[] = [
   {
     slug: "advanced-features",
     title: "Advanced Features",
-    description:
-      "Advanced cleanup, patch tracking, and override management workflows",
+    description: "Advanced cleanup, patch tracking, and override management workflows",
   },
   {
     slug: "codelab",

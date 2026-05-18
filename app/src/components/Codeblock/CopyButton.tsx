@@ -35,11 +35,7 @@ export function CopyButton({ code }: CopyButtonProps) {
       onClick={handleCopy}
       aria-label={copied ? "Copied!" : "Copy code"}
     >
-      {copied ? (
-        <Check className="h-4 w-4 text-green-500" />
-      ) : (
-        <Copy className="h-4 w-4" />
-      )}
+      {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
     </button>
   );
 }

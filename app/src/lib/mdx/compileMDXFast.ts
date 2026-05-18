@@ -25,11 +25,7 @@ function renderMermaidRemark() {
     visit(
       tree,
       "code",
-      (
-        node: MermaidCodeNode,
-        index: number | undefined,
-        parent: MermaidParentNode | undefined,
-      ) => {
+      (node: MermaidCodeNode, index: number | undefined, parent: MermaidParentNode | undefined) => {
         if (node.lang !== "mermaid") return;
         if (typeof index !== "number" || !parent?.children) return;
 

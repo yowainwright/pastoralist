@@ -25,9 +25,7 @@ export const TreeConnectors: React.FC<{ line: TerminalLine }> = ({ line }) => {
       />
     ));
 
-  const branchClass = line.isLast
-    ? "tree-connector-last"
-    : "tree-connector-mid";
+  const branchClass = line.isLast ? "tree-connector-last" : "tree-connector-mid";
 
   return (
     <>
@@ -53,9 +51,7 @@ const TerminalLines: React.FC<{
     ))}
     {isTyping && currentLine && (
       <div className={`${STYLES.line} ${currentLine.className ?? ""}`}>
-        {currentLine.prefix && (
-          <span className={STYLES.prefix}>{currentLine.prefix}</span>
-        )}
+        {currentLine.prefix && <span className={STYLES.prefix}>{currentLine.prefix}</span>}
         <TreeConnectors line={currentLine} />
         <span dangerouslySetInnerHTML={{ __html: displayedText }} />
         <span className={STYLES.cursor} />

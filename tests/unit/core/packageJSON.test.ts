@@ -39,9 +39,7 @@ mock.module("node:child_process", () => ({
     if (fn.name === "execFile") {
       // Return a mock that tests should never actually call
       return async (cmd: string, args: string[], options: any) => {
-        throw new Error(
-          `Unexpected execFile call in tests: ${cmd} ${args.join(" ")}`,
-        );
+        throw new Error(`Unexpected execFile call in tests: ${cmd} ${args.join(" ")}`);
       };
     }
     return require("util").promisify(fn);
@@ -541,9 +539,7 @@ test("updatePackageJSON - should not write file in dry run mode", () => {
   });
 
   expect(existsSync(testPkgPath)).toBe(false);
-  const hasOverrides = Boolean(
-    result?.overrides || result?.resolutions || result?.pnpm?.overrides,
-  );
+  const hasOverrides = Boolean(result?.overrides || result?.resolutions || result?.pnpm?.overrides);
   expect(hasOverrides).toBe(true);
 
   if (existsSync(testDir)) {
@@ -598,9 +594,9 @@ test("findPackageJsonFiles - should throw when no files found", () => {
     mkdirSync(testDir, { recursive: true });
   }
 
-  expect(() =>
-    findPackageJsonFiles(["nonexistent/**/*.json"], [], testDir),
-  ).toThrow("No package.json files found");
+  expect(() => findPackageJsonFiles(["nonexistent/**/*.json"], [], testDir)).toThrow(
+    "No package.json files found",
+  );
 
   if (existsSync(testDir)) {
     rmSync(testDir, { recursive: true, force: true });
@@ -895,9 +891,7 @@ test("updatePackageJSON - silent option suppresses dry-run output", () => {
 
   console.log = originalLog;
 
-  const hasDryRunMessage = consoleOutput.some((msg) =>
-    msg.includes("[DRY RUN]"),
-  );
+  const hasDryRunMessage = consoleOutput.some((msg) => msg.includes("[DRY RUN]"));
   expect(hasDryRunMessage).toBe(false);
 });
 
@@ -922,9 +916,7 @@ test("updatePackageJSON - dry-run without silent shows output", () => {
 
   console.log = originalLog;
 
-  const hasDryRunMessage = consoleOutput.some((msg) =>
-    msg.includes("[DRY RUN]"),
-  );
+  const hasDryRunMessage = consoleOutput.some((msg) => msg.includes("[DRY RUN]"));
   expect(hasDryRunMessage).toBe(true);
 });
 
@@ -949,9 +941,7 @@ test("updatePackageJSON - dry-run with unchanged content logs no-op message", ()
 
   console.log = originalLog;
 
-  const hasNoChangesMessage = consoleOutput.some((msg) =>
-    msg.includes("No changes detected"),
-  );
+  const hasNoChangesMessage = consoleOutput.some((msg) => msg.includes("No changes detected"));
   expect(hasNoChangesMessage).toBe(true);
 });
 
@@ -1230,10 +1220,7 @@ test("getFullDependencyCount - counts npm lock file packages", () => {
     },
   };
 
-  writeFileSync(
-    resolve(lockTestDir, "package-lock.json"),
-    JSON.stringify(lockContent),
-  );
+  writeFileSync(resolve(lockTestDir, "package-lock.json"), JSON.stringify(lockContent));
 
   const count = getFullDependencyCount(lockTestDir);
   expect(count).toBe(2);

@@ -28,10 +28,7 @@ const normalizePath = (path: string): string => path.replaceAll("\\", "/");
 
 const compilePattern = (pattern: string): RegExp => {
   const escaped = pattern.replace(GLOB_SPECIAL_CHARS, "\\$&");
-  const withPlaceholder = escaped.replace(
-    GLOB_DOUBLE_STAR,
-    GLOBSTAR_PLACEHOLDER,
-  );
+  const withPlaceholder = escaped.replace(GLOB_DOUBLE_STAR, GLOBSTAR_PLACEHOLDER);
   const withSingleStar = withPlaceholder.replace(GLOB_SINGLE_STAR, "[^/]*");
   const withQuestion = withSingleStar.replace(GLOB_QUESTION_MARK, "[^/]");
   const final = withQuestion.replace(GLOBSTAR_PLACEHOLDER_PATTERN, ".*");
@@ -76,27 +73,20 @@ const extractLiteralSegment = (pattern: string): string =>
     .filter((segment) => !segment.includes("*") && segment !== "")
     .join("/");
 
-const matchesAnyIgnore = (
-  filePath: string,
-  ignorePatterns: string[],
-): boolean =>
+const matchesAnyIgnore = (filePath: string, ignorePatterns: string[]): boolean =>
   ignorePatterns.some((pattern) => {
     const matchesDirectly = patternToRegex(pattern).test(filePath);
     if (matchesDirectly) return true;
 
     const literalSegment = extractLiteralSegment(pattern);
-    const hasLiteralMatch =
-      literalSegment !== "" && filePath.includes(literalSegment);
+    const hasLiteralMatch = literalSegment !== "" && filePath.includes(literalSegment);
     return hasLiteralMatch;
   });
 
-const isIgnoredDirectory = (name: string): boolean =>
-  IGNORED_DIRECTORIES.includes(name);
+const isIgnoredDirectory = (name: string): boolean => IGNORED_DIRECTORIES.includes(name);
 
-const shouldIgnorePath = (
-  filePath: string,
-  ignorePatterns: string[],
-): boolean => matchesAnyIgnore(filePath, ignorePatterns);
+const shouldIgnorePath = (filePath: string, ignorePatterns: string[]): boolean =>
+  matchesAnyIgnore(filePath, ignorePatterns);
 
 const collectAllFiles = (
   dir: string,
@@ -162,11 +152,7 @@ const matchSegment = (value: string, pattern: string): boolean =>
 const resolvePatternRoot = (cwd: string, prefixSegments: string[]): string =>
   prefixSegments.length > 0 ? resolve(cwd, ...prefixSegments) : cwd;
 
-const collectDirectMatches = (
-  pattern: string,
-  cwd: string,
-  ignorePatterns: string[],
-): string[] => {
+const collectDirectMatches = (pattern: string, cwd: string, ignorePatterns: string[]): string[] => {
   const segments = splitPattern(pattern);
   const prefixLength = findLiteralPrefixLength(segments);
   const prefixSegments = segments.slice(0, prefixLength);
@@ -244,11 +230,7 @@ const collectDirectMatches = (
   return results;
 };
 
-const collectMatches = (
-  plan: PatternPlan,
-  cwd: string,
-  ignorePatterns: string[],
-): string[] => {
+const collectMatches = (plan: PatternPlan, cwd: string, ignorePatterns: string[]): string[] => {
   if (isLiteralPattern(plan.pattern)) {
     const absolutePath = resolve(cwd, plan.pattern);
     if (!existsSync(absolutePath)) return [];
@@ -272,18 +254,13 @@ const collectMatches = (
   return files.filter((file) => matchesPattern(file, plan.pattern));
 };
 
-export const sync = (
-  patterns: string | string[],
-  options: GlobOptions = {},
-): string[] => {
+export const sync = (patterns: string | string[], options: GlobOptions = {}): string[] => {
   const { cwd = process.cwd(), ignore = [], absolute = false } = options;
   const resolvedCwd = resolve(cwd);
   const patternArray = toPatternArray(patterns).map((pattern) =>
     toProjectPattern(pattern, resolvedCwd),
   );
-  const ignorePatterns = ignore.map((pattern) =>
-    toProjectPattern(pattern, resolvedCwd),
-  );
+  const ignorePatterns = ignore.map((pattern) => toProjectPattern(pattern, resolvedCwd));
   const plans = patternArray.map((pattern) => ({
     pattern,
     hasGlobStar: pattern.includes("**"),
@@ -302,9 +279,7 @@ export const sync = (
     .sort();
 };
 
-export const glob = (
-  patterns: string | string[],
-  options: GlobOptions = {},
-): string[] => sync(patterns, options);
+export const glob = (patterns: string | string[], options: GlobOptions = {}): string[] =>
+  sync(patterns, options);
 
 export default { sync, glob };

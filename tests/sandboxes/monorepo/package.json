@@ -10,10 +10,10 @@
     "demo:dry": "pastoralist --dry-run",
     "demo:summary": "pastoralist --summary"
   },
-  "overrides": {
-    "lodash": "4.17.21"
-  },
   "devDependencies": {
     "pastoralist": "latest"
+  },
+  "overrides": {
+    "lodash": "4.17.21"
   }
 }

@@ -1,10 +1,4 @@
-import type {
-  Options,
-  Appendix,
-  OverridesType,
-  PastoralistJSON,
-  SecurityAlert,
-} from "../../types";
+import type { Options, Appendix, OverridesType, PastoralistJSON, SecurityAlert } from "../../types";
 import type { PastoralistConfig } from "../../config";
 import type { ResolveOverrides } from "../../types";
 import type { Logger } from "../../utils";

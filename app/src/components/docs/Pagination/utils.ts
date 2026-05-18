@@ -16,9 +16,7 @@ export function getPagination(currentSlug: string): {
   let currentItemIndex: number | undefined;
 
   SIDEBAR.forEach((section, sIndex) => {
-    const itemIndex = section.items.findIndex((item) =>
-      item.href.endsWith(`/${currentSlug}`),
-    );
+    const itemIndex = section.items.findIndex((item) => item.href.endsWith(`/${currentSlug}`));
     if (itemIndex !== -1) {
       currentSectionIndex = sIndex;
       currentItemIndex = itemIndex;

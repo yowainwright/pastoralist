@@ -55,9 +55,7 @@ export async function enhancedQuestion<T = string>(
     question: (prompt: string, callback: (answer: string) => void) => void;
   },
   prompt: string,
-  processor: (answer: string) => T = ((answer: string) => answer.trim()) as (
-    answer: string,
-  ) => T,
+  processor: (answer: string) => T = ((answer: string) => answer.trim()) as (answer: string) => T,
 ): Promise<T> {
   await waitForPipedInputReady();
 

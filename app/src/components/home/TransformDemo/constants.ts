@@ -7,13 +7,11 @@ import {
 export const STEP_POPOVERS = [
   {
     title: "The Problem",
-    description:
-      "Overrides exist but nobody knows why. Which packages depend on it?",
+    description: "Overrides exist but nobody knows why. Which packages depend on it?",
   },
   {
     title: "Run Pastoralist",
-    description:
-      "Pastoralist scans your dependencies and documents your overrides.",
+    description: "Pastoralist scans your dependencies and documents your overrides.",
   },
   {
     title: "Automatic Documentation",

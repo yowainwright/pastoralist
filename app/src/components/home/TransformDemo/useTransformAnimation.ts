@@ -3,10 +3,7 @@ import { useInView } from "react-intersection-observer";
 import type { AnimationPhase } from "./types";
 import { APPENDIX_CONTENT, COMMAND } from "./constants";
 
-export function useTransformAnimation(
-  shouldAnimate: boolean,
-  onComplete?: () => void,
-) {
+export function useTransformAnimation(shouldAnimate: boolean, onComplete?: () => void) {
   const [phase, setPhase] = useState<AnimationPhase>("idle");
   const [typedCommand, setTypedCommand] = useState("");
   const [showSpinner, setShowSpinner] = useState(false);
@@ -185,15 +182,9 @@ export function useTransformAnimation(
     if (targetPhase) setPhase(targetPhase);
   };
 
-  const isStep1Active = isPaused
-    ? activeStep === 1
-    : activeStep >= 1 || showAllPopovers;
-  const isStep2Active = isPaused
-    ? activeStep === 2
-    : activeStep >= 2 || showAllPopovers;
-  const isStep3Active = isPaused
-    ? activeStep === 3
-    : activeStep >= 3 || showAllPopovers;
+  const isStep1Active = isPaused ? activeStep === 1 : activeStep >= 1 || showAllPopovers;
+  const isStep2Active = isPaused ? activeStep === 2 : activeStep >= 2 || showAllPopovers;
+  const isStep3Active = isPaused ? activeStep === 3 : activeStep >= 3 || showAllPopovers;
 
   return {
     containerRef,

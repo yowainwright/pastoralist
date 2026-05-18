@@ -28,9 +28,7 @@ afterEach(() => {
 });
 
 test("fetchLatestVersion - should return latest version from dist-tags", async () => {
-  globalThis.fetch = mock(() =>
-    Promise.resolve(mockOkResponse(BASE_NPM_PACKAGE_INFO)),
-  );
+  globalThis.fetch = mock(() => Promise.resolve(mockOkResponse(BASE_NPM_PACKAGE_INFO)));
 
   const result = await fetchLatestVersion("lodash");
 
@@ -63,9 +61,7 @@ test("fetchLatestVersion - should return null when dist-tags.latest is missing",
 });
 
 test("fetchLatestCompatibleVersion - should return latest compatible version within same major", async () => {
-  globalThis.fetch = mock(() =>
-    Promise.resolve(mockOkResponse(BASE_NPM_PACKAGE_INFO)),
-  );
+  globalThis.fetch = mock(() => Promise.resolve(mockOkResponse(BASE_NPM_PACKAGE_INFO)));
 
   const result = await fetchLatestCompatibleVersion("lodash", "4.17.15");
 
@@ -136,9 +132,7 @@ test("fetchLatestCompatibleVersion - should return null when versions is not an 
 });
 
 test("fetchLatestCompatibleVersion - should return minVersion when it is the latest", async () => {
-  globalThis.fetch = mock(() =>
-    Promise.resolve(mockOkResponse(BASE_NPM_PACKAGE_INFO)),
-  );
+  globalThis.fetch = mock(() => Promise.resolve(mockOkResponse(BASE_NPM_PACKAGE_INFO)));
 
   const result = await fetchLatestCompatibleVersion("lodash", "4.17.21");
 
@@ -146,9 +140,7 @@ test("fetchLatestCompatibleVersion - should return minVersion when it is the lat
 });
 
 test("fetchLatestCompatibleVersion - should filter versions below minVersion", async () => {
-  globalThis.fetch = mock(() =>
-    Promise.resolve(mockOkResponse(BASE_NPM_PACKAGE_INFO)),
-  );
+  globalThis.fetch = mock(() => Promise.resolve(mockOkResponse(BASE_NPM_PACKAGE_INFO)));
 
   const result = await fetchLatestCompatibleVersion("lodash", "4.17.20");
 
@@ -156,9 +148,7 @@ test("fetchLatestCompatibleVersion - should filter versions below minVersion", a
 });
 
 test("fetchLatestCompatibleVersions - should fetch versions for multiple packages", async () => {
-  globalThis.fetch = mock(() =>
-    Promise.resolve(mockOkResponse(BASE_NPM_PACKAGE_INFO)),
-  );
+  globalThis.fetch = mock(() => Promise.resolve(mockOkResponse(BASE_NPM_PACKAGE_INFO)));
 
   const packages = [
     { name: "lodash", minVersion: "4.17.15" },

@@ -21,9 +21,7 @@ test("logger.debug should include file name in log output", () => {
   const consoleDebugSpy = spyOn(console, "debug");
   const log = logger({ file: "test.ts", isLogging: true });
   log.debug("Test message", "caller");
-  expect(consoleDebugSpy).toHaveBeenCalledWith(
-    expect.stringContaining("[test.ts]"),
-  );
+  expect(consoleDebugSpy).toHaveBeenCalledWith(expect.stringContaining("[test.ts]"));
   consoleDebugSpy.mockRestore();
 });
 
@@ -31,9 +29,7 @@ test("logger.debug should include caller in log output", () => {
   const consoleDebugSpy = spyOn(console, "debug");
   const log = logger({ file: "test.ts", isLogging: true });
   log.debug("Test message", "myFunction");
-  expect(consoleDebugSpy).toHaveBeenCalledWith(
-    expect.stringContaining("[myFunction]"),
-  );
+  expect(consoleDebugSpy).toHaveBeenCalledWith(expect.stringContaining("[myFunction]"));
   consoleDebugSpy.mockRestore();
 });
 
@@ -89,12 +85,8 @@ test("logger.warn should include file and caller in output", () => {
   const consoleWarnSpy = spyOn(console, "warn");
   const log = logger({ file: "test.ts", isLogging: true });
   log.warn("Warning message", "myCaller");
-  expect(consoleWarnSpy).toHaveBeenCalledWith(
-    expect.stringContaining("[test.ts]"),
-  );
-  expect(consoleWarnSpy).toHaveBeenCalledWith(
-    expect.stringContaining("[myCaller]"),
-  );
+  expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining("[test.ts]"));
+  expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining("[myCaller]"));
   consoleWarnSpy.mockRestore();
 });
 

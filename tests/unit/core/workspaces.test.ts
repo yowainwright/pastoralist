@@ -34,11 +34,7 @@ afterEach(() => {
 test("checkMonorepoOverrides", () => {
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
 
-  const result = checkMonorepoOverrides(
-    { lodash: "4.17.21" },
-    { lodash: "^4.17.20" },
-    mockLog,
-  );
+  const result = checkMonorepoOverrides({ lodash: "4.17.21" }, { lodash: "^4.17.20" }, mockLog);
   expect(result).toEqual([]);
 
   const result2 = checkMonorepoOverrides(
@@ -77,12 +73,7 @@ test("mergeOverridePaths", () => {
     },
   };
 
-  const result = mergeOverridePaths(
-    appendix,
-    overridePaths,
-    ["react"],
-    mockLog,
-  );
+  const result = mergeOverridePaths(appendix, overridePaths, ["react"], mockLog);
 
   expect(result["lodash@4.17.21"]).toBeDefined();
   expect(result["react@18.0.0"]).toBeDefined();
@@ -95,12 +86,7 @@ test("mergeOverridePaths", () => {
       "lodash@4.17.21": { dependents: { "pkg-a": "lodash@^4.17.21" } },
     },
   };
-  const result2 = mergeOverridePaths(
-    appendix2,
-    overridePaths2,
-    ["lodash"],
-    mockLog,
-  );
+  const result2 = mergeOverridePaths(appendix2, overridePaths2, ["lodash"], mockLog);
   expect(result2["lodash@4.17.21"].dependents["root"]).toBeDefined();
   expect(result2["lodash@4.17.21"].dependents["pkg-a"]).toBeDefined();
 
@@ -114,19 +100,13 @@ test("findUnusedOverrides", async () => {
     "fake-pkg": true,
   });
 
-  const result = await findUnusedOverrides(
-    { "fake-pkg": "1.0.0" },
-    { "fake-pkg": "^1.0.0" },
-  );
+  const result = await findUnusedOverrides({ "fake-pkg": "1.0.0" }, { "fake-pkg": "^1.0.0" });
   expect(result).toEqual([]);
 
   const result2 = await findUnusedOverrides({ "fake-pkg": "1.0.0" }, {});
   expect(result2).toEqual(["fake-pkg"]);
 
-  const result3 = await findUnusedOverrides(
-    { react: { "react-dom": "18.0.0" } },
-    {},
-  );
+  const result3 = await findUnusedOverrides({ react: { "react-dom": "18.0.0" } }, {});
   expect(result3).toEqual(["react"]);
 
   const result4 = await findUnusedOverrides(
@@ -328,12 +308,7 @@ test("mergeOverridePaths - merges dependents from multiple packages", () => {
     },
   };
 
-  const result = mergeOverridePaths(
-    appendix,
-    overridePaths,
-    ["lodash"],
-    mockLog,
-  );
+  const result = mergeOverridePaths(appendix, overridePaths, ["lodash"], mockLog);
 
   expect(result["lodash@4.17.21"].dependents["root"]).toBeDefined();
   expect(result["lodash@4.17.21"].dependents["pkg-a"]).toBeDefined();
@@ -346,10 +321,7 @@ test("findUnusedOverrides - returns empty for nested override with matching pare
     parent: true,
   });
 
-  const result = await findUnusedOverrides(
-    { parent: { child: "2.0.0" } },
-    { parent: "^1.0.0" },
-  );
+  const result = await findUnusedOverrides({ parent: { child: "2.0.0" } }, { parent: "^1.0.0" });
   expect(result).toEqual([]);
 
   spy.mockRestore();
@@ -651,12 +623,7 @@ test("mergeOverridePaths - does not mutate original appendix", () => {
 
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
 
-  const result = mergeOverridePaths(
-    originalAppendix,
-    overridePaths,
-    ["express"],
-    mockLog,
-  );
+  const result = mergeOverridePaths(originalAppendix, overridePaths, ["express"], mockLog);
 
   expect(result["express@4.18.2"]).toBeDefined();
   expect(result["lodash@4.17.21"].dependents).toHaveProperty("app");
@@ -681,12 +648,7 @@ test("mergeOverridePaths - merges dependents for existing entries", () => {
 
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
 
-  const result = mergeOverridePaths(
-    appendix,
-    overridePaths,
-    ["lodash"],
-    mockLog,
-  );
+  const result = mergeOverridePaths(appendix, overridePaths, ["lodash"], mockLog);
 
   const dependents = result["lodash@4.17.21"].dependents || {};
   expect(dependents).toHaveProperty("root");

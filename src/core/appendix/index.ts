@@ -27,10 +27,8 @@ import {
   mergeAppendixDependents,
 } from "./utils";
 
-const hasDependency = (
-  deps: Record<string, string>,
-  packageName: string,
-): boolean => Object.prototype.hasOwnProperty.call(deps, packageName);
+const hasDependency = (deps: Record<string, string>, packageName: string): boolean =>
+  Object.prototype.hasOwnProperty.call(deps, packageName);
 
 const processSimpleOverride = ({
   override,
@@ -60,17 +58,8 @@ const processSimpleOverride = ({
 
   const currentDependents = appendix[key]?.dependents || {};
   const packageVersion = deps[override];
-  const dependentInfo = buildDependentInfo(
-    hasOverride,
-    override,
-    packageVersion,
-    dependencyTree,
-  );
-  const newDependents = mergeDependents(
-    currentDependents,
-    packageName,
-    dependentInfo,
-  );
+  const dependentInfo = buildDependentInfo(hasOverride, override, packageVersion, dependencyTree);
+  const newDependents = mergeDependents(currentDependents, packageName, dependentInfo);
 
   const existingLedger = appendix[key]?.ledger;
   const newAppendixItem = buildAppendixItem(
@@ -109,20 +98,12 @@ const processNestedOverrideEntry = ({
 
   const currentDependents = appendix[key]?.dependents || {};
   const dependentValue = `${parentOverride}@${deps[parentOverride]} (nested override)`;
-  const newDependents = mergeDependents(
-    currentDependents,
-    packageName,
-    dependentValue,
-  );
+  const newDependents = mergeDependents(currentDependents, packageName, dependentValue);
 
   const existingLedger = appendix[key]?.ledger;
   const nestedReason =
-    mergeOverrideReasons(
-      nestedPkg,
-      undefined,
-      securityOverrideDetails,
-      manualOverrideReasons,
-    ) || packageReason;
+    mergeOverrideReasons(nestedPkg, undefined, securityOverrideDetails, manualOverrideReasons) ||
+    packageReason;
   const nestedSecurityLedger = createSecurityLedger(
     nestedPkg,
     securityOverrideDetails,
@@ -202,11 +183,7 @@ const processOverrideEntry = ({
     securityOverrideDetails,
     manualOverrideReasons,
   );
-  const securityLedger = createSecurityLedger(
-    override,
-    securityOverrideDetails,
-    securityProvider,
-  );
+  const securityLedger = createSecurityLedger(override, securityOverrideDetails, securityProvider);
 
   const isNested = isNestedOverride(overrideValue);
 
@@ -366,8 +343,7 @@ const extractWorkspaceOverrides = (
   if (!hasConfig) return null;
 
   const workspaceOverridesData = resolveOverrides({ config: packageConfig });
-  const workspaceOverrides =
-    getOverridesByType(workspaceOverridesData!) || null;
+  const workspaceOverrides = getOverridesByType(workspaceOverridesData!) || null;
   const hasWorkspaceOverrides = hasOverrides(workspaceOverrides);
 
   if (hasWorkspaceOverrides) {
@@ -384,9 +360,7 @@ const collectAllWorkspaceOverrides = (
   packageJSONs: string[],
   logInstance: Logger,
 ): Array<OverridesType | null> => {
-  return packageJSONs.map((packagePath) =>
-    extractWorkspaceOverrides(packagePath, logInstance),
-  );
+  return packageJSONs.map((packagePath) => extractWorkspaceOverrides(packagePath, logInstance));
 };
 
 const detectWorkspaceConflicts = (
@@ -421,14 +395,9 @@ const mergeAllOverrides = (
     (overrides): overrides is OverridesType => overrides !== null,
   );
 
-  const baseOverrides = hasOverrides(rootOverrides)
-    ? { ...rootOverrides! }
-    : {};
+  const baseOverrides = hasOverrides(rootOverrides) ? { ...rootOverrides! } : {};
 
-  return validOverrides.reduce(
-    (acc, overrides) => ({ ...acc, ...overrides }),
-    baseOverrides,
-  );
+  return validOverrides.reduce((acc, overrides) => ({ ...acc, ...overrides }), baseOverrides);
 };
 
 const processAllPackageFiles = (
@@ -449,19 +418,14 @@ const processAllPackageFiles = (
   );
 };
 
-const mergeResultAppendix = (
-  currentAppendix: Appendix,
-  resultAppendix: Appendix,
-): Appendix => {
+const mergeResultAppendix = (currentAppendix: Appendix, resultAppendix: Appendix): Appendix => {
   return Object.entries(resultAppendix).reduce(
     (acc, [key, value]) => mergeAppendixDependents(acc, key, value),
     currentAppendix,
   );
 };
 
-const aggregateAppendices = (
-  results: Array<{ appendix: Appendix } | undefined>,
-): Appendix => {
+const aggregateAppendices = (results: Array<{ appendix: Appendix } | undefined>): Appendix => {
   const validResults = results.filter(
     (result): result is NonNullable<typeof result> & { appendix: Appendix } =>
       result !== null && result !== undefined && Boolean(result.appendix),
@@ -488,27 +452,14 @@ export const constructAppendix = (
     );
   }
 
-  const workspaceOverridesResults = collectAllWorkspaceOverrides(
-    packageJSONs,
-    logInstance,
-  );
-  detectWorkspaceConflicts(
-    workspaceOverridesResults,
-    rootOverrides,
-    logInstance,
-  );
-  const allOverrides = mergeAllOverrides(
-    workspaceOverridesResults,
-    rootOverrides,
-  );
+  const workspaceOverridesResults = collectAllWorkspaceOverrides(packageJSONs, logInstance);
+  detectWorkspaceConflicts(workspaceOverridesResults, rootOverrides, logInstance);
+  const allOverrides = mergeAllOverrides(workspaceOverridesResults, rootOverrides);
 
   const hasAnyOverrides = Object.keys(allOverrides).length > 0;
 
   if (!hasAnyOverrides) {
-    logInstance.debug(
-      "No overrides found in root or workspace packages",
-      "constructAppendix",
-    );
+    logInstance.debug("No overrides found in root or workspace packages", "constructAppendix");
     return {};
   }
 
@@ -518,11 +469,7 @@ export const constructAppendix = (
     "constructAppendix",
   );
 
-  const results = processAllPackageFiles(
-    packageJSONs,
-    allOverrides,
-    overridesList,
-  );
+  const results = processAllPackageFiles(packageJSONs, allOverrides, overridesList);
 
   return aggregateAppendices(results);
 };

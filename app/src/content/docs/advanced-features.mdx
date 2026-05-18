@@ -5,10 +5,7 @@ description: Deep dive into pastoralist's advanced capabilities
 
 Pastoralist includes several advanced features that make dependency override management more powerful and maintainable.
 
-<DocVideo
-  src="/episodes/02-auto-cleanup/final.mp4"
-  title="Auto-cleanup of unused overrides"
-/>
+<DocVideo src="/episodes/02-auto-cleanup/final.mp4" title="Auto-cleanup of unused overrides" />
 
 ## Nested Overrides (Transitive Dependencies)
 
@@ -480,9 +477,7 @@ const policies = {
 
 // Validate overrides match policies
 Object.keys(pkg.overrides || {}).forEach((override) => {
-  const category = Object.entries(policies).find(([_, pkgs]) =>
-    pkgs.includes(override),
-  )?.[0];
+  const category = Object.entries(policies).find(([_, pkgs]) => pkgs.includes(override))?.[0];
 
   if (!category) {
     console.warn(`Override '${override}' has no policy!`);

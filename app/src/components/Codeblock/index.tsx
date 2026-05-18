@@ -42,9 +42,7 @@ function CodeblockContent({
 }) {
   const highlighter = use(getHighlighter());
 
-  const resolvedLang = (SHIKI_LANGS as readonly string[]).includes(lang)
-    ? lang
-    : "text";
+  const resolvedLang = (SHIKI_LANGS as readonly string[]).includes(lang) ? lang : "text";
 
   const html = highlighter.codeToHtml(code, {
     lang: resolvedLang,
@@ -61,12 +59,7 @@ function CodeblockContent({
     ...(showLineNumbers ? { meta: { __raw: "showLineNumbers" } } : {}),
   });
 
-  return (
-    <div
-      className={CODEBLOCK_CLASSES.content}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  );
+  return <div className={CODEBLOCK_CLASSES.content} dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
 export function Codeblock({
@@ -82,11 +75,7 @@ export function Codeblock({
 
   return (
     <div
-      className={cn(
-        CODEBLOCK_CLASSES.wrapper,
-        showLineNumbers && "show-line-numbers",
-        className,
-      )}
+      className={cn(CODEBLOCK_CLASSES.wrapper, showLineNumbers && "show-line-numbers", className)}
     >
       {hasHeader && (
         <div className={CODEBLOCK_CLASSES.header}>
@@ -95,23 +84,16 @@ export function Codeblock({
               {WINDOW_DOTS.map((tone) => (
                 <span
                   key={tone}
-                  className={cn(
-                    "h-2.5 w-2.5 rounded-full ring-1 ring-black/5",
-                    tone,
-                  )}
+                  className={cn("h-2.5 w-2.5 rounded-full ring-1 ring-black/5", tone)}
                 />
               ))}
             </div>
             <div className="flex min-w-0 items-center gap-2">
               {title && (
-                <span className="truncate text-xs font-medium text-base-content/70">
-                  {title}
-                </span>
+                <span className="truncate text-xs font-medium text-base-content/70">{title}</span>
               )}
               {showLanguage && lang && lang !== "text" && (
-                <span className="font-mono text-xs text-base-content/50">
-                  {lang}
-                </span>
+                <span className="font-mono text-xs text-base-content/50">{lang}</span>
               )}
             </div>
           </div>
@@ -126,11 +108,7 @@ export function Codeblock({
             </pre>
           }
         >
-          <CodeblockContent
-            code={code}
-            lang={lang}
-            showLineNumbers={showLineNumbers}
-          />
+          <CodeblockContent code={code} lang={lang} showLineNumbers={showLineNumbers} />
         </Suspense>
       </div>
     </div>

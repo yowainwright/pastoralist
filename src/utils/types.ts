@@ -68,11 +68,7 @@ export interface RetryError extends Error {
 }
 
 /** Debug/error/warn - REQUIRES caller context for traceability */
-export type DebugLogFunc = (
-  msg: string,
-  caller: string,
-  ...args: unknown[]
-) => void;
+export type DebugLogFunc = (msg: string, caller: string, ...args: unknown[]) => void;
 
 /** User-facing output - just message, no debug context */
 export type PrintFunc = (msg: string) => void;

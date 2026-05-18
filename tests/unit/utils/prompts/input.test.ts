@@ -101,9 +101,7 @@ describe("Piped Input Functionality", () => {
         },
       };
 
-      const result = await enhancedQuestion(mockRl, "Test prompt: ", (answer) =>
-        answer.trim(),
-      );
+      const result = await enhancedQuestion(mockRl, "Test prompt: ", (answer) => answer.trim());
 
       expect(questionCalled).toBe(true);
       expect(result).toBe("test answer");

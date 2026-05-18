@@ -26,8 +26,7 @@ describe("dx/format", () => {
     });
 
     test("handles multiple ANSI codes", () => {
-      const multiColored =
-        "\x1b[31mred\x1b[0m \x1b[32mgreen\x1b[0m \x1b[34mblue\x1b[0m";
+      const multiColored = "\x1b[31mred\x1b[0m \x1b[32mgreen\x1b[0m \x1b[34mblue\x1b[0m";
       expect(visibleLength(multiColored)).toBe(14);
     });
 
@@ -103,8 +102,7 @@ describe("dx/format", () => {
     });
 
     test("handles multiple color changes", () => {
-      const multi =
-        "\x1b[31mred\x1b[0m \x1b[32mgreen\x1b[0m \x1b[34mblue text\x1b[0m";
+      const multi = "\x1b[31mred\x1b[0m \x1b[32mgreen\x1b[0m \x1b[34mblue text\x1b[0m";
       const result = truncate(multi, 12);
       expect(visibleLength(result)).toBe(12);
     });

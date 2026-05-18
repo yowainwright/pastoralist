@@ -117,8 +117,7 @@ describe("dx/table", () => {
       const rows: TableRow[] = [
         {
           label: "This is a very long label that should be handled correctly",
-          value:
-            "This is a very long value that should also be handled correctly",
+          value: "This is a very long value that should also be handled correctly",
         },
       ];
       const result = renderTable(rows);
@@ -211,9 +210,7 @@ describe("dx/table", () => {
     });
 
     test("handles ANSI colored labels", () => {
-      const rows: TableRow[] = [
-        { label: "\x1b[31mRed Label\x1b[0m", value: "Value" },
-      ];
+      const rows: TableRow[] = [{ label: "\x1b[31mRed Label\x1b[0m", value: "Value" }];
       const result = renderTable(rows);
 
       expect(result).toContain("\x1b[31mRed Label\x1b[0m");

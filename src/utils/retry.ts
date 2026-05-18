@@ -1,19 +1,13 @@
 import type { RetryOptions, RetryError } from "./types";
 
-const DEFAULT_OPTIONS: Required<
-  Omit<RetryOptions, "onFailedAttempt" | "onRetry">
-> = {
+const DEFAULT_OPTIONS: Required<Omit<RetryOptions, "onFailedAttempt" | "onRetry">> = {
   retries: 3,
   factor: 2,
   minTimeout: 1000,
   maxTimeout: 30000,
 };
 
-const createRetryError = (
-  error: Error,
-  attemptNumber: number,
-  retriesLeft: number,
-): RetryError => {
+const createRetryError = (error: Error, attemptNumber: number, retriesLeft: number): RetryError => {
   const retryError = error as RetryError;
   retryError.attemptNumber = attemptNumber;
   retryError.retriesLeft = retriesLeft;
@@ -34,10 +28,7 @@ const sleep = (ms: number): Promise<void> => {
   return new Promise((resolve) => setTimeout(resolve, ms));
 };
 
-export const retry = async <T>(
-  fn: () => Promise<T>,
-  options: RetryOptions = {},
-): Promise<T> => {
+export const retry = async <T>(fn: () => Promise<T>, options: RetryOptions = {}): Promise<T> => {
   const {
     retries = DEFAULT_OPTIONS.retries,
     factor = DEFAULT_OPTIONS.factor,
@@ -76,12 +67,7 @@ export const retry = async <T>(
         onRetry(attemptNumber, clampedRetriesLeft);
       }
 
-      const delay = calculateDelay(
-        attemptNumber,
-        factor,
-        minTimeout,
-        maxTimeout,
-      );
+      const delay = calculateDelay(attemptNumber, factor, minTimeout, maxTimeout);
       await sleep(delay);
 
       return attempt();

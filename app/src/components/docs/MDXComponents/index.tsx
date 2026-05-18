@@ -4,9 +4,7 @@ import { DocVideo } from "@/components/docs/DocVideo";
 import { Anchor } from "./Anchor";
 import type { MermaidProps } from "../Mermaid";
 
-const Mermaid = lazy(() =>
-  import("../Mermaid").then((m) => ({ default: m.Mermaid })),
-);
+const Mermaid = lazy(() => import("../Mermaid").then((m) => ({ default: m.Mermaid })));
 
 function extractText(node: unknown): string {
   if (typeof node === "string") return node;
@@ -62,10 +60,7 @@ function Pre({
 
   const className = child?.props?.className ?? "";
   const rawLang =
-    className.match(/language-(\S+)/)?.[1] ??
-    childDataLanguage ??
-    dataLanguage ??
-    "text";
+    className.match(/language-(\S+)/)?.[1] ?? childDataLanguage ?? dataLanguage ?? "text";
   const lang = rawLang.replace(/^language-/, "");
   const code = extractText(child?.props?.children ?? children);
 
@@ -76,13 +71,7 @@ function Pre({
 
   return (
     <div className="not-prose my-4">
-      <Codeblock
-        code={code}
-        lang={lang}
-        showCopy={false}
-        showLanguage={false}
-        showLineNumbers
-      />
+      <Codeblock code={code} lang={lang} showCopy={false} showLanguage={false} showLineNumbers />
     </div>
   );
 }

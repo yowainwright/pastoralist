@@ -1,9 +1,5 @@
 import { test, expect } from "bun:test";
-import type {
-  SecurityOverrideDetail,
-  Appendix,
-  AppendixItem,
-} from "../../../../src/types";
+import type { SecurityOverrideDetail, Appendix, AppendixItem } from "../../../../src/types";
 import {
   mergeOverrideReasons,
   createSecurityLedger,
@@ -19,12 +15,7 @@ import {
 } from "../../../../src/core/appendix/utils";
 
 test("mergeOverrideReasons - should return reason when provided", () => {
-  const result = mergeOverrideReasons(
-    "lodash",
-    "security fix",
-    undefined,
-    undefined,
-  );
+  const result = mergeOverrideReasons("lodash", "security fix", undefined, undefined);
 
   expect(result).toBe("security fix");
 });
@@ -39,12 +30,7 @@ test("mergeOverrideReasons - should return security reason when no reason provid
     },
   ];
 
-  const result = mergeOverrideReasons(
-    "lodash",
-    undefined,
-    securityDetails,
-    undefined,
-  );
+  const result = mergeOverrideReasons("lodash", undefined, securityDetails, undefined);
 
   expect(result).toBe("CVE-2021-23337");
 });
@@ -52,23 +38,13 @@ test("mergeOverrideReasons - should return security reason when no reason provid
 test("mergeOverrideReasons - should return manual reason when no reason or security details", () => {
   const manualReasons = { lodash: "manual override" };
 
-  const result = mergeOverrideReasons(
-    "lodash",
-    undefined,
-    undefined,
-    manualReasons,
-  );
+  const result = mergeOverrideReasons("lodash", undefined, undefined, manualReasons);
 
   expect(result).toBe("manual override");
 });
 
 test("mergeOverrideReasons - should return undefined when no reasons provided", () => {
-  const result = mergeOverrideReasons(
-    "lodash",
-    undefined,
-    undefined,
-    undefined,
-  );
+  const result = mergeOverrideReasons("lodash", undefined, undefined, undefined);
 
   expect(result).toBeUndefined();
 });
@@ -83,12 +59,7 @@ test("mergeOverrideReasons - should prioritize reason over security details", ()
     },
   ];
 
-  const result = mergeOverrideReasons(
-    "lodash",
-    "manual fix",
-    securityDetails,
-    undefined,
-  );
+  const result = mergeOverrideReasons("lodash", "manual fix", securityDetails, undefined);
 
   expect(result).toBe("manual fix");
 });
@@ -104,12 +75,7 @@ test("mergeOverrideReasons - should prioritize security details over manual reas
   ];
   const manualReasons = { lodash: "manual override" };
 
-  const result = mergeOverrideReasons(
-    "lodash",
-    undefined,
-    securityDetails,
-    manualReasons,
-  );
+  const result = mergeOverrideReasons("lodash", undefined, securityDetails, manualReasons);
 
   expect(result).toBe("CVE-2021-23337");
 });
@@ -209,10 +175,7 @@ test("createSecurityLedger - should include URL in ledger", () => {
 
   const result = createSecurityLedger("lodash", securityDetails, undefined);
 
-  expect(result).toHaveProperty(
-    "url",
-    "https://nvd.nist.gov/vuln/detail/CVE-2021-23337",
-  );
+  expect(result).toHaveProperty("url", "https://nvd.nist.gov/vuln/detail/CVE-2021-23337");
 });
 
 test("createSecurityLedger - should include all fields when provided", () => {
@@ -344,12 +307,7 @@ test("buildAppendixItem - should use provided addedDate for new ledger", () => {
 test("buildAppendixItem - should fallback to current date when no addedDate provided", () => {
   const before = new Date().toISOString();
 
-  const result = buildAppendixItem(
-    { "my-app": "lodash@^4.17.0" },
-    undefined,
-    undefined,
-    {},
-  );
+  const result = buildAppendixItem({ "my-app": "lodash@^4.17.0" }, undefined, undefined, {});
 
   const after = new Date().toISOString();
   const addedDate = result.ledger?.addedDate || "";
@@ -452,20 +410,13 @@ test("extractPackageNames - should extract names from appendix keys", () => {
 });
 
 test("extractPackageNames - should handle scoped packages", () => {
-  const result = extractPackageNames([
-    "@babel/core@7.20.0",
-    "@scope/pkg@1.0.0",
-  ]);
+  const result = extractPackageNames(["@babel/core@7.20.0", "@scope/pkg@1.0.0"]);
 
   expect(result).toEqual(["@babel/core", "@scope/pkg"]);
 });
 
 test("extractPackageNames - should handle mixed scoped and unscoped", () => {
-  const result = extractPackageNames([
-    "lodash@4.17.21",
-    "@babel/core@7.20.0",
-    "axios@1.0.0",
-  ]);
+  const result = extractPackageNames(["lodash@4.17.21", "@babel/core@7.20.0", "axios@1.0.0"]);
 
   expect(result).toEqual(["lodash", "@babel/core", "axios"]);
 });
@@ -483,9 +434,7 @@ test("normalizeLedgerCveField - converts legacy cve string to cves array", () =>
     addedDate: "2024-01-01",
     cve: "CVE-2021-23337",
   } as NonNullable<AppendixItem["ledger"]> & { cve?: string };
-  const result = normalizeLedgerCveField(
-    ledger as NonNullable<AppendixItem["ledger"]>,
-  );
+  const result = normalizeLedgerCveField(ledger as NonNullable<AppendixItem["ledger"]>);
   expect(result.cves).toEqual(["CVE-2021-23337"]);
   expect((result as { cve?: string }).cve).toBeUndefined();
 });
@@ -496,9 +445,7 @@ test("normalizeLedgerCveField - merges legacy cve into existing cves", () => {
     cves: ["CVE-2021-0001"],
     cve: "CVE-2021-0002",
   } as NonNullable<AppendixItem["ledger"]> & { cve?: string };
-  const result = normalizeLedgerCveField(
-    ledger as NonNullable<AppendixItem["ledger"]>,
-  );
+  const result = normalizeLedgerCveField(ledger as NonNullable<AppendixItem["ledger"]>);
   expect(result.cves).toEqual(["CVE-2021-0001", "CVE-2021-0002"]);
 });
 
@@ -517,9 +464,7 @@ test("normalizeLedgerCveField - deduplicates when cve is already in cves", () =>
     cves: ["CVE-2021-23337"],
     cve: "CVE-2021-23337",
   } as NonNullable<AppendixItem["ledger"]> & { cve?: string };
-  const result = normalizeLedgerCveField(
-    ledger as NonNullable<AppendixItem["ledger"]>,
-  );
+  const result = normalizeLedgerCveField(ledger as NonNullable<AppendixItem["ledger"]>);
   expect(result.cves).toEqual(["CVE-2021-23337"]);
 });
 
@@ -563,9 +508,7 @@ test("createSecurityLedger - deduplicates cveDetails when multiple details share
   const result = createSecurityLedger("lodash", securityDetails, undefined);
   const cveIds = result.cveDetails?.map((d) => d.cve);
   expect(cveIds).toEqual(["CVE-2021-0001", "CVE-2021-0002"]);
-  expect(
-    result.cveDetails?.filter((d) => d.cve === "CVE-2021-0001").length,
-  ).toBe(1);
+  expect(result.cveDetails?.filter((d) => d.cve === "CVE-2021-0001").length).toBe(1);
 });
 
 test("isUnusedEntry via findUnusedAppendixEntries - skips entries with keep: true", () => {

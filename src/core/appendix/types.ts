@@ -29,10 +29,7 @@ export type PartialSecurityLedger = Partial<SecurityLedgerFields>;
 
 export type CompactAppendixItem = { addedDate: string };
 
-export type CompactAppendix = Record<
-  string,
-  CompactAppendixItem | AppendixItem
->;
+export type CompactAppendix = Record<string, CompactAppendixItem | AppendixItem>;
 
 export interface ProcessOverrideOptions {
   override: string;

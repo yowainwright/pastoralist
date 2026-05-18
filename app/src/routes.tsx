@@ -6,9 +6,7 @@ import { HomePage } from "./pages/HomePage";
 const DocsLayout = lazy(() =>
   import("./layouts/DocsLayout").then((m) => ({ default: m.DocsLayout })),
 );
-const DocsPage = lazy(() =>
-  import("./pages/DocsPage").then((m) => ({ default: m.DocsPage })),
-);
+const DocsPage = lazy(() => import("./pages/DocsPage").then((m) => ({ default: m.DocsPage })));
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,

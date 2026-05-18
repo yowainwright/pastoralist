@@ -7,9 +7,9 @@
     "demo:dry": "pastoralist --checkSecurity --dry-run"
   },
   "dependencies": {
-    "minimist": "^1.2.5",
+    "express": "^4.17.0",
     "lodash": "^4.17.15",
-    "express": "^4.17.0"
+    "minimist": "^1.2.5"
   },
   "devDependencies": {
     "pastoralist": "latest"

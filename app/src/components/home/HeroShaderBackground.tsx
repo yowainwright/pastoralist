@@ -15,9 +15,7 @@ export default function HeroShaderBackground() {
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
-      setIsDark(
-        document.documentElement.getAttribute("data-theme") === DARK_THEME,
-      );
+      setIsDark(document.documentElement.getAttribute("data-theme") === DARK_THEME);
     });
     observer.observe(document.documentElement, {
       attributes: true,
@@ -30,14 +28,7 @@ export default function HeroShaderBackground() {
 
   return (
     <Shader className="w-full h-full">
-      <Aurora
-        {...colors}
-        intensity={55}
-        speed={3}
-        curtainCount={3}
-        height={110}
-        waviness={60}
-      />
+      <Aurora {...colors} intensity={55} speed={3} curtainCount={3} height={110} waviness={60} />
       <CursorRipples intensity={8} radius={0.6} chromaticSplit={2} />
       <Vignette intensity={0.35} radius={0.55} />
     </Shader>

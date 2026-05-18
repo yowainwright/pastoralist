@@ -1,16 +1,7 @@
 import { LOG_PREFIX } from "../constants";
-import type {
-  ConsoleMethod,
-  DebugLogFunc,
-  Logger,
-  LoggerOptions,
-} from "./types";
+import type { ConsoleMethod, DebugLogFunc, Logger, LoggerOptions } from "./types";
 
-const createDebugMethod = (
-  type: ConsoleMethod,
-  isLogging: boolean,
-  file: string,
-): DebugLogFunc => {
+const createDebugMethod = (type: ConsoleMethod, isLogging: boolean, file: string): DebugLogFunc => {
   return (msg: string, caller: string, ...args: unknown[]) => {
     if (!isLogging) return;
     const message = `${LOG_PREFIX}[${file}][${caller}] ${msg}`;

@@ -44,14 +44,8 @@ export function Header() {
               &#9776;
             </label>
           )}
-          <Link
-            to="/"
-            preload="intent"
-            className="btn btn-ghost min-w-0 px-1.5 sm:px-2"
-          >
-            <h1 className="gradient-text truncate text-lg font-bold sm:text-2xl">
-              Pastoralist
-            </h1>
+          <Link to="/" preload="intent" className="btn btn-ghost min-w-0 px-1.5 sm:px-2">
+            <h1 className="gradient-text truncate text-lg font-bold sm:text-2xl">Pastoralist</h1>
           </Link>
         </div>
 
@@ -59,11 +53,7 @@ export function Header() {
           <ul className="menu menu-horizontal flex-nowrap gap-1 p-0 text-sm font-medium sm:text-base">
             {navigation.map((item) => (
               <li key={item.href}>
-                <Link
-                  to={item.href}
-                  preload="intent"
-                  className={navItemClassName(item.href)}
-                >
+                <Link to={item.href} preload="intent" className={navItemClassName(item.href)}>
                   {item.title}
                 </Link>
               </li>

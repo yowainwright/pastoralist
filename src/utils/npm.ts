@@ -76,12 +76,9 @@ const fetchPackageInfo = async (
   try {
     const result = await retry(
       async () => {
-        const res = await fetch(
-          `${NPM_REGISTRY_URL}/${encodeURIComponent(packageName)}`,
-          {
-            headers: { Accept: "application/json" },
-          },
-        );
+        const res = await fetch(`${NPM_REGISTRY_URL}/${encodeURIComponent(packageName)}`, {
+          headers: { Accept: "application/json" },
+        });
 
         if (!res.ok) {
           throw new Error(`Failed to fetch ${packageName}: ${res.status}`);
@@ -150,11 +147,7 @@ export const fetchLatestCompatibleVersions = async (
   const fetches = await Promise.all(
     entries.map(([name, minVersion]) =>
       npmLimit(async () => {
-        const version = await fetchLatestCompatibleVersion(
-          name,
-          minVersion,
-          opts,
-        );
+        const version = await fetchLatestCompatibleVersion(name, minVersion, opts);
         return { name, version };
       }),
     ),

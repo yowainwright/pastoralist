@@ -2,10 +2,7 @@ import { compile } from "@mdx-js/mdx";
 import rehypeShiki from "@shikijs/rehype";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
-import {
-  transformerNotationDiff,
-  transformerNotationHighlight,
-} from "@shikijs/transformers";
+import { transformerNotationDiff, transformerNotationHighlight } from "@shikijs/transformers";
 import customDark from "@/themes/dark.json";
 import customLight from "@/themes/light.json";
 import type { ThemeRegistration } from "shiki";
@@ -33,11 +30,7 @@ function renderMermaidRemark() {
     visit(
       tree,
       "code",
-      (
-        node: MermaidCodeNode,
-        index: number | undefined,
-        parent: MermaidParentNode | undefined,
-      ) => {
+      (node: MermaidCodeNode, index: number | undefined, parent: MermaidParentNode | undefined) => {
         if (node.lang === "mermaid") {
           if (typeof index !== "number" || !parent?.children) return;
 
@@ -73,10 +66,7 @@ export async function compileMDX(source: string) {
             light: customLight as unknown as ThemeRegistration,
             dark: customDark as unknown as ThemeRegistration,
           },
-          transformers: [
-            transformerNotationDiff(),
-            transformerNotationHighlight(),
-          ],
+          transformers: [transformerNotationDiff(), transformerNotationHighlight()],
         },
       ],
     ],

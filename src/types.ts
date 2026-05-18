@@ -1,7 +1,4 @@
-import type {
-  SecurityAlert,
-  SecurityProviderType,
-} from "./core/security/types";
+import type { SecurityAlert, SecurityProviderType } from "./core/security/types";
 
 export type OverrideValue = string | Record<string, string>;
 
@@ -160,8 +157,7 @@ export interface PathOptions {
   ignore?: string[];
 }
 
-export interface Options
-  extends SecurityOptions, OutputOptions, TestingOptions, PathOptions {
+export interface Options extends SecurityOptions, OutputOptions, TestingOptions, PathOptions {
   appendix?: Appendix;
   clearCache?: boolean;
   help?: boolean;

@@ -7,9 +7,7 @@ export function useTheme() {
     if (typeof window === "undefined") return "lofi";
     const stored = localStorage.getItem("theme") as Theme | null;
     if (stored === "lofi" || stored === "night") return stored;
-    return window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "night"
-      : "lofi";
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "night" : "lofi";
   });
 
   useEffect(() => {

@@ -13,8 +13,7 @@ import {
 
 const HERO_SEEN_KEY = "pastoralist-hero-animation-seen";
 const hadSeen = () =>
-  typeof window !== "undefined" &&
-  sessionStorage.getItem(HERO_SEEN_KEY) === "true";
+  typeof window !== "undefined" && sessionStorage.getItem(HERO_SEEN_KEY) === "true";
 
 const heroMachine = createMachine({
   id: "hero",
@@ -72,10 +71,7 @@ const STATE_ORDER = [
 
 type HeroState = (typeof STATE_ORDER)[number];
 
-function atLeast(
-  snapshot: { matches: (s: string) => boolean },
-  state: HeroState,
-) {
+function atLeast(snapshot: { matches: (s: string) => boolean }, state: HeroState) {
   const idx = STATE_ORDER.indexOf(state);
   return STATE_ORDER.slice(idx).some((s) => snapshot.matches(s));
 }
@@ -105,14 +101,7 @@ export function HeroSection() {
           particleCount: 100,
           spread: 70,
           origin: { x, y },
-          colors: [
-            "#ff0000",
-            "#ff8000",
-            "#ffff00",
-            "#00ff00",
-            "#0080ff",
-            "#8000ff",
-          ],
+          colors: ["#ff0000", "#ff8000", "#ffff00", "#00ff00", "#0080ff", "#8000ff"],
         });
       })
       .catch((err) => console.error("Failed to load confetti:", err));
@@ -132,9 +121,7 @@ export function HeroSection() {
             src={`${base}pastoralist-logo.svg`}
             alt={CONTENT.logoAlt}
             className={styles.logo}
-            initial={
-              wasAlreadySeen ? false : { opacity: 0, y: 16, scale: 0.75 }
-            }
+            initial={wasAlreadySeen ? false : { opacity: 0, y: 16, scale: 0.75 }}
             animate={logoVisible ? { opacity: 1, y: 0, scale: 1 } : undefined}
             transition={{ duration: 0.5, ease: EASE }}
           />
@@ -171,9 +158,7 @@ export function HeroSection() {
             transition={{ duration: 0.7, ease: EASE }}
           >
             <h1 className={styles.h1}>
-              <span className="font-bold gradient-text">
-                {CONTENT.headingStart}
-              </span>{" "}
+              <span className="font-bold gradient-text">{CONTENT.headingStart}</span>{" "}
               {CONTENT.headingMid}
               {terminalComplete && (
                 <motion.span
@@ -190,19 +175,11 @@ export function HeroSection() {
                   {CONTENT.headingHighlight}
                 </motion.span>
               )}
-              {showEmoji && (
-                <span className="inline-block animate-thumbs-up">
-                  {CONTENT.emoji}
-                </span>
-              )}
+              {showEmoji && <span className="inline-block animate-thumbs-up">{CONTENT.emoji}</span>}
             </h1>
 
             <nav className={styles.nav}>
-              <Link
-                to="/docs/$slug"
-                params={{ slug: CONTENT.docsSlug }}
-                preload="intent"
-              >
+              <Link to="/docs/$slug" params={{ slug: CONTENT.docsSlug }} preload="intent">
                 <button className="btn btn-lg btn-primary rounded-2xl">
                   {CONTENT.buttonText}
                   <ArrowRight className="size-4" />

@@ -31,9 +31,7 @@ test("retry - should throw after max retries", async () => {
     throw new Error("Permanent failure");
   };
 
-  await expect(retry(fn, { retries: 2, minTimeout: 10 })).rejects.toThrow(
-    "Permanent failure",
-  );
+  await expect(retry(fn, { retries: 2, minTimeout: 10 })).rejects.toThrow("Permanent failure");
 });
 
 test("retry - should respect retries option", async () => {
@@ -217,9 +215,7 @@ test("retry - should handle zero retries", async () => {
     throw new Error("Fail");
   };
 
-  await expect(retry(fn, { retries: 0, minTimeout: 10 })).rejects.toThrow(
-    "Fail",
-  );
+  await expect(retry(fn, { retries: 0, minTimeout: 10 })).rejects.toThrow("Fail");
 
   expect(attempts).toBe(1);
 });

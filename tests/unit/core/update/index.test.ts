@@ -719,12 +719,7 @@ test("mergeAllConfigs - merges CLI options and package.json config", () => {
   const overridesData: ResolveOverrides = { npm: { lodash: "4.17.21" } };
   const overrides: OverridesType = { lodash: "4.17.21" };
 
-  const result = mergeAllConfigs(
-    cliOptions,
-    packageJsonConfig,
-    overridesData,
-    overrides,
-  );
+  const result = mergeAllConfigs(cliOptions, packageJsonConfig, overridesData, overrides);
 
   expect(result.overrides).toEqual(overrides);
   expect(result.overridesData).toEqual(overridesData);
@@ -741,12 +736,7 @@ test("mergeAllConfigs - handles undefined packageJsonConfig", () => {
   const overridesData: ResolveOverrides = { npm: { express: "4.18.2" } };
   const overrides: OverridesType = { express: "4.18.2" };
 
-  const result = mergeAllConfigs(
-    cliOptions,
-    undefined,
-    overridesData,
-    overrides,
-  );
+  const result = mergeAllConfigs(cliOptions, undefined, overridesData, overrides);
 
   expect(result.overrides).toEqual(overrides);
   expect(result.depPaths).toEqual(["cli/path"]);
@@ -771,12 +761,7 @@ test("findRemovableOverrides - finds unused overrides", () => {
   };
   const missingInRoot: string[] = [];
 
-  const result = findRemovableOverrides(
-    overrides,
-    appendix,
-    allDeps,
-    missingInRoot,
-  );
+  const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
 
   expect(result).toEqual(["react"]);
 });
@@ -791,12 +776,7 @@ test("findRemovableOverrides - keeps overrides used in appendix", () => {
   const allDeps = {};
   const missingInRoot: string[] = [];
 
-  const result = findRemovableOverrides(
-    overrides,
-    appendix,
-    allDeps,
-    missingInRoot,
-  );
+  const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
 
   expect(result).toEqual([]);
 });
@@ -811,12 +791,7 @@ test("findRemovableOverrides - keeps overrides with root dependencies", () => {
   };
   const missingInRoot: string[] = [];
 
-  const result = findRemovableOverrides(
-    overrides,
-    appendix,
-    allDeps,
-    missingInRoot,
-  );
+  const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
 
   expect(result).toEqual([]);
 });
@@ -829,12 +804,7 @@ test("findRemovableOverrides - keeps overrides missing in root", () => {
   const allDeps = {};
   const missingInRoot: string[] = ["react"];
 
-  const result = findRemovableOverrides(
-    overrides,
-    appendix,
-    allDeps,
-    missingInRoot,
-  );
+  const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
 
   expect(result).toEqual([]);
 });
@@ -1262,9 +1232,7 @@ test("update - metrics include medium severity count", () => {
   const options: Options = {
     config,
     securityOverrides: { lodash: "4.17.21" },
-    securityOverrideDetails: [
-      { packageName: "lodash", reason: "medium vuln", severity: "medium" },
-    ],
+    securityOverrideDetails: [{ packageName: "lodash", reason: "medium vuln", severity: "medium" }],
     isTesting: true,
   };
 
@@ -1284,9 +1252,7 @@ test("update - metrics include low severity count", () => {
   const options: Options = {
     config,
     securityOverrides: { express: "4.18.2" },
-    securityOverrideDetails: [
-      { packageName: "express", reason: "low vuln", severity: "low" },
-    ],
+    securityOverrideDetails: [{ packageName: "express", reason: "low vuln", severity: "low" }],
     isTesting: true,
   };
 
@@ -1449,10 +1415,7 @@ test("update - logs unused patches when patches exist for missing dependencies",
     rmSync(PATCH_TEST_DIR, { recursive: true, force: true });
   }
   mkdirSync(resolve(PATCH_TEST_DIR, "patches"), { recursive: true });
-  writeFileSync(
-    resolve(PATCH_TEST_DIR, "patches/unused-pkg+1.0.0.patch"),
-    "patch content",
-  );
+  writeFileSync(resolve(PATCH_TEST_DIR, "patches/unused-pkg+1.0.0.patch"), "patch content");
 
   const config: PastoralistJSON = {
     name: "test-app",
@@ -1632,9 +1595,7 @@ test("update - stepUpdateKeptOverrides populates potentiallyFixedIn from matchin
 
   const result = update(options);
 
-  expect(result.appendix?.["some-pkg@1.0.0"]?.ledger?.potentiallyFixedIn).toBe(
-    "2.0.0",
-  );
+  expect(result.appendix?.["some-pkg@1.0.0"]?.ledger?.potentiallyFixedIn).toBe("2.0.0");
 });
 
 test("update - stepUpdateKeptOverrides clears potentiallyFixedIn when no matching alert", () => {
@@ -1666,9 +1627,7 @@ test("update - stepUpdateKeptOverrides clears potentiallyFixedIn when no matchin
 
   const result = update(options);
 
-  expect(
-    result.appendix?.["some-pkg@1.0.0"]?.ledger?.potentiallyFixedIn,
-  ).toBeUndefined();
+  expect(result.appendix?.["some-pkg@1.0.0"]?.ledger?.potentiallyFixedIn).toBeUndefined();
 });
 
 test("update - stepRemoveUnused respects skipRemovalKeys, keeps blocked overrides", () => {
@@ -1791,9 +1750,7 @@ test("update - stepUpdateKeptOverrides handles keep: KeepConstraint entries", ()
 
   const result = update(options);
 
-  expect(result.appendix?.["some-pkg@1.0.0"]?.ledger?.potentiallyFixedIn).toBe(
-    "2.0.0",
-  );
+  expect(result.appendix?.["some-pkg@1.0.0"]?.ledger?.potentiallyFixedIn).toBe("2.0.0");
 });
 
 const countSeveritiesConfig = {

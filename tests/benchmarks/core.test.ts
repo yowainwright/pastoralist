@@ -9,11 +9,7 @@ import { join } from "path";
 const BENCH_DIR = join(import.meta.dir, ".bench-temp");
 const ITERATIONS = 100;
 
-function benchmark(
-  name: string,
-  fn: () => void,
-  iterations: number = ITERATIONS,
-): number {
+function benchmark(name: string, fn: () => void, iterations: number = ITERATIONS): number {
   const start = performance.now();
   Array.from({ length: iterations }, fn);
   const avgMs = (performance.now() - start) / iterations;
@@ -133,11 +129,7 @@ test("Benchmark: Core Operations", () => {
   const discoveryTime = benchmark(
     "findPackageJsonFiles (60 packages)",
     () => {
-      findPackageJsonFiles(
-        ["packages/*/package.json"],
-        ["**/node_modules/**"],
-        BENCH_DIR,
-      );
+      findPackageJsonFiles(["packages/*/package.json"], ["**/node_modules/**"], BENCH_DIR);
     },
     20,
   );
@@ -167,12 +159,9 @@ test("Benchmark: Core Operations", () => {
     severity: "high" as const,
   }));
 
-  const generateTime = benchmark(
-    "generatePackageOverrides (20 overrides)",
-    () => {
-      checker.generatePackageOverrides(overrides);
-    },
-  );
+  const generateTime = benchmark("generatePackageOverrides (20 overrides)", () => {
+    checker.generatePackageOverrides(overrides);
+  });
 
   const total =
     resolveTime +

@@ -28,10 +28,9 @@ export function HomePage() {
     if (typeof window === "undefined") return;
 
     if ("requestIdleCallback" in window) {
-      const idleId = window.requestIdleCallback(
-        () => setShowDeferredSections(true),
-        { timeout: 500 },
-      );
+      const idleId = window.requestIdleCallback(() => setShowDeferredSections(true), {
+        timeout: 500,
+      });
       return () => window.cancelIdleCallback(idleId);
     }
 

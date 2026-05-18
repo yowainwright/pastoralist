@@ -132,10 +132,7 @@ describe("Enhanced Prompt UI Components", () => {
 
   describe("formatCompletion", () => {
     test("formats completion box with next steps", () => {
-      const steps = [
-        "Run pastoralist to update dependencies",
-        "Check documentation for options",
-      ];
+      const steps = ["Run pastoralist to update dependencies", "Check documentation for options"];
       const result = formatCompletion("Setup complete!", steps);
 
       expect(stripAnsi(result)).toContain("✓ Setup complete!");

@@ -26,10 +26,7 @@ export const findPackageFiles = (
   return findPackageJsonFiles(patterns, ignore, root, log);
 };
 
-const resolveAppendix = (
-  finalAppendix: Appendix,
-  useCompact: boolean,
-): Appendix => {
+const resolveAppendix = (finalAppendix: Appendix, useCompact: boolean): Appendix => {
   if (!useCompact) return finalAppendix;
   return toCompactAppendix(finalAppendix) as Appendix;
 };
@@ -71,18 +68,12 @@ export const determineProcessingMode = (
   };
 };
 
-export const resolveDepPaths = (
-  options: Options,
-  config: PastoralistJSON,
-): string[] | null => {
+export const resolveDepPaths = (options: Options, config: PastoralistJSON): string[] | null => {
   if (options?.depPaths) return options.depPaths;
 
   const configDepPaths = config.pastoralist?.depPaths;
 
-  if (
-    configDepPaths === WORKSPACE_MODES.SINGLE ||
-    configDepPaths === WORKSPACE_MODES.MULTIPLE
-  ) {
+  if (configDepPaths === WORKSPACE_MODES.SINGLE || configDepPaths === WORKSPACE_MODES.MULTIPLE) {
     return config.workspaces?.map((ws: string) => `${ws}/package.json`) || null;
   }
 
@@ -103,9 +94,7 @@ export const findRemovableOverrides = (
 ): string[] => {
   const appendixPackagesWithDependents = new Set(
     Object.entries(appendix)
-      .filter(
-        ([, item]) => item.dependents && Object.keys(item.dependents).length,
-      )
+      .filter(([, item]) => item.dependents && Object.keys(item.dependents).length)
       .map(([key]) => key.replace(/@[^@]+$/, "")),
   );
   const missingSet = new Set(missingInRoot);

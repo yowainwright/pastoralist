@@ -44,10 +44,7 @@ export class Prompt {
     );
   }
 
-  async confirm(
-    message: string,
-    defaultValue: boolean = true,
-  ): Promise<boolean> {
+  async confirm(message: string, defaultValue: boolean = true): Promise<boolean> {
     this.ensureCookedMode();
 
     return enhancedQuestion(
@@ -72,10 +69,7 @@ export class Prompt {
       const num = parseInt(answer.trim(), 10);
 
       if (isNaN(num) || num < 1 || num > choices.length) {
-        console.log(
-          "Invalid choice. Please enter a number between 1 and " +
-            choices.length,
-        );
+        console.log("Invalid choice. Please enter a number between 1 and " + choices.length);
         return choices[0].value;
       }
 
@@ -88,10 +82,7 @@ export class Prompt {
 
     switch (type) {
       case "confirm":
-        return this.confirm(
-          message,
-          (options as ConfirmOptions).default ?? true,
-        );
+        return this.confirm(message, (options as ConfirmOptions).default ?? true);
 
       case "list":
         return this.list(message, (options as ListOptions).choices);
@@ -102,9 +93,7 @@ export class Prompt {
     }
   }
 
-  async promptMany(
-    questions: PromptOptions[],
-  ): Promise<Record<string, string | boolean>> {
+  async promptMany(questions: PromptOptions[]): Promise<Record<string, string | boolean>> {
     return questions.reduce(
       async (accPromise, question, index) => {
         const answers = await accPromise;
@@ -149,19 +138,13 @@ export async function quickConfirm(
   });
 }
 
-export async function quickInput(
-  message: string,
-  defaultValue?: string,
-): Promise<string> {
+export async function quickInput(message: string, defaultValue?: string): Promise<string> {
   return createPrompt(async (prompt) => {
     return prompt.input(message, defaultValue ?? "");
   });
 }
 
-export async function quickList(
-  message: string,
-  choices: PromptChoice[],
-): Promise<string> {
+export async function quickList(message: string, choices: PromptChoice[]): Promise<string> {
   return createPrompt(async (prompt) => {
     return prompt.list(message, choices);
   });

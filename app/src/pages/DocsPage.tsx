@@ -39,18 +39,14 @@ export function DocsPage() {
         const { mdxRuntime, reactRuntime } = await getMDXRuntime();
         if (cancelled) return;
 
-        const compiled =
-          cachedEntry?.compiled ?? (await compileMDXFast(content));
+        const compiled = cachedEntry?.compiled ?? (await compileMDXFast(content));
         const headingsArray = cachedEntry?.headings ?? extractHeadings(content);
 
         if (cancelled) return;
 
         setHeadings(headingsArray);
 
-        const { default: MDXContent } = await mdxRuntime.run(
-          compiled,
-          reactRuntime,
-        );
+        const { default: MDXContent } = await mdxRuntime.run(compiled, reactRuntime);
         if (cancelled) return;
 
         mdxCache.set(slug, { compiled, headings: headingsArray });
@@ -133,11 +129,5 @@ function MDXContent({
   }
 
   if (!Content) return null;
-  return (
-    <Content
-      components={
-        mdxComponents as unknown as Record<string, React.ComponentType>
-      }
-    />
-  );
+  return <Content components={mdxComponents as unknown as Record<string, React.ComponentType>} />;
 }

@@ -66,9 +66,7 @@ export const hashLockfile = (root = process.cwd()): string => {
   }
 };
 
-export const resolveCacheDir = (
-  options: { cacheDir?: string; root?: string } = {},
-): string => {
+export const resolveCacheDir = (options: { cacheDir?: string; root?: string } = {}): string => {
   const fromFlag = options.cacheDir;
   if (fromFlag) return fromFlag;
 
@@ -221,11 +219,7 @@ export class DiskCache<V> {
     const entriesArray = Object.entries(newEntries);
     const isOverLimit = entriesArray.length > this.maxEntries;
     const trimmed = isOverLimit
-      ? Object.fromEntries(
-          entriesArray
-            .sort((a, b) => b[1].t - a[1].t)
-            .slice(0, this.maxEntries),
-        )
+      ? Object.fromEntries(entriesArray.sort((a, b) => b[1].t - a[1].t).slice(0, this.maxEntries))
       : newEntries;
     this.flush({ ...envelope, entries: trimmed });
   }

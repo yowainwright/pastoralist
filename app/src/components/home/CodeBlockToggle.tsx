@@ -1,8 +1,5 @@
 import React, { useState } from "react";
-import {
-  AnimatedTerminal,
-  TreeConnectors,
-} from "@/components/home/AnimatedTerminal";
+import { AnimatedTerminal, TreeConnectors } from "@/components/home/AnimatedTerminal";
 import { TerminalWindow } from "@/components/TerminalWindow";
 import { STYLES } from "@/components/TerminalWindow/constants";
 import type { TerminalTab } from "@/components/TerminalWindow/types";
@@ -46,13 +43,8 @@ export const CodeBlockToggle: React.FC<CodeBlockToggleProps> = ({
           <div className={STYLES.content}>
             <div className="space-y-1">
               {CLI_DEMO[0].lines.map((line, index) => (
-                <div
-                  key={index}
-                  className={`${STYLES.line} ${line.className ?? ""}`}
-                >
-                  {line.prefix && (
-                    <span className={STYLES.prefix}>{line.prefix}</span>
-                  )}
+                <div key={index} className={`${STYLES.line} ${line.className ?? ""}`}>
+                  {line.prefix && <span className={STYLES.prefix}>{line.prefix}</span>}
                   <TreeConnectors line={line} />
                   <span dangerouslySetInnerHTML={{ __html: line.text }} />
                 </div>

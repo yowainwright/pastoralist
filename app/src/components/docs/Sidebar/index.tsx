@@ -25,9 +25,7 @@ export function Sidebar() {
       if (menuButton?.contains(event.target as Node)) return;
 
       if (navRef.current && !navRef.current.contains(event.target as Node)) {
-        const drawer = document.getElementById(
-          "my-drawer-2",
-        ) as HTMLInputElement;
+        const drawer = document.getElementById("my-drawer-2") as HTMLInputElement;
         if (drawer) {
           drawer.checked = false;
           setIsOpen(false);

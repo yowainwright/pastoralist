@@ -12,30 +12,17 @@ import type {
   UpdatePackageJSONOptions,
 } from "../types";
 import { logger } from "../utils";
-import {
-  LRUCache,
-  DiskCache,
-  hashLockfile,
-  resolveCacheDir,
-} from "../utils/cache";
-import {
-  CACHE_NAMESPACES,
-  CACHE_TTLS,
-  CACHE_NS_VERSIONS,
-} from "../utils/cache";
+import { LRUCache, DiskCache, hashLockfile, resolveCacheDir } from "../utils/cache";
+import { CACHE_NAMESPACES, CACHE_TTLS, CACHE_NS_VERSIONS } from "../utils/cache";
 import { showHint } from "../dx/hint";
 
 const execFile = promisify(execFileCallback);
 const log = logger({ file: "packageJSON.ts", isLogging: IS_DEBUGGING });
 
 let _treeCache: DiskCache<Record<string, boolean>> | null = null;
-let _pendingTreeRequests: Map<string, Promise<Record<string, boolean>>> | null =
-  null;
+let _pendingTreeRequests: Map<string, Promise<Record<string, boolean>>> | null = null;
 
-const getTreeCache = (
-  cacheDir?: string,
-  noCache?: boolean,
-): DiskCache<Record<string, boolean>> => {
+const getTreeCache = (cacheDir?: string, noCache?: boolean): DiskCache<Record<string, boolean>> => {
   if (cacheDir || noCache) {
     return new DiskCache<Record<string, boolean>>(CACHE_NAMESPACES.TREE, {
       dir: cacheDir ?? resolveCacheDir(),
@@ -72,10 +59,7 @@ export const forceClearCache = () => {
   return sizeBefore;
 };
 
-const lockFileExists = (
-  filename: string,
-  root: string = process.cwd(),
-): boolean => {
+const lockFileExists = (filename: string, root: string = process.cwd()): boolean => {
   const filePath = resolve(root, filename);
   return fs.existsSync(filePath);
 };
@@ -83,8 +67,7 @@ const lockFileExists = (
 export const detectPackageManager = (
   root: string = process.cwd(),
 ): "npm" | "yarn" | "pnpm" | "bun" => {
-  const isBun =
-    lockFileExists("bun.lockb", root) || lockFileExists("bun.lock", root);
+  const isBun = lockFileExists("bun.lockb", root) || lockFileExists("bun.lock", root);
   if (isBun) return "bun";
 
   const isYarn = lockFileExists("yarn.lock", root);
@@ -165,17 +148,11 @@ export const applyOverridesToConfig = (
   }
 
   if (fieldType === "pnpm") {
-    return applyPnpmOverrides(
-      config,
-      overrides as Record<string, OverrideValue>,
-    );
+    return applyPnpmOverrides(config, overrides as Record<string, OverrideValue>);
   }
 
   if (fieldType === "overrides") {
-    return applyNpmOverrides(
-      config,
-      overrides as Record<string, OverrideValue>,
-    );
+    return applyNpmOverrides(config, overrides as Record<string, OverrideValue>);
   }
 
   return config;
@@ -230,12 +207,7 @@ const buildPreservedConfig = (config: PastoralistJSON) => {
 };
 
 const removeAllOverrides = (config: PastoralistJSON): PastoralistJSON => {
-  const {
-    resolutions: _resolutions,
-    overrides: _overrides,
-    pnpm,
-    ...rest
-  } = config;
+  const { resolutions: _resolutions, overrides: _overrides, pnpm, ...rest } = config;
 
   if (!pnpm) return rest;
 
@@ -248,9 +220,7 @@ const removeAllOverrides = (config: PastoralistJSON): PastoralistJSON => {
   };
 };
 
-const removePastoralistAppendix = (
-  config: PastoralistJSON,
-): PastoralistJSON => {
+const removePastoralistAppendix = (config: PastoralistJSON): PastoralistJSON => {
   const hasOtherConfig = hasOtherPastoralistConfig(config);
 
   if (!hasOtherConfig) {
@@ -262,10 +232,7 @@ const removePastoralistAppendix = (
   return { ...config, pastoralist: preservedConfig };
 };
 
-const addAppendixToConfig = (
-  config: PastoralistJSON,
-  appendix: Appendix,
-): PastoralistJSON => {
+const addAppendixToConfig = (config: PastoralistJSON, appendix: Appendix): PastoralistJSON => {
   const preservedConfig = buildPreservedConfig(config);
 
   return {
@@ -277,9 +244,7 @@ const addAppendixToConfig = (
   };
 };
 
-const processConfigWithoutOverrides = (
-  config: PastoralistJSON,
-): PastoralistJSON => {
+const processConfigWithoutOverrides = (config: PastoralistJSON): PastoralistJSON => {
   const withoutOverrides = removeAllOverrides(config);
   return removePastoralistAppendix(withoutOverrides);
 };
@@ -314,9 +279,7 @@ const processConfigWithOverrides = (
   const projectRoot = dirname(resolve(path));
   const overrideField =
     existingField ||
-    (isTesting
-      ? null
-      : getOverrideFieldForPackageManager(detectPackageManager(projectRoot)));
+    (isTesting ? null : getOverrideFieldForPackageManager(detectPackageManager(projectRoot)));
 
   return applyOverridesToConfig(updatedConfig, overrides, overrideField);
 };
@@ -377,13 +340,7 @@ export const updatePackageJSON = ({
   const hasAnyData = hasOverridesData || hasAppendixData;
 
   const updatedConfig = hasAnyData
-    ? processConfigWithOverrides(
-        config,
-        appendix,
-        overrides || {},
-        isTesting,
-        path,
-      )
+    ? processConfigWithOverrides(config, appendix, overrides || {}, isTesting, path)
     : processConfigWithoutOverrides(config);
 
   if (isTesting) return updatedConfig;
@@ -409,10 +366,7 @@ export const updatePackageJSON = ({
   }
 
   if (IS_DEBUGGING) {
-    log.debug(
-      `Writing updated package.json:\n${jsonString}`,
-      "updatePackageJSON",
-    );
+    log.debug(`Writing updated package.json:\n${jsonString}`, "updatePackageJSON");
   }
 
   writeJsonFile(path, jsonString);
@@ -442,8 +396,7 @@ export const parseNpmLsOutput = (stdout: string): Record<string, boolean> => {
     Object.entries(deps).forEach(([name, value]) => {
       packageMap[name] = true;
 
-      const hasNestedDeps =
-        value && typeof value === "object" && "dependencies" in value;
+      const hasNestedDeps = value && typeof value === "object" && "dependencies" in value;
       if (hasNestedDeps) {
         traverseDependencies(value.dependencies as Record<string, unknown>);
       }
@@ -457,9 +410,7 @@ export const parseNpmLsOutput = (stdout: string): Record<string, boolean> => {
   return packageMap;
 };
 
-export const executeNpmLs = async (
-  root: string = process.cwd(),
-): Promise<string> => {
+export const executeNpmLs = async (root: string = process.cwd()): Promise<string> => {
   try {
     const { stdout } = await execFile("npm", ["ls", "--json", "--all"], {
       cwd: root,
@@ -606,11 +557,7 @@ export const findPackageJsonFiles = (
     logInstance.debug(`Found ${files.length} files`, "findPackageJsonFiles");
     return files;
   } catch (err) {
-    logInstance.error(
-      "Error finding package.json files",
-      "findPackageJsonFiles",
-      err,
-    );
+    logInstance.error("Error finding package.json files", "findPackageJsonFiles", err);
     throw err;
   }
 };

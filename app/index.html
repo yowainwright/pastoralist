@@ -11,33 +11,21 @@
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://jeffry.in/pastoralist/" />
-    <meta
-      property="og:title"
-      content="Pastoralist - Dependency Management Tool"
-    />
+    <meta property="og:title" content="Pastoralist - Dependency Management Tool" />
     <meta
       property="og:description"
       content="Manage your package.json overrides, resolutions, and patches with ease"
     />
-    <meta
-      property="og:image"
-      content="https://jeffry.in/pastoralist/apple-touch-icon.png"
-    />
+    <meta property="og:image" content="https://jeffry.in/pastoralist/apple-touch-icon.png" />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary" />
-    <meta
-      name="twitter:title"
-      content="Pastoralist - Dependency Management Tool"
-    />
+    <meta name="twitter:title" content="Pastoralist - Dependency Management Tool" />
     <meta
       name="twitter:description"
       content="Manage your package.json overrides, resolutions, and patches with ease"
     />
-    <meta
-      name="twitter:image"
-      content="https://jeffry.in/pastoralist/apple-touch-icon.png"
-    />
+    <meta name="twitter:image" content="https://jeffry.in/pastoralist/apple-touch-icon.png" />
 
     <!-- Preload critical assets -->
     <link rel="preload" href="/pastoralist/pastoralist-logo.svg" as="image" />
@@ -50,23 +38,9 @@
 
     <!-- Favicons -->
     <link rel="icon" type="image/svg+xml" href="/pastoralist/favicon.svg" />
-    <link
-      rel="icon"
-      type="image/png"
-      sizes="32x32"
-      href="/pastoralist/favicon-32x32.png"
-    />
-    <link
-      rel="icon"
-      type="image/png"
-      sizes="16x16"
-      href="/pastoralist/favicon-16x16.png"
-    />
-    <link
-      rel="apple-touch-icon"
-      sizes="180x180"
-      href="/pastoralist/apple-touch-icon.png"
-    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/pastoralist/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/pastoralist/favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/pastoralist/apple-touch-icon.png" />
     <meta name="theme-color" content="#3b82f6" />
     <title>Pastoralist - Dependency Management Tool</title>
 
@@ -74,9 +48,7 @@
       function getTheme() {
         var saved = localStorage.getItem("theme");
         if (saved) return saved;
-        var prefersDark = window.matchMedia(
-          "(prefers-color-scheme: dark)",
-        ).matches;
+        var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
         if (prefersDark) return "night";
         return "lofi";
       }

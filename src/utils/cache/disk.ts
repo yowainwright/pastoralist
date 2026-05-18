@@ -11,41 +11,8 @@ import {
 import { join, dirname, basename } from "path";
 import { homedir, tmpdir } from "os";
 import { createHash } from "crypto";
-import type { DiskCacheOptions, DiskCacheEnvelope } from "../types";
-
-export const DISK_CACHE_SCHEMA_VERSION = 1;
-
-export const CACHE_NAMESPACES = {
-  REGISTRY: "registry",
-  OSV: "osv",
-  TREE: "tree",
-  ALERTS: "alerts",
-  DECISIONS: "decisions",
-} as const;
-
-export const CACHE_TTLS = {
-  REGISTRY: 24 * 60 * 60 * 1000,
-  OSV: 30 * 24 * 60 * 60 * 1000,
-  TREE: 30 * 24 * 60 * 60 * 1000,
-  ALERTS: 6 * 60 * 60 * 1000,
-  DECISIONS: 6 * 60 * 60 * 1000,
-} as const;
-
-export const CACHE_NS_VERSIONS = {
-  REGISTRY: 1,
-  OSV: 1,
-  TREE: 1,
-  ALERTS: 1,
-  DECISIONS: 1,
-} as const;
-
-const LOCKFILE_NAMES = [
-  "bun.lock",
-  "bun.lockb",
-  "yarn.lock",
-  "pnpm-lock.yaml",
-  "package-lock.json",
-] as const;
+import type { CacheDirOptions, DiskCacheOptions, DiskCacheEnvelope } from "../types";
+import { DISK_CACHE_SCHEMA_VERSION, LOCKFILE_NAMES } from "./constants";
 
 export const detectCIEnv = (): boolean => {
   const hasCI = Boolean(process.env.CI);
@@ -66,36 +33,39 @@ export const hashLockfile = (root = process.cwd()): string => {
   }
 };
 
-export const resolveCacheDir = (options: { cacheDir?: string; root?: string } = {}): string => {
-  const fromFlag = options.cacheDir;
-  if (fromFlag) return fromFlag;
-
-  const fromEnv = process.env.PASTORALIST_CACHE_DIR;
-  if (fromEnv) return fromEnv;
-
-  const root = options.root ?? process.cwd();
-  const nodeModulesCache = join(root, "node_modules", ".cache", "pastoralist");
-
+const isWritableCacheDir = (cacheDir: string): boolean => {
   try {
-    mkdirSync(nodeModulesCache, { recursive: true });
-    return nodeModulesCache;
+    mkdirSync(cacheDir, { recursive: true });
+    return true;
   } catch {
-    const fallbacks = [
-      join(homedir(), ".pastoralist", "cache"),
-      join(tmpdir(), "pastoralist", "cache"),
-    ];
-
-    for (const fallback of fallbacks) {
-      try {
-        mkdirSync(fallback, { recursive: true });
-        return fallback;
-      } catch {
-        // try the next fallback
-      }
-    }
-
-    throw new Error("Unable to create a writable cache directory");
+    return false;
   }
+};
+
+const configuredCacheDir = (options: CacheDirOptions): string | undefined => {
+  return options.cacheDir ?? process.env.PASTORALIST_CACHE_DIR;
+};
+
+const nodeModulesCacheDir = (root: string): string => {
+  return join(root, "node_modules", ".cache", "pastoralist");
+};
+
+const fallbackCacheDirs = (): string[] => {
+  return [join(homedir(), ".pastoralist", "cache"), join(tmpdir(), "pastoralist", "cache")];
+};
+
+const writableCacheDir = (root: string): string | undefined => {
+  return [nodeModulesCacheDir(root), ...fallbackCacheDirs()].find(isWritableCacheDir);
+};
+
+export const resolveCacheDir = (options: CacheDirOptions = {}): string => {
+  const configured = configuredCacheDir(options);
+  if (configured) return configured;
+
+  const resolved = writableCacheDir(options.root ?? process.cwd());
+  if (resolved) return resolved;
+
+  throw new Error("Unable to create a writable cache directory");
 };
 
 export const pruneBackups = (

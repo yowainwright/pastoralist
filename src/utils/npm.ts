@@ -2,6 +2,19 @@ import { createLimit } from "./limit";
 import { retry } from "./retry";
 import { compareVersions } from "./semver";
 import {
+  NPM_FETCH_RETRY_OPTIONS,
+  NPM_REGISTRY_CACHE_MAX_ENTRIES,
+  NPM_REGISTRY_CONCURRENCY,
+  NPM_REGISTRY_URL,
+} from "./constants";
+import type {
+  NpmPackageEntry,
+  NpmPackageInfo,
+  NpmPackageRequest,
+  NpmPackageVersionResult,
+  RegistryCacheOptions,
+} from "./types";
+import {
   DiskCache,
   resolveCacheDir,
   CACHE_NAMESPACES,
@@ -9,24 +22,17 @@ import {
   CACHE_NS_VERSIONS,
 } from "./cache";
 
-const npmLimit = createLimit(5);
-
-const NPM_REGISTRY_URL = "https://registry.npmjs.org";
+const npmLimit = createLimit(NPM_REGISTRY_CONCURRENCY);
 
 let _registryCache: DiskCache<NpmPackageInfo> | null = null;
 
-interface CacheOptions {
-  cacheDir?: string;
-  noCache?: boolean;
-}
-
-const getRegistryCache = (opts?: CacheOptions): DiskCache<NpmPackageInfo> => {
+const getRegistryCache = (opts?: RegistryCacheOptions): DiskCache<NpmPackageInfo> => {
   if (opts?.cacheDir || opts?.noCache) {
     return new DiskCache<NpmPackageInfo>(CACHE_NAMESPACES.REGISTRY, {
       dir: opts.cacheDir ?? resolveCacheDir(),
       ttl: CACHE_TTLS.REGISTRY,
       version: CACHE_NS_VERSIONS.REGISTRY,
-      maxEntries: 1000,
+      maxEntries: NPM_REGISTRY_CACHE_MAX_ENTRIES,
       enabled: !opts.noCache,
     });
   }
@@ -35,7 +41,7 @@ const getRegistryCache = (opts?: CacheOptions): DiskCache<NpmPackageInfo> => {
       dir: resolveCacheDir(),
       ttl: CACHE_TTLS.REGISTRY,
       version: CACHE_NS_VERSIONS.REGISTRY,
-      maxEntries: 1000,
+      maxEntries: NPM_REGISTRY_CACHE_MAX_ENTRIES,
     });
   }
   return _registryCache;
@@ -46,14 +52,6 @@ export const clearRegistryCache = (): void => {
   cache.clear();
   _registryCache = null;
 };
-
-interface NpmPackageInfo {
-  "dist-tags": {
-    latest: string;
-    [tag: string]: string;
-  };
-  versions: Record<string, unknown>;
-}
 
 const getMajorVersion = (version: string): number => {
   const major = version.split(".")[0];
@@ -66,7 +64,7 @@ const isPrerelease = (version: string): boolean => {
 
 const fetchPackageInfo = async (
   packageName: string,
-  opts?: CacheOptions,
+  opts?: RegistryCacheOptions,
 ): Promise<NpmPackageInfo | null> => {
   const cache = getRegistryCache(opts);
   const cacheKey = `pkg:${packageName}`;
@@ -74,20 +72,17 @@ const fetchPackageInfo = async (
   if (cached !== undefined) return cached;
 
   try {
-    const result = await retry(
-      async () => {
-        const res = await fetch(`${NPM_REGISTRY_URL}/${encodeURIComponent(packageName)}`, {
-          headers: { Accept: "application/json" },
-        });
+    const result = await retry(async () => {
+      const res = await fetch(`${NPM_REGISTRY_URL}/${encodeURIComponent(packageName)}`, {
+        headers: { Accept: "application/json" },
+      });
 
-        if (!res.ok) {
-          throw new Error(`Failed to fetch ${packageName}: ${res.status}`);
-        }
+      if (!res.ok) {
+        throw new Error(`Failed to fetch ${packageName}: ${res.status}`);
+      }
 
-        return res.json() as Promise<NpmPackageInfo>;
-      },
-      { retries: 2, minTimeout: 500, maxTimeout: 3000 },
-    );
+      return res.json() as Promise<NpmPackageInfo>;
+    }, NPM_FETCH_RETRY_OPTIONS);
     cache.set(cacheKey, result);
     return result;
   } catch {
@@ -97,7 +92,7 @@ const fetchPackageInfo = async (
 
 export const fetchLatestVersion = async (
   packageName: string,
-  opts?: CacheOptions,
+  opts?: RegistryCacheOptions,
 ): Promise<string | null> => {
   const info = await fetchPackageInfo(packageName, opts);
   return info?.["dist-tags"]?.latest ?? null;
@@ -106,7 +101,7 @@ export const fetchLatestVersion = async (
 export const fetchLatestCompatibleVersion = async (
   packageName: string,
   minVersion: string,
-  opts?: CacheOptions,
+  opts?: RegistryCacheOptions,
 ): Promise<string | null> => {
   const info = await fetchPackageInfo(packageName, opts);
   if (!info) return null;
@@ -129,35 +124,53 @@ export const fetchLatestCompatibleVersion = async (
   return compatibleVersions[0];
 };
 
+const isFirstPackageRequest = (
+  pkg: NpmPackageRequest,
+  index: number,
+  packages: NpmPackageRequest[],
+): boolean => {
+  return packages.findIndex((entry) => entry.name === pkg.name) === index;
+};
+
+const toPackageEntry = (pkg: NpmPackageRequest): NpmPackageEntry => {
+  return [pkg.name, pkg.minVersion];
+};
+
+const uniquePackageEntries = (packages: NpmPackageRequest[]): NpmPackageEntry[] => {
+  return packages.filter(isFirstPackageRequest).map(toPackageEntry);
+};
+
+const fetchCompatibleVersion = (
+  [name, minVersion]: NpmPackageEntry,
+  opts?: RegistryCacheOptions,
+): Promise<NpmPackageVersionResult> => {
+  return npmLimit(async () => {
+    const version = await fetchLatestCompatibleVersion(name, minVersion, opts);
+    return { name, version };
+  });
+};
+
+const hasResolvedVersion = (
+  result: NpmPackageVersionResult,
+): result is { name: string; version: string } => {
+  return Boolean(result.version);
+};
+
+const toVersionMap = (results: NpmPackageVersionResult[]): Map<string, string> => {
+  const entries = results
+    .filter(hasResolvedVersion)
+    .map((result) => [result.name, result.version] as const);
+
+  return new Map(entries);
+};
+
 export const fetchLatestCompatibleVersions = async (
-  packages: Array<{ name: string; minVersion: string }>,
-  opts?: CacheOptions,
+  packages: NpmPackageRequest[],
+  opts?: RegistryCacheOptions,
 ): Promise<Map<string, string>> => {
-  const results = new Map<string, string>();
-
-  const uniquePackages = packages.reduce((acc, pkg) => {
-    const hasPackage = acc.has(pkg.name);
-    if (!hasPackage) {
-      acc.set(pkg.name, pkg.minVersion);
-    }
-    return acc;
-  }, new Map<string, string>());
-
-  const entries = Array.from(uniquePackages.entries());
   const fetches = await Promise.all(
-    entries.map(([name, minVersion]) =>
-      npmLimit(async () => {
-        const version = await fetchLatestCompatibleVersion(name, minVersion, opts);
-        return { name, version };
-      }),
-    ),
+    uniquePackageEntries(packages).map((entry) => fetchCompatibleVersion(entry, opts)),
   );
 
-  for (const { name, version } of fetches) {
-    if (version) {
-      results.set(name, version);
-    }
-  }
-
-  return results;
+  return toVersionMap(fetches);
 };

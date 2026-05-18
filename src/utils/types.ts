@@ -35,6 +35,11 @@ export interface DiskCacheOptions {
   enabled?: boolean;
 }
 
+export interface CacheDirOptions {
+  cacheDir?: string;
+  root?: string;
+}
+
 export interface DiskCacheEntry<V> {
   v: V;
   t: number;
@@ -52,6 +57,31 @@ export interface CacheContext {
   refreshCache: boolean;
   ttlOverride?: number;
 }
+
+export interface RegistryCacheOptions {
+  cacheDir?: string;
+  noCache?: boolean;
+}
+
+export interface NpmPackageInfo {
+  "dist-tags": {
+    latest: string;
+    [tag: string]: string;
+  };
+  versions: Record<string, unknown>;
+}
+
+export interface NpmPackageRequest {
+  name: string;
+  minVersion: string;
+}
+
+export interface NpmPackageVersionResult {
+  name: string;
+  version: string | null;
+}
+
+export type NpmPackageEntry = readonly [string, string];
 
 export interface RetryOptions {
   retries?: number;

@@ -26,44 +26,77 @@ const startSpinnerInterval = (render: () => void, advance: () => void): NodeJS.T
   }, SPINNER_INTERVAL_MS);
 
 const clearSpinnerInterval = (interval: NodeJS.Timeout | null): void => {
-  if (interval !== null) clearInterval(interval);
+  if (interval === null) {
+    return;
+  }
+
+  clearInterval(interval);
 };
+
+const renderSpinner = (out: Output, state: StateContainer<TerminalGraphState>): void => {
+  const current = state.get();
+  const frame = SPINNER_FRAMES[current.spinner.frame];
+  const prefix = buildPrefix(current.ancestors);
+  out.clearLine();
+  out.write(`${prefix}${frame} ${current.spinner.text}`);
+};
+
+const setSpinnerActive = (
+  state: StateContainer<TerminalGraphState>,
+  text: string,
+  interval: NodeJS.Timeout,
+): void => {
+  const current = state.get();
+  state.set({
+    ...current,
+    spinner: { ...current.spinner, active: true, text, interval },
+  });
+};
+
+const setSpinnerInactive = (state: StateContainer<TerminalGraphState>): void => {
+  const current = state.get();
+  state.set({
+    ...current,
+    spinner: { ...current.spinner, active: false, interval: null },
+  });
+};
+
+const createSpinnerStarter =
+  (
+    out: Output,
+    state: StateContainer<TerminalGraphState>,
+    render: () => void,
+  ): SpinnerControl["start"] =>
+  (text) => {
+    out.hideCursor();
+    const interval = startSpinnerInterval(render, () => advanceFrame(state));
+    setSpinnerActive(state, text, interval);
+  };
+
+const createSpinnerStopper =
+  (out: Output, state: StateContainer<TerminalGraphState>): SpinnerControl["stop"] =>
+  () => {
+    clearSpinnerInterval(state.get().spinner.interval);
+    setSpinnerInactive(state);
+    out.clearLine();
+    out.showCursor();
+  };
+
+const createSpinnerActiveReader =
+  (state: StateContainer<TerminalGraphState>): SpinnerControl["isActive"] =>
+  () =>
+    state.get().spinner.active;
 
 export const createSpinnerControl = (
   out: Output,
   state: StateContainer<TerminalGraphState>,
 ): SpinnerControl => {
-  const render = () => {
-    const current = state.get();
-    const frame = SPINNER_FRAMES[current.spinner.frame];
-    const prefix = buildPrefix(current.ancestors);
-    out.clearLine();
-    out.write(`${prefix}${frame} ${current.spinner.text}`);
-  };
+  const render = () => renderSpinner(out, state);
 
   return {
-    start: (text) => {
-      out.hideCursor();
-      const current = state.get();
-      const interval = startSpinnerInterval(render, () => advanceFrame(state));
-      state.set({
-        ...current,
-        spinner: { ...current.spinner, active: true, text, interval },
-      });
-    },
-
-    stop: () => {
-      const current = state.get();
-      clearSpinnerInterval(current.spinner.interval);
-      state.set({
-        ...current,
-        spinner: { ...current.spinner, active: false, interval: null },
-      });
-      out.clearLine();
-      out.showCursor();
-    },
-
-    isActive: () => state.get().spinner.active,
+    start: createSpinnerStarter(out, state, render),
+    stop: createSpinnerStopper(out, state),
+    isActive: createSpinnerActiveReader(state),
     render,
   };
 };

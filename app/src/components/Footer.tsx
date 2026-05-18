@@ -1,5 +1,5 @@
-import { GitFork } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { GithubIcon } from "@/components/icons/GithubIcon";
 
 const BASE_URL = import.meta.env.BASE_URL || "/pastoralist";
 const base = BASE_URL.endsWith("/") ? BASE_URL : BASE_URL + "/";
@@ -32,7 +32,7 @@ export function Footer() {
             target="_blank"
             rel="noopener noreferrer"
           >
-            <GitFork className="h-5 w-5" />
+            <GithubIcon className="h-5 w-5" />
           </a>
         </div>
       </nav>

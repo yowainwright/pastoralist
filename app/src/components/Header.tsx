@@ -1,8 +1,9 @@
 import { lazy, Suspense } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { GitFork, Sun, Moon, Search as SearchIcon } from "lucide-react";
+import { Sun, Moon, Search as SearchIcon } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { getAllDocs } from "@/content";
+import { GithubIcon } from "@/components/icons/GithubIcon";
 
 const Search = lazy(() => import("@/components/docs/Search"));
 
@@ -87,7 +88,7 @@ export function Header() {
             href="https://github.com/yowainwright/pastoralist"
             aria-label="github"
           >
-            <GitFork className="h-4 w-4" />
+            <GithubIcon className="h-4 w-4" />
           </a>
           <button
             aria-label="theme-toggle"

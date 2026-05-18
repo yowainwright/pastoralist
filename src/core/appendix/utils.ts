@@ -331,7 +331,7 @@ export const shouldWriteAppendix = (
   return hasEntries && writeAppendixToFile;
 };
 
-export const hasOverrides = (overrides: OverridesType | null): boolean => {
+export const hasOverrides = (overrides: OverridesType | null): overrides is OverridesType => {
   if (!overrides) return false;
   return Object.keys(overrides).length > 0;
 };

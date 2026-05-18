@@ -1,6 +1,11 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
-import { SecurityAlert, SnykResult, SnykVulnerability } from "../../../types";
+import type {
+  SecurityAlert,
+  SnykAlertVulnerability,
+  SnykErrorWithStdout,
+  SnykResult,
+} from "../../../types";
 import { logger } from "../../../utils";
 import { CLIInstaller } from "../utils";
 import { DEFAULT_CLI_TIMEOUT, AUTH_MESSAGES } from "../constants";
@@ -93,43 +98,62 @@ export class SnykCLIProvider {
     _packages: Array<{ name: string; version: string }> = [],
     _options: { root?: string } = {},
   ): Promise<SecurityAlert[]> {
-    const isValid = await this.validatePrerequisites();
-
-    if (!isValid) {
+    if (!(await this.validatePrerequisites())) {
       return [];
     }
 
     try {
-      const result = await this.runSnykScan();
-      return this.convertSnykVulnerabilities(result);
+      return await this.fetchSnykAlerts();
     } catch (error: unknown) {
-      const err = error as { stdout?: string };
-      if (err.stdout) {
-        try {
-          const result = JSON.parse(err.stdout);
-          return this.convertSnykVulnerabilities(result);
-        } catch {
-          this.log.debug("Failed to parse Snyk error output", "fetchAlerts", {
-            error,
-          });
-        }
-      }
-
-      this.log.debug("Snyk scan failed", "fetchAlerts", { error });
-      const isErrorInstance = error instanceof Error;
-      const reason = isErrorInstance ? error.message : "Unknown error";
-      if (this.strict) {
-        throw new Error(
-          `Snyk security check failed. Reason: ${reason}. Failing due to --strict mode.`,
-        );
-      }
-      this.log.warn(
-        `Snyk security check failed. Your dependencies were NOT checked. ` +
-          `Reason: ${reason}. Run with --debug for details or --strict to fail on errors.`,
-        "fetchAlerts",
-      );
-      return [];
+      return this.handleSnykScanError(error);
     }
+  }
+
+  private async fetchSnykAlerts(): Promise<SecurityAlert[]> {
+    const result = await this.runSnykScan();
+    return this.convertSnykVulnerabilities(result);
+  }
+
+  private handleSnykScanError(error: unknown): SecurityAlert[] {
+    const parsedAlerts = this.parseAlertsFromError(error);
+
+    if (parsedAlerts) {
+      return parsedAlerts;
+    }
+
+    this.log.debug("Snyk scan failed", "fetchAlerts", { error });
+    const reason = error instanceof Error ? error.message : "Unknown error";
+
+    if (this.strict) {
+      throw new Error(
+        `Snyk security check failed. Reason: ${reason}. Failing due to --strict mode.`,
+      );
+    }
+
+    this.log.warn(this.createScanWarning(reason), "fetchAlerts");
+    return [];
+  }
+
+  private parseAlertsFromError(error: unknown): SecurityAlert[] | undefined {
+    const stdout = (error as SnykErrorWithStdout).stdout;
+
+    if (!stdout) {
+      return undefined;
+    }
+
+    try {
+      return this.convertSnykVulnerabilities(JSON.parse(stdout));
+    } catch {
+      this.log.debug("Failed to parse Snyk error output", "fetchAlerts", { error });
+      return undefined;
+    }
+  }
+
+  private createScanWarning(reason: string): string {
+    return (
+      `Snyk security check failed. Your dependencies were NOT checked. ` +
+      `Reason: ${reason}. Run with --debug for details or --strict to fail on errors.`
+    );
   }
 
   private convertSnykVulnerabilities(snykResult: SnykResult): SecurityAlert[] {
@@ -140,42 +164,29 @@ export class SnykCLIProvider {
     return snykResult.vulnerabilities.map((vuln) => this.convertVulnToAlert(vuln));
   }
 
-  private convertVulnToAlert(
-    vuln: SnykVulnerability & {
-      semver?: { vulnerable?: string };
-      fixedIn?: string[];
-      url?: string;
-      name?: string;
-    },
-  ): SecurityAlert {
-    const packageName = vuln.packageName || vuln.name || "";
-    const currentVersion = vuln.version;
-    const vulnerableVersions = vuln.semver?.vulnerable || "";
-    const patchedVersion = this.extractPatchedVersion(vuln);
-    const severity = this.normalizeSeverity(vuln.severity);
-    const title = vuln.title;
-    const description = vuln.description;
+  private convertVulnToAlert(vuln: SnykAlertVulnerability): SecurityAlert {
     const cves = vuln.identifiers?.CVE || [];
-    const url = vuln.url || `https://snyk.io/vuln/${vuln.id}`;
-    const fixAvailable = !!patchedVersion;
-
-    const base = {
-      packageName,
-      currentVersion,
-      vulnerableVersions,
-      patchedVersion,
-      severity,
-      title,
-      description,
-      url,
-      fixAvailable,
-    };
+    const base = this.createSnykAlertBase(vuln);
     return cves.length > 0 ? { ...base, cves } : base;
   }
 
-  private extractPatchedVersion(
-    vuln: SnykVulnerability & { fixedIn?: string[] },
-  ): string | undefined {
+  private createSnykAlertBase(vuln: SnykAlertVulnerability) {
+    const patchedVersion = this.extractPatchedVersion(vuln);
+
+    return {
+      packageName: vuln.packageName || vuln.name || "",
+      currentVersion: vuln.version,
+      vulnerableVersions: vuln.semver?.vulnerable || "",
+      patchedVersion,
+      severity: this.normalizeSeverity(vuln.severity),
+      title: vuln.title,
+      description: vuln.description,
+      url: vuln.url || `https://snyk.io/vuln/${vuln.id}`,
+      fixAvailable: !!patchedVersion,
+    };
+  }
+
+  private extractPatchedVersion(vuln: SnykAlertVulnerability): string | undefined {
     if (vuln.fixedIn && vuln.fixedIn.length > 0) {
       return vuln.fixedIn[0];
     }

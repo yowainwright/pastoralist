@@ -9,6 +9,7 @@ import { promptConfirm, promptSelect, promptInput, promptSecret } from "./utils"
 import {
   DEFAULT_CLI_TIMEOUT,
   PROVIDER_CONFIGS,
+  SETUP_MESSAGES,
   VALIDATION_ENDPOINTS,
   GH_MESSAGES,
 } from "./constants";
@@ -282,72 +283,96 @@ export class SecuritySetupWizard {
     provider: SecurityProvider,
     config: ProviderConfig,
   ): Promise<SetupResult> {
-    this.out.log(`\nTo use ${config.name}, you'll need an API token.\n`);
+    this.printTokenSetupInstructions(config);
+    await this.offerTokenPage(config);
 
-    config.setupSteps.forEach((step) => this.out.log(`  ${step}`));
+    const token = await this.promptForToken(config);
 
-    const hasRequiredScopes = !!config.requiredScopes;
-    if (hasRequiredScopes) {
-      this.out.log(`\n  Required scopes: ${config.requiredScopes!.join(", ")}`);
+    if (!token) {
+      return { success: false, message: SETUP_MESSAGES.NO_TOKEN };
     }
 
-    this.out.log("");
-
-    const shouldOfferBrowserOpen = config.tokenUrl && !this.skipBrowserOpen;
-    if (shouldOfferBrowserOpen) {
-      const openBrowser = await this.prompts.confirm(
-        `Open ${config.tokenUrl} in your browser?`,
-        true,
-      );
-
-      if (openBrowser) {
-        await this.openUrl(config.tokenUrl!);
-        this.out.info("\nBrowser opened. Create your token there.\n");
-      }
-    }
-
-    this.out.info("Tip: The token will be hidden as you type for security.\n");
-
-    const readToken = this.prompts.secret ?? this.prompts.input;
-    const token = await readToken(`Paste your ${config.name} token here`);
-
-    const noTokenProvided = !token;
-    if (noTokenProvided) {
-      return { success: false, message: "No token provided" };
-    }
-
-    this.out.log("\nValidating token...");
+    this.out.log(`\n${SETUP_MESSAGES.VALIDATING}`);
     const isValid = await this.validateToken(provider, token);
 
     if (!isValid) {
       return this.handleInvalidToken(config);
     }
 
-    this.out.success("Token is valid!\n");
+    return this.completeTokenSetup(config, token);
+  }
 
-    this.out.warn("Note: This saves the token as plaintext in your shell profile.");
-    const saveToProfile = await this.prompts.confirm(
-      "Save token to your shell profile for future use?",
-      false,
+  private printTokenSetupInstructions(config: ProviderConfig): void {
+    this.out.log(`\nTo use ${config.name}, you'll need an API token.\n`);
+    config.setupSteps.map((step) => `  ${step}`).forEach((step) => this.out.log(step));
+    this.printRequiredScopes(config);
+    this.out.log("");
+  }
+
+  private printRequiredScopes(config: ProviderConfig): void {
+    if (!config.requiredScopes) {
+      return;
+    }
+
+    this.out.log(`\n  Required scopes: ${config.requiredScopes.join(", ")}`);
+  }
+
+  private async offerTokenPage(config: ProviderConfig): Promise<void> {
+    if (!this.shouldOfferBrowserOpen(config)) {
+      return;
+    }
+
+    const openBrowser = await this.prompts.confirm(
+      `Open ${config.tokenUrl} in your browser?`,
+      true,
     );
 
-    const savedToProfile = saveToProfile
-      ? await this.saveToShellProfile(config.envVar!, token)
-      : false;
+    if (openBrowser) {
+      await this.openUrl(config.tokenUrl!);
+      this.out.info(`\n${SETUP_MESSAGES.BROWSER_OPENED}\n`);
+    }
+  }
 
+  private shouldOfferBrowserOpen(config: ProviderConfig): boolean {
+    return Boolean(config.tokenUrl && !this.skipBrowserOpen);
+  }
+
+  private async promptForToken(config: ProviderConfig): Promise<string> {
+    this.out.info(`${SETUP_MESSAGES.TOKEN_TIP}\n`);
+    const readToken = this.prompts.secret ?? this.prompts.input;
+    return readToken(`Paste your ${config.name} token here`);
+  }
+
+  private async completeTokenSetup(config: ProviderConfig, token: string): Promise<SetupResult> {
+    this.out.success(`${SETUP_MESSAGES.TOKEN_VALID}\n`);
+    const savedToProfile = await this.promptForProfileSave(config, token);
     process.env[config.envVar!] = token;
-
-    const persistMessage = `Token set for this session. Set ${config.envVar} in your environment to persist.`;
-    const savedMessage =
-      "Token saved to shell profile. Restart your terminal or run 'source ~/.zshrc' to use it globally.";
-    const message = savedToProfile ? savedMessage : persistMessage;
 
     return {
       success: true,
       token,
       savedToProfile,
-      message,
+      message: this.createTokenSetupMessage(config, savedToProfile),
     };
+  }
+
+  private async promptForProfileSave(config: ProviderConfig, token: string): Promise<boolean> {
+    this.out.warn(SETUP_MESSAGES.PLAINTEXT_WARNING);
+    const saveToProfile = await this.prompts.confirm(SETUP_MESSAGES.SAVE_PROMPT, false);
+
+    if (!saveToProfile) {
+      return false;
+    }
+
+    return this.saveToShellProfile(config.envVar!, token);
+  }
+
+  private createTokenSetupMessage(config: ProviderConfig, savedToProfile: boolean): string {
+    if (savedToProfile) {
+      return SETUP_MESSAGES.SAVED_TO_PROFILE;
+    }
+
+    return SETUP_MESSAGES.SESSION_ONLY.replace("{envVar}", config.envVar!);
   }
 
   private handleInvalidToken(config: ProviderConfig): SetupResult {
@@ -475,30 +500,37 @@ export class SecuritySetupWizard {
     const profilePath = this.findShellProfile(home, shellProfiles);
 
     try {
-      const content = readFileSync(profilePath, "utf-8");
-      const exportLine = `export ${envVar}=`;
-      const alreadyExists = content.includes(exportLine);
-
-      if (alreadyExists) {
-        this.out.warn(`${envVar} already exists in ${profilePath}. Skipping.`);
-        this.out.log(`To update it, edit ${profilePath} manually.`);
-        return false;
-      }
-
-      const newLine = `\n# Added by pastoralist\nexport ${envVar}="${token}"\n`;
-      appendFileSync(profilePath, newLine);
-
-      this.out.success(`Added ${envVar} to ${profilePath}\n`);
-      return true;
+      return this.writeTokenToShellProfile(profilePath, envVar, token);
     } catch (error) {
-      this.log.debug("Failed to save to profile", "saveToShellProfile", {
-        error,
-      });
-      this.out.warn(`Couldn't write to ${profilePath}.`);
-      this.out.log(`Add this to your shell profile manually:`);
-      this.out.log(`  export ${envVar}="<paste-token-here>"`);
+      this.handleProfileSaveError(profilePath, envVar, error);
       return false;
     }
+  }
+
+  private writeTokenToShellProfile(profilePath: string, envVar: string, token: string): boolean {
+    const content = readFileSync(profilePath, "utf-8");
+
+    if (this.profileHasEnvVar(content, envVar)) {
+      this.out.warn(`${envVar} already exists in ${profilePath}. Skipping.`);
+      this.out.log(`To update it, edit ${profilePath} manually.`);
+      return false;
+    }
+
+    const newLine = `\n# Added by pastoralist\nexport ${envVar}="${token}"\n`;
+    appendFileSync(profilePath, newLine);
+    this.out.success(`Added ${envVar} to ${profilePath}\n`);
+    return true;
+  }
+
+  private profileHasEnvVar(content: string, envVar: string): boolean {
+    return content.includes(`export ${envVar}=`);
+  }
+
+  private handleProfileSaveError(profilePath: string, envVar: string, error: unknown): void {
+    this.log.debug("Failed to save to profile", "saveToShellProfile", { error });
+    this.out.warn(`Couldn't write to ${profilePath}.`);
+    this.out.log(`Add this to your shell profile manually:`);
+    this.out.log(`  export ${envVar}="<paste-token-here>"`);
   }
 
   private findShellProfile(home: string, profiles: string[]): string {
@@ -513,31 +545,40 @@ export async function promptForSetup(
   options: { debug?: boolean } = {},
 ): Promise<SetupResult> {
   const wizard = new SecuritySetupWizard(options);
-  const out = createOutput();
-
   const hasToken = await wizard.checkTokenAvailable(provider);
 
   if (hasToken) {
-    return {
-      success: true,
-      message: `${PROVIDER_CONFIGS[provider].name} is already configured.`,
-    };
+    return createAlreadyConfiguredResult(provider);
   }
 
   const config = PROVIDER_CONFIGS[provider];
+  const wantsSetup = await confirmSetupHelp(config);
 
-  out.warn(`No ${config.name} authentication found.\n`);
-
-  const wantsSetup = await promptConfirm(`Would you like help setting up ${config.name}?`, true);
-
-  if (!wantsSetup) {
-    return {
-      success: false,
-      message: `Skipped ${config.name} setup. Security scan may be limited.`,
-    };
+  if (wantsSetup) {
+    return wizard.runSetup(provider);
   }
 
-  return wizard.runSetup(provider);
+  return createSetupSkippedResult(config);
+}
+
+function createAlreadyConfiguredResult(provider: SecurityProvider): SetupResult {
+  return {
+    success: true,
+    message: `${PROVIDER_CONFIGS[provider].name} is already configured.`,
+  };
+}
+
+async function confirmSetupHelp(config: ProviderConfig): Promise<boolean> {
+  const out = createOutput();
+  out.warn(`No ${config.name} authentication found.\n`);
+  return promptConfirm(`Would you like help setting up ${config.name}?`, true);
+}
+
+function createSetupSkippedResult(config: ProviderConfig): SetupResult {
+  return {
+    success: false,
+    message: `Skipped ${config.name} setup. Security scan may be limited.`,
+  };
 }
 
 export type { SecurityProvider };

@@ -1,6 +1,20 @@
-import { SecurityAlert, OSVVulnerability } from "../../../types";
+import type {
+  SecurityAlert,
+  OSVBatchApiResult,
+  OSVBatchResult,
+  OSVPackageQuery,
+  OSVPartialVulnerability,
+  OSVSeverityVulnerability,
+  OSVVulnerability,
+} from "../../../types";
 import { logger, retry, type RetryOptions } from "../../../utils";
-import { OSV_API } from "../constants";
+import {
+  OSV_API,
+  OSV_CACHE_MAX_ENTRIES,
+  OSV_DETAIL_CONCURRENCY,
+  OSV_IRL_CATCH_ALERT,
+  OSV_IRL_FIX_ALERT,
+} from "../constants";
 import {
   DiskCache,
   resolveCacheDir,
@@ -59,7 +73,7 @@ export class OSVProvider {
       dir: options.cacheDir ?? resolveCacheDir(),
       ttl: cacheTtlMs,
       version: CACHE_NS_VERSIONS.OSV,
-      maxEntries: 500,
+      maxEntries: OSV_CACHE_MAX_ENTRIES,
       enabled: !(options.noCache ?? false),
     });
   }
@@ -79,12 +93,20 @@ export class OSVProvider {
 
   private async fetchFromOSVBatchAPI(
     packages: Array<{ name: string; version: string }>,
-  ): Promise<Array<{ vulns?: OSVVulnerability[] }>> {
-    const queries = packages.map((pkg) => ({
+  ): Promise<OSVBatchResult[]> {
+    const response = await this.requestOSVBatch(this.createOSVQueries(packages));
+    const data = await response.json();
+    return this.enrichBatchResults(data.results || []);
+  }
+
+  private createOSVQueries(packages: Array<{ name: string; version: string }>): OSVPackageQuery[] {
+    return packages.map((pkg) => ({
       package: { name: pkg.name, ecosystem: "npm" },
       version: pkg.version,
     }));
+  }
 
+  private async requestOSVBatch(queries: OSVPackageQuery[]): Promise<Response> {
     const response = await fetch(OSV_API.QUERY_BATCH, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -95,24 +117,30 @@ export class OSVProvider {
       throw new Error(`HTTP ${response.status}`);
     }
 
-    const data = await response.json();
-    const batchResults = data.results || [];
-
-    const enrichedResults = await Promise.all(
-      batchResults.map(async (result: { vulns?: Array<{ id: string }> }) => {
-        const vulns = result?.vulns;
-        const hasVulns = vulns && vulns.length > 0;
-        if (!hasVulns) return result;
-
-        const fullVulns = await this.fetchFullVulnerabilityDetails(vulns);
-        return { vulns: fullVulns };
-      }),
-    );
-
-    return enrichedResults;
+    return response;
   }
 
-  private async fetchSingleVulnerability(vuln: { id: string }): Promise<OSVVulnerability> {
+  private async enrichBatchResults(batchResults: OSVBatchApiResult[]): Promise<OSVBatchResult[]> {
+    return Promise.all(
+      batchResults.map(async (result) => ({
+        vulns: await this.fetchBatchVulnerabilities(result),
+      })),
+    );
+  }
+
+  private async fetchBatchVulnerabilities(
+    result: OSVBatchApiResult,
+  ): Promise<OSVVulnerability[] | undefined> {
+    const vulns = result?.vulns;
+
+    if (!vulns || vulns.length === 0) {
+      return vulns;
+    }
+
+    return this.fetchFullVulnerabilityDetails(vulns);
+  }
+
+  private async fetchSingleVulnerability(vuln: OSVPartialVulnerability): Promise<OSVVulnerability> {
     const cacheKey = `osv:${vuln.id}`;
     const cached = this.osvCache.get(cacheKey);
     if (cached) return cached;
@@ -127,46 +155,54 @@ export class OSVProvider {
   }
 
   private async fetchFullVulnerabilityDetails(
-    partialVulns: Array<{ id: string }>,
+    partialVulns: OSVPartialVulnerability[],
   ): Promise<OSVVulnerability[]> {
-    const concurrency = 5;
-    const batches = partialVulns.reduce<Array<Array<{ id: string }>>>((acc, vuln, i) => {
-      const batchIndex = Math.floor(i / concurrency);
-      acc[batchIndex] = acc[batchIndex] || [];
-      acc[batchIndex].push(vuln);
-      return acc;
-    }, []);
-
-    const processBatch = async (batch: Array<{ id: string }>): Promise<OSVVulnerability[]> => {
-      const results = await Promise.allSettled(
-        batch.map((vuln) => this.fetchSingleVulnerability(vuln)),
-      );
-
-      return results.map((result, i) => {
-        const isFulfilled = result.status === "fulfilled";
-        if (isFulfilled) return result.value;
-
-        const errorMsg = `Failed to fetch ${batch[i].id}: ${result.reason}`;
-
-        if (this.strict) {
-          throw new Error(errorMsg);
-        }
-
-        this.log.debug(errorMsg, "fetchFullVulnerabilityDetails");
-        return batch[i] as OSVVulnerability;
-      });
-    };
-
-    const batchResults = await batches.reduce<Promise<OSVVulnerability[]>>(
+    return this.createVulnerabilityBatches(partialVulns).reduce<Promise<OSVVulnerability[]>>(
       async (accPromise, batch) => {
         const acc = await accPromise;
-        const results = await processBatch(batch);
+        const results = await this.fetchVulnerabilityBatch(batch);
         return acc.concat(results);
       },
       Promise.resolve([]),
     );
+  }
 
-    return batchResults;
+  private createVulnerabilityBatches(
+    partialVulns: OSVPartialVulnerability[],
+  ): OSVPartialVulnerability[][] {
+    return partialVulns.reduce<OSVPartialVulnerability[][]>((batches, vuln, index) => {
+      const batchIndex = Math.floor(index / OSV_DETAIL_CONCURRENCY);
+      const batch = batches[batchIndex] || [];
+      return Object.assign([...batches], { [batchIndex]: [...batch, vuln] });
+    }, []);
+  }
+
+  private async fetchVulnerabilityBatch(
+    batch: OSVPartialVulnerability[],
+  ): Promise<OSVVulnerability[]> {
+    const results = await Promise.allSettled(
+      batch.map((vuln) => this.fetchSingleVulnerability(vuln)),
+    );
+
+    return results.map((result, index) => this.resolveVulnerabilityResult(result, batch[index]));
+  }
+
+  private resolveVulnerabilityResult(
+    result: PromiseSettledResult<OSVVulnerability>,
+    fallback: OSVPartialVulnerability,
+  ): OSVVulnerability {
+    if (result.status === "fulfilled") {
+      return result.value;
+    }
+
+    const errorMsg = `Failed to fetch ${fallback.id}: ${result.reason}`;
+
+    if (this.strict) {
+      throw new Error(errorMsg);
+    }
+
+    this.log.debug(errorMsg, "fetchFullVulnerabilityDetails");
+    return fallback as OSVVulnerability;
   }
 
   async fetchAlerts(
@@ -179,80 +215,60 @@ export class OSVProvider {
       return [];
     }
 
-    const batchResults = await retry(
-      async () => {
-        return this.fetchFromOSVBatchAPI(packages);
+    const batchResults = await this.fetchBatchResults(packages);
+    const realAlerts = this.convertBatchResultsToAlerts(packages, batchResults);
+    return realAlerts.concat(this.getIRLFixtureAlerts());
+  }
+
+  private fetchBatchResults(
+    packages: Array<{ name: string; version: string }>,
+  ): Promise<OSVBatchResult[]> {
+    return retry(() => this.fetchFromOSVBatchAPI(packages), {
+      ...this.retryOptions,
+      onFailedAttempt: (error) => {
+        this.log.debug(`Batch API attempt ${error.attemptNumber} failed`, "fetchAlerts");
       },
-      {
-        ...this.retryOptions,
-        onFailedAttempt: (error) => {
-          this.log.debug(`Batch API attempt ${error.attemptNumber} failed`, "fetchAlerts");
-        },
-      },
-    ).catch((error) => {
-      this.log.debug("Failed to fetch batch results after retries", "fetchAlerts", { error });
-      const reason = error instanceof Error ? error.message : "Unknown error";
-      if (this.strict) {
-        throw new Error(
-          `OSV security check failed after ${this.retryOptions.retries} retries. ` +
-            `Reason: ${reason}. Failing due to --strict mode.`,
-        );
-      }
-      this.log.warn(
+    }).catch((error) => this.handleBatchFetchError(error));
+  }
+
+  private handleBatchFetchError(error: unknown): OSVBatchResult[] {
+    this.log.debug("Failed to fetch batch results after retries", "fetchAlerts", { error });
+    const reason = error instanceof Error ? error.message : "Unknown error";
+
+    if (this.strict) {
+      throw new Error(
         `OSV security check failed after ${this.retryOptions.retries} retries. ` +
-          `Your dependencies were NOT checked for vulnerabilities. ` +
-          `Reason: ${reason}. Run with --debug for details or --strict to fail on errors.`,
-        "fetchAlerts",
+          `Reason: ${reason}. Failing due to --strict mode.`,
       );
-      return [];
+    }
+
+    this.log.warn(this.createBatchWarning(reason), "fetchAlerts");
+    return [];
+  }
+
+  private createBatchWarning(reason: string): string {
+    return (
+      `OSV security check failed after ${this.retryOptions.retries} retries. ` +
+      `Your dependencies were NOT checked for vulnerabilities. ` +
+      `Reason: ${reason}. Run with --debug for details or --strict to fail on errors.`
+    );
+  }
+
+  private convertBatchResultsToAlerts(
+    packages: Array<{ name: string; version: string }>,
+    batchResults: OSVBatchResult[],
+  ): SecurityAlert[] {
+    return packages.flatMap((pkg, index) => {
+      const vulns = batchResults[index]?.vulns;
+      return vulns && vulns.length > 0 ? this.convertOSVAlerts(pkg, vulns) : [];
     });
+  }
 
-    const realAlerts = packages
-      .map((pkg, index) => {
-        const result = batchResults[index];
-        const hasVulns = result?.vulns && result.vulns.length > 0;
-        if (!hasVulns) return [];
-        return this.convertOSVAlerts(pkg, result.vulns!);
-      })
-      .flat();
-
-    const alertToResolve = this.isIRLFix
-      ? [
-          {
-            packageName: "fake-pastoralist-check-2",
-            currentVersion: "1.0.0",
-            vulnerableVersions: "< 2.1.0",
-            patchedVersion: "2.1.0",
-            severity: "critical" as const,
-            title:
-              "Critical vulnerability in fake-pastoralist-check-2 (transitive from fake-pastoralist-check-1)",
-            cves: ["CVE-FAKE-PASTORALIST-2024-0001"],
-            fixAvailable: true,
-            description:
-              "Fake critical security vulnerability in fake-pastoralist-check-2. Used by fake-pastoralist-check-1@1.0.0.",
-            url: "https://example.com/fake-pastoralist-advisory-0001",
-          },
-        ]
-      : [];
-    const alertToCapture = this.isIRLCatch
-      ? [
-          {
-            packageName: "fake-pastoralist-check-4",
-            currentVersion: "0.5.0",
-            vulnerableVersions: "< 1.0.0",
-            patchedVersion: undefined,
-            severity: "high" as const,
-            title: "High severity issue in fake-pastoralist-check-4 with no patch available",
-            cves: ["CVE-FAKE-PASTORALIST-2024-0002"],
-            fixAvailable: false,
-            description:
-              "Fake high severity vulnerability with no available patch for testing alert capture functionality.",
-            url: "https://example.com/fake-pastoralist-advisory-0002",
-          },
-        ]
-      : [];
-
-    return realAlerts.concat(alertToResolve).concat(alertToCapture);
+  private getIRLFixtureAlerts(): SecurityAlert[] {
+    return [
+      this.isIRLFix ? OSV_IRL_FIX_ALERT : undefined,
+      this.isIRLCatch ? OSV_IRL_CATCH_ALERT : undefined,
+    ].filter((alert): alert is SecurityAlert => Boolean(alert));
   }
 
   private convertOSVAlerts(
@@ -294,9 +310,7 @@ export class OSVProvider {
     return fixed;
   }
 
-  private extractSeverity(
-    vuln: OSVVulnerability & { database_specific?: { severity?: string } },
-  ): "low" | "medium" | "high" | "critical" {
+  private extractSeverity(vuln: OSVSeverityVulnerability): "low" | "medium" | "high" | "critical" {
     const severity = vuln.database_specific?.severity || vuln.severity?.[0]?.score || "medium";
 
     if (typeof severity === "string") {

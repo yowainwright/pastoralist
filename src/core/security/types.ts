@@ -233,6 +233,30 @@ export interface OSVVulnerability {
   references?: Array<{ type: string; url: string }>;
 }
 
+export interface OSVPackageQuery {
+  package: {
+    name: string;
+    ecosystem: "npm";
+  };
+  version: string;
+}
+
+export interface OSVPartialVulnerability {
+  id: string;
+}
+
+export interface OSVBatchResult {
+  vulns?: OSVVulnerability[];
+}
+
+export interface OSVBatchApiResult {
+  vulns?: OSVPartialVulnerability[];
+}
+
+export interface OSVSeverityVulnerability extends OSVVulnerability {
+  database_specific?: { severity?: string };
+}
+
 export interface SnykVulnerability {
   id: string;
   title: string;
@@ -245,6 +269,17 @@ export interface SnykVulnerability {
   upgradePath?: Array<string | boolean>;
   isUpgradable?: boolean;
   isPatchable?: boolean;
+}
+
+export interface SnykAlertVulnerability extends SnykVulnerability {
+  semver?: { vulnerable?: string };
+  fixedIn?: string[];
+  url?: string;
+  name?: string;
+}
+
+export interface SnykErrorWithStdout {
+  stdout?: string;
 }
 
 export interface SnykResult {
@@ -317,6 +352,23 @@ export interface PromptFunctions {
   select: (message: string, choices: PromptChoice[]) => Promise<string>;
   input: (message: string, defaultValue?: string) => Promise<string>;
   secret?: (message: string, defaultValue?: string) => Promise<string>;
+}
+
+export interface SecretPromptCharResult {
+  value: string;
+  output: string;
+  done: boolean;
+}
+
+export interface SecretPromptSession {
+  input: typeof process.stdin;
+  output: typeof process.stdout;
+  wasRaw: boolean;
+  defaultValue: string;
+  resolvePrompt: (value: string) => void;
+  value: string;
+  timeout?: ReturnType<typeof setTimeout>;
+  onData?: (chunk: Buffer) => void;
 }
 
 export interface NpmAuditAdvisory {

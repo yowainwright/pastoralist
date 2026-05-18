@@ -1,13 +1,31 @@
-import { SecurityAlert, SecurityOverride, SecurityProviderType } from "../../types";
-import { PastoralistJSON } from "../../types";
+import type {
+  PastoralistJSON,
+  SecurityAlert,
+  SecurityOverride,
+  SecurityProviderType,
+} from "../../types";
 import { compareVersions } from "../../utils/semver";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { logger } from "../../utils";
 import { red, yellow, cyan, gray } from "../../utils/colors";
 import * as readline from "readline/promises";
-import { DEFAULT_CLI_TIMEOUT, DEFAULT_INSTALL_TIMEOUT, DEFAULT_PROMPT_TIMEOUT } from "./constants";
-import type { CLIInstallOptions, PromptFunctions, PromptChoice } from "./types";
+import {
+  CONFIDENCE_WEIGHTS,
+  DEFAULT_CLI_TIMEOUT,
+  DEFAULT_INSTALL_TIMEOUT,
+  DEFAULT_PROMPT_TIMEOUT,
+  PROMPT_SELECT_MAX_ATTEMPTS,
+  SECURITY_ACTION_CHOICES,
+  SECURITY_SUMMARY_SEVERITIES,
+} from "./constants";
+import type {
+  CLIInstallOptions,
+  PromptFunctions,
+  PromptChoice,
+  SecretPromptCharResult,
+  SecretPromptSession,
+} from "./types";
 
 const execFileAsync = promisify(execFile);
 type ExecFileAsync = typeof execFileAsync;
@@ -60,11 +78,6 @@ export const deduplicateAlerts = (alerts: SecurityAlert[]): SecurityAlert[] => {
 
 export const computeConfidence = (sources: SecurityProviderType[]): "confirmed" | "possible" =>
   sources.length >= 2 ? "confirmed" : "possible";
-
-const CONFIDENCE_WEIGHTS: Record<"confirmed" | "possible", number> = {
-  confirmed: 2,
-  possible: 1,
-};
 
 export const sortAlertsByPriority = (alerts: SecurityAlert[]): SecurityAlert[] =>
   [...alerts].sort((a, b) => {
@@ -251,14 +264,31 @@ export class CLIInstaller {
 
   async ensureInstalled(options: CLIInstallOptions): Promise<boolean> {
     const { packageName, cliCommand } = options;
+    const hasCommand = await this.hasAvailableCommand(cliCommand);
 
+    if (hasCommand) {
+      return true;
+    }
+
+    const hasGlobalPackage = await this.hasGlobalPackage(packageName);
+    if (hasGlobalPackage) {
+      return true;
+    }
+
+    return this.installMissingCommand(packageName, cliCommand);
+  }
+
+  private async hasAvailableCommand(cliCommand: string): Promise<boolean> {
     const isCommandAvailable = await this.isInstalled(cliCommand);
 
     if (isCommandAvailable) {
       this.log.debug(`${cliCommand} is already installed`, "ensureInstalled");
-      return true;
     }
 
+    return isCommandAvailable;
+  }
+
+  private async hasGlobalPackage(packageName: string): Promise<boolean> {
     const isGloballyInstalled = await this.isInstalledGlobally(packageName);
 
     if (isGloballyInstalled) {
@@ -266,30 +296,33 @@ export class CLIInstaller {
         `${packageName} is installed globally but command not in PATH`,
         "ensureInstalled",
       );
-      return true;
     }
 
-    this.log.print(`${cliCommand} not found, installing ${packageName}...`);
+    return isGloballyInstalled;
+  }
 
+  private async installMissingCommand(packageName: string, cliCommand: string): Promise<boolean> {
+    this.log.print(`${cliCommand} not found, installing ${packageName}...`);
     try {
       await this.installGlobally(packageName);
-
-      const isNowInstalled = await this.isInstalled(cliCommand);
-
-      if (!isNowInstalled) {
-        this.log.print(
-          `${packageName} was installed but ${cliCommand} is still not available. Please ensure it's in your PATH.`,
-        );
-        return false;
-      }
-
-      return true;
+      return this.verifyInstalledCommand(packageName, cliCommand);
     } catch (error) {
-      this.log.error(`Could not install ${packageName}`, "ensureInstalled", {
-        error,
-      });
+      this.log.error(`Could not install ${packageName}`, "ensureInstalled", { error });
       return false;
     }
+  }
+
+  private async verifyInstalledCommand(packageName: string, cliCommand: string): Promise<boolean> {
+    const isNowInstalled = await this.isInstalled(cliCommand);
+
+    if (!isNowInstalled) {
+      this.log.print(
+        `${packageName} was installed but ${cliCommand} is still not available. Please ensure it's in your PATH.`,
+      );
+      return false;
+    }
+
+    return true;
   }
 
   async getVersion(command: string): Promise<string | undefined> {
@@ -365,39 +398,57 @@ export const promptConfirm = async (message: string, defaultValue = true): Promi
 export const promptSelect = async (message: string, choices: PromptChoice[]): Promise<string> => {
   const rl = createPromptInterface();
   const defaultChoice = choices[0]?.value || "";
-
-  console.log(`${cyan("?")} ${message}`);
-  choices.forEach((choice, i) => {
-    const num = cyan(`${i + 1})`);
-    console.log(`  ${num} ${choice.name}`);
-  });
-
   const selectPrompt = `${gray("Select")} (1-${choices.length}): `;
-  let selectedValue: string | null = null;
-  let attempts = 0;
-  const maxAttempts = 5;
 
-  while (selectedValue === null && attempts < maxAttempts) {
-    attempts++;
-    try {
-      const input = await questionWithTimeout(rl, selectPrompt, DEFAULT_PROMPT_TIMEOUT);
-      const num = parseInt(input.trim(), 10);
-      const isValidSelection = num >= 1 && num <= choices.length;
-
-      if (isValidSelection) {
-        selectedValue = choices[num - 1].value;
-      } else {
-        console.log("Invalid selection. Please try again.");
-      }
-    } catch {
-      rl.close();
-      return defaultChoice;
-    }
-  }
+  printSelectChoices(message, choices);
+  const selectedValue = await promptForSelection(rl, selectPrompt, choices, defaultChoice);
 
   rl.close();
-  return selectedValue || defaultChoice;
+  return selectedValue;
 };
+
+function printSelectChoices(message: string, choices: PromptChoice[]): void {
+  console.log(`${cyan("?")} ${message}`);
+  const lines = choices.map((choice, index) => `  ${cyan(`${index + 1})`)} ${choice.name}`);
+  console.log(lines.join("\n"));
+}
+
+async function promptForSelection(
+  rl: readline.Interface,
+  selectPrompt: string,
+  choices: PromptChoice[],
+  defaultChoice: string,
+  attempt = 1,
+): Promise<string> {
+  if (attempt > PROMPT_SELECT_MAX_ATTEMPTS) {
+    return defaultChoice;
+  }
+
+  try {
+    const input = await questionWithTimeout(rl, selectPrompt, DEFAULT_PROMPT_TIMEOUT);
+    const selectedValue = getSelectedChoice(input, choices);
+
+    if (selectedValue) {
+      return selectedValue;
+    }
+
+    console.log("Invalid selection. Please try again.");
+    return promptForSelection(rl, selectPrompt, choices, defaultChoice, attempt + 1);
+  } catch {
+    return defaultChoice;
+  }
+}
+
+function getSelectedChoice(input: string, choices: PromptChoice[]): string | undefined {
+  const num = parseInt(input.trim(), 10);
+  const isValidSelection = num >= 1 && num <= choices.length;
+
+  if (!isValidSelection) {
+    return undefined;
+  }
+
+  return choices[num - 1].value;
+}
 
 const formatInputPrompt = (message: string, defaultValue: string): string => {
   const hasDefault = defaultValue !== "";
@@ -425,74 +476,112 @@ export const promptInput = async (message: string, defaultValue = ""): Promise<s
 };
 
 export const promptSecret = async (message: string, defaultValue = ""): Promise<string> => {
-  const input = process.stdin;
-  const output = process.stdout;
-  const isInteractive = Boolean(input.isTTY && output.isTTY);
-
-  if (!isInteractive) {
+  if (!isInteractiveSecretPrompt()) {
     return promptInput(message, defaultValue);
   }
 
   const promptText = formatInputPrompt(message, defaultValue);
-
-  return new Promise((resolvePrompt) => {
-    let value = "";
-    const wasRaw = input.isRaw;
-    let timeout: ReturnType<typeof setTimeout> | undefined;
-
-    const cleanup = () => {
-      if (timeout) {
-        clearTimeout(timeout);
-      }
-      input.off("data", onData);
-      input.setRawMode(wasRaw);
-      input.pause();
-    };
-
-    const finish = () => {
-      cleanup();
-      output.write("\n");
-      resolvePrompt(value.trim() || defaultValue);
-    };
-
-    const onData = (chunk: Buffer) => {
-      const chars = chunk.toString("utf8");
-
-      for (const char of chars) {
-        if (char === "\u0003") {
-          cleanup();
-          output.write("\n");
-          resolvePrompt(defaultValue);
-          return;
-        }
-
-        if (char === "\r" || char === "\n") {
-          finish();
-          return;
-        }
-
-        if (char === "\u007f" || char === "\b") {
-          value = value.slice(0, -1);
-          continue;
-        }
-
-        value += char;
-      }
-    };
-
-    output.write(promptText);
-    input.setRawMode(true);
-    input.resume();
-    input.on("data", onData);
-
-    timeout = setTimeout(() => {
-      cleanup();
-      output.write("\n");
-      resolvePrompt(defaultValue);
-    }, DEFAULT_PROMPT_TIMEOUT);
-    timeout.unref();
-  });
+  return readSecretPrompt(promptText, defaultValue);
 };
+
+function isInteractiveSecretPrompt(): boolean {
+  return Boolean(process.stdin.isTTY && process.stdout.isTTY);
+}
+
+function readSecretPrompt(promptText: string, defaultValue: string): Promise<string> {
+  return new Promise((resolvePrompt) => {
+    const session = createSecretPromptSession(defaultValue, resolvePrompt);
+    startSecretPromptSession(session, promptText);
+  });
+}
+
+function createSecretPromptSession(
+  defaultValue: string,
+  resolvePrompt: (value: string) => void,
+): SecretPromptSession {
+  return {
+    input: process.stdin,
+    output: process.stdout,
+    wasRaw: process.stdin.isRaw,
+    defaultValue,
+    resolvePrompt,
+    value: "",
+  };
+}
+
+function startSecretPromptSession(session: SecretPromptSession, promptText: string): void {
+  session.onData = createSecretDataHandler(session);
+  session.output.write(promptText);
+  session.input.setRawMode(true);
+  session.input.resume();
+  session.input.on("data", session.onData);
+  session.timeout = createSecretPromptTimeout(session);
+}
+
+function createSecretDataHandler(session: SecretPromptSession): (chunk: Buffer) => void {
+  return (chunk: Buffer) => {
+    Array.from(chunk.toString("utf8")).some((char) => handleSecretDataChar(session, char));
+  };
+}
+
+function handleSecretDataChar(session: SecretPromptSession, char: string): boolean {
+  const result = handleSecretChar(char, session.value, session.defaultValue);
+  session.value = result.value;
+
+  if (result.done) {
+    finishSecretPrompt(session, result.output);
+  }
+
+  return result.done;
+}
+
+function createSecretPromptTimeout(session: SecretPromptSession): ReturnType<typeof setTimeout> {
+  const timeout = setTimeout(
+    () => finishSecretPrompt(session, session.defaultValue),
+    DEFAULT_PROMPT_TIMEOUT,
+  );
+  timeout.unref();
+  return timeout;
+}
+
+function finishSecretPrompt(session: SecretPromptSession, nextValue: string): void {
+  cleanupSecretPrompt(session);
+  session.output.write("\n");
+  session.resolvePrompt(nextValue);
+}
+
+function cleanupSecretPrompt(session: SecretPromptSession): void {
+  if (session.timeout) {
+    clearTimeout(session.timeout);
+  }
+
+  if (session.onData) {
+    session.input.off("data", session.onData);
+  }
+
+  session.input.setRawMode(session.wasRaw);
+  session.input.pause();
+}
+
+function handleSecretChar(
+  char: string,
+  value: string,
+  defaultValue: string,
+): SecretPromptCharResult {
+  if (char === "\u0003") {
+    return { value, output: defaultValue, done: true };
+  }
+
+  if (char === "\r" || char === "\n") {
+    return { value, output: value.trim() || defaultValue, done: true };
+  }
+
+  if (char === "\u007f" || char === "\b") {
+    return { value: value.slice(0, -1), output: "", done: false };
+  }
+
+  return { value: value + char, output: "", done: false };
+}
 
 export class InteractiveSecurityManager {
   private prompts: PromptFunctions;
@@ -515,111 +604,177 @@ export class InteractiveSecurityManager {
       return [];
     }
 
-    console.log("\nSecurity Vulnerabilities Found\n");
-    console.log("═".repeat(50));
-
-    const summary = this.generateSummary(vulnerablePackages);
-    console.log(summary);
-
-    const proceed = await this.prompts.confirm(
-      "Would you like to review and apply security fixes?",
-      true,
-    );
+    this.printSecurityReview(vulnerablePackages);
+    const proceed = await this.confirmSecurityReview();
 
     if (!proceed) {
       return [];
     }
 
-    const selectedOverrides: SecurityOverride[] = [];
+    const selectedOverrides = await this.collectSelectedOverrides(
+      vulnerablePackages,
+      suggestedOverrides,
+    );
+    return this.confirmSelectedOverrides(selectedOverrides);
+  }
 
-    for (const override of suggestedOverrides) {
-      const vuln = vulnerablePackages.find((v) => v.packageName === override.packageName);
+  private printSecurityReview(vulnerablePackages: SecurityAlert[]): void {
+    console.log("\nSecurity Vulnerabilities Found\n");
+    console.log("═".repeat(50));
+    console.log(this.generateSummary(vulnerablePackages));
+  }
 
-      if (!vuln) continue;
+  private confirmSecurityReview(): Promise<boolean> {
+    return this.prompts.confirm("Would you like to review and apply security fixes?", true);
+  }
 
-      console.log(`\n${override.packageName}`);
-      console.log(`   Current: ${override.fromVersion}`);
-      console.log(`   ${this.getSeverityEmoji(vuln.severity)} ${vuln.title}`);
-      if (vuln.cves && vuln.cves.length > 0) {
-        console.log(`   CVE: ${vuln.cves.join(", ")}`);
-      }
+  private collectSelectedOverrides(
+    vulnerablePackages: SecurityAlert[],
+    suggestedOverrides: SecurityOverride[],
+  ): Promise<SecurityOverride[]> {
+    return suggestedOverrides.reduce(
+      async (previousSelections, override) => [
+        ...(await previousSelections),
+        ...(await this.selectOverride(vulnerablePackages, override)),
+      ],
+      Promise.resolve([] as SecurityOverride[]),
+    );
+  }
 
-      const action = await this.prompts.select("How would you like to handle this vulnerability?", [
-        {
-          name: `Apply fix: Update to ${override.toVersion}`,
-          value: "apply",
-        },
-        {
-          name: "Skip this vulnerability",
-          value: "skip",
-        },
-        {
-          name: "Enter custom version",
-          value: "custom",
-        },
-      ]);
+  private async selectOverride(
+    vulnerablePackages: SecurityAlert[],
+    override: SecurityOverride,
+  ): Promise<SecurityOverride[]> {
+    const vulnerability = this.findVulnerability(vulnerablePackages, override);
 
-      if (action === "apply") {
-        selectedOverrides.push(override);
-      } else if (action === "custom") {
-        const customVersion = await this.prompts.input(
-          "Enter the version to use:",
-          override.toVersion,
-        );
-
-        selectedOverrides.push(
-          Object.assign({}, override, {
-            toVersion: customVersion,
-          }),
-        );
-      }
+    if (!vulnerability) {
+      return [];
     }
 
-    const hasSelectedOverrides = selectedOverrides.length > 0;
-    if (hasSelectedOverrides) {
-      console.log("\nSelected Overrides:\n");
-      selectedOverrides.forEach((override) => {
-        console.log(`  ${override.packageName}: ${override.fromVersion} → ${override.toVersion}`);
-      });
+    this.printOverrideReview(override, vulnerability);
+    const action = await this.prompts.select(
+      "How would you like to handle this vulnerability?",
+      this.getActionChoices(override),
+    );
+    const selectedOverride = await this.createSelectedOverride(action, override);
+    return selectedOverride ? [selectedOverride] : [];
+  }
 
-      const confirm = await this.prompts.confirm(
-        "Apply these overrides to your package.json?",
-        true,
+  private findVulnerability(
+    vulnerablePackages: SecurityAlert[],
+    override: SecurityOverride,
+  ): SecurityAlert | undefined {
+    return vulnerablePackages.find((vulnerability) => {
+      return vulnerability.packageName === override.packageName;
+    });
+  }
+
+  private printOverrideReview(override: SecurityOverride, vulnerability: SecurityAlert): void {
+    console.log(`\n${override.packageName}`);
+    console.log(`   Current: ${override.fromVersion}`);
+    console.log(`   ${this.getSeverityEmoji(vulnerability.severity)} ${vulnerability.title}`);
+
+    if (vulnerability.cves && vulnerability.cves.length > 0) {
+      console.log(`   CVE: ${vulnerability.cves.join(", ")}`);
+    }
+  }
+
+  private getActionChoices(override: SecurityOverride): PromptChoice[] {
+    return SECURITY_ACTION_CHOICES.map((choice) => {
+      if (choice.value !== "apply") {
+        return choice;
+      }
+
+      return {
+        ...choice,
+        name: `Apply fix: Update to ${override.toVersion}`,
+      };
+    });
+  }
+
+  private async createSelectedOverride(
+    action: string,
+    override: SecurityOverride,
+  ): Promise<SecurityOverride | undefined> {
+    if (action === "apply") {
+      return override;
+    }
+
+    if (action === "custom") {
+      const customVersion = await this.prompts.input(
+        "Enter the version to use:",
+        override.toVersion,
       );
-
-      if (!confirm) {
-        return [];
-      }
+      return { ...override, toVersion: customVersion };
     }
 
-    return selectedOverrides;
+    return undefined;
+  }
+
+  private async confirmSelectedOverrides(
+    selectedOverrides: SecurityOverride[],
+  ): Promise<SecurityOverride[]> {
+    if (selectedOverrides.length === 0) {
+      return [];
+    }
+
+    this.printSelectedOverrides(selectedOverrides);
+    const confirm = await this.prompts.confirm("Apply these overrides to your package.json?", true);
+    return confirm ? selectedOverrides : [];
+  }
+
+  private printSelectedOverrides(selectedOverrides: SecurityOverride[]): void {
+    console.log("\nSelected Overrides:\n");
+    selectedOverrides
+      .map(
+        (override) => `  ${override.packageName}: ${override.fromVersion} → ${override.toVersion}`,
+      )
+      .forEach((line) => console.log(line));
   }
 
   private generateSummary(vulnerablePackages: SecurityAlert[]): string {
-    const bySeverity = vulnerablePackages.reduce(
-      (acc, pkg) => {
-        acc[pkg.severity]++;
-        return acc;
-      },
+    const counts = this.countBySeverity(vulnerablePackages);
+    const severityLines = SECURITY_SUMMARY_SEVERITIES.map((severity) =>
+      this.formatSeveritySummary(severity, counts[severity]),
+    ).filter(Boolean);
+    return [`Found ${vulnerablePackages.length} vulnerable package(s):`, ...severityLines].join(
+      "\n",
+    );
+  }
+
+  private countBySeverity(vulnerablePackages: SecurityAlert[]) {
+    return vulnerablePackages.reduce(
+      (counts, vulnerability) => ({
+        ...counts,
+        [vulnerability.severity]: counts[vulnerability.severity] + 1,
+      }),
       { critical: 0, high: 0, medium: 0, low: 0 },
     );
+  }
 
-    let summary = `Found ${vulnerablePackages.length} vulnerable package(s):\n`;
-
-    if (bySeverity.critical > 0) {
-      summary += `  ${red("[CRITICAL]")} ${bySeverity.critical}\n`;
-    }
-    if (bySeverity.high > 0) {
-      summary += `  ${red("[HIGH]    ")} ${bySeverity.high}\n`;
-    }
-    if (bySeverity.medium > 0) {
-      summary += `  ${yellow("[MEDIUM]  ")} ${bySeverity.medium}\n`;
-    }
-    if (bySeverity.low > 0) {
-      summary += `  ${cyan("[LOW]     ")} ${bySeverity.low}\n`;
+  private formatSeveritySummary(severity: SecurityAlert["severity"], count: number): string {
+    if (count === 0) {
+      return "";
     }
 
-    return summary;
+    const label = this.getSeverityLabel(severity);
+    return `  ${label} ${count}`;
+  }
+
+  private getSeverityLabel(severity: SecurityAlert["severity"]): string {
+    if (severity === "critical") {
+      return red("[CRITICAL]");
+    }
+
+    if (severity === "high") {
+      return red("[HIGH]    ");
+    }
+
+    if (severity === "medium") {
+      return yellow("[MEDIUM]  ");
+    }
+
+    return cyan("[LOW]     ");
   }
 
   private getSeverityEmoji(severity: string): string {

@@ -9,7 +9,7 @@ import {
 } from "../../../types";
 import { logger, retry } from "../../../utils";
 import { SECURITY_ENV_VARS } from "../../../constants";
-import { DEFAULT_CLI_TIMEOUT, AUTH_MESSAGES } from "../constants";
+import { DEFAULT_CLI_TIMEOUT, AUTH_MESSAGES, GITHUB_DEFAULT_MOCK_ALERTS } from "../constants";
 
 const defaultExecFileAsync = promisify(execFile);
 
@@ -174,70 +174,7 @@ export class GitHubSecurityProvider {
   }
 
   private getDefaultMockAlerts(): DependabotAlert[] {
-    return [
-      {
-        number: 1,
-        state: "open",
-        url: "https://mock.url",
-        html_url: "https://mock.url",
-        created_at: "2021-01-01T00:00:00Z",
-        updated_at: "2021-01-01T00:00:00Z",
-        dependency: {
-          package: { ecosystem: "npm", name: "lodash" },
-          manifest_path: "package.json",
-          scope: "runtime",
-        },
-        security_advisory: {
-          severity: "high",
-          summary: "Mock vulnerability in lodash",
-          description: "Mock description",
-          vulnerabilities: [
-            {
-              package: { ecosystem: "npm", name: "lodash" },
-              vulnerable_version_range: "< 4.17.21",
-              first_patched_version: { identifier: "4.17.21" },
-            },
-          ],
-        },
-        security_vulnerability: {
-          package: { ecosystem: "npm", name: "lodash" },
-          severity: "high",
-          vulnerable_version_range: "< 4.17.21",
-          first_patched_version: { identifier: "4.17.21" },
-        },
-      } as DependabotAlert,
-      {
-        number: 2,
-        state: "open",
-        url: "https://mock.url",
-        html_url: "https://mock.url",
-        created_at: "2021-01-01T00:00:00Z",
-        updated_at: "2021-01-01T00:00:00Z",
-        dependency: {
-          package: { ecosystem: "npm", name: "minimist" },
-          manifest_path: "package.json",
-          scope: "runtime",
-        },
-        security_advisory: {
-          severity: "medium",
-          summary: "Mock vulnerability in minimist",
-          description: "Mock description",
-          vulnerabilities: [
-            {
-              package: { ecosystem: "npm", name: "minimist" },
-              vulnerable_version_range: "< 1.2.6",
-              first_patched_version: { identifier: "1.2.6" },
-            },
-          ],
-        },
-        security_vulnerability: {
-          package: { ecosystem: "npm", name: "minimist" },
-          severity: "medium",
-          vulnerable_version_range: "< 1.2.6",
-          first_patched_version: { identifier: "1.2.6" },
-        },
-      } as DependabotAlert,
-    ];
+    return GITHUB_DEFAULT_MOCK_ALERTS;
   }
 
   private async isGhCliAvailable(): Promise<boolean> {
@@ -262,38 +199,51 @@ export class GitHubSecurityProvider {
 
   private async fetchAlertsWithGhCli(): Promise<DependabotAlert[]> {
     try {
-      const stdout = await retry(() => this.executeGhCli(), {
-        retries: 3,
-        factor: 2,
-        minTimeout: 1000,
-        onFailedAttempt: (error) => {
-          const errorMessage = String(error);
-          const isPermissionError = this.isPermissionError(errorMessage);
-          if (isPermissionError) {
-            throw new SecurityProviderPermissionError("GitHub CLI", errorMessage);
-          }
-          this.log.debug(`gh CLI attempt ${error.attemptNumber} failed`, "fetchAlertsWithGhCli");
-        },
-      });
-
-      const alerts = JSON.parse(stdout);
-      const alertCount = Array.isArray(alerts) ? alerts.length : "non-array";
-      this.log.debug(`Parsed ${alertCount} alerts`, "fetchAlertsWithGhCli");
-
-      return Array.isArray(alerts) ? alerts : [];
+      const stdout = await this.retryGhCliFetch();
+      return this.parseGhCliAlerts(stdout);
     } catch (error) {
-      const isAlreadyPermissionError = error instanceof SecurityProviderPermissionError;
-      if (isAlreadyPermissionError) {
-        throw error;
-      }
-      const errorMessage = String(error);
-      const isPermissionError = this.isPermissionError(errorMessage);
-      if (isPermissionError) {
-        throw new SecurityProviderPermissionError("GitHub CLI", errorMessage);
-      }
-      this.log.error("Failed to fetch alerts with gh CLI", "fetchAlertsWithGhCli", { error });
-      throw new Error(`Failed to fetch Dependabot alerts: ${error}`);
+      this.handleGhCliFetchError(error);
     }
+  }
+
+  private retryGhCliFetch(): Promise<string> {
+    return retry(() => this.executeGhCli(), {
+      retries: 3,
+      factor: 2,
+      minTimeout: 1000,
+      onFailedAttempt: (error) => this.handleGhCliRetryFailure(error),
+    });
+  }
+
+  private handleGhCliRetryFailure(error: Error & { attemptNumber?: number }): void {
+    const errorMessage = String(error);
+
+    if (this.isPermissionError(errorMessage)) {
+      throw new SecurityProviderPermissionError("GitHub CLI", errorMessage);
+    }
+
+    this.log.debug(`gh CLI attempt ${error.attemptNumber} failed`, "fetchAlertsWithGhCli");
+  }
+
+  private parseGhCliAlerts(stdout: string): DependabotAlert[] {
+    const alerts = JSON.parse(stdout);
+    const alertCount = Array.isArray(alerts) ? alerts.length : "non-array";
+    this.log.debug(`Parsed ${alertCount} alerts`, "fetchAlertsWithGhCli");
+    return Array.isArray(alerts) ? alerts : [];
+  }
+
+  private handleGhCliFetchError(error: unknown): never {
+    if (error instanceof SecurityProviderPermissionError) {
+      throw error;
+    }
+
+    const errorMessage = String(error);
+    if (this.isPermissionError(errorMessage)) {
+      throw new SecurityProviderPermissionError("GitHub CLI", errorMessage);
+    }
+
+    this.log.error("Failed to fetch alerts with gh CLI", "fetchAlertsWithGhCli", { error });
+    throw new Error(`Failed to fetch Dependabot alerts: ${error}`);
   }
 
   private isPermissionError(message: string): boolean {
@@ -315,31 +265,41 @@ export class GitHubSecurityProvider {
     const timeoutId = setTimeout(() => controller.abort(), DEFAULT_FETCH_TIMEOUT);
 
     try {
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${this.token}`,
-          Accept: "application/vnd.github.v3+json",
-        },
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        const error: GithubApiError = await response.json();
-        const errorMessage = error.message || response.statusText;
-        const isPermissionError = this.isPermissionError(errorMessage);
-
-        if (isPermissionError) {
-          throw new SecurityProviderPermissionError("GitHub", errorMessage);
-        }
-
-        throw new Error(`GitHub API error: ${errorMessage}`);
-      }
-
-      const alerts = await response.json();
-      return Array.isArray(alerts) ? alerts : [];
+      const response = await this.requestDependabotAlerts(url, controller.signal);
+      return this.readDependabotResponse(response);
     } finally {
       clearTimeout(timeoutId);
     }
+  }
+
+  private requestDependabotAlerts(url: string, signal: AbortSignal): Promise<Response> {
+    return fetch(url, {
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+      signal,
+    });
+  }
+
+  private async readDependabotResponse(response: Response): Promise<DependabotAlert[]> {
+    if (!response.ok) {
+      await this.throwDependabotResponseError(response);
+    }
+
+    const alerts = await response.json();
+    return Array.isArray(alerts) ? alerts : [];
+  }
+
+  private async throwDependabotResponseError(response: Response): Promise<never> {
+    const error: GithubApiError = await response.json();
+    const errorMessage = error.message || response.statusText;
+
+    if (this.isPermissionError(errorMessage)) {
+      throw new SecurityProviderPermissionError("GitHub", errorMessage);
+    }
+
+    throw new Error(`GitHub API error: ${errorMessage}`);
   }
 
   private async fetchAlertsWithApi(): Promise<DependabotAlert[]> {
@@ -373,35 +333,41 @@ export class GitHubSecurityProvider {
     packages: Array<{ name: string; version: string }> = [],
   ): SecurityAlert[] {
     const packageVersions = new Map(packages.map((pkg) => [pkg.name, pkg.version]));
-    const shouldFilterPackages = packageVersions.size > 0;
 
     return dependabotAlerts
-      .filter((alert) => alert.state === "open")
-      .filter((alert) => this.isNpmAlert(alert))
-      .filter((alert) => {
-        if (!shouldFilterPackages) return true;
-        return packageVersions.has(alert.security_vulnerability.package.name);
-      })
-      .map((alert) => {
-        const vulnerability = alert.security_vulnerability;
-        const advisory = alert.security_advisory;
-        const currentVersion =
-          packageVersions.get(vulnerability.package.name) || this.extractCurrentVersion(alert);
+      .filter((alert) => this.shouldIncludeAlert(alert, packageVersions))
+      .map((alert) => this.convertDependabotAlert(alert, packageVersions));
+  }
 
-        const cves = advisory.cve_id ? [advisory.cve_id] : [];
-        const base = {
-          packageName: vulnerability.package.name,
-          currentVersion,
-          vulnerableVersions: vulnerability.vulnerable_version_range,
-          patchedVersion: vulnerability.first_patched_version?.identifier,
-          severity: this.normalizeSeverity(vulnerability.severity),
-          title: advisory.summary,
-          description: advisory.description,
-          url: alert.html_url,
-          fixAvailable: !!vulnerability.first_patched_version,
-        };
-        return cves.length > 0 ? { ...base, cves } : base;
-      });
+  private shouldIncludeAlert(
+    alert: DependabotAlert,
+    packageVersions: Map<string, string>,
+  ): boolean {
+    const packageName = alert.security_vulnerability.package.name;
+    const matchesPackageFilter = packageVersions.size === 0 || packageVersions.has(packageName);
+    return alert.state === "open" && this.isNpmAlert(alert) && matchesPackageFilter;
+  }
+
+  private convertDependabotAlert(
+    alert: DependabotAlert,
+    packageVersions: Map<string, string>,
+  ): SecurityAlert {
+    const vulnerability = alert.security_vulnerability;
+    const advisory = alert.security_advisory;
+    const cves = advisory.cve_id ? [advisory.cve_id] : [];
+    const base = {
+      packageName: vulnerability.package.name,
+      currentVersion:
+        packageVersions.get(vulnerability.package.name) || this.extractCurrentVersion(alert),
+      vulnerableVersions: vulnerability.vulnerable_version_range,
+      patchedVersion: vulnerability.first_patched_version?.identifier,
+      severity: this.normalizeSeverity(vulnerability.severity),
+      title: advisory.summary,
+      description: advisory.description,
+      url: alert.html_url,
+      fixAvailable: !!vulnerability.first_patched_version,
+    };
+    return cves.length > 0 ? { ...base, cves } : base;
   }
 
   private isNpmAlert(alert: DependabotAlert): boolean {

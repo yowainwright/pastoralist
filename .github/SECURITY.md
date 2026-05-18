@@ -2,12 +2,33 @@
 
 ## Supported Versions
 
-This project is currently slowly iterating towards a v1 release!
+Pastoralist is still iterating toward a stable v1 release. Security fixes are
+prioritized for the latest published release line.
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.1.x   | :white_check_mark: |
+| Latest  | :white_check_mark: |
 
 ## Reporting a Vulnerability
 
-To report a Vulnerability, submit an [issue](https://github.com/yowainwright/pastoralist/issues) or [pull request](https://github.com/yowainwright/pastoralist/pulls)!
+Please do not open a public issue for suspected vulnerabilities.
+
+Use GitHub's private vulnerability reporting if it is available for this
+repository:
+
+<https://github.com/yowainwright/pastoralist/security/advisories/new>
+
+If private reporting is not available, email the maintainer listed in
+`package.json`.
+
+Please include:
+
+- Affected Pastoralist version or commit SHA
+- Package manager and lockfile type involved, if relevant
+- Minimal reproduction steps or a proof of concept
+- Impact, including whether secrets, dependency updates, or generated PRs are
+  involved
+
+You should receive an acknowledgement within 7 days. Valid reports are triaged
+privately, fixed on the supported release line, and disclosed through a GitHub
+Security Advisory when appropriate.

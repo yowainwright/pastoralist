@@ -112,6 +112,24 @@ Set provider tokens with environment variables whenever possible:
 \`securityProviderToken\` remains available for controlled local or generated
 config, but do not commit real tokens to the repository.
 
+## Release Assurance
+
+Pastoralist npm releases are published from GitHub Actions with npm provenance.
+The release workflow also packs the npm tarball before publishing and creates a
+GitHub artifact attestation for that exact tarball.
+
+You can inspect provenance on the npm package page and verify registry
+signatures from your own project:
+
+\`\`\`bash
+npm audit signatures
+\`\`\`
+
+These checks prove where the package was built and which artifact was published.
+They do not prove the code is bug-free, so the project also runs CI, CodeQL,
+OpenSSF Scorecard, dependency update policy checks, and unit, integration, and
+e2e tests.
+
 ## Security Providers
 
 ### OSV (Open Source Vulnerabilities)

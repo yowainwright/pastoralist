@@ -15,6 +15,13 @@ import { logger } from "../utils";
 import { LRUCache, DiskCache, hashLockfile, resolveCacheDir } from "../utils/cache";
 import { CACHE_NAMESPACES, CACHE_TTLS, CACHE_NS_VERSIONS } from "../utils/cache";
 import { showHint } from "../dx/hint";
+import {
+  NPM_LS_MAX_BUFFER,
+  NPM_LS_TIMEOUT_MS,
+  PNPM_LOCK_PACKAGE_PATTERN,
+  TREE_CACHE_MAX_ENTRIES,
+  YARN_LOCK_PACKAGE_PATTERN,
+} from "./constants";
 
 const execFile = promisify(execFileCallback);
 const log = logger({ file: "packageJSON.ts", isLogging: IS_DEBUGGING });
@@ -28,7 +35,7 @@ const getTreeCache = (cacheDir?: string, noCache?: boolean): DiskCache<Record<st
       dir: cacheDir ?? resolveCacheDir(),
       ttl: CACHE_TTLS.TREE,
       version: CACHE_NS_VERSIONS.TREE,
-      maxEntries: 50,
+      maxEntries: TREE_CACHE_MAX_ENTRIES,
       enabled: !noCache,
     });
   }
@@ -37,7 +44,7 @@ const getTreeCache = (cacheDir?: string, noCache?: boolean): DiskCache<Record<st
       dir: resolveCacheDir(),
       ttl: CACHE_TTLS.TREE,
       version: CACHE_NS_VERSIONS.TREE,
-      maxEntries: 50,
+      maxEntries: TREE_CACHE_MAX_ENTRIES,
     });
   }
   return _treeCache;
@@ -249,6 +256,38 @@ const processConfigWithoutOverrides = (config: PastoralistJSON): PastoralistJSON
   return removePastoralistAppendix(withoutOverrides);
 };
 
+const removePastoralistButPreserveConfig = (config: PastoralistJSON): PastoralistJSON => {
+  const preservedConfig = buildPreservedConfig(config);
+  const hasPreservedConfig = Object.keys(preservedConfig).length > 0;
+  const { pastoralist: _pastoralist, ...configWithoutPastoralist } = config;
+  if (!hasPreservedConfig) return configWithoutPastoralist;
+  return { ...configWithoutPastoralist, pastoralist: preservedConfig };
+};
+
+const applyAppendixToConfig = (
+  config: PastoralistJSON,
+  appendix: Appendix | undefined,
+): PastoralistJSON => {
+  const shouldAddAppendix = appendix && Object.keys(appendix).length > 0;
+  if (shouldAddAppendix) return addAppendixToConfig(config, appendix);
+  return removePastoralistButPreserveConfig(config);
+};
+
+const hasOverrideEntries = (overrides: OverridesType): boolean => Object.keys(overrides).length > 0;
+
+const resolveOverrideField = (
+  config: PastoralistJSON,
+  isTesting: boolean,
+  path: string,
+): "resolutions" | "overrides" | "pnpm" | null => {
+  const existingField = getExistingOverrideField(config);
+  if (existingField) return existingField;
+  if (isTesting) return null;
+
+  const projectRoot = dirname(resolve(path));
+  return getOverrideFieldForPackageManager(detectPackageManager(projectRoot));
+};
+
 const processConfigWithOverrides = (
   config: PastoralistJSON,
   appendix: Appendix | undefined,
@@ -256,31 +295,9 @@ const processConfigWithOverrides = (
   isTesting: boolean,
   path: string,
 ): PastoralistJSON => {
-  const shouldAddAppendix = appendix && Object.keys(appendix).length > 0;
-  let updatedConfig: PastoralistJSON;
-
-  if (shouldAddAppendix) {
-    updatedConfig = addAppendixToConfig(config, appendix);
-  } else {
-    const preservedConfig = buildPreservedConfig(config);
-    const hasPreservedConfig = Object.keys(preservedConfig).length > 0;
-    const { pastoralist: _pastoralist, ...configWithoutPastoralist } = config;
-
-    updatedConfig = hasPreservedConfig
-      ? { ...configWithoutPastoralist, pastoralist: preservedConfig }
-      : configWithoutPastoralist;
-  }
-
-  const shouldAddOverrides = overrides && Object.keys(overrides).length > 0;
-
-  if (!shouldAddOverrides) return updatedConfig;
-
-  const existingField = getExistingOverrideField(updatedConfig);
-  const projectRoot = dirname(resolve(path));
-  const overrideField =
-    existingField ||
-    (isTesting ? null : getOverrideFieldForPackageManager(detectPackageManager(projectRoot)));
-
+  const updatedConfig = applyAppendixToConfig(config, appendix);
+  if (!hasOverrideEntries(overrides)) return updatedConfig;
+  const overrideField = resolveOverrideField(updatedConfig, isTesting, path);
   return applyOverridesToConfig(updatedConfig, overrides, overrideField);
 };
 
@@ -326,6 +343,53 @@ const writeJsonFile = (path: string, content: string): void => {
   fs.writeFileSync(jsonPath, content);
 };
 
+const hasPackageJsonData = (
+  appendix: Appendix | undefined,
+  overrides: OverridesType | undefined,
+): boolean => {
+  const hasOverridesData = overrides && Object.keys(overrides).length > 0;
+  const hasAppendixData = appendix && Object.keys(appendix).length > 0;
+  return Boolean(hasOverridesData || hasAppendixData);
+};
+
+const buildUpdatedPackageConfig = ({
+  appendix,
+  path,
+  config,
+  overrides,
+  isTesting = false,
+}: UpdatePackageJSONOptions): PastoralistJSON => {
+  if (!hasPackageJsonData(appendix, overrides)) return processConfigWithoutOverrides(config);
+  return processConfigWithOverrides(config, appendix, overrides || {}, isTesting, path);
+};
+
+const logDryRun = (jsonString: string, isUnchanged: boolean): void => {
+  if (isUnchanged) {
+    log.print("\n[DRY RUN] No changes detected, skipping write.");
+    return;
+  }
+
+  log.print("\n[DRY RUN] Would write to package.json:");
+  log.print(jsonString);
+};
+
+const writeUpdatedPackageJson = (
+  path: string,
+  updatedConfig: PastoralistJSON,
+  jsonString: string,
+): void => {
+  if (IS_DEBUGGING) {
+    log.debug(`Writing updated package.json:\n${jsonString}`, "updatePackageJSON");
+  }
+
+  writeJsonFile(path, jsonString);
+  jsonCache.delete(resolve(path));
+
+  if (shouldSuggestRcFile(updatedConfig)) {
+    showHint(HINT_RC_FILE_ID, HINT_RC_FILE_TEXT);
+  }
+};
+
 export const updatePackageJSON = ({
   appendix,
   path,
@@ -335,14 +399,7 @@ export const updatePackageJSON = ({
   dryRun = false,
   silent = false,
 }: UpdatePackageJSONOptions): PastoralistJSON | void => {
-  const hasOverridesData = overrides && Object.keys(overrides).length > 0;
-  const hasAppendixData = appendix && Object.keys(appendix).length > 0;
-  const hasAnyData = hasOverridesData || hasAppendixData;
-
-  const updatedConfig = hasAnyData
-    ? processConfigWithOverrides(config, appendix, overrides || {}, isTesting, path)
-    : processConfigWithoutOverrides(config);
-
+  const updatedConfig = buildUpdatedPackageConfig({ appendix, path, config, overrides, isTesting });
   if (isTesting) return updatedConfig;
 
   const jsonString = formatJson(updatedConfig);
@@ -350,33 +407,12 @@ export const updatePackageJSON = ({
   const isUnchanged = jsonString === currentJson;
 
   const shouldLogDryRun = dryRun && !silent;
-  if (shouldLogDryRun) {
-    if (isUnchanged) {
-      log.print("\n[DRY RUN] No changes detected, skipping write.");
-    } else {
-      log.print("\n[DRY RUN] Would write to package.json:");
-      log.print(jsonString);
-    }
-  }
+  if (shouldLogDryRun) logDryRun(jsonString, isUnchanged);
 
   if (isUnchanged) return;
+  if (dryRun) return updatedConfig;
 
-  if (dryRun) {
-    return updatedConfig;
-  }
-
-  if (IS_DEBUGGING) {
-    log.debug(`Writing updated package.json:\n${jsonString}`, "updatePackageJSON");
-  }
-
-  writeJsonFile(path, jsonString);
-
-  const normalizedPath = resolve(path);
-  jsonCache.delete(normalizedPath);
-
-  if (shouldSuggestRcFile(updatedConfig)) {
-    showHint(HINT_RC_FILE_ID, HINT_RC_FILE_TEXT);
-  }
+  writeUpdatedPackageJson(path, updatedConfig, jsonString);
 };
 
 export const parseNpmLsOutput = (stdout: string): Record<string, boolean> => {
@@ -415,8 +451,8 @@ export const executeNpmLs = async (root: string = process.cwd()): Promise<string
     const { stdout } = await execFile("npm", ["ls", "--json", "--all"], {
       cwd: root,
       encoding: "utf8",
-      maxBuffer: 1024 * 1024 * 10,
-      timeout: 60000,
+      maxBuffer: NPM_LS_MAX_BUFFER,
+      timeout: NPM_LS_TIMEOUT_MS,
     });
     return stdout;
   } catch (error: unknown) {
@@ -427,29 +463,25 @@ export const executeNpmLs = async (root: string = process.cwd()): Promise<string
   }
 };
 
-export const getDependencyTree = async (
-  mockExecuteNpmLs?: (root?: string) => Promise<string>,
-  cacheDir?: string,
-  noCache?: boolean,
-  root: string = process.cwd(),
-): Promise<Record<string, boolean>> => {
+const createDependencyTreeCacheKey = (root: string): string => {
   const lockfileHash = hashLockfile(root);
   const pm = detectPackageManager(root);
   const nodeVersion = process.versions.node;
-  const cacheKey = `tree:${lockfileHash}:${pm}:${nodeVersion}`;
+  return `tree:${lockfileHash}:${pm}:${nodeVersion}`;
+};
 
-  const cache = getTreeCache(cacheDir, noCache);
-  const cached = cache.get(cacheKey);
-  if (cached) return cached;
+const getPendingTreeRequests = (): Map<string, Promise<Record<string, boolean>>> => {
+  if (!_pendingTreeRequests) _pendingTreeRequests = new Map();
+  return _pendingTreeRequests;
+};
 
-  if (!_pendingTreeRequests) {
-    _pendingTreeRequests = new Map();
-  }
-
-  const pending = _pendingTreeRequests.get(cacheKey);
-  if (pending) return pending;
-
-  const request = (async () => {
+const createDependencyTreeRequest = (
+  cacheKey: string,
+  cache: DiskCache<Record<string, boolean>>,
+  root: string,
+  mockExecuteNpmLs?: (root?: string) => Promise<string>,
+): Promise<Record<string, boolean>> =>
+  (async () => {
     try {
       const execute = mockExecuteNpmLs || executeNpmLs;
       const stdout = await execute(root);
@@ -464,7 +496,23 @@ export const getDependencyTree = async (
     }
   })();
 
-  _pendingTreeRequests.set(cacheKey, request);
+export const getDependencyTree = async (
+  mockExecuteNpmLs?: (root?: string) => Promise<string>,
+  cacheDir?: string,
+  noCache?: boolean,
+  root: string = process.cwd(),
+): Promise<Record<string, boolean>> => {
+  const cacheKey = createDependencyTreeCacheKey(root);
+  const cache = getTreeCache(cacheDir, noCache);
+  const cached = cache.get(cacheKey);
+  if (cached) return cached;
+
+  const pendingRequests = getPendingTreeRequests();
+  const pending = pendingRequests.get(cacheKey);
+  if (pending) return pending;
+
+  const request = createDependencyTreeRequest(cacheKey, cache, root, mockExecuteNpmLs);
+  pendingRequests.set(cacheKey, request);
   return request;
 };
 
@@ -475,50 +523,84 @@ export const clearDependencyTreeCache = (): void => {
   _pendingTreeRequests = null;
 };
 
-const YARN_LOCK_PACKAGE_PATTERN = /^[\w@][\w\-./]*@/gm;
-const PNPM_LOCK_PACKAGE_PATTERN = /^\s{2}\/[\w@]/gm;
+const countNpmLockPackages = (lockPath: string): number => {
+  try {
+    const content = fs.readFileSync(lockPath, "utf8");
+    const lock = JSON.parse(content);
+    const packages = lock.packages || {};
+    return Math.max(0, Object.keys(packages).length - 1);
+  } catch {
+    return 0;
+  }
+};
+
+const countPatternLockPackages = (lockPath: string, pattern: RegExp): number => {
+  try {
+    const content = fs.readFileSync(lockPath, "utf8");
+    const matches = content.match(pattern);
+    return matches ? matches.length : 0;
+  } catch {
+    return 0;
+  }
+};
+
+const getLockPath = (root: string, filename: string): string => resolve(root, filename);
 
 export const getFullDependencyCount = (root: string = "./"): number => {
-  const npmLockPath = resolve(root, "package-lock.json");
-  const yarnLockPath = resolve(root, "yarn.lock");
-  const pnpmLockPath = resolve(root, "pnpm-lock.yaml");
+  const npmLockPath = getLockPath(root, "package-lock.json");
+  if (fs.existsSync(npmLockPath)) return countNpmLockPackages(npmLockPath);
 
-  const hasNpmLock = fs.existsSync(npmLockPath);
-  const hasYarnLock = fs.existsSync(yarnLockPath);
-  const hasPnpmLock = fs.existsSync(pnpmLockPath);
-
-  if (hasNpmLock) {
-    try {
-      const content = fs.readFileSync(npmLockPath, "utf8");
-      const lock = JSON.parse(content);
-      const packages = lock.packages || {};
-      return Math.max(0, Object.keys(packages).length - 1);
-    } catch {
-      return 0;
-    }
+  const yarnLockPath = getLockPath(root, "yarn.lock");
+  if (fs.existsSync(yarnLockPath)) {
+    return countPatternLockPackages(yarnLockPath, YARN_LOCK_PACKAGE_PATTERN);
   }
 
-  if (hasYarnLock) {
-    try {
-      const content = fs.readFileSync(yarnLockPath, "utf8");
-      const matches = content.match(YARN_LOCK_PACKAGE_PATTERN);
-      return matches ? matches.length : 0;
-    } catch {
-      return 0;
-    }
+  const pnpmLockPath = getLockPath(root, "pnpm-lock.yaml");
+  if (fs.existsSync(pnpmLockPath)) {
+    return countPatternLockPackages(pnpmLockPath, PNPM_LOCK_PACKAGE_PATTERN);
   }
-
-  if (hasPnpmLock) {
-    try {
-      const content = fs.readFileSync(pnpmLockPath, "utf8");
-      const matches = content.match(PNPM_LOCK_PACKAGE_PATTERN);
-      return matches ? matches.length : 0;
-    } catch {
-      return 0;
-    }
-  }
-
   return 0;
+};
+
+const assertDepPathsProvided = (depPaths: string[], logInstance: typeof log): void => {
+  if (depPaths.length > 0) return;
+  logInstance.error("No depPaths provided", "findPackageJsonFiles");
+  throw new Error("No depPaths provided to findPackageJsonFiles");
+};
+
+const logPackageJsonSearch = (
+  depPaths: string[],
+  ignore: string[],
+  root: string,
+  logInstance: typeof log,
+): void => {
+  logInstance.debug(
+    `Searching with patterns: ${depPaths.join(", ")}, ignoring: ${ignore.join(", ")}, cwd: ${root}`,
+    "findPackageJsonFiles",
+  );
+};
+
+const findMatchingPackageJsonFiles = (
+  depPaths: string[],
+  ignore: string[],
+  root: string,
+): string[] =>
+  fg.sync(depPaths, {
+    cwd: root,
+    ignore,
+    absolute: true,
+  });
+
+const assertPackageJsonFilesFound = (
+  files: string[],
+  depPaths: string[],
+  root: string,
+  logInstance: typeof log,
+): void => {
+  if (files.length > 0) return;
+  const errorMessage = `No package.json files found matching patterns: ${depPaths.join(", ")} in directory: ${root}`;
+  logInstance.error(errorMessage, "findPackageJsonFiles");
+  throw new Error(errorMessage);
 };
 
 export const findPackageJsonFiles = (
@@ -527,33 +609,12 @@ export const findPackageJsonFiles = (
   root: string = "./",
   logInstance = log,
 ): string[] => {
-  const hasNoPaths = depPaths.length === 0;
-
-  if (hasNoPaths) {
-    logInstance.error("No depPaths provided", "findPackageJsonFiles");
-    throw new Error("No depPaths provided to findPackageJsonFiles");
-  }
+  assertDepPathsProvided(depPaths, logInstance);
 
   try {
-    logInstance.debug(
-      `Searching with patterns: ${depPaths.join(", ")}, ignoring: ${ignore.join(", ")}, cwd: ${root}`,
-      "findPackageJsonFiles",
-    );
-
-    const files = fg.sync(depPaths, {
-      cwd: root,
-      ignore,
-      absolute: true,
-    });
-
-    const hasNoFiles = files.length === 0;
-
-    if (hasNoFiles) {
-      const errorMessage = `No package.json files found matching patterns: ${depPaths.join(", ")} in directory: ${root}`;
-      logInstance.error(errorMessage, "findPackageJsonFiles");
-      throw new Error(errorMessage);
-    }
-
+    logPackageJsonSearch(depPaths, ignore, root, logInstance);
+    const files = findMatchingPackageJsonFiles(depPaths, ignore, root);
+    assertPackageJsonFilesFound(files, depPaths, root, logInstance);
     logInstance.debug(`Found ${files.length} files`, "findPackageJsonFiles");
     return files;
   } catch (err) {

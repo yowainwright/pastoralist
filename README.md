@@ -3,6 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/pastoralist.svg)](https://www.npmjs.com/package/pastoralist)
 [![npm downloads](https://img.shields.io/npm/dm/pastoralist.svg)](https://www.npmjs.com/package/pastoralist)
 ![CI](https://github.com/yowainwright/pastoralist/actions/workflows/ci.yml/badge.svg)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/yowainwright/pastoralist/badge)](https://scorecard.dev/viewer/?uri=github.com/yowainwright/pastoralist)
 [![codecov](https://codecov.io/gh/yowainwright/pastoralist/branch/main/graph/badge.svg)](https://codecov.io/gh/yowainwright/pastoralist)
 [![GitHub stars](https://img.shields.io/github/stars/yowainwright/pastoralist?style=social)](https://github.com/yowainwright/pastoralist)
 [![TypeScript](https://img.shields.io/badge/TypeScript-types%20included-blue)](https://www.typescriptlang.org/)
@@ -127,6 +128,23 @@ npx pastoralist --quiet --checkSecurity
 # Print package, override, and vulnerability metrics
 npx pastoralist --summary
 ```
+
+## Security Assurances
+
+Pastoralist publishes npm releases from GitHub Actions with npm provenance. The
+release workflow also packs the exact npm tarball before publishing and creates
+a GitHub artifact attestation for that tarball.
+
+Users can inspect the npm package provenance on npmjs.com and can verify
+registry signatures and available attestations from their own project with:
+
+```bash
+npm audit signatures
+```
+
+Provenance and attestations prove where and how a package was built. They do not
+prove that the code is bug-free, so Pastoralist also runs CI, CodeQL, OpenSSF
+Scorecard, unit/integration/e2e tests, and dependency update policy checks.
 
 ## Video Walkthroughs
 

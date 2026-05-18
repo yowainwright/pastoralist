@@ -16,8 +16,7 @@ export function buildConfig(answers: InitAnswers): PastoralistConfig {
       config.depPaths = "workspace";
     }
     const isCustomWithPaths =
-      answers.workspaceType === "custom" &&
-      answers.customWorkspacePaths?.length;
+      answers.workspaceType === "custom" && answers.customWorkspacePaths?.length;
     if (isCustomWithPaths) {
       config.depPaths = answers.customWorkspacePaths;
     }

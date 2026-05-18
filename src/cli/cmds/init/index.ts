@@ -6,11 +6,7 @@ import { createPrompt, Prompt } from "../../../utils/prompts";
 import { formatStepHeader, formatInfo, formatCompletion } from "../../../dx";
 import { FARMER } from "../../../constants";
 import { shimmerFrame } from "../../../dx/shimmer";
-import type {
-  PastoralistConfig,
-  SecurityProvider,
-  SeverityThreshold,
-} from "../../../config";
+import type { PastoralistConfig, SecurityProvider, SeverityThreshold } from "../../../config";
 import { loadExternalConfig } from "../../../config";
 import { resolveJSON } from "../../../core/packageJSON";
 import { logger as createLogger } from "../../../utils";
@@ -27,11 +23,7 @@ import {
   STEP_TITLES,
   PROMPTS,
 } from "./constants";
-import {
-  buildConfig,
-  generateConfigContent,
-  parseWorkspacePaths,
-} from "./utils";
+import { buildConfig, generateConfigContent, parseWorkspacePaths } from "./utils";
 
 async function collectConfigLocationAnswers(
   prompt: Prompt,
@@ -40,10 +32,9 @@ async function collectConfigLocationAnswers(
 ): Promise<void> {
   log.print(formatStepHeader(1, "Configuration Location"));
 
-  answers.configLocation = (await prompt.list(
-    PROMPTS.configLocation,
-    CONFIG_LOCATION_CHOICES,
-  )) as "package.json" | "external";
+  answers.configLocation = (await prompt.list(PROMPTS.configLocation, CONFIG_LOCATION_CHOICES)) as
+    | "package.json"
+    | "external";
 
   if (answers.configLocation === "external") {
     answers.configFormat = (await prompt.list(
@@ -53,13 +44,8 @@ async function collectConfigLocationAnswers(
   }
 }
 
-async function promptForCustomWorkspacePaths(
-  prompt: Prompt,
-): Promise<string[]> {
-  const pathsInput = await prompt.input(
-    PROMPTS.customWorkspacePaths,
-    DEFAULT_WORKSPACE_PATHS,
-  );
+async function promptForCustomWorkspacePaths(prompt: Prompt): Promise<string[]> {
+  const pathsInput = await prompt.input(PROMPTS.customWorkspacePaths, DEFAULT_WORKSPACE_PATHS);
   return parseWorkspacePaths(pathsInput);
 }
 
@@ -93,9 +79,7 @@ async function collectWorkspaceAnswers(
     return;
   }
 
-  const hasWorkspaces = Boolean(
-    packageJson?.workspaces && packageJson.workspaces.length > 0,
-  );
+  const hasWorkspaces = Boolean(packageJson?.workspaces && packageJson.workspaces.length > 0);
 
   if (!hasWorkspaces) {
     log.print(formatInfo(INIT_MESSAGES.noWorkspacesDetected));
@@ -125,9 +109,7 @@ async function promptForSecurityTokenEnvironment(
   }
 
   if (tokenInfo.createUrl) {
-    log.print(
-      `\n   ${INIT_MESSAGES.tokenCreationInfo(provider, tokenInfo.createUrl)}`,
-    );
+    log.print(`\n   ${INIT_MESSAGES.tokenCreationInfo(provider, tokenInfo.createUrl)}`);
   }
 
   if (tokenInfo.envVar) {
@@ -201,22 +183,12 @@ async function collectSecurityAnswers(
     SECURITY_PROVIDER_CHOICES,
   )) as SecurityProvider;
 
-  await promptForSecurityTokenEnvironment(
-    prompt,
-    answers.securityProvider,
-    log,
-  );
+  await promptForSecurityTokenEnvironment(prompt, answers.securityProvider, log);
 
-  answers.securityInteractive = await prompt.confirm(
-    PROMPTS.securityInteractive,
-    true,
-  );
+  answers.securityInteractive = await prompt.confirm(PROMPTS.securityInteractive, true);
 
   if (!answers.securityInteractive) {
-    answers.securityAutoFix = await prompt.confirm(
-      PROMPTS.securityAutoFix,
-      false,
-    );
+    answers.securityAutoFix = await prompt.confirm(PROMPTS.securityAutoFix, false);
   }
 
   answers.severityThreshold = (await prompt.list(
@@ -285,13 +257,8 @@ async function saveToExternalFile(
   log.print(INIT_MESSAGES.configSaved(configPath));
 }
 
-function displayNextSteps(
-  setupSecurity: boolean,
-  log: ReturnType<typeof createLogger>,
-): void {
-  const nextSteps = [
-    `Run ${green("pastoralist")} to check and update your dependencies`,
-  ];
+function displayNextSteps(setupSecurity: boolean, log: ReturnType<typeof createLogger>): void {
+  const nextSteps = [`Run ${green("pastoralist")} to check and update your dependencies`];
 
   if (setupSecurity) {
     nextSteps.push(
@@ -306,11 +273,7 @@ function displayNextSteps(
   log.print(formatCompletion(baseText, nextSteps, shimmerTitle));
 }
 
-async function checkExistingConfig(
-  prompt: Prompt,
-  root: string,
-  path: string,
-): Promise<boolean> {
+async function checkExistingConfig(prompt: Prompt, root: string, path: string): Promise<boolean> {
   const existingConfig = await loadExternalConfig(root, false);
   const packageJson = resolveJSON(path);
   const hasExistingConfig = existingConfig || packageJson?.pastoralist;
@@ -319,10 +282,7 @@ async function checkExistingConfig(
     return true;
   }
 
-  const shouldOverwrite = await prompt.confirm(
-    INIT_MESSAGES.existingConfigWarning,
-    false,
-  );
+  const shouldOverwrite = await prompt.confirm(INIT_MESSAGES.existingConfigWarning, false);
 
   return shouldOverwrite;
 }
@@ -333,9 +293,7 @@ const resolvePathFromRoot = (path: string, root: string): string =>
 export async function initCommand(options: InitOptions = {}): Promise<void> {
   const log = createLogger({ file: "init/index.ts", isLogging: true });
 
-  const hasSecurityContext = !!(
-    options.checkSecurity || options.securityProvider
-  );
+  const hasSecurityContext = !!(options.checkSecurity || options.securityProvider);
   const hasWorkspaceContext = !!options.hasWorkspaceSecurityChecks;
   const hasFocusedContext = hasSecurityContext || hasWorkspaceContext;
 
@@ -401,28 +359,14 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
     log.print(`\n${INIT_MESSAGES.savingConfig}\n`);
 
     const shouldSaveToPackageJson = answers.configLocation === "package.json";
-    const shouldSaveToExternalFile =
-      answers.configLocation === "external" && answers.configFormat;
+    const shouldSaveToExternalFile = answers.configLocation === "external" && answers.configFormat;
 
     if (shouldSaveToPackageJson) {
-      await saveToPackageJson(
-        config,
-        path,
-        packageJson,
-        log,
-        options.isTesting,
-      );
+      await saveToPackageJson(config, path, packageJson, log, options.isTesting);
     }
 
     if (shouldSaveToExternalFile) {
-      await saveToExternalFile(
-        config,
-        answers.configFormat!,
-        root,
-        prompt,
-        log,
-        options.isTesting,
-      );
+      await saveToExternalFile(config, answers.configFormat!, root, prompt, log, options.isTesting);
     }
 
     displayNextSteps(answers.setupSecurity, log);
@@ -445,22 +389,12 @@ async function collectSecurityAnswersWithContext(
     )) as SecurityProvider;
   }
 
-  await promptForSecurityTokenEnvironment(
-    prompt,
-    answers.securityProvider!,
-    log,
-  );
+  await promptForSecurityTokenEnvironment(prompt, answers.securityProvider!, log);
 
-  answers.securityInteractive = await prompt.confirm(
-    PROMPTS.securityInteractive,
-    true,
-  );
+  answers.securityInteractive = await prompt.confirm(PROMPTS.securityInteractive, true);
 
   if (!answers.securityInteractive) {
-    answers.securityAutoFix = await prompt.confirm(
-      PROMPTS.securityAutoFix,
-      false,
-    );
+    answers.securityAutoFix = await prompt.confirm(PROMPTS.securityAutoFix, false);
   }
 
   answers.severityThreshold = (await prompt.list(
@@ -468,8 +402,7 @@ async function collectSecurityAnswersWithContext(
     SEVERITY_THRESHOLD_CHOICES,
   )) as SeverityThreshold;
 
-  const hasNonSecurityWorkspaces =
-    answers.setupWorkspaces && !answers.hasWorkspaceSecurityChecks;
+  const hasNonSecurityWorkspaces = answers.setupWorkspaces && !answers.hasWorkspaceSecurityChecks;
 
   if (hasNonSecurityWorkspaces) {
     answers.hasWorkspaceSecurityChecks = await prompt.confirm(

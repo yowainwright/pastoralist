@@ -59,12 +59,10 @@ export const INIT_MESSAGES = {
   skipInfo: "You can skip any step by selecting the skip option.",
   existingConfigWarning:
     "Existing Pastoralist configuration detected. Do you want to overwrite it?",
-  existingFileWarning: (filename: string) =>
-    `${filename} already exists. Overwrite?`,
+  existingFileWarning: (filename: string) => `${filename} already exists. Overwrite?`,
   configNotSaved: "Configuration not saved. File preserved.",
   configSaved: (path: string) => `Configuration saved to ${path}`,
-  initCancelled:
-    "Initialization cancelled. Your existing configuration is preserved.",
+  initCancelled: "Initialization cancelled. Your existing configuration is preserved.",
   initComplete: "▪▫▪ Pastoralist initialization complete! ▪▫▪",
   packageJsonNotFound: "Error: package.json not found",
   tokenEnvironmentInfo: (envVar: string) =>
@@ -87,8 +85,7 @@ export const STEP_TITLES = {
 } as const;
 
 export const PROMPTS = {
-  configLocation:
-    "Where would you like to store your Pastoralist configuration?",
+  configLocation: "Where would you like to store your Pastoralist configuration?",
   configFormat: "Choose a config file format:",
   setupWorkspaces: "Do you want to configure workspace dependencies?",
   workspaceType: "How would you like to configure workspace dependencies?",

@@ -35,17 +35,13 @@ export const createMockTerminalGraph = () => {
   return graph;
 };
 
-export const createMockConfig = (
-  overrides: Partial<PastoralistJSON> = {},
-): PastoralistJSON => ({
+export const createMockConfig = (overrides: Partial<PastoralistJSON> = {}): PastoralistJSON => ({
   name: "test-package",
   version: "1.0.0",
   ...overrides,
 });
 
-export const createMockSecurityResults = (
-  alerts: Partial<SecurityAlert>[] = [],
-) => ({
+export const createMockSecurityResults = (alerts: Partial<SecurityAlert>[] = []) => ({
   spinner: createMockSpinner(),
   securityChecker: {},
   alerts: alerts.map((a) => ({

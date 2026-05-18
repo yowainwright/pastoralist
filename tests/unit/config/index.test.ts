@@ -1,11 +1,12 @@
 import { test, expect } from "bun:test";
 import { resolve } from "path";
-import { validateConfig, safeValidateConfig } from "../../../src/config/constants";
 import {
   loadConfig,
   loadExternalConfig,
   mergeConfigs,
   clearConfigCache,
+  validateConfig,
+  safeValidateConfig,
 } from "../../../src/config";
 import type { PastoralistConfig } from "../../../src/config";
 import {

@@ -2,12 +2,11 @@ import { createRequire } from "module";
 import { existsSync, readFileSync } from "fs";
 import { dirname, resolve } from "path";
 import { pathToFileURL } from "url";
-import type { AppendixItem } from "../types";
-import { PastoralistConfig, safeValidateConfig } from "./constants";
-import { CONFIG_FILES } from "./constants";
+import type { AppendixItem, ConfigAppendix, PastoralistConfig } from "./types";
+import { CONFIG_FILES, UNSUPPORTED_TYPESCRIPT_CONFIG } from "./constants";
+import { safeValidateConfig } from "./validators";
 
 const configCache = new Map<string, PastoralistConfig>();
-const UNSUPPORTED_TYPESCRIPT_CONFIG = "pastoralist.config.ts";
 
 export const clearConfigCache = (): void => {
   configCache.clear();
@@ -102,39 +101,49 @@ export const loadExternalConfig = async (
   return undefined;
 };
 
-const deepMergeAppendix = (
-  external: PastoralistConfig["appendix"],
-  packageJson: PastoralistConfig["appendix"],
-) => {
+const mergeDependents = (external: AppendixItem, packageJson: AppendixItem) => {
+  return {
+    ...external.dependents,
+    ...packageJson.dependents,
+  };
+};
+
+const mergePatches = (external: AppendixItem, packageJson: AppendixItem) => {
+  if (!packageJson.patches) return external.patches;
+  return [...(external.patches || []), ...packageJson.patches];
+};
+
+const mergeAppendixEntry = (
+  external: ConfigAppendix,
+  key: string,
+  value: AppendixItem,
+): AppendixItem => {
+  const existingItem = external?.[key];
+  if (!existingItem) return value;
+
+  return {
+    dependents: mergeDependents(existingItem, value),
+    patches: mergePatches(existingItem, value),
+    ledger: value.ledger || existingItem.ledger,
+  };
+};
+
+const mergePackageAppendix = (external: ConfigAppendix, packageJson: ConfigAppendix) => {
+  return Object.entries(packageJson || {}).reduce(
+    (acc, [key, value]) => ({
+      ...acc,
+      [key]: mergeAppendixEntry(external, key, value),
+    }),
+    { ...external },
+  );
+};
+
+const deepMergeAppendix = (external: ConfigAppendix, packageJson: ConfigAppendix) => {
   if (!external && !packageJson) return undefined;
   if (!external) return packageJson;
   if (!packageJson) return external;
 
-  const mergeEntry = (key: string, value: AppendixItem) => {
-    if (!external[key]) {
-      return value;
-    }
-
-    const existingItem = external[key];
-    const mergedDependents = Object.assign({}, existingItem.dependents, value.dependents);
-    const mergedPatches = value.patches
-      ? (existingItem.patches || []).concat(value.patches)
-      : existingItem.patches;
-
-    return {
-      dependents: mergedDependents,
-      patches: mergedPatches,
-      ledger: value.ledger || existingItem.ledger,
-    };
-  };
-
-  return Object.entries(packageJson).reduce(
-    (acc, [key, value]) => ({
-      ...acc,
-      [key]: mergeEntry(key, value),
-    }),
-    { ...external },
-  );
+  return mergePackageAppendix(external, packageJson);
 };
 
 export const mergeConfigs = (
@@ -188,3 +197,5 @@ export const loadConfig = async (
 };
 
 export * from "./constants";
+export * from "./types";
+export { validateConfig, safeValidateConfig } from "./validators";

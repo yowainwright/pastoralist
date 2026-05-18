@@ -1,4 +1,6 @@
+import type { SecurityProvider } from "../../../config";
 import type { PromptChoice } from "../../../utils/prompts/types";
+import type { TokenInfo } from "./types";
 
 export const CONFIG_LOCATION_CHOICES: PromptChoice[] = [
   {
@@ -53,6 +55,40 @@ export const SEVERITY_THRESHOLD_CHOICES: PromptChoice[] = [
 ];
 
 export const DEFAULT_WORKSPACE_PATHS = "packages/*/package.json";
+
+export const WIZARD_TITLES = {
+  default: "initialization wizard",
+  security: "security configuration wizard",
+  workspace: "workspace configuration wizard",
+} as const;
+
+export const EMPTY_TOKEN_INFO: TokenInfo = {
+  required: false,
+  optional: false,
+};
+
+export const TOKEN_INFO_BY_PROVIDER: Partial<Record<SecurityProvider, TokenInfo>> = {
+  github: {
+    required: false,
+    optional: true,
+    envVar: "GITHUB_TOKEN",
+    createUrl:
+      "https://github.com/settings/tokens/new?description=Pastoralist%20Security&scopes=repo",
+    scopes: ["repo"],
+  },
+  snyk: {
+    required: true,
+    optional: false,
+    envVar: "SNYK_TOKEN",
+    createUrl: "https://app.snyk.io/account",
+  },
+  socket: {
+    required: true,
+    optional: false,
+    envVar: "SOCKET_SECURITY_API_KEY",
+    createUrl: "https://socket.dev/dashboard/settings",
+  },
+} as const;
 
 export const INIT_MESSAGES = {
   welcome: "This wizard will help you set up your Pastoralist configuration.",

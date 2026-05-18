@@ -2,7 +2,7 @@
 
 import { parseArgs, showHelp } from "./parser";
 import { createSpinner, green, resolveCacheDir, pruneBackups } from "../utils";
-import { Options, PastoralistJSON, PastoralistResult } from "../types";
+import { Options, PastoralistResult } from "../types";
 import { update } from "../core/update";
 import { logger as createLogger } from "../utils";
 import { resolveJSON } from "../core/packageJSON";
@@ -11,16 +11,17 @@ import { IS_DEBUGGING } from "../constants";
 import { initCommand } from "./cmds/init/index";
 import { createTerminalGraph } from "../dx";
 import { getOverrideGitDate } from "../utils/git";
-import { displaySummaryTable } from "./display";
-import { renderUpdateOutput } from "./action-display";
-import { loadActionConfig } from "./action-config";
-import { runSecurityPhase } from "./action-security";
-import { buildMergedOptions, handleSecurityResults, runSecurityCheck } from "./security";
+import { displaySummaryTable, renderUpdateOutput } from "./display";
+import { loadCliConfig } from "./config";
+import {
+  buildMergedOptions,
+  handleSecurityResults,
+  runSecurityCheck,
+  runSecurityPhase,
+} from "./security";
 import { buildUpdateResult, createEmptyResult, createErrorResult, outputResult } from "./results";
-import { resolvePathFromRoot } from "./path";
+import { handleSetupHook } from "./setup-hook";
 import type { RunDeps } from "./types";
-import * as fs from "fs";
-import { resolve } from "path";
 
 export {
   buildSecurityOverrideDetail,
@@ -29,6 +30,7 @@ export {
   handleSecurityResults,
   normalizeCacheTtl,
   runSecurityCheck,
+  runSecurityPhase,
   buildMergedOptions,
 } from "./security";
 export {
@@ -41,60 +43,7 @@ export {
 export { displayOverrides, displaySummaryTable } from "./display";
 export { checkRemovalSafety } from "./removal-safety";
 export { resolvePathFromRoot } from "./path";
-
-export const handleSetupHook = (
-  options: Options,
-  log: ReturnType<typeof createLogger>,
-  deps = {
-    readFileSync: fs.readFileSync,
-    writeFileSync: fs.writeFileSync,
-    resolve,
-  },
-): boolean => {
-  const shouldSetup = options.setupHook === true;
-  if (!shouldSetup) return false;
-
-  const packagePath = deps.resolve(
-    resolvePathFromRoot(options.path || "package.json", options.root),
-  );
-
-  try {
-    const content = deps.readFileSync(packagePath, "utf8");
-    const config = JSON.parse(content) as PastoralistJSON & {
-      scripts?: Record<string, string>;
-    };
-
-    const scripts = config.scripts || {};
-    const existingPostinstall = scripts.postinstall || "";
-    const hasPastoralist = existingPostinstall.includes("pastoralist");
-
-    if (hasPastoralist) {
-      log.print("postinstall hook already configured");
-      return true;
-    }
-
-    const newPostinstall = existingPostinstall
-      ? `${existingPostinstall} && pastoralist`
-      : "pastoralist";
-
-    const updatedConfig = {
-      ...config,
-      scripts: {
-        ...scripts,
-        postinstall: newPostinstall,
-      },
-    };
-
-    const jsonString = JSON.stringify(updatedConfig, null, 2) + "\n";
-    deps.writeFileSync(packagePath, jsonString);
-
-    log.print("added postinstall hook to package.json");
-    return true;
-  } catch (err) {
-    log.error("Failed to setup hook", "handleSetupHook", err);
-    return false;
-  }
-};
+export { handleSetupHook } from "./setup-hook";
 
 export const handleTestMode = (
   isTestingCLI: boolean,
@@ -192,22 +141,27 @@ const maybeShowBanner = (runtime: ReturnType<typeof createActionRuntime>): void 
   if (shouldShowBanner) runtime.graph.banner();
 };
 
-const runUpdateWorkflow = async (
-  options: Options,
-  deps: {
-    resolveJSON: typeof resolveJSON;
-    buildMergedOptions: typeof buildMergedOptions;
-    loadConfig?: typeof loadConfig;
-    getOverrideGitDate: typeof getOverrideGitDate;
-    update: typeof update;
-    runSecurityCheck: typeof runSecurityCheck;
-    handleSecurityResults: typeof handleSecurityResults;
-  },
+type UpdateWorkflowDeps = {
+  resolveJSON: typeof resolveJSON;
+  buildMergedOptions: typeof buildMergedOptions;
+  loadConfig?: typeof loadConfig;
+  getOverrideGitDate: typeof getOverrideGitDate;
+  update: typeof update;
+  runSecurityCheck: typeof runSecurityCheck;
+  handleSecurityResults: typeof handleSecurityResults;
+};
+
+type ActionWorkflowDeps = UpdateWorkflowDeps & {
+  processExit: (code: number) => void;
+};
+
+const runSecurityWorkflow = (
+  loadedConfig: Awaited<ReturnType<typeof loadCliConfig>>,
+  mergedOptions: Options,
+  deps: UpdateWorkflowDeps,
   runtime: ReturnType<typeof createActionRuntime>,
-) => {
-  const loadedConfig = await loadActionConfig(options, runtime.rest, deps);
-  let mergedOptions = loadedConfig.mergedOptions;
-  const securityPhase = await runSecurityPhase(
+) =>
+  runSecurityPhase(
     runtime.graph,
     loadedConfig.config,
     mergedOptions,
@@ -216,22 +170,51 @@ const runUpdateWorkflow = async (
     runtime.log,
     deps,
   );
-  mergedOptions = { ...securityPhase.mergedOptions };
-  const addedDate = await deps.getOverrideGitDate(loadedConfig.path);
-  mergedOptions = { ...mergedOptions, addedDate };
+
+const addGitDateToOptions = async (
+  path: string,
+  mergedOptions: Options,
+  deps: Pick<UpdateWorkflowDeps, "getOverrideGitDate">,
+): Promise<Options> => ({
+  ...mergedOptions,
+  addedDate: await deps.getOverrideGitDate(path),
+});
+
+const runPackageUpdate = (
+  config: Awaited<ReturnType<typeof loadCliConfig>>["config"],
+  mergedOptions: Options,
+  options: Options,
+  deps: Pick<UpdateWorkflowDeps, "update">,
+) => {
   const updateContext = deps.update(mergedOptions);
-  const updateResultData = buildUpdateResult(
-    updateContext,
-    loadedConfig.config,
-    options.dryRun || false,
+  const updateResultData = buildUpdateResult(updateContext, config, options.dryRun || false);
+  return { updateContext, updateResultData };
+};
+
+const runUpdateWorkflow = async (
+  options: Options,
+  deps: UpdateWorkflowDeps,
+  runtime: ReturnType<typeof createActionRuntime>,
+) => {
+  const loadedConfig = await loadCliConfig(options, runtime.rest, deps);
+  const securityPhase = await runSecurityWorkflow(
+    loadedConfig,
+    loadedConfig.mergedOptions,
+    deps,
+    runtime,
   );
+  const mergedOptions = await addGitDateToOptions(
+    loadedConfig.path,
+    securityPhase.mergedOptions,
+    deps,
+  );
+  const updateResult = runPackageUpdate(loadedConfig.config, mergedOptions, options, deps);
 
   return {
     ...loadedConfig,
     mergedOptions,
     securityPhase,
-    updateContext,
-    updateResultData,
+    ...updateResult,
   };
 };
 
@@ -261,16 +244,7 @@ const finishActionResult = (
 
 const runActionWorkflow = async (
   options: Options,
-  deps: {
-    resolveJSON: typeof resolveJSON;
-    buildMergedOptions: typeof buildMergedOptions;
-    loadConfig?: typeof loadConfig;
-    getOverrideGitDate: typeof getOverrideGitDate;
-    update: typeof update;
-    runSecurityCheck: typeof runSecurityCheck;
-    handleSecurityResults: typeof handleSecurityResults;
-    processExit: (code: number) => void;
-  },
+  deps: ActionWorkflowDeps,
   runtime: ReturnType<typeof createActionRuntime>,
 ): Promise<PastoralistResult> => {
   const workflow = await runUpdateWorkflow(options, deps, runtime);
@@ -301,24 +275,55 @@ const handleActionError = (
   return result;
 };
 
+const parseRunArgs = (argv: string[]): ReturnType<typeof parseArgs> | undefined => {
+  try {
+    return parseArgs(argv);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Error: ${message}`);
+    showHelp();
+    process.exitCode = 1;
+    return undefined;
+  }
+};
+
+const isHelpRequested = (argv: string[], options: Options): boolean =>
+  Boolean(options.help || argv.includes("-h") || argv.includes("--help"));
+
+type InitSecurityProvider = NonNullable<Parameters<typeof initCommand>[0]>["securityProvider"];
+
+const firstSecurityProvider = (options: Options): InitSecurityProvider => {
+  if (Array.isArray(options.securityProvider)) return options.securityProvider[0];
+  return options.securityProvider;
+};
+
+const runInitCommand = async (options: Options, deps: Pick<RunDeps, "initCommand">) => {
+  await deps.initCommand({
+    ...options,
+    securityProvider: firstSecurityProvider(options),
+  });
+};
+
+const defaultActionDeps = {
+  createLogger,
+  handleTestMode,
+  handleInitMode,
+  resolveJSON,
+  buildMergedOptions,
+  runSecurityCheck,
+  handleSecurityResults,
+  createSpinner,
+  green,
+  update,
+  createTerminalGraph,
+  getOverrideGitDate,
+  loadConfig,
+  processExit: (code: number) => process.exit(code),
+};
+
 export async function action(
   options: Options = {},
-  deps = {
-    createLogger,
-    handleTestMode,
-    handleInitMode,
-    resolveJSON,
-    buildMergedOptions,
-    runSecurityCheck,
-    handleSecurityResults,
-    createSpinner,
-    green,
-    update,
-    createTerminalGraph,
-    getOverrideGitDate,
-    loadConfig,
-    processExit: (code: number) => process.exit(code),
-  },
+  deps = defaultActionDeps,
 ): Promise<PastoralistResult> {
   prepareCache(options);
   const runtime = createActionRuntime(options, deps);
@@ -337,21 +342,11 @@ export const run = async (
   argv: string[] = process.argv,
   deps: RunDeps = { initCommand, action },
 ): Promise<void> => {
-  let parsed: ReturnType<typeof parseArgs>;
-  try {
-    parsed = parseArgs(argv);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`Error: ${message}`);
-    showHelp();
-    process.exitCode = 1;
-    return;
-  }
+  const parsed = parseRunArgs(argv);
+  if (!parsed) return;
 
   const options = parsed.options as Options;
-
-  const isHelpRequested = options.help || argv.includes("-h") || argv.includes("--help");
-  if (isHelpRequested) {
+  if (isHelpRequested(argv, options)) {
     showHelp();
     return;
   }
@@ -364,12 +359,7 @@ export const run = async (
 
   const isInitCommand = parsed.command === "init";
   if (isInitCommand) {
-    await deps.initCommand({
-      ...options,
-      securityProvider: Array.isArray(options.securityProvider)
-        ? options.securityProvider[0]
-        : options.securityProvider,
-    });
+    await runInitCommand(options, deps);
     return;
   }
 

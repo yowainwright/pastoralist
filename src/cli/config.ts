@@ -2,11 +2,11 @@ import { dirname, resolve } from "path";
 import type { Options, PastoralistJSON } from "../types";
 import { loadConfig } from "../config";
 import { resolvePathFromRoot } from "./path";
-import type { LoadActionConfigDeps, LoadedActionConfig, SecurityConfig } from "./types";
+import type { CliConfigDeps, LoadedCliConfig, SecurityConfig } from "./types";
 
 const loadPackageConfig = (
   path: string,
-  deps: Pick<LoadActionConfigDeps, "resolveJSON">,
+  deps: Pick<CliConfigDeps, "resolveJSON">,
 ): PastoralistJSON => {
   const packageConfig = deps.resolveJSON(path);
   if (packageConfig) return packageConfig;
@@ -17,7 +17,7 @@ const mergeExternalConfig = async (
   path: string,
   options: Options,
   packageConfig: PastoralistJSON,
-  deps: Pick<LoadActionConfigDeps, "loadConfig">,
+  deps: Pick<CliConfigDeps, "loadConfig">,
 ): Promise<PastoralistJSON> => {
   const configRoot = options.root || dirname(resolve(path));
   const mergedPastoralistConfig = await (deps.loadConfig ?? loadConfig)(
@@ -52,7 +52,7 @@ const mergeOptionsWithConfig = (
   rest: Omit<Options, "isTestingCLI" | "init">,
   config: PastoralistJSON,
   path: string,
-  deps: Pick<LoadActionConfigDeps, "buildMergedOptions">,
+  deps: Pick<CliConfigDeps, "buildMergedOptions">,
 ): Options => {
   const securityConfig = buildSecurityConfig(config);
   const baseOptions = deps.buildMergedOptions(
@@ -69,11 +69,11 @@ const mergeOptionsWithConfig = (
   };
 };
 
-export const loadActionConfig = async (
+export const loadCliConfig = async (
   options: Options,
   rest: Omit<Options, "isTestingCLI" | "init">,
-  deps: LoadActionConfigDeps,
-): Promise<LoadedActionConfig> => {
+  deps: CliConfigDeps,
+): Promise<LoadedCliConfig> => {
   const relativePath = options.path || "package.json";
   const path = resolvePathFromRoot(relativePath, options.root);
   const packageConfig = loadPackageConfig(path, deps);

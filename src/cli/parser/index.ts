@@ -65,55 +65,59 @@ const applyDefaults = (options: Record<string, unknown>): Record<string, unknown
     return acc;
   }, options);
 
+const toProcessedArgument = (
+  nextIndex: number,
+  state: ParserState,
+  options: Record<string, unknown> = state.options,
+  command: string | undefined = state.command,
+): ProcessedArgument => ({
+  nextIndex,
+  options,
+  command,
+});
+
+const withOption = (state: ParserState, key: string, value: unknown): Record<string, unknown> =>
+  Object.assign({}, state.options, { [key]: value });
+
+const processCommandArgument = (
+  arg: string,
+  index: number,
+  state: ParserState,
+): ProcessedArgument => toProcessedArgument(index + 1, state, state.options, arg);
+
+const processInlineValue = (
+  key: string,
+  inlineValue: string,
+  index: number,
+  state: ParserState,
+): ProcessedArgument => toProcessedArgument(index + 1, state, withOption(state, key, inlineValue));
+
+const processBooleanFlag = (key: string, index: number, state: ParserState): ProcessedArgument =>
+  toProcessedArgument(index + 1, state, withOption(state, key, true));
+
+const processCollectedValue = (
+  args: string[],
+  index: number,
+  state: ParserState,
+  key: string,
+  def: OptionDefinition,
+): ProcessedArgument => {
+  const { value, consumed } = collectValue(args, index, def);
+  return toProcessedArgument(index + consumed + 1, state, withOption(state, key, value));
+};
+
 const processArgument = (args: string[], index: number, state: ParserState): ProcessedArgument => {
   const arg = args[index];
-  const isNotFlag = !isFlag(arg);
-
-  if (isNotFlag) {
-    return { nextIndex: index + 1, options: state.options, command: arg };
-  }
+  if (!isFlag(arg)) return processCommandArgument(arg, index, state);
 
   const { flag, value: inlineValue } = parseFlag(arg);
   const def = findOptionDef(flag);
-  const isUnknownFlag = !def;
-
-  if (isUnknownFlag) {
-    throw new Error(`Unknown option: ${flag}`);
-  }
+  if (!def) throw new Error(`Unknown option: ${flag}`);
 
   const key = getOptionKey(def);
-  const hasInlineValue = inlineValue !== undefined;
-
-  if (hasInlineValue) {
-    const updatedOptions = Object.assign({}, state.options, {
-      [key]: inlineValue,
-    });
-    return {
-      nextIndex: index + 1,
-      options: updatedOptions,
-      command: state.command,
-    };
-  }
-
-  const isBooleanFlag = !def.hasValue;
-
-  if (isBooleanFlag) {
-    const updatedOptions = Object.assign({}, state.options, { [key]: true });
-    return {
-      nextIndex: index + 1,
-      options: updatedOptions,
-      command: state.command,
-    };
-  }
-
-  const { value, consumed } = collectValue(args, index, def);
-  const updatedOptions = Object.assign({}, state.options, { [key]: value });
-
-  return {
-    nextIndex: index + consumed + 1,
-    options: updatedOptions,
-    command: state.command,
-  };
+  if (inlineValue !== undefined) return processInlineValue(key, inlineValue, index, state);
+  if (!def.hasValue) return processBooleanFlag(key, index, state);
+  return processCollectedValue(args, index, state, key, def);
 };
 
 const parseArgumentList = (args: string[], index: number, state: ParserState): ParserState => {

@@ -1,5 +1,5 @@
 import type { PastoralistConfig } from "../../../config";
-import type { InitAnswers } from "./types";
+import type { InitAnswers, InitConfigFormat } from "./types";
 
 export function parseWorkspacePaths(pathsInput: string): string[] {
   return pathsInput
@@ -37,14 +37,7 @@ export function buildConfig(answers: InitAnswers): PastoralistConfig {
   return config;
 }
 
-export function generateConfigContent(
-  config: PastoralistConfig,
-  format:
-    | ".pastoralistrc.json"
-    | "pastoralist.config.cjs"
-    | "pastoralist.config.js"
-    | "pastoralist.config.mjs",
-): string {
+export function generateConfigContent(config: PastoralistConfig, format: InitConfigFormat): string {
   const isJson = format.endsWith(".json");
   if (isJson) {
     return JSON.stringify(config, null, 2) + "\n";

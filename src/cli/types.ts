@@ -47,7 +47,7 @@ export type UpdateResultData = Pick<
 
 export type UpdateContext = ReturnType<typeof update>;
 
-export type LoadedActionConfig = {
+export type LoadedCliConfig = {
   path: string;
   config: PastoralistJSON;
   mergedOptions: Options;
@@ -59,7 +59,7 @@ export type SecurityPhaseResult = {
   packagesScanned: number;
 };
 
-export type LoadActionConfigDeps = {
+export type CliConfigDeps = {
   resolveJSON: typeof resolveJSON;
   buildMergedOptions: typeof buildMergedOptions;
   loadConfig?: typeof loadConfig;

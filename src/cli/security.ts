@@ -11,14 +11,22 @@ import { MSG_SCANNING } from "../constants";
 import { SecurityChecker } from "../core/security";
 import { createSpinner, green, yellow, logger as createLogger } from "../utils";
 import { DEFAULT_SECURITY_PROVIDER } from "./constants";
+import { renderSecurityFindings } from "./display";
+import { checkRemovalSafety } from "./removal-safety";
+import { buildSecurityResult } from "./results";
 import type {
+  CliGraph,
   OptionalSecurityOverrideDetail,
   SecurityConfig,
+  SecurityPhaseDeps,
+  SecurityPhaseResult,
   SecurityProviderOption,
+  SecurityResultSummary,
 } from "./types";
 
 const logger = createLogger({ file: "program.ts", isLogging: false });
 type SecurityCheckerClass = typeof SecurityChecker;
+type SecurityCheckerOptions = NonNullable<Parameters<SecurityChecker["checkSecurity"]>[1]>;
 
 export const normalizeCacheTtl = (value: unknown): number | undefined => {
   if (value === undefined) return undefined;
@@ -120,15 +128,10 @@ export const determineSecurityScanPaths = (
 ): string[] => {
   const configDepPaths = config?.pastoralist?.depPaths;
   const workspaces = config?.workspaces || [];
-  const hasWorkspaces = workspaces.length > 0;
   const hasSecurityEnabled =
     mergedOptions.checkSecurity || config?.pastoralist?.checkSecurity || false;
-  const isArrayDepPaths = Array.isArray(configDepPaths) && hasSecurityEnabled;
-  const shouldScanWorkspaces =
-    shouldUseWorkspaceConfig(configDepPaths, workspaces, hasSecurityEnabled) ||
-    shouldUseExplicitWorkspaceChecks(mergedOptions, hasWorkspaces);
 
-  if (isArrayDepPaths) {
+  if (shouldUseDepPaths(configDepPaths, hasSecurityEnabled)) {
     log.debug(
       `Using depPaths configuration for security checks: ${configDepPaths.join(", ")}`,
       "determineSecurityScanPaths",
@@ -136,7 +139,7 @@ export const determineSecurityScanPaths = (
     return configDepPaths;
   }
 
-  if (shouldScanWorkspaces) {
+  if (shouldScanWorkspaces(configDepPaths, workspaces, hasSecurityEnabled, mergedOptions)) {
     log.debug(
       `Using workspace configuration for security checks: ${workspaces.join(", ")}`,
       "determineSecurityScanPaths",
@@ -146,6 +149,20 @@ export const determineSecurityScanPaths = (
 
   return [];
 };
+
+const shouldUseDepPaths = (
+  depPaths: NonNullable<PastoralistJSON["pastoralist"]>["depPaths"] | undefined,
+  hasSecurityEnabled: boolean,
+): depPaths is string[] => Array.isArray(depPaths) && hasSecurityEnabled;
+
+const shouldScanWorkspaces = (
+  depPaths: NonNullable<PastoralistJSON["pastoralist"]>["depPaths"] | undefined,
+  workspaces: string[],
+  hasSecurityEnabled: boolean,
+  mergedOptions: Options,
+): boolean =>
+  shouldUseWorkspaceConfig(depPaths, workspaces, hasSecurityEnabled) ||
+  shouldUseExplicitWorkspaceChecks(mergedOptions, workspaces.length > 0);
 
 const shouldUseWorkspaceConfig = (
   depPaths: unknown,
@@ -164,6 +181,58 @@ const shouldUseExplicitWorkspaceChecks = (
   return hasWorkspaceSecurityChecks && hasWorkspaces;
 };
 
+const createProgressHandler =
+  (spinner: ReturnType<typeof createSpinner>) =>
+  (progress: { message: string }): void => {
+    spinner.update(progress.message);
+  };
+
+const buildSecurityCheckOptions = (
+  config: PastoralistJSON,
+  mergedOptions: Options,
+  scanPaths: string[],
+  spinner: ReturnType<typeof createSpinner>,
+): SecurityCheckerOptions => ({
+  ...mergedOptions,
+  depPaths: scanPaths,
+  root: mergedOptions.root || "./",
+  onProgress: createProgressHandler(spinner),
+  severityThreshold: config?.pastoralist?.security?.severityThreshold,
+  excludePackages: config?.pastoralist?.security?.excludePackages,
+});
+
+const toSecurityRunResult = (
+  spinner: ReturnType<typeof createSpinner>,
+  securityChecker: SecurityChecker,
+  result: Awaited<ReturnType<SecurityChecker["checkSecurity"]>>,
+) => ({
+  spinner,
+  securityChecker,
+  alerts: result.alerts,
+  securityOverrides: result.overrides,
+  updates: result.updates,
+  packagesScanned: result.packagesScanned,
+  skipped: false,
+});
+
+const runSecurityScan = async (
+  config: PastoralistJSON,
+  mergedOptions: Options,
+  isLogging: boolean,
+  log: ReturnType<typeof createLogger>,
+  spinner: ReturnType<typeof createSpinner>,
+  deps: {
+    SecurityChecker: SecurityCheckerClass;
+    determineSecurityScanPaths: typeof determineSecurityScanPaths;
+  },
+) => {
+  const securityChecker = createSecurityChecker(mergedOptions, isLogging, deps.SecurityChecker);
+  const scanPaths = deps.determineSecurityScanPaths(config, mergedOptions, log);
+  const checkOptions = buildSecurityCheckOptions(config, mergedOptions, scanPaths, spinner);
+  const result = await securityChecker.checkSecurity(config, checkOptions);
+  return toSecurityRunResult(spinner, securityChecker, result);
+};
+
 export const runSecurityCheck = async (
   config: PastoralistJSON,
   mergedOptions: Options,
@@ -180,33 +249,7 @@ export const runSecurityCheck = async (
   const spinner = deps.createSpinner(MSG_SCANNING).start();
 
   try {
-    const securityChecker = createSecurityChecker(mergedOptions, isLogging, deps.SecurityChecker);
-    const scanPaths = deps.determineSecurityScanPaths(config, mergedOptions, log);
-    const onProgress = (progress: { message: string }) => {
-      spinner.update(progress.message);
-    };
-    const {
-      alerts,
-      overrides: securityOverrides,
-      updates,
-      packagesScanned,
-    } = await securityChecker.checkSecurity(config, {
-      ...mergedOptions,
-      depPaths: scanPaths,
-      root: mergedOptions.root || "./",
-      onProgress,
-      severityThreshold: config?.pastoralist?.security?.severityThreshold,
-      excludePackages: config?.pastoralist?.security?.excludePackages,
-    });
-    return {
-      spinner,
-      securityChecker,
-      alerts,
-      securityOverrides,
-      updates,
-      packagesScanned,
-      skipped: false,
-    };
+    return await runSecurityScan(config, mergedOptions, isLogging, log, spinner, deps);
   } catch (error) {
     return handleSecurityCheckError(error, spinner, mergedOptions, isLogging, deps);
   }
@@ -287,6 +330,112 @@ export const handleSecurityResults = (
 
   spinner.stop();
   return { securityOverrides: finalOverrides, securityOverrideDetails };
+};
+
+const createEmptySecurityResult = (): SecurityResultSummary => ({
+  hasSecurityIssues: false,
+  securityAlertCount: 0,
+  securityAlerts: [],
+});
+
+const applyRemovalSafety = async (
+  config: PastoralistJSON,
+  mergedOptions: Options,
+  securityChecker: Awaited<ReturnType<typeof runSecurityCheck>>["securityChecker"],
+): Promise<Options> => {
+  if (!mergedOptions.removeUnused) return mergedOptions;
+  const skipKeys = await checkRemovalSafety(config, securityChecker, mergedOptions);
+  if (skipKeys.length === 0) return mergedOptions;
+  return { ...mergedOptions, skipRemovalKeys: skipKeys };
+};
+
+const applySecurityResults = (
+  result: Awaited<ReturnType<typeof runSecurityCheck>>,
+  mergedOptions: Options,
+  deps: Pick<SecurityPhaseDeps, "handleSecurityResults">,
+): Options => {
+  if (result.skipped) return mergedOptions;
+  const securityUpdates = deps.handleSecurityResults(
+    result.alerts,
+    result.securityOverrides,
+    result.securityChecker,
+    result.spinner,
+    mergedOptions,
+    result.updates,
+  );
+  return { ...mergedOptions, ...securityUpdates };
+};
+
+const createSkippedSecurityPhase = (mergedOptions: Options): SecurityPhaseResult => ({
+  mergedOptions,
+  securityResult: createEmptySecurityResult(),
+  packagesScanned: 0,
+});
+
+const resolveSecurityPhaseOptions = async (
+  config: PastoralistJSON,
+  mergedOptions: Options,
+  result: Awaited<ReturnType<typeof runSecurityCheck>>,
+  deps: Pick<SecurityPhaseDeps, "handleSecurityResults">,
+): Promise<Options> => {
+  const optionsWithAlerts = { ...mergedOptions, securityAlerts: result.alerts };
+  const optionsWithSafety = await applyRemovalSafety(
+    config,
+    optionsWithAlerts,
+    result.securityChecker,
+  );
+  return applySecurityResults(result, optionsWithSafety, deps);
+};
+
+const renderSecurityPhaseResult = (
+  graph: CliGraph,
+  result: Awaited<ReturnType<typeof runSecurityCheck>>,
+  nextOptions: Options,
+  isJsonOutput: boolean,
+): void => {
+  if (result.skipped || isJsonOutput) return;
+  renderSecurityFindings(
+    graph,
+    result.alerts,
+    result.securityOverrides,
+    nextOptions,
+    result.packagesScanned,
+  );
+};
+
+const runEnabledSecurityPhase = async (
+  graph: CliGraph,
+  config: PastoralistJSON,
+  mergedOptions: Options,
+  isJsonOutput: boolean,
+  isLogging: boolean,
+  log: ReturnType<typeof createLogger>,
+  deps: SecurityPhaseDeps,
+): Promise<SecurityPhaseResult> => {
+  if (!isJsonOutput) graph.startPhase("scanning", "Scanning packages");
+  const result = await deps.runSecurityCheck(config, mergedOptions, isLogging, log);
+  const securityResult = buildSecurityResult(result.alerts);
+  const nextOptions = await resolveSecurityPhaseOptions(config, mergedOptions, result, deps);
+  renderSecurityPhaseResult(graph, result, nextOptions, isJsonOutput);
+
+  return {
+    mergedOptions: nextOptions,
+    securityResult,
+    packagesScanned: result.packagesScanned,
+  };
+};
+
+export const runSecurityPhase = async (
+  graph: CliGraph,
+  config: PastoralistJSON,
+  mergedOptions: Options,
+  isJsonOutput: boolean,
+  isLogging: boolean,
+  log: ReturnType<typeof createLogger>,
+  deps: SecurityPhaseDeps,
+): Promise<SecurityPhaseResult> => {
+  if (!mergedOptions.checkSecurity) return createSkippedSecurityPhase(mergedOptions);
+  return runEnabledSecurityPhase(graph, config, mergedOptions, isJsonOutput, isLogging, log, deps);
 };
 
 export const formatUpdateReport = (updates: OverrideUpdate[]): string => {

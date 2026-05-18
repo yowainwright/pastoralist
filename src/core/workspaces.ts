@@ -1,5 +1,14 @@
 import { IS_DEBUGGING } from "../constants";
-import type { Appendix, OverridesType, ResolveOverrides, Options, PastoralistJSON } from "../types";
+import type {
+  Appendix,
+  CleanupUnusedOverridesContext,
+  CleanupUnusedOverridesResult,
+  OverrideRemovalUpdater,
+  OverridesType,
+  ResolveOverrides,
+  Options,
+  PastoralistJSON,
+} from "../types";
 import type { Logger } from "../utils";
 import { logger } from "../utils";
 import { resolveJSON, getDependencyTree } from "./packageJSON";
@@ -145,42 +154,67 @@ const isUnusedNestedOverride = (
   return true;
 };
 
-const isUnusedSimpleOverride = async (
+const isSimpleOverrideCandidate = (
   packageName: string,
   overrides: OverridesType,
   allDependencies: Record<string, string>,
-  dependencyTree: Record<string, boolean>,
-  hasAnyDeps: boolean,
-): Promise<boolean> => {
+): boolean => {
   const isNested = isNestedOverride(packageName, overrides);
   if (isNested) return false;
 
   const inDeps = isInDirectDeps(packageName, allDependencies);
   if (inDeps) return false;
 
+  return true;
+};
+
+const logUnusedSimpleOverride = (packageName: string, reason: string): void => {
+  log.debug(`Found unused override for ${packageName}: ${reason}`, "isUnusedSimpleOverride");
+};
+
+const logDependencyTreeMatch = (packageName: string): void => {
+  log.debug(
+    `Keeping override for ${packageName}: found in dependency tree`,
+    "isUnusedSimpleOverride",
+  );
+};
+
+const shouldRemoveSimpleOverride = (
+  packageName: string,
+  dependencyTree: Record<string, boolean>,
+  hasAnyDeps: boolean,
+): boolean => {
   if (!hasAnyDeps) {
-    log.debug(
-      `Found unused override for ${packageName}: no dependencies at all`,
-      "isUnusedSimpleOverride",
-    );
+    logUnusedSimpleOverride(packageName, "no dependencies at all");
     return true;
   }
 
   const isInTree = Boolean(dependencyTree[packageName]);
 
   if (isInTree) {
-    log.debug(
-      `Keeping override for ${packageName}: found in dependency tree`,
-      "isUnusedSimpleOverride",
-    );
+    logDependencyTreeMatch(packageName);
     return false;
   }
 
-  log.debug(
-    `Found unused override for ${packageName}: not in dependency tree`,
-    "isUnusedSimpleOverride",
-  );
+  logUnusedSimpleOverride(packageName, "not in dependency tree");
   return true;
+};
+
+const isUnusedSimpleOverride = (
+  packageName: string,
+  overrides: OverridesType,
+  allDependencies: Record<string, string>,
+  dependencyTree: Record<string, boolean>,
+  hasAnyDeps: boolean,
+): boolean => {
+  const shouldCheckSimpleOverride = isSimpleOverrideCandidate(
+    packageName,
+    overrides,
+    allDependencies,
+  );
+  if (!shouldCheckSimpleOverride) return false;
+
+  return shouldRemoveSimpleOverride(packageName, dependencyTree, hasAnyDeps);
 };
 
 const checkIfUnused = async (
@@ -258,6 +292,87 @@ const removeAppendixEntries = (
   }, appendix);
 };
 
+const createCleanupResult = (
+  finalOverrides: OverridesType,
+  finalAppendix: Appendix,
+): CleanupUnusedOverridesResult => {
+  return { finalOverrides, finalAppendix };
+};
+
+const keepCurrentOverrides = (
+  overrides: OverridesType,
+  appendix: Appendix,
+): CleanupUnusedOverridesResult => {
+  return createCleanupResult(overrides, appendix);
+};
+
+const logRemovablePackages = (packages: string[], logInstance: Logger): void => {
+  logInstance.debug(
+    `Found ${packages.length} packages to remove from overrides: ${packages.join(", ")}`,
+    "cleanupUnusedOverrides",
+  );
+};
+
+const removeUnusedOverrideEntries = (
+  context: CleanupUnusedOverridesContext,
+  packagesToRemove: string[],
+): CleanupUnusedOverridesResult => {
+  logRemovablePackages(packagesToRemove, context.logInstance);
+  const finalOverrides =
+    context.updateOverrides(context.overridesData, packagesToRemove) || context.overrides;
+  const finalAppendix = removeAppendixEntries(
+    context.appendix,
+    packagesToRemove,
+    context.logInstance,
+  );
+
+  return createCleanupResult(finalOverrides, finalAppendix);
+};
+
+const logTrackedPackages = (trackedInPaths: string[], logInstance: Logger): void => {
+  if (trackedInPaths.length === 0) {
+    return;
+  }
+
+  logInstance.debug(
+    `Keeping overrides for packages tracked in overridePaths: ${trackedInPaths.join(", ")}`,
+    "cleanupUnusedOverrides",
+  );
+};
+
+const findActuallyRemovableOverrides = (
+  removableItems: string[],
+  context: CleanupUnusedOverridesContext,
+): { actuallyRemovable: string[]; trackedInPaths: string[] } => {
+  const trackedInPaths = findTrackedPackages(context.missingInRoot, context.overridePaths);
+  const actuallyRemovable = filterActuallyRemovable(removableItems, trackedInPaths);
+
+  return { actuallyRemovable, trackedInPaths };
+};
+
+const cleanupUnusedOverridesFromContext = async (
+  context: CleanupUnusedOverridesContext,
+): Promise<CleanupUnusedOverridesResult> => {
+  const removableItems = await findUnusedOverrides(context.overrides, context.allDeps);
+
+  if (removableItems.length === 0) {
+    return keepCurrentOverrides(context.overrides, context.appendix);
+  }
+
+  const { actuallyRemovable, trackedInPaths } = findActuallyRemovableOverrides(
+    removableItems,
+    context,
+  );
+
+  if (actuallyRemovable.length > 0) {
+    return removeUnusedOverrideEntries(context, actuallyRemovable);
+  }
+
+  logTrackedPackages(trackedInPaths, context.logInstance);
+
+  return keepCurrentOverrides(context.overrides, context.appendix);
+};
+
 export const cleanupUnusedOverrides = async (
   overrides: OverridesType,
   overridesData: ResolveOverrides,
@@ -266,38 +381,16 @@ export const cleanupUnusedOverrides = async (
   missingInRoot: string[],
   overridePaths: Record<string, Appendix> | undefined,
   logInstance: Logger,
-  updateOverrides: (data: ResolveOverrides, removable: string[]) => OverridesType | undefined,
-): Promise<{ finalOverrides: OverridesType; finalAppendix: Appendix }> => {
-  const removableItems = await findUnusedOverrides(overrides, allDeps);
-  const hasNoRemovable = removableItems.length === 0;
-
-  if (hasNoRemovable) {
-    return { finalOverrides: overrides, finalAppendix: appendix };
-  }
-
-  const trackedInPaths = findTrackedPackages(missingInRoot, overridePaths);
-  const actuallyRemovable = filterActuallyRemovable(removableItems, trackedInPaths);
-  const hasActuallyRemovable = actuallyRemovable.length > 0;
-
-  if (hasActuallyRemovable) {
-    logInstance.debug(
-      `Found ${actuallyRemovable.length} packages to remove from overrides: ${actuallyRemovable.join(", ")}`,
-      "cleanupUnusedOverrides",
-    );
-
-    const finalOverrides = updateOverrides(overridesData, actuallyRemovable) || overrides;
-    const finalAppendix = removeAppendixEntries(appendix, actuallyRemovable, logInstance);
-
-    return { finalOverrides, finalAppendix };
-  }
-
-  const hasTrackedPaths = trackedInPaths.length > 0;
-  if (hasTrackedPaths) {
-    logInstance.debug(
-      `Keeping overrides for packages tracked in overridePaths: ${trackedInPaths.join(", ")}`,
-      "cleanupUnusedOverrides",
-    );
-  }
-
-  return { finalOverrides: overrides, finalAppendix: appendix };
+  updateOverrides: OverrideRemovalUpdater,
+): Promise<CleanupUnusedOverridesResult> => {
+  return cleanupUnusedOverridesFromContext({
+    overrides,
+    overridesData,
+    appendix,
+    allDeps,
+    missingInRoot,
+    overridePaths,
+    logInstance,
+    updateOverrides,
+  });
 };

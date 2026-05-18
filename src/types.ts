@@ -1,4 +1,5 @@
 import type { SecurityAlert, SecurityProviderType } from "./core/security/types";
+import type { Logger } from "./utils/types";
 
 export type OverrideValue = string | Record<string, string>;
 
@@ -224,6 +225,27 @@ export interface OverridesWithType extends OverridesConfig {
   type: string;
 }
 export type ResolveOverrides = OverridesWithType | undefined;
+
+export type OverrideRemovalUpdater = (
+  data: ResolveOverrides,
+  removable: string[],
+) => OverridesType | undefined;
+
+export interface CleanupUnusedOverridesResult {
+  finalOverrides: OverridesType;
+  finalAppendix: Appendix;
+}
+
+export interface CleanupUnusedOverridesContext {
+  overrides: OverridesType;
+  overridesData: ResolveOverrides;
+  appendix: Appendix;
+  allDeps: Record<string, string>;
+  missingInRoot: string[];
+  overridePaths: Record<string, Appendix> | undefined;
+  logInstance: Logger;
+  updateOverrides: OverrideRemovalUpdater;
+}
 
 export interface PastoralistResultMetrics {
   packagesScanned: number;

@@ -62,6 +62,13 @@ export interface RetryOptions {
   onRetry?: (attemptNumber: number, retriesLeft: number) => void;
 }
 
+export type RetryTimingOptions = Required<
+  Pick<RetryOptions, "retries" | "factor" | "minTimeout" | "maxTimeout">
+>;
+
+export type ResolvedRetryOptions = RetryTimingOptions &
+  Pick<RetryOptions, "onFailedAttempt" | "onRetry">;
+
 export interface RetryError extends Error {
   attemptNumber: number;
   retriesLeft: number;

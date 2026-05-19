@@ -8,9 +8,7 @@ import type {
 } from "../../../types";
 import { logger } from "../../../utils";
 import { detectPackageManager } from "../../packageJSON";
-import { SEVERITY_MAP } from "../constants";
-
-const DEFAULT_AUDIT_TIMEOUT = 120000;
+import { DEFAULT_AUDIT_TIMEOUT, SEVERITY_MAP } from "../constants";
 
 export class PackageManagerAuditProvider {
   readonly providerType = "npm" as const;

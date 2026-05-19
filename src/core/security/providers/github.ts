@@ -9,12 +9,15 @@ import {
 } from "../../../types";
 import { logger, retry } from "../../../utils";
 import { SECURITY_ENV_VARS } from "../../../constants";
-import { DEFAULT_CLI_TIMEOUT, AUTH_MESSAGES, GITHUB_DEFAULT_MOCK_ALERTS } from "../constants";
+import {
+  DEFAULT_CLI_TIMEOUT,
+  DEFAULT_FETCH_TIMEOUT,
+  DEFAULT_GH_CLI_TIMEOUT,
+  AUTH_MESSAGES,
+  GITHUB_DEFAULT_MOCK_ALERTS,
+} from "../constants";
 
 const defaultExecFileAsync = promisify(execFile);
-
-const DEFAULT_FETCH_TIMEOUT = 30000;
-const DEFAULT_GH_CLI_TIMEOUT = 60000;
 
 export class GitHubSecurityProvider {
   readonly providerType = "github" as const;

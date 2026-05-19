@@ -8,11 +8,9 @@ import type {
 } from "../../../types";
 import { logger } from "../../../utils";
 import { CLIInstaller } from "../utils";
-import { DEFAULT_CLI_TIMEOUT, AUTH_MESSAGES } from "../constants";
+import { DEFAULT_CLI_TIMEOUT, DEFAULT_SNYK_SCAN_TIMEOUT, AUTH_MESSAGES } from "../constants";
 
 const execFileAsync = promisify(execFile);
-
-const DEFAULT_SNYK_SCAN_TIMEOUT = 60000;
 
 export class SnykCLIProvider {
   readonly providerType = "snyk" as const;

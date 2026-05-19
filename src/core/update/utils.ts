@@ -1,10 +1,6 @@
 import { findPackageJsonFiles, updatePackageJSON } from "../packageJSON";
-
-export const WORKSPACE_MODES = {
-  SINGLE: "workspace",
-  MULTIPLE: "workspaces",
-} as const;
 import { toCompactAppendix } from "../appendix/utils";
+import { WORKSPACE_MODES } from "./constants";
 import type {
   PastoralistJSON,
   PastoralistConfig,
@@ -16,6 +12,8 @@ import type {
 } from "../../types";
 import type { WriteResultContext, ProcessingMode } from "../../types";
 import type { Logger } from "../../utils";
+
+export { WORKSPACE_MODES } from "./constants";
 
 export const findPackageFiles = (
   patterns: string[],

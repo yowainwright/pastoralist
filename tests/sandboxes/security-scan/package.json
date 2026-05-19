@@ -9,7 +9,7 @@
   "dependencies": {
     "lodash": "^4.17.15",
     "minimist": "^1.2.5",
-    "trim": "^0.0.1"
+    "trim": "^1.0.1"
   },
   "devDependencies": {
     "pastoralist": "latest"

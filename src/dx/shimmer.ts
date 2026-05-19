@@ -44,6 +44,23 @@ const sleep = (ms: number): void => {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 };
 
+const repeatOffsets = (offsets: number[], cycles: number): number[] => {
+  return Array.from({ length: cycles }, () => offsets).flat();
+};
+
+const writeShimmerFrame = (
+  text: string,
+  offset: number,
+  frameInterval: number,
+  out: Output,
+  prefix: string,
+  suffix: string,
+): void => {
+  out.clearLine();
+  out.write(`${prefix}${shimmerFrame(text, offset)}${suffix}`);
+  sleep(frameInterval);
+};
+
 export const playShimmer = (
   text: string,
   frameInterval: number = SHIMMER_DEFAULT_FRAME_INTERVAL_MS,
@@ -59,12 +76,9 @@ export const playShimmer = (
   );
 
   if (shouldAnimate) {
-    Array.from({ length: SHIMMER_CYCLES }).forEach(() =>
-      offsets.forEach((offset) => {
-        out.clearLine();
-        out.write(`${prefix}${shimmerFrame(text, offset)}${suffix}`);
-        sleep(frameInterval);
-      }),
+    const animationOffsets = repeatOffsets(offsets, SHIMMER_CYCLES);
+    animationOffsets.forEach((offset) =>
+      writeShimmerFrame(text, offset, frameInterval, out, prefix, suffix),
     );
     out.clearLine();
   }

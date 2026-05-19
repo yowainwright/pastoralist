@@ -102,7 +102,8 @@ export class SecurityChecker {
     if (options.isIRLFix) configParts.push("irlfix");
     if (options.isIRLCatch) configParts.push("irlcatch");
     if (options.strict) configParts.push("strict");
-    return configParts.length > 0 ? configParts.sort().join(":") : "default";
+    const sortedConfigParts = [...configParts].sort();
+    return configParts.length > 0 ? sortedConfigParts.join(":") : "default";
   }
 
   private createProviders(options: SecurityProviderFactoryOptions): SecurityProvider[] {

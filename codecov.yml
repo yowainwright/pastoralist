@@ -4,3 +4,5 @@ coverage:
     - "src/**/types.ts"
     - "src/constants.ts"
     - "src/**/constants.ts"
+    - "tools/**/types.ts"
+    - "tools/**/constants.js"

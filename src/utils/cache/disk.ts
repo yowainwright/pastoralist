@@ -188,8 +188,9 @@ export class DiskCache<V> {
     };
     const entriesArray = Object.entries(newEntries);
     const isOverLimit = entriesArray.length > this.maxEntries;
+    const sortedEntries = [...entriesArray].sort((a, b) => b[1].t - a[1].t);
     const trimmed = isOverLimit
-      ? Object.fromEntries(entriesArray.sort((a, b) => b[1].t - a[1].t).slice(0, this.maxEntries))
+      ? Object.fromEntries(sortedEntries.slice(0, this.maxEntries))
       : newEntries;
     this.flush({ ...envelope, entries: trimmed });
   }

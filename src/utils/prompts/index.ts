@@ -67,8 +67,11 @@ export class Prompt {
 
     return enhancedQuestion(this.rl, formatChoicePrompt(), (answer: string) => {
       const num = parseInt(answer.trim(), 10);
+      const isBelowRange = num < 1;
+      const isAboveRange = num > choices.length;
+      const isInvalidChoice = isNaN(num) || isBelowRange || isAboveRange;
 
-      if (isNaN(num) || num < 1 || num > choices.length) {
+      if (isInvalidChoice) {
         console.log("Invalid choice. Please enter a number between 1 and " + choices.length);
         return choices[0].value;
       }

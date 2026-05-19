@@ -12,7 +12,7 @@ import type {
 import type { Logger } from "../utils";
 import { logger } from "../utils";
 import { resolveJSON, getDependencyTree } from "./packageJSON";
-import { mergeAppendixDependents } from "./appendix/utils";
+import { extractPackageNames, mergeAppendixDependents } from "./appendix/utils";
 
 const log = logger({ file: "workspace.ts", isLogging: IS_DEBUGGING });
 
@@ -106,6 +106,13 @@ const canMergeOverridePaths = (
   return hasOverridePaths && hasMissingPackages;
 };
 
+const mergePathAppendix = (appendix: Appendix, pathAppendix: Appendix): Appendix => {
+  return Object.entries(pathAppendix).reduce(
+    (inner, [key, value]) => mergeAppendixDependents(inner, key, value),
+    appendix,
+  );
+};
+
 export const mergeOverridePaths = (
   appendix: Appendix,
   overridePaths: Record<string, Appendix> | undefined,
@@ -118,14 +125,7 @@ export const mergeOverridePaths = (
 
   logInstance.debug(`Using overridePaths configuration for monorepo support`, "mergeOverridePaths");
 
-  return Object.values(overridePaths!).reduce(
-    (acc, pathAppendix) =>
-      Object.entries(pathAppendix).reduce(
-        (inner, [key, value]) => mergeAppendixDependents(inner, key, value),
-        acc,
-      ),
-    appendix,
-  );
+  return Object.values(overridePaths!).reduce(mergePathAppendix, appendix);
 };
 
 const isNestedOverride = (packageName: string, overrides: OverridesType): boolean => {
@@ -259,9 +259,10 @@ const isPackageTrackedInPaths = (
 ): boolean => {
   if (!overridePaths) return false;
 
-  return Object.values(overridePaths).some((pathAppendix) =>
-    Object.keys(pathAppendix).some((key) => key.startsWith(`${packageName}@`)),
+  const appendixKeys = Object.values(overridePaths).flatMap((pathAppendix) =>
+    Object.keys(pathAppendix),
   );
+  return appendixKeys.some((key) => key.startsWith(`${packageName}@`));
 };
 
 const findTrackedPackages = (
@@ -276,19 +277,26 @@ const filterActuallyRemovable = (removableItems: string[], trackedInPaths: strin
   return removableItems.filter((pkg) => !trackedSet.has(pkg));
 };
 
+const shouldRemoveAppendixKey = (key: string, packageSet: Set<string>): boolean => {
+  const packageName = extractPackageNames([key])[0] ?? key;
+  const hasVersionSuffix = key.startsWith(`${packageName}@`);
+  return hasVersionSuffix && packageSet.has(packageName);
+};
+
 const removeAppendixEntries = (
   appendix: Appendix,
   packagesToRemove: string[],
   logInstance: Logger,
 ): Appendix => {
-  return packagesToRemove.reduce((updated, item) => {
-    const keysToRemove = Object.keys(updated).filter((key) => key.startsWith(`${item}@`));
+  const packageSet = new Set(packagesToRemove);
+  const keysToRemove = Object.keys(appendix).filter((key) =>
+    shouldRemoveAppendixKey(key, packageSet),
+  );
 
-    return keysToRemove.reduce((acc, key) => {
-      logInstance.debug(`Removed appendix entry for ${key}`, "removeAppendixEntries");
-      const { [key]: _removed, ...rest } = acc;
-      return rest;
-    }, updated);
+  return keysToRemove.reduce((updated, key) => {
+    logInstance.debug(`Removed appendix entry for ${key}`, "removeAppendixEntries");
+    const { [key]: _removed, ...rest } = updated;
+    return rest;
   }, appendix);
 };
 

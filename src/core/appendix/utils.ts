@@ -156,19 +156,24 @@ const addConfidenceToLedger = (
 };
 
 const buildCveDetails = (details: SecurityOverrideDetail[]): CveDetail[] => {
-  const allEntries = details.flatMap((d) =>
-    (d.cves || []).map((cve): [string, CveDetail] => {
-      const detail: CveDetail = { cve };
-      if (d.severity) detail.severity = d.severity;
-      if (d.patchedVersion) detail.patchedVersion = d.patchedVersion;
-      return [cve, detail];
-    }),
-  );
+  const allEntries = details.flatMap(buildCveDetailEntries);
   const cveMap = allEntries.reduce((map, [cve, detail]) => {
     if (!map.has(cve)) map.set(cve, detail);
     return map;
   }, new Map<string, CveDetail>());
   return Array.from(cveMap.values());
+};
+
+const buildCveDetailEntries = (detail: SecurityOverrideDetail): Array<[string, CveDetail]> => {
+  const cves = detail.cves || [];
+  return cves.map((cve): [string, CveDetail] => [cve, createCveDetail(cve, detail)]);
+};
+
+const createCveDetail = (cve: string, detail: SecurityOverrideDetail): CveDetail => {
+  const cveDetail: CveDetail = { cve };
+  if (detail.severity) cveDetail.severity = detail.severity;
+  if (detail.patchedVersion) cveDetail.patchedVersion = detail.patchedVersion;
+  return cveDetail;
 };
 
 const addCveDetailsToLedger = (

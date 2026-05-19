@@ -45,6 +45,18 @@ const mergeSources = (a: SecurityAlert, b: SecurityAlert): SecurityProviderType[
   return [...new Set(combined)] as SecurityProviderType[];
 };
 
+const createCvesField = (cves: string[] | undefined): Partial<Pick<SecurityAlert, "cves">> => {
+  if (!cves?.length) return {};
+  return { cves };
+};
+
+const createSourcesField = (
+  sources: SecurityProviderType[] | undefined,
+): Partial<Pick<SecurityAlert, "sources">> => {
+  if (!sources?.length) return {};
+  return { sources };
+};
+
 export const deduplicateAlerts = (alerts: SecurityAlert[]): SecurityAlert[] => {
   const seen = alerts.reduce((map, alert) => {
     const key = `${alert.packageName}@${alert.currentVersion}:${alert.cves?.[0] || alert.title}`;
@@ -57,16 +69,15 @@ export const deduplicateAlerts = (alerts: SecurityAlert[]): SecurityAlert[] => {
         ? [...new Set([...(existing.cves || []), ...(alert.cves || [])])]
         : alert.cves;
       const mergedSources = existing ? mergeSources(existing, alert) : alert.sources;
-      const withCves = mergedCves && mergedCves.length > 0 ? { cves: mergedCves } : {};
-      const withSources =
-        mergedSources && mergedSources.length > 0 ? { sources: mergedSources } : {};
+      const withCves = createCvesField(mergedCves);
+      const withSources = createSourcesField(mergedSources);
       map.set(key, { ...alert, ...withCves, ...withSources });
     } else if (existing) {
       const allCves = [...(existing.cves || []), ...(alert.cves || [])];
       const mergedCves = [...new Set(allCves)];
       const mergedSources = mergeSources(existing, alert);
-      const withCves = mergedCves.length > 0 ? { cves: mergedCves } : {};
-      const withSources = mergedSources.length > 0 ? { sources: mergedSources } : {};
+      const withCves = createCvesField(mergedCves);
+      const withSources = createSourcesField(mergedSources);
       map.set(key, { ...existing, ...withCves, ...withSources });
     }
 

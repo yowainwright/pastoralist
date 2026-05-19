@@ -31,7 +31,8 @@ export class ConcurrencyLimiter {
     }
 
     this.running++;
-    const item = this.queue.shift();
+    const [item, ...remainingQueue] = this.queue;
+    this.queue = remainingQueue;
 
     if (!item) {
       this.running--;

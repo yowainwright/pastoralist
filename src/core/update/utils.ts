@@ -101,7 +101,8 @@ export const findRemovableOverrides = (
     const isInAppendix = appendixPackagesWithDependents.has(pkg);
     const isInDeps = pkg in allDeps;
     const isMissingInRoot = missingSet.has(pkg);
-    return !isInAppendix && !isInDeps && !isMissingInRoot;
+    const isKnownPackage = isInAppendix || isInDeps || isMissingInRoot;
+    return !isKnownPackage;
   });
 };
 
@@ -133,10 +134,10 @@ export const hasConfigOverrides = (
   const configResolutions = config?.resolutions;
   const configPnpmOverrides = config?.pnpm?.overrides;
 
-  return Boolean(
-    (optionsOverrides && Object.keys(optionsOverrides).length > 0) ||
-    (configOverrides && Object.keys(configOverrides).length > 0) ||
-    (configResolutions && Object.keys(configResolutions).length > 0) ||
-    (configPnpmOverrides && Object.keys(configPnpmOverrides).length > 0),
-  );
+  return [optionsOverrides, configOverrides, configResolutions, configPnpmOverrides].some(hasKeys);
+};
+
+const hasKeys = (value: Record<string, unknown> | undefined): boolean => {
+  if (!value) return false;
+  return Object.keys(value).length > 0;
 };

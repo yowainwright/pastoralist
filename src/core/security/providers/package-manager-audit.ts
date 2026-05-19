@@ -4,6 +4,8 @@ import type {
   SecurityAlert,
   NpmAuditAdvisory,
   NpmAuditResult,
+  NpmAuditVulnerability,
+  YarnAuditAdvisory,
   YarnAuditLine,
 } from "../../../types";
 import { logger } from "../../../utils";
@@ -101,25 +103,35 @@ export class PackageManagerAuditProvider {
     const hasVulnerabilities = Boolean(parsed?.vulnerabilities);
     if (!hasVulnerabilities) return [];
 
-    return Object.values(parsed.vulnerabilities).flatMap((vuln) => {
-      const advisories = vuln.via.filter(
-        (v): v is NpmAuditAdvisory => typeof v === "object" && v !== null,
-      );
-      return advisories.map((advisory) => {
-        const patchedVersion = this.extractNpmPatchedVersion(vuln.fixAvailable);
-        const base: SecurityAlert = {
-          packageName: vuln.name,
-          currentVersion: "",
-          vulnerableVersions: advisory.range || vuln.range,
-          patchedVersion,
-          severity: this.normalizeSeverity(advisory.severity),
-          title: advisory.title,
-          url: advisory.url,
-          fixAvailable: Boolean(patchedVersion),
-        };
-        return base;
-      });
-    });
+    return Object.values(parsed.vulnerabilities).flatMap((vuln) =>
+      this.convertNpmVulnerability(vuln),
+    );
+  }
+
+  private getNpmAdvisories(vuln: NpmAuditVulnerability): NpmAuditAdvisory[] {
+    return vuln.via.filter((v): v is NpmAuditAdvisory => typeof v === "object" && v !== null);
+  }
+
+  private convertNpmAdvisory(
+    vuln: NpmAuditVulnerability,
+    advisory: NpmAuditAdvisory,
+  ): SecurityAlert {
+    const patchedVersion = this.extractNpmPatchedVersion(vuln.fixAvailable);
+    return {
+      packageName: vuln.name,
+      currentVersion: "",
+      vulnerableVersions: advisory.range || vuln.range,
+      patchedVersion,
+      severity: this.normalizeSeverity(advisory.severity),
+      title: advisory.title,
+      url: advisory.url,
+      fixAvailable: Boolean(patchedVersion),
+    };
+  }
+
+  private convertNpmVulnerability(vuln: NpmAuditVulnerability): SecurityAlert[] {
+    const advisories = this.getNpmAdvisories(vuln);
+    return advisories.map((advisory) => this.convertNpmAdvisory(vuln, advisory));
   }
 
   private parseYarnAuditOutput(stdout: string): SecurityAlert[] {
@@ -147,9 +159,16 @@ export class PackageManagerAuditProvider {
           url: advisory.url,
           fixAvailable: Boolean(patchedVersion),
         };
-        const cvesField = advisory.cves && advisory.cves.length > 0 ? { cves: advisory.cves } : {};
+        const cvesField = this.createAdvisoryCvesField(advisory);
         return [{ ...base, ...cvesField }];
       });
+  }
+
+  private createAdvisoryCvesField(
+    advisory: YarnAuditAdvisory,
+  ): Partial<Pick<SecurityAlert, "cves">> {
+    if (!advisory.cves?.length) return {};
+    return { cves: advisory.cves };
   }
 
   private extractNpmPatchedVersion(
@@ -161,8 +180,11 @@ export class PackageManagerAuditProvider {
   }
 
   private extractYarnPatchedVersion(patchedVersions: string): string | undefined {
-    const hasNoFix =
-      !patchedVersions || patchedVersions === "<0.0.0" || patchedVersions === "No fix available";
+    const hasPatchedVersions = Boolean(patchedVersions);
+    if (!hasPatchedVersions) return undefined;
+    const isUnavailable = patchedVersions === "<0.0.0";
+    const hasNoFixMessage = patchedVersions === "No fix available";
+    const hasNoFix = isUnavailable || hasNoFixMessage;
     if (hasNoFix) return undefined;
     const match = patchedVersions.match(/>=\s*([\d.]+)/);
     return match?.[1];

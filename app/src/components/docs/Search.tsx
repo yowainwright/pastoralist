@@ -47,7 +47,8 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      const isSearchShortcut = (e.metaKey || e.ctrlKey) && e.key === "k";
+      if (isSearchShortcut) {
         e.preventDefault();
         setIsOpen(true);
         setTimeout(() => inputRef.current?.focus(), 100);

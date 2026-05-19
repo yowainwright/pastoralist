@@ -260,7 +260,8 @@ export class OSVProvider {
   ): SecurityAlert[] {
     return packages.flatMap((pkg, index) => {
       const vulns = batchResults[index]?.vulns;
-      return vulns && vulns.length > 0 ? this.convertOSVAlerts(pkg, vulns) : [];
+      if (!vulns?.length) return [];
+      return this.convertOSVAlerts(pkg, vulns);
     });
   }
 

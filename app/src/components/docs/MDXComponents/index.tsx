@@ -9,7 +9,8 @@ const Mermaid = lazy(() => import("../Mermaid").then((m) => ({ default: m.Mermai
 function extractText(node: unknown): string {
   if (typeof node === "string") return node;
   if (Array.isArray(node)) return node.map(extractText).join("");
-  if (node && typeof node === "object" && "props" in (node as object)) {
+  const hasProps = Boolean(node && typeof node === "object" && "props" in (node as object));
+  if (hasProps) {
     const el = node as ReactElement<{ children?: unknown }>;
     return extractText(el.props?.children);
   }

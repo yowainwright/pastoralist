@@ -24,12 +24,15 @@ export function Header() {
     slug: doc.slug,
   }));
 
-  const navItemClassName = (href: string) =>
-    `rounded-lg hover:text-[#1D4ED8] hover:bg-[#1D4ED8]/10 transition flex ${
-      (href.includes("/docs") ? pathname.includes("/docs") : pathname === href)
-        ? "text-[#1D4ED8] bg-[#1D4ED8]/10"
-        : ""
-    }`;
+  const isNavItemActive = (href: string): boolean => {
+    if (href.includes("/docs")) return pathname.includes("/docs");
+    return pathname === href;
+  };
+
+  const navItemClassName = (href: string) => {
+    const activeClass = isNavItemActive(href) ? "text-[#1D4ED8] bg-[#1D4ED8]/10" : "";
+    return `rounded-lg hover:text-[#1D4ED8] hover:bg-[#1D4ED8]/10 transition flex ${activeClass}`;
+  };
 
   return (
     <header className="fixed top-0 z-[1000] w-full">

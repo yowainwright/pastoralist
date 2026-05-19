@@ -182,9 +182,14 @@ export function useTransformAnimation(shouldAnimate: boolean, onComplete?: () =>
     if (targetPhase) setPhase(targetPhase);
   };
 
-  const isStep1Active = isPaused ? activeStep === 1 : activeStep >= 1 || showAllPopovers;
-  const isStep2Active = isPaused ? activeStep === 2 : activeStep >= 2 || showAllPopovers;
-  const isStep3Active = isPaused ? activeStep === 3 : activeStep >= 3 || showAllPopovers;
+  const isStepActive = (step: number): boolean => {
+    if (isPaused) return activeStep === step;
+    return activeStep >= step || showAllPopovers;
+  };
+
+  const isStep1Active = isStepActive(1);
+  const isStep2Active = isStepActive(2);
+  const isStep3Active = isStepActive(3);
 
   return {
     containerRef,

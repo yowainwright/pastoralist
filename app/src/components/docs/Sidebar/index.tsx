@@ -12,7 +12,12 @@ export function Sidebar() {
   const [sections, setSections] = useState(() => SIDEBAR.map(() => true));
 
   const toggleSection = (index: number) => {
-    setSections((prev) => prev.map((open, i) => (i === index ? !open : open)));
+    setSections((prev) =>
+      prev.map((open, i) => {
+        if (i === index) return !open;
+        return open;
+      }),
+    );
   };
 
   useEffect(() => {

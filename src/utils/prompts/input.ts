@@ -56,7 +56,9 @@ export function getNextPipedInput(): string | null {
   }
 
   if (lineIndex < pipedInputLines.length) {
-    return pipedInputLines[lineIndex++];
+    const line = pipedInputLines[lineIndex];
+    lineIndex += 1;
+    return line;
   }
 
   return "";

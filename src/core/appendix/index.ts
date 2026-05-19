@@ -421,6 +421,30 @@ const collectAllWorkspaceOverrides = (
   return packageJSONs.map((packagePath) => extractWorkspaceOverrides(packagePath, logInstance));
 };
 
+const logWorkspaceConflict = (
+  rootOverrides: OverridesType,
+  logInstance: Logger,
+  pkg: string,
+  wsVersion: string | Record<string, string>,
+): void => {
+  const rootVersion = rootOverrides[pkg];
+  if (!rootVersion || rootVersion === wsVersion) return;
+  logInstance.debug(
+    `Override conflict for "${pkg}": root has "${rootVersion}", workspace has "${wsVersion}" — workspace wins`,
+    "constructAppendix",
+  );
+};
+
+const detectSingleWorkspaceConflicts = (
+  wsOverrides: OverridesType,
+  rootOverrides: OverridesType,
+  logInstance: Logger,
+): void => {
+  Object.entries(wsOverrides).forEach(([pkg, wsVersion]) =>
+    logWorkspaceConflict(rootOverrides, logInstance, pkg, wsVersion),
+  );
+};
+
 const detectWorkspaceConflicts = (
   workspaceOverridesResults: Array<OverridesType | null>,
   rootOverrides: OverridesType | null,
@@ -432,17 +456,9 @@ const detectWorkspaceConflicts = (
     (overrides): overrides is OverridesType => overrides !== null,
   );
 
-  validOverrides.forEach((wsOverrides) => {
-    Object.entries(wsOverrides).forEach(([pkg, wsVersion]) => {
-      const rootVersion = rootOverrides[pkg];
-      if (rootVersion && rootVersion !== wsVersion) {
-        logInstance.debug(
-          `Override conflict for "${pkg}": root has "${rootVersion}", workspace has "${wsVersion}" — workspace wins`,
-          "constructAppendix",
-        );
-      }
-    });
-  });
+  validOverrides.forEach((wsOverrides) =>
+    detectSingleWorkspaceConflicts(wsOverrides, rootOverrides, logInstance),
+  );
 };
 
 const mergeAllOverrides = (

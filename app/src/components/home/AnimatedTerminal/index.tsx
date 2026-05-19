@@ -60,6 +60,16 @@ const TerminalLines: React.FC<{
   </>
 );
 
+const getTypingLine = (
+  hasStarted: boolean,
+  isFinished: boolean,
+  currentLine: TerminalLine | undefined,
+): TerminalLine | undefined => {
+  if (!hasStarted) return undefined;
+  if (isFinished) return undefined;
+  return currentLine;
+};
+
 export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
   demos,
   loop = DEFAULT_LOOP,
@@ -151,11 +161,8 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
     }
   }, [currentLineIndex, currentDemo, moveToNextDemo, currentLine]);
 
-  const { isTyping, setIsTyping } = useLineProcessor(
-    hasStarted && !isFinished ? currentLine : undefined,
-    visibleLines,
-    moveToNextLine,
-  );
+  const typingLine = getTypingLine(hasStarted, isFinished, currentLine);
+  const { isTyping, setIsTyping } = useLineProcessor(typingLine, visibleLines, moveToNextLine);
 
   const { displayedText, isComplete } = useTypingAnimation(
     currentLine?.text ?? "",

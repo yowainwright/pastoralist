@@ -108,7 +108,12 @@ export class SocketCLIProvider {
 
     return socketResult.packages
       .filter((pkg) => pkg.issues && pkg.issues.length > 0)
-      .flatMap((pkg) => pkg.issues!.map((issue) => this.convertIssueToAlert(pkg, issue)));
+      .flatMap((pkg) => this.convertPackageIssues(pkg));
+  }
+
+  private convertPackageIssues(pkg: SocketPackage): SecurityAlert[] {
+    const issues = pkg.issues || [];
+    return issues.map((issue) => this.convertIssueToAlert(pkg, issue));
   }
 
   private convertIssueToAlert(pkg: SocketPackage, issue: SocketIssue): SecurityAlert {

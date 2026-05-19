@@ -17,7 +17,9 @@ import type {
 } from "./types";
 
 const isObject = (value: unknown): value is Record<string, unknown> => {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  if (typeof value !== "object") return false;
+  if (value === null) return false;
+  return !Array.isArray(value);
 };
 
 const isString = (value: unknown): value is string => {

@@ -80,8 +80,18 @@ const stepDetermineMode = (ctx: UpdateContext): UpdateContext => {
   return { ...ctx, hasRootOverrides, rootDeps, missingInRoot, mode };
 };
 
+const canProcessWorkspaceStep = (
+  ctx: UpdateContext,
+): ctx is UpdateContext & {
+  config: NonNullable<UpdateContext["config"]>;
+  mode: NonNullable<UpdateContext["mode"]>;
+  overridesData: NonNullable<UpdateContext["overridesData"]>;
+} => {
+  return Boolean(ctx.config && ctx.mode && ctx.overridesData);
+};
+
 const stepProcessWorkspaces = (ctx: UpdateContext): UpdateContext => {
-  if (!ctx.config || !ctx.mode || !ctx.overridesData) return ctx;
+  if (!canProcessWorkspaceStep(ctx)) return ctx;
 
   const depPaths = ctx.mode.depPaths;
   const shouldProcessWorkspaces = depPaths && depPaths.length > 0;
@@ -154,8 +164,18 @@ const stepAttachPatches = (ctx: UpdateContext): UpdateContext => {
   return { ...ctx, appendix: appendixWithPatches };
 };
 
+const canMergeOverridePathsStep = (
+  ctx: UpdateContext,
+): ctx is UpdateContext & {
+  appendix: Appendix;
+  config: NonNullable<UpdateContext["config"]>;
+  missingInRoot: string[];
+} => {
+  return Boolean(ctx.config && ctx.appendix && ctx.missingInRoot);
+};
+
 const stepMergeOverridePaths = (ctx: UpdateContext): UpdateContext => {
-  if (!ctx.config || !ctx.appendix || !ctx.missingInRoot) return ctx;
+  if (!canMergeOverridePathsStep(ctx)) return ctx;
 
   const overridePaths =
     ctx.config.pastoralist?.overridePaths || ctx.config.pastoralist?.resolutionPaths;
@@ -182,12 +202,16 @@ const stepLogUnusedPatches = (ctx: UpdateContext): UpdateContext => {
 const findAlertMatchingCves = (
   alerts: SecurityAlert[],
   entryCves: string[],
-): SecurityAlert | undefined =>
-  alerts.find((alert) => {
-    const alertCves = alert.cves || [];
-    const hasOverlap = alertCves.some((c) => entryCves.includes(c));
-    return hasOverlap && Boolean(alert.patchedVersion);
-  });
+): SecurityAlert | undefined => {
+  const entryCveSet = new Set(entryCves);
+  return alerts.find((alert) => alertHasPatchedCve(alert, entryCveSet));
+};
+
+const alertHasPatchedCve = (alert: SecurityAlert, entryCveSet: Set<string>): boolean => {
+  if (!alert.patchedVersion) return false;
+  const alertCves = alert.cves || [];
+  return alertCves.some((cve) => entryCveSet.has(cve));
+};
 
 const withPotentiallyFixedIn = (
   ledger: NonNullable<AppendixItem["ledger"]>,
@@ -309,10 +333,9 @@ const stepWriteResult = (ctx: UpdateContext): UpdateContext => {
     return Object.assign({}, ctx, { writeSkipped: false, writeSuccess: true });
   }
 
-  const hasNoData =
-    !ctx.config || ctx.finalAppendix === undefined || ctx.finalOverrides === undefined;
+  const hasWritableData = hasWritableResultData(ctx);
 
-  if (hasNoData) {
+  if (!hasWritableData) {
     ctx.log.debug("No changes to write - missing required data", "stepWriteResult");
     return Object.assign({}, ctx, { writeSkipped: true, writeSuccess: false });
   }
@@ -332,6 +355,13 @@ const stepWriteResult = (ctx: UpdateContext): UpdateContext => {
   });
 
   return Object.assign({}, ctx, { writeSkipped: false, writeSuccess: true });
+};
+
+const hasWritableResultData = (ctx: UpdateContext): boolean => {
+  const hasConfig = Boolean(ctx.config);
+  const hasAppendix = ctx.finalAppendix !== undefined;
+  const hasOverrides = ctx.finalOverrides !== undefined;
+  return hasConfig && hasAppendix && hasOverrides;
 };
 
 const countKeys = (obj: Record<string, unknown> | undefined): number => {

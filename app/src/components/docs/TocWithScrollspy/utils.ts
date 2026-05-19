@@ -6,20 +6,25 @@ export interface TextPart {
 const INLINE_CODE_REGEX = /`([^`]+)`/g;
 
 export function parseInlineCode(text: string): TextPart[] {
-  const parts: TextPart[] = [];
-  let lastIndex = 0;
-  let match;
+  const matches = Array.from(text.matchAll(INLINE_CODE_REGEX));
+  const state = matches.reduce(
+    (acc, match) => {
+      const parts = [...acc.parts];
+      let lastIndex = acc.lastIndex;
 
-  while ((match = INLINE_CODE_REGEX.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push({ text: text.slice(lastIndex, match.index), isCode: false });
-    }
-    parts.push({ text: match[1], isCode: true });
-    lastIndex = match.index + match[0].length;
-  }
+      if (match.index > lastIndex) {
+        parts.push({ text: text.slice(lastIndex, match.index), isCode: false });
+      }
+      parts.push({ text: match[1], isCode: true });
+      lastIndex = match.index + match[0].length;
+      return { parts, lastIndex };
+    },
+    { parts: [] as TextPart[], lastIndex: 0 },
+  );
 
-  if (lastIndex < text.length) {
-    parts.push({ text: text.slice(lastIndex), isCode: false });
+  const parts = state.parts;
+  if (state.lastIndex < text.length) {
+    parts.push({ text: text.slice(state.lastIndex), isCode: false });
   }
 
   if (parts.length === 0) {

@@ -38,9 +38,7 @@ const CONTENT = {
 
 export function TransformSection() {
   const [hasSeenAnimation] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      sessionStorage.getItem(SEEN_KEY) === "true",
+    () => typeof window !== "undefined" && sessionStorage.getItem(SEEN_KEY) === "true",
   );
   const { ref: headerRef, isVisible: headerVisible } = useFadeInUp();
 
@@ -53,8 +51,7 @@ export function TransformSection() {
           className={`${styles.header} ${headerVisible ? styles.headerVisible : styles.headerHidden}`}
         >
           <h2 className={styles.h2}>
-            {CONTENT.headingStart}{" "}
-            <span className="gradient-text">{CONTENT.headingHighlight}</span>
+            {CONTENT.headingStart} <span className="gradient-text">{CONTENT.headingHighlight}</span>
           </h2>
           <p className={styles.description}>{CONTENT.description}</p>
         </header>

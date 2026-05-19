@@ -1,23 +1,24 @@
 import type { SecurityAlert } from "../../../types";
 import { logger } from "../../../utils";
-import { SPEKTION_API, SEVERITY_MAP, Severity } from "../constants";
+import { SPEKTION_API, SEVERITY_MAP } from "../constants";
+import type { Severity } from "../types";
 
 const mapSeverity = (severity: string): Severity =>
   SEVERITY_MAP[severity.toLowerCase()] ?? "medium";
 
 const convertVulnerability = (vuln: unknown): SecurityAlert | null => {
-  if (!vuln || typeof vuln !== "object") return null;
+  const isInvalidVulnerability = !vuln || typeof vuln !== "object";
+  if (isInvalidVulnerability) return null;
   const v = vuln as Record<string, unknown>;
-  const patchedVersion = v.patchedVersion
-    ? String(v.patchedVersion)
-    : undefined;
+  const patchedVersion = v.patchedVersion ? String(v.patchedVersion) : undefined;
+  const title = String(v.title ?? v.description ?? "Vulnerability");
   return {
     packageName: String(v.package ?? ""),
     currentVersion: String(v.version ?? ""),
     vulnerableVersions: v.vulnerableRange ? String(v.vulnerableRange) : "",
     patchedVersion,
     severity: mapSeverity(String(v.severity ?? "")),
-    title: String(v.title ?? v.description ?? "Vulnerability"),
+    title,
     description: v.description ? String(v.description) : undefined,
     cves: v.cve ? [String(v.cve)] : undefined,
     url: v.url ? String(v.url) : undefined,
@@ -26,7 +27,8 @@ const convertVulnerability = (vuln: unknown): SecurityAlert | null => {
 };
 
 const convertAlerts = (result: unknown): SecurityAlert[] => {
-  if (!result || typeof result !== "object") return [];
+  const isInvalidResult = !result || typeof result !== "object";
+  if (isInvalidResult) return [];
   const data = result as Record<string, unknown>;
   if (!Array.isArray(data.vulnerabilities)) return [];
   return data.vulnerabilities
@@ -59,19 +61,14 @@ export class SpektionProvider {
   private token?: string;
   private strict: boolean;
 
-  constructor(
-    options: { debug?: boolean; token?: string; strict?: boolean } = {},
-  ) {
+  constructor(options: { debug?: boolean; token?: string; strict?: boolean } = {}) {
     this.log = logger({
       file: "security/spektion.ts",
       isLogging: options.debug || false,
     });
     this.token = options.token || process.env.SPEKTION_API_KEY;
     this.strict = options.strict || false;
-    this.log.debug(
-      "SpektionProvider initialized (experimental)",
-      "constructor",
-    );
+    this.log.debug("SpektionProvider initialized (experimental)", "constructor");
   }
 
   async isAuthenticated(): Promise<boolean> {

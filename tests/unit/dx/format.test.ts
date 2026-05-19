@@ -26,8 +26,7 @@ describe("dx/format", () => {
     });
 
     test("handles multiple ANSI codes", () => {
-      const multiColored =
-        "\x1b[31mred\x1b[0m \x1b[32mgreen\x1b[0m \x1b[34mblue\x1b[0m";
+      const multiColored = "\x1b[31mred\x1b[0m \x1b[32mgreen\x1b[0m \x1b[34mblue\x1b[0m";
       expect(visibleLength(multiColored)).toBe(14);
     });
 
@@ -43,37 +42,33 @@ describe("dx/format", () => {
 
     test("handles farmer emoji with width adjustment", () => {
       const result = visibleLength("Hello 🧑‍🌾");
-      // Should be "Hello " (6) + farmer emoji (2 character width) = 8
       expect(result).toBe(8);
     });
 
     test("handles complex text with ANSI codes and emoji", () => {
       const complexText = "\x1b[32mSetup complete! 🧑‍🌾\x1b[0m";
       const result = visibleLength(complexText);
-      // "Setup complete! " (16) + farmer emoji (2) = 18
       expect(result).toBe(18);
     });
 
     test("fallback path when Intl.Segmenter unavailable", () => {
       const originalIntl = globalThis.Intl;
-      // @ts-ignore - testing fallback
-      globalThis.Intl = undefined;
+      Object.defineProperty(globalThis, "Intl", { value: undefined, configurable: true });
 
       const result = visibleLength("Hello 🧑‍🌾");
       expect(result).toBe(11);
 
-      globalThis.Intl = originalIntl;
+      Object.defineProperty(globalThis, "Intl", { value: originalIntl, configurable: true });
     });
 
     test("emoji count without farmer emoji", () => {
-      // @ts-ignore - testing private implementation
       const originalIntl = globalThis.Intl;
       if (typeof Intl !== "undefined" && Intl.Segmenter) {
         const result = visibleLength("Hello 👋 World");
         expect(result).toBe(14);
       }
 
-      globalThis.Intl = originalIntl;
+      Object.defineProperty(globalThis, "Intl", { value: originalIntl, configurable: true });
     });
   });
 
@@ -103,8 +98,7 @@ describe("dx/format", () => {
     });
 
     test("handles multiple color changes", () => {
-      const multi =
-        "\x1b[31mred\x1b[0m \x1b[32mgreen\x1b[0m \x1b[34mblue text\x1b[0m";
+      const multi = "\x1b[31mred\x1b[0m \x1b[32mgreen\x1b[0m \x1b[34mblue text\x1b[0m";
       const result = truncate(multi, 12);
       expect(visibleLength(result)).toBe(12);
     });
@@ -119,28 +113,22 @@ describe("dx/format", () => {
       const colored = "\x1b[31mverylongredtext\x1b[m";
       const result = truncate(colored, 10);
       expect(visibleLength(result)).toBe(10);
-      // The truncation happens before the reset, so we add our own reset
       expect(result).toContain("\x1b[31m");
       expect(result).toContain("\x1b[0m...");
     });
 
     test("handles ANSI sequences that span the truncation boundary", () => {
-      // Test when truncation happens right at an ANSI code
       const colored = "\x1b[31mtest\x1b[32mgreen\x1b[0m";
-      const result = truncate(colored, 6); // Should cut in the middle of "green"
+      const result = truncate(colored, 6);
       expect(visibleLength(result)).toBe(6);
-      // Should preserve initial color and close it properly
       expect(result).toContain("\x1b[31m");
-      // When truncating before second color, it won't be included
       expect(result).toBe("\x1b[31mtes\x1b[0m...");
     });
 
     test("properly closes open ANSI sequences when truncating", () => {
-      // Test that open ANSI sequences get closed
       const colored = "\x1b[31mThis is a long red text without reset";
       const result = truncate(colored, 10);
       expect(visibleLength(result)).toBe(10);
-      // Should add reset code before ellipsis
       expect(result).toContain("\x1b[0m...");
     });
 
@@ -148,7 +136,6 @@ describe("dx/format", () => {
       const nested = "\x1b[1m\x1b[31mBold and Red Text\x1b[0m";
       const result = truncate(nested, 8);
       expect(visibleLength(result)).toBe(8);
-      // Should preserve both codes and close properly
       expect(result).toContain("\x1b[1m");
       expect(result).toContain("\x1b[31m");
       expect(result).toEndWith("\x1b[0m...");
@@ -187,7 +174,6 @@ describe("dx/format", () => {
     test("pads text with emoji correctly", () => {
       const emojiText = "Done 🧑‍🌾";
       const result = pad(emojiText, 10);
-      // Should pad to 10 visible characters accounting for emoji width
       expect(visibleLength(result)).toBe(10);
     });
 

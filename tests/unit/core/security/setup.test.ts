@@ -4,10 +4,7 @@ import {
   promptForSetup,
   createOutput,
 } from "../../../../src/core/security/setup";
-import {
-  PROVIDER_CONFIGS,
-  VALIDATION_ENDPOINTS,
-} from "../../../../src/core/security/constants";
+import { PROVIDER_CONFIGS, VALIDATION_ENDPOINTS } from "../../../../src/core/security/constants";
 import {
   MOCK_TOKENS,
   ENV_VARS,
@@ -95,35 +92,26 @@ test("validateToken - returns true for unknown provider", async () => {
 
 test("validateToken - returns false for invalid github token", async () => {
   const wizard = new SecuritySetupWizard();
-  await withMockedFetch(
-    createMockFetch({ ok: false, status: 401 }),
-    async () => {
-      const result = await wizard.validateToken("github", "invalid-token");
-      expect(result).toBe(false);
-    },
-  );
+  await withMockedFetch(createMockFetch({ ok: false, status: 401 }), async () => {
+    const result = await wizard.validateToken("github", "invalid-token");
+    expect(result).toBe(false);
+  });
 });
 
 test("validateToken - returns false for invalid snyk token", async () => {
   const wizard = new SecuritySetupWizard();
-  await withMockedFetch(
-    createMockFetch({ ok: false, status: 401 }),
-    async () => {
-      const result = await wizard.validateToken("snyk", "invalid-token");
-      expect(result).toBe(false);
-    },
-  );
+  await withMockedFetch(createMockFetch({ ok: false, status: 401 }), async () => {
+    const result = await wizard.validateToken("snyk", "invalid-token");
+    expect(result).toBe(false);
+  });
 });
 
 test("validateToken - returns false for invalid socket token", async () => {
   const wizard = new SecuritySetupWizard();
-  await withMockedFetch(
-    createMockFetch({ ok: false, status: 401 }),
-    async () => {
-      const result = await wizard.validateToken("socket", "invalid-token");
-      expect(result).toBe(false);
-    },
-  );
+  await withMockedFetch(createMockFetch({ ok: false, status: 401 }), async () => {
+    const result = await wizard.validateToken("socket", "invalid-token");
+    expect(result).toBe(false);
+  });
 });
 
 test("validateToken - handles network errors gracefully", async () => {
@@ -198,9 +186,7 @@ test("VALIDATION_ENDPOINTS - has snyk endpoint", () => {
 });
 
 test("VALIDATION_ENDPOINTS - has socket endpoint", () => {
-  expect(VALIDATION_ENDPOINTS.socket).toBe(
-    "https://api.socket.dev/v0/organizations",
-  );
+  expect(VALIDATION_ENDPOINTS.socket).toBe("https://api.socket.dev/v0/organizations");
 });
 
 test("promptForSetup - returns success when token already available", async () => {
@@ -232,41 +218,30 @@ test("runSetup - prints setup header", async () => {
   const wizard = new SecuritySetupWizard();
   await withMockedStdout(async (output) => {
     await wizard.runSetup("osv");
-    expect(output.some((o) => o.includes("Security Provider Setup"))).toBe(
-      true,
-    );
+    expect(output.some((o) => o.includes("Security Provider Setup"))).toBe(true);
   });
 });
 
 test("checkExistingToken - warns when existing token is invalid", async () => {
   await withEnvToken("snyk", "invalid-token", async () => {
-    await withMockedFetch(
-      createMockFetch({ ok: false, status: 401 }),
-      async () => {
-        await withMockedStdout(async (output) => {
-          const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
-          const config = PROVIDER_CONFIGS.snyk;
-          const result = await (wizard as any).checkExistingToken(
-            "snyk",
-            config,
-          );
-          expect(result).toBeNull();
-          expect(output.some((o) => o.includes("WARN"))).toBe(true);
-        });
-      },
-    );
+    await withMockedFetch(createMockFetch({ ok: false, status: 401 }), async () => {
+      await withMockedStdout(async (output) => {
+        const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
+        const config = PROVIDER_CONFIGS.snyk;
+        const result = await (wizard as any).checkExistingToken("snyk", config);
+        expect(result).toBeNull();
+        expect(output.some((o) => o.includes("WARN"))).toBe(true);
+      });
+    });
   });
 });
 
 test("validateToken - validates snyk token with 404 as success", async () => {
   const wizard = new SecuritySetupWizard();
-  await withMockedFetch(
-    createMockFetch({ ok: false, status: 404 }),
-    async () => {
-      const result = await wizard.validateToken("snyk", "test-token");
-      expect(result).toBe(true);
-    },
-  );
+  await withMockedFetch(createMockFetch({ ok: false, status: 404 }), async () => {
+    const result = await wizard.validateToken("snyk", "test-token");
+    expect(result).toBe(true);
+  });
 });
 
 test("validateToken - validates socket token with basic auth", async () => {
@@ -382,21 +357,14 @@ test("printSetupHeader - outputs provider name", async () => {
 
 test("findShellProfile - returns default zshrc when no profile found", () => {
   const wizard = new SecuritySetupWizard();
-  const result = (wizard as any).findShellProfile("/nonexistent", [
-    ".zshrc",
-    ".bashrc",
-  ]);
+  const result = (wizard as any).findShellProfile("/nonexistent", [".zshrc", ".bashrc"]);
   expect(result).toBe("/nonexistent/.zshrc");
 });
 
 test("findShellProfile - finds existing profile", () => {
   const wizard = new SecuritySetupWizard();
   const home = process.env.HOME || "/tmp";
-  const result = (wizard as any).findShellProfile(home, [
-    ".zshrc",
-    ".bashrc",
-    ".bash_profile",
-  ]);
+  const result = (wizard as any).findShellProfile(home, [".zshrc", ".bashrc", ".bash_profile"]);
   expect(result).toContain(home);
 });
 
@@ -543,24 +511,21 @@ test("runTokenSetup - returns failure when no token provided", async () => {
 });
 
 test("runTokenSetup - returns failure when token is invalid", async () => {
-  await withMockedFetch(
-    createMockFetch({ ok: false, status: 401 }),
-    async () => {
-      await withMockedStdout(async () => {
-        const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
-        (wizard as any).prompts = {
-          confirm: mock(() => Promise.resolve(false)),
-          select: mock(() => Promise.resolve("token")),
-          input: mock(() => Promise.resolve("invalid-token")),
-        };
+  await withMockedFetch(createMockFetch({ ok: false, status: 401 }), async () => {
+    await withMockedStdout(async () => {
+      const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
+      (wizard as any).prompts = {
+        confirm: mock(() => Promise.resolve(false)),
+        select: mock(() => Promise.resolve("token")),
+        input: mock(() => Promise.resolve("invalid-token")),
+      };
 
-        const config = PROVIDER_CONFIGS.snyk;
-        const result = await (wizard as any).runTokenSetup("snyk", config);
-        expect(result.success).toBe(false);
-        expect(result.message).toBe("Token validation failed");
-      });
-    },
-  );
+      const config = PROVIDER_CONFIGS.snyk;
+      const result = await (wizard as any).runTokenSetup("snyk", config);
+      expect(result.success).toBe(false);
+      expect(result.message).toBe("Token validation failed");
+    });
+  });
 });
 
 test("runTokenSetup - returns success with valid token", async () => {
@@ -644,10 +609,7 @@ test("runTokenSetup - prints required scopes for github", async () => {
 test("openUrl - outputs manual message on unsupported platform", async () => {
   await withMockedStdout(async (output) => {
     const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
-    const originalPlatform = Object.getOwnPropertyDescriptor(
-      process,
-      "platform",
-    );
+    const originalPlatform = Object.getOwnPropertyDescriptor(process, "platform");
     Object.defineProperty(process, "platform", { value: "freebsd" });
 
     await (wizard as any).openUrl("https://example.com");
@@ -664,10 +626,7 @@ test("openUrl - outputs manual message on unsupported platform", async () => {
 test("installAndAuthGh - returns manual install for linux", async () => {
   await withMockedStdout(async (output) => {
     const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
-    const originalPlatform = Object.getOwnPropertyDescriptor(
-      process,
-      "platform",
-    );
+    const originalPlatform = Object.getOwnPropertyDescriptor(process, "platform");
     Object.defineProperty(process, "platform", { value: "linux" });
 
     const result = await (wizard as any).installAndAuthGh();
@@ -684,10 +643,7 @@ test("installAndAuthGh - returns manual install for linux", async () => {
 test("installAndAuthGh - returns manual install for windows", async () => {
   await withMockedStdout(async () => {
     const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
-    const originalPlatform = Object.getOwnPropertyDescriptor(
-      process,
-      "platform",
-    );
+    const originalPlatform = Object.getOwnPropertyDescriptor(process, "platform");
     Object.defineProperty(process, "platform", { value: "win32" });
 
     const result = await (wizard as any).installAndAuthGh();
@@ -728,9 +684,7 @@ test("runGhAuth - returns success when auth completes", async () => {
 test("runGhAuth - handles spawn error gracefully", async () => {
   await withMockedStdout(async () => {
     const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
-    (wizard as any).spawnGhAuth = mock(() =>
-      Promise.reject(new Error("spawn failed")),
-    );
+    (wizard as any).spawnGhAuth = mock(() => Promise.reject(new Error("spawn failed")));
 
     const result = await (wizard as any).runGhAuth();
     expect(result.success).toBe(false);
@@ -913,9 +867,7 @@ test("isCommandAvailable - returns true for existing command", async () => {
 
 test("isCommandAvailable - returns false for non-existing command", async () => {
   const wizard = new SecuritySetupWizard();
-  const result = await (wizard as any).isCommandAvailable(
-    "nonexistent_command_xyz123",
-  );
+  const result = await (wizard as any).isCommandAvailable("nonexistent_command_xyz123");
   expect(result).toBe(false);
 });
 
@@ -924,10 +876,7 @@ test("saveToShellProfile - handles non-existent profile gracefully", async () =>
     const wizard = new SecuritySetupWizard();
     (wizard as any).findShellProfile = () => "/nonexistent/path/.zshrc";
 
-    const result = await (wizard as any).saveToShellProfile(
-      "TEST_VAR",
-      "test-value",
-    );
+    const result = await (wizard as any).saveToShellProfile("TEST_VAR", "test-value");
     expect(result).toBe(false);
     const hasWarning = output.some((o) => o.includes("Couldn't write"));
     expect(hasWarning).toBe(true);
@@ -940,9 +889,7 @@ test("saveToShellProfile - outputs manual instructions on error", async () => {
     (wizard as any).findShellProfile = () => "/nonexistent/path/.zshrc";
 
     await (wizard as any).saveToShellProfile("TEST_VAR", "test-value");
-    const hasManualInstructions = output.some((o) =>
-      o.includes("export TEST_VAR"),
-    );
+    const hasManualInstructions = output.some((o) => o.includes("export TEST_VAR"));
     expect(hasManualInstructions).toBe(true);
     const leakedToken = output.some((o) => o.includes("test-value"));
     expect(leakedToken).toBe(false);
@@ -952,10 +899,7 @@ test("saveToShellProfile - outputs manual instructions on error", async () => {
 test("openUrl - handles error on darwin gracefully", async () => {
   await withMockedStdout(async (output) => {
     const wizard = new SecuritySetupWizard();
-    const originalPlatform = Object.getOwnPropertyDescriptor(
-      process,
-      "platform",
-    );
+    const originalPlatform = Object.getOwnPropertyDescriptor(process, "platform");
     Object.defineProperty(process, "platform", { value: "darwin" });
 
     await (wizard as any).openUrl("invalid://url");
@@ -1019,23 +963,20 @@ test("runSetup - uses existing valid token", async () => {
 
 test("runSetup - handles invalid existing token", async () => {
   await withEnvToken("snyk", "invalid-token", async () => {
-    await withMockedFetch(
-      createMockFetch({ ok: false, status: 401 }),
-      async () => {
-        await withMockedStdout(async (output) => {
-          const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
-          (wizard as any).prompts = createMockPrompts({
-            confirm: false,
-            select: "token",
-            input: "",
-          });
-
-          const result = await wizard.runSetup("snyk");
-          expect(result.success).toBe(false);
-          const hasWarning = output.some((o) => o.includes("WARN"));
-          expect(hasWarning).toBe(true);
+    await withMockedFetch(createMockFetch({ ok: false, status: 401 }), async () => {
+      await withMockedStdout(async (output) => {
+        const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
+        (wizard as any).prompts = createMockPrompts({
+          confirm: false,
+          select: "token",
+          input: "",
         });
-      },
-    );
+
+        const result = await wizard.runSetup("snyk");
+        expect(result.success).toBe(false);
+        const hasWarning = output.some((o) => o.includes("WARN"));
+        expect(hasWarning).toBe(true);
+      });
+    });
   });
 });

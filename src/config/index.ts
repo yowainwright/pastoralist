@@ -2,12 +2,11 @@ import { createRequire } from "module";
 import { existsSync, readFileSync } from "fs";
 import { dirname, resolve } from "path";
 import { pathToFileURL } from "url";
-import type { AppendixItem } from "../types";
-import { PastoralistConfig, safeValidateConfig } from "./constants";
-import { CONFIG_FILES } from "./constants";
+import type { AppendixItem, ConfigAppendix, PastoralistConfig } from "./types";
+import { CONFIG_FILES, UNSUPPORTED_TYPESCRIPT_CONFIG } from "./constants";
+import { safeValidateConfig } from "./validators";
 
 const configCache = new Map<string, PastoralistConfig>();
-const UNSUPPORTED_TYPESCRIPT_CONFIG = "pastoralist.config.ts";
 
 export const clearConfigCache = (): void => {
   configCache.clear();
@@ -29,14 +28,7 @@ const unwrapModuleConfig = (moduleValue: unknown): unknown => {
 const evaluateCommonJsConfig = (path: string, source: string): unknown => {
   const module = { exports: {} as unknown };
   const localRequire = createRequire(path);
-  const evaluate = new Function(
-    "module",
-    "exports",
-    "require",
-    "__filename",
-    "__dirname",
-    source,
-  );
+  const evaluate = new Function("module", "exports", "require", "__filename", "__dirname", source);
 
   evaluate(module, module.exports, localRequire, path, dirname(path));
   return unwrapModuleConfig(module.exports);
@@ -45,15 +37,12 @@ const evaluateCommonJsConfig = (path: string, source: string): unknown => {
 const hasCommonJsExports = (source: string): boolean =>
   /\bmodule\.exports\b|\bexports\./.test(source);
 
-const loadJsConfig = async (
-  filename: string,
-  path: string,
-): Promise<unknown> => {
+const loadJsConfig = async (filename: string, path: string): Promise<unknown> => {
   const source = readFileSync(path, "utf8");
-  const canUseCommonJsFallback =
-    filename.endsWith(".cjs") || filename.endsWith(".js");
+  const canUseCommonJsFallback = filename.endsWith(".cjs") || filename.endsWith(".js");
 
-  if (canUseCommonJsFallback && hasCommonJsExports(source)) {
+  const shouldEvaluateCommonJs = canUseCommonJsFallback && hasCommonJsExports(source);
+  if (shouldEvaluateCommonJs) {
     return evaluateCommonJsConfig(path, source);
   }
 
@@ -62,18 +51,12 @@ const loadJsConfig = async (
   return unwrapModuleConfig(module);
 };
 
-const loadConfigFile = async (
-  filename: string,
-  path: string,
-): Promise<unknown | null> => {
+const loadConfigFile = async (filename: string, path: string): Promise<unknown | null> => {
   if (isJsonFile(filename)) return loadJsonConfig(path);
   return loadJsConfig(filename, path);
 };
 
-const validateAndReturn = (
-  config: unknown,
-  validate: boolean,
-): PastoralistConfig | null => {
+const validateAndReturn = (config: unknown, validate: boolean): PastoralistConfig | null => {
   if (!validate) return config as PastoralistConfig;
   return safeValidateConfig(config) || null;
 };
@@ -107,55 +90,70 @@ const warnIfUnsupportedTypeScriptConfigExists = (root: string): void => {
   );
 };
 
+const loadFirstAvailableConfig = async (
+  filenames: readonly string[],
+  root: string,
+  validate: boolean,
+): Promise<PastoralistConfig | undefined> => {
+  const [filename, ...remaining] = filenames;
+  if (!filename) return undefined;
+
+  const config = await tryLoadConfig(filename, root, validate);
+  if (config !== null) return config;
+
+  return loadFirstAvailableConfig(remaining, root, validate);
+};
+
 export const loadExternalConfig = async (
   root: string = process.cwd(),
   validate: boolean = true,
 ): Promise<PastoralistConfig | undefined> => {
-  for (const filename of CONFIG_FILES) {
-    const config = await tryLoadConfig(filename, root, validate);
-    if (config !== null) return config;
-  }
+  const config = await loadFirstAvailableConfig(CONFIG_FILES, root, validate);
+  if (config !== undefined) return config;
+
   warnIfUnsupportedTypeScriptConfigExists(root);
   return undefined;
 };
 
-const deepMergeAppendix = (
-  external: PastoralistConfig["appendix"],
-  packageJson: PastoralistConfig["appendix"],
-) => {
-  if (!external && !packageJson) return undefined;
+const mergeDependents = (external: AppendixItem, packageJson: AppendixItem) => {
+  return Object.assign({}, external.dependents, packageJson.dependents);
+};
+
+const mergePatches = (external: AppendixItem, packageJson: AppendixItem) => {
+  if (!packageJson.patches) return external.patches;
+  return (external.patches || []).concat(packageJson.patches);
+};
+
+const mergeAppendixEntry = (
+  external: ConfigAppendix,
+  key: string,
+  value: AppendixItem,
+): AppendixItem => {
+  const existingItem = external?.[key];
+  if (!existingItem) return value;
+
+  return {
+    dependents: mergeDependents(existingItem, value),
+    patches: mergePatches(existingItem, value),
+    ledger: value.ledger || existingItem.ledger,
+  };
+};
+
+const mergePackageAppendix = (external: ConfigAppendix, packageJson: ConfigAppendix) => {
+  return Object.entries(packageJson || {}).reduce(
+    (acc, [key, value]) =>
+      Object.assign({}, acc, { [key]: mergeAppendixEntry(external, key, value) }),
+    Object.assign({}, external),
+  );
+};
+
+const deepMergeAppendix = (external: ConfigAppendix, packageJson: ConfigAppendix) => {
+  const hasNoAppendix = !external && !packageJson;
+  if (hasNoAppendix) return undefined;
   if (!external) return packageJson;
   if (!packageJson) return external;
 
-  const mergeEntry = (key: string, value: AppendixItem) => {
-    if (!external[key]) {
-      return value;
-    }
-
-    const existingItem = external[key];
-    const mergedDependents = Object.assign(
-      {},
-      existingItem.dependents,
-      value.dependents,
-    );
-    const mergedPatches = value.patches
-      ? (existingItem.patches || []).concat(value.patches)
-      : existingItem.patches;
-
-    return {
-      dependents: mergedDependents,
-      patches: mergedPatches,
-      ledger: value.ledger || existingItem.ledger,
-    };
-  };
-
-  return Object.entries(packageJson).reduce(
-    (acc, [key, value]) => ({
-      ...acc,
-      [key]: mergeEntry(key, value),
-    }),
-    { ...external },
-  );
+  return mergePackageAppendix(external, packageJson);
 };
 
 export const mergeConfigs = (
@@ -165,10 +163,7 @@ export const mergeConfigs = (
   if (!externalConfig) return packageJsonConfig;
   if (!packageJsonConfig) return externalConfig;
 
-  const mergedAppendix = deepMergeAppendix(
-    externalConfig.appendix,
-    packageJsonConfig.appendix,
-  );
+  const mergedAppendix = deepMergeAppendix(externalConfig.appendix, packageJsonConfig.appendix);
   const mergedOverridePaths = Object.assign(
     {},
     externalConfig.overridePaths,
@@ -179,11 +174,7 @@ export const mergeConfigs = (
     externalConfig.resolutionPaths,
     packageJsonConfig.resolutionPaths,
   );
-  const mergedSecurity = Object.assign(
-    {},
-    externalConfig.security,
-    packageJsonConfig.security,
-  );
+  const mergedSecurity = Object.assign({}, externalConfig.security, packageJsonConfig.security);
 
   return Object.assign({}, externalConfig, packageJsonConfig, {
     appendix: mergedAppendix,
@@ -216,3 +207,5 @@ export const loadConfig = async (
 };
 
 export * from "./constants";
+export * from "./types";
+export { validateConfig, safeValidateConfig } from "./validators";

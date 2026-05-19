@@ -1,73 +1,200 @@
-import { writeFileSync, existsSync } from "fs";
-import { isAbsolute, resolve } from "path";
-import { green } from "../../../utils";
-import { BRAND } from "../../../utils/icons";
-import { createPrompt, Prompt } from "../../../utils/prompts";
-import { formatStepHeader, formatInfo, formatCompletion } from "../../../dx";
-import { FARMER } from "../../../constants";
-import { shimmerFrame } from "../../../dx/shimmer";
-import type {
-  PastoralistConfig,
-  SecurityProvider,
-  SeverityThreshold,
-} from "../../../config";
-import { loadExternalConfig } from "../../../config";
+import { existsSync, writeFileSync } from "fs";
+import { resolve } from "path";
+import { loadExternalConfig, type PastoralistConfig, type SecurityProvider } from "../../../config";
 import { resolveJSON } from "../../../core/packageJSON";
-import { logger as createLogger } from "../../../utils";
+import { formatCompletion, formatInfo, formatStepHeader } from "../../../dx";
+import { shimmerFrame } from "../../../dx/shimmer";
+import { FARMER } from "../../../constants";
+import { BRAND } from "../../../utils/icons";
+import { createPrompt, type Prompt } from "../../../utils/prompts";
+import { green, logger as createLogger, type Logger } from "../../../utils";
 import type { PastoralistJSON } from "../../../types";
-import type { InitOptions, InitAnswers } from "./types";
+import { resolvePathFromRoot } from "../../path";
 import {
-  CONFIG_LOCATION_CHOICES,
   CONFIG_FORMAT_CHOICES,
-  WORKSPACE_TYPE_CHOICES,
+  CONFIG_LOCATION_CHOICES,
+  DEFAULT_WORKSPACE_PATHS,
+  EMPTY_TOKEN_INFO,
+  INIT_MESSAGES,
+  PROMPTS,
   SECURITY_PROVIDER_CHOICES,
   SEVERITY_THRESHOLD_CHOICES,
-  DEFAULT_WORKSPACE_PATHS,
-  INIT_MESSAGES,
   STEP_TITLES,
-  PROMPTS,
+  TOKEN_INFO_BY_PROVIDER,
+  WIZARD_TITLES,
+  WORKSPACE_TYPE_CHOICES,
 } from "./constants";
-import {
-  buildConfig,
-  generateConfigContent,
-  parseWorkspacePaths,
-} from "./utils";
+import type {
+  InitAnswers,
+  InitConfigFormat,
+  InitOptions,
+  InitWizardContext,
+  SecurityPromptOptions,
+  TokenInfo,
+} from "./types";
+import { buildConfig, generateConfigContent, parseWorkspacePaths } from "./utils";
 
 async function collectConfigLocationAnswers(
   prompt: Prompt,
   answers: InitAnswers,
-  log: ReturnType<typeof createLogger>,
+  log: Logger,
 ): Promise<void> {
   log.print(formatStepHeader(1, "Configuration Location"));
 
-  answers.configLocation = (await prompt.list(
-    PROMPTS.configLocation,
-    CONFIG_LOCATION_CHOICES,
-  )) as "package.json" | "external";
+  answers.configLocation = (await prompt.list(PROMPTS.configLocation, CONFIG_LOCATION_CHOICES)) as
+    | "package.json"
+    | "external";
 
   if (answers.configLocation === "external") {
     answers.configFormat = (await prompt.list(
       PROMPTS.configFormat,
       CONFIG_FORMAT_CHOICES,
-    )) as InitAnswers["configFormat"];
+    )) as InitConfigFormat;
   }
 }
 
-async function promptForCustomWorkspacePaths(
+async function collectCustomWorkspacePaths(prompt: Prompt, answers: InitAnswers): Promise<void> {
+  if (answers.workspaceType !== "custom") {
+    return;
+  }
+
+  answers.customWorkspacePaths = await promptForCustomWorkspacePaths(prompt);
+}
+
+async function collectWorkspaceAnswers(
   prompt: Prompt,
-): Promise<string[]> {
-  const pathsInput = await prompt.input(
-    PROMPTS.customWorkspacePaths,
-    DEFAULT_WORKSPACE_PATHS,
+  answers: InitAnswers,
+  packageJson: PastoralistJSON | null | undefined,
+  log: Logger,
+): Promise<void> {
+  log.print(formatStepHeader(2, "Workspace Configuration"));
+
+  answers.setupWorkspaces = await prompt.confirm(PROMPTS.setupWorkspaces, true);
+
+  if (!answers.setupWorkspaces) {
+    return;
+  }
+
+  const workspaces = getPackageWorkspaces(packageJson);
+  const hasWorkspaces = workspaces.length > 0;
+  printMissingWorkspaceNotice(hasWorkspaces, log);
+
+  answers.workspaceType = await promptForWorkspaceType(prompt, hasWorkspaces, workspaces, log);
+  await collectCustomWorkspacePaths(prompt, answers);
+}
+
+async function collectSecurityAnswers(
+  prompt: Prompt,
+  answers: InitAnswers,
+  log: Logger,
+): Promise<void> {
+  log.print(formatStepHeader(3, "Security Configuration"));
+
+  answers.setupSecurity = await prompt.confirm(PROMPTS.setupSecurity, true);
+
+  if (!answers.setupSecurity) {
+    return;
+  }
+
+  await collectEnabledSecurityAnswers(prompt, answers, log, {
+    askWorkspaceSecurity: answers.setupWorkspaces,
+    selectProvider: true,
+  });
+}
+
+async function collectSecurityAnswersWithContext(
+  prompt: Prompt,
+  answers: InitAnswers,
+  log: Logger,
+): Promise<void> {
+  log.print(`\n${STEP_TITLES.security}`);
+  answers.setupSecurity = true;
+
+  const askWorkspaceSecurity = answers.setupWorkspaces && !answers.hasWorkspaceSecurityChecks;
+  const selectProvider = !answers.securityProvider;
+
+  await collectEnabledSecurityAnswers(prompt, answers, log, {
+    askWorkspaceSecurity,
+    selectProvider,
+  });
+}
+
+async function collectEnabledSecurityAnswers(
+  prompt: Prompt,
+  answers: InitAnswers,
+  log: Logger,
+  options: SecurityPromptOptions,
+): Promise<void> {
+  await collectSecurityProvider(prompt, answers, log, options.selectProvider);
+  await collectSecurityMode(prompt, answers);
+  answers.severityThreshold = await collectSeverityThreshold(prompt);
+  await collectWorkspaceSecurity(prompt, answers, options.askWorkspaceSecurity);
+}
+
+async function collectSecurityProvider(
+  prompt: Prompt,
+  answers: InitAnswers,
+  log: Logger,
+  shouldSelectProvider: boolean,
+): Promise<void> {
+  if (shouldSelectProvider) {
+    answers.securityProvider = await promptForSecurityProvider(prompt);
+  }
+
+  if (answers.securityProvider) {
+    await promptForSecurityTokenEnvironment(prompt, answers.securityProvider, log);
+  }
+}
+
+async function collectSecurityMode(prompt: Prompt, answers: InitAnswers): Promise<void> {
+  answers.securityInteractive = await prompt.confirm(PROMPTS.securityInteractive, true);
+
+  if (answers.securityInteractive) {
+    return;
+  }
+
+  answers.securityAutoFix = await prompt.confirm(PROMPTS.securityAutoFix, false);
+}
+
+async function collectWorkspaceSecurity(
+  prompt: Prompt,
+  answers: InitAnswers,
+  shouldAsk: boolean,
+): Promise<void> {
+  if (!shouldAsk) {
+    return;
+  }
+
+  answers.hasWorkspaceSecurityChecks = await prompt.confirm(
+    PROMPTS.hasWorkspaceSecurityChecks,
+    true,
   );
+}
+
+async function promptForCustomWorkspacePaths(prompt: Prompt): Promise<string[]> {
+  const pathsInput = await prompt.input(PROMPTS.customWorkspacePaths, DEFAULT_WORKSPACE_PATHS);
   return parseWorkspacePaths(pathsInput);
+}
+
+async function promptForSecurityProvider(prompt: Prompt): Promise<SecurityProvider> {
+  return (await prompt.list(
+    PROMPTS.securityProvider,
+    SECURITY_PROVIDER_CHOICES,
+  )) as SecurityProvider;
+}
+
+async function collectSeverityThreshold(prompt: Prompt): Promise<InitAnswers["severityThreshold"]> {
+  return (await prompt.list(
+    PROMPTS.severityThreshold,
+    SEVERITY_THRESHOLD_CHOICES,
+  )) as InitAnswers["severityThreshold"];
 }
 
 async function promptForWorkspaceType(
   prompt: Prompt,
   hasWorkspaces: boolean,
   workspaces: string[],
-  log: ReturnType<typeof createLogger>,
+  log: Logger,
 ): Promise<"workspace" | "custom"> {
   if (!hasWorkspaces) {
     return "custom";
@@ -79,164 +206,63 @@ async function promptForWorkspaceType(
     | "custom";
 }
 
-async function collectWorkspaceAnswers(
-  prompt: Prompt,
-  answers: InitAnswers,
-  packageJson: PastoralistJSON | null | undefined,
-  log: ReturnType<typeof createLogger>,
-): Promise<void> {
-  log.print(formatStepHeader(2, "Workspace Configuration"));
-
-  answers.setupWorkspaces = await prompt.confirm(PROMPTS.setupWorkspaces, true);
-
-  if (!answers.setupWorkspaces) {
-    return;
-  }
-
-  const hasWorkspaces = Boolean(
-    packageJson?.workspaces && packageJson.workspaces.length > 0,
-  );
-
-  if (!hasWorkspaces) {
-    log.print(formatInfo(INIT_MESSAGES.noWorkspacesDetected));
-  }
-
-  answers.workspaceType = await promptForWorkspaceType(
-    prompt,
-    hasWorkspaces,
-    packageJson?.workspaces || [],
-    log,
-  );
-
-  if (answers.workspaceType === "custom") {
-    answers.customWorkspacePaths = await promptForCustomWorkspacePaths(prompt);
-  }
-}
-
 async function promptForSecurityTokenEnvironment(
   prompt: Prompt,
   provider: SecurityProvider,
-  log: ReturnType<typeof createLogger>,
+  log: Logger,
 ): Promise<void> {
   const tokenInfo = getTokenInfoForProvider(provider);
 
-  if (!tokenInfo.required && !tokenInfo.optional) {
+  const hasNoTokenGuidance = !tokenInfo.required && !tokenInfo.optional;
+  if (hasNoTokenGuidance) {
     return;
   }
 
+  printTokenEnvironmentGuidance(provider, tokenInfo, log);
+
+  const isConfigured = await prompt.confirm(PROMPTS.hasToken(provider), false);
+
+  const shouldWarnAboutMissingToken = !isConfigured && tokenInfo.required;
+  if (shouldWarnAboutMissingToken) {
+    log.print(`\n   ${INIT_MESSAGES.tokenRequiredWarning(provider)}`);
+  }
+}
+
+function printTokenEnvironmentGuidance(
+  provider: SecurityProvider,
+  tokenInfo: TokenInfo,
+  log: Logger,
+): void {
   if (tokenInfo.createUrl) {
-    log.print(
-      `\n   ${INIT_MESSAGES.tokenCreationInfo(provider, tokenInfo.createUrl)}`,
-    );
+    log.print(`\n   ${INIT_MESSAGES.tokenCreationInfo(provider, tokenInfo.createUrl)}`);
   }
 
   if (tokenInfo.envVar) {
     log.print(`\n   ${INIT_MESSAGES.tokenEnvironmentInfo(tokenInfo.envVar)}`);
   }
-
-  const isConfigured = await prompt.confirm(PROMPTS.hasToken(provider), false);
-
-  if (!isConfigured) {
-    if (tokenInfo.required) {
-      log.print(`\n   ${INIT_MESSAGES.tokenRequiredWarning(provider)}`);
-    }
-    return;
-  }
 }
 
-function getTokenInfoForProvider(provider: SecurityProvider): {
-  required: boolean;
-  optional: boolean;
-  createUrl?: string;
-  envVar?: string;
-  scopes?: string[];
-} {
-  switch (provider) {
-    case "github":
-      return {
-        required: false,
-        optional: true,
-        envVar: "GITHUB_TOKEN",
-        createUrl:
-          "https://github.com/settings/tokens/new?description=Pastoralist%20Security&scopes=repo",
-        scopes: ["repo"],
-      };
-    case "snyk":
-      return {
-        required: true,
-        optional: false,
-        envVar: "SNYK_TOKEN",
-        createUrl: "https://app.snyk.io/account",
-      };
-    case "socket":
-      return {
-        required: true,
-        optional: false,
-        envVar: "SOCKET_SECURITY_API_KEY",
-        createUrl: "https://socket.dev/dashboard/settings",
-      };
-    default:
-      return {
-        required: false,
-        optional: false,
-      };
-  }
+function getTokenInfoForProvider(provider: SecurityProvider): TokenInfo {
+  return TOKEN_INFO_BY_PROVIDER[provider] ?? EMPTY_TOKEN_INFO;
 }
 
-async function collectSecurityAnswers(
-  prompt: Prompt,
-  answers: InitAnswers,
-  log: ReturnType<typeof createLogger>,
-): Promise<void> {
-  log.print(formatStepHeader(3, "Security Configuration"));
+function getPackageWorkspaces(packageJson: PastoralistJSON | null | undefined): string[] {
+  return packageJson?.workspaces || [];
+}
 
-  answers.setupSecurity = await prompt.confirm(PROMPTS.setupSecurity, true);
-
-  if (!answers.setupSecurity) {
+function printMissingWorkspaceNotice(hasWorkspaces: boolean, log: Logger): void {
+  if (hasWorkspaces) {
     return;
   }
 
-  answers.securityProvider = (await prompt.list(
-    PROMPTS.securityProvider,
-    SECURITY_PROVIDER_CHOICES,
-  )) as SecurityProvider;
-
-  await promptForSecurityTokenEnvironment(
-    prompt,
-    answers.securityProvider,
-    log,
-  );
-
-  answers.securityInteractive = await prompt.confirm(
-    PROMPTS.securityInteractive,
-    true,
-  );
-
-  if (!answers.securityInteractive) {
-    answers.securityAutoFix = await prompt.confirm(
-      PROMPTS.securityAutoFix,
-      false,
-    );
-  }
-
-  answers.severityThreshold = (await prompt.list(
-    PROMPTS.severityThreshold,
-    SEVERITY_THRESHOLD_CHOICES,
-  )) as SeverityThreshold;
-
-  if (answers.setupWorkspaces) {
-    answers.hasWorkspaceSecurityChecks = await prompt.confirm(
-      PROMPTS.hasWorkspaceSecurityChecks,
-      true,
-    );
-  }
+  log.print(formatInfo(INIT_MESSAGES.noWorkspacesDetected));
 }
 
 async function saveToPackageJson(
   config: PastoralistConfig,
   path: string,
   packageJson: PastoralistJSON | null | undefined,
-  log: ReturnType<typeof createLogger>,
+  log: Logger,
   isTesting: boolean = false,
 ): Promise<void> {
   if (!packageJson) {
@@ -255,62 +281,70 @@ async function saveToPackageJson(
 
 async function saveToExternalFile(
   config: PastoralistConfig,
-  configFormat: NonNullable<InitAnswers["configFormat"]>,
+  configFormat: InitConfigFormat,
   root: string,
   prompt: Prompt,
-  log: ReturnType<typeof createLogger>,
+  log: Logger,
   isTesting: boolean = false,
 ): Promise<void> {
   const configPath = resolve(root, configFormat);
-  const fileExists = existsSync(configPath);
+  const shouldSave = await confirmExternalOverwrite(configFormat, configPath, prompt, log);
 
-  if (fileExists) {
-    const shouldOverwrite = await prompt.confirm(
-      INIT_MESSAGES.existingFileWarning(configFormat),
-      false,
-    );
-
-    if (!shouldOverwrite) {
-      log.print(`\n${INIT_MESSAGES.configNotSaved}`);
-      return;
-    }
+  if (!shouldSave) {
+    return;
   }
 
-  const content = generateConfigContent(config, configFormat);
-
-  if (!isTesting) {
-    writeFileSync(configPath, content);
-  }
-
+  writeExternalConfig(config, configFormat, configPath, isTesting);
   log.print(INIT_MESSAGES.configSaved(configPath));
 }
 
-function displayNextSteps(
-  setupSecurity: boolean,
-  log: ReturnType<typeof createLogger>,
-): void {
-  const nextSteps = [
-    `Run ${green("pastoralist")} to check and update your dependencies`,
-  ];
-
-  if (setupSecurity) {
-    nextSteps.push(
-      `Run ${green("pastoralist --checkSecurity")} to scan for security vulnerabilities`,
-    );
+async function confirmExternalOverwrite(
+  configFormat: InitConfigFormat,
+  configPath: string,
+  prompt: Prompt,
+  log: Logger,
+): Promise<boolean> {
+  if (!existsSync(configPath)) {
+    return true;
   }
 
-  nextSteps.push("Check the documentation for advanced configuration options");
+  const shouldOverwrite = await prompt.confirm(
+    INIT_MESSAGES.existingFileWarning(configFormat),
+    false,
+  );
 
+  if (!shouldOverwrite) {
+    log.print(`\n${INIT_MESSAGES.configNotSaved}`);
+  }
+
+  return shouldOverwrite;
+}
+
+function writeExternalConfig(
+  config: PastoralistConfig,
+  configFormat: InitConfigFormat,
+  configPath: string,
+  isTesting: boolean,
+): void {
+  if (isTesting) {
+    return;
+  }
+
+  writeFileSync(configPath, generateConfigContent(config, configFormat));
+}
+
+function displayNextSteps(setupSecurity: boolean, log: Logger): void {
+  const baseStep = `Run ${green("pastoralist")} to check and update your dependencies`;
+  const docsStep = "Check the documentation for advanced configuration options";
+  const securityStep = `Run ${green("pastoralist --checkSecurity")} to scan for security vulnerabilities`;
+  const nextSteps = setupSecurity ? [baseStep, securityStep, docsStep] : [baseStep, docsStep];
   const baseText = "Pastoralist initialization complete!";
   const shimmerTitle = shimmerFrame(baseText, 0) + ` ${FARMER}`;
+
   log.print(formatCompletion(baseText, nextSteps, shimmerTitle));
 }
 
-async function checkExistingConfig(
-  prompt: Prompt,
-  root: string,
-  path: string,
-): Promise<boolean> {
+async function checkExistingConfig(prompt: Prompt, root: string, path: string): Promise<boolean> {
   const existingConfig = await loadExternalConfig(root, false);
   const packageJson = resolveJSON(path);
   const hasExistingConfig = existingConfig || packageJson?.pastoralist;
@@ -319,162 +353,171 @@ async function checkExistingConfig(
     return true;
   }
 
-  const shouldOverwrite = await prompt.confirm(
-    INIT_MESSAGES.existingConfigWarning,
-    false,
-  );
-
-  return shouldOverwrite;
+  return prompt.confirm(INIT_MESSAGES.existingConfigWarning, false);
 }
-
-const resolvePathFromRoot = (path: string, root: string): string =>
-  !isAbsolute(path) ? resolve(root, path) : path;
 
 export async function initCommand(options: InitOptions = {}): Promise<void> {
   const log = createLogger({ file: "init/index.ts", isLogging: true });
+  const context = createInitContext(options);
 
-  const hasSecurityContext = !!(
-    options.checkSecurity || options.securityProvider
-  );
-  const hasWorkspaceContext = !!options.hasWorkspaceSecurityChecks;
-  const hasFocusedContext = hasSecurityContext || hasWorkspaceContext;
-
-  if (hasSecurityContext) {
-    log.print(`\n${BRAND} security configuration wizard\n`);
-  } else if (hasWorkspaceContext) {
-    log.print(`\n${BRAND} workspace configuration wizard\n`);
-  } else {
-    log.print(`\n${BRAND} initialization wizard\n`);
-    log.print(`${INIT_MESSAGES.welcome}\n`);
-    log.print(`${INIT_MESSAGES.skipInfo}\n`);
-  }
-
-  const root = options.root || process.cwd();
-  const path = resolvePathFromRoot(options.path || "package.json", root);
+  displayInitHeader(context, log);
 
   await createPrompt(async (prompt: Prompt) => {
-    const shouldProceed = await checkExistingConfig(prompt, root, path);
-
-    if (!shouldProceed) {
-      log.print(`\n${INIT_MESSAGES.initCancelled}`);
-      return;
-    }
-
-    const packageJson = resolveJSON(path);
-
-    const answers: InitAnswers = {
-      configLocation: "package.json",
-      setupWorkspaces: false,
-      setupSecurity: false,
-    };
-
-    if (hasSecurityContext) {
-      answers.setupSecurity = true;
-      if (options.securityProvider) {
-        answers.securityProvider = options.securityProvider;
-      }
-    }
-
-    if (hasWorkspaceContext) {
-      answers.setupWorkspaces = true;
-      answers.hasWorkspaceSecurityChecks = true;
-    }
-
-    if (!hasFocusedContext) {
-      await collectConfigLocationAnswers(prompt, answers, log);
-      await collectWorkspaceAnswers(prompt, answers, packageJson, log);
-      await collectSecurityAnswers(prompt, answers, log);
-    } else {
-      await collectConfigLocationAnswers(prompt, answers, log);
-
-      if (hasWorkspaceContext) {
-        await collectWorkspaceAnswers(prompt, answers, packageJson, log);
-      }
-
-      if (hasSecurityContext) {
-        await collectSecurityAnswersWithContext(prompt, answers, log);
-      }
-    }
-
-    const config = buildConfig(answers);
-
-    log.print(`\n${INIT_MESSAGES.savingConfig}\n`);
-
-    const shouldSaveToPackageJson = answers.configLocation === "package.json";
-    const shouldSaveToExternalFile =
-      answers.configLocation === "external" && answers.configFormat;
-
-    if (shouldSaveToPackageJson) {
-      await saveToPackageJson(
-        config,
-        path,
-        packageJson,
-        log,
-        options.isTesting,
-      );
-    }
-
-    if (shouldSaveToExternalFile) {
-      await saveToExternalFile(
-        config,
-        answers.configFormat!,
-        root,
-        prompt,
-        log,
-        options.isTesting,
-      );
-    }
-
-    displayNextSteps(answers.setupSecurity, log);
+    await runInitWizard(prompt, options, context, log);
   });
 }
 
-async function collectSecurityAnswersWithContext(
+async function runInitWizard(
+  prompt: Prompt,
+  options: InitOptions,
+  context: InitWizardContext,
+  log: Logger,
+): Promise<void> {
+  const shouldProceed = await checkExistingConfig(prompt, context.root, context.path);
+
+  if (!shouldProceed) {
+    log.print(`\n${INIT_MESSAGES.initCancelled}`);
+    return;
+  }
+
+  const packageJson = resolveJSON(context.path);
+  const answers = createInitialAnswers(options, context);
+
+  await collectInitAnswers(prompt, answers, packageJson, context, log);
+  await saveInitConfig(prompt, options, context, answers, packageJson, log);
+  displayNextSteps(answers.setupSecurity, log);
+}
+
+async function collectInitAnswers(
   prompt: Prompt,
   answers: InitAnswers,
-  log: ReturnType<typeof createLogger>,
+  packageJson: PastoralistJSON | null | undefined,
+  context: InitWizardContext,
+  log: Logger,
 ): Promise<void> {
-  log.print(`\n${STEP_TITLES.security}`);
+  await collectConfigLocationAnswers(prompt, answers, log);
 
-  const needsProviderSelection = !answers.securityProvider;
-
-  if (needsProviderSelection) {
-    answers.securityProvider = (await prompt.list(
-      PROMPTS.securityProvider,
-      SECURITY_PROVIDER_CHOICES,
-    )) as SecurityProvider;
+  if (!context.hasFocusedContext) {
+    await collectWorkspaceAnswers(prompt, answers, packageJson, log);
+    await collectSecurityAnswers(prompt, answers, log);
+    return;
   }
 
-  await promptForSecurityTokenEnvironment(
-    prompt,
-    answers.securityProvider!,
-    log,
-  );
+  await collectFocusedAnswers(prompt, answers, packageJson, context, log);
+}
 
-  answers.securityInteractive = await prompt.confirm(
-    PROMPTS.securityInteractive,
-    true,
-  );
-
-  if (!answers.securityInteractive) {
-    answers.securityAutoFix = await prompt.confirm(
-      PROMPTS.securityAutoFix,
-      false,
-    );
+async function collectFocusedAnswers(
+  prompt: Prompt,
+  answers: InitAnswers,
+  packageJson: PastoralistJSON | null | undefined,
+  context: InitWizardContext,
+  log: Logger,
+): Promise<void> {
+  if (context.hasWorkspaceContext) {
+    await collectWorkspaceAnswers(prompt, answers, packageJson, log);
   }
 
-  answers.severityThreshold = (await prompt.list(
-    PROMPTS.severityThreshold,
-    SEVERITY_THRESHOLD_CHOICES,
-  )) as SeverityThreshold;
-
-  const hasNonSecurityWorkspaces =
-    answers.setupWorkspaces && !answers.hasWorkspaceSecurityChecks;
-
-  if (hasNonSecurityWorkspaces) {
-    answers.hasWorkspaceSecurityChecks = await prompt.confirm(
-      PROMPTS.hasWorkspaceSecurityChecks,
-      true,
-    );
+  if (context.hasSecurityContext) {
+    await collectSecurityAnswersWithContext(prompt, answers, log);
   }
+}
+
+async function saveInitConfig(
+  prompt: Prompt,
+  options: InitOptions,
+  context: InitWizardContext,
+  answers: InitAnswers,
+  packageJson: PastoralistJSON | null | undefined,
+  log: Logger,
+): Promise<void> {
+  const config = buildConfig(answers);
+  log.print(`\n${INIT_MESSAGES.savingConfig}\n`);
+
+  if (answers.configLocation === "package.json") {
+    await saveToPackageJson(config, context.path, packageJson, log, options.isTesting);
+  }
+
+  const isExternalConfig = answers.configLocation === "external";
+  if (isExternalConfig) {
+    const configFormat = answers.configFormat;
+    if (!configFormat) return;
+
+    await saveToExternalFile(config, configFormat, context.root, prompt, log, options.isTesting);
+  }
+}
+
+function createInitContext(options: InitOptions): InitWizardContext {
+  const hasSecurityContext = !!(options.checkSecurity || options.securityProvider);
+  const hasWorkspaceContext = !!options.hasWorkspaceSecurityChecks;
+  const root = options.root || process.cwd();
+  const path = resolvePathFromRoot(options.path || "package.json", root);
+
+  return {
+    hasSecurityContext,
+    hasWorkspaceContext,
+    hasFocusedContext: hasSecurityContext || hasWorkspaceContext,
+    root,
+    path,
+  };
+}
+
+function createInitialAnswers(options: InitOptions, context: InitWizardContext): InitAnswers {
+  const answers: InitAnswers = {
+    configLocation: "package.json",
+    setupSecurity: false,
+    setupWorkspaces: false,
+  };
+
+  applySecurityDefaults(answers, options, context);
+  applyWorkspaceDefaults(answers, context);
+  return answers;
+}
+
+function applySecurityDefaults(
+  answers: InitAnswers,
+  options: InitOptions,
+  context: InitWizardContext,
+): void {
+  if (!context.hasSecurityContext) {
+    return;
+  }
+
+  answers.setupSecurity = true;
+
+  if (options.securityProvider) {
+    answers.securityProvider = options.securityProvider;
+  }
+}
+
+function applyWorkspaceDefaults(answers: InitAnswers, context: InitWizardContext): void {
+  if (!context.hasWorkspaceContext) {
+    return;
+  }
+
+  answers.setupWorkspaces = true;
+  answers.hasWorkspaceSecurityChecks = true;
+}
+
+function displayInitHeader(context: InitWizardContext, log: Logger): void {
+  const title = getWizardTitle(context);
+  log.print(`\n${BRAND} ${title}\n`);
+
+  if (context.hasFocusedContext) {
+    return;
+  }
+
+  log.print(`${INIT_MESSAGES.welcome}\n`);
+  log.print(`${INIT_MESSAGES.skipInfo}\n`);
+}
+
+function getWizardTitle(context: InitWizardContext): string {
+  if (context.hasSecurityContext) {
+    return WIZARD_TITLES.security;
+  }
+
+  if (context.hasWorkspaceContext) {
+    return WIZARD_TITLES.workspace;
+  }
+
+  return WIZARD_TITLES.default;
 }

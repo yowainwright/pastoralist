@@ -1,7 +1,5 @@
-import type {
-  SecurityAlert,
-  SecurityProviderType,
-} from "./core/security/types";
+import type { SecurityAlert, SecurityProviderType } from "./core/security/types";
+import type { Logger } from "./utils/types";
 
 export type OverrideValue = string | Record<string, string>;
 
@@ -123,7 +121,6 @@ export interface UpdateAppendixOptions {
   addedDate?: string;
 }
 
-/** Security-related options */
 export interface SecurityOptions {
   checkSecurity?: boolean;
   forceSecurityRefactor?: boolean;
@@ -136,7 +133,6 @@ export interface SecurityOptions {
   strict?: boolean;
 }
 
-/** Output format and verbosity options */
 export interface OutputOptions {
   outputFormat?: "text" | "json";
   debug?: boolean;
@@ -145,13 +141,11 @@ export interface OutputOptions {
   dryRun?: boolean;
 }
 
-/** Testing-specific options */
 export interface TestingOptions {
   isTesting?: boolean;
   isTestingCLI?: boolean;
 }
 
-/** Path-related options */
 export interface PathOptions {
   path?: string;
   out?: string;
@@ -160,8 +154,7 @@ export interface PathOptions {
   ignore?: string[];
 }
 
-export interface Options
-  extends SecurityOptions, OutputOptions, TestingOptions, PathOptions {
+export interface Options extends SecurityOptions, OutputOptions, TestingOptions, PathOptions {
   appendix?: Appendix;
   clearCache?: boolean;
   help?: boolean;
@@ -228,6 +221,27 @@ export interface OverridesWithType extends OverridesConfig {
   type: string;
 }
 export type ResolveOverrides = OverridesWithType | undefined;
+
+export type OverrideRemovalUpdater = (
+  data: ResolveOverrides,
+  removable: string[],
+) => OverridesType | undefined;
+
+export interface CleanupUnusedOverridesResult {
+  finalOverrides: OverridesType;
+  finalAppendix: Appendix;
+}
+
+export interface CleanupUnusedOverridesContext {
+  overrides: OverridesType;
+  overridesData: ResolveOverrides;
+  appendix: Appendix;
+  allDeps: Record<string, string>;
+  missingInRoot: string[];
+  overridePaths: Record<string, Appendix> | undefined;
+  logInstance: Logger;
+  updateOverrides: OverrideRemovalUpdater;
+}
 
 export interface PastoralistResultMetrics {
   packagesScanned: number;

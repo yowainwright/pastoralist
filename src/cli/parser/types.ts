@@ -19,3 +19,12 @@ export interface CollectedValue {
   value: unknown;
   consumed: number;
 }
+
+export interface ParserState {
+  options: Record<string, unknown>;
+  command?: string;
+}
+
+export interface ProcessedArgument extends ParserState {
+  nextIndex: number;
+}

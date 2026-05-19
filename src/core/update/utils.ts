@@ -1,10 +1,6 @@
 import { findPackageJsonFiles, updatePackageJSON } from "../packageJSON";
-
-export const WORKSPACE_MODES = {
-  SINGLE: "workspace",
-  MULTIPLE: "workspaces",
-} as const;
 import { toCompactAppendix } from "../appendix/utils";
+import { WORKSPACE_MODES } from "./constants";
 import type {
   PastoralistJSON,
   PastoralistConfig,
@@ -17,6 +13,8 @@ import type {
 import type { WriteResultContext, ProcessingMode } from "../../types";
 import type { Logger } from "../../utils";
 
+export { WORKSPACE_MODES } from "./constants";
+
 export const findPackageFiles = (
   patterns: string[],
   root: string,
@@ -26,10 +24,7 @@ export const findPackageFiles = (
   return findPackageJsonFiles(patterns, ignore, root, log);
 };
 
-const resolveAppendix = (
-  finalAppendix: Appendix,
-  useCompact: boolean,
-): Appendix => {
+const resolveAppendix = (finalAppendix: Appendix, useCompact: boolean): Appendix => {
   if (!useCompact) return finalAppendix;
   return toCompactAppendix(finalAppendix) as Appendix;
 };
@@ -71,25 +66,24 @@ export const determineProcessingMode = (
   };
 };
 
-export const resolveDepPaths = (
-  options: Options,
-  config: PastoralistJSON,
-): string[] | null => {
+export const resolveDepPaths = (options: Options, config: PastoralistJSON): string[] | null => {
   if (options?.depPaths) return options.depPaths;
 
   const configDepPaths = config.pastoralist?.depPaths;
 
-  if (
-    configDepPaths === WORKSPACE_MODES.SINGLE ||
-    configDepPaths === WORKSPACE_MODES.MULTIPLE
-  ) {
+  const usesWorkspaceMode =
+    configDepPaths === WORKSPACE_MODES.SINGLE || configDepPaths === WORKSPACE_MODES.MULTIPLE;
+  if (usesWorkspaceMode) {
     return config.workspaces?.map((ws: string) => `${ws}/package.json`) || null;
   }
 
   if (Array.isArray(configDepPaths)) return configDepPaths;
 
-  if (config.workspaces && !configDepPaths) {
-    return config.workspaces.map((ws: string) => `${ws}/package.json`);
+  if (!configDepPaths) {
+    const packageWorkspaces = config.workspaces;
+    if (packageWorkspaces) {
+      return packageWorkspaces.map((ws: string) => `${ws}/package.json`);
+    }
   }
 
   return null;
@@ -103,9 +97,7 @@ export const findRemovableOverrides = (
 ): string[] => {
   const appendixPackagesWithDependents = new Set(
     Object.entries(appendix)
-      .filter(
-        ([, item]) => item.dependents && Object.keys(item.dependents).length,
-      )
+      .filter(([, item]) => item.dependents && Object.keys(item.dependents).length)
       .map(([key]) => key.replace(/@[^@]+$/, "")),
   );
   const missingSet = new Set(missingInRoot);
@@ -114,7 +106,8 @@ export const findRemovableOverrides = (
     const isInAppendix = appendixPackagesWithDependents.has(pkg);
     const isInDeps = pkg in allDeps;
     const isMissingInRoot = missingSet.has(pkg);
-    return !isInAppendix && !isInDeps && !isMissingInRoot;
+    const isKnownPackage = isInAppendix || isInDeps || isMissingInRoot;
+    return !isKnownPackage;
   });
 };
 
@@ -139,17 +132,18 @@ export const hasConfigOverrides = (
   options: Options | undefined,
   config: PastoralistJSON,
 ): boolean => {
-  if (!options && !config) return false;
+  const hasNoSources = !options && !config;
+  if (hasNoSources) return false;
 
   const optionsOverrides = options?.securityOverrides;
   const configOverrides = config?.overrides;
   const configResolutions = config?.resolutions;
   const configPnpmOverrides = config?.pnpm?.overrides;
 
-  return Boolean(
-    (optionsOverrides && Object.keys(optionsOverrides).length > 0) ||
-    (configOverrides && Object.keys(configOverrides).length > 0) ||
-    (configResolutions && Object.keys(configResolutions).length > 0) ||
-    (configPnpmOverrides && Object.keys(configPnpmOverrides).length > 0),
-  );
+  return [optionsOverrides, configOverrides, configResolutions, configPnpmOverrides].some(hasKeys);
+};
+
+const hasKeys = (value: Record<string, unknown> | undefined): boolean => {
+  if (!value) return false;
+  return Object.keys(value).length > 0;
 };

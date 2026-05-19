@@ -22,15 +22,8 @@ beforeEach(() => {
     resume: mock(),
   } as readline.Interface);
 
-  mockEnhancedQuestion = spyOn(
-    inputModule,
-    "enhancedQuestion",
-  ).mockImplementation(
-    async (
-      rl: any,
-      prompt: string,
-      processor: any = (answer: string) => answer.trim(),
-    ) => {
+  mockEnhancedQuestion = spyOn(inputModule, "enhancedQuestion").mockImplementation(
+    async (rl: any, prompt: string, processor: any = (answer: string) => answer.trim()) => {
       return new Promise((resolve) => {
         if (rl.question) {
           rl.question(prompt, (answer: string) => {
@@ -59,10 +52,7 @@ interface MockRl {
 }
 
 class TestablePrompt extends Prompt {
-  private mockQuestion?: (
-    msg: string,
-    callback: (answer: string) => void,
-  ) => void;
+  private mockQuestion?: (msg: string, callback: (answer: string) => void) => void;
 
   constructor() {
     super();
@@ -81,9 +71,7 @@ class TestablePrompt extends Prompt {
     this.rl = mockRl as unknown as readline.Interface;
   }
 
-  public setQuestion(
-    fn: (msg: string, callback: (answer: string) => void) => void,
-  ) {
+  public setQuestion(fn: (msg: string, callback: (answer: string) => void) => void) {
     this.mockQuestion = fn;
   }
 }
@@ -105,11 +93,9 @@ test("Prompt - close method closes readline interface", () => {
 
 test("Prompt - input returns user input", async () => {
   const prompt = new TestablePrompt();
-  const questionSpy = mock(
-    (msg: string, callback: (answer: string) => void) => {
-      setTimeout(() => callback("test answer"), 0);
-    },
-  );
+  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
+    setTimeout(() => callback("test answer"), 0);
+  });
   prompt.setQuestion(questionSpy);
 
   const result = await prompt.input("Test message");
@@ -121,11 +107,9 @@ test("Prompt - input returns user input", async () => {
 
 test("Prompt - input returns default value when answer is empty", async () => {
   const prompt = new TestablePrompt();
-  const questionSpy = mock(
-    (msg: string, callback: (answer: string) => void) => {
-      setTimeout(() => callback(""), 0);
-    },
-  );
+  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
+    setTimeout(() => callback(""), 0);
+  });
   prompt.setQuestion(questionSpy);
 
   const result = await prompt.input("Test message", "default");
@@ -136,11 +120,9 @@ test("Prompt - input returns default value when answer is empty", async () => {
 
 test("Prompt - input trims whitespace from answer", async () => {
   const prompt = new TestablePrompt();
-  const questionSpy = mock(
-    (msg: string, callback: (answer: string) => void) => {
-      callback("  test  ");
-    },
-  );
+  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
+    callback("  test  ");
+  });
   prompt.setQuestion(questionSpy);
 
   const result = await prompt.input("Test message");
@@ -151,11 +133,9 @@ test("Prompt - input trims whitespace from answer", async () => {
 
 test("Prompt - confirm returns true for 'y'", async () => {
   const prompt = new TestablePrompt();
-  const questionSpy = mock(
-    (msg: string, callback: (answer: string) => void) => {
-      callback("y");
-    },
-  );
+  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
+    callback("y");
+  });
   prompt.setQuestion(questionSpy);
 
   const result = await prompt.confirm("Confirm?");
@@ -166,11 +146,9 @@ test("Prompt - confirm returns true for 'y'", async () => {
 
 test("Prompt - confirm returns true for 'yes'", async () => {
   const prompt = new TestablePrompt();
-  const questionSpy = mock(
-    (msg: string, callback: (answer: string) => void) => {
-      callback("yes");
-    },
-  );
+  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
+    callback("yes");
+  });
   prompt.setQuestion(questionSpy);
 
   const result = await prompt.confirm("Confirm?");
@@ -181,11 +159,9 @@ test("Prompt - confirm returns true for 'yes'", async () => {
 
 test("Prompt - confirm returns false for 'n'", async () => {
   const prompt = new TestablePrompt();
-  const questionSpy = mock(
-    (msg: string, callback: (answer: string) => void) => {
-      callback("n");
-    },
-  );
+  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
+    callback("n");
+  });
   prompt.setQuestion(questionSpy);
 
   const result = await prompt.confirm("Confirm?");
@@ -196,11 +172,9 @@ test("Prompt - confirm returns false for 'n'", async () => {
 
 test("Prompt - confirm returns false for 'no'", async () => {
   const prompt = new TestablePrompt();
-  const questionSpy = mock(
-    (msg: string, callback: (answer: string) => void) => {
-      callback("no");
-    },
-  );
+  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
+    callback("no");
+  });
   prompt.setQuestion(questionSpy);
 
   const result = await prompt.confirm("Confirm?");
@@ -211,11 +185,9 @@ test("Prompt - confirm returns false for 'no'", async () => {
 
 test("Prompt - confirm returns default value for empty answer", async () => {
   const prompt = new TestablePrompt();
-  const questionSpy = mock(
-    (msg: string, callback: (answer: string) => void) => {
-      callback("");
-    },
-  );
+  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
+    callback("");
+  });
   prompt.setQuestion(questionSpy);
 
   const resultTrue = await prompt.confirm("Confirm?", true);
@@ -229,11 +201,9 @@ test("Prompt - confirm returns default value for empty answer", async () => {
 
 test("Prompt - confirm is case insensitive", async () => {
   const prompt = new TestablePrompt();
-  const questionSpy = mock(
-    (msg: string, callback: (answer: string) => void) => {
-      callback("YES");
-    },
-  );
+  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
+    callback("YES");
+  });
   prompt.setQuestion(questionSpy);
 
   const result = await prompt.confirm("Confirm?");
@@ -250,11 +220,9 @@ test("Prompt - list returns selected choice value", async () => {
     { name: "Option 3", value: "opt3" },
   ];
 
-  const questionSpy = mock(
-    (msg: string, callback: (answer: string) => void) => {
-      callback("2");
-    },
-  );
+  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
+    callback("2");
+  });
   prompt.setQuestion(questionSpy);
 
   const result = await prompt.list("Choose:", choices);
@@ -270,11 +238,9 @@ test("Prompt - list handles invalid choice by returning first option", async () 
     { name: "Option 2", value: "opt2" },
   ];
 
-  const questionSpy = mock(
-    (msg: string, callback: (answer: string) => void) => {
-      callback("99");
-    },
-  );
+  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
+    callback("99");
+  });
   prompt.setQuestion(questionSpy);
 
   const result = await prompt.list("Choose:", choices);
@@ -287,11 +253,9 @@ test("Prompt - list handles non-numeric input by returning first option", async 
   const prompt = new TestablePrompt();
   const choices: PromptChoice[] = [{ name: "Option 1", value: "opt1" }];
 
-  const questionSpy = mock(
-    (msg: string, callback: (answer: string) => void) => {
-      callback("abc");
-    },
-  );
+  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
+    callback("abc");
+  });
   prompt.setQuestion(questionSpy);
 
   const result = await prompt.list("Choose:", choices);
@@ -302,11 +266,9 @@ test("Prompt - list handles non-numeric input by returning first option", async 
 
 test("Prompt - prompt method delegates to input for 'input' type", async () => {
   const prompt = new TestablePrompt();
-  const questionSpy = mock(
-    (msg: string, callback: (answer: string) => void) => {
-      callback("test input");
-    },
-  );
+  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
+    callback("test input");
+  });
   prompt.setQuestion(questionSpy);
 
   const result = await prompt.prompt({
@@ -321,11 +283,9 @@ test("Prompt - prompt method delegates to input for 'input' type", async () => {
 
 test("Prompt - prompt method delegates to confirm for 'confirm' type", async () => {
   const prompt = new TestablePrompt();
-  const questionSpy = mock(
-    (msg: string, callback: (answer: string) => void) => {
-      callback("y");
-    },
-  );
+  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
+    callback("y");
+  });
   prompt.setQuestion(questionSpy);
 
   const result = await prompt.prompt({
@@ -342,11 +302,9 @@ test("Prompt - prompt method delegates to list for 'list' type", async () => {
   const prompt = new TestablePrompt();
   const choices: PromptChoice[] = [{ name: "Choice A", value: "a" }];
 
-  const questionSpy = mock(
-    (msg: string, callback: (answer: string) => void) => {
-      callback("1");
-    },
-  );
+  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
+    callback("1");
+  });
   prompt.setQuestion(questionSpy);
 
   const result = await prompt.prompt({
@@ -361,11 +319,9 @@ test("Prompt - prompt method delegates to list for 'list' type", async () => {
 
 test("Prompt - prompt method defaults to input when type is not specified", async () => {
   const prompt = new TestablePrompt();
-  const questionSpy = mock(
-    (msg: string, callback: (answer: string) => void) => {
-      callback("default type test");
-    },
-  );
+  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
+    callback("default type test");
+  });
   prompt.setQuestion(questionSpy);
 
   const result = await prompt.prompt({
@@ -381,11 +337,9 @@ test("Prompt - promptMany processes multiple questions sequentially", async () =
   let callIndex = 0;
   const answers = ["answer1", "y", "2"];
 
-  const questionSpy = mock(
-    (msg: string, callback: (answer: string) => void) => {
-      callback(answers[callIndex++]);
-    },
-  );
+  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
+    callback(answers[callIndex++]);
+  });
   prompt.setQuestion(questionSpy);
 
   const questions = [
@@ -442,10 +396,7 @@ test("createPrompt closes prompt even if callback throws", async () => {
 
 test("quickConfirm wrapper function works", async () => {
   const result = await createPrompt(async (prompt) => {
-    prompt["rl"].question = (
-      msg: string,
-      callback: (answer: string) => void,
-    ) => {
+    prompt["rl"].question = (msg: string, callback: (answer: string) => void) => {
       callback("y");
     };
     return prompt.confirm("Test?");
@@ -456,10 +407,7 @@ test("quickConfirm wrapper function works", async () => {
 
 test("quickInput wrapper function works", async () => {
   const result = await createPrompt(async (prompt) => {
-    prompt["rl"].question = (
-      msg: string,
-      callback: (answer: string) => void,
-    ) => {
+    prompt["rl"].question = (msg: string, callback: (answer: string) => void) => {
       callback("test value");
     };
     return prompt.input("Enter:");
@@ -478,10 +426,7 @@ test("quickList wrapper function works", async () => {
   console.log = () => {};
 
   const result = await createPrompt(async (prompt) => {
-    prompt["rl"].question = (
-      msg: string,
-      callback: (answer: string) => void,
-    ) => {
+    prompt["rl"].question = (msg: string, callback: (answer: string) => void) => {
       callback("2");
     };
     return prompt.list("Select:", choices);
@@ -500,9 +445,7 @@ test("quickConfirm - directly tests the quickConfirm wrapper with default true",
     close: mock(),
   };
 
-  const createInterfaceSpy = spyOn(readline, "createInterface").mockReturnValue(
-    mockReadline,
-  );
+  const createInterfaceSpy = spyOn(readline, "createInterface").mockReturnValue(mockReadline);
 
   const result = await quickConfirm("Are you sure?");
 
@@ -519,9 +462,7 @@ test("quickConfirm - directly tests the quickConfirm wrapper with default false"
     close: mock(),
   };
 
-  const createInterfaceSpy = spyOn(readline, "createInterface").mockReturnValue(
-    mockReadline,
-  );
+  const createInterfaceSpy = spyOn(readline, "createInterface").mockReturnValue(mockReadline);
 
   const result = await quickConfirm("Are you sure?", false);
 
@@ -538,9 +479,7 @@ test("quickInput - directly tests the quickInput wrapper", async () => {
     close: mock(),
   };
 
-  const createInterfaceSpy = spyOn(readline, "createInterface").mockReturnValue(
-    mockReadline,
-  );
+  const createInterfaceSpy = spyOn(readline, "createInterface").mockReturnValue(mockReadline);
 
   const result = await quickInput("Enter name:");
 
@@ -557,9 +496,7 @@ test("quickInput - uses default value when provided", async () => {
     close: mock(),
   };
 
-  const createInterfaceSpy = spyOn(readline, "createInterface").mockReturnValue(
-    mockReadline,
-  );
+  const createInterfaceSpy = spyOn(readline, "createInterface").mockReturnValue(mockReadline);
 
   const result = await quickInput("Enter name:", "default-name");
 
@@ -584,9 +521,7 @@ test("quickList - directly tests the quickList wrapper", async () => {
   const mockLog = console.log;
   console.log = () => {};
 
-  const createInterfaceSpy = spyOn(readline, "createInterface").mockReturnValue(
-    mockReadline,
-  );
+  const createInterfaceSpy = spyOn(readline, "createInterface").mockReturnValue(mockReadline);
 
   const result = await quickList("Choose option:", choices);
 
@@ -605,11 +540,9 @@ test("Prompt - input calls setRawMode(false) when stdin is TTY", async () => {
   process.stdin.setRawMode = setRawModeMock;
 
   const prompt = new TestablePrompt();
-  const questionSpy = mock(
-    (msg: string, callback: (answer: string) => void) => {
-      callback("test");
-    },
-  );
+  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
+    callback("test");
+  });
   prompt.setQuestion(questionSpy);
 
   await prompt.input("Test:");
@@ -630,11 +563,9 @@ test("Prompt - confirm calls setRawMode(false) when stdin is TTY", async () => {
   process.stdin.setRawMode = setRawModeMock;
 
   const prompt = new TestablePrompt();
-  const questionSpy = mock(
-    (msg: string, callback: (answer: string) => void) => {
-      callback("y");
-    },
-  );
+  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
+    callback("y");
+  });
   prompt.setQuestion(questionSpy);
 
   await prompt.confirm("Confirm?");
@@ -655,11 +586,9 @@ test("Prompt - list calls setRawMode(false) when stdin is TTY", async () => {
   process.stdin.setRawMode = setRawModeMock;
 
   const prompt = new TestablePrompt();
-  const questionSpy = mock(
-    (msg: string, callback: (answer: string) => void) => {
-      callback("1");
-    },
-  );
+  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
+    callback("1");
+  });
   prompt.setQuestion(questionSpy);
 
   const mockLog = console.log;

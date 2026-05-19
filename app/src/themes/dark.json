@@ -27,12 +27,7 @@
       "settings": { "foreground": "#60a5fa" }
     },
     {
-      "scope": [
-        "entity.name.type",
-        "entity.name.class",
-        "support.type",
-        "support.class"
-      ],
+      "scope": ["entity.name.type", "entity.name.class", "support.type", "support.class"],
       "settings": { "foreground": "#f472b6" }
     },
     {

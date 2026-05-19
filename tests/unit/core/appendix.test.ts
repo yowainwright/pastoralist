@@ -184,9 +184,7 @@ test("updateAppendix - should mark overridden dependencies correctly", () => {
     packageName: "test-package",
   });
 
-  expect(result["lodash@4.17.21"].dependents["test-package"]).toBe(
-    "lodash@^4.17.0",
-  );
+  expect(result["lodash@4.17.21"].dependents["test-package"]).toBe("lodash@^4.17.0");
 });
 
 test("updateAppendix - should handle packages not in dependencies", () => {
@@ -241,9 +239,7 @@ test("updateAppendix - should reproduce dependency tree bug: keep used, remove u
   expect(result["lodash@4.17.21"].dependents["test"]).toBe("lodash@^4.17.0");
 
   expect(result["axios@1.0.0"]).toBeDefined();
-  expect(result["axios@1.0.0"].dependents["test"]).toBe(
-    "axios (unused override)",
-  );
+  expect(result["axios@1.0.0"].dependents["test"]).toBe("axios (unused override)");
 });
 
 test("updateAppendix - should not incorrectly label unused overrides as transitive deps (old bug)", () => {
@@ -257,9 +253,7 @@ test("updateAppendix - should not incorrectly label unused overrides as transiti
   });
 
   expect(result["axios@1.0.0"]).toBeDefined();
-  expect(result["axios@1.0.0"].dependents["test"]).toBe(
-    "axios (unused override)",
-  );
+  expect(result["axios@1.0.0"].dependents["test"]).toBe("axios (unused override)");
 });
 
 test("updateAppendix - should handle deeply nested overrides", () => {
@@ -335,9 +329,7 @@ test("updateAppendix - should preserve existing ledger addedDate over provided a
     addedDate: gitDate,
   });
 
-  expect(result["lodash@4.17.21"].ledger?.addedDate).toBe(
-    "2022-01-01T00:00:00.000Z",
-  );
+  expect(result["lodash@4.17.21"].ledger?.addedDate).toBe("2022-01-01T00:00:00.000Z");
 });
 
 test("updateAppendix - should use addedDate for nested overrides", () => {
@@ -397,12 +389,7 @@ test("processAndWritePackageJSON - should return undefined for package without m
     }),
   );
 
-  const result = processAndWritePackageJSON(
-    testPkgPath,
-    { lodash: "4.17.21" },
-    ["lodash"],
-    false,
-  );
+  const result = processAndWritePackageJSON(testPkgPath, { lodash: "4.17.21" }, ["lodash"], false);
 
   expect(result).toBeUndefined();
 });
@@ -418,12 +405,7 @@ test("processAndWritePackageJSON - should process package with matching dependen
     }),
   );
 
-  const result = processAndWritePackageJSON(
-    testPkgPath,
-    { lodash: "4.17.21" },
-    ["lodash"],
-    false,
-  );
+  const result = processAndWritePackageJSON(testPkgPath, { lodash: "4.17.21" }, ["lodash"], false);
 
   expect(result).toBeDefined();
   expect(result?.name).toBe("test-pkg");
@@ -441,12 +423,7 @@ test("processAndWritePackageJSON - should handle devDependencies", () => {
     }),
   );
 
-  const result = processAndWritePackageJSON(
-    testPkgPath,
-    { lodash: "4.17.21" },
-    ["lodash"],
-    false,
-  );
+  const result = processAndWritePackageJSON(testPkgPath, { lodash: "4.17.21" }, ["lodash"], false);
 
   expect(result).toBeDefined();
   expect(result?.appendix["lodash@4.17.21"]).toBeDefined();
@@ -463,12 +440,7 @@ test("processAndWritePackageJSON - should handle peerDependencies", () => {
     }),
   );
 
-  const result = processAndWritePackageJSON(
-    testPkgPath,
-    { react: "18.2.0" },
-    ["react"],
-    false,
-  );
+  const result = processAndWritePackageJSON(testPkgPath, { react: "18.2.0" }, ["react"], false);
 
   expect(result).toBeDefined();
   expect(result?.appendix["react@18.2.0"]).toBeDefined();
@@ -485,12 +457,7 @@ test("processAndWritePackageJSON - should write appendix to file when writeAppen
     }),
   );
 
-  const result = processAndWritePackageJSON(
-    testPkgPath,
-    { lodash: "4.17.21" },
-    ["lodash"],
-    true,
-  );
+  const result = processAndWritePackageJSON(testPkgPath, { lodash: "4.17.21" }, ["lodash"], true);
 
   expect(result).toBeDefined();
 
@@ -670,11 +637,7 @@ test("constructAppendix - handles non-existent package files", () => {
   const log = logger({ file: "test", isLogging: false });
   const overridesData = { npm: { lodash: "4.17.21" } };
 
-  const result = constructAppendix(
-    ["/non/existent/package.json"],
-    overridesData,
-    log,
-  );
+  const result = constructAppendix(["/non/existent/package.json"], overridesData, log);
 
   expect(result).toEqual({});
 });

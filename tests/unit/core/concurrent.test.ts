@@ -4,12 +4,7 @@ import { resolve, join } from "path";
 
 const TEST_DIR = resolve(__dirname, ".test-concurrent");
 
-const mockAction = async ({
-  path,
-}: {
-  path: string;
-  checkSecurity?: boolean;
-}) => {
+const mockAction = async ({ path }: { path: string; checkSecurity?: boolean }) => {
   const content = JSON.parse(readFileSync(path, "utf-8"));
   const overrides = {
     ...(content.overrides || {}),
@@ -167,9 +162,7 @@ test("concurrent: handles rapid successive calls", async () => {
 
   const startTime = Date.now();
 
-  await Promise.all(
-    packages.map((path) => action({ path, checkSecurity: false })),
-  );
+  await Promise.all(packages.map((path) => action({ path, checkSecurity: false })));
 
   const endTime = Date.now();
   const duration = endTime - startTime;

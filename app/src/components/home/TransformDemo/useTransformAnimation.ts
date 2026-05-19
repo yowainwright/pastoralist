@@ -3,10 +3,7 @@ import { useInView } from "react-intersection-observer";
 import type { AnimationPhase } from "./types";
 import { APPENDIX_CONTENT, COMMAND } from "./constants";
 
-export function useTransformAnimation(
-  shouldAnimate: boolean,
-  onComplete?: () => void,
-) {
+export function useTransformAnimation(shouldAnimate: boolean, onComplete?: () => void) {
   const [phase, setPhase] = useState<AnimationPhase>("idle");
   const [typedCommand, setTypedCommand] = useState("");
   const [showSpinner, setShowSpinner] = useState(false);
@@ -99,17 +96,16 @@ export function useTransformAnimation(
   }, [resetState, startTypingCommand]);
 
   const resumeAnimation = useCallback(() => {
-    if (!isPaused || !pausedState.current) return;
+    const savedState = pausedState.current;
+    const cannotResume = !isPaused || !savedState;
+    if (cannotResume) return;
 
     setIsPaused(false);
-    const {
-      phase: savedPhase,
-      typedCommand: savedCommand,
-      appendixLines: savedLines,
-    } = pausedState.current;
+    const { phase: savedPhase, typedCommand: savedCommand, appendixLines: savedLines } = savedState;
     pausedState.current = null;
 
-    if (savedPhase === "step2" && savedCommand.length < COMMAND.length) {
+    const shouldResumeCommand = savedPhase === "step2" && savedCommand.length < COMMAND.length;
+    if (shouldResumeCommand) {
       let charIndex = savedCommand.length;
       animationRef.current = setInterval(() => {
         if (charIndex < COMMAND.length) {
@@ -132,7 +128,9 @@ export function useTransformAnimation(
           }, 100);
         }
       }, 20);
-    } else if (savedPhase === "step3" && savedLines < APPENDIX_CONTENT.length) {
+    } else {
+      const shouldResumeAppendix = savedPhase === "step3" && savedLines < APPENDIX_CONTENT.length;
+      if (!shouldResumeAppendix) return;
       animateAppendixFrom(savedLines);
     }
   }, [isPaused, clearAnimations, animateAppendixFrom]);
@@ -140,7 +138,8 @@ export function useTransformAnimation(
   const { ref: containerRef } = useInView({
     threshold: 0.3,
     onChange: (inView) => {
-      if (inView && shouldAnimate) {
+      const shouldRespondToView = inView && shouldAnimate;
+      if (shouldRespondToView) {
         if (!hasStarted.current) {
           hasStarted.current = true;
           startAnimation();
@@ -152,7 +151,8 @@ export function useTransformAnimation(
   });
 
   useEffect(() => {
-    if (!shouldAnimate && !hasStarted.current) {
+    const shouldCompleteImmediately = !shouldAnimate && !hasStarted.current;
+    if (shouldCompleteImmediately) {
       hasStarted.current = true;
       setPhase("complete");
       setTypedCommand(COMMAND);
@@ -185,15 +185,15 @@ export function useTransformAnimation(
     if (targetPhase) setPhase(targetPhase);
   };
 
-  const isStep1Active = isPaused
-    ? activeStep === 1
-    : activeStep >= 1 || showAllPopovers;
-  const isStep2Active = isPaused
-    ? activeStep === 2
-    : activeStep >= 2 || showAllPopovers;
-  const isStep3Active = isPaused
-    ? activeStep === 3
-    : activeStep >= 3 || showAllPopovers;
+  const isStepActive = (step: number): boolean => {
+    if (isPaused) return activeStep === step;
+    if (activeStep >= step) return true;
+    return showAllPopovers;
+  };
+
+  const isStep1Active = isStepActive(1);
+  const isStep2Active = isStepActive(2);
+  const isStep3Active = isStepActive(3);
 
   return {
     containerRef,

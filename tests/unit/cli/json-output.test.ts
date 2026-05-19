@@ -129,10 +129,7 @@ describe("JSON Output Result Builders", () => {
     test("computes overrideCount correctly", () => {
       const { buildUpdateResult } = require("../../../src/cli/index");
 
-      const updateContext = createMockUpdateContext(
-        { lodash: "4.17.21", axios: "1.0.0" },
-        {},
-      );
+      const updateContext = createMockUpdateContext({ lodash: "4.17.21", axios: "1.0.0" }, {});
       const config = createMockConfig();
 
       const result = buildUpdateResult(updateContext, config, false);

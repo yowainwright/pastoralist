@@ -12,11 +12,7 @@ import {
 } from "../setup";
 
 const log = createLogger({ file: "test.ts", isLogging: false });
-const actionExternalConfigDir = resolve(
-  __dirname,
-  "..",
-  ".test-action-external-config",
-);
+const actionExternalConfigDir = resolve(__dirname, "..", ".test-action-external-config");
 
 const createMockTerminalGraph = () => {
   const graph = {
@@ -78,9 +74,7 @@ test("handleSetupHook - returns false when setupHook is undefined", () => {
 test("handleSetupHook - returns true when postinstall already has pastoralist", () => {
   const { handleSetupHook } = require("../../../src/cli/index");
 
-  const mockReadFileSync = mock(() =>
-    JSON.stringify({ scripts: { postinstall: "pastoralist" } }),
-  );
+  const mockReadFileSync = mock(() => JSON.stringify({ scripts: { postinstall: "pastoralist" } }));
   const mockWriteFileSync = mock(() => {});
   const mockResolve = mock((p: string) => p);
 
@@ -122,9 +116,7 @@ test("handleSetupHook - appends pastoralist to existing postinstall", () => {
   const { handleSetupHook } = require("../../../src/cli/index");
 
   let writtenContent = "";
-  const mockReadFileSync = mock(() =>
-    JSON.stringify({ scripts: { postinstall: "echo done" } }),
-  );
+  const mockReadFileSync = mock(() => JSON.stringify({ scripts: { postinstall: "echo done" } }));
   const mockWriteFileSync = mock((_path: string, content: string) => {
     writtenContent = content;
   });
@@ -161,13 +153,8 @@ test("handleSetupHook - resolves relative path under root", () => {
   });
 
   expect(result).toBe(true);
-  expect(mockReadFileSync).toHaveBeenCalledWith(
-    "/repo/packages/app/package.json",
-    "utf8",
-  );
-  expect(mockWriteFileSync.mock.calls[0][0]).toBe(
-    "/repo/packages/app/package.json",
-  );
+  expect(mockReadFileSync).toHaveBeenCalledWith("/repo/packages/app/package.json", "utf8");
+  expect(mockWriteFileSync.mock.calls[0][0]).toBe("/repo/packages/app/package.json");
 });
 
 test("handleSetupHook - returns false on read error", () => {
@@ -273,12 +260,7 @@ test("buildMergedOptions - merges options with config security settings", () => 
 
   const configProvider = "github";
 
-  const result = buildMergedOptions(
-    options,
-    rest,
-    securityConfig,
-    configProvider,
-  );
+  const result = buildMergedOptions(options, rest, securityConfig, configProvider);
 
   expect(result.checkSecurity).toBe(true);
   expect(result.forceSecurityRefactor).toBe(true);
@@ -305,12 +287,7 @@ test("buildMergedOptions - uses config values when options not provided", () => 
 
   const configProvider = "snyk";
 
-  const result = buildMergedOptions(
-    options,
-    rest,
-    securityConfig,
-    configProvider,
-  );
+  const result = buildMergedOptions(options, rest, securityConfig, configProvider);
 
   expect(result.checkSecurity).toBe(true);
   expect(result.forceSecurityRefactor).toBe(false);
@@ -328,12 +305,7 @@ test("buildMergedOptions - defaults to osv provider when not specified", () => {
   const securityConfig = {};
   const configProvider = undefined;
 
-  const result = buildMergedOptions(
-    options,
-    rest,
-    securityConfig,
-    configProvider,
-  );
+  const result = buildMergedOptions(options, rest, securityConfig, configProvider);
 
   expect(result.securityProvider).toBe("osv");
 });
@@ -341,12 +313,7 @@ test("buildMergedOptions - defaults to osv provider when not specified", () => {
 test("buildMergedOptions - carries strict from CLI or config", () => {
   const { buildMergedOptions } = require("../../../src/cli/index");
 
-  const cliResult = buildMergedOptions(
-    { strict: true },
-    {},
-    { strict: false },
-    undefined,
-  );
+  const cliResult = buildMergedOptions({ strict: true }, {}, { strict: false }, undefined);
   expect(cliResult.strict).toBe(true);
 
   const configResult = buildMergedOptions({}, {}, { strict: true }, undefined);
@@ -356,12 +323,7 @@ test("buildMergedOptions - carries strict from CLI or config", () => {
 test("buildMergedOptions - normalizes cache TTL from CLI seconds", () => {
   const { buildMergedOptions } = require("../../../src/cli/index");
 
-  const result = buildMergedOptions(
-    { cacheTtl: "3600" as unknown as number },
-    {},
-    {},
-    undefined,
-  );
+  const result = buildMergedOptions({ cacheTtl: "3600" as unknown as number }, {}, {}, undefined);
 
   expect(result.cacheTtl).toBe(3600);
 });
@@ -370,12 +332,7 @@ test("buildMergedOptions - rejects invalid cache TTL", () => {
   const { buildMergedOptions } = require("../../../src/cli/index");
 
   expect(() =>
-    buildMergedOptions(
-      { cacheTtl: "-1" as unknown as number },
-      {},
-      {},
-      undefined,
-    ),
+    buildMergedOptions({ cacheTtl: "-1" as unknown as number }, {}, {}, undefined),
   ).toThrow("--cache-ttl must be a non-negative number of seconds");
 });
 
@@ -525,9 +482,7 @@ test("handleSecurityResults - does not generate overrides without autofix or int
   const { handleSecurityResults } = require("../../../src/cli/index");
 
   const alerts = [{ packageName: "test", severity: "low" }];
-  const securityOverrides = [
-    { packageName: "test", fromVersion: "1.0.0", toVersion: "2.0.0" },
-  ];
+  const securityOverrides = [{ packageName: "test", fromVersion: "1.0.0", toVersion: "2.0.0" }];
 
   const mockSecurityChecker = {
     generatePackageOverrides: mock(() => ({ test: "2.0.0" })),
@@ -868,12 +823,7 @@ test("buildMergedOptions - handles undefined config values", () => {
   const securityConfig = {};
   const configProvider = undefined;
 
-  const result = buildMergedOptions(
-    options,
-    rest,
-    securityConfig,
-    configProvider,
-  );
+  const result = buildMergedOptions(options, rest, securityConfig, configProvider);
 
   expect(result.checkSecurity).toBeUndefined();
   expect(result.forceSecurityRefactor).toBeUndefined();
@@ -909,12 +859,7 @@ test("buildMergedOptions - options override config values", () => {
 
   const configProvider = "osv";
 
-  const result = buildMergedOptions(
-    options,
-    rest,
-    securityConfig,
-    configProvider,
-  );
+  const result = buildMergedOptions(options, rest, securityConfig, configProvider);
 
   expect(result.checkSecurity).toBe(false);
   expect(result.forceSecurityRefactor).toBe(false);
@@ -1385,11 +1330,7 @@ test("determineSecurityScanPaths - multiple workspace patterns", () => {
 
   const result = determineSecurityScanPaths(config, mergedOptions, log);
 
-  expect(result).toEqual([
-    "packages/*/package.json",
-    "apps/*/package.json",
-    "libs/*/package.json",
-  ]);
+  expect(result).toEqual(["packages/*/package.json", "apps/*/package.json", "libs/*/package.json"]);
 });
 
 test("runSecurityCheck - creates spinner and security checker", async () => {
@@ -1427,9 +1368,7 @@ test("runSecurityCheck - creates spinner and security checker", async () => {
     ),
   };
 
-  const mockDetermineSecurityScanPaths = mock(() => [
-    "packages/*/package.json",
-  ]);
+  const mockDetermineSecurityScanPaths = mock(() => ["packages/*/package.json"]);
 
   const deps = {
     createSpinner: mock(() => mockSpinner),
@@ -1438,13 +1377,7 @@ test("runSecurityCheck - creates spinner and security checker", async () => {
     green: mock((text: string) => text),
   };
 
-  const result = await runSecurityCheck(
-    config,
-    mergedOptions,
-    false,
-    log,
-    deps,
-  );
+  const result = await runSecurityCheck(config, mergedOptions, false, log, deps);
 
   expect(deps.createSpinner).toHaveBeenCalled();
   expect(deps.SecurityChecker).toHaveBeenCalledWith({
@@ -1557,11 +1490,7 @@ test("runSecurityCheck - uses determineSecurityScanPaths for depPaths", async ()
 
   await runSecurityCheck(config, mergedOptions, false, log, deps);
 
-  expect(mockDetermineSecurityScanPaths).toHaveBeenCalledWith(
-    config,
-    mergedOptions,
-    log,
-  );
+  expect(mockDetermineSecurityScanPaths).toHaveBeenCalledWith(config, mergedOptions, log);
   expect(mockSecurityChecker.checkSecurity).toHaveBeenCalledWith(
     config,
     expect.objectContaining({
@@ -1762,9 +1691,7 @@ test("action - runs security check from top-level config", async () => {
     handleTestMode: mock(() => false),
     handleInitMode: mock(() => Promise.resolve(false)),
     resolveJSON: mock(() => mockConfig),
-    loadConfig: mock((_root: string, config: unknown) =>
-      Promise.resolve(config),
-    ),
+    loadConfig: mock((_root: string, config: unknown) => Promise.resolve(config)),
     buildMergedOptions,
     runSecurityCheck: mock(() =>
       Promise.resolve({
@@ -1813,9 +1740,7 @@ test("action - handles path with root option", async () => {
     handleTestMode: mock(() => false),
     handleInitMode: mock(() => Promise.resolve(false)),
     resolveJSON: mock(() => mockConfig),
-    buildMergedOptions: mock((options: any, rest: any) =>
-      Object.assign({}, options, rest),
-    ),
+    buildMergedOptions: mock((options: any, rest: any) => Object.assign({}, options, rest)),
     runSecurityCheck: mock(() => Promise.resolve({})),
     handleSecurityResults: mock(() => {}),
     createSpinner: mock(() => mockSpinner),
@@ -1851,9 +1776,7 @@ test("action - handles absolute path without root", async () => {
     handleTestMode: mock(() => false),
     handleInitMode: mock(() => Promise.resolve(false)),
     resolveJSON: mock(() => mockConfig),
-    buildMergedOptions: mock((options: any, rest: any) =>
-      Object.assign({}, options, rest),
-    ),
+    buildMergedOptions: mock((options: any, rest: any) => Object.assign({}, options, rest)),
     runSecurityCheck: mock(() => Promise.resolve({})),
     handleSecurityResults: mock(() => {}),
     createSpinner: mock(() => mockSpinner),
@@ -1927,15 +1850,10 @@ test("action - fails when package.json cannot be loaded", async () => {
     processExit: mockProcessExit,
   };
 
-  const result = await action(
-    { path: "/tmp/missing-package.json", outputFormat: "json" },
-    deps,
-  );
+  const result = await action({ path: "/tmp/missing-package.json", outputFormat: "json" }, deps);
 
   expect(result.success).toBe(false);
-  expect(result.errors[0]).toContain(
-    "Unable to load package.json at /tmp/missing-package.json",
-  );
+  expect(result.errors[0]).toContain("Unable to load package.json at /tmp/missing-package.json");
   expect(deps.update).not.toHaveBeenCalled();
   expect(mockProcessExit).toHaveBeenCalledWith(1);
 });
@@ -1982,17 +1900,12 @@ test("action - merges external config into package config", async () => {
 
   expect(deps.loadConfig).toHaveBeenCalledWith("/repo", undefined);
   const updateOptions = deps.update.mock.calls[0][0] as Options;
-  expect(updateOptions.config?.pastoralist?.depPaths).toEqual([
-    "packages/*/package.json",
-  ]);
+  expect(updateOptions.config?.pastoralist?.depPaths).toEqual(["packages/*/package.json"]);
 });
 
 test("action - loads external config when package.json has no pastoralist config", async () => {
   const { action } = require("../../../src/cli/index");
-  const {
-    resolveJSON,
-    forceClearCache,
-  } = require("../../../src/core/packageJSON");
+  const { resolveJSON, forceClearCache } = require("../../../src/core/packageJSON");
 
   const packagePath = resolve(actionExternalConfigDir, "package.json");
   const configPath = resolve(actionExternalConfigDir, ".pastoralistrc.json");
@@ -2010,10 +1923,7 @@ test("action - loads external config when package.json has no pastoralist config
     rmSync(actionExternalConfigDir, { recursive: true, force: true });
   }
   mkdirSync(actionExternalConfigDir, { recursive: true });
-  writeFileSync(
-    packagePath,
-    JSON.stringify({ name: "test", version: "1.0.0" }, null, 2),
-  );
+  writeFileSync(packagePath, JSON.stringify({ name: "test", version: "1.0.0" }, null, 2));
   writeFileSync(configPath, JSON.stringify(externalConfig, null, 2));
 
   const deps = {
@@ -2039,15 +1949,10 @@ test("action - loads external config when package.json has no pastoralist config
   };
 
   try {
-    await action(
-      { path: "package.json", root: actionExternalConfigDir },
-      deps as any,
-    );
+    await action({ path: "package.json", root: actionExternalConfigDir }, deps as any);
 
     const updateOptions = deps.update.mock.calls[0][0] as Options;
-    expect(updateOptions.config?.pastoralist?.depPaths).toEqual(
-      externalConfig.depPaths,
-    );
+    expect(updateOptions.config?.pastoralist?.depPaths).toEqual(externalConfig.depPaths);
     expect(deps.buildMergedOptions).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
@@ -2146,12 +2051,7 @@ test("handleInitMode - returns false when init is false", async () => {
 
   const mockInitCommand = mock(() => Promise.resolve());
 
-  const result = await handleInitMode(
-    false,
-    {},
-    {},
-    { initCommand: mockInitCommand },
-  );
+  const result = await handleInitMode(false, {}, {}, { initCommand: mockInitCommand });
 
   expect(result).toBe(false);
   expect(mockInitCommand).not.toHaveBeenCalled();
@@ -2422,9 +2322,9 @@ test("runSecurityCheck - handles error and calls spinner.fail", async () => {
     yellow: mock((text: string) => text),
   };
 
-  await expect(
-    runSecurityCheck(config, mergedOptions, false, log, deps),
-  ).rejects.toThrow("Security check failed");
+  await expect(runSecurityCheck(config, mergedOptions, false, log, deps)).rejects.toThrow(
+    "Security check failed",
+  );
 
   expect(mockSpinner.fail).toHaveBeenCalled();
   const failCall = mockSpinner.fail.mock.calls[0][0];
@@ -2462,9 +2362,9 @@ test("runSecurityCheck - handles non-Error throws and calls spinner.fail", async
     yellow: mock((text: string) => text),
   };
 
-  await expect(
-    runSecurityCheck(config, mergedOptions, false, log, deps),
-  ).rejects.toBe("String error");
+  await expect(runSecurityCheck(config, mergedOptions, false, log, deps)).rejects.toBe(
+    "String error",
+  );
 
   expect(mockSpinner.fail).toHaveBeenCalled();
   const failCall = mockSpinner.fail.mock.calls[0][0];
@@ -2509,13 +2409,7 @@ test("runSecurityCheck - handles SecurityProviderPermissionError gracefully", as
     yellow: mock((text: string) => text),
   };
 
-  const result = await runSecurityCheck(
-    config,
-    mergedOptions,
-    false,
-    log,
-    deps,
-  );
+  const result = await runSecurityCheck(config, mergedOptions, false, log, deps);
 
   expect(mockSpinner.warn).toHaveBeenCalled();
   expect(result.skipped).toBe(true);
@@ -2562,9 +2456,7 @@ test("runSecurityCheck - permission error does not throw", async () => {
     yellow: mock((text: string) => text),
   };
 
-  await expect(
-    runSecurityCheck(config, mergedOptions, false, log, deps),
-  ).resolves.toBeDefined();
+  await expect(runSecurityCheck(config, mergedOptions, false, log, deps)).resolves.toBeDefined();
 
   expect(mockSpinner.fail).not.toHaveBeenCalled();
   expect(mockSpinner.warn).toHaveBeenCalled();
@@ -2697,9 +2589,9 @@ test("runSecurityCheck - regular errors still throw after spinner.fail", async (
     yellow: mock((text: string) => text),
   };
 
-  await expect(
-    runSecurityCheck(config, mergedOptions, false, log, deps),
-  ).rejects.toThrow("Network timeout");
+  await expect(runSecurityCheck(config, mergedOptions, false, log, deps)).rejects.toThrow(
+    "Network timeout",
+  );
 
   expect(mockSpinner.fail).toHaveBeenCalled();
   expect(mockSpinner.warn).not.toHaveBeenCalled();
@@ -3027,10 +2919,7 @@ test("action - displays security fixes when forceSecurityRefactor is true", asyn
 
   await action({}, deps);
 
-  expect(mockGraph.startPhase).toHaveBeenCalledWith(
-    "resolving",
-    "Fixes applied",
-  );
+  expect(mockGraph.startPhase).toHaveBeenCalledWith("resolving", "Fixes applied");
   expect(mockGraph.securityFix).toHaveBeenCalled();
   expect(mockGraph.endPhase).toHaveBeenCalledWith("1 override added");
 });
@@ -3090,11 +2979,7 @@ test("action - displays removed overrides when present", async () => {
 
   await action({}, deps);
 
-  expect(mockGraph.startPhase).toHaveBeenCalledWith(
-    "writing",
-    "Cleaned up stale overrides",
-    true,
-  );
+  expect(mockGraph.startPhase).toHaveBeenCalledWith("writing", "Cleaned up stale overrides", true);
   expect(mockGraph.removedOverride).toHaveBeenCalledTimes(2);
   expect(mockGraph.endPhase).toHaveBeenCalledWith("2 stale overrides removed");
 });
@@ -3372,8 +3257,7 @@ test("action - displays unused override notice when unused overrides exist", asy
 
   const noticeCalls = mockGraph.notice.mock.calls;
   const hasRemoveUnusedNotice = noticeCalls.some(
-    (call: unknown[]) =>
-      typeof call[0] === "string" && call[0].includes("--remove-unused"),
+    (call: unknown[]) => typeof call[0] === "string" && call[0].includes("--remove-unused"),
   );
   expect(hasRemoveUnusedNotice).toBe(true);
 });
@@ -3422,8 +3306,7 @@ test("action - does not display unused override notice when removeUnused is true
 
   const noticeCalls = mockGraph.notice.mock.calls;
   const hasRemoveUnusedNotice = noticeCalls.some(
-    (call: unknown[]) =>
-      typeof call[0] === "string" && call[0].includes("--remove-unused"),
+    (call: unknown[]) => typeof call[0] === "string" && call[0].includes("--remove-unused"),
   );
   expect(hasRemoveUnusedNotice).toBe(false);
 });
@@ -3489,13 +3372,10 @@ test("run - calls init command with first parsed security provider", async () =>
   const mockInitCommand = mock(() => Promise.resolve());
   const mockAction = mock(() => Promise.resolve());
 
-  await run(
-    ["node", "pastoralist", "init", "--securityProvider", "snyk", "socket"],
-    {
-      action: mockAction,
-      initCommand: mockInitCommand,
-    },
-  );
+  await run(["node", "pastoralist", "init", "--securityProvider", "snyk", "socket"], {
+    action: mockAction,
+    initCommand: mockInitCommand,
+  });
 
   expect(mockInitCommand).toHaveBeenCalledWith(
     expect.objectContaining({ securityProvider: "snyk" }),
@@ -3535,9 +3415,7 @@ test("handleSecurityResults - returned values are used by action via spread", as
   const mockGraph = createMockTerminalGraph();
 
   const securityOverridesResult = { lodash: "4.17.21" };
-  const securityDetailResult = [
-    { packageName: "lodash", reason: "Security fix" },
-  ];
+  const securityDetailResult = [{ packageName: "lodash", reason: "Security fix" }];
 
   const capturedUpdateOptions: Options[] = [];
 
@@ -3676,11 +3554,7 @@ test("checkRemovalSafety - returns empty array when no unused entries", async ()
     })),
   };
 
-  const result = await checkRemovalSafety(
-    config,
-    mockSecurityChecker as any,
-    {},
-  );
+  const result = await checkRemovalSafety(config, mockSecurityChecker as any, {});
 
   expect(result).toEqual([]);
   expect(mockSecurityChecker.checkSecurity).not.toHaveBeenCalled();
@@ -3704,9 +3578,7 @@ test("checkRemovalSafety - returns keys for packages still vulnerable at declare
 
   const mockSecurityChecker = {
     checkSecurity: mock(async () => ({
-      alerts: [
-        { packageName: "lodash", severity: "high", currentVersion: "4.17.20" },
-      ],
+      alerts: [{ packageName: "lodash", severity: "high", currentVersion: "4.17.20" }],
       overrides: [],
       updates: [],
       packagesScanned: 1,
@@ -3752,11 +3624,7 @@ test("checkRemovalSafety - returns empty array when re-scan finds no vulnerabili
     })),
   };
 
-  const result = await checkRemovalSafety(
-    config,
-    mockSecurityChecker as any,
-    {},
-  );
+  const result = await checkRemovalSafety(config, mockSecurityChecker as any, {});
 
   expect(result).toEqual([]);
 });
@@ -3785,11 +3653,7 @@ test("checkRemovalSafety - returns empty when unused packages not in any deps", 
     })),
   };
 
-  const result = await checkRemovalSafety(
-    config,
-    mockSecurityChecker as any,
-    {},
-  );
+  const result = await checkRemovalSafety(config, mockSecurityChecker as any, {});
 
   expect(result).toEqual([]);
   expect(mockSecurityChecker.checkSecurity).not.toHaveBeenCalled();
@@ -3811,20 +3675,14 @@ test("checkRemovalSafety - finds packages in devDependencies", async () => {
 
   const mockSecurityChecker = {
     checkSecurity: mock(async () => ({
-      alerts: [
-        { packageName: "dev-pkg", severity: "high", currentVersion: "1.0.0" },
-      ],
+      alerts: [{ packageName: "dev-pkg", severity: "high", currentVersion: "1.0.0" }],
       overrides: [],
       updates: [],
       packagesScanned: 1,
     })),
   };
 
-  const result = await checkRemovalSafety(
-    config,
-    mockSecurityChecker as any,
-    {},
-  );
+  const result = await checkRemovalSafety(config, mockSecurityChecker as any, {});
 
   expect(result).toEqual(["dev-pkg@1.0.0"]);
 });
@@ -3914,8 +3772,7 @@ test("action - displays blocked removals notice when skipRemovalKeys set", async
 
   const noticeCalls = mockGraph.notice.mock.calls;
   const hasBlockedNotice = noticeCalls.some(
-    (call: unknown[]) =>
-      typeof call[0] === "string" && call[0].includes("still vulnerable"),
+    (call: unknown[]) => typeof call[0] === "string" && call[0].includes("still vulnerable"),
   );
   expect(hasBlockedNotice).toBe(true);
 });

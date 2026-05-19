@@ -24,10 +24,7 @@ const createTestPackageJson = (content: any = {}) => {
       ...content.pastoralist,
     },
   };
-  writeFileSync(
-    TEST_PACKAGE_JSON,
-    JSON.stringify({ ...defaultContent, ...content }, null, 2),
-  );
+  writeFileSync(TEST_PACKAGE_JSON, JSON.stringify({ ...defaultContent, ...content }, null, 2));
 };
 
 const createPatchFile = (packageName: string, version: string) => {
@@ -94,9 +91,7 @@ test("update - should detect and attach patches", () => {
 
   expect(result.patchMap).toBeDefined();
   expect(result.patchMap?.lodash).toContain("patches/lodash+4.17.21.patch");
-  expect(result.appendix?.["lodash@4.17.21"]?.patches).toContain(
-    "patches/lodash+4.17.21.patch",
-  );
+  expect(result.appendix?.["lodash@4.17.21"]?.patches).toContain("patches/lodash+4.17.21.patch");
 });
 
 test("update - should handle security overrides", () => {

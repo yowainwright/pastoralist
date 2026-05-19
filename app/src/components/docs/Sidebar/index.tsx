@@ -12,22 +12,25 @@ export function Sidebar() {
   const [sections, setSections] = useState(() => SIDEBAR.map(() => true));
 
   const toggleSection = (index: number) => {
-    setSections((prev) => prev.map((open, i) => (i === index ? !open : open)));
+    setSections((prev) =>
+      prev.map((open, i) => {
+        if (i === index) return !open;
+        return open;
+      }),
+    );
   };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (window.innerWidth >= 1024) return; // Only on mobile
-      if (!isOpen) return; // Only if sidebar is open
+      if (window.innerWidth >= 1024) return;
+      if (!isOpen) return;
 
-      // Don't close if clicking the menu button itself
       const menuButton = document.querySelector('label[for="my-drawer-2"]');
       if (menuButton?.contains(event.target as Node)) return;
 
-      if (navRef.current && !navRef.current.contains(event.target as Node)) {
-        const drawer = document.getElementById(
-          "my-drawer-2",
-        ) as HTMLInputElement;
+      const clickedOutsideNav = navRef.current && !navRef.current.contains(event.target as Node);
+      if (clickedOutsideNav) {
+        const drawer = document.getElementById("my-drawer-2") as HTMLInputElement;
         if (drawer) {
           drawer.checked = false;
           setIsOpen(false);

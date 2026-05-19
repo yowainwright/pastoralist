@@ -1,14 +1,12 @@
 import { test, expect } from "bun:test";
 import { resolve } from "path";
 import {
-  validateConfig,
-  safeValidateConfig,
-} from "../../../src/config/constants";
-import {
   loadConfig,
   loadExternalConfig,
   mergeConfigs,
   clearConfigCache,
+  validateConfig,
+  safeValidateConfig,
 } from "../../../src/config";
 import type { PastoralistConfig } from "../../../src/config";
 import {
@@ -224,12 +222,8 @@ test("mergeConfigs - should deep merge appendix", () => {
   };
 
   const result = mergeConfigs(base, override);
-  expect(
-    result.appendix?.["lodash@4.17.21"]?.dependents?.["pkg-a"],
-  ).toBeDefined();
-  expect(
-    result.appendix?.["lodash@4.17.21"]?.dependents?.["pkg-b"],
-  ).toBeDefined();
+  expect(result.appendix?.["lodash@4.17.21"]?.dependents?.["pkg-a"]).toBeDefined();
+  expect(result.appendix?.["lodash@4.17.21"]?.dependents?.["pkg-b"]).toBeDefined();
 });
 
 test("clearConfigCache - clears the config cache", async () => {
@@ -326,9 +320,7 @@ test("loadExternalConfig - ignores TypeScript config files", async () => {
   }
 
   expect(config).toBeUndefined();
-  expect(warnings.join("\n")).toContain(
-    "pastoralist.config.ts is not supported",
-  );
+  expect(warnings.join("\n")).toContain("pastoralist.config.ts is not supported");
 
   if (existsSync(configPath)) {
     rmSync(configPath);
@@ -350,10 +342,7 @@ test("loadExternalConfig - loads ESM config file", async () => {
     rmSync(configPath);
   }
 
-  writeFileSync(
-    configPath,
-    `export default { depPaths: ["apps/*/package.json"] };\n`,
-  );
+  writeFileSync(configPath, `export default { depPaths: ["apps/*/package.json"] };\n`);
 
   clearConfigCache();
   const config = await loadExternalConfig(testDir);
@@ -417,9 +406,7 @@ test("mergeConfigs - merges appendix entries when key exists in external but not
     app1: "lodash@^4.17.0",
     app2: "lodash@^4.17.0",
   });
-  expect(merged?.appendix?.["lodash@4.17.21"].patches).toEqual([
-    "patches/new.patch",
-  ]);
+  expect(merged?.appendix?.["lodash@4.17.21"].patches).toEqual(["patches/new.patch"]);
 });
 
 test("mergeConfigs - handles when external has no key and packageJson does", () => {

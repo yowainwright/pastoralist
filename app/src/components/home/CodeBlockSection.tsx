@@ -36,9 +36,7 @@ const CONTENT = {
 
 export function CodeBlockSection() {
   const [hasSeenAnimation, setHasSeenAnimation] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      sessionStorage.getItem(SEEN_KEY) === "true",
+    () => typeof window !== "undefined" && sessionStorage.getItem(SEEN_KEY) === "true",
   );
   const { ref, isVisible } = useFadeInUp();
   const active = hasSeenAnimation || isVisible;
@@ -51,8 +49,7 @@ export function CodeBlockSection() {
       >
         <header className={styles.header}>
           <h2 className={styles.h2}>
-            <span className="gradient-text">{CONTENT.headingStart}</span>{" "}
-            {CONTENT.headingEnd}
+            <span className="gradient-text">{CONTENT.headingStart}</span> {CONTENT.headingEnd}
           </h2>
           <p className={styles.description}>{CONTENT.description}</p>
           <CheckList isVisible={active} />
@@ -65,10 +62,7 @@ export function CodeBlockSection() {
             >
               Learn More
             </Link>
-            <a
-              href={CONTENT.githubHref}
-              className="btn btn-lg btn-ghost rounded-2xl"
-            >
+            <a href={CONTENT.githubHref} className="btn btn-lg btn-ghost rounded-2xl">
               View on GitHub
             </a>
           </nav>

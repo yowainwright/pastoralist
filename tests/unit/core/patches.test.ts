@@ -12,10 +12,7 @@ import {
 const TEST_DIR = resolve(__dirname, ".test-patches");
 
 const createPatchFile = (filename: string) => {
-  const dir = resolve(
-    TEST_DIR,
-    filename.substring(0, filename.lastIndexOf("/")),
-  );
+  const dir = resolve(TEST_DIR, filename.substring(0, filename.lastIndexOf("/")));
   if (dir !== TEST_DIR && !existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
@@ -203,10 +200,7 @@ test("findUnusedPatches - should find all unused patches", () => {
 
   const result = findUnusedPatches(patchMap, dependencies);
 
-  expect(result).toEqual([
-    "patches/lodash+4.17.21.patch",
-    "patches/react+18.0.0.patch",
-  ]);
+  expect(result).toEqual(["patches/lodash+4.17.21.patch", "patches/react+18.0.0.patch"]);
 });
 
 test("findUnusedPatches - should handle multiple patches for same package", () => {
@@ -217,10 +211,7 @@ test("findUnusedPatches - should handle multiple patches for same package", () =
 
   const result = findUnusedPatches(patchMap, dependencies);
 
-  expect(result).toEqual([
-    "patches/lodash+4.17.20.patch",
-    "patches/lodash+4.17.21.patch",
-  ]);
+  expect(result).toEqual(["patches/lodash+4.17.20.patch", "patches/lodash+4.17.21.patch"]);
 });
 
 test("findUnusedPatches - should return empty array for empty patch map", () => {
@@ -287,12 +278,8 @@ test("attachPatchesToAppendix - should handle multiple appendix entries", () => 
 
   const result = attachPatchesToAppendix(appendix, patchMap);
 
-  expect(result["lodash@4.17.21"].patches).toEqual([
-    "patches/lodash+4.17.21.patch",
-  ]);
-  expect(result["react@18.0.0"].patches).toEqual([
-    "patches/react+18.0.0.patch",
-  ]);
+  expect(result["lodash@4.17.21"].patches).toEqual(["patches/lodash+4.17.21.patch"]);
+  expect(result["react@18.0.0"].patches).toEqual(["patches/react+18.0.0.patch"]);
 });
 
 test("attachPatchesToAppendix - should return empty appendix for empty input", () => {
@@ -324,9 +311,7 @@ test("attachPatchesToAppendix - should preserve existing appendix properties", (
     addedDate: "2024-01-01",
     reason: "Security fix",
   });
-  expect(result["lodash@4.17.21"].patches).toEqual([
-    "patches/lodash+4.17.21.patch",
-  ]);
+  expect(result["lodash@4.17.21"].patches).toEqual(["patches/lodash+4.17.21.patch"]);
 });
 
 test("attachPatchesToAppendix - should attach patches to scoped package entries", () => {
@@ -341,7 +326,5 @@ test("attachPatchesToAppendix - should attach patches to scoped package entries"
 
   const result = attachPatchesToAppendix(appendix, patchMap);
 
-  expect(result["@babel/core@7.20.0"].patches).toEqual([
-    "patches/@babel+core+7.20.0.patch",
-  ]);
+  expect(result["@babel/core@7.20.0"].patches).toEqual(["patches/@babel+core+7.20.0.patch"]);
 });

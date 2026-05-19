@@ -44,10 +44,7 @@ export class Prompt {
     );
   }
 
-  async confirm(
-    message: string,
-    defaultValue: boolean = true,
-  ): Promise<boolean> {
+  async confirm(message: string, defaultValue: boolean = true): Promise<boolean> {
     this.ensureCookedMode();
 
     return enhancedQuestion(
@@ -57,9 +54,9 @@ export class Prompt {
         const normalized = answer.trim().toLowerCase();
         if (normalized === "") {
           return defaultValue;
-        } else {
-          return normalized === "y" || normalized === "yes";
         }
+        if (normalized === "y") return true;
+        return normalized === "yes";
       },
     );
   }
@@ -70,12 +67,12 @@ export class Prompt {
 
     return enhancedQuestion(this.rl, formatChoicePrompt(), (answer: string) => {
       const num = parseInt(answer.trim(), 10);
+      const isBelowRange = num < 1;
+      const isAboveRange = num > choices.length;
+      const isInvalidChoice = isNaN(num) || isBelowRange || isAboveRange;
 
-      if (isNaN(num) || num < 1 || num > choices.length) {
-        console.log(
-          "Invalid choice. Please enter a number between 1 and " +
-            choices.length,
-        );
+      if (isInvalidChoice) {
+        console.log("Invalid choice. Please enter a number between 1 and " + choices.length);
         return choices[0].value;
       }
 
@@ -88,10 +85,7 @@ export class Prompt {
 
     switch (type) {
       case "confirm":
-        return this.confirm(
-          message,
-          (options as ConfirmOptions).default ?? true,
-        );
+        return this.confirm(message, (options as ConfirmOptions).default ?? true);
 
       case "list":
         return this.list(message, (options as ListOptions).choices);
@@ -102,9 +96,7 @@ export class Prompt {
     }
   }
 
-  async promptMany(
-    questions: PromptOptions[],
-  ): Promise<Record<string, string | boolean>> {
+  async promptMany(questions: PromptOptions[]): Promise<Record<string, string | boolean>> {
     return questions.reduce(
       async (accPromise, question, index) => {
         const answers = await accPromise;
@@ -149,19 +141,13 @@ export async function quickConfirm(
   });
 }
 
-export async function quickInput(
-  message: string,
-  defaultValue?: string,
-): Promise<string> {
+export async function quickInput(message: string, defaultValue?: string): Promise<string> {
   return createPrompt(async (prompt) => {
     return prompt.input(message, defaultValue ?? "");
   });
 }
 
-export async function quickList(
-  message: string,
-  choices: PromptChoice[],
-): Promise<string> {
+export async function quickList(message: string, choices: PromptChoice[]): Promise<string> {
   return createPrompt(async (prompt) => {
     return prompt.list(message, choices);
   });

@@ -44,11 +44,7 @@ export const TerminalWindow: React.FC<TerminalWindowProps> = ({
                 const tabClass = isTabActive ? STYLES.tabActive : STYLES.tab;
 
                 return (
-                  <button
-                    key={tab.id}
-                    onClick={() => onTabChange?.(tab.id)}
-                    className={tabClass}
-                  >
+                  <button key={tab.id} onClick={() => onTabChange?.(tab.id)} className={tabClass}>
                     {tab.label}
                   </button>
                 );
@@ -58,16 +54,12 @@ export const TerminalWindow: React.FC<TerminalWindowProps> = ({
         </div>
       )}
       {children}
-      {footer && (
-        <div className={cn(STYLES.footer, footerClassName)}>{footer}</div>
-      )}
+      {footer && <div className={cn(STYLES.footer, footerClassName)}>{footer}</div>}
     </div>
   );
 };
 
-export const TerminalLoader: React.FC<{ minHeight?: string }> = ({
-  minHeight,
-}) => (
+export const TerminalLoader: React.FC<{ minHeight?: string }> = ({ minHeight }) => (
   <TerminalWindow className={STYLES.loader} minHeight={minHeight}>
     <div className={STYLES.content}>
       <div className={`${STYLES.loaderBar} w-3/4 mb-2`} />

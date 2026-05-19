@@ -34,11 +34,7 @@ afterEach(() => {
 test("checkMonorepoOverrides", () => {
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
 
-  const result = checkMonorepoOverrides(
-    { lodash: "4.17.21" },
-    { lodash: "^4.17.20" },
-    mockLog,
-  );
+  const result = checkMonorepoOverrides({ lodash: "4.17.21" }, { lodash: "^4.17.20" }, mockLog);
   expect(result).toEqual([]);
 
   const result2 = checkMonorepoOverrides(
@@ -77,12 +73,7 @@ test("mergeOverridePaths", () => {
     },
   };
 
-  const result = mergeOverridePaths(
-    appendix,
-    overridePaths,
-    ["react"],
-    mockLog,
-  );
+  const result = mergeOverridePaths(appendix, overridePaths, ["react"], mockLog);
 
   expect(result["lodash@4.17.21"]).toBeDefined();
   expect(result["react@18.0.0"]).toBeDefined();
@@ -95,12 +86,7 @@ test("mergeOverridePaths", () => {
       "lodash@4.17.21": { dependents: { "pkg-a": "lodash@^4.17.21" } },
     },
   };
-  const result2 = mergeOverridePaths(
-    appendix2,
-    overridePaths2,
-    ["lodash"],
-    mockLog,
-  );
+  const result2 = mergeOverridePaths(appendix2, overridePaths2, ["lodash"], mockLog);
   expect(result2["lodash@4.17.21"].dependents["root"]).toBeDefined();
   expect(result2["lodash@4.17.21"].dependents["pkg-a"]).toBeDefined();
 
@@ -109,24 +95,17 @@ test("mergeOverridePaths", () => {
 });
 
 test("findUnusedOverrides", async () => {
-  // Spy on getDependencyTree to prevent real npm commands in CI
   const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({
     "fake-pkg": true,
   });
 
-  const result = await findUnusedOverrides(
-    { "fake-pkg": "1.0.0" },
-    { "fake-pkg": "^1.0.0" },
-  );
+  const result = await findUnusedOverrides({ "fake-pkg": "1.0.0" }, { "fake-pkg": "^1.0.0" });
   expect(result).toEqual([]);
 
   const result2 = await findUnusedOverrides({ "fake-pkg": "1.0.0" }, {});
   expect(result2).toEqual(["fake-pkg"]);
 
-  const result3 = await findUnusedOverrides(
-    { react: { "react-dom": "18.0.0" } },
-    {},
-  );
+  const result3 = await findUnusedOverrides({ react: { "react-dom": "18.0.0" } }, {});
   expect(result3).toEqual(["react"]);
 
   const result4 = await findUnusedOverrides(
@@ -160,7 +139,6 @@ test("cleanupUnusedOverrides", async () => {
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
   const mockUpdateOverrides = () => ({ "fake-pkg": "1.0.0" });
 
-  // Spy on getDependencyTree to prevent cache pollution
   const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({
     "fake-pkg": true,
   });
@@ -208,7 +186,6 @@ test("cleanupUnusedOverrides", async () => {
 });
 
 test("findUnusedOverrides - handles packages in dependency tree", async () => {
-  // Spy on getDependencyTree to prevent cache pollution
   const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({
     "transitive-pkg": true,
   });
@@ -258,7 +235,6 @@ test("cleanupUnusedOverrides - handles empty appendix", async () => {
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
   const mockUpdateOverrides = () => ({});
 
-  // Spy on getDependencyTree to prevent real npm commands in CI
   const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({});
 
   const result = await cleanupUnusedOverrides(
@@ -328,12 +304,7 @@ test("mergeOverridePaths - merges dependents from multiple packages", () => {
     },
   };
 
-  const result = mergeOverridePaths(
-    appendix,
-    overridePaths,
-    ["lodash"],
-    mockLog,
-  );
+  const result = mergeOverridePaths(appendix, overridePaths, ["lodash"], mockLog);
 
   expect(result["lodash@4.17.21"].dependents["root"]).toBeDefined();
   expect(result["lodash@4.17.21"].dependents["pkg-a"]).toBeDefined();
@@ -341,15 +312,11 @@ test("mergeOverridePaths - merges dependents from multiple packages", () => {
 });
 
 test("findUnusedOverrides - returns empty for nested override with matching parent", async () => {
-  // Spy on getDependencyTree to prevent real npm commands in CI
   const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({
     parent: true,
   });
 
-  const result = await findUnusedOverrides(
-    { parent: { child: "2.0.0" } },
-    { parent: "^1.0.0" },
-  );
+  const result = await findUnusedOverrides({ parent: { child: "2.0.0" } }, { parent: "^1.0.0" });
   expect(result).toEqual([]);
 
   spy.mockRestore();
@@ -359,7 +326,6 @@ test("cleanupUnusedOverrides - preserves overrides with dependents", async () =>
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
   const mockUpdateOverrides = () => ({ lodash: "4.17.21" });
 
-  // Spy on getDependencyTree to prevent real npm commands in CI
   const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({
     lodash: true,
   });
@@ -408,7 +374,6 @@ test("processWorkspacePackages - aggregates dependencies from multiple packages"
 });
 
 test("findUnusedOverrides - keeps override in dependency tree", async () => {
-  // Spy on getDependencyTree to prevent real npm commands in CI
   const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({
     "transitive-dep": true,
   });
@@ -435,7 +400,6 @@ test("cleanupUnusedOverrides - logs tracked packages in overridePaths", async ()
   };
   const mockUpdateOverrides = () => ({ react: "18.0.0" });
 
-  // Spy on getDependencyTree to prevent real npm commands in CI
   const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({
     react: true,
   });
@@ -464,10 +428,6 @@ test("cleanupUnusedOverrides - logs tracked packages in overridePaths", async ()
 
   spy.mockRestore();
 });
-
-// =============================================================================
-// Fixture-based tests for workspace dependency aggregation
-// =============================================================================
 
 test("processWorkspacePackages - collects all dependency types from fixtures", async () => {
   const pkgADir = resolve(TEST_DIR, "packages", "pkg-a");
@@ -651,12 +611,7 @@ test("mergeOverridePaths - does not mutate original appendix", () => {
 
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
 
-  const result = mergeOverridePaths(
-    originalAppendix,
-    overridePaths,
-    ["express"],
-    mockLog,
-  );
+  const result = mergeOverridePaths(originalAppendix, overridePaths, ["express"], mockLog);
 
   expect(result["express@4.18.2"]).toBeDefined();
   expect(result["lodash@4.17.21"].dependents).toHaveProperty("app");
@@ -681,12 +636,7 @@ test("mergeOverridePaths - merges dependents for existing entries", () => {
 
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
 
-  const result = mergeOverridePaths(
-    appendix,
-    overridePaths,
-    ["lodash"],
-    mockLog,
-  );
+  const result = mergeOverridePaths(appendix, overridePaths, ["lodash"], mockLog);
 
   const dependents = result["lodash@4.17.21"].dependents || {};
   expect(dependents).toHaveProperty("root");

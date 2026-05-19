@@ -2,12 +2,8 @@ import { test, expect } from "bun:test";
 import { ConcurrencyLimiter, createLimit } from "../../../src/utils/limit";
 
 test("ConcurrencyLimiter - should throw on invalid concurrency", () => {
-  expect(() => new ConcurrencyLimiter(0)).toThrow(
-    "Concurrency must be at least 1",
-  );
-  expect(() => new ConcurrencyLimiter(-1)).toThrow(
-    "Concurrency must be at least 1",
-  );
+  expect(() => new ConcurrencyLimiter(0)).toThrow("Concurrency must be at least 1");
+  expect(() => new ConcurrencyLimiter(-1)).toThrow("Concurrency must be at least 1");
 });
 
 test("ConcurrencyLimiter - should limit concurrent executions", async () => {

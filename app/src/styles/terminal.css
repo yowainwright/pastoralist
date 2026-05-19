@@ -30,24 +30,14 @@
   left: -100%;
   width: 50%;
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.03),
-    transparent
-  );
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.03), transparent);
   animation: var(--animate-terminal-shine);
   pointer-events: none;
   z-index: 1;
 }
 
 [data-theme="night"] .terminal-window::before {
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.02),
-    transparent
-  );
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.02), transparent);
 }
 
 .terminal-header {
@@ -150,8 +140,8 @@
   overflow-x: auto;
   overflow-y: auto;
   font-family:
-    ui-monospace, SFMono-Regular, "SF Mono", Monaco, "Cascadia Mono",
-    "Roboto Mono", Consolas, "Courier New", monospace;
+    ui-monospace, SFMono-Regular, "SF Mono", Monaco, "Cascadia Mono", "Roboto Mono", Consolas,
+    "Courier New", monospace;
   font-size: 14px;
   line-height: 1.4;
   color: #1e293b;

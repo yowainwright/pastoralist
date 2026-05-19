@@ -10,9 +10,7 @@ test("buildObject - should build object from keys", () => {
 
 test("buildObject - should skip undefined values", () => {
   const keys = ["a", "b", "c"];
-  const result = buildObject(keys, (key) =>
-    key === "b" ? undefined : key.toUpperCase(),
-  );
+  const result = buildObject(keys, (key) => (key === "b" ? undefined : key.toUpperCase()));
 
   expect(result).toEqual({ a: "A", c: "C" });
 });

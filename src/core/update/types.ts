@@ -1,10 +1,4 @@
-import type {
-  Options,
-  Appendix,
-  OverridesType,
-  PastoralistJSON,
-  SecurityAlert,
-} from "../../types";
+import type { Options, Appendix, OverridesType, PastoralistJSON, SecurityAlert } from "../../types";
 import type { PastoralistConfig } from "../../config";
 import type { ResolveOverrides } from "../../types";
 import type { Logger } from "../../utils";
@@ -34,6 +28,19 @@ export interface LoadedConfig {
 export interface RemovedOverride {
   packageName: string;
   version: string;
+}
+
+export interface OverrideChangeCounts {
+  added: number;
+  removed: number;
+  removedPackages: RemovedOverride[];
+}
+
+export interface SeverityCounts {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
 }
 
 export interface UpdateMetrics {
@@ -80,6 +87,14 @@ export interface UpdateContext {
   writeSuccess?: boolean;
   metrics?: UpdateMetrics;
   securityAlerts?: SecurityAlert[];
+}
+
+export interface UpdateRuntime {
+  path: string;
+  root: string;
+  isTesting: boolean;
+  isLogging: boolean;
+  log: Logger;
 }
 
 export interface WriteResultContext {

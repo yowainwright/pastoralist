@@ -1,4 +1,6 @@
+import type { SecurityProvider } from "../../../config";
 import type { PromptChoice } from "../../../utils/prompts/types";
+import type { TokenInfo } from "./types";
 
 export const CONFIG_LOCATION_CHOICES: PromptChoice[] = [
   {
@@ -54,17 +56,49 @@ export const SEVERITY_THRESHOLD_CHOICES: PromptChoice[] = [
 
 export const DEFAULT_WORKSPACE_PATHS = "packages/*/package.json";
 
+export const WIZARD_TITLES = {
+  default: "initialization wizard",
+  security: "security configuration wizard",
+  workspace: "workspace configuration wizard",
+} as const;
+
+export const EMPTY_TOKEN_INFO: TokenInfo = {
+  required: false,
+  optional: false,
+};
+
+export const TOKEN_INFO_BY_PROVIDER: Partial<Record<SecurityProvider, TokenInfo>> = {
+  github: {
+    required: false,
+    optional: true,
+    envVar: "GITHUB_TOKEN",
+    createUrl:
+      "https://github.com/settings/tokens/new?description=Pastoralist%20Security&scopes=repo",
+    scopes: ["repo"],
+  },
+  snyk: {
+    required: true,
+    optional: false,
+    envVar: "SNYK_TOKEN",
+    createUrl: "https://app.snyk.io/account",
+  },
+  socket: {
+    required: true,
+    optional: false,
+    envVar: "SOCKET_SECURITY_API_KEY",
+    createUrl: "https://socket.dev/dashboard/settings",
+  },
+} as const;
+
 export const INIT_MESSAGES = {
   welcome: "This wizard will help you set up your Pastoralist configuration.",
   skipInfo: "You can skip any step by selecting the skip option.",
   existingConfigWarning:
     "Existing Pastoralist configuration detected. Do you want to overwrite it?",
-  existingFileWarning: (filename: string) =>
-    `${filename} already exists. Overwrite?`,
+  existingFileWarning: (filename: string) => `${filename} already exists. Overwrite?`,
   configNotSaved: "Configuration not saved. File preserved.",
   configSaved: (path: string) => `Configuration saved to ${path}`,
-  initCancelled:
-    "Initialization cancelled. Your existing configuration is preserved.",
+  initCancelled: "Initialization cancelled. Your existing configuration is preserved.",
   initComplete: "▪▫▪ Pastoralist initialization complete! ▪▫▪",
   packageJsonNotFound: "Error: package.json not found",
   tokenEnvironmentInfo: (envVar: string) =>
@@ -87,8 +121,7 @@ export const STEP_TITLES = {
 } as const;
 
 export const PROMPTS = {
-  configLocation:
-    "Where would you like to store your Pastoralist configuration?",
+  configLocation: "Where would you like to store your Pastoralist configuration?",
   configFormat: "Choose a config file format:",
   setupWorkspaces: "Do you want to configure workspace dependencies?",
   workspaceType: "How would you like to configure workspace dependencies?",

@@ -16,13 +16,7 @@ import {
   validateRootPackageJsonIntegrity,
 } from "../../../setup";
 
-const testPath = resolve(
-  __dirname,
-  "..",
-  "..",
-  "..",
-  ".test-init-package.json",
-);
+const testPath = resolve(__dirname, "..", "..", "..", ".test-init-package.json");
 const testRoot = resolve(__dirname, "..", "..", "..", ".test-init-root");
 
 test("initCommand - should initialize with default options", async () => {
@@ -40,16 +34,14 @@ test("initCommand - should initialize with default options", async () => {
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock(() => Promise.resolve("package.json")),
-        confirm: mock(() => Promise.resolve(false)),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock(() => Promise.resolve("package.json")),
+      confirm: mock(() => Promise.resolve(false)),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   await initCommand({ path: testPath, isTesting: true });
   expect(createPromptSpy).toHaveBeenCalled();
@@ -76,22 +68,19 @@ test("initCommand - should handle security context initialization", async () => 
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock((msg: string) => {
-          if (msg.includes("config location"))
-            return Promise.resolve("package.json");
-          if (msg.includes("security provider")) return Promise.resolve("osv");
-          if (msg.includes("severity")) return Promise.resolve("medium");
-          return Promise.resolve("back");
-        }),
-        confirm: mock(() => Promise.resolve(false)),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock((msg: string) => {
+        if (msg.includes("config location")) return Promise.resolve("package.json");
+        if (msg.includes("security provider")) return Promise.resolve("osv");
+        if (msg.includes("severity")) return Promise.resolve("medium");
+        return Promise.resolve("back");
+      }),
+      confirm: mock(() => Promise.resolve(false)),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   await initCommand({ path: testPath, checkSecurity: true, isTesting: true });
   expect(createPromptSpy).toHaveBeenCalled();
@@ -118,23 +107,20 @@ test("initCommand - should handle workspace context initialization", async () =>
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock((msg: string) => {
-          if (msg.includes("config location"))
-            return Promise.resolve("package.json");
-          return Promise.resolve("back");
-        }),
-        confirm: mock((msg: string) => {
-          if (msg.includes("workspace")) return Promise.resolve(true);
-          return Promise.resolve(false);
-        }),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock((msg: string) => {
+        if (msg.includes("config location")) return Promise.resolve("package.json");
+        return Promise.resolve("back");
+      }),
+      confirm: mock((msg: string) => {
+        if (msg.includes("workspace")) return Promise.resolve(true);
+        return Promise.resolve(false);
+      }),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   await initCommand({
     path: testPath,
@@ -165,16 +151,14 @@ test("initCommand - should save to package.json", async () => {
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock(() => Promise.resolve("package.json")),
-        confirm: mock(() => Promise.resolve(false)),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock(() => Promise.resolve("package.json")),
+      confirm: mock(() => Promise.resolve(false)),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   await initCommand({ path: testPath, isTesting: true });
   expect(createPromptSpy).toHaveBeenCalled();
@@ -206,16 +190,14 @@ test("initCommand - should resolve relative package path under root", async () =
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock(() => Promise.resolve("package.json")),
-        confirm: mock(() => Promise.resolve(false)),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock(() => Promise.resolve("package.json")),
+      confirm: mock(() => Promise.resolve(false)),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   await initCommand({ path: "package.json", root: testRoot });
 
@@ -246,22 +228,18 @@ test("initCommand - should save to .pastoralistrc.json", async () => {
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock((msg: string) => {
-          if (msg.includes("config location"))
-            return Promise.resolve("external");
-          if (msg.includes("config file format"))
-            return Promise.resolve(".pastoralistrc.json");
-          return Promise.resolve("back");
-        }),
-        confirm: mock(() => Promise.resolve(false)),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock((msg: string) => {
+        if (msg.includes("config location")) return Promise.resolve("external");
+        if (msg.includes("config file format")) return Promise.resolve(".pastoralistrc.json");
+        return Promise.resolve("back");
+      }),
+      confirm: mock(() => Promise.resolve(false)),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   await initCommand({ path: testPath, isTesting: true });
   expect(createPromptSpy).toHaveBeenCalled();
@@ -290,25 +268,21 @@ test("initCommand - should prompt for overwrite if external config exists", asyn
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock((msg: string) => {
-          if (msg.includes("config location"))
-            return Promise.resolve("external");
-          if (msg.includes("config file format"))
-            return Promise.resolve(".pastoralistrc.json");
-          return Promise.resolve("back");
-        }),
-        confirm: mock((msg: string) => {
-          if (msg.includes("already exists")) return Promise.resolve(false);
-          return Promise.resolve(false);
-        }),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock((msg: string) => {
+        if (msg.includes("config location")) return Promise.resolve("external");
+        if (msg.includes("config file format")) return Promise.resolve(".pastoralistrc.json");
+        return Promise.resolve("back");
+      }),
+      confirm: mock((msg: string) => {
+        if (msg.includes("already exists")) return Promise.resolve(false);
+        return Promise.resolve(false);
+      }),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   await initCommand({ path: testPath, isTesting: true });
   expect(createPromptSpy).toHaveBeenCalled();
@@ -336,26 +310,22 @@ test("initCommand - should configure workspace mode", async () => {
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock((msg: string) => {
-          if (msg.includes("config location"))
-            return Promise.resolve("package.json");
-          if (msg.includes("workspace")) return Promise.resolve("workspace");
-          return Promise.resolve("back");
-        }),
-        confirm: mock((msg: string) => {
-          if (msg.includes("workspace dependencies"))
-            return Promise.resolve(true);
-          if (msg.includes("security")) return Promise.resolve(false);
-          return Promise.resolve(false);
-        }),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock((msg: string) => {
+        if (msg.includes("config location")) return Promise.resolve("package.json");
+        if (msg.includes("workspace")) return Promise.resolve("workspace");
+        return Promise.resolve("back");
+      }),
+      confirm: mock((msg: string) => {
+        if (msg.includes("workspace dependencies")) return Promise.resolve(true);
+        if (msg.includes("security")) return Promise.resolve(false);
+        return Promise.resolve(false);
+      }),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   const mockResolveJSON = spyOn(scripts, "resolveJSON").mockReturnValue({
     name: "test",
@@ -388,30 +358,25 @@ test("initCommand - should configure custom workspace paths", async () => {
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock((msg: string) => {
-          if (msg.includes("config location"))
-            return Promise.resolve("package.json");
-          if (msg.includes("workspace")) return Promise.resolve("custom");
-          return Promise.resolve("back");
-        }),
-        confirm: mock((msg: string) => {
-          if (msg.includes("workspace dependencies"))
-            return Promise.resolve(true);
-          if (msg.includes("security")) return Promise.resolve(false);
-          return Promise.resolve(false);
-        }),
-        input: mock((msg: string) => {
-          if (msg.includes("workspace paths"))
-            return Promise.resolve("packages/*, apps/*");
-          return Promise.resolve("");
-        }),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock((msg: string) => {
+        if (msg.includes("config location")) return Promise.resolve("package.json");
+        if (msg.includes("workspace")) return Promise.resolve("custom");
+        return Promise.resolve("back");
+      }),
+      confirm: mock((msg: string) => {
+        if (msg.includes("workspace dependencies")) return Promise.resolve(true);
+        if (msg.includes("security")) return Promise.resolve(false);
+        return Promise.resolve(false);
+      }),
+      input: mock((msg: string) => {
+        if (msg.includes("workspace paths")) return Promise.resolve("packages/*, apps/*");
+        return Promise.resolve("");
+      }),
+    };
+    return callback(mockPrompt);
+  });
 
   await initCommand({ path: testPath, isTesting: true });
   expect(createPromptSpy).toHaveBeenCalled();
@@ -438,25 +403,21 @@ test("initCommand - should handle no workspaces detected", async () => {
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock((msg: string) => {
-          if (msg.includes("config location"))
-            return Promise.resolve("package.json");
-          if (msg.includes("workspace")) return Promise.resolve("custom");
-          return Promise.resolve("back");
-        }),
-        confirm: mock((msg: string) => {
-          if (msg.includes("workspace dependencies"))
-            return Promise.resolve(true);
-          return Promise.resolve(false);
-        }),
-        input: mock(() => Promise.resolve("packages/*")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock((msg: string) => {
+        if (msg.includes("config location")) return Promise.resolve("package.json");
+        if (msg.includes("workspace")) return Promise.resolve("custom");
+        return Promise.resolve("back");
+      }),
+      confirm: mock((msg: string) => {
+        if (msg.includes("workspace dependencies")) return Promise.resolve(true);
+        return Promise.resolve(false);
+      }),
+      input: mock(() => Promise.resolve("packages/*")),
+    };
+    return callback(mockPrompt);
+  });
 
   const mockResolveJSON = spyOn(scripts, "resolveJSON").mockReturnValue({
     name: "test",
@@ -488,20 +449,18 @@ test("initCommand - should skip workspace configuration when declined", async ()
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock(() => Promise.resolve("package.json")),
-        confirm: mock((msg: string) => {
-          if (msg.includes("workspace")) return Promise.resolve(false);
-          if (msg.includes("security")) return Promise.resolve(false);
-          return Promise.resolve(false);
-        }),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock(() => Promise.resolve("package.json")),
+      confirm: mock((msg: string) => {
+        if (msg.includes("workspace")) return Promise.resolve(false);
+        if (msg.includes("security")) return Promise.resolve(false);
+        return Promise.resolve(false);
+      }),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   await initCommand({ path: testPath, isTesting: true });
   expect(createPromptSpy).toHaveBeenCalled();
@@ -528,30 +487,25 @@ test("initCommand - should configure GitHub security provider", async () => {
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock((msg: string) => {
-          if (msg.includes("config location"))
-            return Promise.resolve("package.json");
-          if (msg.includes("security provider"))
-            return Promise.resolve("github");
-          if (msg.includes("severity")) return Promise.resolve("medium");
-          return Promise.resolve("back");
-        }),
-        confirm: mock((msg: string) => {
-          if (msg.includes("workspace")) return Promise.resolve(false);
-          if (msg.includes("security vulnerability"))
-            return Promise.resolve(true);
-          if (msg.includes("interactive mode")) return Promise.resolve(true);
-          if (msg.includes("API token")) return Promise.resolve(false);
-          return Promise.resolve(false);
-        }),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock((msg: string) => {
+        if (msg.includes("config location")) return Promise.resolve("package.json");
+        if (msg.includes("security provider")) return Promise.resolve("github");
+        if (msg.includes("severity")) return Promise.resolve("medium");
+        return Promise.resolve("back");
+      }),
+      confirm: mock((msg: string) => {
+        if (msg.includes("workspace")) return Promise.resolve(false);
+        if (msg.includes("security vulnerability")) return Promise.resolve(true);
+        if (msg.includes("interactive mode")) return Promise.resolve(true);
+        if (msg.includes("API token")) return Promise.resolve(false);
+        return Promise.resolve(false);
+      }),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   await initCommand({ path: testPath, isTesting: true });
   expect(createPromptSpy).toHaveBeenCalled();
@@ -578,34 +532,29 @@ test("initCommand - should configure Snyk token environment guidance", async () 
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock((msg: string) => {
-          if (msg.includes("config location"))
-            return Promise.resolve("package.json");
-          if (msg.includes("security provider")) return Promise.resolve("snyk");
-          if (msg.includes("severity")) return Promise.resolve("high");
-          return Promise.resolve("back");
-        }),
-        confirm: mock((msg: string) => {
-          if (msg.includes("workspace")) return Promise.resolve(false);
-          if (msg.includes("security vulnerability"))
-            return Promise.resolve(true);
-          if (msg.includes("API token")) return Promise.resolve(true);
-          if (msg.includes("interactive")) return Promise.resolve(false);
-          if (msg.includes("auto-fix")) return Promise.resolve(true);
-          return Promise.resolve(false);
-        }),
-        input: mock((msg: string) => {
-          if (msg.includes("API token"))
-            return Promise.resolve("snyk-token-123");
-          return Promise.resolve("");
-        }),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock((msg: string) => {
+        if (msg.includes("config location")) return Promise.resolve("package.json");
+        if (msg.includes("security provider")) return Promise.resolve("snyk");
+        if (msg.includes("severity")) return Promise.resolve("high");
+        return Promise.resolve("back");
+      }),
+      confirm: mock((msg: string) => {
+        if (msg.includes("workspace")) return Promise.resolve(false);
+        if (msg.includes("security vulnerability")) return Promise.resolve(true);
+        if (msg.includes("API token")) return Promise.resolve(true);
+        if (msg.includes("interactive")) return Promise.resolve(false);
+        if (msg.includes("auto-fix")) return Promise.resolve(true);
+        return Promise.resolve(false);
+      }),
+      input: mock((msg: string) => {
+        if (msg.includes("API token")) return Promise.resolve("snyk-token-123");
+        return Promise.resolve("");
+      }),
+    };
+    return callback(mockPrompt);
+  });
 
   await initCommand({ path: testPath, isTesting: true });
   expect(createPromptSpy).toHaveBeenCalled();
@@ -632,34 +581,28 @@ test("initCommand - should configure Socket token environment guidance", async (
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock((msg: string) => {
-          if (msg.includes("config location"))
-            return Promise.resolve("package.json");
-          if (msg.includes("security provider"))
-            return Promise.resolve("socket");
-          if (msg.includes("severity")) return Promise.resolve("critical");
-          return Promise.resolve("back");
-        }),
-        confirm: mock((msg: string) => {
-          if (msg.includes("workspace")) return Promise.resolve(false);
-          if (msg.includes("security vulnerability"))
-            return Promise.resolve(true);
-          if (msg.includes("API token")) return Promise.resolve(true);
-          if (msg.includes("interactive")) return Promise.resolve(true);
-          return Promise.resolve(false);
-        }),
-        input: mock((msg: string) => {
-          if (msg.includes("API token"))
-            return Promise.resolve("socket-token-123");
-          return Promise.resolve("");
-        }),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock((msg: string) => {
+        if (msg.includes("config location")) return Promise.resolve("package.json");
+        if (msg.includes("security provider")) return Promise.resolve("socket");
+        if (msg.includes("severity")) return Promise.resolve("critical");
+        return Promise.resolve("back");
+      }),
+      confirm: mock((msg: string) => {
+        if (msg.includes("workspace")) return Promise.resolve(false);
+        if (msg.includes("security vulnerability")) return Promise.resolve(true);
+        if (msg.includes("API token")) return Promise.resolve(true);
+        if (msg.includes("interactive")) return Promise.resolve(true);
+        return Promise.resolve(false);
+      }),
+      input: mock((msg: string) => {
+        if (msg.includes("API token")) return Promise.resolve("socket-token-123");
+        return Promise.resolve("");
+      }),
+    };
+    return callback(mockPrompt);
+  });
 
   await initCommand({ path: testPath, isTesting: true });
   expect(createPromptSpy).toHaveBeenCalled();
@@ -686,29 +629,25 @@ test("initCommand - should handle missing token for required provider", async ()
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock((msg: string) => {
-          if (msg.includes("config location"))
-            return Promise.resolve("package.json");
-          if (msg.includes("security provider")) return Promise.resolve("snyk");
-          if (msg.includes("severity")) return Promise.resolve("medium");
-          return Promise.resolve("back");
-        }),
-        confirm: mock((msg: string) => {
-          if (msg.includes("workspace")) return Promise.resolve(false);
-          if (msg.includes("security vulnerability"))
-            return Promise.resolve(true);
-          if (msg.includes("API token")) return Promise.resolve(false);
-          if (msg.includes("interactive")) return Promise.resolve(true);
-          return Promise.resolve(false);
-        }),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock((msg: string) => {
+        if (msg.includes("config location")) return Promise.resolve("package.json");
+        if (msg.includes("security provider")) return Promise.resolve("snyk");
+        if (msg.includes("severity")) return Promise.resolve("medium");
+        return Promise.resolve("back");
+      }),
+      confirm: mock((msg: string) => {
+        if (msg.includes("workspace")) return Promise.resolve(false);
+        if (msg.includes("security vulnerability")) return Promise.resolve(true);
+        if (msg.includes("API token")) return Promise.resolve(false);
+        if (msg.includes("interactive")) return Promise.resolve(true);
+        return Promise.resolve(false);
+      }),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   await initCommand({ path: testPath, isTesting: true });
   expect(createPromptSpy).toHaveBeenCalled();
@@ -735,32 +674,28 @@ test("initCommand - should not collect token input", async () => {
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock((msg: string) => {
-          if (msg.includes("config location"))
-            return Promise.resolve("package.json");
-          if (msg.includes("security provider")) return Promise.resolve("snyk");
-          if (msg.includes("severity")) return Promise.resolve("medium");
-          return Promise.resolve("back");
-        }),
-        confirm: mock((msg: string) => {
-          if (msg.includes("workspace")) return Promise.resolve(false);
-          if (msg.includes("security vulnerability"))
-            return Promise.resolve(true);
-          if (msg.includes("API token")) return Promise.resolve(true);
-          if (msg.includes("interactive")) return Promise.resolve(true);
-          return Promise.resolve(false);
-        }),
-        input: mock((msg: string) => {
-          if (msg.includes("API token")) return Promise.resolve("");
-          return Promise.resolve("");
-        }),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock((msg: string) => {
+        if (msg.includes("config location")) return Promise.resolve("package.json");
+        if (msg.includes("security provider")) return Promise.resolve("snyk");
+        if (msg.includes("severity")) return Promise.resolve("medium");
+        return Promise.resolve("back");
+      }),
+      confirm: mock((msg: string) => {
+        if (msg.includes("workspace")) return Promise.resolve(false);
+        if (msg.includes("security vulnerability")) return Promise.resolve(true);
+        if (msg.includes("API token")) return Promise.resolve(true);
+        if (msg.includes("interactive")) return Promise.resolve(true);
+        return Promise.resolve(false);
+      }),
+      input: mock((msg: string) => {
+        if (msg.includes("API token")) return Promise.resolve("");
+        return Promise.resolve("");
+      }),
+    };
+    return callback(mockPrompt);
+  });
 
   await initCommand({ path: testPath, isTesting: true });
   expect(createPromptSpy).toHaveBeenCalled();
@@ -787,30 +722,25 @@ test("initCommand - should configure workspace security checks", async () => {
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock((msg: string) => {
-          if (msg.includes("config location"))
-            return Promise.resolve("package.json");
-          if (msg.includes("security provider")) return Promise.resolve("osv");
-          if (msg.includes("severity")) return Promise.resolve("medium");
-          return Promise.resolve("back");
-        }),
-        confirm: mock((msg: string) => {
-          if (msg.includes("workspace dependencies"))
-            return Promise.resolve(true);
-          if (msg.includes("security vulnerability"))
-            return Promise.resolve(true);
-          if (msg.includes("interactive")) return Promise.resolve(true);
-          if (msg.includes("Scan workspace")) return Promise.resolve(true);
-          return Promise.resolve(false);
-        }),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock((msg: string) => {
+        if (msg.includes("config location")) return Promise.resolve("package.json");
+        if (msg.includes("security provider")) return Promise.resolve("osv");
+        if (msg.includes("severity")) return Promise.resolve("medium");
+        return Promise.resolve("back");
+      }),
+      confirm: mock((msg: string) => {
+        if (msg.includes("workspace dependencies")) return Promise.resolve(true);
+        if (msg.includes("security vulnerability")) return Promise.resolve(true);
+        if (msg.includes("interactive")) return Promise.resolve(true);
+        if (msg.includes("Scan workspace")) return Promise.resolve(true);
+        return Promise.resolve(false);
+      }),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   const mockResolveJSON = spyOn(scripts, "resolveJSON").mockReturnValue({
     name: "test",
@@ -843,29 +773,25 @@ test("initCommand - should configure auto-fix when interactive is disabled", asy
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock((msg: string) => {
-          if (msg.includes("config location"))
-            return Promise.resolve("package.json");
-          if (msg.includes("security provider")) return Promise.resolve("osv");
-          if (msg.includes("severity")) return Promise.resolve("low");
-          return Promise.resolve("back");
-        }),
-        confirm: mock((msg: string) => {
-          if (msg.includes("workspace")) return Promise.resolve(false);
-          if (msg.includes("security vulnerability"))
-            return Promise.resolve(true);
-          if (msg.includes("interactive")) return Promise.resolve(false);
-          if (msg.includes("auto-fix")) return Promise.resolve(true);
-          return Promise.resolve(false);
-        }),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock((msg: string) => {
+        if (msg.includes("config location")) return Promise.resolve("package.json");
+        if (msg.includes("security provider")) return Promise.resolve("osv");
+        if (msg.includes("severity")) return Promise.resolve("low");
+        return Promise.resolve("back");
+      }),
+      confirm: mock((msg: string) => {
+        if (msg.includes("workspace")) return Promise.resolve(false);
+        if (msg.includes("security vulnerability")) return Promise.resolve(true);
+        if (msg.includes("interactive")) return Promise.resolve(false);
+        if (msg.includes("auto-fix")) return Promise.resolve(true);
+        return Promise.resolve(false);
+      }),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   await initCommand({ path: testPath, isTesting: true });
   expect(createPromptSpy).toHaveBeenCalled();
@@ -892,19 +818,17 @@ test("initCommand - should detect existing config in package.json", async () => 
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock(() => Promise.resolve("package.json")),
-        confirm: mock((msg: string) => {
-          if (msg.includes("Existing")) return Promise.resolve(true);
-          return Promise.resolve(false);
-        }),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock(() => Promise.resolve("package.json")),
+      confirm: mock((msg: string) => {
+        if (msg.includes("Existing")) return Promise.resolve(true);
+        return Promise.resolve(false);
+      }),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   const mockResolveJSON = spyOn(scripts, "resolveJSON").mockReturnValue({
     name: "test",
@@ -937,19 +861,17 @@ test("initCommand - should cancel when user declines overwrite", async () => {
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock(() => Promise.resolve("package.json")),
-        confirm: mock((msg: string) => {
-          if (msg.includes("Existing")) return Promise.resolve(false);
-          return Promise.resolve(false);
-        }),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock(() => Promise.resolve("package.json")),
+      confirm: mock((msg: string) => {
+        if (msg.includes("Existing")) return Promise.resolve(false);
+        return Promise.resolve(false);
+      }),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   const mockResolveJSON = spyOn(scripts, "resolveJSON").mockReturnValue({
     name: "test",
@@ -982,26 +904,21 @@ test("initCommand - should detect external config file", async () => {
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const loadExternalConfigSpy = spyOn(
-    configLoader,
-    "loadExternalConfig",
-  ).mockResolvedValue({
+  const loadExternalConfigSpy = spyOn(configLoader, "loadExternalConfig").mockResolvedValue({
     depPaths: "workspace",
   });
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock(() => Promise.resolve("package.json")),
-        confirm: mock((msg: string) => {
-          if (msg.includes("Existing")) return Promise.resolve(true);
-          return Promise.resolve(false);
-        }),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock(() => Promise.resolve("package.json")),
+      confirm: mock((msg: string) => {
+        if (msg.includes("Existing")) return Promise.resolve(true);
+        return Promise.resolve(false);
+      }),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   await initCommand({ path: testPath, isTesting: true });
   expect(createPromptSpy).toHaveBeenCalled();
@@ -1029,25 +946,22 @@ test("initCommand - should use security context with provider option", async () 
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock((msg: string) => {
-          if (msg.includes("config location"))
-            return Promise.resolve("package.json");
-          if (msg.includes("severity")) return Promise.resolve("medium");
-          return Promise.resolve("back");
-        }),
-        confirm: mock((msg: string) => {
-          if (msg.includes("API token")) return Promise.resolve(false);
-          if (msg.includes("interactive")) return Promise.resolve(true);
-          return Promise.resolve(false);
-        }),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock((msg: string) => {
+        if (msg.includes("config location")) return Promise.resolve("package.json");
+        if (msg.includes("severity")) return Promise.resolve("medium");
+        return Promise.resolve("back");
+      }),
+      confirm: mock((msg: string) => {
+        if (msg.includes("API token")) return Promise.resolve(false);
+        if (msg.includes("interactive")) return Promise.resolve(true);
+        return Promise.resolve(false);
+      }),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   await initCommand({
     path: testPath,
@@ -1078,27 +992,24 @@ test("initCommand - should handle security context with workspace checks", async
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock((msg: string) => {
-          if (msg.includes("config location"))
-            return Promise.resolve("package.json");
-          if (msg.includes("security provider")) return Promise.resolve("osv");
-          if (msg.includes("severity")) return Promise.resolve("medium");
-          return Promise.resolve("back");
-        }),
-        confirm: mock((msg: string) => {
-          if (msg.includes("workspace")) return Promise.resolve(true);
-          if (msg.includes("interactive")) return Promise.resolve(true);
-          if (msg.includes("Scan workspace")) return Promise.resolve(true);
-          return Promise.resolve(false);
-        }),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock((msg: string) => {
+        if (msg.includes("config location")) return Promise.resolve("package.json");
+        if (msg.includes("security provider")) return Promise.resolve("osv");
+        if (msg.includes("severity")) return Promise.resolve("medium");
+        return Promise.resolve("back");
+      }),
+      confirm: mock((msg: string) => {
+        if (msg.includes("workspace")) return Promise.resolve(true);
+        if (msg.includes("interactive")) return Promise.resolve(true);
+        if (msg.includes("Scan workspace")) return Promise.resolve(true);
+        return Promise.resolve(false);
+      }),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   const mockResolveJSON = spyOn(scripts, "resolveJSON").mockReturnValue({
     name: "test",
@@ -1136,32 +1047,26 @@ test("initCommand - should create complete config with all features enabled", as
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock((msg: string) => {
-          if (msg.includes("config location"))
-            return Promise.resolve("package.json");
-          if (msg.includes("workspace")) return Promise.resolve("workspace");
-          if (msg.includes("security provider"))
-            return Promise.resolve("github");
-          if (msg.includes("severity")) return Promise.resolve("critical");
-          return Promise.resolve("back");
-        }),
-        confirm: mock((msg: string) => {
-          if (msg.includes("workspace dependencies"))
-            return Promise.resolve(true);
-          if (msg.includes("security vulnerability"))
-            return Promise.resolve(true);
-          if (msg.includes("interactive")) return Promise.resolve(true);
-          if (msg.includes("Scan workspace")) return Promise.resolve(true);
-          return Promise.resolve(false);
-        }),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock((msg: string) => {
+        if (msg.includes("config location")) return Promise.resolve("package.json");
+        if (msg.includes("workspace")) return Promise.resolve("workspace");
+        if (msg.includes("security provider")) return Promise.resolve("github");
+        if (msg.includes("severity")) return Promise.resolve("critical");
+        return Promise.resolve("back");
+      }),
+      confirm: mock((msg: string) => {
+        if (msg.includes("workspace dependencies")) return Promise.resolve(true);
+        if (msg.includes("security vulnerability")) return Promise.resolve(true);
+        if (msg.includes("interactive")) return Promise.resolve(true);
+        if (msg.includes("Scan workspace")) return Promise.resolve(true);
+        return Promise.resolve(false);
+      }),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   const mockResolveJSON = spyOn(scripts, "resolveJSON").mockReturnValue({
     name: "test",
@@ -1194,16 +1099,14 @@ test("initCommand - should create minimal config", async () => {
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock(() => Promise.resolve("package.json")),
-        confirm: mock(() => Promise.resolve(false)),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock(() => Promise.resolve("package.json")),
+      confirm: mock(() => Promise.resolve(false)),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   await initCommand({ path: testPath, isTesting: true });
   expect(createPromptSpy).toHaveBeenCalled();
@@ -1230,16 +1133,14 @@ test("initCommand - should handle missing package.json gracefully", async () => 
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock(() => Promise.resolve("package.json")),
-        confirm: mock(() => Promise.resolve(false)),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock(() => Promise.resolve("package.json")),
+      confirm: mock(() => Promise.resolve(false)),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   const mockResolveJSON = spyOn(scripts, "resolveJSON").mockReturnValue(null);
 
@@ -1269,25 +1170,22 @@ test("initCommand - should handle snyk provider token info", async () => {
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock((msg: string) => {
-          if (msg.includes("config location"))
-            return Promise.resolve("package.json");
-          if (msg.includes("security provider")) return Promise.resolve("snyk");
-          if (msg.includes("severity")) return Promise.resolve("medium");
-          return Promise.resolve("back");
-        }),
-        confirm: mock((msg: string) => {
-          if (msg.includes("token")) return Promise.resolve(false);
-          return Promise.resolve(false);
-        }),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock((msg: string) => {
+        if (msg.includes("config location")) return Promise.resolve("package.json");
+        if (msg.includes("security provider")) return Promise.resolve("snyk");
+        if (msg.includes("severity")) return Promise.resolve("medium");
+        return Promise.resolve("back");
+      }),
+      confirm: mock((msg: string) => {
+        if (msg.includes("token")) return Promise.resolve(false);
+        return Promise.resolve(false);
+      }),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   await initCommand({ path: testPath, checkSecurity: true, isTesting: true });
   expect(createPromptSpy).toHaveBeenCalled();
@@ -1314,26 +1212,22 @@ test("initCommand - should handle socket provider token info", async () => {
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock((msg: string) => {
-          if (msg.includes("config location"))
-            return Promise.resolve("package.json");
-          if (msg.includes("security provider"))
-            return Promise.resolve("socket");
-          if (msg.includes("severity")) return Promise.resolve("medium");
-          return Promise.resolve("back");
-        }),
-        confirm: mock((msg: string) => {
-          if (msg.includes("token")) return Promise.resolve(false);
-          return Promise.resolve(false);
-        }),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock((msg: string) => {
+        if (msg.includes("config location")) return Promise.resolve("package.json");
+        if (msg.includes("security provider")) return Promise.resolve("socket");
+        if (msg.includes("severity")) return Promise.resolve("medium");
+        return Promise.resolve("back");
+      }),
+      confirm: mock((msg: string) => {
+        if (msg.includes("token")) return Promise.resolve(false);
+        return Promise.resolve(false);
+      }),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   await initCommand({ path: testPath, checkSecurity: true, isTesting: true });
   expect(createPromptSpy).toHaveBeenCalled();
@@ -1360,26 +1254,22 @@ test("initCommand - should continue when token environment is confirmed", async 
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock((msg: string) => {
-          if (msg.includes("config location"))
-            return Promise.resolve("package.json");
-          if (msg.includes("security provider"))
-            return Promise.resolve("github");
-          if (msg.includes("severity")) return Promise.resolve("medium");
-          return Promise.resolve("back");
-        }),
-        confirm: mock((msg: string) => {
-          if (msg.includes("token")) return Promise.resolve(true);
-          return Promise.resolve(false);
-        }),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock((msg: string) => {
+        if (msg.includes("config location")) return Promise.resolve("package.json");
+        if (msg.includes("security provider")) return Promise.resolve("github");
+        if (msg.includes("severity")) return Promise.resolve("medium");
+        return Promise.resolve("back");
+      }),
+      confirm: mock((msg: string) => {
+        if (msg.includes("token")) return Promise.resolve(true);
+        return Promise.resolve(false);
+      }),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   await initCommand({ path: testPath, checkSecurity: true, isTesting: true });
   expect(createPromptSpy).toHaveBeenCalled();
@@ -1406,26 +1296,22 @@ test("initCommand - should ignore raw token input mocks", async () => {
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock((msg: string) => {
-          if (msg.includes("config location"))
-            return Promise.resolve("package.json");
-          if (msg.includes("security provider"))
-            return Promise.resolve("github");
-          if (msg.includes("severity")) return Promise.resolve("medium");
-          return Promise.resolve("back");
-        }),
-        confirm: mock((msg: string) => {
-          if (msg.includes("token")) return Promise.resolve(true);
-          return Promise.resolve(false);
-        }),
-        input: mock(() => Promise.resolve("ghp_test_token_12345")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock((msg: string) => {
+        if (msg.includes("config location")) return Promise.resolve("package.json");
+        if (msg.includes("security provider")) return Promise.resolve("github");
+        if (msg.includes("severity")) return Promise.resolve("medium");
+        return Promise.resolve("back");
+      }),
+      confirm: mock((msg: string) => {
+        if (msg.includes("token")) return Promise.resolve(true);
+        return Promise.resolve(false);
+      }),
+      input: mock(() => Promise.resolve("ghp_test_token_12345")),
+    };
+    return callback(mockPrompt);
+  });
 
   await initCommand({ path: testPath, checkSecurity: true, isTesting: true });
   expect(createPromptSpy).toHaveBeenCalled();
@@ -1453,20 +1339,16 @@ test("initCommand - enhanced UI integration with formatCompletion", async () => 
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
   const formatCompletionSpy = spyOn(dxPrompts, "formatCompletion");
-  const shimmerFrameSpy = spyOn(shimmer, "shimmerFrame").mockReturnValue(
-    "shimmered text",
-  );
+  const shimmerFrameSpy = spyOn(shimmer, "shimmerFrame").mockReturnValue("shimmered text");
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock(() => Promise.resolve("package.json")),
-        confirm: mock(() => Promise.resolve(false)),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock(() => Promise.resolve("package.json")),
+      confirm: mock(() => Promise.resolve(false)),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   await initCommand({ path: testPath, isTesting: true });
 
@@ -1497,22 +1379,18 @@ test("initCommand - enhanced UI with security enabled shows correct next steps",
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock((msg: string) => {
-          if (msg.includes("config location"))
-            return Promise.resolve("package.json");
-          if (msg.includes("security provider"))
-            return Promise.resolve("github");
-          return Promise.resolve("back");
-        }),
-        confirm: mock(() => Promise.resolve(true)),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock((msg: string) => {
+        if (msg.includes("config location")) return Promise.resolve("package.json");
+        if (msg.includes("security provider")) return Promise.resolve("github");
+        return Promise.resolve("back");
+      }),
+      confirm: mock(() => Promise.resolve(true)),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   await initCommand({ path: testPath, checkSecurity: true, isTesting: true });
 
@@ -1540,16 +1418,14 @@ test("initCommand - enhanced prompts use formatted UI components", async () => {
   };
   const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(
-    async (callback) => {
-      const mockPrompt = {
-        list: mock(() => Promise.resolve("package.json")),
-        confirm: mock(() => Promise.resolve(false)),
-        input: mock(() => Promise.resolve("")),
-      };
-      return callback(mockPrompt);
-    },
-  );
+  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+    const mockPrompt = {
+      list: mock(() => Promise.resolve("package.json")),
+      confirm: mock(() => Promise.resolve(false)),
+      input: mock(() => Promise.resolve("")),
+    };
+    return callback(mockPrompt);
+  });
 
   await initCommand({ path: testPath, isTesting: true });
 

@@ -1,5 +1,11 @@
 import type { SecurityProvider, SeverityThreshold } from "../../../config";
 
+export type InitConfigFormat =
+  | ".pastoralistrc.json"
+  | "pastoralist.config.cjs"
+  | "pastoralist.config.js"
+  | "pastoralist.config.mjs";
+
 export interface InitOptions {
   path?: string;
   root?: string;
@@ -11,11 +17,7 @@ export interface InitOptions {
 
 export interface InitAnswers {
   configLocation: "package.json" | "external";
-  configFormat?:
-    | ".pastoralistrc.json"
-    | "pastoralist.config.cjs"
-    | "pastoralist.config.js"
-    | "pastoralist.config.mjs";
+  configFormat?: InitConfigFormat;
   setupWorkspaces: boolean;
   workspaceType?: "workspace" | "custom";
   customWorkspacePaths?: string[];
@@ -25,4 +27,25 @@ export interface InitAnswers {
   securityAutoFix?: boolean;
   severityThreshold?: SeverityThreshold;
   hasWorkspaceSecurityChecks?: boolean;
+}
+
+export interface InitWizardContext {
+  hasSecurityContext: boolean;
+  hasWorkspaceContext: boolean;
+  hasFocusedContext: boolean;
+  root: string;
+  path: string;
+}
+
+export interface TokenInfo {
+  required: boolean;
+  optional: boolean;
+  createUrl?: string;
+  envVar?: string;
+  scopes?: string[];
+}
+
+export interface SecurityPromptOptions {
+  askWorkspaceSecurity: boolean;
+  selectProvider: boolean;
 }

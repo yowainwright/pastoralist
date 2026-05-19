@@ -69,14 +69,10 @@ async function postprocessEpisode(episodeDir: string): Promise<void> {
   const video = await readMediaInfo(demoPath);
   const voice = await readMediaInfo(voicePath);
   const cast = await readCast(castPath);
-  const highlights = selectHighlights(
-    detectHighlights(cast, video, voice.duration),
-  );
+  const highlights = selectHighlights(detectHighlights(cast, video, voice.duration));
 
   if (highlights.length === 0) {
-    console.log(
-      `${slug}: no highlight candidates found; rebuilding with speed only`,
-    );
+    console.log(`${slug}: no highlight candidates found; rebuilding with speed only`);
   } else {
     console.log(
       `${slug}: ${highlights.length} highlights, ${voice.duration.toFixed(2)}s -> ${(
@@ -125,11 +121,7 @@ async function postprocessEpisode(episodeDir: string): Promise<void> {
   await rename(tmpPath, outputPath);
 }
 
-function buildFilter(
-  video: MediaInfo,
-  voiceDuration: number,
-  highlights: Highlight[],
-): string {
+function buildFilter(video: MediaInfo, voiceDuration: number, highlights: Highlight[]): string {
   const parts: string[] = [
     `[0:v]tpad=stop_mode=clone:stop_duration=${formatSeconds(voiceDuration)},trim=duration=${formatSeconds(
       voiceDuration,
@@ -154,9 +146,7 @@ function buildFilter(
         start,
       )}:d=0.25:alpha=1,fade=t=out:st=${formatSeconds(end)}:d=0.25:alpha=1[${source}]`,
     );
-    parts.push(
-      `[${previous}][${source}]overlay=x=${box.x}:y=${box.y}:eof_action=pass[${next}]`,
-    );
+    parts.push(`[${previous}][${source}]overlay=x=${box.x}:y=${box.y}:eof_action=pass[${next}]`);
     previous = next;
   });
 
@@ -165,11 +155,7 @@ function buildFilter(
   return parts.join(";");
 }
 
-function detectHighlights(
-  cast: CastEvent[],
-  video: MediaInfo,
-  voiceDuration: number,
-): Highlight[] {
+function detectHighlights(cast: CastEvent[], video: MediaInfo, voiceDuration: number): Highlight[] {
   const rows = 24;
   const cols = 80;
   const terminal = createTerminal(rows, cols);
@@ -221,10 +207,7 @@ function selectHighlights(highlights: Highlight[]): Highlight[] {
 
   for (const highlight of highlights.sort((a, b) => a.time - b.time)) {
     const last = groups.at(-1);
-    if (
-      last === undefined ||
-      highlight.time - last.time >= MIN_HIGHLIGHT_GAP_SECONDS
-    ) {
+    if (last === undefined || highlight.time - last.time >= MIN_HIGHLIGHT_GAP_SECONDS) {
       groups.push(highlight);
     } else if (highlight.score > last.score) {
       groups[groups.length - 1] = highlight;
@@ -258,18 +241,10 @@ function scoreLine(line: string): { score: number; color: Highlight["color"] } {
     score += 8;
     color = "amber";
   }
-  if (
-    /("overrides"|"resolutions"|"pnpm\.overrides"|override|overrides)/i.test(
-      text,
-    )
-  ) {
+  if (/("overrides"|"resolutions"|"pnpm\.overrides"|override|overrides)/i.test(text)) {
     score += 8;
   }
-  if (
-    /(appendix|ledger|security|vulnerab|CVE|severity|patchedVersion)/i.test(
-      text,
-    )
-  ) {
+  if (/(appendix|ledger|security|vulnerab|CVE|severity|patchedVersion)/i.test(text)) {
     score += 7;
   }
   if (
@@ -280,9 +255,7 @@ function scoreLine(line: string): { score: number; color: Highlight["color"] } {
     score += 4;
   }
   if (
-    /(postinstall|setup hook|scripts before|scripts after|already configured|dry-run)/i.test(
-      text,
-    )
+    /(postinstall|setup hook|scripts before|scripts after|already configured|dry-run)/i.test(text)
   ) {
     score += 7;
   }
@@ -314,11 +287,7 @@ function lineBox(
     )
   ) {
     const maxRows = score >= 14 ? 7 : 4;
-    for (
-      let index = row + 1;
-      index < Math.min(lines.length, row + maxRows);
-      index += 1
-    ) {
+    for (let index = row + 1; index < Math.min(lines.length, row + maxRows); index += 1) {
       const text = lines[index].trimEnd();
       if (text.trim().length === 0) {
         break;
@@ -345,26 +314,10 @@ function toPixelBox(
 ): { x: number; y: number; width: number; height: number } {
   const cellWidth = video.width / 80;
   const cellHeight = video.height / 24;
-  const x = clamp(
-    Math.floor(highlight.col * cellWidth) - 4,
-    0,
-    video.width - 2,
-  );
-  const y = clamp(
-    Math.floor(highlight.row * cellHeight) + 2,
-    0,
-    video.height - 2,
-  );
-  const width = clamp(
-    Math.ceil(highlight.cols * cellWidth) + 10,
-    32,
-    video.width - x,
-  );
-  const height = clamp(
-    Math.ceil(highlight.rows * cellHeight) - 2,
-    18,
-    video.height - y,
-  );
+  const x = clamp(Math.floor(highlight.col * cellWidth) - 4, 0, video.width - 2);
+  const y = clamp(Math.floor(highlight.row * cellHeight) + 2, 0, video.height - 2);
+  const width = clamp(Math.ceil(highlight.cols * cellWidth) + 10, 32, video.width - x);
+  const height = clamp(Math.ceil(highlight.rows * cellHeight) - 2, 18, video.height - y);
   return { x, y, width, height };
 }
 
@@ -420,9 +373,7 @@ function createTerminal(
   rows: number,
   cols: number,
 ): { write: (text: string) => void; lines: () => string[] } {
-  const screen = Array.from({ length: rows }, () =>
-    Array.from({ length: cols }, () => " "),
-  );
+  const screen = Array.from({ length: rows }, () => Array.from({ length: cols }, () => " "));
   let row = 0;
   let col = 0;
 
@@ -449,15 +400,7 @@ function createTerminal(
       for (let index = 0; index < text.length; index += 1) {
         const char = text[index];
         if (char === "\x1b") {
-          const next = parseEscapeSequence(
-            text,
-            index,
-            screen,
-            rows,
-            cols,
-            row,
-            col,
-          );
+          const next = parseEscapeSequence(text, index, screen, rows, cols, row, col);
           index = next.index;
           row = next.row;
           col = next.col;
@@ -509,9 +452,7 @@ function parseEscapeSequence(
     index += 1;
   }
 
-  const params = paramStr
-    .split(";")
-    .map((p) => (p === "" ? 1 : parseInt(p, 10)));
+  const params = paramStr.split(";").map((p) => (p === "" ? 1 : parseInt(p, 10)));
   const n = params[0] ?? 1;
   const cmd = text[index];
 
@@ -571,10 +512,7 @@ function parseArgs(values: string[]): Record<string, string | undefined> {
   return parsed;
 }
 
-async function run(
-  command: string,
-  args: string[],
-): Promise<{ stdout: string; stderr: string }> {
+async function run(command: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
   const proc = Bun.spawn([command, ...args], {
     stdout: "pipe",
     stderr: "pipe",
@@ -586,9 +524,7 @@ async function run(
   ]);
 
   if (code !== 0) {
-    throw new Error(
-      `${command} ${args.join(" ")} failed with ${code}\n${stderr}`,
-    );
+    throw new Error(`${command} ${args.join(" ")} failed with ${code}\n${stderr}`);
   }
 
   return { stdout, stderr };

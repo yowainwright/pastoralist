@@ -56,9 +56,7 @@ test("constructor - initializes with owner and repo", () => {
 test("convertToSecurityAlerts - converts Dependabot alerts to SecurityAlerts", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
-  const dependabotAlerts: DependabotAlert[] = [
-    MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert,
-  ];
+  const dependabotAlerts: DependabotAlert[] = [MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert];
 
   const alerts = provider.convertToSecurityAlerts(dependabotAlerts);
 
@@ -185,8 +183,7 @@ test("convertToSecurityAlerts - filters non-npm alerts when ecosystem is known",
       package: { ecosystem: "pip", name: "lodash" },
     },
     security_vulnerability: {
-      ...(MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert)
-        .security_vulnerability,
+      ...(MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert).security_vulnerability,
       package: { ecosystem: "pip", name: "lodash" },
     },
   };
@@ -233,9 +230,7 @@ test("convertToSecurityAlerts - maps fields correctly", () => {
   expect(alerts[0].title).toBe("Security Issue");
   expect(alerts[0].description).toBe("Detailed description");
   expect(alerts[0].cves?.[0]).toBe("CVE-2024-1234");
-  expect(alerts[0].url).toBe(
-    "https://github.com/test/test/security/dependabot/1",
-  );
+  expect(alerts[0].url).toBe("https://github.com/test/test/security/dependabot/1");
   expect(alerts[0].fixAvailable).toBe(true);
 });
 
@@ -339,18 +334,14 @@ test("isGitHubUrl - detects SSH GitHub URL", () => {
 test("isGitHubUrl - detects HTTPS GitHub URL", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
-  const result = (provider as any).isGitHubUrl(
-    "https://github.com/user/repo.git",
-  );
+  const result = (provider as any).isGitHubUrl("https://github.com/user/repo.git");
   expect(result).toBe(true);
 });
 
 test("isGitHubUrl - rejects non-GitHub URL", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
-  const result = (provider as any).isGitHubUrl(
-    "https://gitlab.com/user/repo.git",
-  );
+  const result = (provider as any).isGitHubUrl("https://gitlab.com/user/repo.git");
   expect(result).toBe(false);
 });
 
@@ -364,9 +355,7 @@ test("isGitHubUrl - rejects invalid URL", () => {
 test("isGitHubUrl - handles HTTP GitHub URL", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
-  const result = (provider as any).isGitHubUrl(
-    "http://github.com/user/repo.git",
-  );
+  const result = (provider as any).isGitHubUrl("http://github.com/user/repo.git");
   expect(result).toBe(true);
 });
 
@@ -441,9 +430,7 @@ test("getDefaultMockAlerts - includes lodash alert", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
   const alerts = (provider as any).getDefaultMockAlerts();
-  const lodashAlert = alerts.find(
-    (a: DependabotAlert) => a.dependency.package.name === "lodash",
-  );
+  const lodashAlert = alerts.find((a: DependabotAlert) => a.dependency.package.name === "lodash");
   expect(lodashAlert).toBeDefined();
 });
 
@@ -640,8 +627,7 @@ test("fetchMockAlerts - returns empty when not forcing vulnerable", async () => 
   if (originalMock) process.env[SECURITY_ENV_VARS.MOCK_MODE] = originalMock;
   else delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
 
-  if (originalForce)
-    process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE] = originalForce;
+  if (originalForce) process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE] = originalForce;
 });
 
 test("fetchMockAlerts - returns alerts when forcing vulnerable", async () => {
@@ -664,8 +650,7 @@ test("fetchMockAlerts - returns alerts when forcing vulnerable", async () => {
   if (originalMock) process.env[SECURITY_ENV_VARS.MOCK_MODE] = originalMock;
   else delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
 
-  if (originalForce)
-    process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE] = originalForce;
+  if (originalForce) process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE] = originalForce;
   else delete process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE];
 });
 
@@ -691,8 +676,7 @@ test("getMockVulnerableAlerts - uses default when no mock file", async () => {
   if (originalMock) process.env[SECURITY_ENV_VARS.MOCK_MODE] = originalMock;
   else delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
 
-  if (originalForce)
-    process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE] = originalForce;
+  if (originalForce) process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE] = originalForce;
   else delete process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE];
 
   if (originalFile) process.env[SECURITY_ENV_VARS.MOCK_FILE] = originalFile;
@@ -857,9 +841,7 @@ test("fetchRealAlerts - API path throws wrapped error on failure", async () => {
     throw new Error("Failed to fetch Dependabot alerts: API error");
   };
 
-  await expect(provider["fetchRealAlerts"]()).rejects.toThrow(
-    "Failed to fetch Dependabot alerts",
-  );
+  await expect(provider["fetchRealAlerts"]()).rejects.toThrow("Failed to fetch Dependabot alerts");
 
   if (originalMock) process.env[SECURITY_ENV_VARS.MOCK_MODE] = originalMock;
 });
@@ -882,9 +864,7 @@ test("fetchRealAlerts - CLI path throws wrapped error on failure", async () => {
     throw new Error("Failed to fetch Dependabot alerts: CLI error");
   };
 
-  await expect(provider["fetchRealAlerts"]()).rejects.toThrow(
-    "Failed to fetch Dependabot alerts",
-  );
+  await expect(provider["fetchRealAlerts"]()).rejects.toThrow("Failed to fetch Dependabot alerts");
 
   if (originalMock) process.env[SECURITY_ENV_VARS.MOCK_MODE] = originalMock;
   if (originalToken) process.env.GITHUB_TOKEN = originalToken;
@@ -941,9 +921,7 @@ test("isPermissionError - detects 'Resource not accessible by integration' error
     debug: false,
   });
 
-  expect(
-    provider["isPermissionError"]("Resource not accessible by integration"),
-  ).toBe(true);
+  expect(provider["isPermissionError"]("Resource not accessible by integration")).toBe(true);
 });
 
 test("isPermissionError - detects 'Must have admin rights' error", () => {
@@ -973,9 +951,7 @@ test("isPermissionError - detects 'Dependabot alerts are not enabled' error", ()
     debug: false,
   });
 
-  expect(
-    provider["isPermissionError"]("Dependabot alerts are not enabled"),
-  ).toBe(true);
+  expect(provider["isPermissionError"]("Dependabot alerts are not enabled")).toBe(true);
 });
 
 test("isPermissionError - detects 'vulnerability alerts are disabled' error", () => {
@@ -985,9 +961,7 @@ test("isPermissionError - detects 'vulnerability alerts are disabled' error", ()
     debug: false,
   });
 
-  expect(
-    provider["isPermissionError"]("vulnerability alerts are disabled"),
-  ).toBe(true);
+  expect(provider["isPermissionError"]("vulnerability alerts are disabled")).toBe(true);
 });
 
 test("isPermissionError - is case insensitive", () => {
@@ -997,12 +971,8 @@ test("isPermissionError - is case insensitive", () => {
     debug: false,
   });
 
-  expect(
-    provider["isPermissionError"]("RESOURCE NOT ACCESSIBLE BY INTEGRATION"),
-  ).toBe(true);
-  expect(
-    provider["isPermissionError"]("resource not accessible by integration"),
-  ).toBe(true);
+  expect(provider["isPermissionError"]("RESOURCE NOT ACCESSIBLE BY INTEGRATION")).toBe(true);
+  expect(provider["isPermissionError"]("resource not accessible by integration")).toBe(true);
 });
 
 test("isPermissionError - returns false for non-permission errors", () => {
@@ -1030,9 +1000,7 @@ test("fetchAlertsWithGhCli - throws SecurityProviderPermissionError for permissi
     throw new Error("Resource not accessible by integration");
   };
 
-  await expect(provider["fetchAlertsWithGhCli"]()).rejects.toThrow(
-    SecurityProviderPermissionError,
-  );
+  await expect(provider["fetchAlertsWithGhCli"]()).rejects.toThrow(SecurityProviderPermissionError);
 });
 
 test("fetchAlertsWithApi - throws SecurityProviderPermissionError for permission errors", async () => {
@@ -1046,15 +1014,10 @@ test("fetchAlertsWithApi - throws SecurityProviderPermissionError for permission
   });
 
   provider["fetchFromGitHubAPI"] = async () => {
-    throw new SecurityProviderPermissionError(
-      "GitHub",
-      "Resource not accessible by integration",
-    );
+    throw new SecurityProviderPermissionError("GitHub", "Resource not accessible by integration");
   };
 
-  await expect(provider["fetchAlertsWithApi"]()).rejects.toThrow(
-    SecurityProviderPermissionError,
-  );
+  await expect(provider["fetchAlertsWithApi"]()).rejects.toThrow(SecurityProviderPermissionError);
 });
 
 test("SecurityProviderPermissionError - has correct message format", async () => {
@@ -1078,10 +1041,7 @@ test("SecurityProviderPermissionError - provides guidance for disabled alerts", 
   const { SecurityProviderPermissionError } =
     await import("../../../../../src/core/security/types");
 
-  const error = new SecurityProviderPermissionError(
-    "GitHub",
-    "Dependabot alerts are not enabled",
-  );
+  const error = new SecurityProviderPermissionError("GitHub", "Dependabot alerts are not enabled");
 
   expect(error.message).toContain("Enable Dependabot alerts");
   expect(error.message).toContain("Settings > Code security");
@@ -1100,10 +1060,7 @@ test("SecurityProviderPermissionError - provides fallback guidance for unknown e
   const { SecurityProviderPermissionError } =
     await import("../../../../../src/core/security/types");
 
-  const error = new SecurityProviderPermissionError(
-    "GitHub",
-    "Some other error",
-  );
+  const error = new SecurityProviderPermissionError("GitHub", "Some other error");
 
   expect(error.message).toContain("Check repository permissions");
 });
@@ -1139,9 +1096,7 @@ test("fetchFromGitHubAPI - throws SecurityProviderPermissionError for permission
   global.fetch = async () => mockResponse as Response;
 
   try {
-    await expect(provider["fetchFromGitHubAPI"]()).rejects.toThrow(
-      SecurityProviderPermissionError,
-    );
+    await expect(provider["fetchFromGitHubAPI"]()).rejects.toThrow(SecurityProviderPermissionError);
   } finally {
     global.fetch = originalFetch;
   }
@@ -1191,9 +1146,7 @@ test("fetchFromGitHubAPI - uses statusText when message is missing", async () =>
   global.fetch = async () => mockResponse as Response;
 
   try {
-    await expect(provider["fetchFromGitHubAPI"]()).rejects.toThrow(
-      "GitHub API error: Bad Request",
-    );
+    await expect(provider["fetchFromGitHubAPI"]()).rejects.toThrow("GitHub API error: Bad Request");
   } finally {
     global.fetch = originalFetch;
   }
@@ -1264,9 +1217,7 @@ test("fetchAlertsWithGhCli - does not retry on permission error", async () => {
     throw new Error("Resource not accessible by integration");
   };
 
-  await expect(provider["fetchAlertsWithGhCli"]()).rejects.toThrow(
-    SecurityProviderPermissionError,
-  );
+  await expect(provider["fetchAlertsWithGhCli"]()).rejects.toThrow(SecurityProviderPermissionError);
 
   expect(callCount).toBe(1);
 });
@@ -1285,15 +1236,10 @@ test("fetchAlertsWithApi - does not retry on permission error", async () => {
   let callCount = 0;
   provider["fetchFromGitHubAPI"] = async () => {
     callCount++;
-    throw new SecurityProviderPermissionError(
-      "GitHub",
-      "Resource not accessible by integration",
-    );
+    throw new SecurityProviderPermissionError("GitHub", "Resource not accessible by integration");
   };
 
-  await expect(provider["fetchAlertsWithApi"]()).rejects.toThrow(
-    SecurityProviderPermissionError,
-  );
+  await expect(provider["fetchAlertsWithApi"]()).rejects.toThrow(SecurityProviderPermissionError);
 
   expect(callCount).toBe(1);
 });
@@ -1536,8 +1482,6 @@ test("executeGhCli - uses correct API endpoint", async () => {
   await provider["executeGhCli"]();
 
   expect(capturedArgs).toContain("api");
-  expect(capturedArgs).toContain(
-    "repos/yowainwright/pastoralist/dependabot/alerts",
-  );
+  expect(capturedArgs).toContain("repos/yowainwright/pastoralist/dependabot/alerts");
   expect(capturedArgs).toContain("--paginate");
 });

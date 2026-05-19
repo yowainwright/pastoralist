@@ -1,6 +1,9 @@
 import { IS_DEBUGGING } from "../constants";
 import type {
   Appendix,
+  CleanupUnusedOverridesContext,
+  CleanupUnusedOverridesResult,
+  OverrideRemovalUpdater,
   OverridesType,
   ResolveOverrides,
   Options,
@@ -9,14 +12,11 @@ import type {
 import type { Logger } from "../utils";
 import { logger } from "../utils";
 import { resolveJSON, getDependencyTree } from "./packageJSON";
-import { mergeAppendixDependents } from "./appendix/utils";
+import { extractPackageNames, mergeAppendixDependents } from "./appendix/utils";
 
 const log = logger({ file: "workspace.ts", isLogging: IS_DEBUGGING });
 
-const isPackageInRootDeps = (
-  packageName: string,
-  rootDeps: Record<string, string>,
-): boolean => {
+const isPackageInRootDeps = (packageName: string, rootDeps: Record<string, string>): boolean => {
   return Boolean(rootDeps[packageName]);
 };
 
@@ -27,11 +27,9 @@ const findMissingPackages = (
   return overridesList.filter((pkg) => !isPackageInRootDeps(pkg, rootDeps));
 };
 
-const shouldShowMonorepoInfo = (
-  missingCount: number,
-  hasDepPaths: boolean,
-): boolean => {
-  return missingCount > 0 && !hasDepPaths;
+const shouldShowMonorepoInfo = (missingCount: number, hasDepPaths: boolean): boolean => {
+  if (missingCount <= 0) return false;
+  return !hasDepPaths;
 };
 
 export const checkMonorepoOverrides = (
@@ -43,10 +41,7 @@ export const checkMonorepoOverrides = (
   const overridesList = Object.keys(overrides);
   const missingInRoot = findMissingPackages(overridesList, rootDeps);
   const hasDepPaths = Boolean(options?.depPaths);
-  const shouldShowInfo = shouldShowMonorepoInfo(
-    missingInRoot.length,
-    hasDepPaths,
-  );
+  const shouldShowInfo = shouldShowMonorepoInfo(missingInRoot.length, hasDepPaths);
 
   if (shouldShowInfo) {
     logInstance.debug(
@@ -69,16 +64,10 @@ const collectPackageDependencies = (
   const devDependencies = packageConfig?.devDependencies || {};
   const peerDependencies = packageConfig?.peerDependencies || {};
 
-  return {
-    ...dependencies,
-    ...devDependencies,
-    ...peerDependencies,
-  };
+  return Object.assign({}, dependencies, devDependencies, peerDependencies);
 };
 
-const aggregateWorkspaceDependencies = (
-  packageJsonFiles: string[],
-): Record<string, string> => {
+const aggregateWorkspaceDependencies = (packageJsonFiles: string[]): Record<string, string> => {
   const packageConfigs = packageJsonFiles
     .map((packagePath) => resolveJSON(packagePath))
     .filter(Boolean);
@@ -97,17 +86,9 @@ export const processWorkspacePackages = (
   packageJsonFiles: string[],
   overridesData: ResolveOverrides,
   logInstance: Logger,
-  constructAppendix: (
-    files: string[],
-    data: ResolveOverrides,
-    log: Logger,
-  ) => Appendix,
+  constructAppendix: (files: string[], data: ResolveOverrides, log: Logger) => Appendix,
 ): { appendix: Appendix; allWorkspaceDeps: Record<string, string> } => {
-  const appendix = constructAppendix(
-    packageJsonFiles,
-    overridesData,
-    logInstance,
-  );
+  const appendix = constructAppendix(packageJsonFiles, overridesData, logInstance);
   const allWorkspaceDeps = aggregateWorkspaceDependencies(packageJsonFiles);
 
   return { appendix, allWorkspaceDeps };
@@ -122,6 +103,13 @@ const canMergeOverridePaths = (
   return hasOverridePaths && hasMissingPackages;
 };
 
+const mergePathAppendix = (appendix: Appendix, pathAppendix: Appendix): Appendix => {
+  return Object.entries(pathAppendix).reduce(
+    (inner, [key, value]) => mergeAppendixDependents(inner, key, value),
+    appendix,
+  );
+};
+
 export const mergeOverridePaths = (
   appendix: Appendix,
   overridePaths: Record<string, Appendix> | undefined,
@@ -132,32 +120,17 @@ export const mergeOverridePaths = (
 
   if (!canMerge) return appendix;
 
-  logInstance.debug(
-    `Using overridePaths configuration for monorepo support`,
-    "mergeOverridePaths",
-  );
+  logInstance.debug(`Using overridePaths configuration for monorepo support`, "mergeOverridePaths");
 
-  return Object.values(overridePaths!).reduce(
-    (acc, pathAppendix) =>
-      Object.entries(pathAppendix).reduce(
-        (inner, [key, value]) => mergeAppendixDependents(inner, key, value),
-        acc,
-      ),
-    appendix,
-  );
+  return Object.values(overridePaths!).reduce(mergePathAppendix, appendix);
 };
 
-const isNestedOverride = (
-  packageName: string,
-  overrides: OverridesType,
-): boolean => {
-  return typeof overrides[packageName] === "object";
+const isNestedOverride = (packageName: string, overrides: OverridesType): boolean => {
+  const isNested = typeof overrides[packageName] === "object";
+  return isNested;
 };
 
-const isInDirectDeps = (
-  packageName: string,
-  allDependencies: Record<string, string>,
-): boolean => {
+const isInDirectDeps = (packageName: string, allDependencies: Record<string, string>): boolean => {
   return Boolean(allDependencies[packageName]);
 };
 
@@ -179,42 +152,67 @@ const isUnusedNestedOverride = (
   return true;
 };
 
-const isUnusedSimpleOverride = async (
+const isSimpleOverrideCandidate = (
   packageName: string,
   overrides: OverridesType,
   allDependencies: Record<string, string>,
-  dependencyTree: Record<string, boolean>,
-  hasAnyDeps: boolean,
-): Promise<boolean> => {
+): boolean => {
   const isNested = isNestedOverride(packageName, overrides);
   if (isNested) return false;
 
   const inDeps = isInDirectDeps(packageName, allDependencies);
   if (inDeps) return false;
 
+  return true;
+};
+
+const logUnusedSimpleOverride = (packageName: string, reason: string): void => {
+  log.debug(`Found unused override for ${packageName}: ${reason}`, "isUnusedSimpleOverride");
+};
+
+const logDependencyTreeMatch = (packageName: string): void => {
+  log.debug(
+    `Keeping override for ${packageName}: found in dependency tree`,
+    "isUnusedSimpleOverride",
+  );
+};
+
+const shouldRemoveSimpleOverride = (
+  packageName: string,
+  dependencyTree: Record<string, boolean>,
+  hasAnyDeps: boolean,
+): boolean => {
   if (!hasAnyDeps) {
-    log.debug(
-      `Found unused override for ${packageName}: no dependencies at all`,
-      "isUnusedSimpleOverride",
-    );
+    logUnusedSimpleOverride(packageName, "no dependencies at all");
     return true;
   }
 
   const isInTree = Boolean(dependencyTree[packageName]);
 
   if (isInTree) {
-    log.debug(
-      `Keeping override for ${packageName}: found in dependency tree`,
-      "isUnusedSimpleOverride",
-    );
+    logDependencyTreeMatch(packageName);
     return false;
   }
 
-  log.debug(
-    `Found unused override for ${packageName}: not in dependency tree`,
-    "isUnusedSimpleOverride",
-  );
+  logUnusedSimpleOverride(packageName, "not in dependency tree");
   return true;
+};
+
+const isUnusedSimpleOverride = (
+  packageName: string,
+  overrides: OverridesType,
+  allDependencies: Record<string, string>,
+  dependencyTree: Record<string, boolean>,
+  hasAnyDeps: boolean,
+): boolean => {
+  const shouldCheckSimpleOverride = isSimpleOverrideCandidate(
+    packageName,
+    overrides,
+    allDependencies,
+  );
+  if (!shouldCheckSimpleOverride) return false;
+
+  return shouldRemoveSimpleOverride(packageName, dependencyTree, hasAnyDeps);
 };
 
 const checkIfUnused = async (
@@ -224,11 +222,7 @@ const checkIfUnused = async (
   dependencyTree: Record<string, boolean>,
   hasAnyDeps: boolean,
 ): Promise<boolean> => {
-  const isUnusedNested = isUnusedNestedOverride(
-    packageName,
-    overrides,
-    allDependencies,
-  );
+  const isUnusedNested = isUnusedNestedOverride(packageName, overrides, allDependencies);
   if (isUnusedNested) return true;
 
   return isUnusedSimpleOverride(
@@ -250,13 +244,7 @@ export const findUnusedOverrides = async (
 
   const results = await Promise.all(
     packageNames.map((name) =>
-      checkIfUnused(
-        name,
-        overrides,
-        allDependencies,
-        dependencyTree,
-        hasAnyDeps,
-      ),
+      checkIfUnused(name, overrides, allDependencies, dependencyTree, hasAnyDeps),
     ),
   );
 
@@ -269,26 +257,28 @@ const isPackageTrackedInPaths = (
 ): boolean => {
   if (!overridePaths) return false;
 
-  return Object.values(overridePaths).some((pathAppendix) =>
-    Object.keys(pathAppendix).some((key) => key.startsWith(`${packageName}@`)),
+  const appendixKeys = Object.values(overridePaths).flatMap((pathAppendix) =>
+    Object.keys(pathAppendix),
   );
+  return appendixKeys.some((key) => key.startsWith(`${packageName}@`));
 };
 
 const findTrackedPackages = (
   missingInRoot: string[],
   overridePaths: Record<string, Appendix> | undefined,
 ): string[] => {
-  return missingInRoot.filter((pkg) =>
-    isPackageTrackedInPaths(pkg, overridePaths),
-  );
+  return missingInRoot.filter((pkg) => isPackageTrackedInPaths(pkg, overridePaths));
 };
 
-const filterActuallyRemovable = (
-  removableItems: string[],
-  trackedInPaths: string[],
-): string[] => {
+const filterActuallyRemovable = (removableItems: string[], trackedInPaths: string[]): string[] => {
   const trackedSet = new Set(trackedInPaths);
   return removableItems.filter((pkg) => !trackedSet.has(pkg));
+};
+
+const shouldRemoveAppendixKey = (key: string, packageSet: Set<string>): boolean => {
+  const packageName = extractPackageNames([key])[0] ?? key;
+  const hasVersionSuffix = key.startsWith(`${packageName}@`);
+  return hasVersionSuffix && packageSet.has(packageName);
 };
 
 const removeAppendixEntries = (
@@ -296,20 +286,97 @@ const removeAppendixEntries = (
   packagesToRemove: string[],
   logInstance: Logger,
 ): Appendix => {
-  return packagesToRemove.reduce((updated, item) => {
-    const keysToRemove = Object.keys(updated).filter((key) =>
-      key.startsWith(`${item}@`),
-    );
+  const packageSet = new Set(packagesToRemove);
+  const keysToRemove = Object.keys(appendix).filter((key) =>
+    shouldRemoveAppendixKey(key, packageSet),
+  );
 
-    return keysToRemove.reduce((acc, key) => {
-      logInstance.debug(
-        `Removed appendix entry for ${key}`,
-        "removeAppendixEntries",
-      );
-      const { [key]: _removed, ...rest } = acc;
-      return rest;
-    }, updated);
+  return keysToRemove.reduce((updated, key) => {
+    logInstance.debug(`Removed appendix entry for ${key}`, "removeAppendixEntries");
+    const { [key]: _removed, ...rest } = updated;
+    return rest;
   }, appendix);
+};
+
+const createCleanupResult = (
+  finalOverrides: OverridesType,
+  finalAppendix: Appendix,
+): CleanupUnusedOverridesResult => {
+  return { finalOverrides, finalAppendix };
+};
+
+const keepCurrentOverrides = (
+  overrides: OverridesType,
+  appendix: Appendix,
+): CleanupUnusedOverridesResult => {
+  return createCleanupResult(overrides, appendix);
+};
+
+const logRemovablePackages = (packages: string[], logInstance: Logger): void => {
+  logInstance.debug(
+    `Found ${packages.length} packages to remove from overrides: ${packages.join(", ")}`,
+    "cleanupUnusedOverrides",
+  );
+};
+
+const removeUnusedOverrideEntries = (
+  context: CleanupUnusedOverridesContext,
+  packagesToRemove: string[],
+): CleanupUnusedOverridesResult => {
+  logRemovablePackages(packagesToRemove, context.logInstance);
+  const finalOverrides =
+    context.updateOverrides(context.overridesData, packagesToRemove) || context.overrides;
+  const finalAppendix = removeAppendixEntries(
+    context.appendix,
+    packagesToRemove,
+    context.logInstance,
+  );
+
+  return createCleanupResult(finalOverrides, finalAppendix);
+};
+
+const logTrackedPackages = (trackedInPaths: string[], logInstance: Logger): void => {
+  if (trackedInPaths.length === 0) {
+    return;
+  }
+
+  logInstance.debug(
+    `Keeping overrides for packages tracked in overridePaths: ${trackedInPaths.join(", ")}`,
+    "cleanupUnusedOverrides",
+  );
+};
+
+const findActuallyRemovableOverrides = (
+  removableItems: string[],
+  context: CleanupUnusedOverridesContext,
+): { actuallyRemovable: string[]; trackedInPaths: string[] } => {
+  const trackedInPaths = findTrackedPackages(context.missingInRoot, context.overridePaths);
+  const actuallyRemovable = filterActuallyRemovable(removableItems, trackedInPaths);
+
+  return { actuallyRemovable, trackedInPaths };
+};
+
+const cleanupUnusedOverridesFromContext = async (
+  context: CleanupUnusedOverridesContext,
+): Promise<CleanupUnusedOverridesResult> => {
+  const removableItems = await findUnusedOverrides(context.overrides, context.allDeps);
+
+  if (removableItems.length === 0) {
+    return keepCurrentOverrides(context.overrides, context.appendix);
+  }
+
+  const { actuallyRemovable, trackedInPaths } = findActuallyRemovableOverrides(
+    removableItems,
+    context,
+  );
+
+  if (actuallyRemovable.length > 0) {
+    return removeUnusedOverrideEntries(context, actuallyRemovable);
+  }
+
+  logTrackedPackages(trackedInPaths, context.logInstance);
+
+  return keepCurrentOverrides(context.overrides, context.appendix);
 };
 
 export const cleanupUnusedOverrides = async (
@@ -320,49 +387,16 @@ export const cleanupUnusedOverrides = async (
   missingInRoot: string[],
   overridePaths: Record<string, Appendix> | undefined,
   logInstance: Logger,
-  updateOverrides: (
-    data: ResolveOverrides,
-    removable: string[],
-  ) => OverridesType | undefined,
-): Promise<{ finalOverrides: OverridesType; finalAppendix: Appendix }> => {
-  const removableItems = await findUnusedOverrides(overrides, allDeps);
-  const hasNoRemovable = removableItems.length === 0;
-
-  if (hasNoRemovable) {
-    return { finalOverrides: overrides, finalAppendix: appendix };
-  }
-
-  const trackedInPaths = findTrackedPackages(missingInRoot, overridePaths);
-  const actuallyRemovable = filterActuallyRemovable(
-    removableItems,
-    trackedInPaths,
-  );
-  const hasActuallyRemovable = actuallyRemovable.length > 0;
-
-  if (hasActuallyRemovable) {
-    logInstance.debug(
-      `Found ${actuallyRemovable.length} packages to remove from overrides: ${actuallyRemovable.join(", ")}`,
-      "cleanupUnusedOverrides",
-    );
-
-    const finalOverrides =
-      updateOverrides(overridesData, actuallyRemovable) || overrides;
-    const finalAppendix = removeAppendixEntries(
-      appendix,
-      actuallyRemovable,
-      logInstance,
-    );
-
-    return { finalOverrides, finalAppendix };
-  }
-
-  const hasTrackedPaths = trackedInPaths.length > 0;
-  if (hasTrackedPaths) {
-    logInstance.debug(
-      `Keeping overrides for packages tracked in overridePaths: ${trackedInPaths.join(", ")}`,
-      "cleanupUnusedOverrides",
-    );
-  }
-
-  return { finalOverrides: overrides, finalAppendix: appendix };
+  updateOverrides: OverrideRemovalUpdater,
+): Promise<CleanupUnusedOverridesResult> => {
+  return cleanupUnusedOverridesFromContext({
+    overrides,
+    overridesData,
+    appendix,
+    allDeps,
+    missingInRoot,
+    overridePaths,
+    logInstance,
+    updateOverrides,
+  });
 };

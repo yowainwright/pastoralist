@@ -7,9 +7,7 @@ export const JsonLine: React.FC<JsonLineProps> = ({
   className: extraClassName,
 }) => {
   const baseClassName = isAdded ? "terminal-line json-added" : "terminal-line";
-  const className = extraClassName
-    ? `${baseClassName} ${extraClassName}`
-    : baseClassName;
+  const className = extraClassName ? `${baseClassName} ${extraClassName}` : baseClassName;
   const needsHighlighting = shouldHighlightLine(line);
 
   if (!needsHighlighting) {
@@ -18,10 +16,5 @@ export const JsonLine: React.FC<JsonLineProps> = ({
 
   const highlighted = highlightJsonSyntax(line);
 
-  return (
-    <div
-      className={className}
-      dangerouslySetInnerHTML={{ __html: highlighted }}
-    />
-  );
+  return <div className={className} dangerouslySetInnerHTML={{ __html: highlighted }} />;
 };

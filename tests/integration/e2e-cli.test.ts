@@ -51,9 +51,7 @@ test("e2e: processes package with single override", async () => {
   expect(result.pastoralist).toBeDefined();
   expect(result.pastoralist.appendix).toBeDefined();
   expect(result.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
-  expect(
-    result.pastoralist.appendix["lodash@4.17.21"].dependents,
-  ).toBeDefined();
+  expect(result.pastoralist.appendix["lodash@4.17.21"].dependents).toBeDefined();
 });
 
 test("e2e: processes package with nested override", async () => {
@@ -686,12 +684,8 @@ test("e2e: keep: true preserved, orphan removed, appendix integrity maintained",
   const result = JSON.parse(readFileSync(pkgPath, "utf-8"));
   expect(result.overrides?.["security-pkg"]).toBe("3.0.0");
   expect(result.pastoralist.appendix["security-pkg@3.0.0"]).toBeDefined();
-  expect(result.pastoralist.appendix["security-pkg@3.0.0"].ledger.keep).toBe(
-    true,
-  );
-  expect(result.pastoralist.appendix["security-pkg@3.0.0"].ledger.cves).toEqual(
-    ["CVE-2024-1234"],
-  );
+  expect(result.pastoralist.appendix["security-pkg@3.0.0"].ledger.keep).toBe(true);
+  expect(result.pastoralist.appendix["security-pkg@3.0.0"].ledger.cves).toEqual(["CVE-2024-1234"]);
   expect(result.overrides?.orphan).toBeUndefined();
 });
 

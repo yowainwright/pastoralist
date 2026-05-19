@@ -24,9 +24,7 @@ export function CopyButton() {
   const copied = snapshot.matches("copied");
 
   const handleCopy = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    const codeEl = e.currentTarget
-      .closest("figure, div")
-      ?.querySelector("code");
+    const codeEl = e.currentTarget.closest("figure, div")?.querySelector("code");
     if (!codeEl) return;
     try {
       await navigator.clipboard.writeText(codeEl.textContent ?? "");
@@ -43,11 +41,7 @@ export function CopyButton() {
       onClick={handleCopy}
       aria-label={copied ? "Copied!" : "Copy"}
     >
-      {copied ? (
-        <Check className={styles.iconSuccess} />
-      ) : (
-        <Copy className={styles.icon} />
-      )}
+      {copied ? <Check className={styles.iconSuccess} /> : <Copy className={styles.icon} />}
     </button>
   );
 }

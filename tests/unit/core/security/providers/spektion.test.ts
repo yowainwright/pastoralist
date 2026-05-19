@@ -58,9 +58,7 @@ test("isAuthenticated - should return false when no token", async () => {
 
 test("fetchAlerts - should return empty array when no token", async () => {
   const provider = new SpektionProvider({ debug: false });
-  const alerts = await provider.fetchAlerts([
-    { name: "lodash", version: "4.17.20" },
-  ]);
+  const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]);
   expect(alerts).toEqual([]);
 });
 
@@ -89,9 +87,7 @@ test("fetchAlerts - should return alerts on successful scan", async () => {
   );
 
   const provider = new SpektionProvider({ debug: false, token: "test-key" });
-  const alerts = await provider.fetchAlerts([
-    { name: "lodash", version: "4.17.20" },
-  ]);
+  const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]);
 
   expect(alerts.length).toBe(1);
   expect(alerts[0].packageName).toBe("lodash");
@@ -125,9 +121,7 @@ test("fetchAlerts - should handle vulnerability without optional fields", async 
   );
 
   const provider = new SpektionProvider({ debug: false, token: "test-key" });
-  const alerts = await provider.fetchAlerts([
-    { name: "express", version: "4.18.0" },
-  ]);
+  const alerts = await provider.fetchAlerts([{ name: "express", version: "4.18.0" }]);
 
   expect(alerts.length).toBe(1);
   expect(alerts[0].packageName).toBe("express");
@@ -146,9 +140,7 @@ test("fetchAlerts - should return empty array when vulnerabilities list is empty
   );
 
   const provider = new SpektionProvider({ debug: false, token: "test-key" });
-  const alerts = await provider.fetchAlerts([
-    { name: "lodash", version: "4.17.21" },
-  ]);
+  const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.21" }]);
 
   expect(alerts).toEqual([]);
 });
@@ -166,9 +158,7 @@ test("fetchAlerts - should return empty array on HTTP error in non-strict mode",
     token: "test-key",
     strict: false,
   });
-  const alerts = await provider.fetchAlerts([
-    { name: "lodash", version: "4.17.20" },
-  ]);
+  const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]);
 
   expect(alerts).toEqual([]);
 });
@@ -187,9 +177,9 @@ test("fetchAlerts - should throw on HTTP error in strict mode", async () => {
     strict: true,
   });
 
-  await expect(
-    provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]),
-  ).rejects.toThrow("Spektion security check failed");
+  await expect(provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }])).rejects.toThrow(
+    "Spektion security check failed",
+  );
 });
 
 test("fetchAlerts - should return empty array on network error in non-strict mode", async () => {
@@ -200,9 +190,7 @@ test("fetchAlerts - should return empty array on network error in non-strict mod
     token: "test-key",
     strict: false,
   });
-  const alerts = await provider.fetchAlerts([
-    { name: "lodash", version: "4.17.20" },
-  ]);
+  const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]);
 
   expect(alerts).toEqual([]);
 });
@@ -216,9 +204,9 @@ test("fetchAlerts - should throw on network error in strict mode", async () => {
     strict: true,
   });
 
-  await expect(
-    provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]),
-  ).rejects.toThrow("Spektion security check failed");
+  await expect(provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }])).rejects.toThrow(
+    "Spektion security check failed",
+  );
 });
 
 test("fetchAlerts - should handle non-Error exceptions in strict mode", async () => {
@@ -230,9 +218,9 @@ test("fetchAlerts - should handle non-Error exceptions in strict mode", async ()
     strict: true,
   });
 
-  await expect(
-    provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]),
-  ).rejects.toThrow("Spektion security check failed");
+  await expect(provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }])).rejects.toThrow(
+    "Spektion security check failed",
+  );
 });
 
 test("fetchAlerts - should map severity levels correctly", async () => {
@@ -265,9 +253,7 @@ test("fetchAlerts - should map severity levels correctly", async () => {
     );
 
     const provider = new SpektionProvider({ debug: false, token: "test-key" });
-    const alerts = await provider.fetchAlerts([
-      { name: "test-pkg", version: "1.0.0" },
-    ]);
+    const alerts = await provider.fetchAlerts([{ name: "test-pkg", version: "1.0.0" }]);
     expect(alerts[0].severity).toBe(expected);
   }
 });
@@ -291,9 +277,7 @@ test("fetchAlerts - should filter out invalid vulnerabilities", async () => {
   );
 
   const provider = new SpektionProvider({ debug: false, token: "test-key" });
-  const alerts = await provider.fetchAlerts([
-    { name: "valid", version: "1.0.0" },
-  ]);
+  const alerts = await provider.fetchAlerts([{ name: "valid", version: "1.0.0" }]);
 
   expect(alerts.length).toBe(1);
   expect(alerts[0].packageName).toBe("valid");
@@ -308,9 +292,7 @@ test("fetchAlerts - should handle invalid response format", async () => {
   );
 
   const provider = new SpektionProvider({ debug: false, token: "test-key" });
-  const alerts = await provider.fetchAlerts([
-    { name: "lodash", version: "4.17.20" },
-  ]);
+  const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]);
 
   expect(alerts).toEqual([]);
 });
@@ -324,9 +306,7 @@ test("fetchAlerts - should handle null response", async () => {
   );
 
   const provider = new SpektionProvider({ debug: false, token: "test-key" });
-  const alerts = await provider.fetchAlerts([
-    { name: "lodash", version: "4.17.20" },
-  ]);
+  const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]);
 
   expect(alerts).toEqual([]);
 });

@@ -245,9 +245,7 @@ test("fetchAlerts - should throw when strict mode and scan fails", async () => {
   (provider as any).runSocketScan = async () => {
     throw new Error("Scan failed");
   };
-  await expect(provider.fetchAlerts()).rejects.toThrow(
-    "Socket security check failed",
-  );
+  await expect(provider.fetchAlerts()).rejects.toThrow("Socket security check failed");
 });
 
 test("fetchAlerts - should warn and return empty when not strict and scan fails", async () => {

@@ -4,6 +4,8 @@ import type {
   OptionDefinition,
   ParsedFlag,
   CollectedValue,
+  ParserState,
+  ProcessedArgument,
 } from "./types";
 
 const findOptionDef = (flag: string): OptionDefinition | undefined =>
@@ -11,143 +13,125 @@ const findOptionDef = (flag: string): OptionDefinition | undefined =>
 
 const getOptionKey = (def: OptionDefinition): string => {
   const longFlag = def.flags.find((f) => f.startsWith("--")) || def.flags[0];
-  return longFlag
-    .replace(/^--?/, "")
-    .replace(/-([a-z])/g, (_, char) => char.toUpperCase());
+  return longFlag.replace(/^--?/, "").replace(/-([a-z])/g, (_, char) => char.toUpperCase());
 };
 
 const parseFlag = (arg: string): ParsedFlag => {
   const equalIndex = arg.indexOf("=");
   const hasEquals = equalIndex > -1;
 
-  return hasEquals
-    ? { flag: arg.slice(0, equalIndex), value: arg.slice(equalIndex + 1) }
-    : { flag: arg };
+  if (hasEquals) {
+    return { flag: arg.slice(0, equalIndex), value: arg.slice(equalIndex + 1) };
+  }
+  return { flag: arg };
 };
 
 const isFlag = (arg: string): boolean => arg.startsWith("-");
 
-const collectArrayValue = (
-  args: string[],
-  startIndex: number,
-): CollectedValue => {
-  const values: string[] = [];
-  let currentIndex = startIndex + 1;
-
-  while (currentIndex < args.length && !isFlag(args[currentIndex])) {
-    values.push(args[currentIndex]);
-    currentIndex++;
-  }
-
-  const hasValues = values.length > 0;
-  const consumed = currentIndex - startIndex - 1;
-
-  return { value: hasValues ? values : undefined, consumed };
+const takeUntilFlag = (args: string[], startIndex: number): string[] => {
+  const candidateValues = args.slice(startIndex + 1);
+  const nextFlagIndex = candidateValues.findIndex(isFlag);
+  if (nextFlagIndex === -1) return candidateValues;
+  return candidateValues.slice(0, nextFlagIndex);
 };
 
-const collectSingleValue = (
-  args: string[],
-  startIndex: number,
-): CollectedValue => {
+const collectArrayValue = (args: string[], startIndex: number): CollectedValue => {
+  const values = takeUntilFlag(args, startIndex);
+  const hasValues = values.length > 0;
+  if (hasValues) return { value: values, consumed: values.length };
+  return { value: undefined, consumed: 0 };
+};
+
+const collectSingleValue = (args: string[], startIndex: number): CollectedValue => {
   const nextArg = args[startIndex + 1];
   const hasNextValue = nextArg && !isFlag(nextArg);
 
-  return hasNextValue
-    ? { value: nextArg, consumed: 1 }
-    : { value: true, consumed: 0 };
+  if (hasNextValue) return { value: nextArg, consumed: 1 };
+  return { value: true, consumed: 0 };
 };
 
-const collectValue = (
-  args: string[],
-  index: number,
-  def: OptionDefinition,
-): CollectedValue =>
-  def.isArray
-    ? collectArrayValue(args, index)
-    : collectSingleValue(args, index);
+const collectValue = (args: string[], index: number, def: OptionDefinition): CollectedValue =>
+  def.isArray ? collectArrayValue(args, index) : collectSingleValue(args, index);
 
-const applyDefaults = (
-  options: Record<string, unknown>,
-): Record<string, unknown> =>
+const applyDefaults = (options: Record<string, unknown>): Record<string, unknown> =>
   OPTION_DEFINITIONS.reduce((acc, def) => {
     const key = getOptionKey(def);
     const hasValue = acc[key] !== undefined;
     const shouldApplyDefault = !hasValue && def.defaultValue !== undefined;
 
-    return shouldApplyDefault
-      ? Object.assign({}, acc, { [key]: def.defaultValue })
-      : acc;
+    if (shouldApplyDefault) {
+      return Object.assign({}, acc, { [key]: def.defaultValue });
+    }
+    return acc;
   }, options);
 
-const processArgument = (
+const toProcessedArgument = (
+  nextIndex: number,
+  state: ParserState,
+  options: Record<string, unknown> = state.options,
+  command: string | undefined = state.command,
+): ProcessedArgument => ({
+  nextIndex,
+  options,
+  command,
+});
+
+const withOption = (state: ParserState, key: string, value: unknown): Record<string, unknown> =>
+  Object.assign({}, state.options, { [key]: value });
+
+const processCommandArgument = (
+  arg: string,
+  index: number,
+  state: ParserState,
+): ProcessedArgument => toProcessedArgument(index + 1, state, state.options, arg);
+
+const processInlineValue = (
+  key: string,
+  inlineValue: string,
+  index: number,
+  state: ParserState,
+): ProcessedArgument => toProcessedArgument(index + 1, state, withOption(state, key, inlineValue));
+
+const processBooleanFlag = (key: string, index: number, state: ParserState): ProcessedArgument =>
+  toProcessedArgument(index + 1, state, withOption(state, key, true));
+
+const processCollectedValue = (
   args: string[],
   index: number,
-  state: { options: Record<string, unknown>; command?: string },
-): {
-  nextIndex: number;
-  options: Record<string, unknown>;
-  command?: string;
-} => {
-  const arg = args[index];
-  const isNotFlag = !isFlag(arg);
+  state: ParserState,
+  key: string,
+  def: OptionDefinition,
+): ProcessedArgument => {
+  const { value, consumed } = collectValue(args, index, def);
+  const nextIndex = index + consumed + 1;
+  return toProcessedArgument(nextIndex, state, withOption(state, key, value));
+};
 
-  if (isNotFlag) {
-    return { nextIndex: index + 1, options: state.options, command: arg };
-  }
+const processArgument = (args: string[], index: number, state: ParserState): ProcessedArgument => {
+  const arg = args[index];
+  if (!isFlag(arg)) return processCommandArgument(arg, index, state);
 
   const { flag, value: inlineValue } = parseFlag(arg);
   const def = findOptionDef(flag);
-  const isUnknownFlag = !def;
-
-  if (isUnknownFlag) {
-    throw new Error(`Unknown option: ${flag}`);
-  }
+  if (!def) throw new Error(`Unknown option: ${flag}`);
 
   const key = getOptionKey(def);
-  const hasInlineValue = inlineValue !== undefined;
+  if (inlineValue !== undefined) return processInlineValue(key, inlineValue, index, state);
+  if (!def.hasValue) return processBooleanFlag(key, index, state);
+  return processCollectedValue(args, index, state, key, def);
+};
 
-  if (hasInlineValue) {
-    const updatedOptions = Object.assign({}, state.options, {
-      [key]: inlineValue,
-    });
-    return {
-      nextIndex: index + 1,
-      options: updatedOptions,
-      command: state.command,
-    };
-  }
-
-  const isBooleanFlag = !def.hasValue;
-
-  if (isBooleanFlag) {
-    const updatedOptions = Object.assign({}, state.options, { [key]: true });
-    return {
-      nextIndex: index + 1,
-      options: updatedOptions,
-      command: state.command,
-    };
-  }
-
-  const { value, consumed } = collectValue(args, index, def);
-  const updatedOptions = Object.assign({}, state.options, { [key]: value });
-
-  return {
-    nextIndex: index + consumed + 1,
-    options: updatedOptions,
-    command: state.command,
-  };
+const parseArgumentList = (args: string[], index: number, state: ParserState): ParserState => {
+  if (index >= args.length) return state;
+  const result = processArgument(args, index, state);
+  const nextState = { options: result.options, command: result.command };
+  return parseArgumentList(args, result.nextIndex, nextState);
 };
 
 export const parseArgs = (argv: string[]): ParsedArgs => {
   const args = argv.slice(ARGS_START_INDEX);
-  let currentIndex = 0;
-  let state = { options: {}, command: undefined as string | undefined };
-
-  while (currentIndex < args.length) {
-    const result = processArgument(args, currentIndex, state);
-    currentIndex = result.nextIndex;
-    state = { options: result.options, command: result.command };
-  }
+  const initialState = { options: {}, command: undefined };
+  const state = parseArgumentList(args, 0, initialState);
 
   const optionsWithDefaults = applyDefaults(state.options);
 

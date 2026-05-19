@@ -143,12 +143,7 @@ test("findRemovableOverrides - should identify unused overrides", () => {
   const allDeps = { lodash: "^4.17.0" };
   const missingInRoot: string[] = [];
 
-  const result = findRemovableOverrides(
-    overrides,
-    appendix,
-    allDeps,
-    missingInRoot,
-  );
+  const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
 
   expect(result).toEqual(["react"]);
 });
@@ -164,12 +159,7 @@ test("findRemovableOverrides - should not remove overrides used in appendix", ()
   const allDeps = {};
   const missingInRoot: string[] = [];
 
-  const result = findRemovableOverrides(
-    overrides,
-    appendix,
-    allDeps,
-    missingInRoot,
-  );
+  const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
 
   expect(result).toEqual([]);
 });
@@ -180,12 +170,7 @@ test("findRemovableOverrides - should not remove overrides with root deps", () =
   const allDeps = { lodash: "^4.17.0" };
   const missingInRoot: string[] = [];
 
-  const result = findRemovableOverrides(
-    overrides,
-    appendix,
-    allDeps,
-    missingInRoot,
-  );
+  const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
 
   expect(result).toEqual([]);
 });
@@ -196,12 +181,7 @@ test("findRemovableOverrides - should not remove overrides missing in root", () 
   const allDeps = {};
   const missingInRoot: string[] = ["lodash"];
 
-  const result = findRemovableOverrides(
-    overrides,
-    appendix,
-    allDeps,
-    missingInRoot,
-  );
+  const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
 
   expect(result).toEqual([]);
 });
@@ -281,12 +261,7 @@ test("mergeAllConfigs - should merge options config and external config", () => 
   };
   const overrides = { lodash: "4.17.21" };
 
-  const result = mergeAllConfigs(
-    options,
-    config.pastoralist,
-    overridesData,
-    overrides,
-  );
+  const result = mergeAllConfigs(options, config.pastoralist, overridesData, overrides);
 
   expect(result.depPaths).toBe("workspace");
   expect(result.overrides).toEqual({ lodash: "4.17.21" });
@@ -301,12 +276,7 @@ test("mergeAllConfigs - should handle no external config", () => {
   const overridesData = { type: "npm" as const, overrides: {} };
   const overrides = {};
 
-  const result = mergeAllConfigs(
-    options,
-    config.pastoralist,
-    overridesData,
-    overrides,
-  );
+  const result = mergeAllConfigs(options, config.pastoralist, overridesData, overrides);
 
   expect(result.depPaths).toEqual(["packages/*"]);
   expect(result.overrides).toEqual({});
@@ -324,12 +294,7 @@ test("mergeAllConfigs - should prioritize options over configs", () => {
   };
   const overrides = { react: "18.0.0" };
 
-  const result = mergeAllConfigs(
-    options,
-    config.pastoralist,
-    overridesData,
-    overrides,
-  );
+  const result = mergeAllConfigs(options, config.pastoralist, overridesData, overrides);
 
   expect(result.depPaths).toEqual(["cli/path"]);
   expect(result.overrides).toEqual({ react: "18.0.0" });

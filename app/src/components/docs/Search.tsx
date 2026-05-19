@@ -34,7 +34,6 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
     [searchData],
   );
 
-  // Handle search
   useEffect(() => {
     if (query.length > 0) {
       const searchResults = fuse.search(query);
@@ -44,10 +43,10 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
     }
   }, [query]);
 
-  // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      const isSearchShortcut = (e.metaKey || e.ctrlKey) && e.key === "k";
+      if (isSearchShortcut) {
         e.preventDefault();
         setIsOpen(true);
         setTimeout(() => inputRef.current?.focus(), 100);
@@ -62,18 +61,18 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Handle click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+      const clickedOutsideSearch =
+        searchRef.current && !searchRef.current.contains(e.target as Node);
+      if (clickedOutsideSearch) {
         setIsOpen(false);
       }
     };
 
     if (isOpen) {
       document.addEventListener("mousedown", handleClickOutside);
-      return () =>
-        document.removeEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [isOpen]);
 
@@ -84,7 +83,6 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
 
   return (
     <>
-      {/* Search Button */}
       {iconOnly ? (
         <button
           onClick={handleOpen}
@@ -109,24 +107,20 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
         </button>
       )}
 
-      {/* Search Modal */}
       {isOpen &&
         createPortal(
           <>
-            {/* Backdrop */}
             <div
               className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm"
               onClick={() => setIsOpen(false)}
             />
 
-            {/* Modal Container */}
             <div className="fixed inset-0 z-[101] overflow-y-auto">
               <div className="flex min-h-full items-start justify-center pt-[10vh] p-4">
                 <div
                   ref={searchRef}
                   className="relative w-full max-w-2xl bg-base-100 rounded-xl shadow-2xl overflow-hidden border border-base-content/10"
                 >
-                  {/* Search Input */}
                   <div className="flex items-center p-4 border-b border-base-content/10">
                     <SearchIcon className="h-5 w-5 mr-3 text-[#1D4ED8]" />
                     <input
@@ -142,16 +136,11 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
                     </kbd>
                   </div>
 
-                  {/* Search Results */}
                   <div className="max-h-[60vh] overflow-y-auto">
                     {query.length > 0 && results.length === 0 && (
                       <div className="p-8 text-center text-base-content/50">
-                        <div className="text-lg font-medium mb-2">
-                          No results found
-                        </div>
-                        <div className="text-sm">
-                          Try searching for something else
-                        </div>
+                        <div className="text-lg font-medium mb-2">No results found</div>
+                        <div className="text-sm">Try searching for something else</div>
                       </div>
                     )}
 
@@ -206,9 +195,7 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
                     {query.length === 0 && (
                       <div className="p-8">
                         <div className="text-center mb-6">
-                          <div className="text-base-content/60 text-sm">
-                            Start typing to search
-                          </div>
+                          <div className="text-base-content/60 text-sm">Start typing to search</div>
                         </div>
                         <div className="space-y-2">
                           <div className="text-xs font-medium text-base-content/40 uppercase tracking-wider px-4">
@@ -261,9 +248,7 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
                                   d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                                 />
                               </svg>
-                              <span className="text-base-content/70">
-                                Setup Guide
-                              </span>
+                              <span className="text-base-content/70">Setup Guide</span>
                             </div>
                           </Link>
                         </div>

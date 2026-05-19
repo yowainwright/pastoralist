@@ -1,17 +1,10 @@
-import {
-  APPENDIX_CONTENT,
-  AFTER_TERMINAL_HEIGHT,
-  AFTER_CONTENT_HEIGHT,
-} from "./constants";
+import { APPENDIX_CONTENT, AFTER_TERMINAL_HEIGHT, AFTER_CONTENT_HEIGHT } from "./constants";
 import type { AfterTerminalProps } from "./types";
 import { TerminalWindow } from "@/components/TerminalWindow";
 import { STYLES } from "@/components/TerminalWindow/constants";
 import { JsonLine } from "./JsonLine";
 
-export const AfterTerminal: React.FC<AfterTerminalProps> = ({
-  isActive,
-  appendixLines,
-}) => {
+export const AfterTerminal: React.FC<AfterTerminalProps> = ({ isActive, appendixLines }) => {
   const visibleLines = APPENDIX_CONTENT.slice(0, appendixLines);
   const hiddenLines = APPENDIX_CONTENT.slice(appendixLines);
   const showComma = appendixLines > 0;
@@ -22,10 +15,7 @@ export const AfterTerminal: React.FC<AfterTerminalProps> = ({
       fileName="package.json"
       minHeight={`${AFTER_TERMINAL_HEIGHT}px`}
     >
-      <div
-        className={STYLES.contentPadding}
-        style={{ minHeight: `${AFTER_CONTENT_HEIGHT}px` }}
-      >
+      <div className={STYLES.contentPadding} style={{ minHeight: `${AFTER_CONTENT_HEIGHT}px` }}>
         <div className={`${STYLES.line} text-base-content/50`}>{"{"}</div>
         <div className={STYLES.line}>
           {"  "}
@@ -44,12 +34,7 @@ export const AfterTerminal: React.FC<AfterTerminalProps> = ({
           <JsonLine key={index} line={line} isAdded />
         ))}
         {hiddenLines.map((line, index) => (
-          <JsonLine
-            key={`hidden-${index}`}
-            line={line}
-            isAdded
-            className="invisible"
-          />
+          <JsonLine key={`hidden-${index}`} line={line} isAdded className="invisible" />
         ))}
         <div className={`${STYLES.line} text-base-content/50`}>{"}"}</div>
       </div>

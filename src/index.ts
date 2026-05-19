@@ -37,20 +37,11 @@ export {
   defineOverride,
 } from "./core/overrides";
 
-export {
-  detectPatches,
-  attachPatchesToAppendix,
-  findUnusedPatches,
-} from "./core/patches";
+export { detectPatches, attachPatchesToAppendix, findUnusedPatches } from "./core/patches";
 
 export { SecurityChecker } from "./core/security";
 
-export {
-  loadConfig,
-  loadExternalConfig,
-  mergeConfigs,
-  clearConfigCache,
-} from "./config";
+export { loadConfig, loadExternalConfig, mergeConfigs, clearConfigCache } from "./config";
 
 export { logger } from "./utils";
 

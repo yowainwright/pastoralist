@@ -1,19 +1,33 @@
-import type { RetryOptions, RetryError } from "./types";
+import { DEFAULT_RETRY_OPTIONS } from "./constants";
+import type { ResolvedRetryOptions, RetryError, RetryOptions } from "./types";
 
-const DEFAULT_OPTIONS: Required<
-  Omit<RetryOptions, "onFailedAttempt" | "onRetry">
-> = {
-  retries: 3,
-  factor: 2,
-  minTimeout: 1000,
-  maxTimeout: 30000,
+const resolveRetryOptions = ({
+  retries = DEFAULT_RETRY_OPTIONS.retries,
+  factor = DEFAULT_RETRY_OPTIONS.factor,
+  minTimeout = DEFAULT_RETRY_OPTIONS.minTimeout,
+  maxTimeout = DEFAULT_RETRY_OPTIONS.maxTimeout,
+  onFailedAttempt,
+  onRetry,
+}: RetryOptions): ResolvedRetryOptions => {
+  return {
+    retries,
+    factor,
+    minTimeout,
+    maxTimeout,
+    onFailedAttempt,
+    onRetry,
+  };
 };
 
-const createRetryError = (
-  error: Error,
-  attemptNumber: number,
-  retriesLeft: number,
-): RetryError => {
+const toError = (error: unknown): Error => {
+  if (error instanceof Error) {
+    return error;
+  }
+
+  return new Error(String(error));
+};
+
+const createRetryError = (error: Error, attemptNumber: number, retriesLeft: number): RetryError => {
   const retryError = error as RetryError;
   retryError.attemptNumber = attemptNumber;
   retryError.retriesLeft = retriesLeft;
@@ -34,59 +48,90 @@ const sleep = (ms: number): Promise<void> => {
   return new Promise((resolve) => setTimeout(resolve, ms));
 };
 
-export const retry = async <T>(
+const getRetriesLeft = (attemptNumber: number, retries: number): number => {
+  return retries - attemptNumber;
+};
+
+const hasRetryAvailable = (retriesLeft: number): boolean => {
+  return retriesLeft >= 0;
+};
+
+const buildRetryError = (
+  error: unknown,
+  attemptNumber: number,
+  retriesLeft: number,
+): RetryError => {
+  return createRetryError(toError(error), attemptNumber, Math.max(0, retriesLeft));
+};
+
+const notifyFailedAttempt = async (
+  retryError: RetryError,
+  options: ResolvedRetryOptions,
+): Promise<void> => {
+  if (!options.onFailedAttempt) {
+    return;
+  }
+
+  await options.onFailedAttempt(retryError);
+};
+
+const notifyRetry = (
+  attemptNumber: number,
+  retriesLeft: number,
+  options: ResolvedRetryOptions,
+): void => {
+  if (!options.onRetry) {
+    return;
+  }
+
+  options.onRetry(attemptNumber, retriesLeft);
+};
+
+const waitForNextAttempt = async (
+  attemptNumber: number,
+  options: ResolvedRetryOptions,
+): Promise<void> => {
+  const delay = calculateDelay(
+    attemptNumber,
+    options.factor,
+    options.minTimeout,
+    options.maxTimeout,
+  );
+  await sleep(delay);
+};
+
+const retryAfterFailure = async <T>(
   fn: () => Promise<T>,
-  options: RetryOptions = {},
+  options: ResolvedRetryOptions,
+  error: unknown,
+  attemptNumber: number,
 ): Promise<T> => {
-  const {
-    retries = DEFAULT_OPTIONS.retries,
-    factor = DEFAULT_OPTIONS.factor,
-    minTimeout = DEFAULT_OPTIONS.minTimeout,
-    maxTimeout = DEFAULT_OPTIONS.maxTimeout,
-    onFailedAttempt,
-    onRetry,
-  } = options;
+  const retriesLeft = getRetriesLeft(attemptNumber, options.retries);
+  const retryError = buildRetryError(error, attemptNumber, retriesLeft);
 
-  let attemptNumber = 0;
+  if (!hasRetryAvailable(retriesLeft)) {
+    throw retryError;
+  }
 
-  const attempt = async (): Promise<T> => {
-    attemptNumber++;
+  await notifyFailedAttempt(retryError, options);
+  notifyRetry(attemptNumber, retryError.retriesLeft, options);
+  await waitForNextAttempt(attemptNumber, options);
 
-    try {
-      return await fn();
-    } catch (error) {
-      const retriesLeft = retries - attemptNumber;
-      const shouldRetry = retriesLeft >= 0;
-      const clampedRetriesLeft = Math.max(0, retriesLeft);
-      const retryError = createRetryError(
-        error instanceof Error ? error : new Error(String(error)),
-        attemptNumber,
-        clampedRetriesLeft,
-      );
+  return attempt(fn, options, attemptNumber + 1);
+};
 
-      if (!shouldRetry) {
-        throw retryError;
-      }
+const attempt = async <T>(
+  fn: () => Promise<T>,
+  options: ResolvedRetryOptions,
+  attemptNumber: number,
+): Promise<T> => {
+  try {
+    return await fn();
+  } catch (error) {
+    return retryAfterFailure(fn, options, error, attemptNumber);
+  }
+};
 
-      if (onFailedAttempt) {
-        await onFailedAttempt(retryError);
-      }
-
-      if (onRetry) {
-        onRetry(attemptNumber, clampedRetriesLeft);
-      }
-
-      const delay = calculateDelay(
-        attemptNumber,
-        factor,
-        minTimeout,
-        maxTimeout,
-      );
-      await sleep(delay);
-
-      return attempt();
-    }
-  };
-
-  return attempt();
+export const retry = async <T>(fn: () => Promise<T>, options: RetryOptions = {}): Promise<T> => {
+  return attempt(fn, resolveRetryOptions(options), 1);
 };

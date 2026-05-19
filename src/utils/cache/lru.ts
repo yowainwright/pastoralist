@@ -98,12 +98,12 @@ export class LRUCache<K, V> {
   }
 
   values(): V[] {
-    const values: V[] = [];
+    let values: V[] = [];
     let current = this.head;
 
     while (current) {
       if (!this.isExpired(current)) {
-        values.push(current.value);
+        values = values.concat(current.value);
       }
       current = current.next;
     }

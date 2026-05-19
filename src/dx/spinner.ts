@@ -1,9 +1,8 @@
 import type { SpinnerState, Spinner } from "./types";
 import type { Output } from "./output";
+import { SPINNER_FRAMES, SPINNER_INTERVAL_MS } from "./constants";
 import { defaultOutput } from "./output";
 import { ICON } from "../utils/icons";
-
-const FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 export const hideCursor = (out: Output = defaultOutput): void => {
   out.hideCursor();
@@ -18,7 +17,7 @@ export const clearLine = (out: Output = defaultOutput): void => {
 };
 
 export const renderFrame = (
-  frames: string[],
+  frames: readonly string[],
   index: number,
   text: string,
   out: Output = defaultOutput,
@@ -37,43 +36,30 @@ export const stopInterval = (state: SpinnerState): SpinnerState => {
   return Object.assign({}, state, { interval: null, isSpinning: false });
 };
 
-export const updateStateText = (
-  state: SpinnerState,
-  text: string,
-): SpinnerState => {
+export const updateStateText = (state: SpinnerState, text: string): SpinnerState => {
   return Object.assign({}, state, { text });
 };
 
 export const incrementFrame = (state: SpinnerState): SpinnerState => {
-  const nextIndex = (state.frameIndex + 1) % FRAMES.length;
+  const nextIndex = (state.frameIndex + 1) % SPINNER_FRAMES.length;
   return Object.assign({}, state, { frameIndex: nextIndex });
 };
 
-export const startInterval = (
-  state: SpinnerState,
-  out: Output = defaultOutput,
-): SpinnerState => {
+export const startInterval = (state: SpinnerState, out: Output = defaultOutput): SpinnerState => {
   const interval = setInterval(() => {
-    renderFrame(FRAMES, state.frameIndex, state.text, out);
+    renderFrame(SPINNER_FRAMES, state.frameIndex, state.text, out);
     Object.assign(state, incrementFrame(state));
-  }, 80);
+  }, SPINNER_INTERVAL_MS);
 
   return Object.assign({}, state, { interval, isSpinning: true });
 };
 
-export const writeSymbol = (
-  symbol: string,
-  text: string,
-  out: Output = defaultOutput,
-): void => {
+export const writeSymbol = (symbol: string, text: string, out: Output = defaultOutput): void => {
   out.clearLine();
   out.writeLine(`${symbol} ${text}`);
 };
 
-export const start = (
-  state: SpinnerState,
-  out: Output = defaultOutput,
-): Spinner => {
+export const start = (state: SpinnerState, out: Output = defaultOutput): Spinner => {
   const isAlreadySpinning = state.isSpinning;
   if (isAlreadySpinning) {
     return createSpinnerMethods(state, out);
@@ -85,10 +71,7 @@ export const start = (
   return createSpinnerMethods(state, out);
 };
 
-export const stop = (
-  state: SpinnerState,
-  out: Output = defaultOutput,
-): Spinner => {
+export const stop = (state: SpinnerState, out: Output = defaultOutput): Spinner => {
   const isNotSpinning = !state.isSpinning;
   if (isNotSpinning) {
     return createSpinnerMethods(state, out);
@@ -114,11 +97,7 @@ export const succeed = (
   return createSpinnerMethods(state, out);
 };
 
-export const fail = (
-  state: SpinnerState,
-  text?: string,
-  out: Output = defaultOutput,
-): Spinner => {
+export const fail = (state: SpinnerState, text?: string, out: Output = defaultOutput): Spinner => {
   const newState = stopInterval(state);
   Object.assign(state, newState);
   const displayText = text || state.text;
@@ -127,11 +106,7 @@ export const fail = (
   return createSpinnerMethods(state, out);
 };
 
-export const info = (
-  state: SpinnerState,
-  text?: string,
-  out: Output = defaultOutput,
-): Spinner => {
+export const info = (state: SpinnerState, text?: string, out: Output = defaultOutput): Spinner => {
   const newState = stopInterval(state);
   Object.assign(state, newState);
   const displayText = text || state.text;
@@ -140,11 +115,7 @@ export const info = (
   return createSpinnerMethods(state, out);
 };
 
-export const warn = (
-  state: SpinnerState,
-  text?: string,
-  out: Output = defaultOutput,
-): Spinner => {
+export const warn = (state: SpinnerState, text?: string, out: Output = defaultOutput): Spinner => {
   const newState = stopInterval(state);
   Object.assign(state, newState);
   const displayText = text || state.text;
@@ -153,20 +124,13 @@ export const warn = (
   return createSpinnerMethods(state, out);
 };
 
-export const update = (
-  state: SpinnerState,
-  text: string,
-  out: Output = defaultOutput,
-): Spinner => {
+export const update = (state: SpinnerState, text: string, out: Output = defaultOutput): Spinner => {
   const newState = updateStateText(state, text);
   Object.assign(state, newState);
   return createSpinnerMethods(state, out);
 };
 
-export const createSpinnerMethods = (
-  state: SpinnerState,
-  out: Output = defaultOutput,
-): Spinner => {
+export const createSpinnerMethods = (state: SpinnerState, out: Output = defaultOutput): Spinner => {
   return {
     start: () => start(state, out),
     stop: () => stop(state, out),
@@ -178,10 +142,7 @@ export const createSpinnerMethods = (
   };
 };
 
-export const createSpinner = (
-  text: string,
-  out: Output = defaultOutput,
-): Spinner => {
+export const createSpinner = (text: string, out: Output = defaultOutput): Spinner => {
   const state: SpinnerState = {
     text,
     isSpinning: false,

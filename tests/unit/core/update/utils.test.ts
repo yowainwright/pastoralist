@@ -125,10 +125,7 @@ test("resolveDepPaths - should return array depPaths as-is", () => {
 
   const result = resolveDepPaths(options, config);
 
-  expect(result).toEqual([
-    "packages/a/package.json",
-    "packages/b/package.json",
-  ]);
+  expect(result).toEqual(["packages/a/package.json", "packages/b/package.json"]);
 });
 
 test("resolveDepPaths - should return null when workspace mode but no workspaces", () => {
@@ -186,20 +183,13 @@ test("mergeAllConfigs - should merge all config sources", () => {
   const overridesData: ResolveOverrides = { npm: { lodash: "4.17.21" } };
   const overrides: OverridesType = { lodash: "4.17.21" };
 
-  const result = mergeAllConfigs(
-    cliOptions,
-    packageJsonConfig,
-    overridesData,
-    overrides,
-  );
+  const result = mergeAllConfigs(cliOptions, packageJsonConfig, overridesData, overrides);
 
   expect(result.overrides).toEqual(overrides);
   expect(result.overridesData).toEqual(overridesData);
   expect(result.appendix).toEqual(packageJsonConfig.appendix);
   expect(result.depPaths).toEqual(["cli/path"]);
-  expect(result.securityOverrideDetails).toEqual(
-    cliOptions.securityOverrideDetails,
-  );
+  expect(result.securityOverrideDetails).toEqual(cliOptions.securityOverrideDetails);
   expect(result.securityProvider).toBe("osv");
 });
 
@@ -208,12 +198,7 @@ test("mergeAllConfigs - should handle undefined packageJsonConfig", () => {
   const overridesData: ResolveOverrides = {};
   const overrides: OverridesType = {};
 
-  const result = mergeAllConfigs(
-    cliOptions,
-    undefined,
-    overridesData,
-    overrides,
-  );
+  const result = mergeAllConfigs(cliOptions, undefined, overridesData, overrides);
 
   expect(result.appendix).toBeUndefined();
   expect(result.depPaths).toEqual(["cli/path"]);
@@ -225,12 +210,7 @@ test("mergeAllConfigs - should prioritize CLI options over package.json config",
   const overridesData: ResolveOverrides = {};
   const overrides: OverridesType = {};
 
-  const result = mergeAllConfigs(
-    cliOptions,
-    packageJsonConfig,
-    overridesData,
-    overrides,
-  );
+  const result = mergeAllConfigs(cliOptions, packageJsonConfig, overridesData, overrides);
 
   expect(result.depPaths).toEqual(["cli/path"]);
 });
@@ -241,12 +221,7 @@ test("mergeAllConfigs - should use package.json depPaths when CLI not provided",
   const overridesData: ResolveOverrides = {};
   const overrides: OverridesType = {};
 
-  const result = mergeAllConfigs(
-    cliOptions,
-    packageJsonConfig,
-    overridesData,
-    overrides,
-  );
+  const result = mergeAllConfigs(cliOptions, packageJsonConfig, overridesData, overrides);
 
   expect(result.depPaths).toEqual(["config/path"]);
 });
@@ -264,12 +239,7 @@ test("findRemovableOverrides - should find unused overrides", () => {
   const allDeps = { lodash: "^4.17.20" };
   const missingInRoot: string[] = [];
 
-  const result = findRemovableOverrides(
-    overrides,
-    appendix,
-    allDeps,
-    missingInRoot,
-  );
+  const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
 
   expect(result).toEqual(["axios"]);
 });
@@ -284,12 +254,7 @@ test("findRemovableOverrides - should not remove overrides in appendix", () => {
   const allDeps = {};
   const missingInRoot: string[] = [];
 
-  const result = findRemovableOverrides(
-    overrides,
-    appendix,
-    allDeps,
-    missingInRoot,
-  );
+  const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
 
   expect(result).toEqual([]);
 });
@@ -300,12 +265,7 @@ test("findRemovableOverrides - should not remove overrides in root deps", () => 
   const allDeps = { axios: "^0.21.0" };
   const missingInRoot: string[] = [];
 
-  const result = findRemovableOverrides(
-    overrides,
-    appendix,
-    allDeps,
-    missingInRoot,
-  );
+  const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
 
   expect(result).toEqual([]);
 });
@@ -316,12 +276,7 @@ test("findRemovableOverrides - should not remove overrides missing in root", () 
   const allDeps = {};
   const missingInRoot = ["react"];
 
-  const result = findRemovableOverrides(
-    overrides,
-    appendix,
-    allDeps,
-    missingInRoot,
-  );
+  const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
 
   expect(result).toEqual([]);
 });
@@ -342,12 +297,7 @@ test("findRemovableOverrides - should return empty array when all overrides are 
   const allDeps = {};
   const missingInRoot: string[] = [];
 
-  const result = findRemovableOverrides(
-    overrides,
-    appendix,
-    allDeps,
-    missingInRoot,
-  );
+  const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
 
   expect(result).toEqual([]);
 });

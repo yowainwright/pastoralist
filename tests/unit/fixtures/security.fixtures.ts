@@ -12,8 +12,7 @@ export const BASE_SECURITY_ALERT = {
 
 export const LODASH_CVE = "CVE-2021-23337";
 export const LODASH_URL = "https://nvd.nist.gov/vuln/detail/CVE-2021-23337";
-export const LODASH_DESCRIPTION =
-  "Lodash versions before 4.17.21 are vulnerable";
+export const LODASH_DESCRIPTION = "Lodash versions before 4.17.21 are vulnerable";
 
 export const AXIOS_ALERT_FIELDS = {
   packageName: "axios",
@@ -53,8 +52,7 @@ export const LODASH_VULNERABILITY = {
 export const LODASH_ADVISORY = {
   severity: "high",
   summary: "Prototype Pollution in lodash",
-  description:
-    "Lodash versions before 4.17.21 are vulnerable to prototype pollution",
+  description: "Lodash versions before 4.17.21 are vulnerable to prototype pollution",
   cve_id: LODASH_CVE,
 } as const;
 

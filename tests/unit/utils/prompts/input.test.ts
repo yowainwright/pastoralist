@@ -66,11 +66,8 @@ describe("Piped Input Functionality", () => {
       const originalIsTTY = process.stdin.isTTY;
       process.stdin.isTTY = false;
 
-      // Reset piped input state
       resetPipedInputState();
 
-      // Since there's no piped input available, it should fall back to interactive
-      // But the test environment doesn't properly support this, so we test the basic flow
       const mockRl = {
         question: (prompt: string, callback: (answer: string) => void) => {
           setTimeout(() => callback("mocked input"), 0);
@@ -81,7 +78,6 @@ describe("Piped Input Functionality", () => {
       const processor = (answer: string) => answer.trim();
 
       const result = await enhancedQuestion(mockRl, promptText, processor);
-      // When no piped input is available, the processor returns empty string from getNextPipedInput
       expect(result).toBe("");
 
       process.stdin.isTTY = originalIsTTY;
@@ -96,7 +92,6 @@ describe("Piped Input Functionality", () => {
         question: (prompt: string, callback: (answer: string) => void) => {
           questionCalled = true;
           expect(prompt).toBe("Test prompt: ");
-          // Simulate user input
           setTimeout(() => callback("test answer"), 0);
         },
       };

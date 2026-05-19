@@ -42,11 +42,7 @@ test("retry - should respect retries option", async () => {
     throw new Error("Always fails");
   };
 
-  try {
-    await retry(fn, { retries: 3, minTimeout: 10 });
-  } catch {
-    // Expected
-  }
+  await expect(retry(fn, { retries: 3, minTimeout: 10 })).rejects.toThrow("Always fails");
 
   expect(attempts).toBe(4);
 });

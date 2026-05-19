@@ -499,7 +499,6 @@ test("checkSecurity - should handle both dependencies and devDependencies", asyn
 
   const checker = new SecurityChecker({ provider: "osv" });
 
-  // Mock the OSV provider to prevent real API calls
   const mockFetchAlerts = spyOn(checker["providers"][0], "fetchAlerts").mockResolvedValue([]);
 
   const result = await checker.checkSecurity(config);
@@ -1366,10 +1365,6 @@ test("generateDiskCacheKey - separates different package scans", () => {
   expect(lodashKey).not.toBe(axiosKey);
 });
 
-// =============================================================================
-// generatePackageOverrides - nested override safety
-// =============================================================================
-
 test("generatePackageOverrides - skips nested override objects without crashing", () => {
   const checker = new SecurityChecker({ debug: false });
 
@@ -1431,10 +1426,6 @@ test("generatePackageOverrides - does not downgrade existing higher version", ()
 
   expect(overrides["lodash"]).toBe("4.17.25");
 });
-
-// =============================================================================
-// Promise.allSettled provider resilience
-// =============================================================================
 
 test("checkSecurity - expires in-memory alerts using cache TTL seconds", async () => {
   const checker = new SecurityChecker({

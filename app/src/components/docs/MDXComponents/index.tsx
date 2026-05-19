@@ -41,13 +41,11 @@ function Pre({
   const mermaidContent = props["data-mermaid-content"];
   const dataLanguage = props["data-language"];
 
-  // Handle mermaid from remark plugin data attributes
   const hasMermaidProps = dataLanguage === "mermaid" && mermaidContent;
   if (hasMermaidProps) {
     return <MermaidBlock chart={mermaidContent} />;
   }
 
-  // Extract language and code from children
   const child = children as ReactElement<{
     className?: string;
     children?: unknown;
@@ -67,7 +65,6 @@ function Pre({
   const lang = rawLang.replace(/^language-/, "");
   const code = extractText(child?.props?.children ?? children);
 
-  // Handle mermaid from className
   if (lang === "mermaid") {
     return <MermaidBlock chart={code} />;
   }

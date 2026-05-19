@@ -32,12 +32,10 @@ import {
   validateRootPackageJsonIntegrity,
 } from "../setup";
 
-// Mock execFile at module level to prevent any real npm commands
 mock.module("node:child_process", () => ({
   ...require("node:child_process"),
   promisify: (fn: any) => {
     if (fn.name === "execFile") {
-      // Return a mock that tests should never actually call
       return async (cmd: string, args: string[], options: any) => {
         throw new Error(`Unexpected execFile call in tests: ${cmd} ${args.join(" ")}`);
       };
@@ -866,10 +864,6 @@ test("updatePackageJSON - should not show RC file suggestion in test mode", () =
   expect(result?.pastoralist).toBeDefined();
 });
 
-// =============================================================================
-// Silent option tests
-// =============================================================================
-
 test("updatePackageJSON - silent option suppresses dry-run output", () => {
   const config: PastoralistJSON = {
     name: "test-silent",
@@ -1088,14 +1082,13 @@ test("getDependencyTree - should cache results on second call", async () => {
   };
 
   const firstCall = await getDependencyTree(mockExecuteNpmLs);
-  // Second call with a mock that throws — verifies cache is used (mock never invoked)
   const failMock = async () => {
     throw new Error("should not be called");
   };
   const secondCall = await getDependencyTree(failMock);
 
   expect(firstCall).toEqual(secondCall);
-  expect(callCount).toBe(1); // Mock should only be called once due to caching
+  expect(callCount).toBe(1);
   clearDependencyTreeCache();
 });
 

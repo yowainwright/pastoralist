@@ -22,10 +22,9 @@ export function Sidebar() {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (window.innerWidth >= 1024) return; // Only on mobile
-      if (!isOpen) return; // Only if sidebar is open
+      if (window.innerWidth >= 1024) return;
+      if (!isOpen) return;
 
-      // Don't close if clicking the menu button itself
       const menuButton = document.querySelector('label[for="my-drawer-2"]');
       if (menuButton?.contains(event.target as Node)) return;
 

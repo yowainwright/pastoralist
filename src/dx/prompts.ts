@@ -23,9 +23,6 @@ const formatChoiceLine = (choice: PromptChoiceOption, index: number): string => 
   return `  ${num} ${choice.name}`;
 };
 
-/**
- * Format a confirm prompt with enhanced UX
- */
 export function formatConfirmPrompt(message: string, defaultValue: boolean = true): string {
   const icon = defaultValue ? green("●") : gray("○");
   const yesOption = defaultValue ? green("Y") : "y";
@@ -35,9 +32,6 @@ export function formatConfirmPrompt(message: string, defaultValue: boolean = tru
   return `${icon} ${message} (${yesOption}/${noOption}) ${gray(defaultHint)}: `;
 }
 
-/**
- * Format a choice list with enhanced styling
- */
 export function formatChoiceList(message: string, choices: PromptChoiceOption[]): string {
   const lines = [`${cyan("?")} ${message}`, ""].concat(choices.map(formatChoiceLine));
 
@@ -50,16 +44,10 @@ export function formatChoiceList(message: string, choices: PromptChoiceOption[])
   return colorBoxBorders(boxed).join("\n");
 }
 
-/**
- * Format a choice prompt input
- */
 export function formatChoicePrompt(): string {
   return `\n${cyan("▶")} Enter your choice ${gray("(number)")}: `;
 }
 
-/**
- * Format an input prompt with enhanced styling
- */
 export function formatInputPrompt(message: string, defaultValue?: string): string {
   const icon = cyan("◆");
 
@@ -71,9 +59,6 @@ export function formatInputPrompt(message: string, defaultValue?: string): strin
   return `${icon} ${message}: `;
 }
 
-/**
- * Format step headers with better visual hierarchy
- */
 export function formatStepHeader(stepNumber: number, title: string): string {
   const stepIcon = cyan(`▶ Step ${stepNumber}:`);
   const lines = [`${stepIcon} ${title}`];
@@ -86,30 +71,18 @@ export function formatStepHeader(stepNumber: number, title: string): string {
   return `\n${colorBoxBorders(boxed).join("\n")}\n`;
 }
 
-/**
- * Format info/hint messages
- */
 export function formatInfo(message: string): string {
   return indent(gray(`${ICON.info} ${message}`), 3);
 }
 
-/**
- * Format success message
- */
 export function formatSuccess(message: string): string {
   return `${green(ICON.CHECK)} ${message}`;
 }
 
-/**
- * Format warning message
- */
 export function formatWarning(message: string): string {
   return `${yellow(ICON.warning)} ${message}`;
 }
 
-/**
- * Create a completion box
- */
 export function formatCompletion(title: string, steps: string[], shimmerTitle?: string): string {
   const heading = shimmerTitle || green(`✓ ${title}`);
   const formattedSteps = steps.map((step, index) => `  ${cyan(`${index + 1}.`)} ${step}`);

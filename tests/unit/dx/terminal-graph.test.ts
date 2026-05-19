@@ -413,7 +413,7 @@ describe("terminal-graph", () => {
 
       const joined = output.lines.join("\n");
       expect(joined).toContain("Pastoralist");
-      expect(joined).toContain("\x1b[32m"); // green color
+      expect(joined).toContain("\x1b[32m");
     });
 
     test("returns graph for chaining", () => {
@@ -469,7 +469,6 @@ describe("terminal-graph", () => {
       graph.complete("All done!");
 
       const joined = output.lines.join("");
-      // The text has gradient coloring, so we need to check for the individual characters
       expect(joined).toContain("A");
       expect(joined).toContain("l");
       expect(joined).toContain("d");
@@ -486,7 +485,6 @@ describe("terminal-graph", () => {
       graph.complete("Complete", " (1.2s)");
 
       const joined = output.lines.join("");
-      // Check for the gradient colored text and suffix
       expect(joined).toContain("C");
       expect(joined).toContain("o");
       expect(joined).toContain("m");
@@ -627,7 +625,7 @@ describe("terminal-graph", () => {
       graph.override(info, true);
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("└──"); // last branch character
+      expect(joined).toContain("└──");
     });
 
     test("renders override with empty patches array", () => {
@@ -846,7 +844,6 @@ describe("terminal-graph", () => {
       graph.progress(1, 10, "package-1");
       graph.progress(2, 10, "package-2");
 
-      // Only one interval should be created
       expect(intervalCallbacks.length).toBe(1);
     });
 
@@ -899,9 +896,9 @@ describe("terminal-graph", () => {
       expect(joined).toContain("Package 2");
       expect(joined).toContain("Package 3");
       expect(joined).toContain("Scan complete");
-      expect(joined).toContain("│"); // vertical pipe
-      expect(joined).toContain("├"); // branch
-      expect(joined).toContain("└"); // last branch
+      expect(joined).toContain("│");
+      expect(joined).toContain("├");
+      expect(joined).toContain("└");
     });
 
     test("handles multiple phases", () => {

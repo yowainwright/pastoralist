@@ -34,7 +34,6 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
     [searchData],
   );
 
-  // Handle search
   useEffect(() => {
     if (query.length > 0) {
       const searchResults = fuse.search(query);
@@ -44,7 +43,6 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
     }
   }, [query]);
 
-  // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isSearchShortcut = (e.metaKey || e.ctrlKey) && e.key === "k";
@@ -63,7 +61,6 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Handle click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const clickedOutsideSearch =
@@ -86,7 +83,6 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
 
   return (
     <>
-      {/* Search Button */}
       {iconOnly ? (
         <button
           onClick={handleOpen}
@@ -111,24 +107,20 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
         </button>
       )}
 
-      {/* Search Modal */}
       {isOpen &&
         createPortal(
           <>
-            {/* Backdrop */}
             <div
               className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm"
               onClick={() => setIsOpen(false)}
             />
 
-            {/* Modal Container */}
             <div className="fixed inset-0 z-[101] overflow-y-auto">
               <div className="flex min-h-full items-start justify-center pt-[10vh] p-4">
                 <div
                   ref={searchRef}
                   className="relative w-full max-w-2xl bg-base-100 rounded-xl shadow-2xl overflow-hidden border border-base-content/10"
                 >
-                  {/* Search Input */}
                   <div className="flex items-center p-4 border-b border-base-content/10">
                     <SearchIcon className="h-5 w-5 mr-3 text-[#1D4ED8]" />
                     <input
@@ -144,7 +136,6 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
                     </kbd>
                   </div>
 
-                  {/* Search Results */}
                   <div className="max-h-[60vh] overflow-y-auto">
                     {query.length > 0 && results.length === 0 && (
                       <div className="p-8 text-center text-base-content/50">

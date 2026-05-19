@@ -11,12 +11,10 @@ import {
 
 export const INDENT_SIZE = DEFAULT_INDENT_SIZE;
 
-/** Get terminal width */
 export const width = (): number => {
   return process.stdout.columns || DEFAULT_TERMINAL_WIDTH;
 };
 
-/** Visible length of string (strips ANSI codes and handles Unicode properly) */
 export const visibleLength = (str: string): number => {
   const withoutAnsi = str.replace(ANSI_PATTERN, "");
 
@@ -33,7 +31,6 @@ export const visibleLength = (str: string): number => {
   return chars.length + wideCount;
 };
 
-/** Pad string to width */
 export const pad = (str: string, len: number, align: "left" | "right" = "left"): string => {
   const visible = visibleLength(str);
   const padLen = Math.max(0, len - visible);
@@ -112,7 +109,6 @@ const getRemainingText = (str: string, matches: AnsiMatch[]): string => {
   return str.substring(lastMatch.index + lastMatch[0].length);
 };
 
-/** Truncate string to width with ellipsis */
 export const truncate = (str: string, maxLen: number): string => {
   const visible = visibleLength(str);
   if (visible <= maxLen) return str;
@@ -129,23 +125,19 @@ export const truncate = (str: string, maxLen: number): string => {
   return finalState.result;
 };
 
-/** Create horizontal divider line */
 export const divider = (char = "-", len?: number): string => {
   const lineLen = len ?? width();
   return char.repeat(lineLen);
 };
 
-/** Create indented string */
 export const indent = (str: string, spaces = INDENT_SIZE): string => {
   return " ".repeat(spaces) + str;
 };
 
-/** Create string with newline prefix */
 export const line = (str: string): string => {
   return "\n" + str;
 };
 
-/** Create numbered item string */
 export const item = (n: number, str: string, spaces = INDENT_SIZE): string => {
   return " ".repeat(spaces) + `${n}. ${str}`;
 };
@@ -165,9 +157,8 @@ const buildTopBorder = (boxWidth: number, title?: string): string => {
   return buildPlainTopBorder(boxWidth);
 };
 
-/** Create bordered box around lines */
 export const box = (lines: string[], options: BoxOptions = {}): string[] => {
-  const boxWidth = options.width ?? width() - 2; // Reserve space for terminal edges
+  const boxWidth = options.width ?? width() - 2;
   const padding = options.padding ?? 1;
   const innerWidth = boxWidth - 2 - padding * 2;
   const padStr = " ".repeat(padding);
@@ -185,7 +176,6 @@ export const box = (lines: string[], options: BoxOptions = {}): string[] => {
   return [top].concat(contentLines, bottom);
 };
 
-/** Create progress bar string */
 export const progress = (percent: number, options: ProgressOptions = {}): string => {
   const barWidth = options.width ?? DEFAULT_PROGRESS_WIDTH;
   const filled = options.filled ?? "█";
@@ -201,7 +191,6 @@ export const progress = (percent: number, options: ProgressOptions = {}): string
   return bar;
 };
 
-/** Calculate column widths from data */
 export const calculateWidths = (
   items: Array<{ label: string; value: string | number }>,
   minLabel = 0,

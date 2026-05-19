@@ -13,7 +13,6 @@ export function Stepper({ steps }: StepperProps) {
   return (
     <div className="w-full max-w-4xl mx-auto">
       <div className="relative flex items-center justify-between">
-        {/* Background line that connects all circles */}
         <div className="absolute inset-0 flex items-center z-0">
           <div className="w-full h-1 bg-base-content/20"></div>
         </div>
@@ -25,7 +24,6 @@ export function Stepper({ steps }: StepperProps) {
 
           return (
             <div key={index} className="relative flex flex-col items-center z-10">
-              {/* Circle */}
               <div
                 className={`
                   w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200 border-2 cursor-pointer relative
@@ -37,7 +35,6 @@ export function Stepper({ steps }: StepperProps) {
                 `}
                 onClick={step.onClick}
               >
-                {/* Progress line overlay that goes through the circle */}
                 {isActive && index < steps.length - 1 && (
                   <div className="absolute left-4 top-1/2 w-screen h-1 bg-blue-500 -translate-y-1/2 z-0"></div>
                 )}
@@ -57,7 +54,6 @@ export function Stepper({ steps }: StepperProps) {
                 </span>
               </div>
 
-              {/* Label */}
               <span
                 className={`
                   mt-3 text-sm transition-all duration-200 text-center max-w-24 leading-tight cursor-pointer

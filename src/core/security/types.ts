@@ -220,7 +220,6 @@ export type SecurityProvider =
   | SpektionProvider
   | PackageManagerAuditProvider;
 
-/** Common interface for security provider type identification */
 export interface SecurityProviderBase {
   readonly providerType: SecurityProviderType;
   fetchAlerts(

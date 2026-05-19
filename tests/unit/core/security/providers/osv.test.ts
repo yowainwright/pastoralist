@@ -732,10 +732,6 @@ test("fetchAlerts - should extract all CVE aliases when multiple CVEs exist", as
   global.fetch = originalFetch;
 });
 
-// =============================================================================
-// strict mode - individual vulnerability fetch failures
-// =============================================================================
-
 test("fetchAlerts - strict mode throws when individual vuln detail fetch fails", async () => {
   const provider = new OSVProvider({
     debug: false,

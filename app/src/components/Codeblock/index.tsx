@@ -15,7 +15,6 @@ import type { CodeblockProps } from "./types";
 
 const WINDOW_DOTS = ["bg-rose-400", "bg-amber-400", "bg-emerald-400"] as const;
 
-// Singleton highlighter promise — created once, reused forever
 let highlighterPromise: Promise<Highlighter> | null = null;
 
 export function getHighlighter(): Promise<Highlighter> {

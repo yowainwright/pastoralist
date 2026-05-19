@@ -18,10 +18,6 @@ import {
 import type { SecurityAlert } from "../../../../src/core/security/types";
 import type { PastoralistJSON, SecurityOverride } from "../../../../src/types";
 
-// =============================================================================
-// CLIInstaller tests
-// =============================================================================
-
 test("constructor - should initialize with default options", () => {
   const installer = new CLIInstaller();
   expect(installer).toBeDefined();
@@ -167,10 +163,6 @@ test("installGlobally - should throw error for invalid package name", async () =
   );
 });
 
-// =============================================================================
-// getSeverityScore tests
-// =============================================================================
-
 test("getSeverityScore - returns 1 for low severity", () => {
   expect(getSeverityScore("low")).toBe(1);
 });
@@ -199,10 +191,6 @@ test("getSeverityScore - returns 0 for unknown severity", () => {
   expect(getSeverityScore("")).toBe(0);
   expect(getSeverityScore("invalid")).toBe(0);
 });
-
-// =============================================================================
-// deduplicateAlerts tests
-// =============================================================================
 
 test("deduplicateAlerts - removes duplicate alerts", () => {
   const alerts: SecurityAlert[] = [
@@ -395,10 +383,6 @@ test("deduplicateAlerts - merges cves from lower-severity duplicate into existin
   expect(result[0].cves).toContain("CVE-B");
 });
 
-// =============================================================================
-// extractPackages tests
-// =============================================================================
-
 test("extractPackages - extracts dependencies", () => {
   const config: PastoralistJSON = {
     name: "test",
@@ -479,10 +463,6 @@ test("extractPackages - strips caret and tilde prefixes", () => {
   expect(result).toContainEqual({ name: "c", version: "3.0.0" });
 });
 
-// =============================================================================
-// isVersionVulnerable tests
-// =============================================================================
-
 test("isVersionVulnerable - detects version below threshold", () => {
   expect(isVersionVulnerable("4.17.20", "< 4.17.21")).toBe(true);
 });
@@ -510,10 +490,6 @@ test("isVersionVulnerable - handles spaces in range", () => {
 test("isVersionVulnerable - returns false for invalid range format", () => {
   expect(isVersionVulnerable("1.0.0", "invalid range")).toBe(false);
 });
-
-// =============================================================================
-// isVersionVulnerable <= operator tests
-// =============================================================================
 
 test("isVersionVulnerable - <= returns true when version equals bound", () => {
   expect(isVersionVulnerable("4.17.20", "<= 4.17.20")).toBe(true);
@@ -552,10 +528,6 @@ test("isVersionVulnerable - distinguishes <= from < at boundary", () => {
   expect(isVulnerableLT).toBe(false);
 });
 
-// =============================================================================
-// isVersionVulnerable - open-ended >= range tests
-// =============================================================================
-
 test("isVersionVulnerable - open-ended >= flags any version at or above minimum", () => {
   expect(isVersionVulnerable("1.0.0", ">= 0")).toBe(true);
   expect(isVersionVulnerable("99.0.0", ">= 0")).toBe(true);
@@ -577,10 +549,6 @@ test("isVersionVulnerable - bounded >= < range still works correctly", () => {
   expect(isVersionVulnerable("1.5.0", ">= 1.0.0 < 2.0.0")).toBe(true);
   expect(isVersionVulnerable("2.0.0", ">= 1.0.0 < 2.0.0")).toBe(false);
 });
-
-// =============================================================================
-// findVulnerablePackages tests
-// =============================================================================
 
 test("findVulnerablePackages - finds vulnerable packages", () => {
   const config: PastoralistJSON = {
@@ -724,10 +692,6 @@ test("findVulnerablePackages - checks peerDependencies", () => {
   expect(result.length).toBe(1);
 });
 
-// =============================================================================
-// findVulnerablePackages immutability tests
-// =============================================================================
-
 test("findVulnerablePackages - does not mutate input alert objects", () => {
   const config: PastoralistJSON = {
     name: "test",
@@ -783,10 +747,6 @@ test("findVulnerablePackages - returns new objects with correct currentVersion",
   expect(results[0].currentVersion).toBe("4.17.20");
   expect(results[0]).not.toBe(alert);
 });
-
-// =============================================================================
-// InteractiveSecurityManager tests
-// =============================================================================
 
 test("InteractiveSecurityManager - initializes", () => {
   const manager = new InteractiveSecurityManager();
@@ -1125,10 +1085,6 @@ test("InteractiveSecurityManager - handles vulnerability without CVE", async () 
 
   console.log = mockLog;
 });
-
-// =============================================================================
-// createPromptInterface tests
-// =============================================================================
 
 test("createPromptInterface - creates readline interface", () => {
   const rl = createPromptInterface();
@@ -1472,10 +1428,6 @@ test("promptSecret - returns default on timeout", async () => {
     io.restore();
   }
 });
-
-// =============================================================================
-// computeVulnerabilityReduction tests
-// =============================================================================
 
 const makeAlert = (packageName: string, vulnerableVersions: string): SecurityAlert => ({
   packageName,

@@ -29,10 +29,6 @@ afterEach(() => {
   dirs.length = 0;
 });
 
-// =============================================================================
-// DiskCache — round trip
-// =============================================================================
-
 test("DiskCache - set and get returns value", () => {
   const dir = tmpCacheDir();
   const cache = new DiskCache<string>("test", { dir, ttl: 60000, version: 1 });
@@ -86,10 +82,6 @@ test("DiskCache - persists across instances", () => {
   expect(cache2.get("persistent")).toBe("yes");
 });
 
-// =============================================================================
-// DiskCache — TTL expiry
-// =============================================================================
-
 test("DiskCache - expired entry returns undefined", () => {
   const dir = tmpCacheDir();
   const cache = new DiskCache<string>("test", { dir, ttl: 1, version: 1 });
@@ -116,10 +108,6 @@ test("DiskCache - prune removes expired entries", () => {
   });
 });
 
-// =============================================================================
-// DiskCache — corrupt file recovery
-// =============================================================================
-
 test("DiskCache - corrupt file returns empty, next set succeeds", () => {
   const dir = tmpCacheDir();
   const filePath = join(dir, "test.json");
@@ -131,10 +119,6 @@ test("DiskCache - corrupt file returns empty, next set succeeds", () => {
   expect(cache.get("k")).toBe("v");
 });
 
-// =============================================================================
-// DiskCache — version mismatch
-// =============================================================================
-
 test("DiskCache - version mismatch treats cache as empty", () => {
   const dir = tmpCacheDir();
   const v1 = new DiskCache<string>("ns", { dir, ttl: 60000, version: 1 });
@@ -143,10 +127,6 @@ test("DiskCache - version mismatch treats cache as empty", () => {
   const v2 = new DiskCache<string>("ns", { dir, ttl: 60000, version: 2 });
   expect(v2.get("k")).toBeUndefined();
 });
-
-// =============================================================================
-// DiskCache — enabled flag (noCache mode)
-// =============================================================================
 
 test("DiskCache - disabled cache never reads or writes", () => {
   const dir = tmpCacheDir();
@@ -160,10 +140,6 @@ test("DiskCache - disabled cache never reads or writes", () => {
   expect(cache.get("k")).toBeUndefined();
   expect(existsSync(join(dir, "test.json"))).toBe(false);
 });
-
-// =============================================================================
-// DiskCache — maxEntries eviction
-// =============================================================================
 
 test("DiskCache - trims to maxEntries on overflow", () => {
   const dir = tmpCacheDir();
@@ -188,10 +164,6 @@ test("DiskCache - trims to maxEntries on overflow", () => {
   expect(keys.length).toBe(3);
 });
 
-// =============================================================================
-// hashLockfile
-// =============================================================================
-
 test("hashLockfile - returns consistent hash for same content", () => {
   const dir = tmpCacheDir();
   writeFileSync(join(dir, "bun.lock"), "lockfile content A");
@@ -213,10 +185,6 @@ test("hashLockfile - returns no-lockfile when no lockfile found", () => {
   const dir = tmpCacheDir();
   expect(hashLockfile(dir)).toBe("no-lockfile");
 });
-
-// =============================================================================
-// resolveCacheDir
-// =============================================================================
 
 test("resolveCacheDir - returns provided cacheDir", () => {
   const dir = tmpCacheDir();
@@ -243,10 +211,6 @@ test("resolveCacheDir - flag takes precedence over env", () => {
     delete process.env.PASTORALIST_CACHE_DIR;
   }
 });
-
-// =============================================================================
-// detectCIEnv
-// =============================================================================
 
 test("detectCIEnv - returns false when no CI env", () => {
   const savedCI = process.env.CI;
@@ -283,10 +247,6 @@ test("detectCIEnv - returns true when GITHUB_ACTIONS=true", () => {
   }
 });
 
-// =============================================================================
-// pruneBackups
-// =============================================================================
-
 test("pruneBackups - keeps most recent N files", () => {
   const dir = tmpCacheDir();
   [1, 2, 3, 4, 5, 6, 7].forEach((i) => {
@@ -319,10 +279,6 @@ test("pruneBackups - does not throw on empty dir", () => {
 test("pruneBackups - does not throw on missing dir", () => {
   expect(() => pruneBackups("/nonexistent/path")).not.toThrow();
 });
-
-// =============================================================================
-// DISK_CACHE_SCHEMA_VERSION
-// =============================================================================
 
 test("DISK_CACHE_SCHEMA_VERSION is 1", () => {
   expect(DISK_CACHE_SCHEMA_VERSION).toBe(1);

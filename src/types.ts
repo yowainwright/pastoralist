@@ -121,7 +121,6 @@ export interface UpdateAppendixOptions {
   addedDate?: string;
 }
 
-/** Security-related options */
 export interface SecurityOptions {
   checkSecurity?: boolean;
   forceSecurityRefactor?: boolean;
@@ -134,7 +133,6 @@ export interface SecurityOptions {
   strict?: boolean;
 }
 
-/** Output format and verbosity options */
 export interface OutputOptions {
   outputFormat?: "text" | "json";
   debug?: boolean;
@@ -143,13 +141,11 @@ export interface OutputOptions {
   dryRun?: boolean;
 }
 
-/** Testing-specific options */
 export interface TestingOptions {
   isTesting?: boolean;
   isTestingCLI?: boolean;
 }
 
-/** Path-related options */
 export interface PathOptions {
   path?: string;
   out?: string;

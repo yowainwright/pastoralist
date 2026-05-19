@@ -151,7 +151,6 @@ const checkLessThan = (version: string, range: string): boolean | null => {
 };
 
 const checkGreaterThanOrEqual = (version: string, range: string): boolean | null => {
-  // Matches open-ended ranges like ">= 1.0.0" with no upper bound
   const isOpenEnded = range.startsWith(">=") && !range.includes("<");
   if (!isOpenEnded) return null;
 

@@ -20,10 +20,6 @@ import type {
 
 const TEST_DIR = resolve(__dirname, ".test-update");
 
-// =============================================================================
-// update() function tests
-// =============================================================================
-
 test("update - returns early context when no config provided", () => {
   const options: Options = {
     path: "package.json",
@@ -559,10 +555,6 @@ test("update - processes manualOverrideReasons", () => {
   expect(entry).toBeDefined();
 });
 
-// =============================================================================
-// determineProcessingMode() tests
-// =============================================================================
-
 test("determineProcessingMode - returns root mode when no depPaths", () => {
   const options: Options = {};
   const config: PastoralistJSON = {
@@ -608,10 +600,6 @@ test("determineProcessingMode - returns workspace mode when config depPaths", ()
   expect(result.mode).toBe("workspace");
   expect(result.depPaths).toEqual(["apps/*/package.json"]);
 });
-
-// =============================================================================
-// resolveDepPaths() tests
-// =============================================================================
 
 test("resolveDepPaths - returns options depPaths when provided", () => {
   const options: Options = {
@@ -702,10 +690,6 @@ test("resolveDepPaths - returns null when no depPaths or workspaces", () => {
   expect(result).toBeNull();
 });
 
-// =============================================================================
-// mergeAllConfigs() tests
-// =============================================================================
-
 test("mergeAllConfigs - merges CLI options and package.json config", () => {
   const cliOptions: Options = {
     depPaths: ["cli/path"],
@@ -742,10 +726,6 @@ test("mergeAllConfigs - handles undefined packageJsonConfig", () => {
   expect(result.depPaths).toEqual(["cli/path"]);
   expect(result.appendix).toBeUndefined();
 });
-
-// =============================================================================
-// findRemovableOverrides() tests
-// =============================================================================
 
 test("findRemovableOverrides - finds unused overrides", () => {
   const overrides: OverridesType = {
@@ -808,10 +788,6 @@ test("findRemovableOverrides - keeps overrides missing in root", () => {
 
   expect(result).toEqual([]);
 });
-
-// =============================================================================
-// hasConfigOverrides() tests
-// =============================================================================
 
 test("hasConfigOverrides - returns true for security overrides", () => {
   const options: Options = {
@@ -896,10 +872,6 @@ test("hasConfigOverrides - handles undefined options and config", () => {
 
   expect(result).toBe(false);
 });
-
-// =============================================================================
-// Additional edge case tests for coverage
-// =============================================================================
 
 test("update - merges workspace appendix with existing root appendix entries", () => {
   const config: PastoralistJSON = {
@@ -1124,10 +1096,6 @@ test("update - handles resolutionPaths fallback", () => {
 
   expect(result.appendix).toBeDefined();
 });
-
-// =============================================================================
-// Fixture-based tests for workspace appendix merge
-// =============================================================================
 
 test("update - fixture: merges workspace appendix with existing root entry", () => {
   forceClearCache();

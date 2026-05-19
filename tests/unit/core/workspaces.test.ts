@@ -95,7 +95,6 @@ test("mergeOverridePaths", () => {
 });
 
 test("findUnusedOverrides", async () => {
-  // Spy on getDependencyTree to prevent real npm commands in CI
   const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({
     "fake-pkg": true,
   });
@@ -140,7 +139,6 @@ test("cleanupUnusedOverrides", async () => {
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
   const mockUpdateOverrides = () => ({ "fake-pkg": "1.0.0" });
 
-  // Spy on getDependencyTree to prevent cache pollution
   const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({
     "fake-pkg": true,
   });
@@ -188,7 +186,6 @@ test("cleanupUnusedOverrides", async () => {
 });
 
 test("findUnusedOverrides - handles packages in dependency tree", async () => {
-  // Spy on getDependencyTree to prevent cache pollution
   const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({
     "transitive-pkg": true,
   });
@@ -238,7 +235,6 @@ test("cleanupUnusedOverrides - handles empty appendix", async () => {
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
   const mockUpdateOverrides = () => ({});
 
-  // Spy on getDependencyTree to prevent real npm commands in CI
   const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({});
 
   const result = await cleanupUnusedOverrides(
@@ -316,7 +312,6 @@ test("mergeOverridePaths - merges dependents from multiple packages", () => {
 });
 
 test("findUnusedOverrides - returns empty for nested override with matching parent", async () => {
-  // Spy on getDependencyTree to prevent real npm commands in CI
   const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({
     parent: true,
   });
@@ -331,7 +326,6 @@ test("cleanupUnusedOverrides - preserves overrides with dependents", async () =>
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
   const mockUpdateOverrides = () => ({ lodash: "4.17.21" });
 
-  // Spy on getDependencyTree to prevent real npm commands in CI
   const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({
     lodash: true,
   });
@@ -380,7 +374,6 @@ test("processWorkspacePackages - aggregates dependencies from multiple packages"
 });
 
 test("findUnusedOverrides - keeps override in dependency tree", async () => {
-  // Spy on getDependencyTree to prevent real npm commands in CI
   const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({
     "transitive-dep": true,
   });
@@ -407,7 +400,6 @@ test("cleanupUnusedOverrides - logs tracked packages in overridePaths", async ()
   };
   const mockUpdateOverrides = () => ({ react: "18.0.0" });
 
-  // Spy on getDependencyTree to prevent real npm commands in CI
   const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({
     react: true,
   });
@@ -436,10 +428,6 @@ test("cleanupUnusedOverrides - logs tracked packages in overridePaths", async ()
 
   spy.mockRestore();
 });
-
-// =============================================================================
-// Fixture-based tests for workspace dependency aggregation
-// =============================================================================
 
 test("processWorkspacePackages - collects all dependency types from fixtures", async () => {
   const pkgADir = resolve(TEST_DIR, "packages", "pkg-a");

@@ -98,7 +98,7 @@ export const pruneBackups = (
       }
     });
   } catch {
-    // best-effort
+    return;
   }
 };
 
@@ -163,7 +163,7 @@ export class DiskCache<V> {
       renameSync(tmpPath, this.filePath);
       this.data = envelope;
     } catch {
-      // silently skip — cache is best-effort; filesystem errors must not crash the caller
+      return;
     }
   }
 

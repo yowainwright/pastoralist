@@ -404,10 +404,6 @@ test("validatePrerequisites - should return true when fully authenticated", asyn
   expect(result).toBe(true);
 });
 
-// =============================================================================
-// runSnykScan tests with mocked child_process
-// =============================================================================
-
 test("runSnykScan - executes snyk test command and parses JSON", async () => {
   const provider = new SnykCLIProvider({ token: "test-token", debug: false });
 

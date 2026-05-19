@@ -6,10 +6,6 @@ afterEach(() => {
   mock.restore();
 });
 
-// =============================================================================
-// construction
-// =============================================================================
-
 test("providerType - should be 'npm'", () => {
   const provider = new PackageManagerAuditProvider();
   expect(provider.providerType).toBe("npm");
@@ -24,10 +20,6 @@ test("construction - initializes with strict option", () => {
   const provider = new PackageManagerAuditProvider({ strict: true });
   expect((provider as any).strict).toBe(true);
 });
-
-// =============================================================================
-// normalizeSeverity
-// =============================================================================
 
 test("normalizeSeverity - maps 'moderate' to 'medium'", () => {
   const provider = new PackageManagerAuditProvider();
@@ -55,10 +47,6 @@ test("normalizeSeverity - is case insensitive", () => {
   expect((provider as any).normalizeSeverity("HIGH")).toBe("high");
 });
 
-// =============================================================================
-// extractNpmPatchedVersion
-// =============================================================================
-
 test("extractNpmPatchedVersion - returns version from object", () => {
   const provider = new PackageManagerAuditProvider();
   const fixAvailable = {
@@ -84,10 +72,6 @@ test("extractNpmPatchedVersion - returns undefined for undefined", () => {
   expect((provider as any).extractNpmPatchedVersion(undefined)).toBeUndefined();
 });
 
-// =============================================================================
-// extractYarnPatchedVersion
-// =============================================================================
-
 test("extractYarnPatchedVersion - extracts version from >=range", () => {
   const provider = new PackageManagerAuditProvider();
   expect((provider as any).extractYarnPatchedVersion(">=4.17.21")).toBe("4.17.21");
@@ -112,10 +96,6 @@ test("extractYarnPatchedVersion - returns undefined for 'No fix available'", () 
   const provider = new PackageManagerAuditProvider();
   expect((provider as any).extractYarnPatchedVersion("No fix available")).toBeUndefined();
 });
-
-// =============================================================================
-// parseNpmCompatibleOutput
-// =============================================================================
 
 test("parseNpmCompatibleOutput - returns empty array when no vulnerabilities key", () => {
   const provider = new PackageManagerAuditProvider();
@@ -242,10 +222,6 @@ test("parseNpmCompatibleOutput - maps moderate severity to medium", () => {
   expect(alerts[0].severity).toBe("medium");
 });
 
-// =============================================================================
-// parseYarnAuditOutput
-// =============================================================================
-
 test("parseYarnAuditOutput - parses advisory line", () => {
   const provider = new PackageManagerAuditProvider();
   const line: YarnAuditLine = {
@@ -328,10 +304,6 @@ test("parseYarnAuditOutput - skips malformed JSON lines", () => {
   expect(alerts).toHaveLength(0);
 });
 
-// =============================================================================
-// enrichWithVersions
-// =============================================================================
-
 test("enrichWithVersions - fills currentVersion from packages map", () => {
   const provider = new PackageManagerAuditProvider();
   const alerts = [
@@ -369,10 +341,6 @@ test("enrichWithVersions - keeps transitive alerts for unknown direct packages",
   expect(result[0].packageName).toBe("transitive-pkg");
   expect(result[0].currentVersion).toBe("unknown");
 });
-
-// =============================================================================
-// fetchAlerts
-// =============================================================================
 
 test("fetchAlerts - returns empty array when packages is empty", async () => {
   const provider = new PackageManagerAuditProvider();
@@ -460,10 +428,6 @@ test("fetchAlerts - strict mode error includes reason", async () => {
 
   spy.mockRestore();
 });
-
-// =============================================================================
-// runAudit
-// =============================================================================
 
 const makeNpmResult = (pkgName: string): NpmAuditResult => ({
   vulnerabilities: {

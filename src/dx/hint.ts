@@ -32,7 +32,7 @@ function saveHintCache(cache: HintCache): void {
     }
     writeFileSync(hintCacheFile, JSON.stringify(cache));
   } catch {
-    // Hints are best-effort and must not fail the CLI.
+    return;
   }
 }
 
@@ -58,7 +58,7 @@ export function clearHintCache(): void {
       writeFileSync(hintCacheFile, "{}");
     }
   } catch {
-    // Hints are best-effort and must not fail the CLI.
+    return;
   }
 }
 

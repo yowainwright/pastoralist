@@ -6,7 +6,8 @@ export function useTheme() {
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window === "undefined") return "lofi";
     const stored = localStorage.getItem("theme") as Theme | null;
-    if (stored === "lofi" || stored === "night") return stored;
+    const isStoredTheme = stored === "lofi" || stored === "night";
+    if (isStoredTheme) return stored;
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "night" : "lofi";
   });
 

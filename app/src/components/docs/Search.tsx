@@ -66,7 +66,9 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
   // Handle click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+      const clickedOutsideSearch =
+        searchRef.current && !searchRef.current.contains(e.target as Node);
+      if (clickedOutsideSearch) {
         setIsOpen(false);
       }
     };

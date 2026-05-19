@@ -348,7 +348,9 @@ export class GitHubSecurityProvider {
   ): boolean {
     const packageName = alert.security_vulnerability.package.name;
     const matchesPackageFilter = packageVersions.size === 0 || packageVersions.has(packageName);
-    return alert.state === "open" && this.isNpmAlert(alert) && matchesPackageFilter;
+    if (alert.state !== "open") return false;
+    if (!this.isNpmAlert(alert)) return false;
+    return matchesPackageFilter;
   }
 
   private convertDependabotAlert(
@@ -358,31 +360,37 @@ export class GitHubSecurityProvider {
     const vulnerability = alert.security_vulnerability;
     const advisory = alert.security_advisory;
     const cves = advisory.cve_id ? [advisory.cve_id] : [];
+    const currentVersion =
+      packageVersions.get(vulnerability.package.name) || this.extractCurrentVersion(alert);
+    const fixAvailable = Boolean(vulnerability.first_patched_version);
     const base = {
       packageName: vulnerability.package.name,
-      currentVersion:
-        packageVersions.get(vulnerability.package.name) || this.extractCurrentVersion(alert),
+      currentVersion,
       vulnerableVersions: vulnerability.vulnerable_version_range,
       patchedVersion: vulnerability.first_patched_version?.identifier,
       severity: this.normalizeSeverity(vulnerability.severity),
       title: advisory.summary,
       description: advisory.description,
       url: alert.html_url,
-      fixAvailable: !!vulnerability.first_patched_version,
+      fixAvailable,
     };
-    return cves.length > 0 ? { ...base, cves } : base;
+    if (cves.length === 0) return base;
+    return Object.assign({}, base, { cves });
   }
 
   private isNpmAlert(alert: DependabotAlert): boolean {
     const dependencyEcosystem = alert.dependency?.package?.ecosystem;
     const vulnerabilityEcosystem = alert.security_vulnerability?.package?.ecosystem;
-    if (!dependencyEcosystem && !vulnerabilityEcosystem) return true;
-    return dependencyEcosystem === "npm" || vulnerabilityEcosystem === "npm";
+    const hasNoEcosystem = !dependencyEcosystem && !vulnerabilityEcosystem;
+    if (hasNoEcosystem) return true;
+    if (dependencyEcosystem === "npm") return true;
+    return vulnerabilityEcosystem === "npm";
   }
 
   private extractCurrentVersion(alert: DependabotAlert): string {
     const vulnerableRange = alert.security_vulnerability.vulnerable_version_range;
-    if (vulnerableRange.includes(">=") && vulnerableRange.includes("<=")) {
+    const hasBoundedRange = vulnerableRange.includes(">=") && vulnerableRange.includes("<=");
+    if (hasBoundedRange) {
       const match = vulnerableRange.match(/>= ?([^\s,]+)/);
       return match ? match[1] : "unknown";
     }

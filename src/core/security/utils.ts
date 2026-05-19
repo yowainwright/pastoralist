@@ -41,8 +41,8 @@ export const getSeverityScore = (severity: string): number => {
 };
 
 const mergeSources = (a: SecurityAlert, b: SecurityAlert): SecurityProviderType[] => {
-  const combined = [...(a.sources || []), ...(b.sources || [])];
-  return [...new Set(combined)] as SecurityProviderType[];
+  const combined = (a.sources || []).concat(b.sources || []);
+  return Array.from(new Set(combined)) as SecurityProviderType[];
 };
 
 const createCvesField = (cves: string[] | undefined): Partial<Pick<SecurityAlert, "cves">> => {
@@ -66,19 +66,19 @@ export const deduplicateAlerts = (alerts: SecurityAlert[]): SecurityAlert[] => {
 
     if (shouldReplace) {
       const mergedCves = existing
-        ? [...new Set([...(existing.cves || []), ...(alert.cves || [])])]
+        ? Array.from(new Set((existing.cves || []).concat(alert.cves || [])))
         : alert.cves;
       const mergedSources = existing ? mergeSources(existing, alert) : alert.sources;
       const withCves = createCvesField(mergedCves);
       const withSources = createSourcesField(mergedSources);
-      map.set(key, { ...alert, ...withCves, ...withSources });
+      map.set(key, Object.assign({}, alert, withCves, withSources));
     } else if (existing) {
-      const allCves = [...(existing.cves || []), ...(alert.cves || [])];
-      const mergedCves = [...new Set(allCves)];
+      const allCves = (existing.cves || []).concat(alert.cves || []);
+      const mergedCves = Array.from(new Set(allCves));
       const mergedSources = mergeSources(existing, alert);
       const withCves = createCvesField(mergedCves);
       const withSources = createSourcesField(mergedSources);
-      map.set(key, { ...existing, ...withCves, ...withSources });
+      map.set(key, Object.assign({}, existing, withCves, withSources));
     }
 
     return map;
@@ -91,7 +91,7 @@ export const computeConfidence = (sources: SecurityProviderType[]): "confirmed" 
   sources.length >= 2 ? "confirmed" : "possible";
 
 export const sortAlertsByPriority = (alerts: SecurityAlert[]): SecurityAlert[] =>
-  [...alerts].sort((a, b) => {
+  alerts.slice().sort((a, b) => {
     const sourcesA = a.sources ?? [];
     const sourcesB = b.sources ?? [];
     const weightA = CONFIDENCE_WEIGHTS[computeConfidence(sourcesA)];
@@ -129,7 +129,9 @@ const checkBoundedRange = (version: string, range: string): boolean | null => {
   const hasValidBounds = Boolean(minVersion && maxVersion);
   if (!hasValidBounds) return null;
 
-  return compareVersions(version, minVersion) >= 0 && compareVersions(version, maxVersion) < 0;
+  const meetsMinVersion = compareVersions(version, minVersion) >= 0;
+  if (!meetsMinVersion) return false;
+  return compareVersions(version, maxVersion) < 0;
 };
 
 const checkLessThanOrEqual = (version: string, range: string): boolean | null => {
@@ -160,14 +162,16 @@ const checkGreaterThanOrEqual = (version: string, range: string): boolean | null
 export const isVersionVulnerable = (currentVersion: string, vulnerableRange: string): boolean => {
   try {
     const cleanVersion = currentVersion.replace(/^[\^~]/, "");
+    const boundedRange = checkBoundedRange(cleanVersion, vulnerableRange);
+    if (boundedRange !== null) return boundedRange;
 
-    return (
-      checkBoundedRange(cleanVersion, vulnerableRange) ??
-      checkGreaterThanOrEqual(cleanVersion, vulnerableRange) ??
-      checkLessThanOrEqual(cleanVersion, vulnerableRange) ??
-      checkLessThan(cleanVersion, vulnerableRange) ??
-      false
-    );
+    const greaterThanOrEqual = checkGreaterThanOrEqual(cleanVersion, vulnerableRange);
+    if (greaterThanOrEqual !== null) return greaterThanOrEqual;
+
+    const lessThanOrEqual = checkLessThanOrEqual(cleanVersion, vulnerableRange);
+    if (lessThanOrEqual !== null) return lessThanOrEqual;
+
+    return checkLessThan(cleanVersion, vulnerableRange) ?? false;
   } catch {
     return false;
   }
@@ -207,11 +211,12 @@ export const findVulnerablePackages = (
   config: PastoralistJSON,
   alerts: SecurityAlert[],
 ): SecurityAlert[] => {
-  const allDeps = {
-    ...config.dependencies,
-    ...config.devDependencies,
-    ...config.peerDependencies,
-  };
+  const allDeps = Object.assign(
+    {},
+    config.dependencies,
+    config.devDependencies,
+    config.peerDependencies,
+  );
 
   return alerts
     .filter((alert) => {
@@ -219,10 +224,7 @@ export const findVulnerablePackages = (
       const hasDep = Boolean(currentVersion);
       return hasDep && isVersionVulnerable(currentVersion, alert.vulnerableVersions);
     })
-    .map((alert) => ({
-      ...alert,
-      currentVersion: allDeps[alert.packageName],
-    }));
+    .map((alert) => Object.assign({}, alert, { currentVersion: allDeps[alert.packageName] }));
 };
 
 export class CLIInstaller {
@@ -583,11 +585,13 @@ function handleSecretChar(
     return { value, output: defaultValue, done: true };
   }
 
-  if (char === "\r" || char === "\n") {
+  const isSubmitChar = char === "\r" || char === "\n";
+  if (isSubmitChar) {
     return { value, output: value.trim() || defaultValue, done: true };
   }
 
-  if (char === "\u007f" || char === "\b") {
+  const isBackspaceChar = char === "\u007f" || char === "\b";
+  if (isBackspaceChar) {
     return { value: value.slice(0, -1), output: "", done: false };
   }
 
@@ -644,10 +648,11 @@ export class InteractiveSecurityManager {
     suggestedOverrides: SecurityOverride[],
   ): Promise<SecurityOverride[]> {
     return suggestedOverrides.reduce(
-      async (previousSelections, override) => [
-        ...(await previousSelections),
-        ...(await this.selectOverride(vulnerablePackages, override)),
-      ],
+      async (previousSelections, override) => {
+        const previous = await previousSelections;
+        const selected = await this.selectOverride(vulnerablePackages, override);
+        return previous.concat(selected);
+      },
       Promise.resolve([] as SecurityOverride[]),
     );
   }
@@ -685,8 +690,10 @@ export class InteractiveSecurityManager {
     console.log(`   Current: ${override.fromVersion}`);
     console.log(`   ${this.getSeverityEmoji(vulnerability.severity)} ${vulnerability.title}`);
 
-    if (vulnerability.cves && vulnerability.cves.length > 0) {
-      console.log(`   CVE: ${vulnerability.cves.join(", ")}`);
+    const cves = vulnerability.cves;
+    const hasCves = cves && cves.length > 0;
+    if (hasCves) {
+      console.log(`   CVE: ${cves.join(", ")}`);
     }
   }
 
@@ -696,10 +703,7 @@ export class InteractiveSecurityManager {
         return choice;
       }
 
-      return {
-        ...choice,
-        name: `Apply fix: Update to ${override.toVersion}`,
-      };
+      return Object.assign({}, choice, { name: `Apply fix: Update to ${override.toVersion}` });
     });
   }
 
@@ -716,7 +720,7 @@ export class InteractiveSecurityManager {
         "Enter the version to use:",
         override.toVersion,
       );
-      return { ...override, toVersion: customVersion };
+      return Object.assign({}, override, { toVersion: customVersion });
     }
 
     return undefined;
@@ -748,17 +752,17 @@ export class InteractiveSecurityManager {
     const severityLines = SECURITY_SUMMARY_SEVERITIES.map((severity) =>
       this.formatSeveritySummary(severity, counts[severity]),
     ).filter(Boolean);
-    return [`Found ${vulnerablePackages.length} vulnerable package(s):`, ...severityLines].join(
-      "\n",
-    );
+    return [`Found ${vulnerablePackages.length} vulnerable package(s):`]
+      .concat(severityLines)
+      .join("\n");
   }
 
   private countBySeverity(vulnerablePackages: SecurityAlert[]) {
     return vulnerablePackages.reduce(
-      (counts, vulnerability) => ({
-        ...counts,
-        [vulnerability.severity]: counts[vulnerability.severity] + 1,
-      }),
+      (counts, vulnerability) =>
+        Object.assign({}, counts, {
+          [vulnerability.severity]: counts[vulnerability.severity] + 1,
+        }),
       { critical: 0, high: 0, medium: 0, low: 0 },
     );
   }

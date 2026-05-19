@@ -37,7 +37,8 @@ export const shimmerFrame = (text: string, offset: number): string => {
     return `${rgb(r, g, b)}${char}`;
   });
 
-  return ANSI.BOLD + coloredChars.join("") + ANSI.RESET;
+  const frame = ANSI.BOLD + coloredChars.join("") + ANSI.RESET;
+  return frame;
 };
 
 const sleep = (ms: number): void => {

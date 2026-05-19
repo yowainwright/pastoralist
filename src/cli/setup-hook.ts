@@ -36,13 +36,10 @@ const addPostinstallHook = (
   config: PastoralistJSON & { scripts?: Record<string, string> },
 ): PastoralistJSON & { scripts: Record<string, string> } => {
   const scripts = config.scripts || {};
-  return {
-    ...config,
-    scripts: {
-      ...scripts,
-      postinstall: buildPostinstallScript(scripts.postinstall || ""),
-    },
-  };
+  const nextScripts = Object.assign({}, scripts, {
+    postinstall: buildPostinstallScript(scripts.postinstall || ""),
+  });
+  return Object.assign({}, config, { scripts: nextScripts });
 };
 
 const writePackageJson = (

@@ -39,7 +39,7 @@ export function formatConfirmPrompt(message: string, defaultValue: boolean = tru
  * Format a choice list with enhanced styling
  */
 export function formatChoiceList(message: string, choices: PromptChoiceOption[]): string {
-  const lines = [`${cyan("?")} ${message}`, "", ...choices.map(formatChoiceLine)];
+  const lines = [`${cyan("?")} ${message}`, ""].concat(choices.map(formatChoiceLine));
 
   const boxed = box(lines, {
     title: yellow("Configuration"),
@@ -111,11 +111,9 @@ export function formatWarning(message: string): string {
  * Create a completion box
  */
 export function formatCompletion(title: string, steps: string[], shimmerTitle?: string): string {
-  const lines = [
-    shimmerTitle || green(`✓ ${title}`),
-    "",
-    ...steps.map((step, index) => `  ${cyan(`${index + 1}.`)} ${step}`),
-  ];
+  const heading = shimmerTitle || green(`✓ ${title}`);
+  const formattedSteps = steps.map((step, index) => `  ${cyan(`${index + 1}.`)} ${step}`);
+  const lines = [heading, ""].concat(formattedSteps);
 
   const boxed = box(lines, {
     title: yellow("Next Steps"),

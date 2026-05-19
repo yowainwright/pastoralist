@@ -16,17 +16,21 @@ export class ConcurrencyLimiter {
 
   run<T>(task: Task<T>): Promise<T> {
     return new Promise<T>((resolve, reject) => {
-      this.queue.push({
+      const item = {
         task: task as Task<unknown>,
         resolve: resolve as (value: unknown) => void,
         reject,
-      });
+      };
+      this.queue = this.queue.concat(item);
       this.process();
     });
   }
 
   private async process(): Promise<void> {
-    if (this.running >= this.concurrency || this.queue.length === 0) {
+    const isAtCapacity = this.running >= this.concurrency;
+    const hasNoQueuedTasks = this.queue.length === 0;
+    const shouldWait = isAtCapacity || hasNoQueuedTasks;
+    if (shouldWait) {
       return;
     }
 

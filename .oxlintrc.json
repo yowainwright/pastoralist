@@ -10,7 +10,7 @@
     "pastoralist/hoist-if-operators": [
       "warn",
       {
-        "max": 1
+        "max": 0
       }
     ],
     "pastoralist/max-expression-operators": [
@@ -25,7 +25,15 @@
         "max": 2
       }
     ],
+    "pastoralist/no-computed-values": [
+      "warn",
+      {
+        "max": 1
+      }
+    ],
     "pastoralist/no-hidden-side-effects": "warn",
-    "pastoralist/no-quadratic-patterns": "warn"
+    "pastoralist/no-quadratic-patterns": "warn",
+    "pastoralist/no-standalone-array-mutations": "warn",
+    "pastoralist/prefer-concat-object-assign": "warn"
   }
 }

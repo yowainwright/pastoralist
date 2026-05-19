@@ -103,7 +103,8 @@ const processCollectedValue = (
   def: OptionDefinition,
 ): ProcessedArgument => {
   const { value, consumed } = collectValue(args, index, def);
-  return toProcessedArgument(index + consumed + 1, state, withOption(state, key, value));
+  const nextIndex = index + consumed + 1;
+  return toProcessedArgument(nextIndex, state, withOption(state, key, value));
 };
 
 const processArgument = (args: string[], index: number, state: ParserState): ProcessedArgument => {

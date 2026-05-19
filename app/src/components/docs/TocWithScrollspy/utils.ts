@@ -9,27 +9,23 @@ export function parseInlineCode(text: string): TextPart[] {
   const matches = Array.from(text.matchAll(INLINE_CODE_REGEX));
   const state = matches.reduce(
     (acc, match) => {
-      const parts = [...acc.parts];
       let lastIndex = acc.lastIndex;
+      const textPart =
+        match.index > lastIndex
+          ? [{ text: text.slice(lastIndex, match.index), isCode: false }]
+          : [];
 
-      if (match.index > lastIndex) {
-        parts.push({ text: text.slice(lastIndex, match.index), isCode: false });
-      }
-      parts.push({ text: match[1], isCode: true });
       lastIndex = match.index + match[0].length;
+      const parts = acc.parts.concat(textPart, { text: match[1], isCode: true });
       return { parts, lastIndex };
     },
     { parts: [] as TextPart[], lastIndex: 0 },
   );
 
-  const parts = state.parts;
-  if (state.lastIndex < text.length) {
-    parts.push({ text: text.slice(state.lastIndex), isCode: false });
-  }
+  const trailingPart =
+    state.lastIndex < text.length ? [{ text: text.slice(state.lastIndex), isCode: false }] : [];
+  const parts = state.parts.concat(trailingPart);
 
-  if (parts.length === 0) {
-    parts.push({ text, isCode: false });
-  }
-
+  if (parts.length === 0) return [{ text, isCode: false }];
   return parts;
 }

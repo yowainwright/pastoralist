@@ -3,7 +3,8 @@ import type { StepIndicatorProps } from "./types";
 
 const isFinalStepComplete = (stepNum: number, phase: string): boolean => {
   const isFinalStep = stepNum === 3;
-  return isFinalStep && phase === "complete";
+  if (!isFinalStep) return false;
+  return phase === "complete";
 };
 
 const isStepComplete = (activeStep: number, stepNum: number, phase: string): boolean => {

@@ -27,13 +27,16 @@ const npmLimit = createLimit(NPM_REGISTRY_CONCURRENCY);
 let _registryCache: DiskCache<NpmPackageInfo> | null = null;
 
 const getRegistryCache = (opts?: RegistryCacheOptions): DiskCache<NpmPackageInfo> => {
-  if (opts?.cacheDir || opts?.noCache) {
+  const hasCustomCacheConfig = opts?.cacheDir || opts?.noCache;
+  if (hasCustomCacheConfig) {
+    const dir = opts.cacheDir ?? resolveCacheDir();
+    const enabled = !opts.noCache;
     return new DiskCache<NpmPackageInfo>(CACHE_NAMESPACES.REGISTRY, {
-      dir: opts.cacheDir ?? resolveCacheDir(),
+      dir,
       ttl: CACHE_TTLS.REGISTRY,
       version: CACHE_NS_VERSIONS.REGISTRY,
       maxEntries: NPM_REGISTRY_CACHE_MAX_ENTRIES,
-      enabled: !opts.noCache,
+      enabled,
     });
   }
   if (!_registryCache) {
@@ -105,7 +108,8 @@ export const fetchLatestCompatibleVersion = async (
 ): Promise<string | null> => {
   const info = await fetchPackageInfo(packageName, opts);
   if (!info) return null;
-  if (!info.versions || typeof info.versions !== "object") return null;
+  const hasInvalidVersions = !info.versions || typeof info.versions !== "object";
+  if (hasInvalidVersions) return null;
 
   const targetMajor = getMajorVersion(minVersion);
   const versions = Object.keys(info.versions);
@@ -115,13 +119,15 @@ export const fetchLatestCompatibleVersion = async (
     const isCompatible = vMajor === targetMajor;
     const isStable = !isPrerelease(v);
     const isNewerOrEqual = compareVersions(v, minVersion) >= 0;
-    return isCompatible && isStable && isNewerOrEqual;
+    if (!isCompatible) return false;
+    if (!isStable) return false;
+    return isNewerOrEqual;
   });
 
   if (compatibleVersions.length === 0) return null;
 
-  compatibleVersions.sort((a, b) => compareVersions(b, a));
-  return compatibleVersions[0];
+  const sortedCompatibleVersions = compatibleVersions.slice().sort((a, b) => compareVersions(b, a));
+  return sortedCompatibleVersions[0];
 };
 
 const isFirstPackageRequest = (

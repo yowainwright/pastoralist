@@ -7,7 +7,7 @@ import type {
   OSVSeverityVulnerability,
   OSVVulnerability,
 } from "../../../types";
-import { logger, retry, type RetryOptions } from "../../../utils";
+import { logger, retry, type RetryError, type RetryOptions } from "../../../utils";
 import {
   OSV_API,
   OSV_CACHE_MAX_ENTRIES,
@@ -68,13 +68,15 @@ export class OSVProvider {
     const cacheTtl = options.cacheTtl;
     const hasCustomCacheTtl = cacheTtl !== undefined;
     const cacheTtlMs = hasCustomCacheTtl ? cacheTtl * 1000 : CACHE_TTLS.OSV;
+    const noCache = options.noCache ?? false;
+    const cacheEnabled = !noCache;
 
     this.osvCache = new DiskCache<OSVVulnerability>(CACHE_NAMESPACES.OSV, {
       dir: options.cacheDir ?? resolveCacheDir(),
       ttl: cacheTtlMs,
       version: CACHE_NS_VERSIONS.OSV,
       maxEntries: OSV_CACHE_MAX_ENTRIES,
-      enabled: !(options.noCache ?? false),
+      enabled: cacheEnabled,
     });
   }
 
@@ -133,7 +135,8 @@ export class OSVProvider {
   ): Promise<OSVVulnerability[] | undefined> {
     const vulns = result?.vulns;
 
-    if (!vulns || vulns.length === 0) {
+    const hasNoVulnerabilities = !vulns || vulns.length === 0;
+    if (hasNoVulnerabilities) {
       return vulns;
     }
 
@@ -173,7 +176,7 @@ export class OSVProvider {
     return partialVulns.reduce<OSVPartialVulnerability[][]>((batches, vuln, index) => {
       const batchIndex = Math.floor(index / OSV_DETAIL_CONCURRENCY);
       const batch = batches[batchIndex] || [];
-      return Object.assign([...batches], { [batchIndex]: [...batch, vuln] });
+      return Object.assign(batches.slice(), { [batchIndex]: batch.concat(vuln) });
     }, []);
   }
 
@@ -223,12 +226,14 @@ export class OSVProvider {
   private fetchBatchResults(
     packages: Array<{ name: string; version: string }>,
   ): Promise<OSVBatchResult[]> {
-    return retry(() => this.fetchFromOSVBatchAPI(packages), {
-      ...this.retryOptions,
-      onFailedAttempt: (error) => {
+    const retryOptions: RetryOptions = Object.assign({}, this.retryOptions, {
+      onFailedAttempt: (error: RetryError) => {
         this.log.debug(`Batch API attempt ${error.attemptNumber} failed`, "fetchAlerts");
       },
-    }).catch((error) => this.handleBatchFetchError(error));
+    });
+    return retry(() => this.fetchFromOSVBatchAPI(packages), retryOptions).catch((error) =>
+      this.handleBatchFetchError(error),
+    );
   }
 
   private handleBatchFetchError(error: unknown): OSVBatchResult[] {
@@ -247,11 +252,11 @@ export class OSVProvider {
   }
 
   private createBatchWarning(reason: string): string {
-    return (
+    const warning =
       `OSV security check failed after ${this.retryOptions.retries} retries. ` +
       `Your dependencies were NOT checked for vulnerabilities. ` +
-      `Reason: ${reason}. Run with --debug for details or --strict to fail on errors.`
-    );
+      `Reason: ${reason}. Run with --debug for details or --strict to fail on errors.`;
+    return warning;
   }
 
   private convertBatchResultsToAlerts(
@@ -266,10 +271,11 @@ export class OSVProvider {
   }
 
   private getIRLFixtureAlerts(): SecurityAlert[] {
-    return [
+    const alerts = [
       this.isIRLFix ? OSV_IRL_FIX_ALERT : undefined,
       this.isIRLCatch ? OSV_IRL_CATCH_ALERT : undefined,
     ].filter((alert): alert is SecurityAlert => Boolean(alert));
+    return alerts;
   }
 
   private convertOSVAlerts(
@@ -278,18 +284,22 @@ export class OSVProvider {
   ): SecurityAlert[] {
     return vulns.map((vuln) => {
       const cves = this.extractCVEs(vuln);
+      const patchedVersion = this.extractPatchedVersion(vuln);
+      const title = vuln.summary || vuln.details || `Vulnerability in ${pkg.name}`;
+      const fixAvailable = Boolean(patchedVersion);
       const base = {
         packageName: pkg.name,
         currentVersion: pkg.version,
         vulnerableVersions: this.extractVersionRange(vuln),
-        patchedVersion: this.extractPatchedVersion(vuln),
+        patchedVersion,
         severity: this.extractSeverity(vuln),
-        title: vuln.summary || vuln.details || `Vulnerability in ${pkg.name}`,
+        title,
         description: vuln.details,
         url: vuln.references?.[0]?.url || `https://osv.dev/vulnerability/${vuln.id}`,
-        fixAvailable: !!this.extractPatchedVersion(vuln),
+        fixAvailable,
       };
-      return cves.length > 0 ? { ...base, cves } : base;
+      if (cves.length === 0) return base;
+      return Object.assign({}, base, { cves });
     });
   }
 

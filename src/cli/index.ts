@@ -52,10 +52,10 @@ const firstSecurityProvider = (options: Options): InitSecurityProvider => {
 };
 
 const runInitCommand = async (options: Options, deps: Pick<RunDeps, "initCommand">) => {
-  await deps.initCommand({
-    ...options,
+  const initOptions = Object.assign({}, options, {
     securityProvider: firstSecurityProvider(options),
   });
+  await deps.initCommand(initOptions);
 };
 
 export const run = async (

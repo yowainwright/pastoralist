@@ -12,30 +12,29 @@ import type {
   TerminalTreeContext,
   VulnerabilityInfo,
 } from "./types";
-import { buildConnector, buildPrefix } from "./lines";
-import { createTerminalTreeContext } from "./context";
 import {
   buildBannerOutput,
   buildCompactSummaryLine,
+  buildConnector,
   buildExecutiveSummaryLines,
   buildOverrideDetails,
   buildOverrideHeader,
+  buildPrefix,
   buildProgressText,
   buildRemovedOverrideHeader,
   buildSecurityFixDetails,
   buildSecurityFixHeader,
   buildVulnerabilityDetails,
   buildVulnerabilityHeader,
+  buildNoticeBox,
+  createTerminalTreeContext,
   selectOverrideIcon,
   selectVulnerabilityIcon,
-} from "./formatters";
-import { buildNoticeBox } from "./notice";
-import {
   writeChangesSection,
   writeDetailLines,
   writeOptionalDetails,
   writeOverridesSection,
-} from "./sections";
+} from "./utils";
 
 class TerminalTree implements TerminalGraph {
   constructor(private readonly context: TerminalTreeContext) {}
@@ -48,7 +47,7 @@ class TerminalTree implements TerminalGraph {
   startPhase(phase: TerminalPhase, text: string, isLast = false): TerminalGraph {
     this.context.paused(() => {
       const current = this.context.state.get();
-      this.context.state.set({ ...current, phase });
+      this.context.state.set(Object.assign({}, current, { phase }));
       this.context.tree.line(isLast, text);
       this.context.tree.open(!isLast);
     });
@@ -58,7 +57,8 @@ class TerminalTree implements TerminalGraph {
   progress(current: number, total: number, item: string): TerminalGraph {
     const text = buildProgressText(current, total, item);
     this.updateProgressState(current, total, text);
-    if (current === 1 && !this.context.spinner.isActive()) {
+    const shouldStartSpinner = current === 1 && !this.context.spinner.isActive();
+    if (shouldStartSpinner) {
       this.context.spinner.start(text);
     }
     return this;
@@ -145,7 +145,7 @@ class TerminalTree implements TerminalGraph {
   complete(text: string, suffix = ""): TerminalGraph {
     this.context.paused(() => {
       const current = this.context.state.get();
-      this.context.state.set({ ...current, phase: "complete", ancestors: [] });
+      this.context.state.set(Object.assign({}, current, { phase: "complete", ancestors: [] }));
       const prefix = buildPrefix([]) + buildConnector(true);
       this.context.completer(text, prefix, suffix);
     });
@@ -169,11 +169,8 @@ class TerminalTree implements TerminalGraph {
 
   private updateProgressState(current: number, total: number, text: string): void {
     const state = this.context.state.get();
-    this.context.state.set({
-      ...state,
-      spinner: { ...state.spinner, text },
-      progress: { current, total },
-    });
+    const spinner = Object.assign({}, state.spinner, { text });
+    this.context.state.set(Object.assign({}, state, { spinner, progress: { current, total } }));
   }
 }
 

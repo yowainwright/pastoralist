@@ -35,7 +35,8 @@ export const normalizeCacheTtl = (value: unknown): number | undefined => {
   const isNonEmptyString = typeof value === "string" && value.trim() !== "";
   const numberValue = isNumber || isNonEmptyString ? Number(value) : Number.NaN;
 
-  if (Number.isFinite(numberValue) && numberValue >= 0) return numberValue;
+  const isValidCacheTtl = Number.isFinite(numberValue) && numberValue >= 0;
+  if (isValidCacheTtl) return numberValue;
   throw new Error("--cache-ttl must be a non-negative number of seconds");
 };
 
@@ -48,19 +49,25 @@ export const buildMergedOptions = (
   const providerFromOptions = options.securityProvider ?? configProvider;
   const securityProvider = providerFromOptions ?? DEFAULT_SECURITY_PROVIDER;
   const cacheTtl = normalizeCacheTtl(options.cacheTtl ?? rest.cacheTtl);
+  const checkSecurity = options.checkSecurity ?? securityConfig.enabled;
+  const forceSecurityRefactor = options.forceSecurityRefactor ?? securityConfig.autoFix;
+  const securityProviderToken =
+    options.securityProviderToken ?? securityConfig.securityProviderToken;
+  const interactive = options.interactive ?? securityConfig.interactive;
+  const hasWorkspaceSecurityChecks =
+    options.hasWorkspaceSecurityChecks ?? securityConfig.hasWorkspaceSecurityChecks;
+  const strict = options.strict ?? securityConfig.strict;
 
-  return {
-    ...rest,
-    checkSecurity: options.checkSecurity ?? securityConfig.enabled,
-    forceSecurityRefactor: options.forceSecurityRefactor ?? securityConfig.autoFix,
+  return Object.assign({}, rest, {
+    checkSecurity,
+    forceSecurityRefactor,
     securityProvider,
-    securityProviderToken: options.securityProviderToken ?? securityConfig.securityProviderToken,
-    interactive: options.interactive ?? securityConfig.interactive,
-    hasWorkspaceSecurityChecks:
-      options.hasWorkspaceSecurityChecks ?? securityConfig.hasWorkspaceSecurityChecks,
-    strict: options.strict ?? securityConfig.strict,
+    securityProviderToken,
+    interactive,
+    hasWorkspaceSecurityChecks,
+    strict,
     cacheTtl,
-  };
+  });
 };
 
 export const buildSecurityOverrideDetail = (override: SecurityOverride): SecurityOverrideDetail => {
@@ -77,15 +84,18 @@ export const buildSecurityOverrideDetail = (override: SecurityOverride): Securit
   const optionalFields = optionalEntries
     .filter(([, value]) => value !== undefined)
     .reduce<Partial<OptionalSecurityOverrideDetail>>(
-      (acc, [key, value]) => ({ ...acc, [key]: value }),
+      (acc, [key, value]) => Object.assign({}, acc, { [key]: value }),
       {},
     );
 
-  return {
-    packageName: override.packageName,
-    reason: override.reason,
-    ...optionalFields,
-  };
+  return Object.assign(
+    {},
+    {
+      packageName: override.packageName,
+      reason: override.reason,
+    },
+    optionalFields,
+  );
 };
 
 const createSecurityChecker = (
@@ -170,7 +180,9 @@ const shouldUseWorkspaceConfig = (
   hasSecurityEnabled: boolean,
 ): boolean => {
   const isWorkspaceString = depPaths === "workspace" || depPaths === "workspaces";
-  return isWorkspaceString && workspaces.length > 0 && hasSecurityEnabled;
+  if (!isWorkspaceString) return false;
+  if (workspaces.length === 0) return false;
+  return hasSecurityEnabled;
 };
 
 const shouldUseExplicitWorkspaceChecks = (
@@ -192,14 +204,14 @@ const buildSecurityCheckOptions = (
   mergedOptions: Options,
   scanPaths: string[],
   spinner: ReturnType<typeof createSpinner>,
-): SecurityCheckerOptions => ({
-  ...mergedOptions,
-  depPaths: scanPaths,
-  root: mergedOptions.root || "./",
-  onProgress: createProgressHandler(spinner),
-  severityThreshold: config?.pastoralist?.security?.severityThreshold,
-  excludePackages: config?.pastoralist?.security?.excludePackages,
-});
+): SecurityCheckerOptions =>
+  Object.assign({}, mergedOptions, {
+    depPaths: scanPaths,
+    root: mergedOptions.root || "./",
+    onProgress: createProgressHandler(spinner),
+    severityThreshold: config?.pastoralist?.security?.severityThreshold,
+    excludePackages: config?.pastoralist?.security?.excludePackages,
+  });
 
 const toSecurityRunResult = (
   spinner: ReturnType<typeof createSpinner>,
@@ -298,7 +310,8 @@ const getOverridesToApply = (
 ): SecurityOverride[] => {
   return allOverrides.filter((override) => {
     const finalVersion = finalOverrides[override.packageName];
-    return typeof finalVersion === "string" && finalVersion === override.toVersion;
+    if (typeof finalVersion !== "string") return false;
+    return finalVersion === override.toVersion;
   });
 };
 
@@ -314,17 +327,19 @@ export const handleSecurityResults = (
   const shouldGenerateOverrides = alerts.length > 0 && shouldApplySecurityFixes;
   const shouldApplyUpdates = updates.length > 0 && shouldApplySecurityFixes;
 
-  if (!shouldGenerateOverrides && !shouldApplyUpdates) {
+  const shouldSkipSecurityFixes = !shouldGenerateOverrides && !shouldApplyUpdates;
+  if (shouldSkipSecurityFixes) {
     spinner.stop();
     return {};
   }
 
-  const allOverrides = [...securityOverrides, ...updates.map(toUpdateOverride)];
+  const allOverrides = securityOverrides.concat(updates.map(toUpdateOverride));
   const finalOverrides = securityChecker.generatePackageOverrides(allOverrides);
   const overridesToApply = getOverridesToApply(allOverrides, finalOverrides);
   const securityOverrideDetails = overridesToApply.map(buildSecurityOverrideDetail);
 
-  if (overridesToApply.length > 0 && !mergedOptions.dryRun) {
+  const shouldApplyAutoFix = overridesToApply.length > 0 && !mergedOptions.dryRun;
+  if (shouldApplyAutoFix) {
     securityChecker.applyAutoFix(overridesToApply, mergedOptions.path);
   }
 
@@ -346,7 +361,7 @@ const applyRemovalSafety = async (
   if (!mergedOptions.removeUnused) return mergedOptions;
   const skipKeys = await checkRemovalSafety(config, securityChecker, mergedOptions);
   if (skipKeys.length === 0) return mergedOptions;
-  return { ...mergedOptions, skipRemovalKeys: skipKeys };
+  return Object.assign({}, mergedOptions, { skipRemovalKeys: skipKeys });
 };
 
 const applySecurityResults = (
@@ -363,7 +378,7 @@ const applySecurityResults = (
     mergedOptions,
     result.updates,
   );
-  return { ...mergedOptions, ...securityUpdates };
+  return Object.assign({}, mergedOptions, securityUpdates);
 };
 
 const createSkippedSecurityPhase = (mergedOptions: Options): SecurityPhaseResult => ({
@@ -378,7 +393,7 @@ const resolveSecurityPhaseOptions = async (
   result: Awaited<ReturnType<typeof runSecurityCheck>>,
   deps: Pick<SecurityPhaseDeps, "handleSecurityResults">,
 ): Promise<Options> => {
-  const optionsWithAlerts = { ...mergedOptions, securityAlerts: result.alerts };
+  const optionsWithAlerts = Object.assign({}, mergedOptions, { securityAlerts: result.alerts });
   const optionsWithSafety = await applyRemovalSafety(
     config,
     optionsWithAlerts,
@@ -393,7 +408,8 @@ const renderSecurityPhaseResult = (
   nextOptions: Options,
   isJsonOutput: boolean,
 ): void => {
-  if (result.skipped || isJsonOutput) return;
+  const shouldSkipRendering = result.skipped || isJsonOutput;
+  if (shouldSkipRendering) return;
   renderSecurityFindings(
     graph,
     result.alerts,
@@ -442,7 +458,7 @@ export const formatUpdateReport = (updates: OverrideUpdate[]): string => {
   const header = "\nSecurity Override Updates\n" + "=".repeat(50) + "\n\n";
   const summary = `Found ${updates.length} existing override(s) with newer patches available:\n\n`;
   const updateList = updates.map(formatUpdateLine).join("");
-  return header + summary + updateList;
+  return [header, summary, updateList].join("");
 };
 
 const formatUpdateLine = (update: OverrideUpdate): string =>

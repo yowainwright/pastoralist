@@ -61,11 +61,9 @@ export class PackageManagerAuditProvider {
     const packageMap = new Map(packages.map((p) => [p.name, p.version]));
     return alerts.map((alert) => {
       const version = packageMap.get(alert.packageName);
-      if (version) return { ...alert, currentVersion: version };
-      return {
-        ...alert,
-        currentVersion: alert.currentVersion || "unknown",
-      };
+      if (version) return Object.assign({}, alert, { currentVersion: version });
+      const currentVersion = alert.currentVersion || "unknown";
+      return Object.assign({}, alert, { currentVersion });
     });
   }
 
@@ -160,7 +158,7 @@ export class PackageManagerAuditProvider {
           fixAvailable: Boolean(patchedVersion),
         };
         const cvesField = this.createAdvisoryCvesField(advisory);
-        return [{ ...base, ...cvesField }];
+        return [Object.assign({}, base, cvesField)];
       });
   }
 

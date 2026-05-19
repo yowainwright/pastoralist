@@ -110,9 +110,12 @@ async function collectSecurityAnswersWithContext(
   log.print(`\n${STEP_TITLES.security}`);
   answers.setupSecurity = true;
 
+  const askWorkspaceSecurity = answers.setupWorkspaces && !answers.hasWorkspaceSecurityChecks;
+  const selectProvider = !answers.securityProvider;
+
   await collectEnabledSecurityAnswers(prompt, answers, log, {
-    askWorkspaceSecurity: answers.setupWorkspaces && !answers.hasWorkspaceSecurityChecks,
-    selectProvider: !answers.securityProvider,
+    askWorkspaceSecurity,
+    selectProvider,
   });
 }
 
@@ -210,7 +213,8 @@ async function promptForSecurityTokenEnvironment(
 ): Promise<void> {
   const tokenInfo = getTokenInfoForProvider(provider);
 
-  if (!tokenInfo.required && !tokenInfo.optional) {
+  const hasNoTokenGuidance = !tokenInfo.required && !tokenInfo.optional;
+  if (hasNoTokenGuidance) {
     return;
   }
 
@@ -218,7 +222,8 @@ async function promptForSecurityTokenEnvironment(
 
   const isConfigured = await prompt.confirm(PROMPTS.hasToken(provider), false);
 
-  if (!isConfigured && tokenInfo.required) {
+  const shouldWarnAboutMissingToken = !isConfigured && tokenInfo.required;
+  if (shouldWarnAboutMissingToken) {
     log.print(`\n   ${INIT_MESSAGES.tokenRequiredWarning(provider)}`);
   }
 }
@@ -432,15 +437,12 @@ async function saveInitConfig(
     await saveToPackageJson(config, context.path, packageJson, log, options.isTesting);
   }
 
-  if (answers.configLocation === "external" && answers.configFormat) {
-    await saveToExternalFile(
-      config,
-      answers.configFormat,
-      context.root,
-      prompt,
-      log,
-      options.isTesting,
-    );
+  const isExternalConfig = answers.configLocation === "external";
+  if (isExternalConfig) {
+    const configFormat = answers.configFormat;
+    if (!configFormat) return;
+
+    await saveToExternalFile(config, configFormat, context.root, prompt, log, options.isTesting);
   }
 }
 

@@ -23,11 +23,13 @@ const isObject = (value: unknown): value is Record<string, unknown> => {
 };
 
 const isString = (value: unknown): value is string => {
-  return typeof value === "string";
+  const isStringValue = typeof value === "string";
+  return isStringValue;
 };
 
 const isBoolean = (value: unknown): value is boolean => {
-  return typeof value === "boolean";
+  const isBooleanValue = typeof value === "boolean";
+  return isBooleanValue;
 };
 
 const isArray = (value: unknown): value is unknown[] => {
@@ -61,7 +63,8 @@ const isFieldValid = (
   validator: (v: unknown) => boolean,
 ): boolean => {
   const fieldPresent = field in value && value[field] !== undefined;
-  return !fieldPresent || validator(value[field]);
+  if (!fieldPresent) return true;
+  return validator(value[field]);
 };
 
 const areFieldsValid = (value: Record<string, unknown>, fields: FieldValidation[]): boolean => {
@@ -89,7 +92,8 @@ const isDepPathAlias = (value: unknown): value is DepPathAlias => {
 };
 
 const hasValidAddedDate = (value: Record<string, unknown>): boolean => {
-  return "addedDate" in value && isString(value.addedDate);
+  if (!("addedDate" in value)) return false;
+  return isString(value.addedDate);
 };
 
 const LEDGER_FIELDS: FieldValidation[] = [

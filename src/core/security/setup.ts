@@ -341,7 +341,8 @@ export class SecuritySetupWizard {
   }
 
   private shouldOfferBrowserOpen(config: ProviderConfig): boolean {
-    return Boolean(config.tokenUrl && !this.skipBrowserOpen);
+    if (!config.tokenUrl) return false;
+    return !this.skipBrowserOpen;
   }
 
   private async promptForToken(config: ProviderConfig): Promise<string> {

@@ -29,7 +29,8 @@ export function Sidebar() {
       const menuButton = document.querySelector('label[for="my-drawer-2"]');
       if (menuButton?.contains(event.target as Node)) return;
 
-      if (navRef.current && !navRef.current.contains(event.target as Node)) {
+      const clickedOutsideNav = navRef.current && !navRef.current.contains(event.target as Node);
+      if (clickedOutsideNav) {
         const drawer = document.getElementById("my-drawer-2") as HTMLInputElement;
         if (drawer) {
           drawer.checked = false;

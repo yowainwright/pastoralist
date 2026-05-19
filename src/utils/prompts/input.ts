@@ -14,12 +14,13 @@ const resolvePipedInputReady = (): void => {
 const waitForPipedInput = (): Promise<void> => {
   if (pipedInputReady) return Promise.resolve();
   return new Promise((resolve) => {
-    pipedInputReadyWaiters = [...pipedInputReadyWaiters, resolve];
+    pipedInputReadyWaiters = pipedInputReadyWaiters.concat(resolve);
   });
 };
 
 export function initializePipedInput(): void {
-  if (pipedInputInitialized || process.stdin.isTTY) {
+  const shouldSkipInitialization = pipedInputInitialized || process.stdin.isTTY;
+  if (shouldSkipInitialization) {
     return;
   }
 
@@ -51,7 +52,8 @@ export async function waitForPipedInputReady(): Promise<void> {
 }
 
 export function getNextPipedInput(): string | null {
-  if (!isPipedInput() || !pipedInputReady) {
+  const cannotReadPipedInput = !isPipedInput() || !pipedInputReady;
+  if (cannotReadPipedInput) {
     return null;
   }
 

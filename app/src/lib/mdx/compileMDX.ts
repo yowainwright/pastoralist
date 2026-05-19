@@ -32,9 +32,11 @@ function renderMermaidRemark() {
       "code",
       (node: MermaidCodeNode, index: number | undefined, parent: MermaidParentNode | undefined) => {
         if (node.lang === "mermaid") {
-          if (typeof index !== "number" || !parent?.children) return;
+          const children = parent?.children;
+          const isMissingParentInfo = typeof index !== "number" || !children;
+          if (isMissingParentInfo) return;
 
-          parent.children[index] = {
+          children[index] = {
             type: "mdxJsxFlowElement",
             name: "Mermaid",
             attributes: [

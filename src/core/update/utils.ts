@@ -71,14 +71,19 @@ export const resolveDepPaths = (options: Options, config: PastoralistJSON): stri
 
   const configDepPaths = config.pastoralist?.depPaths;
 
-  if (configDepPaths === WORKSPACE_MODES.SINGLE || configDepPaths === WORKSPACE_MODES.MULTIPLE) {
+  const usesWorkspaceMode =
+    configDepPaths === WORKSPACE_MODES.SINGLE || configDepPaths === WORKSPACE_MODES.MULTIPLE;
+  if (usesWorkspaceMode) {
     return config.workspaces?.map((ws: string) => `${ws}/package.json`) || null;
   }
 
   if (Array.isArray(configDepPaths)) return configDepPaths;
 
-  if (config.workspaces && !configDepPaths) {
-    return config.workspaces.map((ws: string) => `${ws}/package.json`);
+  if (!configDepPaths) {
+    const packageWorkspaces = config.workspaces;
+    if (packageWorkspaces) {
+      return packageWorkspaces.map((ws: string) => `${ws}/package.json`);
+    }
   }
 
   return null;
@@ -127,7 +132,8 @@ export const hasConfigOverrides = (
   options: Options | undefined,
   config: PastoralistJSON,
 ): boolean => {
-  if (!options && !config) return false;
+  const hasNoSources = !options && !config;
+  if (hasNoSources) return false;
 
   const optionsOverrides = options?.securityOverrides;
   const configOverrides = config?.overrides;

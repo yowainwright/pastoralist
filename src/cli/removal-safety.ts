@@ -2,11 +2,8 @@ import type { Options, PastoralistJSON } from "../types";
 import type { SecurityChecker } from "../core/security";
 import { extractPackageNames, findUnusedAppendixEntries } from "../core/appendix/utils";
 
-const getRootDependencies = (config: PastoralistJSON): Record<string, string> => ({
-  ...config.dependencies,
-  ...config.devDependencies,
-  ...config.peerDependencies,
-});
+const getRootDependencies = (config: PastoralistJSON): Record<string, string> =>
+  Object.assign({}, config.dependencies, config.devDependencies, config.peerDependencies);
 
 const getCandidateDeps = (
   unusedKeys: string[],

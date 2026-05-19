@@ -54,9 +54,9 @@ export class Prompt {
         const normalized = answer.trim().toLowerCase();
         if (normalized === "") {
           return defaultValue;
-        } else {
-          return normalized === "y" || normalized === "yes";
         }
+        if (normalized === "y") return true;
+        return normalized === "yes";
       },
     );
   }

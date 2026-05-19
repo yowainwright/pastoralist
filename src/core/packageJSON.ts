@@ -30,13 +30,16 @@ let _treeCache: DiskCache<Record<string, boolean>> | null = null;
 let _pendingTreeRequests: Map<string, Promise<Record<string, boolean>>> | null = null;
 
 const getTreeCache = (cacheDir?: string, noCache?: boolean): DiskCache<Record<string, boolean>> => {
-  if (cacheDir || noCache) {
+  const hasCustomCacheConfig = cacheDir || noCache;
+  if (hasCustomCacheConfig) {
+    const dir = cacheDir ?? resolveCacheDir();
+    const enabled = !noCache;
     return new DiskCache<Record<string, boolean>>(CACHE_NAMESPACES.TREE, {
-      dir: cacheDir ?? resolveCacheDir(),
+      dir,
       ttl: CACHE_TTLS.TREE,
       version: CACHE_NS_VERSIONS.TREE,
       maxEntries: TREE_CACHE_MAX_ENTRIES,
-      enabled: !noCache,
+      enabled,
     });
   }
   if (!_treeCache) {
@@ -124,7 +127,7 @@ const applyResolutions = (
   config: PastoralistJSON,
   overrides: Record<string, string>,
 ): PastoralistJSON => {
-  return { ...config, resolutions: overrides };
+  return Object.assign({}, config, { resolutions: overrides });
 };
 
 const applyPnpmOverrides = (
@@ -132,17 +135,15 @@ const applyPnpmOverrides = (
   overrides: Record<string, OverrideValue>,
 ): PastoralistJSON => {
   const pnpm = config.pnpm || {};
-  return {
-    ...config,
-    pnpm: { ...pnpm, overrides },
-  };
+  const nextPnpm = Object.assign({}, pnpm, { overrides });
+  return Object.assign({}, config, { pnpm: nextPnpm });
 };
 
 const applyNpmOverrides = (
   config: PastoralistJSON,
   overrides: Record<string, OverrideValue>,
 ): PastoralistJSON => {
-  return { ...config, overrides };
+  return Object.assign({}, config, { overrides });
 };
 
 export const applyOverridesToConfig = (
@@ -196,7 +197,10 @@ const hasOtherPastoralistConfig = (config: PastoralistJSON): boolean => {
   const hasSecurity = Boolean(config.pastoralist?.security);
   const hasDepPaths = Boolean(config.pastoralist?.depPaths);
 
-  return hasOverridePaths || hasResolutionPaths || hasSecurity || hasDepPaths;
+  if (hasOverridePaths) return true;
+  if (hasResolutionPaths) return true;
+  if (hasSecurity) return true;
+  return hasDepPaths;
 };
 
 const buildPreservedConfig = (config: PastoralistJSON) => {
@@ -204,13 +208,12 @@ const buildPreservedConfig = (config: PastoralistJSON) => {
   const overridePaths = config.pastoralist?.overridePaths;
   const resolutionPaths = config.pastoralist?.resolutionPaths;
   const security = config.pastoralist?.security;
+  const depPathsField = depPaths ? { depPaths } : undefined;
+  const overridePathsField = overridePaths ? { overridePaths } : undefined;
+  const resolutionPathsField = resolutionPaths ? { resolutionPaths } : undefined;
+  const securityField = security ? { security } : undefined;
 
-  return {
-    ...(depPaths && { depPaths }),
-    ...(overridePaths && { overridePaths }),
-    ...(resolutionPaths && { resolutionPaths }),
-    ...(security && { security }),
-  };
+  return Object.assign({}, depPathsField, overridePathsField, resolutionPathsField, securityField);
 };
 
 const removeAllOverrides = (config: PastoralistJSON): PastoralistJSON => {
@@ -221,10 +224,7 @@ const removeAllOverrides = (config: PastoralistJSON): PastoralistJSON => {
   const { overrides: _pnpmOverrides, ...restPnpm } = pnpm;
   const hasPnpmConfig = Object.keys(restPnpm).length > 0;
 
-  return {
-    ...rest,
-    ...(hasPnpmConfig && { pnpm: restPnpm }),
-  };
+  return Object.assign({}, rest, hasPnpmConfig ? { pnpm: restPnpm } : undefined);
 };
 
 const removePastoralistAppendix = (config: PastoralistJSON): PastoralistJSON => {
@@ -236,19 +236,14 @@ const removePastoralistAppendix = (config: PastoralistJSON): PastoralistJSON => 
   }
 
   const preservedConfig = buildPreservedConfig(config);
-  return { ...config, pastoralist: preservedConfig };
+  return Object.assign({}, config, { pastoralist: preservedConfig });
 };
 
 const addAppendixToConfig = (config: PastoralistJSON, appendix: Appendix): PastoralistJSON => {
   const preservedConfig = buildPreservedConfig(config);
+  const pastoralist = Object.assign({ appendix }, preservedConfig);
 
-  return {
-    ...config,
-    pastoralist: {
-      appendix,
-      ...preservedConfig,
-    },
-  };
+  return Object.assign({}, config, { pastoralist });
 };
 
 const processConfigWithoutOverrides = (config: PastoralistJSON): PastoralistJSON => {
@@ -261,7 +256,7 @@ const removePastoralistButPreserveConfig = (config: PastoralistJSON): Pastoralis
   const hasPreservedConfig = Object.keys(preservedConfig).length > 0;
   const { pastoralist: _pastoralist, ...configWithoutPastoralist } = config;
   if (!hasPreservedConfig) return configWithoutPastoralist;
-  return { ...configWithoutPastoralist, pastoralist: preservedConfig };
+  return Object.assign({}, configWithoutPastoralist, { pastoralist: preservedConfig });
 };
 
 const applyAppendixToConfig = (
@@ -338,7 +333,8 @@ const writeJsonFile = (path: string, content: string): void => {
 
   const rootPkgPath = resolve(process.cwd(), "package.json");
   const isRootPackage = jsonPath === rootPkgPath;
-  if (isRootPackage && !isValidRootPackage(content)) return;
+  const isInvalidRootPackage = isRootPackage && !isValidRootPackage(content);
+  if (isInvalidRootPackage) return;
 
   fs.writeFileSync(jsonPath, content);
 };

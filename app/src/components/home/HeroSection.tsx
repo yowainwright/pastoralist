@@ -91,8 +91,10 @@ export function HeroSection() {
   const showEmoji = atLeast(snapshot, "done");
 
   useEffect(() => {
-    if (!showRainbow || !automaticallyRef.current) return;
-    const rect = automaticallyRef.current.getBoundingClientRect();
+    const confettiTarget = automaticallyRef.current;
+    const shouldSkipConfetti = !showRainbow || !confettiTarget;
+    if (shouldSkipConfetti) return;
+    const rect = confettiTarget.getBoundingClientRect();
     const x = (rect.left + rect.width / 2) / window.innerWidth;
     const y = (rect.top + rect.height / 2) / window.innerHeight;
     import("canvas-confetti")

@@ -41,10 +41,8 @@ const hasDependency = (deps: Record<string, string>, packageName: string): boole
 const buildOverrideKey = (packageName: string, version: string): string =>
   packageAtVersion(packageName)(version);
 
-const withAppendixItem = (appendix: Appendix, key: string, item: AppendixItem): Appendix => ({
-  ...appendix,
-  [key]: item,
-});
+const withAppendixItem = (appendix: Appendix, key: string, item: AppendixItem): Appendix =>
+  Object.assign({}, appendix, { [key]: item });
 
 const upsertAppendixItem = (
   appendix: Appendix,
@@ -88,8 +86,10 @@ const isUnusedSimpleOverride = (
   dependencyTree?: Record<string, boolean>,
 ): boolean => {
   const hasOverride = hasDependency(deps, override);
+  if (hasOverride) return false;
+
   const isInDependencyTree = dependencyTree?.[override] || false;
-  return !hasOverride && !isInDependencyTree;
+  return !isInDependencyTree;
 };
 
 const buildSimpleAppendixItem = (
@@ -118,7 +118,9 @@ const processSimpleOverride = (options: ProcessOverrideOptions): Appendix => {
     dependencyTree,
   } = options;
   const hasOverride = hasDependency(deps, override);
-  if (onlyUsedOverrides && isUnusedSimpleOverride(override, deps, dependencyTree)) return appendix;
+  const shouldSkipUnusedOverride =
+    onlyUsedOverrides && isUnusedSimpleOverride(override, deps, dependencyTree);
+  if (shouldSkipUnusedOverride) return appendix;
 
   const key = buildOverrideKey(override, overrideVersion);
   const packageVersion = deps[override];
@@ -201,13 +203,13 @@ const createNestedOverrideEntryOptions = (
   options: ProcessOverrideOptions,
   appendix: Appendix,
   [nestedPkg, nestedVersion]: [string, string],
-): ProcessOverrideOptions => ({
-  ...options,
-  override: nestedPkg,
-  overrideVersion: nestedVersion,
-  parentOverride: options.override,
-  appendix,
-});
+): ProcessOverrideOptions =>
+  Object.assign({}, options, {
+    override: nestedPkg,
+    overrideVersion: nestedVersion,
+    parentOverride: options.override,
+    appendix,
+  });
 
 const processNestedOverride = (options: ProcessOverrideOptions): Appendix => {
   const { override, deps, appendix } = options;
@@ -229,15 +231,15 @@ const getPackageReason = (options: ProcessOverrideOptions): string | undefined =
     options.manualOverrideReasons,
   );
 
-const createOverrideEntryOptions = (options: ProcessOverrideOptions): ProcessOverrideOptions => ({
-  ...options,
-  packageReason: getPackageReason(options),
-  securityLedger: createSecurityLedger(
-    options.override,
-    options.securityOverrideDetails,
-    options.securityProvider,
-  ),
-});
+const createOverrideEntryOptions = (options: ProcessOverrideOptions): ProcessOverrideOptions =>
+  Object.assign({}, options, {
+    packageReason: getPackageReason(options),
+    securityLedger: createSecurityLedger(
+      options.override,
+      options.securityOverrideDetails,
+      options.securityProvider,
+    ),
+  });
 
 const getOverrideValue = (options: ProcessOverrideOptions): OverrideValue =>
   options.overrides?.[options.override] ?? "";
@@ -247,48 +249,42 @@ const processOverrideEntry = (options: ProcessOverrideOptions): Appendix => {
   const overrideValue = getOverrideValue(entryOptions);
   if (isNestedOverride(overrideValue)) return processNestedOverride(entryOptions);
 
-  return processSimpleOverride({
-    ...entryOptions,
-    overrideVersion: overrideValue as string,
-  });
+  return processSimpleOverride(
+    Object.assign({}, entryOptions, { overrideVersion: overrideValue as string }),
+  );
 };
 
 const normalizeAppendixUpdateOptions = (
   options: AppendixUpdateOptions,
-): NormalizedAppendixUpdateOptions => ({
-  ...options,
-  overrides: options.overrides ?? {},
-  appendix: options.appendix ?? {},
-  dependencies: options.dependencies ?? {},
-  devDependencies: options.devDependencies ?? {},
-  peerDependencies: options.peerDependencies ?? {},
-  packageName: options.packageName ?? "",
-  cache: options.cache ?? new Map<string, AppendixItem>(),
-  onlyUsedOverrides: options.onlyUsedOverrides ?? false,
-});
+): NormalizedAppendixUpdateOptions =>
+  Object.assign({}, options, {
+    overrides: options.overrides ?? {},
+    appendix: options.appendix ?? {},
+    dependencies: options.dependencies ?? {},
+    devDependencies: options.devDependencies ?? {},
+    peerDependencies: options.peerDependencies ?? {},
+    packageName: options.packageName ?? "",
+    cache: options.cache ?? new Map<string, AppendixItem>(),
+    onlyUsedOverrides: options.onlyUsedOverrides ?? false,
+  });
 
-const mergeDependencyGroups = (
-  options: NormalizedAppendixUpdateOptions,
-): Record<string, string> => ({
-  ...options.dependencies,
-  ...options.devDependencies,
-  ...options.peerDependencies,
-});
+const mergeDependencyGroups = (options: NormalizedAppendixUpdateOptions): Record<string, string> =>
+  Object.assign({}, options.dependencies, options.devDependencies, options.peerDependencies);
 
 const createProcessOverrideOptions = (
   options: NormalizedAppendixUpdateOptions,
   override: string,
   appendix: Appendix,
-): ProcessOverrideOptions => ({
-  ...options,
-  override,
-  deps: mergeDependencyGroups(options),
-  appendix,
-});
+): ProcessOverrideOptions =>
+  Object.assign({}, options, {
+    override,
+    deps: mergeDependencyGroups(options),
+    appendix,
+  });
 
 export const updateAppendix = (options: AppendixUpdateOptions = {}): Appendix => {
   const normalizedOptions = normalizeAppendixUpdateOptions(options);
-  const workingAppendix = { ...normalizedOptions.appendix };
+  const workingAppendix = Object.assign({}, normalizedOptions.appendix);
   const updated = Object.keys(normalizedOptions.overrides).reduce(
     (acc, override) =>
       processOverrideEntry(createProcessOverrideOptions(normalizedOptions, override, acc)),
@@ -334,10 +330,7 @@ const writePackageAppendix = (
 ): void => {
   try {
     const normalizedPath = resolve(filePath);
-    const updatedConfig = {
-      ...packageJSON,
-      pastoralist: { appendix },
-    };
+    const updatedConfig = Object.assign({}, packageJSON, { pastoralist: { appendix } });
     writeFileSync(filePath, JSON.stringify(updatedConfig, null, 2));
     jsonCache.delete(normalizedPath);
   } catch (err) {
@@ -428,7 +421,8 @@ const logWorkspaceConflict = (
   wsVersion: string | Record<string, string>,
 ): void => {
   const rootVersion = rootOverrides[pkg];
-  if (!rootVersion || rootVersion === wsVersion) return;
+  const hasNoConflict = !rootVersion || rootVersion === wsVersion;
+  if (hasNoConflict) return;
   logInstance.debug(
     `Override conflict for "${pkg}": root has "${rootVersion}", workspace has "${wsVersion}" — workspace wins`,
     "constructAppendix",
@@ -469,9 +463,12 @@ const mergeAllOverrides = (
     (overrides): overrides is OverridesType => overrides !== null,
   );
 
-  const baseOverrides = hasOverrides(rootOverrides) ? { ...rootOverrides } : {};
+  const baseOverrides = hasOverrides(rootOverrides) ? Object.assign({}, rootOverrides) : {};
 
-  return validOverrides.reduce((acc, overrides) => ({ ...acc, ...overrides }), baseOverrides);
+  return validOverrides.reduce(
+    (acc, overrides) => Object.assign({}, acc, overrides),
+    baseOverrides,
+  );
 };
 
 const processAllPackageFiles = (
@@ -558,7 +555,9 @@ export const findRemovableAppendixItems = (appendix: Appendix): string[] => {
   return appendixItems
     .filter((item) => {
       const dependents = appendix[item]?.dependents;
-      return !dependents || Object.keys(dependents).length === 0;
+      if (!dependents) return true;
+      const dependentCount = Object.keys(dependents).length;
+      return dependentCount === 0;
     })
     .map((item) => item.replace(/@[^@]+$/, ""));
 };

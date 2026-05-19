@@ -36,7 +36,7 @@ export class SocketCLIProvider {
   }
 
   async isAuthenticated(): Promise<boolean> {
-    return !!this.token;
+    return Boolean(this.token);
   }
 
   private async validatePrerequisites(): Promise<boolean> {
@@ -58,10 +58,7 @@ export class SocketCLIProvider {
   }
 
   private async runSocketScan(): Promise<SocketResult> {
-    const env = {
-      ...process.env,
-      SOCKET_SECURITY_API_KEY: this.token,
-    };
+    const env = Object.assign({}, process.env, { SOCKET_SECURITY_API_KEY: this.token });
 
     const { stdout } = await execFileAsync("socket", ["report", "create", "--format", "json"], {
       timeout: 60000,
@@ -141,7 +138,8 @@ export class SocketCLIProvider {
       url,
       fixAvailable,
     };
-    return cves.length > 0 ? { ...base, cves } : base;
+    if (cves.length === 0) return base;
+    return Object.assign({}, base, { cves });
   }
 
   private mapSocketSeverity(severity: string): "low" | "medium" | "high" | "critical" {

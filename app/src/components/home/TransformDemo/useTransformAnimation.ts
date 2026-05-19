@@ -96,17 +96,16 @@ export function useTransformAnimation(shouldAnimate: boolean, onComplete?: () =>
   }, [resetState, startTypingCommand]);
 
   const resumeAnimation = useCallback(() => {
-    if (!isPaused || !pausedState.current) return;
+    const savedState = pausedState.current;
+    const cannotResume = !isPaused || !savedState;
+    if (cannotResume) return;
 
     setIsPaused(false);
-    const {
-      phase: savedPhase,
-      typedCommand: savedCommand,
-      appendixLines: savedLines,
-    } = pausedState.current;
+    const { phase: savedPhase, typedCommand: savedCommand, appendixLines: savedLines } = savedState;
     pausedState.current = null;
 
-    if (savedPhase === "step2" && savedCommand.length < COMMAND.length) {
+    const shouldResumeCommand = savedPhase === "step2" && savedCommand.length < COMMAND.length;
+    if (shouldResumeCommand) {
       let charIndex = savedCommand.length;
       animationRef.current = setInterval(() => {
         if (charIndex < COMMAND.length) {
@@ -129,7 +128,9 @@ export function useTransformAnimation(shouldAnimate: boolean, onComplete?: () =>
           }, 100);
         }
       }, 20);
-    } else if (savedPhase === "step3" && savedLines < APPENDIX_CONTENT.length) {
+    } else {
+      const shouldResumeAppendix = savedPhase === "step3" && savedLines < APPENDIX_CONTENT.length;
+      if (!shouldResumeAppendix) return;
       animateAppendixFrom(savedLines);
     }
   }, [isPaused, clearAnimations, animateAppendixFrom]);
@@ -137,7 +138,8 @@ export function useTransformAnimation(shouldAnimate: boolean, onComplete?: () =>
   const { ref: containerRef } = useInView({
     threshold: 0.3,
     onChange: (inView) => {
-      if (inView && shouldAnimate) {
+      const shouldRespondToView = inView && shouldAnimate;
+      if (shouldRespondToView) {
         if (!hasStarted.current) {
           hasStarted.current = true;
           startAnimation();
@@ -149,7 +151,8 @@ export function useTransformAnimation(shouldAnimate: boolean, onComplete?: () =>
   });
 
   useEffect(() => {
-    if (!shouldAnimate && !hasStarted.current) {
+    const shouldCompleteImmediately = !shouldAnimate && !hasStarted.current;
+    if (shouldCompleteImmediately) {
       hasStarted.current = true;
       setPhase("complete");
       setTypedCommand(COMMAND);
@@ -184,7 +187,8 @@ export function useTransformAnimation(shouldAnimate: boolean, onComplete?: () =>
 
   const isStepActive = (step: number): boolean => {
     if (isPaused) return activeStep === step;
-    return activeStep >= step || showAllPopovers;
+    if (activeStep >= step) return true;
+    return showAllPopovers;
   };
 
   const isStep1Active = isStepActive(1);

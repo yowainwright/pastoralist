@@ -140,10 +140,10 @@ const addGitDateToOptions = async (
   path: string,
   mergedOptions: Options,
   deps: Pick<UpdateWorkflowDeps, "getOverrideGitDate">,
-): Promise<Options> => ({
-  ...mergedOptions,
-  addedDate: await deps.getOverrideGitDate(path),
-});
+): Promise<Options> => {
+  const addedDate = await deps.getOverrideGitDate(path);
+  return Object.assign({}, mergedOptions, { addedDate });
+};
 
 const runPackageUpdate = (
   config: Awaited<ReturnType<typeof loadCliConfig>>["config"],
@@ -175,12 +175,15 @@ const runUpdateWorkflow = async (
   );
   const updateResult = runPackageUpdate(loadedConfig.config, mergedOptions, options, deps);
 
-  return {
-    ...loadedConfig,
-    mergedOptions,
-    securityPhase,
-    ...updateResult,
-  };
+  return Object.assign(
+    {},
+    loadedConfig,
+    {
+      mergedOptions,
+      securityPhase,
+    },
+    updateResult,
+  );
 };
 
 const buildActionResult = (runtime: ActionRuntime, workflow: UpdateWorkflow): PastoralistResult =>
@@ -198,9 +201,11 @@ const finishActionResult = (
   runtime: ActionRuntime,
   options: Options,
 ): PastoralistResult => {
-  if (options.summary && !runtime.isJsonOutput) displaySummaryTable(result);
+  const shouldDisplaySummary = options.summary && !runtime.isJsonOutput;
+  if (shouldDisplaySummary) displaySummaryTable(result);
   outputResult(result, runtime.isJsonOutput);
-  if (runtime.isQuietMode && result.hasSecurityIssues) deps.processExit(1);
+  const shouldExitWithSecurityFailure = runtime.isQuietMode && result.hasSecurityIssues;
+  if (shouldExitWithSecurityFailure) deps.processExit(1);
   return result;
 };
 

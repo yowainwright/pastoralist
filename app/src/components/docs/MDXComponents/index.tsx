@@ -42,7 +42,8 @@ function Pre({
   const dataLanguage = props["data-language"];
 
   // Handle mermaid from remark plugin data attributes
-  if (dataLanguage === "mermaid" && mermaidContent) {
+  const hasMermaidProps = dataLanguage === "mermaid" && mermaidContent;
+  if (hasMermaidProps) {
     return <MermaidBlock chart={mermaidContent} />;
   }
 
@@ -55,7 +56,8 @@ function Pre({
   }>;
   const childMermaidContent = child?.props?.["data-mermaid-content"];
   const childDataLanguage = child?.props?.["data-language"];
-  if (childDataLanguage === "mermaid" && childMermaidContent) {
+  const hasChildMermaidProps = childDataLanguage === "mermaid" && childMermaidContent;
+  if (hasChildMermaidProps) {
     return <MermaidBlock chart={childMermaidContent} />;
   }
 

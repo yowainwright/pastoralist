@@ -23,19 +23,20 @@ export function getPagination(currentSlug: string): {
     }
   });
 
-  if (currentSectionIndex !== undefined && currentItemIndex !== undefined) {
-    if (currentItemIndex > 0) {
-      prevItem = SIDEBAR[currentSectionIndex].items[currentItemIndex - 1];
-    } else if (currentSectionIndex > 0) {
-      const prevSection = SIDEBAR[currentSectionIndex - 1];
-      prevItem = prevSection.items[prevSection.items.length - 1];
-    }
+  if (currentSectionIndex === undefined) return { prevItem, nextItem };
+  if (currentItemIndex === undefined) return { prevItem, nextItem };
 
-    if (currentItemIndex < SIDEBAR[currentSectionIndex].items.length - 1) {
-      nextItem = SIDEBAR[currentSectionIndex].items[currentItemIndex + 1];
-    } else if (currentSectionIndex < SIDEBAR.length - 1) {
-      nextItem = SIDEBAR[currentSectionIndex + 1].items[0];
-    }
+  if (currentItemIndex > 0) {
+    prevItem = SIDEBAR[currentSectionIndex].items[currentItemIndex - 1];
+  } else if (currentSectionIndex > 0) {
+    const prevSection = SIDEBAR[currentSectionIndex - 1];
+    prevItem = prevSection.items[prevSection.items.length - 1];
+  }
+
+  if (currentItemIndex < SIDEBAR[currentSectionIndex].items.length - 1) {
+    nextItem = SIDEBAR[currentSectionIndex].items[currentItemIndex + 1];
+  } else if (currentSectionIndex < SIDEBAR.length - 1) {
+    nextItem = SIDEBAR[currentSectionIndex + 1].items[0];
   }
 
   return { prevItem, nextItem };

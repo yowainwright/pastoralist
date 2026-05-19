@@ -72,16 +72,19 @@ const vulnerabilitySuffix = (count: number): string => {
   return "ies";
 };
 
-const toVulnerabilityInfo = (alert: SecurityAlert): VulnerabilityInfo => ({
-  severity: alert.severity || "unknown",
-  packageName: alert.packageName,
-  currentVersion: alert.currentVersion || "?",
-  title: alert.title || alert.description || "Vulnerability",
-  cves: alert.cves,
-  fixAvailable: alert.fixAvailable,
-  patchedVersion: alert.patchedVersion,
-  url: alert.url,
-});
+const toVulnerabilityInfo = (alert: SecurityAlert): VulnerabilityInfo => {
+  const title = alert.title || alert.description || "Vulnerability";
+  return {
+    severity: alert.severity || "unknown",
+    packageName: alert.packageName,
+    currentVersion: alert.currentVersion || "?",
+    title,
+    cves: alert.cves,
+    fixAvailable: alert.fixAvailable,
+    patchedVersion: alert.patchedVersion,
+    url: alert.url,
+  };
+};
 
 const toSecurityFixInfo = (override: SecurityOverride): SecurityFixInfo => ({
   packageName: override.packageName,
@@ -274,13 +277,20 @@ const getRowColor = (
   const numValue = typeof value === "number" ? value : 0;
   const hasValue = numValue > 0;
 
-  if (key === "severityCritical" && hasValue) return "red";
-  if (key === "severityHigh" && hasValue) return "red";
-  if (key === "severityMedium" && hasValue) return "yellow";
-  if (key === "severityLow" && hasValue) return "gray";
-  if (key === "vulnerabilitiesBlocked" && hasValue) return "green";
-  if (key === "overridesAdded" && hasValue) return "cyan";
-  if (key === "writeStatus" && metrics.writeSuccess) return "green";
+  const hasCriticalSeverity = key === "severityCritical" && hasValue;
+  if (hasCriticalSeverity) return "red";
+  const hasHighSeverity = key === "severityHigh" && hasValue;
+  if (hasHighSeverity) return "red";
+  const hasMediumSeverity = key === "severityMedium" && hasValue;
+  if (hasMediumSeverity) return "yellow";
+  const hasLowSeverity = key === "severityLow" && hasValue;
+  if (hasLowSeverity) return "gray";
+  const hasBlockedVulnerabilities = key === "vulnerabilitiesBlocked" && hasValue;
+  if (hasBlockedVulnerabilities) return "green";
+  const hasAddedOverrides = key === "overridesAdded" && hasValue;
+  if (hasAddedOverrides) return "cyan";
+  const hasSuccessfulWriteStatus = key === "writeStatus" && metrics.writeSuccess;
+  if (hasSuccessfulWriteStatus) return "green";
   if (key === "writeStatus") return "yellow";
   return undefined;
 };

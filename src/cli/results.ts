@@ -17,11 +17,10 @@ export const createEmptyResult = (): PastoralistResult => ({
 
 export const createErrorResult = (error: unknown): PastoralistResult => {
   const errorMessage = error instanceof Error ? error.message : String(error);
-  return {
-    ...createEmptyResult(),
+  return Object.assign({}, createEmptyResult(), {
     success: false,
     errors: [errorMessage],
-  };
+  });
 };
 
 export const buildSecurityResult = (
@@ -67,11 +66,13 @@ export const buildUpdateResult = (
 ): Pick<PastoralistResult, "overrideCount" | "appliedOverrides" | "updated"> => {
   const finalOverrides = updateResult.finalOverrides || {};
   const overrideKeys = Object.keys(finalOverrides);
+  const hasChanges = hasUpdateChanges(updateResult, config);
+  const updated = hasChanges && !isDryRun;
 
   return {
     overrideCount: overrideKeys.length,
     appliedOverrides: getAppliedOverrides(finalOverrides),
-    updated: hasUpdateChanges(updateResult, config) && !isDryRun,
+    updated,
   };
 };
 

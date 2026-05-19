@@ -8,12 +8,17 @@ export const CACHE_NAMESPACES = {
   DECISIONS: "decisions",
 } as const;
 
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+const SIX_HOURS_MS = 6 * HOUR_MS;
+const THIRTY_DAYS_MS = 30 * DAY_MS;
+
 export const CACHE_TTLS = {
-  REGISTRY: 24 * 60 * 60 * 1000,
-  OSV: 30 * 24 * 60 * 60 * 1000,
-  TREE: 30 * 24 * 60 * 60 * 1000,
-  ALERTS: 6 * 60 * 60 * 1000,
-  DECISIONS: 6 * 60 * 60 * 1000,
+  REGISTRY: DAY_MS,
+  OSV: THIRTY_DAYS_MS,
+  TREE: THIRTY_DAYS_MS,
+  ALERTS: SIX_HOURS_MS,
+  DECISIONS: SIX_HOURS_MS,
 } as const;
 
 export const CACHE_NS_VERSIONS = {

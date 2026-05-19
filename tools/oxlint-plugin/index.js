@@ -1,5 +1,8 @@
 import {
+  ARRAY_MUTATING_METHODS,
+  COMPUTED_VALUE_OPERATOR_NODE_TYPES,
   COMPARISON_OPERATORS,
+  DEFAULT_MAX_COMPUTED_VALUE_OPERATORS,
   DEFAULT_MAX_EXPRESSION_OPERATORS,
   DEFAULT_MAX_IF_OPERATORS,
   DEFAULT_MAX_TERNARY_OPERATORS,
@@ -12,8 +15,11 @@ import {
   MAX_EXPRESSION_OPERATORS_META,
   MUTATING_METHODS,
   NO_COMPLEX_TERNARIES_META,
+  NO_COMPUTED_VALUES_META,
   NO_HIDDEN_SIDE_EFFECTS_META,
   NO_QUADRATIC_PATTERNS_META,
+  NO_STANDALONE_ARRAY_MUTATIONS_META,
+  PREFER_CONCAT_OBJECT_ASSIGN_META,
   READABILITY_OPERATOR_NODE_TYPES,
   SEARCH_METHODS,
   SIDE_EFFECT_FREE_ITERATION_METHODS,
@@ -25,7 +31,8 @@ function defineRule(meta, create) {
 }
 
 function isRecord(value) {
-  return !!value && typeof value === "object";
+  const isObjectLike = !!value && typeof value === "object";
+  return isObjectLike;
 }
 
 function hasType(node, type) {
@@ -53,18 +60,29 @@ function isExpressionContainer(node) {
 }
 
 function isSkippedExpressionRoot(expression) {
-  return isFunctionNode(expression) || isExpressionContainer(expression) || isJsxNode(expression);
+  const shouldSkip =
+    isFunctionNode(expression) || isExpressionContainer(expression) || isJsxNode(expression);
+  return shouldSkip;
 }
 
 function getOperatorWeight(node) {
   if (READABILITY_OPERATOR_NODE_TYPES.has(String(node.type))) return 1;
-  if (node.type === "BinaryExpression" && COMPARISON_OPERATORS.has(String(node.operator))) return 1;
-  if (node.type === "UnaryExpression" && node.operator === "!") return 1;
+  const isComparisonExpression =
+    node.type === "BinaryExpression" && COMPARISON_OPERATORS.has(String(node.operator));
+  if (isComparisonExpression) return 1;
+
+  const isNegationExpression = node.type === "UnaryExpression" && node.operator === "!";
+  if (isNegationExpression) return 1;
   return 0;
 }
 
 function getIfConditionOperatorWeight(node) {
   if (IF_CONDITION_OPERATOR_NODE_TYPES.has(String(node.type))) return 1;
+  return 0;
+}
+
+function getComputedValueOperatorWeight(node) {
+  if (COMPUTED_VALUE_OPERATOR_NODE_TYPES.has(String(node.type))) return 1;
   return 0;
 }
 
@@ -104,6 +122,23 @@ function countIfConditionChildOperators(child, root) {
   return countIfConditionOperatorNode(child, root);
 }
 
+function countComputedValueOperatorNode(node, root) {
+  if (isFunctionBoundary(node, root)) return 0;
+  const childCount = Object.entries(node).reduce((sum, [key, child]) => {
+    if (SKIP_KEYS.has(key)) return sum;
+    return sum + countComputedValueChildOperators(child, root);
+  }, 0);
+  return getComputedValueOperatorWeight(node) + childCount;
+}
+
+function countComputedValueChildOperators(child, root) {
+  if (Array.isArray(child)) {
+    return child.reduce((sum, item) => sum + countComputedValueChildOperators(item, root), 0);
+  }
+  if (!isRecord(child)) return 0;
+  return countComputedValueOperatorNode(child, root);
+}
+
 export function countExpressionOperators(expression) {
   if (!isRecord(expression)) return 0;
   if (isSkippedExpressionRoot(expression)) return 0;
@@ -113,6 +148,13 @@ export function countExpressionOperators(expression) {
 export function countIfConditionOperators(expression) {
   if (!isRecord(expression)) return 0;
   return countIfConditionOperatorNode(expression, expression);
+}
+
+export function countComputedValueOperators(expression) {
+  if (!isRecord(expression)) return 0;
+  if (isFunctionNode(expression)) return 0;
+  if (isJsxNode(expression)) return 0;
+  return countComputedValueOperatorNode(expression, expression);
 }
 
 export function isMethodCall(node, methodSet) {
@@ -158,7 +200,8 @@ export function getCallbackBody(node) {
   if (!callback) return null;
   const isArrow = callback.type === "ArrowFunctionExpression";
   const isFunction = callback.type === "FunctionExpression";
-  if (!isArrow && !isFunction) return null;
+  const isSupportedCallback = isArrow || isFunction;
+  if (!isSupportedCallback) return null;
   return callback.body ?? null;
 }
 
@@ -196,7 +239,8 @@ function createMaxExpressionOperators(context) {
   return {
     ArrowFunctionExpression(node) {
       const body = node.body;
-      if (isRecord(body) && body.type === "BlockStatement") return;
+      const hasBlockBody = isRecord(body) && body.type === "BlockStatement";
+      if (hasBlockBody) return;
       checkExpression(body);
     },
     AssignmentExpression(node) {
@@ -246,12 +290,14 @@ function createHoistIfOperators(context) {
 }
 
 function isExpressionStatement(node) {
-  return isRecord(node) && node.type === "ExpressionStatement";
+  const isExpression = isRecord(node) && node.type === "ExpressionStatement";
+  return isExpression;
 }
 
 function isForUpdateExpression(node) {
   if (!isRecord(node)) return false;
-  return node.type === "ForStatement" && isRecord(node.update);
+  const isForUpdate = node.type === "ForStatement" && isRecord(node.update);
+  return isForUpdate;
 }
 
 function getSideEffectParent(node) {
@@ -264,15 +310,22 @@ function getSideEffectParent(node) {
 function isStandaloneSideEffect(node) {
   const parent = getSideEffectParent(node);
   if (isExpressionStatement(parent)) return true;
-  return isForUpdateExpression(parent) && parent.update === node;
+  const isForUpdateSideEffect = isForUpdateExpression(parent) && parent.update === node;
+  return isForUpdateSideEffect;
 }
 
 function isAssignmentSideEffect(node) {
-  return node.type === "AssignmentExpression" || node.type === "UpdateExpression";
+  const isAssignment = node.type === "AssignmentExpression";
+  const isUpdate = node.type === "UpdateExpression";
+  return isAssignment || isUpdate;
 }
 
 function isMutatingMethodCall(node) {
   return isMethodCall(node, MUTATING_METHODS);
+}
+
+function isArrayMutatingMethodCall(node) {
+  return isMethodCall(node, ARRAY_MUTATING_METHODS);
 }
 
 function getMemberObject(node) {
@@ -355,6 +408,72 @@ function createNoHiddenSideEffects(context) {
   };
 }
 
+function createNoStandaloneArrayMutations(context) {
+  return {
+    CallExpression(node) {
+      if (!isArrayMutatingMethodCall(node)) return;
+      if (isFreshMutatingMethodCall(node)) return;
+      if (!isStandaloneSideEffect(node)) return;
+      context.report({
+        node,
+        messageId: "standaloneArrayMutation",
+        data: { method: getMethodName(node) ?? "unknown" },
+      });
+    },
+  };
+}
+
+function reportComputedValue(context, node, messageId, max) {
+  if (!isRecord(node)) return;
+  const count = countComputedValueOperators(node);
+  if (count <= max) return;
+  context.report({ node, messageId, data: { count, max } });
+}
+
+function isComputedReturnSkipped(argument) {
+  if (!isRecord(argument)) return true;
+  if (argument.type === "ObjectExpression") return true;
+  if (isFunctionNode(argument)) return true;
+  return isJsxNode(argument);
+}
+
+function createNoComputedValues(context) {
+  const max = getConfiguredMax(context, DEFAULT_MAX_COMPUTED_VALUE_OPERATORS);
+  return {
+    Property(node) {
+      const value = node.value;
+      if (!isRecord(value)) return;
+      if (isFunctionNode(value)) return;
+      if (isJsxNode(value)) return;
+      reportComputedValue(context, value, "computedObjectValue", max);
+    },
+    ReturnStatement(node) {
+      const argument = node.argument;
+      if (isComputedReturnSkipped(argument)) return;
+      reportComputedValue(context, argument, "computedReturn", max);
+    },
+  };
+}
+
+function reportSpreadElements(context, nodes, messageId) {
+  nodes
+    .filter((node) => isRecord(node) && node.type === "SpreadElement")
+    .forEach((node) => {
+      context.report({ node, messageId });
+    });
+}
+
+function createPreferConcatObjectAssign(context) {
+  return {
+    ArrayExpression(node) {
+      reportSpreadElements(context, node.elements ?? [], "arraySpread");
+    },
+    ObjectExpression(node) {
+      reportSpreadElements(context, node.properties ?? [], "objectSpread");
+    },
+  };
+}
+
 function childContainsTernary(child) {
   if (Array.isArray(child)) {
     const childNodes = child.filter(isRecord);
@@ -400,7 +519,7 @@ export function enterLoop(loopStack, context, node) {
   if (loopStack.length > 0) {
     context.report({ node, messageId: "nestedLoop" });
   }
-  loopStack.push(node);
+  return loopStack.concat(node);
 }
 
 export function checkSearchInLoop(loopStack, context, node) {
@@ -419,7 +538,7 @@ export function checkNestedIteration(context, node) {
   if (!body) return false;
   if (!containsCallTo(body, ITERATION_METHODS)) return false;
 
-  const innerMatch = [...ITERATION_METHODS].find((method) =>
+  const innerMatch = Array.from(ITERATION_METHODS).find((method) =>
     containsCallTo(body, new Set([method])),
   );
   if (!innerMatch) return false;
@@ -431,14 +550,19 @@ export function checkNestedIteration(context, node) {
   return true;
 }
 
-function createLoopVisitors(loopStack, context) {
+function createLoopVisitors(context, getLoopStack, setLoopStack) {
   return Object.fromEntries(
-    [...LOOP_TYPES].flatMap((type) => [
-      [type, (node) => enterLoop(loopStack, context, node)],
+    Array.from(LOOP_TYPES).flatMap((type) => [
+      [
+        type,
+        (node) => {
+          setLoopStack(enterLoop(getLoopStack(), context, node));
+        },
+      ],
       [
         `${type}:exit`,
         () => {
-          loopStack.pop();
+          setLoopStack(getLoopStack().slice(0, -1));
         },
       ],
     ]),
@@ -446,14 +570,21 @@ function createLoopVisitors(loopStack, context) {
 }
 
 function createNoQuadraticPatterns(context) {
-  const loopStack = [];
-  return {
-    ...createLoopVisitors(loopStack, context),
+  let loopStack = [];
+  const loopVisitors = createLoopVisitors(
+    context,
+    () => loopStack,
+    (nextLoopStack) => {
+      loopStack = nextLoopStack;
+    },
+  );
+
+  return Object.assign({}, loopVisitors, {
     CallExpression(node) {
       if (checkNestedIteration(context, node)) return;
       checkSearchInLoop(loopStack, context, node);
     },
-  };
+  });
 }
 
 export const maxExpressionOperators = defineRule(
@@ -473,15 +604,30 @@ export const noHiddenSideEffects = defineRule(
   createNoHiddenSideEffects,
 );
 
+export const noStandaloneArrayMutations = defineRule(
+  NO_STANDALONE_ARRAY_MUTATIONS_META,
+  createNoStandaloneArrayMutations,
+);
+
+export const noComputedValues = defineRule(NO_COMPUTED_VALUES_META, createNoComputedValues);
+
 export const noComplexTernaries = defineRule(NO_COMPLEX_TERNARIES_META, createNoComplexTernaries);
+
+export const preferConcatObjectAssign = defineRule(
+  PREFER_CONCAT_OBJECT_ASSIGN_META,
+  createPreferConcatObjectAssign,
+);
 
 const plugin = {
   rules: {
     "hoist-if-operators": hoistIfOperators,
     "max-expression-operators": maxExpressionOperators,
     "no-complex-ternaries": noComplexTernaries,
+    "no-computed-values": noComputedValues,
     "no-hidden-side-effects": noHiddenSideEffects,
     "no-quadratic-patterns": noQuadraticPatterns,
+    "no-standalone-array-mutations": noStandaloneArrayMutations,
+    "prefer-concat-object-assign": preferConcatObjectAssign,
   },
 };
 

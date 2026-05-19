@@ -15,7 +15,8 @@ export function useScrollspy(headingCount: number) {
         const visibleEntries = entries.filter((entry) => entry.isIntersecting);
         if (visibleEntries.length > 0) {
           const topMostEntry = visibleEntries.reduce((prev, curr) => {
-            return curr.boundingClientRect.top < prev.boundingClientRect.top ? curr : prev;
+            if (curr.boundingClientRect.top >= prev.boundingClientRect.top) return prev;
+            return curr;
           });
           setActiveId(topMostEntry.target.id);
         }

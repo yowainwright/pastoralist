@@ -1,8 +1,10 @@
 export const DEFAULT_MAX_EXPRESSION_OPERATORS = 4;
 
-export const DEFAULT_MAX_IF_OPERATORS = 1;
+export const DEFAULT_MAX_IF_OPERATORS = 0;
 
 export const DEFAULT_MAX_TERNARY_OPERATORS = 2;
+
+export const DEFAULT_MAX_COMPUTED_VALUE_OPERATORS = 1;
 
 export const SKIP_KEYS = new Set(["parent", "loc", "range"]);
 
@@ -28,6 +30,13 @@ export const READABILITY_OPERATOR_NODE_TYPES = new Set([
 export const IF_CONDITION_OPERATOR_NODE_TYPES = new Set([
   "ConditionalExpression",
   "LogicalExpression",
+]);
+
+export const COMPUTED_VALUE_OPERATOR_NODE_TYPES = new Set([
+  "BinaryExpression",
+  "ConditionalExpression",
+  "LogicalExpression",
+  "UnaryExpression",
 ]);
 
 export const COMPARISON_OPERATORS = new Set([
@@ -83,6 +92,18 @@ export const MUTATING_METHODS = new Set([
   "push",
   "reverse",
   "set",
+  "shift",
+  "sort",
+  "splice",
+  "unshift",
+]);
+
+export const ARRAY_MUTATING_METHODS = new Set([
+  "copyWithin",
+  "fill",
+  "pop",
+  "push",
+  "reverse",
   "shift",
   "sort",
   "splice",
@@ -155,6 +176,56 @@ export const NO_HIDDEN_SIDE_EFFECTS_META = {
       "Avoid side effects inside .{{method}}() callbacks. Extract the mutation or use a clearer control flow.",
     hiddenSideEffect:
       "Avoid side effects inside expressions. Move this mutation into its own statement.",
+  },
+};
+
+export const NO_STANDALONE_ARRAY_MUTATIONS_META = {
+  type: "suggestion",
+  docs: {
+    description: "Avoid standalone array mutations when a composable expression is clearer.",
+    recommended: true,
+  },
+  schema: [],
+  messages: {
+    standaloneArrayMutation:
+      "Avoid standalone .{{method}}() array mutation. Prefer a returned array expression or a named helper.",
+  },
+};
+
+export const NO_COMPUTED_VALUES_META = {
+  type: "suggestion",
+  docs: {
+    description:
+      "Prefer named values before returning computed expressions or assigning computed object values.",
+    recommended: true,
+  },
+  schema: [
+    {
+      type: "object",
+      properties: { max: { type: "integer", minimum: 0 } },
+      additionalProperties: false,
+    },
+  ],
+  messages: {
+    computedObjectValue:
+      "Object value has {{count}} computed operators (max {{max}}). Extract it into a named value before building the object.",
+    computedReturn:
+      "Return value has {{count}} computed operators (max {{max}}). Extract it into a named value before returning.",
+  },
+};
+
+export const PREFER_CONCAT_OBJECT_ASSIGN_META = {
+  type: "suggestion",
+  docs: {
+    description:
+      "Prefer explicit concat/Object.assign composition over array or object literal spread.",
+    recommended: true,
+  },
+  schema: [],
+  messages: {
+    arraySpread: "Prefer Array#concat over array literal spread so array composition is explicit.",
+    objectSpread:
+      "Prefer Object.assign with an empty target over object literal spread so object composition is explicit.",
   },
 };
 

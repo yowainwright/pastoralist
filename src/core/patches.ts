@@ -40,10 +40,7 @@ const addPatchToMap = (
   patchFile: string,
 ): Record<string, string[]> => {
   const existingPatches = patchMap[packageName] || [];
-  return {
-    ...patchMap,
-    [packageName]: [...existingPatches, patchFile],
-  };
+  return Object.assign({}, patchMap, { [packageName]: existingPatches.concat(patchFile) });
 };
 
 const processPatchFile = (
@@ -125,7 +122,8 @@ export const findUnusedPatches = (
 
 const extractPackageNameFromKey = (key: string): string => {
   const lastAtIndex = key.lastIndexOf("@");
-  return lastAtIndex > 0 ? key.slice(0, lastAtIndex) : key;
+  if (lastAtIndex <= 0) return key;
+  return key.slice(0, lastAtIndex);
 };
 
 const addPatchesToAppendixEntry = (
@@ -139,13 +137,8 @@ const addPatchesToAppendixEntry = (
 
   if (!hasPatches) return appendix;
 
-  return {
-    ...appendix,
-    [key]: {
-      ...appendix[key],
-      patches,
-    },
-  };
+  const item = Object.assign({}, appendix[key], { patches });
+  return Object.assign({}, appendix, { [key]: item });
 };
 
 export const attachPatchesToAppendix = (

@@ -101,7 +101,8 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
 
   useEffect(() => {
     if (startAnimation !== undefined) {
-      if (startAnimation && !hasStarted) {
+      const shouldStartFromProp = startAnimation && !hasStarted;
+      if (shouldStartFromProp) {
         setHasStarted(true);
       }
       return;
@@ -109,7 +110,8 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
 
     const observer = new IntersectionObserver((entries) => {
       const isInView = entries[0]?.isIntersecting;
-      if (isInView && !hasStarted) {
+      const shouldStartInView = isInView && !hasStarted;
+      if (shouldStartInView) {
         setHasStarted(true);
       }
     }, INTERSECTION_OBSERVER_OPTIONS);
@@ -133,11 +135,13 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
 
   const moveToNextDemo = useCallback(() => {
     const isLastDemo = currentDemoIndex === demos.length - 1;
+    const shouldLoopDemo = isLastDemo && loop;
+    const shouldFinishDemo = isLastDemo && !loop;
 
-    if (isLastDemo && loop) {
+    if (shouldLoopDemo) {
       setCurrentDemoIndex(0);
       resetAnimation();
-    } else if (isLastDemo && !loop) {
+    } else if (shouldFinishDemo) {
       setIsFinished(true);
       onComplete?.();
     } else if (!isLastDemo) {
@@ -150,7 +154,7 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
     const isLastLine = currentLineIndex === currentDemo.lines.length - 1;
 
     if (currentLine) {
-      setVisibleLines((prev) => [...prev, currentLine]);
+      setVisibleLines((prev) => prev.concat(currentLine));
     }
 
     if (isLastLine) {
@@ -171,7 +175,8 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
   );
 
   useEffect(() => {
-    if (isComplete && isTyping) {
+    const shouldFinishTyping = isComplete && isTyping;
+    if (shouldFinishTyping) {
       setIsTyping(false);
       moveToNextLine();
     }

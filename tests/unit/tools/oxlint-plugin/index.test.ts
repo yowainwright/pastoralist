@@ -4,6 +4,7 @@ import {
   checkNestedIteration,
   checkSearchInLoop,
   containsCallTo,
+  countComputedValueOperators,
   countExpressionOperators,
   countIfConditionOperators,
   getCallbackBody,
@@ -12,7 +13,10 @@ import {
   isMethodCall,
   maxExpressionOperators,
   noComplexTernaries,
+  noComputedValues,
   noHiddenSideEffects,
+  noStandaloneArrayMutations,
+  preferConcatObjectAssign,
 } from "../../../../tools/oxlint-plugin/index.js";
 import type { ASTNode, RuleContext, RuleReport } from "../../../../tools/oxlint-plugin/types";
 
@@ -48,6 +52,16 @@ const memberCall = (method: string, args: unknown[] = []): ASTNode => ({
   arguments: args,
 });
 
+const freshArrayCall = (method: string): ASTNode => ({
+  type: "CallExpression",
+  callee: {
+    type: "MemberExpression",
+    object: { type: "ArrayExpression", elements: [] },
+    property: { type: "Identifier", name: method },
+  },
+  arguments: [],
+});
+
 const arrowCallback = (body: ASTNode): ASTNode => ({
   type: "ArrowFunctionExpression",
   params: [identifier("item")],
@@ -66,13 +80,20 @@ const expressionStatement = (expression: ASTNode): ASTNode => ({
   expression,
 });
 
+const spreadElement = (argument: ASTNode): ASTNode => ({
+  type: "SpreadElement",
+  argument,
+});
+
 const createContext = (options: unknown[] = []): RuleContext & { reports: RuleReport[] } => {
-  const reports: RuleReport[] = [];
+  let reports: RuleReport[] = [];
   return {
     options,
-    reports,
+    get reports() {
+      return reports;
+    },
     report(report) {
-      reports.push(report);
+      reports = reports.concat(report);
     },
   };
 };
@@ -94,6 +115,12 @@ describe("tools/oxlint-plugin", () => {
     const expression = logical(binary("==="), binary("!=="));
 
     expect(countIfConditionOperators(expression)).toBe(1);
+  });
+
+  test("countComputedValueOperators counts arithmetic and readability operators", () => {
+    const expression = logical(binary("+"), unaryNot());
+
+    expect(countComputedValueOperators(expression)).toBe(3);
   });
 
   test("countExpressionOperators does not cross nested function boundaries", () => {
@@ -173,6 +200,18 @@ describe("tools/oxlint-plugin", () => {
     expect(context.reports[0]?.data).toEqual({ count: 2, max: 1 });
   });
 
+  test("hoistIfOperators reports composed if conditions by default", () => {
+    const context = createContext();
+    const visitor = hoistIfOperators.create(context);
+    const testNode = logical(binary("==="), binary("!=="));
+
+    visitor.IfStatement?.({ type: "IfStatement", test: testNode });
+
+    expect(context.reports).toHaveLength(1);
+    expect(context.reports[0]?.messageId).toBe("tooMany");
+    expect(context.reports[0]?.data).toEqual({ count: 1, max: 0 });
+  });
+
   test("noComplexTernaries reports ternaries over the configured max", () => {
     const context = createContext([{ max: 2 }]);
     const visitor = noComplexTernaries.create(context);
@@ -195,6 +234,65 @@ describe("tools/oxlint-plugin", () => {
     expect(context.reports[0]?.messageId).toBe("nested");
   });
 
+  test("noComputedValues reports computed return values", () => {
+    const context = createContext();
+    const visitor = noComputedValues.create(context);
+    const argument = logical(binary("+"), identifier("ready"));
+
+    visitor.ReturnStatement?.({ type: "ReturnStatement", argument });
+
+    expect(context.reports).toHaveLength(1);
+    expect(context.reports[0]?.messageId).toBe("computedReturn");
+    expect(context.reports[0]?.data).toEqual({ count: 2, max: 1 });
+  });
+
+  test("noComputedValues reports computed object values", () => {
+    const context = createContext();
+    const visitor = noComputedValues.create(context);
+    const value = logical(binary("+"), identifier("fallback"));
+
+    visitor.Property?.({ type: "Property", key: identifier("total"), value });
+
+    expect(context.reports).toHaveLength(1);
+    expect(context.reports[0]?.messageId).toBe("computedObjectValue");
+    expect(context.reports[0]?.data).toEqual({ count: 2, max: 1 });
+  });
+
+  test("noComputedValues allows simple computed values at the configured max", () => {
+    const context = createContext();
+    const visitor = noComputedValues.create(context);
+
+    visitor.ReturnStatement?.({ type: "ReturnStatement", argument: binary("+") });
+
+    expect(context.reports).toHaveLength(0);
+  });
+
+  test("preferConcatObjectAssign reports array literal spreads", () => {
+    const context = createContext();
+    const visitor = preferConcatObjectAssign.create(context);
+
+    visitor.ArrayExpression?.({
+      type: "ArrayExpression",
+      elements: [spreadElement(identifier("items"))],
+    });
+
+    expect(context.reports).toHaveLength(1);
+    expect(context.reports[0]?.messageId).toBe("arraySpread");
+  });
+
+  test("preferConcatObjectAssign reports object literal spreads", () => {
+    const context = createContext();
+    const visitor = preferConcatObjectAssign.create(context);
+
+    visitor.ObjectExpression?.({
+      type: "ObjectExpression",
+      properties: [spreadElement(identifier("base"))],
+    });
+
+    expect(context.reports).toHaveLength(1);
+    expect(context.reports[0]?.messageId).toBe("objectSpread");
+  });
+
   test("noHiddenSideEffects reports hidden assignment expressions", () => {
     const context = createContext();
     const visitor = noHiddenSideEffects.create(context);
@@ -215,6 +313,32 @@ describe("tools/oxlint-plugin", () => {
     const context = createContext();
     const visitor = noHiddenSideEffects.create(context);
     const expression = memberCall("push");
+    const parent = expressionStatement(expression);
+    expression.parent = parent;
+
+    visitor.CallExpression?.(expression);
+
+    expect(context.reports).toHaveLength(0);
+  });
+
+  test("noStandaloneArrayMutations reports standalone array mutation calls", () => {
+    const context = createContext();
+    const visitor = noStandaloneArrayMutations.create(context);
+    const expression = memberCall("push");
+    const parent = expressionStatement(expression);
+    expression.parent = parent;
+
+    visitor.CallExpression?.(expression);
+
+    expect(context.reports).toHaveLength(1);
+    expect(context.reports[0]?.messageId).toBe("standaloneArrayMutation");
+    expect(context.reports[0]?.data).toEqual({ method: "push" });
+  });
+
+  test("noStandaloneArrayMutations allows mutations on fresh arrays", () => {
+    const context = createContext();
+    const visitor = noStandaloneArrayMutations.create(context);
+    const expression = freshArrayCall("sort");
     const parent = expressionStatement(expression);
     expression.parent = parent;
 

@@ -19,7 +19,10 @@ export const detectCIEnv = (): boolean => {
   const hasGitHubActions = Boolean(process.env.GITHUB_ACTIONS);
   const hasGitLabCI = Boolean(process.env.GITLAB_CI);
   const hasDockerEnv = existsSync("/.dockerenv");
-  return hasCI || hasGitHubActions || hasGitLabCI || hasDockerEnv;
+  if (hasCI) return true;
+  if (hasGitHubActions) return true;
+  if (hasGitLabCI) return true;
+  return hasDockerEnv;
 };
 
 export const hashLockfile = (root = process.cwd()): string => {
@@ -55,7 +58,7 @@ const fallbackCacheDirs = (): string[] => {
 };
 
 const writableCacheDir = (root: string): string | undefined => {
-  return [nodeModulesCacheDir(root), ...fallbackCacheDirs()].find(isWritableCacheDir);
+  return [nodeModulesCacheDir(root)].concat(fallbackCacheDirs()).find(isWritableCacheDir);
 };
 
 export const resolveCacheDir = (options: CacheDirOptions = {}): string => {
@@ -89,7 +92,8 @@ export const pruneBackups = (
     files.forEach((file, i) => {
       const isTooOld = now - file.mtime > maxAgeMs;
       const isOverLimit = i >= keep;
-      if (isTooOld || isOverLimit) {
+      const shouldDeleteFile = isTooOld || isOverLimit;
+      if (shouldDeleteFile) {
         unlinkSync(file.path);
       }
     });
@@ -136,7 +140,8 @@ export class DiskCache<V> {
       const parsed = JSON.parse(raw) as DiskCacheEnvelope<V>;
       const isValidSchema = parsed?.schema === DISK_CACHE_SCHEMA_VERSION;
       const isValidVersion = parsed?.version === this.version;
-      if (!isValidSchema || !isValidVersion) {
+      const shouldResetCache = !isValidSchema || !isValidVersion;
+      if (shouldResetCache) {
         this.data = this.empty();
         return this.data;
       }
@@ -163,7 +168,9 @@ export class DiskCache<V> {
   }
 
   private isExpired(entry: { v: V; t: number }): boolean {
-    return this.ttl > 0 && Date.now() - entry.t > this.ttl;
+    if (this.ttl <= 0) return false;
+    const age = Date.now() - entry.t;
+    return age > this.ttl;
   }
 
   get(key: string): V | undefined {
@@ -173,7 +180,7 @@ export class DiskCache<V> {
     if (!entry) return undefined;
     if (this.isExpired(entry)) {
       const { [key]: _, ...rest } = envelope.entries;
-      this.flush({ ...envelope, entries: rest });
+      this.flush(Object.assign({}, envelope, { entries: rest }));
       return undefined;
     }
     return entry.v;
@@ -182,17 +189,14 @@ export class DiskCache<V> {
   set(key: string, value: V): void {
     if (!this.enabled) return;
     const envelope = this.load();
-    const newEntries = {
-      ...envelope.entries,
-      [key]: { v: value, t: Date.now() },
-    };
+    const newEntries = Object.assign({}, envelope.entries, { [key]: { v: value, t: Date.now() } });
     const entriesArray = Object.entries(newEntries);
     const isOverLimit = entriesArray.length > this.maxEntries;
-    const sortedEntries = [...entriesArray].sort((a, b) => b[1].t - a[1].t);
+    const sortedEntries = entriesArray.slice().sort((a, b) => b[1].t - a[1].t);
     const trimmed = isOverLimit
       ? Object.fromEntries(sortedEntries.slice(0, this.maxEntries))
       : newEntries;
-    this.flush({ ...envelope, entries: trimmed });
+    this.flush(Object.assign({}, envelope, { entries: trimmed }));
   }
 
   has(key: string): boolean {
@@ -203,7 +207,7 @@ export class DiskCache<V> {
     if (!this.enabled) return;
     const envelope = this.load();
     const { [key]: _, ...rest } = envelope.entries;
-    this.flush({ ...envelope, entries: rest });
+    this.flush(Object.assign({}, envelope, { entries: rest }));
   }
 
   clear(): void {
@@ -220,7 +224,7 @@ export class DiskCache<V> {
     );
     const after = Object.keys(fresh).length;
     if (before !== after) {
-      this.flush({ ...envelope, entries: fresh });
+      this.flush(Object.assign({}, envelope, { entries: fresh }));
     }
     return before - after;
   }

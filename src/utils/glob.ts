@@ -161,14 +161,11 @@ const createInitialDirectMatchState = (root: string): DirectMatchState => ({
   results: [],
 });
 
-const toDirectMatchStep = (
-  segment: string,
-  index: number,
-  segments: string[],
-): DirectMatchStep => ({
-  segment,
-  isLast: index === segments.length - 1,
-});
+const toDirectMatchStep = (segment: string, index: number, segments: string[]): DirectMatchStep => {
+  const lastIndex = segments.length - 1;
+  const isLast = index === lastIndex;
+  return { segment, isLast };
+};
 
 const toRelativePath = (cwd: string, path: string): string => normalizePath(relative(cwd, path));
 
@@ -188,7 +185,7 @@ const toDirectMatchState = (
   items: DirectMatchItem[],
 ): DirectMatchState => ({
   candidates: getItemPaths(items, "candidate"),
-  results: [...currentResults, ...getItemPaths(items, "result")],
+  results: currentResults.concat(getItemPaths(items, "result")),
 });
 
 const collectLiteralSegmentMatches = (
@@ -201,8 +198,11 @@ const collectLiteralSegmentMatches = (
   const shouldInclude = shouldIncludeRelativePath(relativePath, context.ignorePatterns);
 
   if (!shouldInclude) return [];
-  if (step.isLast && isExistingFile(nextPath)) return [{ type: "result", path: relativePath }];
-  if (!step.isLast && isExistingDirectory(nextPath)) return [{ type: "candidate", path: nextPath }];
+  const isLastExistingFile = step.isLast && isExistingFile(nextPath);
+  if (isLastExistingFile) return [{ type: "result", path: relativePath }];
+
+  const isNextDirectory = !step.isLast && isExistingDirectory(nextPath);
+  if (isNextDirectory) return [{ type: "candidate", path: nextPath }];
   return [];
 };
 

@@ -25,7 +25,7 @@ export function getHighlighter(): Promise<Highlighter> {
         customLight as unknown as ThemeRegistration,
         customDark as unknown as ThemeRegistration,
       ],
-      langs: [...SHIKI_LANGS],
+      langs: Array.from(SHIKI_LANGS),
     });
   }
   return highlighterPromise;
@@ -44,20 +44,25 @@ function CodeblockContent({
 
   const resolvedLang = (SHIKI_LANGS as readonly string[]).includes(lang) ? lang : "text";
 
-  const html = highlighter.codeToHtml(code, {
-    lang: resolvedLang,
-    themes: {
-      light: "pastoralist-light",
-      dark: "pastoralist-dark",
+  const lineNumberOptions = showLineNumbers ? { meta: { __raw: "showLineNumbers" } } : undefined;
+  const htmlOptions = Object.assign(
+    {},
+    {
+      lang: resolvedLang,
+      themes: {
+        light: "pastoralist-light",
+        dark: "pastoralist-dark",
+      },
+      defaultColor: false as const,
+      transformers: [
+        transformerNotationDiff(),
+        transformerNotationHighlight(),
+        transformerNotationFocus(),
+      ],
     },
-    defaultColor: false,
-    transformers: [
-      transformerNotationDiff(),
-      transformerNotationHighlight(),
-      transformerNotationFocus(),
-    ],
-    ...(showLineNumbers ? { meta: { __raw: "showLineNumbers" } } : {}),
-  });
+    lineNumberOptions,
+  );
+  const html = highlighter.codeToHtml(code, htmlOptions);
 
   return <div className={CODEBLOCK_CLASSES.content} dangerouslySetInnerHTML={{ __html: html }} />;
 }

@@ -20,7 +20,8 @@ export const width = (): number => {
 export const visibleLength = (str: string): number => {
   const withoutAnsi = str.replace(ANSI_PATTERN, "");
 
-  if (typeof Intl !== "undefined" && Intl.Segmenter) {
+  const canUseSegmenter = typeof Intl !== "undefined" && Intl.Segmenter;
+  if (canUseSegmenter) {
     const segmenter = new Intl.Segmenter("en", { granularity: "grapheme" });
     const graphemes = Array.from(segmenter.segment(withoutAnsi));
     const wideCount = graphemes.filter((g) => WIDE_EMOJI_PATTERN.test(g.segment)).length;
@@ -43,26 +44,27 @@ export const pad = (str: string, len: number, align: "left" | "right" = "left"):
 
 const isAnsiReset = (code: string): boolean => ANSI_RESET_PATTERN.test(code);
 
-const appendAnsiCode = (state: TruncateState, code: string): TruncateState => ({
-  ...state,
-  result: state.result + code,
-  hasOpenAnsi: !isAnsiReset(code),
-});
+const appendAnsiCode = (state: TruncateState, code: string): TruncateState =>
+  Object.assign({}, state, {
+    result: state.result + code,
+    hasOpenAnsi: !isAnsiReset(code),
+  });
 
 const appendTruncatedText = (state: TruncateState, text: string, maxLen: number): TruncateState => {
   const spaceLeft = maxLen - 3 - state.visibleCount;
   const result = state.result + text.substring(0, spaceLeft);
-  return { ...state, result, isTruncated: true };
+  return Object.assign({}, state, { result, isTruncated: true });
 };
 
 const appendVisibleText = (state: TruncateState, text: string, maxLen: number): TruncateState => {
   const spaceLeft = maxLen - 3 - state.visibleCount;
   if (text.length > spaceLeft) return appendTruncatedText(state, text, maxLen);
-  return {
-    ...state,
-    result: state.result + text,
-    visibleCount: state.visibleCount + text.length,
-  };
+  const result = state.result + text;
+  const visibleCount = state.visibleCount + text.length;
+  return Object.assign({}, state, {
+    result,
+    visibleCount,
+  });
 };
 
 const createInitialTruncateState = (): TruncateState => ({
@@ -180,7 +182,7 @@ export const box = (lines: string[], options: BoxOptions = {}): string[] => {
     return `${BOX_CHARS.vertical}${padStr}${padded}${padStr}${BOX_CHARS.vertical}`;
   });
 
-  return [top, ...contentLines, bottom];
+  return [top].concat(contentLines, bottom);
 };
 
 /** Create progress bar string */

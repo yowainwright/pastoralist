@@ -68,7 +68,7 @@ const addProviderToLedger = (
 ): PartialSecurityLedger => {
   const hasProvider = Boolean(securityProvider);
   if (!hasProvider) return ledger;
-  return { ...ledger, securityProvider };
+  return Object.assign({}, ledger, { securityProvider });
 };
 
 const addCvesToLedger = (
@@ -76,9 +76,9 @@ const addCvesToLedger = (
   details: SecurityOverrideDetail[],
 ): PartialSecurityLedger => {
   const allCves = details.flatMap((d) => d.cves || []);
-  const uniqueCves = [...new Set(allCves)];
+  const uniqueCves = Array.from(new Set(allCves));
   if (uniqueCves.length === 0) return ledger;
-  return { ...ledger, cves: uniqueCves };
+  return Object.assign({}, ledger, { cves: uniqueCves });
 };
 
 const getSeverityScore = (severity: string): number => {
@@ -103,7 +103,7 @@ const addSeverityToLedger = (
     const isBetter = getSeverityScore(s) > getSeverityScore(best);
     return isBetter ? s : best;
   });
-  return { ...ledger, severity: highest };
+  return Object.assign({}, ledger, { severity: highest });
 };
 
 const addUrlToLedger = (
@@ -112,7 +112,7 @@ const addUrlToLedger = (
 ): PartialSecurityLedger => {
   const url = details.find((d) => d.url)?.url;
   if (!url) return ledger;
-  return { ...ledger, url };
+  return Object.assign({}, ledger, { url });
 };
 
 const addVulnerableRangeToLedger = (
@@ -121,7 +121,7 @@ const addVulnerableRangeToLedger = (
 ): PartialSecurityLedger => {
   const vulnerableRange = details.find((d) => d.vulnerableRange)?.vulnerableRange;
   if (!vulnerableRange) return ledger;
-  return { ...ledger, vulnerableRange };
+  return Object.assign({}, ledger, { vulnerableRange });
 };
 
 const addPatchedVersionToLedger = (
@@ -130,7 +130,7 @@ const addPatchedVersionToLedger = (
 ): PartialSecurityLedger => {
   const patchedVersion = details.find((d) => d.patchedVersion)?.patchedVersion;
   if (!patchedVersion) return ledger;
-  return { ...ledger, patchedVersion };
+  return Object.assign({}, ledger, { patchedVersion });
 };
 
 const addSourcesToLedger = (
@@ -138,9 +138,9 @@ const addSourcesToLedger = (
   details: SecurityOverrideDetail[],
 ): PartialSecurityLedger => {
   const allSources = details.flatMap((d) => d.sources || []);
-  const uniqueSources = [...new Set(allSources)] as SecurityProviderType[];
+  const uniqueSources = Array.from(new Set(allSources)) as SecurityProviderType[];
   if (uniqueSources.length === 0) return ledger;
-  return { ...ledger, sources: uniqueSources };
+  return Object.assign({}, ledger, { sources: uniqueSources });
 };
 
 const addConfidenceToLedger = (
@@ -148,11 +148,11 @@ const addConfidenceToLedger = (
   details: SecurityOverrideDetail[],
 ): PartialSecurityLedger => {
   const allSources = details.flatMap((d) => d.sources || []);
-  const uniqueSources = [...new Set(allSources)];
+  const uniqueSources = Array.from(new Set(allSources));
   if (uniqueSources.length === 0) return ledger;
   const isConfirmed = uniqueSources.length >= 2;
   const confidence = isConfirmed ? "confirmed" : "possible";
-  return { ...ledger, confidence };
+  return Object.assign({}, ledger, { confidence });
 };
 
 const buildCveDetails = (details: SecurityOverrideDetail[]): CveDetail[] => {
@@ -182,7 +182,7 @@ const addCveDetailsToLedger = (
 ): PartialSecurityLedger => {
   const cveDetails = buildCveDetails(details);
   if (cveDetails.length === 0) return ledger;
-  return { ...ledger, cveDetails };
+  return Object.assign({}, ledger, { cveDetails });
 };
 
 type LedgerTransform = (ledger: PartialSecurityLedger) => PartialSecurityLedger;
@@ -221,8 +221,8 @@ export const normalizeLedgerCveField = (
   if (!legacyLedger.cve) return ledger;
   const { cve, ...rest } = legacyLedger;
   const existingCves = rest.cves || [];
-  const merged = [...new Set([...existingCves, cve])];
-  return { ...rest, cves: merged };
+  const merged = Array.from(new Set(existingCves.concat(cve)));
+  return Object.assign({}, rest, { cves: merged });
 };
 
 const buildNewLedger = (
@@ -232,8 +232,9 @@ const buildNewLedger = (
 ): NonNullable<AppendixItem["ledger"]> => {
   const resolvedDate = addedDate || new Date().toISOString();
   const baseLedger = { addedDate: resolvedDate };
-  const ledgerWithReason = reason ? { ...baseLedger, reason } : baseLedger;
-  return { ...ledgerWithReason, ...securityLedger };
+  const reasonField = reason ? { reason } : undefined;
+  const ledgerWithReason = Object.assign({}, baseLedger, reasonField);
+  return Object.assign({}, ledgerWithReason, securityLedger);
 };
 
 export const buildAppendixItem = (
@@ -257,10 +258,7 @@ export const mergeDependents = (
   packageName: string,
   dependentInfo: string,
 ): Record<string, string> => {
-  return {
-    ...currentDependents,
-    [packageName]: dependentInfo,
-  };
+  return Object.assign({}, currentDependents, { [packageName]: dependentInfo });
 };
 
 export const buildDependentInfo = (
@@ -280,7 +278,8 @@ export const buildDependentInfo = (
 };
 
 export const isNestedOverride = (overrideValue: OverrideValue): boolean => {
-  return typeof overrideValue === "object";
+  const isNested = typeof overrideValue === "object";
+  return isNested;
 };
 
 const hasNoDependents = (item: AppendixItem): boolean => {
@@ -294,7 +293,8 @@ export const removeEmptyEntries = (appendix: Appendix): Appendix => {
   const keys = Object.keys(appendix);
   const nonEmptyKeys = keys.filter((key) => {
     const item = appendix[key];
-    return item && !hasNoDependents(item);
+    if (!item) return false;
+    return !hasNoDependents(item);
   });
 
   return nonEmptyKeys.reduce((acc, key) => {
@@ -310,11 +310,7 @@ export const mergeDependenciesForPackage = (
   const devDependencies = packageConfig?.devDependencies || {};
   const peerDependencies = packageConfig?.peerDependencies || {};
 
-  return {
-    ...dependencies,
-    ...devDependencies,
-    ...peerDependencies,
-  };
+  return Object.assign({}, dependencies, devDependencies, peerDependencies);
 };
 
 export const hasDependenciesMatchingOverrides = (
@@ -347,31 +343,34 @@ export const mergeAppendixDependents = (
   value: AppendixItem,
 ): Appendix => {
   const existing = currentAppendix[key];
-  const mergedDependents = { ...existing?.dependents, ...value.dependents };
+  const mergedDependents = Object.assign({}, existing?.dependents, value.dependents);
   const mergedItem: AppendixItem = existing
-    ? { ...existing, dependents: mergedDependents }
+    ? Object.assign({}, existing, { dependents: mergedDependents })
     : { dependents: mergedDependents };
-  return { ...currentAppendix, [key]: mergedItem };
+  return Object.assign({}, currentAppendix, { [key]: mergedItem });
 };
 
 const hasSecurityInfo = (item: AppendixItem): boolean => {
   const ledger = item.ledger;
   if (!ledger) return false;
 
-  return Boolean(
+  const hasLedgerSecurityInfo = Boolean(
     ledger.securityChecked || ledger.securityProvider || ledger.cves?.length || ledger.severity,
   );
+  return hasLedgerSecurityInfo;
 };
 
 const hasPatches = (item: AppendixItem): boolean => {
-  return Boolean(item.patches && item.patches.length > 0);
+  if (!item.patches) return false;
+  return item.patches.length > 0;
 };
 
 export const isKeptEntry = (item: AppendixItem): boolean => {
   const keep = item.ledger?.keep;
   const keepIsObject = typeof keep === "object";
   const isConstraintObject = keepIsObject && keep !== null;
-  return keep === true || isConstraintObject;
+  if (keep === true) return true;
+  return isConstraintObject;
 };
 
 export const isKeepExpired = (
@@ -380,7 +379,8 @@ export const isKeepExpired = (
   rootDeps: Record<string, string>,
 ): boolean => {
   const keep = item.ledger?.keep;
-  if (!keep || keep === true) return false;
+  const cannotExpire = !keep || keep === true;
+  if (cannotExpire) return false;
 
   const now = new Date();
   const keepUntilDate = keep.until ? new Date(keep.until) : null;
@@ -400,7 +400,8 @@ export const isKeepExpired = (
 
 const canBeCompacted = (item: AppendixItem): boolean => {
   if (isKeptEntry(item)) return false;
-  return !hasSecurityInfo(item) && !hasPatches(item);
+  if (hasSecurityInfo(item)) return false;
+  return !hasPatches(item);
 };
 
 const getAddedDate = (item: AppendixItem, addedDate?: string): string => {
@@ -456,7 +457,8 @@ export const removeAppendixKeys = (appendix: Appendix, keys: string[]): Appendix
 export const extractPackageNames = (appendixKeys: string[]): string[] =>
   appendixKeys.map((key) => {
     const lastAtIndex = key.lastIndexOf("@");
-    return lastAtIndex > 0 ? key.slice(0, lastAtIndex) : key;
+    if (lastAtIndex <= 0) return key;
+    return key.slice(0, lastAtIndex);
   });
 
 export const removeOverrideKeys = (

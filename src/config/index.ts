@@ -41,7 +41,8 @@ const loadJsConfig = async (filename: string, path: string): Promise<unknown> =>
   const source = readFileSync(path, "utf8");
   const canUseCommonJsFallback = filename.endsWith(".cjs") || filename.endsWith(".js");
 
-  if (canUseCommonJsFallback && hasCommonJsExports(source)) {
+  const shouldEvaluateCommonJs = canUseCommonJsFallback && hasCommonJsExports(source);
+  if (shouldEvaluateCommonJs) {
     return evaluateCommonJsConfig(path, source);
   }
 
@@ -115,15 +116,12 @@ export const loadExternalConfig = async (
 };
 
 const mergeDependents = (external: AppendixItem, packageJson: AppendixItem) => {
-  return {
-    ...external.dependents,
-    ...packageJson.dependents,
-  };
+  return Object.assign({}, external.dependents, packageJson.dependents);
 };
 
 const mergePatches = (external: AppendixItem, packageJson: AppendixItem) => {
   if (!packageJson.patches) return external.patches;
-  return [...(external.patches || []), ...packageJson.patches];
+  return (external.patches || []).concat(packageJson.patches);
 };
 
 const mergeAppendixEntry = (
@@ -143,16 +141,15 @@ const mergeAppendixEntry = (
 
 const mergePackageAppendix = (external: ConfigAppendix, packageJson: ConfigAppendix) => {
   return Object.entries(packageJson || {}).reduce(
-    (acc, [key, value]) => ({
-      ...acc,
-      [key]: mergeAppendixEntry(external, key, value),
-    }),
-    { ...external },
+    (acc, [key, value]) =>
+      Object.assign({}, acc, { [key]: mergeAppendixEntry(external, key, value) }),
+    Object.assign({}, external),
   );
 };
 
 const deepMergeAppendix = (external: ConfigAppendix, packageJson: ConfigAppendix) => {
-  if (!external && !packageJson) return undefined;
+  const hasNoAppendix = !external && !packageJson;
+  if (hasNoAppendix) return undefined;
   if (!external) return packageJson;
   if (!packageJson) return external;
 

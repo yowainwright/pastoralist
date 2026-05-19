@@ -90,7 +90,9 @@ export class SecurityChecker {
   }
 
   private resolveCacheTtlMs(value: number | undefined, fallback: number): number {
-    return value === undefined ? fallback : value * 1000;
+    if (value === undefined) return fallback;
+    const ttlMs = value * 1000;
+    return ttlMs;
   }
 
   private buildCacheConfigHash(options: {
@@ -98,12 +100,14 @@ export class SecurityChecker {
     isIRLCatch?: boolean;
     strict?: boolean;
   }): string {
-    const configParts: string[] = [];
-    if (options.isIRLFix) configParts.push("irlfix");
-    if (options.isIRLCatch) configParts.push("irlcatch");
-    if (options.strict) configParts.push("strict");
-    const sortedConfigParts = [...configParts].sort();
-    return configParts.length > 0 ? sortedConfigParts.join(":") : "default";
+    const configParts = [
+      options.isIRLFix ? "irlfix" : undefined,
+      options.isIRLCatch ? "irlcatch" : undefined,
+      options.strict ? "strict" : undefined,
+    ].filter((part): part is string => part !== undefined);
+    const sortedConfigParts = configParts.slice().sort();
+    if (configParts.length === 0) return "default";
+    return sortedConfigParts.join(":");
   }
 
   private createProviders(options: SecurityProviderFactoryOptions): SecurityProvider[] {
@@ -325,7 +329,8 @@ export class SecurityChecker {
       return cachedAlerts;
     }
 
-    if (this.noCache || this.refreshCache) return undefined;
+    const shouldSkipDiskCache = this.noCache || this.refreshCache;
+    if (shouldSkipDiskCache) return undefined;
 
     const diskCachedAlerts = this.diskAlertsCache.get(diskCacheKey);
     if (!diskCachedAlerts) return undefined;
@@ -392,10 +397,10 @@ export class SecurityChecker {
     const providerType = this.providers[index].providerType;
 
     if (result.status === "fulfilled") {
-      return result.value.map((alert) => ({
-        ...alert,
-        sources: [...new Set([...(alert.sources || []), providerType])],
-      }));
+      return result.value.map((alert) => {
+        const sources = Array.from(new Set((alert.sources || []).concat(providerType)));
+        return Object.assign({}, alert, { sources });
+      });
     }
 
     this.log.warn(`Provider failed: ${result.reason}`, "checkSecurity");
@@ -419,7 +424,7 @@ export class SecurityChecker {
       options,
     );
     const workspaceAlerts = await this.findWorkspaceVulnerabilitiesIfNeeded(alerts, options);
-    const vulnerablePackages = [...filteredAlerts, ...workspaceAlerts];
+    const vulnerablePackages = filteredAlerts.concat(workspaceAlerts);
 
     this.log.debug(
       `Found ${vulnerablePackages.length} vulnerable packages in dependencies`,
@@ -551,8 +556,8 @@ export class SecurityChecker {
     const newKeys = vulnerabilities.map((vuln) => this.createVulnerabilityKey(vuln));
 
     return {
-      existingKeys: new Set([...state.existingKeys, ...newKeys]),
-      vulnerabilities: [...state.vulnerabilities, ...vulnerabilities],
+      existingKeys: new Set(Array.from(state.existingKeys).concat(newKeys)),
+      vulnerabilities: state.vulnerabilities.concat(vulnerabilities),
     };
   }
 
@@ -582,7 +587,9 @@ export class SecurityChecker {
   }
 
   private getExistingOverrides(config: PastoralistJSON): OverridesType {
-    return config.overrides || config.pnpm?.overrides || config.resolutions || {};
+    const existingOverrides =
+      config.overrides || config.pnpm?.overrides || config.resolutions || {};
+    return existingOverrides;
   }
 
   private logNestedOverrideSkips(entries: [string, OverridesType[string]][]): void {
@@ -604,7 +611,7 @@ export class SecurityChecker {
       if (!alert.patchedVersion) return map;
 
       const existing = map.get(alert.packageName) || [];
-      map.set(alert.packageName, [...existing, alert]);
+      map.set(alert.packageName, existing.concat(alert));
       return map;
     }, new Map<string, SecurityAlert[]>());
   }
@@ -691,7 +698,7 @@ export class SecurityChecker {
     targetVersion: string,
     targetStillVulnerable: boolean,
   ): SecurityOverride {
-    return {
+    const base = {
       packageName: pkg.packageName,
       fromVersion: pkg.currentVersion,
       toVersion: targetVersion,
@@ -699,21 +706,30 @@ export class SecurityChecker {
       severity: pkg.severity,
       vulnerableRange: pkg.vulnerableVersions,
       patchedVersion: pkg.patchedVersion!,
-      ...this.buildSecurityOverrideMetadata(pkg, targetStillVulnerable),
     };
+    const metadata = this.buildSecurityOverrideMetadata(pkg, targetStillVulnerable);
+    return Object.assign({}, base, metadata);
   }
 
   private buildSecurityOverrideMetadata(
     pkg: SecurityAlert,
     targetStillVulnerable: boolean,
   ): Partial<SecurityOverride> {
-    return {
-      ...(pkg.cves?.length ? { cves: pkg.cves } : {}),
-      ...(pkg.description ? { description: pkg.description } : {}),
-      ...(pkg.url ? { url: pkg.url } : {}),
-      ...(targetStillVulnerable ? { targetStillVulnerable: true } : {}),
-      ...(pkg.sources?.length ? { sources: pkg.sources } : {}),
-    };
+    const cvesField = pkg.cves?.length ? { cves: pkg.cves } : undefined;
+    const descriptionField = pkg.description ? { description: pkg.description } : undefined;
+    const urlField = pkg.url ? { url: pkg.url } : undefined;
+    const targetStillVulnerableField = targetStillVulnerable
+      ? { targetStillVulnerable: true }
+      : undefined;
+    const sourcesField = pkg.sources?.length ? { sources: pkg.sources } : undefined;
+    return Object.assign(
+      {},
+      cvesField,
+      descriptionField,
+      urlField,
+      targetStillVulnerableField,
+      sourcesField,
+    );
   }
 
   generatePackageOverrides(securityOverrides: SecurityOverride[]): OverridesType {
@@ -735,28 +751,23 @@ export class SecurityChecker {
   }
 
   private formatVulnerabilityEntry(pkg: SecurityAlert): string {
-    const lines = [];
-    lines.push(`[${pkg.severity.toUpperCase()}] ${pkg.packageName}@${pkg.currentVersion}\n`);
-    lines.push(`   ${pkg.title}\n`);
-
-    const hasCVEs = pkg.cves && pkg.cves.length > 0;
-    if (hasCVEs) {
-      lines.push(`   CVE: ${pkg.cves!.join(", ")}\n`);
-    }
-
+    const cveLine = pkg.cves?.length ? `   CVE: ${pkg.cves.join(", ")}\n` : undefined;
     const hasFixAvailable = pkg.fixAvailable && pkg.patchedVersion;
-    if (hasFixAvailable) {
-      lines.push(`   Fix available: ${pkg.patchedVersion}\n`);
-    } else {
-      lines.push(`   No fix available yet\n`);
-    }
+    const fixLine = hasFixAvailable
+      ? `   Fix available: ${pkg.patchedVersion}\n`
+      : `   No fix available yet\n`;
+    const urlLine = pkg.url ? `   ${pkg.url}\n` : undefined;
 
-    const hasUrl = Boolean(pkg.url);
-    if (hasUrl) {
-      lines.push(`   ${pkg.url}\n`);
-    }
-
-    return lines.join("") + "\n";
+    return [
+      `[${pkg.severity.toUpperCase()}] ${pkg.packageName}@${pkg.currentVersion}\n`,
+      `   ${pkg.title}\n`,
+      cveLine,
+      fixLine,
+      urlLine,
+    ]
+      .filter((line): line is string => line !== undefined)
+      .join("")
+      .concat("\n");
   }
 
   private formatOverridesSection(securityOverrides: SecurityOverride[]): string {
@@ -806,26 +817,14 @@ export class SecurityChecker {
     newOverrides: OverridesType,
   ): PastoralistJSON {
     if (packageManager === "pnpm") {
-      return {
-        ...packageJson,
-        pnpm: {
-          ...packageJson.pnpm,
-          overrides: {
-            ...packageJson.pnpm?.overrides,
-            ...newOverrides,
-          },
-        },
-      };
+      const overrides = Object.assign({}, packageJson.pnpm?.overrides, newOverrides);
+      const pnpm = Object.assign({}, packageJson.pnpm, { overrides });
+      return Object.assign({}, packageJson, { pnpm });
     }
 
     const overrideField = this.getOverrideField(packageManager);
-    return {
-      ...packageJson,
-      [overrideField]: {
-        ...packageJson[overrideField],
-        ...newOverrides,
-      },
-    };
+    const overrides = Object.assign({}, packageJson[overrideField], newOverrides);
+    return Object.assign({}, packageJson, { [overrideField]: overrides });
   }
 
   applyAutoFix(overrides: SecurityOverride[], packageJsonPath?: string): string | void {
@@ -892,41 +891,46 @@ export class SecurityChecker {
     overrides: SecurityOverride[],
   ): Appendix {
     const securityProvider = this.providers[0]?.providerType ?? "osv";
+    const appendix = packageJson.pastoralist?.appendix || {};
+    const dependencies = packageJson.dependencies || {};
+    const devDependencies = packageJson.devDependencies || {};
+    const peerDependencies = packageJson.peerDependencies || {};
+    const packageName = packageJson.name || "";
 
     return updateAppendix({
       overrides: newOverrides,
-      appendix: packageJson.pastoralist?.appendix || {},
-      dependencies: packageJson.dependencies || {},
-      devDependencies: packageJson.devDependencies || {},
-      peerDependencies: packageJson.peerDependencies || {},
-      packageName: packageJson.name || "",
+      appendix,
+      dependencies,
+      devDependencies,
+      peerDependencies,
+      packageName,
       securityOverrideDetails: this.buildSecurityOverrideDetails(overrides),
       securityProvider: securityProvider as "osv" | "github" | "snyk" | "npm" | "socket",
     });
   }
 
   private buildSecurityOverrideDetails(overrides: SecurityOverride[]): SecurityOverrideDetail[] {
-    return overrides.map((override) => ({
-      packageName: override.packageName,
-      reason: override.reason,
-      ...this.buildSecurityOverrideDetailMetadata(override),
-    }));
+    return overrides.map((override) => {
+      const base = { packageName: override.packageName, reason: override.reason };
+      return Object.assign({}, base, this.buildSecurityOverrideDetailMetadata(override));
+    });
   }
 
   private buildSecurityOverrideDetailMetadata(
     override: SecurityOverride,
   ): Partial<SecurityOverrideDetail> {
-    return {
-      ...(override.cves?.length ? { cves: override.cves } : {}),
-      ...(override.severity
-        ? {
-            severity: override.severity as "low" | "medium" | "high" | "critical",
-          }
-        : {}),
-      ...(override.description ? { description: override.description } : {}),
-      ...(override.url ? { url: override.url } : {}),
-      ...(override.sources?.length ? { sources: override.sources } : {}),
-    };
+    const cvesField = override.cves?.length ? { cves: override.cves } : undefined;
+    const severityField = override.severity
+      ? {
+          severity: override.severity as "low" | "medium" | "high" | "critical",
+        }
+      : undefined;
+    const descriptionField = override.description
+      ? { description: override.description }
+      : undefined;
+    const urlField = override.url ? { url: override.url } : undefined;
+    const sourcesField = override.sources?.length ? { sources: override.sources } : undefined;
+    return Object.assign({}, cvesField, severityField, descriptionField, urlField, sourcesField);
   }
 
   private writePackageJson(pkgPath: string, packageJson: PastoralistJSON): void {

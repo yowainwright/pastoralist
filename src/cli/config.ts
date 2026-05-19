@@ -24,10 +24,10 @@ const mergeExternalConfig = async (
     configRoot,
     packageConfig.pastoralist,
   );
-  return {
-    ...packageConfig,
-    ...(mergedPastoralistConfig && { pastoralist: mergedPastoralistConfig }),
-  };
+  const pastoralistConfig = mergedPastoralistConfig
+    ? { pastoralist: mergedPastoralistConfig }
+    : undefined;
+  return Object.assign({}, packageConfig, pastoralistConfig);
 };
 
 export const buildSecurityConfig = (config: PastoralistJSON): Partial<SecurityConfig> => {
@@ -61,12 +61,16 @@ const mergeOptionsWithConfig = (
     securityConfig,
     securityConfig.provider,
   );
-  return {
-    ...baseOptions,
-    config,
-    path,
-    ...(options.root && { root: options.root }),
-  };
+  const rootOption = options.root ? { root: options.root } : undefined;
+  return Object.assign(
+    {},
+    baseOptions,
+    {
+      config,
+      path,
+    },
+    rootOption,
+  );
 };
 
 export const loadCliConfig = async (

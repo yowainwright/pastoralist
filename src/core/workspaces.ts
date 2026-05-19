@@ -28,7 +28,8 @@ const findMissingPackages = (
 };
 
 const shouldShowMonorepoInfo = (missingCount: number, hasDepPaths: boolean): boolean => {
-  return missingCount > 0 && !hasDepPaths;
+  if (missingCount <= 0) return false;
+  return !hasDepPaths;
 };
 
 export const checkMonorepoOverrides = (
@@ -63,11 +64,7 @@ const collectPackageDependencies = (
   const devDependencies = packageConfig?.devDependencies || {};
   const peerDependencies = packageConfig?.peerDependencies || {};
 
-  return {
-    ...dependencies,
-    ...devDependencies,
-    ...peerDependencies,
-  };
+  return Object.assign({}, dependencies, devDependencies, peerDependencies);
 };
 
 const aggregateWorkspaceDependencies = (packageJsonFiles: string[]): Record<string, string> => {
@@ -129,7 +126,8 @@ export const mergeOverridePaths = (
 };
 
 const isNestedOverride = (packageName: string, overrides: OverridesType): boolean => {
-  return typeof overrides[packageName] === "object";
+  const isNested = typeof overrides[packageName] === "object";
+  return isNested;
 };
 
 const isInDirectDeps = (packageName: string, allDependencies: Record<string, string>): boolean => {

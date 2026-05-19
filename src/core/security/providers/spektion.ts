@@ -7,16 +7,18 @@ const mapSeverity = (severity: string): Severity =>
   SEVERITY_MAP[severity.toLowerCase()] ?? "medium";
 
 const convertVulnerability = (vuln: unknown): SecurityAlert | null => {
-  if (!vuln || typeof vuln !== "object") return null;
+  const isInvalidVulnerability = !vuln || typeof vuln !== "object";
+  if (isInvalidVulnerability) return null;
   const v = vuln as Record<string, unknown>;
   const patchedVersion = v.patchedVersion ? String(v.patchedVersion) : undefined;
+  const title = String(v.title ?? v.description ?? "Vulnerability");
   return {
     packageName: String(v.package ?? ""),
     currentVersion: String(v.version ?? ""),
     vulnerableVersions: v.vulnerableRange ? String(v.vulnerableRange) : "",
     patchedVersion,
     severity: mapSeverity(String(v.severity ?? "")),
-    title: String(v.title ?? v.description ?? "Vulnerability"),
+    title,
     description: v.description ? String(v.description) : undefined,
     cves: v.cve ? [String(v.cve)] : undefined,
     url: v.url ? String(v.url) : undefined,
@@ -25,7 +27,8 @@ const convertVulnerability = (vuln: unknown): SecurityAlert | null => {
 };
 
 const convertAlerts = (result: unknown): SecurityAlert[] => {
-  if (!result || typeof result !== "object") return [];
+  const isInvalidResult = !result || typeof result !== "object";
+  if (isInvalidResult) return [];
   const data = result as Record<string, unknown>;
   if (!Array.isArray(data.vulnerabilities)) return [];
   return data.vulnerabilities

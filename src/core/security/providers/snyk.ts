@@ -85,7 +85,9 @@ export class SnykCLIProvider {
   }
 
   private async runSnykScan(): Promise<SnykResult> {
-    const env = this.token ? { ...process.env, SNYK_TOKEN: this.token } : process.env;
+    const env = this.token
+      ? Object.assign({}, process.env, { SNYK_TOKEN: this.token })
+      : process.env;
     const execOptions = { timeout: DEFAULT_SNYK_SCAN_TIMEOUT, env };
     const { stdout } = await execFileAsync("snyk", ["test", "--json"], execOptions);
 
@@ -155,7 +157,9 @@ export class SnykCLIProvider {
   }
 
   private convertSnykVulnerabilities(snykResult: SnykResult): SecurityAlert[] {
-    if (!snykResult.vulnerabilities || !Array.isArray(snykResult.vulnerabilities)) {
+    const hasInvalidVulnerabilities =
+      !snykResult.vulnerabilities || !Array.isArray(snykResult.vulnerabilities);
+    if (hasInvalidVulnerabilities) {
       return [];
     }
 
@@ -165,14 +169,17 @@ export class SnykCLIProvider {
   private convertVulnToAlert(vuln: SnykAlertVulnerability): SecurityAlert {
     const cves = vuln.identifiers?.CVE || [];
     const base = this.createSnykAlertBase(vuln);
-    return cves.length > 0 ? { ...base, cves } : base;
+    if (cves.length === 0) return base;
+    return Object.assign({}, base, { cves });
   }
 
   private createSnykAlertBase(vuln: SnykAlertVulnerability) {
     const patchedVersion = this.extractPatchedVersion(vuln);
+    const packageName = vuln.packageName || vuln.name || "";
+    const fixAvailable = Boolean(patchedVersion);
 
     return {
-      packageName: vuln.packageName || vuln.name || "",
+      packageName,
       currentVersion: vuln.version,
       vulnerableVersions: vuln.semver?.vulnerable || "",
       patchedVersion,
@@ -180,17 +187,21 @@ export class SnykCLIProvider {
       title: vuln.title,
       description: vuln.description,
       url: vuln.url || `https://snyk.io/vuln/${vuln.id}`,
-      fixAvailable: !!patchedVersion,
+      fixAvailable,
     };
   }
 
   private extractPatchedVersion(vuln: SnykAlertVulnerability): string | undefined {
-    if (vuln.fixedIn && vuln.fixedIn.length > 0) {
-      return vuln.fixedIn[0];
+    const fixedIn = vuln.fixedIn;
+    const hasFixedVersion = fixedIn && fixedIn.length > 0;
+    if (hasFixedVersion) {
+      return fixedIn[0];
     }
 
-    if (vuln.upgradePath && vuln.upgradePath.length > 1) {
-      const lastItem = vuln.upgradePath[vuln.upgradePath.length - 1];
+    const upgradePath = vuln.upgradePath;
+    const hasUpgradeTarget = upgradePath && upgradePath.length > 1;
+    if (hasUpgradeTarget) {
+      const lastItem = upgradePath[upgradePath.length - 1];
       if (typeof lastItem === "string") {
         return lastItem.split("@")[1];
       }

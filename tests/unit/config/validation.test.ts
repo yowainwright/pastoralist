@@ -1,8 +1,5 @@
 import { test, expect } from "bun:test";
-import {
-  validateConfig,
-  safeValidateConfig,
-} from "../../../src/config/constants";
+import { validateConfig, safeValidateConfig } from "../../../src/config";
 
 test("validateConfig - should reject non-object", () => {
   expect(() => validateConfig(null)).toThrow("Invalid config structure");

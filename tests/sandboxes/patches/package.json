@@ -9,12 +9,12 @@
   "dependencies": {
     "lodash": "^4.17.21"
   },
+  "devDependencies": {
+    "pastoralist": "latest"
+  },
   "pnpm": {
     "patchedDependencies": {
       "lodash@4.17.21": "patches/lodash@4.17.21.patch"
     }
-  },
-  "devDependencies": {
-    "pastoralist": "latest"
   }
 }

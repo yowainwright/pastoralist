@@ -2,7 +2,6 @@ export const TERMINAL_LINE_HEIGHT_PX = 16;
 export const TERMINAL_HEADER_HEIGHT_PX = 44;
 export const TERMINAL_PADDING_PX = 0;
 
-/** @tw - enables Tailwind IntelliSense */
 export const STYLES = {
   window: "terminal-window",
   windowActive: "ring-2 ring-primary ring-offset-2",

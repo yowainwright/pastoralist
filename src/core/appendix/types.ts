@@ -2,8 +2,10 @@ import type {
   AppendixItem,
   Appendix,
   OverridesType,
+  PastoralistJSON,
   SecurityOverrideDetail,
   SecurityProviderType,
+  UpdateAppendixOptions,
 } from "../../types";
 
 export type Ledger = NonNullable<AppendixItem["ledger"]>;
@@ -29,10 +31,7 @@ export type PartialSecurityLedger = Partial<SecurityLedgerFields>;
 
 export type CompactAppendixItem = { addedDate: string };
 
-export type CompactAppendix = Record<
-  string,
-  CompactAppendixItem | AppendixItem
->;
+export type CompactAppendix = Record<string, CompactAppendixItem | AppendixItem>;
 
 export interface ProcessOverrideOptions {
   override: string;
@@ -52,4 +51,40 @@ export interface ProcessOverrideOptions {
   overrides?: OverridesType;
   overrideVersion?: string;
   parentOverride?: string;
+}
+
+export interface ProcessedPackageAppendix {
+  name: string;
+  dependencies: Record<string, string>;
+  devDependencies: Record<string, string>;
+  appendix: Appendix;
+}
+
+export type AppendixUpdateOptions = UpdateAppendixOptions & {
+  cache?: Map<string, AppendixItem>;
+  manualOverrideReasons?: Record<string, string>;
+  dependencyTree?: Record<string, boolean>;
+  addedDate?: string;
+};
+
+export type PackageDependencyFields = Required<
+  Pick<PastoralistJSON, "dependencies" | "devDependencies" | "peerDependencies">
+>;
+
+export interface NormalizedAppendixUpdateOptions extends AppendixUpdateOptions {
+  overrides: OverridesType;
+  appendix: Appendix;
+  dependencies: Record<string, string>;
+  devDependencies: Record<string, string>;
+  peerDependencies: Record<string, string>;
+  packageName: string;
+  cache: Map<string, AppendixItem>;
+  onlyUsedOverrides: boolean;
+}
+
+export interface NestedAppendixItemOptions extends Pick<
+  ProcessOverrideOptions,
+  "securityOverrideDetails" | "securityProvider" | "manualOverrideReasons" | "addedDate"
+> {
+  nestedPkg: string;
 }

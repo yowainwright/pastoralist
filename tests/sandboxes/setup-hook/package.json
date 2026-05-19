@@ -10,10 +10,10 @@
     "express": "^4.18.0",
     "lodash": "^4.17.21"
   },
-  "overrides": {
-    "lodash": "4.17.20"
-  },
   "devDependencies": {
     "pastoralist": "latest"
+  },
+  "overrides": {
+    "lodash": "4.17.20"
   }
 }

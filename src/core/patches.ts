@@ -5,12 +5,7 @@ import { logger } from "../utils";
 
 const log = logger({ file: "patches.ts", isLogging: IS_DEBUGGING });
 
-const PATCH_PATTERNS = [
-  "patches/*.patch",
-  ".patches/*.patch",
-  "*.patch",
-  "patches/**/*.patch",
-];
+const PATCH_PATTERNS = ["patches/*.patch", ".patches/*.patch", "*.patch", "patches/**/*.patch"];
 
 const extractBasename = (filePath: string): string => {
   return filePath.split("/").pop() || "";
@@ -36,9 +31,7 @@ const extractPackageName = (nameWithoutExt: string): string => {
   const parts = nameWithoutExt.split("+");
   const isScoped = nameWithoutExt.startsWith("@");
 
-  return isScoped
-    ? extractPackageNameFromScoped(parts)
-    : extractPackageNameFromSimple(parts);
+  return isScoped ? extractPackageNameFromScoped(parts) : extractPackageNameFromSimple(parts);
 };
 
 const addPatchToMap = (
@@ -47,10 +40,7 @@ const addPatchToMap = (
   patchFile: string,
 ): Record<string, string[]> => {
   const existingPatches = patchMap[packageName] || [];
-  return {
-    ...patchMap,
-    [packageName]: [...existingPatches, patchFile],
-  };
+  return Object.assign({}, patchMap, { [packageName]: existingPatches.concat(patchFile) });
 };
 
 const processPatchFile = (
@@ -80,9 +70,7 @@ const buildPatchMap = (patchFiles: string[]): Record<string, string[]> => {
   );
 };
 
-export const detectPatches = (
-  root: string = "./",
-): Record<string, string[]> => {
+export const detectPatches = (root: string = "./"): Record<string, string[]> => {
   try {
     const patchFiles = fg.sync(PATCH_PATTERNS, { cwd: root });
     return buildPatchMap(patchFiles);
@@ -134,7 +122,8 @@ export const findUnusedPatches = (
 
 const extractPackageNameFromKey = (key: string): string => {
   const lastAtIndex = key.lastIndexOf("@");
-  return lastAtIndex > 0 ? key.slice(0, lastAtIndex) : key;
+  if (lastAtIndex <= 0) return key;
+  return key.slice(0, lastAtIndex);
 };
 
 const addPatchesToAppendixEntry = (
@@ -148,13 +137,8 @@ const addPatchesToAppendixEntry = (
 
   if (!hasPatches) return appendix;
 
-  return {
-    ...appendix,
-    [key]: {
-      ...appendix[key],
-      patches,
-    },
-  };
+  const item = Object.assign({}, appendix[key], { patches });
+  return Object.assign({}, appendix, { [key]: item });
 };
 
 export const attachPatchesToAppendix = (
@@ -163,8 +147,5 @@ export const attachPatchesToAppendix = (
 ): Appendix => {
   const keys = Object.keys(appendix);
 
-  return keys.reduce(
-    (acc, key) => addPatchesToAppendixEntry(acc, key, patchMap),
-    appendix,
-  );
+  return keys.reduce((acc, key) => addPatchesToAppendixEntry(acc, key, patchMap), appendix);
 };

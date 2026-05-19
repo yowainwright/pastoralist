@@ -8,7 +8,6 @@ export const CONTENT = {
   docsSlug: "introduction",
 } as const;
 
-/** @tw - enables Tailwind IntelliSense */
 export const STYLES = {
   section: "py-16 lg:py-24 border-t border-base-content/10",
   article: "max-w-2xl md:max-w-6xl mx-auto px-4 text-center",

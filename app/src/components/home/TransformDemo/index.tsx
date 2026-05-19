@@ -7,10 +7,7 @@ import { AfterTerminal } from "./AfterTerminal";
 import { StepIndicator } from "./StepIndicator";
 import { useTransformAnimation } from "./useTransformAnimation";
 
-export function TransformDemo({
-  shouldAnimate = true,
-  onComplete,
-}: TransformDemoProps) {
+export function TransformDemo({ shouldAnimate = true, onComplete }: TransformDemoProps) {
   const {
     containerRef,
     phase,
@@ -28,11 +25,7 @@ export function TransformDemo({
 
   return (
     <div ref={containerRef} className="flex flex-col gap-6">
-      <StepIndicator
-        activeStep={activeStep}
-        phase={phase}
-        onStepClick={handleStepClick}
-      />
+      <StepIndicator activeStep={activeStep} phase={phase} onStepClick={handleStepClick} />
 
       <div className="h-6 w-px bg-primary/20 mx-auto" />
 
@@ -46,9 +39,7 @@ export function TransformDemo({
               visible={isStep1Active}
             />
             <div className="flex items-center gap-2 mb-3">
-              <span className="text-base-content/60 text-sm">
-                Undocumented overrides
-              </span>
+              <span className="text-base-content/60 text-sm">Undocumented overrides</span>
               <span className={BADGE_STYLES.before}>Before</span>
             </div>
             <BeforeTerminal isActive={isStep1Active} />
@@ -62,9 +53,7 @@ export function TransformDemo({
               visible={isStep2Active}
             />
             <div className="flex items-center gap-2 mb-3">
-              <span className="text-base-content/60 text-sm">
-                Execute the pastoralist cli
-              </span>
+              <span className="text-base-content/60 text-sm">Execute the pastoralist cli</span>
               <span className={BADGE_STYLES.cli}>CLI</span>
             </div>
             <CLITerminal
@@ -87,15 +76,10 @@ export function TransformDemo({
             verticalCenter
           />
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-base-content/60 text-sm">
-              Documented overrides
-            </span>
+            <span className="text-base-content/60 text-sm">Documented overrides</span>
             <span className={BADGE_STYLES.after}>After</span>
           </div>
-          <AfterTerminal
-            isActive={isStep3Active}
-            appendixLines={appendixLines}
-          />
+          <AfterTerminal isActive={isStep3Active} appendixLines={appendixLines} />
         </div>
       </div>
     </div>

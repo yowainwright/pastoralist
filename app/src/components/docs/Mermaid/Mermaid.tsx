@@ -13,7 +13,8 @@ export function Mermaid({ chart }: MermaidProps) {
   const [svg, setSvg] = useState<string>("");
 
   useEffect(() => {
-    if (!ref.current || !chart) return;
+    const isMissingRenderTarget = !ref.current || !chart;
+    if (isMissingRenderTarget) return;
 
     let cancelled = false;
     const id = `mermaid-${Math.random().toString(36).slice(2, 9)}`;

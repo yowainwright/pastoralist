@@ -1,11 +1,6 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
-import {
-  SecurityAlert,
-  SocketResult,
-  SocketPackage,
-  SocketIssue,
-} from "../../../types";
+import { SecurityAlert, SocketResult, SocketPackage, SocketIssue } from "../../../types";
 import { logger } from "../../../utils";
 import { CLIInstaller } from "../utils";
 import { AUTH_MESSAGES } from "../constants";
@@ -19,9 +14,7 @@ export class SocketCLIProvider {
   private token?: string;
   private strict: boolean;
 
-  constructor(
-    options: { debug?: boolean; token?: string; strict?: boolean } = {},
-  ) {
+  constructor(options: { debug?: boolean; token?: string; strict?: boolean } = {}) {
     this.log = logger({
       file: "security/socket.ts",
       isLogging: options.debug || false,
@@ -43,7 +36,7 @@ export class SocketCLIProvider {
   }
 
   async isAuthenticated(): Promise<boolean> {
-    return !!this.token;
+    return Boolean(this.token);
   }
 
   private async validatePrerequisites(): Promise<boolean> {
@@ -65,19 +58,12 @@ export class SocketCLIProvider {
   }
 
   private async runSocketScan(): Promise<SocketResult> {
-    const env = {
-      ...process.env,
-      SOCKET_SECURITY_API_KEY: this.token,
-    };
+    const env = Object.assign({}, process.env, { SOCKET_SECURITY_API_KEY: this.token });
 
-    const { stdout } = await execFileAsync(
-      "socket",
-      ["report", "create", "--format", "json"],
-      {
-        timeout: 60000,
-        env,
-      },
-    );
+    const { stdout } = await execFileAsync("socket", ["report", "create", "--format", "json"], {
+      timeout: 60000,
+      env,
+    });
 
     return JSON.parse(stdout);
   }
@@ -119,15 +105,15 @@ export class SocketCLIProvider {
 
     return socketResult.packages
       .filter((pkg) => pkg.issues && pkg.issues.length > 0)
-      .flatMap((pkg) =>
-        pkg.issues!.map((issue) => this.convertIssueToAlert(pkg, issue)),
-      );
+      .flatMap((pkg) => this.convertPackageIssues(pkg));
   }
 
-  private convertIssueToAlert(
-    pkg: SocketPackage,
-    issue: SocketIssue,
-  ): SecurityAlert {
+  private convertPackageIssues(pkg: SocketPackage): SecurityAlert[] {
+    const issues = pkg.issues || [];
+    return issues.map((issue) => this.convertIssueToAlert(pkg, issue));
+  }
+
+  private convertIssueToAlert(pkg: SocketPackage, issue: SocketIssue): SecurityAlert {
     const isCVE = issue.type === "vulnerability";
     const packageName = pkg.name;
     const currentVersion = pkg.version;
@@ -138,8 +124,7 @@ export class SocketCLIProvider {
     const description = issue.description;
     const cves = isCVE && issue.cve ? [issue.cve] : [];
     const url =
-      issue.url ||
-      `https://socket.dev/npm/package/${packageName}/overview/${currentVersion}`;
+      issue.url || `https://socket.dev/npm/package/${packageName}/overview/${currentVersion}`;
     const fixAvailable = false;
 
     const base = {
@@ -153,12 +138,11 @@ export class SocketCLIProvider {
       url,
       fixAvailable,
     };
-    return cves.length > 0 ? { ...base, cves } : base;
+    if (cves.length === 0) return base;
+    return Object.assign({}, base, { cves });
   }
 
-  private mapSocketSeverity(
-    severity: string,
-  ): "low" | "medium" | "high" | "critical" {
+  private mapSocketSeverity(severity: string): "low" | "medium" | "high" | "critical" {
     const normalized = severity.toLowerCase();
 
     switch (normalized) {

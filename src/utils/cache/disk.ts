@@ -11,48 +11,18 @@ import {
 import { join, dirname, basename } from "path";
 import { homedir, tmpdir } from "os";
 import { createHash } from "crypto";
-import type { DiskCacheOptions, DiskCacheEnvelope } from "../types";
-
-export const DISK_CACHE_SCHEMA_VERSION = 1;
-
-export const CACHE_NAMESPACES = {
-  REGISTRY: "registry",
-  OSV: "osv",
-  TREE: "tree",
-  ALERTS: "alerts",
-  DECISIONS: "decisions",
-} as const;
-
-export const CACHE_TTLS = {
-  REGISTRY: 24 * 60 * 60 * 1000,
-  OSV: 30 * 24 * 60 * 60 * 1000,
-  TREE: 30 * 24 * 60 * 60 * 1000,
-  ALERTS: 6 * 60 * 60 * 1000,
-  DECISIONS: 6 * 60 * 60 * 1000,
-} as const;
-
-export const CACHE_NS_VERSIONS = {
-  REGISTRY: 1,
-  OSV: 1,
-  TREE: 1,
-  ALERTS: 1,
-  DECISIONS: 1,
-} as const;
-
-const LOCKFILE_NAMES = [
-  "bun.lock",
-  "bun.lockb",
-  "yarn.lock",
-  "pnpm-lock.yaml",
-  "package-lock.json",
-] as const;
+import type { CacheDirOptions, DiskCacheOptions, DiskCacheEnvelope } from "../types";
+import { DISK_CACHE_SCHEMA_VERSION, LOCKFILE_NAMES } from "./constants";
 
 export const detectCIEnv = (): boolean => {
   const hasCI = Boolean(process.env.CI);
   const hasGitHubActions = Boolean(process.env.GITHUB_ACTIONS);
   const hasGitLabCI = Boolean(process.env.GITLAB_CI);
   const hasDockerEnv = existsSync("/.dockerenv");
-  return hasCI || hasGitHubActions || hasGitLabCI || hasDockerEnv;
+  if (hasCI) return true;
+  if (hasGitHubActions) return true;
+  if (hasGitLabCI) return true;
+  return hasDockerEnv;
 };
 
 export const hashLockfile = (root = process.cwd()): string => {
@@ -66,38 +36,39 @@ export const hashLockfile = (root = process.cwd()): string => {
   }
 };
 
-export const resolveCacheDir = (
-  options: { cacheDir?: string; root?: string } = {},
-): string => {
-  const fromFlag = options.cacheDir;
-  if (fromFlag) return fromFlag;
-
-  const fromEnv = process.env.PASTORALIST_CACHE_DIR;
-  if (fromEnv) return fromEnv;
-
-  const root = options.root ?? process.cwd();
-  const nodeModulesCache = join(root, "node_modules", ".cache", "pastoralist");
-
+const isWritableCacheDir = (cacheDir: string): boolean => {
   try {
-    mkdirSync(nodeModulesCache, { recursive: true });
-    return nodeModulesCache;
+    mkdirSync(cacheDir, { recursive: true });
+    return true;
   } catch {
-    const fallbacks = [
-      join(homedir(), ".pastoralist", "cache"),
-      join(tmpdir(), "pastoralist", "cache"),
-    ];
-
-    for (const fallback of fallbacks) {
-      try {
-        mkdirSync(fallback, { recursive: true });
-        return fallback;
-      } catch {
-        // try the next fallback
-      }
-    }
-
-    throw new Error("Unable to create a writable cache directory");
+    return false;
   }
+};
+
+const configuredCacheDir = (options: CacheDirOptions): string | undefined => {
+  return options.cacheDir ?? process.env.PASTORALIST_CACHE_DIR;
+};
+
+const nodeModulesCacheDir = (root: string): string => {
+  return join(root, "node_modules", ".cache", "pastoralist");
+};
+
+const fallbackCacheDirs = (): string[] => {
+  return [join(homedir(), ".pastoralist", "cache"), join(tmpdir(), "pastoralist", "cache")];
+};
+
+const writableCacheDir = (root: string): string | undefined => {
+  return [nodeModulesCacheDir(root)].concat(fallbackCacheDirs()).find(isWritableCacheDir);
+};
+
+export const resolveCacheDir = (options: CacheDirOptions = {}): string => {
+  const configured = configuredCacheDir(options);
+  if (configured) return configured;
+
+  const resolved = writableCacheDir(options.root ?? process.cwd());
+  if (resolved) return resolved;
+
+  throw new Error("Unable to create a writable cache directory");
 };
 
 export const pruneBackups = (
@@ -121,12 +92,13 @@ export const pruneBackups = (
     files.forEach((file, i) => {
       const isTooOld = now - file.mtime > maxAgeMs;
       const isOverLimit = i >= keep;
-      if (isTooOld || isOverLimit) {
+      const shouldDeleteFile = isTooOld || isOverLimit;
+      if (shouldDeleteFile) {
         unlinkSync(file.path);
       }
     });
   } catch {
-    // best-effort
+    return;
   }
 };
 
@@ -168,7 +140,8 @@ export class DiskCache<V> {
       const parsed = JSON.parse(raw) as DiskCacheEnvelope<V>;
       const isValidSchema = parsed?.schema === DISK_CACHE_SCHEMA_VERSION;
       const isValidVersion = parsed?.version === this.version;
-      if (!isValidSchema || !isValidVersion) {
+      const shouldResetCache = !isValidSchema || !isValidVersion;
+      if (shouldResetCache) {
         this.data = this.empty();
         return this.data;
       }
@@ -190,12 +163,14 @@ export class DiskCache<V> {
       renameSync(tmpPath, this.filePath);
       this.data = envelope;
     } catch {
-      // silently skip — cache is best-effort; filesystem errors must not crash the caller
+      return;
     }
   }
 
   private isExpired(entry: { v: V; t: number }): boolean {
-    return this.ttl > 0 && Date.now() - entry.t > this.ttl;
+    if (this.ttl <= 0) return false;
+    const age = Date.now() - entry.t;
+    return age > this.ttl;
   }
 
   get(key: string): V | undefined {
@@ -205,7 +180,7 @@ export class DiskCache<V> {
     if (!entry) return undefined;
     if (this.isExpired(entry)) {
       const { [key]: _, ...rest } = envelope.entries;
-      this.flush({ ...envelope, entries: rest });
+      this.flush(Object.assign({}, envelope, { entries: rest }));
       return undefined;
     }
     return entry.v;
@@ -214,20 +189,14 @@ export class DiskCache<V> {
   set(key: string, value: V): void {
     if (!this.enabled) return;
     const envelope = this.load();
-    const newEntries = {
-      ...envelope.entries,
-      [key]: { v: value, t: Date.now() },
-    };
+    const newEntries = Object.assign({}, envelope.entries, { [key]: { v: value, t: Date.now() } });
     const entriesArray = Object.entries(newEntries);
     const isOverLimit = entriesArray.length > this.maxEntries;
+    const sortedEntries = entriesArray.slice().sort((a, b) => b[1].t - a[1].t);
     const trimmed = isOverLimit
-      ? Object.fromEntries(
-          entriesArray
-            .sort((a, b) => b[1].t - a[1].t)
-            .slice(0, this.maxEntries),
-        )
+      ? Object.fromEntries(sortedEntries.slice(0, this.maxEntries))
       : newEntries;
-    this.flush({ ...envelope, entries: trimmed });
+    this.flush(Object.assign({}, envelope, { entries: trimmed }));
   }
 
   has(key: string): boolean {
@@ -238,7 +207,7 @@ export class DiskCache<V> {
     if (!this.enabled) return;
     const envelope = this.load();
     const { [key]: _, ...rest } = envelope.entries;
-    this.flush({ ...envelope, entries: rest });
+    this.flush(Object.assign({}, envelope, { entries: rest }));
   }
 
   clear(): void {
@@ -255,7 +224,7 @@ export class DiskCache<V> {
     );
     const after = Object.keys(fresh).length;
     if (before !== after) {
-      this.flush({ ...envelope, entries: fresh });
+      this.flush(Object.assign({}, envelope, { entries: fresh }));
     }
     return before - after;
   }

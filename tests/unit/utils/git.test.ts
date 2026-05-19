@@ -10,10 +10,7 @@ test("getOverrideGitDate - should return a date string for existing file", async
 
 test("getOverrideGitDate - should return fallback for non-existent file", async () => {
   const fallbackDate = "2024-06-15T00:00:00.000Z";
-  const result = await getOverrideGitDate(
-    "non-existent-file-xyz.json",
-    () => fallbackDate,
-  );
+  const result = await getOverrideGitDate("non-existent-file-xyz.json", () => fallbackDate);
 
   expect(result).toBe(fallbackDate);
 });

@@ -1,9 +1,11 @@
+export type Severity = "low" | "medium" | "high" | "critical";
+
 export interface SecurityAlert {
   packageName: string;
   currentVersion: string;
   vulnerableVersions: string;
   patchedVersion?: string;
-  severity: "low" | "medium" | "high" | "critical";
+  severity: Severity;
   title: string;
   description?: string;
   cves?: string[];
@@ -12,13 +14,17 @@ export interface SecurityAlert {
   sources?: SecurityProviderType[];
 }
 
-export type SecurityProviderType =
-  | "osv"
-  | "github"
-  | "snyk"
-  | "npm"
-  | "socket"
-  | "spektion";
+export type SecurityProviderType = "osv" | "github" | "snyk" | "npm" | "socket" | "spektion";
+export type SetupSecurityProvider = Exclude<SecurityProviderType, "npm">;
+
+export interface ProviderConfig {
+  name: string;
+  envVar: string | null;
+  tokenUrl: string | null;
+  cliAlternative?: string;
+  requiredScopes?: string[];
+  setupSteps: string[];
+}
 
 export interface SecurityCheckProgress {
   phase: "extracting" | "fetching" | "analyzing" | "resolving";
@@ -43,6 +49,35 @@ export interface SecurityCheckOptions {
   cacheTtl?: number;
   noCache?: boolean;
   refreshCache?: boolean;
+}
+
+export interface SecurityProviderFactoryOptions extends SecurityCheckOptions {
+  debug?: boolean;
+  isIRLFix?: boolean;
+  isIRLCatch?: boolean;
+}
+
+export interface SecurityCheckRuntimeOptions extends SecurityCheckOptions {
+  depPaths?: string[];
+  root?: string;
+  packageJsonPath?: string;
+}
+
+export interface SecurityCheckResult {
+  alerts: SecurityAlert[];
+  overrides: SecurityOverride[];
+  updates: OverrideUpdate[];
+  packagesScanned: number;
+}
+
+export interface SecurityPackage {
+  name: string;
+  version: string;
+}
+
+export interface WorkspaceVulnerabilityState {
+  existingKeys: Set<string>;
+  vulnerabilities: SecurityAlert[];
 }
 
 export interface SecurityProviderScanOptions {
@@ -136,11 +171,8 @@ export class SecurityProviderPermissionError extends Error {
     public provider: string,
     public originalMessage: string,
   ) {
-    const guidance =
-      SecurityProviderPermissionError.getGuidance(originalMessage);
-    super(
-      `${provider} security check skipped: ${originalMessage}. ${guidance}`,
-    );
+    const guidance = SecurityProviderPermissionError.getGuidance(originalMessage);
+    super(`${provider} security check skipped: ${originalMessage}. ${guidance}`);
     this.name = "SecurityProviderPermissionError";
   }
 
@@ -148,8 +180,7 @@ export class SecurityProviderPermissionError extends Error {
     const lowerMessage = message.toLowerCase();
 
     const isAccessError =
-      lowerMessage.includes("resource not accessible") ||
-      lowerMessage.includes("must have admin");
+      lowerMessage.includes("resource not accessible") || lowerMessage.includes("must have admin");
 
     const isNotEnabledError =
       lowerMessage.includes("not enabled") || lowerMessage.includes("disabled");
@@ -189,7 +220,6 @@ export type SecurityProvider =
   | SpektionProvider
   | PackageManagerAuditProvider;
 
-/** Common interface for security provider type identification */
 export interface SecurityProviderBase {
   readonly providerType: SecurityProviderType;
   fetchAlerts(
@@ -214,6 +244,30 @@ export interface OSVVulnerability {
   references?: Array<{ type: string; url: string }>;
 }
 
+export interface OSVPackageQuery {
+  package: {
+    name: string;
+    ecosystem: "npm";
+  };
+  version: string;
+}
+
+export interface OSVPartialVulnerability {
+  id: string;
+}
+
+export interface OSVBatchResult {
+  vulns?: OSVVulnerability[];
+}
+
+export interface OSVBatchApiResult {
+  vulns?: OSVPartialVulnerability[];
+}
+
+export interface OSVSeverityVulnerability extends OSVVulnerability {
+  database_specific?: { severity?: string };
+}
+
 export interface SnykVulnerability {
   id: string;
   title: string;
@@ -226,6 +280,17 @@ export interface SnykVulnerability {
   upgradePath?: Array<string | boolean>;
   isUpgradable?: boolean;
   isPatchable?: boolean;
+}
+
+export interface SnykAlertVulnerability extends SnykVulnerability {
+  semver?: { vulnerable?: string };
+  fixedIn?: string[];
+  url?: string;
+  name?: string;
+}
+
+export interface SnykErrorWithStdout {
+  stdout?: string;
 }
 
 export interface SnykResult {
@@ -300,6 +365,23 @@ export interface PromptFunctions {
   secret?: (message: string, defaultValue?: string) => Promise<string>;
 }
 
+export interface SecretPromptCharResult {
+  value: string;
+  output: string;
+  done: boolean;
+}
+
+export interface SecretPromptSession {
+  input: typeof process.stdin;
+  output: typeof process.stdout;
+  wasRaw: boolean;
+  defaultValue: string;
+  resolvePrompt: (value: string) => void;
+  value: string;
+  timeout?: ReturnType<typeof setTimeout>;
+  onData?: (chunk: Buffer) => void;
+}
+
 export interface NpmAuditAdvisory {
   source: number;
   name: string;
@@ -318,9 +400,7 @@ export interface NpmAuditVulnerability {
   isDirect?: boolean;
   via: Array<NpmAuditAdvisory | string>;
   range: string;
-  fixAvailable:
-    | boolean
-    | { name: string; version: string; isSemVerMajor: boolean };
+  fixAvailable: boolean | { name: string; version: string; isSemVerMajor: boolean };
 }
 
 export interface NpmAuditResult {

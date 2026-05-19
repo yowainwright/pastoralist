@@ -108,7 +108,7 @@ describe("Enhanced Prompt UI Components", () => {
 
       expect(stripAnsi(result)).toContain("No workspaces detected");
       expect(result).toContain(ICON.info);
-      expect(result.startsWith("   ")).toBe(true); // Should be indented
+      expect(result.startsWith("   ")).toBe(true);
     });
   });
 
@@ -132,10 +132,7 @@ describe("Enhanced Prompt UI Components", () => {
 
   describe("formatCompletion", () => {
     test("formats completion box with next steps", () => {
-      const steps = [
-        "Run pastoralist to update dependencies",
-        "Check documentation for options",
-      ];
+      const steps = ["Run pastoralist to update dependencies", "Check documentation for options"];
       const result = formatCompletion("Setup complete!", steps);
 
       expect(stripAnsi(result)).toContain("✓ Setup complete!");
@@ -158,9 +155,8 @@ describe("Enhanced Prompt UI Components", () => {
       const steps = ["Test step"];
       const result = formatCompletion("Test", steps);
 
-      // Should contain yellow border characters
-      expect(result).toMatch(/\[\d+m┌/); // Yellow top border
-      expect(result).toMatch(/\[\d+m└/); // Yellow bottom border
+      expect(result).toMatch(/\[\d+m┌/);
+      expect(result).toMatch(/\[\d+m└/);
     });
   });
 });

@@ -7,13 +7,11 @@ import {
 export const STEP_POPOVERS = [
   {
     title: "The Problem",
-    description:
-      "Overrides exist but nobody knows why. Which packages depend on it?",
+    description: "Overrides exist but nobody knows why. Which packages depend on it?",
   },
   {
     title: "Run Pastoralist",
-    description:
-      "Pastoralist scans your dependencies and documents your overrides.",
+    description: "Pastoralist scans your dependencies and documents your overrides.",
   },
   {
     title: "Automatic Documentation",
@@ -155,7 +153,6 @@ export const MACHINE_CONFIG = {
   },
 } as const;
 
-/** @tw */
 export const STEP_STYLES = {
   base: "step cursor-pointer transition-all duration-200 text-base-content",
   active:
@@ -164,7 +161,6 @@ export const STEP_STYLES = {
     "[&::before]:text-base-content [&::before]:!border [&::before]:!border-solid [&::before]:!border-[var(--step-bg)] [&::before]:!border-l-0 [&::before]:!border-r-0 [&::before]:!w-[calc(100%-32px)] [&::before]:!z-[999] [&::after]:!bg-base-300",
 } as const;
 
-/** @tw */
 export const BADGE_STYLES = {
   before:
     "inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold text-white [background:linear-gradient(to_bottom,var(--color-red-400),var(--color-red-500))] border-2 border-red-600 shadow-md shadow-red-500/25",
@@ -173,7 +169,6 @@ export const BADGE_STYLES = {
     "inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold text-white [background:linear-gradient(to_bottom,var(--color-green-400),var(--color-green-500))] border-2 border-green-600 shadow-md shadow-green-500/25",
 } as const;
 
-// JSON syntax highlighting
 const JSON_KEY_PATTERN = /"([^"]+)":/g;
 const JSON_VALUE_PATTERN = /: "([^"]+)"/g;
 

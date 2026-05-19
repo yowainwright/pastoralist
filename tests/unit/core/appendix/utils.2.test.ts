@@ -6,12 +6,7 @@ import {
   hasOverrides,
   mergeAppendixDependents,
 } from "../../../../src/core/appendix/utils";
-import type {
-  PastoralistJSON,
-  Appendix,
-  AppendixItem,
-  OverridesType,
-} from "../../../../src/types";
+import type { PastoralistJSON, Appendix, AppendixItem, OverridesType } from "../../../../src/types";
 
 test("mergeDependenciesForPackage - merges all dependency types", () => {
   const packageConfig: PastoralistJSON = {

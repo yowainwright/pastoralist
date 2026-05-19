@@ -47,43 +47,26 @@ const calculateWidths = (
   minLabelWidth: number,
   minValueWidth: number,
 ): { labelWidth: number; valueWidth: number } => {
-  const maxLabel = rows.reduce(
-    (max, r) => Math.max(max, visibleLength(r.label)),
-    0,
-  );
-  const maxValue = rows.reduce(
-    (max, r) => Math.max(max, visibleLength(String(r.value))),
-    0,
-  );
+  const maxLabel = rows.reduce((max, r) => Math.max(max, visibleLength(r.label)), 0);
+  const maxValue = rows.reduce((max, r) => Math.max(max, visibleLength(String(r.value))), 0);
   return {
     labelWidth: Math.max(minLabelWidth, maxLabel),
     valueWidth: Math.max(minValueWidth, maxValue),
   };
 };
 
-const buildTitleRow = (
-  title: string,
-  labelWidth: number,
-  valueWidth: number,
-): string => {
+const buildTitleRow = (title: string, labelWidth: number, valueWidth: number): string => {
   const titleWidth = labelWidth + valueWidth + TABLE_COLUMN_SEPARATOR_WIDTH;
   return `| ${padRight(title, titleWidth)} |`;
 };
 
-export const renderTable = (
-  rows: TableRow[],
-  options: TableOptions = {},
-): string => {
+export const renderTable = (rows: TableRow[], options: TableOptions = {}): string => {
   const {
     title,
     minLabelWidth = DEFAULT_MIN_LABEL_WIDTH,
     minValueWidth = DEFAULT_MIN_VALUE_WIDTH,
   } = options;
-  const { labelWidth, valueWidth } = calculateWidths(
-    rows,
-    minLabelWidth,
-    minValueWidth,
-  );
+  const { labelWidth, valueWidth } = calculateWidths(rows, minLabelWidth, minValueWidth);
 
   const separator = createHorizontalLine(labelWidth, valueWidth);
   const titleLines = title

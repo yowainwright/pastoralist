@@ -10,13 +10,9 @@ const ACTIVE_CLASSES = "text-[#1D4ED8] font-medium border-[#1D4ED8]";
 const INACTIVE_CLASSES = "hover:text-[#1D4ED8] border-transparent";
 
 function getLinkClasses(isActive: boolean, isSubheading = false) {
-  const baseOpacity = isSubheading
-    ? "text-base-content/60"
-    : "text-base-content/70";
+  const baseOpacity = isSubheading ? "text-base-content/60" : "text-base-content/70";
   const padding = isSubheading ? "py-0.5" : "py-1";
-  const stateClasses = isActive
-    ? ACTIVE_CLASSES
-    : `${baseOpacity} ${INACTIVE_CLASSES}`;
+  const stateClasses = isActive ? ACTIVE_CLASSES : `${baseOpacity} ${INACTIVE_CLASSES}`;
   return `${BASE_LINK_CLASSES} ${padding} ${stateClasses}`;
 }
 
@@ -33,13 +29,10 @@ export function TocWithScrollspy({ headings }: TocWithScrollspyProps) {
   const toc = buildToc(headings || []);
   const activeId = useScrollspy(headings?.length || 0);
 
-  const handleClick = useCallback(
-    (e: React.MouseEvent<HTMLAnchorElement>, slug: string) => {
-      if (!scrollToElement(slug)) return;
-      e.preventDefault();
-    },
-    [],
-  );
+  const handleClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>, slug: string) => {
+    if (!scrollToElement(slug)) return;
+    e.preventDefault();
+  }, []);
 
   if (toc.length === 0) return null;
 
@@ -136,10 +129,7 @@ function TocLink({
     >
       {parts.map((part, i) =>
         part.isCode ? (
-          <code
-            key={i}
-            className="text-xs px-1 py-0.5 rounded bg-base-content/10"
-          >
+          <code key={i} className="text-xs px-1 py-0.5 rounded bg-base-content/10">
             {part.text}
           </code>
         ) : (

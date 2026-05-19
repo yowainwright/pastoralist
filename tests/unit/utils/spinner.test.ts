@@ -15,9 +15,7 @@ import { ICON } from "../../../src/utils/icons";
 import type { SpinnerState } from "../../../src/dx/types";
 
 test("hideCursor - should write hide cursor escape code", () => {
-  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(
-    () => true,
-  );
+  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
 
   hideCursor();
   expect(stdoutWriteSpy).toHaveBeenCalledWith("\x1B[?25l");
@@ -26,9 +24,7 @@ test("hideCursor - should write hide cursor escape code", () => {
 });
 
 test("showCursor - should write show cursor escape code", () => {
-  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(
-    () => true,
-  );
+  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
 
   showCursor();
   expect(stdoutWriteSpy).toHaveBeenCalledWith("\x1B[?25h");
@@ -37,9 +33,7 @@ test("showCursor - should write show cursor escape code", () => {
 });
 
 test("clearLine - should write clear line escape code", () => {
-  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(
-    () => true,
-  );
+  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
 
   clearLine();
   expect(stdoutWriteSpy).toHaveBeenCalledWith("\r\x1B[K");
@@ -48,24 +42,18 @@ test("clearLine - should write clear line escape code", () => {
 });
 
 test("renderFrame - should render frame with text", () => {
-  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(
-    () => true,
-  );
+  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
   const frames = ["⠋", "⠙", "⠹"];
 
   renderFrame(frames, 0, "Loading...");
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith(
-    expect.stringContaining("⠋ Loading..."),
-  );
+  expect(stdoutWriteSpy).toHaveBeenCalledWith(expect.stringContaining("⠋ Loading..."));
 
   stdoutWriteSpy.mockRestore();
 });
 
 test("renderFrame - should clear line before rendering", () => {
-  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(
-    () => true,
-  );
+  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
   const frames = ["⠋"];
 
   renderFrame(frames, 0, "Test");
@@ -77,16 +65,12 @@ test("renderFrame - should clear line before rendering", () => {
 });
 
 test("renderFrame - should use correct frame index", () => {
-  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(
-    () => true,
-  );
+  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
   const frames = ["⠋", "⠙", "⠹"];
 
   renderFrame(frames, 2, "Test");
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith(
-    expect.stringContaining("⠹ Test"),
-  );
+  expect(stdoutWriteSpy).toHaveBeenCalledWith(expect.stringContaining("⠹ Test"));
 
   stdoutWriteSpy.mockRestore();
 });
@@ -200,23 +184,17 @@ test("incrementFrame - should wrap around at end of frames", () => {
 });
 
 test("writeSymbol - should write symbol with text", () => {
-  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(
-    () => true,
-  );
+  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
 
   writeSymbol("✔", "Success");
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith(
-    expect.stringContaining("✔ Success"),
-  );
+  expect(stdoutWriteSpy).toHaveBeenCalledWith(expect.stringContaining("✔ Success"));
 
   stdoutWriteSpy.mockRestore();
 });
 
 test("writeSymbol - should clear line before writing", () => {
-  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(
-    () => true,
-  );
+  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
 
   writeSymbol("✔", "Test");
 
@@ -227,9 +205,7 @@ test("writeSymbol - should clear line before writing", () => {
 });
 
 test("writeSymbol - should end with newline", () => {
-  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(
-    () => true,
-  );
+  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
 
   writeSymbol("✔", "Test");
 
@@ -251,9 +227,7 @@ test("createSpinner - should create spinner with text", () => {
 });
 
 test("createSpinner - should start spinner", () => {
-  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(
-    () => true,
-  );
+  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
 
   const spinner = createSpinner("Loading...");
   spinner.start();
@@ -265,9 +239,7 @@ test("createSpinner - should start spinner", () => {
 });
 
 test("createSpinner - should stop spinner", () => {
-  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(
-    () => true,
-  );
+  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
 
   const spinner = createSpinner("Loading...");
   spinner.start();
@@ -281,9 +253,7 @@ test("createSpinner - should stop spinner", () => {
 });
 
 test("createSpinner - should succeed with default text", () => {
-  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(
-    () => true,
-  );
+  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
 
   const spinner = createSpinner("Loading...");
   spinner.succeed();
@@ -296,39 +266,29 @@ test("createSpinner - should succeed with default text", () => {
 });
 
 test("createSpinner - should succeed with custom text", () => {
-  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(
-    () => true,
-  );
+  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
 
   const spinner = createSpinner("Loading...");
   spinner.succeed("Done!");
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith(
-    expect.stringContaining(`${ICON.success} Done!`),
-  );
+  expect(stdoutWriteSpy).toHaveBeenCalledWith(expect.stringContaining(`${ICON.success} Done!`));
 
   stdoutWriteSpy.mockRestore();
 });
 
 test("createSpinner - should fail with default text", () => {
-  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(
-    () => true,
-  );
+  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
 
   const spinner = createSpinner("Loading...");
   spinner.fail();
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith(
-    expect.stringContaining(`${ICON.error} Loading...`),
-  );
+  expect(stdoutWriteSpy).toHaveBeenCalledWith(expect.stringContaining(`${ICON.error} Loading...`));
 
   stdoutWriteSpy.mockRestore();
 });
 
 test("createSpinner - should fail with custom text", () => {
-  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(
-    () => true,
-  );
+  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
 
   const spinner = createSpinner("Loading...");
   spinner.fail("Error occurred");
@@ -341,39 +301,29 @@ test("createSpinner - should fail with custom text", () => {
 });
 
 test("createSpinner - should info with default text", () => {
-  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(
-    () => true,
-  );
+  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
 
   const spinner = createSpinner("Loading...");
   spinner.info();
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith(
-    expect.stringContaining(`${ICON.info} Loading...`),
-  );
+  expect(stdoutWriteSpy).toHaveBeenCalledWith(expect.stringContaining(`${ICON.info} Loading...`));
 
   stdoutWriteSpy.mockRestore();
 });
 
 test("createSpinner - should info with custom text", () => {
-  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(
-    () => true,
-  );
+  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
 
   const spinner = createSpinner("Loading...");
   spinner.info("FYI");
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith(
-    expect.stringContaining(`${ICON.info} FYI`),
-  );
+  expect(stdoutWriteSpy).toHaveBeenCalledWith(expect.stringContaining(`${ICON.info} FYI`));
 
   stdoutWriteSpy.mockRestore();
 });
 
 test("createSpinner - should warn with default text", () => {
-  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(
-    () => true,
-  );
+  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
 
   const spinner = createSpinner("Loading...");
   spinner.warn();
@@ -386,16 +336,12 @@ test("createSpinner - should warn with default text", () => {
 });
 
 test("createSpinner - should warn with custom text", () => {
-  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(
-    () => true,
-  );
+  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
 
   const spinner = createSpinner("Loading...");
   spinner.warn("Warning!");
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith(
-    expect.stringContaining(`${ICON.warning} Warning!`),
-  );
+  expect(stdoutWriteSpy).toHaveBeenCalledWith(expect.stringContaining(`${ICON.warning} Warning!`));
 
   stdoutWriteSpy.mockRestore();
 });
@@ -415,9 +361,7 @@ test("createSpinner - should return spinner methods for chaining", () => {
 });
 
 test("createSpinner - should not start twice", () => {
-  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(
-    () => true,
-  );
+  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
 
   const spinner = createSpinner("Test");
   spinner.start();
@@ -432,9 +376,7 @@ test("createSpinner - should not start twice", () => {
 });
 
 test("createSpinner - should handle stop when not spinning", () => {
-  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(
-    () => true,
-  );
+  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
 
   const spinner = createSpinner("Test");
   stdoutWriteSpy.mockClear();
@@ -507,24 +449,18 @@ test("createSpinner - should update spinner text", () => {
 });
 
 test("createSpinner - update should allow chaining", () => {
-  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(
-    () => true,
-  );
+  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
 
   const spinner = createSpinner("Initial");
   spinner.update("Updated").succeed("Done!");
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith(
-    expect.stringContaining(`${ICON.success} Done!`),
-  );
+  expect(stdoutWriteSpy).toHaveBeenCalledWith(expect.stringContaining(`${ICON.success} Done!`));
 
   stdoutWriteSpy.mockRestore();
 });
 
 test("createSpinner - update during spinning should change text", () => {
-  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(
-    () => true,
-  );
+  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
 
   const spinner = createSpinner("Initial");
   spinner.start();

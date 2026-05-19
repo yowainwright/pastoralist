@@ -13,9 +13,7 @@ export const ENV_VARS = {
   socket: "SOCKET_SECURITY_API_KEY",
 } as const;
 
-export const createMockFetch = (
-  options: { ok?: boolean; status?: number } = {},
-) => {
+export const createMockFetch = (options: { ok?: boolean; status?: number } = {}) => {
   const { ok = true, status = 200 } = options;
   return mock(() => Promise.resolve({ ok, status } as Response));
 };
@@ -92,9 +90,7 @@ export const withMockedFetch = async <T>(
   }
 };
 
-export const withMockedStdout = async <T>(
-  fn: (output: string[]) => Promise<T>,
-): Promise<T> => {
+export const withMockedStdout = async <T>(fn: (output: string[]) => Promise<T>): Promise<T> => {
   const original = process.stdout.write;
   const output: string[] = [];
   process.stdout.write = mock((msg: string) => {
@@ -125,16 +121,11 @@ export const CLI_RESULT = {
   message: "Using GitHub CLI for authentication",
 };
 
-export const TOKEN_RESULT = (
-  token: string,
-  savedToProfile = false,
-): SetupResult => ({
+export const TOKEN_RESULT = (token: string, savedToProfile = false): SetupResult => ({
   success: true,
   token,
   savedToProfile,
-  message: savedToProfile
-    ? "Token saved to shell profile"
-    : "Token set for this session",
+  message: savedToProfile ? "Token saved to shell profile" : "Token set for this session",
 });
 
 export const withMockedGhCliAuth = async <T>(
@@ -142,8 +133,7 @@ export const withMockedGhCliAuth = async <T>(
   fn: () => Promise<T>,
 ): Promise<T> => {
   const { spyOn } = await import("bun:test");
-  const { SecuritySetupWizard } =
-    await import("../../../src/core/security/setup");
+  const { SecuritySetupWizard } = await import("../../../src/core/security/setup");
 
   const spy = spyOn(
     SecuritySetupWizard.prototype,

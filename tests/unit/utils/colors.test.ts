@@ -1,10 +1,5 @@
 import { test, expect } from "bun:test";
-import {
-  green,
-  gold,
-  copper,
-  gradientPastoralist,
-} from "../../../src/utils/colors";
+import { green, gold, copper, gradientPastoralist } from "../../../src/utils/colors";
 
 test("green - should wrap text with green ANSI codes", () => {
   const result = green("test");

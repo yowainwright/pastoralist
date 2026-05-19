@@ -6,10 +6,6 @@ afterEach(() => {
   mock.restore();
 });
 
-// =============================================================================
-// construction
-// =============================================================================
-
 test("providerType - should be 'npm'", () => {
   const provider = new PackageManagerAuditProvider();
   expect(provider.providerType).toBe("npm");
@@ -24,10 +20,6 @@ test("construction - initializes with strict option", () => {
   const provider = new PackageManagerAuditProvider({ strict: true });
   expect((provider as any).strict).toBe(true);
 });
-
-// =============================================================================
-// normalizeSeverity
-// =============================================================================
 
 test("normalizeSeverity - maps 'moderate' to 'medium'", () => {
   const provider = new PackageManagerAuditProvider();
@@ -55,10 +47,6 @@ test("normalizeSeverity - is case insensitive", () => {
   expect((provider as any).normalizeSeverity("HIGH")).toBe("high");
 });
 
-// =============================================================================
-// extractNpmPatchedVersion
-// =============================================================================
-
 test("extractNpmPatchedVersion - returns version from object", () => {
   const provider = new PackageManagerAuditProvider();
   const fixAvailable = {
@@ -66,9 +54,7 @@ test("extractNpmPatchedVersion - returns version from object", () => {
     version: "4.17.21",
     isSemVerMajor: false,
   };
-  expect((provider as any).extractNpmPatchedVersion(fixAvailable)).toBe(
-    "4.17.21",
-  );
+  expect((provider as any).extractNpmPatchedVersion(fixAvailable)).toBe("4.17.21");
 });
 
 test("extractNpmPatchedVersion - returns undefined for boolean true", () => {
@@ -86,15 +72,9 @@ test("extractNpmPatchedVersion - returns undefined for undefined", () => {
   expect((provider as any).extractNpmPatchedVersion(undefined)).toBeUndefined();
 });
 
-// =============================================================================
-// extractYarnPatchedVersion
-// =============================================================================
-
 test("extractYarnPatchedVersion - extracts version from >=range", () => {
   const provider = new PackageManagerAuditProvider();
-  expect((provider as any).extractYarnPatchedVersion(">=4.17.21")).toBe(
-    "4.17.21",
-  );
+  expect((provider as any).extractYarnPatchedVersion(">=4.17.21")).toBe("4.17.21");
 });
 
 test("extractYarnPatchedVersion - extracts version with space", () => {
@@ -114,14 +94,8 @@ test("extractYarnPatchedVersion - returns undefined for empty string", () => {
 
 test("extractYarnPatchedVersion - returns undefined for 'No fix available'", () => {
   const provider = new PackageManagerAuditProvider();
-  expect(
-    (provider as any).extractYarnPatchedVersion("No fix available"),
-  ).toBeUndefined();
+  expect((provider as any).extractYarnPatchedVersion("No fix available")).toBeUndefined();
 });
-
-// =============================================================================
-// parseNpmCompatibleOutput
-// =============================================================================
 
 test("parseNpmCompatibleOutput - returns empty array when no vulnerabilities key", () => {
   const provider = new PackageManagerAuditProvider();
@@ -248,10 +222,6 @@ test("parseNpmCompatibleOutput - maps moderate severity to medium", () => {
   expect(alerts[0].severity).toBe("medium");
 });
 
-// =============================================================================
-// parseYarnAuditOutput
-// =============================================================================
-
 test("parseYarnAuditOutput - parses advisory line", () => {
   const provider = new PackageManagerAuditProvider();
   const line: YarnAuditLine = {
@@ -329,15 +299,10 @@ test("parseYarnAuditOutput - handles multiple lines", () => {
 
 test("parseYarnAuditOutput - skips malformed JSON lines", () => {
   const provider = new PackageManagerAuditProvider();
-  const stdout =
-    "not-json\n" + JSON.stringify({ type: "auditSummary", data: {} });
+  const stdout = "not-json\n" + JSON.stringify({ type: "auditSummary", data: {} });
   const alerts = (provider as any).parseYarnAuditOutput(stdout);
   expect(alerts).toHaveLength(0);
 });
-
-// =============================================================================
-// enrichWithVersions
-// =============================================================================
 
 test("enrichWithVersions - fills currentVersion from packages map", () => {
   const provider = new PackageManagerAuditProvider();
@@ -377,10 +342,6 @@ test("enrichWithVersions - keeps transitive alerts for unknown direct packages",
   expect(result[0].currentVersion).toBe("unknown");
 });
 
-// =============================================================================
-// fetchAlerts
-// =============================================================================
-
 test("fetchAlerts - returns empty array when packages is empty", async () => {
   const provider = new PackageManagerAuditProvider();
   const alerts = await provider.fetchAlerts([]);
@@ -402,9 +363,7 @@ test("fetchAlerts - returns enriched alerts from runAudit", async () => {
     },
   ]);
 
-  const alerts = await provider.fetchAlerts([
-    { name: "lodash", version: "4.17.20" },
-  ]);
+  const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]);
 
   expect(alerts).toHaveLength(1);
   expect(alerts[0].packageName).toBe("lodash");
@@ -433,13 +392,9 @@ test("fetchAlerts - passes root to package-manager detection and audit cwd", asy
 
 test("fetchAlerts - returns empty array on error when not strict", async () => {
   const provider = new PackageManagerAuditProvider({ strict: false });
-  const spy = spyOn(provider as any, "runAudit").mockRejectedValue(
-    new Error("command not found"),
-  );
+  const spy = spyOn(provider as any, "runAudit").mockRejectedValue(new Error("command not found"));
 
-  const alerts = await provider.fetchAlerts([
-    { name: "lodash", version: "4.17.20" },
-  ]);
+  const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]);
 
   expect(alerts).toEqual([]);
   spy.mockRestore();
@@ -447,13 +402,11 @@ test("fetchAlerts - returns empty array on error when not strict", async () => {
 
 test("fetchAlerts - throws in strict mode on error", async () => {
   const provider = new PackageManagerAuditProvider({ strict: true });
-  const spy = spyOn(provider as any, "runAudit").mockRejectedValue(
-    new Error("command not found"),
-  );
+  const spy = spyOn(provider as any, "runAudit").mockRejectedValue(new Error("command not found"));
 
-  await expect(
-    provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]),
-  ).rejects.toThrow("Package manager audit failed");
+  await expect(provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }])).rejects.toThrow(
+    "Package manager audit failed",
+  );
 
   spy.mockRestore();
 });
@@ -475,10 +428,6 @@ test("fetchAlerts - strict mode error includes reason", async () => {
 
   spy.mockRestore();
 });
-
-// =============================================================================
-// runAudit
-// =============================================================================
 
 const makeNpmResult = (pkgName: string): NpmAuditResult => ({
   vulnerabilities: {
@@ -518,11 +467,7 @@ const makeYarnLine = (pkgName: string): string =>
     },
   } as YarnAuditLine);
 
-type ExecAsync = (
-  cmd: string,
-  args: string[],
-  opts: object,
-) => Promise<{ stdout: string }>;
+type ExecAsync = (cmd: string, args: string[], opts: object) => Promise<{ stdout: string }>;
 
 const withExec = (impl: ExecAsync) => {
   const provider = new PackageManagerAuditProvider();
@@ -549,9 +494,7 @@ describe("runAudit", () => {
 
     await (provider as any).runAudit("npm", "/repo/app");
 
-    expect(capturedOptions).toEqual(
-      expect.objectContaining({ cwd: "/repo/app" }),
-    );
+    expect(capturedOptions).toEqual(expect.objectContaining({ cwd: "/repo/app" }));
   });
 
   test("npm - recovers stdout from non-zero exit error", async () => {
@@ -569,9 +512,7 @@ describe("runAudit", () => {
     const provider = withExec(async () => {
       throw new Error("npm: command not found");
     });
-    await expect((provider as any).runAudit("npm")).rejects.toThrow(
-      "npm: command not found",
-    );
+    await expect((provider as any).runAudit("npm")).rejects.toThrow("npm: command not found");
   });
 
   test("bun - uses bun command path", async () => {
@@ -614,8 +555,6 @@ describe("runAudit", () => {
     const provider = withExec(async () => {
       throw new Error("yarn: command not found");
     });
-    await expect((provider as any).runAudit("yarn")).rejects.toThrow(
-      "yarn: command not found",
-    );
+    await expect((provider as any).runAudit("yarn")).rejects.toThrow("yarn: command not found");
   });
 });

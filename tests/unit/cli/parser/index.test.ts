@@ -16,13 +16,7 @@ describe("parseArgs", () => {
     });
 
     test("should parse multiple boolean flags", () => {
-      const result = parseArgs([
-        "node",
-        "script.js",
-        "--debug",
-        "--dry-run",
-        "--interactive",
-      ]);
+      const result = parseArgs(["node", "script.js", "--debug", "--dry-run", "--interactive"]);
 
       expect(result.options.debug).toBe(true);
       expect(result.options.dryRun).toBe(true);
@@ -68,12 +62,7 @@ describe("parseArgs", () => {
     });
 
     test("should parse --securityProviderToken with value", () => {
-      const result = parseArgs([
-        "node",
-        "script.js",
-        "--securityProviderToken",
-        "abc123",
-      ]);
+      const result = parseArgs(["node", "script.js", "--securityProviderToken", "abc123"]);
 
       expect(result.options.securityProviderToken).toBe("abc123");
     });
@@ -87,39 +76,19 @@ describe("parseArgs", () => {
 
   describe("array flags", () => {
     test("should parse -d flag with multiple values", () => {
-      const result = parseArgs([
-        "node",
-        "script.js",
-        "-d",
-        "path1",
-        "path2",
-        "path3",
-      ]);
+      const result = parseArgs(["node", "script.js", "-d", "path1", "path2", "path3"]);
 
       expect(result.options.depPaths).toEqual(["path1", "path2", "path3"]);
     });
 
     test("should parse --depPaths flag with multiple values", () => {
-      const result = parseArgs([
-        "node",
-        "script.js",
-        "--depPaths",
-        "packages/*",
-        "workspaces/*",
-      ]);
+      const result = parseArgs(["node", "script.js", "--depPaths", "packages/*", "workspaces/*"]);
 
       expect(result.options.depPaths).toEqual(["packages/*", "workspaces/*"]);
     });
 
     test("should parse --ignore flag with multiple values", () => {
-      const result = parseArgs([
-        "node",
-        "script.js",
-        "--ignore",
-        "node_modules",
-        "dist",
-        "build",
-      ]);
+      const result = parseArgs(["node", "script.js", "--ignore", "node_modules", "dist", "build"]);
 
       expect(result.options.ignore).toEqual(["node_modules", "dist", "build"]);
     });
@@ -134,11 +103,7 @@ describe("parseArgs", () => {
         "snyk",
       ]);
 
-      expect(result.options.securityProvider).toEqual([
-        "osv",
-        "github",
-        "snyk",
-      ]);
+      expect(result.options.securityProvider).toEqual(["osv", "github", "snyk"]);
     });
 
     test("should handle array flag with no values following it", () => {
@@ -176,12 +141,7 @@ describe("parseArgs", () => {
     });
 
     test("should override default securityProvider when provided", () => {
-      const result = parseArgs([
-        "node",
-        "script.js",
-        "--securityProvider",
-        "github",
-      ]);
+      const result = parseArgs(["node", "script.js", "--securityProvider", "github"]);
 
       expect(result.options.securityProvider).toEqual(["github"]);
     });
@@ -195,26 +155,14 @@ describe("parseArgs", () => {
     });
 
     test("should parse command with options", () => {
-      const result = parseArgs([
-        "node",
-        "script.js",
-        "init",
-        "--path",
-        "test.json",
-      ]);
+      const result = parseArgs(["node", "script.js", "init", "--path", "test.json"]);
 
       expect(result.command).toBe("init");
       expect(result.options.path).toBe("test.json");
     });
 
     test("should parse command with options before command", () => {
-      const result = parseArgs([
-        "node",
-        "script.js",
-        "--path",
-        "test.json",
-        "init",
-      ]);
+      const result = parseArgs(["node", "script.js", "--path", "test.json", "init"]);
 
       expect(result.command).toBe("init");
       expect(result.options.path).toBe("test.json");
@@ -223,15 +171,7 @@ describe("parseArgs", () => {
 
   describe("mixed flags", () => {
     test("should parse combination of short and long flags", () => {
-      const result = parseArgs([
-        "node",
-        "script.js",
-        "-p",
-        "test.json",
-        "--debug",
-        "-r",
-        "/tmp",
-      ]);
+      const result = parseArgs(["node", "script.js", "-p", "test.json", "--debug", "-r", "/tmp"]);
 
       expect(result.options.path).toBe("test.json");
       expect(result.options.debug).toBe(true);
@@ -281,12 +221,7 @@ describe("parseArgs", () => {
     });
 
     test("should parse test mode flags", () => {
-      const result = parseArgs([
-        "node",
-        "script.js",
-        "--isTesting",
-        "--isTestingCLI",
-      ]);
+      const result = parseArgs(["node", "script.js", "--isTesting", "--isTestingCLI"]);
 
       expect(result.options.isTesting).toBe(true);
       expect(result.options.isTestingCLI).toBe(true);
@@ -295,15 +230,15 @@ describe("parseArgs", () => {
 
   describe("unknown flags", () => {
     test("should throw for unknown flags", () => {
-      expect(() =>
-        parseArgs(["node", "script.js", "--unknown", "--debug"]),
-      ).toThrow("Unknown option: --unknown");
+      expect(() => parseArgs(["node", "script.js", "--unknown", "--debug"])).toThrow(
+        "Unknown option: --unknown",
+      );
     });
 
     test("should throw for unknown short flags", () => {
-      expect(() =>
-        parseArgs(["node", "script.js", "-x", "-p", "test.json"]),
-      ).toThrow("Unknown option: -x");
+      expect(() => parseArgs(["node", "script.js", "-x", "-p", "test.json"])).toThrow(
+        "Unknown option: -x",
+      );
     });
 
     test("should parse help flags", () => {
@@ -344,11 +279,7 @@ describe("parseArgs", () => {
     });
 
     test("should handle multiple equals signs in value", () => {
-      const result = parseArgs([
-        "node",
-        "script.js",
-        "--securityProviderToken=abc=123=xyz",
-      ]);
+      const result = parseArgs(["node", "script.js", "--securityProviderToken=abc=123=xyz"]);
 
       expect(result.options.securityProviderToken).toBe("abc=123=xyz");
     });
@@ -430,12 +361,7 @@ describe("parseArgs", () => {
     });
 
     test("should convert --security-provider to securityProvider", () => {
-      const result = parseArgs([
-        "node",
-        "script.js",
-        "--securityProvider",
-        "osv",
-      ]);
+      const result = parseArgs(["node", "script.js", "--securityProvider", "osv"]);
 
       expect(result.options.securityProvider).toEqual(["osv"]);
     });

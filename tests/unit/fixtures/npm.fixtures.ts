@@ -49,10 +49,7 @@ export const mockNotFoundResponse = () =>
     status: 404,
   }) as Response;
 
-export const createNpmPackageInfo = (
-  latest: string,
-  versions: Record<string, object>,
-) => ({
+export const createNpmPackageInfo = (latest: string, versions: Record<string, object>) => ({
   "dist-tags": { latest },
   versions,
 });

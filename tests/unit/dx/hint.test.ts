@@ -105,16 +105,12 @@ test("showHint - handles corrupt cache file gracefully", () => {
 });
 
 test("saveHintCache - creates cache dir when it does not exist", () => {
-  const tmpCacheDir = join(
-    tmpdir(),
-    `pastoralist-hint-test-${process.pid}-${Date.now()}`,
-  );
+  const tmpCacheDir = join(tmpdir(), `pastoralist-hint-test-${process.pid}-${Date.now()}`);
   const prevEnv = process.env.PASTORALIST_CACHE_DIR;
   process.env.PASTORALIST_CACHE_DIR = tmpCacheDir;
 
   try {
-    if (existsSync(tmpCacheDir))
-      rmSync(tmpCacheDir, { recursive: true, force: true });
+    if (existsSync(tmpCacheDir)) rmSync(tmpCacheDir, { recursive: true, force: true });
 
     const { output, calls } = createMockOutput();
     showHint("new-dir-test", "Message", undefined, output);
@@ -122,8 +118,7 @@ test("saveHintCache - creates cache dir when it does not exist", () => {
     expect(calls.join("")).toContain("Message");
     expect(existsSync(tmpCacheDir)).toBe(true);
   } finally {
-    if (existsSync(tmpCacheDir))
-      rmSync(tmpCacheDir, { recursive: true, force: true });
+    if (existsSync(tmpCacheDir)) rmSync(tmpCacheDir, { recursive: true, force: true });
     if (prevEnv === undefined) delete process.env.PASTORALIST_CACHE_DIR;
     else process.env.PASTORALIST_CACHE_DIR = prevEnv;
     clearHintCache();
@@ -152,8 +147,6 @@ test("saveHintCache - does not throw when write fails", () => {
   });
 
   const { output } = createMockOutput();
-  expect(() =>
-    showHint("write-fail-test", "Message", undefined, output),
-  ).not.toThrow();
+  expect(() => showHint("write-fail-test", "Message", undefined, output)).not.toThrow();
   spy.mockRestore();
 });

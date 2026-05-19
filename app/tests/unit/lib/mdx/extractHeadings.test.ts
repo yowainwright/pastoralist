@@ -1,8 +1,5 @@
 import { test, expect, describe } from "bun:test";
-import {
-  slugify,
-  extractHeadings,
-} from "../../../../src/lib/mdx/extractHeadings";
+import { slugify, extractHeadings } from "../../../../src/lib/mdx/extractHeadings";
 
 describe("slugify", () => {
   test("should lowercase text", () => {
@@ -16,22 +13,12 @@ describe("slugify", () => {
   });
 
   test("should match rehype-slug for CLI flag headings", () => {
-    expect(slugify("`pastoralist --path <path>`")).toBe(
-      "pastoralist---path-path",
-    );
-    expect(slugify("`pastoralist --depPaths [paths...]`")).toBe(
-      "pastoralist---deppaths-paths",
-    );
-    expect(slugify("`pastoralist --ignore [patterns...]`")).toBe(
-      "pastoralist---ignore-patterns",
-    );
-    expect(slugify("`pastoralist --root <root>`")).toBe(
-      "pastoralist---root-root",
-    );
+    expect(slugify("`pastoralist --path <path>`")).toBe("pastoralist---path-path");
+    expect(slugify("`pastoralist --depPaths [paths...]`")).toBe("pastoralist---deppaths-paths");
+    expect(slugify("`pastoralist --ignore [patterns...]`")).toBe("pastoralist---ignore-patterns");
+    expect(slugify("`pastoralist --root <root>`")).toBe("pastoralist---root-root");
     expect(slugify("`pastoralist --init`")).toBe("pastoralist---init");
-    expect(slugify("`pastoralist --interactive`")).toBe(
-      "pastoralist---interactive",
-    );
+    expect(slugify("`pastoralist --interactive`")).toBe("pastoralist---interactive");
     expect(slugify("`pastoralist --debug`")).toBe("pastoralist---debug");
   });
 
@@ -53,17 +40,13 @@ describe("extractHeadings", () => {
   test("should extract h2 headings", () => {
     const source = `## Hello World`;
     const headings = extractHeadings(source);
-    expect(headings).toEqual([
-      { depth: 2, slug: "hello-world", text: "Hello World" },
-    ]);
+    expect(headings).toEqual([{ depth: 2, slug: "hello-world", text: "Hello World" }]);
   });
 
   test("should extract h3 headings", () => {
     const source = `### Sub Section`;
     const headings = extractHeadings(source);
-    expect(headings).toEqual([
-      { depth: 3, slug: "sub-section", text: "Sub Section" },
-    ]);
+    expect(headings).toEqual([{ depth: 3, slug: "sub-section", text: "Sub Section" }]);
   });
 
   test("should extract multiple headings with correct slugs", () => {

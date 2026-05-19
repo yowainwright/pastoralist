@@ -10,12 +10,12 @@
     "lodash": "^4.17.21",
     "underscore": "^1.13.0"
   },
-  "overrides": {
-    "lodash": "4.17.20",
-    "qs": "6.11.0",
-    "mime": "3.0.0"
-  },
   "devDependencies": {
     "pastoralist": "latest"
+  },
+  "overrides": {
+    "lodash": "4.17.20",
+    "mime": "3.0.0",
+    "qs": "6.11.0"
   }
 }

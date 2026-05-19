@@ -25,9 +25,7 @@ export const TreeConnectors: React.FC<{ line: TerminalLine }> = ({ line }) => {
       />
     ));
 
-  const branchClass = line.isLast
-    ? "tree-connector-last"
-    : "tree-connector-mid";
+  const branchClass = line.isLast ? "tree-connector-last" : "tree-connector-mid";
 
   return (
     <>
@@ -53,9 +51,7 @@ const TerminalLines: React.FC<{
     ))}
     {isTyping && currentLine && (
       <div className={`${STYLES.line} ${currentLine.className ?? ""}`}>
-        {currentLine.prefix && (
-          <span className={STYLES.prefix}>{currentLine.prefix}</span>
-        )}
+        {currentLine.prefix && <span className={STYLES.prefix}>{currentLine.prefix}</span>}
         <TreeConnectors line={currentLine} />
         <span dangerouslySetInnerHTML={{ __html: displayedText }} />
         <span className={STYLES.cursor} />
@@ -63,6 +59,16 @@ const TerminalLines: React.FC<{
     )}
   </>
 );
+
+const getTypingLine = (
+  hasStarted: boolean,
+  isFinished: boolean,
+  currentLine: TerminalLine | undefined,
+): TerminalLine | undefined => {
+  if (!hasStarted) return undefined;
+  if (isFinished) return undefined;
+  return currentLine;
+};
 
 export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
   demos,
@@ -95,7 +101,8 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
 
   useEffect(() => {
     if (startAnimation !== undefined) {
-      if (startAnimation && !hasStarted) {
+      const shouldStartFromProp = startAnimation && !hasStarted;
+      if (shouldStartFromProp) {
         setHasStarted(true);
       }
       return;
@@ -103,7 +110,8 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
 
     const observer = new IntersectionObserver((entries) => {
       const isInView = entries[0]?.isIntersecting;
-      if (isInView && !hasStarted) {
+      const shouldStartInView = isInView && !hasStarted;
+      if (shouldStartInView) {
         setHasStarted(true);
       }
     }, INTERSECTION_OBSERVER_OPTIONS);
@@ -127,11 +135,13 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
 
   const moveToNextDemo = useCallback(() => {
     const isLastDemo = currentDemoIndex === demos.length - 1;
+    const shouldLoopDemo = isLastDemo && loop;
+    const shouldFinishDemo = isLastDemo && !loop;
 
-    if (isLastDemo && loop) {
+    if (shouldLoopDemo) {
       setCurrentDemoIndex(0);
       resetAnimation();
-    } else if (isLastDemo && !loop) {
+    } else if (shouldFinishDemo) {
       setIsFinished(true);
       onComplete?.();
     } else if (!isLastDemo) {
@@ -144,7 +154,7 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
     const isLastLine = currentLineIndex === currentDemo.lines.length - 1;
 
     if (currentLine) {
-      setVisibleLines((prev) => [...prev, currentLine]);
+      setVisibleLines((prev) => prev.concat(currentLine));
     }
 
     if (isLastLine) {
@@ -155,11 +165,8 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
     }
   }, [currentLineIndex, currentDemo, moveToNextDemo, currentLine]);
 
-  const { isTyping, setIsTyping } = useLineProcessor(
-    hasStarted && !isFinished ? currentLine : undefined,
-    visibleLines,
-    moveToNextLine,
-  );
+  const typingLine = getTypingLine(hasStarted, isFinished, currentLine);
+  const { isTyping, setIsTyping } = useLineProcessor(typingLine, visibleLines, moveToNextLine);
 
   const { displayedText, isComplete } = useTypingAnimation(
     currentLine?.text ?? "",
@@ -168,7 +175,8 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
   );
 
   useEffect(() => {
-    if (isComplete && isTyping) {
+    const shouldFinishTyping = isComplete && isTyping;
+    if (shouldFinishTyping) {
       setIsTyping(false);
       moveToNextLine();
     }

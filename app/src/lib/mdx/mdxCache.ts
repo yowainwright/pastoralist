@@ -32,11 +32,17 @@ let mdxRuntime: typeof import("@mdx-js/mdx") | null = null;
 let reactRuntime: typeof import("react/jsx-runtime") | null = null;
 
 export async function getMDXRuntime() {
-  if (!mdxRuntime || !reactRuntime) {
+  const shouldLoadRuntime = !mdxRuntime || !reactRuntime;
+  if (shouldLoadRuntime) {
     [mdxRuntime, reactRuntime] = await Promise.all([
       import("@mdx-js/mdx"),
       import("react/jsx-runtime"),
     ]);
   }
-  return { mdxRuntime, reactRuntime };
+
+  const loadedMdxRuntime = mdxRuntime;
+  const loadedReactRuntime = reactRuntime;
+  if (!loadedMdxRuntime) throw new Error("MDX runtime failed to load");
+  if (!loadedReactRuntime) throw new Error("React runtime failed to load");
+  return { mdxRuntime: loadedMdxRuntime, reactRuntime: loadedReactRuntime };
 }

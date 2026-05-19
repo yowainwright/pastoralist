@@ -2,9 +2,25 @@ let pipedInputLines: string[] = [];
 let lineIndex = 0;
 let pipedInputReady = false;
 let pipedInputInitialized = false;
+let pipedInputReadyWaiters: Array<() => void> = [];
+
+const resolvePipedInputReady = (): void => {
+  pipedInputReady = true;
+  const waiters = pipedInputReadyWaiters;
+  pipedInputReadyWaiters = [];
+  waiters.forEach((resolve) => resolve());
+};
+
+const waitForPipedInput = (): Promise<void> => {
+  if (pipedInputReady) return Promise.resolve();
+  return new Promise((resolve) => {
+    pipedInputReadyWaiters = pipedInputReadyWaiters.concat(resolve);
+  });
+};
 
 export function initializePipedInput(): void {
-  if (pipedInputInitialized || process.stdin.isTTY) {
+  const shouldSkipInitialization = pipedInputInitialized || process.stdin.isTTY;
+  if (shouldSkipInitialization) {
     return;
   }
 
@@ -18,7 +34,7 @@ export function initializePipedInput(): void {
 
   process.stdin.on("end", () => {
     pipedInputLines = input.trim().split("\n");
-    pipedInputReady = true;
+    resolvePipedInputReady();
   });
 }
 
@@ -32,19 +48,19 @@ export async function waitForPipedInputReady(): Promise<void> {
   }
 
   initializePipedInput();
-
-  while (!pipedInputReady) {
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
+  await waitForPipedInput();
 }
 
 export function getNextPipedInput(): string | null {
-  if (!isPipedInput() || !pipedInputReady) {
+  const cannotReadPipedInput = !isPipedInput() || !pipedInputReady;
+  if (cannotReadPipedInput) {
     return null;
   }
 
   if (lineIndex < pipedInputLines.length) {
-    return pipedInputLines[lineIndex++];
+    const line = pipedInputLines[lineIndex];
+    lineIndex += 1;
+    return line;
   }
 
   return "";
@@ -55,9 +71,7 @@ export async function enhancedQuestion<T = string>(
     question: (prompt: string, callback: (answer: string) => void) => void;
   },
   prompt: string,
-  processor: (answer: string) => T = ((answer: string) => answer.trim()) as (
-    answer: string,
-  ) => T,
+  processor: (answer: string) => T = ((answer: string) => answer.trim()) as (answer: string) => T,
 ): Promise<T> {
   await waitForPipedInputReady();
 
@@ -79,4 +93,5 @@ export function resetPipedInputState(): void {
   lineIndex = 0;
   pipedInputReady = false;
   pipedInputInitialized = false;
+  pipedInputReadyWaiters = [];
 }

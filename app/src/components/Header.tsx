@@ -24,12 +24,15 @@ export function Header() {
     slug: doc.slug,
   }));
 
-  const navItemClassName = (href: string) =>
-    `rounded-lg hover:text-[#1D4ED8] hover:bg-[#1D4ED8]/10 transition flex ${
-      (href.includes("/docs") ? pathname.includes("/docs") : pathname === href)
-        ? "text-[#1D4ED8] bg-[#1D4ED8]/10"
-        : ""
-    }`;
+  const isNavItemActive = (href: string): boolean => {
+    if (href.includes("/docs")) return pathname.includes("/docs");
+    return pathname === href;
+  };
+
+  const navItemClassName = (href: string) => {
+    const activeClass = isNavItemActive(href) ? "text-[#1D4ED8] bg-[#1D4ED8]/10" : "";
+    return `rounded-lg hover:text-[#1D4ED8] hover:bg-[#1D4ED8]/10 transition flex ${activeClass}`;
+  };
 
   return (
     <header className="fixed top-0 z-[1000] w-full">
@@ -44,14 +47,8 @@ export function Header() {
               &#9776;
             </label>
           )}
-          <Link
-            to="/"
-            preload="intent"
-            className="btn btn-ghost min-w-0 px-1.5 sm:px-2"
-          >
-            <h1 className="gradient-text truncate text-lg font-bold sm:text-2xl">
-              Pastoralist
-            </h1>
+          <Link to="/" preload="intent" className="btn btn-ghost min-w-0 px-1.5 sm:px-2">
+            <h1 className="gradient-text truncate text-lg font-bold sm:text-2xl">Pastoralist</h1>
           </Link>
         </div>
 
@@ -59,11 +56,7 @@ export function Header() {
           <ul className="menu menu-horizontal flex-nowrap gap-1 p-0 text-sm font-medium sm:text-base">
             {navigation.map((item) => (
               <li key={item.href}>
-                <Link
-                  to={item.href}
-                  preload="intent"
-                  className={navItemClassName(item.href)}
-                >
+                <Link to={item.href} preload="intent" className={navItemClassName(item.href)}>
                   {item.title}
                 </Link>
               </li>

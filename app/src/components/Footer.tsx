@@ -15,11 +15,7 @@ export function Footer() {
 
       <div className="flex items-center justify-center gap-2 order-1 sm:order-2">
         <Link to="/" className="hover:opacity-80 transition-opacity">
-          <img
-            src={`${base}pastoralist-logo.svg`}
-            alt="Pastoralist Logo"
-            className="h-12 w-12"
-          />
+          <img src={`${base}pastoralist-logo.svg`} alt="Pastoralist Logo" className="h-12 w-12" />
         </Link>
       </div>
 

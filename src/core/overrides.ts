@@ -29,12 +29,8 @@ const buildOverrideTypes = (
   ];
 };
 
-const filterNonEmptyOverrides = (
-  overrideTypes: OverrideType[],
-): OverrideType[] => {
-  return overrideTypes.filter(
-    ({ overrides }) => Object.keys(overrides).length > 0,
-  );
+const filterNonEmptyOverrides = (overrideTypes: OverrideType[]): OverrideType[] => {
+  return overrideTypes.filter(({ overrides }) => Object.keys(overrides).length > 0);
 };
 
 const hasMultipleOverrideTypes = (overrideTypes: OverrideType[]): boolean => {
@@ -65,9 +61,7 @@ export const defineOverride = ({
   return nonEmptyTypes[0];
 };
 
-const normalizeOverrides = (
-  initialOverrides: Record<string, OverrideValue>,
-): OverridesType => {
+const normalizeOverrides = (initialOverrides: Record<string, OverrideValue>): OverridesType => {
   const overridesItems = Object.keys(initialOverrides);
 
   return overridesItems.reduce((acc, name) => {
@@ -92,18 +86,13 @@ const buildNpmResult = (overrides: OverridesType): ResolveOverrides => {
   return { type: "npm", overrides };
 };
 
-const buildResultByType = (
-  type: string,
-  overrides: OverridesType,
-): ResolveOverrides => {
+const buildResultByType = (type: string, overrides: OverridesType): ResolveOverrides => {
   if (type === "pnpmOverrides") return buildPnpmResult(overrides);
   if (type === "resolutions") return buildResolutionsResult(overrides);
   return buildNpmResult(overrides);
 };
 
-export const resolveOverrides = ({
-  config = {},
-}: ResolveResolutionOptions): ResolveOverrides => {
+export const resolveOverrides = ({ config = {} }: ResolveResolutionOptions): ResolveOverrides => {
   const overrideData = defineOverride(config);
   const hasNoOverrideData = !overrideData;
 
@@ -130,9 +119,7 @@ const getResolutions = (data: ResolveOverrides): OverridesType | undefined => {
   return data?.resolutions;
 };
 
-const getPnpmOverrides = (
-  data: ResolveOverrides,
-): OverridesType | undefined => {
+const getPnpmOverrides = (data: ResolveOverrides): OverridesType | undefined => {
   return data?.pnpm?.overrides;
 };
 
@@ -140,9 +127,7 @@ const getNpmOverrides = (data: ResolveOverrides): OverridesType | undefined => {
   return data?.overrides;
 };
 
-export const getOverridesByType = (
-  data: ResolveOverrides,
-): OverridesType | undefined => {
+export const getOverridesByType = (data: ResolveOverrides): OverridesType | undefined => {
   const type = data?.type;
   const hasNoType = !type;
 

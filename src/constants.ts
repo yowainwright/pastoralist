@@ -27,8 +27,7 @@ export const ANSI = {
   FG_WHITE: "\x1b[97m",
 } as const;
 
-export const rgb = (r: number, g: number, b: number): string =>
-  `\x1b[38;2;${r};${g};${b}m`;
+export const rgb = (r: number, g: number, b: number): string => `\x1b[38;2;${r};${g};${b}m`;
 
 const BRIGHT = ANSI.BOLD;
 const GOLD = ANSI.FG_GOLD;

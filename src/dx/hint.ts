@@ -3,14 +3,11 @@ import { join } from "path";
 import { gold } from "../utils/colors";
 import { ICON } from "../utils/icons";
 import { resolveCacheDir } from "../utils/cache";
+import type { HintCache } from "./types";
+import { DEFAULT_HINT_BOX_WIDTH, DEFAULT_HINT_TTL_MS } from "./constants";
 import { pad } from "./format";
 import type { Output } from "./output";
 import { defaultOutput } from "./output";
-
-const DEFAULT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const DEFAULT_BOX_WIDTH = 50;
-
-type HintCache = Record<string, number>;
 
 const getHintCacheDir = (): string => resolveCacheDir();
 
@@ -35,15 +32,17 @@ function saveHintCache(cache: HintCache): void {
     }
     writeFileSync(hintCacheFile, JSON.stringify(cache));
   } catch {
-    // Hints are best-effort and must not fail the CLI.
+    return;
   }
 }
 
-function shouldShowHint(hintId: string, ttlMs = DEFAULT_TTL_MS): boolean {
+function shouldShowHint(hintId: string, ttlMs = DEFAULT_HINT_TTL_MS): boolean {
   const cache = loadHintCache();
   const lastShown = cache[hintId];
   if (!lastShown) return true;
-  return Date.now() - lastShown > ttlMs;
+  const elapsedMs = Date.now() - lastShown;
+  const isExpired = elapsedMs > ttlMs;
+  return isExpired;
 }
 
 function markHintShown(hintId: string): void {
@@ -59,27 +58,31 @@ export function clearHintCache(): void {
       writeFileSync(hintCacheFile, "{}");
     }
   } catch {
-    // Hints are best-effort and must not fail the CLI.
+    return;
   }
 }
 
 function wrapText(text: string, width: number): string[] {
-  const lines: string[] = [];
-  let current = "";
-  text.split(" ").forEach((word) => {
-    const test = current ? current + " " + word : word;
-    if (test.length <= width) {
-      current = test;
-    } else {
-      if (current) lines.push(current);
-      current = word;
-    }
-  });
-  if (current) lines.push(current);
-  return lines;
+  const appendLine = (lines: string[], line: string): string[] => {
+    if (!line) return lines;
+    return lines.concat(line);
+  };
+  const state = text.split(" ").reduce(
+    (acc, word) => {
+      const { current } = acc;
+      const test = current ? current + " " + word : word;
+      if (test.length <= width) {
+        return Object.assign({}, acc, { current: test });
+      }
+
+      return { lines: appendLine(acc.lines, current), current: word };
+    },
+    { lines: [] as string[], current: "" },
+  );
+  return appendLine(state.lines, state.current);
 }
 
-function renderHintBox(text: string, width = DEFAULT_BOX_WIDTH): string {
+function renderHintBox(text: string, width = DEFAULT_HINT_BOX_WIDTH): string {
   const innerWidth = width - 4;
   const textWidth = innerWidth - 3;
   const lines = wrapText(text, textWidth);
@@ -87,15 +90,16 @@ function renderHintBox(text: string, width = DEFAULT_BOX_WIDTH): string {
   const content = lines.map((line, i) => {
     const prefix = i === 0 ? ICON.hint + " " : "   ";
     const padded = pad(prefix + line, innerWidth);
-    return gold("| " + padded + " |");
+    const contentLine = "| " + padded + " |";
+    return gold(contentLine);
   });
-  return [border, ...content, border].join("\n");
+  return [border].concat(content, border).join("\n");
 }
 
 export function showHint(
   hintId: string,
   text: string,
-  ttlMs = DEFAULT_TTL_MS,
+  ttlMs = DEFAULT_HINT_TTL_MS,
   out: Output = defaultOutput,
 ): void {
   if (!shouldShowHint(hintId, ttlMs)) return;

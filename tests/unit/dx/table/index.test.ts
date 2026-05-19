@@ -54,11 +54,11 @@ describe("dx/table", () => {
       expect(result).toContain("Failed");
       expect(result).toContain("Note");
       expect(result).toContain("Log");
-      expect(result).toContain("\x1b[32m"); // green
-      expect(result).toContain("\x1b[33m"); // yellow
-      expect(result).toContain("\x1b[31m"); // red
-      expect(result).toContain("\x1b[36m"); // cyan
-      expect(result).toContain("\x1b[90m"); // gray
+      expect(result).toContain("\x1b[32m");
+      expect(result).toContain("\x1b[33m");
+      expect(result).toContain("\x1b[31m");
+      expect(result).toContain("\x1b[36m");
+      expect(result).toContain("\x1b[90m");
     });
 
     test("respects minimum label width", () => {
@@ -69,7 +69,6 @@ describe("dx/table", () => {
       const result = renderTable(rows, options);
       const lines = result.split("\n");
 
-      // Check that the label column is padded to at least 30 chars
       const labelLine = lines[1];
       const labelPart = labelLine.split("|")[1];
       expect(labelPart.trim().length).toBeGreaterThanOrEqual(1);
@@ -84,7 +83,6 @@ describe("dx/table", () => {
       const result = renderTable(rows, options);
       const lines = result.split("\n");
 
-      // Check that the value column is padded to at least 25 chars
       const valueLine = lines[1];
       const valuePart = valueLine.split("|")[2];
       expect(valuePart.trim().length).toBeGreaterThanOrEqual(1);
@@ -117,8 +115,7 @@ describe("dx/table", () => {
       const rows: TableRow[] = [
         {
           label: "This is a very long label that should be handled correctly",
-          value:
-            "This is a very long value that should also be handled correctly",
+          value: "This is a very long value that should also be handled correctly",
         },
       ];
       const result = renderTable(rows);
@@ -135,7 +132,6 @@ describe("dx/table", () => {
       const result = renderTable(rows);
       const lines = result.split("\n");
 
-      // Values should be right-aligned
       expect(lines[1]).toMatch(/\s+Val\s*\|$/);
       expect(lines[2]).toMatch(/Longer Value\s*\|$/);
     });
@@ -145,7 +141,6 @@ describe("dx/table", () => {
       const result = renderTable(rows);
       const lines = result.split("\n");
 
-      // Should use DEFAULT_MIN_LABEL_WIDTH (20) and DEFAULT_MIN_VALUE_WIDTH (10)
       const separator = lines[0];
       const labelDashes = separator.split("+")[1].split("+")[0];
       const valueDashes = separator.split("+")[2].split("+")[0];
@@ -204,16 +199,13 @@ describe("dx/table", () => {
       const result = renderTable(rows);
       const lines = result.split("\n");
 
-      // Check separator format: +-...-+-...-+
       const separator = lines[0];
       expect(separator).toMatch(/^\+-+\+-+\+$/);
       expect(separator).toBe(lines[lines.length - 1]);
     });
 
     test("handles ANSI colored labels", () => {
-      const rows: TableRow[] = [
-        { label: "\x1b[31mRed Label\x1b[0m", value: "Value" },
-      ];
+      const rows: TableRow[] = [{ label: "\x1b[31mRed Label\x1b[0m", value: "Value" }];
       const result = renderTable(rows);
 
       expect(result).toContain("\x1b[31mRed Label\x1b[0m");
@@ -227,11 +219,9 @@ describe("dx/table", () => {
       const result = renderTable(rows);
       const lines = result.split("\n");
 
-      // Both value cells should have the same visual width despite ANSI codes
       const line1Parts = lines[1].split("|");
       const line2Parts = lines[2].split("|");
 
-      // Remove ANSI codes to check actual width
       const removeAnsi = (str: string) => str.replace(/\x1b\[[0-9;]*m/g, "");
       const value1Width = removeAnsi(line1Parts[2]).length;
       const value2Width = removeAnsi(line2Parts[2]).length;

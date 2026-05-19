@@ -1,9 +1,11 @@
+export type Severity = "low" | "medium" | "high" | "critical";
+
 export interface SecurityAlert {
   packageName: string;
   currentVersion: string;
   vulnerableVersions: string;
   patchedVersion?: string;
-  severity: "low" | "medium" | "high" | "critical";
+  severity: Severity;
   title: string;
   description?: string;
   cves?: string[];
@@ -13,6 +15,16 @@ export interface SecurityAlert {
 }
 
 export type SecurityProviderType = "osv" | "github" | "snyk" | "npm" | "socket" | "spektion";
+export type SetupSecurityProvider = Exclude<SecurityProviderType, "npm">;
+
+export interface ProviderConfig {
+  name: string;
+  envVar: string | null;
+  tokenUrl: string | null;
+  cliAlternative?: string;
+  requiredScopes?: string[];
+  setupSteps: string[];
+}
 
 export interface SecurityCheckProgress {
   phase: "extracting" | "fetching" | "analyzing" | "resolving";

@@ -1265,6 +1265,12 @@ test("ensureProviderAuth - returns true for OSV provider", async () => {
   expect(result).toBe(true);
 });
 
+test("ensureProviderAuth - returns true for npm provider", async () => {
+  const checker = new SecurityChecker({ provider: "osv" });
+  const result = await checker.ensureProviderAuth("npm");
+  expect(result).toBe(true);
+});
+
 test("ensureProviderAuth - returns true when token is available", async () => {
   const originalToken = process.env.SNYK_TOKEN;
   process.env.SNYK_TOKEN = "test-token";

@@ -1,3 +1,8 @@
+import type { ICON, PREFIX } from "./icons";
+
+export type IconKey = keyof typeof ICON;
+export type PrefixKey = keyof typeof PREFIX;
+
 export type RGB = {
   r: number;
   g: number;

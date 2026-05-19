@@ -23,7 +23,6 @@ export type { SpinnerState, Spinner } from "../dx";
 export { gradientGreenTan } from "./gradient";
 export { green, yellow, red, cyan, gray, gold, copper, gradientPastoralist, link } from "./colors";
 export { ICON, PREFIX, STEP, BRAND } from "./icons";
-export type { IconKey, PrefixKey } from "./icons";
 export { logger } from "./logger";
 export type { ConsoleMethod, DebugLogFunc, Logger, LoggerOptions, PrintFunc } from "./types";
 export { buildObject, mergeInto } from "./object";
@@ -45,6 +44,8 @@ export {
   fetchLatestCompatibleVersions,
 } from "./npm";
 export type {
+  IconKey,
+  PrefixKey,
   Task,
   QueueItem,
   LRUCacheOptions,

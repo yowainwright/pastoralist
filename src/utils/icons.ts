@@ -37,6 +37,3 @@ export const STEP = {
   workspace: `${ICON.step} Step 2: Workspace Configuration`,
   security: `${ICON.step} Step 3: Security Configuration`,
 } as const;
-
-export type IconKey = keyof typeof ICON;
-export type PrefixKey = keyof typeof PREFIX;

@@ -13,8 +13,13 @@ import {
   VALIDATION_ENDPOINTS,
   GH_MESSAGES,
 } from "./constants";
-import type { SecurityProvider, ProviderConfig } from "./constants";
-import type { SetupResult, OutputFunctions, PromptFunctions } from "./types";
+import type {
+  ProviderConfig,
+  SetupResult,
+  OutputFunctions,
+  PromptFunctions,
+  SetupSecurityProvider,
+} from "./types";
 
 const execFileAsync = promisify(execFile);
 
@@ -47,7 +52,7 @@ export class SecuritySetupWizard {
     this.out = createOutput();
   }
 
-  async checkTokenAvailable(provider: SecurityProvider): Promise<boolean> {
+  async checkTokenAvailable(provider: SetupSecurityProvider): Promise<boolean> {
     const config = PROVIDER_CONFIGS[provider];
     const noEnvVarNeeded = !config.envVar;
 
@@ -87,7 +92,7 @@ export class SecuritySetupWizard {
     this.out.log(`${divider}\n`);
   }
 
-  async runSetup(provider: SecurityProvider): Promise<SetupResult> {
+  async runSetup(provider: SetupSecurityProvider): Promise<SetupResult> {
     const config = PROVIDER_CONFIGS[provider];
 
     this.printSetupHeader(config.name);
@@ -114,7 +119,7 @@ export class SecuritySetupWizard {
   }
 
   private async checkExistingToken(
-    provider: SecurityProvider,
+    provider: SetupSecurityProvider,
     config: ProviderConfig,
   ): Promise<SetupResult | null> {
     const existingToken = process.env[config.envVar!];
@@ -137,7 +142,9 @@ export class SecuritySetupWizard {
     };
   }
 
-  private async tryGitHubCliIfApplicable(provider: SecurityProvider): Promise<SetupResult | null> {
+  private async tryGitHubCliIfApplicable(
+    provider: SetupSecurityProvider,
+  ): Promise<SetupResult | null> {
     const isGitHub = provider === "github";
     if (!isGitHub) {
       return null;
@@ -280,7 +287,7 @@ export class SecuritySetupWizard {
   }
 
   private async runTokenSetup(
-    provider: SecurityProvider,
+    provider: SetupSecurityProvider,
     config: ProviderConfig,
   ): Promise<SetupResult> {
     this.printTokenSetupInstructions(config);
@@ -389,7 +396,7 @@ export class SecuritySetupWizard {
     return { success: false, message: "Token validation failed" };
   }
 
-  async validateToken(provider: SecurityProvider, token: string): Promise<boolean> {
+  async validateToken(provider: SetupSecurityProvider, token: string): Promise<boolean> {
     try {
       const isGitHub = provider === "github";
       if (isGitHub) {
@@ -541,7 +548,7 @@ export class SecuritySetupWizard {
 }
 
 export async function promptForSetup(
-  provider: SecurityProvider,
+  provider: SetupSecurityProvider,
   options: { debug?: boolean } = {},
 ): Promise<SetupResult> {
   const wizard = new SecuritySetupWizard(options);
@@ -561,7 +568,7 @@ export async function promptForSetup(
   return createSetupSkippedResult(config);
 }
 
-function createAlreadyConfiguredResult(provider: SecurityProvider): SetupResult {
+function createAlreadyConfiguredResult(provider: SetupSecurityProvider): SetupResult {
   return {
     success: true,
     message: `${PROVIDER_CONFIGS[provider].name} is already configured.`,
@@ -581,4 +588,4 @@ function createSetupSkippedResult(config: ProviderConfig): SetupResult {
   };
 }
 
-export type { SecurityProvider };
+export type { SetupSecurityProvider };

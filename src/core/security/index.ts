@@ -41,8 +41,8 @@ import {
   sortAlertsByPriority,
 } from "./utils";
 import { SecuritySetupWizard, promptForSetup } from "./setup";
-import type { SecurityProvider as SecurityProviderType } from "./constants";
-import { KNOWN_PROVIDERS } from "./constants";
+import type { SetupSecurityProvider } from "./types";
+import { KNOWN_PROVIDERS, PROVIDER_CONFIGS } from "./constants";
 import { readFileSync, copyFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { createHash } from "crypto";
 import { resolve, dirname, basename } from "path";
@@ -117,6 +117,10 @@ export class SecurityChecker {
     return (KNOWN_PROVIDERS as readonly string[]).includes(providerType);
   }
 
+  private hasProviderSetup(providerType: string): providerType is SetupSecurityProvider {
+    return providerType in PROVIDER_CONFIGS;
+  }
+
   async ensureProviderAuth(
     providerType: string,
     options: { debug?: boolean; interactive?: boolean } = {},
@@ -126,9 +130,12 @@ export class SecurityChecker {
       return true;
     }
 
-    const provider = providerType as SecurityProviderType;
+    if (!this.hasProviderSetup(providerType)) {
+      return true;
+    }
+
     const wizard = new SecuritySetupWizard({ debug: options.debug });
-    const hasToken = await wizard.checkTokenAvailable(provider);
+    const hasToken = await wizard.checkTokenAvailable(providerType);
 
     if (hasToken) {
       return true;
@@ -139,7 +146,7 @@ export class SecurityChecker {
       return false;
     }
 
-    const result = await promptForSetup(provider, { debug: options.debug });
+    const result = await promptForSetup(providerType, { debug: options.debug });
     return result.success;
   }
 

@@ -1,5 +1,12 @@
 import { link } from "../../utils/colors";
-import type { DependabotAlert, PromptChoice, SecurityAlert } from "./types";
+import type {
+  DependabotAlert,
+  PromptChoice,
+  ProviderConfig,
+  SecurityAlert,
+  SetupSecurityProvider,
+  Severity,
+} from "./types";
 
 export const DEFAULT_CLI_TIMEOUT = 30000;
 export const DEFAULT_INSTALL_TIMEOUT = 120000;
@@ -25,17 +32,6 @@ export const AUTH_MESSAGES = {
   SPEKTION_AUTH_REQUIRED: spektionAuthMessage,
 } as const;
 
-export type SecurityProvider = "github" | "snyk" | "socket" | "osv" | "spektion";
-
-export interface ProviderConfig {
-  name: string;
-  envVar: string | null;
-  tokenUrl: string | null;
-  cliAlternative?: string;
-  requiredScopes?: string[];
-  setupSteps: string[];
-}
-
 const githubTokenLink = link(GITHUB_TOKEN_URL, "GitHub Tokens");
 const snykTokenLink = link(SNYK_TOKEN_URL, "Snyk Account");
 const socketTokenLink = link(SOCKET_TOKEN_URL, "Socket API Keys");
@@ -43,7 +39,7 @@ const spektionTokenLink = link(SPEKTION_TOKEN_URL, "Spektion");
 
 export const KNOWN_PROVIDERS = ["github", "snyk", "socket", "osv", "npm", "spektion"] as const;
 
-export const PROVIDER_CONFIGS: Record<SecurityProvider, ProviderConfig> = {
+export const PROVIDER_CONFIGS: Record<SetupSecurityProvider, ProviderConfig> = {
   github: {
     name: "GitHub Dependabot",
     envVar: "GITHUB_TOKEN",
@@ -183,8 +179,6 @@ export const OSV_IRL_CATCH_ALERT: SecurityAlert = {
 export const SPEKTION_API = {
   SCAN: "https://api.spektion.com/v1/scan",
 } as const;
-
-export type Severity = "low" | "medium" | "high" | "critical";
 
 export const SEVERITY_MAP: Record<string, Severity> = {
   critical: "critical",

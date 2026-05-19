@@ -1,6 +1,7 @@
 import type { SecurityAlert } from "../../../types";
 import { logger } from "../../../utils";
-import { SPEKTION_API, SEVERITY_MAP, Severity } from "../constants";
+import { SPEKTION_API, SEVERITY_MAP } from "../constants";
+import type { Severity } from "../types";
 
 const mapSeverity = (severity: string): Severity =>
   SEVERITY_MAP[severity.toLowerCase()] ?? "medium";

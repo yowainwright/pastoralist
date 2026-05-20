@@ -56,10 +56,14 @@
     "prepare": "sh scripts/prepare.sh",
     "prepublishOnly": "bun run test:unit",
     "preview": "bun run --cwd app preview",
-    "release": "release-it",
-    "release:beta": "release-it --preRelease=beta",
-    "release:alpha": "release-it --preRelease=alpha",
-    "release:dry": "release-it --dry-run",
+    "release": "bun scripts/release.ts",
+    "release:beta": "bun scripts/release.ts --preRelease=beta",
+    "release:beta:dry": "bun scripts/release.ts --preRelease=beta --dry-run",
+    "release:alpha": "bun scripts/release.ts --preRelease=alpha",
+    "release:alpha:dry": "bun scripts/release.ts --preRelease=alpha --dry-run",
+    "release:tag": "bun scripts/tag-release.ts",
+    "release:tag:dry": "bun scripts/tag-release.ts --dry-run",
+    "release:dry": "bun scripts/release.ts --dry-run",
     "test": "bun test",
     "test:unit": "bun test tests/unit",
     "test:bench": "./tests/benchmarks/run-benchmarks.sh",
@@ -93,10 +97,10 @@
   "engines": {
     "node": ">=20"
   },
-  "packageManager": "bun@1.3.9",
+  "packageManager": "bun@1.3.14",
   "release-it": {
     "git": {
-      "commitMessage": "chore: release",
+      "commitMessage": "chore(release): ${version}",
       "commitArgs": [
         "--no-verify"
       ],

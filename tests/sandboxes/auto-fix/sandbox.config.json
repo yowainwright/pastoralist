@@ -1,1 +1,1 @@
-{ "template": "node", "container": { "node": "22" } }
+{ "template": "node", "container": { "node": "24" } }

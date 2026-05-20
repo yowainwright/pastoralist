@@ -58,6 +58,7 @@ describe("scripts/release", () => {
       "--git.tag=false",
       "--git.push=false",
       "--git.requireUpstream=false",
+      "--git.getLatestTagFromAllRefs=true",
       "--ci",
     ]);
   });
@@ -80,7 +81,7 @@ describe("scripts/release", () => {
 
   test("buildReleaseCommands returns the local release commands", () => {
     expect(buildReleaseCommands("1.2.4-beta.6", { dryRun: true, preRelease: "beta" })).toEqual([
-      "./node_modules/.bin/release-it --preRelease=beta --git.tag=false --git.push=false --git.requireUpstream=false --ci",
+      "./node_modules/.bin/release-it --preRelease=beta --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci",
       'git tag --annotate v1.2.4-beta.6 --message "Release 1.2.4-beta.6"',
       "git push origin refs/tags/v1.2.4-beta.6",
     ]);
@@ -89,7 +90,7 @@ describe("scripts/release", () => {
   test("buildReleasePlan returns the local release plan", () => {
     expect(buildReleasePlan("1.2.4-beta.6", { dryRun: true, preRelease: "beta" })).toEqual({
       commands: [
-        "./node_modules/.bin/release-it --preRelease=beta --git.tag=false --git.push=false --git.requireUpstream=false --ci",
+        "./node_modules/.bin/release-it --preRelease=beta --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci",
         'git tag --annotate v1.2.4-beta.6 --message "Release 1.2.4-beta.6"',
         "git push origin refs/tags/v1.2.4-beta.6",
       ],
@@ -97,6 +98,7 @@ describe("scripts/release", () => {
         "verify clean, up-to-date main",
         "create the release commit without pushing main",
         "push v1.2.4-beta.6 to trigger publishing",
+        "restore local main to its starting commit",
       ],
       tagName: "v1.2.4-beta.6",
       version: "1.2.4-beta.6",
@@ -121,7 +123,7 @@ describe("scripts/release", () => {
     };
     const { calls, runner } = createRunner({
       ...readyOverrides,
-      "./node_modules/.bin/release-it --release-version --preRelease=beta --git.tag=false --git.push=false --git.requireUpstream=false --ci":
+      "./node_modules/.bin/release-it --release-version --preRelease=beta --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
         ok("1.2.4-beta.6\n"),
     });
 
@@ -140,6 +142,7 @@ describe("scripts/release", () => {
       "--git.tag=false",
       "--git.push=false",
       "--git.requireUpstream=false",
+      "--git.getLatestTagFromAllRefs=true",
       "--ci",
     ]);
   });
@@ -156,7 +159,7 @@ describe("scripts/release", () => {
   test("runRelease surfaces command failures", async () => {
     const { runner } = createRunner({
       ...readyOverrides,
-      "./node_modules/.bin/release-it --release-version --git.tag=false --git.push=false --git.requireUpstream=false --ci":
+      "./node_modules/.bin/release-it --release-version --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
         fail("release-it failed"),
     });
 
@@ -169,15 +172,16 @@ describe("scripts/release", () => {
       log: mock(() => {}),
       warn: mock(() => {}),
     };
-    const { runner } = createRunner({
+    const { calls, runner } = createRunner({
       ...readyOverrides,
       ...missingTagOverrides,
-      "./node_modules/.bin/release-it --release-version --git.tag=false --git.push=false --git.requireUpstream=false --ci":
+      "./node_modules/.bin/release-it --release-version --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
         ok("1.2.4\n"),
-      "./node_modules/.bin/release-it --git.tag=false --git.push=false --git.requireUpstream=false --ci":
+      "./node_modules/.bin/release-it --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
         ok(""),
       "git tag --annotate v1.2.4 --message Release 1.2.4": ok(""),
       "git push origin refs/tags/v1.2.4": ok(""),
+      "git reset --hard abc": ok(""),
     });
 
     const code = await runRelease({ logger, runner });
@@ -185,6 +189,7 @@ describe("scripts/release", () => {
     expect(code).toBe(0);
     expect(logger.log).toHaveBeenCalledWith("Pushed v1.2.4");
     expect(logger.log).toHaveBeenCalledWith("No PR was created and main was not pushed.");
+    expect(calls()).toContainEqual(["git", "reset", "--hard", "abc"]);
   });
 
   test("runRelease does not call GitHub PR commands", async () => {
@@ -196,16 +201,41 @@ describe("scripts/release", () => {
     const { calls, runner } = createRunner({
       ...readyOverrides,
       ...missingTagOverrides,
-      "./node_modules/.bin/release-it --release-version --git.tag=false --git.push=false --git.requireUpstream=false --ci":
+      "./node_modules/.bin/release-it --release-version --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
         ok("1.2.4\n"),
-      "./node_modules/.bin/release-it --git.tag=false --git.push=false --git.requireUpstream=false --ci":
+      "./node_modules/.bin/release-it --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
         ok(""),
       "git tag --annotate v1.2.4 --message Release 1.2.4": ok(""),
       "git push origin refs/tags/v1.2.4": ok(""),
+      "git reset --hard abc": ok(""),
     });
 
     await runRelease({ logger, runner });
 
     expect(calls().some((call) => call[0] === "gh")).toBe(false);
+  });
+
+  test("runRelease restores main when tag push fails", async () => {
+    const logger = {
+      error: mock(() => {}),
+      log: mock(() => {}),
+      warn: mock(() => {}),
+    };
+    const { calls, runner } = createRunner({
+      ...readyOverrides,
+      ...missingTagOverrides,
+      "./node_modules/.bin/release-it --release-version --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
+        ok("1.2.4\n"),
+      "./node_modules/.bin/release-it --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
+        ok(""),
+      "git tag --annotate v1.2.4 --message Release 1.2.4": ok(""),
+      "git push origin refs/tags/v1.2.4": fail("push rejected"),
+      "git tag --delete v1.2.4": ok(""),
+      "git reset --hard abc": ok(""),
+    });
+
+    await expect(runRelease({ logger, runner })).rejects.toThrow("push rejected");
+    expect(calls()).toContainEqual(["git", "tag", "--delete", "v1.2.4"]);
+    expect(calls()).toContainEqual(["git", "reset", "--hard", "abc"]);
   });
 });

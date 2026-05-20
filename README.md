@@ -159,10 +159,11 @@ Scorecard, unit/integration/e2e tests, and dependency update policy checks.
 
 Release commands do not create pull requests or push `main`. To deploy a beta,
 run `bun run release:beta` from clean, up-to-date `main`. The command creates
-the release commit locally, then pushes the version tag that triggers publishing.
-If the release commit already exists on `main`, run `bun run release:tag` from
-clean, up-to-date `main`. To preview the beta commands without creating commits
-or tags, run `bun run release:beta:dry`.
+a temporary local release commit, pushes the version tag that triggers
+publishing, then restores local `main` to its starting commit. If the release
+commit already exists on `main`, run `bun run release:tag` from clean,
+up-to-date `main`. To preview the beta commands without creating commits or
+tags, run `bun run release:beta:dry`.
 
 ## Video Walkthroughs
 

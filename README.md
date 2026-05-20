@@ -157,13 +157,12 @@ Scorecard, unit/integration/e2e tests, and dependency update policy checks.
 
 ### Maintainer Release Flow
 
-Release version bumps must land through a pull request. To prepare a beta, run
-`bun run release:beta` from clean, up-to-date `main`. The command creates a
-release branch, opens a PR, enables auto-merge, waits for the PR to merge, then
-pushes the version tag that triggers publishing. If the command is interrupted
-after merge, run `bun run release:tag` from clean, up-to-date `main`. To preview
-the planned beta release without creating branches, PRs, or tags, run
-`bun run release:beta:dry`.
+Release commands do not create pull requests or push `main`. To deploy a beta,
+run `bun run release:beta` from clean, up-to-date `main`. The command creates
+the release commit locally, then pushes the version tag that triggers publishing.
+If the release commit already exists on `main`, run `bun run release:tag` from
+clean, up-to-date `main`. To preview the beta commands without creating commits
+or tags, run `bun run release:beta:dry`.
 
 ## Video Walkthroughs
 

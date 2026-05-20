@@ -6,12 +6,10 @@
     "demo:github": "pastoralist --checkSecurity --securityProvider github",
     "demo:dry": "pastoralist --checkSecurity --dry-run"
   },
-  "dependencies": {
+  "devDependencies": {
     "express": "^4.17.0",
     "lodash": "^4.17.15",
-    "minimist": "^1.2.5"
-  },
-  "devDependencies": {
+    "minimist": "^1.2.5",
     "pastoralist": "latest"
   },
   "pastoralist": {

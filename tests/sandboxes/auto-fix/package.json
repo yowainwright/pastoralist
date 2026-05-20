@@ -5,13 +5,11 @@
     "demo": "pastoralist --checkSecurity",
     "demo:dry": "pastoralist --checkSecurity --dry-run"
   },
-  "dependencies": {
+  "devDependencies": {
     "express": "^4.17.0",
     "lodash": "^4.17.15",
     "minimist": "^1.2.5",
+    "pastoralist": "latest",
     "trim": "^0.0.1"
-  },
-  "devDependencies": {
-    "pastoralist": "latest"
   }
 }

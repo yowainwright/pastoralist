@@ -5,13 +5,11 @@
     "demo": "pastoralist --summary",
     "demo:dry": "pastoralist --summary --dry-run"
   },
-  "dependencies": {
+  "devDependencies": {
     "axios": "^1.6.0",
     "express": "^4.18.0",
     "lodash": "^4.17.21",
-    "moment": "^2.29.0"
-  },
-  "devDependencies": {
+    "moment": "^2.29.0",
     "pastoralist": "latest"
   },
   "overrides": {

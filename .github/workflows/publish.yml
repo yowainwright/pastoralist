@@ -5,13 +5,16 @@ on:
     tags:
       - "v*.*.*"
 
+permissions:
+  contents: read
+
 jobs:
   publish:
     runs-on: ubuntu-latest
     environment: npm-publish
     permissions:
       id-token: write
-      contents: read
+      contents: write
       attestations: write
 
     steps:
@@ -41,9 +44,9 @@ jobs:
         run: |
           VERSION="${{ github.ref_name }}"
           if [[ "$VERSION" =~ -(alpha|beta|rc) ]]; then
-            echo "tag=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+            echo "tag=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
           else
-            echo "tag=latest" >> $GITHUB_OUTPUT
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Pack npm tarball
@@ -55,8 +58,48 @@ jobs:
           echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
 
       - name: Attest npm tarball
+        id: attest
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4
         with:
           subject-path: ${{ steps.pack.outputs.tarball }}
 
-      - run: npm publish "${{ steps.pack.outputs.tarball }}" --provenance --access public --tag "${{ steps.dist-tag.outputs.tag }}"
+      - name: Prepare release attestation
+        id: release-attestation
+        run: |
+          SIGSTORE_BUNDLE="${{ steps.pack.outputs.tarball }}.sigstore.json"
+          cp "${{ steps.attest.outputs.bundle-path }}" "$SIGSTORE_BUNDLE"
+          echo "sigstore_bundle=$SIGSTORE_BUNDLE" >> "$GITHUB_OUTPUT"
+
+      - name: Publish npm package
+        env:
+          PACKAGE_VERSION: ${{ github.ref_name }}
+        run: |
+          VERSION="${PACKAGE_VERSION#v}"
+          if npm view "pastoralist@$VERSION" version > /dev/null 2>&1; then
+            echo "pastoralist@$VERSION is already published"
+            exit 0
+          fi
+
+          npm publish "${{ steps.pack.outputs.tarball }}" --provenance --access public --tag "${{ steps.dist-tag.outputs.tag }}"
+
+      - name: Publish GitHub release assets
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SIGSTORE_BUNDLE: ${{ steps.release-attestation.outputs.sigstore_bundle }}
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          RELEASE_ARGS=()
+          if [[ "$VERSION" =~ -(alpha|beta|rc) ]]; then
+            RELEASE_ARGS+=(--prerelease)
+          fi
+
+          if gh release view "$VERSION" > /dev/null 2>&1; then
+            gh release upload "$VERSION" "$TARBALL" "$SIGSTORE_BUNDLE" --clobber
+            exit 0
+          fi
+
+          gh release create "$VERSION" "$TARBALL" "$SIGSTORE_BUNDLE" \
+            --title "$VERSION" \
+            --generate-notes \
+            "${RELEASE_ARGS[@]}"

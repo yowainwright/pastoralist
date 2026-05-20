@@ -479,10 +479,19 @@ test("checkSecurity - should handle devDependencies", async () => {
     },
   };
 
-  const checker = createCheckerWithMockAlerts({ provider: "osv" });
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  const providers = (checker as unknown as SecurityCheckerProviderHarness).providers;
+  const mockFetchAlerts = spyOn(providers[0], "fetchAlerts").mockResolvedValue([]);
+
   const result = await checker.checkSecurity(config);
 
   expect(Array.isArray(result.alerts)).toBe(true);
+  expect(result.packagesScanned).toBe(1);
+  expect(mockFetchAlerts).toHaveBeenCalledWith([{ name: "typescript", version: "4.0.0" }], {
+    root: undefined,
+  });
+
+  mockFetchAlerts.mockRestore();
 });
 
 test("checkSecurity - should handle both dependencies and devDependencies", async () => {
@@ -497,14 +506,22 @@ test("checkSecurity - should handle both dependencies and devDependencies", asyn
     },
   };
 
-  const checker = new SecurityChecker({ provider: "osv" });
-
-  const mockFetchAlerts = spyOn(checker["providers"][0], "fetchAlerts").mockResolvedValue([]);
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  const providers = (checker as unknown as SecurityCheckerProviderHarness).providers;
+  const mockFetchAlerts = spyOn(providers[0], "fetchAlerts").mockResolvedValue([]);
 
   const result = await checker.checkSecurity(config);
 
   expect(Array.isArray(result.alerts)).toBe(true);
   expect(Array.isArray(result.overrides)).toBe(true);
+  expect(result.packagesScanned).toBe(2);
+  expect(mockFetchAlerts).toHaveBeenCalledWith(
+    [
+      { name: "lodash", version: "4.17.20" },
+      { name: "typescript", version: "4.0.0" },
+    ],
+    { root: undefined },
+  );
 
   mockFetchAlerts.mockRestore();
 });

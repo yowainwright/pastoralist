@@ -6,11 +6,9 @@
     "demo:dry": "pastoralist --quiet --checkSecurity --dry-run",
     "demo:verbose": "pastoralist --checkSecurity"
   },
-  "dependencies": {
-    "lodash": "^4.17.15",
-    "minimist": "^1.2.5"
-  },
   "devDependencies": {
+    "lodash": "^4.17.15",
+    "minimist": "^1.2.5",
     "pastoralist": "latest"
   },
   "overrides": {

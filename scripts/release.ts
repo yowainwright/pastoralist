@@ -213,12 +213,17 @@ function createReleasePullRequest(
   runCommand(runner, "./node_modules/.bin/release-it", buildReleaseItArgs(releaseArgs));
   runCommand(runner, "git", ["push", "--set-upstream", "origin", branch]);
 
-  const prUrl = createPullRequest(runner, version, branch);
+  const prUrl = createPullRequest(runner, logger, version, branch);
   logger.log(`Opened ${prUrl}`);
   enableAutoMerge(runner, logger, prUrl);
 }
 
-function createPullRequest(runner: ReleaseRunner, version: string, branch: string): string {
+function createPullRequest(
+  runner: ReleaseRunner,
+  logger: ReleaseLogger,
+  version: string,
+  branch: string,
+): string {
   const result = runner("gh", [
     "pr",
     "create",
@@ -232,6 +237,7 @@ function createPullRequest(runner: ReleaseRunner, version: string, branch: strin
     buildPullRequestBody(version),
   ]);
   if (result.status === 0) return result.stdout.trim();
+  logger.warn(`gh pr create failed: ${result.stderr.trim() || "no error output"}`);
   return readPullRequestUrl(runner, branch);
 }
 
@@ -255,14 +261,15 @@ async function waitForMerge(
   timeoutMinutes: number,
 ): Promise<void> {
   const deadline = Date.now() + timeoutMinutes * 60_000;
-  const state = readPullRequestState(runner, prUrl);
-  if (state.mergedAt) return;
-  if (state.state === "CLOSED") throw new Error(`Release PR closed without merging: ${prUrl}`);
-  if (Date.now() > deadline) throw new Error(`Timed out waiting for release PR: ${prUrl}`);
+  while (true) {
+    const state = readPullRequestState(runner, prUrl);
+    if (state.mergedAt) return;
+    if (state.state === "CLOSED") throw new Error(`Release PR closed without merging: ${prUrl}`);
+    if (Date.now() > deadline) throw new Error(`Timed out waiting for release PR: ${prUrl}`);
 
-  logger.log(`Waiting for release PR checks to pass: ${prUrl}`);
-  await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
-  return waitForMerge(runner, logger, prUrl, timeoutMinutes);
+    logger.log(`Waiting for release PR checks to pass: ${prUrl}`);
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+  }
 }
 
 function readPullRequestState(runner: ReleaseRunner, prUrl: string): PullRequestState {

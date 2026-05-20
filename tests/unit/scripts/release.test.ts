@@ -143,4 +143,74 @@ describe("scripts/release", () => {
 
     await expect(runRelease({ dryRun: true, runner })).rejects.toThrow("release-it failed");
   });
+
+  test("runRelease logs PR creation failures before fallback lookup", async () => {
+    const logger = {
+      error: mock(() => {}),
+      log: mock(() => {}),
+      warn: mock(() => {}),
+    };
+    const { runner } = createRunner({
+      ...readyOverrides,
+      "./node_modules/.bin/release-it --release-version --git.tag=false --git.push=false --git.requireUpstream=false --ci":
+        ok("1.2.4\n"),
+      "git checkout -b release/v1.2.4": ok(""),
+      "./node_modules/.bin/release-it --git.tag=false --git.push=false --git.requireUpstream=false --ci":
+        ok(""),
+      "git push --set-upstream origin release/v1.2.4": ok(""),
+      "gh pr create --base main --head release/v1.2.4 --title chore(release): v1.2.4 --body Release v1.2.4.\n\nThis PR was created by `bun run release`.\nAfter checks pass and the PR merges, the release command pushes the version tag.":
+        fail("permission denied"),
+      "gh pr view release/v1.2.4 --json url": ok(
+        '{"url":"https://github.com/yowainwright/pastoralist/pull/1"}',
+      ),
+      "gh pr merge --auto --squash --delete-branch https://github.com/yowainwright/pastoralist/pull/1":
+        ok(""),
+    });
+
+    const code = await runRelease({ logger, noWait: true, runner });
+
+    expect(code).toBe(0);
+    expect(logger.warn).toHaveBeenCalledWith("gh pr create failed: permission denied");
+  });
+
+  test("runRelease times out when the release PR never merges", async () => {
+    const originalNow = Date.now;
+    let nowCalls = 0;
+    Date.now = mock(() => {
+      nowCalls += 1;
+      return nowCalls === 1 ? 0 : 60_001;
+    }) as typeof Date.now;
+    const logger = {
+      error: mock(() => {}),
+      log: mock(() => {}),
+      warn: mock(() => {}),
+    };
+    const { runner } = createRunner({
+      ...readyOverrides,
+      "./node_modules/.bin/release-it --release-version --git.tag=false --git.push=false --git.requireUpstream=false --ci":
+        ok("1.2.4\n"),
+      "git checkout -b release/v1.2.4": ok(""),
+      "./node_modules/.bin/release-it --git.tag=false --git.push=false --git.requireUpstream=false --ci":
+        ok(""),
+      "git push --set-upstream origin release/v1.2.4": ok(""),
+      "gh pr create --base main --head release/v1.2.4 --title chore(release): v1.2.4 --body Release v1.2.4.\n\nThis PR was created by `bun run release`.\nAfter checks pass and the PR merges, the release command pushes the version tag.":
+        ok("https://github.com/yowainwright/pastoralist/pull/1\n"),
+      "gh pr merge --auto --squash --delete-branch https://github.com/yowainwright/pastoralist/pull/1":
+        ok(""),
+      "gh pr view release/v1.2.4 --json url": ok(
+        '{"url":"https://github.com/yowainwright/pastoralist/pull/1"}',
+      ),
+      "gh pr view https://github.com/yowainwright/pastoralist/pull/1 --json state,mergedAt": ok(
+        '{"state":"OPEN","mergedAt":null}',
+      ),
+    });
+
+    try {
+      await expect(runRelease({ logger, runner, timeoutMinutes: 1 })).rejects.toThrow(
+        "Timed out waiting for release PR",
+      );
+    } finally {
+      Date.now = originalNow;
+    }
+  });
 });

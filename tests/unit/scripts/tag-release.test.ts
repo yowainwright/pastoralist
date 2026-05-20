@@ -62,6 +62,19 @@ describe("scripts/tag-release", () => {
     );
   });
 
+  test("assertReleaseReady can skip the upstream comparison", () => {
+    const { calls, git } = createGit({
+      "branch --show-current": ok("main\n"),
+      "status --short": ok(""),
+      "fetch origin main --tags": ok(""),
+      "rev-parse -q --verify refs/tags/v1.2.3": fail("missing"),
+      "ls-remote --exit-code --tags origin refs/tags/v1.2.3": missing(),
+    });
+
+    expect(() => assertReleaseReady(git, "v1.2.3", { requireUpstream: false })).not.toThrow();
+    expect(calls()).not.toContainEqual(["rev-parse", "HEAD"]);
+  });
+
   test("runReleaseTag dry run validates without creating a tag", () => {
     const logger = { log: mock(() => {}), error: mock(() => {}) };
     const { calls, git } = createGit(readyGitOverrides);

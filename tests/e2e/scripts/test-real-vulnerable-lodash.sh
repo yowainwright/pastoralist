@@ -35,10 +35,6 @@ echo "--------------------"
 cat package.json
 
 echo ""
-echo "Running npm install..."
-npm install --silent 2>/dev/null
-
-echo ""
 echo "Running: pastoralist --checkSecurity --forceSecurityRefactor --securityProvider osv"
 echo "------------------------------------------------------------------------------------"
 /pastoralist/dist/index.js --checkSecurity --forceSecurityRefactor --securityProvider osv 2>&1 || true

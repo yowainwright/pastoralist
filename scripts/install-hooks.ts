@@ -1,11 +1,13 @@
 #!/usr/bin/env bun
 
-import { existsSync, writeFileSync, chmodSync, mkdirSync } from "fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 
 const HOOKS_DIR = ".git/hooks";
+const MANAGED_HOOK_MARKER = "pastoralist-managed-hook";
 
 const PRE_COMMIT = `#!/usr/bin/env bun
+// ${MANAGED_HOOK_MARKER}
 
 import { $ } from 'bun';
 
@@ -13,18 +15,20 @@ console.log('Running pre-commit checks...');
 
 try {
   await $\`bun run format\`;
+  await $\`bun run deps:check\`;
   await $\`bun run build\`;
   await $\`cd app && bun run build\`;
   await $\`bun run lint\`;
   await $\`bun test tests/unit/ --coverage --coverage-reporter=lcov\`;
   console.log('✓ All pre-commit checks passed');
-} catch (error) {
+} catch {
   console.error('✗ Pre-commit checks failed');
   process.exit(1);
 }
 `;
 
 const COMMIT_MSG = `#!/usr/bin/env bun
+// ${MANAGED_HOOK_MARKER}
 
 import { readFileSync } from 'fs';
 
@@ -45,6 +49,7 @@ console.log('✓ Commit message is valid');
 `;
 
 const POST_MERGE = `#!/usr/bin/env bun
+// ${MANAGED_HOOK_MARKER}
 
 import { $ } from 'bun';
 
@@ -68,6 +73,60 @@ const HOOKS = {
   "pre-commit": PRE_COMMIT,
   "commit-msg": COMMIT_MSG,
   "post-merge": POST_MERGE,
+} as const;
+
+type HookName = keyof typeof HOOKS;
+
+interface HookStats {
+  installed: number;
+  skipped: number;
+  updated: number;
+}
+
+const GENERATED_HOOK_SIGNATURES: Record<HookName, string> = {
+  "pre-commit": "Running pre-commit checks...",
+  "commit-msg": "Commit message is valid",
+  "post-merge": "Running post-merge checks...",
+};
+
+const initialHookStats = (): HookStats => ({
+  installed: 0,
+  skipped: 0,
+  updated: 0,
+});
+
+const incrementStat = (stats: HookStats, key: keyof HookStats): HookStats =>
+  Object.assign({}, stats, { [key]: stats[key] + 1 });
+
+const isGeneratedHook = (hookName: HookName, hookContent: string): boolean => {
+  if (hookContent.includes(MANAGED_HOOK_MARKER)) return true;
+  return hookContent.includes(GENERATED_HOOK_SIGNATURES[hookName]);
+};
+
+const writeHook = (hookPath: string, hookContent: string): void => {
+  writeFileSync(hookPath, hookContent, { mode: 0o755 });
+  chmodSync(hookPath, 0o755);
+};
+
+const installHook = (hookName: HookName, stats: HookStats): HookStats => {
+  const hookPath = join(HOOKS_DIR, hookName);
+  const hookContent = HOOKS[hookName];
+  const hookExists = existsSync(hookPath);
+
+  if (!hookExists) {
+    writeHook(hookPath, hookContent);
+    console.log(`✓ Installed ${hookName} hook`);
+    return incrementStat(stats, "installed");
+  }
+
+  const existingHook = readFileSync(hookPath, "utf8");
+  const canUpdate = isGeneratedHook(hookName, existingHook);
+  if (!canUpdate) return incrementStat(stats, "skipped");
+  if (existingHook === hookContent) return incrementStat(stats, "skipped");
+
+  writeHook(hookPath, hookContent);
+  console.log(`✓ Updated ${hookName} hook`);
+  return incrementStat(stats, "updated");
 };
 
 const installHooks = async (): Promise<void> => {
@@ -101,40 +160,22 @@ const installHooks = async (): Promise<void> => {
     mkdirSync(hooksDir, { recursive: true });
   }
 
-  let installed = 0;
-  let skipped = 0;
+  const hookNames = Object.keys(HOOKS) as HookName[];
+  const hookStats = hookNames.reduce(
+    (stats, hookName) => installHook(hookName, stats),
+    initialHookStats(),
+  );
+  const { installed, skipped, updated } = hookStats;
 
-  const hookNames = Object.keys(HOOKS) as Array<keyof typeof HOOKS>;
-  for (const hookName of hookNames) {
-    const hookPath = join(hooksDir, hookName);
-    const hookExists = existsSync(hookPath);
+  if (installed > 0) console.log(`\n✅ Installed ${installed} git hook(s)`);
+  if (updated > 0) console.log(`✅ Updated ${updated} git hook(s)`);
+  if (skipped > 0) console.log(`ℹ️  Skipped ${skipped} existing hook(s)`);
 
-    if (hookExists) {
-      skipped = skipped + 1;
-      continue;
-    }
-
-    const hookContent = HOOKS[hookName];
-    writeFileSync(hookPath, hookContent, { mode: 0o755 });
-    chmodSync(hookPath, 0o755);
-    installed = installed + 1;
-    console.log(`✓ Installed ${hookName} hook`);
-  }
-
-  const hasInstalledHooks = installed > 0;
-  if (hasInstalledHooks) {
-    console.log(`\n✅ Installed ${installed} git hook(s)`);
-  }
-
-  const hasSkippedHooks = skipped > 0;
-  if (hasSkippedHooks) {
-    console.log(`ℹ️  Skipped ${skipped} existing hook(s)`);
-  }
-
-  const hasNoChanges = installed === 0 && skipped === 0;
-  if (hasNoChanges) {
-    console.log("ℹ️  No hooks to install");
-  }
+  const noHooksInstalled = installed === 0;
+  const noHooksSkipped = skipped === 0;
+  const noHooksUpdated = updated === 0;
+  const hasNoChanges = noHooksInstalled && noHooksSkipped && noHooksUpdated;
+  if (hasNoChanges) console.log("ℹ️  No hooks to install");
 };
 
 await installHooks();

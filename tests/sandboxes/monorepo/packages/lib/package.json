@@ -1,7 +1,7 @@
 {
   "name": "pastoralist-sandbox-monorepo-lib",
   "private": true,
-  "dependencies": {
+  "devDependencies": {
     "lodash": "^4.17.21",
     "underscore": "^1.13.0"
   }

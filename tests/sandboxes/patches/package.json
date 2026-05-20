@@ -6,10 +6,8 @@
     "demo:dry": "pastoralist --dry-run",
     "demo:summary": "pastoralist --summary"
   },
-  "dependencies": {
-    "lodash": "^4.17.21"
-  },
   "devDependencies": {
+    "lodash": "^4.17.21",
     "pastoralist": "latest"
   },
   "pnpm": {

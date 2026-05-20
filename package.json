@@ -44,6 +44,7 @@
     "build-dist": "bun run clean-dist && bun run build-bundle && bun run build-types",
     "build-bundle": "bun build src/index.ts --outdir dist --target node --minify --splitting --external fs --external path --external crypto",
     "build-types": "tsc --emitDeclarationOnly --outDir dist --incremental false",
+    "check:test-manifests": "bun scripts/check-test-manifests.ts",
     "clean-dist": "bun run scripts/clean.ts",
     "commit": "git-cz",
     "dev": "bun run --cwd app dev",
@@ -74,7 +75,7 @@
     "dev:unlink": "command -v npm >/dev/null 2>&1 || (echo 'Error: npm is required but not installed.' && exit 1) && npm unlink -g pastoralist",
     "test:watch": "bun test --watch",
     "test:coverage:html": "bun test tests/unit/ --coverage --coverage-reporter=html && open coverage/index.html",
-    "validate": "bun run typecheck-src && bun run lint && bun run test:unit",
+    "validate": "bun run check:test-manifests && bun run typecheck-src && bun run lint && bun run test:unit",
     "validate:full": "bun run validate && bun run test:e2e && bun run test:bench",
     "videos:postprocess": "bun scripts/postprocess-episode-videos.ts",
     "setup": "bun install && bun run build && bun run test:unit && echo '✓ Setup complete! Run bun run dev:link to use pastoralist globally'"

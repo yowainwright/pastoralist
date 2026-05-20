@@ -6,10 +6,8 @@
     "demo:dry": "pastoralist --dry-run",
     "demo:summary": "pastoralist --summary"
   },
-  "dependencies": {
-    "express": "^4.18.0"
-  },
   "devDependencies": {
+    "express": "^4.18.0",
     "pastoralist": "latest"
   },
   "overrides": {

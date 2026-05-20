@@ -9,22 +9,27 @@ on:
         required: false
         type: string
 
+permissions:
+  contents: read
+
 jobs:
   test-published-release:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v4.1.0
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4.0.0
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
 
       - name: Determine Version to Test
         id: version
@@ -35,7 +40,7 @@ jobs:
             # Get the latest published version from npm
             VERSION=$(npm view pastoralist version)
           fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Testing pastoralist version: $VERSION"
 
       - name: Wait for NPM Package Availability
@@ -53,11 +58,11 @@ jobs:
       - name: Build Test Docker Image
         run: |
           cat > Dockerfile.release-test << 'EOF'
-          FROM node:24-alpine
+          FROM node:24-alpine@sha256:d1b3b4da11eefd5941e7f0b9cf17783fc99d9c6fc34884a665f40a06dbdfc94f
 
           # Install bash and pnpm
           RUN apk add --no-cache bash
-          RUN npm install -g pnpm
+          RUN corepack enable && corepack prepare pnpm@10.25.0 --activate
 
           WORKDIR /app
 
@@ -126,7 +131,7 @@ jobs:
 
           # Test with npm
           cat > Dockerfile.npm-test << 'EOF'
-          FROM node:24-alpine
+          FROM node:24-alpine@sha256:d1b3b4da11eefd5941e7f0b9cf17783fc99d9c6fc34884a665f40a06dbdfc94f
           RUN apk add --no-cache bash
           WORKDIR /app
           ARG PASTORALIST_VERSION
@@ -186,7 +191,7 @@ jobs:
 
       - name: Trigger External E2E Tests
         if: success()
-        uses: actions/github-script@v9.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ secrets.PASTORALIST_TEST_DISPATCH_TOKEN }}
           script: |

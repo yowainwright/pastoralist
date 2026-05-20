@@ -5,11 +5,9 @@
     "demo": "pastoralist --debug",
     "demo:dry": "pastoralist --debug --dry-run"
   },
-  "dependencies": {
-    "express": "^4.18.0",
-    "lodash": "^4.17.21"
-  },
   "devDependencies": {
+    "express": "^4.18.0",
+    "lodash": "^4.17.21",
     "pastoralist": "latest"
   },
   "overrides": {

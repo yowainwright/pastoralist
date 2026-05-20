@@ -16,7 +16,13 @@ export interface ReleaseTagOptions {
   dryRun?: boolean;
   git?: GitRunner;
   logger?: ReleaseLogger;
+  requireUpstream?: boolean;
   version?: string;
+}
+
+export interface ReleaseReadyOptions {
+  dryRun?: boolean;
+  requireUpstream?: boolean;
 }
 
 const VERSION_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
@@ -65,7 +71,11 @@ export function assertMissingTag(git: GitRunner, tagName: string): void {
   throw new Error(remoteTag.stderr.trim() || `Unable to check remote tag: ${tagName}`);
 }
 
-export function assertReleaseReady(git: GitRunner, tagName: string, dryRun = false): void {
+export function assertReleaseReady(
+  git: GitRunner,
+  tagName: string,
+  { dryRun = false, requireUpstream = true }: ReleaseReadyOptions = {},
+): void {
   const branch = gitText(git, ["branch", "--show-current"], "Unable to read current branch");
   if (branch !== "main") throw new Error("Release tags must be created from main");
 
@@ -73,6 +83,10 @@ export function assertReleaseReady(git: GitRunner, tagName: string, dryRun = fal
   if (status) throw new Error("Working tree must be clean before tagging a release");
 
   if (!dryRun) gitText(git, ["fetch", "origin", "main", "--tags"], "Unable to fetch origin/main");
+  if (!requireUpstream) {
+    assertMissingTag(git, tagName);
+    return;
+  }
 
   const head = gitText(git, ["rev-parse", "HEAD"], "Unable to read HEAD");
   const upstream = gitText(git, ["rev-parse", "origin/main"], "Unable to read origin/main");
@@ -86,10 +100,11 @@ export function runReleaseTag({
   dryRun = false,
   git = createGitRunner(cwd),
   logger = console,
+  requireUpstream = true,
   version = readPackageVersion(cwd),
 }: ReleaseTagOptions = {}): number {
   const tagName = formatTagName(version);
-  assertReleaseReady(git, tagName, dryRun);
+  assertReleaseReady(git, tagName, { dryRun, requireUpstream });
 
   if (dryRun) {
     logger.log(`Dry run: would create and push ${tagName}`);

@@ -155,17 +155,23 @@ Provenance and attestations prove where and how a package was built. They do not
 prove that the code is bug-free, so Pastoralist also runs CI, CodeQL, OpenSSF
 Scorecard, unit/integration/e2e tests, and dependency update policy checks.
 
+### Maintainer Release Flow
+
+Release version bumps must land through a pull request. To prepare a beta, run
+`bun run release:beta` from clean, up-to-date `main`. The command creates a
+release branch, opens a PR, enables auto-merge, waits for the PR to merge, then
+pushes the version tag that triggers publishing. If the command is interrupted
+after merge, run `bun run release:tag` from clean, up-to-date `main`. To preview
+the planned beta release without creating branches, PRs, or tags, run
+`bun run release:beta:dry`.
+
 ## Video Walkthroughs
 
-Short MP4 walkthroughs live beside the docs they explain:
+Short MP4 walkthroughs are served from the docs site:
 
-- [Override tracking](https://jeffry.in/pastoralist/docs/introduction)
-- [Basic sandbox](https://jeffry.in/pastoralist/docs/codelab)
-- [Setup hook, dry-run, and summary output](https://jeffry.in/pastoralist/docs/setup)
-- [Workspaces and monorepos](https://jeffry.in/pastoralist/docs/workspaces)
-- [Patches, cleanup, and unused overrides](https://jeffry.in/pastoralist/docs/advanced-features)
-- [Debug, JSON, and quiet CLI output](https://jeffry.in/pastoralist/docs/api-reference)
-- [Security scanning, providers, and auto-fix](https://jeffry.in/pastoralist/docs/security)
+- [Security scan](https://jeffry.in/pastoralist/episodes/14-sandbox-security-scan/final.mp4)
+- [Provider setup](https://jeffry.in/pastoralist/episodes/15-sandbox-provider-setup/final.mp4)
+- [Security auto-fix](https://jeffry.in/pastoralist/episodes/16-sandbox-auto-fix/final.mp4)
 
 ## Minimal Config
 

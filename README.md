@@ -133,13 +133,22 @@ npx pastoralist --summary
 
 Pastoralist publishes npm releases from GitHub Actions with npm provenance. The
 release workflow also packs the exact npm tarball before publishing and creates
-a GitHub artifact attestation for that tarball.
+a GitHub artifact attestation for that tarball. GitHub Releases include the
+tarball and a matching `.sigstore.json` attestation bundle.
 
 Users can inspect the npm package provenance on npmjs.com and can verify
 registry signatures and available attestations from their own project with:
 
 ```bash
 npm audit signatures
+```
+
+Release assets can be verified with GitHub CLI:
+
+```bash
+gh attestation verify pastoralist-<version>.tgz \
+  -R yowainwright/pastoralist \
+  --bundle pastoralist-<version>.tgz.sigstore.json
 ```
 
 Provenance and attestations prove where and how a package was built. They do not

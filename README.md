@@ -231,4 +231,4 @@ Shout out to [Bryant Cabrera](https://github.com/bryantcabrera) and
 [Mardin](https://github.com/mardinyadegar) for the conversation, insight, and
 pairing around this topic.
 
-Made by [@yowainwright](https://github.com/yowainwright). [O'Sassy](https://osaasy.dev), 2022.
+Made by [@yowainwright](https://github.com/yowainwright). [MIT](./LICENSE), 2022.

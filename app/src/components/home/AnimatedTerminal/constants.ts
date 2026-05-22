@@ -5,17 +5,17 @@ import {
   TERMINAL_PADDING_PX,
 } from "@/components/TerminalWindow/constants";
 
-export const DEFAULT_TYPING_SPEED = 30;
+export const DEFAULT_TYPING_SPEED = 12;
 export const DEFAULT_LOOP = true;
-export const DEFAULT_PAUSE_DURATION = 3000;
-export const DEFAULT_ANIMATE = true;
-export const DEFAULT_LINE_DELAY = 0;
+export const DEFAULT_PAUSE_DURATION = 2000;
+export const DEFAULT_ANIMATE = false;
+export const DEFAULT_LINE_DELAY = 35;
 
 export const INTERSECTION_OBSERVER_OPTIONS = {
   threshold: 0.1,
 };
 
-export const TERMINAL_CLASSES = "terminal-window max-w-3xl w-full my-4";
+export const TERMINAL_CLASSES = "terminal-window max-w-lg w-full my-4";
 
 const OVERRIDE_DEMO_LINES = 16;
 const SECURITY_DEMO_LINES = 21;
@@ -31,7 +31,7 @@ const SHEEP = "\u{1F411}";
 export const CLI_DEMO: TerminalDemo[] = [
   {
     lines: [
-      { prefix: "$", text: "pastoralist" },
+      { prefix: "$", text: "pastoralist", animate: true },
       { text: "&nbsp;" },
       { text: `${FARMER} Pastoralist`, className: "text-success" },
       { text: "&nbsp;" },
@@ -169,7 +169,7 @@ export const CLI_OVERRIDE_DEMO: TerminalDemo[] = [
       {
         text: `${ICON_CHECK} The herd is safe! ${SHEEP}`,
         className: "text-gold",
-        delay: 60,
+        delay: 30,
       },
     ],
     pauseAfter: 0,
@@ -193,7 +193,7 @@ export const CLI_SECURITY_DEMO: TerminalDemo[] = [
         depth: 0,
         isLast: false,
         connectors: [],
-        delay: 60,
+        delay: 25,
         animate: false,
       },
       {
@@ -307,25 +307,25 @@ export const CLI_SECURITY_DEMO: TerminalDemo[] = [
       {
         text: `${ICON_CHECK} 1 vulnerability fixed`,
         className: "text-success",
-        delay: 60,
+        delay: 25,
         animate: false,
       },
       {
         text: `${ICON_SHIELD} 1 package protected`,
         className: "text-cyan-400",
-        delay: 40,
+        delay: 20,
         animate: false,
       },
       {
         text: '<span class="text-error">\u25A0</span> 0 crit \u00B7 <span class="text-warning">\u25B2</span> 1 high \u00B7 <span class="text-cyan-400">\u25C6</span> 0 med \u00B7 <span class="text-success">\u25CF</span> 0 low \u00B7 <span class="text-cyan-400">\u25B8</span> 1 tracked \u00B7 \u25CB 0 removed \u00B7 10 scanned',
         className: "text-base-content/50",
-        delay: 40,
+        delay: 20,
         animate: false,
       },
       {
         text: `${ICON_CHECK} The herd is safe! ${SHEEP}`,
         className: "text-gold",
-        delay: 80,
+        delay: 35,
         animate: false,
       },
     ],

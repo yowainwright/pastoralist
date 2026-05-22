@@ -11,6 +11,7 @@
 
 @theme {
   --animate-logo-glow: logo-glow 4s ease-in-out infinite;
+  --animate-logo-shine: logo-shine-sweep 5s ease-in-out 1s infinite;
   --animate-terminal-shine: terminal-shine 8s ease-in-out infinite;
   --animate-sparkle: sparkle 3s ease-in-out infinite;
   --animate-bounce-once: bounce-once 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
@@ -166,6 +167,44 @@
       transform: scale(1);
     }
   }
+
+  @keyframes logo-shine-sweep {
+    0% {
+      transform: skewX(-20deg) translateX(-260%);
+    }
+    28% {
+      transform: skewX(-20deg) translateX(400%);
+    }
+    29%,
+    100% {
+      transform: skewX(-20deg) translateX(-260%);
+    }
+  }
+}
+
+/* Logo shine effect */
+.logo-shine-wrap {
+  position: relative;
+  overflow: hidden;
+}
+
+.logo-shine-beam {
+  position: absolute;
+  top: -50%;
+  left: 0;
+  width: 45%;
+  height: 200%;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(255, 255, 255, 0.25) 35%,
+    rgba(255, 255, 255, 0.6) 50%,
+    rgba(255, 255, 255, 0.25) 65%,
+    transparent 100%
+  );
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  animation: logo-shine-sweep 5s ease-in-out 1s infinite;
 }
 
 .text-glow {

@@ -42,9 +42,9 @@ export function useTransformAnimation(shouldAnimate: boolean, onComplete?: () =>
           onComplete?.();
           setTimeout(() => {
             setShowLightning(true);
-          }, 150);
+          }, 100);
         }
-      }, 60);
+      }, 25);
     },
     [clearAnimations],
   );
@@ -69,11 +69,11 @@ export function useTransformAnimation(shouldAnimate: boolean, onComplete?: () =>
               setPhase("step3");
               setActiveStep(3);
               animateAppendixFrom(0);
-            }, 300);
-          }, 500);
-        }, 100);
+            }, 200);
+          }, 350);
+        }, 60);
       }
-    }, 20);
+    }, 10);
   }, [clearAnimations, animateAppendixFrom]);
 
   const resetState = useCallback(() => {
@@ -92,7 +92,7 @@ export function useTransformAnimation(shouldAnimate: boolean, onComplete?: () =>
 
     setTimeout(() => {
       startTypingCommand();
-    }, 800);
+    }, 400);
   }, [resetState, startTypingCommand]);
 
   const resumeAnimation = useCallback(() => {
@@ -123,11 +123,11 @@ export function useTransformAnimation(shouldAnimate: boolean, onComplete?: () =>
                 setPhase("step3");
                 setActiveStep(3);
                 animateAppendixFrom(0);
-              }, 300);
-            }, 500);
-          }, 100);
+              }, 200);
+            }, 350);
+          }, 60);
         }
-      }, 20);
+      }, 10);
     } else {
       const shouldResumeAppendix = savedPhase === "step3" && savedLines < APPENDIX_CONTENT.length;
       if (!shouldResumeAppendix) return;

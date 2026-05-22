@@ -16,14 +16,14 @@
     "@shikijs/rehype": "^4.1.0",
     "@shikijs/transformers": "^4.1.0",
     "@tailwindcss/vite": "^4.3.0",
-    "@tanstack/react-router": "^1.170.4",
+    "@tanstack/react-router": "^1.170.7",
     "@vitejs/plugin-react": "^6.0.2",
     "@xstate/react": "^6.1.0",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "effect": "^3.21.2",
-    "framer-motion": "^12.39.0",
+    "framer-motion": "^12.40.0",
     "fuse.js": "^7.3.0",
     "github-slugger": "^2.0.0",
     "lucide-react": "^1.16.0",
@@ -54,6 +54,6 @@
     "daisyui": "^5.5.20",
     "tailwindcss": "^4.3.0",
     "typescript": "^6.0.3",
-    "vite": "^8.0.13"
+    "vite": "^8.0.14"
   }
 }

@@ -5,6 +5,8 @@ import { motion } from "framer-motion";
 import { createMachine } from "xstate";
 import { useMachine } from "@xstate/react";
 import { CopyButton } from "@/components/CopyButton";
+import { LogoSparkle } from "@/components/home/LogoSparkle";
+import { HeroSparkles } from "@/components/home/HeroSparkles";
 import { AnimatedTerminal } from "@/components/home/AnimatedTerminal";
 import {
   CLI_OVERRIDE_DEMO,
@@ -33,15 +35,15 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 
 const styles = {
   section:
-    "relative flex items-center justify-center px-3 md:px-10 xl:px-28 py-12 md:py-16 overflow-hidden min-h-screen",
-  article: "max-w-2xl md:max-w-7xl w-full",
+    "relative flex items-start justify-center px-4 md:px-8 pt-6 pb-16 md:pt-8 md:pb-20 overflow-hidden min-h-screen",
+  article: "max-w-2xl md:max-w-5xl w-full",
   logoHeader: "text-center mb-10 md:mb-12",
   logo: "mx-auto h-24 w-24 md:h-36 md:w-36",
-  main: "flex flex-col-reverse gap-10 lg:flex-row lg:items-center lg:gap-14 xl:gap-16 lg:justify-between",
+  main: "flex flex-col-reverse gap-10 lg:flex-row lg:items-center lg:gap-10 lg:justify-between",
   aside: "mt-6 lg:mt-0 w-full text-left lg:flex-[1.05]",
-  terminalFrame: "relative mx-auto w-full max-w-[36rem] lg:mx-0",
+  terminalFrame: "relative mx-auto w-full max-w-lg lg:mx-0",
   contentHeader: "text-center lg:max-w-2xl lg:flex-[0.95] lg:text-left",
-  h1: "text-3xl sm:text-4xl md:text-5xl lg:text-[3.35rem] xl:text-[3.85rem] font-black leading-[1.05] tracking-tight mb-8",
+  h1: "text-3xl sm:text-4xl md:text-5xl lg:text-[3.35rem] font-black leading-[1.05] tracking-tight mb-8",
   nav: "flex flex-col sm:flex-row items-center sm:items-stretch gap-4 sm:gap-5 justify-center lg:justify-start",
   codeBlock:
     "flex h-12 w-full max-w-md items-center gap-3 rounded-2xl border border-base-content/10 bg-base-100/85 px-3 shadow-sm shadow-base-content/5 backdrop-blur sm:w-auto",
@@ -117,16 +119,19 @@ export function HeroSection() {
   return (
     <section id="hero" className={styles.section}>
       <HeroBackground />
-      <article className={styles.article}>
+      <HeroSparkles />
+      <article className={styles.article} style={{ position: "relative", zIndex: 1 }}>
         <header className={styles.logoHeader}>
-          <motion.img
-            src={`${base}pastoralist-logo.svg`}
-            alt={CONTENT.logoAlt}
-            className={styles.logo}
-            initial={wasAlreadySeen ? false : { opacity: 0, y: 16, scale: 0.75 }}
-            animate={logoVisible ? { opacity: 1, y: 0, scale: 1 } : undefined}
-            transition={{ duration: 0.5, ease: EASE }}
-          />
+          <LogoSparkle maskSrc={`${base}pastoralist-logo.svg`}>
+            <motion.img
+              src={`${base}pastoralist-logo.svg`}
+              alt={CONTENT.logoAlt}
+              className={styles.logo}
+              initial={wasAlreadySeen ? false : { opacity: 0, y: 16, scale: 0.75 }}
+              animate={logoVisible ? { opacity: 1, y: 0, scale: 1 } : undefined}
+              transition={{ duration: 0.5, ease: EASE }}
+            />
+          </LogoSparkle>
         </header>
 
         <main className={styles.main}>

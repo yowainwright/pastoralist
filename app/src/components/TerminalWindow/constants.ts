@@ -5,7 +5,7 @@ export const TERMINAL_PADDING_PX = 0;
 export const STYLES = {
   window: "terminal-window",
   windowActive: "ring-2 ring-primary ring-offset-2",
-  windowMaxWidth: "max-w-3xl w-full",
+  windowMaxWidth: "max-w-lg w-full",
   header: "terminal-header",
   headerWithTabs: "terminal-header flex justify-between items-center",
   dotRed: "terminal-dot terminal-dot-red",

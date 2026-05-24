@@ -813,6 +813,43 @@ test("determineSecurityScanPaths - prioritizes depPaths array over workspace", (
   expect(result).toEqual(["custom/path/package.json"]);
 });
 
+test("determineSecurityScanPaths - skips workspace manifest read when depPaths array is used", () => {
+  const { determineSecurityScanPaths } = require("../../../src/cli/index");
+  const root = resolve(__dirname, "..", ".test-security-scan-paths");
+  const workspaceManifestPath = resolve(root, "pnpm-workspace.yaml");
+  const debug = mock(() => {});
+  const debugLog = { ...log, debug };
+
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+    workspaces: ["packages/*"],
+    pastoralist: {
+      depPaths: ["custom/path/package.json"],
+      checkSecurity: true,
+    },
+  };
+
+  const mergedOptions: Options = {
+    checkSecurity: true,
+    hasWorkspaceSecurityChecks: true,
+    root,
+  };
+
+  try {
+    rmSync(root, { recursive: true, force: true });
+    mkdirSync(workspaceManifestPath, { recursive: true });
+
+    const result = determineSecurityScanPaths(config, mergedOptions, debugLog);
+
+    expect(result).toEqual(["custom/path/package.json"]);
+    expect(debug).toHaveBeenCalledTimes(1);
+    expect(debug.mock.calls[0][0]).toContain("Using depPaths configuration");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("buildMergedOptions - handles undefined config values", () => {
   const { buildMergedOptions } = require("../../../src/cli/index");
 

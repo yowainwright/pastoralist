@@ -18,6 +18,11 @@ export interface ReleaseArgs {
   preRelease?: PreRelease;
 }
 
+export interface ReleaseItArgsOptions {
+  preRelease?: PreRelease;
+  version?: string;
+}
+
 export interface ReleasePlan {
   commands: string[];
   steps: string[];
@@ -37,7 +42,7 @@ export function parseArgs(args: readonly string[]): ReleaseArgs {
   };
 }
 
-export function buildReleaseItArgs(options: Pick<ReleaseArgs, "preRelease">): string[] {
+export function buildReleaseItArgs(options: ReleaseItArgsOptions): string[] {
   const args = [
     "--git.tag=false",
     "--git.push=false",
@@ -45,7 +50,8 @@ export function buildReleaseItArgs(options: Pick<ReleaseArgs, "preRelease">): st
     "--git.getLatestTagFromAllRefs=true",
     "--ci",
   ];
-  return options.preRelease ? [`--preRelease=${options.preRelease}`, ...args] : args;
+  const releaseArgs = options.preRelease ? [`--preRelease=${options.preRelease}`, ...args] : args;
+  return options.version ? [options.version, ...releaseArgs] : releaseArgs;
 }
 
 export function parseReleaseVersion(output: string): string {
@@ -66,7 +72,10 @@ export function formatShellCommand(command: string, args: readonly string[]): st
 export function buildReleaseCommands(version: string, releaseArgs: ReleaseArgs): string[] {
   const tagName = `v${version}`;
   return [
-    formatShellCommand("./node_modules/.bin/release-it", buildReleaseItArgs(releaseArgs)),
+    formatShellCommand(
+      "./node_modules/.bin/release-it",
+      buildReleaseItArgs({ preRelease: releaseArgs.preRelease, version }),
+    ),
     formatShellCommand("git", ["tag", "--annotate", tagName, "--message", `Release ${version}`]),
     formatShellCommand("git", ["push", "origin", `refs/tags/${tagName}`]),
   ];
@@ -128,7 +137,7 @@ export async function runRelease(options: ReleaseOptions = {}): Promise<number> 
   }
 
   try {
-    createReleaseCommit(runner, releaseArgs);
+    createReleaseCommit(runner, releaseArgs, version);
     runReleaseTag({
       cwd,
       git: (args) => runner("git", args),
@@ -186,11 +195,62 @@ function resolveReleaseVersion(runner: ReleaseRunner, releaseArgs: ReleaseArgs):
     "--release-version",
     ...buildReleaseItArgs(releaseArgs),
   ]);
-  return parseReleaseVersion(output);
+  const version = parseReleaseVersion(output);
+  return resolveAvailableReleaseVersion(runner, releaseArgs, version);
 }
 
-function createReleaseCommit(runner: ReleaseRunner, releaseArgs: ReleaseArgs): void {
-  runCommand(runner, "./node_modules/.bin/release-it", buildReleaseItArgs(releaseArgs));
+export function incrementPreReleaseVersion(version: string, preRelease: PreRelease): string {
+  const match = version.match(/^(\d+\.\d+\.\d+)-([0-9A-Za-z.-]+)\.(\d+)(\+[0-9A-Za-z.-]+)?$/);
+  if (!match || match[2] !== preRelease) {
+    throw new Error(`Unable to advance ${preRelease} release version: ${version}`);
+  }
+
+  const nextPrerelease = Number(match[3]) + 1;
+  return `${match[1]}-${preRelease}.${nextPrerelease}${match[4] ?? ""}`;
+}
+
+export function releaseTagExists(runner: ReleaseRunner, tagName: string): boolean {
+  const localTag = runner("git", ["rev-parse", "-q", "--verify", `refs/tags/${tagName}`]);
+  const localTagError = localTag.stderr.trim();
+  if (localTag.status !== 0 && localTagError) {
+    throw new Error(localTagError);
+  }
+  if (localTag.status === 0) return true;
+
+  const remoteTag = runner("git", ["ls-remote", "--tags", "origin", `refs/tags/${tagName}`]);
+  if (remoteTag.status !== 0) {
+    throw new Error(remoteTag.stderr.trim() || `Unable to check remote tag: ${tagName}`);
+  }
+  return remoteTag.stdout.trim().length > 0;
+}
+
+export function resolveAvailableReleaseVersion(
+  runner: ReleaseRunner,
+  releaseArgs: ReleaseArgs,
+  version: string,
+): string {
+  if (!releaseArgs.preRelease) return version;
+
+  let candidate = version;
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const tagName = `v${candidate}`;
+    if (!releaseTagExists(runner, tagName)) return candidate;
+    candidate = incrementPreReleaseVersion(candidate, releaseArgs.preRelease);
+  }
+
+  throw new Error(`Unable to find an available release tag for ${version}`);
+}
+
+function createReleaseCommit(
+  runner: ReleaseRunner,
+  releaseArgs: ReleaseArgs,
+  version: string,
+): void {
+  runCommand(
+    runner,
+    "./node_modules/.bin/release-it",
+    buildReleaseItArgs({ preRelease: releaseArgs.preRelease, version }),
+  );
 }
 
 function restoreStartingHead(runner: ReleaseRunner, startingHead: string): void {

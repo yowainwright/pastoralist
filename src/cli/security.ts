@@ -9,6 +9,7 @@ import {
 } from "../types";
 import { MSG_SCANNING } from "../constants";
 import { SecurityChecker } from "../core/security";
+import { resolveWorkspaceManifestPaths } from "../core/workspace";
 import { createSpinner, green, yellow, logger as createLogger } from "../utils";
 import { DEFAULT_SECURITY_PROVIDER } from "./constants";
 import { renderSecurityFindings } from "./display";
@@ -137,7 +138,7 @@ export const determineSecurityScanPaths = (
   log: ReturnType<typeof createLogger> = logger,
 ): string[] => {
   const configDepPaths = config?.pastoralist?.depPaths;
-  const workspaces = config?.workspaces || [];
+  const workspacePaths = resolveWorkspaceManifestPaths(config, mergedOptions.root || "./", log);
   const hasSecurityEnabled =
     mergedOptions.checkSecurity || config?.pastoralist?.checkSecurity || false;
 
@@ -149,12 +150,12 @@ export const determineSecurityScanPaths = (
     return configDepPaths;
   }
 
-  if (shouldScanWorkspaces(configDepPaths, workspaces, hasSecurityEnabled, mergedOptions)) {
+  if (shouldScanWorkspaces(configDepPaths, workspacePaths, hasSecurityEnabled, mergedOptions)) {
     log.debug(
-      `Using workspace configuration for security checks: ${workspaces.join(", ")}`,
+      `Using workspace configuration for security checks: ${workspacePaths.join(", ")}`,
       "determineSecurityScanPaths",
     );
-    return workspaces.map((ws: string) => `${ws}/package.json`);
+    return workspacePaths;
   }
 
   return [];
@@ -167,21 +168,21 @@ const shouldUseDepPaths = (
 
 const shouldScanWorkspaces = (
   depPaths: NonNullable<PastoralistJSON["pastoralist"]>["depPaths"] | undefined,
-  workspaces: string[],
+  workspacePaths: string[],
   hasSecurityEnabled: boolean,
   mergedOptions: Options,
 ): boolean =>
-  shouldUseWorkspaceConfig(depPaths, workspaces, hasSecurityEnabled) ||
-  shouldUseExplicitWorkspaceChecks(mergedOptions, workspaces.length > 0);
+  shouldUseWorkspaceConfig(depPaths, workspacePaths, hasSecurityEnabled) ||
+  shouldUseExplicitWorkspaceChecks(mergedOptions, workspacePaths.length > 0);
 
 const shouldUseWorkspaceConfig = (
   depPaths: unknown,
-  workspaces: string[],
+  workspacePaths: string[],
   hasSecurityEnabled: boolean,
 ): boolean => {
   const isWorkspaceString = depPaths === "workspace" || depPaths === "workspaces";
   if (!isWorkspaceString) return false;
-  if (workspaces.length === 0) return false;
+  if (workspacePaths.length === 0) return false;
   return hasSecurityEnabled;
 };
 

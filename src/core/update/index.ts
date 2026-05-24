@@ -73,7 +73,13 @@ const stepDetermineMode = (ctx: UpdateContext): UpdateContext => {
   );
 
   const missingInRoot = checkMonorepoOverrides(overrides, rootDeps, ctx.log, ctx.options);
-  const mode = determineProcessingMode(ctx.options, ctx.config, hasRootOverrides, missingInRoot);
+  const mode = determineProcessingMode(
+    ctx.options,
+    ctx.config,
+    hasRootOverrides,
+    missingInRoot,
+    ctx.log,
+  );
 
   return Object.assign({}, ctx, { hasRootOverrides, rootDeps, missingInRoot, mode });
 };

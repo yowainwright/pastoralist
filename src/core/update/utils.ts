@@ -1,5 +1,6 @@
 import { findPackageJsonFiles, updatePackageJSON } from "../packageJSON";
 import { toCompactAppendix } from "../appendix/utils";
+import { resolveWorkspaceManifestPaths } from "../workspace";
 import { WORKSPACE_MODES } from "./constants";
 import type {
   PastoralistJSON,
@@ -50,13 +51,19 @@ export const determineProcessingMode = (
   config: PastoralistJSON,
   hasRootOverrides: boolean,
   missingInRoot: string[],
+  log?: Logger,
 ): ProcessingMode => {
   const configDepPaths = config.pastoralist?.depPaths;
   const hasOptionsDepPaths = options?.depPaths && options.depPaths.length > 0;
   const hasConfigDepPaths = !hasOptionsDepPaths && configDepPaths;
 
-  const depPaths = resolveDepPaths(options, config);
-  const mode = hasOptionsDepPaths || hasConfigDepPaths ? "workspace" : "root";
+  const depPaths = resolveDepPaths(options, config, log);
+  const hasResolvedDepPaths = Boolean(depPaths && depPaths.length > 0);
+  const shouldUseWorkspaceMode = Boolean(
+    hasOptionsDepPaths || hasConfigDepPaths || hasResolvedDepPaths,
+  );
+  let mode: ProcessingMode["mode"] = "root";
+  if (shouldUseWorkspaceMode) mode = "workspace";
 
   return {
     mode,
@@ -66,24 +73,34 @@ export const determineProcessingMode = (
   };
 };
 
-export const resolveDepPaths = (options: Options, config: PastoralistJSON): string[] | null => {
+const toNullableDepPaths = (depPaths: string[]): string[] | null => {
+  const hasDepPaths = depPaths.length > 0;
+  if (hasDepPaths) return depPaths;
+  return null;
+};
+
+export const resolveDepPaths = (
+  options: Options,
+  config: PastoralistJSON,
+  log?: Logger,
+): string[] | null => {
   if (options?.depPaths) return options.depPaths;
 
   const configDepPaths = config.pastoralist?.depPaths;
+  const root = options.root || "./";
 
   const usesWorkspaceMode =
     configDepPaths === WORKSPACE_MODES.SINGLE || configDepPaths === WORKSPACE_MODES.MULTIPLE;
   if (usesWorkspaceMode) {
-    return config.workspaces?.map((ws: string) => `${ws}/package.json`) || null;
+    const depPaths = resolveWorkspaceManifestPaths(config, root, log);
+    return toNullableDepPaths(depPaths);
   }
 
   if (Array.isArray(configDepPaths)) return configDepPaths;
 
   if (!configDepPaths) {
-    const packageWorkspaces = config.workspaces;
-    if (packageWorkspaces) {
-      return packageWorkspaces.map((ws: string) => `${ws}/package.json`);
-    }
+    const depPaths = resolveWorkspaceManifestPaths(config, root, log);
+    return toNullableDepPaths(depPaths);
   }
 
   return null;

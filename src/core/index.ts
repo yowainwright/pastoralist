@@ -1,4 +1,5 @@
 export * from "./workspaces";
+export * from "./workspace";
 export * from "./overrides";
 export * from "./appendix";
 export * from "./update";

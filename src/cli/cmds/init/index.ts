@@ -2,6 +2,7 @@ import { existsSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { loadExternalConfig, type PastoralistConfig, type SecurityProvider } from "../../../config";
 import { resolveJSON } from "../../../core/packageJSON";
+import { getPackageJsonWorkspacePatterns } from "../../../core/workspace";
 import { formatCompletion, formatInfo, formatStepHeader } from "../../../dx";
 import { shimmerFrame } from "../../../dx/shimmer";
 import { FARMER } from "../../../constants";
@@ -247,7 +248,7 @@ function getTokenInfoForProvider(provider: SecurityProvider): TokenInfo {
 }
 
 function getPackageWorkspaces(packageJson: PastoralistJSON | null | undefined): string[] {
-  return packageJson?.workspaces || [];
+  return getPackageJsonWorkspacePatterns(packageJson?.workspaces);
 }
 
 function printMissingWorkspaceNotice(hasWorkspaces: boolean, log: Logger): void {

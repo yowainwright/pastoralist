@@ -150,9 +150,7 @@ export const parsePnpmWorkspacePackages = (contents: string): string[] => {
     }
 
     const isOutsidePackagesBlock = indent <= packagesIndent;
-    const isListItem = trimmed.startsWith("-");
-    const reachedNextBlock = isOutsidePackagesBlock && !isListItem;
-    if (reachedNextBlock) break;
+    if (isOutsidePackagesBlock) break;
 
     const itemMatch = trimmed.match(/^-\s*(.+)$/);
     if (!itemMatch) continue;

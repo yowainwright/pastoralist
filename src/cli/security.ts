@@ -138,7 +138,6 @@ export const determineSecurityScanPaths = (
   log: ReturnType<typeof createLogger> = logger,
 ): string[] => {
   const configDepPaths = config?.pastoralist?.depPaths;
-  const workspacePaths = resolveWorkspaceManifestPaths(config, mergedOptions.root || "./", log);
   const hasSecurityEnabled =
     mergedOptions.checkSecurity || config?.pastoralist?.checkSecurity || false;
 
@@ -150,6 +149,7 @@ export const determineSecurityScanPaths = (
     return configDepPaths;
   }
 
+  const workspacePaths = resolveWorkspaceManifestPaths(config, mergedOptions.root || "./", log);
   if (shouldScanWorkspaces(configDepPaths, workspacePaths, hasSecurityEnabled, mergedOptions)) {
     log.debug(
       `Using workspace configuration for security checks: ${workspacePaths.join(", ")}`,

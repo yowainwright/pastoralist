@@ -82,6 +82,16 @@ test("parsePnpmWorkspacePackages - returns empty for missing or malformed packag
   expect(parsePnpmWorkspacePackages("packages: true")).toEqual([]);
 });
 
+test("parsePnpmWorkspacePackages - stops before same-indent list items outside packages", () => {
+  const result = parsePnpmWorkspacePackages(`
+packages:
+  - packages/*
+- not-a-package-workspace
+`);
+
+  expect(result).toEqual(["packages/*"]);
+});
+
 test("resolveWorkspaceManifestPaths - combines package.json and pnpm workspace sources", () => {
   const root = mkdtempSync(join(tmpdir(), "pastoralist-workspaces-"));
 

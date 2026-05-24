@@ -200,20 +200,21 @@ function resolveReleaseVersion(runner: ReleaseRunner, releaseArgs: ReleaseArgs):
 }
 
 export function incrementPreReleaseVersion(version: string, preRelease: PreRelease): string {
-  const pattern = new RegExp(`^(\\d+\\.\\d+\\.\\d+)-${preRelease}\\.(\\d+)(\\+[0-9A-Za-z.-]+)?$`);
-  const match = version.match(pattern);
-  if (!match) throw new Error(`Unable to advance ${preRelease} release version: ${version}`);
+  const match = version.match(/^(\d+\.\d+\.\d+)-([0-9A-Za-z.-]+)\.(\d+)(\+[0-9A-Za-z.-]+)?$/);
+  if (!match || match[2] !== preRelease) {
+    throw new Error(`Unable to advance ${preRelease} release version: ${version}`);
+  }
 
-  const nextPrerelease = Number(match[2]) + 1;
-  return `${match[1]}-${preRelease}.${nextPrerelease}${match[3] ?? ""}`;
+  const nextPrerelease = Number(match[3]) + 1;
+  return `${match[1]}-${preRelease}.${nextPrerelease}${match[4] ?? ""}`;
 }
 
 export function releaseTagExists(runner: ReleaseRunner, tagName: string): boolean {
-  const localTag = runner("git", ["tag", "--list", tagName]);
-  if (localTag.status !== 0) {
+  const localTag = runner("git", ["rev-parse", "-q", "--verify", `refs/tags/${tagName}`]);
+  if (localTag.status !== 0 && localTag.stderr.trim()) {
     throw new Error(localTag.stderr.trim() || `Unable to check local tag: ${tagName}`);
   }
-  if (localTag.stdout.trim()) return true;
+  if (localTag.status === 0) return true;
 
   const remoteTag = runner("git", ["ls-remote", "--tags", "origin", `refs/tags/${tagName}`]);
   if (remoteTag.status !== 0) {

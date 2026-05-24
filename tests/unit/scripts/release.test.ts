@@ -44,7 +44,7 @@ const missingTagOverrides = {
 };
 
 const availableVersionOverrides = {
-  "git tag --list v1.2.4": ok(""),
+  "git rev-parse -q --verify refs/tags/v1.2.4": missing(),
   "git ls-remote --tags origin refs/tags/v1.2.4": ok(""),
 };
 
@@ -143,7 +143,7 @@ describe("scripts/release", () => {
     };
     const { calls, runner } = createRunner({
       ...readyOverrides,
-      "git tag --list v1.2.4-beta.6": ok(""),
+      "git rev-parse -q --verify refs/tags/v1.2.4-beta.6": missing(),
       "git ls-remote --tags origin refs/tags/v1.2.4-beta.6": ok(""),
       "./node_modules/.bin/release-it --release-version --preRelease=beta --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
         ok("1.2.4-beta.6\n"),
@@ -200,19 +200,28 @@ describe("scripts/release", () => {
 
   test("releaseTagExists checks local and remote tags", () => {
     const { runner } = createRunner({
-      "git tag --list v1.2.4-beta.7": ok(""),
+      "git rev-parse -q --verify refs/tags/v1.2.4-beta.7": missing(),
       "git ls-remote --tags origin refs/tags/v1.2.4-beta.7": ok("489e1e refs/tags/v1.2.4-beta.7\n"),
     });
 
     expect(releaseTagExists(runner, "v1.2.4-beta.7")).toBe(true);
   });
 
+  test("releaseTagExists returns false when local and remote tags are missing", () => {
+    const { runner } = createRunner({
+      "git rev-parse -q --verify refs/tags/v1.2.4-beta.7": missing(),
+      "git ls-remote --tags origin refs/tags/v1.2.4-beta.7": ok(""),
+    });
+
+    expect(releaseTagExists(runner, "v1.2.4-beta.7")).toBe(false);
+  });
+
   test("resolveAvailableReleaseVersion skips existing prerelease tags", () => {
     const { runner } = createRunner({
-      "git tag --list v1.2.4-beta.6": ok("v1.2.4-beta.6\n"),
-      "git tag --list v1.2.4-beta.7": ok(""),
+      "git rev-parse -q --verify refs/tags/v1.2.4-beta.6": ok("489e1e\n"),
+      "git rev-parse -q --verify refs/tags/v1.2.4-beta.7": missing(),
       "git ls-remote --tags origin refs/tags/v1.2.4-beta.7": ok("489e1e refs/tags/v1.2.4-beta.7\n"),
-      "git tag --list v1.2.4-beta.8": ok(""),
+      "git rev-parse -q --verify refs/tags/v1.2.4-beta.8": missing(),
       "git ls-remote --tags origin refs/tags/v1.2.4-beta.8": ok(""),
     });
 
@@ -232,9 +241,9 @@ describe("scripts/release", () => {
     };
     const { runner } = createRunner({
       ...readyOverrides,
-      "git tag --list v1.2.4-beta.6": ok(""),
+      "git rev-parse -q --verify refs/tags/v1.2.4-beta.6": missing(),
       "git ls-remote --tags origin refs/tags/v1.2.4-beta.6": ok("489e1e refs/tags/v1.2.4-beta.6\n"),
-      "git tag --list v1.2.4-beta.7": ok(""),
+      "git rev-parse -q --verify refs/tags/v1.2.4-beta.7": missing(),
       "git ls-remote --tags origin refs/tags/v1.2.4-beta.7": ok(""),
       "./node_modules/.bin/release-it --release-version --preRelease=beta --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
         ok("1.2.4-beta.6\n"),

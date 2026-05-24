@@ -39,7 +39,7 @@ const readyOverrides = {
 };
 
 const missingTagOverrides = {
-  "git rev-parse -q --verify refs/tags/v1.2.4": fail("missing"),
+  "git rev-parse -q --verify refs/tags/v1.2.4": missing(),
   "git ls-remote --exit-code --tags origin refs/tags/v1.2.4": missing(),
 };
 

@@ -1,5 +1,7 @@
 import { test, expect, mock } from "bun:test";
-import { resolve } from "path";
+import { mkdtempSync, rmSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
 import {
   determineProcessingMode,
   resolveDepPaths,
@@ -113,6 +115,48 @@ test("resolveDepPaths - should handle workspaces string variant", () => {
   expect(result).toEqual(["packages/*/package.json"]);
 });
 
+test("resolveDepPaths - should resolve package.json workspaces object", () => {
+  const options: Options = {};
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+    workspaces: { packages: ["packages/*", "apps/*"] },
+    pastoralist: { depPaths: "workspace" },
+  };
+
+  const result = resolveDepPaths(options, config);
+
+  expect(result).toEqual(["packages/*/package.json", "apps/*/package.json"]);
+});
+
+test("resolveDepPaths - should resolve pnpm-workspace.yaml packages", () => {
+  const root = mkdtempSync(join(tmpdir(), "pastoralist-update-"));
+
+  try {
+    writeFileSync(
+      join(root, "pnpm-workspace.yaml"),
+      `
+packages:
+  - packages/*
+  - packages/@scope/*
+`,
+    );
+
+    const options: Options = { root };
+    const config: PastoralistJSON = {
+      name: "test",
+      version: "1.0.0",
+      pastoralist: { depPaths: "workspace" },
+    };
+
+    const result = resolveDepPaths(options, config);
+
+    expect(result).toEqual(["packages/*/package.json", "packages/@scope/*/package.json"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("resolveDepPaths - should return array depPaths as-is", () => {
   const options: Options = {};
   const config: PastoralistJSON = {
@@ -152,6 +196,32 @@ test("resolveDepPaths - should auto-detect workspaces when no depPaths", () => {
   const result = resolveDepPaths(options, config);
 
   expect(result).toEqual(["packages/*/package.json"]);
+});
+
+test("resolveDepPaths - should auto-detect pnpm-workspace.yaml when no depPaths", () => {
+  const root = mkdtempSync(join(tmpdir(), "pastoralist-update-"));
+
+  try {
+    writeFileSync(
+      join(root, "pnpm-workspace.yaml"),
+      `
+packages:
+  - packages/*
+`,
+    );
+
+    const options: Options = { root };
+    const config: PastoralistJSON = {
+      name: "test",
+      version: "1.0.0",
+    };
+
+    const result = resolveDepPaths(options, config);
+
+    expect(result).toEqual(["packages/*/package.json"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("resolveDepPaths - should return null when no workspaces or depPaths", () => {

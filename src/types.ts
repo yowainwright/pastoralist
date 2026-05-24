@@ -2,6 +2,7 @@ import type { SecurityAlert, SecurityProviderType } from "./core/security/types"
 import type { Logger } from "./utils/types";
 
 export type OverrideValue = string | Record<string, string>;
+export type PackageJsonWorkspaces = string[] | { packages?: string[] };
 
 export interface PastoralistJSON {
   dependencies?: Record<string, string>;
@@ -12,7 +13,7 @@ export interface PastoralistJSON {
   resolutions?: Record<string, string>;
   overrides?: Record<string, OverrideValue>;
   pnpm?: { overrides?: Record<string, OverrideValue> };
-  workspaces?: string[];
+  workspaces?: PackageJsonWorkspaces;
   pastoralist?: PastoralistConfig;
 }
 

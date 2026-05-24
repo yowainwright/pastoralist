@@ -323,6 +323,65 @@ if grep -q '"app-f":' package.json; then
 fi
 echo "✅ CLI depPaths correctly overrides config"
 
+# Test 8.4: Auto-detect pnpm-workspace.yaml with no depPaths
+echo "Testing pnpm-workspace.yaml auto-detection..."
+rm -rf /tmp/test-pnpm-workspace-autodetect
+mkdir -p /tmp/test-pnpm-workspace-autodetect/packages/app-g /tmp/test-pnpm-workspace-autodetect/apps/app-h
+cd /tmp/test-pnpm-workspace-autodetect
+
+cat > package.json <<'EOF'
+{
+  "name": "test-pnpm-workspace-autodetect",
+  "version": "1.0.0",
+  "pnpm": {
+    "overrides": {
+      "lodash": "4.17.21"
+    }
+  }
+}
+EOF
+
+cat > pnpm-workspace.yaml <<'EOF'
+packages:
+  - packages/*
+  - apps/*
+EOF
+
+cat > packages/app-g/package.json <<'EOF'
+{
+  "name": "app-g",
+  "version": "1.0.0",
+  "dependencies": {
+    "lodash": "^4.17.0"
+  }
+}
+EOF
+
+cat > apps/app-h/package.json <<'EOF'
+{
+  "name": "app-h",
+  "version": "1.0.0",
+  "dependencies": {
+    "lodash": "^4.17.0"
+  }
+}
+EOF
+
+node /app/pastoralist/index.js
+print_result $? "pnpm-workspace.yaml auto-detection completed"
+
+if ! grep -q '"app-g":' package.json || ! grep -q '"app-h":' package.json; then
+    echo "❌ pnpm-workspace.yaml packages not auto-detected"
+    cat package.json
+    exit 1
+fi
+if grep -q '"depPaths":' package.json; then
+    echo "❌ Auto-detection should not write depPaths config"
+    cat package.json
+    exit 1
+fi
+echo "✅ pnpm-workspace.yaml auto-detection works correctly"
+
 cd /app/e2e
 
 echo "\n🔒 Running Security Feature Tests..."

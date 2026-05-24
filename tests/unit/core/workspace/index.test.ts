@@ -1,7 +1,8 @@
 import { test, expect } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
+import type { Logger } from "../../../../src/utils";
 import {
   getPackageJsonWorkspacePatterns,
   normalizeWorkspaceManifestPaths,
@@ -97,6 +98,33 @@ packages:
     const result = resolveWorkspaceManifestPaths({ workspaces: ["packages/*"] }, root);
 
     expect(result).toEqual(["packages/*/package.json", "apps/*/package.json"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("resolveWorkspaceManifestPaths - falls back when pnpm workspace cannot be read", () => {
+  const root = mkdtempSync(join(tmpdir(), "pastoralist-workspaces-"));
+  const debugCalls: Array<[string, string]> = [];
+  const log: Logger = {
+    debug: (message, caller) => debugCalls.push([message, caller]),
+    error: () => {},
+    warn: () => {},
+    print: () => {},
+    line: () => {},
+    indent: () => {},
+    item: () => {},
+  };
+
+  try {
+    mkdirSync(join(root, "pnpm-workspace.yaml"));
+
+    const result = resolveWorkspaceManifestPaths({ workspaces: ["packages/*"] }, root, log);
+
+    expect(result).toEqual(["packages/*/package.json"]);
+    expect(debugCalls).toHaveLength(1);
+    expect(debugCalls[0][0]).toContain("Unable to read pnpm-workspace.yaml");
+    expect(debugCalls[0][1]).toBe("readPnpmWorkspacePatterns");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

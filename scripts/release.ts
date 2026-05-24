@@ -211,8 +211,9 @@ export function incrementPreReleaseVersion(version: string, preRelease: PreRelea
 
 export function releaseTagExists(runner: ReleaseRunner, tagName: string): boolean {
   const localTag = runner("git", ["rev-parse", "-q", "--verify", `refs/tags/${tagName}`]);
-  if (localTag.status !== 0 && localTag.stderr.trim()) {
-    throw new Error(localTag.stderr.trim() || `Unable to check local tag: ${tagName}`);
+  const localTagError = localTag.stderr.trim();
+  if (localTag.status !== 0 && localTagError) {
+    throw new Error(localTagError);
   }
   if (localTag.status === 0) return true;
 

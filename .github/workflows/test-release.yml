@@ -82,9 +82,12 @@ jobs:
 
               apk add --no-cache bash git > /dev/null 2>&1
 
-              if [ "$PM" = "pnpm" ] || [ "$PM" = "yarn" ]; then
+              if [ "$PM" = "pnpm" ]; then
                 corepack enable
-                corepack prepare "${PM}@latest" --activate 2>/dev/null || true
+                corepack prepare "pnpm@10" --activate 2>/dev/null || true
+              elif [ "$PM" = "yarn" ]; then
+                corepack enable
+                corepack prepare "yarn@4" --activate 2>/dev/null || true
               fi
 
               npm install -g "pastoralist@${PASTORALIST_VERSION}" --quiet

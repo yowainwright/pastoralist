@@ -46,7 +46,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-bun-
 
-      - run: bun install --frozen-lockfile
+      - run: bun install --config=/dev/null --frozen-lockfile
       - run: cd app && bun run build
       - run: touch app/dist/.nojekyll
 

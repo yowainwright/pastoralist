@@ -58,7 +58,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-bun-
 
-      - run: bun install --frozen-lockfile
+      - run: bun install --config=/dev/null --frozen-lockfile
       - name: Check test manifest policy
         run: bun run check:test-manifests
       - name: Check dependency update policy
@@ -124,7 +124,7 @@ jobs:
         with:
           bun-version: 1.3.14
 
-      - run: bun install --frozen-lockfile
+      - run: bun install --config=/dev/null --frozen-lockfile
       - run: bun run build
         env:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
@@ -172,7 +172,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-bun-
 
-      - run: bun install --frozen-lockfile
+      - run: bun install --config=/dev/null --frozen-lockfile
       - run: bun run build
         env:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}

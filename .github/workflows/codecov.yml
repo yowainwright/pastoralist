@@ -9,6 +9,9 @@ on:
 permissions:
   contents: read
 
+env:
+  SOCKET_API_KEY: ${{ secrets.SOCKET_API_KEY }}
+
 jobs:
   coverage:
     runs-on: ubuntu-latest

@@ -7,6 +7,9 @@ on:
 permissions:
   contents: read
 
+env:
+  SOCKET_API_KEY: ${{ secrets.SOCKET_API_KEY }}
+
 jobs:
   dependency-review:
     runs-on: ubuntu-latest

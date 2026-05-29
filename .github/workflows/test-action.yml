@@ -18,6 +18,9 @@ permissions:
   actions: read
   contents: read
 
+env:
+  SOCKET_API_KEY: ${{ secrets.SOCKET_API_KEY }}
+
 jobs:
   build:
     name: Build Pastoralist

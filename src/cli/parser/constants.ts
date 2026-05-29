@@ -2,6 +2,7 @@ import type { OptionDefinition } from "./types";
 
 export const OPTION_DEFINITIONS: OptionDefinition[] = [
   { flags: ["-h", "--help"], hasValue: false },
+  { flags: ["-v", "--version"], hasValue: false },
   { flags: ["--debug"], hasValue: false },
   { flags: ["--dry-run"], hasValue: false },
   { flags: ["--outputFormat"], hasValue: true, defaultValue: "text" },
@@ -39,6 +40,7 @@ Commands:
   init                                  Initialize Pastoralist configuration interactively
 
 Options:
+  -v, --version                         Print the installed Pastoralist version
   --debug                               Enable debug mode
   --dry-run                             Preview changes without writing to package.json
   --outputFormat <format>               Output format: text (default) or json

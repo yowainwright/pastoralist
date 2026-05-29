@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+import { existsSync, readFileSync } from "fs";
+import { dirname, resolve } from "path";
+import { fileURLToPath } from "url";
 import { parseArgs, showHelp } from "./parser";
 import type { Options } from "../types";
 import { logger as createLogger } from "../utils";
@@ -31,6 +34,8 @@ export { checkRemovalSafety } from "./removal-safety";
 export { resolvePathFromRoot } from "./path";
 export { handleSetupHook } from "./setup-hook";
 
+type PackageVersion = { version?: unknown };
+
 const parseRunArgs = (argv: string[]): ReturnType<typeof parseArgs> | undefined => {
   try {
     return parseArgs(argv);
@@ -45,6 +50,27 @@ const parseRunArgs = (argv: string[]): ReturnType<typeof parseArgs> | undefined 
 
 const isHelpRequested = (argv: string[], options: Options): boolean =>
   Boolean(options.help || argv.includes("-h") || argv.includes("--help"));
+
+const isVersionRequested = (argv: string[], options: Options): boolean =>
+  Boolean(options.version || argv.includes("-v") || argv.includes("--version"));
+
+const readVersion = (path: string): string | undefined => {
+  if (!existsSync(path)) return undefined;
+  const manifest = JSON.parse(readFileSync(path, "utf8")) as PackageVersion;
+  if (typeof manifest.version !== "string") return undefined;
+  return manifest.version;
+};
+
+const getPackageVersion = (): string => {
+  const moduleDir = dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    resolve(moduleDir, "../package.json"),
+    resolve(moduleDir, "../../package.json"),
+  ];
+  const version = candidates.map(readVersion).find((value) => value !== undefined);
+  if (!version) throw new Error("Unable to read package version");
+  return version;
+};
 
 const firstSecurityProvider = (options: Options): InitSecurityProvider => {
   if (Array.isArray(options.securityProvider)) return options.securityProvider[0];
@@ -68,6 +94,11 @@ export const run = async (
   const options = parsed.options as Options;
   if (isHelpRequested(argv, options)) {
     showHelp();
+    return;
+  }
+
+  if (isVersionRequested(argv, options)) {
+    console.log(getPackageVersion());
     return;
   }
 

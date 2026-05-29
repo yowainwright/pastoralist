@@ -29,22 +29,10 @@ const log = logger({ file: "packageJSON.ts", isLogging: IS_DEBUGGING });
 let _treeCache: DiskCache<Record<string, boolean>> | null = null;
 let _pendingTreeRequests: Map<string, Promise<Record<string, boolean>>> | null = null;
 
-const getTreeCache = (cacheDir?: string, noCache?: boolean): DiskCache<Record<string, boolean>> => {
-  const hasCustomCacheConfig = cacheDir || noCache;
-  if (hasCustomCacheConfig) {
-    const dir = cacheDir ?? resolveCacheDir();
-    const enabled = !noCache;
-    return new DiskCache<Record<string, boolean>>(CACHE_NAMESPACES.TREE, {
-      dir,
-      ttl: CACHE_TTLS.TREE,
-      version: CACHE_NS_VERSIONS.TREE,
-      maxEntries: TREE_CACHE_MAX_ENTRIES,
-      enabled,
-    });
-  }
+const getTreeCache = (cacheDir?: string): DiskCache<Record<string, boolean>> => {
   if (!_treeCache) {
     _treeCache = new DiskCache<Record<string, boolean>>(CACHE_NAMESPACES.TREE, {
-      dir: resolveCacheDir(),
+      dir: cacheDir ?? resolveCacheDir(),
       ttl: CACHE_TTLS.TREE,
       version: CACHE_NS_VERSIONS.TREE,
       maxEntries: TREE_CACHE_MAX_ENTRIES,
@@ -495,11 +483,10 @@ const createDependencyTreeRequest = (
 export const getDependencyTree = async (
   mockExecuteNpmLs?: (root?: string) => Promise<string>,
   cacheDir?: string,
-  noCache?: boolean,
   root: string = process.cwd(),
 ): Promise<Record<string, boolean>> => {
   const cacheKey = createDependencyTreeCacheKey(root);
-  const cache = getTreeCache(cacheDir, noCache);
+  const cache = getTreeCache(cacheDir);
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 

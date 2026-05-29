@@ -7,7 +7,8 @@ permissions:
   contents: read
 
 env:
-  SOCKET_API_KEY: ${{ secrets.SOCKET_API_KEY }}
+  SOCKET_API_KEY: ${{ secrets.SOCKET_SECURITY_API_KEY || secrets.SOCKET_API_KEY }}
+  SOCKET_SECURITY_API_KEY: ${{ secrets.SOCKET_SECURITY_API_KEY }}
 
 jobs:
   build-and-deploy:

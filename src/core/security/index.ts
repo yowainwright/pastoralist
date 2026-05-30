@@ -27,6 +27,7 @@ import {
   DiskCache,
   hashLockfile,
   resolveCacheDir,
+  pruneBackups,
   fetchLatestCompatibleVersions,
 } from "../../utils";
 import { CACHE_NAMESPACES, CACHE_TTLS, CACHE_NS_VERSIONS } from "../../utils/cache";
@@ -51,6 +52,13 @@ import { glob } from "../../utils/glob";
 
 export * from "./providers";
 
+const BACKUP_CACHE_DIR = "backups";
+
+const resolveBackupCacheDir = (root: string, cacheDir?: string): string => {
+  const baseCacheDir = resolveCacheDir({ cacheDir, root });
+  return resolve(baseCacheDir, BACKUP_CACHE_DIR);
+};
+
 export class SecurityChecker {
   private static readonly DEFAULT_MEMORY_CACHE_TTL = 1000 * 60 * 60;
   private providers: SecurityProvider[];
@@ -61,9 +69,13 @@ export class SecurityChecker {
   private readonly strict: boolean;
   private readonly noCache: boolean;
   private readonly refreshCache: boolean;
+  private readonly configuredCacheDir?: string;
+  private readonly cacheRoot?: string;
 
   constructor(options: SecurityProviderFactoryOptions) {
     this.log = logger({ file: "security/index.ts", isLogging: options.debug });
+    this.configuredCacheDir = options.cacheDir;
+    this.cacheRoot = options.root;
     this.providers = this.createProviders(options);
     const cacheTtlMs = this.resolveCacheTtlMs(
       options.cacheTtl,
@@ -79,7 +91,7 @@ export class SecurityChecker {
     this.noCache = options.noCache ?? false;
     this.refreshCache = options.refreshCache ?? false;
     this.diskAlertsCache = new DiskCache<SecurityAlert[]>(CACHE_NAMESPACES.ALERTS, {
-      dir: options.cacheDir ?? resolveCacheDir(),
+      dir: options.cacheDir ?? resolveCacheDir({ root: options.root }),
       ttl: alertDiskCacheTtlMs,
       version: CACHE_NS_VERSIONS.ALERTS,
       maxEntries: 50,
@@ -796,10 +808,12 @@ export class SecurityChecker {
   }
 
   private createBackup(pkgPath: string): string {
-    const cacheDir = resolve(dirname(pkgPath), "node_modules", ".cache", "pastoralist");
+    const root = this.cacheRoot ?? dirname(pkgPath);
+    const cacheDir = resolveBackupCacheDir(root, this.configuredCacheDir);
     mkdirSync(cacheDir, { recursive: true });
     const backupPath = resolve(cacheDir, `${basename(pkgPath)}.backup-${Date.now()}`);
     copyFileSync(pkgPath, backupPath);
+    pruneBackups(cacheDir);
     this.log.debug(`Created backup at ${backupPath}`, "createBackup");
     return backupPath;
   }

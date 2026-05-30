@@ -20,9 +20,9 @@ try {
   await $\`cd app && bun run build\`;
   await $\`bun run lint\`;
   await $\`bun test tests/unit/ --coverage --coverage-reporter=lcov\`;
-  console.log('✓ All pre-commit checks passed');
+  console.log('All pre-commit checks passed');
 } catch {
-  console.error('✗ Pre-commit checks failed');
+  console.error('Pre-commit checks failed');
   process.exit(1);
 }
 `;
@@ -38,14 +38,14 @@ const commitMsg = readFileSync(commitMsgFile, 'utf-8').trim();
 const conventionalCommitPattern = /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\\(.+\\))?: .{1,}/;
 
 if (!conventionalCommitPattern.test(commitMsg)) {
-  console.error('✗ Invalid commit message format');
+  console.error('Invalid commit message format');
   console.error('Expected format: <type>(<scope>): <message>');
   console.error('Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert');
   console.error(\`Received: \${commitMsg}\`);
   process.exit(1);
 }
 
-console.log('✓ Commit message is valid');
+console.log('Commit message is valid');
 `;
 
 const POST_MERGE = `#!/usr/bin/env bun
@@ -63,9 +63,9 @@ const lockfileChanged = await $\`git diff-tree -r --name-only --no-commit-id ORI
 if (lockfileChanged.includes(lockfilePath) || lockfileChanged.includes(packageJsonPath)) {
   console.log('Dependencies changed, running bun install...');
   await $\`bun install\`;
-  console.log('✓ Dependencies updated');
+  console.log('Dependencies updated');
 } else {
-  console.log('✓ No dependency changes detected');
+  console.log('No dependency changes detected');
 }
 `;
 
@@ -115,7 +115,7 @@ const installHook = (hookName: HookName, stats: HookStats): HookStats => {
 
   if (!hookExists) {
     writeHook(hookPath, hookContent);
-    console.log(`✓ Installed ${hookName} hook`);
+    console.log(`Installed ${hookName} hook`);
     return incrementStat(stats, "installed");
   }
 
@@ -125,7 +125,7 @@ const installHook = (hookName: HookName, stats: HookStats): HookStats => {
   if (existingHook === hookContent) return incrementStat(stats, "skipped");
 
   writeHook(hookPath, hookContent);
-  console.log(`✓ Updated ${hookName} hook`);
+  console.log(`Updated ${hookName} hook`);
   return incrementStat(stats, "updated");
 };
 
@@ -149,7 +149,7 @@ const installHooks = async (): Promise<void> => {
     const isHuskyPath = hooksPath.trim() === ".husky/_";
     if (isHuskyPath) {
       await $`git config --unset core.hooksPath`;
-      console.log("✓ Removed husky hooks path configuration");
+      console.log("Removed husky hooks path configuration");
     }
   } catch {
     // core.hooksPath not set, which is fine
@@ -167,15 +167,15 @@ const installHooks = async (): Promise<void> => {
   );
   const { installed, skipped, updated } = hookStats;
 
-  if (installed > 0) console.log(`\n✅ Installed ${installed} git hook(s)`);
-  if (updated > 0) console.log(`✅ Updated ${updated} git hook(s)`);
-  if (skipped > 0) console.log(`ℹ️  Skipped ${skipped} existing hook(s)`);
+  if (installed > 0) console.log(`\nInstalled ${installed} git hook(s)`);
+  if (updated > 0) console.log(`Updated ${updated} git hook(s)`);
+  if (skipped > 0) console.log(`Skipped ${skipped} existing hook(s)`);
 
   const noHooksInstalled = installed === 0;
   const noHooksSkipped = skipped === 0;
   const noHooksUpdated = updated === 0;
   const hasNoChanges = noHooksInstalled && noHooksSkipped && noHooksUpdated;
-  if (hasNoChanges) console.log("ℹ️  No hooks to install");
+  if (hasNoChanges) console.log("No hooks to install");
 };
 
 await installHooks();

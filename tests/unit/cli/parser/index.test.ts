@@ -28,6 +28,14 @@ describe("parseArgs", () => {
 
       expect(result.options.isTestingCLI).toBe(true);
     });
+
+    test("should parse version flags", () => {
+      const longVersion = parseArgs(["node", "script.js", "--version"]);
+      const shortVersion = parseArgs(["node", "script.js", "-v"]);
+
+      expect(longVersion.options.version).toBe(true);
+      expect(shortVersion.options.version).toBe(true);
+    });
   });
 
   describe("flags with values", () => {

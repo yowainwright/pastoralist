@@ -3378,6 +3378,30 @@ test("run - shows help with -h flag", async () => {
   expect(output).toContain("pastoralist");
 });
 
+test("run - prints package version and returns early", async () => {
+  const { run } = require("../../../src/cli/index");
+  const { version } = require("../../../package.json");
+  const mockAction = mock(() => Promise.resolve());
+  const mockInitCommand = mock(() => Promise.resolve());
+
+  const originalLog = console.log;
+  const logged: string[] = [];
+  console.log = (msg: string) => logged.push(msg);
+
+  try {
+    await run(["node", "pastoralist", "--version"], {
+      action: mockAction,
+      initCommand: mockInitCommand,
+    });
+  } finally {
+    console.log = originalLog;
+  }
+
+  expect(logged).toEqual([version]);
+  expect(mockAction).not.toHaveBeenCalled();
+  expect(mockInitCommand).not.toHaveBeenCalled();
+});
+
 test("run - handles unknown flags without throwing", async () => {
   const { run } = require("../../../src/cli/index");
 

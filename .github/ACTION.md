@@ -17,16 +17,11 @@ Automated dependency override management for npm, yarn, pnpm, and bun projects.
 name: Override Check
 on: [pull_request]
 
-permissions:
-  contents: read
-
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
+      - uses: actions/checkout@v6.0.2
       - uses: yowainwright/pastoralist@v1
         with:
           mode: check
@@ -40,17 +35,11 @@ on:
   schedule:
     - cron: "0 0 * * 1" # Weekly on Monday
 
-permissions:
-  contents: write
-  pull-requests: write
-
 jobs:
   maintain:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
+      - uses: actions/checkout@v6.0.2
       - uses: yowainwright/pastoralist@v1
         with:
           mode: pr
@@ -98,19 +87,9 @@ jobs:
 Runs pastoralist in dry-run mode. Reports issues without modifying files.
 
 ```yaml
-permissions:
-  contents: read
-
-jobs:
-  check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-      - uses: yowainwright/pastoralist@v1
-        with:
-          mode: check
+- uses: yowainwright/pastoralist@v1
+  with:
+    mode: check
 ```
 
 ### `update` - Modify Files (Default)
@@ -118,24 +97,17 @@ jobs:
 Runs pastoralist and modifies `package.json`. Use in workflows where you handle commits yourself.
 
 ```yaml
-permissions:
-  contents: write
+- uses: yowainwright/pastoralist@v1
+  with:
+    mode: update
 
-jobs:
-  update:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: yowainwright/pastoralist@v1
-        with:
-          mode: update
-      - name: Commit changes
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.json
-          git diff --staged --quiet || git commit -m "chore: update overrides"
-          git push
+- name: Commit changes
+  run: |
+    git config user.name github-actions[bot]
+    git config user.email github-actions[bot]@users.noreply.github.com
+    git add package.json
+    git diff --staged --quiet || git commit -m "chore: update overrides"
+    git push
 ```
 
 ### `pr` - Create Pull Request
@@ -143,21 +115,10 @@ jobs:
 Runs pastoralist and creates a PR if changes are needed. Ideal for scheduled workflows.
 
 ```yaml
-permissions:
-  contents: write
-  pull-requests: write
-
-jobs:
-  pr:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-      - uses: yowainwright/pastoralist@v1
-        with:
-          mode: pr
-          pr-title: "fix(security): update vulnerable overrides"
+- uses: yowainwright/pastoralist@v1
+  with:
+    mode: pr
+    pr-title: "fix(security): update vulnerable overrides"
 ```
 
 ## Examples
@@ -168,16 +129,12 @@ jobs:
 name: Override Security
 on: [pull_request]
 
-permissions:
-  contents: read
-
 jobs:
   security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
+      - uses: actions/checkout@v6.0.2
+
       - uses: yowainwright/pastoralist@v1
         with:
           mode: check
@@ -188,19 +145,9 @@ jobs:
 ### Monorepo Support
 
 ```yaml
-permissions:
-  contents: read
-
-jobs:
-  check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-      - uses: yowainwright/pastoralist@v1
-        with:
-          dep-paths: "packages/*/package.json apps/*/package.json"
+- uses: yowainwright/pastoralist@v1
+  with:
+    dep-paths: "packages/*/package.json apps/*/package.json"
 ```
 
 ### Using GitHub Security Provider
@@ -226,64 +173,34 @@ jobs:
     # Custom PR logic here
 ```
 
-### Weekly Maintenance PR
+### Weekly Maintenance with Slack Notification
 
 ```yaml
-name: Override Maintenance
+name: Weekly Override Maintenance
 on:
   schedule:
     - cron: "0 9 * * 1"
-
-permissions:
-  contents: write
-  pull-requests: write
 
 jobs:
   maintain:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
+      - uses: actions/checkout@v6.0.2
+
       - uses: yowainwright/pastoralist@v1
         id: pastoralist
         with:
           mode: pr
-      - name: Summary
+
+      - name: Notify Slack
         if: steps.pastoralist.outputs.pr-url != ''
-        run: echo "Created PR - ${{ steps.pastoralist.outputs.pr-url }}"
+        uses: slackapi/slack-github-action@v3.0.3
+        with:
+          payload: |
+            {
+              "text": "Pastoralist created a PR: ${{ steps.pastoralist.outputs.pr-url }}"
+            }
 ```
-
-### Extending with Notifications
-
-The `pr-url` output lets you wire in any notification system after the action runs:
-
-```yaml
-- uses: yowainwright/pastoralist@v1
-  id: pastoralist
-  with:
-    mode: pr
-
-# Example: send to Slack, Teams, Discord, etc.
-- name: Notify
-  if: steps.pastoralist.outputs.pr-url != ''
-  run: |
-    curl -s -X POST "$WEBHOOK_URL" \
-      -H "Content-Type: application/json" \
-      -d "{\"text\": \"Override PR created: ${{ steps.pastoralist.outputs.pr-url }}\"}"
-  env:
-    WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
-```
-
-## Security
-
-All action references in these examples are pinned to commit SHAs. This protects
-against supply-chain attacks where a mutable version tag (e.g. `@v4`) is silently
-moved to point at different — potentially malicious — code.
-
-When upgrading an action, update both the SHA and the version comment together.
-Tools like [Dependabot](https://docs.github.com/en/code-security/dependabot) or
-[Renovate](https://docs.renovatebot.com/) can automate this for you.
 
 ## Security Providers
 
@@ -296,13 +213,13 @@ Tools like [Dependabot](https://docs.github.com/en/code-security/dependabot) or
 
 ## Permissions
 
-Declare only the permissions your workflow needs:
+For `mode: pr`, the action needs write permissions:
 
-| Mode     | Required permissions                      |
-| -------- | ----------------------------------------- |
-| `check`  | `contents: read`                          |
-| `update` | `contents: write`                         |
-| `pr`     | `contents: write`, `pull-requests: write` |
+```yaml
+permissions:
+  contents: write
+  pull-requests: write
+```
 
 ## Related
 

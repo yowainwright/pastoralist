@@ -159,6 +159,7 @@ export interface Options extends SecurityOptions, OutputOptions, TestingOptions,
   appendix?: Appendix;
   clearCache?: boolean;
   help?: boolean;
+  version?: boolean;
   init?: boolean;
   interactive?: boolean;
   promptForReasons?: boolean;

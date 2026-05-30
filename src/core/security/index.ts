@@ -61,7 +61,6 @@ export class SecurityChecker {
   private readonly strict: boolean;
   private readonly noCache: boolean;
   private readonly refreshCache: boolean;
-  private readonly cacheDir: string | undefined;
 
   constructor(options: SecurityProviderFactoryOptions) {
     this.log = logger({ file: "security/index.ts", isLogging: options.debug });
@@ -79,7 +78,6 @@ export class SecurityChecker {
     this.strict = options.strict ?? false;
     this.noCache = options.noCache ?? false;
     this.refreshCache = options.refreshCache ?? false;
-    this.cacheDir = options.cacheDir;
     this.diskAlertsCache = new DiskCache<SecurityAlert[]>(CACHE_NAMESPACES.ALERTS, {
       dir: options.cacheDir ?? resolveCacheDir(),
       ttl: alertDiskCacheTtlMs,
@@ -183,9 +181,7 @@ export class SecurityChecker {
       isIRLFix: options.isIRLFix,
       isIRLCatch: options.isIRLCatch,
       strict: options.strict,
-      cacheDir: options.cacheDir,
       cacheTtl: options.cacheTtl,
-      noCache: options.noCache,
     });
   }
 
@@ -651,10 +647,7 @@ export class SecurityChecker {
         minVersion: pkg.patchedVersion!,
       }));
 
-    return fetchLatestCompatibleVersions(packages, {
-      cacheDir: this.cacheDir,
-      noCache: this.noCache,
-    });
+    return fetchLatestCompatibleVersions(packages);
   }
 
   private generateOverrides(

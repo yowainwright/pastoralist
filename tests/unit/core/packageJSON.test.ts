@@ -630,7 +630,7 @@ test("getDependencyTree - passes root parameter to executeNpmLs mock", async () 
   };
 
   const customRoot = resolve(testDir, "custom-root");
-  await getDependencyTree(mockExecuteNpmLs, undefined, undefined, customRoot);
+  await getDependencyTree(mockExecuteNpmLs, undefined, customRoot);
 
   expect(capturedRoot).toBe(customRoot);
   clearDependencyTreeCache();
@@ -1053,17 +1053,6 @@ test("getDependencyTree - uses custom cacheDir when provided", async () => {
   expect(tree["lodash"]).toBe(true);
   clearDependencyTreeCache();
   rmSync(customCacheDir, { recursive: true, force: true });
-});
-
-test("getDependencyTree - skips cache when noCache is true", async () => {
-  clearDependencyTreeCache();
-  const mockOutput = JSON.stringify({ dependencies: { express: {} } });
-  const mockExecuteNpmLs = async () => mockOutput;
-
-  const tree = await getDependencyTree(mockExecuteNpmLs, undefined, true);
-
-  expect(tree["express"]).toBe(true);
-  clearDependencyTreeCache();
 });
 
 test("getDependencyTree - should cache results on second call", async () => {

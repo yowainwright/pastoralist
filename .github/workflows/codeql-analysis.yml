@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+env:
+  SOCKET_API_KEY: ${{ secrets.SOCKET_SECURITY_API_KEY || secrets.SOCKET_API_KEY }}
+  SOCKET_SECURITY_API_KEY: ${{ secrets.SOCKET_SECURITY_API_KEY }}
+
 jobs:
   analyze:
     name: Analyze
@@ -45,7 +49,7 @@ jobs:
           config-file: ./.github/codeql-config.yml
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install --config=/dev/null --frozen-lockfile
 
       - name: Build
         run: bun run build

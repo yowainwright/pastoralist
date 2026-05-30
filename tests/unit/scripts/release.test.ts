@@ -9,6 +9,7 @@ import {
   incrementPreReleaseVersion,
   incrementStableVersion,
   isPreReleaseVersion,
+  isStableVersion,
   parseArgs,
   parseReleaseVersion,
   quoteShellArg,
@@ -222,13 +223,13 @@ describe("scripts/release", () => {
   test("runRelease surfaces command failures", async () => {
     const { runner } = createRunner({
       ...readyOverrides,
-      "./node_modules/.bin/release-it --release-version --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
+      "./node_modules/.bin/release-it --release-version --increment=patch --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
         fail("release-it failed"),
     });
 
-    await expect(runRelease({ dryRun: true, packageVersion: "1.2.3", runner })).rejects.toThrow(
-      "release-it failed",
-    );
+    await expect(
+      runRelease({ dryRun: true, increment: "patch", packageVersion: "1.2.3", runner }),
+    ).rejects.toThrow("release-it failed");
   });
 
   test("incrementPreReleaseVersion advances the prerelease number", () => {
@@ -250,6 +251,11 @@ describe("scripts/release", () => {
   test("isPreReleaseVersion identifies prerelease package versions", () => {
     expect(isPreReleaseVersion("1.2.4-beta.6")).toBe(true);
     expect(isPreReleaseVersion("1.2.4")).toBe(false);
+  });
+
+  test("isStableVersion identifies stable package versions", () => {
+    expect(isStableVersion("1.2.4")).toBe(true);
+    expect(isStableVersion("1.2.4-beta.6")).toBe(false);
   });
 
   test("releaseTagExists checks local and remote tags", () => {
@@ -294,6 +300,22 @@ describe("scripts/release", () => {
     expect(
       resolveAvailableReleaseVersion(runner, { dryRun: true, increment: "patch" }, "1.12.1"),
     ).toBe("1.12.2");
+  });
+
+  test("resolveAvailableReleaseVersion requires explicit stable increments", () => {
+    const { runner } = createRunner();
+
+    expect(() => resolveAvailableReleaseVersion(runner, { dryRun: true }, "1.12.1")).toThrow(
+      "Stable release resolution requires an explicit increment",
+    );
+  });
+
+  test("resolveAvailableReleaseVersion rejects prerelease versions for stable releases", () => {
+    const { runner } = createRunner();
+
+    expect(() =>
+      resolveAvailableReleaseVersion(runner, { dryRun: true, increment: "patch" }, "1.12.1-beta.9"),
+    ).toThrow("release-it resolved a prerelease version for a stable release: 1.12.1-beta.9");
   });
 
   test("runRelease dry run advances past an existing prerelease tag", async () => {
@@ -445,28 +467,14 @@ describe("scripts/release", () => {
     ).rejects.toThrow("Release tag already exists: v1.2.4-beta.6");
   });
 
-  test("runRelease dry run advances past an existing stable tag", async () => {
-    let output = "";
-    const logger = {
-      error: mock(() => {}),
-      log: mock((message: string) => {
-        output = message;
-      }),
-      warn: mock(() => {}),
-    };
+  test("runRelease requires an explicit increment for stable releases", async () => {
     const { runner } = createRunner({
       ...readyOverrides,
-      "git rev-parse -q --verify refs/tags/v1.2.4": ok("489e1e\n"),
-      "git rev-parse -q --verify refs/tags/v1.2.5": missing(),
-      "git ls-remote --tags origin refs/tags/v1.2.5": ok(""),
-      "./node_modules/.bin/release-it --release-version --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
-        ok("1.2.4\n"),
     });
 
-    const code = await runRelease({ dryRun: true, logger, packageVersion: "1.2.3", runner });
-
-    expect(code).toBe(0);
-    expect(output).toContain("Dry run release commands for v1.2.5");
+    await expect(runRelease({ dryRun: true, packageVersion: "1.2.3", runner })).rejects.toThrow(
+      "Stable releases require an explicit increment",
+    );
   });
 
   test("runRelease creates a release commit and pushes the release tag", async () => {
@@ -479,7 +487,7 @@ describe("scripts/release", () => {
       ...readyOverrides,
       ...availableVersionOverrides,
       ...missingTagOverrides,
-      "./node_modules/.bin/release-it --release-version --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
+      "./node_modules/.bin/release-it --release-version --increment=patch --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
         ok("1.2.4\n"),
       "./node_modules/.bin/release-it 1.2.4 --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
         ok(""),
@@ -488,7 +496,7 @@ describe("scripts/release", () => {
       "git reset --hard abc": ok(""),
     });
 
-    const code = await runRelease({ logger, packageVersion: "1.2.3", runner });
+    const code = await runRelease({ increment: "patch", logger, packageVersion: "1.2.3", runner });
 
     expect(code).toBe(0);
     expect(logger.log).toHaveBeenCalledWith("Pushed v1.2.4");
@@ -548,7 +556,7 @@ describe("scripts/release", () => {
       ...readyOverrides,
       ...availableVersionOverrides,
       ...missingTagOverrides,
-      "./node_modules/.bin/release-it --release-version --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
+      "./node_modules/.bin/release-it --release-version --increment=patch --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
         ok("1.2.4\n"),
       "./node_modules/.bin/release-it 1.2.4 --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
         ok(""),
@@ -557,7 +565,7 @@ describe("scripts/release", () => {
       "git reset --hard abc": ok(""),
     });
 
-    await runRelease({ logger, packageVersion: "1.2.3", runner });
+    await runRelease({ increment: "patch", logger, packageVersion: "1.2.3", runner });
 
     expect(calls().some((call) => call[0] === "gh")).toBe(false);
   });
@@ -572,7 +580,7 @@ describe("scripts/release", () => {
       ...readyOverrides,
       ...availableVersionOverrides,
       ...missingTagOverrides,
-      "./node_modules/.bin/release-it --release-version --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
+      "./node_modules/.bin/release-it --release-version --increment=patch --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
         ok("1.2.4\n"),
       "./node_modules/.bin/release-it 1.2.4 --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
         ok(""),
@@ -582,9 +590,9 @@ describe("scripts/release", () => {
       "git reset --hard abc": ok(""),
     });
 
-    await expect(runRelease({ logger, packageVersion: "1.2.3", runner })).rejects.toThrow(
-      "push rejected",
-    );
+    await expect(
+      runRelease({ increment: "patch", logger, packageVersion: "1.2.3", runner }),
+    ).rejects.toThrow("push rejected");
     expect(calls()).toContainEqual(["git", "tag", "--delete", "v1.2.4"]);
     expect(calls()).toContainEqual(["git", "reset", "--hard", "abc"]);
   });

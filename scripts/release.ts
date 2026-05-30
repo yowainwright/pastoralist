@@ -36,6 +36,7 @@ export interface ReleasePlan {
 }
 
 const VERSION_PATTERN = /\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?/g;
+const STABLE_VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
 const PRE_RELEASES = new Set<PreRelease>(["alpha", "beta", "rc"]);
 const RELEASE_INCREMENTS = new Set<ReleaseIncrement>(["patch", "minor", "major"]);
 const SAFE_SHELL_ARG_PATTERN = /^[A-Za-z0-9_./:=@-]+$/;
@@ -173,6 +174,10 @@ export async function runRelease(options: ReleaseOptions = {}): Promise<number> 
     return 0;
   }
 
+  if (!releaseArgs.preRelease && !releaseArgs.increment) {
+    throw new Error("Stable releases require an explicit increment: patch, minor, or major");
+  }
+
   const version = resolveReleaseVersion(runner, releaseArgs);
 
   if (releaseArgs.dryRun) {
@@ -198,6 +203,10 @@ export async function runRelease(options: ReleaseOptions = {}): Promise<number> 
 
 export function isPreReleaseVersion(version: string): boolean {
   return /^\d+\.\d+\.\d+-[0-9A-Za-z.-]+(?:\+[0-9A-Za-z.-]+)?$/.test(version);
+}
+
+export function isStableVersion(version: string): boolean {
+  return STABLE_VERSION_PATTERN.test(version);
 }
 
 function normalizeOptions(options: ReleaseOptions): ReleaseArgs {
@@ -312,12 +321,18 @@ export function resolveAvailableReleaseVersion(
   version: string,
 ): string {
   if (!releaseArgs.preRelease) {
+    if (!releaseArgs.increment) {
+      throw new Error("Stable release resolution requires an explicit increment");
+    }
+    if (!isStableVersion(version)) {
+      throw new Error(`release-it resolved a prerelease version for a stable release: ${version}`);
+    }
+
     let candidate = version;
-    const increment = releaseArgs.increment ?? "patch";
     for (let attempt = 0; attempt < 100; attempt += 1) {
       const tagName = `v${candidate}`;
       if (!releaseTagExists(runner, tagName)) return candidate;
-      candidate = incrementStableVersion(candidate, increment);
+      candidate = incrementStableVersion(candidate, releaseArgs.increment);
     }
 
     throw new Error(`Unable to find an available release tag for ${version}`);

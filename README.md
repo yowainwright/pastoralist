@@ -157,13 +157,18 @@ Scorecard, unit/integration/e2e tests, and dependency update policy checks.
 
 ### Maintainer Release Flow
 
-Release commands do not create pull requests or push `main`. To deploy a beta,
-run `bun run release:beta` from clean, up-to-date `main`. The command creates
-a temporary local release commit, pushes the version tag that triggers
-publishing, then restores local `main` to its starting commit. If the release
-commit already exists on `main`, run `bun run release:tag` from clean,
-up-to-date `main`. To preview the beta commands without creating commits or
-tags, run `bun run release:beta:dry`.
+Release commands do not create pull requests or push `main`. If `package.json`
+already contains the beta version to publish, run `bun run release` from clean,
+up-to-date `main`; it tags the current package version and pushes the tag that
+triggers publishing. The bare `release` command rejects stable manifest versions
+so maintainers must choose an explicit stable increment. For normal semver
+releases, run `bun run release:patch`, `bun run release:minor`, or
+`bun run release:major`; these commands use the next available stable tag for
+the requested increment. To advance to a new beta version, run
+`bun run release:beta`. To tag the manifest version directly, run
+`bun run release:tag`. Dry-run variants are available as
+`release:patch:dry`, `release:minor:dry`, `release:major:dry`, and
+`release:beta:dry`.
 
 ## Video Walkthroughs
 

@@ -39,6 +39,10 @@ export const hashLockfile = (root = process.cwd()): string => {
 const isWritableCacheDir = (cacheDir: string): boolean => {
   try {
     mkdirSync(cacheDir, { recursive: true });
+    const probeName = `.write-test-${process.pid}-${Math.random().toString(36).slice(2)}`;
+    const probePath = join(cacheDir, probeName);
+    writeFileSync(probePath, "");
+    unlinkSync(probePath);
     return true;
   } catch {
     return false;
@@ -53,12 +57,32 @@ const nodeModulesCacheDir = (root: string): string => {
   return join(root, "node_modules", ".cache", "pastoralist");
 };
 
+const userCacheDir = (): string => {
+  if (process.platform === "darwin") {
+    return join(homedir(), "Library", "Caches", "pastoralist");
+  }
+
+  if (process.platform === "win32") {
+    const localAppData = process.env.LOCALAPPDATA;
+    if (localAppData) return join(localAppData, "pastoralist", "Cache");
+    return join(homedir(), "AppData", "Local", "pastoralist", "Cache");
+  }
+
+  const xdgCacheHome = process.env.XDG_CACHE_HOME;
+  if (xdgCacheHome) return join(xdgCacheHome, "pastoralist");
+  return join(homedir(), ".cache", "pastoralist");
+};
+
 const fallbackCacheDirs = (): string[] => {
-  return [join(homedir(), ".pastoralist", "cache"), join(tmpdir(), "pastoralist", "cache")];
+  const osCacheDir = userCacheDir();
+  const tempCacheDir = join(tmpdir(), "pastoralist", "cache");
+  return [osCacheDir, tempCacheDir];
 };
 
 const writableCacheDir = (root: string): string | undefined => {
-  return [nodeModulesCacheDir(root)].concat(fallbackCacheDirs()).find(isWritableCacheDir);
+  const projectCacheDir = nodeModulesCacheDir(root);
+  const cacheDirs = [projectCacheDir].concat(fallbackCacheDirs());
+  return cacheDirs.find(isWritableCacheDir);
 };
 
 export const resolveCacheDir = (options: CacheDirOptions = {}): string => {

@@ -191,6 +191,12 @@ test("resolveCacheDir - returns provided cacheDir", () => {
   expect(resolveCacheDir({ cacheDir: dir })).toBe(dir);
 });
 
+test("resolveCacheDir - prefers project node_modules cache", () => {
+  const root = tmpCacheDir();
+  const expected = join(root, "node_modules", ".cache", "pastoralist");
+  expect(resolveCacheDir({ root })).toBe(expected);
+});
+
 test("resolveCacheDir - reads PASTORALIST_CACHE_DIR env", () => {
   const dir = tmpCacheDir();
   process.env.PASTORALIST_CACHE_DIR = dir;

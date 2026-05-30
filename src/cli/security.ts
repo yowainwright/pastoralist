@@ -111,6 +111,7 @@ const createSecurityChecker = (
     token: mergedOptions.securityProviderToken,
     debug: isLogging,
     strict: mergedOptions.strict,
+    root: mergedOptions.root,
     cacheDir: mergedOptions.cacheDir,
     cacheTtl: mergedOptions.cacheTtl,
     noCache: mergedOptions.noCache,
@@ -129,6 +130,7 @@ const createPermissionFallbackChecker = (
     token: mergedOptions.securityProviderToken,
     debug: isLogging,
     strict: mergedOptions.strict,
+    root: mergedOptions.root,
     cacheTtl: mergedOptions.cacheTtl,
   });
 

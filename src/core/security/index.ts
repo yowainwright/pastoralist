@@ -70,10 +70,12 @@ export class SecurityChecker {
   private readonly noCache: boolean;
   private readonly refreshCache: boolean;
   private readonly configuredCacheDir?: string;
+  private readonly cacheRoot?: string;
 
   constructor(options: SecurityProviderFactoryOptions) {
     this.log = logger({ file: "security/index.ts", isLogging: options.debug });
     this.configuredCacheDir = options.cacheDir;
+    this.cacheRoot = options.root;
     this.providers = this.createProviders(options);
     const cacheTtlMs = this.resolveCacheTtlMs(
       options.cacheTtl,
@@ -89,7 +91,7 @@ export class SecurityChecker {
     this.noCache = options.noCache ?? false;
     this.refreshCache = options.refreshCache ?? false;
     this.diskAlertsCache = new DiskCache<SecurityAlert[]>(CACHE_NAMESPACES.ALERTS, {
-      dir: options.cacheDir ?? resolveCacheDir(),
+      dir: options.cacheDir ?? resolveCacheDir({ root: options.root }),
       ttl: alertDiskCacheTtlMs,
       version: CACHE_NS_VERSIONS.ALERTS,
       maxEntries: 50,
@@ -806,7 +808,8 @@ export class SecurityChecker {
   }
 
   private createBackup(pkgPath: string): string {
-    const cacheDir = resolveBackupCacheDir(dirname(pkgPath), this.configuredCacheDir);
+    const root = this.cacheRoot ?? dirname(pkgPath);
+    const cacheDir = resolveBackupCacheDir(root, this.configuredCacheDir);
     mkdirSync(cacheDir, { recursive: true });
     const backupPath = resolve(cacheDir, `${basename(pkgPath)}.backup-${Date.now()}`);
     copyFileSync(pkgPath, backupPath);

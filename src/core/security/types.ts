@@ -55,6 +55,7 @@ export interface SecurityProviderFactoryOptions extends SecurityCheckOptions {
   debug?: boolean;
   isIRLFix?: boolean;
   isIRLCatch?: boolean;
+  root?: string;
 }
 
 export interface SecurityCheckRuntimeOptions extends SecurityCheckOptions {

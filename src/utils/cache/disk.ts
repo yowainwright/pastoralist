@@ -158,13 +158,9 @@ export class DiskCache<V> {
     const rand = Math.random().toString(36).slice(2);
     const tmpName = `${basename(this.filePath)}.tmp-${process.pid}-${rand}`;
     const tmpPath = join(dir, tmpName);
-    try {
-      writeFileSync(tmpPath, JSON.stringify(envelope));
-      renameSync(tmpPath, this.filePath);
-      this.data = envelope;
-    } catch {
-      return;
-    }
+    writeFileSync(tmpPath, JSON.stringify(envelope));
+    renameSync(tmpPath, this.filePath);
+    this.data = envelope;
   }
 
   private isExpired(entry: { v: V; t: number }): boolean {

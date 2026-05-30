@@ -63,11 +63,6 @@ export interface CacheContext {
   ttlOverride?: number;
 }
 
-export interface RegistryCacheOptions {
-  cacheDir?: string;
-  noCache?: boolean;
-}
-
 export interface NpmPackageInfo {
   "dist-tags": {
     latest: string;

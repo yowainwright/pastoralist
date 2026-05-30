@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+env:
+  SOCKET_API_KEY: ${{ secrets.SOCKET_SECURITY_API_KEY || secrets.SOCKET_API_KEY }}
+  SOCKET_SECURITY_API_KEY: ${{ secrets.SOCKET_SECURITY_API_KEY }}
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -31,7 +35,7 @@ jobs:
           node-version: 24
           registry-url: "https://registry.npmjs.org"
 
-      - run: bun install --frozen-lockfile
+      - run: bun install --config=/dev/null --frozen-lockfile
 
       - run: bun test tests/unit/
         env:

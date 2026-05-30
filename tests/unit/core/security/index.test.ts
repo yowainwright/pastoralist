@@ -1096,6 +1096,25 @@ test("createBackup - should use configured cache directory", () => {
   }
 });
 
+test("createBackup - should use configured root for project cache", () => {
+  const root = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-root-"));
+  const packageDir = path.join(root, "packages", "site");
+  const testPath = path.join(packageDir, "package.json");
+  const expectedBackupDir = path.join(root, "node_modules", ".cache", "pastoralist", "backups");
+
+  try {
+    fs.mkdirSync(packageDir, { recursive: true });
+    fs.writeFileSync(testPath, JSON.stringify({ name: "site" }));
+    const checker = new SecurityChecker({ provider: "osv", root });
+    const backupPath = (checker as any).createBackup(testPath);
+
+    expect(fs.existsSync(backupPath)).toBe(true);
+    expect(path.dirname(backupPath)).toBe(expectedBackupDir);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("applyAutoFix - should apply security overrides to package.json", async () => {
   const checker = new SecurityChecker({ provider: "osv" });
   const testPath = path.join(process.cwd(), "test-autofix.json");

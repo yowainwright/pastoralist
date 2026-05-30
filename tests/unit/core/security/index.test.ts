@@ -9,6 +9,7 @@ import { PastoralistJSON, SecurityOverride } from "../../../../src/types";
 import { DependabotAlert, SecurityAlert } from "../../../../src/core/security/types";
 import * as fs from "fs";
 import * as path from "path";
+import { tmpdir } from "os";
 import {
   BASE_SECURITY_ALERT,
   BASE_DEPENDABOT_ALERT,
@@ -1060,16 +1061,58 @@ test("applyOverridesToPackageJson - should merge with existing overrides", () =>
 
 test("createBackup - should create backup file", () => {
   const checker = new SecurityChecker({ provider: "osv" });
-  const testPath = path.join(process.cwd(), "test-backup-source.json");
+  const testDir = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-backup-"));
+  const testPath = path.join(testDir, "package.json");
+  const expectedBackupDir = path.join(testDir, "node_modules", ".cache", "pastoralist", "backups");
 
-  fs.writeFileSync(testPath, JSON.stringify({ name: "test" }));
-  const backupPath = (checker as any).createBackup(testPath);
+  try {
+    fs.writeFileSync(testPath, JSON.stringify({ name: "test" }));
+    const backupPath = (checker as any).createBackup(testPath);
 
-  expect(fs.existsSync(backupPath)).toBe(true);
-  expect(backupPath).toContain(".backup-");
+    expect(fs.existsSync(backupPath)).toBe(true);
+    expect(backupPath).toContain(".backup-");
+    expect(path.dirname(backupPath)).toBe(expectedBackupDir);
+  } finally {
+    fs.rmSync(testDir, { recursive: true, force: true });
+  }
+});
 
-  fs.unlinkSync(testPath);
-  fs.unlinkSync(backupPath);
+test("createBackup - should use configured cache directory", () => {
+  const cacheDir = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-cache-"));
+  const testDir = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-backup-"));
+  const testPath = path.join(testDir, "package.json");
+  const expectedBackupDir = path.join(cacheDir, "backups");
+
+  try {
+    fs.writeFileSync(testPath, JSON.stringify({ name: "test" }));
+    const checker = new SecurityChecker({ provider: "osv", cacheDir });
+    const backupPath = (checker as any).createBackup(testPath);
+
+    expect(fs.existsSync(backupPath)).toBe(true);
+    expect(path.dirname(backupPath)).toBe(expectedBackupDir);
+  } finally {
+    fs.rmSync(cacheDir, { recursive: true, force: true });
+    fs.rmSync(testDir, { recursive: true, force: true });
+  }
+});
+
+test("createBackup - should use configured root for project cache", () => {
+  const root = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-root-"));
+  const packageDir = path.join(root, "packages", "site");
+  const testPath = path.join(packageDir, "package.json");
+  const expectedBackupDir = path.join(root, "node_modules", ".cache", "pastoralist", "backups");
+
+  try {
+    fs.mkdirSync(packageDir, { recursive: true });
+    fs.writeFileSync(testPath, JSON.stringify({ name: "site" }));
+    const checker = new SecurityChecker({ provider: "osv", root });
+    const backupPath = (checker as any).createBackup(testPath);
+
+    expect(fs.existsSync(backupPath)).toBe(true);
+    expect(path.dirname(backupPath)).toBe(expectedBackupDir);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("applyAutoFix - should apply security overrides to package.json", async () => {
@@ -1572,6 +1615,16 @@ test("checkSecurity - throws provider errors in strict mode", async () => {
 });
 
 const TEST_DIR = path.resolve(__dirname, ".test-autofix");
+const createdBackupPaths = new Set<string>();
+
+const rememberBackup = (backupPath: string | void): string => {
+  if (typeof backupPath !== "string") {
+    throw new Error("Expected backup path");
+  }
+
+  createdBackupPaths.add(backupPath);
+  return backupPath;
+};
 
 const createTestPackage = (name: string, content: object) => {
   const dir = path.join(TEST_DIR, name);
@@ -1589,12 +1642,17 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  for (const backupPath of createdBackupPaths) {
+    if (fs.existsSync(backupPath)) fs.unlinkSync(backupPath);
+  }
+  createdBackupPaths.clear();
+
   if (fs.existsSync(TEST_DIR)) {
     fs.rmSync(TEST_DIR, { recursive: true, force: true });
   }
 });
 
-test("applyAutoFix creates backup before modifying", () => {
+test("applyAutoFix creates backup in project cache before modifying", () => {
   const pkgPath = createTestPackage("backup-test", {
     name: "backup-test",
     version: "1.0.0",
@@ -1612,12 +1670,17 @@ test("applyAutoFix creates backup before modifying", () => {
     },
   ];
 
-  checker.applyAutoFix(overrides, pkgPath);
+  const backupPath = rememberBackup(checker.applyAutoFix(overrides, pkgPath));
+  const expectedBackupDir = path.join(
+    path.dirname(pkgPath),
+    "node_modules",
+    ".cache",
+    "pastoralist",
+    "backups",
+  );
 
-  const cacheDir = path.join(TEST_DIR, "backup-test", "node_modules", ".cache", "pastoralist");
-  const files = fs.readdirSync(cacheDir);
-  const backupFiles = files.filter((f: string) => f.includes(".backup-"));
-  expect(backupFiles.length).toBe(1);
+  expect(fs.existsSync(backupPath)).toBe(true);
+  expect(path.dirname(backupPath)).toBe(expectedBackupDir);
 });
 
 test("applyAutoFix handles empty overrides array", () => {
@@ -1628,7 +1691,7 @@ test("applyAutoFix handles empty overrides array", () => {
   });
 
   const checker = new SecurityChecker({ provider: "osv" });
-  checker.applyAutoFix([], pkgPath);
+  rememberBackup(checker.applyAutoFix([], pkgPath));
 
   const result = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
   expect(result.pastoralist).toBeDefined();
@@ -1653,7 +1716,7 @@ test("applyAutoFix preserves existing overrides", () => {
     },
   ];
 
-  checker.applyAutoFix(overrides, pkgPath);
+  rememberBackup(checker.applyAutoFix(overrides, pkgPath));
 
   const result = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
   expect(result.overrides.minimist).toBe("1.2.8");
@@ -1668,20 +1731,22 @@ test("rollbackAutoFix restores to originalPath, not cache dir", () => {
   });
 
   const checker = new SecurityChecker({ provider: "osv" });
-  const backupPath = checker.applyAutoFix(
-    [
-      {
-        packageName: "lodash",
-        fromVersion: "4.17.20",
-        toVersion: "4.17.21",
-        reason: "fix",
-        severity: "high",
-      },
-    ],
-    pkgPath,
-  ) as string;
+  const backupPath = rememberBackup(
+    checker.applyAutoFix(
+      [
+        {
+          packageName: "lodash",
+          fromVersion: "4.17.20",
+          toVersion: "4.17.21",
+          reason: "fix",
+          severity: "high",
+        },
+      ],
+      pkgPath,
+    ),
+  );
 
-  expect(backupPath).toContain("node_modules/.cache/pastoralist");
+  expect(backupPath).toContain(path.join("node_modules", ".cache", "pastoralist", "backups"));
 
   checker.rollbackAutoFix(backupPath, pkgPath);
 
@@ -1712,7 +1777,7 @@ test("rollbackAutoFix restores original file", () => {
     },
   ];
 
-  const backupPath = checker.applyAutoFix(overrides, pkgPath) as string;
+  const backupPath = rememberBackup(checker.applyAutoFix(overrides, pkgPath));
 
   const modified = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
   expect(modified.overrides).toBeDefined();
@@ -1749,7 +1814,7 @@ test("applyAutoFix handles pnpm override format", () => {
       },
     ];
 
-    checker.applyAutoFix(overrides, pkgPath);
+    rememberBackup(checker.applyAutoFix(overrides, pkgPath));
 
     const result = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
     expect(result.pnpm.overrides.lodash).toBe("4.17.21");
@@ -1782,7 +1847,7 @@ test("applyAutoFix handles yarn resolutions format", () => {
       },
     ];
 
-    checker.applyAutoFix(overrides, pkgPath);
+    rememberBackup(checker.applyAutoFix(overrides, pkgPath));
 
     const result = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
     expect(result.resolutions.lodash).toBe("4.17.21");

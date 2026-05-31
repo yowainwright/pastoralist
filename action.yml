@@ -46,6 +46,10 @@ inputs:
     description: "Fail the action if unused overrides are detected (true/false)"
     required: false
     default: "false"
+  silent:
+    description: "Deprecated compatibility input; ignored and will be removed in a future major release"
+    required: false
+    default: "false"
   debug:
     description: "Enable debug logging (true/false)"
     required: false
@@ -130,6 +134,7 @@ runs:
         INPUT_FAIL_ON_UNUSED: ${{ inputs.fail-on-unused }}
         INPUT_MODE: ${{ inputs.mode }}
         INPUT_ROOT_DIR: ${{ inputs.root-dir }}
+        INPUT_SILENT: ${{ inputs.silent }}
         INPUT_SECURITY_PROVIDER: ${{ inputs.security-provider }}
         INPUT_SECURITY_TOKEN: ${{ inputs.security-token }}
         GITHUB_TOKEN: ${{ inputs.github-token || github.token }}
@@ -185,6 +190,10 @@ runs:
 
         if [ -n "$INPUT_CONFIG" ]; then
           echo "::warning::The config input is deprecated. Put the config file in root-dir so Pastoralist can auto-detect it."
+        fi
+
+        if [ "$INPUT_SILENT" = "true" ]; then
+          echo "::warning::The silent input is deprecated and ignored. Remove it from your workflow; use debug: false for normal output."
         fi
 
         if [ "$INPUT_DEBUG" = "true" ]; then

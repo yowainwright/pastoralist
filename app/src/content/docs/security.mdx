@@ -49,14 +49,11 @@ pastoralist --checkSecurity --hasWorkspaceSecurityChecks
 ```
 
 <a
-  href="https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/security-scan"
+  href="https://stackblitz.com/fork/github/yowainwright/pastoralist/tree/main/tests/sandboxes/security-scan?title=Pastoralist%20Security%20Scan&file=README.md&startScript=demo&view=editor"
   target="_blank"
   rel="noopener noreferrer"
 >
-  <img
-    src="https://img.shields.io/badge/Try_Security_Scanning-StackBlitz-blue?logo=stackblitz"
-    alt="Try Security Scanning on StackBlitz"
-  />
+  <img src="https://developer.stackblitz.com/img/open_in_stackblitz.svg" alt="Open in StackBlitz" />
 </a>
 
 ## Configuration
@@ -81,17 +78,18 @@ You can configure security settings in your `package.json`:
 
 ### Configuration Options
 
-| Option                       | Type    | Default    | Description                                                                                                                                                |
-| ---------------------------- | ------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `enabled`                    | boolean | `false`    | Enable automatic security checks when running pastoralist                                                                                                  |
-| `provider`                   | string  | `"osv"`    | Provider: "osv", "github", "npm", "snyk" [EXPERIMENTAL], "socket" [EXPERIMENTAL], "spektion" [EXPERIMENTAL]                                                |
-| `autoFix`                    | boolean | `false`    | Automatically apply security fixes without prompting                                                                                                       |
-| `interactive`                | boolean | `false`    | Use interactive mode to select which fixes to apply                                                                                                        |
-| `securityProviderToken`      | string  | `""`       | Authentication token for providers that require it. Prefer provider environment variables; use this only for controlled config that will not be committed. |
-| `hasWorkspaceSecurityChecks` | boolean | `false`    | Include workspace packages in security scan                                                                                                                |
-| `severityThreshold`          | string  | `"medium"` | Minimum severity level to report (low, medium, high, critical)                                                                                             |
-| `excludePackages`            | array   | `[]`       | List of package names to exclude from security checks                                                                                                      |
-| `strict`                     | boolean | `false`    | Fail when a provider cannot complete                                                                                                                       |
+| Option                       | Type            | Default    | Description                                                                                                                                                |
+| ---------------------------- | --------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`                    | boolean         | `false`    | Enable automatic security checks when running pastoralist                                                                                                  |
+| `provider`                   | string or array | `"osv"`    | Provider: `"osv"`, `"github"`, `"npm"`, `"snyk"` [EXPERIMENTAL], `"socket"` [EXPERIMENTAL], `"spektion"` [EXPERIMENTAL]                                    |
+| `autoFix`                    | boolean         | `false`    | Automatically apply security fixes without prompting                                                                                                       |
+| `interactive`                | boolean         | `false`    | Use interactive mode to select which fixes to apply                                                                                                        |
+| `securityProviderToken`      | string          | `""`       | Authentication token for providers that require it. Prefer provider environment variables; use this only for controlled config that will not be committed. |
+| `hasWorkspaceSecurityChecks` | boolean         | `false`    | Include workspace packages in security scan                                                                                                                |
+| `severityThreshold`          | string          | `"medium"` | Minimum severity level to report (low, medium, high, critical)                                                                                             |
+| `excludePackages`            | array           | `[]`       | List of package names to exclude from security checks                                                                                                      |
+| `strict`                     | boolean         | `false`    | Fail when a provider cannot complete                                                                                                                       |
+| `preferLatest`               | boolean         | `false`    | Prefer the newest safe version when fixes are resolved                                                                                                     |
 
 ## CLI Options
 
@@ -108,7 +106,7 @@ You can configure security settings in your `package.json`:
 ### Token Handling
 
 Set provider tokens with environment variables whenever possible:
-`GITHUB_TOKEN`, `SNYK_TOKEN`, or `SOCKET_SECURITY_API_KEY`.
+`GITHUB_TOKEN`, `SNYK_TOKEN`, `SOCKET_SECURITY_API_KEY`, or `SPEKTION_API_KEY`.
 `securityProviderToken` remains available for controlled local or generated
 config, but do not commit real tokens to the repository.
 
@@ -190,7 +188,7 @@ When using the GitHub provider in CI workflows, you need to:
 
 ```yaml
 permissions:
-  contents: write
+  contents: read
   vulnerability-alerts: read
 ```
 
@@ -267,14 +265,17 @@ pastoralist --checkSecurity --securityProvider spektion
 
 ## CVE Tracking in the Ledger
 
-When Pastoralist applies a security override, it records full vulnerability context in the appendix ledger:
+Every appendix entry has a `ledger`. When a security provider detects a fix,
+Pastoralist adds CVE, severity, provider, and vulnerable-range metadata to that
+ledger alongside the `addedDate`:
 
 ```json
 {
   "lodash@4.17.21": {
     "dependents": { "my-app": "lodash@^4.17.0" },
     "ledger": {
-      "addedDate": "2024-01-15T10:30:00.000Z",
+      "addedDate": "2026-05-30T00:00:00.000Z",
+      "source": "security",
       "securityChecked": true,
       "securityProvider": "osv",
       "cves": ["CVE-2021-23337"],
@@ -286,7 +287,7 @@ When Pastoralist applies a security override, it records full vulnerability cont
         }
       ],
       "severity": "high",
-      "vulnerableRange": ">= 0 < 4.17.21",
+      "vulnerableRange": "<4.17.21",
       "patchedVersion": "4.17.21"
     }
   }
@@ -302,7 +303,7 @@ By default, `--remove-unused` will remove overrides whose dependents no longer r
 ```json
 {
   "ledger": {
-    "addedDate": "2024-01-01",
+    "addedDate": "2026-05-30T00:00:00.000Z",
     "cves": ["CVE-2024-12345"],
     "keep": true
   }
@@ -314,7 +315,7 @@ For expiring keeps, use a `KeepConstraint` object:
 ```json
 {
   "ledger": {
-    "addedDate": "2024-01-01",
+    "addedDate": "2026-05-30T00:00:00.000Z",
     "cves": ["CVE-2024-12345"],
     "keep": {
       "reason": "Waiting for upstream patch",
@@ -389,7 +390,7 @@ Generated 2 override(s):
 
 - Security checks focus on npm ecosystem packages
 - Some providers require credentials or local CLI access
-- Interactive mode requires the `inquirer` package (installed on demand)
+- Interactive prompts are built in; no Enquirer or Inquirer dependency is required
 - Some vulnerabilities may not have available fixes
   :::
 

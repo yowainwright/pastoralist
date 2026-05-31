@@ -110,6 +110,27 @@ export const ARRAY_MUTATING_METHODS = new Set([
   "unshift",
 ]);
 
+export const DEFAULT_EXECUTABLE_ENTRY_PATTERNS = [
+  "src/index.js",
+  "src/index.ts",
+  "src/cli/index.js",
+  "src/cli/index.ts",
+];
+
+export const DEFAULT_EXECUTABLE_RUNTIMES = ["bun", "node"];
+
+export const DEFAULT_DIRECT_BIN_ENTRY_PATTERNS = [
+  "app/*/index.js",
+  "dist/cli/index.js",
+  "dist/index.js",
+  "src/cli/index.js",
+  "src/cli/index.ts",
+  "src/index.js",
+  "src/index.ts",
+  "*/dist/cli/index.js",
+  "*/dist/index.js",
+];
+
 export const MAX_EXPRESSION_OPERATORS_META = {
   type: "suggestion",
   docs: {
@@ -246,5 +267,49 @@ export const NO_COMPLEX_TERNARIES_META = {
     tooMany:
       "Ternary has {{count}} readability operators (max {{max}}). Extract named branches or use an if statement.",
     nested: "Nested ternary detected. Extract named branches or use an if statement.",
+  },
+};
+
+export const REQUIRE_EXECUTABLE_SHEBANG_META = {
+  type: "problem",
+  docs: {
+    description: "Require configured executable entry source files to start with a shebang.",
+    recommended: true,
+  },
+  schema: [
+    {
+      type: "object",
+      properties: {
+        files: { type: "array", items: { type: "string" } },
+        runtimes: { type: "array", items: { type: "string" } },
+      },
+      additionalProperties: false,
+    },
+  ],
+  messages: {
+    missingShebang:
+      "{{file}} is configured as an executable entry source but has no Node/Bun shebang.",
+  },
+};
+
+export const NO_DIRECT_NODE_BIN_SMOKE_META = {
+  type: "problem",
+  docs: {
+    description:
+      "Prefer smoke-testing installed package binaries instead of direct node entrypoint execution.",
+    recommended: true,
+  },
+  schema: [
+    {
+      type: "object",
+      properties: {
+        entryPatterns: { type: "array", items: { type: "string" } },
+      },
+      additionalProperties: false,
+    },
+  ],
+  messages: {
+    directNodeBin:
+      "Smoke tests should execute the installed package bin, not `node {{entry}}`, so bin shims and shebangs are exercised.",
   },
 };

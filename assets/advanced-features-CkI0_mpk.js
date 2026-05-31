@@ -5,7 +5,7 @@ description: Deep dive into pastoralist's advanced capabilities
 
 Pastoralist includes several advanced features that make dependency override management more powerful and maintainable.
 
-<DocVideo src="/episodes/02-auto-cleanup/final.mp4" title="Auto-cleanup of unused overrides" />
+<DocVideo src="/episodes/02-auto-cleanup/final.mp4" title="Cleanup of unused overrides" />
 
 ## Nested Overrides (Transitive Dependencies)
 
@@ -50,7 +50,8 @@ You can override multiple transitive dependencies:
 
 ### Tracking in Appendix
 
-Nested overrides are tracked with a special notation in the appendix:
+Nested overrides are tracked with a special notation in the appendix. Each entry
+still gets a \`ledger\` recording when it was added:
 
 \`\`\`json
 {
@@ -59,11 +60,19 @@ Nested overrides are tracked with a special notation in the appendix:
       "pg-types@^4.0.1": {
         "dependents": {
           "my-app": "pg@^8.13.1 (nested override)"
+        },
+        "ledger": {
+          "addedDate": "2026-05-30T00:00:00.000Z",
+          "source": "manual"
         }
       },
       "cookie@0.5.0": {
         "dependents": {
           "my-app": "express@^4.18.0 (nested override)"
+        },
+        "ledger": {
+          "addedDate": "2026-05-30T00:00:00.000Z",
+          "source": "manual"
         }
       }
     }
@@ -82,10 +91,10 @@ Nested overrides are particularly useful for:
 
 ### Workspace Support
 
-In monorepos, nested overrides in workspace packages are also tracked:
+In monorepos, nested overrides in workspace packages are also tracked. For example,
+\`packages/app/package.json\` might contain:
 
 \`\`\`json
-// packages/app/package.json
 {
   "overrides": {
     "pg": {
@@ -122,7 +131,11 @@ Pastoralist will track them in the appendix:
         "dependents": {
           "my-app": "lodash@^4.17.0"
         },
-        "patches": ["patches/lodash+4.17.21.patch"]
+        "patches": ["patches/lodash+4.17.21.patch"],
+        "ledger": {
+          "addedDate": "2026-05-30T00:00:00.000Z",
+          "source": "manual"
+        }
       }
     }
   }
@@ -147,14 +160,11 @@ Consider removing these patches if the packages are no longer used.
 \`\`\`
 
 <a
-  href="https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/patches"
+  href="https://stackblitz.com/fork/github/yowainwright/pastoralist/tree/main/tests/sandboxes/patches?title=Pastoralist%20Patches&file=README.md&startScript=demo&view=editor"
   target="_blank"
   rel="noopener noreferrer"
 >
-  <img
-    src="https://img.shields.io/badge/Try_Patches-StackBlitz-blue?logo=stackblitz"
-    alt="Try Patches on StackBlitz"
-  />
+  <img src="https://developer.stackblitz.com/img/open_in_stackblitz.svg" alt="Open in StackBlitz" />
 </a>
 
 ## PeerDependencies Support
@@ -183,6 +193,10 @@ The appendix will reflect peer dependency requirements:
       "react@18.2.0": {
         "dependents": {
           "my-component": "react@^17.0.0 || ^18.0.0"
+        },
+        "ledger": {
+          "addedDate": "2026-05-30T00:00:00.000Z",
+          "source": "manual"
         }
       }
     }
@@ -192,9 +206,10 @@ The appendix will reflect peer dependency requirements:
 
 ## Smart Cleanup
 
-Pastoralist intelligently removes overrides that are no longer needed.
+Pastoralist identifies overrides that are no longer needed and can remove them
+when you explicitly opt in.
 
-### Automatic Removal
+### Removal with \`--remove-unused\`
 
 When a dependency is updated and no longer needs an override:
 
@@ -211,7 +226,7 @@ When a dependency is updated and no longer needs an override:
 }
 \`\`\`
 
-**After updating lodash to 4.17.21:**
+**After updating lodash to 4.17.21 and running \`pastoralist --remove-unused\`:**
 
 \`\`\`json
 {
@@ -223,14 +238,11 @@ When a dependency is updated and no longer needs an override:
 \`\`\`
 
 <a
-  href="https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/cleanup"
+  href="https://stackblitz.com/fork/github/yowainwright/pastoralist/tree/main/tests/sandboxes/cleanup?title=Pastoralist%20Cleanup&file=README.md&startScript=demo&view=editor"
   target="_blank"
   rel="noopener noreferrer"
 >
-  <img
-    src="https://img.shields.io/badge/Try_Cleanup-StackBlitz-blue?logo=stackblitz"
-    alt="Try Cleanup on StackBlitz"
-  />
+  <img src="https://developer.stackblitz.com/img/open_in_stackblitz.svg" alt="Open in StackBlitz" />
 </a>
 
 ### Unused Override Detection
@@ -273,7 +285,7 @@ Set \`keep: true\` on a ledger entry to prevent \`--remove-unused\` from ever re
 {
   "lodash@4.17.21": {
     "ledger": {
-      "addedDate": "2024-01-01",
+      "addedDate": "2026-05-30T00:00:00.000Z",
       "keep": true
     }
   }
@@ -286,18 +298,19 @@ For time- or version-bounded protection, use a \`KeepConstraint\`:
 {
   "lodash@4.17.21": {
     "ledger": {
-      "addedDate": "2024-01-01",
+      "addedDate": "2026-05-30T00:00:00.000Z",
       "keep": {
         "reason": "Waiting for upstream patch",
         "untilVersion": "4.18.0",
-        "until": "2025-06-01"
+        "until": "2027-06-01"
       }
     }
   }
 }
 \`\`\`
 
-The keep expires automatically once the condition is met — no manual cleanup needed.
+Once the condition is met, \`--remove-unused\` can treat the override as removable
+again.
 
 ### Transitive Dependency Tracking
 
@@ -346,29 +359,36 @@ And this override:
 
 Pastoralist understands that \`^4.18.0\` could resolve to \`4.18.2\` naturally, so the override might not be necessary unless it's fixing a specific issue.
 
-## Appendix Preservation
+## Appendix Cleanup
 
-The appendix is preserved even when overrides are temporarily removed, maintaining historical context.
+Pastoralist keeps appendix entries while an override is still tracked. When you
+run with \`--remove-unused\`, it removes both the override and the matching
+appendix entry.
 
 ### Example Scenario
 
 1. **Initial state**: Override with appendix
-2. **Dependency removed**: Override removed, appendix preserved
-3. **Dependency re-added**: Override can be restored with context
+2. **Dependency removed**: Pastoralist reports the override as unused
+3. **Cleanup run**: \`--remove-unused\` removes the override and appendix entry
 
-This helps teams understand the history of override decisions.
+Use ledger \`reason\` and \`keep\` fields for override decisions that should stay
+reviewable until a specific cleanup condition is met.
 
 ## Multi-Format Support
 
-While pastoralist uses npm's \`overrides\` format, it understands conversions from:
+Pastoralist reads the override field your package manager already uses:
 
-- **Yarn 1.x**: \`resolutions\`
+- **npm and Bun**: \`overrides\`
 - **pnpm**: \`pnpm.overrides\`
-- **Yarn Berry**: \`resolutions\` with different syntax
+- **Yarn**: \`resolutions\`
 
-### Conversion Example
+When it writes changes, it preserves the existing override field when one is
+present. If a security fix creates the first override field in a project,
+Pastoralist chooses the field that matches the detected package manager.
 
-From Yarn:
+### Format Example
+
+Yarn resolutions:
 
 \`\`\`json
 {
@@ -379,7 +399,7 @@ From Yarn:
 }
 \`\`\`
 
-To npm (what pastoralist uses):
+The equivalent npm or Bun override shape:
 
 \`\`\`json
 {

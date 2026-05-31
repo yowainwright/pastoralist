@@ -85,8 +85,9 @@ When both external config files and \`package.json\` configuration exist, they a
 
 ### Example: Config Merging
 
-\`\`\`js
-// .pastoralistrc.json
+\`.pastoralistrc.json\`:
+
+\`\`\`json
 {
   "checkSecurity": true,
   "depPaths": "workspace",
@@ -95,23 +96,29 @@ When both external config files and \`package.json\` configuration exist, they a
     "severityThreshold": "medium"
   }
 }
+\`\`\`
 
-// package.json
+\`package.json\`:
+
+\`\`\`json
 {
   "pastoralist": {
     "security": {
-      "severityThreshold": "high"  // Overrides "medium"
+      "severityThreshold": "high"
     }
   }
 }
+\`\`\`
 
-// Effective configuration:
+Effective configuration:
+
+\`\`\`json
 {
   "checkSecurity": true,
   "depPaths": "workspace",
   "security": {
     "provider": "osv",
-    "severityThreshold": "high"  // From package.json
+    "severityThreshold": "high"
   }
 }
 \`\`\`
@@ -120,15 +127,15 @@ When both external config files and \`package.json\` configuration exist, they a
 
 ### Top-Level Options
 
-| Option            | Type                                          | Description                                                 |
-| ----------------- | --------------------------------------------- | ----------------------------------------------------------- |
-| \`checkSecurity\`   | \`boolean\`                                     | Enable security vulnerability scanning                      |
-| \`compactAppendix\` | \`boolean\`                                     | Store appendix entries in the compact format                |
-| \`depPaths\`        | \`"workspace"\` \\| \`"workspaces"\` \\| \`string[]\` | Paths to scan for dependencies in monorepos                 |
-| \`appendix\`        | \`object\`                                      | Auto-generated dependency tracking (managed by Pastoralist) |
-| \`overridePaths\`   | \`object\`                                      | Manual override tracking for specific paths                 |
-| \`resolutionPaths\` | \`object\`                                      | Manual resolution tracking for specific paths               |
-| \`security\`        | \`object\`                                      | Security scanning configuration                             |
+| Option            | Type                                          | Description                                                                                                                           |
+| ----------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| \`checkSecurity\`   | \`boolean\`                                     | Enable security vulnerability scanning                                                                                                |
+| \`compactAppendix\` | \`boolean\`                                     | Collapse routine appendix entries to \`{ addedDate }\`; entries with security info, patches, or active \`keep\` constraints stay expanded |
+| \`depPaths\`        | \`"workspace"\` \\| \`"workspaces"\` \\| \`string[]\` | Paths to scan for dependencies in monorepos                                                                                           |
+| \`appendix\`        | \`object\`                                      | Auto-generated dependency tracking (managed by Pastoralist)                                                                           |
+| \`overridePaths\`   | \`object\`                                      | Manual override tracking for specific paths                                                                                           |
+| \`resolutionPaths\` | \`object\`                                      | Manual resolution tracking for specific paths                                                                                         |
+| \`security\`        | \`object\`                                      | Security scanning configuration                                                                                                       |
 
 ### Security Configuration
 
@@ -201,7 +208,9 @@ For more control, specify custom glob patterns:
 
 ## Security Tracking
 
-When security vulnerabilities are detected and fixed, Pastoralist tracks this information in the appendix ledger:
+Every appendix entry gets a \`ledger\` with at least \`addedDate\`. When a security
+provider detects a fix, Pastoralist adds CVE, severity, provider, and
+vulnerable-range metadata to the same ledger:
 
 \`\`\`json
 {
@@ -212,10 +221,11 @@ When security vulnerabilities are detected and fixed, Pastoralist tracks this in
           "my-app": "lodash@^4.17.0"
         },
         "ledger": {
-          "addedDate": "2024-01-15T10:30:00.000Z",
+          "addedDate": "2026-05-30T00:00:00.000Z",
           "reason": "Security vulnerability CVE-2021-23337",
+          "source": "security",
           "securityChecked": true,
-          "securityCheckDate": "2024-01-15T10:30:00.000Z",
+          "securityCheckDate": "2026-05-30T00:00:00.000Z",
           "securityCheckResult": "clean",
           "securityProvider": "osv",
           "cves": ["CVE-2021-23337"],
@@ -227,7 +237,7 @@ When security vulnerabilities are detected and fixed, Pastoralist tracks this in
             }
           ],
           "severity": "high",
-          "vulnerableRange": ">= 0 < 4.17.21",
+          "vulnerableRange": "<4.17.21",
           "patchedVersion": "4.17.21",
           "keep": true
         }
@@ -239,8 +249,9 @@ When security vulnerabilities are detected and fixed, Pastoralist tracks this in
 
 ### Ledger Fields
 
-- **\`addedDate\`**: When the override was first added
+- **\`addedDate\`**: ISO timestamp recorded when the entry was first written. Always present
 - **\`reason\`**: Why the override was needed (e.g., security issue description)
+- **\`source\`**: How the entry was created — \`"manual"\` or \`"security"\`
 - **\`securityChecked\`**: Whether a security check was performed
 - **\`securityCheckDate\`**: When the last security check occurred
 - **\`securityCheckResult\`**: Result of the last check — \`"clean"\`, \`"error"\`, or \`"skipped"\`
@@ -259,7 +270,7 @@ To pin an override so \`--remove-unused\` never removes it, set \`keep: true\` o
 \`\`\`json
 {
   "ledger": {
-    "addedDate": "2024-01-01",
+    "addedDate": "2026-05-30T00:00:00.000Z",
     "keep": true
   }
 }
@@ -270,10 +281,10 @@ For time-bounded or version-bounded keeps, use a \`KeepConstraint\` object:
 \`\`\`json
 {
   "ledger": {
-    "addedDate": "2024-01-01",
+    "addedDate": "2026-05-30T00:00:00.000Z",
     "keep": {
       "reason": "Waiting for upstream patch",
-      "until": "2025-06-01",
+      "until": "2027-06-01",
       "untilVersion": "4.18.0"
     }
   }

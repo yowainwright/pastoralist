@@ -7,7 +7,9 @@ description: Common issues and frequently asked questions
 
 ### What is pastoralist?
 
-Pastoralist is a tool that automatically manages your npm overrides (or yarn resolutions) by creating an appendix that documents why each override exists and which packages depend on them.
+Pastoralist manages npm and Bun \`overrides\`, pnpm \`pnpm.overrides\`, and Yarn
+\`resolutions\` by creating an appendix that documents why each override exists
+and which packages depend on it.
 
 ### Why do I need pastoralist?
 
@@ -18,22 +20,22 @@ Without pastoralist, it's easy to:
 - Not know which packages need specific overrides
 - Accumulate technical debt over time
 
-### Does pastoralist work with yarn/pnpm?
+### Does pastoralist work with Yarn, pnpm, and Bun?
 
-Pastoralist uses npm's \`overrides\` format. If you're using:
+Yes. Pastoralist reads and writes the override field your package manager uses:
 
-- **Yarn 1.x**: Convert \`resolutions\` to \`overrides\`
-- **pnpm**: Convert \`pnpm.overrides\` to \`overrides\`
-- **Yarn Berry**: Use \`resolutions\` but consider converting
+- **npm and Bun**: \`overrides\`
+- **pnpm**: \`pnpm.overrides\`
+- **Yarn**: \`resolutions\`
 
 ### Is pastoralist safe to use?
 
 Yes! Pastoralist:
 
-- Only modifies the \`overrides\` and \`pastoralist\` sections of package.json
-- Preserves all formatting and other fields
-- Creates backups in version control (through git)
-- Can be rolled back by removing the \`pastoralist\` section
+- Only modifies override/resolution fields and the \`pastoralist\` section of package.json
+- Normalizes package.json output to two-space JSON
+- Leaves changes visible in git so you can review or revert them
+- Creates a temporary backup before security auto-fix writes package.json
 
 ### When should overrides be used?
 
@@ -62,7 +64,7 @@ Look for output showing which packages require the override.
 
 **Problem:** Pastoralist changes the formatting of my package.json.
 
-**Solution:** Pastoralist preserves formatting as much as possible. If you see changes:
+**Solution:** Pastoralist rewrites \`package.json\` as two-space JSON. If you see unexpected changes:
 
 1. Ensure you're using the latest version
 2. Check if you have a \`.prettierrc\` or \`.editorconfig\` that might conflict
@@ -106,15 +108,19 @@ find . -name "package.json" -not -path "*/node_modules/*" | \\
 
 **Solution:** Use package-specific overrides:
 
+Root package.json can hold shared security patches:
+
 \`\`\`json
-// root package.json - security patches only
 {
   "overrides": {
     "minimist": "1.2.8"
   }
 }
+\`\`\`
 
-// packages/legacy-app/package.json - specific needs
+Packages can hold their own compatibility requirements:
+
+\`\`\`json
 {
   "overrides": {
     "react": "17.0.2"
@@ -197,13 +203,24 @@ Run pastoralist regularly:
 
 ### 2. Document Override Reasons
 
-While pastoralist tracks what depends on overrides, consider adding comments:
+\`package.json\` does not support comments. Every appendix entry has a \`ledger\`;
+add a \`reason\` to it (or provide manual reasons when you generate the appendix):
 
 \`\`\`json
 {
   "overrides": {
-    "lodash": "4.17.21", // CVE-2021-12345 fix
-    "react": "17.0.2" // Legacy app compatibility
+    "lodash": "4.17.21"
+  },
+  "pastoralist": {
+    "appendix": {
+      "lodash@4.17.21": {
+        "ledger": {
+          "addedDate": "2026-05-30T00:00:00.000Z",
+          "reason": "CVE-2021-12345 fix",
+          "source": "manual"
+        }
+      }
+    }
   }
 }
 \`\`\`
@@ -255,17 +272,17 @@ When reporting issues, include:
 
 ### From Manual Management
 
-If you're tracking overrides manually (in comments or docs), pastoralist will:
+If you're tracking overrides manually in docs or issue trackers, Pastoralist will:
 
-1. Automatically document all current overrides
+1. Document all current overrides in \`pastoralist.appendix\`
 2. Track their usage going forward
-3. Clean up when no longer needed
+3. Flag unused overrides and remove them when you run with \`--remove-unused\`
 
 ### From Other Tools
 
 Moving from other override management tools:
 
-1. Convert to npm \`overrides\` format
+1. Keep the override field for your package manager
 2. Run \`npx pastoralist\`
 3. Remove old tool configuration
 
@@ -277,12 +294,14 @@ To understand why an override is needed:
 
 \`\`\`javascript
 // debug-override.js
-import { update } from "pastoralist";
+import { resolveJSON, update } from "pastoralist";
 
-await update({
-  debug: true,
-  path: "./package.json",
-});
+const path = "./package.json";
+const config = resolveJSON(path);
+
+if (config) {
+  update({ config, debug: true, path });
+}
 
 // Check the debug output for dependency paths
 \`\`\`

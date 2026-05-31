@@ -92,26 +92,26 @@ Runs pastoralist and creates a PR if changes are needed. Ideal for scheduled wor
 
 ## Inputs
 
-| Input               | Description                                                | Default                                    |
-| ------------------- | ---------------------------------------------------------- | ------------------------------------------ |
-| \`mode\`              | Operation mode: \`check\`, \`update\`, or \`pr\`                 | \`update\`                                   |
-| \`check-security\`    | Enable security scanning                                   | \`true\`                                     |
-| \`security-provider\` | Provider: \`osv\`, \`github\`, \`snyk\`, \`socket\`                | \`osv\`                                      |
-| \`security-token\`    | Token for security provider                                | -                                          |
-| \`auto-fix\`          | Apply security fixes automatically                         | \`true\`                                     |
-| \`dry-run\`           | Preview changes only                                       | \`false\`                                    |
-| \`root-dir\`          | Project root directory                                     | -                                          |
-| \`dep-paths\`         | Workspace patterns (space-separated)                       | -                                          |
-| \`config\`            | Deprecated; config files are auto-detected from \`root-dir\` | -                                          |
-| \`fail-on-security\`  | Fail if vulnerabilities found                              | \`true\`                                     |
-| \`fail-on-unused\`    | Fail if unused overrides found                             | \`false\`                                    |
-| \`silent\`            | Suppress output                                            | \`false\`                                    |
-| \`debug\`             | Enable debug logging                                       | \`false\`                                    |
-| \`pr-title\`          | PR title (mode: pr)                                        | \`chore(deps): update dependency overrides\` |
-| \`pr-body\`           | PR body (mode: pr)                                         | Auto-generated                             |
-| \`pr-branch\`         | PR branch name (mode: pr)                                  | \`pastoralist/updates\`                      |
-| \`pr-labels\`         | PR labels (space-separated)                                | \`dependencies\`                             |
-| \`github-token\`      | GitHub token for PR creation                               | \`GITHUB_TOKEN\`                             |
+| Input               | Description                                                    | Default                                    |
+| ------------------- | -------------------------------------------------------------- | ------------------------------------------ |
+| \`mode\`              | Operation mode: \`check\`, \`update\`, or \`pr\`                     | \`update\`                                   |
+| \`check-security\`    | Enable security scanning                                       | \`true\`                                     |
+| \`security-provider\` | Provider: \`osv\`, \`github\`, \`npm\`, \`snyk\`, \`socket\`, \`spektion\` | \`osv\`                                      |
+| \`security-token\`    | Token for security provider                                    | -                                          |
+| \`auto-fix\`          | Apply security fixes automatically                             | \`true\`                                     |
+| \`dry-run\`           | Preview changes only                                           | \`false\`                                    |
+| \`root-dir\`          | Project root directory                                         | -                                          |
+| \`dep-paths\`         | Workspace patterns (space-separated)                           | -                                          |
+| \`config\`            | Deprecated; config files are auto-detected from \`root-dir\`     | -                                          |
+| \`fail-on-security\`  | Fail if vulnerabilities found                                  | \`true\`                                     |
+| \`fail-on-unused\`    | Fail if unused overrides found                                 | \`false\`                                    |
+| \`silent\`            | Deprecated compatibility input; ignored with a warning         | \`false\`                                    |
+| \`debug\`             | Enable debug logging                                           | \`false\`                                    |
+| \`pr-title\`          | PR title (mode: pr)                                            | \`chore(deps): update dependency overrides\` |
+| \`pr-body\`           | PR body (mode: pr)                                             | Auto-generated                             |
+| \`pr-branch\`         | PR branch name (mode: pr)                                      | \`pastoralist/updates\`                      |
+| \`pr-labels\`         | PR labels (space-separated)                                    | \`dependencies\`                             |
+| \`github-token\`      | GitHub token for PR creation                                   | \`GITHUB_TOKEN\`                             |
 
 ## Outputs
 
@@ -216,10 +216,12 @@ permissions:
 
 ## Security Providers
 
-| Provider | Auth Required | Notes                                             |
-| -------- | ------------- | ------------------------------------------------- |
-| \`osv\`    | No            | Open Source Vulnerabilities database (default)    |
-| \`github\` | Yes           | GitHub Security API, good for transitive scanning |
-| \`snyk\`   | Yes           | Requires Snyk API token [EXPERIMENTAL]            |
-| \`socket\` | Yes           | Socket.dev, supply chain focused [EXPERIMENTAL]   |
+| Provider   | Auth     | Notes                                                                                     |
+| ---------- | -------- | ----------------------------------------------------------------------------------------- |
+| \`osv\`      | None     | Open Source Vulnerabilities database (default)                                            |
+| \`npm\`      | None     | Uses the detected package manager's audit command                                         |
+| \`github\`   | Required | Reads Dependabot alerts; pass \`GITHUB_TOKEN\` or rely on an authenticated \`gh\` CLI session |
+| \`snyk\`     | Required | Requires \`SNYK_TOKEN\` [EXPERIMENTAL]                                                      |
+| \`socket\`   | Required | Requires \`SOCKET_SECURITY_API_KEY\` [EXPERIMENTAL]                                         |
+| \`spektion\` | Required | Requires \`SPEKTION_API_KEY\` [EXPERIMENTAL]                                                |
 `;export{e as default};

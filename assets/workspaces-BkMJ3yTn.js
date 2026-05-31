@@ -6,23 +6,21 @@ description: Using pastoralist in workspace and monorepo environments
 Pastoralist works seamlessly with workspace and monorepo setups. This guide covers how to effectively use pastoralist across multiple packages.
 
 <a
-  href="https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/monorepo"
+  href="https://stackblitz.com/fork/github/yowainwright/pastoralist/tree/main/tests/sandboxes/monorepo?title=Pastoralist%20Monorepo&file=README.md&startScript=demo&view=editor"
   target="_blank"
   rel="noopener noreferrer"
 >
-  <img
-    src="https://img.shields.io/badge/Try_Monorepo-StackBlitz-blue?logo=stackblitz"
-    alt="Try Monorepo on StackBlitz"
-  />
+  <img src="https://developer.stackblitz.com/img/open_in_stackblitz.svg" alt="Open in StackBlitz" />
 </a>
 
 ## How Pastoralist Works in Workspaces
 
-Pastoralist operates on a single \`package.json\` at a time. In a workspace setup, you can run it on:
+Pastoralist updates one target \`package.json\`, usually the workspace root. When
+\`depPaths\` is configured, it also reads workspace package manifests so the root
+appendix can show which packages still need each override.
 
-- The root package.json
-- Individual workspace packages
-- Multiple packages using scripts
+You can also run it against an individual workspace package with \`--path\` when
+that package owns its own override field.
 
 ## Configuration Methods
 
@@ -40,7 +38,7 @@ Configure dependency paths directly in your \`package.json\` for automatic works
     "lodash": "4.17.21"
   },
   "pastoralist": {
-    "depPaths": "workspace" // Automatically scans all workspaces
+    "depPaths": "workspace"
   },
   "scripts": {
     "postinstall": "pastoralist"
@@ -83,6 +81,10 @@ After running \`pastoralist\`, your root package.json will contain:
           "app-a": "lodash@^4.17.0",
           "app-b": "lodash@^4.17.0",
           "package-c": "lodash@^4.17.0"
+        },
+        "ledger": {
+          "addedDate": "2026-05-30T00:00:00.000Z",
+          "source": "manual"
         }
       }
     }
@@ -104,24 +106,21 @@ pastoralist --depPaths "packages/*/package.json" "apps/*/package.json"
 pastoralist --depPaths "packages/app-a/package.json"
 \`\`\`
 
-### Method 3: Interactive Configuration
+### Method 3: Guided Configuration
 
-Pastoralist offers interactive configuration for monorepo setups:
+Pastoralist offers guided configuration for monorepo setups:
 
 \`\`\`bash
 # Initialize with guided setup
 pastoralist --init
-
-# Or use interactive mode when running
-pastoralist --interactive
 \`\`\`
 
-When Pastoralist detects overrides for packages not in root dependencies, it will:
+The initializer can:
 
-- Guide you through workspace configuration
-- Auto-detect common structures (packages/_, apps/_, etc.)
-- Allow custom path specification
-- Optionally save configuration to package.json
+- Detect \`workspaces\` entries from \`package.json\`
+- Let you choose \`depPaths: "workspace"\` or custom package globs
+- Save configuration to \`package.json\` or a supported config file
+- Optionally configure security scanning
 
 ## Basic Usage
 
@@ -152,7 +151,6 @@ pastoralist
 Most monorepos use root-level overrides that apply to all workspaces:
 
 \`\`\`json
-// root package.json
 {
   "name": "my-monorepo",
   "workspaces": ["packages/*"],
@@ -174,11 +172,10 @@ pastoralist
 Some packages may need their own overrides:
 
 \`\`\`json
-// packages/legacy-app/package.json
 {
   "name": "legacy-app",
   "overrides": {
-    "react": "17.0.2" // This app needs React 17
+    "react": "17.0.2"
   }
 }
 \`\`\`
@@ -194,7 +191,6 @@ pastoralist --path packages/legacy-app/package.json
 Create a script to run pastoralist across all workspaces:
 
 \`\`\`json
-// root package.json
 {
   "scripts": {
     "pastoralist:all": "npm run pastoralist:root && npm run pastoralist:workspaces",
@@ -239,7 +235,6 @@ Keep all overrides in the root \`package.json\` and use \`depPaths\` configurati
 **Setup:**
 
 \`\`\`json
-// root package.json
 {
   "workspaces": ["packages/*", "apps/*"],
   "overrides": {
@@ -267,7 +262,6 @@ Allow packages to manage their own overrides:
 **Setup:**
 
 \`\`\`json
-// packages/*/package.json
 {
   "scripts": {
     "postinstall": "pastoralist"
@@ -279,18 +273,22 @@ Allow packages to manage their own overrides:
 
 Combine root overrides with package-specific ones:
 
+Root overrides can hold shared security patches:
+
 \`\`\`json
-// root: security patches
 {
   "overrides": {
-    "minimist": "1.2.8"  // Security fix
+    "minimist": "1.2.8"
   }
 }
+\`\`\`
 
-// packages: feature-specific
+Package overrides can hold feature-specific constraints:
+
+\`\`\`json
 {
   "overrides": {
-    "react": "17.0.2"  // Compatibility requirement
+    "react": "17.0.2"
   }
 }
 \`\`\`
@@ -332,7 +330,6 @@ packages:
 \`\`\`
 
 \`\`\`json
-// root package.json
 {
   "scripts": {
     "postinstall": "pastoralist",
@@ -479,8 +476,10 @@ packages.forEach((pkg) => {
 
 Create a base configuration:
 
+For example, \`packages/base-config/overrides.json\` can define shared override
+versions:
+
 \`\`\`json
-// packages/base-config/overrides.json
 {
   "lodash": "4.17.21",
   "minimist": "1.2.8"

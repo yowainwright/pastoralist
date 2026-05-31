@@ -64,7 +64,7 @@ manager instruction; the appendix carries the review detail:
         "ledger": {
           "addedDate": "2026-05-06T00:00:00.000Z",
           "reason": "Pin lodash to a patched version while workspace packages finish upgrades.",
-          "source": "manual-review",
+          "source": "manual",
           "securityChecked": true,
           "securityProvider": "osv",
           "cves": ["CVE-2021-23337"],
@@ -149,13 +149,10 @@ Then add it to \`postinstall\`:
 Continue with the [setup guide](/docs/setup), or try a sandbox:
 
 <a
-  href="https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/basic-overrides"
+  href="https://stackblitz.com/fork/github/yowainwright/pastoralist/tree/main/tests/sandboxes/basic-overrides?title=Pastoralist%20Basic%20Overrides&file=README.md&startScript=demo&view=editor"
   target="_blank"
   rel="noopener noreferrer"
 >
-  <img
-    src="https://img.shields.io/badge/Try_it-StackBlitz-blue?logo=stackblitz"
-    alt="Try it on StackBlitz"
-  />
+  <img src="https://developer.stackblitz.com/img/open_in_stackblitz.svg" alt="Open in StackBlitz" />
 </a>
 `;export{e as default};

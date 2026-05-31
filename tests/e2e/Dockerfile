@@ -34,9 +34,6 @@ RUN echo 'console.log("Shared module");' > ./packages/shared/index.js
 # Install workspace dependencies
 RUN pnpm install
 
-# Install pastoralist runtime dependencies in root so they can be found
-RUN npm install commander@14.0.0 fast-glob@3.3.3 inquirer@12.10.0 zod@4.1.12
-
 # Copy scripts
 COPY tests/e2e/scripts/ ./scripts/
 RUN chmod +x ./scripts/*.sh

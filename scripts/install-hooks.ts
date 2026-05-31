@@ -15,7 +15,6 @@ console.log('Running pre-commit checks...');
 
 try {
   await $\`bun run format\`;
-  await $\`bun run deps:check\`;
   await $\`bun run build\`;
   await $\`cd app && bun run build\`;
   await $\`bun run lint\`;

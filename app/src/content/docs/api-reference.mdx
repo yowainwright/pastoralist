@@ -85,7 +85,8 @@ npx pastoralist --root ../my-project --path package.json
 
 ### `pastoralist --init`
 
-Initialize interactive configuration for monorepo support. This will guide you through setting up workspace paths and configuration.
+Initialize configuration with the guided setup. The wizard can configure
+workspace paths, security scanning, and where the configuration should be saved.
 
 ```bash
 # Start interactive setup
@@ -94,20 +95,18 @@ npx pastoralist --init
 
 When run, this will:
 
-- Detect if you have overrides for packages not in root dependencies
-- Prompt you to choose between auto-detection or manual configuration
-- Offer common workspace structures (standard, packages-only, apps-only, custom)
-- Optionally save configuration to your package.json
+- Detect `workspaces` entries from `package.json`
+- Prompt for `depPaths: "workspace"` or custom package globs
+- Offer security provider and severity threshold setup
+- Save configuration to `package.json` or a supported config file
 
 ### `pastoralist --interactive`
 
-Run pastoralist in interactive mode. When overrides are detected for packages not in root dependencies, you'll be prompted to configure monorepo support.
+Review security fixes interactively. Use this with `--checkSecurity` when you
+want to approve fixes instead of applying everything with `--forceSecurityRefactor`.
 
 ```bash
-# Run with interactive prompts
-npx pastoralist --interactive
-
-# Combine with security checks
+# Review security fixes before applying them
 npx pastoralist --checkSecurity --interactive
 ```
 
@@ -224,12 +223,18 @@ npm install pastoralist
 
 ### `update(options)`
 
-Update package.json overrides and manage the appendix.
+Update `package.json` overrides and the appendix. Each appendix entry includes a
+`ledger` with at least `addedDate`; security metadata is added when security
+checks run. This is a low-level API: pass the parsed `package.json` as `config`.
+The CLI handles config loading for normal command-line use. `update()` is
+synchronous and returns an `UpdateContext`, so the examples below intentionally
+do not use `await`.
 
 **params:**
 
-- `options`: configuration object (optional)
+- `options`: configuration object
   - `path`: path to package.json (default: './package.json')
+  - `config`: parsed package.json content
   - `depPaths`: array of glob patterns for multiple files
   - `ignore`: array of glob patterns to ignore
   - `root`: root directory path
@@ -243,26 +248,38 @@ Update package.json overrides and manage the appendix.
   - `strict`: fail on security provider errors
 
 ```javascript
-import { update } from "pastoralist";
+import { resolveJSON, update } from "pastoralist";
 
 // Basic usage
-await update();
+const path = "./package.json";
+const config = resolveJSON(path);
+
+if (config) {
+  update({ config, path });
+}
 
 // With specific path
-await update({
-  path: "./packages/app/package.json",
-});
+const workspacePath = "./packages/app/package.json";
+const workspaceConfig = resolveJSON(workspacePath);
+
+if (workspaceConfig) {
+  update({ config: workspaceConfig, path: workspacePath });
+}
 
 // With debug mode
-await update({
-  debug: true,
-});
+if (config) {
+  update({ config, path, debug: true });
+}
 
 // Multiple packages
-await update({
-  depPaths: ["packages/*/package.json"],
-  ignore: ["**/test/**"],
-});
+if (config) {
+  update({
+    config,
+    path,
+    depPaths: ["packages/*/package.json"],
+    ignore: ["**/test/**"],
+  });
+}
 ```
 
 ### `logger(config)`
@@ -285,8 +302,8 @@ const log = logger({
 });
 
 // Use logger
-log.debug("method-name", "action", { data: "value" });
-log.error("method-name", "error", { error: err });
+log.debug("starting action", "method-name", { data: "value" });
+log.error("unexpected error", "method-name", { error: err });
 ```
 
 ## Examples
@@ -294,37 +311,50 @@ log.error("method-name", "error", { error: err });
 ### Build Tool Integration
 
 ```javascript
-import { update } from "pastoralist";
+import { resolveJSON, update } from "pastoralist";
+
+const path = "./package.json";
+const config = resolveJSON(path);
 
 // Ensure overrides are up-to-date before building
-await update();
-console.log("Package overrides verified");
+if (config) {
+  update({ config, path });
+  console.log("Package overrides verified");
+}
 ```
 
 ### Workspace Automation
 
 ```javascript
-import { update } from "pastoralist";
+import { resolveJSON, update } from "pastoralist";
 import glob from "glob";
 
 // Update all workspace packages
 const packages = glob.sync("packages/*/package.json");
 
 for (const pkgPath of packages) {
-  await update({ path: pkgPath });
-  console.log(`Updated ${pkgPath}`);
+  const pkg = resolveJSON(pkgPath);
+  if (pkg) {
+    update({ config: pkg, path: pkgPath });
+    console.log(`Updated ${pkgPath}`);
+  }
 }
 ```
 
 ### CI/CD Validation
 
 ```javascript
-import { update } from "pastoralist";
+import { resolveJSON, update } from "pastoralist";
 import { execSync } from "child_process";
+
+const path = "./package.json";
+const config = resolveJSON(path);
 
 // Check if overrides are up-to-date
 const before = execSync("git status --porcelain").toString();
-await update();
+if (config) {
+  update({ config, path });
+}
 const after = execSync("git status --porcelain").toString();
 
 if (before !== after) {
@@ -336,7 +366,7 @@ if (before !== after) {
 ### Custom Logger
 
 ```javascript
-import { update, logger } from "pastoralist";
+import { logger, resolveJSON, update } from "pastoralist";
 
 // Create custom logger
 const log = logger({
@@ -344,23 +374,31 @@ const log = logger({
   isLogging: process.env.DEBUG === "true",
 });
 
+const path = "./package.json";
+const config = resolveJSON(path);
+
 // Log custom events
-log.debug("custom-action", "starting", { time: Date.now() });
+log.debug("starting", "custom-action", { time: Date.now() });
 
-await update({ debug: true });
+if (config) {
+  update({ config, path, debug: true });
+}
 
-log.debug("custom-action", "completed", { time: Date.now() });
+log.debug("completed", "custom-action", { time: Date.now() });
 ```
 
 ### Error Handling
 
 ```javascript
-import { update } from "pastoralist";
+import { resolveJSON, update } from "pastoralist";
 
 try {
-  await update({ path: "./package.json" });
+  const path = "./package.json";
+  const config = resolveJSON(path);
+  if (!config) throw new Error("Package.json not found");
+  update({ config, path });
 } catch (error) {
-  if (error.code === "ENOENT") {
+  if (error.message === "Package.json not found") {
     console.error("Package.json not found");
   } else {
     console.error("Unexpected error:", error);
@@ -370,12 +408,12 @@ try {
 
 ## Environment Variables
 
-### `DEBUG=pastoralist*`
+### `DEBUG=true`
 
 Enable debug output (equivalent to --debug flag).
 
 ```bash
-DEBUG=pastoralist* npx pastoralist
+DEBUG=true npx pastoralist
 ```
 
 ## TypeScript
@@ -383,12 +421,20 @@ DEBUG=pastoralist* npx pastoralist
 Pastoralist includes full TypeScript support.
 
 ```typescript
-import { update, Options } from "pastoralist";
+import { resolveJSON, update, type Options } from "pastoralist";
+
+const path = "./package.json";
+const config = resolveJSON(path);
+
+if (!config) {
+  throw new Error("Package.json not found");
+}
 
 const options: Options = {
-  path: "./package.json",
+  config,
+  path,
   debug: true,
 };
 
-await update(options);
+update(options);
 ```

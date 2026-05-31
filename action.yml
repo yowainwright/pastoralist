@@ -1,5 +1,5 @@
 name: "Pastoralist"
-description: "Manage npm/yarn/pnpm overrides with automatic tracking, security scanning, and cleanup"
+description: "Manage npm/yarn/pnpm/bun overrides with tracking, security scanning, and cleanup"
 author: "Jeff Wainwright"
 branding:
   icon: "shield"
@@ -15,11 +15,11 @@ inputs:
     required: false
     default: "true"
   security-provider:
-    description: "Security provider to use (osv, github, snyk, socket)"
+    description: "Security provider to use (osv, github, npm, snyk, socket, spektion)"
     required: false
     default: "osv"
   security-token:
-    description: "Token for security provider (required for github, snyk, socket)"
+    description: "Token for security provider (required for github, snyk, socket, spektion)"
     required: false
   auto-fix:
     description: "Automatically apply security fixes (true/false)"
@@ -47,7 +47,7 @@ inputs:
     required: false
     default: "false"
   silent:
-    description: "Suppress logging output (true/false)"
+    description: "Deprecated compatibility input; ignored and will be removed in a future major release"
     required: false
     default: "false"
   debug:
@@ -134,6 +134,7 @@ runs:
         INPUT_FAIL_ON_UNUSED: ${{ inputs.fail-on-unused }}
         INPUT_MODE: ${{ inputs.mode }}
         INPUT_ROOT_DIR: ${{ inputs.root-dir }}
+        INPUT_SILENT: ${{ inputs.silent }}
         INPUT_SECURITY_PROVIDER: ${{ inputs.security-provider }}
         INPUT_SECURITY_TOKEN: ${{ inputs.security-token }}
         GITHUB_TOKEN: ${{ inputs.github-token || github.token }}
@@ -189,6 +190,10 @@ runs:
 
         if [ -n "$INPUT_CONFIG" ]; then
           echo "::warning::The config input is deprecated. Put the config file in root-dir so Pastoralist can auto-detect it."
+        fi
+
+        if [ "$INPUT_SILENT" = "true" ]; then
+          echo "::warning::The silent input is deprecated and ignored. Remove it from your workflow; use debug: false for normal output."
         fi
 
         if [ "$INPUT_DEBUG" = "true" ]; then

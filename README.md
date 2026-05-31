@@ -9,12 +9,12 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-types%20included-blue)](https://www.typescriptlang.org/)
 <img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=6f41d7dd-fce9-49ea-ae43-040a51f458bd" />
 
-Pastoralist keeps dependency overrides explainable, current, and removable.
+Pastoralist is the audit trail for package manager overrides.
 
-If your `package.json` has `overrides` or `resolutions`, Pastoralist records why
-they exist, which packages still need them, and when they can be removed. It can
-also connect security fixes, patch files, workspaces, and CI checks to the same
-audit trail.
+If your `package.json` has `overrides`, `pnpm.overrides`, or `resolutions`,
+Pastoralist records why each one exists, which packages still need it, and when
+it can be removed. It also connects security fixes, patch files, workspaces, and
+CI checks to the same record.
 
 ## Quick Start
 
@@ -23,7 +23,7 @@ npm install pastoralist --save-dev
 npx pastoralist --init
 ```
 
-Add it to `postinstall` so the appendix stays current after installs:
+Add it to `postinstall` so the appendix is rebuilt on every install:
 
 ```json
 {
@@ -51,7 +51,9 @@ Overrides are useful, but they usually lose context:
 }
 ```
 
-Pastoralist adds the missing record:
+Pastoralist adds the missing record. Every appendix entry includes a `ledger`
+with at least an `addedDate`, plus any reason, security provider, or `keep`
+constraint that applies:
 
 ```json
 {
@@ -65,8 +67,13 @@ Pastoralist adds the missing record:
           "my-app": "lodash@^4.17.0"
         },
         "ledger": {
+          "addedDate": "2026-05-30T00:00:00.000Z",
           "reason": "Security vulnerability CVE-2021-23337",
+          "source": "security",
           "securityProvider": "osv",
+          "cves": ["CVE-2021-23337"],
+          "severity": "high",
+          "patchedVersion": "4.17.21",
           "keep": true
         }
       }

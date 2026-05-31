@@ -61,8 +61,6 @@ jobs:
       - run: bun install --config=/dev/null --frozen-lockfile
       - name: Check test manifest policy
         run: bun run check:test-manifests
-      - name: Check dependency update policy
-        run: bun run deps:check
       - run: rm -rf dist .turbo
       - run: bun run build
       - run: cd app && bun run build

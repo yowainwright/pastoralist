@@ -59,8 +59,7 @@ export const docs: DocMeta[] = [
   {
     slug: "configuration",
     title: "Configuration",
-    description:
-      "Configure Pastoralist with package.json, rc files, or JavaScript and TypeScript config files",
+    description: "Configure Pastoralist with package.json, rc files, or JavaScript config files",
   },
   {
     slug: "github-action",

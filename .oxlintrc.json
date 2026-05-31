@@ -3,7 +3,7 @@
   "jsPlugins": [
     {
       "name": "pastoralist",
-      "specifier": "./tools/oxlint-plugin/index.js"
+      "specifier": "./scripts/oxlint-plugin/index.js"
     }
   ],
   "rules": {
@@ -34,6 +34,42 @@
     "pastoralist/no-hidden-side-effects": "warn",
     "pastoralist/no-quadratic-patterns": "warn",
     "pastoralist/no-standalone-array-mutations": "warn",
-    "pastoralist/prefer-concat-object-assign": "warn"
-  }
+    "pastoralist/prefer-concat-object-assign": "warn",
+    "pastoralist/require-executable-shebang": [
+      "warn",
+      {
+        "files": ["src/index.ts", "src/cli/index.ts"]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["scripts/**/*.js", "scripts/**/*.ts"],
+      "rules": {
+        "pastoralist/hoist-if-operators": "off",
+        "pastoralist/max-expression-operators": "off",
+        "pastoralist/no-complex-ternaries": "off",
+        "pastoralist/no-computed-values": "off",
+        "pastoralist/no-hidden-side-effects": "off",
+        "pastoralist/no-quadratic-patterns": "off",
+        "pastoralist/no-standalone-array-mutations": "off",
+        "pastoralist/prefer-concat-object-assign": "off",
+        "pastoralist/require-executable-shebang": "off",
+        "pastoralist/no-direct-node-bin-smoke": [
+          "warn",
+          {
+            "entryPatterns": [
+              "dist/index.js",
+              "dist/cli/index.js",
+              "src/index.ts",
+              "src/cli/index.ts",
+              "app/*/index.js",
+              "*/dist/index.js",
+              "*/dist/cli/index.js"
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }

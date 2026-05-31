@@ -14,6 +14,13 @@ export interface RuleReport {
 
 export interface RuleContext {
   options?: unknown[];
+  cwd?: string;
+  filename?: string;
+  sourceCode?: {
+    text?: string;
+  };
+  getCwd?: () => string;
+  getFilename?: () => string;
   report(report: RuleReport): void;
 }
 

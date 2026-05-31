@@ -449,6 +449,22 @@ describe("scripts/oxlint-plugin", () => {
     expect(context.reports).toHaveLength(0);
   });
 
+  test("requireExecutableShebang allows env -S runtime shebangs without trailing args", () => {
+    for (const runtime of ["bun", "node"]) {
+      const context = createContext({
+        cwd: "/repo",
+        filename: "/repo/src/cli/index.ts",
+        options: [{ files: ["src/cli/index.ts"], runtimes: ["bun", "node"] }],
+        text: `#!/usr/bin/env -S ${runtime}\nimport { run } from './run';\nrun();\n`,
+      });
+      const visitor = requireExecutableShebang.create(context);
+
+      visitor.Program?.(program());
+
+      expect(context.reports).toHaveLength(0);
+    }
+  });
+
   test("noDirectNodeBinSmoke reports shell commands that bypass package bins", () => {
     const context = createContext();
     const visitor = noDirectNodeBinSmoke.create(context);

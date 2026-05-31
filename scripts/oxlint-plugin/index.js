@@ -307,6 +307,7 @@ function isRuntimeShebang(line, runtime) {
   if (command.startsWith(`${runtime} `)) return true;
   if (command === `/usr/bin/env ${runtime}`) return true;
   if (command.startsWith(`/usr/bin/env ${runtime} `)) return true;
+  if (command === `/usr/bin/env -S ${runtime}`) return true;
   return command.startsWith(`/usr/bin/env -S ${runtime} `);
 }
 

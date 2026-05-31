@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { ITERATION_METHODS, SEARCH_METHODS } from "../../../../tools/oxlint-plugin/constants.js";
+import { ITERATION_METHODS, SEARCH_METHODS } from "../../../../scripts/oxlint-plugin/constants.js";
 import {
   checkNestedIteration,
   checkSearchInLoop,
@@ -15,10 +15,12 @@ import {
   noComplexTernaries,
   noComputedValues,
   noHiddenSideEffects,
+  noDirectNodeBinSmoke,
   noStandaloneArrayMutations,
   preferConcatObjectAssign,
-} from "../../../../tools/oxlint-plugin/index.js";
-import type { ASTNode, RuleContext, RuleReport } from "../../../../tools/oxlint-plugin/types";
+  requireExecutableShebang,
+} from "../../../../scripts/oxlint-plugin/index.js";
+import type { ASTNode, RuleContext, RuleReport } from "../../../../scripts/oxlint-plugin/types";
 
 const identifier = (name: string): ASTNode => ({ type: "Identifier", name });
 
@@ -85,10 +87,44 @@ const spreadElement = (argument: ASTNode): ASTNode => ({
   argument,
 });
 
-const createContext = (options: unknown[] = []): RuleContext & { reports: RuleReport[] } => {
+const literal = (value: string): ASTNode => ({
+  type: "Literal",
+  value,
+});
+
+const arrayExpression = (elements: ASTNode[]): ASTNode => ({
+  type: "ArrayExpression",
+  elements,
+});
+
+const callExpression = (name: string, args: ASTNode[]): ASTNode => ({
+  type: "CallExpression",
+  callee: identifier(name),
+  arguments: args,
+});
+
+const program = (): ASTNode => ({
+  type: "Program",
+  body: [],
+});
+
+interface ContextOptions {
+  cwd?: string;
+  filename?: string;
+  options?: unknown[];
+  text?: string;
+}
+
+const createContext = (
+  optionsOrConfig: unknown[] | ContextOptions = [],
+): RuleContext & { reports: RuleReport[] } => {
   let reports: RuleReport[] = [];
+  const config = Array.isArray(optionsOrConfig) ? { options: optionsOrConfig } : optionsOrConfig;
   return {
-    options,
+    cwd: config.cwd,
+    filename: config.filename,
+    options: config.options ?? [],
+    sourceCode: { text: config.text ?? "" },
     get reports() {
       return reports;
     },
@@ -98,7 +134,7 @@ const createContext = (options: unknown[] = []): RuleContext & { reports: RuleRe
   };
 };
 
-describe("tools/oxlint-plugin", () => {
+describe("scripts/oxlint-plugin", () => {
   test("countExpressionOperators counts boolean readability operators", () => {
     const expression = logical(binary("==="), unaryNot());
 
@@ -381,5 +417,70 @@ describe("tools/oxlint-plugin", () => {
 
     expect(context.reports[0]?.messageId).toBe("searchInLoop");
     expect(context.reports[0]?.data).toEqual({ method: "find" });
+  });
+
+  test("requireExecutableShebang reports configured executable entries without shebangs", () => {
+    const context = createContext({
+      cwd: "/repo",
+      filename: "/repo/src/cli/index.ts",
+      options: [{ files: ["src/cli/index.ts"] }],
+      text: "import { run } from './run';\nrun();\n",
+    });
+    const visitor = requireExecutableShebang.create(context);
+
+    visitor.Program?.(program());
+
+    expect(context.reports).toHaveLength(1);
+    expect(context.reports[0]?.messageId).toBe("missingShebang");
+    expect(context.reports[0]?.data).toEqual({ file: "src/cli/index.ts" });
+  });
+
+  test("requireExecutableShebang allows Node shebangs", () => {
+    const context = createContext({
+      cwd: "/repo",
+      filename: "/repo/src/cli/index.ts",
+      options: [{ files: ["src/cli/index.ts"] }],
+      text: "#!/usr/bin/env node\nimport { run } from './run';\nrun();\n",
+    });
+    const visitor = requireExecutableShebang.create(context);
+
+    visitor.Program?.(program());
+
+    expect(context.reports).toHaveLength(0);
+  });
+
+  test("noDirectNodeBinSmoke reports shell commands that bypass package bins", () => {
+    const context = createContext();
+    const visitor = noDirectNodeBinSmoke.create(context);
+
+    visitor.CallExpression?.(
+      callExpression("execSync", [literal("node dist/cli/index.js --help")]),
+    );
+
+    expect(context.reports).toHaveLength(1);
+    expect(context.reports[0]?.messageId).toBe("directNodeBin");
+    expect(context.reports[0]?.data).toEqual({ entry: "dist/cli/index.js" });
+  });
+
+  test("noDirectNodeBinSmoke reports spawn calls that bypass package bins", () => {
+    const context = createContext();
+    const visitor = noDirectNodeBinSmoke.create(context);
+
+    visitor.CallExpression?.(
+      callExpression("spawnSync", [literal("node"), arrayExpression([literal("dist/index.js")])]),
+    );
+
+    expect(context.reports).toHaveLength(1);
+    expect(context.reports[0]?.messageId).toBe("directNodeBin");
+    expect(context.reports[0]?.data).toEqual({ entry: "dist/index.js" });
+  });
+
+  test("noDirectNodeBinSmoke allows installed package bin smoke commands", () => {
+    const context = createContext();
+    const visitor = noDirectNodeBinSmoke.create(context);
+
+    visitor.CallExpression?.(callExpression("execSync", [literal("tqs --help")]));
+
+    expect(context.reports).toHaveLength(0);
   });
 });

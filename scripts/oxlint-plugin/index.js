@@ -2,6 +2,9 @@ import {
   ARRAY_MUTATING_METHODS,
   COMPUTED_VALUE_OPERATOR_NODE_TYPES,
   COMPARISON_OPERATORS,
+  DEFAULT_DIRECT_BIN_ENTRY_PATTERNS,
+  DEFAULT_EXECUTABLE_ENTRY_PATTERNS,
+  DEFAULT_EXECUTABLE_RUNTIMES,
   DEFAULT_MAX_COMPUTED_VALUE_OPERATORS,
   DEFAULT_MAX_EXPRESSION_OPERATORS,
   DEFAULT_MAX_IF_OPERATORS,
@@ -14,6 +17,7 @@ import {
   LOOP_TYPES,
   MAX_EXPRESSION_OPERATORS_META,
   MUTATING_METHODS,
+  NO_DIRECT_NODE_BIN_SMOKE_META,
   NO_COMPLEX_TERNARIES_META,
   NO_COMPUTED_VALUES_META,
   NO_HIDDEN_SIDE_EFFECTS_META,
@@ -24,6 +28,7 @@ import {
   SEARCH_METHODS,
   SIDE_EFFECT_FREE_ITERATION_METHODS,
   SKIP_KEYS,
+  REQUIRE_EXECUTABLE_SHEBANG_META,
 } from "./constants.js";
 
 function defineRule(meta, create) {
@@ -214,6 +219,224 @@ function getConfiguredNumber(context, key, fallback) {
 
 function getConfiguredMax(context, fallback) {
   return getConfiguredNumber(context, "max", fallback);
+}
+
+function getConfiguredStringArray(context, key, fallback) {
+  const [options] = context.options ?? [];
+  if (!isRecord(options)) return fallback;
+  const value = options[key];
+  if (!Array.isArray(value)) return fallback;
+  const strings = value.filter((item) => typeof item === "string");
+  return strings.length ? strings : fallback;
+}
+
+function normalizePath(path) {
+  return path.replace(/\\/g, "/").replace(/^\.\//, "");
+}
+
+function getContextFilename(context) {
+  if (typeof context.filename === "string") return context.filename;
+  if (typeof context.getFilename !== "function") return "";
+  try {
+    return context.getFilename();
+  } catch {
+    return "";
+  }
+}
+
+function getContextCwd(context) {
+  if (typeof context.cwd === "string") return context.cwd;
+  if (typeof context.getCwd !== "function") return "";
+  try {
+    return context.getCwd();
+  } catch {
+    return "";
+  }
+}
+
+function getRelativeFilename(context) {
+  const filename = normalizePath(getContextFilename(context));
+  const cwd = normalizePath(getContextCwd(context));
+  if (!filename) return "";
+  if (!cwd) return filename;
+  const prefix = `${cwd}/`;
+  return filename.startsWith(prefix) ? filename.slice(prefix.length) : filename;
+}
+
+function escapeRegex(value) {
+  return value.replace(/[|\\{}()[\]^$+*?.]/g, "\\$&");
+}
+
+function patternToRegex(pattern) {
+  const normalized = normalizePath(pattern);
+  const source = escapeRegex(normalized)
+    .replace(/\\\*\\\*/g, ".*")
+    .replace(/\\\*/g, "[^/]*");
+  return new RegExp(`(^|/)${source}$`);
+}
+
+function matchesPathPattern(path, pattern) {
+  const normalizedPath = normalizePath(path);
+  const normalizedPattern = normalizePath(pattern);
+  if (normalizedPattern.includes("*"))
+    return patternToRegex(normalizedPattern).test(normalizedPath);
+  const isExactMatch = normalizedPath === normalizedPattern;
+  const isNestedMatch = normalizedPath.endsWith(`/${normalizedPattern}`);
+  return isExactMatch || isNestedMatch;
+}
+
+function matchesAnyPathPattern(path, patterns) {
+  return patterns.some((pattern) => matchesPathPattern(path, pattern));
+}
+
+function getSourceText(context) {
+  const sourceCode = context.sourceCode;
+  if (!isRecord(sourceCode)) return "";
+  if (typeof sourceCode.text !== "string") return "";
+  return sourceCode.text;
+}
+
+function getFirstLine(text) {
+  return text.split(/\r?\n/, 1)[0] ?? "";
+}
+
+function isRuntimeShebang(line, runtime) {
+  if (!line.startsWith("#!")) return false;
+  const command = line.slice(2).trim();
+  if (command === runtime) return true;
+  if (command.startsWith(`${runtime} `)) return true;
+  if (command === `/usr/bin/env ${runtime}`) return true;
+  if (command.startsWith(`/usr/bin/env ${runtime} `)) return true;
+  return command.startsWith(`/usr/bin/env -S ${runtime} `);
+}
+
+function hasAllowedShebang(text, runtimes) {
+  const firstLine = getFirstLine(text);
+  return runtimes.some((runtime) => isRuntimeShebang(firstLine, runtime));
+}
+
+function createRequireExecutableShebang(context) {
+  const files = getConfiguredStringArray(context, "files", DEFAULT_EXECUTABLE_ENTRY_PATTERNS);
+  const runtimes = getConfiguredStringArray(context, "runtimes", DEFAULT_EXECUTABLE_RUNTIMES);
+  return {
+    Program(node) {
+      const filename = getRelativeFilename(context);
+      if (!filename) return;
+      if (!matchesAnyPathPattern(filename, files)) return;
+      if (hasAllowedShebang(getSourceText(context), runtimes)) return;
+      context.report({
+        node,
+        messageId: "missingShebang",
+        data: { file: filename },
+      });
+    },
+  };
+}
+
+function getTemplateQuasiValue(quasi) {
+  const value = quasi.value;
+  if (!isRecord(value)) return "";
+  if (typeof value.cooked === "string") return value.cooked;
+  if (typeof value.raw === "string") return value.raw;
+  return "";
+}
+
+function getStringValue(node) {
+  if (!isRecord(node)) return null;
+  if (node.type === "Literal") {
+    if (typeof node.value !== "string") return null;
+    return node.value;
+  }
+  if (node.type !== "TemplateLiteral") return null;
+  const expressions = node.expressions ?? [];
+  if (expressions.length) return null;
+  const quasis = node.quasis ?? [];
+  return quasis.map(getTemplateQuasiValue).join("");
+}
+
+function getCalleeName(node) {
+  const callee = node.callee;
+  if (!isRecord(callee)) return null;
+  if (callee.type === "Identifier") return callee.name ?? null;
+  if (callee.type !== "MemberExpression") return null;
+  const property = callee.property;
+  if (!isRecord(property)) return null;
+  if (property.type !== "Identifier") return null;
+  return property.name ?? null;
+}
+
+const SHELL_COMMAND_FUNCTIONS = new Set(["exec", "execSync"]);
+const ARG_COMMAND_FUNCTIONS = new Set(["execFile", "execFileSync", "spawn", "spawnSync"]);
+
+function stripCommandQuotes(value) {
+  return value.replace(/^["']|["']$/g, "");
+}
+
+function isNodeCommand(value) {
+  const isBareNode = value === "node";
+  const isPathNode = value.endsWith("/node");
+  return isBareNode || isPathNode;
+}
+
+function isDirectBinEntry(value, patterns) {
+  const unquoted = normalizePath(stripCommandQuotes(value));
+  const withoutPrefix = unquoted.replace(/^\.\//, "");
+  return matchesAnyPathPattern(withoutPrefix, patterns);
+}
+
+function findDirectBinEntry(args, patterns) {
+  const unquotedArgs = args.map(stripCommandQuotes);
+  return unquotedArgs.find((arg) => {
+    if (arg.startsWith("-")) return false;
+    return isDirectBinEntry(arg, patterns);
+  });
+}
+
+function getArrayStringValues(node) {
+  if (!isRecord(node)) return [];
+  if (node.type !== "ArrayExpression") return [];
+  const elements = node.elements ?? [];
+  return elements.map(getStringValue).filter((value) => typeof value === "string");
+}
+
+function getDirectNodeEntryFromCommand(command, patterns) {
+  const parts = command.trim().split(/\s+/).map(stripCommandQuotes);
+  const commandName = parts[0] ?? "";
+  if (!isNodeCommand(commandName)) return null;
+  return findDirectBinEntry(parts.slice(1), patterns) ?? null;
+}
+
+function getDirectNodeEntryFromCall(node, patterns) {
+  const calleeName = getCalleeName(node);
+  const commandFunctionName = calleeName ?? "";
+  const args = node.arguments ?? [];
+  const firstArg = getStringValue(args[0]);
+  if (!firstArg) return null;
+  if (SHELL_COMMAND_FUNCTIONS.has(commandFunctionName)) {
+    return getDirectNodeEntryFromCommand(firstArg, patterns);
+  }
+  if (!ARG_COMMAND_FUNCTIONS.has(commandFunctionName)) return null;
+  if (!isNodeCommand(firstArg)) return null;
+  return findDirectBinEntry(getArrayStringValues(args[1]), patterns) ?? null;
+}
+
+function createNoDirectNodeBinSmoke(context) {
+  const patterns = getConfiguredStringArray(
+    context,
+    "entryPatterns",
+    DEFAULT_DIRECT_BIN_ENTRY_PATTERNS,
+  );
+  return {
+    CallExpression(node) {
+      const entry = getDirectNodeEntryFromCall(node, patterns);
+      if (!entry) return;
+      context.report({
+        node,
+        messageId: "directNodeBin",
+        data: { entry },
+      });
+    },
+  };
 }
 
 function createExpressionCheck(context) {
@@ -618,6 +841,16 @@ export const preferConcatObjectAssign = defineRule(
   createPreferConcatObjectAssign,
 );
 
+export const requireExecutableShebang = defineRule(
+  REQUIRE_EXECUTABLE_SHEBANG_META,
+  createRequireExecutableShebang,
+);
+
+export const noDirectNodeBinSmoke = defineRule(
+  NO_DIRECT_NODE_BIN_SMOKE_META,
+  createNoDirectNodeBinSmoke,
+);
+
 const plugin = {
   rules: {
     "hoist-if-operators": hoistIfOperators,
@@ -628,6 +861,8 @@ const plugin = {
     "no-quadratic-patterns": noQuadraticPatterns,
     "no-standalone-array-mutations": noStandaloneArrayMutations,
     "prefer-concat-object-assign": preferConcatObjectAssign,
+    "require-executable-shebang": requireExecutableShebang,
+    "no-direct-node-bin-smoke": noDirectNodeBinSmoke,
   },
 };
 

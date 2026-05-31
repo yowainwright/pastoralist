@@ -226,7 +226,9 @@ npm install pastoralist
 Update `package.json` overrides and the appendix. Each appendix entry includes a
 `ledger` with at least `addedDate`; security metadata is added when security
 checks run. This is a low-level API: pass the parsed `package.json` as `config`.
-The CLI handles config loading for normal command-line use.
+The CLI handles config loading for normal command-line use. `update()` is
+synchronous and returns an `UpdateContext`, so the examples below intentionally
+do not use `await`.
 
 **params:**
 

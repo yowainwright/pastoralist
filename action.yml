@@ -1,5 +1,5 @@
 name: "Pastoralist"
-description: "Manage npm/yarn/pnpm overrides with automatic tracking, security scanning, and cleanup"
+description: "Manage npm/yarn/pnpm/bun overrides with tracking, security scanning, and cleanup"
 author: "Jeff Wainwright"
 branding:
   icon: "shield"
@@ -15,11 +15,11 @@ inputs:
     required: false
     default: "true"
   security-provider:
-    description: "Security provider to use (osv, github, snyk, socket)"
+    description: "Security provider to use (osv, github, npm, snyk, socket, spektion)"
     required: false
     default: "osv"
   security-token:
-    description: "Token for security provider (required for github, snyk, socket)"
+    description: "Token for security provider (required for github, snyk, socket, spektion)"
     required: false
   auto-fix:
     description: "Automatically apply security fixes (true/false)"
@@ -44,10 +44,6 @@ inputs:
     default: "true"
   fail-on-unused:
     description: "Fail the action if unused overrides are detected (true/false)"
-    required: false
-    default: "false"
-  silent:
-    description: "Suppress logging output (true/false)"
     required: false
     default: "false"
   debug:

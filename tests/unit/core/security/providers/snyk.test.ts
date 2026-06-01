@@ -10,6 +10,11 @@ type SnykProviderInternal = SnykCLIProvider & {
   token: string | undefined;
 };
 
+type SnykExecOptions = {
+  timeout: number;
+  env?: NodeJS.ProcessEnv;
+};
+
 let mockExecFileResult: { stdout: string; stderr: string } | Error = {
   stdout: JSON.stringify({ vulnerabilities: [] }),
   stderr: "",
@@ -598,17 +603,47 @@ test("authenticate - should succeed when token is provided", async () => {
 });
 
 test("runSnykScan - builds env with token", async () => {
+  let execOptions: SnykExecOptions | undefined;
+  const execFileAsync = mock(
+    async (_command: string, _args: string[], options: SnykExecOptions) => {
+      execOptions = options;
+      return { stdout: JSON.stringify({ vulnerabilities: [] }), stderr: "" };
+    },
+  );
   const provider = new SnykCLIProvider({
     token: "test-token",
     debug: false,
+    execFileAsync,
   }) as unknown as SnykProviderInternal;
-  await expect(provider.runSnykScan()).rejects.toThrow();
+
+  await expect(provider.runSnykScan()).resolves.toEqual({ vulnerabilities: [] });
+  expect(execFileAsync).toHaveBeenCalledWith(
+    "snyk",
+    ["test", "--json"],
+    expect.objectContaining({ env: expect.objectContaining({ SNYK_TOKEN: "test-token" }) }),
+  );
+  expect(execOptions?.env).not.toBe(process.env);
 });
 
 test("runSnykScan - uses process.env when no token", async () => {
+  let execOptions: SnykExecOptions | undefined;
+  const execFileAsync = mock(
+    async (_command: string, _args: string[], options: SnykExecOptions) => {
+      execOptions = options;
+      return { stdout: JSON.stringify({ vulnerabilities: [] }), stderr: "" };
+    },
+  );
   const provider = new SnykCLIProvider({
     debug: false,
+    execFileAsync,
   }) as unknown as SnykProviderInternal;
   provider.token = undefined;
-  await expect(provider.runSnykScan()).rejects.toThrow();
+
+  await expect(provider.runSnykScan()).resolves.toEqual({ vulnerabilities: [] });
+  expect(execFileAsync).toHaveBeenCalledWith(
+    "snyk",
+    ["test", "--json"],
+    expect.objectContaining({ env: process.env }),
+  );
+  expect(execOptions?.env).toBe(process.env);
 });

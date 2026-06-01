@@ -12,19 +12,30 @@ import { DEFAULT_CLI_TIMEOUT, DEFAULT_SNYK_SCAN_TIMEOUT, AUTH_MESSAGES } from ".
 
 const execFileAsync = promisify(execFile);
 
+type SnykExecFile = typeof execFileAsync;
+
+interface SnykCLIProviderOptions {
+  debug?: boolean;
+  token?: string;
+  strict?: boolean;
+  execFileAsync?: SnykExecFile;
+}
+
 export class SnykCLIProvider {
   readonly providerType = "snyk" as const;
   private log: ReturnType<typeof logger>;
   private installer: CLIInstaller;
+  private execFileAsync: SnykExecFile;
   private token?: string;
   private strict: boolean;
 
-  constructor(options: { debug?: boolean; token?: string; strict?: boolean } = {}) {
+  constructor(options: SnykCLIProviderOptions = {}) {
     this.log = logger({
       file: "security/snyk.ts",
       isLogging: options.debug || false,
     });
     this.installer = new CLIInstaller({ debug: options.debug });
+    this.execFileAsync = options.execFileAsync ?? execFileAsync;
     this.token = options.token || process.env.SNYK_TOKEN;
     this.strict = options.strict || false;
     this.log.warn(
@@ -44,7 +55,7 @@ export class SnykCLIProvider {
     if (!this.token) {
       const execOptions = { timeout: DEFAULT_CLI_TIMEOUT };
       try {
-        await execFileAsync("snyk", ["config", "get", "api"], execOptions);
+        await this.execFileAsync("snyk", ["config", "get", "api"], execOptions);
         return true;
       } catch {
         return false;
@@ -89,7 +100,7 @@ export class SnykCLIProvider {
       ? Object.assign({}, process.env, { SNYK_TOKEN: this.token })
       : process.env;
     const execOptions = { timeout: DEFAULT_SNYK_SCAN_TIMEOUT, env };
-    const { stdout } = await execFileAsync("snyk", ["test", "--json"], execOptions);
+    const { stdout } = await this.execFileAsync("snyk", ["test", "--json"], execOptions);
 
     return JSON.parse(stdout);
   }

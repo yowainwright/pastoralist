@@ -14,6 +14,9 @@ COPY dist/ ./pastoralist/
 RUN chmod +x ./pastoralist/index.js
 RUN echo '{"type":"module"}' > ./pastoralist/package.json
 
+# Verify the bundled CLI runs before workspace dependencies are installed.
+RUN node ./pastoralist/index.js --help >/dev/null
+
 # Create a test workspace with multiple packages
 RUN mkdir -p packages/app packages/utils packages/shared e2e/fixtures/patches
 
@@ -22,6 +25,8 @@ COPY tests/e2e/fixtures/ ./e2e/fixtures/
 
 # Copy workspace package.json files to their correct locations
 COPY tests/e2e/fixtures/root-package.json ./package.json
+COPY tests/e2e/fixtures/root-pnpm-lock.yaml ./pnpm-lock.yaml
+COPY tests/e2e/fixtures/root-pnpm-workspace.yaml ./pnpm-workspace.yaml
 COPY tests/e2e/fixtures/app-package.json ./packages/app/package.json
 COPY tests/e2e/fixtures/utils-package.json ./packages/utils/package.json
 COPY tests/e2e/fixtures/shared-package.json ./packages/shared/package.json
@@ -32,10 +37,8 @@ RUN echo 'console.log("Utils module");' > ./packages/utils/index.js
 RUN echo 'console.log("Shared module");' > ./packages/shared/index.js
 
 # Install workspace dependencies
-RUN pnpm install
-
-# Install pastoralist runtime dependencies in root so they can be found
-RUN npm install commander@14.0.0 fast-glob@3.3.3 inquirer@12.10.0 zod@4.1.12
+RUN pnpm install --frozen-lockfile
+RUN rm ./pnpm-workspace.yaml
 
 # Copy scripts
 COPY tests/e2e/scripts/ ./scripts/

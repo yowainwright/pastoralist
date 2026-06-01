@@ -1,6 +1,6 @@
 {
   "name": "pastoralist",
-  "version": "1.12.1-beta.9",
+  "version": "1.12.3",
   "description": "A tool to watch over node module resolutions and overrides",
   "keywords": [
     "dependencies",

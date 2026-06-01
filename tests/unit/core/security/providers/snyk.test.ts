@@ -1,31 +1,29 @@
-import { test, expect, mock, beforeEach, afterEach } from "bun:test";
+import { test, expect, mock, afterEach } from "bun:test";
 import { SnykCLIProvider } from "../../../../../src/core/security/providers/snyk";
-import type { SnykResult } from "../../../../../src/types";
-import { logger } from "../../../../../src/utils";
-
-const log = logger({ file: "snyk.test.ts", isLogging: true });
-
-type SnykProviderInternal = SnykCLIProvider & {
-  runSnykScan: () => Promise<SnykResult>;
-  token: string | undefined;
-};
+import type { SnykResult, SecurityAlert, SnykAlertVulnerability } from "../../../../../src/types";
 
 type SnykExecOptions = {
   timeout: number;
   env?: NodeJS.ProcessEnv;
 };
 
-let mockExecFileResult: { stdout: string; stderr: string } | Error = {
-  stdout: JSON.stringify({ vulnerabilities: [] }),
-  stderr: "",
+type SnykProviderInternal = SnykCLIProvider & {
+  normalizeSeverity: (input: string) => "low" | "medium" | "high" | "critical";
+  extractPatchedVersion: (vuln: {
+    fixedIn?: string[];
+    upgradePath?: unknown[];
+  }) => string | undefined;
+  convertVulnToAlert: (vuln: Partial<SnykAlertVulnerability>) => SecurityAlert;
+  convertSnykVulnerabilities: (result: { vulnerabilities?: unknown }) => SecurityAlert[];
+  validatePrerequisites: () => Promise<boolean>;
+  runSnykScan: () => Promise<Partial<SnykResult>>;
+  strict: boolean;
+  token: string | undefined;
+  installer: { ensureInstalled: (...args: unknown[]) => Promise<boolean> };
+  isAuthenticated: () => Promise<boolean>;
+  authenticate: () => Promise<void>;
+  ensureInstalled: () => Promise<boolean>;
 };
-
-beforeEach(() => {
-  mockExecFileResult = {
-    stdout: JSON.stringify({ vulnerabilities: [] }),
-    stderr: "",
-  };
-});
 
 afterEach(() => {
   mock.restore();
@@ -50,70 +48,56 @@ test("Construction - should create provider with token", () => {
 });
 
 test("Severity Normalization - should normalize severity levels", () => {
-  const provider = new SnykCLIProvider({ debug: false });
+  const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
   const testSeverities = [
     { input: "critical", expected: "critical" },
     { input: "high", expected: "high" },
     { input: "medium", expected: "medium" },
     { input: "low", expected: "low" },
-  ];
+  ] as const;
 
-  for (const test of testSeverities) {
-    const normalized = (provider as any).normalizeSeverity(test.input);
-    expect(normalized).toBe(test.expected);
-  }
+  testSeverities.forEach(({ input, expected }) => {
+    expect(p.normalizeSeverity(input)).toBe(expected);
+  });
 });
 
 test("Severity Normalization - should default unknown severity to medium", () => {
-  const provider = new SnykCLIProvider({ debug: false });
-  const normalized = (provider as any).normalizeSeverity("unknown");
-  expect(normalized).toBe("medium");
+  const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
+  expect(p.normalizeSeverity("unknown")).toBe("medium");
 });
 
 test("Version Extraction - should extract patched version from fixedIn", () => {
-  const provider = new SnykCLIProvider({ debug: false });
-  const vuln = {
-    fixedIn: ["1.2.3"],
-  };
-  const version = (provider as any).extractPatchedVersion(vuln);
-  expect(version).toBe("1.2.3");
+  const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
+  expect(p.extractPatchedVersion({ fixedIn: ["1.2.3"] })).toBe("1.2.3");
 });
 
 test("Version Extraction - should extract patched version from upgradePath", () => {
-  const provider = new SnykCLIProvider({ debug: false });
-  const vuln = {
-    upgradePath: ["package@1.0.0", "package@1.2.3"],
-  };
-  const version = (provider as any).extractPatchedVersion(vuln);
-  expect(version).toBe("1.2.3");
+  const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
+  expect(p.extractPatchedVersion({ upgradePath: ["package@1.0.0", "package@1.2.3"] })).toBe(
+    "1.2.3",
+  );
 });
 
 test("Version Extraction - should return undefined when no fix available", () => {
-  const provider = new SnykCLIProvider({ debug: false });
-  const vuln = {};
-  const version = (provider as any).extractPatchedVersion(vuln);
-  expect(version).toBeUndefined();
+  const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
+  expect(p.extractPatchedVersion({})).toBeUndefined();
 });
 
 test("Vulnerability Conversion - should convert Snyk vulnerability to SecurityAlert", () => {
-  const provider = new SnykCLIProvider({ debug: false });
+  const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
   const vuln = {
     packageName: "lodash",
     version: "4.17.20",
     severity: "high",
     title: "Prototype Pollution",
     description: "Lodash is vulnerable to prototype pollution",
-    identifiers: {
-      CVE: ["CVE-2021-23337"],
-    },
+    identifiers: { CVE: ["CVE-2021-23337"] },
     url: "https://snyk.io/vuln/SNYK-JS-LODASH-1018905",
     fixedIn: ["4.17.21"],
-    semver: {
-      vulnerable: "< 4.17.21",
-    },
+    semver: { vulnerable: "< 4.17.21" },
   };
 
-  const alert = (provider as any).convertVulnToAlert(vuln);
+  const alert = p.convertVulnToAlert(vuln);
 
   expect(alert.packageName).toBe("lodash");
   expect(alert.currentVersion).toBe("4.17.20");
@@ -125,7 +109,7 @@ test("Vulnerability Conversion - should convert Snyk vulnerability to SecurityAl
 });
 
 test("Vulnerability Conversion - should handle vulnerability without CVE", () => {
-  const provider = new SnykCLIProvider({ debug: false });
+  const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
   const vuln = {
     packageName: "test-package",
     version: "1.0.0",
@@ -135,7 +119,7 @@ test("Vulnerability Conversion - should handle vulnerability without CVE", () =>
     id: "SNYK-JS-TEST-123",
   };
 
-  const alert = (provider as any).convertVulnToAlert(vuln);
+  const alert = p.convertVulnToAlert(vuln);
 
   expect(alert.packageName).toBe("test-package");
   expect(alert.cves).toBeUndefined();
@@ -143,7 +127,7 @@ test("Vulnerability Conversion - should handle vulnerability without CVE", () =>
 });
 
 test("Snyk Result Conversion - should convert Snyk result to SecurityAlerts", () => {
-  const provider = new SnykCLIProvider({ debug: false });
+  const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
   const snykResult = {
     vulnerabilities: [
       {
@@ -157,27 +141,24 @@ test("Snyk Result Conversion - should convert Snyk result to SecurityAlerts", ()
     ],
   };
 
-  const alerts = (provider as any).convertSnykVulnerabilities(snykResult);
+  const alerts = p.convertSnykVulnerabilities(snykResult);
 
   expect(alerts.length).toBe(1);
   expect(alerts[0].packageName).toBe("lodash");
 });
 
 test("Snyk Result Conversion - should return empty array for invalid result", () => {
-  const provider = new SnykCLIProvider({ debug: false });
-  const alerts = (provider as any).convertSnykVulnerabilities({});
-  expect(alerts).toEqual([]);
+  const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
+  expect(p.convertSnykVulnerabilities({})).toEqual([]);
 });
 
 test("Snyk Result Conversion - should return empty array for non-array vulnerabilities", () => {
-  const provider = new SnykCLIProvider({ debug: false });
-  const alerts = (provider as any).convertSnykVulnerabilities({
-    vulnerabilities: "not an array",
-  });
-  expect(alerts).toEqual([]);
+  const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
+  expect(p.convertSnykVulnerabilities({ vulnerabilities: "not an array" })).toEqual([]);
 });
+
 test("Vulnerability Conversion - should use name field if packageName missing", () => {
-  const provider = new SnykCLIProvider({ debug: false });
+  const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
   const vuln = {
     name: "test-package",
     version: "1.0.0",
@@ -187,162 +168,144 @@ test("Vulnerability Conversion - should use name field if packageName missing", 
     id: "SNYK-JS-TEST-123",
   };
 
-  const alert = (provider as any).convertVulnToAlert(vuln);
+  const alert = p.convertVulnToAlert(vuln);
   expect(alert.packageName).toBe("test-package");
 });
 
 test("Severity Normalization - should handle uppercase severity", () => {
-  const provider = new SnykCLIProvider({ debug: false });
-  expect((provider as any).normalizeSeverity("CRITICAL")).toBe("critical");
-  expect((provider as any).normalizeSeverity("HIGH")).toBe("high");
-  expect((provider as any).normalizeSeverity("MEDIUM")).toBe("medium");
-  expect((provider as any).normalizeSeverity("LOW")).toBe("low");
+  const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
+  expect(p.normalizeSeverity("CRITICAL")).toBe("critical");
+  expect(p.normalizeSeverity("HIGH")).toBe("high");
+  expect(p.normalizeSeverity("MEDIUM")).toBe("medium");
+  expect(p.normalizeSeverity("LOW")).toBe("low");
 });
 
 test("Version Extraction - should handle non-string upgradePath items", () => {
-  const provider = new SnykCLIProvider({ debug: false });
-  const vuln = {
-    upgradePath: [null, 123],
-  };
-  const version = (provider as any).extractPatchedVersion(vuln);
-  expect(version).toBeUndefined();
+  const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
+  expect(p.extractPatchedVersion({ upgradePath: [null, 123] })).toBeUndefined();
 });
 
 test("Version Extraction - should prefer fixedIn over upgradePath", () => {
-  const provider = new SnykCLIProvider({ debug: false });
-  const vuln = {
-    fixedIn: ["2.0.0"],
-    upgradePath: ["package@1.0.0", "package@1.5.0"],
-  };
-  const version = (provider as any).extractPatchedVersion(vuln);
-  expect(version).toBe("2.0.0");
+  const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
+  expect(
+    p.extractPatchedVersion({
+      fixedIn: ["2.0.0"],
+      upgradePath: ["package@1.0.0", "package@1.5.0"],
+    }),
+  ).toBe("2.0.0");
 });
 
 test("Construction - should set strict mode when provided", () => {
-  const provider = new SnykCLIProvider({ debug: false, strict: true });
-  expect((provider as any).strict).toBe(true);
+  const p = new SnykCLIProvider({ debug: false, strict: true }) as unknown as SnykProviderInternal;
+  expect(p.strict).toBe(true);
 });
 
 test("Construction - should default strict to false", () => {
-  const provider = new SnykCLIProvider({ debug: false });
-  expect((provider as any).strict).toBe(false);
+  const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
+  expect(p.strict).toBe(false);
 });
 
 test("fetchAlerts - should return empty array when prerequisites fail", async () => {
-  const provider = new SnykCLIProvider({ debug: false });
-  (provider as any).validatePrerequisites = async () => false;
-  const alerts = await provider.fetchAlerts();
-  expect(alerts).toEqual([]);
+  const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
+  p.validatePrerequisites = async () => false;
+  expect(await p.fetchAlerts()).toEqual([]);
 });
 
 test("fetchAlerts - should throw when strict mode and scan fails", async () => {
-  const provider = new SnykCLIProvider({ debug: false, strict: true });
-  (provider as any).validatePrerequisites = async () => true;
-  (provider as any).runSnykScan = async () => {
+  const p = new SnykCLIProvider({ debug: false, strict: true }) as unknown as SnykProviderInternal;
+  p.validatePrerequisites = async () => true;
+  p.runSnykScan = async () => {
     throw new Error("Scan failed");
   };
-  await expect(provider.fetchAlerts()).rejects.toThrow("Snyk security check failed");
+  await expect(p.fetchAlerts()).rejects.toThrow("Snyk security check failed");
 });
 
 test("fetchAlerts - should warn and return empty when not strict and scan fails", async () => {
-  const provider = new SnykCLIProvider({ debug: false, strict: false });
-  (provider as any).validatePrerequisites = async () => true;
-  (provider as any).runSnykScan = async () => {
+  const p = new SnykCLIProvider({ debug: false, strict: false }) as unknown as SnykProviderInternal;
+  p.validatePrerequisites = async () => true;
+  p.runSnykScan = async () => {
     throw new Error("Scan failed");
   };
-  const alerts = await provider.fetchAlerts();
-  expect(alerts).toEqual([]);
+  expect(await p.fetchAlerts()).toEqual([]);
 });
 
 test("fetchAlerts - should parse JSON from error stdout if available", async () => {
-  const provider = new SnykCLIProvider({ debug: false });
-  (provider as any).validatePrerequisites = async () => true;
-  (provider as any).runSnykScan = async () => {
+  const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
+  p.validatePrerequisites = async () => true;
+  p.runSnykScan = async () => {
     const error = new Error("Scan failed") as Error & { stdout?: string };
     error.stdout = JSON.stringify({ vulnerabilities: [] });
     throw error;
   };
-  const alerts = await provider.fetchAlerts();
-  expect(alerts).toEqual([]);
+  expect(await p.fetchAlerts()).toEqual([]);
 });
 
 test("fetchAlerts - should handle invalid JSON in error stdout", async () => {
-  const provider = new SnykCLIProvider({ debug: false });
-  (provider as any).validatePrerequisites = async () => true;
-  (provider as any).runSnykScan = async () => {
+  const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
+  p.validatePrerequisites = async () => true;
+  p.runSnykScan = async () => {
     const error = new Error("Scan failed") as Error & { stdout?: string };
     error.stdout = "not valid json";
     throw error;
   };
-  const alerts = await provider.fetchAlerts();
-  expect(alerts).toEqual([]);
+  expect(await p.fetchAlerts()).toEqual([]);
 });
 
 test("ensureInstalled - should call installer", async () => {
-  const provider = new SnykCLIProvider({ debug: false });
-  (provider as any).installer.ensureInstalled = async () => true;
-
-  const result = await provider.ensureInstalled();
-  expect(result).toBe(true);
+  const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
+  p.installer.ensureInstalled = async () => true;
+  expect(await p.ensureInstalled()).toBe(true);
 });
 
 test("ensureInstalled - should return false when not installed", async () => {
-  const provider = new SnykCLIProvider({ debug: false });
-  (provider as any).installer.ensureInstalled = async () => false;
-
-  const result = await provider.ensureInstalled();
-  expect(result).toBe(false);
+  const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
+  p.installer.ensureInstalled = async () => false;
+  expect(await p.ensureInstalled()).toBe(false);
 });
 
 test("authenticate - should throw without token", async () => {
-  const provider = new SnykCLIProvider({ debug: false });
-  (provider as any).token = undefined;
-
-  await expect(provider.authenticate()).rejects.toThrow("Snyk requires authentication");
+  const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
+  p.token = undefined;
+  await expect(p.authenticate()).rejects.toThrow("Snyk requires authentication");
 });
 
 test("validatePrerequisites - should return false when not installed", async () => {
-  const provider = new SnykCLIProvider({ debug: false });
-  (provider as any).ensureInstalled = async () => false;
-
-  const result = await (provider as any).validatePrerequisites();
-  expect(result).toBe(false);
+  const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
+  p.ensureInstalled = async () => false;
+  expect(await p.validatePrerequisites()).toBe(false);
 });
 
 test("validatePrerequisites - should return true when authenticated with token", async () => {
-  const provider = new SnykCLIProvider({ token: "test-token", debug: false });
-  (provider as any).ensureInstalled = async () => true;
-
-  const result = await (provider as any).validatePrerequisites();
-  expect(result).toBe(true);
+  const p = new SnykCLIProvider({
+    token: "test-token",
+    debug: false,
+  }) as unknown as SnykProviderInternal;
+  p.ensureInstalled = async () => true;
+  expect(await p.validatePrerequisites()).toBe(true);
 });
 
 test("validatePrerequisites - should try to authenticate when not authed", async () => {
-  const provider = new SnykCLIProvider({ debug: false });
-  (provider as any).ensureInstalled = async () => true;
-  (provider as any).isAuthenticated = async () => false;
-  (provider as any).authenticate = async () => {};
-
-  const result = await (provider as any).validatePrerequisites();
-  expect(result).toBe(true);
+  const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
+  p.ensureInstalled = async () => true;
+  p.isAuthenticated = async () => false;
+  p.authenticate = async () => {};
+  expect(await p.validatePrerequisites()).toBe(true);
 });
 
 test("validatePrerequisites - should return false when auth fails", async () => {
-  const provider = new SnykCLIProvider({ debug: false });
-  (provider as any).ensureInstalled = async () => true;
-  (provider as any).isAuthenticated = async () => false;
-  (provider as any).authenticate = async () => {
+  const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
+  p.ensureInstalled = async () => true;
+  p.isAuthenticated = async () => false;
+  p.authenticate = async () => {
     throw new Error("Auth failed");
   };
-
-  const result = await (provider as any).validatePrerequisites();
-  expect(result).toBe(false);
+  expect(await p.validatePrerequisites()).toBe(false);
 });
 
 test("fetchAlerts - should return alerts on successful scan", async () => {
-  const provider = new SnykCLIProvider({ debug: false });
-  (provider as any).validatePrerequisites = async () => true;
-  (provider as any).runSnykScan = async () => ({
+  const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
+  p.validatePrerequisites = async () => true;
+  p.runSnykScan = async () => ({
     vulnerabilities: [
       {
         id: "SNYK-1",
@@ -355,31 +318,32 @@ test("fetchAlerts - should return alerts on successful scan", async () => {
     ],
   });
 
-  const alerts = await provider.fetchAlerts();
+  const alerts = await p.fetchAlerts();
   expect(alerts.length).toBe(1);
   expect(alerts[0].packageName).toBe("test-pkg");
 });
 
 test("isAuthenticated - should return true when token exists", async () => {
   const provider = new SnykCLIProvider({ token: "test-token", debug: false });
-  const result = await provider.isAuthenticated();
-  expect(result).toBe(true);
+  expect(await provider.isAuthenticated()).toBe(true);
 });
 
 test("runSnykScan - should parse JSON from successful scan", async () => {
-  const provider = new SnykCLIProvider({ token: "test-token", debug: false });
-  const mockResult = { vulnerabilities: [] };
-
-  (provider as any).runSnykScan = async () => mockResult;
-  (provider as any).validatePrerequisites = async () => true;
-
-  const alerts = await provider.fetchAlerts();
-  expect(alerts).toEqual([]);
+  const p = new SnykCLIProvider({
+    token: "test-token",
+    debug: false,
+  }) as unknown as SnykProviderInternal;
+  p.runSnykScan = async () => ({ vulnerabilities: [] });
+  p.validatePrerequisites = async () => true;
+  expect(await p.fetchAlerts()).toEqual([]);
 });
 
 test("runSnykScan - should handle scan with vulnerabilities", async () => {
-  const provider = new SnykCLIProvider({ token: "test-token", debug: false });
-  const mockResult = {
+  const p = new SnykCLIProvider({
+    token: "test-token",
+    debug: false,
+  }) as unknown as SnykProviderInternal;
+  p.runSnykScan = async () => ({
     vulnerabilities: [
       {
         packageName: "lodash",
@@ -390,29 +354,30 @@ test("runSnykScan - should handle scan with vulnerabilities", async () => {
         id: "SNYK-JS-LODASH-123",
       },
     ],
-  };
+  });
+  p.validatePrerequisites = async () => true;
 
-  (provider as any).runSnykScan = async () => mockResult;
-  (provider as any).validatePrerequisites = async () => true;
-
-  const alerts = await provider.fetchAlerts();
+  const alerts = await p.fetchAlerts();
   expect(alerts.length).toBe(1);
   expect(alerts[0].packageName).toBe("lodash");
 });
 
 test("validatePrerequisites - should return true when fully authenticated", async () => {
-  const provider = new SnykCLIProvider({ token: "test-token", debug: false });
-  (provider as any).ensureInstalled = async () => true;
-  (provider as any).isAuthenticated = async () => true;
-
-  const result = await (provider as any).validatePrerequisites();
-  expect(result).toBe(true);
+  const p = new SnykCLIProvider({
+    token: "test-token",
+    debug: false,
+  }) as unknown as SnykProviderInternal;
+  p.ensureInstalled = async () => true;
+  p.isAuthenticated = async () => true;
+  expect(await p.validatePrerequisites()).toBe(true);
 });
 
 test("runSnykScan - executes snyk test command and parses JSON", async () => {
-  const provider = new SnykCLIProvider({ token: "test-token", debug: false });
-
-  const mockResult = {
+  const p = new SnykCLIProvider({
+    token: "test-token",
+    debug: false,
+  }) as unknown as SnykProviderInternal;
+  p.runSnykScan = async () => ({
     vulnerabilities: [
       {
         packageName: "lodash",
@@ -422,61 +387,56 @@ test("runSnykScan - executes snyk test command and parses JSON", async () => {
         id: "SNYK-JS-LODASH-123",
       },
     ],
-  };
+  });
+  p.validatePrerequisites = async () => true;
 
-  (provider as any).runSnykScan = async () => mockResult;
-  (provider as any).validatePrerequisites = async () => true;
-
-  const alerts = await provider.fetchAlerts();
+  const alerts = await p.fetchAlerts();
   expect(alerts.length).toBe(1);
   expect(alerts[0].packageName).toBe("lodash");
 });
 
 test("runSnykScan - handles empty vulnerabilities array", async () => {
-  const provider = new SnykCLIProvider({ token: "test-token", debug: false });
-
-  (provider as any).runSnykScan = async () => ({ vulnerabilities: [] });
-  (provider as any).validatePrerequisites = async () => true;
-
-  const alerts = await provider.fetchAlerts();
-  expect(alerts).toEqual([]);
+  const p = new SnykCLIProvider({
+    token: "test-token",
+    debug: false,
+  }) as unknown as SnykProviderInternal;
+  p.runSnykScan = async () => ({ vulnerabilities: [] });
+  p.validatePrerequisites = async () => true;
+  expect(await p.fetchAlerts()).toEqual([]);
 });
 
 test("runSnykScan - handles scan failure gracefully in non-strict mode", async () => {
-  const provider = new SnykCLIProvider({
+  const p = new SnykCLIProvider({
     token: "test-token",
     debug: false,
     strict: false,
-  });
-
-  (provider as any).runSnykScan = async () => {
+  }) as unknown as SnykProviderInternal;
+  p.runSnykScan = async () => {
     throw new Error("snyk command failed");
   };
-  (provider as any).validatePrerequisites = async () => true;
-
-  const alerts = await provider.fetchAlerts();
-  expect(alerts).toEqual([]);
+  p.validatePrerequisites = async () => true;
+  expect(await p.fetchAlerts()).toEqual([]);
 });
 
 test("runSnykScan - throws in strict mode on scan failure", async () => {
-  const provider = new SnykCLIProvider({
+  const p = new SnykCLIProvider({
     token: "test-token",
     debug: false,
     strict: true,
-  });
-
-  (provider as any).runSnykScan = async () => {
+  }) as unknown as SnykProviderInternal;
+  p.runSnykScan = async () => {
     throw new Error("snyk command failed");
   };
-  (provider as any).validatePrerequisites = async () => true;
-
-  await expect(provider.fetchAlerts()).rejects.toThrow("Snyk security check failed");
+  p.validatePrerequisites = async () => true;
+  await expect(p.fetchAlerts()).rejects.toThrow("Snyk security check failed");
 });
 
 test("runSnykScan - parses vulnerabilities with CVE identifiers", async () => {
-  const provider = new SnykCLIProvider({ token: "test-token", debug: false });
-
-  const mockResult = {
+  const p = new SnykCLIProvider({
+    token: "test-token",
+    debug: false,
+  }) as unknown as SnykProviderInternal;
+  p.runSnykScan = async () => ({
     vulnerabilities: [
       {
         packageName: "axios",
@@ -490,12 +450,10 @@ test("runSnykScan - parses vulnerabilities with CVE identifiers", async () => {
         semver: { vulnerable: "< 0.21.1" },
       },
     ],
-  };
+  });
+  p.validatePrerequisites = async () => true;
 
-  (provider as any).runSnykScan = async () => mockResult;
-  (provider as any).validatePrerequisites = async () => true;
-
-  const alerts = await provider.fetchAlerts();
+  const alerts = await p.fetchAlerts();
   expect(alerts.length).toBe(1);
   expect(alerts[0].cves?.[0]).toBe("CVE-2021-3749");
   expect(alerts[0].patchedVersion).toBe("0.21.1");
@@ -503,17 +461,13 @@ test("runSnykScan - parses vulnerabilities with CVE identifiers", async () => {
 });
 
 test("runSnykScan - handles multiple vulnerabilities", async () => {
-  const provider = new SnykCLIProvider({ token: "test-token", debug: false });
-
-  const mockResult = {
+  const p = new SnykCLIProvider({
+    token: "test-token",
+    debug: false,
+  }) as unknown as SnykProviderInternal;
+  p.runSnykScan = async () => ({
     vulnerabilities: [
-      {
-        packageName: "pkg1",
-        version: "1.0.0",
-        severity: "high",
-        title: "Vuln 1",
-        id: "SNYK-1",
-      },
+      { packageName: "pkg1", version: "1.0.0", severity: "high", title: "Vuln 1", id: "SNYK-1" },
       {
         packageName: "pkg2",
         version: "2.0.0",
@@ -521,80 +475,58 @@ test("runSnykScan - handles multiple vulnerabilities", async () => {
         title: "Vuln 2",
         id: "SNYK-2",
       },
-      {
-        packageName: "pkg3",
-        version: "3.0.0",
-        severity: "medium",
-        title: "Vuln 3",
-        id: "SNYK-3",
-      },
+      { packageName: "pkg3", version: "3.0.0", severity: "medium", title: "Vuln 3", id: "SNYK-3" },
     ],
-  };
+  });
+  p.validatePrerequisites = async () => true;
 
-  (provider as any).runSnykScan = async () => mockResult;
-  (provider as any).validatePrerequisites = async () => true;
-
-  const alerts = await provider.fetchAlerts();
+  const alerts = await p.fetchAlerts();
   expect(alerts.length).toBe(3);
 });
 
 test("fetchAlerts - strict mode error message includes original error reason", async () => {
-  const provider = new SnykCLIProvider({
+  const p = new SnykCLIProvider({
     token: "test-token",
     debug: false,
     strict: true,
-  });
-
-  (provider as any).runSnykScan = async () => {
+  }) as unknown as SnykProviderInternal;
+  p.runSnykScan = async () => {
     throw new Error("ENOENT: snyk not found");
   };
-  (provider as any).validatePrerequisites = async () => true;
+  p.validatePrerequisites = async () => true;
 
-  try {
-    await provider.fetchAlerts();
-    expect(true).toBe(false);
-  } catch (error) {
-    const message = (error as Error).message;
-    expect(message).toContain("Snyk security check failed");
-    expect(message).toContain("ENOENT");
-    expect(message).toContain("--strict mode");
-  }
+  const thrownError = await p.fetchAlerts().catch((e: unknown) => e as Error);
+  expect(thrownError).toBeInstanceOf(Error);
+  expect(thrownError.message).toContain("Snyk security check failed");
+  expect(thrownError.message).toContain("ENOENT");
+  expect(thrownError.message).toContain("--strict mode");
 });
 
 test("fetchAlerts - strict mode error message format is actionable", async () => {
-  const provider = new SnykCLIProvider({
+  const p = new SnykCLIProvider({
     token: "test-token",
     debug: false,
     strict: true,
-  });
-
-  (provider as any).runSnykScan = async () => {
+  }) as unknown as SnykProviderInternal;
+  p.runSnykScan = async () => {
     throw new Error("Authentication failed");
   };
-  (provider as any).validatePrerequisites = async () => true;
+  p.validatePrerequisites = async () => true;
 
-  try {
-    await provider.fetchAlerts();
-    expect(true).toBe(false);
-  } catch (error) {
-    const message = (error as Error).message;
-    expect(message).toContain("Reason:");
-    expect(message).toContain("Authentication failed");
-  }
+  const thrownError = await p.fetchAlerts().catch((e: unknown) => e as Error);
+  expect(thrownError).toBeInstanceOf(Error);
+  expect(thrownError.message).toContain("Reason:");
+  expect(thrownError.message).toContain("Authentication failed");
 });
 
 test("authenticate - error message includes token URL", async () => {
-  const provider = new SnykCLIProvider({ debug: false });
-  (provider as any).token = undefined;
+  const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
+  p.token = undefined;
 
-  try {
-    await provider.authenticate();
-    expect(true).toBe(false);
-  } catch (error) {
-    const message = (error as Error).message;
-    expect(message).toContain("Snyk requires authentication");
-    expect(message).toContain("SNYK_TOKEN");
-  }
+  const thrownError = await p.authenticate().catch((e: unknown) => e as Error);
+  expect(thrownError).toBeInstanceOf(Error);
+  expect(thrownError.message).toContain("Snyk requires authentication");
+  expect(thrownError.message).toContain("SNYK_TOKEN");
 });
 
 test("authenticate - should succeed when token is provided", async () => {
@@ -610,13 +542,13 @@ test("runSnykScan - builds env with token", async () => {
       return { stdout: JSON.stringify({ vulnerabilities: [] }), stderr: "" };
     },
   );
-  const provider = new SnykCLIProvider({
+  const p = new SnykCLIProvider({
     token: "test-token",
     debug: false,
     execFileAsync,
   }) as unknown as SnykProviderInternal;
 
-  await expect(provider.runSnykScan()).resolves.toEqual({ vulnerabilities: [] });
+  await expect(p.runSnykScan()).resolves.toEqual({ vulnerabilities: [] });
   expect(execFileAsync).toHaveBeenCalledWith(
     "snyk",
     ["test", "--json"],
@@ -633,13 +565,13 @@ test("runSnykScan - uses process.env when no token", async () => {
       return { stdout: JSON.stringify({ vulnerabilities: [] }), stderr: "" };
     },
   );
-  const provider = new SnykCLIProvider({
+  const p = new SnykCLIProvider({
     debug: false,
     execFileAsync,
   }) as unknown as SnykProviderInternal;
-  provider.token = undefined;
+  p.token = undefined;
 
-  await expect(provider.runSnykScan()).resolves.toEqual({ vulnerabilities: [] });
+  await expect(p.runSnykScan()).resolves.toEqual({ vulnerabilities: [] });
   expect(execFileAsync).toHaveBeenCalledWith(
     "snyk",
     ["test", "--json"],

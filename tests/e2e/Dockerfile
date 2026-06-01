@@ -26,6 +26,7 @@ COPY tests/e2e/fixtures/ ./e2e/fixtures/
 # Copy workspace package.json files to their correct locations
 COPY tests/e2e/fixtures/root-package.json ./package.json
 COPY tests/e2e/fixtures/root-pnpm-lock.yaml ./pnpm-lock.yaml
+COPY tests/e2e/fixtures/root-pnpm-workspace.yaml ./pnpm-workspace.yaml
 COPY tests/e2e/fixtures/app-package.json ./packages/app/package.json
 COPY tests/e2e/fixtures/utils-package.json ./packages/utils/package.json
 COPY tests/e2e/fixtures/shared-package.json ./packages/shared/package.json
@@ -37,6 +38,7 @@ RUN echo 'console.log("Shared module");' > ./packages/shared/index.js
 
 # Install workspace dependencies
 RUN pnpm install --frozen-lockfile
+RUN rm ./pnpm-workspace.yaml
 
 # Copy scripts
 COPY tests/e2e/scripts/ ./scripts/

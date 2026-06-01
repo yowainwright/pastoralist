@@ -25,6 +25,17 @@ type SnykProviderInternal = SnykCLIProvider & {
   ensureInstalled: () => Promise<boolean>;
 };
 
+async function expectRejectedError(promise: Promise<unknown>): Promise<Error> {
+  try {
+    await promise;
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error);
+    return error as Error;
+  }
+
+  throw new Error("Expected promise to reject");
+}
+
 afterEach(() => {
   mock.restore();
 });
@@ -495,8 +506,7 @@ test("fetchAlerts - strict mode error message includes original error reason", a
   };
   p.validatePrerequisites = async () => true;
 
-  const thrownError = await p.fetchAlerts().catch((e: unknown) => e as Error);
-  expect(thrownError).toBeInstanceOf(Error);
+  const thrownError = await expectRejectedError(p.fetchAlerts());
   expect(thrownError.message).toContain("Snyk security check failed");
   expect(thrownError.message).toContain("ENOENT");
   expect(thrownError.message).toContain("--strict mode");
@@ -513,8 +523,7 @@ test("fetchAlerts - strict mode error message format is actionable", async () =>
   };
   p.validatePrerequisites = async () => true;
 
-  const thrownError = await p.fetchAlerts().catch((e: unknown) => e as Error);
-  expect(thrownError).toBeInstanceOf(Error);
+  const thrownError = await expectRejectedError(p.fetchAlerts());
   expect(thrownError.message).toContain("Reason:");
   expect(thrownError.message).toContain("Authentication failed");
 });
@@ -523,8 +532,7 @@ test("authenticate - error message includes token URL", async () => {
   const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
   p.token = undefined;
 
-  const thrownError = await p.authenticate().catch((e: unknown) => e as Error);
-  expect(thrownError).toBeInstanceOf(Error);
+  const thrownError = await expectRejectedError(p.authenticate());
   expect(thrownError.message).toContain("Snyk requires authentication");
   expect(thrownError.message).toContain("SNYK_TOKEN");
 });

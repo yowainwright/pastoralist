@@ -1,1 +1,0 @@
-import{b as e}from"./mermaid---Ni7GS5.js";export{e as createArchitectureServices};

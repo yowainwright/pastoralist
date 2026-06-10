@@ -1,4 +1,5 @@
 import type { update } from "../core/update";
+import { findUnusedAppendixEntries } from "../core/appendix/utils";
 import type { PastoralistJSON, PastoralistResult, SecurityAlert } from "../types";
 
 export const createEmptyResult = (): PastoralistResult => ({
@@ -63,15 +64,28 @@ export const buildUpdateResult = (
   updateResult: ReturnType<typeof update>,
   config: PastoralistJSON | undefined,
   isDryRun: boolean,
-): Pick<PastoralistResult, "overrideCount" | "appliedOverrides" | "updated"> => {
+): Pick<
+  PastoralistResult,
+  | "appliedOverrides"
+  | "hasUnusedOverrides"
+  | "overrideCount"
+  | "unusedOverrideCount"
+  | "unusedOverrides"
+  | "updated"
+> => {
   const finalOverrides = updateResult.finalOverrides || {};
+  const finalAppendix = updateResult.finalAppendix || {};
   const overrideKeys = Object.keys(finalOverrides);
+  const unusedOverrides = findUnusedAppendixEntries(finalAppendix, updateResult.rootDeps);
   const hasChanges = hasUpdateChanges(updateResult, config);
   const updated = hasChanges && !isDryRun;
 
   return {
     overrideCount: overrideKeys.length,
     appliedOverrides: getAppliedOverrides(finalOverrides),
+    hasUnusedOverrides: unusedOverrides.length > 0,
+    unusedOverrideCount: unusedOverrides.length,
+    unusedOverrides,
     updated,
   };
 };

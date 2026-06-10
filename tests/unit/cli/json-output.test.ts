@@ -159,6 +159,28 @@ describe("JSON Output Result Builders", () => {
       expect(result.appliedOverrides).toEqual({ lodash: "4.17.21" });
     });
 
+    test("reports unused override entries", () => {
+      const { buildUpdateResult } = require("../../../src/cli/index");
+
+      const updateContext = {
+        finalOverrides: {
+          axios: "1.0.0",
+          lodash: "4.17.21",
+        },
+        finalAppendix: {
+          "axios@1.0.0": { dependents: { root: "^1.0.0" } },
+          "lodash@4.17.21": { dependents: { root: "(unused override)" } },
+        },
+      };
+      const config = createMockConfig();
+
+      const result = buildUpdateResult(updateContext, config, false);
+
+      expect(result.hasUnusedOverrides).toBe(true);
+      expect(result.unusedOverrideCount).toBe(1);
+      expect(result.unusedOverrides).toEqual(["lodash@4.17.21"]);
+    });
+
     test("detects changes when appendix differs", () => {
       const { buildUpdateResult } = require("../../../src/cli/index");
 

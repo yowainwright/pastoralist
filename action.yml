@@ -1,5 +1,5 @@
 name: "Pastoralist"
-description: "Manage npm/yarn/pnpm/bun overrides with tracking, security scanning, and cleanup"
+description: "Audit, secure, and clean up package manager overrides for npm, pnpm, Yarn, and Bun"
 author: "Jeff Wainwright"
 branding:
   icon: "shield"
@@ -86,6 +86,12 @@ outputs:
   security-count:
     description: "Number of security vulnerabilities found"
     value: ${{ steps.pastoralist.outputs.security-count }}
+  unused-count:
+    description: "Number of unused overrides detected"
+    value: ${{ steps.pastoralist.outputs.unused-count }}
+  override-count:
+    description: "Number of overrides tracked after the run"
+    value: ${{ steps.pastoralist.outputs.override-count }}
   pr-url:
     description: "URL of created PR (mode: pr only, empty if no changes)"
     value: ${{ steps.create-pr.outputs.pr-url }}
@@ -233,16 +239,35 @@ runs:
         UPDATED=$(echo "$JSON_OUTPUT" | jq -r '.updated // false')
         SUCCESS=$(echo "$JSON_OUTPUT" | jq -r '.success // false')
         SECURITY_COUNT=$(echo "$JSON_OUTPUT" | jq -r '.securityAlertCount // 0')
+        UNUSED_COUNT=$(echo "$JSON_OUTPUT" | jq -r '.unusedOverrideCount // 0')
+        OVERRIDE_COUNT=$(echo "$JSON_OUTPUT" | jq -r '.overrideCount // 0')
 
         {
           echo "has-security-issues=$HAS_SECURITY"
           echo "has-unused-overrides=$HAS_UNUSED"
           echo "updated=$UPDATED"
           echo "security-count=$SECURITY_COUNT"
+          echo "unused-count=$UNUSED_COUNT"
+          echo "override-count=$OVERRIDE_COUNT"
         } >> "$GITHUB_OUTPUT"
 
         # Log summary
-        echo "Results: security=$HAS_SECURITY ($SECURITY_COUNT alerts), unused=$HAS_UNUSED, updated=$UPDATED"
+        echo "Results: overrides=$OVERRIDE_COUNT, security=$HAS_SECURITY ($SECURITY_COUNT alerts), unused=$HAS_UNUSED ($UNUSED_COUNT), updated=$UPDATED"
+
+        if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+          {
+            echo "## Pastoralist"
+            echo ""
+            echo "| Metric | Value |"
+            echo "| --- | ---: |"
+            echo "| Overrides tracked | $OVERRIDE_COUNT |"
+            echo "| Security alerts | $SECURITY_COUNT |"
+            echo "| Unused overrides | $UNUSED_COUNT |"
+            echo "| package.json updated | $UPDATED |"
+            echo ""
+            echo "Docs: https://jeffry.in/pastoralist/"
+          } >> "$GITHUB_STEP_SUMMARY"
+        fi
 
         if [ "$EXIT_CODE" -ne 0 ] || [ "$SUCCESS" != "true" ]; then
           echo "::error::Pastoralist failed. Check logs for details."

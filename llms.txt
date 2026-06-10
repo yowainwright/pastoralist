@@ -1,0 +1,37 @@
+# Pastoralist
+
+> Pastoralist audits, secures, and cleans up package manager overrides for npm, pnpm, Yarn, and Bun.
+
+Pastoralist records why each override exists, which packages still need it, and when it can be removed. It also supports security scans, patch tracking, monorepos, JSON output, and GitHub Actions.
+
+## Start Here
+
+- [Documentation home](https://jeffry.in/pastoralist/): Product overview, demos, and install path.
+- [GitHub repository](https://github.com/yowainwright/pastoralist): Source code, issues, releases, and GitHub Action.
+- [npm package](https://www.npmjs.com/package/pastoralist): Published CLI package.
+- [Full LLM context](https://jeffry.in/pastoralist/llms-full.txt): Concatenated Markdown documentation for agents.
+
+## Common Commands
+
+```bash
+npm install pastoralist --save-dev
+npx pastoralist doctor
+npx pastoralist --summary --dry-run
+npx pastoralist --checkSecurity --securityProvider osv
+npx pastoralist --remove-unused
+npx pastoralist --setup-hook
+```
+
+## Documentation
+
+- [Introduction to Pastoralist](https://jeffry.in/pastoralist/docs/introduction): Pastoralist keeps dependency overrides explainable, current, and removable
+- [Setup](https://jeffry.in/pastoralist/docs/setup): Install Pastoralist and keep your override appendix current
+- [Security Vulnerability Detection](https://jeffry.in/pastoralist/docs/security): Detect and fix security vulnerabilities in your dependencies
+- [Workspaces & Monorepos](https://jeffry.in/pastoralist/docs/workspaces): Using pastoralist in workspace and monorepo environments
+- [Advanced Features](https://jeffry.in/pastoralist/docs/advanced-features): Deep dive into pastoralist's advanced capabilities
+- [Interactive Tutorial](https://jeffry.in/pastoralist/docs/codelab): Learn pastoralist step-by-step
+- [API Reference](https://jeffry.in/pastoralist/docs/api-reference): Complete reference for pastoralist CLI and Node.js API
+- [Architecture](https://jeffry.in/pastoralist/docs/architecture): Deep dive into how Pastoralist works, including overrides, resolutions, patches, and the object anatomy
+- [Troubleshooting & FAQ](https://jeffry.in/pastoralist/docs/troubleshooting): Common issues and frequently asked questions
+- [Configuration](https://jeffry.in/pastoralist/docs/configuration): Learn how to configure Pastoralist using config files or package.json
+- [GitHub Action](https://jeffry.in/pastoralist/docs/github-action): Automated dependency override management for CI/CD

@@ -21,6 +21,15 @@ bun add pastoralist --dev
 
 ## Initialize
 
+Run a read-only setup and override health check first:
+
+```bash
+npx pastoralist doctor
+```
+
+`doctor` runs in dry-run summary mode, so it shows current override health
+without modifying `package.json`.
+
 Run the guided setup:
 
 ```bash

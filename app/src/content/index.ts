@@ -1,10 +1,22 @@
+import type { ComponentType } from "react";
+
 interface DocMeta {
   slug: string;
   title: string;
   description: string;
 }
 
-const docModules = import.meta.glob("./docs/*.mdx", {
+export type DocComponent = ComponentType<{
+  components?: Record<string, ComponentType>;
+}>;
+
+type DocModule = {
+  default: DocComponent;
+};
+
+const docModules = import.meta.glob<DocModule>("./docs/*.mdx");
+
+const rawDocModules = import.meta.glob("./docs/*.mdx", {
   query: "?raw",
   import: "default",
 }) as Record<string, () => Promise<string>>;
@@ -74,7 +86,13 @@ export function getDocBySlug(slug: string): DocMeta | undefined {
 
 export async function getDocContent(slug: string): Promise<string | undefined> {
   const path = `./docs/${slug}.mdx`;
-  return docModules[path]?.();
+  return rawDocModules[path]?.();
+}
+
+export async function getDocComponent(slug: string): Promise<DocComponent | undefined> {
+  const path = `./docs/${slug}.mdx`;
+  const mod = await docModules[path]?.();
+  return mod?.default;
 }
 
 export function getAllDocs(): DocMeta[] {

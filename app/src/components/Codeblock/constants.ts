@@ -1,6 +1,8 @@
 export const SHIKI_LANGS = [
   "javascript",
+  "js",
   "typescript",
+  "ts",
   "jsx",
   "tsx",
   "bash",
@@ -10,6 +12,13 @@ export const SHIKI_LANGS = [
   "markdown",
   "text",
 ] as const;
+
+const LANGUAGE_ALIASES: Record<string, string> = {
+  js: "javascript",
+  ts: "typescript",
+};
+
+export const normalizeCodeLanguage = (lang: string): string => LANGUAGE_ALIASES[lang] || lang;
 
 export const CODEBLOCK_CLASSES = {
   wrapper:

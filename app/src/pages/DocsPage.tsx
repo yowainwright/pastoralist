@@ -1,21 +1,17 @@
 import { useParams, Link, Navigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { getDocBySlug, getDocContent } from "@/content";
-import { compileMDXFast } from "@/lib/mdx/compileMDXFast";
+import { getDocBySlug, getDocComponent, getDocContent, type DocComponent } from "@/content";
 import { extractHeadings } from "@/lib/mdx/extractHeadings";
 import { TocWithScrollspy } from "@/components/docs/TocWithScrollspy";
 import { mdxComponents } from "@/components/docs/MDXComponents";
 import { Pagination, getPagination } from "@/components/docs/Pagination";
-import { mdxCache, getMDXRuntime } from "@/lib/mdx/mdxCache";
 import type { Heading } from "@/lib/mdx/types";
 
 export function DocsPage() {
   const { slug } = useParams({ from: "/docs/$slug" });
   const doc = getDocBySlug(slug);
 
-  const [Content, setContent] = useState<React.ComponentType<{
-    components?: Record<string, React.ComponentType>;
-  }> | null>(null);
+  const [Content, setContent] = useState<DocComponent | null>(null);
   const [headings, setHeadings] = useState<Heading[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -29,32 +25,25 @@ export function DocsPage() {
       }
 
       try {
-        const cachedEntry = mdxCache.get(slug);
-        const content = await getDocContent(slug);
+        const [content, MDXContent] = await Promise.all([
+          getDocContent(slug),
+          getDocComponent(slug),
+        ]);
         if (cancelled) return;
-        if (!content) {
+        const isMissingDocContent = !content || !MDXContent;
+        if (isMissingDocContent) {
           setLoading(false);
           return;
         }
-        const { mdxRuntime, reactRuntime } = await getMDXRuntime();
-        if (cancelled) return;
-
-        const compiled = cachedEntry?.compiled ?? (await compileMDXFast(content));
-        const headingsArray = cachedEntry?.headings ?? extractHeadings(content);
+        const headingsArray = extractHeadings(content);
 
         if (cancelled) return;
 
         setHeadings(headingsArray);
-
-        const { default: MDXContent } = await mdxRuntime.run(compiled, reactRuntime);
-        if (cancelled) return;
-
-        mdxCache.set(slug, { compiled, headings: headingsArray });
-
         setContent(() => MDXContent);
         setLoading(false);
       } catch (error) {
-        console.error("Failed to compile MDX:", error);
+        console.error("Failed to load doc:", error);
         setLoading(false);
       }
     }
@@ -111,15 +100,7 @@ function Breadcrumbs({ title }: { title: string }) {
   );
 }
 
-function MDXContent({
-  loading,
-  Content,
-}: {
-  loading: boolean;
-  Content: React.ComponentType<{
-    components?: Record<string, React.ComponentType>;
-  }> | null;
-}) {
+function MDXContent({ loading, Content }: { loading: boolean; Content: DocComponent | null }) {
   if (loading) {
     return (
       <section className="flex items-center justify-center py-12">

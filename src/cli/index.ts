@@ -84,6 +84,19 @@ const runInitCommand = async (options: Options, deps: Pick<RunDeps, "initCommand
   await deps.initCommand(initOptions);
 };
 
+const runDoctorCommand = async (options: Options, deps: Pick<RunDeps, "action">) => {
+  const doctorOptions = Object.assign({}, options, {
+    dryRun: true,
+    summary: true,
+  });
+
+  if (doctorOptions.outputFormat !== "json") {
+    console.log("Pastoralist doctor runs in dry-run mode and will not modify package.json.");
+  }
+
+  await deps.action(doctorOptions);
+};
+
 export const run = async (
   argv: string[] = process.argv,
   deps: RunDeps = { initCommand, action },
@@ -113,6 +126,9 @@ export const run = async (
     await runInitCommand(options, deps);
     return;
   }
+
+  const isDoctorCommand = parsed.command === "doctor";
+  if (isDoctorCommand) return runDoctorCommand(options, deps);
 
   await deps.action(options);
 };

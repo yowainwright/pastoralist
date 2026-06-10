@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "bun run generate:llms && tsc && vite build",
+    "generate:llms": "bun ../scripts/generate-llms-docs.ts",
     "preview": "vite preview",
     "serve": "vite preview --port 5174"
   },

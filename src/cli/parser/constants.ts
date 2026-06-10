@@ -38,6 +38,7 @@ Usage: pastoralist [command] [options]
 
 Commands:
   init                                  Initialize Pastoralist configuration interactively
+  doctor                                Run a read-only setup and override health check
 
 Options:
   -v, --version                         Print the installed Pastoralist version

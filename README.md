@@ -2,24 +2,28 @@
 
 [![npm version](https://img.shields.io/npm/v/pastoralist.svg)](https://www.npmjs.com/package/pastoralist)
 [![npm downloads](https://img.shields.io/npm/dm/pastoralist.svg)](https://www.npmjs.com/package/pastoralist)
+[![TypeScript](https://img.shields.io/badge/TypeScript-types%20included-blue)](https://www.typescriptlang.org/)
 ![CI](https://github.com/yowainwright/pastoralist/actions/workflows/ci.yml/badge.svg)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/yowainwright/pastoralist/badge)](https://scorecard.dev/viewer/?uri=github.com/yowainwright/pastoralist)
 [![codecov](https://codecov.io/gh/yowainwright/pastoralist/branch/main/graph/badge.svg)](https://codecov.io/gh/yowainwright/pastoralist)
 [![GitHub stars](https://img.shields.io/github/stars/yowainwright/pastoralist?style=social)](https://github.com/yowainwright/pastoralist)
-[![TypeScript](https://img.shields.io/badge/TypeScript-types%20included-blue)](https://www.typescriptlang.org/)
 <img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=6f41d7dd-fce9-49ea-ae43-040a51f458bd" />
 
-Pastoralist is the audit trail for package manager overrides.
+Pastoralist keeps package manager overrides from turning into mystery state.
 
-If your `package.json` has `overrides`, `pnpm.overrides`, or `resolutions`,
-Pastoralist records why each one exists, which packages still need it, and when
-it can be removed. It also connects security fixes, patch files, workspaces, and
-CI checks to the same record.
+I built it for the override that starts as a real fix, then sits in
+`package.json` for months after everyone forgets why it exists. Pastoralist
+keeps the override where your package manager expects it, and adds an appendix
+that explains who still needs it, why it was added, and when it can go away.
+
+It works with npm and Bun `overrides`, pnpm `pnpm.overrides`, Yarn
+`resolutions`, patch files, workspaces, and security advisory fixes.
 
 ## Quick Start
 
 ```bash
 npm install pastoralist --save-dev
+npx pastoralist doctor
 npx pastoralist --init
 ```
 
@@ -39,9 +43,9 @@ Or let Pastoralist add the hook for you:
 npx pastoralist --setup-hook
 ```
 
-## Why It Exists
+## What It Adds
 
-Overrides are useful, but they usually lose context:
+Without Pastoralist, an override usually looks like this:
 
 ```json
 {
@@ -51,9 +55,8 @@ Overrides are useful, but they usually lose context:
 }
 ```
 
-Pastoralist adds the missing record. Every appendix entry includes a `ledger`
-with at least an `addedDate`, plus any reason, security provider, or `keep`
-constraint that applies:
+That may be exactly the right fix. The problem is that the reason is not in the
+file. Pastoralist keeps the override intact and adds the missing record:
 
 ```json
 {
@@ -82,38 +85,35 @@ constraint that applies:
 }
 ```
 
-The fix is not just the version. The fix is the record of why that version exists.
+The version is only half the fix. The other half is knowing why that version is
+there.
 
-## What It Handles
+## What It Tracks
 
-- Tracks npm and Bun `overrides`, pnpm `pnpm.overrides`, and Yarn
-  `resolutions`
-- Shows which direct or workspace packages still depend on each override
-- Cleans stale overrides with `--remove-unused`
-- Links `patch-package` patch files to the overrides they support
-- Checks security advisories with OSV, GitHub Dependabot alerts, npm audit,
-  Snyk, Socket, or Spektion
-- Supports monorepos through `workspaces`, `depPaths`, `overridePaths`, and
-  `resolutionPaths`
-- Provides CI-friendly output with `--dry-run`, `--quiet`, `--summary`, and
-  `--outputFormat json`
+- Which direct or workspace packages still depend on each override
+- Why an override was added, including manual notes and security context
+- Whether a patch file belongs to the same package/version
+- Whether an override looks stale and can be removed with `--remove-unused`
+- Which security provider found a vulnerability and which version patched it
+- Which workspace manifests were checked when building the appendix
 
-## At A Glance
+## Where It Helps
 
-| Area               | Details                                                                        |
-| ------------------ | ------------------------------------------------------------------------------ |
-| Package managers   | npm, pnpm, Yarn, Bun                                                           |
-| Runtime            | Node 20+                                                                       |
-| Security default   | OSV, no token required                                                         |
-| Optional providers | GitHub, npm audit, Snyk, Socket, Spektion                                      |
-| Monorepos          | Auto-detects `workspaces`; accepts explicit package globs                      |
-| CI                 | CLI flags plus a GitHub Action                                                 |
-| Test surface       | 1,700+ test cases across unit, integration, and e2e fixtures                   |
-| Live package stats | npm version, monthly downloads, CI, coverage, and GitHub stars are shown above |
+| Situation                     | What Pastoralist does                                                       |
+| ----------------------------- | --------------------------------------------------------------------------- |
+| Security override             | Stores CVE, severity, provider, patched version, and reason                 |
+| Old compatibility override    | Shows which packages still require the pinned version                       |
+| Monorepo/workspace dependency | Reads workspace manifests and writes one consolidated appendix              |
+| `patch-package` patch         | Links patch files to the override entry they support                        |
+| Cleanup pass                  | Reports unused overrides; removes them only when you pass `--remove-unused` |
+| CI check                      | Gives dry-run, quiet, summary, and JSON output for workflows                |
 
 ## Common Commands
 
 ```bash
+# Run a read-only setup and override health check
+npx pastoralist doctor
+
 # Update the appendix
 npx pastoralist
 
@@ -135,55 +135,6 @@ npx pastoralist --quiet --checkSecurity
 # Print package, override, and vulnerability metrics
 npx pastoralist --summary
 ```
-
-## Security Assurances
-
-Pastoralist publishes npm releases from GitHub Actions with npm provenance. The
-release workflow also packs the exact npm tarball before publishing and creates
-a GitHub artifact attestation for that tarball. GitHub Releases include the
-tarball and a matching `.sigstore.json` attestation bundle.
-
-Users can inspect the npm package provenance on npmjs.com and can verify
-registry signatures and available attestations from their own project with:
-
-```bash
-npm audit signatures
-```
-
-Release assets can be verified with GitHub CLI:
-
-```bash
-gh attestation verify pastoralist-<version>.tgz \
-  -R yowainwright/pastoralist \
-  --bundle pastoralist-<version>.tgz.sigstore.json
-```
-
-Provenance and attestations prove where and how a package was built. They do not
-prove that the code is bug-free, so Pastoralist also runs CI, CodeQL, OpenSSF
-Scorecard, unit/integration/e2e tests, and dependency update policy checks.
-
-### Maintainer Release Flow
-
-Release commands do not create pull requests or push `main`. If `package.json`
-already contains the beta version to publish, run `bun run release` from clean,
-up-to-date `main`; it tags the current package version and pushes the tag that
-triggers publishing. The bare `release` command rejects stable manifest versions
-so maintainers must choose an explicit stable increment. For normal semver
-releases, run `bun run release:patch`, `bun run release:minor`, or
-`bun run release:major`; these commands use the next available stable tag for
-the requested increment. To advance to a new beta version, run
-`bun run release:beta`. To tag the manifest version directly, run
-`bun run release:tag`. Dry-run variants are available as
-`release:patch:dry`, `release:minor:dry`, `release:major:dry`, and
-`release:beta:dry`.
-
-## Video Walkthroughs
-
-Short MP4 walkthroughs are served from the docs site:
-
-- [Security scan](https://jeffry.in/pastoralist/episodes/14-sandbox-security-scan/final.mp4)
-- [Provider setup](https://jeffry.in/pastoralist/episodes/15-sandbox-provider-setup/final.mp4)
-- [Security auto-fix](https://jeffry.in/pastoralist/episodes/16-sandbox-auto-fix/final.mp4)
 
 ## Minimal Config
 
@@ -227,6 +178,21 @@ jobs:
 The action can validate, update files, or open maintenance PRs. See the
 [GitHub Action docs](https://jeffry.in/pastoralist/docs/github-action) or
 [ACTION.md](.github/ACTION.md).
+
+## Trust and Releases
+
+Pastoralist can write to `package.json`, so the package should be boring to
+verify. Releases are published from GitHub Actions with npm provenance, and the
+published npm tarball is packed before release and attached to GitHub Releases
+with a matching artifact attestation.
+
+The repo also runs CI, CodeQL, OpenSSF Scorecard, unit/integration/e2e tests, and
+dependency policy checks. Provenance does not prove the code is bug-free, but it
+does make the release path auditable:
+
+```bash
+npm audit signatures
+```
 
 ## Docs
 

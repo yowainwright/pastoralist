@@ -162,6 +162,12 @@ describe("parseArgs", () => {
       expect(result.command).toBe("init");
     });
 
+    test("should parse doctor command", () => {
+      const result = parseArgs(["node", "script.js", "doctor"]);
+
+      expect(result.command).toBe("doctor");
+    });
+
     test("should parse command with options", () => {
       const result = parseArgs(["node", "script.js", "init", "--path", "test.json"]);
 

@@ -1,34 +1,68 @@
 import { Suspense, use } from "react";
-import { createHighlighter, type Highlighter } from "shiki";
-import {
-  transformerNotationDiff,
-  transformerNotationHighlight,
-  transformerNotationFocus,
-} from "@shikijs/transformers";
-import customDark from "@/themes/dark.json";
-import customLight from "@/themes/light.json";
-import type { ThemeRegistration } from "shiki";
 import { cn } from "@/lib/utils";
 import { CopyButton } from "./CopyButton";
-import { SHIKI_LANGS, CODEBLOCK_CLASSES } from "./constants";
+import { SHIKI_LANGS, CODEBLOCK_CLASSES, normalizeCodeLanguage } from "./constants";
 import type { CodeblockProps } from "./types";
 
 const WINDOW_DOTS = ["bg-rose-400", "bg-amber-400", "bg-emerald-400"] as const;
+const MAX_HIGHLIGHTED_CODE_CACHE_ENTRIES = 128;
 
-let highlighterPromise: Promise<Highlighter> | null = null;
+type CodeHighlighter = Awaited<
+  ReturnType<(typeof import("./highlighter"))["createCodeHighlighter"]>
+>;
 
-export function getHighlighter(): Promise<Highlighter> {
+let highlighterPromise: Promise<CodeHighlighter> | null = null;
+const highlightedCodeCache = new Map<string, Promise<string>>();
+
+export function getHighlighter(): Promise<CodeHighlighter> {
   if (!highlighterPromise) {
-    highlighterPromise = createHighlighter({
-      themes: [
-        customLight as unknown as ThemeRegistration,
-        customDark as unknown as ThemeRegistration,
-      ],
-      langs: Array.from(SHIKI_LANGS),
-    });
+    highlighterPromise = import("./highlighter").then((module) => module.createCodeHighlighter());
   }
   return highlighterPromise;
 }
+
+const resolveCodeblockLanguage = (lang: string): string => {
+  const normalizedLang = normalizeCodeLanguage(lang);
+  return (SHIKI_LANGS as readonly string[]).includes(normalizedLang) ? normalizedLang : "text";
+};
+
+const getCachedHighlightedCode = (cacheKey: string): Promise<string> | undefined => {
+  const cached = highlightedCodeCache.get(cacheKey);
+  if (!cached) return;
+
+  highlightedCodeCache.delete(cacheKey);
+  highlightedCodeCache.set(cacheKey, cached);
+  return cached;
+};
+
+const setCachedHighlightedCode = (cacheKey: string, highlighted: Promise<string>): void => {
+  if (highlightedCodeCache.size >= MAX_HIGHLIGHTED_CODE_CACHE_ENTRIES) {
+    const oldestKey = highlightedCodeCache.keys().next().value;
+    if (oldestKey !== undefined) highlightedCodeCache.delete(oldestKey);
+  }
+
+  highlightedCodeCache.set(cacheKey, highlighted);
+};
+
+const getHighlightedCode = (
+  code: string,
+  lang: string,
+  showLineNumbers: boolean,
+): Promise<string> => {
+  const resolvedLang = resolveCodeblockLanguage(lang);
+  const cacheKey = JSON.stringify([code, resolvedLang, showLineNumbers]);
+  const cached = getCachedHighlightedCode(cacheKey);
+  if (cached) return cached;
+
+  const highlighted = getHighlighter()
+    .then((highlighter) => highlighter.codeToHtml(code, resolvedLang, showLineNumbers))
+    .catch((error) => {
+      highlightedCodeCache.delete(cacheKey);
+      throw error;
+    });
+  setCachedHighlightedCode(cacheKey, highlighted);
+  return highlighted;
+};
 
 function CodeblockContent({
   code,
@@ -39,29 +73,7 @@ function CodeblockContent({
   lang?: string;
   showLineNumbers?: boolean;
 }) {
-  const highlighter = use(getHighlighter());
-
-  const resolvedLang = (SHIKI_LANGS as readonly string[]).includes(lang) ? lang : "text";
-
-  const lineNumberOptions = showLineNumbers ? { meta: { __raw: "showLineNumbers" } } : undefined;
-  const htmlOptions = Object.assign(
-    {},
-    {
-      lang: resolvedLang,
-      themes: {
-        light: "pastoralist-light",
-        dark: "pastoralist-dark",
-      },
-      defaultColor: false as const,
-      transformers: [
-        transformerNotationDiff(),
-        transformerNotationHighlight(),
-        transformerNotationFocus(),
-      ],
-    },
-    lineNumberOptions,
-  );
-  const html = highlighter.codeToHtml(code, htmlOptions);
+  const html = use(getHighlightedCode(code, lang, showLineNumbers));
 
   return <div className={CODEBLOCK_CLASSES.content} dangerouslySetInnerHTML={{ __html: html }} />;
 }

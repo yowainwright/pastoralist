@@ -3444,6 +3444,63 @@ test("run - calls init command with first parsed security provider", async () =>
   expect(mockAction).not.toHaveBeenCalled();
 });
 
+test("run - calls action in dry-run summary mode for doctor command", async () => {
+  const { run } = require("../../../src/cli/index");
+  const mockInitCommand = mock(() => Promise.resolve());
+  const mockAction = mock(() => Promise.resolve());
+
+  const originalLog = console.log;
+  const logged: string[] = [];
+  console.log = (msg: string) => logged.push(msg);
+
+  try {
+    await run(["node", "pastoralist", "doctor", "--path", "custom.json"], {
+      action: mockAction,
+      initCommand: mockInitCommand,
+    });
+  } finally {
+    console.log = originalLog;
+  }
+
+  expect(mockAction).toHaveBeenCalledWith(
+    expect.objectContaining({
+      dryRun: true,
+      path: "custom.json",
+      summary: true,
+    }),
+  );
+  expect(mockInitCommand).not.toHaveBeenCalled();
+  expect(logged.join("\n")).toContain("dry-run mode");
+});
+
+test("run - suppresses doctor preface when JSON output is requested", async () => {
+  const { run } = require("../../../src/cli/index");
+  const mockInitCommand = mock(() => Promise.resolve());
+  const mockAction = mock(() => Promise.resolve());
+
+  const originalLog = console.log;
+  const logged: string[] = [];
+  console.log = (msg: string) => logged.push(msg);
+
+  try {
+    await run(["node", "pastoralist", "doctor", "--outputFormat", "json"], {
+      action: mockAction,
+      initCommand: mockInitCommand,
+    });
+  } finally {
+    console.log = originalLog;
+  }
+
+  expect(mockAction).toHaveBeenCalledWith(
+    expect.objectContaining({
+      dryRun: true,
+      outputFormat: "json",
+      summary: true,
+    }),
+  );
+  expect(logged).toEqual([]);
+});
+
 test("handleSetupHook - error does not cause early exit in run", async () => {
   const { handleSetupHook } = require("../../../src/cli/index");
 

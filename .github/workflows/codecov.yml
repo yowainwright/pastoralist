@@ -32,11 +32,11 @@ jobs:
           CI: true
 
       - name: Filter coverage to src only
-        run: sed -n '/^SF:src\//,$p' coverage/lcov.info > coverage/src.info && mv coverage/src.info coverage/lcov.info
+        run: awk '/^SF:/ { keep = ($0 ~ /^SF:src\//) } keep { print }' coverage/lcov.info > coverage/src.info && mv coverage/src.info coverage/lcov.info
 
       - name: Upload coverage to Codecov
         if: github.actor != 'dependabot[bot]'
-        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage/lcov.info

@@ -19,6 +19,15 @@ Run pastoralist on the current directory's package.json.
 npx pastoralist
 ```
 
+### `pastoralist doctor`
+
+Run a read-only setup and override health check. This command enables dry-run
+summary mode and does not modify `package.json`.
+
+```bash
+npx pastoralist doctor
+```
+
 ### `pastoralist --path <path>`
 
 Run pastoralist on a specific package.json file.

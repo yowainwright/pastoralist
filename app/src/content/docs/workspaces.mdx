@@ -359,7 +359,7 @@ search excludes `node_modules`:
 
 ```bash
 # Using GNU parallel for package-owned override fields
-find . -path "*/node_modules/*" -prune -o -name "package.json" -print | \
+find . -name "node_modules" -prune -o -name "package.json" -print | \
   parallel "pastoralist --path {}"
 ```
 

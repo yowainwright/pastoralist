@@ -3,8 +3,6 @@ title: Configuration
 description: Learn how to configure Pastoralist using config files or package.json
 ---
 
-Pastoralist supports multiple configuration methods to fit your project's needs. Configuration can be defined in external files or directly in your `package.json`.
-
 For most projects, start small: enable workspace scanning only if you have
 workspaces, and enable security checks only where you want advisory data.
 
@@ -152,7 +150,6 @@ The `security` object supports the following options:
 | `excludePackages`            | `string[]`                                                                          | Packages to exclude from security checks                                                                                                                    |
 | `hasWorkspaceSecurityChecks` | `boolean`                                                                           | Include workspace packages in security scans                                                                                                                |
 | `strict`                     | `boolean`                                                                           | Fail when a security provider cannot complete                                                                                                               |
-| `preferLatest`               | `boolean`                                                                           | Prefer the newest safe version when fixes are resolved                                                                                                      |
 
 ## Package.json Configuration
 
@@ -302,13 +299,9 @@ This allows you to see at a glance which packages were overridden due to securit
 
 ## Best Practices
 
-1. **Use external config files** for shared settings across teams
-2. **Use `package.json`** for project-specific overrides
+1. **Use `depPaths: "workspace"`** for most monorepos
+2. **Enable security checks** in CI with `--checkSecurity`
 3. **Commit config files** to version control
-4. **Use `depPaths: "workspace"`** for most monorepos
-5. **Enable security checks** in CI/CD pipelines with `--checkSecurity`
-6. **Version control** your `.pastoralistrc` or config files
-7. **Document custom configurations** in your project README
 
 ## JavaScript Config Files
 

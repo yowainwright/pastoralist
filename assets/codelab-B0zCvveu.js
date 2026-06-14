@@ -1,0 +1,189 @@
+var e=`---
+title: Interactive Tutorial
+description: Learn pastoralist step-by-step
+---
+
+## Quick Start
+
+\`\`\`bash
+# Create a test project
+mkdir test-pastoralist && cd test-pastoralist
+
+# Create package.json with a transitive override
+echo '{
+  "name": "test",
+  "dependencies": {
+    "express": "^4.18.0"
+  },
+  "overrides": {
+    "qs": "6.11.2"
+  }
+}' > package.json
+
+# Install and run pastoralist
+npm install
+npm install --save-dev pastoralist
+npx pastoralist
+
+# Check the result
+cat package.json
+\`\`\`
+
+## How It Works
+
+### Before Pastoralist
+
+\`\`\`json
+{
+  "dependencies": {
+    "express": "^4.18.0"
+  },
+  "overrides": {
+    "qs": "6.11.2"
+  }
+}
+\`\`\`
+
+### After Pastoralist
+
+\`\`\`json
+{
+  "overrides": {
+    "qs": "6.11.2"
+  },
+  "pastoralist": {
+    "appendix": {
+      "qs@6.11.2": {
+        "dependents": {
+          "express": "qs@6.11.0"
+        },
+        "ledger": {
+          "addedDate": "2026-05-30T00:00:00.000Z",
+          "source": "manual"
+        }
+      }
+    }
+  }
+}
+\`\`\`
+
+### Cleanup
+
+When dependencies no longer need an override, Pastoralist labels it as unused.
+Run with \`--remove-unused\` to remove the override and appendix entry:
+
+\`\`\`bash
+npx pastoralist --remove-unused
+\`\`\`
+
+## Setup
+
+### Install
+
+\`\`\`bash
+npm install --save-dev pastoralist
+\`\`\`
+
+### Add to postinstall
+
+\`\`\`json
+{
+  "scripts": {
+    "postinstall": "pastoralist"
+  }
+}
+\`\`\`
+
+### For Monorepos
+
+\`\`\`bash
+# Root package
+pastoralist
+
+# Specific workspace
+pastoralist --path packages/app/package.json
+\`\`\`
+
+## Common Use Cases
+
+### Security Patches
+
+\`\`\`json
+{
+  "overrides": {
+    "minimist": "1.2.8"
+  },
+  "pastoralist": {
+    "appendix": {
+      "minimist@1.2.8": {
+        "ledger": {
+          "addedDate": "2026-05-30T00:00:00.000Z",
+          "reason": "Pin minimist to a patched version while upstream dependencies update.",
+          "source": "security",
+          "cves": ["CVE-2021-44906"],
+          "severity": "high",
+          "patchedVersion": "1.2.8"
+        }
+      }
+    }
+  }
+}
+\`\`\`
+
+Pastoralist keeps the security context with the override so you can remove it
+when upstream dependencies no longer need it.
+
+### Version Conflicts
+
+\`\`\`json
+{
+  "overrides": {
+    "react": "17.0.2"
+  },
+  "pastoralist": {
+    "appendix": {
+      "react@17.0.2": {
+        "ledger": {
+          "addedDate": "2026-05-30T00:00:00.000Z",
+          "reason": "Legacy app compatibility",
+          "source": "manual"
+        }
+      }
+    }
+  }
+}
+\`\`\`
+
+The appendix shows which packages aren't ready for React 18.
+
+### API Usage
+
+\`\`\`javascript
+import { resolveJSON, update } from "pastoralist";
+
+const path = "./package.json";
+const config = resolveJSON(path);
+
+if (config) {
+  update({ config, path });
+}
+\`\`\`
+
+## Try It Now
+
+<a
+  href="https://stackblitz.com/fork/github/yowainwright/pastoralist/tree/main/tests/sandboxes/basic-overrides?title=Pastoralist%20Basic%20Overrides&file=README.md&startScript=demo&view=editor"
+  target="_blank"
+  rel="noopener noreferrer"
+>
+  <img src="https://developer.stackblitz.com/img/open_in_stackblitz.svg" alt="Open in StackBlitz" />
+</a>
+
+[Open Interactive Demos](/docs/introduction) to see pastoralist in action!
+
+## Resources
+
+- [GitHub](https://github.com/yowainwright/pastoralist)
+- [npm](https://www.npmjs.com/package/pastoralist)
+- [Issues & Questions](https://github.com/yowainwright/pastoralist/issues)
+`;export{e as default};

@@ -329,7 +329,6 @@ You can configure security settings in your `package.json`:
 | `severityThreshold`          | string          | `"medium"` | Minimum severity level to report (low, medium, high, critical)                                                                                             |
 | `excludePackages`            | array           | `[]`       | List of package names to exclude from security checks                                                                                                      |
 | `strict`                     | boolean         | `false`    | Fail when a provider cannot complete                                                                                                                       |
-| `preferLatest`               | boolean         | `false`    | Prefer the newest safe version when fixes are resolved                                                                                                     |
 
 ## CLI Options
 
@@ -375,14 +374,6 @@ e2e tests.
 Free and requires no token.
 
 The [OSV database](https://osv.dev/) is a distributed vulnerability database for open source, created by Google and the open source community.
-
-#### Benefits of OSV
-
-- Fully open source and transparent
-- No authentication required
-- Aggregates data from multiple vulnerability sources
-- Fast and reliable API
-- Comprehensive coverage of npm packages
 
 ### GitHub Provider
 
@@ -435,13 +426,6 @@ permissions:
 2. **Enable Dependabot alerts** in your repository: Settings → Code security and analysis → Dependabot alerts
 
 If permissions are insufficient, Pastoralist will display a warning with guidance and continue (your workflow won't fail).
-
-#### Benefits
-
-- Uses GitHub's official Dependabot alerts
-- Integrates with your existing GitHub security settings
-- No additional API rate limits beyond GitHub's standard limits
-- Graceful handling when permissions are missing
 
 ### npm Audit Provider
 
@@ -614,20 +598,12 @@ Generated 2 override(s):
 - Results are processed in parallel when possible
   
 
-## Best Practices
-
-- **Regular Scanning**: Run security checks as part of your CI/CD pipeline
-- **Review First**: Always review suggested fixes before applying them
-- **Test After Fixes**: Ensure your application still works after applying security overrides
-- **Monitor Workspaces**: In monorepos, consider enabling workspace scanning for comprehensive coverage
-
 ## Limitations
 
 ### note
 
 - Security checks focus on npm ecosystem packages
 - Some providers require credentials or local CLI access
-- Interactive prompts are built in; no Enquirer or Inquirer dependency is required
 - Some vulnerabilities may not have available fixes
   
 
@@ -676,8 +652,8 @@ jobs:
       contents: read
       vulnerability-alerts: read # Required for GitHub provider
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6.0.2
+      - uses: actions/setup-node@v6.4.0
       - run: npm install
       - run: npx pastoralist --checkSecurity --securityProvider github
         env:
@@ -694,8 +670,8 @@ jobs:
   security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6.0.2
+      - uses: actions/setup-node@v6.4.0
       - run: npm install
       - run: npx pastoralist --checkSecurity
 ```
@@ -712,23 +688,15 @@ security:
     - merge_requests
 ```
 
-## Contributing
-
-Security provider integrations are actively evolving. Areas for improvement:
-
-- Enhanced vulnerability filtering
-- Better workspace integration
-- Performance optimizations
-
-Please see our [contributing guide](https://github.com/yowainwright/pastoralist/blob/main/CONTRIBUTING.md) for more information.
-
 ---
 
 # Workspaces & Monorepos
 
 > Using pastoralist in workspace and monorepo environments
 
-Pastoralist works seamlessly with workspace and monorepo setups. This guide covers how to effectively use pastoralist across multiple packages.
+Pastoralist works with workspace and monorepo setups. This guide covers how to
+track root-level overrides while still showing which workspace packages depend
+on them.
 
 ## How Pastoralist Works in Workspaces
 
@@ -745,7 +713,8 @@ Pastoralist provides multiple ways to configure workspace scanning in monorepos:
 
 ### Method 1: depPaths in package.json (Recommended)
 
-Configure dependency paths directly in your `package.json` for automatic workspace tracking:
+Configure dependency paths directly in your `package.json` for workspace
+tracking:
 
 ```json
 {
@@ -763,15 +732,7 @@ Configure dependency paths directly in your `package.json` for automatic workspa
 }
 ```
 
-**Using `"workspace"` string** - Pastoralist automatically uses all packages defined in your `workspaces` field:
-
-Benefits:
-
-- Single source of truth in package.json
-- No CLI flags needed
-- Works automatically with postinstall scripts
-- Appendix only appears in root (workspace packages stay clean)
-- Self-documenting configuration
+**Using `"workspace"` string** - Pastoralist automatically uses all packages defined in your `workspaces` field. The appendix only appears in the root; workspace packages stay clean.
 
 **Using array of paths** - Specify custom paths to scan:
 
@@ -905,51 +866,29 @@ pastoralist --path packages/legacy-app/package.json
 
 ### Pattern 3: Automated Workspace Management
 
-Create a script to run pastoralist across all workspaces:
+Most workspaces should avoid running Pastoralist separately in every package.
+Keep shared overrides at the root and let `depPaths` read workspace manifests:
 
 ```json
 {
+  "workspaces": ["packages/*", "apps/*"],
+  "pastoralist": {
+    "depPaths": "workspace"
+  },
   "scripts": {
-    "pastoralist:all": "npm run pastoralist:root && npm run pastoralist:workspaces",
-    "pastoralist:root": "pastoralist",
-    "pastoralist:workspaces": "lerna run pastoralist --parallel"
+    "pastoralist": "pastoralist"
   }
 }
 ```
 
-Or with a custom script:
-
-```bash
-#!/bin/bash
-# scripts/update-overrides.sh
-
-echo "Updating root overrides..."
-pastoralist
-
-echo "Updating workspace overrides..."
-for pkg in packages/*/package.json; do
-  if grep -q "overrides" "$pkg"; then
-    echo "Updating $pkg..."
-    pastoralist --path "$pkg"
-  fi
-done
-```
+Use `--path` only for workspace packages that intentionally own their own
+override field.
 
 ## Integration Strategies
 
 ### Strategy 1: Centralized Management with depPaths (Recommended)
 
 Keep all overrides in the root `package.json` and use `depPaths` configuration:
-
-**Pros:**
-
-- Single source of truth
-- Easier to maintain
-- Consistent versions across packages
-- Automatic workspace tracking
-- Clean workspace package.json files
-
-**Setup:**
 
 ```json
 {
@@ -968,20 +907,16 @@ Keep all overrides in the root `package.json` and use `depPaths` configuration:
 
 ### Strategy 2: Distributed Management
 
-Allow packages to manage their own overrides:
-
-**Pros:**
-
-- Package autonomy
-- Specific version requirements
-- Gradual migrations
-
-**Setup:**
+Allow packages to manage their own overrides only when those overrides are
+package-specific:
 
 ```json
 {
+  "overrides": {
+    "react": "17.0.2"
+  },
   "scripts": {
-    "postinstall": "pastoralist"
+    "pastoralist": "pastoralist --path package.json"
   }
 }
 ```
@@ -1010,34 +945,24 @@ Package overrides can hold feature-specific constraints:
 }
 ```
 
-## Real-World Examples
+## Package Manager Examples
 
-### Example 1: Lerna Monorepo
-
-```json
-{
-  "name": "my-lerna-monorepo",
-  "scripts": {
-    "postinstall": "lerna bootstrap && pastoralist",
-    "update-overrides": "pastoralist && lerna run pastoralist"
-  }
-}
-```
-
-### Example 2: npm Workspaces
+### npm Workspaces
 
 ```json
 {
   "name": "my-npm-workspace",
   "workspaces": ["packages/*", "apps/*"],
+  "pastoralist": {
+    "depPaths": "workspace"
+  },
   "scripts": {
-    "postinstall": "pastoralist",
-    "check-overrides": "pastoralist --debug"
+    "check-overrides": "pastoralist --dry-run"
   }
 }
 ```
 
-### Example 3: pnpm Workspace
+### pnpm Workspace
 
 ```yaml
 # pnpm-workspace.yaml
@@ -1048,14 +973,16 @@ packages:
 
 ```json
 {
+  "pastoralist": {
+    "depPaths": "workspace"
+  },
   "scripts": {
-    "postinstall": "pastoralist",
-    "update-all": "pnpm -r exec pastoralist"
+    "check-overrides": "pastoralist --dry-run"
   }
 }
 ```
 
-### Example 4: Yarn Workspaces
+### Yarn Workspaces
 
 ```json
 {
@@ -1063,58 +990,26 @@ packages:
   "workspaces": {
     "packages": ["packages/*"]
   },
+  "pastoralist": {
+    "depPaths": "workspace"
+  },
   "scripts": {
-    "postinstall": "pastoralist",
-    "workspaces:update": "yarn workspaces foreach run pastoralist"
+    "check-overrides": "pastoralist --dry-run"
   }
 }
 ```
 
 ## Best Practices
 
-### 1. Choose a Consistent Strategy
-
-Decide whether to:
-
-- Manage all overrides at the root (recommended for most cases)
-- Allow package-specific overrides (for complex requirements)
-- Use a hybrid approach (for gradual migrations)
-
-### 2. Automate with postinstall
-
-Always add pastoralist to postinstall scripts:
-
-```json
-{
-  "scripts": {
-    "postinstall": "pastoralist"
-  }
-}
-```
-
-### 3. Document Your Strategy
-
-Create a `DEPENDENCIES.md` file:
-
-```markdown
-# Dependency Management
-
-We use pastoralist to manage overrides. Strategy:
-
-1. Security patches: Root package.json
-2. Feature overrides: Package-specific
-3. Run `npm run update-overrides` after changes
-```
-
-### 4. CI/CD Integration
+### CI/CD Integration
 
 Ensure overrides are valid in CI:
 
 ```yaml
 - name: Validate overrides
   run: |
-    npm run pastoralist:all
-    git diff --exit-code
+    npx pastoralist
+    git diff --exit-code package.json
 ```
 
 ## Troubleshooting
@@ -1133,17 +1028,21 @@ Ensure overrides are valid in CI:
 
 **Symptom:** Same override tracked in multiple package.json files
 
-**Solution:** This is normal! Each package.json maintains its own appendix for clarity.
+**Solution:** If the override is shared, move it to the root package and use
+`depPaths: "workspace"`. If each package owns a different override, separate
+appendixes are expected.
 
 ### Issue: Performance in Large Monorepos
 
 **Symptom:** Pastoralist takes long to run across many packages
 
-**Solution:** Run in parallel:
+**Solution:** First prefer `depPaths: "workspace"` so one root run reads the
+workspace manifests. If you must scan packages individually, make sure your file
+search excludes `node_modules`:
 
 ```bash
-# Using GNU parallel
-find . -name "package.json" -path "*/node_modules" -prune -o -print | \
+# Using GNU parallel for package-owned override fields
+find . -name "node_modules" -prune -o -name "package.json" -print | \
   parallel "pastoralist --path {}"
 ```
 
@@ -1169,66 +1068,15 @@ find . -name "package.json" -not -path "*/node_modules/*" \
 3. Run pastoralist on each package
 4. Update CI/CD scripts
 
-## Advanced Patterns
-
-### Dynamic Override Detection
-
-```javascript
-// scripts/check-overrides.js
-const { execSync } = require("child_process");
-const { readdirSync } = require("fs");
-
-const packages = readdirSync("./packages");
-packages.forEach((pkg) => {
-  try {
-    execSync(`pastoralist --path packages/${pkg}/package.json`);
-    console.log(`✅ ${pkg}: overrides updated`);
-  } catch (error) {
-    console.log(`❌ ${pkg}: no overrides or error`);
-  }
-});
-```
-
-### Override Inheritance
-
-Create a base configuration:
-
-For example, `packages/base-config/overrides.json` can define shared override
-versions:
-
-```json
-{
-  "lodash": "4.17.21",
-  "minimist": "1.2.8"
-}
-```
-
-Apply to packages:
-
-```javascript
-// scripts/apply-base-overrides.js
-const base = require("./packages/base-config/overrides.json");
-// Apply base overrides to each package
-```
-
-## Next Steps
-
-- Set up pastoralist in your workspace
-- Choose a management strategy
-- Add automation scripts
-- Document your approach for the team
-
 ---
 
 # Advanced Features
 
 > Deep dive into pastoralist's advanced capabilities
 
-Pastoralist includes several advanced features that make dependency override management more powerful and maintainable.
-
 ## Nested Overrides (Transitive Dependencies)
 
-Pastoralist fully supports npm's nested override syntax for overriding transitive dependencies (dependencies of dependencies).
+Pastoralist supports npm's nested override syntax for overriding transitive dependencies (dependencies of dependencies).
 
 ### How It Works
 
@@ -1299,15 +1147,6 @@ still gets a `ledger` recording when it was added:
 }
 ```
 
-### Use Cases
-
-Nested overrides are particularly useful for:
-
-1. **Security Fixes**: Override vulnerable transitive dependencies without waiting for upstream updates
-2. **Bug Fixes**: Apply fixes to deeply nested dependencies
-3. **Version Conflicts**: Resolve version conflicts in the dependency tree
-4. **Testing**: Test with specific versions of transitive dependencies
-
 ### Workspace Support
 
 In monorepos, nested overrides in workspace packages are also tracked. For example,
@@ -1361,12 +1200,6 @@ Pastoralist will track them in the appendix:
 }
 ```
 
-### Benefits
-
-- **Visibility**: See which overrides have patches applied
-- **Cleanup Detection**: Get notified about unused patches
-- **Documentation**: Understand why patches exist alongside overrides
-
 ### Unused Patch Detection
 
 When a dependency is removed, pastoralist alerts you:
@@ -1380,7 +1213,7 @@ Consider removing these patches if the packages are no longer used.
 
 ## PeerDependencies Support
 
-Pastoralist now considers `peerDependencies` when tracking override usage.
+Pastoralist considers `peerDependencies` when tracking override usage.
 
 ### Example
 
@@ -1536,7 +1369,7 @@ Pastoralist tracks overrides needed by transitive dependencies:
 
 ## Fuzzy Version Matching
 
-Pastoralist intelligently matches version ranges to determine if overrides are needed.
+Pastoralist uses version-range matching to determine if overrides are needed.
 
 ### How It Works
 
@@ -1613,20 +1446,6 @@ The equivalent npm or Bun override shape:
 }
 ```
 
-## Performance Optimizations
-
-### Caching
-
-Pastoralist caches dependency trees during execution to avoid repeated file system reads.
-
-### Parallel Processing
-
-When using `--depPaths`, multiple package.json files are processed efficiently.
-
-### Minimal File Writes
-
-Package.json is only rewritten if changes are detected, preserving timestamps and reducing unnecessary git changes.
-
 ## Debug Mode Insights
 
 Debug mode (`--debug`) provides detailed information:
@@ -1693,9 +1512,9 @@ Create policies for when overrides should be used:
 const pkg = require("./package.json");
 
 const policies = {
-  security: ["minimist", "lodash"], // Always override for security
-  compatibility: ["react"], // Override for compatibility
-  temporary: ["experimental-pkg"], // Temporary overrides
+  security: ["minimist", "lodash"], // Require review before keeping security overrides
+  compatibility: ["react"], // Track compatibility overrides
+  temporary: ["experimental-pkg"], // Review temporary overrides regularly
 };
 
 // Validate overrides match policies
@@ -1727,21 +1546,10 @@ const overrideImpact = Object.entries(appendix)
 console.log("Highest impact overrides:", overrideImpact.slice(0, 5));
 ```
 
-## Future-Proofing
-
-Pastoralist is designed to adapt as package managers evolve:
-
-- **Version compatibility**: Handles different package.json formats
-- **Extensible appendix**: Room for additional metadata
-- **Backward compatibility**: Older versions can read newer appendixes
-
 ## Best Practices
 
-1. **Regular Updates**: Run pastoralist regularly, ideally in postinstall
-2. **Review Patches**: Periodically review patches for upstream fixes
-3. **Document Policies**: Create clear policies for override usage
-4. **Monitor Impact**: Track which overrides affect the most packages
-5. **Clean Regularly**: Remove overrides as soon as they're not needed
+1. **Regular Updates**: Run pastoralist on install, scheduled CI, or dependency-update PRs
+2. **Review Patches**: Check for upstream fixes when dependencies update
 
 ---
 
@@ -1749,37 +1557,20 @@ Pastoralist is designed to adapt as package managers evolve:
 
 > Learn pastoralist step-by-step
 
-## The Problem
-
-When using npm overrides or yarn resolutions, you often:
-
-- Forget why an override was added
-- Leave outdated overrides in place
-- Don't know which packages need them
-
-## The Solution
-
-Pastoralist automatically:
-
-- Documents each override with an appendix
-- Shows which packages require each override
-- Detects unnecessary overrides and removes them with `--remove-unused`
-- Runs via postinstall hooks
-
 ## Quick Start
 
 ```bash
 # Create a test project
 mkdir test-pastoralist && cd test-pastoralist
 
-# Create package.json with overrides
+# Create package.json with a transitive override
 echo '{
   "name": "test",
   "dependencies": {
-    "lodash": "^4.17.21"
+    "express": "^4.18.0"
   },
   "overrides": {
-    "lodash": "4.17.20"
+    "qs": "6.11.2"
   }
 }' > package.json
 
@@ -1788,7 +1579,7 @@ npm install
 npm install --save-dev pastoralist
 npx pastoralist
 
-# See the result - an appendix was added!
+# Check the result
 cat package.json
 ```
 
@@ -1799,11 +1590,10 @@ cat package.json
 ```json
 {
   "dependencies": {
-    "lodash": "^4.17.21",
     "express": "^4.18.0"
   },
   "overrides": {
-    "lodash": "4.17.20"
+    "qs": "6.11.2"
   }
 }
 ```
@@ -1813,13 +1603,13 @@ cat package.json
 ```json
 {
   "overrides": {
-    "lodash": "4.17.20"
+    "qs": "6.11.2"
   },
   "pastoralist": {
     "appendix": {
-      "lodash@4.17.20": {
+      "qs@6.11.2": {
         "dependents": {
-          "express": "lodash@^4.17.0"
+          "express": "qs@6.11.0"
         },
         "ledger": {
           "addedDate": "2026-05-30T00:00:00.000Z",
@@ -1875,15 +1665,18 @@ pastoralist --path packages/app/package.json
 ```json
 {
   "overrides": {
-    "minimist": "1.2.6"
+    "minimist": "1.2.8"
   },
   "pastoralist": {
     "appendix": {
-      "minimist@1.2.6": {
+      "minimist@1.2.8": {
         "ledger": {
           "addedDate": "2026-05-30T00:00:00.000Z",
-          "reason": "Security fix",
-          "source": "security"
+          "reason": "Pin minimist to a patched version while upstream dependencies update.",
+          "source": "security",
+          "cves": ["CVE-2021-44906"],
+          "severity": "high",
+          "patchedVersion": "1.2.8"
         }
       }
     }
@@ -2602,12 +2395,8 @@ and which packages depend on it.
 
 ### Why do I need pastoralist?
 
-Without pastoralist, it's easy to:
-
-- Forget why an override was added
-- Leave outdated overrides in your package.json
-- Not know which packages need specific overrides
-- Accumulate technical debt over time
+Without pastoralist, it's easy to forget why an override was added, which
+packages still need it, or whether it's safe to remove.
 
 ### Does pastoralist work with Yarn, pnpm, and Bun?
 
@@ -2619,7 +2408,7 @@ Yes. Pastoralist reads and writes the override field your package manager uses:
 
 ### Is pastoralist safe to use?
 
-Yes! Pastoralist:
+Pastoralist is designed to keep changes reviewable:
 
 - Only modifies override/resolution fields and the `pastoralist` section of package.json
 - Normalizes package.json output to two-space JSON
@@ -2814,15 +2603,7 @@ add a `reason` to it (or provide manual reasons when you generate the appendix):
 }
 ```
 
-### 3. Review Periodically
-
-Set reminders to review overrides:
-
-- Check if security patches are merged upstream
-- Test if compatibility issues are resolved
-- Remove overrides as soon as possible
-
-### 4. Monitor Patch Files
+### 3. Monitor Patch Files
 
 When you see this warning:
 
@@ -2838,7 +2619,6 @@ Review and remove unused patches to keep your repo clean.
 ### Resources
 
 - [GitHub Issues](https://github.com/yowainwright/pastoralist/issues) - Report bugs & ask questions
-- [Stack Overflow](https://stackoverflow.com/questions/tagged/pastoralist) - Community help
 
 ### Before Filing an Issue
 
@@ -2866,14 +2646,6 @@ If you're tracking overrides manually in docs or issue trackers, Pastoralist wil
 1. Document all current overrides in `pastoralist.appendix`
 2. Track their usage going forward
 3. Flag unused overrides and remove them when you run with `--remove-unused`
-
-### From Other Tools
-
-Moving from other override management tools:
-
-1. Keep the override field for your package manager
-2. Run `npx pastoralist`
-3. Remove old tool configuration
 
 ## Advanced Debugging
 
@@ -2917,8 +2689,6 @@ Object.entries(appendix).forEach(([override, info]) => {
 # Configuration
 
 > Learn how to configure Pastoralist using config files or package.json
-
-Pastoralist supports multiple configuration methods to fit your project's needs. Configuration can be defined in external files or directly in your `package.json`.
 
 For most projects, start small: enable workspace scanning only if you have
 workspaces, and enable security checks only where you want advisory data.
@@ -3067,7 +2837,6 @@ The `security` object supports the following options:
 | `excludePackages`            | `string[]`                                                                          | Packages to exclude from security checks                                                                                                                    |
 | `hasWorkspaceSecurityChecks` | `boolean`                                                                           | Include workspace packages in security scans                                                                                                                |
 | `strict`                     | `boolean`                                                                           | Fail when a security provider cannot complete                                                                                                               |
-| `preferLatest`               | `boolean`                                                                           | Prefer the newest safe version when fixes are resolved                                                                                                      |
 
 ## Package.json Configuration
 
@@ -3217,13 +2986,9 @@ This allows you to see at a glance which packages were overridden due to securit
 
 ## Best Practices
 
-1. **Use external config files** for shared settings across teams
-2. **Use `package.json`** for project-specific overrides
+1. **Use `depPaths: "workspace"`** for most monorepos
+2. **Enable security checks** in CI with `--checkSecurity`
 3. **Commit config files** to version control
-4. **Use `depPaths: "workspace"`** for most monorepos
-5. **Enable security checks** in CI/CD pipelines with `--checkSecurity`
-6. **Version control** your `.pastoralistrc` or config files
-7. **Document custom configurations** in your project README
 
 ## JavaScript Config Files
 
@@ -3294,8 +3059,6 @@ CLI flags still work and will override config file settings.
 
 > Automated dependency override management for CI/CD
 
-Pastoralist provides a GitHub Action for automated dependency override management in your CI/CD pipelines.
-
 ## Quick Start
 
 ### Basic PR Check
@@ -3308,11 +3071,15 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
       - uses: yowainwright/pastoralist@v1
         with:
           mode: check
+          check-security: false
 ```
+
+The action enables OSV security scanning by default. Set
+`check-security: false` when you only want to validate override tracking.
 
 ### Scheduled Maintenance with PR Creation
 
@@ -3322,11 +3089,15 @@ on:
   schedule:
     - cron: "0 0 * * 1" # Weekly on Monday
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   maintain:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
       - uses: yowainwright/pastoralist@v1
         with:
           mode: pr
@@ -3357,6 +3128,8 @@ Runs pastoralist in dry-run mode. Reports issues without modifying files.
 Runs pastoralist and modifies `package.json`. Use when you want to handle commits yourself.
 
 ```yaml
+- uses: actions/checkout@v6.0.2
+
 - uses: yowainwright/pastoralist@v1
   with:
     mode: update
@@ -3373,6 +3146,8 @@ Runs pastoralist and modifies `package.json`. Use when you want to handle commit
 ### PR Mode
 
 Runs pastoralist and creates a PR if changes are needed. Ideal for scheduled workflows.
+Use this mode with `contents: write` and `pull-requests: write` workflow
+permissions.
 
 ```yaml
 - uses: yowainwright/pastoralist@v1
@@ -3389,7 +3164,7 @@ Runs pastoralist and creates a PR if changes are needed. Ideal for scheduled wor
 | `check-security`    | Enable security scanning                                       | `true`                                     |
 | `security-provider` | Provider: `osv`, `github`, `npm`, `snyk`, `socket`, `spektion` | `osv`                                      |
 | `security-token`    | Token for security provider                                    | -                                          |
-| `auto-fix`          | Apply security fixes automatically                             | `true`                                     |
+| `auto-fix`          | Apply security fixes automatically when the action can write   | `true`                                     |
 | `dry-run`           | Preview changes only                                           | `false`                                    |
 | `root-dir`          | Project root directory                                         | -                                          |
 | `dep-paths`         | Workspace patterns (space-separated)                           | -                                          |
@@ -3412,6 +3187,8 @@ Runs pastoralist and creates a PR if changes are needed. Ideal for scheduled wor
 | `has-unused-overrides` | `true` if unused overrides detected      |
 | `updated`              | `true` if package.json was modified      |
 | `security-count`       | Number of security vulnerabilities found |
+| `unused-count`         | Number of unused overrides detected      |
+| `override-count`       | Number of tracked overrides              |
 | `pr-url`               | URL of created PR (mode: pr only)        |
 
 ## Examples
@@ -3426,7 +3203,7 @@ jobs:
   security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
 
       - uses: yowainwright/pastoralist@v1
         with:
@@ -3474,11 +3251,15 @@ on:
   schedule:
     - cron: "0 9 * * 1"
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   maintain:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
 
       - uses: yowainwright/pastoralist@v1
         id: pastoralist
@@ -3487,7 +3268,7 @@ jobs:
 
       - name: Notify Slack
         if: steps.pastoralist.outputs.pr-url != ''
-        uses: slackapi/slack-github-action@v1
+        uses: slackapi/slack-github-action@v3.0.3
         with:
           payload: |
             {

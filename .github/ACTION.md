@@ -224,4 +224,4 @@ permissions:
 ## Related
 
 - [Pastoralist CLI](https://github.com/yowainwright/pastoralist) - The underlying CLI tool
-- [Pastoralist Documentation](https://yowainwright.github.io/pastoralist/) - Full documentation
+- [Pastoralist Documentation](https://jeffry.in/pastoralist/) - Full documentation

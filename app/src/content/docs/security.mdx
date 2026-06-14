@@ -84,7 +84,6 @@ You can configure security settings in your `package.json`:
 | `severityThreshold`          | string          | `"medium"` | Minimum severity level to report (low, medium, high, critical)                                                                                             |
 | `excludePackages`            | array           | `[]`       | List of package names to exclude from security checks                                                                                                      |
 | `strict`                     | boolean         | `false`    | Fail when a provider cannot complete                                                                                                                       |
-| `preferLatest`               | boolean         | `false`    | Prefer the newest safe version when fixes are resolved                                                                                                     |
 
 ## CLI Options
 
@@ -130,14 +129,6 @@ e2e tests.
 Free and requires no token.
 
 The [OSV database](https://osv.dev/) is a distributed vulnerability database for open source, created by Google and the open source community.
-
-#### Benefits of OSV
-
-- Fully open source and transparent
-- No authentication required
-- Aggregates data from multiple vulnerability sources
-- Fast and reliable API
-- Comprehensive coverage of npm packages
 
 ### GitHub Provider
 
@@ -190,13 +181,6 @@ permissions:
 2. **Enable Dependabot alerts** in your repository: Settings → Code security and analysis → Dependabot alerts
 
 If permissions are insufficient, Pastoralist will display a warning with guidance and continue (your workflow won't fail).
-
-#### Benefits
-
-- Uses GitHub's official Dependabot alerts
-- Integrates with your existing GitHub security settings
-- No additional API rate limits beyond GitHub's standard limits
-- Graceful handling when permissions are missing
 
 ### npm Audit Provider
 
@@ -372,20 +356,12 @@ Generated 2 override(s):
 - Results are processed in parallel when possible
   :::
 
-## Best Practices
-
-- **Regular Scanning**: Run security checks as part of your CI/CD pipeline
-- **Review First**: Always review suggested fixes before applying them
-- **Test After Fixes**: Ensure your application still works after applying security overrides
-- **Monitor Workspaces**: In monorepos, consider enabling workspace scanning for comprehensive coverage
-
 ## Limitations
 
 :::note[Current Limitations]
 
 - Security checks focus on npm ecosystem packages
 - Some providers require credentials or local CLI access
-- Interactive prompts are built in; no Enquirer or Inquirer dependency is required
 - Some vulnerabilities may not have available fixes
   :::
 
@@ -434,8 +410,8 @@ jobs:
       contents: read
       vulnerability-alerts: read # Required for GitHub provider
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6.0.2
+      - uses: actions/setup-node@v6.4.0
       - run: npm install
       - run: npx pastoralist --checkSecurity --securityProvider github
         env:
@@ -452,8 +428,8 @@ jobs:
   security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6.0.2
+      - uses: actions/setup-node@v6.4.0
       - run: npm install
       - run: npx pastoralist --checkSecurity
 ```
@@ -469,13 +445,3 @@ security:
     - main
     - merge_requests
 ```
-
-## Contributing
-
-Security provider integrations are actively evolving. Areas for improvement:
-
-- Enhanced vulnerability filtering
-- Better workspace integration
-- Performance optimizations
-
-Please see our [contributing guide](https://github.com/yowainwright/pastoralist/blob/main/CONTRIBUTING.md) for more information.

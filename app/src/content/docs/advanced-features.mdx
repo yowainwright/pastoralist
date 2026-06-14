@@ -3,11 +3,9 @@ title: Advanced Features
 description: Deep dive into pastoralist's advanced capabilities
 ---
 
-Pastoralist includes several advanced features that make dependency override management more powerful and maintainable.
-
 ## Nested Overrides (Transitive Dependencies)
 
-Pastoralist fully supports npm's nested override syntax for overriding transitive dependencies (dependencies of dependencies).
+Pastoralist supports npm's nested override syntax for overriding transitive dependencies (dependencies of dependencies).
 
 ### How It Works
 
@@ -78,15 +76,6 @@ still gets a `ledger` recording when it was added:
 }
 ```
 
-### Use Cases
-
-Nested overrides are particularly useful for:
-
-1. **Security Fixes**: Override vulnerable transitive dependencies without waiting for upstream updates
-2. **Bug Fixes**: Apply fixes to deeply nested dependencies
-3. **Version Conflicts**: Resolve version conflicts in the dependency tree
-4. **Testing**: Test with specific versions of transitive dependencies
-
 ### Workspace Support
 
 In monorepos, nested overrides in workspace packages are also tracked. For example,
@@ -140,12 +129,6 @@ Pastoralist will track them in the appendix:
 }
 ```
 
-### Benefits
-
-- **Visibility**: See which overrides have patches applied
-- **Cleanup Detection**: Get notified about unused patches
-- **Documentation**: Understand why patches exist alongside overrides
-
 ### Unused Patch Detection
 
 When a dependency is removed, pastoralist alerts you:
@@ -167,7 +150,7 @@ Consider removing these patches if the packages are no longer used.
 
 ## PeerDependencies Support
 
-Pastoralist now considers `peerDependencies` when tracking override usage.
+Pastoralist considers `peerDependencies` when tracking override usage.
 
 ### Example
 
@@ -331,7 +314,7 @@ Pastoralist tracks overrides needed by transitive dependencies:
 
 ## Fuzzy Version Matching
 
-Pastoralist intelligently matches version ranges to determine if overrides are needed.
+Pastoralist uses version-range matching to determine if overrides are needed.
 
 ### How It Works
 
@@ -408,20 +391,6 @@ The equivalent npm or Bun override shape:
 }
 ```
 
-## Performance Optimizations
-
-### Caching
-
-Pastoralist caches dependency trees during execution to avoid repeated file system reads.
-
-### Parallel Processing
-
-When using `--depPaths`, multiple package.json files are processed efficiently.
-
-### Minimal File Writes
-
-Package.json is only rewritten if changes are detected, preserving timestamps and reducing unnecessary git changes.
-
 ## Debug Mode Insights
 
 Debug mode (`--debug`) provides detailed information:
@@ -488,9 +457,9 @@ Create policies for when overrides should be used:
 const pkg = require("./package.json");
 
 const policies = {
-  security: ["minimist", "lodash"], // Always override for security
-  compatibility: ["react"], // Override for compatibility
-  temporary: ["experimental-pkg"], // Temporary overrides
+  security: ["minimist", "lodash"], // Require review before keeping security overrides
+  compatibility: ["react"], // Track compatibility overrides
+  temporary: ["experimental-pkg"], // Review temporary overrides regularly
 };
 
 // Validate overrides match policies
@@ -522,18 +491,7 @@ const overrideImpact = Object.entries(appendix)
 console.log("Highest impact overrides:", overrideImpact.slice(0, 5));
 ```
 
-## Future-Proofing
-
-Pastoralist is designed to adapt as package managers evolve:
-
-- **Version compatibility**: Handles different package.json formats
-- **Extensible appendix**: Room for additional metadata
-- **Backward compatibility**: Older versions can read newer appendixes
-
 ## Best Practices
 
-1. **Regular Updates**: Run pastoralist regularly, ideally in postinstall
-2. **Review Patches**: Periodically review patches for upstream fixes
-3. **Document Policies**: Create clear policies for override usage
-4. **Monitor Impact**: Track which overrides affect the most packages
-5. **Clean Regularly**: Remove overrides as soon as they're not needed
+1. **Regular Updates**: Run pastoralist on install, scheduled CI, or dependency-update PRs
+2. **Review Patches**: Check for upstream fixes when dependencies update

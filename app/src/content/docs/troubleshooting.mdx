@@ -13,12 +13,8 @@ and which packages depend on it.
 
 ### Why do I need pastoralist?
 
-Without pastoralist, it's easy to:
-
-- Forget why an override was added
-- Leave outdated overrides in your package.json
-- Not know which packages need specific overrides
-- Accumulate technical debt over time
+Without pastoralist, it's easy to forget why an override was added, which
+packages still need it, or whether it's safe to remove.
 
 ### Does pastoralist work with Yarn, pnpm, and Bun?
 
@@ -30,7 +26,7 @@ Yes. Pastoralist reads and writes the override field your package manager uses:
 
 ### Is pastoralist safe to use?
 
-Yes! Pastoralist:
+Pastoralist is designed to keep changes reviewable:
 
 - Only modifies override/resolution fields and the `pastoralist` section of package.json
 - Normalizes package.json output to two-space JSON
@@ -225,15 +221,7 @@ add a `reason` to it (or provide manual reasons when you generate the appendix):
 }
 ```
 
-### 3. Review Periodically
-
-Set reminders to review overrides:
-
-- Check if security patches are merged upstream
-- Test if compatibility issues are resolved
-- Remove overrides as soon as possible
-
-### 4. Monitor Patch Files
+### 3. Monitor Patch Files
 
 When you see this warning:
 
@@ -249,7 +237,6 @@ Review and remove unused patches to keep your repo clean.
 ### Resources
 
 - [GitHub Issues](https://github.com/yowainwright/pastoralist/issues) - Report bugs & ask questions
-- [Stack Overflow](https://stackoverflow.com/questions/tagged/pastoralist) - Community help
 
 ### Before Filing an Issue
 
@@ -277,14 +264,6 @@ If you're tracking overrides manually in docs or issue trackers, Pastoralist wil
 1. Document all current overrides in `pastoralist.appendix`
 2. Track their usage going forward
 3. Flag unused overrides and remove them when you run with `--remove-unused`
-
-### From Other Tools
-
-Moving from other override management tools:
-
-1. Keep the override field for your package manager
-2. Run `npx pastoralist`
-3. Remove old tool configuration
 
 ## Advanced Debugging
 

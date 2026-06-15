@@ -3,8 +3,6 @@ title: GitHub Action
 description: Automated dependency override management for CI/CD
 ---
 
-Pastoralist provides a GitHub Action for automated dependency override management in your CI/CD pipelines.
-
 ## Quick Start
 
 ### Basic PR Check
@@ -17,11 +15,15 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
       - uses: yowainwright/pastoralist@v1
         with:
           mode: check
+          check-security: false
 ```
+
+The action enables OSV security scanning by default. Set
+`check-security: false` when you only want to validate override tracking.
 
 ### Scheduled Maintenance with PR Creation
 
@@ -31,11 +33,15 @@ on:
   schedule:
     - cron: "0 0 * * 1" # Weekly on Monday
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   maintain:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
       - uses: yowainwright/pastoralist@v1
         with:
           mode: pr
@@ -66,6 +72,8 @@ Runs pastoralist in dry-run mode. Reports issues without modifying files.
 Runs pastoralist and modifies `package.json`. Use when you want to handle commits yourself.
 
 ```yaml
+- uses: actions/checkout@v6.0.2
+
 - uses: yowainwright/pastoralist@v1
   with:
     mode: update
@@ -82,6 +90,8 @@ Runs pastoralist and modifies `package.json`. Use when you want to handle commit
 ### PR Mode
 
 Runs pastoralist and creates a PR if changes are needed. Ideal for scheduled workflows.
+Use this mode with `contents: write` and `pull-requests: write` workflow
+permissions.
 
 ```yaml
 - uses: yowainwright/pastoralist@v1
@@ -98,7 +108,7 @@ Runs pastoralist and creates a PR if changes are needed. Ideal for scheduled wor
 | `check-security`    | Enable security scanning                                       | `true`                                     |
 | `security-provider` | Provider: `osv`, `github`, `npm`, `snyk`, `socket`, `spektion` | `osv`                                      |
 | `security-token`    | Token for security provider                                    | -                                          |
-| `auto-fix`          | Apply security fixes automatically                             | `true`                                     |
+| `auto-fix`          | Apply security fixes automatically when the action can write   | `true`                                     |
 | `dry-run`           | Preview changes only                                           | `false`                                    |
 | `root-dir`          | Project root directory                                         | -                                          |
 | `dep-paths`         | Workspace patterns (space-separated)                           | -                                          |
@@ -121,6 +131,8 @@ Runs pastoralist and creates a PR if changes are needed. Ideal for scheduled wor
 | `has-unused-overrides` | `true` if unused overrides detected      |
 | `updated`              | `true` if package.json was modified      |
 | `security-count`       | Number of security vulnerabilities found |
+| `unused-count`         | Number of unused overrides detected      |
+| `override-count`       | Number of tracked overrides              |
 | `pr-url`               | URL of created PR (mode: pr only)        |
 
 ## Examples
@@ -135,7 +147,7 @@ jobs:
   security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
 
       - uses: yowainwright/pastoralist@v1
         with:
@@ -183,11 +195,15 @@ on:
   schedule:
     - cron: "0 9 * * 1"
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   maintain:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
 
       - uses: yowainwright/pastoralist@v1
         id: pastoralist
@@ -196,7 +212,7 @@ jobs:
 
       - name: Notify Slack
         if: steps.pastoralist.outputs.pr-url != ''
-        uses: slackapi/slack-github-action@v1
+        uses: slackapi/slack-github-action@v3.0.3
         with:
           payload: |
             {

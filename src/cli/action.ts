@@ -9,6 +9,7 @@ import {
   green,
   logger as createLogger,
   pruneBackups,
+  quickConfirm,
   resolveCacheDir,
 } from "../utils";
 import { getOverrideGitDate } from "../utils/git";
@@ -192,7 +193,10 @@ const buildActionResult = (runtime: ActionRuntime, workflow: UpdateWorkflow): Pa
     runtime.emptyResult,
     workflow.securityPhase.securityResult,
     workflow.updateResultData,
-    { metrics: workflow.updateContext.metrics },
+    {
+      removalSafetyComparison: workflow.mergedOptions.removalSafetyComparison,
+      metrics: workflow.updateContext.metrics,
+    },
   );
 
 const finishActionResult = (
@@ -259,6 +263,7 @@ const defaultActionDeps: ActionDeps = {
   handleSecurityResults,
   createSpinner,
   green,
+  quickConfirm,
   update,
   createTerminalGraph,
   getOverrideGitDate,

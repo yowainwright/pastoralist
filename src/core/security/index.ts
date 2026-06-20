@@ -330,14 +330,21 @@ export class SecurityChecker {
     return extractPackages(config, options.excludePackages || []);
   }
 
-  private resolveCachedAlerts(cacheKey: string, diskCacheKey: string): SecurityAlert[] | undefined {
-    const cachedAlerts = this.cache.get(cacheKey);
-    if (cachedAlerts) {
-      this.log.debug("Using cached security results", "checkSecurity");
-      return cachedAlerts;
+  private resolveCachedAlerts(
+    cacheKey: string,
+    diskCacheKey: string,
+    options: SecurityCheckRuntimeOptions,
+  ): SecurityAlert[] | undefined {
+    const shouldRefresh = this.refreshCache || options.refreshCache;
+    if (!shouldRefresh) {
+      const cachedAlerts = this.cache.get(cacheKey);
+      if (cachedAlerts) {
+        this.log.debug("Using cached security results", "checkSecurity");
+        return cachedAlerts;
+      }
     }
 
-    const shouldSkipDiskCache = this.noCache || this.refreshCache;
+    const shouldSkipDiskCache = this.noCache || options.noCache || shouldRefresh;
     if (shouldSkipDiskCache) return undefined;
 
     const diskCachedAlerts = this.diskAlertsCache.get(diskCacheKey);
@@ -352,9 +359,12 @@ export class SecurityChecker {
     cacheKey: string,
     diskCacheKey: string,
     alerts: SecurityAlert[],
+    options: SecurityCheckRuntimeOptions,
   ): void {
+    if (options.skipCacheWrite) return;
     this.cache.set(cacheKey, alerts);
-    if (!this.noCache) {
+    const shouldWriteDiskCache = !this.noCache && !options.noCache;
+    if (shouldWriteDiskCache) {
       this.diskAlertsCache.set(diskCacheKey, alerts);
     }
   }
@@ -365,12 +375,12 @@ export class SecurityChecker {
   ): Promise<SecurityAlert[]> {
     const cacheKey = this.generateCacheKey(packages);
     const diskCacheKey = this.generateDiskCacheKey(packages, options.root);
-    const cachedAlerts = this.resolveCachedAlerts(cacheKey, diskCacheKey);
+    const cachedAlerts = this.resolveCachedAlerts(cacheKey, diskCacheKey, options);
 
     if (cachedAlerts) return cachedAlerts;
 
     const alerts = await this.fetchProviderAlerts(packages, options);
-    this.cacheSecurityAlerts(cacheKey, diskCacheKey, alerts);
+    this.cacheSecurityAlerts(cacheKey, diskCacheKey, alerts, options);
     return alerts;
   }
 

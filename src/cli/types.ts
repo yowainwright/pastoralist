@@ -10,7 +10,7 @@ import type { createTerminalGraph } from "../dx";
 import type { resolveJSON } from "../core/packageJSON";
 import type { loadConfig } from "../config";
 import type { getOverrideGitDate } from "../utils/git";
-import type { createSpinner, green, logger as createLogger } from "../utils";
+import type { createSpinner, green, logger as createLogger, quickConfirm } from "../utils";
 import type { initCommand } from "./cmds/init";
 import type { buildMergedOptions, handleSecurityResults, runSecurityCheck } from "./security";
 
@@ -95,6 +95,7 @@ export type UpdateWorkflowDeps = CliConfigDeps & {
   update: typeof update;
   runSecurityCheck: typeof runSecurityCheck;
   handleSecurityResults: typeof handleSecurityResults;
+  quickConfirm: typeof quickConfirm;
 };
 
 export type ActionWorkflowDeps = UpdateWorkflowDeps & {
@@ -106,6 +107,7 @@ export type ActionDeps = ActionWorkflowDeps &
   RuntimeDeps & {
     createSpinner: typeof createSpinner;
     green: typeof green;
+    quickConfirm: typeof quickConfirm;
   };
 
 export type InitSecurityProvider = NonNullable<
@@ -134,6 +136,7 @@ export type UpdateWorkflow = LoadedCliConfig & {
 export type SecurityPhaseDeps = {
   runSecurityCheck: typeof runSecurityCheck;
   handleSecurityResults: typeof handleSecurityResults;
+  quickConfirm: typeof quickConfirm;
 };
 
 export type CliAction = (options?: Options, deps?: ActionDeps) => Promise<PastoralistResult>;

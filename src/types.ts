@@ -134,6 +134,19 @@ export interface SecurityOptions {
   strict?: boolean;
 }
 
+export interface RemovalSafetyComparison {
+  removableKeys: string[];
+  allowedKeys: string[];
+  blockedKeys: string[];
+  beforeAlertCount: number;
+  afterAlertCount: number;
+  beforeRiskScore: number;
+  afterRiskScore: number;
+  newVulnerabilityKeys: string[];
+  status: "safe" | "blocked" | "declined";
+  reason?: string;
+}
+
 export interface OutputOptions {
   outputFormat?: "text" | "json";
   debug?: boolean;
@@ -169,6 +182,7 @@ export interface Options extends SecurityOptions, OutputOptions, TestingOptions,
   addedDate?: string;
   removeUnused?: boolean;
   skipRemovalKeys?: string[];
+  removalSafetyComparison?: RemovalSafetyComparison;
   cacheDir?: string;
   cacheTtl?: number;
   noCache?: boolean;
@@ -277,6 +291,7 @@ export interface PastoralistResult {
   }>;
   unusedOverrides?: string[];
   appliedOverrides?: Record<string, string>;
+  removalSafetyComparison?: RemovalSafetyComparison;
   metrics?: PastoralistResultMetrics;
 }
 

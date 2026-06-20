@@ -3708,14 +3708,14 @@ test("checkRemovalSafety - returns keys for packages still vulnerable at declare
   });
 
   expect(result).toEqual(["lodash@4.17.21"]);
-  expect(mockSecurityChecker.checkSecurity).toHaveBeenCalledWith(
-    {
-      name: "test-app",
-      version: "1.0.0",
-      dependencies: { lodash: "^4.17.20", safe: "^2.0.0" },
-    },
-    { root: "./" },
-  );
+  expect(mockSecurityChecker.checkSecurity.mock.calls.length).toBe(2);
+  expect(mockSecurityChecker.checkSecurity.mock.calls[0][0]).toEqual(config);
+  expect(mockSecurityChecker.checkSecurity.mock.calls[0][1]).toEqual({ root: "./" });
+  expect(mockSecurityChecker.checkSecurity.mock.calls[1][0].overrides).toEqual({});
+  expect(mockSecurityChecker.checkSecurity.mock.calls[1][1].interactive).toBe(false);
+  expect(mockSecurityChecker.checkSecurity.mock.calls[1][1].refreshCache).toBe(true);
+  expect(mockSecurityChecker.checkSecurity.mock.calls[1][1].root).toBe("./");
+  expect(mockSecurityChecker.checkSecurity.mock.calls[1][1].skipCacheWrite).toBe(true);
 });
 
 test("checkRemovalSafety - returns empty array when re-scan finds no vulnerabilities", async () => {
@@ -3784,6 +3784,7 @@ test("checkRemovalSafety - finds packages in devDependencies", async () => {
     name: "test-app",
     version: "1.0.0",
     devDependencies: { "dev-pkg": "^1.0.0" },
+    overrides: { "dev-pkg": "1.0.0" },
     pastoralist: {
       appendix: {
         "dev-pkg@1.0.0": { dependents: { root: "dev-pkg (unused override)" } },
@@ -3890,7 +3891,7 @@ test("action - displays blocked removals notice when skipRemovalKeys set", async
 
   const noticeCalls = mockGraph.notice.mock.calls;
   const hasBlockedNotice = noticeCalls.some(
-    (call: unknown[]) => typeof call[0] === "string" && call[0].includes("still vulnerable"),
+    (call: unknown[]) => typeof call[0] === "string" && call[0].includes("kept for safety"),
   );
   expect(hasBlockedNotice).toBe(true);
 });

@@ -148,12 +148,48 @@ const hasRegression = (
 
 const unique = (values: string[]): string[] => Array.from(new Set(values));
 
+const formatReasonKeys = (keys: string[], limit = 3): string => {
+  const visibleKeys = keys.slice(0, limit).join(", ");
+  const remainingCount = keys.length - limit;
+  if (remainingCount <= 0) return visibleKeys;
+  return `${visibleKeys} (+${remainingCount} more)`;
+};
+
+const buildBlockedReason = (
+  beforeAlerts: SecurityAlert[],
+  afterAlerts: SecurityAlert[],
+  beforeRiskScore: number,
+  afterRiskScore: number,
+  newVulnerabilityKeys: string[],
+  vulnerableRemovedKeys: string[],
+): string | undefined => {
+  if (newVulnerabilityKeys.length > 0) {
+    return `New vulnerabilities detected after removal: ${formatReasonKeys(newVulnerabilityKeys)}.`;
+  }
+
+  if (afterRiskScore > beforeRiskScore) {
+    return `Risk score increased from ${beforeRiskScore} to ${afterRiskScore} after removal.`;
+  }
+
+  if (afterAlerts.length > beforeAlerts.length) {
+    return `Alert count increased from ${beforeAlerts.length} to ${afterAlerts.length} after removal.`;
+  }
+
+  if (vulnerableRemovedKeys.length > 0) {
+    return `Removed overrides still resolve to vulnerable packages: ${formatReasonKeys(vulnerableRemovedKeys)}.`;
+  }
+
+  return undefined;
+};
+
 const buildComparison = (
   removableKeys: string[],
   beforeAlerts: SecurityAlert[],
   afterAlerts: SecurityAlert[],
 ): RemovalSafetyComparison => {
   const newVulnerabilityKeys = getNewVulnerabilityKeys(beforeAlerts, afterAlerts);
+  const beforeRiskScore = getRiskScore(beforeAlerts);
+  const afterRiskScore = getRiskScore(afterAlerts);
   const regressionKeys = hasRegression(beforeAlerts, afterAlerts, newVulnerabilityKeys)
     ? removableKeys
     : [];
@@ -162,6 +198,17 @@ const buildComparison = (
   const blockedSet = new Set(blockedKeys);
   const allowedKeys = removableKeys.filter((key) => !blockedSet.has(key));
   const status = blockedKeys.length > 0 ? "blocked" : "safe";
+  const reason =
+    status === "blocked"
+      ? buildBlockedReason(
+          beforeAlerts,
+          afterAlerts,
+          beforeRiskScore,
+          afterRiskScore,
+          newVulnerabilityKeys,
+          vulnerableRemovedKeys,
+        )
+      : undefined;
 
   return {
     removableKeys,
@@ -169,10 +216,11 @@ const buildComparison = (
     blockedKeys,
     beforeAlertCount: beforeAlerts.length,
     afterAlertCount: afterAlerts.length,
-    beforeRiskScore: getRiskScore(beforeAlerts),
-    afterRiskScore: getRiskScore(afterAlerts),
+    beforeRiskScore,
+    afterRiskScore,
     newVulnerabilityKeys,
     status,
+    reason,
   };
 };
 

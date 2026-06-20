@@ -81,6 +81,9 @@ test("compareRemovalSafety - blocks cleanup when vulnerability count increases",
   expect(comparison?.newVulnerabilityKeys).toEqual([
     "new-transitive-pkg@1.0.0:new-transitive-pkg vulnerability",
   ]);
+  expect(comparison?.reason).toBe(
+    "New vulnerabilities detected after removal: new-transitive-pkg@1.0.0:new-transitive-pkg vulnerability.",
+  );
 });
 
 test("compareRemovalSafety - blocks cleanup when severity risk increases with same finding", async () => {
@@ -99,6 +102,7 @@ test("compareRemovalSafety - blocks cleanup when severity risk increases with sa
   expect(comparison?.beforeRiskScore).toBe(2);
   expect(comparison?.afterRiskScore).toBe(4);
   expect(comparison?.newVulnerabilityKeys).toEqual([]);
+  expect(comparison?.reason).toBe("Risk score increased from 2 to 4 after removal.");
 });
 
 test("compareRemovalSafety - blocks cleanup when a new vulnerability replaces an old one", async () => {
@@ -129,6 +133,9 @@ test("compareRemovalSafety - blocks removed package when it remains vulnerable",
   expect(comparison?.status).toBe("blocked");
   expect(comparison?.blockedKeys).toEqual(["unused-pkg@1.0.0"]);
   expect(comparison?.newVulnerabilityKeys).toEqual([]);
+  expect(comparison?.reason).toBe(
+    "Removed overrides still resolve to vulnerable packages: unused-pkg@1.0.0.",
+  );
 });
 
 test("compareRemovalSafety - blocks cleanup when candidate scan fails", async () => {

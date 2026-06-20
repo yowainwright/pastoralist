@@ -9,6 +9,7 @@ import {
   green,
   logger as createLogger,
   pruneBackups,
+  quickConfirm,
   resolveCacheDir,
 } from "../utils";
 import { getOverrideGitDate } from "../utils/git";
@@ -262,6 +263,7 @@ const defaultActionDeps: ActionDeps = {
   handleSecurityResults,
   createSpinner,
   green,
+  quickConfirm,
   update,
   createTerminalGraph,
   getOverrideGitDate,

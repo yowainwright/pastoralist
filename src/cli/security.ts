@@ -10,7 +10,7 @@ import {
 import { MSG_SCANNING } from "../constants";
 import { SecurityChecker } from "../core/security";
 import { resolveWorkspaceManifestPaths } from "../core/workspace";
-import { createSpinner, green, quickConfirm, yellow, logger as createLogger } from "../utils";
+import { createSpinner, green, yellow, logger as createLogger } from "../utils";
 import { DEFAULT_SECURITY_PROVIDER } from "./constants";
 import { renderRemovalSafetyComparison, renderSecurityFindings } from "./display";
 import { compareRemovalSafety } from "./safety";
@@ -356,16 +356,38 @@ const createEmptySecurityResult = (): SecurityResultSummary => ({
   securityAlerts: [],
 });
 
+const formatRemovalKeys = (keys: string[], limit = 5): string => {
+  const visibleKeys = keys.slice(0, limit).join(", ");
+  const remainingCount = keys.length - limit;
+  if (remainingCount <= 0) return visibleKeys;
+  return `${visibleKeys}, +${remainingCount} more`;
+};
+
+const buildRemovalSafetyPrompt = (
+  comparison: NonNullable<Options["removalSafetyComparison"]>,
+): string => {
+  const count = comparison.allowedKeys.length;
+  const removalKeys = formatRemovalKeys(comparison.allowedKeys);
+  const beforeCount = comparison.beforeAlertCount;
+  const afterCount = comparison.afterAlertCount;
+  const overrideLabel = `override${count === 1 ? "" : "s"}`;
+  return (
+    `Removal safety check found ${beforeCount} -> ${afterCount} vulnerabilities. ` +
+    `Remove ${count} unused ${overrideLabel} (${removalKeys})?`
+  );
+};
+
 const applyRemovalSafety = async (
   config: PastoralistJSON,
   mergedOptions: Options,
   securityChecker: Awaited<ReturnType<typeof runSecurityCheck>>["securityChecker"],
+  deps: Pick<SecurityPhaseDeps, "quickConfirm">,
 ): Promise<Options> => {
   if (!mergedOptions.removeUnused) return mergedOptions;
   const comparison = await compareRemovalSafety(config, securityChecker, mergedOptions);
   if (!comparison) return mergedOptions;
 
-  const approvedComparison = await confirmRemovalSafetyIfNeeded(comparison, mergedOptions);
+  const approvedComparison = await confirmRemovalSafetyIfNeeded(comparison, mergedOptions, deps);
   const existingSkipKeys = mergedOptions.skipRemovalKeys || [];
   const skipRemovalKeys = Array.from(
     new Set(existingSkipKeys.concat(approvedComparison.blockedKeys)),
@@ -381,6 +403,7 @@ const applyRemovalSafety = async (
 const confirmRemovalSafetyIfNeeded = async (
   comparison: NonNullable<Options["removalSafetyComparison"]>,
   mergedOptions: Options,
+  deps: Pick<SecurityPhaseDeps, "quickConfirm">,
 ): Promise<NonNullable<Options["removalSafetyComparison"]>> => {
   const isInteractive = mergedOptions.interactive === true;
   const isSafe = comparison.status === "safe";
@@ -388,11 +411,7 @@ const confirmRemovalSafetyIfNeeded = async (
   const shouldAsk = isInteractive && isSafe && hasAllowedRemovals;
   if (!shouldAsk) return comparison;
 
-  const count = comparison.allowedKeys.length;
-  const approved = await quickConfirm(
-    `Removal safety check found ${comparison.beforeAlertCount} -> ${comparison.afterAlertCount} vulnerabilities. Remove ${count} unused override${count === 1 ? "" : "s"}?`,
-    false,
-  );
+  const approved = await deps.quickConfirm(buildRemovalSafetyPrompt(comparison), false);
   if (approved) return comparison;
 
   return Object.assign({}, comparison, {
@@ -430,13 +449,14 @@ const resolveSecurityPhaseOptions = async (
   config: PastoralistJSON,
   mergedOptions: Options,
   result: Awaited<ReturnType<typeof runSecurityCheck>>,
-  deps: Pick<SecurityPhaseDeps, "handleSecurityResults">,
+  deps: Pick<SecurityPhaseDeps, "handleSecurityResults" | "quickConfirm">,
 ): Promise<Options> => {
   const optionsWithAlerts = Object.assign({}, mergedOptions, { securityAlerts: result.alerts });
   const optionsWithSafety = await applyRemovalSafety(
     config,
     optionsWithAlerts,
     result.securityChecker,
+    deps,
   );
   return applySecurityResults(result, optionsWithSafety, deps);
 };

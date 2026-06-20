@@ -87,6 +87,14 @@ export const renderRemovalSafetyComparison = (
     return;
   }
 
+  if (comparison.status === "declined") {
+    const declinedCount = comparison.blockedKeys.length;
+    graph.notice(
+      `Cleanup of ${declinedCount} override${pluralSuffix(declinedCount)} declined by user.`,
+    );
+    return;
+  }
+
   const blockedCount = comparison.blockedKeys.length;
   const reason = comparison.reason ? ` ${comparison.reason}` : "";
   graph.notice(

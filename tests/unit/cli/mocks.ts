@@ -93,6 +93,7 @@ export const createActionDeps = (options: ActionDepsOptions = {}) => {
     handleSecurityResults: mock(() => {}),
     createSpinner: mock(() => spinner),
     green: mock((text: string) => text),
+    quickConfirm: mock(() => Promise.resolve(true)),
     update: mock(() => updateContext),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
     getOverrideGitDate: mock(() => Promise.resolve(new Date().toISOString())),

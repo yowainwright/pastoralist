@@ -38,6 +38,7 @@ export {
 } from "./cache";
 export { retry } from "./retry";
 export { getOverrideGitDate } from "./git";
+export { quickConfirm } from "./prompts";
 export {
   fetchLatestVersion,
   fetchLatestCompatibleVersion,

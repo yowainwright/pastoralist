@@ -30,7 +30,7 @@ export {
   outputResult,
 } from "./results";
 export { displayOverrides, displaySummaryTable } from "./display";
-export { checkRemovalSafety } from "./removal-safety";
+export { checkRemovalSafety } from "./safety";
 export { resolvePathFromRoot } from "./path";
 export { handleSetupHook } from "./setup-hook";
 

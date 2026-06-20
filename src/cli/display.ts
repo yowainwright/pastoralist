@@ -6,6 +6,7 @@ import type {
   AppendixItem,
   Options,
   PastoralistResult,
+  RemovalSafetyComparison,
   SecurityAlert,
   SecurityOverride,
 } from "../types";
@@ -65,6 +66,32 @@ export const displayOverrides = (graph: CliGraph, ctx: OverrideDisplayContext): 
 export const pluralSuffix = (count: number): string => {
   if (count === 1) return "";
   return "s";
+};
+
+export const renderRemovalSafetyComparison = (
+  graph: CliGraph,
+  comparison: RemovalSafetyComparison | undefined,
+): void => {
+  if (!comparison) return;
+
+  const removalCount = comparison.removableKeys.length;
+  const summary =
+    `Removal safety: vulnerabilities ${comparison.beforeAlertCount} -> ${comparison.afterAlertCount}, ` +
+    `risk ${comparison.beforeRiskScore} -> ${comparison.afterRiskScore}`;
+  graph.notice(summary);
+
+  if (comparison.status === "safe") {
+    graph.notice(
+      `${removalCount} unused override${pluralSuffix(removalCount)} approved for cleanup.`,
+    );
+    return;
+  }
+
+  const blockedCount = comparison.blockedKeys.length;
+  const reason = comparison.reason ? ` ${comparison.reason}` : "";
+  graph.notice(
+    `${blockedCount} override${pluralSuffix(blockedCount)} kept after safety comparison.${reason}`,
+  );
 };
 
 const vulnerabilitySuffix = (count: number): string => {
@@ -208,7 +235,7 @@ const renderBlockedRemovalNotice = (graph: CliGraph, mergedOptions: Options): vo
   if (blockedKeys.length === 0) return;
   const count = blockedKeys.length;
   graph.notice(
-    `${count} override${pluralSuffix(count)} kept: still vulnerable at declared versions - ${blockedKeys.join(", ")}`,
+    `${count} override${pluralSuffix(count)} kept for safety - ${blockedKeys.join(", ")}`,
   );
 };
 

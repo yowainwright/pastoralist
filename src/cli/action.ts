@@ -192,7 +192,10 @@ const buildActionResult = (runtime: ActionRuntime, workflow: UpdateWorkflow): Pa
     runtime.emptyResult,
     workflow.securityPhase.securityResult,
     workflow.updateResultData,
-    { metrics: workflow.updateContext.metrics },
+    {
+      removalSafetyComparison: workflow.mergedOptions.removalSafetyComparison,
+      metrics: workflow.updateContext.metrics,
+    },
   );
 
 const finishActionResult = (

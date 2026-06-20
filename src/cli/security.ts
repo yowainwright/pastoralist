@@ -10,10 +10,10 @@ import {
 import { MSG_SCANNING } from "../constants";
 import { SecurityChecker } from "../core/security";
 import { resolveWorkspaceManifestPaths } from "../core/workspace";
-import { createSpinner, green, yellow, logger as createLogger } from "../utils";
+import { createSpinner, green, quickConfirm, yellow, logger as createLogger } from "../utils";
 import { DEFAULT_SECURITY_PROVIDER } from "./constants";
-import { renderSecurityFindings } from "./display";
-import { checkRemovalSafety } from "./removal-safety";
+import { renderRemovalSafetyComparison, renderSecurityFindings } from "./display";
+import { compareRemovalSafety } from "./safety";
 import { buildSecurityResult } from "./results";
 import type {
   CliGraph,
@@ -362,9 +362,45 @@ const applyRemovalSafety = async (
   securityChecker: Awaited<ReturnType<typeof runSecurityCheck>>["securityChecker"],
 ): Promise<Options> => {
   if (!mergedOptions.removeUnused) return mergedOptions;
-  const skipKeys = await checkRemovalSafety(config, securityChecker, mergedOptions);
-  if (skipKeys.length === 0) return mergedOptions;
-  return Object.assign({}, mergedOptions, { skipRemovalKeys: skipKeys });
+  const comparison = await compareRemovalSafety(config, securityChecker, mergedOptions);
+  if (!comparison) return mergedOptions;
+
+  const approvedComparison = await confirmRemovalSafetyIfNeeded(comparison, mergedOptions);
+  const existingSkipKeys = mergedOptions.skipRemovalKeys || [];
+  const skipRemovalKeys = Array.from(
+    new Set(existingSkipKeys.concat(approvedComparison.blockedKeys)),
+  );
+
+  const optionsWithComparison = Object.assign({}, mergedOptions, {
+    removalSafetyComparison: approvedComparison,
+  });
+  if (skipRemovalKeys.length === 0) return optionsWithComparison;
+  return Object.assign({}, optionsWithComparison, { skipRemovalKeys });
+};
+
+const confirmRemovalSafetyIfNeeded = async (
+  comparison: NonNullable<Options["removalSafetyComparison"]>,
+  mergedOptions: Options,
+): Promise<NonNullable<Options["removalSafetyComparison"]>> => {
+  const isInteractive = mergedOptions.interactive === true;
+  const isSafe = comparison.status === "safe";
+  const hasAllowedRemovals = comparison.allowedKeys.length > 0;
+  const shouldAsk = isInteractive && isSafe && hasAllowedRemovals;
+  if (!shouldAsk) return comparison;
+
+  const count = comparison.allowedKeys.length;
+  const approved = await quickConfirm(
+    `Removal safety check found ${comparison.beforeAlertCount} -> ${comparison.afterAlertCount} vulnerabilities. Remove ${count} unused override${count === 1 ? "" : "s"}?`,
+    false,
+  );
+  if (approved) return comparison;
+
+  return Object.assign({}, comparison, {
+    status: "declined" as const,
+    allowedKeys: [],
+    blockedKeys: comparison.removableKeys,
+    reason: "User declined cleanup after reviewing the safety comparison.",
+  });
 };
 
 const applySecurityResults = (
@@ -420,6 +456,7 @@ const renderSecurityPhaseResult = (
     nextOptions,
     result.packagesScanned,
   );
+  renderRemovalSafetyComparison(graph, nextOptions.removalSafetyComparison);
 };
 
 const runEnabledSecurityPhase = async (

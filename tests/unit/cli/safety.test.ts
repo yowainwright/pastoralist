@@ -105,6 +105,26 @@ test("compareRemovalSafety - blocks cleanup when severity risk increases with sa
   expect(comparison?.reason).toBe("Risk score increased from 2 to 4 after removal.");
 });
 
+test("compareRemovalSafety - blocks cleanup when alert count increases without new keys", async () => {
+  const config = createConfig();
+  const sameLowAlert = alert("same-pkg", "low", "same advisory");
+  const checker = createChecker([
+    [alert("same-pkg", "medium", "same advisory")],
+    [sameLowAlert, sameLowAlert],
+  ]);
+
+  const comparison = await compareRemovalSafety(config, checker as any, {});
+
+  expect(comparison?.status).toBe("blocked");
+  expect(comparison?.blockedKeys).toEqual(["unused-pkg@1.0.0"]);
+  expect(comparison?.beforeAlertCount).toBe(1);
+  expect(comparison?.afterAlertCount).toBe(2);
+  expect(comparison?.beforeRiskScore).toBe(2);
+  expect(comparison?.afterRiskScore).toBe(2);
+  expect(comparison?.newVulnerabilityKeys).toEqual([]);
+  expect(comparison?.reason).toBe("Alert count increased from 1 to 2 after removal.");
+});
+
 test("compareRemovalSafety - blocks cleanup when a new vulnerability replaces an old one", async () => {
   const config = createConfig();
   const checker = createChecker([

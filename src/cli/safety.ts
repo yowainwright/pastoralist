@@ -175,11 +175,8 @@ const buildBlockedReason = (
     return `Alert count increased from ${beforeAlerts.length} to ${afterAlerts.length} after removal.`;
   }
 
-  if (vulnerableRemovedKeys.length > 0) {
-    return `Removed overrides still resolve to vulnerable packages: ${formatReasonKeys(vulnerableRemovedKeys)}.`;
-  }
-
-  return undefined;
+  if (vulnerableRemovedKeys.length === 0) return undefined;
+  return `Removed overrides still resolve to vulnerable packages: ${formatReasonKeys(vulnerableRemovedKeys)}.`;
 };
 
 const buildComparison = (

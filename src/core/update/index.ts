@@ -1,7 +1,12 @@
 import { IS_DEBUGGING } from "../../constants";
 import type { Appendix, Options, SecurityAlert, AppendixItem } from "../../types";
 import { logger } from "../../utils";
-import { clearDependencyTreeCache, jsonCache, getFullDependencyCount } from "../packageJSON";
+import {
+  clearDependencyTreeCache,
+  jsonCache,
+  getFullDependencyCount,
+  getDependencyGraph,
+} from "../packageJSON";
 import {
   mergeOverridePaths,
   checkMonorepoOverrides,
@@ -143,6 +148,7 @@ const stepBuildAppendix = (ctx: UpdateContext): UpdateContext => {
 
   const { dependencies = {}, devDependencies = {}, peerDependencies = {} } = config;
 
+  const dependencyGraph = ctx.isTesting ? undefined : getDependencyGraph(ctx.root);
   const appendix = updateAppendix({
     overrides,
     appendix: ctx.existingAppendix || {},
@@ -154,6 +160,7 @@ const stepBuildAppendix = (ctx: UpdateContext): UpdateContext => {
     securityProvider: getPrimarySecurityProvider(ctx.options?.securityProvider),
     manualOverrideReasons: ctx.options?.manualOverrideReasons,
     addedDate: ctx.options?.addedDate,
+    dependencyGraph,
   });
 
   if (!ctx.workspaceAppendix) return Object.assign({}, ctx, { appendix });

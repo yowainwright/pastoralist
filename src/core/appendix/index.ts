@@ -83,7 +83,7 @@ const buildItemWithDependent = (
 const isUnusedSimpleOverride = (
   override: string,
   deps: Record<string, string>,
-  dependencyTree?: Record<string, boolean>,
+  dependencyTree?: Record<string, string>,
 ): boolean => {
   const hasOverride = hasDependency(deps, override);
   if (hasOverride) return false;
@@ -116,6 +116,7 @@ const processSimpleOverride = (options: ProcessOverrideOptions): Appendix => {
     cache,
     onlyUsedOverrides = false,
     dependencyTree,
+    dependencyGraph,
   } = options;
   const hasOverride = hasDependency(deps, override);
   const shouldSkipUnusedOverride =
@@ -124,7 +125,13 @@ const processSimpleOverride = (options: ProcessOverrideOptions): Appendix => {
 
   const key = buildOverrideKey(override, overrideVersion);
   const packageVersion = deps[override];
-  const dependentInfo = buildDependentInfo(hasOverride, override, packageVersion, dependencyTree);
+  const dependentInfo = buildDependentInfo(
+    hasOverride,
+    override,
+    packageVersion,
+    dependencyTree,
+    dependencyGraph,
+  );
   return upsertAppendixItem(appendix, key, cache, () =>
     buildSimpleAppendixItem(options, key, dependentInfo),
   );

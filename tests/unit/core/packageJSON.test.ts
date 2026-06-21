@@ -1091,6 +1091,31 @@ test("getDependencyTree - should cache results on second call", async () => {
   clearDependencyTreeCache();
 });
 
+test("getDependencyTree - caches lockfile-less roots independently", async () => {
+  clearDependencyTreeCache();
+  const cacheDir = resolve(testDir, "multi-root-cache");
+  const rootA = resolve(testDir, "root-a");
+  const rootB = resolve(testDir, "root-b");
+  mkdirSync(rootA, { recursive: true });
+  mkdirSync(rootB, { recursive: true });
+
+  const mockExecuteNpmLs = async (root?: string) => {
+    const dependencyName = root === rootA ? "left-pad" : "right-pad";
+    return JSON.stringify({ dependencies: { [dependencyName]: { version: "1.0.0" } } });
+  };
+
+  const treeA = await getDependencyTree(mockExecuteNpmLs, cacheDir, rootA);
+  const treeB = await getDependencyTree(mockExecuteNpmLs, cacheDir, rootB);
+
+  expect(treeA["left-pad"]).toBe("1.0.0");
+  expect(treeA["right-pad"]).toBeUndefined();
+  expect(treeB["right-pad"]).toBe("1.0.0");
+  expect(treeB["left-pad"]).toBeUndefined();
+
+  clearDependencyTreeCache();
+  rmSync(testDir, { recursive: true, force: true });
+});
+
 test("getDependencyTree - coalesces concurrent requests", async () => {
   clearDependencyTreeCache();
   const mockOutput = JSON.stringify({
@@ -1450,6 +1475,26 @@ test("parseNpmLockTree - parses v2/v3 packages field", () => {
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
+test("parseNpmLockTree - prefers hoisted package versions over nested duplicates", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "package-lock.json"),
+    JSON.stringify({
+      lockfileVersion: 2,
+      packages: {
+        "": {},
+        "node_modules/lodash": { version: "4.17.21" },
+        "node_modules/parent/node_modules/lodash": { version: "3.10.1" },
+      },
+    }),
+  );
+
+  const tree = parseNpmLockTree(lockTestDir);
+
+  expect(tree?.["lodash"]).toBe("4.17.21");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
 test("parseNpmLockTree - parses v1 dependencies field", () => {
   mkdirSync(lockTestDir, { recursive: true });
   writeFileSync(
@@ -1468,6 +1513,26 @@ test("parseNpmLockTree - parses v1 dependencies field", () => {
   expect(tree?.["lodash"]).toBe("4.17.21");
   expect(tree?.["express"]).toBe("4.18.0");
   expect(tree?.["qs"]).toBe("6.11.0");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseNpmLockTree - prefers direct dependency versions over nested duplicates", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "package-lock.json"),
+    JSON.stringify({
+      lockfileVersion: 1,
+      dependencies: {
+        lodash: { version: "4.17.21" },
+        express: { version: "4.18.0", dependencies: { lodash: { version: "3.10.1" } } },
+      },
+    }),
+  );
+
+  const tree = parseNpmLockTree(lockTestDir);
+
+  expect(tree?.["lodash"]).toBe("4.17.21");
+  expect(tree?.["express"]).toBe("4.18.0");
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1817,6 +1882,45 @@ test("getDependencyGraph - caches and returns a graph object", () => {
   expect(typeof graph).toBe("object");
   const graphAgain = getDependencyGraph(lockTestDir);
   expect(graphAgain).toBe(graph);
+
+  clearDependencyGraphCache();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("getDependencyGraph - invalidates cache when package lock changes", () => {
+  clearDependencyGraphCache();
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "package-lock.json"),
+    JSON.stringify({
+      lockfileVersion: 2,
+      packages: {
+        "": {},
+        "node_modules/express": { version: "4.18.0", dependencies: { "body-parser": "^1.20.0" } },
+        "node_modules/body-parser": { version: "1.20.0" },
+      },
+    }),
+  );
+
+  const originalGraph = getDependencyGraph(lockTestDir);
+  expect(originalGraph?.["body-parser"]).toEqual(["express"]);
+
+  writeFileSync(
+    resolve(lockTestDir, "package-lock.json"),
+    JSON.stringify({
+      lockfileVersion: 2,
+      packages: {
+        "": {},
+        "node_modules/lodash": { version: "4.17.21", dependencies: { qs: "^6.11.0" } },
+        "node_modules/qs": { version: "6.11.0" },
+      },
+    }),
+  );
+
+  const updatedGraph = getDependencyGraph(lockTestDir);
+  expect(updatedGraph).not.toBe(originalGraph);
+  expect(updatedGraph?.qs).toEqual(["lodash"]);
+  expect(updatedGraph?.["body-parser"]).toBeUndefined();
 
   clearDependencyGraphCache();
   rmSync(lockTestDir, { recursive: true, force: true });

@@ -461,7 +461,13 @@ const createDependencyTreeCacheKey = (root: string): string => {
   const lockfileHash = hashLockfile(root);
   const pm = detectPackageManager(root);
   const nodeVersion = process.versions.node;
-  return `tree:${lockfileHash}:${pm}:${nodeVersion}`;
+  return `tree:${root}:${lockfileHash}:${pm}:${nodeVersion}`;
+};
+
+const createDependencyGraphCacheKey = (root: string): string => {
+  const lockfileHash = hashLockfile(root);
+  const pm = detectPackageManager(root);
+  return `graph:${root}:${lockfileHash}:${pm}`;
 };
 
 const getPendingTreeRequests = (): Map<string, Promise<Record<string, string>>> => {
@@ -608,14 +614,65 @@ export const parseYarnLockTree = (root: string): Record<string, string> | undefi
   }
 };
 
-const traverseNpmDeps = (deps: Record<string, unknown>, result: Record<string, string>): void => {
+type DependencyVersionCandidate = {
+  depth: number;
+  version: string;
+};
+
+const getDependencyVersion = (value: unknown): string => {
+  const version = (value as { version?: unknown })?.version;
+  if (typeof version !== "string") return UNKNOWN_DEPENDENCY_VERSION;
+  if (version.length === 0) return UNKNOWN_DEPENDENCY_VERSION;
+  return version;
+};
+
+const shouldUseDependencyVersionCandidate = (
+  current: DependencyVersionCandidate | undefined,
+  version: string,
+  depth: number,
+): boolean => {
+  if (!current) return true;
+  if (depth < current.depth) return true;
+  if (depth !== current.depth) return false;
+  if (current.version !== UNKNOWN_DEPENDENCY_VERSION) return false;
+  return version !== UNKNOWN_DEPENDENCY_VERSION;
+};
+
+const setPreferredDependencyVersion = (
+  versions: Map<string, DependencyVersionCandidate>,
+  name: string,
+  version: string,
+  depth: number,
+): void => {
+  const current = versions.get(name);
+  const shouldReplace = shouldUseDependencyVersionCandidate(current, version, depth);
+
+  if (shouldReplace) versions.set(name, { depth, version });
+};
+
+const getNpmLockPackageDepth = (key: string): number => key.split("node_modules/").length - 1;
+
+const getNpmLockPackageName = (key: string): string => key.replace(/^.*node_modules\//, "");
+
+const dependencyVersionsToRecord = (
+  versions: Map<string, DependencyVersionCandidate>,
+): Record<string, string> =>
+  Object.fromEntries(Array.from(versions, ([name, candidate]) => [name, candidate.version]));
+
+const traverseNpmDeps = (
+  deps: Record<string, unknown>,
+  versions: Map<string, DependencyVersionCandidate>,
+  depth = 1,
+): void => {
   Object.entries(deps).forEach(([name, value]) => {
-    const version = (value as { version?: unknown }).version;
-    result[name] =
-      typeof version === "string" && version.length > 0 ? version : UNKNOWN_DEPENDENCY_VERSION;
+    setPreferredDependencyVersion(versions, name, getDependencyVersion(value), depth);
     const hasNested = value && typeof value === "object" && "dependencies" in value;
     if (hasNested)
-      traverseNpmDeps((value as { dependencies: Record<string, unknown> }).dependencies, result);
+      traverseNpmDeps(
+        (value as { dependencies: Record<string, unknown> }).dependencies,
+        versions,
+        depth + 1,
+      );
   });
 };
 
@@ -629,21 +686,25 @@ export const parseNpmLockTree = (root: string): Record<string, string> | undefin
       dependencies?: Record<string, unknown>;
     };
     if (lock.packages) {
-      const entries = Object.entries(lock.packages)
-        .filter(([key]) => key !== "" && key.includes("node_modules/"))
-        .map(
-          ([key, pkg]) =>
-            [key.replace(/^.*node_modules\//, ""), pkg.version || UNKNOWN_DEPENDENCY_VERSION] as [
-              string,
-              string,
-            ],
+      const versions = new Map<string, DependencyVersionCandidate>();
+      Object.entries(lock.packages).forEach(([key, pkg]) => {
+        const isDependencyPackage = key !== "" && key.includes("node_modules/");
+        if (!isDependencyPackage) return;
+        setPreferredDependencyVersion(
+          versions,
+          getNpmLockPackageName(key),
+          getDependencyVersion(pkg),
+          getNpmLockPackageDepth(key),
         );
-      return Object.fromEntries(entries);
+      });
+      if (versions.size === 0) return undefined;
+      return dependencyVersionsToRecord(versions);
     }
     if (lock.dependencies) {
-      const result: Record<string, string> = {};
-      traverseNpmDeps(lock.dependencies, result);
-      return result;
+      const versions = new Map<string, DependencyVersionCandidate>();
+      traverseNpmDeps(lock.dependencies, versions);
+      if (versions.size === 0) return undefined;
+      return dependencyVersionsToRecord(versions);
     }
     return undefined;
   } catch {
@@ -846,7 +907,8 @@ export const parseYarnLockGraph = (root: string): Record<string, string[]> | und
 
 export const getDependencyGraph = (root: string = process.cwd()): Record<string, string[]> => {
   if (!_graphCache) _graphCache = new Map();
-  const cached = _graphCache.get(root);
+  const cacheKey = createDependencyGraphCacheKey(root);
+  const cached = _graphCache.get(cacheKey);
   if (cached) return cached;
   const pm = detectPackageManager(root);
   const result =
@@ -858,7 +920,7 @@ export const getDependencyGraph = (root: string = process.cwd()): Record<string,
           ? parseYarnLockGraph(root)
           : parseNpmLockGraph(root);
   const graph = result ?? {};
-  _graphCache.set(root, graph);
+  _graphCache.set(cacheKey, graph);
   return graph;
 };
 

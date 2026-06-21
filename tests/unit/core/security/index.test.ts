@@ -1526,6 +1526,27 @@ test("checkSecurity - expires in-memory alerts using cache TTL seconds", async (
   }
 });
 
+test("checkSecurity - skipCacheWrite does not seed in-memory alerts cache", async () => {
+  const checker = new SecurityChecker({
+    provider: "osv",
+    cacheTtl: 60,
+    noCache: true,
+  });
+  const providers = (checker as unknown as SecurityCheckerProviderHarness).providers;
+  const fetchAlerts = spyOn(providers[0], "fetchAlerts").mockResolvedValue([]);
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+    dependencies: { lodash: "4.17.20" },
+  };
+
+  await checker.checkSecurity(config, { skipCacheWrite: true });
+  await checker.checkSecurity(config);
+  await checker.checkSecurity(config);
+
+  expect(fetchAlerts).toHaveBeenCalledTimes(2);
+});
+
 test("checkSecurity - returns results when provider fetch succeeds", async () => {
   const checker = new SecurityChecker({ debug: false, noCache: true });
   const config = {

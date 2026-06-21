@@ -62,6 +62,7 @@ export interface SecurityCheckRuntimeOptions extends SecurityCheckOptions {
   depPaths?: string[];
   root?: string;
   packageJsonPath?: string;
+  skipCacheWrite?: boolean;
 }
 
 export interface SecurityCheckResult {

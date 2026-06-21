@@ -179,7 +179,7 @@ const logDependencyTreeMatch = (packageName: string): void => {
 
 const shouldRemoveSimpleOverride = (
   packageName: string,
-  dependencyTree: Record<string, boolean>,
+  dependencyTree: Record<string, string>,
   hasAnyDeps: boolean,
 ): boolean => {
   if (!hasAnyDeps) {
@@ -202,7 +202,7 @@ const isUnusedSimpleOverride = (
   packageName: string,
   overrides: OverridesType,
   allDependencies: Record<string, string>,
-  dependencyTree: Record<string, boolean>,
+  dependencyTree: Record<string, string>,
   hasAnyDeps: boolean,
 ): boolean => {
   const shouldCheckSimpleOverride = isSimpleOverrideCandidate(
@@ -219,7 +219,7 @@ const checkIfUnused = async (
   packageName: string,
   overrides: OverridesType,
   allDependencies: Record<string, string>,
-  dependencyTree: Record<string, boolean>,
+  dependencyTree: Record<string, string>,
   hasAnyDeps: boolean,
 ): Promise<boolean> => {
   const isUnusedNested = isUnusedNestedOverride(packageName, overrides, allDependencies);

@@ -265,11 +265,15 @@ export const buildDependentInfo = (
   hasOverride: boolean,
   override: string,
   packageVersion: string | undefined,
-  dependencyTree?: Record<string, boolean>,
+  dependencyTree?: Record<string, string>,
+  dependencyGraph?: Record<string, string[]>,
 ): string => {
   if (hasOverride) return packageAtVersion(override)(packageVersion ?? "");
 
-  const isInDependencyTree = dependencyTree?.[override] || false;
+  const requiredBy = dependencyGraph?.[override];
+  if (requiredBy?.length) return `${override} (required by ${requiredBy.slice(0, 3).join(", ")})`;
+
+  const isInDependencyTree = Boolean(dependencyTree?.[override]);
   if (isInDependencyTree) {
     return `${override} (transitive dependency)`;
   }

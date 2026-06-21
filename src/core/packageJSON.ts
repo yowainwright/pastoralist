@@ -16,22 +16,27 @@ import { LRUCache, DiskCache, hashLockfile, resolveCacheDir } from "../utils/cac
 import { CACHE_NAMESPACES, CACHE_TTLS, CACHE_NS_VERSIONS } from "../utils/cache";
 import { showHint } from "../dx/hint";
 import {
+  BUN_LOCK_FILENAME,
+  NPM_LOCK_FILENAME,
   NPM_LS_MAX_BUFFER,
   NPM_LS_TIMEOUT_MS,
+  PNPM_LOCK_FILENAME,
   PNPM_LOCK_PACKAGE_PATTERN,
   TREE_CACHE_MAX_ENTRIES,
+  YARN_LOCK_FILENAME,
   YARN_LOCK_PACKAGE_PATTERN,
 } from "./constants";
 
 const execFile = promisify(execFileCallback);
 const log = logger({ file: "packageJSON.ts", isLogging: IS_DEBUGGING });
+const UNKNOWN_DEPENDENCY_VERSION = "unknown";
 
-let _treeCache: DiskCache<Record<string, boolean>> | null = null;
-let _pendingTreeRequests: Map<string, Promise<Record<string, boolean>>> | null = null;
+let _treeCache: DiskCache<Record<string, string>> | null = null;
+let _pendingTreeRequests: Map<string, Promise<Record<string, string>>> | null = null;
 
-const getTreeCache = (cacheDir?: string): DiskCache<Record<string, boolean>> => {
+const getTreeCache = (cacheDir?: string): DiskCache<Record<string, string>> => {
   if (!_treeCache) {
-    _treeCache = new DiskCache<Record<string, boolean>>(CACHE_NAMESPACES.TREE, {
+    _treeCache = new DiskCache<Record<string, string>>(CACHE_NAMESPACES.TREE, {
       dir: cacheDir ?? resolveCacheDir(),
       ttl: CACHE_TTLS.TREE,
       version: CACHE_NS_VERSIONS.TREE,
@@ -399,7 +404,7 @@ export const updatePackageJSON = ({
   writeUpdatedPackageJson(path, updatedConfig, jsonString);
 };
 
-export const parseNpmLsOutput = (stdout: string): Record<string, boolean> => {
+export const parseNpmLsOutput = (stdout: string): Record<string, string> => {
   let tree: { dependencies?: Record<string, unknown> };
   try {
     tree = JSON.parse(stdout);
@@ -407,14 +412,19 @@ export const parseNpmLsOutput = (stdout: string): Record<string, boolean> => {
     log.debug("Failed to parse npm ls output", "parseNpmLsOutput", err);
     return {};
   }
-  const packageMap: Record<string, boolean> = {};
+  const packageMap: Record<string, string> = {};
+
+  const getDependencyVersion = (value: unknown): string => {
+    const version = (value as { version?: unknown })?.version;
+    return typeof version === "string" && version.length > 0 ? version : UNKNOWN_DEPENDENCY_VERSION;
+  };
 
   const traverseDependencies = (deps: Record<string, unknown>): void => {
     const isValidDeps = deps && typeof deps === "object";
     if (!isValidDeps) return;
 
     Object.entries(deps).forEach(([name, value]) => {
-      packageMap[name] = true;
+      packageMap[name] = getDependencyVersion(value);
 
       const hasNestedDeps = value && typeof value === "object" && "dependencies" in value;
       if (hasNestedDeps) {
@@ -451,22 +461,278 @@ const createDependencyTreeCacheKey = (root: string): string => {
   const lockfileHash = hashLockfile(root);
   const pm = detectPackageManager(root);
   const nodeVersion = process.versions.node;
-  return `tree:${lockfileHash}:${pm}:${nodeVersion}`;
+  return `tree:${root}:${lockfileHash}:${pm}:${nodeVersion}`;
 };
 
-const getPendingTreeRequests = (): Map<string, Promise<Record<string, boolean>>> => {
+const createDependencyGraphCacheKey = (root: string): string => {
+  const lockfileHash = hashLockfile(root);
+  const pm = detectPackageManager(root);
+  return `graph:${root}:${lockfileHash}:${pm}`;
+};
+
+const getPendingTreeRequests = (): Map<string, Promise<Record<string, string>>> => {
   if (!_pendingTreeRequests) _pendingTreeRequests = new Map();
   return _pendingTreeRequests;
 };
 
+type BunLockFile = { packages?: Record<string, unknown> };
+
+const isJsonWhitespace = (char: string): boolean =>
+  char === " " || char === "\n" || char === "\r" || char === "\t";
+
+const stripBunLockTrailingCommas = (content: string): string => {
+  let result = "";
+  let inString = false;
+  let isEscaped = false;
+
+  for (let index = 0; index < content.length; index++) {
+    const char = content[index];
+
+    if (inString) {
+      result += char;
+
+      if (isEscaped) {
+        isEscaped = false;
+        continue;
+      }
+
+      if (char === "\\") {
+        isEscaped = true;
+        continue;
+      }
+
+      if (char === '"') inString = false;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      result += char;
+      continue;
+    }
+
+    if (char === ",") {
+      let nextIndex = index + 1;
+      while (nextIndex < content.length && isJsonWhitespace(content[nextIndex])) nextIndex++;
+
+      const nextChar = content[nextIndex];
+      if (nextChar === "}" || nextChar === "]") continue;
+    }
+
+    result += char;
+  }
+
+  return result;
+};
+
+const parseBunLockFile = (content: string): BunLockFile =>
+  JSON.parse(stripBunLockTrailingCommas(content)) as BunLockFile;
+
+const extractBunPackageVersion = (entry: unknown): string => {
+  if (!Array.isArray(entry)) return UNKNOWN_DEPENDENCY_VERSION;
+
+  const versionEntry = entry[0];
+  if (typeof versionEntry !== "string") return UNKNOWN_DEPENDENCY_VERSION;
+
+  const separatorIndex = versionEntry.lastIndexOf("@");
+  const hasVersionSeparator = separatorIndex > 0 && separatorIndex < versionEntry.length - 1;
+  if (!hasVersionSeparator) return UNKNOWN_DEPENDENCY_VERSION;
+
+  return versionEntry.slice(separatorIndex + 1);
+};
+
+export const parseBunLockTree = (root: string): Record<string, string> | undefined => {
+  const lockPath = resolve(root, BUN_LOCK_FILENAME);
+  if (!fs.existsSync(lockPath)) return undefined;
+  try {
+    const content = fs.readFileSync(lockPath, "utf8");
+    const lock = parseBunLockFile(content);
+    const packages = lock?.packages;
+    const isValidPackages = packages && typeof packages === "object" && !Array.isArray(packages);
+    if (!isValidPackages) return undefined;
+    const packageEntries = Object.entries(packages);
+    if (packageEntries.length === 0) return undefined;
+    return Object.fromEntries(
+      packageEntries.map(([name, entry]) => {
+        return [name, extractBunPackageVersion(entry)];
+      }),
+    );
+  } catch {
+    return undefined;
+  }
+};
+
+export const parsePnpmLockTree = (root: string): Record<string, string> | undefined => {
+  const lockPath = resolve(root, PNPM_LOCK_FILENAME);
+  if (!fs.existsSync(lockPath)) return undefined;
+  try {
+    const content = fs.readFileSync(lockPath, "utf8");
+    const v5v6Entries = [
+      ...content.matchAll(/^  \/((?:@[^/@\n]+\/)?[^/@\n\s]+)(?:@|\/)([^\s:]+):/gm),
+    ].map(([, name, version]) => [name, version] as [string, string]);
+    const v9Entries = [
+      ...content.matchAll(/^  '?((?:@[^@/\n'"]+\/)?[\w][\w.-]*)@([^\s:'"]+)/gm),
+    ].map(([, name, version]) => [name, version] as [string, string]);
+    const entryMap = new Map([...v5v6Entries, ...v9Entries]);
+    if (entryMap.size === 0) return undefined;
+    return Object.fromEntries(entryMap);
+  } catch {
+    return undefined;
+  }
+};
+
+const parseYarnLockPackageName = (line: string): string | undefined => {
+  const match = line.match(/^"?((?:@[^/@\n"]+\/)?[^@,\n"]+)@.*"?:$/);
+  return match?.[1]?.trim();
+};
+
+export const parseYarnLockTree = (root: string): Record<string, string> | undefined => {
+  const lockPath = resolve(root, YARN_LOCK_FILENAME);
+  if (!fs.existsSync(lockPath)) return undefined;
+  try {
+    const content = fs.readFileSync(lockPath, "utf8");
+    const result: Record<string, string> = {};
+    let currentName: string | undefined;
+    content.split("\n").forEach((line) => {
+      const packageName = parseYarnLockPackageName(line);
+      if (packageName) {
+        currentName = packageName;
+        return;
+      }
+      if (currentName) {
+        const versionMatch = line.match(/^\s+version[: ]+"?([^\s"]+)"?/);
+        if (versionMatch) {
+          result[currentName] = versionMatch[1];
+          currentName = undefined;
+        }
+      }
+    });
+    if (Object.keys(result).length === 0) return undefined;
+    return result;
+  } catch {
+    return undefined;
+  }
+};
+
+type DependencyVersionCandidate = {
+  depth: number;
+  version: string;
+};
+
+const getDependencyVersion = (value: unknown): string => {
+  const version = (value as { version?: unknown })?.version;
+  if (typeof version !== "string") return UNKNOWN_DEPENDENCY_VERSION;
+  if (version.length === 0) return UNKNOWN_DEPENDENCY_VERSION;
+  return version;
+};
+
+const shouldUseDependencyVersionCandidate = (
+  current: DependencyVersionCandidate | undefined,
+  version: string,
+  depth: number,
+): boolean => {
+  if (!current) return true;
+  if (depth < current.depth) return true;
+  if (depth !== current.depth) return false;
+  if (current.version !== UNKNOWN_DEPENDENCY_VERSION) return false;
+  return version !== UNKNOWN_DEPENDENCY_VERSION;
+};
+
+const setPreferredDependencyVersion = (
+  versions: Map<string, DependencyVersionCandidate>,
+  name: string,
+  version: string,
+  depth: number,
+): void => {
+  const current = versions.get(name);
+  const shouldReplace = shouldUseDependencyVersionCandidate(current, version, depth);
+
+  if (shouldReplace) versions.set(name, { depth, version });
+};
+
+const getNpmLockPackageDepth = (key: string): number => key.split("node_modules/").length - 1;
+
+const getNpmLockPackageName = (key: string): string => key.replace(/^.*node_modules\//, "");
+
+const dependencyVersionsToRecord = (
+  versions: Map<string, DependencyVersionCandidate>,
+): Record<string, string> =>
+  Object.fromEntries(Array.from(versions, ([name, candidate]) => [name, candidate.version]));
+
+const traverseNpmDeps = (
+  deps: Record<string, unknown>,
+  versions: Map<string, DependencyVersionCandidate>,
+  depth = 1,
+): void => {
+  Object.entries(deps).forEach(([name, value]) => {
+    setPreferredDependencyVersion(versions, name, getDependencyVersion(value), depth);
+    const hasNested = value && typeof value === "object" && "dependencies" in value;
+    if (hasNested)
+      traverseNpmDeps(
+        (value as { dependencies: Record<string, unknown> }).dependencies,
+        versions,
+        depth + 1,
+      );
+  });
+};
+
+export const parseNpmLockTree = (root: string): Record<string, string> | undefined => {
+  const lockPath = resolve(root, NPM_LOCK_FILENAME);
+  if (!fs.existsSync(lockPath)) return undefined;
+  try {
+    const content = fs.readFileSync(lockPath, "utf8");
+    const lock = JSON.parse(content) as {
+      packages?: Record<string, { version?: string }>;
+      dependencies?: Record<string, unknown>;
+    };
+    if (lock.packages) {
+      const versions = new Map<string, DependencyVersionCandidate>();
+      Object.entries(lock.packages).forEach(([key, pkg]) => {
+        const isDependencyPackage = key !== "" && key.includes("node_modules/");
+        if (!isDependencyPackage) return;
+        setPreferredDependencyVersion(
+          versions,
+          getNpmLockPackageName(key),
+          getDependencyVersion(pkg),
+          getNpmLockPackageDepth(key),
+        );
+      });
+      if (versions.size === 0) return undefined;
+      return dependencyVersionsToRecord(versions);
+    }
+    if (lock.dependencies) {
+      const versions = new Map<string, DependencyVersionCandidate>();
+      traverseNpmDeps(lock.dependencies, versions);
+      if (versions.size === 0) return undefined;
+      return dependencyVersionsToRecord(versions);
+    }
+    return undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const parseTreeFromLockfile = (root: string): Record<string, string> | undefined => {
+  const pm = detectPackageManager(root);
+  if (pm === "bun") return parseBunLockTree(root);
+  if (pm === "pnpm") return parsePnpmLockTree(root);
+  if (pm === "yarn") return parseYarnLockTree(root);
+  return parseNpmLockTree(root);
+};
+
 const createDependencyTreeRequest = (
   cacheKey: string,
-  cache: DiskCache<Record<string, boolean>>,
+  cache: DiskCache<Record<string, string>>,
   root: string,
   mockExecuteNpmLs?: (root?: string) => Promise<string>,
-): Promise<Record<string, boolean>> =>
+): Promise<Record<string, string>> =>
   (async () => {
     try {
+      const lockfileTree = parseTreeFromLockfile(root);
+      if (lockfileTree) {
+        cache.set(cacheKey, lockfileTree);
+        return lockfileTree;
+      }
       const execute = mockExecuteNpmLs || executeNpmLs;
       const stdout = await execute(root);
       const packageMap = parseNpmLsOutput(stdout);
@@ -484,7 +750,7 @@ export const getDependencyTree = async (
   mockExecuteNpmLs?: (root?: string) => Promise<string>,
   cacheDir?: string,
   root: string = process.cwd(),
-): Promise<Record<string, boolean>> => {
+): Promise<Record<string, string>> => {
   const cacheKey = createDependencyTreeCacheKey(root);
   const cache = getTreeCache(cacheDir);
   const cached = cache.get(cacheKey);
@@ -497,6 +763,170 @@ export const getDependencyTree = async (
   const request = createDependencyTreeRequest(cacheKey, cache, root, mockExecuteNpmLs);
   pendingRequests.set(cacheKey, request);
   return request;
+};
+
+let _graphCache: Map<string, Record<string, string[]>> | null = null;
+
+export const parseBunLockGraph = (root: string): Record<string, string[]> | undefined => {
+  const lockPath = resolve(root, BUN_LOCK_FILENAME);
+  if (!fs.existsSync(lockPath)) return undefined;
+  try {
+    const content = fs.readFileSync(lockPath, "utf8");
+    const lock = parseBunLockFile(content);
+    const packages = lock?.packages;
+    const isValidPackages = packages && typeof packages === "object" && !Array.isArray(packages);
+    if (!isValidPackages) return undefined;
+    const inverted: Record<string, string[]> = {};
+    Object.entries(packages).forEach(([name, entry]) => {
+      if (!Array.isArray(entry)) return;
+      const deps = (entry[2] as { dependencies?: Record<string, string> })?.dependencies ?? {};
+      Object.keys(deps).forEach((dep) => {
+        if (!inverted[dep]) inverted[dep] = [];
+        inverted[dep].push(name);
+      });
+    });
+    return Object.keys(inverted).length > 0 ? inverted : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+export const parseNpmLockGraph = (root: string): Record<string, string[]> | undefined => {
+  const lockPath = resolve(root, NPM_LOCK_FILENAME);
+  if (!fs.existsSync(lockPath)) return undefined;
+  try {
+    const content = fs.readFileSync(lockPath, "utf8");
+    const lock = JSON.parse(content) as {
+      packages?: Record<string, { dependencies?: Record<string, string> }>;
+      dependencies?: Record<string, unknown>;
+    };
+    const inverted: Record<string, string[]> = {};
+    if (lock.packages) {
+      Object.entries(lock.packages).forEach(([key, pkg]) => {
+        const isRoot = key === "" || !key.includes("node_modules/");
+        if (isRoot) return;
+        const name = key.replace(/^.*node_modules\//, "");
+        Object.keys(pkg.dependencies ?? {}).forEach((dep) => {
+          if (!inverted[dep]) inverted[dep] = [];
+          inverted[dep].push(name);
+        });
+      });
+    } else if (lock.dependencies) {
+      const traverseGraph = (deps: Record<string, unknown>, parent?: string): void => {
+        Object.entries(deps).forEach(([name, value]) => {
+          if (parent) {
+            if (!inverted[name]) inverted[name] = [];
+            inverted[name].push(parent);
+          }
+          const nested = (value as { dependencies?: Record<string, unknown> })?.dependencies;
+          if (nested) traverseGraph(nested, name);
+        });
+      };
+      traverseGraph(lock.dependencies);
+    }
+    return Object.keys(inverted).length > 0 ? inverted : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+export const parsePnpmLockGraph = (root: string): Record<string, string[]> | undefined => {
+  const lockPath = resolve(root, PNPM_LOCK_FILENAME);
+  if (!fs.existsSync(lockPath)) return undefined;
+  try {
+    const content = fs.readFileSync(lockPath, "utf8");
+    const inverted: Record<string, string[]> = {};
+    let currentPkg: string | undefined;
+    let inDeps = false;
+    content.split("\n").forEach((line) => {
+      const v5v6Match = line.match(/^  \/((?:@[^/@\n]+\/)?[^/@\n\s]+)(?:@|\/)([^\s:]+):/);
+      const v9Match = line.match(/^  '?((?:@[^@/\n'"]+\/)?[\w][\w.-]*)@([^\s:'"]+)/);
+      if (v5v6Match || v9Match) {
+        currentPkg = v5v6Match ? v5v6Match[1] : v9Match![1];
+        inDeps = false;
+        return;
+      }
+      if (currentPkg && line.match(/^    dependencies:/)) {
+        inDeps = true;
+        return;
+      }
+      if (inDeps && currentPkg) {
+        const depMatch = line.match(/^      '?([^':\s]+)'?:/);
+        if (depMatch) {
+          const dep = depMatch[1];
+          if (!inverted[dep]) inverted[dep] = [];
+          inverted[dep].push(currentPkg);
+          return;
+        }
+        const hasSixSpaces = line.startsWith("      ");
+        if (!hasSixSpaces) inDeps = false;
+      }
+    });
+    return Object.keys(inverted).length > 0 ? inverted : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+export const parseYarnLockGraph = (root: string): Record<string, string[]> | undefined => {
+  const lockPath = resolve(root, YARN_LOCK_FILENAME);
+  if (!fs.existsSync(lockPath)) return undefined;
+  try {
+    const content = fs.readFileSync(lockPath, "utf8");
+    const inverted: Record<string, string[]> = {};
+    let currentPkg: string | undefined;
+    let inDeps = false;
+    content.split("\n").forEach((line) => {
+      const packageName = parseYarnLockPackageName(line);
+      if (packageName) {
+        currentPkg = packageName;
+        inDeps = false;
+        return;
+      }
+      if (currentPkg && line === "  dependencies:") {
+        inDeps = true;
+        return;
+      }
+      if (inDeps && currentPkg) {
+        const depMatch = line.match(/^\s{4}"?(@?[^@\s"]+)"?\s/);
+        if (depMatch) {
+          const dep = depMatch[1];
+          if (!inverted[dep]) inverted[dep] = [];
+          inverted[dep].push(currentPkg);
+          return;
+        }
+        const hasFourSpaces = line.startsWith("    ");
+        if (!hasFourSpaces) inDeps = false;
+      }
+    });
+    return Object.keys(inverted).length > 0 ? inverted : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+export const getDependencyGraph = (root: string = process.cwd()): Record<string, string[]> => {
+  if (!_graphCache) _graphCache = new Map();
+  const cacheKey = createDependencyGraphCacheKey(root);
+  const cached = _graphCache.get(cacheKey);
+  if (cached) return cached;
+  const pm = detectPackageManager(root);
+  const result =
+    pm === "bun"
+      ? parseBunLockGraph(root)
+      : pm === "pnpm"
+        ? parsePnpmLockGraph(root)
+        : pm === "yarn"
+          ? parseYarnLockGraph(root)
+          : parseNpmLockGraph(root);
+  const graph = result ?? {};
+  _graphCache.set(cacheKey, graph);
+  return graph;
+};
+
+export const clearDependencyGraphCache = (): void => {
+  _graphCache?.clear();
+  _graphCache = null;
 };
 
 export const clearDependencyTreeCache = (): void => {

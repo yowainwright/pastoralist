@@ -195,7 +195,7 @@ test("updateAppendix - should handle packages not in dependencies", () => {
     peerDependencies: {},
     packageName: "test-package",
     onlyUsedOverrides: false,
-    dependencyTree: { "transitive-dep": true },
+    dependencyTree: { "transitive-dep": "1.0.0" },
   });
 
   expect(result["transitive-dep@1.0.0"]).toBeDefined();

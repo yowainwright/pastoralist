@@ -118,7 +118,8 @@ export interface UpdateAppendixOptions {
   securityOverrideDetails?: SecurityOverrideDetail[];
   securityProvider?: SecurityProviderType;
   onlyUsedOverrides?: boolean;
-  dependencyTree?: Record<string, boolean>;
+  dependencyTree?: Record<string, string>;
+  dependencyGraph?: Record<string, string[]>;
   addedDate?: string;
 }
 

@@ -2,7 +2,11 @@ import { test, expect } from "bun:test";
 import { mkdirSync, writeFileSync, rmSync, existsSync } from "fs";
 import { resolve } from "path";
 import { update } from "../../../../src/core/update/index";
-import { forceClearCache } from "../../../../src/core/packageJSON";
+import {
+  clearDependencyGraphCache,
+  forceClearCache,
+  getDependencyGraph,
+} from "../../../../src/core/packageJSON";
 import {
   determineProcessingMode,
   resolveDepPaths,
@@ -488,6 +492,52 @@ test("update - clears cache when clearCache option is true", () => {
   const result = update(options);
 
   expect(result.config).toBe(config);
+});
+
+test("update - clears dependency graph cache when clearCache option is true", () => {
+  clearDependencyGraphCache();
+  mkdirSync(TEST_DIR, { recursive: true });
+
+  writeFileSync(
+    resolve(TEST_DIR, "package-lock.json"),
+    JSON.stringify({
+      lockfileVersion: 2,
+      packages: {
+        "": {},
+        "node_modules/express": { dependencies: { "body-parser": "^1.20.0" } },
+      },
+    }),
+  );
+
+  expect(getDependencyGraph(TEST_DIR)?.["body-parser"]).toContain("express");
+
+  writeFileSync(
+    resolve(TEST_DIR, "package-lock.json"),
+    JSON.stringify({
+      lockfileVersion: 2,
+      packages: {
+        "": {},
+        "node_modules/lodash": { dependencies: { qs: "^6.11.0" } },
+      },
+    }),
+  );
+
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+  };
+
+  update({
+    config,
+    isTesting: true,
+    clearCache: true,
+  });
+
+  expect(getDependencyGraph(TEST_DIR)?.qs).toContain("lodash");
+  expect(getDependencyGraph(TEST_DIR)?.["body-parser"]).toBeUndefined();
+
+  clearDependencyGraphCache();
+  rmSync(TEST_DIR, { recursive: true, force: true });
 });
 
 test("update - handles config with workspaces but no depPaths", () => {

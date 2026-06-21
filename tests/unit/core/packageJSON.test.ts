@@ -17,8 +17,18 @@ import {
 import {
   getDependencyTree,
   parseNpmLsOutput,
+  parseBunLockTree,
+  parsePnpmLockTree,
+  parseYarnLockTree,
+  parseNpmLockTree,
   executeNpmLs,
   getFullDependencyCount,
+  parseBunLockGraph,
+  parsePnpmLockGraph,
+  parseYarnLockGraph,
+  parseNpmLockGraph,
+  getDependencyGraph,
+  clearDependencyGraphCache,
 } from "../../../src/core/packageJSON";
 import { clearHintCache } from "../../../src/dx/hint";
 import { HINT_RC_FILE_TEXT } from "../../../src/constants";
@@ -612,11 +622,11 @@ test("getDependencyTree - should return dependency tree", async () => {
   });
 
   const mockExecuteNpmLs = async () => mockOutput;
-  const tree = await getDependencyTree(mockExecuteNpmLs);
+  const tree = await getDependencyTree(mockExecuteNpmLs, undefined, testDir);
 
   expect(typeof tree).toBe("object");
-  expect(tree["lodash"]).toBe(true);
-  expect(tree["express"]).toBe(true);
+  expect(tree["lodash"]).toBe("4.17.21");
+  expect(tree["express"]).toBe("4.18.0");
   clearDependencyTreeCache();
 });
 
@@ -976,8 +986,8 @@ test("parseNpmLsOutput - should parse flat dependencies", () => {
 
   const result = parseNpmLsOutput(stdout);
 
-  expect(result.lodash).toBe(true);
-  expect(result.express).toBe(true);
+  expect(result.lodash).toBe("4.17.21");
+  expect(result.express).toBe("4.18.0");
 });
 
 test("parseNpmLsOutput - should parse nested dependencies", () => {
@@ -1000,10 +1010,10 @@ test("parseNpmLsOutput - should parse nested dependencies", () => {
 
   const result = parseNpmLsOutput(stdout);
 
-  expect(result.express).toBe(true);
-  expect(result.accepts).toBe(true);
-  expect(result["body-parser"]).toBe(true);
-  expect(result.bytes).toBe(true);
+  expect(result.express).toBe("4.18.0");
+  expect(result.accepts).toBe("1.3.8");
+  expect(result["body-parser"]).toBe("1.20.0");
+  expect(result.bytes).toBe("3.1.2");
 });
 
 test("parseNpmLsOutput - should handle empty dependencies", () => {
@@ -1037,8 +1047,8 @@ test("parseNpmLsOutput - should handle invalid nested deps", () => {
 
   const result = parseNpmLsOutput(stdout);
 
-  expect(result.lodash).toBe(true);
-  expect(result.express).toBe(true);
+  expect(result.lodash).toBe("unknown");
+  expect(result.express).toBe("4.18.0");
 });
 
 test("getDependencyTree - uses custom cacheDir when provided", async () => {
@@ -1048,9 +1058,9 @@ test("getDependencyTree - uses custom cacheDir when provided", async () => {
   const mockOutput = JSON.stringify({ dependencies: { lodash: {} } });
   const mockExecuteNpmLs = async () => mockOutput;
 
-  const tree = await getDependencyTree(mockExecuteNpmLs, customCacheDir);
+  const tree = await getDependencyTree(mockExecuteNpmLs, customCacheDir, testDir);
 
-  expect(tree["lodash"]).toBe(true);
+  expect(tree["lodash"]).toBe("unknown");
   clearDependencyTreeCache();
   rmSync(customCacheDir, { recursive: true, force: true });
 });
@@ -1070,15 +1080,40 @@ test("getDependencyTree - should cache results on second call", async () => {
     return mockOutput;
   };
 
-  const firstCall = await getDependencyTree(mockExecuteNpmLs);
+  const firstCall = await getDependencyTree(mockExecuteNpmLs, undefined, testDir);
   const failMock = async () => {
     throw new Error("should not be called");
   };
-  const secondCall = await getDependencyTree(failMock);
+  const secondCall = await getDependencyTree(failMock, undefined, testDir);
 
   expect(firstCall).toEqual(secondCall);
   expect(callCount).toBe(1);
   clearDependencyTreeCache();
+});
+
+test("getDependencyTree - caches lockfile-less roots independently", async () => {
+  clearDependencyTreeCache();
+  const cacheDir = resolve(testDir, "multi-root-cache");
+  const rootA = resolve(testDir, "root-a");
+  const rootB = resolve(testDir, "root-b");
+  mkdirSync(rootA, { recursive: true });
+  mkdirSync(rootB, { recursive: true });
+
+  const mockExecuteNpmLs = async (root?: string) => {
+    const dependencyName = root === rootA ? "left-pad" : "right-pad";
+    return JSON.stringify({ dependencies: { [dependencyName]: { version: "1.0.0" } } });
+  };
+
+  const treeA = await getDependencyTree(mockExecuteNpmLs, cacheDir, rootA);
+  const treeB = await getDependencyTree(mockExecuteNpmLs, cacheDir, rootB);
+
+  expect(treeA["left-pad"]).toBe("1.0.0");
+  expect(treeA["right-pad"]).toBeUndefined();
+  expect(treeB["right-pad"]).toBe("1.0.0");
+  expect(treeB["left-pad"]).toBeUndefined();
+
+  clearDependencyTreeCache();
+  rmSync(testDir, { recursive: true, force: true });
 });
 
 test("getDependencyTree - coalesces concurrent requests", async () => {
@@ -1097,9 +1132,9 @@ test("getDependencyTree - coalesces concurrent requests", async () => {
   };
 
   const [first, second, third] = await Promise.all([
-    getDependencyTree(mockExecuteNpmLs),
-    getDependencyTree(mockExecuteNpmLs),
-    getDependencyTree(mockExecuteNpmLs),
+    getDependencyTree(mockExecuteNpmLs, undefined, testDir),
+    getDependencyTree(mockExecuteNpmLs, undefined, testDir),
+    getDependencyTree(mockExecuteNpmLs, undefined, testDir),
   ]);
 
   expect(first).toEqual(second);
@@ -1114,7 +1149,7 @@ test("getDependencyTree - should return empty object on error", async () => {
   const mockExecuteNpmLs = async () => {
     throw new Error("npm command failed");
   };
-  const tree = await getDependencyTree(mockExecuteNpmLs);
+  const tree = await getDependencyTree(mockExecuteNpmLs, undefined, testDir);
 
   expect(typeof tree).toBe("object");
   expect(Object.keys(tree)).toEqual([]);
@@ -1129,7 +1164,7 @@ test("parseNpmLsOutput - should handle null dependencies value", () => {
   });
 
   const result = parseNpmLsOutput(stdout);
-  expect(result.lodash).toBe(true);
+  expect(result.lodash).toBe("4.17.21");
 });
 
 test("updatePackageJSON - should not write root package.json without name", () => {
@@ -1181,7 +1216,7 @@ test("getDependencyTree - handles executeNpmLs errors gracefully", async () => {
   const mockExecuteNpmLs = async () => {
     throw new Error("Command execution failed");
   };
-  const tree = await getDependencyTree(mockExecuteNpmLs);
+  const tree = await getDependencyTree(mockExecuteNpmLs, undefined, testDir);
 
   expect(typeof tree).toBe("object");
   expect(Object.keys(tree)).toEqual([]);
@@ -1189,6 +1224,337 @@ test("getDependencyTree - handles executeNpmLs errors gracefully", async () => {
 });
 
 const lockTestDir = resolve(__dirname, "..", ".test-lock-files");
+
+const bunLockContent = (packages: Record<string, unknown>) =>
+  JSON.stringify({ lockfileVersion: 1, packages });
+
+const bunLockContentWithTrailingCommas = `
+{
+  "lockfileVersion": 1,
+  "packages": {
+    "react": ["react@18.0.0", "", {}, "sha512-z"],
+    "typescript": ["typescript@5.0.0", "", {}, "sha512-w"],
+  },
+}
+`;
+
+test("parseBunLockTree - returns package map from bun.lock", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "bun.lock"),
+    bunLockContent({
+      lodash: ["lodash@4.17.21", "", {}, "sha512-x"],
+      express: ["express@4.18.0", "", {}, "sha512-y"],
+    }),
+  );
+
+  const tree = parseBunLockTree(lockTestDir);
+
+  expect(tree?.["lodash"]).toBe("4.17.21");
+  expect(tree?.["express"]).toBe("4.18.0");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseBunLockTree - uses unknown when a package entry has no version separator", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "bun.lock"),
+    bunLockContent({
+      lodash: ["lodash", "", {}, "sha512-x"],
+      malformed: "not an entry array",
+    }),
+  );
+
+  const tree = parseBunLockTree(lockTestDir);
+
+  expect(tree?.["lodash"]).toBe("unknown");
+  expect(tree?.["malformed"]).toBe("unknown");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseBunLockTree - parses Bun text lockfiles with trailing commas", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(resolve(lockTestDir, "bun.lock"), bunLockContentWithTrailingCommas);
+
+  const tree = parseBunLockTree(lockTestDir);
+
+  expect(tree?.["react"]).toBe("18.0.0");
+  expect(tree?.["typescript"]).toBe("5.0.0");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseBunLockTree - returns undefined when no bun.lock present", () => {
+  expect(parseBunLockTree(testDir)).toBeUndefined();
+});
+
+test("parseBunLockTree - returns undefined for malformed bun.lock", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(resolve(lockTestDir, "bun.lock"), "not valid json {{{");
+
+  expect(parseBunLockTree(lockTestDir)).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseBunLockTree - returns undefined when bun.lock has no packages field", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(resolve(lockTestDir, "bun.lock"), JSON.stringify({ lockfileVersion: 1 }));
+
+  expect(parseBunLockTree(lockTestDir)).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseBunLockTree - returns undefined when bun.lock packages is empty", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(resolve(lockTestDir, "bun.lock"), bunLockContent({}));
+
+  expect(parseBunLockTree(lockTestDir)).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("getDependencyTree - uses bun.lock over executeNpmLs when available", async () => {
+  clearDependencyTreeCache();
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(resolve(lockTestDir, "bun.lock"), bunLockContentWithTrailingCommas);
+  const shouldNotBeCalled = mock(async () => {
+    throw new Error("executeNpmLs should not be called");
+  });
+
+  const tree = await getDependencyTree(shouldNotBeCalled, undefined, lockTestDir);
+
+  expect(tree["react"]).toBe("18.0.0");
+  expect(tree["typescript"]).toBe("5.0.0");
+  expect(shouldNotBeCalled).not.toHaveBeenCalled();
+  rmSync(lockTestDir, { recursive: true, force: true });
+  clearDependencyTreeCache();
+});
+
+test("getDependencyTree - falls back to executeNpmLs when no bun.lock", async () => {
+  clearDependencyTreeCache();
+  const mockOutput = JSON.stringify({ dependencies: { lodash: {} } });
+  const mockExecuteNpmLs = async () => mockOutput;
+
+  const tree = await getDependencyTree(mockExecuteNpmLs, undefined, testDir);
+
+  expect(tree["lodash"]).toBe("unknown");
+  clearDependencyTreeCache();
+});
+
+test("parsePnpmLockTree - parses v5 format (slash-separated)", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "pnpm-lock.yaml"),
+    "packages:\n  /lodash/4.17.21:\n    resolution: {}\n  /@types/node/18.0.0:\n    resolution: {}\n",
+  );
+
+  const tree = parsePnpmLockTree(lockTestDir);
+
+  expect(tree?.["lodash"]).toBe("4.17.21");
+  expect(tree?.["@types/node"]).toBe("18.0.0");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parsePnpmLockTree - parses v6 format (at-separated)", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "pnpm-lock.yaml"),
+    "packages:\n  /lodash@4.17.21:\n    resolution: {}\n  /@types/node@18.0.0:\n    resolution: {}\n",
+  );
+
+  const tree = parsePnpmLockTree(lockTestDir);
+
+  expect(tree?.["lodash"]).toBe("4.17.21");
+  expect(tree?.["@types/node"]).toBe("18.0.0");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parsePnpmLockTree - parses v9 format (no leading slash)", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "pnpm-lock.yaml"),
+    "packages:\n  lodash@4.17.21: {}\n  '@types/node@18.0.0': {}\n",
+  );
+
+  const tree = parsePnpmLockTree(lockTestDir);
+
+  expect(tree?.["lodash"]).toBe("4.17.21");
+  expect(tree?.["@types/node"]).toBe("18.0.0");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parsePnpmLockTree - returns undefined when no pnpm-lock.yaml", () => {
+  expect(parsePnpmLockTree(testDir)).toBeUndefined();
+});
+
+test("parsePnpmLockTree - returns undefined for empty packages section", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(resolve(lockTestDir, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n");
+
+  expect(parsePnpmLockTree(lockTestDir)).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parsePnpmLockTree - returns undefined when lockfile cannot be read", () => {
+  mkdirSync(resolve(lockTestDir, "pnpm-lock.yaml"), { recursive: true });
+
+  expect(parsePnpmLockTree(lockTestDir)).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseYarnLockTree - parses yarn v1 format", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "yarn.lock"),
+    '# yarn lockfile v1\n\nlodash@^4.17.21:\n  version "4.17.21"\n\n"@types/node@^18.0.0":\n  version "18.0.0"\n',
+  );
+
+  const tree = parseYarnLockTree(lockTestDir);
+
+  expect(tree?.["lodash"]).toBe("4.17.21");
+  expect(tree?.["@types/node"]).toBe("18.0.0");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseYarnLockTree - parses yarn berry format", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "yarn.lock"),
+    '__metadata:\n  version: 8\n\n"lodash@npm:^4.17.21":\n  version: 4.17.21\n\n"@types/node@npm:^18.0.0":\n  version: 18.0.0\n',
+  );
+
+  const tree = parseYarnLockTree(lockTestDir);
+
+  expect(tree?.["lodash"]).toBe("4.17.21");
+  expect(tree?.["@types/node"]).toBe("18.0.0");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseYarnLockTree - handles multiple specifiers on one line", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "yarn.lock"),
+    '"lodash@^4.17.21, lodash@^4.17.20":\n  version "4.17.21"\n',
+  );
+
+  const tree = parseYarnLockTree(lockTestDir);
+
+  expect(tree?.["lodash"]).toBe("4.17.21");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseYarnLockTree - returns undefined when no yarn.lock", () => {
+  expect(parseYarnLockTree(testDir)).toBeUndefined();
+});
+
+test("parseYarnLockTree - returns undefined when lockfile cannot be read", () => {
+  mkdirSync(resolve(lockTestDir, "yarn.lock"), { recursive: true });
+
+  expect(parseYarnLockTree(lockTestDir)).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseNpmLockTree - parses v2/v3 packages field", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "package-lock.json"),
+    JSON.stringify({
+      lockfileVersion: 2,
+      packages: {
+        "": {},
+        "node_modules/lodash": { version: "4.17.21" },
+        "node_modules/@types/node": { version: "18.0.0" },
+        "node_modules/parent/node_modules/child": { version: "1.0.0" },
+      },
+    }),
+  );
+
+  const tree = parseNpmLockTree(lockTestDir);
+
+  expect(tree?.["lodash"]).toBe("4.17.21");
+  expect(tree?.["@types/node"]).toBe("18.0.0");
+  expect(tree?.["child"]).toBe("1.0.0");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseNpmLockTree - prefers hoisted package versions over nested duplicates", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "package-lock.json"),
+    JSON.stringify({
+      lockfileVersion: 2,
+      packages: {
+        "": {},
+        "node_modules/lodash": { version: "4.17.21" },
+        "node_modules/parent/node_modules/lodash": { version: "3.10.1" },
+      },
+    }),
+  );
+
+  const tree = parseNpmLockTree(lockTestDir);
+
+  expect(tree?.["lodash"]).toBe("4.17.21");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseNpmLockTree - parses v1 dependencies field", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "package-lock.json"),
+    JSON.stringify({
+      lockfileVersion: 1,
+      dependencies: {
+        lodash: { version: "4.17.21" },
+        express: { version: "4.18.0", dependencies: { qs: { version: "6.11.0" } } },
+      },
+    }),
+  );
+
+  const tree = parseNpmLockTree(lockTestDir);
+
+  expect(tree?.["lodash"]).toBe("4.17.21");
+  expect(tree?.["express"]).toBe("4.18.0");
+  expect(tree?.["qs"]).toBe("6.11.0");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseNpmLockTree - prefers direct dependency versions over nested duplicates", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "package-lock.json"),
+    JSON.stringify({
+      lockfileVersion: 1,
+      dependencies: {
+        lodash: { version: "4.17.21" },
+        express: { version: "4.18.0", dependencies: { lodash: { version: "3.10.1" } } },
+      },
+    }),
+  );
+
+  const tree = parseNpmLockTree(lockTestDir);
+
+  expect(tree?.["lodash"]).toBe("4.17.21");
+  expect(tree?.["express"]).toBe("4.18.0");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseNpmLockTree - returns undefined when no package-lock.json", () => {
+  expect(parseNpmLockTree(testDir)).toBeUndefined();
+});
+
+test("parseNpmLockTree - returns undefined when package-lock has no dependency data", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(resolve(lockTestDir, "package-lock.json"), JSON.stringify({ lockfileVersion: 3 }));
+
+  expect(parseNpmLockTree(lockTestDir)).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseNpmLockTree - returns undefined for malformed JSON", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(resolve(lockTestDir, "package-lock.json"), "not json {{{");
+
+  expect(parseNpmLockTree(lockTestDir)).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
 
 test("getFullDependencyCount - counts npm lock file packages", () => {
   validateRootPackageJsonIntegrity();
@@ -1251,6 +1617,17 @@ test("getFullDependencyCount - handles empty yarn lock", () => {
   mkdirSync(lockTestDir, { recursive: true });
 
   writeFileSync(resolve(lockTestDir, "yarn.lock"), "");
+
+  const count = getFullDependencyCount(lockTestDir);
+  expect(count).toBe(0);
+
+  rmSync(lockTestDir, { recursive: true, force: true });
+  validateRootPackageJsonIntegrity();
+});
+
+test("getFullDependencyCount - returns 0 when pattern lock file cannot be read", () => {
+  validateRootPackageJsonIntegrity();
+  mkdirSync(resolve(lockTestDir, "yarn.lock"), { recursive: true });
 
   const count = getFullDependencyCount(lockTestDir);
   expect(count).toBe(0);
@@ -1372,4 +1749,267 @@ test("detectPackageManager - should detect bun via bun.lock when only bun.lock e
 test("parseNpmLsOutput - should return empty object for invalid JSON", () => {
   const result = parseNpmLsOutput("not valid json {{{");
   expect(result).toEqual({});
+});
+
+test("parseBunLockGraph - returns inverted dep graph from bun.lock", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "bun.lock"),
+    JSON.stringify({
+      lockfileVersion: 1,
+      packages: {
+        express: ["express@4.18.0", "", { dependencies: { "body-parser": "^1.20.0" } }, "sha512-x"],
+        "body-parser": ["body-parser@1.20.0", "", {}, "sha512-y"],
+      },
+    }),
+  );
+
+  const graph = parseBunLockGraph(lockTestDir);
+
+  expect(graph?.["body-parser"]).toContain("express");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseBunLockGraph - returns undefined when no bun.lock present", () => {
+  expect(parseBunLockGraph(testDir)).toBeUndefined();
+});
+
+test("parseBunLockGraph - returns undefined when no deps found", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "bun.lock"),
+    JSON.stringify({
+      lockfileVersion: 1,
+      packages: { lodash: ["lodash@4.17.21", "", {}, "sha512-x"] },
+    }),
+  );
+
+  expect(parseBunLockGraph(lockTestDir)).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseBunLockGraph - skips malformed package entries", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "bun.lock"),
+    bunLockContent({
+      express: ["express@4.18.0", "", { dependencies: { qs: "^6.11.0" } }, "sha512-y"],
+      malformed: "not an entry array",
+    }),
+  );
+
+  const graph = parseBunLockGraph(lockTestDir);
+
+  expect(graph?.["qs"]).toEqual(["express"]);
+  expect(graph?.["malformed"]).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parsePnpmLockGraph - returns inverted dep graph from pnpm-lock.yaml", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "pnpm-lock.yaml"),
+    "packages:\n  /express@4.18.0:\n    resolution: {}\n    dependencies:\n      body-parser: 1.20.0\n  /body-parser@1.20.0:\n    resolution: {}\n",
+  );
+
+  const graph = parsePnpmLockGraph(lockTestDir);
+
+  expect(graph?.["body-parser"]).toContain("express");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parsePnpmLockGraph - returns undefined when no pnpm-lock.yaml", () => {
+  expect(parsePnpmLockGraph(testDir)).toBeUndefined();
+});
+
+test("parseYarnLockGraph - returns inverted dep graph from yarn.lock", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "yarn.lock"),
+    'express@^4.18.0:\n  version "4.18.0"\n  dependencies:\n    body-parser "^1.20.0"\n\nbody-parser@^1.20.0:\n  version "1.20.0"\n',
+  );
+
+  const graph = parseYarnLockGraph(lockTestDir);
+
+  expect(graph?.["body-parser"]).toContain("express");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseYarnLockGraph - returns undefined when no yarn.lock", () => {
+  expect(parseYarnLockGraph(testDir)).toBeUndefined();
+});
+
+test("parseNpmLockGraph - returns inverted dep graph from package-lock.json v2", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "package-lock.json"),
+    JSON.stringify({
+      lockfileVersion: 2,
+      packages: {
+        "": {},
+        "node_modules/express": { version: "4.18.0", dependencies: { "body-parser": "^1.20.0" } },
+        "node_modules/body-parser": { version: "1.20.0" },
+      },
+    }),
+  );
+
+  const graph = parseNpmLockGraph(lockTestDir);
+
+  expect(graph?.["body-parser"]).toContain("express");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseNpmLockGraph - returns undefined when no package-lock.json", () => {
+  expect(parseNpmLockGraph(testDir)).toBeUndefined();
+});
+
+test("getDependencyGraph - caches and returns a graph object", () => {
+  clearDependencyGraphCache();
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "package-lock.json"),
+    JSON.stringify({
+      lockfileVersion: 2,
+      packages: {
+        "": {},
+        "node_modules/lodash": { version: "4.17.21", dependencies: {} },
+      },
+    }),
+  );
+
+  const graph = getDependencyGraph(lockTestDir);
+
+  expect(typeof graph).toBe("object");
+  const graphAgain = getDependencyGraph(lockTestDir);
+  expect(graphAgain).toBe(graph);
+
+  clearDependencyGraphCache();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("getDependencyGraph - invalidates cache when package lock changes", () => {
+  clearDependencyGraphCache();
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "package-lock.json"),
+    JSON.stringify({
+      lockfileVersion: 2,
+      packages: {
+        "": {},
+        "node_modules/express": { version: "4.18.0", dependencies: { "body-parser": "^1.20.0" } },
+        "node_modules/body-parser": { version: "1.20.0" },
+      },
+    }),
+  );
+
+  const originalGraph = getDependencyGraph(lockTestDir);
+  expect(originalGraph?.["body-parser"]).toEqual(["express"]);
+
+  writeFileSync(
+    resolve(lockTestDir, "package-lock.json"),
+    JSON.stringify({
+      lockfileVersion: 2,
+      packages: {
+        "": {},
+        "node_modules/lodash": { version: "4.17.21", dependencies: { qs: "^6.11.0" } },
+        "node_modules/qs": { version: "6.11.0" },
+      },
+    }),
+  );
+
+  const updatedGraph = getDependencyGraph(lockTestDir);
+  expect(updatedGraph).not.toBe(originalGraph);
+  expect(updatedGraph?.qs).toEqual(["lodash"]);
+  expect(updatedGraph?.["body-parser"]).toBeUndefined();
+
+  clearDependencyGraphCache();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("getDependencyGraph - returns empty object when no lock file", () => {
+  clearDependencyGraphCache();
+  mkdirSync(lockTestDir, { recursive: true });
+
+  const graph = getDependencyGraph(lockTestDir);
+
+  expect(graph).toEqual({});
+  clearDependencyGraphCache();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseBunLockTree - handles escaped characters in strings", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "bun.lock"),
+    '{\n  "lockfileVersion": 1,\n  "packages": {\n    "lodash": ["lodash@4.17.21", "https://r.npmjs.org", {}, "sha512-a\\\\b",],\n  },\n}',
+  );
+
+  const tree = parseBunLockTree(lockTestDir);
+
+  expect(tree?.["lodash"]).toBe("4.17.21");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseBunLockGraph - returns undefined for malformed bun.lock", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(resolve(lockTestDir, "bun.lock"), "not valid json {{{");
+
+  expect(parseBunLockGraph(lockTestDir)).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseNpmLockGraph - parses v1 dependencies format", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "package-lock.json"),
+    JSON.stringify({
+      lockfileVersion: 1,
+      dependencies: {
+        express: {
+          version: "4.18.0",
+          dependencies: { lodash: { version: "4.17.21" } },
+        },
+      },
+    }),
+  );
+
+  const graph = parseNpmLockGraph(lockTestDir);
+
+  expect(graph?.["lodash"]).toContain("express");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseNpmLockGraph - returns undefined for malformed JSON", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(resolve(lockTestDir, "package-lock.json"), "not valid json {{{");
+
+  expect(parseNpmLockGraph(lockTestDir)).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parsePnpmLockGraph - resets inDeps when non-dep line follows dependencies section", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "pnpm-lock.yaml"),
+    "packages:\n  express@4.18.0:\n    dependencies:\n      lodash: 4.17.21\n    engines: {node: '>=0.10.0'}\n",
+  );
+
+  const graph = parsePnpmLockGraph(lockTestDir);
+
+  expect(graph?.["lodash"]).toContain("express");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parsePnpmLockGraph - returns undefined when lockfile cannot be read", () => {
+  mkdirSync(resolve(lockTestDir, "pnpm-lock.yaml"), { recursive: true });
+
+  expect(parsePnpmLockGraph(lockTestDir)).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseYarnLockGraph - returns undefined when lockfile cannot be read", () => {
+  mkdirSync(resolve(lockTestDir, "yarn.lock"), { recursive: true });
+
+  expect(parseYarnLockGraph(lockTestDir)).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
 });

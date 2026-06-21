@@ -46,7 +46,8 @@ export interface ProcessOverrideOptions {
   securityProvider?: SecurityProviderType;
   manualOverrideReasons?: Record<string, string>;
   onlyUsedOverrides?: boolean;
-  dependencyTree?: Record<string, boolean>;
+  dependencyTree?: Record<string, string>;
+  dependencyGraph?: Record<string, string[]>;
   addedDate?: string;
   overrides?: OverridesType;
   overrideVersion?: string;
@@ -63,7 +64,8 @@ export interface ProcessedPackageAppendix {
 export type AppendixUpdateOptions = UpdateAppendixOptions & {
   cache?: Map<string, AppendixItem>;
   manualOverrideReasons?: Record<string, string>;
-  dependencyTree?: Record<string, boolean>;
+  dependencyTree?: Record<string, string>;
+  dependencyGraph?: Record<string, string[]>;
   addedDate?: string;
 };
 

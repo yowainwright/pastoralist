@@ -469,7 +469,7 @@ const getPendingTreeRequests = (): Map<string, Promise<Record<string, string>>> 
   return _pendingTreeRequests;
 };
 
-type BunLockFile = { packages?: Record<string, unknown[]> };
+type BunLockFile = { packages?: Record<string, unknown> };
 
 const isJsonWhitespace = (char: string): boolean =>
   char === " " || char === "\n" || char === "\r" || char === "\t";
@@ -522,12 +522,17 @@ const stripBunLockTrailingCommas = (content: string): string => {
 const parseBunLockFile = (content: string): BunLockFile =>
   JSON.parse(stripBunLockTrailingCommas(content)) as BunLockFile;
 
-const extractBunPackageVersion = (entry: unknown[]): string => {
+const extractBunPackageVersion = (entry: unknown): string => {
+  if (!Array.isArray(entry)) return UNKNOWN_DEPENDENCY_VERSION;
+
   const versionEntry = entry[0];
   if (typeof versionEntry !== "string") return UNKNOWN_DEPENDENCY_VERSION;
 
-  const version = versionEntry.slice(versionEntry.lastIndexOf("@") + 1);
-  return version || UNKNOWN_DEPENDENCY_VERSION;
+  const separatorIndex = versionEntry.lastIndexOf("@");
+  const hasVersionSeparator = separatorIndex > 0 && separatorIndex < versionEntry.length - 1;
+  if (!hasVersionSeparator) return UNKNOWN_DEPENDENCY_VERSION;
+
+  return versionEntry.slice(separatorIndex + 1);
 };
 
 export const parseBunLockTree = (root: string): Record<string, string> | undefined => {
@@ -537,11 +542,13 @@ export const parseBunLockTree = (root: string): Record<string, string> | undefin
     const content = fs.readFileSync(lockPath, "utf8");
     const lock = parseBunLockFile(content);
     const packages = lock?.packages;
-    const isValidPackages = packages && typeof packages === "object";
+    const isValidPackages = packages && typeof packages === "object" && !Array.isArray(packages);
     if (!isValidPackages) return undefined;
+    const packageEntries = Object.entries(packages);
+    if (packageEntries.length === 0) return undefined;
     return Object.fromEntries(
-      Object.entries(packages).map(([name, entry]) => {
-        return [name, extractBunPackageVersion(entry as unknown[])];
+      packageEntries.map(([name, entry]) => {
+        return [name, extractBunPackageVersion(entry)];
       }),
     );
   } catch {
@@ -706,10 +713,11 @@ export const parseBunLockGraph = (root: string): Record<string, string[]> | unde
     const content = fs.readFileSync(lockPath, "utf8");
     const lock = parseBunLockFile(content);
     const packages = lock?.packages;
-    const isValidPackages = packages && typeof packages === "object";
+    const isValidPackages = packages && typeof packages === "object" && !Array.isArray(packages);
     if (!isValidPackages) return undefined;
     const inverted: Record<string, string[]> = {};
     Object.entries(packages).forEach(([name, entry]) => {
+      if (!Array.isArray(entry)) return;
       const deps = (entry[2] as { dependencies?: Record<string, string> })?.dependencies ?? {};
       Object.keys(deps).forEach((dep) => {
         if (!inverted[dep]) inverted[dep] = [];

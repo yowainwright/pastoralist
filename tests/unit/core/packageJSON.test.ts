@@ -1230,6 +1230,23 @@ test("parseBunLockTree - returns package map from bun.lock", () => {
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
+test("parseBunLockTree - uses unknown when a package entry has no version separator", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "bun.lock"),
+    bunLockContent({
+      lodash: ["lodash", "", {}, "sha512-x"],
+      malformed: "not an entry array",
+    }),
+  );
+
+  const tree = parseBunLockTree(lockTestDir);
+
+  expect(tree?.["lodash"]).toBe("unknown");
+  expect(tree?.["malformed"]).toBe("unknown");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
 test("parseBunLockTree - parses Bun text lockfiles with trailing commas", () => {
   mkdirSync(lockTestDir, { recursive: true });
   writeFileSync(resolve(lockTestDir, "bun.lock"), bunLockContentWithTrailingCommas);
@@ -1256,6 +1273,14 @@ test("parseBunLockTree - returns undefined for malformed bun.lock", () => {
 test("parseBunLockTree - returns undefined when bun.lock has no packages field", () => {
   mkdirSync(lockTestDir, { recursive: true });
   writeFileSync(resolve(lockTestDir, "bun.lock"), JSON.stringify({ lockfileVersion: 1 }));
+
+  expect(parseBunLockTree(lockTestDir)).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseBunLockTree - returns undefined when bun.lock packages is empty", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(resolve(lockTestDir, "bun.lock"), bunLockContent({}));
 
   expect(parseBunLockTree(lockTestDir)).toBeUndefined();
   rmSync(lockTestDir, { recursive: true, force: true });
@@ -1695,6 +1720,23 @@ test("parseBunLockGraph - returns undefined when no deps found", () => {
   );
 
   expect(parseBunLockGraph(lockTestDir)).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseBunLockGraph - skips malformed package entries", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "bun.lock"),
+    bunLockContent({
+      express: ["express@4.18.0", "", { dependencies: { qs: "^6.11.0" } }, "sha512-y"],
+      malformed: "not an entry array",
+    }),
+  );
+
+  const graph = parseBunLockGraph(lockTestDir);
+
+  expect(graph?.["qs"]).toEqual(["express"]);
+  expect(graph?.["malformed"]).toBeUndefined();
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 

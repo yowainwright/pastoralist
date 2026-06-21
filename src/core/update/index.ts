@@ -2,6 +2,7 @@ import { IS_DEBUGGING } from "../../constants";
 import type { Appendix, Options, SecurityAlert, AppendixItem } from "../../types";
 import { logger } from "../../utils";
 import {
+  clearDependencyGraphCache,
   clearDependencyTreeCache,
   jsonCache,
   getFullDependencyCount,
@@ -507,6 +508,7 @@ const stepHandleNoOverrides = (ctx: UpdateContext): UpdateContext => {
 
 const clearUpdateCaches = (): void => {
   clearDependencyTreeCache();
+  clearDependencyGraphCache();
   jsonCache.clear();
 };
 

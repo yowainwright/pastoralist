@@ -88,7 +88,7 @@ const isUnusedSimpleOverride = (
   const hasOverride = hasDependency(deps, override);
   if (hasOverride) return false;
 
-  const isInDependencyTree = dependencyTree?.[override] || false;
+  const isInDependencyTree = Boolean(dependencyTree?.[override]);
   return !isInDependencyTree;
 };
 

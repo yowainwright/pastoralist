@@ -1343,6 +1343,13 @@ test("parsePnpmLockTree - returns undefined for empty packages section", () => {
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
+test("parsePnpmLockTree - returns undefined when lockfile cannot be read", () => {
+  mkdirSync(resolve(lockTestDir, "pnpm-lock.yaml"), { recursive: true });
+
+  expect(parsePnpmLockTree(lockTestDir)).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
 test("parseYarnLockTree - parses yarn v1 format", () => {
   mkdirSync(lockTestDir, { recursive: true });
   writeFileSync(
@@ -1386,6 +1393,13 @@ test("parseYarnLockTree - handles multiple specifiers on one line", () => {
 
 test("parseYarnLockTree - returns undefined when no yarn.lock", () => {
   expect(parseYarnLockTree(testDir)).toBeUndefined();
+});
+
+test("parseYarnLockTree - returns undefined when lockfile cannot be read", () => {
+  mkdirSync(resolve(lockTestDir, "yarn.lock"), { recursive: true });
+
+  expect(parseYarnLockTree(lockTestDir)).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
 });
 
 test("parseNpmLockTree - parses v2/v3 packages field", () => {
@@ -1434,6 +1448,14 @@ test("parseNpmLockTree - parses v1 dependencies field", () => {
 
 test("parseNpmLockTree - returns undefined when no package-lock.json", () => {
   expect(parseNpmLockTree(testDir)).toBeUndefined();
+});
+
+test("parseNpmLockTree - returns undefined when package-lock has no dependency data", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(resolve(lockTestDir, "package-lock.json"), JSON.stringify({ lockfileVersion: 3 }));
+
+  expect(parseNpmLockTree(lockTestDir)).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
 });
 
 test("parseNpmLockTree - returns undefined for malformed JSON", () => {
@@ -1505,6 +1527,17 @@ test("getFullDependencyCount - handles empty yarn lock", () => {
   mkdirSync(lockTestDir, { recursive: true });
 
   writeFileSync(resolve(lockTestDir, "yarn.lock"), "");
+
+  const count = getFullDependencyCount(lockTestDir);
+  expect(count).toBe(0);
+
+  rmSync(lockTestDir, { recursive: true, force: true });
+  validateRootPackageJsonIntegrity();
+});
+
+test("getFullDependencyCount - returns 0 when pattern lock file cannot be read", () => {
+  validateRootPackageJsonIntegrity();
+  mkdirSync(resolve(lockTestDir, "yarn.lock"), { recursive: true });
 
   const count = getFullDependencyCount(lockTestDir);
   expect(count).toBe(0);
@@ -1755,5 +1788,82 @@ test("getDependencyGraph - returns empty object when no lock file", () => {
 
   expect(graph).toEqual({});
   clearDependencyGraphCache();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseBunLockTree - handles escaped characters in strings", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "bun.lock"),
+    '{\n  "lockfileVersion": 1,\n  "packages": {\n    "lodash": ["lodash@4.17.21", "https://r.npmjs.org", {}, "sha512-a\\\\b",],\n  },\n}',
+  );
+
+  const tree = parseBunLockTree(lockTestDir);
+
+  expect(tree?.["lodash"]).toBe("4.17.21");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseBunLockGraph - returns undefined for malformed bun.lock", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(resolve(lockTestDir, "bun.lock"), "not valid json {{{");
+
+  expect(parseBunLockGraph(lockTestDir)).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseNpmLockGraph - parses v1 dependencies format", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "package-lock.json"),
+    JSON.stringify({
+      lockfileVersion: 1,
+      dependencies: {
+        express: {
+          version: "4.18.0",
+          dependencies: { lodash: { version: "4.17.21" } },
+        },
+      },
+    }),
+  );
+
+  const graph = parseNpmLockGraph(lockTestDir);
+
+  expect(graph?.["lodash"]).toContain("express");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseNpmLockGraph - returns undefined for malformed JSON", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(resolve(lockTestDir, "package-lock.json"), "not valid json {{{");
+
+  expect(parseNpmLockGraph(lockTestDir)).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parsePnpmLockGraph - resets inDeps when non-dep line follows dependencies section", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(
+    resolve(lockTestDir, "pnpm-lock.yaml"),
+    "packages:\n  express@4.18.0:\n    dependencies:\n      lodash: 4.17.21\n    engines: {node: '>=0.10.0'}\n",
+  );
+
+  const graph = parsePnpmLockGraph(lockTestDir);
+
+  expect(graph?.["lodash"]).toContain("express");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parsePnpmLockGraph - returns undefined when lockfile cannot be read", () => {
+  mkdirSync(resolve(lockTestDir, "pnpm-lock.yaml"), { recursive: true });
+
+  expect(parsePnpmLockGraph(lockTestDir)).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseYarnLockGraph - returns undefined when lockfile cannot be read", () => {
+  mkdirSync(resolve(lockTestDir, "yarn.lock"), { recursive: true });
+
+  expect(parseYarnLockGraph(lockTestDir)).toBeUndefined();
   rmSync(lockTestDir, { recursive: true, force: true });
 });

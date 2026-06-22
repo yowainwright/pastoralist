@@ -258,6 +258,7 @@ export interface CleanupUnusedOverridesContext {
   overridePaths: Record<string, Appendix> | undefined;
   logInstance: Logger;
   updateOverrides: OverrideRemovalUpdater;
+  root?: string;
 }
 
 export interface PastoralistResultMetrics {

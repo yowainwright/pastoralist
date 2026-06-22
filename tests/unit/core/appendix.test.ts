@@ -570,6 +570,41 @@ test("constructAppendix - handles workspace packages with overrides", () => {
   expect(result["lodash@4.17.21"]).toBeDefined();
 });
 
+test("constructAppendix - keeps transitive workspace overrides from dependency graph", () => {
+  const workspaceDir = resolve(TEST_DIR, "workspace-graph-test");
+  const pkgADir = resolve(workspaceDir, "packages", "pkg-a");
+
+  mkdirSync(pkgADir, { recursive: true });
+
+  writeFileSync(
+    resolve(pkgADir, "package.json"),
+    JSON.stringify({
+      name: "pkg-a",
+      version: "1.0.0",
+      dependencies: { express: "^4.18.0" },
+    }),
+  );
+
+  const log = logger({ file: "test", isLogging: false });
+  const overridesData = {
+    type: "npm",
+    overrides: { "body-parser": "1.20.0", postcss: "8.4.0" },
+  };
+
+  const result = constructAppendix([resolve(pkgADir, "package.json")], overridesData, log, {
+    dependencyGraph: {
+      "body-parser": ["express"],
+      postcss: ["webpack"],
+    },
+  });
+
+  expect(result["body-parser@1.20.0"]).toBeDefined();
+  expect(result["body-parser@1.20.0"].dependents?.["pkg-a"]).toBe(
+    "body-parser (required by express)",
+  );
+  expect(result["postcss@8.4.0"]).toBeUndefined();
+});
+
 test("constructAppendix - merges overrides from multiple workspaces", () => {
   const workspaceDir = resolve(TEST_DIR, "multi-workspace");
   const pkgADir = resolve(workspaceDir, "packages", "pkg-a");

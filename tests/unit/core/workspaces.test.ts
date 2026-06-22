@@ -135,6 +135,23 @@ test("findUnusedOverrides - reads dependency tree once per run", async () => {
   spy.mockRestore();
 });
 
+test("findUnusedOverrides - passes root to dependency tree lookup", async () => {
+  const spy = spyOn(packageJSON, "getDependencyTree").mockResolvedValue({
+    "transitive-pkg": "1.0.0",
+  });
+
+  const result = await findUnusedOverrides(
+    { "transitive-pkg": "1.0.0" },
+    { "direct-pkg": "^1.0.0" },
+    TEST_DIR,
+  );
+
+  expect(result).toEqual([]);
+  expect(spy).toHaveBeenCalledWith(undefined, undefined, TEST_DIR);
+
+  spy.mockRestore();
+});
+
 test("cleanupUnusedOverrides", async () => {
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
   const mockUpdateOverrides = () => ({ "fake-pkg": "1.0.0" });

@@ -122,14 +122,16 @@ const stepProcessWorkspaces = (ctx: UpdateContext): UpdateContext => {
     "stepProcessWorkspaces",
   );
 
+  const dependencyGraph = ctx.isTesting ? undefined : getDependencyGraph(ctx.root);
   const { appendix: workspaceAppendix, allWorkspaceDeps } = processWorkspacePackages(
     packageJsonFiles,
     ctx.overridesData,
     ctx.log,
     constructAppendix,
+    { dependencyGraph },
   );
 
-  return Object.assign({}, ctx, { workspaceAppendix, allWorkspaceDeps });
+  return Object.assign({}, ctx, { workspaceAppendix, allWorkspaceDeps, dependencyGraph });
 };
 
 const stepExtractExistingAppendix = (ctx: UpdateContext): UpdateContext => {
@@ -149,7 +151,8 @@ const stepBuildAppendix = (ctx: UpdateContext): UpdateContext => {
 
   const { dependencies = {}, devDependencies = {}, peerDependencies = {} } = config;
 
-  const dependencyGraph = ctx.isTesting ? undefined : getDependencyGraph(ctx.root);
+  const dependencyGraph =
+    ctx.dependencyGraph ?? (ctx.isTesting ? undefined : getDependencyGraph(ctx.root));
   const appendix = updateAppendix({
     overrides,
     appendix: ctx.existingAppendix || {},

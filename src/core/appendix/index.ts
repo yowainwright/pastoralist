@@ -7,6 +7,7 @@ import type {
   OverrideValue,
   PastoralistJSON,
   ResolveOverrides,
+  AppendixDependencyContext,
 } from "../../types";
 import type { Logger } from "../../utils";
 import type {
@@ -84,9 +85,14 @@ const isUnusedSimpleOverride = (
   override: string,
   deps: Record<string, string>,
   dependencyTree?: Record<string, string>,
+  dependencyGraph?: Record<string, string[]>,
 ): boolean => {
   const hasOverride = hasDependency(deps, override);
   if (hasOverride) return false;
+
+  const depNames = new Set(Object.keys(deps));
+  const isRequiredByDependency = dependencyGraph?.[override]?.some((dep) => depNames.has(dep));
+  if (isRequiredByDependency) return false;
 
   const isInDependencyTree = Boolean(dependencyTree?.[override]);
   return !isInDependencyTree;
@@ -120,7 +126,7 @@ const processSimpleOverride = (options: ProcessOverrideOptions): Appendix => {
   } = options;
   const hasOverride = hasDependency(deps, override);
   const shouldSkipUnusedOverride =
-    onlyUsedOverrides && isUnusedSimpleOverride(override, deps, dependencyTree);
+    onlyUsedOverrides && isUnusedSimpleOverride(override, deps, dependencyTree, dependencyGraph);
   if (shouldSkipUnusedOverride) return appendix;
 
   const key = buildOverrideKey(override, overrideVersion);
@@ -310,14 +316,93 @@ const getPackageDependencyFields = (packageJSON: PastoralistJSON): PackageDepend
 const hasMatchingPackageOverrides = (
   packageJSON: PastoralistJSON,
   overridesList: string[],
+  dependencyGraph?: Record<string, string[]>,
 ): boolean => {
   const mergedDeps = mergeDependenciesForPackage(packageJSON);
-  return hasDependenciesMatchingOverrides(Object.keys(mergedDeps), overridesList);
+  const depList = Object.keys(mergedDeps);
+  const hasDirectMatch = hasDependenciesMatchingOverrides(depList, overridesList);
+  if (hasDirectMatch) return true;
+
+  const deps = new Set(depList);
+  return hasDependencyGraphMatch(overridesList, deps, dependencyGraph);
 };
 
-const buildPackageAppendix = (packageJSON: PastoralistJSON, overrides: OverridesType): Appendix => {
+const hasDependencyGraphMatch = (
+  overridesList: string[],
+  deps: Set<string>,
+  dependencyGraph?: Record<string, string[]>,
+): boolean => {
+  if (!dependencyGraph) return false;
+
+  const graphDependents = overridesList.flatMap((override) => dependencyGraph[override] || []);
+  const graphDependentSet = new Set(graphDependents);
+
+  for (const dep of deps) {
+    if (graphDependentSet.has(dep)) return true;
+  }
+
+  return false;
+};
+
+const filterRelevantDependents = (dependents: string[], packageDeps: Set<string>): string[] => {
+  let relevant: string[] = [];
+
+  for (const dep of dependents) {
+    if (packageDeps.has(dep)) relevant = relevant.concat(dep);
+  }
+
+  return relevant;
+};
+
+const getRelevantDependencyGraph = (
+  packageJSON: PastoralistJSON,
+  dependencyGraph: Record<string, string[]> | undefined,
+): Record<string, string[]> | undefined => {
+  if (!dependencyGraph) return undefined;
+
+  const packageDeps = new Set(Object.keys(mergeDependenciesForPackage(packageJSON)));
+  let relevantEntries: Array<readonly [string, string[]]> = [];
+
+  for (const [pkg, dependents] of Object.entries(dependencyGraph)) {
+    const relevantDependents = filterRelevantDependents(dependents, packageDeps);
+    if (relevantDependents.length > 0)
+      relevantEntries = relevantEntries.concat([[pkg, relevantDependents] as const]);
+  }
+
+  if (relevantEntries.length === 0) return undefined;
+  return Object.fromEntries(relevantEntries);
+};
+
+const getRelevantDependencyTree = (
+  dependencyTree: Record<string, string> | undefined,
+  dependencyGraph: Record<string, string[]> | undefined,
+): Record<string, string> | undefined => {
+  if (!dependencyTree) return undefined;
+  if (!dependencyGraph) return undefined;
+
+  const relevantEntries = Object.keys(dependencyGraph)
+    .filter((pkg) => dependencyTree[pkg])
+    .map((pkg) => [pkg, dependencyTree[pkg]] as const);
+
+  if (relevantEntries.length === 0) return undefined;
+  return Object.fromEntries(relevantEntries);
+};
+
+const buildPackageAppendix = (
+  packageJSON: PastoralistJSON,
+  overrides: OverridesType,
+  dependencyContext: AppendixDependencyContext = {},
+): Appendix => {
   const { dependencies, devDependencies, peerDependencies } =
     getPackageDependencyFields(packageJSON);
+  const dependencyGraph = getRelevantDependencyGraph(
+    packageJSON,
+    dependencyContext.dependencyGraph,
+  );
+  const dependencyTree = getRelevantDependencyTree(
+    dependencyContext.dependencyTree,
+    dependencyGraph,
+  );
   return updateAppendix({
     overrides,
     dependencies,
@@ -327,6 +412,8 @@ const buildPackageAppendix = (packageJSON: PastoralistJSON, overrides: Overrides
     securityOverrideDetails: undefined,
     manualOverrideReasons: undefined,
     onlyUsedOverrides: true,
+    dependencyTree,
+    dependencyGraph,
   });
 };
 
@@ -374,12 +461,20 @@ export const processAndWritePackageJSON = (
   overrides: OverridesType,
   overridesList: string[],
   writeAppendixToFile: boolean = true,
+  dependencyContext: AppendixDependencyContext = {},
 ): ProcessedPackageAppendix | undefined => {
   const currentPackageJSON = resolveJSON(filePath);
   if (!currentPackageJSON) return undefined;
-  if (!hasMatchingPackageOverrides(currentPackageJSON, overridesList)) return undefined;
+  if (
+    !hasMatchingPackageOverrides(
+      currentPackageJSON,
+      overridesList,
+      dependencyContext.dependencyGraph,
+    )
+  )
+    return undefined;
 
-  const appendix = buildPackageAppendix(currentPackageJSON, overrides);
+  const appendix = buildPackageAppendix(currentPackageJSON, overrides, dependencyContext);
   writePackageAppendixIfNeeded(filePath, currentPackageJSON, appendix, writeAppendixToFile);
   return createProcessedPackageAppendix(currentPackageJSON, appendix);
 };
@@ -482,9 +577,10 @@ const processAllPackageFiles = (
   packageJSONs: string[],
   allOverrides: OverridesType,
   overridesList: string[],
+  dependencyContext: AppendixDependencyContext = {},
 ): Array<ProcessedPackageAppendix | undefined> => {
   return packageJSONs.map((path) =>
-    processAndWritePackageJSON(path, allOverrides, overridesList, false),
+    processAndWritePackageJSON(path, allOverrides, overridesList, false, dependencyContext),
   );
 };
 
@@ -526,9 +622,18 @@ const logTotalOverrides = (overridesList: string[], logInstance: Logger): void =
   );
 };
 
-const buildWorkspaceAppendix = (packageJSONs: string[], allOverrides: OverridesType): Appendix => {
+const buildWorkspaceAppendix = (
+  packageJSONs: string[],
+  allOverrides: OverridesType,
+  dependencyContext: AppendixDependencyContext = {},
+): Appendix => {
   const overridesList = Object.keys(allOverrides);
-  const results = processAllPackageFiles(packageJSONs, allOverrides, overridesList);
+  const results = processAllPackageFiles(
+    packageJSONs,
+    allOverrides,
+    overridesList,
+    dependencyContext,
+  );
   return aggregateAppendices(results);
 };
 
@@ -536,6 +641,7 @@ export const constructAppendix = (
   packageJSONs: string[],
   overridesData: ResolveOverrides,
   logInstance: Logger,
+  dependencyContext: AppendixDependencyContext = {},
 ): Appendix => {
   const rootOverrides = extractRootOverrides(overridesData);
   logRootOverrides(rootOverrides, logInstance);
@@ -550,7 +656,7 @@ export const constructAppendix = (
 
   const overridesList = Object.keys(allOverrides);
   logTotalOverrides(overridesList, logInstance);
-  return buildWorkspaceAppendix(packageJSONs, allOverrides);
+  return buildWorkspaceAppendix(packageJSONs, allOverrides, dependencyContext);
 };
 
 export const findRemovableAppendixItems = (appendix: Appendix): string[] => {

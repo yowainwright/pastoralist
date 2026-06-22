@@ -1194,6 +1194,66 @@ test("update - fixture: merges workspace appendix with existing root entry", () 
   expect(Object.keys(dependents)).toContain("pkg-a");
 });
 
+test("update - workspace appendix uses dependency graph for transitive overrides", () => {
+  clearDependencyGraphCache();
+  forceClearCache();
+  if (existsSync(TEST_DIR)) {
+    rmSync(TEST_DIR, { recursive: true, force: true });
+  }
+  mkdirSync(TEST_DIR, { recursive: true });
+
+  const pkgADir = resolve(TEST_DIR, "packages", "pkg-a");
+  mkdirSync(pkgADir, { recursive: true });
+
+  writeFileSync(
+    resolve(pkgADir, "package.json"),
+    JSON.stringify({
+      name: "pkg-a",
+      version: "1.0.0",
+      dependencies: { express: "^4.18.0" },
+    }),
+  );
+
+  writeFileSync(
+    resolve(TEST_DIR, "package-lock.json"),
+    JSON.stringify({
+      lockfileVersion: 2,
+      packages: {
+        "": {},
+        "node_modules/express": {
+          version: "4.18.0",
+          dependencies: { "body-parser": "^1.20.0" },
+        },
+        "node_modules/body-parser": { version: "1.20.0" },
+      },
+    }),
+  );
+
+  const config: PastoralistJSON = {
+    name: "root-app",
+    version: "1.0.0",
+    overrides: { "body-parser": "1.20.0" },
+    workspaces: ["packages/*"],
+  };
+
+  const result = update({
+    path: resolve(TEST_DIR, "package.json"),
+    root: TEST_DIR,
+    config,
+    dryRun: true,
+    outputFormat: "json",
+  });
+
+  rmSync(TEST_DIR, { recursive: true, force: true });
+  clearDependencyGraphCache();
+
+  expect(result.workspaceAppendix?.["body-parser@1.20.0"]).toBeDefined();
+  expect(result.workspaceAppendix?.["body-parser@1.20.0"]?.dependents?.["pkg-a"]).toBe(
+    "body-parser (required by express)",
+  );
+  expect(result.appendix?.["body-parser@1.20.0"]?.dependents).toHaveProperty("pkg-a");
+});
+
 test("update - fixture: adds workspace-only override entry (line 157)", () => {
   forceClearCache();
   if (existsSync(TEST_DIR)) {

@@ -1,6 +1,7 @@
 import { IS_DEBUGGING } from "../constants";
 import type {
   Appendix,
+  AppendixDependencyContext,
   CleanupUnusedOverridesContext,
   CleanupUnusedOverridesResult,
   OverrideRemovalUpdater,
@@ -86,9 +87,20 @@ export const processWorkspacePackages = (
   packageJsonFiles: string[],
   overridesData: ResolveOverrides,
   logInstance: Logger,
-  constructAppendix: (files: string[], data: ResolveOverrides, log: Logger) => Appendix,
+  constructAppendix: (
+    files: string[],
+    data: ResolveOverrides,
+    log: Logger,
+    dependencyContext?: AppendixDependencyContext,
+  ) => Appendix,
+  dependencyContext: AppendixDependencyContext = {},
 ): { appendix: Appendix; allWorkspaceDeps: Record<string, string> } => {
-  const appendix = constructAppendix(packageJsonFiles, overridesData, logInstance);
+  const appendix = constructAppendix(
+    packageJsonFiles,
+    overridesData,
+    logInstance,
+    dependencyContext,
+  );
   const allWorkspaceDeps = aggregateWorkspaceDependencies(packageJsonFiles);
 
   return { appendix, allWorkspaceDeps };
@@ -237,10 +249,11 @@ const checkIfUnused = async (
 export const findUnusedOverrides = async (
   overrides: OverridesType,
   allDependencies: Record<string, string>,
+  root?: string,
 ): Promise<string[]> => {
   const packageNames = Object.keys(overrides);
   const hasAnyDeps = Object.keys(allDependencies).length > 0;
-  const dependencyTree = hasAnyDeps ? await getDependencyTree() : {};
+  const dependencyTree = hasAnyDeps ? await getDependencyTree(undefined, undefined, root) : {};
 
   const results = await Promise.all(
     packageNames.map((name) =>
@@ -359,7 +372,11 @@ const findActuallyRemovableOverrides = (
 const cleanupUnusedOverridesFromContext = async (
   context: CleanupUnusedOverridesContext,
 ): Promise<CleanupUnusedOverridesResult> => {
-  const removableItems = await findUnusedOverrides(context.overrides, context.allDeps);
+  const removableItems = await findUnusedOverrides(
+    context.overrides,
+    context.allDeps,
+    context.root,
+  );
 
   if (removableItems.length === 0) {
     return keepCurrentOverrides(context.overrides, context.appendix);
@@ -388,6 +405,7 @@ export const cleanupUnusedOverrides = async (
   overridePaths: Record<string, Appendix> | undefined,
   logInstance: Logger,
   updateOverrides: OverrideRemovalUpdater,
+  root?: string,
 ): Promise<CleanupUnusedOverridesResult> => {
   return cleanupUnusedOverridesFromContext({
     overrides,
@@ -398,5 +416,6 @@ export const cleanupUnusedOverrides = async (
     overridePaths,
     logInstance,
     updateOverrides,
+    root,
   });
 };

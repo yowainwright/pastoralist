@@ -123,6 +123,11 @@ export interface UpdateAppendixOptions {
   addedDate?: string;
 }
 
+export type AppendixDependencyContext = Pick<
+  UpdateAppendixOptions,
+  "dependencyTree" | "dependencyGraph"
+>;
+
 export interface SecurityOptions {
   checkSecurity?: boolean;
   forceSecurityRefactor?: boolean;

@@ -394,6 +394,28 @@ test("processAndWritePackageJSON - should return undefined for package without m
   expect(result).toBeUndefined();
 });
 
+test("processAndWritePackageJSON - should return undefined when dependency graph has no matching dependent", () => {
+  const testPkgPath = resolve(TEST_DIR, "no-graph-match-package.json");
+  writeFileSync(
+    testPkgPath,
+    JSON.stringify({
+      name: "test-pkg",
+      version: "1.0.0",
+      dependencies: { vite: "^5.0.0" },
+    }),
+  );
+
+  const result = processAndWritePackageJSON(
+    testPkgPath,
+    { "body-parser": "1.20.0" },
+    ["body-parser"],
+    false,
+    { dependencyGraph: { "body-parser": ["express"] } },
+  );
+
+  expect(result).toBeUndefined();
+});
+
 test("processAndWritePackageJSON - should process package with matching dependency", () => {
   const testPkgPath = resolve(TEST_DIR, "match-package.json");
   writeFileSync(
@@ -592,6 +614,10 @@ test("constructAppendix - keeps transitive workspace overrides from dependency g
   };
 
   const result = constructAppendix([resolve(pkgADir, "package.json")], overridesData, log, {
+    dependencyTree: {
+      "body-parser": "1.20.0",
+      postcss: "8.4.0",
+    },
     dependencyGraph: {
       "body-parser": ["express"],
       postcss: ["webpack"],
@@ -603,6 +629,35 @@ test("constructAppendix - keeps transitive workspace overrides from dependency g
     "body-parser (required by express)",
   );
   expect(result["postcss@8.4.0"]).toBeUndefined();
+});
+
+test("constructAppendix - ignores dependency tree context when no relevant dependency graph exists", () => {
+  const workspaceDir = resolve(TEST_DIR, "workspace-tree-only-test");
+  const pkgADir = resolve(workspaceDir, "packages", "pkg-a");
+
+  mkdirSync(pkgADir, { recursive: true });
+
+  writeFileSync(
+    resolve(pkgADir, "package.json"),
+    JSON.stringify({
+      name: "pkg-a",
+      version: "1.0.0",
+      dependencies: { lodash: "^4.17.0" },
+    }),
+  );
+
+  const log = logger({ file: "test", isLogging: false });
+  const overridesData = {
+    type: "npm",
+    overrides: { lodash: "4.17.21" },
+  };
+
+  const result = constructAppendix([resolve(pkgADir, "package.json")], overridesData, log, {
+    dependencyTree: { lodash: "4.17.21" },
+  });
+
+  expect(result["lodash@4.17.21"]).toBeDefined();
+  expect(result["lodash@4.17.21"].dependents?.["pkg-a"]).toBe("lodash@^4.17.0");
 });
 
 test("constructAppendix - merges overrides from multiple workspaces", () => {

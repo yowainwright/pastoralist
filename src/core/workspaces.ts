@@ -1,6 +1,7 @@
 import { IS_DEBUGGING } from "../constants";
 import type {
   Appendix,
+  AppendixDependencyContext,
   CleanupUnusedOverridesContext,
   CleanupUnusedOverridesResult,
   OverrideRemovalUpdater,
@@ -8,7 +9,6 @@ import type {
   ResolveOverrides,
   Options,
   PastoralistJSON,
-  UpdateAppendixOptions,
 } from "../types";
 import type { Logger } from "../utils";
 import { logger } from "../utils";
@@ -82,8 +82,6 @@ const aggregateWorkspaceDependencies = (packageJsonFiles: string[]): Record<stri
     {} as Record<string, string>,
   );
 };
-
-type AppendixDependencyContext = Pick<UpdateAppendixOptions, "dependencyTree" | "dependencyGraph">;
 
 export const processWorkspacePackages = (
   packageJsonFiles: string[],

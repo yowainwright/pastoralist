@@ -7,6 +7,7 @@ import type {
   OverrideValue,
   PastoralistJSON,
   ResolveOverrides,
+  AppendixDependencyContext,
 } from "../../types";
 import type { Logger } from "../../utils";
 import type {
@@ -325,8 +326,6 @@ const hasMatchingPackageOverrides = (
   const deps = new Set(depList);
   return hasDependencyGraphMatch(overridesList, deps, dependencyGraph);
 };
-
-type AppendixDependencyContext = Pick<AppendixUpdateOptions, "dependencyTree" | "dependencyGraph">;
 
 const hasDependencyGraphMatch = (
   overridesList: string[],

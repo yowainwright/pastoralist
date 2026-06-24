@@ -115,6 +115,67 @@ test("updateAppendix - skips genuinely unused override when onlyUsedOverrides=tr
   expect(result["lodash@4.17.21"]).toBeUndefined();
 });
 
+// Regression: pnpm selector-syntax override keys ("pkg@<range>", "pkg@>=x <y",
+// "parent>child") were looked up in the dependency tree/graph using the *raw key*
+// instead of the real package name, so they were always judged "unused" and
+// stripped by --remove-unused — silently deleting load-bearing security pins.
+// See conversation "Remove unused pnpm overrides".
+test("updateAppendix - keeps selector-range override when package is in dependency tree (onlyUsedOverrides=true)", () => {
+  const overrides: OverridesType = { "minimatch@>=9 <10": "9.0.9" };
+  const result = updateAppendix({
+    overrides,
+    appendix: {},
+    dependencies: {},
+    devDependencies: {},
+    packageName: "root",
+    onlyUsedOverrides: true,
+    dependencyTree: { minimatch: true },
+  });
+  expect(result["minimatch@>=9 <10@9.0.9"]).toBeDefined();
+});
+
+test("updateAppendix - keeps selector-range override when required by a dependency (onlyUsedOverrides=true)", () => {
+  const overrides: OverridesType = { "minimatch@<4": "3.1.5" };
+  const result = updateAppendix({
+    overrides,
+    appendix: {},
+    dependencies: { glob: "^7.0.0" },
+    devDependencies: {},
+    packageName: "root",
+    onlyUsedOverrides: true,
+    dependencyGraph: { minimatch: ["glob"] },
+  });
+  expect(result["minimatch@<4@3.1.5"]).toBeDefined();
+});
+
+test("updateAppendix - keeps nested parent>child override when child is in dependency tree (onlyUsedOverrides=true)", () => {
+  const overrides: OverridesType = { "gray-matter>js-yaml": "3.14.2" };
+  const result = updateAppendix({
+    overrides,
+    appendix: {},
+    dependencies: {},
+    devDependencies: {},
+    packageName: "root",
+    onlyUsedOverrides: true,
+    dependencyTree: { "js-yaml": true },
+  });
+  expect(result["gray-matter>js-yaml@3.14.2"]).toBeDefined();
+});
+
+test("updateAppendix - still removes selector-range override when package is genuinely absent (onlyUsedOverrides=true)", () => {
+  const overrides: OverridesType = { "minimatch@>=9 <10": "9.0.9" };
+  const result = updateAppendix({
+    overrides,
+    appendix: {},
+    dependencies: {},
+    devDependencies: {},
+    packageName: "root",
+    onlyUsedOverrides: true,
+    dependencyTree: {},
+  });
+  expect(result["minimatch@>=9 <10@9.0.9"]).toBeUndefined();
+});
+
 test("updateAppendix - does not mutate original appendix", () => {
   const overrides: OverridesType = { lodash: "4.17.21" };
   const originalAppendix: Appendix = {

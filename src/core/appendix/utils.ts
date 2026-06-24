@@ -261,6 +261,38 @@ export const mergeDependents = (
   return Object.assign({}, currentDependents, { [packageName]: dependentInfo });
 };
 
+const PACKAGE_NAME_PATTERN = /^(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/i;
+
+/**
+ * Whether a string looks like a real npm package name. Used as a fail-safe: if an
+ * override key cannot be resolved to a plausible package name, the override is kept
+ * rather than risk deleting a load-bearing pin.
+ */
+export const isResolvablePackageName = (name: string): boolean => PACKAGE_NAME_PATTERN.test(name);
+
+/**
+ * Resolve a pnpm/yarn override *key* to the bare package name it actually pins, so it
+ * can be matched against the dependency tree/graph (both keyed by bare names).
+ *
+ *   "minimatch"            -> "minimatch"
+ *   "minimatch@<4"         -> "minimatch"
+ *   "minimatch@>=9 <10"    -> "minimatch"      (a range ">" is not a nesting separator)
+ *   "@scope/pkg@>=1 <2"    -> "@scope/pkg"
+ *   "gray-matter>js-yaml"  -> "js-yaml"         (nested: the pin is the child)
+ *   "foo@1>@scope/bar@<2"  -> "@scope/bar"
+ *
+ * Note: ">" is overloaded in pnpm keys — it separates "parent>child" *and* appears
+ * inside version ranges (">=9 <10"). A range ">" always immediately follows "@", so we
+ * only split on a ">" that is not preceded by "@".
+ */
+export const parseOverridePackageName = (overrideKey: string): string => {
+  const segments = overrideKey.split(/(?<!@)>/);
+  const target = (segments[segments.length - 1] ?? overrideKey).trim();
+  const lastAtIndex = target.lastIndexOf("@");
+  if (lastAtIndex <= 0) return target;
+  return target.slice(0, lastAtIndex);
+};
+
 export const buildDependentInfo = (
   hasOverride: boolean,
   override: string,
@@ -270,10 +302,17 @@ export const buildDependentInfo = (
 ): string => {
   if (hasOverride) return packageAtVersion(override)(packageVersion ?? "");
 
-  const requiredBy = dependencyGraph?.[override];
+  const name = parseOverridePackageName(override);
+
+  // Fail-safe: a key whose syntax we cannot resolve to a real package name is kept —
+  // deleting a load-bearing override is a security regression; keeping a stale one is
+  // merely cosmetic.
+  if (!isResolvablePackageName(name)) return `${override} (kept: unresolved override key)`;
+
+  const requiredBy = dependencyGraph?.[name];
   if (requiredBy?.length) return `${override} (required by ${requiredBy.slice(0, 3).join(", ")})`;
 
-  const isInDependencyTree = Boolean(dependencyTree?.[override]);
+  const isInDependencyTree = Boolean(dependencyTree?.[name]);
   if (isInDependencyTree) {
     return `${override} (transitive dependency)`;
   }

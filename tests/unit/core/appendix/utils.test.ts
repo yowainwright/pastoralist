@@ -12,6 +12,8 @@ import {
   normalizeLedgerCveField,
   isKeptEntry,
   isKeepExpired,
+  buildDependentInfo,
+  parseOverridePackageName,
 } from "../../../../src/core/appendix/utils";
 
 test("mergeOverrideReasons - should return reason when provided", () => {
@@ -688,4 +690,52 @@ test("toCompactAppendix - preserves full ledger for KeepConstraint entries", () 
 
   const result = toCompactAppendix(appendix);
   expect(result["lodash@4.17.21"]).toHaveProperty("ledger");
+});
+
+test("parseOverridePackageName - resolves pnpm selector and nested override keys to the real package name", () => {
+  expect(parseOverridePackageName("minimatch")).toBe("minimatch");
+  expect(parseOverridePackageName("minimatch@<4")).toBe("minimatch");
+  expect(parseOverridePackageName("minimatch@>=9 <10")).toBe("minimatch");
+  expect(parseOverridePackageName("path-to-regexp@>=6 <7")).toBe("path-to-regexp");
+  expect(parseOverridePackageName("uuid@<11.1.1")).toBe("uuid");
+  expect(parseOverridePackageName("@scope/pkg@>=1 <2")).toBe("@scope/pkg");
+  expect(parseOverridePackageName("@protobufjs/utf8")).toBe("@protobufjs/utf8");
+  expect(parseOverridePackageName("gray-matter>js-yaml")).toBe("js-yaml");
+  expect(parseOverridePackageName("foo@1>@scope/bar@<2")).toBe("@scope/bar");
+});
+
+test("buildDependentInfo - resolves selector-range key to real name for graph lookup", () => {
+  const info = buildDependentInfo(false, "minimatch@>=9 <10", undefined, undefined, {
+    minimatch: ["glob", "rimraf"],
+  });
+  expect(info).toContain("required by");
+  expect(info).not.toContain("unused override");
+});
+
+test("buildDependentInfo - resolves selector-range key to real name for tree lookup", () => {
+  const info = buildDependentInfo(
+    false,
+    "minimatch@<4",
+    undefined,
+    { minimatch: "3.1.5" },
+    undefined,
+  );
+  expect(info).toContain("transitive dependency");
+  expect(info).not.toContain("unused override");
+});
+
+test("buildDependentInfo - resolves nested parent>child key to the child name", () => {
+  const info = buildDependentInfo(
+    false,
+    "gray-matter>js-yaml",
+    undefined,
+    { "js-yaml": "3.14.2" },
+    undefined,
+  );
+  expect(info).not.toContain("unused override");
+});
+
+test("buildDependentInfo - still flags a genuinely unused selector override", () => {
+  const info = buildDependentInfo(false, "minimatch@<4", undefined, {}, {});
+  expect(info).toContain("unused override");
 });

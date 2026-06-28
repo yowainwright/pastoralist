@@ -173,6 +173,25 @@ npx pastoralist doctor
 `doctor` runs in dry-run summary mode, so it shows current override health
 without modifying `package.json`.
 
+Print the full first-run checklist when you want local setup, agent setup, and
+CI setup in one place:
+
+```bash
+npx pastoralist onboard
+```
+
+Install the Pastoralist agent skill in a repo:
+
+```bash
+npx -p pastoralist pastoralist-setup-skill
+```
+
+Set up local dev with selected skills and hooks:
+
+```bash
+npx -p pastoralist pastoralist-setup-local-dev --skills all --hooks git,postinstall
+```
+
 Run the guided setup:
 
 ```bash
@@ -249,6 +268,138 @@ For a workspace project with OSV security checks:
 
 Next, read [Configuration](/docs/configuration) for all options or
 [Workspaces & Monorepos](/docs/workspaces) for monorepo setup.
+
+---
+
+# Onboarding
+
+> First-run checklist for local use, agent setup, and CI
+
+Use onboarding when you are adding Pastoralist to a repo for the first time or
+when you want a repeatable setup path for contributors and agents.
+
+## Start Read-Only
+
+Check the current project without writing files:
+
+```bash
+npx pastoralist doctor
+```
+
+Print the full checklist from the CLI:
+
+```bash
+npx pastoralist onboard
+```
+
+## Add Project Setup
+
+Install Pastoralist and create the initial config:
+
+```bash
+npm install pastoralist --save-dev
+npx pastoralist --init
+```
+
+Update the appendix once the config is in place:
+
+```bash
+npx pastoralist
+```
+
+Keep it current after dependency installs:
+
+```bash
+npx pastoralist --setup-hook
+```
+
+## Add Agent Setup
+
+Install only the bundled Pastoralist skill:
+
+```bash
+npx -p pastoralist pastoralist-setup-skill
+```
+
+Preview local dev setup before writing files:
+
+```bash
+npx -p pastoralist pastoralist-setup-local-dev --dry-run
+```
+
+Set up agent config, bundled skills, and local hooks:
+
+```bash
+npx -p pastoralist pastoralist-setup-local-dev --skills all --hooks git,postinstall
+```
+
+The local dev setup script auto-detects Codex or Claude when possible. You can
+pin the target explicitly:
+
+```bash
+npx -p pastoralist pastoralist-setup-local-dev --agent codex
+npx -p pastoralist pastoralist-setup-local-dev --agent claude
+```
+
+## Copy/Paste Prompts
+
+Use this prompt when you want an agent to do the setup:
+
+```text
+Set up Pastoralist in this repository.
+Start with `npx pastoralist doctor` and inspect the current package manager setup.
+Run `npx -p pastoralist pastoralist-setup-local-dev --dry-run` before writing files.
+Configure the Pastoralist skill, local agent config, GitHub Action, and postinstall hook only when appropriate.
+Keep changes scoped to setup files, docs, and tests.
+```
+
+Use this prompt when you want an agent to review an existing setup:
+
+```text
+Review this repository's Pastoralist setup.
+Run `npx pastoralist --dry-run` and summarize stale overrides, security checks, and missing setup.
+Do not remove overrides unless `npx pastoralist --remove-unused --dry-run` shows they are unused.
+If setup is missing, propose the smallest script, skill, hook, or GitHub Action change.
+```
+
+## Agent Setup Loop
+
+Use this loop when an agent owns the setup:
+
+1. Run `npx pastoralist doctor`.
+2. Run `npx -p pastoralist pastoralist-setup-local-dev --dry-run`.
+3. Apply the smallest needed setup command.
+4. Run `npx pastoralist --dry-run`.
+5. Report changed files and remaining manual steps.
+
+## Add CI
+
+Create `.github/workflows/pastoralist.yml`:
+
+```yaml
+name: Override Check
+on: [pull_request]
+
+jobs:
+  pastoralist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: yowainwright/pastoralist@v1
+        with:
+          mode: check
+          check-security: false
+```
+
+## Verify
+
+Use these commands before merging setup changes:
+
+```bash
+npx pastoralist --dry-run
+npx pastoralist --summary
+npx pastoralist --checkSecurity
+```
 
 ---
 
@@ -652,7 +803,7 @@ jobs:
       contents: read
       vulnerability-alerts: read # Required for GitHub provider
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6.4.0
       - run: npm install
       - run: npx pastoralist --checkSecurity --securityProvider github
@@ -670,7 +821,7 @@ jobs:
   security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6.4.0
       - run: npm install
       - run: npx pastoralist --checkSecurity
@@ -1763,6 +1914,15 @@ summary mode and does not modify `package.json`.
 npx pastoralist doctor
 ```
 
+### `pastoralist onboard`
+
+Print a first-run onboarding checklist with initial local usage, agent setup,
+and GitHub Action setup.
+
+```bash
+npx pastoralist onboard
+```
+
 ### `pastoralist --path <path>`
 
 Run pastoralist on a specific package.json file.
@@ -1903,6 +2063,23 @@ Add pastoralist to your postinstall script automatically.
 
 ```bash
 npx pastoralist --setup-hook
+```
+
+### `pastoralist-setup-skill`
+
+Install the bundled Pastoralist agent skill into `.agents/skills/pastoralist`.
+
+```bash
+npx -p pastoralist pastoralist-setup-skill
+```
+
+### `pastoralist-setup-local-dev`
+
+Set up local agent config, selected skills, and selected local hooks.
+
+```bash
+npx -p pastoralist pastoralist-setup-local-dev --dry-run
+npx -p pastoralist pastoralist-setup-local-dev --skills all --hooks git,postinstall
 ```
 
 ### `pastoralist --remove-unused`
@@ -3071,7 +3248,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7
       - uses: yowainwright/pastoralist@v1
         with:
           mode: check
@@ -3097,7 +3274,7 @@ jobs:
   maintain:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7
       - uses: yowainwright/pastoralist@v1
         with:
           mode: pr
@@ -3128,7 +3305,7 @@ Runs pastoralist in dry-run mode. Reports issues without modifying files.
 Runs pastoralist and modifies `package.json`. Use when you want to handle commits yourself.
 
 ```yaml
-- uses: actions/checkout@v6.0.2
+- uses: actions/checkout@v7
 
 - uses: yowainwright/pastoralist@v1
   with:
@@ -3203,7 +3380,7 @@ jobs:
   security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7
 
       - uses: yowainwright/pastoralist@v1
         with:
@@ -3259,7 +3436,7 @@ jobs:
   maintain:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7
 
       - uses: yowainwright/pastoralist@v1
         id: pastoralist

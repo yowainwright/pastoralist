@@ -3383,6 +3383,7 @@ test("run - prints package version and returns early", async () => {
   const { version } = require("../../../package.json");
   const mockAction = mock(() => Promise.resolve());
   const mockInitCommand = mock(() => Promise.resolve());
+  const mockShowOnboarding = mock(() => {});
 
   const originalLog = console.log;
   const logged: string[] = [];
@@ -3392,6 +3393,7 @@ test("run - prints package version and returns early", async () => {
     await run(["node", "pastoralist", "--version"], {
       action: mockAction,
       initCommand: mockInitCommand,
+      showOnboarding: mockShowOnboarding,
     });
   } finally {
     console.log = originalLog;
@@ -3400,6 +3402,7 @@ test("run - prints package version and returns early", async () => {
   expect(logged).toEqual([version]);
   expect(mockAction).not.toHaveBeenCalled();
   expect(mockInitCommand).not.toHaveBeenCalled();
+  expect(mockShowOnboarding).not.toHaveBeenCalled();
 });
 
 test("run - handles unknown flags without throwing", async () => {
@@ -3432,22 +3435,26 @@ test("run - calls init command with first parsed security provider", async () =>
   const { run } = require("../../../src/cli/index");
   const mockInitCommand = mock(() => Promise.resolve());
   const mockAction = mock(() => Promise.resolve());
+  const mockShowOnboarding = mock(() => {});
 
   await run(["node", "pastoralist", "init", "--securityProvider", "snyk", "socket"], {
     action: mockAction,
     initCommand: mockInitCommand,
+    showOnboarding: mockShowOnboarding,
   });
 
   expect(mockInitCommand).toHaveBeenCalledWith(
     expect.objectContaining({ securityProvider: "snyk" }),
   );
   expect(mockAction).not.toHaveBeenCalled();
+  expect(mockShowOnboarding).not.toHaveBeenCalled();
 });
 
 test("run - calls action in dry-run summary mode for doctor command", async () => {
   const { run } = require("../../../src/cli/index");
   const mockInitCommand = mock(() => Promise.resolve());
   const mockAction = mock(() => Promise.resolve());
+  const mockShowOnboarding = mock(() => {});
 
   const originalLog = console.log;
   const logged: string[] = [];
@@ -3457,6 +3464,7 @@ test("run - calls action in dry-run summary mode for doctor command", async () =
     await run(["node", "pastoralist", "doctor", "--path", "custom.json"], {
       action: mockAction,
       initCommand: mockInitCommand,
+      showOnboarding: mockShowOnboarding,
     });
   } finally {
     console.log = originalLog;
@@ -3470,6 +3478,7 @@ test("run - calls action in dry-run summary mode for doctor command", async () =
     }),
   );
   expect(mockInitCommand).not.toHaveBeenCalled();
+  expect(mockShowOnboarding).not.toHaveBeenCalled();
   expect(logged.join("\n")).toContain("dry-run mode");
 });
 
@@ -3477,6 +3486,7 @@ test("run - suppresses doctor preface when JSON output is requested", async () =
   const { run } = require("../../../src/cli/index");
   const mockInitCommand = mock(() => Promise.resolve());
   const mockAction = mock(() => Promise.resolve());
+  const mockShowOnboarding = mock(() => {});
 
   const originalLog = console.log;
   const logged: string[] = [];
@@ -3486,6 +3496,7 @@ test("run - suppresses doctor preface when JSON output is requested", async () =
     await run(["node", "pastoralist", "doctor", "--outputFormat", "json"], {
       action: mockAction,
       initCommand: mockInitCommand,
+      showOnboarding: mockShowOnboarding,
     });
   } finally {
     console.log = originalLog;
@@ -3498,6 +3509,7 @@ test("run - suppresses doctor preface when JSON output is requested", async () =
       summary: true,
     }),
   );
+  expect(mockShowOnboarding).not.toHaveBeenCalled();
   expect(logged).toEqual([]);
 });
 
@@ -3525,6 +3537,23 @@ test("run - supports onboarding flag alias", async () => {
   const mockShowOnboarding = mock(() => {});
 
   await run(["node", "pastoralist", "--onboarding"], {
+    action: mockAction,
+    initCommand: mockInitCommand,
+    showOnboarding: mockShowOnboarding,
+  });
+
+  expect(mockShowOnboarding).toHaveBeenCalled();
+  expect(mockAction).not.toHaveBeenCalled();
+  expect(mockInitCommand).not.toHaveBeenCalled();
+});
+
+test("run - supports onboarding command alias", async () => {
+  const { run } = require("../../../src/cli/index");
+  const mockInitCommand = mock(() => Promise.resolve());
+  const mockAction = mock(() => Promise.resolve());
+  const mockShowOnboarding = mock(() => {});
+
+  await run(["node", "pastoralist", "onboarding"], {
     action: mockAction,
     initCommand: mockInitCommand,
     showOnboarding: mockShowOnboarding,

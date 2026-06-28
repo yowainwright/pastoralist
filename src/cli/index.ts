@@ -138,8 +138,7 @@ export const run = async (
   }
 
   if (isOnboardingRequested(parsed.command, options)) {
-    const printOnboarding = deps.showOnboarding ?? showOnboarding;
-    printOnboarding();
+    deps.showOnboarding();
     return;
   }
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildOnboardingText } from "../../../src/cli/onboarding";
+import { buildOnboardingText, showOnboarding } from "../../../src/cli/onboarding";
 
 describe("cli onboarding", () => {
   test("buildOnboardingText includes human usage", () => {
@@ -45,5 +45,19 @@ describe("cli onboarding", () => {
     expect(text).toContain("GitHub Action setup");
     expect(text).toContain(".github/workflows/pastoralist.yml");
     expect(text).toContain("uses: yowainwright/pastoralist@v1");
+  });
+
+  test("showOnboarding prints the onboarding text", () => {
+    const originalLog = console.log;
+    const logged: string[] = [];
+    console.log = (message: string) => logged.push(message);
+
+    try {
+      showOnboarding();
+    } finally {
+      console.log = originalLog;
+    }
+
+    expect(logged).toEqual([buildOnboardingText()]);
   });
 });

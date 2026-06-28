@@ -206,6 +206,34 @@ test("createSecurityLedger - should include all fields when provided", () => {
   });
 });
 
+test("createSecurityLedger - should mark single-source security details as possible", () => {
+  const securityDetails: SecurityOverrideDetail[] = [
+    {
+      packageName: "lodash",
+      reason: "CVE-2021-23337",
+      sources: ["osv"],
+    },
+  ];
+
+  const result = createSecurityLedger("lodash", securityDetails, undefined);
+
+  expect(result).toHaveProperty("confidence", "possible");
+});
+
+test("createSecurityLedger - should mark multi-source security details as confirmed", () => {
+  const securityDetails: SecurityOverrideDetail[] = [
+    {
+      packageName: "lodash",
+      reason: "CVE-2021-23337",
+      sources: ["osv", "github"],
+    },
+  ];
+
+  const result = createSecurityLedger("lodash", securityDetails, undefined);
+
+  expect(result).toHaveProperty("confidence", "confirmed");
+});
+
 test("toCompactAppendix - should compact simple entries", () => {
   const appendix: Appendix = {
     "lodash@4.17.21": {

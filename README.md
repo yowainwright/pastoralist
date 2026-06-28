@@ -19,7 +19,7 @@ Pastoralist keeps the package-manager instruction where it belongs and adds the
 missing review record: why the override exists, which packages still need it,
 which security provider found it, and when it can be removed.
 
-<!-- first-run CLI commands from src/cli/parser/constants.ts and src/cli/onboarding.ts -->
+<!-- first-run CLI commands from src/cli/parser/constants.ts and src/cli/onboarding/ -->
 
 ## Quick Start
 
@@ -34,6 +34,10 @@ For first-run guidance across local use, agents, and CI:
 ```bash
 npx pastoralist onboard
 ```
+
+The onboarding output includes quick scripts and copy/paste prompts for agents.
+See the [Onboarding guide](https://jeffry.in/pastoralist/docs/onboarding) for
+the same checklist in the docs.
 
 Install the Pastoralist agent skill in a repo:
 
@@ -214,6 +218,7 @@ npm audit signatures
 
 - [Why Pastoralist](https://jeffry.in/why-pastoralist/)
 - [Setup](https://jeffry.in/pastoralist/docs/setup)
+- [Onboarding](https://jeffry.in/pastoralist/docs/onboarding)
 - [Configuration](https://jeffry.in/pastoralist/docs/configuration)
 - [Security](https://jeffry.in/pastoralist/docs/security)
 - [Workspaces](https://jeffry.in/pastoralist/docs/workspaces)

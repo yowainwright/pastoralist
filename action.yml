@@ -222,11 +222,11 @@ runs:
             if (start > 0) {
               candidate = substr($0, start)
               if (candidate ~ /^\{.*\}$/) {
-                line = candidate
+                print candidate
+                exit
               }
             }
           }
-          END { print line }
         ')
 
         if [ -z "$JSON_OUTPUT" ]; then
@@ -361,6 +361,8 @@ runs:
             --body-file "$BODY_FILE" \
             --base "$INPUT_BASE_REF" \
             "${label_args[@]}")
+        else
+          gh pr edit "$PR_URL" --title "$INPUT_PR_TITLE" --body-file "$BODY_FILE"
         fi
 
         echo "pr-url=$PR_URL" >> "$GITHUB_OUTPUT"

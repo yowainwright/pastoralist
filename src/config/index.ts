@@ -35,7 +35,7 @@ const evaluateCommonJsConfig = (path: string, source: string): unknown => {
 };
 
 const hasCommonJsExports = (source: string): boolean =>
-  /\bmodule\.exports\b|\bexports\./.test(source);
+  /^[ \t]*(?:module\.exports|exports\.)/.test(source);
 
 const loadJsConfig = async (filename: string, path: string): Promise<unknown> => {
   const source = readFileSync(path, "utf8");

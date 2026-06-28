@@ -12,6 +12,7 @@ import type { loadConfig } from "../config";
 import type { getOverrideGitDate } from "../utils/git";
 import type { createSpinner, green, logger as createLogger, quickConfirm } from "../utils";
 import type { initCommand } from "./cmds/init";
+import type { showOnboarding } from "./onboarding";
 import type { buildMergedOptions, handleSecurityResults, runSecurityCheck } from "./security";
 
 export type SecurityConfig = NonNullable<NonNullable<PastoralistJSON["pastoralist"]>["security"]>;
@@ -144,4 +145,5 @@ export type CliAction = (options?: Options, deps?: ActionDeps) => Promise<Pastor
 export type RunDeps = {
   initCommand: typeof initCommand;
   action: CliAction;
+  showOnboarding?: typeof showOnboarding;
 };

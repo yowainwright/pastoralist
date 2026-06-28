@@ -19,12 +19,36 @@ Pastoralist keeps the package-manager instruction where it belongs and adds the
 missing review record: why the override exists, which packages still need it,
 which security provider found it, and when it can be removed.
 
+<!-- first-run CLI commands from src/cli/parser/constants.ts and src/cli/onboarding/ -->
+
 ## Quick Start
 
 Start with a read-only check:
 
 ```bash
 npx pastoralist doctor
+```
+
+For first-run guidance across local use, agents, and CI:
+
+```bash
+npx pastoralist onboard
+```
+
+The onboarding output includes quick scripts and copy/paste prompts for agents.
+See the [Onboarding guide](https://jeffry.in/pastoralist/docs/onboarding) for
+the same checklist in the docs.
+
+Install the Pastoralist agent skill in a repo:
+
+```bash
+npx -p pastoralist pastoralist-setup-skill
+```
+
+Set up local dev with selected skills and hooks:
+
+```bash
+npx -p pastoralist pastoralist-setup-local-dev --skills all --hooks git,postinstall
 ```
 
 When you are ready to add it to the project:
@@ -102,10 +126,13 @@ and patched-version metadata.
 - Reads workspace manifests and writes one consolidated root appendix
 - Provides dry-run, summary, quiet, and JSON output for CI
 
+<!-- public CLI commands from src/cli/parser/constants.ts -->
+
 ## Commands
 
 | Command                                   | Purpose                                        |
 | ----------------------------------------- | ---------------------------------------------- |
+| `npx pastoralist onboard`                 | Show setup, agent, and GitHub Action guidance  |
 | `npx pastoralist doctor`                  | Read-only setup and override health check      |
 | `npx pastoralist`                         | Update the override appendix                   |
 | `npx pastoralist --dry-run`               | Preview package.json changes                   |
@@ -113,6 +140,15 @@ and patched-version metadata.
 | `npx pastoralist --checkSecurity`         | Check advisories with the default OSV provider |
 | `npx pastoralist --quiet --checkSecurity` | Minimal CI output and vulnerability exit code  |
 | `npx pastoralist --summary`               | Print package, override, and security metrics  |
+
+## Setup Helpers
+
+| Command                                                                               | Purpose                              |
+| ------------------------------------------------------------------------------------- | ------------------------------------ |
+| `npx -p pastoralist pastoralist-setup-skill`                                          | Install the Pastoralist agent skill  |
+| `npx -p pastoralist pastoralist-setup-local-dev --help`                               | Show local dev setup options         |
+| `npx -p pastoralist pastoralist-setup-local-dev --dry-run`                            | Preview agent, skill, and hook setup |
+| `npx -p pastoralist pastoralist-setup-local-dev --skills all --hooks git,postinstall` | Set up skills and hooks              |
 
 ## Configuration
 
@@ -150,7 +186,7 @@ jobs:
   pastoralist:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7
       - uses: yowainwright/pastoralist@v1
         with:
           mode: check
@@ -182,6 +218,7 @@ npm audit signatures
 
 - [Why Pastoralist](https://jeffry.in/why-pastoralist/)
 - [Setup](https://jeffry.in/pastoralist/docs/setup)
+- [Onboarding](https://jeffry.in/pastoralist/docs/onboarding)
 - [Configuration](https://jeffry.in/pastoralist/docs/configuration)
 - [Security](https://jeffry.in/pastoralist/docs/security)
 - [Workspaces](https://jeffry.in/pastoralist/docs/workspaces)

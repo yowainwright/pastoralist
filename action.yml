@@ -222,10 +222,12 @@ runs:
             if (start > 0) {
               candidate = substr($0, start)
               if (candidate ~ /^\{.*\}$/) {
-                print candidate
-                exit
+                line = candidate
               }
             }
+          }
+          END {
+            if (line) print line
           }
         ')
 

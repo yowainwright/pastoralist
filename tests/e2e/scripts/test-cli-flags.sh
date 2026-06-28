@@ -315,7 +315,12 @@ cd /tmp/invalid-flag-test
 cp /app/e2e/fixtures/npm-single-package.json package.json
 
 echo "Running pastoralist with invalid flag..."
-if node /app/pastoralist/index.js --nonexistent-flag 2>&1 | tee output.log; then
+set +e
+node /app/pastoralist/index.js --nonexistent-flag 2>&1 | tee output.log
+invalid_flag_exit=${PIPESTATUS[0]}
+set -e
+
+if [ "$invalid_flag_exit" -eq 0 ]; then
     echo "⚠️  Invalid flag accepted (may be ignored)"
 else
     echo "✅ Invalid flag rejected"

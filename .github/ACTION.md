@@ -21,7 +21,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7
       - uses: yowainwright/pastoralist@v1
         with:
           mode: check
@@ -39,7 +39,7 @@ jobs:
   maintain:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7
       - uses: yowainwright/pastoralist@v1
         with:
           mode: pr
@@ -133,7 +133,7 @@ jobs:
   security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7
 
       - uses: yowainwright/pastoralist@v1
         with:
@@ -185,7 +185,7 @@ jobs:
   maintain:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7
 
       - uses: yowainwright/pastoralist@v1
         id: pastoralist

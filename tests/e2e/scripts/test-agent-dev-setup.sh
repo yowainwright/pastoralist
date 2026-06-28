@@ -44,12 +44,22 @@ assert_file_contains() {
     fi
 }
 
+assert_output_contains() {
+    value="$1"
+    expected="$2"
+
+    if ! echo "$value" | grep -q -- "$expected"; then
+        echo "FAIL: expected output to contain $expected"
+        exit 1
+    fi
+}
+
 echo "\n1. Testing Pastoralist skill dry run"
 reset_repo
 OUTPUT=$(sh "$SETUP_SKILL" --dry-run)
 
-echo "$OUTPUT" | grep -q "Would install .agents/skills/pastoralist/SKILL.md"
-print_result $? "Pastoralist skill dry run printed expected action"
+assert_output_contains "$OUTPUT" "Would install .agents/skills/pastoralist/SKILL.md"
+print_result 0 "Pastoralist skill dry run printed expected action"
 
 if [ -e ".agents/skills/pastoralist/SKILL.md" ]; then
     echo "FAIL: dry run wrote Pastoralist skill"
@@ -79,12 +89,12 @@ OUTPUT=$(
         --hooks git,postinstall
 )
 
-echo "$OUTPUT" | grep -q "Would write AGENTS.md"
-echo "$OUTPUT" | grep -q "Would install .agents/skills/pastoralist/SKILL.md"
-echo "$OUTPUT" | grep -q "Would install .agents/skills/eslint-plugin-legibility/SKILL.md"
-echo "$OUTPUT" | grep -q "Would install git hooks"
-echo "$OUTPUT" | grep -q "Would add Pastoralist postinstall hook"
-print_result $? "Local dev dry run printed selected setup actions"
+assert_output_contains "$OUTPUT" "Would write AGENTS.md"
+assert_output_contains "$OUTPUT" "Would install .agents/skills/pastoralist/SKILL.md"
+assert_output_contains "$OUTPUT" "Would install .agents/skills/eslint-plugin-legibility/SKILL.md"
+assert_output_contains "$OUTPUT" "Would install git hooks"
+assert_output_contains "$OUTPUT" "Would add Pastoralist postinstall hook"
+print_result 0 "Local dev dry run printed selected setup actions"
 
 if [ -e "AGENTS.md" ] || [ -e ".agents/skills/pastoralist/SKILL.md" ]; then
     echo "FAIL: local dev dry run wrote files"
@@ -110,9 +120,9 @@ mkdir -p .agents/skills/pastoralist
 echo "custom skill" > .agents/skills/pastoralist/SKILL.md
 OUTPUT=$(sh "$SETUP_SKILL")
 
-echo "$OUTPUT" | grep -q "existing file is unmanaged"
+assert_output_contains "$OUTPUT" "existing file is unmanaged"
 assert_file_contains ".agents/skills/pastoralist/SKILL.md" "custom skill"
-print_result $? "Unmanaged Pastoralist skill was preserved"
+print_result 0 "Unmanaged Pastoralist skill was preserved"
 
 echo "\n6. Testing postinstall hook selection"
 reset_repo

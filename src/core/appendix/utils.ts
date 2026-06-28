@@ -8,8 +8,20 @@ import type { Appendix, AppendixItem, OverridesType, OverrideValue } from "../..
 import type { PartialSecurityLedger, CompactAppendix } from "./types";
 import { packageAtVersion } from "../../utils/string";
 import { compareVersions } from "../../utils/semver";
-
-const UNUSED_OVERRIDE_LABEL = "(unused override)";
+import {
+  OVERRIDE_PARENT_SEPARATOR_PATTERN,
+  PACKAGE_NAME_PATTERN,
+  REQUIRED_BY_DEPENDENT_LIMIT,
+  REQUIRED_BY_LABEL,
+  SECURITY_CONFIDENCE_CONFIRMED,
+  SECURITY_CONFIDENCE_CONFIRMATION_THRESHOLD,
+  SECURITY_CONFIDENCE_POSSIBLE,
+  SECURITY_LEDGER_SOURCE,
+  SECURITY_SEVERITY_SCORES,
+  TRANSITIVE_DEPENDENCY_LABEL,
+  UNRESOLVED_OVERRIDE_KEY_LABEL,
+  UNUSED_OVERRIDE_LABEL,
+} from "./constants";
 
 const getReasonFromSecurityDetails = (
   packageName: string,
@@ -57,7 +69,7 @@ const findAllSecurityDetails = (
 };
 
 const buildBaseLedger = (): PartialSecurityLedger => ({
-  source: "security",
+  source: SECURITY_LEDGER_SOURCE,
   securityChecked: true,
   securityCheckDate: new Date().toISOString(),
 });
@@ -82,13 +94,7 @@ const addCvesToLedger = (
 };
 
 const getSeverityScore = (severity: string): number => {
-  const scores: Record<string, number> = {
-    low: 1,
-    medium: 2,
-    high: 3,
-    critical: 4,
-  };
-  return scores[severity.toLowerCase()] || 0;
+  return SECURITY_SEVERITY_SCORES[severity.toLowerCase()] || 0;
 };
 
 const addSeverityToLedger = (
@@ -150,8 +156,8 @@ const addConfidenceToLedger = (
   const allSources = details.flatMap((d) => d.sources || []);
   const uniqueSources = Array.from(new Set(allSources));
   if (uniqueSources.length === 0) return ledger;
-  const isConfirmed = uniqueSources.length >= 2;
-  const confidence = isConfirmed ? "confirmed" : "possible";
+  const isConfirmed = uniqueSources.length >= SECURITY_CONFIDENCE_CONFIRMATION_THRESHOLD;
+  const confidence = isConfirmed ? SECURITY_CONFIDENCE_CONFIRMED : SECURITY_CONFIDENCE_POSSIBLE;
   return Object.assign({}, ledger, { confidence });
 };
 
@@ -261,12 +267,10 @@ export const mergeDependents = (
   return Object.assign({}, currentDependents, { [packageName]: dependentInfo });
 };
 
-const PACKAGE_NAME_PATTERN = /^(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/i;
-
 export const isResolvablePackageName = (name: string): boolean => PACKAGE_NAME_PATTERN.test(name);
 
 export const parseOverridePackageName = (overrideKey: string): string => {
-  const segments = overrideKey.split(/(?<!@)>/);
+  const segments = overrideKey.split(OVERRIDE_PARENT_SEPARATOR_PATTERN);
   const target = (segments[segments.length - 1] ?? overrideKey).trim();
   const lastAtIndex = target.lastIndexOf("@");
   if (lastAtIndex <= 0) return target;
@@ -284,14 +288,18 @@ export const buildDependentInfo = (
 
   const name = parseOverridePackageName(override);
 
-  if (!isResolvablePackageName(name)) return `${override} (kept: unresolved override key)`;
+  const isUnresolvedOverrideKey = !isResolvablePackageName(name);
+  if (isUnresolvedOverrideKey) return `${override} ${UNRESOLVED_OVERRIDE_KEY_LABEL}`;
 
   const requiredBy = dependencyGraph?.[name];
-  if (requiredBy?.length) return `${override} (required by ${requiredBy.slice(0, 3).join(", ")})`;
+  if (requiredBy?.length) {
+    const dependents = requiredBy.slice(0, REQUIRED_BY_DEPENDENT_LIMIT).join(", ");
+    return `${override} (${REQUIRED_BY_LABEL} ${dependents})`;
+  }
 
   const isInDependencyTree = Boolean(dependencyTree?.[name]);
   if (isInDependencyTree) {
-    return `${override} (transitive dependency)`;
+    return `${override} ${TRANSITIVE_DEPENDENCY_LABEL}`;
   }
 
   return `${override} ${UNUSED_OVERRIDE_LABEL}`;

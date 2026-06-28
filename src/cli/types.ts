@@ -145,5 +145,5 @@ export type CliAction = (options?: Options, deps?: ActionDeps) => Promise<Pastor
 export type RunDeps = {
   initCommand: typeof initCommand;
   action: CliAction;
-  showOnboarding?: typeof showOnboarding;
+  showOnboarding: typeof showOnboarding;
 };

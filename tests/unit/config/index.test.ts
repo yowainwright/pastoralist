@@ -284,6 +284,41 @@ test("loadExternalConfig - loads JS config file", async () => {
   validateRootPackageJsonIntegrity();
 });
 
+test("loadExternalConfig - loads JS CommonJS config after leading statements", async () => {
+  validateRootPackageJsonIntegrity();
+
+  if (!existsSync(testDir)) {
+    mkdirSync(testDir, { recursive: true });
+  }
+
+  const configPath = resolve(testDir, "pastoralist.config.js");
+
+  if (existsSync(configPath)) {
+    rmSync(configPath);
+  }
+
+  const configContent = `
+    "use strict";
+
+    module.exports = {
+      depPaths: ["packages/*/package.json"]
+    };
+  `;
+  writeFileSync(configPath, configContent);
+
+  clearConfigCache();
+  const config = await loadExternalConfig(testDir);
+
+  expect(config).toBeDefined();
+  expect(config?.depPaths).toEqual(["packages/*/package.json"]);
+
+  if (existsSync(configPath)) {
+    rmSync(configPath);
+  }
+
+  validateRootPackageJsonIntegrity();
+});
+
 test("loadExternalConfig - ignores TypeScript config files", async () => {
   validateRootPackageJsonIntegrity();
 

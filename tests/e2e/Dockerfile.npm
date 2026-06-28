@@ -8,9 +8,17 @@ WORKDIR /app
 
 # Copy the built pastoralist binary
 COPY dist/ ./pastoralist/
+COPY scripts/setup-local-dev.sh ./pastoralist/scripts/setup-local-dev.sh
+COPY scripts/setup-pastoralist-skill.sh ./pastoralist/scripts/setup-pastoralist-skill.sh
+COPY skills/ ./pastoralist/skills/
+COPY scripts/setup-local-dev.sh ./pastoralist-package/scripts/setup-local-dev.sh
+COPY scripts/setup-pastoralist-skill.sh ./pastoralist-package/scripts/setup-pastoralist-skill.sh
+COPY skills/ ./pastoralist-package/skills/
 
 # Make pastoralist executable
 RUN chmod +x ./pastoralist/index.js
+RUN chmod +x ./pastoralist/scripts/*.sh
+RUN chmod +x ./pastoralist-package/scripts/*.sh
 
 # Create a test workspace with multiple packages
 RUN mkdir -p packages/app packages/utils packages/shared e2e/fixtures

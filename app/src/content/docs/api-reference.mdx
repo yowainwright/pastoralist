@@ -28,6 +28,15 @@ summary mode and does not modify `package.json`.
 npx pastoralist doctor
 ```
 
+### `pastoralist onboard`
+
+Print a first-run onboarding checklist with initial local usage, agent setup,
+and GitHub Action setup.
+
+```bash
+npx pastoralist onboard
+```
+
 ### `pastoralist --path <path>`
 
 Run pastoralist on a specific package.json file.
@@ -168,6 +177,23 @@ Add pastoralist to your postinstall script automatically.
 
 ```bash
 npx pastoralist --setup-hook
+```
+
+### `pastoralist-setup-skill`
+
+Install the bundled Pastoralist agent skill into `.agents/skills/pastoralist`.
+
+```bash
+npx -p pastoralist pastoralist-setup-skill
+```
+
+### `pastoralist-setup-local-dev`
+
+Set up local agent config, selected skills, and selected local hooks.
+
+```bash
+npx -p pastoralist pastoralist-setup-local-dev --dry-run
+npx -p pastoralist pastoralist-setup-local-dev --skills all --hooks git,postinstall
 ```
 
 ### `pastoralist --remove-unused`

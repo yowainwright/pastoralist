@@ -128,8 +128,11 @@ e2e/test-project/
 .vscode/
 e2e/results/
 .claude
+.codex/
+.agents/
 .astro
 .kiro
 pnpm-lock.yaml
 tmp/
 CLAUDE.md
+AGENTS.md

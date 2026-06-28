@@ -22,6 +22,7 @@ export const OPTION_DEFINITIONS: OptionDefinition[] = [
   { flags: ["--promptForReasons"], hasValue: false },
   { flags: ["--strict"], hasValue: false },
   { flags: ["--summary"], hasValue: false },
+  { flags: ["--onboard", "--onboarding"], hasValue: false },
   { flags: ["-q", "--quiet"], hasValue: false },
   { flags: ["--setup-hook"], hasValue: false },
   { flags: ["--remove-unused"], hasValue: false },
@@ -37,6 +38,7 @@ Pastoralist - A utility CLI to manage your dependency overrides
 Usage: pastoralist [command] [options]
 
 Commands:
+  onboard                               Show first-run setup, agent, and GitHub Action guidance
   init                                  Initialize Pastoralist configuration interactively
   doctor                                Run a read-only setup and override health check
 
@@ -61,6 +63,7 @@ Options:
   --promptForReasons                    Prompt for reasons when adding manual overrides
   --strict                              Fail on any security check errors (network failures, API errors)
   --summary                             Show summary metrics table after run
+  --onboard, --onboarding               Show first-run onboarding guidance
   -q, --quiet                           Quiet mode for CI (exit 1 if vulnerabilities, 0 if clean)
   --setup-hook                          Add postinstall script to run pastoralist automatically
   --remove-unused                       Remove unused overrides from package.json

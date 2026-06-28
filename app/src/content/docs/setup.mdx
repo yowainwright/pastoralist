@@ -30,6 +30,25 @@ npx pastoralist doctor
 `doctor` runs in dry-run summary mode, so it shows current override health
 without modifying `package.json`.
 
+Print the full first-run checklist when you want local setup, agent setup, and
+CI setup in one place:
+
+```bash
+npx pastoralist onboard
+```
+
+Install the Pastoralist agent skill in a repo:
+
+```bash
+npx -p pastoralist pastoralist-setup-skill
+```
+
+Set up local dev with selected skills and hooks:
+
+```bash
+npx -p pastoralist pastoralist-setup-local-dev --skills all --hooks git,postinstall
+```
+
 Run the guided setup:
 
 ```bash

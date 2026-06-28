@@ -30,13 +30,18 @@
     "url": "git+https://github.com/yowainwright/pastoralist.git"
   },
   "bin": {
-    "pastoralist": "./dist/index.js"
+    "pastoralist": "./dist/index.js",
+    "pastoralist-setup-local-dev": "./scripts/setup-local-dev.sh",
+    "pastoralist-setup-skill": "./scripts/setup-pastoralist-skill.sh"
   },
   "workspaces": [
     "app"
   ],
   "files": [
-    "dist"
+    "dist",
+    "scripts/setup-local-dev.sh",
+    "scripts/setup-pastoralist-skill.sh",
+    "skills"
   ],
   "type": "module",
   "main": "dist/index.js",
@@ -62,6 +67,9 @@
     "lint": "oxlint -c .oxlintrc.json src app/src app/tests scripts tests/unit/scripts/oxlint-plugin",
     "lint-fix": "oxlint -c .oxlintrc.json src app/src app/tests scripts tests/unit/scripts/oxlint-plugin --fix",
     "prepare": "sh scripts/prepare.sh",
+    "setup:agents": "sh scripts/setup-agent-config.sh",
+    "setup:local-dev": "sh scripts/setup-local-dev.sh",
+    "setup:pastoralist-skill": "sh scripts/setup-pastoralist-skill.sh",
     "prepublishOnly": "bun run test:unit",
     "preview": "bun run --cwd app preview",
     "release": "bun scripts/release.ts",
@@ -102,6 +110,7 @@
     "@socketsecurity/bun-security-scanner": "^1.1.2",
     "@types/bun": "1.3.14",
     "codependence": "^1.0.0",
+    "eslint-plugin-legibility": "^0.1.12",
     "oxfmt": "^0.50.0",
     "oxlint": "^1.70.0",
     "release-it": "20.2.0",

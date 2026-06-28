@@ -419,6 +419,11 @@ echo "=============================="
 /app/scripts/test-cli-flags.sh
 print_result $? "CLI flags tests completed"
 
+echo "\nRunning Agent And Local Dev Setup Tests..."
+echo "=============================="
+/app/scripts/test-agent-dev-setup.sh
+print_result $? "Agent and local dev setup tests completed"
+
 echo "\n📝 Running RC File Suggestion Tests..."
 echo "=============================="
 /app/scripts/test-rc-file-suggestion.sh

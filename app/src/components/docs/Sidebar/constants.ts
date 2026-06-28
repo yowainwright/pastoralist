@@ -12,6 +12,10 @@ export const SIDEBAR = [
         title: "Setup",
         href: resolveDocsUrl("setup"),
       },
+      {
+        title: "Onboarding",
+        href: resolveDocsUrl("onboarding"),
+      },
     ],
   },
   {

@@ -33,6 +33,11 @@ export const docs: DocMeta[] = [
     description: "Install Pastoralist and keep your override appendix current",
   },
   {
+    slug: "onboarding",
+    title: "Onboarding",
+    description: "First-run checklist for local use, agent setup, and CI",
+  },
+  {
     slug: "security",
     title: "Security Vulnerability Detection",
     description: "Detect and fix security vulnerabilities in your dependencies",

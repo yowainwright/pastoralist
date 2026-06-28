@@ -1,7 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import { parseArgs } from "../../../../src/cli/parser";
+import { HELP_TEXT } from "../../../../src/cli/parser/constants";
 
 describe("parseArgs", () => {
+  describe("help text", () => {
+    test("should document onboarding", () => {
+      expect(HELP_TEXT).toContain("onboard");
+      expect(HELP_TEXT).toContain("--onboard, --onboarding");
+      expect(HELP_TEXT).toContain("GitHub Action guidance");
+    });
+  });
+
   describe("boolean flags", () => {
     test("should parse --debug flag", () => {
       const result = parseArgs(["node", "script.js", "--debug"]);
@@ -168,6 +177,12 @@ describe("parseArgs", () => {
       expect(result.command).toBe("doctor");
     });
 
+    test("should parse onboard command", () => {
+      const result = parseArgs(["node", "script.js", "onboard"]);
+
+      expect(result.command).toBe("onboard");
+    });
+
     test("should parse command with options", () => {
       const result = parseArgs(["node", "script.js", "init", "--path", "test.json"]);
 
@@ -315,6 +330,14 @@ describe("parseArgs", () => {
       const result = parseArgs(["node", "script.js", "--init"]);
 
       expect(result.options.init).toBe(true);
+    });
+
+    test("should handle onboarding flags", () => {
+      const onboardResult = parseArgs(["node", "script.js", "--onboard"]);
+      const onboardingResult = parseArgs(["node", "script.js", "--onboarding"]);
+
+      expect(onboardResult.options.onboard).toBe(true);
+      expect(onboardingResult.options.onboard).toBe(true);
     });
 
     test("should parse all flags correctly", () => {

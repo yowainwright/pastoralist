@@ -115,11 +115,6 @@ test("updateAppendix - skips genuinely unused override when onlyUsedOverrides=tr
   expect(result["lodash@4.17.21"]).toBeUndefined();
 });
 
-// Regression: pnpm selector-syntax override keys ("pkg@<range>", "pkg@>=x <y",
-// "parent>child") were looked up in the dependency tree/graph using the *raw key*
-// instead of the real package name, so they were always judged "unused" and
-// stripped by --remove-unused — silently deleting load-bearing security pins.
-// See conversation "Remove unused pnpm overrides".
 test("updateAppendix - keeps selector-range override when package is in dependency tree (onlyUsedOverrides=true)", () => {
   const overrides: OverridesType = { "minimatch@>=9 <10": "9.0.9" };
   const result = updateAppendix({

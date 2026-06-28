@@ -3501,6 +3501,40 @@ test("run - suppresses doctor preface when JSON output is requested", async () =
   expect(logged).toEqual([]);
 });
 
+test("run - prints onboarding and returns early", async () => {
+  const { run } = require("../../../src/cli/index");
+  const mockInitCommand = mock(() => Promise.resolve());
+  const mockAction = mock(() => Promise.resolve());
+  const mockShowOnboarding = mock(() => {});
+
+  await run(["node", "pastoralist", "onboard"], {
+    action: mockAction,
+    initCommand: mockInitCommand,
+    showOnboarding: mockShowOnboarding,
+  });
+
+  expect(mockShowOnboarding).toHaveBeenCalled();
+  expect(mockAction).not.toHaveBeenCalled();
+  expect(mockInitCommand).not.toHaveBeenCalled();
+});
+
+test("run - supports onboarding flag alias", async () => {
+  const { run } = require("../../../src/cli/index");
+  const mockInitCommand = mock(() => Promise.resolve());
+  const mockAction = mock(() => Promise.resolve());
+  const mockShowOnboarding = mock(() => {});
+
+  await run(["node", "pastoralist", "--onboarding"], {
+    action: mockAction,
+    initCommand: mockInitCommand,
+    showOnboarding: mockShowOnboarding,
+  });
+
+  expect(mockShowOnboarding).toHaveBeenCalled();
+  expect(mockAction).not.toHaveBeenCalled();
+  expect(mockInitCommand).not.toHaveBeenCalled();
+});
+
 test("handleSetupHook - error does not cause early exit in run", async () => {
   const { handleSetupHook } = require("../../../src/cli/index");
 

@@ -410,7 +410,7 @@ jobs:
       contents: read
       vulnerability-alerts: read # Required for GitHub provider
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6.4.0
       - run: npm install
       - run: npx pastoralist --checkSecurity --securityProvider github
@@ -428,7 +428,7 @@ jobs:
   security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6.4.0
       - run: npm install
       - run: npx pastoralist --checkSecurity

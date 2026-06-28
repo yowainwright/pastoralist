@@ -9,6 +9,7 @@ import { logger as createLogger } from "../utils";
 import { initCommand } from "./cmds/init/index";
 import { action } from "./action";
 import { handleSetupHook } from "./setup-hook";
+import { showOnboarding } from "./onboarding";
 import type { InitSecurityProvider, RunDeps } from "./types";
 
 export { action, handleInitMode, handleTestMode } from "./action";
@@ -33,6 +34,7 @@ export { displayOverrides, displaySummaryTable } from "./display";
 export { checkRemovalSafety } from "./safety";
 export { resolvePathFromRoot } from "./path";
 export { handleSetupHook } from "./setup-hook";
+export { buildOnboardingText, showOnboarding } from "./onboarding";
 
 type PackageVersion = { version?: unknown };
 
@@ -53,6 +55,20 @@ const isHelpRequested = (argv: string[], options: Options): boolean =>
 
 const isVersionRequested = (argv: string[], options: Options): boolean =>
   Boolean(options.version || argv.includes("-v") || argv.includes("--version"));
+
+const isOnboardingCommand = (command: string | undefined): boolean => {
+  const isOnboardCommand = command === "onboard";
+  const isOnboardingAlias = command === "onboarding";
+
+  return isOnboardCommand || isOnboardingAlias;
+};
+
+const isOnboardingRequested = (command: string | undefined, options: Options): boolean => {
+  const isOnboardFlag = options.onboard === true;
+
+  if (isOnboardFlag) return true;
+  return isOnboardingCommand(command);
+};
 
 const readVersion = (path: string): string | undefined => {
   if (!existsSync(path)) return undefined;
@@ -97,9 +113,15 @@ const runDoctorCommand = async (options: Options, deps: Pick<RunDeps, "action">)
   await deps.action(doctorOptions);
 };
 
+const defaultRunDeps: RunDeps = {
+  initCommand,
+  action,
+  showOnboarding,
+};
+
 export const run = async (
   argv: string[] = process.argv,
-  deps: RunDeps = { initCommand, action },
+  deps: RunDeps = defaultRunDeps,
 ): Promise<void> => {
   const parsed = parseRunArgs(argv);
   if (!parsed) return;
@@ -112,6 +134,12 @@ export const run = async (
 
   if (isVersionRequested(argv, options)) {
     console.log(getPackageVersion());
+    return;
+  }
+
+  if (isOnboardingRequested(parsed.command, options)) {
+    const printOnboarding = deps.showOnboarding ?? showOnboarding;
+    printOnboarding();
     return;
   }
 

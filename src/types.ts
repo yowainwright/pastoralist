@@ -181,6 +181,7 @@ export interface Options extends SecurityOptions, OutputOptions, TestingOptions,
   version?: boolean;
   init?: boolean;
   interactive?: boolean;
+  onboard?: boolean;
   promptForReasons?: boolean;
   manualOverrideReasons?: Record<string, string>;
   config?: PastoralistJSON;

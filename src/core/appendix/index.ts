@@ -21,6 +21,7 @@ import type {
 import { resolveJSON, jsonCache } from "../packageJSON";
 import { getOverridesByType, resolveOverrides } from "../overrides";
 import { packageAtVersion } from "../../utils/string";
+import { NESTED_OVERRIDE_LABEL } from "./constants";
 import {
   mergeOverrideReasons,
   createSecurityLedger,
@@ -92,13 +93,10 @@ const isUnusedSimpleOverride = (
   const hasOverride = hasDependency(deps, override);
   if (hasOverride) return false;
 
-  // Resolve selector-syntax keys ("pkg@<range>", "parent>child") to the real package
-  // name, since the tree/graph are keyed by bare names. Without this, every such key
-  // misses every lookup and is falsely judged unused.
   const name = parseOverridePackageName(override);
 
-  // Fail-safe: keep keys we cannot confidently resolve to a real package name.
-  if (!isResolvablePackageName(name)) return false;
+  const isUnresolvedOverrideKey = !isResolvablePackageName(name);
+  if (isUnresolvedOverrideKey) return false;
 
   const depNames = new Set(Object.keys(deps));
   const isRequiredByDependency = dependencyGraph?.[name]?.some((dep) => depNames.has(dep));
@@ -168,7 +166,7 @@ const processNestedOverrideEntry = ({
   addedDate,
 }: ProcessOverrideOptions): Appendix => {
   const key = buildOverrideKey(nestedPkg, nestedVersion);
-  const dependentValue = `${parentOverride}@${deps[parentOverride]} (nested override)`;
+  const dependentValue = `${parentOverride}@${deps[parentOverride]} ${NESTED_OVERRIDE_LABEL}`;
   return upsertAppendixItem(appendix, key, cache, () =>
     buildNestedAppendixItem(appendix, key, packageName, dependentValue, packageReason, {
       nestedPkg,

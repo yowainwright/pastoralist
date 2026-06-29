@@ -1,6 +1,6 @@
 {
   "name": "pastoralist",
-  "version": "1.12.1-beta.9",
+  "version": "1.12.8",
   "description": "Audit, secure, and clean up package manager overrides for npm, pnpm, Yarn, and Bun.",
   "keywords": [
     "bun",

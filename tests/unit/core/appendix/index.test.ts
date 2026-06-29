@@ -328,3 +328,43 @@ test("processOverrideEntry - onlyUsedOverrides skips unused packages", () => {
   expect(result["lodash@4.17.21"]).toBeDefined();
   expect(result["unused-pkg@1.0.0"]).toBeUndefined();
 });
+
+test("processAndWritePackageJSON - includes workspace package whose dep matches a selector-range override key", () => {
+  const pkgPath = join(tmpdir(), "pastoralist-test-workspace-direct-match.json");
+  writeFileSync(
+    pkgPath,
+    JSON.stringify({ name: "workspace-pkg", dependencies: { minimatch: "^3.0.0" } }),
+  );
+  const overrides: OverridesType = { "minimatch@<4": "3.1.5" };
+  const result = processAndWritePackageJSON(pkgPath, overrides, Object.keys(overrides), false);
+  unlinkSync(pkgPath);
+  expect(result).toBeDefined();
+  expect(result?.name).toBe("workspace-pkg");
+});
+
+test("processAndWritePackageJSON - includes workspace package whose dep is a graph-transitive match for selector-range override key", () => {
+  const pkgPath = join(tmpdir(), "pastoralist-test-workspace-graph-match.json");
+  writeFileSync(
+    pkgPath,
+    JSON.stringify({ name: "workspace-pkg", dependencies: { glob: "^7.0.0" } }),
+  );
+  const overrides: OverridesType = { "minimatch@<4": "3.1.5" };
+  const result = processAndWritePackageJSON(pkgPath, overrides, Object.keys(overrides), false, {
+    dependencyGraph: { minimatch: ["glob"] },
+  });
+  unlinkSync(pkgPath);
+  expect(result).toBeDefined();
+  expect(result?.name).toBe("workspace-pkg");
+});
+
+test("processAndWritePackageJSON - excludes workspace package with no relation to any override", () => {
+  const pkgPath = join(tmpdir(), "pastoralist-test-workspace-no-match.json");
+  writeFileSync(
+    pkgPath,
+    JSON.stringify({ name: "workspace-pkg", dependencies: { express: "^4.0.0" } }),
+  );
+  const overrides: OverridesType = { "minimatch@<4": "3.1.5" };
+  const result = processAndWritePackageJSON(pkgPath, overrides, Object.keys(overrides), false);
+  unlinkSync(pkgPath);
+  expect(result).toBeUndefined();
+});

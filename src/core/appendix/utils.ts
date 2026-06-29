@@ -345,8 +345,8 @@ export const hasDependenciesMatchingOverrides = (
   depList: string[],
   overridesList: string[],
 ): boolean => {
-  const overridesSet = new Set(overridesList);
-  return depList.some((dep) => overridesSet.has(dep));
+  const resolvedNames = new Set(overridesList.map(parseOverridePackageName));
+  return depList.some((dep) => resolvedNames.has(dep));
 };
 
 export const shouldWriteAppendix = (

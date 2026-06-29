@@ -36,7 +36,6 @@
     "lucide-react",
     "mermaid",
     "oxlint",
-    "prettier",
     "react",
     "react-dom",
     "react-intersection-observer",

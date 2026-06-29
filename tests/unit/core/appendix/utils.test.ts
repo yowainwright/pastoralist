@@ -14,6 +14,7 @@ import {
   isKeepExpired,
   buildDependentInfo,
   parseOverridePackageName,
+  hasDependenciesMatchingOverrides,
 } from "../../../../src/core/appendix/utils";
 
 test("mergeOverrideReasons - should return reason when provided", () => {
@@ -766,4 +767,20 @@ test("buildDependentInfo - resolves nested parent>child key to the child name", 
 test("buildDependentInfo - still flags a genuinely unused selector override", () => {
   const info = buildDependentInfo(false, "minimatch@<4", undefined, {}, {});
   expect(info).toContain("unused override");
+});
+
+test("hasDependenciesMatchingOverrides - matches bare dep name against selector-range override key", () => {
+  expect(hasDependenciesMatchingOverrides(["minimatch"], ["minimatch@<4"])).toBe(true);
+});
+
+test("hasDependenciesMatchingOverrides - matches bare dep name against nested parent>child override key", () => {
+  expect(hasDependenciesMatchingOverrides(["js-yaml"], ["gray-matter>js-yaml"])).toBe(true);
+});
+
+test("hasDependenciesMatchingOverrides - matches bare dep name against scoped selector-range override key", () => {
+  expect(hasDependenciesMatchingOverrides(["@scope/pkg"], ["@scope/pkg@>=1 <2"])).toBe(true);
+});
+
+test("hasDependenciesMatchingOverrides - returns false when dep is genuinely absent", () => {
+  expect(hasDependenciesMatchingOverrides(["express"], ["minimatch@<4"])).toBe(false);
 });

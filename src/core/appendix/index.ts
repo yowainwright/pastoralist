@@ -342,7 +342,10 @@ const hasDependencyGraphMatch = (
 ): boolean => {
   if (!dependencyGraph) return false;
 
-  const graphDependents = overridesList.flatMap((override) => dependencyGraph[override] || []);
+  const graphDependents = overridesList.flatMap((override) => {
+    const name = parseOverridePackageName(override);
+    return dependencyGraph[name] || [];
+  });
   const graphDependentSet = new Set(graphDependents);
 
   for (const dep of deps) {

@@ -152,9 +152,10 @@ and patched-version metadata.
 
 ## Configuration
 
-Pastoralist can use `package.json`, `.pastoralistrc.json`,
+Pastoralist can use `package.json`, `.pastoralistrc`, `.pastoralistrc.json`,
 `pastoralist.json`, `pastoralist.config.cjs`, `pastoralist.config.js`, or
-`pastoralist.config.mjs`.
+`pastoralist.config.mjs`. External JSON config files use top-level settings;
+`package.json` keeps settings under `pastoralist`.
 
 ```json
 {

@@ -17,6 +17,20 @@ Pastoralist searches for configuration files in this order (first found wins):
 5. `pastoralist.config.js`
 6. `pastoralist.config.mjs`
 
+All external config files use the same top-level Pastoralist settings. Choose
+the filename by format and convention:
+
+- `.pastoralistrc`: extensionless rc file parsed as JSON
+- `.pastoralistrc.json`: explicit JSON rc file, and the JSON option created by
+  `pastoralist --init`
+- `pastoralist.json`: visible non-dotfile JSON config
+- `pastoralist.config.cjs`: CommonJS module with `module.exports`
+- `pastoralist.config.js`: JavaScript config. CommonJS exports are accepted;
+  otherwise it is imported as a module
+- `pastoralist.config.mjs`: ESM module with `export default`
+
+Use `pastoralist.json`, not `.pastoralist.json`.
+
 ### Example Configurations
 
 #### Minimal Configuration

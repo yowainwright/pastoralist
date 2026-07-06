@@ -44,13 +44,22 @@ export const handleTestMode = (
   return true;
 };
 
+const isConfigInitMode = (init: Options["init"]): boolean => {
+  if (init === true) return true;
+  if (init === "config") return true;
+  if (!Array.isArray(init)) return false;
+
+  const [target] = init;
+  return target === "config";
+};
+
 export const handleInitMode = async (
   init: Options["init"],
   options: Options,
   rest: Omit<Options, "isTestingCLI" | "init">,
   deps: Pick<RunDeps, "initCommand"> = { initCommand },
 ): Promise<boolean> => {
-  if (!init) return false;
+  if (!isConfigInitMode(init)) return false;
   const securityProvider = Array.isArray(rest.securityProvider)
     ? rest.securityProvider[0]
     : rest.securityProvider;

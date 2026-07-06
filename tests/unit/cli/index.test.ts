@@ -2083,6 +2083,31 @@ test("handleInitMode - calls initCommand when init is true", async () => {
   });
 });
 
+test("handleInitMode - calls initCommand when init targets config", async () => {
+  const { handleInitMode } = require("../../../src/cli/index");
+
+  const mockInitCommand = mock(() => Promise.resolve());
+  const options: Options = { path: "package.json" };
+
+  const result = await handleInitMode(
+    ["config"],
+    options,
+    {},
+    {
+      initCommand: mockInitCommand,
+    },
+  );
+
+  expect(result).toBe(true);
+  expect(mockInitCommand).toHaveBeenCalledWith({
+    path: "package.json",
+    root: undefined,
+    checkSecurity: undefined,
+    securityProvider: undefined,
+    hasWorkspaceSecurityChecks: undefined,
+  });
+});
+
 test("handleInitMode - returns false when init is false", async () => {
   const { handleInitMode } = require("../../../src/cli/index");
 
@@ -2091,6 +2116,32 @@ test("handleInitMode - returns false when init is false", async () => {
   const result = await handleInitMode(false, {}, {}, { initCommand: mockInitCommand });
 
   expect(result).toBe(false);
+  expect(mockInitCommand).not.toHaveBeenCalled();
+});
+
+test("handleInitMode - returns false when init targets agent skill", async () => {
+  const { handleInitMode } = require("../../../src/cli/index");
+
+  const mockInitCommand = mock(() => Promise.resolve());
+  const stringResult = await handleInitMode(
+    "agent-skill",
+    {},
+    {},
+    {
+      initCommand: mockInitCommand,
+    },
+  );
+  const arrayResult = await handleInitMode(
+    ["agent-skill"],
+    {},
+    {},
+    {
+      initCommand: mockInitCommand,
+    },
+  );
+
+  expect(stringResult).toBe(false);
+  expect(arrayResult).toBe(false);
   expect(mockInitCommand).not.toHaveBeenCalled();
 });
 

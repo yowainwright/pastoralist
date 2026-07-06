@@ -12,6 +12,7 @@ import { action } from "./action";
 import { handleSetupHook } from "./setup-hook";
 import { showOnboarding } from "./onboarding";
 import type { InitSecurityProvider, RunDeps } from "./types";
+import type { Logger, PrintFunc } from "../utils";
 
 export { action, handleInitMode, handleTestMode } from "./action";
 export {
@@ -45,14 +46,21 @@ type InitCommandInput = {
   type: InitCommandType;
 };
 
-const parseRunArgs = (argv: string[]): ReturnType<typeof parseArgs> | undefined => {
+const showRunError = (error: unknown, log: Pick<Logger, "fail" | "print">): void => {
+  const message = error instanceof Error ? error.message : String(error);
+  log.fail(`Error: ${message}`);
+  showHelp(log.print);
+  process.exitCode = 1;
+};
+
+const parseRunArgs = (
+  argv: string[],
+  log: Pick<Logger, "fail" | "print">,
+): ReturnType<typeof parseArgs> | undefined => {
   try {
     return parseArgs(argv);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`Error: ${message}`);
-    showHelp();
-    process.exitCode = 1;
+    showRunError(error, log);
     return undefined;
   }
 };
@@ -160,14 +168,18 @@ const runInitCommand = async (options: Options, deps: Pick<RunDeps, "initCommand
   await deps.initCommand(initOptions);
 };
 
-const runDoctorCommand = async (options: Options, deps: Pick<RunDeps, "action">) => {
+const runDoctorCommand = async (
+  options: Options,
+  deps: Pick<RunDeps, "action">,
+  print: PrintFunc,
+) => {
   const doctorOptions = Object.assign({}, options, {
     dryRun: true,
     summary: true,
   });
 
   if (doctorOptions.outputFormat !== "json") {
-    console.log("Pastoralist doctor runs in dry-run mode and will not modify package.json.");
+    print("Pastoralist doctor runs in dry-run mode and will not modify package.json.");
   }
 
   await deps.action(doctorOptions);
@@ -217,17 +229,18 @@ export const run = async (
   argv: string[] = process.argv,
   deps: RunDeps = defaultRunDeps,
 ): Promise<void> => {
-  const parsed = parseRunArgs(argv);
+  const log = createLogger({ file: "program.ts", isLogging: false });
+  const parsed = parseRunArgs(argv, log);
   if (!parsed) return;
 
   const options = parsed.options as Options;
   if (isHelpRequested(argv, options)) {
-    showHelp();
+    showHelp(log.print);
     return;
   }
 
   if (isVersionRequested(argv, options)) {
-    console.log(getPackageVersion());
+    log.print(getPackageVersion());
     return;
   }
 
@@ -236,7 +249,6 @@ export const run = async (
     return;
   }
 
-  const log = createLogger({ file: "program.ts", isLogging: false });
   const didSetupHook = handleSetupHook(options, log);
   if (didSetupHook) {
     return;
@@ -246,16 +258,13 @@ export const run = async (
     try {
       await handleInitCommand(parsed.command, parsed.commandArgs, options, deps);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error(`Error: ${message}`);
-      showHelp();
-      process.exitCode = 1;
+      showRunError(error, log);
     }
     return;
   }
 
   const isDoctorCommand = parsed.command === "doctor";
-  if (isDoctorCommand) return runDoctorCommand(options, deps);
+  if (isDoctorCommand) return runDoctorCommand(options, deps, log.print);
 
   await deps.action(options);
 };

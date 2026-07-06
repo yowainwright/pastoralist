@@ -7,6 +7,7 @@ import type {
   ParserState,
   ProcessedArgument,
 } from "./types";
+import type { PrintFunc } from "../../utils";
 
 const findOptionDef = (flag: string): OptionDefinition | undefined =>
   OPTION_DEFINITIONS.find((def) => def.flags.includes(flag));
@@ -163,6 +164,6 @@ export const parseArgs = (argv: string[]): ParsedArgs => {
   };
 };
 
-export const showHelp = (): void => {
-  console.log(HELP_TEXT);
+export const showHelp = (print: PrintFunc): void => {
+  print(HELP_TEXT);
 };

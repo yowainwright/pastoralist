@@ -8,6 +8,7 @@ describe("parseArgs", () => {
       expect(HELP_TEXT).toContain("onboard");
       expect(HELP_TEXT).toContain("--onboard, --onboarding");
       expect(HELP_TEXT).toContain("GitHub Action guidance");
+      expect(HELP_TEXT).toContain("init [config|agent-skill]");
     });
   });
 
@@ -169,6 +170,21 @@ describe("parseArgs", () => {
       const result = parseArgs(["node", "script.js", "init"]);
 
       expect(result.command).toBe("init");
+      expect(result.commandArgs).toEqual([]);
+    });
+
+    test("should parse init command target", () => {
+      const result = parseArgs(["node", "script.js", "init", "agent-skill"]);
+
+      expect(result.command).toBe("init");
+      expect(result.commandArgs).toEqual(["agent-skill"]);
+    });
+
+    test("should parse init command target args", () => {
+      const result = parseArgs(["node", "script.js", "init", "agent-skill", "extra"]);
+
+      expect(result.command).toBe("init");
+      expect(result.commandArgs).toEqual(["agent-skill", "extra"]);
     });
 
     test("should parse doctor command", () => {
@@ -330,6 +346,18 @@ describe("parseArgs", () => {
       const result = parseArgs(["node", "script.js", "--init"]);
 
       expect(result.options.init).toBe(true);
+    });
+
+    test("should handle init flag with target args", () => {
+      const result = parseArgs(["node", "script.js", "--init", "agent-skill", "extra"]);
+
+      expect(result.options.init).toEqual(["agent-skill", "extra"]);
+    });
+
+    test("should handle inline init flag target", () => {
+      const result = parseArgs(["node", "script.js", "--init=agent-skill"]);
+
+      expect(result.options.init).toBe("agent-skill");
     });
 
     test("should handle onboarding flags", () => {

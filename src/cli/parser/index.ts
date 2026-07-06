@@ -53,6 +53,13 @@ const collectSingleValue = (args: string[], startIndex: number): CollectedValue 
 const collectValue = (args: string[], index: number, def: OptionDefinition): CollectedValue =>
   def.isArray ? collectArrayValue(args, index) : collectSingleValue(args, index);
 
+const resolveEmptyValue = (value: unknown, def: OptionDefinition): unknown => {
+  const hasEmptyValue = def.emptyValue !== undefined;
+  if (value !== undefined) return value;
+  if (hasEmptyValue) return def.emptyValue;
+  return value;
+};
+
 const applyDefaults = (options: Record<string, unknown>): Record<string, unknown> =>
   OPTION_DEFINITIONS.reduce((acc, def) => {
     const key = getOptionKey(def);
@@ -70,10 +77,12 @@ const toProcessedArgument = (
   state: ParserState,
   options: Record<string, unknown> = state.options,
   command: string | undefined = state.command,
+  commandArgs: string[] = state.commandArgs,
 ): ProcessedArgument => ({
   nextIndex,
   options,
   command,
+  commandArgs,
 });
 
 const withOption = (state: ParserState, key: string, value: unknown): Record<string, unknown> =>
@@ -83,7 +92,14 @@ const processCommandArgument = (
   arg: string,
   index: number,
   state: ParserState,
-): ProcessedArgument => toProcessedArgument(index + 1, state, state.options, arg);
+): ProcessedArgument => {
+  if (!state.command) {
+    return toProcessedArgument(index + 1, state, state.options, arg, state.commandArgs);
+  }
+
+  const commandArgs = state.commandArgs.concat(arg);
+  return toProcessedArgument(index + 1, state, state.options, state.command, commandArgs);
+};
 
 const processInlineValue = (
   key: string,
@@ -104,7 +120,8 @@ const processCollectedValue = (
 ): ProcessedArgument => {
   const { value, consumed } = collectValue(args, index, def);
   const nextIndex = index + consumed + 1;
-  return toProcessedArgument(nextIndex, state, withOption(state, key, value));
+  const nextValue = resolveEmptyValue(value, def);
+  return toProcessedArgument(nextIndex, state, withOption(state, key, nextValue));
 };
 
 const processArgument = (args: string[], index: number, state: ParserState): ProcessedArgument => {
@@ -124,18 +141,26 @@ const processArgument = (args: string[], index: number, state: ParserState): Pro
 const parseArgumentList = (args: string[], index: number, state: ParserState): ParserState => {
   if (index >= args.length) return state;
   const result = processArgument(args, index, state);
-  const nextState = { options: result.options, command: result.command };
+  const nextState = {
+    options: result.options,
+    command: result.command,
+    commandArgs: result.commandArgs,
+  };
   return parseArgumentList(args, result.nextIndex, nextState);
 };
 
 export const parseArgs = (argv: string[]): ParsedArgs => {
   const args = argv.slice(ARGS_START_INDEX);
-  const initialState = { options: {}, command: undefined };
+  const initialState = { options: {}, command: undefined, commandArgs: [] };
   const state = parseArgumentList(args, 0, initialState);
 
   const optionsWithDefaults = applyDefaults(state.options);
 
-  return { command: state.command, options: optionsWithDefaults };
+  return {
+    command: state.command,
+    commandArgs: state.commandArgs,
+    options: optionsWithDefaults,
+  };
 };
 
 export const showHelp = (): void => {

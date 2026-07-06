@@ -16,7 +16,7 @@ describe("cli onboarding", () => {
     const text = buildOnboardingText();
 
     expect(text).toContain("Agent quick setup");
-    expect(text).toContain("pastoralist-setup-skill");
+    expect(text).toContain("npx pastoralist --init agent-skill");
     expect(text).toContain("pastoralist-setup-local-dev --dry-run");
     expect(text).toContain("--agent codex --skills all --hooks git,postinstall");
     expect(text).toContain("--agent claude --skills all --hooks git,postinstall");

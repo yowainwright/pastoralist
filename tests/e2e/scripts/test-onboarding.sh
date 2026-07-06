@@ -103,6 +103,11 @@ if ! grep -q "Agent Loop" ".agents/skills/pastoralist/SKILL.md"; then
     exit 1
 fi
 
+if ! grep -q "npx pastoralist --init agent-skill" ".agents/skills/pastoralist/SKILL.md"; then
+    echo "FAIL: installed skill missing agent skill init command"
+    exit 1
+fi
+
 if ! grep -q "pastoralist-setup-local-dev --dry-run" ".agents/skills/pastoralist/SKILL.md"; then
     echo "FAIL: installed skill missing local dev dry run"
     exit 1

@@ -3450,6 +3450,187 @@ test("run - calls init command with first parsed security provider", async () =>
   expect(mockShowOnboarding).not.toHaveBeenCalled();
 });
 
+test("run - calls init command for init flag", async () => {
+  const { run } = require("../../../src/cli/index");
+  const mockInitCommand = mock(() => Promise.resolve());
+  const mockAction = mock(() => Promise.resolve());
+  const mockShowOnboarding = mock(() => {});
+  const mockSetupAgentSkill = mock(() => Promise.resolve());
+
+  await run(["node", "pastoralist", "--init"], {
+    action: mockAction,
+    initCommand: mockInitCommand,
+    setupAgentSkill: mockSetupAgentSkill,
+    showOnboarding: mockShowOnboarding,
+  });
+
+  expect(mockInitCommand).toHaveBeenCalled();
+  expect(mockSetupAgentSkill).not.toHaveBeenCalled();
+  expect(mockAction).not.toHaveBeenCalled();
+  expect(mockShowOnboarding).not.toHaveBeenCalled();
+});
+
+test("run - calls init command for explicit config target", async () => {
+  const { run } = require("../../../src/cli/index");
+  const mockInitCommand = mock(() => Promise.resolve());
+  const mockAction = mock(() => Promise.resolve());
+  const mockShowOnboarding = mock(() => {});
+  const mockSetupAgentSkill = mock(() => Promise.resolve());
+
+  await run(["node", "pastoralist", "init", "config"], {
+    action: mockAction,
+    initCommand: mockInitCommand,
+    setupAgentSkill: mockSetupAgentSkill,
+    showOnboarding: mockShowOnboarding,
+  });
+
+  expect(mockInitCommand).toHaveBeenCalled();
+  expect(mockSetupAgentSkill).not.toHaveBeenCalled();
+  expect(mockAction).not.toHaveBeenCalled();
+  expect(mockShowOnboarding).not.toHaveBeenCalled();
+});
+
+test("run - calls agent skill setup for init agent-skill target", async () => {
+  const { run } = require("../../../src/cli/index");
+  const mockInitCommand = mock(() => Promise.resolve());
+  const mockAction = mock(() => Promise.resolve());
+  const mockShowOnboarding = mock(() => {});
+  const mockSetupAgentSkill = mock(() => Promise.resolve());
+
+  await run(["node", "pastoralist", "init", "agent-skill", "--dry-run"], {
+    action: mockAction,
+    initCommand: mockInitCommand,
+    setupAgentSkill: mockSetupAgentSkill,
+    showOnboarding: mockShowOnboarding,
+  });
+
+  expect(mockSetupAgentSkill).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }), []);
+  expect(mockInitCommand).not.toHaveBeenCalled();
+  expect(mockAction).not.toHaveBeenCalled();
+  expect(mockShowOnboarding).not.toHaveBeenCalled();
+});
+
+test("run - calls agent skill setup for inline init flag target", async () => {
+  const { run } = require("../../../src/cli/index");
+  const mockInitCommand = mock(() => Promise.resolve());
+  const mockAction = mock(() => Promise.resolve());
+  const mockShowOnboarding = mock(() => {});
+  const mockSetupAgentSkill = mock(() => Promise.resolve());
+
+  await run(["node", "pastoralist", "--init=agent-skill"], {
+    action: mockAction,
+    initCommand: mockInitCommand,
+    setupAgentSkill: mockSetupAgentSkill,
+    showOnboarding: mockShowOnboarding,
+  });
+
+  expect(mockSetupAgentSkill).toHaveBeenCalledWith(
+    expect.objectContaining({ init: "agent-skill" }),
+    [],
+  );
+  expect(mockInitCommand).not.toHaveBeenCalled();
+  expect(mockAction).not.toHaveBeenCalled();
+  expect(mockShowOnboarding).not.toHaveBeenCalled();
+});
+
+test("run - calls agent skill setup for init flag target list", async () => {
+  const { run } = require("../../../src/cli/index");
+  const mockInitCommand = mock(() => Promise.resolve());
+  const mockAction = mock(() => Promise.resolve());
+  const mockShowOnboarding = mock(() => {});
+  const mockSetupAgentSkill = mock(() => Promise.resolve());
+
+  await run(["node", "pastoralist", "--init", "agent-skill", "extra", "--dry-run"], {
+    action: mockAction,
+    initCommand: mockInitCommand,
+    setupAgentSkill: mockSetupAgentSkill,
+    showOnboarding: mockShowOnboarding,
+  });
+
+  expect(mockSetupAgentSkill).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }), [
+    "extra",
+  ]);
+  expect(mockInitCommand).not.toHaveBeenCalled();
+  expect(mockAction).not.toHaveBeenCalled();
+  expect(mockShowOnboarding).not.toHaveBeenCalled();
+});
+
+test("run - rejects extra config init args", async () => {
+  const { run } = require("../../../src/cli/index");
+  const mockInitCommand = mock(() => Promise.resolve());
+  const mockAction = mock(() => Promise.resolve());
+  const mockShowOnboarding = mock(() => {});
+  const mockSetupAgentSkill = mock(() => Promise.resolve());
+
+  const originalLog = console.log;
+  const originalError = console.error;
+  const originalExitCode = process.exitCode;
+  const logged: string[] = [];
+  const errors: string[] = [];
+  let exitCode: string | number | undefined;
+  console.log = (msg: string) => logged.push(msg);
+  console.error = (msg: string) => errors.push(msg);
+
+  try {
+    await run(["node", "pastoralist", "--init", "config", "extra"], {
+      action: mockAction,
+      initCommand: mockInitCommand,
+      setupAgentSkill: mockSetupAgentSkill,
+      showOnboarding: mockShowOnboarding,
+    });
+    exitCode = process.exitCode;
+  } finally {
+    console.log = originalLog;
+    console.error = originalError;
+    process.exitCode = originalExitCode ?? 0;
+  }
+
+  expect(errors.join("\n")).toContain("Unexpected init config argument: extra");
+  expect(logged.join("\n")).toContain("--init [type] [args...]");
+  expect(exitCode).toBe(1);
+  expect(mockInitCommand).not.toHaveBeenCalled();
+  expect(mockSetupAgentSkill).not.toHaveBeenCalled();
+  expect(mockAction).not.toHaveBeenCalled();
+});
+
+test("run - rejects unknown init target", async () => {
+  const { run } = require("../../../src/cli/index");
+  const mockInitCommand = mock(() => Promise.resolve());
+  const mockAction = mock(() => Promise.resolve());
+  const mockShowOnboarding = mock(() => {});
+  const mockSetupAgentSkill = mock(() => Promise.resolve());
+
+  const originalLog = console.log;
+  const originalError = console.error;
+  const originalExitCode = process.exitCode;
+  const logged: string[] = [];
+  const errors: string[] = [];
+  let exitCode: string | number | undefined;
+  console.log = (msg: string) => logged.push(msg);
+  console.error = (msg: string) => errors.push(msg);
+
+  try {
+    await run(["node", "pastoralist", "init", "wat"], {
+      action: mockAction,
+      initCommand: mockInitCommand,
+      setupAgentSkill: mockSetupAgentSkill,
+      showOnboarding: mockShowOnboarding,
+    });
+    exitCode = process.exitCode;
+  } finally {
+    console.log = originalLog;
+    console.error = originalError;
+    process.exitCode = originalExitCode ?? 0;
+  }
+
+  expect(errors.join("\n")).toContain("Unknown init type: wat");
+  expect(logged.join("\n")).toContain("init [config|agent-skill]");
+  expect(exitCode).toBe(1);
+  expect(mockInitCommand).not.toHaveBeenCalled();
+  expect(mockSetupAgentSkill).not.toHaveBeenCalled();
+  expect(mockAction).not.toHaveBeenCalled();
+});
+
 test("run - calls action in dry-run summary mode for doctor command", async () => {
   const { run } = require("../../../src/cli/index");
   const mockInitCommand = mock(() => Promise.resolve());

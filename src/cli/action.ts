@@ -45,7 +45,7 @@ export const handleTestMode = (
 };
 
 export const handleInitMode = async (
-  init: boolean,
+  init: Options["init"],
   options: Options,
   rest: Omit<Options, "isTestingCLI" | "init">,
   deps: Pick<RunDeps, "initCommand"> = { initCommand },

@@ -39,10 +39,10 @@ The onboarding output includes quick scripts and copy/paste prompts for agents.
 See the [Onboarding guide](https://jeffry.in/pastoralist/docs/onboarding) for
 the same checklist in the docs.
 
-Install the Pastoralist agent skill in a repo:
+Set up the Pastoralist agent skill in a repo:
 
 ```bash
-npx -p pastoralist pastoralist-setup-skill
+npx pastoralist --init agent-skill
 ```
 
 Set up local dev with selected skills and hooks:
@@ -55,7 +55,7 @@ When you are ready to add it to the project:
 
 ```bash
 npm install pastoralist --save-dev
-npx pastoralist --init
+npx pastoralist init
 npx pastoralist
 ```
 
@@ -134,6 +134,8 @@ and patched-version metadata.
 | ----------------------------------------- | ---------------------------------------------- |
 | `npx pastoralist onboard`                 | Show setup, agent, and GitHub Action guidance  |
 | `npx pastoralist doctor`                  | Read-only setup and override health check      |
+| `npx pastoralist init`                    | Initialize Pastoralist configuration           |
+| `npx pastoralist --init agent-skill`      | Set up the Pastoralist agent skill             |
 | `npx pastoralist`                         | Update the override appendix                   |
 | `npx pastoralist --dry-run`               | Preview package.json changes                   |
 | `npx pastoralist --remove-unused`         | Remove overrides no package still needs        |
@@ -145,7 +147,7 @@ and patched-version metadata.
 
 | Command                                                                               | Purpose                              |
 | ------------------------------------------------------------------------------------- | ------------------------------------ |
-| `npx -p pastoralist pastoralist-setup-skill`                                          | Install the Pastoralist agent skill  |
+| `npx pastoralist --init agent-skill`                                                  | Set up the Pastoralist agent skill   |
 | `npx -p pastoralist pastoralist-setup-local-dev --help`                               | Show local dev setup options         |
 | `npx -p pastoralist pastoralist-setup-local-dev --dry-run`                            | Preview agent, skill, and hook setup |
 | `npx -p pastoralist pastoralist-setup-local-dev --skills all --hooks git,postinstall` | Set up skills and hooks              |

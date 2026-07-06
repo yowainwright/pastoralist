@@ -58,7 +58,7 @@ const resolveEmptyValue = (value: unknown, def: OptionDefinition): unknown => {
   const hasEmptyValue = def.emptyValue !== undefined;
   if (value !== undefined) return value;
   if (hasEmptyValue) return def.emptyValue;
-  return value;
+  return undefined;
 };
 
 const applyDefaults = (options: Record<string, unknown>): Record<string, unknown> =>

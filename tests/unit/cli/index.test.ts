@@ -3555,6 +3555,20 @@ test("run - calls agent skill setup for init flag target list", async () => {
   expect(mockShowOnboarding).not.toHaveBeenCalled();
 });
 
+test("run - bundled agent skill setup supports dry run", async () => {
+  const { run } = require("../../../src/cli/index");
+  const originalExitCode = process.exitCode;
+
+  process.exitCode = 0;
+
+  try {
+    await run(["node", "pastoralist", "--init", "agent-skill", "--dry-run"]);
+    expect(process.exitCode).toBe(0);
+  } finally {
+    process.exitCode = originalExitCode ?? 0;
+  }
+});
+
 test("run - rejects extra config init args", async () => {
   const { run } = require("../../../src/cli/index");
   const mockInitCommand = mock(() => Promise.resolve());
@@ -3692,6 +3706,35 @@ test("run - suppresses doctor preface when JSON output is requested", async () =
   );
   expect(mockShowOnboarding).not.toHaveBeenCalled();
   expect(logged).toEqual([]);
+});
+
+test("run - returns early when setup hook is already configured", async () => {
+  const { run } = require("../../../src/cli/index");
+  const mockInitCommand = mock(() => Promise.resolve());
+  const mockAction = mock(() => Promise.resolve());
+  const mockShowOnboarding = mock(() => {});
+  const mockSetupAgentSkill = mock(() => Promise.resolve());
+  const root = resolve(__dirname, "..", ".test-run-setup-hook");
+  const packagePath = resolve(root, "package.json");
+
+  mkdirSync(root, { recursive: true });
+  writeFileSync(packagePath, JSON.stringify({ scripts: { postinstall: "pastoralist" } }));
+
+  try {
+    await run(["node", "pastoralist", "--setup-hook", "--root", root], {
+      action: mockAction,
+      initCommand: mockInitCommand,
+      setupAgentSkill: mockSetupAgentSkill,
+      showOnboarding: mockShowOnboarding,
+    });
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+
+  expect(mockAction).not.toHaveBeenCalled();
+  expect(mockInitCommand).not.toHaveBeenCalled();
+  expect(mockSetupAgentSkill).not.toHaveBeenCalled();
+  expect(mockShowOnboarding).not.toHaveBeenCalled();
 });
 
 test("run - prints onboarding and returns early", async () => {

@@ -142,6 +142,7 @@ const getPackageVersion = (): string => {
 const resolveSetupAgentSkillScript = (): string => {
   const moduleDir = getModuleDir();
   const candidates = [
+    resolve(moduleDir, "scripts/setup-pastoralist-skill.sh"),
     resolve(moduleDir, "../scripts/setup-pastoralist-skill.sh"),
     resolve(moduleDir, "../../scripts/setup-pastoralist-skill.sh"),
   ];

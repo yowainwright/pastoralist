@@ -9,6 +9,9 @@ services:
     container_name: pastoralist-e2e-pnpm
     volumes:
       - ../../dist:/app/pastoralist:ro
+      - ../../scripts/setup-local-dev.sh:/app/scripts/setup-local-dev.sh:ro
+      - ../../scripts/setup-pastoralist-skill.sh:/app/scripts/setup-pastoralist-skill.sh:ro
+      - ../../skills:/app/skills:ro
       - ../../scripts/setup-local-dev.sh:/app/pastoralist-package/scripts/setup-local-dev.sh:ro
       - ../../scripts/setup-pastoralist-skill.sh:/app/pastoralist-package/scripts/setup-pastoralist-skill.sh:ro
       - ../../skills:/app/pastoralist-package/skills:ro
@@ -28,6 +31,9 @@ services:
     container_name: pastoralist-e2e-shell
     volumes:
       - ../../dist:/app/pastoralist:ro
+      - ../../scripts/setup-local-dev.sh:/app/scripts/setup-local-dev.sh:ro
+      - ../../scripts/setup-pastoralist-skill.sh:/app/scripts/setup-pastoralist-skill.sh:ro
+      - ../../skills:/app/skills:ro
       - ../../scripts/setup-local-dev.sh:/app/pastoralist-package/scripts/setup-local-dev.sh:ro
       - ../../scripts/setup-pastoralist-skill.sh:/app/pastoralist-package/scripts/setup-pastoralist-skill.sh:ro
       - ../../skills:/app/pastoralist-package/skills:ro
@@ -48,6 +54,9 @@ services:
     container_name: pastoralist-e2e-npm
     volumes:
       - ../../dist:/app/pastoralist:ro
+      - ../../scripts/setup-local-dev.sh:/app/scripts/setup-local-dev.sh:ro
+      - ../../scripts/setup-pastoralist-skill.sh:/app/scripts/setup-pastoralist-skill.sh:ro
+      - ../../skills:/app/skills:ro
       - ../../scripts/setup-local-dev.sh:/app/pastoralist-package/scripts/setup-local-dev.sh:ro
       - ../../scripts/setup-pastoralist-skill.sh:/app/pastoralist-package/scripts/setup-pastoralist-skill.sh:ro
       - ../../skills:/app/pastoralist-package/skills:ro
@@ -67,6 +76,9 @@ services:
     container_name: pastoralist-e2e-yarn
     volumes:
       - ../../dist:/app/pastoralist:ro
+      - ../../scripts/setup-local-dev.sh:/app/scripts/setup-local-dev.sh:ro
+      - ../../scripts/setup-pastoralist-skill.sh:/app/scripts/setup-pastoralist-skill.sh:ro
+      - ../../skills:/app/skills:ro
       - ../../scripts/setup-local-dev.sh:/app/pastoralist-package/scripts/setup-local-dev.sh:ro
       - ../../scripts/setup-pastoralist-skill.sh:/app/pastoralist-package/scripts/setup-pastoralist-skill.sh:ro
       - ../../skills:/app/pastoralist-package/skills:ro

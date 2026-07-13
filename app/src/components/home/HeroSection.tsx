@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { createMachine } from "xstate";
 import { useMachine } from "@xstate/react";
 import { CopyButton } from "@/components/CopyButton";
+import { isStaticRender } from "@/lib/utils";
 import { LogoSparkle } from "@/components/home/LogoSparkle";
 import { HeroSparkles } from "@/components/home/HeroSparkles";
 import { AnimatedTerminal } from "@/components/home/AnimatedTerminal";
@@ -14,8 +15,10 @@ import {
 } from "@/components/home/AnimatedTerminal/constants";
 
 const HERO_SEEN_KEY = "pastoralist-hero-animation-seen";
-const hadSeen = () =>
-  typeof window !== "undefined" && sessionStorage.getItem(HERO_SEEN_KEY) === "true";
+const hadSeen = (): boolean => {
+  if (isStaticRender()) return true;
+  return sessionStorage.getItem(HERO_SEEN_KEY) === "true";
+};
 
 const heroMachine = createMachine({
   id: "hero",

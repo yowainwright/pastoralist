@@ -1,4 +1,5 @@
 import { useInView } from "react-intersection-observer";
+import { isStaticRender } from "@/lib/utils";
 
 interface UseFadeInUpOptions {
   threshold?: number;
@@ -13,6 +14,7 @@ export function useFadeInUp(options: UseFadeInUpOptions = {}) {
     threshold,
     triggerOnce,
     onChange,
+    initialInView: isStaticRender(),
   });
 
   return { ref, isVisible: inView };

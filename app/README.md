@@ -59,6 +59,9 @@ bun run --cwd app build
 
 `bun run serve` starts the Vite preview server on port `5174`.
 
+`bun run build` verifies that every route contains rendered content and that the
+homepage includes all four sections without deferred skeletons.
+
 ## Editing Docs
 
 Docs live in `src/content/docs/*.mdx`.

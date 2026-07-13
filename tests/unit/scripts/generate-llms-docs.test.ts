@@ -50,7 +50,7 @@ const createMemoryFileSystem = (
 const fixtureAppRoot = "/fixture/app";
 
 const fixtureFiles = {
-  [resolve(fixtureAppRoot, "src/content/index.ts")]: `
+  [resolve(fixtureAppRoot, "src/content/constants.ts")]: `
 export const docs = [
   { slug: "intro", title: "Intro" },
   { slug: "missing", title: "Missing" },
@@ -129,7 +129,7 @@ Keep this.
   test("resolveLlmsDocsPaths centralizes build paths", () => {
     expect(resolveLlmsDocsPaths(fixtureAppRoot)).toEqual({
       appRoot: fixtureAppRoot,
-      contentIndexPath: resolve(fixtureAppRoot, "src/content/index.ts"),
+      contentIndexPath: resolve(fixtureAppRoot, "src/content/constants.ts"),
       docsDir: resolve(fixtureAppRoot, "src/content/docs"),
       llmsFullTxtPath: resolve(fixtureAppRoot, "public/llms-full.txt"),
       llmsTxtPath: resolve(fixtureAppRoot, "public/llms.txt"),

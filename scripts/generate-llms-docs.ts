@@ -66,7 +66,7 @@ export const resolveLlmsDocsPaths = (appRoot = defaultAppRoot): LlmsDocsPaths =>
 
   return {
     appRoot,
-    contentIndexPath: resolve(appRoot, "src/content/index.ts"),
+    contentIndexPath: resolve(appRoot, "src/content/constants.ts"),
     docsDir: resolve(appRoot, "src/content/docs"),
     llmsFullTxtPath: resolve(publicDir, "llms-full.txt"),
     llmsTxtPath: resolve(publicDir, "llms.txt"),

@@ -179,7 +179,7 @@ export interface Options extends SecurityOptions, OutputOptions, TestingOptions,
   clearCache?: boolean;
   help?: boolean;
   version?: boolean;
-  init?: boolean;
+  init?: boolean | string | string[];
   interactive?: boolean;
   onboard?: boolean;
   promptForReasons?: boolean;

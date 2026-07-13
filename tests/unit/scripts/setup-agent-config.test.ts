@@ -147,6 +147,9 @@ describe("scripts/setup-pastoralist-skill", () => {
       expect(readFixture(root, ".agents/skills/pastoralist/SKILL.md")).toContain(
         "npx pastoralist doctor",
       );
+      expect(readFixture(root, ".agents/skills/pastoralist/SKILL.md")).toContain(
+        "npx pastoralist --init agent-skill",
+      );
       expect(readFixture(root, ".agents/skills/pastoralist/.pastoralist-agent-config")).toContain(
         "pastoralist-agent-config",
       );

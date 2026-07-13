@@ -80,7 +80,7 @@ export type HandleTestMode = (
 ) => boolean;
 
 export type HandleInitMode = (
-  init: boolean,
+  init: Options["init"],
   options: Options,
   rest: Omit<Options, "isTestingCLI" | "init">,
   deps?: Pick<RunDeps, "initCommand">,
@@ -118,7 +118,7 @@ export type InitSecurityProvider = NonNullable<
 export type ActionRuntime = {
   emptyResult: PastoralistResult;
   graph: CliGraph;
-  init: boolean;
+  init: Options["init"];
   isJsonOutput: boolean;
   isLogging: boolean;
   isQuietMode: boolean;
@@ -146,4 +146,5 @@ export type RunDeps = {
   initCommand: typeof initCommand;
   action: CliAction;
   showOnboarding: typeof showOnboarding;
+  setupAgentSkill: (options: Options, args?: readonly string[]) => Promise<void> | void;
 };

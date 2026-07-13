@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content="Automated dependency override management for CI/CD" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://jeffry.in/pastoralist/" />
+    <meta property="og:title" content="Pastoralist - Dependency Management Tool" />
+    <meta
+      property="og:description"
+      content="Manage your package.json overrides, resolutions, and patches with ease"
+    />
+    <meta property="og:image" content="https://jeffry.in/pastoralist/apple-touch-icon.png" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Pastoralist - Dependency Management Tool" />
+    <meta
+      name="twitter:description"
+      content="Manage your package.json overrides, resolutions, and patches with ease"
+    />
+    <meta name="twitter:image" content="https://jeffry.in/pastoralist/apple-touch-icon.png" />
+
+    <!-- Preload critical assets -->
+    <link rel="preload" href="/pastoralist/pastoralist-logo.svg" as="image" />
+    <link rel="modulepreload" href="data:application/octet-stream;base64,aW1wb3J0IHsgU3RyaWN0TW9kZSB9IGZyb20gInJlYWN0IjsKaW1wb3J0IHsgY3JlYXRlUm9vdCwgaHlkcmF0ZVJvb3QgfSBmcm9tICJyZWFjdC1kb20vY2xpZW50IjsKaW1wb3J0IHsgUm91dGVyUHJvdmlkZXIgfSBmcm9tICJAdGFuc3RhY2svcmVhY3Qtcm91dGVyIjsKaW1wb3J0IHsgUm91dGVyQ2xpZW50IH0gZnJvbSAiQHRhbnN0YWNrL3JlYWN0LXJvdXRlci9zc3IvY2xpZW50IjsKaW1wb3J0IHsgVG9vbHRpcFByb3ZpZGVyIH0gZnJvbSAiQC9jb21wb25lbnRzL3VpL3Rvb2x0aXAiOwppbXBvcnQgeyBjcmVhdGVBcHBSb3V0ZXIgfSBmcm9tICIuL3JvdXRlcyI7CmltcG9ydCAiLi9zdHlsZXMvZ2xvYmFsLmNzcyI7CmltcG9ydCAiLi9zdHlsZXMvdGVybWluYWwuY3NzIjsKCmNvbnN0IHJvdXRlciA9IGNyZWF0ZUFwcFJvdXRlcigpOwpjb25zdCByb290RWxlbWVudCA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJyb290Iik7CmlmICghcm9vdEVsZW1lbnQpIHRocm93IG5ldyBFcnJvcigiTWlzc2luZyByb290IGVsZW1lbnQiKTsKCmNvbnN0IGlzUHJlcmVuZGVyZWQgPSByb290RWxlbWVudC5kYXRhc2V0LnByZXJlbmRlcmVkID09PSAidHJ1ZSI7CmNvbnN0IHJvdXRlclZpZXcgPSBpc1ByZXJlbmRlcmVkID8gKAogIDxSb3V0ZXJDbGllbnQgcm91dGVyPXtyb3V0ZXJ9IC8+CikgOiAoCiAgPFJvdXRlclByb3ZpZGVyIHJvdXRlcj17cm91dGVyfSAvPgopOwpjb25zdCBhcHAgPSAoCiAgPFN0cmljdE1vZGU+CiAgICA8VG9vbHRpcFByb3ZpZGVyPntyb3V0ZXJWaWV3fTwvVG9vbHRpcFByb3ZpZGVyPgogIDwvU3RyaWN0TW9kZT4KKTsKCmlmIChpc1ByZXJlbmRlcmVkKSB7CiAgaHlkcmF0ZVJvb3Qocm9vdEVsZW1lbnQsIGFwcCk7Cn0gZWxzZSB7CiAgY3JlYXRlUm9vdChyb290RWxlbWVudCkucmVuZGVyKGFwcCk7Cn0K" />
+
+    <!-- DNS prefetch for external resources -->
+    <link rel="dns-prefetch" href="https://badge.fury.io" />
+    <link rel="dns-prefetch" href="https://img.shields.io" />
+    <link rel="dns-prefetch" href="https://github.com" />
+
+    <!-- Favicons -->
+    <link rel="icon" type="image/svg+xml" href="/pastoralist/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/pastoralist/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/pastoralist/favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/pastoralist/apple-touch-icon.png" />
+    <meta name="theme-color" content="#3b82f6" />
+    <title>GitHub Action</title>
+
+    <script>
+      function getTheme() {
+        var saved = localStorage.getItem("theme");
+        if (saved) return saved;
+        var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        if (prefersDark) return "night";
+        return "lofi";
+      }
+      function handleRedirect() {
+        var redirect = sessionStorage.getItem("spa-redirect");
+        if (!redirect) return;
+        sessionStorage.removeItem("spa-redirect");
+        var base = "/pastoralist";
+        var path = redirect;
+        if (redirect.startsWith(base)) path = redirect.slice(base.length);
+        if (path && path !== "/") history.replaceState(null, "", base + path);
+      }
+      document.documentElement.setAttribute("data-theme", getTheme());
+      handleRedirect();
+    </script>
+
+    <!-- Critical CSS for initial paint -->
+    <style>
+      #root {
+        min-height: 100vh;
+      }
+      .initial-loader {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--fallback-b1, oklch(var(--b1)));
+      }
+      .initial-loader::after {
+        content: "";
+        width: 2rem;
+        height: 2rem;
+        border: 2px solid transparent;
+        border-top-color: #3b82f6;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+    <script type="module" crossorigin src="/pastoralist/assets/index-DbZAvX37.js"></script>
+    <link rel="modulepreload" crossorigin href="/pastoralist/assets/rolldown-runtime-CNC7AqOf.js">
+    <link rel="modulepreload" crossorigin href="/pastoralist/assets/motion-CF4NsPJN.js">
+    <link rel="modulepreload" crossorigin href="/pastoralist/assets/react-vendor-B3tPnB4y.js">
+    <link rel="modulepreload" crossorigin href="/pastoralist/assets/router-CsmNjue2.js">
+    <link rel="modulepreload" crossorigin href="/pastoralist/assets/state-NWjQ7cVs.js">
+    <link rel="stylesheet" crossorigin href="/pastoralist/assets/index-BJltPTNV.css">
+  </head>
+  <body>
+    <div id="root" data-prerendered="true"><link rel="preload" as="image" href="/pastoralist/pastoralist-logo.svg"/><!--$--><section class="flex flex-col min-h-screen relative"><figure class="absolute inset-0 -z-10 transform-gpu overflow-hidden blur-3xl pointer-events-none" aria-hidden="true"><span class="hero-blob relative left-[calc(50%-11rem)] aspect-[1155/678] w-[40rem] -translate-x-1/2 rotate-[70deg] sm:left-[calc(50%-30rem)] sm:w-[72.1875rem] block" style="clip-path:polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 150%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)"></span><span class="hero-blob relative left-[calc(50%-11rem)] aspect-[1155/678] w-[40rem] -translate-x-1/2 rotate-[70deg] sm:left-[calc(100%)] sm:w-[72.1875rem] block" style="clip-path:polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 150%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)"></span></figure><header class="fixed top-0 z-[1000] w-full"><nav class="grid h-[68px] w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1 border-b border-base-content/10 bg-base-100/80 px-2 py-2 backdrop-blur-3xl sm:gap-2 sm:px-4"><div class="flex min-w-0 items-center gap-1 justify-self-start"><label for="my-drawer-2" class="btn btn-sm btn-ghost btn-square lg:hidden" aria-label="toggle sidebar"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-menu h-4 w-4" aria-hidden="true"><path d="M4 5h16"></path><path d="M4 12h16"></path><path d="M4 19h16"></path></svg></label><a href="/pastoralist/" class="btn btn-ghost min-w-0 px-1.5 sm:px-2"><h1 class="gradient-text truncate text-lg font-bold sm:text-2xl">Pastoralist</h1></a></div><div class="justify-self-center"></div><div class="flex items-center gap-1 justify-self-end"><a href="/pastoralist/docs/introduction" class="btn btn-sm btn-ghost hidden sm:flex rounded-lg hover:text-[#1D4ED8] hover:bg-[#1D4ED8]/10 transition flex text-[#1D4ED8] bg-[#1D4ED8]/10">Docs</a><!--$?--><template id="B:0"></template><button class="btn btn-sm btn-ghost btn-square"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-search h-4 w-4" aria-hidden="true"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg></button><!--/$--><a class="btn btn-sm btn-ghost btn-square" href="https://github.com/yowainwright/pastoralist" aria-label="github"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-github lucide-Github h-4 w-4" aria-hidden="true"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"></path><path d="M9 18c-4.51 2-5-2-7-2"></path></svg></a><button aria-label="theme-toggle" class="btn btn-sm btn-ghost swap swap-rotate btn-square "><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sun w-4 h-4 swap-off" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-moon w-4 h-4 swap-on" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"></path></svg></button></div></nav></header><main class="drawer lg:drawer-open flex-1 relative"><input id="my-drawer-2" type="checkbox" class="drawer-toggle"/><section class="drawer-content flex flex-col pt-[68px]"><article class="flex-1"><section class="flex flex-col lg:flex-row p-4 sm:p-6 md:p-10 md:pt-10 font-spline-sans-mono gap-8"><article class="flex flex-col w-full max-w-[600px]"><nav class="text-base breadcrumbs pt-0 pb-4"><ul><li><a href="/pastoralist/" class="hover:text-primary">Home</a></li><li class="text-primary">GitHub Action</li></ul></nav><section class="docs-prose prose prose-sm sm:prose-base md:prose-md mb-10 max-w-none prose-pre:max-w-[90vw] prose-pre:overflow-x-auto"><header><h1>GitHub Action</h1><p>Automated dependency override management for CI/CD</p></header><h2 id="quick-start">Quick Start</h2>
+<h3 id="basic-pr-check">Basic PR Check</h3>
+<div class="not-prose my-4"><div class="not-prose shiki-wrapper relative group overflow-hidden rounded-md border border-border/70 bg-card/85 backdrop-blur show-line-numbers"><div class="overflow-x-auto px-2 py-2 text-[13px] leading-5"><!--$?--><template id="B:1"></template><pre class="text-sm leading-relaxed"><code>name: Override Check
+on: [pull_request]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: yowainwright/pastoralist@v1
+        with:
+          mode: check
+          check-security: false
+</code></pre><!--/$--></div></div></div>
+<p>The action enables OSV security scanning by default. Set
+<code>check-security: false</code> when you only want to validate override tracking.</p>
+<h3 id="scheduled-maintenance-with-pr-creation">Scheduled Maintenance with PR Creation</h3>
+<div class="not-prose my-4"><div class="not-prose shiki-wrapper relative group overflow-hidden rounded-md border border-border/70 bg-card/85 backdrop-blur show-line-numbers"><div class="overflow-x-auto px-2 py-2 text-[13px] leading-5"><!--$?--><template id="B:2"></template><pre class="text-sm leading-relaxed"><code>name: Override Maintenance
+on:
+  schedule:
+    - cron: &quot;0 0 * * 1&quot; # Weekly on Monday
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  maintain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: yowainwright/pastoralist@v1
+        with:
+          mode: pr
+          pr-title: &quot;chore(deps): update dependency overrides&quot;
+          pr-labels: &quot;dependencies automated&quot;
+</code></pre><!--/$--></div></div></div>
+<h2 id="modes">Modes</h2>
+<table><thead><tr><th>Mode</th><th>Description</th></tr></thead><tbody><tr><td><code>check</code></td><td>Validate only - reports issues without modifying files</td></tr><tr><td><code>update</code></td><td>Modify package.json (default) - you handle commits</td></tr><tr><td><code>pr</code></td><td>Create pull request with changes automatically</td></tr></tbody></table>
+<h3 id="check-mode">Check Mode</h3>
+<p>Runs pastoralist in dry-run mode. Reports issues without modifying files.</p>
+<div class="not-prose my-4"><div class="not-prose shiki-wrapper relative group overflow-hidden rounded-md border border-border/70 bg-card/85 backdrop-blur show-line-numbers"><div class="overflow-x-auto px-2 py-2 text-[13px] leading-5"><!--$?--><template id="B:3"></template><pre class="text-sm leading-relaxed"><code>- uses: yowainwright/pastoralist@v1
+  with:
+    mode: check
+</code></pre><!--/$--></div></div></div>
+<h3 id="update-mode-default">Update Mode (Default)</h3>
+<p>Runs pastoralist and modifies <code>package.json</code>. Use when you want to handle commits yourself.</p>
+<div class="not-prose my-4"><div class="not-prose shiki-wrapper relative group overflow-hidden rounded-md border border-border/70 bg-card/85 backdrop-blur show-line-numbers"><div class="overflow-x-auto px-2 py-2 text-[13px] leading-5"><!--$?--><template id="B:4"></template><pre class="text-sm leading-relaxed"><code>- uses: actions/checkout@v7
+
+- uses: yowainwright/pastoralist@v1
+  with:
+    mode: update
+
+- name: Commit changes
+  run: |
+    git config user.name github-actions[bot]
+    git config user.email github-actions[bot]@users.noreply.github.com
+    git add package.json
+    git diff --staged --quiet || git commit -m &quot;chore: update overrides&quot;
+    git push
+</code></pre><!--/$--></div></div></div>
+<h3 id="pr-mode">PR Mode</h3>
+<p>Runs pastoralist and creates a PR if changes are needed. Ideal for scheduled workflows.
+Use this mode with <code>contents: write</code> and <code>pull-requests: write</code> workflow
+permissions.</p>
+<div class="not-prose my-4"><div class="not-prose shiki-wrapper relative group overflow-hidden rounded-md border border-border/70 bg-card/85 backdrop-blur show-line-numbers"><div class="overflow-x-auto px-2 py-2 text-[13px] leading-5"><!--$?--><template id="B:5"></template><pre class="text-sm leading-relaxed"><code>- uses: yowainwright/pastoralist@v1
+  with:
+    mode: pr
+    pr-title: &quot;fix(security): update vulnerable overrides&quot;
+</code></pre><!--/$--></div></div></div>
+<h2 id="inputs">Inputs</h2>
+<table><thead><tr><th>Input</th><th>Description</th><th>Default</th></tr></thead><tbody><tr><td><code>mode</code></td><td>Operation mode: <code>check</code>, <code>update</code>, or <code>pr</code></td><td><code>update</code></td></tr><tr><td><code>check-security</code></td><td>Enable security scanning</td><td><code>true</code></td></tr><tr><td><code>security-provider</code></td><td>Provider: <code>osv</code>, <code>github</code>, <code>npm</code>, <code>snyk</code>, <code>socket</code>, <code>spektion</code></td><td><code>osv</code></td></tr><tr><td><code>security-token</code></td><td>Token for security provider</td><td>-</td></tr><tr><td><code>auto-fix</code></td><td>Apply security fixes automatically when the action can write</td><td><code>true</code></td></tr><tr><td><code>dry-run</code></td><td>Preview changes only</td><td><code>false</code></td></tr><tr><td><code>root-dir</code></td><td>Project root directory</td><td>-</td></tr><tr><td><code>dep-paths</code></td><td>Workspace patterns (space-separated)</td><td>-</td></tr><tr><td><code>config</code></td><td>Deprecated; config files are auto-detected from <code>root-dir</code></td><td>-</td></tr><tr><td><code>fail-on-security</code></td><td>Fail if vulnerabilities found</td><td><code>true</code></td></tr><tr><td><code>fail-on-unused</code></td><td>Fail if unused overrides found</td><td><code>false</code></td></tr><tr><td><code>silent</code></td><td>Deprecated compatibility input; ignored with a warning</td><td><code>false</code></td></tr><tr><td><code>debug</code></td><td>Enable debug logging</td><td><code>false</code></td></tr><tr><td><code>pr-title</code></td><td>PR title (mode: pr)</td><td><code>chore(deps): update dependency overrides</code></td></tr><tr><td><code>pr-body</code></td><td>PR body (mode: pr)</td><td>Auto-generated</td></tr><tr><td><code>pr-branch</code></td><td>PR branch name (mode: pr)</td><td><code>pastoralist/updates</code></td></tr><tr><td><code>pr-labels</code></td><td>PR labels (space-separated)</td><td><code>dependencies</code></td></tr><tr><td><code>github-token</code></td><td>GitHub token for PR creation</td><td><code>GITHUB_TOKEN</code></td></tr></tbody></table>
+<h2 id="outputs">Outputs</h2>
+<table><thead><tr><th>Output</th><th>Description</th></tr></thead><tbody><tr><td><code>has-security-issues</code></td><td><code>true</code> if vulnerabilities were found</td></tr><tr><td><code>has-unused-overrides</code></td><td><code>true</code> if unused overrides detected</td></tr><tr><td><code>updated</code></td><td><code>true</code> if package.json was modified</td></tr><tr><td><code>security-count</code></td><td>Number of security vulnerabilities found</td></tr><tr><td><code>unused-count</code></td><td>Number of unused overrides detected</td></tr><tr><td><code>override-count</code></td><td>Number of tracked overrides</td></tr><tr><td><code>pr-url</code></td><td>URL of created PR (mode: pr only)</td></tr></tbody></table>
+<h2 id="examples">Examples</h2>
+<h3 id="pr-check-with-security-gate">PR Check with Security Gate</h3>
+<div class="not-prose my-4"><div class="not-prose shiki-wrapper relative group overflow-hidden rounded-md border border-border/70 bg-card/85 backdrop-blur show-line-numbers"><div class="overflow-x-auto px-2 py-2 text-[13px] leading-5"><!--$?--><template id="B:6"></template><pre class="text-sm leading-relaxed"><code>name: Override Security
+on: [pull_request]
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: yowainwright/pastoralist@v1
+        with:
+          mode: check
+          fail-on-security: true
+          security-provider: osv
+</code></pre><!--/$--></div></div></div>
+<h3 id="monorepo-support">Monorepo Support</h3>
+<div class="not-prose my-4"><div class="not-prose shiki-wrapper relative group overflow-hidden rounded-md border border-border/70 bg-card/85 backdrop-blur show-line-numbers"><div class="overflow-x-auto px-2 py-2 text-[13px] leading-5"><!--$?--><template id="B:7"></template><pre class="text-sm leading-relaxed"><code>- uses: yowainwright/pastoralist@v1
+  with:
+    dep-paths: &quot;packages/*/package.json apps/*/package.json&quot;
+</code></pre><!--/$--></div></div></div>
+<h3 id="using-github-security-provider">Using GitHub Security Provider</h3>
+<div class="not-prose my-4"><div class="not-prose shiki-wrapper relative group overflow-hidden rounded-md border border-border/70 bg-card/85 backdrop-blur show-line-numbers"><div class="overflow-x-auto px-2 py-2 text-[13px] leading-5"><!--$?--><template id="B:8"></template><pre class="text-sm leading-relaxed"><code>- uses: yowainwright/pastoralist@v1
+  with:
+    security-provider: github
+    security-token: ${{ secrets.GITHUB_TOKEN }}
+</code></pre><!--/$--></div></div></div>
+<h3 id="conditional-pr-on-vulnerabilities">Conditional PR on Vulnerabilities</h3>
+<div class="not-prose my-4"><div class="not-prose shiki-wrapper relative group overflow-hidden rounded-md border border-border/70 bg-card/85 backdrop-blur show-line-numbers"><div class="overflow-x-auto px-2 py-2 text-[13px] leading-5"><!--$?--><template id="B:9"></template><pre class="text-sm leading-relaxed"><code>- uses: yowainwright/pastoralist@v1
+  id: pastoralist
+  with:
+    mode: check
+
+- name: Create security PR
+  if: steps.pastoralist.outputs.has-security-issues == &#x27;true&#x27;
+  run: |
+    # Custom PR logic here
+</code></pre><!--/$--></div></div></div>
+<h3 id="weekly-maintenance-with-slack-notification">Weekly Maintenance with Slack Notification</h3>
+<div class="not-prose my-4"><div class="not-prose shiki-wrapper relative group overflow-hidden rounded-md border border-border/70 bg-card/85 backdrop-blur show-line-numbers"><div class="overflow-x-auto px-2 py-2 text-[13px] leading-5"><!--$?--><template id="B:a"></template><pre class="text-sm leading-relaxed"><code>name: Weekly Override Maintenance
+on:
+  schedule:
+    - cron: &quot;0 9 * * 1&quot;
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  maintain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: yowainwright/pastoralist@v1
+        id: pastoralist
+        with:
+          mode: pr
+
+      - name: Notify Slack
+        if: steps.pastoralist.outputs.pr-url != &#x27;&#x27;
+        uses: slackapi/slack-github-action@v3.0.3
+        with:
+          payload: |
+            {
+              &quot;text&quot;: &quot;Pastoralist created a PR: ${{ steps.pastoralist.outputs.pr-url }}&quot;
+            }
+</code></pre><!--/$--></div></div></div>
+<h2 id="permissions">Permissions</h2>
+<p>For <code>mode: pr</code>, the action needs write permissions:</p>
+<div class="not-prose my-4"><div class="not-prose shiki-wrapper relative group overflow-hidden rounded-md border border-border/70 bg-card/85 backdrop-blur show-line-numbers"><div class="overflow-x-auto px-2 py-2 text-[13px] leading-5"><!--$?--><template id="B:b"></template><pre class="text-sm leading-relaxed"><code>permissions:
+  contents: write
+  pull-requests: write
+</code></pre><!--/$--></div></div></div>
+<h2 id="security-providers">Security Providers</h2>
+<table><thead><tr><th>Provider</th><th>Auth</th><th>Notes</th></tr></thead><tbody><tr><td><code>osv</code></td><td>None</td><td>Open Source Vulnerabilities database (default)</td></tr><tr><td><code>npm</code></td><td>None</td><td>Uses the detected package manager&#x27;s audit command</td></tr><tr><td><code>github</code></td><td>Required</td><td>Reads Dependabot alerts; pass <code>GITHUB_TOKEN</code> or rely on an authenticated <code>gh</code> CLI session</td></tr><tr><td><code>snyk</code></td><td>Required</td><td>Requires <code>SNYK_TOKEN</code> [EXPERIMENTAL]</td></tr><tr><td><code>socket</code></td><td>Required</td><td>Requires <code>SOCKET_SECURITY_API_KEY</code> [EXPERIMENTAL]</td></tr><tr><td><code>spektion</code></td><td>Required</td><td>Requires <code>SPEKTION_API_KEY</code> [EXPERIMENTAL]</td></tr></tbody></table></section><nav class="flex gap-7"><a href="/pastoralist/docs/api-reference" class="mr-auto flex"><button class="btn rounded-full bg-base-100 border border-base-content/10 text-base-content/80 shadow-sm shadow-base-content/5 hover:bg-base-content/5 hover:text-[#1D4ED8] transition-all"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-left w-6 h-6" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg><span class="text-xs md:text-sm font-medium">API Reference</span></button></a><a href="/pastoralist/docs/architecture" class="ml-auto flex"><button class="btn rounded-full bg-base-100 border border-base-content/10 text-base-content/80 shadow-sm shadow-base-content/5 hover:bg-base-content/5 hover:text-[#1D4ED8] transition-all"><span class="text-xs md:text-sm font-medium">Architecture</span><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right w-6 h-6" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></button></a></nav></article><aside class="hidden xl:block pl-8"><nav class="sticky top-28 w-64" aria-label="Table of contents"><h2 class="mb-3 text-xs font-semibold text-base-content/60 uppercase tracking-wider font-spline-sans-mono">On this page</h2><ul class="space-y-2.5"><li><a href="#quick-start" class="block text-sm transition-colors border-l-2 pl-4 -ml-0.5 font-spline-sans-mono py-1 text-base-content/70 hover:text-[#1D4ED8] border-transparent"><span>Quick Start</span></a><ul class="mt-2 space-y-2 ml-3"><li><a href="#basic-pr-check" class="block text-sm transition-colors border-l-2 pl-4 -ml-0.5 font-spline-sans-mono py-0.5 text-base-content/60 hover:text-[#1D4ED8] border-transparent"><span>Basic PR Check</span></a></li><li><a href="#scheduled-maintenance-with-pr-creation" class="block text-sm transition-colors border-l-2 pl-4 -ml-0.5 font-spline-sans-mono py-0.5 text-base-content/60 hover:text-[#1D4ED8] border-transparent"><span>Scheduled Maintenance with PR Creation</span></a></li></ul></li><li><a href="#modes" class="block text-sm transition-colors border-l-2 pl-4 -ml-0.5 font-spline-sans-mono py-1 text-base-content/70 hover:text-[#1D4ED8] border-transparent"><span>Modes</span></a><ul class="mt-2 space-y-2 ml-3"><li><a href="#check-mode" class="block text-sm transition-colors border-l-2 pl-4 -ml-0.5 font-spline-sans-mono py-0.5 text-base-content/60 hover:text-[#1D4ED8] border-transparent"><span>Check Mode</span></a></li><li><a href="#update-mode-default" class="block text-sm transition-colors border-l-2 pl-4 -ml-0.5 font-spline-sans-mono py-0.5 text-base-content/60 hover:text-[#1D4ED8] border-transparent"><span>Update Mode (Default)</span></a></li><li><a href="#pr-mode" class="block text-sm transition-colors border-l-2 pl-4 -ml-0.5 font-spline-sans-mono py-0.5 text-base-content/60 hover:text-[#1D4ED8] border-transparent"><span>PR Mode</span></a></li></ul></li><li><a href="#inputs" class="block text-sm transition-colors border-l-2 pl-4 -ml-0.5 font-spline-sans-mono py-1 text-base-content/70 hover:text-[#1D4ED8] border-transparent"><span>Inputs</span></a></li><li><a href="#outputs" class="block text-sm transition-colors border-l-2 pl-4 -ml-0.5 font-spline-sans-mono py-1 text-base-content/70 hover:text-[#1D4ED8] border-transparent"><span>Outputs</span></a></li><li><a href="#examples" class="block text-sm transition-colors border-l-2 pl-4 -ml-0.5 font-spline-sans-mono py-1 text-base-content/70 hover:text-[#1D4ED8] border-transparent"><span>Examples</span></a><ul class="mt-2 space-y-2 ml-3"><li><a href="#pr-check-with-security-gate" class="block text-sm transition-colors border-l-2 pl-4 -ml-0.5 font-spline-sans-mono py-0.5 text-base-content/60 hover:text-[#1D4ED8] border-transparent"><span>PR Check with Security Gate</span></a></li><li><a href="#monorepo-support" class="block text-sm transition-colors border-l-2 pl-4 -ml-0.5 font-spline-sans-mono py-0.5 text-base-content/60 hover:text-[#1D4ED8] border-transparent"><span>Monorepo Support</span></a></li><li><a href="#using-github-security-provider" class="block text-sm transition-colors border-l-2 pl-4 -ml-0.5 font-spline-sans-mono py-0.5 text-base-content/60 hover:text-[#1D4ED8] border-transparent"><span>Using GitHub Security Provider</span></a></li><li><a href="#conditional-pr-on-vulnerabilities" class="block text-sm transition-colors border-l-2 pl-4 -ml-0.5 font-spline-sans-mono py-0.5 text-base-content/60 hover:text-[#1D4ED8] border-transparent"><span>Conditional PR on Vulnerabilities</span></a></li><li><a href="#weekly-maintenance-with-slack-notification" class="block text-sm transition-colors border-l-2 pl-4 -ml-0.5 font-spline-sans-mono py-0.5 text-base-content/60 hover:text-[#1D4ED8] border-transparent"><span>Weekly Maintenance with Slack Notification</span></a></li></ul></li><li><a href="#permissions" class="block text-sm transition-colors border-l-2 pl-4 -ml-0.5 font-spline-sans-mono py-1 text-base-content/70 hover:text-[#1D4ED8] border-transparent"><span>Permissions</span></a></li><li><a href="#security-providers" class="block text-sm transition-colors border-l-2 pl-4 -ml-0.5 font-spline-sans-mono py-1 text-base-content/70 hover:text-[#1D4ED8] border-transparent"><span>Security Providers</span></a></li></ul></nav></aside></section></article></section><aside class="drawer-side"><label for="my-drawer-2" class="drawer-overlay lg:hidden bg-transparent"></label><nav class="w-64 bg-base-100 z-20 sticky top-[68px] h-[calc(100vh-68px)] overflow-y-auto border-r border-base-content/10"><section class="px-3 pt-2 space-y-3"><article class="sidebar-section"><button class="sidebar-toggle w-full flex items-center justify-between px-2 py-1.5 text-xs font-semibold text-base-content/70 uppercase tracking-normal font-spline-sans-mono hover:text-base-content transition-colors" aria-expanded="true"><span>Getting Started</span><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right w-4 h-4 transition-transform duration-200 rotate-90" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></button><nav class="sidebar-content "><ul class="ml-2 mt-1 border-l-2 border-base-content/10 space-y-0.5 py-1"><li><a href="/pastoralist/docs/introduction" class="block ml-0 pl-4 pr-3 py-2 text-sm transition-colors relative text-base-content/80 hover:text-[#1D4ED8] hover:bg-base-content/5"><span class="flex items-center justify-between">Introduction</span></a></li><li><a href="/pastoralist/docs/setup" class="block ml-0 pl-4 pr-3 py-2 text-sm transition-colors relative text-base-content/80 hover:text-[#1D4ED8] hover:bg-base-content/5"><span class="flex items-center justify-between">Setup</span></a></li><li><a href="/pastoralist/docs/onboarding" class="block ml-0 pl-4 pr-3 py-2 text-sm transition-colors relative text-base-content/80 hover:text-[#1D4ED8] hover:bg-base-content/5"><span class="flex items-center justify-between">Onboarding</span></a></li></ul></nav></article><article class="sidebar-section"><button class="sidebar-toggle w-full flex items-center justify-between px-2 py-1.5 text-xs font-semibold text-base-content/70 uppercase tracking-normal font-spline-sans-mono hover:text-base-content transition-colors" aria-expanded="true"><span>Features</span><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right w-4 h-4 transition-transform duration-200 rotate-90" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></button><nav class="sidebar-content "><ul class="ml-2 mt-1 border-l-2 border-base-content/10 space-y-0.5 py-1"><li><a href="/pastoralist/docs/security" class="block ml-0 pl-4 pr-3 py-2 text-sm transition-colors relative text-base-content/80 hover:text-[#1D4ED8] hover:bg-base-content/5"><span class="flex items-center justify-between">Security Scanning</span></a></li><li><a href="/pastoralist/docs/workspaces" class="block ml-0 pl-4 pr-3 py-2 text-sm transition-colors relative text-base-content/80 hover:text-[#1D4ED8] hover:bg-base-content/5"><span class="flex items-center justify-between">Workspaces &amp; Monorepos</span></a></li><li><a href="/pastoralist/docs/advanced-features" class="block ml-0 pl-4 pr-3 py-2 text-sm transition-colors relative text-base-content/80 hover:text-[#1D4ED8] hover:bg-base-content/5"><span class="flex items-center justify-between">Advanced Features</span></a></li></ul></nav></article><article class="sidebar-section"><button class="sidebar-toggle w-full flex items-center justify-between px-2 py-1.5 text-xs font-semibold text-base-content/70 uppercase tracking-normal font-spline-sans-mono hover:text-base-content transition-colors" aria-expanded="true"><span>Codelabs</span><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right w-4 h-4 transition-transform duration-200 rotate-90" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></button><nav class="sidebar-content "><ul class="ml-2 mt-1 border-l-2 border-base-content/10 space-y-0.5 py-1"><li><a href="/pastoralist/docs/codelab" class="block ml-0 pl-4 pr-3 py-2 text-sm transition-colors relative text-base-content/80 hover:text-[#1D4ED8] hover:bg-base-content/5"><span class="flex items-center justify-between">Basic Usage</span></a></li></ul></nav></article><article class="sidebar-section"><button class="sidebar-toggle w-full flex items-center justify-between px-2 py-1.5 text-xs font-semibold text-base-content/70 uppercase tracking-normal font-spline-sans-mono hover:text-base-content transition-colors" aria-expanded="true"><span>Reference</span><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right w-4 h-4 transition-transform duration-200 rotate-90" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></button><nav class="sidebar-content "><ul class="ml-2 mt-1 border-l-2 border-base-content/10 space-y-0.5 py-1"><li><a href="/pastoralist/docs/api-reference" class="block ml-0 pl-4 pr-3 py-2 text-sm transition-colors relative text-base-content/80 hover:text-[#1D4ED8] hover:bg-base-content/5"><span class="flex items-center justify-between">API Reference</span></a></li><li><a class="block ml-0 pl-4 pr-3 py-2 text-sm transition-colors relative text-[#1D4ED8] bg-[#1D4ED8]/10 font-medium before:absolute before:left-[-2px] before:top-0 before:bottom-0 before:w-0.5 before:bg-[#1D4ED8] active" href="/pastoralist/docs/github-action" data-status="active" aria-current="page"><span class="flex items-center justify-between">GitHub Action</span></a></li><li><a href="/pastoralist/docs/architecture" class="block ml-0 pl-4 pr-3 py-2 text-sm transition-colors relative text-base-content/80 hover:text-[#1D4ED8] hover:bg-base-content/5"><span class="flex items-center justify-between">Architecture</span></a></li><li><a href="/pastoralist/docs/troubleshooting" class="block ml-0 pl-4 pr-3 py-2 text-sm transition-colors relative text-base-content/80 hover:text-[#1D4ED8] hover:bg-base-content/5"><span class="flex items-center justify-between">Troubleshooting &amp; FAQ</span></a></li></ul></nav></article></section></nav></aside></main><footer class="w-full px-4 sm:px-6 md:px-10 xl:px-28 py-6 sm:py-7 border-t border-base-content/10 flex flex-col gap-4 sm:grid sm:grid-cols-3 sm:gap-4 sm:items-center"><div class="flex items-center justify-center sm:justify-start gap-2 order-3 sm:order-1"><p class="text-sm sm:text-base text-center sm:text-left">Copyright © <!-- -->2026<!-- --> - All rights reserved</p></div><div class="flex items-center justify-center gap-2 order-1 sm:order-2"><a href="/pastoralist/" class="hover:opacity-80 transition-opacity"><img src="/pastoralist/pastoralist-logo.svg" alt="Pastoralist Logo" class="h-12 w-12"/></a></div><nav class="flex justify-center sm:justify-end order-2 sm:order-3"><div class="grid grid-flow-col gap-4"><a class="btn btn-ghost btn-circle flex items-center justify-center" href="https://github.com/yowainwright/pastoralist" aria-label="GitHub" target="_blank" rel="noopener noreferrer"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-github lucide-Github h-5 w-5" aria-hidden="true"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"></path><path d="M9 18c-4.51 2-5-2-7-2"></path></svg></a></div></nav></footer></section><!--/$--><script>requestAnimationFrame(function(){$RT=performance.now()});</script><div hidden id="S:0"><button class="btn btn-sm btn-ghost gap-1" aria-label="Search (⌘K)"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-search h-4 w-4" aria-hidden="true"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg><kbd class="hidden lg:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-medium bg-base-200 text-base-content/60 rounded"><span>⌘</span>K</kbd></button></div><script>$RB=[];$RV=function(a){$RT=performance.now();for(var b=0;b<a.length;b+=2){var c=a[b],e=a[b+1];null!==e.parentNode&&e.parentNode.removeChild(e);var f=c.parentNode;if(f){var g=c.previousSibling,h=0;do{if(c&&8===c.nodeType){var d=c.data;if("/$"===d||"/&"===d)if(0===h)break;else h--;else"$"!==d&&"$?"!==d&&"$~"!==d&&"$!"!==d&&"&"!==d||h++}d=c.nextSibling;f.removeChild(c);c=d}while(c);for(;e.firstChild;)f.insertBefore(e.firstChild,c);g.data="$";g._reactRetry&&requestAnimationFrame(g._reactRetry)}}a.length=0};
+$RC=function(a,b){if(b=document.getElementById(b))(a=document.getElementById(a))?(a.previousSibling.data="$~",$RB.push(a,b),2===$RB.length&&("number"!==typeof $RT?requestAnimationFrame($RV.bind(null,$RB)):(a=performance.now(),setTimeout($RV.bind(null,$RB),2300>a&&2E3<a?2300-a:$RT+300-a)))):b.parentNode.removeChild(b)};$RC("B:0","S:0")</script><div hidden id="S:1"><div class="[&amp;_.shiki]:!overflow-visible [&amp;_.shiki]:!bg-transparent [&amp;_pre]:!m-0 [&amp;_pre]:!border-0 [&amp;_pre]:!bg-transparent [&amp;_pre]:!p-0 [&amp;_code]:!bg-transparent [&amp;_code]:!p-0"><pre class="shiki shiki-themes pastoralist-light pastoralist-dark" style="--shiki-light:#1e293b;--shiki-dark:#e2e8f0;--shiki-light-bg:#f8fafc;--shiki-dark-bg:#1e293b" tabindex="0"><code><span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">name</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> Override Check</span></span>
+<span class="line"><span style="--shiki-light:#D97706;--shiki-dark:#FBBF24">on</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8"> [</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80">pull_request</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">]</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">jobs</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">  check</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">    runs-on</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> ubuntu-latest</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">    steps</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">      -</span><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4"> uses</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> actions/checkout@v7</span></span>
+<span class="line"><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">      -</span><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4"> uses</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> yowainwright/pastoralist@v1</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">        with</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">          mode</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> check</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">          check-security</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#D97706;--shiki-dark:#FBBF24"> false</span></span>
+<span class="line"></span></code></pre></div></div><script>$RC("B:1","S:1")</script><div hidden id="S:2"><div class="[&amp;_.shiki]:!overflow-visible [&amp;_.shiki]:!bg-transparent [&amp;_pre]:!m-0 [&amp;_pre]:!border-0 [&amp;_pre]:!bg-transparent [&amp;_pre]:!p-0 [&amp;_code]:!bg-transparent [&amp;_code]:!p-0"><pre class="shiki shiki-themes pastoralist-light pastoralist-dark" style="--shiki-light:#1e293b;--shiki-dark:#e2e8f0;--shiki-light-bg:#f8fafc;--shiki-dark-bg:#1e293b" tabindex="0"><code><span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">name</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> Override Maintenance</span></span>
+<span class="line"><span style="--shiki-light:#D97706;--shiki-dark:#FBBF24">on</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">  schedule</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">    -</span><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4"> cron</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8"> "</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80">0 0 * * 1</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">"</span><span style="--shiki-light:#64748B;--shiki-light-font-style:italic;--shiki-dark:#94A3B8;--shiki-dark-font-style:italic"> # Weekly on Monday</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">permissions</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">  contents</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> write</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">  pull-requests</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> write</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">jobs</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">  maintain</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">    runs-on</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> ubuntu-latest</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">    steps</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">      -</span><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4"> uses</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> actions/checkout@v7</span></span>
+<span class="line"><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">      -</span><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4"> uses</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> yowainwright/pastoralist@v1</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">        with</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">          mode</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> pr</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">          pr-title</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8"> "</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80">chore(deps): update dependency overrides</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">"</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">          pr-labels</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8"> "</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80">dependencies automated</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">"</span></span>
+<span class="line"></span></code></pre></div></div><script>$RC("B:2","S:2")</script><div hidden id="S:3"><div class="[&amp;_.shiki]:!overflow-visible [&amp;_.shiki]:!bg-transparent [&amp;_pre]:!m-0 [&amp;_pre]:!border-0 [&amp;_pre]:!bg-transparent [&amp;_pre]:!p-0 [&amp;_code]:!bg-transparent [&amp;_code]:!p-0"><pre class="shiki shiki-themes pastoralist-light pastoralist-dark" style="--shiki-light:#1e293b;--shiki-dark:#e2e8f0;--shiki-light-bg:#f8fafc;--shiki-dark-bg:#1e293b" tabindex="0"><code><span class="line"><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">-</span><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4"> uses</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> yowainwright/pastoralist@v1</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">  with</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">    mode</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> check</span></span>
+<span class="line"></span></code></pre></div></div><script>$RC("B:3","S:3")</script><div hidden id="S:4"><div class="[&amp;_.shiki]:!overflow-visible [&amp;_.shiki]:!bg-transparent [&amp;_pre]:!m-0 [&amp;_pre]:!border-0 [&amp;_pre]:!bg-transparent [&amp;_pre]:!p-0 [&amp;_code]:!bg-transparent [&amp;_code]:!p-0"><pre class="shiki shiki-themes pastoralist-light pastoralist-dark" style="--shiki-light:#1e293b;--shiki-dark:#e2e8f0;--shiki-light-bg:#f8fafc;--shiki-dark-bg:#1e293b" tabindex="0"><code><span class="line"><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">-</span><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4"> uses</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> actions/checkout@v7</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">-</span><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4"> uses</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> yowainwright/pastoralist@v1</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">  with</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">    mode</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> update</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">-</span><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4"> name</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> Commit changes</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">  run</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#8B5CF6;--shiki-dark:#A78BFA"> |</span></span>
+<span class="line"><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80">    git config user.name github-actions[bot]</span></span>
+<span class="line"><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80">    git config user.email github-actions[bot]@users.noreply.github.com</span></span>
+<span class="line"><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80">    git add package.json</span></span>
+<span class="line"><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80">    git diff --staged --quiet || git commit -m "chore: update overrides"</span></span>
+<span class="line"><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80">    git push</span></span>
+<span class="line"></span></code></pre></div></div><script>$RC("B:4","S:4")</script><div hidden id="S:5"><div class="[&amp;_.shiki]:!overflow-visible [&amp;_.shiki]:!bg-transparent [&amp;_pre]:!m-0 [&amp;_pre]:!border-0 [&amp;_pre]:!bg-transparent [&amp;_pre]:!p-0 [&amp;_code]:!bg-transparent [&amp;_code]:!p-0"><pre class="shiki shiki-themes pastoralist-light pastoralist-dark" style="--shiki-light:#1e293b;--shiki-dark:#e2e8f0;--shiki-light-bg:#f8fafc;--shiki-dark-bg:#1e293b" tabindex="0"><code><span class="line"><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">-</span><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4"> uses</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> yowainwright/pastoralist@v1</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">  with</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">    mode</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> pr</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">    pr-title</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8"> "</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80">fix(security): update vulnerable overrides</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">"</span></span>
+<span class="line"></span></code></pre></div></div><script>$RC("B:5","S:5")</script><div hidden id="S:6"><div class="[&amp;_.shiki]:!overflow-visible [&amp;_.shiki]:!bg-transparent [&amp;_pre]:!m-0 [&amp;_pre]:!border-0 [&amp;_pre]:!bg-transparent [&amp;_pre]:!p-0 [&amp;_code]:!bg-transparent [&amp;_code]:!p-0"><pre class="shiki shiki-themes pastoralist-light pastoralist-dark" style="--shiki-light:#1e293b;--shiki-dark:#e2e8f0;--shiki-light-bg:#f8fafc;--shiki-dark-bg:#1e293b" tabindex="0"><code><span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">name</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> Override Security</span></span>
+<span class="line"><span style="--shiki-light:#D97706;--shiki-dark:#FBBF24">on</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8"> [</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80">pull_request</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">]</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">jobs</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">  security</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">    runs-on</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> ubuntu-latest</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">    steps</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">      -</span><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4"> uses</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> actions/checkout@v7</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">      -</span><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4"> uses</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> yowainwright/pastoralist@v1</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">        with</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">          mode</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> check</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">          fail-on-security</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#D97706;--shiki-dark:#FBBF24"> true</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">          security-provider</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> osv</span></span>
+<span class="line"></span></code></pre></div></div><script>$RC("B:6","S:6")</script><div hidden id="S:7"><div class="[&amp;_.shiki]:!overflow-visible [&amp;_.shiki]:!bg-transparent [&amp;_pre]:!m-0 [&amp;_pre]:!border-0 [&amp;_pre]:!bg-transparent [&amp;_pre]:!p-0 [&amp;_code]:!bg-transparent [&amp;_code]:!p-0"><pre class="shiki shiki-themes pastoralist-light pastoralist-dark" style="--shiki-light:#1e293b;--shiki-dark:#e2e8f0;--shiki-light-bg:#f8fafc;--shiki-dark-bg:#1e293b" tabindex="0"><code><span class="line"><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">-</span><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4"> uses</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> yowainwright/pastoralist@v1</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">  with</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">    dep-paths</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8"> "</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80">packages/*/package.json apps/*/package.json</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">"</span></span>
+<span class="line"></span></code></pre></div></div><script>$RC("B:7","S:7")</script><div hidden id="S:8"><div class="[&amp;_.shiki]:!overflow-visible [&amp;_.shiki]:!bg-transparent [&amp;_pre]:!m-0 [&amp;_pre]:!border-0 [&amp;_pre]:!bg-transparent [&amp;_pre]:!p-0 [&amp;_code]:!bg-transparent [&amp;_code]:!p-0"><pre class="shiki shiki-themes pastoralist-light pastoralist-dark" style="--shiki-light:#1e293b;--shiki-dark:#e2e8f0;--shiki-light-bg:#f8fafc;--shiki-dark-bg:#1e293b" tabindex="0"><code><span class="line"><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">-</span><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4"> uses</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> yowainwright/pastoralist@v1</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">  with</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">    security-provider</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> github</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">    security-token</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> ${{ secrets.GITHUB_TOKEN }}</span></span>
+<span class="line"></span></code></pre></div></div><script>$RC("B:8","S:8")</script><div hidden id="S:9"><div class="[&amp;_.shiki]:!overflow-visible [&amp;_.shiki]:!bg-transparent [&amp;_pre]:!m-0 [&amp;_pre]:!border-0 [&amp;_pre]:!bg-transparent [&amp;_pre]:!p-0 [&amp;_code]:!bg-transparent [&amp;_code]:!p-0"><pre class="shiki shiki-themes pastoralist-light pastoralist-dark" style="--shiki-light:#1e293b;--shiki-dark:#e2e8f0;--shiki-light-bg:#f8fafc;--shiki-dark-bg:#1e293b" tabindex="0"><code><span class="line"><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">-</span><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4"> uses</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> yowainwright/pastoralist@v1</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">  id</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> pastoralist</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">  with</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">    mode</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> check</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">-</span><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4"> name</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> Create security PR</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">  if</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> steps.pastoralist.outputs.has-security-issues == 'true'</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">  run</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#8B5CF6;--shiki-dark:#A78BFA"> |</span></span>
+<span class="line"><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80">    # Custom PR logic here</span></span>
+<span class="line"></span></code></pre></div></div><script>$RC("B:9","S:9")</script><div hidden id="S:a"><div class="[&amp;_.shiki]:!overflow-visible [&amp;_.shiki]:!bg-transparent [&amp;_pre]:!m-0 [&amp;_pre]:!border-0 [&amp;_pre]:!bg-transparent [&amp;_pre]:!p-0 [&amp;_code]:!bg-transparent [&amp;_code]:!p-0"><pre class="shiki shiki-themes pastoralist-light pastoralist-dark" style="--shiki-light:#1e293b;--shiki-dark:#e2e8f0;--shiki-light-bg:#f8fafc;--shiki-dark-bg:#1e293b" tabindex="0"><code><span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">name</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> Weekly Override Maintenance</span></span>
+<span class="line"><span style="--shiki-light:#D97706;--shiki-dark:#FBBF24">on</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">  schedule</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">    -</span><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4"> cron</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8"> "</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80">0 9 * * 1</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">"</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">permissions</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">  contents</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> write</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">  pull-requests</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> write</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">jobs</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">  maintain</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">    runs-on</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> ubuntu-latest</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">    steps</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">      -</span><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4"> uses</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> actions/checkout@v7</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">      -</span><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4"> uses</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> yowainwright/pastoralist@v1</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">        id</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> pastoralist</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">        with</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">          mode</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> pr</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">      -</span><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4"> name</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> Notify Slack</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">        if</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> steps.pastoralist.outputs.pr-url != ''</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">        uses</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> slackapi/slack-github-action@v3.0.3</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">        with</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">          payload</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#8B5CF6;--shiki-dark:#A78BFA"> |</span></span>
+<span class="line"><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80">            {</span></span>
+<span class="line"><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80">              "text": "Pastoralist created a PR: ${{ steps.pastoralist.outputs.pr-url }}"</span></span>
+<span class="line"><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80">            }</span></span>
+<span class="line"></span></code></pre></div></div><script>$RC("B:a","S:a")</script><div hidden id="S:b"><div class="[&amp;_.shiki]:!overflow-visible [&amp;_.shiki]:!bg-transparent [&amp;_pre]:!m-0 [&amp;_pre]:!border-0 [&amp;_pre]:!bg-transparent [&amp;_pre]:!p-0 [&amp;_code]:!bg-transparent [&amp;_code]:!p-0"><pre class="shiki shiki-themes pastoralist-light pastoralist-dark" style="--shiki-light:#1e293b;--shiki-dark:#e2e8f0;--shiki-light-bg:#f8fafc;--shiki-dark-bg:#1e293b" tabindex="0"><code><span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">permissions</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">  contents</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> write</span></span>
+<span class="line"><span style="--shiki-light:#EC4899;--shiki-dark:#F9A8D4">  pull-requests</span><span style="--shiki-light:#475569;--shiki-dark:#94A3B8">:</span><span style="--shiki-light:#16A34A;--shiki-dark:#4ADE80"> write</span></span>
+<span class="line"></span></code></pre></div></div><script>$RC("B:b","S:b")</script></div>
+  <script>(self.$R=self.$R||{})["tsr"]=[];self.$_TSR={h(){this.hydrated=!0,this.c()},e(){this.streamEnded=!0,this.c()},c(){this.hydrated&&this.streamEnded&&(delete self.$_TSR,delete self.$R.tsr)},p(e){this.initialized?e():this.buffer.push(e)},buffer:[]};$_TSR.router=($R=>$R[0]={manifest:void 0,matches:$R[1]=[$R[2]={i:"__root__ ",u:1783974520680,s:"success",ssr:!0},$R[3]={i:" docs $slug docs github-action",u:1783974520680,s:"success",ssr:!0}],lastMatchId:" docs $slug docs github-action"})($R["tsr"]);$_TSR.e();document.currentScript.remove()</script></body>
+</html>

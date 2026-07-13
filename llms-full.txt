@@ -125,7 +125,7 @@ technical debt.
 
 ```bash
 npm install pastoralist --save-dev
-npx pastoralist --init
+npx pastoralist init
 ```
 
 Then add it to `postinstall`:
@@ -183,7 +183,7 @@ npx pastoralist onboard
 Install the Pastoralist agent skill in a repo:
 
 ```bash
-npx -p pastoralist pastoralist-setup-skill
+npx pastoralist --init agent-skill
 ```
 
 Set up local dev with selected skills and hooks:
@@ -195,7 +195,7 @@ npx -p pastoralist pastoralist-setup-local-dev --skills all --hooks git,postinst
 Run the guided setup:
 
 ```bash
-npx pastoralist --init
+npx pastoralist init
 ```
 
 The initializer can detect workspace packages, ask whether security checks
@@ -298,7 +298,7 @@ Install Pastoralist and create the initial config:
 
 ```bash
 npm install pastoralist --save-dev
-npx pastoralist --init
+npx pastoralist init
 ```
 
 Update the appendix once the config is in place:
@@ -318,7 +318,7 @@ npx pastoralist --setup-hook
 Install only the bundled Pastoralist skill:
 
 ```bash
-npx -p pastoralist pastoralist-setup-skill
+npx pastoralist --init agent-skill
 ```
 
 Preview local dev setup before writing files:
@@ -941,7 +941,7 @@ Pastoralist offers guided configuration for monorepo setups:
 
 ```bash
 # Initialize with guided setup
-pastoralist --init
+pastoralist init
 ```
 
 The initializer can:
@@ -1987,14 +1987,14 @@ npx pastoralist --root /path/to/project
 npx pastoralist --root ../my-project --path package.json
 ```
 
-### `pastoralist --init`
+### `pastoralist init`
 
 Initialize configuration with the guided setup. The wizard can configure
 workspace paths, security scanning, and where the configuration should be saved.
 
 ```bash
 # Start interactive setup
-npx pastoralist --init
+npx pastoralist init
 ```
 
 When run, this will:
@@ -2003,6 +2003,16 @@ When run, this will:
 - Prompt for `depPaths: "workspace"` or custom package globs
 - Offer security provider and severity threshold setup
 - Save configuration to `package.json` or a supported config file
+
+### `pastoralist --init agent-skill`
+
+Install the bundled Pastoralist agent skill into `.agents/skills/pastoralist`.
+
+```bash
+npx pastoralist --init agent-skill
+```
+
+`pastoralist init agent-skill` is also supported.
 
 ### `pastoralist --interactive`
 
@@ -2063,14 +2073,6 @@ Add pastoralist to your postinstall script automatically.
 
 ```bash
 npx pastoralist --setup-hook
-```
-
-### `pastoralist-setup-skill`
-
-Install the bundled Pastoralist agent skill into `.agents/skills/pastoralist`.
-
-```bash
-npx -p pastoralist pastoralist-setup-skill
 ```
 
 ### `pastoralist-setup-local-dev`
@@ -2880,6 +2882,20 @@ Pastoralist searches for configuration files in this order (first found wins):
 4. `pastoralist.config.cjs`
 5. `pastoralist.config.js`
 6. `pastoralist.config.mjs`
+
+All external config files use the same top-level Pastoralist settings. Choose
+the filename by format and convention:
+
+- `.pastoralistrc`: extensionless rc file parsed as JSON
+- `.pastoralistrc.json`: explicit JSON rc file, and the JSON option created by
+  `pastoralist init`
+- `pastoralist.json`: visible non-dotfile JSON config
+- `pastoralist.config.cjs`: CommonJS module with `module.exports`
+- `pastoralist.config.js`: JavaScript config. CommonJS exports are accepted;
+  otherwise it is imported as a module
+- `pastoralist.config.mjs`: ESM module with `export default`
+
+Use `pastoralist.json`, not `.pastoralist.json`.
 
 ### Example Configurations
 

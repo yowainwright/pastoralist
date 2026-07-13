@@ -9,9 +9,10 @@ const AURORA_COLORS = {
 } as const;
 
 export default function HeroShaderBackground() {
-  const [isDark, setIsDark] = useState(
-    () => document.documentElement.getAttribute("data-theme") === DARK_THEME,
-  );
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof document === "undefined") return false;
+    return document.documentElement.getAttribute("data-theme") === DARK_THEME;
+  });
 
   useEffect(() => {
     const observer = new MutationObserver(() => {

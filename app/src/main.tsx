@@ -1,26 +1,30 @@
 import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import { RouterProvider, createRouter } from "@tanstack/react-router";
+import { createRoot, hydrateRoot } from "react-dom/client";
+import { RouterProvider } from "@tanstack/react-router";
+import { RouterClient } from "@tanstack/react-router/ssr/client";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { routeTree } from "./routes";
+import { createAppRouter } from "./routes";
 import "./styles/global.css";
 import "./styles/terminal.css";
 
-const router = createRouter({
-  routeTree,
-  basepath: "/pastoralist",
-});
+const router = createAppRouter();
+const rootElement = document.getElementById("root");
+if (!rootElement) throw new Error("Missing root element");
 
-declare module "@tanstack/react-router" {
-  interface Register {
-    router: typeof router;
-  }
-}
-
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <TooltipProvider>
-      <RouterProvider router={router} />
-    </TooltipProvider>
-  </StrictMode>,
+const isPrerendered = rootElement.dataset.prerendered === "true";
+const routerView = isPrerendered ? (
+  <RouterClient router={router} />
+) : (
+  <RouterProvider router={router} />
 );
+const app = (
+  <StrictMode>
+    <TooltipProvider>{routerView}</TooltipProvider>
+  </StrictMode>
+);
+
+if (isPrerendered) {
+  hydrateRoot(rootElement, app);
+} else {
+  createRoot(rootElement).render(app);
+}

@@ -40,7 +40,7 @@ npx pastoralist onboard
 Install the Pastoralist agent skill in a repo:
 
 ```bash
-npx -p pastoralist pastoralist-setup-skill
+npx pastoralist --init agent-skill
 ```
 
 Set up local dev with selected skills and hooks:
@@ -52,7 +52,7 @@ npx -p pastoralist pastoralist-setup-local-dev --skills all --hooks git,postinst
 Run the guided setup:
 
 ```bash
-npx pastoralist --init
+npx pastoralist init
 ```
 
 The initializer can detect workspace packages, ask whether security checks

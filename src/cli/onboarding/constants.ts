@@ -10,7 +10,7 @@ export const ONBOARDING_SECTIONS: readonly OnboardingSection[] = [
       "   npx pastoralist doctor",
       "2. Add Pastoralist and create config:",
       "   npm install pastoralist --save-dev",
-      "   npx pastoralist --init",
+      "   npx pastoralist init",
       "3. Update the override appendix:",
       "   npx pastoralist",
       "4. Keep it current after installs:",
@@ -21,7 +21,7 @@ export const ONBOARDING_SECTIONS: readonly OnboardingSection[] = [
     title: "Agent quick setup",
     lines: [
       "1. Install only the Pastoralist skill:",
-      "   npx -p pastoralist pastoralist-setup-skill",
+      "   npx pastoralist --init agent-skill",
       "2. Preview local dev setup:",
       "   npx -p pastoralist pastoralist-setup-local-dev --dry-run",
       "3. Set up Codex with skills and hooks:",

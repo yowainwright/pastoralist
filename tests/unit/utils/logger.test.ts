@@ -54,10 +54,11 @@ test("logger.error should use error method", () => {
   consoleDebugSpy.mockRestore();
 });
 
-test("logger should create logger with debug, error, warn, and print methods", () => {
+test("logger should create logger with debug, error, fail, warn, and print methods", () => {
   const log = logger({ file: "test.ts", isLogging: true });
   expect(log.debug).toBeFunction();
   expect(log.error).toBeFunction();
+  expect(log.fail).toBeFunction();
   expect(log.warn).toBeFunction();
   expect(log.print).toBeFunction();
   expect(log.line).toBeFunction();
@@ -96,6 +97,14 @@ test("logger.print should output plain message", () => {
   log.print("User message");
   expect(consoleLogSpy).toHaveBeenCalledWith("User message");
   consoleLogSpy.mockRestore();
+});
+
+test("logger.fail should output plain error message", () => {
+  const consoleErrorSpy = spyOn(console, "error");
+  const log = logger({ file: "test.ts", isLogging: false });
+  log.fail("User error");
+  expect(consoleErrorSpy).toHaveBeenCalledWith("User error");
+  consoleErrorSpy.mockRestore();
 });
 
 test("logger.line should output message with newline prefix", () => {

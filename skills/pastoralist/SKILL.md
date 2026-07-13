@@ -10,7 +10,8 @@ description: >
 Start with `npx pastoralist onboard` when setting up a repo.
 Use `npx pastoralist doctor` for read-only project health.
 Run `npx -p pastoralist pastoralist-setup-local-dev --dry-run` before setup writes.
-Use `npx pastoralist --init` to create config.
+Use `npx pastoralist init` to create config.
+Config can live under `package.json#pastoralist` or as top-level settings in `.pastoralistrc`, `.pastoralistrc.json`, `pastoralist.json`, or `pastoralist.config.*`.
 Use `npx pastoralist` to update the override appendix.
 Use `npx pastoralist --setup-hook` to keep the appendix current after installs.
 Use `npx pastoralist --checkSecurity` for advisory checks.
@@ -27,7 +28,7 @@ npx -p pastoralist pastoralist-setup-local-dev --agent codex --skills all --hook
 If only the skill is needed:
 
 ```bash
-npx -p pastoralist pastoralist-setup-skill
+npx pastoralist --init agent-skill
 ```
 
 ## Agent Loop

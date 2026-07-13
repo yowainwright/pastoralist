@@ -12,7 +12,7 @@ export const OPTION_DEFINITIONS: OptionDefinition[] = [
   { flags: ["-r", "--root"], hasValue: true },
   { flags: ["-t", "--isTestingCLI"], hasValue: false },
   { flags: ["--isTesting"], hasValue: false },
-  { flags: ["--init"], hasValue: false },
+  { flags: ["--init"], hasValue: true, isArray: true, emptyValue: true },
   { flags: ["--checkSecurity"], hasValue: false },
   { flags: ["--forceSecurityRefactor"], hasValue: false },
   { flags: ["--securityProvider"], hasValue: true, isArray: true },
@@ -39,7 +39,7 @@ Usage: pastoralist [command] [options]
 
 Commands:
   onboard                               Show first-run setup, agent, and GitHub Action guidance
-  init                                  Initialize Pastoralist configuration interactively
+  init [config|agent-skill]             Initialize config or the Pastoralist agent skill
   doctor                                Run a read-only setup and override health check
 
 Options:
@@ -53,7 +53,7 @@ Options:
   -r, --root <root>                     Specifies a root path
   -t, --isTestingCLI                    Enable CLI testing (no scripts run)
   --isTesting                           Enable testing mode (no scripts run)
-  --init                                Initialize Pastoralist configuration interactively
+  --init [type] [args...]               Initialize config or a named init target
   --checkSecurity                       Check for security vulnerabilities and generate overrides
   --forceSecurityRefactor               Automatically apply security overrides without prompting
   --securityProvider <provider...>      Security provider(s) to use (osv, github, snyk, npm, socket, spektion)

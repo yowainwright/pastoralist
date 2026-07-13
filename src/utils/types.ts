@@ -117,6 +117,7 @@ export const LOG_INDENT = "   ";
 export interface Logger {
   debug: DebugLogFunc;
   error: DebugLogFunc;
+  fail: PrintFunc;
   warn: DebugLogFunc;
   print: PrintFunc;
   line: PrintFunc;

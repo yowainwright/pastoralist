@@ -4,10 +4,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "bun run generate:llms && tsc && vite build",
+    "build": "bun run build:client && bun run build:static",
+    "build:client": "bun run generate:llms && tsc && vite build",
+    "build:ssr": "vite build --ssr src/entry-server.tsx --outDir dist-server",
+    "build:static": "bun run build:ssr && bun run prerender",
     "generate:llms": "bun ../scripts/generate-llms-docs.ts",
+    "prerender": "bun scripts/prerender.ts",
     "preview": "vite preview",
-    "serve": "vite preview --port 5174"
+    "serve": "vite preview --port 5174",
+    "test:unit": "bun test tests/unit"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

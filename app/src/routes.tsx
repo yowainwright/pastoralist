@@ -1,12 +1,8 @@
-import { lazy, Suspense } from "react";
-import { createRootRoute, createRoute, Outlet } from "@tanstack/react-router";
+import { createRootRoute, createRoute, createRouter, Outlet } from "@tanstack/react-router";
+import { DocsLayout } from "./layouts/DocsLayout";
 import { HomeLayout } from "./layouts/RootLayout";
+import { DocsPage } from "./pages/DocsPage";
 import { HomePage } from "./pages/HomePage";
-
-const DocsLayout = lazy(() =>
-  import("./layouts/DocsLayout").then((m) => ({ default: m.DocsLayout })),
-);
-const DocsPage = lazy(() => import("./pages/DocsPage").then((m) => ({ default: m.DocsPage })));
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
@@ -26,18 +22,24 @@ const docsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/docs/$slug",
   component: () => (
-    <Suspense
-      fallback={
-        <section className="min-h-screen flex items-center justify-center">
-          <span className="loading loading-spinner loading-lg" />
-        </section>
-      }
-    >
-      <DocsLayout>
-        <DocsPage />
-      </DocsLayout>
-    </Suspense>
+    <DocsLayout>
+      <DocsPage />
+    </DocsLayout>
   ),
 });
 
 export const routeTree = rootRoute.addChildren([indexRoute, docsRoute]);
+
+export const createAppRouter = () =>
+  createRouter({
+    routeTree,
+    basepath: "/pastoralist",
+  });
+
+export type AppRouter = ReturnType<typeof createAppRouter>;
+
+declare module "@tanstack/react-router" {
+  interface Register {
+    router: AppRouter;
+  }
+}

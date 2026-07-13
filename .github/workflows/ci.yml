@@ -63,6 +63,8 @@ jobs:
         run: bun run check:test-manifests
       - run: rm -rf dist .turbo
       - run: bun run build
+      - name: Test docs build functions
+        run: bun run --cwd app test:unit
       - run: cd app && bun run build
         env:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}

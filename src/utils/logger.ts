@@ -21,6 +21,7 @@ const INDENT = "   ";
 export const logger = ({ file, isLogging = false }: LoggerOptions): Logger => ({
   debug: createDebugMethod("debug", isLogging, file),
   error: createDebugMethod("error", isLogging, file),
+  fail: (msg: string) => console.error(msg),
   warn: createWarnMethod(file),
   print: (msg: string) => console.log(msg),
   line: (msg: string) => console.log("\n" + msg),

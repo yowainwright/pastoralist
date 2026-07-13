@@ -1,5 +1,6 @@
 export interface ParsedArgs {
   command?: string;
+  commandArgs: string[];
   options: Record<string, unknown>;
 }
 
@@ -8,6 +9,7 @@ export interface OptionDefinition {
   hasValue: boolean;
   isArray?: boolean;
   defaultValue?: unknown;
+  emptyValue?: unknown;
 }
 
 export interface ParsedFlag {
@@ -23,6 +25,7 @@ export interface CollectedValue {
 export interface ParserState {
   options: Record<string, unknown>;
   command?: string;
+  commandArgs: string[];
 }
 
 export interface ProcessedArgument extends ParserState {

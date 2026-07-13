@@ -2,11 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import mermaid from "mermaid";
 import type { MermaidProps } from "./types";
 
-mermaid.initialize({
-  startOnLoad: false,
-  theme: "neutral",
-  securityLevel: "loose",
-});
+const isBrowser = typeof document !== "undefined";
+if (isBrowser) {
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: "neutral",
+    securityLevel: "loose",
+  });
+}
 
 export function Mermaid({ chart }: MermaidProps) {
   const ref = useRef<HTMLDivElement>(null);

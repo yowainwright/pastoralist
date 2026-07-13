@@ -1,64 +1,21 @@
 import { useParams, Link, Navigate } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
 import { getDocBySlug, getDocComponent, getDocContent, type DocComponent } from "@/content";
 import { extractHeadings } from "@/lib/mdx/extractHeadings";
 import { TocWithScrollspy } from "@/components/docs/TocWithScrollspy";
 import { mdxComponents } from "@/components/docs/MDXComponents";
 import { Pagination, getPagination } from "@/components/docs/Pagination";
-import type { Heading } from "@/lib/mdx/types";
 
 export function DocsPage() {
   const { slug } = useParams({ from: "/docs/$slug" });
   const doc = getDocBySlug(slug);
 
-  const [Content, setContent] = useState<DocComponent | null>(null);
-  const [headings, setHeadings] = useState<Heading[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadMDXContent() {
-      if (!doc) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const [content, MDXContent] = await Promise.all([
-          getDocContent(slug),
-          getDocComponent(slug),
-        ]);
-        if (cancelled) return;
-        const isMissingDocContent = !content || !MDXContent;
-        if (isMissingDocContent) {
-          setLoading(false);
-          return;
-        }
-        const headingsArray = extractHeadings(content);
-
-        if (cancelled) return;
-
-        setHeadings(headingsArray);
-        setContent(() => MDXContent);
-        setLoading(false);
-      } catch (error) {
-        console.error("Failed to load doc:", error);
-        setLoading(false);
-      }
-    }
-
-    setLoading(true);
-    loadMDXContent();
-    return () => {
-      cancelled = true;
-    };
-  }, [slug, doc]);
-
   if (!doc) {
     return <Navigate to="/docs/$slug" params={{ slug: "introduction" }} />;
   }
 
+  const Content = getDocComponent(slug);
+  const content = getDocContent(slug);
+  const headings = content ? extractHeadings(content) : [];
   const { prevItem, nextItem } = getPagination(slug);
 
   return (
@@ -72,7 +29,7 @@ export function DocsPage() {
             <p>{doc.description}</p>
           </header>
 
-          <MDXContent loading={loading} Content={Content} />
+          <MDXContent Content={Content} />
         </section>
 
         <Pagination prevItem={prevItem} nextItem={nextItem} />
@@ -100,15 +57,7 @@ function Breadcrumbs({ title }: { title: string }) {
   );
 }
 
-function MDXContent({ loading, Content }: { loading: boolean; Content: DocComponent | null }) {
-  if (loading) {
-    return (
-      <section className="flex items-center justify-center py-12">
-        <span className="loading loading-spinner loading-lg" />
-      </section>
-    );
-  }
-
+function MDXContent({ Content }: { Content: DocComponent | undefined }) {
   if (!Content) return null;
   return <Content components={mdxComponents as unknown as Record<string, React.ComponentType>} />;
 }

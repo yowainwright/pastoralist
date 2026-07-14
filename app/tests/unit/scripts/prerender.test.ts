@@ -31,6 +31,12 @@ describe("buildStaticRoutes", () => {
     const routes = buildStaticRoutes(docs);
 
     expect(routes).toHaveLength(2);
+    expect(routes[0].requiredContent).toEqual([
+      'id="hero"',
+      'id="features"',
+      'id="demo"',
+      'id="get-started"',
+    ]);
     expect(routes[1]).toEqual({
       pathname: "/pastoralist/docs/setup",
       outputPath: "docs/setup/index.html",
@@ -98,5 +104,20 @@ describe("validateStaticDocument", () => {
 
     expect(error).toBeInstanceOf(InvalidStaticDocument);
     expect(error.reason).toContain("rendered heading");
+  });
+
+  test("rejects an incomplete static homepage", async () => {
+    const homeRoute = buildStaticRoutes([])[0];
+    const rendered = {
+      appHtml: '<main><h1>Pastoralist</h1><section id="hero"></section></main>',
+      routerHtml: "<script>window.$_TSR={}</script>",
+    };
+    const html = createStaticDocument(template, homeRoute, rendered);
+    const error = await Effect.runPromise(
+      validateStaticDocument(homeRoute, html).pipe(Effect.flip),
+    );
+
+    expect(error).toBeInstanceOf(InvalidStaticDocument);
+    expect(error.reason).toContain('id="features"');
   });
 });

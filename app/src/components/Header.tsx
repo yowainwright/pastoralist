@@ -1,11 +1,9 @@
-import { lazy, Suspense } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { Sun, Moon, Search as SearchIcon, Menu } from "lucide-react";
+import { Sun, Moon, Menu } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { getAllDocs } from "@/content";
 import { GithubIcon } from "@/components/icons/GithubIcon";
-
-const Search = lazy(() => import("@/components/docs/Search"));
+import Search from "@/components/docs/Search";
 
 const navigation = [{ title: "Docs", href: "/docs/introduction", preload: "intent" }];
 
@@ -59,15 +57,7 @@ export function Header() {
               {item.title}
             </Link>
           ))}
-          <Suspense
-            fallback={
-              <button className="btn btn-sm btn-ghost btn-square">
-                <SearchIcon className="h-4 w-4" />
-              </button>
-            }
-          >
-            <Search searchData={searchData} iconOnly />
-          </Suspense>
+          <Search searchData={searchData} iconOnly />
           <a
             className="btn btn-sm btn-ghost btn-square"
             href="https://github.com/yowainwright/pastoralist"

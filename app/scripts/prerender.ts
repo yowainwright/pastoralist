@@ -13,6 +13,8 @@ export interface StaticRoute {
   readonly outputPath: string;
   readonly title: string;
   readonly description: string;
+  readonly requiredContent?: readonly string[];
+  readonly forbiddenContent?: readonly string[];
 }
 
 export interface RenderedRoute {
@@ -54,6 +56,8 @@ const HOME_ROUTE: StaticRoute = {
   outputPath: "index.html",
   title: "Pastoralist - Dependency Management Tool",
   description: "Manage package.json overrides, resolutions, and patches with Pastoralist",
+  requiredContent: ['id="hero"', 'id="features"', 'id="demo"', 'id="get-started"'],
+  forbiddenContent: ['<template id="B:', "min-h-[32rem]", "min-h-[40rem]", "min-h-[24rem]"],
 };
 
 const makeDocRoute = (doc: DocMeta): StaticRoute => ({
@@ -97,6 +101,12 @@ export const createStaticDocument = (
 const invalidDocument = (route: StaticRoute, reason: string) =>
   Effect.fail(new InvalidStaticDocument({ routeFile: route.outputPath, reason }));
 
+const findMissingContent = (route: StaticRoute, html: string): string | undefined =>
+  route.requiredContent?.find((content) => !html.includes(content));
+
+const findForbiddenContent = (route: StaticRoute, html: string): string | undefined =>
+  route.forbiddenContent?.find((content) => html.includes(content));
+
 export const validateStaticDocument = Effect.fn("staticSite.validate")(function* (
   route: StaticRoute,
   html: string,
@@ -114,6 +124,13 @@ export const validateStaticDocument = Effect.fn("staticSite.validate")(function*
     return yield* invalidDocument(route, "contains a client-render fallback");
   }
   if (!html.includes("<h1")) return yield* invalidDocument(route, "missing rendered heading");
+  const missingContent = findMissingContent(route, html);
+  if (missingContent)
+    return yield* invalidDocument(route, `missing required content: ${missingContent}`);
+  const forbiddenContent = findForbiddenContent(route, html);
+  if (forbiddenContent) {
+    return yield* invalidDocument(route, `contains deferred content: ${forbiddenContent}`);
+  }
 });
 
 const operationError =

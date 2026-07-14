@@ -1,16 +1,16 @@
-import { lazy, Suspense, useState } from "react";
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { TerminalLoader } from "@/components/TerminalWindow";
 import { CheckList } from "@/components/CheckList";
+import { CodeBlockToggle } from "@/components/home/CodeBlockToggle";
 import { useFadeInUp } from "@/hooks/useFadeInUp";
-
-const CodeBlockToggle = lazy(() =>
-  import("@/components/home/CodeBlockToggle").then((m) => ({
-    default: m.CodeBlockToggle,
-  })),
-);
+import { isStaticRender } from "@/lib/utils";
 
 const SEEN_KEY = "pastoralist-codeblock-animation-seen";
+
+const hasSeenCodeBlock = (): boolean => {
+  if (isStaticRender()) return true;
+  return sessionStorage.getItem(SEEN_KEY) === "true";
+};
 
 const styles = {
   section: "py-16 lg:py-24 bg-base-200/50 border-y border-base-content/10",
@@ -35,11 +35,13 @@ const CONTENT = {
 } as const;
 
 export function CodeBlockSection() {
-  const [hasSeenAnimation, setHasSeenAnimation] = useState(
-    () => typeof window !== "undefined" && sessionStorage.getItem(SEEN_KEY) === "true",
-  );
+  const [hasSeenAnimation, setHasSeenAnimation] = useState(hasSeenCodeBlock);
   const { ref, isVisible } = useFadeInUp();
   const active = hasSeenAnimation || isVisible;
+  const handleComplete = () => {
+    setHasSeenAnimation(true);
+    sessionStorage.setItem(SEEN_KEY, "true");
+  };
 
   return (
     <section id="features" className={styles.section}>
@@ -69,15 +71,10 @@ export function CodeBlockSection() {
         </header>
 
         <aside className={styles.aside}>
-          <Suspense fallback={<TerminalLoader />}>
-            <CodeBlockToggle
-              shouldAnimate={!hasSeenAnimation && isVisible}
-              onComplete={() => {
-                setHasSeenAnimation(true);
-                sessionStorage.setItem(SEEN_KEY, "true");
-              }}
-            />
-          </Suspense>
+          <CodeBlockToggle
+            shouldAnimate={!hasSeenAnimation && isVisible}
+            onComplete={handleComplete}
+          />
         </aside>
       </article>
     </section>

@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
@@ -20,19 +20,20 @@ const hadSeen = (): boolean => {
   return sessionStorage.getItem(HERO_SEEN_KEY) === "true";
 };
 
-const heroMachine = createMachine({
-  id: "hero",
-  initial: hadSeen() ? "done" : "terminalVisible",
-  states: {
-    idle: { after: { 500: "logoVisible" } },
-    logoVisible: { after: { 700: "textVisible" } },
-    textVisible: { after: { 400: "terminalVisible" } },
-    terminalVisible: { on: { TERMINAL_DONE: "terminalComplete" } },
-    terminalComplete: { after: { 1200: "rainbow" } },
-    rainbow: { after: { 600: "done" } },
-    done: {},
-  },
-});
+const createHeroMachine = (wasAlreadySeen: boolean) =>
+  createMachine({
+    id: "hero",
+    initial: wasAlreadySeen ? "done" : "terminalVisible",
+    states: {
+      idle: { after: { 500: "logoVisible" } },
+      logoVisible: { after: { 700: "textVisible" } },
+      textVisible: { after: { 400: "terminalVisible" } },
+      terminalVisible: { on: { TERMINAL_DONE: "terminalComplete" } },
+      terminalComplete: { after: { 1200: "rainbow" } },
+      rainbow: { after: { 600: "done" } },
+      done: {},
+    },
+  });
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -82,11 +83,12 @@ function atLeast(snapshot: { matches: (s: string) => boolean }, state: HeroState
 }
 
 export function HeroSection() {
+  const [wasAlreadySeen] = useState(hadSeen);
+  const heroMachine = useMemo(() => createHeroMachine(wasAlreadySeen), [wasAlreadySeen]);
   const [snapshot, send] = useMachine(heroMachine);
   const automaticallyRef = useRef<HTMLSpanElement>(null);
   const BASE_URL = import.meta.env.BASE_URL || "/pastoralist";
   const base = BASE_URL.endsWith("/") ? BASE_URL : BASE_URL + "/";
-  const wasAlreadySeen = hadSeen();
 
   const logoVisible = atLeast(snapshot, "logoVisible");
   const textVisible = atLeast(snapshot, "textVisible");
@@ -97,7 +99,7 @@ export function HeroSection() {
 
   useEffect(() => {
     const confettiTarget = automaticallyRef.current;
-    const shouldSkipConfetti = !showRainbow || !confettiTarget;
+    const shouldSkipConfetti = wasAlreadySeen || !showRainbow || !confettiTarget;
     if (shouldSkipConfetti) return;
     const rect = confettiTarget.getBoundingClientRect();
     const x = (rect.left + rect.width / 2) / window.innerWidth;
@@ -112,7 +114,7 @@ export function HeroSection() {
         });
       })
       .catch((err) => console.error("Failed to load confetti:", err));
-  }, [showRainbow]);
+  }, [showRainbow, wasAlreadySeen]);
 
   const handleTerminalComplete = () => {
     send({ type: "TERMINAL_DONE" });

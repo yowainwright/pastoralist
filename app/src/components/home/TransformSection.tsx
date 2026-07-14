@@ -1,20 +1,22 @@
-import { lazy, Suspense, useState } from "react";
-import { TerminalLoader } from "@/components/TerminalWindow";
+import { useState } from "react";
+import { TransformDemo } from "@/components/home/TransformDemo";
+import { TransformDemoStatic } from "@/components/home/TransformDemo/static";
 import { useFadeInUp } from "@/hooks/useFadeInUp";
-
-const TransformDemo = lazy(() =>
-  import("@/components/home/TransformDemo").then((m) => ({
-    default: m.TransformDemo,
-  })),
-);
-
-const TransformDemoStatic = lazy(() =>
-  import("@/components/home/TransformDemo/static").then((m) => ({
-    default: m.TransformDemoStatic,
-  })),
-);
+import { isStaticRender } from "@/lib/utils";
 
 const SEEN_KEY = "pastoralist-transform-animation-seen";
+
+const hasSeenTransform = (): boolean => {
+  if (isStaticRender()) return true;
+  return sessionStorage.getItem(SEEN_KEY) === "true";
+};
+
+const markTransformSeen = () => sessionStorage.setItem(SEEN_KEY, "true");
+
+function TransformContent({ isStatic }: { isStatic: boolean }) {
+  if (isStatic) return <TransformDemoStatic />;
+  return <TransformDemo shouldAnimate onComplete={markTransformSeen} />;
+}
 
 const BLOB_CLIP =
   "polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 150%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)";
@@ -37,9 +39,7 @@ const CONTENT = {
 } as const;
 
 export function TransformSection() {
-  const [hasSeenAnimation] = useState(
-    () => typeof window !== "undefined" && sessionStorage.getItem(SEEN_KEY) === "true",
-  );
+  const [hasSeenAnimation] = useState(hasSeenTransform);
   const { ref: headerRef, isVisible: headerVisible } = useFadeInUp();
 
   return (
@@ -56,16 +56,7 @@ export function TransformSection() {
           <p className={styles.description}>{CONTENT.description}</p>
         </header>
 
-        <Suspense fallback={<TerminalLoader />}>
-          {hasSeenAnimation ? (
-            <TransformDemoStatic />
-          ) : (
-            <TransformDemo
-              shouldAnimate
-              onComplete={() => sessionStorage.setItem(SEEN_KEY, "true")}
-            />
-          )}
-        </Suspense>
+        <TransformContent isStatic={hasSeenAnimation} />
       </article>
     </section>
   );

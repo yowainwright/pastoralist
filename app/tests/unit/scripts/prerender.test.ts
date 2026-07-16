@@ -19,7 +19,7 @@ const template = `<!doctype html>
 </html>`;
 
 const route = {
-  pathname: "/pastoralist/docs/setup",
+  pathname: "/pastoralist/docs/setup/",
   outputPath: "docs/setup/index.html",
   title: "Setup",
   description: 'Install "Pastoralist" safely',
@@ -38,7 +38,7 @@ describe("buildStaticRoutes", () => {
       'id="get-started"',
     ]);
     expect(routes[1]).toEqual({
-      pathname: "/pastoralist/docs/setup",
+      pathname: "/pastoralist/docs/setup/",
       outputPath: "docs/setup/index.html",
       title: "Setup",
       description: "Install Pastoralist",

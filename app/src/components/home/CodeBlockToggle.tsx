@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { AnimatedTerminal, TreeConnectors } from "@/components/home/AnimatedTerminal";
 import { TerminalWindow } from "@/components/TerminalWindow";
 import { STYLES } from "@/components/TerminalWindow/constants";
-import type { TerminalTab } from "@/components/TerminalWindow/types";
 import { CLI_DEMO } from "@/components/home/AnimatedTerminal/constants";
+import type { TerminalLine } from "@/components/home/AnimatedTerminal/types";
+import type { TerminalTab } from "@/components/TerminalWindow/types";
 
 interface CodeBlockToggleProps {
   shouldAnimate?: boolean;
@@ -15,90 +16,77 @@ const TABS: TerminalTab[] = [
   { id: "json", label: "package.json" },
 ];
 
-export const CodeBlockToggle: React.FC<CodeBlockToggleProps> = ({
-  shouldAnimate = false,
-  onComplete,
-}) => {
-  const [activeTab, setActiveTab] = useState("cli");
+const PACKAGE_JSON = `{
+  "name": "my-app",
+  "scripts": {
+    "postinstall": "pastoralist"
+  },
+  "overrides": {
+    "lodash": "4.17.21"
+  },
+  "pastoralist": {
+    "appendix": {
+      "lodash@4.17.21": {
+        "dependents": { "express": "^4.18.0" }
+      }
+    }
+  }
+}`;
 
-  const cliContent = shouldAnimate ? (
+function StaticLine({ line }: { line: TerminalLine }) {
+  const lineClassName = `${STYLES.line} ${line.className ?? ""}`;
+  const prefix = line.prefix ? <span className={STYLES.prefix}>{line.prefix}</span> : null;
+  const lineMarkup = { __html: line.text };
+
+  return (
+    <div className={lineClassName}>
+      {prefix}
+      <TreeConnectors line={line} />
+      <span dangerouslySetInnerHTML={lineMarkup} />
+    </div>
+  );
+}
+
+function StaticTerminal() {
+  const lines = CLI_DEMO[0].lines.map((line, index) => <StaticLine key={index} line={line} />);
+  return (
+    <div className={STYLES.content}>
+      <div className="space-y-1">{lines}</div>
+    </div>
+  );
+}
+
+function CliContent({ shouldAnimate, onComplete }: Required<CodeBlockToggleProps>) {
+  if (!shouldAnimate) return <StaticTerminal />;
+  return (
     <AnimatedTerminal
       demos={CLI_DEMO}
       loop={false}
       typingSpeed={20}
-      shouldAnimate={true}
+      shouldAnimate
       onComplete={onComplete}
-      hideHeader={true}
+      hideHeader
     />
-  ) : (
-    <div className={STYLES.content}>
-      <div className="space-y-1">
-        {CLI_DEMO[0].lines.map((line, index) => (
-          <div key={index} className={`${STYLES.line} ${line.className ?? ""}`}>
-            {line.prefix && <span className={STYLES.prefix}>{line.prefix}</span>}
-            <TreeConnectors line={line} />
-            <span dangerouslySetInnerHTML={{ __html: line.text }} />
-          </div>
-        ))}
-      </div>
-    </div>
   );
+}
 
-  const jsonContent = (
+function JsonContent() {
+  return (
     <div className={STYLES.content}>
-      <div className="space-y-0">
-        <div className={`${STYLES.line} text-base-content/50`}>{"{"}</div>
-        <div className={STYLES.line}>
-          {"  "}
-          <span className="text-primary">"name"</span>:{" "}
-          <span className="text-success">"my-app"</span>,
-        </div>
-        <div className={STYLES.line}>
-          {"  "}
-          <span className="text-primary">"scripts"</span>: {"{"}
-        </div>
-        <div className={STYLES.line}>
-          {"    "}
-          <span className="text-primary">"postinstall"</span>:{" "}
-          <span className="text-success">"pastoralist"</span>
-        </div>
-        <div className={STYLES.line}>{"  }"},"</div>
-        <div className={STYLES.line}>
-          {"  "}
-          <span className="text-primary">"overrides"</span>: {"{"}
-        </div>
-        <div className={STYLES.line}>
-          {"    "}
-          <span className="text-primary">"lodash"</span>:{" "}
-          <span className="text-success">"4.17.21"</span>
-        </div>
-        <div className={STYLES.line}>{"  }"},"</div>
-        <div className={`${STYLES.line} json-added`}>
-          {"  "}
-          <span className="text-primary">"pastoralist"</span>: {"{"}
-        </div>
-        <div className={`${STYLES.line} json-added`}>
-          {"    "}
-          <span className="text-primary">"appendix"</span>: {"{"}
-        </div>
-        <div className={`${STYLES.line} json-added`}>
-          {"      "}
-          <span className="text-primary">"lodash@4.17.21"</span>: {"{"}
-        </div>
-        <div className={`${STYLES.line} json-added`}>
-          {"        "}
-          <span className="text-primary">"dependents"</span>: {"{"}{" "}
-          <span className="text-primary">"express"</span>:{" "}
-          <span className="text-success">"^4.18.0"</span> {"}"}
-        </div>
-        <div className={`${STYLES.line} json-added`}>{"      }"}</div>
-        <div className={`${STYLES.line} json-added`}>{"    }"}</div>
-        <div className={`${STYLES.line} json-added`}>{"  }"}</div>
-        <div className={`${STYLES.line} text-base-content/50`}>{"}"}</div>
-      </div>
+      <pre className="text-sm leading-relaxed text-base-content">
+        <code>{PACKAGE_JSON}</code>
+      </pre>
     </div>
   );
-  const content = activeTab === "cli" ? cliContent : jsonContent;
+}
+
+export function CodeBlockToggle({
+  shouldAnimate = false,
+  onComplete = () => undefined,
+}: CodeBlockToggleProps) {
+  const [activeTab, setActiveTab] = useState("cli");
+  const cliContent = <CliContent shouldAnimate={shouldAnimate} onComplete={onComplete} />;
+  const content = activeTab === "cli" ? cliContent : <JsonContent />;
 
   return (
     <TerminalWindow
@@ -111,4 +99,4 @@ export const CodeBlockToggle: React.FC<CodeBlockToggleProps> = ({
       {content}
     </TerminalWindow>
   );
-};
+}

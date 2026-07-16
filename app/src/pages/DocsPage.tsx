@@ -10,7 +10,7 @@ export function DocsPage() {
   const doc = getDocBySlug(slug);
 
   if (!doc) {
-    return <Navigate to="/docs/$slug" params={{ slug: "introduction" }} />;
+    return <Navigate to="/docs/$slug/" params={{ slug: "introduction" }} />;
   }
 
   const Content = getDocComponent(slug);

@@ -23,7 +23,7 @@ export function GetStartedSection({ id = SECTION_ID }: GetStartedSectionProps) {
             <code className={STYLES.code}>{CONTENT.command}</code>
             <CopyButton />
           </figure>
-          <Link to="/docs/$slug" params={{ slug: CONTENT.docsSlug }} preload="intent">
+          <Link to="/docs/$slug/" params={{ slug: CONTENT.docsSlug }} preload="intent">
             <button className={STYLES.button}>
               {CONTENT.buttonText}
               <ArrowRight className="size-4" />

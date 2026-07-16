@@ -23,27 +23,26 @@ export function Mermaid({ chart }: MermaidProps) {
     const id = `mermaid-${Math.random().toString(36).slice(2, 9)}`;
     setSvg("");
 
-    mermaid
-      .render(id, chart)
-      .then(({ svg }) => {
+    const render = mermaid.render(id, chart);
+    void render
+      .then(({ svg: renderedSvg }) => {
         if (cancelled) return;
-        setSvg(svg);
+        setSvg(renderedSvg);
       })
-      .catch((error) => {
-        if (cancelled) return;
-        console.error("Mermaid: render error", error);
-      });
+      .catch(() => undefined);
 
     return () => {
       cancelled = true;
     };
   }, [chart]);
 
+  const renderedMarkup = { __html: svg };
+
   return (
     <figure
       ref={ref}
       className="mermaid my-6 flex justify-center"
-      dangerouslySetInnerHTML={{ __html: svg }}
+      dangerouslySetInnerHTML={renderedMarkup}
     />
   );
 }

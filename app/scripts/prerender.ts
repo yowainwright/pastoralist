@@ -61,7 +61,7 @@ const HOME_ROUTE: StaticRoute = {
 };
 
 const makeDocRoute = (doc: DocMeta): StaticRoute => ({
-  pathname: `/pastoralist/docs/${doc.slug}`,
+  pathname: `/pastoralist/docs/${doc.slug}/`,
   outputPath: path.join("docs", doc.slug, "index.html"),
   title: doc.title,
   description: doc.description,

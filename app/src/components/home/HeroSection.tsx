@@ -15,6 +15,7 @@ import {
 } from "@/components/home/AnimatedTerminal/constants";
 
 const HERO_SEEN_KEY = "pastoralist-hero-animation-seen";
+const CONFETTI_COLORS = ["#ff0000", "#ff8000", "#ffff00", "#00ff00", "#0080ff", "#8000ff"];
 const hadSeen = (): boolean => {
   if (isStaticRender()) return true;
   return sessionStorage.getItem(HERO_SEEN_KEY) === "true";
@@ -101,19 +102,14 @@ export function HeroSection() {
     const confettiTarget = automaticallyRef.current;
     const shouldSkipConfetti = wasAlreadySeen || !showRainbow || !confettiTarget;
     if (shouldSkipConfetti) return;
+
     const rect = confettiTarget.getBoundingClientRect();
     const x = (rect.left + rect.width / 2) / window.innerWidth;
     const y = (rect.top + rect.height / 2) / window.innerHeight;
-    import("canvas-confetti")
-      .then(({ default: confetti }) => {
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { x, y },
-          colors: ["#ff0000", "#ff8000", "#ffff00", "#00ff00", "#0080ff", "#8000ff"],
-        });
-      })
-      .catch((err) => console.error("Failed to load confetti:", err));
+    const origin = { x, y };
+    const options = { particleCount: 100, spread: 70, origin, colors: CONFETTI_COLORS };
+    const loadConfetti = import("canvas-confetti");
+    void loadConfetti.then(({ default: confetti }) => confetti(options)).catch(() => undefined);
   }, [showRainbow, wasAlreadySeen]);
 
   const handleTerminalComplete = () => {
@@ -191,7 +187,7 @@ export function HeroSection() {
             </h1>
 
             <nav className={styles.nav}>
-              <Link to="/docs/$slug" params={{ slug: CONTENT.docsSlug }} preload="intent">
+              <Link to="/docs/$slug/" params={{ slug: CONTENT.docsSlug }} preload="intent">
                 <button className="btn btn-lg btn-primary rounded-2xl">
                   {CONTENT.buttonText}
                   <ArrowRight className="size-4" />

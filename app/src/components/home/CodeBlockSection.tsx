@@ -57,7 +57,7 @@ export function CodeBlockSection() {
           <CheckList isVisible={active} />
           <nav className={styles.nav}>
             <Link
-              to="/docs/$slug"
+              to="/docs/$slug/"
               params={{ slug: CONTENT.learnMoreSlug }}
               preload="intent"
               className="btn btn-lg btn-primary rounded-2xl"

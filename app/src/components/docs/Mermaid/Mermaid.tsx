@@ -29,7 +29,10 @@ export function Mermaid({ chart }: MermaidProps) {
         if (cancelled) return;
         setSvg(renderedSvg);
       })
-      .catch(() => undefined);
+      .catch((error) => {
+        if (cancelled) return;
+        console.error("Mermaid: render error", error);
+      });
 
     return () => {
       cancelled = true;

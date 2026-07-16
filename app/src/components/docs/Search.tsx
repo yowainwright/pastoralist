@@ -186,7 +186,9 @@ export default function Search({ searchData, iconOnly = false }: SearchProps) {
   }, []);
 
   useSearchShortcut(open, close);
-  useEffect(() => inputRef.current?.focus(), [isOpen]);
+  useEffect(() => {
+    if (isOpen) inputRef.current?.focus();
+  }, [isOpen]);
   const dialog = isOpen ? (
     <SearchDialog
       query={query}

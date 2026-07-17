@@ -17,6 +17,9 @@ export function Header() {
     content: "",
     slug: doc.slug,
   }));
+  const themeButtonClassName = `btn btn-sm btn-ghost swap swap-rotate btn-square ${
+    theme === "night" ? "swap-active" : ""
+  }`;
 
   const isNavItemActive = (href: string): boolean => {
     if (href.includes("/docs")) return pathname.includes("/docs");
@@ -65,11 +68,7 @@ export function Header() {
           >
             <GithubIcon className="h-4 w-4" />
           </a>
-          <button
-            aria-label="theme-toggle"
-            onClick={toggle}
-            className={`btn btn-sm btn-ghost swap swap-rotate btn-square ${theme === "night" ? "swap-active" : ""}`}
-          >
+          <button aria-label="theme-toggle" onClick={toggle} className={themeButtonClassName}>
             <Sun className="w-4 h-4 swap-off" />
             <Moon className="w-4 h-4 swap-on" />
           </button>

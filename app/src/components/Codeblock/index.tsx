@@ -87,7 +87,8 @@ export function Codeblock({
   showCopy = true,
   className,
 }: CodeblockProps) {
-  const hasHeader = title || showLanguage || showCopy;
+  const hasHeader = Boolean(title || showLanguage || showCopy);
+  const copyButton = showCopy ? <CopyButton code={code} /> : null;
 
   return (
     <div
@@ -113,7 +114,7 @@ export function Codeblock({
               )}
             </div>
           </div>
-          {showCopy && <CopyButton code={code} />}
+          {copyButton}
         </div>
       )}
       <div className={CODEBLOCK_CLASSES.pre}>
@@ -131,7 +132,7 @@ export function Codeblock({
   );
 }
 
-export { CopyButton } from "./CopyButton";
 export { CodeCard } from "./CodeCard";
+export { CopyButton } from "./CopyButton";
 export type { CodeblockProps, CodeCardProps, Language } from "./types";
 export { SHIKI_LANGS, CODEBLOCK_CLASSES } from "./constants";

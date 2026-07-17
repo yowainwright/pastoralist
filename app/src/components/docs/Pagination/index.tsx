@@ -11,7 +11,7 @@ export function Pagination({ prevItem, nextItem }: PaginationProps) {
     <nav className="flex gap-7">
       {prevItem?.href && (
         <Link
-          to="/docs/$slug"
+          to="/docs/$slug/"
           params={{ slug: extractSlug(prevItem.href) }}
           preload="intent"
           className="mr-auto flex"
@@ -25,7 +25,7 @@ export function Pagination({ prevItem, nextItem }: PaginationProps) {
 
       {nextItem?.href && (
         <Link
-          to="/docs/$slug"
+          to="/docs/$slug/"
           params={{ slug: extractSlug(nextItem.href) }}
           preload="intent"
           className="ml-auto flex"

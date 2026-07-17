@@ -19,7 +19,7 @@ export function Anchor({ href, children, className }: AnchorProps) {
   if (isDocsLink) {
     const slug = href.replace("/docs/", "");
     return (
-      <Link to="/docs/$slug" params={{ slug }} className={className}>
+      <Link to="/docs/$slug/" params={{ slug }} className={className}>
         {children}
       </Link>
     );

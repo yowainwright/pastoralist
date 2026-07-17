@@ -1,82 +1,46 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
 import SIDEBAR from "./constants";
 
-export function Sidebar() {
-  const location = useLocation();
-  const pathname = location.pathname;
-  const navRef = useRef<HTMLElement>(null);
-  const [isOpen, setIsOpen] = useState(false);
+interface SidebarProps {
+  onClose?: () => void;
+}
 
+const toggleSectionAt = (sections: boolean[], index: number): boolean[] =>
+  sections.map((isOpen, sectionIndex) => {
+    if (sectionIndex === index) return !isOpen;
+    return isOpen;
+  });
+
+export function Sidebar({ onClose = () => undefined }: SidebarProps) {
+  const pathname = useLocation().pathname;
   const [sections, setSections] = useState(() => SIDEBAR.map(() => true));
-
   const toggleSection = (index: number) => {
-    setSections((prev) =>
-      prev.map((open, i) => {
-        if (i === index) return !open;
-        return open;
-      }),
-    );
+    setSections((current) => toggleSectionAt(current, index));
   };
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (window.innerWidth >= 1024) return;
-      if (!isOpen) return;
-
-      const menuButton = document.querySelector('label[for="my-drawer-2"]');
-      if (menuButton?.contains(event.target as Node)) return;
-
-      const clickedOutsideNav = navRef.current && !navRef.current.contains(event.target as Node);
-      if (clickedOutsideNav) {
-        const drawer = document.getElementById("my-drawer-2") as HTMLInputElement;
-        if (drawer) {
-          drawer.checked = false;
-          setIsOpen(false);
-        }
-      }
-    };
-
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, [isOpen]);
-
-  useEffect(() => {
-    const handleDrawerChange = () => {
-      const drawer = document.getElementById("my-drawer-2") as HTMLInputElement;
-      setIsOpen(drawer?.checked || false);
-    };
-
-    const drawer = document.getElementById("my-drawer-2");
-    if (drawer) {
-      drawer.addEventListener("change", handleDrawerChange);
-      return () => drawer.removeEventListener("change", handleDrawerChange);
-    }
-  }, []);
+  const sectionEntries = SIDEBAR.map((section, index) => {
+    const onToggle = () => toggleSection(index);
+    return (
+      <SidebarSection
+        key={section.title}
+        section={section}
+        isOpen={sections[index]}
+        onToggle={onToggle}
+        pathname={pathname}
+      />
+    );
+  });
 
   return (
     <aside className="drawer-side">
       <label
         htmlFor="my-drawer-2"
         className="drawer-overlay lg:hidden bg-transparent"
-        onClick={() => setIsOpen(false)}
+        onClick={onClose}
       />
-      <nav
-        ref={navRef}
-        className="w-64 bg-base-100 z-20 sticky top-[68px] h-[calc(100vh-68px)] overflow-y-auto border-r border-base-content/10"
-      >
-        <section className="px-3 pt-2 space-y-3">
-          {SIDEBAR.map((navItem, index) => (
-            <SidebarSection
-              key={navItem.title}
-              section={navItem}
-              isOpen={sections[index]}
-              onToggle={() => toggleSection(index)}
-              pathname={pathname}
-            />
-          ))}
-        </section>
+      <nav className="w-64 bg-base-100 z-20 sticky top-[68px] h-[calc(100vh-68px)] overflow-y-auto border-r border-base-content/10">
+        <section className="px-3 pt-2 space-y-3">{sectionEntries}</section>
       </nav>
     </aside>
   );
@@ -93,6 +57,9 @@ function SidebarSection({
   onToggle: () => void;
   pathname: string;
 }) {
+  const contentClassName = `sidebar-content ${isOpen ? "" : "hidden"}`;
+  const chevronClassName = `w-4 h-4 transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`;
+
   return (
     <article className="sidebar-section">
       <button
@@ -101,11 +68,9 @@ function SidebarSection({
         onClick={onToggle}
       >
         <span>{section.title}</span>
-        <ChevronRight
-          className={`w-4 h-4 transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}
-        />
+        <ChevronRight className={chevronClassName} />
       </button>
-      <nav className={`sidebar-content ${isOpen ? "" : "hidden"}`}>
+      <nav className={contentClassName}>
         <ul className="ml-2 mt-1 border-l-2 border-base-content/10 space-y-0.5 py-1">
           {section.items.map((item) => (
             <SidebarLink key={item.href} item={item} pathname={pathname} />
@@ -129,7 +94,7 @@ function SidebarLink({
   return (
     <li>
       <Link
-        to="/docs/$slug"
+        to="/docs/$slug/"
         params={{ slug }}
         preload="intent"
         className={`block ml-0 pl-4 pr-3 py-2 text-sm transition-colors relative ${

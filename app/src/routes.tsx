@@ -34,6 +34,7 @@ export const createAppRouter = () =>
   createRouter({
     routeTree,
     basepath: "/pastoralist",
+    trailingSlash: "always",
   });
 
 export type AppRouter = ReturnType<typeof createAppRouter>;

@@ -9,7 +9,7 @@ on:
         type: string
     secrets:
       HOMEBREW_TAP_TOKEN:
-        required: true
+        required: false
   workflow_dispatch:
     inputs:
       version:

@@ -96,6 +96,8 @@ jobs:
           RELEASE_ARGS=()
           if [[ "$VERSION" =~ -(alpha|beta|rc) ]]; then
             RELEASE_ARGS+=(--prerelease)
+          else
+            RELEASE_ARGS+=(--draft)
           fi
 
           if gh release view "$VERSION" > /dev/null 2>&1; then

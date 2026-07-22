@@ -138,3 +138,8 @@ jobs:
           git -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "pastoralist $VERSION"
           git push --set-upstream origin "$TAP_BRANCH"
           gh pr create --base main --head "$TAP_BRANCH" --title "pastoralist $VERSION" --body "Automated formula update for pastoralist $VERSION."
+
+      - name: Publish GitHub release
+        env:
+          GITHUB_TOKEN: "${{ github.token }}"
+        run: gh release edit "v${VERSION}" --draft=false

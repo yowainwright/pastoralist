@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "child_process";
-import * as fileSystem from "fs";
-import { existsSync, readFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, join, resolve } from "path";
 import { fileURLToPath } from "url";
 import { parseArgs, showHelp } from "./parser";
@@ -43,6 +42,7 @@ const INIT_COMMAND_TYPES = ["config", "agent-skill"] as const;
 const AGENT_SKILL_DIR = ".agents/skills/pastoralist";
 const AGENT_SKILL_FILE = `${AGENT_SKILL_DIR}/SKILL.md`;
 const AGENT_SKILL_MARKER = `${AGENT_SKILL_DIR}/.pastoralist-agent-config`;
+let embeddedAgentSkill: string | undefined;
 type InitCommandType = (typeof INIT_COMMAND_TYPES)[number];
 type InitCommandInput = {
   args: string[];
@@ -198,28 +198,31 @@ const writeEmbeddedAgentSkill = (root: string | undefined, skill: string): boole
   const directory = resolveAgentSkillPath(root, AGENT_SKILL_DIR);
   const destination = resolveAgentSkillPath(root, AGENT_SKILL_FILE);
   const marker = resolveAgentSkillPath(root, AGENT_SKILL_MARKER);
-  const isUnmanaged = fileSystem.existsSync(destination) && !fileSystem.existsSync(marker);
+  const isUnmanaged = existsSync(destination) && !existsSync(marker);
   if (isUnmanaged) return false;
-  fileSystem.mkdirSync(directory, { recursive: true });
-  fileSystem.writeFileSync(destination, skill);
-  fileSystem.writeFileSync(marker, "pastoralist-agent-config\n");
+  mkdirSync(directory, { recursive: true });
+  writeFileSync(destination, skill);
+  writeFileSync(marker, "pastoralist-agent-config\n");
   return true;
 };
 
 const tryEmbeddedAgentSkillSetup = (options: Options, initArgs: readonly string[]): boolean => {
-  const skill = process.env.PASTORALIST_AGENT_SKILL;
-  if (process.env.PASTORALIST_BINARY !== "1" || !skill) return false;
+  if (!embeddedAgentSkill) return false;
   if (initArgs[0]) throw new Error(`Unexpected agent-skill argument: ${initArgs[0]}`);
   const log = createLogger({ file: "program.ts", isLogging: false });
   if (options.dryRun) {
     log.print(`Would install ${AGENT_SKILL_FILE}`);
     return true;
   }
-  const didInstall = writeEmbeddedAgentSkill(options.root, skill);
+  const didInstall = writeEmbeddedAgentSkill(options.root, embeddedAgentSkill);
   if (!didInstall) {
     log.print(`Skipping ${AGENT_SKILL_FILE}; existing file is unmanaged`);
   }
   return true;
+};
+
+export const setEmbeddedAgentSkill = (skill: string): void => {
+  embeddedAgentSkill = skill;
 };
 
 const setupAgentSkill = (options: Options, initArgs: readonly string[] = []): void => {

@@ -1,4 +1,3 @@
-import packageJson from "../../package.json" with { type: "json" };
 import { isAbsolute, resolve } from "path";
 import type { update } from "../core/update";
 import { findUnusedAppendixEntries } from "../core/appendix/utils";
@@ -23,25 +22,28 @@ const normalizeArgv = (argv: readonly string[]): string[] => {
   return Array.from(argv);
 };
 
-const isBinaryEntry = (): boolean => process.env.PASTORALIST_BINARY === "1";
-
 const getErrorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message;
   return String(error);
 };
 
-const runBinary = async (): Promise<void> => {
+const runBinary = async (
+  version: string,
+  run: (argv: string[]) => Promise<void>,
+): Promise<void> => {
   const argv = normalizeArgv(process.argv);
   const isVersion = argv.slice(2).some((arg) => arg === "-v" || arg === "--version");
-  if (isVersion) return log.print(packageJson.version);
-  const { run } = await import("./index");
+  if (isVersion) return log.print(version);
   await run(argv);
 };
 
-const runBinaryEntry = async (): Promise<void> => {
+export const runBinaryEntry = async (
+  version: string,
+  run: (argv: string[]) => Promise<void>,
+): Promise<void> => {
   const keepAlive = setInterval(() => undefined, 1_000);
   try {
-    await runBinary();
+    await runBinary(version, run);
   } catch (error) {
     log.fail(getErrorMessage(error));
     clearInterval(keepAlive);
@@ -50,8 +52,6 @@ const runBinaryEntry = async (): Promise<void> => {
   clearInterval(keepAlive);
   process.exit(process.exitCode ?? 0);
 };
-
-if (isBinaryEntry()) void runBinaryEntry();
 
 export const resolvePathFromRoot = (path: string, root?: string): string => {
   const shouldResolveFromRoot = root && !isAbsolute(path);

@@ -53,7 +53,7 @@ jobs:
 
       - name: Validate stable version
         run: |
-          VERSION="${RELEASE_REF#v}"
+          export VERSION="${RELEASE_REF#v}"
           PACKAGE_VERSION="$(bun -p 'require("./package.json").version')"
           test "$VERSION" = "$PACKAGE_VERSION"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
@@ -123,7 +123,7 @@ jobs:
           BINARY: ${{ steps.perry.outputs.binary }}
           GITHUB_TOKEN: "${{ github.token }}"
           SIGSTORE_BUNDLE: ${{ steps.perry-attestation.outputs.sigstore_bundle }}
-        run: gh release upload "v${VERSION}" "$FORMULA_PATH" "$BINARY" "$SIGSTORE_BUNDLE" --clobber
+        run: gh release upload "v${VERSION}" "$FORMULA_PATH" "$BINARY" "$SIGSTORE_BUNDLE"
 
       - name: Update Homebrew tap
         env:

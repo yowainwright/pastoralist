@@ -30,6 +30,8 @@ jobs:
     environment: homebrew-publish
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     env:
       FORMULA_PATH: pastoralist.rb
       RELEASE_REF: "${{ inputs.version }}"
@@ -46,6 +48,8 @@ jobs:
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.3.14
+
+      - run: bun install --config=/dev/null --frozen-lockfile
 
       - name: Validate stable version
         run: |
@@ -64,6 +68,37 @@ jobs:
             sleep 30
           done
           exit 1
+
+      - name: Build and test Perry binary
+        id: perry
+        run: |
+          bun run test:e2e:binary
+
+          case "$(uname -m)" in
+            arm64) ARCH=arm64 ;;
+            x86_64) ARCH=x64 ;;
+            *) exit 1 ;;
+          esac
+
+          BINARY="pastoralist-darwin-${ARCH}"
+          cp artifacts/pastoralist "$BINARY"
+          echo "binary=$BINARY" >> "$GITHUB_OUTPUT"
+
+      - name: Attest Perry binary
+        id: perry-attest
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4
+        with:
+          subject-path: ${{ steps.perry.outputs.binary }}
+
+      - name: Prepare Perry attestation
+        id: perry-attestation
+        env:
+          BINARY: ${{ steps.perry.outputs.binary }}
+          BUNDLE_PATH: ${{ steps.perry-attest.outputs.bundle-path }}
+        run: |
+          SIGSTORE_BUNDLE="${BINARY}.sigstore.json"
+          cp "$BUNDLE_PATH" "$SIGSTORE_BUNDLE"
+          echo "sigstore_bundle=$SIGSTORE_BUNDLE" >> "$GITHUB_OUTPUT"
 
       - name: Generate formula from published tarball
         run: bun scripts/brew.ts generate
@@ -85,8 +120,10 @@ jobs:
 
       - name: Attach formula to GitHub release
         env:
+          BINARY: ${{ steps.perry.outputs.binary }}
           GITHUB_TOKEN: "${{ github.token }}"
-        run: gh release upload "v${VERSION}" "$FORMULA_PATH" --clobber
+          SIGSTORE_BUNDLE: ${{ steps.perry-attestation.outputs.sigstore_bundle }}
+        run: gh release upload "v${VERSION}" "$FORMULA_PATH" "$BINARY" "$SIGSTORE_BUNDLE" --clobber
 
       - name: Update Homebrew tap
         env:

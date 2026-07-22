@@ -211,10 +211,12 @@ maintenance PRs. See the
 Pastoralist can write to `package.json`, so the package should be boring to
 verify.
 
+<!-- release behavior from .github/workflows/publish.yml and .github/workflows/homebrew.yml -->
+
 - Releases are published from GitHub Actions with npm provenance
 - Published tarballs are packed before release and attached to GitHub Releases
   with artifact attestations
-- Perry binaries are built and tested before release
+- Perry binaries are built, tested, and attested only for stable Homebrew releases
 - Stable releases open a reviewed Homebrew tap update
 - CI runs CodeQL, OpenSSF Scorecard, unit, integration, e2e, and dependency
   policy checks

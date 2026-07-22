@@ -2,11 +2,16 @@ import { createRequire } from "module";
 import { existsSync, readFileSync } from "fs";
 import { dirname, resolve } from "path";
 import { pathToFileURL } from "url";
-import type { AppendixItem, ConfigAppendix, PastoralistConfig } from "./types";
+import type { Options, PastoralistJSON } from "../types";
+import { resolvePathFromRoot } from "../cli/utils";
+import type { CliConfigDeps, LoadedCliConfig } from "../cli/types";
+import { logger } from "../utils";
+import type { AppendixItem, ConfigAppendix, PastoralistConfig, SecurityConfig } from "./types";
 import { CONFIG_FILES, UNSUPPORTED_TYPESCRIPT_CONFIG } from "./constants";
 import { safeValidateConfig } from "./validators";
 
 const configCache = new Map<string, PastoralistConfig>();
+const log = logger({ file: "config/index.ts" });
 
 export const clearConfigCache = (): void => {
   configCache.clear();
@@ -76,7 +81,7 @@ const tryLoadConfig = async (
     return validateAndReturn(rawConfig, validate);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`Failed to load config from ${filename}: ${errorMessage}`);
+    log.fail(`Failed to load config from ${filename}: ${errorMessage}`);
     return null;
   }
 };
@@ -85,8 +90,9 @@ const warnIfUnsupportedTypeScriptConfigExists = (root: string): void => {
   const path = resolve(root, UNSUPPORTED_TYPESCRIPT_CONFIG);
   if (!existsSync(path)) return;
 
-  console.warn(
+  log.warn(
     `${UNSUPPORTED_TYPESCRIPT_CONFIG} is not supported. Use .pastoralistrc.json, pastoralist.config.cjs, pastoralist.config.js, or pastoralist.config.mjs.`,
+    "warnIfUnsupportedTypeScriptConfigExists",
   );
 };
 
@@ -204,6 +210,95 @@ export const loadConfig = async (
   }
 
   return merged;
+};
+
+const loadPackageConfig = (
+  path: string,
+  deps: Pick<CliConfigDeps, "resolveJSON">,
+): PastoralistJSON => {
+  const packageConfig = deps.resolveJSON(path);
+  if (packageConfig) return packageConfig;
+  throw new Error(`Unable to load package.json at ${path}`);
+};
+
+const createPastoralistField = (config: PastoralistConfig | undefined) => {
+  if (!config) return undefined;
+  return { pastoralist: config };
+};
+
+const mergeExternalConfig = async (
+  path: string,
+  options: Options,
+  packageConfig: PastoralistJSON,
+  deps: Pick<CliConfigDeps, "loadConfig">,
+): Promise<PastoralistJSON> => {
+  const configRoot = options.root || dirname(resolve(path));
+  const configLoader = deps.loadConfig || loadConfig;
+  const mergedConfig = await configLoader(configRoot, packageConfig.pastoralist);
+  const pastoralist = createPastoralistField(mergedConfig);
+  return Object.assign({}, packageConfig, pastoralist);
+};
+
+const resolveSecurityEnabled = (
+  enabled: boolean | undefined,
+  checkSecurity: boolean | undefined,
+): boolean | undefined => {
+  if (enabled !== undefined) return enabled;
+  return checkSecurity;
+};
+
+const buildSecurityConfig = (config: PastoralistJSON): Partial<SecurityConfig> => {
+  const pastoralistConfig = config.pastoralist || {};
+  const security = pastoralistConfig.security || {};
+  const enabled = resolveSecurityEnabled(security.enabled, pastoralistConfig.checkSecurity);
+  return {
+    enabled,
+    provider: security.provider,
+    autoFix: security.autoFix,
+    interactive: security.interactive,
+    securityProviderToken: security.securityProviderToken,
+    severityThreshold: security.severityThreshold,
+    excludePackages: security.excludePackages,
+    hasWorkspaceSecurityChecks: security.hasWorkspaceSecurityChecks,
+    strict: security.strict,
+    preferLatest: security.preferLatest,
+  };
+};
+
+const createRootField = (root: string | undefined) => {
+  if (!root) return undefined;
+  return { root };
+};
+
+const mergeOptionsWithConfig = (
+  options: Options,
+  rest: Omit<Options, "isTestingCLI" | "init">,
+  config: PastoralistJSON,
+  path: string,
+  deps: Pick<CliConfigDeps, "buildMergedOptions">,
+): Options => {
+  const securityConfig = buildSecurityConfig(config);
+  const mergedOptions = deps.buildMergedOptions(
+    options,
+    rest,
+    securityConfig,
+    securityConfig.provider,
+  );
+  const root = createRootField(options.root);
+  return Object.assign({}, mergedOptions, { config, path }, root);
+};
+
+export const loadCliConfig = async (
+  options: Options,
+  rest: Omit<Options, "isTestingCLI" | "init">,
+  deps: CliConfigDeps,
+): Promise<LoadedCliConfig> => {
+  const relativePath = options.path || "package.json";
+  const path = resolvePathFromRoot(relativePath, options.root);
+  const packageConfig = loadPackageConfig(path, deps);
+  const config = await mergeExternalConfig(path, options, packageConfig, deps);
+  const mergedOptions = mergeOptionsWithConfig(options, rest, config, path, deps);
+  return { path, config, mergedOptions };
 };
 
 export * from "./constants";

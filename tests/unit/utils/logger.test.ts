@@ -1,5 +1,5 @@
 import { test, expect, spyOn } from "bun:test";
-import { logger } from "../../../src/utils/logger";
+import { logger } from "../../../src/utils";
 
 test("logger.debug should log when isLogging is true", () => {
   const consoleDebugSpy = spyOn(console, "debug");

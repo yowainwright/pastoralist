@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildOnboardingText, showOnboarding } from "../../../src/cli/onboarding";
+import { buildOnboardingText, showOnboarding } from "../../../src/cli/cmds/init";
 
 describe("cli onboarding", () => {
   test("buildOnboardingText includes human usage", () => {

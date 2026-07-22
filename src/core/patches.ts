@@ -2,10 +2,9 @@ import * as fg from "../utils/glob";
 import { IS_DEBUGGING } from "../constants";
 import type { Appendix } from "../types";
 import { logger } from "../utils";
+import { PATCH_PATTERNS } from "./constants";
 
 const log = logger({ file: "patches.ts", isLogging: IS_DEBUGGING });
-
-const PATCH_PATTERNS = ["patches/*.patch", ".patches/*.patch", "*.patch", "patches/**/*.patch"];
 
 const extractBasename = (filePath: string): string => {
   return filePath.split("/").pop() || "";

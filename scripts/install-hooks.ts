@@ -14,6 +14,7 @@ import { $ } from 'bun';
 console.log('Running pre-commit checks...');
 
 try {
+  await $\`node node_modules/eslint-plugin-legibility/bin/lint-changed.js\`;
   await $\`bun run format\`;
   await $\`bun run build\`;
   await $\`cd app && bun run build\`;

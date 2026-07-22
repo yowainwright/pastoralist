@@ -1,5 +1,16 @@
 import type { PastoralistConfig } from "../../../config";
-import type { InitAnswers, InitConfigFormat } from "./types";
+import { ONBOARDING_SECTIONS, ONBOARDING_TITLE } from "./constants";
+import type { InitAnswers, InitConfigFormat, OnboardingSection } from "./types";
+
+const joinOnboardingSection = (section: OnboardingSection): string => {
+  const lines = [section.title, ""].concat(section.lines);
+  return lines.join("\n");
+};
+
+export const buildOnboardingText = (): string => {
+  const sections = ONBOARDING_SECTIONS.map(joinOnboardingSection);
+  return [ONBOARDING_TITLE].concat(sections).join("\n\n");
+};
 
 export function parseWorkspacePaths(pathsInput: string): string[] {
   return pathsInput

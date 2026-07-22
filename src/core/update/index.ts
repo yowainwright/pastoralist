@@ -7,7 +7,7 @@ import {
   jsonCache,
   getFullDependencyCount,
   getDependencyGraph,
-} from "../packageJSON";
+} from "../package";
 import {
   mergeOverridePaths,
   checkMonorepoOverrides,

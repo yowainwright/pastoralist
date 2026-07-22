@@ -1,6 +1,6 @@
-import { findPackageJsonFiles, updatePackageJSON } from "../packageJSON";
+import { findPackageJsonFiles, updatePackageJSON } from "../package";
 import { toCompactAppendix } from "../appendix/utils";
-import { resolveWorkspaceManifestPaths } from "../workspace";
+import { resolveWorkspaceManifestPaths } from "../workspaces";
 import { WORKSPACE_MODES } from "./constants";
 import type {
   PastoralistJSON,

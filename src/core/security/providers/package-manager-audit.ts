@@ -9,7 +9,7 @@ import type {
   YarnAuditLine,
 } from "../../../types";
 import { logger } from "../../../utils";
-import { detectPackageManager } from "../../packageJSON";
+import { detectPackageManager } from "../../package";
 import { DEFAULT_AUDIT_TIMEOUT, SEVERITY_MAP } from "../constants";
 
 export class PackageManagerAuditProvider {

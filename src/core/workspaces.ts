@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "fs";
+import { resolve } from "path";
 import { IS_DEBUGGING } from "../constants";
 import type {
   Appendix,
@@ -8,14 +10,190 @@ import type {
   OverridesType,
   ResolveOverrides,
   Options,
+  PackageJsonWorkspaces,
   PastoralistJSON,
 } from "../types";
 import type { Logger } from "../utils";
 import { logger } from "../utils";
-import { resolveJSON, getDependencyTree } from "./packageJSON";
+import { resolveJSON, getDependencyTree } from "./package";
 import { extractPackageNames, mergeAppendixDependents } from "./appendix/utils";
+import { PACKAGE_JSON, PNPM_WORKSPACE_FILE } from "./constants";
+import type { InlineArrayState, WorkspaceParseState } from "./types";
 
-const log = logger({ file: "workspace.ts", isLogging: IS_DEBUGGING });
+const log = logger({ file: "workspaces.ts", isLogging: IS_DEBUGGING });
+
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+  const isObject = typeof value === "object";
+  const hasValue = value !== null;
+  const isNotArray = !Array.isArray(value);
+  const isPlainObject = isObject && hasValue;
+  return isPlainObject && isNotArray;
+};
+
+const isString = (value: unknown): value is string => typeof value === "string";
+
+const toStringArray = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isString);
+};
+
+export const getPackageJsonWorkspacePatterns = (
+  workspaces: PackageJsonWorkspaces | undefined,
+): string[] => {
+  if (Array.isArray(workspaces)) return toStringArray(workspaces);
+  if (isRecord(workspaces)) return toStringArray(workspaces.packages);
+  return [];
+};
+
+const isQuote = (char: string): boolean => char === `"` || char === `'`;
+
+const toggleQuote = (quote: string | null, char: string): string | null => {
+  if (quote === char) return null;
+  if (quote) return quote;
+  return char;
+};
+
+const isCommentStart = (
+  char: string,
+  quote: string | null,
+  previous: string | undefined,
+): boolean => {
+  const isOutsideQuote = quote === null;
+  const hasCommentPrefix = previous === undefined || /\s/.test(previous);
+  const isHashOutsideQuote = char === "#" && isOutsideQuote;
+  return isHashOutsideQuote && hasCommentPrefix;
+};
+
+const stripComment = (line: string): string => {
+  let quote: string | null = null;
+  const commentIndex = Array.from(line).findIndex((char, index) => {
+    const previous = line[index - 1];
+    const shouldToggleQuote = isQuote(char) && previous !== "\\";
+    if (!shouldToggleQuote) return isCommentStart(char, quote, previous);
+    quote = toggleQuote(quote, char);
+    return false;
+  });
+  if (commentIndex < 0) return line;
+  return line.slice(0, commentIndex);
+};
+
+const trimYamlScalar = (value: string): string => {
+  const trimmed = stripComment(value).trim();
+  const first = trimmed[0];
+  const last = trimmed[trimmed.length - 1];
+  const isQuoted = isQuote(first) && first === last;
+  if (!isQuoted) return trimmed;
+  return trimmed.slice(1, -1).trim();
+};
+
+const reduceInlineArray = (
+  state: InlineArrayState,
+  char: string,
+  index: number,
+  source: string[],
+): InlineArrayState => {
+  const previous = source[index - 1];
+  const shouldToggleQuote = isQuote(char) && previous !== "\\";
+  const quote = shouldToggleQuote ? toggleQuote(state.quote, char) : state.quote;
+  const isSeparator = char === "," && quote === null;
+  if (isSeparator) return { entries: state.entries.concat(state.current), current: "", quote };
+  return { entries: state.entries, current: state.current + char, quote };
+};
+
+const splitInlineArray = (value: string): string[] => {
+  const trimmed = value.trim();
+  const isInlineArray = trimmed.startsWith("[") && trimmed.endsWith("]");
+  if (!isInlineArray) return [];
+  const inner = trimmed.slice(1, -1);
+  const initial = { entries: [], current: "", quote: null } satisfies InlineArrayState;
+  const result = Array.from(inner).reduce(reduceInlineArray, initial);
+  return result.entries.concat(result.current).map(trimYamlScalar).filter(Boolean);
+};
+
+const parseWorkspaceStart = (
+  state: WorkspaceParseState,
+  line: string,
+  indent: number,
+): WorkspaceParseState => {
+  const packagesMatch = line.match(/^packages\s*:\s*(.*)$/);
+  if (!packagesMatch) return state;
+  const packages = state.packages.concat(splitInlineArray(packagesMatch[1]));
+  return Object.assign({}, state, { packages, isInPackagesBlock: true, packagesIndent: indent });
+};
+
+const parseWorkspaceItem = (state: WorkspaceParseState, line: string): WorkspaceParseState => {
+  const itemMatch = line.match(/^-\s*(.+)$/);
+  if (!itemMatch) return state;
+  const item = trimYamlScalar(itemMatch[1]);
+  if (!item) return state;
+  return Object.assign({}, state, { packages: state.packages.concat(item) });
+};
+
+const parseWorkspaceLine = (state: WorkspaceParseState, rawLine: string): WorkspaceParseState => {
+  if (state.isComplete) return state;
+  const line = stripComment(rawLine).trimEnd();
+  if (!line.trim()) return state;
+  const indent = line.search(/\S/);
+  const trimmed = line.trim();
+  if (!state.isInPackagesBlock) return parseWorkspaceStart(state, trimmed, indent);
+  const isOutsideBlock = indent <= state.packagesIndent;
+  if (isOutsideBlock) return Object.assign({}, state, { isComplete: true });
+  return parseWorkspaceItem(state, trimmed);
+};
+
+export const parsePnpmWorkspacePackages = (contents: string): string[] => {
+  const initial: WorkspaceParseState = {
+    packages: [],
+    isInPackagesBlock: false,
+    packagesIndent: -1,
+    isComplete: false,
+  };
+  return contents.split(/\r?\n/).reduce(parseWorkspaceLine, initial).packages;
+};
+
+export const workspacePatternToPackageManifestPath = (pattern: string): string | null => {
+  const trimmed = pattern.trim();
+  const isEmpty = trimmed.length === 0;
+  const isNegated = trimmed.startsWith("!");
+  const shouldIgnore = isEmpty || isNegated;
+  if (shouldIgnore) return null;
+  if (trimmed.endsWith(PACKAGE_JSON)) return trimmed;
+  const withoutTrailingSlash = trimmed.replace(/\/+$/, "");
+  if (withoutTrailingSlash === ".") return PACKAGE_JSON;
+  return `${withoutTrailingSlash}/${PACKAGE_JSON}`;
+};
+
+export const normalizeWorkspaceManifestPaths = (patterns: string[]): string[] => {
+  const manifestPaths = patterns
+    .map(workspacePatternToPackageManifestPath)
+    .filter((path): path is string => Boolean(path));
+  return Array.from(new Set(manifestPaths));
+};
+
+const readPnpmWorkspacePatterns = (root: string, logInstance?: Logger): string[] => {
+  const path = resolve(root, PNPM_WORKSPACE_FILE);
+  if (!existsSync(path)) return [];
+  try {
+    return parsePnpmWorkspacePackages(readFileSync(path, "utf8"));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logInstance?.debug(
+      `Unable to read ${PNPM_WORKSPACE_FILE}; falling back to package.json workspaces: ${message}`,
+      "readPnpmWorkspacePatterns",
+    );
+    return [];
+  }
+};
+
+export const resolveWorkspaceManifestPaths = (
+  config: Pick<PastoralistJSON, "workspaces"> | undefined,
+  root: string = "./",
+  logInstance?: Logger,
+): string[] => {
+  const packageJsonPatterns = getPackageJsonWorkspacePatterns(config?.workspaces);
+  const pnpmPatterns = readPnpmWorkspacePatterns(root, logInstance);
+  return normalizeWorkspaceManifestPaths(packageJsonPatterns.concat(pnpmPatterns));
+};
 
 const isPackageInRootDeps = (packageName: string, rootDeps: Record<string, string>): boolean => {
   return Boolean(rootDeps[packageName]);

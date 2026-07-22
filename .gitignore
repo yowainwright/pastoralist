@@ -137,3 +137,5 @@ pnpm-lock.yaml
 tmp/
 CLAUDE.md
 AGENTS.md
+.perry-cache/
+artifacts/

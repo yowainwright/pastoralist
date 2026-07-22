@@ -7,10 +7,9 @@ import { fileURLToPath } from "url";
 import { parseArgs, showHelp } from "./parser";
 import type { Options } from "../types";
 import { logger as createLogger } from "../utils";
-import { initCommand } from "./cmds/init/index";
+import { initCommand, showOnboarding } from "./cmds/init";
 import { action } from "./action";
 import { handleSetupHook } from "./setup-hook";
-import { showOnboarding } from "./onboarding";
 import type { InitSecurityProvider, RunDeps } from "./types";
 import type { Logger, PrintFunc } from "../utils";
 
@@ -31,12 +30,12 @@ export {
   createEmptyResult,
   createErrorResult,
   outputResult,
-} from "./results";
+  resolvePathFromRoot,
+} from "./utils";
 export { displayOverrides, displaySummaryTable } from "./display";
-export { checkRemovalSafety } from "./safety";
-export { resolvePathFromRoot } from "./path";
+export { checkRemovalSafety } from "./security";
 export { handleSetupHook } from "./setup-hook";
-export { buildOnboardingText, showOnboarding } from "./onboarding";
+export { buildOnboardingText, showOnboarding } from "./cmds/init";
 
 type PackageVersion = { version?: unknown };
 const INIT_COMMAND_TYPES = ["config", "agent-skill"] as const;

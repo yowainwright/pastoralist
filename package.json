@@ -54,6 +54,7 @@
   },
   "scripts": {
     "build": "turbo run build-dist",
+    "build:bin": "bun scripts/build-bin.ts",
     "build-dist": "bun run clean-dist && bun run build-bundle && bun run build-types",
     "build-bundle": "bun build src/index.ts --outdir dist --target node --minify --splitting --external fs --external path --external crypto",
     "build-types": "tsc --emitDeclarationOnly --outDir dist --incremental false",
@@ -89,6 +90,7 @@
     "test": "bun test",
     "test:unit": "bun test tests/unit",
     "test:bench": "./tests/benchmarks/run-benchmarks.sh",
+    "test:e2e:binary": "./tests/e2e/scripts/test-binary.sh",
     "test:e2e": "./tests/e2e/scripts/run-e2e-tests.sh",
     "test:integration:docker": "cd tests/e2e && docker compose up --abort-on-container-exit",
     "typecheck": "turbo run typecheck-src",
@@ -108,10 +110,11 @@
   },
   "dependencies": {},
   "devDependencies": {
+    "@perryts/perry": "0.5.1182",
     "@socketsecurity/bun-security-scanner": "^1.1.2",
     "@types/bun": "1.3.14",
     "codependence": "^1.0.1",
-    "eslint-plugin-legibility": "^0.1.12",
+    "eslint-plugin-legibility": "^0.2.0",
     "oxfmt": "^0.50.0",
     "oxlint": "^1.74.0",
     "release-it": "20.2.1",

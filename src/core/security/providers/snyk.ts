@@ -9,23 +9,15 @@ import type {
 import { logger } from "../../../utils";
 import { CLIInstaller } from "../utils";
 import { DEFAULT_CLI_TIMEOUT, DEFAULT_SNYK_SCAN_TIMEOUT, AUTH_MESSAGES } from "../constants";
+import type { ExecFileAsync, SnykCLIProviderOptions } from "../../types";
 
 const execFileAsync = promisify(execFile);
-
-type SnykExecFile = typeof execFileAsync;
-
-interface SnykCLIProviderOptions {
-  debug?: boolean;
-  token?: string;
-  strict?: boolean;
-  execFileAsync?: SnykExecFile;
-}
 
 export class SnykCLIProvider {
   readonly providerType = "snyk" as const;
   private log: ReturnType<typeof logger>;
   private installer: CLIInstaller;
-  private execFileAsync: SnykExecFile;
+  private execFileAsync: ExecFileAsync;
   private token?: string;
   private strict: boolean;
 

@@ -11,7 +11,7 @@ import {
   formatCompletion,
 } from "../../../src/dx/prompts";
 import { green, cyan, gray, yellow } from "../../../src/utils/colors";
-import { ICON } from "../../../src/utils/icons";
+import { ICON } from "../../../src/constants";
 
 const stripAnsi = (str: string): string => str.replace(/\x1b\[[0-9;]*m/g, "");
 

@@ -1,6 +1,63 @@
+import packageJson from "../../package.json" with { type: "json" };
+import { isAbsolute, resolve } from "path";
 import type { update } from "../core/update";
 import { findUnusedAppendixEntries } from "../core/appendix/utils";
 import type { PastoralistJSON, PastoralistResult, SecurityAlert } from "../types";
+import { logger as createLogger } from "../utils";
+
+const BINARY_NAME = "pastoralist";
+const SCRIPT_EXTENSIONS = [".cjs", ".js", ".mjs", ".ts", ".tsx"];
+const log = createLogger({ file: "cli/utils.ts" });
+
+const isScriptPath = (value: string | undefined): boolean => {
+  if (!value) return false;
+  const hasPathSegment = value.includes("/") || value.includes("\\");
+  return hasPathSegment || SCRIPT_EXTENSIONS.some((extension) => value.endsWith(extension));
+};
+
+const normalizeArgv = (argv: readonly string[]): string[] => {
+  const executable = argv[0] || BINARY_NAME;
+  const secondArg = argv[1];
+  if (secondArg === executable) return [executable, BINARY_NAME].concat(argv.slice(2));
+  if (!isScriptPath(secondArg)) return [executable, BINARY_NAME].concat(argv.slice(1));
+  return Array.from(argv);
+};
+
+const isBinaryEntry = (): boolean => process.env.PASTORALIST_BINARY === "1";
+
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  return String(error);
+};
+
+const runBinary = async (): Promise<void> => {
+  const argv = normalizeArgv(process.argv);
+  const isVersion = argv.slice(2).some((arg) => arg === "-v" || arg === "--version");
+  if (isVersion) return log.print(packageJson.version);
+  const { run } = await import("./index");
+  await run(argv);
+};
+
+if (isBinaryEntry()) {
+  const keepAlive = setInterval(() => undefined, 1_000);
+  runBinary()
+    .catch((error) => {
+      log.fail(getErrorMessage(error));
+      process.exitCode = 1;
+    })
+    .finally(() => clearInterval(keepAlive));
+}
+
+export const resolvePathFromRoot = (path: string, root?: string): string => {
+  const shouldResolveFromRoot = root && !isAbsolute(path);
+  if (shouldResolveFromRoot) return resolve(root, path);
+  return path;
+};
+
+export const pluralSuffix = (count: number): string => {
+  if (count === 1) return "";
+  return "s";
+};
 
 export const createEmptyResult = (): PastoralistResult => ({
   success: true,
@@ -91,7 +148,5 @@ export const buildUpdateResult = (
 };
 
 export const outputResult = (result: PastoralistResult, isJsonOutput: boolean): void => {
-  if (isJsonOutput) {
-    console.log(JSON.stringify(result));
-  }
+  if (isJsonOutput) log.print(JSON.stringify(result));
 };

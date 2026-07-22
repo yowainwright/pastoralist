@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { ICON, PREFIX, STEP, BRAND } from "../../../src/utils/icons";
+import { ICON, PREFIX, STEP, BRAND } from "../../../src/constants";
 
 test("BRAND - should be defined and contain Pastoralist", () => {
   expect(BRAND).toBeDefined();

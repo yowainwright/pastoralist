@@ -101,7 +101,7 @@ jobs:
           fi
 
           if gh release view "$VERSION" > /dev/null 2>&1; then
-            gh release upload "$VERSION" "$TARBALL" "$SIGSTORE_BUNDLE"
+            sh scripts/upload-release-assets.sh "$VERSION" "$TARBALL" "$SIGSTORE_BUNDLE"
             exit 0
           fi
 

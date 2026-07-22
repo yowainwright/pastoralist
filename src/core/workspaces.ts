@@ -66,15 +66,16 @@ const isCommentStart = (
 
 const stripComment = (line: string): string => {
   let quote: string | null = null;
-  const commentIndex = Array.from(line).findIndex((char, index) => {
-    const previous = line[index - 1];
+  const chars = Array.from(line);
+  const commentIndex = chars.findIndex((char, index) => {
+    const previous = chars[index - 1];
     const shouldToggleQuote = isQuote(char) && previous !== "\\";
     if (!shouldToggleQuote) return isCommentStart(char, quote, previous);
     quote = toggleQuote(quote, char);
     return false;
   });
   if (commentIndex < 0) return line;
-  return line.slice(0, commentIndex);
+  return chars.slice(0, commentIndex).join("");
 };
 
 const trimYamlScalar = (value: string): string => {

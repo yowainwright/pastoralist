@@ -104,6 +104,13 @@ test("parsePnpmWorkspacePackages - parses inline package entries", () => {
   expect(result).toEqual(["packages/*", "apps/*"]);
 });
 
+test("parsePnpmWorkspacePackages - strips comments after astral Unicode", () => {
+  const astral = "\u{1F600}";
+  const result = parsePnpmWorkspacePackages(`packages:\n  - packages/${astral}${astral} # comment`);
+
+  expect(result).toEqual([`packages/${astral}${astral}`]);
+});
+
 test("parsePnpmWorkspacePackages - returns empty for missing or malformed packages", () => {
   expect(parsePnpmWorkspacePackages("ignored:\n  - packages/*")).toEqual([]);
   expect(parsePnpmWorkspacePackages("packages: true")).toEqual([]);

@@ -1,13 +1,4 @@
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-  renameSync,
-  readdirSync,
-  statSync,
-  unlinkSync,
-} from "fs";
+import * as fs from "fs";
 import { join, dirname, basename } from "path";
 import { homedir, tmpdir } from "os";
 import { createHash } from "crypto";
@@ -18,7 +9,7 @@ export const detectCIEnv = (): boolean => {
   const hasCI = Boolean(process.env.CI);
   const hasGitHubActions = Boolean(process.env.GITHUB_ACTIONS);
   const hasGitLabCI = Boolean(process.env.GITLAB_CI);
-  const hasDockerEnv = existsSync("/.dockerenv");
+  const hasDockerEnv = fs.existsSync("/.dockerenv");
   if (hasCI) return true;
   if (hasGitHubActions) return true;
   if (hasGitLabCI) return true;
@@ -26,10 +17,10 @@ export const detectCIEnv = (): boolean => {
 };
 
 export const hashLockfile = (root = process.cwd()): string => {
-  const lockfile = LOCKFILE_NAMES.find((name) => existsSync(join(root, name)));
+  const lockfile = LOCKFILE_NAMES.find((name) => fs.existsSync(join(root, name)));
   if (!lockfile) return "no-lockfile";
   try {
-    const content = readFileSync(join(root, lockfile), "utf8");
+    const content = fs.readFileSync(join(root, lockfile), "utf8");
     return createHash("sha256").update(content).digest("hex").slice(0, 16);
   } catch {
     return "no-lockfile";
@@ -38,11 +29,11 @@ export const hashLockfile = (root = process.cwd()): string => {
 
 const isWritableCacheDir = (cacheDir: string): boolean => {
   try {
-    mkdirSync(cacheDir, { recursive: true });
+    fs.mkdirSync(cacheDir, { recursive: true });
     const probeName = `.write-test-${process.pid}-${Math.random().toString(36).slice(2)}`;
     const probePath = join(cacheDir, probeName);
-    writeFileSync(probePath, "");
-    unlinkSync(probePath);
+    fs.writeFileSync(probePath, "");
+    fs.unlinkSync(probePath);
     return true;
   } catch {
     return false;
@@ -104,11 +95,12 @@ export const pruneBackups = (
     const maxAgeMs = options.maxAgeMs ?? 7 * 24 * 60 * 60 * 1000;
     const now = Date.now();
 
-    const files = readdirSync(cacheDir)
+    const files = fs
+      .readdirSync(cacheDir)
       .filter((f) => f.includes(".backup-"))
       .map((f) => {
         const fullPath = join(cacheDir, f);
-        const mtime = statSync(fullPath).mtimeMs;
+        const mtime = fs.statSync(fullPath).mtimeMs;
         return { path: fullPath, mtime };
       })
       .sort((a, b) => b.mtime - a.mtime);
@@ -118,7 +110,7 @@ export const pruneBackups = (
       const isOverLimit = i >= keep;
       const shouldDeleteFile = isTooOld || isOverLimit;
       if (shouldDeleteFile) {
-        unlinkSync(file.path);
+        fs.unlinkSync(file.path);
       }
     });
   } catch {
@@ -141,7 +133,7 @@ export class DiskCache<V> {
     this.maxEntries = options.maxEntries ?? 1000;
     this.enabled = options.enabled ?? true;
     if (this.enabled) {
-      mkdirSync(options.dir, { recursive: true });
+      fs.mkdirSync(options.dir, { recursive: true });
     }
   }
 
@@ -155,12 +147,12 @@ export class DiskCache<V> {
 
   private load(): DiskCacheEnvelope<V> {
     if (this.data) return this.data;
-    if (!existsSync(this.filePath)) {
+    if (!fs.existsSync(this.filePath)) {
       this.data = this.empty();
       return this.data;
     }
     try {
-      const raw = readFileSync(this.filePath, "utf8");
+      const raw = fs.readFileSync(this.filePath, "utf8");
       const parsed = JSON.parse(raw) as DiskCacheEnvelope<V>;
       const isValidSchema = parsed?.schema === DISK_CACHE_SCHEMA_VERSION;
       const isValidVersion = parsed?.version === this.version;
@@ -182,8 +174,8 @@ export class DiskCache<V> {
     const rand = Math.random().toString(36).slice(2);
     const tmpName = `${basename(this.filePath)}.tmp-${process.pid}-${rand}`;
     const tmpPath = join(dir, tmpName);
-    writeFileSync(tmpPath, JSON.stringify(envelope));
-    renameSync(tmpPath, this.filePath);
+    fs.writeFileSync(tmpPath, JSON.stringify(envelope));
+    fs.renameSync(tmpPath, this.filePath);
     this.data = envelope;
   }
 

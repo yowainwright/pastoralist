@@ -91,7 +91,7 @@ jobs:
       - name: Update Homebrew tap
         env:
           GH_TOKEN: "${{ secrets.HOMEBREW_TAP_TOKEN }}"
-          TAP_BRANCH: "pastoralist-${{ inputs.version }}-${{ github.run_id }}"
+          TAP_BRANCH: "pastoralist-${{ inputs.version }}-${{ github.run_id }}-${{ github.run_attempt }}"
         run: |
           gh repo clone yowainwright/homebrew-tap tap
           cd tap

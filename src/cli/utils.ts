@@ -38,15 +38,20 @@ const runBinary = async (): Promise<void> => {
   await run(argv);
 };
 
-if (isBinaryEntry()) {
+const runBinaryEntry = async (): Promise<void> => {
   const keepAlive = setInterval(() => undefined, 1_000);
-  runBinary()
-    .catch((error) => {
-      log.fail(getErrorMessage(error));
-      process.exitCode = 1;
-    })
-    .finally(() => clearInterval(keepAlive));
-}
+  try {
+    await runBinary();
+  } catch (error) {
+    log.fail(getErrorMessage(error));
+    clearInterval(keepAlive);
+    process.exit(1);
+  }
+  clearInterval(keepAlive);
+  process.exit(process.exitCode ?? 0);
+};
+
+if (isBinaryEntry()) void runBinaryEntry();
 
 export const resolvePathFromRoot = (path: string, root?: string): string => {
   const shouldResolveFromRoot = root && !isAbsolute(path);

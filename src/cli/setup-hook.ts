@@ -2,7 +2,7 @@ import * as fs from "fs";
 import { resolve } from "path";
 import type { Options, PastoralistJSON } from "../types";
 import { logger as createLogger } from "../utils";
-import { resolvePathFromRoot } from "./path";
+import { resolvePathFromRoot } from "./utils";
 
 type SetupHookDeps = {
   readFileSync: typeof fs.readFileSync;

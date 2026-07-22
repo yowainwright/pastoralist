@@ -1,16 +1,16 @@
 import { existsSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { loadExternalConfig, type PastoralistConfig, type SecurityProvider } from "../../../config";
-import { resolveJSON } from "../../../core/packageJSON";
-import { getPackageJsonWorkspacePatterns } from "../../../core/workspace";
+import { resolveJSON } from "../../../core/package";
+import { getPackageJsonWorkspacePatterns } from "../../../core/workspaces";
 import { formatCompletion, formatInfo, formatStepHeader } from "../../../dx";
 import { shimmerFrame } from "../../../dx/shimmer";
 import { FARMER } from "../../../constants";
-import { BRAND } from "../../../utils/icons";
+import { BRAND } from "../../../constants";
 import { createPrompt, type Prompt } from "../../../utils/prompts";
 import { green, logger as createLogger, type Logger } from "../../../utils";
 import type { PastoralistJSON } from "../../../types";
-import { resolvePathFromRoot } from "../../path";
+import { resolvePathFromRoot } from "../../utils";
 import {
   CONFIG_FORMAT_CHOICES,
   CONFIG_LOCATION_CHOICES,
@@ -33,7 +33,19 @@ import type {
   SecurityPromptOptions,
   TokenInfo,
 } from "./types";
-import { buildConfig, generateConfigContent, parseWorkspacePaths } from "./utils";
+import {
+  buildConfig,
+  buildOnboardingText,
+  generateConfigContent,
+  parseWorkspacePaths,
+} from "./utils";
+
+export { buildOnboardingText } from "./utils";
+
+export const showOnboarding = (): void => {
+  const log = createLogger({ file: "init/index.ts", isLogging: false });
+  log.print(buildOnboardingText());
+};
 
 async function collectConfigLocationAnswers(
   prompt: Prompt,

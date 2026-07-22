@@ -1,17 +1,24 @@
 import { test, expect, mock, afterEach, beforeEach, spyOn } from "bun:test";
-import { mkdirSync, writeFileSync, rmSync, existsSync } from "fs";
-import { resolve } from "path";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
+import { join, resolve } from "path";
 import type { Appendix, ResolveOverrides } from "../../../src/types";
+import type { Logger } from "../../../src/utils";
 import {
   checkMonorepoOverrides,
-  processWorkspacePackages,
-  mergeOverridePaths,
-  findUnusedOverrides,
   cleanupUnusedOverrides,
+  findUnusedOverrides,
+  getPackageJsonWorkspacePatterns,
+  mergeOverridePaths,
+  normalizeWorkspaceManifestPaths,
+  parsePnpmWorkspacePackages,
+  processWorkspacePackages,
+  resolveWorkspaceManifestPaths,
+  workspacePatternToPackageManifestPath,
 } from "../../../src/core/workspaces";
 import { constructAppendix } from "../../../src/core/appendix";
-import * as packageJSON from "../../../src/core/packageJSON";
-import { clearDependencyTreeCache } from "../../../src/core/packageJSON";
+import * as packageJSON from "../../../src/core/package";
+import { clearDependencyTreeCache } from "../../../src/core/package";
 
 const TEST_DIR = resolve(__dirname, ".test-workspaces");
 
@@ -28,6 +35,142 @@ afterEach(() => {
   clearDependencyTreeCache();
   if (existsSync(TEST_DIR)) {
     rmSync(TEST_DIR, { recursive: true, force: true });
+  }
+});
+
+test("workspacePatternToPackageManifestPath - appends package.json to workspace globs", () => {
+  expect(workspacePatternToPackageManifestPath("packages/*")).toBe("packages/*/package.json");
+  expect(workspacePatternToPackageManifestPath("packages/@scope/*")).toBe(
+    "packages/@scope/*/package.json",
+  );
+  expect(workspacePatternToPackageManifestPath("packages/frontend/**")).toBe(
+    "packages/frontend/**/package.json",
+  );
+});
+
+test("workspacePatternToPackageManifestPath - preserves package.json paths", () => {
+  expect(workspacePatternToPackageManifestPath("apps/*/package.json")).toBe("apps/*/package.json");
+});
+
+test("workspacePatternToPackageManifestPath - ignores empty and negated patterns", () => {
+  expect(workspacePatternToPackageManifestPath("")).toBeNull();
+  expect(workspacePatternToPackageManifestPath("!packages/ignored")).toBeNull();
+});
+
+test("normalizeWorkspaceManifestPaths - deduplicates generated paths", () => {
+  const result = normalizeWorkspaceManifestPaths([
+    "packages/*",
+    "packages/*",
+    "apps/*/package.json",
+  ]);
+
+  expect(result).toEqual(["packages/*/package.json", "apps/*/package.json"]);
+});
+
+test("getPackageJsonWorkspacePatterns - reads array workspaces", () => {
+  expect(getPackageJsonWorkspacePatterns(["packages/*", "apps/*"])).toEqual([
+    "packages/*",
+    "apps/*",
+  ]);
+});
+
+test("getPackageJsonWorkspacePatterns - reads object workspaces", () => {
+  expect(getPackageJsonWorkspacePatterns({ packages: ["packages/*", "apps/*"] })).toEqual([
+    "packages/*",
+    "apps/*",
+  ]);
+});
+
+test("parsePnpmWorkspacePackages - parses block package entries", () => {
+  const result = parsePnpmWorkspacePackages(`
+packages:
+  - packages/*
+  - "packages/@scope/*"
+  - 'packages/frontend/**'
+  - apps/*/package.json # comment
+`);
+
+  expect(result).toEqual([
+    "packages/*",
+    "packages/@scope/*",
+    "packages/frontend/**",
+    "apps/*/package.json",
+  ]);
+});
+
+test("parsePnpmWorkspacePackages - parses inline package entries", () => {
+  const result = parsePnpmWorkspacePackages(`packages: ["packages/*", 'apps/*']`);
+
+  expect(result).toEqual(["packages/*", "apps/*"]);
+});
+
+test("parsePnpmWorkspacePackages - strips comments after astral Unicode", () => {
+  const astral = "\u{1F600}";
+  const result = parsePnpmWorkspacePackages(`packages:\n  - packages/${astral}${astral} # comment`);
+
+  expect(result).toEqual([`packages/${astral}${astral}`]);
+});
+
+test("parsePnpmWorkspacePackages - returns empty for missing or malformed packages", () => {
+  expect(parsePnpmWorkspacePackages("ignored:\n  - packages/*")).toEqual([]);
+  expect(parsePnpmWorkspacePackages("packages: true")).toEqual([]);
+});
+
+test("parsePnpmWorkspacePackages - stops before same-indent list items outside packages", () => {
+  const result = parsePnpmWorkspacePackages(`
+packages:
+  - packages/*
+- not-a-package-workspace
+`);
+
+  expect(result).toEqual(["packages/*"]);
+});
+
+test("resolveWorkspaceManifestPaths - combines package.json and pnpm workspace sources", () => {
+  const root = mkdtempSync(join(tmpdir(), "pastoralist-workspaces-"));
+
+  try {
+    writeFileSync(
+      join(root, "pnpm-workspace.yaml"),
+      `
+packages:
+  - apps/*
+  - packages/*
+`,
+    );
+
+    const result = resolveWorkspaceManifestPaths({ workspaces: ["packages/*"] }, root);
+
+    expect(result).toEqual(["packages/*/package.json", "apps/*/package.json"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("resolveWorkspaceManifestPaths - falls back when pnpm workspace cannot be read", () => {
+  const root = mkdtempSync(join(tmpdir(), "pastoralist-workspaces-"));
+  const debugCalls: Array<[string, string]> = [];
+  const log: Logger = {
+    debug: (message, caller) => debugCalls.push([message, caller]),
+    error: () => {},
+    warn: () => {},
+    print: () => {},
+    line: () => {},
+    indent: () => {},
+    item: () => {},
+  };
+
+  try {
+    mkdirSync(join(root, "pnpm-workspace.yaml"));
+
+    const result = resolveWorkspaceManifestPaths({ workspaces: ["packages/*"] }, root, log);
+
+    expect(result).toEqual(["packages/*/package.json"]);
+    expect(debugCalls).toHaveLength(1);
+    expect(debugCalls[0][0]).toContain("Unable to read pnpm-workspace.yaml");
+    expect(debugCalls[0][1]).toBe("readPnpmWorkspacePatterns");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
 

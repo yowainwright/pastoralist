@@ -4,7 +4,7 @@ import type {
   SecurityOverride,
   SecurityProviderType,
 } from "../../types";
-import { compareVersions } from "../../utils/semver";
+import { compareVersions } from "../../utils";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { logger } from "../../utils";
@@ -26,9 +26,9 @@ import type {
   SecretPromptCharResult,
   SecretPromptSession,
 } from "./types";
+import type { ExecFileAsync } from "../types";
 
 const execFileAsync = promisify(execFile);
-type ExecFileAsync = typeof execFileAsync;
 
 export const getSeverityScore = (severity: string): number => {
   const scores: Record<string, number> = {

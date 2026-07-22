@@ -63,6 +63,8 @@ jobs:
         run: bun run check:test-manifests
       - run: rm -rf dist .turbo
       - run: bun run build
+      - name: Build and test Perry binary
+        run: bun run test:e2e:binary
       - name: Test docs build functions
         run: bun run --cwd app test:unit
       - run: cd app && bun run build

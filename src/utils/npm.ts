@@ -1,6 +1,6 @@
 import { createLimit } from "./limit";
 import { retry } from "./retry";
-import { compareVersions } from "./semver";
+import { compareVersions } from "./index";
 import {
   NPM_FETCH_RETRY_OPTIONS,
   NPM_REGISTRY_CACHE_MAX_ENTRIES,

@@ -1,22 +1,21 @@
-import { loadConfig } from "../config";
+import { loadCliConfig, loadConfig } from "../config";
 import { IS_DEBUGGING } from "../constants";
-import { resolveJSON } from "../core/packageJSON";
+import { resolveJSON } from "../core/package";
 import { update } from "../core/update";
 import { createTerminalGraph } from "../dx";
 import type { Options, PastoralistResult } from "../types";
 import {
   createSpinner,
+  getOverrideGitDate,
   green,
   logger as createLogger,
   pruneBackups,
   quickConfirm,
   resolveCacheDir,
 } from "../utils";
-import { getOverrideGitDate } from "../utils/git";
 import { initCommand } from "./cmds/init/index";
-import { loadCliConfig } from "./config";
 import { displaySummaryTable, renderUpdateOutput } from "./display";
-import { buildUpdateResult, createEmptyResult, createErrorResult, outputResult } from "./results";
+import { buildUpdateResult, createEmptyResult, createErrorResult, outputResult } from "./utils";
 import {
   buildMergedOptions,
   handleSecurityResults,

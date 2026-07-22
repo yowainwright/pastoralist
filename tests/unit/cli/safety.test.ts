@@ -1,6 +1,6 @@
 import { test, expect, mock } from "bun:test";
 import type { PastoralistJSON, SecurityAlert } from "../../../src/types";
-import { checkRemovalSafety, compareRemovalSafety } from "../../../src/cli/safety";
+import { checkRemovalSafety, compareRemovalSafety } from "../../../src/cli/security";
 
 const alert = (
   packageName: string,

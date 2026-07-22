@@ -7,13 +7,12 @@ import type {
   ResolveResolutionOptions,
 } from "../types";
 import { logger } from "../utils";
+import type { OverrideType } from "./types";
 
 const log = logger({ file: "overrides.ts", isLogging: IS_DEBUGGING });
 
 const hasEntries = (obj: Record<string, unknown> | undefined): boolean =>
   Object.keys(obj ?? {}).length > 0;
-
-type OverrideType = { type: string; overrides: Record<string, OverrideValue> };
 
 const buildOverrideTypes = (
   overrides: Record<string, OverrideValue>,

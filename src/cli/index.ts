@@ -1,16 +1,15 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "child_process";
-import { existsSync, readFileSync } from "fs";
-import { dirname, resolve } from "path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { dirname, join, resolve } from "path";
 import { fileURLToPath } from "url";
 import { parseArgs, showHelp } from "./parser";
 import type { Options } from "../types";
 import { logger as createLogger } from "../utils";
-import { initCommand } from "./cmds/init/index";
+import { initCommand, showOnboarding } from "./cmds/init";
 import { action } from "./action";
 import { handleSetupHook } from "./setup-hook";
-import { showOnboarding } from "./onboarding";
 import type { InitSecurityProvider, RunDeps } from "./types";
 import type { Logger, PrintFunc } from "../utils";
 
@@ -31,15 +30,19 @@ export {
   createEmptyResult,
   createErrorResult,
   outputResult,
-} from "./results";
+  resolvePathFromRoot,
+} from "./utils";
 export { displayOverrides, displaySummaryTable } from "./display";
-export { checkRemovalSafety } from "./safety";
-export { resolvePathFromRoot } from "./path";
+export { checkRemovalSafety } from "./security";
 export { handleSetupHook } from "./setup-hook";
-export { buildOnboardingText, showOnboarding } from "./onboarding";
+export { buildOnboardingText, showOnboarding } from "./cmds/init";
 
 type PackageVersion = { version?: unknown };
 const INIT_COMMAND_TYPES = ["config", "agent-skill"] as const;
+const AGENT_SKILL_DIR = ".agents/skills/pastoralist";
+const AGENT_SKILL_FILE = `${AGENT_SKILL_DIR}/SKILL.md`;
+const AGENT_SKILL_MARKER = `${AGENT_SKILL_DIR}/.pastoralist-agent-config`;
+let embeddedAgentSkill: string | undefined;
 type InitCommandType = (typeof INIT_COMMAND_TYPES)[number];
 type InitCommandInput = {
   args: string[];
@@ -186,7 +189,44 @@ const runDoctorCommand = async (
   await deps.action(doctorOptions);
 };
 
+const resolveAgentSkillPath = (root: string | undefined, path: string): string => {
+  if (!root) return path;
+  return join(root, path);
+};
+
+const writeEmbeddedAgentSkill = (root: string | undefined, skill: string): boolean => {
+  const directory = resolveAgentSkillPath(root, AGENT_SKILL_DIR);
+  const destination = resolveAgentSkillPath(root, AGENT_SKILL_FILE);
+  const marker = resolveAgentSkillPath(root, AGENT_SKILL_MARKER);
+  const isUnmanaged = existsSync(destination) && !existsSync(marker);
+  if (isUnmanaged) return false;
+  mkdirSync(directory, { recursive: true });
+  writeFileSync(destination, skill);
+  writeFileSync(marker, "pastoralist-agent-config\n");
+  return true;
+};
+
+const tryEmbeddedAgentSkillSetup = (options: Options, initArgs: readonly string[]): boolean => {
+  if (!embeddedAgentSkill) return false;
+  if (initArgs[0]) throw new Error(`Unexpected agent-skill argument: ${initArgs[0]}`);
+  const log = createLogger({ file: "program.ts", isLogging: false });
+  if (options.dryRun) {
+    log.print(`Would install ${AGENT_SKILL_FILE}`);
+    return true;
+  }
+  const didInstall = writeEmbeddedAgentSkill(options.root, embeddedAgentSkill);
+  if (!didInstall) {
+    log.print(`Skipping ${AGENT_SKILL_FILE}; existing file is unmanaged`);
+  }
+  return true;
+};
+
+export const setEmbeddedAgentSkill = (skill: string): void => {
+  embeddedAgentSkill = skill;
+};
+
 const setupAgentSkill = (options: Options, initArgs: readonly string[] = []): void => {
+  if (tryEmbeddedAgentSkillSetup(options, initArgs)) return;
   const args = buildSetupAgentSkillArgs(options, initArgs);
   const cwd = options.root || process.cwd();
   const result = spawnSync("sh", args, { cwd, stdio: "inherit" });

@@ -1,6 +1,12 @@
 import {
+  APPENDIX_COLLECTION_FIELDS,
+  APPENDIX_STRING_ARRAY_FIELDS,
   DEP_PATH_ALIASES,
+  INVALID_CONFIG_STRUCTURE,
+  LEDGER_BOOLEAN_FIELDS,
+  LEDGER_STRING_FIELDS,
   RESOLVED_BY_VALUES,
+  SECURITY_BOOLEAN_FIELDS,
   SECURITY_CHECK_RESULTS,
   SECURITY_PROVIDERS,
   SEVERITY_THRESHOLDS,
@@ -71,6 +77,11 @@ const areFieldsValid = (value: Record<string, unknown>, fields: FieldValidation[
   return fields.every(({ field, validator }) => isFieldValid(value, field, validator));
 };
 
+const createFieldValidations = (
+  fields: readonly string[],
+  validator: (value: unknown) => boolean,
+): FieldValidation[] => fields.map((field) => ({ field, validator }));
+
 const isValidKeepObject = (v: unknown): boolean => {
   const isObj = isObject(v);
   const reason = isObj ? (v as Record<string, unknown>).reason : undefined;
@@ -96,21 +107,16 @@ const hasValidAddedDate = (value: Record<string, unknown>): boolean => {
   return isString(value.addedDate);
 };
 
-const LEDGER_FIELDS: FieldValidation[] = [
-  { field: "reason", validator: isString },
-  { field: "securityChecked", validator: isBoolean },
-  { field: "securityCheckDate", validator: isString },
+const LEDGER_FIELDS: FieldValidation[] = createFieldValidations(
+  LEDGER_STRING_FIELDS,
+  isString,
+).concat(createFieldValidations(LEDGER_BOOLEAN_FIELDS, isBoolean), [
   { field: "securityProvider", validator: isSecurityProvider },
   { field: "securityCheckResult", validator: isSecurityCheckResult },
   { field: "cves", validator: isStringArray },
-  { field: "vulnerableRange", validator: isString },
-  { field: "patchedVersion", validator: isString },
   { field: "keep", validator: isValidKeep },
-  { field: "potentiallyFixedIn", validator: isString },
-  { field: "resolvedAt", validator: isString },
   { field: "resolvedBy", validator: isResolvedBy },
-  { field: "resolvedVersion", validator: isString },
-];
+]);
 
 const validateLedger = (value: unknown): boolean => {
   if (!isObject(value)) return false;
@@ -119,12 +125,13 @@ const validateLedger = (value: unknown): boolean => {
   return areFieldsValid(value, LEDGER_FIELDS);
 };
 
-const APPENDIX_ITEM_FIELDS: FieldValidation[] = [
-  { field: "rootDeps", validator: isStringArray },
+const APPENDIX_ITEM_FIELDS: FieldValidation[] = createFieldValidations(
+  APPENDIX_STRING_ARRAY_FIELDS,
+  isStringArray,
+).concat([
   { field: "dependents", validator: isRecord },
-  { field: "patches", validator: isStringArray },
   { field: "ledger", validator: validateLedger },
-];
+]);
 
 const validateAppendixItem = (value: unknown): boolean => {
   return isObject(value) && areFieldsValid(value, APPENDIX_ITEM_FIELDS);
@@ -135,17 +142,15 @@ const validateAppendix = (value: unknown): boolean => {
   return Object.values(value).every(validateAppendixItem);
 };
 
-const SECURITY_CONFIG_FIELDS: FieldValidation[] = [
-  { field: "enabled", validator: isBoolean },
+const SECURITY_CONFIG_FIELDS: FieldValidation[] = createFieldValidations(
+  SECURITY_BOOLEAN_FIELDS,
+  isBoolean,
+).concat([
   { field: "provider", validator: isSecurityProviders },
-  { field: "autoFix", validator: isBoolean },
-  { field: "interactive", validator: isBoolean },
   { field: "securityProviderToken", validator: isString },
   { field: "severityThreshold", validator: isSeverityThreshold },
   { field: "excludePackages", validator: isStringArray },
-  { field: "hasWorkspaceSecurityChecks", validator: isBoolean },
-  { field: "strict", validator: isBoolean },
-];
+]);
 
 const validateSecurityConfig = (value: unknown): boolean => {
   return isObject(value) && areFieldsValid(value, SECURITY_CONFIG_FIELDS);
@@ -161,14 +166,15 @@ const validateAppendixCollection = (value: unknown): boolean => {
   return Object.values(value).every(validateAppendix);
 };
 
-const PASTORALIST_CONFIG_FIELDS: FieldValidation[] = [
+const PASTORALIST_CONFIG_FIELDS: FieldValidation[] = createFieldValidations(
+  APPENDIX_COLLECTION_FIELDS,
+  validateAppendixCollection,
+).concat([
   { field: "appendix", validator: validateAppendix },
   { field: "depPaths", validator: validateDepPaths },
   { field: "checkSecurity", validator: isBoolean },
-  { field: "overridePaths", validator: validateAppendixCollection },
-  { field: "resolutionPaths", validator: validateAppendixCollection },
   { field: "security", validator: validateSecurityConfig },
-];
+]);
 
 const validatePastoralistConfig = (value: unknown): boolean => {
   return isObject(value) && areFieldsValid(value, PASTORALIST_CONFIG_FIELDS);
@@ -176,7 +182,7 @@ const validatePastoralistConfig = (value: unknown): boolean => {
 
 export function validateConfig(config: unknown): PastoralistConfig {
   if (!validatePastoralistConfig(config)) {
-    throw new Error("Invalid config structure");
+    throw new Error(INVALID_CONFIG_STRUCTURE);
   }
   return config as PastoralistConfig;
 }

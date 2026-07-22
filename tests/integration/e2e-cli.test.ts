@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from "fs";
 import { resolve, join } from "path";
 import { action } from "../../src/cli/index";
 import type { Options, KeepConstraint } from "../../src/types";
-import * as packageJSON from "../../src/core/packageJSON";
+import * as packageJSON from "../../src/core/package";
 import { clearOSVCache } from "../../src/core/security/providers/osv";
 import { clearRegistryCache } from "../../src/utils/npm";
 

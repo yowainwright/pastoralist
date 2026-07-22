@@ -49,3 +49,8 @@ export interface SecurityPromptOptions {
   askWorkspaceSecurity: boolean;
   selectProvider: boolean;
 }
+
+export interface OnboardingSection {
+  title: string;
+  lines: readonly string[];
+}

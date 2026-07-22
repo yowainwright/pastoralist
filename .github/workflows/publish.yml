@@ -20,8 +20,6 @@ jobs:
       id-token: write
       contents: write
       attestations: write
-    env:
-      BINARY: pastoralist-linux-x64
 
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -45,11 +43,6 @@ jobs:
 
       - run: bun run build-dist
 
-      - name: Build Perry binary
-        run: |
-          bun run test:e2e:binary
-          cp artifacts/pastoralist "$BINARY"
-
       - name: Resolve npm dist-tag
         id: dist-tag
         run: |
@@ -68,13 +61,11 @@ jobs:
           test -n "$TARBALL"
           echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
 
-      - name: Attest release artifacts
+      - name: Attest npm tarball
         id: attest
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4
         with:
-          subject-path: |
-            ${{ steps.pack.outputs.tarball }}
-            ${{ env.BINARY }}
+          subject-path: ${{ steps.pack.outputs.tarball }}
 
       - name: Prepare release attestation
         id: release-attestation
@@ -105,6 +96,8 @@ jobs:
           RELEASE_ARGS=()
           if [[ "$VERSION" =~ -(alpha|beta|rc) ]]; then
             RELEASE_ARGS+=(--prerelease)
+          else
+            RELEASE_ARGS+=(--draft)
           fi
 
           if gh release view "$VERSION" > /dev/null 2>&1; then
@@ -112,7 +105,7 @@ jobs:
             exit 0
           fi
 
-          gh release create "$VERSION" "$BINARY" "$TARBALL" "$SIGSTORE_BUNDLE" \
+          gh release create "$VERSION" "$TARBALL" "$SIGSTORE_BUNDLE" \
             --title "$VERSION" \
             --generate-notes \
             "${RELEASE_ARGS[@]}"
@@ -122,6 +115,8 @@ jobs:
     if: ${{ !contains(github.ref_name, '-') }}
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     uses: ./.github/workflows/homebrew.yml
     with:
       version: ${{ github.ref_name }}

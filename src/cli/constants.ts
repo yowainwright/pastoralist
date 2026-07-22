@@ -1,7 +1,5 @@
 import type { SummaryRowConfig } from "./types";
 
-export const DEFAULT_SECURITY_PROVIDER = "osv";
-
 export const SUMMARY_ROW_CONFIG: SummaryRowConfig[] = [
   { label: "Packages scanned", key: "total" },
   { label: "Appendix entries updated", key: "appendixEntriesUpdated" },

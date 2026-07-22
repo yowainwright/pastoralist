@@ -1,4 +1,4 @@
-import { ICON } from "../../utils/icons";
+import { ICON } from "../../constants";
 import type {
   CompactSummaryData,
   ExecutiveSummaryData,

@@ -1,11 +1,11 @@
-import type { Options, PastoralistJSON, RemovalSafetyComparison, SecurityAlert } from "../types";
-import type { SecurityChecker } from "../core/security";
-import type { SecurityCheckRuntimeOptions } from "../core/security/types";
+import type { Options, PastoralistJSON, RemovalSafetyComparison, SecurityAlert } from "../../types";
+import type { SecurityChecker } from "../../core/security";
+import type { SecurityCheckRuntimeOptions } from "../../core/security/types";
 import {
   extractPackageNames,
   findUnusedAppendixEntries,
   removeOverrideKeys,
-} from "../core/appendix/utils";
+} from "../../core/appendix/utils";
 
 const getRootDependencies = (config: PastoralistJSON): Record<string, string> =>
   Object.assign({}, config.dependencies, config.devDependencies, config.peerDependencies);

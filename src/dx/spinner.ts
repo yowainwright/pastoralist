@@ -2,7 +2,7 @@ import type { SpinnerState, Spinner } from "./types";
 import type { Output } from "./output";
 import { SPINNER_FRAMES, SPINNER_INTERVAL_MS } from "./constants";
 import { defaultOutput } from "./output";
-import { ICON } from "../utils/icons";
+import { ICON } from "../constants";
 
 export const hideCursor = (out: Output = defaultOutput): void => {
   out.hideCursor();

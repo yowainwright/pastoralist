@@ -6,7 +6,7 @@ import {
   clearDependencyGraphCache,
   forceClearCache,
   getDependencyGraph,
-} from "../../../../src/core/packageJSON";
+} from "../../../../src/core/package";
 import {
   determineProcessingMode,
   resolveDepPaths,

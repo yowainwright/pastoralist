@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { buildObject, mergeInto } from "../../../src/utils/object";
+import { buildObject, mergeInto } from "../../../src/utils";
 
 test("buildObject - should build object from keys", () => {
   const keys = ["a", "b", "c"];

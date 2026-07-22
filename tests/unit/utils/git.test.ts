@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { getOverrideGitDate } from "../../../src/utils/git";
+import { getOverrideGitDate } from "../../../src/utils";
 
 test("getOverrideGitDate - should return a date string for existing file", async () => {
   const result = await getOverrideGitDate("package.json");

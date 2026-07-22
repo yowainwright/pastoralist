@@ -1,5 +1,3 @@
-import { gradientGreenTan } from "./utils/gradient";
-
 export const IS_DEBUGGING = process.env.DEBUG === "true" || false;
 
 export const FARMER = "\u{1F9D1}\u{200D}\u{1F33E}";
@@ -29,11 +27,50 @@ export const ANSI = {
 
 export const rgb = (r: number, g: number, b: number): string => `\x1b[38;2;${r};${g};${b}m`;
 
+const colorize = (color: string, text: string): string => `${color}${text}${ANSI.RESET}`;
+
+export const BRAND = BRAND_PREFIX;
+
+export const ICON = {
+  success: colorize(ANSI.FG_GREEN, "\u{25CF}"),
+  error: colorize(ANSI.FG_RED, "\u{25A0}"),
+  warning: colorize(ANSI.FG_YELLOW, "\u{25B2}"),
+  info: colorize(ANSI.FG_CYAN, "\u{25C6}"),
+  arrow: colorize(ANSI.FG_CYAN, "\u{25B8}"),
+  bullet: colorize(ANSI.FG_GRAY, "\u{25AB}"),
+  check: colorize(ANSI.FG_GREEN, "\u{25CF}"),
+  CHECK: colorize(ANSI.FG_GREEN, "\u{2713}"),
+  SHIELD: colorize(ANSI.FG_CYAN, "\u{2B22}"),
+  step: colorize(ANSI.FG_CYAN, "\u{25B6}"),
+  section: colorize(ANSI.FG_CYAN, "\u{25BA}"),
+  search: colorize(ANSI.FG_CYAN, "\u{25C7}"),
+  edit: colorize(ANSI.FG_YELLOW, "\u{25C6}"),
+  folder: colorize(ANSI.FG_CYAN, "\u{25B8}"),
+  skip: colorize(ANSI.FG_GRAY, "\u{25CB}"),
+  help: colorize(ANSI.FG_CYAN, "\u{25C7}"),
+  hint: colorize(ANSI.FG_YELLOW, "\u{1F4A1}"),
+} as const;
+
+export const PREFIX = {
+  success: ICON.success,
+  error: ICON.error,
+  warning: ICON.warning,
+  info: ICON.info,
+  step: ICON.step,
+  save: ICON.arrow,
+  next: ICON.bullet,
+} as const;
+
+export const STEP = {
+  config: `${ICON.step} Step 1: Configuration Location`,
+  workspace: `${ICON.step} Step 2: Workspace Configuration`,
+  security: `${ICON.step} Step 3: Security Configuration`,
+} as const;
+
 const BRIGHT = ANSI.BOLD;
 const GOLD = ANSI.FG_GOLD;
 const RESET = ANSI.RESET;
 
-export const MSG_SCANNING = `${FARMER} ${gradientGreenTan("Pastoralist")} is scanning overrides...`;
 export const MSG_HERD_SAFE = `${BRIGHT}${GOLD}The herd is safe!${RESET} ${SHEEP}`;
 
 export const HINT_RC_FILE_ID = "rc-file-suggestion";

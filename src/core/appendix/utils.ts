@@ -6,8 +6,9 @@ import type {
 } from "../../types";
 import type { Appendix, AppendixItem, OverridesType, OverrideValue } from "../../types";
 import type { PartialSecurityLedger, CompactAppendix } from "./types";
-import { packageAtVersion } from "../../utils/string";
-import { compareVersions } from "../../utils/semver";
+import type { LedgerTransform } from "../types";
+import { packageAtVersion } from "../../utils";
+import { compareVersions } from "../../utils";
 import {
   OVERRIDE_PARENT_SEPARATOR_PATTERN,
   PACKAGE_NAME_PATTERN,
@@ -190,8 +191,6 @@ const addCveDetailsToLedger = (
   if (cveDetails.length === 0) return ledger;
   return Object.assign({}, ledger, { cveDetails });
 };
-
-type LedgerTransform = (ledger: PartialSecurityLedger) => PartialSecurityLedger;
 
 export const createSecurityLedger = (
   packageName: string,

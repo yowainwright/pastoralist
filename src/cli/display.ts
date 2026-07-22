@@ -14,12 +14,13 @@ import { SUMMARY_ROW_CONFIG } from "./constants";
 import type {
   CliGraph,
   OverrideDisplayContext,
-  SecurityResultSummary,
   SummaryRowConfig,
   TableColor,
   UpdateContext,
   UpdateResultData,
 } from "./types";
+import type { SecurityResultSummary } from "./security/types";
+import { pluralSuffix } from "./utils";
 
 const buildOverrideInfo = (
   pkg: string,
@@ -61,11 +62,6 @@ export const displayOverrides = (graph: CliGraph, ctx: OverrideDisplayContext): 
     .filter((entry): entry is { pkg: string; version: string } => entry !== null)
     .map((entry) => toOverrideInfo(entry, ctx))
     .forEach((info) => graph.override(info, false));
-};
-
-export const pluralSuffix = (count: number): string => {
-  if (count === 1) return "";
-  return "s";
 };
 
 export const renderRemovalSafetyComparison = (

@@ -1,0 +1,103 @@
+name: Publish Homebrew formula
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Stable release tag to publish to Homebrew
+        required: true
+        type: string
+    secrets:
+      HOMEBREW_TAP_TOKEN:
+        required: true
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Stable release tag to publish to Homebrew
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: homebrew-pastoralist
+  cancel-in-progress: false
+
+jobs:
+  homebrew:
+    runs-on: macos-latest
+    environment: homebrew-publish
+    permissions:
+      contents: write
+    env:
+      FORMULA_PATH: pastoralist.rb
+      RELEASE_REF: "${{ inputs.version }}"
+      TAP_NAME: pastoralist/release-test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          ref: "${{ inputs.version }}"
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.3.14
+
+      - name: Validate stable version
+        run: |
+          VERSION="${RELEASE_REF#v}"
+          PACKAGE_VERSION="$(bun -p 'require("./package.json").version')"
+          test "$VERSION" = "$PACKAGE_VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          bun scripts/brew.ts validate-version
+
+      - name: Wait for npm package availability
+        run: |
+          for _ in {1..30}; do
+            if npm view "pastoralist@$VERSION" version >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 30
+          done
+          exit 1
+
+      - name: Generate formula from published tarball
+        run: bun scripts/brew.ts generate
+
+      - name: Create formula test tap
+        run: |
+          brew tap-new --no-git "$TAP_NAME"
+          TAP_PATH="$(brew --repository "$TAP_NAME")"
+          cp "$FORMULA_PATH" "$TAP_PATH/Formula/pastoralist.rb"
+
+      - name: Install and test formula
+        run: |
+          brew audit --new --formula "$TAP_NAME/pastoralist"
+          brew audit --strict --online "$TAP_NAME/pastoralist"
+          brew install --build-from-source "$TAP_NAME/pastoralist"
+          brew test "$TAP_NAME/pastoralist"
+          pastoralist --help
+          pastoralist --version
+
+      - name: Attach formula to GitHub release
+        env:
+          GITHUB_TOKEN: "${{ github.token }}"
+        run: gh release upload "v${VERSION}" "$FORMULA_PATH" --clobber
+
+      - name: Update Homebrew tap
+        env:
+          GH_TOKEN: "${{ secrets.HOMEBREW_TAP_TOKEN }}"
+          TAP_BRANCH: "pastoralist-${{ inputs.version }}-${{ github.run_id }}-${{ github.run_attempt }}"
+        run: |
+          gh repo clone yowainwright/homebrew-tap tap
+          cd tap
+          git switch -c "$TAP_BRANCH"
+          cp "../$FORMULA_PATH" Formula/pastoralist.rb
+          git add Formula/pastoralist.rb
+          git -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "pastoralist $VERSION"
+          git push --set-upstream origin "$TAP_BRANCH"
+          gh pr create --base main --head "$TAP_BRANCH" --title "pastoralist $VERSION" --body "Automated formula update for pastoralist $VERSION."

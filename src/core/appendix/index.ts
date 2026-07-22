@@ -18,9 +18,9 @@ import type {
   ProcessedPackageAppendix,
   ProcessOverrideOptions,
 } from "./types";
-import { resolveJSON, jsonCache } from "../packageJSON";
+import { resolveJSON, jsonCache } from "../package";
 import { getOverridesByType, resolveOverrides } from "../overrides";
-import { packageAtVersion } from "../../utils/string";
+import { packageAtVersion } from "../../utils";
 import { NESTED_OVERRIDE_LABEL } from "./constants";
 import {
   mergeOverrideReasons,

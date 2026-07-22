@@ -11,7 +11,7 @@ import {
   writeSymbol,
   update,
 } from "../../../src/dx/spinner";
-import { ICON } from "../../../src/utils/icons";
+import { ICON } from "../../../src/constants";
 import type { SpinnerState } from "../../../src/dx/types";
 
 test("hideCursor - should write hide cursor escape code", () => {

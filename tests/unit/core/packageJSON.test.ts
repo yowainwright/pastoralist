@@ -29,7 +29,7 @@ import {
   parseNpmLockGraph,
   getDependencyGraph,
   clearDependencyGraphCache,
-} from "../../../src/core/packageJSON";
+} from "../../../src/core/package";
 import { clearHintCache } from "../../../src/dx/hint";
 import { HINT_RC_FILE_TEXT } from "../../../src/constants";
 import {

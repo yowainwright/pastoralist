@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { compareVersions } from "../../../src/utils/semver";
+import { compareVersions } from "../../../src/utils";
 
 test("compareVersions - should return 0 for equal versions", () => {
   expect(compareVersions("1.0.0", "1.0.0")).toBe(0);

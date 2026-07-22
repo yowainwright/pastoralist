@@ -7,6 +7,7 @@ import { dirname, join, resolve } from "node:path";
 const scriptPath = resolve("scripts/setup-agent-config.sh");
 const localDevScriptPath = resolve("scripts/setup-local-dev.sh");
 const skillScriptPath = resolve("scripts/setup-pastoralist-skill.sh");
+const hookScriptPath = resolve("scripts/install-hooks.ts");
 const baseEnv = { PATH: "/usr/bin:/bin" };
 
 const withTempRepo = (callback: (root: string) => void) => {
@@ -37,6 +38,35 @@ const runScript = (path: string, root: string, args: string[], env: Record<strin
 
 const runSetup = (root: string, args: string[], env: Record<string, string> = {}) =>
   runScript(scriptPath, root, args, env);
+
+const runHookInstaller = (root: string) =>
+  spawnSync(process.execPath, [hookScriptPath], {
+    cwd: root,
+    encoding: "utf8",
+    env: { ...process.env, CI: "" },
+  });
+
+describe("scripts/install-hooks", () => {
+  test("pre-commit runs legibility and the complete validation sequence", () => {
+    withTempRepo((root) => {
+      mkdirSync(join(root, ".git"), { recursive: true });
+
+      const result = runHookInstaller(root);
+      const hook = readFixture(root, ".git/hooks/pre-commit");
+
+      expect(result.status).toBe(0);
+      expect(hook).toContain("pastoralist-managed-hook");
+      expect(hook).toContain(
+        "await $`node node_modules/eslint-plugin-legibility/bin/lint-changed.js`;",
+      );
+      expect(hook).toContain("await $`bun run format`;");
+      expect(hook).toContain("await $`bun run build`;");
+      expect(hook).toContain("await $`cd app && bun run build`;");
+      expect(hook).toContain("await $`bun run lint`;");
+      expect(hook).toContain("await $`bun test tests/unit/ --coverage --coverage-reporter=lcov`;");
+    });
+  });
+});
 
 describe("scripts/setup-agent-config", () => {
   test("dry run prints Codex writes without touching disk", () => {

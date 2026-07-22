@@ -1,11 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import {
-  createPackageKey,
-  packageAtVersion,
-  buildKey,
-  atKey,
-  colonKey,
-} from "../../../src/utils/string";
+import { createPackageKey, packageAtVersion, buildKey, atKey, colonKey } from "../../../src/utils";
 
 describe("String utilities", () => {
   describe("createPackageKey", () => {

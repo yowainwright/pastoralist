@@ -1,4 +1,4 @@
-import type { ICON, PREFIX } from "./icons";
+import type { ICON, PREFIX } from "../constants";
 
 export type IconKey = keyof typeof ICON;
 export type PrefixKey = keyof typeof PREFIX;

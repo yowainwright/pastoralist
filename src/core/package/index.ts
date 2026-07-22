@@ -2,19 +2,18 @@ import * as fs from "fs";
 import { dirname, resolve } from "path";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "util";
-import * as fg from "../utils/glob";
-import { IS_DEBUGGING, HINT_RC_FILE_ID, HINT_RC_FILE_TEXT } from "../constants";
+import * as fg from "../../utils/glob";
+import { IS_DEBUGGING, HINT_RC_FILE_ID, HINT_RC_FILE_TEXT } from "../../constants";
 import type {
   Appendix,
   PastoralistJSON,
   OverridesType,
-  OverrideValue,
   UpdatePackageJSONOptions,
-} from "../types";
-import { logger } from "../utils";
-import { LRUCache, DiskCache, hashLockfile, resolveCacheDir } from "../utils/cache";
-import { CACHE_NAMESPACES, CACHE_TTLS, CACHE_NS_VERSIONS } from "../utils/cache";
-import { showHint } from "../dx/hint";
+} from "../../types";
+import { logger } from "../../utils";
+import { LRUCache, DiskCache, hashLockfile, resolveCacheDir } from "../../utils/cache";
+import { CACHE_NAMESPACES, CACHE_TTLS, CACHE_NS_VERSIONS } from "../../utils/cache";
+import { showHint } from "../../dx/hint";
 import {
   BUN_LOCK_FILENAME,
   NPM_LOCK_FILENAME,
@@ -23,13 +22,30 @@ import {
   PNPM_LOCK_FILENAME,
   PNPM_LOCK_PACKAGE_PATTERN,
   TREE_CACHE_MAX_ENTRIES,
+  UNKNOWN_DEPENDENCY_VERSION,
   YARN_LOCK_FILENAME,
   YARN_LOCK_PACKAGE_PATTERN,
 } from "./constants";
+import type { BunLockFile, DependencyVersionCandidate, OverrideField } from "./types";
+import {
+  applyOverridesToConfig,
+  detectPackageManager,
+  getExistingOverrideField,
+  getOverrideFieldForPackageManager,
+  parseNpmLsOutput,
+} from "./utils";
+
+export {
+  applyOverridesToConfig,
+  detectPackageManager,
+  getExistingOverrideField,
+  getOverrideFieldForPackageManager,
+  parseNpmLsOutput,
+} from "./utils";
+export type { OverrideField, PackageManager } from "./types";
 
 const execFile = promisify(execFileCallback);
-const log = logger({ file: "packageJSON.ts", isLogging: IS_DEBUGGING });
-const UNKNOWN_DEPENDENCY_VERSION = "unknown";
+const log = logger({ file: "package/index.ts", isLogging: IS_DEBUGGING });
 
 let _treeCache: DiskCache<Record<string, string>> | null = null;
 let _pendingTreeRequests: Map<string, Promise<Record<string, string>>> | null = null;
@@ -60,103 +76,6 @@ export const forceClearCache = () => {
   jsonCache.clear();
   log.debug(`Cache cleared. Had ${sizeBefore} entries`, "forceClearCache");
   return sizeBefore;
-};
-
-const lockFileExists = (filename: string, root: string = process.cwd()): boolean => {
-  const filePath = resolve(root, filename);
-  return fs.existsSync(filePath);
-};
-
-export const detectPackageManager = (
-  root: string = process.cwd(),
-): "npm" | "yarn" | "pnpm" | "bun" => {
-  const isBun = lockFileExists("bun.lockb", root) || lockFileExists("bun.lock", root);
-  if (isBun) return "bun";
-
-  const isYarn = lockFileExists("yarn.lock", root);
-  if (isYarn) return "yarn";
-
-  const isPnpm = lockFileExists("pnpm-lock.yaml", root);
-  if (isPnpm) return "pnpm";
-
-  return "npm";
-};
-
-const hasResolutions = (config: PastoralistJSON): boolean => {
-  return config?.resolutions !== undefined;
-};
-
-const hasOverrides = (config: PastoralistJSON): boolean => {
-  return config?.overrides !== undefined;
-};
-
-const hasPnpmOverrides = (config: PastoralistJSON): boolean => {
-  return config?.pnpm?.overrides !== undefined;
-};
-
-export const getExistingOverrideField = (
-  config: PastoralistJSON,
-): "resolutions" | "overrides" | "pnpm" | null => {
-  if (hasResolutions(config)) return "resolutions";
-  if (hasOverrides(config)) return "overrides";
-  if (hasPnpmOverrides(config)) return "pnpm";
-  return null;
-};
-
-export const getOverrideFieldForPackageManager = (
-  packageManager: "npm" | "yarn" | "pnpm" | "bun",
-): "resolutions" | "overrides" | "pnpm" => {
-  const fieldMap = {
-    yarn: "resolutions" as const,
-    pnpm: "pnpm" as const,
-    npm: "overrides" as const,
-    bun: "overrides" as const,
-  };
-
-  return fieldMap[packageManager];
-};
-
-const applyResolutions = (
-  config: PastoralistJSON,
-  overrides: Record<string, string>,
-): PastoralistJSON => {
-  return Object.assign({}, config, { resolutions: overrides });
-};
-
-const applyPnpmOverrides = (
-  config: PastoralistJSON,
-  overrides: Record<string, OverrideValue>,
-): PastoralistJSON => {
-  const pnpm = config.pnpm || {};
-  const nextPnpm = Object.assign({}, pnpm, { overrides });
-  return Object.assign({}, config, { pnpm: nextPnpm });
-};
-
-const applyNpmOverrides = (
-  config: PastoralistJSON,
-  overrides: Record<string, OverrideValue>,
-): PastoralistJSON => {
-  return Object.assign({}, config, { overrides });
-};
-
-export const applyOverridesToConfig = (
-  config: PastoralistJSON,
-  overrides: Record<string, OverrideValue> | Record<string, string>,
-  fieldType: "resolutions" | "overrides" | "pnpm" | null,
-): PastoralistJSON => {
-  if (fieldType === "resolutions") {
-    return applyResolutions(config, overrides as Record<string, string>);
-  }
-
-  if (fieldType === "pnpm") {
-    return applyPnpmOverrides(config, overrides as Record<string, OverrideValue>);
-  }
-
-  if (fieldType === "overrides") {
-    return applyNpmOverrides(config, overrides as Record<string, OverrideValue>);
-  }
-
-  return config;
 };
 
 const parseJsonFile = (filePath: string): PastoralistJSON | undefined => {
@@ -267,7 +186,7 @@ const resolveOverrideField = (
   config: PastoralistJSON,
   isTesting: boolean,
   path: string,
-): "resolutions" | "overrides" | "pnpm" | null => {
+): OverrideField | null => {
   const existingField = getExistingOverrideField(config);
   if (existingField) return existingField;
   if (isTesting) return null;
@@ -404,42 +323,6 @@ export const updatePackageJSON = ({
   writeUpdatedPackageJson(path, updatedConfig, jsonString);
 };
 
-export const parseNpmLsOutput = (stdout: string): Record<string, string> => {
-  let tree: { dependencies?: Record<string, unknown> };
-  try {
-    tree = JSON.parse(stdout);
-  } catch (err) {
-    log.debug("Failed to parse npm ls output", "parseNpmLsOutput", err);
-    return {};
-  }
-  const packageMap: Record<string, string> = {};
-
-  const getDependencyVersion = (value: unknown): string => {
-    const version = (value as { version?: unknown })?.version;
-    return typeof version === "string" && version.length > 0 ? version : UNKNOWN_DEPENDENCY_VERSION;
-  };
-
-  const traverseDependencies = (deps: Record<string, unknown>): void => {
-    const isValidDeps = deps && typeof deps === "object";
-    if (!isValidDeps) return;
-
-    Object.entries(deps).forEach(([name, value]) => {
-      packageMap[name] = getDependencyVersion(value);
-
-      const hasNestedDeps = value && typeof value === "object" && "dependencies" in value;
-      if (hasNestedDeps) {
-        traverseDependencies(value.dependencies as Record<string, unknown>);
-      }
-    });
-  };
-
-  if (tree.dependencies) {
-    traverseDependencies(tree.dependencies);
-  }
-
-  return packageMap;
-};
-
 export const executeNpmLs = async (root: string = process.cwd()): Promise<string> => {
   try {
     const { stdout } = await execFile("npm", ["ls", "--json", "--all"], {
@@ -474,8 +357,6 @@ const getPendingTreeRequests = (): Map<string, Promise<Record<string, string>>> 
   if (!_pendingTreeRequests) _pendingTreeRequests = new Map();
   return _pendingTreeRequests;
 };
-
-type BunLockFile = { packages?: Record<string, unknown> };
 
 const isJsonWhitespace = (char: string): boolean =>
   char === " " || char === "\n" || char === "\r" || char === "\t";
@@ -612,11 +493,6 @@ export const parseYarnLockTree = (root: string): Record<string, string> | undefi
   } catch {
     return undefined;
   }
-};
-
-type DependencyVersionCandidate = {
-  depth: number;
-  version: string;
 };
 
 const getDependencyVersion = (value: unknown): string => {

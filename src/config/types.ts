@@ -53,6 +53,7 @@ export type SecurityConfig = {
   excludePackages?: string[];
   hasWorkspaceSecurityChecks?: boolean;
   strict?: boolean;
+  preferLatest?: boolean;
 };
 
 export type PastoralistConfig = {

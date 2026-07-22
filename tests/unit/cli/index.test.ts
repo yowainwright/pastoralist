@@ -1942,7 +1942,7 @@ test("action - merges external config into package config", async () => {
 
 test("action - loads external config when package.json has no pastoralist config", async () => {
   const { action } = require("../../../src/cli/index");
-  const { resolveJSON, forceClearCache } = require("../../../src/core/packageJSON");
+  const { resolveJSON, forceClearCache } = require("../../../src/core/package");
 
   const packagePath = resolve(actionExternalConfigDir, "package.json");
   const configPath = resolve(actionExternalConfigDir, ".pastoralistrc.json");

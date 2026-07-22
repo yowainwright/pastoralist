@@ -14,7 +14,7 @@ export {
   getExistingOverrideField,
   getOverrideFieldForPackageManager,
   applyOverridesToConfig,
-} from "./core/packageJSON";
+} from "./core/package";
 
 export {
   mergeOverridePaths,

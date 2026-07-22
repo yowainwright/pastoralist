@@ -20,7 +20,7 @@ import {
   WorkspaceVulnerabilityState,
 } from "../../types";
 import { Appendix, PastoralistJSON, OverridesType } from "../../types";
-import { detectPackageManager } from "../packageJSON";
+import { detectPackageManager } from "../package";
 import {
   logger,
   LRUCache,
@@ -31,7 +31,7 @@ import {
   fetchLatestCompatibleVersions,
 } from "../../utils";
 import { CACHE_NAMESPACES, CACHE_TTLS, CACHE_NS_VERSIONS } from "../../utils/cache";
-import { compareVersions } from "../../utils/semver";
+import { compareVersions } from "../../utils";
 import {
   InteractiveSecurityManager,
   deduplicateAlerts,
@@ -49,10 +49,9 @@ import { createHash } from "crypto";
 import { resolve, dirname, basename } from "path";
 import { updateAppendix } from "../appendix";
 import { glob } from "../../utils/glob";
+import { BACKUP_CACHE_DIR, DEFAULT_MEMORY_CACHE_TTL } from "../constants";
 
 export * from "./providers";
-
-const BACKUP_CACHE_DIR = "backups";
 
 const resolveBackupCacheDir = (root: string, cacheDir?: string): string => {
   const baseCacheDir = resolveCacheDir({ cacheDir, root });
@@ -60,7 +59,6 @@ const resolveBackupCacheDir = (root: string, cacheDir?: string): string => {
 };
 
 export class SecurityChecker {
-  private static readonly DEFAULT_MEMORY_CACHE_TTL = 1000 * 60 * 60;
   private providers: SecurityProvider[];
   private log: ReturnType<typeof logger>;
   private cache: LRUCache<string, SecurityAlert[]>;
@@ -77,10 +75,7 @@ export class SecurityChecker {
     this.configuredCacheDir = options.cacheDir;
     this.cacheRoot = options.root;
     this.providers = this.createProviders(options);
-    const cacheTtlMs = this.resolveCacheTtlMs(
-      options.cacheTtl,
-      SecurityChecker.DEFAULT_MEMORY_CACHE_TTL,
-    );
+    const cacheTtlMs = this.resolveCacheTtlMs(options.cacheTtl, DEFAULT_MEMORY_CACHE_TTL);
     const alertDiskCacheTtlMs = this.resolveCacheTtlMs(options.cacheTtl, CACHE_TTLS.ALERTS);
     this.cache = new LRUCache({
       max: 500,

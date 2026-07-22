@@ -19,7 +19,7 @@ Pastoralist keeps the package-manager instruction where it belongs and adds the
 missing review record: why the override exists, which packages still need it,
 which security provider found it, and when it can be removed.
 
-<!-- first-run CLI commands from src/cli/parser/constants.ts and src/cli/onboarding/ -->
+<!-- first-run CLI commands from src/cli/parser/constants.ts and src/cli/cmds/init/ -->
 
 ## Quick Start
 
@@ -27,6 +27,12 @@ Start with a read-only check:
 
 ```bash
 npx pastoralist doctor
+```
+
+Or install it with Homebrew:
+
+```bash
+brew install yowainwright/tap/pastoralist
 ```
 
 For first-run guidance across local use, agents, and CI:
@@ -208,6 +214,8 @@ verify.
 - Releases are published from GitHub Actions with npm provenance
 - Published tarballs are packed before release and attached to GitHub Releases
   with artifact attestations
+- Perry binaries are built and tested before release
+- Stable releases open a reviewed Homebrew tap update
 - CI runs CodeQL, OpenSSF Scorecard, unit, integration, e2e, and dependency
   policy checks
 

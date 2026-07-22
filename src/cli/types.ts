@@ -1,25 +1,14 @@
-import type {
-  AppendixItem,
-  Options,
-  PastoralistJSON,
-  PastoralistResult,
-  SecurityOverrideDetail,
-} from "../types";
+import type { AppendixItem, Options, PastoralistJSON, PastoralistResult } from "../types";
 import type { update } from "../core/update";
 import type { createTerminalGraph } from "../dx";
-import type { resolveJSON } from "../core/packageJSON";
+import type { resolveJSON } from "../core/package";
 import type { loadConfig } from "../config";
-import type { getOverrideGitDate } from "../utils/git";
+import type { getOverrideGitDate } from "../utils";
 import type { createSpinner, green, logger as createLogger, quickConfirm } from "../utils";
 import type { initCommand } from "./cmds/init";
-import type { showOnboarding } from "./onboarding";
+import type { showOnboarding } from "./cmds/init";
 import type { buildMergedOptions, handleSecurityResults, runSecurityCheck } from "./security";
-
-export type SecurityConfig = NonNullable<NonNullable<PastoralistJSON["pastoralist"]>["security"]>;
-
-export type SecurityProviderOption = Options["securityProvider"];
-
-export type OptionalSecurityOverrideDetail = Omit<SecurityOverrideDetail, "packageName" | "reason">;
+import type { SecurityPhaseResult } from "./security/types";
 
 export type OverrideDisplayContext = {
   finalOverrides: Record<string, unknown>;
@@ -38,11 +27,6 @@ export type TableColor = "green" | "yellow" | "red" | "cyan" | "gray";
 
 export type CliGraph = ReturnType<typeof createTerminalGraph>;
 
-export type SecurityResultSummary = Pick<
-  PastoralistResult,
-  "hasSecurityIssues" | "securityAlertCount" | "securityAlerts"
->;
-
 export type UpdateResultData = Pick<
   PastoralistResult,
   "overrideCount" | "appliedOverrides" | "updated"
@@ -54,12 +38,6 @@ export type LoadedCliConfig = {
   path: string;
   config: PastoralistJSON;
   mergedOptions: Options;
-};
-
-export type SecurityPhaseResult = {
-  mergedOptions: Options;
-  securityResult: SecurityResultSummary;
-  packagesScanned: number;
 };
 
 export type CliConfigDeps = {

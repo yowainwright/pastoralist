@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { findPackageJsonFiles, resolveJSON } from "../../src/core/packageJSON";
+import { findPackageJsonFiles, resolveJSON } from "../../src/core/package";
 import { updateAppendix } from "../../src/core/appendix";
 import { SecurityChecker } from "../../src/core/security";
 import { OSVProvider } from "../../src/core/security/providers/osv";

@@ -6,24 +6,24 @@ import {
   SecurityOverrideDetail,
   SecurityProviderPermissionError,
   OverrideUpdate,
-} from "../types";
-import { MSG_SCANNING } from "../constants";
-import { SecurityChecker } from "../core/security";
-import { resolveWorkspaceManifestPaths } from "../core/workspace";
-import { createSpinner, green, yellow, logger as createLogger } from "../utils";
-import { DEFAULT_SECURITY_PROVIDER } from "./constants";
-import { renderRemovalSafetyComparison, renderSecurityFindings } from "./display";
-import { compareRemovalSafety } from "./safety";
-import { buildSecurityResult } from "./results";
+} from "../../types";
+import { SecurityChecker } from "../../core/security";
+import { resolveWorkspaceManifestPaths } from "../../core/workspaces";
+import { createSpinner, green, yellow, logger as createLogger } from "../../utils";
+import { DEFAULT_SECURITY_PROVIDER, MSG_SCANNING } from "./constants";
+import { renderRemovalSafetyComparison, renderSecurityFindings } from "../display";
+import { compareRemovalSafety } from "./utils";
+import { buildSecurityResult } from "../utils";
+import type { CliGraph, SecurityPhaseDeps } from "../types";
 import type {
-  CliGraph,
   OptionalSecurityOverrideDetail,
   SecurityConfig,
-  SecurityPhaseDeps,
   SecurityPhaseResult,
   SecurityProviderOption,
   SecurityResultSummary,
 } from "./types";
+
+export { checkRemovalSafety, compareRemovalSafety } from "./utils";
 
 const logger = createLogger({ file: "program.ts", isLogging: false });
 type SecurityCheckerClass = typeof SecurityChecker;

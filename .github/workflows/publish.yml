@@ -125,4 +125,3 @@ jobs:
     uses: ./.github/workflows/homebrew.yml
     with:
       version: ${{ github.ref_name }}
-    secrets: inherit

@@ -7,9 +7,6 @@ on:
         description: Stable release tag to publish to Homebrew
         required: true
         type: string
-    secrets:
-      HOMEBREW_TAP_TOKEN:
-        required: true
   workflow_dispatch:
     inputs:
       version:

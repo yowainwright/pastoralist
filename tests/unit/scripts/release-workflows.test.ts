@@ -18,5 +18,8 @@ describe("release workflows", () => {
     const workflows = [readWorkflow("publish.yml"), readWorkflow("homebrew.yml")];
 
     workflows.forEach((workflow) => expect(workflow).not.toContain("--clobber"));
+    workflows.forEach((workflow) =>
+      expect(workflow).toContain("sh scripts/upload-release-assets.sh"),
+    );
   });
 });

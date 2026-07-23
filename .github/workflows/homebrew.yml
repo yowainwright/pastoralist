@@ -123,7 +123,7 @@ jobs:
           BINARY: ${{ steps.perry.outputs.binary }}
           GITHUB_TOKEN: "${{ github.token }}"
           SIGSTORE_BUNDLE: ${{ steps.perry-attestation.outputs.sigstore_bundle }}
-        run: gh release upload "v${VERSION}" "$FORMULA_PATH" "$BINARY" "$SIGSTORE_BUNDLE"
+        run: sh scripts/upload-release-assets.sh "v${VERSION}" "$FORMULA_PATH" "$BINARY" "$SIGSTORE_BUNDLE"
 
       - name: Update Homebrew tap
         env:

@@ -26,6 +26,11 @@ for asset_path in "$@"; do
     continue
   fi
 
+  if [ "$published_digest" = "unavailable" ]; then
+    printf 'Release asset digest unavailable: %s\n' "$asset_name" >&2
+    exit 1
+  fi
+
   printf 'Release asset digest mismatch: %s\n' "$asset_name" >&2
   exit 1
 done

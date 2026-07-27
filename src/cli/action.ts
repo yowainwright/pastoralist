@@ -6,7 +6,7 @@ import { createTerminalGraph } from "../dx";
 import type { Options, PastoralistResult } from "../types";
 import {
   createSpinner,
-  getOverrideGitDate,
+  getLedgerAddedDate,
   green,
   logger as createLogger,
   pruneBackups,
@@ -145,12 +145,11 @@ const runSecurityWorkflow = (
     deps,
   );
 
-const addGitDateToOptions = async (
-  path: string,
+const addLedgerDateToOptions = async (
   mergedOptions: Options,
-  deps: Pick<UpdateWorkflowDeps, "getOverrideGitDate">,
+  deps: Pick<UpdateWorkflowDeps, "getLedgerAddedDate">,
 ): Promise<Options> => {
-  const addedDate = await deps.getOverrideGitDate(path);
+  const addedDate = await deps.getLedgerAddedDate();
   return Object.assign({}, mergedOptions, { addedDate });
 };
 
@@ -177,11 +176,7 @@ const runUpdateWorkflow = async (
     deps,
     runtime,
   );
-  const mergedOptions = await addGitDateToOptions(
-    loadedConfig.path,
-    securityPhase.mergedOptions,
-    deps,
-  );
+  const mergedOptions = await addLedgerDateToOptions(securityPhase.mergedOptions, deps);
   const updateResult = runPackageUpdate(loadedConfig.config, mergedOptions, options, deps);
 
   return Object.assign(
@@ -274,7 +269,7 @@ const defaultActionDeps: ActionDeps = {
   quickConfirm,
   update,
   createTerminalGraph,
-  getOverrideGitDate,
+  getLedgerAddedDate,
   loadConfig,
   processExit: (code: number) => process.exit(code),
 };

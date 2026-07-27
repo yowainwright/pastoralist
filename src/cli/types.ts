@@ -3,7 +3,7 @@ import type { update } from "../core/update";
 import type { createTerminalGraph } from "../dx";
 import type { resolveJSON } from "../core/package";
 import type { loadConfig } from "../config";
-import type { getOverrideGitDate } from "../utils";
+import type { getLedgerAddedDate } from "../utils";
 import type { createSpinner, green, logger as createLogger, quickConfirm } from "../utils";
 import type { initCommand } from "./cmds/init";
 import type { showOnboarding } from "./cmds/init";
@@ -70,7 +70,7 @@ export type EarlyActionDeps = {
 };
 
 export type UpdateWorkflowDeps = CliConfigDeps & {
-  getOverrideGitDate: typeof getOverrideGitDate;
+  getLedgerAddedDate: typeof getLedgerAddedDate;
   update: typeof update;
   runSecurityCheck: typeof runSecurityCheck;
   handleSecurityResults: typeof handleSecurityResults;

@@ -45,13 +45,17 @@ test("e2e: processes package with single override", async () => {
     },
   });
 
+  const before = new Date().toISOString();
   await action({ path: pkgPath, checkSecurity: false });
+  const after = new Date().toISOString();
 
   const result = JSON.parse(readFileSync(pkgPath, "utf-8"));
+  const addedDate = result.pastoralist.appendix["lodash@4.17.21"].ledger.addedDate;
   expect(result.pastoralist).toBeDefined();
   expect(result.pastoralist.appendix).toBeDefined();
   expect(result.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
   expect(result.pastoralist.appendix["lodash@4.17.21"].dependents).toBeDefined();
+  expect(addedDate >= before && addedDate <= after).toBe(true);
 });
 
 test("e2e: processes package with nested override", async () => {
@@ -266,6 +270,9 @@ test("e2e: processes package with existing appendix", async () => {
   const result = JSON.parse(readFileSync(pkgPath, "utf-8"));
   expect(result.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
   expect(result.pastoralist.appendix["minimist@1.2.8"]).toBeDefined();
+  expect(result.pastoralist.appendix["lodash@4.17.21"].ledger.addedDate).toBe(
+    "2024-01-01T00:00:00.000Z",
+  );
 });
 
 test("e2e: preserves keep: true through write round-trip", async () => {

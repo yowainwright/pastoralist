@@ -116,9 +116,9 @@
     "codependence": "^1.0.6",
     "eslint-plugin-legibility": "^0.2.0",
     "oxfmt": "^0.50.0",
-    "oxlint": "^1.75.0",
-    "release-it": "20.2.1",
-    "turbo": "2.10.6",
+    "oxlint": "^1.76.0",
+    "release-it": "21.0.0",
+    "turbo": "2.10.7",
     "typescript": "7.0.2"
   },
   "peerDependencies": {},

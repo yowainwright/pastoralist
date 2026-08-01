@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { logger as createLogger } from "../src/utils";
 
 const STABLE_VERSION_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
@@ -27,8 +27,11 @@ const FORMULA_BODY = [
 ];
 
 type Fetch = typeof fetch;
-type FormulaInput = { digest: string; url: string; version: string };
-type FormulaOptions = { fetchImpl?: Fetch; outputPath: string; version: string };
+type FormulaSource = { digest: string; url: string };
+type FormulaInput = FormulaSource & { version: string };
+type FormulaOptions = { outputPath: string; version: string };
+type PublishedFormulaOptions = FormulaOptions & { fetchImpl?: Fetch };
+type LocalFormulaOptions = FormulaOptions & { tarballPath: string };
 type CliOptions = { argv?: string[]; env?: Record<string, string | undefined> };
 
 export const validateStableVersion = (version: string): void => {
@@ -42,8 +45,8 @@ export const npmTarballUrl = (version: string): string =>
 export const sha256 = (content: Buffer): string =>
   createHash("sha256").update(content).digest("hex");
 
-export const renderFormula = ({ digest, url, version }: FormulaInput): string => {
-  const source = [`  url "${url}"`, `  version "${version}"`, `  sha256 "${digest}"`];
+export const renderFormula = ({ digest, url }: FormulaSource): string => {
+  const source = [`  url "${url}"`, `  sha256 "${digest}"`];
   return FORMULA_HEADER.concat(source, FORMULA_BODY, "").join("\n");
 };
 
@@ -56,17 +59,30 @@ export const fetchPublishedTarball = async (
   return Buffer.from(await response.arrayBuffer());
 };
 
+const createFormula = (content: Buffer, { outputPath, version }: FormulaOptions): FormulaInput => {
+  validateStableVersion(version);
+  const url = npmTarballUrl(version);
+  const digest = sha256(content);
+  writeFileSync(outputPath, renderFormula({ digest, url }));
+  return { digest, url, version };
+};
+
 export const createPublishedFormula = async ({
   fetchImpl = fetch,
   outputPath,
   version,
-}: FormulaOptions): Promise<FormulaInput> => {
-  validateStableVersion(version);
+}: PublishedFormulaOptions): Promise<FormulaInput> => {
   const url = npmTarballUrl(version);
-  const digest = sha256(await fetchPublishedTarball(url, fetchImpl));
-  writeFileSync(outputPath, renderFormula({ digest, url, version }));
-  return { digest, url, version };
+  const content = await fetchPublishedTarball(url, fetchImpl);
+  return createFormula(content, { outputPath, version });
 };
+
+export const createLocalFormula = ({
+  outputPath,
+  tarballPath,
+  version,
+}: LocalFormulaOptions): FormulaInput =>
+  createFormula(readFileSync(tarballPath), { outputPath, version });
 
 const requiredEnv = (env: Record<string, string | undefined>, name: string): string => {
   const value = env[name];
@@ -82,8 +98,13 @@ export const runBrewCli = async ({
   const version = requiredEnv(env, "VERSION");
   validateStableVersion(version);
   if (command === "validate-version") return;
-  if (command !== "generate") throw new Error(`Unknown command: ${command}`);
   const outputPath = requiredEnv(env, "FORMULA_PATH");
+  if (command === "generate-local") {
+    const tarballPath = requiredEnv(env, "TARBALL_PATH");
+    createLocalFormula({ outputPath, tarballPath, version });
+    return;
+  }
+  if (command !== "generate") throw new Error(`Unknown command: ${command}`);
   await createPublishedFormula({ outputPath, version });
 };
 

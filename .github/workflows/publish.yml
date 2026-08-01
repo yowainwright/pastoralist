@@ -14,8 +14,11 @@ env:
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     environment: npm-publish
+    env:
+      FORMULA_PATH: pastoralist.rb
+      TAP_NAME: pastoralist/release-preflight
     permissions:
       id-token: write
       contents: write
@@ -60,6 +63,21 @@ jobs:
           TARBALL="$(node -e "const fs = require('node:fs'); const text = fs.readFileSync('npm-pack.json', 'utf8'); const start = text.indexOf('['); if (start < 0) throw new Error('npm pack JSON output not found'); const [pkg] = JSON.parse(text.slice(start)); console.log(pkg.filename)")"
           test -n "$TARBALL"
           echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+
+      - name: Generate formula from packed tarball
+        env:
+          TARBALL_PATH: ${{ steps.pack.outputs.tarball }}
+        run: |
+          case "$GITHUB_REF_NAME" in *-*) exit 0 ;; esac
+          VERSION="${GITHUB_REF_NAME#v}" bun scripts/brew.ts generate-local
+
+      - name: Audit formula before publishing
+        run: |
+          case "$GITHUB_REF_NAME" in *-*) exit 0 ;; esac
+          brew tap-new --no-git "$TAP_NAME"
+          TAP_PATH="$(brew --repository "$TAP_NAME")"
+          cp "$FORMULA_PATH" "$TAP_PATH/Formula/pastoralist.rb"
+          brew audit --strict --formula "$TAP_NAME/pastoralist"
 
       - name: Attest npm tarball
         id: attest

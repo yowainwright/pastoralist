@@ -216,7 +216,7 @@ verify.
 - Releases are published from GitHub Actions with npm provenance
 - Published tarballs are packed before release and attached to GitHub Releases
   with artifact attestations
-- Perry binaries are built, tested, and attested only for stable Homebrew releases
+- ScriptC binaries are built, tested, and attested only for stable Homebrew releases
 - Stable releases open a reviewed Homebrew tap update
 - CI runs CodeQL, OpenSSF Scorecard, unit, integration, e2e, and dependency
   policy checks

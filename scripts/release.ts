@@ -87,6 +87,7 @@ export function buildReleaseCommands(version: string, releaseArgs: ReleaseArgs):
       "./node_modules/.bin/release-it",
       buildReleaseItArgs({ preRelease: releaseArgs.preRelease, version }),
     ),
+    formatShellCommand("git", ["push", "origin", "HEAD:refs/heads/main"]),
     formatShellCommand("git", ["tag", "--annotate", tagName, "--message", `Release ${version}`]),
     formatShellCommand("git", ["push", "origin", `refs/tags/${tagName}`]),
   ];
@@ -98,9 +99,8 @@ export function buildReleasePlan(version: string, releaseArgs: ReleaseArgs): Rel
     commands: buildReleaseCommands(version, releaseArgs),
     steps: [
       "verify clean, up-to-date main",
-      "create the release commit without pushing main",
+      "create and push the release commit to main",
       `push ${tagName} to trigger publishing`,
-      "restore local main to its starting commit",
     ],
     tagName,
     version,
@@ -151,7 +151,7 @@ export async function runRelease(options: ReleaseOptions = {}): Promise<number> 
   const logger = options.logger ?? console;
   const runner = options.runner ?? createRunner(cwd);
   const releaseArgs = normalizeOptions(options);
-  const startingHead = assertMainReady(runner);
+  assertMainReady(runner);
   const packageVersion = options.packageVersion ?? readPackageVersion(cwd);
 
   const shouldTagCurrentVersion =
@@ -185,20 +185,17 @@ export async function runRelease(options: ReleaseOptions = {}): Promise<number> 
     return 0;
   }
 
-  try {
-    createReleaseCommit(runner, releaseArgs, version);
-    runReleaseTag({
-      cwd,
-      git: (args) => runner("git", args),
-      logger,
-      requireUpstream: false,
-      version,
-    });
-    logger.log("No PR was created and main was not pushed.");
-    return 0;
-  } finally {
-    restoreStartingHead(runner, startingHead);
-  }
+  createReleaseCommit(runner, releaseArgs, version);
+  runCommand(runner, "git", ["push", "origin", "HEAD:refs/heads/main"]);
+
+  runReleaseTag({
+    cwd,
+    git: (args) => runner("git", args),
+    logger,
+    version,
+  });
+  logger.log(`Pushed release commit ${version} to main.`);
+  return 0;
 }
 
 export function isPreReleaseVersion(version: string): boolean {
@@ -249,7 +246,7 @@ function runCommand(runner: ReleaseRunner, command: string, args: readonly strin
   commandText(runner, command, args);
 }
 
-function assertMainReady(runner: ReleaseRunner): string {
+function assertMainReady(runner: ReleaseRunner): void {
   const branch = commandText(runner, "git", ["branch", "--show-current"]);
   if (branch !== "main") throw new Error("Run releases from main");
 
@@ -260,7 +257,6 @@ function assertMainReady(runner: ReleaseRunner): string {
   const head = commandText(runner, "git", ["rev-parse", "HEAD"]);
   const upstream = commandText(runner, "git", ["rev-parse", "origin/main"]);
   if (head !== upstream) throw new Error("Local main must match origin/main before release");
-  return head;
 }
 
 function resolveReleaseVersion(runner: ReleaseRunner, releaseArgs: ReleaseArgs): string {
@@ -358,10 +354,6 @@ function createReleaseCommit(
     "./node_modules/.bin/release-it",
     buildReleaseItArgs({ preRelease: releaseArgs.preRelease, version }),
   );
-}
-
-function restoreStartingHead(runner: ReleaseRunner, startingHead: string): void {
-  runCommand(runner, "git", ["reset", "--hard", startingHead]);
 }
 
 if (import.meta.main) {

@@ -1,5 +1,5 @@
 import { test, expect, mock, spyOn } from "bun:test";
-import * as readline from "readline/promises";
+import * as readline from "readline";
 import {
   CLIInstaller,
   getSeverityScore,
@@ -1094,12 +1094,14 @@ test("createPromptInterface - creates readline interface", () => {
 });
 
 const createMockReadline = (answer: string) => ({
-  question: () => Promise.resolve(answer),
+  question: (_prompt: string, callback: (value: string) => void) => callback(answer),
   close: mock(),
 });
 
 const createRejectingMockReadline = () => ({
-  question: () => Promise.reject(new Error("timeout")),
+  question: () => {
+    throw new Error("timeout");
+  },
   close: mock(),
 });
 

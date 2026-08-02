@@ -27,7 +27,7 @@ jobs:
       - run: bun install --config=/dev/null --frozen-lockfile
 
       - name: Run tests with coverage
-        run: bun test tests/unit/ --coverage --coverage-reporter=lcov
+        run: bun test ./tests/unit --coverage --coverage-reporter=lcov
         env:
           CI: true
 

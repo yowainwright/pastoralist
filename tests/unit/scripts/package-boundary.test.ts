@@ -28,4 +28,18 @@ describe("package security boundary", () => {
 
     expect(socketConfig).toContain('- "app/**"');
   });
+
+  test("installs docs dependencies from root setup", () => {
+    const rootPackage = readPackage("package.json");
+    const scripts = rootPackage.scripts as Record<string, string>;
+
+    expect(scripts.presetup).toContain("bun install --cwd app");
+  });
+
+  test("keeps root tests outside the docs package", () => {
+    const rootPackage = readPackage("package.json");
+    const scripts = rootPackage.scripts as Record<string, string>;
+
+    expect(scripts["test:unit"]).toBe("bun test ./tests/unit");
+  });
 });

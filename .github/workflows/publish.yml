@@ -40,7 +40,7 @@ jobs:
 
       - run: bun install --config=/dev/null --frozen-lockfile
 
-      - run: bun test tests/unit/
+      - run: bun test ./tests/unit
         env:
           CI: true
 

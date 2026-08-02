@@ -77,7 +77,7 @@ jobs:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
       - name: Run tests with coverage
-        run: bun test tests/unit/ --coverage --coverage-reporter=lcov
+        run: bun test ./tests/unit --coverage --coverage-reporter=lcov
         env:
           CI: true
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
@@ -137,7 +137,7 @@ jobs:
         run: node dist/index.js --help
 
       - name: Run unit tests
-        run: bun test tests/unit/
+        run: bun test ./tests/unit
         env:
           CI: true
 

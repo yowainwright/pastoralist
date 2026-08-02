@@ -111,7 +111,7 @@
     "@socketsecurity/bun-security-scanner": "^1.1.2",
     "@types/bun": "1.3.14",
     "codependence": "^1.0.6",
-    "eslint-plugin-legibility": "^0.2.0",
+    "eslint-plugin-legibility": "^0.3.0",
     "oxfmt": "^0.50.0",
     "oxlint": "^1.76.0",
     "release-it": "21.0.0",

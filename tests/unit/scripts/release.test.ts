@@ -27,12 +27,17 @@ const fail = (stderr: string): GitResult => ({ status: 1, stdout: "", stderr });
 function createRunner(overrides: Record<string, GitResult> = {}) {
   let calls: string[][] = [];
   const runner = mock<ReleaseRunner>((command, args) => {
-    const key = [command, ...args].join(" ");
-    calls = calls.concat([[command, ...Array.from(args)]]);
+    const commandArgs = [command].concat(Array.from(args));
+    const key = commandArgs.join(" ");
+    calls = calls.concat([commandArgs]);
     return overrides[key] ?? ok("");
   });
   return { calls: () => calls, runner };
 }
+
+const mergeOverrides = (
+  ...overrides: Array<Record<string, GitResult>>
+): Record<string, GitResult> => Object.assign({}, ...overrides);
 
 const readyOverrides = {
   "git branch --show-current": ok("main\n"),
@@ -184,13 +189,13 @@ describe("scripts/release", () => {
       }),
       warn: mock(() => {}),
     };
-    const { calls, runner } = createRunner({
-      ...readyOverrides,
+    const overrides = mergeOverrides(readyOverrides, {
       "git rev-parse -q --verify refs/tags/v1.2.4-beta.6": missing(),
       "git ls-remote --tags origin refs/tags/v1.2.4-beta.6": ok(""),
       "./node_modules/.bin/release-it --release-version --preRelease=beta --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
         ok("1.2.4-beta.6\n"),
     });
+    const { calls, runner } = createRunner(overrides);
 
     const code = await runRelease({
       dryRun: true,
@@ -222,11 +227,11 @@ describe("scripts/release", () => {
   });
 
   test("runRelease surfaces command failures", async () => {
-    const { runner } = createRunner({
-      ...readyOverrides,
+    const overrides = mergeOverrides(readyOverrides, {
       "./node_modules/.bin/release-it --release-version --increment=patch --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
         fail("release-it failed"),
     });
+    const { runner } = createRunner(overrides);
 
     await expect(
       runRelease({ dryRun: true, increment: "patch", packageVersion: "1.2.3", runner }),
@@ -328,8 +333,7 @@ describe("scripts/release", () => {
       }),
       warn: mock(() => {}),
     };
-    const { runner } = createRunner({
-      ...readyOverrides,
+    const overrides = mergeOverrides(readyOverrides, {
       "git rev-parse -q --verify refs/tags/v1.2.4-beta.6": missing(),
       "git ls-remote --tags origin refs/tags/v1.2.4-beta.6": ok("489e1e refs/tags/v1.2.4-beta.6\n"),
       "git rev-parse -q --verify refs/tags/v1.2.4-beta.7": missing(),
@@ -337,6 +341,7 @@ describe("scripts/release", () => {
       "./node_modules/.bin/release-it --release-version --preRelease=beta --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
         ok("1.2.4-beta.6\n"),
     });
+    const { runner } = createRunner(overrides);
 
     const code = await runRelease({
       dryRun: true,
@@ -359,13 +364,13 @@ describe("scripts/release", () => {
       }),
       warn: mock(() => {}),
     };
-    const { calls, runner } = createRunner({
-      ...readyOverrides,
+    const overrides = mergeOverrides(readyOverrides, {
       "git rev-parse -q --verify refs/tags/v1.3.0": missing(),
       "git ls-remote --tags origin refs/tags/v1.3.0": ok(""),
       "./node_modules/.bin/release-it --release-version --increment=minor --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
         ok("1.3.0\n"),
     });
+    const { calls, runner } = createRunner(overrides);
 
     const code = await runRelease({
       dryRun: true,
@@ -398,14 +403,14 @@ describe("scripts/release", () => {
       }),
       warn: mock(() => {}),
     };
-    const { calls, runner } = createRunner({
-      ...readyOverrides,
+    const overrides = mergeOverrides(readyOverrides, {
       "git rev-parse -q --verify refs/tags/v1.12.1": ok("489e1e\n"),
       "git rev-parse -q --verify refs/tags/v1.12.2": missing(),
       "git ls-remote --tags origin refs/tags/v1.12.2": ok(""),
       "./node_modules/.bin/release-it --release-version --increment=patch --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
         ok("1.12.1\n"),
     });
+    const { calls, runner } = createRunner(overrides);
 
     const code = await runRelease({
       dryRun: true,
@@ -438,11 +443,11 @@ describe("scripts/release", () => {
       }),
       warn: mock(() => {}),
     };
-    const { calls, runner } = createRunner({
-      ...readyOverrides,
+    const overrides = mergeOverrides(readyOverrides, {
       "git rev-parse -q --verify refs/tags/v1.2.4-beta.6": missing(),
       "git ls-remote --tags origin refs/tags/v1.2.4-beta.6": ok(""),
     });
+    const { calls, runner } = createRunner(overrides);
 
     const code = await runRelease({
       dryRun: true,
@@ -458,10 +463,10 @@ describe("scripts/release", () => {
   });
 
   test("runRelease dry run fails when current prerelease tag exists", async () => {
-    const { runner } = createRunner({
-      ...readyOverrides,
+    const overrides = mergeOverrides(readyOverrides, {
       "git rev-parse -q --verify refs/tags/v1.2.4-beta.6": ok("489e1e\n"),
     });
+    const { runner } = createRunner(overrides);
 
     await expect(
       runRelease({ dryRun: true, packageVersion: "1.2.4-beta.6", runner }),
@@ -469,9 +474,7 @@ describe("scripts/release", () => {
   });
 
   test("runRelease requires an explicit increment for stable releases", async () => {
-    const { runner } = createRunner({
-      ...readyOverrides,
-    });
+    const { runner } = createRunner(readyOverrides);
 
     await expect(runRelease({ dryRun: true, packageVersion: "1.2.3", runner })).rejects.toThrow(
       "Stable releases require an explicit increment",
@@ -484,18 +487,21 @@ describe("scripts/release", () => {
       log: mock(() => {}),
       warn: mock(() => {}),
     };
-    const { calls, runner } = createRunner({
-      ...readyOverrides,
-      ...availableVersionOverrides,
-      ...missingTagOverrides,
-      "./node_modules/.bin/release-it --release-version --increment=patch --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
-        ok("1.2.4\n"),
-      "./node_modules/.bin/release-it 1.2.4 --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
-        ok(""),
-      "git push origin HEAD:refs/heads/main": ok(""),
-      "git tag --annotate v1.2.4 --message Release 1.2.4": ok(""),
-      "git push origin refs/tags/v1.2.4": ok(""),
-    });
+    const overrides = mergeOverrides(
+      readyOverrides,
+      availableVersionOverrides,
+      missingTagOverrides,
+      {
+        "./node_modules/.bin/release-it --release-version --increment=patch --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
+          ok("1.2.4\n"),
+        "./node_modules/.bin/release-it 1.2.4 --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
+          ok(""),
+        "git push origin HEAD:refs/heads/main": ok(""),
+        "git tag --annotate v1.2.4 --message Release 1.2.4": ok(""),
+        "git push origin refs/tags/v1.2.4": ok(""),
+      },
+    );
+    const { calls, runner } = createRunner(overrides);
 
     const code = await runRelease({ increment: "patch", logger, packageVersion: "1.2.3", runner });
 
@@ -511,8 +517,7 @@ describe("scripts/release", () => {
       log: mock(() => {}),
       warn: mock(() => {}),
     };
-    const { calls, runner } = createRunner({
-      ...readyOverrides,
+    const overrides = mergeOverrides(readyOverrides, {
       "git rev-parse -q --verify refs/tags/v1.12.1": ok("489e1e\n"),
       "git rev-parse -q --verify refs/tags/v1.12.2": missing(),
       "git ls-remote --tags origin refs/tags/v1.12.2": ok(""),
@@ -525,6 +530,7 @@ describe("scripts/release", () => {
       "git tag --annotate v1.12.2 --message Release 1.12.2": ok(""),
       "git push origin refs/tags/v1.12.2": ok(""),
     });
+    const { calls, runner } = createRunner(overrides);
 
     const code = await runRelease({
       increment: "patch",
@@ -553,18 +559,21 @@ describe("scripts/release", () => {
       log: mock(() => {}),
       warn: mock(() => {}),
     };
-    const { calls, runner } = createRunner({
-      ...readyOverrides,
-      ...availableVersionOverrides,
-      ...missingTagOverrides,
-      "./node_modules/.bin/release-it --release-version --increment=patch --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
-        ok("1.2.4\n"),
-      "./node_modules/.bin/release-it 1.2.4 --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
-        ok(""),
-      "git push origin HEAD:refs/heads/main": ok(""),
-      "git tag --annotate v1.2.4 --message Release 1.2.4": ok(""),
-      "git push origin refs/tags/v1.2.4": ok(""),
-    });
+    const overrides = mergeOverrides(
+      readyOverrides,
+      availableVersionOverrides,
+      missingTagOverrides,
+      {
+        "./node_modules/.bin/release-it --release-version --increment=patch --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
+          ok("1.2.4\n"),
+        "./node_modules/.bin/release-it 1.2.4 --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
+          ok(""),
+        "git push origin HEAD:refs/heads/main": ok(""),
+        "git tag --annotate v1.2.4 --message Release 1.2.4": ok(""),
+        "git push origin refs/tags/v1.2.4": ok(""),
+      },
+    );
+    const { calls, runner } = createRunner(overrides);
 
     await runRelease({ increment: "patch", logger, packageVersion: "1.2.3", runner });
 
@@ -577,15 +586,14 @@ describe("scripts/release", () => {
       log: mock(() => {}),
       warn: mock(() => {}),
     };
-    const { calls, runner } = createRunner({
-      ...readyOverrides,
-      ...availableVersionOverrides,
+    const overrides = mergeOverrides(readyOverrides, availableVersionOverrides, {
       "./node_modules/.bin/release-it --release-version --increment=patch --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
         ok("1.2.4\n"),
       "./node_modules/.bin/release-it 1.2.4 --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
         ok(""),
       "git push origin HEAD:refs/heads/main": fail("main push rejected"),
     });
+    const { calls, runner } = createRunner(overrides);
 
     await expect(
       runRelease({ increment: "patch", logger, packageVersion: "1.2.3", runner }),
@@ -600,19 +608,22 @@ describe("scripts/release", () => {
       log: mock(() => {}),
       warn: mock(() => {}),
     };
-    const { calls, runner } = createRunner({
-      ...readyOverrides,
-      ...availableVersionOverrides,
-      ...missingTagOverrides,
-      "./node_modules/.bin/release-it --release-version --increment=patch --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
-        ok("1.2.4\n"),
-      "./node_modules/.bin/release-it 1.2.4 --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
-        ok(""),
-      "git push origin HEAD:refs/heads/main": ok(""),
-      "git tag --annotate v1.2.4 --message Release 1.2.4": ok(""),
-      "git push origin refs/tags/v1.2.4": fail("push rejected"),
-      "git tag --delete v1.2.4": ok(""),
-    });
+    const overrides = mergeOverrides(
+      readyOverrides,
+      availableVersionOverrides,
+      missingTagOverrides,
+      {
+        "./node_modules/.bin/release-it --release-version --increment=patch --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
+          ok("1.2.4\n"),
+        "./node_modules/.bin/release-it 1.2.4 --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
+          ok(""),
+        "git push origin HEAD:refs/heads/main": ok(""),
+        "git tag --annotate v1.2.4 --message Release 1.2.4": ok(""),
+        "git push origin refs/tags/v1.2.4": fail("push rejected"),
+        "git tag --delete v1.2.4": ok(""),
+      },
+    );
+    const { calls, runner } = createRunner(overrides);
 
     await expect(
       runRelease({ increment: "patch", logger, packageVersion: "1.2.3", runner }),
@@ -627,13 +638,13 @@ describe("scripts/release", () => {
       log: mock(() => {}),
       warn: mock(() => {}),
     };
-    const { calls, runner } = createRunner({
-      ...readyOverrides,
+    const overrides = mergeOverrides(readyOverrides, {
       "git rev-parse -q --verify refs/tags/v1.2.4-beta.6": missing(),
       "git ls-remote --exit-code --tags origin refs/tags/v1.2.4-beta.6": missing(),
       "git tag --annotate v1.2.4-beta.6 --message Release 1.2.4-beta.6": ok(""),
       "git push origin refs/tags/v1.2.4-beta.6": ok(""),
     });
+    const { calls, runner } = createRunner(overrides);
 
     const code = await runRelease({
       logger,

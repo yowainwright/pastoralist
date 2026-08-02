@@ -1,5 +1,5 @@
 import { test, expect, mock, spyOn } from "bun:test";
-import * as readline from "readline/promises";
+import * as readline from "readline";
 import {
   CLIInstaller,
   getSeverityScore,
@@ -1094,12 +1094,14 @@ test("createPromptInterface - creates readline interface", () => {
 });
 
 const createMockReadline = (answer: string) => ({
-  question: () => Promise.resolve(answer),
+  question: (_prompt: string, callback: (value: string) => void) => callback(answer),
   close: mock(),
 });
 
 const createRejectingMockReadline = () => ({
-  question: () => Promise.reject(new Error("timeout")),
+  question: () => {
+    throw new Error("timeout");
+  },
   close: mock(),
 });
 
@@ -1250,8 +1252,13 @@ const createMockSecretIO = () => {
   const originalOn = input.on;
   const originalOff = input.off;
   const originalWrite = output.write;
-  const writes: string[] = [];
-  const rawModes: Array<boolean | undefined> = [];
+  const state: {
+    rawModes: Array<boolean | undefined>;
+    writes: string[];
+  } = {
+    rawModes: [],
+    writes: [],
+  };
   let dataHandler: ((chunk: Buffer) => void) | undefined;
 
   Object.defineProperty(input, "isTTY", { configurable: true, value: true });
@@ -1259,7 +1266,7 @@ const createMockSecretIO = () => {
   Object.defineProperty(output, "isTTY", { configurable: true, value: true });
 
   input.setRawMode = mock((mode: boolean | undefined) => {
-    rawModes.push(mode);
+    state.rawModes = state.rawModes.concat([mode]);
     return input;
   });
   input.resume = mock(() => input);
@@ -1271,7 +1278,8 @@ const createMockSecretIO = () => {
     return input;
   });
   input.off = mock((event: string, listener: (...args: unknown[]) => void) => {
-    if (event === "data" && dataHandler === listener) {
+    const removesDataHandler = event === "data" && dataHandler === listener;
+    if (removesDataHandler) {
       dataHandler = undefined;
     }
     return input;
@@ -1282,7 +1290,7 @@ const createMockSecretIO = () => {
       encodingOrCallback?: BufferEncoding | ((error?: Error | null) => void),
       callback?: (error?: Error | null) => void,
     ) => {
-      writes.push(String(chunk));
+      state.writes = state.writes.concat([String(chunk)]);
 
       if (typeof encodingOrCallback === "function") {
         encodingOrCallback();
@@ -1293,8 +1301,7 @@ const createMockSecretIO = () => {
     },
   );
 
-  return {
-    rawModes,
+  return Object.assign(state, {
     restore: () => {
       restoreDescriptor(input, "isTTY", stdinIsTTY);
       restoreDescriptor(input, "isRaw", stdinIsRaw);
@@ -1312,8 +1319,7 @@ const createMockSecretIO = () => {
       }
       dataHandler(Buffer.from(value, "utf8"));
     },
-    writes,
-  };
+  });
 };
 
 test("promptSecret - reads input without echoing the secret", async () => {

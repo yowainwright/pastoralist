@@ -69,7 +69,7 @@ jobs:
           done
           exit 1
 
-      - name: Build and test Perry binary
+      - name: Build and test ScriptC binary
         id: perry
         run: |
           bun run test:e2e:binary
@@ -84,13 +84,13 @@ jobs:
           cp artifacts/pastoralist "$BINARY"
           echo "binary=$BINARY" >> "$GITHUB_OUTPUT"
 
-      - name: Attest Perry binary
+      - name: Attest ScriptC binary
         id: perry-attest
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4
         with:
           subject-path: ${{ steps.perry.outputs.binary }}
 
-      - name: Prepare Perry attestation
+      - name: Prepare binary attestation
         id: perry-attestation
         env:
           BINARY: ${{ steps.perry.outputs.binary }}

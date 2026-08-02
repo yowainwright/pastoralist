@@ -29,22 +29,34 @@ const writeFixture = (root: string, path: string, content: string) => {
 
 const readFixture = (root: string, path: string) => readFileSync(join(root, path), "utf8");
 
-const runScript = (path: string, root: string, args: string[], env: Record<string, string> = {}) =>
-  spawnSync("/bin/sh", [path, ...args], {
+const runScript = (
+  path: string,
+  root: string,
+  args: string[],
+  env: Record<string, string> = {},
+) => {
+  const commandArgs = [path].concat(args);
+  const commandEnv = Object.assign({}, baseEnv, env);
+
+  return spawnSync("/bin/sh", commandArgs, {
     cwd: root,
     encoding: "utf8",
-    env: { ...baseEnv, ...env },
+    env: commandEnv,
   });
+};
 
 const runSetup = (root: string, args: string[], env: Record<string, string> = {}) =>
   runScript(scriptPath, root, args, env);
 
-const runHookInstaller = (root: string) =>
-  spawnSync(process.execPath, [hookScriptPath], {
+const runHookInstaller = (root: string) => {
+  const env = Object.assign({}, process.env, { CI: "" });
+
+  return spawnSync(process.execPath, [hookScriptPath], {
     cwd: root,
     encoding: "utf8",
-    env: { ...process.env, CI: "" },
+    env,
   });
+};
 
 describe("scripts/install-hooks", () => {
   test("pre-commit runs legibility and the complete validation sequence", () => {
@@ -61,9 +73,10 @@ describe("scripts/install-hooks", () => {
       );
       expect(hook).toContain("await $`bun run format`;");
       expect(hook).toContain("await $`bun run build`;");
+      expect(hook).toContain("await $`bun install --cwd app --frozen-lockfile`;");
       expect(hook).toContain("await $`cd app && bun run build`;");
       expect(hook).toContain("await $`bun run lint`;");
-      expect(hook).toContain("await $`bun test tests/unit/ --coverage --coverage-reporter=lcov`;");
+      expect(hook).toContain("await $`bun test ./tests/unit --coverage --coverage-reporter=lcov`;");
     });
   });
 });

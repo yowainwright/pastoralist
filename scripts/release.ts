@@ -88,7 +88,13 @@ export function buildReleaseCommands(version: string, releaseArgs: ReleaseArgs):
       buildReleaseItArgs({ preRelease: releaseArgs.preRelease, version }),
     ),
     formatShellCommand("git", ["tag", "--annotate", tagName, "--message", `Release ${version}`]),
-    formatShellCommand("git", ["push", "origin", `refs/tags/${tagName}`]),
+    formatShellCommand("git", [
+      "push",
+      "--atomic",
+      "origin",
+      "HEAD:refs/heads/main",
+      `refs/tags/${tagName}`,
+    ]),
   ];
 }
 
@@ -98,9 +104,8 @@ export function buildReleasePlan(version: string, releaseArgs: ReleaseArgs): Rel
     commands: buildReleaseCommands(version, releaseArgs),
     steps: [
       "verify clean, up-to-date main",
-      "create the release commit without pushing main",
-      `push ${tagName} to trigger publishing`,
-      "restore local main to its starting commit",
+      "create the release commit and tag locally",
+      `atomically push main and ${tagName} to trigger publishing`,
     ],
     tagName,
     version,
@@ -185,20 +190,22 @@ export async function runRelease(options: ReleaseOptions = {}): Promise<number> 
     return 0;
   }
 
+  createReleaseCommit(runner, releaseArgs, version);
   try {
-    createReleaseCommit(runner, releaseArgs, version);
     runReleaseTag({
+      atomicMainPush: true,
       cwd,
       git: (args) => runner("git", args),
       logger,
       requireUpstream: false,
       version,
     });
-    logger.log("No PR was created and main was not pushed.");
-    return 0;
-  } finally {
+  } catch (error) {
     restoreStartingHead(runner, startingHead);
+    throw error;
   }
+  logger.log(`Pushed release commit ${version} to main.`);
+  return 0;
 }
 
 export function isPreReleaseVersion(version: string): boolean {

@@ -32,8 +32,10 @@ jobs:
         name: Install Bun
 
       - run: bun install --config=/dev/null --frozen-lockfile
+      - run: bun install --cwd app --config=/dev/null --frozen-lockfile
       - run: bun run update
       - run: bun install --config=/dev/null
+      - run: bun install --cwd app --config=/dev/null
       - name: Verify dependency update policy
         run: bun run deps:check
       - run: bun run build

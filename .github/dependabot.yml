@@ -9,6 +9,13 @@ updates:
       - "tests/**"
       - "app/tests/**"
 
+  - package-ecosystem: "bun"
+    directory: "/app"
+    schedule:
+      interval: "weekly"
+    exclude-paths:
+      - "tests/**"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

@@ -34,6 +34,15 @@ describe("release workflows", () => {
     expect(publishIndex).toBeGreaterThan(auditIndex);
   });
 
+  test("validates the tag against the package version before publication", () => {
+    const workflow = readWorkflow("publish.yml");
+    const validationIndex = workflow.indexOf('test "$VERSION" = "$PACKAGE_VERSION"');
+    const publishIndex = workflow.indexOf("npm publish");
+
+    expect(validationIndex).toBeGreaterThan(-1);
+    expect(publishIndex).toBeGreaterThan(validationIndex);
+  });
+
   test("uses ScriptC for release binaries", () => {
     const workflows = [readWorkflow("ci.yml"), readWorkflow("homebrew.yml")];
 

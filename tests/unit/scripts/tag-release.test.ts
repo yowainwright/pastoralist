@@ -2,6 +2,7 @@ import { describe, expect, mock, test } from "bun:test";
 import {
   assertMissingTag,
   assertReleaseReady,
+  buildTagPushArgs,
   formatTagName,
   parseArgs,
   runReleaseTag,
@@ -44,6 +45,16 @@ describe("scripts/tag-release", () => {
 
   test("formatTagName rejects invalid versions", () => {
     expect(() => formatTagName("beta")).toThrow("Invalid package version");
+  });
+
+  test("buildTagPushArgs can atomically push main and the release tag", () => {
+    expect(buildTagPushArgs("v1.2.3", true)).toEqual([
+      "push",
+      "--atomic",
+      "origin",
+      "HEAD:refs/heads/main",
+      "refs/tags/v1.2.3",
+    ]);
   });
 
   test("assertMissingTag rejects existing local tags", () => {
@@ -101,6 +112,31 @@ describe("scripts/tag-release", () => {
       "Release 1.2.3-beta.6",
     ]);
     expect(calls()).toContainEqual(["push", "origin", "refs/tags/v1.2.3-beta.6"]);
+  });
+
+  test("runReleaseTag atomically pushes main with the version tag", () => {
+    const logger = { log: mock(() => {}), error: mock(() => {}) };
+    const atomicPush = {
+      "push --atomic origin HEAD:refs/heads/main refs/tags/v1.2.3-beta.6": ok(""),
+    };
+    const { calls, git } = createGit(Object.assign({}, readyGitOverrides, atomicPush));
+
+    const code = runReleaseTag({
+      atomicMainPush: true,
+      git,
+      logger,
+      requireUpstream: false,
+      version: "1.2.3-beta.6",
+    });
+
+    expect(code).toBe(0);
+    expect(calls()).toContainEqual([
+      "push",
+      "--atomic",
+      "origin",
+      "HEAD:refs/heads/main",
+      "refs/tags/v1.2.3-beta.6",
+    ]);
   });
 
   test("runReleaseTag deletes the local tag when push fails", () => {

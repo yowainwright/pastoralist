@@ -40,6 +40,14 @@ jobs:
 
       - run: bun install --config=/dev/null --frozen-lockfile
 
+      - name: Validate release version
+        env:
+          RELEASE_REF: ${{ github.ref_name }}
+        run: |
+          VERSION="${RELEASE_REF#v}"
+          PACKAGE_VERSION="$(bun -p 'require("./package.json").version')"
+          test "$VERSION" = "$PACKAGE_VERSION"
+
       - run: bun test ./tests/unit
         env:
           CI: true

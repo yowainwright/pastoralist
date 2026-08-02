@@ -1,20 +1,8 @@
-import { execFile as execFileCallback } from "node:child_process";
-import { promisify } from "node:util";
 import { LOG_PREFIX } from "../constants";
 import type { ConsoleMethod, DebugLogFunc, Logger, LoggerOptions } from "./types";
 
 const LOG_INDENT = "   ";
-const execFile = promisify(execFileCallback);
-const DEFAULT_GIT_DATE = () => new Date().toISOString();
-const getGitDateArgs = (filePath: string): string[] => [
-  "log",
-  "--diff-filter=A",
-  "--follow",
-  "--format=%aI",
-  "-1",
-  "--",
-  filePath,
-];
+const DEFAULT_LEDGER_DATE = () => new Date().toISOString();
 
 const createDebugMethod = (type: ConsoleMethod, isLogging: boolean, file: string): DebugLogFunc => {
   return (msg: string, caller: string, ...args: unknown[]) => {
@@ -100,23 +88,9 @@ export const buildKey =
 export const atKey = buildKey("@");
 export const colonKey = buildKey(":");
 
-const runGitLog = async (filePath: string): Promise<string> => {
-  const { stdout } = await execFile("git", getGitDateArgs(filePath));
-  return stdout.trim();
-};
-
-export const getOverrideGitDate = async (
-  filePath: string = "package.json",
-  fallback: () => string = DEFAULT_GIT_DATE,
-): Promise<string> => {
-  try {
-    const gitDate = await runGitLog(filePath);
-    if (gitDate.length > 0) return gitDate;
-    return fallback();
-  } catch {
-    return fallback();
-  }
-};
+export const getLedgerAddedDate = async (
+  createDate: () => string = DEFAULT_LEDGER_DATE,
+): Promise<string> => createDate();
 
 export {
   createSpinner,

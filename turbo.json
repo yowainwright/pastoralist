@@ -16,11 +16,6 @@
       "cache": true,
       "env": ["NODE_ENV"]
     },
-    "//#build-dist": {
-      "inputs": ["src/**/*.ts"],
-      "outputs": ["dist/**"],
-      "cache": true
-    },
     "lint": {
       "cache": true,
       "outputs": []
@@ -31,11 +26,6 @@
       "outputs": []
     },
     "typecheck-src": {
-      "inputs": ["src/**/*.ts"],
-      "cache": true,
-      "outputs": []
-    },
-    "//#typecheck-src": {
       "inputs": ["src/**/*.ts"],
       "cache": true,
       "outputs": []

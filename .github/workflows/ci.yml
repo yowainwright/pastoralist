@@ -63,6 +63,7 @@ jobs:
         run: bun run check:test-manifests
       - run: rm -rf dist .turbo
       - run: bun run build
+      - run: bun install --cwd app --config=/dev/null --frozen-lockfile
       - name: Build and test ScriptC binary
         run: bun run test:e2e:binary
       - name: Test docs build functions

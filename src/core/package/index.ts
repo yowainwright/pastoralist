@@ -26,7 +26,12 @@ import {
   YARN_LOCK_FILENAME,
   YARN_LOCK_PACKAGE_PATTERN,
 } from "./constants";
-import type { BunLockFile, DependencyVersionCandidate, OverrideField } from "./types";
+import type {
+  BunLockFile,
+  DependencyVersionCandidate,
+  OverrideField,
+  PackageManager,
+} from "./types";
 import {
   applyOverridesToConfig,
   detectPackageManager,
@@ -358,8 +363,15 @@ const getPendingTreeRequests = (): Map<string, Promise<Record<string, string>>> 
   return _pendingTreeRequests;
 };
 
-const isJsonWhitespace = (char: string): boolean =>
-  char === " " || char === "\n" || char === "\r" || char === "\t";
+const JSON_WHITESPACE = new Set([" ", "\n", "\r", "\t"]);
+
+const isJsonWhitespace = (char: string): boolean => JSON_WHITESPACE.has(char);
+
+const findNextJsonToken = (content: string, startIndex: number): string | undefined => {
+  let nextIndex = startIndex;
+  while (nextIndex < content.length && isJsonWhitespace(content[nextIndex])) nextIndex++;
+  return content[nextIndex];
+};
 
 const stripBunLockTrailingCommas = (content: string): string => {
   let result = "";
@@ -393,11 +405,9 @@ const stripBunLockTrailingCommas = (content: string): string => {
     }
 
     if (char === ",") {
-      let nextIndex = index + 1;
-      while (nextIndex < content.length && isJsonWhitespace(content[nextIndex])) nextIndex++;
-
-      const nextChar = content[nextIndex];
-      if (nextChar === "}" || nextChar === "]") continue;
+      const nextChar = findNextJsonToken(content, index + 1);
+      const isTrailingComma = nextChar === "}" || nextChar === "]";
+      if (isTrailingComma) continue;
     }
 
     result += char;
@@ -448,13 +458,17 @@ export const parsePnpmLockTree = (root: string): Record<string, string> | undefi
   if (!fs.existsSync(lockPath)) return undefined;
   try {
     const content = fs.readFileSync(lockPath, "utf8");
-    const v5v6Entries = [
-      ...content.matchAll(/^  \/((?:@[^/@\n]+\/)?[^/@\n\s]+)(?:@|\/)([^\s:]+):/gm),
-    ].map(([, name, version]) => [name, version] as [string, string]);
-    const v9Entries = [
-      ...content.matchAll(/^  '?((?:@[^@/\n'"]+\/)?[\w][\w.-]*)@([^\s:'"]+)/gm),
-    ].map(([, name, version]) => [name, version] as [string, string]);
-    const entryMap = new Map([...v5v6Entries, ...v9Entries]);
+    const v5v6Matches = content.matchAll(/^  \/((?:@[^/@\n]+\/)?[^/@\n\s]+)(?:@|\/)([^\s:]+):/gm);
+    const v9Matches = content.matchAll(/^  '?((?:@[^@/\n'"]+\/)?[\w][\w.-]*)@([^\s:'"]+)/gm);
+    const v5v6Entries = Array.from(
+      v5v6Matches,
+      ([, name, version]) => [name, version] as [string, string],
+    );
+    const v9Entries = Array.from(
+      v9Matches,
+      ([, name, version]) => [name, version] as [string, string],
+    );
+    const entryMap = new Map(v5v6Entries.concat(v9Entries));
     if (entryMap.size === 0) return undefined;
     return Object.fromEntries(entryMap);
   } catch {
@@ -643,6 +657,35 @@ export const getDependencyTree = async (
 
 let _graphCache: Map<string, Record<string, string[]>> | null = null;
 
+type DependencyGraph = Record<string, string[]>;
+
+const addDependencyParent = (graph: DependencyGraph, dependency: string, parent: string): void => {
+  const parents = graph[dependency] ?? [];
+  graph[dependency] = parents.concat(parent);
+};
+
+const addPackageDependencies = (
+  graph: DependencyGraph,
+  parent: string,
+  dependencies: Record<string, unknown>,
+): void => {
+  Object.keys(dependencies).forEach((dependency) => {
+    addDependencyParent(graph, dependency, parent);
+  });
+};
+
+const getPopulatedGraph = (graph: DependencyGraph): DependencyGraph | undefined => {
+  const hasDependencies = Object.keys(graph).length > 0;
+  if (!hasDependencies) return undefined;
+  return graph;
+};
+
+const addBunPackageDependencies = (graph: DependencyGraph, name: string, entry: unknown): void => {
+  if (!Array.isArray(entry)) return;
+  const dependencies = (entry[2] as { dependencies?: Record<string, string> })?.dependencies ?? {};
+  addPackageDependencies(graph, name, dependencies);
+};
+
 export const parseBunLockGraph = (root: string): Record<string, string[]> | undefined => {
   const lockPath = resolve(root, BUN_LOCK_FILENAME);
   if (!fs.existsSync(lockPath)) return undefined;
@@ -654,17 +697,35 @@ export const parseBunLockGraph = (root: string): Record<string, string[]> | unde
     if (!isValidPackages) return undefined;
     const inverted: Record<string, string[]> = {};
     Object.entries(packages).forEach(([name, entry]) => {
-      if (!Array.isArray(entry)) return;
-      const deps = (entry[2] as { dependencies?: Record<string, string> })?.dependencies ?? {};
-      Object.keys(deps).forEach((dep) => {
-        if (!inverted[dep]) inverted[dep] = [];
-        inverted[dep].push(name);
-      });
+      addBunPackageDependencies(inverted, name, entry);
     });
-    return Object.keys(inverted).length > 0 ? inverted : undefined;
+    return getPopulatedGraph(inverted);
   } catch {
     return undefined;
   }
+};
+
+const addNpmPackageDependencies = (
+  graph: DependencyGraph,
+  key: string,
+  pkg: { dependencies?: Record<string, string> },
+): void => {
+  const isDependencyPackage = key !== "" && key.includes("node_modules/");
+  if (!isDependencyPackage) return;
+  const name = key.replace(/^.*node_modules\//, "");
+  addPackageDependencies(graph, name, pkg.dependencies ?? {});
+};
+
+const addNpmDependencyTree = (
+  graph: DependencyGraph,
+  dependencies: Record<string, unknown>,
+  parent?: string,
+): void => {
+  Object.entries(dependencies).forEach(([name, value]) => {
+    if (parent) addDependencyParent(graph, name, parent);
+    const nested = (value as { dependencies?: Record<string, unknown> })?.dependencies;
+    if (nested) addNpmDependencyTree(graph, nested, name);
+  });
 };
 
 export const parseNpmLockGraph = (root: string): Record<string, string[]> | undefined => {
@@ -679,31 +740,50 @@ export const parseNpmLockGraph = (root: string): Record<string, string[]> | unde
     const inverted: Record<string, string[]> = {};
     if (lock.packages) {
       Object.entries(lock.packages).forEach(([key, pkg]) => {
-        const isRoot = key === "" || !key.includes("node_modules/");
-        if (isRoot) return;
-        const name = key.replace(/^.*node_modules\//, "");
-        Object.keys(pkg.dependencies ?? {}).forEach((dep) => {
-          if (!inverted[dep]) inverted[dep] = [];
-          inverted[dep].push(name);
-        });
+        addNpmPackageDependencies(inverted, key, pkg);
       });
     } else if (lock.dependencies) {
-      const traverseGraph = (deps: Record<string, unknown>, parent?: string): void => {
-        Object.entries(deps).forEach(([name, value]) => {
-          if (parent) {
-            if (!inverted[name]) inverted[name] = [];
-            inverted[name].push(parent);
-          }
-          const nested = (value as { dependencies?: Record<string, unknown> })?.dependencies;
-          if (nested) traverseGraph(nested, name);
-        });
-      };
-      traverseGraph(lock.dependencies);
+      addNpmDependencyTree(inverted, lock.dependencies);
     }
-    return Object.keys(inverted).length > 0 ? inverted : undefined;
+    return getPopulatedGraph(inverted);
   } catch {
     return undefined;
   }
+};
+
+type DependencyGraphState = {
+  currentPackage?: string;
+  inDependencies: boolean;
+};
+
+const matchPnpmGraphPackage = (line: string): RegExpMatchArray | null => {
+  const v5v6Match = line.match(/^  \/((?:@[^/@\n]+\/)?[^/@\n\s]+)(?:@|\/)([^\s:]+):/);
+  const v9Match = line.match(/^  '?((?:@[^@/\n'"]+\/)?[\w][\w.-]*)@([^\s:'"]+)/);
+  return v5v6Match ?? v9Match;
+};
+
+const addPnpmGraphLine = (
+  graph: DependencyGraph,
+  state: DependencyGraphState,
+  line: string,
+): void => {
+  const packageMatch = matchPnpmGraphPackage(line);
+  if (packageMatch) {
+    state.currentPackage = packageMatch[1];
+    state.inDependencies = false;
+    return;
+  }
+  const currentPackage = state.currentPackage;
+  const startsDependencies = currentPackage && line.match(/^    dependencies:/);
+  if (startsDependencies) {
+    state.inDependencies = true;
+    return;
+  }
+  const isOutsideDependencies = !state.inDependencies || !currentPackage;
+  if (isOutsideDependencies) return;
+  const dependencyMatch = line.match(/^      '?([^':\s]+)'?:/);
+  if (dependencyMatch) addDependencyParent(graph, dependencyMatch[1], currentPackage);
+  if (!line.startsWith("      ")) state.inDependencies = false;
 };
 
 export const parsePnpmLockGraph = (root: string): Record<string, string[]> | undefined => {
@@ -712,36 +792,38 @@ export const parsePnpmLockGraph = (root: string): Record<string, string[]> | und
   try {
     const content = fs.readFileSync(lockPath, "utf8");
     const inverted: Record<string, string[]> = {};
-    let currentPkg: string | undefined;
-    let inDeps = false;
+    const state: DependencyGraphState = { inDependencies: false };
     content.split("\n").forEach((line) => {
-      const v5v6Match = line.match(/^  \/((?:@[^/@\n]+\/)?[^/@\n\s]+)(?:@|\/)([^\s:]+):/);
-      const v9Match = line.match(/^  '?((?:@[^@/\n'"]+\/)?[\w][\w.-]*)@([^\s:'"]+)/);
-      if (v5v6Match || v9Match) {
-        currentPkg = v5v6Match ? v5v6Match[1] : v9Match![1];
-        inDeps = false;
-        return;
-      }
-      if (currentPkg && line.match(/^    dependencies:/)) {
-        inDeps = true;
-        return;
-      }
-      if (inDeps && currentPkg) {
-        const depMatch = line.match(/^      '?([^':\s]+)'?:/);
-        if (depMatch) {
-          const dep = depMatch[1];
-          if (!inverted[dep]) inverted[dep] = [];
-          inverted[dep].push(currentPkg);
-          return;
-        }
-        const hasSixSpaces = line.startsWith("      ");
-        if (!hasSixSpaces) inDeps = false;
-      }
+      addPnpmGraphLine(inverted, state, line);
     });
-    return Object.keys(inverted).length > 0 ? inverted : undefined;
+    return getPopulatedGraph(inverted);
   } catch {
     return undefined;
   }
+};
+
+const addYarnGraphLine = (
+  graph: DependencyGraph,
+  state: DependencyGraphState,
+  line: string,
+): void => {
+  const packageName = parseYarnLockPackageName(line);
+  if (packageName) {
+    state.currentPackage = packageName;
+    state.inDependencies = false;
+    return;
+  }
+  const currentPackage = state.currentPackage;
+  const startsDependencies = currentPackage && line === "  dependencies:";
+  if (startsDependencies) {
+    state.inDependencies = true;
+    return;
+  }
+  const isOutsideDependencies = !state.inDependencies || !currentPackage;
+  if (isOutsideDependencies) return;
+  const dependencyMatch = line.match(/^\s{4}"?(@?[^@\s"]+)"?\s/);
+  if (dependencyMatch) addDependencyParent(graph, dependencyMatch[1], currentPackage);
+  if (!line.startsWith("    ")) state.inDependencies = false;
 };
 
 export const parseYarnLockGraph = (root: string): Record<string, string[]> | undefined => {
@@ -750,35 +832,24 @@ export const parseYarnLockGraph = (root: string): Record<string, string[]> | und
   try {
     const content = fs.readFileSync(lockPath, "utf8");
     const inverted: Record<string, string[]> = {};
-    let currentPkg: string | undefined;
-    let inDeps = false;
+    const state: DependencyGraphState = { inDependencies: false };
     content.split("\n").forEach((line) => {
-      const packageName = parseYarnLockPackageName(line);
-      if (packageName) {
-        currentPkg = packageName;
-        inDeps = false;
-        return;
-      }
-      if (currentPkg && line === "  dependencies:") {
-        inDeps = true;
-        return;
-      }
-      if (inDeps && currentPkg) {
-        const depMatch = line.match(/^\s{4}"?(@?[^@\s"]+)"?\s/);
-        if (depMatch) {
-          const dep = depMatch[1];
-          if (!inverted[dep]) inverted[dep] = [];
-          inverted[dep].push(currentPkg);
-          return;
-        }
-        const hasFourSpaces = line.startsWith("    ");
-        if (!hasFourSpaces) inDeps = false;
-      }
+      addYarnGraphLine(inverted, state, line);
     });
-    return Object.keys(inverted).length > 0 ? inverted : undefined;
+    return getPopulatedGraph(inverted);
   } catch {
     return undefined;
   }
+};
+
+const parseDependencyGraph = (
+  packageManager: PackageManager,
+  root: string,
+): DependencyGraph | undefined => {
+  if (packageManager === "bun") return parseBunLockGraph(root);
+  if (packageManager === "pnpm") return parsePnpmLockGraph(root);
+  if (packageManager === "yarn") return parseYarnLockGraph(root);
+  return parseNpmLockGraph(root);
 };
 
 export const getDependencyGraph = (root: string = process.cwd()): Record<string, string[]> => {
@@ -787,14 +858,7 @@ export const getDependencyGraph = (root: string = process.cwd()): Record<string,
   const cached = _graphCache.get(cacheKey);
   if (cached) return cached;
   const pm = detectPackageManager(root);
-  const result =
-    pm === "bun"
-      ? parseBunLockGraph(root)
-      : pm === "pnpm"
-        ? parsePnpmLockGraph(root)
-        : pm === "yarn"
-          ? parseYarnLockGraph(root)
-          : parseNpmLockGraph(root);
+  const result = parseDependencyGraph(pm, root);
   const graph = result ?? {};
   _graphCache.set(cacheKey, graph);
   return graph;

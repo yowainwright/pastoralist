@@ -17,9 +17,10 @@ try {
   await $\`node node_modules/eslint-plugin-legibility/bin/lint-changed.js\`;
   await $\`bun run format\`;
   await $\`bun run build\`;
+  await $\`bun install --cwd app --frozen-lockfile\`;
   await $\`cd app && bun run build\`;
   await $\`bun run lint\`;
-  await $\`bun test tests/unit/ --coverage --coverage-reporter=lcov\`;
+  await $\`bun test ./tests/unit --coverage --coverage-reporter=lcov\`;
   console.log('All pre-commit checks passed');
 } catch {
   console.error('Pre-commit checks failed');

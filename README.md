@@ -1,5 +1,9 @@
 # [Pastoralist](https://jeffry.in/pastoralist/)
 
+[![Socket Badge][socket-badge]][socket-package]
+[socket-badge]: https://socket.dev/api/badge/npm/package/pastoralist
+[socket-package]: https://socket.dev/npm/package/pastoralist
+
 [![npm version](https://img.shields.io/npm/v/pastoralist.svg)](https://www.npmjs.com/package/pastoralist)
 [![npm downloads](https://img.shields.io/npm/dm/pastoralist.svg)](https://www.npmjs.com/package/pastoralist)
 [![TypeScript](https://img.shields.io/badge/TypeScript-types%20included-blue)](https://www.typescriptlang.org/)
@@ -216,7 +220,7 @@ verify.
 - Releases are published from GitHub Actions with npm provenance
 - Published tarballs are packed before release and attached to GitHub Releases
   with artifact attestations
-- Perry binaries are built, tested, and attested only for stable Homebrew releases
+- ScriptC binaries are built, tested, and attested only for stable Homebrew releases
 - Stable releases open a reviewed Homebrew tap update
 - CI runs CodeQL, OpenSSF Scorecard, unit, integration, e2e, and dependency
   policy checks

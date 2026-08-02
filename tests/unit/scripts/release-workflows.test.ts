@@ -22,4 +22,30 @@ describe("release workflows", () => {
       expect(workflow).toContain("sh scripts/upload-release-assets.sh"),
     );
   });
+
+  test("audits the packed formula before npm publication", () => {
+    const workflow = readWorkflow("publish.yml");
+    const auditIndex = workflow.indexOf("brew audit --strict --formula");
+    const publishIndex = workflow.indexOf("npm publish");
+
+    expect(workflow).toContain("runs-on: macos-latest");
+    expect(workflow).toContain("bun scripts/brew.ts generate-local");
+    expect(auditIndex).toBeGreaterThan(-1);
+    expect(publishIndex).toBeGreaterThan(auditIndex);
+  });
+
+  test("validates the tag against the package version before publication", () => {
+    const workflow = readWorkflow("publish.yml");
+    const validationIndex = workflow.indexOf('test "$VERSION" = "$PACKAGE_VERSION"');
+    const publishIndex = workflow.indexOf("npm publish");
+
+    expect(validationIndex).toBeGreaterThan(-1);
+    expect(publishIndex).toBeGreaterThan(validationIndex);
+  });
+
+  test("uses ScriptC for release binaries", () => {
+    const workflows = [readWorkflow("ci.yml"), readWorkflow("homebrew.yml")];
+
+    workflows.forEach((workflow) => expect(workflow).toContain("ScriptC binary"));
+  });
 });

@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
+  createLocalFormula,
   fetchPublishedTarball,
   npmTarballUrl,
   renderFormula,
@@ -51,10 +55,25 @@ describe("scripts/brew", () => {
     const formula = renderFormula({
       digest: "abc123",
       url: npmTarballUrl("1.13.0"),
-      version: "1.13.0",
     });
-    expect(formula).toContain('version "1.13.0"');
+    expect(formula).not.toMatch(/^\s+version\s/m);
     expect(formula).toContain('depends_on "node"');
     expect(formula).toContain('system bin/"pastoralist", "--help"');
+  });
+
+  test("generates a formula from a local tarball", () => {
+    const directory = mkdtempSync(join(tmpdir(), "pastoralist-brew-"));
+    const outputPath = join(directory, "pastoralist.rb");
+    const tarballPath = join(directory, "pastoralist.tgz");
+
+    try {
+      writeFileSync(tarballPath, "local tarball");
+      const formula = createLocalFormula({ outputPath, tarballPath, version: "1.13.0" });
+
+      expect(formula.digest).toBe(sha256(Buffer.from("local tarball")));
+      expect(readFileSync(outputPath, "utf8")).not.toMatch(/^\s+version\s/m);
+    } finally {
+      rmSync(directory, { recursive: true });
+    }
   });
 });

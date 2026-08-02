@@ -9,7 +9,7 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 import { logger } from "../../utils";
 import { red, yellow, cyan, gray } from "../../utils/colors";
-import * as readline from "readline/promises";
+import * as readline from "readline";
 import {
   CONFIDENCE_WEIGHTS,
   DEFAULT_CLI_TIMEOUT,
@@ -366,15 +366,17 @@ const questionWithTimeout = async (
       reject(new Error("Prompt timed out"));
     }, timeout);
 
-    rl.question(prompt)
-      .then((answer) => {
-        clearTimeout(timeoutId);
-        resolve(answer);
-      })
-      .catch((err) => {
-        clearTimeout(timeoutId);
-        reject(err);
-      });
+    const resolveAnswer = (answer: string): void => {
+      clearTimeout(timeoutId);
+      resolve(answer);
+    };
+
+    try {
+      rl.question(prompt, resolveAnswer);
+    } catch (error) {
+      clearTimeout(timeoutId);
+      reject(error);
+    }
   });
 };
 

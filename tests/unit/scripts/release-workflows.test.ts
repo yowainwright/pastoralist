@@ -51,6 +51,15 @@ describe("release workflows", () => {
     expect(publishIndex).toBeGreaterThan(validationIndex);
   });
 
+  test("configures tap push authentication before cloning", () => {
+    const workflow = readWorkflow("homebrew.yml");
+    const authIndex = workflow.indexOf("gh auth setup-git --hostname github.com --force");
+    const cloneIndex = workflow.indexOf("gh repo clone yowainwright/homebrew-tap tap");
+
+    expect(authIndex).toBeGreaterThan(-1);
+    expect(cloneIndex).toBeGreaterThan(authIndex);
+  });
+
   test("uses ScriptC for release binaries", () => {
     const workflows = [readWorkflow("ci.yml"), readWorkflow("homebrew.yml")];
 

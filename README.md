@@ -1,6 +1,7 @@
 # [Pastoralist](https://jeffry.in/pastoralist/)
 
 [![Socket Badge][socket-badge]][socket-package]
+
 [socket-badge]: https://socket.dev/api/badge/npm/package/pastoralist
 [socket-package]: https://socket.dev/npm/package/pastoralist
 

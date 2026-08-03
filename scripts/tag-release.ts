@@ -12,7 +12,6 @@ export type GitRunner = (args: readonly string[]) => GitResult;
 export type ReleaseLogger = Pick<Console, "error" | "log">;
 
 export interface ReleaseTagOptions {
-  atomicMainPush?: boolean;
   cwd?: string;
   dryRun?: boolean;
   git?: GitRunner;
@@ -37,10 +36,9 @@ export function formatTagName(version: string): string {
   return `v${version}`;
 }
 
-export function buildTagPushArgs(tagName: string, atomicMainPush = false): string[] {
+export function buildTagPushArgs(tagName: string): string[] {
   const tagRef = `refs/tags/${tagName}`;
-  if (!atomicMainPush) return ["push", "origin", tagRef];
-  return ["push", "--atomic", "origin", "HEAD:refs/heads/main", tagRef];
+  return ["push", "origin", tagRef];
 }
 
 export function readPackageVersion(cwd: string): string {
@@ -103,7 +101,6 @@ export function assertReleaseReady(
 }
 
 export function runReleaseTag({
-  atomicMainPush = false,
   cwd = process.cwd(),
   dryRun = false,
   git = createGitRunner(cwd),
@@ -124,7 +121,7 @@ export function runReleaseTag({
     ["tag", "--annotate", tagName, "--message", `Release ${version}`],
     "Unable to create tag",
   );
-  const push = git(buildTagPushArgs(tagName, atomicMainPush));
+  const push = git(buildTagPushArgs(tagName));
   if (push.status === 0) {
     logger.log(`Pushed ${tagName}`);
     return 0;

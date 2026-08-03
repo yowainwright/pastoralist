@@ -1,7 +1,8 @@
 import { describe, expect, mock, test } from "bun:test";
 import {
   buildCurrentVersionTagPlan,
-  buildReleaseCommands,
+  buildPullRequestBody,
+  buildReleaseBranch,
   buildReleaseItArgs,
   buildReleasePlan,
   formatReleasePlan,
@@ -57,11 +58,45 @@ const availableVersionOverrides = {
   "git ls-remote --tags origin refs/tags/v1.2.4": ok(""),
 };
 
+function buildPrCreateCommand(version: string, branch: string): string {
+  return [
+    "gh",
+    "pr",
+    "create",
+    "--base",
+    "main",
+    "--head",
+    branch,
+    "--title",
+    `chore(release): v${version}`,
+    "--body",
+    buildPullRequestBody(version),
+  ].join(" ");
+}
+
+function releasePullRequestOverrides(version: string): Record<string, GitResult> {
+  const branch = buildReleaseBranch(version);
+  const prUrl = "https://github.com/yowainwright/pastoralist/pull/999";
+  const prCreate = buildPrCreateCommand(version, branch);
+  const mergedState = JSON.stringify({ mergedAt: "2026-08-03T01:00:00Z", state: "MERGED" });
+  return {
+    [`git switch --create ${branch}`]: ok(""),
+    [`git push --set-upstream origin ${branch}`]: ok(""),
+    [prCreate]: ok(`${prUrl}\n`),
+    [`gh pr merge --auto --squash --delete-branch ${prUrl}`]: ok(""),
+    [`gh pr view ${prUrl} --json state,mergedAt`]: ok(mergedState),
+    "git switch main": ok(""),
+    "git pull --ff-only origin main": ok(""),
+  };
+}
+
 describe("scripts/release", () => {
   test("parseArgs reads release options", () => {
     expect(parseArgs(["--preRelease=beta", "--dry-run"])).toEqual({
       dryRun: true,
+      noWait: false,
       preRelease: "beta",
+      timeoutMinutes: 90,
     });
   });
 
@@ -69,10 +104,22 @@ describe("scripts/release", () => {
     expect(parseArgs(["minor", "--dry-run"])).toEqual({
       dryRun: true,
       increment: "minor",
+      noWait: false,
+      timeoutMinutes: 90,
     });
     expect(parseArgs(["--increment=major"])).toEqual({
       dryRun: false,
       increment: "major",
+      noWait: false,
+      timeoutMinutes: 90,
+    });
+  });
+
+  test("parseArgs reads release PR controls", () => {
+    expect(parseArgs(["--no-wait", "--timeout-minutes=15"])).toEqual({
+      dryRun: false,
+      noWait: true,
+      timeoutMinutes: 15,
     });
   });
 
@@ -134,25 +181,27 @@ describe("scripts/release", () => {
     );
   });
 
-  test("buildReleaseCommands returns the local release commands", () => {
-    expect(buildReleaseCommands("1.2.4-beta.6", { dryRun: true, preRelease: "beta" })).toEqual([
-      "./node_modules/.bin/release-it 1.2.4-beta.6 --preRelease=beta --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci",
-      'git tag --annotate v1.2.4-beta.6 --message "Release 1.2.4-beta.6"',
-      "git push --atomic origin HEAD:refs/heads/main refs/tags/v1.2.4-beta.6",
-    ]);
+  test("buildReleaseBranch scopes the reviewed version bump", () => {
+    expect(buildReleaseBranch("1.2.4-beta.6")).toBe("release/v1.2.4-beta.6");
   });
 
-  test("buildReleasePlan returns the local release plan", () => {
-    expect(buildReleasePlan("1.2.4-beta.6", { dryRun: true, preRelease: "beta" })).toEqual({
-      commands: [
-        "./node_modules/.bin/release-it 1.2.4-beta.6 --preRelease=beta --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci",
-        'git tag --annotate v1.2.4-beta.6 --message "Release 1.2.4-beta.6"',
-        "git push --atomic origin HEAD:refs/heads/main refs/tags/v1.2.4-beta.6",
-      ],
+  test("buildPullRequestBody describes post-merge tagging", () => {
+    expect(buildPullRequestBody("1.2.4")).toContain("After checks pass and the PR merges");
+  });
+
+  test("buildReleasePlan returns the protected-main release plan", () => {
+    expect(buildReleasePlan("1.2.4-beta.6")).toEqual({
+      branch: "release/v1.2.4-beta.6",
+      pullRequestTitle: "chore(release): v1.2.4-beta.6",
       steps: [
         "verify clean, up-to-date main",
-        "create the release commit and tag locally",
-        "atomically push main and v1.2.4-beta.6 to trigger publishing",
+        "create release/v1.2.4-beta.6",
+        "run release-it without pushing main or creating a tag",
+        "push the release branch",
+        "open a release PR and enable squash auto-merge",
+        "wait for required checks and merge",
+        "pull merged main",
+        "push v1.2.4-beta.6 to trigger publishing",
       ],
       tagName: "v1.2.4-beta.6",
       version: "1.2.4-beta.6",
@@ -172,12 +221,11 @@ describe("scripts/release", () => {
   });
 
   test("formatReleasePlan prints the planned release commands", () => {
-    const plan = buildReleasePlan("1.2.4-beta.6", { dryRun: true, preRelease: "beta" });
+    const plan = buildReleasePlan("1.2.4-beta.6");
 
     expect(formatReleasePlan(plan)).toContain("Dry run release commands for v1.2.4-beta.6");
-    expect(formatReleasePlan(plan)).toContain(
-      "3. git push --atomic origin HEAD:refs/heads/main refs/tags/v1.2.4-beta.6",
-    );
+    expect(formatReleasePlan(plan)).toContain("Branch: release/v1.2.4-beta.6");
+    expect(formatReleasePlan(plan)).toContain("PR title: chore(release): v1.2.4-beta.6");
   });
 
   test("runRelease dry run validates main and reports the planned release", async () => {
@@ -352,7 +400,7 @@ describe("scripts/release", () => {
 
     expect(code).toBe(0);
     expect(output).toContain("Dry run release commands for v1.2.4-beta.7");
-    expect(output).toContain("./node_modules/.bin/release-it 1.2.4-beta.7 --preRelease=beta");
+    expect(output).toContain("Branch: release/v1.2.4-beta.7");
   });
 
   test("runRelease dry run resolves explicit release increments", async () => {
@@ -491,13 +539,14 @@ describe("scripts/release", () => {
       readyOverrides,
       availableVersionOverrides,
       missingTagOverrides,
+      releasePullRequestOverrides("1.2.4"),
       {
         "./node_modules/.bin/release-it --release-version --increment=patch --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
           ok("1.2.4\n"),
         "./node_modules/.bin/release-it 1.2.4 --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
           ok(""),
         "git tag --annotate v1.2.4 --message Release 1.2.4": ok(""),
-        "git push --atomic origin HEAD:refs/heads/main refs/tags/v1.2.4": ok(""),
+        "git push origin refs/tags/v1.2.4": ok(""),
       },
     );
     const { calls, runner } = createRunner(overrides);
@@ -506,15 +555,9 @@ describe("scripts/release", () => {
 
     expect(code).toBe(0);
     expect(logger.log).toHaveBeenCalledWith("Pushed v1.2.4");
-    expect(logger.log).toHaveBeenCalledWith("Pushed release commit 1.2.4 to main.");
-    expect(calls()).toContainEqual([
-      "git",
-      "push",
-      "--atomic",
-      "origin",
-      "HEAD:refs/heads/main",
-      "refs/tags/v1.2.4",
-    ]);
+    expect(calls()).toContainEqual(["git", "push", "--set-upstream", "origin", "release/v1.2.4"]);
+    expect(calls()).toContainEqual(["git", "push", "origin", "refs/tags/v1.2.4"]);
+    expect(calls().some((call) => call.includes("HEAD:refs/heads/main"))).toBe(false);
   });
 
   test("runRelease creates the next patch release when a prerelease final tag exists", async () => {
@@ -527,13 +570,14 @@ describe("scripts/release", () => {
       "git rev-parse -q --verify refs/tags/v1.12.1": ok("489e1e\n"),
       "git rev-parse -q --verify refs/tags/v1.12.2": missing(),
       "git ls-remote --tags origin refs/tags/v1.12.2": ok(""),
+      ...releasePullRequestOverrides("1.12.2"),
       "git ls-remote --exit-code --tags origin refs/tags/v1.12.2": missing(),
       "./node_modules/.bin/release-it --release-version --increment=patch --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
         ok("1.12.1\n"),
       "./node_modules/.bin/release-it 1.12.2 --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
         ok(""),
       "git tag --annotate v1.12.2 --message Release 1.12.2": ok(""),
-      "git push --atomic origin HEAD:refs/heads/main refs/tags/v1.12.2": ok(""),
+      "git push origin refs/tags/v1.12.2": ok(""),
     });
     const { calls, runner } = createRunner(overrides);
 
@@ -555,17 +599,10 @@ describe("scripts/release", () => {
       "--ci",
     ]);
     expect(logger.log).toHaveBeenCalledWith("Pushed v1.12.2");
-    expect(calls()).toContainEqual([
-      "git",
-      "push",
-      "--atomic",
-      "origin",
-      "HEAD:refs/heads/main",
-      "refs/tags/v1.12.2",
-    ]);
+    expect(calls()).toContainEqual(["git", "push", "origin", "refs/tags/v1.12.2"]);
   });
 
-  test("runRelease does not call GitHub PR commands", async () => {
+  test("runRelease uses a PR and never pushes main directly", async () => {
     const logger = {
       error: mock(() => {}),
       log: mock(() => {}),
@@ -575,23 +612,26 @@ describe("scripts/release", () => {
       readyOverrides,
       availableVersionOverrides,
       missingTagOverrides,
+      releasePullRequestOverrides("1.2.4"),
       {
         "./node_modules/.bin/release-it --release-version --increment=patch --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
           ok("1.2.4\n"),
         "./node_modules/.bin/release-it 1.2.4 --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
           ok(""),
         "git tag --annotate v1.2.4 --message Release 1.2.4": ok(""),
-        "git push --atomic origin HEAD:refs/heads/main refs/tags/v1.2.4": ok(""),
+        "git push origin refs/tags/v1.2.4": ok(""),
       },
     );
     const { calls, runner } = createRunner(overrides);
 
     await runRelease({ increment: "patch", logger, packageVersion: "1.2.3", runner });
 
-    expect(calls().some((call) => call[0] === "gh")).toBe(false);
+    expect(calls()).toContainEqual(["git", "push", "--set-upstream", "origin", "release/v1.2.4"]);
+    expect(calls().some((call) => call[0] === "gh" && call[1] === "pr")).toBe(true);
+    expect(calls().some((call) => call.includes("HEAD:refs/heads/main"))).toBe(false);
   });
 
-  test("runRelease restores main when the atomic push fails", async () => {
+  test("runRelease can stop after opening the release PR", async () => {
     const logger = {
       error: mock(() => {}),
       log: mock(() => {}),
@@ -601,25 +641,29 @@ describe("scripts/release", () => {
       readyOverrides,
       availableVersionOverrides,
       missingTagOverrides,
+      releasePullRequestOverrides("1.2.4"),
       {
         "./node_modules/.bin/release-it --release-version --increment=patch --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
           ok("1.2.4\n"),
         "./node_modules/.bin/release-it 1.2.4 --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
           ok(""),
-        "git tag --annotate v1.2.4 --message Release 1.2.4": ok(""),
-        "git push --atomic origin HEAD:refs/heads/main refs/tags/v1.2.4":
-          fail("atomic push rejected"),
-        "git tag --delete v1.2.4": ok(""),
-        "git reset --hard abc": ok(""),
       },
     );
     const { calls, runner } = createRunner(overrides);
 
-    await expect(
-      runRelease({ increment: "patch", logger, packageVersion: "1.2.3", runner }),
-    ).rejects.toThrow("atomic push rejected");
-    expect(calls()).toContainEqual(["git", "tag", "--delete", "v1.2.4"]);
-    expect(calls()).toContainEqual(["git", "reset", "--hard", "abc"]);
+    const code = await runRelease({
+      increment: "patch",
+      logger,
+      noWait: true,
+      packageVersion: "1.2.3",
+      runner,
+    });
+
+    expect(code).toBe(0);
+    expect(logger.log).toHaveBeenCalledWith(
+      "Release PR is open: https://github.com/yowainwright/pastoralist/pull/999",
+    );
+    expect(calls().some((call) => call[1] === "tag")).toBe(false);
   });
 
   test("runRelease tags current prerelease package version without release-it", async () => {

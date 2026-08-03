@@ -145,6 +145,7 @@ jobs:
           GH_TOKEN: "${{ secrets.HOMEBREW_TAP_TOKEN }}"
           TAP_BRANCH: "pastoralist-${{ inputs.version }}-${{ github.run_id }}-${{ github.run_attempt }}"
         run: |
+          gh auth setup-git --hostname github.com --force
           gh repo clone yowainwright/homebrew-tap tap
           cd tap
           git switch -c "$TAP_BRANCH"

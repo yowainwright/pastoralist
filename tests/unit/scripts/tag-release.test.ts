@@ -12,6 +12,7 @@ import {
 const ok = (stdout = ""): GitResult => ({ status: 0, stdout, stderr: "" });
 const missing = (): GitResult => ({ status: 2, stdout: "", stderr: "" });
 const fail = (stderr: string): GitResult => ({ status: 1, stdout: "", stderr });
+const TARGET_COMMIT = "a".repeat(40);
 
 function createGit(overrides: Record<string, GitResult> = {}) {
   let calls: string[][] = [];
@@ -93,9 +94,17 @@ describe("scripts/tag-release", () => {
 
   test("runReleaseTag creates and pushes the version tag", () => {
     const logger = { log: mock(() => {}), error: mock(() => {}) };
-    const { calls, git } = createGit(readyGitOverrides);
+    const { calls, git } = createGit({
+      ...readyGitOverrides,
+      [`merge-base --is-ancestor ${TARGET_COMMIT} origin/main`]: ok(""),
+    });
 
-    const code = runReleaseTag({ git, logger, version: "1.2.3-beta.6" });
+    const code = runReleaseTag({
+      git,
+      logger,
+      targetCommit: TARGET_COMMIT,
+      version: "1.2.3-beta.6",
+    });
 
     expect(code).toBe(0);
     expect(calls()).toContainEqual([
@@ -104,8 +113,20 @@ describe("scripts/tag-release", () => {
       "v1.2.3-beta.6",
       "--message",
       "Release 1.2.3-beta.6",
+      TARGET_COMMIT,
     ]);
     expect(calls()).toContainEqual(["push", "origin", "refs/tags/v1.2.3-beta.6"]);
+  });
+
+  test("runReleaseTag rejects a target outside main", () => {
+    const { git } = createGit({
+      ...readyGitOverrides,
+      [`merge-base --is-ancestor ${TARGET_COMMIT} origin/main`]: fail(""),
+    });
+
+    expect(() =>
+      runReleaseTag({ git, targetCommit: TARGET_COMMIT, version: "1.2.3-beta.6" }),
+    ).toThrow("Target commit is not on origin/main");
   });
 
   test("runReleaseTag deletes the local tag when push fails", () => {

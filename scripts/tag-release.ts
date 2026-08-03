@@ -17,14 +17,17 @@ export interface ReleaseTagOptions {
   git?: GitRunner;
   logger?: ReleaseLogger;
   requireUpstream?: boolean;
+  targetCommit?: string;
   version?: string;
 }
 
 export interface ReleaseReadyOptions {
   dryRun?: boolean;
   requireUpstream?: boolean;
+  targetCommit?: string;
 }
 
+const COMMIT_PATTERN = /^[0-9a-f]{40}$/i;
 const VERSION_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 
 export function parseArgs(args: readonly string[]): { dryRun: boolean } {
@@ -79,7 +82,7 @@ export function assertMissingTag(git: GitRunner, tagName: string): void {
 export function assertReleaseReady(
   git: GitRunner,
   tagName: string,
-  { dryRun = false, requireUpstream = true }: ReleaseReadyOptions = {},
+  { dryRun = false, requireUpstream = true, targetCommit }: ReleaseReadyOptions = {},
 ): void {
   const branch = gitText(git, ["branch", "--show-current"], "Unable to read current branch");
   if (branch !== "main") throw new Error("Release tags must be created from main");
@@ -96,8 +99,17 @@ export function assertReleaseReady(
   const head = gitText(git, ["rev-parse", "HEAD"], "Unable to read HEAD");
   const upstream = gitText(git, ["rev-parse", "origin/main"], "Unable to read origin/main");
   if (head !== upstream) throw new Error("Local main must match origin/main before tagging");
+  if (targetCommit) assertTargetCommitOnMain(git, targetCommit);
 
   assertMissingTag(git, tagName);
+}
+
+function assertTargetCommitOnMain(git: GitRunner, targetCommit: string): void {
+  if (!COMMIT_PATTERN.test(targetCommit)) throw new Error(`Invalid target commit: ${targetCommit}`);
+
+  const result = git(["merge-base", "--is-ancestor", targetCommit, "origin/main"]);
+  if (result.status === 0) return;
+  throw new Error(`Target commit is not on origin/main: ${targetCommit}`);
 }
 
 export function runReleaseTag({
@@ -106,21 +118,20 @@ export function runReleaseTag({
   git = createGitRunner(cwd),
   logger = console,
   requireUpstream = true,
+  targetCommit,
   version = readPackageVersion(cwd),
 }: ReleaseTagOptions = {}): number {
   const tagName = formatTagName(version);
-  assertReleaseReady(git, tagName, { dryRun, requireUpstream });
+  assertReleaseReady(git, tagName, { dryRun, requireUpstream, targetCommit });
 
   if (dryRun) {
     logger.log(`Dry run: would create and push ${tagName}`);
     return 0;
   }
 
-  gitText(
-    git,
-    ["tag", "--annotate", tagName, "--message", `Release ${version}`],
-    "Unable to create tag",
-  );
+  const tagArgs = ["tag", "--annotate", tagName, "--message", `Release ${version}`];
+  const createTagArgs = targetCommit ? tagArgs.concat(targetCommit) : tagArgs;
+  gitText(git, createTagArgs, "Unable to create tag");
   const push = git(buildTagPushArgs(tagName));
   if (push.status === 0) {
     logger.log(`Pushed ${tagName}`);

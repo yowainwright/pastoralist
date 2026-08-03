@@ -12,6 +12,7 @@ import {
 const ok = (stdout = ""): GitResult => ({ status: 0, stdout, stderr: "" });
 const missing = (): GitResult => ({ status: 2, stdout: "", stderr: "" });
 const fail = (stderr: string): GitResult => ({ status: 1, stdout: "", stderr });
+const TARGET_COMMIT = "a".repeat(40);
 
 function createGit(overrides: Record<string, GitResult> = {}) {
   let calls: string[][] = [];
@@ -47,14 +48,8 @@ describe("scripts/tag-release", () => {
     expect(() => formatTagName("beta")).toThrow("Invalid package version");
   });
 
-  test("buildTagPushArgs can atomically push main and the release tag", () => {
-    expect(buildTagPushArgs("v1.2.3", true)).toEqual([
-      "push",
-      "--atomic",
-      "origin",
-      "HEAD:refs/heads/main",
-      "refs/tags/v1.2.3",
-    ]);
+  test("buildTagPushArgs pushes only the release tag", () => {
+    expect(buildTagPushArgs("v1.2.3")).toEqual(["push", "origin", "refs/tags/v1.2.3"]);
   });
 
   test("assertMissingTag rejects existing local tags", () => {
@@ -99,9 +94,18 @@ describe("scripts/tag-release", () => {
 
   test("runReleaseTag creates and pushes the version tag", () => {
     const logger = { log: mock(() => {}), error: mock(() => {}) };
-    const { calls, git } = createGit(readyGitOverrides);
+    const targetOverrides = {
+      [`merge-base --is-ancestor ${TARGET_COMMIT} origin/main`]: ok(""),
+    };
+    const overrides = Object.assign({}, readyGitOverrides, targetOverrides);
+    const { calls, git } = createGit(overrides);
 
-    const code = runReleaseTag({ git, logger, version: "1.2.3-beta.6" });
+    const code = runReleaseTag({
+      git,
+      logger,
+      targetCommit: TARGET_COMMIT,
+      version: "1.2.3-beta.6",
+    });
 
     expect(code).toBe(0);
     expect(calls()).toContainEqual([
@@ -110,33 +114,21 @@ describe("scripts/tag-release", () => {
       "v1.2.3-beta.6",
       "--message",
       "Release 1.2.3-beta.6",
+      TARGET_COMMIT,
     ]);
     expect(calls()).toContainEqual(["push", "origin", "refs/tags/v1.2.3-beta.6"]);
   });
 
-  test("runReleaseTag atomically pushes main with the version tag", () => {
-    const logger = { log: mock(() => {}), error: mock(() => {}) };
-    const atomicPush = {
-      "push --atomic origin HEAD:refs/heads/main refs/tags/v1.2.3-beta.6": ok(""),
+  test("runReleaseTag rejects a target outside main", () => {
+    const targetOverrides = {
+      [`merge-base --is-ancestor ${TARGET_COMMIT} origin/main`]: fail(""),
     };
-    const { calls, git } = createGit(Object.assign({}, readyGitOverrides, atomicPush));
+    const overrides = Object.assign({}, readyGitOverrides, targetOverrides);
+    const { git } = createGit(overrides);
 
-    const code = runReleaseTag({
-      atomicMainPush: true,
-      git,
-      logger,
-      requireUpstream: false,
-      version: "1.2.3-beta.6",
-    });
-
-    expect(code).toBe(0);
-    expect(calls()).toContainEqual([
-      "push",
-      "--atomic",
-      "origin",
-      "HEAD:refs/heads/main",
-      "refs/tags/v1.2.3-beta.6",
-    ]);
+    expect(() =>
+      runReleaseTag({ git, targetCommit: TARGET_COMMIT, version: "1.2.3-beta.6" }),
+    ).toThrow("Target commit is not on origin/main");
   });
 
   test("runReleaseTag deletes the local tag when push fails", () => {

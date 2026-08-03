@@ -776,6 +776,44 @@ describe("scripts/release", () => {
     expect(calls()).toContainEqual(["git", "push", "origin", "refs/tags/v1.2.4"]);
   });
 
+  test("runRelease merges when only optional checks fail", async () => {
+    const prUrl = "https://github.com/yowainwright/pastoralist/pull/999";
+    const unstableState = JSON.stringify({
+      mergeCommit: null,
+      mergeStateStatus: "UNSTABLE",
+      mergedAt: null,
+      state: "OPEN",
+    });
+    const overrides = mergeOverrides(
+      readyOverrides,
+      availableVersionOverrides,
+      missingTagOverrides,
+      releasePullRequestOverrides("1.2.4"),
+      {
+        "./node_modules/.bin/release-it --release-version --increment=patch --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
+          ok("1.2.4\n"),
+        "./node_modules/.bin/release-it 1.2.4 --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
+          ok(""),
+        [`gh pr view ${prUrl} --json state,mergedAt,mergeCommit,mergeStateStatus`]:
+          ok(unstableState),
+        [`git tag --annotate v1.2.4 --message Release 1.2.4 ${MERGE_COMMIT}`]: ok(""),
+        "git push origin refs/tags/v1.2.4": ok(""),
+      },
+    );
+    const { calls, runner } = createRunner(overrides);
+
+    const code = await runRelease({
+      increment: "patch",
+      packageVersion: "1.2.3",
+      pollIntervalMs: 0,
+      runner,
+    });
+
+    expect(code).toBe(0);
+    expect(calls()).toContainEqual(["gh", "pr", "merge", "--squash", "--delete-branch", prUrl]);
+    expect(calls()).toContainEqual(["git", "push", "origin", "refs/tags/v1.2.4"]);
+  });
+
   test("runRelease does not tag when the synchronous merge fails", async () => {
     const prUrl = "https://github.com/yowainwright/pastoralist/pull/999";
     const overrides = mergeOverrides(

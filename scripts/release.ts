@@ -563,7 +563,8 @@ async function pollForMergeReadiness(
     return mergeCommit;
   }
   assertReadinessCanContinue(state, prUrl, deadline);
-  if (state.mergeStateStatus === "CLEAN") return undefined;
+  const isMergeable = ["CLEAN", "UNSTABLE"].includes(state.mergeStateStatus ?? "");
+  if (isMergeable) return undefined;
   if (state.mergeStateStatus === "BEHIND") refreshReleaseBranch(context, prUrl);
 
   context.logger.log(`Waiting for release PR checks to pass: ${prUrl}`);

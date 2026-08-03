@@ -12,6 +12,7 @@ export interface ReleaseOptions {
   increment?: ReleaseIncrement;
   logger?: ReleaseLogger;
   packageVersion?: string;
+  pollIntervalMs?: number;
   preRelease?: PreRelease;
   runner?: ReleaseRunner;
   timeoutMinutes?: number;
@@ -47,6 +48,7 @@ export interface TagPlan {
 
 interface PullRequestState {
   mergeCommit?: { oid?: string } | null;
+  mergeStateStatus?: string;
   mergedAt?: string | null;
   state: string;
 }
@@ -54,6 +56,7 @@ interface PullRequestState {
 interface ReleaseContext {
   cwd: string;
   logger: ReleaseLogger;
+  pollIntervalMs: number;
   runner: ReleaseRunner;
 }
 
@@ -120,7 +123,7 @@ export function buildPullRequestBody(version: string): string {
     `Release v${version}.`,
     "",
     "This PR was created by `bun run release`.",
-    "After checks pass and the PR merges, the release command pushes the version tag.",
+    "After checks pass, the release command merges this PR and pushes the version tag.",
   ].join("\n");
 }
 
@@ -130,8 +133,9 @@ function buildReleaseSteps(branch: string, tagName: string): string[] {
     `create ${branch}`,
     "run release-it without pushing main or creating a tag",
     "push the release branch",
-    "open a release PR and enable squash auto-merge",
-    "wait for required checks and merge",
+    "open a release PR",
+    "wait for required checks",
+    "squash-merge the release PR",
     "pull merged main",
     `push ${tagName} to trigger publishing`,
   ];
@@ -190,8 +194,9 @@ export function createRunner(cwd: string): ReleaseRunner {
 function createReleaseContext(options: ReleaseOptions): ReleaseContext {
   const cwd = options.cwd ?? process.cwd();
   const logger = options.logger ?? console;
+  const pollIntervalMs = options.pollIntervalMs ?? POLL_INTERVAL_MS;
   const runner = options.runner ?? createRunner(cwd);
-  return { cwd, logger, runner };
+  return { cwd, logger, pollIntervalMs, runner };
 }
 
 function shouldTagCurrentVersion(releaseArgs: ReleaseArgs, packageVersion: string): boolean {
@@ -238,9 +243,12 @@ async function publishReleasePullRequest(
 ): Promise<number> {
   const branch = buildReleaseBranch(version);
   const prUrl = createReleasePullRequest(context, releaseArgs, version, branch);
-  const mergeCommit = await waitForMerge(context, prUrl, releaseArgs.timeoutMinutes);
+  const deadline = Date.now() + releaseArgs.timeoutMinutes * 60_000;
+  const existingMergeCommit = await waitForMergeReadiness(context, prUrl, deadline);
+  const mergeCommit = await resolveMergeCommit(context, prUrl, deadline, existingMergeCommit);
   checkoutMergedMain(context.runner);
-  return pushVersionTag(context, version, mergeCommit);
+  const code = pushVersionTag(context, version, mergeCommit);
+  return code;
 }
 
 async function runVersionRelease(
@@ -449,7 +457,6 @@ function createReleasePullRequest(
 
   const prUrl = createPullRequest(context, version, branch);
   context.logger.log(`Opened ${prUrl}`);
-  enableAutoMerge(context, prUrl);
   return prUrl;
 }
 
@@ -478,43 +485,107 @@ function createPullRequest(context: ReleaseContext, version: string, branch: str
 function readPullRequestUrl(runner: ReleaseRunner, reference: string): string {
   const output = commandText(runner, "gh", ["pr", "view", reference, "--json", "url"]);
   const parsed = JSON.parse(output) as { url?: string };
-  if (!parsed.url) throw new Error(`Unable to find release PR for ${reference}`);
-  return parsed.url;
+  const prUrl = parsed.url;
+  if (!prUrl) throw new Error(`Unable to find release PR for ${reference}`);
+  return prUrl;
 }
 
-function enableAutoMerge(context: ReleaseContext, prUrl: string): void {
-  const args = ["pr", "merge", "--auto", "--squash", "--delete-branch", prUrl];
-  const result = context.runner("gh", args);
-  if (result.status === 0) return;
-  throw new Error(result.stderr.trim() || "Unable to enable auto-merge for release PR");
+function resolveMergeCommit(
+  context: ReleaseContext,
+  prUrl: string,
+  deadline: number,
+  existingMergeCommit?: string,
+): Promise<string> {
+  let operation: Promise<string>;
+  if (existingMergeCommit) operation = Promise.resolve(existingMergeCommit);
+  else operation = mergeReleasePullRequest(context, prUrl, deadline);
+  return operation;
+}
+
+function mergeReleasePullRequest(
+  context: ReleaseContext,
+  prUrl: string,
+  deadline: number,
+): Promise<string> {
+  const mergeArgs = ["pr", "merge", "--squash", "--delete-branch", prUrl];
+  runCommand(context.runner, "gh", mergeArgs);
+  const operation = waitForMergeCompletion(context, prUrl, deadline);
+  return operation;
+}
+
+async function waitForMergeCompletion(
+  context: ReleaseContext,
+  prUrl: string,
+  deadline: number,
+): Promise<string> {
+  const fields = "state,mergedAt,mergeCommit";
+  const state = readPullRequestState(context.runner, prUrl, fields);
+  if (state.mergedAt) {
+    const mergeCommit = readMergeCommit(state, prUrl);
+    return mergeCommit;
+  }
+  assertPullRequestOpen(state, prUrl, deadline);
+
+  context.logger.log(`Waiting for release PR to merge: ${prUrl}`);
+  await delay(context.pollIntervalMs);
+  const mergeCommit = await waitForMergeCompletion(context, prUrl, deadline);
+  return mergeCommit;
+}
+
+function assertPullRequestOpen(state: PullRequestState, prUrl: string, deadline: number): void {
+  if (state.state === "CLOSED") throw new Error(`Release PR closed without merging: ${prUrl}`);
+  if (Date.now() <= deadline) return;
+  throw new Error(`Timed out waiting for release PR: ${prUrl}`);
 }
 
 function delay(milliseconds: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
 }
 
-async function waitForMerge(
-  context: ReleaseContext,
-  prUrl: string,
-  timeoutMinutes: number,
-): Promise<string> {
-  const deadline = Date.now() + timeoutMinutes * 60_000;
-  return pollForMerge(context, prUrl, deadline);
-}
-
-async function pollForMerge(
+async function waitForMergeReadiness(
   context: ReleaseContext,
   prUrl: string,
   deadline: number,
-): Promise<string> {
-  const state = readPullRequestState(context.runner, prUrl);
-  if (state.mergedAt) return readMergeCommit(state, prUrl);
-  if (state.state === "CLOSED") throw new Error(`Release PR closed without merging: ${prUrl}`);
-  if (Date.now() > deadline) throw new Error(`Timed out waiting for release PR: ${prUrl}`);
+): Promise<string | undefined> {
+  const mergeCommit = await pollForMergeReadiness(context, prUrl, deadline);
+  return mergeCommit;
+}
+
+async function pollForMergeReadiness(
+  context: ReleaseContext,
+  prUrl: string,
+  deadline: number,
+): Promise<string | undefined> {
+  const fields = "state,mergedAt,mergeCommit,mergeStateStatus";
+  const state = readPullRequestState(context.runner, prUrl, fields);
+  if (state.mergedAt) {
+    const mergeCommit = readMergeCommit(state, prUrl);
+    return mergeCommit;
+  }
+  assertReadinessCanContinue(state, prUrl, deadline);
+  if (state.mergeStateStatus === "CLEAN") return undefined;
+  if (state.mergeStateStatus === "BEHIND") refreshReleaseBranch(context, prUrl);
 
   context.logger.log(`Waiting for release PR checks to pass: ${prUrl}`);
-  await delay(POLL_INTERVAL_MS);
-  return pollForMerge(context, prUrl, deadline);
+  await delay(context.pollIntervalMs);
+  const mergeCommit = await pollForMergeReadiness(context, prUrl, deadline);
+  return mergeCommit;
+}
+
+function assertReadinessCanContinue(
+  state: PullRequestState,
+  prUrl: string,
+  deadline: number,
+): void {
+  assertPullRequestOpen(state, prUrl, deadline);
+  if (state.mergeStateStatus !== "DIRTY") return;
+  throw new Error(`Release PR has merge conflicts: ${prUrl}`);
+}
+
+function refreshReleaseBranch(context: ReleaseContext, prUrl: string): void {
+  context.logger.log(`Updating release PR branch from main: ${prUrl}`);
+  const updateArgs = ["pr", "update-branch", prUrl];
+  runCommand(context.runner, "gh", updateArgs);
 }
 
 function readMergeCommit(state: PullRequestState, prUrl: string): string {
@@ -523,8 +594,11 @@ function readMergeCommit(state: PullRequestState, prUrl: string): string {
   throw new Error(`Release PR is merged without a merge commit: ${prUrl}`);
 }
 
-function readPullRequestState(runner: ReleaseRunner, prUrl: string): PullRequestState {
-  const fields = "state,mergedAt,mergeCommit";
+function readPullRequestState(
+  runner: ReleaseRunner,
+  prUrl: string,
+  fields: string,
+): PullRequestState {
   const output = commandText(runner, "gh", ["pr", "view", prUrl, "--json", fields]);
   return JSON.parse(output) as PullRequestState;
 }

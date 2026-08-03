@@ -44,6 +44,15 @@ jobs:
           persist-credentials: false
           ref: "${{ inputs.version }}"
 
+      - name: Checkout release tooling
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          path: release-tools
+          persist-credentials: false
+          ref: "${{ github.workflow_sha }}"
+          sparse-checkout: scripts/upload-release-assets.sh
+          sparse-checkout-cone-mode: false
+
       - name: Install Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -123,7 +132,13 @@ jobs:
           BINARY: ${{ steps.perry.outputs.binary }}
           GITHUB_TOKEN: "${{ github.token }}"
           SIGSTORE_BUNDLE: ${{ steps.perry-attestation.outputs.sigstore_bundle }}
-        run: sh scripts/upload-release-assets.sh "v${VERSION}" "$FORMULA_PATH" "$BINARY" "$SIGSTORE_BUNDLE"
+        run: |
+          RELEASE_SCRIPT="release-tools/scripts/upload-release-assets.sh"
+          RELEASE_TAG="v${VERSION}"
+          RELEASE_ASSETS=("$FORMULA_PATH" "$BINARY" "$SIGSTORE_BUNDLE")
+          RELEASE_ID="$(sh "$RELEASE_SCRIPT" "$RELEASE_TAG" "${RELEASE_ASSETS[@]}")"
+          test -n "$RELEASE_ID"
+          echo "RELEASE_ID=$RELEASE_ID" >> "$GITHUB_ENV"
 
       - name: Update Homebrew tap
         env:
@@ -142,4 +157,6 @@ jobs:
       - name: Publish GitHub release
         env:
           GITHUB_TOKEN: "${{ github.token }}"
-        run: gh release edit "v${VERSION}" --draft=false
+        run: |
+          RELEASE_ENDPOINT="repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID"
+          gh api --method PATCH "$RELEASE_ENDPOINT" -F draft=false --silent

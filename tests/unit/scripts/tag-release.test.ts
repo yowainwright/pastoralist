@@ -81,6 +81,20 @@ describe("scripts/tag-release", () => {
     expect(calls()).not.toContainEqual(["rev-parse", "HEAD"]);
   });
 
+  test("assertReleaseReady validates targets before skipping upstream", () => {
+    const { git } = createGit({
+      "branch --show-current": ok("main\n"),
+      "status --short": ok(""),
+      "fetch origin main --tags": ok(""),
+      [`merge-base --is-ancestor ${TARGET_COMMIT} origin/main`]: fail(""),
+    });
+
+    const options = { requireUpstream: false, targetCommit: TARGET_COMMIT };
+    expect(() => assertReleaseReady(git, "v1.2.3", options)).toThrow(
+      "Target commit is not on origin/main",
+    );
+  });
+
   test("runReleaseTag dry run validates without creating a tag", () => {
     const logger = { log: mock(() => {}), error: mock(() => {}) };
     const { calls, git } = createGit(readyGitOverrides);

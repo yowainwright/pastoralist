@@ -9,7 +9,23 @@ if [ "$#" -eq 0 ]; then
   exit 1
 fi
 
-release_json=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$release_tag")
+releases_endpoint="repos/$GITHUB_REPOSITORY/releases?per_page=100"
+release_json=$(gh api --paginate --slurp "$releases_endpoint" | \
+  jq -c --arg tag "$release_tag" '[.[][] | select(.tag_name == $tag)] | first // empty')
+
+if [ -z "$release_json" ]; then
+  printf 'Release not found: %s\n' "$release_tag" >&2
+  exit 1
+fi
+
+release_id=$(printf '%s' "$release_json" | jq -r '.id')
+upload_url=$(printf '%s' "$release_json" | jq -r '.upload_url | split("{")[0]')
+expected_upload_url="https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$release_id/assets"
+
+if [ "$upload_url" != "$expected_upload_url" ]; then
+  printf 'Unexpected release upload URL: %s\n' "$upload_url" >&2
+  exit 1
+fi
 
 for asset_path in "$@"; do
   asset_name=$(basename "$asset_path")
@@ -18,7 +34,12 @@ for asset_path in "$@"; do
     '[.assets[] | select(.name == $name)] | if length == 0 then "missing" else .[0].digest // "unavailable" end')
 
   if [ "$published_digest" = "missing" ]; then
-    gh release upload "$release_tag" "$asset_path"
+    encoded_name=$(jq -nr --arg name "$asset_name" '$name | @uri')
+    asset_url="${upload_url}?name=${encoded_name}"
+    gh api --method POST \
+      --header "Content-Type: application/octet-stream" \
+      --input "$asset_path" \
+      "$asset_url" >/dev/null
     continue
   fi
 
@@ -34,3 +55,5 @@ for asset_path in "$@"; do
   printf 'Release asset digest mismatch: %s\n' "$asset_name" >&2
   exit 1
 done
+
+printf '%s\n' "$release_id"

@@ -25,21 +25,36 @@ const ok = (stdout = ""): GitResult => ({ status: 0, stdout, stderr: "" });
 const missing = (): GitResult => ({ status: 2, stdout: "", stderr: "" });
 const fail = (stderr: string): GitResult => ({ status: 1, stdout: "", stderr });
 const MERGE_COMMIT = "b".repeat(40);
+type GitOverride = GitResult | GitResult[];
 
-function createRunner(overrides: Record<string, GitResult> = {}) {
+function readOverride(
+  overrides: Record<string, GitOverride>,
+  key: string,
+  count: number,
+): GitResult {
+  const override = overrides[key];
+  if (!Array.isArray(override)) return override ?? ok("");
+  const result = override[count] ?? override.at(-1) ?? ok("");
+  return result;
+}
+
+function createRunner(overrides: Record<string, GitOverride> = {}) {
   let calls: string[][] = [];
+  const callCounts = new Map<string, number>();
   const runner = mock<ReleaseRunner>((command, args) => {
     const commandArgs = [command].concat(Array.from(args));
     const key = commandArgs.join(" ");
+    const count = callCounts.get(key) ?? 0;
     calls = calls.concat([commandArgs]);
-    return overrides[key] ?? ok("");
+    callCounts.set(key, count + 1);
+    return readOverride(overrides, key, count);
   });
   return { calls: () => calls, runner };
 }
 
 const mergeOverrides = (
-  ...overrides: Array<Record<string, GitResult>>
-): Record<string, GitResult> => Object.assign({}, ...overrides);
+  ...overrides: Array<Record<string, GitOverride>>
+): Record<string, GitOverride> => Object.assign({}, ...overrides);
 
 const readyOverrides = {
   "git branch --show-current": ok("main\n"),
@@ -79,6 +94,12 @@ function releasePullRequestOverrides(version: string): Record<string, GitResult>
   const branch = buildReleaseBranch(version);
   const prUrl = "https://github.com/yowainwright/pastoralist/pull/999";
   const prCreate = buildPrCreateCommand(version, branch);
+  const readyState = JSON.stringify({
+    mergeCommit: null,
+    mergeStateStatus: "CLEAN",
+    mergedAt: null,
+    state: "OPEN",
+  });
   const mergedState = JSON.stringify({
     mergeCommit: { oid: MERGE_COMMIT },
     mergedAt: "2026-08-03T01:00:00Z",
@@ -88,7 +109,8 @@ function releasePullRequestOverrides(version: string): Record<string, GitResult>
     [`git switch --create ${branch}`]: ok(""),
     [`git push --set-upstream origin ${branch}`]: ok(""),
     [prCreate]: ok(`${prUrl}\n`),
-    [`gh pr merge --auto --squash --delete-branch ${prUrl}`]: ok(""),
+    [`gh pr view ${prUrl} --json state,mergedAt,mergeCommit,mergeStateStatus`]: ok(readyState),
+    [`gh pr merge --squash --delete-branch ${prUrl}`]: ok(""),
     [`gh pr view ${prUrl} --json state,mergedAt,mergeCommit`]: ok(mergedState),
     "git switch main": ok(""),
     "git pull --ff-only origin main": ok(""),
@@ -191,8 +213,8 @@ describe("scripts/release", () => {
     expect(buildReleaseBranch("1.2.4-beta.6")).toBe("release/v1.2.4-beta.6");
   });
 
-  test("buildPullRequestBody describes post-merge tagging", () => {
-    expect(buildPullRequestBody("1.2.4")).toContain("After checks pass and the PR merges");
+  test("buildPullRequestBody describes synchronous merge and tagging", () => {
+    expect(buildPullRequestBody("1.2.4")).toContain("release command merges this PR");
   });
 
   test("buildReleasePlan returns the protected-main release plan", () => {
@@ -204,8 +226,9 @@ describe("scripts/release", () => {
         "create release/v1.2.4-beta.6",
         "run release-it without pushing main or creating a tag",
         "push the release branch",
-        "open a release PR and enable squash auto-merge",
-        "wait for required checks and merge",
+        "open a release PR",
+        "wait for required checks",
+        "squash-merge the release PR",
         "pull merged main",
         "push v1.2.4-beta.6 to trigger publishing",
       ],
@@ -563,6 +586,15 @@ describe("scripts/release", () => {
     expect(logger.log).toHaveBeenCalledWith("Pushed v1.2.4");
     expect(calls()).toContainEqual(["git", "push", "--set-upstream", "origin", "release/v1.2.4"]);
     expect(calls()).toContainEqual([
+      "gh",
+      "pr",
+      "merge",
+      "--squash",
+      "--delete-branch",
+      "https://github.com/yowainwright/pastoralist/pull/999",
+    ]);
+    expect(calls().some((call) => call.includes("--auto"))).toBe(false);
+    expect(calls()).toContainEqual([
       "git",
       "tag",
       "--annotate",
@@ -645,7 +677,106 @@ describe("scripts/release", () => {
     expect(calls().some((call) => call.includes("HEAD:refs/heads/main"))).toBe(false);
   });
 
-  test("runRelease fails immediately when auto-merge cannot be enabled", async () => {
+  test("runRelease waits for a queued PR to merge before tagging", async () => {
+    const logger = {
+      error: mock(() => {}),
+      log: mock(() => {}),
+      warn: mock(() => {}),
+    };
+    const prUrl = "https://github.com/yowainwright/pastoralist/pull/999";
+    const queuedState = JSON.stringify({ mergeCommit: null, mergedAt: null, state: "OPEN" });
+    const mergedState = JSON.stringify({
+      mergeCommit: { oid: MERGE_COMMIT },
+      mergedAt: "2026-08-03T01:00:00Z",
+      state: "MERGED",
+    });
+    const overrides = mergeOverrides(
+      readyOverrides,
+      availableVersionOverrides,
+      missingTagOverrides,
+      releasePullRequestOverrides("1.2.4"),
+      {
+        "./node_modules/.bin/release-it --release-version --increment=patch --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
+          ok("1.2.4\n"),
+        "./node_modules/.bin/release-it 1.2.4 --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
+          ok(""),
+        [`gh pr view ${prUrl} --json state,mergedAt,mergeCommit`]: [
+          ok(queuedState),
+          ok(mergedState),
+        ],
+        [`git tag --annotate v1.2.4 --message Release 1.2.4 ${MERGE_COMMIT}`]: ok(""),
+        "git push origin refs/tags/v1.2.4": ok(""),
+      },
+    );
+    const { calls, runner } = createRunner(overrides);
+
+    const code = await runRelease({
+      increment: "patch",
+      logger,
+      packageVersion: "1.2.3",
+      pollIntervalMs: 0,
+      runner,
+    });
+
+    expect(code).toBe(0);
+    expect(logger.log).toHaveBeenCalledWith(`Waiting for release PR to merge: ${prUrl}`);
+    expect(calls()).toContainEqual(["git", "push", "origin", "refs/tags/v1.2.4"]);
+  });
+
+  test("runRelease refreshes a release branch that falls behind main", async () => {
+    const logger = {
+      error: mock(() => {}),
+      log: mock(() => {}),
+      warn: mock(() => {}),
+    };
+    const prUrl = "https://github.com/yowainwright/pastoralist/pull/999";
+    const behindState = JSON.stringify({
+      mergeCommit: null,
+      mergeStateStatus: "BEHIND",
+      mergedAt: null,
+      state: "OPEN",
+    });
+    const readyState = JSON.stringify({
+      mergeCommit: null,
+      mergeStateStatus: "CLEAN",
+      mergedAt: null,
+      state: "OPEN",
+    });
+    const overrides = mergeOverrides(
+      readyOverrides,
+      availableVersionOverrides,
+      missingTagOverrides,
+      releasePullRequestOverrides("1.2.4"),
+      {
+        "./node_modules/.bin/release-it --release-version --increment=patch --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
+          ok("1.2.4\n"),
+        "./node_modules/.bin/release-it 1.2.4 --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
+          ok(""),
+        [`gh pr view ${prUrl} --json state,mergedAt,mergeCommit,mergeStateStatus`]: [
+          ok(behindState),
+          ok(readyState),
+        ],
+        [`gh pr update-branch ${prUrl}`]: ok(""),
+        [`git tag --annotate v1.2.4 --message Release 1.2.4 ${MERGE_COMMIT}`]: ok(""),
+        "git push origin refs/tags/v1.2.4": ok(""),
+      },
+    );
+    const { calls, runner } = createRunner(overrides);
+
+    const code = await runRelease({
+      increment: "patch",
+      logger,
+      packageVersion: "1.2.3",
+      pollIntervalMs: 0,
+      runner,
+    });
+
+    expect(code).toBe(0);
+    expect(calls()).toContainEqual(["gh", "pr", "update-branch", prUrl]);
+    expect(calls()).toContainEqual(["git", "push", "origin", "refs/tags/v1.2.4"]);
+  });
+
+  test("runRelease does not tag when the synchronous merge fails", async () => {
     const prUrl = "https://github.com/yowainwright/pastoralist/pull/999";
     const overrides = mergeOverrides(
       readyOverrides,
@@ -656,15 +787,75 @@ describe("scripts/release", () => {
           ok("1.2.4\n"),
         "./node_modules/.bin/release-it 1.2.4 --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
           ok(""),
-        [`gh pr merge --auto --squash --delete-branch ${prUrl}`]: fail("auto-merge unavailable"),
+        [`gh pr merge --squash --delete-branch ${prUrl}`]: fail("merge unavailable"),
       },
     );
     const { calls, runner } = createRunner(overrides);
 
     await expect(
       runRelease({ increment: "patch", packageVersion: "1.2.3", runner }),
-    ).rejects.toThrow("auto-merge unavailable");
-    expect(calls().some((call) => call[0] === "gh" && call.includes("view"))).toBe(false);
+    ).rejects.toThrow("merge unavailable");
+    expect(calls().some((call) => call.includes("--auto"))).toBe(false);
+    expect(calls().some((call) => call[1] === "tag")).toBe(false);
+  });
+
+  test("runRelease leaves the PR open when readiness polling fails", async () => {
+    const logger = {
+      error: mock(() => {}),
+      log: mock(() => {}),
+      warn: mock(() => {}),
+    };
+    const prUrl = "https://github.com/yowainwright/pastoralist/pull/999";
+    const overrides = mergeOverrides(
+      readyOverrides,
+      availableVersionOverrides,
+      releasePullRequestOverrides("1.2.4"),
+      {
+        "./node_modules/.bin/release-it --release-version --increment=patch --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
+          ok("1.2.4\n"),
+        "./node_modules/.bin/release-it 1.2.4 --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
+          ok(""),
+        [`gh pr view ${prUrl} --json state,mergedAt,mergeCommit,mergeStateStatus`]:
+          fail("temporary GitHub error"),
+      },
+    );
+    const { calls, runner } = createRunner(overrides);
+
+    await expect(
+      runRelease({ increment: "patch", logger, packageVersion: "1.2.3", runner }),
+    ).rejects.toThrow("temporary GitHub error");
+    expect(calls()).not.toContainEqual(["gh", "pr", "merge", "--squash", "--delete-branch", prUrl]);
+    expect(calls().some((call) => call.includes("--auto"))).toBe(false);
+  });
+
+  test("runRelease fails fast when the release PR has merge conflicts", async () => {
+    const prUrl = "https://github.com/yowainwright/pastoralist/pull/999";
+    const conflictState = JSON.stringify({
+      mergeCommit: null,
+      mergeStateStatus: "DIRTY",
+      mergedAt: null,
+      state: "OPEN",
+    });
+    const overrides = mergeOverrides(
+      readyOverrides,
+      availableVersionOverrides,
+      releasePullRequestOverrides("1.2.4"),
+      {
+        "./node_modules/.bin/release-it --release-version --increment=patch --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
+          ok("1.2.4\n"),
+        "./node_modules/.bin/release-it 1.2.4 --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
+          ok(""),
+        [`gh pr view ${prUrl} --json state,mergedAt,mergeCommit,mergeStateStatus`]:
+          ok(conflictState),
+      },
+    );
+    const { calls, runner } = createRunner(overrides);
+
+    await expect(
+      runRelease({ increment: "patch", packageVersion: "1.2.3", runner }),
+    ).rejects.toThrow(`Release PR has merge conflicts: ${prUrl}`);
+    expect(calls()).not.toContainEqual(["gh", "pr", "merge", "--squash", "--delete-branch", prUrl]);
+    expect(calls().some((call) => call[1] === "tag")).toBe(false);
   });
 
   test("runRelease tags current prerelease package version without release-it", async () => {

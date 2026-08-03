@@ -91,6 +91,7 @@ export function assertReleaseReady(
   if (status) throw new Error("Working tree must be clean before tagging a release");
 
   if (!dryRun) gitText(git, ["fetch", "origin", "main", "--tags"], "Unable to fetch origin/main");
+  if (targetCommit) assertTargetCommitOnMain(git, targetCommit);
   if (!requireUpstream) {
     assertMissingTag(git, tagName);
     return;
@@ -99,7 +100,6 @@ export function assertReleaseReady(
   const head = gitText(git, ["rev-parse", "HEAD"], "Unable to read HEAD");
   const upstream = gitText(git, ["rev-parse", "origin/main"], "Unable to read origin/main");
   if (head !== upstream) throw new Error("Local main must match origin/main before tagging");
-  if (targetCommit) assertTargetCommitOnMain(git, targetCommit);
 
   assertMissingTag(git, tagName);
 }

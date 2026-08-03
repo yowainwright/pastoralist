@@ -18,9 +18,17 @@ describe("release workflows", () => {
     const workflows = [readWorkflow("publish.yml"), readWorkflow("homebrew.yml")];
 
     workflows.forEach((workflow) => expect(workflow).not.toContain("--clobber"));
-    workflows.forEach((workflow) =>
-      expect(workflow).toContain("sh scripts/upload-release-assets.sh"),
-    );
+    workflows.forEach((workflow) => expect(workflow).toContain("upload-release-assets.sh"));
+  });
+
+  test("publishes draft releases by numeric ID", () => {
+    const workflow = readWorkflow("homebrew.yml");
+
+    expect(workflow).toContain("path: release-tools");
+    expect(workflow).toContain('ref: "${{ github.workflow_sha }}"');
+    expect(workflow).toContain("release-tools/scripts/upload-release-assets.sh");
+    expect(workflow).toContain("releases/$RELEASE_ID");
+    expect(workflow).not.toContain('gh release edit "v${VERSION}"');
   });
 
   test("audits the packed formula before npm publication", () => {

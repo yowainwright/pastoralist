@@ -1,18 +1,17 @@
 # [Pastoralist](https://jeffry.in/pastoralist/)
 
-[![Socket Badge][socket-badge]][socket-package]
-
-[socket-badge]: https://socket.dev/api/badge/npm/package/pastoralist
-[socket-package]: https://socket.dev/npm/package/pastoralist
-
-[![npm version](https://img.shields.io/npm/v/pastoralist.svg)](https://www.npmjs.com/package/pastoralist)
+[![Socket Badge][socket-badge]][socket-package] [![npm version][npm-version-badge]][npm-package]
 [![npm downloads](https://img.shields.io/npm/dm/pastoralist.svg)](https://www.npmjs.com/package/pastoralist)
 [![TypeScript](https://img.shields.io/badge/TypeScript-types%20included-blue)](https://www.typescriptlang.org/)
 ![CI](https://github.com/yowainwright/pastoralist/actions/workflows/ci.yml/badge.svg)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/yowainwright/pastoralist/badge)](https://scorecard.dev/viewer/?uri=github.com/yowainwright/pastoralist)
 [![codecov](https://codecov.io/gh/yowainwright/pastoralist/branch/main/graph/badge.svg)](https://codecov.io/gh/yowainwright/pastoralist)
-[![GitHub stars](https://img.shields.io/github/stars/yowainwright/pastoralist?style=social)](https://github.com/yowainwright/pastoralist)
 <img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=6f41d7dd-fce9-49ea-ae43-040a51f458bd" />
+
+[npm-package]: https://www.npmjs.com/package/pastoralist
+[npm-version-badge]: https://img.shields.io/npm/v/pastoralist.svg
+[socket-badge]: https://socket.dev/api/badge/npm/package/pastoralist
+[socket-package]: https://socket.dev/npm/package/pastoralist
 
 Pastoralist is an audit trail for package manager overrides.
 

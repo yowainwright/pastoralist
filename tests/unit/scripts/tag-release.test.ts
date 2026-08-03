@@ -94,10 +94,11 @@ describe("scripts/tag-release", () => {
 
   test("runReleaseTag creates and pushes the version tag", () => {
     const logger = { log: mock(() => {}), error: mock(() => {}) };
-    const { calls, git } = createGit({
-      ...readyGitOverrides,
+    const targetOverrides = {
       [`merge-base --is-ancestor ${TARGET_COMMIT} origin/main`]: ok(""),
-    });
+    };
+    const overrides = Object.assign({}, readyGitOverrides, targetOverrides);
+    const { calls, git } = createGit(overrides);
 
     const code = runReleaseTag({
       git,
@@ -119,10 +120,11 @@ describe("scripts/tag-release", () => {
   });
 
   test("runReleaseTag rejects a target outside main", () => {
-    const { git } = createGit({
-      ...readyGitOverrides,
+    const targetOverrides = {
       [`merge-base --is-ancestor ${TARGET_COMMIT} origin/main`]: fail(""),
-    });
+    };
+    const overrides = Object.assign({}, readyGitOverrides, targetOverrides);
+    const { git } = createGit(overrides);
 
     expect(() =>
       runReleaseTag({ git, targetCommit: TARGET_COMMIT, version: "1.2.3-beta.6" }),

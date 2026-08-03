@@ -581,11 +581,10 @@ describe("scripts/release", () => {
       log: mock(() => {}),
       warn: mock(() => {}),
     };
-    const overrides = mergeOverrides(readyOverrides, {
+    const overrides = mergeOverrides(readyOverrides, releasePullRequestOverrides("1.12.2"), {
       "git rev-parse -q --verify refs/tags/v1.12.1": ok("489e1e\n"),
       "git rev-parse -q --verify refs/tags/v1.12.2": missing(),
       "git ls-remote --tags origin refs/tags/v1.12.2": ok(""),
-      ...releasePullRequestOverrides("1.12.2"),
       "git ls-remote --exit-code --tags origin refs/tags/v1.12.2": missing(),
       "./node_modules/.bin/release-it --release-version --increment=patch --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
         ok("1.12.1\n"),

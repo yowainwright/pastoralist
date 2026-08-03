@@ -100,7 +100,6 @@ describe("scripts/release", () => {
   test("parseArgs reads release options", () => {
     expect(parseArgs(["--preRelease=beta", "--dry-run"])).toEqual({
       dryRun: true,
-      noWait: false,
       preRelease: "beta",
       timeoutMinutes: 90,
     });
@@ -110,23 +109,24 @@ describe("scripts/release", () => {
     expect(parseArgs(["minor", "--dry-run"])).toEqual({
       dryRun: true,
       increment: "minor",
-      noWait: false,
       timeoutMinutes: 90,
     });
     expect(parseArgs(["--increment=major"])).toEqual({
       dryRun: false,
       increment: "major",
-      noWait: false,
       timeoutMinutes: 90,
     });
   });
 
-  test("parseArgs reads release PR controls", () => {
-    expect(parseArgs(["--no-wait", "--timeout-minutes=15"])).toEqual({
+  test("parseArgs reads the release timeout", () => {
+    expect(parseArgs(["--timeout-minutes=15"])).toEqual({
       dryRun: false,
-      noWait: true,
       timeoutMinutes: 15,
     });
+  });
+
+  test("parseArgs rejects unsafe no-wait releases", () => {
+    expect(() => parseArgs(["--no-wait"])).toThrow("cannot safely tag");
   });
 
   test("parseArgs rejects invalid release increments", () => {
@@ -665,41 +665,6 @@ describe("scripts/release", () => {
       runRelease({ increment: "patch", packageVersion: "1.2.3", runner }),
     ).rejects.toThrow("auto-merge unavailable");
     expect(calls().some((call) => call[0] === "gh" && call.includes("view"))).toBe(false);
-  });
-
-  test("runRelease can stop after opening the release PR", async () => {
-    const logger = {
-      error: mock(() => {}),
-      log: mock(() => {}),
-      warn: mock(() => {}),
-    };
-    const overrides = mergeOverrides(
-      readyOverrides,
-      availableVersionOverrides,
-      missingTagOverrides,
-      releasePullRequestOverrides("1.2.4"),
-      {
-        "./node_modules/.bin/release-it --release-version --increment=patch --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
-          ok("1.2.4\n"),
-        "./node_modules/.bin/release-it 1.2.4 --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
-          ok(""),
-      },
-    );
-    const { calls, runner } = createRunner(overrides);
-
-    const code = await runRelease({
-      increment: "patch",
-      logger,
-      noWait: true,
-      packageVersion: "1.2.3",
-      runner,
-    });
-
-    expect(code).toBe(0);
-    expect(logger.log).toHaveBeenCalledWith(
-      "Release PR is open: https://github.com/yowainwright/pastoralist/pull/999",
-    );
-    expect(calls().some((call) => call[1] === "tag")).toBe(false);
   });
 
   test("runRelease tags current prerelease package version without release-it", async () => {

@@ -11,7 +11,6 @@ export interface ReleaseOptions {
   dryRun?: boolean;
   increment?: ReleaseIncrement;
   logger?: ReleaseLogger;
-  noWait?: boolean;
   packageVersion?: string;
   preRelease?: PreRelease;
   runner?: ReleaseRunner;
@@ -21,7 +20,6 @@ export interface ReleaseOptions {
 export interface ReleaseArgs {
   dryRun: boolean;
   increment?: ReleaseIncrement;
-  noWait: boolean;
   preRelease?: PreRelease;
   timeoutMinutes: number;
 }
@@ -68,12 +66,15 @@ const RELEASE_INCREMENTS = new Set<ReleaseIncrement>(["patch", "minor", "major"]
 const SAFE_SHELL_ARG_PATTERN = /^[A-Za-z0-9_./:=@-]+$/;
 
 export function parseArgs(args: readonly string[]): ReleaseArgs {
+  if (args.includes("--no-wait")) {
+    throw new Error("--no-wait cannot safely tag the merged release commit");
+  }
+
   const preRelease = parsePreRelease(args);
   const increment = parseIncrement(args);
   return Object.assign(
     {
       dryRun: args.includes("--dry-run"),
-      noWait: args.includes("--no-wait"),
       timeoutMinutes: parseTimeout(args),
     },
     increment ? { increment } : undefined,
@@ -237,8 +238,6 @@ async function publishReleasePullRequest(
 ): Promise<number> {
   const branch = buildReleaseBranch(version);
   const prUrl = createReleasePullRequest(context, releaseArgs, version, branch);
-  if (releaseArgs.noWait) return reportOpenRelease(context.logger, prUrl);
-
   const mergeCommit = await waitForMerge(context, prUrl, releaseArgs.timeoutMinutes);
   checkoutMergedMain(context.runner);
   return pushVersionTag(context, version, mergeCommit);
@@ -282,7 +281,6 @@ function normalizeOptions(options: ReleaseOptions): ReleaseArgs {
   return {
     dryRun: options.dryRun ?? false,
     increment: options.increment,
-    noWait: options.noWait ?? false,
     preRelease: options.preRelease,
     timeoutMinutes: options.timeoutMinutes ?? DEFAULT_TIMEOUT_MINUTES,
   };
@@ -489,12 +487,6 @@ function enableAutoMerge(context: ReleaseContext, prUrl: string): void {
   const result = context.runner("gh", args);
   if (result.status === 0) return;
   throw new Error(result.stderr.trim() || "Unable to enable auto-merge for release PR");
-}
-
-function reportOpenRelease(logger: ReleaseLogger, prUrl: string): number {
-  logger.log(`Release PR is open: ${prUrl}`);
-  logger.log("Run bun run release:tag from updated main after the PR merges.");
-  return 0;
 }
 
 function delay(milliseconds: number) {

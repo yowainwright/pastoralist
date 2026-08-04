@@ -116,7 +116,7 @@
     "oxlint": "^1.76.0",
     "release-it": "21.0.0",
     "scriptc": "0.0.21",
-    "turbo": "2.10.7",
+    "turbo": "2.10.8",
     "typescript": "7.0.2"
   },
   "peerDependencies": {},

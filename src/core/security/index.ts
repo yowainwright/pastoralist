@@ -50,7 +50,7 @@ import { SecuritySetupWizard, promptForSetup } from "./setup";
 import type { SetupSecurityProvider } from "./types";
 import { KNOWN_PROVIDERS, PROVIDER_CONFIGS } from "./constants";
 import { readFileSync, copyFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from "fs";
-import { createHash } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { resolve, dirname, basename } from "path";
 import { updateAppendix } from "../appendix";
 import { glob } from "../../utils/glob";
@@ -842,7 +842,8 @@ export class SecurityChecker {
     const root = this.cacheRoot ?? dirname(pkgPath);
     const cacheDir = resolveBackupCacheDir(root, this.configuredCacheDir);
     mkdirSync(cacheDir, { recursive: true });
-    const backupPath = resolve(cacheDir, `${basename(pkgPath)}.backup-${Date.now()}`);
+    const backupName = `${basename(pkgPath)}.backup-${Date.now()}-${randomUUID()}`;
+    const backupPath = resolve(cacheDir, backupName);
     copyFileSync(pkgPath, backupPath);
     pruneBackups(cacheDir);
     this.log.debug(`Created backup at ${backupPath}`, "createBackup");

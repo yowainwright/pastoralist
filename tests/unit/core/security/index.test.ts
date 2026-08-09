@@ -88,11 +88,14 @@ const createTempCacheDir = (name: string): string => {
   return dir;
 };
 
-const createExternalJsonAutoFixFixture = (hasManifestSource = true) => {
+const createExternalJsonAutoFixFixture = (
+  hasManifestSource = true,
+  overrideSource = "overrides.json",
+) => {
   const root = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-json-autofix-"));
   const packagePath = path.join(root, "package.json");
-  const overridePath = path.join(root, "overrides.json");
-  const pastoralist = { overrideSource: "overrides.json" };
+  const overridePath = path.join(root, overrideSource);
+  const pastoralist = { overrideSource };
   const packageJson = Object.assign(
     {},
     {
@@ -103,6 +106,7 @@ const createExternalJsonAutoFixFixture = (hasManifestSource = true) => {
     },
     hasManifestSource ? { pastoralist } : undefined,
   );
+  fs.mkdirSync(path.dirname(overridePath), { recursive: true });
   fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
   fs.writeFileSync(overridePath, JSON.stringify({ overrides: { axios: "1.8.0" } }, null, 2));
   const checker = new SecurityChecker({ provider: "osv", root });
@@ -1176,10 +1180,11 @@ test("applyAutoFix - honors override sources from merged config", () => {
   }
 });
 
-test("rollbackAutoFix - restores package and external override source", () => {
-  const fixture = createExternalJsonAutoFixFixture();
+test("rollbackAutoFix - restores same-basename package and override sources", () => {
+  const fixture = createExternalJsonAutoFixFixture(true, "config/package.json");
   const originalPackage = fs.readFileSync(fixture.packagePath, "utf8");
   const originalSource = fs.readFileSync(fixture.overridePath, "utf8");
+  const nowSpy = spyOn(Date, "now").mockReturnValue(1_786_310_000_000);
 
   try {
     const backupPath = fixture.checker.applyAutoFix(
@@ -1190,6 +1195,7 @@ test("rollbackAutoFix - restores package and external override source", () => {
     expect(fs.readFileSync(fixture.packagePath, "utf8")).toBe(originalPackage);
     expect(fs.readFileSync(fixture.overridePath, "utf8")).toBe(originalSource);
   } finally {
+    nowSpy.mockRestore();
     fs.rmSync(fixture.root, { recursive: true, force: true });
   }
 });

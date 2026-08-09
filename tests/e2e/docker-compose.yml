@@ -1,6 +1,22 @@
 version: "3.8"
 
 services:
+  e2e-pnpm-yaml:
+    build:
+      context: ../..
+      dockerfile: tests/e2e/Dockerfile.pnpm-yaml
+    environment:
+      - NODE_ENV=test
+      - IS_DEBUGGING=false
+
+  e2e-external-config:
+    build:
+      context: ../..
+      dockerfile: tests/e2e/Dockerfile.external-config
+    environment:
+      - NODE_ENV=test
+      - IS_DEBUGGING=false
+
   # Test with pnpm
   e2e-pnpm:
     build:

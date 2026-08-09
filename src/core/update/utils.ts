@@ -1,5 +1,8 @@
 import { findPackageJsonFiles, updatePackageJSON } from "../package";
+import { writeOverrideSource } from "../overrides";
 import { toCompactAppendix } from "../appendix/utils";
+import { writeTargetAppendix } from "../appendix";
+import { clearConfigCache } from "../../config";
 import { resolveWorkspaceManifestPaths } from "../workspaces";
 import { WORKSPACE_MODES } from "./constants";
 import type {
@@ -30,19 +33,39 @@ const resolveAppendix = (finalAppendix: Appendix, useCompact: boolean): Appendix
   return toCompactAppendix(finalAppendix) as Appendix;
 };
 
+const writeExternalAppendix = (ctx: WriteResultContext, appendix: Appendix): void => {
+  if (!ctx.appendixTarget) return;
+  if (ctx.isTesting) return;
+
+  const dryRun = ctx.options?.dryRun || false;
+  writeTargetAppendix(ctx.appendixTarget, appendix, dryRun);
+  if (!dryRun) clearConfigCache();
+};
+
 export const writeResult = (ctx: WriteResultContext): void => {
   const isJsonOutput = ctx.options?.outputFormat === "json";
   const useCompact = ctx.config?.pastoralist?.compactAppendix === true;
   const appendix = resolveAppendix(ctx.finalAppendix, useCompact);
+  const hasExternalSource = Boolean(ctx.overrideSource && ctx.overrideSource.kind !== "manifest");
+  const packageAppendix = ctx.appendixTarget ? undefined : appendix;
+
+  if (ctx.overrideSource) {
+    writeOverrideSource(ctx.overrideSource, ctx.finalOverrides, {
+      dryRun: ctx.options?.dryRun,
+    });
+  }
+
+  writeExternalAppendix(ctx, appendix);
 
   updatePackageJSON({
-    appendix,
+    appendix: packageAppendix,
     path: ctx.path,
     config: ctx.config,
     overrides: ctx.finalOverrides,
     dryRun: ctx.options?.dryRun || false,
     silent: isJsonOutput,
     isTesting: ctx.isTesting,
+    manageOverrides: !hasExternalSource,
   });
 };
 

@@ -109,28 +109,44 @@ export const resolveJSON = (path: string): PastoralistJSON | undefined => {
 };
 
 const hasOtherPastoralistConfig = (config: PastoralistJSON): boolean => {
+  const hasAppendixSource = Boolean(config.pastoralist?.appendixSource);
   const hasOverridePaths = Boolean(config.pastoralist?.overridePaths);
   const hasResolutionPaths = Boolean(config.pastoralist?.resolutionPaths);
   const hasSecurity = Boolean(config.pastoralist?.security);
   const hasDepPaths = Boolean(config.pastoralist?.depPaths);
+  const hasOverrideSource = Boolean(config.pastoralist?.overrideSource);
 
+  if (hasAppendixSource) return true;
   if (hasOverridePaths) return true;
   if (hasResolutionPaths) return true;
   if (hasSecurity) return true;
+  if (hasOverrideSource) return true;
   return hasDepPaths;
 };
 
 const buildPreservedConfig = (config: PastoralistJSON) => {
+  const appendixSource = config.pastoralist?.appendixSource;
   const depPaths = config.pastoralist?.depPaths;
   const overridePaths = config.pastoralist?.overridePaths;
+  const overrideSource = config.pastoralist?.overrideSource;
   const resolutionPaths = config.pastoralist?.resolutionPaths;
   const security = config.pastoralist?.security;
+  const appendixSourceField = appendixSource ? { appendixSource } : undefined;
   const depPathsField = depPaths ? { depPaths } : undefined;
   const overridePathsField = overridePaths ? { overridePaths } : undefined;
+  const overrideSourceField = overrideSource ? { overrideSource } : undefined;
   const resolutionPathsField = resolutionPaths ? { resolutionPaths } : undefined;
   const securityField = security ? { security } : undefined;
 
-  return Object.assign({}, depPathsField, overridePathsField, resolutionPathsField, securityField);
+  return Object.assign(
+    {},
+    appendixSourceField,
+    depPathsField,
+    overridePathsField,
+    overrideSourceField,
+    resolutionPathsField,
+    securityField,
+  );
 };
 
 const removeAllOverrides = (config: PastoralistJSON): PastoralistJSON => {
@@ -271,7 +287,9 @@ const buildUpdatedPackageConfig = ({
   config,
   overrides,
   isTesting = false,
+  manageOverrides = true,
 }: UpdatePackageJSONOptions): PastoralistJSON => {
+  if (!manageOverrides) return applyAppendixToConfig(config, appendix);
   if (!hasPackageJsonData(appendix, overrides)) return processConfigWithoutOverrides(config);
   return processConfigWithOverrides(config, appendix, overrides || {}, isTesting, path);
 };
@@ -311,8 +329,16 @@ export const updatePackageJSON = ({
   isTesting = false,
   dryRun = false,
   silent = false,
+  manageOverrides = true,
 }: UpdatePackageJSONOptions): PastoralistJSON | void => {
-  const updatedConfig = buildUpdatedPackageConfig({ appendix, path, config, overrides, isTesting });
+  const updatedConfig = buildUpdatedPackageConfig({
+    appendix,
+    path,
+    config,
+    overrides,
+    isTesting,
+    manageOverrides,
+  });
   if (isTesting) return updatedConfig;
 
   const jsonString = formatJson(updatedConfig);

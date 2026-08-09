@@ -1,0 +1,19 @@
+FROM node:24-alpine
+
+RUN apk add --no-cache bash jq
+
+WORKDIR /app
+
+COPY dist/ ./pastoralist/
+COPY package.json ./pastoralist/package.json
+RUN chmod +x ./pastoralist/index.js
+RUN node ./pastoralist/index.js --help >/dev/null
+
+COPY tests/e2e/fixtures/external-config/ ./fixtures/
+COPY tests/e2e/scripts/test-external-config-ledger.sh ./test.sh
+RUN chmod +x ./test.sh
+
+ENV NODE_ENV=test
+ENV IS_DEBUGGING=false
+
+CMD ["/app/test.sh"]

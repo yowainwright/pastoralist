@@ -114,7 +114,11 @@ const hasUpdateChanges = (
 ): boolean => {
   const previousAppendix = config?.pastoralist?.appendix || {};
   const previousOverrides =
-    config?.overrides || config?.resolutions || config?.pnpm?.overrides || {};
+    updateResult.overrideSource?.overrides ||
+    config?.overrides ||
+    config?.resolutions ||
+    config?.pnpm?.overrides ||
+    {};
   const appendixChanged =
     JSON.stringify(updateResult.finalAppendix || {}) !== JSON.stringify(previousAppendix);
   const overridesChanged =

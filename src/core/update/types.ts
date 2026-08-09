@@ -1,7 +1,15 @@
-import type { Options, Appendix, OverridesType, PastoralistJSON, SecurityAlert } from "../../types";
+import type {
+  Appendix,
+  AppendixTarget,
+  Options,
+  OverridesType,
+  PastoralistJSON,
+  SecurityAlert,
+} from "../../types";
 import type { PastoralistConfig } from "../../config";
 import type { ResolveOverrides } from "../../types";
 import type { Logger } from "../../utils";
+import type { OverrideSource } from "../overrides";
 
 export interface ProcessingMode {
   mode: "workspace" | "root";
@@ -68,6 +76,7 @@ export interface UpdateContext {
   config?: PastoralistJSON;
   patchMap?: Record<string, string[]>;
   overridesData?: ResolveOverrides;
+  overrideSource?: OverrideSource;
   overrides?: OverridesType;
   hasRootOverrides?: boolean;
   rootDeps?: Record<string, string>;
@@ -99,10 +108,12 @@ export interface UpdateRuntime {
 }
 
 export interface WriteResultContext {
+  appendixTarget?: AppendixTarget;
   path: string;
   config: PastoralistJSON;
   finalAppendix: Appendix;
   finalOverrides: OverridesType;
+  overrideSource?: OverrideSource;
   options: { dryRun?: boolean; outputFormat?: "text" | "json" };
   isTesting: boolean;
 }

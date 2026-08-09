@@ -1,7 +1,16 @@
-import { writeFileSync } from "fs";
-import { resolve } from "path";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from "fs";
+import { basename, dirname, resolve } from "path";
 import type {
   Appendix,
+  AppendixTarget,
   AppendixItem,
   OverridesType,
   OverrideValue,
@@ -9,6 +18,8 @@ import type {
   ResolveOverrides,
   AppendixDependencyContext,
 } from "../../types";
+import type { ConfigSource, PastoralistConfig } from "../../config/types";
+import { validateConfig } from "../../config/validators";
 import type { Logger } from "../../utils";
 import type {
   AppendixUpdateOptions,
@@ -38,6 +49,81 @@ import {
   parseOverridePackageName,
   isResolvablePackageName,
 } from "./utils";
+
+const isJsonConfigPath = (path: string): boolean => {
+  const filename = basename(path);
+  const isExtensionlessRc = filename === ".pastoralistrc";
+  const hasJsonExtension = filename.endsWith(".json");
+  return isExtensionlessRc || hasJsonExtension;
+};
+
+const resolveExplicitTarget = (path: string, root: string): AppendixTarget => {
+  const resolvedPath = resolve(root, path);
+  if (isJsonConfigPath(resolvedPath)) return { path: resolvedPath };
+  throw new Error(`Appendix source must be a JSON config file: ${resolvedPath}`);
+};
+
+export const resolveAppendixTarget = (
+  config: PastoralistConfig | undefined,
+  source: ConfigSource | undefined,
+  root: string,
+): AppendixTarget | undefined => {
+  if (config?.appendixSource) return resolveExplicitTarget(config.appendixSource, root);
+  if (source?.format === "json") return { path: source.path };
+  return undefined;
+};
+
+const readTargetConfig = (path: string): PastoralistConfig => {
+  if (!existsSync(path)) return {};
+  const content = readFileSync(path, "utf8");
+  return validateConfig(JSON.parse(content));
+};
+
+export const loadTargetAppendix = (target: AppendixTarget | undefined): Appendix | undefined => {
+  if (!target) return undefined;
+  return readTargetConfig(target.path).appendix;
+};
+
+const withoutAppendix = (config: PastoralistConfig): PastoralistConfig => {
+  const { appendix: _appendix, ...rest } = config;
+  return rest;
+};
+
+const updateTargetConfig = (config: PastoralistConfig, appendix: Appendix): PastoralistConfig => {
+  if (Object.keys(appendix).length === 0) return withoutAppendix(config);
+  return Object.assign({}, config, { appendix });
+};
+
+const getWriteMode = (path: string): number | undefined => {
+  if (!existsSync(path)) return undefined;
+  return statSync(path).mode;
+};
+
+const writeAtomic = (path: string, content: string): void => {
+  mkdirSync(dirname(path), { recursive: true });
+  const temporaryPath = `${path}.${process.pid}.${Date.now()}.tmp`;
+  const mode = getWriteMode(path);
+
+  try {
+    writeFileSync(temporaryPath, content, { flag: "wx", mode });
+    renameSync(temporaryPath, path);
+  } catch (error) {
+    if (existsSync(temporaryPath)) unlinkSync(temporaryPath);
+    throw error;
+  }
+};
+
+export const writeTargetAppendix = (
+  target: AppendixTarget,
+  appendix: Appendix,
+  dryRun: boolean,
+): void => {
+  if (dryRun) return;
+  const currentConfig = readTargetConfig(target.path);
+  const updatedConfig = updateTargetConfig(currentConfig, appendix);
+  const content = JSON.stringify(updatedConfig, null, 2) + "\n";
+  writeAtomic(target.path, content);
+};
 
 const hasDependency = (deps: Record<string, string>, packageName: string): boolean =>
   Object.prototype.hasOwnProperty.call(deps, packageName);

@@ -5,7 +5,7 @@ import type {
   SECURITY_PROVIDERS,
   SEVERITY_THRESHOLDS,
 } from "./constants";
-import type { KeepConstraint } from "../types";
+import type { AppendixTarget, KeepConstraint, PastoralistJSON } from "../types";
 
 export type SecurityProvider = (typeof SECURITY_PROVIDERS)[number];
 export type SecurityProviders = SecurityProvider | SecurityProvider[];
@@ -58,12 +58,30 @@ export type SecurityConfig = {
 
 export type PastoralistConfig = {
   appendix?: Appendix;
+  appendixSource?: string;
   compactAppendix?: boolean;
   depPaths?: DepPathAlias | string[];
+  overrideSource?: string;
   checkSecurity?: boolean;
   overridePaths?: Record<string, Appendix>;
   resolutionPaths?: Record<string, Appendix>;
   security?: SecurityConfig;
+};
+
+export type ConfigSource = {
+  format: "json" | "javascript";
+  path: string;
+};
+
+export type LoadedConfig = {
+  appendixTarget: AppendixTarget | undefined;
+  config: PastoralistConfig | undefined;
+  source: ConfigSource | undefined;
+};
+
+export type MergedExternalConfig = {
+  appendixTarget: AppendixTarget | undefined;
+  config: PastoralistJSON;
 };
 
 export type ConfigAppendix = PastoralistConfig["appendix"];

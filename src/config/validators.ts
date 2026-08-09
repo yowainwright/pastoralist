@@ -171,7 +171,9 @@ const PASTORALIST_CONFIG_FIELDS: FieldValidation[] = createFieldValidations(
   validateAppendixCollection,
 ).concat([
   { field: "appendix", validator: validateAppendix },
+  { field: "appendixSource", validator: isString },
   { field: "depPaths", validator: validateDepPaths },
+  { field: "overrideSource", validator: isString },
   { field: "checkSecurity", validator: isBoolean },
   { field: "security", validator: validateSecurityConfig },
 ]);

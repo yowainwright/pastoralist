@@ -13,6 +13,23 @@ import {
 
 const log = createLogger({ file: "test.ts", isLogging: false });
 const actionExternalConfigDir = resolve(__dirname, "..", ".test-action-external-config");
+const EXTERNAL_OVERRIDE_CONFIG: PastoralistJSON = {
+  name: "test-app",
+  version: "1.0.0",
+  pastoralist: { overrideSource: "overrides.json" },
+};
+const EXTERNAL_OVERRIDE_OPTIONS: Options = {
+  forceSecurityRefactor: true,
+  path: "package.json",
+  config: EXTERNAL_OVERRIDE_CONFIG,
+};
+const CLI_SECURITY_OVERRIDE = {
+  packageName: "lodash",
+  fromVersion: "4.17.20",
+  toVersion: "4.17.21",
+  reason: "Security fix",
+  severity: "high",
+};
 
 const createMockTerminalGraph = () => {
   const graph = {
@@ -386,6 +403,26 @@ test("handleSecurityResults - generates overrides when alerts found", () => {
   expect(mockSecurityChecker.generatePackageOverrides).toHaveBeenCalled();
   expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
   expect(result.securityOverrides).toEqual({ lodash: "4.17.21" });
+});
+
+test("handleSecurityResults - passes merged config to auto-fix", () => {
+  const { handleSecurityResults } = require("../../../src/cli/index");
+  const applyAutoFix = mock();
+  const generatePackageOverrides = mock(() => ({ lodash: "4.17.21" }));
+  const checker = { applyAutoFix, generatePackageOverrides };
+
+  handleSecurityResults(
+    [{} as any],
+    [CLI_SECURITY_OVERRIDE],
+    checker as any,
+    { stop: mock() } as any,
+    EXTERNAL_OVERRIDE_OPTIONS,
+  );
+  expect(applyAutoFix).toHaveBeenCalledWith(
+    [CLI_SECURITY_OVERRIDE],
+    "package.json",
+    EXTERNAL_OVERRIDE_CONFIG,
+  );
 });
 
 test("handleSecurityResults - generates overrides in interactive mode", () => {

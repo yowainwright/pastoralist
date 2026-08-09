@@ -1,0 +1,20 @@
+FROM node:24-alpine
+
+RUN apk add --no-cache bash jq
+RUN corepack enable && corepack prepare pnpm@11.0.0 --activate
+
+WORKDIR /app
+
+COPY dist/ ./pastoralist/
+COPY package.json ./pastoralist/package.json
+RUN chmod +x ./pastoralist/index.js
+RUN node ./pastoralist/index.js --help >/dev/null
+
+COPY tests/e2e/fixtures/pnpm-yaml/ ./fixtures/
+COPY tests/e2e/scripts/test-pnpm-yaml.sh ./test.sh
+RUN chmod +x ./test.sh
+
+ENV NODE_ENV=test
+ENV IS_DEBUGGING=false
+
+CMD ["/app/test.sh"]

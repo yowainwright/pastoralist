@@ -4,8 +4,10 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import { compile } from "@mdx-js/mdx";
+import rehypeKatex from "rehype-katex";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import { visit } from "unist-util-visit";
 import type { Node } from "unist";
 
@@ -79,8 +81,8 @@ const pastoralistMdx = (): Plugin => ({
 
     const compiled = await compile(stripFrontmatter(source), {
       outputFormat: "program",
-      remarkPlugins: [remarkGfm, renderMermaidRemark],
-      rehypePlugins: [rehypeSlug],
+      remarkPlugins: [remarkGfm, remarkMath, renderMermaidRemark],
+      rehypePlugins: [rehypeSlug, rehypeKatex],
     });
 
     return {

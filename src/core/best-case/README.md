@@ -8,6 +8,36 @@ Choosing the newest fix for each package independently can produce a worse resul
 
 Each patchable package contributes its current version, known patched versions, and latest compatible version as candidates.
 
+## Formal model
+
+Package $i$ contributes candidate versions $V_i$, producing the portfolio space:
+
+$$
+\mathcal{X} = \prod_{i=1}^{n} V_i
+$$
+
+Let $\pi = (o_1, \ldots, o_m, a)$ be the resolved policy, where each $o_j$ is an objective and $a$ is the risk-aggregation mode. Each objective produces a score block, and the blocks are concatenated in policy order:
+
+$$
+F_{\pi}(x) = g_{o_1,a}(x) \mathbin{\Vert} \cdots \mathbin{\Vert} g_{o_m,a}(x)
+$$
+
+The default blocks represent known-exploited vulnerabilities, critical vulnerabilities, high vulnerabilities, summed EPSS, package exposures, incompatibilities, changed packages, and oldness. With `riskAggregation: "both"`, security blocks contain both unique-advisory and package-exposure values.
+
+The selected portfolio minimizes that vector lexicographically:
+
+$$
+x^* = \operatorname*{arg\,min}^{\mathrm{lex}}_{x \in \mathcal{X}} F_{\pi}(x)
+$$
+
+Each selected dependency stores shared portfolio provenance in its ledger reason:
+
+$$
+r_i = \left(\mathtt{decisionId}(x^*), \mathtt{policyHash}(\pi), \mathtt{search}, \mathtt{impact}\right)
+$$
+
+The reason is per dependency, while the decision ID connects all dependencies selected in the portfolio. CVEs remain in the sibling ledger field.
+
 ## Configuration
 
 Best-case selection is opt-in under `pastoralist.bestCase`.

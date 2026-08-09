@@ -688,6 +688,25 @@ test("fetchAlerts - should return empty array when strict is false and fetch fai
   global.fetch = originalFetch;
 });
 
+test("fetchAlerts - should reject incomplete scans when strict is false", async () => {
+  const provider = new OSVProvider({
+    debug: false,
+    strict: false,
+    retryOptions: { retries: 1, minTimeout: 10 },
+  });
+  const originalFetch = global.fetch;
+  global.fetch = mock(() => Promise.reject(new Error("Network error")));
+
+  try {
+    const scan = provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }], {
+      requireCompleteScan: true,
+    });
+    await expect(scan).rejects.toThrow("OSV security check failed");
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test("fetchAlerts - should extract all CVE aliases when multiple CVEs exist", async () => {
   const provider = new OSVProvider({ debug: false });
   const originalFetch = global.fetch;

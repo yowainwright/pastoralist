@@ -5,6 +5,7 @@ import {
   type BestCaseEvaluation,
   type BestCaseState,
 } from "../../../src/core/best-case";
+import { buildBestCaseChoices } from "../../../src/core/best-case/integration";
 import type { SecurityAlert } from "../../../src/types";
 
 const alert = (
@@ -111,4 +112,15 @@ describe("optimizeBestCasePortfolio", () => {
     expect(reason.search).toEqual({ evaluatedStates: 2, provenOptimal: true });
     expect(reason.impact.fixedVulnerabilities).toBe(1);
   });
+});
+
+test("buildBestCaseChoices normalizes dependency ranges before selecting the baseline", () => {
+  const ranged = alert("alpha", "high", "CVE-RANGE");
+  const exact = Object.assign({}, ranged, { currentVersion: "1.0.0" });
+  const choices = buildBestCaseChoices(
+    [Object.assign({}, ranged, { currentVersion: "^1.0.0" }), exact],
+    new Map([["alpha", "2.0.0"]]),
+  );
+
+  expect(choices[0].currentVersion).toBe("1.0.0");
 });

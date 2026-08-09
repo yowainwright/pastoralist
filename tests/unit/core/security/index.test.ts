@@ -82,6 +82,34 @@ const createCheckerWithMockAlerts = (
   return mockProviderAlerts(checker, alerts);
 };
 
+const createBuiltInBestCaseConfig = (): PastoralistJSON => ({
+  name: "best-case-test",
+  version: "1.0.0",
+  dependencies: { alpha: "1.0.0" },
+  pastoralist: { bestCase: { enabled: true } },
+});
+
+const createBestCaseAlert = (severity: SecurityAlert["severity"] = "high"): SecurityAlert => {
+  return createAlert({
+    packageName: "alpha",
+    currentVersion: "1.0.0",
+    vulnerableVersions: "<2.0.0",
+    patchedVersion: "2.0.0",
+    severity,
+  });
+};
+
+const mockLatestBestCaseVersion = (checker: SecurityChecker): void => {
+  spyOn(checker as any, "fetchLatestForVulnerablePackages").mockResolvedValue(
+    new Map([["alpha", "2.0.0"]]),
+  );
+};
+
+const getFirstProvider = (checker: SecurityChecker): FetchAlertsProvider => {
+  const harness = checker as unknown as SecurityCheckerProviderHarness;
+  return harness.providers[0];
+};
+
 const createTempCacheDir = (name: string): string => {
   const dir = path.join(TEST_DIR, `${name}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   fs.mkdirSync(dir, { recursive: true });
@@ -516,6 +544,7 @@ test("checkSecurity - should handle devDependencies", async () => {
   expect(result.packagesScanned).toBe(1);
   expect(mockFetchAlerts).toHaveBeenCalledWith([{ name: "typescript", version: "4.0.0" }], {
     root: undefined,
+    requireCompleteScan: true,
   });
 
   mockFetchAlerts.mockRestore();
@@ -547,7 +576,7 @@ test("checkSecurity - should handle both dependencies and devDependencies", asyn
       { name: "lodash", version: "4.17.20" },
       { name: "typescript", version: "4.0.0" },
     ],
-    { root: undefined },
+    { root: undefined, requireCompleteScan: true },
   );
 
   mockFetchAlerts.mockRestore();
@@ -615,6 +644,65 @@ test("checkSecurity - applies the best-case portfolio and records its reason", a
     type: "best-case",
     decisionId: result.bestCase?.decisionId,
   });
+});
+
+test("checkSecurity - filters built-in best-case alerts by severity", async () => {
+  const highAlert = createBestCaseAlert("high");
+  const lowAlert = createBestCaseAlert("low");
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  spyOn(getFirstProvider(checker), "fetchAlerts").mockImplementation(async (packages) => {
+    return packages[0].version === "2.0.0" ? [lowAlert] : [highAlert];
+  });
+  mockLatestBestCaseVersion(checker);
+
+  const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), {
+    severityThreshold: "high",
+  });
+
+  expect(result.bestCase?.selectedEvaluation.alerts).toEqual([]);
+  expect(result.bestCase?.impact.remainingVulnerabilities).toBe(0);
+});
+
+test("checkSecurity - reuses cached baseline without best-case progress spam", async () => {
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([
+    createBestCaseAlert(),
+  ]);
+  const onProgress = mock(() => undefined);
+  mockLatestBestCaseVersion(checker);
+
+  await checker.checkSecurity(createBuiltInBestCaseConfig(), { onProgress });
+
+  const fetchingEvents = onProgress.mock.calls.filter(([event]) => event.phase === "fetching");
+  expect(fetchAlerts).toHaveBeenCalledTimes(2);
+  expect(fetchingEvents).toHaveLength(1);
+});
+
+test("checkSecurity - rejects incomplete built-in best-case evaluations", async () => {
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  spyOn(getFirstProvider(checker), "fetchAlerts").mockImplementation(async (packages) => {
+    if (packages[0].version === "2.0.0") throw new Error("provider unavailable");
+    return [createBestCaseAlert()];
+  });
+  mockLatestBestCaseVersion(checker);
+
+  const result = await checker.checkSecurity(createBuiltInBestCaseConfig());
+
+  expect(result.bestCase?.selectedState).toEqual({ alpha: "1.0.0" });
+  expect(result.bestCase?.failedStates).toBe(1);
+  expect(result.overrides).toEqual([]);
+});
+
+test("checkSecurity - uses standard overrides for state-unaware providers", async () => {
+  const checker = new SecurityChecker({ provider: "github", noCache: true });
+  spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([createBestCaseAlert()]);
+  mockLatestBestCaseVersion(checker);
+
+  const result = await checker.checkSecurity(createBuiltInBestCaseConfig());
+
+  expect(result.bestCase).toBeUndefined();
+  expect(result.overrides).toHaveLength(1);
+  expect(result.overrides[0].toVersion).toBe("2.0.0");
 });
 
 test("createProvider - should create OSV provider", () => {
@@ -1653,6 +1741,19 @@ test("checkSecurity - skipCacheWrite does not seed in-memory alerts cache", asyn
   await checker.checkSecurity(config, { skipCacheWrite: true });
   await checker.checkSecurity(config);
   await checker.checkSecurity(config);
+
+  expect(fetchAlerts).toHaveBeenCalledTimes(2);
+});
+
+test("checkSecurity - does not cache incomplete provider scans", async () => {
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts")
+    .mockRejectedValueOnce(new Error("provider unavailable"))
+    .mockResolvedValue([]);
+  const config = createBuiltInBestCaseConfig();
+
+  await checker.checkSecurity(config, { bestCase: { enabled: false } });
+  await checker.checkSecurity(config, { bestCase: { enabled: false } });
 
   expect(fetchAlerts).toHaveBeenCalledTimes(2);
 });

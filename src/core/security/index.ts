@@ -18,6 +18,8 @@ import {
   OverrideUpdate,
   SecurityOverrideDetail,
   WorkspaceVulnerabilityState,
+  SecurityProviderScanOptions,
+  SecurityProviderType,
 } from "../../types";
 import { Appendix, PastoralistJSON, OverridesType } from "../../types";
 import {
@@ -92,6 +94,13 @@ type SecurityOverrideResolutionInput = {
   latestVersions: Map<string, string>;
   options: SecurityCheckRuntimeOptions;
 };
+
+type SecurityAlertScan = {
+  alerts: SecurityAlert[];
+  complete: boolean;
+};
+
+const STATE_AWARE_BEST_CASE_PROVIDERS: readonly SecurityProviderType[] = ["osv", "spektion"];
 
 export class SecurityChecker {
   private providers: SecurityProvider[];
@@ -425,33 +434,49 @@ export class SecurityChecker {
 
     if (cachedAlerts) return cachedAlerts;
 
-    const alerts = await this.fetchProviderAlerts(packages, options);
-    this.cacheSecurityAlerts(cacheKey, diskCacheKey, alerts, options);
-    return alerts;
+    const scan = await this.fetchProviderAlerts(packages, options);
+    this.assertCompleteScan(scan, options);
+    if (!scan.complete) return scan.alerts;
+    this.cacheSecurityAlerts(cacheKey, diskCacheKey, scan.alerts, options);
+    return scan.alerts;
+  }
+
+  private assertCompleteScan(scan: SecurityAlertScan, options: SecurityCheckRuntimeOptions): void {
+    const incompleteRequiredScan = options.requireCompleteScan && !scan.complete;
+    if (!incompleteRequiredScan) return;
+    throw new Error("Best-case evaluation requires a complete provider scan");
   }
 
   private async fetchProviderAlerts(
     packages: SecurityPackage[],
     options: SecurityCheckRuntimeOptions,
-  ): Promise<SecurityAlert[]> {
+  ): Promise<SecurityAlertScan> {
+    const message = `Checking ${packages.length} packages...`;
     this.reportProgress(options, {
       phase: "fetching",
-      message: `Checking ${packages.length} packages...`,
+      message,
       current: 0,
       total: packages.length,
     });
 
-    const results = await Promise.allSettled(
-      this.providers.map((provider) => provider.fetchAlerts(packages, { root: options.root })),
-    );
+    const providerOptions: SecurityProviderScanOptions = {
+      root: options.root,
+      requireCompleteScan: true,
+    };
+    const requests = this.providers.map((provider) => {
+      return provider.fetchAlerts(packages, providerOptions);
+    });
+    const results = await Promise.allSettled(requests);
     const alerts = results.flatMap((result, index) => this.normalizeProviderResult(result, index));
+    const complete = results.every((result) => result.status === "fulfilled");
 
     this.log.debug(
       `Found ${alerts.length} security alerts from ${this.providers.length} provider(s)`,
       "checkSecurity",
     );
 
-    return alerts;
+    const scan = { alerts, complete };
+    return scan;
   }
 
   private normalizeProviderResult(
@@ -726,6 +751,26 @@ export class SecurityChecker {
     return options.bestCase?.enabled === true;
   }
 
+  private supportsBuiltInBestCase(options: SecurityCheckRuntimeOptions): boolean {
+    if (options.bestCaseEvaluator) return true;
+    const providerTypes = this.providers.map((provider) => provider.providerType);
+    const supported = providerTypes.every((providerType) => {
+      return STATE_AWARE_BEST_CASE_PROVIDERS.includes(providerType);
+    });
+    return supported;
+  }
+
+  private createBestCaseScanOptions(
+    options: SecurityCheckRuntimeOptions,
+  ): SecurityCheckRuntimeOptions {
+    const scanOptions = Object.assign({}, options, {
+      onProgress: undefined,
+      requireCompleteScan: true,
+      skipCacheWrite: true,
+    });
+    return scanOptions;
+  }
+
   private createBestCaseEvaluator(
     config: PastoralistJSON,
     options: SecurityCheckRuntimeOptions,
@@ -733,10 +778,11 @@ export class SecurityChecker {
     const packages = this.extractPackagesForScan(config, options);
     return async (state) => {
       const portfolio = applyBestCaseState(packages, state);
-      const scanOptions = Object.assign({}, options, { skipCacheWrite: true });
-      const alerts = await this.fetchProviderAlerts(portfolio, scanOptions);
-      const normalizedAlerts = sortAlertsByPriority(deduplicateAlerts(alerts));
-      const evaluation = { alerts: normalizedAlerts };
+      const scanOptions = this.createBestCaseScanOptions(options);
+      const alerts = await this.resolveSecurityAlerts(portfolio, scanOptions);
+      const normalized = sortAlertsByPriority(deduplicateAlerts(alerts));
+      const filteredAlerts = this.filterAlertsBySeverity(normalized, scanOptions);
+      const evaluation = { alerts: filteredAlerts };
       return evaluation;
     };
   }
@@ -761,7 +807,10 @@ export class SecurityChecker {
     input: SecurityOverrideResolutionInput,
   ): Promise<SecurityOverrideResolution> {
     const options = input.options;
-    if (!this.isBestCaseEnabled(options)) {
+    const enabled = this.isBestCaseEnabled(options);
+    const supported = this.supportsBuiltInBestCase(options);
+    const shouldUseBestCase = enabled && supported;
+    if (!shouldUseBestCase) {
       const standard = this.resolveStandardOverrides(
         input.vulnerablePackages,
         input.latestVersions,

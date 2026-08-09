@@ -1,16 +1,25 @@
-import type { ComponentType } from "react";
+import { lazy } from "react";
+import type { ComponentType, LazyExoticComponent } from "react";
 import { DOCS } from "./constants";
 import type { DocMeta } from "./types";
 
 export type DocComponent = ComponentType<{
   components?: Record<string, ComponentType>;
 }>;
+export type LazyDocComponent = LazyExoticComponent<DocComponent>;
 
 type DocModule = {
   default: DocComponent;
 };
 
-const docModules = import.meta.glob<DocModule>("./docs/*.mdx", { eager: true });
+type DocModuleLoader = () => Promise<DocModule>;
+
+const toLazyDoc = ([path, load]: [string, DocModuleLoader]): [string, LazyDocComponent] => {
+  return [path, lazy(load)];
+};
+
+const docModuleLoaders = import.meta.glob<DocModule>("./docs/*.mdx");
+const docModules = Object.fromEntries(Object.entries(docModuleLoaders).map(toLazyDoc));
 
 const rawDocModules = import.meta.glob<string>("./docs/*.mdx", {
   query: "?raw",
@@ -27,10 +36,9 @@ export function getDocContent(slug: string): string | undefined {
   return rawDocModules[path];
 }
 
-export function getDocComponent(slug: string): DocComponent | undefined {
+export function getDocComponent(slug: string): LazyDocComponent | undefined {
   const path = `./docs/${slug}.mdx`;
-  const mod = docModules[path];
-  return mod?.default;
+  return docModules[path];
 }
 
 export function getAllDocs(): readonly DocMeta[] {

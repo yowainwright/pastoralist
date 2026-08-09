@@ -19,7 +19,8 @@ export const DOCS = [
   {
     slug: "security",
     title: "Security Vulnerability Detection",
-    description: "Detect and fix security vulnerabilities in your dependencies",
+    description: "Detect vulnerabilities and select lowest-risk dependency portfolios",
+    usesMath: true,
   },
   {
     slug: "workspaces",

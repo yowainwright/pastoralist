@@ -1,4 +1,4 @@
-import type { SecurityAlert } from "../../../types";
+import type { SecurityAlert, SecurityProviderScanOptions } from "../../../types";
 import { logger } from "../../../utils";
 import { SPEKTION_API, SEVERITY_MAP } from "../constants";
 import type { Severity } from "../types";
@@ -77,30 +77,36 @@ export class SpektionProvider {
 
   async fetchAlerts(
     packages: Array<{ name: string; version: string }>,
-    _options: { root?: string } = {},
+    options: SecurityProviderScanOptions = {},
   ): Promise<SecurityAlert[]> {
     if (!this.token) {
-      this.log.print(
-        "Spektion requires authentication. Set SPEKTION_API_KEY or provide --securityProviderToken.",
-      );
-      return [];
+      return this.handleMissingToken(options.requireCompleteScan ?? false);
     }
 
     try {
       return await scanPackages(this.token, packages);
     } catch (error) {
-      const reason = error instanceof Error ? error.message : "Unknown error";
-      if (this.strict) {
-        throw new Error(
-          `Spektion security check failed. Reason: ${reason}. Failing due to --strict mode.`,
-        );
-      }
-      this.log.warn(
-        `Spektion security check failed. Your dependencies were NOT checked. ` +
-          `Reason: ${reason}. Run with --debug for details or --strict to fail on errors.`,
-        "fetchAlerts",
-      );
-      return [];
+      return this.handleScanError(error, options.requireCompleteScan ?? false);
     }
+  }
+
+  private handleMissingToken(requireCompleteScan: boolean): SecurityAlert[] {
+    const message =
+      "Spektion requires authentication. Set SPEKTION_API_KEY or provide --securityProviderToken.";
+    if (requireCompleteScan) throw new Error(message);
+    this.log.print(message);
+    return [];
+  }
+
+  private handleScanError(error: unknown, requireCompleteScan: boolean): SecurityAlert[] {
+    const reason = error instanceof Error ? error.message : "Unknown error";
+    if (this.strict || requireCompleteScan) {
+      throw new Error(`Spektion security check failed. Reason: ${reason}.`);
+    }
+    const message =
+      `Spektion security check failed. Your dependencies were NOT checked. ` +
+      `Reason: ${reason}. Run with --debug for details or --strict to fail on errors.`;
+    this.log.warn(message, "fetchAlerts");
+    return [];
   }
 }

@@ -198,7 +198,7 @@ Use Pastoralist.
   test("buildLlmsFullTxt includes cleaned doc bodies", () => {
     const output = buildLlmsFullTxt([
       {
-        content: "Use `npx pastoralist doctor` first.",
+        content: "Use `npx pastoralist doctor` first.\n\n$$\nx^* = \\arg\\min F(x)\n$$",
         description: "Start here.",
         slug: "introduction",
         title: "Introduction",
@@ -209,6 +209,7 @@ Use Pastoralist.
     expect(output).toContain("# Introduction");
     expect(output).toContain("> Start here.");
     expect(output).toContain("Use `npx pastoralist doctor` first.");
+    expect(output).toContain("$$\nx^* = \\arg\\min F(x)\n$$");
   });
 
   test("buildLlmsOutputs returns both generated documents", () => {

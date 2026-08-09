@@ -123,6 +123,46 @@ packages. Projects that materialize lockfiles, solve peer constraints, or model
 version-combination behavior can pass a whole-state `bestCaseEvaluator` through
 the Node.js API.
 
+#### Formal Model
+
+Package $i$ contributes a set of candidate versions $V_i$. The complete search
+space is the Cartesian product of those sets:
+
+$$
+\mathcal{X} = \prod_{i=1}^{n} V_i
+$$
+
+Let $\pi = (o_1, \ldots, o_m, a)$ be the resolved policy, where each $o_j$ is
+an objective and $a$ is the risk-aggregation mode. Each objective produces a
+score block $g_{o_j,a}(x)$, and the blocks are concatenated in policy order:
+
+$$
+F_{\pi}(x) = g_{o_1,a}(x) \mathbin{\Vert} \cdots \mathbin{\Vert} g_{o_m,a}(x)
+$$
+
+The default blocks represent known-exploited vulnerabilities, critical
+vulnerabilities, high vulnerabilities, summed EPSS, package exposures,
+incompatibilities, changed packages, and oldness. With `riskAggregation: "both"`,
+security blocks contain both unique-advisory and package-exposure values.
+
+Pastoralist minimizes the vector lexicographically:
+
+$$
+x^* = \operatorname*{arg\,min}^{\mathrm{lex}}_{x \in \mathcal{X}} F_{\pi}(x)
+$$
+
+For each selected dependency $i$, the ledger reason stores the shared decision
+provenance:
+
+$$
+r_i = \left(\mathtt{decisionId}(x^*), \mathtt{policyHash}(\pi),
+\mathtt{search}, \mathtt{impact}\right)
+$$
+
+The reason is per dependency, while the decision ID connects every dependency
+selected in the same portfolio. CVE identifiers remain in the sibling `cves`
+field rather than being duplicated in $r_i$.
+
 ## CLI Options
 
 | Option                            | Description                                           |

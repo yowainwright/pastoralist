@@ -67,6 +67,7 @@ export interface SecurityCheckRuntimeOptions extends SecurityCheckOptions {
   root?: string;
   packageJsonPath?: string;
   skipCacheWrite?: boolean;
+  requireCompleteScan?: boolean;
 }
 
 export interface SecurityCheckResult {
@@ -89,6 +90,7 @@ export interface WorkspaceVulnerabilityState {
 
 export interface SecurityProviderScanOptions {
   root?: string;
+  requireCompleteScan?: boolean;
 }
 
 export interface SecurityOverride {

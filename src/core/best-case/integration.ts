@@ -22,6 +22,12 @@ export interface OptimizedSecurityOverrides {
   bestCase: BestCaseResult;
 }
 
+const VERSION_PATTERN = /\d+(?:\.\d+){0,2}(?:-[0-9A-Za-z.-]+)?/;
+
+const normalizeCurrentVersion = (version: string): string => {
+  return version.match(VERSION_PATTERN)?.[0] ?? version;
+};
+
 const getPatchedVersions = (alerts: SecurityAlert[]): string[] => {
   return alerts.flatMap((alert) => {
     if (!alert.patchedVersion) return [];
@@ -43,7 +49,9 @@ const buildChoice = (
   alerts: SecurityAlert[],
   latestVersions: Map<string, string>,
 ): BestCasePackageChoice => {
-  const currentVersions = alerts.map((alert) => alert.currentVersion).sort(compareVersions);
+  const currentVersions = alerts
+    .map((alert) => normalizeCurrentVersion(alert.currentVersion))
+    .sort(compareVersions);
   const currentVersion = currentVersions[0];
   const patchedVersions = getPatchedVersions(alerts);
   const latestVersion = getLatestVersionList(packageName, latestVersions);

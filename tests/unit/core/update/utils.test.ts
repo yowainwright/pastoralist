@@ -1,5 +1,5 @@
 import { test, expect, mock } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import {
@@ -20,6 +20,25 @@ import type {
   WriteResultContext,
 } from "../../../../src/types";
 import type { PastoralistConfig } from "../../../../src/config";
+
+const createExternalAppendixFixture = () => {
+  const root = mkdtempSync(join(tmpdir(), "pastoralist-write-result-"));
+  const path = join(root, "package.json");
+  const appendixPath = join(root, "ledger.json");
+  const appendix = { "lodash@4.17.21": { dependents: { app: "lodash@^4" } } };
+  const config = { name: "test", version: "1.0.0" };
+  writeFileSync(path, JSON.stringify(config));
+  const ctx: WriteResultContext = {
+    appendixTarget: { path: appendixPath },
+    path,
+    config,
+    finalAppendix: appendix,
+    finalOverrides: {},
+    options: { dryRun: false },
+    isTesting: false,
+  };
+  return { appendix, appendixPath, ctx, root };
+};
 
 test("determineProcessingMode - should return root mode when no depPaths", () => {
   const options: Options = {};
@@ -493,4 +512,13 @@ test("writeResult - should write result with no options", () => {
 
   writeResult(ctx);
   expect(ctx.config.name).toBe("test");
+});
+
+test("writeResult - writes an external appendix target", () => {
+  const { appendix, appendixPath, ctx, root } = createExternalAppendixFixture();
+
+  writeResult(ctx);
+
+  expect(JSON.parse(readFileSync(appendixPath, "utf8"))).toEqual({ appendix });
+  rmSync(root, { recursive: true, force: true });
 });

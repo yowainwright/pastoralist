@@ -2,6 +2,7 @@ import { test, expect } from "bun:test";
 import { resolve } from "path";
 import {
   loadConfig,
+  loadCliConfig,
   loadConfigWithSource,
   loadExternalConfig,
   mergeConfigs,
@@ -10,6 +11,7 @@ import {
   safeValidateConfig,
 } from "../../../src/config";
 import type { PastoralistConfig } from "../../../src/config";
+import type { CliConfigDeps } from "../../../src/cli/types";
 import {
   safeWriteFileSync as writeFileSync,
   safeMkdirSync as mkdirSync,
@@ -167,6 +169,40 @@ test("loadConfigWithSource - tracks a writable JSON appendix target", async () =
   expect(loaded.appendixTarget).toEqual({ path: configPath });
   rmSync(testDir, { recursive: true, force: true });
   validateRootPackageJsonIntegrity();
+});
+
+test("loadConfigWithSource - merges an explicit target appendix", async () => {
+  validateRootPackageJsonIntegrity();
+  mkdirSync(testDir, { recursive: true });
+  const configPath = resolve(testDir, "ledger.json");
+  const appendix = { "lodash@4.17.21": { dependents: { app: "lodash@^4" } } };
+  writeFileSync(configPath, JSON.stringify({ appendix }));
+
+  clearConfigCache();
+  const loaded = await loadConfigWithSource(testDir, { appendixSource: "ledger.json" });
+
+  expect(loaded.appendixTarget).toEqual({ path: configPath });
+  expect(loaded.config?.appendix).toEqual(appendix);
+  rmSync(testDir, { recursive: true, force: true });
+  validateRootPackageJsonIntegrity();
+});
+
+test("loadCliConfig - uses source-aware config loading", async () => {
+  const packageConfig = { name: "app", version: "1.0.0", pastoralist: {} };
+  const deps: CliConfigDeps = {
+    resolveJSON: () => packageConfig,
+    buildMergedOptions: () => ({}),
+    loadConfigWithSource: async () => ({
+      appendixTarget: { path: "ledger.json" },
+      config: {},
+      source: undefined,
+    }),
+  };
+
+  const loaded = await loadCliConfig({}, {}, deps);
+
+  expect(loaded.appendixTarget).toEqual({ path: "ledger.json" });
+  expect(loaded.manifestConfig).toEqual(packageConfig);
 });
 
 test("loadExternalConfig - should handle invalid JSON", async () => {

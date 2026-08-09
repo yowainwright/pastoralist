@@ -54,9 +54,15 @@ const resolveConfiguredSource = (
   return resolve(dirname(resolve(manifestPath)), configuredPath);
 };
 
+const hasWorkspaceOverrides = (path: string): boolean => {
+  if (!existsSync(path)) return false;
+  const content = readFileSync(path, "utf8");
+  return Object.keys(parsePnpmWorkspaceOverrides(content)).length > 0;
+};
+
 const resolvePnpmSource = (config: PastoralistJSON, manifestPath: string): string | undefined => {
   const workspacePath = resolve(dirname(resolve(manifestPath)), PNPM_WORKSPACE_FILE);
-  const usesWorkspaceSource = existsSync(workspacePath) || isPnpmEleven(config);
+  const usesWorkspaceSource = isPnpmEleven(config) || hasWorkspaceOverrides(workspacePath);
   return usesWorkspaceSource ? workspacePath : undefined;
 };
 

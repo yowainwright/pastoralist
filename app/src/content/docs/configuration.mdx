@@ -147,6 +147,7 @@ Effective configuration:
 | `appendix`        | `object`                                      | Auto-generated dependency tracking (managed by Pastoralist)                                                                           |
 | `overridePaths`   | `object`                                      | Manual override tracking for specific paths                                                                                           |
 | `resolutionPaths` | `object`                                      | Manual resolution tracking for specific paths                                                                                         |
+| `bestCase`        | `object`                                      | Opt-in dependency-portfolio optimization policy                                                                                       |
 | `security`        | `object`                                      | Security scanning configuration                                                                                                       |
 
 ### Security Configuration
@@ -164,6 +165,58 @@ The `security` object supports the following options:
 | `excludePackages`            | `string[]`                                                                          | Packages to exclude from security checks                                                                                                                    |
 | `hasWorkspaceSecurityChecks` | `boolean`                                                                           | Include workspace packages in security scans                                                                                                                |
 | `strict`                     | `boolean`                                                                           | Fail when a security provider cannot complete                                                                                                               |
+
+### Best-Case Portfolio Configuration
+
+Enable `bestCase` when package fixes must be chosen as one portfolio instead
+of independently. Pastoralist evaluates complete version combinations so a fix
+for one package cannot hide a vulnerability introduced elsewhere.
+
+```json
+{
+  "pastoralist": {
+    "checkSecurity": true,
+    "bestCase": {
+      "enabled": true,
+      "riskAggregation": "both",
+      "objectives": [
+        "known-exploited",
+        "critical",
+        "high",
+        "expected-exploitation",
+        "package-exposures",
+        "compatibility",
+        "change-count",
+        "oldness"
+      ],
+      "search": {
+        "mode": "auto",
+        "exactStateLimit": 256,
+        "beamWidth": 16,
+        "maxEvaluations": 1000
+      }
+    }
+  }
+}
+```
+
+| Option                   | Type                                                 | Default   | Description                                             |
+| ------------------------ | ---------------------------------------------------- | --------- | ------------------------------------------------------- |
+| `enabled`                | `boolean`                                            | `false`   | Enable portfolio selection during security checks       |
+| `riskAggregation`        | `"unique-cves"` \| `"package-exposures"` \| `"both"` | `"both"`  | Choose how vulnerability risk is counted                |
+| `objectives`             | `BestCaseObjective[]`                                | See above | Set the lexicographic ranking order                     |
+| `search.mode`            | `"auto"` \| `"exact"` \| `"beam"`                    | `"auto"`  | Select exhaustive or deterministic bounded search       |
+| `search.exactStateLimit` | positive integer                                     | `256`     | Limit exact search to this many states in auto mode     |
+| `search.beamWidth`       | positive integer                                     | `16`      | Retain this many states at each step during beam search |
+| `search.maxEvaluations`  | positive integer                                     | `1000`    | Stop after this many complete-state evaluations         |
+
+Objectives are compared in array order; Pastoralist does not combine them
+into a weighted sum. Supported objectives are `known-exploited`, `critical`,
+`high`, `medium`, `low`, `expected-exploitation`, `package-exposures`,
+`compatibility`, `change-count`, and `oldness`.
+
+An exact search reports `provenOptimal: true` only when it evaluates every
+state. Beam search and capped exact search report `provenOptimal: false`.
 
 ## Package.json Configuration
 
@@ -261,7 +314,7 @@ vulnerable-range metadata to the same ledger:
 ### Ledger Fields
 
 - **`addedDate`**: ISO timestamp recorded when the entry was first written. Always present
-- **`reason`**: Why the override was needed (e.g., security issue description)
+- **`reason`**: Why the override was needed. Accepts a non-empty string, a `ProjectReason`, or a `BestCaseReason`
 - **`source`**: How the entry was created — `"manual"` or `"security"`
 - **`securityChecked`**: Whether a security check was performed
 - **`securityCheckDate`**: When the last security check occurred
@@ -273,6 +326,53 @@ vulnerable-range metadata to the same ledger:
 - **`vulnerableRange`**: Semver range that is affected
 - **`patchedVersion`**: Version that resolves the vulnerability
 - **`keep`**: Prevent `--remove-unused` from removing this entry. Set to `true` or a `KeepConstraint` object
+
+### Structured Ledger Reasons
+
+Use a project reason for an engineer-selected pin or patch:
+
+```json
+{
+  "reason": {
+    "type": "project",
+    "summary": "Keep the patched fork until upstream publishes a release.",
+    "pin": "2.4.1",
+    "patch": "patches/example+2.4.1.patch",
+    "constraints": ["Requires the current plugin API"],
+    "references": ["https://example.com/upstream/issue/123"]
+  }
+}
+```
+
+`summary` is required. `pin`, `patch`, `constraints`, and `references` are
+optional and descriptive; package-manager overrides and appendix patch paths
+remain authoritative.
+
+Best-case selection writes a reason tied to the complete portfolio decision:
+
+```json
+{
+  "reason": {
+    "type": "best-case",
+    "summary": "Selected as part of the lowest-risk dependency portfolio",
+    "decisionId": "best-case-4b825dc642cb",
+    "policyHash": "d14a028c2a3a2bc9",
+    "search": {
+      "evaluatedStates": 64,
+      "provenOptimal": true
+    },
+    "impact": {
+      "fixedVulnerabilities": 3,
+      "introducedVulnerabilities": 0,
+      "remainingVulnerabilities": 1
+    }
+  },
+  "cves": ["CVE-2026-1234"]
+}
+```
+
+The reason belongs to one dependency item. Dependencies selected by the same
+portfolio share a `decisionId`. CVEs remain in the sibling `cves` field.
 
 ### Keeping Overrides with `keep`
 

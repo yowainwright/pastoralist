@@ -319,6 +319,95 @@ if (config) {
 }
 ```
 
+### `optimizeBestCasePortfolio(options)`
+
+Evaluate complete package-version states and return the lowest-risk state under
+a lexicographic policy. The evaluator must return alerts for the complete state,
+not for one package in isolation.
+
+**params:**
+
+- `choices`: package names, current versions, and candidate versions
+- `evaluate`: async `BestCaseEvaluator` callback for one complete state
+- `config`: optional `BestCaseConfig` policy and search limits
+
+```typescript
+import {
+  optimizeBestCasePortfolio,
+  type BestCaseEvaluator,
+  type BestCasePackageChoice,
+} from "pastoralist";
+
+const choices: BestCasePackageChoice[] = [
+  {
+    packageName: "example",
+    currentVersion: "1.0.0",
+    versions: ["1.0.0", "1.1.0"],
+  },
+];
+
+const evaluate: BestCaseEvaluator = async (state) => {
+  const usesVulnerableVersion = state.example === "1.0.0";
+  const alerts = usesVulnerableVersion
+    ? [
+        {
+          packageName: "example",
+          currentVersion: state.example,
+          vulnerableVersions: "<1.1.0",
+          patchedVersion: "1.1.0",
+          severity: "high" as const,
+          title: "Example vulnerability",
+          cves: ["CVE-2026-1234"],
+          fixAvailable: true,
+        },
+      ]
+    : [];
+
+  return { alerts };
+};
+
+const result = await optimizeBestCasePortfolio({
+  choices,
+  evaluate,
+  config: {
+    enabled: true,
+    search: { mode: "auto", exactStateLimit: 256 },
+  },
+});
+
+console.log(result.selectedState);
+console.log(result.search.provenOptimal);
+```
+
+`BestCaseEvaluation` may also return `incompatibilities`, `oldness`, `valid`,
+and `error`. Rejected callbacks are recorded as invalid states and do not abort
+other evaluations.
+
+`SecurityChecker.checkSecurity(config, options)` accepts `bestCase` and a
+project-supplied `bestCaseEvaluator`. Package JSON can configure `bestCase`, but
+the evaluator is an API option because functions cannot be stored in JSON.
+
+### Ledger reason types
+
+`LedgerReason` is a non-empty string, `ProjectReason`, or `BestCaseReason`.
+Reasons are stored per appendix dependency.
+
+```typescript
+import type { LedgerReason } from "pastoralist";
+
+const reason: LedgerReason = {
+  type: "project",
+  summary: "Pin this dependency while the upstream fix is reviewed.",
+  pin: "3.2.1",
+  patch: "patches/example+3.2.1.patch",
+  constraints: ["Must retain the current runtime API"],
+  references: ["https://example.com/upstream/issue/123"],
+};
+```
+
+A `BestCaseReason` contains `decisionId`, `policyHash`, `search`, and `impact`.
+CVEs stay in `ledger.cves`; they are not duplicated in the reason.
+
 ### `logger(config)`
 
 Create a logger instance for custom debugging.

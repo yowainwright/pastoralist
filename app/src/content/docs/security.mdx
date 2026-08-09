@@ -1,6 +1,6 @@
 ---
 title: Security Vulnerability Detection
-description: Detect and fix security vulnerabilities in your dependencies
+description: Detect vulnerabilities and select lowest-risk dependency portfolios
 ---
 
 Pastoralist can check dependencies against security providers and connect fixes
@@ -66,6 +66,9 @@ You can configure security settings in your `package.json`:
       "hasWorkspaceSecurityChecks": false,
       "severityThreshold": "medium",
       "excludePackages": []
+    },
+    "bestCase": {
+      "enabled": false
     }
   }
 }
@@ -84,6 +87,41 @@ You can configure security settings in your `package.json`:
 | `severityThreshold`          | string          | `"medium"` | Minimum severity level to report (low, medium, high, critical)                                                                                             |
 | `excludePackages`            | array           | `[]`       | List of package names to exclude from security checks                                                                                                      |
 | `strict`                     | boolean         | `false`    | Fail when a provider cannot complete                                                                                                                       |
+
+### Best-Case Portfolio Selection
+
+Independent upgrades can interact: one package fix may introduce a
+vulnerability or compatibility failure in another package. Enable `bestCase`
+to rank complete package-version portfolios under one policy:
+
+```json
+{
+  "pastoralist": {
+    "checkSecurity": true,
+    "bestCase": {
+      "enabled": true,
+      "riskAggregation": "both",
+      "search": {
+        "mode": "auto",
+        "exactStateLimit": 256,
+        "beamWidth": 16,
+        "maxEvaluations": 1000
+      }
+    }
+  }
+}
+```
+
+Each patchable package contributes its current version, known patched versions,
+and latest compatible version. Auto mode exhaustively evaluates small products
+and uses deterministic beam search above the configured cap. The result includes
+the selected state, decision ID, policy hash, vulnerability impact, duration,
+evaluated-state count, and `provenOptimal` status.
+
+The built-in evaluator scans all root packages and candidate-controlled
+packages. Projects that materialize lockfiles, solve peer constraints, or model
+version-combination behavior can pass a whole-state `bestCaseEvaluator` through
+the Node.js API.
 
 ## CLI Options
 
@@ -275,6 +313,10 @@ ledger alongside the `addedDate`:
 
 Multiple CVEs from the same package are aggregated — `cveDetails` gives per-CVE granularity (severity and patched version per identifier), while `cves` is the deduplicated flat list for quick reference.
 
+`reason` accepts a non-empty string or a typed `project` or `best-case` object.
+A best-case reason links each dependency entry to the shared portfolio decision;
+the fixed CVEs remain in the sibling `cves` field.
+
 ## Keeping Security Overrides with `keep`
 
 By default, `--remove-unused` will remove overrides whose dependents no longer require them. For security overrides you want to retain regardless, set `keep` on the ledger:
@@ -354,6 +396,7 @@ Generated 2 override(s):
 - The OSV provider is optimized for batch queries
 - Provider results can be cached using the CLI cache options
 - Results are processed in parallel when possible
+- Best-case results record duration and evaluated-state count
   :::
 
 ## Limitations

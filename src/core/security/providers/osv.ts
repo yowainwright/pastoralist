@@ -209,11 +209,18 @@ export class OSVProvider {
       return result.value;
     }
 
-    const errorMsg = `Failed to fetch ${fallback.id}: ${result.reason}`;
+    return this.resolveRejectedVulnerability(result.reason, fallback, requireCompleteScan);
+  }
 
-    if (this.strict || requireCompleteScan) {
-      throw new Error(errorMsg);
-    }
+  private resolveRejectedVulnerability(
+    reason: unknown,
+    fallback: OSVPartialVulnerability,
+    requireCompleteScan: boolean,
+  ): OSVVulnerability {
+    const errorMsg = `Failed to fetch ${fallback.id}: ${reason}`;
+    const shouldFail = this.strict || requireCompleteScan;
+
+    if (shouldFail) throw new Error(errorMsg);
 
     this.log.debug(errorMsg, "fetchFullVulnerabilityDetails");
     return fallback as OSVVulnerability;
@@ -253,8 +260,9 @@ export class OSVProvider {
   private handleBatchFetchError(error: unknown, requireCompleteScan: boolean): OSVBatchResult[] {
     this.log.debug("Failed to fetch batch results after retries", "fetchAlerts", { error });
     const reason = error instanceof Error ? error.message : "Unknown error";
+    const shouldFail = this.strict || requireCompleteScan;
 
-    if (this.strict || requireCompleteScan) {
+    if (shouldFail) {
       throw new Error(
         `OSV security check failed after ${this.retryOptions.retries} retries. ` +
           `Reason: ${reason}. Failing due to --strict mode.`,

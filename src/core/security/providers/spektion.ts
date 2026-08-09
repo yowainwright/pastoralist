@@ -100,7 +100,8 @@ export class SpektionProvider {
 
   private handleScanError(error: unknown, requireCompleteScan: boolean): SecurityAlert[] {
     const reason = error instanceof Error ? error.message : "Unknown error";
-    if (this.strict || requireCompleteScan) {
+    const shouldFail = this.strict || requireCompleteScan;
+    if (shouldFail) {
       throw new Error(`Spektion security check failed. Reason: ${reason}.`);
     }
     const message =

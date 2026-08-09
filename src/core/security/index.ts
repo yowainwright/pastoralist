@@ -447,22 +447,40 @@ export class SecurityChecker {
     throw new Error("Best-case evaluation requires a complete provider scan");
   }
 
-  private async fetchProviderAlerts(
+  private reportProviderFetch(
     packages: SecurityPackage[],
     options: SecurityCheckRuntimeOptions,
-  ): Promise<SecurityAlertScan> {
+  ): void {
     const message = `Checking ${packages.length} packages...`;
-    this.reportProgress(options, {
+    const progress: SecurityCheckProgress = {
       phase: "fetching",
       message,
       current: 0,
       total: packages.length,
-    });
-
-    const providerOptions: SecurityProviderScanOptions = {
-      root: options.root,
-      requireCompleteScan: true,
     };
+    this.reportProgress(options, progress);
+  }
+
+  private createProviderScanOptions(
+    options: SecurityCheckRuntimeOptions,
+  ): SecurityProviderScanOptions {
+    const root = options.root;
+    const requireCompleteScan = true;
+    return { root, requireCompleteScan };
+  }
+
+  private logProviderAlerts(alerts: SecurityAlert[]): void {
+    const providerCount = this.providers.length;
+    const message = `Found ${alerts.length} security alerts from ${providerCount} provider(s)`;
+    this.log.debug(message, "checkSecurity");
+  }
+
+  private async fetchProviderAlerts(
+    packages: SecurityPackage[],
+    options: SecurityCheckRuntimeOptions,
+  ): Promise<SecurityAlertScan> {
+    this.reportProviderFetch(packages, options);
+    const providerOptions = this.createProviderScanOptions(options);
     const requests = this.providers.map((provider) => {
       return provider.fetchAlerts(packages, providerOptions);
     });
@@ -470,11 +488,7 @@ export class SecurityChecker {
     const alerts = results.flatMap((result, index) => this.normalizeProviderResult(result, index));
     const complete = results.every((result) => result.status === "fulfilled");
 
-    this.log.debug(
-      `Found ${alerts.length} security alerts from ${this.providers.length} provider(s)`,
-      "checkSecurity",
-    );
-
+    this.logProviderAlerts(alerts);
     const scan = { alerts, complete };
     return scan;
   }

@@ -1,10 +1,18 @@
 import { test, expect } from "bun:test";
-import type { OverridesConfig } from "../../../src/types";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
+import type { OverridesConfig, PastoralistJSON } from "../../../src/types";
 import {
   defineOverride,
+  applyOverridesToSourceConfig,
   getOverridesByType,
+  parsePnpmWorkspaceOverrides,
+  resolveOverrideSource,
   resolveOverrides,
+  updatePnpmWorkspaceOverrides,
   updateOverrides,
+  writeOverrideSource,
 } from "../../../src/core/overrides";
 
 test("defineOverride - should return npm overrides when only overrides exist", () => {
@@ -170,4 +178,276 @@ test("resolveOverrides - should return undefined when type is missing", () => {
   const result = resolveOverrides({ config: {}, type: undefined as any });
 
   expect(result).toBeUndefined();
+});
+
+test("parsePnpmWorkspaceOverrides - reads top-level pnpm overrides", () => {
+  const content = [
+    "packages:",
+    '  - "packages/*"',
+    "overrides:",
+    '  lodash: "4.17.21"',
+    "  react: 18.3.1",
+    "",
+  ].join("\n");
+
+  expect(parsePnpmWorkspaceOverrides(content)).toEqual({
+    lodash: "4.17.21",
+    react: "18.3.1",
+  });
+});
+
+test("parsePnpmWorkspaceOverrides - reads unquoted flow mappings", () => {
+  const content = "overrides: { lodash: 4.17.21, react: '18.3.1', foo@npm:bar@1: 2.0.0 }\n";
+
+  expect(parsePnpmWorkspaceOverrides(content)).toEqual({
+    lodash: "4.17.21",
+    react: "18.3.1",
+    "foo@npm:bar@1": "2.0.0",
+  });
+});
+
+test("parsePnpmWorkspaceOverrides - reads nested block mappings", () => {
+  const content = [
+    "overrides:",
+    "  foo:",
+    "    bar: 1.2.3",
+    '    baz: "2.0.0"',
+    "  lodash: 4.17.21",
+    "",
+  ].join("\n");
+
+  expect(parsePnpmWorkspaceOverrides(content)).toEqual({
+    foo: { bar: "1.2.3", baz: "2.0.0" },
+    lodash: "4.17.21",
+  });
+});
+
+test("parsePnpmWorkspaceOverrides - reads nested flow mappings", () => {
+  const content = "overrides: { foo: { bar: 1.2.3, baz: '2.0.0' }, lodash: 4.17.21 }\n";
+
+  expect(parsePnpmWorkspaceOverrides(content)).toEqual({
+    foo: { bar: "1.2.3", baz: "2.0.0" },
+    lodash: "4.17.21",
+  });
+});
+
+test("parsePnpmWorkspaceOverrides - rejects deeply nested flow mappings", () => {
+  const content = "overrides: { foo: { bar: { baz: 1.2.3 } } }\n";
+
+  expect(() => parsePnpmWorkspaceOverrides(content)).toThrow(
+    "nested pnpm overrides must contain string values",
+  );
+});
+
+test("parsePnpmWorkspaceOverrides - rejects deeply nested block mappings", () => {
+  const content = ["overrides:", "  foo:", "    bar: { baz: 1.2.3 }", ""].join("\n");
+
+  expect(() => parsePnpmWorkspaceOverrides(content)).toThrow(
+    "nested pnpm overrides must contain string values",
+  );
+});
+
+test("updatePnpmWorkspaceOverrides - preserves comments and existing order", () => {
+  const content = [
+    "# workspace settings",
+    "packages:",
+    '  - "packages/*"',
+    "overrides:",
+    "  # security pin",
+    "  lodash: 4.17.20 # CVE pin",
+    '  react: "18.3.1"',
+    "catalog:",
+    "  typescript: 7.0.2",
+    "",
+  ].join("\n");
+  const updated = updatePnpmWorkspaceOverrides(content, {
+    lodash: "4.17.21",
+    react: "18.3.1",
+    zod: "4.0.0",
+  });
+
+  expect(updated).toContain("# workspace settings");
+  expect(updated).toContain("# security pin");
+  expect(updated).toContain("lodash: 4.17.21 # CVE pin");
+  expect(updated).toContain('react: "18.3.1"');
+  expect(updated.indexOf("lodash:")).toBeLessThan(updated.indexOf("react:"));
+  expect(updated.indexOf("react:")).toBeLessThan(updated.indexOf('"zod":'));
+  expect(updated.indexOf('"zod":')).toBeLessThan(updated.indexOf("catalog:"));
+});
+
+test("updatePnpmWorkspaceOverrides - preserves unchanged nested block mappings", () => {
+  const content = ["overrides:", "  foo:", "    bar: 1.2.3", "  lodash: 4.17.20", ""].join("\n");
+  const updated = updatePnpmWorkspaceOverrides(content, {
+    foo: { bar: "1.2.3" },
+    lodash: "4.17.21",
+  });
+
+  expect(updated).toContain("  foo:\n    bar: 1.2.3");
+  expect(updated).toContain("  lodash: 4.17.21");
+  expect(parsePnpmWorkspaceOverrides(updated)).toEqual({
+    foo: { bar: "1.2.3" },
+    lodash: "4.17.21",
+  });
+});
+
+test("updatePnpmWorkspaceOverrides - removes nested entries as one block", () => {
+  const content = [
+    "overrides:",
+    "  foo:",
+    "    bar: 1.2.3",
+    "# retained comment",
+    "    baz: 2.0.0",
+    "  lodash: 4.17.20",
+    "",
+  ].join("\n");
+  const updated = updatePnpmWorkspaceOverrides(content, { lodash: "4.17.21" });
+
+  expect(updated).not.toContain("foo:");
+  expect(updated).not.toContain("bar:");
+  expect(updated).not.toContain("baz:");
+  expect(updated).toContain("# retained comment");
+  expect(parsePnpmWorkspaceOverrides(updated)).toEqual({ lodash: "4.17.21" });
+});
+
+test("updatePnpmWorkspaceOverrides - preserves unknown nested boundaries", () => {
+  const content = [
+    "overrides:",
+    "  foo:",
+    "    bar: 1.2.3",
+    "  invalid",
+    "  lodash: 4.17.20",
+    "",
+  ].join("\n");
+
+  const updated = updatePnpmWorkspaceOverrides(content, { lodash: "4.17.21" });
+
+  expect(updated).toContain("  invalid");
+  expect(updated).not.toContain("foo:");
+});
+
+test("updatePnpmWorkspaceOverrides - replaces malformed existing values", () => {
+  const content = "overrides:\n  foo: { bar }\n";
+
+  const updated = updatePnpmWorkspaceOverrides(content, { foo: "1.0.0" });
+
+  expect(parsePnpmWorkspaceOverrides(updated)).toEqual({ foo: "1.0.0" });
+});
+
+test("updatePnpmWorkspaceOverrides - converts flow sections to blocks", () => {
+  const content = "overrides: { lodash: 4.17.20 } # pins\n";
+
+  const updated = updatePnpmWorkspaceOverrides(content, { lodash: "4.17.21" });
+
+  expect(updated).toContain("overrides: # pins");
+  expect(parsePnpmWorkspaceOverrides(updated)).toEqual({ lodash: "4.17.21" });
+});
+
+test("updatePnpmWorkspaceOverrides - formats an emptied section", () => {
+  const updated = updatePnpmWorkspaceOverrides("overrides:\n  lodash: 4.17.20\n", {});
+
+  expect(updated).toBe("overrides: {}\n");
+});
+
+test("updatePnpmWorkspaceOverrides - appends a missing CRLF section", () => {
+  const updated = updatePnpmWorkspaceOverrides("packages:\r\n  - packages/*", {
+    lodash: "4.17.21",
+  });
+
+  expect(updated).toBe('packages:\r\n  - packages/*\r\noverrides:\r\n  "lodash": "4.17.21"\r\n');
+});
+
+test("updatePnpmWorkspaceOverrides - leaves missing empty sections unchanged", () => {
+  expect(updatePnpmWorkspaceOverrides("packages:\n", {})).toBe("packages:\n");
+});
+
+test("applyOverridesToSourceConfig - removes JSON override fields", () => {
+  const source = { packageManager: "pnpm", overrides: {} } as const;
+  const resolutions = { ...source, kind: "json", path: "pins.json", field: "resolutions" } as const;
+  const overrides = {
+    ...source,
+    kind: "manifest",
+    path: "package.json",
+    field: "overrides",
+  } as const;
+  const pnpm = { ...source, kind: "json", path: "pins.json", field: "pnpm" } as const;
+  const config = { name: "app", version: "1.0.0" };
+
+  expect(
+    applyOverridesToSourceConfig({ ...config, resolutions: { foo: "1" } }, resolutions, {}),
+  ).toEqual(config);
+  expect(
+    applyOverridesToSourceConfig({ ...config, overrides: { foo: "1" } }, overrides, {}),
+  ).toEqual(config);
+  expect(
+    applyOverridesToSourceConfig({ ...config, pnpm: { overrides: { foo: "1" } } }, pnpm, {}),
+  ).toEqual(config);
+  expect(
+    applyOverridesToSourceConfig(
+      { ...config, pnpm: { overrides: { foo: "1" }, packageExtensions: {} } },
+      pnpm,
+      {},
+    ),
+  ).toEqual({ ...config, pnpm: { packageExtensions: {} } });
+});
+
+test("resolveOverrideSource - selects pnpm-workspace.yaml for pnpm 11", () => {
+  const root = mkdtempSync(join(tmpdir(), "pastoralist-overrides-"));
+  const manifestPath = join(root, "package.json");
+  const config: PastoralistJSON = {
+    name: "pnpm-project",
+    version: "1.0.0",
+    packageManager: "pnpm@11.0.0",
+  };
+  writeFileSync(manifestPath, JSON.stringify(config));
+  writeFileSync(join(root, "pnpm-workspace.yaml"), 'overrides:\n  lodash: "4.17.21"\n');
+
+  const source = resolveOverrideSource({ config, manifestPath });
+
+  expect(source.kind).toBe("yaml");
+  expect(source.overrides).toEqual({ lodash: "4.17.21" });
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("resolveOverrideSource - keeps pnpm 10 overrides in the manifest", () => {
+  const root = mkdtempSync(join(tmpdir(), "pastoralist-pnpm-10-"));
+  const manifestPath = join(root, "package.json");
+  const config: PastoralistJSON = {
+    name: "pnpm-project",
+    version: "1.0.0",
+    pnpm: { overrides: { lodash: "4.17.21" } },
+  };
+  writeFileSync(manifestPath, JSON.stringify(config));
+  writeFileSync(join(root, "pnpm-workspace.yaml"), "packages:\n  - packages/*\n");
+
+  const source = resolveOverrideSource({ config, manifestPath });
+
+  expect(source.kind).toBe("manifest");
+  expect(source.overrides).toEqual({ lodash: "4.17.21" });
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("writeOverrideSource - writes an explicit YAML source without changing comments", () => {
+  const root = mkdtempSync(join(tmpdir(), "pastoralist-custom-overrides-"));
+  const sourceDir = join(root, "config");
+  const manifestPath = join(root, "package.json");
+  const sourcePath = join(sourceDir, "pins.yaml");
+  const config: PastoralistJSON = {
+    name: "custom-source",
+    version: "1.0.0",
+    pastoralist: { overrideSource: "config/pins.yaml" },
+  };
+  mkdirSync(sourceDir, { recursive: true });
+  writeFileSync(manifestPath, JSON.stringify(config));
+  writeFileSync(sourcePath, '# retained\noverrides:\n  lodash: "4.17.20"\n');
+
+  const source = resolveOverrideSource({ config, manifestPath });
+  writeOverrideSource(source, { lodash: "4.17.21", zod: "4.0.0" });
+  const updated = readFileSync(sourcePath, "utf8");
+
+  expect(updated).toContain("# retained");
+  expect(parsePnpmWorkspaceOverrides(updated)).toEqual({
+    lodash: "4.17.21",
+    zod: "4.0.0",
+  });
+  rmSync(root, { recursive: true, force: true });
 });

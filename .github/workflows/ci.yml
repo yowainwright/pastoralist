@@ -146,7 +146,7 @@ jobs:
     needs: build
     strategy:
       matrix:
-        package-manager: [pnpm, npm, yarn]
+        package-manager: [pnpm, npm, yarn, pnpm-yaml, external-config]
       fail-fast: false
 
     name: e2e (${{ matrix.package-manager }})

@@ -88,6 +88,32 @@ const createTempCacheDir = (name: string): string => {
   return dir;
 };
 
+const createExternalJsonAutoFixFixture = (
+  hasManifestSource = true,
+  overrideSource = "overrides.json",
+) => {
+  const root = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-json-autofix-"));
+  const packagePath = path.join(root, "package.json");
+  const overridePath = path.join(root, overrideSource);
+  const pastoralist = { overrideSource };
+  const packageJson = Object.assign(
+    {},
+    {
+      name: "external-overrides",
+      version: "1.0.0",
+      packageManager: "npm@11.0.0",
+      dependencies: { lodash: "4.17.20" },
+    },
+    hasManifestSource ? { pastoralist } : undefined,
+  );
+  fs.mkdirSync(path.dirname(overridePath), { recursive: true });
+  fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
+  fs.writeFileSync(overridePath, JSON.stringify({ overrides: { axios: "1.8.0" } }, null, 2));
+  const checker = new SecurityChecker({ provider: "osv", root });
+  const effectiveConfig = Object.assign({}, packageJson, { pastoralist });
+  return { root, packagePath, overridePath, checker, effectiveConfig };
+};
+
 test("Security Alert Detection - should identify vulnerable packages in dependencies", () => {
   const checker = new SecurityChecker({ debug: false });
   const provider = new GitHubSecurityProvider({ debug: false });
@@ -984,81 +1010,6 @@ test("isNewVulnerability - Set key format matches packageName@currentVersion", (
   expect(result2).toBe(true);
 });
 
-test("getOverrideField - should return resolutions for yarn", () => {
-  const checker = new SecurityChecker({ provider: "osv" });
-  const result = (checker as any).getOverrideField("yarn");
-
-  expect(result).toBe("resolutions");
-});
-
-test("getOverrideField - should return overrides for npm", () => {
-  const checker = new SecurityChecker({ provider: "osv" });
-  const result = (checker as any).getOverrideField("npm");
-
-  expect(result).toBe("overrides");
-});
-
-test("getOverrideField - should return overrides for pnpm", () => {
-  const checker = new SecurityChecker({ provider: "osv" });
-  const result = (checker as any).getOverrideField("pnpm");
-
-  expect(result).toBe("overrides");
-});
-
-test("getOverrideField - should return overrides for bun", () => {
-  const checker = new SecurityChecker({ provider: "osv" });
-  const result = (checker as any).getOverrideField("bun");
-
-  expect(result).toBe("overrides");
-});
-
-test("applyOverridesToPackageJson - should apply overrides for npm", () => {
-  const checker = new SecurityChecker({ provider: "osv" });
-  const packageJson = { name: "test", version: "1.0.0" };
-  const newOverrides = { lodash: "4.17.21" };
-
-  const result = (checker as any).applyOverridesToPackageJson(packageJson, "npm", newOverrides);
-
-  expect(result.overrides).toEqual({ lodash: "4.17.21" });
-});
-
-test("applyOverridesToPackageJson - should apply resolutions for yarn", () => {
-  const checker = new SecurityChecker({ provider: "osv" });
-  const packageJson = { name: "test", version: "1.0.0" };
-  const newOverrides = { lodash: "4.17.21" };
-
-  const result = (checker as any).applyOverridesToPackageJson(packageJson, "yarn", newOverrides);
-
-  expect(result.resolutions).toEqual({ lodash: "4.17.21" });
-});
-
-test("applyOverridesToPackageJson - should apply pnpm overrides", () => {
-  const checker = new SecurityChecker({ provider: "osv" });
-  const packageJson = { name: "test", version: "1.0.0" };
-  const newOverrides = { lodash: "4.17.21" };
-
-  const result = (checker as any).applyOverridesToPackageJson(packageJson, "pnpm", newOverrides);
-
-  expect(result.pnpm.overrides).toEqual({ lodash: "4.17.21" });
-});
-
-test("applyOverridesToPackageJson - should merge with existing overrides", () => {
-  const checker = new SecurityChecker({ provider: "osv" });
-  const packageJson = {
-    name: "test",
-    version: "1.0.0",
-    overrides: { axios: "1.0.0" },
-  };
-  const newOverrides = { lodash: "4.17.21" };
-
-  const result = (checker as any).applyOverridesToPackageJson(packageJson, "npm", newOverrides);
-
-  expect(result.overrides).toEqual({
-    axios: "1.0.0",
-    lodash: "4.17.21",
-  });
-});
-
 test("createBackup - should create backup file", () => {
   const checker = new SecurityChecker({ provider: "osv" });
   const testDir = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-backup-"));
@@ -1152,6 +1103,101 @@ test("applyAutoFix - should apply security overrides to package.json", async () 
   fs.unlinkSync(backupPath as string);
 
   mockConsoleLog.mockRestore();
+});
+
+test("applyAutoFix - should write pnpm 11 overrides to the workspace manifest", async () => {
+  const root = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-pnpm-autofix-"));
+  const packagePath = path.join(root, "package.json");
+  const workspacePath = path.join(root, "pnpm-workspace.yaml");
+  const packageJson = {
+    name: "pnpm-project",
+    version: "1.0.0",
+    packageManager: "pnpm@11.0.0",
+    dependencies: { lodash: "4.17.20" },
+  };
+  fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
+  fs.writeFileSync(workspacePath, '# retained\noverrides:\n  axios: "1.8.0"\n');
+  const checker = new SecurityChecker({ provider: "osv", root });
+
+  try {
+    checker.applyAutoFix(
+      [
+        {
+          packageName: "lodash",
+          fromVersion: "4.17.20",
+          toVersion: "4.17.21",
+          reason: "Security fix",
+          severity: "high",
+        },
+      ],
+      packagePath,
+    );
+
+    const updatedPackage = JSON.parse(fs.readFileSync(packagePath, "utf8"));
+    const updatedWorkspace = fs.readFileSync(workspacePath, "utf8");
+    expect(updatedPackage.pnpm).toBeUndefined();
+    expect(updatedPackage.overrides).toBeUndefined();
+    expect(updatedPackage.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
+    expect(updatedWorkspace).toContain("# retained");
+    expect(updatedWorkspace).toContain('axios: "1.8.0"');
+    expect(updatedWorkspace).toContain('"lodash": "4.17.21"');
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("applyAutoFix - keeps external JSON overrides out of package.json", () => {
+  const fixture = createExternalJsonAutoFixFixture();
+
+  try {
+    fixture.checker.applyAutoFix([BASE_SECURITY_OVERRIDE], fixture.packagePath);
+
+    const updatedPackage = JSON.parse(fs.readFileSync(fixture.packagePath, "utf8"));
+    const updatedSource = JSON.parse(fs.readFileSync(fixture.overridePath, "utf8"));
+    expect(updatedPackage.overrides).toBeUndefined();
+    expect(updatedPackage.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
+    expect(updatedSource.overrides).toEqual({ axios: "1.8.0", lodash: "4.17.21" });
+  } finally {
+    fs.rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("applyAutoFix - honors override sources from merged config", () => {
+  const fixture = createExternalJsonAutoFixFixture(false);
+
+  try {
+    fixture.checker.applyAutoFix(
+      [BASE_SECURITY_OVERRIDE],
+      fixture.packagePath,
+      fixture.effectiveConfig,
+    );
+    const updatedPackage = JSON.parse(fs.readFileSync(fixture.packagePath, "utf8"));
+    const updatedSource = JSON.parse(fs.readFileSync(fixture.overridePath, "utf8"));
+    expect(updatedPackage.overrides).toBeUndefined();
+    expect(updatedSource.overrides).toEqual({ axios: "1.8.0", lodash: "4.17.21" });
+  } finally {
+    fs.rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("rollbackAutoFix - restores same-basename package and override sources", () => {
+  const fixture = createExternalJsonAutoFixFixture(true, "config/package.json");
+  const originalPackage = fs.readFileSync(fixture.packagePath, "utf8");
+  const originalSource = fs.readFileSync(fixture.overridePath, "utf8");
+  const nowSpy = spyOn(Date, "now").mockReturnValue(1_786_310_000_000);
+
+  try {
+    const backupPath = fixture.checker.applyAutoFix(
+      [BASE_SECURITY_OVERRIDE],
+      fixture.packagePath,
+    ) as string;
+    fixture.checker.rollbackAutoFix(backupPath, fixture.packagePath);
+    expect(fs.readFileSync(fixture.packagePath, "utf8")).toBe(originalPackage);
+    expect(fs.readFileSync(fixture.overridePath, "utf8")).toBe(originalSource);
+  } finally {
+    nowSpy.mockRestore();
+    fs.rmSync(fixture.root, { recursive: true, force: true });
+  }
 });
 
 test("applyAutoFix - should throw error when package.json not found", async () => {

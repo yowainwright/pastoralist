@@ -1,4 +1,4 @@
-import { loadCliConfig, loadConfig } from "../config";
+import { loadCliConfig, loadConfig, loadConfigWithSource } from "../config";
 import { IS_DEBUGGING } from "../constants";
 import { resolveJSON } from "../core/package";
 import { update } from "../core/update";
@@ -271,6 +271,7 @@ const defaultActionDeps: ActionDeps = {
   createTerminalGraph,
   getLedgerAddedDate,
   loadConfig,
+  loadConfigWithSource,
   processExit: (code: number) => process.exit(code),
 };
 

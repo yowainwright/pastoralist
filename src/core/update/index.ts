@@ -14,7 +14,11 @@ import {
   processWorkspacePackages,
 } from "../workspaces";
 import { attachPatchesToAppendix, detectPatches, findUnusedPatches } from "../patches";
-import { resolveOverrides, getOverridesByType } from "../overrides";
+import {
+  getOverridesByType,
+  resolveOverrideSource,
+  resolveOverridesFromSource,
+} from "../overrides";
 import { updateAppendix, constructAppendix } from "../appendix";
 import { mergeAppendixDependents } from "../appendix/utils";
 import {
@@ -52,10 +56,11 @@ const stepDetectPatches = (ctx: UpdateContext): UpdateContext => {
 const stepPrepareOverrides = (ctx: UpdateContext): UpdateContext => {
   if (!ctx.config) return ctx;
 
-  const overridesData = resolveOverrides({
-    options: ctx.options,
+  const overrideSource = resolveOverrideSource({
     config: ctx.config,
+    manifestPath: ctx.path,
   });
+  const overridesData = resolveOverridesFromSource(overrideSource);
   let overrides = getOverridesByType(overridesData) || {};
 
   if (ctx.options?.securityOverrides) {
@@ -63,7 +68,7 @@ const stepPrepareOverrides = (ctx: UpdateContext): UpdateContext => {
     overrides = Object.assign({}, overrides, ctx.options.securityOverrides);
   }
 
-  return Object.assign({}, ctx, { overridesData, overrides });
+  return Object.assign({}, ctx, { overrideSource, overridesData, overrides });
 };
 
 const stepDetermineMode = (ctx: UpdateContext): UpdateContext => {
@@ -375,10 +380,12 @@ const stepWriteResult = (ctx: UpdateContext): UpdateContext => {
   );
 
   writeResult({
+    appendixTarget: ctx.options.appendixTarget,
     path: ctx.path,
-    config: ctx.config!,
+    config: ctx.options.manifestConfig || ctx.config!,
     finalAppendix: ctx.finalAppendix!,
     finalOverrides: ctx.finalOverrides!,
+    overrideSource: ctx.overrideSource,
     options: ctx.options,
     isTesting: ctx.isTesting,
   });
@@ -460,7 +467,7 @@ const getSecurityDetails = (ctx: UpdateContext): NonNullable<Options["securityOv
   ctx.options?.securityOverrideDetails || [];
 
 const getExistingOverrides = (ctx: UpdateContext): Record<string, unknown> | undefined =>
-  ctx.config?.overrides || ctx.config?.resolutions;
+  ctx.overrideSource?.overrides;
 
 const buildUpdateMetrics = (ctx: UpdateContext): UpdateMetrics => {
   const securityDetails = getSecurityDetails(ctx);

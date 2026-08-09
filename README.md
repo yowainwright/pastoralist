@@ -2,7 +2,6 @@
 
 [![Socket Badge][socket-badge]][socket-package] [![npm version][npm-version-badge]][npm-package]
 [![npm downloads](https://img.shields.io/npm/dm/pastoralist.svg)](https://www.npmjs.com/package/pastoralist)
-[![TypeScript](https://img.shields.io/badge/TypeScript-types%20included-blue)](https://www.typescriptlang.org/)
 ![CI](https://github.com/yowainwright/pastoralist/actions/workflows/ci.yml/badge.svg)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/yowainwright/pastoralist/badge)](https://scorecard.dev/viewer/?uri=github.com/yowainwright/pastoralist)
 [![codecov](https://codecov.io/gh/yowainwright/pastoralist/branch/main/graph/badge.svg)](https://codecov.io/gh/yowainwright/pastoralist)

@@ -1,0 +1,6 @@
+{
+  "security": {
+    "enabled": false,
+    "provider": "osv"
+  }
+}

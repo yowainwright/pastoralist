@@ -1,11 +1,12 @@
 import { test, expect, beforeEach, afterEach, mock, spyOn } from "bun:test";
-import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from "fs";
+import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync, readdirSync } from "fs";
 import { resolve, join } from "path";
 import { action } from "../../src/cli/index";
 import type { Options, KeepConstraint } from "../../src/types";
 import * as packageJSON from "../../src/core/package";
 import { clearOSVCache } from "../../src/core/security/providers/osv";
 import { clearRegistryCache } from "../../src/utils/npm";
+import { clearConfigCache } from "../../src/config";
 
 const TEST_DIR = resolve(__dirname, ".test-e2e-cli");
 
@@ -22,6 +23,7 @@ beforeEach(() => {
   }
   mkdirSync(TEST_DIR, { recursive: true });
   packageJSON.clearDependencyTreeCache();
+  clearConfigCache();
   clearOSVCache();
   clearRegistryCache();
 });
@@ -158,6 +160,34 @@ test("e2e: handles pnpm overrides", async () => {
   expect(result.pastoralist.appendix).toBeDefined();
 });
 
+test("e2e: reports pnpm workspace YAML overrides in dry-run JSON output", async () => {
+  const pkgPath = createFixture("pnpm-workspace-yaml-overrides", {
+    name: "test-pnpm-yaml",
+    version: "1.0.0",
+    packageManager: "pnpm@11.0.0",
+    dependencies: {
+      lodash: "^4.17.20",
+    },
+  });
+  const root = resolve(pkgPath, "..");
+  const workspacePath = join(root, "pnpm-workspace.yaml");
+  const workspace = '# workspace\noverrides:\n  lodash: "4.17.21"\n';
+  writeFileSync(workspacePath, workspace);
+
+  const result = await action({
+    path: pkgPath,
+    root,
+    checkSecurity: false,
+    dryRun: true,
+    outputFormat: "json",
+    isTesting: true,
+  });
+
+  expect(result.overrideCount).toBe(1);
+  expect(result.appliedOverrides).toEqual({ lodash: "4.17.21" });
+  expect(readFileSync(workspacePath, "utf8")).toBe(workspace);
+});
+
 test("e2e: preserves existing pastoralist config", async () => {
   const pkgPath = createFixture("existing-config", {
     name: "test-existing",
@@ -182,6 +212,78 @@ test("e2e: preserves existing pastoralist config", async () => {
   expect(result.pastoralist.security).toBeDefined();
   expect(result.pastoralist.security.enabled).toBe(false);
   expect(result.pastoralist.security.provider).toBe("osv");
+});
+
+test("e2e: writes the appendix back to an external JSON config", async () => {
+  const pkgPath = createFixture("external-json-ledger", {
+    name: "test-external-json-ledger",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    overrides: { lodash: "4.17.21" },
+  });
+  const root = resolve(pkgPath, "..");
+  const configPath = join(root, ".pastoralistrc");
+  const externalConfig = { security: { enabled: false, provider: "osv" } };
+  writeFileSync(configPath, JSON.stringify(externalConfig, null, 2));
+
+  await action({ path: pkgPath, root, checkSecurity: false });
+
+  const packageJson = JSON.parse(readFileSync(pkgPath, "utf8"));
+  const config = JSON.parse(readFileSync(configPath, "utf8"));
+  const temporaryFiles = readdirSync(root).filter((filename) => filename.endsWith(".tmp"));
+  expect(packageJson.pastoralist).toBeUndefined();
+  expect(packageJson.overrides).toEqual({ lodash: "4.17.21" });
+  expect(config.security).toEqual(externalConfig.security);
+  expect(config.appendix["lodash@4.17.21"]).toBeDefined();
+  expect(temporaryFiles).toEqual([]);
+
+  const firstWrite = readFileSync(configPath, "utf8");
+  await action({ path: pkgPath, root, checkSecurity: false });
+  expect(readFileSync(configPath, "utf8")).toBe(firstWrite);
+});
+
+test("e2e: keeps JavaScript config read-only and writes the appendix to package.json", async () => {
+  const pkgPath = createFixture("javascript-config-ledger", {
+    name: "test-javascript-config-ledger",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    overrides: { lodash: "4.17.21" },
+  });
+  const root = resolve(pkgPath, "..");
+  const configPath = join(root, "pastoralist.config.cjs");
+  const source = 'module.exports = { security: { enabled: false, provider: "osv" } };\n';
+  writeFileSync(configPath, source);
+
+  await action({ path: pkgPath, root, checkSecurity: false });
+
+  const packageJson = JSON.parse(readFileSync(pkgPath, "utf8"));
+  expect(readFileSync(configPath, "utf8")).toBe(source);
+  expect(packageJson.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
+});
+
+test("e2e: honors an explicit appendix source for JavaScript config", async () => {
+  const pkgPath = createFixture("javascript-config-external-ledger", {
+    name: "test-javascript-config-external-ledger",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    overrides: { lodash: "4.17.21" },
+  });
+  const root = resolve(pkgPath, "..");
+  const configPath = join(root, "pastoralist.config.cjs");
+  const appendixPath = join(root, "ledger.json");
+  const source =
+    'module.exports = { appendixSource: "ledger.json", security: { enabled: false } };\n';
+  writeFileSync(configPath, source);
+  writeFileSync(appendixPath, JSON.stringify({ checkSecurity: false }, null, 2));
+
+  await action({ path: pkgPath, root, checkSecurity: false });
+
+  const packageJson = JSON.parse(readFileSync(pkgPath, "utf8"));
+  const appendixConfig = JSON.parse(readFileSync(appendixPath, "utf8"));
+  expect(readFileSync(configPath, "utf8")).toBe(source);
+  expect(packageJson.pastoralist).toBeUndefined();
+  expect(appendixConfig.checkSecurity).toBe(false);
+  expect(appendixConfig.appendix["lodash@4.17.21"]).toBeDefined();
 });
 
 test("e2e: dry-run does not modify package.json", async () => {

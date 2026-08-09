@@ -35,13 +35,25 @@ export {
   getOverridesByType,
   updateOverrides,
   defineOverride,
+  applyOverridesToSourceConfig,
+  parsePnpmWorkspaceOverrides,
+  resolveOverrideSource,
+  resolveOverridesFromSource,
+  updatePnpmWorkspaceOverrides,
+  writeOverrideSource,
 } from "./core/overrides";
 
 export { detectPatches, attachPatchesToAppendix, findUnusedPatches } from "./core/patches";
 
 export { SecurityChecker } from "./core/security";
 
-export { loadConfig, loadExternalConfig, mergeConfigs, clearConfigCache } from "./config";
+export {
+  loadConfig,
+  loadConfigWithSource,
+  loadExternalConfig,
+  mergeConfigs,
+  clearConfigCache,
+} from "./config";
 
 export { logger } from "./utils";
 
@@ -61,6 +73,8 @@ export type {
   SecurityOverride,
   SecurityProvider,
 } from "./types";
+
+export type { OverrideSource, OverrideSourceKind } from "./core/overrides";
 
 import { realpathSync } from "fs";
 import { fileURLToPath } from "url";

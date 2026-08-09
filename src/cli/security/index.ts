@@ -211,6 +211,7 @@ const buildSecurityCheckOptions = (
   Object.assign({}, mergedOptions, {
     depPaths: scanPaths,
     root: mergedOptions.root || "./",
+    packageJsonPath: mergedOptions.path,
     onProgress: createProgressHandler(spinner),
     severityThreshold: config?.pastoralist?.security?.severityThreshold,
     excludePackages: config?.pastoralist?.security?.excludePackages,
@@ -343,7 +344,7 @@ export const handleSecurityResults = (
 
   const shouldApplyAutoFix = overridesToApply.length > 0 && !mergedOptions.dryRun;
   if (shouldApplyAutoFix) {
-    securityChecker.applyAutoFix(overridesToApply, mergedOptions.path);
+    securityChecker.applyAutoFix(overridesToApply, mergedOptions.path, mergedOptions.config);
   }
 
   spinner.stop();

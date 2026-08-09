@@ -19,6 +19,8 @@ if [ ! -f /.dockerenv ]; then
     
     echo "🧪 Running E2E tests..."
     docker compose up --abort-on-container-exit e2e-pnpm
+    docker compose run --rm e2e-pnpm-yaml
+    docker compose run --rm e2e-external-config
 
     TEST_EXIT_CODE=$?
     

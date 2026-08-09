@@ -5,6 +5,9 @@ import {
   updateAppendix,
   processAndWritePackageJSON,
   constructAppendix,
+  loadTargetAppendix,
+  resolveAppendixTarget,
+  writeTargetAppendix,
 } from "../../../src/core/appendix";
 import {
   findUnusedAppendixEntries,
@@ -27,6 +30,69 @@ afterEach(() => {
   if (existsSync(TEST_DIR)) {
     rmSync(TEST_DIR, { recursive: true, force: true });
   }
+});
+
+test("resolveAppendixTarget - resolves JSON targets", () => {
+  const jsonSource = { format: "json" as const, path: resolve(TEST_DIR, "config.json") };
+
+  expect(resolveAppendixTarget({ appendixSource: "ledger.json" }, undefined, TEST_DIR)).toEqual({
+    path: resolve(TEST_DIR, "ledger.json"),
+  });
+  expect(resolveAppendixTarget({ appendixSource: ".pastoralistrc" }, undefined, TEST_DIR)).toEqual({
+    path: resolve(TEST_DIR, ".pastoralistrc"),
+  });
+  expect(resolveAppendixTarget({}, jsonSource, TEST_DIR)).toEqual({ path: jsonSource.path });
+  expect(
+    resolveAppendixTarget({}, { format: "javascript", path: "config.js" }, TEST_DIR),
+  ).toBeUndefined();
+});
+
+test("resolveAppendixTarget - rejects non-JSON targets", () => {
+  expect(() => resolveAppendixTarget({ appendixSource: "ledger.js" }, undefined, TEST_DIR)).toThrow(
+    "Appendix source must be a JSON config file",
+  );
+});
+
+test("loadTargetAppendix - reads existing targets", () => {
+  const path = resolve(TEST_DIR, "ledger.json");
+  const appendix = { "lodash@4.17.21": { dependents: { app: "lodash@^4" } } };
+  writeFileSync(path, JSON.stringify({ appendix }));
+
+  expect(loadTargetAppendix(undefined)).toBeUndefined();
+  expect(loadTargetAppendix({ path: resolve(TEST_DIR, "missing.json") })).toBeUndefined();
+  expect(loadTargetAppendix({ path })).toEqual(appendix);
+});
+
+test("writeTargetAppendix - creates a target and its parent", () => {
+  const path = resolve(TEST_DIR, "config", "ledger.json");
+  const appendix = { "lodash@4.17.21": { dependents: { app: "lodash@^4" } } };
+
+  writeTargetAppendix({ path }, appendix, false);
+
+  expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ appendix });
+});
+
+test("writeTargetAppendix - preserves config and removes an empty appendix", () => {
+  const path = resolve(TEST_DIR, "ledger.json");
+  writeFileSync(path, JSON.stringify({ checkSecurity: true, appendix: { stale: {} } }));
+
+  writeTargetAppendix({ path }, {}, false);
+
+  expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ checkSecurity: true });
+});
+
+test("writeTargetAppendix - skips dry runs", () => {
+  const path = resolve(TEST_DIR, "ledger.json");
+
+  writeTargetAppendix({ path }, {}, true);
+
+  expect(existsSync(path)).toBe(false);
+});
+
+test("writeTargetAppendix - cleans up failed atomic writes", () => {
+  const path = resolve(TEST_DIR, "x".repeat(300));
+
+  expect(() => writeTargetAppendix({ path }, {}, false)).toThrow();
 });
 
 test("updateAppendix - should handle empty overrides", () => {

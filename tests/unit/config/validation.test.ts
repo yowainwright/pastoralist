@@ -237,6 +237,30 @@ test("validateConfig - should reject invalid checkSecurity type", () => {
   expect(() => validateConfig(config)).toThrow("Invalid config structure");
 });
 
+test("validateConfig - should accept an explicit override source", () => {
+  const config = { overrideSource: "config/pnpm-overrides.yaml" };
+
+  expect(validateConfig(config)).toEqual(config);
+});
+
+test("validateConfig - should reject a non-string override source", () => {
+  expect(() => validateConfig({ overrideSource: ["pnpm-workspace.yaml"] })).toThrow(
+    "Invalid config structure",
+  );
+});
+
+test("validateConfig - should accept an explicit appendix source", () => {
+  const config = { appendixSource: "config/ledger.json" };
+
+  expect(validateConfig(config)).toEqual(config);
+});
+
+test("validateConfig - should reject a non-string appendix source", () => {
+  expect(() => validateConfig({ appendixSource: ["ledger.json"] })).toThrow(
+    "Invalid config structure",
+  );
+});
+
 test("validateConfig - should accept valid overridePaths", () => {
   const config = {
     overridePaths: {

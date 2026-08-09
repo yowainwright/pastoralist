@@ -10,6 +10,7 @@ export interface PastoralistJSON {
   peerDependencies?: Record<string, string>;
   name: string;
   version: string;
+  packageManager?: string;
   resolutions?: Record<string, string>;
   overrides?: Record<string, OverrideValue>;
   pnpm?: { overrides?: Record<string, OverrideValue> };
@@ -64,8 +65,10 @@ export interface Appendix {
 
 export interface PastoralistConfig {
   appendix?: Appendix;
+  appendixSource?: string;
   compactAppendix?: boolean;
   depPaths?: "workspace" | "workspaces" | string[];
+  overrideSource?: string;
   checkSecurity?: boolean;
   overridePaths?: Record<string, Appendix>;
   resolutionPaths?: Record<string, Appendix>;
@@ -81,6 +84,10 @@ export interface PastoralistConfig {
     strict?: boolean;
     preferLatest?: boolean;
   };
+}
+
+export interface AppendixTarget {
+  path: string;
 }
 
 export interface OverridesConfig {
@@ -176,6 +183,7 @@ export interface PathOptions {
 
 export interface Options extends SecurityOptions, OutputOptions, TestingOptions, PathOptions {
   appendix?: Appendix;
+  appendixTarget?: AppendixTarget;
   clearCache?: boolean;
   help?: boolean;
   version?: boolean;
@@ -185,6 +193,7 @@ export interface Options extends SecurityOptions, OutputOptions, TestingOptions,
   promptForReasons?: boolean;
   manualOverrideReasons?: Record<string, string>;
   config?: PastoralistJSON;
+  manifestConfig?: PastoralistJSON;
   setupHook?: boolean;
   addedDate?: string;
   removeUnused?: boolean;
@@ -209,6 +218,7 @@ export interface UpdatePackageJSONOptions {
   config: PastoralistJSON;
   overrides?: OverridesType;
   isTesting?: boolean;
+  manageOverrides?: boolean;
 }
 
 export interface FindRootDeps {

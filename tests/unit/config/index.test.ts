@@ -2,6 +2,7 @@ import { test, expect } from "bun:test";
 import { resolve } from "path";
 import {
   loadConfig,
+  loadConfigWithSource,
   loadExternalConfig,
   mergeConfigs,
   clearConfigCache,
@@ -150,6 +151,21 @@ test("loadExternalConfig - should load JSON config file", async () => {
   if (existsSync(testDir)) {
     rmSync(testDir, { recursive: true, force: true });
   }
+  validateRootPackageJsonIntegrity();
+});
+
+test("loadConfigWithSource - tracks a writable JSON appendix target", async () => {
+  validateRootPackageJsonIntegrity();
+  mkdirSync(testDir, { recursive: true });
+  const configPath = resolve(testDir, ".pastoralistrc.json");
+  writeFileSync(configPath, JSON.stringify({ checkSecurity: false }));
+
+  clearConfigCache();
+  const loaded = await loadConfigWithSource(testDir);
+
+  expect(loaded.source).toEqual({ format: "json", path: configPath });
+  expect(loaded.appendixTarget).toEqual({ path: configPath });
+  rmSync(testDir, { recursive: true, force: true });
   validateRootPackageJsonIntegrity();
 });
 

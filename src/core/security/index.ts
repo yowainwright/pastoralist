@@ -20,7 +20,12 @@ import {
   WorkspaceVulnerabilityState,
 } from "../../types";
 import { Appendix, PastoralistJSON, OverridesType } from "../../types";
-import { detectPackageManager } from "../package";
+import {
+  applyOverridesToSourceConfig,
+  resolveOverrideSource,
+  writeOverrideSource,
+} from "../overrides";
+import type { OverrideSource } from "../overrides";
 import {
   logger,
   LRUCache,
@@ -291,7 +296,7 @@ export class SecurityChecker {
       generatedOverrides,
       options,
     );
-    const updates = await this.checkOverrideUpdates(config, alerts);
+    const updates = await this.checkOverrideUpdates(config, alerts, options.packageJsonPath);
 
     return {
       alerts: vulnerablePackages,
@@ -577,8 +582,9 @@ export class SecurityChecker {
   private async checkOverrideUpdates(
     config: PastoralistJSON,
     alerts: SecurityAlert[],
+    packageJsonPath?: string,
   ): Promise<OverrideUpdate[]> {
-    const existingOverrides = this.getExistingOverrides(config);
+    const existingOverrides = this.getExistingOverrides(config, packageJsonPath);
     const appendix = config.pastoralist?.appendix || {};
     const allEntries = Object.entries(existingOverrides);
 
@@ -599,7 +605,10 @@ export class SecurityChecker {
     return updates;
   }
 
-  private getExistingOverrides(config: PastoralistJSON): OverridesType {
+  private getExistingOverrides(config: PastoralistJSON, packageJsonPath?: string): OverridesType {
+    if (packageJsonPath) {
+      return resolveOverrideSource({ config, manifestPath: packageJsonPath }).overrides;
+    }
     const existingOverrides =
       config.overrides || config.pnpm?.overrides || config.resolutions || {};
     return existingOverrides;
@@ -823,7 +832,7 @@ export class SecurityChecker {
     return backupPath;
   }
 
-  private applyOverridesToPackageJson(
+  applyOverridesToPackageJson(
     packageJson: PastoralistJSON,
     packageManager: "npm" | "yarn" | "pnpm" | "bun",
     newOverrides: OverridesType,
@@ -845,14 +854,18 @@ export class SecurityChecker {
       const backupPath = this.createBackup(pkgPath);
       const packageJson = this.readPackageJsonForAutoFix(pkgPath);
       const newOverrides = this.generatePackageOverrides(overrides);
+      const overrideSource = resolveOverrideSource({ config: packageJson, manifestPath: pkgPath });
+      const mergedOverrides = Object.assign({}, overrideSource.overrides, newOverrides);
       const updatedPackageJson = this.buildAutoFixedPackageJson(
         packageJson,
-        pkgPath,
+        overrideSource,
+        mergedOverrides,
         newOverrides,
         overrides,
       );
 
       this.writePackageJson(pkgPath, updatedPackageJson);
+      writeOverrideSource(overrideSource, mergedOverrides);
       return backupPath;
     } catch (error) {
       this.log.error("Failed to apply auto-fix", "applyAutoFix", { error });
@@ -876,15 +889,15 @@ export class SecurityChecker {
 
   private buildAutoFixedPackageJson(
     packageJson: PastoralistJSON,
-    pkgPath: string,
+    overrideSource: OverrideSource,
+    mergedOverrides: OverridesType,
     newOverrides: OverridesType,
     overrides: SecurityOverride[],
   ): PastoralistJSON {
-    const packageManager = detectPackageManager(dirname(pkgPath));
-    const updatedPackageJson = this.applyOverridesToPackageJson(
+    const updatedPackageJson = applyOverridesToSourceConfig(
       packageJson,
-      packageManager,
-      newOverrides,
+      overrideSource,
+      mergedOverrides,
     );
 
     updatedPackageJson.pastoralist = updatedPackageJson.pastoralist || {};

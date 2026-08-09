@@ -16,7 +16,9 @@ export const detectPackageManager = (root: string = process.cwd()): PackageManag
   const isBun = lockFileExists("bun.lockb", root) || lockFileExists("bun.lock", root);
   if (isBun) return "bun";
   if (lockFileExists("yarn.lock", root)) return "yarn";
-  if (lockFileExists("pnpm-lock.yaml", root)) return "pnpm";
+  const isPnpm =
+    lockFileExists("pnpm-lock.yaml", root) || lockFileExists("pnpm-workspace.yaml", root);
+  if (isPnpm) return "pnpm";
   return "npm";
 };
 

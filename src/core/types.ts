@@ -1,11 +1,5 @@
 import type { execFile } from "node:child_process";
-import type { OverrideValue } from "../types";
 import type { PartialSecurityLedger } from "./appendix/types";
-
-export type OverrideType = {
-  type: string;
-  overrides: Record<string, OverrideValue>;
-};
 
 export type ExecFileAsync = typeof execFile.__promisify__;
 

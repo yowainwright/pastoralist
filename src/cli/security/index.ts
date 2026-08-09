@@ -211,6 +211,7 @@ const buildSecurityCheckOptions = (
   Object.assign({}, mergedOptions, {
     depPaths: scanPaths,
     root: mergedOptions.root || "./",
+    packageJsonPath: mergedOptions.path,
     onProgress: createProgressHandler(spinner),
     severityThreshold: config?.pastoralist?.security?.severityThreshold,
     excludePackages: config?.pastoralist?.security?.excludePackages,

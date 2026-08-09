@@ -2,6 +2,8 @@ import { test, expect, beforeEach, afterEach } from "bun:test";
 import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from "fs";
 import { resolve } from "path";
 import { update } from "../../src/core/update";
+import { writeResult } from "../../src/core/update/utils";
+import { resolveOverrideSource } from "../../src/core/overrides";
 import type { Options } from "../../src/types";
 
 const TEST_DIR = resolve(__dirname, ".test-integration");
@@ -69,6 +71,54 @@ test("update - should process package.json with overrides", () => {
   expect(result.appendix?.["lodash@4.17.21"]).toBeDefined();
   expect(result.overrides).toBeDefined();
   expect(result.overrides?.lodash).toBe("4.17.21");
+});
+
+test("update - should build the ledger from pnpm workspace overrides", () => {
+  createTestPackageJson({
+    packageManager: "pnpm@11.0.0",
+  });
+  writeFileSync(resolve(TEST_DIR, "pnpm-workspace.yaml"), 'overrides:\n  lodash: "4.17.21"\n');
+
+  const config = JSON.parse(readFileSync(TEST_PACKAGE_JSON, "utf8"));
+  const result = update({
+    path: TEST_PACKAGE_JSON,
+    root: TEST_DIR,
+    config,
+    isTesting: true,
+  });
+
+  expect(result.overrideSource?.kind).toBe("yaml");
+  expect(result.overrides).toEqual({ lodash: "4.17.21" });
+  expect(result.appendix?.["lodash@4.17.21"]).toBeDefined();
+});
+
+test("writeResult - should keep pnpm overrides outside package.json", () => {
+  createTestPackageJson({
+    packageManager: "pnpm@11.0.0",
+    pastoralist: { overrideSource: "pnpm-workspace.yaml" },
+  });
+  const workspacePath = resolve(TEST_DIR, "pnpm-workspace.yaml");
+  writeFileSync(workspacePath, '# retained\noverrides:\n  lodash: "4.17.20"\n');
+  const config = JSON.parse(readFileSync(TEST_PACKAGE_JSON, "utf8"));
+  const overrideSource = resolveOverrideSource({ config, manifestPath: TEST_PACKAGE_JSON });
+
+  writeResult({
+    path: TEST_PACKAGE_JSON,
+    config,
+    finalAppendix: { "lodash@4.17.21": { ledger: { addedDate: "2026-08-08" } } },
+    finalOverrides: { lodash: "4.17.21" },
+    overrideSource,
+    options: {},
+    isTesting: false,
+  });
+
+  const packageJson = JSON.parse(readFileSync(TEST_PACKAGE_JSON, "utf8"));
+  const workspace = readFileSync(workspacePath, "utf8");
+  expect(packageJson.pnpm).toBeUndefined();
+  expect(packageJson.overrides).toBeUndefined();
+  expect(packageJson.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
+  expect(workspace).toContain("# retained");
+  expect(workspace).toContain('lodash: "4.17.21"');
 });
 
 test("update - should detect and attach patches", () => {

@@ -1154,6 +1154,47 @@ test("applyAutoFix - should apply security overrides to package.json", async () 
   mockConsoleLog.mockRestore();
 });
 
+test("applyAutoFix - should write pnpm 11 overrides to the workspace manifest", async () => {
+  const root = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-pnpm-autofix-"));
+  const packagePath = path.join(root, "package.json");
+  const workspacePath = path.join(root, "pnpm-workspace.yaml");
+  const packageJson = {
+    name: "pnpm-project",
+    version: "1.0.0",
+    packageManager: "pnpm@11.0.0",
+    dependencies: { lodash: "4.17.20" },
+  };
+  fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
+  fs.writeFileSync(workspacePath, '# retained\noverrides:\n  axios: "1.8.0"\n');
+  const checker = new SecurityChecker({ provider: "osv", root });
+
+  try {
+    checker.applyAutoFix(
+      [
+        {
+          packageName: "lodash",
+          fromVersion: "4.17.20",
+          toVersion: "4.17.21",
+          reason: "Security fix",
+          severity: "high",
+        },
+      ],
+      packagePath,
+    );
+
+    const updatedPackage = JSON.parse(fs.readFileSync(packagePath, "utf8"));
+    const updatedWorkspace = fs.readFileSync(workspacePath, "utf8");
+    expect(updatedPackage.pnpm).toBeUndefined();
+    expect(updatedPackage.overrides).toBeUndefined();
+    expect(updatedPackage.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
+    expect(updatedWorkspace).toContain("# retained");
+    expect(updatedWorkspace).toContain('axios: "1.8.0"');
+    expect(updatedWorkspace).toContain('"lodash": "4.17.21"');
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("applyAutoFix - should throw error when package.json not found", async () => {
   const checker = new SecurityChecker({ provider: "osv" });
   const overrides = [

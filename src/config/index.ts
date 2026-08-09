@@ -6,11 +6,20 @@ import type { Options, PastoralistJSON } from "../types";
 import { resolvePathFromRoot } from "../cli/utils";
 import type { CliConfigDeps, LoadedCliConfig } from "../cli/types";
 import { logger } from "../utils";
-import type { AppendixItem, ConfigAppendix, PastoralistConfig, SecurityConfig } from "./types";
+import type {
+  AppendixItem,
+  ConfigAppendix,
+  ConfigSource,
+  LoadedConfig,
+  MergedExternalConfig,
+  PastoralistConfig,
+  SecurityConfig,
+} from "./types";
 import { CONFIG_FILES, UNSUPPORTED_TYPESCRIPT_CONFIG } from "./constants";
 import { safeValidateConfig } from "./validators";
+import { loadTargetAppendix, resolveAppendixTarget } from "../core/appendix";
 
-const configCache = new Map<string, PastoralistConfig>();
+const configCache = new Map<string, LoadedConfig>();
 const log = logger({ file: "config/index.ts" });
 
 export const clearConfigCache = (): void => {
@@ -70,7 +79,7 @@ const tryLoadConfig = async (
   filename: string,
   root: string,
   validate: boolean,
-): Promise<PastoralistConfig | null> => {
+): Promise<LoadedConfig | null> => {
   const path = resolve(root, filename);
 
   if (!existsSync(path)) return null;
@@ -78,7 +87,10 @@ const tryLoadConfig = async (
   try {
     const rawConfig = await loadConfigFile(filename, path);
     if (!rawConfig) return null;
-    return validateAndReturn(rawConfig, validate);
+    const config = validateAndReturn(rawConfig, validate);
+    if (!config) return null;
+    const format = isJsonFile(filename) ? "json" : "javascript";
+    return { appendixTarget: undefined, config, source: { format, path } };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     log.fail(`Failed to load config from ${filename}: ${errorMessage}`);
@@ -100,12 +112,12 @@ const loadFirstAvailableConfig = async (
   filenames: readonly string[],
   root: string,
   validate: boolean,
-): Promise<PastoralistConfig | undefined> => {
+): Promise<LoadedConfig | undefined> => {
   const [filename, ...remaining] = filenames;
   if (!filename) return undefined;
 
-  const config = await tryLoadConfig(filename, root, validate);
-  if (config !== null) return config;
+  const loaded = await tryLoadConfig(filename, root, validate);
+  if (loaded !== null) return loaded;
 
   return loadFirstAvailableConfig(remaining, root, validate);
 };
@@ -114,11 +126,22 @@ export const loadExternalConfig = async (
   root: string = process.cwd(),
   validate: boolean = true,
 ): Promise<PastoralistConfig | undefined> => {
-  const config = await loadFirstAvailableConfig(CONFIG_FILES, root, validate);
-  if (config !== undefined) return config;
+  const loaded = await loadFirstAvailableConfig(CONFIG_FILES, root, validate);
+  if (loaded !== undefined) return loaded.config;
 
   warnIfUnsupportedTypeScriptConfigExists(root);
   return undefined;
+};
+
+const loadExternalConfigWithSource = async (
+  root: string,
+  validate: boolean,
+): Promise<LoadedConfig> => {
+  const loaded = await loadFirstAvailableConfig(CONFIG_FILES, root, validate);
+  if (loaded) return loaded;
+
+  warnIfUnsupportedTypeScriptConfigExists(root);
+  return { appendixTarget: undefined, config: undefined, source: undefined };
 };
 
 const mergeDependents = (external: AppendixItem, packageJson: AppendixItem) => {
@@ -190,26 +213,46 @@ export const mergeConfigs = (
   });
 };
 
+const mergeTargetAppendix = (
+  config: PastoralistConfig | undefined,
+  source: ConfigSource | undefined,
+  appendixTarget: LoadedConfig["appendixTarget"],
+): PastoralistConfig | undefined => {
+  const targetIsLoadedConfig = appendixTarget?.path === source?.path;
+  if (targetIsLoadedConfig) return config;
+
+  const appendix = loadTargetAppendix(appendixTarget);
+  if (!appendix) return config;
+  return mergeConfigs({ appendix }, config);
+};
+
+export const loadConfigWithSource = async (
+  root: string = process.cwd(),
+  packageJsonConfig?: PastoralistConfig,
+  validate: boolean = true,
+): Promise<LoadedConfig> => {
+  const cacheKey = `${root}:${validate}:${JSON.stringify(packageJsonConfig)}`;
+  const cached = configCache.get(cacheKey);
+
+  if (cached) return cached;
+
+  const external = await loadExternalConfigWithSource(root, validate);
+  const merged = mergeConfigs(external.config, packageJsonConfig);
+  const appendixTarget = resolveAppendixTarget(merged, external.source, root);
+  const config = mergeTargetAppendix(merged, external.source, appendixTarget);
+  const loaded = { appendixTarget, config, source: external.source };
+
+  if (config) configCache.set(cacheKey, loaded);
+  return loaded;
+};
+
 export const loadConfig = async (
   root: string = process.cwd(),
   packageJsonConfig?: PastoralistConfig,
   validate: boolean = true,
 ): Promise<PastoralistConfig | undefined> => {
-  const cacheKey = `${root}:${validate}:${JSON.stringify(packageJsonConfig)}`;
-  const cached = configCache.get(cacheKey);
-
-  if (cached) {
-    return cached;
-  }
-
-  const externalConfig = await loadExternalConfig(root, validate);
-  const merged = mergeConfigs(externalConfig, packageJsonConfig);
-
-  if (merged) {
-    configCache.set(cacheKey, merged);
-  }
-
-  return merged;
+  const loaded = await loadConfigWithSource(root, packageJsonConfig, validate);
+  return loaded.config;
 };
 
 const loadPackageConfig = (
@@ -226,17 +269,32 @@ const createPastoralistField = (config: PastoralistConfig | undefined) => {
   return { pastoralist: config };
 };
 
+const loadMergedConfig = async (
+  root: string,
+  packageConfig: PastoralistJSON,
+  deps: Pick<CliConfigDeps, "loadConfig" | "loadConfigWithSource">,
+): Promise<LoadedConfig> => {
+  if (deps.loadConfigWithSource) {
+    return deps.loadConfigWithSource(root, packageConfig.pastoralist);
+  }
+
+  const configLoader = deps.loadConfig || loadConfig;
+  const config = await configLoader(root, packageConfig.pastoralist);
+  return { appendixTarget: undefined, config, source: undefined };
+};
+
 const mergeExternalConfig = async (
   path: string,
   options: Options,
   packageConfig: PastoralistJSON,
-  deps: Pick<CliConfigDeps, "loadConfig">,
-): Promise<PastoralistJSON> => {
+  deps: Pick<CliConfigDeps, "loadConfig" | "loadConfigWithSource">,
+): Promise<MergedExternalConfig> => {
   const configRoot = options.root || dirname(resolve(path));
-  const configLoader = deps.loadConfig || loadConfig;
-  const mergedConfig = await configLoader(configRoot, packageConfig.pastoralist);
-  const pastoralist = createPastoralistField(mergedConfig);
-  return Object.assign({}, packageConfig, pastoralist);
+  const loaded = await loadMergedConfig(configRoot, packageConfig, deps);
+  const pastoralist = createPastoralistField(loaded.config);
+  const config = Object.assign({}, packageConfig, pastoralist);
+  const appendixTarget = loaded.appendixTarget;
+  return { appendixTarget, config };
 };
 
 const resolveSecurityEnabled = (
@@ -274,7 +332,9 @@ const mergeOptionsWithConfig = (
   options: Options,
   rest: Omit<Options, "isTestingCLI" | "init">,
   config: PastoralistJSON,
+  manifestConfig: PastoralistJSON,
   path: string,
+  appendixTarget: LoadedConfig["appendixTarget"],
   deps: Pick<CliConfigDeps, "buildMergedOptions">,
 ): Options => {
   const securityConfig = buildSecurityConfig(config);
@@ -285,7 +345,9 @@ const mergeOptionsWithConfig = (
     securityConfig.provider,
   );
   const root = createRootField(options.root);
-  return Object.assign({}, mergedOptions, { config, path }, root);
+  const configFields = { config, manifestConfig, path };
+  const targetField = appendixTarget ? { appendixTarget } : undefined;
+  return Object.assign({}, mergedOptions, configFields, root, targetField);
 };
 
 export const loadCliConfig = async (
@@ -296,9 +358,17 @@ export const loadCliConfig = async (
   const relativePath = options.path || "package.json";
   const path = resolvePathFromRoot(relativePath, options.root);
   const packageConfig = loadPackageConfig(path, deps);
-  const config = await mergeExternalConfig(path, options, packageConfig, deps);
-  const mergedOptions = mergeOptionsWithConfig(options, rest, config, path, deps);
-  return { path, config, mergedOptions };
+  const loaded = await mergeExternalConfig(path, options, packageConfig, deps);
+  const mergedOptions = mergeOptionsWithConfig(
+    options,
+    rest,
+    loaded.config,
+    packageConfig,
+    path,
+    loaded.appendixTarget,
+    deps,
+  );
+  return Object.assign({}, loaded, { manifestConfig: packageConfig, path, mergedOptions });
 };
 
 export * from "./constants";

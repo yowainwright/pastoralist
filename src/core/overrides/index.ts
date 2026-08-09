@@ -1,13 +1,13 @@
-import { IS_DEBUGGING } from "../constants";
+import { IS_DEBUGGING } from "../../constants";
 import type {
   OverridesConfig,
   ResolveOverrides,
   OverridesType,
   OverrideValue,
   ResolveResolutionOptions,
-} from "../types";
-import { logger } from "../utils";
-import type { OverrideType } from "./types";
+} from "../../types";
+import { logger } from "../../utils";
+import type { OverrideSource, OverrideType } from "./types";
 
 const log = logger({ file: "overrides.ts", isLogging: IS_DEBUGGING });
 
@@ -89,6 +89,13 @@ const buildResultByType = (type: string, overrides: OverridesType): ResolveOverr
   if (type === "pnpmOverrides") return buildPnpmResult(overrides);
   if (type === "resolutions") return buildResolutionsResult(overrides);
   return buildNpmResult(overrides);
+};
+
+export const resolveOverridesFromSource = (source: OverrideSource): ResolveOverrides => {
+  if (Object.keys(source.overrides).length === 0) return undefined;
+  if (source.field === "resolutions") return buildResolutionsResult(source.overrides);
+  if (source.packageManager === "pnpm") return buildPnpmResult(source.overrides);
+  return buildNpmResult(source.overrides);
 };
 
 export const resolveOverrides = ({ config = {} }: ResolveResolutionOptions): ResolveOverrides => {
@@ -177,3 +184,7 @@ export const updateOverrides = (
 
   return filterRemovedOverrides(overrides, removableItems);
 };
+
+export { applyOverridesToSourceConfig, resolveOverrideSource, writeOverrideSource } from "./utils";
+export { parsePnpmWorkspaceOverrides, updatePnpmWorkspaceOverrides } from "./yaml";
+export type { OverrideSource, OverrideSourceKind } from "./types";

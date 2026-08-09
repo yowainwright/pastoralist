@@ -1,8 +1,14 @@
-import type { AppendixItem, Options, PastoralistJSON, PastoralistResult } from "../types";
+import type {
+  AppendixItem,
+  AppendixTarget,
+  Options,
+  PastoralistJSON,
+  PastoralistResult,
+} from "../types";
 import type { update } from "../core/update";
 import type { createTerminalGraph } from "../dx";
 import type { resolveJSON } from "../core/package";
-import type { loadConfig } from "../config";
+import type { loadConfig, loadConfigWithSource } from "../config";
 import type { getLedgerAddedDate } from "../utils";
 import type { createSpinner, green, logger as createLogger, quickConfirm } from "../utils";
 import type { initCommand } from "./cmds/init";
@@ -35,8 +41,10 @@ export type UpdateResultData = Pick<
 export type UpdateContext = ReturnType<typeof update>;
 
 export type LoadedCliConfig = {
+  appendixTarget?: AppendixTarget;
   path: string;
   config: PastoralistJSON;
+  manifestConfig: PastoralistJSON;
   mergedOptions: Options;
 };
 
@@ -44,6 +52,7 @@ export type CliConfigDeps = {
   resolveJSON: typeof resolveJSON;
   buildMergedOptions: typeof buildMergedOptions;
   loadConfig?: typeof loadConfig;
+  loadConfigWithSource?: typeof loadConfigWithSource;
 };
 
 export type RuntimeDeps = {

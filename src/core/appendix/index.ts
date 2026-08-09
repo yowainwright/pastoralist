@@ -17,6 +17,7 @@ import type {
   PastoralistJSON,
   ResolveOverrides,
   AppendixDependencyContext,
+  LedgerReason,
 } from "../../types";
 import type { ConfigSource, PastoralistConfig } from "../../config/types";
 import { validateConfig } from "../../config/validators";
@@ -153,7 +154,7 @@ const buildItemWithDependent = (
   key: string,
   packageName: string,
   dependentInfo: string,
-  packageReason: string | undefined,
+  packageReason: LedgerReason | undefined,
   securityLedger: ProcessOverrideOptions["securityLedger"],
   addedDate?: string,
 ): AppendixItem => {
@@ -266,8 +267,8 @@ const processNestedOverrideEntry = ({
 
 const getNestedReason = (
   options: NestedAppendixItemOptions,
-  packageReason: string | undefined,
-): string | undefined =>
+  packageReason: LedgerReason | undefined,
+): LedgerReason | undefined =>
   mergeOverrideReasons(
     options.nestedPkg,
     undefined,
@@ -280,7 +281,7 @@ const buildNestedAppendixItem = (
   key: string,
   packageName: string,
   dependentValue: string,
-  packageReason: string | undefined,
+  packageReason: LedgerReason | undefined,
   options: NestedAppendixItemOptions,
 ): AppendixItem => {
   const nestedReason = getNestedReason(options, packageReason);
@@ -330,7 +331,7 @@ const processNestedOverride = (options: ProcessOverrideOptions): Appendix => {
   );
 };
 
-const getPackageReason = (options: ProcessOverrideOptions): string | undefined =>
+const getPackageReason = (options: ProcessOverrideOptions): LedgerReason | undefined =>
   mergeOverrideReasons(
     options.override,
     options.reason,

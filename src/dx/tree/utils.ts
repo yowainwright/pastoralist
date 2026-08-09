@@ -317,13 +317,58 @@ export const formatPotentiallyFixedIn = (version: string | undefined): string | 
   return `Potentially fixed in ${version}, maybe removable`;
 };
 
+type StructuredLedgerReason = Extract<NonNullable<OverrideInfo["reason"]>, object>;
+
+const formatReasonValue = (label: string, value: string | undefined): string | undefined => {
+  if (!value) return undefined;
+  return `${label}: ${value}`;
+};
+
+const formatReasonList = (label: string, values: string[] | undefined): string | undefined => {
+  if (!values?.length) return undefined;
+  return `${label}: ${values.join(", ")}`;
+};
+
+const formatProjectReason = (reason: StructuredLedgerReason): string[] => {
+  if (reason.type !== "project") return [];
+  const pin = formatReasonValue("Pin", reason.pin);
+  const patch = formatReasonValue("Patch", reason.patch);
+  const constraints = formatReasonList("Constraints", reason.constraints);
+  const references = formatReasonList("References", reason.references);
+  return [reason.summary, pin, patch, constraints, references].filter(isDefined);
+};
+
+const getOptimalityLabel = (provenOptimal: boolean): string => {
+  if (provenOptimal) return "optimal";
+  return "bounded";
+};
+
+const formatBestCaseReason = (reason: StructuredLedgerReason): string[] => {
+  if (reason.type !== "best-case") return [];
+  const optimality = getOptimalityLabel(reason.search.provenOptimal);
+  const states = reason.search.evaluatedStates;
+  const search = `Decision: ${reason.decisionId} (${optimality}, ${states} states)`;
+  const impact = reason.impact;
+  const impactText = `Impact: ${impact.fixedVulnerabilities} fixed, ${impact.introducedVulnerabilities} introduced, ${impact.remainingVulnerabilities} remaining`;
+  return [reason.summary, search, impactText];
+};
+
+export const formatLedgerReason = (reason: OverrideInfo["reason"]): string[] => {
+  if (!reason) return [];
+  if (typeof reason === "string") return [reason];
+  if (reason.type === "project") return formatProjectReason(reason);
+  return formatBestCaseReason(reason);
+};
+
 export const buildOverrideDetails = (info: OverrideInfo): string[] => {
   const cve = formatCves(info.cves);
   const patches = formatPatches(info.patches);
   const dependents = formatDependentCount(info.dependents);
   const kept = formatKeepStatus(info.keep);
   const fixedIn = formatPotentiallyFixedIn(info.potentiallyFixedIn);
-  return [info.reason, cve, patches, dependents, kept, fixedIn].filter(isDefined);
+  const reason = formatLedgerReason(info.reason);
+  const otherDetails = [cve, patches, dependents, kept, fixedIn].filter(isDefined);
+  return reason.concat(otherDetails);
 };
 
 export const buildSecurityFixHeader = (info: SecurityFixInfo): string =>

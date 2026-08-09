@@ -256,6 +256,20 @@ test("mergeConfigs - should override base with override", () => {
   expect(result.security?.enabled).toBe(true);
 });
 
+test("mergeConfigs - deep merges best-case search tuning", () => {
+  const baseSearch = { exactStateLimit: 256, beamWidth: 16 };
+  const baseBestCase = { enabled: true, riskAggregation: "both" as const, search: baseSearch };
+  const base = { bestCase: baseBestCase };
+  const overrideSearch = { beamWidth: 8, maxEvaluations: 500 };
+  const override = { bestCase: { search: overrideSearch } };
+
+  const result = mergeConfigs(base, override);
+
+  const expectedSearch = { exactStateLimit: 256, beamWidth: 8, maxEvaluations: 500 };
+  const expected = { enabled: true, riskAggregation: "both", search: expectedSearch };
+  expect(result?.bestCase).toEqual(expected);
+});
+
 test("mergeConfigs - should deep merge appendix", () => {
   const base = {
     appendix: {

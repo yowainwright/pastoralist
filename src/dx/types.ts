@@ -1,4 +1,4 @@
-import type { KeepConstraint } from "../types";
+import type { KeepConstraint, LedgerReason } from "../types";
 
 export type Output = {
   write: (text: string) => void;
@@ -101,7 +101,7 @@ export type VulnerabilityInfo = {
 export type OverrideInfo = {
   packageName: string;
   version: string;
-  reason?: string;
+  reason?: LedgerReason;
   dependents?: Record<string, string>;
   patches?: string[];
   isSecurityFix?: boolean;

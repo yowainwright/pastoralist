@@ -216,6 +216,20 @@ test("buildSecurityOverrideDetail - builds complete detail object", () => {
   expect(result.url).toBe("https://nvd.nist.gov/vuln/detail/CVE-2021-23337");
 });
 
+test("buildSecurityOverrideDetail - prefers a structured ledger reason", () => {
+  const { buildSecurityOverrideDetail } = require("../../../src/cli/index");
+  const ledgerReason = {
+    type: "project",
+    summary: "Pinned for compatibility",
+    pin: "4.17.21",
+  };
+  const override = Object.assign({}, CLI_SECURITY_OVERRIDE, { ledgerReason });
+
+  const result = buildSecurityOverrideDetail(override);
+
+  expect(result.reason).toEqual(ledgerReason);
+});
+
 test("buildSecurityOverrideDetail - excludes missing optional fields", () => {
   const { buildSecurityOverrideDetail } = require("../../../src/cli/index");
 

@@ -553,6 +553,70 @@ test("checkSecurity - should handle both dependencies and devDependencies", asyn
   mockFetchAlerts.mockRestore();
 });
 
+test("checkSecurity - applies the best-case portfolio and records its reason", async () => {
+  const alphaAlert: SecurityAlert = {
+    packageName: "alpha",
+    currentVersion: "1.0.0",
+    vulnerableVersions: "<2.0.0",
+    patchedVersion: "2.0.0",
+    severity: "critical",
+    title: "Alpha vulnerability",
+    cves: ["CVE-ALPHA"],
+    fixAvailable: true,
+  };
+  const betaAlert: SecurityAlert = {
+    packageName: "beta",
+    currentVersion: "1.0.0",
+    vulnerableVersions: "<2.0.0",
+    patchedVersion: "2.0.0",
+    severity: "high",
+    title: "Beta vulnerability",
+    cves: ["CVE-BETA"],
+    fixAvailable: true,
+  };
+  const checker = createCheckerWithMockAlerts({}, [alphaAlert, betaAlert]);
+  spyOn(checker as any, "fetchLatestForVulnerablePackages").mockResolvedValue(
+    new Map([
+      ["alpha", "2.0.0"],
+      ["beta", "2.0.0"],
+    ]),
+  );
+  const bestCaseEvaluator = async (state: Record<string, string>) => {
+    const key = `${state.alpha}:${state.beta}`;
+    if (key === "2.0.0:1.0.0") return { alerts: [betaAlert] };
+    if (key === "1.0.0:2.0.0") return { alerts: [alphaAlert] };
+    if (key === "2.0.0:2.0.0") {
+      const mixedAlert = Object.assign({}, alphaAlert, {
+        packageName: "gamma",
+        title: "Mixed-version vulnerability",
+        cves: ["CVE-MIX"],
+      });
+      return { alerts: [mixedAlert] };
+    }
+    return { alerts: [alphaAlert, betaAlert] };
+  };
+  const config: PastoralistJSON = {
+    name: "best-case-test",
+    version: "1.0.0",
+    dependencies: { alpha: "1.0.0", beta: "1.0.0" },
+    pastoralist: { bestCase: { enabled: true } },
+  };
+
+  const result = await checker.checkSecurity(config, {
+    bestCaseEvaluator,
+  });
+
+  expect(result.bestCase?.selectedState).toEqual({ alpha: "2.0.0", beta: "1.0.0" });
+  expect(result.bestCase?.search.provenOptimal).toBe(true);
+  expect(result.overrides).toHaveLength(1);
+  expect(result.overrides[0].packageName).toBe("alpha");
+  expect(result.overrides[0].cves).toEqual(["CVE-ALPHA"]);
+  expect(result.overrides[0].ledgerReason).toMatchObject({
+    type: "best-case",
+    decisionId: result.bestCase?.decisionId,
+  });
+});
+
 test("createProvider - should create OSV provider", () => {
   const checker = new SecurityChecker({ provider: "osv" });
   expect(checker).toBeDefined();

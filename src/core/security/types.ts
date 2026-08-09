@@ -11,6 +11,8 @@ export interface SecurityAlert {
   cves?: string[];
   url?: string;
   fixAvailable: boolean;
+  knownExploited?: boolean;
+  epss?: number;
   sources?: SecurityProviderType[];
 }
 
@@ -49,6 +51,8 @@ export interface SecurityCheckOptions {
   cacheTtl?: number;
   noCache?: boolean;
   refreshCache?: boolean;
+  bestCase?: import("../../types").BestCaseConfig;
+  bestCaseEvaluator?: import("../best-case").BestCaseEvaluator;
 }
 
 export interface SecurityProviderFactoryOptions extends SecurityCheckOptions {
@@ -70,6 +74,7 @@ export interface SecurityCheckResult {
   overrides: SecurityOverride[];
   updates: OverrideUpdate[];
   packagesScanned: number;
+  bestCase?: import("../best-case").BestCaseResult;
 }
 
 export interface SecurityPackage {
@@ -91,6 +96,7 @@ export interface SecurityOverride {
   fromVersion: string;
   toVersion: string;
   reason: string;
+  ledgerReason?: import("../../types").LedgerReason;
   severity: string;
   cves?: string[];
   description?: string;

@@ -1,6 +1,7 @@
 import type {
   AppendixItem,
   Appendix,
+  LedgerReason,
   OverridesType,
   PastoralistJSON,
   SecurityOverrideDetail,
@@ -39,12 +40,12 @@ export interface ProcessOverrideOptions {
   deps: Record<string, string>;
   appendix: Appendix;
   cache: Map<string, AppendixItem>;
-  reason?: string;
-  packageReason?: string;
+  reason?: LedgerReason;
+  packageReason?: LedgerReason;
   securityLedger?: PartialSecurityLedger;
   securityOverrideDetails?: SecurityOverrideDetail[];
   securityProvider?: SecurityProviderType;
-  manualOverrideReasons?: Record<string, string>;
+  manualOverrideReasons?: Record<string, LedgerReason>;
   onlyUsedOverrides?: boolean;
   dependencyTree?: Record<string, string>;
   dependencyGraph?: Record<string, string[]>;
@@ -63,7 +64,7 @@ export interface ProcessedPackageAppendix {
 
 export type AppendixUpdateOptions = UpdateAppendixOptions & {
   cache?: Map<string, AppendixItem>;
-  manualOverrideReasons?: Record<string, string>;
+  manualOverrideReasons?: Record<string, LedgerReason>;
   dependencyTree?: Record<string, string>;
   dependencyGraph?: Record<string, string[]>;
   addedDate?: string;

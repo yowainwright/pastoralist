@@ -55,6 +55,8 @@ import { resolve, dirname, basename } from "path";
 import { updateAppendix } from "../appendix";
 import { glob } from "../../utils/glob";
 import { BACKUP_CACHE_DIR, DEFAULT_MEMORY_CACHE_TTL } from "../constants";
+import { applyBestCaseState, optimizeSecurityOverrides } from "../best-case/integration";
+import { type BestCaseEvaluator, type BestCaseResult } from "../best-case";
 
 export * from "./providers";
 
@@ -77,6 +79,18 @@ type AutoFixPlan = {
 type AutoFixTransaction = {
   backupPath: string;
   files: AutoFixFileBackup[];
+};
+
+type SecurityOverrideResolution = {
+  overrides: SecurityOverride[];
+  bestCase?: BestCaseResult;
+};
+
+type SecurityOverrideResolutionInput = {
+  config: PastoralistJSON;
+  vulnerablePackages: SecurityAlert[];
+  latestVersions: Map<string, string>;
+  options: SecurityCheckRuntimeOptions;
 };
 
 export class SecurityChecker {
@@ -290,11 +304,22 @@ export class SecurityChecker {
     this.log.debug("Starting security check", "checkSecurity");
 
     try {
-      return await this.runSecurityCheck(config, options);
+      const runtimeOptions = this.resolveBestCaseConfig(config, options);
+      return await this.runSecurityCheck(config, runtimeOptions);
     } catch (error) {
       this.log.error("Security check failed", "checkSecurity", { error });
       throw error;
     }
+  }
+
+  private resolveBestCaseConfig(
+    config: PastoralistJSON,
+    options: SecurityCheckRuntimeOptions,
+  ): SecurityCheckRuntimeOptions {
+    if (options.bestCase) return options;
+    const bestCase = config.pastoralist?.bestCase;
+    if (!bestCase) return options;
+    return Object.assign({}, options, { bestCase });
   }
 
   private async runSecurityCheck(
@@ -307,7 +332,9 @@ export class SecurityChecker {
     const alerts = await this.resolveSecurityAlerts(packages, options);
     const vulnerablePackages = await this.resolveVulnerablePackages(alerts, options);
     const latestVersions = await this.fetchLatestForVulnerablePackages(vulnerablePackages);
-    const generatedOverrides = this.generateOverrides(vulnerablePackages, latestVersions);
+    const resolutionInput = { config, vulnerablePackages, latestVersions, options };
+    const resolution = await this.resolveSecurityOverrides(resolutionInput);
+    const generatedOverrides = resolution.overrides;
     const overrides = await this.promptForOverridesIfNeeded(
       vulnerablePackages,
       generatedOverrides,
@@ -315,12 +342,14 @@ export class SecurityChecker {
     );
     const updates = await this.checkOverrideUpdates(config, alerts, options.packageJsonPath);
 
-    return {
+    const result: SecurityCheckResult = {
       alerts: vulnerablePackages,
       overrides,
       updates,
       packagesScanned: packages.length,
     };
+    if (resolution.bestCase) result.bestCase = resolution.bestCase;
+    return result;
   }
 
   private emptySecurityResult(): SecurityCheckResult {
@@ -693,6 +722,68 @@ export class SecurityChecker {
     return fetchLatestCompatibleVersions(packages);
   }
 
+  private isBestCaseEnabled(options: SecurityCheckRuntimeOptions): boolean {
+    return options.bestCase?.enabled === true;
+  }
+
+  private createBestCaseEvaluator(
+    config: PastoralistJSON,
+    options: SecurityCheckRuntimeOptions,
+  ): BestCaseEvaluator {
+    const packages = this.extractPackagesForScan(config, options);
+    return async (state) => {
+      const portfolio = applyBestCaseState(packages, state);
+      const scanOptions = Object.assign({}, options, { skipCacheWrite: true });
+      const alerts = await this.fetchProviderAlerts(portfolio, scanOptions);
+      const normalizedAlerts = sortAlertsByPriority(deduplicateAlerts(alerts));
+      const evaluation = { alerts: normalizedAlerts };
+      return evaluation;
+    };
+  }
+
+  private resolveBestCaseEvaluator(
+    config: PastoralistJSON,
+    options: SecurityCheckRuntimeOptions,
+  ): BestCaseEvaluator {
+    if (options.bestCaseEvaluator) return options.bestCaseEvaluator;
+    return this.createBestCaseEvaluator(config, options);
+  }
+
+  private resolveStandardOverrides(
+    vulnerablePackages: SecurityAlert[],
+    latestVersions: Map<string, string>,
+  ): SecurityOverrideResolution {
+    const overrides = this.generateOverrides(vulnerablePackages, latestVersions);
+    return { overrides };
+  }
+
+  private async resolveSecurityOverrides(
+    input: SecurityOverrideResolutionInput,
+  ): Promise<SecurityOverrideResolution> {
+    const options = input.options;
+    if (!this.isBestCaseEnabled(options)) {
+      const standard = this.resolveStandardOverrides(
+        input.vulnerablePackages,
+        input.latestVersions,
+      );
+      return standard;
+    }
+    const bestCase = await this.resolveBestCaseOverrides(input);
+    return bestCase;
+  }
+
+  private async resolveBestCaseOverrides(
+    input: SecurityOverrideResolutionInput,
+  ): Promise<SecurityOverrideResolution> {
+    const evaluate = this.resolveBestCaseEvaluator(input.config, input.options);
+    const vulnerablePackages = input.vulnerablePackages;
+    const latestVersions = input.latestVersions;
+    const config = input.options.bestCase;
+    const options = { vulnerablePackages, latestVersions, evaluate, config };
+    const resolution = await optimizeSecurityOverrides(options);
+    return resolution;
+  }
+
   private generateOverrides(
     vulnerablePackages: SecurityAlert[],
     latestVersions: Map<string, string>,
@@ -1002,7 +1093,8 @@ export class SecurityChecker {
 
   private buildSecurityOverrideDetails(overrides: SecurityOverride[]): SecurityOverrideDetail[] {
     return overrides.map((override) => {
-      const base = { packageName: override.packageName, reason: override.reason };
+      const reason = override.ledgerReason ?? override.reason;
+      const base = { packageName: override.packageName, reason };
       return Object.assign({}, base, this.buildSecurityOverrideDetailMetadata(override));
     });
   }

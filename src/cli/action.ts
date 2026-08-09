@@ -198,6 +198,7 @@ const buildActionResult = (runtime: ActionRuntime, workflow: UpdateWorkflow): Pa
     workflow.updateResultData,
     {
       removalSafetyComparison: workflow.mergedOptions.removalSafetyComparison,
+      bestCase: workflow.securityPhase.bestCase,
       metrics: workflow.updateContext.metrics,
     },
   );

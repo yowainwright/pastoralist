@@ -400,6 +400,8 @@ test("updatePackageJSON - should remove overrides when none provided", () => {
 });
 
 test("updatePackageJSON - should preserve other pastoralist config when removing appendix", () => {
+  const bestCaseSearch = { beamWidth: 8 };
+  const bestCase = { enabled: true, search: bestCaseSearch };
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -407,6 +409,7 @@ test("updatePackageJSON - should preserve other pastoralist config when removing
     pastoralist: {
       depPaths: "workspace",
       security: { enabled: true },
+      bestCase,
       appendix: {
         "lodash@4.17.21": {
           dependents: { root: "lodash@^4.17.20" },
@@ -423,6 +426,7 @@ test("updatePackageJSON - should preserve other pastoralist config when removing
 
   expect(result?.pastoralist?.depPaths).toBe("workspace");
   expect(result?.pastoralist?.security).toEqual({ enabled: true });
+  expect(result?.pastoralist?.bestCase).toEqual(bestCase);
   expect(result?.pastoralist?.appendix).toBeUndefined();
 });
 

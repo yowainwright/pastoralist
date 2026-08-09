@@ -25,6 +25,59 @@ export interface KeepConstraint {
   reviewBy?: string;
 }
 
+export interface ProjectReason {
+  type: "project";
+  summary: string;
+  pin?: string;
+  patch?: string;
+  constraints?: string[];
+  references?: string[];
+}
+
+export interface BestCaseReason {
+  type: "best-case";
+  summary: string;
+  decisionId: string;
+  policyHash: string;
+  search: {
+    evaluatedStates: number;
+    provenOptimal: boolean;
+  };
+  impact: {
+    fixedVulnerabilities: number;
+    introducedVulnerabilities: number;
+    remainingVulnerabilities: number;
+  };
+}
+
+export type LedgerReason = string | ProjectReason | BestCaseReason;
+
+export type BestCaseRiskAggregation = "unique-cves" | "package-exposures" | "both";
+export type BestCaseSearchMode = "auto" | "exact" | "beam";
+export type BestCaseObjective =
+  | "known-exploited"
+  | "critical"
+  | "high"
+  | "medium"
+  | "low"
+  | "expected-exploitation"
+  | "package-exposures"
+  | "compatibility"
+  | "change-count"
+  | "oldness";
+
+export interface BestCaseConfig {
+  enabled?: boolean;
+  riskAggregation?: BestCaseRiskAggregation;
+  objectives?: BestCaseObjective[];
+  search?: {
+    mode?: BestCaseSearchMode;
+    exactStateLimit?: number;
+    beamWidth?: number;
+    maxEvaluations?: number;
+  };
+}
+
 export interface CveDetail {
   cve: string;
   severity?: "low" | "medium" | "high" | "critical";
@@ -37,7 +90,7 @@ export interface AppendixItem {
   patches?: Array<string>;
   ledger?: {
     addedDate: string;
-    reason?: string;
+    reason?: LedgerReason;
     source?: "security" | "manual";
     securityChecked?: boolean;
     securityCheckDate?: string;
@@ -72,6 +125,7 @@ export interface PastoralistConfig {
   checkSecurity?: boolean;
   overridePaths?: Record<string, Appendix>;
   resolutionPaths?: Record<string, Appendix>;
+  bestCase?: BestCaseConfig;
   security?: {
     enabled?: boolean;
     provider?: SecurityProviderType | SecurityProviderType[];
@@ -103,7 +157,7 @@ export interface ResolveResolutionOptions {
 
 export interface SecurityOverrideDetail {
   packageName: string;
-  reason: string;
+  reason: LedgerReason;
   cves?: string[];
   severity?: "low" | "medium" | "high" | "critical";
   description?: string;
@@ -121,7 +175,7 @@ export interface UpdateAppendixOptions {
   peerDependencies?: Record<string, string>;
   packageName?: string;
   debug?: boolean;
-  reason?: string;
+  reason?: LedgerReason;
   securityOverrideDetails?: SecurityOverrideDetail[];
   securityProvider?: SecurityProviderType;
   onlyUsedOverrides?: boolean;
@@ -145,6 +199,7 @@ export interface SecurityOptions {
   securityOverrideDetails?: SecurityOverrideDetail[];
   securityAlerts?: SecurityAlert[];
   strict?: boolean;
+  bestCase?: BestCaseConfig;
 }
 
 export interface RemovalSafetyComparison {
@@ -191,7 +246,7 @@ export interface Options extends SecurityOptions, OutputOptions, TestingOptions,
   interactive?: boolean;
   onboard?: boolean;
   promptForReasons?: boolean;
-  manualOverrideReasons?: Record<string, string>;
+  manualOverrideReasons?: Record<string, LedgerReason>;
   config?: PastoralistJSON;
   manifestConfig?: PastoralistJSON;
   setupHook?: boolean;
@@ -310,6 +365,20 @@ export interface PastoralistResult {
   unusedOverrides?: string[];
   appliedOverrides?: Record<string, string>;
   removalSafetyComparison?: RemovalSafetyComparison;
+  bestCase?: {
+    selectedState: Record<string, string>;
+    decisionId: string;
+    policyHash: string;
+    search: {
+      mode: "exact" | "beam";
+      evaluatedStates: number;
+      totalStates: number;
+      provenOptimal: boolean;
+      durationMs: number;
+    };
+    impact: BestCaseReason["impact"];
+    failedStates: number;
+  };
   metrics?: PastoralistResultMetrics;
 }
 

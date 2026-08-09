@@ -6,6 +6,7 @@ import {
   SecurityOverrideDetail,
   SecurityProviderPermissionError,
   OverrideUpdate,
+  PastoralistResult,
 } from "../../types";
 import { SecurityChecker } from "../../core/security";
 import { resolveWorkspaceManifestPaths } from "../../core/workspaces";
@@ -93,7 +94,7 @@ export const buildSecurityOverrideDetail = (override: SecurityOverride): Securit
     {},
     {
       packageName: override.packageName,
-      reason: override.reason,
+      reason: override.ledgerReason ?? override.reason,
     },
     optionalFields,
   );
@@ -228,6 +229,7 @@ const toSecurityRunResult = (
   securityOverrides: result.overrides,
   updates: result.updates,
   packagesScanned: result.packagesScanned,
+  bestCase: result.bestCase,
   skipped: false,
 });
 
@@ -291,6 +293,7 @@ const handleSecurityCheckError = (
       securityOverrides: [],
       updates: [],
       packagesScanned: 0,
+      bestCase: undefined,
       skipped: true,
     };
   }
@@ -356,6 +359,19 @@ const createEmptySecurityResult = (): SecurityResultSummary => ({
   securityAlertCount: 0,
   securityAlerts: [],
 });
+
+const toBestCaseSummary = (
+  bestCase: Awaited<ReturnType<SecurityChecker["checkSecurity"]>>["bestCase"],
+): PastoralistResult["bestCase"] => {
+  if (!bestCase) return undefined;
+  const selectedState = bestCase.selectedState;
+  const decisionId = bestCase.decisionId;
+  const policyHash = bestCase.policyHash;
+  const search = bestCase.search;
+  const impact = bestCase.impact;
+  const failedStates = bestCase.failedStates;
+  return { selectedState, decisionId, policyHash, search, impact, failedStates };
+};
 
 const formatRemovalKeys = (keys: string[], limit = 5): string => {
   const visibleKeys = keys.slice(0, limit).join(", ");
@@ -444,6 +460,7 @@ const createSkippedSecurityPhase = (mergedOptions: Options): SecurityPhaseResult
   mergedOptions,
   securityResult: createEmptySecurityResult(),
   packagesScanned: 0,
+  bestCase: undefined,
 });
 
 const resolveSecurityPhaseOptions = async (
@@ -494,11 +511,13 @@ const runEnabledSecurityPhase = async (
   const securityResult = buildSecurityResult(result.alerts);
   const nextOptions = await resolveSecurityPhaseOptions(config, mergedOptions, result, deps);
   renderSecurityPhaseResult(graph, result, nextOptions, isJsonOutput);
+  const bestCase = toBestCaseSummary(result.bestCase);
 
   return {
     mergedOptions: nextOptions,
     securityResult,
     packagesScanned: result.packagesScanned,
+    bestCase,
   };
 };
 

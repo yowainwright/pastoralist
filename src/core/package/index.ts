@@ -113,6 +113,7 @@ const hasOtherPastoralistConfig = (config: PastoralistJSON): boolean => {
   const hasOverridePaths = Boolean(config.pastoralist?.overridePaths);
   const hasResolutionPaths = Boolean(config.pastoralist?.resolutionPaths);
   const hasSecurity = Boolean(config.pastoralist?.security);
+  const hasBestCase = Boolean(config.pastoralist?.bestCase);
   const hasDepPaths = Boolean(config.pastoralist?.depPaths);
   const hasOverrideSource = Boolean(config.pastoralist?.overrideSource);
 
@@ -120,8 +121,15 @@ const hasOtherPastoralistConfig = (config: PastoralistJSON): boolean => {
   if (hasOverridePaths) return true;
   if (hasResolutionPaths) return true;
   if (hasSecurity) return true;
+  if (hasBestCase) return true;
   if (hasOverrideSource) return true;
   return hasDepPaths;
+};
+
+const createBestCaseField = (config: PastoralistJSON) => {
+  const bestCase = config.pastoralist?.bestCase;
+  if (!bestCase) return undefined;
+  return { bestCase };
 };
 
 const buildPreservedConfig = (config: PastoralistJSON) => {
@@ -137,6 +145,7 @@ const buildPreservedConfig = (config: PastoralistJSON) => {
   const overrideSourceField = overrideSource ? { overrideSource } : undefined;
   const resolutionPathsField = resolutionPaths ? { resolutionPaths } : undefined;
   const securityField = security ? { security } : undefined;
+  const bestCaseField = createBestCaseField(config);
 
   return Object.assign(
     {},
@@ -146,6 +155,7 @@ const buildPreservedConfig = (config: PastoralistJSON) => {
     overrideSourceField,
     resolutionPathsField,
     securityField,
+    bestCaseField,
   );
 };
 

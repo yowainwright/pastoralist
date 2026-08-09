@@ -3,6 +3,7 @@ import type {
   PastoralistJSON,
   SecurityProviderType,
   CveDetail,
+  LedgerReason,
 } from "../../types";
 import type { Appendix, AppendixItem, OverridesType, OverrideValue } from "../../types";
 import type { PartialSecurityLedger, CompactAppendix } from "./types";
@@ -27,23 +28,23 @@ import {
 const getReasonFromSecurityDetails = (
   packageName: string,
   securityOverrideDetails?: SecurityOverrideDetail[],
-): string | undefined => {
+): LedgerReason | undefined => {
   return securityOverrideDetails?.find((detail) => detail.packageName === packageName)?.reason;
 };
 
 const getManualReason = (
   packageName: string,
-  manualOverrideReasons?: Record<string, string>,
-): string | undefined => {
+  manualOverrideReasons?: Record<string, LedgerReason>,
+): LedgerReason | undefined => {
   return manualOverrideReasons?.[packageName];
 };
 
 export const mergeOverrideReasons = (
   packageName: string,
-  reason?: string,
+  reason?: LedgerReason,
   securityOverrideDetails?: SecurityOverrideDetail[],
-  manualOverrideReasons?: Record<string, string>,
-): string | undefined => {
+  manualOverrideReasons?: Record<string, LedgerReason>,
+): LedgerReason | undefined => {
   if (reason) return reason;
 
   const securityReason = getReasonFromSecurityDetails(packageName, securityOverrideDetails);
@@ -231,7 +232,7 @@ export const normalizeLedgerCveField = (
 };
 
 const buildNewLedger = (
-  reason: string | undefined,
+  reason: LedgerReason | undefined,
   securityLedger: Omit<NonNullable<AppendixItem["ledger"]>, "addedDate" | "reason">,
   addedDate?: string,
 ): NonNullable<AppendixItem["ledger"]> => {
@@ -245,7 +246,7 @@ const buildNewLedger = (
 export const buildAppendixItem = (
   dependents: Record<string, string>,
   existingLedger: AppendixItem["ledger"],
-  reason: string | undefined,
+  reason: LedgerReason | undefined,
   securityLedger: Omit<NonNullable<AppendixItem["ledger"]>, "addedDate" | "reason">,
   addedDate?: string,
 ): AppendixItem => {
@@ -428,6 +429,7 @@ export const isKeepExpired = (
 const canBeCompacted = (item: AppendixItem): boolean => {
   if (isKeptEntry(item)) return false;
   if (hasSecurityInfo(item)) return false;
+  if (item.ledger?.reason) return false;
   return !hasPatches(item);
 };
 

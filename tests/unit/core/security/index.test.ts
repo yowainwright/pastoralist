@@ -88,21 +88,26 @@ const createTempCacheDir = (name: string): string => {
   return dir;
 };
 
-const createExternalJsonAutoFixFixture = () => {
+const createExternalJsonAutoFixFixture = (hasManifestSource = true) => {
   const root = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-json-autofix-"));
   const packagePath = path.join(root, "package.json");
   const overridePath = path.join(root, "overrides.json");
-  const packageJson = {
-    name: "external-overrides",
-    version: "1.0.0",
-    packageManager: "npm@11.0.0",
-    dependencies: { lodash: "4.17.20" },
-    pastoralist: { overrideSource: "overrides.json" },
-  };
+  const pastoralist = { overrideSource: "overrides.json" };
+  const packageJson = Object.assign(
+    {},
+    {
+      name: "external-overrides",
+      version: "1.0.0",
+      packageManager: "npm@11.0.0",
+      dependencies: { lodash: "4.17.20" },
+    },
+    hasManifestSource ? { pastoralist } : undefined,
+  );
   fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
   fs.writeFileSync(overridePath, JSON.stringify({ overrides: { axios: "1.8.0" } }, null, 2));
   const checker = new SecurityChecker({ provider: "osv", root });
-  return { root, packagePath, overridePath, checker };
+  const effectiveConfig = Object.assign({}, packageJson, { pastoralist });
+  return { root, packagePath, overridePath, checker, effectiveConfig };
 };
 
 test("Security Alert Detection - should identify vulnerable packages in dependencies", () => {
@@ -1148,6 +1153,42 @@ test("applyAutoFix - keeps external JSON overrides out of package.json", () => {
     expect(updatedPackage.overrides).toBeUndefined();
     expect(updatedPackage.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
     expect(updatedSource.overrides).toEqual({ axios: "1.8.0", lodash: "4.17.21" });
+  } finally {
+    fs.rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("applyAutoFix - honors override sources from merged config", () => {
+  const fixture = createExternalJsonAutoFixFixture(false);
+
+  try {
+    fixture.checker.applyAutoFix(
+      [BASE_SECURITY_OVERRIDE],
+      fixture.packagePath,
+      fixture.effectiveConfig,
+    );
+    const updatedPackage = JSON.parse(fs.readFileSync(fixture.packagePath, "utf8"));
+    const updatedSource = JSON.parse(fs.readFileSync(fixture.overridePath, "utf8"));
+    expect(updatedPackage.overrides).toBeUndefined();
+    expect(updatedSource.overrides).toEqual({ axios: "1.8.0", lodash: "4.17.21" });
+  } finally {
+    fs.rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("rollbackAutoFix - restores package and external override source", () => {
+  const fixture = createExternalJsonAutoFixFixture();
+  const originalPackage = fs.readFileSync(fixture.packagePath, "utf8");
+  const originalSource = fs.readFileSync(fixture.overridePath, "utf8");
+
+  try {
+    const backupPath = fixture.checker.applyAutoFix(
+      [BASE_SECURITY_OVERRIDE],
+      fixture.packagePath,
+    ) as string;
+    fixture.checker.rollbackAutoFix(backupPath, fixture.packagePath);
+    expect(fs.readFileSync(fixture.packagePath, "utf8")).toBe(originalPackage);
+    expect(fs.readFileSync(fixture.overridePath, "utf8")).toBe(originalSource);
   } finally {
     fs.rmSync(fixture.root, { recursive: true, force: true });
   }

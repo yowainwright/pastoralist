@@ -49,7 +49,7 @@ import {
 import { SecuritySetupWizard, promptForSetup } from "./setup";
 import type { SetupSecurityProvider } from "./types";
 import { KNOWN_PROVIDERS, PROVIDER_CONFIGS } from "./constants";
-import { readFileSync, copyFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import { readFileSync, copyFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from "fs";
 import { createHash } from "crypto";
 import { resolve, dirname, basename } from "path";
 import { updateAppendix } from "../appendix";
@@ -63,6 +63,22 @@ const resolveBackupCacheDir = (root: string, cacheDir?: string): string => {
   return resolve(baseCacheDir, BACKUP_CACHE_DIR);
 };
 
+type AutoFixFileBackup = {
+  originalPath: string;
+  backupPath?: string;
+};
+
+type AutoFixPlan = {
+  mergedOverrides: OverridesType;
+  overrideSource: OverrideSource;
+  updatedPackageJson: PastoralistJSON;
+};
+
+type AutoFixTransaction = {
+  backupPath: string;
+  files: AutoFixFileBackup[];
+};
+
 export class SecurityChecker {
   private providers: SecurityProvider[];
   private log: ReturnType<typeof logger>;
@@ -74,6 +90,7 @@ export class SecurityChecker {
   private readonly refreshCache: boolean;
   private readonly configuredCacheDir?: string;
   private readonly cacheRoot?: string;
+  private readonly autoFixBackups = new Map<string, AutoFixFileBackup[]>();
 
   constructor(options: SecurityProviderFactoryOptions) {
     this.log = logger({ file: "security/index.ts", isLogging: options.debug });
@@ -832,6 +849,46 @@ export class SecurityChecker {
     return backupPath;
   }
 
+  private createFileBackup(originalPath: string): AutoFixFileBackup {
+    if (!existsSync(originalPath)) return { originalPath };
+    const backupPath = this.createBackup(originalPath);
+    return { backupPath, originalPath };
+  }
+
+  private createAutoFixTransaction(
+    pkgPath: string,
+    overrideSource: OverrideSource,
+  ): AutoFixTransaction {
+    const sourcePaths = overrideSource.kind === "manifest" ? [] : [overrideSource.path];
+    const files = [pkgPath].concat(sourcePaths).map((path) => this.createFileBackup(path));
+    const backupPath = files[0].backupPath;
+    if (!backupPath) throw new Error(`Unable to back up package.json at ${pkgPath}`);
+    this.autoFixBackups.set(backupPath, files);
+    return { backupPath, files };
+  }
+
+  private restoreFileBackup(file: AutoFixFileBackup): void {
+    if (file.backupPath) {
+      copyFileSync(file.backupPath, file.originalPath);
+      return;
+    }
+    if (existsSync(file.originalPath)) unlinkSync(file.originalPath);
+  }
+
+  private restoreAutoFixFiles(files: AutoFixFileBackup[]): void {
+    files.forEach((file) => this.restoreFileBackup(file));
+  }
+
+  private restoreFailedAutoFix(transaction: AutoFixTransaction | undefined): void {
+    if (!transaction) return;
+    try {
+      this.restoreAutoFixFiles(transaction.files);
+    } catch (error) {
+      this.log.error("Failed to rollback partial auto-fix", "applyAutoFix", { error });
+    }
+    this.autoFixBackups.delete(transaction.backupPath);
+  }
+
   private applyOverridesToPackageJson(
     packageJson: PastoralistJSON,
     overrideSource: OverrideSource,
@@ -841,26 +898,41 @@ export class SecurityChecker {
     return applyOverridesToSourceConfig(packageJson, overrideSource, overrides);
   }
 
-  applyAutoFix(overrides: SecurityOverride[], packageJsonPath?: string): string | void {
+  private createAutoFixPlan(
+    overrides: SecurityOverride[],
+    pkgPath: string,
+    effectiveConfig?: PastoralistJSON,
+  ): AutoFixPlan {
+    const packageJson = this.readPackageJsonForAutoFix(pkgPath);
+    const sourceConfig = effectiveConfig || packageJson;
+    const newOverrides = this.generatePackageOverrides(overrides);
+    const overrideSource = resolveOverrideSource({ config: sourceConfig, manifestPath: pkgPath });
+    const mergedOverrides = Object.assign({}, overrideSource.overrides, newOverrides);
+    const updatedPackageJson = this.buildAutoFixedPackageJson(
+      packageJson,
+      overrideSource,
+      mergedOverrides,
+      newOverrides,
+      overrides,
+    );
+    return { mergedOverrides, overrideSource, updatedPackageJson };
+  }
+
+  applyAutoFix(
+    overrides: SecurityOverride[],
+    packageJsonPath?: string,
+    effectiveConfig?: PastoralistJSON,
+  ): string | void {
+    let transaction: AutoFixTransaction | undefined;
     try {
       const pkgPath = this.resolveAutoFixPackagePath(packageJsonPath);
-      const backupPath = this.createBackup(pkgPath);
-      const packageJson = this.readPackageJsonForAutoFix(pkgPath);
-      const newOverrides = this.generatePackageOverrides(overrides);
-      const overrideSource = resolveOverrideSource({ config: packageJson, manifestPath: pkgPath });
-      const mergedOverrides = Object.assign({}, overrideSource.overrides, newOverrides);
-      const updatedPackageJson = this.buildAutoFixedPackageJson(
-        packageJson,
-        overrideSource,
-        mergedOverrides,
-        newOverrides,
-        overrides,
-      );
-
-      this.writePackageJson(pkgPath, updatedPackageJson);
-      writeOverrideSource(overrideSource, mergedOverrides);
-      return backupPath;
+      const plan = this.createAutoFixPlan(overrides, pkgPath, effectiveConfig);
+      transaction = this.createAutoFixTransaction(pkgPath, plan.overrideSource);
+      this.writePackageJson(pkgPath, plan.updatedPackageJson);
+      writeOverrideSource(plan.overrideSource, plan.mergedOverrides);
+      return transaction.backupPath;
     } catch (error) {
+      this.restoreFailedAutoFix(transaction);
       this.log.error("Failed to apply auto-fix", "applyAutoFix", { error });
       const cause = error instanceof Error ? error : new Error(String(error));
       throw new Error(`Auto-fix failed: ${cause.message}`, { cause });
@@ -961,7 +1033,10 @@ export class SecurityChecker {
         throw new Error(`Backup file not found at ${backupPath}`);
       }
 
-      copyFileSync(backupPath, originalPath);
+      const trackedFiles = this.autoFixBackups.get(backupPath);
+      const files = trackedFiles || [{ backupPath, originalPath }];
+      this.restoreAutoFixFiles(files);
+      this.autoFixBackups.delete(backupPath);
 
       this.log.print(`Rolled back to ${backupPath}`);
     } catch (error) {

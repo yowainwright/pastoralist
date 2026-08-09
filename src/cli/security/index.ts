@@ -344,7 +344,7 @@ export const handleSecurityResults = (
 
   const shouldApplyAutoFix = overridesToApply.length > 0 && !mergedOptions.dryRun;
   if (shouldApplyAutoFix) {
-    securityChecker.applyAutoFix(overridesToApply, mergedOptions.path);
+    securityChecker.applyAutoFix(overridesToApply, mergedOptions.path, mergedOptions.config);
   }
 
   spinner.stop();

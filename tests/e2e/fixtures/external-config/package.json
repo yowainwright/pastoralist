@@ -2,7 +2,7 @@
   "name": "pastoralist-external-config-e2e",
   "version": "1.0.0",
   "private": true,
-  "dependencies": {
+  "devDependencies": {
     "lodash": "^4.17.20"
   },
   "overrides": {

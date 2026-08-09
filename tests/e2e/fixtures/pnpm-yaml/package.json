@@ -5,7 +5,7 @@
   "scripts": {
     "postinstall": "node /app/pastoralist/index.js --outputFormat json"
   },
-  "dependencies": {
+  "devDependencies": {
     "lodash": "4.17.20"
   },
   "packageManager": "pnpm@11.0.0"

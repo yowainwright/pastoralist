@@ -88,6 +88,23 @@ const createTempCacheDir = (name: string): string => {
   return dir;
 };
 
+const createExternalJsonAutoFixFixture = () => {
+  const root = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-json-autofix-"));
+  const packagePath = path.join(root, "package.json");
+  const overridePath = path.join(root, "overrides.json");
+  const packageJson = {
+    name: "external-overrides",
+    version: "1.0.0",
+    packageManager: "npm@11.0.0",
+    dependencies: { lodash: "4.17.20" },
+    pastoralist: { overrideSource: "overrides.json" },
+  };
+  fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
+  fs.writeFileSync(overridePath, JSON.stringify({ overrides: { axios: "1.8.0" } }, null, 2));
+  const checker = new SecurityChecker({ provider: "osv", root });
+  return { root, packagePath, overridePath, checker };
+};
+
 test("Security Alert Detection - should identify vulnerable packages in dependencies", () => {
   const checker = new SecurityChecker({ debug: false });
   const provider = new GitHubSecurityProvider({ debug: false });
@@ -984,81 +1001,6 @@ test("isNewVulnerability - Set key format matches packageName@currentVersion", (
   expect(result2).toBe(true);
 });
 
-test("getOverrideField - should return resolutions for yarn", () => {
-  const checker = new SecurityChecker({ provider: "osv" });
-  const result = (checker as any).getOverrideField("yarn");
-
-  expect(result).toBe("resolutions");
-});
-
-test("getOverrideField - should return overrides for npm", () => {
-  const checker = new SecurityChecker({ provider: "osv" });
-  const result = (checker as any).getOverrideField("npm");
-
-  expect(result).toBe("overrides");
-});
-
-test("getOverrideField - should return overrides for pnpm", () => {
-  const checker = new SecurityChecker({ provider: "osv" });
-  const result = (checker as any).getOverrideField("pnpm");
-
-  expect(result).toBe("overrides");
-});
-
-test("getOverrideField - should return overrides for bun", () => {
-  const checker = new SecurityChecker({ provider: "osv" });
-  const result = (checker as any).getOverrideField("bun");
-
-  expect(result).toBe("overrides");
-});
-
-test("applyOverridesToPackageJson - should apply overrides for npm", () => {
-  const checker = new SecurityChecker({ provider: "osv" });
-  const packageJson = { name: "test", version: "1.0.0" };
-  const newOverrides = { lodash: "4.17.21" };
-
-  const result = (checker as any).applyOverridesToPackageJson(packageJson, "npm", newOverrides);
-
-  expect(result.overrides).toEqual({ lodash: "4.17.21" });
-});
-
-test("applyOverridesToPackageJson - should apply resolutions for yarn", () => {
-  const checker = new SecurityChecker({ provider: "osv" });
-  const packageJson = { name: "test", version: "1.0.0" };
-  const newOverrides = { lodash: "4.17.21" };
-
-  const result = (checker as any).applyOverridesToPackageJson(packageJson, "yarn", newOverrides);
-
-  expect(result.resolutions).toEqual({ lodash: "4.17.21" });
-});
-
-test("applyOverridesToPackageJson - should apply pnpm overrides", () => {
-  const checker = new SecurityChecker({ provider: "osv" });
-  const packageJson = { name: "test", version: "1.0.0" };
-  const newOverrides = { lodash: "4.17.21" };
-
-  const result = (checker as any).applyOverridesToPackageJson(packageJson, "pnpm", newOverrides);
-
-  expect(result.pnpm.overrides).toEqual({ lodash: "4.17.21" });
-});
-
-test("applyOverridesToPackageJson - should merge with existing overrides", () => {
-  const checker = new SecurityChecker({ provider: "osv" });
-  const packageJson = {
-    name: "test",
-    version: "1.0.0",
-    overrides: { axios: "1.0.0" },
-  };
-  const newOverrides = { lodash: "4.17.21" };
-
-  const result = (checker as any).applyOverridesToPackageJson(packageJson, "npm", newOverrides);
-
-  expect(result.overrides).toEqual({
-    axios: "1.0.0",
-    lodash: "4.17.21",
-  });
-});
-
 test("createBackup - should create backup file", () => {
   const checker = new SecurityChecker({ provider: "osv" });
   const testDir = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-backup-"));
@@ -1192,6 +1134,22 @@ test("applyAutoFix - should write pnpm 11 overrides to the workspace manifest", 
     expect(updatedWorkspace).toContain('"lodash": "4.17.21"');
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("applyAutoFix - keeps external JSON overrides out of package.json", () => {
+  const fixture = createExternalJsonAutoFixFixture();
+
+  try {
+    fixture.checker.applyAutoFix([BASE_SECURITY_OVERRIDE], fixture.packagePath);
+
+    const updatedPackage = JSON.parse(fs.readFileSync(fixture.packagePath, "utf8"));
+    const updatedSource = JSON.parse(fs.readFileSync(fixture.overridePath, "utf8"));
+    expect(updatedPackage.overrides).toBeUndefined();
+    expect(updatedPackage.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
+    expect(updatedSource.overrides).toEqual({ axios: "1.8.0", lodash: "4.17.21" });
+  } finally {
+    fs.rmSync(fixture.root, { recursive: true, force: true });
   }
 });
 

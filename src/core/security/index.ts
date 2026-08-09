@@ -832,20 +832,13 @@ export class SecurityChecker {
     return backupPath;
   }
 
-  applyOverridesToPackageJson(
+  private applyOverridesToPackageJson(
     packageJson: PastoralistJSON,
-    packageManager: "npm" | "yarn" | "pnpm" | "bun",
-    newOverrides: OverridesType,
+    overrideSource: OverrideSource,
+    overrides: OverridesType,
   ): PastoralistJSON {
-    if (packageManager === "pnpm") {
-      const overrides = Object.assign({}, packageJson.pnpm?.overrides, newOverrides);
-      const pnpm = Object.assign({}, packageJson.pnpm, { overrides });
-      return Object.assign({}, packageJson, { pnpm });
-    }
-
-    const overrideField = this.getOverrideField(packageManager);
-    const overrides = Object.assign({}, packageJson[overrideField], newOverrides);
-    return Object.assign({}, packageJson, { [overrideField]: overrides });
+    if (overrideSource.kind !== "manifest") return packageJson;
+    return applyOverridesToSourceConfig(packageJson, overrideSource, overrides);
   }
 
   applyAutoFix(overrides: SecurityOverride[], packageJsonPath?: string): string | void {
@@ -894,7 +887,7 @@ export class SecurityChecker {
     newOverrides: OverridesType,
     overrides: SecurityOverride[],
   ): PastoralistJSON {
-    const updatedPackageJson = applyOverridesToSourceConfig(
+    const updatedPackageJson = this.applyOverridesToPackageJson(
       packageJson,
       overrideSource,
       mergedOverrides,
@@ -960,20 +953,6 @@ export class SecurityChecker {
 
   private writePackageJson(pkgPath: string, packageJson: PastoralistJSON): void {
     writeFileSync(pkgPath, JSON.stringify(packageJson, null, 2) + "\n");
-  }
-
-  private getOverrideField(
-    packageManager: "npm" | "yarn" | "pnpm" | "bun",
-  ): "overrides" | "resolutions" {
-    switch (packageManager) {
-      case "yarn":
-        return "resolutions";
-      case "pnpm":
-      case "npm":
-      case "bun":
-      default:
-        return "overrides";
-    }
   }
 
   rollbackAutoFix(backupPath: string, originalPath: string): void {

@@ -195,6 +195,32 @@ test("parsePnpmWorkspaceOverrides - reads top-level pnpm overrides", () => {
   });
 });
 
+test("parsePnpmWorkspaceOverrides - reads unquoted flow mappings", () => {
+  const content = "overrides: { lodash: 4.17.21, react: '18.3.1', foo@npm:bar@1: 2.0.0 }\n";
+
+  expect(parsePnpmWorkspaceOverrides(content)).toEqual({
+    lodash: "4.17.21",
+    react: "18.3.1",
+    "foo@npm:bar@1": "2.0.0",
+  });
+});
+
+test("parsePnpmWorkspaceOverrides - reads nested block mappings", () => {
+  const content = [
+    "overrides:",
+    "  foo:",
+    "    bar: 1.2.3",
+    '    baz: "2.0.0"',
+    "  lodash: 4.17.21",
+    "",
+  ].join("\n");
+
+  expect(parsePnpmWorkspaceOverrides(content)).toEqual({
+    foo: { bar: "1.2.3", baz: "2.0.0" },
+    lodash: "4.17.21",
+  });
+});
+
 test("updatePnpmWorkspaceOverrides - preserves comments and existing order", () => {
   const content = [
     "# workspace settings",
@@ -221,6 +247,40 @@ test("updatePnpmWorkspaceOverrides - preserves comments and existing order", () 
   expect(updated.indexOf("lodash:")).toBeLessThan(updated.indexOf("react:"));
   expect(updated.indexOf("react:")).toBeLessThan(updated.indexOf('"zod":'));
   expect(updated.indexOf('"zod":')).toBeLessThan(updated.indexOf("catalog:"));
+});
+
+test("updatePnpmWorkspaceOverrides - preserves unchanged nested block mappings", () => {
+  const content = ["overrides:", "  foo:", "    bar: 1.2.3", "  lodash: 4.17.20", ""].join("\n");
+  const updated = updatePnpmWorkspaceOverrides(content, {
+    foo: { bar: "1.2.3" },
+    lodash: "4.17.21",
+  });
+
+  expect(updated).toContain("  foo:\n    bar: 1.2.3");
+  expect(updated).toContain("  lodash: 4.17.21");
+  expect(parsePnpmWorkspaceOverrides(updated)).toEqual({
+    foo: { bar: "1.2.3" },
+    lodash: "4.17.21",
+  });
+});
+
+test("updatePnpmWorkspaceOverrides - removes nested entries as one block", () => {
+  const content = [
+    "overrides:",
+    "  foo:",
+    "    bar: 1.2.3",
+    "# retained comment",
+    "    baz: 2.0.0",
+    "  lodash: 4.17.20",
+    "",
+  ].join("\n");
+  const updated = updatePnpmWorkspaceOverrides(content, { lodash: "4.17.21" });
+
+  expect(updated).not.toContain("foo:");
+  expect(updated).not.toContain("bar:");
+  expect(updated).not.toContain("baz:");
+  expect(updated).toContain("# retained comment");
+  expect(parsePnpmWorkspaceOverrides(updated)).toEqual({ lodash: "4.17.21" });
 });
 
 test("resolveOverrideSource - selects pnpm-workspace.yaml for pnpm 11", () => {

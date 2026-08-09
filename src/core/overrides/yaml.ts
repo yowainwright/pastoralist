@@ -14,11 +14,17 @@ type YamlSection = {
   pair: YamlPair;
 };
 
-type YamlEntry = YamlPair & { line: number };
+type YamlEntry = YamlPair & { line: number; end: number };
 
 type ScanState = {
   escaped: boolean;
   quote?: string;
+};
+
+type FlowSplitState = {
+  entries: string[];
+  scan: ScanState & { depth: number };
+  start: number;
 };
 
 const QUOTE_CHARACTERS = new Set(['"', "'"]);
@@ -47,7 +53,8 @@ const findSeparator = (line: string): number => {
     const isUnescaped = !state.escaped;
     const canMatchSeparator = isUnquoted && isUnescaped;
     const isSeparator = canMatchSeparator && character === ":";
-    const hasBoundary = /\s|$/.test(line[index + 1] || "");
+    const nextCharacter = line[index + 1] || "";
+    const hasBoundary = !nextCharacter || /\s/.test(nextCharacter);
     const isYamlSeparator = isSeparator && hasBoundary;
     state = scanCharacter(state, character);
     return isYamlSeparator;
@@ -137,7 +144,7 @@ const findEntries = (lines: string[], section: YamlSection): YamlEntry[] => {
   const entryIndent = findEntryIndent(lines, section);
   if (entryIndent === undefined) return [];
 
-  const createEntry = (line: string, offset: number): YamlEntry[] => {
+  const createEntry = (line: string, offset: number): Array<YamlPair & { line: number }> => {
     const pair = parsePair(line);
     const isEntry = Boolean(pair && pair.indent.length === entryIndent);
     if (!isEntry) return [];
@@ -145,17 +152,96 @@ const findEntries = (lines: string[], section: YamlSection): YamlEntry[] => {
     return [Object.assign({}, pair, { line: entryLine })];
   };
 
-  return lines.slice(section.start + 1, section.end).flatMap(createEntry);
+  const entries = lines.slice(section.start + 1, section.end).flatMap(createEntry);
+  return entries.map((entry, index) => {
+    const end = entries[index + 1]?.line ?? section.end;
+    return Object.assign({}, entry, { end });
+  });
+};
+
+const isFlowMapping = (source: string): boolean => {
+  const trimmed = source.trim();
+  return trimmed.startsWith("{") && trimmed.endsWith("}");
+};
+
+const updateFlowDepth = (state: ScanState & { depth: number }, character: string): number => {
+  const isQuotedOrEscaped = Boolean(state.quote || state.escaped);
+  if (isQuotedOrEscaped) return state.depth;
+  if (character === "{") return state.depth + 1;
+  if (character === "}") return state.depth - 1;
+  return state.depth;
+};
+
+const scanFlowEntry = (
+  source: string,
+  current: FlowSplitState,
+  character: string,
+  index: number,
+): FlowSplitState => {
+  const isComma = character === ",";
+  const isUnquoted = !current.scan.quote;
+  const isTopLevel = current.scan.depth === 0;
+  const isSeparator = isComma && isUnquoted && isTopLevel;
+  const entry = source.slice(current.start, index).trim();
+  const entries = isSeparator ? current.entries.concat(entry) : current.entries;
+  const start = isSeparator ? index + 1 : current.start;
+  const depth = updateFlowDepth(current.scan, character);
+  const scan = Object.assign({}, scanCharacter(current.scan, character), { depth });
+  return { entries, scan, start };
+};
+
+const splitFlowEntries = (source: string): string[] => {
+  const initial: FlowSplitState = { entries: [], scan: { escaped: false, depth: 0 }, start: 0 };
+  const result = source
+    .split("")
+    .reduce(
+      (current, character, index) => scanFlowEntry(source, current, character, index),
+      initial,
+    );
+  const finalEntry = source.slice(result.start).trim();
+  const entries = result.entries.concat(finalEntry).filter(Boolean);
+  return entries;
+};
+
+const findFlowSeparator = (source: string): number => {
+  let state: ScanState = { escaped: false };
+  return source.split("").findIndex((character, index) => {
+    const keySource = source.slice(0, index).trim();
+    const quote = keySource.at(0);
+    const hasQuote = Boolean(quote);
+    const isKnownQuote = Boolean(quote && QUOTE_CHARACTERS.has(quote));
+    const hasClosingQuote = Boolean(quote && keySource.endsWith(quote));
+    const hasQuotedKey = hasQuote && isKnownQuote && hasClosingQuote;
+    const nextCharacter = source[index + 1] || "";
+    const hasValueBoundary =
+      !nextCharacter || /\s/.test(nextCharacter) || "[{".includes(nextCharacter);
+    const isColon = character === ":";
+    const isUnquoted = !state.quote;
+    const isUnescaped = !state.escaped;
+    const canSeparate = isColon && isUnquoted && isUnescaped;
+    const hasKeyBoundary = hasQuotedKey || hasValueBoundary;
+    const isSeparator = canSeparate && hasKeyBoundary;
+    state = scanCharacter(state, character);
+    return isSeparator;
+  });
+};
+
+const parseFlowPair = (source: string): [string, OverrideValue] => {
+  const separator = findFlowSeparator(source);
+  if (separator < 0) throw new Error("pnpm overrides must be a YAML mapping");
+  const keySource = source.slice(0, separator).trim();
+  const valueSource = source.slice(separator + 1).trim();
+  const hasMissingPairValue = !keySource || !valueSource;
+  if (hasMissingPairValue) throw new Error("pnpm overrides must be a YAML mapping");
+  return [parseQuotedScalar(keySource), parseOverrideValue(valueSource)];
 };
 
 const parseFlowMapping = (source: string): OverridesType => {
-  const isEmptyMapping = !source || source === "{}";
-  if (isEmptyMapping) return {};
-  const parsed = JSON.parse(source) as unknown;
-  const isNonNullObject = typeof parsed === "object" && parsed !== null;
-  const isObject = isNonNullObject && !Array.isArray(parsed);
-  if (!isObject) throw new Error("pnpm overrides must be a YAML mapping");
-  return parsed as OverridesType;
+  const trimmed = source.trim();
+  if (!isFlowMapping(trimmed)) throw new Error("pnpm overrides must be a YAML mapping");
+  const content = trimmed.slice(1, -1).trim();
+  if (!content) return {};
+  return Object.fromEntries(splitFlowEntries(content).map(parseFlowPair));
 };
 
 const parseNestedFlowMapping = (source: string): Record<string, string> => {
@@ -166,9 +252,50 @@ const parseNestedFlowMapping = (source: string): Record<string, string> => {
 };
 
 const parseOverrideValue = (source: string): OverrideValue => {
-  const isFlowMapping = source.startsWith("{") && source.endsWith("}");
-  if (isFlowMapping) return parseNestedFlowMapping(source);
+  if (isFlowMapping(source)) return parseNestedFlowMapping(source);
   return parseQuotedScalar(source);
+};
+
+const findEntryContentEnd = (lines: string[], entry: YamlEntry): number => {
+  if (entry.valueSource) return entry.line + 1;
+  const relativeEnd = lines.slice(entry.line + 1, entry.end).findIndex((line) => {
+    const isContent = line.trim().length > 0;
+    const isComment = line.trimStart().startsWith("#");
+    const isNested = getIndent(line).length > entry.indent.length;
+    const isBoundary = isContent && !isComment && !isNested;
+    return isBoundary;
+  });
+  if (relativeEnd < 0) return entry.end;
+  const absoluteEnd = entry.line + relativeEnd + 1;
+  return absoluteEnd;
+};
+
+const findNestedEntries = (lines: string[], entry: YamlEntry): YamlPair[] => {
+  const contentEnd = findEntryContentEnd(lines, entry);
+  const pairs = lines
+    .slice(entry.line + 1, contentEnd)
+    .map(parsePair)
+    .filter((pair): pair is YamlPair => Boolean(pair));
+  const nestedIndent = Math.min(...pairs.map((pair) => pair.indent.length));
+  return pairs.filter((pair) => pair.indent.length === nestedIndent);
+};
+
+const parseNestedBlockMapping = (lines: string[], entry: YamlEntry): Record<string, string> => {
+  const pairs = findNestedEntries(lines, entry).map((pair): [string, string] => {
+    const value = parseOverrideValue(pair.valueSource);
+    if (typeof value !== "string") {
+      throw new Error("nested pnpm overrides must contain string values");
+    }
+    return [pair.key, value];
+  });
+  return Object.fromEntries(pairs);
+};
+
+const parseEntryValue = (lines: string[], entry: YamlEntry): OverrideValue | undefined => {
+  if (entry.valueSource) return parseOverrideValue(entry.valueSource);
+  const mapping = parseNestedBlockMapping(lines, entry);
+  if (Object.keys(mapping).length === 0) return undefined;
+  return mapping;
 };
 
 export const parsePnpmWorkspaceOverrides = (content: string): OverridesType => {
@@ -177,11 +304,12 @@ export const parsePnpmWorkspaceOverrides = (content: string): OverridesType => {
   if (!section) return {};
   if (section.pair.valueSource) return parseFlowMapping(section.pair.valueSource);
 
-  return Object.fromEntries(
-    findEntries(lines, section)
-      .filter((entry) => entry.valueSource)
-      .map((entry) => [entry.key, parseOverrideValue(entry.valueSource)]),
-  );
+  const entries = findEntries(lines, section).flatMap((entry): Array<[string, OverrideValue]> => {
+    const value = parseEntryValue(lines, entry);
+    if (value === undefined) return [];
+    return [[entry.key, value]];
+  });
+  return Object.fromEntries(entries);
 };
 
 const formatNewScalar = (value: OverrideValue): string => JSON.stringify(value);
@@ -200,31 +328,38 @@ const formatUpdatedScalar = (value: OverrideValue, previous: string): string => 
   return isSafePlainValue ? value : JSON.stringify(value);
 };
 
-const hasSameValue = (entry: YamlEntry, value: OverrideValue): boolean => {
+const hasSameValue = (lines: string[], entry: YamlEntry, value: OverrideValue): boolean => {
   try {
-    return JSON.stringify(parseOverrideValue(entry.valueSource)) === JSON.stringify(value);
+    return JSON.stringify(parseEntryValue(lines, entry)) === JSON.stringify(value);
   } catch {
     return false;
   }
 };
 
-const updateEntry = (line: string, entry: YamlEntry, value: OverrideValue): string => {
-  if (hasSameValue(entry, value)) return line;
+const updateEntry = (entry: YamlEntry, value: OverrideValue): string => {
   const scalar = formatUpdatedScalar(value, entry.valueSource);
   return `${entry.indent}${entry.keySource}: ${scalar}${entry.suffix}`;
 };
 
-const updateExistingLine = (
-  line: string,
-  index: number,
-  entriesByLine: Map<number, YamlEntry>,
+const updateExistingEntry = (
+  lines: string[],
+  entry: YamlEntry,
   overrides: OverridesType,
 ): string[] => {
-  const entry = entriesByLine.get(index);
-  if (!entry) return [line];
+  const contentEnd = findEntryContentEnd(lines, entry);
+  const nestedLines = lines.slice(entry.line + 1, contentEnd);
+  const preservedLines = nestedLines.filter((line) => {
+    const trimmed = line.trimStart();
+    const isEmpty = !trimmed;
+    const isComment = trimmed.startsWith("#");
+    const shouldPreserve = isEmpty || isComment;
+    return shouldPreserve;
+  });
+  const trailingLines = lines.slice(contentEnd, entry.end);
   const value = overrides[entry.key];
-  if (value === undefined) return [];
-  return [updateEntry(line, entry, value)];
+  if (value === undefined) return preservedLines.concat(trailingLines);
+  if (hasSameValue(lines, entry, value)) return lines.slice(entry.line, entry.end);
+  return [updateEntry(entry, value)].concat(preservedLines, trailingLines);
 };
 
 const updateExistingEntries = (
@@ -232,8 +367,12 @@ const updateExistingEntries = (
   section: YamlSection,
   overrides: OverridesType,
 ): string[] => {
-  const entriesByLine = new Map(findEntries(lines, section).map((entry) => [entry.line, entry]));
-  return lines.flatMap((line, index) => updateExistingLine(line, index, entriesByLine, overrides));
+  const entries = findEntries(lines, section);
+  if (entries.length === 0) return lines;
+  const beforeEntries = lines.slice(0, entries[0].line);
+  const updatedEntries = entries.flatMap((entry) => updateExistingEntry(lines, entry, overrides));
+  const afterEntries = lines.slice(section.end);
+  return beforeEntries.concat(updatedEntries, afterEntries);
 };
 
 const appendNewEntries = (lines: string[], overrides: OverridesType): string[] => {
@@ -248,7 +387,8 @@ const appendNewEntries = (lines: string[], overrides: OverridesType): string[] =
     const scalar = formatNewScalar(overrides[key]);
     return `${indent}${JSON.stringify(key)}: ${scalar}`;
   });
-  const insertionIndex = entries.at(-1)?.line ?? section.start;
+  const lastEntry = entries.at(-1);
+  const insertionIndex = lastEntry ? findEntryContentEnd(lines, lastEntry) - 1 : section.start;
   const before = lines.slice(0, insertionIndex + 1);
   const after = lines.slice(insertionIndex + 1);
   return before.concat(newLines, after);

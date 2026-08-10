@@ -748,9 +748,65 @@ test("findVulnerablePackages - returns new objects with correct currentVersion",
   expect(results[0]).not.toBe(alert);
 });
 
+const createInteractiveAlert = (): SecurityAlert => ({
+  packageName: "lodash",
+  currentVersion: "4.17.20",
+  vulnerableVersions: "<4.17.21",
+  patchedVersion: "4.17.21",
+  severity: "high",
+  title: "Prototype Pollution",
+  fixAvailable: true,
+});
+
+const createInteractiveOverride = (): SecurityOverride => ({
+  packageName: "lodash",
+  fromVersion: "4.17.20",
+  toVersion: "4.17.21",
+  reason: "Security fix",
+  severity: "high",
+});
+
 test("InteractiveSecurityManager - initializes", () => {
   const manager = new InteractiveSecurityManager();
   expect(manager).toBeDefined();
+});
+
+test("InteractiveSecurityManager - accepts a best-case portfolio atomically", async () => {
+  const prompts = {
+    confirm: mock(async () => true),
+    select: mock(async () => "custom"),
+    input: mock(async () => "5.0.0"),
+  };
+  const manager = new InteractiveSecurityManager(prompts);
+  const overrides = [createInteractiveOverride()];
+  const originalLog = console.log;
+  console.log = mock();
+
+  const result = await manager.promptForBestCasePortfolio([createInteractiveAlert()], overrides);
+
+  expect(result).toEqual(overrides);
+  expect(prompts.select).not.toHaveBeenCalled();
+  console.log = originalLog;
+});
+
+test("InteractiveSecurityManager - rejects a best-case portfolio atomically", async () => {
+  const prompts = {
+    confirm: mock(async () => false),
+    select: mock(async () => "apply"),
+    input: mock(async () => ""),
+  };
+  const manager = new InteractiveSecurityManager(prompts);
+  const originalLog = console.log;
+  console.log = mock();
+
+  const result = await manager.promptForBestCasePortfolio(
+    [createInteractiveAlert()],
+    [createInteractiveOverride()],
+  );
+
+  expect(result).toEqual([]);
+  expect(prompts.select).not.toHaveBeenCalled();
+  console.log = originalLog;
 });
 
 test("InteractiveSecurityManager - promptForSecurityActions with no vulnerabilities returns empty array", async () => {

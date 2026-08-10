@@ -634,6 +634,18 @@ export class InteractiveSecurityManager {
     return this.confirmSelectedOverrides(selectedOverrides);
   }
 
+  async promptForBestCasePortfolio(
+    vulnerablePackages: SecurityAlert[],
+    suggestedOverrides: SecurityOverride[],
+  ): Promise<SecurityOverride[]> {
+    this.printSecurityReview(vulnerablePackages);
+    this.printSelectedOverrides(suggestedOverrides);
+    const message = "Apply this complete best-case portfolio without edits?";
+    const accepted = await this.prompts.confirm(message, true);
+    if (!accepted) return [];
+    return suggestedOverrides;
+  }
+
   private printSecurityReview(vulnerablePackages: SecurityAlert[]): void {
     console.log("\nSecurity Vulnerabilities Found\n");
     console.log("═".repeat(50));

@@ -6,7 +6,11 @@ import { GitHubSecurityProvider } from "../../../../src/core/security/providers/
 import { isVersionVulnerable, findVulnerablePackages } from "../../../../src/core/security/utils";
 import * as securityUtils from "../../../../src/core/security/utils";
 import { PastoralistJSON, SecurityOverride } from "../../../../src/types";
-import { DependabotAlert, SecurityAlert } from "../../../../src/core/security/types";
+import {
+  DependabotAlert,
+  SecurityAlert,
+  SecurityProviderScanOptions,
+} from "../../../../src/core/security/types";
 import * as fs from "fs";
 import * as path from "path";
 import { tmpdir } from "os";
@@ -52,7 +56,10 @@ const mockPackageJson: PastoralistJSON = {
 };
 
 type FetchAlertsProvider = {
-  fetchAlerts: (packages: Array<{ name: string; version: string }>) => Promise<SecurityAlert[]>;
+  fetchAlerts: (
+    packages: Array<{ name: string; version: string }>,
+    options?: SecurityProviderScanOptions,
+  ) => Promise<SecurityAlert[]>;
 };
 
 type SecurityCheckerProviderHarness = {
@@ -544,7 +551,8 @@ test("checkSecurity - should handle devDependencies", async () => {
   expect(result.packagesScanned).toBe(1);
   expect(mockFetchAlerts).toHaveBeenCalledWith([{ name: "typescript", version: "4.0.0" }], {
     root: undefined,
-    requireCompleteScan: true,
+    requireCompleteScan: false,
+    onIncomplete: expect.any(Function),
   });
 
   mockFetchAlerts.mockRestore();
@@ -576,7 +584,7 @@ test("checkSecurity - should handle both dependencies and devDependencies", asyn
       { name: "lodash", version: "4.17.20" },
       { name: "typescript", version: "4.0.0" },
     ],
-    { root: undefined, requireCompleteScan: true },
+    { root: undefined, requireCompleteScan: false, onIncomplete: expect.any(Function) },
   );
 
   mockFetchAlerts.mockRestore();
@@ -703,6 +711,44 @@ test("checkSecurity - uses standard overrides for state-unaware providers", asyn
   expect(result.bestCase).toBeUndefined();
   expect(result.overrides).toHaveLength(1);
   expect(result.overrides[0].toVersion).toBe("2.0.0");
+});
+
+test("checkSecurity - uses standard overrides for multi-version baselines", async () => {
+  const firstAlert = createBestCaseAlert();
+  const secondAlert = Object.assign({}, firstAlert, {
+    currentVersion: "2.0.0",
+    vulnerableVersions: "<3.0.0",
+    patchedVersion: "3.0.0",
+  });
+  const checker = createCheckerWithMockAlerts({}, [firstAlert, secondAlert]);
+  spyOn(checker as any, "fetchLatestForVulnerablePackages").mockResolvedValue(
+    new Map([["alpha", "3.0.0"]]),
+  );
+
+  const result = await checker.checkSecurity(createBuiltInBestCaseConfig());
+
+  expect(result.bestCase).toBeUndefined();
+  expect(result.overrides.some((override) => override.toVersion === "3.0.0")).toBe(true);
+});
+
+test("checkSecurity - omits best-case provenance when interactive approval is declined", async () => {
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  spyOn(getFirstProvider(checker), "fetchAlerts").mockImplementation(async (packages) => {
+    return packages[0].version === "2.0.0" ? [] : [createBestCaseAlert()];
+  });
+  const prompt = spyOn(
+    securityUtils.InteractiveSecurityManager.prototype,
+    "promptForBestCasePortfolio",
+  ).mockResolvedValue([]);
+  mockLatestBestCaseVersion(checker);
+
+  const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), {
+    interactive: true,
+  });
+
+  expect(result.overrides).toEqual([]);
+  expect(result.bestCase).toBeUndefined();
+  prompt.mockRestore();
 });
 
 test("createProvider - should create OSV provider", () => {
@@ -1750,6 +1796,22 @@ test("checkSecurity - does not cache incomplete provider scans", async () => {
   const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts")
     .mockRejectedValueOnce(new Error("provider unavailable"))
     .mockResolvedValue([]);
+  const config = createBuiltInBestCaseConfig();
+
+  await checker.checkSecurity(config, { bestCase: { enabled: false } });
+  await checker.checkSecurity(config, { bestCase: { enabled: false } });
+
+  expect(fetchAlerts).toHaveBeenCalledTimes(2);
+});
+
+test("checkSecurity - does not cache provider-reported partial scans", async () => {
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockImplementation(
+    async (_packages, options) => {
+      options?.onIncomplete?.();
+      return [];
+    },
+  );
   const config = createBuiltInBestCaseConfig();
 
   await checker.checkSecurity(config, { bestCase: { enabled: false } });

@@ -58,8 +58,12 @@ test("isAuthenticated - should return false when no token", async () => {
 
 test("fetchAlerts - should return empty array when no token", async () => {
   const provider = new SpektionProvider({ debug: false });
-  const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]);
+  const onIncomplete = mock(() => undefined);
+  const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }], {
+    onIncomplete,
+  });
   expect(alerts).toEqual([]);
+  expect(onIncomplete).toHaveBeenCalledTimes(1);
 });
 
 test("fetchAlerts - should reject a complete scan when no token is available", async () => {
@@ -167,9 +171,13 @@ test("fetchAlerts - should return empty array on HTTP error in non-strict mode",
     token: "test-key",
     strict: false,
   });
-  const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]);
+  const onIncomplete = mock(() => undefined);
+  const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }], {
+    onIncomplete,
+  });
 
   expect(alerts).toEqual([]);
+  expect(onIncomplete).toHaveBeenCalledTimes(1);
 });
 
 test("fetchAlerts - should reject incomplete HTTP scans when non-strict", async () => {

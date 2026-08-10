@@ -28,6 +28,16 @@ const normalizeCurrentVersion = (version: string): string => {
   return version.match(VERSION_PATTERN)?.[0] ?? version;
 };
 
+export const hasMultipleInstalledVersions = (alerts: SecurityAlert[]): boolean => {
+  const versionsByPackage = alerts.reduce((grouped, alert) => {
+    const versions = grouped.get(alert.packageName) ?? new Set<string>();
+    const currentVersion = normalizeCurrentVersion(alert.currentVersion);
+    grouped.set(alert.packageName, new Set(Array.from(versions).concat(currentVersion)));
+    return grouped;
+  }, new Map<string, Set<string>>());
+  return Array.from(versionsByPackage.values()).some((versions) => versions.size > 1);
+};
+
 const getPatchedVersions = (alerts: SecurityAlert[]): string[] => {
   return alerts.flatMap((alert) => {
     if (!alert.patchedVersion) return [];

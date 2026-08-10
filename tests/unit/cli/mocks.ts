@@ -1,4 +1,5 @@
 import { mock } from "bun:test";
+import type { BestCaseResult } from "../../../src/core/best-case";
 import type { PastoralistJSON, SecurityAlert } from "../../../src/types";
 import { logger as createLogger } from "../../../src/utils";
 
@@ -41,7 +42,10 @@ export const createMockConfig = (overrides: Partial<PastoralistJSON> = {}): Past
   ...overrides,
 });
 
-export const createMockSecurityResults = (alerts: Partial<SecurityAlert>[] = []) => ({
+export const createMockSecurityResults = (
+  alerts: Partial<SecurityAlert>[] = [],
+  bestCase?: BestCaseResult,
+) => ({
   spinner: createMockSpinner(),
   securityChecker: {},
   alerts: alerts.map((a) => ({
@@ -51,6 +55,9 @@ export const createMockSecurityResults = (alerts: Partial<SecurityAlert>[] = [])
   })),
   securityOverrides: [],
   updates: [],
+  packagesScanned: alerts.length,
+  bestCase,
+  skipped: false,
 });
 
 export const createMockUpdateContext = (

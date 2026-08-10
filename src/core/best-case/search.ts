@@ -47,13 +47,17 @@ const evaluateState = async (
   state: BestCaseState,
   context: EvaluationContext,
 ): Promise<EvaluatedState> => {
-  try {
-    const evaluation = await context.evaluate(state);
-    return { state, evaluation };
-  } catch (error) {
-    const evaluation = createInvalidEvaluation(error);
-    return { state, evaluation };
-  }
+  const evaluation = await context.evaluate(state);
+  return { state, evaluation };
+};
+
+const resolveSettledEvaluation = (
+  result: PromiseSettledResult<EvaluatedState>,
+  state: BestCaseState,
+): EvaluatedState => {
+  if (result.status === "fulfilled") return result.value;
+  const evaluation = createInvalidEvaluation(result.reason);
+  return { state, evaluation };
 };
 
 const getUniqueStates = (states: BestCaseState[]): Map<string, BestCaseState> => {
@@ -89,9 +93,8 @@ const evaluateUncachedStates = async (
   const batch = states.slice(0, batchSize);
   const remaining = states.slice(batchSize);
   const settled = await Promise.allSettled(batch.map((state) => evaluateState(state, context)));
-  const evaluated = settled.flatMap((result) => {
-    if (result.status === "fulfilled") return [result.value];
-    return [];
+  const evaluated = settled.map((result, index) => {
+    return resolveSettledEvaluation(result, batch[index]);
   });
   const next = await evaluateUncachedStates(remaining, context);
   return evaluated.concat(next);

@@ -96,11 +96,11 @@ export class OSVProvider {
 
   private async fetchFromOSVBatchAPI(
     packages: Array<{ name: string; version: string }>,
-    requireCompleteScan: boolean,
+    options: SecurityProviderScanOptions,
   ): Promise<OSVBatchResult[]> {
     const response = await this.requestOSVBatch(this.createOSVQueries(packages));
     const data = await response.json();
-    return this.enrichBatchResults(data.results || [], requireCompleteScan);
+    return this.enrichBatchResults(data.results || [], options);
   }
 
   private createOSVQueries(packages: Array<{ name: string; version: string }>): OSVPackageQuery[] {
@@ -126,18 +126,18 @@ export class OSVProvider {
 
   private async enrichBatchResults(
     batchResults: OSVBatchApiResult[],
-    requireCompleteScan: boolean,
+    options: SecurityProviderScanOptions,
   ): Promise<OSVBatchResult[]> {
     return Promise.all(
       batchResults.map(async (result) => ({
-        vulns: await this.fetchBatchVulnerabilities(result, requireCompleteScan),
+        vulns: await this.fetchBatchVulnerabilities(result, options),
       })),
     );
   }
 
   private async fetchBatchVulnerabilities(
     result: OSVBatchApiResult,
-    requireCompleteScan: boolean,
+    options: SecurityProviderScanOptions,
   ): Promise<OSVVulnerability[] | undefined> {
     const vulns = result?.vulns;
 
@@ -146,7 +146,7 @@ export class OSVProvider {
       return vulns;
     }
 
-    return this.fetchFullVulnerabilityDetails(vulns, requireCompleteScan);
+    return this.fetchFullVulnerabilityDetails(vulns, options);
   }
 
   private async fetchSingleVulnerability(vuln: OSVPartialVulnerability): Promise<OSVVulnerability> {
@@ -165,12 +165,12 @@ export class OSVProvider {
 
   private async fetchFullVulnerabilityDetails(
     partialVulns: OSVPartialVulnerability[],
-    requireCompleteScan: boolean,
+    options: SecurityProviderScanOptions,
   ): Promise<OSVVulnerability[]> {
     return this.createVulnerabilityBatches(partialVulns).reduce<Promise<OSVVulnerability[]>>(
       async (accPromise, batch) => {
         const acc = await accPromise;
-        const results = await this.fetchVulnerabilityBatch(batch, requireCompleteScan);
+        const results = await this.fetchVulnerabilityBatch(batch, options);
         return acc.concat(results);
       },
       Promise.resolve([]),
@@ -189,40 +189,44 @@ export class OSVProvider {
 
   private async fetchVulnerabilityBatch(
     batch: OSVPartialVulnerability[],
-    requireCompleteScan: boolean,
+    options: SecurityProviderScanOptions,
   ): Promise<OSVVulnerability[]> {
     const results = await Promise.allSettled(
       batch.map((vuln) => this.fetchSingleVulnerability(vuln)),
     );
 
     return results.map((result, index) => {
-      return this.resolveVulnerabilityResult(result, batch[index], requireCompleteScan);
+      return this.resolveVulnerabilityResult(result, batch[index], options);
     });
   }
 
   private resolveVulnerabilityResult(
     result: PromiseSettledResult<OSVVulnerability>,
     fallback: OSVPartialVulnerability,
-    requireCompleteScan: boolean,
+    options: SecurityProviderScanOptions,
   ): OSVVulnerability {
     if (result.status === "fulfilled") {
       return result.value;
     }
 
-    return this.resolveRejectedVulnerability(result.reason, fallback, requireCompleteScan);
+    return this.resolveRejectedVulnerability(result.reason, fallback, options);
   }
 
   private resolveRejectedVulnerability(
     reason: unknown,
     fallback: OSVPartialVulnerability,
-    requireCompleteScan: boolean,
+    options: SecurityProviderScanOptions,
   ): OSVVulnerability {
     const errorMsg = `Failed to fetch ${fallback.id}: ${reason}`;
-    const shouldFail = this.strict || requireCompleteScan;
+    const shouldFail = this.strict || options.requireCompleteScan;
 
     if (shouldFail) throw new Error(errorMsg);
 
-    this.log.debug(errorMsg, "fetchFullVulnerabilityDetails");
+    options.onIncomplete?.();
+    this.log.warn(
+      `${errorMsg}. Using partial vulnerability data.`,
+      "fetchFullVulnerabilityDetails",
+    );
     return fallback as OSVVulnerability;
   }
 
@@ -236,31 +240,32 @@ export class OSVProvider {
       return [];
     }
 
-    const requireCompleteScan = options.requireCompleteScan ?? false;
-    const batchResults = await this.fetchBatchResults(packages, requireCompleteScan);
+    const batchResults = await this.fetchBatchResults(packages, options);
     const realAlerts = this.convertBatchResultsToAlerts(packages, batchResults);
     return realAlerts.concat(this.getIRLFixtureAlerts());
   }
 
   private fetchBatchResults(
     packages: Array<{ name: string; version: string }>,
-    requireCompleteScan: boolean,
+    options: SecurityProviderScanOptions,
   ): Promise<OSVBatchResult[]> {
     const retryOptions: RetryOptions = Object.assign({}, this.retryOptions, {
       onFailedAttempt: (error: RetryError) => {
         this.log.debug(`Batch API attempt ${error.attemptNumber} failed`, "fetchAlerts");
       },
     });
-    return retry(
-      () => this.fetchFromOSVBatchAPI(packages, requireCompleteScan),
-      retryOptions,
-    ).catch((error) => this.handleBatchFetchError(error, requireCompleteScan));
+    return retry(() => this.fetchFromOSVBatchAPI(packages, options), retryOptions).catch((error) =>
+      this.handleBatchFetchError(error, options),
+    );
   }
 
-  private handleBatchFetchError(error: unknown, requireCompleteScan: boolean): OSVBatchResult[] {
+  private handleBatchFetchError(
+    error: unknown,
+    options: SecurityProviderScanOptions,
+  ): OSVBatchResult[] {
     this.log.debug("Failed to fetch batch results after retries", "fetchAlerts", { error });
     const reason = error instanceof Error ? error.message : "Unknown error";
-    const shouldFail = this.strict || requireCompleteScan;
+    const shouldFail = this.strict || options.requireCompleteScan;
 
     if (shouldFail) {
       throw new Error(
@@ -269,6 +274,7 @@ export class OSVProvider {
       );
     }
 
+    options.onIncomplete?.();
     this.log.warn(this.createBatchWarning(reason), "fetchAlerts");
     return [];
   }

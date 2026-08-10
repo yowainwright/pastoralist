@@ -80,30 +80,32 @@ export class SpektionProvider {
     options: SecurityProviderScanOptions = {},
   ): Promise<SecurityAlert[]> {
     if (!this.token) {
-      return this.handleMissingToken(options.requireCompleteScan ?? false);
+      return this.handleMissingToken(options);
     }
 
     try {
       return await scanPackages(this.token, packages);
     } catch (error) {
-      return this.handleScanError(error, options.requireCompleteScan ?? false);
+      return this.handleScanError(error, options);
     }
   }
 
-  private handleMissingToken(requireCompleteScan: boolean): SecurityAlert[] {
+  private handleMissingToken(options: SecurityProviderScanOptions): SecurityAlert[] {
     const message =
       "Spektion requires authentication. Set SPEKTION_API_KEY or provide --securityProviderToken.";
-    if (requireCompleteScan) throw new Error(message);
+    if (options.requireCompleteScan) throw new Error(message);
+    options.onIncomplete?.();
     this.log.print(message);
     return [];
   }
 
-  private handleScanError(error: unknown, requireCompleteScan: boolean): SecurityAlert[] {
+  private handleScanError(error: unknown, options: SecurityProviderScanOptions): SecurityAlert[] {
     const reason = error instanceof Error ? error.message : "Unknown error";
-    const shouldFail = this.strict || requireCompleteScan;
+    const shouldFail = this.strict || options.requireCompleteScan;
     if (shouldFail) {
       throw new Error(`Spektion security check failed. Reason: ${reason}.`);
     }
+    options.onIncomplete?.();
     const message =
       `Spektion security check failed. Your dependencies were NOT checked. ` +
       `Reason: ${reason}. Run with --debug for details or --strict to fail on errors.`;

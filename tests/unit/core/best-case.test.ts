@@ -5,7 +5,7 @@ import {
   type BestCaseEvaluation,
   type BestCaseState,
 } from "../../../src/core/best-case";
-import { buildBestCaseChoices } from "../../../src/core/best-case/integration";
+import { applyBestCaseState, buildBestCaseChoices } from "../../../src/core/best-case/integration";
 import type { SecurityAlert } from "../../../src/types";
 
 const alert = (
@@ -123,4 +123,14 @@ test("buildBestCaseChoices normalizes dependency ranges before selecting the bas
   );
 
   expect(choices[0].currentVersion).toBe("1.0.0");
+});
+
+test("applyBestCaseState adds packages missing from the installed portfolio", () => {
+  const packages = [{ name: "alpha", version: "1.0.0" }];
+  const state = { alpha: "2.0.0", beta: "3.0.0" };
+
+  expect(applyBestCaseState(packages, state)).toEqual([
+    { name: "alpha", version: "2.0.0" },
+    { name: "beta", version: "3.0.0" },
+  ]);
 });

@@ -91,6 +91,7 @@ export interface WorkspaceVulnerabilityState {
 export interface SecurityProviderScanOptions {
   root?: string;
   requireCompleteScan?: boolean;
+  onIncomplete?: () => void;
 }
 
 export interface SecurityOverride {

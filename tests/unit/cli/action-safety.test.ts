@@ -1,10 +1,12 @@
 import { test, expect, mock } from "bun:test";
+import type { BestCaseResult } from "../../../src/core/best-case";
 import type { Options, PastoralistJSON, SecurityAlert } from "../../../src/types";
 import { action } from "../../../src/cli";
 import { update as realUpdate } from "../../../src/core/update";
 import {
   captureConsoleOutput,
   createActionDeps,
+  createMockSecurityResults,
   createMockSpinner,
   createMockTerminalGraph,
 } from "./mocks";
@@ -20,6 +22,44 @@ const alert = (
   title: `${packageName} vulnerability`,
   fixAvailable: true,
   patchedVersion: "2.0.0",
+});
+
+const BEST_CASE_RESULT: BestCaseResult = {
+  selectedState: { alpha: "2.0.0" },
+  selectedEvaluation: { alerts: [] },
+  baselineState: { alpha: "1.0.0" },
+  baselineEvaluation: { alerts: [alert("alpha")] },
+  decisionId: "best-case-decision",
+  policyHash: "policy-hash",
+  search: {
+    mode: "exact",
+    evaluatedStates: 2,
+    totalStates: 2,
+    provenOptimal: true,
+    durationMs: 1,
+  },
+  impact: {
+    fixedVulnerabilities: 1,
+    introducedVulnerabilities: 0,
+    remainingVulnerabilities: 0,
+  },
+  failedStates: 0,
+};
+
+test("action security - returns the selected best-case summary", async () => {
+  const securityResults = createMockSecurityResults([], BEST_CASE_RESULT);
+  const deps = createActionDeps({ checkSecurity: true, securityResults });
+
+  const result = await action({ checkSecurity: true, isTesting: true }, deps);
+
+  expect(result.bestCase).toEqual({
+    selectedState: BEST_CASE_RESULT.selectedState,
+    decisionId: BEST_CASE_RESULT.decisionId,
+    policyHash: BEST_CASE_RESULT.policyHash,
+    search: BEST_CASE_RESULT.search,
+    impact: BEST_CASE_RESULT.impact,
+    failedStates: BEST_CASE_RESULT.failedStates,
+  });
 });
 
 const createConfigFromOverrides = (overrides: Record<string, string>): PastoralistJSON => ({

@@ -9,6 +9,7 @@ import { PastoralistJSON, SecurityOverride } from "../../../../src/types";
 import {
   DependabotAlert,
   SecurityAlert,
+  SecurityPackage,
   SecurityProviderScanOptions,
 } from "../../../../src/core/security/types";
 import * as fs from "fs";
@@ -73,12 +74,22 @@ const mockProviderAlerts = (
   return checker;
 };
 
+const mockBestCaseInventory = (checker: SecurityChecker, inventory?: SecurityPackage[]): void => {
+  const resolveInventory = async (packages: SecurityPackage[]) => {
+    if (inventory) return inventory;
+    return packages;
+  };
+  spyOn(checker as any, "resolveBestCaseInventory").mockImplementation(resolveInventory);
+};
+
 const createCheckerWithMockAlerts = (
   options: ConstructorParameters<typeof SecurityChecker>[0] = {},
   alerts: SecurityAlert[] = [],
+  inventory?: SecurityPackage[],
 ): SecurityChecker => {
   const checkerOptions = Object.assign({}, { provider: "osv", noCache: true }, options);
   const checker = new SecurityChecker(checkerOptions);
+  mockBestCaseInventory(checker, inventory);
   return mockProviderAlerts(checker, alerts);
 };
 
@@ -735,6 +746,7 @@ test("checkSecurity - filters built-in best-case alerts by severity", async () =
     if (isPatchedVersion) return [lowAlert];
     return [highAlert];
   });
+  mockBestCaseInventory(checker);
   mockLatestBestCaseVersion(checker);
 
   const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), {
@@ -750,6 +762,7 @@ test("checkSecurity - reuses cached baseline without best-case progress spam", a
   const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([
     createBestCaseAlert(),
   ]);
+  mockBestCaseInventory(checker);
   const onProgress = mock(() => undefined);
   mockLatestBestCaseVersion(checker);
 
@@ -766,6 +779,7 @@ test("checkSecurity - rejects incomplete built-in best-case evaluations", async 
     if (packages[0].version === "2.0.0") throw new Error("provider unavailable");
     return [createBestCaseAlert()];
   });
+  mockBestCaseInventory(checker);
   mockLatestBestCaseVersion(checker);
 
   const result = await checker.checkSecurity(createBuiltInBestCaseConfig());
@@ -794,7 +808,11 @@ test("checkSecurity - uses standard overrides for multi-version baselines", asyn
     vulnerableVersions: "<3.0.0",
     patchedVersion: "3.0.0",
   });
-  const checker = createCheckerWithMockAlerts({}, [firstAlert, secondAlert]);
+  const inventory = [
+    { name: "alpha", version: "1.0.0" },
+    { name: "alpha", version: "2.0.0" },
+  ];
+  const checker = createCheckerWithMockAlerts({}, [firstAlert, secondAlert], inventory);
   spyOn(checker as any, "fetchLatestForVulnerablePackages").mockResolvedValue(
     new Map([["alpha", "3.0.0"]]),
   );
@@ -810,11 +828,11 @@ test("checkSecurity - uses standard overrides when an installed version has no a
   const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([
     createBestCaseAlert(),
   ]);
-  const installedPackages = [
+  const inventory = [
     { name: "alpha", version: "1.0.0" },
     { name: "alpha", version: "1.5.0" },
   ];
-  spyOn(checker as any, "extractPackagesForScan").mockReturnValue(installedPackages);
+  mockBestCaseInventory(checker, inventory);
   mockLatestBestCaseVersion(checker);
 
   const result = await checker.checkSecurity(createBuiltInBestCaseConfig());
@@ -822,6 +840,31 @@ test("checkSecurity - uses standard overrides when an installed version has no a
   expect(result.bestCase).toBeUndefined();
   expect(result.overrides[0].toVersion).toBe("2.0.0");
   expect(fetchAlerts).toHaveBeenCalledTimes(1);
+});
+
+test("checkSecurity - uses standard overrides when installed inventory is incomplete", async () => {
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([createBestCaseAlert()]);
+  mockLatestBestCaseVersion(checker);
+  const root = path.resolve(__dirname, ".missing-inventory-root");
+
+  const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), { root });
+
+  expect(result.bestCase).toBeUndefined();
+  expect(result.overrides[0].toVersion).toBe("2.0.0");
+});
+
+test("checkSecurity - resolves installed inventory beside the package manifest", async () => {
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([createBestCaseAlert()]);
+  mockLatestBestCaseVersion(checker);
+  const root = path.resolve(__dirname, ".missing-manifest-root");
+  const packageJsonPath = path.join(root, "package.json");
+
+  const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), { packageJsonPath });
+
+  expect(result.bestCase).toBeUndefined();
+  expect(result.overrides[0].toVersion).toBe("2.0.0");
 });
 
 test("checkSecurity - omits best-case provenance when interactive approval is declined", async () => {
@@ -835,6 +878,7 @@ test("checkSecurity - omits best-case provenance when interactive approval is de
     securityUtils.InteractiveSecurityManager.prototype,
     "promptForBestCasePortfolio",
   ).mockResolvedValue([]);
+  mockBestCaseInventory(checker);
   mockLatestBestCaseVersion(checker);
 
   const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), {

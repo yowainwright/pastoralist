@@ -8,6 +8,7 @@ import type {
   Appendix,
   PastoralistJSON,
   OverridesType,
+  SecurityPackage,
   UpdatePackageJSONOptions,
 } from "../../types";
 import { logger } from "../../utils";
@@ -37,6 +38,7 @@ import {
   detectPackageManager,
   getExistingOverrideField,
   getOverrideFieldForPackageManager,
+  parseNpmLsPackages,
   parseNpmLsOutput,
 } from "./utils";
 
@@ -45,6 +47,7 @@ export {
   detectPackageManager,
   getExistingOverrideField,
   getOverrideFieldForPackageManager,
+  parseNpmLsPackages,
   parseNpmLsOutput,
 } from "./utils";
 export type { OverrideField, PackageManager } from "./types";
@@ -378,6 +381,20 @@ export const executeNpmLs = async (root: string = process.cwd()): Promise<string
     const hasStdout = err.code === 1 && err.stdout;
     if (hasStdout) return err.stdout!;
     throw error;
+  }
+};
+
+export const getInstalledPackages = async (
+  mockExecuteNpmLs?: (root?: string) => Promise<string>,
+  root: string = process.cwd(),
+): Promise<SecurityPackage[] | undefined> => {
+  try {
+    const execute = mockExecuteNpmLs ?? executeNpmLs;
+    const stdout = await execute(root);
+    return parseNpmLsPackages(stdout);
+  } catch (error) {
+    log.debug("Failed to get installed packages", "getInstalledPackages", error);
+    return undefined;
   }
 };
 

@@ -16,6 +16,7 @@ import {
 } from "../../../src";
 import {
   getDependencyTree,
+  getInstalledPackages,
   parseNpmLsOutput,
   parseBunLockTree,
   parsePnpmLockTree,
@@ -1026,6 +1027,39 @@ test("parseNpmLsOutput - should parse nested dependencies", () => {
   expect(result.accepts).toBe("1.3.8");
   expect(result["body-parser"]).toBe("1.20.0");
   expect(result.bytes).toBe("3.1.2");
+});
+
+test("getInstalledPackages - preserves duplicate installed versions", async () => {
+  const stdout = JSON.stringify({
+    dependencies: {
+      alpha: {
+        version: "1.0.0",
+        dependencies: { wrapper: { dependencies: { alpha: { version: "2.0.0" } } } },
+      },
+    },
+  });
+  const execute = mock(async () => stdout);
+
+  const packages = await getInstalledPackages(execute, testDir);
+  const alphaPackages = packages?.filter(({ name }) => name === "alpha");
+
+  expect(alphaPackages).toEqual([
+    { name: "alpha", version: "1.0.0" },
+    { name: "alpha", version: "2.0.0" },
+  ]);
+});
+
+test("getInstalledPackages - fails securely when inventory cannot be read", async () => {
+  const execute = mock(async () => {
+    throw new Error("inventory unavailable");
+  });
+
+  expect(await getInstalledPackages(execute, testDir)).toBeUndefined();
+});
+
+test("getInstalledPackages - fails securely when inventory output is invalid", async () => {
+  const execute = mock(async () => "not json");
+  expect(await getInstalledPackages(execute, testDir)).toBeUndefined();
 });
 
 test("parseNpmLsOutput - should handle empty dependencies", () => {

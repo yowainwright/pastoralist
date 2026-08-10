@@ -17,6 +17,38 @@ Use `npx pastoralist --setup-hook` to keep the appendix current after installs.
 Use `npx pastoralist --checkSecurity` for advisory checks.
 Use `npx pastoralist --remove-unused` only after reviewing dry-run output.
 
+## User-Owned Best-Case Overrides
+
+When best-case selection conflicts with an override the user controls, show the
+active version and the appendix ledger `addedDate`, then ask whether the package
+should be user-owned. Do not infer ownership from the date. Persist approved
+package names in `pastoralist.bestCase.userOwnedOverrides`; the active override
+supplies the required version.
+
+```json
+{
+  "overrides": {
+    "alpha": "2.5.0"
+  },
+  "pastoralist": {
+    "bestCase": {
+      "enabled": true,
+      "userOwnedOverrides": ["alpha"]
+    },
+    "appendix": {
+      "alpha@2.5.0": {
+        "ledger": {
+          "addedDate": "2026-08-09T00:00:00.000Z"
+        }
+      }
+    }
+  }
+}
+```
+
+User-owned versions win. Re-run the security check so the complete portfolio is
+evaluated with those versions as hard constraints.
+
 ## Agent Setup
 
 Prefer the packaged setup script for agent config and skills:

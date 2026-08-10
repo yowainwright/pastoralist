@@ -1,4 +1,5 @@
 import { mock } from "bun:test";
+import type { BestCaseResult } from "../../../src/core/best-case";
 import type { PastoralistJSON, SecurityAlert } from "../../../src/types";
 import { logger as createLogger } from "../../../src/utils";
 
@@ -35,22 +36,37 @@ export const createMockTerminalGraph = () => {
   return graph;
 };
 
-export const createMockConfig = (overrides: Partial<PastoralistJSON> = {}): PastoralistJSON => ({
-  name: "test-package",
-  version: "1.0.0",
-  ...overrides,
-});
+export const createMockConfig = (overrides: Partial<PastoralistJSON> = {}): PastoralistJSON =>
+  Object.assign(
+    {},
+    {
+      name: "test-package",
+      version: "1.0.0",
+    },
+    overrides,
+  );
 
-export const createMockSecurityResults = (alerts: Partial<SecurityAlert>[] = []) => ({
+export const createMockSecurityResults = (
+  alerts: Partial<SecurityAlert>[] = [],
+  bestCase?: BestCaseResult,
+) => ({
   spinner: createMockSpinner(),
   securityChecker: {},
-  alerts: alerts.map((a) => ({
-    packageName: a.packageName || "test-pkg",
-    severity: a.severity || "medium",
-    ...a,
-  })),
+  alerts: alerts.map((a) =>
+    Object.assign(
+      {},
+      {
+        packageName: a.packageName || "test-pkg",
+        severity: a.severity || "medium",
+      },
+      a,
+    ),
+  ),
   securityOverrides: [],
   updates: [],
+  packagesScanned: alerts.length,
+  bestCase,
+  skipped: false,
 });
 
 export const createMockUpdateContext = (
@@ -96,7 +112,7 @@ export const createActionDeps = (options: ActionDepsOptions = {}) => {
     quickConfirm: mock(() => Promise.resolve(true)),
     update: mock(() => updateContext),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 };
@@ -107,7 +123,9 @@ export const captureConsoleOutput = () => {
 
   return {
     start: () => {
-      console.log = (msg: string) => output.push(msg);
+      console.log = (msg: string) => {
+        output[output.length] = msg;
+      };
     },
     stop: () => {
       console.log = originalLog;

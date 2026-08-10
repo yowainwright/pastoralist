@@ -3,15 +3,20 @@ process.env.PASTORALIST_MOCK_SECURITY = "true";
 import { test, expect, mock, spyOn, beforeEach, afterEach } from "bun:test";
 import { SecurityChecker } from "../../../../src/core/security";
 import { GitHubSecurityProvider } from "../../../../src/core/security/providers/github";
-import { isVersionVulnerable, findVulnerablePackages } from "../../../../src/core/security/utils";
+import { isVersionVulnerable } from "../../../../src/core/security/utils";
 import * as securityUtils from "../../../../src/core/security/utils";
 import { PastoralistJSON, SecurityOverride } from "../../../../src/types";
-import { DependabotAlert, SecurityAlert } from "../../../../src/core/security/types";
+import {
+  DependabotAlert,
+  SecurityAlert,
+  SecurityCheckRuntimeOptions,
+  SecurityPackage,
+  SecurityProviderScanOptions,
+} from "../../../../src/core/security/types";
 import * as fs from "fs";
 import * as path from "path";
 import { tmpdir } from "os";
 import {
-  BASE_SECURITY_ALERT,
   BASE_DEPENDABOT_ALERT,
   BASE_SECURITY_OVERRIDE,
   LODASH_DEPENDENCY,
@@ -26,18 +31,15 @@ import {
 } from "../../fixtures/security.fixtures";
 import { createMockFetch, withMockedFetch } from "../../fixtures/setup.fixtures";
 
-const mockDependabotAlert: DependabotAlert = {
-  ...BASE_DEPENDABOT_ALERT,
+const mockDependabotAlert: DependabotAlert = Object.assign({}, BASE_DEPENDABOT_ALERT, {
   dependency: LODASH_DEPENDENCY,
-  security_advisory: {
-    ...LODASH_ADVISORY,
+  security_advisory: Object.assign({}, LODASH_ADVISORY, {
     vulnerabilities: [LODASH_VULNERABILITY],
-  },
-  security_vulnerability: {
-    ...LODASH_VULNERABILITY,
-    severity: "high",
-  },
-};
+  }),
+  security_vulnerability: Object.assign({}, LODASH_VULNERABILITY, {
+    severity: "high" as const,
+  }),
+});
 
 const mockPackageJson: PastoralistJSON = {
   name: "test-package",
@@ -52,7 +54,10 @@ const mockPackageJson: PastoralistJSON = {
 };
 
 type FetchAlertsProvider = {
-  fetchAlerts: (packages: Array<{ name: string; version: string }>) => Promise<SecurityAlert[]>;
+  fetchAlerts: (
+    packages: Array<{ name: string; version: string }>,
+    options?: SecurityProviderScanOptions,
+  ) => Promise<SecurityAlert[]>;
 };
 
 type SecurityCheckerProviderHarness = {
@@ -74,18 +79,165 @@ const createCheckerWithMockAlerts = (
   options: ConstructorParameters<typeof SecurityChecker>[0] = {},
   alerts: SecurityAlert[] = [],
 ): SecurityChecker => {
-  const checker = new SecurityChecker({
-    provider: "osv",
-    noCache: true,
-    ...options,
-  });
+  const checkerOptions = Object.assign({}, { provider: "osv", noCache: true }, options);
+  const checker = new SecurityChecker(checkerOptions);
   return mockProviderAlerts(checker, alerts);
+};
+
+const createBuiltInBestCaseConfig = (): PastoralistJSON => ({
+  name: "best-case-test",
+  version: "1.0.0",
+  dependencies: { alpha: "1.0.0" },
+  pastoralist: { bestCase: { enabled: true } },
+});
+
+const createUserOwnedBestCaseConfig = (): PastoralistJSON => {
+  const config = createBuiltInBestCaseConfig();
+  config.overrides = { alpha: "2.5.0" };
+  config.pastoralist!.bestCase!.userOwnedOverrides = ["alpha"];
+  return config;
+};
+
+const getLockedPackagePath = (name: string, index: number): string => {
+  if (index === 0) return `node_modules/${name}`;
+  return `node_modules/wrapper-${index}/node_modules/${name}`;
+};
+
+const createBestCaseRoot = (
+  packages: SecurityPackage[] = [{ name: "alpha", version: "1.0.0" }],
+): string => {
+  const root = path.join(TEST_DIR, "best-case-root");
+  const entries = packages.map(({ name, version }, index) => {
+    return [getLockedPackagePath(name, index), { version }];
+  });
+  const lockedPackages = Object.fromEntries([["", {}]].concat(entries));
+  const lock = { lockfileVersion: 3, packages: lockedPackages };
+  fs.mkdirSync(root, { recursive: true });
+  fs.writeFileSync(path.join(root, "package-lock.json"), JSON.stringify(lock));
+  return root;
+};
+
+const createLegacyBunRoot = (): string => {
+  const root = path.join(TEST_DIR, "legacy-bun-root");
+  fs.mkdirSync(root, { recursive: true });
+  fs.writeFileSync(path.join(root, "bun.lockb"), "legacy binary lockfile");
+  return root;
+};
+
+const createBestCaseOptions = (
+  options: SecurityCheckRuntimeOptions = {},
+  packages?: SecurityPackage[],
+): SecurityCheckRuntimeOptions => {
+  const root = createBestCaseRoot(packages);
+  return Object.assign({ root }, options);
+};
+
+const createBestCaseAlert = (severity: SecurityAlert["severity"] = "high"): SecurityAlert => {
+  return createAlert({
+    packageName: "alpha",
+    currentVersion: "1.0.0",
+    vulnerableVersions: "<2.0.0",
+    patchedVersion: "2.0.0",
+    severity,
+  });
+};
+
+const createPnpmPeerBestCaseRoot = (): string => {
+  const root = path.join(TEST_DIR, "pnpm-peer-best-case-root");
+  const content = [
+    "lockfileVersion: '9.0'",
+    "packages:\n  alpha@1.5.0: {}",
+    "snapshots:\n  alpha@1.5.0(react@18.2.0): {}",
+  ].join("\n");
+  fs.mkdirSync(root, { recursive: true });
+  fs.writeFileSync(path.join(root, "pnpm-lock.yaml"), content);
+  return root;
+};
+
+const mockLatestBestCaseVersion = (checker: SecurityChecker): void => {
+  spyOn(checker as any, "fetchLatestForVulnerablePackages").mockResolvedValue(
+    new Map([["alpha", "2.0.0"]]),
+  );
+};
+
+const createLockedBaselineChecker = (): SecurityChecker => {
+  const alert = Object.assign({}, createBestCaseAlert(), {
+    vulnerableVersions: "<1.2.0",
+    patchedVersion: "1.2.0",
+  });
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  spyOn(getFirstProvider(checker), "fetchAlerts").mockImplementation(([pkg]) => {
+    expect(pkg.version).not.toContain("(");
+    const alerts = pkg.version === "1.0.0" ? [alert] : [];
+    return Promise.resolve(alerts);
+  });
+  mockLatestBestCaseVersion(checker);
+  return checker;
+};
+
+const createBestCaseUpdate = () => ({
+  packageName: "alpha",
+  currentOverride: "2.0.0",
+  newerVersion: "2.5.0",
+  reason: "Newer security patch available",
+  addedDate: "2024-01-15T00:00:00.000Z",
+});
+
+const mockBestCaseUpdate = (checker: SecurityChecker) => {
+  const update = createBestCaseUpdate();
+  spyOn(checker as any, "checkOverrideUpdates").mockReturnValue([update]);
+  return update;
+};
+
+const mockUserOwnedPrompts = (update: ReturnType<typeof createBestCaseUpdate>) => {
+  const manager = securityUtils.InteractiveSecurityManager.prototype;
+  const ownership = spyOn(manager, "promptForUserOwnedOverrides").mockResolvedValue([update]);
+  const portfolio = spyOn(manager, "promptForBestCasePortfolio").mockImplementation(
+    (_alerts, overrides) => Promise.resolve(overrides),
+  );
+  return () => {
+    ownership.mockRestore();
+    portfolio.mockRestore();
+  };
+};
+
+const getFirstProvider = (checker: SecurityChecker): FetchAlertsProvider => {
+  const harness = checker as unknown as SecurityCheckerProviderHarness;
+  return harness.providers[0];
 };
 
 const createTempCacheDir = (name: string): string => {
   const dir = path.join(TEST_DIR, `${name}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   fs.mkdirSync(dir, { recursive: true });
   return dir;
+};
+
+const createPnpmAutoFixFixture = () => {
+  const root = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-pnpm-autofix-"));
+  const packagePath = path.join(root, "package.json");
+  const workspacePath = path.join(root, "pnpm-workspace.yaml");
+  const packageJson = {
+    name: "pnpm-project",
+    version: "1.0.0",
+    packageManager: "pnpm@11.0.0",
+    dependencies: { lodash: "4.17.20" },
+  };
+  fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
+  fs.writeFileSync(workspacePath, '# retained\noverrides:\n  axios: "1.8.0"\n');
+  const checker = new SecurityChecker({ provider: "osv", root });
+  return { root, packagePath, workspacePath, checker };
+};
+
+const assertPnpmAutoFix = (fixture: ReturnType<typeof createPnpmAutoFixFixture>): void => {
+  fixture.checker.applyAutoFix([BASE_SECURITY_OVERRIDE], fixture.packagePath);
+  const updatedPackage = JSON.parse(fs.readFileSync(fixture.packagePath, "utf8"));
+  const updatedWorkspace = fs.readFileSync(fixture.workspacePath, "utf8");
+  expect(updatedPackage.pnpm).toBeUndefined();
+  expect(updatedPackage.overrides).toBeUndefined();
+  expect(updatedPackage.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
+  expect(updatedWorkspace).toContain("# retained");
+  expect(updatedWorkspace).toContain('axios: "1.8.0"');
+  expect(updatedWorkspace).toContain('"lodash": "4.17.21"');
 };
 
 const createExternalJsonAutoFixFixture = (
@@ -115,7 +267,6 @@ const createExternalJsonAutoFixFixture = (
 };
 
 test("Security Alert Detection - should identify vulnerable packages in dependencies", () => {
-  const checker = new SecurityChecker({ debug: false });
   const provider = new GitHubSecurityProvider({ debug: false });
 
   const alerts = provider.convertToSecurityAlerts([mockDependabotAlert]);
@@ -128,15 +279,13 @@ test("Security Alert Detection - should identify vulnerable packages in dependen
 test("Security Alert Detection - should filter out dismissed and fixed alerts", () => {
   const provider = new GitHubSecurityProvider({ debug: false });
 
-  const dismissedAlert: DependabotAlert = {
-    ...mockDependabotAlert,
-    state: "dismissed",
-  };
+  const dismissedAlert: DependabotAlert = Object.assign({}, mockDependabotAlert, {
+    state: "dismissed" as const,
+  });
 
-  const fixedAlert: DependabotAlert = {
-    ...mockDependabotAlert,
-    state: "fixed",
-  };
+  const fixedAlert: DependabotAlert = Object.assign({}, mockDependabotAlert, {
+    state: "fixed" as const,
+  });
 
   const alerts = provider.convertToSecurityAlerts([
     mockDependabotAlert,
@@ -190,7 +339,8 @@ test("Override Generation - should generate correct overrides for vulnerable pac
 
 test("Override Generation - should not generate overrides for packages without fixes", () => {
   const checker = new SecurityChecker({ debug: false });
-  const vulnerablePackages = [createAlert({ packageName: "vulnerable-package", ...NO_FIX_FIELDS })];
+  const alertFields = Object.assign({}, { packageName: "vulnerable-package" }, NO_FIX_FIELDS);
+  const vulnerablePackages = [createAlert(alertFields)];
 
   const latestVersions = new Map<string, string>();
   const overrides = (checker as any).generateOverrides(vulnerablePackages, latestVersions);
@@ -265,7 +415,7 @@ test("Override Generation - should use patched version when latest is not found"
 
 test("Override Generation - should handle multiple packages with different latest versions", () => {
   const checker = new SecurityChecker({ debug: false });
-  const vulnerablePackages = [createAlert(), createAlert({ ...AXIOS_ALERT_FIELDS })];
+  const vulnerablePackages = [createAlert(), createAlert(AXIOS_ALERT_FIELDS)];
 
   const latestVersions = new Map<string, string>([
     ["lodash", "4.17.25"],
@@ -302,10 +452,8 @@ test("Override Generation - should prefer patched when latest is older (edge cas
 
 test("fetchLatestForVulnerablePackages - should extract packages with fixes", async () => {
   const checker = new SecurityChecker({ debug: false, noCache: true });
-  const vulnerablePackages = [
-    createAlert(),
-    createAlert({ packageName: "no-fix-pkg", ...NO_FIX_FIELDS }),
-  ];
+  const noFixFields = Object.assign({}, { packageName: "no-fix-pkg" }, NO_FIX_FIELDS);
+  const vulnerablePackages = [createAlert(), createAlert(noFixFields)];
 
   const mockFetch = mock(() =>
     Promise.resolve({
@@ -516,6 +664,8 @@ test("checkSecurity - should handle devDependencies", async () => {
   expect(result.packagesScanned).toBe(1);
   expect(mockFetchAlerts).toHaveBeenCalledWith([{ name: "typescript", version: "4.0.0" }], {
     root: undefined,
+    requireCompleteScan: false,
+    onIncomplete: expect.any(Function),
   });
 
   mockFetchAlerts.mockRestore();
@@ -547,10 +697,346 @@ test("checkSecurity - should handle both dependencies and devDependencies", asyn
       { name: "lodash", version: "4.17.20" },
       { name: "typescript", version: "4.0.0" },
     ],
-    { root: undefined },
+    { root: undefined, requireCompleteScan: false, onIncomplete: expect.any(Function) },
   );
 
   mockFetchAlerts.mockRestore();
+});
+
+test("checkSecurity - applies the best-case portfolio and records its reason", async () => {
+  const alphaAlert: SecurityAlert = {
+    packageName: "alpha",
+    currentVersion: "1.0.0",
+    vulnerableVersions: "<2.0.0",
+    patchedVersion: "2.0.0",
+    severity: "critical",
+    title: "Alpha vulnerability",
+    cves: ["CVE-ALPHA"],
+    fixAvailable: true,
+  };
+  const betaAlert: SecurityAlert = {
+    packageName: "beta",
+    currentVersion: "1.0.0",
+    vulnerableVersions: "<2.0.0",
+    patchedVersion: "2.0.0",
+    severity: "high",
+    title: "Beta vulnerability",
+    cves: ["CVE-BETA"],
+    fixAvailable: true,
+  };
+  const checker = createCheckerWithMockAlerts({}, [alphaAlert, betaAlert]);
+  spyOn(checker as any, "fetchLatestForVulnerablePackages").mockResolvedValue(
+    new Map([
+      ["alpha", "2.0.0"],
+      ["beta", "2.0.0"],
+    ]),
+  );
+  const bestCaseEvaluator = (state: Record<string, string>) => {
+    const key = `${state.alpha}:${state.beta}`;
+    if (key === "2.0.0:1.0.0") return { alerts: [betaAlert] };
+    if (key === "1.0.0:2.0.0") return { alerts: [alphaAlert] };
+    if (key === "2.0.0:2.0.0") {
+      const mixedAlert = Object.assign({}, alphaAlert, {
+        packageName: "gamma",
+        title: "Mixed-version vulnerability",
+        cves: ["CVE-MIX"],
+      });
+      return { alerts: [mixedAlert] };
+    }
+    return { alerts: [alphaAlert, betaAlert] };
+  };
+  const config: PastoralistJSON = {
+    name: "best-case-test",
+    version: "1.0.0",
+    dependencies: { alpha: "1.0.0", beta: "1.0.0" },
+    pastoralist: { bestCase: { enabled: true } },
+  };
+
+  const packages = [
+    { name: "alpha", version: "1.0.0" },
+    { name: "beta", version: "1.0.0" },
+  ];
+  const options = createBestCaseOptions({ bestCaseEvaluator }, packages);
+  const result = await checker.checkSecurity(config, options);
+
+  expect(result.bestCase?.selectedState).toEqual({ alpha: "2.0.0", beta: "1.0.0" });
+  expect(result.bestCase?.search.provenOptimal).toBe(true);
+  expect(result.overrides).toHaveLength(1);
+  expect(result.overrides[0].packageName).toBe("alpha");
+  expect(result.overrides[0].cves).toEqual(["CVE-ALPHA"]);
+  expect(result.overrides[0].ledgerReason).toMatchObject({
+    type: "best-case",
+    decisionId: result.bestCase?.decisionId,
+  });
+});
+
+test("checkSecurity - reports independent updates for a non-interactive portfolio", async () => {
+  const checker = createCheckerWithMockAlerts({}, [createBestCaseAlert()]);
+  mockLatestBestCaseVersion(checker);
+  const update = mockBestCaseUpdate(checker);
+
+  const options = createBestCaseOptions({
+    bestCaseEvaluator: () => ({ alerts: [] }),
+  });
+  const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
+
+  expect(result.bestCase).toBeDefined();
+  expect(result.updates).toEqual([update]);
+});
+
+test("checkSecurity - hard-constrains configured user-owned overrides", async () => {
+  const checker = createCheckerWithMockAlerts({}, [createBestCaseAlert()]);
+  const config = createUserOwnedBestCaseConfig();
+  mockLatestBestCaseVersion(checker);
+
+  const options = createBestCaseOptions({
+    bestCaseEvaluator: () => ({ alerts: [] }),
+  });
+  const result = await checker.checkSecurity(config, options);
+
+  expect(result.bestCase?.selectedState).toEqual({ alpha: "2.5.0" });
+  expect(result.overrides[0].toVersion).toBe("2.5.0");
+});
+
+test("checkSecurity - preserves user-owned overrides during standard fallback", async () => {
+  const checker = new SecurityChecker({ provider: "github", noCache: true });
+  spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([createBestCaseAlert()]);
+  mockLatestBestCaseVersion(checker);
+  mockBestCaseUpdate(checker);
+
+  const result = await checker.checkSecurity(createUserOwnedBestCaseConfig());
+
+  expect(result.bestCase).toBeUndefined();
+  expect(result.overrides).toEqual([]);
+  expect(result.updates).toEqual([]);
+});
+
+test("checkSecurity - rejects user-owned packages without string overrides", async () => {
+  const checker = createCheckerWithMockAlerts({}, [createBestCaseAlert()]);
+  const config = createBuiltInBestCaseConfig();
+  config.pastoralist!.bestCase!.userOwnedOverrides = ["alpha"];
+  mockLatestBestCaseVersion(checker);
+
+  const options = createBestCaseOptions({
+    bestCaseEvaluator: () => ({ alerts: [] }),
+  });
+  const check = checker.checkSecurity(config, options);
+
+  await expect(check).rejects.toThrow("User-owned override alpha must reference a string override");
+});
+
+test("checkSecurity - returns interactive user-owned approvals for persistence", async () => {
+  const checker = createCheckerWithMockAlerts({}, [createBestCaseAlert()]);
+  const update = mockBestCaseUpdate(checker);
+  mockLatestBestCaseVersion(checker);
+  const restorePrompts = mockUserOwnedPrompts(update);
+
+  const options = createBestCaseOptions({
+    bestCaseEvaluator: () => ({ alerts: [] }),
+    interactive: true,
+  });
+  const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
+
+  expect(result.userOwnedOverridesAdded).toEqual(["alpha"]);
+  expect(result.bestCase?.selectedState.alpha).toBe("2.5.0");
+  restorePrompts();
+});
+
+test("checkSecurity - filters built-in best-case alerts by severity", async () => {
+  const highAlert = createBestCaseAlert("high");
+  const lowAlert = createBestCaseAlert("low");
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  spyOn(getFirstProvider(checker), "fetchAlerts").mockImplementation((packages) => {
+    const isPatchedVersion = packages[0].version === "2.0.0";
+    const alerts = isPatchedVersion ? [lowAlert] : [highAlert];
+    return Promise.resolve(alerts);
+  });
+  mockLatestBestCaseVersion(checker);
+
+  const options = createBestCaseOptions({
+    severityThreshold: "high",
+  });
+  const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
+
+  expect(result.bestCase?.selectedEvaluation.alerts).toEqual([]);
+  expect(result.bestCase?.impact.remainingVulnerabilities).toBe(0);
+});
+
+test("checkSecurity - builds best-case baselines from locked versions", async () => {
+  const checker = createLockedBaselineChecker();
+  const config = createBuiltInBestCaseConfig();
+  config.dependencies = { alpha: "^1.0.0" };
+  config.pastoralist!.bestCase!.objectives = ["critical"];
+  const options = { root: createPnpmPeerBestCaseRoot() };
+
+  const result = await checker.checkSecurity(config, options);
+
+  expect(result.bestCase?.baselineState).toEqual({ alpha: "1.5.0" });
+  expect(result.bestCase?.selectedState).toEqual({ alpha: "1.5.0" });
+  expect(result.overrides).toEqual([]);
+});
+
+test("checkSecurity - reports unsupported legacy Bun inventory", async () => {
+  const checker = createCheckerWithMockAlerts({}, [createBestCaseAlert()]);
+  mockLatestBestCaseVersion(checker);
+  const root = createLegacyBunRoot();
+
+  try {
+    const result = checker.checkSecurity(createBuiltInBestCaseConfig(), { root });
+    await expect(result).rejects.toThrow("Legacy bun.lockb is unsupported");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("checkSecurity - reuses cached baseline without best-case progress spam", async () => {
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([
+    createBestCaseAlert(),
+  ]);
+  const onProgress = mock(() => undefined);
+  mockLatestBestCaseVersion(checker);
+
+  const options = createBestCaseOptions({ onProgress });
+  await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
+
+  const fetchingEvents = onProgress.mock.calls.filter(([event]) => event.phase === "fetching");
+  expect(fetchAlerts).toHaveBeenCalledTimes(2);
+  expect(fetchingEvents).toHaveLength(1);
+});
+
+test("checkSecurity - rejects incomplete built-in best-case evaluations", async () => {
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  spyOn(getFirstProvider(checker), "fetchAlerts").mockImplementation((packages) => {
+    const isUnavailable = packages[0].version === "2.0.0";
+    if (isUnavailable) return Promise.reject(new Error("provider unavailable"));
+    return Promise.resolve([createBestCaseAlert()]);
+  });
+  mockLatestBestCaseVersion(checker);
+
+  const options = createBestCaseOptions();
+  const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
+
+  expect(result.bestCase?.selectedState).toEqual({ alpha: "1.0.0" });
+  expect(result.bestCase?.failedStates).toBe(1);
+  expect(result.overrides).toEqual([]);
+});
+
+test("checkSecurity - uses standard overrides for state-unaware providers", async () => {
+  const checker = new SecurityChecker({ provider: "github", noCache: true });
+  spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([createBestCaseAlert()]);
+  mockLatestBestCaseVersion(checker);
+
+  const result = await checker.checkSecurity(createBuiltInBestCaseConfig());
+
+  expect(result.bestCase).toBeUndefined();
+  expect(result.overrides).toHaveLength(1);
+  expect(result.overrides[0].toVersion).toBe("2.0.0");
+});
+
+test("checkSecurity - uses standard overrides for multi-version baselines", async () => {
+  const firstAlert = createBestCaseAlert();
+  const secondAlert = Object.assign({}, firstAlert, {
+    currentVersion: "2.0.0",
+    vulnerableVersions: "<3.0.0",
+    patchedVersion: "3.0.0",
+  });
+  const inventory = [
+    { name: "alpha", version: "1.0.0" },
+    { name: "alpha", version: "2.0.0" },
+  ];
+  const checker = createCheckerWithMockAlerts({}, [firstAlert, secondAlert]);
+  spyOn(checker as any, "fetchLatestForVulnerablePackages").mockResolvedValue(
+    new Map([["alpha", "3.0.0"]]),
+  );
+
+  const options = createBestCaseOptions({}, inventory);
+  const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
+
+  expect(result.bestCase).toBeUndefined();
+  expect(result.overrides.some((override) => override.toVersion === "3.0.0")).toBe(true);
+});
+
+test("checkSecurity - uses standard overrides when an installed version has no alert", async () => {
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([
+    createBestCaseAlert(),
+  ]);
+  const inventory = [
+    { name: "alpha", version: "1.0.0" },
+    { name: "alpha", version: "1.5.0" },
+  ];
+  mockLatestBestCaseVersion(checker);
+
+  const options = createBestCaseOptions({}, inventory);
+  const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
+
+  expect(result.bestCase).toBeUndefined();
+  expect(result.overrides[0].toVersion).toBe("2.0.0");
+  expect(fetchAlerts).toHaveBeenCalledTimes(1);
+});
+
+test("checkSecurity - uses standard overrides when lockfile inventory is incomplete", async () => {
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([createBestCaseAlert()]);
+  mockLatestBestCaseVersion(checker);
+  const root = path.resolve(__dirname, ".missing-inventory-root");
+
+  const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), { root });
+
+  expect(result.bestCase).toBeUndefined();
+  expect(result.overrides[0].toVersion).toBe("2.0.0");
+});
+
+test("checkSecurity - resolves lockfile inventory beside the package manifest", async () => {
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([createBestCaseAlert()]);
+  mockLatestBestCaseVersion(checker);
+  const root = path.resolve(__dirname, ".missing-manifest-root");
+  const packageJsonPath = path.join(root, "package.json");
+
+  const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), { packageJsonPath });
+
+  expect(result.bestCase).toBeUndefined();
+  expect(result.overrides[0].toVersion).toBe("2.0.0");
+});
+
+test("checkSecurity - omits best-case provenance when interactive approval is declined", async () => {
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  spyOn(getFirstProvider(checker), "fetchAlerts").mockImplementation((packages) => {
+    const isPatchedVersion = packages[0].version === "2.0.0";
+    const alerts = isPatchedVersion ? [] : [createBestCaseAlert()];
+    return Promise.resolve(alerts);
+  });
+  const prompt = spyOn(
+    securityUtils.InteractiveSecurityManager.prototype,
+    "promptForBestCasePortfolio",
+  ).mockResolvedValue([]);
+  mockLatestBestCaseVersion(checker);
+
+  const options = createBestCaseOptions({
+    interactive: true,
+  });
+  const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
+
+  expect(result.overrides).toEqual([]);
+  expect(result.bestCase).toBeUndefined();
+  prompt.mockRestore();
+});
+
+test("checkSecurity - prompts for standard security overrides", async () => {
+  const checker = createCheckerWithMockAlerts({}, [createBestCaseAlert()]);
+  mockLatestBestCaseVersion(checker);
+  const manager = securityUtils.InteractiveSecurityManager.prototype;
+  const prompt = spyOn(manager, "promptForSecurityActions").mockResolvedValue([]);
+  try {
+    const options = { interactive: true, bestCase: { enabled: false } };
+    const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
+    expect(prompt).toHaveBeenCalled();
+    expect(result.overrides).toEqual([]);
+  } finally {
+    prompt.mockRestore();
+  }
 });
 
 test("createProvider - should create OSV provider", () => {
@@ -1105,44 +1591,13 @@ test("applyAutoFix - should apply security overrides to package.json", async () 
   mockConsoleLog.mockRestore();
 });
 
-test("applyAutoFix - should write pnpm 11 overrides to the workspace manifest", async () => {
-  const root = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-pnpm-autofix-"));
-  const packagePath = path.join(root, "package.json");
-  const workspacePath = path.join(root, "pnpm-workspace.yaml");
-  const packageJson = {
-    name: "pnpm-project",
-    version: "1.0.0",
-    packageManager: "pnpm@11.0.0",
-    dependencies: { lodash: "4.17.20" },
-  };
-  fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
-  fs.writeFileSync(workspacePath, '# retained\noverrides:\n  axios: "1.8.0"\n');
-  const checker = new SecurityChecker({ provider: "osv", root });
+test("applyAutoFix - should write pnpm 11 overrides to the workspace manifest", () => {
+  const fixture = createPnpmAutoFixFixture();
 
   try {
-    checker.applyAutoFix(
-      [
-        {
-          packageName: "lodash",
-          fromVersion: "4.17.20",
-          toVersion: "4.17.21",
-          reason: "Security fix",
-          severity: "high",
-        },
-      ],
-      packagePath,
-    );
-
-    const updatedPackage = JSON.parse(fs.readFileSync(packagePath, "utf8"));
-    const updatedWorkspace = fs.readFileSync(workspacePath, "utf8");
-    expect(updatedPackage.pnpm).toBeUndefined();
-    expect(updatedPackage.overrides).toBeUndefined();
-    expect(updatedPackage.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
-    expect(updatedWorkspace).toContain("# retained");
-    expect(updatedWorkspace).toContain('axios: "1.8.0"');
-    expect(updatedWorkspace).toContain('"lodash": "4.17.21"');
+    assertPnpmAutoFix(fixture);
   } finally {
-    fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(fixture.root, { recursive: true, force: true });
   }
 });
 
@@ -1548,11 +2003,12 @@ test("checkSecurity - expires in-memory alerts using cache TTL seconds", async (
   const originalFetch = global.fetch;
   let now = 1_000;
   const nowSpy = spyOn(Date, "now").mockImplementation(() => now);
-  const fetchMock = mock(async () => {
-    return new Response(JSON.stringify({ results: [{}] }), {
+  const fetchMock = mock(() => {
+    const response = new Response(JSON.stringify({ results: [{}] }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
+    return Promise.resolve(response);
   });
   global.fetch = fetchMock as unknown as typeof fetch;
 
@@ -1589,6 +2045,35 @@ test("checkSecurity - skipCacheWrite does not seed in-memory alerts cache", asyn
   await checker.checkSecurity(config, { skipCacheWrite: true });
   await checker.checkSecurity(config);
   await checker.checkSecurity(config);
+
+  expect(fetchAlerts).toHaveBeenCalledTimes(2);
+});
+
+test("checkSecurity - does not cache incomplete provider scans", async () => {
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts")
+    .mockRejectedValueOnce(new Error("provider unavailable"))
+    .mockResolvedValue([]);
+  const config = createBuiltInBestCaseConfig();
+
+  await checker.checkSecurity(config, { bestCase: { enabled: false } });
+  await checker.checkSecurity(config, { bestCase: { enabled: false } });
+
+  expect(fetchAlerts).toHaveBeenCalledTimes(2);
+});
+
+test("checkSecurity - does not cache provider-reported partial scans", async () => {
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockImplementation(
+    (_packages, options) => {
+      options?.onIncomplete?.();
+      return Promise.resolve([]);
+    },
+  );
+  const config = createBuiltInBestCaseConfig();
+
+  await checker.checkSecurity(config, { bestCase: { enabled: false } });
+  await checker.checkSecurity(config, { bestCase: { enabled: false } });
 
   expect(fetchAlerts).toHaveBeenCalledTimes(2);
 });

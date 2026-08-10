@@ -1,4 +1,4 @@
-import type { SecurityAlert } from "../../../types";
+import type { SecurityAlert, SecurityProviderScanOptions } from "../../../types";
 import { logger } from "../../../utils";
 import { SPEKTION_API, SEVERITY_MAP } from "../constants";
 import type { Severity } from "../types";
@@ -71,36 +71,45 @@ export class SpektionProvider {
     this.log.debug("SpektionProvider initialized (experimental)", "constructor");
   }
 
-  async isAuthenticated(): Promise<boolean> {
+  isAuthenticated(): boolean {
     return Boolean(this.token);
   }
 
   async fetchAlerts(
     packages: Array<{ name: string; version: string }>,
-    _options: { root?: string } = {},
+    options: SecurityProviderScanOptions = {},
   ): Promise<SecurityAlert[]> {
     if (!this.token) {
-      this.log.print(
-        "Spektion requires authentication. Set SPEKTION_API_KEY or provide --securityProviderToken.",
-      );
-      return [];
+      return this.handleMissingToken(options);
     }
 
     try {
       return await scanPackages(this.token, packages);
     } catch (error) {
-      const reason = error instanceof Error ? error.message : "Unknown error";
-      if (this.strict) {
-        throw new Error(
-          `Spektion security check failed. Reason: ${reason}. Failing due to --strict mode.`,
-        );
-      }
-      this.log.warn(
-        `Spektion security check failed. Your dependencies were NOT checked. ` +
-          `Reason: ${reason}. Run with --debug for details or --strict to fail on errors.`,
-        "fetchAlerts",
-      );
-      return [];
+      return this.handleScanError(error, options);
     }
+  }
+
+  private handleMissingToken(options: SecurityProviderScanOptions): SecurityAlert[] {
+    const message =
+      "Spektion requires authentication. Set SPEKTION_API_KEY or provide --securityProviderToken.";
+    if (options.requireCompleteScan) throw new Error(message);
+    options.onIncomplete?.();
+    this.log.print(message);
+    return [];
+  }
+
+  private handleScanError(error: unknown, options: SecurityProviderScanOptions): SecurityAlert[] {
+    const reason = error instanceof Error ? error.message : "Unknown error";
+    const shouldFail = this.strict || options.requireCompleteScan;
+    if (shouldFail) {
+      throw new Error(`Spektion security check failed. Reason: ${reason}.`);
+    }
+    options.onIncomplete?.();
+    const message =
+      `Spektion security check failed. Your dependencies were NOT checked. ` +
+      `Reason: ${reason}. Run with --debug for details or --strict to fail on errors.`;
+    this.log.warn(message, "fetchAlerts");
+    return [];
   }
 }

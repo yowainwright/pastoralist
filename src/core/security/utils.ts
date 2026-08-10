@@ -1,5 +1,6 @@
 import type {
   PastoralistJSON,
+  OverrideUpdate,
   SecurityAlert,
   SecurityOverride,
   SecurityProviderType,
@@ -355,7 +356,7 @@ export const createPromptInterface = () => {
   });
 };
 
-const questionWithTimeout = async (
+const questionWithTimeout = (
   rl: readline.Interface,
   prompt: string,
   timeout: number,
@@ -489,7 +490,7 @@ export const promptInput = async (message: string, defaultValue = ""): Promise<s
   }
 };
 
-export const promptSecret = async (message: string, defaultValue = ""): Promise<string> => {
+export const promptSecret = (message: string, defaultValue = ""): Promise<string> => {
   if (!isInteractiveSecretPrompt()) {
     return promptInput(message, defaultValue);
   }
@@ -632,6 +633,40 @@ export class InteractiveSecurityManager {
       suggestedOverrides,
     );
     return this.confirmSelectedOverrides(selectedOverrides);
+  }
+
+  async promptForBestCasePortfolio(
+    vulnerablePackages: SecurityAlert[],
+    suggestedOverrides: SecurityOverride[],
+  ): Promise<SecurityOverride[]> {
+    this.printSecurityReview(vulnerablePackages);
+    this.printSelectedOverrides(suggestedOverrides);
+    const message = "Apply this complete best-case portfolio without edits?";
+    const accepted = await this.prompts.confirm(message, true);
+    if (!accepted) return [];
+    return suggestedOverrides;
+  }
+
+  async promptForUserOwnedOverrides(updates: OverrideUpdate[]): Promise<OverrideUpdate[]> {
+    const [update, ...remaining] = updates;
+    if (!update) return [];
+    const isUserOwned = await this.promptForUserOwnedOverride(update);
+    const selected = await this.promptForUserOwnedOverrides(remaining);
+    if (!isUserOwned) return selected;
+    return [update].concat(selected);
+  }
+
+  private promptForUserOwnedOverride(update: OverrideUpdate): Promise<boolean> {
+    const addedDate = this.formatUserOwnedAddedDate(update);
+    const subject = `${update.packageName}@${update.newerVersion}`;
+    const message = `Mark ${subject} as user-owned and force it into the best-case portfolio?`;
+    const prompt = message + addedDate;
+    return this.prompts.confirm(prompt, false);
+  }
+
+  private formatUserOwnedAddedDate(update: OverrideUpdate): string {
+    if (!update.addedDate) return "";
+    return ` Existing override added ${update.addedDate}.`;
   }
 
   private printSecurityReview(vulnerablePackages: SecurityAlert[]): void {

@@ -1,4 +1,4 @@
-import { test, expect, mock } from "bun:test";
+import { test, expect } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -8,7 +8,6 @@ import {
   mergeAllConfigs,
   findRemovableOverrides,
   hasConfigOverrides,
-  findPackageFiles,
   writeResult,
 } from "../../../../src/core/update/utils";
 import type {

@@ -88,9 +88,8 @@ export const buildKey =
 export const atKey = buildKey("@");
 export const colonKey = buildKey(":");
 
-export const getLedgerAddedDate = async (
-  createDate: () => string = DEFAULT_LEDGER_DATE,
-): Promise<string> => createDate();
+export const getLedgerAddedDate = (createDate: () => string = DEFAULT_LEDGER_DATE): string =>
+  createDate();
 
 export {
   createSpinner,

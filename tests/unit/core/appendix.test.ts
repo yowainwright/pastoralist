@@ -1,4 +1,4 @@
-import { test, expect, beforeEach, afterEach } from "bun:test";
+import { test, expect, beforeEach, afterEach, mock } from "bun:test";
 import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from "fs";
 import { resolve } from "path";
 import {
@@ -814,9 +814,9 @@ test("constructAppendix - logs debug info when workspace has overrides", () => {
     }),
   );
 
-  const debugLogs: string[] = [];
+  const debug = mock((_message: string) => {});
   const log = {
-    debug: (msg: string) => debugLogs.push(msg),
+    debug,
     error: () => {},
     info: () => {},
     warn: () => {},
@@ -826,7 +826,8 @@ test("constructAppendix - logs debug info when workspace has overrides", () => {
 
   constructAppendix([resolve(pkgDir, "package.json")], overridesData, log);
 
-  expect(debugLogs.some((log) => log.includes("overrides"))).toBe(true);
+  const debugMessages = debug.mock.calls.flat();
+  expect(debugMessages.some((message) => message.includes("overrides"))).toBe(true);
 });
 
 test("constructAppendix - aggregates appendices from multiple results", () => {

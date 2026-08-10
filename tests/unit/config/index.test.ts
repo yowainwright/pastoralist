@@ -192,11 +192,12 @@ test("loadCliConfig - uses source-aware config loading", async () => {
   const deps: CliConfigDeps = {
     resolveJSON: () => packageConfig,
     buildMergedOptions: () => ({}),
-    loadConfigWithSource: async () => ({
-      appendixTarget: { path: "ledger.json" },
-      config: {},
-      source: undefined,
-    }),
+    loadConfigWithSource: () =>
+      Promise.resolve({
+        appendixTarget: { path: "ledger.json" },
+        config: {},
+        source: undefined,
+      }),
   };
 
   const loaded = await loadCliConfig({}, {}, deps);
@@ -254,6 +255,20 @@ test("mergeConfigs - should override base with override", () => {
 
   const result = mergeConfigs(base, override);
   expect(result.security?.enabled).toBe(true);
+});
+
+test("mergeConfigs - deep merges best-case search tuning", () => {
+  const baseSearch = { exactStateLimit: 256, beamWidth: 16 };
+  const baseBestCase = { enabled: true, riskAggregation: "both" as const, search: baseSearch };
+  const base = { bestCase: baseBestCase };
+  const overrideSearch = { beamWidth: 8, maxEvaluations: 500 };
+  const override = { bestCase: { search: overrideSearch } };
+
+  const result = mergeConfigs(base, override);
+
+  const expectedSearch = { exactStateLimit: 256, beamWidth: 8, maxEvaluations: 500 };
+  const expected = { enabled: true, riskAggregation: "both", search: expectedSearch };
+  expect(result?.bestCase).toEqual(expected);
 });
 
 test("mergeConfigs - should deep merge appendix", () => {
@@ -398,7 +413,9 @@ test("loadExternalConfig - ignores TypeScript config files", async () => {
   clearConfigCache();
   const originalWarn = console.warn;
   const warnings: string[] = [];
-  console.warn = (message: string) => warnings.push(message);
+  console.warn = (message: string) => {
+    warnings[warnings.length] = message;
+  };
   let config: Awaited<ReturnType<typeof loadExternalConfig>>;
   try {
     config = await loadExternalConfig(testDir);

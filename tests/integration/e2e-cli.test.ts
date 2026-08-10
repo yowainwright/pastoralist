@@ -1,8 +1,8 @@
-import { test, expect, beforeEach, afterEach, mock, spyOn } from "bun:test";
+import { test, expect, beforeEach, afterEach, mock } from "bun:test";
 import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync, readdirSync } from "fs";
 import { resolve, join } from "path";
 import { action } from "../../src/cli/index";
-import type { Options, KeepConstraint } from "../../src/types";
+import type { KeepConstraint } from "../../src/types";
 import * as packageJSON from "../../src/core/package";
 import { clearOSVCache } from "../../src/core/security/providers/osv";
 import { clearRegistryCache } from "../../src/utils/npm";

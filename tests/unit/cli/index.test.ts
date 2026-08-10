@@ -1,9 +1,10 @@
 import { test, expect, mock } from "bun:test";
 import type { Options, PastoralistJSON } from "../../../src/types";
 import { logger as createLogger } from "../../../src/utils";
-import { determineSecurityScanPaths } from "../../../src/cli/index";
+import { determineSecurityScanPaths, runSecurityPhase } from "../../../src/cli/index";
 import { clearConfigCache } from "../../../src/config";
 import { resolve } from "path";
+import { createMockSecurityResults } from "./mocks";
 import {
   safeWriteFileSync as writeFileSync,
   safeMkdirSync as mkdirSync,
@@ -12,6 +13,11 @@ import {
 } from "../setup";
 
 const log = createLogger({ file: "test.ts", isLogging: false });
+const captureLine =
+  (lines: string[]) =>
+  (message: string): void => {
+    lines[lines.length] = message;
+  };
 const actionExternalConfigDir = resolve(__dirname, "..", ".test-action-external-config");
 const EXTERNAL_OVERRIDE_CONFIG: PastoralistJSON = {
   name: "test-app",
@@ -29,6 +35,17 @@ const CLI_SECURITY_OVERRIDE = {
   toVersion: "4.17.21",
   reason: "Security fix",
   severity: "high",
+};
+
+const createBestCaseOptions = (): { config: PastoralistJSON; options: Options } => {
+  const config: PastoralistJSON = {
+    name: "owned-test",
+    version: "1.0.0",
+    pastoralist: { bestCase: { enabled: true, userOwnedOverrides: ["beta"] } },
+  };
+  const bestCase = config.pastoralist!.bestCase!;
+  const options = { checkSecurity: true, bestCase, config, manifestConfig: config };
+  return { config, options };
 };
 
 const createMockTerminalGraph = () => {
@@ -214,6 +231,20 @@ test("buildSecurityOverrideDetail - builds complete detail object", () => {
   expect(result.severity).toBe("high");
   expect(result.description).toBe("Prototype pollution vulnerability");
   expect(result.url).toBe("https://nvd.nist.gov/vuln/detail/CVE-2021-23337");
+});
+
+test("buildSecurityOverrideDetail - prefers a structured ledger reason", () => {
+  const { buildSecurityOverrideDetail } = require("../../../src/cli/index");
+  const ledgerReason = {
+    type: "project",
+    summary: "Pinned for compatibility",
+    pin: "4.17.21",
+  };
+  const override = Object.assign({}, CLI_SECURITY_OVERRIDE, { ledgerReason });
+
+  const result = buildSecurityOverrideDetail(override);
+
+  expect(result.reason).toEqual(ledgerReason);
 });
 
 test("buildSecurityOverrideDetail - excludes missing optional fields", () => {
@@ -648,6 +679,40 @@ test("handleSecurityResults - applies updates when autoFix enabled", () => {
   expect(result.securityOverrides).toEqual({ vite: "6.4.1" });
 });
 
+const createBestCaseUpdateFixture = () => {
+  const update = {
+    packageName: "vite",
+    currentOverride: "6.3.6",
+    newerVersion: "6.4.1",
+    reason: "Newer patch available",
+  };
+  const checker = {
+    generatePackageOverrides: mock(() => ({ vite: "6.4.1" })),
+    applyAutoFix: mock(),
+  };
+  const spinner = { stop: mock() };
+  return { update, checker, spinner };
+};
+
+test("handleSecurityResults - does not auto-apply updates beside best-case results", () => {
+  const { handleSecurityResults } = require("../../../src/cli/index");
+  const { update, checker, spinner } = createBestCaseUpdateFixture();
+
+  const result = handleSecurityResults(
+    [],
+    [],
+    checker as any,
+    spinner as any,
+    { forceSecurityRefactor: true },
+    [update],
+    true,
+  );
+
+  expect(result).toEqual({});
+  expect(checker.generatePackageOverrides).not.toHaveBeenCalled();
+  expect(checker.applyAutoFix).not.toHaveBeenCalled();
+});
+
 test("handleSecurityResults - merges updates with new overrides", () => {
   const { handleSecurityResults } = require("../../../src/cli/index");
 
@@ -855,7 +920,7 @@ test("determineSecurityScanPaths - skips workspace manifest read when depPaths a
   const root = resolve(__dirname, "..", ".test-security-scan-paths");
   const workspaceManifestPath = resolve(root, "pnpm-workspace.yaml");
   const debug = mock(() => {});
-  const debugLog = { ...log, debug };
+  const debugLog = Object.assign({}, log, { debug });
 
   const config: PastoralistJSON = {
     name: "test",
@@ -1467,6 +1532,27 @@ test("runSecurityCheck - creates spinner and security checker", async () => {
   expect(result.updates).toEqual([]);
 });
 
+test("runSecurityPhase persists approved user-owned overrides in package config", async () => {
+  const { config, options } = createBestCaseOptions();
+  const scan = Object.assign(createMockSecurityResults(), {
+    userOwnedOverridesAdded: ["alpha"],
+  });
+  const deps = {
+    runSecurityCheck: mock(() => Promise.resolve(scan)),
+    handleSecurityResults: mock(() => ({})),
+    quickConfirm: mock(() => Promise.resolve(true)),
+  };
+
+  const graph = createMockTerminalGraph();
+  const result = await runSecurityPhase(graph, config, options, true, false, log, deps);
+
+  expect(result.mergedOptions.manifestConfig).toMatchObject({
+    pastoralist: {
+      bestCase: { enabled: true, userOwnedOverrides: ["beta", "alpha"] },
+    },
+  });
+});
+
 test("runSecurityCheck - passes correct options to SecurityChecker", async () => {
   const { runSecurityCheck } = require("../../../src/cli/index");
 
@@ -1567,11 +1653,12 @@ test("runSecurityCheck - uses determineSecurityScanPaths for depPaths", async ()
   expect(mockDetermineSecurityScanPaths).toHaveBeenCalledWith(config, mergedOptions, log);
   expect(mockSecurityChecker.checkSecurity).toHaveBeenCalledWith(
     config,
-    expect.objectContaining({
-      ...mergedOptions,
-      depPaths: ["packages/*/package.json", "apps/*/package.json"],
-      root: "./",
-    }),
+    expect.objectContaining(
+      Object.assign({}, mergedOptions, {
+        depPaths: ["packages/*/package.json", "apps/*/package.json"],
+        root: "./",
+      }),
+    ),
   );
 });
 
@@ -1597,7 +1684,7 @@ test("action - handles test mode early return", async () => {
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -1629,7 +1716,7 @@ test("action - handles init mode early return", async () => {
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -1668,7 +1755,7 @@ test("action - resolves package.json and runs update", async () => {
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -1703,7 +1790,6 @@ test("action - runs security check when enabled", async () => {
   };
 
   const mockSpinner = {
-    stop: mock(),
     start: mock(() => mockSpinner),
     succeed: mock(),
     stop: mock(),
@@ -1721,7 +1807,7 @@ test("action - runs security check when enabled", async () => {
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -1735,6 +1821,7 @@ test("action - runs security check when enabled", async () => {
     mockSecurityResults.spinner,
     expect.anything(),
     mockSecurityResults.updates,
+    false,
   );
 });
 
@@ -1783,7 +1870,7 @@ test("action - runs security check from top-level config", async () => {
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -1803,7 +1890,6 @@ test("action - handles path with root option", async () => {
   };
 
   const mockSpinner = {
-    stop: mock(),
     start: mock(() => mockSpinner),
     succeed: mock(),
     stop: mock(),
@@ -1821,7 +1907,7 @@ test("action - handles path with root option", async () => {
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -1839,7 +1925,6 @@ test("action - handles absolute path without root", async () => {
   };
 
   const mockSpinner = {
-    stop: mock(),
     start: mock(() => mockSpinner),
     succeed: mock(),
     stop: mock(),
@@ -1857,7 +1942,7 @@ test("action - handles absolute path without root", async () => {
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -1890,7 +1975,7 @@ test("action - calls processExit on error", async () => {
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mockProcessExit,
   };
 
@@ -1920,7 +2005,7 @@ test("action - fails when package.json cannot be loaded", async () => {
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mockProcessExit,
   };
 
@@ -1966,7 +2051,7 @@ test("action - merges external config into package config", async () => {
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -2018,7 +2103,7 @@ test("action - loads external config when package.json has no pastoralist config
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -2056,7 +2141,6 @@ test("action - handles array security provider", async () => {
   };
 
   const mockSpinner = {
-    stop: mock(),
     start: mock(() => mockSpinner),
     succeed: mock(),
     stop: mock(),
@@ -2081,7 +2165,7 @@ test("action - handles array security provider", async () => {
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -2759,7 +2843,9 @@ test("action - continues successfully when security check hits permission error"
   let spinnerCount = 0;
   const mockCreateSpinner = mock(() => {
     spinnerCount++;
-    return spinnerCount === 1 ? mockSecuritySpinner : mockUpdateSpinner;
+    const isSecuritySpinner = spinnerCount === 1;
+    if (isSecuritySpinner) return mockSecuritySpinner;
+    return mockUpdateSpinner;
   });
 
   const mockSecurityChecker = {
@@ -2787,7 +2873,7 @@ test("action - continues successfully when security check hits permission error"
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -2813,7 +2899,6 @@ test("action - does not call handleSecurityResults when security check is skippe
   };
 
   const mockSpinner = {
-    stop: mock(),
     start: mock(() => mockSpinner),
     warn: mock(),
     succeed: mock(),
@@ -2841,7 +2926,7 @@ test("action - does not call handleSecurityResults when security check is skippe
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -2855,7 +2940,7 @@ test("displaySummaryTable - renders table with metrics", () => {
 
   const originalLog = console.log;
   const logged: string[] = [];
-  console.log = (msg: string) => logged.push(msg);
+  console.log = captureLine(logged);
 
   const result = {
     success: true,
@@ -2886,7 +2971,7 @@ test("displaySummaryTable - skips when no metrics", () => {
 
   const originalLog = console.log;
   const logged: string[] = [];
-  console.log = (msg: string) => logged.push(msg);
+  console.log = captureLine(logged);
 
   const result = { success: true };
 
@@ -3038,7 +3123,7 @@ test("action - displays security fixes when forceSecurityRefactor is true", asyn
       metrics: {},
     })),
     createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(),
   };
 
@@ -3098,7 +3183,7 @@ test("action - displays removed overrides when present", async () => {
       },
     })),
     createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(),
   };
 
@@ -3136,7 +3221,7 @@ test("action - displays summary table when summary option is true", async () => 
 
   const originalLog = console.log;
   const logged: string[] = [];
-  console.log = (msg: string) => logged.push(msg);
+  console.log = captureLine(logged);
 
   const deps = {
     createLogger: mock(() => log),
@@ -3154,7 +3239,7 @@ test("action - displays summary table when summary option is true", async () => 
       metrics: { packagesScanned: 5 },
     })),
     createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(),
   };
 
@@ -3177,7 +3262,7 @@ test("action - outputs JSON on error when outputFormat is json", async () => {
 
   const originalLog = console.log;
   const logged: string[] = [];
-  console.log = (msg: string) => logged.push(msg);
+  console.log = captureLine(logged);
 
   const deps = {
     createLogger: mock(() => log),
@@ -3193,7 +3278,7 @@ test("action - outputs JSON on error when outputFormat is json", async () => {
     green: mock((t: string) => t),
     update: mock(() => ({})),
     createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(),
   };
 
@@ -3262,7 +3347,7 @@ test("action - applies security results when outputFormat is json", async () => 
       metrics: {},
     })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(),
   };
 
@@ -3323,7 +3408,7 @@ test("action - exits non-zero in quiet mode when vulnerabilities are found", asy
       metrics: {},
     })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mockExit,
   };
 
@@ -3374,7 +3459,7 @@ test("action - displays unused override notice when unused overrides exist", asy
       finalAppendix: unusedAppendix,
     })),
     createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -3423,7 +3508,7 @@ test("action - does not display unused override notice when removeUnused is true
       },
     })),
     createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -3441,7 +3526,7 @@ test("run - shows help and returns early when help flag is passed", async () => 
 
   const originalLog = console.log;
   const logged: string[] = [];
-  console.log = (msg: string) => logged.push(msg);
+  console.log = captureLine(logged);
 
   await run(["node", "pastoralist", "--help"]);
 
@@ -3456,7 +3541,7 @@ test("run - shows help with -h flag", async () => {
 
   const originalLog = console.log;
   const logged: string[] = [];
-  console.log = (msg: string) => logged.push(msg);
+  console.log = captureLine(logged);
 
   await run(["node", "pastoralist", "-h"]);
 
@@ -3475,7 +3560,7 @@ test("run - prints package version and returns early", async () => {
 
   const originalLog = console.log;
   const logged: string[] = [];
-  console.log = (msg: string) => logged.push(msg);
+  console.log = captureLine(logged);
 
   try {
     await run(["node", "pastoralist", "--version"], {
@@ -3502,8 +3587,8 @@ test("run - handles unknown flags without throwing", async () => {
   const logged: string[] = [];
   const errors: string[] = [];
   let exitCode: string | number | undefined;
-  console.log = (msg: string) => logged.push(msg);
-  console.error = (msg: string) => errors.push(msg);
+  console.log = captureLine(logged);
+  console.error = captureLine(errors);
 
   try {
     await run(["node", "pastoralist", "--wat"]);
@@ -3670,8 +3755,8 @@ test("run - rejects extra config init args", async () => {
   const logged: string[] = [];
   const errors: string[] = [];
   let exitCode: string | number | undefined;
-  console.log = (msg: string) => logged.push(msg);
-  console.error = (msg: string) => errors.push(msg);
+  console.log = captureLine(logged);
+  console.error = captureLine(errors);
 
   try {
     await run(["node", "pastoralist", "--init", "config", "extra"], {
@@ -3708,8 +3793,8 @@ test("run - rejects unknown init target", async () => {
   const logged: string[] = [];
   const errors: string[] = [];
   let exitCode: string | number | undefined;
-  console.log = (msg: string) => logged.push(msg);
-  console.error = (msg: string) => errors.push(msg);
+  console.log = captureLine(logged);
+  console.error = captureLine(errors);
 
   try {
     await run(["node", "pastoralist", "init", "wat"], {
@@ -3741,7 +3826,7 @@ test("run - calls action in dry-run summary mode for doctor command", async () =
 
   const originalLog = console.log;
   const logged: string[] = [];
-  console.log = (msg: string) => logged.push(msg);
+  console.log = captureLine(logged);
 
   try {
     await run(["node", "pastoralist", "doctor", "--path", "custom.json"], {
@@ -3773,7 +3858,7 @@ test("run - suppresses doctor preface when JSON output is requested", async () =
 
   const originalLog = console.log;
   const logged: string[] = [];
-  console.log = (msg: string) => logged.push(msg);
+  console.log = captureLine(logged);
 
   try {
     await run(["node", "pastoralist", "doctor", "--outputFormat", "json"], {
@@ -3876,7 +3961,7 @@ test("run - supports onboarding command alias", async () => {
   expect(mockInitCommand).not.toHaveBeenCalled();
 });
 
-test("handleSetupHook - error does not cause early exit in run", async () => {
+test("handleSetupHook - error does not cause early exit in run", () => {
   const { handleSetupHook } = require("../../../src/cli/index");
 
   const mockReadFileSync = mock(() => {
@@ -3942,11 +4027,11 @@ test("handleSecurityResults - returned values are used by action via spread", as
     })),
     green: mock((t: string) => t),
     update: mock((opts: Options) => {
-      capturedUpdateOptions.push(opts);
+      capturedUpdateOptions[capturedUpdateOptions.length] = opts;
       return { finalOverrides: {}, finalAppendix: {} };
     }),
     createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => Promise.resolve("2024-01-01")),
+    getLedgerAddedDate: mock(() => "2024-01-01"),
     processExit: mock(() => {}),
   };
 
@@ -4040,12 +4125,14 @@ test("checkRemovalSafety - returns empty array when no unused entries", async ()
   };
 
   const mockSecurityChecker = {
-    checkSecurity: mock(async () => ({
-      alerts: [],
-      overrides: [],
-      updates: [],
-      packagesScanned: 0,
-    })),
+    checkSecurity: mock(() =>
+      Promise.resolve({
+        alerts: [],
+        overrides: [],
+        updates: [],
+        packagesScanned: 0,
+      }),
+    ),
   };
 
   const result = await checkRemovalSafety(config, mockSecurityChecker as any, {});
@@ -4071,12 +4158,14 @@ test("checkRemovalSafety - returns keys for packages still vulnerable at declare
   };
 
   const mockSecurityChecker = {
-    checkSecurity: mock(async () => ({
-      alerts: [{ packageName: "lodash", severity: "high", currentVersion: "4.17.20" }],
-      overrides: [],
-      updates: [],
-      packagesScanned: 1,
-    })),
+    checkSecurity: mock(() =>
+      Promise.resolve({
+        alerts: [{ packageName: "lodash", severity: "high", currentVersion: "4.17.20" }],
+        overrides: [],
+        updates: [],
+        packagesScanned: 1,
+      }),
+    ),
   };
 
   const result = await checkRemovalSafety(config, mockSecurityChecker as any, {
@@ -4110,12 +4199,14 @@ test("checkRemovalSafety - returns empty array when re-scan finds no vulnerabili
   };
 
   const mockSecurityChecker = {
-    checkSecurity: mock(async () => ({
-      alerts: [],
-      overrides: [],
-      updates: [],
-      packagesScanned: 1,
-    })),
+    checkSecurity: mock(() =>
+      Promise.resolve({
+        alerts: [],
+        overrides: [],
+        updates: [],
+        packagesScanned: 1,
+      }),
+    ),
   };
 
   const result = await checkRemovalSafety(config, mockSecurityChecker as any, {});
@@ -4139,12 +4230,14 @@ test("checkRemovalSafety - returns empty when unused packages not in any deps", 
   };
 
   const mockSecurityChecker = {
-    checkSecurity: mock(async () => ({
-      alerts: [],
-      overrides: [],
-      updates: [],
-      packagesScanned: 0,
-    })),
+    checkSecurity: mock(() =>
+      Promise.resolve({
+        alerts: [],
+        overrides: [],
+        updates: [],
+        packagesScanned: 0,
+      }),
+    ),
   };
 
   const result = await checkRemovalSafety(config, mockSecurityChecker as any, {});
@@ -4169,12 +4262,14 @@ test("checkRemovalSafety - finds packages in devDependencies", async () => {
   };
 
   const mockSecurityChecker = {
-    checkSecurity: mock(async () => ({
-      alerts: [{ packageName: "dev-pkg", severity: "high", currentVersion: "1.0.0" }],
-      overrides: [],
-      updates: [],
-      packagesScanned: 1,
-    })),
+    checkSecurity: mock(() =>
+      Promise.resolve({
+        alerts: [{ packageName: "dev-pkg", severity: "high", currentVersion: "1.0.0" }],
+        overrides: [],
+        updates: [],
+        packagesScanned: 1,
+      }),
+    ),
   };
 
   const result = await checkRemovalSafety(config, mockSecurityChecker as any, {});
@@ -4259,7 +4354,7 @@ test("action - displays blocked removals notice when skipRemovalKeys set", async
       finalAppendix: mockConfig.pastoralist!.appendix,
     })),
     createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 

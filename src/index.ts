@@ -48,6 +48,23 @@ export { detectPatches, attachPatchesToAppendix, findUnusedPatches } from "./cor
 export { SecurityChecker } from "./core/security";
 
 export {
+  createBestCaseReason,
+  optimizeBestCasePortfolio,
+  resolveBestCasePolicy,
+} from "./core/best-case";
+
+export type {
+  BestCaseEvaluation,
+  BestCaseEvaluator,
+  BestCaseImpact,
+  BestCasePackageChoice,
+  BestCaseResult,
+  BestCaseSearchResult,
+  BestCaseState,
+  OptimizeBestCaseOptions,
+} from "./core/best-case";
+
+export {
   loadConfig,
   loadConfigWithSource,
   loadExternalConfig,
@@ -72,6 +89,10 @@ export type {
   SecurityCheckOptions,
   SecurityOverride,
   SecurityProvider,
+  LedgerReason,
+  ProjectReason,
+  BestCaseReason,
+  BestCaseConfig,
 } from "./types";
 
 export type { OverrideSource, OverrideSourceKind } from "./core/overrides";

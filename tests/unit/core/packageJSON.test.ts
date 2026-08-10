@@ -16,6 +16,7 @@ import {
 } from "../../../src";
 import {
   getDependencyTree,
+  getLockedPackages,
   parseNpmLsOutput,
   parseBunLockTree,
   parsePnpmLockTree,
@@ -42,17 +43,17 @@ import {
   validateRootPackageJsonIntegrity,
 } from "../setup";
 
-mock.module("node:child_process", () => ({
-  ...require("node:child_process"),
-  promisify: (fn: any) => {
-    if (fn.name === "execFile") {
-      return async (cmd: string, args: string[], options: any) => {
-        throw new Error(`Unexpected execFile call in tests: ${cmd} ${args.join(" ")}`);
-      };
-    }
-    return require("util").promisify(fn);
-  },
-}));
+mock.module("node:child_process", () =>
+  Object.assign({}, require("node:child_process"), {
+    promisify: (fn: any) => {
+      if (fn.name === "execFile") {
+        return (cmd: string, args: string[], _options: any) =>
+          Promise.reject(new Error(`Unexpected execFile call in tests: ${cmd} ${args.join(" ")}`));
+      }
+      return require("util").promisify(fn);
+    },
+  }),
+);
 
 const testDir = resolve(__dirname, "..", ".test-packagejson-core");
 const testPkgPath = resolve(testDir, "package.json");
@@ -113,7 +114,8 @@ test("detectPackageManager - should detect bun when bun.lockb exists", () => {
   const pm = detectPackageManager();
   expect(pm).toBe("bun");
 
-  if (!hadLock && existsSync(lockPath)) {
+  const shouldRemoveLock = !hadLock && existsSync(lockPath);
+  if (shouldRemoveLock) {
     unlinkSync(lockPath);
   }
 });
@@ -400,6 +402,8 @@ test("updatePackageJSON - should remove overrides when none provided", () => {
 });
 
 test("updatePackageJSON - should preserve other pastoralist config when removing appendix", () => {
+  const bestCaseSearch = { beamWidth: 8 };
+  const bestCase = { enabled: true, search: bestCaseSearch };
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -407,6 +411,7 @@ test("updatePackageJSON - should preserve other pastoralist config when removing
     pastoralist: {
       depPaths: "workspace",
       security: { enabled: true },
+      bestCase,
       appendix: {
         "lodash@4.17.21": {
           dependents: { root: "lodash@^4.17.20" },
@@ -423,6 +428,7 @@ test("updatePackageJSON - should preserve other pastoralist config when removing
 
   expect(result?.pastoralist?.depPaths).toBe("workspace");
   expect(result?.pastoralist?.security).toEqual({ enabled: true });
+  expect(result?.pastoralist?.bestCase).toEqual(bestCase);
   expect(result?.pastoralist?.appendix).toBeUndefined();
 });
 
@@ -621,7 +627,7 @@ test("getDependencyTree - should return dependency tree", async () => {
     },
   });
 
-  const mockExecuteNpmLs = async () => mockOutput;
+  const mockExecuteNpmLs = () => Promise.resolve(mockOutput);
   const tree = await getDependencyTree(mockExecuteNpmLs, undefined, testDir);
 
   expect(typeof tree).toBe("object");
@@ -634,9 +640,9 @@ test("getDependencyTree - passes root parameter to executeNpmLs mock", async () 
   clearDependencyTreeCache();
   let capturedRoot: string | undefined;
   const mockOutput = JSON.stringify({ dependencies: { lodash: {} } });
-  const mockExecuteNpmLs = async (root?: string) => {
+  const mockExecuteNpmLs = (root?: string) => {
     capturedRoot = root;
-    return mockOutput;
+    return Promise.resolve(mockOutput);
   };
 
   const customRoot = resolve(testDir, "custom-root");
@@ -769,7 +775,7 @@ test("updatePackageJSON - should not show RC file suggestion for small config", 
   const originalConsoleLog = console.log;
   const logCalls: string[] = [];
   console.log = (...args: any[]) => {
-    logCalls.push(args.join(" "));
+    logCalls[logCalls.length] = args.join(" ");
   };
 
   writeFileSync(testPkgPath, JSON.stringify(config, null, 2));
@@ -820,7 +826,7 @@ test("updatePackageJSON - should show RC file suggestion for large config", () =
   const originalWrite = process.stdout.write.bind(process.stdout);
   const writeCalls: string[] = [];
   process.stdout.write = (chunk: any): boolean => {
-    writeCalls.push(String(chunk));
+    writeCalls[writeCalls.length] = String(chunk);
     return true;
   };
 
@@ -882,7 +888,9 @@ test("updatePackageJSON - silent option suppresses dry-run output", () => {
 
   const consoleOutput: string[] = [];
   const originalLog = console.log;
-  console.log = (msg: string) => consoleOutput.push(msg);
+  console.log = (msg: string) => {
+    consoleOutput[consoleOutput.length] = msg;
+  };
 
   updatePackageJSON({
     path: testPkgPath,
@@ -907,7 +915,9 @@ test("updatePackageJSON - dry-run without silent shows output", () => {
 
   const consoleOutput: string[] = [];
   const originalLog = console.log;
-  console.log = (msg: string) => consoleOutput.push(msg);
+  console.log = (msg: string) => {
+    consoleOutput[consoleOutput.length] = msg;
+  };
 
   updatePackageJSON({
     path: testPkgPath,
@@ -933,7 +943,9 @@ test("updatePackageJSON - dry-run with unchanged content logs no-op message", ()
 
   const consoleOutput: string[] = [];
   const originalLog = console.log;
-  console.log = (msg: string) => consoleOutput.push(msg);
+  console.log = (msg: string) => {
+    consoleOutput[consoleOutput.length] = msg;
+  };
 
   updatePackageJSON({
     path: testPkgPath,
@@ -1056,7 +1068,7 @@ test("getDependencyTree - uses custom cacheDir when provided", async () => {
   const customCacheDir = resolve(testDir, "custom-cache");
   mkdirSync(customCacheDir, { recursive: true });
   const mockOutput = JSON.stringify({ dependencies: { lodash: {} } });
-  const mockExecuteNpmLs = async () => mockOutput;
+  const mockExecuteNpmLs = () => Promise.resolve(mockOutput);
 
   const tree = await getDependencyTree(mockExecuteNpmLs, customCacheDir, testDir);
 
@@ -1075,15 +1087,13 @@ test("getDependencyTree - should cache results on second call", async () => {
   });
 
   let callCount = 0;
-  const mockExecuteNpmLs = async () => {
+  const mockExecuteNpmLs = () => {
     callCount++;
-    return mockOutput;
+    return Promise.resolve(mockOutput);
   };
 
   const firstCall = await getDependencyTree(mockExecuteNpmLs, undefined, testDir);
-  const failMock = async () => {
-    throw new Error("should not be called");
-  };
+  const failMock = () => Promise.reject(new Error("should not be called"));
   const secondCall = await getDependencyTree(failMock, undefined, testDir);
 
   expect(firstCall).toEqual(secondCall);
@@ -1099,9 +1109,10 @@ test("getDependencyTree - caches lockfile-less roots independently", async () =>
   mkdirSync(rootA, { recursive: true });
   mkdirSync(rootB, { recursive: true });
 
-  const mockExecuteNpmLs = async (root?: string) => {
+  const mockExecuteNpmLs = (root?: string) => {
     const dependencyName = root === rootA ? "left-pad" : "right-pad";
-    return JSON.stringify({ dependencies: { [dependencyName]: { version: "1.0.0" } } });
+    const output = JSON.stringify({ dependencies: { [dependencyName]: { version: "1.0.0" } } });
+    return Promise.resolve(output);
   };
 
   const treeA = await getDependencyTree(mockExecuteNpmLs, cacheDir, rootA);
@@ -1146,9 +1157,7 @@ test("getDependencyTree - coalesces concurrent requests", async () => {
 test("getDependencyTree - should return empty object on error", async () => {
   clearDependencyTreeCache();
 
-  const mockExecuteNpmLs = async () => {
-    throw new Error("npm command failed");
-  };
+  const mockExecuteNpmLs = () => Promise.reject(new Error("npm command failed"));
   const tree = await getDependencyTree(mockExecuteNpmLs, undefined, testDir);
 
   expect(typeof tree).toBe("object");
@@ -1213,9 +1222,7 @@ test("executeNpmLs - is exported and callable", () => {
 test("getDependencyTree - handles executeNpmLs errors gracefully", async () => {
   clearDependencyTreeCache();
 
-  const mockExecuteNpmLs = async () => {
-    throw new Error("Command execution failed");
-  };
+  const mockExecuteNpmLs = () => Promise.reject(new Error("Command execution failed"));
   const tree = await getDependencyTree(mockExecuteNpmLs, undefined, testDir);
 
   expect(typeof tree).toBe("object");
@@ -1315,9 +1322,9 @@ test("getDependencyTree - uses bun.lock over executeNpmLs when available", async
   clearDependencyTreeCache();
   mkdirSync(lockTestDir, { recursive: true });
   writeFileSync(resolve(lockTestDir, "bun.lock"), bunLockContentWithTrailingCommas);
-  const shouldNotBeCalled = mock(async () => {
-    throw new Error("executeNpmLs should not be called");
-  });
+  const shouldNotBeCalled = mock(() =>
+    Promise.reject(new Error("executeNpmLs should not be called")),
+  );
 
   const tree = await getDependencyTree(shouldNotBeCalled, undefined, lockTestDir);
 
@@ -1331,7 +1338,7 @@ test("getDependencyTree - uses bun.lock over executeNpmLs when available", async
 test("getDependencyTree - falls back to executeNpmLs when no bun.lock", async () => {
   clearDependencyTreeCache();
   const mockOutput = JSON.stringify({ dependencies: { lodash: {} } });
-  const mockExecuteNpmLs = async () => mockOutput;
+  const mockExecuteNpmLs = () => Promise.resolve(mockOutput);
 
   const tree = await getDependencyTree(mockExecuteNpmLs, undefined, testDir);
 
@@ -1556,6 +1563,131 @@ test("parseNpmLockTree - returns undefined for malformed JSON", () => {
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
+const getAlphaVersions = (root: string): string[] | undefined => {
+  const packages = getLockedPackages(root);
+  return packages?.filter(({ name }) => name === "alpha").map(({ version }) => version);
+};
+
+test("getLockedPackages - preserves npm package-lock duplicate versions", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  const packages = {
+    "": {},
+    "node_modules/alpha": { version: "1.0.0" },
+    "node_modules/wrapper/node_modules/alpha": { version: "2.0.0" },
+  };
+  writeFileSync(resolve(lockTestDir, "package-lock.json"), JSON.stringify({ packages }));
+
+  expect(getAlphaVersions(lockTestDir)).toEqual(["1.0.0", "2.0.0"]);
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("getLockedPackages - preserves npm v1 duplicate versions", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  const dependencies = {
+    alpha: { version: "1.0.0" },
+    wrapper: { version: "1.0.0", dependencies: { alpha: { version: "2.0.0" } } },
+  };
+  writeFileSync(resolve(lockTestDir, "package-lock.json"), JSON.stringify({ dependencies }));
+
+  expect(getAlphaVersions(lockTestDir)).toEqual(["1.0.0", "2.0.0"]);
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("getLockedPackages - preserves pnpm duplicate versions", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  const content = "packages:\n  alpha@1.0.0: {}\n  alpha@2.0.0: {}\n";
+  writeFileSync(resolve(lockTestDir, "pnpm-lock.yaml"), content);
+
+  expect(getAlphaVersions(lockTestDir)).toEqual(["1.0.0", "2.0.0"]);
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("getLockedPackages - ignores pnpm range selectors outside package sections", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  const content = [
+    "lockfileVersion: '9.0'",
+    "overrides:",
+    "  alpha@^1: 1.5.0",
+    "packages:",
+    "  alpha@1.5.0: {}",
+  ].join("\n");
+  writeFileSync(resolve(lockTestDir, "pnpm-lock.yaml"), content);
+
+  expect(getAlphaVersions(lockTestDir)).toEqual(["1.5.0"]);
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("getLockedPackages - reads pnpm snapshot package entries", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  const content = "lockfileVersion: '9.0'\nsnapshots:\n  alpha@1.5.0: {}\n";
+  writeFileSync(resolve(lockTestDir, "pnpm-lock.yaml"), content);
+
+  expect(getAlphaVersions(lockTestDir)).toEqual(["1.5.0"]);
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("getLockedPackages - preserves Yarn duplicate versions", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  const content = 'alpha@^1.0.0:\n  version "1.0.0"\n\nalpha@^2.0.0:\n  version "2.0.0"\n';
+  writeFileSync(resolve(lockTestDir, "yarn.lock"), content);
+
+  expect(getAlphaVersions(lockTestDir)).toEqual(["1.0.0", "2.0.0"]);
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("getLockedPackages - rejects Yarn entries without versions", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(resolve(lockTestDir, "yarn.lock"), "alpha@^1.0.0:\n");
+
+  expect(getLockedPackages(lockTestDir)).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("getLockedPackages - preserves Bun duplicate versions", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  const content = bunLockContent({
+    alpha: ["alpha@1.0.0", "", {}, "sha512-a"],
+    "wrapper/alpha": ["alpha@2.0.0", "", {}, "sha512-b"],
+  });
+  writeFileSync(resolve(lockTestDir, "bun.lock"), content);
+
+  expect(getAlphaVersions(lockTestDir)).toEqual(["1.0.0", "2.0.0"]);
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("getLockedPackages - rejects unsupported legacy Bun lockfiles", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(resolve(lockTestDir, "bun.lockb"), "legacy binary lockfile");
+
+  expect(() => getLockedPackages(lockTestDir)).toThrow("Legacy bun.lockb is unsupported");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("getLockedPackages - fails securely for incomplete lock data", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  const content = bunLockContent({ alpha: ["invalid", "", {}, "sha512-a"] });
+  writeFileSync(resolve(lockTestDir, "bun.lock"), content);
+
+  expect(getLockedPackages(lockTestDir)).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("getLockedPackages - fails securely for malformed Bun lock data", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(resolve(lockTestDir, "bun.lock"), "not valid lock data");
+
+  expect(getLockedPackages(lockTestDir)).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("getLockedPackages - fails securely for malformed npm lock data", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(resolve(lockTestDir, "package-lock.json"), "not valid JSON");
+
+  expect(getLockedPackages(lockTestDir)).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
 test("getFullDependencyCount - counts npm lock file packages", () => {
   validateRootPackageJsonIntegrity();
   mkdirSync(lockTestDir, { recursive: true });
@@ -1742,7 +1874,8 @@ test("detectPackageManager - should detect bun via bun.lock when only bun.lock e
     expect(pm).toBe("bun");
   } finally {
     if (hadLockb) writeFileSync(lockbPath, "");
-    if (!hadLock && existsSync(lockPath)) unlinkSync(lockPath);
+    const shouldRemoveTemporaryLock = !hadLock && existsSync(lockPath);
+    if (shouldRemoveTemporaryLock) unlinkSync(lockPath);
   }
 });
 

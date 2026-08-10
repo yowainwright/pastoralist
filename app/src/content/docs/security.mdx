@@ -1,6 +1,6 @@
 ---
 title: Security Vulnerability Detection
-description: Detect and fix security vulnerabilities in your dependencies
+description: Detect vulnerabilities and select lowest-risk dependency portfolios
 ---
 
 Pastoralist can check dependencies against security providers and connect fixes
@@ -66,6 +66,10 @@ You can configure security settings in your `package.json`:
       "hasWorkspaceSecurityChecks": false,
       "severityThreshold": "medium",
       "excludePackages": []
+    },
+    "bestCase": {
+      "enabled": false,
+      "userOwnedOverrides": []
     }
   }
 }
@@ -84,6 +88,111 @@ You can configure security settings in your `package.json`:
 | `severityThreshold`          | string          | `"medium"` | Minimum severity level to report (low, medium, high, critical)                                                                                             |
 | `excludePackages`            | array           | `[]`       | List of package names to exclude from security checks                                                                                                      |
 | `strict`                     | boolean         | `false`    | Fail when a provider cannot complete                                                                                                                       |
+
+### Best-Case Portfolio Selection
+
+Independent upgrades can interact: one package fix may introduce a
+vulnerability or compatibility failure in another package. Enable `bestCase`
+to rank complete package-version portfolios under one policy:
+
+```json
+{
+  "pastoralist": {
+    "checkSecurity": true,
+    "bestCase": {
+      "enabled": true,
+      "riskAggregation": "both",
+      "search": {
+        "mode": "auto",
+        "exactStateLimit": 256,
+        "beamWidth": 16,
+        "maxEvaluations": 1000
+      }
+    }
+  }
+}
+```
+
+Each patchable package contributes its current version, known patched versions,
+and latest compatible version. Auto mode exhaustively evaluates small products
+and uses deterministic beam search above the configured cap. The result includes
+the selected state, decision ID, policy hash, vulnerability impact, duration,
+evaluated-state count, and `provenOptimal` status.
+
+Declare a package as user-owned when its active override must win over portfolio
+ranking. Interactive mode also prompts before promoting a newer independent
+security update and persists an approved package name.
+
+```json
+{
+  "overrides": {
+    "alpha": "2.5.0"
+  },
+  "pastoralist": {
+    "bestCase": {
+      "enabled": true,
+      "userOwnedOverrides": ["alpha"]
+    },
+    "appendix": {
+      "alpha@2.5.0": {
+        "ledger": {
+          "addedDate": "2026-08-09T00:00:00.000Z"
+        }
+      }
+    }
+  }
+}
+```
+
+`userOwnedOverrides` is the machine-readable ownership declaration. The active
+override supplies the constrained version. The ledger `addedDate` is displayed
+as the human-facing “user-owned since” signal, but does not establish ownership
+by itself.
+
+The built-in evaluator scans all root packages and candidate-controlled
+packages. Projects that materialize lockfiles, solve peer constraints, or model
+version-combination behavior can pass a whole-state `bestCaseEvaluator` through
+the Node.js API.
+
+#### Formal Model
+
+Package $i$ contributes a set of candidate versions $V_i$. The complete search
+space is the Cartesian product of those sets:
+
+$$
+\mathcal{X} = \prod_{i=1}^{n} V_i
+$$
+
+Let $\pi = (o_1, \ldots, o_m, a)$ be the resolved policy, where each $o_j$ is
+an objective and $a$ is the risk-aggregation mode. Each objective produces a
+score block $g_{o_j,a}(x)$, and the blocks are concatenated in policy order:
+
+$$
+F_{\pi}(x) = g_{o_1,a}(x) \mathbin{\Vert} \cdots \mathbin{\Vert} g_{o_m,a}(x)
+$$
+
+The default blocks represent known-exploited vulnerabilities, critical
+vulnerabilities, high vulnerabilities, summed EPSS, package exposures,
+incompatibilities, changed packages, and oldness. With `riskAggregation: "both"`,
+security blocks contain both unique-advisory and package-exposure values.
+
+Pastoralist minimizes the vector lexicographically:
+
+$$
+x^* = \operatorname*{arg\,min}^{\mathrm{lex}}_{x \in \mathcal{X}} F_{\pi}(x)
+$$
+
+For each selected dependency $i$, the ledger reason stores the shared decision
+provenance:
+
+$$
+r_i = \left(\mathtt{decisionId}(x^*), \mathtt{policyHash}(\pi),
+\mathtt{search}, \mathtt{impact}\right)
+$$
+
+The reason is per dependency, while the decision ID connects every dependency
+selected in the same portfolio. CVE identifiers remain in the sibling `cves`
+field rather than being duplicated in $r_i$.
 
 ## CLI Options
 
@@ -275,6 +384,10 @@ ledger alongside the `addedDate`:
 
 Multiple CVEs from the same package are aggregated — `cveDetails` gives per-CVE granularity (severity and patched version per identifier), while `cves` is the deduplicated flat list for quick reference.
 
+`reason` accepts a non-empty string or a typed `project` or `best-case` object.
+A best-case reason links each dependency entry to the shared portfolio decision;
+the fixed CVEs remain in the sibling `cves` field.
+
 ## Keeping Security Overrides with `keep`
 
 By default, `--remove-unused` will remove overrides whose dependents no longer require them. For security overrides you want to retain regardless, set `keep` on the ledger:
@@ -354,6 +467,7 @@ Generated 2 override(s):
 - The OSV provider is optimized for batch queries
 - Provider results can be cached using the CLI cache options
 - Results are processed in parallel when possible
+- Best-case results record duration and evaluated-state count
   :::
 
 ## Limitations

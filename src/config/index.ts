@@ -65,7 +65,7 @@ const loadJsConfig = async (filename: string, path: string): Promise<unknown> =>
   return unwrapModuleConfig(module);
 };
 
-const loadConfigFile = async (filename: string, path: string): Promise<unknown | null> => {
+const loadConfigFile = (filename: string, path: string) => {
   if (isJsonFile(filename)) return loadJsonConfig(path);
   return loadJsConfig(filename, path);
 };
@@ -204,13 +204,30 @@ export const mergeConfigs = (
     packageJsonConfig.resolutionPaths,
   );
   const mergedSecurity = Object.assign({}, externalConfig.security, packageJsonConfig.security);
+  const mergedBestCase = mergeBestCaseConfig(externalConfig, packageJsonConfig);
 
   return Object.assign({}, externalConfig, packageJsonConfig, {
     appendix: mergedAppendix,
     overridePaths: mergedOverridePaths,
     resolutionPaths: mergedResolutionPaths,
     security: mergedSecurity,
+    bestCase: mergedBestCase,
   });
+};
+
+const mergeBestCaseConfig = (
+  externalConfig: PastoralistConfig,
+  packageJsonConfig: PastoralistConfig,
+) => {
+  const external = externalConfig.bestCase;
+  const packageJson = packageJsonConfig.bestCase;
+  const hasNoBestCase = !external && !packageJson;
+  if (hasNoBestCase) return undefined;
+  const hasSearch = Boolean(external?.search || packageJson?.search);
+  if (!hasSearch) return Object.assign({}, external, packageJson);
+  const search = Object.assign({}, external?.search, packageJson?.search);
+  const searchField = { search };
+  return Object.assign({}, external, packageJson, searchField);
 };
 
 const mergeTargetAppendix = (
@@ -328,6 +345,12 @@ const createRootField = (root: string | undefined) => {
   return { root };
 };
 
+const createBestCaseOptionField = (config: PastoralistJSON, options: Options) => {
+  const bestCase = options.bestCase ?? config.pastoralist?.bestCase;
+  if (!bestCase) return undefined;
+  return { bestCase };
+};
+
 const mergeOptionsWithConfig = (
   options: Options,
   rest: Omit<Options, "isTestingCLI" | "init">,
@@ -346,8 +369,9 @@ const mergeOptionsWithConfig = (
   );
   const root = createRootField(options.root);
   const configFields = { config, manifestConfig, path };
+  const bestCaseField = createBestCaseOptionField(config, options);
   const targetField = appendixTarget ? { appendixTarget } : undefined;
-  return Object.assign({}, mergedOptions, configFields, root, targetField);
+  return Object.assign({}, mergedOptions, configFields, root, targetField, bestCaseField);
 };
 
 export const loadCliConfig = async (

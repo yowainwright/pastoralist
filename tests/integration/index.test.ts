@@ -11,6 +11,7 @@ const TEST_PACKAGE_JSON = resolve(TEST_DIR, "package.json");
 const PATCHES_DIR = resolve(TEST_DIR, "patches");
 
 const createTestPackageJson = (content: any = {}) => {
+  const pastoralist = Object.assign({}, { appendix: {} }, content.pastoralist);
   const defaultContent = {
     name: "test-package",
     version: "1.0.0",
@@ -21,12 +22,10 @@ const createTestPackageJson = (content: any = {}) => {
     devDependencies: {
       typescript: "^4.5.0",
     },
-    pastoralist: {
-      appendix: {},
-      ...content.pastoralist,
-    },
+    pastoralist,
   };
-  writeFileSync(TEST_PACKAGE_JSON, JSON.stringify({ ...defaultContent, ...content }, null, 2));
+  const packageJson = Object.assign({}, defaultContent, content);
+  writeFileSync(TEST_PACKAGE_JSON, JSON.stringify(packageJson, null, 2));
 };
 
 const createPatchFile = (packageName: string, version: string) => {

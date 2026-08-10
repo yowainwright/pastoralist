@@ -857,8 +857,12 @@ export class SecurityChecker {
     configured: Map<string, string>,
     approved: OverrideUpdate[],
   ): UserOwnedOverrideResolution {
-    const entries = approved.map((update) => [update.packageName, update.newerVersion] as const);
-    const allEntries = [...configured.entries(), ...entries];
+    const entries = approved.map((update): [string, string] => [
+      update.packageName,
+      update.newerVersion,
+    ]);
+    const configuredEntries = Array.from(configured.entries());
+    const allEntries = configuredEntries.concat(entries);
     const versions = new Map<string, string>(allEntries);
     const added = approved.map((update) => update.packageName);
     return { versions, added };
@@ -1010,7 +1014,8 @@ export class SecurityChecker {
     const supported = this.supportsBuiltInBestCase(input.options);
     const baselinePackages = this.collectBestCaseBaselinePackages(input);
     const hasSingleVersionBaseline = !hasMultipleInstalledVersions(baselinePackages);
-    return enabled && supported && hasSingleVersionBaseline;
+    const canUseBestCase = enabled && supported && hasSingleVersionBaseline;
+    return canUseBestCase;
   }
 
   private async resolveBestCaseOverrides(

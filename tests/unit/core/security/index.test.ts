@@ -731,6 +731,25 @@ test("checkSecurity - uses standard overrides for multi-version baselines", asyn
   expect(result.overrides.some((override) => override.toVersion === "3.0.0")).toBe(true);
 });
 
+test("checkSecurity - uses standard overrides when an installed version has no alert", async () => {
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([
+    createBestCaseAlert(),
+  ]);
+  const installedPackages = [
+    { name: "alpha", version: "1.0.0" },
+    { name: "alpha", version: "1.5.0" },
+  ];
+  spyOn(checker as any, "extractPackagesForScan").mockReturnValue(installedPackages);
+  mockLatestBestCaseVersion(checker);
+
+  const result = await checker.checkSecurity(createBuiltInBestCaseConfig());
+
+  expect(result.bestCase).toBeUndefined();
+  expect(result.overrides[0].toVersion).toBe("2.0.0");
+  expect(fetchAlerts).toHaveBeenCalledTimes(1);
+});
+
 test("checkSecurity - omits best-case provenance when interactive approval is declined", async () => {
   const checker = new SecurityChecker({ provider: "osv", noCache: true });
   spyOn(getFirstProvider(checker), "fetchAlerts").mockImplementation(async (packages) => {

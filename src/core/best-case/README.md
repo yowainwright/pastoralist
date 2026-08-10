@@ -2,6 +2,13 @@
 
 This module ranks complete package-version portfolios under a configurable security policy.
 
+## Module layout
+
+- `index.ts` exposes the optimizer and security-override API.
+- `types.ts` defines portfolio inputs, evaluations, and results.
+- `utils.ts` contains policy resolution, scoring, search, and state helpers.
+- `constants.ts` contains default objectives, search limits, and shared patterns.
+
 ## Why portfolios
 
 Choosing the newest fix for each package independently can produce a worse result. One version can introduce a vulnerability or compatibility failure elsewhere in the graph. The evaluator therefore scores complete states, not isolated upgrades.

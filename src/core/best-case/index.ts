@@ -1,16 +1,17 @@
 import { createHash } from "node:crypto";
-import type { BestCaseReason } from "../../types";
-import { resolveBestCasePolicy } from "./policy";
-import { buildImpact } from "./scoring";
 import {
+  buildBestCaseChoices,
+  buildImpact,
+  buildOverrides,
   createBaselineState,
   evaluateStates,
   getTotalStates,
   normalizeChoices,
+  resolveBestCasePolicy,
   resolveSearchMode,
   runSearch,
   selectBest,
-} from "./search";
+} from "./utils";
 import type {
   BestCaseResult,
   BestCaseSearchResult,
@@ -18,6 +19,8 @@ import type {
   EvaluatedState,
   EvaluationContext,
   OptimizeBestCaseOptions,
+  OptimizedSecurityOverrides,
+  OptimizeSecurityOverridesOptions,
   ResolvedBestCasePolicy,
 } from "./types";
 
@@ -30,8 +33,16 @@ export type {
   BestCaseSearchResult,
   BestCaseState,
   OptimizeBestCaseOptions,
+  OptimizedSecurityOverrides,
+  OptimizeSecurityOverridesOptions,
 } from "./types";
-export { resolveBestCasePolicy } from "./policy";
+export {
+  applyBestCaseState,
+  buildBestCaseChoices,
+  createBestCaseReason,
+  hasMultipleInstalledVersions,
+  resolveBestCasePolicy,
+} from "./utils";
 
 const hashValue = (value: unknown, length = 16): string => {
   const json = JSON.stringify(value);
@@ -104,16 +115,13 @@ export const optimizeBestCasePortfolio = async (
   };
 };
 
-export const createBestCaseReason = (result: BestCaseResult): BestCaseReason => {
-  const evaluatedStates = result.search.evaluatedStates;
-  const provenOptimal = result.search.provenOptimal;
-  const search = { evaluatedStates, provenOptimal };
-  return {
-    type: "best-case",
-    summary: "Selected as part of the lowest-risk dependency portfolio",
-    decisionId: result.decisionId,
-    policyHash: result.policyHash,
-    search,
-    impact: result.impact,
-  };
+export const optimizeSecurityOverrides = async (
+  options: OptimizeSecurityOverridesOptions,
+): Promise<OptimizedSecurityOverrides> => {
+  const choices = buildBestCaseChoices(options.vulnerablePackages, options.latestVersions);
+  const evaluate = options.evaluate;
+  const config = options.config;
+  const bestCase = await optimizeBestCasePortfolio({ choices, evaluate, config });
+  const overrides = buildOverrides(choices, options.vulnerablePackages, bestCase);
+  return { overrides, bestCase };
 };

@@ -4,6 +4,7 @@ import type {
   BestCaseRiskAggregation,
   BestCaseSearchMode,
   SecurityAlert,
+  SecurityOverride,
 } from "../../types";
 
 export type BestCaseState = Record<string, string>;
@@ -54,6 +55,18 @@ export interface OptimizeBestCaseOptions {
   choices: BestCasePackageChoice[];
   evaluate: BestCaseEvaluator;
   config?: BestCaseConfig;
+}
+
+export interface OptimizeSecurityOverridesOptions {
+  vulnerablePackages: SecurityAlert[];
+  latestVersions: Map<string, string>;
+  evaluate: BestCaseEvaluator;
+  config?: BestCaseConfig;
+}
+
+export interface OptimizedSecurityOverrides {
+  overrides: SecurityOverride[];
+  bestCase: BestCaseResult;
 }
 
 export interface ResolvedBestCasePolicy {

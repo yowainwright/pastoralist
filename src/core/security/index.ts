@@ -61,8 +61,9 @@ import {
   applyBestCaseState,
   hasMultipleInstalledVersions,
   optimizeSecurityOverrides,
-} from "../best-case/integration";
-import { type BestCaseEvaluator, type BestCaseResult } from "../best-case";
+  type BestCaseEvaluator,
+  type BestCaseResult,
+} from "../best-case";
 
 export * from "./providers";
 
@@ -93,7 +94,8 @@ type SecurityOverrideResolution = {
 };
 
 type SecurityOverrideResolutionInput = {
-  config: PastoralistJSON;
+  installedPackages: SecurityPackage[];
+  baselineAlerts: SecurityAlert[];
   vulnerablePackages: SecurityAlert[];
   latestVersions: Map<string, string>;
   options: SecurityCheckRuntimeOptions;
@@ -345,7 +347,13 @@ export class SecurityChecker {
     const alerts = await this.resolveSecurityAlerts(packages, options);
     const vulnerablePackages = await this.resolveVulnerablePackages(alerts, options);
     const latestVersions = await this.fetchLatestForVulnerablePackages(vulnerablePackages);
-    const resolutionInput = { config, vulnerablePackages, latestVersions, options };
+    const resolutionInput = {
+      installedPackages: packages,
+      baselineAlerts: alerts,
+      vulnerablePackages,
+      latestVersions,
+      options,
+    };
     const resolution = await this.resolveSecurityOverrides(resolutionInput);
     const promptedResolution = await this.promptForResolutionIfNeeded(
       vulnerablePackages,
@@ -835,10 +843,9 @@ export class SecurityChecker {
   }
 
   private createBestCaseEvaluator(
-    config: PastoralistJSON,
+    packages: SecurityPackage[],
     options: SecurityCheckRuntimeOptions,
   ): BestCaseEvaluator {
-    const packages = this.extractPackagesForScan(config, options);
     return async (state) => {
       const portfolio = applyBestCaseState(packages, state);
       const scanOptions = this.createBestCaseScanOptions(options);
@@ -851,11 +858,21 @@ export class SecurityChecker {
   }
 
   private resolveBestCaseEvaluator(
-    config: PastoralistJSON,
+    packages: SecurityPackage[],
     options: SecurityCheckRuntimeOptions,
   ): BestCaseEvaluator {
     if (options.bestCaseEvaluator) return options.bestCaseEvaluator;
-    return this.createBestCaseEvaluator(config, options);
+    return this.createBestCaseEvaluator(packages, options);
+  }
+
+  private collectBestCaseBaselinePackages(
+    input: SecurityOverrideResolutionInput,
+  ): SecurityPackage[] {
+    const observedAlerts = input.baselineAlerts.concat(input.vulnerablePackages);
+    const observedPackages = observedAlerts.map((alert) => {
+      return { name: alert.packageName, version: alert.currentVersion };
+    });
+    return input.installedPackages.concat(observedPackages);
   }
 
   private resolveStandardOverrides(
@@ -872,7 +889,8 @@ export class SecurityChecker {
     const options = input.options;
     const enabled = this.isBestCaseEnabled(options);
     const supported = this.supportsBuiltInBestCase(options);
-    const hasSingleVersionBaseline = !hasMultipleInstalledVersions(input.vulnerablePackages);
+    const baselinePackages = this.collectBestCaseBaselinePackages(input);
+    const hasSingleVersionBaseline = !hasMultipleInstalledVersions(baselinePackages);
     const shouldUseBestCase = enabled && supported && hasSingleVersionBaseline;
     if (!shouldUseBestCase) {
       const standard = this.resolveStandardOverrides(
@@ -888,7 +906,7 @@ export class SecurityChecker {
   private async resolveBestCaseOverrides(
     input: SecurityOverrideResolutionInput,
   ): Promise<SecurityOverrideResolution> {
-    const evaluate = this.resolveBestCaseEvaluator(input.config, input.options);
+    const evaluate = this.resolveBestCaseEvaluator(input.installedPackages, input.options);
     const vulnerablePackages = input.vulnerablePackages;
     const latestVersions = input.latestVersions;
     const config = input.options.bestCase;

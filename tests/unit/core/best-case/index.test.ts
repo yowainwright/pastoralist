@@ -2,11 +2,12 @@ import { describe, expect, test } from "bun:test";
 import {
   createBestCaseReason,
   optimizeBestCasePortfolio,
+  applyBestCaseState,
+  buildBestCaseChoices,
   type BestCaseEvaluation,
   type BestCaseState,
-} from "../../../src/core/best-case";
-import { applyBestCaseState, buildBestCaseChoices } from "../../../src/core/best-case/integration";
-import type { SecurityAlert } from "../../../src/types";
+} from "../../../../src/core/best-case";
+import type { SecurityAlert } from "../../../../src/types";
 
 const alert = (
   packageName: string,
@@ -133,4 +134,14 @@ test("applyBestCaseState adds packages missing from the installed portfolio", ()
     { name: "alpha", version: "2.0.0" },
     { name: "beta", version: "3.0.0" },
   ]);
+});
+
+test("applyBestCaseState preserves coexisting installed versions", () => {
+  const packages = [
+    { name: "alpha", version: "1.0.0" },
+    { name: "alpha", version: "1.5.0" },
+  ];
+  const state = { alpha: "2.0.0" };
+
+  expect(applyBestCaseState(packages, state)).toEqual(packages);
 });

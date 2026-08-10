@@ -11,15 +11,20 @@ import remarkMath from "remark-math";
 import { visit } from "unist-util-visit";
 import type { Node } from "unist";
 
-const manualChunkPackages: Record<string, string[]> = {
-  "react-vendor": ["react", "react-dom"],
-  router: ["@tanstack/react-router"],
-  motion: ["framer-motion"],
-  state: ["xstate", "@xstate/react"],
-  fuse: ["fuse.js"],
-  shiki: ["shiki", "@shikijs/core", "@shikijs/engine-javascript", "@shikijs/vscode-textmate"],
-  shaders: ["shaders"],
-};
+const manualChunkEntries = [
+  ["/node_modules/react/", "react-vendor"],
+  ["/node_modules/react-dom/", "react-vendor"],
+  ["/node_modules/@tanstack/react-router/", "router"],
+  ["/node_modules/framer-motion/", "motion"],
+  ["/node_modules/xstate/", "state"],
+  ["/node_modules/@xstate/react/", "state"],
+  ["/node_modules/fuse.js/", "fuse"],
+  ["/node_modules/shiki/", "shiki"],
+  ["/node_modules/@shikijs/core/", "shiki"],
+  ["/node_modules/@shikijs/engine-javascript/", "shiki"],
+  ["/node_modules/@shikijs/vscode-textmate/", "shiki"],
+  ["/node_modules/shaders/", "shaders"],
+] as const;
 
 const FRONTMATTER_REGEX = /^---\n[\s\S]*?\n---\n?/;
 
@@ -37,11 +42,9 @@ const manualChunks = (id: string) => {
   if (!id.includes("node_modules")) return;
   if (id.includes("/node_modules/shiki/dist/langs/")) return;
 
-  for (const [chunkName, packages] of Object.entries(manualChunkPackages)) {
-    if (packages.some((pkg) => id.includes(`/node_modules/${pkg}/`))) {
-      return chunkName;
-    }
-  }
+  const chunkEntry = manualChunkEntries.find(([packagePath]) => id.includes(packagePath));
+  if (!chunkEntry) return;
+  return chunkEntry[1];
 };
 
 const stripFrontmatter = (source: string): string => source.replace(FRONTMATTER_REGEX, "");

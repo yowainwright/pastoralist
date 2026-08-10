@@ -102,6 +102,7 @@ const buildChoice = (
   packageName: string,
   alerts: SecurityAlert[],
   latestVersions: Map<string, string>,
+  userOwnedVersions: Map<string, string>,
 ): BestCasePackageChoice => {
   const currentVersions = alerts
     .map((alert) => normalizeCurrentVersion(alert.currentVersion))
@@ -110,7 +111,8 @@ const buildChoice = (
   const patchedVersions = getPatchedVersions(alerts);
   const latestVersion = getLatestVersionList(packageName, latestVersions);
   const versions = patchedVersions.concat(latestVersion);
-  return { packageName, currentVersion, versions };
+  const requiredVersion = userOwnedVersions.get(packageName);
+  return { packageName, currentVersion, versions, requiredVersion };
 };
 
 const groupPatchableAlerts = (alerts: SecurityAlert[]): Map<string, SecurityAlert[]> => {
@@ -126,10 +128,11 @@ const groupPatchableAlerts = (alerts: SecurityAlert[]): Map<string, SecurityAler
 export const buildBestCaseChoices = (
   alerts: SecurityAlert[],
   latestVersions: Map<string, string>,
+  userOwnedVersions = new Map<string, string>(),
 ): BestCasePackageChoice[] => {
   const grouped = groupPatchableAlerts(alerts);
   return Array.from(grouped.entries()).map(([packageName, packageAlerts]) => {
-    return buildChoice(packageName, packageAlerts, latestVersions);
+    return buildChoice(packageName, packageAlerts, latestVersions, userOwnedVersions);
   });
 };
 
@@ -436,6 +439,9 @@ export const buildImpact = (
 };
 
 export const normalizeChoice = (choice: BestCasePackageChoice): BestCasePackageChoice => {
+  if (choice.requiredVersion) {
+    return Object.assign({}, choice, { versions: [choice.requiredVersion] });
+  }
   const allVersions = [choice.currentVersion].concat(choice.versions);
   const versions = Array.from(new Set(allVersions)).sort(compareVersions);
   return Object.assign({}, choice, { versions });
@@ -447,7 +453,9 @@ export const normalizeChoices = (choices: BestCasePackageChoice[]): BestCasePack
 };
 
 export const createBaselineState = (choices: BestCasePackageChoice[]): BestCaseState => {
-  const entries = choices.map((choice) => [choice.packageName, choice.currentVersion]);
+  const entries = choices.map((choice) => {
+    return [choice.packageName, choice.requiredVersion ?? choice.currentVersion];
+  });
   return Object.fromEntries(entries);
 };
 

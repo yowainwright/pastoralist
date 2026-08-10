@@ -12,8 +12,12 @@ const createMockOutput = (): Output & { lines: string[] } => {
   const lines: string[] = [];
   return {
     lines,
-    write: (text: string) => lines.push(text),
-    writeLine: (text: string) => lines.push(text),
+    write: (text: string) => {
+      lines[lines.length] = text;
+    },
+    writeLine: (text: string) => {
+      lines[lines.length] = text;
+    },
     clearLine: () => {},
     hideCursor: () => {},
     showCursor: () => {},
@@ -861,8 +865,8 @@ describe("terminal-graph", () => {
       originalSetInterval = global.setInterval;
       originalClearInterval = global.clearInterval;
 
-      global.setInterval = ((fn: () => void, ms: number) => {
-        intervalCallbacks.push(fn);
+      global.setInterval = ((fn: () => void, _ms: number) => {
+        intervalCallbacks[intervalCallbacks.length] = fn;
         const id = Math.random();
         intervalIds.add(id);
         return id as any;
@@ -921,7 +925,7 @@ describe("terminal-graph", () => {
       let writeCallCount = 0;
       output.write = (text: string) => {
         writeCallCount++;
-        output.lines.push(text);
+        output.lines[output.lines.length] = text;
       };
 
       callback();

@@ -13,6 +13,7 @@ export interface BestCasePackageChoice {
   packageName: string;
   currentVersion: string;
   versions: string[];
+  requiredVersion?: string;
 }
 
 export interface BestCaseEvaluation {
@@ -60,6 +61,7 @@ export interface OptimizeBestCaseOptions {
 export interface OptimizeSecurityOverridesOptions {
   vulnerablePackages: SecurityAlert[];
   latestVersions: Map<string, string>;
+  userOwnedVersions?: Map<string, string>;
   evaluate: BestCaseEvaluator;
   config?: BestCaseConfig;
 }

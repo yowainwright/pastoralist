@@ -79,7 +79,9 @@ const buildSearchResult = (
   durationMs: number,
 ): BestCaseSearchResult => {
   const evaluatedStates = context.cache.size;
-  const provenOptimal = mode === "exact" && evaluatedStates === totalStates;
+  const isExhaustive = mode === "exact" && evaluatedStates === totalStates;
+  const hasFailedStates = countFailedStates(context) > 0;
+  const provenOptimal = isExhaustive && !hasFailedStates;
   return { mode, evaluatedStates, totalStates, provenOptimal, durationMs };
 };
 
@@ -118,7 +120,11 @@ export const optimizeBestCasePortfolio = async (
 export const optimizeSecurityOverrides = async (
   options: OptimizeSecurityOverridesOptions,
 ): Promise<OptimizedSecurityOverrides> => {
-  const choices = buildBestCaseChoices(options.vulnerablePackages, options.latestVersions);
+  const choices = buildBestCaseChoices(
+    options.vulnerablePackages,
+    options.latestVersions,
+    options.userOwnedVersions,
+  );
   const evaluate = options.evaluate;
   const config = options.config;
   const bestCase = await optimizeBestCasePortfolio({ choices, evaluate, config });

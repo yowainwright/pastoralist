@@ -42,17 +42,18 @@ import {
   validateRootPackageJsonIntegrity,
 } from "../setup";
 
-mock.module("node:child_process", () => ({
-  ...require("node:child_process"),
-  promisify: (fn: any) => {
-    if (fn.name === "execFile") {
-      return async (cmd: string, args: string[], options: any) => {
-        throw new Error(`Unexpected execFile call in tests: ${cmd} ${args.join(" ")}`);
-      };
-    }
-    return require("util").promisify(fn);
-  },
-}));
+mock.module("node:child_process", () =>
+  Object.assign({}, require("node:child_process"), {
+    promisify: (fn: any) => {
+      if (fn.name === "execFile") {
+        return async (cmd: string, args: string[], _options: any) => {
+          throw new Error(`Unexpected execFile call in tests: ${cmd} ${args.join(" ")}`);
+        };
+      }
+      return require("util").promisify(fn);
+    },
+  }),
+);
 
 const testDir = resolve(__dirname, "..", ".test-packagejson-core");
 const testPkgPath = resolve(testDir, "package.json");
@@ -113,7 +114,8 @@ test("detectPackageManager - should detect bun when bun.lockb exists", () => {
   const pm = detectPackageManager();
   expect(pm).toBe("bun");
 
-  if (!hadLock && existsSync(lockPath)) {
+  const shouldRemoveLock = !hadLock && existsSync(lockPath);
+  if (shouldRemoveLock) {
     unlinkSync(lockPath);
   }
 });
@@ -773,7 +775,7 @@ test("updatePackageJSON - should not show RC file suggestion for small config", 
   const originalConsoleLog = console.log;
   const logCalls: string[] = [];
   console.log = (...args: any[]) => {
-    logCalls.push(args.join(" "));
+    logCalls[logCalls.length] = args.join(" ");
   };
 
   writeFileSync(testPkgPath, JSON.stringify(config, null, 2));
@@ -824,7 +826,7 @@ test("updatePackageJSON - should show RC file suggestion for large config", () =
   const originalWrite = process.stdout.write.bind(process.stdout);
   const writeCalls: string[] = [];
   process.stdout.write = (chunk: any): boolean => {
-    writeCalls.push(String(chunk));
+    writeCalls[writeCalls.length] = String(chunk);
     return true;
   };
 
@@ -886,7 +888,9 @@ test("updatePackageJSON - silent option suppresses dry-run output", () => {
 
   const consoleOutput: string[] = [];
   const originalLog = console.log;
-  console.log = (msg: string) => consoleOutput.push(msg);
+  console.log = (msg: string) => {
+    consoleOutput[consoleOutput.length] = msg;
+  };
 
   updatePackageJSON({
     path: testPkgPath,
@@ -911,7 +915,9 @@ test("updatePackageJSON - dry-run without silent shows output", () => {
 
   const consoleOutput: string[] = [];
   const originalLog = console.log;
-  console.log = (msg: string) => consoleOutput.push(msg);
+  console.log = (msg: string) => {
+    consoleOutput[consoleOutput.length] = msg;
+  };
 
   updatePackageJSON({
     path: testPkgPath,
@@ -937,7 +943,9 @@ test("updatePackageJSON - dry-run with unchanged content logs no-op message", ()
 
   const consoleOutput: string[] = [];
   const originalLog = console.log;
-  console.log = (msg: string) => consoleOutput.push(msg);
+  console.log = (msg: string) => {
+    consoleOutput[consoleOutput.length] = msg;
+  };
 
   updatePackageJSON({
     path: testPkgPath,
@@ -1746,7 +1754,8 @@ test("detectPackageManager - should detect bun via bun.lock when only bun.lock e
     expect(pm).toBe("bun");
   } finally {
     if (hadLockb) writeFileSync(lockbPath, "");
-    if (!hadLock && existsSync(lockPath)) unlinkSync(lockPath);
+    const shouldRemoveTemporaryLock = !hadLock && existsSync(lockPath);
+    if (shouldRemoveTemporaryLock) unlinkSync(lockPath);
   }
 });
 

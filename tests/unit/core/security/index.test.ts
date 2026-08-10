@@ -3,7 +3,7 @@ process.env.PASTORALIST_MOCK_SECURITY = "true";
 import { test, expect, mock, spyOn, beforeEach, afterEach } from "bun:test";
 import { SecurityChecker } from "../../../../src/core/security";
 import { GitHubSecurityProvider } from "../../../../src/core/security/providers/github";
-import { isVersionVulnerable, findVulnerablePackages } from "../../../../src/core/security/utils";
+import { isVersionVulnerable } from "../../../../src/core/security/utils";
 import * as securityUtils from "../../../../src/core/security/utils";
 import { PastoralistJSON, SecurityOverride } from "../../../../src/types";
 import {
@@ -15,7 +15,6 @@ import * as fs from "fs";
 import * as path from "path";
 import { tmpdir } from "os";
 import {
-  BASE_SECURITY_ALERT,
   BASE_DEPENDABOT_ALERT,
   BASE_SECURITY_OVERRIDE,
   LODASH_DEPENDENCY,
@@ -30,18 +29,15 @@ import {
 } from "../../fixtures/security.fixtures";
 import { createMockFetch, withMockedFetch } from "../../fixtures/setup.fixtures";
 
-const mockDependabotAlert: DependabotAlert = {
-  ...BASE_DEPENDABOT_ALERT,
+const mockDependabotAlert: DependabotAlert = Object.assign({}, BASE_DEPENDABOT_ALERT, {
   dependency: LODASH_DEPENDENCY,
-  security_advisory: {
-    ...LODASH_ADVISORY,
+  security_advisory: Object.assign({}, LODASH_ADVISORY, {
     vulnerabilities: [LODASH_VULNERABILITY],
-  },
-  security_vulnerability: {
-    ...LODASH_VULNERABILITY,
-    severity: "high",
-  },
-};
+  }),
+  security_vulnerability: Object.assign({}, LODASH_VULNERABILITY, {
+    severity: "high" as const,
+  }),
+});
 
 const mockPackageJson: PastoralistJSON = {
   name: "test-package",
@@ -81,11 +77,8 @@ const createCheckerWithMockAlerts = (
   options: ConstructorParameters<typeof SecurityChecker>[0] = {},
   alerts: SecurityAlert[] = [],
 ): SecurityChecker => {
-  const checker = new SecurityChecker({
-    provider: "osv",
-    noCache: true,
-    ...options,
-  });
+  const checkerOptions = Object.assign({}, { provider: "osv", noCache: true }, options);
+  const checker = new SecurityChecker(checkerOptions);
   return mockProviderAlerts(checker, alerts);
 };
 
@@ -110,6 +103,32 @@ const mockLatestBestCaseVersion = (checker: SecurityChecker): void => {
   spyOn(checker as any, "fetchLatestForVulnerablePackages").mockResolvedValue(
     new Map([["alpha", "2.0.0"]]),
   );
+};
+
+const createBestCaseUpdate = () => ({
+  packageName: "alpha",
+  currentOverride: "2.0.0",
+  newerVersion: "2.5.0",
+  reason: "Newer security patch available",
+  addedDate: "2024-01-15T00:00:00.000Z",
+});
+
+const mockBestCaseUpdate = (checker: SecurityChecker) => {
+  const update = createBestCaseUpdate();
+  spyOn(checker as any, "checkOverrideUpdates").mockResolvedValue([update]);
+  return update;
+};
+
+const mockUserOwnedPrompts = (update: ReturnType<typeof createBestCaseUpdate>) => {
+  const manager = securityUtils.InteractiveSecurityManager.prototype;
+  const ownership = spyOn(manager, "promptForUserOwnedOverrides").mockResolvedValue([update]);
+  const portfolio = spyOn(manager, "promptForBestCasePortfolio").mockImplementation(
+    async (_alerts, overrides) => overrides,
+  );
+  return () => {
+    ownership.mockRestore();
+    portfolio.mockRestore();
+  };
 };
 
 const getFirstProvider = (checker: SecurityChecker): FetchAlertsProvider => {
@@ -150,7 +169,6 @@ const createExternalJsonAutoFixFixture = (
 };
 
 test("Security Alert Detection - should identify vulnerable packages in dependencies", () => {
-  const checker = new SecurityChecker({ debug: false });
   const provider = new GitHubSecurityProvider({ debug: false });
 
   const alerts = provider.convertToSecurityAlerts([mockDependabotAlert]);
@@ -163,15 +181,13 @@ test("Security Alert Detection - should identify vulnerable packages in dependen
 test("Security Alert Detection - should filter out dismissed and fixed alerts", () => {
   const provider = new GitHubSecurityProvider({ debug: false });
 
-  const dismissedAlert: DependabotAlert = {
-    ...mockDependabotAlert,
-    state: "dismissed",
-  };
+  const dismissedAlert: DependabotAlert = Object.assign({}, mockDependabotAlert, {
+    state: "dismissed" as const,
+  });
 
-  const fixedAlert: DependabotAlert = {
-    ...mockDependabotAlert,
-    state: "fixed",
-  };
+  const fixedAlert: DependabotAlert = Object.assign({}, mockDependabotAlert, {
+    state: "fixed" as const,
+  });
 
   const alerts = provider.convertToSecurityAlerts([
     mockDependabotAlert,
@@ -225,7 +241,8 @@ test("Override Generation - should generate correct overrides for vulnerable pac
 
 test("Override Generation - should not generate overrides for packages without fixes", () => {
   const checker = new SecurityChecker({ debug: false });
-  const vulnerablePackages = [createAlert({ packageName: "vulnerable-package", ...NO_FIX_FIELDS })];
+  const alertFields = Object.assign({}, { packageName: "vulnerable-package" }, NO_FIX_FIELDS);
+  const vulnerablePackages = [createAlert(alertFields)];
 
   const latestVersions = new Map<string, string>();
   const overrides = (checker as any).generateOverrides(vulnerablePackages, latestVersions);
@@ -300,7 +317,7 @@ test("Override Generation - should use patched version when latest is not found"
 
 test("Override Generation - should handle multiple packages with different latest versions", () => {
   const checker = new SecurityChecker({ debug: false });
-  const vulnerablePackages = [createAlert(), createAlert({ ...AXIOS_ALERT_FIELDS })];
+  const vulnerablePackages = [createAlert(), createAlert(AXIOS_ALERT_FIELDS)];
 
   const latestVersions = new Map<string, string>([
     ["lodash", "4.17.25"],
@@ -337,10 +354,8 @@ test("Override Generation - should prefer patched when latest is older (edge cas
 
 test("fetchLatestForVulnerablePackages - should extract packages with fixes", async () => {
   const checker = new SecurityChecker({ debug: false, noCache: true });
-  const vulnerablePackages = [
-    createAlert(),
-    createAlert({ packageName: "no-fix-pkg", ...NO_FIX_FIELDS }),
-  ];
+  const noFixFields = Object.assign({}, { packageName: "no-fix-pkg" }, NO_FIX_FIELDS);
+  const vulnerablePackages = [createAlert(), createAlert(noFixFields)];
 
   const mockFetch = mock(() =>
     Promise.resolve({
@@ -654,12 +669,71 @@ test("checkSecurity - applies the best-case portfolio and records its reason", a
   });
 });
 
+test("checkSecurity - suppresses independent updates for a best-case portfolio", async () => {
+  const checker = createCheckerWithMockAlerts({}, [createBestCaseAlert()]);
+  mockLatestBestCaseVersion(checker);
+  mockBestCaseUpdate(checker);
+
+  const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), {
+    bestCaseEvaluator: async () => ({ alerts: [] }),
+  });
+
+  expect(result.bestCase).toBeDefined();
+  expect(result.updates).toEqual([]);
+});
+
+test("checkSecurity - hard-constrains configured user-owned overrides", async () => {
+  const checker = createCheckerWithMockAlerts({}, [createBestCaseAlert()]);
+  const config = createBuiltInBestCaseConfig();
+  config.overrides = { alpha: "2.5.0" };
+  config.pastoralist!.bestCase!.userOwnedOverrides = ["alpha"];
+  mockLatestBestCaseVersion(checker);
+
+  const result = await checker.checkSecurity(config, {
+    bestCaseEvaluator: async () => ({ alerts: [] }),
+  });
+
+  expect(result.bestCase?.selectedState).toEqual({ alpha: "2.5.0" });
+  expect(result.overrides[0].toVersion).toBe("2.5.0");
+});
+
+test("checkSecurity - rejects user-owned packages without string overrides", async () => {
+  const checker = createCheckerWithMockAlerts({}, [createBestCaseAlert()]);
+  const config = createBuiltInBestCaseConfig();
+  config.pastoralist!.bestCase!.userOwnedOverrides = ["alpha"];
+  mockLatestBestCaseVersion(checker);
+
+  const check = checker.checkSecurity(config, {
+    bestCaseEvaluator: async () => ({ alerts: [] }),
+  });
+
+  await expect(check).rejects.toThrow("User-owned override alpha must reference a string override");
+});
+
+test("checkSecurity - returns interactive user-owned approvals for persistence", async () => {
+  const checker = createCheckerWithMockAlerts({}, [createBestCaseAlert()]);
+  const update = mockBestCaseUpdate(checker);
+  mockLatestBestCaseVersion(checker);
+  const restorePrompts = mockUserOwnedPrompts(update);
+
+  const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), {
+    bestCaseEvaluator: async () => ({ alerts: [] }),
+    interactive: true,
+  });
+
+  expect(result.userOwnedOverridesAdded).toEqual(["alpha"]);
+  expect(result.bestCase?.selectedState.alpha).toBe("2.5.0");
+  restorePrompts();
+});
+
 test("checkSecurity - filters built-in best-case alerts by severity", async () => {
   const highAlert = createBestCaseAlert("high");
   const lowAlert = createBestCaseAlert("low");
   const checker = new SecurityChecker({ provider: "osv", noCache: true });
   spyOn(getFirstProvider(checker), "fetchAlerts").mockImplementation(async (packages) => {
-    return packages[0].version === "2.0.0" ? [lowAlert] : [highAlert];
+    const isPatchedVersion = packages[0].version === "2.0.0";
+    if (isPatchedVersion) return [lowAlert];
+    return [highAlert];
   });
   mockLatestBestCaseVersion(checker);
 
@@ -753,7 +827,9 @@ test("checkSecurity - uses standard overrides when an installed version has no a
 test("checkSecurity - omits best-case provenance when interactive approval is declined", async () => {
   const checker = new SecurityChecker({ provider: "osv", noCache: true });
   spyOn(getFirstProvider(checker), "fetchAlerts").mockImplementation(async (packages) => {
-    return packages[0].version === "2.0.0" ? [] : [createBestCaseAlert()];
+    const isPatchedVersion = packages[0].version === "2.0.0";
+    if (isPatchedVersion) return [];
+    return [createBestCaseAlert()];
   });
   const prompt = spyOn(
     securityUtils.InteractiveSecurityManager.prototype,

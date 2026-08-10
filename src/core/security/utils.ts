@@ -1,5 +1,6 @@
 import type {
   PastoralistJSON,
+  OverrideUpdate,
   SecurityAlert,
   SecurityOverride,
   SecurityProviderType,
@@ -644,6 +645,28 @@ export class InteractiveSecurityManager {
     const accepted = await this.prompts.confirm(message, true);
     if (!accepted) return [];
     return suggestedOverrides;
+  }
+
+  async promptForUserOwnedOverrides(updates: OverrideUpdate[]): Promise<OverrideUpdate[]> {
+    const [update, ...remaining] = updates;
+    if (!update) return [];
+    const isUserOwned = await this.promptForUserOwnedOverride(update);
+    const selected = await this.promptForUserOwnedOverrides(remaining);
+    if (!isUserOwned) return selected;
+    return [update].concat(selected);
+  }
+
+  private promptForUserOwnedOverride(update: OverrideUpdate): Promise<boolean> {
+    const addedDate = this.formatUserOwnedAddedDate(update);
+    const subject = `${update.packageName}@${update.newerVersion}`;
+    const message = `Mark ${subject} as user-owned and force it into the best-case portfolio?`;
+    const prompt = message + addedDate;
+    return this.prompts.confirm(prompt, false);
+  }
+
+  private formatUserOwnedAddedDate(update: OverrideUpdate): string {
+    if (!update.addedDate) return "";
+    return ` Existing override added ${update.addedDate}.`;
   }
 
   private printSecurityReview(vulnerablePackages: SecurityAlert[]): void {

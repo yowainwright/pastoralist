@@ -68,6 +68,7 @@ export type BestCaseObjective =
 
 export interface BestCaseConfig {
   enabled?: boolean;
+  userOwnedOverrides?: string[];
   riskAggregation?: BestCaseRiskAggregation;
   objectives?: BestCaseObjective[];
   search?: {

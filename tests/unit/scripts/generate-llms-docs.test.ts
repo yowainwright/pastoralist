@@ -32,7 +32,7 @@ const createMemoryFileSystem = (
     directories,
     exists: (path) => Object.hasOwn(normalizedFiles, resolve(path)),
     mkdirp: (path) => {
-      directories.push(resolve(path));
+      directories[directories.length] = resolve(path);
     },
     readText: (path) => {
       const normalizedPath = resolve(path);

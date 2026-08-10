@@ -50,6 +50,7 @@ The reason is per dependency, while the decision ID connects all dependencies se
 Best-case selection is opt-in under `pastoralist.bestCase`.
 
 - `enabled` defaults to false.
+- `userOwnedOverrides` lists packages whose active override versions are hard constraints.
 - `riskAggregation` accepts `unique-cves`, `package-exposures`, or `both`.
 - `objectives` defines the lexicographic ranking order.
 - `search.mode` accepts `auto`, `exact`, or `beam`.
@@ -60,6 +61,36 @@ Best-case selection is opt-in under `pastoralist.bestCase`.
 The default objective order is known exploited, critical, high, expected exploitation, package exposures, compatibility, change count, and oldness.
 
 The first differing objective decides which portfolio ranks higher. Reordering the list changes policy; the algorithm does not combine objectives into a weighted sum.
+
+User-owned overrides win over the optimizer. The package name is persisted in
+`userOwnedOverrides`, while the active package-manager override supplies its
+version. Interactive security checks can promote a newer independent update to
+user-owned status and re-evaluate the portfolio before applying it.
+
+```json
+{
+  "overrides": {
+    "alpha": "2.5.0"
+  },
+  "pastoralist": {
+    "bestCase": {
+      "enabled": true,
+      "userOwnedOverrides": ["alpha"]
+    },
+    "appendix": {
+      "alpha@2.5.0": {
+        "ledger": {
+          "addedDate": "2026-08-09T00:00:00.000Z"
+        }
+      }
+    }
+  }
+}
+```
+
+The list is the machine-readable ownership declaration. The ledger
+`addedDate` is the human-facing “user-owned since” signal; it cannot establish
+ownership by itself because every ledger entry has an added date.
 
 ## Search behavior
 

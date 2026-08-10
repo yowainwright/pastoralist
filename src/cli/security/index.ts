@@ -230,6 +230,7 @@ const toSecurityRunResult = (
   updates: result.updates,
   packagesScanned: result.packagesScanned,
   bestCase: result.bestCase,
+  userOwnedOverridesAdded: result.userOwnedOverridesAdded,
   skipped: false,
 });
 
@@ -294,6 +295,7 @@ const handleSecurityCheckError = (
       updates: [],
       packagesScanned: 0,
       bestCase: undefined,
+      userOwnedOverridesAdded: undefined,
       skipped: true,
     };
   }
@@ -456,6 +458,37 @@ const applySecurityResults = (
   return Object.assign({}, mergedOptions, securityUpdates);
 };
 
+const mergeUserOwnedOverrides = (
+  bestCase: NonNullable<Options["bestCase"]> | undefined,
+  added: string[],
+): NonNullable<Options["bestCase"]> => {
+  const current = bestCase?.userOwnedOverrides ?? [];
+  const userOwnedOverrides = Array.from(new Set(current.concat(added)));
+  return Object.assign({}, bestCase, { userOwnedOverrides });
+};
+
+const addUserOwnedOverridesToConfig = (
+  config: PastoralistJSON | undefined,
+  added: string[],
+): PastoralistJSON | undefined => {
+  if (!config) return undefined;
+  const pastoralist = config.pastoralist ?? {};
+  const bestCase = mergeUserOwnedOverrides(pastoralist.bestCase, added);
+  const nextPastoralist = Object.assign({}, pastoralist, { bestCase });
+  return Object.assign({}, config, { pastoralist: nextPastoralist });
+};
+
+const persistUserOwnedOverrides = (
+  mergedOptions: Options,
+  added: string[] | undefined,
+): Options => {
+  if (!added?.length) return mergedOptions;
+  const bestCase = mergeUserOwnedOverrides(mergedOptions.bestCase, added);
+  const config = addUserOwnedOverridesToConfig(mergedOptions.config, added);
+  const manifestConfig = addUserOwnedOverridesToConfig(mergedOptions.manifestConfig, added);
+  return Object.assign({}, mergedOptions, { bestCase, config, manifestConfig });
+};
+
 const createSkippedSecurityPhase = (mergedOptions: Options): SecurityPhaseResult => ({
   mergedOptions,
   securityResult: createEmptySecurityResult(),
@@ -469,7 +502,13 @@ const resolveSecurityPhaseOptions = async (
   result: Awaited<ReturnType<typeof runSecurityCheck>>,
   deps: Pick<SecurityPhaseDeps, "handleSecurityResults" | "quickConfirm">,
 ): Promise<Options> => {
-  const optionsWithAlerts = Object.assign({}, mergedOptions, { securityAlerts: result.alerts });
+  const optionsWithOwnership = persistUserOwnedOverrides(
+    mergedOptions,
+    result.userOwnedOverridesAdded,
+  );
+  const optionsWithAlerts = Object.assign({}, optionsWithOwnership, {
+    securityAlerts: result.alerts,
+  });
   const optionsWithSafety = await applyRemovalSafety(
     config,
     optionsWithAlerts,

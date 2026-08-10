@@ -217,6 +217,7 @@ test("validateConfig - accepts tunable best-case search config", () => {
   const config = {
     bestCase: {
       enabled: true,
+      userOwnedOverrides: ["alpha", "@scope/beta"],
       riskAggregation: "both",
       objectives: ["critical", "high", "package-exposures", "change-count"],
       search: {
@@ -236,6 +237,8 @@ test("validateConfig - rejects invalid best-case search config", () => {
     { bestCase: { riskAggregation: "average" } },
     { bestCase: { objectives: [] } },
     { bestCase: { objectives: ["critical", "critical"] } },
+    { bestCase: { userOwnedOverrides: [""] } },
+    { bestCase: { userOwnedOverrides: ["alpha", "alpha"] } },
     { bestCase: { search: { mode: "random" } } },
     { bestCase: { search: { exactStateLimit: 0 } } },
     { bestCase: { search: { beamWidth: -1 } } },

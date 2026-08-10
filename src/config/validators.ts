@@ -60,6 +60,11 @@ const isNonEmptyStringArray = (value: unknown): value is string[] => {
   return isArray(value) && value.every(isNonEmptyString);
 };
 
+const isUniqueNonEmptyStringArray = (value: unknown): value is string[] => {
+  if (!isNonEmptyStringArray(value)) return false;
+  return new Set(value).size === value.length;
+};
+
 const hasOnlyFields = (value: Record<string, unknown>, fields: readonly string[]): boolean => {
   return Object.keys(value).every((field) => fields.includes(field));
 };
@@ -285,10 +290,17 @@ const validateBestCaseSearch = (value: unknown): boolean => {
 
 const validateBestCaseConfig = (value: unknown): boolean => {
   if (!isObject(value)) return false;
-  const allowedFields = ["enabled", "riskAggregation", "objectives", "search"] as const;
+  const allowedFields = [
+    "enabled",
+    "userOwnedOverrides",
+    "riskAggregation",
+    "objectives",
+    "search",
+  ] as const;
   if (!hasOnlyFields(value, allowedFields)) return false;
   const fields: FieldValidation[] = [
     { field: "enabled", validator: isBoolean },
+    { field: "userOwnedOverrides", validator: isUniqueNonEmptyStringArray },
     { field: "riskAggregation", validator: isBestCaseRiskAggregation },
     { field: "objectives", validator: isBestCaseObjectives },
     { field: "search", validator: validateBestCaseSearch },

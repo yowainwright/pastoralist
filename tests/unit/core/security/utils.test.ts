@@ -809,6 +809,43 @@ test("InteractiveSecurityManager - rejects a best-case portfolio atomically", as
   console.log = originalLog;
 });
 
+test("InteractiveSecurityManager - identifies user-owned updates with their added date", async () => {
+  const prompts = {
+    confirm: mock(async () => true),
+    select: mock(async () => "apply"),
+    input: mock(async () => ""),
+  };
+  const manager = new InteractiveSecurityManager(prompts);
+  const update = {
+    packageName: "lodash",
+    currentOverride: "4.17.21",
+    newerVersion: "4.17.22",
+    reason: "Newer security patch",
+    addedDate: "2024-01-15T00:00:00.000Z",
+  };
+
+  expect(await manager.promptForUserOwnedOverrides([update])).toEqual([update]);
+  expect(prompts.confirm).toHaveBeenCalledWith(expect.stringContaining(update.addedDate), false);
+});
+
+test("InteractiveSecurityManager - skips declined user-owned updates without dates", async () => {
+  const prompts = {
+    confirm: mock(async () => false),
+    select: mock(async () => "apply"),
+    input: mock(async () => ""),
+  };
+  const manager = new InteractiveSecurityManager(prompts);
+  const update = {
+    packageName: "lodash",
+    currentOverride: "4.17.21",
+    newerVersion: "4.17.22",
+    reason: "Newer security patch",
+  };
+
+  expect(await manager.promptForUserOwnedOverrides([update])).toEqual([]);
+  expect(prompts.confirm).toHaveBeenCalledWith(expect.not.stringContaining("added"), false);
+});
+
 test("InteractiveSecurityManager - promptForSecurityActions with no vulnerabilities returns empty array", async () => {
   const manager = new InteractiveSecurityManager();
 

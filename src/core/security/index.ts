@@ -98,7 +98,25 @@ type SecurityOverrideResolutionInput = {
   baselineAlerts: SecurityAlert[];
   vulnerablePackages: SecurityAlert[];
   latestVersions: Map<string, string>;
+  userOwnedVersions: Map<string, string>;
   options: SecurityCheckRuntimeOptions;
+};
+
+type UserOwnedOverrideResolution = {
+  versions: Map<string, string>;
+  added: string[];
+};
+
+type SecurityResolutionOutcome = {
+  source: SecurityOverrideResolution;
+  prompted: SecurityOverrideResolution;
+  userOwnedOverridesAdded: string[];
+};
+
+type SecurityResolutionScan = {
+  vulnerablePackages: SecurityAlert[];
+  updates: OverrideUpdate[];
+  input: SecurityOverrideResolutionInput;
 };
 
 type SecurityAlertScan = {
@@ -344,28 +362,15 @@ export class SecurityChecker {
     const packages = this.extractPackagesForScan(config, options);
     if (packages.length === 0) return this.emptySecurityResult();
 
-    const alerts = await this.resolveSecurityAlerts(packages, options);
-    const vulnerablePackages = await this.resolveVulnerablePackages(alerts, options);
-    const latestVersions = await this.fetchLatestForVulnerablePackages(vulnerablePackages);
-    const resolutionInput = {
-      installedPackages: packages,
-      baselineAlerts: alerts,
-      vulnerablePackages,
-      latestVersions,
-      options,
-    };
-    const resolution = await this.resolveSecurityOverrides(resolutionInput);
-    const promptedResolution = await this.promptForResolutionIfNeeded(
-      vulnerablePackages,
-      resolution,
-      options,
-    );
-    const updates = await this.checkOverrideUpdates(config, alerts, options.packageJsonPath);
+    const scan = await this.resolveSecurityScan(config, packages, options);
+    const outcome = await this.resolveSecurityOutcome(config, scan.updates, scan.input);
+    const resultUpdates = this.resolveResultUpdates(outcome.source, scan.updates);
     return this.buildSecurityCheckResult(
-      vulnerablePackages,
-      promptedResolution,
-      updates,
+      scan.vulnerablePackages,
+      outcome.prompted,
+      resultUpdates,
       packages.length,
+      outcome.userOwnedOverridesAdded,
     );
   }
 
@@ -374,6 +379,7 @@ export class SecurityChecker {
     resolution: SecurityOverrideResolution,
     updates: OverrideUpdate[],
     packagesScanned: number,
+    userOwnedOverridesAdded: string[],
   ): SecurityCheckResult {
     const result: SecurityCheckResult = {
       alerts,
@@ -383,7 +389,70 @@ export class SecurityChecker {
     };
     const bestCase = resolution.bestCase;
     if (bestCase) result.bestCase = bestCase;
+    if (userOwnedOverridesAdded.length > 0) {
+      result.userOwnedOverridesAdded = userOwnedOverridesAdded;
+    }
     return result;
+  }
+
+  private async resolveSecurityScan(
+    config: PastoralistJSON,
+    installedPackages: SecurityPackage[],
+    options: SecurityCheckRuntimeOptions,
+  ): Promise<SecurityResolutionScan> {
+    const baselineAlerts = await this.resolveSecurityAlerts(installedPackages, options);
+    const vulnerablePackages = await this.resolveVulnerablePackages(baselineAlerts, options);
+    const latestVersions = await this.fetchLatestForVulnerablePackages(vulnerablePackages);
+    const updates = await this.checkOverrideUpdates(
+      config,
+      baselineAlerts,
+      options.packageJsonPath,
+    );
+    const userOwnedVersions = new Map<string, string>();
+    const input = {
+      installedPackages,
+      baselineAlerts,
+      vulnerablePackages,
+      latestVersions,
+      userOwnedVersions,
+      options,
+    };
+    return { vulnerablePackages, updates, input };
+  }
+
+  private getAcceptedUserOwnedOverrides(
+    resolution: SecurityOverrideResolution,
+    added: string[],
+  ): string[] {
+    if (!resolution.bestCase) return [];
+    return added;
+  }
+
+  private async resolveSecurityOutcome(
+    config: PastoralistJSON,
+    updates: OverrideUpdate[],
+    input: SecurityOverrideResolutionInput,
+  ): Promise<SecurityResolutionOutcome> {
+    const userOwned = await this.resolveUserOwnedOverrides(config, updates, input);
+    const constrainedInput = Object.assign({}, input, {
+      userOwnedVersions: userOwned.versions,
+    });
+    const source = await this.resolveSecurityOverrides(constrainedInput);
+    const prompted = await this.promptForResolutionIfNeeded(
+      input.vulnerablePackages,
+      source,
+      input.options,
+    );
+    const added = this.getAcceptedUserOwnedOverrides(prompted, userOwned.added);
+    return { source, prompted, userOwnedOverridesAdded: added };
+  }
+
+  private resolveResultUpdates(
+    resolution: SecurityOverrideResolution,
+    updates: OverrideUpdate[],
+  ): OverrideUpdate[] {
+    if (resolution.bestCase) return [];
+    return updates;
   }
 
   private emptySecurityResult(): SecurityCheckResult {
@@ -756,6 +825,45 @@ export class SecurityChecker {
     return existingOverrides;
   }
 
+  private async resolveUserOwnedOverrides(
+    config: PastoralistJSON,
+    updates: OverrideUpdate[],
+    input: SecurityOverrideResolutionInput,
+  ): Promise<UserOwnedOverrideResolution> {
+    if (!this.shouldUseBestCase(input)) return { versions: new Map(), added: [] };
+    const versions = this.getConfiguredUserOwnedVersions(config, input.options);
+    if (!input.options.interactive) return { versions, added: [] };
+    const candidates = updates.filter((update) => !versions.has(update.packageName));
+    const manager = new InteractiveSecurityManager();
+    const approved = await manager.promptForUserOwnedOverrides(candidates);
+    return this.mergeApprovedUserOwnedVersions(versions, approved);
+  }
+
+  private getConfiguredUserOwnedVersions(
+    config: PastoralistJSON,
+    options: SecurityCheckRuntimeOptions,
+  ): Map<string, string> {
+    const names = options.bestCase?.userOwnedOverrides ?? [];
+    const overrides = this.getExistingOverrides(config, options.packageJsonPath);
+    const entries = names.map((name) => {
+      const version = overrides[name];
+      if (typeof version === "string") return [name, version] as const;
+      throw new Error(`User-owned override ${name} must reference a string override`);
+    });
+    return new Map(entries);
+  }
+
+  private mergeApprovedUserOwnedVersions(
+    configured: Map<string, string>,
+    approved: OverrideUpdate[],
+  ): UserOwnedOverrideResolution {
+    const entries = approved.map((update) => [update.packageName, update.newerVersion] as const);
+    const allEntries = [...configured.entries(), ...entries];
+    const versions = new Map<string, string>(allEntries);
+    const added = approved.map((update) => update.packageName);
+    return { versions, added };
+  }
+
   private logNestedOverrideSkips(entries: [string, OverridesType[string]][]): void {
     const nestedCount = entries.filter(([, version]) => typeof version !== "string").length;
     if (nestedCount === 0) return;
@@ -886,13 +994,7 @@ export class SecurityChecker {
   private async resolveSecurityOverrides(
     input: SecurityOverrideResolutionInput,
   ): Promise<SecurityOverrideResolution> {
-    const options = input.options;
-    const enabled = this.isBestCaseEnabled(options);
-    const supported = this.supportsBuiltInBestCase(options);
-    const baselinePackages = this.collectBestCaseBaselinePackages(input);
-    const hasSingleVersionBaseline = !hasMultipleInstalledVersions(baselinePackages);
-    const shouldUseBestCase = enabled && supported && hasSingleVersionBaseline;
-    if (!shouldUseBestCase) {
+    if (!this.shouldUseBestCase(input)) {
       const standard = this.resolveStandardOverrides(
         input.vulnerablePackages,
         input.latestVersions,
@@ -903,14 +1005,29 @@ export class SecurityChecker {
     return bestCase;
   }
 
+  private shouldUseBestCase(input: SecurityOverrideResolutionInput): boolean {
+    const enabled = this.isBestCaseEnabled(input.options);
+    const supported = this.supportsBuiltInBestCase(input.options);
+    const baselinePackages = this.collectBestCaseBaselinePackages(input);
+    const hasSingleVersionBaseline = !hasMultipleInstalledVersions(baselinePackages);
+    return enabled && supported && hasSingleVersionBaseline;
+  }
+
   private async resolveBestCaseOverrides(
     input: SecurityOverrideResolutionInput,
   ): Promise<SecurityOverrideResolution> {
     const evaluate = this.resolveBestCaseEvaluator(input.installedPackages, input.options);
     const vulnerablePackages = input.vulnerablePackages;
     const latestVersions = input.latestVersions;
+    const userOwnedVersions = input.userOwnedVersions;
     const config = input.options.bestCase;
-    const options = { vulnerablePackages, latestVersions, evaluate, config };
+    const options = {
+      vulnerablePackages,
+      latestVersions,
+      userOwnedVersions,
+      evaluate,
+      config,
+    };
     const resolution = await optimizeSecurityOverrides(options);
     return resolution;
   }

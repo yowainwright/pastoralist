@@ -412,7 +412,9 @@ test("loadExternalConfig - ignores TypeScript config files", async () => {
   clearConfigCache();
   const originalWarn = console.warn;
   const warnings: string[] = [];
-  console.warn = (message: string) => warnings.push(message);
+  console.warn = (message: string) => {
+    warnings[warnings.length] = message;
+  };
   let config: Awaited<ReturnType<typeof loadExternalConfig>>;
   try {
     config = await loadExternalConfig(testDir);

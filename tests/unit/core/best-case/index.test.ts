@@ -1,12 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import {
   createBestCaseReason,
+  optimizeSecurityOverrides,
   optimizeBestCasePortfolio,
   applyBestCaseState,
   buildBestCaseChoices,
+  resolveBestCasePolicy,
   type BestCaseEvaluation,
   type BestCaseState,
 } from "../../../../src/core/best-case";
+import type { EvaluationContext } from "../../../../src/core/best-case/types";
+import { evaluateStates } from "../../../../src/core/best-case/utils";
 import type { SecurityAlert } from "../../../../src/types";
 
 const alert = (
@@ -94,6 +98,23 @@ describe("optimizeBestCasePortfolio", () => {
 
     expect(result.selectedState.alpha).toBe("1.0.0");
     expect(result.failedStates).toBe(1);
+    expect(result.search.provenOptimal).toBe(false);
+  });
+
+  test("withholds optimality when exact search reaches its evaluation cap", async () => {
+    const choices = [
+      { packageName: "alpha", currentVersion: "1.0.0", versions: ["1.0.0", "2.0.0"] },
+    ];
+    const config = { search: { mode: "exact" as const, maxEvaluations: 1 } };
+
+    const result = await optimizeBestCasePortfolio({
+      choices,
+      evaluate: async () => evaluation([]),
+      config,
+    });
+
+    expect(result.search.evaluatedStates).toBe(1);
+    expect(result.search.provenOptimal).toBe(false);
   });
 
   test("creates a per-dependency ledger reason linked to the portfolio decision", async () => {
@@ -124,6 +145,36 @@ test("buildBestCaseChoices normalizes dependency ranges before selecting the bas
   );
 
   expect(choices[0].currentVersion).toBe("1.0.0");
+});
+
+test("optimizeSecurityOverrides hard-constrains user-owned versions", async () => {
+  const vulnerablePackages = [
+    alert("alpha", "high", "CVE-OWNED"),
+    alert("alpha", "critical", "CVE-OWNED-CRITICAL"),
+  ];
+  const evaluate = async (): Promise<BestCaseEvaluation> => evaluation([]);
+  const result = await optimizeSecurityOverrides({
+    vulnerablePackages,
+    latestVersions: new Map([["alpha", "3.0.0"]]),
+    userOwnedVersions: new Map([["alpha", "2.5.0"]]),
+    evaluate,
+  });
+
+  expect(result.bestCase.selectedState).toEqual({ alpha: "2.5.0" });
+  expect(result.bestCase.search.totalStates).toBe(1);
+  expect(result.overrides[0].toVersion).toBe("2.5.0");
+});
+
+test("evaluateStates omits states beyond the evaluation limit", async () => {
+  const context: EvaluationContext = {
+    cache: new Map(),
+    choices: [],
+    evaluate: async () => evaluation([]),
+    maxEvaluations: 0,
+    policy: resolveBestCasePolicy(),
+  };
+
+  expect(await evaluateStates([{ alpha: "1.0.0" }], context)).toEqual([]);
 });
 
 test("applyBestCaseState adds packages missing from the installed portfolio", () => {

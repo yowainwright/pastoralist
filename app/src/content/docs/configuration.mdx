@@ -178,6 +178,7 @@ for one package cannot hide a vulnerability introduced elsewhere.
     "checkSecurity": true,
     "bestCase": {
       "enabled": true,
+      "userOwnedOverrides": ["alpha"],
       "riskAggregation": "both",
       "objectives": [
         "known-exploited",
@@ -200,15 +201,16 @@ for one package cannot hide a vulnerability introduced elsewhere.
 }
 ```
 
-| Option                   | Type                                                 | Default   | Description                                             |
-| ------------------------ | ---------------------------------------------------- | --------- | ------------------------------------------------------- |
-| `enabled`                | `boolean`                                            | `false`   | Enable portfolio selection during security checks       |
-| `riskAggregation`        | `"unique-cves"` \| `"package-exposures"` \| `"both"` | `"both"`  | Choose how vulnerability risk is counted                |
-| `objectives`             | `BestCaseObjective[]`                                | See above | Set the lexicographic ranking order                     |
-| `search.mode`            | `"auto"` \| `"exact"` \| `"beam"`                    | `"auto"`  | Select exhaustive or deterministic bounded search       |
-| `search.exactStateLimit` | positive integer                                     | `256`     | Limit exact search to this many states in auto mode     |
-| `search.beamWidth`       | positive integer                                     | `16`      | Retain this many states at each step during beam search |
-| `search.maxEvaluations`  | positive integer                                     | `1000`    | Stop after this many complete-state evaluations         |
+| Option                   | Type                                                 | Default   | Description                                                     |
+| ------------------------ | ---------------------------------------------------- | --------- | --------------------------------------------------------------- |
+| `enabled`                | `boolean`                                            | `false`   | Enable portfolio selection during security checks               |
+| `userOwnedOverrides`     | `string[]`                                           | `[]`      | Hard-constrain listed packages to their active override version |
+| `riskAggregation`        | `"unique-cves"` \| `"package-exposures"` \| `"both"` | `"both"`  | Choose how vulnerability risk is counted                        |
+| `objectives`             | `BestCaseObjective[]`                                | See above | Set the lexicographic ranking order                             |
+| `search.mode`            | `"auto"` \| `"exact"` \| `"beam"`                    | `"auto"`  | Select exhaustive or deterministic bounded search               |
+| `search.exactStateLimit` | positive integer                                     | `256`     | Limit exact search to this many states in auto mode             |
+| `search.beamWidth`       | positive integer                                     | `16`      | Retain this many states at each step during beam search         |
+| `search.maxEvaluations`  | positive integer                                     | `1000`    | Stop after this many complete-state evaluations                 |
 
 Objectives are compared in array order; Pastoralist does not combine them
 into a weighted sum. Supported objectives are `known-exploited`, `critical`,

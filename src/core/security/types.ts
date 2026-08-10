@@ -76,6 +76,7 @@ export interface SecurityCheckResult {
   updates: OverrideUpdate[];
   packagesScanned: number;
   bestCase?: import("../best-case").BestCaseResult;
+  userOwnedOverridesAdded?: string[];
 }
 
 export interface SecurityPackage {

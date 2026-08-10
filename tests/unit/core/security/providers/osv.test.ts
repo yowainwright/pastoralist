@@ -15,7 +15,7 @@ test("isAvailable - should return true when OSV API is accessible", async () => 
   const provider = new OSVProvider({ debug: false });
   const originalFetch = global.fetch;
 
-  global.fetch = mock((url: string) => {
+  global.fetch = mock((_url: string) => {
     return Promise.resolve({
       ok: true,
       json: () => Promise.resolve({ vulns: [] }),

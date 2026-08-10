@@ -36,11 +36,15 @@ export const createMockTerminalGraph = () => {
   return graph;
 };
 
-export const createMockConfig = (overrides: Partial<PastoralistJSON> = {}): PastoralistJSON => ({
-  name: "test-package",
-  version: "1.0.0",
-  ...overrides,
-});
+export const createMockConfig = (overrides: Partial<PastoralistJSON> = {}): PastoralistJSON =>
+  Object.assign(
+    {},
+    {
+      name: "test-package",
+      version: "1.0.0",
+    },
+    overrides,
+  );
 
 export const createMockSecurityResults = (
   alerts: Partial<SecurityAlert>[] = [],
@@ -48,11 +52,16 @@ export const createMockSecurityResults = (
 ) => ({
   spinner: createMockSpinner(),
   securityChecker: {},
-  alerts: alerts.map((a) => ({
-    packageName: a.packageName || "test-pkg",
-    severity: a.severity || "medium",
-    ...a,
-  })),
+  alerts: alerts.map((a) =>
+    Object.assign(
+      {},
+      {
+        packageName: a.packageName || "test-pkg",
+        severity: a.severity || "medium",
+      },
+      a,
+    ),
+  ),
   securityOverrides: [],
   updates: [],
   packagesScanned: alerts.length,
@@ -114,7 +123,9 @@ export const captureConsoleOutput = () => {
 
   return {
     start: () => {
-      console.log = (msg: string) => output.push(msg);
+      console.log = (msg: string) => {
+        output[output.length] = msg;
+      };
     },
     stop: () => {
       console.log = originalLog;

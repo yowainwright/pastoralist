@@ -1,9 +1,10 @@
 import { test, expect, mock } from "bun:test";
 import type { Options, PastoralistJSON } from "../../../src/types";
 import { logger as createLogger } from "../../../src/utils";
-import { determineSecurityScanPaths } from "../../../src/cli/index";
+import { determineSecurityScanPaths, runSecurityPhase } from "../../../src/cli/index";
 import { clearConfigCache } from "../../../src/config";
 import { resolve } from "path";
+import { createMockSecurityResults } from "./mocks";
 import {
   safeWriteFileSync as writeFileSync,
   safeMkdirSync as mkdirSync,
@@ -12,6 +13,11 @@ import {
 } from "../setup";
 
 const log = createLogger({ file: "test.ts", isLogging: false });
+const captureLine =
+  (lines: string[]) =>
+  (message: string): void => {
+    lines[lines.length] = message;
+  };
 const actionExternalConfigDir = resolve(__dirname, "..", ".test-action-external-config");
 const EXTERNAL_OVERRIDE_CONFIG: PastoralistJSON = {
   name: "test-app",
@@ -29,6 +35,17 @@ const CLI_SECURITY_OVERRIDE = {
   toVersion: "4.17.21",
   reason: "Security fix",
   severity: "high",
+};
+
+const createBestCaseOptions = (): { config: PastoralistJSON; options: Options } => {
+  const config: PastoralistJSON = {
+    name: "owned-test",
+    version: "1.0.0",
+    pastoralist: { bestCase: { enabled: true, userOwnedOverrides: ["beta"] } },
+  };
+  const bestCase = config.pastoralist!.bestCase!;
+  const options = { checkSecurity: true, bestCase, config, manifestConfig: config };
+  return { config, options };
 };
 
 const createMockTerminalGraph = () => {
@@ -869,7 +886,7 @@ test("determineSecurityScanPaths - skips workspace manifest read when depPaths a
   const root = resolve(__dirname, "..", ".test-security-scan-paths");
   const workspaceManifestPath = resolve(root, "pnpm-workspace.yaml");
   const debug = mock(() => {});
-  const debugLog = { ...log, debug };
+  const debugLog = Object.assign({}, log, { debug });
 
   const config: PastoralistJSON = {
     name: "test",
@@ -1481,6 +1498,27 @@ test("runSecurityCheck - creates spinner and security checker", async () => {
   expect(result.updates).toEqual([]);
 });
 
+test("runSecurityPhase persists approved user-owned overrides in package config", async () => {
+  const { config, options } = createBestCaseOptions();
+  const scan = Object.assign(createMockSecurityResults(), {
+    userOwnedOverridesAdded: ["alpha"],
+  });
+  const deps = {
+    runSecurityCheck: mock(async () => scan),
+    handleSecurityResults: mock(() => ({})),
+    quickConfirm: mock(async () => true),
+  };
+
+  const graph = createMockTerminalGraph();
+  const result = await runSecurityPhase(graph, config, options, true, false, log, deps);
+
+  expect(result.mergedOptions.manifestConfig).toMatchObject({
+    pastoralist: {
+      bestCase: { enabled: true, userOwnedOverrides: ["beta", "alpha"] },
+    },
+  });
+});
+
 test("runSecurityCheck - passes correct options to SecurityChecker", async () => {
   const { runSecurityCheck } = require("../../../src/cli/index");
 
@@ -1581,11 +1619,12 @@ test("runSecurityCheck - uses determineSecurityScanPaths for depPaths", async ()
   expect(mockDetermineSecurityScanPaths).toHaveBeenCalledWith(config, mergedOptions, log);
   expect(mockSecurityChecker.checkSecurity).toHaveBeenCalledWith(
     config,
-    expect.objectContaining({
-      ...mergedOptions,
-      depPaths: ["packages/*/package.json", "apps/*/package.json"],
-      root: "./",
-    }),
+    expect.objectContaining(
+      Object.assign({}, mergedOptions, {
+        depPaths: ["packages/*/package.json", "apps/*/package.json"],
+        root: "./",
+      }),
+    ),
   );
 });
 
@@ -1717,7 +1756,6 @@ test("action - runs security check when enabled", async () => {
   };
 
   const mockSpinner = {
-    stop: mock(),
     start: mock(() => mockSpinner),
     succeed: mock(),
     stop: mock(),
@@ -1817,7 +1855,6 @@ test("action - handles path with root option", async () => {
   };
 
   const mockSpinner = {
-    stop: mock(),
     start: mock(() => mockSpinner),
     succeed: mock(),
     stop: mock(),
@@ -1853,7 +1890,6 @@ test("action - handles absolute path without root", async () => {
   };
 
   const mockSpinner = {
-    stop: mock(),
     start: mock(() => mockSpinner),
     succeed: mock(),
     stop: mock(),
@@ -2070,7 +2106,6 @@ test("action - handles array security provider", async () => {
   };
 
   const mockSpinner = {
-    stop: mock(),
     start: mock(() => mockSpinner),
     succeed: mock(),
     stop: mock(),
@@ -2773,7 +2808,9 @@ test("action - continues successfully when security check hits permission error"
   let spinnerCount = 0;
   const mockCreateSpinner = mock(() => {
     spinnerCount++;
-    return spinnerCount === 1 ? mockSecuritySpinner : mockUpdateSpinner;
+    const isSecuritySpinner = spinnerCount === 1;
+    if (isSecuritySpinner) return mockSecuritySpinner;
+    return mockUpdateSpinner;
   });
 
   const mockSecurityChecker = {
@@ -2827,7 +2864,6 @@ test("action - does not call handleSecurityResults when security check is skippe
   };
 
   const mockSpinner = {
-    stop: mock(),
     start: mock(() => mockSpinner),
     warn: mock(),
     succeed: mock(),
@@ -2869,7 +2905,7 @@ test("displaySummaryTable - renders table with metrics", () => {
 
   const originalLog = console.log;
   const logged: string[] = [];
-  console.log = (msg: string) => logged.push(msg);
+  console.log = captureLine(logged);
 
   const result = {
     success: true,
@@ -2900,7 +2936,7 @@ test("displaySummaryTable - skips when no metrics", () => {
 
   const originalLog = console.log;
   const logged: string[] = [];
-  console.log = (msg: string) => logged.push(msg);
+  console.log = captureLine(logged);
 
   const result = { success: true };
 
@@ -3150,7 +3186,7 @@ test("action - displays summary table when summary option is true", async () => 
 
   const originalLog = console.log;
   const logged: string[] = [];
-  console.log = (msg: string) => logged.push(msg);
+  console.log = captureLine(logged);
 
   const deps = {
     createLogger: mock(() => log),
@@ -3191,7 +3227,7 @@ test("action - outputs JSON on error when outputFormat is json", async () => {
 
   const originalLog = console.log;
   const logged: string[] = [];
-  console.log = (msg: string) => logged.push(msg);
+  console.log = captureLine(logged);
 
   const deps = {
     createLogger: mock(() => log),
@@ -3455,7 +3491,7 @@ test("run - shows help and returns early when help flag is passed", async () => 
 
   const originalLog = console.log;
   const logged: string[] = [];
-  console.log = (msg: string) => logged.push(msg);
+  console.log = captureLine(logged);
 
   await run(["node", "pastoralist", "--help"]);
 
@@ -3470,7 +3506,7 @@ test("run - shows help with -h flag", async () => {
 
   const originalLog = console.log;
   const logged: string[] = [];
-  console.log = (msg: string) => logged.push(msg);
+  console.log = captureLine(logged);
 
   await run(["node", "pastoralist", "-h"]);
 
@@ -3489,7 +3525,7 @@ test("run - prints package version and returns early", async () => {
 
   const originalLog = console.log;
   const logged: string[] = [];
-  console.log = (msg: string) => logged.push(msg);
+  console.log = captureLine(logged);
 
   try {
     await run(["node", "pastoralist", "--version"], {
@@ -3516,8 +3552,8 @@ test("run - handles unknown flags without throwing", async () => {
   const logged: string[] = [];
   const errors: string[] = [];
   let exitCode: string | number | undefined;
-  console.log = (msg: string) => logged.push(msg);
-  console.error = (msg: string) => errors.push(msg);
+  console.log = captureLine(logged);
+  console.error = captureLine(errors);
 
   try {
     await run(["node", "pastoralist", "--wat"]);
@@ -3684,8 +3720,8 @@ test("run - rejects extra config init args", async () => {
   const logged: string[] = [];
   const errors: string[] = [];
   let exitCode: string | number | undefined;
-  console.log = (msg: string) => logged.push(msg);
-  console.error = (msg: string) => errors.push(msg);
+  console.log = captureLine(logged);
+  console.error = captureLine(errors);
 
   try {
     await run(["node", "pastoralist", "--init", "config", "extra"], {
@@ -3722,8 +3758,8 @@ test("run - rejects unknown init target", async () => {
   const logged: string[] = [];
   const errors: string[] = [];
   let exitCode: string | number | undefined;
-  console.log = (msg: string) => logged.push(msg);
-  console.error = (msg: string) => errors.push(msg);
+  console.log = captureLine(logged);
+  console.error = captureLine(errors);
 
   try {
     await run(["node", "pastoralist", "init", "wat"], {
@@ -3755,7 +3791,7 @@ test("run - calls action in dry-run summary mode for doctor command", async () =
 
   const originalLog = console.log;
   const logged: string[] = [];
-  console.log = (msg: string) => logged.push(msg);
+  console.log = captureLine(logged);
 
   try {
     await run(["node", "pastoralist", "doctor", "--path", "custom.json"], {
@@ -3787,7 +3823,7 @@ test("run - suppresses doctor preface when JSON output is requested", async () =
 
   const originalLog = console.log;
   const logged: string[] = [];
-  console.log = (msg: string) => logged.push(msg);
+  console.log = captureLine(logged);
 
   try {
     await run(["node", "pastoralist", "doctor", "--outputFormat", "json"], {
@@ -3956,7 +3992,7 @@ test("handleSecurityResults - returned values are used by action via spread", as
     })),
     green: mock((t: string) => t),
     update: mock((opts: Options) => {
-      capturedUpdateOptions.push(opts);
+      capturedUpdateOptions[capturedUpdateOptions.length] = opts;
       return { finalOverrides: {}, finalAppendix: {} };
     }),
     createTerminalGraph: mock(() => mockGraph),

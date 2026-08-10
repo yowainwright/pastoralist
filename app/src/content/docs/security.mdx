@@ -68,7 +68,8 @@ You can configure security settings in your `package.json`:
       "excludePackages": []
     },
     "bestCase": {
-      "enabled": false
+      "enabled": false,
+      "userOwnedOverrides": []
     }
   }
 }
@@ -117,6 +118,36 @@ and latest compatible version. Auto mode exhaustively evaluates small products
 and uses deterministic beam search above the configured cap. The result includes
 the selected state, decision ID, policy hash, vulnerability impact, duration,
 evaluated-state count, and `provenOptimal` status.
+
+Declare a package as user-owned when its active override must win over portfolio
+ranking. Interactive mode also prompts before promoting a newer independent
+security update and persists an approved package name.
+
+```json
+{
+  "overrides": {
+    "alpha": "2.5.0"
+  },
+  "pastoralist": {
+    "bestCase": {
+      "enabled": true,
+      "userOwnedOverrides": ["alpha"]
+    },
+    "appendix": {
+      "alpha@2.5.0": {
+        "ledger": {
+          "addedDate": "2026-08-09T00:00:00.000Z"
+        }
+      }
+    }
+  }
+}
+```
+
+`userOwnedOverrides` is the machine-readable ownership declaration. The active
+override supplies the constrained version. The ledger `addedDate` is displayed
+as the human-facing “user-owned since” signal, but does not establish ownership
+by itself.
 
 The built-in evaluator scans all root packages and candidate-controlled
 packages. Projects that materialize lockfiles, solve peer constraints, or model

@@ -124,21 +124,22 @@ export class OSVProvider {
     return response;
   }
 
-  private async enrichBatchResults(
+  private enrichBatchResults(
     batchResults: OSVBatchApiResult[],
     options: SecurityProviderScanOptions,
   ): Promise<OSVBatchResult[]> {
     return Promise.all(
-      batchResults.map(async (result) => ({
-        vulns: await this.fetchBatchVulnerabilities(result, options),
-      })),
+      batchResults.map(async (result) => {
+        const vulns = await this.fetchBatchVulnerabilities(result, options);
+        return { vulns };
+      }),
     );
   }
 
-  private async fetchBatchVulnerabilities(
+  private fetchBatchVulnerabilities(
     result: OSVBatchApiResult,
     options: SecurityProviderScanOptions,
-  ): Promise<OSVVulnerability[] | undefined> {
+  ): OSVVulnerability[] | undefined | Promise<OSVVulnerability[]> {
     const vulns = result?.vulns;
 
     const hasNoVulnerabilities = !vulns || vulns.length === 0;
@@ -163,7 +164,7 @@ export class OSVProvider {
     return result;
   }
 
-  private async fetchFullVulnerabilityDetails(
+  private fetchFullVulnerabilityDetails(
     partialVulns: OSVPartialVulnerability[],
     options: SecurityProviderScanOptions,
   ): Promise<OSVVulnerability[]> {

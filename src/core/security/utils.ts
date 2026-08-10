@@ -356,7 +356,7 @@ export const createPromptInterface = () => {
   });
 };
 
-const questionWithTimeout = async (
+const questionWithTimeout = (
   rl: readline.Interface,
   prompt: string,
   timeout: number,
@@ -490,7 +490,7 @@ export const promptInput = async (message: string, defaultValue = ""): Promise<s
   }
 };
 
-export const promptSecret = async (message: string, defaultValue = ""): Promise<string> => {
+export const promptSecret = (message: string, defaultValue = ""): Promise<string> => {
   if (!isInteractiveSecretPrompt()) {
     return promptInput(message, defaultValue);
   }

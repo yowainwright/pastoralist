@@ -1504,9 +1504,9 @@ test("runSecurityPhase persists approved user-owned overrides in package config"
     userOwnedOverridesAdded: ["alpha"],
   });
   const deps = {
-    runSecurityCheck: mock(async () => scan),
+    runSecurityCheck: mock(() => Promise.resolve(scan)),
     handleSecurityResults: mock(() => ({})),
-    quickConfirm: mock(async () => true),
+    quickConfirm: mock(() => Promise.resolve(true)),
   };
 
   const graph = createMockTerminalGraph();
@@ -1650,7 +1650,7 @@ test("action - handles test mode early return", async () => {
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -1682,7 +1682,7 @@ test("action - handles init mode early return", async () => {
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -1721,7 +1721,7 @@ test("action - resolves package.json and runs update", async () => {
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -1773,7 +1773,7 @@ test("action - runs security check when enabled", async () => {
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -1835,7 +1835,7 @@ test("action - runs security check from top-level config", async () => {
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -1872,7 +1872,7 @@ test("action - handles path with root option", async () => {
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -1907,7 +1907,7 @@ test("action - handles absolute path without root", async () => {
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -1940,7 +1940,7 @@ test("action - calls processExit on error", async () => {
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mockProcessExit,
   };
 
@@ -1970,7 +1970,7 @@ test("action - fails when package.json cannot be loaded", async () => {
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mockProcessExit,
   };
 
@@ -2016,7 +2016,7 @@ test("action - merges external config into package config", async () => {
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -2068,7 +2068,7 @@ test("action - loads external config when package.json has no pastoralist config
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -2130,7 +2130,7 @@ test("action - handles array security provider", async () => {
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -2838,7 +2838,7 @@ test("action - continues successfully when security check hits permission error"
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -2891,7 +2891,7 @@ test("action - does not call handleSecurityResults when security check is skippe
     green: mock((text: string) => text),
     update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -3088,7 +3088,7 @@ test("action - displays security fixes when forceSecurityRefactor is true", asyn
       metrics: {},
     })),
     createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(),
   };
 
@@ -3148,7 +3148,7 @@ test("action - displays removed overrides when present", async () => {
       },
     })),
     createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(),
   };
 
@@ -3204,7 +3204,7 @@ test("action - displays summary table when summary option is true", async () => 
       metrics: { packagesScanned: 5 },
     })),
     createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(),
   };
 
@@ -3243,7 +3243,7 @@ test("action - outputs JSON on error when outputFormat is json", async () => {
     green: mock((t: string) => t),
     update: mock(() => ({})),
     createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(),
   };
 
@@ -3312,7 +3312,7 @@ test("action - applies security results when outputFormat is json", async () => 
       metrics: {},
     })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(),
   };
 
@@ -3373,7 +3373,7 @@ test("action - exits non-zero in quiet mode when vulnerabilities are found", asy
       metrics: {},
     })),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mockExit,
   };
 
@@ -3424,7 +3424,7 @@ test("action - displays unused override notice when unused overrides exist", asy
       finalAppendix: unusedAppendix,
     })),
     createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -3473,7 +3473,7 @@ test("action - does not display unused override notice when removeUnused is true
       },
     })),
     createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 
@@ -3926,7 +3926,7 @@ test("run - supports onboarding command alias", async () => {
   expect(mockInitCommand).not.toHaveBeenCalled();
 });
 
-test("handleSetupHook - error does not cause early exit in run", async () => {
+test("handleSetupHook - error does not cause early exit in run", () => {
   const { handleSetupHook } = require("../../../src/cli/index");
 
   const mockReadFileSync = mock(() => {
@@ -3996,7 +3996,7 @@ test("handleSecurityResults - returned values are used by action via spread", as
       return { finalOverrides: {}, finalAppendix: {} };
     }),
     createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => Promise.resolve("2024-01-01")),
+    getLedgerAddedDate: mock(() => "2024-01-01"),
     processExit: mock(() => {}),
   };
 
@@ -4090,12 +4090,14 @@ test("checkRemovalSafety - returns empty array when no unused entries", async ()
   };
 
   const mockSecurityChecker = {
-    checkSecurity: mock(async () => ({
-      alerts: [],
-      overrides: [],
-      updates: [],
-      packagesScanned: 0,
-    })),
+    checkSecurity: mock(() =>
+      Promise.resolve({
+        alerts: [],
+        overrides: [],
+        updates: [],
+        packagesScanned: 0,
+      }),
+    ),
   };
 
   const result = await checkRemovalSafety(config, mockSecurityChecker as any, {});
@@ -4121,12 +4123,14 @@ test("checkRemovalSafety - returns keys for packages still vulnerable at declare
   };
 
   const mockSecurityChecker = {
-    checkSecurity: mock(async () => ({
-      alerts: [{ packageName: "lodash", severity: "high", currentVersion: "4.17.20" }],
-      overrides: [],
-      updates: [],
-      packagesScanned: 1,
-    })),
+    checkSecurity: mock(() =>
+      Promise.resolve({
+        alerts: [{ packageName: "lodash", severity: "high", currentVersion: "4.17.20" }],
+        overrides: [],
+        updates: [],
+        packagesScanned: 1,
+      }),
+    ),
   };
 
   const result = await checkRemovalSafety(config, mockSecurityChecker as any, {
@@ -4160,12 +4164,14 @@ test("checkRemovalSafety - returns empty array when re-scan finds no vulnerabili
   };
 
   const mockSecurityChecker = {
-    checkSecurity: mock(async () => ({
-      alerts: [],
-      overrides: [],
-      updates: [],
-      packagesScanned: 1,
-    })),
+    checkSecurity: mock(() =>
+      Promise.resolve({
+        alerts: [],
+        overrides: [],
+        updates: [],
+        packagesScanned: 1,
+      }),
+    ),
   };
 
   const result = await checkRemovalSafety(config, mockSecurityChecker as any, {});
@@ -4189,12 +4195,14 @@ test("checkRemovalSafety - returns empty when unused packages not in any deps", 
   };
 
   const mockSecurityChecker = {
-    checkSecurity: mock(async () => ({
-      alerts: [],
-      overrides: [],
-      updates: [],
-      packagesScanned: 0,
-    })),
+    checkSecurity: mock(() =>
+      Promise.resolve({
+        alerts: [],
+        overrides: [],
+        updates: [],
+        packagesScanned: 0,
+      }),
+    ),
   };
 
   const result = await checkRemovalSafety(config, mockSecurityChecker as any, {});
@@ -4219,12 +4227,14 @@ test("checkRemovalSafety - finds packages in devDependencies", async () => {
   };
 
   const mockSecurityChecker = {
-    checkSecurity: mock(async () => ({
-      alerts: [{ packageName: "dev-pkg", severity: "high", currentVersion: "1.0.0" }],
-      overrides: [],
-      updates: [],
-      packagesScanned: 1,
-    })),
+    checkSecurity: mock(() =>
+      Promise.resolve({
+        alerts: [{ packageName: "dev-pkg", severity: "high", currentVersion: "1.0.0" }],
+        overrides: [],
+        updates: [],
+        packagesScanned: 1,
+      }),
+    ),
   };
 
   const result = await checkRemovalSafety(config, mockSecurityChecker as any, {});
@@ -4309,7 +4319,7 @@ test("action - displays blocked removals notice when skipRemovalKeys set", async
       finalAppendix: mockConfig.pastoralist!.appendix,
     })),
     createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 

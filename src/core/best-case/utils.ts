@@ -613,7 +613,7 @@ export const resolveSearchMode = (
   return "beam";
 };
 
-export const runSearch = async (
+export const runSearch = (
   mode: Exclude<BestCaseSearchMode, "auto">,
   baselineState: BestCaseState,
   context: EvaluationContext,

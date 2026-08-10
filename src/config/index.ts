@@ -65,7 +65,7 @@ const loadJsConfig = async (filename: string, path: string): Promise<unknown> =>
   return unwrapModuleConfig(module);
 };
 
-const loadConfigFile = async (filename: string, path: string): Promise<unknown | null> => {
+const loadConfigFile = (filename: string, path: string) => {
   if (isJsonFile(filename)) return loadJsonConfig(path);
   return loadJsConfig(filename, path);
 };

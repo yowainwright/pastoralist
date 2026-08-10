@@ -112,7 +112,7 @@ export const createActionDeps = (options: ActionDepsOptions = {}) => {
     quickConfirm: mock(() => Promise.resolve(true)),
     update: mock(() => updateContext),
     createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => Promise.resolve(new Date().toISOString())),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
     processExit: mock(() => {}),
   };
 };

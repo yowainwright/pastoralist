@@ -71,7 +71,7 @@ export class SpektionProvider {
     this.log.debug("SpektionProvider initialized (experimental)", "constructor");
   }
 
-  async isAuthenticated(): Promise<boolean> {
+  isAuthenticated(): boolean {
     return Boolean(this.token);
   }
 

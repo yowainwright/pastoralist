@@ -84,12 +84,14 @@ const createConfig = (packageName = "risky-pkg"): PastoralistJSON =>
 const createSecurityResults = (afterAlerts: SecurityAlert[]) => ({
   spinner: createMockSpinner(),
   securityChecker: {
-    checkSecurity: mock(async () => ({
-      alerts: afterAlerts,
-      overrides: [],
-      updates: [],
-      packagesScanned: 1,
-    })),
+    checkSecurity: mock(() =>
+      Promise.resolve({
+        alerts: afterAlerts,
+        overrides: [],
+        updates: [],
+        packagesScanned: 1,
+      }),
+    ),
   },
   alerts: [],
   securityOverrides: [],

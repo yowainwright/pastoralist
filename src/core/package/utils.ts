@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import { resolve } from "path";
 import { IS_DEBUGGING } from "../../constants";
-import type { OverrideValue, PastoralistJSON, SecurityPackage } from "../../types";
+import type { OverrideValue, PastoralistJSON } from "../../types";
 import { logger } from "../../utils";
 import { UNKNOWN_DEPENDENCY_VERSION } from "./constants";
 import type { DependencyTree, NpmLsTree, OverrideField, PackageManager } from "./types";
@@ -70,26 +70,6 @@ const addDependencies = (packageMap: DependencyTree, deps: Record<string, unknow
     const nested = (value as { dependencies?: Record<string, unknown> })?.dependencies;
     if (nested) addDependencies(packageMap, nested);
   });
-};
-
-const collectInstalledPackages = (deps: Record<string, unknown>): SecurityPackage[] => {
-  return Object.entries(deps).flatMap(([name, value]) => {
-    const installedPackage = { name, version: getDependencyVersion(value) };
-    const nested = (value as { dependencies?: Record<string, unknown> })?.dependencies;
-    if (!nested) return [installedPackage];
-    return [installedPackage].concat(collectInstalledPackages(nested));
-  });
-};
-
-export const parseNpmLsPackages = (stdout: string): SecurityPackage[] | undefined => {
-  try {
-    const tree = JSON.parse(stdout) as NpmLsTree;
-    const dependencies = tree.dependencies ?? {};
-    return collectInstalledPackages(dependencies);
-  } catch (error) {
-    log.debug("Failed to parse installed packages", "parseNpmLsPackages", error);
-    return undefined;
-  }
 };
 
 export const parseNpmLsOutput = (stdout: string): DependencyTree => {

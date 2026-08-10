@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   createLocalFormula,
+  createPublishedFormula,
   fetchPublishedTarball,
   npmTarballUrl,
   renderFormula,
@@ -34,13 +35,13 @@ describe("scripts/brew", () => {
   });
 
   test("downloads published tarball bytes", async () => {
-    const fetchImpl = async () => new Response("published tarball");
+    const fetchImpl = () => Promise.resolve(new Response("published tarball"));
     const tarball = await fetchPublishedTarball(npmTarballUrl("1.13.0"), fetchImpl);
     expect(tarball).toEqual(Buffer.from("published tarball"));
   });
 
   test("rejects unavailable published tarballs", async () => {
-    const fetchImpl = async () => new Response(null, { status: 404 });
+    const fetchImpl = () => Promise.resolve(new Response(null, { status: 404 }));
     const download = fetchPublishedTarball(npmTarballUrl("1.13.0"), fetchImpl);
     await expect(download).rejects.toThrow("Unable to download published tarball: 404");
   });
@@ -75,5 +76,37 @@ describe("scripts/brew", () => {
     } finally {
       rmSync(directory, { recursive: true });
     }
+  });
+
+  test("generates a formula from a published tarball", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "pastoralist-brew-published-"));
+    const outputPath = join(directory, "pastoralist.rb");
+    const fetchImpl = () => Promise.resolve(new Response("published tarball"));
+    try {
+      const formula = await createPublishedFormula({ fetchImpl, outputPath, version: "1.13.0" });
+      expect(formula.digest).toBe(sha256(Buffer.from("published tarball")));
+      expect(readFileSync(outputPath, "utf8")).toContain(formula.digest);
+    } finally {
+      rmSync(directory, { recursive: true });
+    }
+  });
+
+  test("runs local generation through the CLI", () => {
+    const directory = mkdtempSync(join(tmpdir(), "pastoralist-brew-cli-"));
+    const outputPath = join(directory, "pastoralist.rb");
+    const tarballPath = join(directory, "pastoralist.tgz");
+    try {
+      writeFileSync(tarballPath, "local tarball");
+      const env = { FORMULA_PATH: outputPath, TARBALL_PATH: tarballPath, VERSION: "1.13.0" };
+      runBrewCli({ argv: ["generate-local"], env });
+      expect(readFileSync(outputPath, "utf8")).toContain(sha256(Buffer.from("local tarball")));
+    } finally {
+      rmSync(directory, { recursive: true });
+    }
+  });
+
+  test("rejects unknown CLI commands", () => {
+    const env = { FORMULA_PATH: "pastoralist.rb", VERSION: "1.13.0" };
+    expect(() => runBrewCli({ argv: ["unknown"], env })).toThrow("Unknown command: unknown");
   });
 });

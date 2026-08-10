@@ -36,7 +36,7 @@ describe("optimizeBestCasePortfolio", () => {
       { packageName: "alpha", currentVersion: "1.0.0", versions: ["1.0.0", "2.0.0"] },
       { packageName: "beta", currentVersion: "1.0.0", versions: ["1.0.0", "2.0.0"] },
     ];
-    const evaluate = async (state: BestCaseState): Promise<BestCaseEvaluation> => {
+    const evaluate = (state: BestCaseState): BestCaseEvaluation => {
       const key = `${state.alpha}:${state.beta}`;
       if (key === "2.0.0:1.0.0") return evaluation([alert("beta", "high", "CVE-BETA")]);
       if (key === "1.0.0:2.0.0") return evaluation([alert("alpha", "critical", "CVE-ALPHA")]);
@@ -66,7 +66,7 @@ describe("optimizeBestCasePortfolio", () => {
       currentVersion: "1.0.0",
       versions: ["1.0.0", "2.0.0"],
     }));
-    const evaluate = async (state: BestCaseState): Promise<BestCaseEvaluation> => {
+    const evaluate = (state: BestCaseState): BestCaseEvaluation => {
       const remaining = Object.entries(state)
         .filter(([, version]) => version === "1.0.0")
         .map(([name]) => alert(name, "high", `CVE-${name}`));
@@ -89,7 +89,7 @@ describe("optimizeBestCasePortfolio", () => {
     const choices = [
       { packageName: "alpha", currentVersion: "1.0.0", versions: ["1.0.0", "2.0.0"] },
     ];
-    const evaluate = async (state: BestCaseState): Promise<BestCaseEvaluation> => {
+    const evaluate = (state: BestCaseState): BestCaseEvaluation => {
       if (state.alpha === "2.0.0") throw new Error("resolution failed");
       return evaluation([alert("alpha", "high", "CVE-ALPHA")]);
     };
@@ -109,7 +109,7 @@ describe("optimizeBestCasePortfolio", () => {
 
     const result = await optimizeBestCasePortfolio({
       choices,
-      evaluate: async () => evaluation([]),
+      evaluate: () => evaluation([]),
       config,
     });
 
@@ -121,7 +121,7 @@ describe("optimizeBestCasePortfolio", () => {
     const choices = [
       { packageName: "alpha", currentVersion: "1.0.0", versions: ["1.0.0", "2.0.0"] },
     ];
-    const evaluate = async (state: BestCaseState): Promise<BestCaseEvaluation> => {
+    const evaluate = (state: BestCaseState): BestCaseEvaluation => {
       if (state.alpha === "2.0.0") return evaluation([]);
       return evaluation([alert("alpha", "high", "CVE-ALPHA")]);
     };
@@ -152,7 +152,7 @@ test("optimizeSecurityOverrides hard-constrains user-owned versions", async () =
     alert("alpha", "high", "CVE-OWNED"),
     alert("alpha", "critical", "CVE-OWNED-CRITICAL"),
   ];
-  const evaluate = async (): Promise<BestCaseEvaluation> => evaluation([]);
+  const evaluate = (): BestCaseEvaluation => evaluation([]);
   const result = await optimizeSecurityOverrides({
     vulnerablePackages,
     latestVersions: new Map([["alpha", "3.0.0"]]),
@@ -169,7 +169,7 @@ test("evaluateStates omits states beyond the evaluation limit", async () => {
   const context: EvaluationContext = {
     cache: new Map(),
     choices: [],
-    evaluate: async () => evaluation([]),
+    evaluate: () => evaluation([]),
     maxEvaluations: 0,
     policy: resolveBestCasePolicy(),
   };

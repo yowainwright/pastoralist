@@ -192,11 +192,12 @@ test("loadCliConfig - uses source-aware config loading", async () => {
   const deps: CliConfigDeps = {
     resolveJSON: () => packageConfig,
     buildMergedOptions: () => ({}),
-    loadConfigWithSource: async () => ({
-      appendixTarget: { path: "ledger.json" },
-      config: {},
-      source: undefined,
-    }),
+    loadConfigWithSource: () =>
+      Promise.resolve({
+        appendixTarget: { path: "ledger.json" },
+        config: {},
+        source: undefined,
+      }),
   };
 
   const loaded = await loadCliConfig({}, {}, deps);

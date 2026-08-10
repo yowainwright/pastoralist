@@ -11,7 +11,7 @@ const createChoice = (index: number): BestCasePackageChoice => {
   return { packageName, currentVersion, versions };
 };
 
-const evaluatePortfolio = async (): Promise<BestCaseEvaluation> => {
+const evaluatePortfolio = (): BestCaseEvaluation => {
   const alerts: BestCaseEvaluation["alerts"] = [];
   return { alerts };
 };
@@ -28,7 +28,7 @@ const runIterations = async (
 ): Promise<void> => {
   if (remaining === 0) return;
   await runOptimizer(choices);
-  await runIterations(remaining - 1, choices);
+  return runIterations(remaining - 1, choices);
 };
 
 test("Benchmark: best-case exact search", async () => {

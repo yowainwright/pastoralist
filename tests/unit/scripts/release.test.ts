@@ -118,6 +118,28 @@ function releasePullRequestOverrides(version: string): Record<string, GitResult>
   };
 }
 
+const createMockLogger = () => ({
+  error: mock(() => {}),
+  log: mock(() => {}),
+  warn: mock(() => {}),
+});
+
+const patchReleaseOverrides = (): Record<string, GitOverride> =>
+  mergeOverrides(
+    readyOverrides,
+    availableVersionOverrides,
+    missingTagOverrides,
+    releasePullRequestOverrides("1.2.4"),
+    {
+      "./node_modules/.bin/release-it --release-version --increment=patch --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
+        ok("1.2.4\n"),
+      "./node_modules/.bin/release-it 1.2.4 --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
+        ok(""),
+      [`git tag --annotate v1.2.4 --message Release 1.2.4 ${MERGE_COMMIT}`]: ok(""),
+      "git push origin refs/tags/v1.2.4": ok(""),
+    },
+  );
+
 describe("scripts/release", () => {
   test("parseArgs reads release options", () => {
     expect(parseArgs(["--preRelease=beta", "--dry-run"])).toEqual({
@@ -294,25 +316,25 @@ describe("scripts/release", () => {
     ]);
   });
 
-  test("runRelease requires a clean main branch", async () => {
+  test("runRelease requires a clean main branch", () => {
     const { runner } = createRunner({
       "git branch --show-current": ok("release-fix\n"),
       "git status --short": ok(""),
     });
 
-    await expect(runRelease({ dryRun: true, runner })).rejects.toThrow("Run releases from main");
+    expect(() => runRelease({ dryRun: true, runner })).toThrow("Run releases from main");
   });
 
-  test("runRelease surfaces command failures", async () => {
+  test("runRelease surfaces command failures", () => {
     const overrides = mergeOverrides(readyOverrides, {
       "./node_modules/.bin/release-it --release-version --increment=patch --git.tag=false --git.push=false --git.requireUpstream=false --git.getLatestTagFromAllRefs=true --ci":
         fail("release-it failed"),
     });
     const { runner } = createRunner(overrides);
 
-    await expect(
-      runRelease({ dryRun: true, increment: "patch", packageVersion: "1.2.3", runner }),
-    ).rejects.toThrow("release-it failed");
+    const release = () =>
+      runRelease({ dryRun: true, increment: "patch", packageVersion: "1.2.3", runner });
+    expect(release).toThrow("release-it failed");
   });
 
   test("incrementPreReleaseVersion advances the prerelease number", () => {
@@ -539,23 +561,21 @@ describe("scripts/release", () => {
     expect(calls().some((call) => call[0] === "./node_modules/.bin/release-it")).toBe(false);
   });
 
-  test("runRelease dry run fails when current prerelease tag exists", async () => {
+  test("runRelease dry run fails when current prerelease tag exists", () => {
     const overrides = mergeOverrides(readyOverrides, {
       "git rev-parse -q --verify refs/tags/v1.2.4-beta.6": ok("489e1e\n"),
     });
     const { runner } = createRunner(overrides);
 
-    await expect(
-      runRelease({ dryRun: true, packageVersion: "1.2.4-beta.6", runner }),
-    ).rejects.toThrow("Release tag already exists: v1.2.4-beta.6");
+    const release = () => runRelease({ dryRun: true, packageVersion: "1.2.4-beta.6", runner });
+    expect(release).toThrow("Release tag already exists: v1.2.4-beta.6");
   });
 
-  test("runRelease requires an explicit increment for stable releases", async () => {
+  test("runRelease requires an explicit increment for stable releases", () => {
     const { runner } = createRunner(readyOverrides);
 
-    await expect(runRelease({ dryRun: true, packageVersion: "1.2.3", runner })).rejects.toThrow(
-      "Stable releases require an explicit increment",
-    );
+    const release = () => runRelease({ dryRun: true, packageVersion: "1.2.3", runner });
+    expect(release).toThrow("Stable releases require an explicit increment");
   });
 
   test("runRelease creates a release commit and pushes the release tag", async () => {
@@ -675,6 +695,68 @@ describe("scripts/release", () => {
     expect(calls()).toContainEqual(["git", "push", "--set-upstream", "origin", "release/v1.2.4"]);
     expect(calls().some((call) => call[0] === "gh" && call[1] === "pr")).toBe(true);
     expect(calls().some((call) => call.includes("HEAD:refs/heads/main"))).toBe(false);
+  });
+
+  test("runRelease reuses an existing PR when creation fails", async () => {
+    const branch = "release/v1.2.4";
+    const prUrl = "https://github.com/yowainwright/pastoralist/pull/999";
+    const prCreate = buildPrCreateCommand("1.2.4", branch);
+    const overrides = mergeOverrides(patchReleaseOverrides(), {
+      [prCreate]: fail("already exists"),
+      [`gh pr view ${branch} --json url`]: ok(JSON.stringify({ url: prUrl })),
+    });
+    const logger = createMockLogger();
+    const { runner } = createRunner(overrides);
+    await runRelease({ increment: "patch", logger, packageVersion: "1.2.3", runner });
+    expect(logger.warn).toHaveBeenCalledWith("gh pr create failed: already exists");
+  });
+
+  test("runRelease rejects a failed PR lookup without a URL", async () => {
+    const branch = "release/v1.2.4";
+    const prCreate = buildPrCreateCommand("1.2.4", branch);
+    const overrides = mergeOverrides(patchReleaseOverrides(), {
+      [prCreate]: fail("already exists"),
+      [`gh pr view ${branch} --json url`]: ok("{}"),
+    });
+    const { runner } = createRunner(overrides);
+    const release = runRelease({ increment: "patch", packageVersion: "1.2.3", runner });
+    await expect(release).rejects.toThrow(`Unable to find release PR for ${branch}`);
+  });
+
+  test("runRelease rejects expired readiness polling", async () => {
+    const prUrl = "https://github.com/yowainwright/pastoralist/pull/999";
+    const pending = {
+      mergeCommit: null,
+      mergeStateStatus: "BLOCKED",
+      mergedAt: null,
+      state: "OPEN",
+    };
+    const overrides = mergeOverrides(patchReleaseOverrides(), {
+      [`gh pr view ${prUrl} --json state,mergedAt,mergeCommit,mergeStateStatus`]: ok(
+        JSON.stringify(pending),
+      ),
+    });
+    const { runner } = createRunner(overrides);
+    const options = {
+      increment: "patch" as const,
+      packageVersion: "1.2.3",
+      runner,
+      timeoutMinutes: -1,
+    };
+    await expect(runRelease(options)).rejects.toThrow(`Timed out waiting for release PR: ${prUrl}`);
+  });
+
+  test("runRelease rejects merged PRs without a merge commit", async () => {
+    const prUrl = "https://github.com/yowainwright/pastoralist/pull/999";
+    const merged = { mergeCommit: null, mergedAt: "2026-08-03T01:00:00Z", state: "MERGED" };
+    const overrides = mergeOverrides(patchReleaseOverrides(), {
+      [`gh pr view ${prUrl} --json state,mergedAt,mergeCommit,mergeStateStatus`]: ok(
+        JSON.stringify(merged),
+      ),
+    });
+    const { runner } = createRunner(overrides);
+    const release = runRelease({ increment: "patch", packageVersion: "1.2.3", runner });
+    await expect(release).rejects.toThrow(`Release PR is merged without a merge commit: ${prUrl}`);
   });
 
   test("runRelease waits for a queued PR to merge before tagging", async () => {

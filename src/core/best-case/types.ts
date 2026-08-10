@@ -24,7 +24,9 @@ export interface BestCaseEvaluation {
   error?: string;
 }
 
-export type BestCaseEvaluator = (state: BestCaseState) => Promise<BestCaseEvaluation>;
+export type BestCaseEvaluator = (
+  state: BestCaseState,
+) => BestCaseEvaluation | Promise<BestCaseEvaluation>;
 
 export interface BestCaseSearchResult {
   mode: Exclude<BestCaseSearchMode, "auto">;

@@ -145,11 +145,11 @@ const runSecurityWorkflow = (
     deps,
   );
 
-const addLedgerDateToOptions = async (
+const addLedgerDateToOptions = (
   mergedOptions: Options,
   deps: Pick<UpdateWorkflowDeps, "getLedgerAddedDate">,
-): Promise<Options> => {
-  const addedDate = await deps.getLedgerAddedDate();
+): Options => {
+  const addedDate = deps.getLedgerAddedDate();
   return Object.assign({}, mergedOptions, { addedDate });
 };
 
@@ -176,7 +176,7 @@ const runUpdateWorkflow = async (
     deps,
     runtime,
   );
-  const mergedOptions = await addLedgerDateToOptions(securityPhase.mergedOptions, deps);
+  const mergedOptions = addLedgerDateToOptions(securityPhase.mergedOptions, deps);
   const updateResult = runPackageUpdate(loadedConfig.config, mergedOptions, options, deps);
 
   return Object.assign(

@@ -59,7 +59,7 @@ test("isInstalled - should return true for git", async () => {
 });
 
 test("isInstalledGlobally - should return false for non-installed package", async () => {
-  const execFileAsync = mock(async () => ({ stdout: "", stderr: "" }));
+  const execFileAsync = mock(() => Promise.resolve({ stdout: "", stderr: "" }));
   const installer = new CLIInstaller({
     debug: false,
     execFileAsync: execFileAsync as any,
@@ -75,9 +75,7 @@ test("isInstalledGlobally - should return false for non-installed package", asyn
 });
 
 test("isInstalledGlobally - should handle npm list errors gracefully", async () => {
-  const execFileAsync = mock(async () => {
-    throw new Error("npm list failed");
-  });
+  const execFileAsync = mock(() => Promise.reject(new Error("npm list failed")));
   const installer = new CLIInstaller({
     debug: false,
     execFileAsync: execFileAsync as any,
@@ -145,9 +143,7 @@ test("ensureInstalled - should handle non-existent package without throwing", as
 });
 
 test("installGlobally - should throw error for invalid package name", async () => {
-  const execFileAsync = mock(async () => {
-    throw new Error("invalid package name");
-  });
+  const execFileAsync = mock(() => Promise.reject(new Error("invalid package name")));
   const installer = new CLIInstaller({
     debug: false,
     execFileAsync: execFileAsync as any,
@@ -766,6 +762,8 @@ const createInteractiveOverride = (): SecurityOverride => ({
   severity: "high",
 });
 
+const createResolvedPrompt = <Value>(value: Value) => mock(() => Promise.resolve(value));
+
 test("InteractiveSecurityManager - initializes", () => {
   const manager = new InteractiveSecurityManager();
   expect(manager).toBeDefined();
@@ -773,9 +771,9 @@ test("InteractiveSecurityManager - initializes", () => {
 
 test("InteractiveSecurityManager - accepts a best-case portfolio atomically", async () => {
   const prompts = {
-    confirm: mock(async () => true),
-    select: mock(async () => "custom"),
-    input: mock(async () => "5.0.0"),
+    confirm: createResolvedPrompt(true),
+    select: createResolvedPrompt("custom"),
+    input: createResolvedPrompt("5.0.0"),
   };
   const manager = new InteractiveSecurityManager(prompts);
   const overrides = [createInteractiveOverride()];
@@ -791,9 +789,9 @@ test("InteractiveSecurityManager - accepts a best-case portfolio atomically", as
 
 test("InteractiveSecurityManager - rejects a best-case portfolio atomically", async () => {
   const prompts = {
-    confirm: mock(async () => false),
-    select: mock(async () => "apply"),
-    input: mock(async () => ""),
+    confirm: createResolvedPrompt(false),
+    select: createResolvedPrompt("apply"),
+    input: createResolvedPrompt(""),
   };
   const manager = new InteractiveSecurityManager(prompts);
   const originalLog = console.log;
@@ -811,9 +809,9 @@ test("InteractiveSecurityManager - rejects a best-case portfolio atomically", as
 
 test("InteractiveSecurityManager - identifies user-owned updates with their added date", async () => {
   const prompts = {
-    confirm: mock(async () => true),
-    select: mock(async () => "apply"),
-    input: mock(async () => ""),
+    confirm: createResolvedPrompt(true),
+    select: createResolvedPrompt("apply"),
+    input: createResolvedPrompt(""),
   };
   const manager = new InteractiveSecurityManager(prompts);
   const update = {
@@ -830,9 +828,9 @@ test("InteractiveSecurityManager - identifies user-owned updates with their adde
 
 test("InteractiveSecurityManager - skips declined user-owned updates without dates", async () => {
   const prompts = {
-    confirm: mock(async () => false),
-    select: mock(async () => "apply"),
-    input: mock(async () => ""),
+    confirm: createResolvedPrompt(false),
+    select: createResolvedPrompt("apply"),
+    input: createResolvedPrompt(""),
   };
   const manager = new InteractiveSecurityManager(prompts);
   const update = {
@@ -856,9 +854,9 @@ test("InteractiveSecurityManager - promptForSecurityActions with no vulnerabilit
 
 test("InteractiveSecurityManager - promptForSecurityActions with vulnerabilities but user declines", async () => {
   const mockPrompts = {
-    confirm: mock(async () => false),
-    select: mock(async () => "skip"),
-    input: mock(async () => ""),
+    confirm: createResolvedPrompt(false),
+    select: createResolvedPrompt("skip"),
+    input: createResolvedPrompt(""),
   };
 
   const manager = new InteractiveSecurityManager(mockPrompts);
@@ -898,9 +896,9 @@ test("InteractiveSecurityManager - promptForSecurityActions with vulnerabilities
 
 test("InteractiveSecurityManager - promptForSecurityActions user applies fix", async () => {
   const mockPrompts = {
-    confirm: mock(async () => true),
-    select: mock(async () => "apply"),
-    input: mock(async () => ""),
+    confirm: createResolvedPrompt(true),
+    select: createResolvedPrompt("apply"),
+    input: createResolvedPrompt(""),
   };
 
   const manager = new InteractiveSecurityManager(mockPrompts);
@@ -942,9 +940,9 @@ test("InteractiveSecurityManager - promptForSecurityActions user applies fix", a
 
 test("InteractiveSecurityManager - promptForSecurityActions user skips vulnerability", async () => {
   const mockPrompts = {
-    confirm: mock(async () => true),
-    select: mock(async () => "skip"),
-    input: mock(async () => ""),
+    confirm: createResolvedPrompt(true),
+    select: createResolvedPrompt("skip"),
+    input: createResolvedPrompt(""),
   };
 
   const manager = new InteractiveSecurityManager(mockPrompts);
@@ -983,9 +981,9 @@ test("InteractiveSecurityManager - promptForSecurityActions user skips vulnerabi
 
 test("InteractiveSecurityManager - promptForSecurityActions user provides custom version", async () => {
   const mockPrompts = {
-    confirm: mock(async () => true),
-    select: mock(async () => "custom"),
-    input: mock(async () => "18.0.0"),
+    confirm: createResolvedPrompt(true),
+    select: createResolvedPrompt("custom"),
+    input: createResolvedPrompt("18.0.0"),
   };
 
   const manager = new InteractiveSecurityManager(mockPrompts);
@@ -1026,12 +1024,12 @@ test("InteractiveSecurityManager - promptForSecurityActions user provides custom
 test("InteractiveSecurityManager - promptForSecurityActions user declines final confirmation", async () => {
   let confirmCallCount = 0;
   const mockPrompts = {
-    confirm: mock(async () => {
+    confirm: mock(() => {
       confirmCallCount++;
-      return confirmCallCount === 1;
+      return Promise.resolve(confirmCallCount === 1);
     }),
-    select: mock(async () => "apply"),
-    input: mock(async () => ""),
+    select: createResolvedPrompt("apply"),
+    input: createResolvedPrompt(""),
   };
 
   const manager = new InteractiveSecurityManager(mockPrompts);
@@ -1069,7 +1067,7 @@ test("InteractiveSecurityManager - promptForSecurityActions user declines final 
   console.log = mockLog;
 });
 
-test("InteractiveSecurityManager - generateSummary produces correct output", async () => {
+test("InteractiveSecurityManager - generateSummary produces correct output", () => {
   const manager = new InteractiveSecurityManager();
 
   const vulnerablePackages: SecurityAlert[] = [
@@ -1140,9 +1138,9 @@ test("InteractiveSecurityManager - getSeverityEmoji returns correct indicators",
 
 test("InteractiveSecurityManager - handles vulnerability without CVE", async () => {
   const mockPrompts = {
-    confirm: mock(async () => true),
-    select: mock(async () => "apply"),
-    input: mock(async () => ""),
+    confirm: createResolvedPrompt(true),
+    select: createResolvedPrompt("apply"),
+    input: createResolvedPrompt(""),
   };
 
   const manager = new InteractiveSecurityManager(mockPrompts);

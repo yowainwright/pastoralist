@@ -251,10 +251,10 @@ async function publishReleasePullRequest(
   return code;
 }
 
-async function runVersionRelease(
+function runVersionRelease(
   context: ReleaseContext,
   releaseArgs: ReleaseArgs,
-): Promise<number> {
+): number | Promise<number> {
   assertVersionChangeRequested(releaseArgs);
   const version = resolveReleaseVersion(context.runner, releaseArgs);
   if (releaseArgs.dryRun) {
@@ -265,7 +265,7 @@ async function runVersionRelease(
   return publishReleasePullRequest(context, releaseArgs, version);
 }
 
-export async function runRelease(options: ReleaseOptions = {}): Promise<number> {
+export function runRelease(options: ReleaseOptions = {}): number | Promise<number> {
   const context = createReleaseContext(options);
   const releaseArgs = normalizeOptions(options);
   assertMainReady(context.runner);
@@ -496,10 +496,8 @@ function resolveMergeCommit(
   deadline: number,
   existingMergeCommit?: string,
 ): Promise<string> {
-  let operation: Promise<string>;
-  if (existingMergeCommit) operation = Promise.resolve(existingMergeCommit);
-  else operation = mergeReleasePullRequest(context, prUrl, deadline);
-  return operation;
+  if (existingMergeCommit) return Promise.resolve(existingMergeCommit);
+  return mergeReleasePullRequest(context, prUrl, deadline);
 }
 
 function mergeReleasePullRequest(
@@ -528,8 +526,7 @@ async function waitForMergeCompletion(
 
   context.logger.log(`Waiting for release PR to merge: ${prUrl}`);
   await delay(context.pollIntervalMs);
-  const mergeCommit = await waitForMergeCompletion(context, prUrl, deadline);
-  return mergeCommit;
+  return waitForMergeCompletion(context, prUrl, deadline);
 }
 
 function assertPullRequestOpen(state: PullRequestState, prUrl: string, deadline: number): void {
@@ -542,13 +539,12 @@ function delay(milliseconds: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
 }
 
-async function waitForMergeReadiness(
+function waitForMergeReadiness(
   context: ReleaseContext,
   prUrl: string,
   deadline: number,
 ): Promise<string | undefined> {
-  const mergeCommit = await pollForMergeReadiness(context, prUrl, deadline);
-  return mergeCommit;
+  return pollForMergeReadiness(context, prUrl, deadline);
 }
 
 async function pollForMergeReadiness(
@@ -558,10 +554,7 @@ async function pollForMergeReadiness(
 ): Promise<string | undefined> {
   const fields = "state,mergedAt,mergeCommit,mergeStateStatus";
   const state = readPullRequestState(context.runner, prUrl, fields);
-  if (state.mergedAt) {
-    const mergeCommit = readMergeCommit(state, prUrl);
-    return mergeCommit;
-  }
+  if (state.mergedAt) return readMergeCommit(state, prUrl);
   assertReadinessCanContinue(state, prUrl, deadline);
   const isMergeable = ["CLEAN", "UNSTABLE"].includes(state.mergeStateStatus ?? "");
   if (isMergeable) return undefined;
@@ -569,8 +562,7 @@ async function pollForMergeReadiness(
 
   context.logger.log(`Waiting for release PR checks to pass: ${prUrl}`);
   await delay(context.pollIntervalMs);
-  const mergeCommit = await pollForMergeReadiness(context, prUrl, deadline);
-  return mergeCommit;
+  return pollForMergeReadiness(context, prUrl, deadline);
 }
 
 function assertReadinessCanContinue(

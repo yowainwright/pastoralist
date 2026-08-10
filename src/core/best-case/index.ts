@@ -85,6 +85,39 @@ const buildSearchResult = (
   return { mode, evaluatedStates, totalStates, provenOptimal, durationMs };
 };
 
+interface BestCaseResultInput {
+  baseline: EvaluatedState;
+  selected: EvaluatedState;
+  context: EvaluationContext;
+  policy: ResolvedBestCasePolicy;
+  mode: BestCaseSearchResult["mode"];
+  totalStates: number;
+  startedAt: number;
+}
+
+const buildBestCaseMetrics = (input: BestCaseResultInput) => {
+  const { baseline, selected, context, policy, mode, totalStates, startedAt } = input;
+  const policyHash = hashValue(policy);
+  const decisionId = createDecisionId(selected.state, policyHash);
+  const durationMs = performance.now() - startedAt;
+  const search = buildSearchResult(mode, totalStates, context, durationMs);
+  const impact = buildImpact(baseline.evaluation, selected.evaluation);
+  const failedStates = countFailedStates(context);
+  return { decisionId, policyHash, search, impact, failedStates };
+};
+
+const buildBestCaseResult = (input: BestCaseResultInput): BestCaseResult => {
+  const { baseline, selected } = input;
+  const metrics = buildBestCaseMetrics(input);
+  const selection = {
+    selectedState: selected.state,
+    selectedEvaluation: selected.evaluation,
+    baselineState: baseline.state,
+    baselineEvaluation: baseline.evaluation,
+  };
+  return Object.assign({}, selection, metrics);
+};
+
 export const optimizeBestCasePortfolio = async (
   options: OptimizeBestCaseOptions,
 ): Promise<BestCaseResult> => {
@@ -98,23 +131,8 @@ export const optimizeBestCasePortfolio = async (
   const baseline = baselineItems[0];
   const searched = await runSearch(mode, baselineState, context);
   const selected = selectBest(searched.concat(baseline), context);
-  const policyHash = hashValue(policy);
-  const decisionId = createDecisionId(selected.state, policyHash);
-  const durationMs = performance.now() - startedAt;
-  const search = buildSearchResult(mode, totalStates, context, durationMs);
-  const impact = buildImpact(baseline.evaluation, selected.evaluation);
-  const failedStates = countFailedStates(context);
-  return {
-    selectedState: selected.state,
-    selectedEvaluation: selected.evaluation,
-    baselineState,
-    baselineEvaluation: baseline.evaluation,
-    decisionId,
-    policyHash,
-    search,
-    impact,
-    failedStates,
-  };
+  const resultInput = { baseline, selected, context, policy, mode, totalStates, startedAt };
+  return buildBestCaseResult(resultInput);
 };
 
 export const optimizeSecurityOverrides = async (

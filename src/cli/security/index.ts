@@ -560,7 +560,7 @@ const runEnabledSecurityPhase = async (
   };
 };
 
-export const runSecurityPhase = async (
+export const runSecurityPhase = (
   graph: CliGraph,
   config: PastoralistJSON,
   mergedOptions: Options,
@@ -568,7 +568,7 @@ export const runSecurityPhase = async (
   isLogging: boolean,
   log: ReturnType<typeof createLogger>,
   deps: SecurityPhaseDeps,
-): Promise<SecurityPhaseResult> => {
+): SecurityPhaseResult | Promise<SecurityPhaseResult> => {
   if (!mergedOptions.checkSecurity) return createSkippedSecurityPhase(mergedOptions);
   return runEnabledSecurityPhase(graph, config, mergedOptions, isJsonOutput, isLogging, log, deps);
 };

@@ -16,6 +16,7 @@ import { LRUCache, DiskCache, hashLockfile, resolveCacheDir } from "../../utils/
 import { CACHE_NAMESPACES, CACHE_TTLS, CACHE_NS_VERSIONS } from "../../utils/cache";
 import { showHint } from "../../dx/hint";
 import {
+  BUN_BINARY_LOCK_FILENAME,
   BUN_LOCK_FILENAME,
   NPM_LOCK_FILENAME,
   NPM_LS_MAX_BUFFER,
@@ -484,19 +485,36 @@ const getPopulatedPackages = (packages: SecurityPackage[]): SecurityPackage[] | 
   return packages;
 };
 
-const parseBunLockedPackages = (root: string): SecurityPackage[] | undefined => {
+const resolveBunInventoryPath = (root: string): string | undefined => {
   const lockPath = resolve(root, BUN_LOCK_FILENAME);
-  if (!fs.existsSync(lockPath)) return undefined;
+  const legacyLockPath = resolve(root, BUN_BINARY_LOCK_FILENAME);
+  const hasTextLock = fs.existsSync(lockPath);
+  const hasLegacyLock = fs.existsSync(legacyLockPath);
+  const hasOnlyLegacyLock = !hasTextLock && hasLegacyLock;
+  if (hasOnlyLegacyLock) {
+    throw new Error("Legacy bun.lockb is unsupported for best-case inventory; migrate to bun.lock");
+  }
+  const inventoryPath = hasTextLock ? lockPath : undefined;
+  return inventoryPath;
+};
+
+const getBunLockedPackages = (lock: BunLockFile): SecurityPackage[] => {
+  const entries = Object.values(lock.packages ?? {});
+  return entries.flatMap((entry) => {
+    const reference = Array.isArray(entry) ? entry[0] : undefined;
+    if (typeof reference !== "string") return [];
+    const pkg = parsePackageReference(reference);
+    return pkg ? [pkg] : [];
+  });
+};
+
+const parseBunLockedPackages = (root: string): SecurityPackage[] | undefined => {
+  const lockPath = resolveBunInventoryPath(root);
+  if (!lockPath) return undefined;
   try {
     const content = fs.readFileSync(lockPath, "utf8");
     const lock = parseBunLockFile(content);
-    const entries = Object.values(lock.packages ?? {});
-    const packages = entries.flatMap((entry) => {
-      const reference = Array.isArray(entry) ? entry[0] : undefined;
-      if (typeof reference !== "string") return [];
-      const pkg = parsePackageReference(reference);
-      return pkg ? [pkg] : [];
-    });
+    const packages = getBunLockedPackages(lock);
     return getPopulatedPackages(packages);
   } catch {
     return undefined;
@@ -524,9 +542,34 @@ export const parseBunLockTree = (root: string): Record<string, string> | undefin
   }
 };
 
+const isPnpmPackageSection = (line: string): boolean => {
+  const isPackagesSection = line === "packages:";
+  const isSnapshotsSection = line === "snapshots:";
+  return isPackagesSection || isSnapshotsSection;
+};
+
+const isPnpmTopLevelField = (line: string): boolean => /^[^\s#][^:]*:/.test(line);
+
+const getPnpmSectionLines = (lines: string[], headerIndex: number): string[] => {
+  const remaining = lines.slice(headerIndex + 1);
+  const nextFieldIndex = remaining.findIndex(isPnpmTopLevelField);
+  if (nextFieldIndex === -1) return remaining;
+  return remaining.slice(0, nextFieldIndex);
+};
+
+const getPnpmPackageSections = (content: string): string => {
+  const lines = content.split(/\r?\n/);
+  const sectionLines = lines.flatMap((line, index) => {
+    if (!isPnpmPackageSection(line)) return [];
+    return getPnpmSectionLines(lines, index);
+  });
+  return sectionLines.join("\n");
+};
+
 const parsePnpmPackageMatches = (content: string): SecurityPackage[] => {
-  const legacy = content.matchAll(/^  \/((?:@[^/@\n]+\/)?[^/@\n\s]+)(?:@|\/)([^\s:]+):/gm);
-  const current = content.matchAll(/^  '?((?:@[^@/\n'"]+\/)?[\w][\w.-]*)@([^\s:'"]+)/gm);
+  const packageSections = getPnpmPackageSections(content);
+  const legacy = packageSections.matchAll(/^  \/((?:@[^/@\n]+\/)?[^/@\n\s]+)(?:@|\/)([^\s:]+):/gm);
+  const current = packageSections.matchAll(/^  '?((?:@[^@/\n'"]+\/)?[\w][\w.-]*)@([^\s:'"]+)/gm);
   const toPackage = ([, name, version]: RegExpMatchArray): SecurityPackage => ({ name, version });
   return Array.from(legacy, toPackage).concat(Array.from(current, toPackage));
 };
@@ -558,9 +601,10 @@ const parseYarnLockBlock = (block: string): SecurityPackage | undefined => {
   const lines = block.split("\n");
   const name = parseYarnLockPackageName(lines[0]);
   if (!name) return undefined;
-  const versionLine = lines.find((line) => /^\s+version[: ]/.test(line));
-  const version = versionLine?.match(/^\s+version[: ]+"?([^\s"]+)"?/)?.[1];
-  if (!version) return undefined;
+  const versionLine = lines[1]?.trim();
+  if (!versionLine?.startsWith("version")) return undefined;
+  const rawVersion = versionLine.slice("version".length).replace(/^:\s*|^\s+/, "");
+  const version = rawVersion.replace(/^"|"$/g, "");
   return { name, version };
 };
 

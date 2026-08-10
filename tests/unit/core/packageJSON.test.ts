@@ -1602,6 +1602,30 @@ test("getLockedPackages - preserves pnpm duplicate versions", () => {
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
+test("getLockedPackages - ignores pnpm range selectors outside package sections", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  const content = [
+    "lockfileVersion: '9.0'",
+    "overrides:",
+    "  alpha@^1: 1.5.0",
+    "packages:",
+    "  alpha@1.5.0: {}",
+  ].join("\n");
+  writeFileSync(resolve(lockTestDir, "pnpm-lock.yaml"), content);
+
+  expect(getAlphaVersions(lockTestDir)).toEqual(["1.5.0"]);
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("getLockedPackages - reads pnpm snapshot package entries", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  const content = "lockfileVersion: '9.0'\nsnapshots:\n  alpha@1.5.0: {}\n";
+  writeFileSync(resolve(lockTestDir, "pnpm-lock.yaml"), content);
+
+  expect(getAlphaVersions(lockTestDir)).toEqual(["1.5.0"]);
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
 test("getLockedPackages - preserves Yarn duplicate versions", () => {
   mkdirSync(lockTestDir, { recursive: true });
   const content = 'alpha@^1.0.0:\n  version "1.0.0"\n\nalpha@^2.0.0:\n  version "2.0.0"\n';
@@ -1620,6 +1644,14 @@ test("getLockedPackages - preserves Bun duplicate versions", () => {
   writeFileSync(resolve(lockTestDir, "bun.lock"), content);
 
   expect(getAlphaVersions(lockTestDir)).toEqual(["1.0.0", "2.0.0"]);
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("getLockedPackages - rejects unsupported legacy Bun lockfiles", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(resolve(lockTestDir, "bun.lockb"), "legacy binary lockfile");
+
+  expect(() => getLockedPackages(lockTestDir)).toThrow("Legacy bun.lockb is unsupported");
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 

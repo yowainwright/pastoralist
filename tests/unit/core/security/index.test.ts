@@ -91,6 +91,13 @@ const createBuiltInBestCaseConfig = (): PastoralistJSON => ({
   pastoralist: { bestCase: { enabled: true } },
 });
 
+const createUserOwnedBestCaseConfig = (): PastoralistJSON => {
+  const config = createBuiltInBestCaseConfig();
+  config.overrides = { alpha: "2.5.0" };
+  config.pastoralist!.bestCase!.userOwnedOverrides = ["alpha"];
+  return config;
+};
+
 const getLockedPackagePath = (name: string, index: number): string => {
   if (index === 0) return `node_modules/${name}`;
   return `node_modules/wrapper-${index}/node_modules/${name}`;
@@ -107,6 +114,13 @@ const createBestCaseRoot = (
   const lock = { lockfileVersion: 3, packages: lockedPackages };
   fs.mkdirSync(root, { recursive: true });
   fs.writeFileSync(path.join(root, "package-lock.json"), JSON.stringify(lock));
+  return root;
+};
+
+const createLegacyBunRoot = (): string => {
+  const root = path.join(TEST_DIR, "legacy-bun-root");
+  fs.mkdirSync(root, { recursive: true });
+  fs.writeFileSync(path.join(root, "bun.lockb"), "legacy binary lockfile");
   return root;
 };
 
@@ -729,10 +743,10 @@ test("checkSecurity - applies the best-case portfolio and records its reason", a
   });
 });
 
-test("checkSecurity - suppresses independent updates for a best-case portfolio", async () => {
+test("checkSecurity - reports independent updates for a non-interactive portfolio", async () => {
   const checker = createCheckerWithMockAlerts({}, [createBestCaseAlert()]);
   mockLatestBestCaseVersion(checker);
-  mockBestCaseUpdate(checker);
+  const update = mockBestCaseUpdate(checker);
 
   const options = createBestCaseOptions({
     bestCaseEvaluator: () => ({ alerts: [] }),
@@ -740,14 +754,12 @@ test("checkSecurity - suppresses independent updates for a best-case portfolio",
   const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
 
   expect(result.bestCase).toBeDefined();
-  expect(result.updates).toEqual([]);
+  expect(result.updates).toEqual([update]);
 });
 
 test("checkSecurity - hard-constrains configured user-owned overrides", async () => {
   const checker = createCheckerWithMockAlerts({}, [createBestCaseAlert()]);
-  const config = createBuiltInBestCaseConfig();
-  config.overrides = { alpha: "2.5.0" };
-  config.pastoralist!.bestCase!.userOwnedOverrides = ["alpha"];
+  const config = createUserOwnedBestCaseConfig();
   mockLatestBestCaseVersion(checker);
 
   const options = createBestCaseOptions({
@@ -757,6 +769,19 @@ test("checkSecurity - hard-constrains configured user-owned overrides", async ()
 
   expect(result.bestCase?.selectedState).toEqual({ alpha: "2.5.0" });
   expect(result.overrides[0].toVersion).toBe("2.5.0");
+});
+
+test("checkSecurity - preserves user-owned overrides during standard fallback", async () => {
+  const checker = new SecurityChecker({ provider: "github", noCache: true });
+  spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([createBestCaseAlert()]);
+  mockLatestBestCaseVersion(checker);
+  mockBestCaseUpdate(checker);
+
+  const result = await checker.checkSecurity(createUserOwnedBestCaseConfig());
+
+  expect(result.bestCase).toBeUndefined();
+  expect(result.overrides).toEqual([]);
+  expect(result.updates).toEqual([]);
 });
 
 test("checkSecurity - rejects user-owned packages without string overrides", async () => {
@@ -808,6 +833,42 @@ test("checkSecurity - filters built-in best-case alerts by severity", async () =
 
   expect(result.bestCase?.selectedEvaluation.alerts).toEqual([]);
   expect(result.bestCase?.impact.remainingVulnerabilities).toBe(0);
+});
+
+test("checkSecurity - builds best-case baselines from locked versions", async () => {
+  const alert = Object.assign({}, createBestCaseAlert(), {
+    vulnerableVersions: "<1.2.0",
+    patchedVersion: "1.2.0",
+  });
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  spyOn(getFirstProvider(checker), "fetchAlerts").mockImplementation(([pkg]) => {
+    const alerts = pkg.version === "1.0.0" ? [alert] : [];
+    return Promise.resolve(alerts);
+  });
+  mockLatestBestCaseVersion(checker);
+  const config = createBuiltInBestCaseConfig();
+  config.dependencies = { alpha: "^1.0.0" };
+  config.pastoralist!.bestCase!.objectives = ["critical"];
+  const options = createBestCaseOptions({}, [{ name: "alpha", version: "1.5.0" }]);
+
+  const result = await checker.checkSecurity(config, options);
+
+  expect(result.bestCase?.baselineState).toEqual({ alpha: "1.5.0" });
+  expect(result.bestCase?.selectedState).toEqual({ alpha: "1.5.0" });
+  expect(result.overrides).toEqual([]);
+});
+
+test("checkSecurity - reports unsupported legacy Bun inventory", async () => {
+  const checker = createCheckerWithMockAlerts({}, [createBestCaseAlert()]);
+  mockLatestBestCaseVersion(checker);
+  const root = createLegacyBunRoot();
+
+  try {
+    const result = checker.checkSecurity(createBuiltInBestCaseConfig(), { root });
+    await expect(result).rejects.toThrow("Legacy bun.lockb is unsupported");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("checkSecurity - reuses cached baseline without best-case progress spam", async () => {

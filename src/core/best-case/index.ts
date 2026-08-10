@@ -118,6 +118,26 @@ const buildBestCaseResult = (input: BestCaseResultInput): BestCaseResult => {
   return Object.assign({}, selection, metrics);
 };
 
+const selectValidBestCase = (
+  items: EvaluatedState[],
+  context: EvaluationContext,
+): EvaluatedState => {
+  const validItems = items.filter((item) => item.evaluation.valid !== false);
+  if (validItems.length === 0) {
+    throw new Error(
+      "Best-case optimization failed: no portfolio states were evaluated successfully",
+    );
+  }
+  return selectBest(validItems, context);
+};
+
+const getBaselineVersions = (
+  packages: NonNullable<OptimizeSecurityOverridesOptions["baselinePackages"]>,
+): Map<string, string> => {
+  const entries = packages.map(({ name, version }) => [name, version] as const);
+  return new Map(entries);
+};
+
 export const optimizeBestCasePortfolio = async (
   options: OptimizeBestCaseOptions,
 ): Promise<BestCaseResult> => {
@@ -130,7 +150,7 @@ export const optimizeBestCasePortfolio = async (
   const baselineItems = await evaluateStates([baselineState], context);
   const baseline = baselineItems[0];
   const searched = await runSearch(mode, baselineState, context);
-  const selected = selectBest(searched.concat(baseline), context);
+  const selected = selectValidBestCase(searched.concat(baseline), context);
   const resultInput = { baseline, selected, context, policy, mode, totalStates, startedAt };
   return buildBestCaseResult(resultInput);
 };
@@ -138,10 +158,12 @@ export const optimizeBestCasePortfolio = async (
 export const optimizeSecurityOverrides = async (
   options: OptimizeSecurityOverridesOptions,
 ): Promise<OptimizedSecurityOverrides> => {
+  const baselineVersions = getBaselineVersions(options.baselinePackages ?? []);
   const choices = buildBestCaseChoices(
     options.vulnerablePackages,
     options.latestVersions,
     options.userOwnedVersions,
+    baselineVersions,
   );
   const evaluate = options.evaluate;
   const config = options.config;

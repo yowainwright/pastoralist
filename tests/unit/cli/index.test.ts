@@ -679,6 +679,40 @@ test("handleSecurityResults - applies updates when autoFix enabled", () => {
   expect(result.securityOverrides).toEqual({ vite: "6.4.1" });
 });
 
+const createBestCaseUpdateFixture = () => {
+  const update = {
+    packageName: "vite",
+    currentOverride: "6.3.6",
+    newerVersion: "6.4.1",
+    reason: "Newer patch available",
+  };
+  const checker = {
+    generatePackageOverrides: mock(() => ({ vite: "6.4.1" })),
+    applyAutoFix: mock(),
+  };
+  const spinner = { stop: mock() };
+  return { update, checker, spinner };
+};
+
+test("handleSecurityResults - does not auto-apply updates beside best-case results", () => {
+  const { handleSecurityResults } = require("../../../src/cli/index");
+  const { update, checker, spinner } = createBestCaseUpdateFixture();
+
+  const result = handleSecurityResults(
+    [],
+    [],
+    checker as any,
+    spinner as any,
+    { forceSecurityRefactor: true },
+    [update],
+    true,
+  );
+
+  expect(result).toEqual({});
+  expect(checker.generatePackageOverrides).not.toHaveBeenCalled();
+  expect(checker.applyAutoFix).not.toHaveBeenCalled();
+});
+
 test("handleSecurityResults - merges updates with new overrides", () => {
   const { handleSecurityResults } = require("../../../src/cli/index");
 
@@ -1787,6 +1821,7 @@ test("action - runs security check when enabled", async () => {
     mockSecurityResults.spinner,
     expect.anything(),
     mockSecurityResults.updates,
+    false,
   );
 });
 

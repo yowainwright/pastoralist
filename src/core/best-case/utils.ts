@@ -98,19 +98,26 @@ const getLatestVersionList = (
   return [latestVersion];
 };
 
+const removeDowngradeVersions = (versions: string[], currentVersion: string): string[] => {
+  return versions.filter((version) => compareVersions(version, currentVersion) >= 0);
+};
+
 const buildChoice = (
   packageName: string,
   alerts: SecurityAlert[],
   latestVersions: Map<string, string>,
   userOwnedVersions: Map<string, string>,
+  baselineVersions: Map<string, string>,
 ): BestCasePackageChoice => {
-  const currentVersions = alerts
-    .map((alert) => normalizeCurrentVersion(alert.currentVersion))
-    .sort(compareVersions);
+  const lockedVersion = baselineVersions.get(packageName);
+  const alertVersions = alerts.map((alert) => normalizeCurrentVersion(alert.currentVersion));
+  const sortedAlertVersions = alertVersions.slice().sort(compareVersions);
+  const currentVersions = lockedVersion ? [lockedVersion] : sortedAlertVersions;
   const currentVersion = currentVersions[0];
   const patchedVersions = getPatchedVersions(alerts);
   const latestVersion = getLatestVersionList(packageName, latestVersions);
-  const versions = patchedVersions.concat(latestVersion);
+  const candidateVersions = patchedVersions.concat(latestVersion);
+  const versions = removeDowngradeVersions(candidateVersions, currentVersion);
   const requiredVersion = userOwnedVersions.get(packageName);
   return { packageName, currentVersion, versions, requiredVersion };
 };
@@ -129,10 +136,17 @@ export const buildBestCaseChoices = (
   alerts: SecurityAlert[],
   latestVersions: Map<string, string>,
   userOwnedVersions = new Map<string, string>(),
+  baselineVersions = new Map<string, string>(),
 ): BestCasePackageChoice[] => {
   const grouped = groupPatchableAlerts(alerts);
   return Array.from(grouped.entries()).map(([packageName, packageAlerts]) => {
-    return buildChoice(packageName, packageAlerts, latestVersions, userOwnedVersions);
+    return buildChoice(
+      packageName,
+      packageAlerts,
+      latestVersions,
+      userOwnedVersions,
+      baselineVersions,
+    );
   });
 };
 

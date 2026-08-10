@@ -111,6 +111,7 @@ type UserOwnedOverrideResolution = {
 type SecurityResolutionOutcome = {
   source: SecurityOverrideResolution;
   prompted: SecurityOverrideResolution;
+  userOwnedVersions: Map<string, string>;
   userOwnedOverridesAdded: string[];
 };
 
@@ -365,7 +366,12 @@ export class SecurityChecker {
 
     const scan = await this.resolveSecurityScan(config, packages, options);
     const outcome = await this.resolveSecurityOutcome(config, scan.updates, scan.input);
-    const resultUpdates = this.resolveResultUpdates(outcome.source, scan.updates);
+    const resultUpdates = this.resolveResultUpdates(
+      outcome.source,
+      scan.updates,
+      outcome.userOwnedVersions,
+      options,
+    );
     return this.buildSecurityCheckResult(
       scan.vulnerablePackages,
       outcome.prompted,
@@ -474,15 +480,23 @@ export class SecurityChecker {
       input.options,
     );
     const added = this.getAcceptedUserOwnedOverrides(prompted, userOwned.added);
-    return { source, prompted, userOwnedOverridesAdded: added };
+    return {
+      source,
+      prompted,
+      userOwnedVersions: userOwned.versions,
+      userOwnedOverridesAdded: added,
+    };
   }
 
   private resolveResultUpdates(
     resolution: SecurityOverrideResolution,
     updates: OverrideUpdate[],
+    userOwnedVersions: Map<string, string>,
+    options: SecurityCheckRuntimeOptions,
   ): OverrideUpdate[] {
-    if (resolution.bestCase) return [];
-    return updates;
+    const handledInteractively = Boolean(resolution.bestCase && options.interactive);
+    if (handledInteractively) return [];
+    return updates.filter((update) => !userOwnedVersions.has(update.packageName));
   }
 
   private emptySecurityResult(): SecurityCheckResult {
@@ -904,9 +918,10 @@ export class SecurityChecker {
     updates: OverrideUpdate[],
     input: SecurityOverrideResolutionInput,
   ): Promise<UserOwnedOverrideResolution> {
-    if (!this.shouldUseBestCase(input)) return { versions: new Map(), added: [] };
+    if (!this.isBestCaseEnabled(input.options)) return { versions: new Map(), added: [] };
     const versions = this.getConfiguredUserOwnedVersions(config, input.options);
-    if (!input.options.interactive) return { versions, added: [] };
+    const shouldPrompt = this.shouldUseBestCase(input) && input.options.interactive;
+    if (!shouldPrompt) return { versions, added: [] };
     const candidates = updates.filter((update) => !versions.has(update.packageName));
     const manager = new InteractiveSecurityManager();
     const approved = await manager.promptForUserOwnedOverrides(candidates);
@@ -1052,10 +1067,12 @@ export class SecurityChecker {
   }
 
   private resolveStandardOverrides(
-    vulnerablePackages: SecurityAlert[],
-    latestVersions: Map<string, string>,
+    input: SecurityOverrideResolutionInput,
   ): SecurityOverrideResolution {
-    const overrides = this.generateOverrides(vulnerablePackages, latestVersions);
+    const vulnerablePackages = input.vulnerablePackages.filter((alert) => {
+      return !input.userOwnedVersions.has(alert.packageName);
+    });
+    const overrides = this.generateOverrides(vulnerablePackages, input.latestVersions);
     return { overrides };
   }
 
@@ -1063,10 +1080,7 @@ export class SecurityChecker {
     input: SecurityOverrideResolutionInput,
   ): SecurityOverrideResolution | Promise<SecurityOverrideResolution> {
     if (!this.shouldUseBestCase(input)) {
-      const standard = this.resolveStandardOverrides(
-        input.vulnerablePackages,
-        input.latestVersions,
-      );
+      const standard = this.resolveStandardOverrides(input);
       return standard;
     }
     return this.resolveBestCaseOverrides(input);
@@ -1085,7 +1099,8 @@ export class SecurityChecker {
   private resolveBestCaseOverrides(
     input: SecurityOverrideResolutionInput,
   ): Promise<SecurityOverrideResolution> {
-    const evaluate = this.resolveBestCaseEvaluator(input.installedPackages, input.options);
+    const baselinePackages = input.resolvedPackageInventory ?? [];
+    const evaluate = this.resolveBestCaseEvaluator(baselinePackages, input.options);
     const vulnerablePackages = input.vulnerablePackages;
     const latestVersions = input.latestVersions;
     const userOwnedVersions = input.userOwnedVersions;
@@ -1094,6 +1109,7 @@ export class SecurityChecker {
       vulnerablePackages,
       latestVersions,
       userOwnedVersions,
+      baselinePackages,
       evaluate,
       config,
     };

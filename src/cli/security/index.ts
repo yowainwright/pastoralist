@@ -324,6 +324,21 @@ const getOverridesToApply = (
   });
 };
 
+const buildSecurityFixes = (
+  allOverrides: SecurityOverride[],
+  securityChecker: SecurityChecker,
+  mergedOptions: Options,
+): Pick<Options, "securityOverrides" | "securityOverrideDetails"> => {
+  const securityOverrides = securityChecker.generatePackageOverrides(allOverrides);
+  const overridesToApply = getOverridesToApply(allOverrides, securityOverrides);
+  const securityOverrideDetails = overridesToApply.map(buildSecurityOverrideDetail);
+  const shouldApplyAutoFix = overridesToApply.length > 0 && !mergedOptions.dryRun;
+  if (shouldApplyAutoFix) {
+    securityChecker.applyAutoFix(overridesToApply, mergedOptions.path, mergedOptions.config);
+  }
+  return { securityOverrides, securityOverrideDetails };
+};
+
 export const handleSecurityResults = (
   alerts: SecurityAlert[],
   securityOverrides: SecurityOverride[],
@@ -331,10 +346,12 @@ export const handleSecurityResults = (
   spinner: ReturnType<typeof createSpinner>,
   mergedOptions: Options,
   updates: OverrideUpdate[] = [],
+  hasBestCaseResult = false,
 ): Pick<Options, "securityOverrides" | "securityOverrideDetails"> => {
   const shouldApplySecurityFixes = mergedOptions.forceSecurityRefactor || mergedOptions.interactive;
   const shouldGenerateOverrides = alerts.length > 0 && shouldApplySecurityFixes;
-  const shouldApplyUpdates = updates.length > 0 && shouldApplySecurityFixes;
+  const applicableUpdates = hasBestCaseResult ? [] : updates;
+  const shouldApplyUpdates = applicableUpdates.length > 0 && shouldApplySecurityFixes;
 
   const shouldSkipSecurityFixes = !shouldGenerateOverrides && !shouldApplyUpdates;
   if (shouldSkipSecurityFixes) {
@@ -342,18 +359,11 @@ export const handleSecurityResults = (
     return {};
   }
 
-  const allOverrides = securityOverrides.concat(updates.map(toUpdateOverride));
-  const finalOverrides = securityChecker.generatePackageOverrides(allOverrides);
-  const overridesToApply = getOverridesToApply(allOverrides, finalOverrides);
-  const securityOverrideDetails = overridesToApply.map(buildSecurityOverrideDetail);
-
-  const shouldApplyAutoFix = overridesToApply.length > 0 && !mergedOptions.dryRun;
-  if (shouldApplyAutoFix) {
-    securityChecker.applyAutoFix(overridesToApply, mergedOptions.path, mergedOptions.config);
-  }
-
+  const updateOverrides = applicableUpdates.map(toUpdateOverride);
+  const allOverrides = securityOverrides.concat(updateOverrides);
+  const fixes = buildSecurityFixes(allOverrides, securityChecker, mergedOptions);
   spinner.stop();
-  return { securityOverrides: finalOverrides, securityOverrideDetails };
+  return fixes;
 };
 
 const createEmptySecurityResult = (): SecurityResultSummary => ({
@@ -454,6 +464,7 @@ const applySecurityResults = (
     result.spinner,
     mergedOptions,
     result.updates,
+    Boolean(result.bestCase),
   );
   return Object.assign({}, mergedOptions, securityUpdates);
 };

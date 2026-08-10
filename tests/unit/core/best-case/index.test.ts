@@ -101,6 +101,19 @@ describe("optimizeBestCasePortfolio", () => {
     expect(result.search.provenOptimal).toBe(false);
   });
 
+  test("rejects when every portfolio evaluation fails", async () => {
+    const choices = [
+      { packageName: "alpha", currentVersion: "1.0.0", versions: ["1.0.0", "2.0.0"] },
+    ];
+    const evaluate = () => {
+      throw new Error("provider unavailable");
+    };
+
+    const result = optimizeBestCasePortfolio({ choices, evaluate });
+
+    await expect(result).rejects.toThrow("no portfolio states were evaluated successfully");
+  });
+
   test("withholds optimality when exact search reaches its evaluation cap", async () => {
     const choices = [
       { packageName: "alpha", currentVersion: "1.0.0", versions: ["1.0.0", "2.0.0"] },

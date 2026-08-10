@@ -109,7 +109,7 @@ const buildChoice = (
   userOwnedVersions: Map<string, string>,
   baselineVersions: Map<string, string>,
 ): BestCasePackageChoice => {
-  const lockedVersion = baselineVersions.get(packageName);
+  const lockedVersion = normalizeCurrentVersion(baselineVersions.get(packageName) ?? "");
   const alertVersions = alerts.map((alert) => normalizeCurrentVersion(alert.currentVersion));
   const sortedAlertVersions = alertVersions.slice().sort(compareVersions);
   const currentVersions = lockedVersion ? [lockedVersion] : sortedAlertVersions;

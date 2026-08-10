@@ -1635,6 +1635,14 @@ test("getLockedPackages - preserves Yarn duplicate versions", () => {
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
+test("getLockedPackages - rejects Yarn entries without versions", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(resolve(lockTestDir, "yarn.lock"), "alpha@^1.0.0:\n");
+
+  expect(getLockedPackages(lockTestDir)).toBeUndefined();
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
 test("getLockedPackages - preserves Bun duplicate versions", () => {
   mkdirSync(lockTestDir, { recursive: true });
   const content = bunLockContent({

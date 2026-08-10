@@ -142,10 +142,37 @@ const createBestCaseAlert = (severity: SecurityAlert["severity"] = "high"): Secu
   });
 };
 
+const createPnpmPeerBestCaseRoot = (): string => {
+  const root = path.join(TEST_DIR, "pnpm-peer-best-case-root");
+  const content = [
+    "lockfileVersion: '9.0'",
+    "packages:\n  alpha@1.5.0: {}",
+    "snapshots:\n  alpha@1.5.0(react@18.2.0): {}",
+  ].join("\n");
+  fs.mkdirSync(root, { recursive: true });
+  fs.writeFileSync(path.join(root, "pnpm-lock.yaml"), content);
+  return root;
+};
+
 const mockLatestBestCaseVersion = (checker: SecurityChecker): void => {
   spyOn(checker as any, "fetchLatestForVulnerablePackages").mockResolvedValue(
     new Map([["alpha", "2.0.0"]]),
   );
+};
+
+const createLockedBaselineChecker = (): SecurityChecker => {
+  const alert = Object.assign({}, createBestCaseAlert(), {
+    vulnerableVersions: "<1.2.0",
+    patchedVersion: "1.2.0",
+  });
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  spyOn(getFirstProvider(checker), "fetchAlerts").mockImplementation(([pkg]) => {
+    expect(pkg.version).not.toContain("(");
+    const alerts = pkg.version === "1.0.0" ? [alert] : [];
+    return Promise.resolve(alerts);
+  });
+  mockLatestBestCaseVersion(checker);
+  return checker;
 };
 
 const createBestCaseUpdate = () => ({
@@ -836,20 +863,11 @@ test("checkSecurity - filters built-in best-case alerts by severity", async () =
 });
 
 test("checkSecurity - builds best-case baselines from locked versions", async () => {
-  const alert = Object.assign({}, createBestCaseAlert(), {
-    vulnerableVersions: "<1.2.0",
-    patchedVersion: "1.2.0",
-  });
-  const checker = new SecurityChecker({ provider: "osv", noCache: true });
-  spyOn(getFirstProvider(checker), "fetchAlerts").mockImplementation(([pkg]) => {
-    const alerts = pkg.version === "1.0.0" ? [alert] : [];
-    return Promise.resolve(alerts);
-  });
-  mockLatestBestCaseVersion(checker);
+  const checker = createLockedBaselineChecker();
   const config = createBuiltInBestCaseConfig();
   config.dependencies = { alpha: "^1.0.0" };
   config.pastoralist!.bestCase!.objectives = ["critical"];
-  const options = createBestCaseOptions({}, [{ name: "alpha", version: "1.5.0" }]);
+  const options = { root: createPnpmPeerBestCaseRoot() };
 
   const result = await checker.checkSecurity(config, options);
 

@@ -360,34 +360,41 @@ test("updatePnpmWorkspaceOverrides - leaves missing empty sections unchanged", (
   expect(updatePnpmWorkspaceOverrides("packages:\n", {})).toBe("packages:\n");
 });
 
-test("applyOverridesToSourceConfig - removes JSON override fields", () => {
-  const source = { packageManager: "pnpm", overrides: {} } as const;
-  const resolutions = { ...source, kind: "json", path: "pins.json", field: "resolutions" } as const;
-  const overrides = {
-    ...source,
-    kind: "manifest",
-    path: "package.json",
-    field: "overrides",
-  } as const;
-  const pnpm = { ...source, kind: "json", path: "pins.json", field: "pnpm" } as const;
-  const config = { name: "app", version: "1.0.0" };
+const createOverrideSource = (
+  kind: "json" | "manifest",
+  field: "resolutions" | "overrides" | "pnpm",
+  path: string,
+) => ({ packageManager: "pnpm" as const, overrides: {}, kind, path, field });
 
-  expect(
-    applyOverridesToSourceConfig({ ...config, resolutions: { foo: "1" } }, resolutions, {}),
-  ).toEqual(config);
-  expect(
-    applyOverridesToSourceConfig({ ...config, overrides: { foo: "1" } }, overrides, {}),
-  ).toEqual(config);
-  expect(
-    applyOverridesToSourceConfig({ ...config, pnpm: { overrides: { foo: "1" } } }, pnpm, {}),
-  ).toEqual(config);
-  expect(
-    applyOverridesToSourceConfig(
-      { ...config, pnpm: { overrides: { foo: "1" }, packageExtensions: {} } },
-      pnpm,
-      {},
-    ),
-  ).toEqual({ ...config, pnpm: { packageExtensions: {} } });
+test("applyOverridesToSourceConfig - removes resolutions", () => {
+  const source = createOverrideSource("json", "resolutions", "pins.json");
+  const config = { name: "app", version: "1.0.0" };
+  const configWithResolutions = Object.assign({}, config, { resolutions: { foo: "1" } });
+
+  expect(applyOverridesToSourceConfig(configWithResolutions, source, {})).toEqual(config);
+});
+
+test("applyOverridesToSourceConfig - removes manifest overrides", () => {
+  const source = createOverrideSource("manifest", "overrides", "package.json");
+  const config = { name: "app", version: "1.0.0" };
+  const input = Object.assign({}, config, { overrides: { foo: "1" } });
+
+  expect(applyOverridesToSourceConfig(input, source, {})).toEqual(config);
+});
+
+test("applyOverridesToSourceConfig - preserves pnpm extensions", () => {
+  const source = createOverrideSource("json", "pnpm", "pins.json");
+  const config = { name: "app", version: "1.0.0" };
+  const configWithPnpm = Object.assign({}, config, { pnpm: { overrides: { foo: "1" } } });
+  const configWithExtensions = Object.assign({}, config, {
+    pnpm: { overrides: { foo: "1" }, packageExtensions: {} },
+  });
+  const expectedExtensions = Object.assign({}, config, { pnpm: { packageExtensions: {} } });
+
+  expect(applyOverridesToSourceConfig(configWithPnpm, source, {})).toEqual(config);
+  expect(applyOverridesToSourceConfig(configWithExtensions, source, {})).toEqual(
+    expectedExtensions,
+  );
 });
 
 test("resolveOverrideSource - selects pnpm-workspace.yaml for pnpm 11", () => {

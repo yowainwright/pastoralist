@@ -8,6 +8,7 @@ import type {
   Appendix,
   PastoralistJSON,
   OverridesType,
+  SecurityPackage,
   UpdatePackageJSONOptions,
 } from "../../types";
 import { logger } from "../../utils";
@@ -15,6 +16,7 @@ import { LRUCache, DiskCache, hashLockfile, resolveCacheDir } from "../../utils/
 import { CACHE_NAMESPACES, CACHE_TTLS, CACHE_NS_VERSIONS } from "../../utils/cache";
 import { showHint } from "../../dx/hint";
 import {
+  BUN_BINARY_LOCK_FILENAME,
   BUN_LOCK_FILENAME,
   NPM_LOCK_FILENAME,
   NPM_LS_MAX_BUFFER,
@@ -29,6 +31,7 @@ import {
 import type {
   BunLockFile,
   DependencyVersionCandidate,
+  NpmLockFile,
   OverrideField,
   PackageManager,
 } from "./types";
@@ -113,6 +116,7 @@ const hasOtherPastoralistConfig = (config: PastoralistJSON): boolean => {
   const hasOverridePaths = Boolean(config.pastoralist?.overridePaths);
   const hasResolutionPaths = Boolean(config.pastoralist?.resolutionPaths);
   const hasSecurity = Boolean(config.pastoralist?.security);
+  const hasBestCase = Boolean(config.pastoralist?.bestCase);
   const hasDepPaths = Boolean(config.pastoralist?.depPaths);
   const hasOverrideSource = Boolean(config.pastoralist?.overrideSource);
 
@@ -120,8 +124,15 @@ const hasOtherPastoralistConfig = (config: PastoralistJSON): boolean => {
   if (hasOverridePaths) return true;
   if (hasResolutionPaths) return true;
   if (hasSecurity) return true;
+  if (hasBestCase) return true;
   if (hasOverrideSource) return true;
   return hasDepPaths;
+};
+
+const createBestCaseField = (config: PastoralistJSON) => {
+  const bestCase = config.pastoralist?.bestCase;
+  if (!bestCase) return undefined;
+  return { bestCase };
 };
 
 const buildPreservedConfig = (config: PastoralistJSON) => {
@@ -137,6 +148,7 @@ const buildPreservedConfig = (config: PastoralistJSON) => {
   const overrideSourceField = overrideSource ? { overrideSource } : undefined;
   const resolutionPathsField = resolutionPaths ? { resolutionPaths } : undefined;
   const securityField = security ? { security } : undefined;
+  const bestCaseField = createBestCaseField(config);
 
   return Object.assign(
     {},
@@ -146,6 +158,7 @@ const buildPreservedConfig = (config: PastoralistJSON) => {
     overrideSourceField,
     resolutionPathsField,
     securityField,
+    bestCaseField,
   );
 };
 
@@ -458,6 +471,56 @@ const extractBunPackageVersion = (entry: unknown): string => {
   return versionEntry.slice(separatorIndex + 1);
 };
 
+const parsePackageReference = (reference: string): SecurityPackage | undefined => {
+  const separatorIndex = reference.lastIndexOf("@");
+  const hasVersion = separatorIndex > 0 && separatorIndex < reference.length - 1;
+  if (!hasVersion) return undefined;
+  const name = reference.slice(0, separatorIndex);
+  const version = reference.slice(separatorIndex + 1);
+  return { name, version };
+};
+
+const getPopulatedPackages = (packages: SecurityPackage[]): SecurityPackage[] | undefined => {
+  if (packages.length === 0) return undefined;
+  return packages;
+};
+
+const resolveBunInventoryPath = (root: string): string | undefined => {
+  const lockPath = resolve(root, BUN_LOCK_FILENAME);
+  const legacyLockPath = resolve(root, BUN_BINARY_LOCK_FILENAME);
+  const hasTextLock = fs.existsSync(lockPath);
+  const hasLegacyLock = fs.existsSync(legacyLockPath);
+  const hasOnlyLegacyLock = !hasTextLock && hasLegacyLock;
+  if (hasOnlyLegacyLock) {
+    throw new Error("Legacy bun.lockb is unsupported for best-case inventory; migrate to bun.lock");
+  }
+  const inventoryPath = hasTextLock ? lockPath : undefined;
+  return inventoryPath;
+};
+
+const getBunLockedPackages = (lock: BunLockFile): SecurityPackage[] => {
+  const entries = Object.values(lock.packages ?? {});
+  return entries.flatMap((entry) => {
+    const reference = Array.isArray(entry) ? entry[0] : undefined;
+    if (typeof reference !== "string") return [];
+    const pkg = parsePackageReference(reference);
+    return pkg ? [pkg] : [];
+  });
+};
+
+const parseBunLockedPackages = (root: string): SecurityPackage[] | undefined => {
+  const lockPath = resolveBunInventoryPath(root);
+  if (!lockPath) return undefined;
+  try {
+    const content = fs.readFileSync(lockPath, "utf8");
+    const lock = parseBunLockFile(content);
+    const packages = getBunLockedPackages(lock);
+    return getPopulatedPackages(packages);
+  } catch {
+    return undefined;
+  }
+};
+
 export const parseBunLockTree = (root: string): Record<string, string> | undefined => {
   const lockPath = resolve(root, BUN_LOCK_FILENAME);
   if (!fs.existsSync(lockPath)) return undefined;
@@ -479,27 +542,54 @@ export const parseBunLockTree = (root: string): Record<string, string> | undefin
   }
 };
 
-export const parsePnpmLockTree = (root: string): Record<string, string> | undefined => {
+const isPnpmPackageSection = (line: string): boolean => {
+  const isPackagesSection = line === "packages:";
+  const isSnapshotsSection = line === "snapshots:";
+  return isPackagesSection || isSnapshotsSection;
+};
+
+const isPnpmTopLevelField = (line: string): boolean => /^[^\s#][^:]*:/.test(line);
+
+const getPnpmSectionLines = (lines: string[], headerIndex: number): string[] => {
+  const remaining = lines.slice(headerIndex + 1);
+  const nextFieldIndex = remaining.findIndex(isPnpmTopLevelField);
+  if (nextFieldIndex === -1) return remaining;
+  return remaining.slice(0, nextFieldIndex);
+};
+
+const getPnpmPackageSections = (content: string): string => {
+  const lines = content.split(/\r?\n/);
+  const sectionLines = lines.flatMap((line, index) => {
+    if (!isPnpmPackageSection(line)) return [];
+    return getPnpmSectionLines(lines, index);
+  });
+  return sectionLines.join("\n");
+};
+
+const parsePnpmPackageMatches = (content: string): SecurityPackage[] => {
+  const packageSections = getPnpmPackageSections(content);
+  const legacy = packageSections.matchAll(/^  \/((?:@[^/@\n]+\/)?[^/@\n\s]+)(?:@|\/)([^\s:]+):/gm);
+  const current = packageSections.matchAll(/^  '?((?:@[^@/\n'"]+\/)?[\w][\w.-]*)@([^\s:'"]+)/gm);
+  const toPackage = ([, name, version]: RegExpMatchArray): SecurityPackage => ({ name, version });
+  return Array.from(legacy, toPackage).concat(Array.from(current, toPackage));
+};
+
+const parsePnpmLockedPackages = (root: string): SecurityPackage[] | undefined => {
   const lockPath = resolve(root, PNPM_LOCK_FILENAME);
   if (!fs.existsSync(lockPath)) return undefined;
   try {
     const content = fs.readFileSync(lockPath, "utf8");
-    const v5v6Matches = content.matchAll(/^  \/((?:@[^/@\n]+\/)?[^/@\n\s]+)(?:@|\/)([^\s:]+):/gm);
-    const v9Matches = content.matchAll(/^  '?((?:@[^@/\n'"]+\/)?[\w][\w.-]*)@([^\s:'"]+)/gm);
-    const v5v6Entries = Array.from(
-      v5v6Matches,
-      ([, name, version]) => [name, version] as [string, string],
-    );
-    const v9Entries = Array.from(
-      v9Matches,
-      ([, name, version]) => [name, version] as [string, string],
-    );
-    const entryMap = new Map(v5v6Entries.concat(v9Entries));
-    if (entryMap.size === 0) return undefined;
-    return Object.fromEntries(entryMap);
+    return getPopulatedPackages(parsePnpmPackageMatches(content));
   } catch {
     return undefined;
   }
+};
+
+export const parsePnpmLockTree = (root: string): Record<string, string> | undefined => {
+  const packages = parsePnpmLockedPackages(root);
+  if (!packages) return undefined;
+  const entries = packages.map(({ name, version }) => [name, version]);
+  return Object.fromEntries(entries);
 };
 
 const parseYarnLockPackageName = (line: string): string | undefined => {
@@ -507,32 +597,37 @@ const parseYarnLockPackageName = (line: string): string | undefined => {
   return match?.[1]?.trim();
 };
 
-export const parseYarnLockTree = (root: string): Record<string, string> | undefined => {
+const parseYarnLockBlock = (block: string): SecurityPackage | undefined => {
+  const lines = block.split("\n");
+  const name = parseYarnLockPackageName(lines[0]);
+  if (!name) return undefined;
+  const versionLine = lines[1]?.trim();
+  if (!versionLine?.startsWith("version")) return undefined;
+  const rawVersion = versionLine.slice("version".length).replace(/^:\s*|^\s+/, "");
+  const version = rawVersion.replace(/^"|"$/g, "");
+  return { name, version };
+};
+
+const parseYarnLockedPackages = (root: string): SecurityPackage[] | undefined => {
   const lockPath = resolve(root, YARN_LOCK_FILENAME);
   if (!fs.existsSync(lockPath)) return undefined;
   try {
     const content = fs.readFileSync(lockPath, "utf8");
-    const result: Record<string, string> = {};
-    let currentName: string | undefined;
-    content.split("\n").forEach((line) => {
-      const packageName = parseYarnLockPackageName(line);
-      if (packageName) {
-        currentName = packageName;
-        return;
-      }
-      if (currentName) {
-        const versionMatch = line.match(/^\s+version[: ]+"?([^\s"]+)"?/);
-        if (versionMatch) {
-          result[currentName] = versionMatch[1];
-          currentName = undefined;
-        }
-      }
+    const packages = content.split(/\n(?=\S)/).flatMap((block) => {
+      const pkg = parseYarnLockBlock(block.trim());
+      return pkg ? [pkg] : [];
     });
-    if (Object.keys(result).length === 0) return undefined;
-    return result;
+    return getPopulatedPackages(packages);
   } catch {
     return undefined;
   }
+};
+
+export const parseYarnLockTree = (root: string): Record<string, string> | undefined => {
+  const packages = parseYarnLockedPackages(root);
+  if (!packages) return undefined;
+  const entries = packages.map(({ name, version }) => [name, version]);
+  return Object.fromEntries(entries);
 };
 
 const getDependencyVersion = (value: unknown): string => {
@@ -575,6 +670,57 @@ const dependencyVersionsToRecord = (
 ): Record<string, string> =>
   Object.fromEntries(Array.from(versions, ([name, candidate]) => [name, candidate.version]));
 
+const createLockedPackage = (name: string, value: unknown): SecurityPackage | undefined => {
+  const version = getDependencyVersion(value);
+  if (version === UNKNOWN_DEPENDENCY_VERSION) return undefined;
+  return { name, version };
+};
+
+const collectNestedNpmPackages = (value: unknown): SecurityPackage[] => {
+  const nested = (value as { dependencies?: Record<string, unknown> })?.dependencies;
+  if (!nested) return [];
+  return collectNpmDependencyPackages(nested);
+};
+
+const collectNpmDependencyPackages = (deps: Record<string, unknown>): SecurityPackage[] => {
+  return Object.entries(deps).flatMap(([name, value]) => {
+    const pkg = createLockedPackage(name, value);
+    const nestedPackages = collectNestedNpmPackages(value);
+    if (!pkg) return nestedPackages;
+    return [pkg].concat(nestedPackages);
+  });
+};
+
+const collectNpmPackageEntries = (
+  packages: NonNullable<NpmLockFile["packages"]>,
+): SecurityPackage[] => {
+  return Object.entries(packages).flatMap(([key, value]) => {
+    const isDependencyPackage = key !== "" && key.includes("node_modules/");
+    if (!isDependencyPackage) return [];
+    const name = getNpmLockPackageName(key);
+    const pkg = createLockedPackage(name, value);
+    if (!pkg) return [];
+    return [pkg];
+  });
+};
+
+const collectNpmLockedPackages = (lock: NpmLockFile): SecurityPackage[] => {
+  if (lock.packages) return collectNpmPackageEntries(lock.packages);
+  return collectNpmDependencyPackages(lock.dependencies ?? {});
+};
+
+const parseNpmLockedPackages = (root: string): SecurityPackage[] | undefined => {
+  const lockPath = resolve(root, NPM_LOCK_FILENAME);
+  if (!fs.existsSync(lockPath)) return undefined;
+  try {
+    const content = fs.readFileSync(lockPath, "utf8");
+    const lock = JSON.parse(content) as NpmLockFile;
+    return getPopulatedPackages(collectNpmLockedPackages(lock));
+  } catch {
+    return undefined;
+  }
+};
+
 const traverseNpmDeps = (
   deps: Record<string, unknown>,
   versions: Map<string, DependencyVersionCandidate>,
@@ -597,10 +743,7 @@ export const parseNpmLockTree = (root: string): Record<string, string> | undefin
   if (!fs.existsSync(lockPath)) return undefined;
   try {
     const content = fs.readFileSync(lockPath, "utf8");
-    const lock = JSON.parse(content) as {
-      packages?: Record<string, { version?: string }>;
-      dependencies?: Record<string, unknown>;
-    };
+    const lock = JSON.parse(content) as NpmLockFile;
     if (lock.packages) {
       const versions = new Map<string, DependencyVersionCandidate>();
       Object.entries(lock.packages).forEach(([key, pkg]) => {
@@ -626,6 +769,14 @@ export const parseNpmLockTree = (root: string): Record<string, string> | undefin
   } catch {
     return undefined;
   }
+};
+
+export const getLockedPackages = (root: string = process.cwd()): SecurityPackage[] | undefined => {
+  const packageManager = detectPackageManager(root);
+  if (packageManager === "bun") return parseBunLockedPackages(root);
+  if (packageManager === "pnpm") return parsePnpmLockedPackages(root);
+  if (packageManager === "yarn") return parseYarnLockedPackages(root);
+  return parseNpmLockedPackages(root);
 };
 
 const parseTreeFromLockfile = (root: string): Record<string, string> | undefined => {
@@ -662,11 +813,11 @@ const createDependencyTreeRequest = (
     }
   })();
 
-export const getDependencyTree = async (
+export const getDependencyTree = (
   mockExecuteNpmLs?: (root?: string) => Promise<string>,
   cacheDir?: string,
   root: string = process.cwd(),
-): Promise<Record<string, string>> => {
+): Record<string, string> | Promise<Record<string, string>> => {
   const cacheKey = createDependencyTreeCacheKey(root);
   const cache = getTreeCache(cacheDir);
   const cached = cache.get(cacheKey);

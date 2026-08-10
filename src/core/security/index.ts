@@ -18,6 +18,8 @@ import {
   OverrideUpdate,
   SecurityOverrideDetail,
   WorkspaceVulnerabilityState,
+  SecurityProviderScanOptions,
+  SecurityProviderType,
 } from "../../types";
 import { Appendix, PastoralistJSON, OverridesType } from "../../types";
 import {
@@ -53,8 +55,16 @@ import { readFileSync, copyFileSync, writeFileSync, existsSync, mkdirSync, unlin
 import { createHash, randomUUID } from "crypto";
 import { resolve, dirname, basename } from "path";
 import { updateAppendix } from "../appendix";
+import { getLockedPackages } from "../package";
 import { glob } from "../../utils/glob";
 import { BACKUP_CACHE_DIR, DEFAULT_MEMORY_CACHE_TTL } from "../constants";
+import {
+  applyBestCaseState,
+  hasMultipleInstalledVersions,
+  optimizeSecurityOverrides,
+  type BestCaseEvaluator,
+  type BestCaseResult,
+} from "../best-case";
 
 export * from "./providers";
 
@@ -78,6 +88,45 @@ type AutoFixTransaction = {
   backupPath: string;
   files: AutoFixFileBackup[];
 };
+
+type SecurityOverrideResolution = {
+  overrides: SecurityOverride[];
+  bestCase?: BestCaseResult;
+};
+
+type SecurityOverrideResolutionInput = {
+  installedPackages: SecurityPackage[];
+  resolvedPackageInventory?: SecurityPackage[];
+  vulnerablePackages: SecurityAlert[];
+  latestVersions: Map<string, string>;
+  userOwnedVersions: Map<string, string>;
+  options: SecurityCheckRuntimeOptions;
+};
+
+type UserOwnedOverrideResolution = {
+  versions: Map<string, string>;
+  added: string[];
+};
+
+type SecurityResolutionOutcome = {
+  source: SecurityOverrideResolution;
+  prompted: SecurityOverrideResolution;
+  userOwnedVersions: Map<string, string>;
+  userOwnedOverridesAdded: string[];
+};
+
+type SecurityResolutionScan = {
+  vulnerablePackages: SecurityAlert[];
+  updates: OverrideUpdate[];
+  input: SecurityOverrideResolutionInput;
+};
+
+type SecurityAlertScan = {
+  alerts: SecurityAlert[];
+  complete: boolean;
+};
+
+const STATE_AWARE_BEST_CASE_PROVIDERS: readonly SecurityProviderType[] = ["osv", "spektion"];
 
 export class SecurityChecker {
   private providers: SecurityProvider[];
@@ -290,11 +339,22 @@ export class SecurityChecker {
     this.log.debug("Starting security check", "checkSecurity");
 
     try {
-      return await this.runSecurityCheck(config, options);
+      const runtimeOptions = this.resolveBestCaseConfig(config, options);
+      return await this.runSecurityCheck(config, runtimeOptions);
     } catch (error) {
       this.log.error("Security check failed", "checkSecurity", { error });
       throw error;
     }
+  }
+
+  private resolveBestCaseConfig(
+    config: PastoralistJSON,
+    options: SecurityCheckRuntimeOptions,
+  ): SecurityCheckRuntimeOptions {
+    if (options.bestCase) return options;
+    const bestCase = config.pastoralist?.bestCase;
+    if (!bestCase) return options;
+    return Object.assign({}, options, { bestCase });
   }
 
   private async runSecurityCheck(
@@ -304,23 +364,139 @@ export class SecurityChecker {
     const packages = this.extractPackagesForScan(config, options);
     if (packages.length === 0) return this.emptySecurityResult();
 
-    const alerts = await this.resolveSecurityAlerts(packages, options);
-    const vulnerablePackages = await this.resolveVulnerablePackages(alerts, options);
-    const latestVersions = await this.fetchLatestForVulnerablePackages(vulnerablePackages);
-    const generatedOverrides = this.generateOverrides(vulnerablePackages, latestVersions);
-    const overrides = await this.promptForOverridesIfNeeded(
-      vulnerablePackages,
-      generatedOverrides,
+    const scan = await this.resolveSecurityScan(config, packages, options);
+    const outcome = await this.resolveSecurityOutcome(config, scan.updates, scan.input);
+    const resultUpdates = this.resolveResultUpdates(
+      outcome.source,
+      scan.updates,
+      outcome.userOwnedVersions,
       options,
     );
-    const updates = await this.checkOverrideUpdates(config, alerts, options.packageJsonPath);
+    return this.buildSecurityCheckResult(
+      scan.vulnerablePackages,
+      outcome.prompted,
+      resultUpdates,
+      packages.length,
+      outcome.userOwnedOverridesAdded,
+    );
+  }
 
-    return {
-      alerts: vulnerablePackages,
-      overrides,
+  private buildSecurityCheckResult(
+    alerts: SecurityAlert[],
+    resolution: SecurityOverrideResolution,
+    updates: OverrideUpdate[],
+    packagesScanned: number,
+    userOwnedOverridesAdded: string[],
+  ): SecurityCheckResult {
+    const result: SecurityCheckResult = {
+      alerts,
+      overrides: resolution.overrides,
       updates,
-      packagesScanned: packages.length,
+      packagesScanned,
     };
+    const bestCase = resolution.bestCase;
+    if (bestCase) result.bestCase = bestCase;
+    if (userOwnedOverridesAdded.length > 0) {
+      result.userOwnedOverridesAdded = userOwnedOverridesAdded;
+    }
+    return result;
+  }
+
+  private async resolveSecurityScan(
+    config: PastoralistJSON,
+    installedPackages: SecurityPackage[],
+    options: SecurityCheckRuntimeOptions,
+  ): Promise<SecurityResolutionScan> {
+    const baselineAlerts = await this.resolveSecurityAlerts(installedPackages, options);
+    const vulnerablePackages = this.resolveVulnerablePackages(baselineAlerts, options);
+    const latestVersions = await this.fetchLatestForVulnerablePackages(vulnerablePackages);
+    const updates = this.checkOverrideUpdates(config, baselineAlerts, options.packageJsonPath);
+    return this.createSecurityResolutionScan(
+      installedPackages,
+      vulnerablePackages,
+      latestVersions,
+      updates,
+      options,
+    );
+  }
+
+  private createSecurityResolutionScan(
+    installedPackages: SecurityPackage[],
+    vulnerablePackages: SecurityAlert[],
+    latestVersions: Map<string, string>,
+    updates: OverrideUpdate[],
+    options: SecurityCheckRuntimeOptions,
+  ): SecurityResolutionScan {
+    const resolvedPackageInventory = this.resolveBestCaseInventory(vulnerablePackages, options);
+    const input = this.createSecurityResolutionInput(
+      installedPackages,
+      resolvedPackageInventory,
+      vulnerablePackages,
+      latestVersions,
+      options,
+    );
+    return { vulnerablePackages, updates, input };
+  }
+
+  private createSecurityResolutionInput(
+    installedPackages: SecurityPackage[],
+    resolvedPackageInventory: SecurityPackage[] | undefined,
+    vulnerablePackages: SecurityAlert[],
+    latestVersions: Map<string, string>,
+    options: SecurityCheckRuntimeOptions,
+  ): SecurityOverrideResolutionInput {
+    const userOwnedVersions = new Map<string, string>();
+    return {
+      installedPackages,
+      resolvedPackageInventory,
+      vulnerablePackages,
+      latestVersions,
+      userOwnedVersions,
+      options,
+    };
+  }
+
+  private getAcceptedUserOwnedOverrides(
+    resolution: SecurityOverrideResolution,
+    added: string[],
+  ): string[] {
+    if (!resolution.bestCase) return [];
+    return added;
+  }
+
+  private async resolveSecurityOutcome(
+    config: PastoralistJSON,
+    updates: OverrideUpdate[],
+    input: SecurityOverrideResolutionInput,
+  ): Promise<SecurityResolutionOutcome> {
+    const userOwned = await this.resolveUserOwnedOverrides(config, updates, input);
+    const constrainedInput = Object.assign({}, input, {
+      userOwnedVersions: userOwned.versions,
+    });
+    const source = await this.resolveSecurityOverrides(constrainedInput);
+    const prompted = await this.promptForResolutionIfNeeded(
+      input.vulnerablePackages,
+      source,
+      input.options,
+    );
+    const added = this.getAcceptedUserOwnedOverrides(prompted, userOwned.added);
+    return {
+      source,
+      prompted,
+      userOwnedVersions: userOwned.versions,
+      userOwnedOverridesAdded: added,
+    };
+  }
+
+  private resolveResultUpdates(
+    resolution: SecurityOverrideResolution,
+    updates: OverrideUpdate[],
+    userOwnedVersions: Map<string, string>,
+    options: SecurityCheckRuntimeOptions,
+  ): OverrideUpdate[] {
+    const handledInteractively = Boolean(resolution.bestCase && options.interactive);
+    if (handledInteractively) return [];
+    return updates.filter((update) => !userOwnedVersions.has(update.packageName));
   }
 
   private emptySecurityResult(): SecurityCheckResult {
@@ -345,6 +521,37 @@ export class SecurityChecker {
     });
 
     return extractPackages(config, options.excludePackages || []);
+  }
+
+  private resolvePackageRoot(options: SecurityCheckRuntimeOptions): string {
+    if (options.root) return options.root;
+    if (options.packageJsonPath) return dirname(resolve(options.packageJsonPath));
+    return process.cwd();
+  }
+
+  private hasCompleteBestCaseInventory(
+    packages: SecurityPackage[],
+    packageNames: Set<string>,
+  ): boolean {
+    const resolvedNames = new Set(packages.map(({ name }) => name));
+    return Array.from(packageNames).every((name) => resolvedNames.has(name));
+  }
+
+  private resolveBestCaseInventory(
+    vulnerablePackages: SecurityAlert[],
+    options: SecurityCheckRuntimeOptions,
+  ): SecurityPackage[] | undefined {
+    const isSupported = this.supportsBuiltInBestCase(options);
+    const shouldResolve = this.isBestCaseEnabled(options) && isSupported;
+    if (!shouldResolve) return undefined;
+    const root = this.resolvePackageRoot(options);
+    const inventory = getLockedPackages(root);
+    if (!inventory) return undefined;
+    const relevantNames = new Set(vulnerablePackages.map((alert) => alert.packageName));
+    const relevantPackages = inventory.filter((pkg) => relevantNames.has(pkg.name));
+    const isComplete = this.hasCompleteBestCaseInventory(relevantPackages, relevantNames);
+    if (!isComplete) return undefined;
+    return relevantPackages;
   }
 
   private resolveCachedAlerts(
@@ -396,33 +603,73 @@ export class SecurityChecker {
 
     if (cachedAlerts) return cachedAlerts;
 
-    const alerts = await this.fetchProviderAlerts(packages, options);
-    this.cacheSecurityAlerts(cacheKey, diskCacheKey, alerts, options);
-    return alerts;
+    const scan = await this.fetchProviderAlerts(packages, options);
+    this.assertCompleteScan(scan, options);
+    if (!scan.complete) return scan.alerts;
+    this.cacheSecurityAlerts(cacheKey, diskCacheKey, scan.alerts, options);
+    return scan.alerts;
+  }
+
+  private assertCompleteScan(scan: SecurityAlertScan, options: SecurityCheckRuntimeOptions): void {
+    const incompleteRequiredScan = options.requireCompleteScan && !scan.complete;
+    if (!incompleteRequiredScan) return;
+    throw new Error("Best-case evaluation requires a complete provider scan");
+  }
+
+  private reportProviderFetch(
+    packages: SecurityPackage[],
+    options: SecurityCheckRuntimeOptions,
+  ): void {
+    const message = `Checking ${packages.length} packages...`;
+    const progress: SecurityCheckProgress = {
+      phase: "fetching",
+      message,
+      current: 0,
+      total: packages.length,
+    };
+    this.reportProgress(options, progress);
+  }
+
+  private createProviderScanOptions(
+    options: SecurityCheckRuntimeOptions,
+    onIncomplete: () => void,
+  ): SecurityProviderScanOptions {
+    const root = options.root;
+    const requireCompleteScan = options.requireCompleteScan ?? false;
+    return { root, requireCompleteScan, onIncomplete };
+  }
+
+  private logProviderAlerts(alerts: SecurityAlert[]): void {
+    const providerCount = this.providers.length;
+    const message = `Found ${alerts.length} security alerts from ${providerCount} provider(s)`;
+    this.log.debug(message, "checkSecurity");
   }
 
   private async fetchProviderAlerts(
     packages: SecurityPackage[],
     options: SecurityCheckRuntimeOptions,
-  ): Promise<SecurityAlert[]> {
-    this.reportProgress(options, {
-      phase: "fetching",
-      message: `Checking ${packages.length} packages...`,
-      current: 0,
-      total: packages.length,
-    });
-
-    const results = await Promise.allSettled(
-      this.providers.map((provider) => provider.fetchAlerts(packages, { root: options.root })),
-    );
+  ): Promise<SecurityAlertScan> {
+    this.reportProviderFetch(packages, options);
+    const incompleteScans = new Set<true>();
+    const markIncomplete = (): void => {
+      incompleteScans.add(true);
+    };
+    const providerOptions = this.createProviderScanOptions(options, markIncomplete);
+    const requests = this.createProviderRequests(packages, providerOptions);
+    const results = await Promise.allSettled(requests);
     const alerts = results.flatMap((result, index) => this.normalizeProviderResult(result, index));
+    const providersCompleted = results.every((result) => result.status === "fulfilled");
+    const complete = providersCompleted && incompleteScans.size === 0;
 
-    this.log.debug(
-      `Found ${alerts.length} security alerts from ${this.providers.length} provider(s)`,
-      "checkSecurity",
-    );
+    this.logProviderAlerts(alerts);
+    return { alerts, complete };
+  }
 
-    return alerts;
+  private createProviderRequests(
+    packages: SecurityPackage[],
+    options: SecurityProviderScanOptions,
+  ): Promise<SecurityAlert[]>[] {
+    return this.providers.map((provider) => provider.fetchAlerts(packages, options));
   }
 
   private normalizeProviderResult(
@@ -445,32 +692,39 @@ export class SecurityChecker {
     throw new Error(`Provider ${providerType} failed: ${reason}`);
   }
 
-  private async resolveVulnerablePackages(
+  private resolveVulnerablePackages(
     alerts: SecurityAlert[],
     options: SecurityCheckRuntimeOptions,
-  ): Promise<SecurityAlert[]> {
-    this.reportProgress(options, {
-      phase: "analyzing",
-      message: `Analyzing ${alerts.length} security alerts...`,
-    });
-
+  ): SecurityAlert[] {
+    this.reportVulnerabilityAnalysis(alerts, options);
     const filteredAlerts = this.filterAlertsBySeverity(
       sortAlertsByPriority(deduplicateAlerts(alerts)),
       options,
     );
-    const workspaceAlerts = await this.findWorkspaceVulnerabilitiesIfNeeded(alerts, options);
+    const workspaceAlerts = this.findWorkspaceVulnerabilitiesIfNeeded(alerts, options);
     const vulnerablePackages = filteredAlerts.concat(workspaceAlerts);
+    this.reportVulnerabilityResolution(vulnerablePackages, options);
+    return vulnerablePackages;
+  }
 
+  private reportVulnerabilityAnalysis(
+    alerts: SecurityAlert[],
+    options: SecurityCheckRuntimeOptions,
+  ): void {
+    const message = `Analyzing ${alerts.length} security alerts...`;
+    this.reportProgress(options, { phase: "analyzing", message });
+  }
+
+  private reportVulnerabilityResolution(
+    vulnerablePackages: SecurityAlert[],
+    options: SecurityCheckRuntimeOptions,
+  ): void {
     this.log.debug(
       `Found ${vulnerablePackages.length} vulnerable packages in dependencies`,
       "checkSecurity",
     );
-    this.reportProgress(options, {
-      phase: "resolving",
-      message: `Resolving fixes for ${vulnerablePackages.length} vulnerabilities...`,
-    });
-
-    return vulnerablePackages;
+    const message = `Resolving fixes for ${vulnerablePackages.length} vulnerabilities...`;
+    this.reportProgress(options, { phase: "resolving", message });
   }
 
   private filterAlertsBySeverity(
@@ -483,10 +737,10 @@ export class SecurityChecker {
     return alerts.filter((alert) => getSeverityScore(alert.severity) >= thresholdScore);
   }
 
-  private async findWorkspaceVulnerabilitiesIfNeeded(
+  private findWorkspaceVulnerabilitiesIfNeeded(
     alerts: SecurityAlert[],
     options: SecurityCheckRuntimeOptions,
-  ): Promise<SecurityAlert[]> {
+  ): SecurityAlert[] {
     const shouldScanWorkspaces = options.depPaths && options.depPaths.length > 0;
     if (!shouldScanWorkspaces) return [];
 
@@ -494,16 +748,44 @@ export class SecurityChecker {
     return this.findWorkspaceVulnerabilities(options.depPaths!, options.root || "./", alerts);
   }
 
-  private async promptForOverridesIfNeeded(
+  private promptForResolutionIfNeeded(
     vulnerablePackages: SecurityAlert[],
-    overrides: SecurityOverride[],
+    resolution: SecurityOverrideResolution,
     options: SecurityCheckRuntimeOptions,
-  ): Promise<SecurityOverride[]> {
+  ): SecurityOverrideResolution | Promise<SecurityOverrideResolution> {
     const shouldPromptInteractively = options.interactive && vulnerablePackages.length > 0;
-    if (!shouldPromptInteractively) return overrides;
+    if (!shouldPromptInteractively) return resolution;
 
-    const interactiveManager = new InteractiveSecurityManager();
-    return interactiveManager.promptForSecurityActions(vulnerablePackages, overrides);
+    if (resolution.bestCase) {
+      return this.promptForBestCaseResolution(vulnerablePackages, resolution);
+    }
+    return this.promptForStandardResolution(vulnerablePackages, resolution);
+  }
+
+  private async promptForStandardResolution(
+    vulnerablePackages: SecurityAlert[],
+    resolution: SecurityOverrideResolution,
+  ): Promise<SecurityOverrideResolution> {
+    const manager = new InteractiveSecurityManager();
+    const overrides = await manager.promptForSecurityActions(
+      vulnerablePackages,
+      resolution.overrides,
+    );
+    return { overrides };
+  }
+
+  private async promptForBestCaseResolution(
+    vulnerablePackages: SecurityAlert[],
+    resolution: SecurityOverrideResolution,
+  ): Promise<SecurityOverrideResolution> {
+    const manager = new InteractiveSecurityManager();
+    const overrides = await manager.promptForBestCasePortfolio(
+      vulnerablePackages,
+      resolution.overrides,
+    );
+    const accepted = overrides === resolution.overrides;
+    if (!accepted) return { overrides };
+    return { overrides, bestCase: resolution.bestCase };
   }
 
   private readPackageFile(packageFile: string): PastoralistJSON | null {
@@ -543,11 +825,11 @@ export class SecurityChecker {
     return pkgVulnerable.filter((vuln) => this.isNewVulnerability(vuln, existingKeys));
   }
 
-  private async findWorkspaceVulnerabilities(
+  private findWorkspaceVulnerabilities(
     depPaths: string[],
     root: string,
     alerts: SecurityAlert[],
-  ): Promise<SecurityAlert[]> {
+  ): SecurityAlert[] {
     try {
       const packageFiles = this.resolveWorkspacePackageFiles(depPaths, root);
       return this.collectWorkspaceVulnerabilities(packageFiles, alerts);
@@ -596,11 +878,11 @@ export class SecurityChecker {
     };
   }
 
-  private async checkOverrideUpdates(
+  private checkOverrideUpdates(
     config: PastoralistJSON,
     alerts: SecurityAlert[],
     packageJsonPath?: string,
-  ): Promise<OverrideUpdate[]> {
+  ): OverrideUpdate[] {
     const existingOverrides = this.getExistingOverrides(config, packageJsonPath);
     const appendix = config.pastoralist?.appendix || {};
     const allEntries = Object.entries(existingOverrides);
@@ -629,6 +911,50 @@ export class SecurityChecker {
     const existingOverrides =
       config.overrides || config.pnpm?.overrides || config.resolutions || {};
     return existingOverrides;
+  }
+
+  private async resolveUserOwnedOverrides(
+    config: PastoralistJSON,
+    updates: OverrideUpdate[],
+    input: SecurityOverrideResolutionInput,
+  ): Promise<UserOwnedOverrideResolution> {
+    if (!this.isBestCaseEnabled(input.options)) return { versions: new Map(), added: [] };
+    const versions = this.getConfiguredUserOwnedVersions(config, input.options);
+    const shouldPrompt = this.shouldUseBestCase(input) && input.options.interactive;
+    if (!shouldPrompt) return { versions, added: [] };
+    const candidates = updates.filter((update) => !versions.has(update.packageName));
+    const manager = new InteractiveSecurityManager();
+    const approved = await manager.promptForUserOwnedOverrides(candidates);
+    return this.mergeApprovedUserOwnedVersions(versions, approved);
+  }
+
+  private getConfiguredUserOwnedVersions(
+    config: PastoralistJSON,
+    options: SecurityCheckRuntimeOptions,
+  ): Map<string, string> {
+    const names = options.bestCase?.userOwnedOverrides ?? [];
+    const overrides = this.getExistingOverrides(config, options.packageJsonPath);
+    const entries = names.map((name) => {
+      const version = overrides[name];
+      if (typeof version === "string") return [name, version] as const;
+      throw new Error(`User-owned override ${name} must reference a string override`);
+    });
+    return new Map(entries);
+  }
+
+  private mergeApprovedUserOwnedVersions(
+    configured: Map<string, string>,
+    approved: OverrideUpdate[],
+  ): UserOwnedOverrideResolution {
+    const entries = approved.map((update): [string, string] => [
+      update.packageName,
+      update.newerVersion,
+    ]);
+    const configuredEntries = Array.from(configured.entries());
+    const allEntries = configuredEntries.concat(entries);
+    const versions = new Map<string, string>(allEntries);
+    const added = approved.map((update) => update.packageName);
+    return { versions, added };
   }
 
   private logNestedOverrideSkips(entries: [string, OverridesType[string]][]): void {
@@ -680,7 +1006,7 @@ export class SecurityChecker {
     return alerts.find((alert) => compareVersions(alert.patchedVersion!, version) > 0);
   }
 
-  private async fetchLatestForVulnerablePackages(
+  private fetchLatestForVulnerablePackages(
     vulnerablePackages: SecurityAlert[],
   ): Promise<Map<string, string>> {
     const packages = vulnerablePackages
@@ -691,6 +1017,103 @@ export class SecurityChecker {
       }));
 
     return fetchLatestCompatibleVersions(packages);
+  }
+
+  private isBestCaseEnabled(options: SecurityCheckRuntimeOptions): boolean {
+    return options.bestCase?.enabled === true;
+  }
+
+  private supportsBuiltInBestCase(options: SecurityCheckRuntimeOptions): boolean {
+    if (options.bestCaseEvaluator) return true;
+    const providerTypes = this.providers.map((provider) => provider.providerType);
+    const supported = providerTypes.every((providerType) => {
+      return STATE_AWARE_BEST_CASE_PROVIDERS.includes(providerType);
+    });
+    return supported;
+  }
+
+  private createBestCaseScanOptions(
+    options: SecurityCheckRuntimeOptions,
+  ): SecurityCheckRuntimeOptions {
+    const scanOptions = Object.assign({}, options, {
+      onProgress: undefined,
+      requireCompleteScan: true,
+      skipCacheWrite: true,
+    });
+    return scanOptions;
+  }
+
+  private createBestCaseEvaluator(
+    packages: SecurityPackage[],
+    options: SecurityCheckRuntimeOptions,
+  ): BestCaseEvaluator {
+    return async (state) => {
+      const portfolio = applyBestCaseState(packages, state);
+      const scanOptions = this.createBestCaseScanOptions(options);
+      const alerts = await this.resolveSecurityAlerts(portfolio, scanOptions);
+      const normalized = sortAlertsByPriority(deduplicateAlerts(alerts));
+      const filteredAlerts = this.filterAlertsBySeverity(normalized, scanOptions);
+      const evaluation = { alerts: filteredAlerts };
+      return evaluation;
+    };
+  }
+
+  private resolveBestCaseEvaluator(
+    packages: SecurityPackage[],
+    options: SecurityCheckRuntimeOptions,
+  ): BestCaseEvaluator {
+    if (options.bestCaseEvaluator) return options.bestCaseEvaluator;
+    return this.createBestCaseEvaluator(packages, options);
+  }
+
+  private resolveStandardOverrides(
+    input: SecurityOverrideResolutionInput,
+  ): SecurityOverrideResolution {
+    const vulnerablePackages = input.vulnerablePackages.filter((alert) => {
+      return !input.userOwnedVersions.has(alert.packageName);
+    });
+    const overrides = this.generateOverrides(vulnerablePackages, input.latestVersions);
+    return { overrides };
+  }
+
+  private resolveSecurityOverrides(
+    input: SecurityOverrideResolutionInput,
+  ): SecurityOverrideResolution | Promise<SecurityOverrideResolution> {
+    if (!this.shouldUseBestCase(input)) {
+      const standard = this.resolveStandardOverrides(input);
+      return standard;
+    }
+    return this.resolveBestCaseOverrides(input);
+  }
+
+  private shouldUseBestCase(input: SecurityOverrideResolutionInput): boolean {
+    const enabled = this.isBestCaseEnabled(input.options);
+    const supported = this.supportsBuiltInBestCase(input.options);
+    const inventory = input.resolvedPackageInventory;
+    const hasCompleteInventory = Boolean(inventory);
+    const hasMultipleVersions = inventory ? hasMultipleInstalledVersions(inventory) : true;
+    const canUseBestCase = enabled && supported && hasCompleteInventory && !hasMultipleVersions;
+    return canUseBestCase;
+  }
+
+  private resolveBestCaseOverrides(
+    input: SecurityOverrideResolutionInput,
+  ): Promise<SecurityOverrideResolution> {
+    const baselinePackages = input.resolvedPackageInventory ?? [];
+    const evaluate = this.resolveBestCaseEvaluator(baselinePackages, input.options);
+    const vulnerablePackages = input.vulnerablePackages;
+    const latestVersions = input.latestVersions;
+    const userOwnedVersions = input.userOwnedVersions;
+    const config = input.options.bestCase;
+    const options = {
+      vulnerablePackages,
+      latestVersions,
+      userOwnedVersions,
+      baselinePackages,
+      evaluate,
+      config,
+    };
+    return optimizeSecurityOverrides(options);
   }
 
   private generateOverrides(
@@ -1002,7 +1425,8 @@ export class SecurityChecker {
 
   private buildSecurityOverrideDetails(overrides: SecurityOverride[]): SecurityOverrideDetail[] {
     return overrides.map((override) => {
-      const base = { packageName: override.packageName, reason: override.reason };
+      const reason = override.ledgerReason ?? override.reason;
+      const base = { packageName: override.packageName, reason };
       return Object.assign({}, base, this.buildSecurityOverrideDetailMetadata(override));
     });
   }

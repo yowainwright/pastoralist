@@ -5,7 +5,13 @@ import type {
   SECURITY_PROVIDERS,
   SEVERITY_THRESHOLDS,
 } from "./constants";
-import type { AppendixTarget, KeepConstraint, PastoralistJSON } from "../types";
+import type {
+  AppendixTarget,
+  BestCaseConfig,
+  KeepConstraint,
+  LedgerReason,
+  PastoralistJSON,
+} from "../types";
 
 export type SecurityProvider = (typeof SECURITY_PROVIDERS)[number];
 export type SecurityProviders = SecurityProvider | SecurityProvider[];
@@ -22,7 +28,7 @@ export type AppendixItem = {
   patches?: string[];
   ledger?: {
     addedDate: string;
-    reason?: string;
+    reason?: LedgerReason;
     securityChecked?: boolean;
     securityCheckDate?: string;
     securityCheckResult?: SecurityCheckResult;
@@ -65,6 +71,7 @@ export type PastoralistConfig = {
   checkSecurity?: boolean;
   overridePaths?: Record<string, Appendix>;
   resolutionPaths?: Record<string, Appendix>;
+  bestCase?: BestCaseConfig;
   security?: SecurityConfig;
 };
 

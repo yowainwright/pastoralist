@@ -20,4 +20,5 @@ export type SecurityPhaseResult = {
   mergedOptions: Options;
   securityResult: SecurityResultSummary;
   packagesScanned: number;
+  bestCase?: PastoralistResult["bestCase"];
 };

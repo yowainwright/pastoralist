@@ -39,6 +39,65 @@ test("validateConfig - should accept valid appendix with ledger", () => {
   expect(result).toEqual(config);
 });
 
+test("validateConfig - accepts project and best-case ledger reasons", () => {
+  const projectReason = {
+    type: "project",
+    summary: "Pinned while the upstream regression is unresolved",
+    pin: "4.17.21",
+    patch: "patches/lodash.patch",
+    constraints: ["Node 20"],
+    references: ["https://example.com/regression"],
+  };
+  const bestCaseReason = {
+    type: "best-case",
+    summary: "Selected as part of the lowest-risk dependency portfolio",
+    decisionId: "best-case-abc123",
+    policyHash: "def456",
+    search: { evaluatedStates: 12, provenOptimal: true },
+    impact: {
+      fixedVulnerabilities: 3,
+      introducedVulnerabilities: 0,
+      remainingVulnerabilities: 1,
+    },
+  };
+  const config = {
+    appendix: {
+      "lodash@4.17.21": { ledger: { addedDate: "2024-01-01", reason: projectReason } },
+      "minimist@1.2.8": { ledger: { addedDate: "2024-01-01", reason: bestCaseReason } },
+    },
+  };
+
+  expect(validateConfig(config)).toEqual(config);
+});
+
+test("validateConfig - rejects malformed structured ledger reasons", () => {
+  const invalidReasons = [
+    "",
+    { type: "project", summary: "" },
+    { type: "project", summary: "Pin", cves: ["CVE-2024-0001"] },
+    { type: "best-case", summary: "Choice", decisionId: "id", policyHash: "hash" },
+    {
+      type: "best-case",
+      summary: "Choice",
+      decisionId: "id",
+      policyHash: "hash",
+      search: { evaluatedStates: -1, provenOptimal: true },
+      impact: {
+        fixedVulnerabilities: 1,
+        introducedVulnerabilities: 0,
+        remainingVulnerabilities: 0,
+      },
+    },
+  ];
+
+  invalidReasons.forEach((reason) => {
+    const config = {
+      appendix: { "pkg@1.0.0": { ledger: { addedDate: "2024-01-01", reason } } },
+    };
+    expect(() => validateConfig(config)).toThrow("Invalid config structure");
+  });
+});
+
 test("validateConfig - should reject appendix item with invalid ledger (missing addedDate)", () => {
   const config = {
     appendix: {
@@ -152,6 +211,43 @@ test("validateConfig - should accept valid security config", () => {
 
   const result = validateConfig(config);
   expect(result).toEqual(config);
+});
+
+test("validateConfig - accepts tunable best-case search config", () => {
+  const config = {
+    bestCase: {
+      enabled: true,
+      userOwnedOverrides: ["alpha", "@scope/beta"],
+      riskAggregation: "both",
+      objectives: ["critical", "high", "package-exposures", "change-count"],
+      search: {
+        mode: "auto",
+        exactStateLimit: 256,
+        beamWidth: 16,
+        maxEvaluations: 1000,
+      },
+    },
+  };
+
+  expect(validateConfig(config)).toEqual(config);
+});
+
+test("validateConfig - rejects invalid best-case search config", () => {
+  const invalidConfigs = [
+    { bestCase: { riskAggregation: "average" } },
+    { bestCase: { objectives: [] } },
+    { bestCase: { objectives: ["critical", "critical"] } },
+    { bestCase: { userOwnedOverrides: [""] } },
+    { bestCase: { userOwnedOverrides: ["alpha", "alpha"] } },
+    { bestCase: { search: { mode: "random" } } },
+    { bestCase: { search: { exactStateLimit: 0 } } },
+    { bestCase: { search: { beamWidth: -1 } } },
+    { bestCase: { search: { maxEvaluations: 1.5 } } },
+  ];
+
+  invalidConfigs.forEach((config) => {
+    expect(() => validateConfig(config)).toThrow("Invalid config structure");
+  });
 });
 
 test("validateConfig - should accept security provider array", () => {

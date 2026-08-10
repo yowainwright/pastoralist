@@ -6,6 +6,7 @@ import type {
   OSVPartialVulnerability,
   OSVSeverityVulnerability,
   OSVVulnerability,
+  SecurityProviderScanOptions,
 } from "../../../types";
 import { logger, retry, type RetryError, type RetryOptions } from "../../../utils";
 import {
@@ -95,10 +96,11 @@ export class OSVProvider {
 
   private async fetchFromOSVBatchAPI(
     packages: Array<{ name: string; version: string }>,
+    options: SecurityProviderScanOptions,
   ): Promise<OSVBatchResult[]> {
     const response = await this.requestOSVBatch(this.createOSVQueries(packages));
     const data = await response.json();
-    return this.enrichBatchResults(data.results || []);
+    return this.enrichBatchResults(data.results || [], options);
   }
 
   private createOSVQueries(packages: Array<{ name: string; version: string }>): OSVPackageQuery[] {
@@ -122,17 +124,22 @@ export class OSVProvider {
     return response;
   }
 
-  private async enrichBatchResults(batchResults: OSVBatchApiResult[]): Promise<OSVBatchResult[]> {
+  private enrichBatchResults(
+    batchResults: OSVBatchApiResult[],
+    options: SecurityProviderScanOptions,
+  ): Promise<OSVBatchResult[]> {
     return Promise.all(
-      batchResults.map(async (result) => ({
-        vulns: await this.fetchBatchVulnerabilities(result),
-      })),
+      batchResults.map(async (result) => {
+        const vulns = await this.fetchBatchVulnerabilities(result, options);
+        return { vulns };
+      }),
     );
   }
 
-  private async fetchBatchVulnerabilities(
+  private fetchBatchVulnerabilities(
     result: OSVBatchApiResult,
-  ): Promise<OSVVulnerability[] | undefined> {
+    options: SecurityProviderScanOptions,
+  ): OSVVulnerability[] | undefined | Promise<OSVVulnerability[]> {
     const vulns = result?.vulns;
 
     const hasNoVulnerabilities = !vulns || vulns.length === 0;
@@ -140,7 +147,7 @@ export class OSVProvider {
       return vulns;
     }
 
-    return this.fetchFullVulnerabilityDetails(vulns);
+    return this.fetchFullVulnerabilityDetails(vulns, options);
   }
 
   private async fetchSingleVulnerability(vuln: OSVPartialVulnerability): Promise<OSVVulnerability> {
@@ -157,13 +164,14 @@ export class OSVProvider {
     return result;
   }
 
-  private async fetchFullVulnerabilityDetails(
+  private fetchFullVulnerabilityDetails(
     partialVulns: OSVPartialVulnerability[],
+    options: SecurityProviderScanOptions,
   ): Promise<OSVVulnerability[]> {
     return this.createVulnerabilityBatches(partialVulns).reduce<Promise<OSVVulnerability[]>>(
       async (accPromise, batch) => {
         const acc = await accPromise;
-        const results = await this.fetchVulnerabilityBatch(batch);
+        const results = await this.fetchVulnerabilityBatch(batch, options);
         return acc.concat(results);
       },
       Promise.resolve([]),
@@ -182,35 +190,50 @@ export class OSVProvider {
 
   private async fetchVulnerabilityBatch(
     batch: OSVPartialVulnerability[],
+    options: SecurityProviderScanOptions,
   ): Promise<OSVVulnerability[]> {
     const results = await Promise.allSettled(
       batch.map((vuln) => this.fetchSingleVulnerability(vuln)),
     );
 
-    return results.map((result, index) => this.resolveVulnerabilityResult(result, batch[index]));
+    return results.map((result, index) => {
+      return this.resolveVulnerabilityResult(result, batch[index], options);
+    });
   }
 
   private resolveVulnerabilityResult(
     result: PromiseSettledResult<OSVVulnerability>,
     fallback: OSVPartialVulnerability,
+    options: SecurityProviderScanOptions,
   ): OSVVulnerability {
     if (result.status === "fulfilled") {
       return result.value;
     }
 
-    const errorMsg = `Failed to fetch ${fallback.id}: ${result.reason}`;
+    return this.resolveRejectedVulnerability(result.reason, fallback, options);
+  }
 
-    if (this.strict) {
-      throw new Error(errorMsg);
-    }
+  private resolveRejectedVulnerability(
+    reason: unknown,
+    fallback: OSVPartialVulnerability,
+    options: SecurityProviderScanOptions,
+  ): OSVVulnerability {
+    const errorMsg = `Failed to fetch ${fallback.id}: ${reason}`;
+    const shouldFail = this.strict || options.requireCompleteScan;
 
-    this.log.debug(errorMsg, "fetchFullVulnerabilityDetails");
+    if (shouldFail) throw new Error(errorMsg);
+
+    options.onIncomplete?.();
+    this.log.warn(
+      `${errorMsg}. Using partial vulnerability data.`,
+      "fetchFullVulnerabilityDetails",
+    );
     return fallback as OSVVulnerability;
   }
 
   async fetchAlerts(
     packages: Array<{ name: string; version: string }>,
-    _options: { root?: string } = {},
+    options: SecurityProviderScanOptions = {},
   ): Promise<SecurityAlert[]> {
     this.log.debug(`OSV checking ${packages.length} packages`, "fetchAlerts");
 
@@ -218,35 +241,41 @@ export class OSVProvider {
       return [];
     }
 
-    const batchResults = await this.fetchBatchResults(packages);
+    const batchResults = await this.fetchBatchResults(packages, options);
     const realAlerts = this.convertBatchResultsToAlerts(packages, batchResults);
     return realAlerts.concat(this.getIRLFixtureAlerts());
   }
 
   private fetchBatchResults(
     packages: Array<{ name: string; version: string }>,
+    options: SecurityProviderScanOptions,
   ): Promise<OSVBatchResult[]> {
     const retryOptions: RetryOptions = Object.assign({}, this.retryOptions, {
       onFailedAttempt: (error: RetryError) => {
         this.log.debug(`Batch API attempt ${error.attemptNumber} failed`, "fetchAlerts");
       },
     });
-    return retry(() => this.fetchFromOSVBatchAPI(packages), retryOptions).catch((error) =>
-      this.handleBatchFetchError(error),
+    return retry(() => this.fetchFromOSVBatchAPI(packages, options), retryOptions).catch((error) =>
+      this.handleBatchFetchError(error, options),
     );
   }
 
-  private handleBatchFetchError(error: unknown): OSVBatchResult[] {
+  private handleBatchFetchError(
+    error: unknown,
+    options: SecurityProviderScanOptions,
+  ): OSVBatchResult[] {
     this.log.debug("Failed to fetch batch results after retries", "fetchAlerts", { error });
     const reason = error instanceof Error ? error.message : "Unknown error";
+    const shouldFail = this.strict || options.requireCompleteScan;
 
-    if (this.strict) {
+    if (shouldFail) {
       throw new Error(
         `OSV security check failed after ${this.retryOptions.retries} retries. ` +
           `Reason: ${reason}. Failing due to --strict mode.`,
       );
     }
 
+    options.onIncomplete?.();
     this.log.warn(this.createBatchWarning(reason), "fetchAlerts");
     return [];
   }

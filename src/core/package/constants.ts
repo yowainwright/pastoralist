@@ -1,4 +1,5 @@
 export const BUN_LOCK_FILENAME = "bun.lock";
+export const BUN_BINARY_LOCK_FILENAME = "bun.lockb";
 export const PNPM_LOCK_FILENAME = "pnpm-lock.yaml";
 export const YARN_LOCK_FILENAME = "yarn.lock";
 export const NPM_LOCK_FILENAME = "package-lock.json";

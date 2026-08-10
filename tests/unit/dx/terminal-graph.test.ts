@@ -12,8 +12,12 @@ const createMockOutput = (): Output & { lines: string[] } => {
   const lines: string[] = [];
   return {
     lines,
-    write: (text: string) => lines.push(text),
-    writeLine: (text: string) => lines.push(text),
+    write: (text: string) => {
+      lines[lines.length] = text;
+    },
+    writeLine: (text: string) => {
+      lines[lines.length] = text;
+    },
     clearLine: () => {},
     hideCursor: () => {},
     showCursor: () => {},
@@ -107,6 +111,57 @@ describe("terminal-graph", () => {
 
       const joined = output.lines.join("\n");
       expect(joined).toContain("Security fix: Command Injection");
+    });
+  });
+
+  describe("override reason", () => {
+    test("renders a project reason object", () => {
+      const output = createMockOutput();
+      const graph = createTerminalGraph({ out: output });
+
+      graph.override({
+        packageName: "lodash",
+        version: "4.17.21",
+        reason: {
+          type: "project",
+          summary: "Pinned for compatibility",
+          pin: "4.17.21",
+          patch: "patches/lodash.patch",
+          constraints: ["Node 20"],
+        },
+      });
+
+      const joined = output.lines.join("\n");
+      expect(joined).toContain("Pinned for compatibility");
+      expect(joined).toContain("Pin: 4.17.21");
+      expect(joined).toContain("Patch: patches/lodash.patch");
+      expect(joined).toContain("Constraints: Node 20");
+    });
+
+    test("renders best-case search and impact metadata", () => {
+      const output = createMockOutput();
+      const graph = createTerminalGraph({ out: output });
+
+      graph.override({
+        packageName: "lodash",
+        version: "4.17.21",
+        reason: {
+          type: "best-case",
+          summary: "Selected as part of the lowest-risk dependency portfolio",
+          decisionId: "best-case-abc123",
+          policyHash: "def456",
+          search: { evaluatedStates: 12, provenOptimal: false },
+          impact: {
+            fixedVulnerabilities: 3,
+            introducedVulnerabilities: 1,
+            remainingVulnerabilities: 2,
+          },
+        },
+      });
+
+      const joined = output.lines.join("\n");
+      expect(joined).toContain("best-case-abc123 (bounded, 12 states)");
+      expect(joined).toContain("3 fixed, 1 introduced, 2 remaining");
     });
   });
 
@@ -810,8 +865,8 @@ describe("terminal-graph", () => {
       originalSetInterval = global.setInterval;
       originalClearInterval = global.clearInterval;
 
-      global.setInterval = ((fn: () => void, ms: number) => {
-        intervalCallbacks.push(fn);
+      global.setInterval = ((fn: () => void, _ms: number) => {
+        intervalCallbacks[intervalCallbacks.length] = fn;
         const id = Math.random();
         intervalIds.add(id);
         return id as any;
@@ -870,7 +925,7 @@ describe("terminal-graph", () => {
       let writeCallCount = 0;
       output.write = (text: string) => {
         writeCallCount++;
-        output.lines.push(text);
+        output.lines[output.lines.length] = text;
       };
 
       callback();

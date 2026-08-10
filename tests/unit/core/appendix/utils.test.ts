@@ -46,6 +46,19 @@ test("mergeOverrideReasons - should return manual reason when no reason or secur
   expect(result).toBe("manual override");
 });
 
+test("mergeOverrideReasons - preserves a structured per-dependency reason", () => {
+  const reason = {
+    type: "project" as const,
+    summary: "Pinned for runtime compatibility",
+    pin: "4.17.21",
+    constraints: ["Node 20"],
+  };
+
+  const result = mergeOverrideReasons("lodash", undefined, undefined, { lodash: reason });
+
+  expect(result).toEqual(reason);
+});
+
 test("mergeOverrideReasons - should return undefined when no reasons provided", () => {
   const result = mergeOverrideReasons("lodash", undefined, undefined, undefined);
 
@@ -280,6 +293,22 @@ test("toCompactAppendix - should preserve entries with patches", () => {
   expect(result["lodash@4.17.21"]).toHaveProperty("patches");
 });
 
+test("toCompactAppendix - preserves entries with a reason", () => {
+  const reason = {
+    type: "project" as const,
+    summary: "Pinned for compatibility",
+    pin: "4.17.21",
+  };
+  const appendix: Appendix = {
+    "lodash@4.17.21": {
+      dependents: { "my-app": "^4.17.0" },
+      ledger: { addedDate: "2024-01-01", reason },
+    },
+  };
+
+  expect(toCompactAppendix(appendix)["lodash@4.17.21"]).toEqual(appendix["lodash@4.17.21"]);
+});
+
 test("toCompactAppendix - should generate date if missing", () => {
   const appendix: Appendix = {
     "lodash@4.17.21": {
@@ -333,6 +362,33 @@ test("buildAppendixItem - should use provided addedDate for new ledger", () => {
 
   expect(result.ledger?.addedDate).toBe(gitDate);
   expect(result.ledger?.reason).toBe("security fix");
+});
+
+test("buildAppendixItem - writes a structured reason without moving CVEs into it", () => {
+  const reason = {
+    type: "best-case" as const,
+    summary: "Selected as part of the lowest-risk dependency portfolio",
+    decisionId: "best-case-abc123",
+    policyHash: "def456",
+    search: { evaluatedStates: 8, provenOptimal: true },
+    impact: {
+      fixedVulnerabilities: 2,
+      introducedVulnerabilities: 0,
+      remainingVulnerabilities: 0,
+    },
+  };
+
+  const result = buildAppendixItem(
+    { "my-app": "lodash@^4.17.0" },
+    undefined,
+    reason,
+    { cves: ["CVE-2024-0001"] },
+    "2024-01-01",
+  );
+
+  expect(result.ledger?.reason).toEqual(reason);
+  expect(result.ledger?.cves).toEqual(["CVE-2024-0001"]);
+  expect(result.ledger?.reason).not.toHaveProperty("cves");
 });
 
 test("buildAppendixItem - should fallback to current date when no addedDate provided", () => {

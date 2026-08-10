@@ -15,7 +15,7 @@ test("isAvailable - should return true when OSV API is accessible", async () => 
   const provider = new OSVProvider({ debug: false });
   const originalFetch = global.fetch;
 
-  global.fetch = mock((url: string) => {
+  global.fetch = mock((_url: string) => {
     return Promise.resolve({
       ok: true,
       json: () => Promise.resolve({ vulns: [] }),
@@ -681,11 +681,34 @@ test("fetchAlerts - should return empty array when strict is false and fetch fai
     return Promise.reject(new Error("Network error"));
   });
 
-  const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]);
+  const onIncomplete = mock(() => undefined);
+  const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }], {
+    onIncomplete,
+  });
 
   expect(alerts).toEqual([]);
+  expect(onIncomplete).toHaveBeenCalledTimes(1);
 
   global.fetch = originalFetch;
+});
+
+test("fetchAlerts - should reject incomplete scans when strict is false", async () => {
+  const provider = new OSVProvider({
+    debug: false,
+    strict: false,
+    retryOptions: { retries: 1, minTimeout: 10 },
+  });
+  const originalFetch = global.fetch;
+  global.fetch = mock(() => Promise.reject(new Error("Network error")));
+
+  try {
+    const scan = provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }], {
+      requireCompleteScan: true,
+    });
+    await expect(scan).rejects.toThrow("OSV security check failed");
+  } finally {
+    global.fetch = originalFetch;
+  }
 });
 
 test("fetchAlerts - should extract all CVE aliases when multiple CVEs exist", async () => {
@@ -838,9 +861,13 @@ test("fetchAlerts - non-strict returns partial results when individual vuln deta
   });
 
   try {
-    const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]);
+    const onIncomplete = mock(() => undefined);
+    const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }], {
+      onIncomplete,
+    });
     const hasAlerts = alerts.length > 0;
     expect(hasAlerts).toBe(true);
+    expect(onIncomplete).toHaveBeenCalledTimes(1);
   } finally {
     global.fetch = originalFetch;
   }

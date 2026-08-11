@@ -12,7 +12,7 @@
         "oxfmt": "^0.50.0",
         "oxlint": "^1.77.0",
         "release-it": "21.0.1",
-        "scriptc": "0.0.21",
+        "scriptc": "0.0.22",
         "turbo": "2.10.8",
         "typescript": "7.0.2",
       },
@@ -161,9 +161,9 @@
 
     "@phun-ky/typeof": ["@phun-ky/typeof@2.0.3", "", {}, "sha512-oeQJs1aa8Ghke8JIK9yuq/+KjMiaYeDZ38jx7MhkXncXlUKjqQ3wEm2X3qCKyjo+ZZofZj+WsEEiqkTtRuE2xQ=="],
 
-    "@scriptc/compiler": ["@scriptc/compiler@0.0.21", "", { "dependencies": { "@scriptc/runtime": "0.0.21", "typescript": "7.0.2", "typescript5": "npm:typescript@5.9.3" } }, "sha512-R88r87LpBmRSjWyv/9Qp0HaZ8o3qyYO6W3T13xlyOuFdzXz7zxPJdT8lLIEBEVI65TG8q/D34KOzPQI1zyXgtA=="],
+    "@scriptc/compiler": ["@scriptc/compiler@0.0.22", "", { "dependencies": { "@scriptc/runtime": "0.0.22", "typescript": "7.0.2", "typescript5": "npm:typescript@5.9.3" } }, "sha512-cZil7ZgK64yRpSk1X3BSq1Q2DBru53KfC4X0i/qa0vHNk/rvk3teDzykSP5l3nb5wY2ckh0Es3fojfD0kUp/gA=="],
 
-    "@scriptc/runtime": ["@scriptc/runtime@0.0.21", "", {}, "sha512-fj3Xn4K80B3OCaY7G3lN7blsfHqQXh6rDPERGLlVVx+TiCTuZaFMfjivw9lvQwrYqu3uWIx2JqaQDP4ibyLLJg=="],
+    "@scriptc/runtime": ["@scriptc/runtime@0.0.22", "", {}, "sha512-UytlS/6vxWXYIpIO2lQYVh4xTzMoybX0Uz1wKA41ezq62sMeuhHT6JVappUG55DgVNAWGgMI/WAHun2TeRutNg=="],
 
     "@socketsecurity/bun-security-scanner": ["@socketsecurity/bun-security-scanner@1.1.2", "", {}, "sha512-TdsAg6SMolubyZ6HfIjLWlANfHvhV6i7pdWof4OQ33zPEwXJm2ilA755levHMR618MKq22+06Ag8efiVKowxqA=="],
 
@@ -433,7 +433,7 @@
 
     "safer-buffer": ["safer-buffer@2.1.2", "", {}, "sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg=="],
 
-    "scriptc": ["scriptc@0.0.21", "", { "dependencies": { "@scriptc/compiler": "0.0.21" }, "bin": { "scriptc": "dist/main.js" } }, "sha512-m+CFFlQvKpry+bSrU0ol1rYCY4amm8nGLZ1m8+0ck8i5zJDCoQ8+6kYfj6pGsyFmBuJ3Dabn4ZFWl4BXuffD1A=="],
+    "scriptc": ["scriptc@0.0.22", "", { "dependencies": { "@scriptc/compiler": "0.0.22" }, "bin": { "scriptc": "dist/main.js" } }, "sha512-gJQ5Johx477Al1EqZOTeXOPsPgwzSOvVljIc9l1S0BqhaffyZtxXa1Mm3YFKZaCV3u4YNAEMsbO9EBgvW1awDg=="],
 
     "semver": ["semver@7.8.5", "", { "bin": { "semver": "bin/semver.js" } }, "sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA=="],
 

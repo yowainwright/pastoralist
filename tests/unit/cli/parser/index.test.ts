@@ -25,6 +25,20 @@ describe("parseArgs", () => {
       expect(result.options.dryRun).toBe(true);
     });
 
+    test("should coerce inline boolean values", () => {
+      const disabled = parseArgs(["node", "script.js", "--dry-run=false"]);
+      const enabled = parseArgs(["node", "script.js", "--debug=true"]);
+
+      expect(disabled.options.dryRun).toBe(false);
+      expect(enabled.options.debug).toBe(true);
+    });
+
+    test("should reject invalid inline boolean values", () => {
+      expect(() => parseArgs(["node", "script.js", "--dry-run=0"])).toThrow(
+        "Boolean option dryRun requires true or false",
+      );
+    });
+
     test("should parse multiple boolean flags", () => {
       const result = parseArgs(["node", "script.js", "--debug", "--dry-run", "--interactive"]);
 

@@ -23,6 +23,11 @@ import type {
 
 const execFileAsync = promisify(execFile);
 
+const quoteShellValue = (value: string): string => {
+  const escaped = value.replaceAll("'", "'\\''");
+  return `'${escaped}'`;
+};
+
 export const createOutput = (): OutputFunctions => ({
   log: (msg: string) => process.stdout.write(`${msg}\n`),
   success: (msg: string) => process.stdout.write(`${green("[OK]")} ${msg}\n`),
@@ -524,7 +529,8 @@ export class SecuritySetupWizard {
       return false;
     }
 
-    const newLine = `\n# Added by pastoralist\nexport ${envVar}="${token}"\n`;
+    const quotedToken = quoteShellValue(token);
+    const newLine = `\n# Added by pastoralist\nexport ${envVar}=${quotedToken}\n`;
     appendFileSync(profilePath, newLine);
     this.out.success(`Added ${envVar} to ${profilePath}\n`);
     return true;

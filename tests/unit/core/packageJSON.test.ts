@@ -1176,26 +1176,33 @@ test("parseNpmLsOutput - should handle null dependencies value", () => {
   expect(result.lodash).toBe("4.17.21");
 });
 
-test("updatePackageJSON - should not write root package.json without name", () => {
-  validateRootPackageJsonIntegrity();
-  const rootPath = resolve(process.cwd(), "package.json");
-
+test("updatePackageJSON - writes an unnamed root package.json", () => {
+  rmSync(testDir, { recursive: true, force: true });
+  mkdirSync(testDir, { recursive: true });
+  const rootPath = resolve(testDir, "package.json");
   const config: PastoralistJSON = {
     version: "1.0.0",
   } as PastoralistJSON;
-
   const overrides: OverridesType = { lodash: "4.17.21" };
+  const originalCwd = process.cwd();
+  writeFileSync(rootPath, JSON.stringify(config));
 
-  const result = updatePackageJSON({
-    path: rootPath,
-    config,
-    overrides,
-    isTesting: false,
-    dryRun: false,
-  });
+  try {
+    process.chdir(testDir);
+    updatePackageJSON({
+      path: rootPath,
+      config,
+      overrides,
+      isTesting: false,
+      dryRun: false,
+    });
+  } finally {
+    process.chdir(originalCwd);
+  }
 
-  expect(result).toBeUndefined();
-  validateRootPackageJsonIntegrity();
+  const written = JSON.parse(safeReadFileSync(rootPath, "utf8"));
+  expect(written.overrides).toEqual(overrides);
+  rmSync(testDir, { recursive: true, force: true });
 });
 
 test("updatePackageJSON - handles malformed JSON content gracefully", () => {
@@ -1837,25 +1844,6 @@ test("updatePackageJSON - should not write non-json files", () => {
   expect(existsSync(nonJsonPath)).toBe(false);
 
   rmSync(testDir, { recursive: true, force: true });
-  validateRootPackageJsonIntegrity();
-});
-
-test("updatePackageJSON - should not write root package.json with invalid JSON content", () => {
-  validateRootPackageJsonIntegrity();
-  const rootPath = resolve(process.cwd(), "package.json");
-  const originalContent = safeReadFileSync(rootPath, "utf8");
-
-  const invalidConfig = {} as PastoralistJSON;
-
-  updatePackageJSON({
-    path: rootPath,
-    config: invalidConfig,
-    overrides: { lodash: "4.17.21" },
-    isTesting: false,
-  });
-
-  const currentContent = safeReadFileSync(rootPath, "utf8");
-  expect(currentContent).toBe(originalContent);
   validateRootPackageJsonIntegrity();
 });
 

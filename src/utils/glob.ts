@@ -7,6 +7,8 @@ import {
   GLOB_QUESTION_MARK,
   GLOBSTAR_PLACEHOLDER,
   GLOBSTAR_PLACEHOLDER_PATTERN,
+  GLOBSTAR_DIRECTORY_PLACEHOLDER,
+  GLOBSTAR_DIRECTORY_PLACEHOLDER_PATTERN,
   GLOB_REGEX_CACHE_MAX_SIZE,
   IGNORED_DIRECTORIES,
 } from "./constants";
@@ -26,10 +28,15 @@ const normalizePath = (path: string): string => path.replaceAll("\\", "/");
 
 const compilePattern = (pattern: string): RegExp => {
   const escaped = pattern.replace(GLOB_SPECIAL_CHARS, "\\$&");
-  const withPlaceholder = escaped.replace(GLOB_DOUBLE_STAR, GLOBSTAR_PLACEHOLDER);
-  const withSingleStar = withPlaceholder.replace(GLOB_SINGLE_STAR, "[^/]*");
+  const withDirectoryPlaceholder = escaped.replace(/\*\*\//g, GLOBSTAR_DIRECTORY_PLACEHOLDER);
+  const withGlobstarPlaceholder = withDirectoryPlaceholder.replace(
+    GLOB_DOUBLE_STAR,
+    GLOBSTAR_PLACEHOLDER,
+  );
+  const withSingleStar = withGlobstarPlaceholder.replace(GLOB_SINGLE_STAR, "[^/]*");
   const withQuestion = withSingleStar.replace(GLOB_QUESTION_MARK, "[^/]");
-  const final = withQuestion.replace(GLOBSTAR_PLACEHOLDER_PATTERN, ".*");
+  const withGlobstar = withQuestion.replace(GLOBSTAR_PLACEHOLDER_PATTERN, ".*");
+  const final = withGlobstar.replace(GLOBSTAR_DIRECTORY_PLACEHOLDER_PATTERN, "(?:.*/)?");
 
   return new RegExp(`^${final}$`);
 };
@@ -70,21 +77,8 @@ const matchesPattern = (filePath: string, pattern: string): boolean => {
   return patternToRegex(pattern).test(filePath);
 };
 
-const extractLiteralSegment = (pattern: string): string =>
-  pattern
-    .split("/")
-    .filter((segment) => !segment.includes("*") && segment !== "")
-    .join("/");
-
 const matchesAnyIgnore = (filePath: string, ignorePatterns: string[]): boolean =>
-  ignorePatterns.some((pattern) => {
-    const matchesDirectly = patternToRegex(pattern).test(filePath);
-    if (matchesDirectly) return true;
-
-    const literalSegment = extractLiteralSegment(pattern);
-    const hasLiteralMatch = literalSegment !== "" && filePath.includes(literalSegment);
-    return hasLiteralMatch;
-  });
+  ignorePatterns.some((pattern) => patternToRegex(pattern).test(filePath));
 
 const isIgnoredDirectory = (name: string): boolean => IGNORED_DIRECTORIES.includes(name);
 

@@ -105,9 +105,19 @@ const processCommandArgument = (
 const processInlineValue = (
   key: string,
   inlineValue: string,
+  def: OptionDefinition,
   index: number,
   state: ParserState,
-): ProcessedArgument => toProcessedArgument(index + 1, state, withOption(state, key, inlineValue));
+): ProcessedArgument => {
+  if (def.hasValue) {
+    return toProcessedArgument(index + 1, state, withOption(state, key, inlineValue));
+  }
+  if (inlineValue === "true") return processBooleanFlag(key, index, state);
+  if (inlineValue === "false") {
+    return toProcessedArgument(index + 1, state, withOption(state, key, false));
+  }
+  throw new Error(`Boolean option ${key} requires true or false`);
+};
 
 const processBooleanFlag = (key: string, index: number, state: ParserState): ProcessedArgument =>
   toProcessedArgument(index + 1, state, withOption(state, key, true));
@@ -134,7 +144,7 @@ const processArgument = (args: string[], index: number, state: ParserState): Pro
   if (!def) throw new Error(`Unknown option: ${flag}`);
 
   const key = getOptionKey(def);
-  if (inlineValue !== undefined) return processInlineValue(key, inlineValue, index, state);
+  if (inlineValue !== undefined) return processInlineValue(key, inlineValue, def, index, state);
   if (!def.hasValue) return processBooleanFlag(key, index, state);
   return processCollectedValue(args, index, state, key, def);
 };

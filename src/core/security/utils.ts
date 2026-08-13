@@ -125,14 +125,26 @@ const checkBoundedRange = (version: string, range: string): boolean | null => {
   const isRangeBounded = range.includes(">=") && range.includes("<");
   if (!isRangeBounded) return null;
 
-  const [, minVersion] = range.match(/>= ?([^\s,]+)/) || [];
-  const [, maxVersion] = range.match(/< ?([^\s,]+)/) || [];
+  const [, minVersion] = range.match(/>=\s*([^\s,]+)/) || [];
+  const [, upperOperator, maxVersion] = range.match(/(<=?)\s*([^\s,]+)/) || [];
   const hasValidBounds = Boolean(minVersion && maxVersion);
   if (!hasValidBounds) return null;
 
   const meetsMinVersion = compareVersions(version, minVersion) >= 0;
   if (!meetsMinVersion) return false;
-  return compareVersions(version, maxVersion) < 0;
+  const maxComparison = compareVersions(version, maxVersion);
+  const hasInclusiveMaximum = upperOperator === "<=";
+  const isWithinInclusiveMaximum = maxComparison <= 0;
+  const isWithinExclusiveMaximum = maxComparison < 0;
+  if (hasInclusiveMaximum) return isWithinInclusiveMaximum;
+  return isWithinExclusiveMaximum;
+};
+
+const checkExactVersion = (version: string, range: string): boolean | null => {
+  const [, exactVersion] = range.match(/^=\s*([^\s,]+)$/) || [];
+  if (!exactVersion) return null;
+  const isExactVersion = compareVersions(version, exactVersion) === 0;
+  return isExactVersion;
 };
 
 const checkLessThanOrEqual = (version: string, range: string): boolean | null => {
@@ -170,6 +182,9 @@ export const isVersionVulnerable = (currentVersion: string, vulnerableRange: str
 
     const lessThanOrEqual = checkLessThanOrEqual(cleanVersion, vulnerableRange);
     if (lessThanOrEqual !== null) return lessThanOrEqual;
+
+    const exactVersion = checkExactVersion(cleanVersion, vulnerableRange);
+    if (exactVersion !== null) return exactVersion;
 
     return checkLessThan(cleanVersion, vulnerableRange) ?? false;
   } catch {

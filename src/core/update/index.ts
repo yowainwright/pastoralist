@@ -6,7 +6,7 @@ import {
   clearDependencyTreeCache,
   jsonCache,
   getFullDependencyCount,
-  getDependencyGraph,
+  getDependencyGraphStatus,
 } from "../package";
 import {
   mergeOverridePaths,
@@ -109,6 +109,20 @@ const canProcessWorkspaceStep = (
   return canProcess;
 };
 
+const resolveDependencyGraphContext = (
+  ctx: UpdateContext,
+): Pick<UpdateContext, "dependencyGraph" | "dependencyGraphAvailable"> => {
+  if (ctx.isTesting) return { dependencyGraphAvailable: true };
+  if (ctx.dependencyGraphAvailable !== undefined) {
+    return {
+      dependencyGraph: ctx.dependencyGraph,
+      dependencyGraphAvailable: ctx.dependencyGraphAvailable,
+    };
+  }
+  const status = getDependencyGraphStatus(ctx.root);
+  return { dependencyGraph: status.graph, dependencyGraphAvailable: status.available };
+};
+
 const stepProcessWorkspaces = (ctx: UpdateContext): UpdateContext => {
   if (!canProcessWorkspaceStep(ctx)) return ctx;
 
@@ -127,16 +141,16 @@ const stepProcessWorkspaces = (ctx: UpdateContext): UpdateContext => {
     "stepProcessWorkspaces",
   );
 
-  const dependencyGraph = ctx.isTesting ? undefined : getDependencyGraph(ctx.root);
+  const graphContext = resolveDependencyGraphContext(ctx);
   const { appendix: workspaceAppendix, allWorkspaceDeps } = processWorkspacePackages(
     packageJsonFiles,
     ctx.overridesData,
     ctx.log,
     constructAppendix,
-    { dependencyGraph },
+    { dependencyGraph: graphContext.dependencyGraph },
   );
 
-  return Object.assign({}, ctx, { workspaceAppendix, allWorkspaceDeps, dependencyGraph });
+  return Object.assign({}, ctx, graphContext, { workspaceAppendix, allWorkspaceDeps });
 };
 
 const stepExtractExistingAppendix = (ctx: UpdateContext): UpdateContext => {
@@ -156,8 +170,8 @@ const stepBuildAppendix = (ctx: UpdateContext): UpdateContext => {
 
   const { dependencies = {}, devDependencies = {}, peerDependencies = {} } = config;
 
-  const dependencyGraph =
-    ctx.dependencyGraph ?? (ctx.isTesting ? undefined : getDependencyGraph(ctx.root));
+  const graphContext = resolveDependencyGraphContext(ctx);
+  const dependencyGraph = graphContext.dependencyGraph;
   const appendix = updateAppendix({
     overrides,
     appendix: ctx.existingAppendix || {},
@@ -172,7 +186,7 @@ const stepBuildAppendix = (ctx: UpdateContext): UpdateContext => {
     dependencyGraph,
   });
 
-  if (!ctx.workspaceAppendix) return Object.assign({}, ctx, { appendix });
+  if (!ctx.workspaceAppendix) return Object.assign({}, ctx, graphContext, { appendix });
 
   ctx.log.debug("Merging workspace appendix with root appendix", "stepBuildAppendix");
 
@@ -181,7 +195,7 @@ const stepBuildAppendix = (ctx: UpdateContext): UpdateContext => {
     appendix,
   );
 
-  return Object.assign({}, ctx, { appendix: mergedAppendix });
+  return Object.assign({}, ctx, graphContext, { appendix: mergedAppendix });
 };
 
 const stepAttachPatches = (ctx: UpdateContext): UpdateContext => {
@@ -346,6 +360,8 @@ const logUnusedRemoval = (
 const stepRemoveUnused = (ctx: UpdateContext): UpdateContext => {
   const base = createRemovalBaseContext(ctx);
   if (ctx.options?.removeUnused !== true) return base;
+  const lacksDependencyEvidence = !ctx.isTesting && ctx.dependencyGraphAvailable !== true;
+  if (lacksDependencyEvidence) return base;
 
   const appendix = base.finalAppendix || {};
   const overrides = base.finalOverrides || {};

@@ -1,5 +1,6 @@
 import { test, expect } from "bun:test";
 import { sync, glob } from "../../../src/utils/glob";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "path";
 
 const PROJECT_ROOT = resolve(__dirname, "../../..");
@@ -24,6 +25,43 @@ test("sync - should match recursive pattern", () => {
 
   expect(results.length).toBeGreaterThan(0);
   expect(results.some((f) => f.endsWith(".md"))).toBe(true);
+});
+
+test("sync - globstar matches zero or more directories", () => {
+  const directory = mkdtempSync(resolve(PROJECT_ROOT, "tmp", "globstar-"));
+  mkdirSync(resolve(directory, "packages", "app"), { recursive: true });
+  writeFileSync(resolve(directory, "package.json"), "{}");
+  writeFileSync(resolve(directory, "packages", "package.json"), "{}");
+  writeFileSync(resolve(directory, "packages", "app", "package.json"), "{}");
+
+  try {
+    expect(sync("**/package.json", { cwd: directory })).toEqual([
+      "package.json",
+      "packages/app/package.json",
+      "packages/package.json",
+    ]);
+    expect(sync("packages/**/package.json", { cwd: directory })).toEqual([
+      "packages/app/package.json",
+      "packages/package.json",
+    ]);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("sync - ignores only paths matched by an ignore glob", () => {
+  const directory = mkdtempSync(resolve(PROJECT_ROOT, "tmp", "glob-ignore-"));
+  mkdirSync(resolve(directory, "dist"), { recursive: true });
+  mkdirSync(resolve(directory, "src"), { recursive: true });
+  writeFileSync(resolve(directory, "dist", "generated.ts"), "");
+  writeFileSync(resolve(directory, "src", "redistribute.ts"), "");
+
+  try {
+    const results = sync("**/*.ts", { cwd: directory, ignore: ["**/dist/**"] });
+    expect(results).toEqual(["src/redistribute.ts"]);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test("sync - should respect ignore patterns", () => {

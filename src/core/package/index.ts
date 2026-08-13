@@ -259,15 +259,6 @@ const shouldSuggestRcFile = (config: PastoralistJSON): boolean => {
   return lineCount > 10;
 };
 
-const isValidRootPackage = (content: string): boolean => {
-  try {
-    const parsed = JSON.parse(content);
-    return Boolean(parsed.name);
-  } catch {
-    return false;
-  }
-};
-
 const writeJsonFile = (path: string, content: string): void => {
   const jsonPath = resolve(path);
   const isJsonFile = jsonPath.endsWith(".json");
@@ -276,11 +267,6 @@ const writeJsonFile = (path: string, content: string): void => {
     log.error(`Invalid target file: ${jsonPath}`, "writeJsonFile");
     return;
   }
-
-  const rootPkgPath = resolve(process.cwd(), "package.json");
-  const isRootPackage = jsonPath === rootPkgPath;
-  const isInvalidRootPackage = isRootPackage && !isValidRootPackage(content);
-  if (isInvalidRootPackage) return;
 
   fs.writeFileSync(jsonPath, content);
 };
@@ -832,9 +818,14 @@ export const getDependencyTree = (
   return request;
 };
 
-let _graphCache: Map<string, Record<string, string[]>> | null = null;
-
 type DependencyGraph = Record<string, string[]>;
+
+type DependencyGraphStatus = {
+  graph: DependencyGraph;
+  available: boolean;
+};
+
+let _graphCache: Map<string, DependencyGraphStatus> | null = null;
 
 const addDependencyParent = (graph: DependencyGraph, dependency: string, parent: string): void => {
   const parents = graph[dependency] ?? [];
@@ -1029,17 +1020,20 @@ const parseDependencyGraph = (
   return parseNpmLockGraph(root);
 };
 
-export const getDependencyGraph = (root: string = process.cwd()): Record<string, string[]> => {
+export const getDependencyGraphStatus = (root: string = process.cwd()): DependencyGraphStatus => {
   if (!_graphCache) _graphCache = new Map();
   const cacheKey = createDependencyGraphCacheKey(root);
   const cached = _graphCache.get(cacheKey);
   if (cached) return cached;
   const pm = detectPackageManager(root);
   const result = parseDependencyGraph(pm, root);
-  const graph = result ?? {};
-  _graphCache.set(cacheKey, graph);
-  return graph;
+  const status = { graph: result ?? {}, available: result !== undefined };
+  _graphCache.set(cacheKey, status);
+  return status;
 };
+
+export const getDependencyGraph = (root: string = process.cwd()): Record<string, string[]> =>
+  getDependencyGraphStatus(root).graph;
 
 export const clearDependencyGraphCache = (): void => {
   _graphCache?.clear();

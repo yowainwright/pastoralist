@@ -1582,6 +1582,35 @@ test("update - stepRemoveUnused skips when removeUnused is false", () => {
   expect(result.finalAppendix?.["unused-pkg@1.0.0"]).toBeDefined();
 });
 
+test("update - preserves potentially transitive overrides when no dependency graph is available", () => {
+  clearDependencyGraphCache();
+  rmSync(TEST_DIR, { recursive: true, force: true });
+  mkdirSync(TEST_DIR, { recursive: true });
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { express: "4.18.2" },
+    overrides: { "body-parser": "1.20.3" },
+  };
+  const packagePath = resolve(TEST_DIR, "package.json");
+  writeFileSync(packagePath, JSON.stringify(config));
+
+  try {
+    const result = update({
+      config,
+      path: packagePath,
+      root: TEST_DIR,
+      dryRun: true,
+      removeUnused: true,
+    });
+
+    expect(result.finalOverrides?.["body-parser"]).toBe("1.20.3");
+  } finally {
+    clearDependencyGraphCache();
+    rmSync(TEST_DIR, { recursive: true, force: true });
+  }
+});
+
 test("update - stepRemoveUnused handles scoped packages", () => {
   const config: PastoralistJSON = {
     name: "test-app",

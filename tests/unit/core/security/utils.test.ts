@@ -546,6 +546,17 @@ test("isVersionVulnerable - bounded >= < range still works correctly", () => {
   expect(isVersionVulnerable("2.0.0", ">= 1.0.0 < 2.0.0")).toBe(false);
 });
 
+test("isVersionVulnerable - bounded inclusive upper range includes the boundary", () => {
+  expect(isVersionVulnerable("3.5.0", ">= 3.0.0, <= 3.9.9")).toBe(true);
+  expect(isVersionVulnerable("3.9.9", ">= 3.0.0, <= 3.9.9")).toBe(true);
+  expect(isVersionVulnerable("3.10.0", ">= 3.0.0, <= 3.9.9")).toBe(false);
+});
+
+test("isVersionVulnerable - exact range only matches the specified version", () => {
+  expect(isVersionVulnerable("1.2.3", "= 1.2.3")).toBe(true);
+  expect(isVersionVulnerable("1.2.4", "= 1.2.3")).toBe(false);
+});
+
 test("findVulnerablePackages - finds vulnerable packages", () => {
   const config: PastoralistJSON = {
     name: "test",

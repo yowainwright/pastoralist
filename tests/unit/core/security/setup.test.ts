@@ -1,4 +1,6 @@
 import { test, expect, mock } from "bun:test";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   SecuritySetupWizard,
   promptForSetup,
@@ -749,6 +751,42 @@ test("runTokenSetup - saves token to profile when user confirms", async () => {
       expect(result.savedToProfile).toBe(true);
     });
   });
+});
+
+test("runSetup - shell-quotes a saved value", async () => {
+  const directory = mkdtempSync(join(process.cwd(), "tmp", "pastoralist-profile-"));
+  const profilePath = join(directory, ".zshrc");
+  const shellExpansion = ["$", "(printf injected)"].join("");
+  const value = [MOCK_TOKENS.snyk, `"`, shellExpansion, "'", "tail"].join("");
+  const expectedLine = [
+    "export ",
+    ENV_VARS.snyk,
+    "='",
+    MOCK_TOKENS.snyk,
+    `"`,
+    shellExpansion,
+    "'\\''tail'",
+  ].join("");
+  writeFileSync(profilePath, "");
+
+  try {
+    await withEnvToken("snyk", null, async () => {
+      await withMockedFetch(createMockFetch({ ok: false, status: 404 }), async () => {
+        await withMockedStdout(async () => {
+          const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
+          (wizard as any).findShellProfile = () => profilePath;
+          (wizard as any).prompts = createMockPrompts({ confirm: true, input: value });
+
+          const result = await wizard.runSetup("snyk");
+
+          expect(result.savedToProfile).toBe(true);
+          expect(readFileSync(profilePath, "utf8")).toContain(expectedLine);
+        });
+      });
+    });
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test("runTokenSetup - does not save when user declines", async () => {

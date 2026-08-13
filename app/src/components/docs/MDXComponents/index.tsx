@@ -1,9 +1,16 @@
 import { lazy, Suspense, type ReactElement } from "react";
 import { Codeblock } from "@/components/Codeblock";
 import { Anchor } from "./Anchor";
+import { createHeading } from "./Heading";
 import type { MermaidProps } from "../Mermaid";
 
 const Mermaid = lazy(() => import("../Mermaid").then((m) => ({ default: m.Mermaid })));
+const H1 = createHeading("h1");
+const H2 = createHeading("h2");
+const H3 = createHeading("h3");
+const H4 = createHeading("h4");
+const H5 = createHeading("h5");
+const H6 = createHeading("h6");
 
 function extractText(node: unknown): string {
   if (typeof node === "string") return node;
@@ -79,12 +86,12 @@ export const mdxComponents = {
   Mermaid: MermaidBlock,
   pre: Pre,
   a: Anchor,
-  h1: "h1" as const,
-  h2: "h2" as const,
-  h3: "h3" as const,
-  h4: "h4" as const,
-  h5: "h5" as const,
-  h6: "h6" as const,
+  h1: H1,
+  h2: H2,
+  h3: H3,
+  h4: H4,
+  h5: H5,
+  h6: H6,
   p: "p" as const,
   code: "code" as const,
   span: "span" as const,
@@ -97,3 +104,4 @@ export const mdxComponents = {
 };
 
 export { Anchor };
+export { Heading } from "./Heading";

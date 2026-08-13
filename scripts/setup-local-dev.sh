@@ -105,11 +105,11 @@ Generate commit messages only.
 
 ## Commands
 
-- bun run format
-- bun run lint
-- bun run typecheck-src
-- bun run test:unit
-- bun run validate
+- pnpm run format
+- pnpm run lint
+- pnpm run typecheck-src
+- pnpm run test:unit
+- pnpm run validate
 
 ## Task Tracking
 

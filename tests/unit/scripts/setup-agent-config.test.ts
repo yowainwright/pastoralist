@@ -73,8 +73,8 @@ describe("scripts/install-hooks", () => {
       );
       expect(hook).toContain("await $`bun run format`;");
       expect(hook).toContain("await $`bun run build`;");
-      expect(hook).toContain("await $`bun install --cwd app --frozen-lockfile`;");
-      expect(hook).toContain("await $`cd app && bun run build`;");
+      expect(hook).toContain("await $`pnpm --dir app install --frozen-lockfile`;");
+      expect(hook).toContain("await $`pnpm --dir app run build`;");
       expect(hook).toContain("await $`bun run lint`;");
       expect(hook).toContain("await $`bun test ./tests/unit --coverage --coverage-reporter=lcov`;");
     });

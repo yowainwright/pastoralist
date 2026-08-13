@@ -1,7 +1,7 @@
 version: 2
 
 updates:
-  - package-ecosystem: "bun"
+  - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
@@ -9,7 +9,7 @@ updates:
       - "tests/**"
       - "app/tests/**"
 
-  - package-ecosystem: "bun"
+  - package-ecosystem: "npm"
     directory: "/app"
     schedule:
       interval: "weekly"

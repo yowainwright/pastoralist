@@ -2,18 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RefObject } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "@tanstack/react-router";
-import Fuse from "fuse.js";
 import { Search as SearchIcon } from "lucide-react";
-
-interface SearchResult {
-  title: string;
-  description: string;
-  content: string;
-  slug: string;
-}
+import { createSearchIndex, getSearchResults } from "@/content/search";
+import type { SearchDocument } from "@/content/types";
 
 interface SearchProps {
-  searchData: SearchResult[];
+  searchData: readonly SearchDocument[];
   iconOnly?: boolean;
 }
 
@@ -22,19 +16,13 @@ interface SearchTriggerProps {
   onOpen: () => void;
 }
 
-const useSearchResults = (searchData: SearchResult[], query: string): SearchResult[] => {
-  const fuse = useMemo(() => {
-    const keys = ["title", "description", "content"];
-    return new Fuse(searchData, { keys, threshold: 0.3 });
-  }, [searchData]);
+const useSearchResults = (
+  searchData: readonly SearchDocument[],
+  query: string,
+): SearchDocument[] => {
+  const searchIndex = useMemo(() => createSearchIndex(searchData), [searchData]);
 
-  return useMemo(() => {
-    if (!query) return [];
-    return fuse
-      .search(query)
-      .slice(0, 5)
-      .map((result) => result.item);
-  }, [fuse, query]);
+  return useMemo(() => getSearchResults(searchIndex, query), [query, searchIndex]);
 };
 
 const useSearchShortcut = (open: () => void, close: () => void): void => {
@@ -106,7 +94,7 @@ function SearchResults({
   onSelect,
 }: {
   query: string;
-  results: SearchResult[];
+  results: SearchDocument[];
   onSelect: () => void;
 }) {
   if (!query) return <RecentSearches onSelect={onSelect} />;
@@ -141,7 +129,7 @@ function SearchDialog({
   onClose,
 }: {
   query: string;
-  results: SearchResult[];
+  results: SearchDocument[];
   inputRef: RefObject<HTMLInputElement | null>;
   onQueryChange: (query: string) => void;
   onClose: () => void;

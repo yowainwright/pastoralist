@@ -11,7 +11,7 @@ fail() {
 }
 
 cd "$ROOT_DIR"
-bun run build:bin
+pnpm run build:bin
 
 help_output=$("$BIN" --help)
 printf '%s\n' "$help_output" | grep -Fq "Pastoralist" || fail "binary help"

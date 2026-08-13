@@ -46,4 +46,15 @@ describe("package security boundary", () => {
 
     expect(scripts["test:unit"]).toBe("bun test ./tests/unit");
   });
+
+  test("uses pnpm for package script composition", () => {
+    const rootPackage = readPackage("package.json");
+    const docsPackage = readPackage("app/package.json");
+    const rootScripts = rootPackage.scripts as Record<string, string>;
+    const docsScripts = docsPackage.scripts as Record<string, string>;
+
+    expect(rootScripts["build-dist"]).toStartWith("pnpm run");
+    expect(docsScripts.build).toStartWith("pnpm run");
+    expect(docsScripts["generate:llms"]).toStartWith("bun ");
+  });
 });

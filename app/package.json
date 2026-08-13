@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "bun run build:client && bun run build:static",
-    "build:client": "bun run generate:llms && tsc && vite build",
+    "build": "pnpm run build:client && pnpm run build:static",
+    "build:client": "pnpm run generate:llms && tsc && vite build",
     "build:ssr": "vite build --ssr src/entry-server.tsx --outDir dist-server",
-    "build:static": "bun run build:ssr && bun run prerender",
+    "build:static": "pnpm run build:ssr && pnpm run prerender",
     "generate:llms": "bun ../scripts/generate-llms-docs.ts",
     "prerender": "bun scripts/prerender.ts",
     "preview": "vite preview",

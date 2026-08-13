@@ -348,7 +348,7 @@ setup_git_hooks() {
     return
   fi
 
-  bun run scripts/install-hooks.ts
+  bun scripts/install-hooks.ts
 }
 
 setup_postinstall_hook() {

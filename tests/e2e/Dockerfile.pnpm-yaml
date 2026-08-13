@@ -1,4 +1,4 @@
-FROM node:24-alpine
+FROM node:26-alpine
 
 RUN apk add --no-cache bash jq
 RUN corepack enable && corepack prepare pnpm@11.0.0 --activate

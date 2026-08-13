@@ -5,7 +5,7 @@ FROM node:${NODE_VERSION}-${NODE_VARIANT}@${NODE_DIGEST}
 
 # Install dependencies
 RUN apk add --no-cache bash jq git
-RUN corepack enable && corepack prepare pnpm@10.25.0 --activate
+RUN npm install --global pnpm@10.25.0
 
 # Create a working directory
 WORKDIR /app

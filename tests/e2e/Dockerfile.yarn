@@ -7,7 +7,7 @@ FROM node:${NODE_VERSION}-${NODE_VARIANT}@${NODE_DIGEST}
 RUN apk add --no-cache bash jq git
 
 # Install yarn globally
-RUN corepack enable && corepack prepare yarn@1.22.22 --activate
+RUN npm install --global yarn@1.22.22
 
 # Create a working directory
 WORKDIR /app

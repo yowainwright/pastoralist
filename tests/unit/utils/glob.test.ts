@@ -12,10 +12,10 @@ test("sync - should match package.json", () => {
 });
 
 test("sync - should match multiple patterns", () => {
-  const results = sync(["package.json", "bun.lock"], { cwd: PROJECT_ROOT });
+  const results = sync(["package.json", "pnpm-lock.yaml"], { cwd: PROJECT_ROOT });
 
   expect(results).toContain("package.json");
-  expect(results).toContain("bun.lock");
+  expect(results).toContain("pnpm-lock.yaml");
   expect(results.length).toBe(2);
 });
 
@@ -68,7 +68,7 @@ test("sync - should use process.cwd() when cwd not specified", () => {
 });
 
 test("sync - should return sorted results", () => {
-  const results = sync(["package.json", "bun.lock", ".gitignore"], {
+  const results = sync(["package.json", "pnpm-lock.yaml", ".gitignore"], {
     cwd: PROJECT_ROOT,
   });
 
@@ -105,12 +105,12 @@ test("glob - should match package.json async", async () => {
 });
 
 test("glob - should match multiple patterns async", async () => {
-  const results = await glob(["package.json", "bun.lock"], {
+  const results = await glob(["package.json", "pnpm-lock.yaml"], {
     cwd: PROJECT_ROOT,
   });
 
   expect(results).toContain("package.json");
-  expect(results).toContain("bun.lock");
+  expect(results).toContain("pnpm-lock.yaml");
   expect(results.length).toBe(2);
 });
 
@@ -142,7 +142,7 @@ test("glob - should return absolute paths async", async () => {
 });
 
 test("glob - should return sorted results async", async () => {
-  const results = await glob(["package.json", "bun.lock", ".gitignore"], {
+  const results = await glob(["package.json", "pnpm-lock.yaml", ".gitignore"], {
     cwd: PROJECT_ROOT,
   });
 

@@ -43,23 +43,23 @@ syntax-highlighted examples, Mermaid diagrams, and theme switching.
 From this directory:
 
 ```bash
-bun install
-bun run dev
-bun run test:unit
-bun run build
-bun run preview
+pnpm install
+pnpm run dev
+pnpm run test:unit
+pnpm run build
+pnpm run preview
 ```
 
 From the repository root:
 
 ```bash
-bun run dev
-bun run --cwd app build
+pnpm run dev
+pnpm --dir app run build
 ```
 
-`bun run serve` starts the Vite preview server on port `5174`.
+`pnpm run serve` starts the Vite preview server on port `5174`.
 
-`bun run build` verifies that every route contains rendered content and that the
+`pnpm run build` verifies that every route contains rendered content and that the
 homepage includes all four sections without deferred skeletons.
 
 ## Editing Docs
@@ -72,7 +72,7 @@ When adding or renaming a page:
 2. Add its metadata and order in `src/content/constants.ts`.
 3. Add it to the sidebar in `src/components/docs/Sidebar/constants.ts` when it
    should be navigable.
-4. Run `bun run build` to catch MDX, route, and type errors.
+4. Run `pnpm run build` to catch MDX, route, and type errors.
 
 Use internal docs links like `/docs/security`. The MDX anchor component converts
 those links into router links.
@@ -103,15 +103,15 @@ those links into router links.
 For docs-only changes, run:
 
 ```bash
-bun run build
+pnpm run build
 ```
 
 From the repository root, the broader check is:
 
 ```bash
-bun run format
-bun run --cwd app test:unit
-bun run --cwd app build
+pnpm run format
+pnpm --dir app run test:unit
+pnpm --dir app run build
 ```
 
 The build currently emits known warnings for daisyUI's `@property` rule and

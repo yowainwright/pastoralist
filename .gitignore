@@ -133,7 +133,6 @@ e2e/results/
 .agents/
 .astro
 .kiro
-pnpm-lock.yaml
 tmp/
 CLAUDE.md
 AGENTS.md

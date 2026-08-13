@@ -1,8 +1,11 @@
-FROM node:24-alpine@sha256:d1b3b4da11eefd5941e7f0b9cf17783fc99d9c6fc34884a665f40a06dbdfc94f
+ARG NODE_VERSION=26
+ARG NODE_VARIANT=alpine
+ARG NODE_DIGEST=sha256:aadf416b2cdce311a8811ba3f0608a61b77dbf997500e2eafe781b51f6a0b019
+FROM node:${NODE_VERSION}-${NODE_VARIANT}@${NODE_DIGEST}
 
 # Install dependencies
 RUN apk add --no-cache bash jq git
-RUN corepack enable && corepack prepare pnpm@10.25.0 --activate
+RUN npm install --global pnpm@10.25.0
 
 # Create a working directory
 WORKDIR /app

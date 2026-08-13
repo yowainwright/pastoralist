@@ -122,7 +122,7 @@ export function buildPullRequestBody(version: string): string {
   return [
     `Release v${version}.`,
     "",
-    "This PR was created by `bun run release`.",
+    "This PR was created by `pnpm run release`.",
     "After checks pass, the release command merges this PR and pushes the version tag.",
   ].join("\n");
 }

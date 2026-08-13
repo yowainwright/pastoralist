@@ -1558,6 +1558,7 @@ test("applyAutoFix - should apply security overrides to package.json", async () 
   const testPackageJson = {
     name: "test",
     version: "1.0.0",
+    packageManager: "npm@11.5.2",
     dependencies: {
       lodash: "4.17.20",
     },
@@ -1698,6 +1699,8 @@ test("applyAutoFix - should use cwd when no path provided", async () => {
   const mockConsoleLog = spyOn(console, "log").mockImplementation(() => {});
 
   if (originalExists) {
+    const npmPackage = { ...JSON.parse(originalContent), packageManager: "npm@11.5.2" };
+    fs.writeFileSync(testPath, JSON.stringify(npmPackage));
     const backupPath = (await checker.applyAutoFix(overrides)) as string;
 
     expect(backupPath).toBeTruthy();

@@ -38,10 +38,10 @@
   @keyframes terminal-shine {
     0%,
     100% {
-      left: -100%;
+      transform: translateX(-200%);
     }
     50% {
-      left: 200%;
+      transform: translateX(400%);
     }
   }
 

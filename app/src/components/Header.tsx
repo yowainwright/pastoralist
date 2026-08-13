@@ -1,22 +1,18 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { Sun, Moon, Menu } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
-import { getAllDocs } from "@/content";
+import { getAllDocs, getDocContent } from "@/content";
+import { buildSearchDocuments } from "@/content/search";
 import { GithubIcon } from "@/components/icons/GithubIcon";
 import Search from "@/components/docs/Search";
 
 const navigation = [{ title: "Docs", href: "/docs/introduction", preload: "intent" }];
+const searchData = buildSearchDocuments(getAllDocs(), getDocContent);
 
 export function Header() {
   const { theme, toggle } = useTheme();
   const location = useLocation();
   const pathname = location.pathname;
-  const searchData = getAllDocs().map((doc) => ({
-    title: doc.title,
-    description: doc.description,
-    content: "",
-    slug: doc.slug,
-  }));
   const themeButtonClassName = `btn btn-sm btn-ghost swap swap-rotate btn-square ${
     theme === "night" ? "swap-active" : ""
   }`;

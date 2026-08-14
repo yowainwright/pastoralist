@@ -113,10 +113,10 @@
     "codependence": "^1.0.8",
     "eslint-plugin-legibility": "^0.2.0",
     "oxfmt": "^0.50.0",
-    "oxlint": "^1.77.0",
-    "release-it": "21.0.1",
+    "oxlint": "^1.78.0",
+    "release-it": "21.0.2",
     "scriptc": "0.0.21",
-    "turbo": "2.10.8",
+    "turbo": "2.10.9",
     "typescript": "7.0.2"
   },
   "peerDependencies": {},

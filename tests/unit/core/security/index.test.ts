@@ -1108,6 +1108,42 @@ test("checkSecurity - should handle workspace scanning", async () => {
   });
 });
 
+test("checkSecurity - deduplicates matching root and workspace alerts", async () => {
+  const root = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-workspace-alerts-"));
+  const workspaceDir = path.join(root, "packages", "app");
+  fs.mkdirSync(workspaceDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(workspaceDir, "package.json"),
+    JSON.stringify({ name: "app", version: "1.0.0", dependencies: { lodash: "4.17.20" } }),
+  );
+  const alert = createAlert({
+    packageName: "lodash",
+    currentVersion: "4.17.20",
+    vulnerableVersions: "<4.17.21",
+    patchedVersion: "4.17.21",
+  });
+  const checker = createCheckerWithMockAlerts({ root, cacheDir: path.join(root, ".cache") }, [
+    alert,
+  ]);
+  spyOn(checker as any, "fetchLatestForVulnerablePackages").mockResolvedValue(new Map());
+
+  try {
+    const result = await checker.checkSecurity(
+      {
+        name: "root",
+        version: "1.0.0",
+        dependencies: { lodash: "4.17.20" },
+      },
+      { root, depPaths: ["packages/*/package.json"] },
+    );
+
+    expect(result.alerts).toHaveLength(1);
+    expect(result.overrides).toHaveLength(1);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("checkSecurity - should handle config with no dependencies or devDependencies", async () => {
   const config: PastoralistJSON = {
     name: "test-package",

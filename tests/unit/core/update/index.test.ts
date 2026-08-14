@@ -67,6 +67,23 @@ test("update - processes simple override in root mode", () => {
   expect(result.mode?.mode).toBe("root");
 });
 
+test("update - preserves compact appendix added dates", () => {
+  const config = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    overrides: { lodash: "4.17.21" },
+    pastoralist: {
+      compactAppendix: true,
+      appendix: { "lodash@4.17.21": { addedDate: "2024-01-15" } },
+    },
+  };
+
+  const result = update({ config, isTesting: true, addedDate: "2025-02-20" });
+
+  expect(result.appendix?.["lodash@4.17.21"]?.ledger?.addedDate).toBe("2024-01-15");
+});
+
 test("update - merges security overrides with config overrides", () => {
   const config: PastoralistJSON = {
     name: "test-app",
@@ -1298,6 +1315,33 @@ test("update - fixture: adds workspace-only override entry (line 157)", () => {
   expect(result.workspaceAppendix?.["express@4.18.2"]).toBeDefined();
   expect(result.appendix?.["express@4.18.2"]).toBeDefined();
   expect(result.appendix?.["lodash@4.17.21"]).toBeDefined();
+});
+
+test("update - processes overrides declared only by workspace packages", () => {
+  forceClearCache();
+  if (existsSync(TEST_DIR)) rmSync(TEST_DIR, { recursive: true, force: true });
+  const pkgADir = resolve(TEST_DIR, "packages", "pkg-a");
+  mkdirSync(pkgADir, { recursive: true });
+  writeFileSync(
+    resolve(pkgADir, "package.json"),
+    JSON.stringify({
+      name: "pkg-a",
+      version: "1.0.0",
+      dependencies: { express: "^4.17.0" },
+      overrides: { express: "4.18.2" },
+    }),
+  );
+
+  const config: PastoralistJSON = {
+    name: "root-app",
+    version: "1.0.0",
+    workspaces: ["packages/*"],
+  };
+  const result = update({ root: TEST_DIR, isTesting: true, config });
+
+  rmSync(TEST_DIR, { recursive: true, force: true });
+  expect(result.workspaceAppendix?.["express@4.18.2"]).toBeDefined();
+  expect(result.appendix?.["express@4.18.2"]).toBeDefined();
 });
 
 test("update - metrics include medium severity count", () => {

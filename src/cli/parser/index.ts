@@ -48,7 +48,7 @@ const collectSingleValue = (args: string[], startIndex: number): CollectedValue 
   const hasNextValue = nextArg && !isFlag(nextArg);
 
   if (hasNextValue) return { value: nextArg, consumed: 1 };
-  return { value: true, consumed: 0 };
+  return { value: undefined, consumed: 0 };
 };
 
 const collectValue = (args: string[], index: number, def: OptionDefinition): CollectedValue =>
@@ -132,6 +132,7 @@ const processCollectedValue = (
   const { value, consumed } = collectValue(args, index, def);
   const nextIndex = index + consumed + 1;
   const nextValue = resolveEmptyValue(value, def);
+  if (nextValue === undefined) throw new Error(`Option ${key} requires a value`);
   return toProcessedArgument(nextIndex, state, withOption(state, key, nextValue));
 };
 

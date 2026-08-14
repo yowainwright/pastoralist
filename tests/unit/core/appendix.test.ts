@@ -500,6 +500,20 @@ test("processAndWritePackageJSON - should process package with matching dependen
   expect(result?.appendix["lodash@4.17.21"]).toBeDefined();
 });
 
+test("processAndWritePackageJSON - does not write by default", () => {
+  const testPkgPath = resolve(TEST_DIR, "read-only-package.json");
+  const original = JSON.stringify({
+    name: "test-pkg",
+    dependencies: { lodash: "^4.17.0" },
+  });
+  writeFileSync(testPkgPath, original);
+
+  const result = processAndWritePackageJSON(testPkgPath, { lodash: "4.17.21" }, ["lodash"]);
+
+  expect(result?.appendix["lodash@4.17.21"]).toBeDefined();
+  expect(readFileSync(testPkgPath, "utf8")).toBe(original);
+});
+
 test("processAndWritePackageJSON - should handle devDependencies", () => {
   const testPkgPath = resolve(TEST_DIR, "dev-dep-package.json");
   writeFileSync(
@@ -542,6 +556,7 @@ test("processAndWritePackageJSON - should write appendix to file when writeAppen
       name: "test-pkg",
       version: "1.0.0",
       dependencies: { lodash: "^4.17.0" },
+      pastoralist: { depPaths: "workspace", checkSecurity: true },
     }),
   );
 
@@ -552,6 +567,8 @@ test("processAndWritePackageJSON - should write appendix to file when writeAppen
   const updatedPkg = JSON.parse(readFileSync(testPkgPath, "utf-8"));
   expect(updatedPkg.pastoralist?.appendix).toBeDefined();
   expect(updatedPkg.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
+  expect(updatedPkg.pastoralist.depPaths).toBe("workspace");
+  expect(updatedPkg.pastoralist.checkSecurity).toBe(true);
 });
 
 test("processAndWritePackageJSON - should handle multiple dependency types", () => {

@@ -2,7 +2,7 @@ import { test, expect, afterEach } from "bun:test";
 import { randomUUID } from "crypto";
 import { join } from "path";
 import { tmpdir } from "os";
-import { writeFileSync, mkdirSync, existsSync, readdirSync } from "fs";
+import { writeFileSync, mkdirSync, existsSync, readdirSync, statSync } from "fs";
 import {
   DiskCache,
   hashLockfile,
@@ -117,6 +117,34 @@ test("DiskCache - corrupt file returns empty, next set succeeds", () => {
   expect(cache.get("k")).toBeUndefined();
   cache.set("k", "v");
   expect(cache.get("k")).toBe("v");
+});
+
+test("DiskCache - invalid entries return empty, next set succeeds", () => {
+  const dir = tmpCacheDir();
+  const filePath = join(dir, "test.json");
+  writeFileSync(
+    filePath,
+    JSON.stringify({ schema: DISK_CACHE_SCHEMA_VERSION, version: 1, entries: null }),
+  );
+
+  const cache = new DiskCache<string>("test", { dir, ttl: 60000, version: 1 });
+  expect(cache.get("k")).toBeUndefined();
+  cache.set("k", "v");
+  expect(cache.get("k")).toBe("v");
+});
+
+test("DiskCache - setting a key does not rewrite existing entry files", () => {
+  const dir = tmpCacheDir();
+  const cache = new DiskCache<string>("test", { dir, ttl: 60000, version: 1 });
+  cache.set("large", "x".repeat(100_000));
+  const entryDir = join(dir, "test.cache");
+  const firstEntry = join(entryDir, readdirSync(entryDir)[0]);
+  const firstModifiedAt = statSync(firstEntry).mtimeMs;
+
+  cache.set("small", "value");
+
+  expect(statSync(firstEntry).mtimeMs).toBe(firstModifiedAt);
+  expect(cache.get("large")).toBe("x".repeat(100_000));
 });
 
 test("DiskCache - version mismatch treats cache as empty", () => {

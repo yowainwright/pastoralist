@@ -5,7 +5,6 @@ import { promisify } from "util";
 import * as fg from "../../utils/glob";
 import { IS_DEBUGGING, HINT_RC_FILE_ID, HINT_RC_FILE_TEXT } from "../../constants";
 import type {
-  Appendix,
   PastoralistJSON,
   OverridesType,
   SecurityPackage,
@@ -25,6 +24,8 @@ import {
   PNPM_LOCK_PACKAGE_PATTERN,
   TREE_CACHE_MAX_ENTRIES,
   UNKNOWN_DEPENDENCY_VERSION,
+  YARN_BERRY_DEPENDENCY_PATTERN,
+  YARN_CLASSIC_DEPENDENCY_PATTERN,
   YARN_LOCK_FILENAME,
   YARN_LOCK_PACKAGE_PATTERN,
 } from "./constants";
@@ -116,6 +117,8 @@ const hasOtherPastoralistConfig = (config: PastoralistJSON): boolean => {
   const hasOverridePaths = Boolean(config.pastoralist?.overridePaths);
   const hasResolutionPaths = Boolean(config.pastoralist?.resolutionPaths);
   const hasSecurity = Boolean(config.pastoralist?.security);
+  const hasCheckSecurity = config.pastoralist?.checkSecurity !== undefined;
+  const hasCompactAppendix = config.pastoralist?.compactAppendix !== undefined;
   const hasBestCase = Boolean(config.pastoralist?.bestCase);
   const hasDepPaths = Boolean(config.pastoralist?.depPaths);
   const hasOverrideSource = Boolean(config.pastoralist?.overrideSource);
@@ -124,6 +127,8 @@ const hasOtherPastoralistConfig = (config: PastoralistJSON): boolean => {
   if (hasOverridePaths) return true;
   if (hasResolutionPaths) return true;
   if (hasSecurity) return true;
+  if (hasCheckSecurity) return true;
+  if (hasCompactAppendix) return true;
   if (hasBestCase) return true;
   if (hasOverrideSource) return true;
   return hasDepPaths;
@@ -142,12 +147,16 @@ const buildPreservedConfig = (config: PastoralistJSON) => {
   const overrideSource = config.pastoralist?.overrideSource;
   const resolutionPaths = config.pastoralist?.resolutionPaths;
   const security = config.pastoralist?.security;
+  const checkSecurity = config.pastoralist?.checkSecurity;
+  const compactAppendix = config.pastoralist?.compactAppendix;
   const appendixSourceField = appendixSource ? { appendixSource } : undefined;
   const depPathsField = depPaths ? { depPaths } : undefined;
   const overridePathsField = overridePaths ? { overridePaths } : undefined;
   const overrideSourceField = overrideSource ? { overrideSource } : undefined;
   const resolutionPathsField = resolutionPaths ? { resolutionPaths } : undefined;
   const securityField = security ? { security } : undefined;
+  const checkSecurityField = checkSecurity !== undefined ? { checkSecurity } : undefined;
+  const compactAppendixField = compactAppendix !== undefined ? { compactAppendix } : undefined;
   const bestCaseField = createBestCaseField(config);
 
   return Object.assign(
@@ -158,6 +167,8 @@ const buildPreservedConfig = (config: PastoralistJSON) => {
     overrideSourceField,
     resolutionPathsField,
     securityField,
+    checkSecurityField,
+    compactAppendixField,
     bestCaseField,
   );
 };
@@ -185,7 +196,10 @@ const removePastoralistAppendix = (config: PastoralistJSON): PastoralistJSON => 
   return Object.assign({}, config, { pastoralist: preservedConfig });
 };
 
-const addAppendixToConfig = (config: PastoralistJSON, appendix: Appendix): PastoralistJSON => {
+const addAppendixToConfig = (
+  config: PastoralistJSON,
+  appendix: NonNullable<PastoralistJSON["pastoralist"]>["appendix"],
+): PastoralistJSON => {
   const preservedConfig = buildPreservedConfig(config);
   const pastoralist = Object.assign({ appendix }, preservedConfig);
 
@@ -207,7 +221,7 @@ const removePastoralistButPreserveConfig = (config: PastoralistJSON): Pastoralis
 
 const applyAppendixToConfig = (
   config: PastoralistJSON,
-  appendix: Appendix | undefined,
+  appendix: NonNullable<PastoralistJSON["pastoralist"]>["appendix"],
 ): PastoralistJSON => {
   const shouldAddAppendix = appendix && Object.keys(appendix).length > 0;
   if (shouldAddAppendix) return addAppendixToConfig(config, appendix);
@@ -231,7 +245,7 @@ const resolveOverrideField = (
 
 const processConfigWithOverrides = (
   config: PastoralistJSON,
-  appendix: Appendix | undefined,
+  appendix: NonNullable<PastoralistJSON["pastoralist"]>["appendix"],
   overrides: OverridesType,
   isTesting: boolean,
   path: string,
@@ -272,7 +286,7 @@ const writeJsonFile = (path: string, content: string): void => {
 };
 
 const hasPackageJsonData = (
-  appendix: Appendix | undefined,
+  appendix: NonNullable<PastoralistJSON["pastoralist"]>["appendix"],
   overrides: OverridesType | undefined,
 ): boolean => {
   const hasOverridesData = overrides && Object.keys(overrides).length > 0;
@@ -528,12 +542,6 @@ export const parseBunLockTree = (root: string): Record<string, string> | undefin
   }
 };
 
-const isPnpmPackageSection = (line: string): boolean => {
-  const isPackagesSection = line === "packages:";
-  const isSnapshotsSection = line === "snapshots:";
-  return isPackagesSection || isSnapshotsSection;
-};
-
 const isPnpmTopLevelField = (line: string): boolean => /^[^\s#][^:]*:/.test(line);
 
 const getPnpmSectionLines = (lines: string[], headerIndex: number): string[] => {
@@ -545,18 +553,22 @@ const getPnpmSectionLines = (lines: string[], headerIndex: number): string[] => 
 
 const getPnpmPackageSections = (content: string): string => {
   const lines = content.split(/\r?\n/);
-  const sectionLines = lines.flatMap((line, index) => {
-    if (!isPnpmPackageSection(line)) return [];
-    return getPnpmSectionLines(lines, index);
-  });
-  return sectionLines.join("\n");
+  const packagesIndex = lines.indexOf("packages:");
+  if (packagesIndex !== -1) return getPnpmSectionLines(lines, packagesIndex).join("\n");
+  const snapshotsIndex = lines.indexOf("snapshots:");
+  if (snapshotsIndex === -1) return "";
+  return getPnpmSectionLines(lines, snapshotsIndex).join("\n");
 };
 
 const parsePnpmPackageMatches = (content: string): SecurityPackage[] => {
   const packageSections = getPnpmPackageSections(content);
   const legacy = packageSections.matchAll(/^  \/((?:@[^/@\n]+\/)?[^/@\n\s]+)(?:@|\/)([^\s:]+):/gm);
   const current = packageSections.matchAll(/^  '?((?:@[^@/\n'"]+\/)?[\w][\w.-]*)@([^\s:'"]+)/gm);
-  const toPackage = ([, name, version]: RegExpMatchArray): SecurityPackage => ({ name, version });
+  const toPackage = ([, name, version]: RegExpMatchArray): SecurityPackage => {
+    const peerSuffixIndex = version.indexOf("(");
+    if (peerSuffixIndex === -1) return { name, version };
+    return { name, version: version.slice(0, peerSuffixIndex) };
+  };
   return Array.from(legacy, toPackage).concat(Array.from(current, toPackage));
 };
 
@@ -989,8 +1001,11 @@ const addYarnGraphLine = (
   }
   const isOutsideDependencies = !state.inDependencies || !currentPackage;
   if (isOutsideDependencies) return;
-  const dependencyMatch = line.match(/^\s{4}"?(@?[^@\s"]+)"?\s/);
-  if (dependencyMatch) addDependencyParent(graph, dependencyMatch[1], currentPackage);
+  const berryMatch = line.match(YARN_BERRY_DEPENDENCY_PATTERN);
+  const classicMatch = line.match(YARN_CLASSIC_DEPENDENCY_PATTERN);
+  const dependencyName =
+    berryMatch?.[1] ?? berryMatch?.[2] ?? classicMatch?.[1] ?? classicMatch?.[2];
+  if (dependencyName) addDependencyParent(graph, dependencyName, currentPackage);
   if (!line.startsWith("    ")) state.inDependencies = false;
 };
 

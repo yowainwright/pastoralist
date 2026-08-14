@@ -93,7 +93,7 @@ const createSecurityResults = (afterAlerts: SecurityAlert[]) => ({
       }),
     ),
   },
-  alerts: [],
+  alerts: afterAlerts,
   securityOverrides: [],
   updates: [],
   packagesScanned: 1,
@@ -165,11 +165,9 @@ test("action safety - safe comparison allows unused override removal", async () 
   expect(result.overrideCount).toBe(0);
 });
 
-test("action safety - regression blocks cleanup and keeps override", async () => {
+test("action safety - current vulnerability blocks cleanup and keeps override", async () => {
   const config = createConfig("risky-pkg");
-  const { resultPromise, graph, getUpdateOptions } = runSafetyAction(config, [
-    alert("new-transitive"),
-  ]);
+  const { resultPromise, graph, getUpdateOptions } = runSafetyAction(config, [alert("risky-pkg")]);
 
   const result = await resultPromise;
   const noticeMessages = graph.notice.mock.calls.map((call) => String(call[0]));
@@ -179,7 +177,7 @@ test("action safety - regression blocks cleanup and keeps override", async () =>
   expect(result.removalSafetyComparison?.afterAlertCount).toBe(1);
   expect(result.appliedOverrides?.["risky-pkg"]).toBe("1.0.0");
   expect(result.hasUnusedOverrides).toBe(true);
-  expect(noticeMessages.some((message) => message.includes("New vulnerabilities detected"))).toBe(
+  expect(noticeMessages.some((message) => message.includes("still resolve to vulnerable"))).toBe(
     true,
   );
 });
@@ -263,7 +261,7 @@ test("action safety - interactive decline keeps overrides with declined notice",
 
 test("action safety - JSON output includes removal safety comparison", async () => {
   const config = createConfig("json-pkg");
-  const { deps } = createSafetyActionDeps(config, [alert("new-transitive")]);
+  const { deps } = createSafetyActionDeps(config, [alert("json-pkg")]);
   deps.update = mock((mergedOptions: Options) => realUpdate(mergedOptions));
   const consoleCapture = captureConsoleOutput();
   consoleCapture.start();

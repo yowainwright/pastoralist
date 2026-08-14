@@ -67,11 +67,17 @@ export const handleSetupHook = (
       return true;
     }
 
+    if (options.dryRun) {
+      log.print("[DRY RUN] would add postinstall hook to package.json");
+      return true;
+    }
+
     writePackageJson(packagePath, addPostinstallHook(config), deps);
     log.print("added postinstall hook to package.json");
     return true;
   } catch (err) {
-    log.error("Failed to setup hook", "handleSetupHook", err);
-    return false;
+    const reason = err instanceof Error ? err.message : String(err);
+    log.fail(`Failed to setup hook: ${reason}`);
+    return true;
   }
 };

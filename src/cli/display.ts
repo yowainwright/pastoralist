@@ -207,12 +207,12 @@ const renderRemovedOverridesPhase = (
 const renderRunSummary = (
   graph: CliGraph,
   updateContext: UpdateContext,
-  securityResult: SecurityResultSummary,
+  _securityResult: SecurityResultSummary,
   packagesScanned: number,
 ): void => {
   const metrics = updateContext.metrics;
   graph.executiveSummary({
-    vulnerabilitiesFixed: securityResult.securityAlertCount || 0,
+    vulnerabilitiesFixed: metrics?.vulnerabilitiesBlocked ?? 0,
     staleOverridesRemoved: metrics?.removedOverridePackages?.length ?? 0,
     packagesProtected: packagesScanned,
   });

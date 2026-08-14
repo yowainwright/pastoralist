@@ -20,7 +20,7 @@ import {
   resolveOverridesFromSource,
 } from "../overrides";
 import { updateAppendix, constructAppendix } from "../appendix";
-import { mergeAppendixDependents } from "../appendix/utils";
+import { mergeAppendixDependents, normalizeAppendix } from "../appendix/utils";
 import {
   findUnusedAppendixEntries,
   removeAppendixKeys,
@@ -100,12 +100,10 @@ const canProcessWorkspaceStep = (
 ): ctx is UpdateContext & {
   config: NonNullable<UpdateContext["config"]>;
   mode: NonNullable<UpdateContext["mode"]>;
-  overridesData: NonNullable<UpdateContext["overridesData"]>;
 } => {
   const hasConfig = Boolean(ctx.config);
   const hasMode = Boolean(ctx.mode);
-  const hasOverridesData = Boolean(ctx.overridesData);
-  const canProcess = hasConfig && hasMode && hasOverridesData;
+  const canProcess = hasConfig && hasMode;
   return canProcess;
 };
 
@@ -158,7 +156,7 @@ const stepExtractExistingAppendix = (ctx: UpdateContext): UpdateContext => {
   const isMissingRequiredData = !config || !overrides;
   if (isMissingRequiredData) return ctx;
 
-  const existingAppendix = config.pastoralist?.appendix || {};
+  const existingAppendix = normalizeAppendix(config.pastoralist?.appendix || {});
 
   return Object.assign({}, ctx, { existingAppendix });
 };

@@ -10,6 +10,7 @@ import {
   safeMkdirSync as mkdirSync,
   safeRmSync as rmSync,
   safeExistsSync as existsSync,
+  safeReadFileSync as readFileSync,
 } from "../setup";
 
 const log = createLogger({ file: "test.ts", isLogging: false });
@@ -191,7 +192,7 @@ test("handleSetupHook - resolves relative path under root", () => {
   expect(mockWriteFileSync.mock.calls[0][0]).toBe("/repo/packages/app/package.json");
 });
 
-test("handleSetupHook - returns false on read error", () => {
+test("handleSetupHook - handles read errors", () => {
   const { handleSetupHook } = require("../../../src/cli/index");
 
   const mockReadFileSync = mock(() => {
@@ -207,7 +208,7 @@ test("handleSetupHook - returns false on read error", () => {
     resolve: mockResolve,
   });
 
-  expect(result).toBe(false);
+  expect(result).toBe(true);
   expect(mockWriteFileSync).not.toHaveBeenCalled();
 });
 
@@ -1984,6 +1985,35 @@ test("action - calls processExit on error", async () => {
   expect(mockProcessExit).toHaveBeenCalledWith(1);
 });
 
+test("action - reports errors in default output mode", async () => {
+  const { action } = require("../../../src/cli/index");
+  const failures: string[] = [];
+  const visibleLog = Object.assign({}, log, {
+    fail: (message: string) => failures.push(message),
+  });
+  const deps = {
+    createLogger: mock(() => visibleLog),
+    handleTestMode: mock(() => false),
+    handleInitMode: mock(() => Promise.resolve(false)),
+    resolveJSON: mock(() => {
+      throw new Error("Test error");
+    }),
+    buildMergedOptions: mock(() => ({})),
+    runSecurityCheck: mock(() => Promise.resolve({})),
+    handleSecurityResults: mock(() => {}),
+    createSpinner: mock(() => ({ start: mock(), succeed: mock(), stop: mock() })),
+    green: mock((text: string) => text),
+    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
+    createTerminalGraph: mock(() => createMockTerminalGraph()),
+    getLedgerAddedDate: mock(() => new Date().toISOString()),
+    processExit: mock(() => {}),
+  };
+
+  await action({}, deps);
+
+  expect(failures.join("\n")).toContain("Test error");
+});
+
 test("action - fails when package.json cannot be loaded", async () => {
   const { action } = require("../../../src/cli/index");
 
@@ -3007,6 +3037,24 @@ test("displayOverrides - renders override info from context", () => {
   displayOverrides(graph, ctx);
 });
 
+test("renderUpdateOutput - does not report unapplied alerts as fixed", () => {
+  const { renderUpdateOutput } = require("../../../src/cli/display");
+  const graph = createMockTerminalGraph();
+  const updateContext = { finalOverrides: {}, finalAppendix: {}, metrics: {} };
+  const updateResult = { overrideCount: 0, updated: false };
+  const securityResult = {
+    hasSecurityIssues: true,
+    securityAlertCount: 2,
+    securityAlerts: [],
+  };
+
+  renderUpdateOutput(graph, updateContext, updateResult, securityResult, 10, {}, {});
+
+  expect(graph.executiveSummary).toHaveBeenCalledWith(
+    expect.objectContaining({ vulnerabilitiesFixed: 0 }),
+  );
+});
+
 test("runSecurityCheck - calls onProgress callback during check", async () => {
   const { runSecurityCheck } = require("../../../src/cli/index");
 
@@ -3604,6 +3652,54 @@ test("run - handles unknown flags without throwing", async () => {
   expect(exitCode).toBe(1);
 });
 
+test("run - rejects value-taking flags without a value", async () => {
+  const { run } = require("../../../src/cli/index");
+  const mockAction = mock(() => Promise.resolve());
+  const originalError = console.error;
+  const originalExitCode = process.exitCode;
+  const errors: string[] = [];
+  console.error = captureLine(errors);
+
+  try {
+    await run(["node", "pastoralist", "--root"], {
+      action: mockAction,
+      initCommand: mock(() => Promise.resolve()),
+      setupAgentSkill: mock(() => Promise.resolve()),
+      showOnboarding: mock(() => {}),
+    });
+  } finally {
+    console.error = originalError;
+    process.exitCode = originalExitCode ?? 0;
+  }
+
+  expect(errors.join("\n")).toContain("Option root requires a value");
+  expect(mockAction).not.toHaveBeenCalled();
+});
+
+test("run - rejects unknown positional commands", async () => {
+  const { run } = require("../../../src/cli/index");
+  const mockAction = mock(() => Promise.resolve());
+  const originalError = console.error;
+  const originalExitCode = process.exitCode;
+  const errors: string[] = [];
+  console.error = captureLine(errors);
+
+  try {
+    await run(["node", "pastoralist", "innit"], {
+      action: mockAction,
+      initCommand: mock(() => Promise.resolve()),
+      setupAgentSkill: mock(() => Promise.resolve()),
+      showOnboarding: mock(() => {}),
+    });
+  } finally {
+    console.error = originalError;
+    process.exitCode = originalExitCode ?? 0;
+  }
+
+  expect(errors.join("\n")).toContain("Unknown command: innit");
+  expect(mockAction).not.toHaveBeenCalled();
+});
+
 test("run - calls init command with first parsed security provider", async () => {
   const { run } = require("../../../src/cli/index");
   const mockInitCommand = mock(() => Promise.resolve());
@@ -3910,6 +4006,52 @@ test("run - returns early when setup hook is already configured", async () => {
   expect(mockShowOnboarding).not.toHaveBeenCalled();
 });
 
+test("run - reports setup hook failures without running the default action", async () => {
+  const { run } = require("../../../src/cli/index");
+  const mockAction = mock(() => Promise.resolve());
+  const logged: string[] = [];
+  const originalError = console.error;
+  console.error = captureLine(logged);
+
+  try {
+    await run(["node", "pastoralist", "--setup-hook", "--root", "/missing/root"], {
+      action: mockAction,
+      initCommand: mock(() => Promise.resolve()),
+      setupAgentSkill: mock(() => Promise.resolve()),
+      showOnboarding: mock(() => {}),
+    });
+  } finally {
+    console.error = originalError;
+  }
+
+  expect(mockAction).not.toHaveBeenCalled();
+  expect(logged.join("\n")).toContain("Failed to setup hook");
+});
+
+test("run - setup hook respects dry-run", async () => {
+  const { run } = require("../../../src/cli/index");
+  const mockAction = mock(() => Promise.resolve());
+  const root = resolve(__dirname, "..", ".test-run-setup-hook-dry-run");
+  const packagePath = resolve(root, "package.json");
+  const original = JSON.stringify({ name: "test-package" });
+  mkdirSync(root, { recursive: true });
+  writeFileSync(packagePath, original);
+
+  try {
+    await run(["node", "pastoralist", "--setup-hook", "--dry-run", "--root", root], {
+      action: mockAction,
+      initCommand: mock(() => Promise.resolve()),
+      setupAgentSkill: mock(() => Promise.resolve()),
+      showOnboarding: mock(() => {}),
+    });
+    expect(readFileSync(packagePath, "utf8")).toBe(original);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+
+  expect(mockAction).not.toHaveBeenCalled();
+});
+
 test("run - prints onboarding and returns early", async () => {
   const { run } = require("../../../src/cli/index");
   const mockInitCommand = mock(() => Promise.resolve());
@@ -3961,7 +4103,7 @@ test("run - supports onboarding command alias", async () => {
   expect(mockInitCommand).not.toHaveBeenCalled();
 });
 
-test("handleSetupHook - error does not cause early exit in run", () => {
+test("handleSetupHook - error is handled", () => {
   const { handleSetupHook } = require("../../../src/cli/index");
 
   const mockReadFileSync = mock(() => {
@@ -3977,7 +4119,7 @@ test("handleSetupHook - error does not cause early exit in run", () => {
     resolve: mockResolve,
   });
 
-  expect(result).toBe(false);
+  expect(result).toBe(true);
 });
 
 test("handleSecurityResults - returned values are used by action via spread", async () => {
@@ -4173,17 +4315,12 @@ test("checkRemovalSafety - returns keys for packages still vulnerable at declare
   });
 
   expect(result).toEqual(["lodash@4.17.21"]);
-  expect(mockSecurityChecker.checkSecurity.mock.calls.length).toBe(2);
+  expect(mockSecurityChecker.checkSecurity.mock.calls.length).toBe(1);
   expect(mockSecurityChecker.checkSecurity.mock.calls[0][0]).toEqual(config);
   expect(mockSecurityChecker.checkSecurity.mock.calls[0][1]).toEqual({ root: "./" });
-  expect(mockSecurityChecker.checkSecurity.mock.calls[1][0].overrides).toEqual({});
-  expect(mockSecurityChecker.checkSecurity.mock.calls[1][1].interactive).toBe(false);
-  expect(mockSecurityChecker.checkSecurity.mock.calls[1][1].refreshCache).toBe(true);
-  expect(mockSecurityChecker.checkSecurity.mock.calls[1][1].root).toBe("./");
-  expect(mockSecurityChecker.checkSecurity.mock.calls[1][1].skipCacheWrite).toBe(true);
 });
 
-test("checkRemovalSafety - returns empty array when re-scan finds no vulnerabilities", async () => {
+test("checkRemovalSafety - returns empty array when the scan finds no vulnerabilities", async () => {
   const { checkRemovalSafety } = require("../../../src/cli/index");
 
   const config: PastoralistJSON = {

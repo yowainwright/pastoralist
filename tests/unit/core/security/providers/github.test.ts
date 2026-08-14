@@ -475,6 +475,82 @@ test("fetchDependabotAlerts - returns mock alerts when forcing vulnerable", asyn
   delete process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE];
 });
 
+test("fetchDependabotAlerts - preserves dots in inferred repository names", async () => {
+  const originalMockMode = process.env[SECURITY_ENV_VARS.MOCK_MODE];
+  const originalFetch = global.fetch;
+  delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
+
+  const provider = new GitHubSecurityProvider({
+    token: ["test", "token"].join("-"),
+    debug: false,
+  });
+  provider["execFileAsync"] = async () => ({
+    stdout: "https://github.com/vercel/next.js.git\n",
+    stderr: "",
+  });
+
+  let requestedUrl = "";
+  global.fetch = async (input) => {
+    requestedUrl = String(input);
+    return {
+      ok: true,
+      headers: new Headers(),
+      json: async () => [],
+    } as Response;
+  };
+
+  try {
+    await provider.fetchDependabotAlerts();
+    expect(requestedUrl).toContain("/vercel/next.js/dependabot/alerts");
+  } finally {
+    global.fetch = originalFetch;
+    if (originalMockMode) {
+      process.env[SECURITY_ENV_VARS.MOCK_MODE] = originalMockMode;
+    } else {
+      delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
+    }
+  }
+});
+
+test("fetchDependabotAlerts - follows GitHub API pagination", async () => {
+  const originalMockMode = process.env[SECURITY_ENV_VARS.MOCK_MODE];
+  const originalFetch = global.fetch;
+  delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
+
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    token: ["test", "token"].join("-"),
+    debug: false,
+  });
+  const firstAlert = MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert;
+  const secondAlert = MOCK_DEPENDABOT_ALERT_MINIMIST as DependabotAlert;
+  let requestCount = 0;
+
+  global.fetch = async () => {
+    requestCount += 1;
+    const isFirstPage = requestCount === 1;
+    const headers = isFirstPage
+      ? new Headers({ Link: '<https://api.github.com/alerts?page=2>; rel="next"' })
+      : new Headers();
+    const alerts = isFirstPage ? [firstAlert] : [secondAlert];
+    return { ok: true, headers, json: async () => alerts } as Response;
+  };
+
+  try {
+    const alerts = await provider.fetchDependabotAlerts();
+    expect(alerts).toEqual([firstAlert, secondAlert]);
+    expect(requestCount).toBe(2);
+  } finally {
+    global.fetch = originalFetch;
+    if (originalMockMode) {
+      process.env[SECURITY_ENV_VARS.MOCK_MODE] = originalMockMode;
+    } else {
+      delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
+    }
+  }
+});
+
 test("fetchAlerts - converts Dependabot alerts to SecurityAlerts", async () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE] = "true";

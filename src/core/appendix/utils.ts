@@ -4,6 +4,8 @@ import type {
   SecurityProviderType,
   CveDetail,
   LedgerReason,
+  PersistedAppendix,
+  CompactAppendixItem,
 } from "../../types";
 import type { Appendix, AppendixItem, OverridesType, OverrideValue } from "../../types";
 import type { PartialSecurityLedger, CompactAppendix } from "./types";
@@ -444,6 +446,22 @@ export const toCompactAppendix = (appendix: Appendix, addedDate?: string): Compa
     acc[key] = canBeCompacted(item) ? { addedDate: getAddedDate(item, addedDate) } : item;
     return acc;
   }, {});
+
+const isCompactAppendixItem = (
+  item: AppendixItem | CompactAppendixItem,
+): item is CompactAppendixItem => "addedDate" in item;
+
+const normalizeAppendixItem = (item: AppendixItem | CompactAppendixItem): AppendixItem => {
+  if (!isCompactAppendixItem(item)) return item;
+  const { addedDate, ...appendixItem } = item;
+  const ledger = Object.assign({}, appendixItem.ledger, { addedDate });
+  return Object.assign({}, appendixItem, { ledger });
+};
+
+export const normalizeAppendix = (appendix: PersistedAppendix): Appendix =>
+  Object.fromEntries(
+    Object.entries(appendix).map(([key, item]) => [key, normalizeAppendixItem(item)]),
+  );
 
 const isUnusedEntry = (
   item: AppendixItem,

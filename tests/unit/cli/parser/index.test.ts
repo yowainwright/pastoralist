@@ -138,18 +138,16 @@ describe("parseArgs", () => {
       expect(result.options.securityProvider).toEqual(["osv", "github", "snyk"]);
     });
 
-    test("should handle array flag with no values following it", () => {
-      const result = parseArgs(["node", "script.js", "--depPaths", "--debug"]);
-
-      expect(result.options.depPaths).toBeUndefined();
-      expect(result.options.debug).toBe(true);
+    test("should reject array flag with no values following it", () => {
+      expect(() => parseArgs(["node", "script.js", "--depPaths", "--debug"])).toThrow(
+        "Option depPaths requires a value",
+      );
     });
 
-    test("should handle array flag at end of arguments", () => {
-      const result = parseArgs(["node", "script.js", "--debug", "--depPaths"]);
-
-      expect(result.options.debug).toBe(true);
-      expect(result.options.depPaths).toBeUndefined();
+    test("should reject array flag at end of arguments", () => {
+      expect(() => parseArgs(["node", "script.js", "--debug", "--depPaths"])).toThrow(
+        "Option depPaths requires a value",
+      );
     });
   });
 
@@ -325,10 +323,10 @@ describe("parseArgs", () => {
       expect(result.options.path).toBe("package.json");
     });
 
-    test("should handle flag with empty string value as boolean", () => {
-      const result = parseArgs(["node", "script.js", "--path", ""]);
-
-      expect(result.options.path).toBe(true);
+    test("should reject a separate empty string value", () => {
+      expect(() => parseArgs(["node", "script.js", "--path", ""])).toThrow(
+        "Option path requires a value",
+      );
     });
 
     test("should handle flag with equals and empty value", () => {
@@ -343,11 +341,10 @@ describe("parseArgs", () => {
       expect(result.options.securityProviderToken).toBe("abc=123=xyz");
     });
 
-    test("should handle flag at end without value", () => {
-      const result = parseArgs(["node", "script.js", "--debug", "--path"]);
-
-      expect(result.options.debug).toBe(true);
-      expect(result.options.path).toBe(true);
+    test("should reject flag at end without value", () => {
+      expect(() => parseArgs(["node", "script.js", "--debug", "--path"])).toThrow(
+        "Option path requires a value",
+      );
     });
 
     test("should handle prompt-related flags", () => {

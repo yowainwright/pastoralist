@@ -116,9 +116,13 @@ export interface AppendixItem {
 export interface Appendix {
   [key: string]: AppendixItem;
 }
+export interface CompactAppendixItem extends AppendixItem {
+  addedDate: string;
+}
+export type PersistedAppendix = Record<string, AppendixItem | CompactAppendixItem>;
 
 export interface PastoralistConfig {
-  appendix?: Appendix;
+  appendix?: PersistedAppendix;
   appendixSource?: string;
   compactAppendix?: boolean;
   depPaths?: "workspace" | "workspaces" | string[];
@@ -266,7 +270,7 @@ export interface OverridesType {
 }
 
 export interface UpdatePackageJSONOptions {
-  appendix?: Appendix;
+  appendix?: PersistedAppendix;
   debug?: boolean;
   dryRun?: boolean;
   silent?: boolean;

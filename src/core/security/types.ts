@@ -248,12 +248,29 @@ export interface OSVVulnerability {
   severity?: Array<{ type: string; score: string }>;
   affected?: Array<{
     package?: { name: string; ecosystem: string };
-    ranges?: Array<{
-      type: string;
-      events: Array<{ introduced?: string; fixed?: string }>;
-    }>;
+    ranges?: OSVVersionRange[];
   }>;
   references?: Array<{ type: string; url: string }>;
+}
+
+export interface OSVVersionRange {
+  type: string;
+  events: OSVVersionEvent[];
+}
+
+export interface OSVVersionEvent {
+  introduced?: string;
+  fixed?: string;
+}
+
+export interface OSVVersionInterval {
+  introduced: string;
+  fixed?: string;
+}
+
+export interface OSVVersionIntervalState {
+  currentIntroduced?: string;
+  intervals: OSVVersionInterval[];
 }
 
 export interface OSVPackageQuery {

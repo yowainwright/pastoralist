@@ -17,6 +17,7 @@ import {
   DEFAULT_INSTALL_TIMEOUT,
   DEFAULT_PROMPT_TIMEOUT,
   PROMPT_SELECT_MAX_ATTEMPTS,
+  SECURITY_REGISTRY_SPEC_PATTERN,
   SECURITY_ACTION_CHOICES,
   SECURITY_SUMMARY_SEVERITIES,
 } from "./constants";
@@ -115,10 +116,11 @@ export const extractPackages = (
 
   return Object.entries(allDeps)
     .filter(([name]) => !excludePackages.includes(name))
-    .map(([name, version]) => ({
-      name,
-      version: version.replace(/^[\^~]/, ""),
-    }));
+    .flatMap(([name, version]) => {
+      const match = version.trim().match(SECURITY_REGISTRY_SPEC_PATTERN);
+      if (!match) return [];
+      return [{ name, version: match[1] }];
+    });
 };
 
 const checkBoundedRange = (version: string, range: string): boolean | null => {
@@ -657,7 +659,7 @@ export class InteractiveSecurityManager {
     this.printSecurityReview(vulnerablePackages);
     this.printSelectedOverrides(suggestedOverrides);
     const message = "Apply this complete best-case portfolio without edits?";
-    const accepted = await this.prompts.confirm(message, true);
+    const accepted = await this.prompts.confirm(message, false);
     if (!accepted) return [];
     return suggestedOverrides;
   }
@@ -691,7 +693,7 @@ export class InteractiveSecurityManager {
   }
 
   private confirmSecurityReview(): Promise<boolean> {
-    return this.prompts.confirm("Would you like to review and apply security fixes?", true);
+    return this.prompts.confirm("Would you like to review and apply security fixes?", false);
   }
 
   private collectSelectedOverrides(
@@ -785,7 +787,10 @@ export class InteractiveSecurityManager {
     }
 
     this.printSelectedOverrides(selectedOverrides);
-    const confirm = await this.prompts.confirm("Apply these overrides to your package.json?", true);
+    const confirm = await this.prompts.confirm(
+      "Apply these overrides to your package.json?",
+      false,
+    );
     return confirm ? selectedOverrides : [];
   }
 

@@ -334,6 +334,26 @@ test("fetchAlerts - should return alerts on successful scan", async () => {
   expect(alerts[0].packageName).toBe("test-pkg");
 });
 
+test("fetchAlerts - runs the Snyk scan from the configured root", async () => {
+  const execFileAsync = mock(async () => ({
+    stdout: JSON.stringify({ vulnerabilities: [] }),
+    stderr: "",
+  }));
+  const provider = new SnykCLIProvider({
+    token: ["test", "token"].join("-"),
+    execFileAsync,
+  });
+  provider.ensureInstalled = async () => true;
+
+  await provider.fetchAlerts([], { root: "/project/root" });
+
+  expect(execFileAsync).toHaveBeenCalledWith(
+    "snyk",
+    ["test", "--json"],
+    expect.objectContaining({ cwd: "/project/root" }),
+  );
+});
+
 test("isAuthenticated - should return true when token exists", async () => {
   const provider = new SnykCLIProvider({ token: "test-token", debug: false });
   expect(await provider.isAuthenticated()).toBe(true);

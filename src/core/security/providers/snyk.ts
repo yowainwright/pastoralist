@@ -87,11 +87,11 @@ export class SnykCLIProvider {
     return true;
   }
 
-  private async runSnykScan(): Promise<SnykResult> {
+  private async runSnykScan(root?: string): Promise<SnykResult> {
     const env = this.token
       ? Object.assign({}, process.env, { SNYK_TOKEN: this.token })
       : process.env;
-    const execOptions = { timeout: DEFAULT_SNYK_SCAN_TIMEOUT, env };
+    const execOptions = { timeout: DEFAULT_SNYK_SCAN_TIMEOUT, env, cwd: root };
     const { stdout } = await this.execFileAsync("snyk", ["test", "--json"], execOptions);
 
     return JSON.parse(stdout);
@@ -99,21 +99,21 @@ export class SnykCLIProvider {
 
   async fetchAlerts(
     _packages: Array<{ name: string; version: string }> = [],
-    _options: { root?: string } = {},
+    options: { root?: string } = {},
   ): Promise<SecurityAlert[]> {
     if (!(await this.validatePrerequisites())) {
       return [];
     }
 
     try {
-      return await this.fetchSnykAlerts();
+      return await this.fetchSnykAlerts(options.root);
     } catch (error: unknown) {
       return this.handleSnykScanError(error);
     }
   }
 
-  private async fetchSnykAlerts(): Promise<SecurityAlert[]> {
-    const result = await this.runSnykScan();
+  private async fetchSnykAlerts(root?: string): Promise<SecurityAlert[]> {
+    const result = await this.runSnykScan(root);
     return this.convertSnykVulnerabilities(result);
   }
 

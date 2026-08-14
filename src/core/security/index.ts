@@ -697,12 +697,11 @@ export class SecurityChecker {
     options: SecurityCheckRuntimeOptions,
   ): SecurityAlert[] {
     this.reportVulnerabilityAnalysis(alerts, options);
-    const filteredAlerts = this.filterAlertsBySeverity(
-      sortAlertsByPriority(deduplicateAlerts(alerts)),
-      options,
-    );
-    const workspaceAlerts = this.findWorkspaceVulnerabilitiesIfNeeded(alerts, options);
-    const vulnerablePackages = filteredAlerts.concat(workspaceAlerts);
+    const rootAlerts = deduplicateAlerts(alerts);
+    const workspaceAlerts = this.findWorkspaceVulnerabilitiesIfNeeded(rootAlerts, options);
+    const uniqueAlerts = deduplicateAlerts(rootAlerts.concat(workspaceAlerts));
+    const sortedAlerts = sortAlertsByPriority(uniqueAlerts);
+    const vulnerablePackages = this.filterAlertsBySeverity(sortedAlerts, options);
     this.reportVulnerabilityResolution(vulnerablePackages, options);
     return vulnerablePackages;
   }

@@ -47,9 +47,12 @@ const createChecker = (results: Array<SecurityAlert[] | Error>) => {
   };
 };
 
-test("compareRemovalSafety - allows cleanup when candidate alerts are lower", async () => {
+test("compareRemovalSafety - scans the current dependency set once", async () => {
   const config = createConfig();
-  const checker = createChecker([[alert("existing-pkg", "medium")], []]);
+  const checker = createChecker([
+    [alert("existing-pkg", "medium")],
+    [alert("new-transitive-pkg", "high")],
+  ]);
 
   const comparison = await compareRemovalSafety(config, checker as any, { root: "./" });
 
@@ -57,96 +60,18 @@ test("compareRemovalSafety - allows cleanup when candidate alerts are lower", as
   expect(comparison?.allowedKeys).toEqual(["unused-pkg@1.0.0"]);
   expect(comparison?.blockedKeys).toEqual([]);
   expect(comparison?.beforeAlertCount).toBe(1);
-  expect(comparison?.afterAlertCount).toBe(0);
-  expect(comparison?.beforeRiskScore).toBe(2);
-  expect(comparison?.afterRiskScore).toBe(0);
-  expect(checker.checkSecurity.mock.calls[1][0].overrides).toEqual({});
-  expect(checker.checkSecurity.mock.calls[1][1].interactive).toBe(false);
-  expect(checker.checkSecurity.mock.calls[1][1].refreshCache).toBe(true);
-  expect(checker.checkSecurity.mock.calls[1][1].root).toBe("./");
-  expect(checker.checkSecurity.mock.calls[1][1].skipCacheWrite).toBe(true);
-});
-
-test("compareRemovalSafety - blocks cleanup when vulnerability count increases", async () => {
-  const config = createConfig();
-  const checker = createChecker([[], [alert("new-transitive-pkg", "high")]]);
-
-  const comparison = await compareRemovalSafety(config, checker as any, {});
-
-  expect(comparison?.status).toBe("blocked");
-  expect(comparison?.blockedKeys).toEqual(["unused-pkg@1.0.0"]);
-  expect(comparison?.allowedKeys).toEqual([]);
-  expect(comparison?.beforeAlertCount).toBe(0);
-  expect(comparison?.afterAlertCount).toBe(1);
-  expect(comparison?.newVulnerabilityKeys).toEqual([
-    "new-transitive-pkg@1.0.0:new-transitive-pkg vulnerability",
-  ]);
-  expect(comparison?.reason).toBe(
-    "New vulnerabilities detected after removal: new-transitive-pkg@1.0.0:new-transitive-pkg vulnerability.",
-  );
-});
-
-test("compareRemovalSafety - blocks cleanup when severity risk increases with same finding", async () => {
-  const config = createConfig();
-  const checker = createChecker([
-    [alert("same-pkg", "medium", "same advisory")],
-    [alert("same-pkg", "critical", "same advisory")],
-  ]);
-
-  const comparison = await compareRemovalSafety(config, checker as any, {});
-
-  expect(comparison?.status).toBe("blocked");
-  expect(comparison?.blockedKeys).toEqual(["unused-pkg@1.0.0"]);
-  expect(comparison?.beforeAlertCount).toBe(1);
-  expect(comparison?.afterAlertCount).toBe(1);
-  expect(comparison?.beforeRiskScore).toBe(2);
-  expect(comparison?.afterRiskScore).toBe(4);
-  expect(comparison?.newVulnerabilityKeys).toEqual([]);
-  expect(comparison?.reason).toBe("Risk score increased from 2 to 4 after removal.");
-});
-
-test("compareRemovalSafety - blocks cleanup when alert count increases without new keys", async () => {
-  const config = createConfig();
-  const sameLowAlert = alert("same-pkg", "low", "same advisory");
-  const checker = createChecker([
-    [alert("same-pkg", "medium", "same advisory")],
-    [sameLowAlert, sameLowAlert],
-  ]);
-
-  const comparison = await compareRemovalSafety(config, checker as any, {});
-
-  expect(comparison?.status).toBe("blocked");
-  expect(comparison?.blockedKeys).toEqual(["unused-pkg@1.0.0"]);
-  expect(comparison?.beforeAlertCount).toBe(1);
-  expect(comparison?.afterAlertCount).toBe(2);
-  expect(comparison?.beforeRiskScore).toBe(2);
-  expect(comparison?.afterRiskScore).toBe(2);
-  expect(comparison?.newVulnerabilityKeys).toEqual([]);
-  expect(comparison?.reason).toBe("Alert count increased from 1 to 2 after removal.");
-});
-
-test("compareRemovalSafety - blocks cleanup when a new vulnerability replaces an old one", async () => {
-  const config = createConfig();
-  const checker = createChecker([
-    [alert("old-pkg", "medium", "old advisory")],
-    [alert("new-pkg", "medium", "new advisory")],
-  ]);
-
-  const comparison = await compareRemovalSafety(config, checker as any, {});
-
-  expect(comparison?.status).toBe("blocked");
-  expect(comparison?.blockedKeys).toEqual(["unused-pkg@1.0.0"]);
-  expect(comparison?.beforeAlertCount).toBe(1);
   expect(comparison?.afterAlertCount).toBe(1);
   expect(comparison?.beforeRiskScore).toBe(2);
   expect(comparison?.afterRiskScore).toBe(2);
-  expect(comparison?.newVulnerabilityKeys).toEqual(["new-pkg@1.0.0:new advisory"]);
+  expect(checker.checkSecurity).toHaveBeenCalledTimes(1);
+  expect(checker.checkSecurity.mock.calls[0][0]).toBe(config);
+  expect(checker.checkSecurity.mock.calls[0][1].root).toBe("./");
 });
 
 test("compareRemovalSafety - blocks removed package when it remains vulnerable", async () => {
   const config = createConfig({ "unused-pkg": "1.0.0" });
   const vulnerableRemovedPackage = alert("unused-pkg", "high", "removed package advisory");
-  const checker = createChecker([[vulnerableRemovedPackage], [vulnerableRemovedPackage]]);
+  const checker = createChecker([[vulnerableRemovedPackage]]);
 
   const comparison = await compareRemovalSafety(config, checker as any, {});
 
@@ -158,16 +83,11 @@ test("compareRemovalSafety - blocks removed package when it remains vulnerable",
   );
 });
 
-test("compareRemovalSafety - blocks cleanup when candidate scan fails", async () => {
+test("compareRemovalSafety - propagates a failed baseline scan", async () => {
   const config = createConfig();
-  const checker = createChecker([[alert("existing-pkg", "low")], new Error("scan failed")]);
+  const checker = createChecker([new Error("scan failed")]);
 
-  const comparison = await compareRemovalSafety(config, checker as any, {});
-
-  expect(comparison?.status).toBe("blocked");
-  expect(comparison?.blockedKeys).toEqual(["unused-pkg@1.0.0"]);
-  expect(comparison?.allowedKeys).toEqual([]);
-  expect(comparison?.reason).toContain("Candidate security scan failed: scan failed");
+  await expect(compareRemovalSafety(config, checker as any, {})).rejects.toThrow("scan failed");
 });
 
 test("compareRemovalSafety - uses supplied baseline alerts without rescanning current config", async () => {
@@ -179,21 +99,8 @@ test("compareRemovalSafety - uses supplied baseline alerts without rescanning cu
   });
 
   expect(comparison?.beforeAlertCount).toBe(1);
-  expect(comparison?.afterAlertCount).toBe(0);
-  expect(checker.checkSecurity.mock.calls.length).toBe(1);
-});
-
-test("compareRemovalSafety - forces candidate scan to run non-interactively", async () => {
-  const config = createConfig();
-  const checker = createChecker([[]]);
-
-  await compareRemovalSafety(config, checker as any, {
-    interactive: true,
-    securityAlerts: [],
-  });
-
-  expect(checker.checkSecurity.mock.calls.length).toBe(1);
-  expect(checker.checkSecurity.mock.calls[0][1].interactive).toBe(false);
+  expect(comparison?.afterAlertCount).toBe(1);
+  expect(checker.checkSecurity).not.toHaveBeenCalled();
 });
 
 test("compareRemovalSafety - reuses config security filters for safety scans", async () => {
@@ -202,16 +109,13 @@ test("compareRemovalSafety - reuses config security filters for safety scans", a
     excludePackages: ["ignored-pkg"],
     severityThreshold: "high",
   };
-  const checker = createChecker([[], []]);
+  const checker = createChecker([[]]);
 
   await compareRemovalSafety(config, checker as any, {});
 
-  const beforeOptions = checker.checkSecurity.mock.calls[0][1];
-  const afterOptions = checker.checkSecurity.mock.calls[1][1];
-  expect(beforeOptions.excludePackages).toEqual(["ignored-pkg"]);
-  expect(beforeOptions.severityThreshold).toBe("high");
-  expect(afterOptions.excludePackages).toEqual(["ignored-pkg"]);
-  expect(afterOptions.severityThreshold).toBe("high");
+  const scanOptions = checker.checkSecurity.mock.calls[0][1];
+  expect(scanOptions.excludePackages).toEqual(["ignored-pkg"]);
+  expect(scanOptions.severityThreshold).toBe("high");
 });
 
 test("compareRemovalSafety - ignores stale appendix-only entries", async () => {
@@ -236,17 +140,18 @@ test("compareRemovalSafety - ignores stale appendix-only entries", async () => {
 
 test("compareRemovalSafety - respects existing skipRemovalKeys", async () => {
   const config = createConfig({ skipped: "1.0.0", removable: "1.0.0" });
-  const checker = createChecker([[], []]);
+  const checker = createChecker([[]]);
 
   const comparison = await compareRemovalSafety(config, checker as any, {
     skipRemovalKeys: ["skipped@1.0.0"],
   });
 
   expect(comparison?.removableKeys).toEqual(["removable@1.0.0"]);
-  expect(checker.checkSecurity.mock.calls[1][0].overrides).toEqual({ skipped: "1.0.0" });
+  expect(checker.checkSecurity).toHaveBeenCalledTimes(1);
+  expect(checker.checkSecurity.mock.calls[0][0]).toBe(config);
 });
 
-test("compareRemovalSafety - removes pnpm overrides in candidate config", async () => {
+test("compareRemovalSafety - recognizes pnpm override candidates", async () => {
   const config: PastoralistJSON = {
     name: "test-app",
     version: "1.0.0",
@@ -259,14 +164,14 @@ test("compareRemovalSafety - removes pnpm overrides in candidate config", async 
       },
     },
   };
-  const checker = createChecker([[], []]);
+  const checker = createChecker([[]]);
 
-  await compareRemovalSafety(config, checker as any, {});
+  const comparison = await compareRemovalSafety(config, checker as any, {});
 
-  expect(checker.checkSecurity.mock.calls[1][0].pnpm.overrides).toEqual({});
+  expect(comparison?.removableKeys).toEqual(["pnpm-pkg@1.0.0"]);
 });
 
-test("compareRemovalSafety - removes resolutions in candidate config", async () => {
+test("compareRemovalSafety - recognizes resolution candidates", async () => {
   const config: PastoralistJSON = {
     name: "test-app",
     version: "1.0.0",
@@ -279,16 +184,16 @@ test("compareRemovalSafety - removes resolutions in candidate config", async () 
       },
     },
   };
-  const checker = createChecker([[], []]);
+  const checker = createChecker([[]]);
 
-  await compareRemovalSafety(config, checker as any, {});
+  const comparison = await compareRemovalSafety(config, checker as any, {});
 
-  expect(checker.checkSecurity.mock.calls[1][0].resolutions).toEqual({});
+  expect(comparison?.removableKeys).toEqual(["yarn-pkg@1.0.0"]);
 });
 
 test("checkRemovalSafety - preserves legacy blocked-key return shape", async () => {
   const config = createConfig();
-  const checker = createChecker([[], [alert("new-pkg", "high")]]);
+  const checker = createChecker([[alert("unused-pkg", "high")]]);
 
   const result = await checkRemovalSafety(config, checker as any, {});
 

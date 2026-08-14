@@ -252,7 +252,7 @@ const handleActionError = (
   runtime.graph.stop();
   const result = createErrorResult(error);
   if (runtime.isJsonOutput) outputResult(result, runtime.isJsonOutput);
-  else runtime.log.error("action:fn", "action", { error });
+  else runtime.log.fail(result.errors[0] || "Action failed");
   deps.processExit(1);
   return result;
 };

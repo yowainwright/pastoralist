@@ -39,6 +39,7 @@ export { buildOnboardingText, showOnboarding } from "./cmds/init";
 
 type PackageVersion = { version?: unknown };
 const INIT_COMMAND_TYPES = ["config", "agent-skill"] as const;
+const KNOWN_COMMANDS = ["doctor", "init", "onboard", "onboarding"] as const;
 const AGENT_SKILL_DIR = ".agents/skills/pastoralist";
 const AGENT_SKILL_FILE = `${AGENT_SKILL_DIR}/SKILL.md`;
 const AGENT_SKILL_MARKER = `${AGENT_SKILL_DIR}/.pastoralist-agent-config`;
@@ -73,6 +74,11 @@ const isHelpRequested = (argv: string[], options: Options): boolean =>
 
 const isVersionRequested = (argv: string[], options: Options): boolean =>
   Boolean(options.version || argv.includes("-v") || argv.includes("--version"));
+
+const isKnownCommand = (command: string | undefined): boolean => {
+  if (!command) return true;
+  return KNOWN_COMMANDS.some((knownCommand) => knownCommand === command);
+};
 
 const isOnboardingCommand = (command: string | undefined): boolean => {
   const isOnboardCommand = command === "onboard";
@@ -282,6 +288,11 @@ export const run = async (
 
   if (isVersionRequested(argv, options)) {
     log.print(getPackageVersion());
+    return;
+  }
+
+  if (!isKnownCommand(parsed.command)) {
+    showRunError(new Error(`Unknown command: ${parsed.command}`), log);
     return;
   }
 

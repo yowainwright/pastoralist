@@ -227,6 +227,7 @@ const APPENDIX_ITEM_FIELDS: FieldValidation[] = createFieldValidations(
   APPENDIX_STRING_ARRAY_FIELDS,
   isStringArray,
 ).concat([
+  { field: "addedDate", validator: isString },
   { field: "dependents", validator: isRecord },
   { field: "ledger", validator: validateLedger },
 ]);

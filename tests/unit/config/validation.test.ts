@@ -39,6 +39,14 @@ test("validateConfig - should accept valid appendix with ledger", () => {
   expect(result).toEqual(config);
 });
 
+test("validateConfig - validates compact appendix added dates", () => {
+  const config = { appendix: { "lodash@4.17.21": { addedDate: "2024-01-01" } } };
+  const invalidConfig = { appendix: { "lodash@4.17.21": { addedDate: 20240101 } } };
+
+  expect(validateConfig(config)).toEqual(config);
+  expect(() => validateConfig(invalidConfig)).toThrow("Invalid config structure");
+});
+
 test("validateConfig - accepts project and best-case ledger reasons", () => {
   const projectReason = {
     type: "project",

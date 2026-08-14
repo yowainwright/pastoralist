@@ -23,6 +23,7 @@ export type DepPathAlias = (typeof DEP_PATH_ALIASES)[number];
 export type { KeepConstraint };
 
 export type AppendixItem = {
+  addedDate?: string;
   rootDeps?: string[];
   dependents?: Record<string, string>;
   patches?: string[];

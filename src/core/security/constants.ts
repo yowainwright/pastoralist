@@ -18,6 +18,13 @@ export const DEFAULT_AUDIT_TIMEOUT = 120000;
 export const PROMPT_SELECT_MAX_ATTEMPTS = 5;
 export const OSV_DETAIL_CONCURRENCY = 5;
 export const OSV_CACHE_MAX_ENTRIES = 500;
+export const GITHUB_OWNER_PATTERN = /github\.com[:/]([^/]+)\//;
+export const GITHUB_REPOSITORY_PATTERN = /github\.com[:/][^/]+\/([^/\s]+)$/;
+export const GITHUB_REPOSITORY_SUFFIX_PATTERN = /\.git$/;
+export const GITHUB_NEXT_LINK_PATTERN = /<([^>]+)>/;
+export const GITHUB_VULNERABLE_LOWER_BOUND_PATTERN = />= ?([^\s,]+)/;
+export const SECURITY_REGISTRY_SPEC_PATTERN =
+  /^(?:[~^]|[<>=]+\s*)?(\d+(?:\.\d+){0,2}(?:-[0-9A-Za-z.-]+)?)/;
 
 export const GITHUB_TOKEN_URL = "https://github.com/settings/tokens";
 export const SNYK_TOKEN_URL = "https://app.snyk.io/account";
@@ -202,12 +209,12 @@ export const SECURITY_SUMMARY_SEVERITIES = ["critical", "high", "medium", "low"]
 
 export const SECURITY_ACTION_CHOICES: PromptChoice[] = [
   {
-    name: "Apply fix",
-    value: "apply",
-  },
-  {
     name: "Skip this vulnerability",
     value: "skip",
+  },
+  {
+    name: "Apply fix",
+    value: "apply",
   },
   {
     name: "Enter custom version",

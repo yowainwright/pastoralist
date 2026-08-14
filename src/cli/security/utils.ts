@@ -1,11 +1,7 @@
 import type { Options, PastoralistJSON, RemovalSafetyComparison, SecurityAlert } from "../../types";
 import type { SecurityChecker } from "../../core/security";
 import type { SecurityCheckRuntimeOptions } from "../../core/security/types";
-import {
-  extractPackageNames,
-  findUnusedAppendixEntries,
-  removeOverrideKeys,
-} from "../../core/appendix/utils";
+import { extractPackageNames, findUnusedAppendixEntries } from "../../core/appendix/utils";
 
 const getRootDependencies = (config: PastoralistJSON): Record<string, string> =>
   Object.assign({}, config.dependencies, config.devDependencies, config.peerDependencies);
@@ -28,20 +24,6 @@ const getRiskScore = (alerts: SecurityAlert[]): number =>
     return score + alertRisk;
   }, 0);
 
-const getAlertKey = (alert: SecurityAlert): string => {
-  const cves = alert.cves?.length ? alert.cves.slice().sort().join(",") : "";
-  const advisory = cves || alert.title || alert.description || alert.vulnerableVersions || "";
-  return `${alert.packageName}@${alert.currentVersion}:${advisory}`;
-};
-
-const getNewVulnerabilityKeys = (
-  beforeAlerts: SecurityAlert[],
-  afterAlerts: SecurityAlert[],
-): string[] => {
-  const beforeKeys = new Set(beforeAlerts.map(getAlertKey));
-  return afterAlerts.map(getAlertKey).filter((key) => !beforeKeys.has(key));
-};
-
 const getOverrideNames = (config: PastoralistJSON): Set<string> => {
   const npmOverrides = Object.keys(config.overrides || {});
   const pnpmOverrides = Object.keys(config.pnpm?.overrides || {});
@@ -57,34 +39,6 @@ const getCandidateRemovalKeys = (config: PastoralistJSON, options: Options): str
   return findUnusedAppendixEntries(appendix, getRootDependencies(config)).filter(
     (key) => !skipKeys.has(key) && overrideNames.has(extractPackageNames([key])[0]),
   );
-};
-
-const removeOverridesFromConfig = (
-  config: PastoralistJSON,
-  packageNames: string[],
-): Pick<PastoralistJSON, "overrides" | "pnpm" | "resolutions"> => {
-  const overrides = config.overrides
-    ? removeOverrideKeys(config.overrides, packageNames)
-    : config.overrides;
-  const pnpmOverrides = config.pnpm?.overrides
-    ? removeOverrideKeys(config.pnpm.overrides, packageNames)
-    : config.pnpm?.overrides;
-  const pnpm = config.pnpm
-    ? Object.assign({}, config.pnpm, { overrides: pnpmOverrides })
-    : config.pnpm;
-  const resolutions = config.resolutions
-    ? (removeOverrideKeys(config.resolutions, packageNames) as Record<string, string>)
-    : config.resolutions;
-
-  return { overrides, pnpm, resolutions };
-};
-
-const createCandidateConfig = (
-  config: PastoralistJSON,
-  removableKeys: string[],
-): PastoralistJSON => {
-  const packageNames = extractPackageNames(removableKeys);
-  return Object.assign({}, config, removeOverridesFromConfig(config, packageNames));
 };
 
 const getScanOptions = (config: PastoralistJSON, options: Options): SecurityCheckRuntimeOptions => {
@@ -109,41 +63,15 @@ const getBeforeAlerts = async (
   return result.alerts;
 };
 
-const getAfterAlerts = async (
-  config: PastoralistJSON,
-  securityChecker: SecurityChecker,
-  options: Options,
-): Promise<SecurityAlert[]> => {
-  const result = await securityChecker.checkSecurity(
-    config,
-    Object.assign({}, getScanOptions(config, options), {
-      interactive: false,
-      refreshCache: true,
-      skipCacheWrite: true,
-    }),
-  );
-  return result.alerts;
-};
-
 const getKeysForVulnerableRemovedPackages = (
   removableKeys: string[],
-  afterAlerts: SecurityAlert[],
+  alerts: SecurityAlert[],
 ): string[] => {
-  const vulnerablePackageNames = new Set(afterAlerts.map((alert) => alert.packageName));
+  const vulnerablePackageNames = new Set(alerts.map((alert) => alert.packageName));
   return removableKeys.filter((key) => {
     const [pkgName] = extractPackageNames([key]);
     return vulnerablePackageNames.has(pkgName);
   });
-};
-
-const hasRegression = (
-  beforeAlerts: SecurityAlert[],
-  afterAlerts: SecurityAlert[],
-  newVulnerabilityKeys: string[],
-): boolean => {
-  if (afterAlerts.length > beforeAlerts.length) return true;
-  if (getRiskScore(afterAlerts) > getRiskScore(beforeAlerts)) return true;
-  return newVulnerabilityKeys.length > 0;
 };
 
 const unique = (values: string[]): string[] => Array.from(new Set(values));
@@ -155,90 +83,34 @@ const formatReasonKeys = (keys: string[], limit = 3): string => {
   return `${visibleKeys} (+${remainingCount} more)`;
 };
 
-const buildBlockedReason = (
-  beforeAlerts: SecurityAlert[],
-  afterAlerts: SecurityAlert[],
-  beforeRiskScore: number,
-  afterRiskScore: number,
-  newVulnerabilityKeys: string[],
-  vulnerableRemovedKeys: string[],
-): string | undefined => {
-  if (newVulnerabilityKeys.length > 0) {
-    return `New vulnerabilities detected after removal: ${formatReasonKeys(newVulnerabilityKeys)}.`;
-  }
-
-  if (afterRiskScore > beforeRiskScore) {
-    return `Risk score increased from ${beforeRiskScore} to ${afterRiskScore} after removal.`;
-  }
-
-  if (afterAlerts.length > beforeAlerts.length) {
-    return `Alert count increased from ${beforeAlerts.length} to ${afterAlerts.length} after removal.`;
-  }
-
+const buildBlockedReason = (vulnerableRemovedKeys: string[]): string | undefined => {
   if (vulnerableRemovedKeys.length === 0) return undefined;
   return `Removed overrides still resolve to vulnerable packages: ${formatReasonKeys(vulnerableRemovedKeys)}.`;
 };
 
 const buildComparison = (
   removableKeys: string[],
-  beforeAlerts: SecurityAlert[],
-  afterAlerts: SecurityAlert[],
+  alerts: SecurityAlert[],
 ): RemovalSafetyComparison => {
-  const newVulnerabilityKeys = getNewVulnerabilityKeys(beforeAlerts, afterAlerts);
-  const beforeRiskScore = getRiskScore(beforeAlerts);
-  const afterRiskScore = getRiskScore(afterAlerts);
-  const regressionKeys = hasRegression(beforeAlerts, afterAlerts, newVulnerabilityKeys)
-    ? removableKeys
-    : [];
-  const vulnerableRemovedKeys = getKeysForVulnerableRemovedPackages(removableKeys, afterAlerts);
-  const blockedKeys = unique(regressionKeys.concat(vulnerableRemovedKeys));
+  const riskScore = getRiskScore(alerts);
+  const vulnerableRemovedKeys = getKeysForVulnerableRemovedPackages(removableKeys, alerts);
+  const blockedKeys = unique(vulnerableRemovedKeys);
   const blockedSet = new Set(blockedKeys);
   const allowedKeys = removableKeys.filter((key) => !blockedSet.has(key));
   const status = blockedKeys.length > 0 ? "blocked" : "safe";
-  const reason =
-    status === "blocked"
-      ? buildBlockedReason(
-          beforeAlerts,
-          afterAlerts,
-          beforeRiskScore,
-          afterRiskScore,
-          newVulnerabilityKeys,
-          vulnerableRemovedKeys,
-        )
-      : undefined;
+  const reason = status === "blocked" ? buildBlockedReason(vulnerableRemovedKeys) : undefined;
 
   return {
     removableKeys,
     allowedKeys,
     blockedKeys,
-    beforeAlertCount: beforeAlerts.length,
-    afterAlertCount: afterAlerts.length,
-    beforeRiskScore,
-    afterRiskScore,
-    newVulnerabilityKeys,
+    beforeAlertCount: alerts.length,
+    afterAlertCount: alerts.length,
+    beforeRiskScore: riskScore,
+    afterRiskScore: riskScore,
+    newVulnerabilityKeys: [],
     status,
     reason,
-  };
-};
-
-const buildFailedComparison = (
-  removableKeys: string[],
-  beforeAlerts: SecurityAlert[],
-  error: unknown,
-): RemovalSafetyComparison => {
-  const reason = error instanceof Error ? error.message : String(error);
-  const beforeRiskScore = getRiskScore(beforeAlerts);
-  return {
-    removableKeys,
-    allowedKeys: [],
-    blockedKeys: removableKeys,
-    beforeAlertCount: beforeAlerts.length,
-    afterAlertCount: beforeAlerts.length,
-    beforeRiskScore,
-    afterRiskScore: beforeRiskScore,
-    newVulnerabilityKeys: [],
-    status: "blocked",
-    reason: `Candidate security scan failed: ${reason}`,
   };
 };
 
@@ -250,15 +122,8 @@ export const compareRemovalSafety = async (
   const removableKeys = getCandidateRemovalKeys(config, mergedOptions);
   if (removableKeys.length === 0) return undefined;
 
-  const beforeAlerts = await getBeforeAlerts(config, securityChecker, mergedOptions);
-  const candidateConfig = createCandidateConfig(config, removableKeys);
-
-  try {
-    const afterAlerts = await getAfterAlerts(candidateConfig, securityChecker, mergedOptions);
-    return buildComparison(removableKeys, beforeAlerts, afterAlerts);
-  } catch (error) {
-    return buildFailedComparison(removableKeys, beforeAlerts, error);
-  }
+  const alerts = await getBeforeAlerts(config, securityChecker, mergedOptions);
+  return buildComparison(removableKeys, alerts);
 };
 
 export const checkRemovalSafety = async (

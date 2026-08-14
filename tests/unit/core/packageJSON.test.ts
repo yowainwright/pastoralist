@@ -410,6 +410,8 @@ test("updatePackageJSON - should preserve other pastoralist config when removing
     overrides: { lodash: "4.17.21" },
     pastoralist: {
       depPaths: "workspace",
+      compactAppendix: true,
+      checkSecurity: true,
       security: { enabled: true },
       bestCase,
       appendix: {
@@ -427,6 +429,8 @@ test("updatePackageJSON - should preserve other pastoralist config when removing
   });
 
   expect(result?.pastoralist?.depPaths).toBe("workspace");
+  expect(result?.pastoralist?.compactAppendix).toBe(true);
+  expect(result?.pastoralist?.checkSecurity).toBe(true);
   expect(result?.pastoralist?.security).toEqual({ enabled: true });
   expect(result?.pastoralist?.bestCase).toEqual(bestCase);
   expect(result?.pastoralist?.appendix).toBeUndefined();
@@ -1395,6 +1399,23 @@ test("parsePnpmLockTree - parses v9 format (no leading slash)", () => {
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
+test("parsePnpmLockTree - prefers package versions over peer-suffixed snapshots", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  const content = [
+    "lockfileVersion: '9.0'",
+    "packages:",
+    "  eslint-plugin-example@5.3.2: {}",
+    "snapshots:",
+    "  eslint-plugin-example@5.3.2(eslint@9.0.0): {}",
+  ].join("\n");
+  writeFileSync(resolve(lockTestDir, "pnpm-lock.yaml"), content);
+
+  const tree = parsePnpmLockTree(lockTestDir);
+
+  expect(tree?.["eslint-plugin-example"]).toBe("5.3.2");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
 test("parsePnpmLockTree - returns undefined when no pnpm-lock.yaml", () => {
   expect(parsePnpmLockTree(testDir)).toBeUndefined();
 });
@@ -1953,6 +1974,24 @@ test("parseYarnLockGraph - returns inverted dep graph from yarn.lock", () => {
   const graph = parseYarnLockGraph(lockTestDir);
 
   expect(graph?.["body-parser"]).toContain("express");
+  rmSync(lockTestDir, { recursive: true, force: true });
+});
+
+test("parseYarnLockGraph - parses Yarn Berry dependency keys", () => {
+  mkdirSync(lockTestDir, { recursive: true });
+  const content = [
+    '"parent@npm:1.0.0":',
+    "  version: 1.0.0",
+    "  dependencies:",
+    '    lodash: "npm:^4.17.0"',
+    '    "@babel/core": "npm:^7.0.0"',
+  ].join("\n");
+  writeFileSync(resolve(lockTestDir, "yarn.lock"), content);
+
+  const graph = parseYarnLockGraph(lockTestDir);
+
+  expect(graph?.["lodash"]).toEqual(["parent"]);
+  expect(graph?.["@babel/core"]).toEqual(["parent"]);
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 

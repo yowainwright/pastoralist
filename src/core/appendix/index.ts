@@ -522,7 +522,8 @@ const writePackageAppendix = (
 ): void => {
   try {
     const normalizedPath = resolve(filePath);
-    const updatedConfig = Object.assign({}, packageJSON, { pastoralist: { appendix } });
+    const pastoralist = Object.assign({}, packageJSON.pastoralist, { appendix });
+    const updatedConfig = Object.assign({}, packageJSON, { pastoralist });
     writeFileSync(filePath, JSON.stringify(updatedConfig, null, 2));
     jsonCache.delete(normalizedPath);
   } catch (err) {
@@ -558,7 +559,7 @@ export const processAndWritePackageJSON = (
   filePath: string,
   overrides: OverridesType,
   overridesList: string[],
-  writeAppendixToFile: boolean = true,
+  writeAppendixToFile: boolean = false,
   dependencyContext: AppendixDependencyContext = {},
 ): ProcessedPackageAppendix | undefined => {
   const currentPackageJSON = resolveJSON(filePath);

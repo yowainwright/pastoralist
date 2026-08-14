@@ -1,4 +1,4 @@
-import { test, expect } from "bun:test";
+import { test, expect, mock } from "bun:test";
 import { SocketCLIProvider } from "../../../../../src/core/security/providers/socket";
 
 test("providerType - should be 'socket'", () => {
@@ -346,6 +346,27 @@ test("fetchAlerts - should return alerts on successful scan", async () => {
   const alerts = await provider.fetchAlerts();
   expect(alerts.length).toBe(1);
   expect(alerts[0].packageName).toBe("test-pkg");
+});
+
+test("fetchAlerts - passes the configured root to the Socket scan", async () => {
+  const execFileAsync = mock(async () => ({
+    stdout: JSON.stringify({ packages: [] }),
+    stderr: "",
+  }));
+  const provider = new SocketCLIProvider({
+    token: ["test", "token"].join("-"),
+    debug: false,
+    execFileAsync,
+  });
+  provider.ensureInstalled = async () => true;
+
+  await provider.fetchAlerts([], { root: "/project/root" });
+
+  expect(execFileAsync).toHaveBeenCalledWith(
+    "socket",
+    ["report", "create", "--format", "json"],
+    expect.objectContaining({ cwd: "/project/root" }),
+  );
 });
 
 test("Alert Conversion - should use issue type as title when title missing", () => {

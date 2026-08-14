@@ -141,6 +141,48 @@ test("fetchAlerts - should convert OSV vulnerabilities to SecurityAlerts", async
   global.fetch = originalFetch;
 });
 
+test("fetchAlerts - selects the patch for the installed release stream", async () => {
+  const provider = new OSVProvider({ debug: false });
+  const originalFetch = global.fetch;
+  const vulnerability: OSVVulnerability = {
+    id: "OSV-MULTI-STREAM",
+    affected: [
+      {
+        package: { name: "ansi-regex", ecosystem: "npm" },
+        ranges: [
+          {
+            type: "SEMVER",
+            events: [
+              { introduced: "0" },
+              { fixed: "3.0.1" },
+              { introduced: "4.0.0" },
+              { fixed: "4.1.1" },
+              { introduced: "5.0.0" },
+              { fixed: "5.0.1" },
+              { introduced: "6.0.0" },
+              { fixed: "6.0.1" },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  global.fetch = mock((url: string) => {
+    const isBatchCall = url.includes("querybatch");
+    const json = isBatchCall ? { results: [{ vulns: [{ id: vulnerability.id }] }] } : vulnerability;
+    return Promise.resolve({ ok: true, json: () => Promise.resolve(json) } as Response);
+  });
+
+  try {
+    const alerts = await provider.fetchAlerts([{ name: "ansi-regex", version: "5.0.0" }]);
+    expect(alerts[0].patchedVersion).toBe("5.0.1");
+    expect(alerts[0].vulnerableVersions).toBe(">= 5.0.0 < 5.0.1");
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test("fetchAlerts - should handle multiple packages", async () => {
   const provider = new OSVProvider({ debug: false });
   const originalFetch = global.fetch;

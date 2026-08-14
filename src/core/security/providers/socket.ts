@@ -4,6 +4,7 @@ import { SecurityAlert, SocketResult, SocketPackage, SocketIssue } from "../../.
 import { logger } from "../../../utils";
 import { CLIInstaller } from "../utils";
 import { AUTH_MESSAGES } from "../constants";
+import type { ExecFileAsync } from "../../types";
 
 const execFileAsync = promisify(execFile);
 
@@ -13,8 +14,16 @@ export class SocketCLIProvider {
   private installer: CLIInstaller;
   private token?: string;
   private strict: boolean;
+  private execFileAsync: ExecFileAsync;
 
-  constructor(options: { debug?: boolean; token?: string; strict?: boolean } = {}) {
+  constructor(
+    options: {
+      debug?: boolean;
+      token?: string;
+      strict?: boolean;
+      execFileAsync?: ExecFileAsync;
+    } = {},
+  ) {
     this.log = logger({
       file: "security/socket.ts",
       isLogging: options.debug || false,
@@ -22,6 +31,7 @@ export class SocketCLIProvider {
     this.installer = new CLIInstaller({ debug: options.debug });
     this.token = options.token || process.env.SOCKET_SECURITY_API_KEY;
     this.strict = options.strict || false;
+    this.execFileAsync = options.execFileAsync ?? execFileAsync;
     this.log.warn(
       "Socket provider is EXPERIMENTAL. Report issues at https://github.com/yowainwright/pastoralist/issues",
       "constructor",
@@ -57,20 +67,25 @@ export class SocketCLIProvider {
     return true;
   }
 
-  private async runSocketScan(): Promise<SocketResult> {
+  private async runSocketScan(root?: string): Promise<SocketResult> {
     const env = Object.assign({}, process.env, { SOCKET_SECURITY_API_KEY: this.token });
 
-    const { stdout } = await execFileAsync("socket", ["report", "create", "--format", "json"], {
-      timeout: 60000,
-      env,
-    });
+    const { stdout } = await this.execFileAsync(
+      "socket",
+      ["report", "create", "--format", "json"],
+      {
+        timeout: 60000,
+        env,
+        cwd: root,
+      },
+    );
 
     return JSON.parse(stdout);
   }
 
   async fetchAlerts(
     _packages: Array<{ name: string; version: string }> = [],
-    _options: { root?: string } = {},
+    options: { root?: string } = {},
   ): Promise<SecurityAlert[]> {
     const isValid = await this.validatePrerequisites();
 
@@ -79,7 +94,7 @@ export class SocketCLIProvider {
     }
 
     try {
-      const result = await this.runSocketScan();
+      const result = await this.runSocketScan(options.root);
       return this.convertSocketAlerts(result);
     } catch (error) {
       this.log.debug("Socket scan failed", "fetchAlerts", { error });

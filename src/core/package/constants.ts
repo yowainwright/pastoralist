@@ -10,3 +10,5 @@ export const UNKNOWN_DEPENDENCY_VERSION = "unknown";
 
 export const YARN_LOCK_PACKAGE_PATTERN = /^[\w@][\w\-./]*@/gm;
 export const PNPM_LOCK_PACKAGE_PATTERN = /^\s{2}\/[\w@]/gm;
+export const YARN_BERRY_DEPENDENCY_PATTERN = /^\s{4}(?:"([^"]+)"|([^:\s"]+)):\s/;
+export const YARN_CLASSIC_DEPENDENCY_PATTERN = /^\s{4}(?:"([^"]+)"|(\S+))\s/;

@@ -459,6 +459,22 @@ test("extractPackages - strips caret and tilde prefixes", () => {
   expect(result).toContainEqual({ name: "c", version: "3.0.0" });
 });
 
+test("extractPackages - normalizes ranges and excludes non-registry specs", () => {
+  const config: PastoralistJSON = {
+    dependencies: {
+      bounded: ">= 1.2.0 < 2.0.0",
+      workspace: "workspace:*",
+      local: "file:../local",
+      repository: "git+https://github.com/example/repository.git",
+      tarball: "https://example.com/package.tgz",
+      alias: "npm:actual-package@1.0.0",
+      tag: "latest",
+    },
+  };
+
+  expect(extractPackages(config)).toEqual([{ name: "bounded", version: "1.2.0" }]);
+});
+
 test("isVersionVulnerable - detects version below threshold", () => {
   expect(isVersionVulnerable("4.17.20", "< 4.17.21")).toBe(true);
 });
@@ -1076,6 +1092,30 @@ test("InteractiveSecurityManager - promptForSecurityActions user declines final 
   expect(result.length).toBe(0);
 
   console.log = mockLog;
+});
+
+test("InteractiveSecurityManager - prompt timeouts do not apply overrides", async () => {
+  const prompts = {
+    confirm: mock((_message: string, defaultValue = true) => Promise.resolve(defaultValue)),
+    select: mock((_message: string, choices: Array<{ value: string }>) =>
+      Promise.resolve(choices[0]?.value || ""),
+    ),
+    input: createResolvedPrompt(""),
+  };
+  const manager = new InteractiveSecurityManager(prompts);
+  const originalLog = console.log;
+  console.log = mock();
+
+  try {
+    const result = await manager.promptForSecurityActions(
+      [createInteractiveAlert()],
+      [createInteractiveOverride()],
+    );
+
+    expect(result).toEqual([]);
+  } finally {
+    console.log = originalLog;
+  }
 });
 
 test("InteractiveSecurityManager - generateSummary produces correct output", () => {

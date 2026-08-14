@@ -5,10 +5,14 @@ import type {
   OSVPackageQuery,
   OSVPartialVulnerability,
   OSVSeverityVulnerability,
+  OSVVersionEvent,
+  OSVVersionInterval,
+  OSVVersionIntervalState,
+  OSVVersionRange,
   OSVVulnerability,
   SecurityProviderScanOptions,
 } from "../../../types";
-import { logger, retry, type RetryError, type RetryOptions } from "../../../utils";
+import { compareVersions, logger, retry, type RetryError, type RetryOptions } from "../../../utils";
 import {
   OSV_API,
   OSV_CACHE_MAX_ENTRIES,
@@ -313,13 +317,14 @@ export class OSVProvider {
   ): SecurityAlert[] {
     return vulns.map((vuln) => {
       const cves = this.extractCVEs(vuln);
-      const patchedVersion = this.extractPatchedVersion(vuln);
+      const interval = this.findVersionInterval(vuln, pkg.version);
+      const patchedVersion = interval?.fixed;
       const title = vuln.summary || vuln.details || `Vulnerability in ${pkg.name}`;
       const fixAvailable = Boolean(patchedVersion);
       const base = {
         packageName: pkg.name,
         currentVersion: pkg.version,
-        vulnerableVersions: this.extractVersionRange(vuln),
+        vulnerableVersions: this.formatVersionInterval(interval),
         patchedVersion,
         severity: this.extractSeverity(vuln),
         title,
@@ -332,22 +337,52 @@ export class OSVProvider {
     });
   }
 
-  private extractVersionRange(vuln: OSVVulnerability): string {
-    const affected = vuln.affected?.[0];
-    const events = affected?.ranges?.[0]?.events;
-    if (!events) return "";
-
-    const introduced = events.find((e) => e.introduced)?.introduced || "0";
-    const fixed = events.find((e) => e.fixed)?.fixed;
-    const range = fixed ? `>= ${introduced} < ${fixed}` : `>= ${introduced}`;
-    return range;
+  private getVersionIntervals(vuln: OSVVulnerability): OSVVersionInterval[] {
+    const ranges = vuln.affected?.flatMap((affected) => affected.ranges || []) || [];
+    return ranges.flatMap((range) => this.toVersionIntervals(range));
   }
 
-  private extractPatchedVersion(vuln: OSVVulnerability): string | undefined {
-    const affected = vuln.affected?.[0];
-    const events = affected?.ranges?.[0]?.events || [];
-    const fixed = events.find((e) => e.fixed)?.fixed;
-    return fixed;
+  private applyVersionEvent(
+    state: OSVVersionIntervalState,
+    event: OSVVersionEvent,
+  ): OSVVersionIntervalState {
+    if (event.introduced !== undefined) {
+      return Object.assign({}, state, { currentIntroduced: event.introduced });
+    }
+    const fixed = event.fixed;
+    if (!fixed) return state;
+    const introduced = state.currentIntroduced;
+    if (introduced === undefined) return state;
+    const interval = { introduced, fixed };
+    return { intervals: state.intervals.concat(interval) };
+  }
+
+  private toVersionIntervals(range: OSVVersionRange): OSVVersionInterval[] {
+    const initial: OSVVersionIntervalState = { currentIntroduced: "0", intervals: [] };
+    const state = range.events.reduce<OSVVersionIntervalState>(
+      (current, event) => this.applyVersionEvent(current, event),
+      initial,
+    );
+    if (state.currentIntroduced === undefined) return state.intervals;
+    const openInterval = { introduced: state.currentIntroduced };
+    return state.intervals.concat(openInterval);
+  }
+
+  private findVersionInterval(
+    vuln: OSVVulnerability,
+    version: string,
+  ): OSVVersionInterval | undefined {
+    return this.getVersionIntervals(vuln).find((interval) => {
+      const meetsLowerBound = compareVersions(version, interval.introduced) >= 0;
+      const meetsUpperBound = !interval.fixed || compareVersions(version, interval.fixed) < 0;
+      return meetsLowerBound && meetsUpperBound;
+    });
+  }
+
+  private formatVersionInterval(interval: OSVVersionInterval | undefined): string {
+    if (!interval) return "";
+    if (!interval.fixed) return `>= ${interval.introduced}`;
+    return `>= ${interval.introduced} < ${interval.fixed}`;
   }
 
   private extractSeverity(vuln: OSVSeverityVulnerability): "low" | "medium" | "high" | "critical" {

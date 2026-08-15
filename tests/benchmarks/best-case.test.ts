@@ -1,4 +1,5 @@
-import { expect, test } from "bun:test";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 import { optimizeBestCasePortfolio } from "../../src/core/best-case";
 import type { BestCaseEvaluation, BestCasePackageChoice } from "../../src/core/best-case";
 
@@ -40,6 +41,6 @@ test("Benchmark: best-case exact search", async () => {
   const message = `optimizeBestCasePortfolio (64 exact states): ${averageMs.toFixed(3)}ms avg\n`;
   process.stdout.write(message);
 
-  expect(await runOptimizer(choices)).toBe(64);
-  expect(averageMs).toBeLessThan(25);
+  assert.strictEqual(await runOptimizer(choices), 64);
+  assert.ok(averageMs < 25);
 });

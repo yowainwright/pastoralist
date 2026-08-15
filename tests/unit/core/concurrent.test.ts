@@ -1,8 +1,9 @@
-import { test, expect, beforeEach, afterEach } from "bun:test";
+import { test, beforeEach, afterEach } from "node:test";
+import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from "fs";
 import { resolve, join } from "path";
 
-const TEST_DIR = resolve(__dirname, ".test-concurrent");
+const TEST_DIR = resolve(import.meta.dirname, ".test-concurrent");
 
 const mockAction = async ({ path }: { path: string; checkSecurity?: boolean }) => {
   const content = JSON.parse(readFileSync(path, "utf-8"));
@@ -68,13 +69,13 @@ test("concurrent: multiple packages processed in parallel", async () => {
     }),
   );
 
-  expect(results.length).toBe(5);
+  assert.strictEqual(results.length, 5);
 
   for (const { path, index } of results) {
     const content = JSON.parse(readFileSync(path, "utf-8"));
-    expect(content.pastoralist).toBeDefined();
-    expect(content.pastoralist.appendix).toBeDefined();
-    expect(content.name).toBe(`test-pkg-${index}`);
+    assert.notStrictEqual(content.pastoralist, undefined);
+    assert.notStrictEqual(content.pastoralist.appendix, undefined);
+    assert.strictEqual(content.name, `test-pkg-${index}`);
   }
 });
 
@@ -110,9 +111,9 @@ test("concurrent: different packages with different overrides", async () => {
   const result2 = JSON.parse(readFileSync(pkg2, "utf-8"));
   const result3 = JSON.parse(readFileSync(pkg3, "utf-8"));
 
-  expect(result1.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
-  expect(result2.pastoralist.appendix["minimist@1.2.8"]).toBeDefined();
-  expect(result3.pastoralist.appendix["ansi-regex@5.0.1"]).toBeDefined();
+  assert.notStrictEqual(result1.pastoralist.appendix["lodash@4.17.21"], undefined);
+  assert.notStrictEqual(result2.pastoralist.appendix["minimist@1.2.8"], undefined);
+  assert.notStrictEqual(result3.pastoralist.appendix["ansi-regex@5.0.1"], undefined);
 });
 
 test("concurrent: same package processed sequentially maintains consistency", async () => {
@@ -126,7 +127,7 @@ test("concurrent: same package processed sequentially maintains consistency", as
   await action({ path: pkgPath, checkSecurity: false });
 
   const firstResult = JSON.parse(readFileSync(pkgPath, "utf-8"));
-  expect(firstResult.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
+  assert.notStrictEqual(firstResult.pastoralist.appendix["lodash@4.17.21"], undefined);
 
   writeFileSync(
     pkgPath,
@@ -146,8 +147,8 @@ test("concurrent: same package processed sequentially maintains consistency", as
   await action({ path: pkgPath, checkSecurity: false });
 
   const secondResult = JSON.parse(readFileSync(pkgPath, "utf-8"));
-  expect(secondResult.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
-  expect(secondResult.pastoralist.appendix["minimist@1.2.8"]).toBeDefined();
+  assert.notStrictEqual(secondResult.pastoralist.appendix["lodash@4.17.21"], undefined);
+  assert.notStrictEqual(secondResult.pastoralist.appendix["minimist@1.2.8"], undefined);
 });
 
 test("concurrent: handles rapid successive calls", async () => {
@@ -169,11 +170,11 @@ test("concurrent: handles rapid successive calls", async () => {
 
   for (const path of packages) {
     const content = JSON.parse(readFileSync(path, "utf-8"));
-    expect(content.pastoralist).toBeDefined();
-    expect(content.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
+    assert.notStrictEqual(content.pastoralist, undefined);
+    assert.notStrictEqual(content.pastoralist.appendix["lodash@4.17.21"], undefined);
   }
 
-  expect(duration).toBeLessThan(30000);
+  assert.ok(duration < 30000);
 });
 
 test("concurrent: isolation between package processing", async () => {
@@ -206,11 +207,11 @@ test("concurrent: isolation between package processing", async () => {
   const result1 = JSON.parse(readFileSync(pkg1, "utf-8"));
   const result2 = JSON.parse(readFileSync(pkg2, "utf-8"));
 
-  expect(result1.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
+  assert.notStrictEqual(result1.pastoralist.appendix["lodash@4.17.21"], undefined);
 
-  expect(result2.pastoralist.appendix["minimist@1.2.8"]).toBeDefined();
-  expect(result2.pastoralist.appendix["existing@1.0.0"]).toBeUndefined();
-  expect(result2.pastoralist.appendix["lodash@4.17.21"]).toBeUndefined();
+  assert.notStrictEqual(result2.pastoralist.appendix["minimist@1.2.8"], undefined);
+  assert.strictEqual(result2.pastoralist.appendix["existing@1.0.0"], undefined);
+  assert.strictEqual(result2.pastoralist.appendix["lodash@4.17.21"], undefined);
 });
 
 test("concurrent: handles mixed override formats", async () => {
@@ -242,9 +243,9 @@ test("concurrent: handles mixed override formats", async () => {
   const yarnResult = JSON.parse(readFileSync(yarnPkg, "utf-8"));
   const pnpmResult = JSON.parse(readFileSync(pnpmPkg, "utf-8"));
 
-  expect(npmResult.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
-  expect(yarnResult.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
-  expect(pnpmResult.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
+  assert.notStrictEqual(npmResult.pastoralist.appendix["lodash@4.17.21"], undefined);
+  assert.notStrictEqual(yarnResult.pastoralist.appendix["lodash@4.17.21"], undefined);
+  assert.notStrictEqual(pnpmResult.pastoralist.appendix["lodash@4.17.21"], undefined);
 });
 
 test("concurrent: stress test with many packages", async () => {
@@ -269,10 +270,10 @@ test("concurrent: stress test with many packages", async () => {
   );
 
   const fulfilled = results.filter((r) => r.status === "fulfilled");
-  expect(fulfilled.length).toBe(count);
+  assert.strictEqual(fulfilled.length, count);
 
   for (const path of packages) {
     const content = JSON.parse(readFileSync(path, "utf-8"));
-    expect(content.pastoralist).toBeDefined();
+    assert.notStrictEqual(content.pastoralist, undefined);
   }
 });

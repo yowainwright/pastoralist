@@ -1,98 +1,99 @@
-import { test, expect } from "bun:test";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 import { ICON, PREFIX, STEP, BRAND } from "../../../src/constants";
 
 test("BRAND - should be defined and contain Pastoralist", () => {
-  expect(BRAND).toBeDefined();
-  expect(BRAND).toContain("Pastoralist");
+  assert.notStrictEqual(BRAND, undefined);
+  assert.ok(BRAND.includes("Pastoralist"));
 });
 
 test("ICON - should have all required status icons", () => {
-  expect(ICON.success).toBeDefined();
-  expect(ICON.error).toBeDefined();
-  expect(ICON.warning).toBeDefined();
-  expect(ICON.info).toBeDefined();
+  assert.notStrictEqual(ICON.success, undefined);
+  assert.notStrictEqual(ICON.error, undefined);
+  assert.notStrictEqual(ICON.warning, undefined);
+  assert.notStrictEqual(ICON.info, undefined);
 });
 
 test("ICON - should have all required action icons", () => {
-  expect(ICON.arrow).toBeDefined();
-  expect(ICON.bullet).toBeDefined();
-  expect(ICON.check).toBeDefined();
+  assert.notStrictEqual(ICON.arrow, undefined);
+  assert.notStrictEqual(ICON.bullet, undefined);
+  assert.notStrictEqual(ICON.check, undefined);
 });
 
 test("ICON - should have all required section icons", () => {
-  expect(ICON.step).toBeDefined();
-  expect(ICON.section).toBeDefined();
+  assert.notStrictEqual(ICON.step, undefined);
+  assert.notStrictEqual(ICON.section, undefined);
 });
 
 test("ICON - should have all required interactive icons", () => {
-  expect(ICON.search).toBeDefined();
-  expect(ICON.edit).toBeDefined();
-  expect(ICON.folder).toBeDefined();
-  expect(ICON.skip).toBeDefined();
-  expect(ICON.help).toBeDefined();
+  assert.notStrictEqual(ICON.search, undefined);
+  assert.notStrictEqual(ICON.edit, undefined);
+  assert.notStrictEqual(ICON.folder, undefined);
+  assert.notStrictEqual(ICON.skip, undefined);
+  assert.notStrictEqual(ICON.help, undefined);
 });
 
 test("ICON.success - should contain green ANSI code", () => {
-  expect(ICON.success).toContain("\x1b[32m");
-  expect(ICON.success).toContain("\x1b[0m");
+  assert.ok(ICON.success.includes("\x1b[32m"));
+  assert.ok(ICON.success.includes("\x1b[0m"));
 });
 
 test("ICON.error - should contain red ANSI code", () => {
-  expect(ICON.error).toContain("\x1b[31m");
-  expect(ICON.error).toContain("\x1b[0m");
+  assert.ok(ICON.error.includes("\x1b[31m"));
+  assert.ok(ICON.error.includes("\x1b[0m"));
 });
 
 test("ICON.warning - should contain yellow ANSI code", () => {
-  expect(ICON.warning).toContain("\x1b[33m");
-  expect(ICON.warning).toContain("\x1b[0m");
+  assert.ok(ICON.warning.includes("\x1b[33m"));
+  assert.ok(ICON.warning.includes("\x1b[0m"));
 });
 
 test("ICON.info - should contain cyan ANSI code", () => {
-  expect(ICON.info).toContain("\x1b[36m");
-  expect(ICON.info).toContain("\x1b[0m");
+  assert.ok(ICON.info.includes("\x1b[36m"));
+  assert.ok(ICON.info.includes("\x1b[0m"));
 });
 
 test("PREFIX - should map to ICON values", () => {
-  expect(PREFIX.success).toBe(ICON.success);
-  expect(PREFIX.error).toBe(ICON.error);
-  expect(PREFIX.warning).toBe(ICON.warning);
-  expect(PREFIX.info).toBe(ICON.info);
-  expect(PREFIX.step).toBe(ICON.step);
-  expect(PREFIX.save).toBe(ICON.arrow);
-  expect(PREFIX.next).toBe(ICON.bullet);
+  assert.strictEqual(PREFIX.success, ICON.success);
+  assert.strictEqual(PREFIX.error, ICON.error);
+  assert.strictEqual(PREFIX.warning, ICON.warning);
+  assert.strictEqual(PREFIX.info, ICON.info);
+  assert.strictEqual(PREFIX.step, ICON.step);
+  assert.strictEqual(PREFIX.save, ICON.arrow);
+  assert.strictEqual(PREFIX.next, ICON.bullet);
 });
 
 test("STEP - should contain step icon and step numbers", () => {
-  expect(STEP.config).toContain(ICON.step);
-  expect(STEP.config).toContain("Step 1");
-  expect(STEP.config).toContain("Configuration Location");
+  assert.ok(STEP.config.includes(ICON.step));
+  assert.ok(STEP.config.includes("Step 1"));
+  assert.ok(STEP.config.includes("Configuration Location"));
 
-  expect(STEP.workspace).toContain(ICON.step);
-  expect(STEP.workspace).toContain("Step 2");
-  expect(STEP.workspace).toContain("Workspace Configuration");
+  assert.ok(STEP.workspace.includes(ICON.step));
+  assert.ok(STEP.workspace.includes("Step 2"));
+  assert.ok(STEP.workspace.includes("Workspace Configuration"));
 
-  expect(STEP.security).toContain(ICON.step);
-  expect(STEP.security).toContain("Step 3");
-  expect(STEP.security).toContain("Security Configuration");
+  assert.ok(STEP.security.includes(ICON.step));
+  assert.ok(STEP.security.includes("Step 3"));
+  assert.ok(STEP.security.includes("Security Configuration"));
 });
 
 test("ICON - symbols should be single characters (excluding ANSI codes)", () => {
   const stripAnsi = (str: string) => str.replace(/\x1b\[[0-9;]*m/g, "");
 
-  expect(stripAnsi(ICON.success)).toHaveLength(1);
-  expect(stripAnsi(ICON.error)).toHaveLength(1);
-  expect(stripAnsi(ICON.warning)).toHaveLength(1);
-  expect(stripAnsi(ICON.info)).toHaveLength(1);
-  expect(stripAnsi(ICON.arrow)).toHaveLength(1);
-  expect(stripAnsi(ICON.bullet)).toHaveLength(1);
-  expect(stripAnsi(ICON.check)).toHaveLength(1);
-  expect(stripAnsi(ICON.step)).toHaveLength(1);
-  expect(stripAnsi(ICON.section)).toHaveLength(1);
-  expect(stripAnsi(ICON.search)).toHaveLength(1);
-  expect(stripAnsi(ICON.edit)).toHaveLength(1);
-  expect(stripAnsi(ICON.folder)).toHaveLength(1);
-  expect(stripAnsi(ICON.skip)).toHaveLength(1);
-  expect(stripAnsi(ICON.help)).toHaveLength(1);
+  assert.strictEqual(stripAnsi(ICON.success).length, 1);
+  assert.strictEqual(stripAnsi(ICON.error).length, 1);
+  assert.strictEqual(stripAnsi(ICON.warning).length, 1);
+  assert.strictEqual(stripAnsi(ICON.info).length, 1);
+  assert.strictEqual(stripAnsi(ICON.arrow).length, 1);
+  assert.strictEqual(stripAnsi(ICON.bullet).length, 1);
+  assert.strictEqual(stripAnsi(ICON.check).length, 1);
+  assert.strictEqual(stripAnsi(ICON.step).length, 1);
+  assert.strictEqual(stripAnsi(ICON.section).length, 1);
+  assert.strictEqual(stripAnsi(ICON.search).length, 1);
+  assert.strictEqual(stripAnsi(ICON.edit).length, 1);
+  assert.strictEqual(stripAnsi(ICON.folder).length, 1);
+  assert.strictEqual(stripAnsi(ICON.skip).length, 1);
+  assert.strictEqual(stripAnsi(ICON.help).length, 1);
 });
 
 test("ICON - all icons should be distinct Unicode characters", () => {
@@ -110,5 +111,5 @@ test("ICON - all icons should be distinct Unicode characters", () => {
   ];
 
   const uniqueSymbols = new Set(symbols);
-  expect(uniqueSymbols.size).toBe(symbols.length);
+  assert.strictEqual(uniqueSymbols.size, symbols.length);
 });

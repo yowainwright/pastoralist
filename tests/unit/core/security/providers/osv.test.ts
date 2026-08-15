@@ -1,4 +1,6 @@
-import { test, expect, mock, afterEach } from "bun:test";
+import { assertMatchObject, errorIncludes, mock } from "../../../setup.ts";
+import { test, afterEach } from "node:test";
+import assert from "node:assert/strict";
 import { OSVProvider, clearOSVCache } from "../../../../../src/core/security/providers/osv";
 import type { OSVVulnerability } from "../../../../../src/types";
 
@@ -8,7 +10,7 @@ afterEach(() => {
 
 test("providerType - should be 'osv'", () => {
   const provider = new OSVProvider({ debug: false });
-  expect(provider.providerType).toBe("osv");
+  assert.strictEqual(provider.providerType, "osv");
 });
 
 test("isAvailable - should return true when OSV API is accessible", async () => {
@@ -23,7 +25,7 @@ test("isAvailable - should return true when OSV API is accessible", async () => 
   });
 
   const available = await provider.isAvailable();
-  expect(available).toBe(true);
+  assert.strictEqual(available, true);
 
   global.fetch = originalFetch;
 });
@@ -37,7 +39,7 @@ test("isAvailable - should return false when OSV API is not accessible", async (
   });
 
   const available = await provider.isAvailable();
-  expect(available).toBe(false);
+  assert.strictEqual(available, false);
 
   global.fetch = originalFetch;
 });
@@ -54,7 +56,7 @@ test("isAvailable - should return false when response is not ok", async () => {
   });
 
   const available = await provider.isAvailable();
-  expect(available).toBe(false);
+  assert.strictEqual(available, false);
 
   global.fetch = originalFetch;
 });
@@ -72,7 +74,7 @@ test("fetchAlerts - should return empty array when no vulnerabilities found", as
 
   const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.21" }]);
 
-  expect(alerts).toEqual([]);
+  assert.deepStrictEqual(alerts, []);
 
   global.fetch = originalFetch;
 });
@@ -127,8 +129,8 @@ test("fetchAlerts - should convert OSV vulnerabilities to SecurityAlerts", async
 
   const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]);
 
-  expect(alerts).toHaveLength(1);
-  expect(alerts[0]).toMatchObject({
+  assert.strictEqual(alerts.length, 1);
+  assertMatchObject(alerts[0], {
     packageName: "lodash",
     currentVersion: "4.17.20",
     patchedVersion: "4.17.21",
@@ -176,8 +178,8 @@ test("fetchAlerts - selects the patch for the installed release stream", async (
 
   try {
     const alerts = await provider.fetchAlerts([{ name: "ansi-regex", version: "5.0.0" }]);
-    expect(alerts[0].patchedVersion).toBe("5.0.1");
-    expect(alerts[0].vulnerableVersions).toBe(">= 5.0.0 < 5.0.1");
+    assert.strictEqual(alerts[0].patchedVersion, "5.0.1");
+    assert.strictEqual(alerts[0].vulnerableVersions, ">= 5.0.0 < 5.0.1");
   } finally {
     global.fetch = originalFetch;
   }
@@ -227,8 +229,8 @@ test("fetchAlerts - should handle multiple packages", async () => {
     { name: "axios", version: "0.21.0" },
   ]);
 
-  expect(alerts).toHaveLength(1);
-  expect(alerts[0].packageName).toBe("lodash");
+  assert.strictEqual(alerts.length, 1);
+  assert.strictEqual(alerts[0].packageName, "lodash");
 
   global.fetch = originalFetch;
 });
@@ -246,7 +248,7 @@ test("fetchAlerts - should handle fetch errors gracefully", async () => {
 
   const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]);
 
-  expect(alerts).toEqual([]);
+  assert.deepStrictEqual(alerts, []);
 
   global.fetch = originalFetch;
 });
@@ -267,7 +269,7 @@ test("fetchAlerts - should handle non-ok responses", async () => {
 
   const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]);
 
-  expect(alerts).toEqual([]);
+  assert.deepStrictEqual(alerts, []);
 
   global.fetch = originalFetch;
 });
@@ -313,7 +315,7 @@ test("fetchAlerts - should extract severity correctly", async () => {
 
   const alerts = await provider.fetchAlerts([{ name: "test", version: "1.0.0" }]);
 
-  expect(alerts[0].severity).toBe("high");
+  assert.strictEqual(alerts[0].severity, "high");
 
   global.fetch = originalFetch;
 });
@@ -356,7 +358,7 @@ test("fetchAlerts - should default to medium severity when not specified", async
 
   const alerts = await provider.fetchAlerts([{ name: "test", version: "1.0.0" }]);
 
-  expect(alerts[0].severity).toBe("medium");
+  assert.strictEqual(alerts[0].severity, "medium");
 
   global.fetch = originalFetch;
 });
@@ -400,7 +402,7 @@ test("fetchAlerts - should extract CVE from aliases", async () => {
 
   const alerts = await provider.fetchAlerts([{ name: "test", version: "1.0.0" }]);
 
-  expect(alerts[0].cves?.[0]).toBe("CVE-2021-9999");
+  assert.strictEqual(alerts[0].cves?.[0], "CVE-2021-9999");
 
   global.fetch = originalFetch;
 });
@@ -438,7 +440,7 @@ test("fetchAlerts - should map numeric CVSS score 9.5 to critical", async () => 
   });
 
   const alerts = await provider.fetchAlerts([{ name: "test", version: "1.0.0" }]);
-  expect(alerts[0].severity).toBe("critical");
+  assert.strictEqual(alerts[0].severity, "critical");
 
   global.fetch = originalFetch;
 });
@@ -476,7 +478,7 @@ test("fetchAlerts - should map numeric CVSS score 7.5 to high", async () => {
   });
 
   const alerts = await provider.fetchAlerts([{ name: "test", version: "1.0.0" }]);
-  expect(alerts[0].severity).toBe("high");
+  assert.strictEqual(alerts[0].severity, "high");
 
   global.fetch = originalFetch;
 });
@@ -514,7 +516,7 @@ test("fetchAlerts - should map numeric CVSS score 5.0 to medium", async () => {
   });
 
   const alerts = await provider.fetchAlerts([{ name: "test", version: "1.0.0" }]);
-  expect(alerts[0].severity).toBe("medium");
+  assert.strictEqual(alerts[0].severity, "medium");
 
   global.fetch = originalFetch;
 });
@@ -552,7 +554,7 @@ test("fetchAlerts - should map numeric CVSS score 2.0 to low", async () => {
   });
 
   const alerts = await provider.fetchAlerts([{ name: "test", version: "1.0.0" }]);
-  expect(alerts[0].severity).toBe("low");
+  assert.strictEqual(alerts[0].severity, "low");
 
   global.fetch = originalFetch;
 });
@@ -596,7 +598,7 @@ test("fetchAlerts - should return undefined for CVE when not in aliases", async 
 
   const alerts = await provider.fetchAlerts([{ name: "test", version: "1.0.0" }]);
 
-  expect(alerts[0].cves).toBeUndefined();
+  assert.strictEqual(alerts[0].cves, undefined);
 
   global.fetch = originalFetch;
 });
@@ -639,7 +641,7 @@ test("fetchAlerts - should use default URL when no references", async () => {
 
   const alerts = await provider.fetchAlerts([{ name: "test", version: "1.0.0" }]);
 
-  expect(alerts[0].url).toBe("https://osv.dev/vulnerability/OSV-2021-1234");
+  assert.strictEqual(alerts[0].url, "https://osv.dev/vulnerability/OSV-2021-1234");
 
   global.fetch = originalFetch;
 });
@@ -656,8 +658,9 @@ test("fetchAlerts - should throw error when strict mode is enabled and fetch fai
     return Promise.reject(new Error("Network error"));
   });
 
-  await expect(provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }])).rejects.toThrow(
-    "OSV security check failed",
+  await assert.rejects(
+    provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]),
+    errorIncludes("OSV security check failed"),
   );
 
   global.fetch = originalFetch;
@@ -677,12 +680,12 @@ test("fetchAlerts - strict mode error message includes retry count", async () =>
 
   try {
     await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]);
-    expect(true).toBe(false);
+    assert.strictEqual(true, false);
   } catch (error) {
     const message = (error as Error).message;
-    expect(message).toContain("OSV security check failed");
-    expect(message).toContain("2 retries");
-    expect(message).toContain("--strict mode");
+    assert.ok(message.includes("OSV security check failed"));
+    assert.ok(message.includes("2 retries"));
+    assert.ok(message.includes("--strict mode"));
   }
 
   global.fetch = originalFetch;
@@ -702,10 +705,10 @@ test("fetchAlerts - strict mode error message includes original error reason", a
 
   try {
     await provider.fetchAlerts([{ name: "test", version: "1.0.0" }]);
-    expect(true).toBe(false);
+    assert.strictEqual(true, false);
   } catch (error) {
     const message = (error as Error).message;
-    expect(message).toContain("ENOTFOUND");
+    assert.ok(message.includes("ENOTFOUND"));
   }
 
   global.fetch = originalFetch;
@@ -728,8 +731,8 @@ test("fetchAlerts - should return empty array when strict is false and fetch fai
     onIncomplete,
   });
 
-  expect(alerts).toEqual([]);
-  expect(onIncomplete).toHaveBeenCalledTimes(1);
+  assert.deepStrictEqual(alerts, []);
+  assert.strictEqual(onIncomplete.mock.callCount(), 1);
 
   global.fetch = originalFetch;
 });
@@ -747,7 +750,7 @@ test("fetchAlerts - should reject incomplete scans when strict is false", async 
     const scan = provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }], {
       requireCompleteScan: true,
     });
-    await expect(scan).rejects.toThrow("OSV security check failed");
+    await assert.rejects(scan, errorIncludes("OSV security check failed"));
   } finally {
     global.fetch = originalFetch;
   }
@@ -792,7 +795,7 @@ test("fetchAlerts - should extract all CVE aliases when multiple CVEs exist", as
 
   const alerts = await provider.fetchAlerts([{ name: "test", version: "1.0.0" }]);
 
-  expect(alerts[0].cves).toEqual(["CVE-2021-0001", "CVE-2021-0002"]);
+  assert.deepStrictEqual(alerts[0].cves, ["CVE-2021-0001", "CVE-2021-0002"]);
 
   global.fetch = originalFetch;
 });
@@ -847,7 +850,7 @@ test("fetchAlerts - strict mode throws when individual vuln detail fetch fails",
   });
 
   try {
-    await expect(provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }])).rejects.toThrow();
+    await assert.rejects(provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]));
   } finally {
     global.fetch = originalFetch;
   }
@@ -908,8 +911,8 @@ test("fetchAlerts - non-strict returns partial results when individual vuln deta
       onIncomplete,
     });
     const hasAlerts = alerts.length > 0;
-    expect(hasAlerts).toBe(true);
-    expect(onIncomplete).toHaveBeenCalledTimes(1);
+    assert.strictEqual(hasAlerts, true);
+    assert.strictEqual(onIncomplete.mock.callCount(), 1);
   } finally {
     global.fetch = originalFetch;
   }

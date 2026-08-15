@@ -13,7 +13,7 @@
     "prerender": "bun scripts/prerender.ts",
     "preview": "vite preview",
     "serve": "vite preview --port 5174",
-    "test:unit": "bun test tests/unit"
+    "test:unit": "node --test"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

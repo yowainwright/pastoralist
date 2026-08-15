@@ -1,20 +1,28 @@
-import { test, expect, mock, spyOn, beforeEach, afterEach } from "bun:test";
-import {
-  Prompt,
-  createPrompt,
-  quickConfirm,
-  quickInput,
-  quickList,
-} from "../../../src/utils/prompts";
+import { assertCalledWith, mock, spyOn } from "../setup.ts";
+import { test, beforeEach, afterEach, mock as moduleMock } from "node:test";
+import assert from "node:assert/strict";
 import type { PromptChoice } from "../../../src/utils/prompts/types";
 import * as readline from "readline";
-import * as inputModule from "../../../src/utils/prompts/input";
+import * as originalInput from "../../../src/utils/prompts/input";
+
+const createInterface = mock(readline.createInterface);
+const enhancedQuestion = mock(originalInput.enhancedQuestion);
+
+moduleMock.module("readline", {
+  namedExports: Object.assign({}, readline, { createInterface }),
+});
+moduleMock.module(new URL("../../../src/utils/prompts/input.ts", import.meta.url), {
+  namedExports: Object.assign({}, originalInput, { enhancedQuestion }),
+});
+
+const { Prompt, createPrompt, quickConfirm, quickInput, quickList } =
+  await import("../../../src/utils/prompts");
 
 let mockCreateInterface: ReturnType<typeof spyOn>;
 let mockEnhancedQuestion: ReturnType<typeof spyOn>;
 
 beforeEach(() => {
-  mockCreateInterface = spyOn(readline, "createInterface").mockReturnValue({
+  mockCreateInterface = createInterface.mockReturnValue({
     question: mock(),
     close: mock(),
     removeAllListeners: mock(),
@@ -22,7 +30,7 @@ beforeEach(() => {
     resume: mock(),
   } as readline.Interface);
 
-  mockEnhancedQuestion = spyOn(inputModule, "enhancedQuestion").mockImplementation(
+  mockEnhancedQuestion = enhancedQuestion.mockImplementation(
     async (rl: any, prompt: string, processor: any = (answer: string) => answer.trim()) => {
       return new Promise((resolve) => {
         if (rl.question) {
@@ -78,7 +86,7 @@ class TestablePrompt extends Prompt {
 
 test("Prompt - constructor creates readline interface", () => {
   const prompt = new Prompt();
-  expect(prompt).toBeDefined();
+  assert.notStrictEqual(prompt, undefined);
   prompt.close();
 });
 
@@ -88,7 +96,7 @@ test("Prompt - close method closes readline interface", () => {
   prompt.setQuestion(closeSpy);
 
   prompt.close();
-  expect(prompt).toBeDefined();
+  assert.notStrictEqual(prompt, undefined);
 });
 
 test("Prompt - input returns user input", async () => {
@@ -100,8 +108,8 @@ test("Prompt - input returns user input", async () => {
 
   const result = await prompt.input("Test message");
 
-  expect(result).toBe("test answer");
-  expect(questionSpy).toHaveBeenCalled();
+  assert.strictEqual(result, "test answer");
+  assert.ok(questionSpy.mock.callCount() > 0);
   prompt.close();
 });
 
@@ -114,7 +122,7 @@ test("Prompt - input returns default value when answer is empty", async () => {
 
   const result = await prompt.input("Test message", "default");
 
-  expect(result).toBe("default");
+  assert.strictEqual(result, "default");
   prompt.close();
 });
 
@@ -127,7 +135,7 @@ test("Prompt - input trims whitespace from answer", async () => {
 
   const result = await prompt.input("Test message");
 
-  expect(result).toBe("test");
+  assert.strictEqual(result, "test");
   prompt.close();
 });
 
@@ -140,7 +148,7 @@ test("Prompt - confirm returns true for 'y'", async () => {
 
   const result = await prompt.confirm("Confirm?");
 
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
   prompt.close();
 });
 
@@ -153,7 +161,7 @@ test("Prompt - confirm returns true for 'yes'", async () => {
 
   const result = await prompt.confirm("Confirm?");
 
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
   prompt.close();
 });
 
@@ -166,7 +174,7 @@ test("Prompt - confirm returns false for 'n'", async () => {
 
   const result = await prompt.confirm("Confirm?");
 
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
   prompt.close();
 });
 
@@ -179,7 +187,7 @@ test("Prompt - confirm returns false for 'no'", async () => {
 
   const result = await prompt.confirm("Confirm?");
 
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
   prompt.close();
 });
 
@@ -191,10 +199,10 @@ test("Prompt - confirm returns default value for empty answer", async () => {
   prompt.setQuestion(questionSpy);
 
   const resultTrue = await prompt.confirm("Confirm?", true);
-  expect(resultTrue).toBe(true);
+  assert.strictEqual(resultTrue, true);
 
   const resultFalse = await prompt.confirm("Confirm?", false);
-  expect(resultFalse).toBe(false);
+  assert.strictEqual(resultFalse, false);
 
   prompt.close();
 });
@@ -208,7 +216,7 @@ test("Prompt - confirm is case insensitive", async () => {
 
   const result = await prompt.confirm("Confirm?");
 
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
   prompt.close();
 });
 
@@ -227,25 +235,29 @@ test("Prompt - list returns selected choice value", async () => {
 
   const result = await prompt.list("Choose:", choices);
 
-  expect(result).toBe("opt2");
+  assert.strictEqual(result, "opt2");
   prompt.close();
 });
 
-test("Prompt - list handles invalid choice by returning first option", async () => {
+test("Prompt - list retries an invalid choice", async () => {
   const prompt = new TestablePrompt();
   const choices: PromptChoice[] = [
     { name: "Option 1", value: "opt1" },
     { name: "Option 2", value: "opt2" },
   ];
+  const answers = ["99", "2"];
+  let answerIndex = 0;
 
   const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
-    callback("99");
+    callback(answers[answerIndex] ?? "2");
+    answerIndex += 1;
   });
   prompt.setQuestion(questionSpy);
 
   const result = await prompt.list("Choose:", choices);
 
-  expect(result).toBe("opt1");
+  assert.strictEqual(result, "opt2");
+  assert.strictEqual(answerIndex, 2);
   prompt.close();
 });
 
@@ -260,7 +272,7 @@ test("Prompt - list handles non-numeric input by returning first option", async 
 
   const result = await prompt.list("Choose:", choices);
 
-  expect(result).toBe("opt1");
+  assert.strictEqual(result, "opt1");
   prompt.close();
 });
 
@@ -277,7 +289,7 @@ test("Prompt - prompt method delegates to input for 'input' type", async () => {
     default: "",
   });
 
-  expect(result).toBe("test input");
+  assert.strictEqual(result, "test input");
   prompt.close();
 });
 
@@ -294,7 +306,7 @@ test("Prompt - prompt method delegates to confirm for 'confirm' type", async () 
     default: false,
   });
 
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
   prompt.close();
 });
 
@@ -313,7 +325,7 @@ test("Prompt - prompt method delegates to list for 'list' type", async () => {
     choices,
   });
 
-  expect(result).toBe("a");
+  assert.strictEqual(result, "a");
   prompt.close();
 });
 
@@ -328,7 +340,7 @@ test("Prompt - prompt method defaults to input when type is not specified", asyn
     message: "Enter:",
   });
 
-  expect(result).toBe("default type test");
+  assert.strictEqual(result, "default type test");
   prompt.close();
 });
 
@@ -357,9 +369,9 @@ test("Prompt - promptMany processes multiple questions sequentially", async () =
 
   const results = await prompt.promptMany(questions);
 
-  expect(results.answer0).toBe("answer1");
-  expect(results.answer1).toBe(true);
-  expect(results.answer2).toBe("b");
+  assert.strictEqual(results.answer0, "answer1");
+  assert.strictEqual(results.answer1, true);
+  assert.strictEqual(results.answer2, "b");
   prompt.close();
 });
 
@@ -371,8 +383,8 @@ test("createPrompt executes callback with prompt instance and closes it", async 
     return "test result";
   });
 
-  expect(result).toBe("test result");
-  expect(promptInstance).toBeDefined();
+  assert.strictEqual(result, "test result");
+  assert.notStrictEqual(promptInstance, undefined);
 });
 
 test("createPrompt closes prompt even if callback throws", async () => {
@@ -388,10 +400,10 @@ test("createPrompt closes prompt even if callback throws", async () => {
       throw new Error("Test error");
     });
   } catch (e) {
-    expect((e as Error).message).toBe("Test error");
+    assert.strictEqual((e as Error).message, "Test error");
   }
 
-  expect(didClose).toBe(true);
+  assert.strictEqual(didClose, true);
 });
 
 test("quickConfirm wrapper function works", async () => {
@@ -402,7 +414,7 @@ test("quickConfirm wrapper function works", async () => {
     return prompt.confirm("Test?");
   });
 
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("quickInput wrapper function works", async () => {
@@ -413,7 +425,7 @@ test("quickInput wrapper function works", async () => {
     return prompt.input("Enter:");
   });
 
-  expect(result).toBe("test value");
+  assert.strictEqual(result, "test value");
 });
 
 test("quickList wrapper function works", async () => {
@@ -432,7 +444,7 @@ test("quickList wrapper function works", async () => {
     return prompt.list("Select:", choices);
   });
 
-  expect(result).toBe("2nd");
+  assert.strictEqual(result, "2nd");
 
   console.log = mockLog;
 });
@@ -445,11 +457,11 @@ test("quickConfirm - directly tests the quickConfirm wrapper with default true",
     close: mock(),
   };
 
-  const createInterfaceSpy = spyOn(readline, "createInterface").mockReturnValue(mockReadline);
+  const createInterfaceSpy = createInterface.mockReturnValue(mockReadline);
 
   const result = await quickConfirm("Are you sure?");
 
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 
   createInterfaceSpy.mockRestore();
 });
@@ -462,11 +474,11 @@ test("quickConfirm - directly tests the quickConfirm wrapper with default false"
     close: mock(),
   };
 
-  const createInterfaceSpy = spyOn(readline, "createInterface").mockReturnValue(mockReadline);
+  const createInterfaceSpy = createInterface.mockReturnValue(mockReadline);
 
   const result = await quickConfirm("Are you sure?", false);
 
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 
   createInterfaceSpy.mockRestore();
 });
@@ -479,11 +491,11 @@ test("quickInput - directly tests the quickInput wrapper", async () => {
     close: mock(),
   };
 
-  const createInterfaceSpy = spyOn(readline, "createInterface").mockReturnValue(mockReadline);
+  const createInterfaceSpy = createInterface.mockReturnValue(mockReadline);
 
   const result = await quickInput("Enter name:");
 
-  expect(result).toBe("user input");
+  assert.strictEqual(result, "user input");
 
   createInterfaceSpy.mockRestore();
 });
@@ -496,11 +508,11 @@ test("quickInput - uses default value when provided", async () => {
     close: mock(),
   };
 
-  const createInterfaceSpy = spyOn(readline, "createInterface").mockReturnValue(mockReadline);
+  const createInterfaceSpy = createInterface.mockReturnValue(mockReadline);
 
   const result = await quickInput("Enter name:", "default-name");
 
-  expect(result).toBe("default-name");
+  assert.strictEqual(result, "default-name");
 
   createInterfaceSpy.mockRestore();
 });
@@ -521,11 +533,11 @@ test("quickList - directly tests the quickList wrapper", async () => {
   const mockLog = console.log;
   console.log = () => {};
 
-  const createInterfaceSpy = spyOn(readline, "createInterface").mockReturnValue(mockReadline);
+  const createInterfaceSpy = createInterface.mockReturnValue(mockReadline);
 
   const result = await quickList("Choose option:", choices);
 
-  expect(result).toBe("a");
+  assert.strictEqual(result, "a");
 
   console.log = mockLog;
   createInterfaceSpy.mockRestore();
@@ -547,7 +559,7 @@ test("Prompt - input calls setRawMode(false) when stdin is TTY", async () => {
 
   await prompt.input("Test:");
 
-  expect(setRawModeMock).toHaveBeenCalledWith(false);
+  assertCalledWith(setRawModeMock, false);
 
   process.stdin.isTTY = originalIsTTY;
   process.stdin.setRawMode = originalSetRawMode;
@@ -570,7 +582,7 @@ test("Prompt - confirm calls setRawMode(false) when stdin is TTY", async () => {
 
   await prompt.confirm("Confirm?");
 
-  expect(setRawModeMock).toHaveBeenCalledWith(false);
+  assertCalledWith(setRawModeMock, false);
 
   process.stdin.isTTY = originalIsTTY;
   process.stdin.setRawMode = originalSetRawMode;
@@ -596,7 +608,7 @@ test("Prompt - list calls setRawMode(false) when stdin is TTY", async () => {
 
   await prompt.list("Choose:", [{ name: "Test", value: "test" }]);
 
-  expect(setRawModeMock).toHaveBeenCalledWith(false);
+  assertCalledWith(setRawModeMock, false);
 
   console.log = mockLog;
   process.stdin.isTTY = originalIsTTY;

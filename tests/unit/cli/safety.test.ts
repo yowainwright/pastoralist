@@ -1,4 +1,6 @@
-import { test, expect, mock } from "bun:test";
+import { errorIncludes, mock } from "../setup.ts";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 import type { PastoralistJSON, SecurityAlert } from "../../../src/types";
 import { checkRemovalSafety, compareRemovalSafety } from "../../../src/cli/security";
 
@@ -56,16 +58,26 @@ test("compareRemovalSafety - scans the current dependency set once", async () =>
 
   const comparison = await compareRemovalSafety(config, checker as any, { root: "./" });
 
-  expect(comparison?.status).toBe("safe");
-  expect(comparison?.allowedKeys).toEqual(["unused-pkg@1.0.0"]);
-  expect(comparison?.blockedKeys).toEqual([]);
-  expect(comparison?.beforeAlertCount).toBe(1);
-  expect(comparison?.afterAlertCount).toBe(1);
-  expect(comparison?.beforeRiskScore).toBe(2);
-  expect(comparison?.afterRiskScore).toBe(2);
-  expect(checker.checkSecurity).toHaveBeenCalledTimes(1);
-  expect(checker.checkSecurity.mock.calls[0][0]).toBe(config);
-  expect(checker.checkSecurity.mock.calls[0][1].root).toBe("./");
+  assert.strictEqual(comparison?.status, "safe");
+  assert.deepStrictEqual(comparison?.allowedKeys, ["unused-pkg@1.0.0"]);
+  assert.deepStrictEqual(comparison?.blockedKeys, []);
+  assert.strictEqual(comparison?.beforeAlertCount, 1);
+  assert.strictEqual(comparison?.afterAlertCount, 1);
+  assert.strictEqual(comparison?.beforeRiskScore, 2);
+  assert.strictEqual(comparison?.afterRiskScore, 2);
+  assert.strictEqual(checker.checkSecurity.mock.callCount(), 1);
+  assert.strictEqual(
+    checker.checkSecurity.mock.calls.map((call) =>
+      Array.isArray(call) ? call : call.arguments,
+    )[0][0],
+    config,
+  );
+  assert.strictEqual(
+    checker.checkSecurity.mock.calls.map((call) =>
+      Array.isArray(call) ? call : call.arguments,
+    )[0][1].root,
+    "./",
+  );
 });
 
 test("compareRemovalSafety - blocks removed package when it remains vulnerable", async () => {
@@ -75,10 +87,11 @@ test("compareRemovalSafety - blocks removed package when it remains vulnerable",
 
   const comparison = await compareRemovalSafety(config, checker as any, {});
 
-  expect(comparison?.status).toBe("blocked");
-  expect(comparison?.blockedKeys).toEqual(["unused-pkg@1.0.0"]);
-  expect(comparison?.newVulnerabilityKeys).toEqual([]);
-  expect(comparison?.reason).toBe(
+  assert.strictEqual(comparison?.status, "blocked");
+  assert.deepStrictEqual(comparison?.blockedKeys, ["unused-pkg@1.0.0"]);
+  assert.deepStrictEqual(comparison?.newVulnerabilityKeys, []);
+  assert.strictEqual(
+    comparison?.reason,
     "Removed overrides still resolve to vulnerable packages: unused-pkg@1.0.0.",
   );
 });
@@ -87,7 +100,10 @@ test("compareRemovalSafety - propagates a failed baseline scan", async () => {
   const config = createConfig();
   const checker = createChecker([new Error("scan failed")]);
 
-  await expect(compareRemovalSafety(config, checker as any, {})).rejects.toThrow("scan failed");
+  await assert.rejects(
+    compareRemovalSafety(config, checker as any, {}),
+    errorIncludes("scan failed"),
+  );
 });
 
 test("compareRemovalSafety - uses supplied baseline alerts without rescanning current config", async () => {
@@ -98,9 +114,9 @@ test("compareRemovalSafety - uses supplied baseline alerts without rescanning cu
     securityAlerts: [alert("baseline-pkg", "medium")],
   });
 
-  expect(comparison?.beforeAlertCount).toBe(1);
-  expect(comparison?.afterAlertCount).toBe(1);
-  expect(checker.checkSecurity).not.toHaveBeenCalled();
+  assert.strictEqual(comparison?.beforeAlertCount, 1);
+  assert.strictEqual(comparison?.afterAlertCount, 1);
+  assert.strictEqual(checker.checkSecurity.mock.callCount(), 0);
 });
 
 test("compareRemovalSafety - reuses config security filters for safety scans", async () => {
@@ -113,9 +129,11 @@ test("compareRemovalSafety - reuses config security filters for safety scans", a
 
   await compareRemovalSafety(config, checker as any, {});
 
-  const scanOptions = checker.checkSecurity.mock.calls[0][1];
-  expect(scanOptions.excludePackages).toEqual(["ignored-pkg"]);
-  expect(scanOptions.severityThreshold).toBe("high");
+  const scanOptions = checker.checkSecurity.mock.calls.map((call) =>
+    Array.isArray(call) ? call : call.arguments,
+  )[0][1];
+  assert.deepStrictEqual(scanOptions.excludePackages, ["ignored-pkg"]);
+  assert.strictEqual(scanOptions.severityThreshold, "high");
 });
 
 test("compareRemovalSafety - ignores stale appendix-only entries", async () => {
@@ -134,8 +152,8 @@ test("compareRemovalSafety - ignores stale appendix-only entries", async () => {
 
   const comparison = await compareRemovalSafety(config, checker as any, {});
 
-  expect(comparison).toBeUndefined();
-  expect(checker.checkSecurity).not.toHaveBeenCalled();
+  assert.strictEqual(comparison, undefined);
+  assert.strictEqual(checker.checkSecurity.mock.callCount(), 0);
 });
 
 test("compareRemovalSafety - respects existing skipRemovalKeys", async () => {
@@ -146,9 +164,14 @@ test("compareRemovalSafety - respects existing skipRemovalKeys", async () => {
     skipRemovalKeys: ["skipped@1.0.0"],
   });
 
-  expect(comparison?.removableKeys).toEqual(["removable@1.0.0"]);
-  expect(checker.checkSecurity).toHaveBeenCalledTimes(1);
-  expect(checker.checkSecurity.mock.calls[0][0]).toBe(config);
+  assert.deepStrictEqual(comparison?.removableKeys, ["removable@1.0.0"]);
+  assert.strictEqual(checker.checkSecurity.mock.callCount(), 1);
+  assert.strictEqual(
+    checker.checkSecurity.mock.calls.map((call) =>
+      Array.isArray(call) ? call : call.arguments,
+    )[0][0],
+    config,
+  );
 });
 
 test("compareRemovalSafety - recognizes pnpm override candidates", async () => {
@@ -168,7 +191,7 @@ test("compareRemovalSafety - recognizes pnpm override candidates", async () => {
 
   const comparison = await compareRemovalSafety(config, checker as any, {});
 
-  expect(comparison?.removableKeys).toEqual(["pnpm-pkg@1.0.0"]);
+  assert.deepStrictEqual(comparison?.removableKeys, ["pnpm-pkg@1.0.0"]);
 });
 
 test("compareRemovalSafety - recognizes resolution candidates", async () => {
@@ -188,7 +211,7 @@ test("compareRemovalSafety - recognizes resolution candidates", async () => {
 
   const comparison = await compareRemovalSafety(config, checker as any, {});
 
-  expect(comparison?.removableKeys).toEqual(["yarn-pkg@1.0.0"]);
+  assert.deepStrictEqual(comparison?.removableKeys, ["yarn-pkg@1.0.0"]);
 });
 
 test("checkRemovalSafety - preserves legacy blocked-key return shape", async () => {
@@ -197,5 +220,5 @@ test("checkRemovalSafety - preserves legacy blocked-key return shape", async () 
 
   const result = await checkRemovalSafety(config, checker as any, {});
 
-  expect(result).toEqual(["unused-pkg@1.0.0"]);
+  assert.deepStrictEqual(result, ["unused-pkg@1.0.0"]);
 });

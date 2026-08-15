@@ -1,4 +1,4 @@
-import { mock } from "bun:test";
+import { mock } from "../setup.ts";
 import type { SetupResult } from "../../../src/core/security/setup";
 
 export const MOCK_TOKENS = {
@@ -132,7 +132,7 @@ export const withMockedGhCliAuth = async <T>(
   isAuthenticated: boolean,
   fn: () => Promise<T>,
 ): Promise<T> => {
-  const { spyOn } = await import("bun:test");
+  const { spyOn } = await import("../setup.ts");
   const { SecuritySetupWizard } = await import("../../../src/core/security/setup");
 
   const spy = spyOn(

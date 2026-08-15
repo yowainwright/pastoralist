@@ -7,21 +7,21 @@ import {
   PackageManagerAuditProvider,
 } from "./providers";
 import {
-  SecurityAlert,
-  SecurityCheckProgress,
-  SecurityCheckResult,
-  SecurityCheckRuntimeOptions,
-  SecurityOverride,
-  SecurityProvider,
-  SecurityProviderFactoryOptions,
-  SecurityPackage,
-  OverrideUpdate,
-  SecurityOverrideDetail,
-  WorkspaceVulnerabilityState,
-  SecurityProviderScanOptions,
-  SecurityProviderType,
+  type SecurityAlert,
+  type SecurityCheckProgress,
+  type SecurityCheckResult,
+  type SecurityCheckRuntimeOptions,
+  type SecurityOverride,
+  type SecurityProvider,
+  type SecurityProviderFactoryOptions,
+  type SecurityPackage,
+  type OverrideUpdate,
+  type SecurityOverrideDetail,
+  type WorkspaceVulnerabilityState,
+  type SecurityProviderScanOptions,
+  type SecurityProviderType,
 } from "../../types";
-import { Appendix, PastoralistJSON, OverridesType } from "../../types";
+import type { Appendix, PastoralistJSON, OverridesType } from "../../types";
 import {
   applyOverridesToSourceConfig,
   resolveOverrideSource,

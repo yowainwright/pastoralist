@@ -1,6 +1,6 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
-import { SecurityAlert, SocketResult, SocketPackage, SocketIssue } from "../../../types";
+import type { SecurityAlert, SocketResult, SocketPackage, SocketIssue } from "../../../types";
 import { logger } from "../../../utils";
 import { CLIInstaller } from "../utils";
 import { AUTH_MESSAGES } from "../constants";

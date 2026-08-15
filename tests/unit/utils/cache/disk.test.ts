@@ -1,4 +1,5 @@
-import { test, expect, afterEach } from "bun:test";
+import { test, afterEach } from "node:test";
+import assert from "node:assert/strict";
 import { randomUUID } from "crypto";
 import { join } from "path";
 import { tmpdir } from "os";
@@ -33,26 +34,26 @@ test("DiskCache - set and get returns value", () => {
   const dir = tmpCacheDir();
   const cache = new DiskCache<string>("test", { dir, ttl: 60000, version: 1 });
   cache.set("key1", "value1");
-  expect(cache.get("key1")).toBe("value1");
+  assert.strictEqual(cache.get("key1"), "value1");
 });
 
 test("DiskCache - get returns undefined for missing key", () => {
   const dir = tmpCacheDir();
   const cache = new DiskCache<string>("test", { dir, ttl: 60000, version: 1 });
-  expect(cache.get("missing")).toBeUndefined();
+  assert.strictEqual(cache.get("missing"), undefined);
 });
 
 test("DiskCache - has returns true for existing key", () => {
   const dir = tmpCacheDir();
   const cache = new DiskCache<string>("test", { dir, ttl: 60000, version: 1 });
   cache.set("k", "v");
-  expect(cache.has("k")).toBe(true);
+  assert.strictEqual(cache.has("k"), true);
 });
 
 test("DiskCache - has returns false for missing key", () => {
   const dir = tmpCacheDir();
   const cache = new DiskCache<string>("test", { dir, ttl: 60000, version: 1 });
-  expect(cache.has("missing")).toBe(false);
+  assert.strictEqual(cache.has("missing"), false);
 });
 
 test("DiskCache - delete removes entry", () => {
@@ -60,7 +61,7 @@ test("DiskCache - delete removes entry", () => {
   const cache = new DiskCache<string>("test", { dir, ttl: 60000, version: 1 });
   cache.set("k", "v");
   cache.delete("k");
-  expect(cache.get("k")).toBeUndefined();
+  assert.strictEqual(cache.get("k"), undefined);
 });
 
 test("DiskCache - clear removes all entries", () => {
@@ -69,8 +70,8 @@ test("DiskCache - clear removes all entries", () => {
   cache.set("a", "1");
   cache.set("b", "2");
   cache.clear();
-  expect(cache.get("a")).toBeUndefined();
-  expect(cache.get("b")).toBeUndefined();
+  assert.strictEqual(cache.get("a"), undefined);
+  assert.strictEqual(cache.get("b"), undefined);
 });
 
 test("DiskCache - persists across instances", () => {
@@ -79,7 +80,7 @@ test("DiskCache - persists across instances", () => {
   cache1.set("persistent", "yes");
 
   const cache2 = new DiskCache<string>("ns", { dir, ttl: 60000, version: 1 });
-  expect(cache2.get("persistent")).toBe("yes");
+  assert.strictEqual(cache2.get("persistent"), "yes");
 });
 
 test("DiskCache - expired entry returns undefined", () => {
@@ -88,7 +89,7 @@ test("DiskCache - expired entry returns undefined", () => {
   cache.set("k", "v");
   return new Promise<void>((resolve) => {
     setTimeout(() => {
-      expect(cache.get("k")).toBeUndefined();
+      assert.strictEqual(cache.get("k"), undefined);
       resolve();
     }, 10);
   });
@@ -102,7 +103,7 @@ test("DiskCache - prune removes expired entries", () => {
   return new Promise<void>((resolve) => {
     setTimeout(() => {
       const pruned = cache.prune();
-      expect(pruned).toBe(2);
+      assert.strictEqual(pruned, 2);
       resolve();
     }, 10);
   });
@@ -114,9 +115,9 @@ test("DiskCache - corrupt file returns empty, next set succeeds", () => {
   writeFileSync(filePath, "{broken json");
 
   const cache = new DiskCache<string>("test", { dir, ttl: 60000, version: 1 });
-  expect(cache.get("k")).toBeUndefined();
+  assert.strictEqual(cache.get("k"), undefined);
   cache.set("k", "v");
-  expect(cache.get("k")).toBe("v");
+  assert.strictEqual(cache.get("k"), "v");
 });
 
 test("DiskCache - invalid entries return empty, next set succeeds", () => {
@@ -128,9 +129,9 @@ test("DiskCache - invalid entries return empty, next set succeeds", () => {
   );
 
   const cache = new DiskCache<string>("test", { dir, ttl: 60000, version: 1 });
-  expect(cache.get("k")).toBeUndefined();
+  assert.strictEqual(cache.get("k"), undefined);
   cache.set("k", "v");
-  expect(cache.get("k")).toBe("v");
+  assert.strictEqual(cache.get("k"), "v");
 });
 
 test("DiskCache - setting a key does not rewrite existing entry files", () => {
@@ -143,8 +144,8 @@ test("DiskCache - setting a key does not rewrite existing entry files", () => {
 
   cache.set("small", "value");
 
-  expect(statSync(firstEntry).mtimeMs).toBe(firstModifiedAt);
-  expect(cache.get("large")).toBe("x".repeat(100_000));
+  assert.strictEqual(statSync(firstEntry).mtimeMs, firstModifiedAt);
+  assert.strictEqual(cache.get("large"), "x".repeat(100_000));
 });
 
 test("DiskCache - version mismatch treats cache as empty", () => {
@@ -153,7 +154,7 @@ test("DiskCache - version mismatch treats cache as empty", () => {
   v1.set("k", "old");
 
   const v2 = new DiskCache<string>("ns", { dir, ttl: 60000, version: 2 });
-  expect(v2.get("k")).toBeUndefined();
+  assert.strictEqual(v2.get("k"), undefined);
 });
 
 test("DiskCache - disabled cache never reads or writes", () => {
@@ -165,8 +166,8 @@ test("DiskCache - disabled cache never reads or writes", () => {
     enabled: false,
   });
   cache.set("k", "v");
-  expect(cache.get("k")).toBeUndefined();
-  expect(existsSync(join(dir, "test.json"))).toBe(false);
+  assert.strictEqual(cache.get("k"), undefined);
+  assert.strictEqual(existsSync(join(dir, "test.json")), false);
 });
 
 test("DiskCache - trims to maxEntries on overflow", () => {
@@ -189,7 +190,7 @@ test("DiskCache - trims to maxEntries on overflow", () => {
     maxEntries: 3,
   });
   const keys = ["a", "b", "c", "d"].filter((k) => cache2.get(k) !== undefined);
-  expect(keys.length).toBe(3);
+  assert.strictEqual(keys.length, 3);
 });
 
 test("hashLockfile - returns consistent hash for same content", () => {
@@ -197,8 +198,8 @@ test("hashLockfile - returns consistent hash for same content", () => {
   writeFileSync(join(dir, "bun.lock"), "lockfile content A");
   const h1 = hashLockfile(dir);
   const h2 = hashLockfile(dir);
-  expect(h1).toBe(h2);
-  expect(h1).not.toBe("no-lockfile");
+  assert.strictEqual(h1, h2);
+  assert.notStrictEqual(h1, "no-lockfile");
 });
 
 test("hashLockfile - returns different hashes for different content", () => {
@@ -206,30 +207,30 @@ test("hashLockfile - returns different hashes for different content", () => {
   const dirB = tmpCacheDir();
   writeFileSync(join(dirA, "bun.lock"), "content A");
   writeFileSync(join(dirB, "bun.lock"), "content B");
-  expect(hashLockfile(dirA)).not.toBe(hashLockfile(dirB));
+  assert.notStrictEqual(hashLockfile(dirA), hashLockfile(dirB));
 });
 
 test("hashLockfile - returns no-lockfile when no lockfile found", () => {
   const dir = tmpCacheDir();
-  expect(hashLockfile(dir)).toBe("no-lockfile");
+  assert.strictEqual(hashLockfile(dir), "no-lockfile");
 });
 
 test("resolveCacheDir - returns provided cacheDir", () => {
   const dir = tmpCacheDir();
-  expect(resolveCacheDir({ cacheDir: dir })).toBe(dir);
+  assert.strictEqual(resolveCacheDir({ cacheDir: dir }), dir);
 });
 
 test("resolveCacheDir - prefers project node_modules cache", () => {
   const root = tmpCacheDir();
   const expected = join(root, "node_modules", ".cache", "pastoralist");
-  expect(resolveCacheDir({ root })).toBe(expected);
+  assert.strictEqual(resolveCacheDir({ root }), expected);
 });
 
 test("resolveCacheDir - reads PASTORALIST_CACHE_DIR env", () => {
   const dir = tmpCacheDir();
   process.env.PASTORALIST_CACHE_DIR = dir;
   try {
-    expect(resolveCacheDir()).toBe(dir);
+    assert.strictEqual(resolveCacheDir(), dir);
   } finally {
     delete process.env.PASTORALIST_CACHE_DIR;
   }
@@ -240,7 +241,7 @@ test("resolveCacheDir - flag takes precedence over env", () => {
   const envDir = tmpCacheDir();
   process.env.PASTORALIST_CACHE_DIR = envDir;
   try {
-    expect(resolveCacheDir({ cacheDir: flagDir })).toBe(flagDir);
+    assert.strictEqual(resolveCacheDir({ cacheDir: flagDir }), flagDir);
   } finally {
     delete process.env.PASTORALIST_CACHE_DIR;
   }
@@ -255,7 +256,7 @@ test("detectCIEnv - returns false when no CI env", () => {
   delete process.env.GITLAB_CI;
   try {
     const result = detectCIEnv();
-    expect(typeof result).toBe("boolean");
+    assert.strictEqual(typeof result, "boolean");
   } finally {
     if (savedCI) process.env.CI = savedCI;
     if (savedGA) process.env.GITHUB_ACTIONS = savedGA;
@@ -266,7 +267,7 @@ test("detectCIEnv - returns false when no CI env", () => {
 test("detectCIEnv - returns true when CI=true", () => {
   process.env.CI = "true";
   try {
-    expect(detectCIEnv()).toBe(true);
+    assert.strictEqual(detectCIEnv(), true);
   } finally {
     delete process.env.CI;
   }
@@ -275,7 +276,7 @@ test("detectCIEnv - returns true when CI=true", () => {
 test("detectCIEnv - returns true when GITHUB_ACTIONS=true", () => {
   process.env.GITHUB_ACTIONS = "true";
   try {
-    expect(detectCIEnv()).toBe(true);
+    assert.strictEqual(detectCIEnv(), true);
   } finally {
     delete process.env.GITHUB_ACTIONS;
   }
@@ -290,7 +291,7 @@ test("pruneBackups - keeps most recent N files", () => {
   pruneBackups(dir, { keep: 5, maxAgeMs: 999999999 });
 
   const remaining = readdirSync(dir).filter((f) => f.includes(".backup-"));
-  expect(remaining.length).toBe(5);
+  assert.strictEqual(remaining.length, 5);
 });
 
 test("pruneBackups - is no-op for non-backup files", () => {
@@ -301,19 +302,19 @@ test("pruneBackups - is no-op for non-backup files", () => {
   pruneBackups(dir, { keep: 5, maxAgeMs: 999999999 });
 
   const remaining = readdirSync(dir);
-  expect(remaining).toContain("registry.json");
-  expect(remaining).toContain("osv.json");
+  assert.ok(remaining.includes("registry.json"));
+  assert.ok(remaining.includes("osv.json"));
 });
 
 test("pruneBackups - does not throw on empty dir", () => {
   const dir = tmpCacheDir();
-  expect(() => pruneBackups(dir)).not.toThrow();
+  assert.doesNotThrow(() => pruneBackups(dir));
 });
 
 test("pruneBackups - does not throw on missing dir", () => {
-  expect(() => pruneBackups("/nonexistent/path")).not.toThrow();
+  assert.doesNotThrow(() => pruneBackups("/nonexistent/path"));
 });
 
 test("DISK_CACHE_SCHEMA_VERSION is 1", () => {
-  expect(DISK_CACHE_SCHEMA_VERSION).toBe(1);
+  assert.strictEqual(DISK_CACHE_SCHEMA_VERSION, 1);
 });

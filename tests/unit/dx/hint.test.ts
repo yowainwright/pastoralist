@@ -1,10 +1,25 @@
-import { test, expect, beforeEach, afterEach, mock, spyOn } from "bun:test";
+import { test, beforeEach, afterEach, mock as moduleMock } from "node:test";
+import { mock } from "../setup.ts";
+import assert from "node:assert/strict";
 import { existsSync, mkdirSync, writeFileSync, rmSync } from "fs";
+import * as fs from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import { showHint, clearHintCache } from "../../../src/dx/hint";
 import type { Output } from "../../../src/dx/output";
 import { resolveCacheDir } from "../../../src/utils/cache";
+
+const writeFileSyncMock = mock(fs.writeFileSync);
+
+moduleMock.module("fs", {
+  namedExports: {
+    existsSync: fs.existsSync,
+    mkdirSync: fs.mkdirSync,
+    readFileSync: fs.readFileSync,
+    writeFileSync: writeFileSyncMock,
+  },
+});
+
+const { showHint, clearHintCache } = await import("../../../src/dx/hint");
 
 function createMockOutput(): { output: Output; calls: string[] } {
   const calls: string[] = [];
@@ -30,8 +45,8 @@ test("showHint - displays hint when cache is empty", () => {
   const { output, calls } = createMockOutput();
   showHint("test-hint-1", "Test message", undefined, output);
   const joined = calls.join("");
-  expect(joined).toContain("Test");
-  expect(joined).toContain("message");
+  assert.ok(joined.includes("Test"));
+  assert.ok(joined.includes("message"));
 });
 
 test("showHint - skips hint when recently shown", () => {
@@ -39,7 +54,7 @@ test("showHint - skips hint when recently shown", () => {
   showHint("test-hint-2", "First display", undefined, output);
   const firstCount = calls.length;
   showHint("test-hint-2", "Second display", undefined, output);
-  expect(calls.length).toBe(firstCount);
+  assert.strictEqual(calls.length, firstCount);
 });
 
 test("showHint - different hint IDs are independent", () => {
@@ -47,7 +62,7 @@ test("showHint - different hint IDs are independent", () => {
   showHint("hint-a", "Message A", undefined, output);
   const afterFirst = calls.length;
   showHint("hint-b", "Message B", undefined, output);
-  expect(calls.length).toBeGreaterThan(afterFirst);
+  assert.ok(calls.length > afterFirst);
 });
 
 test("showHint - respects custom TTL", async () => {
@@ -56,7 +71,7 @@ test("showHint - respects custom TTL", async () => {
   const afterFirst = calls.length;
   await new Promise((r) => setTimeout(r, 5));
   showHint("ttl-hint", "Message", 1, output);
-  expect(calls.length).toBeGreaterThan(afterFirst);
+  assert.ok(calls.length > afterFirst);
 });
 
 test("clearHintCache - allows hint to show again", () => {
@@ -64,19 +79,19 @@ test("clearHintCache - allows hint to show again", () => {
   showHint("clear-test", "Message", undefined, output);
   const afterFirst = calls.length;
   showHint("clear-test", "Message", undefined, output);
-  expect(calls.length).toBe(afterFirst);
+  assert.strictEqual(calls.length, afterFirst);
   clearHintCache();
   showHint("clear-test", "Message", undefined, output);
-  expect(calls.length).toBeGreaterThan(afterFirst);
+  assert.ok(calls.length > afterFirst);
 });
 
 test("showHint - renders box with border", () => {
   const { output, calls } = createMockOutput();
   showHint("box-test", "Test content", undefined, output);
   const joined = calls.join("");
-  expect(joined).toContain("+");
-  expect(joined).toContain("-");
-  expect(joined).toContain("|");
+  assert.ok(joined.includes("+"));
+  assert.ok(joined.includes("-"));
+  assert.ok(joined.includes("|"));
 });
 
 test("showHint - wraps long text", () => {
@@ -85,8 +100,8 @@ test("showHint - wraps long text", () => {
     "This is a very long message that should wrap across multiple lines in the hint box";
   showHint("wrap-test", longText, undefined, output);
   const joined = calls.join("");
-  expect(joined).toContain("This");
-  expect(joined).toContain("wrap");
+  assert.ok(joined.includes("This"));
+  assert.ok(joined.includes("wrap"));
 });
 
 test("showHint - handles corrupt cache file gracefully", () => {
@@ -100,8 +115,8 @@ test("showHint - handles corrupt cache file gracefully", () => {
 
   const { output, calls } = createMockOutput();
   showHint("corrupt-test", "Message after corrupt", undefined, output);
-  expect(calls.length).toBeGreaterThan(0);
-  expect(calls.join("")).toContain("Message");
+  assert.ok(calls.length > 0);
+  assert.ok(calls.join("").includes("Message"));
 });
 
 test("saveHintCache - creates cache dir when it does not exist", () => {
@@ -115,8 +130,8 @@ test("saveHintCache - creates cache dir when it does not exist", () => {
     const { output, calls } = createMockOutput();
     showHint("new-dir-test", "Message", undefined, output);
 
-    expect(calls.join("")).toContain("Message");
-    expect(existsSync(tmpCacheDir)).toBe(true);
+    assert.ok(calls.join("").includes("Message"));
+    assert.strictEqual(existsSync(tmpCacheDir), true);
   } finally {
     if (existsSync(tmpCacheDir)) rmSync(tmpCacheDir, { recursive: true, force: true });
     if (prevEnv === undefined) delete process.env.PASTORALIST_CACHE_DIR;
@@ -131,22 +146,20 @@ test("clearHintCache - does not throw when writeFileSync fails", () => {
   if (!existsSync(cacheDir)) mkdirSync(cacheDir, { recursive: true });
   writeFileSync(cacheFile, "{}");
 
-  const fs = require("fs");
-  const spy = spyOn(fs, "writeFileSync").mockImplementationOnce(() => {
+  const spy = writeFileSyncMock.mockImplementationOnce(() => {
     throw new Error("disk full");
   });
 
-  expect(() => clearHintCache()).not.toThrow();
+  assert.doesNotThrow(() => clearHintCache());
   spy.mockRestore();
 });
 
 test("saveHintCache - does not throw when write fails", () => {
-  const fs = require("fs");
-  const spy = spyOn(fs, "writeFileSync").mockImplementationOnce(() => {
+  const spy = writeFileSyncMock.mockImplementationOnce(() => {
     throw new Error("disk full");
   });
 
   const { output } = createMockOutput();
-  expect(() => showHint("write-fail-test", "Message", undefined, output)).not.toThrow();
+  assert.doesNotThrow(() => showHint("write-fail-test", "Message", undefined, output));
   spy.mockRestore();
 });

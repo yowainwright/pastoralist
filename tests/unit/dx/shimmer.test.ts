@@ -1,4 +1,5 @@
-import { test, expect, describe } from "bun:test";
+import { test, describe } from "node:test";
+import assert from "node:assert/strict";
 import { playShimmer, shimmerFrame } from "../../../src/dx/shimmer";
 import type { Output } from "../../../src/dx/output";
 
@@ -30,22 +31,22 @@ describe("shimmer", () => {
   describe("shimmerFrame", () => {
     test("returns empty string for empty input", () => {
       const result = shimmerFrame("", 0);
-      expect(result).toBe("");
+      assert.strictEqual(result, "");
     });
 
     test("applies gold shimmer effect to text", () => {
       const result = shimmerFrame("Test", 0);
-      expect(result).toContain("\x1b[1m");
-      expect(result).toContain("\x1b[0m");
+      assert.ok(result.includes("\x1b[1m"));
+      assert.ok(result.includes("\x1b[0m"));
       const stripped = stripAnsi(result);
-      expect(stripped).toBe("Test");
+      assert.strictEqual(stripped, "Test");
     });
 
     test("preserves spaces without coloring", () => {
       const result = shimmerFrame("Hello World", 0);
       const stripped = stripAnsi(result);
-      expect(stripped).toBe("Hello World");
-      expect(result).toContain(" ");
+      assert.strictEqual(stripped, "Hello World");
+      assert.ok(result.includes(" "));
     });
 
     test("varies intensity based on offset position", () => {
@@ -53,30 +54,30 @@ describe("shimmer", () => {
       const frame1 = shimmerFrame(text, 0);
       const frame2 = shimmerFrame(text, 0.5);
 
-      expect(frame1).not.toBe(frame2);
-      expect(stripAnsi(frame1)).toBe("Shimmer");
-      expect(stripAnsi(frame2)).toBe("Shimmer");
+      assert.notStrictEqual(frame1, frame2);
+      assert.strictEqual(stripAnsi(frame1), "Shimmer");
+      assert.strictEqual(stripAnsi(frame2), "Shimmer");
     });
 
     test("wraps shimmer effect across text", () => {
       const text = "LongText";
       const result = shimmerFrame(text, 0.9);
 
-      expect(result).toContain("\x1b[1m");
-      expect(stripAnsi(result)).toBe(text);
-      expect(result).toEndWith("\x1b[0m");
+      assert.ok(result.includes("\x1b[1m"));
+      assert.strictEqual(stripAnsi(result), text);
+      assert.ok(result.endsWith("\x1b[0m"));
     });
 
     test("handles single character", () => {
       const result = shimmerFrame("X", 0);
-      expect(stripAnsi(result)).toBe("X");
-      expect(result).toContain("\x1b[1m");
-      expect(result).toContain("\x1b[0m");
+      assert.strictEqual(stripAnsi(result), "X");
+      assert.ok(result.includes("\x1b[1m"));
+      assert.ok(result.includes("\x1b[0m"));
     });
 
     test("handles text with only spaces", () => {
       const result = shimmerFrame("   ", 0);
-      expect(result).toBe("\x1b[1m   \x1b[0m");
+      assert.strictEqual(result, "\x1b[1m   \x1b[0m");
     });
   });
 
@@ -86,9 +87,9 @@ describe("shimmer", () => {
 
       playShimmer("Test text", 50, output, "", "", false);
 
-      expect(output.lines.length).toBe(1);
+      assert.strictEqual(output.lines.length, 1);
       const stripped = stripAnsi(output.lines[0]);
-      expect(stripped).toBe("Test text");
+      assert.strictEqual(stripped, "Test text");
     });
 
     test("includes prefix and suffix in output", () => {
@@ -96,10 +97,10 @@ describe("shimmer", () => {
 
       playShimmer("Hello", 50, output, ">>> ", " <<<", false);
 
-      expect(output.lines[0]).toContain(">>> ");
-      expect(output.lines[0]).toContain(" <<<");
+      assert.ok(output.lines[0].includes(">>> "));
+      assert.ok(output.lines[0].includes(" <<<"));
       const stripped = stripAnsi(output.lines[0]);
-      expect(stripped).toContain("Hello");
+      assert.ok(stripped.includes("Hello"));
     });
 
     test("applies shimmer styling with ANSI codes", () => {
@@ -108,17 +109,19 @@ describe("shimmer", () => {
       playShimmer("Styled", 50, output, "", "", false);
 
       const line = output.lines[0];
-      expect(line).toContain("\x1b[1m");
-      expect(line).toContain("\x1b[0m");
+      assert.ok(line.includes("\x1b[1m"));
+      assert.ok(line.includes("\x1b[0m"));
     });
 
-    test("animates when TTY is true", () => {
+    test("animates without blocking until the final frame", async () => {
       const output = createMockOutput();
 
-      playShimmer("Animated", 1, output, "", "", true);
+      const animation = playShimmer("Animated", 1, output, "", "", true);
 
-      expect(output.written.length).toBeGreaterThan(0);
-      expect(output.lines.length).toBe(1);
+      assert.strictEqual(output.lines.length, 0);
+      await animation;
+      assert.ok(output.written.length > 0);
+      assert.strictEqual(output.lines.length, 1);
     });
 
     test("uses default frame interval", () => {
@@ -126,7 +129,7 @@ describe("shimmer", () => {
 
       playShimmer("Default interval", undefined, output, "", "", false);
 
-      expect(output.lines.length).toBe(1);
+      assert.strictEqual(output.lines.length, 1);
     });
   });
 });

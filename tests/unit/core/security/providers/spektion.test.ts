@@ -1,4 +1,6 @@
-import { test, expect, mock, beforeEach, afterEach } from "bun:test";
+import { errorIncludes, mock } from "../../../setup.ts";
+import { test, beforeEach, afterEach } from "node:test";
+import assert from "node:assert/strict";
 import { SpektionProvider } from "../../../../../src/core/security/providers/spektion";
 
 const originalFetch = globalThis.fetch;
@@ -14,46 +16,46 @@ afterEach(() => {
 
 test("providerType - should be 'spektion'", () => {
   const provider = new SpektionProvider({ debug: false });
-  expect(provider.providerType).toBe("spektion");
+  assert.strictEqual(provider.providerType, "spektion");
 });
 
 test("Construction - should create provider without token", () => {
   const provider = new SpektionProvider({ debug: false });
-  expect(provider).toBeDefined();
+  assert.notStrictEqual(provider, undefined);
 });
 
 test("Construction - should create provider with token", () => {
   const provider = new SpektionProvider({ debug: false, token: "test-key" });
-  expect(provider).toBeDefined();
-  expect((provider as any).token).toBe("test-key");
+  assert.notStrictEqual(provider, undefined);
+  assert.strictEqual((provider as any).token, "test-key");
 });
 
 test("Construction - should read token from SPEKTION_API_KEY env var", () => {
   process.env.SPEKTION_API_KEY = "env-key";
   const provider = new SpektionProvider({ debug: false });
-  expect((provider as any).token).toBe("env-key");
+  assert.strictEqual((provider as any).token, "env-key");
 });
 
 test("Construction - should default strict to false", () => {
   const provider = new SpektionProvider({ debug: false });
-  expect((provider as any).strict).toBe(false);
+  assert.strictEqual((provider as any).strict, false);
 });
 
 test("Construction - should set strict mode when provided", () => {
   const provider = new SpektionProvider({ debug: false, strict: true });
-  expect((provider as any).strict).toBe(true);
+  assert.strictEqual((provider as any).strict, true);
 });
 
 test("isAuthenticated - should return true when token exists", async () => {
   const provider = new SpektionProvider({ debug: false, token: "test-key" });
   const result = await provider.isAuthenticated();
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("isAuthenticated - should return false when no token", async () => {
   const provider = new SpektionProvider({ debug: false });
   const result = await provider.isAuthenticated();
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 });
 
 test("fetchAlerts - should return empty array when no token", async () => {
@@ -62,8 +64,8 @@ test("fetchAlerts - should return empty array when no token", async () => {
   const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }], {
     onIncomplete,
   });
-  expect(alerts).toEqual([]);
-  expect(onIncomplete).toHaveBeenCalledTimes(1);
+  assert.deepStrictEqual(alerts, []);
+  assert.strictEqual(onIncomplete.mock.callCount(), 1);
 });
 
 test("fetchAlerts - should reject a complete scan when no token is available", async () => {
@@ -72,7 +74,7 @@ test("fetchAlerts - should reject a complete scan when no token is available", a
     requireCompleteScan: true,
   });
 
-  await expect(scan).rejects.toThrow("Spektion requires authentication");
+  await assert.rejects(scan, errorIncludes("Spektion requires authentication"));
 });
 
 test("fetchAlerts - should return alerts on successful scan", async () => {
@@ -102,16 +104,16 @@ test("fetchAlerts - should return alerts on successful scan", async () => {
   const provider = new SpektionProvider({ debug: false, token: "test-key" });
   const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]);
 
-  expect(alerts.length).toBe(1);
-  expect(alerts[0].packageName).toBe("lodash");
-  expect(alerts[0].currentVersion).toBe("4.17.20");
-  expect(alerts[0].severity).toBe("high");
-  expect(alerts[0].title).toBe("Prototype Pollution");
-  expect(alerts[0].description).toBe("Prototype pollution vulnerability");
-  expect(alerts[0].cves).toEqual(["CVE-2020-8203"]);
-  expect(alerts[0].url).toBe("https://spektion.io/vuln/CVE-2020-8203");
-  expect(alerts[0].patchedVersion).toBe("4.17.21");
-  expect(alerts[0].fixAvailable).toBe(true);
+  assert.strictEqual(alerts.length, 1);
+  assert.strictEqual(alerts[0].packageName, "lodash");
+  assert.strictEqual(alerts[0].currentVersion, "4.17.20");
+  assert.strictEqual(alerts[0].severity, "high");
+  assert.strictEqual(alerts[0].title, "Prototype Pollution");
+  assert.strictEqual(alerts[0].description, "Prototype pollution vulnerability");
+  assert.deepStrictEqual(alerts[0].cves, ["CVE-2020-8203"]);
+  assert.strictEqual(alerts[0].url, "https://spektion.io/vuln/CVE-2020-8203");
+  assert.strictEqual(alerts[0].patchedVersion, "4.17.21");
+  assert.strictEqual(alerts[0].fixAvailable, true);
 });
 
 test("fetchAlerts - should handle vulnerability without optional fields", async () => {
@@ -136,12 +138,12 @@ test("fetchAlerts - should handle vulnerability without optional fields", async 
   const provider = new SpektionProvider({ debug: false, token: "test-key" });
   const alerts = await provider.fetchAlerts([{ name: "express", version: "4.18.0" }]);
 
-  expect(alerts.length).toBe(1);
-  expect(alerts[0].packageName).toBe("express");
-  expect(alerts[0].cves).toBeUndefined();
-  expect(alerts[0].url).toBeUndefined();
-  expect(alerts[0].patchedVersion).toBeUndefined();
-  expect(alerts[0].fixAvailable).toBe(false);
+  assert.strictEqual(alerts.length, 1);
+  assert.strictEqual(alerts[0].packageName, "express");
+  assert.strictEqual(alerts[0].cves, undefined);
+  assert.strictEqual(alerts[0].url, undefined);
+  assert.strictEqual(alerts[0].patchedVersion, undefined);
+  assert.strictEqual(alerts[0].fixAvailable, false);
 });
 
 test("fetchAlerts - should return empty array when vulnerabilities list is empty", async () => {
@@ -155,7 +157,7 @@ test("fetchAlerts - should return empty array when vulnerabilities list is empty
   const provider = new SpektionProvider({ debug: false, token: "test-key" });
   const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.21" }]);
 
-  expect(alerts).toEqual([]);
+  assert.deepStrictEqual(alerts, []);
 });
 
 test("fetchAlerts - should return empty array on HTTP error in non-strict mode", async () => {
@@ -176,8 +178,8 @@ test("fetchAlerts - should return empty array on HTTP error in non-strict mode",
     onIncomplete,
   });
 
-  expect(alerts).toEqual([]);
-  expect(onIncomplete).toHaveBeenCalledTimes(1);
+  assert.deepStrictEqual(alerts, []);
+  assert.strictEqual(onIncomplete.mock.callCount(), 1);
 });
 
 test("fetchAlerts - should reject incomplete HTTP scans when non-strict", async () => {
@@ -188,7 +190,7 @@ test("fetchAlerts - should reject incomplete HTTP scans when non-strict", async 
     requireCompleteScan: true,
   });
 
-  await expect(scan).rejects.toThrow("Spektion security check failed");
+  await assert.rejects(scan, errorIncludes("Spektion security check failed"));
 });
 
 test("fetchAlerts - should throw on HTTP error in strict mode", async () => {
@@ -205,8 +207,9 @@ test("fetchAlerts - should throw on HTTP error in strict mode", async () => {
     strict: true,
   });
 
-  await expect(provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }])).rejects.toThrow(
-    "Spektion security check failed",
+  await assert.rejects(
+    provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]),
+    errorIncludes("Spektion security check failed"),
   );
 });
 
@@ -220,7 +223,7 @@ test("fetchAlerts - should return empty array on network error in non-strict mod
   });
   const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]);
 
-  expect(alerts).toEqual([]);
+  assert.deepStrictEqual(alerts, []);
 });
 
 test("fetchAlerts - should throw on network error in strict mode", async () => {
@@ -232,8 +235,9 @@ test("fetchAlerts - should throw on network error in strict mode", async () => {
     strict: true,
   });
 
-  await expect(provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }])).rejects.toThrow(
-    "Spektion security check failed",
+  await assert.rejects(
+    provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]),
+    errorIncludes("Spektion security check failed"),
   );
 });
 
@@ -246,8 +250,9 @@ test("fetchAlerts - should handle non-Error exceptions in strict mode", async ()
     strict: true,
   });
 
-  await expect(provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }])).rejects.toThrow(
-    "Spektion security check failed",
+  await assert.rejects(
+    provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]),
+    errorIncludes("Spektion security check failed"),
   );
 });
 
@@ -282,7 +287,7 @@ test("fetchAlerts - should map severity levels correctly", async () => {
 
     const provider = new SpektionProvider({ debug: false, token: "test-key" });
     const alerts = await provider.fetchAlerts([{ name: "test-pkg", version: "1.0.0" }]);
-    expect(alerts[0].severity).toBe(expected);
+    assert.strictEqual(alerts[0].severity, expected);
   }
 });
 
@@ -307,8 +312,8 @@ test("fetchAlerts - should filter out invalid vulnerabilities", async () => {
   const provider = new SpektionProvider({ debug: false, token: "test-key" });
   const alerts = await provider.fetchAlerts([{ name: "valid", version: "1.0.0" }]);
 
-  expect(alerts.length).toBe(1);
-  expect(alerts[0].packageName).toBe("valid");
+  assert.strictEqual(alerts.length, 1);
+  assert.strictEqual(alerts[0].packageName, "valid");
 });
 
 test("fetchAlerts - should handle invalid response format", async () => {
@@ -322,7 +327,7 @@ test("fetchAlerts - should handle invalid response format", async () => {
   const provider = new SpektionProvider({ debug: false, token: "test-key" });
   const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]);
 
-  expect(alerts).toEqual([]);
+  assert.deepStrictEqual(alerts, []);
 });
 
 test("fetchAlerts - should handle null response", async () => {
@@ -336,5 +341,5 @@ test("fetchAlerts - should handle null response", async () => {
   const provider = new SpektionProvider({ debug: false, token: "test-key" });
   const alerts = await provider.fetchAlerts([{ name: "lodash", version: "4.17.20" }]);
 
-  expect(alerts).toEqual([]);
+  assert.deepStrictEqual(alerts, []);
 });

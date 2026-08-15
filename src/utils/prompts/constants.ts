@@ -93,6 +93,7 @@ export const SEVERITY_THRESHOLD_CHOICES: PromptChoice[] = [
 ];
 
 export const DEFAULT_WORKSPACE_PATHS = "packages/*/package.json, apps/*/package.json";
+export const PROMPT_LIST_MAX_ATTEMPTS = 5;
 
 export const INTERACTIVE_MESSAGES = {
   welcome: "Interactive Configuration Review",

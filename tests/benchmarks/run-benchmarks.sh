@@ -5,4 +5,8 @@ set -e
 cd "$(dirname "$0")/../.."
 
 echo "Running benchmarks..."
-bun test tests/benchmarks/*.test.ts --timeout 30000
+node --no-warnings \
+  --import ./tests/unit/setup.ts \
+  --test \
+  --test-timeout=30000 \
+  'tests/benchmarks/*.test.ts'

@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import { describe, test } from "node:test";
+import assert from "node:assert/strict";
 import { ITERATION_METHODS, SEARCH_METHODS } from "../../../../scripts/oxlint-plugin/constants.js";
 import {
   checkNestedIteration,
@@ -138,32 +139,32 @@ describe("scripts/oxlint-plugin", () => {
   test("countExpressionOperators counts boolean readability operators", () => {
     const expression = logical(binary("==="), unaryNot());
 
-    expect(countExpressionOperators(expression)).toBe(3);
+    assert.strictEqual(countExpressionOperators(expression), 3);
   });
 
   test("countExpressionOperators ignores arithmetic operators", () => {
     const expression = logical(binary("+"), binary("*"));
 
-    expect(countExpressionOperators(expression)).toBe(1);
+    assert.strictEqual(countExpressionOperators(expression), 1);
   });
 
   test("countIfConditionOperators counts branching operators, not comparisons", () => {
     const expression = logical(binary("==="), binary("!=="));
 
-    expect(countIfConditionOperators(expression)).toBe(1);
+    assert.strictEqual(countIfConditionOperators(expression), 1);
   });
 
   test("countComputedValueOperators counts arithmetic and readability operators", () => {
     const expression = logical(binary("+"), unaryNot());
 
-    expect(countComputedValueOperators(expression)).toBe(3);
+    assert.strictEqual(countComputedValueOperators(expression), 3);
   });
 
   test("countExpressionOperators does not cross nested function boundaries", () => {
     const callback = arrowCallback(logical(binary("==="), binary("!==")));
     const expression = memberCall("map", [callback]);
 
-    expect(countExpressionOperators(expression)).toBe(0);
+    assert.strictEqual(countExpressionOperators(expression), 0);
   });
 
   test("countExpressionOperators does not aggregate object literal branches", () => {
@@ -174,12 +175,12 @@ describe("scripts/oxlint-plugin", () => {
       ],
     };
 
-    expect(countExpressionOperators(expression)).toBe(0);
+    assert.strictEqual(countExpressionOperators(expression), 0);
   });
 
   test("isMethodCall detects configured member calls", () => {
-    expect(isMethodCall(memberCall("find"), SEARCH_METHODS)).toBe(true);
-    expect(isMethodCall(memberCall("toString"), SEARCH_METHODS)).toBe(false);
+    assert.strictEqual(isMethodCall(memberCall("find"), SEARCH_METHODS), true);
+    assert.strictEqual(isMethodCall(memberCall("toString"), SEARCH_METHODS), false);
   });
 
   test("containsCallTo finds nested method calls", () => {
@@ -188,18 +189,18 @@ describe("scripts/oxlint-plugin", () => {
       body: [{ type: "ReturnStatement", argument: memberCall("filter") }],
     };
 
-    expect(containsCallTo(expression, ITERATION_METHODS)).toBe(true);
+    assert.strictEqual(containsCallTo(expression, ITERATION_METHODS), true);
   });
 
   test("getMethodName returns member method names", () => {
-    expect(getMethodName(memberCall("some"))).toBe("some");
+    assert.strictEqual(getMethodName(memberCall("some")), "some");
   });
 
   test("getCallbackBody returns array callback body", () => {
     const body = memberCall("filter");
     const expression = memberCall("map", [arrowCallback(body)]);
 
-    expect(getCallbackBody(expression)).toBe(body);
+    assert.strictEqual(getCallbackBody(expression), body);
   });
 
   test("maxExpressionOperators reports expressions over the configured max", () => {
@@ -209,9 +210,9 @@ describe("scripts/oxlint-plugin", () => {
 
     visitor.VariableDeclarator?.({ type: "VariableDeclarator", init });
 
-    expect(context.reports).toHaveLength(1);
-    expect(context.reports[0]?.messageId).toBe("tooMany");
-    expect(context.reports[0]?.data).toEqual({ count: 3, max: 2 });
+    assert.strictEqual(context.reports.length, 1);
+    assert.strictEqual(context.reports[0]?.messageId, "tooMany");
+    assert.deepStrictEqual(context.reports[0]?.data, { count: 3, max: 2 });
   });
 
   test("maxExpressionOperators allows expressions at the configured max", () => {
@@ -221,7 +222,7 @@ describe("scripts/oxlint-plugin", () => {
 
     visitor.VariableDeclarator?.({ type: "VariableDeclarator", init });
 
-    expect(context.reports).toHaveLength(0);
+    assert.strictEqual(context.reports.length, 0);
   });
 
   test("hoistIfOperators reports operator-heavy if conditions", () => {
@@ -231,9 +232,9 @@ describe("scripts/oxlint-plugin", () => {
 
     visitor.IfStatement?.({ type: "IfStatement", test: testNode });
 
-    expect(context.reports).toHaveLength(1);
-    expect(context.reports[0]?.messageId).toBe("tooMany");
-    expect(context.reports[0]?.data).toEqual({ count: 2, max: 1 });
+    assert.strictEqual(context.reports.length, 1);
+    assert.strictEqual(context.reports[0]?.messageId, "tooMany");
+    assert.deepStrictEqual(context.reports[0]?.data, { count: 2, max: 1 });
   });
 
   test("hoistIfOperators reports composed if conditions by default", () => {
@@ -243,9 +244,9 @@ describe("scripts/oxlint-plugin", () => {
 
     visitor.IfStatement?.({ type: "IfStatement", test: testNode });
 
-    expect(context.reports).toHaveLength(1);
-    expect(context.reports[0]?.messageId).toBe("tooMany");
-    expect(context.reports[0]?.data).toEqual({ count: 1, max: 0 });
+    assert.strictEqual(context.reports.length, 1);
+    assert.strictEqual(context.reports[0]?.messageId, "tooMany");
+    assert.deepStrictEqual(context.reports[0]?.data, { count: 1, max: 0 });
   });
 
   test("noComplexTernaries reports ternaries over the configured max", () => {
@@ -255,8 +256,8 @@ describe("scripts/oxlint-plugin", () => {
 
     visitor.ConditionalExpression?.(expression);
 
-    expect(context.reports).toHaveLength(1);
-    expect(context.reports[0]?.messageId).toBe("tooMany");
+    assert.strictEqual(context.reports.length, 1);
+    assert.strictEqual(context.reports[0]?.messageId, "tooMany");
   });
 
   test("noComplexTernaries reports nested ternaries", () => {
@@ -266,8 +267,8 @@ describe("scripts/oxlint-plugin", () => {
 
     visitor.ConditionalExpression?.(expression);
 
-    expect(context.reports).toHaveLength(1);
-    expect(context.reports[0]?.messageId).toBe("nested");
+    assert.strictEqual(context.reports.length, 1);
+    assert.strictEqual(context.reports[0]?.messageId, "nested");
   });
 
   test("noComputedValues reports computed return values", () => {
@@ -277,9 +278,9 @@ describe("scripts/oxlint-plugin", () => {
 
     visitor.ReturnStatement?.({ type: "ReturnStatement", argument });
 
-    expect(context.reports).toHaveLength(1);
-    expect(context.reports[0]?.messageId).toBe("computedReturn");
-    expect(context.reports[0]?.data).toEqual({ count: 2, max: 1 });
+    assert.strictEqual(context.reports.length, 1);
+    assert.strictEqual(context.reports[0]?.messageId, "computedReturn");
+    assert.deepStrictEqual(context.reports[0]?.data, { count: 2, max: 1 });
   });
 
   test("noComputedValues reports computed object values", () => {
@@ -289,9 +290,9 @@ describe("scripts/oxlint-plugin", () => {
 
     visitor.Property?.({ type: "Property", key: identifier("total"), value });
 
-    expect(context.reports).toHaveLength(1);
-    expect(context.reports[0]?.messageId).toBe("computedObjectValue");
-    expect(context.reports[0]?.data).toEqual({ count: 2, max: 1 });
+    assert.strictEqual(context.reports.length, 1);
+    assert.strictEqual(context.reports[0]?.messageId, "computedObjectValue");
+    assert.deepStrictEqual(context.reports[0]?.data, { count: 2, max: 1 });
   });
 
   test("noComputedValues allows simple computed values at the configured max", () => {
@@ -300,7 +301,7 @@ describe("scripts/oxlint-plugin", () => {
 
     visitor.ReturnStatement?.({ type: "ReturnStatement", argument: binary("+") });
 
-    expect(context.reports).toHaveLength(0);
+    assert.strictEqual(context.reports.length, 0);
   });
 
   test("preferConcatObjectAssign reports array literal spreads", () => {
@@ -312,8 +313,8 @@ describe("scripts/oxlint-plugin", () => {
       elements: [spreadElement(identifier("items"))],
     });
 
-    expect(context.reports).toHaveLength(1);
-    expect(context.reports[0]?.messageId).toBe("arraySpread");
+    assert.strictEqual(context.reports.length, 1);
+    assert.strictEqual(context.reports[0]?.messageId, "arraySpread");
   });
 
   test("preferConcatObjectAssign reports object literal spreads", () => {
@@ -325,8 +326,8 @@ describe("scripts/oxlint-plugin", () => {
       properties: [spreadElement(identifier("base"))],
     });
 
-    expect(context.reports).toHaveLength(1);
-    expect(context.reports[0]?.messageId).toBe("objectSpread");
+    assert.strictEqual(context.reports.length, 1);
+    assert.strictEqual(context.reports[0]?.messageId, "objectSpread");
   });
 
   test("noHiddenSideEffects reports hidden assignment expressions", () => {
@@ -341,8 +342,8 @@ describe("scripts/oxlint-plugin", () => {
 
     visitor.AssignmentExpression?.(expression);
 
-    expect(context.reports).toHaveLength(1);
-    expect(context.reports[0]?.messageId).toBe("hiddenSideEffect");
+    assert.strictEqual(context.reports.length, 1);
+    assert.strictEqual(context.reports[0]?.messageId, "hiddenSideEffect");
   });
 
   test("noHiddenSideEffects allows standalone side effect statements", () => {
@@ -354,7 +355,7 @@ describe("scripts/oxlint-plugin", () => {
 
     visitor.CallExpression?.(expression);
 
-    expect(context.reports).toHaveLength(0);
+    assert.strictEqual(context.reports.length, 0);
   });
 
   test("noStandaloneArrayMutations reports standalone array mutation calls", () => {
@@ -366,9 +367,9 @@ describe("scripts/oxlint-plugin", () => {
 
     visitor.CallExpression?.(expression);
 
-    expect(context.reports).toHaveLength(1);
-    expect(context.reports[0]?.messageId).toBe("standaloneArrayMutation");
-    expect(context.reports[0]?.data).toEqual({ method: "push" });
+    assert.strictEqual(context.reports.length, 1);
+    assert.strictEqual(context.reports[0]?.messageId, "standaloneArrayMutation");
+    assert.deepStrictEqual(context.reports[0]?.data, { method: "push" });
   });
 
   test("noStandaloneArrayMutations allows mutations on fresh arrays", () => {
@@ -380,7 +381,7 @@ describe("scripts/oxlint-plugin", () => {
 
     visitor.CallExpression?.(expression);
 
-    expect(context.reports).toHaveLength(0);
+    assert.strictEqual(context.reports.length, 0);
   });
 
   test("noHiddenSideEffects reports side effects in side-effect-free callbacks", () => {
@@ -392,9 +393,9 @@ describe("scripts/oxlint-plugin", () => {
 
     visitor.CallExpression?.(expression);
 
-    expect(context.reports).toHaveLength(1);
-    expect(context.reports[0]?.messageId).toBe("callbackSideEffect");
-    expect(context.reports[0]?.data).toEqual({ method: "map" });
+    assert.strictEqual(context.reports.length, 1);
+    assert.strictEqual(context.reports[0]?.messageId, "callbackSideEffect");
+    assert.deepStrictEqual(context.reports[0]?.data, { method: "map" });
   });
 
   test("checkNestedIteration reports callback iteration inside iteration", () => {
@@ -404,9 +405,9 @@ describe("scripts/oxlint-plugin", () => {
 
     const reported = checkNestedIteration(context, expression);
 
-    expect(reported).toBe(true);
-    expect(context.reports[0]?.messageId).toBe("nestedIteration");
-    expect(context.reports[0]?.data).toEqual({ outer: "map", inner: "filter" });
+    assert.strictEqual(reported, true);
+    assert.strictEqual(context.reports[0]?.messageId, "nestedIteration");
+    assert.deepStrictEqual(context.reports[0]?.data, { outer: "map", inner: "filter" });
   });
 
   test("checkSearchInLoop reports searches while inside a loop", () => {
@@ -415,8 +416,8 @@ describe("scripts/oxlint-plugin", () => {
 
     checkSearchInLoop(loopStack, context, memberCall("find"));
 
-    expect(context.reports[0]?.messageId).toBe("searchInLoop");
-    expect(context.reports[0]?.data).toEqual({ method: "find" });
+    assert.strictEqual(context.reports[0]?.messageId, "searchInLoop");
+    assert.deepStrictEqual(context.reports[0]?.data, { method: "find" });
   });
 
   test("requireExecutableShebang reports configured executable entries without shebangs", () => {
@@ -430,9 +431,9 @@ describe("scripts/oxlint-plugin", () => {
 
     visitor.Program?.(program());
 
-    expect(context.reports).toHaveLength(1);
-    expect(context.reports[0]?.messageId).toBe("missingShebang");
-    expect(context.reports[0]?.data).toEqual({ file: "src/cli/index.ts" });
+    assert.strictEqual(context.reports.length, 1);
+    assert.strictEqual(context.reports[0]?.messageId, "missingShebang");
+    assert.deepStrictEqual(context.reports[0]?.data, { file: "src/cli/index.ts" });
   });
 
   test("requireExecutableShebang allows Node shebangs", () => {
@@ -446,7 +447,7 @@ describe("scripts/oxlint-plugin", () => {
 
     visitor.Program?.(program());
 
-    expect(context.reports).toHaveLength(0);
+    assert.strictEqual(context.reports.length, 0);
   });
 
   test("requireExecutableShebang allows env -S runtime shebangs without trailing args", () => {
@@ -461,7 +462,7 @@ describe("scripts/oxlint-plugin", () => {
 
       visitor.Program?.(program());
 
-      expect(context.reports).toHaveLength(0);
+      assert.strictEqual(context.reports.length, 0);
     }
   });
 
@@ -473,9 +474,9 @@ describe("scripts/oxlint-plugin", () => {
       callExpression("execSync", [literal("node dist/cli/index.js --help")]),
     );
 
-    expect(context.reports).toHaveLength(1);
-    expect(context.reports[0]?.messageId).toBe("directNodeBin");
-    expect(context.reports[0]?.data).toEqual({ entry: "dist/cli/index.js" });
+    assert.strictEqual(context.reports.length, 1);
+    assert.strictEqual(context.reports[0]?.messageId, "directNodeBin");
+    assert.deepStrictEqual(context.reports[0]?.data, { entry: "dist/cli/index.js" });
   });
 
   test("noDirectNodeBinSmoke reports spawn calls that bypass package bins", () => {
@@ -486,9 +487,9 @@ describe("scripts/oxlint-plugin", () => {
       callExpression("spawnSync", [literal("node"), arrayExpression([literal("dist/index.js")])]),
     );
 
-    expect(context.reports).toHaveLength(1);
-    expect(context.reports[0]?.messageId).toBe("directNodeBin");
-    expect(context.reports[0]?.data).toEqual({ entry: "dist/index.js" });
+    assert.strictEqual(context.reports.length, 1);
+    assert.strictEqual(context.reports[0]?.messageId, "directNodeBin");
+    assert.deepStrictEqual(context.reports[0]?.data, { entry: "dist/index.js" });
   });
 
   test("noDirectNodeBinSmoke allows installed package bin smoke commands", () => {
@@ -497,6 +498,6 @@ describe("scripts/oxlint-plugin", () => {
 
     visitor.CallExpression?.(callExpression("execSync", [literal("tqs --help")]));
 
-    expect(context.reports).toHaveLength(0);
+    assert.strictEqual(context.reports.length, 0);
   });
 });

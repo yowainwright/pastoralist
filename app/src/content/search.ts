@@ -1,5 +1,5 @@
 import Fuse from "fuse.js";
-import type { DocMeta, SearchDocument } from "./types";
+import type { DocMeta, SearchDocument } from "./types.ts";
 
 type ReadDocContent = (slug: string) => string | undefined;
 

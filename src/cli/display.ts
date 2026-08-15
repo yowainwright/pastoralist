@@ -204,12 +204,12 @@ const renderRemovedOverridesPhase = (
   graph.endPhase(`${count} stale override${pluralSuffix(count)} removed`);
 };
 
-const renderRunSummary = (
+const renderRunSummary = async (
   graph: CliGraph,
   updateContext: UpdateContext,
   _securityResult: SecurityResultSummary,
   packagesScanned: number,
-): void => {
+): Promise<void> => {
   const metrics = updateContext.metrics;
   graph.executiveSummary({
     vulnerabilitiesFixed: metrics?.vulnerabilitiesBlocked ?? 0,
@@ -226,6 +226,7 @@ const renderRunSummary = (
     packagesScanned: metrics?.packagesScanned ?? 0,
   });
   graph.complete("The herd is safe!", ` ${SHEEP}`);
+  await graph.waitForCompletion();
 };
 
 const renderInstallNotice = (graph: CliGraph, updateResultData: UpdateResultData): void => {
@@ -269,7 +270,7 @@ const renderNotices = (
   renderUnusedOverrideNotice(graph, updateContext, options);
 };
 
-export const renderUpdateOutput = (
+export const renderUpdateOutput = async (
   graph: CliGraph,
   updateContext: UpdateContext,
   updateResultData: UpdateResultData,
@@ -277,11 +278,11 @@ export const renderUpdateOutput = (
   packagesScanned: number,
   mergedOptions: Options,
   options: Options,
-): void => {
+): Promise<void> => {
   const removedPackages = updateContext.metrics?.removedOverridePackages ?? [];
   renderOverridesPhase(graph, updateContext, updateResultData, removedPackages.length === 0);
   renderRemovedOverridesPhase(graph, removedPackages);
-  renderRunSummary(graph, updateContext, securityResult, packagesScanned);
+  await renderRunSummary(graph, updateContext, securityResult, packagesScanned);
   renderNotices(graph, updateContext, updateResultData, mergedOptions, options);
 };
 

@@ -1,30 +1,31 @@
-import { describe, it, expect } from "bun:test";
-import { SECTION_ID, CONTENT, STYLES } from "../constants";
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { SECTION_ID, CONTENT, STYLES } from "../constants.ts";
 
 describe("GetStartedSection", () => {
   describe("constants", () => {
     it("has correct section id", () => {
-      expect(SECTION_ID).toBe("get-started");
+      assert.strictEqual(SECTION_ID, "get-started");
     });
 
     it("has required content", () => {
-      expect(CONTENT.heading).toBeDefined();
-      expect(CONTENT.headingHighlight).toBeDefined();
-      expect(CONTENT.command).toBe("bun add -g pastoralist");
-      expect(CONTENT.buttonText).toBeDefined();
-      expect(CONTENT.docsSlug).toBe("introduction");
+      assert.notStrictEqual(CONTENT.heading, undefined);
+      assert.notStrictEqual(CONTENT.headingHighlight, undefined);
+      assert.strictEqual(CONTENT.command, "bun add -g pastoralist");
+      assert.notStrictEqual(CONTENT.buttonText, undefined);
+      assert.strictEqual(CONTENT.docsSlug, "introduction");
     });
 
     it("has required styles", () => {
-      expect(STYLES.section).toBeDefined();
-      expect(STYLES.article).toBeDefined();
-      expect(STYLES.articleVisible).toBeDefined();
-      expect(STYLES.articleHidden).toBeDefined();
-      expect(STYLES.heading).toBeDefined();
-      expect(STYLES.nav).toBeDefined();
-      expect(STYLES.codeBlock).toBeDefined();
-      expect(STYLES.code).toBeDefined();
-      expect(STYLES.button).toBeDefined();
+      assert.notStrictEqual(STYLES.section, undefined);
+      assert.notStrictEqual(STYLES.article, undefined);
+      assert.notStrictEqual(STYLES.articleVisible, undefined);
+      assert.notStrictEqual(STYLES.articleHidden, undefined);
+      assert.notStrictEqual(STYLES.heading, undefined);
+      assert.notStrictEqual(STYLES.nav, undefined);
+      assert.notStrictEqual(STYLES.codeBlock, undefined);
+      assert.notStrictEqual(STYLES.code, undefined);
+      assert.notStrictEqual(STYLES.button, undefined);
     });
   });
 });

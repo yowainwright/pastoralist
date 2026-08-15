@@ -224,9 +224,8 @@ export const withSpinnerPaused =
 
 export const createShimmerCompleter =
   (out: Output): Completer =>
-  (text, prefix, suffix) => {
+  (text, prefix, suffix) =>
     playShimmer(text, SHIMMER_DEFAULT_FRAME_INTERVAL_MS, out, prefix, suffix);
-  };
 
 export const createTerminalTreeContext = (options: TerminalGraphOptions): TerminalTreeContext => {
   const out = resolveOutput(options);

@@ -20,7 +20,7 @@ try {
   await $\`pnpm --dir app install --frozen-lockfile\`;
   await $\`pnpm --dir app run build\`;
   await $\`pnpm run lint\`;
-  await $\`bun test ./tests/unit --coverage --coverage-reporter=lcov\`;
+  await $\`pnpm run test:coverage\`;
   console.log('All pre-commit checks passed');
 } catch {
   console.error('Pre-commit checks failed');

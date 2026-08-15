@@ -13,6 +13,7 @@ import type {
   ConfirmOptions,
   ListOptions,
 } from "./types";
+import { PROMPT_LIST_MAX_ATTEMPTS } from "./constants";
 
 export class Prompt {
   protected rl: readline.Interface;
@@ -64,20 +65,27 @@ export class Prompt {
   async list(message: string, choices: PromptChoice[]): Promise<string> {
     console.log(formatChoiceList(message, choices));
     this.ensureCookedMode();
+    return this.askForListChoice(choices);
+  }
 
-    return enhancedQuestion(this.rl, formatChoicePrompt(), (answer: string) => {
-      const num = parseInt(answer.trim(), 10);
-      const isBelowRange = num < 1;
-      const isAboveRange = num > choices.length;
-      const isInvalidChoice = isNaN(num) || isBelowRange || isAboveRange;
+  private async askForListChoice(choices: PromptChoice[], attempt = 1): Promise<string> {
+    const answer = await enhancedQuestion(this.rl, formatChoicePrompt());
+    const selected = this.getListChoice(answer, choices);
+    if (selected) return selected;
 
-      if (isInvalidChoice) {
-        console.log("Invalid choice. Please enter a number between 1 and " + choices.length);
-        return choices[0].value;
-      }
+    console.log("Invalid choice. Please enter a number between 1 and " + choices.length);
+    const exhaustedAttempts = attempt >= PROMPT_LIST_MAX_ATTEMPTS;
+    if (exhaustedAttempts) return choices[0]?.value ?? "";
+    return this.askForListChoice(choices, attempt + 1);
+  }
 
-      return choices[num - 1].value;
-    });
+  private getListChoice(answer: string, choices: PromptChoice[]): string | undefined {
+    const choiceNumber = parseInt(answer.trim(), 10);
+    const isBelowRange = choiceNumber < 1;
+    const isAboveRange = choiceNumber > choices.length;
+    const isInvalidChoice = isNaN(choiceNumber) || isBelowRange || isAboveRange;
+    if (isInvalidChoice) return undefined;
+    return choices[choiceNumber - 1]?.value;
   }
 
   async prompt(options: PromptOptions): Promise<string | boolean> {

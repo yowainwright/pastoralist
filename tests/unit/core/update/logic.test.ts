@@ -1,4 +1,6 @@
-import { test, expect, mock } from "bun:test";
+import { test } from "node:test";
+import { mock } from "../../setup.ts";
+import assert from "node:assert/strict";
 import { resolve } from "path";
 import {
   determineProcessingMode,
@@ -26,7 +28,7 @@ test("resolveDepPaths - should prioritize CLI options over config", () => {
 
   const result = resolveDepPaths(options, config);
 
-  expect(result).toEqual(["cli/path"]);
+  assert.deepStrictEqual(result, ["cli/path"]);
 });
 
 test("resolveDepPaths - should expand workspace string to paths", () => {
@@ -39,7 +41,7 @@ test("resolveDepPaths - should expand workspace string to paths", () => {
 
   const result = resolveDepPaths(options, config);
 
-  expect(result).toEqual(["packages/*/package.json", "apps/*/package.json"]);
+  assert.deepStrictEqual(result, ["packages/*/package.json", "apps/*/package.json"]);
 });
 
 test("resolveDepPaths - should expand workspaces string to paths", () => {
@@ -52,7 +54,7 @@ test("resolveDepPaths - should expand workspaces string to paths", () => {
 
   const result = resolveDepPaths(options, config);
 
-  expect(result).toEqual(["packages/*/package.json"]);
+  assert.deepStrictEqual(result, ["packages/*/package.json"]);
 });
 
 test("resolveDepPaths - should use array config directly", () => {
@@ -64,7 +66,7 @@ test("resolveDepPaths - should use array config directly", () => {
 
   const result = resolveDepPaths(options, config);
 
-  expect(result).toEqual(["custom/path/package.json"]);
+  assert.deepStrictEqual(result, ["custom/path/package.json"]);
 });
 
 test("resolveDepPaths - should auto-detect from workspaces when no depPaths", () => {
@@ -76,7 +78,7 @@ test("resolveDepPaths - should auto-detect from workspaces when no depPaths", ()
 
   const result = resolveDepPaths(options, config);
 
-  expect(result).toEqual(["packages/*/package.json"]);
+  assert.deepStrictEqual(result, ["packages/*/package.json"]);
 });
 
 test("resolveDepPaths - should return null when no depPaths or workspaces", () => {
@@ -85,7 +87,7 @@ test("resolveDepPaths - should return null when no depPaths or workspaces", () =
 
   const result = resolveDepPaths(options, config);
 
-  expect(result).toBeNull();
+  assert.strictEqual(result, null);
 });
 
 test("determineProcessingMode - should use workspace mode when depPaths provided in options", () => {
@@ -94,9 +96,9 @@ test("determineProcessingMode - should use workspace mode when depPaths provided
 
   const result = determineProcessingMode(options, config, true, []);
 
-  expect(result.mode).toBe("workspace");
-  expect(result.depPaths).toEqual(["packages/*/package.json"]);
-  expect(result.hasRootOverrides).toBe(true);
+  assert.strictEqual(result.mode, "workspace");
+  assert.deepStrictEqual(result.depPaths, ["packages/*/package.json"]);
+  assert.strictEqual(result.hasRootOverrides, true);
 });
 
 test("determineProcessingMode - should use workspace mode when depPaths in config", () => {
@@ -108,8 +110,8 @@ test("determineProcessingMode - should use workspace mode when depPaths in confi
 
   const result = determineProcessingMode(options, config, true, []);
 
-  expect(result.mode).toBe("workspace");
-  expect(result.depPaths).toEqual(["packages/*/package.json"]);
+  assert.strictEqual(result.mode, "workspace");
+  assert.deepStrictEqual(result.depPaths, ["packages/*/package.json"]);
 });
 
 test("determineProcessingMode - should use root mode when no depPaths", () => {
@@ -118,8 +120,8 @@ test("determineProcessingMode - should use root mode when no depPaths", () => {
 
   const result = determineProcessingMode(options, config, true, []);
 
-  expect(result.mode).toBe("root");
-  expect(result.depPaths).toBeNull();
+  assert.strictEqual(result.mode, "root");
+  assert.strictEqual(result.depPaths, null);
 });
 
 test("determineProcessingMode - should track missing in root", () => {
@@ -129,7 +131,7 @@ test("determineProcessingMode - should track missing in root", () => {
 
   const result = determineProcessingMode(options, config, true, missingInRoot);
 
-  expect(result.missingInRoot).toEqual(["lodash", "react"]);
+  assert.deepStrictEqual(result.missingInRoot, ["lodash", "react"]);
 });
 
 test("findRemovableOverrides - should identify unused overrides", () => {
@@ -145,7 +147,7 @@ test("findRemovableOverrides - should identify unused overrides", () => {
 
   const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
 
-  expect(result).toEqual(["react"]);
+  assert.deepStrictEqual(result, ["react"]);
 });
 
 test("findRemovableOverrides - should not remove overrides used in appendix", () => {
@@ -161,7 +163,7 @@ test("findRemovableOverrides - should not remove overrides used in appendix", ()
 
   const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("findRemovableOverrides - should not remove overrides with root deps", () => {
@@ -172,7 +174,7 @@ test("findRemovableOverrides - should not remove overrides with root deps", () =
 
   const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("findRemovableOverrides - should not remove overrides missing in root", () => {
@@ -183,7 +185,7 @@ test("findRemovableOverrides - should not remove overrides missing in root", () 
 
   const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("hasConfigOverrides - should return true when options has overrides", () => {
@@ -192,7 +194,7 @@ test("hasConfigOverrides - should return true when options has overrides", () =>
 
   const result = hasConfigOverrides(options, config);
 
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("hasConfigOverrides - should return true when config has overrides", () => {
@@ -204,7 +206,7 @@ test("hasConfigOverrides - should return true when config has overrides", () => 
 
   const result = hasConfigOverrides(options, config);
 
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("hasConfigOverrides - should return true when config has resolutions", () => {
@@ -216,7 +218,7 @@ test("hasConfigOverrides - should return true when config has resolutions", () =
 
   const result = hasConfigOverrides(options, config);
 
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("hasConfigOverrides - should return true when config has pnpm overrides", () => {
@@ -228,7 +230,7 @@ test("hasConfigOverrides - should return true when config has pnpm overrides", (
 
   const result = hasConfigOverrides(options, config);
 
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("hasConfigOverrides - should return false when no overrides", () => {
@@ -237,7 +239,7 @@ test("hasConfigOverrides - should return false when no overrides", () => {
 
   const result = hasConfigOverrides(options, config);
 
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 });
 
 test("hasConfigOverrides - should return false when overrides are empty", () => {
@@ -246,7 +248,7 @@ test("hasConfigOverrides - should return false when overrides are empty", () => 
 
   const result = hasConfigOverrides(options, config);
 
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 });
 
 test("mergeAllConfigs - should merge options config and external config", () => {
@@ -263,8 +265,8 @@ test("mergeAllConfigs - should merge options config and external config", () => 
 
   const result = mergeAllConfigs(options, config.pastoralist, overridesData, overrides);
 
-  expect(result.depPaths).toBe("workspace");
-  expect(result.overrides).toEqual({ lodash: "4.17.21" });
+  assert.strictEqual(result.depPaths, "workspace");
+  assert.deepStrictEqual(result.overrides, { lodash: "4.17.21" });
 });
 
 test("mergeAllConfigs - should handle no external config", () => {
@@ -278,8 +280,8 @@ test("mergeAllConfigs - should handle no external config", () => {
 
   const result = mergeAllConfigs(options, config.pastoralist, overridesData, overrides);
 
-  expect(result.depPaths).toEqual(["packages/*"]);
-  expect(result.overrides).toEqual({});
+  assert.deepStrictEqual(result.depPaths, ["packages/*"]);
+  assert.deepStrictEqual(result.overrides, {});
 });
 
 test("mergeAllConfigs - should prioritize options over configs", () => {
@@ -296,8 +298,8 @@ test("mergeAllConfigs - should prioritize options over configs", () => {
 
   const result = mergeAllConfigs(options, config.pastoralist, overridesData, overrides);
 
-  expect(result.depPaths).toEqual(["cli/path"]);
-  expect(result.overrides).toEqual({ react: "18.0.0" });
+  assert.deepStrictEqual(result.depPaths, ["cli/path"]);
+  assert.deepStrictEqual(result.overrides, { react: "18.0.0" });
 });
 
 test("writeResult - should write result with dry run false", () => {
@@ -311,7 +313,7 @@ test("writeResult - should write result with dry run false", () => {
   };
 
   writeResult(ctx);
-  expect(ctx.path).toBe("package.json");
+  assert.strictEqual(ctx.path, "package.json");
 });
 
 test("writeResult - should write result with dry run true", () => {
@@ -325,7 +327,7 @@ test("writeResult - should write result with dry run true", () => {
   };
 
   writeResult(ctx);
-  expect(ctx.options?.dryRun).toBe(true);
+  assert.strictEqual(ctx.options?.dryRun, true);
 });
 
 test("writeResult - should write result with no options", () => {
@@ -339,5 +341,5 @@ test("writeResult - should write result with no options", () => {
   };
 
   writeResult(ctx);
-  expect(ctx.config.name).toBe("test");
+  assert.strictEqual(ctx.config.name, "test");
 });

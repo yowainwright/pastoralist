@@ -217,13 +217,13 @@ const finishActionResult = (
   return result;
 };
 
-const renderActionOutput = (
+const renderActionOutput = async (
   workflow: UpdateWorkflow,
   runtime: ActionRuntime,
   options: Options,
-): void => {
+): Promise<void> => {
   if (runtime.isJsonOutput) return;
-  renderUpdateOutput(
+  await renderUpdateOutput(
     runtime.graph,
     workflow.updateContext,
     workflow.updateResultData,
@@ -240,7 +240,7 @@ const runActionWorkflow = async (
   runtime: ActionRuntime,
 ): Promise<PastoralistResult> => {
   const workflow = await runUpdateWorkflow(options, deps, runtime);
-  renderActionOutput(workflow, runtime, options);
+  await renderActionOutput(workflow, runtime, options);
   return finishActionResult(buildActionResult(runtime, workflow), deps, runtime, options);
 };
 

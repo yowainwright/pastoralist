@@ -1,12 +1,17 @@
+import { anyValue, assertCalledWith, assertMatchObject, errorIncludes } from "../../setup.ts";
 process.env.PASTORALIST_MOCK_SECURITY = "true";
 
-import { test, expect, mock, spyOn, beforeEach, afterEach } from "bun:test";
+import { test, beforeEach, afterEach } from "node:test";
+import { mock, spyOn } from "../../setup.ts";
+import assert from "node:assert/strict";
 import { SecurityChecker } from "../../../../src/core/security";
 import { GitHubSecurityProvider } from "../../../../src/core/security/providers/github";
-import { isVersionVulnerable } from "../../../../src/core/security/utils";
-import * as securityUtils from "../../../../src/core/security/utils";
-import { PastoralistJSON, SecurityOverride } from "../../../../src/types";
 import {
+  InteractiveSecurityManager,
+  isVersionVulnerable,
+} from "../../../../src/core/security/utils";
+import type { PastoralistJSON, SecurityOverride } from "../../../../src/types";
+import type {
   DependabotAlert,
   SecurityAlert,
   SecurityCheckRuntimeOptions,
@@ -167,7 +172,7 @@ const createLockedBaselineChecker = (): SecurityChecker => {
   });
   const checker = new SecurityChecker({ provider: "osv", noCache: true });
   spyOn(getFirstProvider(checker), "fetchAlerts").mockImplementation(([pkg]) => {
-    expect(pkg.version).not.toContain("(");
+    assert.ok(!pkg.version.includes("("));
     const alerts = pkg.version === "1.0.0" ? [alert] : [];
     return Promise.resolve(alerts);
   });
@@ -190,7 +195,7 @@ const mockBestCaseUpdate = (checker: SecurityChecker) => {
 };
 
 const mockUserOwnedPrompts = (update: ReturnType<typeof createBestCaseUpdate>) => {
-  const manager = securityUtils.InteractiveSecurityManager.prototype;
+  const manager = InteractiveSecurityManager.prototype;
   const ownership = spyOn(manager, "promptForUserOwnedOverrides").mockResolvedValue([update]);
   const portfolio = spyOn(manager, "promptForBestCasePortfolio").mockImplementation(
     (_alerts, overrides) => Promise.resolve(overrides),
@@ -232,12 +237,12 @@ const assertPnpmAutoFix = (fixture: ReturnType<typeof createPnpmAutoFixFixture>)
   fixture.checker.applyAutoFix([BASE_SECURITY_OVERRIDE], fixture.packagePath);
   const updatedPackage = JSON.parse(fs.readFileSync(fixture.packagePath, "utf8"));
   const updatedWorkspace = fs.readFileSync(fixture.workspacePath, "utf8");
-  expect(updatedPackage.pnpm).toBeUndefined();
-  expect(updatedPackage.overrides).toBeUndefined();
-  expect(updatedPackage.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
-  expect(updatedWorkspace).toContain("# retained");
-  expect(updatedWorkspace).toContain('axios: "1.8.0"');
-  expect(updatedWorkspace).toContain('"lodash": "4.17.21"');
+  assert.strictEqual(updatedPackage.pnpm, undefined);
+  assert.strictEqual(updatedPackage.overrides, undefined);
+  assert.notStrictEqual(updatedPackage.pastoralist.appendix["lodash@4.17.21"], undefined);
+  assert.ok(updatedWorkspace.includes("# retained"));
+  assert.ok(updatedWorkspace.includes('axios: "1.8.0"'));
+  assert.ok(updatedWorkspace.includes('"lodash": "4.17.21"'));
 };
 
 const createExternalJsonAutoFixFixture = (
@@ -270,10 +275,10 @@ test("Security Alert Detection - should identify vulnerable packages in dependen
   const provider = new GitHubSecurityProvider({ debug: false });
 
   const alerts = provider.convertToSecurityAlerts([mockDependabotAlert]);
-  expect(alerts.length).toBe(1);
-  expect(alerts[0].packageName).toBe("lodash");
-  expect(alerts[0].severity).toBe("high");
-  expect(alerts[0].patchedVersion).toBe("4.17.21");
+  assert.strictEqual(alerts.length, 1);
+  assert.strictEqual(alerts[0].packageName, "lodash");
+  assert.strictEqual(alerts[0].severity, "high");
+  assert.strictEqual(alerts[0].patchedVersion, "4.17.21");
 });
 
 test("Security Alert Detection - should filter out dismissed and fixed alerts", () => {
@@ -293,34 +298,34 @@ test("Security Alert Detection - should filter out dismissed and fixed alerts", 
     fixedAlert,
   ]);
 
-  expect(alerts.length).toBe(1);
-  expect(alerts[0].packageName).toBe("lodash");
+  assert.strictEqual(alerts.length, 1);
+  assert.strictEqual(alerts[0].packageName, "lodash");
 });
 
 test("Version Vulnerability Checking - should correctly identify vulnerable versions with < operator", () => {
   const vulnerable = isVersionVulnerable("4.17.20", "< 4.17.21");
-  expect(vulnerable).toBe(true);
+  assert.strictEqual(vulnerable, true);
 });
 
 test("Version Vulnerability Checking - should correctly identify non-vulnerable versions", () => {
   const vulnerable = isVersionVulnerable("4.17.21", "< 4.17.21");
-  expect(vulnerable).toBe(false);
+  assert.strictEqual(vulnerable, false);
 });
 
 test("Version Vulnerability Checking - should handle version ranges with >= and <", () => {
   let vulnerable = isVersionVulnerable("4.17.15", ">= 4.17.0 < 4.17.21");
-  expect(vulnerable).toBe(true);
+  assert.strictEqual(vulnerable, true);
 
   vulnerable = isVersionVulnerable("4.17.21", ">= 4.17.0 < 4.17.21");
-  expect(vulnerable).toBe(false);
+  assert.strictEqual(vulnerable, false);
 });
 
 test("Version Vulnerability Checking - should handle versions with semver prefixes", () => {
   let vulnerable = isVersionVulnerable("^4.17.20", "< 4.17.21");
-  expect(vulnerable).toBe(true);
+  assert.strictEqual(vulnerable, true);
 
   vulnerable = isVersionVulnerable("~4.17.20", "< 4.17.21");
-  expect(vulnerable).toBe(true);
+  assert.strictEqual(vulnerable, true);
 });
 
 test("Override Generation - should generate correct overrides for vulnerable packages", () => {
@@ -330,11 +335,11 @@ test("Override Generation - should generate correct overrides for vulnerable pac
   const latestVersions = new Map<string, string>();
   const overrides = (checker as any).generateOverrides(vulnerablePackages, latestVersions);
 
-  expect(overrides.length).toBe(1);
-  expect(overrides[0].packageName).toBe("lodash");
-  expect(overrides[0].fromVersion).toBe("4.17.20");
-  expect(overrides[0].toVersion).toBe("4.17.21");
-  expect(overrides[0].severity).toBe("high");
+  assert.strictEqual(overrides.length, 1);
+  assert.strictEqual(overrides[0].packageName, "lodash");
+  assert.strictEqual(overrides[0].fromVersion, "4.17.20");
+  assert.strictEqual(overrides[0].toVersion, "4.17.21");
+  assert.strictEqual(overrides[0].severity, "high");
 });
 
 test("Override Generation - should not generate overrides for packages without fixes", () => {
@@ -344,7 +349,7 @@ test("Override Generation - should not generate overrides for packages without f
 
   const latestVersions = new Map<string, string>();
   const overrides = (checker as any).generateOverrides(vulnerablePackages, latestVersions);
-  expect(overrides.length).toBe(0);
+  assert.strictEqual(overrides.length, 0);
 });
 
 test("Override Generation - should include CVE in overrides when available", () => {
@@ -354,8 +359,8 @@ test("Override Generation - should include CVE in overrides when available", () 
   const latestVersions = new Map<string, string>();
   const overrides = (checker as any).generateOverrides(vulnerablePackages, latestVersions);
 
-  expect(overrides.length).toBe(1);
-  expect(overrides[0].cves?.[0]).toBe(LODASH_CVE);
+  assert.strictEqual(overrides.length, 1);
+  assert.strictEqual(overrides[0].cves?.[0], LODASH_CVE);
 });
 
 test("Override Generation - should include description in overrides when available", () => {
@@ -365,8 +370,8 @@ test("Override Generation - should include description in overrides when availab
   const latestVersions = new Map<string, string>();
   const overrides = (checker as any).generateOverrides(vulnerablePackages, latestVersions);
 
-  expect(overrides.length).toBe(1);
-  expect(overrides[0].description).toBe(LODASH_DESCRIPTION);
+  assert.strictEqual(overrides.length, 1);
+  assert.strictEqual(overrides[0].description, LODASH_DESCRIPTION);
 });
 
 test("Override Generation - should include URL in overrides when available", () => {
@@ -376,8 +381,8 @@ test("Override Generation - should include URL in overrides when available", () 
   const latestVersions = new Map<string, string>();
   const overrides = (checker as any).generateOverrides(vulnerablePackages, latestVersions);
 
-  expect(overrides.length).toBe(1);
-  expect(overrides[0].url).toBe(LODASH_URL);
+  assert.strictEqual(overrides.length, 1);
+  assert.strictEqual(overrides[0].url, LODASH_URL);
 });
 
 test("Override Generation - should use latest version when available and newer than patched", () => {
@@ -387,8 +392,8 @@ test("Override Generation - should use latest version when available and newer t
   const latestVersions = new Map<string, string>([["lodash", "4.17.25"]]);
   const overrides = (checker as any).generateOverrides(vulnerablePackages, latestVersions);
 
-  expect(overrides.length).toBe(1);
-  expect(overrides[0].toVersion).toBe("4.17.25");
+  assert.strictEqual(overrides.length, 1);
+  assert.strictEqual(overrides[0].toVersion, "4.17.25");
 });
 
 test("Override Generation - should use patched version when latest equals patched", () => {
@@ -398,8 +403,8 @@ test("Override Generation - should use patched version when latest equals patche
   const latestVersions = new Map<string, string>([["lodash", "4.17.21"]]);
   const overrides = (checker as any).generateOverrides(vulnerablePackages, latestVersions);
 
-  expect(overrides.length).toBe(1);
-  expect(overrides[0].toVersion).toBe("4.17.21");
+  assert.strictEqual(overrides.length, 1);
+  assert.strictEqual(overrides[0].toVersion, "4.17.21");
 });
 
 test("Override Generation - should use patched version when latest is not found", () => {
@@ -409,8 +414,8 @@ test("Override Generation - should use patched version when latest is not found"
   const latestVersions = new Map<string, string>();
   const overrides = (checker as any).generateOverrides(vulnerablePackages, latestVersions);
 
-  expect(overrides.length).toBe(1);
-  expect(overrides[0].toVersion).toBe("4.17.21");
+  assert.strictEqual(overrides.length, 1);
+  assert.strictEqual(overrides[0].toVersion, "4.17.21");
 });
 
 test("Override Generation - should handle multiple packages with different latest versions", () => {
@@ -423,13 +428,13 @@ test("Override Generation - should handle multiple packages with different lates
   ]);
   const overrides = (checker as any).generateOverrides(vulnerablePackages, latestVersions);
 
-  expect(overrides.length).toBe(2);
+  assert.strictEqual(overrides.length, 2);
 
   const lodashOverride = overrides.find((o: any) => o.packageName === "lodash");
   const axiosOverride = overrides.find((o: any) => o.packageName === "axios");
 
-  expect(lodashOverride.toVersion).toBe("4.17.25");
-  expect(axiosOverride.toVersion).toBe("0.21.4");
+  assert.strictEqual(lodashOverride.toVersion, "4.17.25");
+  assert.strictEqual(axiosOverride.toVersion, "0.21.4");
 });
 
 test("Override Generation - should prefer patched when latest is older (edge case)", () => {
@@ -446,8 +451,8 @@ test("Override Generation - should prefer patched when latest is older (edge cas
   const latestVersions = new Map<string, string>([["some-package", "1.1.5"]]);
   const overrides = (checker as any).generateOverrides(vulnerablePackages, latestVersions);
 
-  expect(overrides.length).toBe(1);
-  expect(overrides[0].toVersion).toBe("1.2.0");
+  assert.strictEqual(overrides.length, 1);
+  assert.strictEqual(overrides[0].toVersion, "1.2.0");
 });
 
 test("fetchLatestForVulnerablePackages - should extract packages with fixes", async () => {
@@ -470,9 +475,9 @@ test("fetchLatestForVulnerablePackages - should extract packages with fixes", as
     (checker as any).fetchLatestForVulnerablePackages(vulnerablePackages),
   );
 
-  expect(result instanceof Map).toBe(true);
-  expect(result.get("lodash")).toBe("4.17.21");
-  expect(result.has("no-fix-pkg")).toBe(false);
+  assert.strictEqual(result instanceof Map, true);
+  assert.strictEqual(result.get("lodash"), "4.17.21");
+  assert.strictEqual(result.has("no-fix-pkg"), false);
 });
 
 test("Severity Normalization - should normalize severity levels correctly", () => {
@@ -488,18 +493,18 @@ test("Severity Normalization - should normalize severity levels correctly", () =
 
   for (const testCase of testCases) {
     const normalized = (provider as any).normalizeSeverity(testCase.input);
-    expect(normalized).toBe(testCase.expected);
+    assert.strictEqual(normalized, testCase.expected);
   }
 });
 
 test("OSV Provider - should initialize without authentication", () => {
   const checker = new SecurityChecker({ provider: "osv", noCache: true });
-  expect(checker).toBeDefined();
+  assert.notStrictEqual(checker, undefined);
 });
 
 test("OSV Provider - should be the default provider", () => {
   const checker = new SecurityChecker({});
-  expect(checker).toBeDefined();
+  assert.notStrictEqual(checker, undefined);
 });
 
 test("Provider Abstraction - should support multiple providers", () => {
@@ -507,13 +512,13 @@ test("Provider Abstraction - should support multiple providers", () => {
 
   for (const provider of providers) {
     const checker = new SecurityChecker({ provider });
-    expect(checker).toBeDefined();
+    assert.notStrictEqual(checker, undefined);
   }
 });
 
 test("Provider Abstraction - should support array of providers", () => {
   const checker = new SecurityChecker({ provider: ["osv", "github"] });
-  expect(checker).toBeDefined();
+  assert.notStrictEqual(checker, undefined);
 });
 
 test("Provider Abstraction - should deduplicate alerts from multiple providers", async () => {
@@ -528,7 +533,7 @@ test("Provider Abstraction - should deduplicate alerts from multiple providers",
   const checker = createCheckerWithMockAlerts({ provider: ["osv"] });
   const result = await checker.checkSecurity(config);
 
-  expect(Array.isArray(result.alerts)).toBe(true);
+  assert.strictEqual(Array.isArray(result.alerts), true);
 });
 
 test("Provider Abstraction - should use unified provider token", () => {
@@ -536,12 +541,12 @@ test("Provider Abstraction - should use unified provider token", () => {
     provider: "github",
     token: "test-token-123",
   });
-  expect(checker).toBeDefined();
+  assert.notStrictEqual(checker, undefined);
 });
 
 test("Provider Abstraction - should fall back to OSV for unknown providers", () => {
   const checker = new SecurityChecker({ provider: "unknown" as any });
-  expect(checker).toBeDefined();
+  assert.notStrictEqual(checker, undefined);
 });
 
 test("Workspace Security Scanning - should not scan workspaces by default", async () => {
@@ -557,8 +562,8 @@ test("Workspace Security Scanning - should not scan workspaces by default", asyn
   const checker = createCheckerWithMockAlerts();
   const result = await checker.checkSecurity(config);
 
-  expect(Array.isArray(result.alerts)).toBe(true);
-  expect(Array.isArray(result.overrides)).toBe(true);
+  assert.strictEqual(Array.isArray(result.alerts), true);
+  assert.strictEqual(Array.isArray(result.overrides), true);
 });
 
 test("Workspace Security Scanning - should scan workspaces when explicitly enabled", async () => {
@@ -575,8 +580,8 @@ test("Workspace Security Scanning - should scan workspaces when explicitly enabl
     root: "./",
   });
 
-  expect(Array.isArray(result.alerts)).toBe(true);
-  expect(Array.isArray(result.overrides)).toBe(true);
+  assert.strictEqual(Array.isArray(result.alerts), true);
+  assert.strictEqual(Array.isArray(result.overrides), true);
 });
 
 test("Configuration Integration - should read security settings from pastoralist config", () => {
@@ -595,11 +600,11 @@ test("Configuration Integration - should read security settings from pastoralist
     },
   };
 
-  expect(config.pastoralist?.security?.enabled).toBe(true);
-  expect(config.pastoralist?.security?.provider).toBe("github");
-  expect(config.pastoralist?.security?.autoFix).toBe(true);
-  expect(config.pastoralist?.security?.providerToken).toBe("test-token");
-  expect(config.pastoralist?.security?.includeWorkspaces).toBe(true);
+  assert.strictEqual(config.pastoralist?.security?.enabled, true);
+  assert.strictEqual(config.pastoralist?.security?.provider, "github");
+  assert.strictEqual(config.pastoralist?.security?.autoFix, true);
+  assert.strictEqual(config.pastoralist?.security?.providerToken, "test-token");
+  assert.strictEqual(config.pastoralist?.security?.includeWorkspaces, true);
 });
 
 test("Configuration Integration - should use default values when config is missing", () => {
@@ -609,9 +614,9 @@ test("Configuration Integration - should use default values when config is missi
   };
 
   const securityConfig = config.pastoralist?.security || {};
-  expect(securityConfig.enabled).toBeUndefined();
-  expect(securityConfig.provider).toBeUndefined();
-  expect(securityConfig.includeWorkspaces).toBeUndefined();
+  assert.strictEqual(securityConfig.enabled, undefined);
+  assert.strictEqual(securityConfig.provider, undefined);
+  assert.strictEqual(securityConfig.includeWorkspaces, undefined);
 });
 
 test("checkSecurity - should check security with empty dependencies", async () => {
@@ -624,8 +629,8 @@ test("checkSecurity - should check security with empty dependencies", async () =
   const checker = createCheckerWithMockAlerts({ provider: "osv" });
   const result = await checker.checkSecurity(config);
 
-  expect(Array.isArray(result.alerts)).toBe(true);
-  expect(Array.isArray(result.overrides)).toBe(true);
+  assert.strictEqual(Array.isArray(result.alerts), true);
+  assert.strictEqual(Array.isArray(result.overrides), true);
 });
 
 test("checkSecurity - should check security with multiple dependencies", async () => {
@@ -641,8 +646,8 @@ test("checkSecurity - should check security with multiple dependencies", async (
   const checker = createCheckerWithMockAlerts({ provider: "osv" });
   const result = await checker.checkSecurity(config);
 
-  expect(Array.isArray(result.alerts)).toBe(true);
-  expect(Array.isArray(result.overrides)).toBe(true);
+  assert.strictEqual(Array.isArray(result.alerts), true);
+  assert.strictEqual(Array.isArray(result.overrides), true);
 });
 
 test("checkSecurity - should handle devDependencies", async () => {
@@ -660,12 +665,12 @@ test("checkSecurity - should handle devDependencies", async () => {
 
   const result = await checker.checkSecurity(config);
 
-  expect(Array.isArray(result.alerts)).toBe(true);
-  expect(result.packagesScanned).toBe(1);
-  expect(mockFetchAlerts).toHaveBeenCalledWith([{ name: "typescript", version: "4.0.0" }], {
+  assert.strictEqual(Array.isArray(result.alerts), true);
+  assert.strictEqual(result.packagesScanned, 1);
+  assertCalledWith(mockFetchAlerts, [{ name: "typescript", version: "4.0.0" }], {
     root: undefined,
     requireCompleteScan: false,
-    onIncomplete: expect.any(Function),
+    onIncomplete: anyValue(Function),
   });
 
   mockFetchAlerts.mockRestore();
@@ -689,15 +694,16 @@ test("checkSecurity - should handle both dependencies and devDependencies", asyn
 
   const result = await checker.checkSecurity(config);
 
-  expect(Array.isArray(result.alerts)).toBe(true);
-  expect(Array.isArray(result.overrides)).toBe(true);
-  expect(result.packagesScanned).toBe(2);
-  expect(mockFetchAlerts).toHaveBeenCalledWith(
+  assert.strictEqual(Array.isArray(result.alerts), true);
+  assert.strictEqual(Array.isArray(result.overrides), true);
+  assert.strictEqual(result.packagesScanned, 2);
+  assertCalledWith(
+    mockFetchAlerts,
     [
       { name: "lodash", version: "4.17.20" },
       { name: "typescript", version: "4.0.0" },
     ],
-    { root: undefined, requireCompleteScan: false, onIncomplete: expect.any(Function) },
+    { root: undefined, requireCompleteScan: false, onIncomplete: anyValue(Function) },
   );
 
   mockFetchAlerts.mockRestore();
@@ -759,12 +765,12 @@ test("checkSecurity - applies the best-case portfolio and records its reason", a
   const options = createBestCaseOptions({ bestCaseEvaluator }, packages);
   const result = await checker.checkSecurity(config, options);
 
-  expect(result.bestCase?.selectedState).toEqual({ alpha: "2.0.0", beta: "1.0.0" });
-  expect(result.bestCase?.search.provenOptimal).toBe(true);
-  expect(result.overrides).toHaveLength(1);
-  expect(result.overrides[0].packageName).toBe("alpha");
-  expect(result.overrides[0].cves).toEqual(["CVE-ALPHA"]);
-  expect(result.overrides[0].ledgerReason).toMatchObject({
+  assert.deepStrictEqual(result.bestCase?.selectedState, { alpha: "2.0.0", beta: "1.0.0" });
+  assert.strictEqual(result.bestCase?.search.provenOptimal, true);
+  assert.strictEqual(result.overrides.length, 1);
+  assert.strictEqual(result.overrides[0].packageName, "alpha");
+  assert.deepStrictEqual(result.overrides[0].cves, ["CVE-ALPHA"]);
+  assertMatchObject(result.overrides[0].ledgerReason, {
     type: "best-case",
     decisionId: result.bestCase?.decisionId,
   });
@@ -780,8 +786,8 @@ test("checkSecurity - reports independent updates for a non-interactive portfoli
   });
   const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
 
-  expect(result.bestCase).toBeDefined();
-  expect(result.updates).toEqual([update]);
+  assert.notStrictEqual(result.bestCase, undefined);
+  assert.deepStrictEqual(result.updates, [update]);
 });
 
 test("checkSecurity - hard-constrains configured user-owned overrides", async () => {
@@ -794,8 +800,8 @@ test("checkSecurity - hard-constrains configured user-owned overrides", async ()
   });
   const result = await checker.checkSecurity(config, options);
 
-  expect(result.bestCase?.selectedState).toEqual({ alpha: "2.5.0" });
-  expect(result.overrides[0].toVersion).toBe("2.5.0");
+  assert.deepStrictEqual(result.bestCase?.selectedState, { alpha: "2.5.0" });
+  assert.strictEqual(result.overrides[0].toVersion, "2.5.0");
 });
 
 test("checkSecurity - preserves user-owned overrides during standard fallback", async () => {
@@ -806,9 +812,9 @@ test("checkSecurity - preserves user-owned overrides during standard fallback", 
 
   const result = await checker.checkSecurity(createUserOwnedBestCaseConfig());
 
-  expect(result.bestCase).toBeUndefined();
-  expect(result.overrides).toEqual([]);
-  expect(result.updates).toEqual([]);
+  assert.strictEqual(result.bestCase, undefined);
+  assert.deepStrictEqual(result.overrides, []);
+  assert.deepStrictEqual(result.updates, []);
 });
 
 test("checkSecurity - rejects user-owned packages without string overrides", async () => {
@@ -822,7 +828,10 @@ test("checkSecurity - rejects user-owned packages without string overrides", asy
   });
   const check = checker.checkSecurity(config, options);
 
-  await expect(check).rejects.toThrow("User-owned override alpha must reference a string override");
+  await assert.rejects(
+    check,
+    errorIncludes("User-owned override alpha must reference a string override"),
+  );
 });
 
 test("checkSecurity - returns interactive user-owned approvals for persistence", async () => {
@@ -837,8 +846,8 @@ test("checkSecurity - returns interactive user-owned approvals for persistence",
   });
   const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
 
-  expect(result.userOwnedOverridesAdded).toEqual(["alpha"]);
-  expect(result.bestCase?.selectedState.alpha).toBe("2.5.0");
+  assert.deepStrictEqual(result.userOwnedOverridesAdded, ["alpha"]);
+  assert.strictEqual(result.bestCase?.selectedState.alpha, "2.5.0");
   restorePrompts();
 });
 
@@ -858,8 +867,8 @@ test("checkSecurity - filters built-in best-case alerts by severity", async () =
   });
   const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
 
-  expect(result.bestCase?.selectedEvaluation.alerts).toEqual([]);
-  expect(result.bestCase?.impact.remainingVulnerabilities).toBe(0);
+  assert.deepStrictEqual(result.bestCase?.selectedEvaluation.alerts, []);
+  assert.strictEqual(result.bestCase?.impact.remainingVulnerabilities, 0);
 });
 
 test("checkSecurity - builds best-case baselines from locked versions", async () => {
@@ -871,9 +880,9 @@ test("checkSecurity - builds best-case baselines from locked versions", async ()
 
   const result = await checker.checkSecurity(config, options);
 
-  expect(result.bestCase?.baselineState).toEqual({ alpha: "1.5.0" });
-  expect(result.bestCase?.selectedState).toEqual({ alpha: "1.5.0" });
-  expect(result.overrides).toEqual([]);
+  assert.deepStrictEqual(result.bestCase?.baselineState, { alpha: "1.5.0" });
+  assert.deepStrictEqual(result.bestCase?.selectedState, { alpha: "1.5.0" });
+  assert.deepStrictEqual(result.overrides, []);
 });
 
 test("checkSecurity - reports unsupported legacy Bun inventory", async () => {
@@ -883,7 +892,7 @@ test("checkSecurity - reports unsupported legacy Bun inventory", async () => {
 
   try {
     const result = checker.checkSecurity(createBuiltInBestCaseConfig(), { root });
-    await expect(result).rejects.toThrow("Legacy bun.lockb is unsupported");
+    await assert.rejects(result, errorIncludes("Legacy bun.lockb is unsupported"));
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -900,9 +909,11 @@ test("checkSecurity - reuses cached baseline without best-case progress spam", a
   const options = createBestCaseOptions({ onProgress });
   await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
 
-  const fetchingEvents = onProgress.mock.calls.filter(([event]) => event.phase === "fetching");
-  expect(fetchAlerts).toHaveBeenCalledTimes(2);
-  expect(fetchingEvents).toHaveLength(1);
+  const fetchingEvents = onProgress.mock.calls
+    .map((call) => (Array.isArray(call) ? call : call.arguments))
+    .filter(([event]) => event.phase === "fetching");
+  assert.strictEqual(fetchAlerts.mock.callCount(), 2);
+  assert.strictEqual(fetchingEvents.length, 1);
 });
 
 test("checkSecurity - rejects incomplete built-in best-case evaluations", async () => {
@@ -917,9 +928,9 @@ test("checkSecurity - rejects incomplete built-in best-case evaluations", async 
   const options = createBestCaseOptions();
   const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
 
-  expect(result.bestCase?.selectedState).toEqual({ alpha: "1.0.0" });
-  expect(result.bestCase?.failedStates).toBe(1);
-  expect(result.overrides).toEqual([]);
+  assert.deepStrictEqual(result.bestCase?.selectedState, { alpha: "1.0.0" });
+  assert.strictEqual(result.bestCase?.failedStates, 1);
+  assert.deepStrictEqual(result.overrides, []);
 });
 
 test("checkSecurity - uses standard overrides for state-unaware providers", async () => {
@@ -929,9 +940,9 @@ test("checkSecurity - uses standard overrides for state-unaware providers", asyn
 
   const result = await checker.checkSecurity(createBuiltInBestCaseConfig());
 
-  expect(result.bestCase).toBeUndefined();
-  expect(result.overrides).toHaveLength(1);
-  expect(result.overrides[0].toVersion).toBe("2.0.0");
+  assert.strictEqual(result.bestCase, undefined);
+  assert.strictEqual(result.overrides.length, 1);
+  assert.strictEqual(result.overrides[0].toVersion, "2.0.0");
 });
 
 test("checkSecurity - uses standard overrides for multi-version baselines", async () => {
@@ -953,8 +964,11 @@ test("checkSecurity - uses standard overrides for multi-version baselines", asyn
   const options = createBestCaseOptions({}, inventory);
   const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
 
-  expect(result.bestCase).toBeUndefined();
-  expect(result.overrides.some((override) => override.toVersion === "3.0.0")).toBe(true);
+  assert.strictEqual(result.bestCase, undefined);
+  assert.strictEqual(
+    result.overrides.some((override) => override.toVersion === "3.0.0"),
+    true,
+  );
 });
 
 test("checkSecurity - uses standard overrides when an installed version has no alert", async () => {
@@ -971,34 +985,34 @@ test("checkSecurity - uses standard overrides when an installed version has no a
   const options = createBestCaseOptions({}, inventory);
   const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
 
-  expect(result.bestCase).toBeUndefined();
-  expect(result.overrides[0].toVersion).toBe("2.0.0");
-  expect(fetchAlerts).toHaveBeenCalledTimes(1);
+  assert.strictEqual(result.bestCase, undefined);
+  assert.strictEqual(result.overrides[0].toVersion, "2.0.0");
+  assert.strictEqual(fetchAlerts.mock.callCount(), 1);
 });
 
 test("checkSecurity - uses standard overrides when lockfile inventory is incomplete", async () => {
   const checker = new SecurityChecker({ provider: "osv", noCache: true });
   spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([createBestCaseAlert()]);
   mockLatestBestCaseVersion(checker);
-  const root = path.resolve(__dirname, ".missing-inventory-root");
+  const root = path.resolve(import.meta.dirname, ".missing-inventory-root");
 
   const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), { root });
 
-  expect(result.bestCase).toBeUndefined();
-  expect(result.overrides[0].toVersion).toBe("2.0.0");
+  assert.strictEqual(result.bestCase, undefined);
+  assert.strictEqual(result.overrides[0].toVersion, "2.0.0");
 });
 
 test("checkSecurity - resolves lockfile inventory beside the package manifest", async () => {
   const checker = new SecurityChecker({ provider: "osv", noCache: true });
   spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([createBestCaseAlert()]);
   mockLatestBestCaseVersion(checker);
-  const root = path.resolve(__dirname, ".missing-manifest-root");
+  const root = path.resolve(import.meta.dirname, ".missing-manifest-root");
   const packageJsonPath = path.join(root, "package.json");
 
   const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), { packageJsonPath });
 
-  expect(result.bestCase).toBeUndefined();
-  expect(result.overrides[0].toVersion).toBe("2.0.0");
+  assert.strictEqual(result.bestCase, undefined);
+  assert.strictEqual(result.overrides[0].toVersion, "2.0.0");
 });
 
 test("checkSecurity - omits best-case provenance when interactive approval is declined", async () => {
@@ -1009,7 +1023,7 @@ test("checkSecurity - omits best-case provenance when interactive approval is de
     return Promise.resolve(alerts);
   });
   const prompt = spyOn(
-    securityUtils.InteractiveSecurityManager.prototype,
+    InteractiveSecurityManager.prototype,
     "promptForBestCasePortfolio",
   ).mockResolvedValue([]);
   mockLatestBestCaseVersion(checker);
@@ -1019,21 +1033,21 @@ test("checkSecurity - omits best-case provenance when interactive approval is de
   });
   const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
 
-  expect(result.overrides).toEqual([]);
-  expect(result.bestCase).toBeUndefined();
+  assert.deepStrictEqual(result.overrides, []);
+  assert.strictEqual(result.bestCase, undefined);
   prompt.mockRestore();
 });
 
 test("checkSecurity - prompts for standard security overrides", async () => {
   const checker = createCheckerWithMockAlerts({}, [createBestCaseAlert()]);
   mockLatestBestCaseVersion(checker);
-  const manager = securityUtils.InteractiveSecurityManager.prototype;
+  const manager = InteractiveSecurityManager.prototype;
   const prompt = spyOn(manager, "promptForSecurityActions").mockResolvedValue([]);
   try {
     const options = { interactive: true, bestCase: { enabled: false } };
     const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
-    expect(prompt).toHaveBeenCalled();
-    expect(result.overrides).toEqual([]);
+    assert.ok(prompt.mock.callCount() > 0);
+    assert.deepStrictEqual(result.overrides, []);
   } finally {
     prompt.mockRestore();
   }
@@ -1041,7 +1055,7 @@ test("checkSecurity - prompts for standard security overrides", async () => {
 
 test("createProvider - should create OSV provider", () => {
   const checker = new SecurityChecker({ provider: "osv" });
-  expect(checker).toBeDefined();
+  assert.notStrictEqual(checker, undefined);
 });
 
 test("createProvider - should create GitHub provider with token", () => {
@@ -1049,7 +1063,7 @@ test("createProvider - should create GitHub provider with token", () => {
     provider: "github",
     token: "test-token",
   });
-  expect(checker).toBeDefined();
+  assert.notStrictEqual(checker, undefined);
 });
 
 test("createProvider - should create Snyk provider with token", () => {
@@ -1057,7 +1071,7 @@ test("createProvider - should create Snyk provider with token", () => {
     provider: "snyk",
     token: "test-token",
   });
-  expect(checker).toBeDefined();
+  assert.notStrictEqual(checker, undefined);
 });
 
 test("createProvider - should create Socket provider with token", () => {
@@ -1065,7 +1079,7 @@ test("createProvider - should create Socket provider with token", () => {
     provider: "socket",
     token: "test-token",
   });
-  expect(checker).toBeDefined();
+  assert.notStrictEqual(checker, undefined);
 });
 
 test("createProvider - should create multiple providers", () => {
@@ -1073,7 +1087,7 @@ test("createProvider - should create multiple providers", () => {
     provider: ["osv", "github"],
     token: "test-token",
   });
-  expect(checker).toBeDefined();
+  assert.notStrictEqual(checker, undefined);
 });
 
 test("checkSecurity - should handle workspace scanning", async () => {
@@ -1103,8 +1117,8 @@ test("checkSecurity - should handle workspace scanning", async () => {
       root: "./",
     });
 
-    expect(Array.isArray(result.alerts)).toBe(true);
-    expect(Array.isArray(result.overrides)).toBe(true);
+    assert.strictEqual(Array.isArray(result.alerts), true);
+    assert.strictEqual(Array.isArray(result.overrides), true);
   });
 });
 
@@ -1137,8 +1151,8 @@ test("checkSecurity - deduplicates matching root and workspace alerts", async ()
       { root, depPaths: ["packages/*/package.json"] },
     );
 
-    expect(result.alerts).toHaveLength(1);
-    expect(result.overrides).toHaveLength(1);
+    assert.strictEqual(result.alerts.length, 1);
+    assert.strictEqual(result.overrides.length, 1);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -1153,8 +1167,8 @@ test("checkSecurity - should handle config with no dependencies or devDependenci
   const checker = createCheckerWithMockAlerts({ provider: "osv" });
   const result = await checker.checkSecurity(config);
 
-  expect(Array.isArray(result.alerts)).toBe(true);
-  expect(result.alerts.length).toBe(0);
+  assert.strictEqual(Array.isArray(result.alerts), true);
+  assert.strictEqual(result.alerts.length, 0);
 });
 
 test("checkSecurity - should check for override updates", async () => {
@@ -1183,7 +1197,7 @@ test("checkSecurity - should check for override updates", async () => {
   const checker = createCheckerWithMockAlerts({ provider: "osv" });
   const result = await checker.checkSecurity(config);
 
-  expect(Array.isArray(result.updates)).toBe(true);
+  assert.strictEqual(Array.isArray(result.updates), true);
 });
 
 test("checkSecurity - should handle pnpm overrides", async () => {
@@ -1203,7 +1217,7 @@ test("checkSecurity - should handle pnpm overrides", async () => {
   const checker = createCheckerWithMockAlerts({ provider: "osv" });
   const result = await checker.checkSecurity(config);
 
-  expect(Array.isArray(result.updates)).toBe(true);
+  assert.strictEqual(Array.isArray(result.updates), true);
 });
 
 test("checkSecurity - should handle resolutions", async () => {
@@ -1221,7 +1235,7 @@ test("checkSecurity - should handle resolutions", async () => {
   const checker = createCheckerWithMockAlerts({ provider: "osv" });
   const result = await checker.checkSecurity(config);
 
-  expect(Array.isArray(result.updates)).toBe(true);
+  assert.strictEqual(Array.isArray(result.updates), true);
 });
 
 test("generatePackageOverrides - should convert security overrides to overrides object", () => {
@@ -1245,7 +1259,7 @@ test("generatePackageOverrides - should convert security overrides to overrides 
 
   const overrides = checker.generatePackageOverrides(securityOverrides);
 
-  expect(overrides).toEqual({
+  assert.deepStrictEqual(overrides, {
     lodash: "4.17.21",
     axios: "0.21.4",
   });
@@ -1255,8 +1269,8 @@ test("formatSecurityReport - should format empty report when no vulnerabilities"
   const checker = new SecurityChecker({ provider: "osv" });
   const report = checker.formatSecurityReport([], []);
 
-  expect(report).toContain("Security Check Report");
-  expect(report).toContain("No vulnerable packages found");
+  assert.ok(report.includes("Security Check Report"));
+  assert.ok(report.includes("No vulnerable packages found"));
 });
 
 test("formatSecurityReport - should format report with vulnerabilities", () => {
@@ -1275,11 +1289,11 @@ test("formatSecurityReport - should format report with vulnerabilities", () => {
 
   const report = checker.formatSecurityReport(vulnerablePackages, []);
 
-  expect(report).toContain("Security Check Report");
-  expect(report).toContain("Found 1 vulnerable package(s)");
-  expect(report).toContain("[HIGH] lodash@4.17.20");
-  expect(report).toContain("Prototype Pollution");
-  expect(report).toContain("Fix available: 4.17.21");
+  assert.ok(report.includes("Security Check Report"));
+  assert.ok(report.includes("Found 1 vulnerable package(s)"));
+  assert.ok(report.includes("[HIGH] lodash@4.17.20"));
+  assert.ok(report.includes("Prototype Pollution"));
+  assert.ok(report.includes("Fix available: 4.17.21"));
 });
 
 test("formatSecurityReport - should include CVE when available", () => {
@@ -1299,7 +1313,7 @@ test("formatSecurityReport - should include CVE when available", () => {
 
   const report = checker.formatSecurityReport(vulnerablePackages, []);
 
-  expect(report).toContain("CVE: CVE-2021-23337");
+  assert.ok(report.includes("CVE: CVE-2021-23337"));
 });
 
 test("formatSecurityReport - should include URL when available", () => {
@@ -1319,7 +1333,7 @@ test("formatSecurityReport - should include URL when available", () => {
 
   const report = checker.formatSecurityReport(vulnerablePackages, []);
 
-  expect(report).toContain("https://nvd.nist.gov/vuln/detail/CVE-2021-23337");
+  assert.ok(report.includes("https://nvd.nist.gov/vuln/detail/CVE-2021-23337"));
 });
 
 test("formatSecurityReport - should show no fix available when not fixable", () => {
@@ -1338,7 +1352,7 @@ test("formatSecurityReport - should show no fix available when not fixable", () 
 
   const report = checker.formatSecurityReport(vulnerablePackages, []);
 
-  expect(report).toContain("No fix available yet");
+  assert.ok(report.includes("No fix available yet"));
 });
 
 test("formatSecurityReport - should include overrides section when overrides exist", () => {
@@ -1366,8 +1380,8 @@ test("formatSecurityReport - should include overrides section when overrides exi
 
   const report = checker.formatSecurityReport(vulnerablePackages, securityOverrides);
 
-  expect(report).toContain("Generated 1 override(s)");
-  expect(report).toContain('"lodash": "4.17.21"');
+  assert.ok(report.includes("Generated 1 override(s)"));
+  assert.ok(report.includes('"lodash": "4.17.21"'));
 });
 
 test("readPackageFile - should read valid package.json", () => {
@@ -1378,7 +1392,7 @@ test("readPackageFile - should read valid package.json", () => {
   const result = (checker as any).readPackageFile(testPath);
   fs.unlinkSync(testPath);
 
-  expect(result).toEqual({ name: "test", version: "1.0.0" });
+  assert.deepStrictEqual(result, { name: "test", version: "1.0.0" });
 });
 
 test("readPackageFile - should return null for invalid JSON", () => {
@@ -1389,14 +1403,14 @@ test("readPackageFile - should return null for invalid JSON", () => {
   const result = (checker as any).readPackageFile(testPath);
   fs.unlinkSync(testPath);
 
-  expect(result).toBeNull();
+  assert.strictEqual(result, null);
 });
 
 test("readPackageFile - should return null for non-existent file", () => {
   const checker = new SecurityChecker({ provider: "osv" });
   const result = (checker as any).readPackageFile("/non/existent/path.json");
 
-  expect(result).toBeNull();
+  assert.strictEqual(result, null);
 });
 
 test("readPackageFile - should return null for invalid object", () => {
@@ -1407,7 +1421,7 @@ test("readPackageFile - should return null for invalid object", () => {
   const result = (checker as any).readPackageFile(testPath);
   fs.unlinkSync(testPath);
 
-  expect(result).toBeNull();
+  assert.strictEqual(result, null);
 });
 
 test("isNewVulnerability - should return true for new vulnerability", () => {
@@ -1425,7 +1439,7 @@ test("isNewVulnerability - should return true for new vulnerability", () => {
 
   const result = (checker as any).isNewVulnerability(vuln, existingKeys);
 
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("isNewVulnerability - should return false for existing vulnerability", () => {
@@ -1443,7 +1457,7 @@ test("isNewVulnerability - should return false for existing vulnerability", () =
 
   const result = (checker as any).isNewVulnerability(vuln, existingKeys);
 
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 });
 
 test("extractNewVulnerabilities - should extract only new vulnerabilities", () => {
@@ -1468,14 +1482,10 @@ test("extractNewVulnerabilities - should extract only new vulnerabilities", () =
   ];
   const existingKeys = new Set<string>();
 
-  const mockFindVulnerable = spyOn(securityUtils, "findVulnerablePackages").mockReturnValue(alerts);
-
   const result = (checker as any).extractNewVulnerabilities(pkgJson, alerts, existingKeys);
 
-  expect(result.length).toBe(1);
-  expect(result[0].packageName).toBe("lodash");
-
-  mockFindVulnerable.mockRestore();
+  assert.strictEqual(result.length, 1);
+  assert.strictEqual(result[0].packageName, "lodash");
 });
 
 test("extractNewVulnerabilities - Set correctly filters duplicates across workspaces", () => {
@@ -1506,8 +1516,8 @@ test("extractNewVulnerabilities - Set correctly filters duplicates across worksp
   const isNew1 = (checker as any).isNewVulnerability(vuln1, existingKeys);
   const isNew2 = (checker as any).isNewVulnerability(vuln2, existingKeys);
 
-  expect(isNew1).toBe(false);
-  expect(isNew2).toBe(true);
+  assert.strictEqual(isNew1, false);
+  assert.strictEqual(isNew2, true);
 });
 
 test("isNewVulnerability - Set key format matches packageName@currentVersion", () => {
@@ -1525,11 +1535,11 @@ test("isNewVulnerability - Set key format matches packageName@currentVersion", (
 
   const existingKeys = new Set(["@scope/pkg@2.0.0"]);
   const result = (checker as any).isNewVulnerability(vuln, existingKeys);
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 
   const otherKeys = new Set(["@scope/pkg@1.0.0"]);
   const result2 = (checker as any).isNewVulnerability(vuln, otherKeys);
-  expect(result2).toBe(true);
+  assert.strictEqual(result2, true);
 });
 
 test("createBackup - should create backup file", () => {
@@ -1542,9 +1552,9 @@ test("createBackup - should create backup file", () => {
     fs.writeFileSync(testPath, JSON.stringify({ name: "test" }));
     const backupPath = (checker as any).createBackup(testPath);
 
-    expect(fs.existsSync(backupPath)).toBe(true);
-    expect(backupPath).toContain(".backup-");
-    expect(path.dirname(backupPath)).toBe(expectedBackupDir);
+    assert.strictEqual(fs.existsSync(backupPath), true);
+    assert.ok(backupPath.includes(".backup-"));
+    assert.strictEqual(path.dirname(backupPath), expectedBackupDir);
   } finally {
     fs.rmSync(testDir, { recursive: true, force: true });
   }
@@ -1561,8 +1571,8 @@ test("createBackup - should use configured cache directory", () => {
     const checker = new SecurityChecker({ provider: "osv", cacheDir });
     const backupPath = (checker as any).createBackup(testPath);
 
-    expect(fs.existsSync(backupPath)).toBe(true);
-    expect(path.dirname(backupPath)).toBe(expectedBackupDir);
+    assert.strictEqual(fs.existsSync(backupPath), true);
+    assert.strictEqual(path.dirname(backupPath), expectedBackupDir);
   } finally {
     fs.rmSync(cacheDir, { recursive: true, force: true });
     fs.rmSync(testDir, { recursive: true, force: true });
@@ -1581,8 +1591,8 @@ test("createBackup - should use configured root for project cache", () => {
     const checker = new SecurityChecker({ provider: "osv", root });
     const backupPath = (checker as any).createBackup(testPath);
 
-    expect(fs.existsSync(backupPath)).toBe(true);
-    expect(path.dirname(backupPath)).toBe(expectedBackupDir);
+    assert.strictEqual(fs.existsSync(backupPath), true);
+    assert.strictEqual(path.dirname(backupPath), expectedBackupDir);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -1617,10 +1627,10 @@ test("applyAutoFix - should apply security overrides to package.json", async () 
   const backupPath = (await checker.applyAutoFix(overrides, testPath)) as string;
 
   const updated = JSON.parse(fs.readFileSync(testPath, "utf-8"));
-  expect(updated.overrides).toEqual({ lodash: "4.17.21" });
+  assert.deepStrictEqual(updated.overrides, { lodash: "4.17.21" });
 
-  expect(backupPath).toBeTruthy();
-  expect(fs.existsSync(backupPath as string)).toBe(true);
+  assert.ok(backupPath);
+  assert.strictEqual(fs.existsSync(backupPath as string), true);
 
   fs.unlinkSync(testPath);
   fs.unlinkSync(backupPath as string);
@@ -1646,9 +1656,9 @@ test("applyAutoFix - keeps external JSON overrides out of package.json", () => {
 
     const updatedPackage = JSON.parse(fs.readFileSync(fixture.packagePath, "utf8"));
     const updatedSource = JSON.parse(fs.readFileSync(fixture.overridePath, "utf8"));
-    expect(updatedPackage.overrides).toBeUndefined();
-    expect(updatedPackage.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
-    expect(updatedSource.overrides).toEqual({ axios: "1.8.0", lodash: "4.17.21" });
+    assert.strictEqual(updatedPackage.overrides, undefined);
+    assert.notStrictEqual(updatedPackage.pastoralist.appendix["lodash@4.17.21"], undefined);
+    assert.deepStrictEqual(updatedSource.overrides, { axios: "1.8.0", lodash: "4.17.21" });
   } finally {
     fs.rmSync(fixture.root, { recursive: true, force: true });
   }
@@ -1665,8 +1675,8 @@ test("applyAutoFix - honors override sources from merged config", () => {
     );
     const updatedPackage = JSON.parse(fs.readFileSync(fixture.packagePath, "utf8"));
     const updatedSource = JSON.parse(fs.readFileSync(fixture.overridePath, "utf8"));
-    expect(updatedPackage.overrides).toBeUndefined();
-    expect(updatedSource.overrides).toEqual({ axios: "1.8.0", lodash: "4.17.21" });
+    assert.strictEqual(updatedPackage.overrides, undefined);
+    assert.deepStrictEqual(updatedSource.overrides, { axios: "1.8.0", lodash: "4.17.21" });
   } finally {
     fs.rmSync(fixture.root, { recursive: true, force: true });
   }
@@ -1684,8 +1694,8 @@ test("rollbackAutoFix - restores same-basename package and override sources", ()
       fixture.packagePath,
     ) as string;
     fixture.checker.rollbackAutoFix(backupPath, fixture.packagePath);
-    expect(fs.readFileSync(fixture.packagePath, "utf8")).toBe(originalPackage);
-    expect(fs.readFileSync(fixture.overridePath, "utf8")).toBe(originalSource);
+    assert.strictEqual(fs.readFileSync(fixture.packagePath, "utf8"), originalPackage);
+    assert.strictEqual(fs.readFileSync(fixture.overridePath, "utf8"), originalSource);
   } finally {
     nowSpy.mockRestore();
     fs.rmSync(fixture.root, { recursive: true, force: true });
@@ -1706,9 +1716,9 @@ test("applyAutoFix - should throw error when package.json not found", async () =
 
   try {
     await checker.applyAutoFix(overrides, "/non/existent/package.json");
-    expect(true).toBe(false);
+    assert.strictEqual(true, false);
   } catch (error: any) {
-    expect(error.message).toContain("package.json not found");
+    assert.ok(error.message.includes("package.json not found"));
   }
 });
 
@@ -1739,8 +1749,8 @@ test("applyAutoFix - should use cwd when no path provided", async () => {
     fs.writeFileSync(testPath, JSON.stringify(npmPackage));
     const backupPath = (await checker.applyAutoFix(overrides)) as string;
 
-    expect(backupPath).toBeTruthy();
-    expect(fs.existsSync(backupPath as string)).toBe(true);
+    assert.ok(backupPath);
+    assert.strictEqual(fs.existsSync(backupPath as string), true);
 
     fs.writeFileSync(testPath, originalContent);
     fs.unlinkSync(backupPath as string);
@@ -1764,7 +1774,7 @@ test("rollbackAutoFix - should restore from backup", async () => {
   mockConsoleLog.mockRestore();
 
   const restored = JSON.parse(fs.readFileSync(testPath, "utf-8"));
-  expect(restored).toEqual(original);
+  assert.deepStrictEqual(restored, original);
 
   fs.unlinkSync(testPath);
   fs.unlinkSync(backupPath);
@@ -1775,9 +1785,9 @@ test("rollbackAutoFix - should throw error when backup not found", async () => {
 
   try {
     await checker.rollbackAutoFix("/non/existent/backup.json", "/non/existent/package.json");
-    expect(true).toBe(false);
+    assert.strictEqual(true, false);
   } catch (error: any) {
-    expect(error.message).toContain("Backup file not found");
+    assert.ok(error.message.includes("Backup file not found"));
   }
 });
 
@@ -1819,55 +1829,55 @@ test("findWorkspaceVulnerabilities - should find vulnerabilities in workspace pa
   fs.unlinkSync(pkgPath);
   fs.rmdirSync(workspaceDir);
 
-  expect(Array.isArray(result)).toBe(true);
+  assert.strictEqual(Array.isArray(result), true);
 });
 
 test("isKnownSecurityProvider - returns true for github", () => {
   const checker = new SecurityChecker({ provider: "osv" });
   const result = (checker as any).isKnownSecurityProvider("github");
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("isKnownSecurityProvider - returns true for snyk", () => {
   const checker = new SecurityChecker({ provider: "osv" });
   const result = (checker as any).isKnownSecurityProvider("snyk");
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("isKnownSecurityProvider - returns true for socket", () => {
   const checker = new SecurityChecker({ provider: "osv" });
   const result = (checker as any).isKnownSecurityProvider("socket");
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("isKnownSecurityProvider - returns true for osv", () => {
   const checker = new SecurityChecker({ provider: "osv" });
   const result = (checker as any).isKnownSecurityProvider("osv");
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("isKnownSecurityProvider - returns false for unknown provider", () => {
   const checker = new SecurityChecker({ provider: "osv" });
   const result = (checker as any).isKnownSecurityProvider("unknown");
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 });
 
 test("ensureProviderAuth - returns true for unknown provider", async () => {
   const checker = new SecurityChecker({ provider: "osv" });
   const result = await checker.ensureProviderAuth("unknown");
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("ensureProviderAuth - returns true for OSV provider", async () => {
   const checker = new SecurityChecker({ provider: "osv" });
   const result = await checker.ensureProviderAuth("osv");
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("ensureProviderAuth - returns true for npm provider", async () => {
   const checker = new SecurityChecker({ provider: "osv" });
   const result = await checker.ensureProviderAuth("npm");
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("ensureProviderAuth - returns true when token is available", async () => {
@@ -1876,7 +1886,7 @@ test("ensureProviderAuth - returns true when token is available", async () => {
 
   const checker = new SecurityChecker({ provider: "osv" });
   const result = await checker.ensureProviderAuth("snyk");
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 
   if (originalToken) {
     process.env.SNYK_TOKEN = originalToken;
@@ -1893,7 +1903,7 @@ test("ensureProviderAuth - returns false when non-interactive and no token", asy
   const result = await checker.ensureProviderAuth("snyk", {
     interactive: false,
   });
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 
   if (originalToken) {
     process.env.SNYK_TOKEN = originalToken;
@@ -1908,7 +1918,7 @@ test("ensureProviderAuth - returns false for socket with interactive disabled", 
   const result = await checker.ensureProviderAuth("socket", {
     interactive: false,
   });
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 
   if (originalToken) {
     process.env.SOCKET_SECURITY_API_KEY = originalToken;
@@ -1918,7 +1928,7 @@ test("ensureProviderAuth - returns false for socket with interactive disabled", 
 test("ensureProviderAuth - accepts debug option", async () => {
   const checker = new SecurityChecker({ provider: "osv" });
   const result = await checker.ensureProviderAuth("osv", { debug: true });
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("generateCacheKey - generates unique key for packages", () => {
@@ -1929,8 +1939,8 @@ test("generateCacheKey - generates unique key for packages", () => {
   ];
 
   const key = (checker as any).generateCacheKey(packages);
-  expect(key).toContain("lodash@4.17.20");
-  expect(key).toContain("axios@0.21.0");
+  assert.ok(key.includes("lodash@4.17.20"));
+  assert.ok(key.includes("axios@0.21.0"));
 });
 
 test("generateCacheKey - sorts packages for consistent keys", () => {
@@ -1946,7 +1956,7 @@ test("generateCacheKey - sorts packages for consistent keys", () => {
 
   const key1 = (checker as any).generateCacheKey(packages1);
   const key2 = (checker as any).generateCacheKey(packages2);
-  expect(key1).toBe(key2);
+  assert.strictEqual(key1, key2);
 });
 
 test("generateDiskCacheKey - separates different package scans", () => {
@@ -1962,7 +1972,7 @@ test("generateDiskCacheKey - separates different package scans", () => {
     root,
   );
 
-  expect(lodashKey).not.toBe(axiosKey);
+  assert.notStrictEqual(lodashKey, axiosKey);
 });
 
 test("generatePackageOverrides - skips nested override objects without crashing", () => {
@@ -1978,7 +1988,7 @@ test("generatePackageOverrides - skips nested override objects without crashing"
     },
   ]);
 
-  expect(overrides["lodash"]).toBe("4.17.21");
+  assert.strictEqual(overrides["lodash"], "4.17.21");
 });
 
 test("generatePackageOverrides - higher version wins for duplicate package", () => {
@@ -2001,7 +2011,7 @@ test("generatePackageOverrides - higher version wins for duplicate package", () 
     },
   ]);
 
-  expect(overrides["lodash"]).toBe("4.17.21");
+  assert.strictEqual(overrides["lodash"], "4.17.21");
 });
 
 test("generatePackageOverrides - does not downgrade existing higher version", () => {
@@ -2024,7 +2034,7 @@ test("generatePackageOverrides - does not downgrade existing higher version", ()
     },
   ]);
 
-  expect(overrides["lodash"]).toBe("4.17.25");
+  assert.strictEqual(overrides["lodash"], "4.17.25");
 });
 
 test("checkSecurity - expires in-memory alerts using cache TTL seconds", async () => {
@@ -2055,12 +2065,12 @@ test("checkSecurity - expires in-memory alerts using cache TTL seconds", async (
     await checker.checkSecurity(config);
     await checker.checkSecurity(config);
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    assert.strictEqual(fetchMock.mock.callCount(), 1);
 
     now += 1_001;
     await checker.checkSecurity(config);
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    assert.strictEqual(fetchMock.mock.callCount(), 2);
   } finally {
     nowSpy.mockRestore();
     global.fetch = originalFetch;
@@ -2085,7 +2095,7 @@ test("checkSecurity - skipCacheWrite does not seed in-memory alerts cache", asyn
   await checker.checkSecurity(config);
   await checker.checkSecurity(config);
 
-  expect(fetchAlerts).toHaveBeenCalledTimes(2);
+  assert.strictEqual(fetchAlerts.mock.callCount(), 2);
 });
 
 test("checkSecurity - does not cache incomplete provider scans", async () => {
@@ -2098,7 +2108,7 @@ test("checkSecurity - does not cache incomplete provider scans", async () => {
   await checker.checkSecurity(config, { bestCase: { enabled: false } });
   await checker.checkSecurity(config, { bestCase: { enabled: false } });
 
-  expect(fetchAlerts).toHaveBeenCalledTimes(2);
+  assert.strictEqual(fetchAlerts.mock.callCount(), 2);
 });
 
 test("checkSecurity - does not cache provider-reported partial scans", async () => {
@@ -2114,7 +2124,7 @@ test("checkSecurity - does not cache provider-reported partial scans", async () 
   await checker.checkSecurity(config, { bestCase: { enabled: false } });
   await checker.checkSecurity(config, { bestCase: { enabled: false } });
 
-  expect(fetchAlerts).toHaveBeenCalledTimes(2);
+  assert.strictEqual(fetchAlerts.mock.callCount(), 2);
 });
 
 test("checkSecurity - returns results when provider fetch succeeds", async () => {
@@ -2183,8 +2193,8 @@ test("checkSecurity - returns results when provider fetch succeeds", async () =>
   try {
     const result = await checker.checkSecurity(config);
     const hasAlerts = result.alerts.length > 0;
-    expect(hasAlerts).toBe(true);
-    expect(result.packagesScanned).toBe(1);
+    assert.strictEqual(hasAlerts, true);
+    assert.strictEqual(result.packagesScanned, 1);
   } finally {
     global.fetch = originalFetch;
   }
@@ -2202,10 +2212,13 @@ test("checkSecurity - throws provider errors in strict mode", async () => {
     spyOn(provider, "fetchAlerts").mockRejectedValue(new Error("boom"));
   }
 
-  await expect(checker.checkSecurity(mockPackageJson)).rejects.toThrow("Provider osv failed: boom");
+  await assert.rejects(
+    checker.checkSecurity(mockPackageJson),
+    errorIncludes("Provider osv failed: boom"),
+  );
 });
 
-const TEST_DIR = path.resolve(__dirname, ".test-autofix");
+const TEST_DIR = path.resolve(import.meta.dirname, ".test-autofix");
 const createdBackupPaths = new Set<string>();
 
 const rememberBackup = (backupPath: string | void): string => {
@@ -2270,8 +2283,8 @@ test("applyAutoFix creates backup in project cache before modifying", () => {
     "backups",
   );
 
-  expect(fs.existsSync(backupPath)).toBe(true);
-  expect(path.dirname(backupPath)).toBe(expectedBackupDir);
+  assert.strictEqual(fs.existsSync(backupPath), true);
+  assert.strictEqual(path.dirname(backupPath), expectedBackupDir);
 });
 
 test("applyAutoFix handles empty overrides array", () => {
@@ -2285,7 +2298,7 @@ test("applyAutoFix handles empty overrides array", () => {
   rememberBackup(checker.applyAutoFix([], pkgPath));
 
   const result = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
-  expect(result.pastoralist).toBeDefined();
+  assert.notStrictEqual(result.pastoralist, undefined);
 });
 
 test("applyAutoFix preserves existing overrides", () => {
@@ -2310,8 +2323,8 @@ test("applyAutoFix preserves existing overrides", () => {
   rememberBackup(checker.applyAutoFix(overrides, pkgPath));
 
   const result = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
-  expect(result.overrides.minimist).toBe("1.2.8");
-  expect(result.overrides.lodash).toBe("4.17.21");
+  assert.strictEqual(result.overrides.minimist, "1.2.8");
+  assert.strictEqual(result.overrides.lodash, "4.17.21");
 });
 
 test("rollbackAutoFix restores to originalPath, not cache dir", () => {
@@ -2337,16 +2350,16 @@ test("rollbackAutoFix restores to originalPath, not cache dir", () => {
     ),
   );
 
-  expect(backupPath).toContain(path.join("node_modules", ".cache", "pastoralist", "backups"));
+  assert.ok(backupPath.includes(path.join("node_modules", ".cache", "pastoralist", "backups")));
 
   checker.rollbackAutoFix(backupPath, pkgPath);
 
   const cacheDir = path.dirname(backupPath);
   const cacheFiles = fs.readdirSync(cacheDir).filter((f) => f === "package.json");
-  expect(cacheFiles.length).toBe(0);
+  assert.strictEqual(cacheFiles.length, 0);
 
   const restored = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
-  expect(restored.overrides).toBeUndefined();
+  assert.strictEqual(restored.overrides, undefined);
 });
 
 test("rollbackAutoFix restores original file", () => {
@@ -2371,13 +2384,13 @@ test("rollbackAutoFix restores original file", () => {
   const backupPath = rememberBackup(checker.applyAutoFix(overrides, pkgPath));
 
   const modified = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
-  expect(modified.overrides).toBeDefined();
+  assert.notStrictEqual(modified.overrides, undefined);
 
   checker.rollbackAutoFix(backupPath, pkgPath);
 
   const restored = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
-  expect(restored.overrides).toBeUndefined();
-  expect(restored.name).toBe("rollback-test");
+  assert.strictEqual(restored.overrides, undefined);
+  assert.strictEqual(restored.name, "rollback-test");
 });
 
 test("applyAutoFix handles pnpm override format", () => {
@@ -2408,7 +2421,7 @@ test("applyAutoFix handles pnpm override format", () => {
     rememberBackup(checker.applyAutoFix(overrides, pkgPath));
 
     const result = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
-    expect(result.pnpm.overrides.lodash).toBe("4.17.21");
+    assert.strictEqual(result.pnpm.overrides.lodash, "4.17.21");
   } finally {
     process.chdir(originalCwd);
   }
@@ -2441,7 +2454,7 @@ test("applyAutoFix handles yarn resolutions format", () => {
     rememberBackup(checker.applyAutoFix(overrides, pkgPath));
 
     const result = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
-    expect(result.resolutions.lodash).toBe("4.17.21");
+    assert.strictEqual(result.resolutions.lodash, "4.17.21");
   } finally {
     process.chdir(originalCwd);
   }
@@ -2452,7 +2465,7 @@ test("Provider Abstraction - should support spektion provider", () => {
     provider: "spektion" as any,
     token: "test-token",
   });
-  expect(checker).toBeDefined();
+  assert.notStrictEqual(checker, undefined);
 });
 
 test("checkOverrideUpdates - logs and skips nested override entries", async () => {
@@ -2466,7 +2479,7 @@ test("checkOverrideUpdates - logs and skips nested override entries", async () =
     },
   };
   const result = await (checker as any).checkOverrideUpdates(config, []);
-  expect(Array.isArray(result)).toBe(true);
+  assert.strictEqual(Array.isArray(result), true);
 });
 
 if (import.meta.url === `file://${process.argv[1]}`) {

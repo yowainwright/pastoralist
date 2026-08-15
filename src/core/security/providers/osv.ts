@@ -185,11 +185,11 @@ export class OSVProvider {
   private createVulnerabilityBatches(
     partialVulns: OSVPartialVulnerability[],
   ): OSVPartialVulnerability[][] {
-    return partialVulns.reduce<OSVPartialVulnerability[][]>((batches, vuln, index) => {
-      const batchIndex = Math.floor(index / OSV_DETAIL_CONCURRENCY);
-      const batch = batches[batchIndex] || [];
-      return Object.assign(batches.slice(), { [batchIndex]: batch.concat(vuln) });
-    }, []);
+    const batchCount = Math.ceil(partialVulns.length / OSV_DETAIL_CONCURRENCY);
+    return Array.from({ length: batchCount }, (_, index) => {
+      const start = index * OSV_DETAIL_CONCURRENCY;
+      return partialVulns.slice(start, start + OSV_DETAIL_CONCURRENCY);
+    });
   }
 
   private async fetchVulnerabilityBatch(

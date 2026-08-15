@@ -1,4 +1,6 @@
-import { test, expect, beforeEach, afterEach, mock } from "bun:test";
+import { errorIncludes, mock } from "../setup.ts";
+import { test, beforeEach, afterEach } from "node:test";
+import assert from "node:assert/strict";
 import { resolve } from "path";
 import type { PastoralistJSON, OverridesType } from "../../../src/types";
 import {
@@ -43,19 +45,7 @@ import {
   validateRootPackageJsonIntegrity,
 } from "../setup";
 
-mock.module("node:child_process", () =>
-  Object.assign({}, require("node:child_process"), {
-    promisify: (fn: any) => {
-      if (fn.name === "execFile") {
-        return (cmd: string, args: string[], _options: any) =>
-          Promise.reject(new Error(`Unexpected execFile call in tests: ${cmd} ${args.join(" ")}`));
-      }
-      return require("util").promisify(fn);
-    },
-  }),
-);
-
-const testDir = resolve(__dirname, "..", ".test-packagejson-core");
+const testDir = resolve(import.meta.dirname, "..", ".test-packagejson-core");
 const testPkgPath = resolve(testDir, "package.json");
 
 beforeEach(() => {
@@ -69,8 +59,8 @@ afterEach(() => {
 test("getCacheStats - should return cache size and keys", () => {
   jsonCache.clear();
   const stats = getCacheStats();
-  expect(stats.size).toBe(0);
-  expect(stats.keys).toEqual([]);
+  assert.strictEqual(stats.size, 0);
+  assert.deepStrictEqual(stats.keys, []);
   jsonCache.clear();
 });
 
@@ -80,8 +70,8 @@ test("getCacheStats - should show cached entries", () => {
   jsonCache.set("/test/path", mockJson);
 
   const stats = getCacheStats();
-  expect(stats.size).toBe(1);
-  expect(stats.keys).toEqual(["/test/path"]);
+  assert.strictEqual(stats.size, 1);
+  assert.deepStrictEqual(stats.keys, ["/test/path"]);
   jsonCache.clear();
 });
 
@@ -91,15 +81,15 @@ test("forceClearCache - should clear cache and return count", () => {
   jsonCache.set("/test/path2", { name: "test2", version: "1.0.0" });
 
   const count = forceClearCache();
-  expect(count).toBe(2);
-  expect(jsonCache.size).toBe(0);
+  assert.strictEqual(count, 2);
+  assert.strictEqual(jsonCache.size, 0);
   jsonCache.clear();
 });
 
 test("forceClearCache - should return 0 when cache is empty", () => {
   jsonCache.clear();
   const count = forceClearCache();
-  expect(count).toBe(0);
+  assert.strictEqual(count, 0);
   jsonCache.clear();
 });
 
@@ -112,7 +102,7 @@ test("detectPackageManager - should detect bun when bun.lockb exists", () => {
   }
 
   const pm = detectPackageManager();
-  expect(pm).toBe("bun");
+  assert.strictEqual(pm, "bun");
 
   const shouldRemoveLock = !hadLock && existsSync(lockPath);
   if (shouldRemoveLock) {
@@ -127,7 +117,7 @@ test("detectPackageManager - should detect npm as fallback", () => {
   const pm = detectPackageManager();
 
   if (existing.length === 0) {
-    expect(pm).toBe("npm");
+    assert.strictEqual(pm, "npm");
   }
 });
 
@@ -140,7 +130,7 @@ test("detectPackageManager - should detect package manager from provided root", 
 
   const pm = detectPackageManager(customRoot);
 
-  expect(pm).toBe("yarn");
+  assert.strictEqual(pm, "yarn");
 
   rmSync(customRoot, { recursive: true, force: true });
 });
@@ -153,7 +143,7 @@ test("getExistingOverrideField - should return resolutions when present", () => 
   };
 
   const field = getExistingOverrideField(config);
-  expect(field).toBe("resolutions");
+  assert.strictEqual(field, "resolutions");
 });
 
 test("getExistingOverrideField - should return overrides when present", () => {
@@ -164,7 +154,7 @@ test("getExistingOverrideField - should return overrides when present", () => {
   };
 
   const field = getExistingOverrideField(config);
-  expect(field).toBe("overrides");
+  assert.strictEqual(field, "overrides");
 });
 
 test("getExistingOverrideField - should return pnpm when pnpm overrides present", () => {
@@ -175,7 +165,7 @@ test("getExistingOverrideField - should return pnpm when pnpm overrides present"
   };
 
   const field = getExistingOverrideField(config);
-  expect(field).toBe("pnpm");
+  assert.strictEqual(field, "pnpm");
 });
 
 test("getExistingOverrideField - should return null when no overrides", () => {
@@ -185,7 +175,7 @@ test("getExistingOverrideField - should return null when no overrides", () => {
   };
 
   const field = getExistingOverrideField(config);
-  expect(field).toBeNull();
+  assert.strictEqual(field, null);
 });
 
 test("getExistingOverrideField - should prioritize resolutions over overrides", () => {
@@ -197,27 +187,27 @@ test("getExistingOverrideField - should prioritize resolutions over overrides", 
   };
 
   const field = getExistingOverrideField(config);
-  expect(field).toBe("resolutions");
+  assert.strictEqual(field, "resolutions");
 });
 
 test("getOverrideFieldForPackageManager - should return resolutions for yarn", () => {
   const field = getOverrideFieldForPackageManager("yarn");
-  expect(field).toBe("resolutions");
+  assert.strictEqual(field, "resolutions");
 });
 
 test("getOverrideFieldForPackageManager - should return pnpm for pnpm", () => {
   const field = getOverrideFieldForPackageManager("pnpm");
-  expect(field).toBe("pnpm");
+  assert.strictEqual(field, "pnpm");
 });
 
 test("getOverrideFieldForPackageManager - should return overrides for npm", () => {
   const field = getOverrideFieldForPackageManager("npm");
-  expect(field).toBe("overrides");
+  assert.strictEqual(field, "overrides");
 });
 
 test("getOverrideFieldForPackageManager - should return overrides for bun", () => {
   const field = getOverrideFieldForPackageManager("bun");
-  expect(field).toBe("overrides");
+  assert.strictEqual(field, "overrides");
 });
 
 test("applyOverridesToConfig - should apply resolutions", () => {
@@ -226,7 +216,7 @@ test("applyOverridesToConfig - should apply resolutions", () => {
 
   const result = applyOverridesToConfig(config, overrides, "resolutions");
 
-  expect(result.resolutions).toEqual({ lodash: "4.17.21" });
+  assert.deepStrictEqual(result.resolutions, { lodash: "4.17.21" });
 });
 
 test("applyOverridesToConfig - should apply npm overrides", () => {
@@ -235,7 +225,7 @@ test("applyOverridesToConfig - should apply npm overrides", () => {
 
   const result = applyOverridesToConfig(config, overrides, "overrides");
 
-  expect(result.overrides).toEqual({ lodash: "4.17.21" });
+  assert.deepStrictEqual(result.overrides, { lodash: "4.17.21" });
 });
 
 test("applyOverridesToConfig - should apply pnpm overrides", () => {
@@ -244,7 +234,7 @@ test("applyOverridesToConfig - should apply pnpm overrides", () => {
 
   const result = applyOverridesToConfig(config, overrides, "pnpm");
 
-  expect(result.pnpm?.overrides).toEqual({ lodash: "4.17.21" });
+  assert.deepStrictEqual(result.pnpm?.overrides, { lodash: "4.17.21" });
 });
 
 test("applyOverridesToConfig - should preserve existing pnpm config when adding overrides", () => {
@@ -257,7 +247,7 @@ test("applyOverridesToConfig - should preserve existing pnpm config when adding 
 
   const result = applyOverridesToConfig(config, overrides, "pnpm");
 
-  expect(result.pnpm).toEqual({
+  assert.deepStrictEqual(result.pnpm, {
     shamefullyHoist: true,
     overrides: { lodash: "4.17.21" },
   });
@@ -269,7 +259,7 @@ test("applyOverridesToConfig - should return config unchanged when fieldType is 
 
   const result = applyOverridesToConfig(config, overrides, null);
 
-  expect(result).toEqual(config);
+  assert.deepStrictEqual(result, config);
 });
 
 test("resolveJSON - should parse and cache valid JSON", () => {
@@ -288,8 +278,8 @@ test("resolveJSON - should parse and cache valid JSON", () => {
 
   const result = resolveJSON(testPkgPath);
 
-  expect(result).toEqual(mockPkg);
-  expect(jsonCache.size).toBe(1);
+  assert.deepStrictEqual(result, mockPkg);
+  assert.strictEqual(jsonCache.size, 1);
 
   if (existsSync(testDir)) {
     rmSync(testDir, { recursive: true, force: true });
@@ -315,8 +305,8 @@ test("resolveJSON - should return cached result on second call", () => {
   const first = resolveJSON(testPkgPath);
   const second = resolveJSON(testPkgPath);
 
-  expect(first).toBe(second);
-  expect(jsonCache.size).toBe(1);
+  assert.strictEqual(first, second);
+  assert.strictEqual(jsonCache.size, 1);
 
   if (existsSync(testDir)) {
     rmSync(testDir, { recursive: true, force: true });
@@ -336,7 +326,7 @@ test("resolveJSON - should return undefined for invalid JSON", () => {
 
   const result = resolveJSON(testPkgPath);
 
-  expect(result).toBeUndefined();
+  assert.strictEqual(result, undefined);
 
   if (existsSync(testDir)) {
     rmSync(testDir, { recursive: true, force: true });
@@ -347,7 +337,7 @@ test("resolveJSON - should return undefined for invalid JSON", () => {
 
 test("resolveJSON - should return undefined for non-existent file", () => {
   const result = resolveJSON("/non/existent/package.json");
-  expect(result).toBeUndefined();
+  assert.strictEqual(result, undefined);
 });
 
 test("updatePackageJSON - should add appendix and overrides to package.json", () => {
@@ -373,8 +363,8 @@ test("updatePackageJSON - should add appendix and overrides to package.json", ()
     isTesting: true,
   });
 
-  expect(result?.pastoralist?.appendix).toEqual(appendix);
-  expect(result?.overrides).toEqual(overrides);
+  assert.deepStrictEqual(result?.pastoralist?.appendix, appendix);
+  assert.deepStrictEqual(result?.overrides, overrides);
 });
 
 test("updatePackageJSON - should remove overrides when none provided", () => {
@@ -397,8 +387,8 @@ test("updatePackageJSON - should remove overrides when none provided", () => {
     isTesting: true,
   });
 
-  expect(result?.overrides).toBeUndefined();
-  expect(result?.pastoralist).toBeUndefined();
+  assert.strictEqual(result?.overrides, undefined);
+  assert.strictEqual(result?.pastoralist, undefined);
 });
 
 test("updatePackageJSON - should preserve other pastoralist config when removing appendix", () => {
@@ -428,12 +418,12 @@ test("updatePackageJSON - should preserve other pastoralist config when removing
     isTesting: true,
   });
 
-  expect(result?.pastoralist?.depPaths).toBe("workspace");
-  expect(result?.pastoralist?.compactAppendix).toBe(true);
-  expect(result?.pastoralist?.checkSecurity).toBe(true);
-  expect(result?.pastoralist?.security).toEqual({ enabled: true });
-  expect(result?.pastoralist?.bestCase).toEqual(bestCase);
-  expect(result?.pastoralist?.appendix).toBeUndefined();
+  assert.strictEqual(result?.pastoralist?.depPaths, "workspace");
+  assert.strictEqual(result?.pastoralist?.compactAppendix, true);
+  assert.strictEqual(result?.pastoralist?.checkSecurity, true);
+  assert.deepStrictEqual(result?.pastoralist?.security, { enabled: true });
+  assert.deepStrictEqual(result?.pastoralist?.bestCase, bestCase);
+  assert.strictEqual(result?.pastoralist?.appendix, undefined);
 });
 
 test("updatePackageJSON - skips write when content is unchanged", () => {
@@ -459,7 +449,7 @@ test("updatePackageJSON - skips write when content is unchanged", () => {
   });
 
   const content = safeReadFileSync(testPkgPath, "utf8");
-  expect(content).toBe("SENTINEL");
+  assert.strictEqual(content, "SENTINEL");
 
   rmSync(testDir, { recursive: true, force: true });
   jsonCache.clear();
@@ -489,7 +479,7 @@ test("updatePackageJSON - writes file when content changes", () => {
   });
 
   const content = safeReadFileSync(testPkgPath, "utf8");
-  expect(content).not.toBe("SENTINEL");
+  assert.notStrictEqual(content, "SENTINEL");
 
   rmSync(testDir, { recursive: true, force: true });
   jsonCache.clear();
@@ -519,13 +509,13 @@ test("updatePackageJSON - should write file when not in testing mode", () => {
     isTesting: false,
   });
 
-  expect(existsSync(testPkgPath)).toBe(true);
+  assert.strictEqual(existsSync(testPkgPath), true);
 
   const written = resolveJSON(testPkgPath);
   const hasOverrides = Boolean(
     written?.overrides || written?.resolutions || written?.pnpm?.overrides,
   );
-  expect(hasOverrides).toBe(true);
+  assert.strictEqual(hasOverrides, true);
 
   if (existsSync(testDir)) {
     rmSync(testDir, { recursive: true, force: true });
@@ -556,9 +546,9 @@ test("updatePackageJSON - should not write file in dry run mode", () => {
     dryRun: true,
   });
 
-  expect(existsSync(testPkgPath)).toBe(false);
+  assert.strictEqual(existsSync(testPkgPath), false);
   const hasOverrides = Boolean(result?.overrides || result?.resolutions || result?.pnpm?.overrides);
-  expect(hasOverrides).toBe(true);
+  assert.strictEqual(hasOverrides, true);
 
   if (existsSync(testDir)) {
     rmSync(testDir, { recursive: true, force: true });
@@ -582,7 +572,7 @@ test("updatePackageJSON - should clear cache after writing", () => {
   writeFileSync(testPkgPath, JSON.stringify(config, null, 2));
 
   resolveJSON(testPkgPath);
-  expect(jsonCache.size).toBe(1);
+  assert.strictEqual(jsonCache.size, 1);
 
   const overrides: OverridesType = { lodash: "4.17.21" };
 
@@ -593,7 +583,7 @@ test("updatePackageJSON - should clear cache after writing", () => {
     isTesting: false,
   });
 
-  expect(jsonCache.has(resolve(testPkgPath))).toBe(false);
+  assert.strictEqual(jsonCache.has(resolve(testPkgPath)), false);
 
   if (existsSync(testDir)) {
     rmSync(testDir, { recursive: true, force: true });
@@ -603,7 +593,7 @@ test("updatePackageJSON - should clear cache after writing", () => {
 });
 
 test("findPackageJsonFiles - should throw when no depPaths provided", () => {
-  expect(() => findPackageJsonFiles([])).toThrow("No depPaths provided");
+  assert.throws(() => findPackageJsonFiles([]), errorIncludes("No depPaths provided"));
 });
 
 test("findPackageJsonFiles - should throw when no files found", () => {
@@ -612,8 +602,9 @@ test("findPackageJsonFiles - should throw when no files found", () => {
     mkdirSync(testDir, { recursive: true });
   }
 
-  expect(() => findPackageJsonFiles(["nonexistent/**/*.json"], [], testDir)).toThrow(
-    "No package.json files found",
+  assert.throws(
+    () => findPackageJsonFiles(["nonexistent/**/*.json"], [], testDir),
+    errorIncludes("No package.json files found"),
   );
 
   if (existsSync(testDir)) {
@@ -634,9 +625,9 @@ test("getDependencyTree - should return dependency tree", async () => {
   const mockExecuteNpmLs = () => Promise.resolve(mockOutput);
   const tree = await getDependencyTree(mockExecuteNpmLs, undefined, testDir);
 
-  expect(typeof tree).toBe("object");
-  expect(tree["lodash"]).toBe("4.17.21");
-  expect(tree["express"]).toBe("4.18.0");
+  assert.strictEqual(typeof tree, "object");
+  assert.strictEqual(tree["lodash"], "4.17.21");
+  assert.strictEqual(tree["express"], "4.18.0");
   clearDependencyTreeCache();
 });
 
@@ -652,7 +643,7 @@ test("getDependencyTree - passes root parameter to executeNpmLs mock", async () 
   const customRoot = resolve(testDir, "custom-root");
   await getDependencyTree(mockExecuteNpmLs, undefined, customRoot);
 
-  expect(capturedRoot).toBe(customRoot);
+  assert.strictEqual(capturedRoot, customRoot);
   clearDependencyTreeCache();
 });
 
@@ -672,7 +663,7 @@ test("updatePackageJSON - should handle existing override field", () => {
     isTesting: true,
   });
 
-  expect(result?.resolutions).toEqual({ lodash: "4.17.21" });
+  assert.deepStrictEqual(result?.resolutions, { lodash: "4.17.21" });
 });
 
 test("applyOverridesToConfig - should use existing override field", () => {
@@ -687,7 +678,7 @@ test("applyOverridesToConfig - should use existing override field", () => {
 
   const result = applyOverridesToConfig(config, overrides, existingField);
 
-  expect(result.resolutions).toEqual({ lodash: "4.17.21" });
+  assert.deepStrictEqual(result.resolutions, { lodash: "4.17.21" });
 });
 
 test("updatePackageJSON - should preserve pnpm config when removing overrides", () => {
@@ -706,8 +697,8 @@ test("updatePackageJSON - should preserve pnpm config when removing overrides", 
     isTesting: true,
   });
 
-  expect(result?.pnpm?.overrides).toBeUndefined();
-  expect(result?.pnpm?.shamefullyHoist).toBe(true);
+  assert.strictEqual(result?.pnpm?.overrides, undefined);
+  assert.strictEqual(result?.pnpm?.shamefullyHoist, true);
 });
 
 test("updatePackageJSON - should remove empty pnpm when only had overrides", () => {
@@ -725,7 +716,7 @@ test("updatePackageJSON - should remove empty pnpm when only had overrides", () 
     isTesting: true,
   });
 
-  expect(result?.pnpm).toBeUndefined();
+  assert.strictEqual(result?.pnpm, undefined);
 });
 
 test("updatePackageJSON - should write to non-root package.json", () => {
@@ -750,7 +741,7 @@ test("updatePackageJSON - should write to non-root package.json", () => {
     isTesting: false,
   });
 
-  expect(existsSync(testPkgPath)).toBe(true);
+  assert.strictEqual(existsSync(testPkgPath), true);
 
   if (existsSync(testDir)) {
     rmSync(testDir, { recursive: true, force: true });
@@ -797,7 +788,7 @@ test("updatePackageJSON - should not show RC file suggestion for small config", 
   const hasRcSuggestion = logCalls.some((log) =>
     log.includes("pastoralist init --useRcConfigFile"),
   );
-  expect(hasRcSuggestion).toBe(false);
+  assert.strictEqual(hasRcSuggestion, false);
 
   if (existsSync(testDir)) {
     rmSync(testDir, { recursive: true, force: true });
@@ -849,7 +840,7 @@ test("updatePackageJSON - should show RC file suggestion for large config", () =
   const output = writeCalls.join("");
   const hintWords = HINT_RC_FILE_TEXT.split(" ");
   const hasHintContent = hintWords.every((word) => output.includes(word));
-  expect(hasHintContent).toBe(true);
+  assert.strictEqual(hasHintContent, true);
 
   if (existsSync(testDir)) {
     rmSync(testDir, { recursive: true, force: true });
@@ -880,8 +871,8 @@ test("updatePackageJSON - should not show RC file suggestion in test mode", () =
     isTesting: true,
   });
 
-  expect(result).toBeDefined();
-  expect(result?.pastoralist).toBeDefined();
+  assert.notStrictEqual(result, undefined);
+  assert.notStrictEqual(result?.pastoralist, undefined);
 });
 
 test("updatePackageJSON - silent option suppresses dry-run output", () => {
@@ -908,7 +899,7 @@ test("updatePackageJSON - silent option suppresses dry-run output", () => {
   console.log = originalLog;
 
   const hasDryRunMessage = consoleOutput.some((msg) => msg.includes("[DRY RUN]"));
-  expect(hasDryRunMessage).toBe(false);
+  assert.strictEqual(hasDryRunMessage, false);
 });
 
 test("updatePackageJSON - dry-run without silent shows output", () => {
@@ -935,7 +926,7 @@ test("updatePackageJSON - dry-run without silent shows output", () => {
   console.log = originalLog;
 
   const hasDryRunMessage = consoleOutput.some((msg) => msg.includes("[DRY RUN]"));
-  expect(hasDryRunMessage).toBe(true);
+  assert.strictEqual(hasDryRunMessage, true);
 });
 
 test("updatePackageJSON - dry-run with unchanged content logs no-op message", () => {
@@ -962,7 +953,7 @@ test("updatePackageJSON - dry-run with unchanged content logs no-op message", ()
   console.log = originalLog;
 
   const hasNoChangesMessage = consoleOutput.some((msg) => msg.includes("No changes detected"));
-  expect(hasNoChangesMessage).toBe(true);
+  assert.strictEqual(hasNoChangesMessage, true);
 });
 
 test("updatePackageJSON - silent has no effect when not in dry-run mode", () => {
@@ -984,10 +975,10 @@ test("updatePackageJSON - silent has no effect when not in dry-run mode", () => 
     silent: true,
   });
 
-  expect(result).toBeUndefined();
+  assert.strictEqual(result, undefined);
 
   const written = JSON.parse(safeReadFileSync(testPkgPath, "utf8"));
-  expect(written.overrides).toEqual({ lodash: "4.17.21" });
+  assert.deepStrictEqual(written.overrides, { lodash: "4.17.21" });
 
   rmSync(testDir, { recursive: true, force: true });
 });
@@ -1002,8 +993,8 @@ test("parseNpmLsOutput - should parse flat dependencies", () => {
 
   const result = parseNpmLsOutput(stdout);
 
-  expect(result.lodash).toBe("4.17.21");
-  expect(result.express).toBe("4.18.0");
+  assert.strictEqual(result.lodash, "4.17.21");
+  assert.strictEqual(result.express, "4.18.0");
 });
 
 test("parseNpmLsOutput - should parse nested dependencies", () => {
@@ -1026,10 +1017,10 @@ test("parseNpmLsOutput - should parse nested dependencies", () => {
 
   const result = parseNpmLsOutput(stdout);
 
-  expect(result.express).toBe("4.18.0");
-  expect(result.accepts).toBe("1.3.8");
-  expect(result["body-parser"]).toBe("1.20.0");
-  expect(result.bytes).toBe("3.1.2");
+  assert.strictEqual(result.express, "4.18.0");
+  assert.strictEqual(result.accepts, "1.3.8");
+  assert.strictEqual(result["body-parser"], "1.20.0");
+  assert.strictEqual(result.bytes, "3.1.2");
 });
 
 test("parseNpmLsOutput - should handle empty dependencies", () => {
@@ -1039,7 +1030,7 @@ test("parseNpmLsOutput - should handle empty dependencies", () => {
 
   const result = parseNpmLsOutput(stdout);
 
-  expect(Object.keys(result).length).toBe(0);
+  assert.strictEqual(Object.keys(result).length, 0);
 });
 
 test("parseNpmLsOutput - should handle missing dependencies field", () => {
@@ -1050,7 +1041,7 @@ test("parseNpmLsOutput - should handle missing dependencies field", () => {
 
   const result = parseNpmLsOutput(stdout);
 
-  expect(Object.keys(result).length).toBe(0);
+  assert.strictEqual(Object.keys(result).length, 0);
 });
 
 test("parseNpmLsOutput - should handle invalid nested deps", () => {
@@ -1063,8 +1054,8 @@ test("parseNpmLsOutput - should handle invalid nested deps", () => {
 
   const result = parseNpmLsOutput(stdout);
 
-  expect(result.lodash).toBe("unknown");
-  expect(result.express).toBe("4.18.0");
+  assert.strictEqual(result.lodash, "unknown");
+  assert.strictEqual(result.express, "4.18.0");
 });
 
 test("getDependencyTree - uses custom cacheDir when provided", async () => {
@@ -1076,7 +1067,7 @@ test("getDependencyTree - uses custom cacheDir when provided", async () => {
 
   const tree = await getDependencyTree(mockExecuteNpmLs, customCacheDir, testDir);
 
-  expect(tree["lodash"]).toBe("unknown");
+  assert.strictEqual(tree["lodash"], "unknown");
   clearDependencyTreeCache();
   rmSync(customCacheDir, { recursive: true, force: true });
 });
@@ -1100,8 +1091,8 @@ test("getDependencyTree - should cache results on second call", async () => {
   const failMock = () => Promise.reject(new Error("should not be called"));
   const secondCall = await getDependencyTree(failMock, undefined, testDir);
 
-  expect(firstCall).toEqual(secondCall);
-  expect(callCount).toBe(1);
+  assert.deepStrictEqual(firstCall, secondCall);
+  assert.strictEqual(callCount, 1);
   clearDependencyTreeCache();
 });
 
@@ -1122,10 +1113,10 @@ test("getDependencyTree - caches lockfile-less roots independently", async () =>
   const treeA = await getDependencyTree(mockExecuteNpmLs, cacheDir, rootA);
   const treeB = await getDependencyTree(mockExecuteNpmLs, cacheDir, rootB);
 
-  expect(treeA["left-pad"]).toBe("1.0.0");
-  expect(treeA["right-pad"]).toBeUndefined();
-  expect(treeB["right-pad"]).toBe("1.0.0");
-  expect(treeB["left-pad"]).toBeUndefined();
+  assert.strictEqual(treeA["left-pad"], "1.0.0");
+  assert.strictEqual(treeA["right-pad"], undefined);
+  assert.strictEqual(treeB["right-pad"], "1.0.0");
+  assert.strictEqual(treeB["left-pad"], undefined);
 
   clearDependencyTreeCache();
   rmSync(testDir, { recursive: true, force: true });
@@ -1152,9 +1143,9 @@ test("getDependencyTree - coalesces concurrent requests", async () => {
     getDependencyTree(mockExecuteNpmLs, undefined, testDir),
   ]);
 
-  expect(first).toEqual(second);
-  expect(second).toEqual(third);
-  expect(callCount).toBe(1);
+  assert.deepStrictEqual(first, second);
+  assert.deepStrictEqual(second, third);
+  assert.strictEqual(callCount, 1);
   clearDependencyTreeCache();
 });
 
@@ -1164,8 +1155,8 @@ test("getDependencyTree - should return empty object on error", async () => {
   const mockExecuteNpmLs = () => Promise.reject(new Error("npm command failed"));
   const tree = await getDependencyTree(mockExecuteNpmLs, undefined, testDir);
 
-  expect(typeof tree).toBe("object");
-  expect(Object.keys(tree)).toEqual([]);
+  assert.strictEqual(typeof tree, "object");
+  assert.deepStrictEqual(Object.keys(tree), []);
   clearDependencyTreeCache();
 });
 
@@ -1177,7 +1168,7 @@ test("parseNpmLsOutput - should handle null dependencies value", () => {
   });
 
   const result = parseNpmLsOutput(stdout);
-  expect(result.lodash).toBe("4.17.21");
+  assert.strictEqual(result.lodash, "4.17.21");
 });
 
 test("updatePackageJSON - writes an unnamed root package.json", () => {
@@ -1205,7 +1196,7 @@ test("updatePackageJSON - writes an unnamed root package.json", () => {
   }
 
   const written = JSON.parse(safeReadFileSync(rootPath, "utf8"));
-  expect(written.overrides).toEqual(overrides);
+  assert.deepStrictEqual(written.overrides, overrides);
   rmSync(testDir, { recursive: true, force: true });
 });
 
@@ -1227,7 +1218,7 @@ test("updatePackageJSON - handles malformed JSON content gracefully", () => {
 });
 
 test("executeNpmLs - is exported and callable", () => {
-  expect(typeof executeNpmLs).toBe("function");
+  assert.strictEqual(typeof executeNpmLs, "function");
 });
 
 test("getDependencyTree - handles executeNpmLs errors gracefully", async () => {
@@ -1236,12 +1227,12 @@ test("getDependencyTree - handles executeNpmLs errors gracefully", async () => {
   const mockExecuteNpmLs = () => Promise.reject(new Error("Command execution failed"));
   const tree = await getDependencyTree(mockExecuteNpmLs, undefined, testDir);
 
-  expect(typeof tree).toBe("object");
-  expect(Object.keys(tree)).toEqual([]);
+  assert.strictEqual(typeof tree, "object");
+  assert.deepStrictEqual(Object.keys(tree), []);
   clearDependencyTreeCache();
 });
 
-const lockTestDir = resolve(__dirname, "..", ".test-lock-files");
+const lockTestDir = resolve(import.meta.dirname, "..", ".test-lock-files");
 
 const bunLockContent = (packages: Record<string, unknown>) =>
   JSON.stringify({ lockfileVersion: 1, packages });
@@ -1268,8 +1259,8 @@ test("parseBunLockTree - returns package map from bun.lock", () => {
 
   const tree = parseBunLockTree(lockTestDir);
 
-  expect(tree?.["lodash"]).toBe("4.17.21");
-  expect(tree?.["express"]).toBe("4.18.0");
+  assert.strictEqual(tree?.["lodash"], "4.17.21");
+  assert.strictEqual(tree?.["express"], "4.18.0");
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1285,8 +1276,8 @@ test("parseBunLockTree - uses unknown when a package entry has no version separa
 
   const tree = parseBunLockTree(lockTestDir);
 
-  expect(tree?.["lodash"]).toBe("unknown");
-  expect(tree?.["malformed"]).toBe("unknown");
+  assert.strictEqual(tree?.["lodash"], "unknown");
+  assert.strictEqual(tree?.["malformed"], "unknown");
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1296,20 +1287,20 @@ test("parseBunLockTree - parses Bun text lockfiles with trailing commas", () => 
 
   const tree = parseBunLockTree(lockTestDir);
 
-  expect(tree?.["react"]).toBe("18.0.0");
-  expect(tree?.["typescript"]).toBe("5.0.0");
+  assert.strictEqual(tree?.["react"], "18.0.0");
+  assert.strictEqual(tree?.["typescript"], "5.0.0");
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
 test("parseBunLockTree - returns undefined when no bun.lock present", () => {
-  expect(parseBunLockTree(testDir)).toBeUndefined();
+  assert.strictEqual(parseBunLockTree(testDir), undefined);
 });
 
 test("parseBunLockTree - returns undefined for malformed bun.lock", () => {
   mkdirSync(lockTestDir, { recursive: true });
   writeFileSync(resolve(lockTestDir, "bun.lock"), "not valid json {{{");
 
-  expect(parseBunLockTree(lockTestDir)).toBeUndefined();
+  assert.strictEqual(parseBunLockTree(lockTestDir), undefined);
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1317,7 +1308,7 @@ test("parseBunLockTree - returns undefined when bun.lock has no packages field",
   mkdirSync(lockTestDir, { recursive: true });
   writeFileSync(resolve(lockTestDir, "bun.lock"), JSON.stringify({ lockfileVersion: 1 }));
 
-  expect(parseBunLockTree(lockTestDir)).toBeUndefined();
+  assert.strictEqual(parseBunLockTree(lockTestDir), undefined);
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1325,7 +1316,7 @@ test("parseBunLockTree - returns undefined when bun.lock packages is empty", () 
   mkdirSync(lockTestDir, { recursive: true });
   writeFileSync(resolve(lockTestDir, "bun.lock"), bunLockContent({}));
 
-  expect(parseBunLockTree(lockTestDir)).toBeUndefined();
+  assert.strictEqual(parseBunLockTree(lockTestDir), undefined);
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1339,9 +1330,9 @@ test("getDependencyTree - uses bun.lock over executeNpmLs when available", async
 
   const tree = await getDependencyTree(shouldNotBeCalled, undefined, lockTestDir);
 
-  expect(tree["react"]).toBe("18.0.0");
-  expect(tree["typescript"]).toBe("5.0.0");
-  expect(shouldNotBeCalled).not.toHaveBeenCalled();
+  assert.strictEqual(tree["react"], "18.0.0");
+  assert.strictEqual(tree["typescript"], "5.0.0");
+  assert.strictEqual(shouldNotBeCalled.mock.callCount(), 0);
   rmSync(lockTestDir, { recursive: true, force: true });
   clearDependencyTreeCache();
 });
@@ -1353,7 +1344,7 @@ test("getDependencyTree - falls back to executeNpmLs when no bun.lock", async ()
 
   const tree = await getDependencyTree(mockExecuteNpmLs, undefined, testDir);
 
-  expect(tree["lodash"]).toBe("unknown");
+  assert.strictEqual(tree["lodash"], "unknown");
   clearDependencyTreeCache();
 });
 
@@ -1366,8 +1357,8 @@ test("parsePnpmLockTree - parses v5 format (slash-separated)", () => {
 
   const tree = parsePnpmLockTree(lockTestDir);
 
-  expect(tree?.["lodash"]).toBe("4.17.21");
-  expect(tree?.["@types/node"]).toBe("18.0.0");
+  assert.strictEqual(tree?.["lodash"], "4.17.21");
+  assert.strictEqual(tree?.["@types/node"], "18.0.0");
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1380,8 +1371,8 @@ test("parsePnpmLockTree - parses v6 format (at-separated)", () => {
 
   const tree = parsePnpmLockTree(lockTestDir);
 
-  expect(tree?.["lodash"]).toBe("4.17.21");
-  expect(tree?.["@types/node"]).toBe("18.0.0");
+  assert.strictEqual(tree?.["lodash"], "4.17.21");
+  assert.strictEqual(tree?.["@types/node"], "18.0.0");
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1394,8 +1385,8 @@ test("parsePnpmLockTree - parses v9 format (no leading slash)", () => {
 
   const tree = parsePnpmLockTree(lockTestDir);
 
-  expect(tree?.["lodash"]).toBe("4.17.21");
-  expect(tree?.["@types/node"]).toBe("18.0.0");
+  assert.strictEqual(tree?.["lodash"], "4.17.21");
+  assert.strictEqual(tree?.["@types/node"], "18.0.0");
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1412,26 +1403,26 @@ test("parsePnpmLockTree - prefers package versions over peer-suffixed snapshots"
 
   const tree = parsePnpmLockTree(lockTestDir);
 
-  expect(tree?.["eslint-plugin-example"]).toBe("5.3.2");
+  assert.strictEqual(tree?.["eslint-plugin-example"], "5.3.2");
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
 test("parsePnpmLockTree - returns undefined when no pnpm-lock.yaml", () => {
-  expect(parsePnpmLockTree(testDir)).toBeUndefined();
+  assert.strictEqual(parsePnpmLockTree(testDir), undefined);
 });
 
 test("parsePnpmLockTree - returns undefined for empty packages section", () => {
   mkdirSync(lockTestDir, { recursive: true });
   writeFileSync(resolve(lockTestDir, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n");
 
-  expect(parsePnpmLockTree(lockTestDir)).toBeUndefined();
+  assert.strictEqual(parsePnpmLockTree(lockTestDir), undefined);
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
 test("parsePnpmLockTree - returns undefined when lockfile cannot be read", () => {
   mkdirSync(resolve(lockTestDir, "pnpm-lock.yaml"), { recursive: true });
 
-  expect(parsePnpmLockTree(lockTestDir)).toBeUndefined();
+  assert.strictEqual(parsePnpmLockTree(lockTestDir), undefined);
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1444,8 +1435,8 @@ test("parseYarnLockTree - parses yarn v1 format", () => {
 
   const tree = parseYarnLockTree(lockTestDir);
 
-  expect(tree?.["lodash"]).toBe("4.17.21");
-  expect(tree?.["@types/node"]).toBe("18.0.0");
+  assert.strictEqual(tree?.["lodash"], "4.17.21");
+  assert.strictEqual(tree?.["@types/node"], "18.0.0");
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1458,8 +1449,8 @@ test("parseYarnLockTree - parses yarn berry format", () => {
 
   const tree = parseYarnLockTree(lockTestDir);
 
-  expect(tree?.["lodash"]).toBe("4.17.21");
-  expect(tree?.["@types/node"]).toBe("18.0.0");
+  assert.strictEqual(tree?.["lodash"], "4.17.21");
+  assert.strictEqual(tree?.["@types/node"], "18.0.0");
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1472,18 +1463,18 @@ test("parseYarnLockTree - handles multiple specifiers on one line", () => {
 
   const tree = parseYarnLockTree(lockTestDir);
 
-  expect(tree?.["lodash"]).toBe("4.17.21");
+  assert.strictEqual(tree?.["lodash"], "4.17.21");
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
 test("parseYarnLockTree - returns undefined when no yarn.lock", () => {
-  expect(parseYarnLockTree(testDir)).toBeUndefined();
+  assert.strictEqual(parseYarnLockTree(testDir), undefined);
 });
 
 test("parseYarnLockTree - returns undefined when lockfile cannot be read", () => {
   mkdirSync(resolve(lockTestDir, "yarn.lock"), { recursive: true });
 
-  expect(parseYarnLockTree(lockTestDir)).toBeUndefined();
+  assert.strictEqual(parseYarnLockTree(lockTestDir), undefined);
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1504,9 +1495,9 @@ test("parseNpmLockTree - parses v2/v3 packages field", () => {
 
   const tree = parseNpmLockTree(lockTestDir);
 
-  expect(tree?.["lodash"]).toBe("4.17.21");
-  expect(tree?.["@types/node"]).toBe("18.0.0");
-  expect(tree?.["child"]).toBe("1.0.0");
+  assert.strictEqual(tree?.["lodash"], "4.17.21");
+  assert.strictEqual(tree?.["@types/node"], "18.0.0");
+  assert.strictEqual(tree?.["child"], "1.0.0");
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1526,7 +1517,7 @@ test("parseNpmLockTree - prefers hoisted package versions over nested duplicates
 
   const tree = parseNpmLockTree(lockTestDir);
 
-  expect(tree?.["lodash"]).toBe("4.17.21");
+  assert.strictEqual(tree?.["lodash"], "4.17.21");
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1545,9 +1536,9 @@ test("parseNpmLockTree - parses v1 dependencies field", () => {
 
   const tree = parseNpmLockTree(lockTestDir);
 
-  expect(tree?.["lodash"]).toBe("4.17.21");
-  expect(tree?.["express"]).toBe("4.18.0");
-  expect(tree?.["qs"]).toBe("6.11.0");
+  assert.strictEqual(tree?.["lodash"], "4.17.21");
+  assert.strictEqual(tree?.["express"], "4.18.0");
+  assert.strictEqual(tree?.["qs"], "6.11.0");
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1566,20 +1557,20 @@ test("parseNpmLockTree - prefers direct dependency versions over nested duplicat
 
   const tree = parseNpmLockTree(lockTestDir);
 
-  expect(tree?.["lodash"]).toBe("4.17.21");
-  expect(tree?.["express"]).toBe("4.18.0");
+  assert.strictEqual(tree?.["lodash"], "4.17.21");
+  assert.strictEqual(tree?.["express"], "4.18.0");
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
 test("parseNpmLockTree - returns undefined when no package-lock.json", () => {
-  expect(parseNpmLockTree(testDir)).toBeUndefined();
+  assert.strictEqual(parseNpmLockTree(testDir), undefined);
 });
 
 test("parseNpmLockTree - returns undefined when package-lock has no dependency data", () => {
   mkdirSync(lockTestDir, { recursive: true });
   writeFileSync(resolve(lockTestDir, "package-lock.json"), JSON.stringify({ lockfileVersion: 3 }));
 
-  expect(parseNpmLockTree(lockTestDir)).toBeUndefined();
+  assert.strictEqual(parseNpmLockTree(lockTestDir), undefined);
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1587,7 +1578,7 @@ test("parseNpmLockTree - returns undefined for malformed JSON", () => {
   mkdirSync(lockTestDir, { recursive: true });
   writeFileSync(resolve(lockTestDir, "package-lock.json"), "not json {{{");
 
-  expect(parseNpmLockTree(lockTestDir)).toBeUndefined();
+  assert.strictEqual(parseNpmLockTree(lockTestDir), undefined);
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1605,7 +1596,7 @@ test("getLockedPackages - preserves npm package-lock duplicate versions", () => 
   };
   writeFileSync(resolve(lockTestDir, "package-lock.json"), JSON.stringify({ packages }));
 
-  expect(getAlphaVersions(lockTestDir)).toEqual(["1.0.0", "2.0.0"]);
+  assert.deepStrictEqual(getAlphaVersions(lockTestDir), ["1.0.0", "2.0.0"]);
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1617,7 +1608,7 @@ test("getLockedPackages - preserves npm v1 duplicate versions", () => {
   };
   writeFileSync(resolve(lockTestDir, "package-lock.json"), JSON.stringify({ dependencies }));
 
-  expect(getAlphaVersions(lockTestDir)).toEqual(["1.0.0", "2.0.0"]);
+  assert.deepStrictEqual(getAlphaVersions(lockTestDir), ["1.0.0", "2.0.0"]);
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1626,7 +1617,7 @@ test("getLockedPackages - preserves pnpm duplicate versions", () => {
   const content = "packages:\n  alpha@1.0.0: {}\n  alpha@2.0.0: {}\n";
   writeFileSync(resolve(lockTestDir, "pnpm-lock.yaml"), content);
 
-  expect(getAlphaVersions(lockTestDir)).toEqual(["1.0.0", "2.0.0"]);
+  assert.deepStrictEqual(getAlphaVersions(lockTestDir), ["1.0.0", "2.0.0"]);
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1641,7 +1632,7 @@ test("getLockedPackages - ignores pnpm range selectors outside package sections"
   ].join("\n");
   writeFileSync(resolve(lockTestDir, "pnpm-lock.yaml"), content);
 
-  expect(getAlphaVersions(lockTestDir)).toEqual(["1.5.0"]);
+  assert.deepStrictEqual(getAlphaVersions(lockTestDir), ["1.5.0"]);
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1650,7 +1641,7 @@ test("getLockedPackages - reads pnpm snapshot package entries", () => {
   const content = "lockfileVersion: '9.0'\nsnapshots:\n  alpha@1.5.0: {}\n";
   writeFileSync(resolve(lockTestDir, "pnpm-lock.yaml"), content);
 
-  expect(getAlphaVersions(lockTestDir)).toEqual(["1.5.0"]);
+  assert.deepStrictEqual(getAlphaVersions(lockTestDir), ["1.5.0"]);
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1659,7 +1650,7 @@ test("getLockedPackages - preserves Yarn duplicate versions", () => {
   const content = 'alpha@^1.0.0:\n  version "1.0.0"\n\nalpha@^2.0.0:\n  version "2.0.0"\n';
   writeFileSync(resolve(lockTestDir, "yarn.lock"), content);
 
-  expect(getAlphaVersions(lockTestDir)).toEqual(["1.0.0", "2.0.0"]);
+  assert.deepStrictEqual(getAlphaVersions(lockTestDir), ["1.0.0", "2.0.0"]);
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1667,7 +1658,7 @@ test("getLockedPackages - rejects Yarn entries without versions", () => {
   mkdirSync(lockTestDir, { recursive: true });
   writeFileSync(resolve(lockTestDir, "yarn.lock"), "alpha@^1.0.0:\n");
 
-  expect(getLockedPackages(lockTestDir)).toBeUndefined();
+  assert.strictEqual(getLockedPackages(lockTestDir), undefined);
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1679,7 +1670,7 @@ test("getLockedPackages - preserves Bun duplicate versions", () => {
   });
   writeFileSync(resolve(lockTestDir, "bun.lock"), content);
 
-  expect(getAlphaVersions(lockTestDir)).toEqual(["1.0.0", "2.0.0"]);
+  assert.deepStrictEqual(getAlphaVersions(lockTestDir), ["1.0.0", "2.0.0"]);
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1687,7 +1678,10 @@ test("getLockedPackages - rejects unsupported legacy Bun lockfiles", () => {
   mkdirSync(lockTestDir, { recursive: true });
   writeFileSync(resolve(lockTestDir, "bun.lockb"), "legacy binary lockfile");
 
-  expect(() => getLockedPackages(lockTestDir)).toThrow("Legacy bun.lockb is unsupported");
+  assert.throws(
+    () => getLockedPackages(lockTestDir),
+    errorIncludes("Legacy bun.lockb is unsupported"),
+  );
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1696,7 +1690,7 @@ test("getLockedPackages - fails securely for incomplete lock data", () => {
   const content = bunLockContent({ alpha: ["invalid", "", {}, "sha512-a"] });
   writeFileSync(resolve(lockTestDir, "bun.lock"), content);
 
-  expect(getLockedPackages(lockTestDir)).toBeUndefined();
+  assert.strictEqual(getLockedPackages(lockTestDir), undefined);
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1704,7 +1698,7 @@ test("getLockedPackages - fails securely for malformed Bun lock data", () => {
   mkdirSync(lockTestDir, { recursive: true });
   writeFileSync(resolve(lockTestDir, "bun.lock"), "not valid lock data");
 
-  expect(getLockedPackages(lockTestDir)).toBeUndefined();
+  assert.strictEqual(getLockedPackages(lockTestDir), undefined);
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1712,7 +1706,7 @@ test("getLockedPackages - fails securely for malformed npm lock data", () => {
   mkdirSync(lockTestDir, { recursive: true });
   writeFileSync(resolve(lockTestDir, "package-lock.json"), "not valid JSON");
 
-  expect(getLockedPackages(lockTestDir)).toBeUndefined();
+  assert.strictEqual(getLockedPackages(lockTestDir), undefined);
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1731,7 +1725,7 @@ test("getFullDependencyCount - counts npm lock file packages", () => {
   writeFileSync(resolve(lockTestDir, "package-lock.json"), JSON.stringify(lockContent));
 
   const count = getFullDependencyCount(lockTestDir);
-  expect(count).toBe(2);
+  assert.strictEqual(count, 2);
 
   rmSync(lockTestDir, { recursive: true, force: true });
   validateRootPackageJsonIntegrity();
@@ -1744,7 +1738,7 @@ test("getFullDependencyCount - handles invalid npm lock JSON", () => {
   writeFileSync(resolve(lockTestDir, "package-lock.json"), "{ invalid json");
 
   const count = getFullDependencyCount(lockTestDir);
-  expect(count).toBe(0);
+  assert.strictEqual(count, 0);
 
   rmSync(lockTestDir, { recursive: true, force: true });
   validateRootPackageJsonIntegrity();
@@ -1766,7 +1760,7 @@ express@^4.18.0:
   writeFileSync(resolve(lockTestDir, "yarn.lock"), yarnLock);
 
   const count = getFullDependencyCount(lockTestDir);
-  expect(count).toBe(2);
+  assert.strictEqual(count, 2);
 
   rmSync(lockTestDir, { recursive: true, force: true });
   validateRootPackageJsonIntegrity();
@@ -1779,7 +1773,7 @@ test("getFullDependencyCount - handles empty yarn lock", () => {
   writeFileSync(resolve(lockTestDir, "yarn.lock"), "");
 
   const count = getFullDependencyCount(lockTestDir);
-  expect(count).toBe(0);
+  assert.strictEqual(count, 0);
 
   rmSync(lockTestDir, { recursive: true, force: true });
   validateRootPackageJsonIntegrity();
@@ -1790,7 +1784,7 @@ test("getFullDependencyCount - returns 0 when pattern lock file cannot be read",
   mkdirSync(resolve(lockTestDir, "yarn.lock"), { recursive: true });
 
   const count = getFullDependencyCount(lockTestDir);
-  expect(count).toBe(0);
+  assert.strictEqual(count, 0);
 
   rmSync(lockTestDir, { recursive: true, force: true });
   validateRootPackageJsonIntegrity();
@@ -1815,7 +1809,7 @@ packages:
   writeFileSync(resolve(lockTestDir, "pnpm-lock.yaml"), pnpmLock);
 
   const count = getFullDependencyCount(lockTestDir);
-  expect(count).toBe(2);
+  assert.strictEqual(count, 2);
 
   rmSync(lockTestDir, { recursive: true, force: true });
   validateRootPackageJsonIntegrity();
@@ -1828,7 +1822,24 @@ test("getFullDependencyCount - handles empty pnpm lock", () => {
   writeFileSync(resolve(lockTestDir, "pnpm-lock.yaml"), "");
 
   const count = getFullDependencyCount(lockTestDir);
-  expect(count).toBe(0);
+  assert.strictEqual(count, 0);
+
+  rmSync(lockTestDir, { recursive: true, force: true });
+  validateRootPackageJsonIntegrity();
+});
+
+test("getFullDependencyCount - counts packages in a Bun text lockfile", () => {
+  validateRootPackageJsonIntegrity();
+  mkdirSync(lockTestDir, { recursive: true });
+  const lodashEntry = ["lodash@4.17.21", "", {}, "sha512-x"];
+  const expressEntry = ["express@4.18.0", "", {}, "sha512-y"];
+  const content = bunLockContent({
+    lodash: lodashEntry,
+    express: expressEntry,
+  });
+  writeFileSync(resolve(lockTestDir, "bun.lock"), content);
+
+  assert.strictEqual(getFullDependencyCount(lockTestDir), 2);
 
   rmSync(lockTestDir, { recursive: true, force: true });
   validateRootPackageJsonIntegrity();
@@ -1839,7 +1850,7 @@ test("getFullDependencyCount - returns 0 when no lock files exist", () => {
   mkdirSync(lockTestDir, { recursive: true });
 
   const count = getFullDependencyCount(lockTestDir);
-  expect(count).toBe(0);
+  assert.strictEqual(count, 0);
 
   rmSync(lockTestDir, { recursive: true, force: true });
   validateRootPackageJsonIntegrity();
@@ -1862,7 +1873,7 @@ test("updatePackageJSON - should not write non-json files", () => {
     isTesting: false,
   });
 
-  expect(existsSync(nonJsonPath)).toBe(false);
+  assert.strictEqual(existsSync(nonJsonPath), false);
 
   rmSync(testDir, { recursive: true, force: true });
   validateRootPackageJsonIntegrity();
@@ -1880,7 +1891,7 @@ test("detectPackageManager - should detect bun via bun.lock when only bun.lock e
 
   try {
     const pm = detectPackageManager();
-    expect(pm).toBe("bun");
+    assert.strictEqual(pm, "bun");
   } finally {
     if (hadLockb) writeFileSync(lockbPath, "");
     const shouldRemoveTemporaryLock = !hadLock && existsSync(lockPath);
@@ -1890,7 +1901,7 @@ test("detectPackageManager - should detect bun via bun.lock when only bun.lock e
 
 test("parseNpmLsOutput - should return empty object for invalid JSON", () => {
   const result = parseNpmLsOutput("not valid json {{{");
-  expect(result).toEqual({});
+  assert.deepStrictEqual(result, {});
 });
 
 test("parseBunLockGraph - returns inverted dep graph from bun.lock", () => {
@@ -1908,12 +1919,12 @@ test("parseBunLockGraph - returns inverted dep graph from bun.lock", () => {
 
   const graph = parseBunLockGraph(lockTestDir);
 
-  expect(graph?.["body-parser"]).toContain("express");
+  assert.ok((graph?.["body-parser"]).includes("express"));
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
 test("parseBunLockGraph - returns undefined when no bun.lock present", () => {
-  expect(parseBunLockGraph(testDir)).toBeUndefined();
+  assert.strictEqual(parseBunLockGraph(testDir), undefined);
 });
 
 test("parseBunLockGraph - returns undefined when no deps found", () => {
@@ -1926,7 +1937,7 @@ test("parseBunLockGraph - returns undefined when no deps found", () => {
     }),
   );
 
-  expect(parseBunLockGraph(lockTestDir)).toBeUndefined();
+  assert.strictEqual(parseBunLockGraph(lockTestDir), undefined);
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1942,8 +1953,8 @@ test("parseBunLockGraph - skips malformed package entries", () => {
 
   const graph = parseBunLockGraph(lockTestDir);
 
-  expect(graph?.["qs"]).toEqual(["express"]);
-  expect(graph?.["malformed"]).toBeUndefined();
+  assert.deepStrictEqual(graph?.["qs"], ["express"]);
+  assert.strictEqual(graph?.["malformed"], undefined);
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1956,12 +1967,12 @@ test("parsePnpmLockGraph - returns inverted dep graph from pnpm-lock.yaml", () =
 
   const graph = parsePnpmLockGraph(lockTestDir);
 
-  expect(graph?.["body-parser"]).toContain("express");
+  assert.ok((graph?.["body-parser"]).includes("express"));
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
 test("parsePnpmLockGraph - returns undefined when no pnpm-lock.yaml", () => {
-  expect(parsePnpmLockGraph(testDir)).toBeUndefined();
+  assert.strictEqual(parsePnpmLockGraph(testDir), undefined);
 });
 
 test("parseYarnLockGraph - returns inverted dep graph from yarn.lock", () => {
@@ -1973,7 +1984,7 @@ test("parseYarnLockGraph - returns inverted dep graph from yarn.lock", () => {
 
   const graph = parseYarnLockGraph(lockTestDir);
 
-  expect(graph?.["body-parser"]).toContain("express");
+  assert.ok((graph?.["body-parser"]).includes("express"));
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -1990,13 +2001,13 @@ test("parseYarnLockGraph - parses Yarn Berry dependency keys", () => {
 
   const graph = parseYarnLockGraph(lockTestDir);
 
-  expect(graph?.["lodash"]).toEqual(["parent"]);
-  expect(graph?.["@babel/core"]).toEqual(["parent"]);
+  assert.deepStrictEqual(graph?.["lodash"], ["parent"]);
+  assert.deepStrictEqual(graph?.["@babel/core"], ["parent"]);
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
 test("parseYarnLockGraph - returns undefined when no yarn.lock", () => {
-  expect(parseYarnLockGraph(testDir)).toBeUndefined();
+  assert.strictEqual(parseYarnLockGraph(testDir), undefined);
 });
 
 test("parseNpmLockGraph - returns inverted dep graph from package-lock.json v2", () => {
@@ -2015,12 +2026,12 @@ test("parseNpmLockGraph - returns inverted dep graph from package-lock.json v2",
 
   const graph = parseNpmLockGraph(lockTestDir);
 
-  expect(graph?.["body-parser"]).toContain("express");
+  assert.ok((graph?.["body-parser"]).includes("express"));
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
 test("parseNpmLockGraph - returns undefined when no package-lock.json", () => {
-  expect(parseNpmLockGraph(testDir)).toBeUndefined();
+  assert.strictEqual(parseNpmLockGraph(testDir), undefined);
 });
 
 test("getDependencyGraph - caches and returns a graph object", () => {
@@ -2039,9 +2050,9 @@ test("getDependencyGraph - caches and returns a graph object", () => {
 
   const graph = getDependencyGraph(lockTestDir);
 
-  expect(typeof graph).toBe("object");
+  assert.strictEqual(typeof graph, "object");
   const graphAgain = getDependencyGraph(lockTestDir);
-  expect(graphAgain).toBe(graph);
+  assert.strictEqual(graphAgain, graph);
 
   clearDependencyGraphCache();
   rmSync(lockTestDir, { recursive: true, force: true });
@@ -2063,7 +2074,7 @@ test("getDependencyGraph - invalidates cache when package lock changes", () => {
   );
 
   const originalGraph = getDependencyGraph(lockTestDir);
-  expect(originalGraph?.["body-parser"]).toEqual(["express"]);
+  assert.deepStrictEqual(originalGraph?.["body-parser"], ["express"]);
 
   writeFileSync(
     resolve(lockTestDir, "package-lock.json"),
@@ -2078,9 +2089,9 @@ test("getDependencyGraph - invalidates cache when package lock changes", () => {
   );
 
   const updatedGraph = getDependencyGraph(lockTestDir);
-  expect(updatedGraph).not.toBe(originalGraph);
-  expect(updatedGraph?.qs).toEqual(["lodash"]);
-  expect(updatedGraph?.["body-parser"]).toBeUndefined();
+  assert.notStrictEqual(updatedGraph, originalGraph);
+  assert.deepStrictEqual(updatedGraph?.qs, ["lodash"]);
+  assert.strictEqual(updatedGraph?.["body-parser"], undefined);
 
   clearDependencyGraphCache();
   rmSync(lockTestDir, { recursive: true, force: true });
@@ -2092,7 +2103,7 @@ test("getDependencyGraph - returns empty object when no lock file", () => {
 
   const graph = getDependencyGraph(lockTestDir);
 
-  expect(graph).toEqual({});
+  assert.deepStrictEqual(graph, {});
   clearDependencyGraphCache();
   rmSync(lockTestDir, { recursive: true, force: true });
 });
@@ -2106,7 +2117,7 @@ test("parseBunLockTree - handles escaped characters in strings", () => {
 
   const tree = parseBunLockTree(lockTestDir);
 
-  expect(tree?.["lodash"]).toBe("4.17.21");
+  assert.strictEqual(tree?.["lodash"], "4.17.21");
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -2114,7 +2125,7 @@ test("parseBunLockGraph - returns undefined for malformed bun.lock", () => {
   mkdirSync(lockTestDir, { recursive: true });
   writeFileSync(resolve(lockTestDir, "bun.lock"), "not valid json {{{");
 
-  expect(parseBunLockGraph(lockTestDir)).toBeUndefined();
+  assert.strictEqual(parseBunLockGraph(lockTestDir), undefined);
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -2135,7 +2146,7 @@ test("parseNpmLockGraph - parses v1 dependencies format", () => {
 
   const graph = parseNpmLockGraph(lockTestDir);
 
-  expect(graph?.["lodash"]).toContain("express");
+  assert.ok((graph?.["lodash"]).includes("express"));
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -2143,7 +2154,7 @@ test("parseNpmLockGraph - returns undefined for malformed JSON", () => {
   mkdirSync(lockTestDir, { recursive: true });
   writeFileSync(resolve(lockTestDir, "package-lock.json"), "not valid json {{{");
 
-  expect(parseNpmLockGraph(lockTestDir)).toBeUndefined();
+  assert.strictEqual(parseNpmLockGraph(lockTestDir), undefined);
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -2156,20 +2167,20 @@ test("parsePnpmLockGraph - resets inDeps when non-dep line follows dependencies 
 
   const graph = parsePnpmLockGraph(lockTestDir);
 
-  expect(graph?.["lodash"]).toContain("express");
+  assert.ok((graph?.["lodash"]).includes("express"));
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
 test("parsePnpmLockGraph - returns undefined when lockfile cannot be read", () => {
   mkdirSync(resolve(lockTestDir, "pnpm-lock.yaml"), { recursive: true });
 
-  expect(parsePnpmLockGraph(lockTestDir)).toBeUndefined();
+  assert.strictEqual(parsePnpmLockGraph(lockTestDir), undefined);
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
 test("parseYarnLockGraph - returns undefined when lockfile cannot be read", () => {
   mkdirSync(resolve(lockTestDir, "yarn.lock"), { recursive: true });
 
-  expect(parseYarnLockGraph(lockTestDir)).toBeUndefined();
+  assert.strictEqual(parseYarnLockGraph(lockTestDir), undefined);
   rmSync(lockTestDir, { recursive: true, force: true });
 });

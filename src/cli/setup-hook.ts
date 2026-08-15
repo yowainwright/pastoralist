@@ -78,6 +78,7 @@ export const handleSetupHook = (
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     log.fail(`Failed to setup hook: ${reason}`);
+    process.exitCode = 1;
     return true;
   }
 };

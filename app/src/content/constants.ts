@@ -1,4 +1,4 @@
-import type { DocMeta } from "./types";
+import type { DocMeta } from "./types.ts";
 
 export const DOCS = [
   {

@@ -1,4 +1,6 @@
-import { test, expect, mock } from "bun:test";
+import { test } from "node:test";
+import { mock } from "../setup.ts";
+import assert from "node:assert/strict";
 import type { BestCaseResult } from "../../../src/core/best-case";
 import type { Options, PastoralistJSON, SecurityAlert } from "../../../src/types";
 import { action } from "../../../src/cli";
@@ -52,7 +54,7 @@ test("action security - returns the selected best-case summary", async () => {
 
   const result = await action({ checkSecurity: true, isTesting: true }, deps);
 
-  expect(result.bestCase).toEqual({
+  assert.deepStrictEqual(result.bestCase, {
     selectedState: BEST_CASE_RESULT.selectedState,
     decisionId: BEST_CASE_RESULT.decisionId,
     policyHash: BEST_CASE_RESULT.policyHash,
@@ -142,15 +144,15 @@ test("action safety - renders comparison before update runs", async () => {
   const { deps, graph } = createSafetyActionDeps(config, []);
   let noticedBeforeUpdate = false;
   deps.update = mock((mergedOptions: Options) => {
-    noticedBeforeUpdate = graph.notice.mock.calls.some(
-      (call) => typeof call[0] === "string" && call[0].includes("Removal safety:"),
-    );
+    noticedBeforeUpdate = graph.notice.mock.calls
+      .map((call) => (Array.isArray(call) ? call : call.arguments))
+      .some((call) => typeof call[0] === "string" && call[0].includes("Removal safety:"));
     return realUpdate(mergedOptions);
   });
 
   await action({ checkSecurity: true, removeUnused: true, isTesting: true }, deps);
 
-  expect(noticedBeforeUpdate).toBe(true);
+  assert.strictEqual(noticedBeforeUpdate, true);
 });
 
 test("action safety - safe comparison allows unused override removal", async () => {
@@ -159,10 +161,10 @@ test("action safety - safe comparison allows unused override removal", async () 
 
   const result = await resultPromise;
 
-  expect(getUpdateOptions()?.skipRemovalKeys).toBeUndefined();
-  expect(result.removalSafetyComparison?.status).toBe("safe");
-  expect(result.appliedOverrides?.["safe-pkg"]).toBeUndefined();
-  expect(result.overrideCount).toBe(0);
+  assert.strictEqual(getUpdateOptions()?.skipRemovalKeys, undefined);
+  assert.strictEqual(result.removalSafetyComparison?.status, "safe");
+  assert.strictEqual(result.appliedOverrides?.["safe-pkg"], undefined);
+  assert.strictEqual(result.overrideCount, 0);
 });
 
 test("action safety - current vulnerability blocks cleanup and keeps override", async () => {
@@ -170,14 +172,17 @@ test("action safety - current vulnerability blocks cleanup and keeps override", 
   const { resultPromise, graph, getUpdateOptions } = runSafetyAction(config, [alert("risky-pkg")]);
 
   const result = await resultPromise;
-  const noticeMessages = graph.notice.mock.calls.map((call) => String(call[0]));
+  const noticeMessages = graph.notice.mock.calls
+    .map((call) => (Array.isArray(call) ? call : call.arguments))
+    .map((call) => String(call[0]));
 
-  expect(getUpdateOptions()?.skipRemovalKeys).toEqual(["risky-pkg@1.0.0"]);
-  expect(result.removalSafetyComparison?.status).toBe("blocked");
-  expect(result.removalSafetyComparison?.afterAlertCount).toBe(1);
-  expect(result.appliedOverrides?.["risky-pkg"]).toBe("1.0.0");
-  expect(result.hasUnusedOverrides).toBe(true);
-  expect(noticeMessages.some((message) => message.includes("still resolve to vulnerable"))).toBe(
+  assert.deepStrictEqual(getUpdateOptions()?.skipRemovalKeys, ["risky-pkg@1.0.0"]);
+  assert.strictEqual(result.removalSafetyComparison?.status, "blocked");
+  assert.strictEqual(result.removalSafetyComparison?.afterAlertCount, 1);
+  assert.strictEqual(result.appliedOverrides?.["risky-pkg"], "1.0.0");
+  assert.strictEqual(result.hasUnusedOverrides, true);
+  assert.strictEqual(
+    noticeMessages.some((message) => message.includes("still resolve to vulnerable")),
     true,
   );
 });
@@ -198,11 +203,18 @@ test("action safety - interactive approval prompt lists removable overrides", as
     deps,
   );
 
-  expect(quickConfirm).toHaveBeenCalledTimes(1);
-  expect(quickConfirm.mock.calls[0][0]).toContain("interactive-pkg@1.0.0");
-  expect(quickConfirm.mock.calls[0][1]).toBe(false);
-  expect(result.removalSafetyComparison?.status).toBe("safe");
-  expect(result.appliedOverrides?.["interactive-pkg"]).toBeUndefined();
+  assert.strictEqual(quickConfirm.mock.callCount(), 1);
+  assert.ok(
+    quickConfirm.mock.calls
+      .map((call) => (Array.isArray(call) ? call : call.arguments))[0][0]
+      .includes("interactive-pkg@1.0.0"),
+  );
+  assert.strictEqual(
+    quickConfirm.mock.calls.map((call) => (Array.isArray(call) ? call : call.arguments))[0][1],
+    false,
+  );
+  assert.strictEqual(result.removalSafetyComparison?.status, "safe");
+  assert.strictEqual(result.appliedOverrides?.["interactive-pkg"], undefined);
 });
 
 test("action safety - interactive prompt truncates long removable override lists", async () => {
@@ -228,10 +240,12 @@ test("action safety - interactive prompt truncates long removable override lists
     deps,
   );
 
-  const prompt = String(quickConfirm.mock.calls[0][0]);
-  expect(prompt).toContain("pkg-one@1.0.0");
-  expect(prompt).toContain("pkg-five@1.0.0, +1 more");
-  expect(prompt).not.toContain("pkg-six@1.0.0");
+  const prompt = String(
+    quickConfirm.mock.calls.map((call) => (Array.isArray(call) ? call : call.arguments))[0][0],
+  );
+  assert.ok(prompt.includes("pkg-one@1.0.0"));
+  assert.ok(prompt.includes("pkg-five@1.0.0, +1 more"));
+  assert.ok(!prompt.includes("pkg-six@1.0.0"));
 });
 
 test("action safety - interactive decline keeps overrides with declined notice", async () => {
@@ -251,12 +265,14 @@ test("action safety - interactive decline keeps overrides with declined notice",
     deps,
   );
 
-  const noticeMessages = graph.notice.mock.calls.map((call) => String(call[0]));
-  expect(result.removalSafetyComparison?.status).toBe("declined");
-  expect(result.removalSafetyComparison?.allowedKeys).toEqual([]);
-  expect(result.removalSafetyComparison?.blockedKeys).toEqual(["declined-pkg@1.0.0"]);
-  expect(result.appliedOverrides?.["declined-pkg"]).toBe("1.0.0");
-  expect(noticeMessages).toContain("Cleanup of 1 override declined by user.");
+  const noticeMessages = graph.notice.mock.calls
+    .map((call) => (Array.isArray(call) ? call : call.arguments))
+    .map((call) => String(call[0]));
+  assert.strictEqual(result.removalSafetyComparison?.status, "declined");
+  assert.deepStrictEqual(result.removalSafetyComparison?.allowedKeys, []);
+  assert.deepStrictEqual(result.removalSafetyComparison?.blockedKeys, ["declined-pkg@1.0.0"]);
+  assert.strictEqual(result.appliedOverrides?.["declined-pkg"], "1.0.0");
+  assert.ok(noticeMessages.includes("Cleanup of 1 override declined by user."));
 });
 
 test("action safety - JSON output includes removal safety comparison", async () => {
@@ -280,7 +296,7 @@ test("action safety - JSON output includes removal safety comparison", async () 
   const [line] = consoleCapture.getOutput();
   const parsed = JSON.parse(line);
 
-  expect(result.removalSafetyComparison?.blockedKeys).toEqual(["json-pkg@1.0.0"]);
-  expect(parsed.removalSafetyComparison.status).toBe("blocked");
-  expect(parsed.removalSafetyComparison.blockedKeys).toEqual(["json-pkg@1.0.0"]);
+  assert.deepStrictEqual(result.removalSafetyComparison?.blockedKeys, ["json-pkg@1.0.0"]);
+  assert.strictEqual(parsed.removalSafetyComparison.status, "blocked");
+  assert.deepStrictEqual(parsed.removalSafetyComparison.blockedKeys, ["json-pkg@1.0.0"]);
 });

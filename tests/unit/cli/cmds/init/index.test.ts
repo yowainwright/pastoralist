@@ -1,10 +1,12 @@
-import { test, expect, mock, spyOn } from "bun:test";
-import { initCommand } from "../../../../../src/cli/cmds/init";
-import * as prompt from "../../../../../src/utils/prompts";
-import * as scripts from "../../../../../src";
-import * as configLoader from "../../../../../src/config";
-import * as dxPrompts from "../../../../../src/dx/prompts";
-import * as shimmer from "../../../../../src/dx/shimmer";
+import { test, mock as moduleMock } from "node:test";
+import { mock } from "../../../setup.ts";
+import assert from "node:assert/strict";
+import * as originalPrompts from "../../../../../src/utils/prompts";
+import * as originalUtils from "../../../../../src/utils";
+import * as originalPackageJSON from "../../../../../src/core/package";
+import * as originalConfig from "../../../../../src/config";
+import * as originalDx from "../../../../../src/dx";
+import * as originalShimmer from "../../../../../src/dx/shimmer";
 import { resolve } from "path";
 import {
   safeReadFileSync as readFileSync,
@@ -16,8 +18,36 @@ import {
   validateRootPackageJsonIntegrity,
 } from "../../../setup";
 
-const testPath = resolve(__dirname, "..", "..", "..", ".test-init-package.json");
-const testRoot = resolve(__dirname, "..", "..", "..", ".test-init-root");
+const createPromptMock = mock(originalPrompts.createPrompt);
+const loggerMock = mock(originalUtils.logger);
+const resolveJSONMock = mock(originalPackageJSON.resolveJSON);
+const loadExternalConfigMock = mock(originalConfig.loadExternalConfig);
+const formatCompletionMock = mock(originalDx.formatCompletion);
+const shimmerFrameMock = mock(originalShimmer.shimmerFrame);
+
+moduleMock.module(new URL("../../../../../src/utils/prompts/index.ts", import.meta.url), {
+  namedExports: Object.assign({}, originalPrompts, { createPrompt: createPromptMock }),
+});
+moduleMock.module(new URL("../../../../../src/utils/index.ts", import.meta.url), {
+  namedExports: Object.assign({}, originalUtils, { logger: loggerMock }),
+});
+moduleMock.module(new URL("../../../../../src/core/package/index.ts", import.meta.url), {
+  namedExports: Object.assign({}, originalPackageJSON, { resolveJSON: resolveJSONMock }),
+});
+moduleMock.module(new URL("../../../../../src/config/index.ts", import.meta.url), {
+  namedExports: Object.assign({}, originalConfig, { loadExternalConfig: loadExternalConfigMock }),
+});
+moduleMock.module(new URL("../../../../../src/dx/index.ts", import.meta.url), {
+  namedExports: Object.assign({}, originalDx, { formatCompletion: formatCompletionMock }),
+});
+moduleMock.module(new URL("../../../../../src/dx/shimmer.ts", import.meta.url), {
+  namedExports: Object.assign({}, originalShimmer, { shimmerFrame: shimmerFrameMock }),
+});
+
+const { initCommand } = await import("../../../../../src/cli/cmds/init");
+
+const testPath = resolve(import.meta.dirname, "..", "..", "..", ".test-init-package.json");
+const testRoot = resolve(import.meta.dirname, "..", "..", "..", ".test-init-root");
 
 test("initCommand - should initialize with default options", async () => {
   validateRootPackageJsonIntegrity();
@@ -32,9 +62,9 @@ test("initCommand - should initialize with default options", async () => {
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock(() => Promise.resolve("package.json")),
       confirm: mock(() => Promise.resolve(false)),
@@ -44,7 +74,7 @@ test("initCommand - should initialize with default options", async () => {
   });
 
   await initCommand({ path: testPath, isTesting: true });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   loggerSpy?.mockRestore();
   if (existsSync(testPath)) {
@@ -66,9 +96,9 @@ test("initCommand - should handle security context initialization", async () => 
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock((msg: string) => {
         if (msg.includes("config location")) return Promise.resolve("package.json");
@@ -83,7 +113,7 @@ test("initCommand - should handle security context initialization", async () => 
   });
 
   await initCommand({ path: testPath, checkSecurity: true, isTesting: true });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   loggerSpy?.mockRestore();
   if (existsSync(testPath)) {
@@ -105,9 +135,9 @@ test("initCommand - should handle workspace context initialization", async () =>
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock((msg: string) => {
         if (msg.includes("config location")) return Promise.resolve("package.json");
@@ -127,7 +157,7 @@ test("initCommand - should handle workspace context initialization", async () =>
     hasWorkspaceSecurityChecks: true,
     isTesting: true,
   });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   loggerSpy?.mockRestore();
   if (existsSync(testPath)) {
@@ -149,9 +179,9 @@ test("initCommand - should save to package.json", async () => {
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock(() => Promise.resolve("package.json")),
       confirm: mock(() => Promise.resolve(false)),
@@ -161,7 +191,7 @@ test("initCommand - should save to package.json", async () => {
   });
 
   await initCommand({ path: testPath, isTesting: true });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   loggerSpy?.mockRestore();
   if (existsSync(testPath)) {
@@ -188,9 +218,9 @@ test("initCommand - should resolve relative package path under root", async () =
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock(() => Promise.resolve("package.json")),
       confirm: mock(() => Promise.resolve(false)),
@@ -202,8 +232,8 @@ test("initCommand - should resolve relative package path under root", async () =
   await initCommand({ path: "package.json", root: testRoot });
 
   const updated = JSON.parse(readFileSync(packagePath, "utf8"));
-  expect(updated.name).toBe("rooted");
-  expect(updated.pastoralist).toEqual({});
+  assert.strictEqual(updated.name, "rooted");
+  assert.deepStrictEqual(updated.pastoralist, {});
 
   createPromptSpy?.mockRestore();
   loggerSpy?.mockRestore();
@@ -226,9 +256,9 @@ test("initCommand - should save to .pastoralistrc.json", async () => {
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock((msg: string) => {
         if (msg.includes("config location")) return Promise.resolve("external");
@@ -242,7 +272,7 @@ test("initCommand - should save to .pastoralistrc.json", async () => {
   });
 
   await initCommand({ path: testPath, isTesting: true });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   loggerSpy?.mockRestore();
   if (existsSync(testPath)) {
@@ -266,9 +296,9 @@ test("initCommand - should prompt for overwrite if external config exists", asyn
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock((msg: string) => {
         if (msg.includes("config location")) return Promise.resolve("external");
@@ -285,7 +315,7 @@ test("initCommand - should prompt for overwrite if external config exists", asyn
   });
 
   await initCommand({ path: testPath, isTesting: true });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   if (existsSync(configPath)) unlinkSync(configPath);
   loggerSpy?.mockRestore();
@@ -308,9 +338,9 @@ test("initCommand - should configure workspace mode", async () => {
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock((msg: string) => {
         if (msg.includes("config location")) return Promise.resolve("package.json");
@@ -327,13 +357,13 @@ test("initCommand - should configure workspace mode", async () => {
     return callback(mockPrompt);
   });
 
-  const mockResolveJSON = spyOn(scripts, "resolveJSON").mockReturnValue({
+  const mockResolveJSON = resolveJSONMock.mockReturnValue({
     name: "test",
     workspaces: ["packages/*"],
   });
 
   await initCommand({ path: testPath, isTesting: true });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   mockResolveJSON.mockRestore();
   loggerSpy?.mockRestore();
@@ -356,9 +386,9 @@ test("initCommand - should configure custom workspace paths", async () => {
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock((msg: string) => {
         if (msg.includes("config location")) return Promise.resolve("package.json");
@@ -379,7 +409,7 @@ test("initCommand - should configure custom workspace paths", async () => {
   });
 
   await initCommand({ path: testPath, isTesting: true });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   loggerSpy?.mockRestore();
   if (existsSync(testPath)) {
@@ -401,9 +431,9 @@ test("initCommand - should handle no workspaces detected", async () => {
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock((msg: string) => {
         if (msg.includes("config location")) return Promise.resolve("package.json");
@@ -419,12 +449,12 @@ test("initCommand - should handle no workspaces detected", async () => {
     return callback(mockPrompt);
   });
 
-  const mockResolveJSON = spyOn(scripts, "resolveJSON").mockReturnValue({
+  const mockResolveJSON = resolveJSONMock.mockReturnValue({
     name: "test",
   });
 
   await initCommand({ path: testPath, isTesting: true });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   mockResolveJSON.mockRestore();
   loggerSpy?.mockRestore();
@@ -447,9 +477,9 @@ test("initCommand - should skip workspace configuration when declined", async ()
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock(() => Promise.resolve("package.json")),
       confirm: mock((msg: string) => {
@@ -463,7 +493,7 @@ test("initCommand - should skip workspace configuration when declined", async ()
   });
 
   await initCommand({ path: testPath, isTesting: true });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   loggerSpy?.mockRestore();
   if (existsSync(testPath)) {
@@ -485,9 +515,9 @@ test("initCommand - should configure GitHub security provider", async () => {
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock((msg: string) => {
         if (msg.includes("config location")) return Promise.resolve("package.json");
@@ -508,7 +538,7 @@ test("initCommand - should configure GitHub security provider", async () => {
   });
 
   await initCommand({ path: testPath, isTesting: true });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   loggerSpy?.mockRestore();
   if (existsSync(testPath)) {
@@ -530,9 +560,9 @@ test("initCommand - should configure Snyk token environment guidance", async () 
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock((msg: string) => {
         if (msg.includes("config location")) return Promise.resolve("package.json");
@@ -557,7 +587,7 @@ test("initCommand - should configure Snyk token environment guidance", async () 
   });
 
   await initCommand({ path: testPath, isTesting: true });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   loggerSpy?.mockRestore();
   if (existsSync(testPath)) {
@@ -579,9 +609,9 @@ test("initCommand - should configure Socket token environment guidance", async (
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock((msg: string) => {
         if (msg.includes("config location")) return Promise.resolve("package.json");
@@ -605,7 +635,7 @@ test("initCommand - should configure Socket token environment guidance", async (
   });
 
   await initCommand({ path: testPath, isTesting: true });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   loggerSpy?.mockRestore();
   if (existsSync(testPath)) {
@@ -627,9 +657,9 @@ test("initCommand - should handle missing token for required provider", async ()
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock((msg: string) => {
         if (msg.includes("config location")) return Promise.resolve("package.json");
@@ -650,7 +680,7 @@ test("initCommand - should handle missing token for required provider", async ()
   });
 
   await initCommand({ path: testPath, isTesting: true });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   loggerSpy?.mockRestore();
   if (existsSync(testPath)) {
@@ -672,9 +702,9 @@ test("initCommand - should not collect token input", async () => {
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock((msg: string) => {
         if (msg.includes("config location")) return Promise.resolve("package.json");
@@ -698,7 +728,7 @@ test("initCommand - should not collect token input", async () => {
   });
 
   await initCommand({ path: testPath, isTesting: true });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   loggerSpy?.mockRestore();
   if (existsSync(testPath)) {
@@ -720,9 +750,9 @@ test("initCommand - should configure workspace security checks", async () => {
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock((msg: string) => {
         if (msg.includes("config location")) return Promise.resolve("package.json");
@@ -742,13 +772,13 @@ test("initCommand - should configure workspace security checks", async () => {
     return callback(mockPrompt);
   });
 
-  const mockResolveJSON = spyOn(scripts, "resolveJSON").mockReturnValue({
+  const mockResolveJSON = resolveJSONMock.mockReturnValue({
     name: "test",
     workspaces: ["packages/*"],
   });
 
   await initCommand({ path: testPath, isTesting: true });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   mockResolveJSON.mockRestore();
   loggerSpy?.mockRestore();
@@ -771,9 +801,9 @@ test("initCommand - should configure auto-fix when interactive is disabled", asy
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock((msg: string) => {
         if (msg.includes("config location")) return Promise.resolve("package.json");
@@ -794,7 +824,7 @@ test("initCommand - should configure auto-fix when interactive is disabled", asy
   });
 
   await initCommand({ path: testPath, isTesting: true });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   loggerSpy?.mockRestore();
   if (existsSync(testPath)) {
@@ -816,9 +846,9 @@ test("initCommand - should detect existing config in package.json", async () => 
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock(() => Promise.resolve("package.json")),
       confirm: mock((msg: string) => {
@@ -830,13 +860,13 @@ test("initCommand - should detect existing config in package.json", async () => 
     return callback(mockPrompt);
   });
 
-  const mockResolveJSON = spyOn(scripts, "resolveJSON").mockReturnValue({
+  const mockResolveJSON = resolveJSONMock.mockReturnValue({
     name: "test",
     pastoralist: { depPaths: "workspace" },
   });
 
   await initCommand({ path: testPath, isTesting: true });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   mockResolveJSON.mockRestore();
   loggerSpy?.mockRestore();
@@ -859,9 +889,9 @@ test("initCommand - should cancel when user declines overwrite", async () => {
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock(() => Promise.resolve("package.json")),
       confirm: mock((msg: string) => {
@@ -873,13 +903,13 @@ test("initCommand - should cancel when user declines overwrite", async () => {
     return callback(mockPrompt);
   });
 
-  const mockResolveJSON = spyOn(scripts, "resolveJSON").mockReturnValue({
+  const mockResolveJSON = resolveJSONMock.mockReturnValue({
     name: "test",
     pastoralist: { depPaths: "workspace" },
   });
 
   await initCommand({ path: testPath, isTesting: true });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   mockResolveJSON.mockRestore();
   loggerSpy?.mockRestore();
@@ -902,13 +932,13 @@ test("initCommand - should detect external config file", async () => {
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const loadExternalConfigSpy = spyOn(configLoader, "loadExternalConfig").mockResolvedValue({
+  const loadExternalConfigSpy = loadExternalConfigMock.mockResolvedValue({
     depPaths: "workspace",
   });
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock(() => Promise.resolve("package.json")),
       confirm: mock((msg: string) => {
@@ -921,7 +951,7 @@ test("initCommand - should detect external config file", async () => {
   });
 
   await initCommand({ path: testPath, isTesting: true });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   loadExternalConfigSpy.mockRestore();
   loggerSpy?.mockRestore();
@@ -944,9 +974,9 @@ test("initCommand - should use security context with provider option", async () 
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock((msg: string) => {
         if (msg.includes("config location")) return Promise.resolve("package.json");
@@ -968,7 +998,7 @@ test("initCommand - should use security context with provider option", async () 
     securityProvider: "github",
     isTesting: true,
   });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   loggerSpy?.mockRestore();
   if (existsSync(testPath)) {
@@ -990,9 +1020,9 @@ test("initCommand - should handle security context with workspace checks", async
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock((msg: string) => {
         if (msg.includes("config location")) return Promise.resolve("package.json");
@@ -1011,7 +1041,7 @@ test("initCommand - should handle security context with workspace checks", async
     return callback(mockPrompt);
   });
 
-  const mockResolveJSON = spyOn(scripts, "resolveJSON").mockReturnValue({
+  const mockResolveJSON = resolveJSONMock.mockReturnValue({
     name: "test",
     workspaces: ["packages/*"],
   });
@@ -1022,7 +1052,7 @@ test("initCommand - should handle security context with workspace checks", async
     hasWorkspaceSecurityChecks: true,
     isTesting: true,
   });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   mockResolveJSON.mockRestore();
   loggerSpy?.mockRestore();
@@ -1045,9 +1075,9 @@ test("initCommand - should create complete config with all features enabled", as
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock((msg: string) => {
         if (msg.includes("config location")) return Promise.resolve("package.json");
@@ -1068,13 +1098,13 @@ test("initCommand - should create complete config with all features enabled", as
     return callback(mockPrompt);
   });
 
-  const mockResolveJSON = spyOn(scripts, "resolveJSON").mockReturnValue({
+  const mockResolveJSON = resolveJSONMock.mockReturnValue({
     name: "test",
     workspaces: ["packages/*", "apps/*"],
   });
 
   await initCommand({ path: testPath, isTesting: true });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   mockResolveJSON.mockRestore();
   loggerSpy?.mockRestore();
@@ -1097,9 +1127,9 @@ test("initCommand - should create minimal config", async () => {
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock(() => Promise.resolve("package.json")),
       confirm: mock(() => Promise.resolve(false)),
@@ -1109,7 +1139,7 @@ test("initCommand - should create minimal config", async () => {
   });
 
   await initCommand({ path: testPath, isTesting: true });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   loggerSpy?.mockRestore();
   if (existsSync(testPath)) {
@@ -1131,9 +1161,9 @@ test("initCommand - should handle missing package.json gracefully", async () => 
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock(() => Promise.resolve("package.json")),
       confirm: mock(() => Promise.resolve(false)),
@@ -1142,10 +1172,10 @@ test("initCommand - should handle missing package.json gracefully", async () => 
     return callback(mockPrompt);
   });
 
-  const mockResolveJSON = spyOn(scripts, "resolveJSON").mockReturnValue(null);
+  const mockResolveJSON = resolveJSONMock.mockReturnValue(null);
 
   await initCommand({ path: testPath, isTesting: true });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   mockResolveJSON.mockRestore();
   loggerSpy?.mockRestore();
@@ -1168,9 +1198,9 @@ test("initCommand - should handle snyk provider token info", async () => {
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock((msg: string) => {
         if (msg.includes("config location")) return Promise.resolve("package.json");
@@ -1188,7 +1218,7 @@ test("initCommand - should handle snyk provider token info", async () => {
   });
 
   await initCommand({ path: testPath, checkSecurity: true, isTesting: true });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   loggerSpy?.mockRestore();
   if (existsSync(testPath)) {
@@ -1210,9 +1240,9 @@ test("initCommand - should handle socket provider token info", async () => {
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock((msg: string) => {
         if (msg.includes("config location")) return Promise.resolve("package.json");
@@ -1230,7 +1260,7 @@ test("initCommand - should handle socket provider token info", async () => {
   });
 
   await initCommand({ path: testPath, checkSecurity: true, isTesting: true });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   loggerSpy?.mockRestore();
   if (existsSync(testPath)) {
@@ -1252,9 +1282,9 @@ test("initCommand - should continue when token environment is confirmed", async 
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock((msg: string) => {
         if (msg.includes("config location")) return Promise.resolve("package.json");
@@ -1272,7 +1302,7 @@ test("initCommand - should continue when token environment is confirmed", async 
   });
 
   await initCommand({ path: testPath, checkSecurity: true, isTesting: true });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   loggerSpy?.mockRestore();
   if (existsSync(testPath)) {
@@ -1294,9 +1324,9 @@ test("initCommand - should ignore raw token input mocks", async () => {
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock((msg: string) => {
         if (msg.includes("config location")) return Promise.resolve("package.json");
@@ -1314,7 +1344,7 @@ test("initCommand - should ignore raw token input mocks", async () => {
   });
 
   await initCommand({ path: testPath, checkSecurity: true, isTesting: true });
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   loggerSpy?.mockRestore();
   if (existsSync(testPath)) {
@@ -1336,12 +1366,12 @@ test("initCommand - enhanced UI integration with formatCompletion", async () => 
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const formatCompletionSpy = spyOn(dxPrompts, "formatCompletion");
-  const shimmerFrameSpy = spyOn(shimmer, "shimmerFrame").mockReturnValue("shimmered text");
+  const formatCompletionSpy = formatCompletionMock;
+  const shimmerFrameSpy = shimmerFrameMock.mockReturnValue("shimmered text");
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock(() => Promise.resolve("package.json")),
       confirm: mock(() => Promise.resolve(false)),
@@ -1352,8 +1382,8 @@ test("initCommand - enhanced UI integration with formatCompletion", async () => 
 
   await initCommand({ path: testPath, isTesting: true });
 
-  expect(typeof dxPrompts.formatCompletion).toBe("function");
-  expect(typeof shimmer.shimmerFrame).toBe("function");
+  assert.strictEqual(typeof originalDx.formatCompletion, "function");
+  assert.strictEqual(typeof originalShimmer.shimmerFrame, "function");
 
   formatCompletionSpy.mockRestore();
   shimmerFrameSpy.mockRestore();
@@ -1377,9 +1407,9 @@ test("initCommand - enhanced UI with security enabled shows correct next steps",
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock((msg: string) => {
         if (msg.includes("config location")) return Promise.resolve("package.json");
@@ -1394,7 +1424,7 @@ test("initCommand - enhanced UI with security enabled shows correct next steps",
 
   await initCommand({ path: testPath, checkSecurity: true, isTesting: true });
 
-  expect(createPromptSpy).toHaveBeenCalled();
+  assert.ok(createPromptSpy.mock.callCount() > 0);
 
   loggerSpy?.mockRestore();
   if (existsSync(testPath)) {
@@ -1416,9 +1446,9 @@ test("initCommand - enhanced prompts use formatted UI components", async () => {
     indent: mock(() => {}),
     item: mock(() => {}),
   };
-  const loggerSpy = spyOn(scripts, "logger").mockReturnValue(mockLog);
+  const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = spyOn(prompt, "createPrompt").mockImplementation(async (callback) => {
+  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock(() => Promise.resolve("package.json")),
       confirm: mock(() => Promise.resolve(false)),
@@ -1429,8 +1459,8 @@ test("initCommand - enhanced prompts use formatted UI components", async () => {
 
   await initCommand({ path: testPath, isTesting: true });
 
-  expect(typeof dxPrompts.formatChoiceList).toBe("function");
-  expect(typeof dxPrompts.formatConfirmPrompt).toBe("function");
+  assert.strictEqual(typeof originalDx.formatChoiceList, "function");
+  assert.strictEqual(typeof originalDx.formatConfirmPrompt, "function");
 
   loggerSpy?.mockRestore();
   if (existsSync(testPath)) {

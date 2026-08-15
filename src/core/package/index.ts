@@ -1073,6 +1073,17 @@ const countNpmLockPackages = (lockPath: string): number => {
   }
 };
 
+const countBunLockPackages = (lockPath: string): number => {
+  try {
+    const content = fs.readFileSync(lockPath, "utf8");
+    const packages = parseBunLockFile(content).packages;
+    const hasPackages = packages && typeof packages === "object" && !Array.isArray(packages);
+    return hasPackages ? Object.keys(packages).length : 0;
+  } catch {
+    return 0;
+  }
+};
+
 const countPatternLockPackages = (lockPath: string, pattern: RegExp): number => {
   try {
     const content = fs.readFileSync(lockPath, "utf8");
@@ -1086,6 +1097,9 @@ const countPatternLockPackages = (lockPath: string, pattern: RegExp): number => 
 const getLockPath = (root: string, filename: string): string => resolve(root, filename);
 
 export const getFullDependencyCount = (root: string = "./"): number => {
+  const bunLockPath = getLockPath(root, BUN_LOCK_FILENAME);
+  if (fs.existsSync(bunLockPath)) return countBunLockPackages(bunLockPath);
+
   const npmLockPath = getLockPath(root, "package-lock.json");
   if (fs.existsSync(npmLockPath)) return countNpmLockPackages(npmLockPath);
 

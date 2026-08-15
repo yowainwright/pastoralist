@@ -16,7 +16,7 @@ import type {
   SecurityConfig,
 } from "./types";
 import { CONFIG_FILES, UNSUPPORTED_TYPESCRIPT_CONFIG } from "./constants";
-import { safeValidateConfig } from "./validators";
+import { validateConfig } from "./validators";
 import { loadTargetAppendix, resolveAppendixTarget } from "../core/appendix";
 
 const configCache = new Map<string, LoadedConfig>();
@@ -70,25 +70,23 @@ const loadConfigFile = (filename: string, path: string) => {
   return loadJsConfig(filename, path);
 };
 
-const validateAndReturn = (config: unknown, validate: boolean): PastoralistConfig | null => {
+const validateAndReturn = (config: unknown, validate: boolean): PastoralistConfig => {
   if (!validate) return config as PastoralistConfig;
-  return safeValidateConfig(config) || null;
+  return validateConfig(config);
 };
 
 const tryLoadConfig = async (
   filename: string,
   root: string,
   validate: boolean,
-): Promise<LoadedConfig | null> => {
+): Promise<LoadedConfig | null | undefined> => {
   const path = resolve(root, filename);
 
-  if (!existsSync(path)) return null;
+  if (!existsSync(path)) return undefined;
 
   try {
     const rawConfig = await loadConfigFile(filename, path);
-    if (!rawConfig) return null;
     const config = validateAndReturn(rawConfig, validate);
-    if (!config) return null;
     const format = isJsonFile(filename) ? "json" : "javascript";
     return { appendixTarget: undefined, config, source: { format, path } };
   } catch (error) {
@@ -117,9 +115,8 @@ const loadFirstAvailableConfig = async (
   if (!filename) return undefined;
 
   const loaded = await tryLoadConfig(filename, root, validate);
-  if (loaded !== null) return loaded;
-
-  return loadFirstAvailableConfig(remaining, root, validate);
+  if (loaded === undefined) return loadFirstAvailableConfig(remaining, root, validate);
+  return loaded ?? undefined;
 };
 
 export const loadExternalConfig = async (

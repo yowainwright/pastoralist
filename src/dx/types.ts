@@ -155,6 +155,7 @@ export type TerminalGraph = {
   executiveSummary: (data: ExecutiveSummaryData) => TerminalGraph;
   compactSummary: (data: CompactSummaryData) => TerminalGraph;
   complete: (text: string, suffix?: string) => TerminalGraph;
+  waitForCompletion: () => Promise<void>;
   notice: (text: string) => TerminalGraph;
   stop: () => TerminalGraph;
 };

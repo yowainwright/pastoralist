@@ -179,13 +179,15 @@ export interface GithubApiError {
 }
 
 export class SecurityProviderPermissionError extends Error {
-  constructor(
-    public provider: string,
-    public originalMessage: string,
-  ) {
+  public provider: string;
+  public originalMessage: string;
+
+  constructor(provider: string, originalMessage: string) {
     const guidance = SecurityProviderPermissionError.getGuidance(originalMessage);
     super(`${provider} security check skipped: ${originalMessage}. ${guidance}`);
     this.name = "SecurityProviderPermissionError";
+    this.provider = provider;
+    this.originalMessage = originalMessage;
   }
 
   private static getGuidance(message: string): string {

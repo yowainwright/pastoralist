@@ -1,4 +1,6 @@
-import { test, expect, mock } from "bun:test";
+import { test } from "node:test";
+import { mock } from "../../setup.ts";
+import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -27,30 +29,30 @@ import {
 
 test("SecuritySetupWizard - initializes with default options", () => {
   const wizard = new SecuritySetupWizard();
-  expect(wizard).toBeDefined();
+  assert.notStrictEqual(wizard, undefined);
 });
 
 test("SecuritySetupWizard - initializes with debug option", () => {
   const wizard = new SecuritySetupWizard({ debug: true });
-  expect(wizard).toBeDefined();
+  assert.notStrictEqual(wizard, undefined);
 });
 
 test("SecuritySetupWizard - initializes with skipBrowserOpen option", () => {
   const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
-  expect(wizard).toBeDefined();
+  assert.notStrictEqual(wizard, undefined);
 });
 
 test("checkTokenAvailable - returns true for OSV (no token needed)", async () => {
   const wizard = new SecuritySetupWizard();
   const result = await wizard.checkTokenAvailable("osv");
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("checkTokenAvailable - returns true when GITHUB_TOKEN env var is set", async () => {
   await withEnvToken("github", MOCK_TOKENS.github, async () => {
     const wizard = new SecuritySetupWizard();
     const result = await wizard.checkTokenAvailable("github");
-    expect(result).toBe(true);
+    assert.strictEqual(result, true);
   });
 });
 
@@ -58,7 +60,7 @@ test("checkTokenAvailable - returns true when SNYK_TOKEN env var is set", async 
   await withEnvToken("snyk", MOCK_TOKENS.snyk, async () => {
     const wizard = new SecuritySetupWizard();
     const result = await wizard.checkTokenAvailable("snyk");
-    expect(result).toBe(true);
+    assert.strictEqual(result, true);
   });
 });
 
@@ -66,7 +68,7 @@ test("checkTokenAvailable - returns true when SOCKET_SECURITY_API_KEY env var is
   await withEnvToken("socket", MOCK_TOKENS.socket, async () => {
     const wizard = new SecuritySetupWizard();
     const result = await wizard.checkTokenAvailable("socket");
-    expect(result).toBe(true);
+    assert.strictEqual(result, true);
   });
 });
 
@@ -74,7 +76,7 @@ test("checkTokenAvailable - returns false for snyk when no token", async () => {
   await withEnvToken("snyk", null, async () => {
     const wizard = new SecuritySetupWizard();
     const result = await wizard.checkTokenAvailable("snyk");
-    expect(result).toBe(false);
+    assert.strictEqual(result, false);
   });
 });
 
@@ -82,21 +84,21 @@ test("checkTokenAvailable - returns false for socket when no token", async () =>
   await withEnvToken("socket", null, async () => {
     const wizard = new SecuritySetupWizard();
     const result = await wizard.checkTokenAvailable("socket");
-    expect(result).toBe(false);
+    assert.strictEqual(result, false);
   });
 });
 
 test("validateToken - returns true for unknown provider", async () => {
   const wizard = new SecuritySetupWizard();
   const result = await wizard.validateToken("osv" as any, "any-token");
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("validateToken - returns false for invalid github token", async () => {
   const wizard = new SecuritySetupWizard();
   await withMockedFetch(createMockFetch({ ok: false, status: 401 }), async () => {
     const result = await wizard.validateToken("github", "invalid-token");
-    expect(result).toBe(false);
+    assert.strictEqual(result, false);
   });
 });
 
@@ -104,7 +106,7 @@ test("validateToken - returns false for invalid snyk token", async () => {
   const wizard = new SecuritySetupWizard();
   await withMockedFetch(createMockFetch({ ok: false, status: 401 }), async () => {
     const result = await wizard.validateToken("snyk", "invalid-token");
-    expect(result).toBe(false);
+    assert.strictEqual(result, false);
   });
 });
 
@@ -112,7 +114,7 @@ test("validateToken - returns false for invalid socket token", async () => {
   const wizard = new SecuritySetupWizard();
   await withMockedFetch(createMockFetch({ ok: false, status: 401 }), async () => {
     const result = await wizard.validateToken("socket", "invalid-token");
-    expect(result).toBe(false);
+    assert.strictEqual(result, false);
   });
 });
 
@@ -120,7 +122,7 @@ test("validateToken - handles network errors gracefully", async () => {
   const wizard = new SecuritySetupWizard();
   await withMockedFetch(createMockFetchError(), async () => {
     const result = await wizard.validateToken("github", "test-token");
-    expect(result).toBe(false);
+    assert.strictEqual(result, false);
   });
 });
 
@@ -128,8 +130,8 @@ test("runSetup - returns success for OSV without prompts", async () => {
   const wizard = new SecuritySetupWizard();
   await withMockedStdout(async () => {
     const result = await wizard.runSetup("osv");
-    expect(result.success).toBe(true);
-    expect(result.message).toContain("OSV");
+    assert.strictEqual(result.success, true);
+    assert.ok(result.message.includes("OSV"));
   });
 });
 
@@ -139,8 +141,8 @@ test("runSetup - returns success when valid token already exists", async () => {
       await withMockedStdout(async () => {
         const wizard = new SecuritySetupWizard();
         const result = await wizard.runSetup("github");
-        expect(result.success).toBe(true);
-        expect(result.token).toBe(MOCK_TOKENS.github);
+        assert.strictEqual(result.success, true);
+        assert.strictEqual(result.token, MOCK_TOKENS.github);
       });
     });
   });
@@ -148,62 +150,62 @@ test("runSetup - returns success when valid token already exists", async () => {
 
 test("PROVIDER_CONFIGS - github config has required fields", () => {
   const config = PROVIDER_CONFIGS.github;
-  expect(config.name).toBe("GitHub Dependabot");
-  expect(config.envVar).toBe("GITHUB_TOKEN");
-  expect(config.tokenUrl).toBeDefined();
-  expect(config.cliAlternative).toBe("gh");
-  expect(config.requiredScopes).toContain("repo");
-  expect(config.setupSteps.length).toBeGreaterThan(0);
+  assert.strictEqual(config.name, "GitHub Dependabot");
+  assert.strictEqual(config.envVar, "GITHUB_TOKEN");
+  assert.notStrictEqual(config.tokenUrl, undefined);
+  assert.strictEqual(config.cliAlternative, "gh");
+  assert.ok(config.requiredScopes.includes("repo"));
+  assert.ok(config.setupSteps.length > 0);
 });
 
 test("PROVIDER_CONFIGS - snyk config has required fields", () => {
   const config = PROVIDER_CONFIGS.snyk;
-  expect(config.name).toBe("Snyk");
-  expect(config.envVar).toBe("SNYK_TOKEN");
-  expect(config.tokenUrl).toBeDefined();
-  expect(config.setupSteps.length).toBeGreaterThan(0);
+  assert.strictEqual(config.name, "Snyk");
+  assert.strictEqual(config.envVar, "SNYK_TOKEN");
+  assert.notStrictEqual(config.tokenUrl, undefined);
+  assert.ok(config.setupSteps.length > 0);
 });
 
 test("PROVIDER_CONFIGS - socket config has required fields", () => {
   const config = PROVIDER_CONFIGS.socket;
-  expect(config.name).toBe("Socket.dev");
-  expect(config.envVar).toBe("SOCKET_SECURITY_API_KEY");
-  expect(config.tokenUrl).toBeDefined();
-  expect(config.setupSteps.length).toBeGreaterThan(0);
+  assert.strictEqual(config.name, "Socket.dev");
+  assert.strictEqual(config.envVar, "SOCKET_SECURITY_API_KEY");
+  assert.notStrictEqual(config.tokenUrl, undefined);
+  assert.ok(config.setupSteps.length > 0);
 });
 
 test("PROVIDER_CONFIGS - osv config has no envVar", () => {
   const config = PROVIDER_CONFIGS.osv;
-  expect(config.name).toBe("OSV (Open Source Vulnerabilities)");
-  expect(config.envVar).toBeNull();
-  expect(config.tokenUrl).toBeNull();
+  assert.strictEqual(config.name, "OSV (Open Source Vulnerabilities)");
+  assert.strictEqual(config.envVar, null);
+  assert.strictEqual(config.tokenUrl, null);
 });
 
 test("VALIDATION_ENDPOINTS - has github endpoint", () => {
-  expect(VALIDATION_ENDPOINTS.github).toBe("https://api.github.com/user");
+  assert.strictEqual(VALIDATION_ENDPOINTS.github, "https://api.github.com/user");
 });
 
 test("VALIDATION_ENDPOINTS - has snyk endpoint", () => {
-  expect(VALIDATION_ENDPOINTS.snyk).toBe("https://api.snyk.io/rest/self");
+  assert.strictEqual(VALIDATION_ENDPOINTS.snyk, "https://api.snyk.io/rest/self");
 });
 
 test("VALIDATION_ENDPOINTS - has socket endpoint", () => {
-  expect(VALIDATION_ENDPOINTS.socket).toBe("https://api.socket.dev/v0/organizations");
+  assert.strictEqual(VALIDATION_ENDPOINTS.socket, "https://api.socket.dev/v0/organizations");
 });
 
 test("promptForSetup - returns success when token already available", async () => {
   await withEnvToken("github", MOCK_TOKENS.github, async () => {
     const result = await promptForSetup("github");
-    expect(result.success).toBe(true);
-    expect(result.message).toContain("already configured");
+    assert.strictEqual(result.success, true);
+    assert.ok(result.message.includes("already configured"));
   });
 });
 
 test("promptForSetup - returns success for OSV", async () => {
   const result = await promptForSetup("osv");
 
-  expect(result.success).toBe(true);
-  expect(result.message).toContain("already configured");
+  assert.strictEqual(result.success, true);
+  assert.ok(result.message.includes("already configured"));
 });
 
 test("checkTokenAvailable - checks gh CLI auth when no GITHUB_TOKEN", async () => {
@@ -211,7 +213,7 @@ test("checkTokenAvailable - checks gh CLI auth when no GITHUB_TOKEN", async () =
     await withMockedGhCliAuth(false, async () => {
       const wizard = new SecuritySetupWizard();
       const result = await wizard.checkTokenAvailable("github");
-      expect(result).toBe(false);
+      assert.strictEqual(result, false);
     });
   });
 });
@@ -220,7 +222,10 @@ test("runSetup - prints setup header", async () => {
   const wizard = new SecuritySetupWizard();
   await withMockedStdout(async (output) => {
     await wizard.runSetup("osv");
-    expect(output.some((o) => o.includes("Security Provider Setup"))).toBe(true);
+    assert.strictEqual(
+      output.some((o) => o.includes("Security Provider Setup")),
+      true,
+    );
   });
 });
 
@@ -231,8 +236,11 @@ test("checkExistingToken - warns when existing token is invalid", async () => {
         const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
         const config = PROVIDER_CONFIGS.snyk;
         const result = await (wizard as any).checkExistingToken("snyk", config);
-        expect(result).toBeNull();
-        expect(output.some((o) => o.includes("WARN"))).toBe(true);
+        assert.strictEqual(result, null);
+        assert.strictEqual(
+          output.some((o) => o.includes("WARN")),
+          true,
+        );
       });
     });
   });
@@ -242,7 +250,7 @@ test("validateToken - validates snyk token with 404 as success", async () => {
   const wizard = new SecuritySetupWizard();
   await withMockedFetch(createMockFetch({ ok: false, status: 404 }), async () => {
     const result = await wizard.validateToken("snyk", "test-token");
-    expect(result).toBe(true);
+    assert.strictEqual(result, true);
   });
 });
 
@@ -251,8 +259,8 @@ test("validateToken - validates socket token with basic auth", async () => {
   const { mockFn, captured } = createMockFetchWithCapture();
   await withMockedFetch(mockFn, async () => {
     const result = await wizard.validateToken("socket", "test-token");
-    expect(result).toBe(true);
-    expect(captured.headers?.Authorization).toContain("Basic");
+    assert.strictEqual(result, true);
+    assert.ok((captured.headers?.Authorization).includes("Basic"));
   });
 });
 
@@ -261,27 +269,27 @@ test("validateGitHubToken - sends correct headers", async () => {
   const { mockFn, captured } = createMockFetchWithCapture();
   await withMockedFetch(mockFn, async () => {
     const result = await wizard.validateToken("github", "test-token");
-    expect(result).toBe(true);
-    expect(captured.headers?.Authorization).toBe("Bearer test-token");
-    expect(captured.headers?.Accept).toContain("github");
+    assert.strictEqual(result, true);
+    assert.strictEqual(captured.headers?.Authorization, "Bearer test-token");
+    assert.ok((captured.headers?.Accept).includes("github"));
   });
 });
 
 test("PROVIDER_CONFIGS - osv has setupSteps", () => {
   const config = PROVIDER_CONFIGS.osv;
-  expect(config.setupSteps.length).toBeGreaterThan(0);
+  assert.ok(config.setupSteps.length > 0);
 });
 
 test("PROVIDER_CONFIGS - github has multiple setup steps", () => {
   const config = PROVIDER_CONFIGS.github;
-  expect(config.setupSteps.length).toBeGreaterThan(1);
+  assert.ok(config.setupSteps.length > 1);
 });
 
 test("checkTokenAvailable - returns false for snyk without env var", async () => {
   await withEnvToken("snyk", null, async () => {
     const wizard = new SecuritySetupWizard();
     const result = await wizard.checkTokenAvailable("snyk");
-    expect(result).toBe(false);
+    assert.strictEqual(result, false);
   });
 });
 
@@ -289,7 +297,7 @@ test("checkTokenAvailable - returns false for socket without env var", async () 
   await withEnvToken("socket", null, async () => {
     const wizard = new SecuritySetupWizard();
     const result = await wizard.checkTokenAvailable("socket");
-    expect(result).toBe(false);
+    assert.strictEqual(result, false);
   });
 });
 
@@ -298,9 +306,12 @@ test("handleInvalidToken - outputs error message", async () => {
     const wizard = new SecuritySetupWizard();
     const config = PROVIDER_CONFIGS.github;
     const result = (wizard as any).handleInvalidToken(config);
-    expect(result.success).toBe(false);
-    expect(result.message).toBe("Token validation failed");
-    expect(output.some((o) => o.includes("FAIL"))).toBe(true);
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.message, "Token validation failed");
+    assert.strictEqual(
+      output.some((o) => o.includes("FAIL")),
+      true,
+    );
   });
 });
 
@@ -309,7 +320,10 @@ test("handleInvalidToken - shows required scopes when available", async () => {
     const wizard = new SecuritySetupWizard();
     const config = PROVIDER_CONFIGS.github;
     (wizard as any).handleInvalidToken(config);
-    expect(output.some((o) => o.includes("repo"))).toBe(true);
+    assert.strictEqual(
+      output.some((o) => o.includes("repo")),
+      true,
+    );
   });
 });
 
@@ -318,14 +332,14 @@ test("handleInvalidToken - works without required scopes", async () => {
     const wizard = new SecuritySetupWizard();
     const config = { ...PROVIDER_CONFIGS.osv };
     const result = (wizard as any).handleInvalidToken(config);
-    expect(result.success).toBe(false);
+    assert.strictEqual(result.success, false);
   });
 });
 
 test("tryGitHubCliIfApplicable - returns null for non-github provider", async () => {
   const wizard = new SecuritySetupWizard();
   const result = await (wizard as any).tryGitHubCliIfApplicable("snyk");
-  expect(result).toBeNull();
+  assert.strictEqual(result, null);
 });
 
 test("checkExistingToken - returns null when no token exists", async () => {
@@ -333,7 +347,7 @@ test("checkExistingToken - returns null when no token exists", async () => {
     const wizard = new SecuritySetupWizard();
     const config = PROVIDER_CONFIGS.snyk;
     const result = await (wizard as any).checkExistingToken("snyk", config);
-    expect(result).toBeNull();
+    assert.strictEqual(result, null);
   });
 });
 
@@ -343,8 +357,8 @@ test("checkExistingToken - returns success when valid token exists", async () =>
       const wizard = new SecuritySetupWizard();
       const config = PROVIDER_CONFIGS.snyk;
       const result = await (wizard as any).checkExistingToken("snyk", config);
-      expect(result).not.toBeNull();
-      expect(result.success).toBe(true);
+      assert.notStrictEqual(result, null);
+      assert.strictEqual(result.success, true);
     });
   });
 });
@@ -353,37 +367,43 @@ test("printSetupHeader - outputs provider name", async () => {
   await withMockedStdout(async (output) => {
     const wizard = new SecuritySetupWizard();
     (wizard as any).printSetupHeader("Test Provider");
-    expect(output.some((o) => o.includes("Test Provider"))).toBe(true);
+    assert.strictEqual(
+      output.some((o) => o.includes("Test Provider")),
+      true,
+    );
   });
 });
 
 test("findShellProfile - returns default zshrc when no profile found", () => {
   const wizard = new SecuritySetupWizard();
   const result = (wizard as any).findShellProfile("/nonexistent", [".zshrc", ".bashrc"]);
-  expect(result).toBe("/nonexistent/.zshrc");
+  assert.strictEqual(result, "/nonexistent/.zshrc");
 });
 
 test("findShellProfile - finds existing profile", () => {
   const wizard = new SecuritySetupWizard();
   const home = process.env.HOME || "/tmp";
   const result = (wizard as any).findShellProfile(home, [".zshrc", ".bashrc", ".bash_profile"]);
-  expect(result).toContain(home);
+  assert.ok(result.includes(home));
 });
 
 test("createOutput - returns object with all output functions", () => {
   const out = createOutput();
-  expect(typeof out.log).toBe("function");
-  expect(typeof out.success).toBe("function");
-  expect(typeof out.warn).toBe("function");
-  expect(typeof out.error).toBe("function");
-  expect(typeof out.info).toBe("function");
+  assert.strictEqual(typeof out.log, "function");
+  assert.strictEqual(typeof out.success, "function");
+  assert.strictEqual(typeof out.warn, "function");
+  assert.strictEqual(typeof out.error, "function");
+  assert.strictEqual(typeof out.info, "function");
 });
 
 test("createOutput - log writes to stdout with newline", async () => {
   await withMockedStdout(async (output) => {
     const out = createOutput();
     out.log("test message");
-    expect(output.some((o) => o === "test message\n")).toBe(true);
+    assert.strictEqual(
+      output.some((o) => o === "test message\n"),
+      true,
+    );
   });
 });
 
@@ -391,8 +411,14 @@ test("createOutput - success writes OK prefix", async () => {
   await withMockedStdout(async (output) => {
     const out = createOutput();
     out.success("success message");
-    expect(output.some((o) => o.includes("[OK]"))).toBe(true);
-    expect(output.some((o) => o.includes("success message"))).toBe(true);
+    assert.strictEqual(
+      output.some((o) => o.includes("[OK]")),
+      true,
+    );
+    assert.strictEqual(
+      output.some((o) => o.includes("success message")),
+      true,
+    );
   });
 });
 
@@ -400,8 +426,14 @@ test("createOutput - warn writes WARN prefix", async () => {
   await withMockedStdout(async (output) => {
     const out = createOutput();
     out.warn("warning message");
-    expect(output.some((o) => o.includes("[WARN]"))).toBe(true);
-    expect(output.some((o) => o.includes("warning message"))).toBe(true);
+    assert.strictEqual(
+      output.some((o) => o.includes("[WARN]")),
+      true,
+    );
+    assert.strictEqual(
+      output.some((o) => o.includes("warning message")),
+      true,
+    );
   });
 });
 
@@ -409,8 +441,14 @@ test("createOutput - error writes FAIL prefix", async () => {
   await withMockedStdout(async (output) => {
     const out = createOutput();
     out.error("error message");
-    expect(output.some((o) => o.includes("[FAIL]"))).toBe(true);
-    expect(output.some((o) => o.includes("error message"))).toBe(true);
+    assert.strictEqual(
+      output.some((o) => o.includes("[FAIL]")),
+      true,
+    );
+    assert.strictEqual(
+      output.some((o) => o.includes("error message")),
+      true,
+    );
   });
 });
 
@@ -418,7 +456,10 @@ test("createOutput - info writes message", async () => {
   await withMockedStdout(async (output) => {
     const out = createOutput();
     out.info("info message");
-    expect(output.some((o) => o.includes("info message"))).toBe(true);
+    assert.strictEqual(
+      output.some((o) => o.includes("info message")),
+      true,
+    );
   });
 });
 
@@ -429,8 +470,8 @@ test("tryGitHubCliSetup - returns success when gh is authenticated", async () =>
     (wizard as any).isGhCliAuthenticated = mock(() => Promise.resolve(true));
 
     const result = await (wizard as any).tryGitHubCliSetup();
-    expect(result.success).toBe(true);
-    expect(result.usedCli).toBe(true);
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.usedCli, true);
   });
 });
 
@@ -446,8 +487,8 @@ test("tryGitHubCliSetup - prompts for auth when gh installed but not authed", as
     };
 
     const result = await (wizard as any).tryGitHubCliSetup();
-    expect(result.success).toBe(false);
-    expect(result.message).toBe("Proceeding with token setup");
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.message, "Proceeding with token setup");
   });
 });
 
@@ -462,7 +503,7 @@ test("tryGitHubCliSetup - calls handleMissingGhCli when gh not installed", async
     };
 
     const result = await (wizard as any).tryGitHubCliSetup();
-    expect(result.success).toBe(false);
+    assert.strictEqual(result.success, false);
   });
 });
 
@@ -476,8 +517,8 @@ test("handleMissingGhCli - returns skip result when user skips", async () => {
     };
 
     const result = await (wizard as any).handleMissingGhCli();
-    expect(result.success).toBe(false);
-    expect(result.message).toBe("Setup skipped");
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.message, "Setup skipped");
   });
 });
 
@@ -491,8 +532,8 @@ test("handleMissingGhCli - returns token result when user chooses token", async 
     };
 
     const result = await (wizard as any).handleMissingGhCli();
-    expect(result.success).toBe(false);
-    expect(result.message).toBe("Proceeding with token setup");
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.message, "Proceeding with token setup");
   });
 });
 
@@ -507,8 +548,8 @@ test("runTokenSetup - returns failure when no token provided", async () => {
 
     const config = PROVIDER_CONFIGS.snyk;
     const result = await (wizard as any).runTokenSetup("snyk", config);
-    expect(result.success).toBe(false);
-    expect(result.message).toBe("No token provided");
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.message, "No token provided");
   });
 });
 
@@ -524,8 +565,8 @@ test("runTokenSetup - returns failure when token is invalid", async () => {
 
       const config = PROVIDER_CONFIGS.snyk;
       const result = await (wizard as any).runTokenSetup("snyk", config);
-      expect(result.success).toBe(false);
-      expect(result.message).toBe("Token validation failed");
+      assert.strictEqual(result.success, false);
+      assert.strictEqual(result.message, "Token validation failed");
     });
   });
 });
@@ -542,8 +583,8 @@ test("runTokenSetup - returns success with valid token", async () => {
 
       const config = PROVIDER_CONFIGS.snyk;
       const result = await (wizard as any).runTokenSetup("snyk", config);
-      expect(result.success).toBe(true);
-      expect(result.token).toBe(MOCK_TOKENS.snyk);
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.token, MOCK_TOKENS.snyk);
     });
   });
 });
@@ -564,10 +605,10 @@ test("runTokenSetup - uses secret prompt when available", async () => {
       const config = PROVIDER_CONFIGS.snyk;
       const result = await (wizard as any).runTokenSetup("snyk", config);
 
-      expect(result.success).toBe(true);
-      expect(result.token).toBe(MOCK_TOKENS.snyk);
-      expect(secret).toHaveBeenCalled();
-      expect(input).not.toHaveBeenCalled();
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.token, MOCK_TOKENS.snyk);
+      assert.ok(secret.mock.callCount() > 0);
+      assert.strictEqual(input.mock.callCount(), 0);
     });
   });
 });
@@ -585,7 +626,7 @@ test("runTokenSetup - prints setup steps", async () => {
       const config = PROVIDER_CONFIGS.snyk;
       await (wizard as any).runTokenSetup("snyk", config);
       const hasSetupStep = output.some((o) => o.includes("1."));
-      expect(hasSetupStep).toBe(true);
+      assert.strictEqual(hasSetupStep, true);
     });
   });
 });
@@ -603,7 +644,7 @@ test("runTokenSetup - prints required scopes for github", async () => {
       const config = PROVIDER_CONFIGS.github;
       await (wizard as any).runTokenSetup("github", config);
       const hasScopes = output.some((o) => o.includes("Required scopes"));
-      expect(hasScopes).toBe(true);
+      assert.strictEqual(hasScopes, true);
     });
   });
 });
@@ -621,7 +662,7 @@ test("openUrl - outputs manual message on unsupported platform", async () => {
     }
 
     const hasManualMsg = output.some((o) => o.includes("Please open manually"));
-    expect(hasManualMsg).toBe(true);
+    assert.strictEqual(hasManualMsg, true);
   });
 });
 
@@ -637,8 +678,8 @@ test("installAndAuthGh - returns manual install for linux", async () => {
       Object.defineProperty(process, "platform", originalPlatform);
     }
 
-    expect(result.success).toBe(false);
-    expect(result.message).toBe("Manual gh install required");
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.message, "Manual gh install required");
   });
 });
 
@@ -654,8 +695,8 @@ test("installAndAuthGh - returns manual install for windows", async () => {
       Object.defineProperty(process, "platform", originalPlatform);
     }
 
-    expect(result.success).toBe(false);
-    expect(result.message).toBe("Manual gh install required");
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.message, "Manual gh install required");
   });
 });
 
@@ -666,8 +707,8 @@ test("runGhAuth - returns failure when auth does not complete", async () => {
     (wizard as any).isGhCliAuthenticated = mock(() => Promise.resolve(false));
 
     const result = await (wizard as any).runGhAuth();
-    expect(result.success).toBe(false);
-    expect(result.message).toBe("GitHub CLI auth failed");
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.message, "GitHub CLI auth failed");
   });
 });
 
@@ -678,8 +719,8 @@ test("runGhAuth - returns success when auth completes", async () => {
     (wizard as any).isGhCliAuthenticated = mock(() => Promise.resolve(true));
 
     const result = await (wizard as any).runGhAuth();
-    expect(result.success).toBe(true);
-    expect(result.usedCli).toBe(true);
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.usedCli, true);
   });
 });
 
@@ -689,7 +730,7 @@ test("runGhAuth - handles spawn error gracefully", async () => {
     (wizard as any).spawnGhAuth = mock(() => Promise.reject(new Error("spawn failed")));
 
     const result = await (wizard as any).runGhAuth();
-    expect(result.success).toBe(false);
+    assert.strictEqual(result.success, false);
   });
 });
 
@@ -706,7 +747,7 @@ test("handleMissingGhCli - calls installAndAuthGh when user chooses install", as
     );
 
     const result = await (wizard as any).handleMissingGhCli();
-    expect(result.success).toBe(true);
+    assert.strictEqual(result.success, true);
   });
 });
 
@@ -725,8 +766,8 @@ test("tryGitHubCliSetup - runs gh auth when user confirms", async () => {
     );
 
     const result = await (wizard as any).tryGitHubCliSetup();
-    expect(result.success).toBe(true);
-    expect(result.usedCli).toBe(true);
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.usedCli, true);
   });
 });
 
@@ -747,8 +788,8 @@ test("runTokenSetup - saves token to profile when user confirms", async () => {
 
       const config = PROVIDER_CONFIGS.snyk;
       const result = await (wizard as any).runTokenSetup("snyk", config);
-      expect(result.success).toBe(true);
-      expect(result.savedToProfile).toBe(true);
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.savedToProfile, true);
     });
   });
 });
@@ -779,8 +820,8 @@ test("runSetup - shell-quotes a saved value", async () => {
 
           const result = await wizard.runSetup("snyk");
 
-          expect(result.savedToProfile).toBe(true);
-          expect(readFileSync(profilePath, "utf8")).toContain(expectedLine);
+          assert.strictEqual(result.savedToProfile, true);
+          assert.ok(readFileSync(profilePath, "utf8").includes(expectedLine));
         });
       });
     });
@@ -801,8 +842,8 @@ test("runTokenSetup - does not save when user declines", async () => {
 
       const config = PROVIDER_CONFIGS.snyk;
       const result = await (wizard as any).runTokenSetup("snyk", config);
-      expect(result.success).toBe(true);
-      expect(result.savedToProfile).toBe(false);
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.savedToProfile, false);
     });
   });
 });
@@ -826,7 +867,7 @@ test("runTokenSetup - opens browser when user confirms and not skipped", async (
       const config = PROVIDER_CONFIGS.snyk;
       await (wizard as any).runTokenSetup("snyk", config);
       const hasBrowserMsg = output.some((o) => o.includes("Browser opened"));
-      expect(hasBrowserMsg).toBe(true);
+      assert.strictEqual(hasBrowserMsg, true);
     });
   });
 });
@@ -834,8 +875,8 @@ test("runTokenSetup - opens browser when user confirms and not skipped", async (
 test("fixture - createMockStdout captures output", () => {
   const { mockWrite, output } = createMockStdout();
   mockWrite("test message");
-  expect(output).toContain("test message");
-  expect(output.length).toBe(1);
+  assert.ok(output.includes("test message"));
+  assert.strictEqual(output.length, 1);
 });
 
 test("fixture - createMockPrompts returns mock functions", async () => {
@@ -849,9 +890,9 @@ test("fixture - createMockPrompts returns mock functions", async () => {
   const selectResult = await prompts.select();
   const inputResult = await prompts.input();
 
-  expect(confirmResult).toBe(true);
-  expect(selectResult).toBe("option1");
-  expect(inputResult).toBe("user input");
+  assert.strictEqual(confirmResult, true);
+  assert.strictEqual(selectResult, "option1");
+  assert.strictEqual(inputResult, "user input");
 });
 
 test("fixture - createMockPrompts uses defaults", async () => {
@@ -861,52 +902,52 @@ test("fixture - createMockPrompts uses defaults", async () => {
   const selectResult = await prompts.select();
   const inputResult = await prompts.input();
 
-  expect(confirmResult).toBe(true);
-  expect(selectResult).toBe("token");
-  expect(inputResult).toBe("");
+  assert.strictEqual(confirmResult, true);
+  assert.strictEqual(selectResult, "token");
+  assert.strictEqual(inputResult, "");
 });
 
 test("fixture - TOKEN_RESULT creates correct result", () => {
   const result = TOKEN_RESULT("test-token", false);
-  expect(result.success).toBe(true);
-  expect(result.token).toBe("test-token");
-  expect(result.savedToProfile).toBe(false);
-  expect(result.message).toBe("Token set for this session");
+  assert.strictEqual(result.success, true);
+  assert.strictEqual(result.token, "test-token");
+  assert.strictEqual(result.savedToProfile, false);
+  assert.strictEqual(result.message, "Token set for this session");
 });
 
 test("fixture - TOKEN_RESULT with savedToProfile", () => {
   const result = TOKEN_RESULT("test-token", true);
-  expect(result.success).toBe(true);
-  expect(result.savedToProfile).toBe(true);
-  expect(result.message).toBe("Token saved to shell profile");
+  assert.strictEqual(result.success, true);
+  assert.strictEqual(result.savedToProfile, true);
+  assert.strictEqual(result.message, "Token saved to shell profile");
 });
 
 test("fixture - CLI_RESULT has correct properties", () => {
-  expect(CLI_RESULT.success).toBe(true);
-  expect(CLI_RESULT.usedCli).toBe(true);
-  expect(CLI_RESULT.message).toContain("GitHub CLI");
+  assert.strictEqual(CLI_RESULT.success, true);
+  assert.strictEqual(CLI_RESULT.usedCli, true);
+  assert.ok(CLI_RESULT.message.includes("GitHub CLI"));
 });
 
 test("fixture - SUCCESS_RESULT has correct properties", () => {
-  expect(SUCCESS_RESULT.success).toBe(true);
-  expect(SUCCESS_RESULT.message).toBe("Setup complete");
+  assert.strictEqual(SUCCESS_RESULT.success, true);
+  assert.strictEqual(SUCCESS_RESULT.message, "Setup complete");
 });
 
 test("fixture - FAILURE_RESULT has correct properties", () => {
-  expect(FAILURE_RESULT.success).toBe(false);
-  expect(FAILURE_RESULT.message).toBe("Setup failed");
+  assert.strictEqual(FAILURE_RESULT.success, false);
+  assert.strictEqual(FAILURE_RESULT.message, "Setup failed");
 });
 
 test("isCommandAvailable - returns true for existing command", async () => {
   const wizard = new SecuritySetupWizard();
   const result = await (wizard as any).isCommandAvailable("bun");
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("isCommandAvailable - returns false for non-existing command", async () => {
   const wizard = new SecuritySetupWizard();
   const result = await (wizard as any).isCommandAvailable("nonexistent_command_xyz123");
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 });
 
 test("saveToShellProfile - handles non-existent profile gracefully", async () => {
@@ -915,9 +956,9 @@ test("saveToShellProfile - handles non-existent profile gracefully", async () =>
     (wizard as any).findShellProfile = () => "/nonexistent/path/.zshrc";
 
     const result = await (wizard as any).saveToShellProfile("TEST_VAR", "test-value");
-    expect(result).toBe(false);
+    assert.strictEqual(result, false);
     const hasWarning = output.some((o) => o.includes("Couldn't write"));
-    expect(hasWarning).toBe(true);
+    assert.strictEqual(hasWarning, true);
   });
 });
 
@@ -928,9 +969,9 @@ test("saveToShellProfile - outputs manual instructions on error", async () => {
 
     await (wizard as any).saveToShellProfile("TEST_VAR", "test-value");
     const hasManualInstructions = output.some((o) => o.includes("export TEST_VAR"));
-    expect(hasManualInstructions).toBe(true);
+    assert.strictEqual(hasManualInstructions, true);
     const leakedToken = output.some((o) => o.includes("test-value"));
-    expect(leakedToken).toBe(false);
+    assert.strictEqual(leakedToken, false);
   });
 });
 
@@ -946,7 +987,7 @@ test("openUrl - handles error on darwin gracefully", async () => {
       Object.defineProperty(process, "platform", originalPlatform);
     }
 
-    expect(output.length).toBeGreaterThanOrEqual(0);
+    assert.ok(output.length >= 0);
   });
 });
 
@@ -962,9 +1003,9 @@ test("spawnGhAuth - rejects on non-zero exit code", async () => {
 
   try {
     await (wizard as any).spawnGhAuth();
-    expect(true).toBe(false);
+    assert.strictEqual(true, false);
   } catch (error: any) {
-    expect(error.message).toContain("gh auth exited");
+    assert.ok(error.message.includes("gh auth exited"));
   }
 });
 
@@ -981,7 +1022,7 @@ test("runSetup - calls runTokenSetup when no existing token and no gh cli", asyn
       });
 
       const result = await wizard.runSetup("github");
-      expect(result.success).toBe(false);
+      assert.strictEqual(result.success, false);
     });
   });
 });
@@ -992,8 +1033,8 @@ test("runSetup - uses existing valid token", async () => {
       await withMockedStdout(async () => {
         const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
         const result = await wizard.runSetup("snyk");
-        expect(result.success).toBe(true);
-        expect(result.token).toBe(MOCK_TOKENS.snyk);
+        assert.strictEqual(result.success, true);
+        assert.strictEqual(result.token, MOCK_TOKENS.snyk);
       });
     });
   });
@@ -1011,9 +1052,9 @@ test("runSetup - handles invalid existing token", async () => {
         });
 
         const result = await wizard.runSetup("snyk");
-        expect(result.success).toBe(false);
+        assert.strictEqual(result.success, false);
         const hasWarning = output.some((o) => o.includes("WARN"));
-        expect(hasWarning).toBe(true);
+        assert.strictEqual(hasWarning, true);
       });
     });
   });

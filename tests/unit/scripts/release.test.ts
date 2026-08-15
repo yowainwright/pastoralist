@@ -1,4 +1,12 @@
-import { describe, expect, mock, test } from "bun:test";
+import {
+  assertCalledWith,
+  assertContainsEqual,
+  assertDoesNotContainEqual,
+  errorIncludes,
+} from "../setup.ts";
+import { describe, test } from "node:test";
+import { mock } from "../setup.ts";
+import assert from "node:assert/strict";
 import {
   buildCurrentVersionTagPlan,
   buildPullRequestBody,
@@ -142,7 +150,7 @@ const patchReleaseOverrides = (): Record<string, GitOverride> =>
 
 describe("scripts/release", () => {
   test("parseArgs reads release options", () => {
-    expect(parseArgs(["--preRelease=beta", "--dry-run"])).toEqual({
+    assert.deepStrictEqual(parseArgs(["--preRelease=beta", "--dry-run"]), {
       dryRun: true,
       preRelease: "beta",
       timeoutMinutes: 90,
@@ -150,12 +158,12 @@ describe("scripts/release", () => {
   });
 
   test("parseArgs reads release increments", () => {
-    expect(parseArgs(["minor", "--dry-run"])).toEqual({
+    assert.deepStrictEqual(parseArgs(["minor", "--dry-run"]), {
       dryRun: true,
       increment: "minor",
       timeoutMinutes: 90,
     });
-    expect(parseArgs(["--increment=major"])).toEqual({
+    assert.deepStrictEqual(parseArgs(["--increment=major"]), {
       dryRun: false,
       increment: "major",
       timeoutMinutes: 90,
@@ -163,26 +171,29 @@ describe("scripts/release", () => {
   });
 
   test("parseArgs reads the release timeout", () => {
-    expect(parseArgs(["--timeout-minutes=15"])).toEqual({
+    assert.deepStrictEqual(parseArgs(["--timeout-minutes=15"]), {
       dryRun: false,
       timeoutMinutes: 15,
     });
   });
 
   test("parseArgs rejects unsafe no-wait releases", () => {
-    expect(() => parseArgs(["--no-wait"])).toThrow("cannot safely tag");
+    assert.throws(() => parseArgs(["--no-wait"]), errorIncludes("cannot safely tag"));
   });
 
   test("parseArgs rejects invalid release increments", () => {
-    expect(() => parseArgs(["--increment=nightly"])).toThrow("Invalid release increment");
+    assert.throws(
+      () => parseArgs(["--increment=nightly"]),
+      errorIncludes("Invalid release increment"),
+    );
   });
 
   test("parseArgs rejects invalid prerelease names", () => {
-    expect(() => parseArgs(["--preRelease=nightly"])).toThrow("Invalid prerelease");
+    assert.throws(() => parseArgs(["--preRelease=nightly"]), errorIncludes("Invalid prerelease"));
   });
 
   test("buildReleaseItArgs disables tag push and upstream requirements", () => {
-    expect(buildReleaseItArgs({ preRelease: "beta" })).toEqual([
+    assert.deepStrictEqual(buildReleaseItArgs({ preRelease: "beta" }), [
       "--preRelease=beta",
       "--git.tag=false",
       "--git.push=false",
@@ -193,7 +204,7 @@ describe("scripts/release", () => {
   });
 
   test("buildReleaseItArgs accepts an explicit release increment", () => {
-    expect(buildReleaseItArgs({ increment: "minor" })).toEqual([
+    assert.deepStrictEqual(buildReleaseItArgs({ increment: "minor" }), [
       "--increment=minor",
       "--git.tag=false",
       "--git.push=false",
@@ -204,7 +215,7 @@ describe("scripts/release", () => {
   });
 
   test("buildReleaseItArgs accepts an explicit release version", () => {
-    expect(buildReleaseItArgs({ preRelease: "beta", version: "1.2.4-beta.7" })).toEqual([
+    assert.deepStrictEqual(buildReleaseItArgs({ preRelease: "beta", version: "1.2.4-beta.7" }), [
       "1.2.4-beta.7",
       "--preRelease=beta",
       "--git.tag=false",
@@ -216,31 +227,33 @@ describe("scripts/release", () => {
   });
 
   test("parseReleaseVersion reads the release-it version output", () => {
-    expect(parseReleaseVersion("🚀 Let's release pastoralist (1.2.3...1.2.4-beta.6)")).toBe(
+    assert.strictEqual(
+      parseReleaseVersion("🚀 Let's release pastoralist (1.2.3...1.2.4-beta.6)"),
       "1.2.4-beta.6",
     );
   });
 
   test("quoteShellArg leaves safe args alone", () => {
-    expect(quoteShellArg("--preRelease=beta")).toBe("--preRelease=beta");
+    assert.strictEqual(quoteShellArg("--preRelease=beta"), "--preRelease=beta");
   });
 
   test("formatShellCommand quotes args with spaces", () => {
-    expect(formatShellCommand("git", ["tag", "--message", "Release 1.2.4"])).toBe(
+    assert.strictEqual(
+      formatShellCommand("git", ["tag", "--message", "Release 1.2.4"]),
       'git tag --message "Release 1.2.4"',
     );
   });
 
   test("buildReleaseBranch scopes the reviewed version bump", () => {
-    expect(buildReleaseBranch("1.2.4-beta.6")).toBe("release/v1.2.4-beta.6");
+    assert.strictEqual(buildReleaseBranch("1.2.4-beta.6"), "release/v1.2.4-beta.6");
   });
 
   test("buildPullRequestBody describes synchronous merge and tagging", () => {
-    expect(buildPullRequestBody("1.2.4")).toContain("release command merges this PR");
+    assert.ok(buildPullRequestBody("1.2.4").includes("release command merges this PR"));
   });
 
   test("buildReleasePlan returns the protected-main release plan", () => {
-    expect(buildReleasePlan("1.2.4-beta.6")).toEqual({
+    assert.deepStrictEqual(buildReleasePlan("1.2.4-beta.6"), {
       branch: "release/v1.2.4-beta.6",
       pullRequestTitle: "chore(release): v1.2.4-beta.6",
       steps: [
@@ -260,7 +273,7 @@ describe("scripts/release", () => {
   });
 
   test("buildCurrentVersionTagPlan returns tag-only commands", () => {
-    expect(buildCurrentVersionTagPlan("1.2.4-beta.6")).toEqual({
+    assert.deepStrictEqual(buildCurrentVersionTagPlan("1.2.4-beta.6"), {
       commands: [
         'git tag --annotate v1.2.4-beta.6 --message "Release 1.2.4-beta.6"',
         "git push origin refs/tags/v1.2.4-beta.6",
@@ -274,9 +287,9 @@ describe("scripts/release", () => {
   test("formatReleasePlan prints the planned release commands", () => {
     const plan = buildReleasePlan("1.2.4-beta.6");
 
-    expect(formatReleasePlan(plan)).toContain("Dry run release commands for v1.2.4-beta.6");
-    expect(formatReleasePlan(plan)).toContain("Branch: release/v1.2.4-beta.6");
-    expect(formatReleasePlan(plan)).toContain("PR title: chore(release): v1.2.4-beta.6");
+    assert.ok(formatReleasePlan(plan).includes("Dry run release commands for v1.2.4-beta.6"));
+    assert.ok(formatReleasePlan(plan).includes("Branch: release/v1.2.4-beta.6"));
+    assert.ok(formatReleasePlan(plan).includes("PR title: chore(release): v1.2.4-beta.6"));
   });
 
   test("runRelease dry run validates main and reports the planned release", async () => {
@@ -303,9 +316,9 @@ describe("scripts/release", () => {
       runner,
     });
 
-    expect(code).toBe(0);
-    expect(output).toContain("Dry run release commands for v1.2.4-beta.6");
-    expect(calls()).not.toContainEqual([
+    assert.strictEqual(code, 0);
+    assert.ok(output.includes("Dry run release commands for v1.2.4-beta.6"));
+    assertDoesNotContainEqual(calls(), [
       "./node_modules/.bin/release-it",
       "--preRelease=beta",
       "--git.tag=false",
@@ -322,7 +335,10 @@ describe("scripts/release", () => {
       "git status --short": ok(""),
     });
 
-    expect(() => runRelease({ dryRun: true, runner })).toThrow("Run releases from main");
+    assert.throws(
+      () => runRelease({ dryRun: true, runner }),
+      errorIncludes("Run releases from main"),
+    );
   });
 
   test("runRelease surfaces command failures", () => {
@@ -334,33 +350,34 @@ describe("scripts/release", () => {
 
     const release = () =>
       runRelease({ dryRun: true, increment: "patch", packageVersion: "1.2.3", runner });
-    expect(release).toThrow("release-it failed");
+    assert.throws(release, errorIncludes("release-it failed"));
   });
 
   test("incrementPreReleaseVersion advances the prerelease number", () => {
-    expect(incrementPreReleaseVersion("1.2.4-beta.7", "beta")).toBe("1.2.4-beta.8");
+    assert.strictEqual(incrementPreReleaseVersion("1.2.4-beta.7", "beta"), "1.2.4-beta.8");
   });
 
   test("incrementPreReleaseVersion rejects a mismatched prerelease", () => {
-    expect(() => incrementPreReleaseVersion("1.2.4-alpha.7", "beta")).toThrow(
-      "Unable to advance beta release version",
+    assert.throws(
+      () => incrementPreReleaseVersion("1.2.4-alpha.7", "beta"),
+      errorIncludes("Unable to advance beta release version"),
     );
   });
 
   test("incrementStableVersion advances patch, minor, and major versions", () => {
-    expect(incrementStableVersion("1.2.4", "patch")).toBe("1.2.5");
-    expect(incrementStableVersion("1.2.4", "minor")).toBe("1.3.0");
-    expect(incrementStableVersion("1.2.4", "major")).toBe("2.0.0");
+    assert.strictEqual(incrementStableVersion("1.2.4", "patch"), "1.2.5");
+    assert.strictEqual(incrementStableVersion("1.2.4", "minor"), "1.3.0");
+    assert.strictEqual(incrementStableVersion("1.2.4", "major"), "2.0.0");
   });
 
   test("isPreReleaseVersion identifies prerelease package versions", () => {
-    expect(isPreReleaseVersion("1.2.4-beta.6")).toBe(true);
-    expect(isPreReleaseVersion("1.2.4")).toBe(false);
+    assert.strictEqual(isPreReleaseVersion("1.2.4-beta.6"), true);
+    assert.strictEqual(isPreReleaseVersion("1.2.4"), false);
   });
 
   test("isStableVersion identifies stable package versions", () => {
-    expect(isStableVersion("1.2.4")).toBe(true);
-    expect(isStableVersion("1.2.4-beta.6")).toBe(false);
+    assert.strictEqual(isStableVersion("1.2.4"), true);
+    assert.strictEqual(isStableVersion("1.2.4-beta.6"), false);
   });
 
   test("releaseTagExists checks local and remote tags", () => {
@@ -369,7 +386,7 @@ describe("scripts/release", () => {
       "git ls-remote --tags origin refs/tags/v1.2.4-beta.7": ok("489e1e refs/tags/v1.2.4-beta.7\n"),
     });
 
-    expect(releaseTagExists(runner, "v1.2.4-beta.7")).toBe(true);
+    assert.strictEqual(releaseTagExists(runner, "v1.2.4-beta.7"), true);
   });
 
   test("releaseTagExists returns false when local and remote tags are missing", () => {
@@ -378,7 +395,7 @@ describe("scripts/release", () => {
       "git ls-remote --tags origin refs/tags/v1.2.4-beta.7": ok(""),
     });
 
-    expect(releaseTagExists(runner, "v1.2.4-beta.7")).toBe(false);
+    assert.strictEqual(releaseTagExists(runner, "v1.2.4-beta.7"), false);
   });
 
   test("resolveAvailableReleaseVersion skips existing prerelease tags", () => {
@@ -390,9 +407,10 @@ describe("scripts/release", () => {
       "git ls-remote --tags origin refs/tags/v1.2.4-beta.8": ok(""),
     });
 
-    expect(
+    assert.strictEqual(
       resolveAvailableReleaseVersion(runner, { dryRun: true, preRelease: "beta" }, "1.2.4-beta.6"),
-    ).toBe("1.2.4-beta.8");
+      "1.2.4-beta.8",
+    );
   });
 
   test("resolveAvailableReleaseVersion advances existing stable tags", () => {
@@ -402,25 +420,33 @@ describe("scripts/release", () => {
       "git ls-remote --tags origin refs/tags/v1.12.2": ok(""),
     });
 
-    expect(
+    assert.strictEqual(
       resolveAvailableReleaseVersion(runner, { dryRun: true, increment: "patch" }, "1.12.1"),
-    ).toBe("1.12.2");
+      "1.12.2",
+    );
   });
 
   test("resolveAvailableReleaseVersion requires explicit stable increments", () => {
     const { runner } = createRunner();
 
-    expect(() => resolveAvailableReleaseVersion(runner, { dryRun: true }, "1.12.1")).toThrow(
-      "Stable release resolution requires an explicit increment",
+    assert.throws(
+      () => resolveAvailableReleaseVersion(runner, { dryRun: true }, "1.12.1"),
+      errorIncludes("Stable release resolution requires an explicit increment"),
     );
   });
 
   test("resolveAvailableReleaseVersion rejects prerelease versions for stable releases", () => {
     const { runner } = createRunner();
 
-    expect(() =>
-      resolveAvailableReleaseVersion(runner, { dryRun: true, increment: "patch" }, "1.12.1-beta.9"),
-    ).toThrow("release-it resolved a prerelease version for a stable release: 1.12.1-beta.9");
+    assert.throws(
+      () =>
+        resolveAvailableReleaseVersion(
+          runner,
+          { dryRun: true, increment: "patch" },
+          "1.12.1-beta.9",
+        ),
+      errorIncludes("release-it resolved a prerelease version for a stable release: 1.12.1-beta.9"),
+    );
   });
 
   test("runRelease dry run advances past an existing prerelease tag", async () => {
@@ -449,9 +475,9 @@ describe("scripts/release", () => {
       runner,
     });
 
-    expect(code).toBe(0);
-    expect(output).toContain("Dry run release commands for v1.2.4-beta.7");
-    expect(output).toContain("Branch: release/v1.2.4-beta.7");
+    assert.strictEqual(code, 0);
+    assert.ok(output.includes("Dry run release commands for v1.2.4-beta.7"));
+    assert.ok(output.includes("Branch: release/v1.2.4-beta.7"));
   });
 
   test("runRelease dry run resolves explicit release increments", async () => {
@@ -479,9 +505,9 @@ describe("scripts/release", () => {
       runner,
     });
 
-    expect(code).toBe(0);
-    expect(output).toContain("Dry run release commands for v1.3.0");
-    expect(calls()).toContainEqual([
+    assert.strictEqual(code, 0);
+    assert.ok(output.includes("Dry run release commands for v1.3.0"));
+    assertContainsEqual(calls(), [
       "./node_modules/.bin/release-it",
       "--release-version",
       "--increment=minor",
@@ -519,9 +545,9 @@ describe("scripts/release", () => {
       runner,
     });
 
-    expect(code).toBe(0);
-    expect(output).toContain("Dry run release commands for v1.12.2");
-    expect(calls()).toContainEqual([
+    assert.strictEqual(code, 0);
+    assert.ok(output.includes("Dry run release commands for v1.12.2"));
+    assertContainsEqual(calls(), [
       "./node_modules/.bin/release-it",
       "--release-version",
       "--increment=patch",
@@ -555,10 +581,13 @@ describe("scripts/release", () => {
       runner,
     });
 
-    expect(code).toBe(0);
-    expect(output).toContain("Dry run release commands for v1.2.4-beta.6");
-    expect(output).toContain("git push origin refs/tags/v1.2.4-beta.6");
-    expect(calls().some((call) => call[0] === "./node_modules/.bin/release-it")).toBe(false);
+    assert.strictEqual(code, 0);
+    assert.ok(output.includes("Dry run release commands for v1.2.4-beta.6"));
+    assert.ok(output.includes("git push origin refs/tags/v1.2.4-beta.6"));
+    assert.strictEqual(
+      calls().some((call) => call[0] === "./node_modules/.bin/release-it"),
+      false,
+    );
   });
 
   test("runRelease dry run fails when current prerelease tag exists", () => {
@@ -568,14 +597,14 @@ describe("scripts/release", () => {
     const { runner } = createRunner(overrides);
 
     const release = () => runRelease({ dryRun: true, packageVersion: "1.2.4-beta.6", runner });
-    expect(release).toThrow("Release tag already exists: v1.2.4-beta.6");
+    assert.throws(release, errorIncludes("Release tag already exists: v1.2.4-beta.6"));
   });
 
   test("runRelease requires an explicit increment for stable releases", () => {
     const { runner } = createRunner(readyOverrides);
 
     const release = () => runRelease({ dryRun: true, packageVersion: "1.2.3", runner });
-    expect(release).toThrow("Stable releases require an explicit increment");
+    assert.throws(release, errorIncludes("Stable releases require an explicit increment"));
   });
 
   test("runRelease creates a release commit and pushes the release tag", async () => {
@@ -602,10 +631,10 @@ describe("scripts/release", () => {
 
     const code = await runRelease({ increment: "patch", logger, packageVersion: "1.2.3", runner });
 
-    expect(code).toBe(0);
-    expect(logger.log).toHaveBeenCalledWith("Pushed v1.2.4");
-    expect(calls()).toContainEqual(["git", "push", "--set-upstream", "origin", "release/v1.2.4"]);
-    expect(calls()).toContainEqual([
+    assert.strictEqual(code, 0);
+    assertCalledWith(logger.log, "Pushed v1.2.4");
+    assertContainsEqual(calls(), ["git", "push", "--set-upstream", "origin", "release/v1.2.4"]);
+    assertContainsEqual(calls(), [
       "gh",
       "pr",
       "merge",
@@ -613,8 +642,11 @@ describe("scripts/release", () => {
       "--delete-branch",
       "https://github.com/yowainwright/pastoralist/pull/999",
     ]);
-    expect(calls().some((call) => call.includes("--auto"))).toBe(false);
-    expect(calls()).toContainEqual([
+    assert.strictEqual(
+      calls().some((call) => call.includes("--auto")),
+      false,
+    );
+    assertContainsEqual(calls(), [
       "git",
       "tag",
       "--annotate",
@@ -623,8 +655,11 @@ describe("scripts/release", () => {
       "Release 1.2.4",
       MERGE_COMMIT,
     ]);
-    expect(calls()).toContainEqual(["git", "push", "origin", "refs/tags/v1.2.4"]);
-    expect(calls().some((call) => call.includes("HEAD:refs/heads/main"))).toBe(false);
+    assertContainsEqual(calls(), ["git", "push", "origin", "refs/tags/v1.2.4"]);
+    assert.strictEqual(
+      calls().some((call) => call.includes("HEAD:refs/heads/main")),
+      false,
+    );
   });
 
   test("runRelease creates the next patch release when a prerelease final tag exists", async () => {
@@ -654,8 +689,8 @@ describe("scripts/release", () => {
       runner,
     });
 
-    expect(code).toBe(0);
-    expect(calls()).toContainEqual([
+    assert.strictEqual(code, 0);
+    assertContainsEqual(calls(), [
       "./node_modules/.bin/release-it",
       "1.12.2",
       "--git.tag=false",
@@ -664,8 +699,8 @@ describe("scripts/release", () => {
       "--git.getLatestTagFromAllRefs=true",
       "--ci",
     ]);
-    expect(logger.log).toHaveBeenCalledWith("Pushed v1.12.2");
-    expect(calls()).toContainEqual(["git", "push", "origin", "refs/tags/v1.12.2"]);
+    assertCalledWith(logger.log, "Pushed v1.12.2");
+    assertContainsEqual(calls(), ["git", "push", "origin", "refs/tags/v1.12.2"]);
   });
 
   test("runRelease uses a PR and never pushes main directly", async () => {
@@ -692,9 +727,15 @@ describe("scripts/release", () => {
 
     await runRelease({ increment: "patch", logger, packageVersion: "1.2.3", runner });
 
-    expect(calls()).toContainEqual(["git", "push", "--set-upstream", "origin", "release/v1.2.4"]);
-    expect(calls().some((call) => call[0] === "gh" && call[1] === "pr")).toBe(true);
-    expect(calls().some((call) => call.includes("HEAD:refs/heads/main"))).toBe(false);
+    assertContainsEqual(calls(), ["git", "push", "--set-upstream", "origin", "release/v1.2.4"]);
+    assert.strictEqual(
+      calls().some((call) => call[0] === "gh" && call[1] === "pr"),
+      true,
+    );
+    assert.strictEqual(
+      calls().some((call) => call.includes("HEAD:refs/heads/main")),
+      false,
+    );
   });
 
   test("runRelease reuses an existing PR when creation fails", async () => {
@@ -708,7 +749,7 @@ describe("scripts/release", () => {
     const logger = createMockLogger();
     const { runner } = createRunner(overrides);
     await runRelease({ increment: "patch", logger, packageVersion: "1.2.3", runner });
-    expect(logger.warn).toHaveBeenCalledWith("gh pr create failed: already exists");
+    assertCalledWith(logger.warn, "gh pr create failed: already exists");
   });
 
   test("runRelease rejects a failed PR lookup without a URL", async () => {
@@ -720,7 +761,7 @@ describe("scripts/release", () => {
     });
     const { runner } = createRunner(overrides);
     const release = runRelease({ increment: "patch", packageVersion: "1.2.3", runner });
-    await expect(release).rejects.toThrow(`Unable to find release PR for ${branch}`);
+    await assert.rejects(release, errorIncludes(`Unable to find release PR for ${branch}`));
   });
 
   test("runRelease rejects expired readiness polling", async () => {
@@ -743,7 +784,10 @@ describe("scripts/release", () => {
       runner,
       timeoutMinutes: -1,
     };
-    await expect(runRelease(options)).rejects.toThrow(`Timed out waiting for release PR: ${prUrl}`);
+    await assert.rejects(
+      runRelease(options),
+      errorIncludes(`Timed out waiting for release PR: ${prUrl}`),
+    );
   });
 
   test("runRelease rejects merged PRs without a merge commit", async () => {
@@ -756,7 +800,10 @@ describe("scripts/release", () => {
     });
     const { runner } = createRunner(overrides);
     const release = runRelease({ increment: "patch", packageVersion: "1.2.3", runner });
-    await expect(release).rejects.toThrow(`Release PR is merged without a merge commit: ${prUrl}`);
+    await assert.rejects(
+      release,
+      errorIncludes(`Release PR is merged without a merge commit: ${prUrl}`),
+    );
   });
 
   test("runRelease waits for a queued PR to merge before tagging", async () => {
@@ -800,9 +847,9 @@ describe("scripts/release", () => {
       runner,
     });
 
-    expect(code).toBe(0);
-    expect(logger.log).toHaveBeenCalledWith(`Waiting for release PR to merge: ${prUrl}`);
-    expect(calls()).toContainEqual(["git", "push", "origin", "refs/tags/v1.2.4"]);
+    assert.strictEqual(code, 0);
+    assertCalledWith(logger.log, `Waiting for release PR to merge: ${prUrl}`);
+    assertContainsEqual(calls(), ["git", "push", "origin", "refs/tags/v1.2.4"]);
   });
 
   test("runRelease refreshes a release branch that falls behind main", async () => {
@@ -853,9 +900,9 @@ describe("scripts/release", () => {
       runner,
     });
 
-    expect(code).toBe(0);
-    expect(calls()).toContainEqual(["gh", "pr", "update-branch", prUrl]);
-    expect(calls()).toContainEqual(["git", "push", "origin", "refs/tags/v1.2.4"]);
+    assert.strictEqual(code, 0);
+    assertContainsEqual(calls(), ["gh", "pr", "update-branch", prUrl]);
+    assertContainsEqual(calls(), ["git", "push", "origin", "refs/tags/v1.2.4"]);
   });
 
   test("runRelease merges when only optional checks fail", async () => {
@@ -891,9 +938,9 @@ describe("scripts/release", () => {
       runner,
     });
 
-    expect(code).toBe(0);
-    expect(calls()).toContainEqual(["gh", "pr", "merge", "--squash", "--delete-branch", prUrl]);
-    expect(calls()).toContainEqual(["git", "push", "origin", "refs/tags/v1.2.4"]);
+    assert.strictEqual(code, 0);
+    assertContainsEqual(calls(), ["gh", "pr", "merge", "--squash", "--delete-branch", prUrl]);
+    assertContainsEqual(calls(), ["git", "push", "origin", "refs/tags/v1.2.4"]);
   });
 
   test("runRelease does not tag when the synchronous merge fails", async () => {
@@ -912,11 +959,18 @@ describe("scripts/release", () => {
     );
     const { calls, runner } = createRunner(overrides);
 
-    await expect(
+    await assert.rejects(
       runRelease({ increment: "patch", packageVersion: "1.2.3", runner }),
-    ).rejects.toThrow("merge unavailable");
-    expect(calls().some((call) => call.includes("--auto"))).toBe(false);
-    expect(calls().some((call) => call[1] === "tag")).toBe(false);
+      errorIncludes("merge unavailable"),
+    );
+    assert.strictEqual(
+      calls().some((call) => call.includes("--auto")),
+      false,
+    );
+    assert.strictEqual(
+      calls().some((call) => call[1] === "tag"),
+      false,
+    );
   });
 
   test("runRelease leaves the PR open when readiness polling fails", async () => {
@@ -941,11 +995,15 @@ describe("scripts/release", () => {
     );
     const { calls, runner } = createRunner(overrides);
 
-    await expect(
+    await assert.rejects(
       runRelease({ increment: "patch", logger, packageVersion: "1.2.3", runner }),
-    ).rejects.toThrow("temporary GitHub error");
-    expect(calls()).not.toContainEqual(["gh", "pr", "merge", "--squash", "--delete-branch", prUrl]);
-    expect(calls().some((call) => call.includes("--auto"))).toBe(false);
+      errorIncludes("temporary GitHub error"),
+    );
+    assertDoesNotContainEqual(calls(), ["gh", "pr", "merge", "--squash", "--delete-branch", prUrl]);
+    assert.strictEqual(
+      calls().some((call) => call.includes("--auto")),
+      false,
+    );
   });
 
   test("runRelease fails fast when the release PR has merge conflicts", async () => {
@@ -971,11 +1029,15 @@ describe("scripts/release", () => {
     );
     const { calls, runner } = createRunner(overrides);
 
-    await expect(
+    await assert.rejects(
       runRelease({ increment: "patch", packageVersion: "1.2.3", runner }),
-    ).rejects.toThrow(`Release PR has merge conflicts: ${prUrl}`);
-    expect(calls()).not.toContainEqual(["gh", "pr", "merge", "--squash", "--delete-branch", prUrl]);
-    expect(calls().some((call) => call[1] === "tag")).toBe(false);
+      errorIncludes(`Release PR has merge conflicts: ${prUrl}`),
+    );
+    assertDoesNotContainEqual(calls(), ["gh", "pr", "merge", "--squash", "--delete-branch", prUrl]);
+    assert.strictEqual(
+      calls().some((call) => call[1] === "tag"),
+      false,
+    );
   });
 
   test("runRelease tags current prerelease package version without release-it", async () => {
@@ -998,9 +1060,12 @@ describe("scripts/release", () => {
       runner,
     });
 
-    expect(code).toBe(0);
-    expect(calls().some((call) => call[0] === "./node_modules/.bin/release-it")).toBe(false);
-    expect(logger.log).toHaveBeenCalledWith("Pushed v1.2.4-beta.6");
-    expect(logger.log).toHaveBeenCalledWith("Tagged current package version 1.2.4-beta.6.");
+    assert.strictEqual(code, 0);
+    assert.strictEqual(
+      calls().some((call) => call[0] === "./node_modules/.bin/release-it"),
+      false,
+    );
+    assertCalledWith(logger.log, "Pushed v1.2.4-beta.6");
+    assertCalledWith(logger.log, "Tagged current package version 1.2.4-beta.6.");
   });
 });

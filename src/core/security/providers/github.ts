@@ -1,10 +1,10 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
 import {
-  DependabotAlert,
-  SecurityAlert,
-  SecurityCheckOptions,
-  GithubApiError,
+  type DependabotAlert,
+  type SecurityAlert,
+  type SecurityCheckOptions,
+  type GithubApiError,
   SecurityProviderPermissionError,
 } from "../../../types";
 import { logger, retry } from "../../../utils";

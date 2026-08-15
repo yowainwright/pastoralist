@@ -1,8 +1,42 @@
-import { test, expect, mock } from "bun:test";
-import type { Options, PastoralistJSON } from "../../../src/types";
+import {
+  anything,
+  assertCalledWith,
+  assertMatchObject,
+  errorIncludes,
+  objectContaining,
+} from "../setup.ts";
+import { test } from "node:test";
+import { mock } from "../setup.ts";
+import assert from "node:assert/strict";
+import packageJSON from "../../../package.json" with { type: "json" };
+import {
+  SecurityProviderPermissionError,
+  type Options,
+  type PastoralistJSON,
+} from "../../../src/types";
 import { logger as createLogger } from "../../../src/utils";
-import { determineSecurityScanPaths, runSecurityPhase } from "../../../src/cli/index";
+import {
+  action,
+  buildMergedOptions,
+  buildSecurityOverrideDetail,
+  checkRemovalSafety,
+  determineSecurityScanPaths,
+  displayOverrides,
+  displaySummaryTable,
+  formatUpdateReport,
+  handleInitMode,
+  handleSecurityResults,
+  handleSetupHook,
+  handleTestMode,
+  run,
+  runSecurityCheck,
+  runSecurityPhase,
+} from "../../../src/cli/index";
 import { clearConfigCache } from "../../../src/config";
+import { forceClearCache, resolveJSON } from "../../../src/core/package";
+import { renderUpdateOutput } from "../../../src/cli/display";
+import { createOutput } from "../../../src/dx/output";
+import { createTerminalGraph } from "../../../src/dx/terminal-graph";
 import { resolve } from "path";
 import { createMockSecurityResults } from "./mocks";
 import {
@@ -14,12 +48,13 @@ import {
 } from "../setup";
 
 const log = createLogger({ file: "test.ts", isLogging: false });
+const { version } = packageJSON;
 const captureLine =
   (lines: string[]) =>
   (message: string): void => {
     lines[lines.length] = message;
   };
-const actionExternalConfigDir = resolve(__dirname, "..", ".test-action-external-config");
+const actionExternalConfigDir = resolve(import.meta.dirname, "..", ".test-action-external-config");
 const EXTERNAL_OVERRIDE_CONFIG: PastoralistJSON = {
   name: "test-app",
   version: "1.0.0",
@@ -64,6 +99,7 @@ const createMockTerminalGraph = () => {
     executiveSummary: mock(() => graph),
     compactSummary: mock(() => graph),
     complete: mock(() => graph),
+    waitForCompletion: mock(() => Promise.resolve()),
     notice: mock(() => graph),
     stop: mock(() => graph),
   };
@@ -71,44 +107,34 @@ const createMockTerminalGraph = () => {
 };
 
 test("handleTestMode - returns true when isTestingCLI is true", () => {
-  const { handleTestMode } = require("../../../src/cli/index");
-
   const options: Options = { isTestingCLI: true };
   const result = handleTestMode(true, log, options);
 
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("handleTestMode - returns false when isTestingCLI is false", () => {
-  const { handleTestMode } = require("../../../src/cli/index");
-
   const options: Options = { isTestingCLI: false };
   const result = handleTestMode(false, log, options);
 
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 });
 
 test("handleSetupHook - returns false when setupHook is not true", () => {
-  const { handleSetupHook } = require("../../../src/cli/index");
-
   const options: Options = { setupHook: false };
   const result = handleSetupHook(options, log);
 
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 });
 
 test("handleSetupHook - returns false when setupHook is undefined", () => {
-  const { handleSetupHook } = require("../../../src/cli/index");
-
   const options: Options = {};
   const result = handleSetupHook(options, log);
 
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 });
 
 test("handleSetupHook - returns true when postinstall already has pastoralist", () => {
-  const { handleSetupHook } = require("../../../src/cli/index");
-
   const mockReadFileSync = mock(() => JSON.stringify({ scripts: { postinstall: "pastoralist" } }));
   const mockWriteFileSync = mock(() => {});
   const mockResolve = mock((p: string) => p);
@@ -120,13 +146,11 @@ test("handleSetupHook - returns true when postinstall already has pastoralist", 
     resolve: mockResolve,
   });
 
-  expect(result).toBe(true);
-  expect(mockWriteFileSync).not.toHaveBeenCalled();
+  assert.strictEqual(result, true);
+  assert.strictEqual(mockWriteFileSync.mock.callCount(), 0);
 });
 
 test("handleSetupHook - adds pastoralist to empty scripts", () => {
-  const { handleSetupHook } = require("../../../src/cli/index");
-
   let writtenContent = "";
   const mockReadFileSync = mock(() => JSON.stringify({ name: "test" }));
   const mockWriteFileSync = mock((_path: string, content: string) => {
@@ -141,15 +165,13 @@ test("handleSetupHook - adds pastoralist to empty scripts", () => {
     resolve: mockResolve,
   });
 
-  expect(result).toBe(true);
-  expect(mockWriteFileSync).toHaveBeenCalled();
+  assert.strictEqual(result, true);
+  assert.ok(mockWriteFileSync.mock.callCount() > 0);
   const parsed = JSON.parse(writtenContent);
-  expect(parsed.scripts.postinstall).toBe("pastoralist");
+  assert.strictEqual(parsed.scripts.postinstall, "pastoralist");
 });
 
 test("handleSetupHook - appends pastoralist to existing postinstall", () => {
-  const { handleSetupHook } = require("../../../src/cli/index");
-
   let writtenContent = "";
   const mockReadFileSync = mock(() => JSON.stringify({ scripts: { postinstall: "echo done" } }));
   const mockWriteFileSync = mock((_path: string, content: string) => {
@@ -164,14 +186,12 @@ test("handleSetupHook - appends pastoralist to existing postinstall", () => {
     resolve: mockResolve,
   });
 
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
   const parsed = JSON.parse(writtenContent);
-  expect(parsed.scripts.postinstall).toBe("echo done && pastoralist");
+  assert.strictEqual(parsed.scripts.postinstall, "echo done && pastoralist");
 });
 
 test("handleSetupHook - resolves relative path under root", () => {
-  const { handleSetupHook } = require("../../../src/cli/index");
-
   const mockReadFileSync = mock(() => JSON.stringify({ name: "test" }));
   const mockWriteFileSync = mock(() => {});
   const mockResolve = mock((...parts: string[]) => parts.join("/"));
@@ -187,34 +207,40 @@ test("handleSetupHook - resolves relative path under root", () => {
     resolve: mockResolve,
   });
 
-  expect(result).toBe(true);
-  expect(mockReadFileSync).toHaveBeenCalledWith("/repo/packages/app/package.json", "utf8");
-  expect(mockWriteFileSync.mock.calls[0][0]).toBe("/repo/packages/app/package.json");
+  assert.strictEqual(result, true);
+  assertCalledWith(mockReadFileSync, "/repo/packages/app/package.json", "utf8");
+  assert.strictEqual(
+    mockWriteFileSync.mock.calls.map((call) => (Array.isArray(call) ? call : call.arguments))[0][0],
+    "/repo/packages/app/package.json",
+  );
 });
 
 test("handleSetupHook - handles read errors", () => {
-  const { handleSetupHook } = require("../../../src/cli/index");
-
   const mockReadFileSync = mock(() => {
     throw new Error("File not found");
   });
   const mockWriteFileSync = mock(() => {});
   const mockResolve = mock((p: string) => p);
+  const originalExitCode = process.exitCode;
 
   const options: Options = { setupHook: true };
-  const result = handleSetupHook(options, log, {
-    readFileSync: mockReadFileSync,
-    writeFileSync: mockWriteFileSync,
-    resolve: mockResolve,
-  });
+  process.exitCode = undefined;
+  try {
+    const result = handleSetupHook(options, log, {
+      readFileSync: mockReadFileSync,
+      writeFileSync: mockWriteFileSync,
+      resolve: mockResolve,
+    });
 
-  expect(result).toBe(true);
-  expect(mockWriteFileSync).not.toHaveBeenCalled();
+    assert.strictEqual(result, true);
+    assert.strictEqual(process.exitCode, 1);
+    assert.strictEqual(mockWriteFileSync.mock.callCount(), 0);
+  } finally {
+    process.exitCode = originalExitCode;
+  }
 });
 
 test("buildSecurityOverrideDetail - builds complete detail object", () => {
-  const { buildSecurityOverrideDetail } = require("../../../src/cli/index");
-
   const override = {
     packageName: "lodash",
     reason: "Security vulnerability",
@@ -226,16 +252,15 @@ test("buildSecurityOverrideDetail - builds complete detail object", () => {
 
   const result = buildSecurityOverrideDetail(override);
 
-  expect(result.packageName).toBe("lodash");
-  expect(result.reason).toBe("Security vulnerability");
-  expect(result.cves?.[0]).toBe("CVE-2021-23337");
-  expect(result.severity).toBe("high");
-  expect(result.description).toBe("Prototype pollution vulnerability");
-  expect(result.url).toBe("https://nvd.nist.gov/vuln/detail/CVE-2021-23337");
+  assert.strictEqual(result.packageName, "lodash");
+  assert.strictEqual(result.reason, "Security vulnerability");
+  assert.strictEqual(result.cves?.[0], "CVE-2021-23337");
+  assert.strictEqual(result.severity, "high");
+  assert.strictEqual(result.description, "Prototype pollution vulnerability");
+  assert.strictEqual(result.url, "https://nvd.nist.gov/vuln/detail/CVE-2021-23337");
 });
 
 test("buildSecurityOverrideDetail - prefers a structured ledger reason", () => {
-  const { buildSecurityOverrideDetail } = require("../../../src/cli/index");
   const ledgerReason = {
     type: "project",
     summary: "Pinned for compatibility",
@@ -245,12 +270,10 @@ test("buildSecurityOverrideDetail - prefers a structured ledger reason", () => {
 
   const result = buildSecurityOverrideDetail(override);
 
-  expect(result.reason).toEqual(ledgerReason);
+  assert.deepStrictEqual(result.reason, ledgerReason);
 });
 
 test("buildSecurityOverrideDetail - excludes missing optional fields", () => {
-  const { buildSecurityOverrideDetail } = require("../../../src/cli/index");
-
   const override = {
     packageName: "express",
     reason: "Security fix",
@@ -258,17 +281,15 @@ test("buildSecurityOverrideDetail - excludes missing optional fields", () => {
 
   const result = buildSecurityOverrideDetail(override);
 
-  expect(result.packageName).toBe("express");
-  expect(result.reason).toBe("Security fix");
-  expect(result.cves).toBeUndefined();
-  expect(result.severity).toBeUndefined();
-  expect(result.description).toBeUndefined();
-  expect(result.url).toBeUndefined();
+  assert.strictEqual(result.packageName, "express");
+  assert.strictEqual(result.reason, "Security fix");
+  assert.strictEqual(result.cves, undefined);
+  assert.strictEqual(result.severity, undefined);
+  assert.strictEqual(result.description, undefined);
+  assert.strictEqual(result.url, undefined);
 });
 
 test("buildSecurityOverrideDetail - includes only present optional fields", () => {
-  const { buildSecurityOverrideDetail } = require("../../../src/cli/index");
-
   const override = {
     packageName: "react",
     reason: "Security update",
@@ -278,17 +299,15 @@ test("buildSecurityOverrideDetail - includes only present optional fields", () =
 
   const result = buildSecurityOverrideDetail(override);
 
-  expect(result.packageName).toBe("react");
-  expect(result.reason).toBe("Security update");
-  expect(result.cves?.[0]).toBe("CVE-2024-1234");
-  expect(result.severity).toBe("medium");
-  expect(result.description).toBeUndefined();
-  expect(result.url).toBeUndefined();
+  assert.strictEqual(result.packageName, "react");
+  assert.strictEqual(result.reason, "Security update");
+  assert.strictEqual(result.cves?.[0], "CVE-2024-1234");
+  assert.strictEqual(result.severity, "medium");
+  assert.strictEqual(result.description, undefined);
+  assert.strictEqual(result.url, undefined);
 });
 
 test("buildMergedOptions - merges options with config security settings", () => {
-  const { buildMergedOptions } = require("../../../src/cli/index");
-
   const options: Options = {
     checkSecurity: true,
     securityProvider: "osv",
@@ -311,16 +330,14 @@ test("buildMergedOptions - merges options with config security settings", () => 
 
   const result = buildMergedOptions(options, rest, securityConfig, configProvider);
 
-  expect(result.checkSecurity).toBe(true);
-  expect(result.forceSecurityRefactor).toBe(true);
-  expect(result.securityProvider).toBe("osv");
-  expect(result.interactive).toBe(true);
-  expect(result.hasWorkspaceSecurityChecks).toBe(false);
+  assert.strictEqual(result.checkSecurity, true);
+  assert.strictEqual(result.forceSecurityRefactor, true);
+  assert.strictEqual(result.securityProvider, "osv");
+  assert.strictEqual(result.interactive, true);
+  assert.strictEqual(result.hasWorkspaceSecurityChecks, false);
 });
 
 test("buildMergedOptions - uses config values when options not provided", () => {
-  const { buildMergedOptions } = require("../../../src/cli/index");
-
   const options: Options = {};
 
   const rest = {};
@@ -338,17 +355,15 @@ test("buildMergedOptions - uses config values when options not provided", () => 
 
   const result = buildMergedOptions(options, rest, securityConfig, configProvider);
 
-  expect(result.checkSecurity).toBe(true);
-  expect(result.forceSecurityRefactor).toBe(false);
-  expect(result.securityProvider).toBe("snyk");
-  expect(result.securityProviderToken).toBe("test-token");
-  expect(result.interactive).toBe(false);
-  expect(result.hasWorkspaceSecurityChecks).toBe(true);
+  assert.strictEqual(result.checkSecurity, true);
+  assert.strictEqual(result.forceSecurityRefactor, false);
+  assert.strictEqual(result.securityProvider, "snyk");
+  assert.strictEqual(result.securityProviderToken, "test-token");
+  assert.strictEqual(result.interactive, false);
+  assert.strictEqual(result.hasWorkspaceSecurityChecks, true);
 });
 
 test("buildMergedOptions - defaults to osv provider when not specified", () => {
-  const { buildMergedOptions } = require("../../../src/cli/index");
-
   const options: Options = {};
   const rest = {};
   const securityConfig = {};
@@ -356,38 +371,31 @@ test("buildMergedOptions - defaults to osv provider when not specified", () => {
 
   const result = buildMergedOptions(options, rest, securityConfig, configProvider);
 
-  expect(result.securityProvider).toBe("osv");
+  assert.strictEqual(result.securityProvider, "osv");
 });
 
 test("buildMergedOptions - carries strict from CLI or config", () => {
-  const { buildMergedOptions } = require("../../../src/cli/index");
-
   const cliResult = buildMergedOptions({ strict: true }, {}, { strict: false }, undefined);
-  expect(cliResult.strict).toBe(true);
+  assert.strictEqual(cliResult.strict, true);
 
   const configResult = buildMergedOptions({}, {}, { strict: true }, undefined);
-  expect(configResult.strict).toBe(true);
+  assert.strictEqual(configResult.strict, true);
 });
 
 test("buildMergedOptions - normalizes cache TTL from CLI seconds", () => {
-  const { buildMergedOptions } = require("../../../src/cli/index");
-
   const result = buildMergedOptions({ cacheTtl: "3600" as unknown as number }, {}, {}, undefined);
 
-  expect(result.cacheTtl).toBe(3600);
+  assert.strictEqual(result.cacheTtl, 3600);
 });
 
 test("buildMergedOptions - rejects invalid cache TTL", () => {
-  const { buildMergedOptions } = require("../../../src/cli/index");
-
-  expect(() =>
-    buildMergedOptions({ cacheTtl: "-1" as unknown as number }, {}, {}, undefined),
-  ).toThrow("--cache-ttl must be a non-negative number of seconds");
+  assert.throws(
+    () => buildMergedOptions({ cacheTtl: "-1" as unknown as number }, {}, {}, undefined),
+    errorIncludes("--cache-ttl must be a non-negative number of seconds"),
+  );
 });
 
 test("handleSecurityResults - generates overrides when alerts found", () => {
-  const { handleSecurityResults } = require("../../../src/cli/index");
-
   const alerts = [
     {
       packageName: "lodash",
@@ -432,13 +440,12 @@ test("handleSecurityResults - generates overrides when alerts found", () => {
     updates,
   );
 
-  expect(mockSecurityChecker.generatePackageOverrides).toHaveBeenCalled();
-  expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
-  expect(result.securityOverrides).toEqual({ lodash: "4.17.21" });
+  assert.ok(mockSecurityChecker.generatePackageOverrides.mock.callCount() > 0);
+  assert.ok(mockSecurityChecker.applyAutoFix.mock.callCount() > 0);
+  assert.deepStrictEqual(result.securityOverrides, { lodash: "4.17.21" });
 });
 
 test("handleSecurityResults - passes merged config to auto-fix", () => {
-  const { handleSecurityResults } = require("../../../src/cli/index");
   const applyAutoFix = mock();
   const generatePackageOverrides = mock(() => ({ lodash: "4.17.21" }));
   const checker = { applyAutoFix, generatePackageOverrides };
@@ -450,16 +457,10 @@ test("handleSecurityResults - passes merged config to auto-fix", () => {
     { stop: mock() } as any,
     EXTERNAL_OVERRIDE_OPTIONS,
   );
-  expect(applyAutoFix).toHaveBeenCalledWith(
-    [CLI_SECURITY_OVERRIDE],
-    "package.json",
-    EXTERNAL_OVERRIDE_CONFIG,
-  );
+  assertCalledWith(applyAutoFix, [CLI_SECURITY_OVERRIDE], "package.json", EXTERNAL_OVERRIDE_CONFIG);
 });
 
 test("handleSecurityResults - generates overrides in interactive mode", () => {
-  const { handleSecurityResults } = require("../../../src/cli/index");
-
   const alerts = [
     {
       packageName: "express",
@@ -506,17 +507,15 @@ test("handleSecurityResults - generates overrides in interactive mode", () => {
     updates,
   );
 
-  expect(result.securityOverrides).toEqual({ express: "4.18.2" });
-  expect(result.securityOverrideDetails).toBeDefined();
-  expect(result.securityOverrideDetails?.length).toBe(1);
-  expect(result.securityOverrideDetails?.[0].packageName).toBe("express");
-  expect(result.securityOverrideDetails?.[0].cves?.[0]).toBe("CVE-2024-1234");
-  expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
+  assert.deepStrictEqual(result.securityOverrides, { express: "4.18.2" });
+  assert.notStrictEqual(result.securityOverrideDetails, undefined);
+  assert.strictEqual(result.securityOverrideDetails?.length, 1);
+  assert.strictEqual(result.securityOverrideDetails?.[0].packageName, "express");
+  assert.strictEqual(result.securityOverrideDetails?.[0].cves?.[0], "CVE-2024-1234");
+  assert.ok(mockSecurityChecker.applyAutoFix.mock.callCount() > 0);
 });
 
 test("handleSecurityResults - stops spinner when no alerts", () => {
-  const { handleSecurityResults } = require("../../../src/cli/index");
-
   const alerts: any[] = [];
   const securityOverrides: any[] = [];
 
@@ -542,14 +541,12 @@ test("handleSecurityResults - stops spinner when no alerts", () => {
     updates,
   );
 
-  expect(mockSpinner.stop).toHaveBeenCalled();
-  expect(mockSecurityChecker.generatePackageOverrides).not.toHaveBeenCalled();
-  expect(mockSecurityChecker.applyAutoFix).not.toHaveBeenCalled();
+  assert.ok(mockSpinner.stop.mock.callCount() > 0);
+  assert.strictEqual(mockSecurityChecker.generatePackageOverrides.mock.callCount(), 0);
+  assert.strictEqual(mockSecurityChecker.applyAutoFix.mock.callCount(), 0);
 });
 
 test("handleSecurityResults - does not generate overrides without autofix or interactive", () => {
-  const { handleSecurityResults } = require("../../../src/cli/index");
-
   const alerts = [{ packageName: "test", severity: "low" }];
   const securityOverrides = [{ packageName: "test", fromVersion: "1.0.0", toVersion: "2.0.0" }];
 
@@ -578,15 +575,13 @@ test("handleSecurityResults - does not generate overrides without autofix or int
     updates,
   );
 
-  expect(mockSpinner.stop).toHaveBeenCalled();
-  expect(mockSecurityChecker.generatePackageOverrides).not.toHaveBeenCalled();
-  expect(mockSecurityChecker.applyAutoFix).not.toHaveBeenCalled();
-  expect(result.securityOverrides).toBeUndefined();
+  assert.ok(mockSpinner.stop.mock.callCount() > 0);
+  assert.strictEqual(mockSecurityChecker.generatePackageOverrides.mock.callCount(), 0);
+  assert.strictEqual(mockSecurityChecker.applyAutoFix.mock.callCount(), 0);
+  assert.strictEqual(result.securityOverrides, undefined);
 });
 
 test("formatUpdateReport - formats single update", () => {
-  const { formatUpdateReport } = require("../../../src/cli/index");
-
   const updates = [
     {
       packageName: "vite",
@@ -599,17 +594,15 @@ test("formatUpdateReport - formats single update", () => {
 
   const result = formatUpdateReport(updates);
 
-  expect(result).toContain("Security Override Updates");
-  expect(result).toContain("Found 1 existing override(s)");
-  expect(result).toContain("[UPDATE] vite");
-  expect(result).toContain("Current override: 6.3.6");
-  expect(result).toContain("Newer patch: 6.4.1");
-  expect(result).toContain("CVE-2025-62522 has a newer patch available");
+  assert.ok(result.includes("Security Override Updates"));
+  assert.ok(result.includes("Found 1 existing override(s)"));
+  assert.ok(result.includes("[UPDATE] vite"));
+  assert.ok(result.includes("Current override: 6.3.6"));
+  assert.ok(result.includes("Newer patch: 6.4.1"));
+  assert.ok(result.includes("CVE-2025-62522 has a newer patch available"));
 });
 
 test("formatUpdateReport - formats multiple updates", () => {
-  const { formatUpdateReport } = require("../../../src/cli/index");
-
   const updates = [
     {
       packageName: "vite",
@@ -627,18 +620,16 @@ test("formatUpdateReport - formats multiple updates", () => {
 
   const result = formatUpdateReport(updates);
 
-  expect(result).toContain("Found 2 existing override(s)");
-  expect(result).toContain("[UPDATE] vite");
-  expect(result).toContain("[UPDATE] astro");
-  expect(result).toContain("6.3.6");
-  expect(result).toContain("6.4.1");
-  expect(result).toContain("5.15.5");
-  expect(result).toContain("5.15.6");
+  assert.ok(result.includes("Found 2 existing override(s)"));
+  assert.ok(result.includes("[UPDATE] vite"));
+  assert.ok(result.includes("[UPDATE] astro"));
+  assert.ok(result.includes("6.3.6"));
+  assert.ok(result.includes("6.4.1"));
+  assert.ok(result.includes("5.15.5"));
+  assert.ok(result.includes("5.15.6"));
 });
 
 test("handleSecurityResults - applies updates when autoFix enabled", () => {
-  const { handleSecurityResults } = require("../../../src/cli/index");
-
   const alerts: any[] = [];
   const securityOverrides: any[] = [];
 
@@ -674,10 +665,10 @@ test("handleSecurityResults - applies updates when autoFix enabled", () => {
     updates,
   );
 
-  expect(mockSpinner.stop).toHaveBeenCalled();
-  expect(mockSecurityChecker.generatePackageOverrides).toHaveBeenCalled();
-  expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
-  expect(result.securityOverrides).toEqual({ vite: "6.4.1" });
+  assert.ok(mockSpinner.stop.mock.callCount() > 0);
+  assert.ok(mockSecurityChecker.generatePackageOverrides.mock.callCount() > 0);
+  assert.ok(mockSecurityChecker.applyAutoFix.mock.callCount() > 0);
+  assert.deepStrictEqual(result.securityOverrides, { vite: "6.4.1" });
 });
 
 const createBestCaseUpdateFixture = () => {
@@ -696,7 +687,6 @@ const createBestCaseUpdateFixture = () => {
 };
 
 test("handleSecurityResults - does not auto-apply updates beside best-case results", () => {
-  const { handleSecurityResults } = require("../../../src/cli/index");
   const { update, checker, spinner } = createBestCaseUpdateFixture();
 
   const result = handleSecurityResults(
@@ -709,14 +699,12 @@ test("handleSecurityResults - does not auto-apply updates beside best-case resul
     true,
   );
 
-  expect(result).toEqual({});
-  expect(checker.generatePackageOverrides).not.toHaveBeenCalled();
-  expect(checker.applyAutoFix).not.toHaveBeenCalled();
+  assert.deepStrictEqual(result, {});
+  assert.strictEqual(checker.generatePackageOverrides.mock.callCount(), 0);
+  assert.strictEqual(checker.applyAutoFix.mock.callCount(), 0);
 });
 
 test("handleSecurityResults - merges updates with new overrides", () => {
-  const { handleSecurityResults } = require("../../../src/cli/index");
-
   const alerts = [
     {
       packageName: "express",
@@ -772,17 +760,15 @@ test("handleSecurityResults - merges updates with new overrides", () => {
     updates,
   );
 
-  expect(mockSecurityChecker.generatePackageOverrides).toHaveBeenCalled();
-  expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
-  expect(result.securityOverrides).toEqual({
+  assert.ok(mockSecurityChecker.generatePackageOverrides.mock.callCount() > 0);
+  assert.ok(mockSecurityChecker.applyAutoFix.mock.callCount() > 0);
+  assert.deepStrictEqual(result.securityOverrides, {
     express: "4.18.2",
     vite: "6.4.1",
   });
 });
 
 test("determineSecurityScanPaths - returns depPaths when array and security enabled", () => {
-  const { determineSecurityScanPaths } = require("../../../src/cli/index");
-
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -798,12 +784,10 @@ test("determineSecurityScanPaths - returns depPaths when array and security enab
 
   const result = determineSecurityScanPaths(config, mergedOptions, log);
 
-  expect(result).toEqual(["packages/*/package.json", "apps/*/package.json"]);
+  assert.deepStrictEqual(result, ["packages/*/package.json", "apps/*/package.json"]);
 });
 
 test("determineSecurityScanPaths - returns empty array when depPaths array but security disabled", () => {
-  const { determineSecurityScanPaths } = require("../../../src/cli/index");
-
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -818,12 +802,10 @@ test("determineSecurityScanPaths - returns empty array when depPaths array but s
 
   const result = determineSecurityScanPaths(config, mergedOptions, log);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("determineSecurityScanPaths - returns workspace paths when depPaths is 'workspace'", () => {
-  const { determineSecurityScanPaths } = require("../../../src/cli/index");
-
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -840,12 +822,10 @@ test("determineSecurityScanPaths - returns workspace paths when depPaths is 'wor
 
   const result = determineSecurityScanPaths(config, mergedOptions, log);
 
-  expect(result).toEqual(["packages/*/package.json", "apps/*/package.json"]);
+  assert.deepStrictEqual(result, ["packages/*/package.json", "apps/*/package.json"]);
 });
 
 test("determineSecurityScanPaths - returns workspace paths with hasWorkspaceSecurityChecks", () => {
-  const { determineSecurityScanPaths } = require("../../../src/cli/index");
-
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -858,12 +838,10 @@ test("determineSecurityScanPaths - returns workspace paths with hasWorkspaceSecu
 
   const result = determineSecurityScanPaths(config, mergedOptions, log);
 
-  expect(result).toEqual(["packages/*/package.json"]);
+  assert.deepStrictEqual(result, ["packages/*/package.json"]);
 });
 
 test("determineSecurityScanPaths - returns empty array when no workspaces", () => {
-  const { determineSecurityScanPaths } = require("../../../src/cli/index");
-
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -879,23 +857,19 @@ test("determineSecurityScanPaths - returns empty array when no workspaces", () =
 
   const result = determineSecurityScanPaths(config, mergedOptions, log);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("determineSecurityScanPaths - returns empty array when no config", () => {
-  const { determineSecurityScanPaths } = require("../../../src/cli/index");
-
   const config = undefined;
   const mergedOptions: Options = {};
 
   const result = determineSecurityScanPaths(config, mergedOptions, log);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("determineSecurityScanPaths - prioritizes depPaths array over workspace", () => {
-  const { determineSecurityScanPaths } = require("../../../src/cli/index");
-
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -913,12 +887,11 @@ test("determineSecurityScanPaths - prioritizes depPaths array over workspace", (
 
   const result = determineSecurityScanPaths(config, mergedOptions, log);
 
-  expect(result).toEqual(["custom/path/package.json"]);
+  assert.deepStrictEqual(result, ["custom/path/package.json"]);
 });
 
 test("determineSecurityScanPaths - skips workspace manifest read when depPaths array is used", () => {
-  const { determineSecurityScanPaths } = require("../../../src/cli/index");
-  const root = resolve(__dirname, "..", ".test-security-scan-paths");
+  const root = resolve(import.meta.dirname, "..", ".test-security-scan-paths");
   const workspaceManifestPath = resolve(root, "pnpm-workspace.yaml");
   const debug = mock(() => {});
   const debugLog = Object.assign({}, log, { debug });
@@ -945,17 +918,19 @@ test("determineSecurityScanPaths - skips workspace manifest read when depPaths a
 
     const result = determineSecurityScanPaths(config, mergedOptions, debugLog);
 
-    expect(result).toEqual(["custom/path/package.json"]);
-    expect(debug).toHaveBeenCalledTimes(1);
-    expect(debug.mock.calls[0][0]).toContain("Using depPaths configuration");
+    assert.deepStrictEqual(result, ["custom/path/package.json"]);
+    assert.strictEqual(debug.mock.callCount(), 1);
+    assert.ok(
+      debug.mock.calls
+        .map((call) => (Array.isArray(call) ? call : call.arguments))[0][0]
+        .includes("Using depPaths configuration"),
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
 test("buildMergedOptions - handles undefined config values", () => {
-  const { buildMergedOptions } = require("../../../src/cli/index");
-
   const options: Options = {};
   const rest = {
     path: "package.json",
@@ -965,18 +940,16 @@ test("buildMergedOptions - handles undefined config values", () => {
 
   const result = buildMergedOptions(options, rest, securityConfig, configProvider);
 
-  expect(result.checkSecurity).toBeUndefined();
-  expect(result.forceSecurityRefactor).toBeUndefined();
-  expect(result.securityProvider).toBe("osv");
-  expect(result.securityProviderToken).toBeUndefined();
-  expect(result.interactive).toBeUndefined();
-  expect(result.hasWorkspaceSecurityChecks).toBeUndefined();
-  expect(result.path).toBe("package.json");
+  assert.strictEqual(result.checkSecurity, undefined);
+  assert.strictEqual(result.forceSecurityRefactor, undefined);
+  assert.strictEqual(result.securityProvider, "osv");
+  assert.strictEqual(result.securityProviderToken, undefined);
+  assert.strictEqual(result.interactive, undefined);
+  assert.strictEqual(result.hasWorkspaceSecurityChecks, undefined);
+  assert.strictEqual(result.path, "package.json");
 });
 
 test("buildMergedOptions - options override config values", () => {
-  const { buildMergedOptions } = require("../../../src/cli/index");
-
   const options: Options = {
     checkSecurity: false,
     forceSecurityRefactor: false,
@@ -1001,17 +974,15 @@ test("buildMergedOptions - options override config values", () => {
 
   const result = buildMergedOptions(options, rest, securityConfig, configProvider);
 
-  expect(result.checkSecurity).toBe(false);
-  expect(result.forceSecurityRefactor).toBe(false);
-  expect(result.securityProvider).toBe("github");
-  expect(result.securityProviderToken).toBe("token-123");
-  expect(result.interactive).toBe(false);
-  expect(result.hasWorkspaceSecurityChecks).toBe(false);
+  assert.strictEqual(result.checkSecurity, false);
+  assert.strictEqual(result.forceSecurityRefactor, false);
+  assert.strictEqual(result.securityProvider, "github");
+  assert.strictEqual(result.securityProviderToken, "token-123");
+  assert.strictEqual(result.interactive, false);
+  assert.strictEqual(result.hasWorkspaceSecurityChecks, false);
 });
 
 test("buildSecurityOverrideDetail - handles all fields", () => {
-  const { buildSecurityOverrideDetail } = require("../../../src/cli/index");
-
   const override = {
     packageName: "react",
     fromVersion: "17.0.0",
@@ -1027,19 +998,17 @@ test("buildSecurityOverrideDetail - handles all fields", () => {
 
   const result = buildSecurityOverrideDetail(override);
 
-  expect(result.packageName).toBe("react");
-  expect(result.reason).toBe("Critical security update");
-  expect(result.cves?.[0]).toBe("CVE-2024-5678");
-  expect(result.severity).toBe("critical");
-  expect(result.description).toBe("XSS vulnerability in React");
-  expect(result.url).toBe("https://github.com/advisories/GHSA-test");
-  expect(result.vulnerableRange).toBe(">= 0 < 18.2.0");
-  expect(result.patchedVersion).toBe("18.2.0");
+  assert.strictEqual(result.packageName, "react");
+  assert.strictEqual(result.reason, "Critical security update");
+  assert.strictEqual(result.cves?.[0], "CVE-2024-5678");
+  assert.strictEqual(result.severity, "critical");
+  assert.strictEqual(result.description, "XSS vulnerability in React");
+  assert.strictEqual(result.url, "https://github.com/advisories/GHSA-test");
+  assert.strictEqual(result.vulnerableRange, ">= 0 < 18.2.0");
+  assert.strictEqual(result.patchedVersion, "18.2.0");
 });
 
 test("handleSecurityResults - does not generate overrides when no alerts and no autofix", () => {
-  const { handleSecurityResults } = require("../../../src/cli/index");
-
   const alerts: any[] = [];
   const securityOverrides: any[] = [];
   const updates: any[] = [];
@@ -1064,13 +1033,11 @@ test("handleSecurityResults - does not generate overrides when no alerts and no 
     updates,
   );
 
-  expect(mockSecurityChecker.generatePackageOverrides).not.toHaveBeenCalled();
-  expect(mockSpinner.stop).toHaveBeenCalled();
+  assert.strictEqual(mockSecurityChecker.generatePackageOverrides.mock.callCount(), 0);
+  assert.ok(mockSpinner.stop.mock.callCount() > 0);
 });
 
 test("handleSecurityResults - does not call applyAutoFix when no overrides to apply", () => {
-  const { handleSecurityResults } = require("../../../src/cli/index");
-
   const alerts = [
     {
       packageName: "test-pkg",
@@ -1118,13 +1085,11 @@ test("handleSecurityResults - does not call applyAutoFix when no overrides to ap
     updates,
   );
 
-  expect(mockSecurityChecker.generatePackageOverrides).toHaveBeenCalled();
-  expect(mockSecurityChecker.applyAutoFix).not.toHaveBeenCalled();
+  assert.ok(mockSecurityChecker.generatePackageOverrides.mock.callCount() > 0);
+  assert.strictEqual(mockSecurityChecker.applyAutoFix.mock.callCount(), 0);
 });
 
 test("handleSecurityResults - does not call applyAutoFix during dry run", () => {
-  const { handleSecurityResults } = require("../../../src/cli/index");
-
   const alerts = [
     {
       packageName: "lodash",
@@ -1163,13 +1128,11 @@ test("handleSecurityResults - does not call applyAutoFix during dry run", () => 
     [],
   );
 
-  expect(result.securityOverrides).toEqual({ lodash: "4.17.21" });
-  expect(mockSecurityChecker.applyAutoFix).not.toHaveBeenCalled();
+  assert.deepStrictEqual(result.securityOverrides, { lodash: "4.17.21" });
+  assert.strictEqual(mockSecurityChecker.applyAutoFix.mock.callCount(), 0);
 });
 
 test("formatUpdateReport - formats updates without addedDate", () => {
-  const { formatUpdateReport } = require("../../../src/cli/index");
-
   const updates = [
     {
       packageName: "express",
@@ -1181,17 +1144,15 @@ test("formatUpdateReport - formats updates without addedDate", () => {
 
   const result = formatUpdateReport(updates);
 
-  expect(result).toContain("Security Override Updates");
-  expect(result).toContain("Found 1 existing override(s)");
-  expect(result).toContain("[UPDATE] express");
-  expect(result).toContain("Current override: 4.17.1");
-  expect(result).toContain("Newer patch: 4.18.2");
-  expect(result).toContain("Security patch available");
+  assert.ok(result.includes("Security Override Updates"));
+  assert.ok(result.includes("Found 1 existing override(s)"));
+  assert.ok(result.includes("[UPDATE] express"));
+  assert.ok(result.includes("Current override: 4.17.1"));
+  assert.ok(result.includes("Newer patch: 4.18.2"));
+  assert.ok(result.includes("Security patch available"));
 });
 
 test("determineSecurityScanPaths - prioritizes array depPaths over hasWorkspaceSecurityChecks", () => {
-  const { determineSecurityScanPaths } = require("../../../src/cli/index");
-
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -1209,12 +1170,10 @@ test("determineSecurityScanPaths - prioritizes array depPaths over hasWorkspaceS
 
   const result = determineSecurityScanPaths(config, mergedOptions, log);
 
-  expect(result).toEqual(["custom/package.json"]);
+  assert.deepStrictEqual(result, ["custom/package.json"]);
 });
 
 test("determineSecurityScanPaths - returns empty when security disabled with workspace depPaths", () => {
-  const { determineSecurityScanPaths } = require("../../../src/cli/index");
-
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -1230,12 +1189,10 @@ test("determineSecurityScanPaths - returns empty when security disabled with wor
 
   const result = determineSecurityScanPaths(config, mergedOptions, log);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("handleSecurityResults - generates overrides when updates exist and autofix enabled", () => {
-  const { handleSecurityResults } = require("../../../src/cli/index");
-
   const alerts: any[] = [];
   const securityOverrides: any[] = [];
   const updates = [
@@ -1270,15 +1227,13 @@ test("handleSecurityResults - generates overrides when updates exist and autofix
     updates,
   );
 
-  expect(mockSecurityChecker.generatePackageOverrides).toHaveBeenCalled();
-  expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
-  expect(result.securityOverrides).toEqual({ lodash: "4.17.21" });
-  expect(mockSpinner.stop).toHaveBeenCalled();
+  assert.ok(mockSecurityChecker.generatePackageOverrides.mock.callCount() > 0);
+  assert.ok(mockSecurityChecker.applyAutoFix.mock.callCount() > 0);
+  assert.deepStrictEqual(result.securityOverrides, { lodash: "4.17.21" });
+  assert.ok(mockSpinner.stop.mock.callCount() > 0);
 });
 
 test("determineSecurityScanPaths - handles undefined pastoralist config", () => {
-  const { determineSecurityScanPaths } = require("../../../src/cli/index");
-
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -1290,23 +1245,19 @@ test("determineSecurityScanPaths - handles undefined pastoralist config", () => 
 
   const result = determineSecurityScanPaths(config, mergedOptions, log);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("formatUpdateReport - empty updates array", () => {
-  const { formatUpdateReport } = require("../../../src/cli/index");
-
   const updates: any[] = [];
 
   const result = formatUpdateReport(updates);
 
-  expect(result).toContain("Security Override Updates");
-  expect(result).toContain("Found 0 existing override(s)");
+  assert.ok(result.includes("Security Override Updates"));
+  assert.ok(result.includes("Found 0 existing override(s)"));
 });
 
 test("handleSecurityResults - both alerts and updates with interactive mode", () => {
-  const { handleSecurityResults } = require("../../../src/cli/index");
-
   const alerts = [
     {
       packageName: "lodash",
@@ -1361,19 +1312,17 @@ test("handleSecurityResults - both alerts and updates with interactive mode", ()
     updates,
   );
 
-  expect(mockSecurityChecker.generatePackageOverrides).toHaveBeenCalled();
-  expect(mockSecurityChecker.applyAutoFix).toHaveBeenCalled();
-  expect(result.securityOverrides).toEqual({
+  assert.ok(mockSecurityChecker.generatePackageOverrides.mock.callCount() > 0);
+  assert.ok(mockSecurityChecker.applyAutoFix.mock.callCount() > 0);
+  assert.deepStrictEqual(result.securityOverrides, {
     lodash: "4.17.21",
     vite: "6.4.1",
   });
-  expect(result.securityOverrideDetails).toBeDefined();
-  expect(mockSpinner.stop).toHaveBeenCalled();
+  assert.notStrictEqual(result.securityOverrideDetails, undefined);
+  assert.ok(mockSpinner.stop.mock.callCount() > 0);
 });
 
 test("handleSecurityResults - filters overrides to match final versions", () => {
-  const { handleSecurityResults } = require("../../../src/cli/index");
-
   const alerts = [
     {
       packageName: "pkg",
@@ -1426,14 +1375,12 @@ test("handleSecurityResults - filters overrides to match final versions", () => 
     [],
   );
 
-  expect(result.securityOverrideDetails).toBeDefined();
-  expect(result.securityOverrideDetails?.length).toBe(1);
-  expect(result.securityOverrideDetails?.[0].reason).toBe("Fix 2");
+  assert.notStrictEqual(result.securityOverrideDetails, undefined);
+  assert.strictEqual(result.securityOverrideDetails?.length, 1);
+  assert.strictEqual(result.securityOverrideDetails?.[0].reason, "Fix 2");
 });
 
 test("buildSecurityOverrideDetail - handles only packageName and reason", () => {
-  const { buildSecurityOverrideDetail } = require("../../../src/cli/index");
-
   const override = {
     packageName: "minimal-pkg",
     fromVersion: "1.0.0",
@@ -1443,17 +1390,15 @@ test("buildSecurityOverrideDetail - handles only packageName and reason", () => 
 
   const result = buildSecurityOverrideDetail(override);
 
-  expect(result.packageName).toBe("minimal-pkg");
-  expect(result.reason).toBe("Update required");
-  expect(result.cves).toBeUndefined();
-  expect(result.severity).toBeUndefined();
-  expect(result.description).toBeUndefined();
-  expect(result.url).toBeUndefined();
+  assert.strictEqual(result.packageName, "minimal-pkg");
+  assert.strictEqual(result.reason, "Update required");
+  assert.strictEqual(result.cves, undefined);
+  assert.strictEqual(result.severity, undefined);
+  assert.strictEqual(result.description, undefined);
+  assert.strictEqual(result.url, undefined);
 });
 
 test("determineSecurityScanPaths - multiple workspace patterns", () => {
-  const { determineSecurityScanPaths } = require("../../../src/cli/index");
-
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -1470,12 +1415,14 @@ test("determineSecurityScanPaths - multiple workspace patterns", () => {
 
   const result = determineSecurityScanPaths(config, mergedOptions, log);
 
-  expect(result).toEqual(["packages/*/package.json", "apps/*/package.json", "libs/*/package.json"]);
+  assert.deepStrictEqual(result, [
+    "packages/*/package.json",
+    "apps/*/package.json",
+    "libs/*/package.json",
+  ]);
 });
 
 test("runSecurityCheck - creates spinner and security checker", async () => {
-  const { runSecurityCheck } = require("../../../src/cli/index");
-
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -1519,18 +1466,18 @@ test("runSecurityCheck - creates spinner and security checker", async () => {
 
   const result = await runSecurityCheck(config, mergedOptions, false, log, deps);
 
-  expect(deps.createSpinner).toHaveBeenCalled();
-  expect(deps.SecurityChecker).toHaveBeenCalledWith({
+  assert.ok(deps.createSpinner.mock.callCount() > 0);
+  assertCalledWith(deps.SecurityChecker, {
     provider: "osv",
     forceRefactor: undefined,
     interactive: undefined,
     token: undefined,
     debug: false,
   });
-  expect(mockSecurityChecker.checkSecurity).toHaveBeenCalled();
-  expect(result.alerts).toEqual([]);
-  expect(result.securityOverrides).toEqual([]);
-  expect(result.updates).toEqual([]);
+  assert.ok(mockSecurityChecker.checkSecurity.mock.callCount() > 0);
+  assert.deepStrictEqual(result.alerts, []);
+  assert.deepStrictEqual(result.securityOverrides, []);
+  assert.deepStrictEqual(result.updates, []);
 });
 
 test("runSecurityPhase persists approved user-owned overrides in package config", async () => {
@@ -1547,7 +1494,7 @@ test("runSecurityPhase persists approved user-owned overrides in package config"
   const graph = createMockTerminalGraph();
   const result = await runSecurityPhase(graph, config, options, true, false, log, deps);
 
-  expect(result.mergedOptions.manifestConfig).toMatchObject({
+  assertMatchObject(result.mergedOptions.manifestConfig, {
     pastoralist: {
       bestCase: { enabled: true, userOwnedOverrides: ["beta", "alpha"] },
     },
@@ -1555,8 +1502,6 @@ test("runSecurityPhase persists approved user-owned overrides in package config"
 });
 
 test("runSecurityCheck - passes correct options to SecurityChecker", async () => {
-  const { runSecurityCheck } = require("../../../src/cli/index");
-
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -1597,7 +1542,7 @@ test("runSecurityCheck - passes correct options to SecurityChecker", async () =>
 
   await runSecurityCheck(config, mergedOptions, true, log, deps);
 
-  expect(deps.SecurityChecker).toHaveBeenCalledWith({
+  assertCalledWith(deps.SecurityChecker, {
     provider: "github",
     forceRefactor: true,
     interactive: true,
@@ -1608,8 +1553,6 @@ test("runSecurityCheck - passes correct options to SecurityChecker", async () =>
 });
 
 test("runSecurityCheck - uses determineSecurityScanPaths for depPaths", async () => {
-  const { runSecurityCheck } = require("../../../src/cli/index");
-
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -1651,10 +1594,11 @@ test("runSecurityCheck - uses determineSecurityScanPaths for depPaths", async ()
 
   await runSecurityCheck(config, mergedOptions, false, log, deps);
 
-  expect(mockDetermineSecurityScanPaths).toHaveBeenCalledWith(config, mergedOptions, log);
-  expect(mockSecurityChecker.checkSecurity).toHaveBeenCalledWith(
+  assertCalledWith(mockDetermineSecurityScanPaths, config, mergedOptions, log);
+  assertCalledWith(
+    mockSecurityChecker.checkSecurity,
     config,
-    expect.objectContaining(
+    objectContaining(
       Object.assign({}, mergedOptions, {
         depPaths: ["packages/*/package.json", "apps/*/package.json"],
         root: "./",
@@ -1664,8 +1608,6 @@ test("runSecurityCheck - uses determineSecurityScanPaths for depPaths", async ()
 });
 
 test("action - handles test mode early return", async () => {
-  const { action } = require("../../../src/cli/index");
-
   const mockHandleTestMode = mock(() => true);
   const mockHandleInitMode = mock(() => Promise.resolve(false));
 
@@ -1691,14 +1633,12 @@ test("action - handles test mode early return", async () => {
 
   await action({ isTestingCLI: true }, deps);
 
-  expect(mockHandleTestMode).toHaveBeenCalled();
-  expect(mockHandleInitMode).not.toHaveBeenCalled();
-  expect(deps.resolveJSON).not.toHaveBeenCalled();
+  assert.ok(mockHandleTestMode.mock.callCount() > 0);
+  assert.strictEqual(mockHandleInitMode.mock.callCount(), 0);
+  assert.strictEqual(deps.resolveJSON.mock.callCount(), 0);
 });
 
 test("action - handles init mode early return", async () => {
-  const { action } = require("../../../src/cli/index");
-
   const mockHandleInitMode = mock(() => Promise.resolve(true));
 
   const deps = {
@@ -1723,13 +1663,11 @@ test("action - handles init mode early return", async () => {
 
   await action({ init: true }, deps);
 
-  expect(mockHandleInitMode).toHaveBeenCalled();
-  expect(deps.resolveJSON).not.toHaveBeenCalled();
+  assert.ok(mockHandleInitMode.mock.callCount() > 0);
+  assert.strictEqual(deps.resolveJSON.mock.callCount(), 0);
 });
 
 test("action - resolves package.json and runs update", async () => {
-  const { action } = require("../../../src/cli/index");
-
   const mockConfig: PastoralistJSON = {
     name: "test-package",
     version: "1.0.0",
@@ -1762,14 +1700,12 @@ test("action - resolves package.json and runs update", async () => {
 
   await action({ path: "package.json" }, deps);
 
-  expect(deps.resolveJSON).toHaveBeenCalledWith("package.json");
-  expect(deps.update).toHaveBeenCalled();
-  expect(mockGraph.endPhase).toHaveBeenCalled();
+  assertCalledWith(deps.resolveJSON, "package.json");
+  assert.ok(deps.update.mock.callCount() > 0);
+  assert.ok(mockGraph.endPhase.mock.callCount() > 0);
 });
 
 test("action - runs security check when enabled", async () => {
-  const { action } = require("../../../src/cli/index");
-
   const mockConfig: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -1814,21 +1750,20 @@ test("action - runs security check when enabled", async () => {
 
   await action({}, deps);
 
-  expect(deps.runSecurityCheck).toHaveBeenCalled();
-  expect(deps.handleSecurityResults).toHaveBeenCalledWith(
+  assert.ok(deps.runSecurityCheck.mock.callCount() > 0);
+  assertCalledWith(
+    deps.handleSecurityResults,
     mockSecurityResults.alerts,
     mockSecurityResults.securityOverrides,
     mockSecurityResults.securityChecker,
     mockSecurityResults.spinner,
-    expect.anything(),
+    anything(),
     mockSecurityResults.updates,
     false,
   );
 });
 
 test("action - runs security check from top-level config", async () => {
-  const { action, buildMergedOptions } = require("../../../src/cli/index");
-
   const mockConfig: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -1879,12 +1814,10 @@ test("action - runs security check from top-level config", async () => {
 
   console.log = originalLog;
 
-  expect(deps.runSecurityCheck).toHaveBeenCalled();
+  assert.ok(deps.runSecurityCheck.mock.callCount() > 0);
 });
 
 test("action - handles path with root option", async () => {
-  const { action } = require("../../../src/cli/index");
-
   const mockConfig: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -1914,12 +1847,10 @@ test("action - handles path with root option", async () => {
 
   await action({ path: "package.json", root: "/root/dir" }, deps);
 
-  expect(deps.resolveJSON).toHaveBeenCalledWith("/root/dir/package.json");
+  assertCalledWith(deps.resolveJSON, "/root/dir/package.json");
 });
 
 test("action - handles absolute path without root", async () => {
-  const { action } = require("../../../src/cli/index");
-
   const mockConfig: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -1949,12 +1880,10 @@ test("action - handles absolute path without root", async () => {
 
   await action({ path: "/absolute/path/package.json", root: "/root" }, deps);
 
-  expect(deps.resolveJSON).toHaveBeenCalledWith("/absolute/path/package.json");
+  assertCalledWith(deps.resolveJSON, "/absolute/path/package.json");
 });
 
 test("action - calls processExit on error", async () => {
-  const { action } = require("../../../src/cli/index");
-
   const mockError = new Error("Test error");
   const mockProcessExit = mock(() => {});
 
@@ -1982,11 +1911,10 @@ test("action - calls processExit on error", async () => {
 
   await action({}, deps);
 
-  expect(mockProcessExit).toHaveBeenCalledWith(1);
+  assertCalledWith(mockProcessExit, 1);
 });
 
 test("action - reports errors in default output mode", async () => {
-  const { action } = require("../../../src/cli/index");
   const failures: string[] = [];
   const visibleLog = Object.assign({}, log, {
     fail: (message: string) => failures.push(message),
@@ -2011,12 +1939,10 @@ test("action - reports errors in default output mode", async () => {
 
   await action({}, deps);
 
-  expect(failures.join("\n")).toContain("Test error");
+  assert.ok(failures.join("\n").includes("Test error"));
 });
 
 test("action - fails when package.json cannot be loaded", async () => {
-  const { action } = require("../../../src/cli/index");
-
   const mockProcessExit = mock(() => {});
   const deps = {
     createLogger: mock(() => log),
@@ -2041,15 +1967,13 @@ test("action - fails when package.json cannot be loaded", async () => {
 
   const result = await action({ path: "/tmp/missing-package.json", outputFormat: "json" }, deps);
 
-  expect(result.success).toBe(false);
-  expect(result.errors[0]).toContain("Unable to load package.json at /tmp/missing-package.json");
-  expect(deps.update).not.toHaveBeenCalled();
-  expect(mockProcessExit).toHaveBeenCalledWith(1);
+  assert.strictEqual(result.success, false);
+  assert.ok(result.errors[0].includes("Unable to load package.json at /tmp/missing-package.json"));
+  assert.strictEqual(deps.update.mock.callCount(), 0);
+  assertCalledWith(mockProcessExit, 1);
 });
 
 test("action - merges external config into package config", async () => {
-  const { action } = require("../../../src/cli/index");
-
   const mockConfig: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -2087,15 +2011,14 @@ test("action - merges external config into package config", async () => {
 
   await action({ path: "package.json", root: "/repo" }, deps);
 
-  expect(deps.loadConfig).toHaveBeenCalledWith("/repo", undefined);
-  const updateOptions = deps.update.mock.calls[0][0] as Options;
-  expect(updateOptions.config?.pastoralist?.depPaths).toEqual(["packages/*/package.json"]);
+  assertCalledWith(deps.loadConfig, "/repo", undefined);
+  const updateOptions = deps.update.mock.calls.map((call) =>
+    Array.isArray(call) ? call : call.arguments,
+  )[0][0] as Options;
+  assert.deepStrictEqual(updateOptions.config?.pastoralist?.depPaths, ["packages/*/package.json"]);
 });
 
 test("action - loads external config when package.json has no pastoralist config", async () => {
-  const { action } = require("../../../src/cli/index");
-  const { resolveJSON, forceClearCache } = require("../../../src/core/package");
-
   const packagePath = resolve(actionExternalConfigDir, "package.json");
   const configPath = resolve(actionExternalConfigDir, ".pastoralistrc.json");
   const externalConfig = {
@@ -2140,12 +2063,15 @@ test("action - loads external config when package.json has no pastoralist config
   try {
     await action({ path: "package.json", root: actionExternalConfigDir }, deps as any);
 
-    const updateOptions = deps.update.mock.calls[0][0] as Options;
-    expect(updateOptions.config?.pastoralist?.depPaths).toEqual(externalConfig.depPaths);
-    expect(deps.buildMergedOptions).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.anything(),
-      expect.objectContaining(externalConfig.security),
+    const updateOptions = deps.update.mock.calls.map((call) =>
+      Array.isArray(call) ? call : call.arguments,
+    )[0][0] as Options;
+    assert.deepStrictEqual(updateOptions.config?.pastoralist?.depPaths, externalConfig.depPaths);
+    assertCalledWith(
+      deps.buildMergedOptions,
+      anything(),
+      anything(),
+      objectContaining(externalConfig.security),
       "osv",
     );
   } finally {
@@ -2158,8 +2084,6 @@ test("action - loads external config when package.json has no pastoralist config
 });
 
 test("action - handles array security provider", async () => {
-  const { action } = require("../../../src/cli/index");
-
   const mockConfig: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -2178,7 +2102,7 @@ test("action - handles array security provider", async () => {
 
   const mockBuildMergedOptions = mock(
     (options: any, rest: any, securityConfig: any, configProvider: any) => {
-      expect(configProvider).toEqual(["github", "osv"]);
+      assert.deepStrictEqual(configProvider, ["github", "osv"]);
       return Object.assign({}, options, rest);
     },
   );
@@ -2201,12 +2125,10 @@ test("action - handles array security provider", async () => {
 
   await action({}, deps);
 
-  expect(mockBuildMergedOptions).toHaveBeenCalled();
+  assert.ok(mockBuildMergedOptions.mock.callCount() > 0);
 });
 
 test("handleInitMode - calls initCommand when init is true", async () => {
-  const { handleInitMode } = require("../../../src/cli/index");
-
   const mockInitCommand = mock(() => Promise.resolve());
 
   const options: Options = {
@@ -2224,8 +2146,8 @@ test("handleInitMode - calls initCommand when init is true", async () => {
     initCommand: mockInitCommand,
   });
 
-  expect(result).toBe(true);
-  expect(mockInitCommand).toHaveBeenCalledWith({
+  assert.strictEqual(result, true);
+  assertCalledWith(mockInitCommand, {
     path: "package.json",
     root: "./",
     checkSecurity: true,
@@ -2235,8 +2157,6 @@ test("handleInitMode - calls initCommand when init is true", async () => {
 });
 
 test("handleInitMode - calls initCommand when init targets config", async () => {
-  const { handleInitMode } = require("../../../src/cli/index");
-
   const mockInitCommand = mock(() => Promise.resolve());
   const options: Options = { path: "package.json" };
 
@@ -2249,8 +2169,8 @@ test("handleInitMode - calls initCommand when init targets config", async () => 
     },
   );
 
-  expect(result).toBe(true);
-  expect(mockInitCommand).toHaveBeenCalledWith({
+  assert.strictEqual(result, true);
+  assertCalledWith(mockInitCommand, {
     path: "package.json",
     root: undefined,
     checkSecurity: undefined,
@@ -2260,19 +2180,15 @@ test("handleInitMode - calls initCommand when init targets config", async () => 
 });
 
 test("handleInitMode - returns false when init is false", async () => {
-  const { handleInitMode } = require("../../../src/cli/index");
-
   const mockInitCommand = mock(() => Promise.resolve());
 
   const result = await handleInitMode(false, {}, {}, { initCommand: mockInitCommand });
 
-  expect(result).toBe(false);
-  expect(mockInitCommand).not.toHaveBeenCalled();
+  assert.strictEqual(result, false);
+  assert.strictEqual(mockInitCommand.mock.callCount(), 0);
 });
 
 test("handleInitMode - returns false when init targets agent skill", async () => {
-  const { handleInitMode } = require("../../../src/cli/index");
-
   const mockInitCommand = mock(() => Promise.resolve());
   const stringResult = await handleInitMode(
     "agent-skill",
@@ -2291,9 +2207,9 @@ test("handleInitMode - returns false when init targets agent skill", async () =>
     },
   );
 
-  expect(stringResult).toBe(false);
-  expect(arrayResult).toBe(false);
-  expect(mockInitCommand).not.toHaveBeenCalled();
+  assert.strictEqual(stringResult, false);
+  assert.strictEqual(arrayResult, false);
+  assert.strictEqual(mockInitCommand.mock.callCount(), 0);
 });
 
 test("determineSecurityScanPaths - returns empty array when no config", () => {
@@ -2302,7 +2218,7 @@ test("determineSecurityScanPaths - returns empty array when no config", () => {
 
   const result = determineSecurityScanPaths(config, options, log);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("determineSecurityScanPaths - returns empty array when security not enabled", () => {
@@ -2317,7 +2233,7 @@ test("determineSecurityScanPaths - returns empty array when security not enabled
 
   const result = determineSecurityScanPaths(config, options, log);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("determineSecurityScanPaths - returns depPaths from config when array and security enabled", () => {
@@ -2333,7 +2249,7 @@ test("determineSecurityScanPaths - returns depPaths from config when array and s
 
   const result = determineSecurityScanPaths(config, options, log);
 
-  expect(result).toEqual(["packages/*/package.json", "apps/*/package.json"]);
+  assert.deepStrictEqual(result, ["packages/*/package.json", "apps/*/package.json"]);
 });
 
 test("determineSecurityScanPaths - uses workspace paths when depPaths is workspace", () => {
@@ -2350,7 +2266,7 @@ test("determineSecurityScanPaths - uses workspace paths when depPaths is workspa
 
   const result = determineSecurityScanPaths(config, options, log);
 
-  expect(result).toEqual(["packages/*/package.json", "apps/*/package.json"]);
+  assert.deepStrictEqual(result, ["packages/*/package.json", "apps/*/package.json"]);
 });
 
 test("determineSecurityScanPaths - uses workspace paths when depPaths is workspaces", () => {
@@ -2367,7 +2283,7 @@ test("determineSecurityScanPaths - uses workspace paths when depPaths is workspa
 
   const result = determineSecurityScanPaths(config, options, log);
 
-  expect(result).toEqual(["packages/*/package.json", "apps/*/package.json"]);
+  assert.deepStrictEqual(result, ["packages/*/package.json", "apps/*/package.json"]);
 });
 
 test("determineSecurityScanPaths - uses workspace paths when hasWorkspaceSecurityChecks is true", () => {
@@ -2383,7 +2299,7 @@ test("determineSecurityScanPaths - uses workspace paths when hasWorkspaceSecurit
 
   const result = determineSecurityScanPaths(config, options, log);
 
-  expect(result).toEqual(["packages/*/package.json"]);
+  assert.deepStrictEqual(result, ["packages/*/package.json"]);
 });
 
 test("determineSecurityScanPaths - returns empty array when depPaths is workspace but no workspaces", () => {
@@ -2400,7 +2316,7 @@ test("determineSecurityScanPaths - returns empty array when depPaths is workspac
 
   const result = determineSecurityScanPaths(config, options, log);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("determineSecurityScanPaths - returns empty array when hasWorkspaceSecurityChecks but no workspaces", () => {
@@ -2416,7 +2332,7 @@ test("determineSecurityScanPaths - returns empty array when hasWorkspaceSecurity
 
   const result = determineSecurityScanPaths(config, options, log);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("determineSecurityScanPaths - prioritizes depPaths array over workspace", () => {
@@ -2433,7 +2349,7 @@ test("determineSecurityScanPaths - prioritizes depPaths array over workspace", (
 
   const result = determineSecurityScanPaths(config, options, log);
 
-  expect(result).toEqual(["custom/path/package.json"]);
+  assert.deepStrictEqual(result, ["custom/path/package.json"]);
 });
 
 test("determineSecurityScanPaths - uses config.pastoralist.checkSecurity when option not set", () => {
@@ -2449,7 +2365,7 @@ test("determineSecurityScanPaths - uses config.pastoralist.checkSecurity when op
 
   const result = determineSecurityScanPaths(config, options, log);
 
-  expect(result).toEqual(["packages/*/package.json"]);
+  assert.deepStrictEqual(result, ["packages/*/package.json"]);
 });
 
 test("determineSecurityScanPaths - handles missing pastoralist config", () => {
@@ -2461,7 +2377,7 @@ test("determineSecurityScanPaths - handles missing pastoralist config", () => {
 
   const result = determineSecurityScanPaths(config, options, log);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("determineSecurityScanPaths - handles empty depPaths array", () => {
@@ -2477,7 +2393,7 @@ test("determineSecurityScanPaths - handles empty depPaths array", () => {
 
   const result = determineSecurityScanPaths(config, options, log);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("determineSecurityScanPaths - handles single workspace path", () => {
@@ -2494,7 +2410,7 @@ test("determineSecurityScanPaths - handles single workspace path", () => {
 
   const result = determineSecurityScanPaths(config, options, log);
 
-  expect(result).toEqual(["packages/package.json"]);
+  assert.deepStrictEqual(result, ["packages/package.json"]);
 });
 
 test("determineSecurityScanPaths - option.checkSecurity takes precedence over config", () => {
@@ -2510,7 +2426,7 @@ test("determineSecurityScanPaths - option.checkSecurity takes precedence over co
 
   const result = determineSecurityScanPaths(config, options, log);
 
-  expect(result).toEqual(["packages/*/package.json"]);
+  assert.deepStrictEqual(result, ["packages/*/package.json"]);
 });
 
 test("determineSecurityScanPaths - handles workspace with hasWorkspaceSecurityChecks false", () => {
@@ -2526,12 +2442,10 @@ test("determineSecurityScanPaths - handles workspace with hasWorkspaceSecurityCh
 
   const result = determineSecurityScanPaths(config, options, log);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("runSecurityCheck - handles error and calls spinner.fail", async () => {
-  const { runSecurityCheck } = require("../../../src/cli/index");
-
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -2561,19 +2475,20 @@ test("runSecurityCheck - handles error and calls spinner.fail", async () => {
     yellow: mock((text: string) => text),
   };
 
-  await expect(runSecurityCheck(config, mergedOptions, false, log, deps)).rejects.toThrow(
-    "Security check failed",
+  await assert.rejects(
+    runSecurityCheck(config, mergedOptions, false, log, deps),
+    errorIncludes("Security check failed"),
   );
 
-  expect(mockSpinner.fail).toHaveBeenCalled();
-  const failCall = mockSpinner.fail.mock.calls[0][0];
-  expect(failCall).toContain("security check failed");
-  expect(failCall).toContain("Security check failed");
+  assert.ok(mockSpinner.fail.mock.callCount() > 0);
+  const failCall = mockSpinner.fail.mock.calls.map((call) =>
+    Array.isArray(call) ? call : call.arguments,
+  )[0][0];
+  assert.ok(failCall.includes("security check failed"));
+  assert.ok(failCall.includes("Security check failed"));
 });
 
 test("runSecurityCheck - handles non-Error throws and calls spinner.fail", async () => {
-  const { runSecurityCheck } = require("../../../src/cli/index");
-
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -2601,20 +2516,19 @@ test("runSecurityCheck - handles non-Error throws and calls spinner.fail", async
     yellow: mock((text: string) => text),
   };
 
-  await expect(runSecurityCheck(config, mergedOptions, false, log, deps)).rejects.toBe(
-    "String error",
+  await assert.rejects(runSecurityCheck(config, mergedOptions, false, log, deps), (error) =>
+    Object.is(error, "String error"),
   );
 
-  expect(mockSpinner.fail).toHaveBeenCalled();
-  const failCall = mockSpinner.fail.mock.calls[0][0];
-  expect(failCall).toContain("security check failed");
-  expect(failCall).toContain("String error");
+  assert.ok(mockSpinner.fail.mock.callCount() > 0);
+  const failCall = mockSpinner.fail.mock.calls.map((call) =>
+    Array.isArray(call) ? call : call.arguments,
+  )[0][0];
+  assert.ok(failCall.includes("security check failed"));
+  assert.ok(failCall.includes("String error"));
 });
 
 test("runSecurityCheck - handles SecurityProviderPermissionError gracefully", async () => {
-  const { runSecurityCheck } = require("../../../src/cli/index");
-  const { SecurityProviderPermissionError } = require("../../../src/types");
-
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -2650,17 +2564,14 @@ test("runSecurityCheck - handles SecurityProviderPermissionError gracefully", as
 
   const result = await runSecurityCheck(config, mergedOptions, false, log, deps);
 
-  expect(mockSpinner.warn).toHaveBeenCalled();
-  expect(result.skipped).toBe(true);
-  expect(result.alerts).toEqual([]);
-  expect(result.securityOverrides).toEqual([]);
-  expect(result.updates).toEqual([]);
+  assert.ok(mockSpinner.warn.mock.callCount() > 0);
+  assert.strictEqual(result.skipped, true);
+  assert.deepStrictEqual(result.alerts, []);
+  assert.deepStrictEqual(result.securityOverrides, []);
+  assert.deepStrictEqual(result.updates, []);
 });
 
 test("runSecurityCheck - permission error does not throw", async () => {
-  const { runSecurityCheck } = require("../../../src/cli/index");
-  const { SecurityProviderPermissionError } = require("../../../src/types");
-
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -2695,16 +2606,15 @@ test("runSecurityCheck - permission error does not throw", async () => {
     yellow: mock((text: string) => text),
   };
 
-  await expect(runSecurityCheck(config, mergedOptions, false, log, deps)).resolves.toBeDefined();
+  await runSecurityCheck(config, mergedOptions, false, log, deps).then((value) =>
+    assert.notStrictEqual(value, undefined),
+  );
 
-  expect(mockSpinner.fail).not.toHaveBeenCalled();
-  expect(mockSpinner.warn).toHaveBeenCalled();
+  assert.strictEqual(mockSpinner.fail.mock.callCount(), 0);
+  assert.ok(mockSpinner.warn.mock.callCount() > 0);
 });
 
 test("runSecurityCheck - permission error warning contains error message", async () => {
-  const { runSecurityCheck } = require("../../../src/cli/index");
-  const { SecurityProviderPermissionError } = require("../../../src/types");
-
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -2740,16 +2650,15 @@ test("runSecurityCheck - permission error warning contains error message", async
 
   await runSecurityCheck(config, mergedOptions, false, log, deps);
 
-  const warnCall = mockSpinner.warn.mock.calls[0][0];
-  expect(warnCall).toContain("pastoralist");
-  expect(warnCall).toContain("Resource not accessible");
-  expect(warnCall).toContain("vulnerability-alerts: read");
+  const warnCall = mockSpinner.warn.mock.calls.map((call) =>
+    Array.isArray(call) ? call : call.arguments,
+  )[0][0];
+  assert.ok(warnCall.includes("pastoralist"));
+  assert.ok(warnCall.includes("Resource not accessible"));
+  assert.ok(warnCall.includes("vulnerability-alerts: read"));
 });
 
 test("runSecurityCheck - permission error creates new SecurityChecker for return", async () => {
-  const { runSecurityCheck } = require("../../../src/cli/index");
-  const { SecurityProviderPermissionError } = require("../../../src/types");
-
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -2790,13 +2699,11 @@ test("runSecurityCheck - permission error creates new SecurityChecker for return
 
   const result = await runSecurityCheck(config, mergedOptions, true, log, deps);
 
-  expect(MockSecurityChecker).toHaveBeenCalledTimes(2);
-  expect(result.securityChecker).toBeDefined();
+  assert.strictEqual(MockSecurityChecker.mock.callCount(), 2);
+  assert.notStrictEqual(result.securityChecker, undefined);
 });
 
 test("runSecurityCheck - regular errors still throw after spinner.fail", async () => {
-  const { runSecurityCheck } = require("../../../src/cli/index");
-
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -2828,18 +2735,16 @@ test("runSecurityCheck - regular errors still throw after spinner.fail", async (
     yellow: mock((text: string) => text),
   };
 
-  await expect(runSecurityCheck(config, mergedOptions, false, log, deps)).rejects.toThrow(
-    "Network timeout",
+  await assert.rejects(
+    runSecurityCheck(config, mergedOptions, false, log, deps),
+    errorIncludes("Network timeout"),
   );
 
-  expect(mockSpinner.fail).toHaveBeenCalled();
-  expect(mockSpinner.warn).not.toHaveBeenCalled();
+  assert.ok(mockSpinner.fail.mock.callCount() > 0);
+  assert.strictEqual(mockSpinner.warn.mock.callCount(), 0);
 });
 
 test("action - continues successfully when security check hits permission error", async () => {
-  const { action } = require("../../../src/cli/index");
-  const { SecurityProviderPermissionError } = require("../../../src/types");
-
   const mockConfig: PastoralistJSON = {
     name: "test-package",
     version: "1.0.0",
@@ -2909,14 +2814,12 @@ test("action - continues successfully when security check hits permission error"
 
   await action({}, deps);
 
-  expect(deps.processExit).not.toHaveBeenCalled();
-  expect(deps.update).toHaveBeenCalled();
-  expect(deps.runSecurityCheck).toHaveBeenCalled();
+  assert.strictEqual(deps.processExit.mock.callCount(), 0);
+  assert.ok(deps.update.mock.callCount() > 0);
+  assert.ok(deps.runSecurityCheck.mock.callCount() > 0);
 });
 
 test("action - does not call handleSecurityResults when security check is skipped", async () => {
-  const { action } = require("../../../src/cli/index");
-
   const mockConfig: PastoralistJSON = {
     name: "test-package",
     version: "1.0.0",
@@ -2962,12 +2865,10 @@ test("action - does not call handleSecurityResults when security check is skippe
 
   await action({}, deps);
 
-  expect(deps.handleSecurityResults).not.toHaveBeenCalled();
+  assert.strictEqual(deps.handleSecurityResults.mock.callCount(), 0);
 });
 
 test("displaySummaryTable - renders table with metrics", () => {
-  const { displaySummaryTable } = require("../../../src/cli/index");
-
   const originalLog = console.log;
   const logged: string[] = [];
   console.log = captureLine(logged);
@@ -2993,12 +2894,10 @@ test("displaySummaryTable - renders table with metrics", () => {
   console.log = originalLog;
 
   const output = logged.join("\n");
-  expect(output).toContain("Pastoralist Summary");
+  assert.ok(output.includes("Pastoralist Summary"));
 });
 
 test("displaySummaryTable - skips when no metrics", () => {
-  const { displaySummaryTable } = require("../../../src/cli/index");
-
   const originalLog = console.log;
   const logged: string[] = [];
   console.log = captureLine(logged);
@@ -3009,14 +2908,10 @@ test("displaySummaryTable - skips when no metrics", () => {
 
   console.log = originalLog;
 
-  expect(logged.length).toBe(0);
+  assert.strictEqual(logged.length, 0);
 });
 
 test("displayOverrides - renders override info from context", () => {
-  const { displayOverrides } = require("../../../src/cli/index");
-  const { createTerminalGraph } = require("../../../src/dx/terminal-graph");
-  const { createOutput } = require("../../../src/dx/output");
-
   const output = createOutput();
   const graph = createTerminalGraph(output);
 
@@ -3037,8 +2932,7 @@ test("displayOverrides - renders override info from context", () => {
   displayOverrides(graph, ctx);
 });
 
-test("renderUpdateOutput - does not report unapplied alerts as fixed", () => {
-  const { renderUpdateOutput } = require("../../../src/cli/display");
+test("renderUpdateOutput - does not report unapplied alerts as fixed", async () => {
   const graph = createMockTerminalGraph();
   const updateContext = { finalOverrides: {}, finalAppendix: {}, metrics: {} };
   const updateResult = { overrideCount: 0, updated: false };
@@ -3048,16 +2942,36 @@ test("renderUpdateOutput - does not report unapplied alerts as fixed", () => {
     securityAlerts: [],
   };
 
-  renderUpdateOutput(graph, updateContext, updateResult, securityResult, 10, {}, {});
+  await renderUpdateOutput(graph, updateContext, updateResult, securityResult, 10, {}, {});
 
-  expect(graph.executiveSummary).toHaveBeenCalledWith(
-    expect.objectContaining({ vulnerabilitiesFixed: 0 }),
-  );
+  assertCalledWith(graph.executiveSummary, objectContaining({ vulnerabilitiesFixed: 0 }));
+});
+
+test("renderUpdateOutput - waits for completion before rendering notices", async () => {
+  const state = { didComplete: false };
+  const graph = createMockTerminalGraph();
+  graph.waitForCompletion = mock(async () => {
+    await Promise.resolve();
+    state.didComplete = true;
+  });
+  graph.notice = mock(() => {
+    assert.strictEqual(state.didComplete, true);
+    return graph;
+  });
+  const updateContext = { finalOverrides: {}, finalAppendix: {}, metrics: {} };
+  const updateResult = { overrideCount: 0, updated: true };
+  const securityResult = {
+    hasSecurityIssues: false,
+    securityAlertCount: 0,
+    securityAlerts: [],
+  };
+
+  await renderUpdateOutput(graph, updateContext, updateResult, securityResult, 0, {}, {});
+
+  assert.strictEqual(graph.notice.mock.callCount(), 1);
 });
 
 test("runSecurityCheck - calls onProgress callback during check", async () => {
-  const { runSecurityCheck } = require("../../../src/cli/index");
-
   const config = { name: "test", version: "1.0.0" };
   const mergedOptions = { checkSecurity: true, securityProvider: "osv" };
 
@@ -3093,12 +3007,10 @@ test("runSecurityCheck - calls onProgress callback during check", async () => {
 
   await runSecurityCheck(config, mergedOptions, false, log, deps);
 
-  expect(mockSpinner.update).toHaveBeenCalledWith("Checking lodash (1/5)");
+  assertCalledWith(mockSpinner.update, "Checking lodash (1/5)");
 });
 
 test("action - displays security fixes when forceSecurityRefactor is true", async () => {
-  const { action } = require("../../../src/cli/index");
-
   const mockConfig = {
     name: "test",
     version: "1.0.0",
@@ -3117,6 +3029,7 @@ test("action - displays security fixes when forceSecurityRefactor is true", asyn
     executiveSummary: mock(() => mockGraph),
     compactSummary: mock(() => mockGraph),
     complete: mock(() => mockGraph),
+    waitForCompletion: mock(() => Promise.resolve()),
     stop: mock(() => mockGraph),
     notice: mock(() => mockGraph),
     securityFix: mock(() => mockGraph),
@@ -3177,14 +3090,12 @@ test("action - displays security fixes when forceSecurityRefactor is true", asyn
 
   await action({}, deps);
 
-  expect(mockGraph.startPhase).toHaveBeenCalledWith("resolving", "Fixes applied");
-  expect(mockGraph.securityFix).toHaveBeenCalled();
-  expect(mockGraph.endPhase).toHaveBeenCalledWith("1 override added");
+  assertCalledWith(mockGraph.startPhase, "resolving", "Fixes applied");
+  assert.ok(mockGraph.securityFix.mock.callCount() > 0);
+  assertCalledWith(mockGraph.endPhase, "1 override added");
 });
 
 test("action - displays removed overrides when present", async () => {
-  const { action } = require("../../../src/cli/index");
-
   const mockConfig = { name: "test", version: "1.0.0" };
 
   const mockGraph = {
@@ -3199,6 +3110,7 @@ test("action - displays removed overrides when present", async () => {
     executiveSummary: mock(() => mockGraph),
     compactSummary: mock(() => mockGraph),
     complete: mock(() => mockGraph),
+    waitForCompletion: mock(() => Promise.resolve()),
     stop: mock(() => mockGraph),
     notice: mock(() => mockGraph),
     securityFix: mock(() => mockGraph),
@@ -3237,14 +3149,12 @@ test("action - displays removed overrides when present", async () => {
 
   await action({}, deps);
 
-  expect(mockGraph.startPhase).toHaveBeenCalledWith("writing", "Cleaned up stale overrides", true);
-  expect(mockGraph.removedOverride).toHaveBeenCalledTimes(2);
-  expect(mockGraph.endPhase).toHaveBeenCalledWith("2 stale overrides removed");
+  assertCalledWith(mockGraph.startPhase, "writing", "Cleaned up stale overrides", true);
+  assert.strictEqual(mockGraph.removedOverride.mock.callCount(), 2);
+  assertCalledWith(mockGraph.endPhase, "2 stale overrides removed");
 });
 
 test("action - displays summary table when summary option is true", async () => {
-  const { action } = require("../../../src/cli/index");
-
   const mockConfig = { name: "test", version: "1.0.0" };
 
   const mockGraph = {
@@ -3259,6 +3169,7 @@ test("action - displays summary table when summary option is true", async () => 
     executiveSummary: mock(() => mockGraph),
     compactSummary: mock(() => mockGraph),
     complete: mock(() => mockGraph),
+    waitForCompletion: mock(() => Promise.resolve()),
     stop: mock(() => mockGraph),
     notice: mock(() => mockGraph),
     securityFix: mock(() => mockGraph),
@@ -3296,12 +3207,10 @@ test("action - displays summary table when summary option is true", async () => 
   console.log = originalLog;
 
   const output = logged.join("\n");
-  expect(output).toContain("Pastoralist Summary");
+  assert.ok(output.includes("Pastoralist Summary"));
 });
 
 test("action - outputs JSON on error when outputFormat is json", async () => {
-  const { action } = require("../../../src/cli/index");
-
   const mockGraph = {
     banner: mock(() => mockGraph),
     startPhase: mock(() => mockGraph),
@@ -3335,14 +3244,12 @@ test("action - outputs JSON on error when outputFormat is json", async () => {
   console.log = originalLog;
 
   const output = logged.join("\n");
-  expect(output).toContain('"success":false');
-  expect(output).toContain("File not found");
-  expect(deps.processExit).toHaveBeenCalledWith(1);
+  assert.ok(output.includes('"success":false'));
+  assert.ok(output.includes("File not found"));
+  assertCalledWith(deps.processExit, 1);
 });
 
 test("action - applies security results when outputFormat is json", async () => {
-  const { action } = require("../../../src/cli/index");
-
   const mockConfig: PastoralistJSON = {
     name: "test-package",
     version: "1.0.0",
@@ -3403,12 +3310,10 @@ test("action - applies security results when outputFormat is json", async () => 
 
   console.log = originalLog;
 
-  expect(handleSecurityResults).toHaveBeenCalled();
+  assert.ok(handleSecurityResults.mock.callCount() > 0);
 });
 
 test("action - exits non-zero in quiet mode when vulnerabilities are found", async () => {
-  const { action } = require("../../../src/cli/index");
-
   const mockConfig: PastoralistJSON = {
     name: "test-package",
     version: "1.0.0",
@@ -3462,13 +3367,11 @@ test("action - exits non-zero in quiet mode when vulnerabilities are found", asy
 
   const result = await action({ quiet: true, checkSecurity: true }, deps);
 
-  expect(result.hasSecurityIssues).toBe(true);
-  expect(mockExit).toHaveBeenCalledWith(1);
+  assert.strictEqual(result.hasSecurityIssues, true);
+  assertCalledWith(mockExit, 1);
 });
 
 test("action - displays unused override notice when unused overrides exist", async () => {
-  const { action } = require("../../../src/cli/index");
-
   const mockConfig: PastoralistJSON = {
     name: "test-package",
     version: "1.0.0",
@@ -3513,16 +3416,16 @@ test("action - displays unused override notice when unused overrides exist", asy
 
   await action({ path: "package.json" }, deps);
 
-  const noticeCalls = mockGraph.notice.mock.calls;
+  const noticeCalls = mockGraph.notice.mock.calls.map((call) =>
+    Array.isArray(call) ? call : call.arguments,
+  );
   const hasRemoveUnusedNotice = noticeCalls.some(
     (call: unknown[]) => typeof call[0] === "string" && call[0].includes("--remove-unused"),
   );
-  expect(hasRemoveUnusedNotice).toBe(true);
+  assert.strictEqual(hasRemoveUnusedNotice, true);
 });
 
 test("action - does not display unused override notice when removeUnused is true", async () => {
-  const { action } = require("../../../src/cli/index");
-
   const mockConfig: PastoralistJSON = {
     name: "test-package",
     version: "1.0.0",
@@ -3562,16 +3465,16 @@ test("action - does not display unused override notice when removeUnused is true
 
   await action({ path: "package.json", removeUnused: true }, deps);
 
-  const noticeCalls = mockGraph.notice.mock.calls;
+  const noticeCalls = mockGraph.notice.mock.calls.map((call) =>
+    Array.isArray(call) ? call : call.arguments,
+  );
   const hasRemoveUnusedNotice = noticeCalls.some(
     (call: unknown[]) => typeof call[0] === "string" && call[0].includes("--remove-unused"),
   );
-  expect(hasRemoveUnusedNotice).toBe(false);
+  assert.strictEqual(hasRemoveUnusedNotice, false);
 });
 
 test("run - shows help and returns early when help flag is passed", async () => {
-  const { run } = require("../../../src/cli/index");
-
   const originalLog = console.log;
   const logged: string[] = [];
   console.log = captureLine(logged);
@@ -3581,12 +3484,10 @@ test("run - shows help and returns early when help flag is passed", async () => 
   console.log = originalLog;
 
   const output = logged.join("\n");
-  expect(output).toContain("pastoralist");
+  assert.ok(output.includes("pastoralist"));
 });
 
 test("run - shows help with -h flag", async () => {
-  const { run } = require("../../../src/cli/index");
-
   const originalLog = console.log;
   const logged: string[] = [];
   console.log = captureLine(logged);
@@ -3596,12 +3497,10 @@ test("run - shows help with -h flag", async () => {
   console.log = originalLog;
 
   const output = logged.join("\n");
-  expect(output).toContain("pastoralist");
+  assert.ok(output.includes("pastoralist"));
 });
 
 test("run - prints package version and returns early", async () => {
-  const { run } = require("../../../src/cli/index");
-  const { version } = require("../../../package.json");
   const mockAction = mock(() => Promise.resolve());
   const mockInitCommand = mock(() => Promise.resolve());
   const mockShowOnboarding = mock(() => {});
@@ -3620,15 +3519,13 @@ test("run - prints package version and returns early", async () => {
     console.log = originalLog;
   }
 
-  expect(logged).toEqual([version]);
-  expect(mockAction).not.toHaveBeenCalled();
-  expect(mockInitCommand).not.toHaveBeenCalled();
-  expect(mockShowOnboarding).not.toHaveBeenCalled();
+  assert.deepStrictEqual(logged, [version]);
+  assert.strictEqual(mockAction.mock.callCount(), 0);
+  assert.strictEqual(mockInitCommand.mock.callCount(), 0);
+  assert.strictEqual(mockShowOnboarding.mock.callCount(), 0);
 });
 
 test("run - handles unknown flags without throwing", async () => {
-  const { run } = require("../../../src/cli/index");
-
   const originalLog = console.log;
   const originalError = console.error;
   const originalExitCode = process.exitCode;
@@ -3647,13 +3544,12 @@ test("run - handles unknown flags without throwing", async () => {
     process.exitCode = originalExitCode ?? 0;
   }
 
-  expect(errors.join("\n")).toContain("Unknown option: --wat");
-  expect(logged.join("\n")).toContain("pastoralist");
-  expect(exitCode).toBe(1);
+  assert.ok(errors.join("\n").includes("Unknown option: --wat"));
+  assert.ok(logged.join("\n").includes("pastoralist"));
+  assert.strictEqual(exitCode, 1);
 });
 
 test("run - rejects value-taking flags without a value", async () => {
-  const { run } = require("../../../src/cli/index");
   const mockAction = mock(() => Promise.resolve());
   const originalError = console.error;
   const originalExitCode = process.exitCode;
@@ -3672,12 +3568,11 @@ test("run - rejects value-taking flags without a value", async () => {
     process.exitCode = originalExitCode ?? 0;
   }
 
-  expect(errors.join("\n")).toContain("Option root requires a value");
-  expect(mockAction).not.toHaveBeenCalled();
+  assert.ok(errors.join("\n").includes("Option root requires a value"));
+  assert.strictEqual(mockAction.mock.callCount(), 0);
 });
 
 test("run - rejects unknown positional commands", async () => {
-  const { run } = require("../../../src/cli/index");
   const mockAction = mock(() => Promise.resolve());
   const originalError = console.error;
   const originalExitCode = process.exitCode;
@@ -3696,12 +3591,11 @@ test("run - rejects unknown positional commands", async () => {
     process.exitCode = originalExitCode ?? 0;
   }
 
-  expect(errors.join("\n")).toContain("Unknown command: innit");
-  expect(mockAction).not.toHaveBeenCalled();
+  assert.ok(errors.join("\n").includes("Unknown command: innit"));
+  assert.strictEqual(mockAction.mock.callCount(), 0);
 });
 
 test("run - calls init command with first parsed security provider", async () => {
-  const { run } = require("../../../src/cli/index");
   const mockInitCommand = mock(() => Promise.resolve());
   const mockAction = mock(() => Promise.resolve());
   const mockShowOnboarding = mock(() => {});
@@ -3712,15 +3606,12 @@ test("run - calls init command with first parsed security provider", async () =>
     showOnboarding: mockShowOnboarding,
   });
 
-  expect(mockInitCommand).toHaveBeenCalledWith(
-    expect.objectContaining({ securityProvider: "snyk" }),
-  );
-  expect(mockAction).not.toHaveBeenCalled();
-  expect(mockShowOnboarding).not.toHaveBeenCalled();
+  assertCalledWith(mockInitCommand, objectContaining({ securityProvider: "snyk" }));
+  assert.strictEqual(mockAction.mock.callCount(), 0);
+  assert.strictEqual(mockShowOnboarding.mock.callCount(), 0);
 });
 
 test("run - calls init command for init flag", async () => {
-  const { run } = require("../../../src/cli/index");
   const mockInitCommand = mock(() => Promise.resolve());
   const mockAction = mock(() => Promise.resolve());
   const mockShowOnboarding = mock(() => {});
@@ -3733,14 +3624,13 @@ test("run - calls init command for init flag", async () => {
     showOnboarding: mockShowOnboarding,
   });
 
-  expect(mockInitCommand).toHaveBeenCalled();
-  expect(mockSetupAgentSkill).not.toHaveBeenCalled();
-  expect(mockAction).not.toHaveBeenCalled();
-  expect(mockShowOnboarding).not.toHaveBeenCalled();
+  assert.ok(mockInitCommand.mock.callCount() > 0);
+  assert.strictEqual(mockSetupAgentSkill.mock.callCount(), 0);
+  assert.strictEqual(mockAction.mock.callCount(), 0);
+  assert.strictEqual(mockShowOnboarding.mock.callCount(), 0);
 });
 
 test("run - calls init command for explicit config target", async () => {
-  const { run } = require("../../../src/cli/index");
   const mockInitCommand = mock(() => Promise.resolve());
   const mockAction = mock(() => Promise.resolve());
   const mockShowOnboarding = mock(() => {});
@@ -3753,14 +3643,13 @@ test("run - calls init command for explicit config target", async () => {
     showOnboarding: mockShowOnboarding,
   });
 
-  expect(mockInitCommand).toHaveBeenCalled();
-  expect(mockSetupAgentSkill).not.toHaveBeenCalled();
-  expect(mockAction).not.toHaveBeenCalled();
-  expect(mockShowOnboarding).not.toHaveBeenCalled();
+  assert.ok(mockInitCommand.mock.callCount() > 0);
+  assert.strictEqual(mockSetupAgentSkill.mock.callCount(), 0);
+  assert.strictEqual(mockAction.mock.callCount(), 0);
+  assert.strictEqual(mockShowOnboarding.mock.callCount(), 0);
 });
 
 test("run - calls agent skill setup for init agent-skill target", async () => {
-  const { run } = require("../../../src/cli/index");
   const mockInitCommand = mock(() => Promise.resolve());
   const mockAction = mock(() => Promise.resolve());
   const mockShowOnboarding = mock(() => {});
@@ -3773,14 +3662,13 @@ test("run - calls agent skill setup for init agent-skill target", async () => {
     showOnboarding: mockShowOnboarding,
   });
 
-  expect(mockSetupAgentSkill).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }), []);
-  expect(mockInitCommand).not.toHaveBeenCalled();
-  expect(mockAction).not.toHaveBeenCalled();
-  expect(mockShowOnboarding).not.toHaveBeenCalled();
+  assertCalledWith(mockSetupAgentSkill, objectContaining({ dryRun: true }), []);
+  assert.strictEqual(mockInitCommand.mock.callCount(), 0);
+  assert.strictEqual(mockAction.mock.callCount(), 0);
+  assert.strictEqual(mockShowOnboarding.mock.callCount(), 0);
 });
 
 test("run - calls agent skill setup for inline init flag target", async () => {
-  const { run } = require("../../../src/cli/index");
   const mockInitCommand = mock(() => Promise.resolve());
   const mockAction = mock(() => Promise.resolve());
   const mockShowOnboarding = mock(() => {});
@@ -3793,17 +3681,13 @@ test("run - calls agent skill setup for inline init flag target", async () => {
     showOnboarding: mockShowOnboarding,
   });
 
-  expect(mockSetupAgentSkill).toHaveBeenCalledWith(
-    expect.objectContaining({ init: "agent-skill" }),
-    [],
-  );
-  expect(mockInitCommand).not.toHaveBeenCalled();
-  expect(mockAction).not.toHaveBeenCalled();
-  expect(mockShowOnboarding).not.toHaveBeenCalled();
+  assertCalledWith(mockSetupAgentSkill, objectContaining({ init: "agent-skill" }), []);
+  assert.strictEqual(mockInitCommand.mock.callCount(), 0);
+  assert.strictEqual(mockAction.mock.callCount(), 0);
+  assert.strictEqual(mockShowOnboarding.mock.callCount(), 0);
 });
 
 test("run - calls agent skill setup for init flag target list", async () => {
-  const { run } = require("../../../src/cli/index");
   const mockInitCommand = mock(() => Promise.resolve());
   const mockAction = mock(() => Promise.resolve());
   const mockShowOnboarding = mock(() => {});
@@ -3816,30 +3700,26 @@ test("run - calls agent skill setup for init flag target list", async () => {
     showOnboarding: mockShowOnboarding,
   });
 
-  expect(mockSetupAgentSkill).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }), [
-    "extra",
-  ]);
-  expect(mockInitCommand).not.toHaveBeenCalled();
-  expect(mockAction).not.toHaveBeenCalled();
-  expect(mockShowOnboarding).not.toHaveBeenCalled();
+  assertCalledWith(mockSetupAgentSkill, objectContaining({ dryRun: true }), ["extra"]);
+  assert.strictEqual(mockInitCommand.mock.callCount(), 0);
+  assert.strictEqual(mockAction.mock.callCount(), 0);
+  assert.strictEqual(mockShowOnboarding.mock.callCount(), 0);
 });
 
 test("run - bundled agent skill setup supports dry run", async () => {
-  const { run } = require("../../../src/cli/index");
   const originalExitCode = process.exitCode;
 
   process.exitCode = 0;
 
   try {
     await run(["node", "pastoralist", "--init", "agent-skill", "--dry-run"]);
-    expect(process.exitCode).toBe(0);
+    assert.strictEqual(process.exitCode, 0);
   } finally {
     process.exitCode = originalExitCode ?? 0;
   }
 });
 
 test("run - rejects extra config init args", async () => {
-  const { run } = require("../../../src/cli/index");
   const mockInitCommand = mock(() => Promise.resolve());
   const mockAction = mock(() => Promise.resolve());
   const mockShowOnboarding = mock(() => {});
@@ -3868,16 +3748,15 @@ test("run - rejects extra config init args", async () => {
     process.exitCode = originalExitCode ?? 0;
   }
 
-  expect(errors.join("\n")).toContain("Unexpected init config argument: extra");
-  expect(logged.join("\n")).toContain("--init [type] [args...]");
-  expect(exitCode).toBe(1);
-  expect(mockInitCommand).not.toHaveBeenCalled();
-  expect(mockSetupAgentSkill).not.toHaveBeenCalled();
-  expect(mockAction).not.toHaveBeenCalled();
+  assert.ok(errors.join("\n").includes("Unexpected init config argument: extra"));
+  assert.ok(logged.join("\n").includes("--init [type] [args...]"));
+  assert.strictEqual(exitCode, 1);
+  assert.strictEqual(mockInitCommand.mock.callCount(), 0);
+  assert.strictEqual(mockSetupAgentSkill.mock.callCount(), 0);
+  assert.strictEqual(mockAction.mock.callCount(), 0);
 });
 
 test("run - rejects unknown init target", async () => {
-  const { run } = require("../../../src/cli/index");
   const mockInitCommand = mock(() => Promise.resolve());
   const mockAction = mock(() => Promise.resolve());
   const mockShowOnboarding = mock(() => {});
@@ -3906,16 +3785,15 @@ test("run - rejects unknown init target", async () => {
     process.exitCode = originalExitCode ?? 0;
   }
 
-  expect(errors.join("\n")).toContain("Unknown init type: wat");
-  expect(logged.join("\n")).toContain("init [config|agent-skill]");
-  expect(exitCode).toBe(1);
-  expect(mockInitCommand).not.toHaveBeenCalled();
-  expect(mockSetupAgentSkill).not.toHaveBeenCalled();
-  expect(mockAction).not.toHaveBeenCalled();
+  assert.ok(errors.join("\n").includes("Unknown init type: wat"));
+  assert.ok(logged.join("\n").includes("init [config|agent-skill]"));
+  assert.strictEqual(exitCode, 1);
+  assert.strictEqual(mockInitCommand.mock.callCount(), 0);
+  assert.strictEqual(mockSetupAgentSkill.mock.callCount(), 0);
+  assert.strictEqual(mockAction.mock.callCount(), 0);
 });
 
 test("run - calls action in dry-run summary mode for doctor command", async () => {
-  const { run } = require("../../../src/cli/index");
   const mockInitCommand = mock(() => Promise.resolve());
   const mockAction = mock(() => Promise.resolve());
   const mockShowOnboarding = mock(() => {});
@@ -3934,20 +3812,20 @@ test("run - calls action in dry-run summary mode for doctor command", async () =
     console.log = originalLog;
   }
 
-  expect(mockAction).toHaveBeenCalledWith(
-    expect.objectContaining({
+  assertCalledWith(
+    mockAction,
+    objectContaining({
       dryRun: true,
       path: "custom.json",
       summary: true,
     }),
   );
-  expect(mockInitCommand).not.toHaveBeenCalled();
-  expect(mockShowOnboarding).not.toHaveBeenCalled();
-  expect(logged.join("\n")).toContain("dry-run mode");
+  assert.strictEqual(mockInitCommand.mock.callCount(), 0);
+  assert.strictEqual(mockShowOnboarding.mock.callCount(), 0);
+  assert.ok(logged.join("\n").includes("dry-run mode"));
 });
 
 test("run - suppresses doctor preface when JSON output is requested", async () => {
-  const { run } = require("../../../src/cli/index");
   const mockInitCommand = mock(() => Promise.resolve());
   const mockAction = mock(() => Promise.resolve());
   const mockShowOnboarding = mock(() => {});
@@ -3966,24 +3844,24 @@ test("run - suppresses doctor preface when JSON output is requested", async () =
     console.log = originalLog;
   }
 
-  expect(mockAction).toHaveBeenCalledWith(
-    expect.objectContaining({
+  assertCalledWith(
+    mockAction,
+    objectContaining({
       dryRun: true,
       outputFormat: "json",
       summary: true,
     }),
   );
-  expect(mockShowOnboarding).not.toHaveBeenCalled();
-  expect(logged).toEqual([]);
+  assert.strictEqual(mockShowOnboarding.mock.callCount(), 0);
+  assert.deepStrictEqual(logged, []);
 });
 
 test("run - returns early when setup hook is already configured", async () => {
-  const { run } = require("../../../src/cli/index");
   const mockInitCommand = mock(() => Promise.resolve());
   const mockAction = mock(() => Promise.resolve());
   const mockShowOnboarding = mock(() => {});
   const mockSetupAgentSkill = mock(() => Promise.resolve());
-  const root = resolve(__dirname, "..", ".test-run-setup-hook");
+  const root = resolve(import.meta.dirname, "..", ".test-run-setup-hook");
   const packagePath = resolve(root, "package.json");
 
   mkdirSync(root, { recursive: true });
@@ -4000,18 +3878,19 @@ test("run - returns early when setup hook is already configured", async () => {
     rmSync(root, { force: true, recursive: true });
   }
 
-  expect(mockAction).not.toHaveBeenCalled();
-  expect(mockInitCommand).not.toHaveBeenCalled();
-  expect(mockSetupAgentSkill).not.toHaveBeenCalled();
-  expect(mockShowOnboarding).not.toHaveBeenCalled();
+  assert.strictEqual(mockAction.mock.callCount(), 0);
+  assert.strictEqual(mockInitCommand.mock.callCount(), 0);
+  assert.strictEqual(mockSetupAgentSkill.mock.callCount(), 0);
+  assert.strictEqual(mockShowOnboarding.mock.callCount(), 0);
 });
 
 test("run - reports setup hook failures without running the default action", async () => {
-  const { run } = require("../../../src/cli/index");
   const mockAction = mock(() => Promise.resolve());
   const logged: string[] = [];
   const originalError = console.error;
+  const originalExitCode = process.exitCode;
   console.error = captureLine(logged);
+  process.exitCode = undefined;
 
   try {
     await run(["node", "pastoralist", "--setup-hook", "--root", "/missing/root"], {
@@ -4020,18 +3899,19 @@ test("run - reports setup hook failures without running the default action", asy
       setupAgentSkill: mock(() => Promise.resolve()),
       showOnboarding: mock(() => {}),
     });
+    assert.strictEqual(process.exitCode, 1);
   } finally {
     console.error = originalError;
+    process.exitCode = originalExitCode;
   }
 
-  expect(mockAction).not.toHaveBeenCalled();
-  expect(logged.join("\n")).toContain("Failed to setup hook");
+  assert.strictEqual(mockAction.mock.callCount(), 0);
+  assert.ok(logged.join("\n").includes("Failed to setup hook"));
 });
 
 test("run - setup hook respects dry-run", async () => {
-  const { run } = require("../../../src/cli/index");
   const mockAction = mock(() => Promise.resolve());
-  const root = resolve(__dirname, "..", ".test-run-setup-hook-dry-run");
+  const root = resolve(import.meta.dirname, "..", ".test-run-setup-hook-dry-run");
   const packagePath = resolve(root, "package.json");
   const original = JSON.stringify({ name: "test-package" });
   mkdirSync(root, { recursive: true });
@@ -4044,16 +3924,15 @@ test("run - setup hook respects dry-run", async () => {
       setupAgentSkill: mock(() => Promise.resolve()),
       showOnboarding: mock(() => {}),
     });
-    expect(readFileSync(packagePath, "utf8")).toBe(original);
+    assert.strictEqual(readFileSync(packagePath, "utf8"), original);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }
 
-  expect(mockAction).not.toHaveBeenCalled();
+  assert.strictEqual(mockAction.mock.callCount(), 0);
 });
 
 test("run - prints onboarding and returns early", async () => {
-  const { run } = require("../../../src/cli/index");
   const mockInitCommand = mock(() => Promise.resolve());
   const mockAction = mock(() => Promise.resolve());
   const mockShowOnboarding = mock(() => {});
@@ -4064,13 +3943,12 @@ test("run - prints onboarding and returns early", async () => {
     showOnboarding: mockShowOnboarding,
   });
 
-  expect(mockShowOnboarding).toHaveBeenCalled();
-  expect(mockAction).not.toHaveBeenCalled();
-  expect(mockInitCommand).not.toHaveBeenCalled();
+  assert.ok(mockShowOnboarding.mock.callCount() > 0);
+  assert.strictEqual(mockAction.mock.callCount(), 0);
+  assert.strictEqual(mockInitCommand.mock.callCount(), 0);
 });
 
 test("run - supports onboarding flag alias", async () => {
-  const { run } = require("../../../src/cli/index");
   const mockInitCommand = mock(() => Promise.resolve());
   const mockAction = mock(() => Promise.resolve());
   const mockShowOnboarding = mock(() => {});
@@ -4081,13 +3959,12 @@ test("run - supports onboarding flag alias", async () => {
     showOnboarding: mockShowOnboarding,
   });
 
-  expect(mockShowOnboarding).toHaveBeenCalled();
-  expect(mockAction).not.toHaveBeenCalled();
-  expect(mockInitCommand).not.toHaveBeenCalled();
+  assert.ok(mockShowOnboarding.mock.callCount() > 0);
+  assert.strictEqual(mockAction.mock.callCount(), 0);
+  assert.strictEqual(mockInitCommand.mock.callCount(), 0);
 });
 
 test("run - supports onboarding command alias", async () => {
-  const { run } = require("../../../src/cli/index");
   const mockInitCommand = mock(() => Promise.resolve());
   const mockAction = mock(() => Promise.resolve());
   const mockShowOnboarding = mock(() => {});
@@ -4098,33 +3975,36 @@ test("run - supports onboarding command alias", async () => {
     showOnboarding: mockShowOnboarding,
   });
 
-  expect(mockShowOnboarding).toHaveBeenCalled();
-  expect(mockAction).not.toHaveBeenCalled();
-  expect(mockInitCommand).not.toHaveBeenCalled();
+  assert.ok(mockShowOnboarding.mock.callCount() > 0);
+  assert.strictEqual(mockAction.mock.callCount(), 0);
+  assert.strictEqual(mockInitCommand.mock.callCount(), 0);
 });
 
 test("handleSetupHook - error is handled", () => {
-  const { handleSetupHook } = require("../../../src/cli/index");
-
   const mockReadFileSync = mock(() => {
     throw new Error("ENOENT");
   });
   const mockWriteFileSync = mock(() => {});
   const mockResolve = mock((p: string) => p);
+  const originalExitCode = process.exitCode;
 
   const options: Options = { setupHook: true };
-  const result = handleSetupHook(options, log, {
-    readFileSync: mockReadFileSync,
-    writeFileSync: mockWriteFileSync,
-    resolve: mockResolve,
-  });
+  process.exitCode = undefined;
+  try {
+    const result = handleSetupHook(options, log, {
+      readFileSync: mockReadFileSync,
+      writeFileSync: mockWriteFileSync,
+      resolve: mockResolve,
+    });
 
-  expect(result).toBe(true);
+    assert.strictEqual(result, true);
+    assert.strictEqual(process.exitCode, 1);
+  } finally {
+    process.exitCode = originalExitCode;
+  }
 });
 
 test("handleSecurityResults - returned values are used by action via spread", async () => {
-  const { action } = require("../../../src/cli/index");
-
   const mockConfig: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
@@ -4179,16 +4059,14 @@ test("handleSecurityResults - returned values are used by action via spread", as
 
   await action({}, deps);
 
-  expect(capturedUpdateOptions.length).toBe(1);
+  assert.strictEqual(capturedUpdateOptions.length, 1);
   const passedOptions = capturedUpdateOptions[0];
-  expect(passedOptions.addedDate).toBe("2024-01-01");
-  expect(passedOptions.securityOverrides).toEqual(securityOverridesResult);
-  expect(passedOptions.securityOverrideDetails).toEqual(securityDetailResult);
+  assert.strictEqual(passedOptions.addedDate, "2024-01-01");
+  assert.deepStrictEqual(passedOptions.securityOverrides, securityOverridesResult);
+  assert.deepStrictEqual(passedOptions.securityOverrideDetails, securityDetailResult);
 });
 
 test("handleSecurityResults - returns empty object when no fixes needed", () => {
-  const { handleSecurityResults } = require("../../../src/cli/index");
-
   const mockSpinner = { stop: mock() };
   const mockChecker = {
     generatePackageOverrides: mock(() => ({})),
@@ -4204,13 +4082,11 @@ test("handleSecurityResults - returns empty object when no fixes needed", () => 
     [],
   );
 
-  expect(result).toEqual({});
-  expect(mockChecker.generatePackageOverrides).not.toHaveBeenCalled();
+  assert.deepStrictEqual(result, {});
+  assert.strictEqual(mockChecker.generatePackageOverrides.mock.callCount(), 0);
 });
 
 test("handleSecurityResults - does not mutate mergedOptions", () => {
-  const { handleSecurityResults } = require("../../../src/cli/index");
-
   const alerts = [
     {
       packageName: "lodash",
@@ -4253,12 +4129,10 @@ test("handleSecurityResults - does not mutate mergedOptions", () => {
     [],
   );
 
-  expect(mergedOptions).toEqual(optionsSnapshot);
+  assert.deepStrictEqual(mergedOptions, optionsSnapshot);
 });
 
 test("checkRemovalSafety - returns empty array when no unused entries", async () => {
-  const { checkRemovalSafety } = require("../../../src/cli/index");
-
   const config: PastoralistJSON = {
     name: "test-app",
     version: "1.0.0",
@@ -4279,13 +4153,11 @@ test("checkRemovalSafety - returns empty array when no unused entries", async ()
 
   const result = await checkRemovalSafety(config, mockSecurityChecker as any, {});
 
-  expect(result).toEqual([]);
-  expect(mockSecurityChecker.checkSecurity).not.toHaveBeenCalled();
+  assert.deepStrictEqual(result, []);
+  assert.strictEqual(mockSecurityChecker.checkSecurity.mock.callCount(), 0);
 });
 
 test("checkRemovalSafety - returns keys for packages still vulnerable at declared versions", async () => {
-  const { checkRemovalSafety } = require("../../../src/cli/index");
-
   const config: PastoralistJSON = {
     name: "test-app",
     version: "1.0.0",
@@ -4314,15 +4186,28 @@ test("checkRemovalSafety - returns keys for packages still vulnerable at declare
     root: "./",
   });
 
-  expect(result).toEqual(["lodash@4.17.21"]);
-  expect(mockSecurityChecker.checkSecurity.mock.calls.length).toBe(1);
-  expect(mockSecurityChecker.checkSecurity.mock.calls[0][0]).toEqual(config);
-  expect(mockSecurityChecker.checkSecurity.mock.calls[0][1]).toEqual({ root: "./" });
+  assert.deepStrictEqual(result, ["lodash@4.17.21"]);
+  assert.strictEqual(
+    mockSecurityChecker.checkSecurity.mock.calls.map((call) =>
+      Array.isArray(call) ? call : call.arguments,
+    ).length,
+    1,
+  );
+  assert.deepStrictEqual(
+    mockSecurityChecker.checkSecurity.mock.calls.map((call) =>
+      Array.isArray(call) ? call : call.arguments,
+    )[0][0],
+    config,
+  );
+  assert.deepStrictEqual(
+    mockSecurityChecker.checkSecurity.mock.calls.map((call) =>
+      Array.isArray(call) ? call : call.arguments,
+    )[0][1],
+    { root: "./" },
+  );
 });
 
 test("checkRemovalSafety - returns empty array when the scan finds no vulnerabilities", async () => {
-  const { checkRemovalSafety } = require("../../../src/cli/index");
-
   const config: PastoralistJSON = {
     name: "test-app",
     version: "1.0.0",
@@ -4348,12 +4233,10 @@ test("checkRemovalSafety - returns empty array when the scan finds no vulnerabil
 
   const result = await checkRemovalSafety(config, mockSecurityChecker as any, {});
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("checkRemovalSafety - returns empty when unused packages not in any deps", async () => {
-  const { checkRemovalSafety } = require("../../../src/cli/index");
-
   const config: PastoralistJSON = {
     name: "test-app",
     version: "1.0.0",
@@ -4379,13 +4262,11 @@ test("checkRemovalSafety - returns empty when unused packages not in any deps", 
 
   const result = await checkRemovalSafety(config, mockSecurityChecker as any, {});
 
-  expect(result).toEqual([]);
-  expect(mockSecurityChecker.checkSecurity).not.toHaveBeenCalled();
+  assert.deepStrictEqual(result, []);
+  assert.strictEqual(mockSecurityChecker.checkSecurity.mock.callCount(), 0);
 });
 
 test("checkRemovalSafety - finds packages in devDependencies", async () => {
-  const { checkRemovalSafety } = require("../../../src/cli/index");
-
   const config: PastoralistJSON = {
     name: "test-app",
     version: "1.0.0",
@@ -4411,12 +4292,10 @@ test("checkRemovalSafety - finds packages in devDependencies", async () => {
 
   const result = await checkRemovalSafety(config, mockSecurityChecker as any, {});
 
-  expect(result).toEqual(["dev-pkg@1.0.0"]);
+  assert.deepStrictEqual(result, ["dev-pkg@1.0.0"]);
 });
 
 test("action - displays blocked removals notice when skipRemovalKeys set", async () => {
-  const { action } = require("../../../src/cli/index");
-
   const mockConfig: PastoralistJSON = {
     name: "test-package",
     version: "1.0.0",
@@ -4497,9 +4376,11 @@ test("action - displays blocked removals notice when skipRemovalKeys set", async
 
   await action({ path: "package.json", removeUnused: true }, deps);
 
-  const noticeCalls = mockGraph.notice.mock.calls;
+  const noticeCalls = mockGraph.notice.mock.calls.map((call) =>
+    Array.isArray(call) ? call : call.arguments,
+  );
   const hasBlockedNotice = noticeCalls.some(
     (call: unknown[]) => typeof call[0] === "string" && call[0].includes("kept for safety"),
   );
-  expect(hasBlockedNotice).toBe(true);
+  assert.strictEqual(hasBlockedNotice, true);
 });

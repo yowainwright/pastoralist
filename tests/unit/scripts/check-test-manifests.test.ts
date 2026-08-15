@@ -1,4 +1,6 @@
-import { describe, expect, mock, test } from "bun:test";
+import { assertCalledWith, mock } from "../setup.ts";
+import { describe, test } from "node:test";
+import assert from "node:assert/strict";
 import {
   collectManifestPaths,
   collectViolations,
@@ -10,20 +12,26 @@ import {
 
 describe("scripts/check-test-manifests", () => {
   test("dependencyNames returns sorted package names", () => {
-    expect(dependencyNames({ zod: "4.1.12", lodash: "4.17.21" })).toEqual(["lodash", "zod"]);
+    assert.deepStrictEqual(dependencyNames({ zod: "4.1.12", lodash: "4.17.21" }), [
+      "lodash",
+      "zod",
+    ]);
   });
 
   test("dependencyNames ignores non-object dependency values", () => {
-    expect(dependencyNames(undefined)).toEqual([]);
-    expect(dependencyNames(null)).toEqual([]);
-    expect(dependencyNames(["lodash"])).toEqual([]);
-    expect(dependencyNames("lodash")).toEqual([]);
+    assert.deepStrictEqual(dependencyNames(undefined), []);
+    assert.deepStrictEqual(dependencyNames(null), []);
+    assert.deepStrictEqual(dependencyNames(["lodash"]), []);
+    assert.deepStrictEqual(dependencyNames("lodash"), []);
   });
 
   test("manifestViolations allows devDependencies in test manifests", () => {
     const readManifest = (): Manifest => ({ devDependencies: { lodash: "4.17.21" } });
 
-    expect(manifestViolations("tests/sandboxes/demo/package.json", readManifest)).toEqual([]);
+    assert.deepStrictEqual(
+      manifestViolations("tests/sandboxes/demo/package.json", readManifest),
+      [],
+    );
   });
 
   test("manifestViolations reports dependencies", () => {
@@ -31,7 +39,7 @@ describe("scripts/check-test-manifests", () => {
       dependencies: { zod: "4.1.12", lodash: "4.17.21" },
     });
 
-    expect(manifestViolations("tests/sandboxes/demo/package.json", readManifest)).toEqual([
+    assert.deepStrictEqual(manifestViolations("tests/sandboxes/demo/package.json", readManifest), [
       "tests/sandboxes/demo/package.json: move dependencies to devDependencies (lodash, zod)",
     ]);
   });
@@ -39,7 +47,7 @@ describe("scripts/check-test-manifests", () => {
   test("manifestViolations reports optionalDependencies", () => {
     const readManifest = (): Manifest => ({ optionalDependencies: { fsevents: "2.3.3" } });
 
-    expect(manifestViolations("tests/sandboxes/demo/package.json", readManifest)).toEqual([
+    assert.deepStrictEqual(manifestViolations("tests/sandboxes/demo/package.json", readManifest), [
       "tests/sandboxes/demo/package.json: move optionalDependencies to devDependencies (fsevents)",
     ]);
   });
@@ -50,12 +58,13 @@ describe("scripts/check-test-manifests", () => {
       "tests/**/package.json": ["tests/b/package.json", "tests/a/package.json"],
     };
 
-    expect(
+    assert.deepStrictEqual(
       collectManifestPaths(
         ["tests/**/package.json", "app/tests/**/package.json"],
         (pattern) => pathsByPattern[pattern] ?? [],
       ),
-    ).toEqual(["tests/a/package.json", "tests/b/package.json"]);
+      ["tests/a/package.json", "tests/b/package.json"],
+    );
   });
 
   test("collectViolations reads each manifest path", () => {
@@ -64,9 +73,10 @@ describe("scripts/check-test-manifests", () => {
       "tests/b/package.json": { dependencies: { zod: "4.1.12" } },
     };
 
-    expect(collectViolations(Object.keys(manifests), (path) => manifests[path] ?? {})).toEqual([
-      "tests/b/package.json: move dependencies to devDependencies (zod)",
-    ]);
+    assert.deepStrictEqual(
+      collectViolations(Object.keys(manifests), (path) => manifests[path] ?? {}),
+      ["tests/b/package.json: move dependencies to devDependencies (zod)"],
+    );
   });
 
   test("runCheck returns zero and logs success when manifests are clean", () => {
@@ -78,9 +88,9 @@ describe("scripts/check-test-manifests", () => {
       logger,
     });
 
-    expect(code).toBe(0);
-    expect(logger.log).toHaveBeenCalledWith("Test package manifests are development-scoped.");
-    expect(logger.error).not.toHaveBeenCalled();
+    assert.strictEqual(code, 0);
+    assertCalledWith(logger.log, "Test package manifests are development-scoped.");
+    assert.strictEqual(logger.error.mock.callCount(), 0);
   });
 
   test("runCheck returns one and logs runtime dependency violations", () => {
@@ -92,10 +102,11 @@ describe("scripts/check-test-manifests", () => {
       logger,
     });
 
-    expect(code).toBe(1);
-    expect(logger.error).toHaveBeenCalledWith(
+    assert.strictEqual(code, 1);
+    assertCalledWith(
+      logger.error,
       "tests/a/package.json: move dependencies to devDependencies (lodash)",
     );
-    expect(logger.log).not.toHaveBeenCalled();
+    assert.strictEqual(logger.log.mock.callCount(), 0);
   });
 });

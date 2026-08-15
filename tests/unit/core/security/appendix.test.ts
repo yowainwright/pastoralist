@@ -1,10 +1,12 @@
-import { test, expect, mock, beforeEach, afterEach } from "bun:test";
+import { test, beforeEach, afterEach } from "node:test";
+import { mock } from "../../setup.ts";
+import assert from "node:assert/strict";
 import { SecurityChecker } from "../../../../src/core/security";
-import { SecurityOverride } from "../../../../src/types";
+import type { SecurityOverride } from "../../../../src/types";
 import * as fs from "fs";
 import * as path from "path";
 
-const testDir = path.join(import.meta.dir, ".test-appendix");
+const testDir = path.join(import.meta.dirname, ".test-appendix");
 const testPackageJsonPath = path.join(testDir, "package.json");
 
 beforeEach(() => {
@@ -49,20 +51,20 @@ test("Security - applyAutoFix adds security overrides to appendix", async () => 
   const updatedContent = fs.readFileSync(testPackageJsonPath, "utf-8");
   const updatedPackageJson = JSON.parse(updatedContent);
 
-  expect(updatedPackageJson.overrides).toBeDefined();
-  expect(updatedPackageJson.overrides["test-dep"]).toBe("1.1.0");
+  assert.notStrictEqual(updatedPackageJson.overrides, undefined);
+  assert.strictEqual(updatedPackageJson.overrides["test-dep"], "1.1.0");
 
-  expect(updatedPackageJson.pastoralist).toBeDefined();
-  expect(updatedPackageJson.pastoralist.appendix).toBeDefined();
+  assert.notStrictEqual(updatedPackageJson.pastoralist, undefined);
+  assert.notStrictEqual(updatedPackageJson.pastoralist.appendix, undefined);
 
   const appendixKey = "test-dep@1.1.0";
   const appendixEntry = updatedPackageJson.pastoralist.appendix[appendixKey];
 
-  expect(appendixEntry).toBeDefined();
-  expect(appendixEntry.ledger).toBeDefined();
-  expect(appendixEntry.ledger.securityChecked).toBe(true);
-  expect(appendixEntry.ledger.securityProvider).toBe("osv");
-  expect(appendixEntry.ledger.reason).toContain("Security fix");
+  assert.notStrictEqual(appendixEntry, undefined);
+  assert.notStrictEqual(appendixEntry.ledger, undefined);
+  assert.strictEqual(appendixEntry.ledger.securityChecked, true);
+  assert.strictEqual(appendixEntry.ledger.securityProvider, "osv");
+  assert.ok(appendixEntry.ledger.reason.includes("Security fix"));
 });
 
 test("Security - applyAutoFix preserves existing appendix entries", async () => {
@@ -110,12 +112,12 @@ test("Security - applyAutoFix preserves existing appendix entries", async () => 
   const updatedPackageJson = JSON.parse(updatedContent);
 
   const existingEntry = updatedPackageJson.pastoralist.appendix["existing-dep@2.1.0"];
-  expect(existingEntry).toBeDefined();
-  expect(existingEntry.ledger.reason).toBe("Manual override for testing");
+  assert.notStrictEqual(existingEntry, undefined);
+  assert.strictEqual(existingEntry.ledger.reason, "Manual override for testing");
 
   const newEntry = updatedPackageJson.pastoralist.appendix["test-dep@1.1.0"];
-  expect(newEntry).toBeDefined();
-  expect(newEntry.ledger.securityChecked).toBe(true);
+  assert.notStrictEqual(newEntry, undefined);
+  assert.strictEqual(newEntry.ledger.securityChecked, true);
 });
 
 test("Security - applyAutoFix includes CVE and severity in appendix", async () => {
@@ -150,9 +152,9 @@ test("Security - applyAutoFix includes CVE and severity in appendix", async () =
 
   const entry = updatedPackageJson.pastoralist.appendix["vuln-package@2.0.0"];
 
-  expect(entry.ledger.securityProvider).toBe("osv");
-  expect(entry.ledger.securityChecked).toBe(true);
-  expect(entry.ledger.securityCheckDate).toBeDefined();
+  assert.strictEqual(entry.ledger.securityProvider, "osv");
+  assert.strictEqual(entry.ledger.securityChecked, true);
+  assert.notStrictEqual(entry.ledger.securityCheckDate, undefined);
 });
 
 test("Security - applyAutoFix handles multiple overrides", async () => {
@@ -198,19 +200,22 @@ test("Security - applyAutoFix handles multiple overrides", async () => {
   const updatedContent = fs.readFileSync(testPackageJsonPath, "utf-8");
   const updatedPackageJson = JSON.parse(updatedContent);
 
-  expect(Object.keys(updatedPackageJson.pastoralist.appendix)).toHaveLength(3);
+  assert.strictEqual(Object.keys(updatedPackageJson.pastoralist.appendix).length, 3);
 
-  expect(updatedPackageJson.pastoralist.appendix["package-a@1.1.0"]).toBeDefined();
-  expect(updatedPackageJson.pastoralist.appendix["package-b@2.1.0"]).toBeDefined();
-  expect(updatedPackageJson.pastoralist.appendix["package-c@3.1.0"]).toBeDefined();
+  assert.notStrictEqual(updatedPackageJson.pastoralist.appendix["package-a@1.1.0"], undefined);
+  assert.notStrictEqual(updatedPackageJson.pastoralist.appendix["package-b@2.1.0"], undefined);
+  assert.notStrictEqual(updatedPackageJson.pastoralist.appendix["package-c@3.1.0"], undefined);
 
-  expect(updatedPackageJson.pastoralist.appendix["package-a@1.1.0"].ledger.securityChecked).toBe(
+  assert.strictEqual(
+    updatedPackageJson.pastoralist.appendix["package-a@1.1.0"].ledger.securityChecked,
     true,
   );
-  expect(updatedPackageJson.pastoralist.appendix["package-b@2.1.0"].ledger.securityChecked).toBe(
+  assert.strictEqual(
+    updatedPackageJson.pastoralist.appendix["package-b@2.1.0"].ledger.securityChecked,
     true,
   );
-  expect(updatedPackageJson.pastoralist.appendix["package-c@3.1.0"].ledger.securityChecked).toBe(
+  assert.strictEqual(
+    updatedPackageJson.pastoralist.appendix["package-c@3.1.0"].ledger.securityChecked,
     true,
   );
 });

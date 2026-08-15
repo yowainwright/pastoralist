@@ -1,12 +1,12 @@
 import {
-  Options,
-  PastoralistJSON,
-  SecurityAlert,
-  SecurityOverride,
-  SecurityOverrideDetail,
+  type Options,
+  type PastoralistJSON,
+  type SecurityAlert,
+  type SecurityOverride,
+  type SecurityOverrideDetail,
   SecurityProviderPermissionError,
-  OverrideUpdate,
-  PastoralistResult,
+  type OverrideUpdate,
+  type PastoralistResult,
 } from "../../types";
 import { SecurityChecker } from "../../core/security";
 import { resolveWorkspaceManifestPaths } from "../../core/workspaces";

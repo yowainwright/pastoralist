@@ -1,10 +1,11 @@
-import { expect, test } from "bun:test";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 import {
   buildSearchDocuments,
   createSearchIndex,
   getSearchResults,
-} from "../../../src/content/search";
-import type { DocMeta } from "../../../src/content/types";
+} from "../../../src/content/search.ts";
+import type { DocMeta } from "../../../src/content/types.ts";
 
 test("finds terms deep in document content", () => {
   const docs = [
@@ -20,5 +21,8 @@ test("finds terms deep in document content", () => {
 
   const results = getSearchResults(index, "provenOptimal");
 
-  expect(results.map((result) => result.slug)).toEqual(["configuration"]);
+  assert.deepStrictEqual(
+    results.map((result) => result.slug),
+    ["configuration"],
+  );
 });

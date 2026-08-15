@@ -1,4 +1,6 @@
-import { test, expect } from "bun:test";
+import { anyValue, assertHasProperty, assertLacksProperty, assertMatches } from "../../setup.ts";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 import type { SecurityOverrideDetail, Appendix, AppendixItem } from "../../../../src/types";
 import {
   mergeOverrideReasons,
@@ -20,7 +22,7 @@ import {
 test("mergeOverrideReasons - should return reason when provided", () => {
   const result = mergeOverrideReasons("lodash", "security fix", undefined, undefined);
 
-  expect(result).toBe("security fix");
+  assert.strictEqual(result, "security fix");
 });
 
 test("mergeOverrideReasons - should return security reason when no reason provided", () => {
@@ -35,7 +37,7 @@ test("mergeOverrideReasons - should return security reason when no reason provid
 
   const result = mergeOverrideReasons("lodash", undefined, securityDetails, undefined);
 
-  expect(result).toBe("CVE-2021-23337");
+  assert.strictEqual(result, "CVE-2021-23337");
 });
 
 test("mergeOverrideReasons - should return manual reason when no reason or security details", () => {
@@ -43,7 +45,7 @@ test("mergeOverrideReasons - should return manual reason when no reason or secur
 
   const result = mergeOverrideReasons("lodash", undefined, undefined, manualReasons);
 
-  expect(result).toBe("manual override");
+  assert.strictEqual(result, "manual override");
 });
 
 test("mergeOverrideReasons - preserves a structured per-dependency reason", () => {
@@ -56,13 +58,13 @@ test("mergeOverrideReasons - preserves a structured per-dependency reason", () =
 
   const result = mergeOverrideReasons("lodash", undefined, undefined, { lodash: reason });
 
-  expect(result).toEqual(reason);
+  assert.deepStrictEqual(result, reason);
 });
 
 test("mergeOverrideReasons - should return undefined when no reasons provided", () => {
   const result = mergeOverrideReasons("lodash", undefined, undefined, undefined);
 
-  expect(result).toBeUndefined();
+  assert.strictEqual(result, undefined);
 });
 
 test("mergeOverrideReasons - should prioritize reason over security details", () => {
@@ -77,7 +79,7 @@ test("mergeOverrideReasons - should prioritize reason over security details", ()
 
   const result = mergeOverrideReasons("lodash", "manual fix", securityDetails, undefined);
 
-  expect(result).toBe("manual fix");
+  assert.strictEqual(result, "manual fix");
 });
 
 test("mergeOverrideReasons - should prioritize security details over manual reasons", () => {
@@ -93,13 +95,13 @@ test("mergeOverrideReasons - should prioritize security details over manual reas
 
   const result = mergeOverrideReasons("lodash", undefined, securityDetails, manualReasons);
 
-  expect(result).toBe("CVE-2021-23337");
+  assert.strictEqual(result, "CVE-2021-23337");
 });
 
 test("createSecurityLedger - should return empty object when no security details", () => {
   const result = createSecurityLedger("lodash", undefined, undefined);
 
-  expect(result).toEqual({});
+  assert.deepStrictEqual(result, {});
 });
 
 test("createSecurityLedger - should return empty object when package not in security details", () => {
@@ -114,7 +116,7 @@ test("createSecurityLedger - should return empty object when package not in secu
 
   const result = createSecurityLedger("lodash", securityDetails, undefined);
 
-  expect(result).toEqual({});
+  assert.deepStrictEqual(result, {});
 });
 
 test("createSecurityLedger - should create basic security ledger", () => {
@@ -129,8 +131,8 @@ test("createSecurityLedger - should create basic security ledger", () => {
 
   const result = createSecurityLedger("lodash", securityDetails, undefined);
 
-  expect(result).toHaveProperty("securityChecked", true);
-  expect(result).toHaveProperty("securityCheckDate");
+  assertHasProperty(result, "securityChecked", true);
+  assertHasProperty(result, "securityCheckDate");
 });
 
 test("createSecurityLedger - should include provider in ledger", () => {
@@ -145,7 +147,7 @@ test("createSecurityLedger - should include provider in ledger", () => {
 
   const result = createSecurityLedger("lodash", securityDetails, "github");
 
-  expect(result).toHaveProperty("securityProvider", "github");
+  assertHasProperty(result, "securityProvider", "github");
 });
 
 test("createSecurityLedger - should include CVE in ledger", () => {
@@ -160,7 +162,7 @@ test("createSecurityLedger - should include CVE in ledger", () => {
 
   const result = createSecurityLedger("lodash", securityDetails, undefined);
 
-  expect(result).toHaveProperty("cves", ["CVE-2021-23337"]);
+  assertHasProperty(result, "cves", ["CVE-2021-23337"]);
 });
 
 test("createSecurityLedger - should include severity in ledger", () => {
@@ -175,7 +177,7 @@ test("createSecurityLedger - should include severity in ledger", () => {
 
   const result = createSecurityLedger("lodash", securityDetails, undefined);
 
-  expect(result).toHaveProperty("severity", "high");
+  assertHasProperty(result, "severity", "high");
 });
 
 test("createSecurityLedger - should include URL in ledger", () => {
@@ -191,7 +193,7 @@ test("createSecurityLedger - should include URL in ledger", () => {
 
   const result = createSecurityLedger("lodash", securityDetails, undefined);
 
-  expect(result).toHaveProperty("url", "https://nvd.nist.gov/vuln/detail/CVE-2021-23337");
+  assertHasProperty(result, "url", "https://nvd.nist.gov/vuln/detail/CVE-2021-23337");
 });
 
 test("createSecurityLedger - should include all fields when provided", () => {
@@ -208,10 +210,10 @@ test("createSecurityLedger - should include all fields when provided", () => {
 
   const result = createSecurityLedger("lodash", securityDetails, "github");
 
-  expect(result).toEqual({
+  assertMatches(result, {
     source: "security",
     securityChecked: true,
-    securityCheckDate: expect.any(String),
+    securityCheckDate: anyValue(String),
     securityProvider: "github",
     cves: ["CVE-2021-23337"],
     cveDetails: [{ cve: "CVE-2021-23337", severity: "high" }],
@@ -231,7 +233,7 @@ test("createSecurityLedger - should mark single-source security details as possi
 
   const result = createSecurityLedger("lodash", securityDetails, undefined);
 
-  expect(result).toHaveProperty("confidence", "possible");
+  assertHasProperty(result, "confidence", "possible");
 });
 
 test("createSecurityLedger - should mark multi-source security details as confirmed", () => {
@@ -245,7 +247,7 @@ test("createSecurityLedger - should mark multi-source security details as confir
 
   const result = createSecurityLedger("lodash", securityDetails, undefined);
 
-  expect(result).toHaveProperty("confidence", "confirmed");
+  assertHasProperty(result, "confidence", "confirmed");
 });
 
 test("toCompactAppendix - should compact simple entries", () => {
@@ -258,7 +260,7 @@ test("toCompactAppendix - should compact simple entries", () => {
 
   const result = toCompactAppendix(appendix);
 
-  expect(result["lodash@4.17.21"]).toEqual({ addedDate: "2024-01-15" });
+  assert.deepStrictEqual(result["lodash@4.17.21"], { addedDate: "2024-01-15" });
 });
 
 test("toCompactAppendix - should preserve entries with security info", () => {
@@ -275,8 +277,8 @@ test("toCompactAppendix - should preserve entries with security info", () => {
 
   const result = toCompactAppendix(appendix);
 
-  expect(result["lodash@4.17.21"]).toHaveProperty("ledger");
-  expect(result["lodash@4.17.21"]).toHaveProperty("dependents");
+  assertHasProperty(result["lodash@4.17.21"], "ledger");
+  assertHasProperty(result["lodash@4.17.21"], "dependents");
 });
 
 test("toCompactAppendix - should preserve entries with patches", () => {
@@ -290,7 +292,7 @@ test("toCompactAppendix - should preserve entries with patches", () => {
 
   const result = toCompactAppendix(appendix);
 
-  expect(result["lodash@4.17.21"]).toHaveProperty("patches");
+  assertHasProperty(result["lodash@4.17.21"], "patches");
 });
 
 test("toCompactAppendix - preserves entries with a reason", () => {
@@ -306,7 +308,7 @@ test("toCompactAppendix - preserves entries with a reason", () => {
     },
   };
 
-  expect(toCompactAppendix(appendix)["lodash@4.17.21"]).toEqual(appendix["lodash@4.17.21"]);
+  assert.deepStrictEqual(toCompactAppendix(appendix)["lodash@4.17.21"], appendix["lodash@4.17.21"]);
 });
 
 test("toCompactAppendix - should generate date if missing", () => {
@@ -318,8 +320,8 @@ test("toCompactAppendix - should generate date if missing", () => {
 
   const result = toCompactAppendix(appendix);
 
-  expect(result["lodash@4.17.21"]).toHaveProperty("addedDate");
-  expect(typeof result["lodash@4.17.21"].addedDate).toBe("string");
+  assertHasProperty(result["lodash@4.17.21"], "addedDate");
+  assert.strictEqual(typeof result["lodash@4.17.21"].addedDate, "string");
 });
 
 test("toCompactAppendix - should use provided addedDate when ledger is missing", () => {
@@ -332,7 +334,7 @@ test("toCompactAppendix - should use provided addedDate when ledger is missing",
 
   const result = toCompactAppendix(appendix, gitDate);
 
-  expect(result["lodash@4.17.21"].addedDate).toBe(gitDate);
+  assert.strictEqual(result["lodash@4.17.21"].addedDate, gitDate);
 });
 
 test("toCompactAppendix - should prefer existing ledger addedDate over provided date", () => {
@@ -346,7 +348,7 @@ test("toCompactAppendix - should prefer existing ledger addedDate over provided 
 
   const result = toCompactAppendix(appendix, gitDate);
 
-  expect(result["lodash@4.17.21"].addedDate).toBe("2024-01-15");
+  assert.strictEqual(result["lodash@4.17.21"].addedDate, "2024-01-15");
 });
 
 test("buildAppendixItem - should use provided addedDate for new ledger", () => {
@@ -360,8 +362,8 @@ test("buildAppendixItem - should use provided addedDate for new ledger", () => {
     gitDate,
   );
 
-  expect(result.ledger?.addedDate).toBe(gitDate);
-  expect(result.ledger?.reason).toBe("security fix");
+  assert.strictEqual(result.ledger?.addedDate, gitDate);
+  assert.strictEqual(result.ledger?.reason, "security fix");
 });
 
 test("buildAppendixItem - writes a structured reason without moving CVEs into it", () => {
@@ -386,9 +388,9 @@ test("buildAppendixItem - writes a structured reason without moving CVEs into it
     "2024-01-01",
   );
 
-  expect(result.ledger?.reason).toEqual(reason);
-  expect(result.ledger?.cves).toEqual(["CVE-2024-0001"]);
-  expect(result.ledger?.reason).not.toHaveProperty("cves");
+  assert.deepStrictEqual(result.ledger?.reason, reason);
+  assert.deepStrictEqual(result.ledger?.cves, ["CVE-2024-0001"]);
+  assertLacksProperty(result.ledger?.reason, "cves");
 });
 
 test("buildAppendixItem - should fallback to current date when no addedDate provided", () => {
@@ -399,7 +401,7 @@ test("buildAppendixItem - should fallback to current date when no addedDate prov
   const after = new Date().toISOString();
   const addedDate = result.ledger?.addedDate || "";
   const isInRange = addedDate >= before && addedDate <= after;
-  expect(isInRange).toBe(true);
+  assert.strictEqual(isInRange, true);
 });
 
 test("buildAppendixItem - should preserve existing ledger over provided addedDate", () => {
@@ -417,8 +419,8 @@ test("buildAppendixItem - should preserve existing ledger over provided addedDat
     gitDate,
   );
 
-  expect(result.ledger?.addedDate).toBe("2022-01-01T00:00:00.000Z");
-  expect(result.ledger?.reason).toBe("old reason");
+  assert.strictEqual(result.ledger?.addedDate, "2022-01-01T00:00:00.000Z");
+  assert.strictEqual(result.ledger?.reason, "old reason");
 });
 
 test("findUnusedAppendixEntries - should find entries where all dependents are unused", () => {
@@ -433,7 +435,7 @@ test("findUnusedAppendixEntries - should find entries where all dependents are u
 
   const result = findUnusedAppendixEntries(appendix);
 
-  expect(result).toEqual(["lodash@4.17.21"]);
+  assert.deepStrictEqual(result, ["lodash@4.17.21"]);
 });
 
 test("findUnusedAppendixEntries - should return empty when no unused entries", () => {
@@ -445,7 +447,7 @@ test("findUnusedAppendixEntries - should return empty when no unused entries", (
 
   const result = findUnusedAppendixEntries(appendix);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("findUnusedAppendixEntries - should handle multiple dependents all unused", () => {
@@ -460,7 +462,7 @@ test("findUnusedAppendixEntries - should handle multiple dependents all unused",
 
   const result = findUnusedAppendixEntries(appendix);
 
-  expect(result).toEqual(["lodash@4.17.21"]);
+  assert.deepStrictEqual(result, ["lodash@4.17.21"]);
 });
 
 test("findUnusedAppendixEntries - should not flag mixed dependents", () => {
@@ -475,7 +477,7 @@ test("findUnusedAppendixEntries - should not flag mixed dependents", () => {
 
   const result = findUnusedAppendixEntries(appendix);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("removeAppendixKeys - should remove specified keys", () => {
@@ -486,26 +488,26 @@ test("removeAppendixKeys - should remove specified keys", () => {
 
   const result = removeAppendixKeys(appendix, ["lodash@4.17.21"]);
 
-  expect(result["lodash@4.17.21"]).toBeUndefined();
-  expect(result["axios@1.0.0"]).toBeDefined();
+  assert.strictEqual(result["lodash@4.17.21"], undefined);
+  assert.notStrictEqual(result["axios@1.0.0"], undefined);
 });
 
 test("extractPackageNames - should extract names from appendix keys", () => {
   const result = extractPackageNames(["lodash@4.17.21", "axios@1.0.0"]);
 
-  expect(result).toEqual(["lodash", "axios"]);
+  assert.deepStrictEqual(result, ["lodash", "axios"]);
 });
 
 test("extractPackageNames - should handle scoped packages", () => {
   const result = extractPackageNames(["@babel/core@7.20.0", "@scope/pkg@1.0.0"]);
 
-  expect(result).toEqual(["@babel/core", "@scope/pkg"]);
+  assert.deepStrictEqual(result, ["@babel/core", "@scope/pkg"]);
 });
 
 test("extractPackageNames - should handle mixed scoped and unscoped", () => {
   const result = extractPackageNames(["lodash@4.17.21", "@babel/core@7.20.0", "axios@1.0.0"]);
 
-  expect(result).toEqual(["lodash", "@babel/core", "axios"]);
+  assert.deepStrictEqual(result, ["lodash", "@babel/core", "axios"]);
 });
 
 test("removeOverrideKeys - should remove specified package names", () => {
@@ -513,7 +515,7 @@ test("removeOverrideKeys - should remove specified package names", () => {
 
   const result = removeOverrideKeys(overrides, ["lodash"]);
 
-  expect(result).toEqual({ axios: "1.0.0", react: "18.2.0" });
+  assert.deepStrictEqual(result, { axios: "1.0.0", react: "18.2.0" });
 });
 
 test("normalizeLedgerCveField - converts legacy cve string to cves array", () => {
@@ -522,8 +524,8 @@ test("normalizeLedgerCveField - converts legacy cve string to cves array", () =>
     cve: "CVE-2021-23337",
   } as NonNullable<AppendixItem["ledger"]> & { cve?: string };
   const result = normalizeLedgerCveField(ledger as NonNullable<AppendixItem["ledger"]>);
-  expect(result.cves).toEqual(["CVE-2021-23337"]);
-  expect((result as { cve?: string }).cve).toBeUndefined();
+  assert.deepStrictEqual(result.cves, ["CVE-2021-23337"]);
+  assert.strictEqual((result as { cve?: string }).cve, undefined);
 });
 
 test("normalizeLedgerCveField - merges legacy cve into existing cves", () => {
@@ -533,7 +535,7 @@ test("normalizeLedgerCveField - merges legacy cve into existing cves", () => {
     cve: "CVE-2021-0002",
   } as NonNullable<AppendixItem["ledger"]> & { cve?: string };
   const result = normalizeLedgerCveField(ledger as NonNullable<AppendixItem["ledger"]>);
-  expect(result.cves).toEqual(["CVE-2021-0001", "CVE-2021-0002"]);
+  assert.deepStrictEqual(result.cves, ["CVE-2021-0001", "CVE-2021-0002"]);
 });
 
 test("normalizeLedgerCveField - returns ledger unchanged when no cve field", () => {
@@ -542,7 +544,7 @@ test("normalizeLedgerCveField - returns ledger unchanged when no cve field", () 
     cves: ["CVE-2021-23337"],
   };
   const result = normalizeLedgerCveField(ledger);
-  expect(result).toEqual(ledger);
+  assert.deepStrictEqual(result, ledger);
 });
 
 test("normalizeLedgerCveField - deduplicates when cve is already in cves", () => {
@@ -552,7 +554,7 @@ test("normalizeLedgerCveField - deduplicates when cve is already in cves", () =>
     cve: "CVE-2021-23337",
   } as NonNullable<AppendixItem["ledger"]> & { cve?: string };
   const result = normalizeLedgerCveField(ledger as NonNullable<AppendixItem["ledger"]>);
-  expect(result.cves).toEqual(["CVE-2021-23337"]);
+  assert.deepStrictEqual(result.cves, ["CVE-2021-23337"]);
 });
 
 test("createSecurityLedger - aggregates cves from multiple details for same package", () => {
@@ -561,7 +563,7 @@ test("createSecurityLedger - aggregates cves from multiple details for same pack
     { packageName: "lodash", reason: "vuln 2", cves: ["CVE-2021-0002"] },
   ];
   const result = createSecurityLedger("lodash", securityDetails, undefined);
-  expect(result.cves).toEqual(["CVE-2021-0001", "CVE-2021-0002"]);
+  assert.deepStrictEqual(result.cves, ["CVE-2021-0001", "CVE-2021-0002"]);
 });
 
 test("createSecurityLedger - deduplicates cves across multiple details", () => {
@@ -574,7 +576,7 @@ test("createSecurityLedger - deduplicates cves across multiple details", () => {
     },
   ];
   const result = createSecurityLedger("lodash", securityDetails, undefined);
-  expect(result.cves).toEqual(["CVE-2021-0001", "CVE-2021-0002"]);
+  assert.deepStrictEqual(result.cves, ["CVE-2021-0001", "CVE-2021-0002"]);
 });
 
 test("createSecurityLedger - deduplicates cveDetails when multiple details share the same CVE", () => {
@@ -594,8 +596,8 @@ test("createSecurityLedger - deduplicates cveDetails when multiple details share
   ];
   const result = createSecurityLedger("lodash", securityDetails, undefined);
   const cveIds = result.cveDetails?.map((d) => d.cve);
-  expect(cveIds).toEqual(["CVE-2021-0001", "CVE-2021-0002"]);
-  expect(result.cveDetails?.filter((d) => d.cve === "CVE-2021-0001").length).toBe(1);
+  assert.deepStrictEqual(cveIds, ["CVE-2021-0001", "CVE-2021-0002"]);
+  assert.strictEqual(result.cveDetails?.filter((d) => d.cve === "CVE-2021-0001").length, 1);
 });
 
 test("isUnusedEntry via findUnusedAppendixEntries - skips entries with keep: true", () => {
@@ -611,8 +613,8 @@ test("isUnusedEntry via findUnusedAppendixEntries - skips entries with keep: tru
 
   const result = findUnusedAppendixEntries(appendix);
 
-  expect(result).not.toContain("lodash@4.17.21");
-  expect(result).toContain("axios@1.0.0");
+  assert.ok(!result.includes("lodash@4.17.21"));
+  assert.ok(result.includes("axios@1.0.0"));
 });
 
 test("toCompactAppendix - preserves full ledger for kept entries", () => {
@@ -625,44 +627,44 @@ test("toCompactAppendix - preserves full ledger for kept entries", () => {
 
   const result = toCompactAppendix(appendix);
 
-  expect(result["lodash@4.17.21"]).toHaveProperty("ledger");
-  expect((result["lodash@4.17.21"] as AppendixItem).ledger?.keep).toBe(true);
+  assertHasProperty(result["lodash@4.17.21"], "ledger");
+  assert.strictEqual((result["lodash@4.17.21"] as AppendixItem).ledger?.keep, true);
 });
 
 test("isKeptEntry - returns true for keep: true", () => {
   const item: AppendixItem = {
     ledger: { addedDate: "2024-01-01", keep: true },
   };
-  expect(isKeptEntry(item)).toBe(true);
+  assert.strictEqual(isKeptEntry(item), true);
 });
 
 test("isKeptEntry - returns true for KeepConstraint object", () => {
   const item: AppendixItem = {
     ledger: { addedDate: "2024-01-01", keep: { reason: "pending review" } },
   };
-  expect(isKeptEntry(item)).toBe(true);
+  assert.strictEqual(isKeptEntry(item), true);
 });
 
 test("isKeptEntry - returns false when keep is absent", () => {
   const item: AppendixItem = { ledger: { addedDate: "2024-01-01" } };
-  expect(isKeptEntry(item)).toBe(false);
+  assert.strictEqual(isKeptEntry(item), false);
 });
 
 test("isKeptEntry - returns false when no ledger", () => {
   const item: AppendixItem = { dependents: {} };
-  expect(isKeptEntry(item)).toBe(false);
+  assert.strictEqual(isKeptEntry(item), false);
 });
 
 test("isKeepExpired - returns false for keep: true (no expiry possible)", () => {
   const item: AppendixItem = {
     ledger: { addedDate: "2024-01-01", keep: true },
   };
-  expect(isKeepExpired(item, "lodash", {})).toBe(false);
+  assert.strictEqual(isKeepExpired(item, "lodash", {}), false);
 });
 
 test("isKeepExpired - returns false when no keep", () => {
   const item: AppendixItem = { ledger: { addedDate: "2024-01-01" } };
-  expect(isKeepExpired(item, "lodash", {})).toBe(false);
+  assert.strictEqual(isKeepExpired(item, "lodash", {}), false);
 });
 
 test("isKeepExpired - returns true when until date is in the past", () => {
@@ -672,7 +674,7 @@ test("isKeepExpired - returns true when until date is in the past", () => {
       keep: { reason: "temp", until: "2020-01-01" },
     },
   };
-  expect(isKeepExpired(item, "lodash", {})).toBe(true);
+  assert.strictEqual(isKeepExpired(item, "lodash", {}), true);
 });
 
 test("isKeepExpired - returns false when until date is in the future", () => {
@@ -682,7 +684,7 @@ test("isKeepExpired - returns false when until date is in the future", () => {
       keep: { reason: "temp", until: "2099-01-01" },
     },
   };
-  expect(isKeepExpired(item, "lodash", {})).toBe(false);
+  assert.strictEqual(isKeepExpired(item, "lodash", {}), false);
 });
 
 test("isKeepExpired - returns true when dep version meets untilVersion", () => {
@@ -693,7 +695,7 @@ test("isKeepExpired - returns true when dep version meets untilVersion", () => {
     },
   };
   const rootDeps = { lodash: "^4.18.0" };
-  expect(isKeepExpired(item, "lodash", rootDeps)).toBe(true);
+  assert.strictEqual(isKeepExpired(item, "lodash", rootDeps), true);
 });
 
 test("isKeepExpired - returns false when dep version is below untilVersion", () => {
@@ -704,7 +706,7 @@ test("isKeepExpired - returns false when dep version is below untilVersion", () 
     },
   };
   const rootDeps = { lodash: "^4.17.21" };
-  expect(isKeepExpired(item, "lodash", rootDeps)).toBe(false);
+  assert.strictEqual(isKeepExpired(item, "lodash", rootDeps), false);
 });
 
 test("isKeepExpired - returns false when dep is missing from rootDeps", () => {
@@ -714,7 +716,7 @@ test("isKeepExpired - returns false when dep is missing from rootDeps", () => {
       keep: { reason: "patch pending", untilVersion: "4.18.0" },
     },
   };
-  expect(isKeepExpired(item, "lodash", {})).toBe(false);
+  assert.strictEqual(isKeepExpired(item, "lodash", {}), false);
 });
 
 test("findUnusedAppendixEntries - skips entries with KeepConstraint object", () => {
@@ -729,7 +731,7 @@ test("findUnusedAppendixEntries - skips entries with KeepConstraint object", () 
   };
 
   const result = findUnusedAppendixEntries(appendix);
-  expect(result).not.toContain("lodash@4.17.21");
+  assert.ok(!result.includes("lodash@4.17.21"));
 });
 
 test("findUnusedAppendixEntries - includes expired KeepConstraint entries", () => {
@@ -744,7 +746,7 @@ test("findUnusedAppendixEntries - includes expired KeepConstraint entries", () =
   };
 
   const result = findUnusedAppendixEntries(appendix);
-  expect(result).toContain("lodash@4.17.21");
+  assert.ok(result.includes("lodash@4.17.21"));
 });
 
 test("findUnusedAppendixEntries - includes version-expired KeepConstraint entries", () => {
@@ -759,7 +761,7 @@ test("findUnusedAppendixEntries - includes version-expired KeepConstraint entrie
   };
 
   const result = findUnusedAppendixEntries(appendix, { lodash: "^4.18.0" });
-  expect(result).toContain("lodash@4.17.21");
+  assert.ok(result.includes("lodash@4.17.21"));
 });
 
 test("toCompactAppendix - preserves full ledger for KeepConstraint entries", () => {
@@ -774,27 +776,27 @@ test("toCompactAppendix - preserves full ledger for KeepConstraint entries", () 
   };
 
   const result = toCompactAppendix(appendix);
-  expect(result["lodash@4.17.21"]).toHaveProperty("ledger");
+  assertHasProperty(result["lodash@4.17.21"], "ledger");
 });
 
 test("parseOverridePackageName - resolves pnpm selector and nested override keys to the real package name", () => {
-  expect(parseOverridePackageName("minimatch")).toBe("minimatch");
-  expect(parseOverridePackageName("minimatch@<4")).toBe("minimatch");
-  expect(parseOverridePackageName("minimatch@>=9 <10")).toBe("minimatch");
-  expect(parseOverridePackageName("path-to-regexp@>=6 <7")).toBe("path-to-regexp");
-  expect(parseOverridePackageName("uuid@<11.1.1")).toBe("uuid");
-  expect(parseOverridePackageName("@scope/pkg@>=1 <2")).toBe("@scope/pkg");
-  expect(parseOverridePackageName("@protobufjs/utf8")).toBe("@protobufjs/utf8");
-  expect(parseOverridePackageName("gray-matter>js-yaml")).toBe("js-yaml");
-  expect(parseOverridePackageName("foo@1>@scope/bar@<2")).toBe("@scope/bar");
+  assert.strictEqual(parseOverridePackageName("minimatch"), "minimatch");
+  assert.strictEqual(parseOverridePackageName("minimatch@<4"), "minimatch");
+  assert.strictEqual(parseOverridePackageName("minimatch@>=9 <10"), "minimatch");
+  assert.strictEqual(parseOverridePackageName("path-to-regexp@>=6 <7"), "path-to-regexp");
+  assert.strictEqual(parseOverridePackageName("uuid@<11.1.1"), "uuid");
+  assert.strictEqual(parseOverridePackageName("@scope/pkg@>=1 <2"), "@scope/pkg");
+  assert.strictEqual(parseOverridePackageName("@protobufjs/utf8"), "@protobufjs/utf8");
+  assert.strictEqual(parseOverridePackageName("gray-matter>js-yaml"), "js-yaml");
+  assert.strictEqual(parseOverridePackageName("foo@1>@scope/bar@<2"), "@scope/bar");
 });
 
 test("buildDependentInfo - resolves selector-range key to real name for graph lookup", () => {
   const info = buildDependentInfo(false, "minimatch@>=9 <10", undefined, undefined, {
     minimatch: ["glob", "rimraf"],
   });
-  expect(info).toContain("required by");
-  expect(info).not.toContain("unused override");
+  assert.ok(info.includes("required by"));
+  assert.ok(!info.includes("unused override"));
 });
 
 test("buildDependentInfo - resolves selector-range key to real name for tree lookup", () => {
@@ -805,8 +807,8 @@ test("buildDependentInfo - resolves selector-range key to real name for tree loo
     { minimatch: "3.1.5" },
     undefined,
   );
-  expect(info).toContain("transitive dependency");
-  expect(info).not.toContain("unused override");
+  assert.ok(info.includes("transitive dependency"));
+  assert.ok(!info.includes("unused override"));
 });
 
 test("buildDependentInfo - resolves nested parent>child key to the child name", () => {
@@ -817,26 +819,26 @@ test("buildDependentInfo - resolves nested parent>child key to the child name", 
     { "js-yaml": "3.14.2" },
     undefined,
   );
-  expect(info).not.toContain("unused override");
+  assert.ok(!info.includes("unused override"));
 });
 
 test("buildDependentInfo - still flags a genuinely unused selector override", () => {
   const info = buildDependentInfo(false, "minimatch@<4", undefined, {}, {});
-  expect(info).toContain("unused override");
+  assert.ok(info.includes("unused override"));
 });
 
 test("hasDependenciesMatchingOverrides - matches bare dep name against selector-range override key", () => {
-  expect(hasDependenciesMatchingOverrides(["minimatch"], ["minimatch@<4"])).toBe(true);
+  assert.strictEqual(hasDependenciesMatchingOverrides(["minimatch"], ["minimatch@<4"]), true);
 });
 
 test("hasDependenciesMatchingOverrides - matches bare dep name against nested parent>child override key", () => {
-  expect(hasDependenciesMatchingOverrides(["js-yaml"], ["gray-matter>js-yaml"])).toBe(true);
+  assert.strictEqual(hasDependenciesMatchingOverrides(["js-yaml"], ["gray-matter>js-yaml"]), true);
 });
 
 test("hasDependenciesMatchingOverrides - matches bare dep name against scoped selector-range override key", () => {
-  expect(hasDependenciesMatchingOverrides(["@scope/pkg"], ["@scope/pkg@>=1 <2"])).toBe(true);
+  assert.strictEqual(hasDependenciesMatchingOverrides(["@scope/pkg"], ["@scope/pkg@>=1 <2"]), true);
 });
 
 test("hasDependenciesMatchingOverrides - returns false when dep is genuinely absent", () => {
-  expect(hasDependenciesMatchingOverrides(["express"], ["minimatch@<4"])).toBe(false);
+  assert.strictEqual(hasDependenciesMatchingOverrides(["express"], ["minimatch@<4"]), false);
 });

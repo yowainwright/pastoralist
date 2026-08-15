@@ -1,4 +1,6 @@
-import { test, expect, beforeEach, afterEach, mock } from "bun:test";
+import { errorIncludes, mock } from "../setup.ts";
+import { test, beforeEach, afterEach } from "node:test";
+import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from "fs";
 import { resolve } from "path";
 import {
@@ -17,7 +19,7 @@ import {
 } from "../../../src/core/appendix/utils";
 import { logger } from "../../../src/utils";
 
-const TEST_DIR = resolve(__dirname, ".test-appendix");
+const TEST_DIR = resolve(import.meta.dirname, ".test-appendix");
 
 beforeEach(() => {
   if (existsSync(TEST_DIR)) {
@@ -35,21 +37,31 @@ afterEach(() => {
 test("resolveAppendixTarget - resolves JSON targets", () => {
   const jsonSource = { format: "json" as const, path: resolve(TEST_DIR, "config.json") };
 
-  expect(resolveAppendixTarget({ appendixSource: "ledger.json" }, undefined, TEST_DIR)).toEqual({
-    path: resolve(TEST_DIR, "ledger.json"),
+  assert.deepStrictEqual(
+    resolveAppendixTarget({ appendixSource: "ledger.json" }, undefined, TEST_DIR),
+    {
+      path: resolve(TEST_DIR, "ledger.json"),
+    },
+  );
+  assert.deepStrictEqual(
+    resolveAppendixTarget({ appendixSource: ".pastoralistrc" }, undefined, TEST_DIR),
+    {
+      path: resolve(TEST_DIR, ".pastoralistrc"),
+    },
+  );
+  assert.deepStrictEqual(resolveAppendixTarget({}, jsonSource, TEST_DIR), {
+    path: jsonSource.path,
   });
-  expect(resolveAppendixTarget({ appendixSource: ".pastoralistrc" }, undefined, TEST_DIR)).toEqual({
-    path: resolve(TEST_DIR, ".pastoralistrc"),
-  });
-  expect(resolveAppendixTarget({}, jsonSource, TEST_DIR)).toEqual({ path: jsonSource.path });
-  expect(
+  assert.strictEqual(
     resolveAppendixTarget({}, { format: "javascript", path: "config.js" }, TEST_DIR),
-  ).toBeUndefined();
+    undefined,
+  );
 });
 
 test("resolveAppendixTarget - rejects non-JSON targets", () => {
-  expect(() => resolveAppendixTarget({ appendixSource: "ledger.js" }, undefined, TEST_DIR)).toThrow(
-    "Appendix source must be a JSON config file",
+  assert.throws(
+    () => resolveAppendixTarget({ appendixSource: "ledger.js" }, undefined, TEST_DIR),
+    errorIncludes("Appendix source must be a JSON config file"),
   );
 });
 
@@ -58,9 +70,9 @@ test("loadTargetAppendix - reads existing targets", () => {
   const appendix = { "lodash@4.17.21": { dependents: { app: "lodash@^4" } } };
   writeFileSync(path, JSON.stringify({ appendix }));
 
-  expect(loadTargetAppendix(undefined)).toBeUndefined();
-  expect(loadTargetAppendix({ path: resolve(TEST_DIR, "missing.json") })).toBeUndefined();
-  expect(loadTargetAppendix({ path })).toEqual(appendix);
+  assert.strictEqual(loadTargetAppendix(undefined), undefined);
+  assert.strictEqual(loadTargetAppendix({ path: resolve(TEST_DIR, "missing.json") }), undefined);
+  assert.deepStrictEqual(loadTargetAppendix({ path }), appendix);
 });
 
 test("writeTargetAppendix - creates a target and its parent", () => {
@@ -69,7 +81,7 @@ test("writeTargetAppendix - creates a target and its parent", () => {
 
   writeTargetAppendix({ path }, appendix, false);
 
-  expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ appendix });
+  assert.deepStrictEqual(JSON.parse(readFileSync(path, "utf8")), { appendix });
 });
 
 test("writeTargetAppendix - preserves config and removes an empty appendix", () => {
@@ -78,7 +90,7 @@ test("writeTargetAppendix - preserves config and removes an empty appendix", () 
 
   writeTargetAppendix({ path }, {}, false);
 
-  expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ checkSecurity: true });
+  assert.deepStrictEqual(JSON.parse(readFileSync(path, "utf8")), { checkSecurity: true });
 });
 
 test("writeTargetAppendix - skips dry runs", () => {
@@ -86,13 +98,13 @@ test("writeTargetAppendix - skips dry runs", () => {
 
   writeTargetAppendix({ path }, {}, true);
 
-  expect(existsSync(path)).toBe(false);
+  assert.strictEqual(existsSync(path), false);
 });
 
 test("writeTargetAppendix - cleans up failed atomic writes", () => {
   const path = resolve(TEST_DIR, "x".repeat(300));
 
-  expect(() => writeTargetAppendix({ path }, {}, false)).toThrow();
+  assert.throws(() => writeTargetAppendix({ path }, {}, false));
 });
 
 test("updateAppendix - should handle empty overrides", () => {
@@ -104,7 +116,7 @@ test("updateAppendix - should handle empty overrides", () => {
     packageName: "test-package",
   });
 
-  expect(result).toEqual({});
+  assert.deepStrictEqual(result, {});
 });
 
 test("updateAppendix - should create appendix for simple override", () => {
@@ -116,8 +128,8 @@ test("updateAppendix - should create appendix for simple override", () => {
     packageName: "test-package",
   });
 
-  expect(result["lodash@4.17.21"]).toBeDefined();
-  expect(result["lodash@4.17.21"].dependents).toEqual({
+  assert.notStrictEqual(result["lodash@4.17.21"], undefined);
+  assert.deepStrictEqual(result["lodash@4.17.21"].dependents, {
     "test-package": "lodash@^4.17.0",
   });
 });
@@ -132,8 +144,8 @@ test("updateAppendix - should handle onlyUsedOverrides flag", () => {
     onlyUsedOverrides: true,
   });
 
-  expect(result["unused@1.0.0"]).toBeUndefined();
-  expect(result["used@2.0.0"]).toBeDefined();
+  assert.strictEqual(result["unused@1.0.0"], undefined);
+  assert.notStrictEqual(result["used@2.0.0"], undefined);
 });
 
 test("updateAppendix - should merge dependencies from all types", () => {
@@ -145,7 +157,7 @@ test("updateAppendix - should merge dependencies from all types", () => {
     packageName: "test-package",
   });
 
-  expect(result["pkg@1.0.0"]).toBeDefined();
+  assert.notStrictEqual(result["pkg@1.0.0"], undefined);
 });
 
 test("updateAppendix - should handle nested overrides", () => {
@@ -161,7 +173,7 @@ test("updateAppendix - should handle nested overrides", () => {
     packageName: "test-package",
   });
 
-  expect(result["nested@2.0.0"]).toBeDefined();
+  assert.notStrictEqual(result["nested@2.0.0"], undefined);
 });
 
 test("updateAppendix - should preserve existing appendix entries", () => {
@@ -180,8 +192,8 @@ test("updateAppendix - should preserve existing appendix entries", () => {
     appendix: existingAppendix,
   });
 
-  expect(result["lodash@4.17.21"].dependents["other-package"]).toBeDefined();
-  expect(result["lodash@4.17.21"].dependents["test-package"]).toBeDefined();
+  assert.notStrictEqual(result["lodash@4.17.21"].dependents["other-package"], undefined);
+  assert.notStrictEqual(result["lodash@4.17.21"].dependents["test-package"], undefined);
 });
 
 test("updateAppendix - should handle manual override reasons", () => {
@@ -194,7 +206,7 @@ test("updateAppendix - should handle manual override reasons", () => {
     manualOverrideReasons: { pkg: "Bug fix required" },
   });
 
-  expect(result["pkg@2.0.0"].ledger?.reason).toBe("Bug fix required");
+  assert.strictEqual(result["pkg@2.0.0"].ledger?.reason, "Bug fix required");
 });
 
 test("updateAppendix - should handle security override details", () => {
@@ -215,8 +227,8 @@ test("updateAppendix - should handle security override details", () => {
     securityProvider: "osv",
   });
 
-  expect(result["lodash@4.17.21"]).toBeDefined();
-  expect(result["lodash@4.17.21"].dependents["test-package"]).toBeDefined();
+  assert.notStrictEqual(result["lodash@4.17.21"], undefined);
+  assert.notStrictEqual(result["lodash@4.17.21"].dependents["test-package"], undefined);
 });
 
 test("updateAppendix - should handle multiple calls with same override key", () => {
@@ -237,8 +249,8 @@ test("updateAppendix - should handle multiple calls with same override key", () 
     appendix: firstResult,
   });
 
-  expect(secondResult["lodash@4.17.21"].dependents["package-a"]).toBeDefined();
-  expect(secondResult["lodash@4.17.21"].dependents["package-b"]).toBeDefined();
+  assert.notStrictEqual(secondResult["lodash@4.17.21"].dependents["package-a"], undefined);
+  assert.notStrictEqual(secondResult["lodash@4.17.21"].dependents["package-b"], undefined);
 });
 
 test("updateAppendix - should mark overridden dependencies correctly", () => {
@@ -250,7 +262,7 @@ test("updateAppendix - should mark overridden dependencies correctly", () => {
     packageName: "test-package",
   });
 
-  expect(result["lodash@4.17.21"].dependents["test-package"]).toBe("lodash@^4.17.0");
+  assert.strictEqual(result["lodash@4.17.21"].dependents["test-package"], "lodash@^4.17.0");
 });
 
 test("updateAppendix - should handle packages not in dependencies", () => {
@@ -264,8 +276,9 @@ test("updateAppendix - should handle packages not in dependencies", () => {
     dependencyTree: { "transitive-dep": "1.0.0" },
   });
 
-  expect(result["transitive-dep@1.0.0"]).toBeDefined();
-  expect(result["transitive-dep@1.0.0"].dependents["test-package"]).toBe(
+  assert.notStrictEqual(result["transitive-dep@1.0.0"], undefined);
+  assert.strictEqual(
+    result["transitive-dep@1.0.0"].dependents["test-package"],
     "transitive-dep (transitive dependency)",
   );
 });
@@ -281,8 +294,9 @@ test("updateAppendix - should handle unused overrides", () => {
     dependencyTree: {},
   });
 
-  expect(result["unused-pkg@1.0.0"]).toBeDefined();
-  expect(result["unused-pkg@1.0.0"].dependents["test-package"]).toBe(
+  assert.notStrictEqual(result["unused-pkg@1.0.0"], undefined);
+  assert.strictEqual(
+    result["unused-pkg@1.0.0"].dependents["test-package"],
     "unused-pkg (unused override)",
   );
 });
@@ -301,11 +315,11 @@ test("updateAppendix - should reproduce dependency tree bug: keep used, remove u
     dependencyTree: {},
   });
 
-  expect(result["lodash@4.17.21"]).toBeDefined();
-  expect(result["lodash@4.17.21"].dependents["test"]).toBe("lodash@^4.17.0");
+  assert.notStrictEqual(result["lodash@4.17.21"], undefined);
+  assert.strictEqual(result["lodash@4.17.21"].dependents["test"], "lodash@^4.17.0");
 
-  expect(result["axios@1.0.0"]).toBeDefined();
-  expect(result["axios@1.0.0"].dependents["test"]).toBe("axios (unused override)");
+  assert.notStrictEqual(result["axios@1.0.0"], undefined);
+  assert.strictEqual(result["axios@1.0.0"].dependents["test"], "axios (unused override)");
 });
 
 test("updateAppendix - should not incorrectly label unused overrides as transitive deps (old bug)", () => {
@@ -318,8 +332,8 @@ test("updateAppendix - should not incorrectly label unused overrides as transiti
     onlyUsedOverrides: false,
   });
 
-  expect(result["axios@1.0.0"]).toBeDefined();
-  expect(result["axios@1.0.0"].dependents["test"]).toBe("axios (unused override)");
+  assert.notStrictEqual(result["axios@1.0.0"], undefined);
+  assert.strictEqual(result["axios@1.0.0"].dependents["test"], "axios (unused override)");
 });
 
 test("updateAppendix - should handle deeply nested overrides", () => {
@@ -336,8 +350,8 @@ test("updateAppendix - should handle deeply nested overrides", () => {
     packageName: "test-package",
   });
 
-  expect(result["child@2.0.0"]).toBeDefined();
-  expect(result["another-child@3.0.0"]).toBeDefined();
+  assert.notStrictEqual(result["child@2.0.0"], undefined);
+  assert.notStrictEqual(result["another-child@3.0.0"], undefined);
 });
 
 test("updateAppendix - should use cache for repeated keys", () => {
@@ -358,8 +372,8 @@ test("updateAppendix - should use cache for repeated keys", () => {
     appendix: firstResult,
   });
 
-  expect(secondResult["lodash@4.17.21"].dependents["package-a"]).toBeDefined();
-  expect(secondResult["lodash@4.17.21"].dependents["package-b"]).toBeDefined();
+  assert.notStrictEqual(secondResult["lodash@4.17.21"].dependents["package-a"], undefined);
+  assert.notStrictEqual(secondResult["lodash@4.17.21"].dependents["package-b"], undefined);
 });
 
 test("updateAppendix - should use provided addedDate in ledger", () => {
@@ -373,7 +387,7 @@ test("updateAppendix - should use provided addedDate in ledger", () => {
     addedDate: gitDate,
   });
 
-  expect(result["lodash@4.17.21"].ledger?.addedDate).toBe(gitDate);
+  assert.strictEqual(result["lodash@4.17.21"].ledger?.addedDate, gitDate);
 });
 
 test("updateAppendix - should preserve existing ledger addedDate over provided addedDate", () => {
@@ -395,7 +409,7 @@ test("updateAppendix - should preserve existing ledger addedDate over provided a
     addedDate: gitDate,
   });
 
-  expect(result["lodash@4.17.21"].ledger?.addedDate).toBe("2022-01-01T00:00:00.000Z");
+  assert.strictEqual(result["lodash@4.17.21"].ledger?.addedDate, "2022-01-01T00:00:00.000Z");
 });
 
 test("updateAppendix - should use addedDate for nested overrides", () => {
@@ -409,7 +423,7 @@ test("updateAppendix - should use addedDate for nested overrides", () => {
     addedDate: gitDate,
   });
 
-  expect(result["nested@2.0.0"].ledger?.addedDate).toBe(gitDate);
+  assert.strictEqual(result["nested@2.0.0"].ledger?.addedDate, gitDate);
 });
 
 test("updateAppendix - should handle nested override cache hits", () => {
@@ -430,7 +444,7 @@ test("updateAppendix - should handle nested override cache hits", () => {
     appendix: firstResult,
   });
 
-  expect(secondResult["nested@1.0.0"]).toBeDefined();
+  assert.notStrictEqual(secondResult["nested@1.0.0"], undefined);
 });
 
 test("processAndWritePackageJSON - should return undefined for non-existent file", () => {
@@ -441,7 +455,7 @@ test("processAndWritePackageJSON - should return undefined for non-existent file
     false,
   );
 
-  expect(result).toBeUndefined();
+  assert.strictEqual(result, undefined);
 });
 
 test("processAndWritePackageJSON - should return undefined for package without matching deps", () => {
@@ -457,7 +471,7 @@ test("processAndWritePackageJSON - should return undefined for package without m
 
   const result = processAndWritePackageJSON(testPkgPath, { lodash: "4.17.21" }, ["lodash"], false);
 
-  expect(result).toBeUndefined();
+  assert.strictEqual(result, undefined);
 });
 
 test("processAndWritePackageJSON - should return undefined when dependency graph has no matching dependent", () => {
@@ -479,7 +493,7 @@ test("processAndWritePackageJSON - should return undefined when dependency graph
     { dependencyGraph: { "body-parser": ["express"] } },
   );
 
-  expect(result).toBeUndefined();
+  assert.strictEqual(result, undefined);
 });
 
 test("processAndWritePackageJSON - should process package with matching dependency", () => {
@@ -495,9 +509,9 @@ test("processAndWritePackageJSON - should process package with matching dependen
 
   const result = processAndWritePackageJSON(testPkgPath, { lodash: "4.17.21" }, ["lodash"], false);
 
-  expect(result).toBeDefined();
-  expect(result?.name).toBe("test-pkg");
-  expect(result?.appendix["lodash@4.17.21"]).toBeDefined();
+  assert.notStrictEqual(result, undefined);
+  assert.strictEqual(result?.name, "test-pkg");
+  assert.notStrictEqual(result?.appendix["lodash@4.17.21"], undefined);
 });
 
 test("processAndWritePackageJSON - does not write by default", () => {
@@ -510,8 +524,8 @@ test("processAndWritePackageJSON - does not write by default", () => {
 
   const result = processAndWritePackageJSON(testPkgPath, { lodash: "4.17.21" }, ["lodash"]);
 
-  expect(result?.appendix["lodash@4.17.21"]).toBeDefined();
-  expect(readFileSync(testPkgPath, "utf8")).toBe(original);
+  assert.notStrictEqual(result?.appendix["lodash@4.17.21"], undefined);
+  assert.strictEqual(readFileSync(testPkgPath, "utf8"), original);
 });
 
 test("processAndWritePackageJSON - should handle devDependencies", () => {
@@ -527,8 +541,8 @@ test("processAndWritePackageJSON - should handle devDependencies", () => {
 
   const result = processAndWritePackageJSON(testPkgPath, { lodash: "4.17.21" }, ["lodash"], false);
 
-  expect(result).toBeDefined();
-  expect(result?.appendix["lodash@4.17.21"]).toBeDefined();
+  assert.notStrictEqual(result, undefined);
+  assert.notStrictEqual(result?.appendix["lodash@4.17.21"], undefined);
 });
 
 test("processAndWritePackageJSON - should handle peerDependencies", () => {
@@ -544,8 +558,8 @@ test("processAndWritePackageJSON - should handle peerDependencies", () => {
 
   const result = processAndWritePackageJSON(testPkgPath, { react: "18.2.0" }, ["react"], false);
 
-  expect(result).toBeDefined();
-  expect(result?.appendix["react@18.2.0"]).toBeDefined();
+  assert.notStrictEqual(result, undefined);
+  assert.notStrictEqual(result?.appendix["react@18.2.0"], undefined);
 });
 
 test("processAndWritePackageJSON - should write appendix to file when writeAppendixToFile is true", () => {
@@ -562,13 +576,13 @@ test("processAndWritePackageJSON - should write appendix to file when writeAppen
 
   const result = processAndWritePackageJSON(testPkgPath, { lodash: "4.17.21" }, ["lodash"], true);
 
-  expect(result).toBeDefined();
+  assert.notStrictEqual(result, undefined);
 
   const updatedPkg = JSON.parse(readFileSync(testPkgPath, "utf-8"));
-  expect(updatedPkg.pastoralist?.appendix).toBeDefined();
-  expect(updatedPkg.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
-  expect(updatedPkg.pastoralist.depPaths).toBe("workspace");
-  expect(updatedPkg.pastoralist.checkSecurity).toBe(true);
+  assert.notStrictEqual(updatedPkg.pastoralist?.appendix, undefined);
+  assert.notStrictEqual(updatedPkg.pastoralist.appendix["lodash@4.17.21"], undefined);
+  assert.strictEqual(updatedPkg.pastoralist.depPaths, "workspace");
+  assert.strictEqual(updatedPkg.pastoralist.checkSecurity, true);
 });
 
 test("processAndWritePackageJSON - should handle multiple dependency types", () => {
@@ -591,10 +605,10 @@ test("processAndWritePackageJSON - should handle multiple dependency types", () 
     false,
   );
 
-  expect(result).toBeDefined();
-  expect(result?.appendix["lodash@4.17.21"]).toBeDefined();
-  expect(result?.appendix["typescript@5.3.0"]).toBeDefined();
-  expect(result?.appendix["react@18.2.0"]).toBeDefined();
+  assert.notStrictEqual(result, undefined);
+  assert.notStrictEqual(result?.appendix["lodash@4.17.21"], undefined);
+  assert.notStrictEqual(result?.appendix["typescript@5.3.0"], undefined);
+  assert.notStrictEqual(result?.appendix["react@18.2.0"], undefined);
 });
 
 test("updateAppendix - should hit cache for simple override key", () => {
@@ -614,7 +628,7 @@ test("updateAppendix - should hit cache for simple override key", () => {
     cache,
   });
 
-  expect(result["lodash@4.17.21"]).toBe(cachedItem);
+  assert.strictEqual(result["lodash@4.17.21"], cachedItem);
 });
 
 test("updateAppendix - should hit cache for nested override key", () => {
@@ -633,7 +647,7 @@ test("updateAppendix - should hit cache for nested override key", () => {
     cache,
   });
 
-  expect(result["nested@2.0.0"]).toBe(cachedItem);
+  assert.strictEqual(result["nested@2.0.0"], cachedItem);
 });
 
 test("constructAppendix - handles workspace packages with overrides", () => {
@@ -672,7 +686,7 @@ test("constructAppendix - handles workspace packages with overrides", () => {
     log,
   );
 
-  expect(result["lodash@4.17.21"]).toBeDefined();
+  assert.notStrictEqual(result["lodash@4.17.21"], undefined);
 });
 
 test("constructAppendix - keeps transitive workspace overrides from dependency graph", () => {
@@ -707,11 +721,12 @@ test("constructAppendix - keeps transitive workspace overrides from dependency g
     },
   });
 
-  expect(result["body-parser@1.20.0"]).toBeDefined();
-  expect(result["body-parser@1.20.0"].dependents?.["pkg-a"]).toBe(
+  assert.notStrictEqual(result["body-parser@1.20.0"], undefined);
+  assert.strictEqual(
+    result["body-parser@1.20.0"].dependents?.["pkg-a"],
     "body-parser (required by express)",
   );
-  expect(result["postcss@8.4.0"]).toBeUndefined();
+  assert.strictEqual(result["postcss@8.4.0"], undefined);
 });
 
 test("constructAppendix - ignores dependency tree context when no relevant dependency graph exists", () => {
@@ -739,8 +754,8 @@ test("constructAppendix - ignores dependency tree context when no relevant depen
     dependencyTree: { lodash: "4.17.21" },
   });
 
-  expect(result["lodash@4.17.21"]).toBeDefined();
-  expect(result["lodash@4.17.21"].dependents?.["pkg-a"]).toBe("lodash@^4.17.0");
+  assert.notStrictEqual(result["lodash@4.17.21"], undefined);
+  assert.strictEqual(result["lodash@4.17.21"].dependents?.["pkg-a"], "lodash@^4.17.0");
 });
 
 test("constructAppendix - merges overrides from multiple workspaces", () => {
@@ -780,8 +795,8 @@ test("constructAppendix - merges overrides from multiple workspaces", () => {
     log,
   );
 
-  expect(result["lodash@4.17.21"]).toBeDefined();
-  expect(result["react@18.2.0"]).toBeDefined();
+  assert.notStrictEqual(result["lodash@4.17.21"], undefined);
+  assert.notStrictEqual(result["react@18.2.0"], undefined);
 });
 
 test("constructAppendix - returns empty when no overrides found", () => {
@@ -803,7 +818,7 @@ test("constructAppendix - returns empty when no overrides found", () => {
 
   const result = constructAppendix([resolve(pkgDir, "package.json")], {}, log);
 
-  expect(result).toEqual({});
+  assert.deepStrictEqual(result, {});
 });
 
 test("constructAppendix - handles non-existent package files", () => {
@@ -812,7 +827,7 @@ test("constructAppendix - handles non-existent package files", () => {
 
   const result = constructAppendix(["/non/existent/package.json"], overridesData, log);
 
-  expect(result).toEqual({});
+  assert.deepStrictEqual(result, {});
 });
 
 test("constructAppendix - logs debug info when workspace has overrides", () => {
@@ -843,8 +858,13 @@ test("constructAppendix - logs debug info when workspace has overrides", () => {
 
   constructAppendix([resolve(pkgDir, "package.json")], overridesData, log);
 
-  const debugMessages = debug.mock.calls.flat();
-  expect(debugMessages.some((message) => message.includes("overrides"))).toBe(true);
+  const debugMessages = debug.mock.calls
+    .map((call) => (Array.isArray(call) ? call : call.arguments))
+    .flat();
+  assert.strictEqual(
+    debugMessages.some((message) => message.includes("overrides")),
+    true,
+  );
 });
 
 test("constructAppendix - aggregates appendices from multiple results", () => {
@@ -884,9 +904,9 @@ test("constructAppendix - aggregates appendices from multiple results", () => {
     log,
   );
 
-  expect(result["lodash@4.17.21"]).toBeDefined();
-  expect(result["lodash@4.17.21"].dependents["pkg-a"]).toBeDefined();
-  expect(result["lodash@4.17.21"].dependents["pkg-b"]).toBeDefined();
+  assert.notStrictEqual(result["lodash@4.17.21"], undefined);
+  assert.notStrictEqual(result["lodash@4.17.21"].dependents["pkg-a"], undefined);
+  assert.notStrictEqual(result["lodash@4.17.21"].dependents["pkg-b"], undefined);
 });
 
 test("remove-unused integration - finds and removes unused overrides from appendix", () => {
@@ -902,21 +922,21 @@ test("remove-unused integration - finds and removes unused overrides from append
 
   const unusedKeys = findUnusedAppendixEntries(appendix);
 
-  expect(unusedKeys).toEqual(["unused-pkg@1.0.0"]);
+  assert.deepStrictEqual(unusedKeys, ["unused-pkg@1.0.0"]);
 
   const packageNames = extractPackageNames(unusedKeys);
 
-  expect(packageNames).toEqual(["unused-pkg"]);
+  assert.deepStrictEqual(packageNames, ["unused-pkg"]);
 
   const cleanedAppendix = removeAppendixKeys(appendix, unusedKeys);
 
-  expect(cleanedAppendix["lodash@4.17.21"]).toBeDefined();
-  expect(cleanedAppendix["unused-pkg@1.0.0"]).toBeUndefined();
+  assert.notStrictEqual(cleanedAppendix["lodash@4.17.21"], undefined);
+  assert.strictEqual(cleanedAppendix["unused-pkg@1.0.0"], undefined);
 
   const cleanedOverrides = removeOverrideKeys(
     { lodash: "4.17.21", "unused-pkg": "1.0.0" },
     packageNames,
   );
 
-  expect(cleanedOverrides).toEqual({ lodash: "4.17.21" });
+  assert.deepStrictEqual(cleanedOverrides, { lodash: "4.17.21" });
 });

@@ -1,4 +1,6 @@
-import { describe, test, expect, mock } from "bun:test";
+import { describe, test } from "node:test";
+import { mock } from "../../setup.ts";
+import assert from "node:assert/strict";
 import { renderTable } from "../../../../src/dx/table/index";
 import type { TableRow, TableOptions } from "../../../../src/dx/table/index";
 
@@ -12,14 +14,14 @@ describe("dx/table", () => {
       const result = renderTable(rows);
       const lines = result.split("\n");
 
-      expect(lines).toHaveLength(4);
-      expect(lines[0]).toContain("+");
-      expect(lines[0]).toContain("-");
-      expect(lines[1]).toContain("| Name");
-      expect(lines[1]).toContain("John |");
-      expect(lines[2]).toContain("| Age");
-      expect(lines[2]).toContain("30 |");
-      expect(lines[3]).toContain("+");
+      assert.strictEqual(lines.length, 4);
+      assert.ok(lines[0].includes("+"));
+      assert.ok(lines[0].includes("-"));
+      assert.ok(lines[1].includes("| Name"));
+      assert.ok(lines[1].includes("John |"));
+      assert.ok(lines[2].includes("| Age"));
+      assert.ok(lines[2].includes("30 |"));
+      assert.ok(lines[3].includes("+"));
     });
 
     test("renders table with title", () => {
@@ -33,10 +35,10 @@ describe("dx/table", () => {
       const result = renderTable(rows, options);
       const lines = result.split("\n");
 
-      expect(lines).toHaveLength(6);
-      expect(lines[1]).toContain("System Stats");
-      expect(lines[3]).toContain("CPU");
-      expect(lines[4]).toContain("Memory");
+      assert.strictEqual(lines.length, 6);
+      assert.ok(lines[1].includes("System Stats"));
+      assert.ok(lines[3].includes("CPU"));
+      assert.ok(lines[4].includes("Memory"));
     });
 
     test("renders table with colored values", () => {
@@ -49,16 +51,16 @@ describe("dx/table", () => {
       ];
       const result = renderTable(rows);
 
-      expect(result).toContain("OK");
-      expect(result).toContain("Check");
-      expect(result).toContain("Failed");
-      expect(result).toContain("Note");
-      expect(result).toContain("Log");
-      expect(result).toContain("\x1b[32m");
-      expect(result).toContain("\x1b[33m");
-      expect(result).toContain("\x1b[31m");
-      expect(result).toContain("\x1b[36m");
-      expect(result).toContain("\x1b[90m");
+      assert.ok(result.includes("OK"));
+      assert.ok(result.includes("Check"));
+      assert.ok(result.includes("Failed"));
+      assert.ok(result.includes("Note"));
+      assert.ok(result.includes("Log"));
+      assert.ok(result.includes("\x1b[32m"));
+      assert.ok(result.includes("\x1b[33m"));
+      assert.ok(result.includes("\x1b[31m"));
+      assert.ok(result.includes("\x1b[36m"));
+      assert.ok(result.includes("\x1b[90m"));
     });
 
     test("respects minimum label width", () => {
@@ -71,8 +73,8 @@ describe("dx/table", () => {
 
       const labelLine = lines[1];
       const labelPart = labelLine.split("|")[1];
-      expect(labelPart.trim().length).toBeGreaterThanOrEqual(1);
-      expect(labelPart.length).toBeGreaterThanOrEqual(30);
+      assert.ok(labelPart.trim().length >= 1);
+      assert.ok(labelPart.length >= 30);
     });
 
     test("respects minimum value width", () => {
@@ -85,8 +87,8 @@ describe("dx/table", () => {
 
       const valueLine = lines[1];
       const valuePart = valueLine.split("|")[2];
-      expect(valuePart.trim().length).toBeGreaterThanOrEqual(1);
-      expect(valuePart.length).toBeGreaterThanOrEqual(25);
+      assert.ok(valuePart.trim().length >= 1);
+      assert.ok(valuePart.length >= 25);
     });
 
     test("handles numeric values", () => {
@@ -97,18 +99,18 @@ describe("dx/table", () => {
       ];
       const result = renderTable(rows);
 
-      expect(result).toContain("42");
-      expect(result).toContain("1234567890");
-      expect(result).toContain("3.14159");
+      assert.ok(result.includes("42"));
+      assert.ok(result.includes("1234567890"));
+      assert.ok(result.includes("3.14159"));
     });
 
     test("handles empty rows array", () => {
       const result = renderTable([]);
       const lines = result.split("\n");
 
-      expect(lines).toHaveLength(2);
-      expect(lines[0]).toContain("+");
-      expect(lines[1]).toContain("+");
+      assert.strictEqual(lines.length, 2);
+      assert.ok(lines[0].includes("+"));
+      assert.ok(lines[1].includes("+"));
     });
 
     test("handles long labels and values", () => {
@@ -120,8 +122,8 @@ describe("dx/table", () => {
       ];
       const result = renderTable(rows);
 
-      expect(result).toContain("This is a very long label");
-      expect(result).toContain("This is a very long value");
+      assert.ok(result.includes("This is a very long label"));
+      assert.ok(result.includes("This is a very long value"));
     });
 
     test("aligns values to the right", () => {
@@ -132,8 +134,8 @@ describe("dx/table", () => {
       const result = renderTable(rows);
       const lines = result.split("\n");
 
-      expect(lines[1]).toMatch(/\s+Val\s*\|$/);
-      expect(lines[2]).toMatch(/Longer Value\s*\|$/);
+      assert.match(lines[1], /\s+Val\s*\|$/);
+      assert.match(lines[2], /Longer Value\s*\|$/);
     });
 
     test("uses default minimum widths", () => {
@@ -145,8 +147,8 @@ describe("dx/table", () => {
       const labelDashes = separator.split("+")[1].split("+")[0];
       const valueDashes = separator.split("+")[2].split("+")[0];
 
-      expect(labelDashes.length).toBeGreaterThanOrEqual(20);
-      expect(valueDashes.length).toBeGreaterThanOrEqual(10);
+      assert.ok(labelDashes.length >= 20);
+      assert.ok(valueDashes.length >= 10);
     });
 
     test("handles special characters in labels and values", () => {
@@ -156,10 +158,10 @@ describe("dx/table", () => {
       ];
       const result = renderTable(rows);
 
-      expect(result).toContain("UTF-8: ✓");
-      expect(result).toContain("Emoji: 😀");
-      expect(result).toContain("Symbols: @#$%");
-      expect(result).toContain("Math: ±∞÷");
+      assert.ok(result.includes("UTF-8: ✓"));
+      assert.ok(result.includes("Emoji: 😀"));
+      assert.ok(result.includes("Symbols: @#$%"));
+      assert.ok(result.includes("Math: ±∞÷"));
     });
 
     test("renders table with title and all options", () => {
@@ -175,11 +177,11 @@ describe("dx/table", () => {
       const result = renderTable(rows, options);
       const lines = result.split("\n");
 
-      expect(lines[1]).toContain("Complete Table");
-      expect(result).toContain("Item 1");
-      expect(result).toContain("Value 1");
-      expect(result).toContain("Item 2");
-      expect(result).toContain("999");
+      assert.ok(lines[1].includes("Complete Table"));
+      assert.ok(result.includes("Item 1"));
+      assert.ok(result.includes("Value 1"));
+      assert.ok(result.includes("Item 2"));
+      assert.ok(result.includes("999"));
     });
 
     test("handles zero values correctly", () => {
@@ -189,9 +191,9 @@ describe("dx/table", () => {
       ];
       const result = renderTable(rows);
 
-      expect(result).toContain("| Zero");
-      expect(result).toMatch(/\|\s+0\s*\|/);
-      expect(result).toContain("| Empty");
+      assert.ok(result.includes("| Zero"));
+      assert.match(result, /\|\s+0\s*\|/);
+      assert.ok(result.includes("| Empty"));
     });
 
     test("creates properly formatted separators", () => {
@@ -200,15 +202,15 @@ describe("dx/table", () => {
       const lines = result.split("\n");
 
       const separator = lines[0];
-      expect(separator).toMatch(/^\+-+\+-+\+$/);
-      expect(separator).toBe(lines[lines.length - 1]);
+      assert.match(separator, /^\+-+\+-+\+$/);
+      assert.strictEqual(separator, lines[lines.length - 1]);
     });
 
     test("handles ANSI colored labels", () => {
       const rows: TableRow[] = [{ label: "\x1b[31mRed Label\x1b[0m", value: "Value" }];
       const result = renderTable(rows);
 
-      expect(result).toContain("\x1b[31mRed Label\x1b[0m");
+      assert.ok(result.includes("\x1b[31mRed Label\x1b[0m"));
     });
 
     test("calculates correct width for colored values", () => {
@@ -226,7 +228,7 @@ describe("dx/table", () => {
       const value1Width = removeAnsi(line1Parts[2]).length;
       const value2Width = removeAnsi(line2Parts[2]).length;
 
-      expect(value1Width).toBe(value2Width);
+      assert.strictEqual(value1Width, value2Width);
     });
   });
 });

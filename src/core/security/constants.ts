@@ -24,7 +24,7 @@ export const GITHUB_REPOSITORY_SUFFIX_PATTERN = /\.git$/;
 export const GITHUB_NEXT_LINK_PATTERN = /<([^>]+)>/;
 export const GITHUB_VULNERABLE_LOWER_BOUND_PATTERN = />= ?([^\s,]+)/;
 export const SECURITY_REGISTRY_SPEC_PATTERN =
-  /^(?:[~^]|[<>=]+\s*)?(\d+(?:\.\d+){0,2}(?:-[0-9A-Za-z.-]+)?)/;
+  /^(?:[~^]\s*|[<>=]+\s*)?(\d+(?:\.\d+){0,2}(?:-[0-9A-Za-z.-]+)?)/;
 
 export const GITHUB_TOKEN_URL = "https://github.com/settings/tokens";
 export const SNYK_TOKEN_URL = "https://app.snyk.io/account";

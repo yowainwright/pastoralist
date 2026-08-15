@@ -1,9 +1,11 @@
-import { test, expect } from "bun:test";
+import { errorIncludes } from "../setup.ts";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 import { ConcurrencyLimiter, createLimit } from "../../../src/utils/limit";
 
 test("ConcurrencyLimiter - should throw on invalid concurrency", () => {
-  expect(() => new ConcurrencyLimiter(0)).toThrow("Concurrency must be at least 1");
-  expect(() => new ConcurrencyLimiter(-1)).toThrow("Concurrency must be at least 1");
+  assert.throws(() => new ConcurrencyLimiter(0), errorIncludes("Concurrency must be at least 1"));
+  assert.throws(() => new ConcurrencyLimiter(-1), errorIncludes("Concurrency must be at least 1"));
 });
 
 test("ConcurrencyLimiter - should limit concurrent executions", async () => {
@@ -25,9 +27,9 @@ test("ConcurrencyLimiter - should limit concurrent executions", async () => {
     limiter.run(createTask(4, 50)),
   ]);
 
-  expect(results).toEqual([1, 2, 3, 4]);
-  expect(execution).toEqual([1, 2, 3, 4]);
-  expect(completion).toEqual([1, 2, 3, 4]);
+  assert.deepStrictEqual(results, [1, 2, 3, 4]);
+  assert.deepStrictEqual(execution, [1, 2, 3, 4]);
+  assert.deepStrictEqual(completion, [1, 2, 3, 4]);
 });
 
 test("ConcurrencyLimiter - should track active count correctly", async () => {
@@ -46,9 +48,9 @@ test("ConcurrencyLimiter - should track active count correctly", async () => {
     limiter.run(createTask(10)),
   ]);
 
-  expect(activeCounts[0]).toBe(1);
-  expect(activeCounts[1]).toBe(2);
-  expect(limiter.activeCount).toBe(0);
+  assert.strictEqual(activeCounts[0], 1);
+  assert.strictEqual(activeCounts[1], 2);
+  assert.strictEqual(limiter.activeCount, 0);
 });
 
 test("ConcurrencyLimiter - should track queue size correctly", async () => {
@@ -63,13 +65,13 @@ test("ConcurrencyLimiter - should track queue size correctly", async () => {
   const promise2 = limiter.run(createTask(20));
   const promise3 = limiter.run(createTask(20));
 
-  expect(limiter.queueSize).toBe(2);
-  expect(limiter.activeCount).toBe(1);
+  assert.strictEqual(limiter.queueSize, 2);
+  assert.strictEqual(limiter.activeCount, 1);
 
   await Promise.all([promise1, promise2, promise3]);
 
-  expect(limiter.queueSize).toBe(0);
-  expect(limiter.activeCount).toBe(0);
+  assert.strictEqual(limiter.queueSize, 0);
+  assert.strictEqual(limiter.activeCount, 0);
 });
 
 test("ConcurrencyLimiter - should handle task errors", async () => {
@@ -91,12 +93,12 @@ test("ConcurrencyLimiter - should handle task errors", async () => {
     limiter.run(successTask),
   ]);
 
-  expect(results[0].status).toBe("fulfilled");
-  expect(results[1].status).toBe("rejected");
-  expect(results[2].status).toBe("fulfilled");
+  assert.strictEqual(results[0].status, "fulfilled");
+  assert.strictEqual(results[1].status, "rejected");
+  assert.strictEqual(results[2].status, "fulfilled");
 });
 
-test("ConcurrencyLimiter - clear should remove pending tasks", async () => {
+test("ConcurrencyLimiter - clear rejects pending tasks", async () => {
   const limiter = new ConcurrencyLimiter(1);
   const executed: number[] = [];
 
@@ -106,19 +108,22 @@ test("ConcurrencyLimiter - clear should remove pending tasks", async () => {
     return id;
   };
 
-  limiter.run(createTask(1));
-  limiter.run(createTask(2));
-  limiter.run(createTask(3));
+  const active = limiter.run(createTask(1));
+  const pending = [limiter.run(createTask(2)), limiter.run(createTask(3))];
 
-  expect(limiter.queueSize).toBe(2);
+  assert.strictEqual(limiter.queueSize, 2);
 
   limiter.clear();
 
-  expect(limiter.queueSize).toBe(0);
+  assert.strictEqual(limiter.queueSize, 0);
+  const timeout = new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), 10));
+  const settled = await Promise.race([Promise.allSettled(pending), timeout]);
 
-  await new Promise((resolve) => setTimeout(resolve, 30));
-
-  expect(executed).toEqual([1]);
+  assert.notStrictEqual(settled, "timeout");
+  assert.ok(Array.isArray(settled));
+  assert.ok(settled.every((result) => result.status === "rejected"));
+  await active;
+  assert.deepStrictEqual(executed, [1]);
 });
 
 test("createLimit - should create a working limiter function", async () => {
@@ -137,8 +142,8 @@ test("createLimit - should create a working limiter function", async () => {
     limit(createTask(3)),
   ]);
 
-  expect(results).toEqual([1, 2, 3]);
-  expect(execution).toEqual([1, 2, 3]);
+  assert.deepStrictEqual(results, [1, 2, 3]);
+  assert.deepStrictEqual(execution, [1, 2, 3]);
 });
 
 test("createLimit - should handle concurrent batches", async () => {
@@ -150,7 +155,7 @@ test("createLimit - should handle concurrent batches", async () => {
 
   const results = await Promise.all(tasks.map((task) => limit(task)));
 
-  expect(results).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  assert.deepStrictEqual(results, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 });
 
 test("ConcurrencyLimiter - should process tasks sequentially with concurrency 1", async () => {
@@ -169,18 +174,18 @@ test("ConcurrencyLimiter - should process tasks sequentially with concurrency 1"
     limiter.run(createTask(3)),
   ]);
 
-  expect(order).toEqual([1, 2, 3]);
+  assert.deepStrictEqual(order, [1, 2, 3]);
 });
 
 test("ConcurrencyLimiter - should handle empty task queue", async () => {
   const limiter = new ConcurrencyLimiter(5);
 
-  expect(limiter.queueSize).toBe(0);
-  expect(limiter.activeCount).toBe(0);
+  assert.strictEqual(limiter.queueSize, 0);
+  assert.strictEqual(limiter.activeCount, 0);
 
   const result = await limiter.run(async () => "test");
 
-  expect(result).toBe("test");
-  expect(limiter.queueSize).toBe(0);
-  expect(limiter.activeCount).toBe(0);
+  assert.strictEqual(result, "test");
+  assert.strictEqual(limiter.queueSize, 0);
+  assert.strictEqual(limiter.activeCount, 0);
 });

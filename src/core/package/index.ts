@@ -921,7 +921,8 @@ export const parseNpmLockGraph = (root: string): Record<string, string[]> | unde
       Boolean(lock.dependencies) &&
       typeof lock.dependencies === "object" &&
       !Array.isArray(lock.dependencies);
-    if (!hasPackages && !hasDependencies) return undefined;
+    const hasNoDependencyData = !hasPackages && !hasDependencies;
+    if (hasNoDependencyData) return undefined;
     const inverted: Record<string, string[]> = {};
     if (lock.packages) {
       Object.entries(lock.packages).forEach(([key, pkg]) => {
@@ -1024,7 +1025,9 @@ const hasYarnLockStructure = (content: string): boolean =>
   content.split("\n").some((line) => {
     const isClassicHeader = line.startsWith("# yarn lockfile v");
     const isBerryMetadata = line.trim() === "__metadata:";
-    return isClassicHeader || isBerryMetadata || Boolean(parseYarnLockPackageName(line));
+    const isPackageHeader = Boolean(parseYarnLockPackageName(line));
+    const isYarnLockLine = isClassicHeader || isBerryMetadata || isPackageHeader;
+    return isYarnLockLine;
   });
 
 export const parseYarnLockGraph = (root: string): Record<string, string[]> | undefined => {

@@ -159,7 +159,9 @@ const isQueryableSecuritySpec = (spec: string): boolean => {
   const normalizedSpec = spec.trim();
   const isVersionSpec = SECURITY_REGISTRY_SPEC_PATTERN.test(normalizedSpec);
   const isDistTag = SECURITY_DIST_TAG_PATTERN.test(normalizedSpec);
-  return isVersionSpec || isDistTag || normalizedSpec === "*";
+  const isWildcard = normalizedSpec === "*";
+  const isQueryable = isVersionSpec || isDistTag || isWildcard;
+  return isQueryable;
 };
 
 const getQueryableSecurityDependencies = (

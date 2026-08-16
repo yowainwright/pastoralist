@@ -3,9 +3,9 @@ import {
   assertContainsEqual,
   assertDoesNotContainEqual,
   errorIncludes,
-} from "../setup.ts";
+} from "../setup";
 import { describe, test } from "node:test";
-import { mock } from "../setup.ts";
+import { mock } from "../setup";
 import assert from "node:assert/strict";
 import {
   buildCurrentVersionTagPlan,

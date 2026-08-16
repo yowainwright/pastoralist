@@ -1,5 +1,5 @@
 import { test, mock as moduleMock } from "node:test";
-import { mock } from "../../../setup.ts";
+import { mock } from "../../../setup";
 import assert from "node:assert/strict";
 import * as originalPrompts from "../../../../../src/utils/prompts";
 import * as originalUtils from "../../../../../src/utils";
@@ -25,22 +25,22 @@ const loadExternalConfigMock = mock(originalConfig.loadExternalConfig);
 const formatCompletionMock = mock(originalDx.formatCompletion);
 const shimmerFrameMock = mock(originalShimmer.shimmerFrame);
 
-moduleMock.module(new URL("../../../../../src/utils/prompts/index.ts", import.meta.url), {
+moduleMock.module(import.meta.resolve("../../../../../src/utils/prompts/index"), {
   namedExports: Object.assign({}, originalPrompts, { createPrompt: createPromptMock }),
 });
-moduleMock.module(new URL("../../../../../src/utils/index.ts", import.meta.url), {
+moduleMock.module(import.meta.resolve("../../../../../src/utils/index"), {
   namedExports: Object.assign({}, originalUtils, { logger: loggerMock }),
 });
-moduleMock.module(new URL("../../../../../src/core/package/index.ts", import.meta.url), {
+moduleMock.module(import.meta.resolve("../../../../../src/core/package/index"), {
   namedExports: Object.assign({}, originalPackageJSON, { resolveJSON: resolveJSONMock }),
 });
-moduleMock.module(new URL("../../../../../src/config/index.ts", import.meta.url), {
+moduleMock.module(import.meta.resolve("../../../../../src/config/index"), {
   namedExports: Object.assign({}, originalConfig, { loadExternalConfig: loadExternalConfigMock }),
 });
-moduleMock.module(new URL("../../../../../src/dx/index.ts", import.meta.url), {
+moduleMock.module(import.meta.resolve("../../../../../src/dx/index"), {
   namedExports: Object.assign({}, originalDx, { formatCompletion: formatCompletionMock }),
 });
-moduleMock.module(new URL("../../../../../src/dx/shimmer.ts", import.meta.url), {
+moduleMock.module(import.meta.resolve("../../../../../src/dx/shimmer"), {
   namedExports: Object.assign({}, originalShimmer, { shimmerFrame: shimmerFrameMock }),
 });
 

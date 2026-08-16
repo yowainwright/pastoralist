@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { slugify, extractHeadings } from "../../../../src/lib/mdx/extractHeadings.ts";
+import { slugify, extractHeadings } from "../../../../src/lib/mdx/extractHeadings";
 
 describe("slugify", () => {
   test("should lowercase text", () => {

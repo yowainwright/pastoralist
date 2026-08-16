@@ -1,4 +1,4 @@
-import { anyValue, assertHasProperty, assertLacksProperty, assertMatches } from "../../setup.ts";
+import { anyValue, assertHasProperty, assertLacksProperty, assertMatches } from "../../setup";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { SecurityOverrideDetail, Appendix, AppendixItem } from "../../../../src/types";

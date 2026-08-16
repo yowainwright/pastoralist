@@ -1,4 +1,4 @@
-import { assertHasProperty, errorIncludes } from "../../../setup.ts";
+import { assertHasProperty, errorIncludes } from "../../../setup";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { GitHubSecurityProvider } from "../../../../../src/core/security/providers/github";

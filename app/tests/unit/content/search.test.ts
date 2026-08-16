@@ -4,8 +4,8 @@ import {
   buildSearchDocuments,
   createSearchIndex,
   getSearchResults,
-} from "../../../src/content/search.ts";
-import type { DocMeta } from "../../../src/content/types.ts";
+} from "../../../src/content/search";
+import type { DocMeta } from "../../../src/content/types";
 
 test("finds terms deep in document content", () => {
   const docs = [

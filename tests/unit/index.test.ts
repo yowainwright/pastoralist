@@ -7,7 +7,7 @@ import type { Appendix } from "../../src/types";
 test("package entrypoint imports when the argv path does not exist", async () => {
   const originalEntry = process.argv[1];
   process.argv[1] = resolve("virtual-pastoralist-entry");
-  const entrypoint = new URL("../../src/index.ts?virtual-entry", import.meta.url);
+  const entrypoint = new URL("../../src/index?virtual-entry", import.meta.url);
 
   try {
     await assert.doesNotReject(() => import(entrypoint.href));

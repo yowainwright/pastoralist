@@ -1,4 +1,4 @@
-import { anyValue, assertCalledWith, spyOn, stringContaining } from "../setup.ts";
+import { anyValue, assertCalledWith, spyOn, stringContaining } from "../setup";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { logger } from "../../../src/utils";

@@ -1,4 +1,4 @@
-import { errorIncludes, mock } from "../../../setup.ts";
+import { errorIncludes, mock } from "../../../setup";
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { SpektionProvider } from "../../../../../src/core/security/providers/spektion";

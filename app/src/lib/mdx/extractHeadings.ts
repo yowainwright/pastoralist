@@ -1,6 +1,6 @@
 import GithubSlugger from "github-slugger";
-import type { Heading } from "./types.ts";
-import { HEADING_REGEX } from "./constants.ts";
+import type { Heading } from "./types";
+import { HEADING_REGEX } from "./constants";
 
 export function slugify(text: string): string {
   const slugger = new GithubSlugger();

@@ -1,4 +1,4 @@
-import { assertCalledWith, assertHasProperty, mock } from "../setup.ts";
+import { assertCalledWith, assertHasProperty, mock } from "../setup";
 import { test, afterEach, beforeEach, mock as moduleMock } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
@@ -11,7 +11,7 @@ import * as originalPackageJSON from "../../../src/core/package";
 
 const getDependencyTreeMock = mock(originalPackageJSON.getDependencyTree);
 
-moduleMock.module(new URL("../../../src/core/package/index.ts", import.meta.url), {
+moduleMock.module(import.meta.resolve("../../../src/core/package/index"), {
   namedExports: Object.assign({}, originalPackageJSON, {
     getDependencyTree: getDependencyTreeMock,
   }),

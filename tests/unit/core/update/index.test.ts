@@ -1,4 +1,4 @@
-import { assertHasProperty } from "../../setup.ts";
+import { assertHasProperty } from "../../setup";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync, rmSync, existsSync } from "fs";

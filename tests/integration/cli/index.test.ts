@@ -1,5 +1,5 @@
 import { test, beforeEach, afterEach } from "node:test";
-import { mock } from "../../unit/setup.ts";
+import { mock } from "../../unit/setup";
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from "fs";
 import { resolve } from "path";

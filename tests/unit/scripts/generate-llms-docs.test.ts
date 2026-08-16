@@ -1,4 +1,4 @@
-import { assertCalledWith, mock } from "../setup.ts";
+import { assertCalledWith, mock } from "../setup";
 import { afterEach, describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { resolve } from "node:path";

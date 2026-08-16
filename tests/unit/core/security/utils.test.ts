@@ -4,9 +4,9 @@ import {
   errorIncludes,
   notStringContaining,
   stringContaining,
-} from "../../setup.ts";
+} from "../../setup";
 import { test, mock as moduleMock } from "node:test";
-import { mock, spyOn } from "../../setup.ts";
+import { mock, spyOn } from "../../setup";
 import assert from "node:assert/strict";
 import * as readline from "readline";
 import type { SecurityAlert } from "../../../../src/core/security/types";

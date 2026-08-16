@@ -10,11 +10,19 @@ type ResolveHook = NonNullable<Parameters<typeof registerHooks>[0]["resolve"]>;
 type ResolveContext = Parameters<ResolveHook>[1];
 type NextResolve = Parameters<ResolveHook>[2];
 
+const appendExtension = (specifier: string, extension: string): string => {
+  const queryIndex = specifier.indexOf("?");
+  if (queryIndex === -1) return `${specifier}${extension}`;
+  const path = specifier.slice(0, queryIndex);
+  const query = specifier.slice(queryIndex);
+  return `${path}${extension}${query}`;
+};
+
 const resolveCandidates = (specifier: string): readonly string[] => [
-  `${specifier}.ts`,
-  `${specifier}.tsx`,
-  `${specifier}/index.ts`,
-  `${specifier}/index.tsx`,
+  appendExtension(specifier, ".ts"),
+  appendExtension(specifier, ".tsx"),
+  appendExtension(`${specifier}/index`, ".ts"),
+  appendExtension(`${specifier}/index`, ".tsx"),
 ];
 
 const tryResolve = (specifier: string, context: ResolveContext, nextResolve: NextResolve) => {
@@ -33,8 +41,9 @@ const resolveTypeScript = (
   try {
     return nextResolve(specifier, context);
   } catch (error) {
-    const isRelative = specifier.startsWith(".") || specifier.startsWith("/");
-    if (!isRelative) throw error;
+    const isFileUrl = specifier.startsWith("file:");
+    const isLocal = isFileUrl || specifier.startsWith(".") || specifier.startsWith("/");
+    if (!isLocal) throw error;
 
     const results = resolveCandidates(specifier).map((candidate) =>
       tryResolve(candidate, context, nextResolve),
@@ -402,7 +411,7 @@ export function safeResolve(...pathSegments: string[]): string {
 const rootPackageCorruptionError = (actualName: unknown): Error =>
   new Error(
     `[CRITICAL TEST ISOLATION FAILURE] Root package.json has been corrupted!\n` +
-      `Expected name: "pastoralist"\n` +
+      `Expected a Pastoralist package name\n` +
       `Actual name: "${actualName}"\n` +
       `This means a test wrote to the root package.json file.\n` +
       `All tests must be stopped immediately.`,
@@ -412,7 +421,9 @@ export function validateRootPackageJsonIntegrity(): void {
   try {
     const rootPkgContent = safeReadFileSync(ROOT_PACKAGE_JSON, "utf8");
     const rootPkg = JSON.parse(rootPkgContent);
-    if (rootPkg.name === "pastoralist") return;
+    const isPastoralistPackage = rootPkg.name === "pastoralist";
+    const isDocsPackage = rootPkg.name === "pastoralist-docs";
+    if (isPastoralistPackage || isDocsPackage) return;
 
     const error = rootPackageCorruptionError(rootPkg.name);
     console.error(error.message);

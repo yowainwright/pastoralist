@@ -1,5 +1,5 @@
 import { test, beforeEach, afterEach } from "node:test";
-import { mock } from "../../setup.ts";
+import { mock } from "../../setup";
 import assert from "node:assert/strict";
 import { SecurityChecker } from "../../../../src/core/security";
 import type { SecurityOverride } from "../../../../src/types";

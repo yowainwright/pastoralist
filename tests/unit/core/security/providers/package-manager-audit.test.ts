@@ -1,4 +1,4 @@
-import { assertMatches, errorIncludes, mock, objectContaining, spyOn } from "../../../setup.ts";
+import { assertMatches, errorIncludes, mock, objectContaining, spyOn } from "../../../setup";
 import { test, describe, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { PackageManagerAuditProvider } from "../../../../../src/core/security/providers/package-manager-audit";

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { capturePrerenderState, clearPrerenderMarker } from "../../../src/lib/utils.ts";
+import { capturePrerenderState, clearPrerenderMarker } from "../../../src/lib/utils";
 
 test("clears prerender state without changing other root data", () => {
   const rootElement = {

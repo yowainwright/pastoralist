@@ -1,6 +1,6 @@
-import { assertCalledWith, errorIncludes, objectContaining } from "../../../setup.ts";
+import { assertCalledWith, errorIncludes, objectContaining } from "../../../setup";
 import { test } from "node:test";
-import { mock } from "../../../setup.ts";
+import { mock } from "../../../setup";
 import assert from "node:assert/strict";
 import { SocketCLIProvider } from "../../../../../src/core/security/providers/socket";
 

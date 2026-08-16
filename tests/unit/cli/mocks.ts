@@ -1,4 +1,4 @@
-import { mock } from "../setup.ts";
+import { mock } from "../setup";
 import type { BestCaseResult } from "../../../src/core/best-case";
 import type { PastoralistJSON, SecurityAlert } from "../../../src/types";
 import { logger as createLogger } from "../../../src/utils";

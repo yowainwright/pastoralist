@@ -1,4 +1,4 @@
-import { assertMatchObject, errorIncludes, mock } from "../../../setup.ts";
+import { assertMatchObject, errorIncludes, mock } from "../../../setup";
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { OSVProvider, clearOSVCache } from "../../../../../src/core/security/providers/osv";

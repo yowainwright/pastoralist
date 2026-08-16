@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { SECTION_ID, CONTENT, STYLES } from "../constants.ts";
+import { SECTION_ID, CONTENT, STYLES } from "../constants";
 
 describe("GetStartedSection", () => {
   describe("constants", () => {

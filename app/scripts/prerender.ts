@@ -1,8 +1,8 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Effect, Schema } from "effect";
-import { DOCS } from "../src/content/constants.ts";
-import type { DocMeta } from "../src/content/types.ts";
+import { DOCS } from "../src/content/constants";
+import type { DocMeta } from "../src/content/types";
 
 const DIST_DIR = path.resolve(import.meta.dirname, "../dist");
 const SERVER_ENTRYPOINT = new URL("../dist-server/entry-server.js", import.meta.url).href;

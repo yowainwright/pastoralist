@@ -6,7 +6,7 @@ import {
   buildStaticRoutes,
   createStaticDocument,
   validateStaticDocument,
-} from "../../../scripts/prerender.ts";
+} from "../../../scripts/prerender";
 
 const template = `<!doctype html>
 <html>

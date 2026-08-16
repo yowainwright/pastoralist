@@ -1,5 +1,5 @@
 import { test } from "node:test";
-import { mock } from "../../setup.ts";
+import { mock } from "../../setup";
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

@@ -1,4 +1,4 @@
-import { errorIncludes, mock } from "../setup.ts";
+import { errorIncludes, mock } from "../setup";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { PastoralistJSON, SecurityAlert } from "../../../src/types";

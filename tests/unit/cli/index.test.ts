@@ -4,9 +4,9 @@ import {
   assertMatchObject,
   errorIncludes,
   objectContaining,
-} from "../setup.ts";
+} from "../setup";
 import { test } from "node:test";
-import { mock } from "../setup.ts";
+import { mock } from "../setup";
 import assert from "node:assert/strict";
 import packageJSON from "../../../package.json" with { type: "json" };
 import {

@@ -1,5 +1,5 @@
 import { test } from "node:test";
-import { mock } from "../setup.ts";
+import { mock } from "../setup";
 import assert from "node:assert/strict";
 import type { BestCaseResult } from "../../../src/core/best-case";
 import type { Options, PastoralistJSON, SecurityAlert } from "../../../src/types";

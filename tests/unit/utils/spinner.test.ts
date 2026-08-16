@@ -1,11 +1,6 @@
-import {
-  assertCalledWith,
-  assertNotCalledWith,
-  stringContaining,
-  stringMatching,
-} from "../setup.ts";
+import { assertCalledWith, assertNotCalledWith, stringContaining, stringMatching } from "../setup";
 import { test } from "node:test";
-import { spyOn } from "../setup.ts";
+import { spyOn } from "../setup";
 import assert from "node:assert/strict";
 import {
   createSpinner,

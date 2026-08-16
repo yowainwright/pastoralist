@@ -1,5 +1,5 @@
 import { test, beforeEach, afterEach, mock as moduleMock } from "node:test";
-import { mock } from "../setup.ts";
+import { mock } from "../setup";
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import * as fs from "fs";

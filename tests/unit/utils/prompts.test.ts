@@ -1,4 +1,4 @@
-import { assertCalledWith, mock, spyOn } from "../setup.ts";
+import { assertCalledWith, mock, spyOn } from "../setup";
 import { test, beforeEach, afterEach, mock as moduleMock } from "node:test";
 import assert from "node:assert/strict";
 import type { PromptChoice } from "../../../src/utils/prompts/types";
@@ -11,7 +11,7 @@ const enhancedQuestion = mock(originalInput.enhancedQuestion);
 moduleMock.module("readline", {
   namedExports: Object.assign({}, readline, { createInterface }),
 });
-moduleMock.module(new URL("../../../src/utils/prompts/input.ts", import.meta.url), {
+moduleMock.module(import.meta.resolve("../../../src/utils/prompts/input"), {
   namedExports: Object.assign({}, originalInput, { enhancedQuestion }),
 });
 

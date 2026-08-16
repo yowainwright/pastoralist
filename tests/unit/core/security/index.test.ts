@@ -1,8 +1,8 @@
-import { anyValue, assertCalledWith, assertMatchObject, errorIncludes } from "../../setup.ts";
+import { anyValue, assertCalledWith, assertMatchObject, errorIncludes } from "../../setup";
 process.env.PASTORALIST_MOCK_SECURITY = "true";
 
 import { test, beforeEach, afterEach } from "node:test";
-import { mock, spyOn } from "../../setup.ts";
+import { mock, spyOn } from "../../setup";
 import assert from "node:assert/strict";
 import { SecurityChecker } from "../../../../src/core/security";
 import { GitHubSecurityProvider } from "../../../../src/core/security/providers/github";

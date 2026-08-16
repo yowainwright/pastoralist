@@ -1,6 +1,6 @@
-import { assertCalledWith, errorIncludes, objectContaining } from "../../../setup.ts";
+import { assertCalledWith, errorIncludes, objectContaining } from "../../../setup";
 import { test, afterEach } from "node:test";
-import { mock } from "../../../setup.ts";
+import { mock } from "../../../setup";
 import assert from "node:assert/strict";
 import { SnykCLIProvider } from "../../../../../src/core/security/providers/snyk";
 import type { SnykResult, SecurityAlert, SnykAlertVulnerability } from "../../../../../src/types";

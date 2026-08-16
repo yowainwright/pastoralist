@@ -1,4 +1,4 @@
-import { errorIncludes } from "../../setup.ts";
+import { errorIncludes } from "../../setup";
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { parseArgs } from "../../../../src/cli/parser";

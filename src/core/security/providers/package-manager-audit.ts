@@ -10,7 +10,11 @@ import type {
 } from "../../../types";
 import { logger } from "../../../utils";
 import { detectPackageManager } from "../../package";
-import { DEFAULT_AUDIT_TIMEOUT, SEVERITY_MAP } from "../constants";
+import {
+  DEFAULT_AUDIT_TIMEOUT,
+  SECURITY_PATCHED_VERSION_PATTERN,
+  SEVERITY_MAP,
+} from "../constants";
 
 export class PackageManagerAuditProvider {
   readonly providerType = "npm" as const;
@@ -184,7 +188,7 @@ export class PackageManagerAuditProvider {
     const hasNoFixMessage = patchedVersions === "No fix available";
     const hasNoFix = isUnavailable || hasNoFixMessage;
     if (hasNoFix) return undefined;
-    const match = patchedVersions.match(/>=\s*([\d.]+)/);
+    const match = patchedVersions.match(SECURITY_PATCHED_VERSION_PATTERN);
     return match?.[1];
   }
 

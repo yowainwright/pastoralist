@@ -23,8 +23,15 @@ export const GITHUB_REPOSITORY_PATTERN = /github\.com[:/][^/]+\/([^/\s]+)$/;
 export const GITHUB_REPOSITORY_SUFFIX_PATTERN = /\.git$/;
 export const GITHUB_NEXT_LINK_PATTERN = /<([^>]+)>/;
 export const GITHUB_VULNERABLE_LOWER_BOUND_PATTERN = />= ?([^\s,]+)/;
+export const SECURITY_BOUNDED_MINIMUM_PATTERN = />=\s*([^\s,]+)/;
+export const SECURITY_BOUNDED_MAXIMUM_PATTERN = /(<=?)\s*([^\s,]+)/;
+export const SECURITY_EXACT_RANGE_PATTERN = /^=\s*([^\s,]+)$/;
+export const SECURITY_EXACT_VERSION_PATTERN =
+  /^(\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?)$/;
+export const SECURITY_PATCHED_VERSION_PATTERN = />=\s*([\d.]+)/;
 export const SECURITY_REGISTRY_SPEC_PATTERN =
   /^(?:[~^]\s*|[<>=]+\s*)?(\d+(?:\.\d+){0,2}(?:-[0-9A-Za-z.-]+)?)/;
+export const SECURITY_VERSION_PREFIX_PATTERN = /^[\^~]/;
 
 export const GITHUB_TOKEN_URL = "https://github.com/settings/tokens";
 export const SNYK_TOKEN_URL = "https://app.snyk.io/account";
@@ -147,7 +154,7 @@ export const GH_MESSAGES = {
 
 export const VALIDATION_ENDPOINTS = {
   github: "https://api.github.com/user",
-  snyk: "https://api.snyk.io/rest/self",
+  snyk: "https://api.snyk.io/rest/self?version=2024-10-15",
   socket: "https://api.socket.dev/v0/organizations",
 } as const;
 

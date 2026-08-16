@@ -17,9 +17,13 @@ import {
   DEFAULT_INSTALL_TIMEOUT,
   DEFAULT_PROMPT_TIMEOUT,
   PROMPT_SELECT_MAX_ATTEMPTS,
+  SECURITY_BOUNDED_MAXIMUM_PATTERN,
+  SECURITY_BOUNDED_MINIMUM_PATTERN,
+  SECURITY_EXACT_RANGE_PATTERN,
   SECURITY_REGISTRY_SPEC_PATTERN,
   SECURITY_ACTION_CHOICES,
   SECURITY_SUMMARY_SEVERITIES,
+  SECURITY_VERSION_PREFIX_PATTERN,
 } from "./constants";
 import type {
   CLIInstallOptions,
@@ -127,8 +131,8 @@ const checkBoundedRange = (version: string, range: string): boolean | null => {
   const isRangeBounded = range.includes(">=") && range.includes("<");
   if (!isRangeBounded) return null;
 
-  const [, minVersion] = range.match(/>=\s*([^\s,]+)/) || [];
-  const [, upperOperator, maxVersion] = range.match(/(<=?)\s*([^\s,]+)/) || [];
+  const [, minVersion] = range.match(SECURITY_BOUNDED_MINIMUM_PATTERN) || [];
+  const [, upperOperator, maxVersion] = range.match(SECURITY_BOUNDED_MAXIMUM_PATTERN) || [];
   const hasValidBounds = Boolean(minVersion && maxVersion);
   if (!hasValidBounds) return null;
 
@@ -143,7 +147,7 @@ const checkBoundedRange = (version: string, range: string): boolean | null => {
 };
 
 const checkExactVersion = (version: string, range: string): boolean | null => {
-  const [, exactVersion] = range.match(/^=\s*([^\s,]+)$/) || [];
+  const [, exactVersion] = range.match(SECURITY_EXACT_RANGE_PATTERN) || [];
   if (!exactVersion) return null;
   const isExactVersion = compareVersions(version, exactVersion) === 0;
   return isExactVersion;
@@ -153,7 +157,7 @@ const checkLessThanOrEqual = (version: string, range: string): boolean | null =>
   const isLessThanOrEqual = range.startsWith("<=");
   if (!isLessThanOrEqual) return null;
 
-  const maxVersion = range.replace(/<= ?/, "");
+  const maxVersion = range.slice(2).trim();
   return compareVersions(version, maxVersion) <= 0;
 };
 
@@ -161,7 +165,7 @@ const checkLessThan = (version: string, range: string): boolean | null => {
   const isLessThan = range.startsWith("<") && !range.startsWith("<=");
   if (!isLessThan) return null;
 
-  const maxVersion = range.replace(/< ?/, "");
+  const maxVersion = range.slice(1).trim();
   return compareVersions(version, maxVersion) < 0;
 };
 
@@ -169,13 +173,13 @@ const checkGreaterThanOrEqual = (version: string, range: string): boolean | null
   const isOpenEnded = range.startsWith(">=") && !range.includes("<");
   if (!isOpenEnded) return null;
 
-  const minVersion = range.replace(/>= ?/, "");
+  const minVersion = range.slice(2).trim();
   return compareVersions(version, minVersion) >= 0;
 };
 
 export const isVersionVulnerable = (currentVersion: string, vulnerableRange: string): boolean => {
   try {
-    const cleanVersion = currentVersion.replace(/^[\^~]/, "");
+    const cleanVersion = currentVersion.replace(SECURITY_VERSION_PREFIX_PATTERN, "");
     const boundedRange = checkBoundedRange(cleanVersion, vulnerableRange);
     if (boundedRange !== null) return boundedRange;
 

@@ -445,11 +445,10 @@ export class SecuritySetupWizard {
       const response = await fetch(VALIDATION_ENDPOINTS.snyk, {
         headers: {
           Authorization: `token ${token}`,
+          "Content-Type": "application/vnd.api+json",
         },
       });
-      const isOk = response.ok;
-      const is404 = response.status === 404;
-      return isOk || is404;
+      return response.ok;
     } catch {
       return false;
     }

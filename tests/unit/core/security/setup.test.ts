@@ -186,7 +186,7 @@ test("VALIDATION_ENDPOINTS - has github endpoint", () => {
 });
 
 test("VALIDATION_ENDPOINTS - has snyk endpoint", () => {
-  assert.strictEqual(VALIDATION_ENDPOINTS.snyk, "https://api.snyk.io/rest/self");
+  assert.strictEqual(VALIDATION_ENDPOINTS.snyk, "https://api.snyk.io/rest/self?version=2024-10-15");
 });
 
 test("VALIDATION_ENDPOINTS - has socket endpoint", () => {
@@ -246,11 +246,25 @@ test("checkExistingToken - warns when existing token is invalid", async () => {
   });
 });
 
-test("validateToken - validates snyk token with 404 as success", async () => {
+test("validateToken - rejects a snyk 404 response", async () => {
   const wizard = new SecuritySetupWizard();
   await withMockedFetch(createMockFetch({ ok: false, status: 404 }), async () => {
     const result = await wizard.validateToken("snyk", "test-token");
+    assert.strictEqual(result, false);
+  });
+});
+
+test("validateToken - sends a versioned snyk request", async () => {
+  const wizard = new SecuritySetupWizard();
+  const { mockFn, captured } = createMockFetchWithCapture();
+
+  await withMockedFetch(mockFn, async () => {
+    const result = await wizard.validateToken("snyk", "test-token");
+
     assert.strictEqual(result, true);
+    assert.strictEqual(captured.url, VALIDATION_ENDPOINTS.snyk);
+    assert.strictEqual(captured.headers?.Authorization, "token test-token");
+    assert.strictEqual(captured.headers?.["Content-Type"], "application/vnd.api+json");
   });
 });
 
@@ -812,7 +826,7 @@ test("runSetup - shell-quotes a saved value", async () => {
 
   try {
     await withEnvToken("snyk", null, async () => {
-      await withMockedFetch(createMockFetch({ ok: false, status: 404 }), async () => {
+      await withMockedFetch(createMockFetch({ ok: true, status: 200 }), async () => {
         await withMockedStdout(async () => {
           const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
           (wizard as any).findShellProfile = () => profilePath;

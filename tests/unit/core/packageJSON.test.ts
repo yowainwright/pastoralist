@@ -1845,6 +1845,20 @@ test("getFullDependencyCount - counts packages in a Bun text lockfile", () => {
   validateRootPackageJsonIntegrity();
 });
 
+test("getFullDependencyCount - rejects unsupported legacy Bun lockfiles", () => {
+  validateRootPackageJsonIntegrity();
+  mkdirSync(lockTestDir, { recursive: true });
+  writeFileSync(resolve(lockTestDir, "bun.lockb"), "legacy binary lockfile");
+
+  assert.throws(
+    () => getFullDependencyCount(lockTestDir),
+    errorIncludes("Legacy bun.lockb is unsupported"),
+  );
+
+  rmSync(lockTestDir, { recursive: true, force: true });
+  validateRootPackageJsonIntegrity();
+});
+
 test("getFullDependencyCount - returns 0 when no lock files exist", () => {
   validateRootPackageJsonIntegrity();
   mkdirSync(lockTestDir, { recursive: true });

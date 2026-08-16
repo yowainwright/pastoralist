@@ -166,14 +166,10 @@ const mockLatestBestCaseVersion = (checker: SecurityChecker): void => {
 };
 
 const createLockedBaselineChecker = (): SecurityChecker => {
-  const alert = Object.assign({}, createBestCaseAlert(), {
-    vulnerableVersions: "<1.2.0",
-    patchedVersion: "1.2.0",
-  });
   const checker = new SecurityChecker({ provider: "osv", noCache: true });
   spyOn(getFirstProvider(checker), "fetchAlerts").mockImplementation(([pkg]) => {
     assert.ok(!pkg.version.includes("("));
-    const alerts = pkg.version === "1.0.0" ? [alert] : [];
+    const alerts = pkg.version === "1.5.0" ? [] : [createBestCaseAlert()];
     return Promise.resolve(alerts);
   });
   mockLatestBestCaseVersion(checker);
@@ -709,6 +705,68 @@ test("checkSecurity - should handle both dependencies and devDependencies", asyn
   mockFetchAlerts.mockRestore();
 });
 
+test("checkSecurity - uses locked versions for semver range dependencies", async () => {
+  const config: PastoralistJSON = {
+    name: "test-package",
+    version: "1.0.0",
+    dependencies: {
+      alpha: "^1.0.0",
+      beta: "~ 2.0.0",
+    },
+  };
+  const root = createBestCaseRoot([
+    { name: "alpha", version: "1.5.0" },
+    { name: "beta", version: "2.0.4" },
+  ]);
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([]);
+
+  const result = await checker.checkSecurity(config, { root });
+
+  assert.strictEqual(result.packagesScanned, 2);
+  assertCalledWith(
+    fetchAlerts,
+    [
+      { name: "alpha", version: "1.5.0" },
+      { name: "beta", version: "2.0.4" },
+    ],
+    { root, requireCompleteScan: false, onIncomplete: anyValue(Function) },
+  );
+});
+
+test("checkSecurity - rejects unresolved semver range dependencies", async () => {
+  const root = path.join(TEST_DIR, "missing-lockfile");
+  fs.mkdirSync(root, { recursive: true });
+  const config: PastoralistJSON = {
+    name: "test-package",
+    version: "1.0.0",
+    dependencies: { alpha: "^1.0.0" },
+  };
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([]);
+
+  const result = checker.checkSecurity(config, { root });
+
+  await assert.rejects(result, errorIncludes("Unable to resolve installed package versions"));
+  assert.strictEqual(fetchAlerts.mock.callCount(), 0);
+});
+
+test("checkSecurity - rejects an unreadable lockfile inventory", async () => {
+  const root = path.join(TEST_DIR, "malformed-lockfile");
+  fs.mkdirSync(root, { recursive: true });
+  fs.writeFileSync(path.join(root, "package-lock.json"), "not json");
+  const config: PastoralistJSON = {
+    name: "test-package",
+    version: "1.0.0",
+    dependencies: { alpha: "1.0.0" },
+  };
+  const checker = createCheckerWithMockAlerts({ provider: "osv", noCache: true });
+
+  const result = checker.checkSecurity(config, { root });
+
+  await assert.rejects(result, errorIncludes("Unable to read installed package versions"));
+});
+
 test("checkSecurity - applies the best-case portfolio and records its reason", async () => {
   const alphaAlert: SecurityAlert = {
     packageName: "alpha",
@@ -871,17 +929,20 @@ test("checkSecurity - filters built-in best-case alerts by severity", async () =
   assert.strictEqual(result.bestCase?.impact.remainingVulnerabilities, 0);
 });
 
-test("checkSecurity - builds best-case baselines from locked versions", async () => {
+test("checkSecurity - uses locked versions for the security baseline", async () => {
   const checker = createLockedBaselineChecker();
-  const config = createBuiltInBestCaseConfig();
-  config.dependencies = { alpha: "^1.0.0" };
-  config.pastoralist!.bestCase!.objectives = ["critical"];
+  const config: PastoralistJSON = {
+    name: "locked-baseline-test",
+    version: "1.0.0",
+    dependencies: { alpha: "^1.0.0" },
+  };
   const options = { root: createPnpmPeerBestCaseRoot() };
 
   const result = await checker.checkSecurity(config, options);
 
-  assert.deepStrictEqual(result.bestCase?.baselineState, { alpha: "1.5.0" });
-  assert.deepStrictEqual(result.bestCase?.selectedState, { alpha: "1.5.0" });
+  assert.deepStrictEqual(result.alerts, []);
+  assert.strictEqual(result.packagesScanned, 1);
+  assert.strictEqual(result.bestCase, undefined);
   assert.deepStrictEqual(result.overrides, []);
 });
 
@@ -1110,11 +1171,12 @@ test("checkSecurity - should handle workspace scanning", async () => {
         lodash: "4.17.20",
       },
     };
+    const root = createBestCaseRoot([{ name: "lodash", version: "4.17.20" }]);
 
     const checker = new SecurityChecker({ provider: "osv", noCache: true });
     const result = await checker.checkSecurity(config, {
       depPaths: ["packages/a/package.json"],
-      root: "./",
+      root,
     });
 
     assert.strictEqual(Array.isArray(result.alerts), true);

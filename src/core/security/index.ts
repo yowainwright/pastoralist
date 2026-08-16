@@ -50,12 +50,12 @@ import {
 } from "./utils";
 import { SecuritySetupWizard, promptForSetup } from "./setup";
 import type { SetupSecurityProvider } from "./types";
-import { KNOWN_PROVIDERS, PROVIDER_CONFIGS } from "./constants";
+import { KNOWN_PROVIDERS, PROVIDER_CONFIGS, SECURITY_EXACT_VERSION_PATTERN } from "./constants";
 import { readFileSync, copyFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from "fs";
 import { createHash, randomUUID } from "crypto";
 import { resolve, dirname, basename } from "path";
 import { updateAppendix } from "../appendix";
-import { getLockedPackages } from "../package";
+import { getLockedPackages, hasDependencyLockfile } from "../package";
 import { glob } from "../../utils/glob";
 import { BACKUP_CACHE_DIR, DEFAULT_MEMORY_CACHE_TTL } from "../constants";
 import {
@@ -127,6 +127,62 @@ type SecurityAlertScan = {
 };
 
 const STATE_AWARE_BEST_CASE_PROVIDERS: readonly SecurityProviderType[] = ["osv", "spektion"];
+const PACKAGE_QUERY_PROVIDERS = new Set<SecurityProviderType>(["osv", "spektion"]);
+
+type DeclaredSecurityDependency = {
+  name: string;
+  spec: string;
+};
+
+const getDeclaredSecurityDependencies = (
+  config: PastoralistJSON,
+  excludedPackages: string[],
+): DeclaredSecurityDependency[] => {
+  const dependencies = Object.assign(
+    {},
+    config.dependencies,
+    config.devDependencies,
+    config.peerDependencies,
+  );
+  return Object.entries(dependencies)
+    .filter(([name]) => !excludedPackages.includes(name))
+    .map(([name, spec]) => ({ name, spec }));
+};
+
+const resolvePinnedSecurityPackages = (
+  dependencies: DeclaredSecurityDependency[],
+): SecurityPackage[] => {
+  const packages = dependencies.flatMap(({ name, spec }) => {
+    const match = spec.trim().match(SECURITY_EXACT_VERSION_PATTERN);
+    if (!match) return [];
+    return [{ name, version: match[1] }];
+  });
+  const hasUnresolvedVersions = packages.length !== dependencies.length;
+  if (hasUnresolvedVersions) {
+    throw new Error(
+      "Unable to resolve installed package versions; add a supported lockfile or use exact versions",
+    );
+  }
+  return packages;
+};
+
+const resolveLockedSecurityPackages = (
+  dependencies: DeclaredSecurityDependency[],
+  inventory: SecurityPackage[],
+): SecurityPackage[] => {
+  const dependencyNames = new Set(dependencies.map(({ name }) => name));
+  const packages = inventory.filter(({ name }) => dependencyNames.has(name));
+  const resolvedNames = new Set(packages.map(({ name }) => name));
+  const missingNames = dependencies
+    .map(({ name }) => name)
+    .filter((name) => !resolvedNames.has(name));
+  if (missingNames.length > 0) {
+    const missingPackages = missingNames.join(", ");
+    const errorMessage = `Lockfile inventory is incomplete for security scan: ${missingPackages}`;
+    throw new Error(errorMessage);
+  }
+  return packages;
+};
 
 export class SecurityChecker {
   private providers: SecurityProvider[];
@@ -520,13 +576,39 @@ export class SecurityChecker {
       message: "Extracting packages from dependencies...",
     });
 
-    return extractPackages(config, options.excludePackages || []);
+    const excludes = options.excludePackages || [];
+    const requiresResolvedVersions = this.providers.some(({ providerType }) =>
+      PACKAGE_QUERY_PROVIDERS.has(providerType),
+    );
+    if (!requiresResolvedVersions) return extractPackages(config, excludes);
+    return this.resolveVersionScanPackages(config, excludes, options);
+  }
+
+  private resolveVersionScanPackages(
+    config: PastoralistJSON,
+    excludes: string[],
+    options: SecurityCheckRuntimeOptions,
+  ): SecurityPackage[] {
+    const root = this.resolveConfiguredPackageRoot(options);
+    const dependencies = getDeclaredSecurityDependencies(config, excludes);
+    if (!root) return resolvePinnedSecurityPackages(dependencies);
+
+    const inventory = getLockedPackages(root);
+    if (inventory) return resolveLockedSecurityPackages(dependencies, inventory);
+    if (hasDependencyLockfile(root)) {
+      throw new Error(`Unable to read installed package versions from the lockfile at ${root}`);
+    }
+    return resolvePinnedSecurityPackages(dependencies);
+  }
+
+  private resolveConfiguredPackageRoot(options: SecurityCheckRuntimeOptions): string | undefined {
+    if (options.root) return options.root;
+    if (options.packageJsonPath) return dirname(resolve(options.packageJsonPath));
+    return this.cacheRoot;
   }
 
   private resolvePackageRoot(options: SecurityCheckRuntimeOptions): string {
-    if (options.root) return options.root;
-    if (options.packageJsonPath) return dirname(resolve(options.packageJsonPath));
-    return process.cwd();
+    return this.resolveConfiguredPackageRoot(options) ?? process.cwd();
   }
 
   private hasCompleteBestCaseInventory(

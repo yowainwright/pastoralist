@@ -3,6 +3,13 @@ export const BUN_BINARY_LOCK_FILENAME = "bun.lockb";
 export const PNPM_LOCK_FILENAME = "pnpm-lock.yaml";
 export const YARN_LOCK_FILENAME = "yarn.lock";
 export const NPM_LOCK_FILENAME = "package-lock.json";
+export const DEPENDENCY_LOCK_FILENAMES = [
+  BUN_BINARY_LOCK_FILENAME,
+  BUN_LOCK_FILENAME,
+  YARN_LOCK_FILENAME,
+  PNPM_LOCK_FILENAME,
+  NPM_LOCK_FILENAME,
+] as const;
 export const TREE_CACHE_MAX_ENTRIES = 50;
 export const NPM_LS_MAX_BUFFER = 1024 * 1024 * 10;
 export const NPM_LS_TIMEOUT_MS = 60000;

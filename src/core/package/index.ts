@@ -17,6 +17,7 @@ import { showHint } from "../../dx/hint";
 import {
   BUN_BINARY_LOCK_FILENAME,
   BUN_LOCK_FILENAME,
+  DEPENDENCY_LOCK_FILENAMES,
   NPM_LOCK_FILENAME,
   NPM_LS_MAX_BUFFER,
   NPM_LS_TIMEOUT_MS,
@@ -492,7 +493,7 @@ const resolveBunInventoryPath = (root: string): string | undefined => {
   const hasLegacyLock = fs.existsSync(legacyLockPath);
   const hasOnlyLegacyLock = !hasTextLock && hasLegacyLock;
   if (hasOnlyLegacyLock) {
-    throw new Error("Legacy bun.lockb is unsupported for best-case inventory; migrate to bun.lock");
+    throw new Error("Legacy bun.lockb is unsupported; migrate to bun.lock");
   }
   const inventoryPath = hasTextLock ? lockPath : undefined;
   return inventoryPath;
@@ -776,6 +777,9 @@ export const getLockedPackages = (root: string = process.cwd()): SecurityPackage
   if (packageManager === "yarn") return parseYarnLockedPackages(root);
   return parseNpmLockedPackages(root);
 };
+
+export const hasDependencyLockfile = (root: string = process.cwd()): boolean =>
+  DEPENDENCY_LOCK_FILENAMES.some((filename) => fs.existsSync(resolve(root, filename)));
 
 const parseTreeFromLockfile = (root: string): Record<string, string> | undefined => {
   const pm = detectPackageManager(root);
@@ -1097,8 +1101,8 @@ const countPatternLockPackages = (lockPath: string, pattern: RegExp): number => 
 const getLockPath = (root: string, filename: string): string => resolve(root, filename);
 
 export const getFullDependencyCount = (root: string = "./"): number => {
-  const bunLockPath = getLockPath(root, BUN_LOCK_FILENAME);
-  if (fs.existsSync(bunLockPath)) return countBunLockPackages(bunLockPath);
+  const bunLockPath = resolveBunInventoryPath(root);
+  if (bunLockPath) return countBunLockPackages(bunLockPath);
 
   const npmLockPath = getLockPath(root, "package-lock.json");
   if (fs.existsSync(npmLockPath)) return countNpmLockPackages(npmLockPath);

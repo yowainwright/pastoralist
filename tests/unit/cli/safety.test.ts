@@ -96,6 +96,27 @@ test("compareRemovalSafety - blocks removed package when it remains vulnerable",
   );
 });
 
+test("compareRemovalSafety - preserves security overrides without a verified post-removal state", async () => {
+  const config = createConfig({ "security-pkg": "2.0.0", "ordinary-pkg": "1.0.0" });
+  config.pastoralist!.appendix!["security-pkg@2.0.0"].ledger = {
+    addedDate: "2026-08-16",
+    source: "security",
+    securityChecked: true,
+    cves: ["CVE-2026-0001"],
+  };
+  const checker = createChecker([[]]);
+
+  const comparison = await compareRemovalSafety(config, checker as any, {});
+
+  assert.strictEqual(comparison?.status, "blocked");
+  assert.deepStrictEqual(comparison?.allowedKeys, ["ordinary-pkg@1.0.0"]);
+  assert.deepStrictEqual(comparison?.blockedKeys, ["security-pkg@2.0.0"]);
+  assert.strictEqual(
+    comparison?.reason,
+    "Security-tracked overrides were kept because post-removal dependency resolution was not verified: security-pkg@2.0.0.",
+  );
+});
+
 test("compareRemovalSafety - propagates a failed baseline scan", async () => {
   const config = createConfig();
   const checker = createChecker([new Error("scan failed")]);

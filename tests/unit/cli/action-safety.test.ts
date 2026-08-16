@@ -187,6 +187,24 @@ test("action safety - current vulnerability blocks cleanup and keeps override", 
   );
 });
 
+test("action safety - keeps a security override when the current scan is clean", async () => {
+  const config = createConfig("security-pkg");
+  config.pastoralist!.appendix!["security-pkg@1.0.0"].ledger = {
+    addedDate: "2026-08-16",
+    source: "security",
+    securityChecked: true,
+    cves: ["CVE-2026-0001"],
+  };
+  const { resultPromise, getUpdateOptions } = runSafetyAction(config, []);
+
+  const result = await resultPromise;
+
+  assert.deepStrictEqual(getUpdateOptions()?.skipRemovalKeys, ["security-pkg@1.0.0"]);
+  assert.strictEqual(result.removalSafetyComparison?.status, "blocked");
+  assert.strictEqual(result.appliedOverrides?.["security-pkg"], "1.0.0");
+  assert.strictEqual(result.hasUnusedOverrides, true);
+});
+
 test("action safety - interactive approval prompt lists removable overrides", async () => {
   const config = createConfig("interactive-pkg");
   const quickConfirm = mock(() => Promise.resolve(true));

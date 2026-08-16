@@ -1,7 +1,11 @@
 import type { Options, PastoralistJSON, RemovalSafetyComparison, SecurityAlert } from "../../types";
 import type { SecurityChecker } from "../../core/security";
 import type { SecurityCheckRuntimeOptions } from "../../core/security/types";
-import { extractPackageNames, findUnusedAppendixEntries } from "../../core/appendix/utils";
+import {
+  extractPackageNames,
+  findUnusedAppendixEntries,
+  hasSecurityInfo,
+} from "../../core/appendix/utils";
 
 const getRootDependencies = (config: PastoralistJSON): Record<string, string> =>
   Object.assign({}, config.dependencies, config.devDependencies, config.peerDependencies);
@@ -76,6 +80,15 @@ const getKeysForVulnerableRemovedPackages = (
 
 const unique = (values: string[]): string[] => Array.from(new Set(values));
 
+const getSecurityTrackedKeys = (config: PastoralistJSON, removableKeys: string[]): string[] => {
+  const appendix = config.pastoralist?.appendix || {};
+  return removableKeys.filter((key) => {
+    const item = appendix[key];
+    if (!item) return false;
+    return hasSecurityInfo(item);
+  });
+};
+
 const formatReasonKeys = (keys: string[], limit = 3): string => {
   const visibleKeys = keys.slice(0, limit).join(", ");
   const remainingCount = keys.length - limit;
@@ -83,22 +96,31 @@ const formatReasonKeys = (keys: string[], limit = 3): string => {
   return `${visibleKeys} (+${remainingCount} more)`;
 };
 
-const buildBlockedReason = (vulnerableRemovedKeys: string[]): string | undefined => {
+const buildBlockedReason = (
+  securityTrackedKeys: string[],
+  vulnerableRemovedKeys: string[],
+): string | undefined => {
+  if (securityTrackedKeys.length > 0) {
+    return `Security-tracked overrides were kept because post-removal dependency resolution was not verified: ${formatReasonKeys(securityTrackedKeys)}.`;
+  }
   if (vulnerableRemovedKeys.length === 0) return undefined;
   return `Removed overrides still resolve to vulnerable packages: ${formatReasonKeys(vulnerableRemovedKeys)}.`;
 };
 
 const buildComparison = (
+  config: PastoralistJSON,
   removableKeys: string[],
   alerts: SecurityAlert[],
 ): RemovalSafetyComparison => {
   const riskScore = getRiskScore(alerts);
+  const securityTrackedKeys = getSecurityTrackedKeys(config, removableKeys);
   const vulnerableRemovedKeys = getKeysForVulnerableRemovedPackages(removableKeys, alerts);
-  const blockedKeys = unique(vulnerableRemovedKeys);
+  const blockedKeys = unique(securityTrackedKeys.concat(vulnerableRemovedKeys));
   const blockedSet = new Set(blockedKeys);
   const allowedKeys = removableKeys.filter((key) => !blockedSet.has(key));
-  const status = blockedKeys.length > 0 ? "blocked" : "safe";
-  const reason = status === "blocked" ? buildBlockedReason(vulnerableRemovedKeys) : undefined;
+  const hasBlockedKeys = blockedKeys.length > 0;
+  const status = hasBlockedKeys ? "blocked" : "safe";
+  const reason = buildBlockedReason(securityTrackedKeys, vulnerableRemovedKeys);
 
   return {
     removableKeys,
@@ -123,7 +145,7 @@ export const compareRemovalSafety = async (
   if (removableKeys.length === 0) return undefined;
 
   const alerts = await getBeforeAlerts(config, securityChecker, mergedOptions);
-  return buildComparison(removableKeys, alerts);
+  return buildComparison(config, removableKeys, alerts);
 };
 
 export const checkRemovalSafety = async (

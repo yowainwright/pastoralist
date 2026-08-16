@@ -380,14 +380,18 @@ export const mergeAppendixDependents = (
   return Object.assign({}, currentAppendix, { [key]: mergedItem });
 };
 
-const hasSecurityInfo = (item: AppendixItem): boolean => {
+export const hasSecurityInfo = (item: AppendixItem): boolean => {
   const ledger = item.ledger;
   if (!ledger) return false;
-
-  const hasLedgerSecurityInfo = Boolean(
-    ledger.securityChecked || ledger.securityProvider || ledger.cves?.length || ledger.severity,
-  );
-  return hasLedgerSecurityInfo;
+  if (ledger.source === "security") return true;
+  if (ledger.securityChecked) return true;
+  if (ledger.securityProvider) return true;
+  if (ledger.securityCheckResult) return true;
+  if (ledger.cves?.length) return true;
+  if (ledger.cveDetails?.length) return true;
+  if (ledger.severity) return true;
+  if (ledger.vulnerableRange) return true;
+  return Boolean(ledger.patchedVersion);
 };
 
 const hasPatches = (item: AppendixItem): boolean => {

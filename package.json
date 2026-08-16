@@ -38,7 +38,8 @@
     "dist",
     "scripts/setup-local-dev.sh",
     "scripts/setup-pastoralist-skill.sh",
-    "skills"
+    "skills",
+    "src/schema.json"
   ],
   "type": "module",
   "main": "dist/index.js",
@@ -47,7 +48,8 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
-    }
+    },
+    "./schema.json": "./src/schema.json"
   },
   "scripts": {
     "build": "turbo run build-dist",

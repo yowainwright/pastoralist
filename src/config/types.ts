@@ -64,6 +64,7 @@ export type SecurityConfig = {
 };
 
 export type PastoralistConfig = {
+  $schema?: string;
   appendix?: Appendix;
   appendixSource?: string;
   compactAppendix?: boolean;

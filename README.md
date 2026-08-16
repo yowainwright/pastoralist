@@ -163,10 +163,15 @@ and patched-version metadata.
 
 ## Configuration
 
+<!-- supported configuration files from src/config/constants.ts and schema export from package.json -->
+
 Pastoralist can use `package.json`, `.pastoralistrc`, `.pastoralistrc.json`,
 `pastoralist.json`, `pastoralist.config.cjs`, `pastoralist.config.js`, or
 `pastoralist.config.mjs`. External JSON config files use top-level settings;
 `package.json` keeps settings under `pastoralist`.
+
+The JSON Schema is exported as `pastoralist/schema.json`. External JSON config
+files can reference `./node_modules/pastoralist/src/schema.json` with `$schema`.
 
 ```json
 {

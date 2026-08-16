@@ -19,6 +19,16 @@ test("safeValidateConfig - should return undefined for non-object", () => {
   assert.strictEqual(safeValidateConfig([]), undefined);
 });
 
+test("validateConfig - accepts a JSON Schema reference", () => {
+  const config = { $schema: "./node_modules/pastoralist/src/schema.json" };
+
+  assert.deepStrictEqual(validateConfig(config), config);
+});
+
+test("validateConfig - rejects a non-string JSON Schema reference", () => {
+  assert.throws(() => validateConfig({ $schema: true }), errorIncludes("Invalid config structure"));
+});
+
 test("validateConfig - should accept valid appendix with ledger", () => {
   const config = {
     appendix: {

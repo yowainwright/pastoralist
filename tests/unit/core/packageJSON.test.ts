@@ -400,6 +400,7 @@ test("updatePackageJSON - should preserve other pastoralist config when removing
     version: "1.0.0",
     overrides: { lodash: "4.17.21" },
     pastoralist: {
+      $schema: "./node_modules/pastoralist/src/schema.json",
       depPaths: "workspace",
       compactAppendix: true,
       checkSecurity: true,
@@ -419,6 +420,7 @@ test("updatePackageJSON - should preserve other pastoralist config when removing
     isTesting: true,
   });
 
+  assert.strictEqual(result?.pastoralist?.$schema, "./node_modules/pastoralist/src/schema.json");
   assert.strictEqual(result?.pastoralist?.depPaths, "workspace");
   assert.strictEqual(result?.pastoralist?.compactAppendix, true);
   assert.strictEqual(result?.pastoralist?.checkSecurity, true);

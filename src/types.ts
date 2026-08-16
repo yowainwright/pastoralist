@@ -122,6 +122,7 @@ export interface CompactAppendixItem extends AppendixItem {
 export type PersistedAppendix = Record<string, AppendixItem | CompactAppendixItem>;
 
 export interface PastoralistConfig {
+  $schema?: string;
   appendix?: PersistedAppendix;
   appendixSource?: string;
   compactAppendix?: boolean;

@@ -323,6 +323,7 @@ const PASTORALIST_CONFIG_FIELDS: FieldValidation[] = createFieldValidations(
   APPENDIX_COLLECTION_FIELDS,
   validateAppendixCollection,
 ).concat([
+  { field: "$schema", validator: isString },
   { field: "appendix", validator: validateAppendix },
   { field: "appendixSource", validator: isString },
   { field: "depPaths", validator: validateDepPaths },

@@ -114,6 +114,7 @@ export const resolveJSON = (path: string): PastoralistJSON | undefined => {
 };
 
 const hasOtherPastoralistConfig = (config: PastoralistJSON): boolean => {
+  const hasSchema = Boolean(config.pastoralist?.$schema);
   const hasAppendixSource = Boolean(config.pastoralist?.appendixSource);
   const hasOverridePaths = Boolean(config.pastoralist?.overridePaths);
   const hasResolutionPaths = Boolean(config.pastoralist?.resolutionPaths);
@@ -124,6 +125,7 @@ const hasOtherPastoralistConfig = (config: PastoralistJSON): boolean => {
   const hasDepPaths = Boolean(config.pastoralist?.depPaths);
   const hasOverrideSource = Boolean(config.pastoralist?.overrideSource);
 
+  if (hasSchema) return true;
   if (hasAppendixSource) return true;
   if (hasOverridePaths) return true;
   if (hasResolutionPaths) return true;
@@ -139,6 +141,12 @@ const createBestCaseField = (config: PastoralistJSON) => {
   const bestCase = config.pastoralist?.bestCase;
   if (!bestCase) return undefined;
   return { bestCase };
+};
+
+const createSchemaField = (config: PastoralistJSON) => {
+  const schema = config.pastoralist?.$schema;
+  if (!schema) return undefined;
+  return { $schema: schema };
 };
 
 const buildPreservedConfig = (config: PastoralistJSON) => {
@@ -159,9 +167,11 @@ const buildPreservedConfig = (config: PastoralistJSON) => {
   const checkSecurityField = checkSecurity !== undefined ? { checkSecurity } : undefined;
   const compactAppendixField = compactAppendix !== undefined ? { compactAppendix } : undefined;
   const bestCaseField = createBestCaseField(config);
+  const schemaField = createSchemaField(config);
 
   return Object.assign(
     {},
+    schemaField,
     appendixSourceField,
     depPathsField,
     overridePathsField,

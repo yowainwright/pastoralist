@@ -1,0 +1,431 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pastoralist Configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "appendix": {
+      "$ref": "#/$defs/appendix"
+    },
+    "appendixSource": {
+      "type": "string"
+    },
+    "compactAppendix": {
+      "type": "boolean"
+    },
+    "depPaths": {
+      "oneOf": [
+        {
+          "enum": ["workspace", "workspaces"]
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "overrideSource": {
+      "type": "string"
+    },
+    "checkSecurity": {
+      "type": "boolean"
+    },
+    "overridePaths": {
+      "$ref": "#/$defs/appendixCollection"
+    },
+    "resolutionPaths": {
+      "$ref": "#/$defs/appendixCollection"
+    },
+    "bestCase": {
+      "$ref": "#/$defs/bestCase"
+    },
+    "security": {
+      "$ref": "#/$defs/security"
+    }
+  },
+  "$defs": {
+    "securityProvider": {
+      "enum": ["osv", "github", "snyk", "npm", "socket", "spektion"]
+    },
+    "severity": {
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "stringArray": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "nonEmptyString": {
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "keepConstraint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason"],
+      "properties": {
+        "reason": {
+          "type": "string"
+        },
+        "until": {
+          "type": "string"
+        },
+        "untilVersion": {
+          "type": "string"
+        },
+        "reviewBy": {
+          "type": "string"
+        }
+      }
+    },
+    "projectReason": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "summary"],
+      "properties": {
+        "type": {
+          "const": "project"
+        },
+        "summary": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "pin": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "patch": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        }
+      }
+    },
+    "bestCaseReason": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "summary", "decisionId", "policyHash", "search", "impact"],
+      "properties": {
+        "type": {
+          "const": "best-case"
+        },
+        "summary": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "decisionId": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "policyHash": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "search": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["evaluatedStates", "provenOptimal"],
+          "properties": {
+            "evaluatedStates": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "provenOptimal": {
+              "type": "boolean"
+            }
+          }
+        },
+        "impact": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fixedVulnerabilities",
+            "introducedVulnerabilities",
+            "remainingVulnerabilities"
+          ],
+          "properties": {
+            "fixedVulnerabilities": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "introducedVulnerabilities": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "remainingVulnerabilities": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "ledgerReason": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        {
+          "$ref": "#/$defs/projectReason"
+        },
+        {
+          "$ref": "#/$defs/bestCaseReason"
+        }
+      ]
+    },
+    "cveDetail": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cve"],
+      "properties": {
+        "cve": {
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/severity"
+        },
+        "patchedVersion": {
+          "type": "string"
+        }
+      }
+    },
+    "ledger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["addedDate"],
+      "properties": {
+        "addedDate": {
+          "type": "string"
+        },
+        "reason": {
+          "$ref": "#/$defs/ledgerReason"
+        },
+        "source": {
+          "enum": ["security", "manual"]
+        },
+        "securityChecked": {
+          "type": "boolean"
+        },
+        "securityCheckDate": {
+          "type": "string"
+        },
+        "securityCheckResult": {
+          "enum": ["clean", "error", "skipped"]
+        },
+        "securityProvider": {
+          "$ref": "#/$defs/securityProvider"
+        },
+        "cves": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "cveDetails": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/cveDetail"
+          }
+        },
+        "severity": {
+          "$ref": "#/$defs/severity"
+        },
+        "description": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "vulnerableRange": {
+          "type": "string"
+        },
+        "patchedVersion": {
+          "type": "string"
+        },
+        "keep": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/$defs/keepConstraint"
+            }
+          ]
+        },
+        "potentiallyFixedIn": {
+          "type": "string"
+        },
+        "resolvedAt": {
+          "type": "string"
+        },
+        "resolvedBy": {
+          "enum": ["upgrade", "not-applicable", "disputed"]
+        },
+        "resolvedVersion": {
+          "type": "string"
+        },
+        "confidence": {
+          "enum": ["confirmed", "possible"]
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/securityProvider"
+          }
+        }
+      }
+    },
+    "appendixItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "addedDate": {
+          "type": "string"
+        },
+        "rootDeps": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "dependents": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "patches": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "ledger": {
+          "$ref": "#/$defs/ledger"
+        }
+      }
+    },
+    "appendix": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/appendixItem"
+      }
+    },
+    "appendixCollection": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/appendix"
+      }
+    },
+    "bestCaseSearch": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": ["auto", "exact", "beam"]
+        },
+        "exactStateLimit": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "beamWidth": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxEvaluations": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "bestCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "userOwnedOverrides": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "riskAggregation": {
+          "enum": ["unique-cves", "package-exposures", "both"]
+        },
+        "objectives": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "known-exploited",
+              "critical",
+              "high",
+              "medium",
+              "low",
+              "expected-exploitation",
+              "package-exposures",
+              "compatibility",
+              "change-count",
+              "oldness"
+            ]
+          }
+        },
+        "search": {
+          "$ref": "#/$defs/bestCaseSearch"
+        }
+      }
+    },
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "provider": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/securityProvider"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/securityProvider"
+              }
+            }
+          ]
+        },
+        "autoFix": {
+          "type": "boolean"
+        },
+        "interactive": {
+          "type": "boolean"
+        },
+        "securityProviderToken": {
+          "type": "string"
+        },
+        "severityThreshold": {
+          "$ref": "#/$defs/severity"
+        },
+        "excludePackages": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "hasWorkspaceSecurityChecks": {
+          "type": "boolean"
+        },
+        "strict": {
+          "type": "boolean"
+        },
+        "preferLatest": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

@@ -31,6 +31,7 @@ import {
   parseYarnLockGraph,
   parseNpmLockGraph,
   getDependencyGraph,
+  getDependencyGraphStatus,
   clearDependencyGraphCache,
 } from "../../../src/core/package";
 import { clearHintCache } from "../../../src/dx/hint";
@@ -1941,7 +1942,7 @@ test("parseBunLockGraph - returns undefined when no bun.lock present", () => {
   assert.strictEqual(parseBunLockGraph(testDir), undefined);
 });
 
-test("parseBunLockGraph - returns undefined when no deps found", () => {
+test("parseBunLockGraph - returns an empty parsed graph when no deps are found", () => {
   mkdirSync(lockTestDir, { recursive: true });
   writeFileSync(
     resolve(lockTestDir, "bun.lock"),
@@ -1951,7 +1952,7 @@ test("parseBunLockGraph - returns undefined when no deps found", () => {
     }),
   );
 
-  assert.strictEqual(parseBunLockGraph(lockTestDir), undefined);
+  assert.deepStrictEqual(parseBunLockGraph(lockTestDir), {});
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
@@ -2048,7 +2049,7 @@ test("parseNpmLockGraph - returns undefined when no package-lock.json", () => {
   assert.strictEqual(parseNpmLockGraph(testDir), undefined);
 });
 
-test("getDependencyGraph - caches and returns a graph object", () => {
+test("getDependencyGraph - marks a parsed graph with no edges as available", () => {
   clearDependencyGraphCache();
   mkdirSync(lockTestDir, { recursive: true });
   writeFileSync(
@@ -2062,9 +2063,11 @@ test("getDependencyGraph - caches and returns a graph object", () => {
     }),
   );
 
+  const status = getDependencyGraphStatus(lockTestDir);
   const graph = getDependencyGraph(lockTestDir);
 
-  assert.strictEqual(typeof graph, "object");
+  assert.deepStrictEqual(status, { graph: {}, available: true });
+  assert.strictEqual(graph, status.graph);
   const graphAgain = getDependencyGraph(lockTestDir);
   assert.strictEqual(graphAgain, graph);
 

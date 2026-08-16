@@ -107,6 +107,13 @@ export const sortAlertsByPriority = (alerts: SecurityAlert[]): SecurityAlert[] =
     return priorityB - priorityA;
   });
 
+const normalizeSecurityPackageVersion = (version: string): string => {
+  const normalizedVersion = version.trim();
+  const match = normalizedVersion.match(SECURITY_REGISTRY_SPEC_PATTERN);
+  if (!match) return normalizedVersion;
+  return match[1];
+};
+
 export const extractPackages = (
   config: PastoralistJSON,
   excludePackages: string[] = [],
@@ -120,10 +127,9 @@ export const extractPackages = (
 
   return Object.entries(allDeps)
     .filter(([name]) => !excludePackages.includes(name))
-    .flatMap(([name, version]) => {
-      const match = version.trim().match(SECURITY_REGISTRY_SPEC_PATTERN);
-      if (!match) return [];
-      return [{ name, version: match[1] }];
+    .map(([name, version]) => {
+      const packageVersion = normalizeSecurityPackageVersion(version);
+      return { name, version: packageVersion };
     });
 };
 

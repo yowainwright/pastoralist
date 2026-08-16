@@ -490,7 +490,7 @@ test("extractPackages - accepts whitespace after caret and tilde prefixes", () =
   ]);
 });
 
-test("extractPackages - normalizes ranges and excludes non-registry specs", () => {
+test("extractPackages - normalizes ranges and preserves nonnumeric specs", () => {
   const config: PastoralistJSON = {
     dependencies: {
       bounded: ">= 1.2.0 < 2.0.0",
@@ -503,7 +503,15 @@ test("extractPackages - normalizes ranges and excludes non-registry specs", () =
     },
   };
 
-  assert.deepStrictEqual(extractPackages(config), [{ name: "bounded", version: "1.2.0" }]);
+  assert.deepStrictEqual(extractPackages(config), [
+    { name: "bounded", version: "1.2.0" },
+    { name: "workspace", version: "workspace:*" },
+    { name: "local", version: "file:../local" },
+    { name: "repository", version: "git+https://github.com/example/repository.git" },
+    { name: "tarball", version: "https://example.com/package.tgz" },
+    { name: "alias", version: "npm:actual-package@1.0.0" },
+    { name: "tag", version: "latest" },
+  ]);
 });
 
 test("isVersionVulnerable - detects version below threshold", () => {

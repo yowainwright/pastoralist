@@ -50,7 +50,13 @@ import {
 } from "./utils";
 import { SecuritySetupWizard, promptForSetup } from "./setup";
 import type { SetupSecurityProvider } from "./types";
-import { KNOWN_PROVIDERS, PROVIDER_CONFIGS, SECURITY_EXACT_VERSION_PATTERN } from "./constants";
+import {
+  KNOWN_PROVIDERS,
+  PROVIDER_CONFIGS,
+  SECURITY_DIST_TAG_PATTERN,
+  SECURITY_EXACT_VERSION_PATTERN,
+  SECURITY_REGISTRY_SPEC_PATTERN,
+} from "./constants";
 import { readFileSync, copyFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from "fs";
 import { createHash, randomUUID } from "crypto";
 import { resolve, dirname, basename } from "path";
@@ -132,32 +138,46 @@ const PACKAGE_QUERY_PROVIDERS = new Set<SecurityProviderType>(["osv", "spektion"
 type DeclaredSecurityDependency = {
   name: string;
   spec: string;
+  required: boolean;
 };
 
 const getDeclaredSecurityDependencies = (
   config: PastoralistJSON,
   excludedPackages: string[],
 ): DeclaredSecurityDependency[] => {
-  const dependencies = Object.assign(
-    {},
-    config.dependencies,
-    config.devDependencies,
-    config.peerDependencies,
-  );
+  const requiredDependencies = Object.assign({}, config.dependencies, config.devDependencies);
+  const dependencies = Object.assign({}, requiredDependencies, config.peerDependencies);
   return Object.entries(dependencies)
     .filter(([name]) => !excludedPackages.includes(name))
-    .map(([name, spec]) => ({ name, spec }));
+    .map(([name, spec]) => {
+      const required = Object.hasOwn(requiredDependencies, name);
+      return { name, spec, required };
+    });
 };
+
+const isQueryableSecuritySpec = (spec: string): boolean => {
+  const normalizedSpec = spec.trim();
+  const isVersionSpec = SECURITY_REGISTRY_SPEC_PATTERN.test(normalizedSpec);
+  const isDistTag = SECURITY_DIST_TAG_PATTERN.test(normalizedSpec);
+  return isVersionSpec || isDistTag || normalizedSpec === "*";
+};
+
+const getQueryableSecurityDependencies = (
+  dependencies: DeclaredSecurityDependency[],
+): DeclaredSecurityDependency[] => dependencies.filter(({ spec }) => isQueryableSecuritySpec(spec));
 
 const resolvePinnedSecurityPackages = (
   dependencies: DeclaredSecurityDependency[],
 ): SecurityPackage[] => {
-  const packages = dependencies.flatMap(({ name, spec }) => {
+  const requiredDependencies = getQueryableSecurityDependencies(dependencies).filter(
+    ({ required }) => required,
+  );
+  const packages = requiredDependencies.flatMap(({ name, spec }) => {
     const match = spec.trim().match(SECURITY_EXACT_VERSION_PATTERN);
     if (!match) return [];
     return [{ name, version: match[1] }];
   });
-  const hasUnresolvedVersions = packages.length !== dependencies.length;
+  const hasUnresolvedVersions = packages.length !== requiredDependencies.length;
   if (hasUnresolvedVersions) {
     throw new Error(
       "Unable to resolve installed package versions; add a supported lockfile or use exact versions",
@@ -170,10 +190,12 @@ const resolveLockedSecurityPackages = (
   dependencies: DeclaredSecurityDependency[],
   inventory: SecurityPackage[],
 ): SecurityPackage[] => {
-  const dependencyNames = new Set(dependencies.map(({ name }) => name));
+  const queryableDependencies = getQueryableSecurityDependencies(dependencies);
+  const dependencyNames = new Set(queryableDependencies.map(({ name }) => name));
   const packages = inventory.filter(({ name }) => dependencyNames.has(name));
   const resolvedNames = new Set(packages.map(({ name }) => name));
-  const missingNames = dependencies
+  const missingNames = queryableDependencies
+    .filter(({ required }) => required)
     .map(({ name }) => name)
     .filter((name) => !resolvedNames.has(name));
   if (missingNames.length > 0) {

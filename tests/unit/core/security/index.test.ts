@@ -17,6 +17,7 @@ import type {
   SecurityCheckRuntimeOptions,
   SecurityPackage,
   SecurityProviderScanOptions,
+  SecurityProviderType,
 } from "../../../../src/core/security/types";
 import * as fs from "fs";
 import * as path from "path";
@@ -205,6 +206,23 @@ const mockUserOwnedPrompts = (update: ReturnType<typeof createBestCaseUpdate>) =
 const getFirstProvider = (checker: SecurityChecker): FetchAlertsProvider => {
   const harness = checker as unknown as SecurityCheckerProviderHarness;
   return harness.providers[0];
+};
+
+const assertProjectProviderScansNonnumericSpec = async (
+  provider: SecurityProviderType,
+): Promise<void> => {
+  const config: PastoralistJSON = { dependencies: { local: "workspace:*" } };
+  const checker = new SecurityChecker({ provider, noCache: true });
+  const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([]);
+
+  const result = await checker.checkSecurity(config);
+
+  assert.strictEqual(result.packagesScanned, 1);
+  assertCalledWith(fetchAlerts, [{ name: "local", version: "workspace:*" }], {
+    root: undefined,
+    requireCompleteScan: false,
+    onIncomplete: anyValue(Function),
+  });
 };
 
 const createTempCacheDir = (name: string): string => {
@@ -705,6 +723,13 @@ test("checkSecurity - should handle both dependencies and devDependencies", asyn
   mockFetchAlerts.mockRestore();
 });
 
+test("checkSecurity - project providers scan nonnumeric dependency specs", async () => {
+  await assertProjectProviderScansNonnumericSpec("github");
+  await assertProjectProviderScansNonnumericSpec("snyk");
+  await assertProjectProviderScansNonnumericSpec("socket");
+  await assertProjectProviderScansNonnumericSpec("npm");
+});
+
 test("checkSecurity - uses locked versions for semver range dependencies", async () => {
   const config: PastoralistJSON = {
     name: "test-package",
@@ -732,6 +757,48 @@ test("checkSecurity - uses locked versions for semver range dependencies", async
     ],
     { root, requireCompleteScan: false, onIncomplete: anyValue(Function) },
   );
+});
+
+test("checkSecurity - ignores linked dependencies and absent peers in lock completeness", async () => {
+  const config: PastoralistJSON = {
+    dependencies: {
+      alpha: "^1.0.0",
+      beta: "latest",
+      workspace: "workspace:*",
+      local: "file:../local",
+    },
+    peerDependencies: { optionalPeer: "^3.0.0" },
+  };
+  const root = createBestCaseRoot([
+    { name: "alpha", version: "1.5.0" },
+    { name: "beta", version: "2.1.0" },
+  ]);
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([]);
+
+  const result = await checker.checkSecurity(config, { root });
+
+  assert.strictEqual(result.packagesScanned, 2);
+  assertCalledWith(
+    fetchAlerts,
+    [
+      { name: "alpha", version: "1.5.0" },
+      { name: "beta", version: "2.1.0" },
+    ],
+    { root, requireCompleteScan: false, onIncomplete: anyValue(Function) },
+  );
+});
+
+test("checkSecurity - rejects missing queryable lockfile dependencies", async () => {
+  const config: PastoralistJSON = {
+    dependencies: { alpha: "^1.0.0", beta: "^2.0.0" },
+  };
+  const root = createBestCaseRoot([{ name: "alpha", version: "1.5.0" }]);
+  const checker = createCheckerWithMockAlerts({ provider: "osv", noCache: true });
+
+  const result = checker.checkSecurity(config, { root });
+
+  await assert.rejects(result, errorIncludes("Lockfile inventory is incomplete"));
 });
 
 test("checkSecurity - rejects unresolved semver range dependencies", async () => {

@@ -858,12 +858,6 @@ const addPackageDependencies = (
   });
 };
 
-const getPopulatedGraph = (graph: DependencyGraph): DependencyGraph | undefined => {
-  const hasDependencies = Object.keys(graph).length > 0;
-  if (!hasDependencies) return undefined;
-  return graph;
-};
-
 const addBunPackageDependencies = (graph: DependencyGraph, name: string, entry: unknown): void => {
   if (!Array.isArray(entry)) return;
   const dependencies = (entry[2] as { dependencies?: Record<string, string> })?.dependencies ?? {};
@@ -883,7 +877,7 @@ export const parseBunLockGraph = (root: string): Record<string, string[]> | unde
     Object.entries(packages).forEach(([name, entry]) => {
       addBunPackageDependencies(inverted, name, entry);
     });
-    return getPopulatedGraph(inverted);
+    return inverted;
   } catch {
     return undefined;
   }
@@ -921,6 +915,13 @@ export const parseNpmLockGraph = (root: string): Record<string, string[]> | unde
       packages?: Record<string, { dependencies?: Record<string, string> }>;
       dependencies?: Record<string, unknown>;
     };
+    const hasPackages =
+      Boolean(lock.packages) && typeof lock.packages === "object" && !Array.isArray(lock.packages);
+    const hasDependencies =
+      Boolean(lock.dependencies) &&
+      typeof lock.dependencies === "object" &&
+      !Array.isArray(lock.dependencies);
+    if (!hasPackages && !hasDependencies) return undefined;
     const inverted: Record<string, string[]> = {};
     if (lock.packages) {
       Object.entries(lock.packages).forEach(([key, pkg]) => {
@@ -929,7 +930,7 @@ export const parseNpmLockGraph = (root: string): Record<string, string[]> | unde
     } else if (lock.dependencies) {
       addNpmDependencyTree(inverted, lock.dependencies);
     }
-    return getPopulatedGraph(inverted);
+    return inverted;
   } catch {
     return undefined;
   }
@@ -939,6 +940,11 @@ type DependencyGraphState = {
   currentPackage?: string;
   inDependencies: boolean;
 };
+
+const PNPM_GRAPH_FIELDS = new Set(["packages:", "snapshots:", "importers:"]);
+
+const hasPnpmLockStructure = (content: string): boolean =>
+  content.split("\n").some((line) => PNPM_GRAPH_FIELDS.has(line.trim()));
 
 const matchPnpmGraphPackage = (line: string): RegExpMatchArray | null => {
   const v5v6Match = line.match(/^  \/((?:@[^/@\n]+\/)?[^/@\n\s]+)(?:@|\/)([^\s:]+):/);
@@ -975,12 +981,13 @@ export const parsePnpmLockGraph = (root: string): Record<string, string[]> | und
   if (!fs.existsSync(lockPath)) return undefined;
   try {
     const content = fs.readFileSync(lockPath, "utf8");
+    if (!hasPnpmLockStructure(content)) return undefined;
     const inverted: Record<string, string[]> = {};
     const state: DependencyGraphState = { inDependencies: false };
     content.split("\n").forEach((line) => {
       addPnpmGraphLine(inverted, state, line);
     });
-    return getPopulatedGraph(inverted);
+    return inverted;
   } catch {
     return undefined;
   }
@@ -1013,17 +1020,25 @@ const addYarnGraphLine = (
   if (!line.startsWith("    ")) state.inDependencies = false;
 };
 
+const hasYarnLockStructure = (content: string): boolean =>
+  content.split("\n").some((line) => {
+    const isClassicHeader = line.startsWith("# yarn lockfile v");
+    const isBerryMetadata = line.trim() === "__metadata:";
+    return isClassicHeader || isBerryMetadata || Boolean(parseYarnLockPackageName(line));
+  });
+
 export const parseYarnLockGraph = (root: string): Record<string, string[]> | undefined => {
   const lockPath = resolve(root, YARN_LOCK_FILENAME);
   if (!fs.existsSync(lockPath)) return undefined;
   try {
     const content = fs.readFileSync(lockPath, "utf8");
+    if (!hasYarnLockStructure(content)) return undefined;
     const inverted: Record<string, string[]> = {};
     const state: DependencyGraphState = { inDependencies: false };
     content.split("\n").forEach((line) => {
       addYarnGraphLine(inverted, state, line);
     });
-    return getPopulatedGraph(inverted);
+    return inverted;
   } catch {
     return undefined;
   }

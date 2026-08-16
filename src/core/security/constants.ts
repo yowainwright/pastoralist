@@ -28,6 +28,7 @@ export const SECURITY_BOUNDED_MAXIMUM_PATTERN = /(<=?)\s*([^\s,]+)/;
 export const SECURITY_EXACT_RANGE_PATTERN = /^=\s*([^\s,]+)$/;
 export const SECURITY_EXACT_VERSION_PATTERN =
   /^(\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?)$/;
+export const SECURITY_DIST_TAG_PATTERN = /^[A-Za-z][A-Za-z0-9._-]*$/;
 export const SECURITY_PATCHED_VERSION_PATTERN = />=\s*([\d.]+)/;
 export const SECURITY_REGISTRY_SPEC_PATTERN =
   /^(?:[~^]\s*|[<>=]+\s*)?(\d+(?:\.\d+){0,2}(?:-[0-9A-Za-z.-]+)?)/;

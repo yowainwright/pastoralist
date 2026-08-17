@@ -1,6 +1,9 @@
 import { errorIncludes, mock } from "../setup";
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { PastoralistJSON, SecurityAlert } from "../../../src/types";
 import { checkRemovalSafety, compareRemovalSafety } from "../../../src/cli/security";
 
@@ -49,6 +52,22 @@ const createChecker = (results: Array<SecurityAlert[] | Error>) => {
   };
 };
 
+const createLockRoot = (): string => {
+  const root = mkdtempSync(join(tmpdir(), "pastoralist-removal-safety-"));
+  const lock = {
+    name: "test-app",
+    version: "1.0.0",
+    lockfileVersion: 3,
+    packages: {
+      "": { dependencies: { parent: "1.0.0" } },
+      "node_modules/parent": { version: "1.0.0", dependencies: { "risky-pkg": "^1.0.0" } },
+      "node_modules/risky-pkg": { version: "1.0.0" },
+    },
+  };
+  writeFileSync(join(root, "package-lock.json"), JSON.stringify(lock));
+  return root;
+};
+
 test("compareRemovalSafety - scans the current dependency set once", async () => {
   const config = createConfig();
   const checker = createChecker([
@@ -78,6 +97,51 @@ test("compareRemovalSafety - scans the current dependency set once", async () =>
     )[0][1].root,
     "./",
   );
+});
+
+test("compareRemovalSafety - blocks an installed package without a verified post-removal state", async () => {
+  const root = createLockRoot();
+  const config = createConfig({ "risky-pkg": "1.0.0" });
+  config.dependencies = { parent: "1.0.0" };
+  const checker = createChecker([[]]);
+
+  try {
+    const comparison = await compareRemovalSafety(config, checker as any, { root });
+    assert.deepStrictEqual(comparison?.blockedKeys, ["risky-pkg@1.0.0"]);
+    assert.deepStrictEqual(comparison?.allowedKeys, []);
+    assert.match(comparison?.reason || "", /post-removal dependency resolution was not verified/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("compareRemovalSafety - allows removal when a complete graph proves the package is absent", async () => {
+  const root = createLockRoot();
+  const config = createConfig({ "stale-pkg": "1.0.0" });
+  config.dependencies = { parent: "1.0.0" };
+  const checker = createChecker([[]]);
+
+  try {
+    const comparison = await compareRemovalSafety(config, checker as any, { root });
+    assert.deepStrictEqual(comparison?.blockedKeys, []);
+    assert.deepStrictEqual(comparison?.allowedKeys, ["stale-pkg@1.0.0"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("compareRemovalSafety - fails closed when dependency evidence is unavailable", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pastoralist-removal-safety-missing-lock-"));
+  const config = createConfig({ "unverified-pkg": "1.0.0" });
+  const checker = createChecker([[]]);
+
+  try {
+    const comparison = await compareRemovalSafety(config, checker as any, { root });
+    assert.deepStrictEqual(comparison?.blockedKeys, ["unverified-pkg@1.0.0"]);
+    assert.deepStrictEqual(comparison?.allowedKeys, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("compareRemovalSafety - blocks removed package when it remains vulnerable", async () => {

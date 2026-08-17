@@ -79,10 +79,9 @@ jobs:
         run: pnpm run test:coverage
         env:
           CI: true
+          FORCE_COLOR: "1"
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
-      - name: Filter coverage to src only
-        run: awk '/^SF:/ { keep = ($0 ~ /^SF:src\//) } keep { print }' coverage/lcov.info > coverage/src.info && mv coverage/src.info coverage/lcov.info
       - run: pnpm run test:bench
         env:
           CI: true

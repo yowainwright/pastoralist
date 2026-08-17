@@ -1,6 +1,7 @@
 import type { Options, PastoralistJSON, RemovalSafetyComparison, SecurityAlert } from "../../types";
 import type { SecurityChecker } from "../../core/security";
 import type { SecurityCheckRuntimeOptions } from "../../core/security/types";
+import { getDependencyGraphStatus } from "../../core/package";
 import {
   extractPackageNames,
   findUnusedAppendixEntries,
@@ -89,6 +90,18 @@ const getSecurityTrackedKeys = (config: PastoralistJSON, removableKeys: string[]
   });
 };
 
+const getUnverifiedRemovalKeys = (removableKeys: string[], options: Options): string[] => {
+  const root = options.root || "./";
+  const dependencyGraph = getDependencyGraphStatus(root);
+  if (!dependencyGraph.available) return removableKeys;
+
+  const installedPackages = new Set(Object.keys(dependencyGraph.graph));
+  return removableKeys.filter((key) => {
+    const [packageName] = extractPackageNames([key]);
+    return installedPackages.has(packageName);
+  });
+};
+
 const formatReasonKeys = (keys: string[], limit = 3): string => {
   const visibleKeys = keys.slice(0, limit).join(", ");
   const remainingCount = keys.length - limit;
@@ -99,28 +112,39 @@ const formatReasonKeys = (keys: string[], limit = 3): string => {
 const buildBlockedReason = (
   securityTrackedKeys: string[],
   vulnerableRemovedKeys: string[],
+  unverifiedRemovalKeys: string[],
 ): string | undefined => {
   if (securityTrackedKeys.length > 0) {
     return `Security-tracked overrides were kept because post-removal dependency resolution was not verified: ${formatReasonKeys(securityTrackedKeys)}.`;
   }
-  if (vulnerableRemovedKeys.length === 0) return undefined;
-  return `Removed overrides still resolve to vulnerable packages: ${formatReasonKeys(vulnerableRemovedKeys)}.`;
+  if (vulnerableRemovedKeys.length > 0) {
+    return `Removed overrides still resolve to vulnerable packages: ${formatReasonKeys(vulnerableRemovedKeys)}.`;
+  }
+  if (unverifiedRemovalKeys.length === 0) return undefined;
+  return `Overrides were kept because post-removal dependency resolution was not verified: ${formatReasonKeys(unverifiedRemovalKeys)}.`;
 };
 
 const buildComparison = (
   config: PastoralistJSON,
   removableKeys: string[],
   alerts: SecurityAlert[],
+  options: Options,
 ): RemovalSafetyComparison => {
   const riskScore = getRiskScore(alerts);
   const securityTrackedKeys = getSecurityTrackedKeys(config, removableKeys);
   const vulnerableRemovedKeys = getKeysForVulnerableRemovedPackages(removableKeys, alerts);
-  const blockedKeys = unique(securityTrackedKeys.concat(vulnerableRemovedKeys));
+  const unverifiedRemovalKeys = getUnverifiedRemovalKeys(removableKeys, options);
+  const unsafeKeys = securityTrackedKeys.concat(vulnerableRemovedKeys, unverifiedRemovalKeys);
+  const blockedKeys = unique(unsafeKeys);
   const blockedSet = new Set(blockedKeys);
   const allowedKeys = removableKeys.filter((key) => !blockedSet.has(key));
   const hasBlockedKeys = blockedKeys.length > 0;
   const status = hasBlockedKeys ? "blocked" : "safe";
-  const reason = buildBlockedReason(securityTrackedKeys, vulnerableRemovedKeys);
+  const reason = buildBlockedReason(
+    securityTrackedKeys,
+    vulnerableRemovedKeys,
+    unverifiedRemovalKeys,
+  );
 
   return {
     removableKeys,
@@ -145,7 +169,7 @@ export const compareRemovalSafety = async (
   if (removableKeys.length === 0) return undefined;
 
   const alerts = await getBeforeAlerts(config, securityChecker, mergedOptions);
-  return buildComparison(config, removableKeys, alerts);
+  return buildComparison(config, removableKeys, alerts, mergedOptions);
 };
 
 export const checkRemovalSafety = async (

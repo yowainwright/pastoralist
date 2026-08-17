@@ -1,6 +1,9 @@
 import { test } from "node:test";
 import { mock } from "../setup";
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { BestCaseResult } from "../../../src/core/best-case";
 import type { Options, PastoralistJSON, SecurityAlert } from "../../../src/types";
 import { action } from "../../../src/cli";
@@ -82,6 +85,22 @@ const createConfigFromOverrides = (overrides: Record<string, string>): Pastorali
 
 const createConfig = (packageName = "risky-pkg"): PastoralistJSON =>
   createConfigFromOverrides({ [packageName]: "1.0.0" });
+
+const createLockRoot = (): string => {
+  const root = mkdtempSync(join(tmpdir(), "pastoralist-action-safety-"));
+  const lock = {
+    name: "test-package",
+    version: "1.0.0",
+    lockfileVersion: 3,
+    packages: {
+      "": { dependencies: { parent: "1.0.0" } },
+      "node_modules/parent": { version: "1.0.0", dependencies: { "risky-pkg": "^1" } },
+      "node_modules/risky-pkg": { version: "1.0.0" },
+    },
+  };
+  writeFileSync(join(root, "package-lock.json"), JSON.stringify(lock));
+  return root;
+};
 
 const createSecurityResults = (afterAlerts: SecurityAlert[]) => ({
   spinner: createMockSpinner(),
@@ -165,6 +184,23 @@ test("action safety - safe comparison allows unused override removal", async () 
   assert.strictEqual(result.removalSafetyComparison?.status, "safe");
   assert.strictEqual(result.appliedOverrides?.["safe-pkg"], undefined);
   assert.strictEqual(result.overrideCount, 0);
+});
+
+test("action safety - keeps an installed pin while removing an absent override", async () => {
+  const root = createLockRoot();
+  const config = createConfigFromOverrides({ "risky-pkg": "1.0.0", stale: "1.0.0" });
+  config.dependencies = { parent: "1.0.0" };
+  const { resultPromise } = runSafetyAction(config, [], { root });
+
+  try {
+    const result = await resultPromise;
+    assert.deepStrictEqual(result.removalSafetyComparison?.blockedKeys, ["risky-pkg@1.0.0"]);
+    assert.deepStrictEqual(result.removalSafetyComparison?.allowedKeys, ["stale@1.0.0"]);
+    assert.strictEqual(result.appliedOverrides?.["risky-pkg"], "1.0.0");
+    assert.strictEqual(result.appliedOverrides?.stale, undefined);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("action safety - current vulnerability blocks cleanup and keeps override", async () => {

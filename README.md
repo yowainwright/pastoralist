@@ -172,6 +172,8 @@ Pastoralist can use `package.json`, `.pastoralistrc`, `.pastoralistrc.json`,
 
 The JSON Schema is exported as `pastoralist/schema.json`. External JSON config
 files can reference `./node_modules/pastoralist/src/schema.json` with `$schema`.
+Configs that reference this schema reject unknown or mistyped fields; other
+configs retain compatible validation behavior.
 
 ```json
 {

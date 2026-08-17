@@ -7,6 +7,8 @@ export const CONFIG_FILES = [
   "pastoralist.config.mjs",
 ] as const;
 
+export const PASTORALIST_SCHEMA_PATH = "./node_modules/pastoralist/src/schema.json";
+
 export const UNSUPPORTED_TYPESCRIPT_CONFIG = "pastoralist.config.ts";
 
 export const SECURITY_PROVIDERS = ["osv", "github", "snyk", "npm", "socket", "spektion"] as const;

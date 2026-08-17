@@ -1,7 +1,31 @@
 import { errorIncludes } from "../setup";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validateConfig, safeValidateConfig } from "../../../src/config";
+import schema from "../../../src/schema.json" with { type: "json" };
+import { PASTORALIST_SCHEMA_PATH, validateConfig, safeValidateConfig } from "../../../src/config";
+
+const COMPATIBILITY_CONFIGS = [
+  { unknownRoot: true },
+  { $schema: "https://example.com/config.schema.json", unknownRoot: true },
+  { compactAppendix: "yes" },
+  { security: { unknownSecurity: true } },
+  { appendix: { "pkg@1.0.0": { dependents: { root: 42 } } } },
+  { appendix: { "pkg@1.0.0": { unknownItemField: true } } },
+  { appendix: { "pkg@1.0.0": { ledger: { addedDate: "2026-08-16", severity: 42 } } } },
+  { appendix: { "pkg@1.0.0": { ledger: { addedDate: "2026-08-16", unknownLedgerField: true } } } },
+  {
+    appendix: {
+      "pkg@1.0.0": {
+        ledger: { addedDate: "2026-08-16", keep: { reason: "compatibility", until: 42 } },
+      },
+    },
+  },
+  {
+    appendix: {
+      "pkg@1.0.0": { ledger: { addedDate: "2026-08-16", cveDetails: [{ severity: "high" }] } },
+    },
+  },
+];
 
 test("validateConfig - should reject non-object", () => {
   assert.throws(() => validateConfig(null), errorIncludes("Invalid config structure"));
@@ -20,13 +44,55 @@ test("safeValidateConfig - should return undefined for non-object", () => {
 });
 
 test("validateConfig - accepts a JSON Schema reference", () => {
-  const config = { $schema: "./node_modules/pastoralist/src/schema.json" };
+  const config = {
+    $schema: PASTORALIST_SCHEMA_PATH,
+    compactAppendix: true,
+    security: { provider: ["osv", "github"], severityThreshold: "high" },
+    appendix: {
+      "lodash@4.17.21": {
+        dependents: { root: "lodash@^4.17.0" },
+        ledger: {
+          addedDate: "2026-08-16",
+          source: "security",
+          cveDetails: [{ cve: "CVE-2026-0001", severity: "high" }],
+          confidence: "confirmed",
+          sources: ["osv", "github"],
+        },
+      },
+    },
+  };
 
   assert.deepStrictEqual(validateConfig(config), config);
 });
 
 test("validateConfig - rejects a non-string JSON Schema reference", () => {
   assert.throws(() => validateConfig({ $schema: true }), errorIncludes("Invalid config structure"));
+});
+
+test("schema - includes public history metadata", () => {
+  assert.strictEqual(schema["x-revision"], 1);
+  assert.strictEqual(schema["x-created"], "2025-11-23");
+  assert.strictEqual(schema["x-updated"], "2026-08-16");
+  assert.strictEqual(
+    schema["x-history"],
+    "https://github.com/yowainwright/pastoralist/commits/main/src/schema.json",
+  );
+});
+
+test("validateConfig - preserves permissive validation for schema-less configs", () => {
+  COMPATIBILITY_CONFIGS.forEach((config) => {
+    assert.deepStrictEqual(validateConfig(config), config);
+  });
+});
+
+test("validateConfig - enforces the published contract for schema-aware configs", () => {
+  const invalidConfigs = COMPATIBILITY_CONFIGS.map((config) => {
+    return Object.assign({}, config, { $schema: PASTORALIST_SCHEMA_PATH });
+  });
+
+  invalidConfigs.forEach((config) => {
+    assert.throws(() => validateConfig(config), errorIncludes("Invalid config structure"));
+  });
 });
 
 test("validateConfig - should accept valid appendix with ledger", () => {

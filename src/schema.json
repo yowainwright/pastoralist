@@ -1,6 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Pastoralist Configuration",
+  "x-revision": 1,
+  "x-created": "2025-11-23",
+  "x-updated": "2026-08-16",
+  "x-history": "https://github.com/yowainwright/pastoralist/commits/main/src/schema.json",
   "type": "object",
   "additionalProperties": false,
   "properties": {

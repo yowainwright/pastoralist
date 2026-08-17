@@ -129,8 +129,8 @@ export interface PastoralistConfig {
   depPaths?: "workspace" | "workspaces" | string[];
   overrideSource?: string;
   checkSecurity?: boolean;
-  overridePaths?: Record<string, Appendix>;
-  resolutionPaths?: Record<string, Appendix>;
+  overridePaths?: Record<string, PersistedAppendix>;
+  resolutionPaths?: Record<string, PersistedAppendix>;
   bestCase?: BestCaseConfig;
   security?: {
     enabled?: boolean;

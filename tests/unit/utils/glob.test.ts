@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { sync, glob } from "../../../src/utils/glob";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve } from "path";
 
 const PROJECT_ROOT = resolve(import.meta.dirname, "../../..");
@@ -32,7 +33,7 @@ test("sync - should match recursive pattern", () => {
 });
 
 test("sync - globstar matches zero or more directories", () => {
-  const directory = mkdtempSync(resolve(PROJECT_ROOT, "tmp", "globstar-"));
+  const directory = mkdtempSync(resolve(tmpdir(), "globstar-"));
   mkdirSync(resolve(directory, "packages", "app"), { recursive: true });
   writeFileSync(resolve(directory, "package.json"), "{}");
   writeFileSync(resolve(directory, "packages", "package.json"), "{}");
@@ -54,7 +55,7 @@ test("sync - globstar matches zero or more directories", () => {
 });
 
 test("sync - ignores only paths matched by an ignore glob", () => {
-  const directory = mkdtempSync(resolve(PROJECT_ROOT, "tmp", "glob-ignore-"));
+  const directory = mkdtempSync(resolve(tmpdir(), "glob-ignore-"));
   mkdirSync(resolve(directory, "dist"), { recursive: true });
   mkdirSync(resolve(directory, "src"), { recursive: true });
   writeFileSync(resolve(directory, "dist", "generated.ts"), "");

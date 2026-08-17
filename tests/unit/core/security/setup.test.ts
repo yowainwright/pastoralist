@@ -2,6 +2,7 @@ import { test } from "node:test";
 import { mock } from "../../setup";
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   SecuritySetupWizard,
@@ -809,7 +810,7 @@ test("runTokenSetup - saves token to profile when user confirms", async () => {
 });
 
 test("runSetup - shell-quotes a saved value", async () => {
-  const directory = mkdtempSync(join(process.cwd(), "tmp", "pastoralist-profile-"));
+  const directory = mkdtempSync(join(tmpdir(), "pastoralist-profile-"));
   const profilePath = join(directory, ".zshrc");
   const shellExpansion = ["$", "(printf injected)"].join("");
   const value = [MOCK_TOKENS.snyk, `"`, shellExpansion, "'", "tail"].join("");

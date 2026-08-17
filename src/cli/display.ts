@@ -6,7 +6,7 @@ import type {
   AppendixItem,
   Options,
   PastoralistResult,
-  RemovalSafetyComparison,
+  RemovalVerification,
   SecurityAlert,
   SecurityOverride,
 } from "../types";
@@ -64,15 +64,15 @@ export const displayOverrides = (graph: CliGraph, ctx: OverrideDisplayContext): 
     .forEach((info) => graph.override(info, false));
 };
 
-export const renderRemovalSafetyComparison = (
+export const renderRemovalVerification = (
   graph: CliGraph,
-  comparison: RemovalSafetyComparison | undefined,
+  comparison: RemovalVerification | undefined,
 ): void => {
   if (!comparison) return;
 
   const removalCount = comparison.removableKeys.length;
   const summary =
-    `Removal safety: vulnerabilities ${comparison.beforeAlertCount} -> ${comparison.afterAlertCount}, ` +
+    `Removal verification: vulnerabilities ${comparison.beforeAlertCount} -> ${comparison.afterAlertCount}, ` +
     `risk ${comparison.beforeRiskScore} -> ${comparison.afterRiskScore}`;
   graph.notice(summary);
 
@@ -94,7 +94,7 @@ export const renderRemovalSafetyComparison = (
   const blockedCount = comparison.blockedKeys.length;
   const reason = comparison.reason ? ` ${comparison.reason}` : "";
   graph.notice(
-    `${blockedCount} override${pluralSuffix(blockedCount)} kept after safety comparison.${reason}`,
+    `${blockedCount} override${pluralSuffix(blockedCount)} kept after removal verification.${reason}`,
   );
 };
 
@@ -240,7 +240,7 @@ const renderBlockedRemovalNotice = (graph: CliGraph, mergedOptions: Options): vo
   if (blockedKeys.length === 0) return;
   const count = blockedKeys.length;
   graph.notice(
-    `${count} override${pluralSuffix(count)} kept for safety - ${blockedKeys.join(", ")}`,
+    `${count} override${pluralSuffix(count)} kept after verification - ${blockedKeys.join(", ")}`,
   );
 };
 

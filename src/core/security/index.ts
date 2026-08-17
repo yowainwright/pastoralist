@@ -601,11 +601,26 @@ export class SecurityChecker {
     });
 
     const excludes = options.excludePackages || [];
+    if (options.scanFullDependencyInventory) {
+      return this.resolveFullDependencyInventory(options, excludes);
+    }
     const requiresResolvedVersions = this.providers.some(({ providerType }) =>
       PACKAGE_QUERY_PROVIDERS.has(providerType),
     );
     if (!requiresResolvedVersions) return extractPackages(config, excludes);
     return this.resolveVersionScanPackages(config, excludes, options);
+  }
+
+  private resolveFullDependencyInventory(
+    options: SecurityCheckRuntimeOptions,
+    excludes: string[],
+  ): SecurityPackage[] {
+    const root = this.resolveConfiguredPackageRoot(options);
+    if (!root) throw new Error("A project root is required for a full dependency scan");
+    const inventory = getLockedPackages(root);
+    if (!inventory) throw new Error(`Unable to resolve the dependency inventory at ${root}`);
+    const excludedPackages = new Set(excludes);
+    return inventory.filter(({ name }) => !excludedPackages.has(name));
   }
 
   private resolveVersionScanPackages(

@@ -8,18 +8,21 @@ import {
 import { test } from "node:test";
 import { mock } from "../setup";
 import assert from "node:assert/strict";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import packageJSON from "../../../package.json" with { type: "json" };
+import type { BestCaseResult } from "../../../src/core/best-case";
 import {
   SecurityProviderPermissionError,
   type Options,
   type PastoralistJSON,
+  type SecurityAlert,
 } from "../../../src/types";
 import { logger as createLogger } from "../../../src/utils";
 import {
   action,
   buildMergedOptions,
   buildSecurityOverrideDetail,
-  checkRemovalSafety,
   determineSecurityScanPaths,
   displayOverrides,
   displaySummaryTable,
@@ -34,11 +37,19 @@ import {
 } from "../../../src/cli/index";
 import { clearConfigCache } from "../../../src/config";
 import { forceClearCache, resolveJSON } from "../../../src/core/package";
+import { update as realUpdate } from "../../../src/core/update";
 import { renderUpdateOutput } from "../../../src/cli/display";
+import { verifyRemovals } from "../../../src/cli/security";
+import { withCandidateDependencyState } from "../../../src/cli/security/utils";
 import { createOutput } from "../../../src/dx/output";
 import { createTerminalGraph } from "../../../src/dx/terminal-graph";
-import { resolve } from "path";
-import { createMockSecurityResults } from "./mocks";
+import { join, resolve } from "path";
+import {
+  captureConsoleOutput,
+  createActionDeps,
+  createMockSecurityResults,
+  createMockSpinner,
+} from "./mocks";
 import {
   safeWriteFileSync as writeFileSync,
   safeMkdirSync as mkdirSync,
@@ -3463,7 +3474,7 @@ test("action - does not display unused override notice when removeUnused is true
     processExit: mock(() => {}),
   };
 
-  await action({ path: "package.json", removeUnused: true }, deps);
+  await action({ isTesting: true, path: "package.json", removeUnused: true }, deps);
 
   const noticeCalls = mockGraph.notice.mock.calls.map((call) =>
     Array.isArray(call) ? call : call.arguments,
@@ -4132,169 +4143,6 @@ test("handleSecurityResults - does not mutate mergedOptions", () => {
   assert.deepStrictEqual(mergedOptions, optionsSnapshot);
 });
 
-test("checkRemovalSafety - returns empty array when no unused entries", async () => {
-  const config: PastoralistJSON = {
-    name: "test-app",
-    version: "1.0.0",
-    dependencies: { lodash: "^4.17.20" },
-    pastoralist: { appendix: {} },
-  };
-
-  const mockSecurityChecker = {
-    checkSecurity: mock(() =>
-      Promise.resolve({
-        alerts: [],
-        overrides: [],
-        updates: [],
-        packagesScanned: 0,
-      }),
-    ),
-  };
-
-  const result = await checkRemovalSafety(config, mockSecurityChecker as any, {});
-
-  assert.deepStrictEqual(result, []);
-  assert.strictEqual(mockSecurityChecker.checkSecurity.mock.callCount(), 0);
-});
-
-test("checkRemovalSafety - returns keys for packages still vulnerable at declared versions", async () => {
-  const config: PastoralistJSON = {
-    name: "test-app",
-    version: "1.0.0",
-    dependencies: { lodash: "^4.17.20", safe: "^2.0.0" },
-    overrides: { lodash: "4.17.21", safe: "2.1.0" },
-    pastoralist: {
-      appendix: {
-        "lodash@4.17.21": { dependents: { root: "lodash (unused override)" } },
-        "safe@2.1.0": { dependents: { root: "safe (unused override)" } },
-      },
-    },
-  };
-
-  const mockSecurityChecker = {
-    checkSecurity: mock(() =>
-      Promise.resolve({
-        alerts: [{ packageName: "lodash", severity: "high", currentVersion: "4.17.20" }],
-        overrides: [],
-        updates: [],
-        packagesScanned: 1,
-      }),
-    ),
-  };
-
-  const result = await checkRemovalSafety(config, mockSecurityChecker as any, {
-    root: "./",
-  });
-
-  assert.deepStrictEqual(result, ["lodash@4.17.21"]);
-  assert.strictEqual(
-    mockSecurityChecker.checkSecurity.mock.calls.map((call) =>
-      Array.isArray(call) ? call : call.arguments,
-    ).length,
-    1,
-  );
-  assert.deepStrictEqual(
-    mockSecurityChecker.checkSecurity.mock.calls.map((call) =>
-      Array.isArray(call) ? call : call.arguments,
-    )[0][0],
-    config,
-  );
-  assert.deepStrictEqual(
-    mockSecurityChecker.checkSecurity.mock.calls.map((call) =>
-      Array.isArray(call) ? call : call.arguments,
-    )[0][1],
-    { root: "./" },
-  );
-});
-
-test("checkRemovalSafety - returns empty array when the scan finds no vulnerabilities", async () => {
-  const config: PastoralistJSON = {
-    name: "test-app",
-    version: "1.0.0",
-    dependencies: { lodash: "^4.17.20" },
-    overrides: { lodash: "4.17.21" },
-    pastoralist: {
-      appendix: {
-        "lodash@4.17.21": { dependents: { root: "lodash (unused override)" } },
-      },
-    },
-  };
-
-  const mockSecurityChecker = {
-    checkSecurity: mock(() =>
-      Promise.resolve({
-        alerts: [],
-        overrides: [],
-        updates: [],
-        packagesScanned: 1,
-      }),
-    ),
-  };
-
-  const result = await checkRemovalSafety(config, mockSecurityChecker as any, {});
-
-  assert.deepStrictEqual(result, []);
-});
-
-test("checkRemovalSafety - returns empty when unused packages not in any deps", async () => {
-  const config: PastoralistJSON = {
-    name: "test-app",
-    version: "1.0.0",
-    pastoralist: {
-      appendix: {
-        "orphan-pkg@1.0.0": {
-          dependents: { root: "orphan-pkg (unused override)" },
-        },
-      },
-    },
-  };
-
-  const mockSecurityChecker = {
-    checkSecurity: mock(() =>
-      Promise.resolve({
-        alerts: [],
-        overrides: [],
-        updates: [],
-        packagesScanned: 0,
-      }),
-    ),
-  };
-
-  const result = await checkRemovalSafety(config, mockSecurityChecker as any, {});
-
-  assert.deepStrictEqual(result, []);
-  assert.strictEqual(mockSecurityChecker.checkSecurity.mock.callCount(), 0);
-});
-
-test("checkRemovalSafety - finds packages in devDependencies", async () => {
-  const config: PastoralistJSON = {
-    name: "test-app",
-    version: "1.0.0",
-    devDependencies: { "dev-pkg": "^1.0.0" },
-    overrides: { "dev-pkg": "1.0.0" },
-    pastoralist: {
-      appendix: {
-        "dev-pkg@1.0.0": { dependents: { root: "dev-pkg (unused override)" } },
-      },
-    },
-  };
-
-  const mockSecurityChecker = {
-    checkSecurity: mock(() =>
-      Promise.resolve({
-        alerts: [{ packageName: "dev-pkg", severity: "high", currentVersion: "1.0.0" }],
-        overrides: [],
-        updates: [],
-        packagesScanned: 1,
-      }),
-    ),
-  };
-
-  const result = await checkRemovalSafety(config, mockSecurityChecker as any, {});
-
-  assert.deepStrictEqual(result, ["dev-pkg@1.0.0"]);
-});
-
 test("action - displays blocked removals notice when skipRemovalKeys set", async () => {
   const mockConfig: PastoralistJSON = {
     name: "test-package",
@@ -4321,6 +4169,7 @@ test("action - displays blocked removals notice when skipRemovalKeys set", async
     buildMergedOptions: mock((options: any, rest: any) =>
       Object.assign({}, options, rest, {
         checkSecurity: true,
+        isTesting: true,
         removeUnused: true,
       }),
     ),
@@ -4380,7 +4229,665 @@ test("action - displays blocked removals notice when skipRemovalKeys set", async
     Array.isArray(call) ? call : call.arguments,
   );
   const hasBlockedNotice = noticeCalls.some(
-    (call: unknown[]) => typeof call[0] === "string" && call[0].includes("kept for safety"),
+    (call: unknown[]) => typeof call[0] === "string" && call[0].includes("kept after verification"),
   );
   assert.strictEqual(hasBlockedNotice, true);
+});
+const alert = (
+  packageName: string,
+  severity: SecurityAlert["severity"] = "medium",
+  title = `${packageName} vulnerability`,
+): SecurityAlert => ({
+  packageName,
+  currentVersion: "1.0.0",
+  vulnerableVersions: "< 2.0.0",
+  severity,
+  title,
+  fixAvailable: true,
+  patchedVersion: "2.0.0",
+});
+
+const createConfig = (overrides: PastoralistJSON["overrides"] = { "unused-pkg": "1.0.0" }) =>
+  ({
+    name: "test-app",
+    version: "1.0.0",
+    overrides,
+    pastoralist: {
+      appendix: Object.fromEntries(
+        Object.entries(overrides || {}).map(([pkg, version]) => [
+          `${pkg}@${version}`,
+          { dependents: { root: `${pkg} (unused override)` } },
+        ]),
+      ),
+    },
+  }) as PastoralistJSON;
+
+const createChecker = (results: Array<SecurityAlert[] | Error>) => {
+  const queue = results.slice();
+  return {
+    checkSecurity: mock(async () => {
+      const next = queue.shift() || [];
+      if (next instanceof Error) throw next;
+      return {
+        alerts: next,
+        overrides: [],
+        updates: [],
+        packagesScanned: 1,
+      };
+    }),
+  };
+};
+
+const verifyTestRemovals = (
+  config: PastoralistJSON,
+  checker: ReturnType<typeof createChecker>,
+  options: Options = {},
+) => verifyRemovals(config, checker as any, Object.assign({ isTesting: true }, options));
+
+test("verifyRemovals - allows cleanup when candidate alerts are lower", async () => {
+  const config = createConfig();
+  const checker = createChecker([[alert("existing-pkg", "medium")], []]);
+
+  const comparison = await verifyTestRemovals(config, checker as any, { root: "./" });
+
+  assert.strictEqual(comparison?.status, "safe");
+  assert.deepStrictEqual(comparison?.allowedKeys, ["unused-pkg@1.0.0"]);
+  assert.deepStrictEqual(comparison?.blockedKeys, []);
+  assert.strictEqual(comparison?.beforeAlertCount, 1);
+  assert.strictEqual(comparison?.afterAlertCount, 0);
+  assert.strictEqual(comparison?.beforeRiskScore, 2);
+  assert.strictEqual(comparison?.afterRiskScore, 0);
+  assert.strictEqual(checker.checkSecurity.mock.callCount(), 2);
+  assert.strictEqual(
+    checker.checkSecurity.mock.calls.map((call) =>
+      Array.isArray(call) ? call : call.arguments,
+    )[1][0].overrides,
+    undefined,
+  );
+  assert.strictEqual(
+    checker.checkSecurity.mock.calls.map((call) =>
+      Array.isArray(call) ? call : call.arguments,
+    )[1][1].root,
+    "./",
+  );
+});
+
+test("verifyRemovals - blocks removal that restores a vulnerable transitive version", async () => {
+  const config = createConfig({ "safe-pin": "2.0.0" });
+  const checker = createChecker([[], [alert("safe-pin", "high")]]);
+
+  const comparison = await verifyTestRemovals(config, checker as any, {});
+
+  assert.strictEqual(comparison?.status, "blocked");
+  assert.deepStrictEqual(comparison?.allowedKeys, []);
+  assert.deepStrictEqual(comparison?.blockedKeys, ["safe-pin@2.0.0"]);
+  assert.strictEqual(comparison?.beforeAlertCount, 0);
+  assert.strictEqual(comparison?.afterAlertCount, 1);
+  assert.strictEqual(checker.checkSecurity.mock.callCount(), 2);
+});
+
+test("verifyRemovals - blocks removed package when it remains vulnerable", async () => {
+  const config = createConfig({ "unused-pkg": "1.0.0" });
+  const vulnerableRemovedPackage = alert("unused-pkg", "high", "removed package advisory");
+  const checker = createChecker([[vulnerableRemovedPackage], [vulnerableRemovedPackage]]);
+
+  const comparison = await verifyTestRemovals(config, checker as any, {});
+
+  assert.strictEqual(comparison?.status, "blocked");
+  assert.deepStrictEqual(comparison?.blockedKeys, ["unused-pkg@1.0.0"]);
+  assert.deepStrictEqual(comparison?.newVulnerabilityKeys, []);
+  assert.strictEqual(
+    comparison?.reason,
+    "Removed overrides still resolve to vulnerable packages: unused-pkg@1.0.0.",
+  );
+});
+
+test("verifyRemovals - blocks cleanup when candidate resolution fails", async () => {
+  const config = createConfig();
+  const checker = createChecker([[], new Error("candidate failed")]);
+
+  const comparison = await verifyTestRemovals(config, checker as any, {});
+
+  assert.strictEqual(comparison?.status, "blocked");
+  assert.deepStrictEqual(comparison?.allowedKeys, []);
+  assert.deepStrictEqual(comparison?.blockedKeys, ["unused-pkg@1.0.0"]);
+  assert.strictEqual(comparison?.reason, "Candidate security scan failed: candidate failed");
+});
+
+test("verifyRemovals - propagates a failed baseline scan", async () => {
+  const config = createConfig();
+  const checker = createChecker([new Error("scan failed")]);
+
+  await assert.rejects(
+    verifyTestRemovals(config, checker as any, {}),
+    errorIncludes("scan failed"),
+  );
+});
+
+test("verifyRemovals - performs a complete baseline scan", async () => {
+  const config = createConfig();
+  const checker = createChecker([[], []]);
+
+  const comparison = await verifyTestRemovals(config, checker as any, {
+    securityAlerts: [alert("baseline-pkg", "medium")],
+  });
+
+  assert.strictEqual(comparison?.beforeAlertCount, 0);
+  assert.strictEqual(comparison?.afterAlertCount, 0);
+  assert.strictEqual(checker.checkSecurity.mock.callCount(), 2);
+  const calls = checker.checkSecurity.mock.calls.map((call) =>
+    Array.isArray(call) ? call : call.arguments,
+  );
+  assert.strictEqual(calls[0][1].requireCompleteScan, true);
+  assert.strictEqual(calls[1][1].requireCompleteScan, true);
+});
+
+test("verifyRemovals - reuses config security filters for verification scans", async () => {
+  const config = createConfig();
+  config.pastoralist!.security = {
+    excludePackages: ["ignored-pkg"],
+    severityThreshold: "high",
+  };
+  const checker = createChecker([[], []]);
+
+  await verifyTestRemovals(config, checker as any, {});
+
+  const scanOptions = checker.checkSecurity.mock.calls.map((call) =>
+    Array.isArray(call) ? call : call.arguments,
+  );
+  scanOptions.forEach(([, options]) => {
+    assert.deepStrictEqual(options.excludePackages, ["ignored-pkg"]);
+    assert.strictEqual(options.severityThreshold, "high");
+  });
+});
+
+test("verifyRemovals - ignores stale appendix-only entries", async () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    pastoralist: {
+      appendix: {
+        "appendix-only@1.0.0": {
+          dependents: { root: "appendix-only (unused override)" },
+        },
+      },
+    },
+  };
+  const checker = createChecker([[], []]);
+
+  const comparison = await verifyTestRemovals(config, checker as any, {});
+
+  assert.strictEqual(comparison, undefined);
+  assert.strictEqual(checker.checkSecurity.mock.callCount(), 0);
+});
+
+test("verifyRemovals - respects existing skipRemovalKeys", async () => {
+  const config = createConfig({ skipped: "1.0.0", removable: "1.0.0" });
+  const checker = createChecker([[]]);
+
+  const comparison = await verifyTestRemovals(config, checker as any, {
+    skipRemovalKeys: ["skipped@1.0.0"],
+  });
+
+  assert.deepStrictEqual(comparison?.removableKeys, ["removable@1.0.0"]);
+  assert.strictEqual(checker.checkSecurity.mock.callCount(), 2);
+  assert.deepStrictEqual(
+    checker.checkSecurity.mock.calls.map((call) =>
+      Array.isArray(call) ? call : call.arguments,
+    )[1][0].overrides,
+    { skipped: "1.0.0" },
+  );
+});
+
+test("verifyRemovals - recognizes pnpm override candidates", async () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    pnpm: { overrides: { "pnpm-pkg": "1.0.0" } },
+    pastoralist: {
+      appendix: {
+        "pnpm-pkg@1.0.0": {
+          dependents: { root: "pnpm-pkg (unused override)" },
+        },
+      },
+    },
+  };
+  const checker = createChecker([[], []]);
+
+  const comparison = await verifyTestRemovals(config, checker as any, {});
+
+  assert.deepStrictEqual(comparison?.removableKeys, ["pnpm-pkg@1.0.0"]);
+  const candidateConfig = checker.checkSecurity.mock.calls.map((call) =>
+    Array.isArray(call) ? call : call.arguments,
+  )[1][0];
+  assert.strictEqual(candidateConfig.pnpm, undefined);
+});
+
+test("verifyRemovals - removes pnpm workspace override from candidate config", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pastoralist-pnpm-removal-"));
+  const packagePath = join(root, "package.json");
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    packageManager: "pnpm@11.0.0",
+    pastoralist: {
+      appendix: {
+        "pnpm-pkg@1.0.0": {
+          dependents: { root: "pnpm-pkg (unused override)" },
+        },
+      },
+    },
+  };
+  writeFileSync(packagePath, JSON.stringify(config));
+  writeFileSync(
+    join(root, "pnpm-workspace.yaml"),
+    'packages: []\noverrides:\n  "pnpm-pkg": "1.0.0"\n',
+  );
+  const checker = createChecker([[], []]);
+
+  try {
+    const comparison = await verifyTestRemovals(config, checker as any, { path: packagePath });
+    const candidateConfig = checker.checkSecurity.mock.calls.map((call) =>
+      Array.isArray(call) ? call : call.arguments,
+    )[1][0];
+    assert.deepStrictEqual(comparison?.removableKeys, ["pnpm-pkg@1.0.0"]);
+    assert.deepStrictEqual(candidateConfig.pnpm?.overrides, {});
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("verifyRemovals - recognizes resolution candidates", async () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    resolutions: { "yarn-pkg": "1.0.0" },
+    pastoralist: {
+      appendix: {
+        "yarn-pkg@1.0.0": {
+          dependents: { root: "yarn-pkg (unused override)" },
+        },
+      },
+    },
+  };
+  const checker = createChecker([[], []]);
+
+  const comparison = await verifyTestRemovals(config, checker as any, {});
+
+  assert.deepStrictEqual(comparison?.removableKeys, ["yarn-pkg@1.0.0"]);
+  const candidateConfig = checker.checkSecurity.mock.calls.map((call) =>
+    Array.isArray(call) ? call : call.arguments,
+  )[1][0];
+  assert.strictEqual(candidateConfig.resolutions, undefined);
+});
+
+const candidateConfig: PastoralistJSON = {
+  name: "candidate-project",
+  version: "1.0.0",
+  dependencies: { parent: "1.0.0" },
+};
+
+const createCandidateProject = (lockfile: string): string => {
+  const root = mkdtempSync(join(tmpdir(), "pastoralist-candidate-test-"));
+  writeFileSync(join(root, "package.json"), JSON.stringify(candidateConfig));
+  writeFileSync(join(root, lockfile), "candidate lock");
+  return root;
+};
+
+const candidateCommandCases = [
+  { lockfile: "package-lock.json", command: "npm", expectedFlag: "--package-lock-only" },
+  { lockfile: "pnpm-lock.yaml", command: "pnpm", expectedFlag: "--lockfile-only" },
+  { lockfile: "yarn.lock", command: "yarn", expectedFlag: "--non-interactive" },
+  { lockfile: "bun.lock", command: "bun", expectedFlag: "--lockfile-only" },
+];
+
+candidateCommandCases.forEach(({ lockfile, command, expectedFlag }) => {
+  test(`candidate dependency state - resolves ${command} lockfile`, async () => {
+    const root = createCandidateProject(lockfile);
+    let stagedRoot = "";
+    const execFile = mock(async () => ({ stdout: "", stderr: "" }));
+
+    try {
+      const inspectedName = await withCandidateDependencyState(
+        candidateConfig,
+        { path: join(root, "package.json") },
+        async (candidateRoot) => {
+          stagedRoot = candidateRoot;
+          assert.strictEqual(existsSync(join(candidateRoot, lockfile)), true);
+          const manifest = JSON.parse(readFileSync(join(candidateRoot, "package.json"), "utf8"));
+          return manifest.name;
+        },
+        { execFile: execFile as any },
+      );
+      const call = execFile.mock.calls.map((item) =>
+        Array.isArray(item) ? item : item.arguments,
+      )[0];
+      assert.strictEqual(inspectedName, "candidate-project");
+      assert.strictEqual(call[0], command);
+      assert.strictEqual(call[1].includes(expectedFlag), true);
+      assert.strictEqual(call[2].cwd, stagedRoot);
+      assert.strictEqual(existsSync(stagedRoot), false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+test("candidate dependency state - fails closed without a lockfile", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pastoralist-candidate-no-lock-"));
+  const execFile = mock(async () => ({ stdout: "", stderr: "" }));
+
+  try {
+    await assert.rejects(
+      withCandidateDependencyState(
+        candidateConfig,
+        { path: join(root, "package.json") },
+        async () => undefined,
+        { execFile: execFile as any },
+      ),
+      /No npm lockfile is available/,
+    );
+    assert.strictEqual(execFile.mock.callCount(), 0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("candidate dependency state - updates staged pnpm overrides", async () => {
+  const root = createCandidateProject("pnpm-lock.yaml");
+  writeFileSync(join(root, "pnpm-workspace.yaml"), "packages: []\noverrides:\n  removed: 1.0.0\n");
+  const config = Object.assign({}, candidateConfig, {
+    pnpm: { overrides: { kept: "2.0.0" } },
+  });
+  const execFile = mock(async () => ({ stdout: "", stderr: "" }));
+
+  try {
+    await withCandidateDependencyState(
+      config,
+      { path: join(root, "package.json") },
+      async (candidateRoot) => {
+        const workspace = readFileSync(join(candidateRoot, "pnpm-workspace.yaml"), "utf8");
+        assert.match(workspace, /"kept": "2.0.0"/);
+        assert.doesNotMatch(workspace, /removed:/);
+      },
+      { execFile: execFile as any },
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("candidate dependency state - stages workspace manifests", async () => {
+  const root = createCandidateProject("package-lock.json");
+  const workspaceDir = join(root, "packages", "app");
+  mkdirSync(workspaceDir, { recursive: true });
+  writeFileSync(join(workspaceDir, "package.json"), '{"name":"workspace-app","version":"1.0.0"}');
+  const config = Object.assign({}, candidateConfig, { workspaces: ["packages/*"] });
+  const execFile = mock(async () => ({ stdout: "", stderr: "" }));
+
+  try {
+    await withCandidateDependencyState(
+      config,
+      { path: join(root, "package.json") },
+      async (candidateRoot) => {
+        const manifestPath = join(candidateRoot, "packages", "app", "package.json");
+        assert.strictEqual(existsSync(manifestPath), true);
+      },
+      { execFile: execFile as any },
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+const BEST_CASE_RESULT: BestCaseResult = {
+  selectedState: { alpha: "2.0.0" },
+  selectedEvaluation: { alerts: [] },
+  baselineState: { alpha: "1.0.0" },
+  baselineEvaluation: { alerts: [alert("alpha", "high")] },
+  decisionId: "best-case-decision",
+  policyHash: "policy-hash",
+  search: {
+    mode: "exact",
+    evaluatedStates: 2,
+    totalStates: 2,
+    provenOptimal: true,
+    durationMs: 1,
+  },
+  impact: {
+    fixedVulnerabilities: 1,
+    introducedVulnerabilities: 0,
+    remainingVulnerabilities: 0,
+  },
+  failedStates: 0,
+};
+
+test("action security - returns the selected best-case summary", async () => {
+  const securityResults = createMockSecurityResults([], BEST_CASE_RESULT);
+  const deps = createActionDeps({ checkSecurity: true, securityResults });
+
+  const result = await action({ checkSecurity: true, isTesting: true }, deps);
+
+  assert.deepStrictEqual(result.bestCase, {
+    selectedState: BEST_CASE_RESULT.selectedState,
+    decisionId: BEST_CASE_RESULT.decisionId,
+    policyHash: BEST_CASE_RESULT.policyHash,
+    search: BEST_CASE_RESULT.search,
+    impact: BEST_CASE_RESULT.impact,
+    failedStates: BEST_CASE_RESULT.failedStates,
+  });
+});
+
+const createActionSecurityResults = (
+  baselineAlerts: SecurityAlert[],
+  candidateAlerts: SecurityAlert[] = baselineAlerts,
+) => {
+  const scanResults = [baselineAlerts, candidateAlerts];
+  return {
+    spinner: createMockSpinner(),
+    securityChecker: {
+      checkSecurity: mock(() => {
+        const alerts = scanResults.shift() || candidateAlerts;
+        return Promise.resolve({ alerts, overrides: [], updates: [], packagesScanned: 1 });
+      }),
+    },
+    alerts: baselineAlerts,
+    securityOverrides: [],
+    updates: [],
+    packagesScanned: 1,
+    skipped: false,
+  };
+};
+
+const createRemovalActionDeps = (
+  config: PastoralistJSON,
+  baselineAlerts: SecurityAlert[],
+  options: {
+    candidateAlerts?: SecurityAlert[];
+    graph?: ReturnType<typeof createMockTerminalGraph>;
+    quickConfirm?: ReturnType<typeof mock>;
+  } = {},
+) => {
+  const securityResults = createActionSecurityResults(baselineAlerts, options.candidateAlerts);
+  const deps = createActionDeps({ config, checkSecurity: true, securityResults });
+  const graph = options.graph || createMockTerminalGraph();
+  deps.createTerminalGraph = mock(() => graph);
+  if (options.quickConfirm) deps.quickConfirm = options.quickConfirm;
+  return { deps, graph };
+};
+
+const runRemovalAction = (
+  config: PastoralistJSON,
+  baselineAlerts: SecurityAlert[],
+  options: Options = {},
+  candidateAlerts: SecurityAlert[] = baselineAlerts,
+) => {
+  const { deps, graph } = createRemovalActionDeps(config, baselineAlerts, { candidateAlerts });
+  let updateOptions: Options | undefined;
+  deps.update = mock((mergedOptions: Options) => {
+    updateOptions = mergedOptions;
+    return realUpdate(mergedOptions);
+  });
+  const actionOptions = Object.assign(
+    { checkSecurity: true, removeUnused: true, isTesting: true },
+    options,
+  );
+  const resultPromise = action(actionOptions, deps);
+  return { resultPromise, graph, getUpdateOptions: () => updateOptions };
+};
+
+test("action removal - renders comparison before update runs", async () => {
+  const config = createConfig();
+  const { deps, graph } = createRemovalActionDeps(config, []);
+  let noticedBeforeUpdate = false;
+  deps.update = mock((mergedOptions: Options) => {
+    noticedBeforeUpdate = graph.notice.mock.calls
+      .map((call) => (Array.isArray(call) ? call : call.arguments))
+      .some((call) => typeof call[0] === "string" && call[0].includes("Removal verification:"));
+    return realUpdate(mergedOptions);
+  });
+
+  await action({ checkSecurity: true, removeUnused: true, isTesting: true }, deps);
+
+  assert.strictEqual(noticedBeforeUpdate, true);
+});
+
+test("action removal - safe comparison allows unused override removal", async () => {
+  const config = createConfig({ "safe-pkg": "1.0.0" });
+  const { resultPromise, getUpdateOptions } = runRemovalAction(config, []);
+  const result = await resultPromise;
+
+  assert.strictEqual(getUpdateOptions()?.skipRemovalKeys, undefined);
+  assert.strictEqual(result.removalVerification?.status, "safe");
+  assert.strictEqual(result.appliedOverrides?.["safe-pkg"], undefined);
+  assert.strictEqual(result.overrideCount, 0);
+});
+
+test("action removal - keeps a pin when candidate resolution restores a vulnerability", async () => {
+  const config = createConfig({ "risky-pkg": "2.0.0" });
+  const { resultPromise } = runRemovalAction(config, [], {}, [alert("risky-pkg", "high")]);
+  const result = await resultPromise;
+
+  assert.deepStrictEqual(result.removalVerification?.blockedKeys, ["risky-pkg@2.0.0"]);
+  assert.deepStrictEqual(result.removalVerification?.allowedKeys, []);
+  assert.strictEqual(result.appliedOverrides?.["risky-pkg"], "2.0.0");
+});
+
+test("action removal - current vulnerability blocks cleanup", async () => {
+  const config = createConfig({ "risky-pkg": "1.0.0" });
+  const currentAlerts = [alert("risky-pkg", "high")];
+  const { resultPromise, graph, getUpdateOptions } = runRemovalAction(config, currentAlerts);
+  const result = await resultPromise;
+  const notices = graph.notice.mock.calls
+    .map((call) => (Array.isArray(call) ? call : call.arguments))
+    .map((call) => String(call[0]));
+
+  assert.deepStrictEqual(getUpdateOptions()?.skipRemovalKeys, ["risky-pkg@1.0.0"]);
+  assert.strictEqual(result.removalVerification?.status, "blocked");
+  assert.strictEqual(result.appliedOverrides?.["risky-pkg"], "1.0.0");
+  assert.strictEqual(
+    notices.some((message) => message.includes("still resolve")),
+    true,
+  );
+});
+
+test("action removal - removes a security override after a clean candidate scan", async () => {
+  const config = createConfig({ "security-pkg": "1.0.0" });
+  config.pastoralist!.appendix!["security-pkg@1.0.0"].ledger = {
+    addedDate: "2026-08-16",
+    source: "security",
+    securityChecked: true,
+    cves: ["CVE-2026-0001"],
+  };
+  const { resultPromise } = runRemovalAction(config, []);
+  const result = await resultPromise;
+
+  assert.strictEqual(result.removalVerification?.status, "safe");
+  assert.strictEqual(result.appliedOverrides?.["security-pkg"], undefined);
+});
+
+test("action removal - confirms interactive cleanup", async () => {
+  const config = createConfig({ "interactive-pkg": "1.0.0" });
+  const quickConfirm = mock(() => Promise.resolve(true));
+  const { deps } = createRemovalActionDeps(config, [], { quickConfirm });
+  deps.update = mock((mergedOptions: Options) => realUpdate(mergedOptions));
+
+  const result = await action(
+    { checkSecurity: true, interactive: true, removeUnused: true, isTesting: true },
+    deps,
+  );
+  const promptCall = quickConfirm.mock.calls.map((call) =>
+    Array.isArray(call) ? call : call.arguments,
+  )[0];
+
+  assert.strictEqual(quickConfirm.mock.callCount(), 1);
+  assert.ok(promptCall[0].includes("interactive-pkg@1.0.0"));
+  assert.strictEqual(promptCall[1], false);
+  assert.strictEqual(result.appliedOverrides?.["interactive-pkg"], undefined);
+});
+
+test("action removal - truncates long cleanup prompts", async () => {
+  const config = createConfig({
+    "pkg-one": "1.0.0",
+    "pkg-two": "1.0.0",
+    "pkg-three": "1.0.0",
+    "pkg-four": "1.0.0",
+    "pkg-five": "1.0.0",
+    "pkg-six": "1.0.0",
+  });
+  const quickConfirm = mock(() => Promise.resolve(true));
+  const { deps } = createRemovalActionDeps(config, [], { quickConfirm });
+  deps.update = mock((mergedOptions: Options) => realUpdate(mergedOptions));
+
+  await action(
+    { checkSecurity: true, interactive: true, removeUnused: true, isTesting: true },
+    deps,
+  );
+  const prompt = String(
+    quickConfirm.mock.calls.map((call) => (Array.isArray(call) ? call : call.arguments))[0][0],
+  );
+
+  assert.ok(prompt.includes("pkg-five@1.0.0, +1 more"));
+  assert.ok(!prompt.includes("pkg-six@1.0.0"));
+});
+
+test("action removal - keeps overrides when cleanup is declined", async () => {
+  const config = createConfig({ "declined-pkg": "1.0.0" });
+  const graph = createMockTerminalGraph();
+  const quickConfirm = mock(() => Promise.resolve(false));
+  const { deps } = createRemovalActionDeps(config, [], { graph, quickConfirm });
+  deps.update = mock((mergedOptions: Options) => realUpdate(mergedOptions));
+
+  const result = await action(
+    { checkSecurity: true, interactive: true, removeUnused: true, isTesting: true },
+    deps,
+  );
+  const notices = graph.notice.mock.calls
+    .map((call) => (Array.isArray(call) ? call : call.arguments))
+    .map((call) => String(call[0]));
+
+  assert.strictEqual(result.removalVerification?.status, "declined");
+  assert.deepStrictEqual(result.removalVerification?.allowedKeys, []);
+  assert.strictEqual(result.appliedOverrides?.["declined-pkg"], "1.0.0");
+  assert.ok(notices.includes("Cleanup of 1 override declined by user."));
+});
+
+test("action removal - includes the comparison in JSON output", async () => {
+  const config = createConfig({ "json-pkg": "1.0.0" });
+  const currentAlerts = [alert("json-pkg", "high")];
+  const { deps } = createRemovalActionDeps(config, currentAlerts);
+  deps.update = mock((mergedOptions: Options) => realUpdate(mergedOptions));
+  const consoleCapture = captureConsoleOutput();
+  consoleCapture.start();
+
+  const result = await action(
+    { checkSecurity: true, removeUnused: true, isTesting: true, outputFormat: "json" },
+    deps,
+  );
+  consoleCapture.stop();
+  const [line] = consoleCapture.getOutput();
+  const parsed = JSON.parse(line);
+
+  assert.deepStrictEqual(result.removalVerification?.blockedKeys, ["json-pkg@1.0.0"]);
+  assert.strictEqual(parsed.removalVerification.status, "blocked");
 });

@@ -208,7 +208,7 @@ export interface SecurityOptions {
   bestCase?: BestCaseConfig;
 }
 
-export interface RemovalSafetyComparison {
+export interface RemovalVerification {
   removableKeys: string[];
   allowedKeys: string[];
   blockedKeys: string[];
@@ -259,7 +259,7 @@ export interface Options extends SecurityOptions, OutputOptions, TestingOptions,
   addedDate?: string;
   removeUnused?: boolean;
   skipRemovalKeys?: string[];
-  removalSafetyComparison?: RemovalSafetyComparison;
+  removalVerification?: RemovalVerification;
   cacheDir?: string;
   cacheTtl?: number;
   noCache?: boolean;
@@ -370,7 +370,7 @@ export interface PastoralistResult {
   }>;
   unusedOverrides?: string[];
   appliedOverrides?: Record<string, string>;
-  removalSafetyComparison?: RemovalSafetyComparison;
+  removalVerification?: RemovalVerification;
   bestCase?: {
     selectedState: Record<string, string>;
     decisionId: string;

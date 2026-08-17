@@ -322,10 +322,21 @@ const createRemovalBaseContext = (ctx: UpdateContext): UpdateContext => {
   return Object.assign({}, ctx, { finalOverrides: overrides, finalAppendix: appendix });
 };
 
+const filterVerifiedRemovalKeys = (ctx: UpdateContext, unusedKeys: string[]): string[] => {
+  const comparison = ctx.options?.removalVerification;
+  if (comparison) {
+    const allowedKeys = new Set(comparison.allowedKeys);
+    return unusedKeys.filter((key) => allowedKeys.has(key));
+  }
+  if (ctx.isTesting) return unusedKeys;
+  return [];
+};
+
 const getRemovableAppendixKeys = (ctx: UpdateContext, appendix: Appendix): string[] => {
   const unusedKeys = findUnusedAppendixEntries(appendix, ctx.rootDeps);
+  const verifiedKeys = filterVerifiedRemovalKeys(ctx, unusedKeys);
   const skipKeys = new Set(ctx.options?.skipRemovalKeys || []);
-  return unusedKeys.filter((key) => !skipKeys.has(key));
+  return verifiedKeys.filter((key) => !skipKeys.has(key));
 };
 
 const appendixKeyHasCves =

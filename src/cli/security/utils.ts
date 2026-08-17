@@ -1,12 +1,187 @@
-import type { Options, PastoralistJSON, RemovalSafetyComparison, SecurityAlert } from "../../types";
+import type {
+  Options,
+  OverridesType,
+  PastoralistJSON,
+  RemovalVerification,
+  SecurityAlert,
+} from "../../types";
 import type { SecurityChecker } from "../../core/security";
 import type { SecurityCheckRuntimeOptions } from "../../core/security/types";
-import { getDependencyGraphStatus } from "../../core/package";
+import { execFile as execFileCallback } from "node:child_process";
+import { existsSync } from "node:fs";
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { promisify } from "node:util";
+import {
+  applyOverridesToConfig,
+  detectPackageManager,
+  type PackageManager,
+} from "../../core/package";
+import {
+  applyOverridesToSourceConfig,
+  resolveOverrideSource,
+  type OverrideSource,
+  updatePnpmWorkspaceOverrides,
+} from "../../core/overrides";
 import {
   extractPackageNames,
   findUnusedAppendixEntries,
-  hasSecurityInfo,
+  removeOverrideKeys,
 } from "../../core/appendix/utils";
+import { resolveWorkspaceManifestPaths } from "../../core/workspaces";
+import { sync as globSync } from "../../utils/glob";
+
+const execFile = promisify(execFileCallback);
+const CANDIDATE_TIMEOUT_MS = 120_000;
+const CANDIDATE_MAX_BUFFER = 10 * 1024 * 1024;
+
+type CandidateCommand = {
+  command: string;
+  args: string[];
+};
+
+export type CandidateResolverDeps = {
+  execFile: typeof execFile;
+};
+
+const defaultCandidateDeps: CandidateResolverDeps = { execFile };
+
+const getProjectRoot = (options: Options): string => {
+  if (options.root) return resolve(options.root);
+  if (options.path) return dirname(resolve(options.path));
+  return resolve(".");
+};
+
+const getLockfileNames = (packageManager: PackageManager): string[] => {
+  if (packageManager === "bun") return ["bun.lock", "bun.lockb"];
+  if (packageManager === "pnpm") return ["pnpm-lock.yaml"];
+  if (packageManager === "yarn") return ["yarn.lock"];
+  return ["package-lock.json"];
+};
+
+const getSourceLockfile = (projectRoot: string, packageManager: PackageManager): string => {
+  const lockfile = getLockfileNames(packageManager)
+    .map((name) => join(projectRoot, name))
+    .find(existsSync);
+  if (lockfile) return lockfile;
+  throw new Error(`No ${packageManager} lockfile is available for removal verification`);
+};
+
+const getCandidateCommand = (packageManager: PackageManager): CandidateCommand => {
+  if (packageManager === "pnpm") {
+    return { command: "pnpm", args: ["install", "--lockfile-only", "--ignore-scripts"] };
+  }
+  if (packageManager === "yarn") {
+    return { command: "yarn", args: ["install", "--ignore-scripts", "--non-interactive"] };
+  }
+  if (packageManager === "bun") {
+    return { command: "bun", args: ["install", "--lockfile-only", "--ignore-scripts"] };
+  }
+  return {
+    command: "npm",
+    args: ["install", "--package-lock-only", "--ignore-scripts", "--no-audit", "--no-fund"],
+  };
+};
+
+const updatePnpmWorkspaceContent = (
+  content: string,
+  overrides: OverridesType | undefined,
+): string => {
+  if (!overrides) return content;
+  return updatePnpmWorkspaceOverrides(content, overrides);
+};
+
+const stagePnpmWorkspace = async (
+  projectRoot: string,
+  candidateRoot: string,
+  config: PastoralistJSON,
+): Promise<void> => {
+  const sourcePath = join(projectRoot, "pnpm-workspace.yaml");
+  if (!existsSync(sourcePath)) return;
+  const content = await readFile(sourcePath, "utf8");
+  const overrides = config.pnpm?.overrides;
+  const candidateContent = updatePnpmWorkspaceContent(content, overrides);
+  await writeFile(join(candidateRoot, "pnpm-workspace.yaml"), candidateContent);
+};
+
+const copyWorkspaceManifest = async (
+  manifestPath: string,
+  projectRoot: string,
+  candidateRoot: string,
+): Promise<void> => {
+  const relativePath = relative(projectRoot, manifestPath);
+  const escapesProject = relativePath === ".." || relativePath.startsWith(`..${sep}`);
+  const invalidTarget = escapesProject || isAbsolute(relativePath);
+  if (invalidTarget) {
+    throw new Error(`Workspace manifest is outside the project root: ${manifestPath}`);
+  }
+  const targetPath = join(candidateRoot, relativePath);
+  await mkdir(dirname(targetPath), { recursive: true });
+  await copyFile(manifestPath, targetPath);
+};
+
+const stageWorkspaceManifests = async (
+  config: PastoralistJSON,
+  projectRoot: string,
+  candidateRoot: string,
+): Promise<void> => {
+  const patterns = resolveWorkspaceManifestPaths(config, projectRoot);
+  const manifests = globSync(patterns, { cwd: projectRoot, absolute: true });
+  await Promise.all(
+    manifests.map((manifestPath) =>
+      copyWorkspaceManifest(manifestPath, projectRoot, candidateRoot),
+    ),
+  );
+};
+
+const stageCandidateProject = async (
+  config: PastoralistJSON,
+  options: Options,
+  candidateRoot: string,
+): Promise<PackageManager> => {
+  const projectRoot = getProjectRoot(options);
+  const packageManager = detectPackageManager(projectRoot);
+  const sourceLockfile = getSourceLockfile(projectRoot, packageManager);
+  await writeFile(join(candidateRoot, "package.json"), JSON.stringify(config, null, 2));
+  await copyFile(sourceLockfile, join(candidateRoot, basename(sourceLockfile)));
+  if (packageManager === "pnpm") await stagePnpmWorkspace(projectRoot, candidateRoot, config);
+  await stageWorkspaceManifests(config, projectRoot, candidateRoot);
+  return packageManager;
+};
+
+const resolveCandidateLockfile = async (
+  candidateRoot: string,
+  packageManager: PackageManager,
+  deps: CandidateResolverDeps,
+): Promise<void> => {
+  const command = getCandidateCommand(packageManager);
+  const execOptions = {
+    cwd: candidateRoot,
+    timeout: CANDIDATE_TIMEOUT_MS,
+    maxBuffer: CANDIDATE_MAX_BUFFER,
+  };
+  await deps.execFile(command.command, command.args, execOptions);
+};
+
+export const withCandidateDependencyState = async <T>(
+  config: PastoralistJSON,
+  options: Options,
+  inspect: (candidateRoot: string) => Promise<T>,
+  deps: CandidateResolverDeps = defaultCandidateDeps,
+): Promise<T> => {
+  const tempBase = join(tmpdir(), "pastoralist");
+  await mkdir(tempBase, { recursive: true });
+  const candidateRoot = await mkdtemp(join(tempBase, "removal-check-"));
+
+  try {
+    const packageManager = await stageCandidateProject(config, options, candidateRoot);
+    await resolveCandidateLockfile(candidateRoot, packageManager, deps);
+    return await inspect(candidateRoot);
+  } finally {
+    await rm(candidateRoot, { recursive: true, force: true });
+  }
+};
 
 const getRootDependencies = (config: PastoralistJSON): Record<string, string> =>
   Object.assign({}, config.dependencies, config.devDependencies, config.peerDependencies);
@@ -29,21 +204,57 @@ const getRiskScore = (alerts: SecurityAlert[]): number =>
     return score + alertRisk;
   }, 0);
 
-const getOverrideNames = (config: PastoralistJSON): Set<string> => {
-  const npmOverrides = Object.keys(config.overrides || {});
-  const pnpmOverrides = Object.keys(config.pnpm?.overrides || {});
-  const resolutions = Object.keys(config.resolutions || {});
-  const names = npmOverrides.concat(pnpmOverrides, resolutions);
-  return new Set(names);
+const getAlertAdvisory = (alert: SecurityAlert): string => {
+  if (alert.cves?.length) return alert.cves.slice().sort().join(",");
+  if (alert.title) return alert.title;
+  if (alert.description) return alert.description;
+  return alert.vulnerableVersions || "";
 };
 
-const getCandidateRemovalKeys = (config: PastoralistJSON, options: Options): string[] => {
+const getAlertKey = (alert: SecurityAlert): string =>
+  `${alert.packageName}@${alert.currentVersion}:${getAlertAdvisory(alert)}`;
+
+const getNewVulnerabilityKeys = (
+  beforeAlerts: SecurityAlert[],
+  afterAlerts: SecurityAlert[],
+): string[] => {
+  const beforeKeys = new Set(beforeAlerts.map(getAlertKey));
+  return afterAlerts.map(getAlertKey).filter((key) => !beforeKeys.has(key));
+};
+
+const getManifestPath = (options: Options): string => {
+  if (!options.path) return resolve(options.root || ".", "package.json");
+  if (!options.root) return resolve(options.path);
+  return resolve(options.root, options.path);
+};
+
+const getOverrideSource = (config: PastoralistJSON, options: Options): OverrideSource =>
+  resolveOverrideSource({ config, manifestPath: getManifestPath(options) });
+
+const getCandidateRemovalKeys = (
+  config: PastoralistJSON,
+  options: Options,
+  source: OverrideSource,
+): string[] => {
   const appendix = config.pastoralist?.appendix || {};
   const skipKeys = new Set(options.skipRemovalKeys || []);
-  const overrideNames = getOverrideNames(config);
+  const overrideNames = new Set(Object.keys(source.overrides));
   return findUnusedAppendixEntries(appendix, getRootDependencies(config)).filter(
     (key) => !skipKeys.has(key) && overrideNames.has(extractPackageNames([key])[0]),
   );
+};
+
+const createCandidateConfig = (
+  config: PastoralistJSON,
+  removableKeys: string[],
+  source: OverrideSource,
+): PastoralistJSON => {
+  const packageNames = extractPackageNames(removableKeys);
+  const overrides = removeOverrideKeys(source.overrides, packageNames);
+  if (source.kind !== "yaml") {
+    return applyOverridesToSourceConfig(config, source, overrides);
+  }
+  return applyOverridesToConfig(config, overrides, "pnpm");
 };
 
 const getScanOptions = (config: PastoralistJSON, options: Options): SecurityCheckRuntimeOptions => {
@@ -63,9 +274,42 @@ const getBeforeAlerts = async (
   securityChecker: SecurityChecker,
   options: Options,
 ): Promise<SecurityAlert[]> => {
-  if (options.securityAlerts) return options.securityAlerts;
-  const result = await securityChecker.checkSecurity(config, getScanOptions(config, options));
+  const scanOptions = Object.assign({}, getScanOptions(config, options), {
+    interactive: false,
+    requireCompleteScan: true,
+    scanFullDependencyInventory: !options.isTesting,
+  });
+  const result = await securityChecker.checkSecurity(config, scanOptions);
   return result.alerts;
+};
+
+const getCandidateScanOptions = (
+  config: PastoralistJSON,
+  options: Options,
+  root: string,
+): SecurityCheckRuntimeOptions =>
+  Object.assign({}, getScanOptions(config, options), {
+    depPaths: [],
+    interactive: false,
+    refreshCache: true,
+    requireCompleteScan: true,
+    root,
+    scanFullDependencyInventory: !options.isTesting,
+    skipCacheWrite: true,
+  });
+
+const getAfterAlerts = async (
+  config: PastoralistJSON,
+  securityChecker: SecurityChecker,
+  options: Options,
+): Promise<SecurityAlert[]> => {
+  const scanCandidate = async (root: string): Promise<SecurityAlert[]> => {
+    const scanOptions = getCandidateScanOptions(config, options, root);
+    const result = await securityChecker.checkSecurity(config, scanOptions);
+    return result.alerts;
+  };
+  if (options.isTesting) return scanCandidate(options.root || "./");
+  return withCandidateDependencyState(config, options, scanCandidate);
 };
 
 const getKeysForVulnerableRemovedPackages = (
@@ -81,25 +325,14 @@ const getKeysForVulnerableRemovedPackages = (
 
 const unique = (values: string[]): string[] => Array.from(new Set(values));
 
-const getSecurityTrackedKeys = (config: PastoralistJSON, removableKeys: string[]): string[] => {
-  const appendix = config.pastoralist?.appendix || {};
-  return removableKeys.filter((key) => {
-    const item = appendix[key];
-    if (!item) return false;
-    return hasSecurityInfo(item);
-  });
-};
-
-const getUnverifiedRemovalKeys = (removableKeys: string[], options: Options): string[] => {
-  const root = options.root || "./";
-  const dependencyGraph = getDependencyGraphStatus(root);
-  if (!dependencyGraph.available) return removableKeys;
-
-  const installedPackages = new Set(Object.keys(dependencyGraph.graph));
-  return removableKeys.filter((key) => {
-    const [packageName] = extractPackageNames([key]);
-    return installedPackages.has(packageName);
-  });
+const hasRegression = (
+  beforeAlerts: SecurityAlert[],
+  afterAlerts: SecurityAlert[],
+  newVulnerabilityKeys: string[],
+): boolean => {
+  if (afterAlerts.length > beforeAlerts.length) return true;
+  if (getRiskScore(afterAlerts) > getRiskScore(beforeAlerts)) return true;
+  return newVulnerabilityKeys.length > 0;
 };
 
 const formatReasonKeys = (keys: string[], limit = 3): string => {
@@ -110,73 +343,101 @@ const formatReasonKeys = (keys: string[], limit = 3): string => {
 };
 
 const buildBlockedReason = (
-  securityTrackedKeys: string[],
+  beforeAlerts: SecurityAlert[],
+  afterAlerts: SecurityAlert[],
+  beforeRiskScore: number,
+  afterRiskScore: number,
+  newVulnerabilityKeys: string[],
   vulnerableRemovedKeys: string[],
-  unverifiedRemovalKeys: string[],
 ): string | undefined => {
-  if (securityTrackedKeys.length > 0) {
-    return `Security-tracked overrides were kept because post-removal dependency resolution was not verified: ${formatReasonKeys(securityTrackedKeys)}.`;
+  if (newVulnerabilityKeys.length > 0) {
+    return `New vulnerabilities detected after removal: ${formatReasonKeys(newVulnerabilityKeys)}.`;
   }
-  if (vulnerableRemovedKeys.length > 0) {
-    return `Removed overrides still resolve to vulnerable packages: ${formatReasonKeys(vulnerableRemovedKeys)}.`;
+  if (afterRiskScore > beforeRiskScore) {
+    return `Risk score increased from ${beforeRiskScore} to ${afterRiskScore} after removal.`;
   }
-  if (unverifiedRemovalKeys.length === 0) return undefined;
-  return `Overrides were kept because post-removal dependency resolution was not verified: ${formatReasonKeys(unverifiedRemovalKeys)}.`;
+  if (afterAlerts.length > beforeAlerts.length) {
+    return `Alert count increased from ${beforeAlerts.length} to ${afterAlerts.length} after removal.`;
+  }
+  if (vulnerableRemovedKeys.length === 0) return undefined;
+  return `Removed overrides still resolve to vulnerable packages: ${formatReasonKeys(vulnerableRemovedKeys)}.`;
 };
 
 const buildComparison = (
-  config: PastoralistJSON,
   removableKeys: string[],
-  alerts: SecurityAlert[],
-  options: Options,
-): RemovalSafetyComparison => {
-  const riskScore = getRiskScore(alerts);
-  const securityTrackedKeys = getSecurityTrackedKeys(config, removableKeys);
-  const vulnerableRemovedKeys = getKeysForVulnerableRemovedPackages(removableKeys, alerts);
-  const unverifiedRemovalKeys = getUnverifiedRemovalKeys(removableKeys, options);
-  const unsafeKeys = securityTrackedKeys.concat(vulnerableRemovedKeys, unverifiedRemovalKeys);
-  const blockedKeys = unique(unsafeKeys);
+  beforeAlerts: SecurityAlert[],
+  afterAlerts: SecurityAlert[],
+): RemovalVerification => {
+  const newVulnerabilityKeys = getNewVulnerabilityKeys(beforeAlerts, afterAlerts);
+  const beforeRiskScore = getRiskScore(beforeAlerts);
+  const afterRiskScore = getRiskScore(afterAlerts);
+  const regressionKeys = hasRegression(beforeAlerts, afterAlerts, newVulnerabilityKeys)
+    ? removableKeys
+    : [];
+  const vulnerableKeys = getKeysForVulnerableRemovedPackages(removableKeys, afterAlerts);
+  const blockedKeys = unique(regressionKeys.concat(vulnerableKeys));
   const blockedSet = new Set(blockedKeys);
   const allowedKeys = removableKeys.filter((key) => !blockedSet.has(key));
-  const hasBlockedKeys = blockedKeys.length > 0;
-  const status = hasBlockedKeys ? "blocked" : "safe";
+  const status = blockedKeys.length > 0 ? "blocked" : "safe";
   const reason = buildBlockedReason(
-    securityTrackedKeys,
-    vulnerableRemovedKeys,
-    unverifiedRemovalKeys,
+    beforeAlerts,
+    afterAlerts,
+    beforeRiskScore,
+    afterRiskScore,
+    newVulnerabilityKeys,
+    vulnerableKeys,
   );
-
   return {
     removableKeys,
     allowedKeys,
     blockedKeys,
-    beforeAlertCount: alerts.length,
-    afterAlertCount: alerts.length,
-    beforeRiskScore: riskScore,
-    afterRiskScore: riskScore,
-    newVulnerabilityKeys: [],
+    beforeAlertCount: beforeAlerts.length,
+    afterAlertCount: afterAlerts.length,
+    beforeRiskScore,
+    afterRiskScore,
+    newVulnerabilityKeys,
     status,
     reason,
   };
 };
 
-export const compareRemovalSafety = async (
-  config: PastoralistJSON,
-  securityChecker: SecurityChecker,
-  mergedOptions: Options,
-): Promise<RemovalSafetyComparison | undefined> => {
-  const removableKeys = getCandidateRemovalKeys(config, mergedOptions);
-  if (removableKeys.length === 0) return undefined;
-
-  const alerts = await getBeforeAlerts(config, securityChecker, mergedOptions);
-  return buildComparison(config, removableKeys, alerts, mergedOptions);
+const buildFailedComparison = (
+  removableKeys: string[],
+  beforeAlerts: SecurityAlert[],
+  error: unknown,
+): RemovalVerification => {
+  const failure = error instanceof Error ? error.message : String(error);
+  const beforeRiskScore = getRiskScore(beforeAlerts);
+  return {
+    removableKeys,
+    allowedKeys: [],
+    blockedKeys: removableKeys,
+    beforeAlertCount: beforeAlerts.length,
+    afterAlertCount: beforeAlerts.length,
+    beforeRiskScore,
+    afterRiskScore: beforeRiskScore,
+    newVulnerabilityKeys: [],
+    status: "blocked",
+    reason: `Candidate security scan failed: ${failure}`,
+  };
 };
 
-export const checkRemovalSafety = async (
+export const verifyRemovals = async (
   config: PastoralistJSON,
   securityChecker: SecurityChecker,
   mergedOptions: Options,
-): Promise<string[]> => {
-  const comparison = await compareRemovalSafety(config, securityChecker, mergedOptions);
-  return comparison?.blockedKeys || [];
+): Promise<RemovalVerification | undefined> => {
+  const source = getOverrideSource(config, mergedOptions);
+  const removableKeys = getCandidateRemovalKeys(config, mergedOptions, source);
+  if (removableKeys.length === 0) return undefined;
+
+  const beforeAlerts = await getBeforeAlerts(config, securityChecker, mergedOptions);
+  const candidateConfig = createCandidateConfig(config, removableKeys, source);
+
+  try {
+    const afterAlerts = await getAfterAlerts(candidateConfig, securityChecker, mergedOptions);
+    return buildComparison(removableKeys, beforeAlerts, afterAlerts);
+  } catch (error) {
+    return buildFailedComparison(removableKeys, beforeAlerts, error);
+  }
 };

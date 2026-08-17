@@ -1807,6 +1807,35 @@ test("update - stepRemoveUnused respects skipRemovalKeys, keeps blocked override
   assert.notStrictEqual(result.finalAppendix?.["blocked-fake-pkg@2.0.0"], undefined);
 });
 
+test("update - stepRemoveUnused removes only verified keys", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    overrides: { removable: "1.0.0", unverified: "2.0.0" },
+  };
+  const options: Options = {
+    config,
+    isTesting: true,
+    removeUnused: true,
+    removalVerification: {
+      removableKeys: ["removable@1.0.0", "unverified@2.0.0"],
+      allowedKeys: ["removable@1.0.0"],
+      blockedKeys: ["unverified@2.0.0"],
+      beforeAlertCount: 0,
+      afterAlertCount: 1,
+      beforeRiskScore: 0,
+      afterRiskScore: 3,
+      newVulnerabilityKeys: ["unverified@1.0.0:advisory"],
+      status: "blocked",
+    },
+  };
+
+  const result = update(options);
+
+  assert.strictEqual(result.finalOverrides?.removable, undefined);
+  assert.strictEqual(result.finalOverrides?.unverified, "2.0.0");
+});
+
 test("update - stepRemoveUnused respects keep: KeepConstraint, does not remove kept overrides", () => {
   const config: PastoralistJSON = {
     name: "test-app",

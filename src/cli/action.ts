@@ -197,7 +197,7 @@ const buildActionResult = (runtime: ActionRuntime, workflow: UpdateWorkflow): Pa
     workflow.securityPhase.securityResult,
     workflow.updateResultData,
     {
-      removalSafetyComparison: workflow.mergedOptions.removalSafetyComparison,
+      removalVerification: workflow.mergedOptions.removalVerification,
       bestCase: workflow.securityPhase.bestCase,
       metrics: workflow.updateContext.metrics,
     },

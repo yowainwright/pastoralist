@@ -6,6 +6,11 @@ import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 import * as fs from "fs";
 
+const TEST_TEMP_DIR = resolve(import.meta.dirname, ".tmp", String(process.pid));
+process.env.TMPDIR = TEST_TEMP_DIR;
+fs.mkdirSync(TEST_TEMP_DIR, { recursive: true });
+process.once("exit", () => fs.rmSync(TEST_TEMP_DIR, { recursive: true, force: true }));
+
 type ResolveHook = NonNullable<Parameters<typeof registerHooks>[0]["resolve"]>;
 type ResolveContext = Parameters<ResolveHook>[1];
 type NextResolve = Parameters<ResolveHook>[2];

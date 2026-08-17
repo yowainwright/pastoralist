@@ -68,6 +68,7 @@ export interface SecurityCheckRuntimeOptions extends SecurityCheckOptions {
   packageJsonPath?: string;
   skipCacheWrite?: boolean;
   requireCompleteScan?: boolean;
+  scanFullDependencyInventory?: boolean;
 }
 
 export interface SecurityCheckResult {

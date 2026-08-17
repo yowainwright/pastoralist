@@ -33,7 +33,6 @@ export {
   resolvePathFromRoot,
 } from "./utils";
 export { displayOverrides, displaySummaryTable } from "./display";
-export { checkRemovalSafety } from "./security";
 export { handleSetupHook } from "./setup-hook";
 export { buildOnboardingText, showOnboarding } from "./cmds/init";
 

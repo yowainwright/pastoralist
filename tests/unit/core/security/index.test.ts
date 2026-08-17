@@ -208,6 +208,37 @@ const getFirstProvider = (checker: SecurityChecker): FetchAlertsProvider => {
   return harness.providers[0];
 };
 
+test("checkSecurity - scans the complete candidate lockfile inventory", async () => {
+  const root = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-full-inventory-"));
+  const lock = {
+    lockfileVersion: 3,
+    packages: {
+      "": { dependencies: { parent: "1.0.0" } },
+      "node_modules/parent": { version: "1.0.0" },
+      "node_modules/transitive": { version: "2.0.0" },
+    },
+  };
+  fs.writeFileSync(path.join(root, "package-lock.json"), JSON.stringify(lock));
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([]);
+
+  try {
+    await checker.checkSecurity(
+      { name: "candidate", version: "1.0.0", dependencies: { parent: "1.0.0" } },
+      { root, scanFullDependencyInventory: true },
+    );
+    const packages = fetchAlerts.mock.calls.map((call) =>
+      Array.isArray(call) ? call : call.arguments,
+    )[0][0];
+    assert.deepStrictEqual(packages, [
+      { name: "parent", version: "1.0.0" },
+      { name: "transitive", version: "2.0.0" },
+    ]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 const assertProjectProviderScansNonnumericSpec = async (
   provider: SecurityProviderType,
 ): Promise<void> => {

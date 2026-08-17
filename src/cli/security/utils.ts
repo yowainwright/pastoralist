@@ -422,6 +422,102 @@ const buildFailedComparison = (
   };
 };
 
+type RemovalState = {
+  allowedKeys: string[];
+  blockedKeys: string[];
+  afterAlerts: SecurityAlert[];
+  blockedReasons: Array<{ key: string; reason: string }>;
+};
+
+type RemovalContext = {
+  config: PastoralistJSON;
+  source: OverrideSource;
+  securityChecker: SecurityChecker;
+  options: Options;
+  beforeAlerts: SecurityAlert[];
+};
+
+const blockRemoval = (
+  state: RemovalState,
+  key: string,
+  reason: string | undefined,
+): RemovalState => {
+  const blockedKeys = state.blockedKeys.concat(key);
+  const blockedReason = { key, reason: reason || "Removal could not be verified." };
+  const blockedReasons = state.blockedReasons.concat(blockedReason);
+  return Object.assign({}, state, { blockedKeys, blockedReasons });
+};
+
+const verifyRemoval = async (
+  context: RemovalContext,
+  state: RemovalState,
+  key: string,
+): Promise<RemovalState> => {
+  const allowedKeys = state.allowedKeys.concat(key);
+  const candidateConfig = createCandidateConfig(context.config, allowedKeys, context.source);
+  try {
+    const afterAlerts = await getAfterAlerts(
+      candidateConfig,
+      context.securityChecker,
+      context.options,
+    );
+    const comparison = buildComparison([key], context.beforeAlerts, afterAlerts);
+    if (comparison.blockedKeys.length > 0) return blockRemoval(state, key, comparison.reason);
+    return Object.assign({}, state, { allowedKeys, afterAlerts });
+  } catch (error) {
+    const comparison = buildFailedComparison([key], context.beforeAlerts, error);
+    return blockRemoval(state, key, comparison.reason);
+  }
+};
+
+const verifyRemovalSet = async (
+  context: RemovalContext,
+  removableKeys: string[],
+): Promise<RemovalState> => {
+  const initialState: RemovalState = {
+    allowedKeys: [],
+    blockedKeys: [],
+    afterAlerts: context.beforeAlerts,
+    blockedReasons: [],
+  };
+  return removableKeys.reduce(
+    async (pendingState, key) => verifyRemoval(context, await pendingState, key),
+    Promise.resolve(initialState),
+  );
+};
+
+const formatBlockedReasons = (
+  blockedReasons: RemovalState["blockedReasons"],
+): string | undefined => {
+  if (blockedReasons.length === 0) return undefined;
+  if (blockedReasons.length === 1) return blockedReasons[0].reason;
+  return blockedReasons.map(({ key, reason }) => `${key}: ${reason}`).join(" ");
+};
+
+const buildVerification = (
+  removableKeys: string[],
+  beforeAlerts: SecurityAlert[],
+  state: RemovalState,
+): RemovalVerification => {
+  const beforeRiskScore = getRiskScore(beforeAlerts);
+  const afterRiskScore = getRiskScore(state.afterAlerts);
+  const newVulnerabilityKeys = getNewVulnerabilityKeys(beforeAlerts, state.afterAlerts);
+  const status = state.blockedKeys.length > 0 ? "blocked" : "safe";
+  const reason = formatBlockedReasons(state.blockedReasons);
+  return {
+    removableKeys,
+    allowedKeys: state.allowedKeys,
+    blockedKeys: state.blockedKeys,
+    beforeAlertCount: beforeAlerts.length,
+    afterAlertCount: state.afterAlerts.length,
+    beforeRiskScore,
+    afterRiskScore,
+    newVulnerabilityKeys,
+    status,
+    reason,
+  };
+};
+
 export const verifyRemovals = async (
   config: PastoralistJSON,
   securityChecker: SecurityChecker,
@@ -432,12 +528,7 @@ export const verifyRemovals = async (
   if (removableKeys.length === 0) return undefined;
 
   const beforeAlerts = await getBeforeAlerts(config, securityChecker, mergedOptions);
-  const candidateConfig = createCandidateConfig(config, removableKeys, source);
-
-  try {
-    const afterAlerts = await getAfterAlerts(candidateConfig, securityChecker, mergedOptions);
-    return buildComparison(removableKeys, beforeAlerts, afterAlerts);
-  } catch (error) {
-    return buildFailedComparison(removableKeys, beforeAlerts, error);
-  }
+  const context = { config, source, securityChecker, options: mergedOptions, beforeAlerts };
+  const state = await verifyRemovalSet(context, removableKeys);
+  return buildVerification(removableKeys, beforeAlerts, state);
 };

@@ -433,9 +433,8 @@ const confirmVerifiedRemoval = async (
   deps: Pick<SecurityPhaseDeps, "quickConfirm">,
 ): Promise<NonNullable<Options["removalVerification"]>> => {
   const isInteractive = mergedOptions.interactive === true;
-  const isSafe = comparison.status === "safe";
   const hasAllowedRemovals = comparison.allowedKeys.length > 0;
-  const shouldAsk = isInteractive && isSafe && hasAllowedRemovals;
+  const shouldAsk = isInteractive && hasAllowedRemovals;
   if (!shouldAsk) return comparison;
 
   const approved = await deps.quickConfirm(buildRemovalPrompt(comparison), false);

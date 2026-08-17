@@ -4322,8 +4322,23 @@ test("verifyRemovals - blocks removal that restores a vulnerable transitive vers
   assert.deepStrictEqual(comparison?.allowedKeys, []);
   assert.deepStrictEqual(comparison?.blockedKeys, ["safe-pin@2.0.0"]);
   assert.strictEqual(comparison?.beforeAlertCount, 0);
-  assert.strictEqual(comparison?.afterAlertCount, 1);
+  assert.strictEqual(comparison?.afterAlertCount, 0);
   assert.strictEqual(checker.checkSecurity.mock.callCount(), 2);
+});
+
+test("verifyRemovals - allows independent cleanup when another removal is blocked", async () => {
+  const config = createConfig({ risky: "1.0.0", safe: "1.0.0" });
+  const checker = createChecker([[], [alert("risky", "high")], []]);
+
+  const comparison = await verifyTestRemovals(config, checker as any, {});
+  const calls = checker.checkSecurity.mock.calls.map((call) =>
+    Array.isArray(call) ? call : call.arguments,
+  );
+
+  assert.deepStrictEqual(comparison?.allowedKeys, ["safe@1.0.0"]);
+  assert.deepStrictEqual(comparison?.blockedKeys, ["risky@1.0.0"]);
+  assert.deepStrictEqual(calls[2][0].overrides, { risky: "1.0.0" });
+  assert.strictEqual(checker.checkSecurity.mock.callCount(), 3);
 });
 
 test("verifyRemovals - blocks removed package when it remains vulnerable", async () => {

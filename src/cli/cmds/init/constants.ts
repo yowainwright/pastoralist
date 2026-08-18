@@ -1,5 +1,5 @@
 import type { SecurityProvider } from "../../../config";
-import type { PromptChoice } from "../../../utils/prompts/types";
+import type { PromptChoice } from "../../prompts/types";
 import type { OnboardingSection, TokenInfo } from "./types";
 
 export const CONFIG_LOCATION_CHOICES: PromptChoice[] = [

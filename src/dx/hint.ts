@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
-import { gold } from "../utils/colors";
+import { gold } from "./colors";
 import { ICON } from "../constants";
 import { resolveCacheDir } from "../utils/cache";
 import type { HintCache } from "./types";

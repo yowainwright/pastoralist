@@ -6,7 +6,7 @@ import type {
   SnykErrorWithStdout,
   SnykResult,
 } from "../../../types";
-import { logger } from "../../../utils";
+import { logger } from "../../../observability";
 import { CLIInstaller } from "../utils";
 import { DEFAULT_CLI_TIMEOUT, DEFAULT_SNYK_SCAN_TIMEOUT, AUTH_MESSAGES } from "../constants";
 import type { ExecFileAsync, SnykCLIProviderOptions } from "../../types";

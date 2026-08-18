@@ -6,12 +6,12 @@ import { dirname, join, resolve } from "path";
 import { fileURLToPath } from "url";
 import { parseArgs, showHelp } from "./parser";
 import type { Options } from "../types";
-import { logger as createLogger } from "../utils";
+import { logger as createLogger } from "../observability";
 import { initCommand, showOnboarding } from "./cmds/init";
 import { action } from "./action";
 import { handleSetupHook } from "./setup-hook";
 import type { InitSecurityProvider, RunDeps } from "./types";
-import type { Logger, PrintFunc } from "../utils";
+import type { Logger, PrintFunc } from "../observability";
 
 export { action, handleInitMode, handleTestMode } from "./action";
 export {

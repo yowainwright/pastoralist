@@ -1,6 +1,7 @@
 import { IS_DEBUGGING } from "../../constants";
+import { dirname, resolve } from "node:path";
 import type { Appendix, Options, SecurityAlert, AppendixItem } from "../../types";
-import { logger } from "../../utils";
+import { logger } from "../../observability";
 import {
   clearDependencyGraphCache,
   clearDependencyTreeCache,
@@ -329,6 +330,7 @@ const filterVerifiedRemovalKeys = (ctx: UpdateContext, unusedKeys: string[]): st
     return unusedKeys.filter((key) => allowedKeys.has(key));
   }
   if (ctx.isTesting) return unusedKeys;
+  if (ctx.dependencyGraphAvailable === true) return unusedKeys;
   return [];
 };
 
@@ -366,20 +368,28 @@ const logUnusedRemoval = (
   );
 };
 
+const resolveRemovalDependencyGraph = (ctx: UpdateContext): UpdateContext => {
+  if (ctx.options?.removeUnused !== true) return ctx;
+  if (ctx.dependencyGraphAvailable !== undefined) return ctx;
+
+  return Object.assign({}, ctx, resolveDependencyGraphContext(ctx));
+};
+
 const stepRemoveUnused = (ctx: UpdateContext): UpdateContext => {
-  const base = createRemovalBaseContext(ctx);
-  if (ctx.options?.removeUnused !== true) return base;
-  const lacksDependencyEvidence = !ctx.isTesting && ctx.dependencyGraphAvailable !== true;
+  const context = resolveRemovalDependencyGraph(ctx);
+  const base = createRemovalBaseContext(context);
+  if (context.options?.removeUnused !== true) return base;
+  const lacksDependencyEvidence = !context.isTesting && context.dependencyGraphAvailable !== true;
   if (lacksDependencyEvidence) return base;
 
   const appendix = base.finalAppendix || {};
   const overrides = base.finalOverrides || {};
-  const removableKeys = getRemovableAppendixKeys(ctx, appendix);
+  const removableKeys = getRemovableAppendixKeys(context, appendix);
   if (removableKeys.length === 0) return base;
   const packageNames = extractPackageNames(removableKeys);
 
-  warnCveRemovals(ctx, appendix, removableKeys);
-  logUnusedRemoval(ctx, removableKeys, packageNames);
+  warnCveRemovals(context, appendix, removableKeys);
+  logUnusedRemoval(context, removableKeys, packageNames);
 
   const finalAppendix = removeAppendixKeys(appendix, removableKeys);
   const finalOverrides = removeOverrideKeys(overrides, packageNames);
@@ -547,9 +557,15 @@ const clearUpdateCaches = (): void => {
   jsonCache.clear();
 };
 
+const resolveUpdateRoot = (options: Options): string => {
+  if (options.root) return options.root;
+  if (options.path) return dirname(resolve(options.path));
+  return "./";
+};
+
 const createUpdateRuntime = (options: Options): UpdateRuntime => {
   const path = options?.path || "package.json";
-  const root = options?.root || "./";
+  const root = resolveUpdateRoot(options);
   const isTesting = options?.isTesting || false;
   const isLogging = Boolean(IS_DEBUGGING || options?.debug);
   const log = logger({ file: "update", isLogging });

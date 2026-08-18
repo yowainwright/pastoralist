@@ -29,7 +29,6 @@ import {
 } from "../overrides";
 import type { OverrideSource } from "../overrides";
 import {
-  logger,
   LRUCache,
   DiskCache,
   hashLockfile,
@@ -37,6 +36,7 @@ import {
   pruneBackups,
   fetchLatestCompatibleVersions,
 } from "../../utils";
+import { logger } from "../../observability";
 import { CACHE_NAMESPACES, CACHE_TTLS, CACHE_NS_VERSIONS } from "../../utils/cache";
 import { compareVersions } from "../../utils";
 import {

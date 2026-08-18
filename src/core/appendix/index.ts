@@ -21,7 +21,7 @@ import type {
 } from "../../types";
 import type { ConfigSource, PastoralistConfig } from "../../config/types";
 import { validateConfig } from "../../config/validators";
-import type { Logger } from "../../utils";
+import type { Logger } from "../../observability";
 import type {
   AppendixUpdateOptions,
   NestedAppendixItemOptions,

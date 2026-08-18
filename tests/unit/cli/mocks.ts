@@ -1,7 +1,7 @@
 import { mock } from "../setup";
 import type { BestCaseResult } from "../../../src/core/best-case";
 import type { PastoralistJSON, SecurityAlert } from "../../../src/types";
-import { logger as createLogger } from "../../../src/utils";
+import { logger as createLogger } from "../../../src/observability";
 
 export const log = createLogger({ file: "test.ts", isLogging: false });
 

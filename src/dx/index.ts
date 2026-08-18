@@ -32,6 +32,18 @@ export { shimmerFrame, playShimmer } from "./shimmer";
 export { createTerminalGraph } from "./terminal-graph";
 export { showHint, clearHintCache } from "./hint";
 export {
+  green,
+  red,
+  yellow,
+  gold,
+  copper,
+  cyan,
+  gray,
+  gradientPastoralist,
+  gradientGreenTan,
+  link,
+} from "./colors";
+export {
   formatConfirmPrompt,
   formatChoiceList,
   formatChoicePrompt,

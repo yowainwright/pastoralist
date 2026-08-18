@@ -16,7 +16,7 @@ import type {
   MergedConfig,
 } from "../../types";
 import type { WriteResultContext, ProcessingMode } from "../../types";
-import type { Logger } from "../../utils";
+import type { Logger } from "../../observability";
 
 export { WORKSPACE_MODES } from "./constants";
 

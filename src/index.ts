@@ -72,7 +72,7 @@ export {
   clearConfigCache,
 } from "./config";
 
-export { logger } from "./utils";
+export { logger } from "./observability";
 
 export type {
   Options,

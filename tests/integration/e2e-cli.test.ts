@@ -2,7 +2,7 @@ import { test, beforeEach, afterEach } from "node:test";
 import { mock } from "../unit/setup";
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync, readdirSync } from "fs";
-import { resolve, join } from "path";
+import { dirname, resolve, join } from "path";
 import { action } from "../../src/cli/index";
 import type { KeepConstraint } from "../../src/types";
 import * as packageJSON from "../../src/core/package";
@@ -19,12 +19,34 @@ const createFixture = (name: string, content: object) => {
   return join(dir, "package.json");
 };
 
+const createRemovalFixture = (name: string, content: object): string => {
+  const packagePath = createFixture(name, content);
+  const config = JSON.parse(readFileSync(packagePath, "utf-8"));
+  const rootPackage = {
+    name: config.name,
+    version: config.version,
+    dependencies: config.dependencies,
+    devDependencies: config.devDependencies,
+    peerDependencies: config.peerDependencies,
+  };
+  const lockfile = {
+    name: config.name,
+    version: config.version,
+    lockfileVersion: 3,
+    requires: true,
+    packages: { "": rootPackage },
+  };
+  writeFileSync(join(dirname(packagePath), "package-lock.json"), JSON.stringify(lockfile, null, 2));
+  return packagePath;
+};
+
 beforeEach(() => {
   if (existsSync(TEST_DIR)) {
     rmSync(TEST_DIR, { recursive: true, force: true });
   }
   mkdirSync(TEST_DIR, { recursive: true });
   packageJSON.clearDependencyTreeCache();
+  packageJSON.clearDependencyGraphCache();
   clearConfigCache();
   clearOSVCache();
   clearRegistryCache();
@@ -445,7 +467,7 @@ test("e2e: preserves keep: KeepConstraint through write round-trip", async () =>
 });
 
 test("e2e: removeUnused skips entries with keep: true", async () => {
-  const pkgPath = createFixture("remove-unused-keep-true", {
+  const pkgPath = createRemovalFixture("remove-unused-keep-true", {
     name: "test-remove-keep",
     version: "1.0.0",
     dependencies: { lodash: "^4.17.20" },
@@ -472,7 +494,7 @@ test("e2e: removeUnused skips entries with keep: true", async () => {
 });
 
 test("e2e: removeUnused skips entries with keep: KeepConstraint", async () => {
-  const pkgPath = createFixture("remove-unused-keep-constraint", {
+  const pkgPath = createRemovalFixture("remove-unused-keep-constraint", {
     name: "test-remove-keep-constraint",
     version: "1.0.0",
     dependencies: { lodash: "^4.17.20" },
@@ -653,7 +675,7 @@ test("e2e: normalizes legacy cve string to cves array on round-trip", async () =
 });
 
 test("e2e: orphaned override gets removed with removeUnused", async () => {
-  const pkgPath = createFixture("orphaned-override", {
+  const pkgPath = createRemovalFixture("orphaned-override", {
     name: "test-orphaned",
     version: "1.0.0",
     dependencies: { lodash: "^4.17.20" },
@@ -668,7 +690,7 @@ test("e2e: orphaned override gets removed with removeUnused", async () => {
 });
 
 test("e2e: override for devDependency package kept with removeUnused", async () => {
-  const pkgPath = createFixture("dev-dep-override-kept", {
+  const pkgPath = createRemovalFixture("dev-dep-override-kept", {
     name: "test-dev-dep-kept",
     version: "1.0.0",
     dependencies: { express: "^4.18.0" },
@@ -718,7 +740,7 @@ test("e2e: nested override and appendix entry preserved when parent in deps", as
 });
 
 test("e2e: partial cleanup removes only stale overrides", async () => {
-  const pkgPath = createFixture("partial-cleanup", {
+  const pkgPath = createRemovalFixture("partial-cleanup", {
     name: "test-partial",
     version: "1.0.0",
     dependencies: { lodash: "^4.17.20", express: "^4.18.0" },
@@ -742,7 +764,7 @@ test("e2e: partial cleanup removes only stale overrides", async () => {
 });
 
 test("e2e: overridePaths preserves react override tracked in monorepo paths", async () => {
-  const pkgPath = createFixture("override-paths-mono", {
+  const pkgPath = createRemovalFixture("override-paths-mono", {
     name: "test-override-paths",
     version: "1.0.0",
     dependencies: { lodash: "^4.17.20" },
@@ -766,7 +788,7 @@ test("e2e: overridePaths preserves react override tracked in monorepo paths", as
 });
 
 test("e2e: keep: true preserved, orphan removed, appendix integrity maintained", async () => {
-  const pkgPath = createFixture("keep-cleanup-integrity", {
+  const pkgPath = createRemovalFixture("keep-cleanup-integrity", {
     name: "test-keep-cleanup",
     version: "1.0.0",
     dependencies: { lodash: "^4.17.20" },
@@ -804,7 +826,7 @@ test("e2e: keep: true preserved, orphan removed, appendix integrity maintained",
 });
 
 test("e2e: all overrides removed when no dependencies present", async () => {
-  const pkgPath = createFixture("no-deps-overrides", {
+  const pkgPath = createRemovalFixture("no-deps-overrides", {
     name: "test-no-deps",
     version: "1.0.0",
     overrides: { "pkg-a": "1.0.0", "pkg-b": "2.0.0" },
@@ -836,7 +858,7 @@ test("e2e: double-run produces identical file content", async () => {
 });
 
 test("e2e: non-override pastoralist config preserved after cleanup", async () => {
-  const pkgPath = createFixture("preserve-config", {
+  const pkgPath = createRemovalFixture("preserve-config", {
     name: "test-preserve-config",
     version: "1.0.0",
     dependencies: { lodash: "^4.17.20" },

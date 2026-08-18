@@ -5,7 +5,7 @@ import { pathToFileURL } from "url";
 import type { Options, PastoralistJSON } from "../types";
 import { resolvePathFromRoot } from "../cli/utils";
 import type { CliConfigDeps, LoadedCliConfig } from "../cli/types";
-import { logger } from "../utils";
+import { logger } from "../observability";
 import type {
   AppendixItem,
   ConfigAppendix,

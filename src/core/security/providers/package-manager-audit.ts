@@ -8,7 +8,7 @@ import type {
   YarnAuditAdvisory,
   YarnAuditLine,
 } from "../../../types";
-import { logger } from "../../../utils";
+import { logger } from "../../../observability";
 import { detectPackageManager } from "../../package";
 import {
   DEFAULT_AUDIT_TIMEOUT,

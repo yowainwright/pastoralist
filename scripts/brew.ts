@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
-import { logger as createLogger } from "../src/utils";
+import { logger as createLogger } from "../src/observability";
 
 const STABLE_VERSION_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 const LOG_OPTIONS = { file: "scripts/brew.ts" };

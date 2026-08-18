@@ -12,7 +12,8 @@ import type {
   OSVVulnerability,
   SecurityProviderScanOptions,
 } from "../../../types";
-import { compareVersions, logger, retry, type RetryError, type RetryOptions } from "../../../utils";
+import { compareVersions, retry, type RetryError, type RetryOptions } from "../../../utils";
+import { logger } from "../../../observability";
 import {
   OSV_API,
   OSV_CACHE_MAX_ENTRIES,

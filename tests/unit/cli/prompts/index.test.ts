@@ -1,9 +1,9 @@
-import { assertCalledWith, mock, spyOn } from "../setup";
+import { assertCalledWith, mock, spyOn } from "../../setup";
 import { test, beforeEach, afterEach, mock as moduleMock } from "node:test";
 import assert from "node:assert/strict";
-import type { PromptChoice } from "../../../src/utils/prompts/types";
+import type { PromptChoice } from "../../../../src/cli/prompts/types";
 import * as readline from "readline";
-import * as originalInput from "../../../src/utils/prompts/input";
+import * as originalInput from "../../../../src/cli/prompts/input";
 
 const createInterface = mock(readline.createInterface);
 const enhancedQuestion = mock(originalInput.enhancedQuestion);
@@ -11,12 +11,12 @@ const enhancedQuestion = mock(originalInput.enhancedQuestion);
 moduleMock.module("readline", {
   namedExports: Object.assign({}, readline, { createInterface }),
 });
-moduleMock.module(import.meta.resolve("../../../src/utils/prompts/input"), {
+moduleMock.module(import.meta.resolve("../../../../src/cli/prompts/input"), {
   namedExports: Object.assign({}, originalInput, { enhancedQuestion }),
 });
 
 const { Prompt, createPrompt, quickConfirm, quickInput, quickList } =
-  await import("../../../src/utils/prompts");
+  await import("../../../../src/cli/prompts");
 
 let mockCreateInterface: ReturnType<typeof spyOn>;
 let mockEnhancedQuestion: ReturnType<typeof spyOn>;

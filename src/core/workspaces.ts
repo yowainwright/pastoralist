@@ -13,8 +13,8 @@ import type {
   PackageJsonWorkspaces,
   PastoralistJSON,
 } from "../types";
-import type { Logger } from "../utils";
-import { logger } from "../utils";
+import type { Logger } from "../observability";
+import { logger } from "../observability";
 import { resolveJSON, getDependencyTree } from "./package";
 import { extractPackageNames, mergeAppendixDependents } from "./appendix/utils";
 import { PACKAGE_JSON, PNPM_WORKSPACE_FILE } from "./constants";

@@ -1,4 +1,4 @@
-import { mock } from "bun:test";
+import { mock } from "../setup";
 import type { BestCaseResult } from "../../../src/core/best-case";
 import type { PastoralistJSON, SecurityAlert } from "../../../src/types";
 import { logger as createLogger } from "../../../src/utils";
@@ -30,6 +30,7 @@ export const createMockTerminalGraph = () => {
     executiveSummary: mock(() => graph),
     compactSummary: mock(() => graph),
     complete: mock(() => graph),
+    waitForCompletion: mock(() => Promise.resolve()),
     notice: mock(() => graph),
     stop: mock(() => graph),
   };

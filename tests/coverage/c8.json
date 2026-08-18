@@ -1,0 +1,12 @@
+{
+  "all": true,
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/types.ts", "src/**/constants.ts"],
+  "exclude-after-remap": true,
+  "reporter": ["lcov", "text-summary"],
+  "check-coverage": true,
+  "statements": 95,
+  "branches": 90,
+  "functions": 95,
+  "lines": 95
+}

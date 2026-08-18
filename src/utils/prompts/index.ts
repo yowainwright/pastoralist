@@ -13,6 +13,7 @@ import type {
   ConfirmOptions,
   ListOptions,
 } from "./types";
+import { PROMPT_LIST_MAX_ATTEMPTS } from "./constants";
 
 export class Prompt {
   protected rl: readline.Interface;
@@ -34,7 +35,7 @@ export class Prompt {
     }
   }
 
-  async input(message: string, defaultValue?: string): Promise<string> {
+  input(message: string, defaultValue?: string): Promise<string> {
     this.ensureCookedMode();
 
     return enhancedQuestion(
@@ -44,7 +45,7 @@ export class Prompt {
     );
   }
 
-  async confirm(message: string, defaultValue: boolean = true): Promise<boolean> {
+  confirm(message: string, defaultValue: boolean = true): Promise<boolean> {
     this.ensureCookedMode();
 
     return enhancedQuestion(
@@ -61,26 +62,33 @@ export class Prompt {
     );
   }
 
-  async list(message: string, choices: PromptChoice[]): Promise<string> {
+  list(message: string, choices: PromptChoice[]): Promise<string> {
     console.log(formatChoiceList(message, choices));
     this.ensureCookedMode();
-
-    return enhancedQuestion(this.rl, formatChoicePrompt(), (answer: string) => {
-      const num = parseInt(answer.trim(), 10);
-      const isBelowRange = num < 1;
-      const isAboveRange = num > choices.length;
-      const isInvalidChoice = isNaN(num) || isBelowRange || isAboveRange;
-
-      if (isInvalidChoice) {
-        console.log("Invalid choice. Please enter a number between 1 and " + choices.length);
-        return choices[0].value;
-      }
-
-      return choices[num - 1].value;
-    });
+    return this.askForListChoice(choices);
   }
 
-  async prompt(options: PromptOptions): Promise<string | boolean> {
+  private async askForListChoice(choices: PromptChoice[], attempt = 1): Promise<string> {
+    const answer = await enhancedQuestion(this.rl, formatChoicePrompt());
+    const selected = this.getListChoice(answer, choices);
+    if (selected) return selected;
+
+    console.log("Invalid choice. Please enter a number between 1 and " + choices.length);
+    const exhaustedAttempts = attempt >= PROMPT_LIST_MAX_ATTEMPTS;
+    if (exhaustedAttempts) return choices[0]?.value ?? "";
+    return this.askForListChoice(choices, attempt + 1);
+  }
+
+  private getListChoice(answer: string, choices: PromptChoice[]): string | undefined {
+    const choiceNumber = parseInt(answer.trim(), 10);
+    const isBelowRange = choiceNumber < 1;
+    const isAboveRange = choiceNumber > choices.length;
+    const isInvalidChoice = isNaN(choiceNumber) || isBelowRange || isAboveRange;
+    if (isInvalidChoice) return undefined;
+    return choices[choiceNumber - 1]?.value;
+  }
+
+  prompt(options: PromptOptions): Promise<string | boolean> {
     const { type = "input", message } = options;
 
     switch (type) {
@@ -96,7 +104,7 @@ export class Prompt {
     }
   }
 
-  async promptMany(questions: PromptOptions[]): Promise<Record<string, string | boolean>> {
+  promptMany(questions: PromptOptions[]): Promise<Record<string, string | boolean>> {
     return questions.reduce(
       async (accPromise, question, index) => {
         const answers = await accPromise;
@@ -132,23 +140,14 @@ export async function createPrompt<T = unknown>(
   }
 }
 
-export async function quickConfirm(
-  message: string,
-  defaultValue: boolean = true,
-): Promise<boolean> {
-  return createPrompt(async (prompt) => {
-    return prompt.confirm(message, defaultValue);
-  });
+export function quickConfirm(message: string, defaultValue: boolean = true): Promise<boolean> {
+  return createPrompt((prompt) => prompt.confirm(message, defaultValue));
 }
 
-export async function quickInput(message: string, defaultValue?: string): Promise<string> {
-  return createPrompt(async (prompt) => {
-    return prompt.input(message, defaultValue ?? "");
-  });
+export function quickInput(message: string, defaultValue?: string): Promise<string> {
+  return createPrompt((prompt) => prompt.input(message, defaultValue ?? ""));
 }
 
-export async function quickList(message: string, choices: PromptChoice[]): Promise<string> {
-  return createPrompt(async (prompt) => {
-    return prompt.list(message, choices);
-  });
+export function quickList(message: string, choices: PromptChoice[]): Promise<string> {
+  return createPrompt((prompt) => prompt.list(message, choices));
 }

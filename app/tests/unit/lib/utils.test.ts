@@ -1,4 +1,5 @@
-import { expect, test } from "bun:test";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 import { capturePrerenderState, clearPrerenderMarker } from "../../../src/lib/utils";
 
 test("clears prerender state without changing other root data", () => {
@@ -11,8 +12,8 @@ test("clears prerender state without changing other root data", () => {
 
   clearPrerenderMarker(rootElement);
 
-  expect(rootElement.dataset.prerendered).toBeUndefined();
-  expect(rootElement.dataset.theme).toBe("dark");
+  assert.strictEqual(rootElement.dataset.prerendered, undefined);
+  assert.strictEqual(rootElement.dataset.theme, "dark");
 });
 
 test("captures prerender state before the marker is cleared", () => {
@@ -21,5 +22,5 @@ test("captures prerender state before the marker is cleared", () => {
 
   clearPrerenderMarker(rootElement);
 
-  expect(wasPrerendered).toBeTrue();
+  assert.strictEqual(wasPrerendered, true);
 });

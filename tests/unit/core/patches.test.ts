@@ -1,4 +1,5 @@
-import { test, expect, beforeEach, afterEach } from "bun:test";
+import { test, beforeEach, afterEach } from "node:test";
+import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync, rmSync, existsSync } from "fs";
 import { resolve } from "path";
 import type { Appendix } from "../../../src/types";
@@ -9,7 +10,7 @@ import {
   attachPatchesToAppendix,
 } from "../../../src/core/patches";
 
-const TEST_DIR = resolve(__dirname, ".test-patches");
+const TEST_DIR = resolve(import.meta.dirname, ".test-patches");
 
 const createPatchFile = (filename: string) => {
   const dir = resolve(TEST_DIR, filename.substring(0, filename.lastIndexOf("/")));
@@ -35,7 +36,7 @@ afterEach(() => {
 test("detectPatches - should return empty object when no patches found", () => {
   const result = detectPatches(TEST_DIR);
 
-  expect(result).toEqual({});
+  assert.deepStrictEqual(result, {});
 });
 
 test("detectPatches - should detect simple patch files", () => {
@@ -44,7 +45,7 @@ test("detectPatches - should detect simple patch files", () => {
 
   const result = detectPatches(TEST_DIR);
 
-  expect(result).toEqual({
+  assert.deepStrictEqual(result, {
     lodash: ["patches/lodash+4.17.21.patch"],
   });
 });
@@ -55,7 +56,7 @@ test("detectPatches - should detect scoped package patches", () => {
 
   const result = detectPatches(TEST_DIR);
 
-  expect(result).toEqual({
+  assert.deepStrictEqual(result, {
     "@babel/core": ["patches/@babel+core+7.20.0.patch"],
   });
 });
@@ -66,7 +67,7 @@ test("detectPatches - should detect patches without version", () => {
 
   const result = detectPatches(TEST_DIR);
 
-  expect(result).toEqual({
+  assert.deepStrictEqual(result, {
     "my-package": ["patches/my-package.patch"],
   });
 });
@@ -78,7 +79,7 @@ test("detectPatches - should group multiple patches for same package", () => {
 
   const result = detectPatches(TEST_DIR);
 
-  expect(result).toEqual({
+  assert.deepStrictEqual(result, {
     lodash: ["patches/lodash+4.17.20.patch", "patches/lodash+4.17.21.patch"],
   });
 });
@@ -90,7 +91,7 @@ test("detectPatches - should handle multiple packages", () => {
 
   const result = detectPatches(TEST_DIR);
 
-  expect(result).toEqual({
+  assert.deepStrictEqual(result, {
     lodash: ["patches/lodash+4.17.21.patch"],
     react: ["patches/react+18.0.0.patch"],
   });
@@ -103,7 +104,7 @@ test("detectPatches - should ignore non-patch files", () => {
 
   const result = detectPatches(TEST_DIR);
 
-  expect(result).toEqual({
+  assert.deepStrictEqual(result, {
     lodash: ["patches/lodash+4.17.21.patch"],
   });
 });
@@ -114,7 +115,7 @@ test("detectPatches - should handle scoped packages with only scope", () => {
 
   const result = detectPatches(TEST_DIR);
 
-  expect(result).toEqual({
+  assert.deepStrictEqual(result, {
     "@babel": ["patches/@babel.patch"],
   });
 });
@@ -122,7 +123,7 @@ test("detectPatches - should handle scoped packages with only scope", () => {
 test("detectPatches - should return empty object on error", () => {
   const result = detectPatches("/nonexistent/path/that/should/not/exist");
 
-  expect(result).toEqual({});
+  assert.deepStrictEqual(result, {});
 });
 
 test("detectPatches - should use provided root path", () => {
@@ -131,7 +132,7 @@ test("detectPatches - should use provided root path", () => {
 
   const result = detectPatches(TEST_DIR);
 
-  expect(result.test).toEqual(["patches/test.patch"]);
+  assert.deepStrictEqual(result.test, ["patches/test.patch"]);
 });
 
 test("getPackagePatches - should return patches for existing package", () => {
@@ -141,7 +142,7 @@ test("getPackagePatches - should return patches for existing package", () => {
 
   const result = getPackagePatches("lodash", patchMap);
 
-  expect(result).toEqual(["patches/lodash+4.17.21.patch"]);
+  assert.deepStrictEqual(result, ["patches/lodash+4.17.21.patch"]);
 });
 
 test("getPackagePatches - should return empty array for non-existent package", () => {
@@ -151,7 +152,7 @@ test("getPackagePatches - should return empty array for non-existent package", (
 
   const result = getPackagePatches("react", patchMap);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("getPackagePatches - should return empty array for empty patch map", () => {
@@ -159,7 +160,7 @@ test("getPackagePatches - should return empty array for empty patch map", () => 
 
   const result = getPackagePatches("lodash", patchMap);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("findUnusedPatches - should return empty array when all patches are used", () => {
@@ -174,7 +175,7 @@ test("findUnusedPatches - should return empty array when all patches are used", 
 
   const result = findUnusedPatches(patchMap, dependencies);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("findUnusedPatches - should find unused patches for removed dependencies", () => {
@@ -188,7 +189,7 @@ test("findUnusedPatches - should find unused patches for removed dependencies", 
 
   const result = findUnusedPatches(patchMap, dependencies);
 
-  expect(result).toEqual(["patches/react+18.0.0.patch"]);
+  assert.deepStrictEqual(result, ["patches/react+18.0.0.patch"]);
 });
 
 test("findUnusedPatches - should find all unused patches", () => {
@@ -200,7 +201,7 @@ test("findUnusedPatches - should find all unused patches", () => {
 
   const result = findUnusedPatches(patchMap, dependencies);
 
-  expect(result).toEqual(["patches/lodash+4.17.21.patch", "patches/react+18.0.0.patch"]);
+  assert.deepStrictEqual(result, ["patches/lodash+4.17.21.patch", "patches/react+18.0.0.patch"]);
 });
 
 test("findUnusedPatches - should handle multiple patches for same package", () => {
@@ -211,7 +212,7 @@ test("findUnusedPatches - should handle multiple patches for same package", () =
 
   const result = findUnusedPatches(patchMap, dependencies);
 
-  expect(result).toEqual(["patches/lodash+4.17.20.patch", "patches/lodash+4.17.21.patch"]);
+  assert.deepStrictEqual(result, ["patches/lodash+4.17.20.patch", "patches/lodash+4.17.21.patch"]);
 });
 
 test("findUnusedPatches - should return empty array for empty patch map", () => {
@@ -220,7 +221,7 @@ test("findUnusedPatches - should return empty array for empty patch map", () => 
 
   const result = findUnusedPatches(patchMap, dependencies);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("attachPatchesToAppendix - should attach patches to appendix entries", () => {
@@ -235,7 +236,7 @@ test("attachPatchesToAppendix - should attach patches to appendix entries", () =
 
   const result = attachPatchesToAppendix(appendix, patchMap);
 
-  expect(result).toEqual({
+  assert.deepStrictEqual(result, {
     "lodash@4.17.21": {
       dependents: { root: "lodash@^4.17.21" },
       patches: ["patches/lodash+4.17.21.patch"],
@@ -255,7 +256,7 @@ test("attachPatchesToAppendix - should not modify entries without patches", () =
 
   const result = attachPatchesToAppendix(appendix, patchMap);
 
-  expect(result).toEqual({
+  assert.deepStrictEqual(result, {
     "react@18.0.0": {
       dependents: { root: "react@^18.0.0" },
     },
@@ -278,8 +279,8 @@ test("attachPatchesToAppendix - should handle multiple appendix entries", () => 
 
   const result = attachPatchesToAppendix(appendix, patchMap);
 
-  expect(result["lodash@4.17.21"].patches).toEqual(["patches/lodash+4.17.21.patch"]);
-  expect(result["react@18.0.0"].patches).toEqual(["patches/react+18.0.0.patch"]);
+  assert.deepStrictEqual(result["lodash@4.17.21"].patches, ["patches/lodash+4.17.21.patch"]);
+  assert.deepStrictEqual(result["react@18.0.0"].patches, ["patches/react+18.0.0.patch"]);
 });
 
 test("attachPatchesToAppendix - should return empty appendix for empty input", () => {
@@ -288,7 +289,7 @@ test("attachPatchesToAppendix - should return empty appendix for empty input", (
 
   const result = attachPatchesToAppendix(appendix, patchMap);
 
-  expect(result).toEqual({});
+  assert.deepStrictEqual(result, {});
 });
 
 test("attachPatchesToAppendix - should preserve existing appendix properties", () => {
@@ -307,11 +308,11 @@ test("attachPatchesToAppendix - should preserve existing appendix properties", (
 
   const result = attachPatchesToAppendix(appendix, patchMap);
 
-  expect(result["lodash@4.17.21"].ledger).toEqual({
+  assert.deepStrictEqual(result["lodash@4.17.21"].ledger, {
     addedDate: "2024-01-01",
     reason: "Security fix",
   });
-  expect(result["lodash@4.17.21"].patches).toEqual(["patches/lodash+4.17.21.patch"]);
+  assert.deepStrictEqual(result["lodash@4.17.21"].patches, ["patches/lodash+4.17.21.patch"]);
 });
 
 test("attachPatchesToAppendix - should attach patches to scoped package entries", () => {
@@ -326,5 +327,7 @@ test("attachPatchesToAppendix - should attach patches to scoped package entries"
 
   const result = attachPatchesToAppendix(appendix, patchMap);
 
-  expect(result["@babel/core@7.20.0"].patches).toEqual(["patches/@babel+core+7.20.0.patch"]);
+  assert.deepStrictEqual(result["@babel/core@7.20.0"].patches, [
+    "patches/@babel+core+7.20.0.patch",
+  ]);
 });

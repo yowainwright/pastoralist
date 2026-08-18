@@ -1,19 +1,19 @@
 import {
-  Options,
-  PastoralistJSON,
-  SecurityAlert,
-  SecurityOverride,
-  SecurityOverrideDetail,
+  type Options,
+  type PastoralistJSON,
+  type SecurityAlert,
+  type SecurityOverride,
+  type SecurityOverrideDetail,
   SecurityProviderPermissionError,
-  OverrideUpdate,
-  PastoralistResult,
+  type OverrideUpdate,
+  type PastoralistResult,
 } from "../../types";
 import { SecurityChecker } from "../../core/security";
 import { resolveWorkspaceManifestPaths } from "../../core/workspaces";
 import { createSpinner, green, yellow, logger as createLogger } from "../../utils";
 import { DEFAULT_SECURITY_PROVIDER, MSG_SCANNING } from "./constants";
-import { renderRemovalSafetyComparison, renderSecurityFindings } from "../display";
-import { compareRemovalSafety } from "./utils";
+import { renderRemovalVerification, renderSecurityFindings } from "../display";
+import { verifyRemovals } from "./utils";
 import { buildSecurityResult } from "../utils";
 import type { CliGraph, SecurityPhaseDeps } from "../types";
 import type {
@@ -24,7 +24,7 @@ import type {
   SecurityResultSummary,
 } from "./types";
 
-export { checkRemovalSafety, compareRemovalSafety } from "./utils";
+export { verifyRemovals } from "./utils";
 
 const logger = createLogger({ file: "program.ts", isLogging: false });
 type SecurityCheckerClass = typeof SecurityChecker;
@@ -392,62 +392,59 @@ const formatRemovalKeys = (keys: string[], limit = 5): string => {
   return `${visibleKeys}, +${remainingCount} more`;
 };
 
-const buildRemovalSafetyPrompt = (
-  comparison: NonNullable<Options["removalSafetyComparison"]>,
-): string => {
+const buildRemovalPrompt = (comparison: NonNullable<Options["removalVerification"]>): string => {
   const count = comparison.allowedKeys.length;
   const removalKeys = formatRemovalKeys(comparison.allowedKeys);
   const beforeCount = comparison.beforeAlertCount;
   const afterCount = comparison.afterAlertCount;
   const overrideLabel = `override${count === 1 ? "" : "s"}`;
   return (
-    `Removal safety check found ${beforeCount} -> ${afterCount} vulnerabilities. ` +
+    `Removal verification check found ${beforeCount} -> ${afterCount} vulnerabilities. ` +
     `Remove ${count} unused ${overrideLabel} (${removalKeys})?`
   );
 };
 
-const applyRemovalSafety = async (
+const verifyUnusedRemovals = async (
   config: PastoralistJSON,
   mergedOptions: Options,
   securityChecker: Awaited<ReturnType<typeof runSecurityCheck>>["securityChecker"],
   deps: Pick<SecurityPhaseDeps, "quickConfirm">,
 ): Promise<Options> => {
   if (!mergedOptions.removeUnused) return mergedOptions;
-  const comparison = await compareRemovalSafety(config, securityChecker, mergedOptions);
+  const comparison = await verifyRemovals(config, securityChecker, mergedOptions);
   if (!comparison) return mergedOptions;
 
-  const approvedComparison = await confirmRemovalSafetyIfNeeded(comparison, mergedOptions, deps);
+  const approvedComparison = await confirmVerifiedRemoval(comparison, mergedOptions, deps);
   const existingSkipKeys = mergedOptions.skipRemovalKeys || [];
   const skipRemovalKeys = Array.from(
     new Set(existingSkipKeys.concat(approvedComparison.blockedKeys)),
   );
 
   const optionsWithComparison = Object.assign({}, mergedOptions, {
-    removalSafetyComparison: approvedComparison,
+    removalVerification: approvedComparison,
   });
   if (skipRemovalKeys.length === 0) return optionsWithComparison;
   return Object.assign({}, optionsWithComparison, { skipRemovalKeys });
 };
 
-const confirmRemovalSafetyIfNeeded = async (
-  comparison: NonNullable<Options["removalSafetyComparison"]>,
+const confirmVerifiedRemoval = async (
+  comparison: NonNullable<Options["removalVerification"]>,
   mergedOptions: Options,
   deps: Pick<SecurityPhaseDeps, "quickConfirm">,
-): Promise<NonNullable<Options["removalSafetyComparison"]>> => {
+): Promise<NonNullable<Options["removalVerification"]>> => {
   const isInteractive = mergedOptions.interactive === true;
-  const isSafe = comparison.status === "safe";
   const hasAllowedRemovals = comparison.allowedKeys.length > 0;
-  const shouldAsk = isInteractive && isSafe && hasAllowedRemovals;
+  const shouldAsk = isInteractive && hasAllowedRemovals;
   if (!shouldAsk) return comparison;
 
-  const approved = await deps.quickConfirm(buildRemovalSafetyPrompt(comparison), false);
+  const approved = await deps.quickConfirm(buildRemovalPrompt(comparison), false);
   if (approved) return comparison;
 
   return Object.assign({}, comparison, {
     status: "declined" as const,
     allowedKeys: [],
     blockedKeys: comparison.removableKeys,
-    reason: "User declined cleanup after reviewing the safety comparison.",
+    reason: "User declined cleanup after reviewing the removal verification.",
   });
 };
 
@@ -520,13 +517,13 @@ const resolveSecurityPhaseOptions = async (
   const optionsWithAlerts = Object.assign({}, optionsWithOwnership, {
     securityAlerts: result.alerts,
   });
-  const optionsWithSafety = await applyRemovalSafety(
+  const optionsWithVerification = await verifyUnusedRemovals(
     config,
     optionsWithAlerts,
     result.securityChecker,
     deps,
   );
-  return applySecurityResults(result, optionsWithSafety, deps);
+  return applySecurityResults(result, optionsWithVerification, deps);
 };
 
 const renderSecurityPhaseResult = (
@@ -544,7 +541,7 @@ const renderSecurityPhaseResult = (
     nextOptions,
     result.packagesScanned,
   );
-  renderRemovalSafetyComparison(graph, nextOptions.removalSafetyComparison);
+  renderRemovalVerification(graph, nextOptions.removalVerification);
 };
 
 const runEnabledSecurityPhase = async (

@@ -1,4 +1,5 @@
-import { describe, test, expect } from "bun:test";
+import { describe, test } from "node:test";
+import assert from "node:assert/strict";
 import { createPackageKey, packageAtVersion, buildKey, atKey, colonKey } from "../../../src/utils";
 
 describe("String utilities", () => {
@@ -8,7 +9,7 @@ describe("String utilities", () => {
       const packageFn = keyFn("react");
       const result = packageFn("18.0.0");
 
-      expect(result).toBe("react@18.0.0");
+      assert.strictEqual(result, "react@18.0.0");
     });
 
     test("creates key function with custom separator", () => {
@@ -16,7 +17,7 @@ describe("String utilities", () => {
       const packageFn = keyFn("react");
       const result = packageFn("18.0.0");
 
-      expect(result).toBe("react-18.0.0");
+      assert.strictEqual(result, "react-18.0.0");
     });
   });
 
@@ -25,7 +26,7 @@ describe("String utilities", () => {
       const packageFn = packageAtVersion("lodash");
       const result = packageFn("4.17.21");
 
-      expect(result).toBe("lodash@4.17.21");
+      assert.strictEqual(result, "lodash@4.17.21");
     });
   });
 
@@ -34,45 +35,45 @@ describe("String utilities", () => {
       const keyFn = buildKey(":");
       const result = keyFn("namespace", "module", "version");
 
-      expect(result).toBe("namespace:module:version");
+      assert.strictEqual(result, "namespace:module:version");
     });
 
     test("handles empty array", () => {
       const keyFn = buildKey("@");
       const result = keyFn();
 
-      expect(result).toBe("");
+      assert.strictEqual(result, "");
     });
 
     test("handles single part", () => {
       const keyFn = buildKey("-");
       const result = keyFn("singlepart");
 
-      expect(result).toBe("singlepart");
+      assert.strictEqual(result, "singlepart");
     });
   });
 
   describe("atKey", () => {
     test("joins parts with @ separator", () => {
       const result = atKey("user", "repo");
-      expect(result).toBe("user@repo");
+      assert.strictEqual(result, "user@repo");
     });
 
     test("handles multiple parts", () => {
       const result = atKey("org", "user", "repo");
-      expect(result).toBe("org@user@repo");
+      assert.strictEqual(result, "org@user@repo");
     });
   });
 
   describe("colonKey", () => {
     test("joins parts with : separator", () => {
       const result = colonKey("namespace", "module");
-      expect(result).toBe("namespace:module");
+      assert.strictEqual(result, "namespace:module");
     });
 
     test("handles multiple parts", () => {
       const result = colonKey("org", "namespace", "module");
-      expect(result).toBe("org:namespace:module");
+      assert.strictEqual(result, "org:namespace:module");
     });
   });
 });

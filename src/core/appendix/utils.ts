@@ -4,6 +4,8 @@ import type {
   SecurityProviderType,
   CveDetail,
   LedgerReason,
+  PersistedAppendix,
+  CompactAppendixItem,
 } from "../../types";
 import type { Appendix, AppendixItem, OverridesType, OverrideValue } from "../../types";
 import type { PartialSecurityLedger, CompactAppendix } from "./types";
@@ -378,14 +380,18 @@ export const mergeAppendixDependents = (
   return Object.assign({}, currentAppendix, { [key]: mergedItem });
 };
 
-const hasSecurityInfo = (item: AppendixItem): boolean => {
+export const hasSecurityInfo = (item: AppendixItem): boolean => {
   const ledger = item.ledger;
   if (!ledger) return false;
-
-  const hasLedgerSecurityInfo = Boolean(
-    ledger.securityChecked || ledger.securityProvider || ledger.cves?.length || ledger.severity,
-  );
-  return hasLedgerSecurityInfo;
+  if (ledger.source === "security") return true;
+  if (ledger.securityChecked) return true;
+  if (ledger.securityProvider) return true;
+  if (ledger.securityCheckResult) return true;
+  if (ledger.cves?.length) return true;
+  if (ledger.cveDetails?.length) return true;
+  if (ledger.severity) return true;
+  if (ledger.vulnerableRange) return true;
+  return Boolean(ledger.patchedVersion);
 };
 
 const hasPatches = (item: AppendixItem): boolean => {
@@ -444,6 +450,22 @@ export const toCompactAppendix = (appendix: Appendix, addedDate?: string): Compa
     acc[key] = canBeCompacted(item) ? { addedDate: getAddedDate(item, addedDate) } : item;
     return acc;
   }, {});
+
+const isCompactAppendixItem = (
+  item: AppendixItem | CompactAppendixItem,
+): item is CompactAppendixItem => "addedDate" in item;
+
+const normalizeAppendixItem = (item: AppendixItem | CompactAppendixItem): AppendixItem => {
+  if (!isCompactAppendixItem(item)) return item;
+  const { addedDate, ...appendixItem } = item;
+  const ledger = Object.assign({}, appendixItem.ledger, { addedDate });
+  return Object.assign({}, appendixItem, { ledger });
+};
+
+export const normalizeAppendix = (appendix: PersistedAppendix): Appendix =>
+  Object.fromEntries(
+    Object.entries(appendix).map(([key, item]) => [key, normalizeAppendixItem(item)]),
+  );
 
 const isUnusedEntry = (
   item: AppendixItem,

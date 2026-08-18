@@ -1,4 +1,5 @@
-import { test, expect, describe, beforeEach, afterEach } from "bun:test";
+import { test, describe, beforeEach, afterEach } from "node:test";
+import assert from "node:assert/strict";
 import { createTerminalGraph } from "../../../src/dx/terminal-graph";
 import type { Output } from "../../../src/dx/output";
 import type {
@@ -33,8 +34,8 @@ describe("terminal-graph", () => {
       graph.notice("Test message");
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("-");
-      expect(joined).toContain("Test message");
+      assert.ok(joined.includes("-"));
+      assert.ok(joined.includes("Test message"));
     });
 
     test("includes bold white text styling", () => {
@@ -44,8 +45,8 @@ describe("terminal-graph", () => {
       graph.notice("Styled text");
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("\x1b[97m");
-      expect(joined).toContain("\x1b[1m");
+      assert.ok(joined.includes("\x1b[97m"));
+      assert.ok(joined.includes("\x1b[1m"));
     });
 
     test("includes red pipe borders", () => {
@@ -55,7 +56,7 @@ describe("terminal-graph", () => {
       graph.notice("Bordered text");
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("\x1b[31m|");
+      assert.ok(joined.includes("\x1b[31m|"));
     });
 
     test("returns graph for chaining", () => {
@@ -63,7 +64,7 @@ describe("terminal-graph", () => {
       const graph = createTerminalGraph({ out: output });
 
       const result = graph.notice("Chained");
-      expect(result).toBe(graph);
+      assert.strictEqual(result, graph);
     });
   });
 
@@ -79,8 +80,8 @@ describe("terminal-graph", () => {
       });
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("lodash@4.17.21");
-      expect(joined).toContain("4.17.20 → 4.17.21");
+      assert.ok(joined.includes("lodash@4.17.21"));
+      assert.ok(joined.includes("4.17.20 → 4.17.21"));
     });
 
     test("renders CVE when provided", () => {
@@ -95,7 +96,7 @@ describe("terminal-graph", () => {
       });
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("Blocks CVE-2021-23337");
+      assert.ok(joined.includes("Blocks CVE-2021-23337"));
     });
 
     test("renders reason when provided", () => {
@@ -110,7 +111,7 @@ describe("terminal-graph", () => {
       });
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("Security fix: Command Injection");
+      assert.ok(joined.includes("Security fix: Command Injection"));
     });
   });
 
@@ -132,10 +133,10 @@ describe("terminal-graph", () => {
       });
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("Pinned for compatibility");
-      expect(joined).toContain("Pin: 4.17.21");
-      expect(joined).toContain("Patch: patches/lodash.patch");
-      expect(joined).toContain("Constraints: Node 20");
+      assert.ok(joined.includes("Pinned for compatibility"));
+      assert.ok(joined.includes("Pin: 4.17.21"));
+      assert.ok(joined.includes("Patch: patches/lodash.patch"));
+      assert.ok(joined.includes("Constraints: Node 20"));
     });
 
     test("renders best-case search and impact metadata", () => {
@@ -160,8 +161,8 @@ describe("terminal-graph", () => {
       });
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("best-case-abc123 (bounded, 12 states)");
-      expect(joined).toContain("3 fixed, 1 introduced, 2 remaining");
+      assert.ok(joined.includes("best-case-abc123 (bounded, 12 states)"));
+      assert.ok(joined.includes("3 fixed, 1 introduced, 2 remaining"));
     });
   });
 
@@ -177,8 +178,8 @@ describe("terminal-graph", () => {
       });
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("lodash@4.17.21");
-      expect(joined).toContain("Override no longer needed");
+      assert.ok(joined.includes("lodash@4.17.21"));
+      assert.ok(joined.includes("Override no longer needed"));
     });
   });
 
@@ -197,9 +198,9 @@ describe("terminal-graph", () => {
       });
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("[HIGH] lodash@4.17.20");
-      expect(joined).toContain("Command Injection");
-      expect(joined).toContain("Fix: upgrade to 4.17.21");
+      assert.ok(joined.includes("[HIGH] lodash@4.17.20"));
+      assert.ok(joined.includes("Command Injection"));
+      assert.ok(joined.includes("Fix: upgrade to 4.17.21"));
     });
 
     test("renders vulnerability without fix available", () => {
@@ -215,7 +216,7 @@ describe("terminal-graph", () => {
       });
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("No fix available");
+      assert.ok(joined.includes("No fix available"));
     });
 
     test("renders CVE when provided", () => {
@@ -232,7 +233,7 @@ describe("terminal-graph", () => {
       });
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("CVE: CVE-2024-1234");
+      assert.ok(joined.includes("CVE: CVE-2024-1234"));
     });
   });
 
@@ -244,7 +245,7 @@ describe("terminal-graph", () => {
       graph.item("Test item");
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("Test item");
+      assert.ok(joined.includes("Test item"));
     });
 
     test("returns graph for chaining", () => {
@@ -252,7 +253,7 @@ describe("terminal-graph", () => {
       const graph = createTerminalGraph({ out: output });
 
       const result = graph.item("Chained item");
-      expect(result).toBe(graph);
+      assert.strictEqual(result, graph);
     });
   });
 
@@ -264,9 +265,9 @@ describe("terminal-graph", () => {
       graph.summary({ lodash: "4.17.21", express: "4.18.2" });
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("Overrides");
-      expect(joined).toContain("lodash: 4.17.21");
-      expect(joined).toContain("express: 4.18.2");
+      assert.ok(joined.includes("Overrides"));
+      assert.ok(joined.includes("lodash: 4.17.21"));
+      assert.ok(joined.includes("express: 4.18.2"));
     });
 
     test("renders changes when provided", () => {
@@ -276,9 +277,9 @@ describe("terminal-graph", () => {
       graph.summary({}, ["Added lodash override", "Removed minimist"]);
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("Changes");
-      expect(joined).toContain("Added lodash override");
-      expect(joined).toContain("Removed minimist");
+      assert.ok(joined.includes("Changes"));
+      assert.ok(joined.includes("Added lodash override"));
+      assert.ok(joined.includes("Removed minimist"));
     });
 
     test("renders both overrides and changes", () => {
@@ -288,10 +289,10 @@ describe("terminal-graph", () => {
       graph.summary({ lodash: "4.17.21" }, ["Updated lodash"]);
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("Overrides");
-      expect(joined).toContain("lodash: 4.17.21");
-      expect(joined).toContain("Changes");
-      expect(joined).toContain("Updated lodash");
+      assert.ok(joined.includes("Overrides"));
+      assert.ok(joined.includes("lodash: 4.17.21"));
+      assert.ok(joined.includes("Changes"));
+      assert.ok(joined.includes("Updated lodash"));
     });
 
     test("returns graph for chaining", () => {
@@ -299,7 +300,7 @@ describe("terminal-graph", () => {
       const graph = createTerminalGraph({ out: output });
 
       const result = graph.summary({});
-      expect(result).toBe(graph);
+      assert.strictEqual(result, graph);
     });
   });
 
@@ -309,7 +310,7 @@ describe("terminal-graph", () => {
       const graph = createTerminalGraph({ out: output });
 
       const result = graph.stop();
-      expect(result).toBe(graph);
+      assert.strictEqual(result, graph);
     });
   });
 
@@ -319,7 +320,8 @@ describe("terminal-graph", () => {
       const graph = createTerminalGraph({ out: output });
 
       const result = graph.progress(1, 5, "lodash");
-      expect(result).toBe(graph);
+      assert.strictEqual(result, graph);
+      graph.stop();
     });
   });
 
@@ -331,7 +333,7 @@ describe("terminal-graph", () => {
       graph.executiveSummary({ vulnerabilitiesFixed: 3 });
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("3 vulnerabilities fixed");
+      assert.ok(joined.includes("3 vulnerabilities fixed"));
     });
 
     test("renders vulnerabilities fixed with singular form", () => {
@@ -341,7 +343,7 @@ describe("terminal-graph", () => {
       graph.executiveSummary({ vulnerabilitiesFixed: 1 });
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("1 vulnerability fixed");
+      assert.ok(joined.includes("1 vulnerability fixed"));
     });
 
     test("renders stale overrides removed with plural form", () => {
@@ -351,7 +353,7 @@ describe("terminal-graph", () => {
       graph.executiveSummary({ staleOverridesRemoved: 2 });
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("2 stale overrides removed");
+      assert.ok(joined.includes("2 stale overrides removed"));
     });
 
     test("renders stale overrides removed with singular form", () => {
@@ -361,7 +363,7 @@ describe("terminal-graph", () => {
       graph.executiveSummary({ staleOverridesRemoved: 1 });
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("1 stale override removed");
+      assert.ok(joined.includes("1 stale override removed"));
     });
 
     test("renders packages protected with plural form", () => {
@@ -371,7 +373,7 @@ describe("terminal-graph", () => {
       graph.executiveSummary({ packagesProtected: 5 });
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("5 packages protected");
+      assert.ok(joined.includes("5 packages protected"));
     });
 
     test("renders packages protected with singular form", () => {
@@ -381,7 +383,7 @@ describe("terminal-graph", () => {
       graph.executiveSummary({ packagesProtected: 1 });
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("1 package protected");
+      assert.ok(joined.includes("1 package protected"));
     });
 
     test("renders all metrics together", () => {
@@ -395,9 +397,9 @@ describe("terminal-graph", () => {
       });
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("2 vulnerabilities fixed");
-      expect(joined).toContain("1 stale override removed");
-      expect(joined).toContain("10 packages protected");
+      assert.ok(joined.includes("2 vulnerabilities fixed"));
+      assert.ok(joined.includes("1 stale override removed"));
+      assert.ok(joined.includes("10 packages protected"));
     });
 
     test("renders nothing for zero values", () => {
@@ -411,9 +413,9 @@ describe("terminal-graph", () => {
       });
 
       const joined = output.lines.join("\n");
-      expect(joined).not.toContain("fixed");
-      expect(joined).not.toContain("removed");
-      expect(joined).not.toContain("protected");
+      assert.ok(!joined.includes("fixed"));
+      assert.ok(!joined.includes("removed"));
+      assert.ok(!joined.includes("protected"));
     });
 
     test("does not emit blank line for zero values", () => {
@@ -426,7 +428,7 @@ describe("terminal-graph", () => {
         packagesProtected: 0,
       });
 
-      expect(output.lines).toEqual([]);
+      assert.deepStrictEqual(output.lines, []);
     });
 
     test("returns graph for chaining", () => {
@@ -434,7 +436,7 @@ describe("terminal-graph", () => {
       const graph = createTerminalGraph({ out: output });
 
       const result = graph.executiveSummary({ vulnerabilitiesFixed: 1 });
-      expect(result).toBe(graph);
+      assert.strictEqual(result, graph);
     });
   });
 
@@ -446,7 +448,7 @@ describe("terminal-graph", () => {
       graph.notice("Test message");
       graph.executiveSummary({ vulnerabilitiesFixed: 5 });
 
-      expect(output.lines.length).toBe(0);
+      assert.strictEqual(output.lines.length, 0);
     });
 
     test("produces output when quiet option is false", () => {
@@ -455,7 +457,7 @@ describe("terminal-graph", () => {
 
       graph.notice("Test message");
 
-      expect(output.lines.length).toBeGreaterThan(0);
+      assert.ok(output.lines.length > 0);
     });
   });
 
@@ -467,8 +469,8 @@ describe("terminal-graph", () => {
       graph.banner();
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("Pastoralist");
-      expect(joined).toContain("\x1b[32m");
+      assert.ok(joined.includes("Pastoralist"));
+      assert.ok(joined.includes("\x1b[32m"));
     });
 
     test("returns graph for chaining", () => {
@@ -476,7 +478,7 @@ describe("terminal-graph", () => {
       const graph = createTerminalGraph({ out: output });
 
       const result = graph.banner();
-      expect(result).toBe(graph);
+      assert.strictEqual(result, graph);
     });
   });
 
@@ -489,8 +491,8 @@ describe("terminal-graph", () => {
       graph.endPhase("Analysis complete");
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("Analyzing dependencies");
-      expect(joined).toContain("Analysis complete");
+      assert.ok(joined.includes("Analyzing dependencies"));
+      assert.ok(joined.includes("Analysis complete"));
     });
 
     test("endPhase without text", () => {
@@ -501,8 +503,8 @@ describe("terminal-graph", () => {
       graph.endPhase();
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("Scanning");
-      expect(joined).not.toContain("undefined");
+      assert.ok(joined.includes("Scanning"));
+      assert.ok(!joined.includes("undefined"));
     });
 
     test("returns graph for chaining", () => {
@@ -511,43 +513,45 @@ describe("terminal-graph", () => {
 
       const result1 = graph.startPhase("test", "Testing");
       const result2 = graph.endPhase();
-      expect(result1).toBe(graph);
-      expect(result2).toBe(graph);
+      assert.strictEqual(result1, graph);
+      assert.strictEqual(result2, graph);
     });
   });
 
   describe("complete", () => {
-    test("renders completion message", () => {
+    test("renders completion message", async () => {
       const output = createMockOutput();
       const graph = createTerminalGraph({ out: output });
 
       graph.complete("All done!");
+      await graph.waitForCompletion();
 
       const joined = output.lines.join("");
-      expect(joined).toContain("A");
-      expect(joined).toContain("l");
-      expect(joined).toContain("d");
-      expect(joined).toContain("o");
-      expect(joined).toContain("n");
-      expect(joined).toContain("e");
-      expect(joined).toContain("!");
+      assert.ok(joined.includes("A"));
+      assert.ok(joined.includes("l"));
+      assert.ok(joined.includes("d"));
+      assert.ok(joined.includes("o"));
+      assert.ok(joined.includes("n"));
+      assert.ok(joined.includes("e"));
+      assert.ok(joined.includes("!"));
     });
 
-    test("renders with suffix", () => {
+    test("renders with suffix", async () => {
       const output = createMockOutput();
       const graph = createTerminalGraph({ out: output });
 
       graph.complete("Complete", " (1.2s)");
+      await graph.waitForCompletion();
 
       const joined = output.lines.join("");
-      expect(joined).toContain("C");
-      expect(joined).toContain("o");
-      expect(joined).toContain("m");
-      expect(joined).toContain("p");
-      expect(joined).toContain("l");
-      expect(joined).toContain("e");
-      expect(joined).toContain("t");
-      expect(joined).toContain("(1.2s)");
+      assert.ok(joined.includes("C"));
+      assert.ok(joined.includes("o"));
+      assert.ok(joined.includes("m"));
+      assert.ok(joined.includes("p"));
+      assert.ok(joined.includes("l"));
+      assert.ok(joined.includes("e"));
+      assert.ok(joined.includes("t"));
+      assert.ok(joined.includes("(1.2s)"));
     });
 
     test("returns graph for chaining", () => {
@@ -555,7 +559,7 @@ describe("terminal-graph", () => {
       const graph = createTerminalGraph({ out: output });
 
       const result = graph.complete("Done");
-      expect(result).toBe(graph);
+      assert.strictEqual(result, graph);
     });
   });
 
@@ -573,8 +577,8 @@ describe("terminal-graph", () => {
       graph.override(info);
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("lodash@4.17.21");
-      expect(joined).toContain("Security fix");
+      assert.ok(joined.includes("lodash@4.17.21"));
+      assert.ok(joined.includes("Security fix"));
     });
 
     test("renders override with CVE", () => {
@@ -591,7 +595,7 @@ describe("terminal-graph", () => {
       graph.override(info);
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("CVE-2021-44906");
+      assert.ok(joined.includes("CVE-2021-44906"));
     });
 
     test("renders override with patches", () => {
@@ -608,7 +612,7 @@ describe("terminal-graph", () => {
       graph.override(info);
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("Patches: fix-memory-leak.patch, security.patch");
+      assert.ok(joined.includes("Patches: fix-memory-leak.patch, security.patch"));
     });
 
     test("renders override with dependents", () => {
@@ -628,7 +632,7 @@ describe("terminal-graph", () => {
       graph.override(info);
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("Used by: 2 packages");
+      assert.ok(joined.includes("Used by: 2 packages"));
     });
 
     test("renders override with single dependent", () => {
@@ -647,7 +651,7 @@ describe("terminal-graph", () => {
       graph.override(info);
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("Used by: 1 package");
+      assert.ok(joined.includes("Used by: 1 package"));
     });
 
     test("renders override marked as security fix", () => {
@@ -664,7 +668,7 @@ describe("terminal-graph", () => {
       graph.override(info);
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("test@1.0.0");
+      assert.ok(joined.includes("test@1.0.0"));
     });
 
     test("renders override as last item", () => {
@@ -680,7 +684,7 @@ describe("terminal-graph", () => {
       graph.override(info, true);
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("└──");
+      assert.ok(joined.includes("└──"));
     });
 
     test("renders override with empty patches array", () => {
@@ -697,7 +701,7 @@ describe("terminal-graph", () => {
       graph.override(info);
 
       const joined = output.lines.join("\n");
-      expect(joined).not.toContain("Patches:");
+      assert.ok(!joined.includes("Patches:"));
     });
 
     test("renders override with empty dependents", () => {
@@ -714,7 +718,7 @@ describe("terminal-graph", () => {
       graph.override(info);
 
       const joined = output.lines.join("\n");
-      expect(joined).not.toContain("Used by:");
+      assert.ok(!joined.includes("Used by:"));
     });
 
     test("returns graph for chaining", () => {
@@ -728,7 +732,7 @@ describe("terminal-graph", () => {
       };
 
       const result = graph.override(info);
-      expect(result).toBe(graph);
+      assert.strictEqual(result, graph);
     });
   });
 
@@ -750,7 +754,7 @@ describe("terminal-graph", () => {
       graph.vulnerability(info);
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("https://github.com/advisories/GHSA-xxxxx");
+      assert.ok(joined.includes("https://github.com/advisories/GHSA-xxxxx"));
     });
 
     test("renders as last vulnerability", () => {
@@ -768,7 +772,7 @@ describe("terminal-graph", () => {
       graph.vulnerability(info, true);
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("└──");
+      assert.ok(joined.includes("└──"));
     });
   });
 
@@ -786,8 +790,8 @@ describe("terminal-graph", () => {
       graph.securityFix(info);
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("test@1.0.1");
-      expect(joined).toContain("1.0.0 → 1.0.1");
+      assert.ok(joined.includes("test@1.0.1"));
+      assert.ok(joined.includes("1.0.0 → 1.0.1"));
     });
 
     test("renders as last security fix", () => {
@@ -803,7 +807,7 @@ describe("terminal-graph", () => {
       graph.securityFix(info, true);
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("└──");
+      assert.ok(joined.includes("└──"));
     });
 
     test("returns graph for chaining", () => {
@@ -817,7 +821,7 @@ describe("terminal-graph", () => {
       };
 
       const result = graph.securityFix(info);
-      expect(result).toBe(graph);
+      assert.strictEqual(result, graph);
     });
   });
 
@@ -835,7 +839,7 @@ describe("terminal-graph", () => {
       graph.removedOverride(info, true);
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("└──");
+      assert.ok(joined.includes("└──"));
     });
 
     test("returns graph for chaining", () => {
@@ -849,7 +853,7 @@ describe("terminal-graph", () => {
       };
 
       const result = graph.removedOverride(info);
-      expect(result).toBe(graph);
+      assert.strictEqual(result, graph);
     });
   });
 
@@ -888,8 +892,8 @@ describe("terminal-graph", () => {
 
       graph.progress(1, 10, "package-1");
 
-      expect(intervalCallbacks.length).toBe(1);
-      expect(intervalIds.size).toBe(1);
+      assert.strictEqual(intervalCallbacks.length, 1);
+      assert.strictEqual(intervalIds.size, 1);
     });
 
     test("updates spinner text on subsequent progress", () => {
@@ -899,7 +903,7 @@ describe("terminal-graph", () => {
       graph.progress(1, 10, "package-1");
       graph.progress(2, 10, "package-2");
 
-      expect(intervalCallbacks.length).toBe(1);
+      assert.strictEqual(intervalCallbacks.length, 1);
     });
 
     test("stops spinner when stop is called", () => {
@@ -910,7 +914,7 @@ describe("terminal-graph", () => {
       const initialSize = intervalIds.size;
       graph.stop();
 
-      expect(intervalIds.size).toBeLessThan(initialSize);
+      assert.ok(intervalIds.size < initialSize);
     });
 
     test("spinner renders frames when interval triggers", () => {
@@ -919,7 +923,7 @@ describe("terminal-graph", () => {
 
       graph.progress(1, 5, "testing");
 
-      expect(intervalCallbacks.length).toBe(1);
+      assert.strictEqual(intervalCallbacks.length, 1);
       const callback = intervalCallbacks[0];
 
       let writeCallCount = 0;
@@ -930,7 +934,7 @@ describe("terminal-graph", () => {
 
       callback();
 
-      expect(writeCallCount).toBeGreaterThan(0);
+      assert.ok(writeCallCount > 0);
     });
   });
 
@@ -946,14 +950,14 @@ describe("terminal-graph", () => {
       graph.endPhase("Scan complete");
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("Scanning packages");
-      expect(joined).toContain("Package 1");
-      expect(joined).toContain("Package 2");
-      expect(joined).toContain("Package 3");
-      expect(joined).toContain("Scan complete");
-      expect(joined).toContain("│");
-      expect(joined).toContain("├");
-      expect(joined).toContain("└");
+      assert.ok(joined.includes("Scanning packages"));
+      assert.ok(joined.includes("Package 1"));
+      assert.ok(joined.includes("Package 2"));
+      assert.ok(joined.includes("Package 3"));
+      assert.ok(joined.includes("Scan complete"));
+      assert.ok(joined.includes("│"));
+      assert.ok(joined.includes("├"));
+      assert.ok(joined.includes("└"));
     });
 
     test("handles multiple phases", () => {
@@ -969,17 +973,17 @@ describe("terminal-graph", () => {
       graph.endPhase();
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("Phase 1");
-      expect(joined).toContain("Item 1");
-      expect(joined).toContain("Phase 2");
-      expect(joined).toContain("Item 2");
+      assert.ok(joined.includes("Phase 1"));
+      assert.ok(joined.includes("Item 1"));
+      assert.ok(joined.includes("Phase 2"));
+      assert.ok(joined.includes("Item 2"));
     });
   });
 
   describe("no output option", () => {
     test("uses default output when not provided", () => {
       const graph = createTerminalGraph();
-      expect(graph).toBeDefined();
+      assert.notStrictEqual(graph, undefined);
     });
   });
 
@@ -991,8 +995,8 @@ describe("terminal-graph", () => {
       graph.summary({});
 
       const joined = output.lines.join("\n");
-      expect(joined).not.toContain("Overrides");
-      expect(joined).not.toContain("Changes");
+      assert.ok(!joined.includes("Overrides"));
+      assert.ok(!joined.includes("Changes"));
     });
 
     test("handles empty changes array", () => {
@@ -1002,8 +1006,8 @@ describe("terminal-graph", () => {
       graph.summary({ lodash: "4.17.21" }, []);
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("Overrides");
-      expect(joined).not.toContain("Changes");
+      assert.ok(joined.includes("Overrides"));
+      assert.ok(!joined.includes("Changes"));
     });
   });
 
@@ -1015,9 +1019,9 @@ describe("terminal-graph", () => {
       graph.executiveSummary({});
 
       const joined = output.lines.join("\n");
-      expect(joined).not.toContain("fixed");
-      expect(joined).not.toContain("removed");
-      expect(joined).not.toContain("protected");
+      assert.ok(!joined.includes("fixed"));
+      assert.ok(!joined.includes("removed"));
+      assert.ok(!joined.includes("protected"));
     });
   });
 
@@ -1039,7 +1043,7 @@ describe("terminal-graph", () => {
       graph.vulnerability(info);
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("CVE: CVE-2021-23337, CVE-2020-28500");
+      assert.ok(joined.includes("CVE: CVE-2021-23337, CVE-2020-28500"));
     });
 
     test("omits CVE line when cves is empty", () => {
@@ -1057,7 +1061,7 @@ describe("terminal-graph", () => {
       graph.vulnerability(info);
 
       const joined = output.lines.join("\n");
-      expect(joined).not.toContain("CVE:");
+      assert.ok(!joined.includes("CVE:"));
     });
   });
 
@@ -1078,8 +1082,8 @@ describe("terminal-graph", () => {
       graph.override(info);
 
       const joined = output.lines.join("\n");
-      expect(joined).toContain("Kept by user");
-      expect(joined).toContain("Potentially fixed in 4.18.0");
+      assert.ok(joined.includes("Kept by user"));
+      assert.ok(joined.includes("Potentially fixed in 4.18.0"));
     });
 
     test("does not render keep/potentiallyFixedIn when not set", () => {
@@ -1095,8 +1099,8 @@ describe("terminal-graph", () => {
       graph.override(info);
 
       const joined = output.lines.join("\n");
-      expect(joined).not.toContain("Kept by user");
-      expect(joined).not.toContain("Potentially fixed in");
+      assert.ok(!joined.includes("Kept by user"));
+      assert.ok(!joined.includes("Potentially fixed in"));
     });
   });
 });

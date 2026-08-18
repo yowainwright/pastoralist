@@ -1,50 +1,51 @@
-import { describe, expect, test } from "bun:test";
+import { describe, test } from "node:test";
+import assert from "node:assert/strict";
 import { buildOnboardingText, showOnboarding } from "../../../src/cli/cmds/init";
 
 describe("cli onboarding", () => {
   test("buildOnboardingText includes human usage", () => {
     const text = buildOnboardingText();
 
-    expect(text).toContain("Pastoralist onboarding");
-    expect(text).toContain("Human quick start");
-    expect(text).toContain("npx pastoralist doctor");
-    expect(text).toContain("npx pastoralist --init");
-    expect(text).toContain("npx pastoralist --setup-hook");
+    assert.ok(text.includes("Pastoralist onboarding"));
+    assert.ok(text.includes("Human quick start"));
+    assert.ok(text.includes("npx pastoralist doctor"));
+    assert.ok(text.includes("npx pastoralist --init"));
+    assert.ok(text.includes("npx pastoralist --setup-hook"));
   });
 
   test("buildOnboardingText includes agent scripts", () => {
     const text = buildOnboardingText();
 
-    expect(text).toContain("Agent quick setup");
-    expect(text).toContain("npx pastoralist --init agent-skill");
-    expect(text).toContain("pastoralist-setup-local-dev --dry-run");
-    expect(text).toContain("--agent codex --skills all --hooks git,postinstall");
-    expect(text).toContain("--agent claude --skills all --hooks git,postinstall");
+    assert.ok(text.includes("Agent quick setup"));
+    assert.ok(text.includes("npx pastoralist --init agent-skill"));
+    assert.ok(text.includes("pastoralist-setup-local-dev --dry-run"));
+    assert.ok(text.includes("--agent codex --skills all --hooks git,postinstall"));
+    assert.ok(text.includes("--agent claude --skills all --hooks git,postinstall"));
   });
 
   test("buildOnboardingText includes agent prompts", () => {
     const text = buildOnboardingText();
 
-    expect(text).toContain("Prompt for a setup agent");
-    expect(text).toContain("Set up Pastoralist in this repository.");
-    expect(text).toContain("Prompt for a maintenance agent");
-    expect(text).toContain("Review this repository's Pastoralist setup.");
+    assert.ok(text.includes("Prompt for a setup agent"));
+    assert.ok(text.includes("Set up Pastoralist in this repository."));
+    assert.ok(text.includes("Prompt for a maintenance agent"));
+    assert.ok(text.includes("Review this repository's Pastoralist setup."));
   });
 
   test("buildOnboardingText includes the agent loop", () => {
     const text = buildOnboardingText();
 
-    expect(text).toContain("Agent setup loop");
-    expect(text).toContain("Apply the smallest needed setup command.");
-    expect(text).toContain("Report changed files and remaining manual steps.");
+    assert.ok(text.includes("Agent setup loop"));
+    assert.ok(text.includes("Apply the smallest needed setup command."));
+    assert.ok(text.includes("Report changed files and remaining manual steps."));
   });
 
   test("buildOnboardingText includes GitHub Action setup", () => {
     const text = buildOnboardingText();
 
-    expect(text).toContain("GitHub Action setup");
-    expect(text).toContain(".github/workflows/pastoralist.yml");
-    expect(text).toContain("uses: yowainwright/pastoralist@v1");
+    assert.ok(text.includes("GitHub Action setup"));
+    assert.ok(text.includes(".github/workflows/pastoralist.yml"));
+    assert.ok(text.includes("uses: yowainwright/pastoralist@v1"));
   });
 
   test("showOnboarding prints the onboarding text", () => {
@@ -58,6 +59,6 @@ describe("cli onboarding", () => {
       console.log = originalLog;
     }
 
-    expect(logged).toEqual([buildOnboardingText()]);
+    assert.deepStrictEqual(logged, [buildOnboardingText()]);
   });
 });

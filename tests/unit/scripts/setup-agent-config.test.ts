@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import { describe, test } from "node:test";
+import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -51,7 +52,7 @@ const runSetup = (root: string, args: string[], env: Record<string, string> = {}
 const runHookInstaller = (root: string) => {
   const env = Object.assign({}, process.env, { CI: "" });
 
-  return spawnSync(process.execPath, [hookScriptPath], {
+  return spawnSync("bun", [hookScriptPath], {
     cwd: root,
     encoding: "utf8",
     env,
@@ -66,17 +67,17 @@ describe("scripts/install-hooks", () => {
       const result = runHookInstaller(root);
       const hook = readFixture(root, ".git/hooks/pre-commit");
 
-      expect(result.status).toBe(0);
-      expect(hook).toContain("pastoralist-managed-hook");
-      expect(hook).toContain(
-        "await $`node node_modules/eslint-plugin-legibility/bin/lint-changed.js`;",
+      assert.strictEqual(result.status, 0);
+      assert.ok(hook.includes("pastoralist-managed-hook"));
+      assert.ok(
+        hook.includes("await $`node node_modules/eslint-plugin-legibility/bin/lint-changed.js`;"),
       );
-      expect(hook).toContain("await $`pnpm run format`;");
-      expect(hook).toContain("await $`pnpm run build`;");
-      expect(hook).toContain("await $`pnpm --dir app install --frozen-lockfile`;");
-      expect(hook).toContain("await $`pnpm --dir app run build`;");
-      expect(hook).toContain("await $`pnpm run lint`;");
-      expect(hook).toContain("await $`bun test ./tests/unit --coverage --coverage-reporter=lcov`;");
+      assert.ok(hook.includes("await $`pnpm run format`;"));
+      assert.ok(hook.includes("await $`pnpm run build`;"));
+      assert.ok(hook.includes("await $`pnpm --dir app install --frozen-lockfile`;"));
+      assert.ok(hook.includes("await $`pnpm --dir app run build`;"));
+      assert.ok(hook.includes("await $`pnpm run lint`;"));
+      assert.ok(hook.includes("await $`pnpm run test:coverage`;"));
     });
   });
 });
@@ -86,14 +87,14 @@ describe("scripts/setup-agent-config", () => {
     withTempRepo((root) => {
       const result = runSetup(root, ["--dry-run", "--target", "codex"]);
 
-      expect(result.status).toBe(0);
-      expect(result.stdout).toContain("Would write AGENTS.md");
-      expect(result.stdout).toContain("Would write .codex/config.toml");
-      expect(result.stdout).toContain(
-        "Would install .agents/skills/eslint-plugin-legibility/SKILL.md",
+      assert.strictEqual(result.status, 0);
+      assert.ok(result.stdout.includes("Would write AGENTS.md"));
+      assert.ok(result.stdout.includes("Would write .codex/config.toml"));
+      assert.ok(
+        result.stdout.includes("Would install .agents/skills/eslint-plugin-legibility/SKILL.md"),
       );
-      expect(existsSync(join(root, "AGENTS.md"))).toBe(false);
-      expect(existsSync(join(root, ".codex/config.toml"))).toBe(false);
+      assert.strictEqual(existsSync(join(root, "AGENTS.md")), false);
+      assert.strictEqual(existsSync(join(root, ".codex/config.toml")), false);
     });
   });
 
@@ -101,16 +102,21 @@ describe("scripts/setup-agent-config", () => {
     withTempRepo((root) => {
       const result = runSetup(root, ["--target", "codex"]);
 
-      expect(result.status).toBe(0);
-      expect(result.stderr).toBe("");
-      expect(readFixture(root, "AGENTS.md")).toContain("Never run git add");
-      expect(readFixture(root, ".codex/config.toml")).toContain("model_reasoning_effort");
-      expect(readFixture(root, ".agents/skills/eslint-plugin-legibility/SKILL.md")).toContain(
-        "ESLint Plugin Legibility",
+      assert.strictEqual(result.status, 0);
+      assert.strictEqual(result.stderr, "");
+      assert.ok(readFixture(root, "AGENTS.md").includes("Never run git add"));
+      assert.ok(readFixture(root, ".codex/config.toml").includes("model_reasoning_effort"));
+      assert.ok(
+        readFixture(root, ".agents/skills/eslint-plugin-legibility/SKILL.md").includes(
+          "ESLint Plugin Legibility",
+        ),
       );
-      expect(
-        readFixture(root, ".agents/skills/eslint-plugin-legibility/.pastoralist-agent-config"),
-      ).toContain("pastoralist-agent-config");
+      assert.ok(
+        readFixture(
+          root,
+          ".agents/skills/eslint-plugin-legibility/.pastoralist-agent-config",
+        ).includes("pastoralist-agent-config"),
+      );
     });
   });
 
@@ -122,11 +128,12 @@ describe("scripts/setup-agent-config", () => {
 
       const result = runSetup(root, ["--target", "codex"]);
 
-      expect(result.status).toBe(0);
-      expect(result.stdout).toContain("Skipping AGENTS.md; existing file is unmanaged");
-      expect(readFixture(root, "AGENTS.md")).toBe("custom agents\n");
-      expect(readFixture(root, ".codex/config.toml")).toBe("custom config\n");
-      expect(readFixture(root, ".agents/skills/eslint-plugin-legibility/SKILL.md")).toBe(
+      assert.strictEqual(result.status, 0);
+      assert.ok(result.stdout.includes("Skipping AGENTS.md; existing file is unmanaged"));
+      assert.strictEqual(readFixture(root, "AGENTS.md"), "custom agents\n");
+      assert.strictEqual(readFixture(root, ".codex/config.toml"), "custom config\n");
+      assert.strictEqual(
+        readFixture(root, ".agents/skills/eslint-plugin-legibility/SKILL.md"),
         "custom skill\n",
       );
     });
@@ -140,11 +147,13 @@ describe("scripts/setup-agent-config", () => {
 
       const result = runSetup(root, ["--force", "--target", "codex"]);
 
-      expect(result.status).toBe(0);
-      expect(readFixture(root, "AGENTS.md")).toContain("pastoralist-agent-config");
-      expect(readFixture(root, ".codex/config.toml")).toContain("model_reasoning_effort");
-      expect(readFixture(root, ".agents/skills/eslint-plugin-legibility/SKILL.md")).toContain(
-        "ESLint Plugin Legibility",
+      assert.strictEqual(result.status, 0);
+      assert.ok(readFixture(root, "AGENTS.md").includes("pastoralist-agent-config"));
+      assert.ok(readFixture(root, ".codex/config.toml").includes("model_reasoning_effort"));
+      assert.ok(
+        readFixture(root, ".agents/skills/eslint-plugin-legibility/SKILL.md").includes(
+          "ESLint Plugin Legibility",
+        ),
       );
     });
   });
@@ -153,10 +162,10 @@ describe("scripts/setup-agent-config", () => {
     withTempRepo((root) => {
       const result = runSetup(root, ["--dry-run", "--target", "auto"]);
 
-      expect(result.status).toBe(0);
-      expect(result.stdout).toContain("Would write AGENTS.md");
-      expect(result.stdout).toContain("Would write .codex/config.toml");
-      expect(result.stdout).not.toContain("CLAUDE.md");
+      assert.strictEqual(result.status, 0);
+      assert.ok(result.stdout.includes("Would write AGENTS.md"));
+      assert.ok(result.stdout.includes("Would write .codex/config.toml"));
+      assert.ok(!result.stdout.includes("CLAUDE.md"));
     });
   });
 
@@ -164,9 +173,9 @@ describe("scripts/setup-agent-config", () => {
     withTempRepo((root) => {
       const result = runSetup(root, ["--target", "codex"], { CI: "true" });
 
-      expect(result.status).toBe(0);
-      expect(result.stdout).toContain("CI environment detected, skipping local dev setup");
-      expect(existsSync(join(root, "AGENTS.md"))).toBe(false);
+      assert.strictEqual(result.status, 0);
+      assert.ok(result.stdout.includes("CI environment detected, skipping local dev setup"));
+      assert.strictEqual(existsSync(join(root, "AGENTS.md")), false);
     });
   });
 });
@@ -176,9 +185,9 @@ describe("scripts/setup-pastoralist-skill", () => {
     withTempRepo((root) => {
       const result = runScript(skillScriptPath, root, ["--dry-run"]);
 
-      expect(result.status).toBe(0);
-      expect(result.stdout).toContain("Would install .agents/skills/pastoralist/SKILL.md");
-      expect(existsSync(join(root, ".agents/skills/pastoralist/SKILL.md"))).toBe(false);
+      assert.strictEqual(result.status, 0);
+      assert.ok(result.stdout.includes("Would install .agents/skills/pastoralist/SKILL.md"));
+      assert.strictEqual(existsSync(join(root, ".agents/skills/pastoralist/SKILL.md")), false);
     });
   });
 
@@ -186,17 +195,21 @@ describe("scripts/setup-pastoralist-skill", () => {
     withTempRepo((root) => {
       const result = runScript(skillScriptPath, root, []);
 
-      expect(result.status).toBe(0);
-      expect(readFixture(root, ".agents/skills/pastoralist/SKILL.md")).toContain(
-        "npx pastoralist doctor",
+      assert.strictEqual(result.status, 0);
+      assert.ok(
+        readFixture(root, ".agents/skills/pastoralist/SKILL.md").includes("npx pastoralist doctor"),
       );
-      expect(readFixture(root, ".agents/skills/pastoralist/SKILL.md")).toContain(
-        "npx pastoralist --init agent-skill",
+      assert.ok(
+        readFixture(root, ".agents/skills/pastoralist/SKILL.md").includes(
+          "npx pastoralist --init agent-skill",
+        ),
       );
-      expect(readFixture(root, ".agents/skills/pastoralist/.pastoralist-agent-config")).toContain(
-        "pastoralist-agent-config",
+      assert.ok(
+        readFixture(root, ".agents/skills/pastoralist/.pastoralist-agent-config").includes(
+          "pastoralist-agent-config",
+        ),
       );
-      expect(existsSync(join(root, "AGENTS.md"))).toBe(false);
+      assert.strictEqual(existsSync(join(root, "AGENTS.md")), false);
     });
   });
 
@@ -206,11 +219,16 @@ describe("scripts/setup-pastoralist-skill", () => {
 
       const result = runScript(skillScriptPath, root, []);
 
-      expect(result.status).toBe(0);
-      expect(result.stdout).toContain(
-        "Skipping .agents/skills/pastoralist/SKILL.md; existing file is unmanaged",
+      assert.strictEqual(result.status, 0);
+      assert.ok(
+        result.stdout.includes(
+          "Skipping .agents/skills/pastoralist/SKILL.md; existing file is unmanaged",
+        ),
       );
-      expect(readFixture(root, ".agents/skills/pastoralist/SKILL.md")).toBe("custom skill\n");
+      assert.strictEqual(
+        readFixture(root, ".agents/skills/pastoralist/SKILL.md"),
+        "custom skill\n",
+      );
     });
   });
 });
@@ -228,14 +246,14 @@ describe("scripts/setup-local-dev", () => {
         "git,postinstall",
       ]);
 
-      expect(result.status).toBe(0);
-      expect(result.stdout).toContain("Would write AGENTS.md");
-      expect(result.stdout).toContain("Would install .agents/skills/pastoralist/SKILL.md");
-      expect(result.stdout).toContain(
-        "Would install .agents/skills/eslint-plugin-legibility/SKILL.md",
+      assert.strictEqual(result.status, 0);
+      assert.ok(result.stdout.includes("Would write AGENTS.md"));
+      assert.ok(result.stdout.includes("Would install .agents/skills/pastoralist/SKILL.md"));
+      assert.ok(
+        result.stdout.includes("Would install .agents/skills/eslint-plugin-legibility/SKILL.md"),
       );
-      expect(result.stdout).toContain("Would install git hooks");
-      expect(result.stdout).toContain("Would add Pastoralist postinstall hook");
+      assert.ok(result.stdout.includes("Would install git hooks"));
+      assert.ok(result.stdout.includes("Would add Pastoralist postinstall hook"));
     });
   });
 
@@ -250,10 +268,11 @@ describe("scripts/setup-local-dev", () => {
         "none",
       ]);
 
-      expect(result.status).toBe(0);
-      expect(readFixture(root, ".agents/skills/pastoralist/SKILL.md")).toContain("Pastoralist");
-      expect(existsSync(join(root, "AGENTS.md"))).toBe(false);
-      expect(existsSync(join(root, ".agents/skills/eslint-plugin-legibility/SKILL.md"))).toBe(
+      assert.strictEqual(result.status, 0);
+      assert.ok(readFixture(root, ".agents/skills/pastoralist/SKILL.md").includes("Pastoralist"));
+      assert.strictEqual(existsSync(join(root, "AGENTS.md")), false);
+      assert.strictEqual(
+        existsSync(join(root, ".agents/skills/eslint-plugin-legibility/SKILL.md")),
         false,
       );
     });

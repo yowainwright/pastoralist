@@ -100,8 +100,17 @@ export type { OverrideSource, OverrideSourceKind } from "./core/overrides";
 import { realpathSync } from "fs";
 import { fileURLToPath } from "url";
 
+const resolveEntryPath = (entry: string | undefined): string => {
+  if (!entry) return "";
+  try {
+    return realpathSync(entry);
+  } catch {
+    return "";
+  }
+};
+
 const currentFile = fileURLToPath(import.meta.url);
-const argv1Real = process.argv[1] ? realpathSync(process.argv[1]) : "";
+const argv1Real = resolveEntryPath(process.argv[1]);
 
 const isMainModule =
   currentFile === argv1Real ||

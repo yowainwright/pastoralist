@@ -11,7 +11,7 @@ export type RGB = {
 
 export type GradientFunction = (text: string) => string;
 
-export type Task<T> = () => Promise<T>;
+export type Task<T> = () => T | Promise<T>;
 
 export interface QueueItem<T> {
   task: Task<T>;

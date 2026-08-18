@@ -23,6 +23,11 @@ import type {
 
 const execFileAsync = promisify(execFile);
 
+const quoteShellValue = (value: string): string => {
+  const escaped = value.replaceAll("'", "'\\''");
+  return `'${escaped}'`;
+};
+
 export const createOutput = (): OutputFunctions => ({
   log: (msg: string) => process.stdout.write(`${msg}\n`),
   success: (msg: string) => process.stdout.write(`${green("[OK]")} ${msg}\n`),
@@ -52,7 +57,7 @@ export class SecuritySetupWizard {
     this.out = createOutput();
   }
 
-  async checkTokenAvailable(provider: SetupSecurityProvider): Promise<boolean> {
+  checkTokenAvailable(provider: SetupSecurityProvider): boolean | Promise<boolean> {
     const config = PROVIDER_CONFIGS[provider];
     const noEnvVarNeeded = !config.envVar;
 
@@ -345,7 +350,7 @@ export class SecuritySetupWizard {
     return !this.skipBrowserOpen;
   }
 
-  private async promptForToken(config: ProviderConfig): Promise<string> {
+  private promptForToken(config: ProviderConfig): Promise<string> {
     this.out.info(`${SETUP_MESSAGES.TOKEN_TIP}\n`);
     const readToken = this.prompts.secret ?? this.prompts.input;
     return readToken(`Paste your ${config.name} token here`);
@@ -397,7 +402,7 @@ export class SecuritySetupWizard {
     return { success: false, message: "Token validation failed" };
   }
 
-  async validateToken(provider: SetupSecurityProvider, token: string): Promise<boolean> {
+  validateToken(provider: SetupSecurityProvider, token: string): boolean | Promise<boolean> {
     try {
       const isGitHub = provider === "github";
       if (isGitHub) {
@@ -440,11 +445,10 @@ export class SecuritySetupWizard {
       const response = await fetch(VALIDATION_ENDPOINTS.snyk, {
         headers: {
           Authorization: `token ${token}`,
+          "Content-Type": "application/vnd.api+json",
         },
       });
-      const isOk = response.ok;
-      const is404 = response.status === 404;
-      return isOk || is404;
+      return response.ok;
     } catch {
       return false;
     }
@@ -502,7 +506,7 @@ export class SecuritySetupWizard {
     this.out.log(`Please open manually: ${url}`);
   }
 
-  private async saveToShellProfile(envVar: string, token: string): Promise<boolean> {
+  private saveToShellProfile(envVar: string, token: string): boolean {
     const home = homedir();
     const shellProfiles = [".zshrc", ".bashrc", ".bash_profile"];
     const profilePath = this.findShellProfile(home, shellProfiles);
@@ -524,7 +528,8 @@ export class SecuritySetupWizard {
       return false;
     }
 
-    const newLine = `\n# Added by pastoralist\nexport ${envVar}="${token}"\n`;
+    const quotedToken = quoteShellValue(token);
+    const newLine = `\n# Added by pastoralist\nexport ${envVar}=${quotedToken}\n`;
     appendFileSync(profilePath, newLine);
     this.out.success(`Added ${envVar} to ${profilePath}\n`);
     return true;
@@ -576,7 +581,7 @@ function createAlreadyConfiguredResult(provider: SetupSecurityProvider): SetupRe
   };
 }
 
-async function confirmSetupHelp(config: ProviderConfig): Promise<boolean> {
+function confirmSetupHelp(config: ProviderConfig): Promise<boolean> {
   const out = createOutput();
   out.warn(`No ${config.name} authentication found.\n`);
   return promptConfirm(`Would you like help setting up ${config.name}?`, true);

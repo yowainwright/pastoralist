@@ -48,7 +48,7 @@ const collectSingleValue = (args: string[], startIndex: number): CollectedValue 
   const hasNextValue = nextArg && !isFlag(nextArg);
 
   if (hasNextValue) return { value: nextArg, consumed: 1 };
-  return { value: true, consumed: 0 };
+  return { value: undefined, consumed: 0 };
 };
 
 const collectValue = (args: string[], index: number, def: OptionDefinition): CollectedValue =>
@@ -105,9 +105,19 @@ const processCommandArgument = (
 const processInlineValue = (
   key: string,
   inlineValue: string,
+  def: OptionDefinition,
   index: number,
   state: ParserState,
-): ProcessedArgument => toProcessedArgument(index + 1, state, withOption(state, key, inlineValue));
+): ProcessedArgument => {
+  if (def.hasValue) {
+    return toProcessedArgument(index + 1, state, withOption(state, key, inlineValue));
+  }
+  if (inlineValue === "true") return processBooleanFlag(key, index, state);
+  if (inlineValue === "false") {
+    return toProcessedArgument(index + 1, state, withOption(state, key, false));
+  }
+  throw new Error(`Boolean option ${key} requires true or false`);
+};
 
 const processBooleanFlag = (key: string, index: number, state: ParserState): ProcessedArgument =>
   toProcessedArgument(index + 1, state, withOption(state, key, true));
@@ -122,6 +132,7 @@ const processCollectedValue = (
   const { value, consumed } = collectValue(args, index, def);
   const nextIndex = index + consumed + 1;
   const nextValue = resolveEmptyValue(value, def);
+  if (nextValue === undefined) throw new Error(`Option ${key} requires a value`);
   return toProcessedArgument(nextIndex, state, withOption(state, key, nextValue));
 };
 
@@ -134,7 +145,7 @@ const processArgument = (args: string[], index: number, state: ParserState): Pro
   if (!def) throw new Error(`Unknown option: ${flag}`);
 
   const key = getOptionKey(def);
-  if (inlineValue !== undefined) return processInlineValue(key, inlineValue, index, state);
+  if (inlineValue !== undefined) return processInlineValue(key, inlineValue, def, index, state);
   if (!def.hasValue) return processBooleanFlag(key, index, state);
   return processCollectedValue(args, index, state, key, def);
 };

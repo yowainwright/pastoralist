@@ -1,10 +1,11 @@
 import { execFile } from "child_process";
+import { readFileSync } from "fs";
 import { promisify } from "util";
 import {
-  DependabotAlert,
-  SecurityAlert,
-  SecurityCheckOptions,
-  GithubApiError,
+  type DependabotAlert,
+  type SecurityAlert,
+  type SecurityCheckOptions,
+  type GithubApiError,
   SecurityProviderPermissionError,
 } from "../../../types";
 import { logger, retry } from "../../../utils";
@@ -15,6 +16,11 @@ import {
   DEFAULT_GH_CLI_TIMEOUT,
   AUTH_MESSAGES,
   GITHUB_DEFAULT_MOCK_ALERTS,
+  GITHUB_NEXT_LINK_PATTERN,
+  GITHUB_OWNER_PATTERN,
+  GITHUB_REPOSITORY_PATTERN,
+  GITHUB_REPOSITORY_SUFFIX_PATTERN,
+  GITHUB_VULNERABLE_LOWER_BOUND_PATTERN,
 } from "../constants";
 
 const defaultExecFileAsync = promisify(execFile);
@@ -55,7 +61,7 @@ export class GitHubSecurityProvider {
       const remoteUrl = stdout.trim();
 
       if (this.isGitHubUrl(remoteUrl)) {
-        const match = remoteUrl.match(/github\.com[:/]([^/]+)\//);
+        const match = remoteUrl.match(GITHUB_OWNER_PATTERN);
         if (match) {
           return match[1];
         }
@@ -74,9 +80,9 @@ export class GitHubSecurityProvider {
       const remoteUrl = stdout.trim();
 
       if (this.isGitHubUrl(remoteUrl)) {
-        const match = remoteUrl.match(/github\.com[:/][^/]+\/([^/.]+)/);
+        const match = remoteUrl.match(GITHUB_REPOSITORY_PATTERN);
         if (match) {
-          return match[1];
+          return match[1].replace(GITHUB_REPOSITORY_SUFFIX_PATTERN, "");
         }
       }
     } catch {
@@ -140,7 +146,7 @@ export class GitHubSecurityProvider {
     throw new Error(AUTH_MESSAGES.GITHUB_CLI_NOT_FOUND);
   }
 
-  private async fetchMockAlerts(): Promise<DependabotAlert[]> {
+  private fetchMockAlerts(): DependabotAlert[] {
     this.log.debug("Using mock Dependabot alerts", "fetchMockAlerts");
 
     if (this.shouldForceVulnerable()) {
@@ -154,20 +160,19 @@ export class GitHubSecurityProvider {
     return process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE] === "true";
   }
 
-  private async getMockVulnerableAlerts(): Promise<DependabotAlert[]> {
+  private getMockVulnerableAlerts(): DependabotAlert[] {
     const mockFile = process.env[SECURITY_ENV_VARS.MOCK_FILE];
 
     if (mockFile) {
-      const alerts = await this.loadMockFile(mockFile);
+      const alerts = this.loadMockFile(mockFile);
       if (alerts) return alerts;
     }
 
     return this.getDefaultMockAlerts();
   }
 
-  private async loadMockFile(filePath: string): Promise<DependabotAlert[] | null> {
+  private loadMockFile(filePath: string): DependabotAlert[] | null {
     try {
-      const { readFileSync } = await import("fs");
       const mockData = readFileSync(filePath, "utf-8");
       return JSON.parse(mockData);
     } catch (error) {
@@ -262,17 +267,31 @@ export class GitHubSecurityProvider {
     );
   }
 
-  private async fetchFromGitHubAPI(): Promise<DependabotAlert[]> {
-    const url = `https://api.github.com/repos/${this.owner}/${this.repo}/dependabot/alerts`;
+  private async fetchFromGitHubAPI(
+    url = `https://api.github.com/repos/${this.owner}/${this.repo}/dependabot/alerts?per_page=100`,
+  ): Promise<DependabotAlert[]> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), DEFAULT_FETCH_TIMEOUT);
 
     try {
       const response = await this.requestDependabotAlerts(url, controller.signal);
-      return this.readDependabotResponse(response);
+      const alerts = await this.readDependabotResponse(response);
+      const nextUrl = this.getNextPageUrl(response);
+      if (!nextUrl) return alerts;
+      const nextAlerts = await this.fetchFromGitHubAPI(nextUrl);
+      return alerts.concat(nextAlerts);
     } finally {
       clearTimeout(timeoutId);
     }
+  }
+
+  private getNextPageUrl(response: Response): string | undefined {
+    const links = response.headers?.get("link");
+    if (!links) return undefined;
+    const nextLink = links.split(",").find((link) => link.includes('rel="next"'));
+    if (!nextLink) return undefined;
+    const match = GITHUB_NEXT_LINK_PATTERN.exec(nextLink);
+    return match?.[1];
   }
 
   private requestDependabotAlerts(url: string, signal: AbortSignal): Promise<Response> {
@@ -391,11 +410,11 @@ export class GitHubSecurityProvider {
     const vulnerableRange = alert.security_vulnerability.vulnerable_version_range;
     const hasBoundedRange = vulnerableRange.includes(">=") && vulnerableRange.includes("<=");
     if (hasBoundedRange) {
-      const match = vulnerableRange.match(/>= ?([^\s,]+)/);
+      const match = vulnerableRange.match(GITHUB_VULNERABLE_LOWER_BOUND_PATTERN);
       return match ? match[1] : "unknown";
     }
     if (vulnerableRange.includes(">=")) {
-      const match = vulnerableRange.match(/>= ?([^\s,]+)/);
+      const match = vulnerableRange.match(GITHUB_VULNERABLE_LOWER_BOUND_PATTERN);
       return match ? match[1] : "unknown";
     }
     return "unknown";

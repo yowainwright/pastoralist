@@ -89,6 +89,7 @@ export interface UpdateContext {
   allWorkspaceDeps?: Record<string, string>;
   allDeps?: Record<string, string>;
   dependencyGraph?: Record<string, string[]>;
+  dependencyGraphAvailable?: boolean;
   overridePaths?: Record<string, Appendix>;
   finalOverrides?: OverridesType;
   finalAppendix?: Appendix;

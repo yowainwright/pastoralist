@@ -1,10 +1,12 @@
-import { test, expect, beforeEach, afterEach, mock } from "bun:test";
+import { test, beforeEach, afterEach } from "node:test";
+import { mock } from "../../unit/setup";
+import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from "fs";
 import { resolve } from "path";
 import { action, run } from "../../../src/cli/index";
 import type { Options } from "../../../src/types";
 
-const TEST_DIR = resolve(__dirname, ".test-cli");
+const TEST_DIR = resolve(import.meta.dirname, ".test-cli");
 const TEST_PACKAGE_JSON = resolve(TEST_DIR, "package.json");
 
 const createTestPackageJson = (content: any = {}) => {
@@ -42,7 +44,7 @@ test("action - should handle test mode", async () => {
   };
 
   await action(options);
-  expect(true).toBe(true);
+  assert.strictEqual(true, true);
 });
 
 test("action - should process package.json without security check", async () => {
@@ -60,9 +62,9 @@ test("action - should process package.json without security check", async () => 
   await action(options);
 
   const updated = JSON.parse(readFileSync(TEST_PACKAGE_JSON, "utf-8"));
-  expect(updated.pastoralist).toBeDefined();
-  expect(updated.pastoralist.appendix).toBeDefined();
-  expect(updated.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
+  assert.notStrictEqual(updated.pastoralist, undefined);
+  assert.notStrictEqual(updated.pastoralist.appendix, undefined);
+  assert.notStrictEqual(updated.pastoralist.appendix["lodash@4.17.21"], undefined);
 });
 
 test("action - should merge options from config", async () => {
@@ -85,8 +87,8 @@ test("action - should merge options from config", async () => {
   await action(options);
 
   const updated = JSON.parse(readFileSync(TEST_PACKAGE_JSON, "utf-8"));
-  expect(updated.pastoralist).toBeDefined();
-  expect(updated.pastoralist.appendix).toBeDefined();
+  assert.notStrictEqual(updated.pastoralist, undefined);
+  assert.notStrictEqual(updated.pastoralist.appendix, undefined);
 });
 
 test("action - should handle root path option", async () => {
@@ -104,8 +106,8 @@ test("action - should handle root path option", async () => {
   await action(options);
 
   const updated = JSON.parse(readFileSync(TEST_PACKAGE_JSON, "utf-8"));
-  expect(updated.pastoralist).toBeDefined();
-  expect(updated.pastoralist.appendix).toBeDefined();
+  assert.notStrictEqual(updated.pastoralist, undefined);
+  assert.notStrictEqual(updated.pastoralist.appendix, undefined);
 });
 
 test("run - should handle help flag", async () => {
@@ -115,7 +117,7 @@ test("run - should handle help flag", async () => {
 
   await run(["node", "script.js", "--help"]);
 
-  expect(consoleSpy).toHaveBeenCalled();
+  assert.ok(consoleSpy.mock.callCount() > 0);
   console.log = originalLog;
 });
 
@@ -126,7 +128,7 @@ test("run - should handle -h flag", async () => {
 
   await run(["node", "script.js", "-h"]);
 
-  expect(consoleSpy).toHaveBeenCalled();
+  assert.ok(consoleSpy.mock.callCount() > 0);
   console.log = originalLog;
 });
 
@@ -140,6 +142,6 @@ test("run - should call action for default command", async () => {
   await run(["node", "script.js", `--path=${TEST_PACKAGE_JSON}`]);
 
   const updated = JSON.parse(readFileSync(TEST_PACKAGE_JSON, "utf-8"));
-  expect(updated.pastoralist).toBeDefined();
-  expect(updated.pastoralist.appendix).toBeDefined();
+  assert.notStrictEqual(updated.pastoralist, undefined);
+  assert.notStrictEqual(updated.pastoralist.appendix, undefined);
 });

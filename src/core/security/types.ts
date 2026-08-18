@@ -68,6 +68,7 @@ export interface SecurityCheckRuntimeOptions extends SecurityCheckOptions {
   packageJsonPath?: string;
   skipCacheWrite?: boolean;
   requireCompleteScan?: boolean;
+  scanFullDependencyInventory?: boolean;
 }
 
 export interface SecurityCheckResult {
@@ -179,13 +180,15 @@ export interface GithubApiError {
 }
 
 export class SecurityProviderPermissionError extends Error {
-  constructor(
-    public provider: string,
-    public originalMessage: string,
-  ) {
+  public provider: string;
+  public originalMessage: string;
+
+  constructor(provider: string, originalMessage: string) {
     const guidance = SecurityProviderPermissionError.getGuidance(originalMessage);
     super(`${provider} security check skipped: ${originalMessage}. ${guidance}`);
     this.name = "SecurityProviderPermissionError";
+    this.provider = provider;
+    this.originalMessage = originalMessage;
   }
 
   private static getGuidance(message: string): string {
@@ -248,12 +251,29 @@ export interface OSVVulnerability {
   severity?: Array<{ type: string; score: string }>;
   affected?: Array<{
     package?: { name: string; ecosystem: string };
-    ranges?: Array<{
-      type: string;
-      events: Array<{ introduced?: string; fixed?: string }>;
-    }>;
+    ranges?: OSVVersionRange[];
   }>;
   references?: Array<{ type: string; url: string }>;
+}
+
+export interface OSVVersionRange {
+  type: string;
+  events: OSVVersionEvent[];
+}
+
+export interface OSVVersionEvent {
+  introduced?: string;
+  fixed?: string;
+}
+
+export interface OSVVersionInterval {
+  introduced: string;
+  fixed?: string;
+}
+
+export interface OSVVersionIntervalState {
+  currentIntroduced?: string;
+  intervals: OSVVersionInterval[];
 }
 
 export interface OSVPackageQuery {

@@ -1,4 +1,5 @@
-import { test, expect } from "bun:test";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 import { writeFileSync, unlinkSync, readFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -20,7 +21,7 @@ test("updateAppendix - simple override", () => {
     packageName: "root",
   });
 
-  expect(result["lodash@4.17.21"]).toBeDefined();
+  assert.notStrictEqual(result["lodash@4.17.21"], undefined);
 });
 
 test("updateAppendix - nested override", () => {
@@ -33,7 +34,7 @@ test("updateAppendix - nested override", () => {
     packageName: "root",
   });
 
-  expect(result["react-dom@18.0.0"]).toBeDefined();
+  assert.notStrictEqual(result["react-dom@18.0.0"], undefined);
 });
 
 test("updateAppendix - devDependencies", () => {
@@ -46,7 +47,7 @@ test("updateAppendix - devDependencies", () => {
     packageName: "root",
   });
 
-  expect(result["jest@29.0.0"]).toBeDefined();
+  assert.notStrictEqual(result["jest@29.0.0"], undefined);
 });
 
 test("constructAppendix", async () => {
@@ -58,7 +59,7 @@ test("constructAppendix", async () => {
     mockLog,
   );
 
-  expect(result).toBeDefined();
+  assert.notStrictEqual(result, undefined);
 });
 
 test("findRemovableAppendixItems - extracts plain package names correctly", () => {
@@ -66,7 +67,7 @@ test("findRemovableAppendixItems - extracts plain package names correctly", () =
     "lodash@4.17.21": { dependents: {} },
   };
   const result = findRemovableAppendixItems(appendix);
-  expect(result).toEqual(["lodash"]);
+  assert.deepStrictEqual(result, ["lodash"]);
 });
 
 test("findRemovableAppendixItems - extracts scoped package names correctly", () => {
@@ -74,7 +75,7 @@ test("findRemovableAppendixItems - extracts scoped package names correctly", () 
     "@scope/pkg@1.2.3": { dependents: {} },
   };
   const result = findRemovableAppendixItems(appendix);
-  expect(result).toEqual(["@scope/pkg"]);
+  assert.deepStrictEqual(result, ["@scope/pkg"]);
 });
 
 test("findRemovableAppendixItems - handles mixed scoped and plain packages", () => {
@@ -84,7 +85,7 @@ test("findRemovableAppendixItems - handles mixed scoped and plain packages", () 
     "express@4.18.0": { dependents: { root: "1.0.0" } },
   };
   const result = findRemovableAppendixItems(appendix);
-  expect(result).toEqual(["lodash", "@scope/pkg"]);
+  assert.deepStrictEqual(result, ["lodash", "@scope/pkg"]);
 });
 
 test("updateAppendix - does not skip transitive override when onlyUsedOverrides=true", () => {
@@ -98,7 +99,7 @@ test("updateAppendix - does not skip transitive override when onlyUsedOverrides=
     onlyUsedOverrides: true,
     dependencyTree: { lodash: true },
   });
-  expect(result["lodash@4.17.21"]).toBeDefined();
+  assert.notStrictEqual(result["lodash@4.17.21"], undefined);
 });
 
 test("updateAppendix - skips genuinely unused override when onlyUsedOverrides=true", () => {
@@ -112,7 +113,7 @@ test("updateAppendix - skips genuinely unused override when onlyUsedOverrides=tr
     onlyUsedOverrides: true,
     dependencyTree: {},
   });
-  expect(result["lodash@4.17.21"]).toBeUndefined();
+  assert.strictEqual(result["lodash@4.17.21"], undefined);
 });
 
 test("updateAppendix - keeps selector-range override when package is in dependency tree (onlyUsedOverrides=true)", () => {
@@ -126,7 +127,7 @@ test("updateAppendix - keeps selector-range override when package is in dependen
     onlyUsedOverrides: true,
     dependencyTree: { minimatch: true },
   });
-  expect(result["minimatch@>=9 <10@9.0.9"]).toBeDefined();
+  assert.notStrictEqual(result["minimatch@>=9 <10@9.0.9"], undefined);
 });
 
 test("updateAppendix - keeps selector-range override when required by a dependency (onlyUsedOverrides=true)", () => {
@@ -140,7 +141,7 @@ test("updateAppendix - keeps selector-range override when required by a dependen
     onlyUsedOverrides: true,
     dependencyGraph: { minimatch: ["glob"] },
   });
-  expect(result["minimatch@<4@3.1.5"]).toBeDefined();
+  assert.notStrictEqual(result["minimatch@<4@3.1.5"], undefined);
 });
 
 test("updateAppendix - keeps nested parent>child override when child is in dependency tree (onlyUsedOverrides=true)", () => {
@@ -154,7 +155,7 @@ test("updateAppendix - keeps nested parent>child override when child is in depen
     onlyUsedOverrides: true,
     dependencyTree: { "js-yaml": true },
   });
-  expect(result["gray-matter>js-yaml@3.14.2"]).toBeDefined();
+  assert.notStrictEqual(result["gray-matter>js-yaml@3.14.2"], undefined);
 });
 
 test("updateAppendix - still removes selector-range override when package is genuinely absent (onlyUsedOverrides=true)", () => {
@@ -168,7 +169,7 @@ test("updateAppendix - still removes selector-range override when package is gen
     onlyUsedOverrides: true,
     dependencyTree: {},
   });
-  expect(result["minimatch@>=9 <10@9.0.9"]).toBeUndefined();
+  assert.strictEqual(result["minimatch@>=9 <10@9.0.9"], undefined);
 });
 
 test("updateAppendix - does not mutate original appendix", () => {
@@ -188,7 +189,7 @@ test("updateAppendix - does not mutate original appendix", () => {
     packageName: "root",
   });
 
-  expect(originalAppendix).toEqual(appendixCopy);
+  assert.deepStrictEqual(originalAppendix, appendixCopy);
 });
 
 test("updateAppendix - does not mutate original appendix on cache hit", () => {
@@ -213,7 +214,7 @@ test("updateAppendix - does not mutate original appendix on cache hit", () => {
     cache,
   });
 
-  expect(firstResult).toEqual(snapshot);
+  assert.deepStrictEqual(firstResult, snapshot);
 });
 
 test("updateAppendix - does not mutate original appendix with nested overrides on cache hit", () => {
@@ -238,7 +239,7 @@ test("updateAppendix - does not mutate original appendix with nested overrides o
     cache,
   });
 
-  expect(firstResult).toEqual(snapshot);
+  assert.deepStrictEqual(firstResult, snapshot);
 });
 
 test("updateAppendix - does not mutate original appendix with nested overrides", () => {
@@ -253,8 +254,8 @@ test("updateAppendix - does not mutate original appendix with nested overrides",
     packageName: "root",
   });
 
-  expect(result["react-dom@18.0.0"]).toBeDefined();
-  expect(Object.keys(appendixRef).length).toBe(0);
+  assert.notStrictEqual(result["react-dom@18.0.0"], undefined);
+  assert.strictEqual(Object.keys(appendixRef).length, 0);
 });
 
 test("processAndWritePackageJSON - writes appendix to file when writeAppendixToFile=true", () => {
@@ -269,8 +270,8 @@ test("processAndWritePackageJSON - writes appendix to file when writeAppendixToF
     const overrides: OverridesType = { lodash: "4.17.21" };
     processAndWritePackageJSON(tempPath, overrides, ["lodash"], true);
     const written = JSON.parse(readFileSync(tempPath, "utf8"));
-    expect(written.pastoralist).toBeDefined();
-    expect(written.pastoralist.appendix).toBeDefined();
+    assert.notStrictEqual(written.pastoralist, undefined);
+    assert.notStrictEqual(written.pastoralist.appendix, undefined);
   } finally {
     unlinkSync(tempPath);
   }
@@ -283,8 +284,8 @@ test("processOverrideEntry - simple override produces correct appendix", () => {
     packageName: "my-app",
   });
   const key = "lodash@4.17.21";
-  expect(result[key]).toBeDefined();
-  expect(result[key].dependents?.["my-app"]).toBeDefined();
+  assert.notStrictEqual(result[key], undefined);
+  assert.notStrictEqual(result[key].dependents?.["my-app"], undefined);
 });
 
 test("processOverrideEntry - nested override produces correct appendix", () => {
@@ -294,7 +295,7 @@ test("processOverrideEntry - nested override produces correct appendix", () => {
     packageName: "my-app",
   });
   const key = "body-parser@1.20.0";
-  expect(result[key]).toBeDefined();
+  assert.notStrictEqual(result[key], undefined);
 });
 
 test("processOverrideEntry - cache hit returns cached item", () => {
@@ -314,8 +315,8 @@ test("processOverrideEntry - cache hit returns cached item", () => {
   });
 
   const key = "lodash@4.17.21";
-  expect(firstResult[key]).toBeDefined();
-  expect(secondResult[key]).toBeDefined();
+  assert.notStrictEqual(firstResult[key], undefined);
+  assert.notStrictEqual(secondResult[key], undefined);
 });
 
 test("processOverrideEntry - onlyUsedOverrides skips unused packages", () => {
@@ -325,8 +326,8 @@ test("processOverrideEntry - onlyUsedOverrides skips unused packages", () => {
     packageName: "my-app",
     onlyUsedOverrides: true,
   });
-  expect(result["lodash@4.17.21"]).toBeDefined();
-  expect(result["unused-pkg@1.0.0"]).toBeUndefined();
+  assert.notStrictEqual(result["lodash@4.17.21"], undefined);
+  assert.strictEqual(result["unused-pkg@1.0.0"], undefined);
 });
 
 test("processAndWritePackageJSON - includes workspace package whose dep matches a selector-range override key", () => {
@@ -338,8 +339,8 @@ test("processAndWritePackageJSON - includes workspace package whose dep matches 
   const overrides: OverridesType = { "minimatch@<4": "3.1.5" };
   const result = processAndWritePackageJSON(pkgPath, overrides, Object.keys(overrides), false);
   unlinkSync(pkgPath);
-  expect(result).toBeDefined();
-  expect(result?.name).toBe("workspace-pkg");
+  assert.notStrictEqual(result, undefined);
+  assert.strictEqual(result?.name, "workspace-pkg");
 });
 
 test("processAndWritePackageJSON - includes workspace package whose dep is a graph-transitive match for selector-range override key", () => {
@@ -353,8 +354,8 @@ test("processAndWritePackageJSON - includes workspace package whose dep is a gra
     dependencyGraph: { minimatch: ["glob"] },
   });
   unlinkSync(pkgPath);
-  expect(result).toBeDefined();
-  expect(result?.name).toBe("workspace-pkg");
+  assert.notStrictEqual(result, undefined);
+  assert.strictEqual(result?.name, "workspace-pkg");
 });
 
 test("processAndWritePackageJSON - excludes workspace package with no relation to any override", () => {
@@ -366,5 +367,5 @@ test("processAndWritePackageJSON - excludes workspace package with no relation t
   const overrides: OverridesType = { "minimatch@<4": "3.1.5" };
   const result = processAndWritePackageJSON(pkgPath, overrides, Object.keys(overrides), false);
   unlinkSync(pkgPath);
-  expect(result).toBeUndefined();
+  assert.strictEqual(result, undefined);
 });

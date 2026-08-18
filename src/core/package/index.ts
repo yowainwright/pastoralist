@@ -5,7 +5,6 @@ import { promisify } from "util";
 import * as fg from "../../utils/glob";
 import { IS_DEBUGGING, HINT_RC_FILE_ID, HINT_RC_FILE_TEXT } from "../../constants";
 import type {
-  Appendix,
   PastoralistJSON,
   OverridesType,
   SecurityPackage,
@@ -18,6 +17,7 @@ import { showHint } from "../../dx/hint";
 import {
   BUN_BINARY_LOCK_FILENAME,
   BUN_LOCK_FILENAME,
+  DEPENDENCY_LOCK_FILENAMES,
   NPM_LOCK_FILENAME,
   NPM_LS_MAX_BUFFER,
   NPM_LS_TIMEOUT_MS,
@@ -25,6 +25,8 @@ import {
   PNPM_LOCK_PACKAGE_PATTERN,
   TREE_CACHE_MAX_ENTRIES,
   UNKNOWN_DEPENDENCY_VERSION,
+  YARN_BERRY_DEPENDENCY_PATTERN,
+  YARN_CLASSIC_DEPENDENCY_PATTERN,
   YARN_LOCK_FILENAME,
   YARN_LOCK_PACKAGE_PATTERN,
 } from "./constants";
@@ -112,18 +114,24 @@ export const resolveJSON = (path: string): PastoralistJSON | undefined => {
 };
 
 const hasOtherPastoralistConfig = (config: PastoralistJSON): boolean => {
+  const hasSchema = Boolean(config.pastoralist?.$schema);
   const hasAppendixSource = Boolean(config.pastoralist?.appendixSource);
   const hasOverridePaths = Boolean(config.pastoralist?.overridePaths);
   const hasResolutionPaths = Boolean(config.pastoralist?.resolutionPaths);
   const hasSecurity = Boolean(config.pastoralist?.security);
+  const hasCheckSecurity = config.pastoralist?.checkSecurity !== undefined;
+  const hasCompactAppendix = config.pastoralist?.compactAppendix !== undefined;
   const hasBestCase = Boolean(config.pastoralist?.bestCase);
   const hasDepPaths = Boolean(config.pastoralist?.depPaths);
   const hasOverrideSource = Boolean(config.pastoralist?.overrideSource);
 
+  if (hasSchema) return true;
   if (hasAppendixSource) return true;
   if (hasOverridePaths) return true;
   if (hasResolutionPaths) return true;
   if (hasSecurity) return true;
+  if (hasCheckSecurity) return true;
+  if (hasCompactAppendix) return true;
   if (hasBestCase) return true;
   if (hasOverrideSource) return true;
   return hasDepPaths;
@@ -135,6 +143,12 @@ const createBestCaseField = (config: PastoralistJSON) => {
   return { bestCase };
 };
 
+const createSchemaField = (config: PastoralistJSON) => {
+  const schema = config.pastoralist?.$schema;
+  if (!schema) return undefined;
+  return { $schema: schema };
+};
+
 const buildPreservedConfig = (config: PastoralistJSON) => {
   const appendixSource = config.pastoralist?.appendixSource;
   const depPaths = config.pastoralist?.depPaths;
@@ -142,22 +156,30 @@ const buildPreservedConfig = (config: PastoralistJSON) => {
   const overrideSource = config.pastoralist?.overrideSource;
   const resolutionPaths = config.pastoralist?.resolutionPaths;
   const security = config.pastoralist?.security;
+  const checkSecurity = config.pastoralist?.checkSecurity;
+  const compactAppendix = config.pastoralist?.compactAppendix;
   const appendixSourceField = appendixSource ? { appendixSource } : undefined;
   const depPathsField = depPaths ? { depPaths } : undefined;
   const overridePathsField = overridePaths ? { overridePaths } : undefined;
   const overrideSourceField = overrideSource ? { overrideSource } : undefined;
   const resolutionPathsField = resolutionPaths ? { resolutionPaths } : undefined;
   const securityField = security ? { security } : undefined;
+  const checkSecurityField = checkSecurity !== undefined ? { checkSecurity } : undefined;
+  const compactAppendixField = compactAppendix !== undefined ? { compactAppendix } : undefined;
   const bestCaseField = createBestCaseField(config);
+  const schemaField = createSchemaField(config);
 
   return Object.assign(
     {},
+    schemaField,
     appendixSourceField,
     depPathsField,
     overridePathsField,
     overrideSourceField,
     resolutionPathsField,
     securityField,
+    checkSecurityField,
+    compactAppendixField,
     bestCaseField,
   );
 };
@@ -185,7 +207,10 @@ const removePastoralistAppendix = (config: PastoralistJSON): PastoralistJSON => 
   return Object.assign({}, config, { pastoralist: preservedConfig });
 };
 
-const addAppendixToConfig = (config: PastoralistJSON, appendix: Appendix): PastoralistJSON => {
+const addAppendixToConfig = (
+  config: PastoralistJSON,
+  appendix: NonNullable<PastoralistJSON["pastoralist"]>["appendix"],
+): PastoralistJSON => {
   const preservedConfig = buildPreservedConfig(config);
   const pastoralist = Object.assign({ appendix }, preservedConfig);
 
@@ -207,7 +232,7 @@ const removePastoralistButPreserveConfig = (config: PastoralistJSON): Pastoralis
 
 const applyAppendixToConfig = (
   config: PastoralistJSON,
-  appendix: Appendix | undefined,
+  appendix: NonNullable<PastoralistJSON["pastoralist"]>["appendix"],
 ): PastoralistJSON => {
   const shouldAddAppendix = appendix && Object.keys(appendix).length > 0;
   if (shouldAddAppendix) return addAppendixToConfig(config, appendix);
@@ -231,7 +256,7 @@ const resolveOverrideField = (
 
 const processConfigWithOverrides = (
   config: PastoralistJSON,
-  appendix: Appendix | undefined,
+  appendix: NonNullable<PastoralistJSON["pastoralist"]>["appendix"],
   overrides: OverridesType,
   isTesting: boolean,
   path: string,
@@ -259,15 +284,6 @@ const shouldSuggestRcFile = (config: PastoralistJSON): boolean => {
   return lineCount > 10;
 };
 
-const isValidRootPackage = (content: string): boolean => {
-  try {
-    const parsed = JSON.parse(content);
-    return Boolean(parsed.name);
-  } catch {
-    return false;
-  }
-};
-
 const writeJsonFile = (path: string, content: string): void => {
   const jsonPath = resolve(path);
   const isJsonFile = jsonPath.endsWith(".json");
@@ -277,16 +293,11 @@ const writeJsonFile = (path: string, content: string): void => {
     return;
   }
 
-  const rootPkgPath = resolve(process.cwd(), "package.json");
-  const isRootPackage = jsonPath === rootPkgPath;
-  const isInvalidRootPackage = isRootPackage && !isValidRootPackage(content);
-  if (isInvalidRootPackage) return;
-
   fs.writeFileSync(jsonPath, content);
 };
 
 const hasPackageJsonData = (
-  appendix: Appendix | undefined,
+  appendix: NonNullable<PastoralistJSON["pastoralist"]>["appendix"],
   overrides: OverridesType | undefined,
 ): boolean => {
   const hasOverridesData = overrides && Object.keys(overrides).length > 0;
@@ -492,7 +503,7 @@ const resolveBunInventoryPath = (root: string): string | undefined => {
   const hasLegacyLock = fs.existsSync(legacyLockPath);
   const hasOnlyLegacyLock = !hasTextLock && hasLegacyLock;
   if (hasOnlyLegacyLock) {
-    throw new Error("Legacy bun.lockb is unsupported for best-case inventory; migrate to bun.lock");
+    throw new Error("Legacy bun.lockb is unsupported; migrate to bun.lock");
   }
   const inventoryPath = hasTextLock ? lockPath : undefined;
   return inventoryPath;
@@ -542,12 +553,6 @@ export const parseBunLockTree = (root: string): Record<string, string> | undefin
   }
 };
 
-const isPnpmPackageSection = (line: string): boolean => {
-  const isPackagesSection = line === "packages:";
-  const isSnapshotsSection = line === "snapshots:";
-  return isPackagesSection || isSnapshotsSection;
-};
-
 const isPnpmTopLevelField = (line: string): boolean => /^[^\s#][^:]*:/.test(line);
 
 const getPnpmSectionLines = (lines: string[], headerIndex: number): string[] => {
@@ -559,18 +564,22 @@ const getPnpmSectionLines = (lines: string[], headerIndex: number): string[] => 
 
 const getPnpmPackageSections = (content: string): string => {
   const lines = content.split(/\r?\n/);
-  const sectionLines = lines.flatMap((line, index) => {
-    if (!isPnpmPackageSection(line)) return [];
-    return getPnpmSectionLines(lines, index);
-  });
-  return sectionLines.join("\n");
+  const packagesIndex = lines.indexOf("packages:");
+  if (packagesIndex !== -1) return getPnpmSectionLines(lines, packagesIndex).join("\n");
+  const snapshotsIndex = lines.indexOf("snapshots:");
+  if (snapshotsIndex === -1) return "";
+  return getPnpmSectionLines(lines, snapshotsIndex).join("\n");
 };
 
 const parsePnpmPackageMatches = (content: string): SecurityPackage[] => {
   const packageSections = getPnpmPackageSections(content);
   const legacy = packageSections.matchAll(/^  \/((?:@[^/@\n]+\/)?[^/@\n\s]+)(?:@|\/)([^\s:]+):/gm);
   const current = packageSections.matchAll(/^  '?((?:@[^@/\n'"]+\/)?[\w][\w.-]*)@([^\s:'"]+)/gm);
-  const toPackage = ([, name, version]: RegExpMatchArray): SecurityPackage => ({ name, version });
+  const toPackage = ([, name, version]: RegExpMatchArray): SecurityPackage => {
+    const peerSuffixIndex = version.indexOf("(");
+    if (peerSuffixIndex === -1) return { name, version };
+    return { name, version: version.slice(0, peerSuffixIndex) };
+  };
   return Array.from(legacy, toPackage).concat(Array.from(current, toPackage));
 };
 
@@ -779,6 +788,9 @@ export const getLockedPackages = (root: string = process.cwd()): SecurityPackage
   return parseNpmLockedPackages(root);
 };
 
+export const hasDependencyLockfile = (root: string = process.cwd()): boolean =>
+  DEPENDENCY_LOCK_FILENAMES.some((filename) => fs.existsSync(resolve(root, filename)));
+
 const parseTreeFromLockfile = (root: string): Record<string, string> | undefined => {
   const pm = detectPackageManager(root);
   if (pm === "bun") return parseBunLockTree(root);
@@ -832,9 +844,14 @@ export const getDependencyTree = (
   return request;
 };
 
-let _graphCache: Map<string, Record<string, string[]>> | null = null;
-
 type DependencyGraph = Record<string, string[]>;
+
+type DependencyGraphStatus = {
+  graph: DependencyGraph;
+  available: boolean;
+};
+
+let _graphCache: Map<string, DependencyGraphStatus> | null = null;
 
 const addDependencyParent = (graph: DependencyGraph, dependency: string, parent: string): void => {
   const parents = graph[dependency] ?? [];
@@ -849,12 +866,6 @@ const addPackageDependencies = (
   Object.keys(dependencies).forEach((dependency) => {
     addDependencyParent(graph, dependency, parent);
   });
-};
-
-const getPopulatedGraph = (graph: DependencyGraph): DependencyGraph | undefined => {
-  const hasDependencies = Object.keys(graph).length > 0;
-  if (!hasDependencies) return undefined;
-  return graph;
 };
 
 const addBunPackageDependencies = (graph: DependencyGraph, name: string, entry: unknown): void => {
@@ -876,7 +887,7 @@ export const parseBunLockGraph = (root: string): Record<string, string[]> | unde
     Object.entries(packages).forEach(([name, entry]) => {
       addBunPackageDependencies(inverted, name, entry);
     });
-    return getPopulatedGraph(inverted);
+    return inverted;
   } catch {
     return undefined;
   }
@@ -914,6 +925,14 @@ export const parseNpmLockGraph = (root: string): Record<string, string[]> | unde
       packages?: Record<string, { dependencies?: Record<string, string> }>;
       dependencies?: Record<string, unknown>;
     };
+    const hasPackages =
+      Boolean(lock.packages) && typeof lock.packages === "object" && !Array.isArray(lock.packages);
+    const hasDependencies =
+      Boolean(lock.dependencies) &&
+      typeof lock.dependencies === "object" &&
+      !Array.isArray(lock.dependencies);
+    const hasNoDependencyData = !hasPackages && !hasDependencies;
+    if (hasNoDependencyData) return undefined;
     const inverted: Record<string, string[]> = {};
     if (lock.packages) {
       Object.entries(lock.packages).forEach(([key, pkg]) => {
@@ -922,7 +941,7 @@ export const parseNpmLockGraph = (root: string): Record<string, string[]> | unde
     } else if (lock.dependencies) {
       addNpmDependencyTree(inverted, lock.dependencies);
     }
-    return getPopulatedGraph(inverted);
+    return inverted;
   } catch {
     return undefined;
   }
@@ -932,6 +951,11 @@ type DependencyGraphState = {
   currentPackage?: string;
   inDependencies: boolean;
 };
+
+const PNPM_GRAPH_FIELDS = new Set(["packages:", "snapshots:", "importers:"]);
+
+const hasPnpmLockStructure = (content: string): boolean =>
+  content.split("\n").some((line) => PNPM_GRAPH_FIELDS.has(line.trim()));
 
 const matchPnpmGraphPackage = (line: string): RegExpMatchArray | null => {
   const v5v6Match = line.match(/^  \/((?:@[^/@\n]+\/)?[^/@\n\s]+)(?:@|\/)([^\s:]+):/);
@@ -968,12 +992,13 @@ export const parsePnpmLockGraph = (root: string): Record<string, string[]> | und
   if (!fs.existsSync(lockPath)) return undefined;
   try {
     const content = fs.readFileSync(lockPath, "utf8");
+    if (!hasPnpmLockStructure(content)) return undefined;
     const inverted: Record<string, string[]> = {};
     const state: DependencyGraphState = { inDependencies: false };
     content.split("\n").forEach((line) => {
       addPnpmGraphLine(inverted, state, line);
     });
-    return getPopulatedGraph(inverted);
+    return inverted;
   } catch {
     return undefined;
   }
@@ -998,22 +1023,35 @@ const addYarnGraphLine = (
   }
   const isOutsideDependencies = !state.inDependencies || !currentPackage;
   if (isOutsideDependencies) return;
-  const dependencyMatch = line.match(/^\s{4}"?(@?[^@\s"]+)"?\s/);
-  if (dependencyMatch) addDependencyParent(graph, dependencyMatch[1], currentPackage);
+  const berryMatch = line.match(YARN_BERRY_DEPENDENCY_PATTERN);
+  const classicMatch = line.match(YARN_CLASSIC_DEPENDENCY_PATTERN);
+  const dependencyName =
+    berryMatch?.[1] ?? berryMatch?.[2] ?? classicMatch?.[1] ?? classicMatch?.[2];
+  if (dependencyName) addDependencyParent(graph, dependencyName, currentPackage);
   if (!line.startsWith("    ")) state.inDependencies = false;
 };
+
+const hasYarnLockStructure = (content: string): boolean =>
+  content.split("\n").some((line) => {
+    const isClassicHeader = line.startsWith("# yarn lockfile v");
+    const isBerryMetadata = line.trim() === "__metadata:";
+    const isPackageHeader = Boolean(parseYarnLockPackageName(line));
+    const isYarnLockLine = isClassicHeader || isBerryMetadata || isPackageHeader;
+    return isYarnLockLine;
+  });
 
 export const parseYarnLockGraph = (root: string): Record<string, string[]> | undefined => {
   const lockPath = resolve(root, YARN_LOCK_FILENAME);
   if (!fs.existsSync(lockPath)) return undefined;
   try {
     const content = fs.readFileSync(lockPath, "utf8");
+    if (!hasYarnLockStructure(content)) return undefined;
     const inverted: Record<string, string[]> = {};
     const state: DependencyGraphState = { inDependencies: false };
     content.split("\n").forEach((line) => {
       addYarnGraphLine(inverted, state, line);
     });
-    return getPopulatedGraph(inverted);
+    return inverted;
   } catch {
     return undefined;
   }
@@ -1029,17 +1067,20 @@ const parseDependencyGraph = (
   return parseNpmLockGraph(root);
 };
 
-export const getDependencyGraph = (root: string = process.cwd()): Record<string, string[]> => {
+export const getDependencyGraphStatus = (root: string = process.cwd()): DependencyGraphStatus => {
   if (!_graphCache) _graphCache = new Map();
   const cacheKey = createDependencyGraphCacheKey(root);
   const cached = _graphCache.get(cacheKey);
   if (cached) return cached;
   const pm = detectPackageManager(root);
   const result = parseDependencyGraph(pm, root);
-  const graph = result ?? {};
-  _graphCache.set(cacheKey, graph);
-  return graph;
+  const status = { graph: result ?? {}, available: result !== undefined };
+  _graphCache.set(cacheKey, status);
+  return status;
 };
+
+export const getDependencyGraph = (root: string = process.cwd()): Record<string, string[]> =>
+  getDependencyGraphStatus(root).graph;
 
 export const clearDependencyGraphCache = (): void => {
   _graphCache?.clear();
@@ -1064,6 +1105,17 @@ const countNpmLockPackages = (lockPath: string): number => {
   }
 };
 
+const countBunLockPackages = (lockPath: string): number => {
+  try {
+    const content = fs.readFileSync(lockPath, "utf8");
+    const packages = parseBunLockFile(content).packages;
+    const hasPackages = packages && typeof packages === "object" && !Array.isArray(packages);
+    return hasPackages ? Object.keys(packages).length : 0;
+  } catch {
+    return 0;
+  }
+};
+
 const countPatternLockPackages = (lockPath: string, pattern: RegExp): number => {
   try {
     const content = fs.readFileSync(lockPath, "utf8");
@@ -1077,6 +1129,9 @@ const countPatternLockPackages = (lockPath: string, pattern: RegExp): number => 
 const getLockPath = (root: string, filename: string): string => resolve(root, filename);
 
 export const getFullDependencyCount = (root: string = "./"): number => {
+  const bunLockPath = resolveBunInventoryPath(root);
+  if (bunLockPath) return countBunLockPackages(bunLockPath);
+
   const npmLockPath = getLockPath(root, "package-lock.json");
   if (fs.existsSync(npmLockPath)) return countNpmLockPackages(npmLockPath);
 

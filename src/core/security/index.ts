@@ -7,21 +7,21 @@ import {
   PackageManagerAuditProvider,
 } from "./providers";
 import {
-  SecurityAlert,
-  SecurityCheckProgress,
-  SecurityCheckResult,
-  SecurityCheckRuntimeOptions,
-  SecurityOverride,
-  SecurityProvider,
-  SecurityProviderFactoryOptions,
-  SecurityPackage,
-  OverrideUpdate,
-  SecurityOverrideDetail,
-  WorkspaceVulnerabilityState,
-  SecurityProviderScanOptions,
-  SecurityProviderType,
+  type SecurityAlert,
+  type SecurityCheckProgress,
+  type SecurityCheckResult,
+  type SecurityCheckRuntimeOptions,
+  type SecurityOverride,
+  type SecurityProvider,
+  type SecurityProviderFactoryOptions,
+  type SecurityPackage,
+  type OverrideUpdate,
+  type SecurityOverrideDetail,
+  type WorkspaceVulnerabilityState,
+  type SecurityProviderScanOptions,
+  type SecurityProviderType,
 } from "../../types";
-import { Appendix, PastoralistJSON, OverridesType } from "../../types";
+import type { Appendix, PastoralistJSON, OverridesType } from "../../types";
 import {
   applyOverridesToSourceConfig,
   resolveOverrideSource,
@@ -50,12 +50,18 @@ import {
 } from "./utils";
 import { SecuritySetupWizard, promptForSetup } from "./setup";
 import type { SetupSecurityProvider } from "./types";
-import { KNOWN_PROVIDERS, PROVIDER_CONFIGS } from "./constants";
+import {
+  KNOWN_PROVIDERS,
+  PROVIDER_CONFIGS,
+  SECURITY_DIST_TAG_PATTERN,
+  SECURITY_EXACT_VERSION_PATTERN,
+  SECURITY_REGISTRY_SPEC_PATTERN,
+} from "./constants";
 import { readFileSync, copyFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from "fs";
 import { createHash, randomUUID } from "crypto";
 import { resolve, dirname, basename } from "path";
 import { updateAppendix } from "../appendix";
-import { getLockedPackages } from "../package";
+import { getLockedPackages, hasDependencyLockfile } from "../package";
 import { glob } from "../../utils/glob";
 import { BACKUP_CACHE_DIR, DEFAULT_MEMORY_CACHE_TTL } from "../constants";
 import {
@@ -127,6 +133,80 @@ type SecurityAlertScan = {
 };
 
 const STATE_AWARE_BEST_CASE_PROVIDERS: readonly SecurityProviderType[] = ["osv", "spektion"];
+const PACKAGE_QUERY_PROVIDERS = new Set<SecurityProviderType>(["osv", "spektion"]);
+
+type DeclaredSecurityDependency = {
+  name: string;
+  spec: string;
+  required: boolean;
+};
+
+const getDeclaredSecurityDependencies = (
+  config: PastoralistJSON,
+  excludedPackages: string[],
+): DeclaredSecurityDependency[] => {
+  const requiredDependencies = Object.assign({}, config.dependencies, config.devDependencies);
+  const dependencies = Object.assign({}, requiredDependencies, config.peerDependencies);
+  return Object.entries(dependencies)
+    .filter(([name]) => !excludedPackages.includes(name))
+    .map(([name, spec]) => {
+      const required = Object.hasOwn(requiredDependencies, name);
+      return { name, spec, required };
+    });
+};
+
+const isQueryableSecuritySpec = (spec: string): boolean => {
+  const normalizedSpec = spec.trim();
+  const isVersionSpec = SECURITY_REGISTRY_SPEC_PATTERN.test(normalizedSpec);
+  const isDistTag = SECURITY_DIST_TAG_PATTERN.test(normalizedSpec);
+  const isWildcard = normalizedSpec === "*";
+  const isQueryable = isVersionSpec || isDistTag || isWildcard;
+  return isQueryable;
+};
+
+const getQueryableSecurityDependencies = (
+  dependencies: DeclaredSecurityDependency[],
+): DeclaredSecurityDependency[] => dependencies.filter(({ spec }) => isQueryableSecuritySpec(spec));
+
+const resolvePinnedSecurityPackages = (
+  dependencies: DeclaredSecurityDependency[],
+): SecurityPackage[] => {
+  const requiredDependencies = getQueryableSecurityDependencies(dependencies).filter(
+    ({ required }) => required,
+  );
+  const packages = requiredDependencies.flatMap(({ name, spec }) => {
+    const match = spec.trim().match(SECURITY_EXACT_VERSION_PATTERN);
+    if (!match) return [];
+    return [{ name, version: match[1] }];
+  });
+  const hasUnresolvedVersions = packages.length !== requiredDependencies.length;
+  if (hasUnresolvedVersions) {
+    throw new Error(
+      "Unable to resolve installed package versions; add a supported lockfile or use exact versions",
+    );
+  }
+  return packages;
+};
+
+const resolveLockedSecurityPackages = (
+  dependencies: DeclaredSecurityDependency[],
+  inventory: SecurityPackage[],
+): SecurityPackage[] => {
+  const queryableDependencies = getQueryableSecurityDependencies(dependencies);
+  const dependencyNames = new Set(queryableDependencies.map(({ name }) => name));
+  const packages = inventory.filter(({ name }) => dependencyNames.has(name));
+  const resolvedNames = new Set(packages.map(({ name }) => name));
+  const missingNames = queryableDependencies
+    .filter(({ required }) => required)
+    .map(({ name }) => name)
+    .filter((name) => !resolvedNames.has(name));
+  if (missingNames.length > 0) {
+    const missingPackages = missingNames.join(", ");
+    const errorMessage = `Lockfile inventory is incomplete for security scan: ${missingPackages}`;
+    throw new Error(errorMessage);
+  }
+  return packages;
+};
 
 export class SecurityChecker {
   private providers: SecurityProvider[];
@@ -520,13 +600,54 @@ export class SecurityChecker {
       message: "Extracting packages from dependencies...",
     });
 
-    return extractPackages(config, options.excludePackages || []);
+    const excludes = options.excludePackages || [];
+    if (options.scanFullDependencyInventory) {
+      return this.resolveFullDependencyInventory(options, excludes);
+    }
+    const requiresResolvedVersions = this.providers.some(({ providerType }) =>
+      PACKAGE_QUERY_PROVIDERS.has(providerType),
+    );
+    if (!requiresResolvedVersions) return extractPackages(config, excludes);
+    return this.resolveVersionScanPackages(config, excludes, options);
+  }
+
+  private resolveFullDependencyInventory(
+    options: SecurityCheckRuntimeOptions,
+    excludes: string[],
+  ): SecurityPackage[] {
+    const root = this.resolveConfiguredPackageRoot(options);
+    if (!root) throw new Error("A project root is required for a full dependency scan");
+    const inventory = getLockedPackages(root);
+    if (!inventory) throw new Error(`Unable to resolve the dependency inventory at ${root}`);
+    const excludedPackages = new Set(excludes);
+    return inventory.filter(({ name }) => !excludedPackages.has(name));
+  }
+
+  private resolveVersionScanPackages(
+    config: PastoralistJSON,
+    excludes: string[],
+    options: SecurityCheckRuntimeOptions,
+  ): SecurityPackage[] {
+    const root = this.resolveConfiguredPackageRoot(options);
+    const dependencies = getDeclaredSecurityDependencies(config, excludes);
+    if (!root) return resolvePinnedSecurityPackages(dependencies);
+
+    const inventory = getLockedPackages(root);
+    if (inventory) return resolveLockedSecurityPackages(dependencies, inventory);
+    if (hasDependencyLockfile(root)) {
+      throw new Error(`Unable to read installed package versions from the lockfile at ${root}`);
+    }
+    return resolvePinnedSecurityPackages(dependencies);
+  }
+
+  private resolveConfiguredPackageRoot(options: SecurityCheckRuntimeOptions): string | undefined {
+    if (options.root) return options.root;
+    if (options.packageJsonPath) return dirname(resolve(options.packageJsonPath));
+    return this.cacheRoot;
   }
 
   private resolvePackageRoot(options: SecurityCheckRuntimeOptions): string {
-    if (options.root) return options.root;
-    if (options.packageJsonPath) return dirname(resolve(options.packageJsonPath));
-    return process.cwd();
+    return this.resolveConfiguredPackageRoot(options) ?? process.cwd();
   }
 
   private hasCompleteBestCaseInventory(
@@ -697,12 +818,11 @@ export class SecurityChecker {
     options: SecurityCheckRuntimeOptions,
   ): SecurityAlert[] {
     this.reportVulnerabilityAnalysis(alerts, options);
-    const filteredAlerts = this.filterAlertsBySeverity(
-      sortAlertsByPriority(deduplicateAlerts(alerts)),
-      options,
-    );
-    const workspaceAlerts = this.findWorkspaceVulnerabilitiesIfNeeded(alerts, options);
-    const vulnerablePackages = filteredAlerts.concat(workspaceAlerts);
+    const rootAlerts = deduplicateAlerts(alerts);
+    const workspaceAlerts = this.findWorkspaceVulnerabilitiesIfNeeded(rootAlerts, options);
+    const uniqueAlerts = deduplicateAlerts(rootAlerts.concat(workspaceAlerts));
+    const sortedAlerts = sortAlertsByPriority(uniqueAlerts);
+    const vulnerablePackages = this.filterAlertsBySeverity(sortedAlerts, options);
     this.reportVulnerabilityResolution(vulnerablePackages, options);
     return vulnerablePackages;
   }

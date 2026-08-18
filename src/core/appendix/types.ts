@@ -1,6 +1,7 @@
 import type {
   AppendixItem,
   Appendix,
+  CompactAppendixItem,
   LedgerReason,
   OverridesType,
   PastoralistJSON,
@@ -29,8 +30,6 @@ export type SecurityLedgerFields = Pick<
 >;
 
 export type PartialSecurityLedger = Partial<SecurityLedgerFields>;
-
-export type CompactAppendixItem = { addedDate: string };
 
 export type CompactAppendix = Record<string, CompactAppendixItem | AppendixItem>;
 

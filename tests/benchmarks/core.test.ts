@@ -1,4 +1,5 @@
-import { test, expect } from "bun:test";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 import { findPackageJsonFiles, resolveJSON } from "../../src/core/package";
 import { updateAppendix } from "../../src/core/appendix";
 import { SecurityChecker } from "../../src/core/security";
@@ -6,7 +7,7 @@ import { OSVProvider } from "../../src/core/security/providers/osv";
 import { writeFileSync, mkdirSync, rmSync } from "fs";
 import { join } from "path";
 
-const BENCH_DIR = join(import.meta.dir, ".bench-temp");
+const BENCH_DIR = join(import.meta.dirname, ".bench-temp");
 const ITERATIONS = 100;
 
 function benchmark(name: string, fn: () => void, iterations: number = ITERATIONS): number {
@@ -175,13 +176,13 @@ test("Benchmark: Core Operations", () => {
     generateTime;
   console.log(`\nTotal: ${total.toFixed(2)}ms\n`);
 
-  expect(resolveTime).toBeLessThan(5);
-  expect(smallTime).toBeLessThan(1);
-  expect(largeTime).toBeLessThan(10);
-  expect(xlTime).toBeLessThan(10);
-  expect(discoveryTime).toBeLessThan(20);
-  expect(checkerTime).toBeLessThan(2);
-  expect(providerTime).toBeLessThan(1);
-  expect(fixtureTime).toBeLessThan(1);
-  expect(generateTime).toBeLessThan(1);
+  assert.ok(resolveTime < 5);
+  assert.ok(smallTime < 1);
+  assert.ok(largeTime < 10);
+  assert.ok(xlTime < 10);
+  assert.ok(discoveryTime < 20);
+  assert.ok(checkerTime < 2);
+  assert.ok(providerTime < 1);
+  assert.ok(fixtureTime < 1);
+  assert.ok(generateTime < 1);
 });

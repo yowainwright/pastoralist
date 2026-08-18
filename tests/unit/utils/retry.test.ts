@@ -1,4 +1,6 @@
-import { test, expect } from "bun:test";
+import { errorIncludes } from "../setup";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 import { retry } from "../../../src/utils/retry";
 
 test("retry - should succeed on first attempt", async () => {
@@ -6,7 +8,7 @@ test("retry - should succeed on first attempt", async () => {
 
   const result = await retry(fn);
 
-  expect(result).toBe("success");
+  assert.strictEqual(result, "success");
 });
 
 test("retry - should retry on failure and eventually succeed", async () => {
@@ -22,8 +24,8 @@ test("retry - should retry on failure and eventually succeed", async () => {
 
   const result = await retry(fn, { minTimeout: 10 });
 
-  expect(result).toBe("success");
-  expect(attempts).toBe(3);
+  assert.strictEqual(result, "success");
+  assert.strictEqual(attempts, 3);
 });
 
 test("retry - should throw after max retries", async () => {
@@ -31,7 +33,10 @@ test("retry - should throw after max retries", async () => {
     throw new Error("Permanent failure");
   };
 
-  await expect(retry(fn, { retries: 2, minTimeout: 10 })).rejects.toThrow("Permanent failure");
+  await assert.rejects(
+    retry(fn, { retries: 2, minTimeout: 10 }),
+    errorIncludes("Permanent failure"),
+  );
 });
 
 test("retry - should respect retries option", async () => {
@@ -42,9 +47,9 @@ test("retry - should respect retries option", async () => {
     throw new Error("Always fails");
   };
 
-  await expect(retry(fn, { retries: 3, minTimeout: 10 })).rejects.toThrow("Always fails");
+  await assert.rejects(retry(fn, { retries: 3, minTimeout: 10 }), errorIncludes("Always fails"));
 
-  expect(attempts).toBe(4);
+  assert.strictEqual(attempts, 4);
 });
 
 test("retry - should use exponential backoff", async () => {
@@ -71,9 +76,9 @@ test("retry - should use exponential backoff", async () => {
   const delay2 = timestamps[2] - timestamps[1];
   const delay3 = timestamps[3] - timestamps[2];
 
-  expect(delay1).toBeGreaterThanOrEqual(45);
-  expect(delay2).toBeGreaterThanOrEqual(95);
-  expect(delay3).toBeGreaterThanOrEqual(195);
+  assert.ok(delay1 >= 45);
+  assert.ok(delay2 >= 95);
+  assert.ok(delay3 >= 195);
 });
 
 test("retry - should respect maxTimeout", async () => {
@@ -99,8 +104,8 @@ test("retry - should respect maxTimeout", async () => {
   const delay1 = timestamps[1] - timestamps[0];
   const delay2 = timestamps[2] - timestamps[1];
 
-  expect(delay1).toBeLessThan(120);
-  expect(delay2).toBeLessThan(120);
+  assert.ok(delay1 < 120);
+  assert.ok(delay2 < 120);
 });
 
 test("retry - should call onFailedAttempt callback", async () => {
@@ -123,7 +128,7 @@ test("retry - should call onFailedAttempt callback", async () => {
     },
   });
 
-  expect(failedAttempts).toEqual([1, 2]);
+  assert.deepStrictEqual(failedAttempts, [1, 2]);
 });
 
 test("retry - should provide retry error details", async () => {
@@ -141,9 +146,9 @@ test("retry - should provide retry error details", async () => {
     },
   }).catch(() => {});
 
-  expect(capturedError.attemptNumber).toBe(2);
-  expect(capturedError.retriesLeft).toBe(0);
-  expect(capturedError.message).toBe("Test error");
+  assert.strictEqual(capturedError.attemptNumber, 2);
+  assert.strictEqual(capturedError.retriesLeft, 0);
+  assert.strictEqual(capturedError.message, "Test error");
 });
 
 test("retry - should handle async onFailedAttempt", async () => {
@@ -162,7 +167,7 @@ test("retry - should handle async onFailedAttempt", async () => {
     },
   }).catch(() => {});
 
-  expect(logs).toEqual(["Attempt 1 failed", "Attempt 2 failed"]);
+  assert.deepStrictEqual(logs, ["Attempt 1 failed", "Attempt 2 failed"]);
 });
 
 test("retry - should work with default options", async () => {
@@ -178,8 +183,8 @@ test("retry - should work with default options", async () => {
 
   const result = await retry(fn);
 
-  expect(result).toBe("success");
-  expect(attempts).toBe(2);
+  assert.strictEqual(result, "success");
+  assert.strictEqual(attempts, 2);
 });
 
 test("retry - should handle non-Error throws", async () => {
@@ -187,7 +192,7 @@ test("retry - should handle non-Error throws", async () => {
     throw "String error";
   };
 
-  await expect(retry(fn, { retries: 1, minTimeout: 10 })).rejects.toThrow();
+  await assert.rejects(retry(fn, { retries: 1, minTimeout: 10 }));
 });
 
 test("retry - should not retry on immediate success", async () => {
@@ -200,7 +205,7 @@ test("retry - should not retry on immediate success", async () => {
 
   await retry(fn, { retries: 3, minTimeout: 10 });
 
-  expect(attempts).toBe(1);
+  assert.strictEqual(attempts, 1);
 });
 
 test("retry - should handle zero retries", async () => {
@@ -211,9 +216,9 @@ test("retry - should handle zero retries", async () => {
     throw new Error("Fail");
   };
 
-  await expect(retry(fn, { retries: 0, minTimeout: 10 })).rejects.toThrow("Fail");
+  await assert.rejects(retry(fn, { retries: 0, minTimeout: 10 }), errorIncludes("Fail"));
 
-  expect(attempts).toBe(1);
+  assert.strictEqual(attempts, 1);
 });
 
 test("retry - should preserve original error message", async () => {
@@ -224,9 +229,9 @@ test("retry - should preserve original error message", async () => {
   try {
     await retry(fn, { retries: 1, minTimeout: 10 });
   } catch (error: any) {
-    expect(error.message).toBe("Original error message");
-    expect(error.attemptNumber).toBe(2);
-    expect(error.retriesLeft).toBe(0);
+    assert.strictEqual(error.message, "Original error message");
+    assert.strictEqual(error.attemptNumber, 2);
+    assert.strictEqual(error.retriesLeft, 0);
   }
 });
 
@@ -237,7 +242,7 @@ test("retry - should handle complex return types", async () => {
 
   const result = await retry(fn);
 
-  expect(result).toEqual({ status: "ok", data: [1, 2, 3] });
+  assert.deepStrictEqual(result, { status: "ok", data: [1, 2, 3] });
 });
 
 test("retry - should call onRetry callback", async () => {
@@ -260,7 +265,7 @@ test("retry - should call onRetry callback", async () => {
     },
   });
 
-  expect(retryCalls).toEqual([
+  assert.deepStrictEqual(retryCalls, [
     { attemptNumber: 1, retriesLeft: 2 },
     { attemptNumber: 2, retriesLeft: 1 },
   ]);
@@ -284,7 +289,7 @@ test("retry - should call onRetry after onFailedAttempt", async () => {
     },
   }).catch(() => {});
 
-  expect(callOrder).toEqual(["onFailedAttempt", "onRetry"]);
+  assert.deepStrictEqual(callOrder, ["onFailedAttempt", "onRetry"]);
 });
 
 test("retry - should not call onRetry when no retries left", async () => {
@@ -302,7 +307,7 @@ test("retry - should not call onRetry when no retries left", async () => {
     },
   }).catch(() => {});
 
-  expect(retryCalls).toEqual([]);
+  assert.deepStrictEqual(retryCalls, []);
 });
 
 test("retry - should work with onRetry but without onFailedAttempt", async () => {
@@ -325,6 +330,6 @@ test("retry - should work with onRetry but without onFailedAttempt", async () =>
     },
   });
 
-  expect(result).toBe("success");
-  expect(retryCalls).toEqual([1]);
+  assert.strictEqual(result, "success");
+  assert.deepStrictEqual(retryCalls, [1]);
 });

@@ -41,10 +41,6 @@ export const shimmerFrame = (text: string, offset: number): string => {
   return frame;
 };
 
-const sleep = (ms: number): void => {
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
-};
-
 const repeatOffsets = (offsets: number[], cycles: number): number[] => {
   return Array.from({ length: cycles }, () => offsets).flat();
 };
@@ -52,15 +48,37 @@ const repeatOffsets = (offsets: number[], cycles: number): number[] => {
 const writeShimmerFrame = (
   text: string,
   offset: number,
-  frameInterval: number,
   out: Output,
   prefix: string,
   suffix: string,
 ): void => {
   out.clearLine();
   out.write(`${prefix}${shimmerFrame(text, offset)}${suffix}`);
-  sleep(frameInterval);
 };
+
+const writeFinalShimmerLine = (text: string, out: Output, prefix: string, suffix: string): void => {
+  out.clearLine();
+  out.writeLine(`${prefix}${shimmerFrame(text, 0)}${suffix}`);
+};
+
+const scheduleShimmer = (
+  text: string,
+  offsets: number[],
+  frameInterval: number,
+  out: Output,
+  prefix: string,
+  suffix: string,
+): Promise<void> =>
+  new Promise((resolve) => {
+    offsets.forEach((offset, index) => {
+      setTimeout(() => writeShimmerFrame(text, offset, out, prefix, suffix), index * frameInterval);
+    });
+    const completionDelay = offsets.length * frameInterval;
+    setTimeout(() => {
+      writeFinalShimmerLine(text, out, prefix, suffix);
+      resolve();
+    }, completionDelay);
+  });
 
 export const playShimmer = (
   text: string,
@@ -69,7 +87,7 @@ export const playShimmer = (
   prefix: string = "",
   suffix: string = "",
   isTTY: boolean = process.stdout.isTTY ?? false,
-): void => {
+): Promise<void> => {
   const shouldAnimate = isTTY;
   const offsets = Array.from(
     { length: SHIMMER_FRAMES_PER_CYCLE },
@@ -78,11 +96,9 @@ export const playShimmer = (
 
   if (shouldAnimate) {
     const animationOffsets = repeatOffsets(offsets, SHIMMER_CYCLES);
-    animationOffsets.forEach((offset) =>
-      writeShimmerFrame(text, offset, frameInterval, out, prefix, suffix),
-    );
-    out.clearLine();
+    return scheduleShimmer(text, animationOffsets, frameInterval, out, prefix, suffix);
   }
 
   out.writeLine(`${prefix}${shimmerFrame(text, 0)}${suffix}`);
+  return Promise.resolve();
 };

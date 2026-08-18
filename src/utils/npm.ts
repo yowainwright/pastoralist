@@ -153,9 +153,12 @@ const toVersionMap = (results: NpmPackageVersionResult[]): Map<string, string> =
 export const fetchLatestCompatibleVersions = async (
   packages: NpmPackageRequest[],
 ): Promise<Map<string, string>> => {
-  const fetches = await Promise.all(
+  const results = await Promise.allSettled(
     uniquePackageEntries(packages).map((entry) => fetchCompatibleVersion(entry)),
   );
+  const fetches = results
+    .filter((result) => result.status === "fulfilled")
+    .map((result) => result.value);
 
   return toVersionMap(fetches);
 };

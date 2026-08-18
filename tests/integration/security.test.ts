@@ -1,10 +1,11 @@
-import { test, expect, beforeEach, afterEach, describe } from "bun:test";
+import { test, beforeEach, afterEach, describe } from "node:test";
+import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from "fs";
 import { resolve, join } from "path";
 import { execSync } from "child_process";
 import { action } from "../../src/cli/index";
 
-const TEST_DIR = resolve(__dirname, ".test-security-real");
+const TEST_DIR = resolve(import.meta.dirname, ".test-security-real");
 
 const createFixture = (name: string, content: object) => {
   const dir = join(TEST_DIR, name);
@@ -46,12 +47,12 @@ describe("Real Security Checks", () => {
       securityProvider: "osv",
     });
 
-    expect(actionResult.success).toBe(true);
-    expect(actionResult.hasSecurityIssues).toBe(true);
-    expect(actionResult.securityAlertCount).toBeGreaterThan(0);
+    assert.strictEqual(actionResult.success, true);
+    assert.strictEqual(actionResult.hasSecurityIssues, true);
+    assert.ok(actionResult.securityAlertCount > 0);
 
     const lodashAlert = actionResult.securityAlerts?.find((a) => a.packageName === "lodash");
-    expect(lodashAlert).toBeDefined();
+    assert.notStrictEqual(lodashAlert, undefined);
   }, 60000);
 
   test("detects vulnerable minimist via OSV", async () => {
@@ -73,11 +74,11 @@ describe("Real Security Checks", () => {
       securityProvider: "osv",
     });
 
-    expect(actionResult.success).toBe(true);
-    expect(actionResult.hasSecurityIssues).toBe(true);
+    assert.strictEqual(actionResult.success, true);
+    assert.strictEqual(actionResult.hasSecurityIssues, true);
 
     const minimistAlert = actionResult.securityAlerts?.find((a) => a.packageName === "minimist");
-    expect(minimistAlert).toBeDefined();
+    assert.notStrictEqual(minimistAlert, undefined);
   }, 60000);
 });
 
@@ -108,9 +109,9 @@ describe("Security Overrides - Nested Override Preservation", () => {
     const hasNestedOverride = typeof pkg.overrides?.express === "object";
     const hasSecurityOverride = typeof pkg.overrides?.lodash === "string";
 
-    expect(hasNestedOverride).toBe(true);
-    expect(pkg.overrides.express.qs).toBe("6.11.0");
-    expect(hasSecurityOverride).toBe(true);
+    assert.strictEqual(hasNestedOverride, true);
+    assert.strictEqual(pkg.overrides.express.qs, "6.11.0");
+    assert.strictEqual(hasSecurityOverride, true);
   }, 60000);
 });
 
@@ -163,15 +164,15 @@ describe("Security Overrides - Workspace Deduplication", () => {
       hasWorkspaceSecurityChecks: true,
     });
 
-    expect(result.success).toBe(true);
-    expect(result.hasSecurityIssues).toBe(true);
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.hasSecurityIssues, true);
 
     const lodashAlerts = (result.securityAlerts || []).filter((a) => a.packageName === "lodash");
     const lodashCVEs = lodashAlerts.map((a) => a.cve).filter(Boolean);
     const uniqueCVEs = new Set(lodashCVEs);
     const hasDuplicateCVEs = lodashCVEs.length > uniqueCVEs.size;
 
-    expect(hasDuplicateCVEs).toBe(false);
+    assert.strictEqual(hasDuplicateCVEs, false);
   }, 60000);
 });
 
@@ -195,9 +196,9 @@ describe("Security Overrides - Provider Resilience", () => {
       securityProvider: "osv",
     });
 
-    expect(result.success).toBe(true);
+    assert.strictEqual(result.success, true);
     const hasValidCount = result.securityAlertCount >= 0;
-    expect(hasValidCount).toBe(true);
+    assert.strictEqual(hasValidCount, true);
   }, 60000);
 });
 
@@ -224,10 +225,10 @@ describe("Security Integration - OSV Full Details", () => {
     const alerts = result.securityAlerts || [];
     const lodashAlert = alerts.find((a) => a.packageName === "lodash");
 
-    expect(lodashAlert).toBeDefined();
+    assert.notStrictEqual(lodashAlert, undefined);
     if (!lodashAlert) throw new Error("lodashAlert not found");
-    expect(lodashAlert.severity).toBeDefined();
-    expect(lodashAlert.cves).toBeDefined();
+    assert.notStrictEqual(lodashAlert.severity, undefined);
+    assert.notStrictEqual(lodashAlert.cves, undefined);
   }, 60000);
 
   test("OSV provides patchedVersion for fixable vulnerabilities", async () => {
@@ -252,10 +253,10 @@ describe("Security Integration - OSV Full Details", () => {
     const alerts = result.securityAlerts || [];
     const lodashAlert = alerts.find((a) => a.packageName === "lodash");
 
-    expect(lodashAlert).toBeDefined();
+    assert.notStrictEqual(lodashAlert, undefined);
     if (!lodashAlert) throw new Error("lodashAlert not found");
-    expect(lodashAlert.patchedVersion).toBeDefined();
-    expect(lodashAlert.fixAvailable).toBe(true);
+    assert.notStrictEqual(lodashAlert.patchedVersion, undefined);
+    assert.strictEqual(lodashAlert.fixAvailable, true);
   }, 60000);
 });
 
@@ -281,8 +282,8 @@ describe("Security Integration - Override Application", () => {
 
     const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
 
-    expect(pkg.overrides).toBeDefined();
-    expect(pkg.overrides.lodash).toBeDefined();
+    assert.notStrictEqual(pkg.overrides, undefined);
+    assert.notStrictEqual(pkg.overrides.lodash, undefined);
   }, 60000);
 
   test("tracks security overrides in appendix ledger", async () => {
@@ -309,14 +310,14 @@ describe("Security Integration - Override Application", () => {
     const appendix = pastoralist.appendix || {};
     const overrideKeys = Object.keys(appendix);
 
-    expect(overrideKeys.length).toBeGreaterThan(0);
+    assert.ok(overrideKeys.length > 0);
 
     const firstKey = overrideKeys[0];
     const entry = appendix[firstKey];
 
-    expect(entry.ledger).toBeDefined();
-    expect(entry.ledger.securityChecked).toBe(true);
-    expect(entry.ledger.securityProvider).toBe("osv");
+    assert.notStrictEqual(entry.ledger, undefined);
+    assert.strictEqual(entry.ledger.securityChecked, true);
+    assert.strictEqual(entry.ledger.securityProvider, "osv");
   }, 60000);
 });
 
@@ -340,8 +341,8 @@ describe("Security Integration - Result Data", () => {
       securityProvider: "osv",
     });
 
-    expect(result.success).toBe(true);
-    expect(result.hasSecurityIssues).toBe(true);
-    expect(result.securityAlertCount).toBeGreaterThan(0);
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.hasSecurityIssues, true);
+    assert.ok(result.securityAlertCount > 0);
   }, 60000);
 });

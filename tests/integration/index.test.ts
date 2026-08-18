@@ -1,4 +1,5 @@
-import { test, expect, beforeEach, afterEach } from "bun:test";
+import { test, beforeEach, afterEach } from "node:test";
+import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from "fs";
 import { resolve } from "path";
 import { update } from "../../src/core/update";
@@ -6,7 +7,7 @@ import { writeResult } from "../../src/core/update/utils";
 import { resolveOverrideSource } from "../../src/core/overrides";
 import type { Options } from "../../src/types";
 
-const TEST_DIR = resolve(__dirname, ".test-integration");
+const TEST_DIR = resolve(import.meta.dirname, ".test-integration");
 const TEST_PACKAGE_JSON = resolve(TEST_DIR, "package.json");
 const PATCHES_DIR = resolve(TEST_DIR, "patches");
 
@@ -66,10 +67,10 @@ test("update - should process package.json with overrides", () => {
 
   const result = update(options);
 
-  expect(result.appendix).toBeDefined();
-  expect(result.appendix?.["lodash@4.17.21"]).toBeDefined();
-  expect(result.overrides).toBeDefined();
-  expect(result.overrides?.lodash).toBe("4.17.21");
+  assert.notStrictEqual(result.appendix, undefined);
+  assert.notStrictEqual(result.appendix?.["lodash@4.17.21"], undefined);
+  assert.notStrictEqual(result.overrides, undefined);
+  assert.strictEqual(result.overrides?.lodash, "4.17.21");
 });
 
 test("update - should build the ledger from pnpm workspace overrides", () => {
@@ -86,9 +87,9 @@ test("update - should build the ledger from pnpm workspace overrides", () => {
     isTesting: true,
   });
 
-  expect(result.overrideSource?.kind).toBe("yaml");
-  expect(result.overrides).toEqual({ lodash: "4.17.21" });
-  expect(result.appendix?.["lodash@4.17.21"]).toBeDefined();
+  assert.strictEqual(result.overrideSource?.kind, "yaml");
+  assert.deepStrictEqual(result.overrides, { lodash: "4.17.21" });
+  assert.notStrictEqual(result.appendix?.["lodash@4.17.21"], undefined);
 });
 
 test("writeResult - should keep pnpm overrides outside package.json", () => {
@@ -113,11 +114,11 @@ test("writeResult - should keep pnpm overrides outside package.json", () => {
 
   const packageJson = JSON.parse(readFileSync(TEST_PACKAGE_JSON, "utf8"));
   const workspace = readFileSync(workspacePath, "utf8");
-  expect(packageJson.pnpm).toBeUndefined();
-  expect(packageJson.overrides).toBeUndefined();
-  expect(packageJson.pastoralist.appendix["lodash@4.17.21"]).toBeDefined();
-  expect(workspace).toContain("# retained");
-  expect(workspace).toContain('lodash: "4.17.21"');
+  assert.strictEqual(packageJson.pnpm, undefined);
+  assert.strictEqual(packageJson.overrides, undefined);
+  assert.notStrictEqual(packageJson.pastoralist.appendix["lodash@4.17.21"], undefined);
+  assert.ok(workspace.includes("# retained"));
+  assert.ok(workspace.includes('lodash: "4.17.21"'));
 });
 
 test("update - should detect and attach patches", () => {
@@ -138,9 +139,11 @@ test("update - should detect and attach patches", () => {
 
   const result = update(options);
 
-  expect(result.patchMap).toBeDefined();
-  expect(result.patchMap?.lodash).toContain("patches/lodash+4.17.21.patch");
-  expect(result.appendix?.["lodash@4.17.21"]?.patches).toContain("patches/lodash+4.17.21.patch");
+  assert.notStrictEqual(result.patchMap, undefined);
+  assert.ok((result.patchMap?.lodash).includes("patches/lodash+4.17.21.patch"));
+  assert.ok(
+    (result.appendix?.["lodash@4.17.21"]?.patches).includes("patches/lodash+4.17.21.patch"),
+  );
 });
 
 test("update - should handle security overrides", () => {
@@ -171,10 +174,11 @@ test("update - should handle security overrides", () => {
 
   const result = update(options);
 
-  expect(result.overrides?.express).toBe("4.17.3");
-  expect(result.appendix?.["express@4.17.3"]).toBeDefined();
-  expect(result.appendix?.["express@4.17.3"]?.ledger).toBeDefined();
-  expect(result.appendix?.["express@4.17.3"]?.ledger?.reason).toBe(
+  assert.strictEqual(result.overrides?.express, "4.17.3");
+  assert.notStrictEqual(result.appendix?.["express@4.17.3"], undefined);
+  assert.notStrictEqual(result.appendix?.["express@4.17.3"]?.ledger, undefined);
+  assert.strictEqual(
+    result.appendix?.["express@4.17.3"]?.ledger?.reason,
     "Security fix for CVE-2021-1234",
   );
 });
@@ -214,8 +218,8 @@ test("update - should handle workspace packages", () => {
 
   const result = update(options);
 
-  expect(result.workspaceAppendix).toBeDefined();
-  expect(result.appendix?.["lodash@4.17.21"]).toBeDefined();
+  assert.notStrictEqual(result.workspaceAppendix, undefined);
+  assert.notStrictEqual(result.appendix?.["lodash@4.17.21"], undefined);
 });
 
 test("update - should handle no overrides", () => {
@@ -235,8 +239,8 @@ test("update - should handle no overrides", () => {
 
   const result = update(options);
 
-  expect(result.finalOverrides).toEqual({});
-  expect(result.finalAppendix).toEqual({});
+  assert.deepStrictEqual(result.finalOverrides, {});
+  assert.deepStrictEqual(result.finalAppendix, {});
 });
 
 test("update - should handle resolutions", () => {
@@ -256,8 +260,8 @@ test("update - should handle resolutions", () => {
 
   const result = update(options);
 
-  expect(result.overrides).toBeDefined();
-  expect(result.overrides?.lodash).toBe("4.17.21");
+  assert.notStrictEqual(result.overrides, undefined);
+  assert.strictEqual(result.overrides?.lodash, "4.17.21");
 });
 
 test("update - should merge workspace appendix with root appendix", () => {
@@ -298,9 +302,9 @@ test("update - should merge workspace appendix with root appendix", () => {
 
   const result = update(options);
 
-  expect(result.appendix?.["lodash@4.17.21"]?.dependents).toBeDefined();
+  assert.notStrictEqual(result.appendix?.["lodash@4.17.21"]?.dependents, undefined);
   const dependents = result.appendix?.["lodash@4.17.21"]?.dependents || {};
-  expect(Object.keys(dependents).length).toBeGreaterThanOrEqual(1);
+  assert.ok(Object.keys(dependents).length >= 1);
 });
 
 test("update - should handle multiple patches for same package", () => {
@@ -322,8 +326,8 @@ test("update - should handle multiple patches for same package", () => {
 
   const result = update(options);
 
-  expect(result.patchMap?.lodash).toBeDefined();
-  expect(result.patchMap?.lodash?.length).toBe(2);
+  assert.notStrictEqual(result.patchMap?.lodash, undefined);
+  assert.strictEqual(result.patchMap?.lodash?.length, 2);
 });
 
 test("update - should return early when no config provided", () => {
@@ -335,8 +339,8 @@ test("update - should return early when no config provided", () => {
 
   const result = update(options);
 
-  expect(result.config).toBeUndefined();
-  expect(result.appendix).toBeUndefined();
+  assert.strictEqual(result.config, undefined);
+  assert.strictEqual(result.appendix, undefined);
 });
 
 test("update - should handle pnpm overrides", () => {
@@ -358,6 +362,6 @@ test("update - should handle pnpm overrides", () => {
 
   const result = update(options);
 
-  expect(result.overrides).toBeDefined();
-  expect(result.overrides?.lodash).toBe("4.17.21");
+  assert.notStrictEqual(result.overrides, undefined);
+  assert.strictEqual(result.overrides?.lodash, "4.17.21");
 });

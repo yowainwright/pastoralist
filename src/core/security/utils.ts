@@ -17,8 +17,13 @@ import {
   DEFAULT_INSTALL_TIMEOUT,
   DEFAULT_PROMPT_TIMEOUT,
   PROMPT_SELECT_MAX_ATTEMPTS,
+  SECURITY_BOUNDED_MAXIMUM_PATTERN,
+  SECURITY_BOUNDED_MINIMUM_PATTERN,
+  SECURITY_EXACT_RANGE_PATTERN,
+  SECURITY_REGISTRY_SPEC_PATTERN,
   SECURITY_ACTION_CHOICES,
   SECURITY_SUMMARY_SEVERITIES,
+  SECURITY_VERSION_PREFIX_PATTERN,
 } from "./constants";
 import type {
   CLIInstallOptions,
@@ -102,6 +107,13 @@ export const sortAlertsByPriority = (alerts: SecurityAlert[]): SecurityAlert[] =
     return priorityB - priorityA;
   });
 
+const normalizeSecurityPackageVersion = (version: string): string => {
+  const normalizedVersion = version.trim();
+  const match = normalizedVersion.match(SECURITY_REGISTRY_SPEC_PATTERN);
+  if (!match) return normalizedVersion;
+  return match[1];
+};
+
 export const extractPackages = (
   config: PastoralistJSON,
   excludePackages: string[] = [],
@@ -115,31 +127,43 @@ export const extractPackages = (
 
   return Object.entries(allDeps)
     .filter(([name]) => !excludePackages.includes(name))
-    .map(([name, version]) => ({
-      name,
-      version: version.replace(/^[\^~]/, ""),
-    }));
+    .map(([name, version]) => {
+      const packageVersion = normalizeSecurityPackageVersion(version);
+      return { name, version: packageVersion };
+    });
 };
 
 const checkBoundedRange = (version: string, range: string): boolean | null => {
   const isRangeBounded = range.includes(">=") && range.includes("<");
   if (!isRangeBounded) return null;
 
-  const [, minVersion] = range.match(/>= ?([^\s,]+)/) || [];
-  const [, maxVersion] = range.match(/< ?([^\s,]+)/) || [];
+  const [, minVersion] = range.match(SECURITY_BOUNDED_MINIMUM_PATTERN) || [];
+  const [, upperOperator, maxVersion] = range.match(SECURITY_BOUNDED_MAXIMUM_PATTERN) || [];
   const hasValidBounds = Boolean(minVersion && maxVersion);
   if (!hasValidBounds) return null;
 
   const meetsMinVersion = compareVersions(version, minVersion) >= 0;
   if (!meetsMinVersion) return false;
-  return compareVersions(version, maxVersion) < 0;
+  const maxComparison = compareVersions(version, maxVersion);
+  const hasInclusiveMaximum = upperOperator === "<=";
+  const isWithinInclusiveMaximum = maxComparison <= 0;
+  const isWithinExclusiveMaximum = maxComparison < 0;
+  if (hasInclusiveMaximum) return isWithinInclusiveMaximum;
+  return isWithinExclusiveMaximum;
+};
+
+const checkExactVersion = (version: string, range: string): boolean | null => {
+  const [, exactVersion] = range.match(SECURITY_EXACT_RANGE_PATTERN) || [];
+  if (!exactVersion) return null;
+  const isExactVersion = compareVersions(version, exactVersion) === 0;
+  return isExactVersion;
 };
 
 const checkLessThanOrEqual = (version: string, range: string): boolean | null => {
   const isLessThanOrEqual = range.startsWith("<=");
   if (!isLessThanOrEqual) return null;
 
-  const maxVersion = range.replace(/<= ?/, "");
+  const maxVersion = range.slice(2).trim();
   return compareVersions(version, maxVersion) <= 0;
 };
 
@@ -147,7 +171,7 @@ const checkLessThan = (version: string, range: string): boolean | null => {
   const isLessThan = range.startsWith("<") && !range.startsWith("<=");
   if (!isLessThan) return null;
 
-  const maxVersion = range.replace(/< ?/, "");
+  const maxVersion = range.slice(1).trim();
   return compareVersions(version, maxVersion) < 0;
 };
 
@@ -155,13 +179,13 @@ const checkGreaterThanOrEqual = (version: string, range: string): boolean | null
   const isOpenEnded = range.startsWith(">=") && !range.includes("<");
   if (!isOpenEnded) return null;
 
-  const minVersion = range.replace(/>= ?/, "");
+  const minVersion = range.slice(2).trim();
   return compareVersions(version, minVersion) >= 0;
 };
 
 export const isVersionVulnerable = (currentVersion: string, vulnerableRange: string): boolean => {
   try {
-    const cleanVersion = currentVersion.replace(/^[\^~]/, "");
+    const cleanVersion = currentVersion.replace(SECURITY_VERSION_PREFIX_PATTERN, "");
     const boundedRange = checkBoundedRange(cleanVersion, vulnerableRange);
     if (boundedRange !== null) return boundedRange;
 
@@ -170,6 +194,9 @@ export const isVersionVulnerable = (currentVersion: string, vulnerableRange: str
 
     const lessThanOrEqual = checkLessThanOrEqual(cleanVersion, vulnerableRange);
     if (lessThanOrEqual !== null) return lessThanOrEqual;
+
+    const exactVersion = checkExactVersion(cleanVersion, vulnerableRange);
+    if (exactVersion !== null) return exactVersion;
 
     return checkLessThan(cleanVersion, vulnerableRange) ?? false;
   } catch {
@@ -642,7 +669,7 @@ export class InteractiveSecurityManager {
     this.printSecurityReview(vulnerablePackages);
     this.printSelectedOverrides(suggestedOverrides);
     const message = "Apply this complete best-case portfolio without edits?";
-    const accepted = await this.prompts.confirm(message, true);
+    const accepted = await this.prompts.confirm(message, false);
     if (!accepted) return [];
     return suggestedOverrides;
   }
@@ -676,7 +703,7 @@ export class InteractiveSecurityManager {
   }
 
   private confirmSecurityReview(): Promise<boolean> {
-    return this.prompts.confirm("Would you like to review and apply security fixes?", true);
+    return this.prompts.confirm("Would you like to review and apply security fixes?", false);
   }
 
   private collectSelectedOverrides(
@@ -770,7 +797,10 @@ export class InteractiveSecurityManager {
     }
 
     this.printSelectedOverrides(selectedOverrides);
-    const confirm = await this.prompts.confirm("Apply these overrides to your package.json?", true);
+    const confirm = await this.prompts.confirm(
+      "Apply these overrides to your package.json?",
+      false,
+    );
     return confirm ? selectedOverrides : [];
   }
 

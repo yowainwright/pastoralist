@@ -1,4 +1,5 @@
-import { test, expect } from "bun:test";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 import { resolve } from "path";
 import {
   loadConfig,
@@ -20,12 +21,12 @@ import {
   validateRootPackageJsonIntegrity,
 } from "../setup";
 
-const testDir = resolve(__dirname, "..", ".test-config");
+const testDir = resolve(import.meta.dirname, "..", ".test-config");
 
 test("validateConfig - should validate minimal valid config", () => {
   const config = {};
   const result = validateConfig(config);
-  expect(result).toEqual({});
+  assert.deepStrictEqual(result, {});
 });
 
 test("validateConfig - should validate complete config", () => {
@@ -43,7 +44,7 @@ test("validateConfig - should validate complete config", () => {
   };
 
   const result = validateConfig(config);
-  expect(result).toEqual(config);
+  assert.deepStrictEqual(result, config);
 });
 
 test("validateConfig - should throw on invalid security provider", () => {
@@ -53,7 +54,7 @@ test("validateConfig - should throw on invalid security provider", () => {
     },
   };
 
-  expect(() => validateConfig(config)).toThrow();
+  assert.throws(() => validateConfig(config));
 });
 
 test("safeValidateConfig - should return undefined for invalid config", () => {
@@ -64,7 +65,7 @@ test("safeValidateConfig - should return undefined for invalid config", () => {
   };
 
   const result = safeValidateConfig(config);
-  expect(result).toBeUndefined();
+  assert.strictEqual(result, undefined);
 });
 
 test("safeValidateConfig - should return parsed config for valid input", () => {
@@ -73,7 +74,7 @@ test("safeValidateConfig - should return parsed config for valid input", () => {
   };
 
   const result = safeValidateConfig(config);
-  expect(result).toEqual(config);
+  assert.deepStrictEqual(result, config);
 });
 
 test("safeValidateConfig - should allow security strict config", () => {
@@ -85,7 +86,7 @@ test("safeValidateConfig - should allow security strict config", () => {
   };
 
   const result = safeValidateConfig(config);
-  expect(result).toEqual(config);
+  assert.deepStrictEqual(result, config);
 });
 
 test("loadConfig - should return undefined when no config", async () => {
@@ -95,7 +96,7 @@ test("loadConfig - should return undefined when no config", async () => {
   }
 
   const result = await loadConfig(testDir);
-  expect(result).toBeUndefined();
+  assert.strictEqual(result, undefined);
 
   if (existsSync(testDir)) {
     rmSync(testDir, { recursive: true, force: true });
@@ -114,7 +115,7 @@ test("loadConfig - should load config from package.json", async () => {
   };
 
   const result = await loadConfig(testDir, packageJsonConfig);
-  expect(result?.depPaths).toEqual(["packages/*/package.json"]);
+  assert.deepStrictEqual(result?.depPaths, ["packages/*/package.json"]);
 
   if (existsSync(testDir)) {
     rmSync(testDir, { recursive: true, force: true });
@@ -129,7 +130,7 @@ test("loadExternalConfig - should return undefined when file doesn't exist", asy
   }
 
   const result = await loadExternalConfig(testDir);
-  expect(result).toBeUndefined();
+  assert.strictEqual(result, undefined);
 
   if (existsSync(testDir)) {
     rmSync(testDir, { recursive: true, force: true });
@@ -148,7 +149,7 @@ test("loadExternalConfig - should load JSON config file", async () => {
   writeFileSync(configPath, JSON.stringify(config));
 
   const result = await loadExternalConfig(testDir);
-  expect(result?.depPaths).toEqual(["packages/*/package.json"]);
+  assert.deepStrictEqual(result?.depPaths, ["packages/*/package.json"]);
 
   if (existsSync(testDir)) {
     rmSync(testDir, { recursive: true, force: true });
@@ -165,8 +166,8 @@ test("loadConfigWithSource - tracks a writable JSON appendix target", async () =
   clearConfigCache();
   const loaded = await loadConfigWithSource(testDir);
 
-  expect(loaded.source).toEqual({ format: "json", path: configPath });
-  expect(loaded.appendixTarget).toEqual({ path: configPath });
+  assert.deepStrictEqual(loaded.source, { format: "json", path: configPath });
+  assert.deepStrictEqual(loaded.appendixTarget, { path: configPath });
   rmSync(testDir, { recursive: true, force: true });
   validateRootPackageJsonIntegrity();
 });
@@ -181,8 +182,8 @@ test("loadConfigWithSource - merges an explicit target appendix", async () => {
   clearConfigCache();
   const loaded = await loadConfigWithSource(testDir, { appendixSource: "ledger.json" });
 
-  expect(loaded.appendixTarget).toEqual({ path: configPath });
-  expect(loaded.config?.appendix).toEqual(appendix);
+  assert.deepStrictEqual(loaded.appendixTarget, { path: configPath });
+  assert.deepStrictEqual(loaded.config?.appendix, appendix);
   rmSync(testDir, { recursive: true, force: true });
   validateRootPackageJsonIntegrity();
 });
@@ -202,8 +203,8 @@ test("loadCliConfig - uses source-aware config loading", async () => {
 
   const loaded = await loadCliConfig({}, {}, deps);
 
-  expect(loaded.appendixTarget).toEqual({ path: "ledger.json" });
-  expect(loaded.manifestConfig).toEqual(packageConfig);
+  assert.deepStrictEqual(loaded.appendixTarget, { path: "ledger.json" });
+  assert.deepStrictEqual(loaded.manifestConfig, packageConfig);
 });
 
 test("loadExternalConfig - should handle invalid JSON", async () => {
@@ -216,12 +217,41 @@ test("loadExternalConfig - should handle invalid JSON", async () => {
   writeFileSync(configPath, "{ invalid json");
 
   const result = await loadExternalConfig(testDir);
-  expect(result).toBeUndefined();
+  assert.strictEqual(result, undefined);
 
   if (existsSync(testDir)) {
     rmSync(testDir, { recursive: true, force: true });
   }
   validateRootPackageJsonIntegrity();
+});
+
+test("loadExternalConfig - stops after an invalid higher-priority config", async () => {
+  validateRootPackageJsonIntegrity();
+  mkdirSync(testDir, { recursive: true });
+  const invalidConfigPath = resolve(testDir, ".pastoralistrc");
+  writeFileSync(invalidConfigPath, JSON.stringify({ security: { provider: 42 } }));
+  writeFileSync(
+    resolve(testDir, ".pastoralistrc.json"),
+    JSON.stringify({ depPaths: ["packages/*/package.json"] }),
+  );
+  const originalError = console.error;
+  let errorOutput = "";
+  console.error = (...args: unknown[]) => {
+    errorOutput = args.map(String).join(" ");
+  };
+
+  try {
+    const result = await loadExternalConfig(testDir);
+    assert.strictEqual(result, undefined);
+    assert.strictEqual(
+      errorOutput,
+      "Failed to load config from .pastoralistrc: Invalid config structure",
+    );
+  } finally {
+    console.error = originalError;
+    rmSync(testDir, { recursive: true, force: true });
+    validateRootPackageJsonIntegrity();
+  }
 });
 
 test("mergeConfigs - should merge two configs", () => {
@@ -236,8 +266,8 @@ test("mergeConfigs - should merge two configs", () => {
   };
 
   const result = mergeConfigs(base, override);
-  expect(result.depPaths).toEqual(["packages/*/package.json"]);
-  expect(result.security?.enabled).toBe(true);
+  assert.deepStrictEqual(result.depPaths, ["packages/*/package.json"]);
+  assert.strictEqual(result.security?.enabled, true);
 });
 
 test("mergeConfigs - should override base with override", () => {
@@ -254,7 +284,7 @@ test("mergeConfigs - should override base with override", () => {
   };
 
   const result = mergeConfigs(base, override);
-  expect(result.security?.enabled).toBe(true);
+  assert.strictEqual(result.security?.enabled, true);
 });
 
 test("mergeConfigs - deep merges best-case search tuning", () => {
@@ -268,7 +298,7 @@ test("mergeConfigs - deep merges best-case search tuning", () => {
 
   const expectedSearch = { exactStateLimit: 256, beamWidth: 8, maxEvaluations: 500 };
   const expected = { enabled: true, riskAggregation: "both", search: expectedSearch };
-  expect(result?.bestCase).toEqual(expected);
+  assert.deepStrictEqual(result?.bestCase, expected);
 });
 
 test("mergeConfigs - should deep merge appendix", () => {
@@ -289,8 +319,8 @@ test("mergeConfigs - should deep merge appendix", () => {
   };
 
   const result = mergeConfigs(base, override);
-  expect(result.appendix?.["lodash@4.17.21"]?.dependents?.["pkg-a"]).toBeDefined();
-  expect(result.appendix?.["lodash@4.17.21"]?.dependents?.["pkg-b"]).toBeDefined();
+  assert.notStrictEqual(result.appendix?.["lodash@4.17.21"]?.dependents?.["pkg-a"], undefined);
+  assert.notStrictEqual(result.appendix?.["lodash@4.17.21"]?.dependents?.["pkg-b"], undefined);
 });
 
 test("clearConfigCache - clears the config cache", async () => {
@@ -304,12 +334,12 @@ test("clearConfigCache - clears the config cache", async () => {
   writeFileSync(configPath, JSON.stringify({ depPaths: ["test/*"] }));
 
   const config1 = await loadConfig(testDir);
-  expect(config1).toBeDefined();
+  assert.notStrictEqual(config1, undefined);
 
   clearConfigCache();
 
   const config2 = await loadConfig(testDir);
-  expect(config2).toBeDefined();
+  assert.notStrictEqual(config2, undefined);
 
   if (existsSync(configPath)) {
     rmSync(configPath);
@@ -341,8 +371,8 @@ test("loadExternalConfig - loads JS config file", async () => {
   clearConfigCache();
   const config = await loadExternalConfig(testDir);
 
-  expect(config).toBeDefined();
-  expect(config?.depPaths).toEqual(["packages/*/package.json"]);
+  assert.notStrictEqual(config, undefined);
+  assert.deepStrictEqual(config?.depPaths, ["packages/*/package.json"]);
 
   if (existsSync(configPath)) {
     rmSync(configPath);
@@ -376,8 +406,8 @@ test("loadExternalConfig - loads JS CommonJS config after leading statements", a
   clearConfigCache();
   const config = await loadExternalConfig(testDir);
 
-  expect(config).toBeDefined();
-  expect(config?.depPaths).toEqual(["packages/*/package.json"]);
+  assert.notStrictEqual(config, undefined);
+  assert.deepStrictEqual(config?.depPaths, ["packages/*/package.json"]);
 
   if (existsSync(configPath)) {
     rmSync(configPath);
@@ -423,8 +453,8 @@ test("loadExternalConfig - ignores TypeScript config files", async () => {
     console.warn = originalWarn;
   }
 
-  expect(config).toBeUndefined();
-  expect(warnings.join("\n")).toContain("pastoralist.config.ts is not supported");
+  assert.strictEqual(config, undefined);
+  assert.ok(warnings.join("\n").includes("pastoralist.config.ts is not supported"));
 
   if (existsSync(configPath)) {
     rmSync(configPath);
@@ -451,8 +481,8 @@ test("loadExternalConfig - loads ESM config file", async () => {
   clearConfigCache();
   const config = await loadExternalConfig(testDir);
 
-  expect(config).toBeDefined();
-  expect(config?.depPaths).toEqual(["apps/*/package.json"]);
+  assert.notStrictEqual(config, undefined);
+  assert.deepStrictEqual(config?.depPaths, ["apps/*/package.json"]);
 
   if (existsSync(configPath)) {
     rmSync(configPath);
@@ -481,9 +511,9 @@ test("mergeConfigs - merges appendix entries with no overlap", () => {
 
   const merged = mergeConfigs(external, packageJson);
 
-  expect(merged?.appendix).toBeDefined();
-  expect(merged?.appendix?.["lodash@4.17.21"]).toBeDefined();
-  expect(merged?.appendix?.["express@4.18.0"]).toBeDefined();
+  assert.notStrictEqual(merged?.appendix, undefined);
+  assert.notStrictEqual(merged?.appendix?.["lodash@4.17.21"], undefined);
+  assert.notStrictEqual(merged?.appendix?.["express@4.18.0"], undefined);
 });
 
 test("mergeConfigs - merges appendix entries when key exists in external but not with that field", () => {
@@ -506,11 +536,11 @@ test("mergeConfigs - merges appendix entries when key exists in external but not
 
   const merged = mergeConfigs(external, packageJson);
 
-  expect(merged?.appendix?.["lodash@4.17.21"].dependents).toEqual({
+  assert.deepStrictEqual(merged?.appendix?.["lodash@4.17.21"].dependents, {
     app1: "lodash@^4.17.0",
     app2: "lodash@^4.17.0",
   });
-  expect(merged?.appendix?.["lodash@4.17.21"].patches).toEqual(["patches/new.patch"]);
+  assert.deepStrictEqual(merged?.appendix?.["lodash@4.17.21"].patches, ["patches/new.patch"]);
 });
 
 test("mergeConfigs - handles when external has no key and packageJson does", () => {
@@ -528,8 +558,8 @@ test("mergeConfigs - handles when external has no key and packageJson does", () 
 
   const merged = mergeConfigs(external, packageJson);
 
-  expect(merged?.appendix?.["react@18.0.0"]).toBeDefined();
-  expect(merged?.appendix?.["react@18.0.0"].dependents).toEqual({
+  assert.notStrictEqual(merged?.appendix?.["react@18.0.0"], undefined);
+  assert.deepStrictEqual(merged?.appendix?.["react@18.0.0"].dependents, {
     frontend: "react@^18.0.0",
   });
 });

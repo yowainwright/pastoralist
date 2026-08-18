@@ -36,7 +36,7 @@ export class SnykCLIProvider {
     );
   }
 
-  async ensureInstalled(): Promise<boolean> {
+  ensureInstalled(): Promise<boolean> {
     return this.installer.ensureInstalled({
       packageName: "snyk",
       cliCommand: "snyk",
@@ -56,7 +56,7 @@ export class SnykCLIProvider {
     return true;
   }
 
-  async authenticate(): Promise<void> {
+  authenticate(): void {
     const hasToken = Boolean(this.token);
     if (!hasToken) {
       throw new Error(AUTH_MESSAGES.SNYK_AUTH_REQUIRED);
@@ -76,7 +76,7 @@ export class SnykCLIProvider {
 
     if (!isAuthed) {
       try {
-        await this.authenticate();
+        this.authenticate();
         return true;
       } catch {
         this.log.print("Snyk authentication failed, skipping Snyk scan");
@@ -87,11 +87,11 @@ export class SnykCLIProvider {
     return true;
   }
 
-  private async runSnykScan(): Promise<SnykResult> {
+  private async runSnykScan(root?: string): Promise<SnykResult> {
     const env = this.token
       ? Object.assign({}, process.env, { SNYK_TOKEN: this.token })
       : process.env;
-    const execOptions = { timeout: DEFAULT_SNYK_SCAN_TIMEOUT, env };
+    const execOptions = { timeout: DEFAULT_SNYK_SCAN_TIMEOUT, env, cwd: root };
     const { stdout } = await this.execFileAsync("snyk", ["test", "--json"], execOptions);
 
     return JSON.parse(stdout);
@@ -99,21 +99,21 @@ export class SnykCLIProvider {
 
   async fetchAlerts(
     _packages: Array<{ name: string; version: string }> = [],
-    _options: { root?: string } = {},
+    options: { root?: string } = {},
   ): Promise<SecurityAlert[]> {
     if (!(await this.validatePrerequisites())) {
       return [];
     }
 
     try {
-      return await this.fetchSnykAlerts();
+      return await this.fetchSnykAlerts(options.root);
     } catch (error: unknown) {
       return this.handleSnykScanError(error);
     }
   }
 
-  private async fetchSnykAlerts(): Promise<SecurityAlert[]> {
-    const result = await this.runSnykScan();
+  private async fetchSnykAlerts(root?: string): Promise<SecurityAlert[]> {
+    const result = await this.runSnykScan(root);
     return this.convertSnykVulnerabilities(result);
   }
 

@@ -79,7 +79,6 @@ jobs:
         run: pnpm run test:coverage
         env:
           CI: true
-          FORCE_COLOR: "1"
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
       - run: pnpm run test:bench

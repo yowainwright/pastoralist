@@ -128,16 +128,20 @@ export class OSVProvider {
     return response;
   }
 
-  private enrichBatchResults(
+  private async enrichBatchResults(
     batchResults: OSVBatchApiResult[],
     options: SecurityProviderScanOptions,
   ): Promise<OSVBatchResult[]> {
-    return Promise.all(
+    const results = await Promise.allSettled(
       batchResults.map(async (result) => {
         const vulns = await this.fetchBatchVulnerabilities(result, options);
         return { vulns };
       }),
     );
+    return results.map((result) => {
+      if (result.status === "rejected") throw result.reason;
+      return result.value;
+    });
   }
 
   private fetchBatchVulnerabilities(

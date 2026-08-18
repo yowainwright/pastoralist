@@ -4268,7 +4268,7 @@ const createChecker = (results: Array<SecurityAlert[] | Error>) => {
   const queue = results.slice();
   let resultIndex = 0;
   return {
-    checkSecurity: mock(async () => {
+    checkSecurity: mock(() => {
       const next = queue[resultIndex] || [];
       resultIndex += 1;
       if (next instanceof Error) throw next;
@@ -4561,7 +4561,10 @@ const candidateConfig: PastoralistJSON = {
   name: "candidate-project",
   version: "1.0.0",
   dependencies: { parent: "1.0.0" },
+  scripts: { postinstall: "node project-hook.js" },
 };
+
+const resolveCandidateCommand = () => ({ stdout: "", stderr: "" });
 
 const createCandidateProject = (lockfile: string): string => {
   const root = mkdtempSync(join(tmpdir(), "pastoralist-candidate-test-"));
@@ -4580,17 +4583,24 @@ const candidateCommandCases = [
 candidateCommandCases.forEach(({ lockfile, command, expectedFlag }) => {
   test(`candidate dependency state - resolves ${command} lockfile`, async () => {
     const root = createCandidateProject(lockfile);
+    if (command === "yarn") {
+      writeFileSync(join(root, ".yarnrc.yml"), "nodeLinker: node-modules\n");
+    }
     let stagedRoot = "";
-    const execFile = mock(async () => ({ stdout: "", stderr: "" }));
+    const execFile = mock(resolveCandidateCommand);
 
     try {
       const inspectedName = await withCandidateDependencyState(
         candidateConfig,
         { path: join(root, "package.json") },
-        async (candidateRoot) => {
+        (candidateRoot) => {
           stagedRoot = candidateRoot;
           assert.strictEqual(existsSync(join(candidateRoot, lockfile)), true);
           const manifest = JSON.parse(readFileSync(join(candidateRoot, "package.json"), "utf8"));
+          assert.strictEqual(manifest.scripts, undefined);
+          if (command === "yarn") {
+            assert.strictEqual(existsSync(join(candidateRoot, ".yarnrc.yml")), true);
+          }
           return manifest.name;
         },
         { execFile: execFile as any },
@@ -4602,6 +4612,11 @@ candidateCommandCases.forEach(({ lockfile, command, expectedFlag }) => {
       assert.strictEqual(call[0], command);
       assert.strictEqual(call[1].includes(expectedFlag), true);
       assert.strictEqual(call[2].cwd, stagedRoot);
+      if (command === "yarn") {
+        assert.strictEqual(call[2].env.YARN_ENABLE_SCRIPTS, "false");
+        assert.strictEqual(call[2].env.YARN_IGNORE_PATH, "true");
+        assert.strictEqual(call[2].env.YARN_PLUGINS, "");
+      }
       assert.strictEqual(existsSync(stagedRoot), false);
     } finally {
       rmSync(root, { recursive: true, force: true });
@@ -4611,14 +4626,14 @@ candidateCommandCases.forEach(({ lockfile, command, expectedFlag }) => {
 
 test("candidate dependency state - fails closed without a lockfile", async () => {
   const root = mkdtempSync(join(tmpdir(), "pastoralist-candidate-no-lock-"));
-  const execFile = mock(async () => ({ stdout: "", stderr: "" }));
+  const execFile = mock(resolveCandidateCommand);
 
   try {
     await assert.rejects(
       withCandidateDependencyState(
         candidateConfig,
         { path: join(root, "package.json") },
-        async () => undefined,
+        () => undefined,
         { execFile: execFile as any },
       ),
       /No npm lockfile is available/,
@@ -4635,16 +4650,17 @@ test("candidate dependency state - updates staged pnpm overrides", async () => {
   const config = Object.assign({}, candidateConfig, {
     pnpm: { overrides: { kept: "2.0.0" } },
   });
-  const execFile = mock(async () => ({ stdout: "", stderr: "" }));
+  const execFile = mock(resolveCandidateCommand);
 
   try {
     await withCandidateDependencyState(
       config,
       { path: join(root, "package.json") },
-      async (candidateRoot) => {
+      (candidateRoot) => {
         const workspace = readFileSync(join(candidateRoot, "pnpm-workspace.yaml"), "utf8");
         assert.match(workspace, /"kept": "2.0.0"/);
         assert.doesNotMatch(workspace, /removed:/);
+        return undefined;
       },
       { execFile: execFile as any },
     );
@@ -4653,46 +4669,111 @@ test("candidate dependency state - updates staged pnpm overrides", async () => {
   }
 });
 
-test("candidate dependency state - stages pnpm resolver inputs", async () => {
+test("candidate dependency state - stages declarative pnpm resolver inputs", async () => {
   const root = createCandidateProject("pnpm-lock.yaml");
   const patchPath = join("patches", "dependency.patch");
   mkdirSync(join(root, "patches"), { recursive: true });
   writeFileSync(join(root, ".npmrc"), "strict-peer-dependencies=true\n");
-  writeFileSync(join(root, ".pnpmfile.cjs"), "module.exports = { hooks: {} };\n");
   writeFileSync(join(root, patchPath), "patch contents");
-  const execFile = mock(async () => ({ stdout: "", stderr: "" }));
+  const execFile = mock(resolveCandidateCommand);
 
   try {
     await withCandidateDependencyState(
       candidateConfig,
       { path: join(root, "package.json") },
-      async (candidateRoot) => {
+      (candidateRoot) => {
         assert.strictEqual(existsSync(join(candidateRoot, ".npmrc")), true);
-        assert.strictEqual(existsSync(join(candidateRoot, ".pnpmfile.cjs")), true);
         assert.strictEqual(readFileSync(join(candidateRoot, patchPath), "utf8"), "patch contents");
+        return undefined;
       },
       { execFile: execFile as any },
     );
+    const call = execFile.mock.calls[0].arguments;
+    assert.strictEqual(call[1].includes("--ignore-pnpmfile"), true);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+const executableResolverCases = [
+  {
+    name: "pnpm hooks",
+    lockfile: "pnpm-lock.yaml",
+    path: ".pnpmfile.cjs",
+    content: "module.exports = { hooks: {} };\n",
+  },
+  {
+    name: "configured pnpm hooks",
+    lockfile: "pnpm-lock.yaml",
+    path: ".npmrc",
+    content: "pnpmfile=.config/hooks.cjs\n",
+  },
+  {
+    name: "Yarn plugins",
+    lockfile: "yarn.lock",
+    path: ".yarnrc.yml",
+    content: "plugins: [./plugin.cjs]\n",
+  },
+  {
+    name: "project-local Yarn binaries",
+    lockfile: "yarn.lock",
+    path: ".yarnrc.yml",
+    content: "yarnPath: .yarn/releases/yarn.cjs\n",
+  },
+  {
+    name: "Bun security scanners",
+    lockfile: "bun.lock",
+    path: "bunfig.toml",
+    content: '[install.security]\nscanner = "project-scanner"\n',
+  },
+];
+
+executableResolverCases.forEach(({ name, lockfile, path, content }) => {
+  test(`candidate dependency state - rejects ${name}`, async () => {
+    const root = createCandidateProject(lockfile);
+    writeFileSync(join(root, path), content);
+    const execFile = mock(resolveCandidateCommand);
+
+    try {
+      await assert.rejects(
+        withCandidateDependencyState(
+          candidateConfig,
+          { path: join(root, "package.json") },
+          () => undefined,
+          { execFile: execFile as any },
+        ),
+        errorIncludes(`Executable resolver config prevents safe verification: ${path}`),
+      );
+      assert.strictEqual(execFile.mock.callCount(), 0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
 
 test("candidate dependency state - stages workspace manifests", async () => {
   const root = createCandidateProject("package-lock.json");
   const workspaceDir = join(root, "packages", "app");
   mkdirSync(workspaceDir, { recursive: true });
-  writeFileSync(join(workspaceDir, "package.json"), '{"name":"workspace-app","version":"1.0.0"}');
+  const workspaceManifest = {
+    name: "workspace-app",
+    version: "1.0.0",
+    scripts: { postinstall: "node project-hook.js" },
+  };
+  writeFileSync(join(workspaceDir, "package.json"), JSON.stringify(workspaceManifest));
   const config = Object.assign({}, candidateConfig, { workspaces: ["packages/*"] });
-  const execFile = mock(async () => ({ stdout: "", stderr: "" }));
+  const execFile = mock(resolveCandidateCommand);
 
   try {
     await withCandidateDependencyState(
       config,
       { path: join(root, "package.json") },
-      async (candidateRoot) => {
+      (candidateRoot) => {
         const manifestPath = join(candidateRoot, "packages", "app", "package.json");
         assert.strictEqual(existsSync(manifestPath), true);
+        const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+        assert.strictEqual(manifest.scripts, undefined);
+        return undefined;
       },
       { execFile: execFile as any },
     );

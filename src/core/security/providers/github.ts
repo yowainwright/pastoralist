@@ -1,4 +1,5 @@
 import { execFile } from "child_process";
+import { readFileSync } from "fs";
 import { promisify } from "util";
 import {
   type DependabotAlert,
@@ -145,7 +146,7 @@ export class GitHubSecurityProvider {
     throw new Error(AUTH_MESSAGES.GITHUB_CLI_NOT_FOUND);
   }
 
-  private async fetchMockAlerts(): Promise<DependabotAlert[]> {
+  private fetchMockAlerts(): DependabotAlert[] {
     this.log.debug("Using mock Dependabot alerts", "fetchMockAlerts");
 
     if (this.shouldForceVulnerable()) {
@@ -159,20 +160,19 @@ export class GitHubSecurityProvider {
     return process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE] === "true";
   }
 
-  private async getMockVulnerableAlerts(): Promise<DependabotAlert[]> {
+  private getMockVulnerableAlerts(): DependabotAlert[] {
     const mockFile = process.env[SECURITY_ENV_VARS.MOCK_FILE];
 
     if (mockFile) {
-      const alerts = await this.loadMockFile(mockFile);
+      const alerts = this.loadMockFile(mockFile);
       if (alerts) return alerts;
     }
 
     return this.getDefaultMockAlerts();
   }
 
-  private async loadMockFile(filePath: string): Promise<DependabotAlert[] | null> {
+  private loadMockFile(filePath: string): DependabotAlert[] | null {
     try {
-      const { readFileSync } = await import("fs");
       const mockData = readFileSync(filePath, "utf-8");
       return JSON.parse(mockData);
     } catch (error) {

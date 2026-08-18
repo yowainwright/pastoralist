@@ -24,7 +24,7 @@ type SnykProviderInternal = SnykCLIProvider & {
   token: string | undefined;
   installer: { ensureInstalled: (...args: unknown[]) => Promise<boolean> };
   isAuthenticated: () => Promise<boolean>;
-  authenticate: () => Promise<void>;
+  authenticate: () => void;
   ensureInstalled: () => Promise<boolean>;
 };
 
@@ -279,10 +279,10 @@ test("ensureInstalled - should return false when not installed", async () => {
   assert.strictEqual(await p.ensureInstalled(), false);
 });
 
-test("authenticate - should throw without token", async () => {
+test("authenticate - should throw without token", () => {
   const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
   p.token = undefined;
-  await assert.rejects(p.authenticate(), errorIncludes("Snyk requires authentication"));
+  assert.throws(() => p.authenticate(), errorIncludes("Snyk requires authentication"));
 });
 
 test("validatePrerequisites - should return false when not installed", async () => {
@@ -304,7 +304,7 @@ test("validatePrerequisites - should try to authenticate when not authed", async
   const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
   p.ensureInstalled = async () => true;
   p.isAuthenticated = async () => false;
-  p.authenticate = async () => {};
+  p.authenticate = () => {};
   assert.strictEqual(await p.validatePrerequisites(), true);
 });
 
@@ -312,7 +312,7 @@ test("validatePrerequisites - should return false when auth fails", async () => 
   const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
   p.ensureInstalled = async () => true;
   p.isAuthenticated = async () => false;
-  p.authenticate = async () => {
+  p.authenticate = () => {
     throw new Error("Auth failed");
   };
   assert.strictEqual(await p.validatePrerequisites(), false);
@@ -554,18 +554,23 @@ test("fetchAlerts - strict mode error message format is actionable", async () =>
   assert.ok(thrownError.message.includes("Authentication failed"));
 });
 
-test("authenticate - error message includes token URL", async () => {
+test("authenticate - error message includes token URL", () => {
   const p = new SnykCLIProvider({ debug: false }) as unknown as SnykProviderInternal;
   p.token = undefined;
 
-  const thrownError = await expectRejectedError(p.authenticate());
-  assert.ok(thrownError.message.includes("Snyk requires authentication"));
-  assert.ok(thrownError.message.includes("SNYK_TOKEN"));
+  assert.throws(
+    () => p.authenticate(),
+    (error: Error) => {
+      assert.match(error.message, /Snyk requires authentication/);
+      assert.match(error.message, /SNYK_TOKEN/);
+      return true;
+    },
+  );
 });
 
-test("authenticate - should succeed when token is provided", async () => {
+test("authenticate - should succeed when token is provided", () => {
   const provider = new SnykCLIProvider({ debug: false, token: "valid-token" });
-  await provider.authenticate().then((value) => assert.strictEqual(value, undefined));
+  assert.strictEqual(provider.authenticate(), undefined);
 });
 
 test("runSnykScan - builds env with token", async () => {

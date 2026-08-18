@@ -170,6 +170,14 @@ const restoreMocks = (): void => {
 
 export const mock = Object.assign(createMock, { restore: restoreMocks });
 
+export const fulfilledValues = async <T>(promises: Promise<T>[]): Promise<T[]> => {
+  const results = await Promise.allSettled(promises);
+  return results.map((result) => {
+    if (result.status === "rejected") throw result.reason;
+    return result.value;
+  });
+};
+
 export const spyOn = <ObjectType extends object, Key extends keyof ObjectType>(
   object: ObjectType,
   key: Key,

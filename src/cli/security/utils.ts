@@ -8,7 +8,7 @@ import type {
 import type { SecurityChecker } from "../../core/security";
 import type { SecurityCheckRuntimeOptions } from "../../core/security/types";
 import { execFile as execFileCallback } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { copyFile, cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
@@ -37,9 +37,36 @@ const CANDIDATE_TIMEOUT_MS = 120_000;
 const CANDIDATE_MAX_BUFFER = 10 * 1024 * 1024;
 const RESOLVER_PATHS: Record<PackageManager, string[]> = {
   npm: [".npmrc"],
-  pnpm: [".npmrc", ".pnpmfile.cjs", ".pnpmfile.js", "patches"],
-  yarn: [".yarnrc", ".yarnrc.yml", ".yarn/plugins", ".yarn/releases", ".yarn/patches"],
+  pnpm: [".npmrc", "patches"],
+  yarn: [".yarnrc", ".yarnrc.yml", ".yarn/patches"],
   bun: ["bunfig.toml", "patches"],
+};
+const EXECUTABLE_RESOLVER_PATHS: Partial<Record<PackageManager, string[]>> = {
+  pnpm: [".pnpmfile.cjs", ".pnpmfile.js", ".pnpmfile.mjs"],
+};
+
+type ResolverConfigGuard = {
+  path: string;
+  pattern: RegExp;
+};
+
+const EXECUTABLE_RESOLVER_CONFIGS: Partial<Record<PackageManager, ResolverConfigGuard[]>> = {
+  pnpm: [
+    { path: ".npmrc", pattern: /^\s*(?:global-)?pnpmfile(?:\[\])?\s*=/im },
+    {
+      path: "pnpm-workspace.yaml",
+      pattern:
+        /(?:^|[\n{,])\s*["']?(?:pnpmfile|globalPnpmfile|global-pnpmfile|configDependencies)["']?\s*:/i,
+    },
+  ],
+  yarn: [
+    { path: ".yarnrc", pattern: /^\s*(?:--)?yarn-path(?:\s|=)/im },
+    {
+      path: ".yarnrc.yml",
+      pattern: /(?:^|[\n{,])\s*["']?(?:yarnPath|plugins)["']?\s*:/i,
+    },
+  ],
+  bun: [{ path: "bunfig.toml", pattern: /\bscanner\s*=/i }],
 };
 
 type CandidateCommand = {
@@ -76,7 +103,8 @@ const getSourceLockfile = (projectRoot: string, packageManager: PackageManager):
 
 const getCandidateCommand = (packageManager: PackageManager): CandidateCommand => {
   if (packageManager === "pnpm") {
-    return { command: "pnpm", args: ["install", "--lockfile-only", "--ignore-scripts"] };
+    const args = ["install", "--lockfile-only", "--ignore-scripts", "--ignore-pnpmfile"];
+    return { command: "pnpm", args };
   }
   if (packageManager === "yarn") {
     return { command: "yarn", args: ["install", "--ignore-scripts", "--non-interactive"] };
@@ -96,6 +124,23 @@ const updatePnpmWorkspaceContent = (
 ): string => {
   if (!overrides) return content;
   return updatePnpmWorkspaceOverrides(content, overrides);
+};
+
+const removeManifestScripts = <T extends object>(config: T): T => {
+  const candidate = Object.assign({}, config);
+  Reflect.deleteProperty(candidate, "scripts");
+  return candidate;
+};
+
+const assertRequestsSucceeded = (results: PromiseSettledResult<void>[]): void => {
+  const failedRequest = results.find((result) => result.status === "rejected");
+  if (failedRequest?.status === "rejected") throw failedRequest.reason;
+};
+
+const runRequests = async <T>(items: T[], request: (item: T) => Promise<void>): Promise<void> => {
+  const requests = items.map(request);
+  const results = await Promise.allSettled(requests);
+  assertRequestsSucceeded(results);
 };
 
 const stagePnpmWorkspace = async (
@@ -123,21 +168,21 @@ const copyWorkspaceManifest = async (
     throw new Error(`Workspace manifest is outside the project root: ${manifestPath}`);
   }
   const targetPath = join(candidateRoot, relativePath);
+  const content = await readFile(manifestPath, "utf8");
+  const manifest = removeManifestScripts(JSON.parse(content));
   await mkdir(dirname(targetPath), { recursive: true });
-  await copyFile(manifestPath, targetPath);
+  await writeFile(targetPath, JSON.stringify(manifest, null, 2));
 };
 
-const stageWorkspaceManifests = async (
+const stageWorkspaceManifests = (
   config: PastoralistJSON,
   projectRoot: string,
   candidateRoot: string,
 ): Promise<void> => {
   const patterns = resolveWorkspaceManifestPaths(config, projectRoot);
   const manifests = globSync(patterns, { cwd: projectRoot, absolute: true });
-  await Promise.all(
-    manifests.map((manifestPath) =>
-      copyWorkspaceManifest(manifestPath, projectRoot, candidateRoot),
-    ),
+  return runRequests(manifests, (manifestPath) =>
+    copyWorkspaceManifest(manifestPath, projectRoot, candidateRoot),
   );
 };
 
@@ -153,14 +198,39 @@ const copyResolverPath = async (
   await cp(sourcePath, targetPath, { recursive: true });
 };
 
-const stageResolverConfig = async (
+const matchesResolverGuard = (projectRoot: string, guard: ResolverConfigGuard): boolean => {
+  const sourcePath = join(projectRoot, guard.path);
+  if (!existsSync(sourcePath)) return false;
+  const content = readFileSync(sourcePath, "utf8");
+  return guard.pattern.test(content);
+};
+
+const findExecutableResolverConfig = (
+  projectRoot: string,
+  packageManager: PackageManager,
+): string | undefined => {
+  const executablePaths = EXECUTABLE_RESOLVER_PATHS[packageManager] || [];
+  const executablePath = executablePaths.find((path) => existsSync(join(projectRoot, path)));
+  if (executablePath) return executablePath;
+  const guards = EXECUTABLE_RESOLVER_CONFIGS[packageManager] || [];
+  return guards.find((guard) => matchesResolverGuard(projectRoot, guard))?.path;
+};
+
+const assertResolverConfigIsSafe = (projectRoot: string, packageManager: PackageManager): void => {
+  const executableConfig = findExecutableResolverConfig(projectRoot, packageManager);
+  if (!executableConfig) return;
+  throw new Error(`Executable resolver config prevents safe verification: ${executableConfig}`);
+};
+
+const stageResolverConfig = (
   projectRoot: string,
   candidateRoot: string,
   packageManager: PackageManager,
 ): Promise<void> => {
+  assertResolverConfigIsSafe(projectRoot, packageManager);
   const resolverPaths = RESOLVER_PATHS[packageManager];
-  await Promise.all(
-    resolverPaths.map((resolverPath) => copyResolverPath(projectRoot, candidateRoot, resolverPath)),
+  return runRequests(resolverPaths, (resolverPath) =>
+    copyResolverPath(projectRoot, candidateRoot, resolverPath),
   );
 };
 
@@ -172,7 +242,8 @@ const stageCandidateProject = async (
   const projectRoot = getProjectRoot(options);
   const packageManager = detectPackageManager(projectRoot);
   const sourceLockfile = getSourceLockfile(projectRoot, packageManager);
-  await writeFile(join(candidateRoot, "package.json"), JSON.stringify(config, null, 2));
+  const candidateConfig = removeManifestScripts(config);
+  await writeFile(join(candidateRoot, "package.json"), JSON.stringify(candidateConfig, null, 2));
   await copyFile(sourceLockfile, join(candidateRoot, basename(sourceLockfile)));
   await stageResolverConfig(projectRoot, candidateRoot, packageManager);
   if (packageManager === "pnpm") await stagePnpmWorkspace(projectRoot, candidateRoot, config);
@@ -186,10 +257,18 @@ const resolveCandidateLockfile = async (
   deps: CandidateResolverDeps,
 ): Promise<void> => {
   const command = getCandidateCommand(packageManager);
+  const yarnEnvironment = Object.assign({}, process.env, {
+    YARN_ENABLE_SCRIPTS: "false",
+    YARN_IGNORE_PATH: "true",
+    YARN_PLUGINS: "",
+    YARN_RC_FILENAME: ".yarnrc.yml",
+  });
+  const env = packageManager === "yarn" ? yarnEnvironment : process.env;
   const execOptions = {
     cwd: candidateRoot,
     timeout: CANDIDATE_TIMEOUT_MS,
     maxBuffer: CANDIDATE_MAX_BUFFER,
+    env,
   };
   await deps.execFile(command.command, command.args, execOptions);
 };
@@ -197,7 +276,7 @@ const resolveCandidateLockfile = async (
 export const withCandidateDependencyState = async <T>(
   config: PastoralistJSON,
   options: Options,
-  inspect: (candidateRoot: string) => Promise<T>,
+  inspect: (candidateRoot: string) => T | Promise<T>,
   deps: CandidateResolverDeps = defaultCandidateDeps,
 ): Promise<T> => {
   const tempBase = join(tmpdir(), "pastoralist");
@@ -328,7 +407,7 @@ const getCandidateScanOptions = (
     skipCacheWrite: true,
   });
 
-const getAfterAlerts = async (
+const getAfterAlerts = (
   config: PastoralistJSON,
   securityChecker: SecurityChecker,
   options: Options,
@@ -500,7 +579,7 @@ const verifyRemoval = async (
   }
 };
 
-const verifyRemovalSet = async (
+const verifyRemovalSet = (
   context: RemovalContext,
   removableKeys: string[],
 ): Promise<RemovalState> => {

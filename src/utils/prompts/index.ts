@@ -35,7 +35,7 @@ export class Prompt {
     }
   }
 
-  async input(message: string, defaultValue?: string): Promise<string> {
+  input(message: string, defaultValue?: string): Promise<string> {
     this.ensureCookedMode();
 
     return enhancedQuestion(
@@ -45,7 +45,7 @@ export class Prompt {
     );
   }
 
-  async confirm(message: string, defaultValue: boolean = true): Promise<boolean> {
+  confirm(message: string, defaultValue: boolean = true): Promise<boolean> {
     this.ensureCookedMode();
 
     return enhancedQuestion(
@@ -62,7 +62,7 @@ export class Prompt {
     );
   }
 
-  async list(message: string, choices: PromptChoice[]): Promise<string> {
+  list(message: string, choices: PromptChoice[]): Promise<string> {
     console.log(formatChoiceList(message, choices));
     this.ensureCookedMode();
     return this.askForListChoice(choices);
@@ -88,7 +88,7 @@ export class Prompt {
     return choices[choiceNumber - 1]?.value;
   }
 
-  async prompt(options: PromptOptions): Promise<string | boolean> {
+  prompt(options: PromptOptions): Promise<string | boolean> {
     const { type = "input", message } = options;
 
     switch (type) {
@@ -104,7 +104,7 @@ export class Prompt {
     }
   }
 
-  async promptMany(questions: PromptOptions[]): Promise<Record<string, string | boolean>> {
+  promptMany(questions: PromptOptions[]): Promise<Record<string, string | boolean>> {
     return questions.reduce(
       async (accPromise, question, index) => {
         const answers = await accPromise;
@@ -140,23 +140,14 @@ export async function createPrompt<T = unknown>(
   }
 }
 
-export async function quickConfirm(
-  message: string,
-  defaultValue: boolean = true,
-): Promise<boolean> {
-  return createPrompt(async (prompt) => {
-    return prompt.confirm(message, defaultValue);
-  });
+export function quickConfirm(message: string, defaultValue: boolean = true): Promise<boolean> {
+  return createPrompt((prompt) => prompt.confirm(message, defaultValue));
 }
 
-export async function quickInput(message: string, defaultValue?: string): Promise<string> {
-  return createPrompt(async (prompt) => {
-    return prompt.input(message, defaultValue ?? "");
-  });
+export function quickInput(message: string, defaultValue?: string): Promise<string> {
+  return createPrompt((prompt) => prompt.input(message, defaultValue ?? ""));
 }
 
-export async function quickList(message: string, choices: PromptChoice[]): Promise<string> {
-  return createPrompt(async (prompt) => {
-    return prompt.list(message, choices);
-  });
+export function quickList(message: string, choices: PromptChoice[]): Promise<string> {
+  return createPrompt((prompt) => prompt.list(message, choices));
 }

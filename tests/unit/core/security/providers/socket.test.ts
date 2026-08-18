@@ -287,16 +287,16 @@ test("ensureInstalled - should return false when not installed", async () => {
   assert.strictEqual(result, false);
 });
 
-test("isAuthenticated - should return true when token exists", async () => {
+test("isAuthenticated - should return true when token exists", () => {
   const provider = new SocketCLIProvider({ token: "test-token", debug: false });
-  const result = await provider.isAuthenticated();
+  const result = provider.isAuthenticated();
   assert.strictEqual(result, true);
 });
 
-test("isAuthenticated - should return false when no token", async () => {
+test("isAuthenticated - should return false when no token", () => {
   const provider = new SocketCLIProvider({ debug: false });
   (provider as any).token = undefined;
-  const result = await provider.isAuthenticated();
+  const result = provider.isAuthenticated();
   assert.strictEqual(result, false);
 });
 
@@ -311,7 +311,7 @@ test("validatePrerequisites - should return false when not installed", async () 
 test("validatePrerequisites - should return false when not authenticated", async () => {
   const provider = new SocketCLIProvider({ debug: false });
   (provider as any).ensureInstalled = async () => true;
-  (provider as any).isAuthenticated = async () => false;
+  (provider as any).isAuthenticated = () => false;
 
   const result = await (provider as any).validatePrerequisites();
   assert.strictEqual(result, false);

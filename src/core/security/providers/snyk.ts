@@ -36,7 +36,7 @@ export class SnykCLIProvider {
     );
   }
 
-  async ensureInstalled(): Promise<boolean> {
+  ensureInstalled(): Promise<boolean> {
     return this.installer.ensureInstalled({
       packageName: "snyk",
       cliCommand: "snyk",
@@ -56,7 +56,7 @@ export class SnykCLIProvider {
     return true;
   }
 
-  async authenticate(): Promise<void> {
+  authenticate(): void {
     const hasToken = Boolean(this.token);
     if (!hasToken) {
       throw new Error(AUTH_MESSAGES.SNYK_AUTH_REQUIRED);
@@ -76,7 +76,7 @@ export class SnykCLIProvider {
 
     if (!isAuthed) {
       try {
-        await this.authenticate();
+        this.authenticate();
         return true;
       } catch {
         this.log.print("Snyk authentication failed, skipping Snyk scan");

@@ -1,4 +1,4 @@
-import { errorIncludes } from "../setup";
+import { errorIncludes, fulfilledValues } from "../setup";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ConcurrencyLimiter, createLimit } from "../../../src/utils/limit";
@@ -20,7 +20,7 @@ test("ConcurrencyLimiter - should limit concurrent executions", async () => {
     return id;
   };
 
-  const results = await Promise.all([
+  const results = await fulfilledValues([
     limiter.run(createTask(1, 50)),
     limiter.run(createTask(2, 50)),
     limiter.run(createTask(3, 50)),
@@ -42,7 +42,7 @@ test("ConcurrencyLimiter - should track active count correctly", async () => {
     return true;
   };
 
-  await Promise.all([
+  await fulfilledValues([
     limiter.run(createTask(10)),
     limiter.run(createTask(10)),
     limiter.run(createTask(10)),
@@ -68,7 +68,7 @@ test("ConcurrencyLimiter - should track queue size correctly", async () => {
   assert.strictEqual(limiter.queueSize, 2);
   assert.strictEqual(limiter.activeCount, 1);
 
-  await Promise.all([promise1, promise2, promise3]);
+  await fulfilledValues([promise1, promise2, promise3]);
 
   assert.strictEqual(limiter.queueSize, 0);
   assert.strictEqual(limiter.activeCount, 0);
@@ -136,7 +136,7 @@ test("createLimit - should create a working limiter function", async () => {
     return id;
   };
 
-  const results = await Promise.all([
+  const results = await fulfilledValues([
     limit(createTask(1)),
     limit(createTask(2)),
     limit(createTask(3)),
@@ -153,7 +153,7 @@ test("createLimit - should handle concurrent batches", async () => {
     return i;
   });
 
-  const results = await Promise.all(tasks.map((task) => limit(task)));
+  const results = await fulfilledValues(tasks.map((task) => limit(task)));
 
   assert.deepStrictEqual(results, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 });
@@ -168,7 +168,7 @@ test("ConcurrencyLimiter - should process tasks sequentially with concurrency 1"
     return id;
   };
 
-  await Promise.all([
+  await fulfilledValues([
     limiter.run(createTask(1)),
     limiter.run(createTask(2)),
     limiter.run(createTask(3)),
@@ -183,7 +183,7 @@ test("ConcurrencyLimiter - should handle empty task queue", async () => {
   assert.strictEqual(limiter.queueSize, 0);
   assert.strictEqual(limiter.activeCount, 0);
 
-  const result = await limiter.run(async () => "test");
+  const result = await limiter.run(() => "test");
 
   assert.strictEqual(result, "test");
   assert.strictEqual(limiter.queueSize, 0);

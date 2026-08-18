@@ -406,13 +406,13 @@ const isUnusedSimpleOverride = (
   return shouldRemoveSimpleOverride(packageName, dependencyTree, hasAnyDeps);
 };
 
-const checkIfUnused = async (
+const checkIfUnused = (
   packageName: string,
   overrides: OverridesType,
   allDependencies: Record<string, string>,
   dependencyTree: Record<string, string>,
   hasAnyDeps: boolean,
-): Promise<boolean> => {
+): boolean => {
   const isUnusedNested = isUnusedNestedOverride(packageName, overrides, allDependencies);
   if (isUnusedNested) return true;
 
@@ -434,10 +434,8 @@ export const findUnusedOverrides = async (
   const hasAnyDeps = Object.keys(allDependencies).length > 0;
   const dependencyTree = hasAnyDeps ? await getDependencyTree(undefined, undefined, root) : {};
 
-  const results = await Promise.all(
-    packageNames.map((name) =>
-      checkIfUnused(name, overrides, allDependencies, dependencyTree, hasAnyDeps),
-    ),
+  const results = packageNames.map((name) =>
+    checkIfUnused(name, overrides, allDependencies, dependencyTree, hasAnyDeps),
   );
 
   return packageNames.filter((_, index) => results[index]);
@@ -575,7 +573,7 @@ const cleanupUnusedOverridesFromContext = async (
   return keepCurrentOverrides(context.overrides, context.appendix);
 };
 
-export const cleanupUnusedOverrides = async (
+export const cleanupUnusedOverrides = (
   overrides: OverridesType,
   overridesData: ResolveOverrides,
   appendix: Appendix,

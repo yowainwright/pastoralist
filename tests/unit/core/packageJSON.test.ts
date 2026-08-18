@@ -1,4 +1,4 @@
-import { errorIncludes, mock } from "../setup";
+import { errorIncludes, fulfilledValues, mock } from "../setup";
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { resolve } from "path";
@@ -1140,7 +1140,7 @@ test("getDependencyTree - coalesces concurrent requests", async () => {
     return mockOutput;
   };
 
-  const [first, second, third] = await Promise.all([
+  const [first, second, third] = await fulfilledValues([
     getDependencyTree(mockExecuteNpmLs, undefined, testDir),
     getDependencyTree(mockExecuteNpmLs, undefined, testDir),
     getDependencyTree(mockExecuteNpmLs, undefined, testDir),

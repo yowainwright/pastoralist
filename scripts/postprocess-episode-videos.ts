@@ -512,16 +512,24 @@ function parseArgs(values: string[]): Record<string, string | undefined> {
   return parsed;
 }
 
+function settledValue<T>(result: PromiseSettledResult<T>): T {
+  if (result.status === "rejected") throw result.reason;
+  return result.value;
+}
+
 async function run(command: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
   const proc = Bun.spawn([command, ...args], {
     stdout: "pipe",
     stderr: "pipe",
   });
-  const [stdout, stderr, code] = await Promise.all([
+  const [stdoutResult, stderrResult, codeResult] = await Promise.allSettled([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),
     proc.exited,
   ]);
+  const stdout = settledValue(stdoutResult);
+  const stderr = settledValue(stderrResult);
+  const code = settledValue(codeResult);
 
   if (code !== 0) {
     throw new Error(`${command} ${args.join(" ")} failed with ${code}\n${stderr}`);

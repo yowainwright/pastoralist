@@ -7,6 +7,14 @@
     }
   ],
   "rules": {
+    "no-restricted-properties": [
+      "error",
+      {
+        "object": "Promise",
+        "property": "all",
+        "message": "Promise.all is not allowed. Use composable async work or Promise.allSettled."
+      }
+    ],
     "legibility/hoist-if-operators": [
       "warn",
       {
@@ -43,6 +51,19 @@
     ]
   },
   "overrides": [
+    {
+      "files": [
+        "src/**/*.ts",
+        "scripts/**/*.ts",
+        "scripts/**/*.js",
+        "app/src/**/*.ts",
+        "app/src/**/*.tsx",
+        "app/scripts/**/*.ts"
+      ],
+      "rules": {
+        "require-await": "error"
+      }
+    },
     {
       "files": ["scripts/**/*.js", "scripts/**/*.ts"],
       "rules": {

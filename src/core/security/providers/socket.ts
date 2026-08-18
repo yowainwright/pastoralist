@@ -38,14 +38,14 @@ export class SocketCLIProvider {
     );
   }
 
-  async ensureInstalled(): Promise<boolean> {
+  ensureInstalled(): Promise<boolean> {
     return this.installer.ensureInstalled({
       packageName: "@socketsecurity/cli",
       cliCommand: "socket",
     });
   }
 
-  async isAuthenticated(): Promise<boolean> {
+  isAuthenticated(): boolean {
     return Boolean(this.token);
   }
 
@@ -57,7 +57,7 @@ export class SocketCLIProvider {
       return false;
     }
 
-    const isAuthed = await this.isAuthenticated();
+    const isAuthed = this.isAuthenticated();
 
     if (!isAuthed) {
       this.log.print(AUTH_MESSAGES.SOCKET_AUTH_REQUIRED);

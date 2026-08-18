@@ -1,4 +1,5 @@
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { describe, test, beforeEach, afterEach } from "node:test";
+import assert from "node:assert/strict";
 import {
   initializePipedInput,
   isPipedInput,
@@ -23,7 +24,7 @@ describe("Piped Input Functionality", () => {
       process.stdin.isTTY = true;
 
       const result = isPipedInput();
-      expect(result).toBe(false);
+      assert.strictEqual(result, false);
 
       process.stdin.isTTY = originalIsTTY;
     });
@@ -33,7 +34,7 @@ describe("Piped Input Functionality", () => {
       process.stdin.isTTY = false;
 
       const result = isPipedInput();
-      expect(result).toBe(true);
+      assert.strictEqual(result, true);
 
       process.stdin.isTTY = originalIsTTY;
     });
@@ -45,7 +46,7 @@ describe("Piped Input Functionality", () => {
       process.stdin.isTTY = true;
 
       const result = getNextPipedInput();
-      expect(result).toBe(null);
+      assert.strictEqual(result, null);
 
       process.stdin.isTTY = originalIsTTY;
     });
@@ -55,7 +56,7 @@ describe("Piped Input Functionality", () => {
       process.stdin.isTTY = false;
 
       const result = getNextPipedInput();
-      expect(result).toBe(null);
+      assert.strictEqual(result, null);
 
       process.stdin.isTTY = originalIsTTY;
     });
@@ -78,7 +79,7 @@ describe("Piped Input Functionality", () => {
       const processor = (answer: string) => answer.trim();
 
       const result = await enhancedQuestion(mockRl, promptText, processor);
-      expect(result).toBe("");
+      assert.strictEqual(result, "");
 
       process.stdin.isTTY = originalIsTTY;
     });
@@ -91,24 +92,26 @@ describe("Piped Input Functionality", () => {
       const mockRl = {
         question: (prompt: string, callback: (answer: string) => void) => {
           questionCalled = true;
-          expect(prompt).toBe("Test prompt: ");
+          assert.strictEqual(prompt, "Test prompt: ");
           setTimeout(() => callback("test answer"), 0);
         },
       };
 
       const result = await enhancedQuestion(mockRl, "Test prompt: ", (answer) => answer.trim());
 
-      expect(questionCalled).toBe(true);
-      expect(result).toBe("test answer");
+      assert.strictEqual(questionCalled, true);
+      assert.strictEqual(result, "test answer");
 
       process.stdin.isTTY = originalIsTTY;
     });
   });
 
   describe("initializePipedInput", () => {
-    test("returns early when already initialized", () => {
+    test("returns early when already initialized", (context) => {
       const originalIsTTY = process.stdin.isTTY;
       process.stdin.isTTY = false;
+      context.mock.method(process.stdin, "setEncoding", () => process.stdin);
+      context.mock.method(process.stdin, "on", () => process.stdin);
 
       initializePipedInput();
       initializePipedInput();
@@ -125,10 +128,12 @@ describe("Piped Input Functionality", () => {
       process.stdin.isTTY = originalIsTTY;
     });
 
-    test("sets up stdin listeners when not TTY", () => {
+    test("sets up stdin listeners when not TTY", (context) => {
       const originalIsTTY = process.stdin.isTTY;
       process.stdin.isTTY = false;
       resetPipedInputState();
+      context.mock.method(process.stdin, "setEncoding", () => process.stdin);
+      context.mock.method(process.stdin, "on", () => process.stdin);
 
       initializePipedInput();
 
@@ -152,7 +157,7 @@ describe("Piped Input Functionality", () => {
       resetPipedInputState();
 
       const result = getNextPipedInput();
-      expect(result).toBe(null);
+      assert.strictEqual(result, null);
     });
   });
 });

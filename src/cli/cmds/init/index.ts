@@ -271,13 +271,13 @@ function printMissingWorkspaceNotice(hasWorkspaces: boolean, log: Logger): void 
   log.print(formatInfo(INIT_MESSAGES.noWorkspacesDetected));
 }
 
-async function saveToPackageJson(
+function saveToPackageJson(
   config: PastoralistConfig,
   path: string,
   packageJson: PastoralistJSON | null | undefined,
   log: Logger,
   isTesting: boolean = false,
-): Promise<void> {
+): void {
   if (!packageJson) {
     log.print(INIT_MESSAGES.packageJsonNotFound);
     return;
@@ -447,7 +447,7 @@ async function saveInitConfig(
   log.print(`\n${INIT_MESSAGES.savingConfig}\n`);
 
   if (answers.configLocation === "package.json") {
-    await saveToPackageJson(config, context.path, packageJson, log, options.isTesting);
+    saveToPackageJson(config, context.path, packageJson, log, options.isTesting);
   }
 
   const isExternalConfig = answers.configLocation === "external";

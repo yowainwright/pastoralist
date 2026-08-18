@@ -9,6 +9,7 @@ import type {
   PastoralistJSON,
   PastoralistConfig,
   Appendix,
+  PersistedAppendix,
   Options,
   OverridesType,
   ResolveOverrides,
@@ -28,9 +29,9 @@ export const findPackageFiles = (
   return findPackageJsonFiles(patterns, ignore, root, log);
 };
 
-const resolveAppendix = (finalAppendix: Appendix, useCompact: boolean): Appendix => {
+const resolveAppendix = (finalAppendix: Appendix, useCompact: boolean): PersistedAppendix => {
   if (!useCompact) return finalAppendix;
-  return toCompactAppendix(finalAppendix) as Appendix;
+  return toCompactAppendix(finalAppendix);
 };
 
 const writeExternalAppendix = (ctx: WriteResultContext, appendix: Appendix): void => {

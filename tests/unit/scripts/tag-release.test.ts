@@ -1,4 +1,12 @@
-import { describe, expect, mock, test } from "bun:test";
+import {
+  assertCalledWith,
+  assertContainsEqual,
+  assertDoesNotContainEqual,
+  errorIncludes,
+} from "../setup";
+import { describe, test } from "node:test";
+import { mock } from "../setup";
+import assert from "node:assert/strict";
 import {
   assertMissingTag,
   assertReleaseReady,
@@ -35,21 +43,21 @@ const readyGitOverrides = {
 
 describe("scripts/tag-release", () => {
   test("parseArgs detects dry run", () => {
-    expect(parseArgs(["--dry-run"])).toEqual({ dryRun: true });
-    expect(parseArgs([])).toEqual({ dryRun: false });
+    assert.deepStrictEqual(parseArgs(["--dry-run"]), { dryRun: true });
+    assert.deepStrictEqual(parseArgs([]), { dryRun: false });
   });
 
   test("formatTagName formats semver release tags", () => {
-    expect(formatTagName("1.2.3")).toBe("v1.2.3");
-    expect(formatTagName("1.2.3-beta.6")).toBe("v1.2.3-beta.6");
+    assert.strictEqual(formatTagName("1.2.3"), "v1.2.3");
+    assert.strictEqual(formatTagName("1.2.3-beta.6"), "v1.2.3-beta.6");
   });
 
   test("formatTagName rejects invalid versions", () => {
-    expect(() => formatTagName("beta")).toThrow("Invalid package version");
+    assert.throws(() => formatTagName("beta"), errorIncludes("Invalid package version"));
   });
 
   test("buildTagPushArgs pushes only the release tag", () => {
-    expect(buildTagPushArgs("v1.2.3")).toEqual(["push", "origin", "refs/tags/v1.2.3"]);
+    assert.deepStrictEqual(buildTagPushArgs("v1.2.3"), ["push", "origin", "refs/tags/v1.2.3"]);
   });
 
   test("assertMissingTag rejects existing local tags", () => {
@@ -57,14 +65,15 @@ describe("scripts/tag-release", () => {
       "rev-parse -q --verify refs/tags/v1.2.3": ok("v1.2.3\n"),
     });
 
-    expect(() => assertMissingTag(git, "v1.2.3")).toThrow("Local tag already exists");
+    assert.throws(() => assertMissingTag(git, "v1.2.3"), errorIncludes("Local tag already exists"));
   });
 
   test("assertReleaseReady requires main", () => {
     const { git } = createGit({ "branch --show-current": ok("feature\n") });
 
-    expect(() => assertReleaseReady(git, "v1.2.3")).toThrow(
-      "Release tags must be created from main",
+    assert.throws(
+      () => assertReleaseReady(git, "v1.2.3"),
+      errorIncludes("Release tags must be created from main"),
     );
   });
 
@@ -77,8 +86,8 @@ describe("scripts/tag-release", () => {
       "ls-remote --exit-code --tags origin refs/tags/v1.2.3": missing(),
     });
 
-    expect(() => assertReleaseReady(git, "v1.2.3", { requireUpstream: false })).not.toThrow();
-    expect(calls()).not.toContainEqual(["rev-parse", "HEAD"]);
+    assert.doesNotThrow(() => assertReleaseReady(git, "v1.2.3", { requireUpstream: false }));
+    assertDoesNotContainEqual(calls(), ["rev-parse", "HEAD"]);
   });
 
   test("assertReleaseReady validates targets before skipping upstream", () => {
@@ -90,8 +99,9 @@ describe("scripts/tag-release", () => {
     });
 
     const options = { requireUpstream: false, targetCommit: TARGET_COMMIT };
-    expect(() => assertReleaseReady(git, "v1.2.3", options)).toThrow(
-      "Target commit is not on origin/main",
+    assert.throws(
+      () => assertReleaseReady(git, "v1.2.3", options),
+      errorIncludes("Target commit is not on origin/main"),
     );
   });
 
@@ -101,9 +111,12 @@ describe("scripts/tag-release", () => {
 
     const code = runReleaseTag({ dryRun: true, git, logger, version: "1.2.3-beta.6" });
 
-    expect(code).toBe(0);
-    expect(logger.log).toHaveBeenCalledWith("Dry run: would create and push v1.2.3-beta.6");
-    expect(calls().some((call) => call[0] === "tag" && call[1] === "--annotate")).toBe(false);
+    assert.strictEqual(code, 0);
+    assertCalledWith(logger.log, "Dry run: would create and push v1.2.3-beta.6");
+    assert.strictEqual(
+      calls().some((call) => call[0] === "tag" && call[1] === "--annotate"),
+      false,
+    );
   });
 
   test("runReleaseTag creates and pushes the version tag", () => {
@@ -121,8 +134,8 @@ describe("scripts/tag-release", () => {
       version: "1.2.3-beta.6",
     });
 
-    expect(code).toBe(0);
-    expect(calls()).toContainEqual([
+    assert.strictEqual(code, 0);
+    assertContainsEqual(calls(), [
       "tag",
       "--annotate",
       "v1.2.3-beta.6",
@@ -130,7 +143,7 @@ describe("scripts/tag-release", () => {
       "Release 1.2.3-beta.6",
       TARGET_COMMIT,
     ]);
-    expect(calls()).toContainEqual(["push", "origin", "refs/tags/v1.2.3-beta.6"]);
+    assertContainsEqual(calls(), ["push", "origin", "refs/tags/v1.2.3-beta.6"]);
   });
 
   test("runReleaseTag rejects a target outside main", () => {
@@ -140,9 +153,10 @@ describe("scripts/tag-release", () => {
     const overrides = Object.assign({}, readyGitOverrides, targetOverrides);
     const { git } = createGit(overrides);
 
-    expect(() =>
-      runReleaseTag({ git, targetCommit: TARGET_COMMIT, version: "1.2.3-beta.6" }),
-    ).toThrow("Target commit is not on origin/main");
+    assert.throws(
+      () => runReleaseTag({ git, targetCommit: TARGET_COMMIT, version: "1.2.3-beta.6" }),
+      errorIncludes("Target commit is not on origin/main"),
+    );
   });
 
   test("runReleaseTag deletes the local tag when push fails", () => {
@@ -152,7 +166,10 @@ describe("scripts/tag-release", () => {
       }),
     );
 
-    expect(() => runReleaseTag({ git, version: "1.2.3-beta.6" })).toThrow("push rejected");
-    expect(calls()).toContainEqual(["tag", "--delete", "v1.2.3-beta.6"]);
+    assert.throws(
+      () => runReleaseTag({ git, version: "1.2.3-beta.6" }),
+      errorIncludes("push rejected"),
+    );
+    assertContainsEqual(calls(), ["tag", "--delete", "v1.2.3-beta.6"]);
   });
 });

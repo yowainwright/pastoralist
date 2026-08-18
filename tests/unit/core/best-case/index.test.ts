@@ -1,4 +1,6 @@
-import { describe, expect, test } from "bun:test";
+import { errorIncludes } from "../../setup";
+import { describe, test } from "node:test";
+import assert from "node:assert/strict";
 import {
   createBestCaseReason,
   optimizeSecurityOverrides,
@@ -49,11 +51,11 @@ describe("optimizeBestCasePortfolio", () => {
 
     const result = await optimizeBestCasePortfolio({ choices, evaluate });
 
-    expect(result.selectedState).toEqual({ alpha: "2.0.0", beta: "1.0.0" });
-    expect(result.search.evaluatedStates).toBe(4);
-    expect(result.search.provenOptimal).toBe(true);
-    expect(result.search.mode).toBe("exact");
-    expect(result.impact).toEqual({
+    assert.deepStrictEqual(result.selectedState, { alpha: "2.0.0", beta: "1.0.0" });
+    assert.strictEqual(result.search.evaluatedStates, 4);
+    assert.strictEqual(result.search.provenOptimal, true);
+    assert.strictEqual(result.search.mode, "exact");
+    assert.deepStrictEqual(result.impact, {
       fixedVulnerabilities: 1,
       introducedVulnerabilities: 0,
       remainingVulnerabilities: 1,
@@ -79,10 +81,10 @@ describe("optimizeBestCasePortfolio", () => {
     const first = await optimizeBestCasePortfolio({ choices, evaluate, config });
     const second = await optimizeBestCasePortfolio({ choices, evaluate, config });
 
-    expect(first.selectedState).toEqual(second.selectedState);
-    expect(first.search.mode).toBe("beam");
-    expect(first.search.provenOptimal).toBe(false);
-    expect(first.search.evaluatedStates).toBeLessThanOrEqual(20);
+    assert.deepStrictEqual(first.selectedState, second.selectedState);
+    assert.strictEqual(first.search.mode, "beam");
+    assert.strictEqual(first.search.provenOptimal, false);
+    assert.ok(first.search.evaluatedStates <= 20);
   });
 
   test("treats evaluator failures as invalid states and continues", async () => {
@@ -96,9 +98,9 @@ describe("optimizeBestCasePortfolio", () => {
 
     const result = await optimizeBestCasePortfolio({ choices, evaluate });
 
-    expect(result.selectedState.alpha).toBe("1.0.0");
-    expect(result.failedStates).toBe(1);
-    expect(result.search.provenOptimal).toBe(false);
+    assert.strictEqual(result.selectedState.alpha, "1.0.0");
+    assert.strictEqual(result.failedStates, 1);
+    assert.strictEqual(result.search.provenOptimal, false);
   });
 
   test("rejects when every portfolio evaluation fails", async () => {
@@ -111,7 +113,7 @@ describe("optimizeBestCasePortfolio", () => {
 
     const result = optimizeBestCasePortfolio({ choices, evaluate });
 
-    await expect(result).rejects.toThrow("no portfolio states were evaluated successfully");
+    await assert.rejects(result, errorIncludes("no portfolio states were evaluated successfully"));
   });
 
   test("withholds optimality when exact search reaches its evaluation cap", async () => {
@@ -126,8 +128,8 @@ describe("optimizeBestCasePortfolio", () => {
       config,
     });
 
-    expect(result.search.evaluatedStates).toBe(1);
-    expect(result.search.provenOptimal).toBe(false);
+    assert.strictEqual(result.search.evaluatedStates, 1);
+    assert.strictEqual(result.search.provenOptimal, false);
   });
 
   test("creates a per-dependency ledger reason linked to the portfolio decision", async () => {
@@ -142,10 +144,10 @@ describe("optimizeBestCasePortfolio", () => {
 
     const reason = createBestCaseReason(result);
 
-    expect(reason.type).toBe("best-case");
-    expect(reason.decisionId).toBe(result.decisionId);
-    expect(reason.search).toEqual({ evaluatedStates: 2, provenOptimal: true });
-    expect(reason.impact.fixedVulnerabilities).toBe(1);
+    assert.strictEqual(reason.type, "best-case");
+    assert.strictEqual(reason.decisionId, result.decisionId);
+    assert.deepStrictEqual(reason.search, { evaluatedStates: 2, provenOptimal: true });
+    assert.strictEqual(reason.impact.fixedVulnerabilities, 1);
   });
 });
 
@@ -157,7 +159,7 @@ test("buildBestCaseChoices normalizes dependency ranges before selecting the bas
     new Map([["alpha", "2.0.0"]]),
   );
 
-  expect(choices[0].currentVersion).toBe("1.0.0");
+  assert.strictEqual(choices[0].currentVersion, "1.0.0");
 });
 
 test("optimizeSecurityOverrides hard-constrains user-owned versions", async () => {
@@ -173,9 +175,9 @@ test("optimizeSecurityOverrides hard-constrains user-owned versions", async () =
     evaluate,
   });
 
-  expect(result.bestCase.selectedState).toEqual({ alpha: "2.5.0" });
-  expect(result.bestCase.search.totalStates).toBe(1);
-  expect(result.overrides[0].toVersion).toBe("2.5.0");
+  assert.deepStrictEqual(result.bestCase.selectedState, { alpha: "2.5.0" });
+  assert.strictEqual(result.bestCase.search.totalStates, 1);
+  assert.strictEqual(result.overrides[0].toVersion, "2.5.0");
 });
 
 test("evaluateStates omits states beyond the evaluation limit", async () => {
@@ -187,14 +189,14 @@ test("evaluateStates omits states beyond the evaluation limit", async () => {
     policy: resolveBestCasePolicy(),
   };
 
-  expect(await evaluateStates([{ alpha: "1.0.0" }], context)).toEqual([]);
+  assert.deepStrictEqual(await evaluateStates([{ alpha: "1.0.0" }], context), []);
 });
 
 test("applyBestCaseState adds packages missing from the installed portfolio", () => {
   const packages = [{ name: "alpha", version: "1.0.0" }];
   const state = { alpha: "2.0.0", beta: "3.0.0" };
 
-  expect(applyBestCaseState(packages, state)).toEqual([
+  assert.deepStrictEqual(applyBestCaseState(packages, state), [
     { name: "alpha", version: "2.0.0" },
     { name: "beta", version: "3.0.0" },
   ]);
@@ -207,5 +209,5 @@ test("applyBestCaseState preserves coexisting installed versions", () => {
   ];
   const state = { alpha: "2.0.0" };
 
-  expect(applyBestCaseState(packages, state)).toEqual(packages);
+  assert.deepStrictEqual(applyBestCaseState(packages, state), packages);
 });

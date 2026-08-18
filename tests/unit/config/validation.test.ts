@@ -1,20 +1,98 @@
-import { test, expect } from "bun:test";
-import { validateConfig, safeValidateConfig } from "../../../src/config";
+import { errorIncludes } from "../setup";
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import schema from "../../../src/schema.json" with { type: "json" };
+import { PASTORALIST_SCHEMA_PATH, validateConfig, safeValidateConfig } from "../../../src/config";
+
+const COMPATIBILITY_CONFIGS = [
+  { unknownRoot: true },
+  { $schema: "https://example.com/config.schema.json", unknownRoot: true },
+  { compactAppendix: "yes" },
+  { security: { unknownSecurity: true } },
+  { appendix: { "pkg@1.0.0": { dependents: { root: 42 } } } },
+  { appendix: { "pkg@1.0.0": { unknownItemField: true } } },
+  { appendix: { "pkg@1.0.0": { ledger: { addedDate: "2026-08-16", severity: 42 } } } },
+  { appendix: { "pkg@1.0.0": { ledger: { addedDate: "2026-08-16", unknownLedgerField: true } } } },
+  {
+    appendix: {
+      "pkg@1.0.0": {
+        ledger: { addedDate: "2026-08-16", keep: { reason: "compatibility", until: 42 } },
+      },
+    },
+  },
+  {
+    appendix: {
+      "pkg@1.0.0": { ledger: { addedDate: "2026-08-16", cveDetails: [{ severity: "high" }] } },
+    },
+  },
+];
 
 test("validateConfig - should reject non-object", () => {
-  expect(() => validateConfig(null)).toThrow("Invalid config structure");
-  expect(() => validateConfig(undefined)).toThrow("Invalid config structure");
-  expect(() => validateConfig("string")).toThrow("Invalid config structure");
-  expect(() => validateConfig(123)).toThrow("Invalid config structure");
-  expect(() => validateConfig([])).toThrow("Invalid config structure");
+  assert.throws(() => validateConfig(null), errorIncludes("Invalid config structure"));
+  assert.throws(() => validateConfig(undefined), errorIncludes("Invalid config structure"));
+  assert.throws(() => validateConfig("string"), errorIncludes("Invalid config structure"));
+  assert.throws(() => validateConfig(123), errorIncludes("Invalid config structure"));
+  assert.throws(() => validateConfig([]), errorIncludes("Invalid config structure"));
 });
 
 test("safeValidateConfig - should return undefined for non-object", () => {
-  expect(safeValidateConfig(null)).toBeUndefined();
-  expect(safeValidateConfig(undefined)).toBeUndefined();
-  expect(safeValidateConfig("string")).toBeUndefined();
-  expect(safeValidateConfig(123)).toBeUndefined();
-  expect(safeValidateConfig([])).toBeUndefined();
+  assert.strictEqual(safeValidateConfig(null), undefined);
+  assert.strictEqual(safeValidateConfig(undefined), undefined);
+  assert.strictEqual(safeValidateConfig("string"), undefined);
+  assert.strictEqual(safeValidateConfig(123), undefined);
+  assert.strictEqual(safeValidateConfig([]), undefined);
+});
+
+test("validateConfig - accepts a JSON Schema reference", () => {
+  const config = {
+    $schema: PASTORALIST_SCHEMA_PATH,
+    compactAppendix: true,
+    security: { provider: ["osv", "github"], severityThreshold: "high" },
+    appendix: {
+      "lodash@4.17.21": {
+        dependents: { root: "lodash@^4.17.0" },
+        ledger: {
+          addedDate: "2026-08-16",
+          source: "security",
+          cveDetails: [{ cve: "CVE-2026-0001", severity: "high" }],
+          confidence: "confirmed",
+          sources: ["osv", "github"],
+        },
+      },
+    },
+  };
+
+  assert.deepStrictEqual(validateConfig(config), config);
+});
+
+test("validateConfig - rejects a non-string JSON Schema reference", () => {
+  assert.throws(() => validateConfig({ $schema: true }), errorIncludes("Invalid config structure"));
+});
+
+test("schema - includes public history metadata", () => {
+  assert.strictEqual(schema["x-revision"], 1);
+  assert.strictEqual(schema["x-created"], "2025-11-23");
+  assert.strictEqual(schema["x-updated"], "2026-08-16");
+  assert.strictEqual(
+    schema["x-history"],
+    "https://github.com/yowainwright/pastoralist/commits/main/src/schema.json",
+  );
+});
+
+test("validateConfig - preserves permissive validation for schema-less configs", () => {
+  COMPATIBILITY_CONFIGS.forEach((config) => {
+    assert.deepStrictEqual(validateConfig(config), config);
+  });
+});
+
+test("validateConfig - enforces the published contract for schema-aware configs", () => {
+  const invalidConfigs = COMPATIBILITY_CONFIGS.map((config) => {
+    return Object.assign({}, config, { $schema: PASTORALIST_SCHEMA_PATH });
+  });
+
+  invalidConfigs.forEach((config) => {
+    assert.throws(() => validateConfig(config), errorIncludes("Invalid config structure"));
+  });
 });
 
 test("validateConfig - should accept valid appendix with ledger", () => {
@@ -36,7 +114,15 @@ test("validateConfig - should accept valid appendix with ledger", () => {
   };
 
   const result = validateConfig(config);
-  expect(result).toEqual(config);
+  assert.deepStrictEqual(result, config);
+});
+
+test("validateConfig - validates compact appendix added dates", () => {
+  const config = { appendix: { "lodash@4.17.21": { addedDate: "2024-01-01" } } };
+  const invalidConfig = { appendix: { "lodash@4.17.21": { addedDate: 20240101 } } };
+
+  assert.deepStrictEqual(validateConfig(config), config);
+  assert.throws(() => validateConfig(invalidConfig), errorIncludes("Invalid config structure"));
 });
 
 test("validateConfig - accepts project and best-case ledger reasons", () => {
@@ -67,7 +153,7 @@ test("validateConfig - accepts project and best-case ledger reasons", () => {
     },
   };
 
-  expect(validateConfig(config)).toEqual(config);
+  assert.deepStrictEqual(validateConfig(config), config);
 });
 
 test("validateConfig - rejects malformed structured ledger reasons", () => {
@@ -94,7 +180,7 @@ test("validateConfig - rejects malformed structured ledger reasons", () => {
     const config = {
       appendix: { "pkg@1.0.0": { ledger: { addedDate: "2024-01-01", reason } } },
     };
-    expect(() => validateConfig(config)).toThrow("Invalid config structure");
+    assert.throws(() => validateConfig(config), errorIncludes("Invalid config structure"));
   });
 });
 
@@ -109,7 +195,7 @@ test("validateConfig - should reject appendix item with invalid ledger (missing 
     },
   };
 
-  expect(() => validateConfig(config)).toThrow("Invalid config structure");
+  assert.throws(() => validateConfig(config), errorIncludes("Invalid config structure"));
 });
 
 test("validateConfig - should reject appendix item with invalid ledger fields", () => {
@@ -147,7 +233,7 @@ test("validateConfig - should reject appendix item with invalid ledger fields", 
   ];
 
   invalidConfigs.forEach((config) => {
-    expect(() => validateConfig(config)).toThrow("Invalid config structure");
+    assert.throws(() => validateConfig(config), errorIncludes("Invalid config structure"));
   });
 });
 
@@ -191,7 +277,7 @@ test("validateConfig - should reject appendix item with invalid fields", () => {
   ];
 
   invalidConfigs.forEach((config) => {
-    expect(() => validateConfig(config)).toThrow("Invalid config structure");
+    assert.throws(() => validateConfig(config), errorIncludes("Invalid config structure"));
   });
 });
 
@@ -210,7 +296,7 @@ test("validateConfig - should accept valid security config", () => {
   };
 
   const result = validateConfig(config);
-  expect(result).toEqual(config);
+  assert.deepStrictEqual(result, config);
 });
 
 test("validateConfig - accepts tunable best-case search config", () => {
@@ -229,7 +315,7 @@ test("validateConfig - accepts tunable best-case search config", () => {
     },
   };
 
-  expect(validateConfig(config)).toEqual(config);
+  assert.deepStrictEqual(validateConfig(config), config);
 });
 
 test("validateConfig - rejects invalid best-case search config", () => {
@@ -246,7 +332,7 @@ test("validateConfig - rejects invalid best-case search config", () => {
   ];
 
   invalidConfigs.forEach((config) => {
-    expect(() => validateConfig(config)).toThrow("Invalid config structure");
+    assert.throws(() => validateConfig(config), errorIncludes("Invalid config structure"));
   });
 });
 
@@ -258,7 +344,7 @@ test("validateConfig - should accept security provider array", () => {
   };
 
   const result = validateConfig(config);
-  expect(result).toEqual(config);
+  assert.deepStrictEqual(result, config);
 });
 
 test("validateConfig - should reject invalid security provider", () => {
@@ -269,7 +355,7 @@ test("validateConfig - should reject invalid security provider", () => {
   ];
 
   invalidConfigs.forEach((config) => {
-    expect(() => validateConfig(config)).toThrow("Invalid config structure");
+    assert.throws(() => validateConfig(config), errorIncludes("Invalid config structure"));
   });
 });
 
@@ -280,7 +366,7 @@ test("validateConfig - should reject invalid severity threshold", () => {
     },
   };
 
-  expect(() => validateConfig(config)).toThrow("Invalid config structure");
+  assert.throws(() => validateConfig(config), errorIncludes("Invalid config structure"));
 });
 
 test("validateConfig - should reject invalid security config fields", () => {
@@ -295,7 +381,7 @@ test("validateConfig - should reject invalid security config fields", () => {
   ];
 
   invalidConfigs.forEach((config) => {
-    expect(() => validateConfig(config)).toThrow("Invalid config structure");
+    assert.throws(() => validateConfig(config), errorIncludes("Invalid config structure"));
   });
 });
 
@@ -308,7 +394,7 @@ test("validateConfig - should accept valid depPaths values", () => {
 
   configs.forEach((config) => {
     const result = validateConfig(config);
-    expect(result).toEqual(config);
+    assert.deepStrictEqual(result, config);
   });
 });
 
@@ -321,7 +407,7 @@ test("validateConfig - should reject invalid depPaths", () => {
   ];
 
   invalidConfigs.forEach((config) => {
-    expect(() => validateConfig(config)).toThrow("Invalid config structure");
+    assert.throws(() => validateConfig(config), errorIncludes("Invalid config structure"));
   });
 });
 
@@ -330,30 +416,32 @@ test("validateConfig - should reject invalid checkSecurity type", () => {
     checkSecurity: "true",
   };
 
-  expect(() => validateConfig(config)).toThrow("Invalid config structure");
+  assert.throws(() => validateConfig(config), errorIncludes("Invalid config structure"));
 });
 
 test("validateConfig - should accept an explicit override source", () => {
   const config = { overrideSource: "config/pnpm-overrides.yaml" };
 
-  expect(validateConfig(config)).toEqual(config);
+  assert.deepStrictEqual(validateConfig(config), config);
 });
 
 test("validateConfig - should reject a non-string override source", () => {
-  expect(() => validateConfig({ overrideSource: ["pnpm-workspace.yaml"] })).toThrow(
-    "Invalid config structure",
+  assert.throws(
+    () => validateConfig({ overrideSource: ["pnpm-workspace.yaml"] }),
+    errorIncludes("Invalid config structure"),
   );
 });
 
 test("validateConfig - should accept an explicit appendix source", () => {
   const config = { appendixSource: "config/ledger.json" };
 
-  expect(validateConfig(config)).toEqual(config);
+  assert.deepStrictEqual(validateConfig(config), config);
 });
 
 test("validateConfig - should reject a non-string appendix source", () => {
-  expect(() => validateConfig({ appendixSource: ["ledger.json"] })).toThrow(
-    "Invalid config structure",
+  assert.throws(
+    () => validateConfig({ appendixSource: ["ledger.json"] }),
+    errorIncludes("Invalid config structure"),
   );
 });
 
@@ -369,7 +457,7 @@ test("validateConfig - should accept valid overridePaths", () => {
   };
 
   const result = validateConfig(config);
-  expect(result).toEqual(config);
+  assert.deepStrictEqual(result, config);
 });
 
 test("validateConfig - should reject invalid overridePaths", () => {
@@ -383,7 +471,7 @@ test("validateConfig - should reject invalid overridePaths", () => {
     },
   };
 
-  expect(() => validateConfig(config)).toThrow("Invalid config structure");
+  assert.throws(() => validateConfig(config), errorIncludes("Invalid config structure"));
 });
 
 test("validateConfig - should accept valid resolutionPaths", () => {
@@ -398,7 +486,7 @@ test("validateConfig - should accept valid resolutionPaths", () => {
   };
 
   const result = validateConfig(config);
-  expect(result).toEqual(config);
+  assert.deepStrictEqual(result, config);
 });
 
 test("validateConfig - should reject invalid resolutionPaths", () => {
@@ -412,7 +500,7 @@ test("validateConfig - should reject invalid resolutionPaths", () => {
     },
   };
 
-  expect(() => validateConfig(config)).toThrow("Invalid config structure");
+  assert.throws(() => validateConfig(config), errorIncludes("Invalid config structure"));
 });
 
 test("validateConfig - should accept all valid security providers", () => {
@@ -421,7 +509,7 @@ test("validateConfig - should accept all valid security providers", () => {
   providers.forEach((provider) => {
     const config = { security: { provider } };
     const result = validateConfig(config);
-    expect(result).toEqual(config);
+    assert.deepStrictEqual(result, config);
   });
 });
 
@@ -431,7 +519,7 @@ test("validateConfig - should accept all valid severity thresholds", () => {
   thresholds.forEach((threshold) => {
     const config = { security: { severityThreshold: threshold } };
     const result = validateConfig(config);
-    expect(result).toEqual(config);
+    assert.deepStrictEqual(result, config);
   });
 });
 
@@ -445,7 +533,7 @@ test("safeValidateConfig - should return config for all valid inputs", () => {
 
   validConfigs.forEach((config) => {
     const result = safeValidateConfig(config);
-    expect(result).toEqual(config);
+    assert.deepStrictEqual(result, config);
   });
 });
 
@@ -458,7 +546,7 @@ test("safeValidateConfig - should return undefined for all invalid inputs", () =
 
   invalidConfigs.forEach((config) => {
     const result = safeValidateConfig(config);
-    expect(result).toBeUndefined();
+    assert.strictEqual(result, undefined);
   });
 });
 
@@ -473,7 +561,7 @@ test("validateConfig - accepts valid cves array in ledger", () => {
       },
     },
   };
-  expect(() => validateConfig(config)).not.toThrow();
+  assert.doesNotThrow(() => validateConfig(config));
 });
 
 test("validateConfig - rejects non-array cves in ledger", () => {
@@ -487,7 +575,7 @@ test("validateConfig - rejects non-array cves in ledger", () => {
       },
     },
   };
-  expect(() => validateConfig(config)).toThrow();
+  assert.throws(() => validateConfig(config));
 });
 
 test("validateConfig - accepts keep: true in ledger", () => {
@@ -501,7 +589,7 @@ test("validateConfig - accepts keep: true in ledger", () => {
       },
     },
   };
-  expect(() => validateConfig(config)).not.toThrow();
+  assert.doesNotThrow(() => validateConfig(config));
 });
 
 test("validateConfig - rejects non-boolean keep in ledger", () => {
@@ -515,7 +603,7 @@ test("validateConfig - rejects non-boolean keep in ledger", () => {
       },
     },
   };
-  expect(() => validateConfig(config)).toThrow();
+  assert.throws(() => validateConfig(config));
 });
 
 test("validateConfig - accepts potentiallyFixedIn string in ledger", () => {
@@ -529,7 +617,7 @@ test("validateConfig - accepts potentiallyFixedIn string in ledger", () => {
       },
     },
   };
-  expect(() => validateConfig(config)).not.toThrow();
+  assert.doesNotThrow(() => validateConfig(config));
 });
 
 test("validateConfig - rejects non-string potentiallyFixedIn in ledger", () => {
@@ -543,7 +631,7 @@ test("validateConfig - rejects non-string potentiallyFixedIn in ledger", () => {
       },
     },
   };
-  expect(() => validateConfig(config)).toThrow();
+  assert.throws(() => validateConfig(config));
 });
 
 test("validateConfig - accepts keep as KeepConstraint object with reason", () => {
@@ -557,7 +645,7 @@ test("validateConfig - accepts keep as KeepConstraint object with reason", () =>
       },
     },
   };
-  expect(() => validateConfig(config)).not.toThrow();
+  assert.doesNotThrow(() => validateConfig(config));
 });
 
 test("validateConfig - rejects keep object without reason", () => {
@@ -571,7 +659,7 @@ test("validateConfig - rejects keep object without reason", () => {
       },
     },
   };
-  expect(() => validateConfig(config)).toThrow();
+  assert.throws(() => validateConfig(config));
 });
 
 test("validateConfig - accepts vulnerableRange string in ledger", () => {
@@ -582,7 +670,7 @@ test("validateConfig - accepts vulnerableRange string in ledger", () => {
       },
     },
   };
-  expect(() => validateConfig(config)).not.toThrow();
+  assert.doesNotThrow(() => validateConfig(config));
 });
 
 test("validateConfig - rejects non-string vulnerableRange in ledger", () => {
@@ -593,7 +681,7 @@ test("validateConfig - rejects non-string vulnerableRange in ledger", () => {
       },
     },
   };
-  expect(() => validateConfig(config)).toThrow();
+  assert.throws(() => validateConfig(config));
 });
 
 test("validateConfig - accepts valid securityCheckResult values", () => {
@@ -605,7 +693,7 @@ test("validateConfig - accepts valid securityCheckResult values", () => {
         },
       },
     };
-    expect(() => validateConfig(config)).not.toThrow();
+    assert.doesNotThrow(() => validateConfig(config));
   }
 });
 
@@ -617,7 +705,7 @@ test("validateConfig - rejects invalid securityCheckResult value", () => {
       },
     },
   };
-  expect(() => validateConfig(config)).toThrow();
+  assert.throws(() => validateConfig(config));
 });
 
 test("validateConfig - accepts resolvedAt string in ledger", () => {
@@ -631,7 +719,7 @@ test("validateConfig - accepts resolvedAt string in ledger", () => {
       },
     },
   };
-  expect(() => validateConfig(config)).not.toThrow();
+  assert.doesNotThrow(() => validateConfig(config));
 });
 
 test("validateConfig - accepts valid resolvedBy values", () => {
@@ -643,7 +731,7 @@ test("validateConfig - accepts valid resolvedBy values", () => {
         },
       },
     };
-    expect(() => validateConfig(config)).not.toThrow();
+    assert.doesNotThrow(() => validateConfig(config));
   }
 });
 
@@ -655,7 +743,7 @@ test("validateConfig - rejects invalid resolvedBy value", () => {
       },
     },
   };
-  expect(() => validateConfig(config)).toThrow();
+  assert.throws(() => validateConfig(config));
 });
 
 test("validateConfig - accepts resolvedVersion string in ledger", () => {
@@ -666,5 +754,5 @@ test("validateConfig - accepts resolvedVersion string in ledger", () => {
       },
     },
   };
-  expect(() => validateConfig(config)).not.toThrow();
+  assert.doesNotThrow(() => validateConfig(config));
 });

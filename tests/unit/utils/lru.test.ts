@@ -1,4 +1,5 @@
-import { test, expect } from "bun:test";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 import { LRUCache } from "../../../src/utils/cache";
 
 test("LRUCache - should set and get values", () => {
@@ -8,15 +9,15 @@ test("LRUCache - should set and get values", () => {
   cache.set("b", 2);
   cache.set("c", 3);
 
-  expect(cache.get("a")).toBe(1);
-  expect(cache.get("b")).toBe(2);
-  expect(cache.get("c")).toBe(3);
+  assert.strictEqual(cache.get("a"), 1);
+  assert.strictEqual(cache.get("b"), 2);
+  assert.strictEqual(cache.get("c"), 3);
 });
 
 test("LRUCache - should return undefined for missing keys", () => {
   const cache = new LRUCache<string, number>({ max: 3 });
 
-  expect(cache.get("missing")).toBeUndefined();
+  assert.strictEqual(cache.get("missing"), undefined);
 });
 
 test("LRUCache - should evict least recently used item when max exceeded", () => {
@@ -27,10 +28,10 @@ test("LRUCache - should evict least recently used item when max exceeded", () =>
   cache.set("c", 3);
   cache.set("d", 4);
 
-  expect(cache.get("a")).toBeUndefined();
-  expect(cache.get("b")).toBe(2);
-  expect(cache.get("c")).toBe(3);
-  expect(cache.get("d")).toBe(4);
+  assert.strictEqual(cache.get("a"), undefined);
+  assert.strictEqual(cache.get("b"), 2);
+  assert.strictEqual(cache.get("c"), 3);
+  assert.strictEqual(cache.get("d"), 4);
 });
 
 test("LRUCache - should update existing key without evicting", () => {
@@ -40,9 +41,9 @@ test("LRUCache - should update existing key without evicting", () => {
   cache.set("b", 2);
   cache.set("a", 10);
 
-  expect(cache.get("a")).toBe(10);
-  expect(cache.get("b")).toBe(2);
-  expect(cache.size).toBe(2);
+  assert.strictEqual(cache.get("a"), 10);
+  assert.strictEqual(cache.get("b"), 2);
+  assert.strictEqual(cache.size, 2);
 });
 
 test("LRUCache - should move accessed item to front", () => {
@@ -56,8 +57,8 @@ test("LRUCache - should move accessed item to front", () => {
 
   cache.set("d", 4);
 
-  expect(cache.get("a")).toBe(1);
-  expect(cache.get("b")).toBeUndefined();
+  assert.strictEqual(cache.get("a"), 1);
+  assert.strictEqual(cache.get("b"), undefined);
 });
 
 test("LRUCache - should handle has() correctly", () => {
@@ -65,8 +66,8 @@ test("LRUCache - should handle has() correctly", () => {
 
   cache.set("a", 1);
 
-  expect(cache.has("a")).toBe(true);
-  expect(cache.has("b")).toBe(false);
+  assert.strictEqual(cache.has("a"), true);
+  assert.strictEqual(cache.has("b"), false);
 });
 
 test("LRUCache - should delete keys", () => {
@@ -75,9 +76,9 @@ test("LRUCache - should delete keys", () => {
   cache.set("a", 1);
   cache.set("b", 2);
 
-  expect(cache.delete("a")).toBe(true);
-  expect(cache.get("a")).toBeUndefined();
-  expect(cache.delete("a")).toBe(false);
+  assert.strictEqual(cache.delete("a"), true);
+  assert.strictEqual(cache.get("a"), undefined);
+  assert.strictEqual(cache.delete("a"), false);
 });
 
 test("LRUCache - should clear all entries", () => {
@@ -89,25 +90,25 @@ test("LRUCache - should clear all entries", () => {
 
   cache.clear();
 
-  expect(cache.size).toBe(0);
-  expect(cache.get("a")).toBeUndefined();
-  expect(cache.get("b")).toBeUndefined();
-  expect(cache.get("c")).toBeUndefined();
+  assert.strictEqual(cache.size, 0);
+  assert.strictEqual(cache.get("a"), undefined);
+  assert.strictEqual(cache.get("b"), undefined);
+  assert.strictEqual(cache.get("c"), undefined);
 });
 
 test("LRUCache - should track size correctly", () => {
   const cache = new LRUCache<string, number>({ max: 3 });
 
-  expect(cache.size).toBe(0);
+  assert.strictEqual(cache.size, 0);
 
   cache.set("a", 1);
-  expect(cache.size).toBe(1);
+  assert.strictEqual(cache.size, 1);
 
   cache.set("b", 2);
-  expect(cache.size).toBe(2);
+  assert.strictEqual(cache.size, 2);
 
   cache.delete("a");
-  expect(cache.size).toBe(1);
+  assert.strictEqual(cache.size, 1);
 });
 
 test("LRUCache - should return all keys", () => {
@@ -118,10 +119,10 @@ test("LRUCache - should return all keys", () => {
   cache.set("c", 3);
 
   const keys = cache.keys();
-  expect(keys).toContain("a");
-  expect(keys).toContain("b");
-  expect(keys).toContain("c");
-  expect(keys.length).toBe(3);
+  assert.ok(keys.includes("a"));
+  assert.ok(keys.includes("b"));
+  assert.ok(keys.includes("c"));
+  assert.strictEqual(keys.length, 3);
 });
 
 test("LRUCache - should return all values in LRU order", () => {
@@ -132,7 +133,7 @@ test("LRUCache - should return all values in LRU order", () => {
   cache.set("c", 3);
 
   const values = cache.values();
-  expect(values).toEqual([3, 2, 1]);
+  assert.deepStrictEqual(values, [3, 2, 1]);
 });
 
 test("LRUCache - should handle TTL expiration", async () => {
@@ -141,12 +142,12 @@ test("LRUCache - should handle TTL expiration", async () => {
   cache.set("a", 1);
   cache.set("b", 2);
 
-  expect(cache.get("a")).toBe(1);
+  assert.strictEqual(cache.get("a"), 1);
 
   await new Promise((resolve) => setTimeout(resolve, 60));
 
-  expect(cache.get("a")).toBeUndefined();
-  expect(cache.has("a")).toBe(false);
+  assert.strictEqual(cache.get("a"), undefined);
+  assert.strictEqual(cache.has("a"), false);
 });
 
 test("LRUCache - should not expire without TTL", async () => {
@@ -156,7 +157,7 @@ test("LRUCache - should not expire without TTL", async () => {
 
   await new Promise((resolve) => setTimeout(resolve, 100));
 
-  expect(cache.get("a")).toBe(1);
+  assert.strictEqual(cache.get("a"), 1);
 });
 
 test("LRUCache - should filter expired values from values()", async () => {
@@ -170,7 +171,7 @@ test("LRUCache - should filter expired values from values()", async () => {
   cache.set("c", 3);
 
   const values = cache.values();
-  expect(values).toEqual([3]);
+  assert.deepStrictEqual(values, [3]);
 });
 
 test("LRUCache - should handle complex object values", () => {
@@ -181,8 +182,8 @@ test("LRUCache - should handle complex object values", () => {
   cache.set("obj1", { name: "first", value: 1 });
   cache.set("obj2", { name: "second", value: 2 });
 
-  expect(cache.get("obj1")).toEqual({ name: "first", value: 1 });
-  expect(cache.get("obj2")).toEqual({ name: "second", value: 2 });
+  assert.deepStrictEqual(cache.get("obj1"), { name: "first", value: 1 });
+  assert.deepStrictEqual(cache.get("obj2"), { name: "second", value: 2 });
 });
 
 test("LRUCache - should handle numeric keys", () => {
@@ -192,20 +193,20 @@ test("LRUCache - should handle numeric keys", () => {
   cache.set(2, "two");
   cache.set(3, "three");
 
-  expect(cache.get(1)).toBe("one");
-  expect(cache.get(2)).toBe("two");
-  expect(cache.get(3)).toBe("three");
+  assert.strictEqual(cache.get(1), "one");
+  assert.strictEqual(cache.get(2), "two");
+  assert.strictEqual(cache.get(3), "three");
 });
 
 test("LRUCache - should handle single item cache", () => {
   const cache = new LRUCache<string, number>({ max: 1 });
 
   cache.set("a", 1);
-  expect(cache.get("a")).toBe(1);
+  assert.strictEqual(cache.get("a"), 1);
 
   cache.set("b", 2);
-  expect(cache.get("a")).toBeUndefined();
-  expect(cache.get("b")).toBe(2);
+  assert.strictEqual(cache.get("a"), undefined);
+  assert.strictEqual(cache.get("b"), 2);
 });
 
 test("LRUCache - should handle rapid set/get operations", () => {
@@ -215,13 +216,13 @@ test("LRUCache - should handle rapid set/get operations", () => {
     cache.set(`key${i}`, i);
   }
 
-  expect(cache.size).toBe(100);
+  assert.strictEqual(cache.size, 100);
 
   for (let i = 50; i < 150; i++) {
-    expect(cache.get(`key${i}`)).toBe(i);
+    assert.strictEqual(cache.get(`key${i}`), i);
   }
 
   for (let i = 0; i < 50; i++) {
-    expect(cache.get(`key${i}`)).toBeUndefined();
+    assert.strictEqual(cache.get(`key${i}`), undefined);
   }
 });

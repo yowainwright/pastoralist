@@ -6,10 +6,10 @@ import type {
   SEVERITY_THRESHOLDS,
 } from "./constants";
 import type {
+  AppendixItem as SharedAppendixItem,
   AppendixTarget,
-  BestCaseConfig,
   KeepConstraint,
-  LedgerReason,
+  PastoralistConfig as SharedPastoralistConfig,
   PastoralistJSON,
 } from "../types";
 
@@ -22,58 +22,10 @@ export type DepPathAlias = (typeof DEP_PATH_ALIASES)[number];
 
 export type { KeepConstraint };
 
-export type AppendixItem = {
-  rootDeps?: string[];
-  dependents?: Record<string, string>;
-  patches?: string[];
-  ledger?: {
-    addedDate: string;
-    reason?: LedgerReason;
-    securityChecked?: boolean;
-    securityCheckDate?: string;
-    securityCheckResult?: SecurityCheckResult;
-    securityProvider?: SecurityProvider;
-    cves?: string[];
-    severity?: SeverityThreshold;
-    description?: string;
-    url?: string;
-    vulnerableRange?: string;
-    patchedVersion?: string;
-    keep?: boolean | KeepConstraint;
-    potentiallyFixedIn?: string;
-    resolvedAt?: string;
-    resolvedBy?: ResolvedBy;
-    resolvedVersion?: string;
-  };
-};
-
+export type AppendixItem = SharedAppendixItem & { addedDate?: string };
 export type Appendix = Record<string, AppendixItem>;
-
-export type SecurityConfig = {
-  enabled?: boolean;
-  provider?: SecurityProviders;
-  autoFix?: boolean;
-  interactive?: boolean;
-  securityProviderToken?: string;
-  severityThreshold?: SeverityThreshold;
-  excludePackages?: string[];
-  hasWorkspaceSecurityChecks?: boolean;
-  strict?: boolean;
-  preferLatest?: boolean;
-};
-
-export type PastoralistConfig = {
-  appendix?: Appendix;
-  appendixSource?: string;
-  compactAppendix?: boolean;
-  depPaths?: DepPathAlias | string[];
-  overrideSource?: string;
-  checkSecurity?: boolean;
-  overridePaths?: Record<string, Appendix>;
-  resolutionPaths?: Record<string, Appendix>;
-  bestCase?: BestCaseConfig;
-  security?: SecurityConfig;
-};
+export type SecurityConfig = NonNullable<SharedPastoralistConfig["security"]>;
+export type PastoralistConfig = SharedPastoralistConfig;
 
 export type ConfigSource = {
   format: "json" | "javascript";

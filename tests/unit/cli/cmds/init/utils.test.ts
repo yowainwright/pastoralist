@@ -1,4 +1,5 @@
-import { test, expect } from "bun:test";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 import {
   parseWorkspacePaths,
   buildConfig,
@@ -8,27 +9,27 @@ import type { InitAnswers } from "../../../../../src/cli/cmds/init/types";
 
 test("parseWorkspacePaths - should parse comma-separated paths", () => {
   const result = parseWorkspacePaths("packages/*, apps/*");
-  expect(result).toEqual(["packages/*", "apps/*"]);
+  assert.deepStrictEqual(result, ["packages/*", "apps/*"]);
 });
 
 test("parseWorkspacePaths - should trim whitespace from paths", () => {
   const result = parseWorkspacePaths("  packages/*  ,  apps/*  ");
-  expect(result).toEqual(["packages/*", "apps/*"]);
+  assert.deepStrictEqual(result, ["packages/*", "apps/*"]);
 });
 
 test("parseWorkspacePaths - should filter empty paths", () => {
   const result = parseWorkspacePaths("packages/*, , apps/*");
-  expect(result).toEqual(["packages/*", "apps/*"]);
+  assert.deepStrictEqual(result, ["packages/*", "apps/*"]);
 });
 
 test("parseWorkspacePaths - should return empty array for empty input", () => {
   const result = parseWorkspacePaths("");
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("parseWorkspacePaths - should handle single path", () => {
   const result = parseWorkspacePaths("packages/*");
-  expect(result).toEqual(["packages/*"]);
+  assert.deepStrictEqual(result, ["packages/*"]);
 });
 
 test("buildConfig - should build empty config when nothing is setup", () => {
@@ -39,7 +40,7 @@ test("buildConfig - should build empty config when nothing is setup", () => {
   };
 
   const result = buildConfig(answers);
-  expect(result).toEqual({});
+  assert.deepStrictEqual(result, {});
 });
 
 test("buildConfig - should build config with workspace mode", () => {
@@ -51,7 +52,7 @@ test("buildConfig - should build config with workspace mode", () => {
   };
 
   const result = buildConfig(answers);
-  expect(result).toEqual({
+  assert.deepStrictEqual(result, {
     depPaths: "workspace",
   });
 });
@@ -66,7 +67,7 @@ test("buildConfig - should build config with custom workspace paths", () => {
   };
 
   const result = buildConfig(answers);
-  expect(result).toEqual({
+  assert.deepStrictEqual(result, {
     depPaths: ["packages/*", "apps/*"],
   });
 });
@@ -81,7 +82,7 @@ test("buildConfig - should not set depPaths for custom type with no paths", () =
   };
 
   const result = buildConfig(answers);
-  expect(result).toEqual({});
+  assert.deepStrictEqual(result, {});
 });
 
 test("buildConfig - should build config with security enabled", () => {
@@ -97,7 +98,7 @@ test("buildConfig - should build config with security enabled", () => {
   };
 
   const result = buildConfig(answers);
-  expect(result).toEqual({
+  assert.deepStrictEqual(result, {
     checkSecurity: true,
     security: {
       enabled: true,
@@ -122,7 +123,7 @@ test("buildConfig - should not write security token when provided", () => {
   };
 
   const result = buildConfig(answers);
-  expect(result.security?.securityProviderToken).toBeUndefined();
+  assert.strictEqual(result.security?.securityProviderToken, undefined);
 });
 
 test("buildConfig - should build complete config with all options", () => {
@@ -140,7 +141,7 @@ test("buildConfig - should build complete config with all options", () => {
   };
 
   const result = buildConfig(answers);
-  expect(result).toEqual({
+  assert.deepStrictEqual(result, {
     depPaths: ["packages/*"],
     checkSecurity: true,
     security: {
@@ -166,7 +167,7 @@ test("generateConfigContent - should generate JSON config", () => {
 
   const result = generateConfigContent(mockConfig, ".pastoralistrc.json");
   const expected = JSON.stringify(mockConfig, null, 2) + "\n";
-  expect(result).toBe(expected);
+  assert.strictEqual(result, expected);
 });
 
 test("generateConfigContent - should generate JS module config", () => {
@@ -181,7 +182,7 @@ test("generateConfigContent - should generate JS module config", () => {
 
   const result = generateConfigContent(mockConfig, "pastoralist.config.js");
   const expected = `module.exports = ${JSON.stringify(mockConfig, null, 2)};\n`;
-  expect(result).toBe(expected);
+  assert.strictEqual(result, expected);
 });
 
 test("generateConfigContent - should generate CommonJS module config", () => {
@@ -196,7 +197,7 @@ test("generateConfigContent - should generate CommonJS module config", () => {
 
   const result = generateConfigContent(mockConfig, "pastoralist.config.cjs");
   const expected = `module.exports = ${JSON.stringify(mockConfig, null, 2)};\n`;
-  expect(result).toBe(expected);
+  assert.strictEqual(result, expected);
 });
 
 test("generateConfigContent - should generate ESM module config", () => {
@@ -211,11 +212,11 @@ test("generateConfigContent - should generate ESM module config", () => {
 
   const result = generateConfigContent(mockConfig, "pastoralist.config.mjs");
   const expected = `export default ${JSON.stringify(mockConfig, null, 2)};\n`;
-  expect(result).toBe(expected);
+  assert.strictEqual(result, expected);
 });
 
 test("generateConfigContent - should handle empty config", () => {
   const emptyConfig = {};
   const result = generateConfigContent(emptyConfig, ".pastoralistrc.json");
-  expect(result).toBe("{}\n");
+  assert.strictEqual(result, "{}\n");
 });

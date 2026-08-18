@@ -1,16 +1,30 @@
-import { test, expect } from "bun:test";
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { resolve } from "node:path";
 import { findRemovableAppendixItems } from "../../src/index";
 import type { Appendix } from "../../src/types";
+
+test("package entrypoint imports when the argv path does not exist", async () => {
+  const originalEntry = process.argv[1];
+  process.argv[1] = resolve("virtual-pastoralist-entry");
+  const entrypoint = new URL("../../src/index?virtual-entry", import.meta.url);
+
+  try {
+    await assert.doesNotReject(() => import(entrypoint.href));
+  } finally {
+    process.argv[1] = originalEntry;
+  }
+});
 
 test("findRemovableAppendixItems - should return empty array for empty appendix", () => {
   const appendix: Appendix = {};
   const result = findRemovableAppendixItems(appendix);
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("findRemovableAppendixItems - should return empty array for undefined appendix", () => {
   const result = findRemovableAppendixItems(undefined as any);
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("findRemovableAppendixItems - should find items with no dependents", () => {
@@ -24,8 +38,8 @@ test("findRemovableAppendixItems - should find items with no dependents", () => 
   };
 
   const result = findRemovableAppendixItems(appendix);
-  expect(result).toContain("lodash");
-  expect(result).not.toContain("react");
+  assert.ok(result.includes("lodash"));
+  assert.ok(!result.includes("react"));
 });
 
 test("findRemovableAppendixItems - should find items with undefined dependents", () => {
@@ -36,7 +50,7 @@ test("findRemovableAppendixItems - should find items with undefined dependents",
   };
 
   const result = findRemovableAppendixItems(appendix);
-  expect(result).toContain("lodash");
+  assert.ok(result.includes("lodash"));
 });
 
 test("findRemovableAppendixItems - should handle multiple removable items", () => {
@@ -53,10 +67,10 @@ test("findRemovableAppendixItems - should handle multiple removable items", () =
   };
 
   const result = findRemovableAppendixItems(appendix);
-  expect(result.length).toBe(2);
-  expect(result).toContain("lodash");
-  expect(result).toContain("react");
-  expect(result).not.toContain("express");
+  assert.strictEqual(result.length, 2);
+  assert.ok(result.includes("lodash"));
+  assert.ok(result.includes("react"));
+  assert.ok(!result.includes("express"));
 });
 
 test("findRemovableAppendixItems - should extract package name from version string", () => {
@@ -67,8 +81,8 @@ test("findRemovableAppendixItems - should extract package name from version stri
   };
 
   const result = findRemovableAppendixItems(appendix);
-  expect(result[0]).toBe("lodash");
-  expect(result[0]).not.toContain("@");
+  assert.strictEqual(result[0], "lodash");
+  assert.ok(!result[0].includes("@"));
 });
 
 test("findRemovableAppendixItems - should handle scoped packages", () => {
@@ -79,5 +93,5 @@ test("findRemovableAppendixItems - should handle scoped packages", () => {
   };
 
   const result = findRemovableAppendixItems(appendix);
-  expect(result[0]).toBe("@babel/core");
+  assert.strictEqual(result[0], "@babel/core");
 });

@@ -1,4 +1,5 @@
-import { expect, test } from "bun:test";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 import {
   buildSearchDocuments,
   createSearchIndex,
@@ -20,5 +21,8 @@ test("finds terms deep in document content", () => {
 
   const results = getSearchResults(index, "provenOptimal");
 
-  expect(results.map((result) => result.slug)).toEqual(["configuration"]);
+  assert.deepStrictEqual(
+    results.map((result) => result.slug),
+    ["configuration"],
+  );
 });

@@ -11,24 +11,37 @@ import {
 
 export const INDENT_SIZE = DEFAULT_INDENT_SIZE;
 
+let graphemeSegmenter: Intl.Segmenter | undefined;
+let graphemeSegmenterConstructor: typeof Intl.Segmenter | undefined;
+
 export const width = (): number => {
   return process.stdout.columns || DEFAULT_TERMINAL_WIDTH;
 };
 
+const getGraphemeSegmenter = (): Intl.Segmenter | undefined => {
+  const canUseSegmenter = typeof Intl !== "undefined" && Intl.Segmenter;
+  if (!canUseSegmenter) return undefined;
+  const hasCurrentSegmenter = graphemeSegmenterConstructor === Intl.Segmenter;
+  if (hasCurrentSegmenter) return graphemeSegmenter;
+  graphemeSegmenterConstructor = Intl.Segmenter;
+  graphemeSegmenter = new Intl.Segmenter("en", { granularity: "grapheme" });
+  return graphemeSegmenter;
+};
+
+const getGraphemes = (text: string): string[] => {
+  const segmenter = getGraphemeSegmenter();
+  if (!segmenter) return Array.from(text);
+  return Array.from(segmenter.segment(text), ({ segment }) => segment);
+};
+
+const getGraphemeWidth = (grapheme: string): number => (WIDE_EMOJI_PATTERN.test(grapheme) ? 2 : 1);
+
 export const visibleLength = (str: string): number => {
   const withoutAnsi = str.replace(ANSI_PATTERN, "");
-
-  const canUseSegmenter = typeof Intl !== "undefined" && Intl.Segmenter;
-  if (canUseSegmenter) {
-    const segmenter = new Intl.Segmenter("en", { granularity: "grapheme" });
-    const graphemes = Array.from(segmenter.segment(withoutAnsi));
-    const wideCount = graphemes.filter((g) => WIDE_EMOJI_PATTERN.test(g.segment)).length;
-    return graphemes.length + wideCount;
-  }
-
-  const chars = Array.from(withoutAnsi);
-  const wideCount = chars.filter((c) => WIDE_EMOJI_PATTERN.test(c)).length;
-  return chars.length + wideCount;
+  return getGraphemes(withoutAnsi).reduce(
+    (length, grapheme) => length + getGraphemeWidth(grapheme),
+    0,
+  );
 };
 
 export const pad = (str: string, len: number, align: "left" | "right" = "left"): string => {
@@ -47,20 +60,29 @@ const appendAnsiCode = (state: TruncateState, code: string): TruncateState =>
     hasOpenAnsi: !isAnsiReset(code),
   });
 
-const appendTruncatedText = (state: TruncateState, text: string, maxLen: number): TruncateState => {
-  const spaceLeft = maxLen - 3 - state.visibleCount;
-  const result = state.result + text.substring(0, spaceLeft);
-  return Object.assign({}, state, { result, isTruncated: true });
+const fitVisibleText = (text: string, maxWidth: number) => {
+  const graphemes = getGraphemes(text);
+  let visibleWidth = 0;
+  const cutoff = graphemes.findIndex((grapheme) => {
+    const nextWidth = visibleWidth + getGraphemeWidth(grapheme);
+    if (nextWidth > maxWidth) return true;
+    visibleWidth = nextWidth;
+    return false;
+  });
+  const isTruncated = cutoff !== -1;
+  const end = isTruncated ? cutoff : graphemes.length;
+  return { isTruncated, text: graphemes.slice(0, end).join(""), visibleWidth };
 };
 
 const appendVisibleText = (state: TruncateState, text: string, maxLen: number): TruncateState => {
   const spaceLeft = maxLen - 3 - state.visibleCount;
-  if (text.length > spaceLeft) return appendTruncatedText(state, text, maxLen);
-  const result = state.result + text;
-  const visibleCount = state.visibleCount + text.length;
+  const fitted = fitVisibleText(text, spaceLeft);
+  const result = state.result + fitted.text;
+  const visibleCount = state.visibleCount + fitted.visibleWidth;
   return Object.assign({}, state, {
     result,
     visibleCount,
+    isTruncated: fitted.isTruncated,
   });
 };
 

@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import { describe, test } from "node:test";
+import assert from "node:assert/strict";
 import { Effect } from "effect";
 import {
   InvalidStaticDocument,
@@ -30,14 +31,14 @@ describe("buildStaticRoutes", () => {
     const docs = [{ slug: "setup", title: "Setup", description: "Install Pastoralist" }];
     const routes = buildStaticRoutes(docs);
 
-    expect(routes).toHaveLength(2);
-    expect(routes[0].requiredContent).toEqual([
+    assert.strictEqual(routes.length, 2);
+    assert.deepStrictEqual(routes[0].requiredContent, [
       'id="hero"',
       'id="features"',
       'id="demo"',
       'id="get-started"',
     ]);
-    expect(routes[1]).toEqual({
+    assert.deepStrictEqual(routes[1], {
       pathname: "/pastoralist/docs/setup/",
       outputPath: "docs/setup/index.html",
       title: "Setup",
@@ -54,11 +55,11 @@ describe("createStaticDocument", () => {
     };
     const html = createStaticDocument(template, route, rendered);
 
-    expect(html).toContain('<div id="root" data-prerendered="true">');
-    expect(html).toContain("<title>Setup</title>");
-    expect(html).toContain('content="Install &quot;Pastoralist&quot; safely"');
-    expect(html).toContain(rendered.routerHtml);
-    expect(html).not.toContain('<div class="initial-loader"></div>');
+    assert.ok(html.includes('<div id="root" data-prerendered="true">'));
+    assert.ok(html.includes("<title>Setup</title>"));
+    assert.ok(html.includes('content="Install &quot;Pastoralist&quot; safely"'));
+    assert.ok(html.includes(rendered.routerHtml));
+    assert.ok(!html.includes('<div class="initial-loader"></div>'));
   });
 });
 
@@ -78,8 +79,8 @@ describe("validateStaticDocument", () => {
       validateStaticDocument(route, template).pipe(Effect.flip),
     );
 
-    expect(error).toBeInstanceOf(InvalidStaticDocument);
-    expect(error.reason).toContain("prerendered root");
+    assert.ok(error instanceof InvalidStaticDocument);
+    assert.ok(error.reason.includes("prerendered root"));
   });
 
   test("rejects React client-render fallbacks", async () => {
@@ -90,8 +91,8 @@ describe("validateStaticDocument", () => {
     const html = createStaticDocument(template, route, rendered);
     const error = await Effect.runPromise(validateStaticDocument(route, html).pipe(Effect.flip));
 
-    expect(error).toBeInstanceOf(InvalidStaticDocument);
-    expect(error.reason).toContain("client-render fallback");
+    assert.ok(error instanceof InvalidStaticDocument);
+    assert.ok(error.reason.includes("client-render fallback"));
   });
 
   test("rejects routes without rendered page content", async () => {
@@ -102,8 +103,8 @@ describe("validateStaticDocument", () => {
     const html = createStaticDocument(template, route, rendered);
     const error = await Effect.runPromise(validateStaticDocument(route, html).pipe(Effect.flip));
 
-    expect(error).toBeInstanceOf(InvalidStaticDocument);
-    expect(error.reason).toContain("rendered heading");
+    assert.ok(error instanceof InvalidStaticDocument);
+    assert.ok(error.reason.includes("rendered heading"));
   });
 
   test("rejects an incomplete static homepage", async () => {
@@ -117,7 +118,7 @@ describe("validateStaticDocument", () => {
       validateStaticDocument(homeRoute, html).pipe(Effect.flip),
     );
 
-    expect(error).toBeInstanceOf(InvalidStaticDocument);
-    expect(error.reason).toContain('id="features"');
+    assert.ok(error instanceof InvalidStaticDocument);
+    assert.ok(error.reason.includes('id="features"'));
   });
 });

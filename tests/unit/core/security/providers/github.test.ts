@@ -1,6 +1,8 @@
-import { test, expect } from "bun:test";
+import { assertHasProperty, errorIncludes } from "../../../setup";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 import { GitHubSecurityProvider } from "../../../../../src/core/security/providers/github";
-import { DependabotAlert } from "../../../../../src/core/security/types";
+import type { DependabotAlert } from "../../../../../src/core/security/types";
 import { SECURITY_ENV_VARS } from "../../../../../src/constants";
 import {
   MOCK_DEPENDABOT_ALERT_LODASH,
@@ -10,7 +12,7 @@ import {
 test("providerType - should be 'github'", () => {
   process.env.PASTORALIST_MOCK_SECURITY = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
-  expect(provider.providerType).toBe("github");
+  assert.strictEqual(provider.providerType, "github");
 });
 
 test("constructor - initializes with token from environment", () => {
@@ -19,7 +21,7 @@ test("constructor - initializes with token from environment", () => {
   process.env.GITHUB_TOKEN = "test-token";
 
   const provider = new GitHubSecurityProvider({ debug: false });
-  expect(provider).toBeDefined();
+  assert.notStrictEqual(provider, undefined);
 
   if (originalToken) {
     process.env.GITHUB_TOKEN = originalToken;
@@ -34,13 +36,13 @@ test("constructor - initializes with explicit token", () => {
     token: "explicit-token",
     debug: false,
   });
-  expect(provider).toBeDefined();
+  assert.notStrictEqual(provider, undefined);
 });
 
 test("constructor - initializes with debug option", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: true });
-  expect(provider).toBeDefined();
+  assert.notStrictEqual(provider, undefined);
 });
 
 test("constructor - initializes with owner and repo", () => {
@@ -50,7 +52,7 @@ test("constructor - initializes with owner and repo", () => {
     repo: "test-repo",
     debug: false,
   });
-  expect(provider).toBeDefined();
+  assert.notStrictEqual(provider, undefined);
 });
 
 test("convertToSecurityAlerts - converts Dependabot alerts to SecurityAlerts", () => {
@@ -60,10 +62,10 @@ test("convertToSecurityAlerts - converts Dependabot alerts to SecurityAlerts", (
 
   const alerts = provider.convertToSecurityAlerts(dependabotAlerts);
 
-  expect(alerts).toHaveLength(1);
-  expect(alerts[0].packageName).toBe("lodash");
-  expect(alerts[0].severity).toBe("high");
-  expect(alerts[0].patchedVersion).toBe("4.17.21");
+  assert.strictEqual(alerts.length, 1);
+  assert.strictEqual(alerts[0].packageName, "lodash");
+  assert.strictEqual(alerts[0].severity, "high");
+  assert.strictEqual(alerts[0].patchedVersion, "4.17.21");
 });
 
 test("convertToSecurityAlerts - filters out dismissed alerts", () => {
@@ -76,7 +78,7 @@ test("convertToSecurityAlerts - filters out dismissed alerts", () => {
 
   const alerts = provider.convertToSecurityAlerts([dismissedAlert]);
 
-  expect(alerts).toHaveLength(0);
+  assert.strictEqual(alerts.length, 0);
 });
 
 test("convertToSecurityAlerts - filters out fixed alerts", () => {
@@ -89,7 +91,7 @@ test("convertToSecurityAlerts - filters out fixed alerts", () => {
 
   const alerts = provider.convertToSecurityAlerts([fixedAlert]);
 
-  expect(alerts).toHaveLength(0);
+  assert.strictEqual(alerts.length, 0);
 });
 
 test("convertToSecurityAlerts - only includes open alerts", () => {
@@ -105,8 +107,8 @@ test("convertToSecurityAlerts - only includes open alerts", () => {
 
   const securityAlerts = provider.convertToSecurityAlerts(alerts);
 
-  expect(securityAlerts).toHaveLength(1);
-  expect(securityAlerts[0].packageName).toBe("lodash");
+  assert.strictEqual(securityAlerts.length, 1);
+  assert.strictEqual(securityAlerts[0].packageName, "lodash");
 });
 
 test("convertToSecurityAlerts - handles alerts without CVE", () => {
@@ -122,8 +124,8 @@ test("convertToSecurityAlerts - handles alerts without CVE", () => {
 
   const alerts = provider.convertToSecurityAlerts([alertWithoutCve]);
 
-  expect(alerts).toHaveLength(1);
-  expect(alerts[0].cves?.length).toBeFalsy();
+  assert.strictEqual(alerts.length, 1);
+  assert.ok(!alerts[0].cves?.length);
 });
 
 test("convertToSecurityAlerts - handles alerts without patched version", () => {
@@ -139,9 +141,9 @@ test("convertToSecurityAlerts - handles alerts without patched version", () => {
 
   const alerts = provider.convertToSecurityAlerts([alertWithoutPatch]);
 
-  expect(alerts).toHaveLength(1);
-  expect(alerts[0].patchedVersion).toBeUndefined();
-  expect(alerts[0].fixAvailable).toBe(false);
+  assert.strictEqual(alerts.length, 1);
+  assert.strictEqual(alerts[0].patchedVersion, undefined);
+  assert.strictEqual(alerts[0].fixAvailable, false);
 });
 
 test("convertToSecurityAlerts - converts multiple alerts", () => {
@@ -152,9 +154,9 @@ test("convertToSecurityAlerts - converts multiple alerts", () => {
     MOCK_DEPENDABOT_ALERT_MINIMIST as DependabotAlert,
   ]);
 
-  expect(alerts).toHaveLength(2);
-  expect(alerts[0].packageName).toBe("lodash");
-  expect(alerts[1].packageName).toBe("minimist");
+  assert.strictEqual(alerts.length, 2);
+  assert.strictEqual(alerts[0].packageName, "lodash");
+  assert.strictEqual(alerts[1].packageName, "minimist");
 });
 
 test("convertToSecurityAlerts - filters alerts to scanned npm packages", () => {
@@ -168,9 +170,9 @@ test("convertToSecurityAlerts - filters alerts to scanned npm packages", () => {
     [{ name: "lodash", version: "4.17.20" }],
   );
 
-  expect(alerts).toHaveLength(1);
-  expect(alerts[0].packageName).toBe("lodash");
-  expect(alerts[0].currentVersion).toBe("4.17.20");
+  assert.strictEqual(alerts.length, 1);
+  assert.strictEqual(alerts[0].packageName, "lodash");
+  assert.strictEqual(alerts[0].currentVersion, "4.17.20");
 });
 
 test("convertToSecurityAlerts - filters non-npm alerts when ecosystem is known", () => {
@@ -193,7 +195,7 @@ test("convertToSecurityAlerts - filters non-npm alerts when ecosystem is known",
     [{ name: "lodash", version: "4.17.20" }],
   );
 
-  expect(alerts).toHaveLength(0);
+  assert.strictEqual(alerts.length, 0);
 });
 
 test("convertToSecurityAlerts - maps fields correctly", () => {
@@ -223,15 +225,15 @@ test("convertToSecurityAlerts - maps fields correctly", () => {
 
   const alerts = provider.convertToSecurityAlerts(dependabotAlerts as any);
 
-  expect(alerts[0].packageName).toBe("test-pkg");
-  expect(alerts[0].vulnerableVersions).toBe("< 2.0.0");
-  expect(alerts[0].patchedVersion).toBe("2.0.0");
-  expect(alerts[0].severity).toBe("critical");
-  expect(alerts[0].title).toBe("Security Issue");
-  expect(alerts[0].description).toBe("Detailed description");
-  expect(alerts[0].cves?.[0]).toBe("CVE-2024-1234");
-  expect(alerts[0].url).toBe("https://github.com/test/test/security/dependabot/1");
-  expect(alerts[0].fixAvailable).toBe(true);
+  assert.strictEqual(alerts[0].packageName, "test-pkg");
+  assert.strictEqual(alerts[0].vulnerableVersions, "< 2.0.0");
+  assert.strictEqual(alerts[0].patchedVersion, "2.0.0");
+  assert.strictEqual(alerts[0].severity, "critical");
+  assert.strictEqual(alerts[0].title, "Security Issue");
+  assert.strictEqual(alerts[0].description, "Detailed description");
+  assert.strictEqual(alerts[0].cves?.[0], "CVE-2024-1234");
+  assert.strictEqual(alerts[0].url, "https://github.com/test/test/security/dependabot/1");
+  assert.strictEqual(alerts[0].fixAvailable, true);
 });
 
 test("convertToSecurityAlerts - extracts current version from range", () => {
@@ -261,102 +263,102 @@ test("convertToSecurityAlerts - extracts current version from range", () => {
 
   const result = provider.convertToSecurityAlerts(alerts as any);
 
-  expect(result[0].currentVersion).toBe("4.17.0");
+  assert.strictEqual(result[0].currentVersion, "4.17.0");
 });
 
 test("normalizeSeverity - normalizes low severity", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
   const result = (provider as any).normalizeSeverity("low");
-  expect(result).toBe("low");
+  assert.strictEqual(result, "low");
 });
 
 test("normalizeSeverity - normalizes medium severity", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
   const result = (provider as any).normalizeSeverity("medium");
-  expect(result).toBe("medium");
+  assert.strictEqual(result, "medium");
 });
 
 test("normalizeSeverity - normalizes high severity", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
   const result = (provider as any).normalizeSeverity("high");
-  expect(result).toBe("high");
+  assert.strictEqual(result, "high");
 });
 
 test("normalizeSeverity - normalizes critical severity", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
   const result = (provider as any).normalizeSeverity("critical");
-  expect(result).toBe("critical");
+  assert.strictEqual(result, "critical");
 });
 
 test("normalizeSeverity - handles uppercase severity", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
-  expect((provider as any).normalizeSeverity("LOW")).toBe("low");
-  expect((provider as any).normalizeSeverity("MEDIUM")).toBe("medium");
-  expect((provider as any).normalizeSeverity("HIGH")).toBe("high");
-  expect((provider as any).normalizeSeverity("CRITICAL")).toBe("critical");
+  assert.strictEqual((provider as any).normalizeSeverity("LOW"), "low");
+  assert.strictEqual((provider as any).normalizeSeverity("MEDIUM"), "medium");
+  assert.strictEqual((provider as any).normalizeSeverity("HIGH"), "high");
+  assert.strictEqual((provider as any).normalizeSeverity("CRITICAL"), "critical");
 });
 
 test("normalizeSeverity - handles mixed case severity", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
-  expect((provider as any).normalizeSeverity("Low")).toBe("low");
-  expect((provider as any).normalizeSeverity("Medium")).toBe("medium");
-  expect((provider as any).normalizeSeverity("High")).toBe("high");
-  expect((provider as any).normalizeSeverity("Critical")).toBe("critical");
+  assert.strictEqual((provider as any).normalizeSeverity("Low"), "low");
+  assert.strictEqual((provider as any).normalizeSeverity("Medium"), "medium");
+  assert.strictEqual((provider as any).normalizeSeverity("High"), "high");
+  assert.strictEqual((provider as any).normalizeSeverity("Critical"), "critical");
 });
 
 test("normalizeSeverity - defaults to medium for unknown severity", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
   const result = (provider as any).normalizeSeverity("unknown");
-  expect(result).toBe("medium");
+  assert.strictEqual(result, "medium");
 });
 
 test("normalizeSeverity - defaults to medium for invalid severity", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
   const result = (provider as any).normalizeSeverity("not-a-severity");
-  expect(result).toBe("medium");
+  assert.strictEqual(result, "medium");
 });
 
 test("isGitHubUrl - detects SSH GitHub URL", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
   const result = (provider as any).isGitHubUrl("git@github.com:user/repo.git");
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("isGitHubUrl - detects HTTPS GitHub URL", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
   const result = (provider as any).isGitHubUrl("https://github.com/user/repo.git");
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("isGitHubUrl - rejects non-GitHub URL", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
   const result = (provider as any).isGitHubUrl("https://gitlab.com/user/repo.git");
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 });
 
 test("isGitHubUrl - rejects invalid URL", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
   const result = (provider as any).isGitHubUrl("not-a-url");
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 });
 
 test("isGitHubUrl - handles HTTP GitHub URL", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
   const result = (provider as any).isGitHubUrl("http://github.com/user/repo.git");
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("isGitHubUrl - rejects gitlab SSH URL", () => {
@@ -366,21 +368,21 @@ test("isGitHubUrl - rejects gitlab SSH URL", () => {
     debug: false,
   });
 
-  expect(provider["isGitHubUrl"]("git@gitlab.com:owner/repo.git")).toBe(false);
+  assert.strictEqual(provider["isGitHubUrl"]("git@gitlab.com:owner/repo.git"), false);
 });
 
 test("isMockMode - returns true when mock mode is enabled", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
   const result = (provider as any).isMockMode();
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("isMockMode - returns false when mock mode is disabled", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "false";
   const provider = new GitHubSecurityProvider({ debug: false });
   const result = (provider as any).isMockMode();
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
 });
 
@@ -388,7 +390,7 @@ test("isMockMode - returns false when mock mode is not set", () => {
   delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
   const provider = new GitHubSecurityProvider({ debug: false });
   const result = (provider as any).isMockMode();
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
 });
 
@@ -397,7 +399,7 @@ test("shouldForceVulnerable - returns true when force vulnerable is enabled", ()
   process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
   const result = (provider as any).shouldForceVulnerable();
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
   delete process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE];
 });
 
@@ -406,7 +408,7 @@ test("shouldForceVulnerable - returns false when force vulnerable is disabled", 
   process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE] = "false";
   const provider = new GitHubSecurityProvider({ debug: false });
   const result = (provider as any).shouldForceVulnerable();
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
   delete process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE];
 });
 
@@ -415,15 +417,15 @@ test("shouldForceVulnerable - returns false when force vulnerable is not set", (
   delete process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE];
   const provider = new GitHubSecurityProvider({ debug: false });
   const result = (provider as any).shouldForceVulnerable();
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 });
 
 test("getDefaultMockAlerts - returns default mock alerts", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
   const alerts = (provider as any).getDefaultMockAlerts();
-  expect(Array.isArray(alerts)).toBe(true);
-  expect(alerts.length).toBeGreaterThan(0);
+  assert.strictEqual(Array.isArray(alerts), true);
+  assert.ok(alerts.length > 0);
 });
 
 test("getDefaultMockAlerts - includes lodash alert", () => {
@@ -431,7 +433,7 @@ test("getDefaultMockAlerts - includes lodash alert", () => {
   const provider = new GitHubSecurityProvider({ debug: false });
   const alerts = (provider as any).getDefaultMockAlerts();
   const lodashAlert = alerts.find((a: DependabotAlert) => a.dependency.package.name === "lodash");
-  expect(lodashAlert).toBeDefined();
+  assert.notStrictEqual(lodashAlert, undefined);
 });
 
 test("getDefaultMockAlerts - includes minimist alert", () => {
@@ -441,7 +443,7 @@ test("getDefaultMockAlerts - includes minimist alert", () => {
   const minimistAlert = alerts.find(
     (a: DependabotAlert) => a.dependency.package.name === "minimist",
   );
-  expect(minimistAlert).toBeDefined();
+  assert.notStrictEqual(minimistAlert, undefined);
 });
 
 test("fetchDependabotAlerts - returns empty array when not forcing vulnerable in mock mode", async () => {
@@ -455,7 +457,7 @@ test("fetchDependabotAlerts - returns empty array when not forcing vulnerable in
   });
 
   const alerts = await provider.fetchDependabotAlerts();
-  expect(alerts).toEqual([]);
+  assert.deepStrictEqual(alerts, []);
   delete process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE];
 });
 
@@ -470,9 +472,85 @@ test("fetchDependabotAlerts - returns mock alerts when forcing vulnerable", asyn
   });
 
   const alerts = await provider.fetchDependabotAlerts();
-  expect(Array.isArray(alerts)).toBe(true);
-  expect(alerts.length).toBeGreaterThan(0);
+  assert.strictEqual(Array.isArray(alerts), true);
+  assert.ok(alerts.length > 0);
   delete process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE];
+});
+
+test("fetchDependabotAlerts - preserves dots in inferred repository names", async () => {
+  const originalMockMode = process.env[SECURITY_ENV_VARS.MOCK_MODE];
+  const originalFetch = global.fetch;
+  delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
+
+  const provider = new GitHubSecurityProvider({
+    token: ["test", "token"].join("-"),
+    debug: false,
+  });
+  provider["execFileAsync"] = async () => ({
+    stdout: "https://github.com/vercel/next.js.git\n",
+    stderr: "",
+  });
+
+  let requestedUrl = "";
+  global.fetch = async (input) => {
+    requestedUrl = String(input);
+    return {
+      ok: true,
+      headers: new Headers(),
+      json: async () => [],
+    } as Response;
+  };
+
+  try {
+    await provider.fetchDependabotAlerts();
+    assert.ok(requestedUrl.includes("/vercel/next.js/dependabot/alerts"));
+  } finally {
+    global.fetch = originalFetch;
+    if (originalMockMode) {
+      process.env[SECURITY_ENV_VARS.MOCK_MODE] = originalMockMode;
+    } else {
+      delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
+    }
+  }
+});
+
+test("fetchDependabotAlerts - follows GitHub API pagination", async () => {
+  const originalMockMode = process.env[SECURITY_ENV_VARS.MOCK_MODE];
+  const originalFetch = global.fetch;
+  delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
+
+  const provider = new GitHubSecurityProvider({
+    owner: "test-owner",
+    repo: "test-repo",
+    token: ["test", "token"].join("-"),
+    debug: false,
+  });
+  const firstAlert = MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert;
+  const secondAlert = MOCK_DEPENDABOT_ALERT_MINIMIST as DependabotAlert;
+  let requestCount = 0;
+
+  global.fetch = async () => {
+    requestCount += 1;
+    const isFirstPage = requestCount === 1;
+    const headers = isFirstPage
+      ? new Headers({ Link: '<https://api.github.com/alerts?page=2>; rel="next"' })
+      : new Headers();
+    const alerts = isFirstPage ? [firstAlert] : [secondAlert];
+    return { ok: true, headers, json: async () => alerts } as Response;
+  };
+
+  try {
+    const alerts = await provider.fetchDependabotAlerts();
+    assert.deepStrictEqual(alerts, [firstAlert, secondAlert]);
+    assert.strictEqual(requestCount, 2);
+  } finally {
+    global.fetch = originalFetch;
+    if (originalMockMode) {
+      process.env[SECURITY_ENV_VARS.MOCK_MODE] = originalMockMode;
+    } else {
+      delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
+    }
+  }
 });
 
 test("fetchAlerts - converts Dependabot alerts to SecurityAlerts", async () => {
@@ -486,12 +564,12 @@ test("fetchAlerts - converts Dependabot alerts to SecurityAlerts", async () => {
   });
 
   const alerts = await provider.fetchAlerts();
-  expect(Array.isArray(alerts)).toBe(true);
+  assert.strictEqual(Array.isArray(alerts), true);
 
   if (alerts.length > 0) {
-    expect(alerts[0]).toHaveProperty("packageName");
-    expect(alerts[0]).toHaveProperty("severity");
-    expect(alerts[0]).toHaveProperty("vulnerableVersions");
+    assertHasProperty(alerts[0], "packageName");
+    assertHasProperty(alerts[0], "severity");
+    assertHasProperty(alerts[0], "vulnerableVersions");
   }
   delete process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE];
 });
@@ -508,7 +586,7 @@ test("extractCurrentVersion - extracts version from >= range", () => {
   };
 
   const version = (provider as any).extractCurrentVersion(alert);
-  expect(version).toBe("4.0.0");
+  assert.strictEqual(version, "4.0.0");
 });
 
 test("extractCurrentVersion - extracts version from >= <= range", () => {
@@ -523,7 +601,7 @@ test("extractCurrentVersion - extracts version from >= <= range", () => {
   };
 
   const version = (provider as any).extractCurrentVersion(alert);
-  expect(version).toBe("4.0.0");
+  assert.strictEqual(version, "4.0.0");
 });
 
 test("extractCurrentVersion - returns unknown for unparseable range", () => {
@@ -538,7 +616,7 @@ test("extractCurrentVersion - returns unknown for unparseable range", () => {
   };
 
   const version = (provider as any).extractCurrentVersion(alert);
-  expect(version).toBe("unknown");
+  assert.strictEqual(version, "unknown");
 });
 
 test("extractCurrentVersion - handles >= with single space", () => {
@@ -565,7 +643,7 @@ test("extractCurrentVersion - handles >= with single space", () => {
   } as any;
 
   const result = (provider as any).extractCurrentVersion(alert);
-  expect(result).toBe("4.17.0");
+  assert.strictEqual(result, "4.17.0");
 });
 
 test("extractCurrentVersion - handles empty vulnerable range", () => {
@@ -592,7 +670,7 @@ test("extractCurrentVersion - handles empty vulnerable range", () => {
   } as any;
 
   const result = (provider as any).extractCurrentVersion(alert);
-  expect(result).toBe("unknown");
+  assert.strictEqual(result, "unknown");
 });
 
 test("initialize - sets owner and repo when provided", async () => {
@@ -604,8 +682,8 @@ test("initialize - sets owner and repo when provided", async () => {
 
   await provider.initialize();
 
-  expect(provider["owner"]).toBe("explicit-owner");
-  expect(provider["repo"]).toBe("explicit-repo");
+  assert.strictEqual(provider["owner"], "explicit-owner");
+  assert.strictEqual(provider["repo"], "explicit-repo");
 });
 
 test("fetchMockAlerts - returns empty when not forcing vulnerable", async () => {
@@ -622,7 +700,7 @@ test("fetchMockAlerts - returns empty when not forcing vulnerable", async () => 
   });
 
   const alerts = await provider["fetchMockAlerts"]();
-  expect(alerts).toEqual([]);
+  assert.deepStrictEqual(alerts, []);
 
   if (originalMock) process.env[SECURITY_ENV_VARS.MOCK_MODE] = originalMock;
   else delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
@@ -644,8 +722,8 @@ test("fetchMockAlerts - returns alerts when forcing vulnerable", async () => {
   });
 
   const alerts = await provider["fetchMockAlerts"]();
-  expect(Array.isArray(alerts)).toBe(true);
-  expect(alerts.length).toBeGreaterThan(0);
+  assert.strictEqual(Array.isArray(alerts), true);
+  assert.ok(alerts.length > 0);
 
   if (originalMock) process.env[SECURITY_ENV_VARS.MOCK_MODE] = originalMock;
   else delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
@@ -670,8 +748,8 @@ test("getMockVulnerableAlerts - uses default when no mock file", async () => {
   });
 
   const alerts = await provider["getMockVulnerableAlerts"]();
-  expect(Array.isArray(alerts)).toBe(true);
-  expect(alerts.length).toBeGreaterThan(0);
+  assert.strictEqual(Array.isArray(alerts), true);
+  assert.ok(alerts.length > 0);
 
   if (originalMock) process.env[SECURITY_ENV_VARS.MOCK_MODE] = originalMock;
   else delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
@@ -714,9 +792,9 @@ test("loadMockFile - loads valid mock file", async () => {
   });
 
   const alerts = await provider["loadMockFile"](testFile);
-  expect(alerts).toBeDefined();
-  expect(Array.isArray(alerts)).toBe(true);
-  expect(alerts?.length).toBe(1);
+  assert.notStrictEqual(alerts, undefined);
+  assert.strictEqual(Array.isArray(alerts), true);
+  assert.strictEqual(alerts?.length, 1);
 
   unlinkSync(testFile);
 });
@@ -729,7 +807,7 @@ test("loadMockFile - returns null for invalid file", async () => {
   });
 
   const alerts = await provider["loadMockFile"]("/nonexistent/path/file.json");
-  expect(alerts).toBeNull();
+  assert.strictEqual(alerts, null);
 });
 
 test("loadMockFile - returns null for malformed JSON", async () => {
@@ -746,7 +824,7 @@ test("loadMockFile - returns null for malformed JSON", async () => {
   });
 
   const alerts = await provider["loadMockFile"](testFile);
-  expect(alerts).toBeNull();
+  assert.strictEqual(alerts, null);
 
   unlinkSync(testFile);
 });
@@ -766,8 +844,9 @@ test("fetchRealAlerts - throws when no token and no gh CLI", async () => {
 
   provider["isGhCliAvailable"] = async () => false;
 
-  await expect(provider["fetchRealAlerts"]()).rejects.toThrow(
-    "GitHub CLI not found and no GITHUB_TOKEN provided",
+  await assert.rejects(
+    provider["fetchRealAlerts"](),
+    errorIncludes("GitHub CLI not found and no GITHUB_TOKEN provided"),
   );
 
   if (originalMock) process.env[SECURITY_ENV_VARS.MOCK_MODE] = originalMock;
@@ -793,7 +872,7 @@ test("fetchRealAlerts - uses API when token provided", async () => {
   };
 
   await provider["fetchRealAlerts"]();
-  expect(apiCalled).toBe(true);
+  assert.strictEqual(apiCalled, true);
 
   if (originalMock) process.env[SECURITY_ENV_VARS.MOCK_MODE] = originalMock;
 });
@@ -820,7 +899,7 @@ test("fetchRealAlerts - uses gh CLI when no token but CLI available", async () =
   };
 
   await provider["fetchRealAlerts"]();
-  expect(cliCalled).toBe(true);
+  assert.strictEqual(cliCalled, true);
 
   if (originalMock) process.env[SECURITY_ENV_VARS.MOCK_MODE] = originalMock;
   if (originalToken) process.env.GITHUB_TOKEN = originalToken;
@@ -841,7 +920,10 @@ test("fetchRealAlerts - API path throws wrapped error on failure", async () => {
     throw new Error("Failed to fetch Dependabot alerts: API error");
   };
 
-  await expect(provider["fetchRealAlerts"]()).rejects.toThrow("Failed to fetch Dependabot alerts");
+  await assert.rejects(
+    provider["fetchRealAlerts"](),
+    errorIncludes("Failed to fetch Dependabot alerts"),
+  );
 
   if (originalMock) process.env[SECURITY_ENV_VARS.MOCK_MODE] = originalMock;
 });
@@ -864,7 +946,10 @@ test("fetchRealAlerts - CLI path throws wrapped error on failure", async () => {
     throw new Error("Failed to fetch Dependabot alerts: CLI error");
   };
 
-  await expect(provider["fetchRealAlerts"]()).rejects.toThrow("Failed to fetch Dependabot alerts");
+  await assert.rejects(
+    provider["fetchRealAlerts"](),
+    errorIncludes("Failed to fetch Dependabot alerts"),
+  );
 
   if (originalMock) process.env[SECURITY_ENV_VARS.MOCK_MODE] = originalMock;
   if (originalToken) process.env.GITHUB_TOKEN = originalToken;
@@ -898,7 +983,7 @@ test("fetchAlertsWithGhCli - parses JSON response", async () => {
   provider["executeGhCli"] = async () => JSON.stringify(mockAlerts);
 
   const alerts = await provider["fetchAlertsWithGhCli"]();
-  expect(alerts).toEqual(mockAlerts);
+  assert.deepStrictEqual(alerts, mockAlerts);
 });
 
 test("fetchAlertsWithGhCli - handles non-array response", async () => {
@@ -911,7 +996,7 @@ test("fetchAlertsWithGhCli - handles non-array response", async () => {
   provider["executeGhCli"] = async () => JSON.stringify({ message: "error" });
 
   const alerts = await provider["fetchAlertsWithGhCli"]();
-  expect(alerts).toEqual([]);
+  assert.deepStrictEqual(alerts, []);
 });
 
 test("isPermissionError - detects 'Resource not accessible by integration' error", () => {
@@ -921,7 +1006,7 @@ test("isPermissionError - detects 'Resource not accessible by integration' error
     debug: false,
   });
 
-  expect(provider["isPermissionError"]("Resource not accessible by integration")).toBe(true);
+  assert.strictEqual(provider["isPermissionError"]("Resource not accessible by integration"), true);
 });
 
 test("isPermissionError - detects 'Must have admin rights' error", () => {
@@ -931,7 +1016,7 @@ test("isPermissionError - detects 'Must have admin rights' error", () => {
     debug: false,
   });
 
-  expect(provider["isPermissionError"]("Must have admin rights")).toBe(true);
+  assert.strictEqual(provider["isPermissionError"]("Must have admin rights"), true);
 });
 
 test("isPermissionError - detects 'Not Found' error", () => {
@@ -941,7 +1026,7 @@ test("isPermissionError - detects 'Not Found' error", () => {
     debug: false,
   });
 
-  expect(provider["isPermissionError"]("Not Found")).toBe(true);
+  assert.strictEqual(provider["isPermissionError"]("Not Found"), true);
 });
 
 test("isPermissionError - detects 'Dependabot alerts are not enabled' error", () => {
@@ -951,7 +1036,7 @@ test("isPermissionError - detects 'Dependabot alerts are not enabled' error", ()
     debug: false,
   });
 
-  expect(provider["isPermissionError"]("Dependabot alerts are not enabled")).toBe(true);
+  assert.strictEqual(provider["isPermissionError"]("Dependabot alerts are not enabled"), true);
 });
 
 test("isPermissionError - detects 'vulnerability alerts are disabled' error", () => {
@@ -961,7 +1046,7 @@ test("isPermissionError - detects 'vulnerability alerts are disabled' error", ()
     debug: false,
   });
 
-  expect(provider["isPermissionError"]("vulnerability alerts are disabled")).toBe(true);
+  assert.strictEqual(provider["isPermissionError"]("vulnerability alerts are disabled"), true);
 });
 
 test("isPermissionError - is case insensitive", () => {
@@ -971,8 +1056,8 @@ test("isPermissionError - is case insensitive", () => {
     debug: false,
   });
 
-  expect(provider["isPermissionError"]("RESOURCE NOT ACCESSIBLE BY INTEGRATION")).toBe(true);
-  expect(provider["isPermissionError"]("resource not accessible by integration")).toBe(true);
+  assert.strictEqual(provider["isPermissionError"]("RESOURCE NOT ACCESSIBLE BY INTEGRATION"), true);
+  assert.strictEqual(provider["isPermissionError"]("resource not accessible by integration"), true);
 });
 
 test("isPermissionError - returns false for non-permission errors", () => {
@@ -982,9 +1067,9 @@ test("isPermissionError - returns false for non-permission errors", () => {
     debug: false,
   });
 
-  expect(provider["isPermissionError"]("Rate limit exceeded")).toBe(false);
-  expect(provider["isPermissionError"]("Server error")).toBe(false);
-  expect(provider["isPermissionError"]("Network timeout")).toBe(false);
+  assert.strictEqual(provider["isPermissionError"]("Rate limit exceeded"), false);
+  assert.strictEqual(provider["isPermissionError"]("Server error"), false);
+  assert.strictEqual(provider["isPermissionError"]("Network timeout"), false);
 });
 
 test("fetchAlertsWithGhCli - throws SecurityProviderPermissionError for permission errors", async () => {
@@ -1000,7 +1085,7 @@ test("fetchAlertsWithGhCli - throws SecurityProviderPermissionError for permissi
     throw new Error("Resource not accessible by integration");
   };
 
-  await expect(provider["fetchAlertsWithGhCli"]()).rejects.toThrow(SecurityProviderPermissionError);
+  await assert.rejects(provider["fetchAlertsWithGhCli"](), SecurityProviderPermissionError);
 });
 
 test("fetchAlertsWithApi - throws SecurityProviderPermissionError for permission errors", async () => {
@@ -1017,7 +1102,7 @@ test("fetchAlertsWithApi - throws SecurityProviderPermissionError for permission
     throw new SecurityProviderPermissionError("GitHub", "Resource not accessible by integration");
   };
 
-  await expect(provider["fetchAlertsWithApi"]()).rejects.toThrow(SecurityProviderPermissionError);
+  await assert.rejects(provider["fetchAlertsWithApi"](), SecurityProviderPermissionError);
 });
 
 test("SecurityProviderPermissionError - has correct message format", async () => {
@@ -1029,12 +1114,12 @@ test("SecurityProviderPermissionError - has correct message format", async () =>
     "Resource not accessible by integration",
   );
 
-  expect(error.name).toBe("SecurityProviderPermissionError");
-  expect(error.provider).toBe("GitHub");
-  expect(error.originalMessage).toBe("Resource not accessible by integration");
-  expect(error.message).toContain("GitHub");
-  expect(error.message).toContain("Resource not accessible by integration");
-  expect(error.message).toContain("vulnerability-alerts: read");
+  assert.strictEqual(error.name, "SecurityProviderPermissionError");
+  assert.strictEqual(error.provider, "GitHub");
+  assert.strictEqual(error.originalMessage, "Resource not accessible by integration");
+  assert.ok(error.message.includes("GitHub"));
+  assert.ok(error.message.includes("Resource not accessible by integration"));
+  assert.ok(error.message.includes("vulnerability-alerts: read"));
 });
 
 test("SecurityProviderPermissionError - provides guidance for disabled alerts", async () => {
@@ -1043,8 +1128,8 @@ test("SecurityProviderPermissionError - provides guidance for disabled alerts", 
 
   const error = new SecurityProviderPermissionError("GitHub", "Dependabot alerts are not enabled");
 
-  expect(error.message).toContain("Enable Dependabot alerts");
-  expect(error.message).toContain("Settings > Code security");
+  assert.ok(error.message.includes("Enable Dependabot alerts"));
+  assert.ok(error.message.includes("Settings > Code security"));
 });
 
 test("SecurityProviderPermissionError - provides guidance for not found errors", async () => {
@@ -1053,7 +1138,7 @@ test("SecurityProviderPermissionError - provides guidance for not found errors",
 
   const error = new SecurityProviderPermissionError("GitHub", "Not Found");
 
-  expect(error.message).toContain("Verify the repository exists");
+  assert.ok(error.message.includes("Verify the repository exists"));
 });
 
 test("SecurityProviderPermissionError - provides fallback guidance for unknown errors", async () => {
@@ -1062,7 +1147,7 @@ test("SecurityProviderPermissionError - provides fallback guidance for unknown e
 
   const error = new SecurityProviderPermissionError("GitHub", "Some other error");
 
-  expect(error.message).toContain("Check repository permissions");
+  assert.ok(error.message.includes("Check repository permissions"));
 });
 
 test("SecurityProviderPermissionError - extends Error", async () => {
@@ -1071,8 +1156,8 @@ test("SecurityProviderPermissionError - extends Error", async () => {
 
   const error = new SecurityProviderPermissionError("GitHub CLI", "Not Found");
 
-  expect(error instanceof Error).toBe(true);
-  expect(error.stack).toBeDefined();
+  assert.strictEqual(error instanceof Error, true);
+  assert.notStrictEqual(error.stack, undefined);
 });
 
 test("fetchFromGitHubAPI - throws SecurityProviderPermissionError for permission error response", async () => {
@@ -1096,7 +1181,7 @@ test("fetchFromGitHubAPI - throws SecurityProviderPermissionError for permission
   global.fetch = async () => mockResponse as Response;
 
   try {
-    await expect(provider["fetchFromGitHubAPI"]()).rejects.toThrow(SecurityProviderPermissionError);
+    await assert.rejects(provider["fetchFromGitHubAPI"](), SecurityProviderPermissionError);
   } finally {
     global.fetch = originalFetch;
   }
@@ -1120,8 +1205,9 @@ test("fetchFromGitHubAPI - throws regular error for non-permission API errors", 
   global.fetch = async () => mockResponse as Response;
 
   try {
-    await expect(provider["fetchFromGitHubAPI"]()).rejects.toThrow(
-      "GitHub API error: Server error",
+    await assert.rejects(
+      provider["fetchFromGitHubAPI"](),
+      errorIncludes("GitHub API error: Server error"),
     );
   } finally {
     global.fetch = originalFetch;
@@ -1146,7 +1232,10 @@ test("fetchFromGitHubAPI - uses statusText when message is missing", async () =>
   global.fetch = async () => mockResponse as Response;
 
   try {
-    await expect(provider["fetchFromGitHubAPI"]()).rejects.toThrow("GitHub API error: Bad Request");
+    await assert.rejects(
+      provider["fetchFromGitHubAPI"](),
+      errorIncludes("GitHub API error: Bad Request"),
+    );
   } finally {
     global.fetch = originalFetch;
   }
@@ -1171,7 +1260,7 @@ test("fetchFromGitHubAPI - returns alerts array on success", async () => {
 
   try {
     const result = await provider["fetchFromGitHubAPI"]();
-    expect(result).toEqual(mockAlerts);
+    assert.deepStrictEqual(result, mockAlerts);
   } finally {
     global.fetch = originalFetch;
   }
@@ -1195,7 +1284,7 @@ test("fetchFromGitHubAPI - returns empty array for non-array response", async ()
 
   try {
     const result = await provider["fetchFromGitHubAPI"]();
-    expect(result).toEqual([]);
+    assert.deepStrictEqual(result, []);
   } finally {
     global.fetch = originalFetch;
   }
@@ -1217,9 +1306,9 @@ test("fetchAlertsWithGhCli - does not retry on permission error", async () => {
     throw new Error("Resource not accessible by integration");
   };
 
-  await expect(provider["fetchAlertsWithGhCli"]()).rejects.toThrow(SecurityProviderPermissionError);
+  await assert.rejects(provider["fetchAlertsWithGhCli"](), SecurityProviderPermissionError);
 
-  expect(callCount).toBe(1);
+  assert.strictEqual(callCount, 1);
 });
 
 test("fetchAlertsWithApi - does not retry on permission error", async () => {
@@ -1239,9 +1328,9 @@ test("fetchAlertsWithApi - does not retry on permission error", async () => {
     throw new SecurityProviderPermissionError("GitHub", "Resource not accessible by integration");
   };
 
-  await expect(provider["fetchAlertsWithApi"]()).rejects.toThrow(SecurityProviderPermissionError);
+  await assert.rejects(provider["fetchAlertsWithApi"](), SecurityProviderPermissionError);
 
-  expect(callCount).toBe(1);
+  assert.strictEqual(callCount, 1);
 });
 
 test("isPermissionError - detects error in longer message", () => {
@@ -1255,7 +1344,7 @@ test("isPermissionError - detects error in longer message", () => {
     "Error: GitHub API error: Resource not accessible by integration (status 403)",
   );
 
-  expect(hasPermissionError).toBe(true);
+  assert.strictEqual(hasPermissionError, true);
 });
 
 test("isPermissionError - handles empty string", () => {
@@ -1265,7 +1354,7 @@ test("isPermissionError - handles empty string", () => {
     debug: false,
   });
 
-  expect(provider["isPermissionError"]("")).toBe(false);
+  assert.strictEqual(provider["isPermissionError"](""), false);
 });
 
 test("getRepoOwner - extracts owner from HTTPS GitHub URL", async () => {
@@ -1279,7 +1368,7 @@ test("getRepoOwner - extracts owner from HTTPS GitHub URL", async () => {
   provider["execFileAsync"] = mockExecFileAsync as any;
 
   const owner = await provider["getRepoOwner"]();
-  expect(owner).toBe("yowainwright");
+  assert.strictEqual(owner, "yowainwright");
 });
 
 test("getRepoOwner - extracts owner from SSH GitHub URL", async () => {
@@ -1293,7 +1382,7 @@ test("getRepoOwner - extracts owner from SSH GitHub URL", async () => {
   provider["execFileAsync"] = mockExecFileAsync as any;
 
   const owner = await provider["getRepoOwner"]();
-  expect(owner).toBe("yowainwright");
+  assert.strictEqual(owner, "yowainwright");
 });
 
 test("getRepoOwner - throws for non-GitHub URL", async () => {
@@ -1306,8 +1395,9 @@ test("getRepoOwner - throws for non-GitHub URL", async () => {
 
   provider["execFileAsync"] = mockExecFileAsync as any;
 
-  await expect(provider["getRepoOwner"]()).rejects.toThrow(
-    "Unable to determine GitHub repository owner",
+  await assert.rejects(
+    provider["getRepoOwner"](),
+    errorIncludes("Unable to determine GitHub repository owner"),
   );
 });
 
@@ -1320,8 +1410,9 @@ test("getRepoOwner - throws when git command fails", async () => {
 
   provider["execFileAsync"] = mockExecFileAsync as any;
 
-  await expect(provider["getRepoOwner"]()).rejects.toThrow(
-    "Unable to determine GitHub repository owner",
+  await assert.rejects(
+    provider["getRepoOwner"](),
+    errorIncludes("Unable to determine GitHub repository owner"),
   );
 });
 
@@ -1336,7 +1427,7 @@ test("getRepoName - extracts repo name from HTTPS GitHub URL", async () => {
   provider["execFileAsync"] = mockExecFileAsync as any;
 
   const repo = await provider["getRepoName"]();
-  expect(repo).toBe("pastoralist");
+  assert.strictEqual(repo, "pastoralist");
 });
 
 test("getRepoName - extracts repo name from SSH GitHub URL", async () => {
@@ -1350,7 +1441,7 @@ test("getRepoName - extracts repo name from SSH GitHub URL", async () => {
   provider["execFileAsync"] = mockExecFileAsync as any;
 
   const repo = await provider["getRepoName"]();
-  expect(repo).toBe("pastoralist");
+  assert.strictEqual(repo, "pastoralist");
 });
 
 test("getRepoName - throws for non-GitHub URL", async () => {
@@ -1363,8 +1454,9 @@ test("getRepoName - throws for non-GitHub URL", async () => {
 
   provider["execFileAsync"] = mockExecFileAsync as any;
 
-  await expect(provider["getRepoName"]()).rejects.toThrow(
-    "Unable to determine GitHub repository name",
+  await assert.rejects(
+    provider["getRepoName"](),
+    errorIncludes("Unable to determine GitHub repository name"),
   );
 });
 
@@ -1377,8 +1469,9 @@ test("getRepoName - throws when git command fails", async () => {
 
   provider["execFileAsync"] = mockExecFileAsync as any;
 
-  await expect(provider["getRepoName"]()).rejects.toThrow(
-    "Unable to determine GitHub repository name",
+  await assert.rejects(
+    provider["getRepoName"](),
+    errorIncludes("Unable to determine GitHub repository name"),
   );
 });
 
@@ -1393,7 +1486,7 @@ test("getRepoOwner - handles URL without .git suffix", async () => {
   provider["execFileAsync"] = mockExecFileAsync as any;
 
   const owner = await provider["getRepoOwner"]();
-  expect(owner).toBe("yowainwright");
+  assert.strictEqual(owner, "yowainwright");
 });
 
 test("getRepoName - handles URL without .git suffix", async () => {
@@ -1407,7 +1500,7 @@ test("getRepoName - handles URL without .git suffix", async () => {
   provider["execFileAsync"] = mockExecFileAsync as any;
 
   const repo = await provider["getRepoName"]();
-  expect(repo).toBe("pastoralist");
+  assert.strictEqual(repo, "pastoralist");
 });
 
 test("isGhCliAvailable - returns true when gh CLI is available", async () => {
@@ -1425,7 +1518,7 @@ test("isGhCliAvailable - returns true when gh CLI is available", async () => {
   provider["execFileAsync"] = mockExecFileAsync as any;
 
   const isAvailable = await provider["isGhCliAvailable"]();
-  expect(isAvailable).toBe(true);
+  assert.strictEqual(isAvailable, true);
 });
 
 test("isGhCliAvailable - returns false when gh CLI is not available", async () => {
@@ -1442,7 +1535,7 @@ test("isGhCliAvailable - returns false when gh CLI is not available", async () =
   provider["execFileAsync"] = mockExecFileAsync as any;
 
   const isAvailable = await provider["isGhCliAvailable"]();
-  expect(isAvailable).toBe(false);
+  assert.strictEqual(isAvailable, false);
 });
 
 test("executeGhCli - returns stdout from gh CLI", async () => {
@@ -1461,7 +1554,7 @@ test("executeGhCli - returns stdout from gh CLI", async () => {
   provider["execFileAsync"] = mockExecFileAsync as any;
 
   const result = await provider["executeGhCli"]();
-  expect(result).toBe(JSON.stringify(mockAlerts));
+  assert.strictEqual(result, JSON.stringify(mockAlerts));
 });
 
 test("executeGhCli - uses correct API endpoint", async () => {
@@ -1481,7 +1574,7 @@ test("executeGhCli - uses correct API endpoint", async () => {
 
   await provider["executeGhCli"]();
 
-  expect(capturedArgs).toContain("api");
-  expect(capturedArgs).toContain("repos/yowainwright/pastoralist/dependabot/alerts");
-  expect(capturedArgs).toContain("--paginate");
+  assert.ok(capturedArgs.includes("api"));
+  assert.ok(capturedArgs.includes("repos/yowainwright/pastoralist/dependabot/alerts"));
+  assert.ok(capturedArgs.includes("--paginate"));
 });

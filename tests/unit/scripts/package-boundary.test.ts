@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import { describe, test } from "node:test";
+import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const readRepositoryFile = (path: string): string =>
@@ -11,22 +12,22 @@ describe("package security boundary", () => {
     const rootPackage = readPackage("package.json");
     const docsPackage = readPackage("app/package.json");
 
-    expect(rootPackage.workspaces).toBeUndefined();
-    expect(docsPackage.private).toBe(true);
+    assert.strictEqual(rootPackage.workspaces, undefined);
+    assert.strictEqual(docsPackage.private, true);
   });
 
   test("keeps the root and docs pnpm lockfiles separate", () => {
     const rootLock = readRepositoryFile("pnpm-lock.yaml");
     const docsLock = readRepositoryFile("app/pnpm-lock.yaml");
 
-    expect(rootLock).not.toContain("'@base-ui/react':");
-    expect(docsLock).toContain("'@base-ui/react':");
+    assert.ok(!rootLock.includes("'@base-ui/react':"));
+    assert.ok(docsLock.includes("'@base-ui/react':"));
   });
 
   test("excludes the docs app from Socket project scans", () => {
     const socketConfig = readRepositoryFile("socket.yml");
 
-    expect(socketConfig).toContain('- "app/**"');
+    assert.ok(socketConfig.includes('- "app/**"'));
   });
 
   test("installs workspace dependencies from root setup", () => {
@@ -34,17 +35,17 @@ describe("package security boundary", () => {
     const scripts = rootPackage.scripts as Record<string, string>;
     const setupScript = readRepositoryFile("scripts/setup.sh");
 
-    expect(rootPackage.packageManager).toBe("pnpm@11.18.0");
-    expect(scripts.setup).toBe("sh scripts/setup.sh");
-    expect(setupScript).toContain("pnpm install");
-    expect(setupScript).toContain("pnpm --dir app install");
+    assert.strictEqual(rootPackage.packageManager, "pnpm@11.18.0");
+    assert.strictEqual(scripts.setup, "sh scripts/setup.sh");
+    assert.ok(setupScript.includes("pnpm install"));
+    assert.ok(setupScript.includes("pnpm --dir app install"));
   });
 
   test("keeps root tests outside the docs package", () => {
     const rootPackage = readPackage("package.json");
     const scripts = rootPackage.scripts as Record<string, string>;
 
-    expect(scripts["test:unit"]).toBe("bun test ./tests/unit");
+    assert.ok(scripts["test:unit"].includes("tests/unit"));
   });
 
   test("uses pnpm for package script composition", () => {
@@ -53,8 +54,8 @@ describe("package security boundary", () => {
     const rootScripts = rootPackage.scripts as Record<string, string>;
     const docsScripts = docsPackage.scripts as Record<string, string>;
 
-    expect(rootScripts["build-dist"]).toStartWith("pnpm run");
-    expect(docsScripts.build).toStartWith("pnpm run");
-    expect(docsScripts["generate:llms"]).toStartWith("bun ");
+    assert.ok(rootScripts["build-dist"].startsWith("pnpm run"));
+    assert.ok(docsScripts.build.startsWith("pnpm run"));
+    assert.ok(docsScripts["generate:llms"].startsWith("bun "));
   });
 });

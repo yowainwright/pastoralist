@@ -1,4 +1,5 @@
-import { describe, test, expect } from "bun:test";
+import { describe, test } from "node:test";
+import assert from "node:assert/strict";
 import {
   formatConfirmPrompt,
   formatChoiceList,
@@ -20,21 +21,21 @@ describe("Enhanced Prompt UI Components", () => {
     test("formats default yes prompt with green styling", () => {
       const result = formatConfirmPrompt("Enable security scanning?", true);
 
-      expect(result).toContain("Enable security scanning?");
-      expect(result).toContain("Y");
-      expect(result).toContain("n");
-      expect(result).toContain("[enter for yes]");
-      expect(result).toContain(green("●"));
+      assert.ok(result.includes("Enable security scanning?"));
+      assert.ok(result.includes("Y"));
+      assert.ok(result.includes("n"));
+      assert.ok(result.includes("[enter for yes]"));
+      assert.ok(result.includes(green("●")));
     });
 
     test("formats default no prompt with gray styling", () => {
       const result = formatConfirmPrompt("Skip workspace setup?", false);
 
-      expect(result).toContain("Skip workspace setup?");
-      expect(result).toContain("y");
-      expect(result).toContain("N");
-      expect(result).toContain("[enter for no]");
-      expect(result).toContain(gray("○"));
+      assert.ok(result.includes("Skip workspace setup?"));
+      assert.ok(result.includes("y"));
+      assert.ok(result.includes("N"));
+      assert.ok(result.includes("[enter for no]"));
+      assert.ok(result.includes(gray("○")));
     });
   });
 
@@ -46,19 +47,19 @@ describe("Enhanced Prompt UI Components", () => {
       ];
       const result = formatChoiceList("Choose an option:", choices);
 
-      expect(result).toContain("Choose an option:");
-      expect(stripAnsi(result)).toContain("1. Option A");
-      expect(stripAnsi(result)).toContain("2. Option B");
-      expect(result).toContain(yellow("Configuration"));
-      expect(result).toContain("┌");
-      expect(result).toContain("└");
+      assert.ok(result.includes("Choose an option:"));
+      assert.ok(stripAnsi(result).includes("1. Option A"));
+      assert.ok(stripAnsi(result).includes("2. Option B"));
+      assert.ok(result.includes(yellow("Configuration")));
+      assert.ok(result.includes("┌"));
+      assert.ok(result.includes("└"));
     });
 
     test("numbers choices with cyan color", () => {
       const choices = [{ name: "Test Option", value: "test" }];
       const result = formatChoiceList("Test:", choices);
 
-      expect(result).toContain(cyan("1."));
+      assert.ok(result.includes(cyan("1.")));
     });
   });
 
@@ -66,9 +67,9 @@ describe("Enhanced Prompt UI Components", () => {
     test("formats choice input prompt with cyan arrow", () => {
       const result = formatChoicePrompt();
 
-      expect(result).toContain(cyan("▶"));
-      expect(result).toContain("Enter your choice");
-      expect(result).toContain(gray("(number)"));
+      assert.ok(result.includes(cyan("▶")));
+      assert.ok(result.includes("Enter your choice"));
+      assert.ok(result.includes(gray("(number)")));
     });
   });
 
@@ -76,17 +77,17 @@ describe("Enhanced Prompt UI Components", () => {
     test("formats input prompt with default value hint", () => {
       const result = formatInputPrompt("Enter name", "default-name");
 
-      expect(result).toContain("Enter name");
-      expect(result).toContain(cyan("◆"));
-      expect(result).toContain(gray('[enter for "default-name"]'));
+      assert.ok(result.includes("Enter name"));
+      assert.ok(result.includes(cyan("◆")));
+      assert.ok(result.includes(gray('[enter for "default-name"]')));
     });
 
     test("formats input prompt without default value", () => {
       const result = formatInputPrompt("Enter name");
 
-      expect(result).toContain("Enter name");
-      expect(result).toContain(cyan("◆"));
-      expect(result).not.toContain("[enter for");
+      assert.ok(result.includes("Enter name"));
+      assert.ok(result.includes(cyan("◆")));
+      assert.ok(!result.includes("[enter for"));
     });
   });
 
@@ -94,11 +95,11 @@ describe("Enhanced Prompt UI Components", () => {
     test("formats step header with yellow border and step number", () => {
       const result = formatStepHeader(2, "Security Configuration");
 
-      expect(result).toContain("Step 2:");
-      expect(result).toContain("Security Configuration");
-      expect(result).toContain(cyan("▶ Step 2:"));
-      expect(result).toContain("┌");
-      expect(result).toContain("└");
+      assert.ok(result.includes("Step 2:"));
+      assert.ok(result.includes("Security Configuration"));
+      assert.ok(result.includes(cyan("▶ Step 2:")));
+      assert.ok(result.includes("┌"));
+      assert.ok(result.includes("└"));
     });
   });
 
@@ -106,9 +107,9 @@ describe("Enhanced Prompt UI Components", () => {
     test("formats info message with gray styling and icon", () => {
       const result = formatInfo("No workspaces detected");
 
-      expect(stripAnsi(result)).toContain("No workspaces detected");
-      expect(result).toContain(ICON.info);
-      expect(result.startsWith("   ")).toBe(true);
+      assert.ok(stripAnsi(result).includes("No workspaces detected"));
+      assert.ok(result.includes(ICON.info));
+      assert.strictEqual(result.startsWith("   "), true);
     });
   });
 
@@ -116,8 +117,8 @@ describe("Enhanced Prompt UI Components", () => {
     test("formats success message with green check icon", () => {
       const result = formatSuccess("Configuration saved");
 
-      expect(result).toContain("Configuration saved");
-      expect(result).toContain(green(ICON.CHECK));
+      assert.ok(result.includes("Configuration saved"));
+      assert.ok(result.includes(green(ICON.CHECK)));
     });
   });
 
@@ -125,8 +126,8 @@ describe("Enhanced Prompt UI Components", () => {
     test("formats warning message with yellow warning icon", () => {
       const result = formatWarning("Token not provided");
 
-      expect(result).toContain("Token not provided");
-      expect(result).toContain(yellow(ICON.warning));
+      assert.ok(result.includes("Token not provided"));
+      assert.ok(result.includes(yellow(ICON.warning)));
     });
   });
 
@@ -135,10 +136,10 @@ describe("Enhanced Prompt UI Components", () => {
       const steps = ["Run pastoralist to update dependencies", "Check documentation for options"];
       const result = formatCompletion("Setup complete!", steps);
 
-      expect(stripAnsi(result)).toContain("✓ Setup complete!");
-      expect(stripAnsi(result)).toContain("1. Run pastoralist to upd");
-      expect(stripAnsi(result)).toContain("2. Check documentation fo");
-      expect(result).toContain(yellow("Next Steps"));
+      assert.ok(stripAnsi(result).includes("✓ Setup complete!"));
+      assert.ok(stripAnsi(result).includes("1. Run pastoralist to upd"));
+      assert.ok(stripAnsi(result).includes("2. Check documentation fo"));
+      assert.ok(result.includes(yellow("Next Steps")));
     });
 
     test("formats completion box with custom shimmer title", () => {
@@ -146,17 +147,17 @@ describe("Enhanced Prompt UI Components", () => {
       const shimmerTitle = "Shimmering completion!";
       const result = formatCompletion("Regular title", steps, shimmerTitle);
 
-      expect(result).toContain("Shimmering completion!");
-      expect(result).not.toContain("Regular title");
-      expect(stripAnsi(result)).toContain("1. Next step");
+      assert.ok(result.includes("Shimmering completion!"));
+      assert.ok(!result.includes("Regular title"));
+      assert.ok(stripAnsi(result).includes("1. Next step"));
     });
 
     test("applies yellow borders to completion box", () => {
       const steps = ["Test step"];
       const result = formatCompletion("Test", steps);
 
-      expect(result).toMatch(/\[\d+m┌/);
-      expect(result).toMatch(/\[\d+m└/);
+      assert.match(result, /\[\d+m┌/);
+      assert.match(result, /\[\d+m└/);
     });
   });
 });

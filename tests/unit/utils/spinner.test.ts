@@ -1,4 +1,7 @@
-import { test, expect, spyOn } from "bun:test";
+import { assertCalledWith, assertNotCalledWith, stringContaining, stringMatching } from "../setup";
+import { test } from "node:test";
+import { spyOn } from "../setup";
+import assert from "node:assert/strict";
 import {
   createSpinner,
   hideCursor,
@@ -18,7 +21,7 @@ test("hideCursor - should write hide cursor escape code", () => {
   const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
 
   hideCursor();
-  expect(stdoutWriteSpy).toHaveBeenCalledWith("\x1B[?25l");
+  assertCalledWith(stdoutWriteSpy, "\x1B[?25l");
 
   stdoutWriteSpy.mockRestore();
 });
@@ -27,7 +30,7 @@ test("showCursor - should write show cursor escape code", () => {
   const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
 
   showCursor();
-  expect(stdoutWriteSpy).toHaveBeenCalledWith("\x1B[?25h");
+  assertCalledWith(stdoutWriteSpy, "\x1B[?25h");
 
   stdoutWriteSpy.mockRestore();
 });
@@ -36,7 +39,7 @@ test("clearLine - should write clear line escape code", () => {
   const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
 
   clearLine();
-  expect(stdoutWriteSpy).toHaveBeenCalledWith("\r\x1B[K");
+  assertCalledWith(stdoutWriteSpy, "\r\x1B[K");
 
   stdoutWriteSpy.mockRestore();
 });
@@ -47,7 +50,7 @@ test("renderFrame - should render frame with text", () => {
 
   renderFrame(frames, 0, "Loading...");
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith(expect.stringContaining("⠋ Loading..."));
+  assertCalledWith(stdoutWriteSpy, stringContaining("⠋ Loading..."));
 
   stdoutWriteSpy.mockRestore();
 });
@@ -58,8 +61,10 @@ test("renderFrame - should clear line before rendering", () => {
 
   renderFrame(frames, 0, "Test");
 
-  const calls = stdoutWriteSpy.mock.calls;
-  expect(calls[0][0]).toBe("\r\x1B[K");
+  const calls = stdoutWriteSpy.mock.calls.map((call) =>
+    Array.isArray(call) ? call : call.arguments,
+  );
+  assert.strictEqual(calls[0][0], "\r\x1B[K");
 
   stdoutWriteSpy.mockRestore();
 });
@@ -70,7 +75,7 @@ test("renderFrame - should use correct frame index", () => {
 
   renderFrame(frames, 2, "Test");
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith(expect.stringContaining("⠹ Test"));
+  assertCalledWith(stdoutWriteSpy, stringContaining("⠹ Test"));
 
   stdoutWriteSpy.mockRestore();
 });
@@ -86,8 +91,8 @@ test("stopInterval - should clear interval when present", () => {
 
   const newState = stopInterval(state);
 
-  expect(newState.interval).toBeNull();
-  expect(newState.isSpinning).toBe(false);
+  assert.strictEqual(newState.interval, null);
+  assert.strictEqual(newState.isSpinning, false);
 });
 
 test("stopInterval - should handle null interval", () => {
@@ -100,8 +105,8 @@ test("stopInterval - should handle null interval", () => {
 
   const newState = stopInterval(state);
 
-  expect(newState.interval).toBeNull();
-  expect(newState.isSpinning).toBe(false);
+  assert.strictEqual(newState.interval, null);
+  assert.strictEqual(newState.isSpinning, false);
 });
 
 test("stopInterval - should return new state object", () => {
@@ -114,7 +119,7 @@ test("stopInterval - should return new state object", () => {
 
   const newState = stopInterval(state);
 
-  expect(newState).not.toBe(state);
+  assert.notStrictEqual(newState, state);
 });
 
 test("updateStateText - should update text in state", () => {
@@ -127,7 +132,7 @@ test("updateStateText - should update text in state", () => {
 
   const newState = updateStateText(state, "New text");
 
-  expect(newState.text).toBe("New text");
+  assert.strictEqual(newState.text, "New text");
 });
 
 test("updateStateText - should preserve other state properties", () => {
@@ -140,8 +145,8 @@ test("updateStateText - should preserve other state properties", () => {
 
   const newState = updateStateText(state, "New text");
 
-  expect(newState.isSpinning).toBe(true);
-  expect(newState.frameIndex).toBe(5);
+  assert.strictEqual(newState.isSpinning, true);
+  assert.strictEqual(newState.frameIndex, 5);
 });
 
 test("updateStateText - should return new state object", () => {
@@ -154,7 +159,7 @@ test("updateStateText - should return new state object", () => {
 
   const newState = updateStateText(state, "New");
 
-  expect(newState).not.toBe(state);
+  assert.notStrictEqual(newState, state);
 });
 
 test("incrementFrame - should increment frame index", () => {
@@ -167,7 +172,7 @@ test("incrementFrame - should increment frame index", () => {
 
   const newState = incrementFrame(state);
 
-  expect(newState.frameIndex).toBe(1);
+  assert.strictEqual(newState.frameIndex, 1);
 });
 
 test("incrementFrame - should wrap around at end of frames", () => {
@@ -180,7 +185,7 @@ test("incrementFrame - should wrap around at end of frames", () => {
 
   const newState = incrementFrame(state);
 
-  expect(newState.frameIndex).toBe(0);
+  assert.strictEqual(newState.frameIndex, 0);
 });
 
 test("writeSymbol - should write symbol with text", () => {
@@ -188,7 +193,7 @@ test("writeSymbol - should write symbol with text", () => {
 
   writeSymbol("✔", "Success");
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith(expect.stringContaining("✔ Success"));
+  assertCalledWith(stdoutWriteSpy, stringContaining("✔ Success"));
 
   stdoutWriteSpy.mockRestore();
 });
@@ -198,8 +203,10 @@ test("writeSymbol - should clear line before writing", () => {
 
   writeSymbol("✔", "Test");
 
-  const calls = stdoutWriteSpy.mock.calls;
-  expect(calls[0][0]).toBe("\r\x1B[K");
+  const calls = stdoutWriteSpy.mock.calls.map((call) =>
+    Array.isArray(call) ? call : call.arguments,
+  );
+  assert.strictEqual(calls[0][0], "\r\x1B[K");
 
   stdoutWriteSpy.mockRestore();
 });
@@ -209,7 +216,7 @@ test("writeSymbol - should end with newline", () => {
 
   writeSymbol("✔", "Test");
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith(expect.stringMatching(/\n$/));
+  assertCalledWith(stdoutWriteSpy, stringMatching(/\n$/));
 
   stdoutWriteSpy.mockRestore();
 });
@@ -217,13 +224,13 @@ test("writeSymbol - should end with newline", () => {
 test("createSpinner - should create spinner with text", () => {
   const spinner = createSpinner("Loading...");
 
-  expect(spinner).toBeDefined();
-  expect(spinner.start).toBeFunction();
-  expect(spinner.stop).toBeFunction();
-  expect(spinner.succeed).toBeFunction();
-  expect(spinner.fail).toBeFunction();
-  expect(spinner.info).toBeFunction();
-  expect(spinner.warn).toBeFunction();
+  assert.notStrictEqual(spinner, undefined);
+  assert.strictEqual(typeof spinner.start, "function");
+  assert.strictEqual(typeof spinner.stop, "function");
+  assert.strictEqual(typeof spinner.succeed, "function");
+  assert.strictEqual(typeof spinner.fail, "function");
+  assert.strictEqual(typeof spinner.info, "function");
+  assert.strictEqual(typeof spinner.warn, "function");
 });
 
 test("createSpinner - should start spinner", () => {
@@ -232,7 +239,7 @@ test("createSpinner - should start spinner", () => {
   const spinner = createSpinner("Loading...");
   spinner.start();
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith("\x1B[?25l");
+  assertCalledWith(stdoutWriteSpy, "\x1B[?25l");
 
   spinner.stop();
   stdoutWriteSpy.mockRestore();
@@ -247,7 +254,7 @@ test("createSpinner - should stop spinner", () => {
 
   spinner.stop();
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith("\x1B[?25h");
+  assertCalledWith(stdoutWriteSpy, "\x1B[?25h");
 
   stdoutWriteSpy.mockRestore();
 });
@@ -258,9 +265,7 @@ test("createSpinner - should succeed with default text", () => {
   const spinner = createSpinner("Loading...");
   spinner.succeed();
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith(
-    expect.stringContaining(`${ICON.success} Loading...`),
-  );
+  assertCalledWith(stdoutWriteSpy, stringContaining(`${ICON.success} Loading...`));
 
   stdoutWriteSpy.mockRestore();
 });
@@ -271,7 +276,7 @@ test("createSpinner - should succeed with custom text", () => {
   const spinner = createSpinner("Loading...");
   spinner.succeed("Done!");
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith(expect.stringContaining(`${ICON.success} Done!`));
+  assertCalledWith(stdoutWriteSpy, stringContaining(`${ICON.success} Done!`));
 
   stdoutWriteSpy.mockRestore();
 });
@@ -282,7 +287,7 @@ test("createSpinner - should fail with default text", () => {
   const spinner = createSpinner("Loading...");
   spinner.fail();
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith(expect.stringContaining(`${ICON.error} Loading...`));
+  assertCalledWith(stdoutWriteSpy, stringContaining(`${ICON.error} Loading...`));
 
   stdoutWriteSpy.mockRestore();
 });
@@ -293,9 +298,7 @@ test("createSpinner - should fail with custom text", () => {
   const spinner = createSpinner("Loading...");
   spinner.fail("Error occurred");
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith(
-    expect.stringContaining(`${ICON.error} Error occurred`),
-  );
+  assertCalledWith(stdoutWriteSpy, stringContaining(`${ICON.error} Error occurred`));
 
   stdoutWriteSpy.mockRestore();
 });
@@ -306,7 +309,7 @@ test("createSpinner - should info with default text", () => {
   const spinner = createSpinner("Loading...");
   spinner.info();
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith(expect.stringContaining(`${ICON.info} Loading...`));
+  assertCalledWith(stdoutWriteSpy, stringContaining(`${ICON.info} Loading...`));
 
   stdoutWriteSpy.mockRestore();
 });
@@ -317,7 +320,7 @@ test("createSpinner - should info with custom text", () => {
   const spinner = createSpinner("Loading...");
   spinner.info("FYI");
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith(expect.stringContaining(`${ICON.info} FYI`));
+  assertCalledWith(stdoutWriteSpy, stringContaining(`${ICON.info} FYI`));
 
   stdoutWriteSpy.mockRestore();
 });
@@ -328,9 +331,7 @@ test("createSpinner - should warn with default text", () => {
   const spinner = createSpinner("Loading...");
   spinner.warn();
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith(
-    expect.stringContaining(`${ICON.warning} Loading...`),
-  );
+  assertCalledWith(stdoutWriteSpy, stringContaining(`${ICON.warning} Loading...`));
 
   stdoutWriteSpy.mockRestore();
 });
@@ -341,7 +342,7 @@ test("createSpinner - should warn with custom text", () => {
   const spinner = createSpinner("Loading...");
   spinner.warn("Warning!");
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith(expect.stringContaining(`${ICON.warning} Warning!`));
+  assertCalledWith(stdoutWriteSpy, stringContaining(`${ICON.warning} Warning!`));
 
   stdoutWriteSpy.mockRestore();
 });
@@ -350,12 +351,12 @@ test("createSpinner - should return spinner methods for chaining", () => {
   const spinner = createSpinner("Test");
   const result = spinner.start();
 
-  expect(result.start).toBeFunction();
-  expect(result.stop).toBeFunction();
-  expect(result.succeed).toBeFunction();
-  expect(result.fail).toBeFunction();
-  expect(result.info).toBeFunction();
-  expect(result.warn).toBeFunction();
+  assert.strictEqual(typeof result.start, "function");
+  assert.strictEqual(typeof result.stop, "function");
+  assert.strictEqual(typeof result.succeed, "function");
+  assert.strictEqual(typeof result.fail, "function");
+  assert.strictEqual(typeof result.info, "function");
+  assert.strictEqual(typeof result.warn, "function");
 
   spinner.stop();
 });
@@ -369,7 +370,7 @@ test("createSpinner - should not start twice", () => {
 
   spinner.start();
 
-  expect(stdoutWriteSpy).not.toHaveBeenCalledWith("\x1B[?25l");
+  assertNotCalledWith(stdoutWriteSpy, "\x1B[?25l");
 
   spinner.stop();
   stdoutWriteSpy.mockRestore();
@@ -383,7 +384,7 @@ test("createSpinner - should handle stop when not spinning", () => {
 
   spinner.stop();
 
-  expect(stdoutWriteSpy).not.toHaveBeenCalled();
+  assert.strictEqual(stdoutWriteSpy.mock.callCount(), 0);
 
   stdoutWriteSpy.mockRestore();
 });
@@ -398,8 +399,8 @@ test("update - should update text in state", () => {
 
   const result = update(state, "New text");
 
-  expect(state.text).toBe("New text");
-  expect(result.update).toBeFunction();
+  assert.strictEqual(state.text, "New text");
+  assert.strictEqual(typeof result.update, "function");
 });
 
 test("update - should preserve other state properties", () => {
@@ -412,8 +413,8 @@ test("update - should preserve other state properties", () => {
 
   update(state, "New text");
 
-  expect(state.isSpinning).toBe(true);
-  expect(state.frameIndex).toBe(5);
+  assert.strictEqual(state.isSpinning, true);
+  assert.strictEqual(state.frameIndex, 5);
 });
 
 test("update - should return spinner methods for chaining", () => {
@@ -426,26 +427,26 @@ test("update - should return spinner methods for chaining", () => {
 
   const result = update(state, "New");
 
-  expect(result.start).toBeFunction();
-  expect(result.stop).toBeFunction();
-  expect(result.succeed).toBeFunction();
-  expect(result.fail).toBeFunction();
-  expect(result.info).toBeFunction();
-  expect(result.warn).toBeFunction();
-  expect(result.update).toBeFunction();
+  assert.strictEqual(typeof result.start, "function");
+  assert.strictEqual(typeof result.stop, "function");
+  assert.strictEqual(typeof result.succeed, "function");
+  assert.strictEqual(typeof result.fail, "function");
+  assert.strictEqual(typeof result.info, "function");
+  assert.strictEqual(typeof result.warn, "function");
+  assert.strictEqual(typeof result.update, "function");
 });
 
 test("createSpinner - should have update method", () => {
   const spinner = createSpinner("Loading...");
 
-  expect(spinner.update).toBeFunction();
+  assert.strictEqual(typeof spinner.update, "function");
 });
 
 test("createSpinner - should update spinner text", () => {
   const spinner = createSpinner("Initial text");
   const result = spinner.update("Updated text");
 
-  expect(result.update).toBeFunction();
+  assert.strictEqual(typeof result.update, "function");
 });
 
 test("createSpinner - update should allow chaining", () => {
@@ -454,7 +455,7 @@ test("createSpinner - update should allow chaining", () => {
   const spinner = createSpinner("Initial");
   spinner.update("Updated").succeed("Done!");
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith(expect.stringContaining(`${ICON.success} Done!`));
+  assertCalledWith(stdoutWriteSpy, stringContaining(`${ICON.success} Done!`));
 
   stdoutWriteSpy.mockRestore();
 });
@@ -467,9 +468,7 @@ test("createSpinner - update during spinning should change text", () => {
   spinner.update("Updated text");
   spinner.succeed();
 
-  expect(stdoutWriteSpy).toHaveBeenCalledWith(
-    expect.stringContaining(`${ICON.success} Updated text`),
-  );
+  assertCalledWith(stdoutWriteSpy, stringContaining(`${ICON.success} Updated text`));
 
   stdoutWriteSpy.mockRestore();
 });

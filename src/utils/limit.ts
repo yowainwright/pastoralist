@@ -1,4 +1,5 @@
 import type { Task, QueueItem } from "./types";
+import { LIMITER_CLEARED_ERROR_MESSAGE } from "./constants";
 
 export class ConcurrencyLimiter {
   private concurrency: number;
@@ -63,7 +64,9 @@ export class ConcurrencyLimiter {
   }
 
   clear(): void {
+    const pending = this.queue;
     this.queue = [];
+    pending.forEach((item) => item.reject(new Error(LIMITER_CLEARED_ERROR_MESSAGE)));
   }
 }
 

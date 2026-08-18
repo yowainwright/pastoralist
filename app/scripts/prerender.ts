@@ -4,7 +4,7 @@ import { Effect, Schema } from "effect";
 import { DOCS } from "../src/content/constants";
 import type { DocMeta } from "../src/content/types";
 
-const DIST_DIR = path.resolve(import.meta.dir, "../dist");
+const DIST_DIR = path.resolve(import.meta.dirname, "../dist");
 const SERVER_ENTRYPOINT = new URL("../dist-server/entry-server.js", import.meta.url).href;
 const ROOT_MARKUP = '<div id="root"><div class="initial-loader"></div></div>';
 

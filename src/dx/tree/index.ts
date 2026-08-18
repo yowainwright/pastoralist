@@ -37,7 +37,12 @@ import {
 } from "./utils";
 
 class TerminalTree implements TerminalGraph {
-  constructor(private readonly context: TerminalTreeContext) {}
+  private completion: Promise<void> = Promise.resolve();
+  private readonly context: TerminalTreeContext;
+
+  constructor(context: TerminalTreeContext) {
+    this.context = context;
+  }
 
   banner(): TerminalGraph {
     this.context.paused(() => this.context.out.writeLine(buildBannerOutput()));
@@ -143,13 +148,17 @@ class TerminalTree implements TerminalGraph {
   }
 
   complete(text: string, suffix = ""): TerminalGraph {
-    this.context.paused(() => {
+    this.completion = this.context.paused(() => {
       const current = this.context.state.get();
       this.context.state.set(Object.assign({}, current, { phase: "complete", ancestors: [] }));
       const prefix = buildPrefix([]) + buildConnector(true);
-      this.context.completer(text, prefix, suffix);
+      return this.context.completer(text, prefix, suffix);
     });
     return this;
+  }
+
+  waitForCompletion(): Promise<void> {
+    return this.completion;
   }
 
   notice(text: string): TerminalGraph {

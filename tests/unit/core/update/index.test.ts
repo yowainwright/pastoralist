@@ -1,4 +1,6 @@
-import { test, expect } from "bun:test";
+import { assertHasProperty } from "../../setup";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync, rmSync, existsSync } from "fs";
 import { resolve } from "path";
 import { update } from "../../../../src/core/update/index";
@@ -22,7 +24,7 @@ import type {
   ResolveOverrides,
 } from "../../../../src/types";
 
-const TEST_DIR = resolve(__dirname, ".test-update");
+const TEST_DIR = resolve(import.meta.dirname, ".test-update");
 
 test("update - returns early context when no config provided", () => {
   const options: Options = {
@@ -33,11 +35,11 @@ test("update - returns early context when no config provided", () => {
 
   const result = update(options);
 
-  expect(result.options).toEqual(options);
-  expect(result.path).toBe("package.json");
-  expect(result.root).toBe("./");
-  expect(result.isTesting).toBe(true);
-  expect(result.config).toBeUndefined();
+  assert.deepStrictEqual(result.options, options);
+  assert.strictEqual(result.path, "package.json");
+  assert.strictEqual(result.root, "./");
+  assert.strictEqual(result.isTesting, true);
+  assert.strictEqual(result.config, undefined);
 });
 
 test("update - processes simple override in root mode", () => {
@@ -60,11 +62,28 @@ test("update - processes simple override in root mode", () => {
 
   const result = update(options);
 
-  expect(result.config).toBe(config);
-  expect(result.overrides).toBeDefined();
-  expect(result.overrides?.lodash).toBe("4.17.21");
-  expect(result.appendix).toBeDefined();
-  expect(result.mode?.mode).toBe("root");
+  assert.strictEqual(result.config, config);
+  assert.notStrictEqual(result.overrides, undefined);
+  assert.strictEqual(result.overrides?.lodash, "4.17.21");
+  assert.notStrictEqual(result.appendix, undefined);
+  assert.strictEqual(result.mode?.mode, "root");
+});
+
+test("update - preserves compact appendix added dates", () => {
+  const config = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { lodash: "^4.17.20" },
+    overrides: { lodash: "4.17.21" },
+    pastoralist: {
+      compactAppendix: true,
+      appendix: { "lodash@4.17.21": { addedDate: "2024-01-15" } },
+    },
+  };
+
+  const result = update({ config, isTesting: true, addedDate: "2025-02-20" });
+
+  assert.strictEqual(result.appendix?.["lodash@4.17.21"]?.ledger?.addedDate, "2024-01-15");
 });
 
 test("update - merges security overrides with config overrides", () => {
@@ -90,8 +109,8 @@ test("update - merges security overrides with config overrides", () => {
 
   const result = update(options);
 
-  expect(result.overrides?.lodash).toBe("4.17.21");
-  expect(result.overrides?.express).toBe("4.18.2");
+  assert.strictEqual(result.overrides?.lodash, "4.17.21");
+  assert.strictEqual(result.overrides?.express, "4.18.2");
 });
 
 test("update - determines workspace mode without file I/O", () => {
@@ -112,8 +131,8 @@ test("update - determines workspace mode without file I/O", () => {
 
   const result = update(options);
 
-  expect(result.mode).toBeDefined();
-  expect(result.overrides?.react).toBe("18.0.0");
+  assert.notStrictEqual(result.mode, undefined);
+  assert.strictEqual(result.overrides?.react, "18.0.0");
 });
 
 test("update - detects patches when present", () => {
@@ -133,8 +152,8 @@ test("update - detects patches when present", () => {
 
   const result = update(options);
 
-  expect(result.patchMap).toBeDefined();
-  expect(typeof result.patchMap).toBe("object");
+  assert.notStrictEqual(result.patchMap, undefined);
+  assert.strictEqual(typeof result.patchMap, "object");
 });
 
 test("update - determines processing mode correctly", () => {
@@ -156,10 +175,10 @@ test("update - determines processing mode correctly", () => {
 
   const result = update(options);
 
-  expect(result.hasRootOverrides).toBe(true);
-  expect(result.rootDeps).toBeDefined();
-  expect(result.rootDeps?.lodash).toBe("^4.17.20");
-  expect(result.missingInRoot).toBeDefined();
+  assert.strictEqual(result.hasRootOverrides, true);
+  assert.notStrictEqual(result.rootDeps, undefined);
+  assert.strictEqual(result.rootDeps?.lodash, "^4.17.20");
+  assert.notStrictEqual(result.missingInRoot, undefined);
 });
 
 test("update - builds appendix with dependents", () => {
@@ -181,10 +200,10 @@ test("update - builds appendix with dependents", () => {
 
   const result = update(options);
 
-  expect(result.appendix).toBeDefined();
+  assert.notStrictEqual(result.appendix, undefined);
   const appendixKey = "lodash@4.17.21";
-  expect(result.appendix?.[appendixKey]).toBeDefined();
-  expect(result.appendix?.[appendixKey].dependents).toBeDefined();
+  assert.notStrictEqual(result.appendix?.[appendixKey], undefined);
+  assert.notStrictEqual(result.appendix?.[appendixKey].dependents, undefined);
 });
 
 test("update - handles empty overrides", () => {
@@ -203,9 +222,9 @@ test("update - handles empty overrides", () => {
 
   const result = update(options);
 
-  expect(result.mode?.hasRootOverrides).toBe(false);
-  expect(result.finalOverrides).toEqual({});
-  expect(result.finalAppendix).toEqual({});
+  assert.strictEqual(result.mode?.hasRootOverrides, false);
+  assert.deepStrictEqual(result.finalOverrides, {});
+  assert.deepStrictEqual(result.finalAppendix, {});
 });
 
 test("update - sets finalOverrides and finalAppendix in cleanup step", () => {
@@ -227,9 +246,9 @@ test("update - sets finalOverrides and finalAppendix in cleanup step", () => {
 
   const result = update(options);
 
-  expect(result.finalOverrides).toBeDefined();
-  expect(result.finalAppendix).toBeDefined();
-  expect(result.finalOverrides?.react).toBe("18.0.0");
+  assert.notStrictEqual(result.finalOverrides, undefined);
+  assert.notStrictEqual(result.finalAppendix, undefined);
+  assert.strictEqual(result.finalOverrides?.react, "18.0.0");
 });
 
 test("update - skips write when isTesting is true", () => {
@@ -251,9 +270,9 @@ test("update - skips write when isTesting is true", () => {
 
   const result = update(options);
 
-  expect(result.isTesting).toBe(true);
-  expect(result.finalOverrides).toBeDefined();
-  expect(result.finalAppendix).toBeDefined();
+  assert.strictEqual(result.isTesting, true);
+  assert.notStrictEqual(result.finalOverrides, undefined);
+  assert.notStrictEqual(result.finalAppendix, undefined);
 });
 
 test("update - handles devDependencies", () => {
@@ -275,8 +294,8 @@ test("update - handles devDependencies", () => {
 
   const result = update(options);
 
-  expect(result.appendix).toBeDefined();
-  expect(result.appendix?.["jest@29.0.0"]).toBeDefined();
+  assert.notStrictEqual(result.appendix, undefined);
+  assert.notStrictEqual(result.appendix?.["jest@29.0.0"], undefined);
 });
 
 test("update - handles peerDependencies", () => {
@@ -298,8 +317,8 @@ test("update - handles peerDependencies", () => {
 
   const result = update(options);
 
-  expect(result.appendix).toBeDefined();
-  expect(result.rootDeps?.react).toBe("^17.0.0");
+  assert.notStrictEqual(result.appendix, undefined);
+  assert.strictEqual(result.rootDeps?.react, "^17.0.0");
 });
 
 test("update - handles nested overrides", () => {
@@ -323,7 +342,7 @@ test("update - handles nested overrides", () => {
 
   const result = update(options);
 
-  expect(result.appendix).toBeDefined();
+  assert.notStrictEqual(result.appendix, undefined);
 });
 
 test("update - includes security override details in appendix", () => {
@@ -354,10 +373,10 @@ test("update - includes security override details in appendix", () => {
 
   const result = update(options);
 
-  expect(result.appendix).toBeDefined();
+  assert.notStrictEqual(result.appendix, undefined);
   const appendixEntry = result.appendix?.["lodash@4.17.21"];
-  expect(appendixEntry).toBeDefined();
-  expect(appendixEntry?.ledger).toBeDefined();
+  assert.notStrictEqual(appendixEntry, undefined);
+  assert.notStrictEqual(appendixEntry?.ledger, undefined);
 });
 
 test("update - uses default path when not provided", () => {
@@ -374,7 +393,7 @@ test("update - uses default path when not provided", () => {
 
   const result = update(options);
 
-  expect(result.path).toBe("package.json");
+  assert.strictEqual(result.path, "package.json");
 });
 
 test("update - uses default root when not provided", () => {
@@ -391,7 +410,7 @@ test("update - uses default root when not provided", () => {
 
   const result = update(options);
 
-  expect(result.root).toBe("./");
+  assert.strictEqual(result.root, "./");
 });
 
 test("update - handles yarn resolutions", () => {
@@ -413,8 +432,8 @@ test("update - handles yarn resolutions", () => {
 
   const result = update(options);
 
-  expect(result.overrides).toBeDefined();
-  expect(result.overrides?.lodash).toBe("4.17.21");
+  assert.notStrictEqual(result.overrides, undefined);
+  assert.strictEqual(result.overrides?.lodash, "4.17.21");
 });
 
 test("update - handles pnpm overrides", () => {
@@ -438,8 +457,8 @@ test("update - handles pnpm overrides", () => {
 
   const result = update(options);
 
-  expect(result.overrides).toBeDefined();
-  expect(result.overrides?.react).toBe("18.0.0");
+  assert.notStrictEqual(result.overrides, undefined);
+  assert.strictEqual(result.overrides?.react, "18.0.0");
 });
 
 test("update - preserves existing appendix entries", () => {
@@ -470,8 +489,8 @@ test("update - preserves existing appendix entries", () => {
 
   const result = update(options);
 
-  expect(result.existingAppendix).toBeDefined();
-  expect(result.existingAppendix?.["express@4.18.2"]).toBeDefined();
+  assert.notStrictEqual(result.existingAppendix, undefined);
+  assert.notStrictEqual(result.existingAppendix?.["express@4.18.2"], undefined);
 });
 
 test("update - clears cache when clearCache option is true", () => {
@@ -491,7 +510,7 @@ test("update - clears cache when clearCache option is true", () => {
 
   const result = update(options);
 
-  expect(result.config).toBe(config);
+  assert.strictEqual(result.config, config);
 });
 
 test("update - clears dependency graph cache when clearCache option is true", () => {
@@ -509,7 +528,7 @@ test("update - clears dependency graph cache when clearCache option is true", ()
     }),
   );
 
-  expect(getDependencyGraph(TEST_DIR)?.["body-parser"]).toContain("express");
+  assert.ok((getDependencyGraph(TEST_DIR)?.["body-parser"]).includes("express"));
 
   writeFileSync(
     resolve(TEST_DIR, "package-lock.json"),
@@ -533,8 +552,8 @@ test("update - clears dependency graph cache when clearCache option is true", ()
     clearCache: true,
   });
 
-  expect(getDependencyGraph(TEST_DIR)?.qs).toContain("lodash");
-  expect(getDependencyGraph(TEST_DIR)?.["body-parser"]).toBeUndefined();
+  assert.ok((getDependencyGraph(TEST_DIR)?.qs).includes("lodash"));
+  assert.strictEqual(getDependencyGraph(TEST_DIR)?.["body-parser"], undefined);
 
   clearDependencyGraphCache();
   rmSync(TEST_DIR, { recursive: true, force: true });
@@ -560,8 +579,8 @@ test("update - handles config with workspaces but no depPaths", () => {
 
   const result = update(options);
 
-  expect(result.appendix).toBeDefined();
-  expect(result.mode?.mode).toBe("root");
+  assert.notStrictEqual(result.appendix, undefined);
+  assert.strictEqual(result.mode?.mode, "root");
 });
 
 test("update - handles empty final context", () => {
@@ -571,9 +590,9 @@ test("update - handles empty final context", () => {
 
   const result = update(options);
 
-  expect(result.config).toBeUndefined();
-  expect(result.finalOverrides).toBeUndefined();
-  expect(result.finalAppendix).toBeUndefined();
+  assert.strictEqual(result.config, undefined);
+  assert.strictEqual(result.finalOverrides, undefined);
+  assert.strictEqual(result.finalAppendix, undefined);
 });
 
 test("update - processes manualOverrideReasons", () => {
@@ -600,9 +619,9 @@ test("update - processes manualOverrideReasons", () => {
 
   const result = update(options);
 
-  expect(result.appendix).toBeDefined();
+  assert.notStrictEqual(result.appendix, undefined);
   const entry = result.appendix?.["lodash@4.17.21"];
-  expect(entry).toBeDefined();
+  assert.notStrictEqual(entry, undefined);
 });
 
 test("determineProcessingMode - returns root mode when no depPaths", () => {
@@ -614,9 +633,9 @@ test("determineProcessingMode - returns root mode when no depPaths", () => {
 
   const result = determineProcessingMode(options, config, true, []);
 
-  expect(result.mode).toBe("root");
-  expect(result.hasRootOverrides).toBe(true);
-  expect(result.missingInRoot).toEqual([]);
+  assert.strictEqual(result.mode, "root");
+  assert.strictEqual(result.hasRootOverrides, true);
+  assert.deepStrictEqual(result.missingInRoot, []);
 });
 
 test("determineProcessingMode - returns workspace mode when options depPaths", () => {
@@ -630,9 +649,9 @@ test("determineProcessingMode - returns workspace mode when options depPaths", (
 
   const result = determineProcessingMode(options, config, false, ["lodash"]);
 
-  expect(result.mode).toBe("workspace");
-  expect(result.depPaths).toEqual(["packages/*/package.json"]);
-  expect(result.missingInRoot).toEqual(["lodash"]);
+  assert.strictEqual(result.mode, "workspace");
+  assert.deepStrictEqual(result.depPaths, ["packages/*/package.json"]);
+  assert.deepStrictEqual(result.missingInRoot, ["lodash"]);
 });
 
 test("determineProcessingMode - returns workspace mode when config depPaths", () => {
@@ -647,8 +666,8 @@ test("determineProcessingMode - returns workspace mode when config depPaths", ()
 
   const result = determineProcessingMode(options, config, true, []);
 
-  expect(result.mode).toBe("workspace");
-  expect(result.depPaths).toEqual(["apps/*/package.json"]);
+  assert.strictEqual(result.mode, "workspace");
+  assert.deepStrictEqual(result.depPaths, ["apps/*/package.json"]);
 });
 
 test("resolveDepPaths - returns options depPaths when provided", () => {
@@ -665,7 +684,7 @@ test("resolveDepPaths - returns options depPaths when provided", () => {
 
   const result = resolveDepPaths(options, config);
 
-  expect(result).toEqual(["custom/path"]);
+  assert.deepStrictEqual(result, ["custom/path"]);
 });
 
 test("resolveDepPaths - resolves workspace keyword to workspace paths", () => {
@@ -681,7 +700,7 @@ test("resolveDepPaths - resolves workspace keyword to workspace paths", () => {
 
   const result = resolveDepPaths(options, config);
 
-  expect(result).toEqual(["packages/*/package.json", "apps/*/package.json"]);
+  assert.deepStrictEqual(result, ["packages/*/package.json", "apps/*/package.json"]);
 });
 
 test("resolveDepPaths - handles workspaces keyword", () => {
@@ -697,7 +716,7 @@ test("resolveDepPaths - handles workspaces keyword", () => {
 
   const result = resolveDepPaths(options, config);
 
-  expect(result).toEqual(["packages/package.json"]);
+  assert.deepStrictEqual(result, ["packages/package.json"]);
 });
 
 test("resolveDepPaths - returns config depPaths array", () => {
@@ -712,7 +731,7 @@ test("resolveDepPaths - returns config depPaths array", () => {
 
   const result = resolveDepPaths(options, config);
 
-  expect(result).toEqual(["lib/package.json"]);
+  assert.deepStrictEqual(result, ["lib/package.json"]);
 });
 
 test("resolveDepPaths - returns workspaces when no config depPaths", () => {
@@ -725,7 +744,7 @@ test("resolveDepPaths - returns workspaces when no config depPaths", () => {
 
   const result = resolveDepPaths(options, config);
 
-  expect(result).toEqual(["packages/*/package.json"]);
+  assert.deepStrictEqual(result, ["packages/*/package.json"]);
 });
 
 test("resolveDepPaths - returns null when no depPaths or workspaces", () => {
@@ -737,7 +756,7 @@ test("resolveDepPaths - returns null when no depPaths or workspaces", () => {
 
   const result = resolveDepPaths(options, config);
 
-  expect(result).toBeNull();
+  assert.strictEqual(result, null);
 });
 
 test("mergeAllConfigs - merges CLI options and package.json config", () => {
@@ -755,12 +774,12 @@ test("mergeAllConfigs - merges CLI options and package.json config", () => {
 
   const result = mergeAllConfigs(cliOptions, packageJsonConfig, overridesData, overrides);
 
-  expect(result.overrides).toEqual(overrides);
-  expect(result.overridesData).toEqual(overridesData);
-  expect(result.appendix).toEqual(packageJsonConfig.appendix);
-  expect(result.depPaths).toEqual(["cli/path"]);
-  expect(result.securityOverrideDetails).toBeDefined();
-  expect(result.securityProvider).toBe("osv");
+  assert.deepStrictEqual(result.overrides, overrides);
+  assert.deepStrictEqual(result.overridesData, overridesData);
+  assert.deepStrictEqual(result.appendix, packageJsonConfig.appendix);
+  assert.deepStrictEqual(result.depPaths, ["cli/path"]);
+  assert.notStrictEqual(result.securityOverrideDetails, undefined);
+  assert.strictEqual(result.securityProvider, "osv");
 });
 
 test("mergeAllConfigs - handles undefined packageJsonConfig", () => {
@@ -772,9 +791,9 @@ test("mergeAllConfigs - handles undefined packageJsonConfig", () => {
 
   const result = mergeAllConfigs(cliOptions, undefined, overridesData, overrides);
 
-  expect(result.overrides).toEqual(overrides);
-  expect(result.depPaths).toEqual(["cli/path"]);
-  expect(result.appendix).toBeUndefined();
+  assert.deepStrictEqual(result.overrides, overrides);
+  assert.deepStrictEqual(result.depPaths, ["cli/path"]);
+  assert.strictEqual(result.appendix, undefined);
 });
 
 test("findRemovableOverrides - finds unused overrides", () => {
@@ -793,7 +812,7 @@ test("findRemovableOverrides - finds unused overrides", () => {
 
   const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
 
-  expect(result).toEqual(["react"]);
+  assert.deepStrictEqual(result, ["react"]);
 });
 
 test("findRemovableOverrides - keeps overrides used in appendix", () => {
@@ -808,7 +827,7 @@ test("findRemovableOverrides - keeps overrides used in appendix", () => {
 
   const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("findRemovableOverrides - keeps overrides with root dependencies", () => {
@@ -823,7 +842,7 @@ test("findRemovableOverrides - keeps overrides with root dependencies", () => {
 
   const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("findRemovableOverrides - keeps overrides missing in root", () => {
@@ -836,7 +855,7 @@ test("findRemovableOverrides - keeps overrides missing in root", () => {
 
   const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("hasConfigOverrides - returns true for security overrides", () => {
@@ -850,7 +869,7 @@ test("hasConfigOverrides - returns true for security overrides", () => {
 
   const result = hasConfigOverrides(options, config);
 
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("hasConfigOverrides - returns true for npm overrides", () => {
@@ -862,7 +881,7 @@ test("hasConfigOverrides - returns true for npm overrides", () => {
 
   const result = hasConfigOverrides({}, config);
 
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("hasConfigOverrides - returns true for yarn resolutions", () => {
@@ -874,7 +893,7 @@ test("hasConfigOverrides - returns true for yarn resolutions", () => {
 
   const result = hasConfigOverrides({}, config);
 
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("hasConfigOverrides - returns true for pnpm overrides", () => {
@@ -888,7 +907,7 @@ test("hasConfigOverrides - returns true for pnpm overrides", () => {
 
   const result = hasConfigOverrides({}, config);
 
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("hasConfigOverrides - returns false when no overrides", () => {
@@ -899,7 +918,7 @@ test("hasConfigOverrides - returns false when no overrides", () => {
 
   const result = hasConfigOverrides({}, config);
 
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 });
 
 test("hasConfigOverrides - returns false when empty overrides", () => {
@@ -914,13 +933,13 @@ test("hasConfigOverrides - returns false when empty overrides", () => {
 
   const result = hasConfigOverrides(options, config);
 
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 });
 
 test("hasConfigOverrides - handles undefined options and config", () => {
   const result = hasConfigOverrides(undefined, {} as PastoralistJSON);
 
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 });
 
 test("update - merges workspace appendix with existing root appendix entries", () => {
@@ -948,8 +967,8 @@ test("update - merges workspace appendix with existing root appendix entries", (
 
   const result = update(options);
 
-  expect(result.appendix).toBeDefined();
-  expect(result.appendix?.["lodash@4.17.21"]).toBeDefined();
+  assert.notStrictEqual(result.appendix, undefined);
+  assert.notStrictEqual(result.appendix?.["lodash@4.17.21"], undefined);
 });
 
 test("update - handles patches directory with unused patches", () => {
@@ -973,7 +992,7 @@ test("update - handles patches directory with unused patches", () => {
 
   const result = update(options);
 
-  expect(result.isTesting).toBe(true);
+  assert.strictEqual(result.isTesting, true);
 });
 
 test("update - skips write step when isTesting is true", () => {
@@ -994,8 +1013,8 @@ test("update - skips write step when isTesting is true", () => {
 
   const result = update(options);
 
-  expect(result.isTesting).toBe(true);
-  expect(result.finalOverrides).toBeDefined();
+  assert.strictEqual(result.isTesting, true);
+  assert.notStrictEqual(result.finalOverrides, undefined);
 });
 
 test("update - handles config with no appendix or overrides data", () => {
@@ -1008,8 +1027,8 @@ test("update - handles config with no appendix or overrides data", () => {
 
   const result = update(options);
 
-  expect(result.path).toBe("package.json");
-  expect(result.config).toBeUndefined();
+  assert.strictEqual(result.path, "package.json");
+  assert.strictEqual(result.config, undefined);
 });
 
 test("update - processes peerDependencies in dependency collection", () => {
@@ -1030,7 +1049,7 @@ test("update - processes peerDependencies in dependency collection", () => {
 
   const result = update(options);
 
-  expect(result.appendix?.["react@18.2.0"]).toBeDefined();
+  assert.notStrictEqual(result.appendix?.["react@18.2.0"], undefined);
 });
 
 test("update - stepWriteResult skips when hasNoData is true", () => {
@@ -1043,9 +1062,9 @@ test("update - stepWriteResult skips when hasNoData is true", () => {
 
   const result = update(options);
 
-  expect(result.config).toBeUndefined();
-  expect(result.finalAppendix).toBeUndefined();
-  expect(result.finalOverrides).toBeUndefined();
+  assert.strictEqual(result.config, undefined);
+  assert.strictEqual(result.finalAppendix, undefined);
+  assert.strictEqual(result.finalOverrides, undefined);
 });
 
 test("update - handles workspaceAppendix merge with existing entry", () => {
@@ -1066,9 +1085,9 @@ test("update - handles workspaceAppendix merge with existing entry", () => {
 
   const result = update(options);
 
-  expect(result.appendix).toBeDefined();
-  expect(result.appendix?.["lodash@4.17.21"]).toBeDefined();
-  expect(result.appendix?.["lodash@4.17.21"]?.dependents).toBeDefined();
+  assert.notStrictEqual(result.appendix, undefined);
+  assert.notStrictEqual(result.appendix?.["lodash@4.17.21"], undefined);
+  assert.notStrictEqual(result.appendix?.["lodash@4.17.21"]?.dependents, undefined);
 });
 
 test("update - handles workspaceAppendix merge adding new entry", () => {
@@ -1088,9 +1107,9 @@ test("update - handles workspaceAppendix merge adding new entry", () => {
 
   const result = update(options);
 
-  expect(result.appendix).toBeDefined();
-  expect(result.appendix?.["lodash@4.17.21"]).toBeDefined();
-  expect(result.appendix?.["express@4.18.2"]).toBeDefined();
+  assert.notStrictEqual(result.appendix, undefined);
+  assert.notStrictEqual(result.appendix?.["lodash@4.17.21"], undefined);
+  assert.notStrictEqual(result.appendix?.["express@4.18.2"], undefined);
 });
 
 test("update - handles overridePaths from config", () => {
@@ -1117,7 +1136,7 @@ test("update - handles overridePaths from config", () => {
 
   const result = update(options);
 
-  expect(result.overridePaths).toBeDefined();
+  assert.notStrictEqual(result.overridePaths, undefined);
 });
 
 test("update - handles resolutionPaths fallback", () => {
@@ -1144,7 +1163,7 @@ test("update - handles resolutionPaths fallback", () => {
 
   const result = update(options);
 
-  expect(result.appendix).toBeDefined();
+  assert.notStrictEqual(result.appendix, undefined);
 });
 
 test("update - fixture: merges workspace appendix with existing root entry", () => {
@@ -1185,13 +1204,13 @@ test("update - fixture: merges workspace appendix with existing root entry", () 
 
   rmSync(TEST_DIR, { recursive: true, force: true });
 
-  expect(result.appendix).toBeDefined();
-  expect(result.appendix?.["lodash@4.17.21"]).toBeDefined();
-  expect(result.workspaceAppendix).toBeDefined();
-  expect(result.workspaceAppendix?.["lodash@4.17.21"]).toBeDefined();
+  assert.notStrictEqual(result.appendix, undefined);
+  assert.notStrictEqual(result.appendix?.["lodash@4.17.21"], undefined);
+  assert.notStrictEqual(result.workspaceAppendix, undefined);
+  assert.notStrictEqual(result.workspaceAppendix?.["lodash@4.17.21"], undefined);
   const dependents = result.appendix?.["lodash@4.17.21"]?.dependents || {};
-  expect(Object.keys(dependents)).toContain("root-app");
-  expect(Object.keys(dependents)).toContain("pkg-a");
+  assert.ok(Object.keys(dependents).includes("root-app"));
+  assert.ok(Object.keys(dependents).includes("pkg-a"));
 });
 
 test("update - workspace appendix uses dependency graph for transitive overrides", () => {
@@ -1247,11 +1266,12 @@ test("update - workspace appendix uses dependency graph for transitive overrides
   rmSync(TEST_DIR, { recursive: true, force: true });
   clearDependencyGraphCache();
 
-  expect(result.workspaceAppendix?.["body-parser@1.20.0"]).toBeDefined();
-  expect(result.workspaceAppendix?.["body-parser@1.20.0"]?.dependents?.["pkg-a"]).toBe(
+  assert.notStrictEqual(result.workspaceAppendix?.["body-parser@1.20.0"], undefined);
+  assert.strictEqual(
+    result.workspaceAppendix?.["body-parser@1.20.0"]?.dependents?.["pkg-a"],
     "body-parser (required by express)",
   );
-  expect(result.appendix?.["body-parser@1.20.0"]?.dependents).toHaveProperty("pkg-a");
+  assertHasProperty(result.appendix?.["body-parser@1.20.0"]?.dependents, "pkg-a");
 });
 
 test("update - fixture: adds workspace-only override entry (line 157)", () => {
@@ -1293,11 +1313,38 @@ test("update - fixture: adds workspace-only override entry (line 157)", () => {
 
   rmSync(TEST_DIR, { recursive: true, force: true });
 
-  expect(result.appendix).toBeDefined();
-  expect(result.workspaceAppendix).toBeDefined();
-  expect(result.workspaceAppendix?.["express@4.18.2"]).toBeDefined();
-  expect(result.appendix?.["express@4.18.2"]).toBeDefined();
-  expect(result.appendix?.["lodash@4.17.21"]).toBeDefined();
+  assert.notStrictEqual(result.appendix, undefined);
+  assert.notStrictEqual(result.workspaceAppendix, undefined);
+  assert.notStrictEqual(result.workspaceAppendix?.["express@4.18.2"], undefined);
+  assert.notStrictEqual(result.appendix?.["express@4.18.2"], undefined);
+  assert.notStrictEqual(result.appendix?.["lodash@4.17.21"], undefined);
+});
+
+test("update - processes overrides declared only by workspace packages", () => {
+  forceClearCache();
+  if (existsSync(TEST_DIR)) rmSync(TEST_DIR, { recursive: true, force: true });
+  const pkgADir = resolve(TEST_DIR, "packages", "pkg-a");
+  mkdirSync(pkgADir, { recursive: true });
+  writeFileSync(
+    resolve(pkgADir, "package.json"),
+    JSON.stringify({
+      name: "pkg-a",
+      version: "1.0.0",
+      dependencies: { express: "^4.17.0" },
+      overrides: { express: "4.18.2" },
+    }),
+  );
+
+  const config: PastoralistJSON = {
+    name: "root-app",
+    version: "1.0.0",
+    workspaces: ["packages/*"],
+  };
+  const result = update({ root: TEST_DIR, isTesting: true, config });
+
+  rmSync(TEST_DIR, { recursive: true, force: true });
+  assert.notStrictEqual(result.workspaceAppendix?.["express@4.18.2"], undefined);
+  assert.notStrictEqual(result.appendix?.["express@4.18.2"], undefined);
 });
 
 test("update - metrics include medium severity count", () => {
@@ -1316,8 +1363,8 @@ test("update - metrics include medium severity count", () => {
 
   const result = update(options);
 
-  expect(result.metrics).toBeDefined();
-  expect(result.metrics?.severityMedium).toBe(1);
+  assert.notStrictEqual(result.metrics, undefined);
+  assert.strictEqual(result.metrics?.severityMedium, 1);
 });
 
 test("update - metrics include low severity count", () => {
@@ -1336,8 +1383,8 @@ test("update - metrics include low severity count", () => {
 
   const result = update(options);
 
-  expect(result.metrics).toBeDefined();
-  expect(result.metrics?.severityLow).toBe(1);
+  assert.notStrictEqual(result.metrics, undefined);
+  assert.strictEqual(result.metrics?.severityLow, 1);
 });
 
 test("update - metrics track removed override packages", () => {
@@ -1361,7 +1408,7 @@ test("update - metrics track removed override packages", () => {
 
   const result = update(options);
 
-  expect(result.metrics).toBeDefined();
+  assert.notStrictEqual(result.metrics, undefined);
 });
 
 test("update - skips lock file parsing without summary or json flag", () => {
@@ -1379,7 +1426,7 @@ test("update - skips lock file parsing without summary or json flag", () => {
 
   const result = update(options);
 
-  expect(result.metrics?.packagesScanned).toBe(0);
+  assert.strictEqual(result.metrics?.packagesScanned, 0);
 });
 
 test("update - parses lock file with summary flag", () => {
@@ -1398,7 +1445,7 @@ test("update - parses lock file with summary flag", () => {
 
   const result = update(options);
 
-  expect(result.metrics?.packagesScanned).toBeGreaterThanOrEqual(0);
+  assert.ok(result.metrics?.packagesScanned >= 0);
 });
 
 test("update - parses lock file with json outputFormat", () => {
@@ -1417,7 +1464,7 @@ test("update - parses lock file with json outputFormat", () => {
 
   const result = update(options);
 
-  expect(result.metrics?.packagesScanned).toBeGreaterThanOrEqual(0);
+  assert.ok(result.metrics?.packagesScanned >= 0);
 });
 
 test("update - tracks removed overrides in metrics", () => {
@@ -1438,9 +1485,9 @@ test("update - tracks removed overrides in metrics", () => {
 
   const result = update(options);
 
-  expect(result.metrics).toBeDefined();
-  expect(result.metrics?.overridesRemoved).toBeGreaterThanOrEqual(0);
-  expect(result.metrics?.removedOverridePackages).toBeDefined();
+  assert.notStrictEqual(result.metrics, undefined);
+  assert.ok(result.metrics?.overridesRemoved >= 0);
+  assert.notStrictEqual(result.metrics?.removedOverridePackages, undefined);
 });
 
 test("update - handles config with no overrides", () => {
@@ -1457,9 +1504,9 @@ test("update - handles config with no overrides", () => {
 
   const result = update(options);
 
-  expect(result.mode?.hasRootOverrides).toBe(false);
-  expect(result.finalOverrides).toEqual({});
-  expect(result.finalAppendix).toEqual({});
+  assert.strictEqual(result.mode?.hasRootOverrides, false);
+  assert.deepStrictEqual(result.finalOverrides, {});
+  assert.deepStrictEqual(result.finalAppendix, {});
 });
 
 test("update - tracks override metrics including removed packages array", () => {
@@ -1480,14 +1527,14 @@ test("update - tracks override metrics including removed packages array", () => 
 
   const result = update(options);
 
-  expect(result.metrics).toBeDefined();
-  expect(Array.isArray(result.metrics?.removedOverridePackages)).toBe(true);
-  expect(typeof result.metrics?.overridesAdded).toBe("number");
-  expect(typeof result.metrics?.overridesRemoved).toBe("number");
+  assert.notStrictEqual(result.metrics, undefined);
+  assert.strictEqual(Array.isArray(result.metrics?.removedOverridePackages), true);
+  assert.strictEqual(typeof result.metrics?.overridesAdded, "number");
+  assert.strictEqual(typeof result.metrics?.overridesRemoved, "number");
 });
 
 test("update - logs unused patches when patches exist for missing dependencies", () => {
-  const PATCH_TEST_DIR = resolve(__dirname, ".test-update-patches");
+  const PATCH_TEST_DIR = resolve(import.meta.dirname, ".test-update-patches");
 
   if (existsSync(PATCH_TEST_DIR)) {
     rmSync(PATCH_TEST_DIR, { recursive: true, force: true });
@@ -1512,9 +1559,9 @@ test("update - logs unused patches when patches exist for missing dependencies",
 
   rmSync(PATCH_TEST_DIR, { recursive: true, force: true });
 
-  expect(result.patchMap).toBeDefined();
-  expect(result.patchMap?.["unused-pkg"]).toBeDefined();
-  expect(result.unusedPatchCount).toBe(1);
+  assert.notStrictEqual(result.patchMap, undefined);
+  assert.notStrictEqual(result.patchMap?.["unused-pkg"], undefined);
+  assert.strictEqual(result.unusedPatchCount, 1);
 });
 
 test("update - counts removed overrides when config overrides differ from final", () => {
@@ -1535,9 +1582,9 @@ test("update - counts removed overrides when config overrides differ from final"
 
   const result = update(options);
 
-  expect(result.metrics).toBeDefined();
-  expect(result.metrics?.overridesAdded).toBeDefined();
-  expect(result.metrics?.removedOverridePackages).toBeDefined();
+  assert.notStrictEqual(result.metrics, undefined);
+  assert.notStrictEqual(result.metrics?.overridesAdded, undefined);
+  assert.notStrictEqual(result.metrics?.removedOverridePackages, undefined);
 });
 
 test("update - stepRemoveUnused removes unused overrides when removeUnused is true", () => {
@@ -1556,10 +1603,10 @@ test("update - stepRemoveUnused removes unused overrides when removeUnused is tr
 
   const result = update(options);
 
-  expect(result.finalOverrides?.lodash).toBe("4.17.21");
-  expect(result.finalOverrides?.["unused-pkg"]).toBeUndefined();
-  expect(result.finalAppendix?.["unused-pkg@1.0.0"]).toBeUndefined();
-  expect(result.finalAppendix?.["lodash@4.17.21"]).toBeDefined();
+  assert.strictEqual(result.finalOverrides?.lodash, "4.17.21");
+  assert.strictEqual(result.finalOverrides?.["unused-pkg"], undefined);
+  assert.strictEqual(result.finalAppendix?.["unused-pkg@1.0.0"], undefined);
+  assert.notStrictEqual(result.finalAppendix?.["lodash@4.17.21"], undefined);
 });
 
 test("update - stepRemoveUnused skips when removeUnused is false", () => {
@@ -1578,8 +1625,37 @@ test("update - stepRemoveUnused skips when removeUnused is false", () => {
 
   const result = update(options);
 
-  expect(result.finalOverrides?.["unused-pkg"]).toBe("1.0.0");
-  expect(result.finalAppendix?.["unused-pkg@1.0.0"]).toBeDefined();
+  assert.strictEqual(result.finalOverrides?.["unused-pkg"], "1.0.0");
+  assert.notStrictEqual(result.finalAppendix?.["unused-pkg@1.0.0"], undefined);
+});
+
+test("update - preserves potentially transitive overrides when no dependency graph is available", () => {
+  clearDependencyGraphCache();
+  rmSync(TEST_DIR, { recursive: true, force: true });
+  mkdirSync(TEST_DIR, { recursive: true });
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    dependencies: { express: "4.18.2" },
+    overrides: { "body-parser": "1.20.3" },
+  };
+  const packagePath = resolve(TEST_DIR, "package.json");
+  writeFileSync(packagePath, JSON.stringify(config));
+
+  try {
+    const result = update({
+      config,
+      path: packagePath,
+      root: TEST_DIR,
+      dryRun: true,
+      removeUnused: true,
+    });
+
+    assert.strictEqual(result.finalOverrides?.["body-parser"], "1.20.3");
+  } finally {
+    clearDependencyGraphCache();
+    rmSync(TEST_DIR, { recursive: true, force: true });
+  }
 });
 
 test("update - stepRemoveUnused handles scoped packages", () => {
@@ -1598,8 +1674,8 @@ test("update - stepRemoveUnused handles scoped packages", () => {
 
   const result = update(options);
 
-  expect(result.finalOverrides?.["@babel/core"]).toBeUndefined();
-  expect(result.finalOverrides?.lodash).toBe("4.17.21");
+  assert.strictEqual(result.finalOverrides?.["@babel/core"], undefined);
+  assert.strictEqual(result.finalOverrides?.lodash, "4.17.21");
 });
 
 test("update - stepRemoveUnused respects keep: true, does not remove kept overrides", () => {
@@ -1630,8 +1706,8 @@ test("update - stepRemoveUnused respects keep: true, does not remove kept overri
 
   const result = update(options);
 
-  expect(result.finalOverrides?.["kept-pkg"]).toBe("2.0.0");
-  expect(result.finalAppendix?.["kept-pkg@2.0.0"]).toBeDefined();
+  assert.strictEqual(result.finalOverrides?.["kept-pkg"], "2.0.0");
+  assert.notStrictEqual(result.finalAppendix?.["kept-pkg@2.0.0"], undefined);
 });
 
 test("update - stepUpdateKeptOverrides populates potentiallyFixedIn from matching alert", () => {
@@ -1673,7 +1749,7 @@ test("update - stepUpdateKeptOverrides populates potentiallyFixedIn from matchin
 
   const result = update(options);
 
-  expect(result.appendix?.["some-pkg@1.0.0"]?.ledger?.potentiallyFixedIn).toBe("2.0.0");
+  assert.strictEqual(result.appendix?.["some-pkg@1.0.0"]?.ledger?.potentiallyFixedIn, "2.0.0");
 });
 
 test("update - stepUpdateKeptOverrides clears potentiallyFixedIn when no matching alert", () => {
@@ -1705,7 +1781,7 @@ test("update - stepUpdateKeptOverrides clears potentiallyFixedIn when no matchin
 
   const result = update(options);
 
-  expect(result.appendix?.["some-pkg@1.0.0"]?.ledger?.potentiallyFixedIn).toBeUndefined();
+  assert.strictEqual(result.appendix?.["some-pkg@1.0.0"]?.ledger?.potentiallyFixedIn, undefined);
 });
 
 test("update - stepRemoveUnused respects skipRemovalKeys, keeps blocked overrides", () => {
@@ -1725,10 +1801,39 @@ test("update - stepRemoveUnused respects skipRemovalKeys, keeps blocked override
 
   const result = update(options);
 
-  expect(result.finalOverrides?.["removable-fake-pkg"]).toBeUndefined();
-  expect(result.finalOverrides?.["blocked-fake-pkg"]).toBe("2.0.0");
-  expect(result.finalAppendix?.["removable-fake-pkg@1.0.0"]).toBeUndefined();
-  expect(result.finalAppendix?.["blocked-fake-pkg@2.0.0"]).toBeDefined();
+  assert.strictEqual(result.finalOverrides?.["removable-fake-pkg"], undefined);
+  assert.strictEqual(result.finalOverrides?.["blocked-fake-pkg"], "2.0.0");
+  assert.strictEqual(result.finalAppendix?.["removable-fake-pkg@1.0.0"], undefined);
+  assert.notStrictEqual(result.finalAppendix?.["blocked-fake-pkg@2.0.0"], undefined);
+});
+
+test("update - stepRemoveUnused removes only verified keys", () => {
+  const config: PastoralistJSON = {
+    name: "test-app",
+    version: "1.0.0",
+    overrides: { removable: "1.0.0", unverified: "2.0.0" },
+  };
+  const options: Options = {
+    config,
+    isTesting: true,
+    removeUnused: true,
+    removalVerification: {
+      removableKeys: ["removable@1.0.0", "unverified@2.0.0"],
+      allowedKeys: ["removable@1.0.0"],
+      blockedKeys: ["unverified@2.0.0"],
+      beforeAlertCount: 0,
+      afterAlertCount: 1,
+      beforeRiskScore: 0,
+      afterRiskScore: 3,
+      newVulnerabilityKeys: ["unverified@1.0.0:advisory"],
+      status: "blocked",
+    },
+  };
+
+  const result = update(options);
+
+  assert.strictEqual(result.finalOverrides?.removable, undefined);
+  assert.strictEqual(result.finalOverrides?.unverified, "2.0.0");
 });
 
 test("update - stepRemoveUnused respects keep: KeepConstraint, does not remove kept overrides", () => {
@@ -1759,8 +1864,8 @@ test("update - stepRemoveUnused respects keep: KeepConstraint, does not remove k
 
   const result = update(options);
 
-  expect(result.finalOverrides?.["kept-constraint-pkg"]).toBe("2.0.0");
-  expect(result.finalAppendix?.["kept-constraint-pkg@2.0.0"]).toBeDefined();
+  assert.strictEqual(result.finalOverrides?.["kept-constraint-pkg"], "2.0.0");
+  assert.notStrictEqual(result.finalAppendix?.["kept-constraint-pkg@2.0.0"], undefined);
 });
 
 test("update - stepRemoveUnused warns when removing overrides with tracked CVEs", () => {
@@ -1785,8 +1890,8 @@ test("update - stepRemoveUnused warns when removing overrides with tracked CVEs"
   const options: Options = { config, isTesting: true, removeUnused: true };
   const result = update(options);
 
-  expect(result.finalOverrides?.["vuln-pkg"]).toBeUndefined();
-  expect(result.finalAppendix?.["vuln-pkg@1.2.3"]).toBeUndefined();
+  assert.strictEqual(result.finalOverrides?.["vuln-pkg"], undefined);
+  assert.strictEqual(result.finalAppendix?.["vuln-pkg@1.2.3"], undefined);
 });
 
 test("update - stepUpdateKeptOverrides handles keep: KeepConstraint entries", () => {
@@ -1828,7 +1933,7 @@ test("update - stepUpdateKeptOverrides handles keep: KeepConstraint entries", ()
 
   const result = update(options);
 
-  expect(result.appendix?.["some-pkg@1.0.0"]?.ledger?.potentiallyFixedIn).toBe("2.0.0");
+  assert.strictEqual(result.appendix?.["some-pkg@1.0.0"]?.ledger?.potentiallyFixedIn, "2.0.0");
 });
 
 const countSeveritiesConfig = {
@@ -1845,10 +1950,10 @@ test("countSeverities - empty securityOverrideDetails produces zero severity cou
     summary: true,
     securityOverrideDetails: [],
   });
-  expect(result.metrics?.severityCritical).toBe(0);
-  expect(result.metrics?.severityHigh).toBe(0);
-  expect(result.metrics?.severityMedium).toBe(0);
-  expect(result.metrics?.severityLow).toBe(0);
+  assert.strictEqual(result.metrics?.severityCritical, 0);
+  assert.strictEqual(result.metrics?.severityHigh, 0);
+  assert.strictEqual(result.metrics?.severityMedium, 0);
+  assert.strictEqual(result.metrics?.severityLow, 0);
 });
 
 test("countSeverities - mixed severities are counted correctly", () => {
@@ -1864,10 +1969,10 @@ test("countSeverities - mixed severities are counted correctly", () => {
       { packageName: "e", reason: "fix", severity: "low" },
     ],
   });
-  expect(result.metrics?.severityCritical).toBe(1);
-  expect(result.metrics?.severityHigh).toBe(2);
-  expect(result.metrics?.severityMedium).toBe(1);
-  expect(result.metrics?.severityLow).toBe(1);
+  assert.strictEqual(result.metrics?.severityCritical, 1);
+  assert.strictEqual(result.metrics?.severityHigh, 2);
+  assert.strictEqual(result.metrics?.severityMedium, 1);
+  assert.strictEqual(result.metrics?.severityLow, 1);
 });
 
 test("countSeverities - missing severity defaults to medium", () => {
@@ -1880,8 +1985,8 @@ test("countSeverities - missing severity defaults to medium", () => {
       { packageName: "b", reason: "fix", severity: undefined },
     ],
   });
-  expect(result.metrics?.severityMedium).toBe(2);
-  expect(result.metrics?.severityCritical).toBe(0);
+  assert.strictEqual(result.metrics?.severityMedium, 2);
+  assert.strictEqual(result.metrics?.severityCritical, 0);
 });
 
 test("countSeverities - severity matching is case-insensitive", () => {
@@ -1894,6 +1999,6 @@ test("countSeverities - severity matching is case-insensitive", () => {
       { packageName: "b", reason: "fix", severity: "Critical" },
     ],
   });
-  expect(result.metrics?.severityHigh).toBe(1);
-  expect(result.metrics?.severityCritical).toBe(1);
+  assert.strictEqual(result.metrics?.severityHigh, 1);
+  assert.strictEqual(result.metrics?.severityCritical, 1);
 });

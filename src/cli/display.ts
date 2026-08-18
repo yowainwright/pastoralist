@@ -6,7 +6,7 @@ import type {
   AppendixItem,
   Options,
   PastoralistResult,
-  RemovalSafetyComparison,
+  RemovalVerification,
   SecurityAlert,
   SecurityOverride,
 } from "../types";
@@ -64,15 +64,15 @@ export const displayOverrides = (graph: CliGraph, ctx: OverrideDisplayContext): 
     .forEach((info) => graph.override(info, false));
 };
 
-export const renderRemovalSafetyComparison = (
+export const renderRemovalVerification = (
   graph: CliGraph,
-  comparison: RemovalSafetyComparison | undefined,
+  comparison: RemovalVerification | undefined,
 ): void => {
   if (!comparison) return;
 
   const removalCount = comparison.removableKeys.length;
   const summary =
-    `Removal safety: vulnerabilities ${comparison.beforeAlertCount} -> ${comparison.afterAlertCount}, ` +
+    `Removal verification: vulnerabilities ${comparison.beforeAlertCount} -> ${comparison.afterAlertCount}, ` +
     `risk ${comparison.beforeRiskScore} -> ${comparison.afterRiskScore}`;
   graph.notice(summary);
 
@@ -94,7 +94,7 @@ export const renderRemovalSafetyComparison = (
   const blockedCount = comparison.blockedKeys.length;
   const reason = comparison.reason ? ` ${comparison.reason}` : "";
   graph.notice(
-    `${blockedCount} override${pluralSuffix(blockedCount)} kept after safety comparison.${reason}`,
+    `${blockedCount} override${pluralSuffix(blockedCount)} kept after removal verification.${reason}`,
   );
 };
 
@@ -204,15 +204,15 @@ const renderRemovedOverridesPhase = (
   graph.endPhase(`${count} stale override${pluralSuffix(count)} removed`);
 };
 
-const renderRunSummary = (
+const renderRunSummary = async (
   graph: CliGraph,
   updateContext: UpdateContext,
-  securityResult: SecurityResultSummary,
+  _securityResult: SecurityResultSummary,
   packagesScanned: number,
-): void => {
+): Promise<void> => {
   const metrics = updateContext.metrics;
   graph.executiveSummary({
-    vulnerabilitiesFixed: securityResult.securityAlertCount || 0,
+    vulnerabilitiesFixed: metrics?.vulnerabilitiesBlocked ?? 0,
     staleOverridesRemoved: metrics?.removedOverridePackages?.length ?? 0,
     packagesProtected: packagesScanned,
   });
@@ -226,6 +226,7 @@ const renderRunSummary = (
     packagesScanned: metrics?.packagesScanned ?? 0,
   });
   graph.complete("The herd is safe!", ` ${SHEEP}`);
+  await graph.waitForCompletion();
 };
 
 const renderInstallNotice = (graph: CliGraph, updateResultData: UpdateResultData): void => {
@@ -239,7 +240,7 @@ const renderBlockedRemovalNotice = (graph: CliGraph, mergedOptions: Options): vo
   if (blockedKeys.length === 0) return;
   const count = blockedKeys.length;
   graph.notice(
-    `${count} override${pluralSuffix(count)} kept for safety - ${blockedKeys.join(", ")}`,
+    `${count} override${pluralSuffix(count)} kept after verification - ${blockedKeys.join(", ")}`,
   );
 };
 
@@ -269,7 +270,7 @@ const renderNotices = (
   renderUnusedOverrideNotice(graph, updateContext, options);
 };
 
-export const renderUpdateOutput = (
+export const renderUpdateOutput = async (
   graph: CliGraph,
   updateContext: UpdateContext,
   updateResultData: UpdateResultData,
@@ -277,11 +278,11 @@ export const renderUpdateOutput = (
   packagesScanned: number,
   mergedOptions: Options,
   options: Options,
-): void => {
+): Promise<void> => {
   const removedPackages = updateContext.metrics?.removedOverridePackages ?? [];
   renderOverridesPhase(graph, updateContext, updateResultData, removedPackages.length === 0);
   renderRemovedOverridesPhase(graph, removedPackages);
-  renderRunSummary(graph, updateContext, securityResult, packagesScanned);
+  await renderRunSummary(graph, updateContext, securityResult, packagesScanned);
   renderNotices(graph, updateContext, updateResultData, mergedOptions, options);
 };
 

@@ -1,4 +1,6 @@
-import { test, expect, mock, beforeEach, afterEach } from "bun:test";
+import { test, beforeEach, afterEach } from "node:test";
+import { mock } from "../setup";
+import assert from "node:assert/strict";
 import {
   fetchLatestVersion,
   fetchLatestCompatibleVersion,
@@ -32,7 +34,7 @@ test("fetchLatestVersion - should return latest version from dist-tags", async (
 
   const result = await fetchLatestVersion("lodash");
 
-  expect(result).toBe("4.17.21");
+  assert.strictEqual(result, "4.17.21");
 });
 
 test("fetchLatestVersion - should return null when package not found", async () => {
@@ -40,7 +42,7 @@ test("fetchLatestVersion - should return null when package not found", async () 
 
   const result = await fetchLatestVersion("non-existent-package-xyz");
 
-  expect(result).toBeNull();
+  assert.strictEqual(result, null);
 });
 
 test("fetchLatestVersion - should return null when fetch fails", async () => {
@@ -48,7 +50,7 @@ test("fetchLatestVersion - should return null when fetch fails", async () => {
 
   const result = await fetchLatestVersion("some-package");
 
-  expect(result).toBeNull();
+  assert.strictEqual(result, null);
 });
 
 test("fetchLatestVersion - should return null when dist-tags.latest is missing", async () => {
@@ -57,7 +59,7 @@ test("fetchLatestVersion - should return null when dist-tags.latest is missing",
 
   const result = await fetchLatestVersion("some-package");
 
-  expect(result).toBeNull();
+  assert.strictEqual(result, null);
 });
 
 test("fetchLatestCompatibleVersion - should return latest compatible version within same major", async () => {
@@ -65,7 +67,7 @@ test("fetchLatestCompatibleVersion - should return latest compatible version wit
 
   const result = await fetchLatestCompatibleVersion("lodash", "4.17.15");
 
-  expect(result).toBe("4.17.21");
+  assert.strictEqual(result, "4.17.21");
 });
 
 test("fetchLatestCompatibleVersion - should not cross major version boundary", async () => {
@@ -74,7 +76,7 @@ test("fetchLatestCompatibleVersion - should not cross major version boundary", a
 
   const result = await fetchLatestCompatibleVersion("some-package", "1.0.0");
 
-  expect(result).toBe("1.2.1");
+  assert.strictEqual(result, "1.2.1");
 });
 
 test("fetchLatestCompatibleVersion - should exclude prerelease versions", async () => {
@@ -86,7 +88,7 @@ test("fetchLatestCompatibleVersion - should exclude prerelease versions", async 
 
   const result = await fetchLatestCompatibleVersion("some-package", "2.0.0");
 
-  expect(result).toBe("2.0.5");
+  assert.strictEqual(result, "2.0.5");
 });
 
 test("fetchLatestCompatibleVersion - should return null when no compatible version exists", async () => {
@@ -95,7 +97,7 @@ test("fetchLatestCompatibleVersion - should return null when no compatible versi
 
   const result = await fetchLatestCompatibleVersion("some-package", "2.0.0");
 
-  expect(result).toBeNull();
+  assert.strictEqual(result, null);
 });
 
 test("fetchLatestCompatibleVersion - should return null when package not found", async () => {
@@ -103,7 +105,7 @@ test("fetchLatestCompatibleVersion - should return null when package not found",
 
   const result = await fetchLatestCompatibleVersion("non-existent", "1.0.0");
 
-  expect(result).toBeNull();
+  assert.strictEqual(result, null);
 });
 
 test("fetchLatestCompatibleVersion - should return null when versions metadata is missing", async () => {
@@ -113,7 +115,7 @@ test("fetchLatestCompatibleVersion - should return null when versions metadata i
 
   const result = await fetchLatestCompatibleVersion("some-package", "4.17.20");
 
-  expect(result).toBeNull();
+  assert.strictEqual(result, null);
 });
 
 test("fetchLatestCompatibleVersion - should return null when versions is not an object", async () => {
@@ -128,7 +130,7 @@ test("fetchLatestCompatibleVersion - should return null when versions is not an 
 
   const result = await fetchLatestCompatibleVersion("some-package", "4.17.20");
 
-  expect(result).toBeNull();
+  assert.strictEqual(result, null);
 });
 
 test("fetchLatestCompatibleVersion - should return minVersion when it is the latest", async () => {
@@ -136,7 +138,7 @@ test("fetchLatestCompatibleVersion - should return minVersion when it is the lat
 
   const result = await fetchLatestCompatibleVersion("lodash", "4.17.21");
 
-  expect(result).toBe("4.17.21");
+  assert.strictEqual(result, "4.17.21");
 });
 
 test("fetchLatestCompatibleVersion - should filter versions below minVersion", async () => {
@@ -144,7 +146,7 @@ test("fetchLatestCompatibleVersion - should filter versions below minVersion", a
 
   const result = await fetchLatestCompatibleVersion("lodash", "4.17.20");
 
-  expect(result).toBe("4.17.21");
+  assert.strictEqual(result, "4.17.21");
 });
 
 test("fetchLatestCompatibleVersions - should fetch versions for multiple packages", async () => {
@@ -157,9 +159,9 @@ test("fetchLatestCompatibleVersions - should fetch versions for multiple package
 
   const result = await fetchLatestCompatibleVersions(packages);
 
-  expect(result instanceof Map).toBe(true);
-  expect(result.get("lodash")).toBe("4.17.21");
-  expect(result.get("express")).toBe("4.17.21");
+  assert.strictEqual(result instanceof Map, true);
+  assert.strictEqual(result.get("lodash"), "4.17.21");
+  assert.strictEqual(result.get("express"), "4.17.21");
 });
 
 test("fetchLatestCompatibleVersions - should deduplicate packages by name", async () => {
@@ -177,15 +179,15 @@ test("fetchLatestCompatibleVersions - should deduplicate packages by name", asyn
 
   const result = await fetchLatestCompatibleVersions(packages);
 
-  expect(fetchCount).toBe(1);
-  expect(result.get("lodash")).toBe("4.17.21");
+  assert.strictEqual(fetchCount, 1);
+  assert.strictEqual(result.get("lodash"), "4.17.21");
 });
 
 test("fetchLatestCompatibleVersions - should handle empty package list", async () => {
   const result = await fetchLatestCompatibleVersions([]);
 
-  expect(result instanceof Map).toBe(true);
-  expect(result.size).toBe(0);
+  assert.strictEqual(result instanceof Map, true);
+  assert.strictEqual(result.size, 0);
 });
 
 test("fetchLatestCompatibleVersions - should skip packages that fail to fetch", async () => {
@@ -205,8 +207,8 @@ test("fetchLatestCompatibleVersions - should skip packages that fail to fetch", 
 
   const result = await fetchLatestCompatibleVersions(packages);
 
-  expect(result.get("lodash")).toBe("4.17.21");
-  expect(result.has("non-existent-pkg")).toBe(false);
+  assert.strictEqual(result.get("lodash"), "4.17.21");
+  assert.strictEqual(result.has("non-existent-pkg"), false);
 });
 
 test("fetchLatestCompatibleVersions - should handle mixed success and failure", async () => {
@@ -238,9 +240,9 @@ test("fetchLatestCompatibleVersions - should handle mixed success and failure", 
 
   const result = await fetchLatestCompatibleVersions(packages);
 
-  expect(result.get("lodash")).toBe("4.17.21");
-  expect(result.get("axios")).toBe("1.6.0");
-  expect(result.has("unknown-pkg")).toBe(false);
+  assert.strictEqual(result.get("lodash"), "4.17.21");
+  assert.strictEqual(result.get("axios"), "1.6.0");
+  assert.strictEqual(result.has("unknown-pkg"), false);
 });
 
 test("fetchLatestCompatibleVersion - should handle versions with zero major", async () => {
@@ -249,7 +251,7 @@ test("fetchLatestCompatibleVersion - should handle versions with zero major", as
 
   const result = await fetchLatestCompatibleVersion("zero-major-pkg", "0.2.0");
 
-  expect(result).toBe("0.5.0");
+  assert.strictEqual(result, "0.5.0");
 });
 
 test("fetchLatestCompatibleVersion - should return stable version when starting from stable minVersion", async () => {
@@ -263,7 +265,7 @@ test("fetchLatestCompatibleVersion - should return stable version when starting 
 
   const result = await fetchLatestCompatibleVersion("some-pkg", "2.0.0");
 
-  expect(result).toBe("2.0.1");
+  assert.strictEqual(result, "2.0.1");
 });
 
 test("fetchLatestVersion - should encode package name in URL", async () => {
@@ -275,7 +277,7 @@ test("fetchLatestVersion - should encode package name in URL", async () => {
 
   await fetchLatestVersion("@scope/package-name");
 
-  expect(capturedUrl).toContain(encodeURIComponent("@scope/package-name"));
+  assert.ok(capturedUrl.includes(encodeURIComponent("@scope/package-name")));
 });
 
 test("fetchLatestCompatibleVersions - should rate limit concurrent requests", async () => {
@@ -297,5 +299,5 @@ test("fetchLatestCompatibleVersions - should rate limit concurrent requests", as
 
   await fetchLatestCompatibleVersions(packages);
 
-  expect(maxConcurrent).toBeLessThanOrEqual(5);
+  assert.ok(maxConcurrent <= 5);
 });

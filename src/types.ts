@@ -116,16 +116,21 @@ export interface AppendixItem {
 export interface Appendix {
   [key: string]: AppendixItem;
 }
+export interface CompactAppendixItem extends AppendixItem {
+  addedDate: string;
+}
+export type PersistedAppendix = Record<string, AppendixItem | CompactAppendixItem>;
 
 export interface PastoralistConfig {
-  appendix?: Appendix;
+  $schema?: string;
+  appendix?: PersistedAppendix;
   appendixSource?: string;
   compactAppendix?: boolean;
   depPaths?: "workspace" | "workspaces" | string[];
   overrideSource?: string;
   checkSecurity?: boolean;
-  overridePaths?: Record<string, Appendix>;
-  resolutionPaths?: Record<string, Appendix>;
+  overridePaths?: Record<string, PersistedAppendix>;
+  resolutionPaths?: Record<string, PersistedAppendix>;
   bestCase?: BestCaseConfig;
   security?: {
     enabled?: boolean;
@@ -203,7 +208,7 @@ export interface SecurityOptions {
   bestCase?: BestCaseConfig;
 }
 
-export interface RemovalSafetyComparison {
+export interface RemovalVerification {
   removableKeys: string[];
   allowedKeys: string[];
   blockedKeys: string[];
@@ -254,7 +259,7 @@ export interface Options extends SecurityOptions, OutputOptions, TestingOptions,
   addedDate?: string;
   removeUnused?: boolean;
   skipRemovalKeys?: string[];
-  removalSafetyComparison?: RemovalSafetyComparison;
+  removalVerification?: RemovalVerification;
   cacheDir?: string;
   cacheTtl?: number;
   noCache?: boolean;
@@ -266,7 +271,7 @@ export interface OverridesType {
 }
 
 export interface UpdatePackageJSONOptions {
-  appendix?: Appendix;
+  appendix?: PersistedAppendix;
   debug?: boolean;
   dryRun?: boolean;
   silent?: boolean;
@@ -365,7 +370,7 @@ export interface PastoralistResult {
   }>;
   unusedOverrides?: string[];
   appliedOverrides?: Record<string, string>;
-  removalSafetyComparison?: RemovalSafetyComparison;
+  removalVerification?: RemovalVerification;
   bestCase?: {
     selectedState: Record<string, string>;
     decisionId: string;

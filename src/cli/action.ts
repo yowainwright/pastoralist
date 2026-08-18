@@ -197,7 +197,7 @@ const buildActionResult = (runtime: ActionRuntime, workflow: UpdateWorkflow): Pa
     workflow.securityPhase.securityResult,
     workflow.updateResultData,
     {
-      removalSafetyComparison: workflow.mergedOptions.removalSafetyComparison,
+      removalVerification: workflow.mergedOptions.removalVerification,
       bestCase: workflow.securityPhase.bestCase,
       metrics: workflow.updateContext.metrics,
     },
@@ -217,13 +217,13 @@ const finishActionResult = (
   return result;
 };
 
-const renderActionOutput = (
+const renderActionOutput = async (
   workflow: UpdateWorkflow,
   runtime: ActionRuntime,
   options: Options,
-): void => {
+): Promise<void> => {
   if (runtime.isJsonOutput) return;
-  renderUpdateOutput(
+  await renderUpdateOutput(
     runtime.graph,
     workflow.updateContext,
     workflow.updateResultData,
@@ -240,7 +240,7 @@ const runActionWorkflow = async (
   runtime: ActionRuntime,
 ): Promise<PastoralistResult> => {
   const workflow = await runUpdateWorkflow(options, deps, runtime);
-  renderActionOutput(workflow, runtime, options);
+  await renderActionOutput(workflow, runtime, options);
   return finishActionResult(buildActionResult(runtime, workflow), deps, runtime, options);
 };
 
@@ -252,7 +252,7 @@ const handleActionError = (
   runtime.graph.stop();
   const result = createErrorResult(error);
   if (runtime.isJsonOutput) outputResult(result, runtime.isJsonOutput);
-  else runtime.log.error("action:fn", "action", { error });
+  else runtime.log.fail(result.errors[0] || "Action failed");
   deps.processExit(1);
   return result;
 };

@@ -132,6 +132,6 @@ const attempt = async <T>(
   }
 };
 
-export const retry = async <T>(fn: () => Promise<T>, options: RetryOptions = {}): Promise<T> => {
+export const retry = <T>(fn: () => Promise<T>, options: RetryOptions = {}): Promise<T> => {
   return attempt(fn, resolveRetryOptions(options), 1);
 };

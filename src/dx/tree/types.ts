@@ -33,7 +33,7 @@ export type SpinnerControl = {
   render: () => void;
 };
 
-export type Completer = (text: string, prefix: string, suffix: string) => void;
+export type Completer = (text: string, prefix: string, suffix: string) => Promise<void>;
 
 export type SpinnerPausedRunner = <T>(action: () => T) => T;
 

@@ -8,6 +8,17 @@ if [ ! -f /.dockerenv ]; then
     cd "$SCRIPT_DIR/../../.."
     pnpm run build
     cd tests/e2e
+
+    cleanup_docker() {
+        exit_code=$?
+        trap - EXIT
+        echo ""
+        echo "Cleaning up Docker resources..."
+        docker compose down --volumes --remove-orphans --rmi local || true
+        exit "$exit_code"
+    }
+
+    trap cleanup_docker EXIT
     
     echo "🐳 Starting E2E Tests..."
     echo "========================"
@@ -37,10 +48,6 @@ if [ ! -f /.dockerenv ]; then
         docker compose logs e2e-pnpm
         exit 1
     fi
-    
-    echo ""
-    echo "🧹 Cleaning up..."
-    docker compose down --remove-orphans
     
     echo ""
     echo "✨ E2E test run complete!"

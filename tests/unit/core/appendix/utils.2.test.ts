@@ -1,4 +1,5 @@
-import { test, expect } from "bun:test";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 import {
   mergeDependenciesForPackage,
   hasDependenciesMatchingOverrides,
@@ -27,11 +28,11 @@ test("mergeDependenciesForPackage - merges all dependency types", () => {
 
   const result = mergeDependenciesForPackage(packageConfig);
 
-  expect(result.lodash).toBe("^4.17.20");
-  expect(result.express).toBe("^4.18.0");
-  expect(result.jest).toBe("^29.0.0");
-  expect(result.typescript).toBe("^5.0.0");
-  expect(result.react).toBe("^18.0.0");
+  assert.strictEqual(result.lodash, "^4.17.20");
+  assert.strictEqual(result.express, "^4.18.0");
+  assert.strictEqual(result.jest, "^29.0.0");
+  assert.strictEqual(result.typescript, "^5.0.0");
+  assert.strictEqual(result.react, "^18.0.0");
 });
 
 test("mergeDependenciesForPackage - handles missing dependency types", () => {
@@ -45,14 +46,14 @@ test("mergeDependenciesForPackage - handles missing dependency types", () => {
 
   const result = mergeDependenciesForPackage(packageConfig);
 
-  expect(result.lodash).toBe("^4.17.20");
-  expect(Object.keys(result).length).toBe(1);
+  assert.strictEqual(result.lodash, "^4.17.20");
+  assert.strictEqual(Object.keys(result).length, 1);
 });
 
 test("mergeDependenciesForPackage - handles undefined config", () => {
   const result = mergeDependenciesForPackage(undefined);
 
-  expect(result).toEqual({});
+  assert.deepStrictEqual(result, {});
 });
 
 test("mergeDependenciesForPackage - handles empty dependencies", () => {
@@ -63,7 +64,7 @@ test("mergeDependenciesForPackage - handles empty dependencies", () => {
 
   const result = mergeDependenciesForPackage(packageConfig);
 
-  expect(result).toEqual({});
+  assert.deepStrictEqual(result, {});
 });
 
 test("hasDependenciesMatchingOverrides - returns true when match found", () => {
@@ -72,7 +73,7 @@ test("hasDependenciesMatchingOverrides - returns true when match found", () => {
 
   const result = hasDependenciesMatchingOverrides(depList, overridesList);
 
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("hasDependenciesMatchingOverrides - returns false when no match", () => {
@@ -81,7 +82,7 @@ test("hasDependenciesMatchingOverrides - returns false when no match", () => {
 
   const result = hasDependenciesMatchingOverrides(depList, overridesList);
 
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 });
 
 test("hasDependenciesMatchingOverrides - returns false with empty depList", () => {
@@ -90,7 +91,7 @@ test("hasDependenciesMatchingOverrides - returns false with empty depList", () =
 
   const result = hasDependenciesMatchingOverrides(depList, overridesList);
 
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 });
 
 test("hasDependenciesMatchingOverrides - returns false with empty overridesList", () => {
@@ -99,7 +100,7 @@ test("hasDependenciesMatchingOverrides - returns false with empty overridesList"
 
   const result = hasDependenciesMatchingOverrides(depList, overridesList);
 
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 });
 
 test("hasDependenciesMatchingOverrides - handles multiple matches", () => {
@@ -108,7 +109,7 @@ test("hasDependenciesMatchingOverrides - handles multiple matches", () => {
 
   const result = hasDependenciesMatchingOverrides(depList, overridesList);
 
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("shouldWriteAppendix - returns true with appendix and write flag", () => {
@@ -122,7 +123,7 @@ test("shouldWriteAppendix - returns true with appendix and write flag", () => {
 
   const result = shouldWriteAppendix(appendix, true);
 
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("shouldWriteAppendix - returns false when write flag is false", () => {
@@ -136,13 +137,13 @@ test("shouldWriteAppendix - returns false when write flag is false", () => {
 
   const result = shouldWriteAppendix(appendix, false);
 
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 });
 
 test("shouldWriteAppendix - returns false when appendix is undefined", () => {
   const result = shouldWriteAppendix(undefined, true);
 
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 });
 
 test("shouldWriteAppendix - returns false when appendix is empty", () => {
@@ -150,7 +151,7 @@ test("shouldWriteAppendix - returns false when appendix is empty", () => {
 
   const result = shouldWriteAppendix(appendix, true);
 
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 });
 
 test("hasOverrides - returns true when overrides exist", () => {
@@ -161,13 +162,13 @@ test("hasOverrides - returns true when overrides exist", () => {
 
   const result = hasOverrides(overrides);
 
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("hasOverrides - returns false when overrides is null", () => {
   const result = hasOverrides(null);
 
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 });
 
 test("hasOverrides - returns false when overrides is empty object", () => {
@@ -175,7 +176,7 @@ test("hasOverrides - returns false when overrides is empty object", () => {
 
   const result = hasOverrides(overrides);
 
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 });
 
 test("mergeAppendixDependents - merges dependents for existing key", () => {
@@ -196,8 +197,8 @@ test("mergeAppendixDependents - merges dependents for existing key", () => {
 
   const result = mergeAppendixDependents(currentAppendix, key, value);
 
-  expect(result[key].dependents.app1).toBe("lodash@^4.17.0");
-  expect(result[key].dependents.app2).toBe("lodash@^4.17.20");
+  assert.strictEqual(result[key].dependents.app1, "lodash@^4.17.0");
+  assert.strictEqual(result[key].dependents.app2, "lodash@^4.17.20");
 });
 
 test("mergeAppendixDependents - creates new entry for non-existing key", () => {
@@ -218,9 +219,9 @@ test("mergeAppendixDependents - creates new entry for non-existing key", () => {
 
   const result = mergeAppendixDependents(currentAppendix, key, value);
 
-  expect(result["lodash@4.17.21"]).toBeDefined();
-  expect(result["express@4.18.2"]).toBeDefined();
-  expect(result["express@4.18.2"].dependents.app2).toBe("express@^4.18.0");
+  assert.notStrictEqual(result["lodash@4.17.21"], undefined);
+  assert.notStrictEqual(result["express@4.18.2"], undefined);
+  assert.strictEqual(result["express@4.18.2"].dependents.app2, "express@^4.18.0");
 });
 
 test("mergeAppendixDependents - handles empty currentAppendix", () => {
@@ -235,8 +236,8 @@ test("mergeAppendixDependents - handles empty currentAppendix", () => {
 
   const result = mergeAppendixDependents(currentAppendix, key, value);
 
-  expect(result[key]).toBeDefined();
-  expect(result[key].dependents.frontend).toBe("react@^18.0.0");
+  assert.notStrictEqual(result[key], undefined);
+  assert.strictEqual(result[key].dependents.frontend, "react@^18.0.0");
 });
 
 test("mergeAppendixDependents - overwrites duplicate dependent names", () => {
@@ -257,8 +258,8 @@ test("mergeAppendixDependents - overwrites duplicate dependent names", () => {
 
   const result = mergeAppendixDependents(currentAppendix, key, value);
 
-  expect(result[key].dependents.app).toBe("lodash@^4.17.20");
-  expect(Object.keys(result[key].dependents).length).toBe(1);
+  assert.strictEqual(result[key].dependents.app, "lodash@^4.17.20");
+  assert.strictEqual(Object.keys(result[key].dependents).length, 1);
 });
 
 test("mergeAppendixDependents - preserves other appendix entries", () => {
@@ -284,7 +285,7 @@ test("mergeAppendixDependents - preserves other appendix entries", () => {
 
   const result = mergeAppendixDependents(currentAppendix, key, value);
 
-  expect(result["lodash@4.17.21"].dependents.app1).toBe("lodash@^4.17.0");
-  expect(result["lodash@4.17.21"].dependents.app3).toBe("lodash@^4.17.20");
-  expect(result["express@4.18.2"].dependents.app2).toBe("express@^4.18.0");
+  assert.strictEqual(result["lodash@4.17.21"].dependents.app1, "lodash@^4.17.0");
+  assert.strictEqual(result["lodash@4.17.21"].dependents.app3, "lodash@^4.17.20");
+  assert.strictEqual(result["express@4.18.2"].dependents.app2, "express@^4.18.0");
 });

@@ -1,14 +1,16 @@
-import { describe, expect, test } from "bun:test";
+import { errorIncludes } from "../../setup";
+import { describe, test } from "node:test";
+import assert from "node:assert/strict";
 import { parseArgs } from "../../../../src/cli/parser";
 import { HELP_TEXT } from "../../../../src/cli/parser/constants";
 
 describe("parseArgs", () => {
   describe("help text", () => {
     test("should document onboarding", () => {
-      expect(HELP_TEXT).toContain("onboard");
-      expect(HELP_TEXT).toContain("--onboard, --onboarding");
-      expect(HELP_TEXT).toContain("GitHub Action guidance");
-      expect(HELP_TEXT).toContain("init [config|agent-skill]");
+      assert.ok(HELP_TEXT.includes("onboard"));
+      assert.ok(HELP_TEXT.includes("--onboard, --onboarding"));
+      assert.ok(HELP_TEXT.includes("GitHub Action guidance"));
+      assert.ok(HELP_TEXT.includes("init [config|agent-skill]"));
     });
   });
 
@@ -16,35 +18,50 @@ describe("parseArgs", () => {
     test("should parse --debug flag", () => {
       const result = parseArgs(["node", "script.js", "--debug"]);
 
-      expect(result.options.debug).toBe(true);
+      assert.strictEqual(result.options.debug, true);
     });
 
     test("should parse --dry-run flag", () => {
       const result = parseArgs(["node", "script.js", "--dry-run"]);
 
-      expect(result.options.dryRun).toBe(true);
+      assert.strictEqual(result.options.dryRun, true);
+    });
+
+    test("should coerce inline boolean values", () => {
+      const disabled = parseArgs(["node", "script.js", "--dry-run=false"]);
+      const enabled = parseArgs(["node", "script.js", "--debug=true"]);
+
+      assert.strictEqual(disabled.options.dryRun, false);
+      assert.strictEqual(enabled.options.debug, true);
+    });
+
+    test("should reject invalid inline boolean values", () => {
+      assert.throws(
+        () => parseArgs(["node", "script.js", "--dry-run=0"]),
+        errorIncludes("Boolean option dryRun requires true or false"),
+      );
     });
 
     test("should parse multiple boolean flags", () => {
       const result = parseArgs(["node", "script.js", "--debug", "--dry-run", "--interactive"]);
 
-      expect(result.options.debug).toBe(true);
-      expect(result.options.dryRun).toBe(true);
-      expect(result.options.interactive).toBe(true);
+      assert.strictEqual(result.options.debug, true);
+      assert.strictEqual(result.options.dryRun, true);
+      assert.strictEqual(result.options.interactive, true);
     });
 
     test("should parse -t flag", () => {
       const result = parseArgs(["node", "script.js", "-t"]);
 
-      expect(result.options.isTestingCLI).toBe(true);
+      assert.strictEqual(result.options.isTestingCLI, true);
     });
 
     test("should parse version flags", () => {
       const longVersion = parseArgs(["node", "script.js", "--version"]);
       const shortVersion = parseArgs(["node", "script.js", "-v"]);
 
-      expect(longVersion.options.version).toBe(true);
-      expect(shortVersion.options.version).toBe(true);
+      assert.strictEqual(longVersion.options.version, true);
+      assert.strictEqual(shortVersion.options.version, true);
     });
   });
 
@@ -52,43 +69,43 @@ describe("parseArgs", () => {
     test("should parse -p flag with value", () => {
       const result = parseArgs(["node", "script.js", "-p", "test.json"]);
 
-      expect(result.options.path).toBe("test.json");
+      assert.strictEqual(result.options.path, "test.json");
     });
 
     test("should parse --path flag with value", () => {
       const result = parseArgs(["node", "script.js", "--path", "package.json"]);
 
-      expect(result.options.path).toBe("package.json");
+      assert.strictEqual(result.options.path, "package.json");
     });
 
     test("should parse -r flag with value", () => {
       const result = parseArgs(["node", "script.js", "-r", "/tmp"]);
 
-      expect(result.options.root).toBe("/tmp");
+      assert.strictEqual(result.options.root, "/tmp");
     });
 
     test("should parse --root flag with value", () => {
       const result = parseArgs(["node", "script.js", "--root", "/home/user"]);
 
-      expect(result.options.root).toBe("/home/user");
+      assert.strictEqual(result.options.root, "/home/user");
     });
 
     test("should parse flag with equals sign", () => {
       const result = parseArgs(["node", "script.js", "--path=custom.json"]);
 
-      expect(result.options.path).toBe("custom.json");
+      assert.strictEqual(result.options.path, "custom.json");
     });
 
     test("should parse --securityProviderToken with value", () => {
       const result = parseArgs(["node", "script.js", "--securityProviderToken", "abc123"]);
 
-      expect(result.options.securityProviderToken).toBe("abc123");
+      assert.strictEqual(result.options.securityProviderToken, "abc123");
     });
 
     test("should parse --cache-ttl with value", () => {
       const result = parseArgs(["node", "script.js", "--cache-ttl", "3600"]);
 
-      expect(result.options.cacheTtl).toBe("3600");
+      assert.strictEqual(result.options.cacheTtl, "3600");
     });
   });
 
@@ -96,19 +113,19 @@ describe("parseArgs", () => {
     test("should parse -d flag with multiple values", () => {
       const result = parseArgs(["node", "script.js", "-d", "path1", "path2", "path3"]);
 
-      expect(result.options.depPaths).toEqual(["path1", "path2", "path3"]);
+      assert.deepStrictEqual(result.options.depPaths, ["path1", "path2", "path3"]);
     });
 
     test("should parse --depPaths flag with multiple values", () => {
       const result = parseArgs(["node", "script.js", "--depPaths", "packages/*", "workspaces/*"]);
 
-      expect(result.options.depPaths).toEqual(["packages/*", "workspaces/*"]);
+      assert.deepStrictEqual(result.options.depPaths, ["packages/*", "workspaces/*"]);
     });
 
     test("should parse --ignore flag with multiple values", () => {
       const result = parseArgs(["node", "script.js", "--ignore", "node_modules", "dist", "build"]);
 
-      expect(result.options.ignore).toEqual(["node_modules", "dist", "build"]);
+      assert.deepStrictEqual(result.options.ignore, ["node_modules", "dist", "build"]);
     });
 
     test("should parse --securityProvider flag with multiple values", () => {
@@ -121,21 +138,21 @@ describe("parseArgs", () => {
         "snyk",
       ]);
 
-      expect(result.options.securityProvider).toEqual(["osv", "github", "snyk"]);
+      assert.deepStrictEqual(result.options.securityProvider, ["osv", "github", "snyk"]);
     });
 
-    test("should handle array flag with no values following it", () => {
-      const result = parseArgs(["node", "script.js", "--depPaths", "--debug"]);
-
-      expect(result.options.depPaths).toBeUndefined();
-      expect(result.options.debug).toBe(true);
+    test("should reject array flag with no values following it", () => {
+      assert.throws(
+        () => parseArgs(["node", "script.js", "--depPaths", "--debug"]),
+        errorIncludes("Option depPaths requires a value"),
+      );
     });
 
-    test("should handle array flag at end of arguments", () => {
-      const result = parseArgs(["node", "script.js", "--debug", "--depPaths"]);
-
-      expect(result.options.debug).toBe(true);
-      expect(result.options.depPaths).toBeUndefined();
+    test("should reject array flag at end of arguments", () => {
+      assert.throws(
+        () => parseArgs(["node", "script.js", "--debug", "--depPaths"]),
+        errorIncludes("Option depPaths requires a value"),
+      );
     });
   });
 
@@ -143,25 +160,25 @@ describe("parseArgs", () => {
     test("should apply default value for path", () => {
       const result = parseArgs(["node", "script.js"]);
 
-      expect(result.options.path).toBe("package.json");
+      assert.strictEqual(result.options.path, "package.json");
     });
 
     test("should not apply default value for securityProvider when not provided", () => {
       const result = parseArgs(["node", "script.js"]);
 
-      expect(result.options.securityProvider).toBeUndefined();
+      assert.strictEqual(result.options.securityProvider, undefined);
     });
 
     test("should override default value when provided", () => {
       const result = parseArgs(["node", "script.js", "--path", "custom.json"]);
 
-      expect(result.options.path).toBe("custom.json");
+      assert.strictEqual(result.options.path, "custom.json");
     });
 
     test("should override default securityProvider when provided", () => {
       const result = parseArgs(["node", "script.js", "--securityProvider", "github"]);
 
-      expect(result.options.securityProvider).toEqual(["github"]);
+      assert.deepStrictEqual(result.options.securityProvider, ["github"]);
     });
   });
 
@@ -169,48 +186,48 @@ describe("parseArgs", () => {
     test("should parse init command", () => {
       const result = parseArgs(["node", "script.js", "init"]);
 
-      expect(result.command).toBe("init");
-      expect(result.commandArgs).toEqual([]);
+      assert.strictEqual(result.command, "init");
+      assert.deepStrictEqual(result.commandArgs, []);
     });
 
     test("should parse init command target", () => {
       const result = parseArgs(["node", "script.js", "init", "agent-skill"]);
 
-      expect(result.command).toBe("init");
-      expect(result.commandArgs).toEqual(["agent-skill"]);
+      assert.strictEqual(result.command, "init");
+      assert.deepStrictEqual(result.commandArgs, ["agent-skill"]);
     });
 
     test("should parse init command target args", () => {
       const result = parseArgs(["node", "script.js", "init", "agent-skill", "extra"]);
 
-      expect(result.command).toBe("init");
-      expect(result.commandArgs).toEqual(["agent-skill", "extra"]);
+      assert.strictEqual(result.command, "init");
+      assert.deepStrictEqual(result.commandArgs, ["agent-skill", "extra"]);
     });
 
     test("should parse doctor command", () => {
       const result = parseArgs(["node", "script.js", "doctor"]);
 
-      expect(result.command).toBe("doctor");
+      assert.strictEqual(result.command, "doctor");
     });
 
     test("should parse onboard command", () => {
       const result = parseArgs(["node", "script.js", "onboard"]);
 
-      expect(result.command).toBe("onboard");
+      assert.strictEqual(result.command, "onboard");
     });
 
     test("should parse command with options", () => {
       const result = parseArgs(["node", "script.js", "init", "--path", "test.json"]);
 
-      expect(result.command).toBe("init");
-      expect(result.options.path).toBe("test.json");
+      assert.strictEqual(result.command, "init");
+      assert.strictEqual(result.options.path, "test.json");
     });
 
     test("should parse command with options before command", () => {
       const result = parseArgs(["node", "script.js", "--path", "test.json", "init"]);
 
-      expect(result.command).toBe("init");
-      expect(result.options.path).toBe("test.json");
+      assert.strictEqual(result.command, "init");
+      assert.strictEqual(result.options.path, "test.json");
     });
   });
 
@@ -218,9 +235,9 @@ describe("parseArgs", () => {
     test("should parse combination of short and long flags", () => {
       const result = parseArgs(["node", "script.js", "-p", "test.json", "--debug", "-r", "/tmp"]);
 
-      expect(result.options.path).toBe("test.json");
-      expect(result.options.debug).toBe(true);
-      expect(result.options.root).toBe("/tmp");
+      assert.strictEqual(result.options.path, "test.json");
+      assert.strictEqual(result.options.debug, true);
+      assert.strictEqual(result.options.root, "/tmp");
     });
 
     test("should parse boolean, value, and array flags together", () => {
@@ -236,10 +253,10 @@ describe("parseArgs", () => {
         "--interactive",
       ]);
 
-      expect(result.options.debug).toBe(true);
-      expect(result.options.depPaths).toEqual(["path1", "path2"]);
-      expect(result.options.path).toBe("custom.json");
-      expect(result.options.interactive).toBe(true);
+      assert.strictEqual(result.options.debug, true);
+      assert.deepStrictEqual(result.options.depPaths, ["path1", "path2"]);
+      assert.strictEqual(result.options.path, "custom.json");
+      assert.strictEqual(result.options.interactive, true);
     });
 
     test("should parse all security-related flags", () => {
@@ -257,32 +274,34 @@ describe("parseArgs", () => {
         "--hasWorkspaceSecurityChecks",
       ]);
 
-      expect(result.options.checkSecurity).toBe(true);
-      expect(result.options.forceSecurityRefactor).toBe(true);
-      expect(result.options.securityProvider).toEqual(["osv", "github"]);
-      expect(result.options.securityProviderToken).toBe("token123");
-      expect(result.options.interactive).toBe(true);
-      expect(result.options.hasWorkspaceSecurityChecks).toBe(true);
+      assert.strictEqual(result.options.checkSecurity, true);
+      assert.strictEqual(result.options.forceSecurityRefactor, true);
+      assert.deepStrictEqual(result.options.securityProvider, ["osv", "github"]);
+      assert.strictEqual(result.options.securityProviderToken, "token123");
+      assert.strictEqual(result.options.interactive, true);
+      assert.strictEqual(result.options.hasWorkspaceSecurityChecks, true);
     });
 
     test("should parse test mode flags", () => {
       const result = parseArgs(["node", "script.js", "--isTesting", "--isTestingCLI"]);
 
-      expect(result.options.isTesting).toBe(true);
-      expect(result.options.isTestingCLI).toBe(true);
+      assert.strictEqual(result.options.isTesting, true);
+      assert.strictEqual(result.options.isTestingCLI, true);
     });
   });
 
   describe("unknown flags", () => {
     test("should throw for unknown flags", () => {
-      expect(() => parseArgs(["node", "script.js", "--unknown", "--debug"])).toThrow(
-        "Unknown option: --unknown",
+      assert.throws(
+        () => parseArgs(["node", "script.js", "--unknown", "--debug"]),
+        errorIncludes("Unknown option: --unknown"),
       );
     });
 
     test("should throw for unknown short flags", () => {
-      expect(() => parseArgs(["node", "script.js", "-x", "-p", "test.json"])).toThrow(
-        "Unknown option: -x",
+      assert.throws(
+        () => parseArgs(["node", "script.js", "-x", "-p", "test.json"]),
+        errorIncludes("Unknown option: -x"),
       );
     });
 
@@ -290,8 +309,8 @@ describe("parseArgs", () => {
       const longHelp = parseArgs(["node", "script.js", "--help"]);
       const shortHelp = parseArgs(["node", "script.js", "-h"]);
 
-      expect(longHelp.options.help).toBe(true);
-      expect(shortHelp.options.help).toBe(true);
+      assert.strictEqual(longHelp.options.help, true);
+      assert.strictEqual(shortHelp.options.help, true);
     });
   });
 
@@ -299,73 +318,74 @@ describe("parseArgs", () => {
     test("should handle empty arguments", () => {
       const result = parseArgs(["node", "script.js"]);
 
-      expect(result.command).toBeUndefined();
-      expect(result.options.path).toBe("package.json");
-      expect(result.options.securityProvider).toBeUndefined();
+      assert.strictEqual(result.command, undefined);
+      assert.strictEqual(result.options.path, "package.json");
+      assert.strictEqual(result.options.securityProvider, undefined);
     });
 
     test("should handle only command", () => {
       const result = parseArgs(["node", "script.js", "init"]);
 
-      expect(result.command).toBe("init");
-      expect(result.options.path).toBe("package.json");
+      assert.strictEqual(result.command, "init");
+      assert.strictEqual(result.options.path, "package.json");
     });
 
-    test("should handle flag with empty string value as boolean", () => {
-      const result = parseArgs(["node", "script.js", "--path", ""]);
-
-      expect(result.options.path).toBe(true);
+    test("should reject a separate empty string value", () => {
+      assert.throws(
+        () => parseArgs(["node", "script.js", "--path", ""]),
+        errorIncludes("Option path requires a value"),
+      );
     });
 
     test("should handle flag with equals and empty value", () => {
       const result = parseArgs(["node", "script.js", "--path="]);
 
-      expect(result.options.path).toBe("");
+      assert.strictEqual(result.options.path, "");
     });
 
     test("should handle multiple equals signs in value", () => {
       const result = parseArgs(["node", "script.js", "--securityProviderToken=abc=123=xyz"]);
 
-      expect(result.options.securityProviderToken).toBe("abc=123=xyz");
+      assert.strictEqual(result.options.securityProviderToken, "abc=123=xyz");
     });
 
-    test("should handle flag at end without value", () => {
-      const result = parseArgs(["node", "script.js", "--debug", "--path"]);
-
-      expect(result.options.debug).toBe(true);
-      expect(result.options.path).toBe(true);
+    test("should reject flag at end without value", () => {
+      assert.throws(
+        () => parseArgs(["node", "script.js", "--debug", "--path"]),
+        errorIncludes("Option path requires a value"),
+      );
     });
 
     test("should handle prompt-related flags", () => {
       const result = parseArgs(["node", "script.js", "--promptForReasons"]);
 
-      expect(result.options.promptForReasons).toBe(true);
+      assert.strictEqual(result.options.promptForReasons, true);
     });
 
     test("should handle init flag", () => {
       const result = parseArgs(["node", "script.js", "--init"]);
 
-      expect(result.options.init).toBe(true);
+      assert.strictEqual(result.options.init, true);
     });
 
     test("should handle init flag with target args", () => {
       const result = parseArgs(["node", "script.js", "--init", "agent-skill", "extra"]);
 
-      expect(result.options.init).toEqual(["agent-skill", "extra"]);
+      assert.deepStrictEqual(result.options.init, ["agent-skill", "extra"]);
     });
 
     test("should handle inline init flag target", () => {
       const result = parseArgs(["node", "script.js", "--init=agent-skill"]);
 
-      expect(result.options.init).toBe("agent-skill");
+      assert.strictEqual(result.options.init, "agent-skill");
     });
 
     test("should handle onboarding flags", () => {
       const onboardResult = parseArgs(["node", "script.js", "--onboard"]);
       const onboardingResult = parseArgs(["node", "script.js", "--onboarding"]);
 
-      expect(onboardResult.options.onboard).toBe(true);
-      expect(onboardingResult.options.onboard).toBe(true);
+      assert.strictEqual(onboardResult.options.onboard, true);
+      assert.strictEqual(onboardingResult.options.onboard, true);
     });
 
     test("should parse all flags correctly", () => {
@@ -398,22 +418,22 @@ describe("parseArgs", () => {
         "--promptForReasons",
       ]);
 
-      expect(result.options.debug).toBe(true);
-      expect(result.options.dryRun).toBe(true);
-      expect(result.options.path).toBe("custom.json");
-      expect(result.options.depPaths).toEqual(["path1", "path2"]);
-      expect(result.options.ignore).toEqual(["node_modules"]);
-      expect(result.options.root).toBe("/root");
-      expect(result.options.isTestingCLI).toBe(true);
-      expect(result.options.isTesting).toBe(true);
-      expect(result.options.init).toBe(true);
-      expect(result.options.checkSecurity).toBe(true);
-      expect(result.options.forceSecurityRefactor).toBe(true);
-      expect(result.options.securityProvider).toEqual(["osv", "github"]);
-      expect(result.options.securityProviderToken).toBe("token");
-      expect(result.options.interactive).toBe(true);
-      expect(result.options.hasWorkspaceSecurityChecks).toBe(true);
-      expect(result.options.promptForReasons).toBe(true);
+      assert.strictEqual(result.options.debug, true);
+      assert.strictEqual(result.options.dryRun, true);
+      assert.strictEqual(result.options.path, "custom.json");
+      assert.deepStrictEqual(result.options.depPaths, ["path1", "path2"]);
+      assert.deepStrictEqual(result.options.ignore, ["node_modules"]);
+      assert.strictEqual(result.options.root, "/root");
+      assert.strictEqual(result.options.isTestingCLI, true);
+      assert.strictEqual(result.options.isTesting, true);
+      assert.strictEqual(result.options.init, true);
+      assert.strictEqual(result.options.checkSecurity, true);
+      assert.strictEqual(result.options.forceSecurityRefactor, true);
+      assert.deepStrictEqual(result.options.securityProvider, ["osv", "github"]);
+      assert.strictEqual(result.options.securityProviderToken, "token");
+      assert.strictEqual(result.options.interactive, true);
+      assert.strictEqual(result.options.hasWorkspaceSecurityChecks, true);
+      assert.strictEqual(result.options.promptForReasons, true);
     });
   });
 
@@ -421,20 +441,20 @@ describe("parseArgs", () => {
     test("should convert --dry-run to dryRun", () => {
       const result = parseArgs(["node", "script.js", "--dry-run"]);
 
-      expect(result.options.dryRun).toBe(true);
-      expect(result.options["dry-run"]).toBeUndefined();
+      assert.strictEqual(result.options.dryRun, true);
+      assert.strictEqual(result.options["dry-run"], undefined);
     });
 
     test("should convert --security-provider to securityProvider", () => {
       const result = parseArgs(["node", "script.js", "--securityProvider", "osv"]);
 
-      expect(result.options.securityProvider).toEqual(["osv"]);
+      assert.deepStrictEqual(result.options.securityProvider, ["osv"]);
     });
 
     test("should convert --is-testing-cli to isTestingCLI", () => {
       const result = parseArgs(["node", "script.js", "-t"]);
 
-      expect(result.options.isTestingCLI).toBe(true);
+      assert.strictEqual(result.options.isTestingCLI, true);
     });
   });
 
@@ -442,25 +462,25 @@ describe("parseArgs", () => {
     test("should parse --outputFormat with json value", () => {
       const result = parseArgs(["node", "script.js", "--outputFormat", "json"]);
 
-      expect(result.options.outputFormat).toBe("json");
+      assert.strictEqual(result.options.outputFormat, "json");
     });
 
     test("should parse --outputFormat with text value", () => {
       const result = parseArgs(["node", "script.js", "--outputFormat", "text"]);
 
-      expect(result.options.outputFormat).toBe("text");
+      assert.strictEqual(result.options.outputFormat, "text");
     });
 
     test("should parse --outputFormat with equals syntax", () => {
       const result = parseArgs(["node", "script.js", "--outputFormat=json"]);
 
-      expect(result.options.outputFormat).toBe("json");
+      assert.strictEqual(result.options.outputFormat, "json");
     });
 
     test("should default to text when not specified", () => {
       const result = parseArgs(["node", "script.js"]);
 
-      expect(result.options.outputFormat).toBe("text");
+      assert.strictEqual(result.options.outputFormat, "text");
     });
 
     test("should work with other flags", () => {
@@ -473,9 +493,9 @@ describe("parseArgs", () => {
         "--checkSecurity",
       ]);
 
-      expect(result.options.outputFormat).toBe("json");
-      expect(result.options.dryRun).toBe(true);
-      expect(result.options.checkSecurity).toBe(true);
+      assert.strictEqual(result.options.outputFormat, "json");
+      assert.strictEqual(result.options.dryRun, true);
+      assert.strictEqual(result.options.checkSecurity, true);
     });
   });
 });

@@ -1,9 +1,10 @@
-import { describe, expect, test } from "bun:test";
+import { describe, test } from "node:test";
+import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 
-const actionPath = resolve(import.meta.dir, "../../action.yml");
+const actionPath = resolve(import.meta.dirname, "../../action.yml");
 
 const readAction = () => readFileSync(actionPath, "utf8");
 
@@ -33,6 +34,6 @@ describe("github action", () => {
 
     const output = runAwk(script, ["setup log", earlierJson, "audit log", finalJson].join("\n"));
 
-    expect(output).toBe(finalJson);
+    assert.strictEqual(output, finalJson);
   });
 });

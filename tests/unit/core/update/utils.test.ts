@@ -1,4 +1,5 @@
-import { test, expect } from "bun:test";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -45,8 +46,8 @@ test("determineProcessingMode - should return root mode when no depPaths", () =>
 
   const result = determineProcessingMode(options, config, true, []);
 
-  expect(result.mode).toBe("root");
-  expect(result.depPaths).toBeNull();
+  assert.strictEqual(result.mode, "root");
+  assert.strictEqual(result.depPaths, null);
 });
 
 test("determineProcessingMode - should return workspace mode with options depPaths", () => {
@@ -55,8 +56,8 @@ test("determineProcessingMode - should return workspace mode with options depPat
 
   const result = determineProcessingMode(options, config, true, []);
 
-  expect(result.mode).toBe("workspace");
-  expect(result.depPaths).toEqual(["packages/*/package.json"]);
+  assert.strictEqual(result.mode, "workspace");
+  assert.deepStrictEqual(result.depPaths, ["packages/*/package.json"]);
 });
 
 test("determineProcessingMode - should return workspace mode with config depPaths", () => {
@@ -69,8 +70,8 @@ test("determineProcessingMode - should return workspace mode with config depPath
 
   const result = determineProcessingMode(options, config, false, []);
 
-  expect(result.mode).toBe("workspace");
-  expect(result.depPaths).toEqual(["apps/*/package.json"]);
+  assert.strictEqual(result.mode, "workspace");
+  assert.deepStrictEqual(result.depPaths, ["apps/*/package.json"]);
 });
 
 test("determineProcessingMode - should include hasRootOverrides in result", () => {
@@ -79,7 +80,7 @@ test("determineProcessingMode - should include hasRootOverrides in result", () =
 
   const result = determineProcessingMode(options, config, true, []);
 
-  expect(result.hasRootOverrides).toBe(true);
+  assert.strictEqual(result.hasRootOverrides, true);
 });
 
 test("determineProcessingMode - should include missingInRoot in result", () => {
@@ -89,7 +90,7 @@ test("determineProcessingMode - should include missingInRoot in result", () => {
 
   const result = determineProcessingMode(options, config, false, missing);
 
-  expect(result.missingInRoot).toEqual(["react", "lodash"]);
+  assert.deepStrictEqual(result.missingInRoot, ["react", "lodash"]);
 });
 
 test("resolveDepPaths - should return options depPaths when provided", () => {
@@ -102,7 +103,7 @@ test("resolveDepPaths - should return options depPaths when provided", () => {
 
   const result = resolveDepPaths(options, config);
 
-  expect(result).toEqual(["custom/path"]);
+  assert.deepStrictEqual(result, ["custom/path"]);
 });
 
 test("resolveDepPaths - should resolve workspace string to workspaces array", () => {
@@ -116,7 +117,7 @@ test("resolveDepPaths - should resolve workspace string to workspaces array", ()
 
   const result = resolveDepPaths(options, config);
 
-  expect(result).toEqual(["packages/*/package.json", "apps/*/package.json"]);
+  assert.deepStrictEqual(result, ["packages/*/package.json", "apps/*/package.json"]);
 });
 
 test("resolveDepPaths - should handle workspaces string variant", () => {
@@ -130,7 +131,7 @@ test("resolveDepPaths - should handle workspaces string variant", () => {
 
   const result = resolveDepPaths(options, config);
 
-  expect(result).toEqual(["packages/*/package.json"]);
+  assert.deepStrictEqual(result, ["packages/*/package.json"]);
 });
 
 test("resolveDepPaths - should resolve package.json workspaces object", () => {
@@ -144,7 +145,7 @@ test("resolveDepPaths - should resolve package.json workspaces object", () => {
 
   const result = resolveDepPaths(options, config);
 
-  expect(result).toEqual(["packages/*/package.json", "apps/*/package.json"]);
+  assert.deepStrictEqual(result, ["packages/*/package.json", "apps/*/package.json"]);
 });
 
 test("resolveDepPaths - should resolve pnpm-workspace.yaml packages", () => {
@@ -169,7 +170,7 @@ packages:
 
     const result = resolveDepPaths(options, config);
 
-    expect(result).toEqual(["packages/*/package.json", "packages/@scope/*/package.json"]);
+    assert.deepStrictEqual(result, ["packages/*/package.json", "packages/@scope/*/package.json"]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -187,7 +188,7 @@ test("resolveDepPaths - should return array depPaths as-is", () => {
 
   const result = resolveDepPaths(options, config);
 
-  expect(result).toEqual(["packages/a/package.json", "packages/b/package.json"]);
+  assert.deepStrictEqual(result, ["packages/a/package.json", "packages/b/package.json"]);
 });
 
 test("resolveDepPaths - should return null when workspace mode but no workspaces", () => {
@@ -200,7 +201,7 @@ test("resolveDepPaths - should return null when workspace mode but no workspaces
 
   const result = resolveDepPaths(options, config);
 
-  expect(result).toBeNull();
+  assert.strictEqual(result, null);
 });
 
 test("resolveDepPaths - should auto-detect workspaces when no depPaths", () => {
@@ -213,7 +214,7 @@ test("resolveDepPaths - should auto-detect workspaces when no depPaths", () => {
 
   const result = resolveDepPaths(options, config);
 
-  expect(result).toEqual(["packages/*/package.json"]);
+  assert.deepStrictEqual(result, ["packages/*/package.json"]);
 });
 
 test("resolveDepPaths - should auto-detect pnpm-workspace.yaml when no depPaths", () => {
@@ -236,7 +237,7 @@ packages:
 
     const result = resolveDepPaths(options, config);
 
-    expect(result).toEqual(["packages/*/package.json"]);
+    assert.deepStrictEqual(result, ["packages/*/package.json"]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -251,7 +252,7 @@ test("resolveDepPaths - should return null when no workspaces or depPaths", () =
 
   const result = resolveDepPaths(options, config);
 
-  expect(result).toBeNull();
+  assert.strictEqual(result, null);
 });
 
 test("mergeAllConfigs - should merge all config sources", () => {
@@ -273,12 +274,12 @@ test("mergeAllConfigs - should merge all config sources", () => {
 
   const result = mergeAllConfigs(cliOptions, packageJsonConfig, overridesData, overrides);
 
-  expect(result.overrides).toEqual(overrides);
-  expect(result.overridesData).toEqual(overridesData);
-  expect(result.appendix).toEqual(packageJsonConfig.appendix);
-  expect(result.depPaths).toEqual(["cli/path"]);
-  expect(result.securityOverrideDetails).toEqual(cliOptions.securityOverrideDetails);
-  expect(result.securityProvider).toBe("osv");
+  assert.deepStrictEqual(result.overrides, overrides);
+  assert.deepStrictEqual(result.overridesData, overridesData);
+  assert.deepStrictEqual(result.appendix, packageJsonConfig.appendix);
+  assert.deepStrictEqual(result.depPaths, ["cli/path"]);
+  assert.deepStrictEqual(result.securityOverrideDetails, cliOptions.securityOverrideDetails);
+  assert.strictEqual(result.securityProvider, "osv");
 });
 
 test("mergeAllConfigs - should handle undefined packageJsonConfig", () => {
@@ -288,8 +289,8 @@ test("mergeAllConfigs - should handle undefined packageJsonConfig", () => {
 
   const result = mergeAllConfigs(cliOptions, undefined, overridesData, overrides);
 
-  expect(result.appendix).toBeUndefined();
-  expect(result.depPaths).toEqual(["cli/path"]);
+  assert.strictEqual(result.appendix, undefined);
+  assert.deepStrictEqual(result.depPaths, ["cli/path"]);
 });
 
 test("mergeAllConfigs - should prioritize CLI options over package.json config", () => {
@@ -300,7 +301,7 @@ test("mergeAllConfigs - should prioritize CLI options over package.json config",
 
   const result = mergeAllConfigs(cliOptions, packageJsonConfig, overridesData, overrides);
 
-  expect(result.depPaths).toEqual(["cli/path"]);
+  assert.deepStrictEqual(result.depPaths, ["cli/path"]);
 });
 
 test("mergeAllConfigs - should use package.json depPaths when CLI not provided", () => {
@@ -311,7 +312,7 @@ test("mergeAllConfigs - should use package.json depPaths when CLI not provided",
 
   const result = mergeAllConfigs(cliOptions, packageJsonConfig, overridesData, overrides);
 
-  expect(result.depPaths).toEqual(["config/path"]);
+  assert.deepStrictEqual(result.depPaths, ["config/path"]);
 });
 
 test("findRemovableOverrides - should find unused overrides", () => {
@@ -329,7 +330,7 @@ test("findRemovableOverrides - should find unused overrides", () => {
 
   const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
 
-  expect(result).toEqual(["axios"]);
+  assert.deepStrictEqual(result, ["axios"]);
 });
 
 test("findRemovableOverrides - should not remove overrides in appendix", () => {
@@ -344,7 +345,7 @@ test("findRemovableOverrides - should not remove overrides in appendix", () => {
 
   const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("findRemovableOverrides - should not remove overrides in root deps", () => {
@@ -355,7 +356,7 @@ test("findRemovableOverrides - should not remove overrides in root deps", () => 
 
   const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("findRemovableOverrides - should not remove overrides missing in root", () => {
@@ -366,7 +367,7 @@ test("findRemovableOverrides - should not remove overrides missing in root", () 
 
   const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("findRemovableOverrides - should return empty array when all overrides are used", () => {
@@ -387,7 +388,7 @@ test("findRemovableOverrides - should return empty array when all overrides are 
 
   const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
 
-  expect(result).toEqual([]);
+  assert.deepStrictEqual(result, []);
 });
 
 test("hasConfigOverrides - should return true for options securityOverrides", () => {
@@ -398,7 +399,7 @@ test("hasConfigOverrides - should return true for options securityOverrides", ()
 
   const result = hasConfigOverrides(options, config);
 
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("hasConfigOverrides - should return true for config overrides", () => {
@@ -411,7 +412,7 @@ test("hasConfigOverrides - should return true for config overrides", () => {
 
   const result = hasConfigOverrides(options, config);
 
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("hasConfigOverrides - should return true for config resolutions", () => {
@@ -424,7 +425,7 @@ test("hasConfigOverrides - should return true for config resolutions", () => {
 
   const result = hasConfigOverrides(options, config);
 
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("hasConfigOverrides - should return true for pnpm overrides", () => {
@@ -437,7 +438,7 @@ test("hasConfigOverrides - should return true for pnpm overrides", () => {
 
   const result = hasConfigOverrides(options, config);
 
-  expect(result).toBe(true);
+  assert.strictEqual(result, true);
 });
 
 test("hasConfigOverrides - should return false when no overrides", () => {
@@ -449,7 +450,7 @@ test("hasConfigOverrides - should return false when no overrides", () => {
 
   const result = hasConfigOverrides(options, config);
 
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 });
 
 test("hasConfigOverrides - should return false for empty overrides", () => {
@@ -462,13 +463,13 @@ test("hasConfigOverrides - should return false for empty overrides", () => {
 
   const result = hasConfigOverrides(options, config);
 
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 });
 
 test("hasConfigOverrides - should return false when both undefined", () => {
   const result = hasConfigOverrides(undefined, {} as PastoralistJSON);
 
-  expect(result).toBe(false);
+  assert.strictEqual(result, false);
 });
 
 test("writeResult - should write result with dry run false", () => {
@@ -482,7 +483,7 @@ test("writeResult - should write result with dry run false", () => {
   };
 
   writeResult(ctx);
-  expect(ctx.path).toBe("package.json");
+  assert.strictEqual(ctx.path, "package.json");
 });
 
 test("writeResult - should write result with dry run true", () => {
@@ -496,7 +497,7 @@ test("writeResult - should write result with dry run true", () => {
   };
 
   writeResult(ctx);
-  expect(ctx.options?.dryRun).toBe(true);
+  assert.strictEqual(ctx.options?.dryRun, true);
 });
 
 test("writeResult - should write result with no options", () => {
@@ -510,7 +511,7 @@ test("writeResult - should write result with no options", () => {
   };
 
   writeResult(ctx);
-  expect(ctx.config.name).toBe("test");
+  assert.strictEqual(ctx.config.name, "test");
 });
 
 test("writeResult - writes an external appendix target", () => {
@@ -518,6 +519,6 @@ test("writeResult - writes an external appendix target", () => {
 
   writeResult(ctx);
 
-  expect(JSON.parse(readFileSync(appendixPath, "utf8"))).toEqual({ appendix });
+  assert.deepStrictEqual(JSON.parse(readFileSync(appendixPath, "utf8")), { appendix });
   rmSync(root, { recursive: true, force: true });
 });

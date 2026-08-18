@@ -1,38 +1,45 @@
-import { test, expect, describe } from "bun:test";
+import { test, describe } from "node:test";
+import assert from "node:assert/strict";
 import { slugify, extractHeadings } from "../../../../src/lib/mdx/extractHeadings";
 
 describe("slugify", () => {
   test("should lowercase text", () => {
-    expect(slugify("CLI")).toBe("cli");
-    expect(slugify("API Reference")).toBe("api-reference");
+    assert.strictEqual(slugify("CLI"), "cli");
+    assert.strictEqual(slugify("API Reference"), "api-reference");
   });
 
   test("should replace spaces with dashes", () => {
-    expect(slugify("hello world")).toBe("hello-world");
-    expect(slugify("Node.js API")).toBe("nodejs-api");
+    assert.strictEqual(slugify("hello world"), "hello-world");
+    assert.strictEqual(slugify("Node.js API"), "nodejs-api");
   });
 
   test("should match rehype-slug for CLI flag headings", () => {
-    expect(slugify("`pastoralist --path <path>`")).toBe("pastoralist---path-path");
-    expect(slugify("`pastoralist --depPaths [paths...]`")).toBe("pastoralist---deppaths-paths");
-    expect(slugify("`pastoralist --ignore [patterns...]`")).toBe("pastoralist---ignore-patterns");
-    expect(slugify("`pastoralist --root <root>`")).toBe("pastoralist---root-root");
-    expect(slugify("`pastoralist --init`")).toBe("pastoralist---init");
-    expect(slugify("`pastoralist --interactive`")).toBe("pastoralist---interactive");
-    expect(slugify("`pastoralist --debug`")).toBe("pastoralist---debug");
+    assert.strictEqual(slugify("`pastoralist --path <path>`"), "pastoralist---path-path");
+    assert.strictEqual(
+      slugify("`pastoralist --depPaths [paths...]`"),
+      "pastoralist---deppaths-paths",
+    );
+    assert.strictEqual(
+      slugify("`pastoralist --ignore [patterns...]`"),
+      "pastoralist---ignore-patterns",
+    );
+    assert.strictEqual(slugify("`pastoralist --root <root>`"), "pastoralist---root-root");
+    assert.strictEqual(slugify("`pastoralist --init`"), "pastoralist---init");
+    assert.strictEqual(slugify("`pastoralist --interactive`"), "pastoralist---interactive");
+    assert.strictEqual(slugify("`pastoralist --debug`"), "pastoralist---debug");
   });
 
   test("should match rehype-slug for function headings", () => {
-    expect(slugify("`pastoralist`")).toBe("pastoralist");
-    expect(slugify("`update(options)`")).toBe("updateoptions");
-    expect(slugify("`logger(config)`")).toBe("loggerconfig");
-    expect(slugify("`DEBUG=pastoralist*`")).toBe("debugpastoralist");
+    assert.strictEqual(slugify("`pastoralist`"), "pastoralist");
+    assert.strictEqual(slugify("`update(options)`"), "updateoptions");
+    assert.strictEqual(slugify("`logger(config)`"), "loggerconfig");
+    assert.strictEqual(slugify("`DEBUG=pastoralist*`"), "debugpastoralist");
   });
 
   test("should handle mixed content", () => {
-    expect(slugify("CI/CD Validation")).toBe("cicd-validation");
-    expect(slugify("Error Handling")).toBe("error-handling");
-    expect(slugify("Build Tool Integration")).toBe("build-tool-integration");
+    assert.strictEqual(slugify("CI/CD Validation"), "cicd-validation");
+    assert.strictEqual(slugify("Error Handling"), "error-handling");
+    assert.strictEqual(slugify("Build Tool Integration"), "build-tool-integration");
   });
 });
 
@@ -40,13 +47,13 @@ describe("extractHeadings", () => {
   test("should extract h2 headings", () => {
     const source = `## Hello World`;
     const headings = extractHeadings(source);
-    expect(headings).toEqual([{ depth: 2, slug: "hello-world", text: "Hello World" }]);
+    assert.deepStrictEqual(headings, [{ depth: 2, slug: "hello-world", text: "Hello World" }]);
   });
 
   test("should extract h3 headings", () => {
     const source = `### Sub Section`;
     const headings = extractHeadings(source);
-    expect(headings).toEqual([{ depth: 3, slug: "sub-section", text: "Sub Section" }]);
+    assert.deepStrictEqual(headings, [{ depth: 3, slug: "sub-section", text: "Sub Section" }]);
   });
 
   test("should extract multiple headings with correct slugs", () => {
@@ -60,14 +67,14 @@ Some content
 
 More content`;
     const headings = extractHeadings(source);
-    expect(headings).toHaveLength(3);
-    expect(headings[0]).toEqual({ depth: 2, slug: "cli", text: "CLI" });
-    expect(headings[1]).toEqual({
+    assert.strictEqual(headings.length, 3);
+    assert.deepStrictEqual(headings[0], { depth: 2, slug: "cli", text: "CLI" });
+    assert.deepStrictEqual(headings[1], {
       depth: 3,
       slug: "pastoralist",
       text: "`pastoralist`",
     });
-    expect(headings[2]).toEqual({
+    assert.deepStrictEqual(headings[2], {
       depth: 3,
       slug: "pastoralist---path-path",
       text: "`pastoralist --path <path>`",
@@ -79,8 +86,8 @@ More content`;
 
 ## Section`;
     const headings = extractHeadings(source);
-    expect(headings).toHaveLength(1);
-    expect(headings[0].depth).toBe(2);
+    assert.strictEqual(headings.length, 1);
+    assert.strictEqual(headings[0].depth, 2);
   });
 
   test("should handle frontmatter gracefully", () => {
@@ -90,7 +97,7 @@ title: Test
 
 ## Real Heading`;
     const headings = extractHeadings(source);
-    expect(headings).toHaveLength(1);
-    expect(headings[0].text).toBe("Real Heading");
+    assert.strictEqual(headings.length, 1);
+    assert.strictEqual(headings[0].text, "Real Heading");
   });
 });

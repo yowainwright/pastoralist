@@ -1,4 +1,6 @@
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { assertCalledWith, mock } from "../setup";
+import { afterEach, describe, test } from "node:test";
+import assert from "node:assert/strict";
 import { resolve } from "node:path";
 import {
   buildDocEntry,
@@ -85,12 +87,13 @@ describe("scripts/generate-llms-docs", () => {
   });
 
   test("parseDocOrder reads doc slugs in source order", () => {
-    expect(
+    assert.deepStrictEqual(
       parseDocOrder(`
         { slug: "introduction" },
         { slug: "setup" },
       `),
-    ).toEqual(["introduction", "setup"]);
+      ["introduction", "setup"],
+    );
   });
 
   test("parseFrontmatter separates attributes from body", () => {
@@ -108,12 +111,12 @@ description: Install and configure Pastoralist.
       body: "# Body\n",
     };
 
-    expect(parseFrontmatter(source)).toEqual(expected);
-    expect(readFrontmatter(source)).toEqual(expected);
+    assert.deepStrictEqual(parseFrontmatter(source), expected);
+    assert.deepStrictEqual(readFrontmatter(source), expected);
   });
 
   test("stripMdxNoise removes presentation-only MDX", () => {
-    expect(
+    assert.strictEqual(
       stripMdxNoise(`
 <DocVideo src="/demo.mp4" />
 <a href="https://stackblitz.com"><img src="/stackblitz.svg" /></a>
@@ -123,11 +126,12 @@ Keep this.
 :::
 </div>
 `),
-    ).toBe("### tip\nKeep this.");
+      "### tip\nKeep this.",
+    );
   });
 
   test("resolveLlmsDocsPaths centralizes build paths", () => {
-    expect(resolveLlmsDocsPaths(fixtureAppRoot)).toEqual({
+    assert.deepStrictEqual(resolveLlmsDocsPaths(fixtureAppRoot), {
       appRoot: fixtureAppRoot,
       contentIndexPath: resolve(fixtureAppRoot, "src/content/constants.ts"),
       docsDir: resolve(fixtureAppRoot, "src/content/docs"),
@@ -138,7 +142,7 @@ Keep this.
   });
 
   test("buildDocEntry applies frontmatter defaults and MDX cleanup", () => {
-    expect(
+    assert.deepStrictEqual(
       buildDocEntry(
         "setup",
         `---
@@ -149,18 +153,19 @@ Use Pastoralist.
 </div>
 `,
       ),
-    ).toEqual({
-      content: "Use Pastoralist.",
-      description: "",
-      slug: "setup",
-      title: "Setup",
-    });
+      {
+        content: "Use Pastoralist.",
+        description: "",
+        slug: "setup",
+        title: "Setup",
+      },
+    );
   });
 
   test("collectDocs reads ordered docs through an injected filesystem", () => {
     const fs = createMemoryFileSystem(fixtureFiles);
 
-    expect(collectDocs(resolveLlmsDocsPaths(fixtureAppRoot), fs)).toEqual([
+    assert.deepStrictEqual(collectDocs(resolveLlmsDocsPaths(fixtureAppRoot), fs), [
       {
         content: "Use `npx pastoralist doctor`.",
         description: "Start with Pastoralist.",
@@ -188,10 +193,12 @@ Use Pastoralist.
 
     const output = buildLlmsTxt(docs, "https://example.test/pastoralist");
 
-    expect(output).toContain("npx pastoralist doctor");
-    expect(output).toContain("https://example.test/pastoralist/llms-full.txt");
-    expect(output).toContain(
-      "- [Introduction](https://example.test/pastoralist/docs/introduction): Start here.",
+    assert.ok(output.includes("npx pastoralist doctor"));
+    assert.ok(output.includes("https://example.test/pastoralist/llms-full.txt"));
+    assert.ok(
+      output.includes(
+        "- [Introduction](https://example.test/pastoralist/docs/introduction): Start here.",
+      ),
     );
   });
 
@@ -205,11 +212,11 @@ Use Pastoralist.
       },
     ]);
 
-    expect(output).toContain("# Pastoralist Documentation");
-    expect(output).toContain("# Introduction");
-    expect(output).toContain("> Start here.");
-    expect(output).toContain("Use `npx pastoralist doctor` first.");
-    expect(output).toContain("$$\nx^* = \\arg\\min F(x)\n$$");
+    assert.ok(output.includes("# Pastoralist Documentation"));
+    assert.ok(output.includes("# Introduction"));
+    assert.ok(output.includes("> Start here."));
+    assert.ok(output.includes("Use `npx pastoralist doctor` first."));
+    assert.ok(output.includes("$$\nx^* = \\arg\\min F(x)\n$$"));
   });
 
   test("buildLlmsOutputs returns both generated documents", () => {
@@ -225,10 +232,12 @@ Use Pastoralist.
       "https://example.test/pastoralist",
     );
 
-    expect(outputs.llmsTxt).toContain(
-      "- [Introduction](https://example.test/pastoralist/docs/introduction): Start here.",
+    assert.ok(
+      outputs.llmsTxt.includes(
+        "- [Introduction](https://example.test/pastoralist/docs/introduction): Start here.",
+      ),
     );
-    expect(outputs.llmsFullTxt).toContain("Use the CLI.");
+    assert.ok(outputs.llmsFullTxt.includes("Use the CLI."));
   });
 
   test("generateLlmsDocs writes llms files through injected dependencies", () => {
@@ -242,24 +251,33 @@ Use Pastoralist.
       logger,
     });
 
-    expect(result.docs.map((doc) => doc.slug)).toEqual(["intro", "security"]);
-    expect(fs.directories).toEqual([resolve(fixtureAppRoot, "public")]);
-    expect(fs.writes[resolve(fixtureAppRoot, "public/llms.txt")]).toContain(
-      "- [Introduction](https://example.test/pastoralist/docs/intro)",
+    assert.deepStrictEqual(
+      result.docs.map((doc) => doc.slug),
+      ["intro", "security"],
     );
-    expect(fs.writes[resolve(fixtureAppRoot, "public/llms.txt")]).toContain(
-      "- [Security](https://example.test/pastoralist/docs/security)",
+    assert.deepStrictEqual(fs.directories, [resolve(fixtureAppRoot, "public")]);
+    assert.ok(
+      fs.writes[resolve(fixtureAppRoot, "public/llms.txt")].includes(
+        "- [Introduction](https://example.test/pastoralist/docs/intro)",
+      ),
     );
-    expect(fs.writes[resolve(fixtureAppRoot, "public/llms-full.txt")]).not.toContain("<DocVideo");
-    expect(fs.writes[resolve(fixtureAppRoot, "public/llms-full.txt")]).not.toContain("<div");
-    expect(fs.writes[resolve(fixtureAppRoot, "public/llms-full.txt")]).toContain(
-      "Use `npx pastoralist doctor`.",
+    assert.ok(
+      fs.writes[resolve(fixtureAppRoot, "public/llms.txt")].includes(
+        "- [Security](https://example.test/pastoralist/docs/security)",
+      ),
     );
-    expect(fs.writes[resolve(fixtureAppRoot, "public/llms-full.txt")]).toContain(
-      "### tip\nRun security checks.",
+    assert.ok(!fs.writes[resolve(fixtureAppRoot, "public/llms-full.txt")].includes("<DocVideo"));
+    assert.ok(!fs.writes[resolve(fixtureAppRoot, "public/llms-full.txt")].includes("<div"));
+    assert.ok(
+      fs.writes[resolve(fixtureAppRoot, "public/llms-full.txt")].includes(
+        "Use `npx pastoralist doctor`.",
+      ),
     );
-    expect(logger.log).toHaveBeenCalledWith(
-      "Generated 2 docs into public/llms.txt and public/llms-full.txt",
+    assert.ok(
+      fs.writes[resolve(fixtureAppRoot, "public/llms-full.txt")].includes(
+        "### tip\nRun security checks.",
+      ),
     );
+    assertCalledWith(logger.log, "Generated 2 docs into public/llms.txt and public/llms-full.txt");
   });
 });

@@ -9,7 +9,7 @@ import type { SecurityChecker } from "../../core/security";
 import type { SecurityCheckRuntimeOptions } from "../../core/security/types";
 import { execFile as execFileCallback } from "node:child_process";
 import { existsSync } from "node:fs";
-import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
@@ -35,6 +35,12 @@ import { sync as globSync } from "../../utils/glob";
 const execFile = promisify(execFileCallback);
 const CANDIDATE_TIMEOUT_MS = 120_000;
 const CANDIDATE_MAX_BUFFER = 10 * 1024 * 1024;
+const RESOLVER_PATHS: Record<PackageManager, string[]> = {
+  npm: [".npmrc"],
+  pnpm: [".npmrc", ".pnpmfile.cjs", ".pnpmfile.js", "patches"],
+  yarn: [".yarnrc", ".yarnrc.yml", ".yarn/plugins", ".yarn/releases", ".yarn/patches"],
+  bun: ["bunfig.toml", "patches"],
+};
 
 type CandidateCommand = {
   command: string;
@@ -135,6 +141,29 @@ const stageWorkspaceManifests = async (
   );
 };
 
+const copyResolverPath = async (
+  projectRoot: string,
+  candidateRoot: string,
+  resolverPath: string,
+): Promise<void> => {
+  const sourcePath = join(projectRoot, resolverPath);
+  if (!existsSync(sourcePath)) return;
+  const targetPath = join(candidateRoot, resolverPath);
+  await mkdir(dirname(targetPath), { recursive: true });
+  await cp(sourcePath, targetPath, { recursive: true });
+};
+
+const stageResolverConfig = async (
+  projectRoot: string,
+  candidateRoot: string,
+  packageManager: PackageManager,
+): Promise<void> => {
+  const resolverPaths = RESOLVER_PATHS[packageManager];
+  await Promise.all(
+    resolverPaths.map((resolverPath) => copyResolverPath(projectRoot, candidateRoot, resolverPath)),
+  );
+};
+
 const stageCandidateProject = async (
   config: PastoralistJSON,
   options: Options,
@@ -145,6 +174,7 @@ const stageCandidateProject = async (
   const sourceLockfile = getSourceLockfile(projectRoot, packageManager);
   await writeFile(join(candidateRoot, "package.json"), JSON.stringify(config, null, 2));
   await copyFile(sourceLockfile, join(candidateRoot, basename(sourceLockfile)));
+  await stageResolverConfig(projectRoot, candidateRoot, packageManager);
   if (packageManager === "pnpm") await stagePnpmWorkspace(projectRoot, candidateRoot, config);
   await stageWorkspaceManifests(config, projectRoot, candidateRoot);
   return packageManager;

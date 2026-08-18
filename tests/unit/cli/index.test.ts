@@ -4651,6 +4651,31 @@ test("candidate dependency state - updates staged pnpm overrides", async () => {
   }
 });
 
+test("candidate dependency state - stages pnpm resolver inputs", async () => {
+  const root = createCandidateProject("pnpm-lock.yaml");
+  const patchPath = join("patches", "dependency.patch");
+  mkdirSync(join(root, "patches"), { recursive: true });
+  writeFileSync(join(root, ".npmrc"), "strict-peer-dependencies=true\n");
+  writeFileSync(join(root, ".pnpmfile.cjs"), "module.exports = { hooks: {} };\n");
+  writeFileSync(join(root, patchPath), "patch contents");
+  const execFile = mock(async () => ({ stdout: "", stderr: "" }));
+
+  try {
+    await withCandidateDependencyState(
+      candidateConfig,
+      { path: join(root, "package.json") },
+      async (candidateRoot) => {
+        assert.strictEqual(existsSync(join(candidateRoot, ".npmrc")), true);
+        assert.strictEqual(existsSync(join(candidateRoot, ".pnpmfile.cjs")), true);
+        assert.strictEqual(readFileSync(join(candidateRoot, patchPath), "utf8"), "patch contents");
+      },
+      { execFile: execFile as any },
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("candidate dependency state - stages workspace manifests", async () => {
   const root = createCandidateProject("package-lock.json");
   const workspaceDir = join(root, "packages", "app");

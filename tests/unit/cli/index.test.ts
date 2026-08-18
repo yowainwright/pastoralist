@@ -1926,9 +1926,11 @@ test("action - calls processExit on error", async () => {
 });
 
 test("action - reports errors in default output mode", async () => {
-  const failures: string[] = [];
+  let failures: string[] = [];
   const visibleLog = Object.assign({}, log, {
-    fail: (message: string) => failures.push(message),
+    fail: (message: string) => {
+      failures = failures.concat(message);
+    },
   });
   const deps = {
     createLogger: mock(() => visibleLog),
@@ -4264,9 +4266,11 @@ const createConfig = (overrides: PastoralistJSON["overrides"] = { "unused-pkg": 
 
 const createChecker = (results: Array<SecurityAlert[] | Error>) => {
   const queue = results.slice();
+  let resultIndex = 0;
   return {
     checkSecurity: mock(async () => {
-      const next = queue.shift() || [];
+      const next = queue[resultIndex] || [];
+      resultIndex += 1;
       if (next instanceof Error) throw next;
       return {
         alerts: next,
@@ -4339,6 +4343,21 @@ test("verifyRemovals - allows independent cleanup when another removal is blocke
   assert.deepStrictEqual(comparison?.blockedKeys, ["risky@1.0.0"]);
   assert.deepStrictEqual(calls[2][0].overrides, { risky: "1.0.0" });
   assert.strictEqual(checker.checkSecurity.mock.callCount(), 3);
+});
+
+test("verifyRemovals - blocks only the removal that regresses an accepted set", async () => {
+  const config = createConfig({ safe: "1.0.0", risky: "1.0.0" });
+  const checker = createChecker([[], [], [alert("risky", "high")]]);
+
+  const comparison = await verifyTestRemovals(config, checker as any, {});
+  const calls = checker.checkSecurity.mock.calls.map((call) =>
+    Array.isArray(call) ? call : call.arguments,
+  );
+
+  assert.deepStrictEqual(comparison?.allowedKeys, ["safe@1.0.0"]);
+  assert.deepStrictEqual(comparison?.blockedKeys, ["risky@1.0.0"]);
+  assert.strictEqual(calls[1][0].overrides.risky, "1.0.0");
+  assert.strictEqual(calls[2][0].overrides, undefined);
 });
 
 test("verifyRemovals - blocks removed package when it remains vulnerable", async () => {
@@ -4695,14 +4714,17 @@ test("action security - returns the selected best-case summary", async () => {
 
 const createActionSecurityResults = (
   baselineAlerts: SecurityAlert[],
-  candidateAlerts: SecurityAlert[] = baselineAlerts,
+  candidateScans: SecurityAlert[][] = [baselineAlerts],
 ) => {
-  const scanResults = [baselineAlerts, candidateAlerts];
+  const scanResults = [baselineAlerts].concat(candidateScans);
+  const fallbackAlerts = candidateScans.at(-1) || baselineAlerts;
+  let scanIndex = 0;
   return {
     spinner: createMockSpinner(),
     securityChecker: {
       checkSecurity: mock(() => {
-        const alerts = scanResults.shift() || candidateAlerts;
+        const alerts = scanResults[scanIndex] || fallbackAlerts;
+        scanIndex += 1;
         return Promise.resolve({ alerts, overrides: [], updates: [], packagesScanned: 1 });
       }),
     },
@@ -4719,11 +4741,13 @@ const createRemovalActionDeps = (
   baselineAlerts: SecurityAlert[],
   options: {
     candidateAlerts?: SecurityAlert[];
+    candidateScans?: SecurityAlert[][];
     graph?: ReturnType<typeof createMockTerminalGraph>;
     quickConfirm?: ReturnType<typeof mock>;
   } = {},
 ) => {
-  const securityResults = createActionSecurityResults(baselineAlerts, options.candidateAlerts);
+  const candidateScans = options.candidateScans || [options.candidateAlerts || baselineAlerts];
+  const securityResults = createActionSecurityResults(baselineAlerts, candidateScans);
   const deps = createActionDeps({ config, checkSecurity: true, securityResults });
   const graph = options.graph || createMockTerminalGraph();
   deps.createTerminalGraph = mock(() => graph);
@@ -4786,6 +4810,27 @@ test("action removal - keeps a pin when candidate resolution restores a vulnerab
   assert.deepStrictEqual(result.removalVerification?.blockedKeys, ["risky-pkg@2.0.0"]);
   assert.deepStrictEqual(result.removalVerification?.allowedKeys, []);
   assert.strictEqual(result.appliedOverrides?.["risky-pkg"], "2.0.0");
+});
+
+test("action removal - removes a safe override when another removal is blocked", async () => {
+  const config = createConfig({ risky: "1.0.0", safe: "1.0.0" });
+  const quickConfirm = mock(() => Promise.resolve(true));
+  const candidateScans = [[alert("risky", "high")], []];
+  const { deps } = createRemovalActionDeps(config, [], { candidateScans, quickConfirm });
+  deps.update = mock((mergedOptions: Options) => realUpdate(mergedOptions));
+
+  const result = await action(
+    { checkSecurity: true, interactive: true, removeUnused: true, isTesting: true },
+    deps,
+  );
+  const prompt = String(
+    quickConfirm.mock.calls.map((call) => (Array.isArray(call) ? call : call.arguments))[0][0],
+  );
+
+  assert.strictEqual(result.appliedOverrides?.risky, "1.0.0");
+  assert.strictEqual(result.appliedOverrides?.safe, undefined);
+  assert.match(prompt, /safe@1\.0\.0/);
+  assert.doesNotMatch(prompt, /risky@1\.0\.0/);
 });
 
 test("action removal - current vulnerability blocks cleanup", async () => {

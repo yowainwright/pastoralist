@@ -23,7 +23,7 @@
     "@shikijs/rehype": "^4.4.3",
     "@shikijs/transformers": "^4.4.3",
     "@tailwindcss/vite": "^4.3.3",
-    "@tanstack/react-router": "^1.170.27",
+    "@tanstack/react-router": "^1.170.29",
     "@vitejs/plugin-react": "^6.0.5",
     "@xstate/react": "^6.1.0",
     "canvas-confetti": "^1.9.4",

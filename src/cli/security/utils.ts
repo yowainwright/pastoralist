@@ -491,11 +491,11 @@ const verifyRemoval = async (
       context.securityChecker,
       context.options,
     );
-    const comparison = buildComparison([key], context.beforeAlerts, afterAlerts);
+    const comparison = buildComparison([key], state.afterAlerts, afterAlerts);
     if (comparison.blockedKeys.length > 0) return blockRemoval(state, key, comparison.reason);
     return Object.assign({}, state, { allowedKeys, afterAlerts });
   } catch (error) {
-    const comparison = buildFailedComparison([key], context.beforeAlerts, error);
+    const comparison = buildFailedComparison([key], state.afterAlerts, error);
     return blockRemoval(state, key, comparison.reason);
   }
 };

@@ -4345,9 +4345,10 @@ test("verifyRemovals - allows independent cleanup when another removal is blocke
   assert.strictEqual(checker.checkSecurity.mock.callCount(), 3);
 });
 
-test("verifyRemovals - blocks only the removal that regresses an accepted set", async () => {
+test("verifyRemovals - blocks a removal that restores an eliminated advisory", async () => {
   const config = createConfig({ safe: "1.0.0", risky: "1.0.0" });
-  const checker = createChecker([[], [], [alert("risky", "high")]]);
+  const existingAlert = alert("transitive", "high");
+  const checker = createChecker([[existingAlert], [], [existingAlert]]);
 
   const comparison = await verifyTestRemovals(config, checker as any, {});
   const calls = checker.checkSecurity.mock.calls.map((call) =>
@@ -4356,6 +4357,7 @@ test("verifyRemovals - blocks only the removal that regresses an accepted set", 
 
   assert.deepStrictEqual(comparison?.allowedKeys, ["safe@1.0.0"]);
   assert.deepStrictEqual(comparison?.blockedKeys, ["risky@1.0.0"]);
+  assert.strictEqual(comparison?.afterAlertCount, 0);
   assert.strictEqual(calls[1][0].overrides.risky, "1.0.0");
   assert.strictEqual(calls[2][0].overrides, undefined);
 });

@@ -1,7 +1,15 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
@@ -26,6 +34,11 @@ const writeFixture = (root: string, path: string, content: string) => {
 
   mkdirSync(dirname(file), { recursive: true });
   writeFileSync(file, content);
+};
+
+const writeExecutable = (root: string, path: string, content: string) => {
+  writeFixture(root, path, content);
+  chmodSync(join(root, path), 0o755);
 };
 
 const readFixture = (root: string, path: string) => readFileSync(join(root, path), "utf8");
@@ -59,6 +72,43 @@ const runHookInstaller = (root: string) => {
   });
 };
 
+const runGeneratedHook = (
+  root: string,
+  hookName: string,
+  args: string[] = [],
+  env: Record<string, string> = {},
+) =>
+  spawnSync(join(root, ".git/hooks", hookName), args, {
+    cwd: root,
+    encoding: "utf8",
+    env: Object.assign({}, process.env, env),
+  });
+
+const installHookTestTools = (root: string) => {
+  writeExecutable(
+    root,
+    "bin/pnpm",
+    '#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$HOOK_LOG"\nexit ${FAKE_STATUS:-0}\n',
+  );
+  writeExecutable(
+    root,
+    "bin/git",
+    '#!/bin/sh\nif [ "$1" = "diff-tree" ]; then\n  printf \'%s\\n\' "$FAKE_CHANGED_FILES"\nfi\n',
+  );
+  writeExecutable(
+    root,
+    "node_modules/eslint-plugin-legibility/bin/lint-changed.js",
+    "process.exit(Number(process.env.LINT_STATUS ?? '0'));\n",
+  );
+};
+
+const createHookTools = (root: string) => {
+  const logPath = join(root, "hook.log");
+  const toolPath = join(root, "bin");
+  installHookTestTools(root);
+  return { env: { HOOK_LOG: logPath, PATH: `${toolPath}:${process.env.PATH ?? ""}` }, logPath };
+};
+
 describe("scripts/install-hooks", () => {
   test("pre-commit runs legibility and the complete validation sequence", () => {
     withTempRepo((root) => {
@@ -78,6 +128,57 @@ describe("scripts/install-hooks", () => {
       assert.ok(hook.includes("pnpm run lint"));
       assert.ok(hook.includes("pnpm run test:coverage"));
       assert.ok(!hook.includes("bun"));
+    });
+  });
+
+  test("pre-commit executes checks and stops on failure", () => {
+    withTempRepo((root) => {
+      mkdirSync(join(root, ".git"), { recursive: true });
+      assert.strictEqual(runHookInstaller(root).status, 0);
+      const { env, logPath } = createHookTools(root);
+      const success = runGeneratedHook(root, "pre-commit", [], env);
+      assert.strictEqual(success.status, 0);
+      assert.strictEqual(readFixture(root, "hook.log").trim().split("\n").length, 6);
+      const failure = runGeneratedHook(root, "pre-commit", [], { ...env, FAKE_STATUS: "1" });
+      assert.notStrictEqual(failure.status, 0);
+      assert.ok(existsSync(logPath));
+    });
+  });
+
+  test("commit-msg rejects malformed scopes", () => {
+    withTempRepo((root) => {
+      mkdirSync(join(root, ".git"), { recursive: true });
+      assert.strictEqual(runHookInstaller(root).status, 0);
+      writeFixture(root, "valid-message", "fix(scope): message\n");
+      assert.strictEqual(
+        runGeneratedHook(root, "commit-msg", [join(root, "valid-message")]).status,
+        0,
+      );
+      ["feat)api): message\n", "feat(): message\n"].forEach((message, index) => {
+        const path = `invalid-message-${index}`;
+        writeFixture(root, path, message);
+        assert.notStrictEqual(runGeneratedHook(root, "commit-msg", [join(root, path)]).status, 0);
+      });
+    });
+  });
+
+  test("post-merge installs dependencies only when lockfiles change", () => {
+    withTempRepo((root) => {
+      mkdirSync(join(root, ".git"), { recursive: true });
+      assert.strictEqual(runHookInstaller(root).status, 0);
+      const { env, logPath } = createHookTools(root);
+      const unchanged = runGeneratedHook(root, "post-merge", [], {
+        ...env,
+        FAKE_CHANGED_FILES: "src/index.ts",
+      });
+      assert.strictEqual(unchanged.status, 0);
+      assert.strictEqual(existsSync(logPath), false);
+      const changed = runGeneratedHook(root, "post-merge", [], {
+        ...env,
+        FAKE_CHANGED_FILES: "package.json",
+      });
+      assert.strictEqual(changed.status, 0);
+      assert.strictEqual(readFixture(root, "hook.log").trim().split("\n").length, 2);
     });
   });
 });

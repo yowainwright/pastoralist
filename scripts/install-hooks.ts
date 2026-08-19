@@ -31,7 +31,7 @@ const COMMIT_MSG = `#!/bin/sh
 commit_msg_file=$1
 commit_msg=$(head -n 1 "$commit_msg_file")
 
-if ! printf '%s\\n' "$commit_msg" | grep -Eq '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)([()][^)]*[)])?: .+'; then
+if ! printf '%s\\n' "$commit_msg" | grep -Eq '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)([(][^)]+[)])?: .+'; then
   echo 'Invalid commit message format' >&2
   echo 'Expected format: <type>(<scope>): <message>' >&2
   echo 'Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert' >&2

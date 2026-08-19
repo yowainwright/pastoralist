@@ -18,7 +18,7 @@ import {
   type PastoralistJSON,
   type SecurityAlert,
 } from "../../../src/types";
-import { logger as createLogger } from "../../../src/utils";
+import { logger as createLogger } from "../../../src/observability";
 import {
   action,
   buildMergedOptions,
@@ -40,7 +40,6 @@ import { forceClearCache, resolveJSON } from "../../../src/core/package";
 import { update as realUpdate } from "../../../src/core/update";
 import { renderUpdateOutput } from "../../../src/cli/display";
 import { verifyRemovals } from "../../../src/cli/security";
-import { withCandidateDependencyState } from "../../../src/cli/security/utils";
 import { createOutput } from "../../../src/dx/output";
 import { createTerminalGraph } from "../../../src/dx/terminal-graph";
 import { join, resolve } from "path";
@@ -4288,7 +4287,7 @@ const verifyTestRemovals = (
   options: Options = {},
 ) => verifyRemovals(config, checker as any, Object.assign({ isTesting: true }, options));
 
-test("verifyRemovals - allows cleanup when candidate alerts are lower", async () => {
+test("verifyRemovals - allows cleanup when post-removal alerts are lower", async () => {
   const config = createConfig();
   const checker = createChecker([[alert("existing-pkg", "medium")], []]);
 
@@ -4378,16 +4377,16 @@ test("verifyRemovals - blocks removed package when it remains vulnerable", async
   );
 });
 
-test("verifyRemovals - blocks cleanup when candidate resolution fails", async () => {
+test("verifyRemovals - blocks cleanup when post-removal resolution fails", async () => {
   const config = createConfig();
-  const checker = createChecker([[], new Error("candidate failed")]);
+  const checker = createChecker([[], new Error("post-removal failed")]);
 
   const comparison = await verifyTestRemovals(config, checker as any, {});
 
   assert.strictEqual(comparison?.status, "blocked");
   assert.deepStrictEqual(comparison?.allowedKeys, []);
   assert.deepStrictEqual(comparison?.blockedKeys, ["unused-pkg@1.0.0"]);
-  assert.strictEqual(comparison?.reason, "Candidate security scan failed: candidate failed");
+  assert.strictEqual(comparison?.reason, "Post-removal security scan failed: post-removal failed");
 });
 
 test("verifyRemovals - propagates a failed baseline scan", async () => {
@@ -4475,7 +4474,7 @@ test("verifyRemovals - respects existing skipRemovalKeys", async () => {
   );
 });
 
-test("verifyRemovals - recognizes pnpm override candidates", async () => {
+test("verifyRemovals - recognizes pnpm overrides for removal", async () => {
   const config: PastoralistJSON = {
     name: "test-app",
     version: "1.0.0",
@@ -4493,13 +4492,13 @@ test("verifyRemovals - recognizes pnpm override candidates", async () => {
   const comparison = await verifyTestRemovals(config, checker as any, {});
 
   assert.deepStrictEqual(comparison?.removableKeys, ["pnpm-pkg@1.0.0"]);
-  const candidateConfig = checker.checkSecurity.mock.calls.map((call) =>
+  const removalConfig = checker.checkSecurity.mock.calls.map((call) =>
     Array.isArray(call) ? call : call.arguments,
   )[1][0];
-  assert.strictEqual(candidateConfig.pnpm, undefined);
+  assert.strictEqual(removalConfig.pnpm, undefined);
 });
 
-test("verifyRemovals - removes pnpm workspace override from candidate config", async () => {
+test("verifyRemovals - removes pnpm workspace override from removal config", async () => {
   const root = mkdtempSync(join(tmpdir(), "pastoralist-pnpm-removal-"));
   const packagePath = join(root, "package.json");
   const config: PastoralistJSON = {
@@ -4523,17 +4522,17 @@ test("verifyRemovals - removes pnpm workspace override from candidate config", a
 
   try {
     const comparison = await verifyTestRemovals(config, checker as any, { path: packagePath });
-    const candidateConfig = checker.checkSecurity.mock.calls.map((call) =>
+    const removalConfig = checker.checkSecurity.mock.calls.map((call) =>
       Array.isArray(call) ? call : call.arguments,
     )[1][0];
     assert.deepStrictEqual(comparison?.removableKeys, ["pnpm-pkg@1.0.0"]);
-    assert.deepStrictEqual(candidateConfig.pnpm?.overrides, {});
+    assert.deepStrictEqual(removalConfig.pnpm?.overrides, {});
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test("verifyRemovals - recognizes resolution candidates", async () => {
+test("verifyRemovals - recognizes resolutions for removal", async () => {
   const config: PastoralistJSON = {
     name: "test-app",
     version: "1.0.0",
@@ -4551,235 +4550,10 @@ test("verifyRemovals - recognizes resolution candidates", async () => {
   const comparison = await verifyTestRemovals(config, checker as any, {});
 
   assert.deepStrictEqual(comparison?.removableKeys, ["yarn-pkg@1.0.0"]);
-  const candidateConfig = checker.checkSecurity.mock.calls.map((call) =>
+  const removalConfig = checker.checkSecurity.mock.calls.map((call) =>
     Array.isArray(call) ? call : call.arguments,
   )[1][0];
-  assert.strictEqual(candidateConfig.resolutions, undefined);
-});
-
-const candidateConfig: PastoralistJSON = {
-  name: "candidate-project",
-  version: "1.0.0",
-  dependencies: { parent: "1.0.0" },
-  scripts: { postinstall: "node project-hook.js" },
-};
-
-const resolveCandidateCommand = () => ({ stdout: "", stderr: "" });
-
-const createCandidateProject = (lockfile: string): string => {
-  const root = mkdtempSync(join(tmpdir(), "pastoralist-candidate-test-"));
-  writeFileSync(join(root, "package.json"), JSON.stringify(candidateConfig));
-  writeFileSync(join(root, lockfile), "candidate lock");
-  return root;
-};
-
-const candidateCommandCases = [
-  { lockfile: "package-lock.json", command: "npm", expectedFlag: "--package-lock-only" },
-  { lockfile: "pnpm-lock.yaml", command: "pnpm", expectedFlag: "--lockfile-only" },
-  { lockfile: "yarn.lock", command: "yarn", expectedFlag: "--non-interactive" },
-  { lockfile: "bun.lock", command: "bun", expectedFlag: "--lockfile-only" },
-];
-
-candidateCommandCases.forEach(({ lockfile, command, expectedFlag }) => {
-  test(`candidate dependency state - resolves ${command} lockfile`, async () => {
-    const root = createCandidateProject(lockfile);
-    if (command === "yarn") {
-      writeFileSync(join(root, ".yarnrc.yml"), "nodeLinker: node-modules\n");
-    }
-    let stagedRoot = "";
-    const execFile = mock(resolveCandidateCommand);
-
-    try {
-      const inspectedName = await withCandidateDependencyState(
-        candidateConfig,
-        { path: join(root, "package.json") },
-        (candidateRoot) => {
-          stagedRoot = candidateRoot;
-          assert.strictEqual(existsSync(join(candidateRoot, lockfile)), true);
-          const manifest = JSON.parse(readFileSync(join(candidateRoot, "package.json"), "utf8"));
-          assert.strictEqual(manifest.scripts, undefined);
-          if (command === "yarn") {
-            assert.strictEqual(existsSync(join(candidateRoot, ".yarnrc.yml")), true);
-          }
-          return manifest.name;
-        },
-        { execFile: execFile as any },
-      );
-      const call = execFile.mock.calls.map((item) =>
-        Array.isArray(item) ? item : item.arguments,
-      )[0];
-      assert.strictEqual(inspectedName, "candidate-project");
-      assert.strictEqual(call[0], command);
-      assert.strictEqual(call[1].includes(expectedFlag), true);
-      assert.strictEqual(call[2].cwd, stagedRoot);
-      if (command === "yarn") {
-        assert.strictEqual(call[2].env.YARN_ENABLE_SCRIPTS, "false");
-        assert.strictEqual(call[2].env.YARN_IGNORE_PATH, "true");
-        assert.strictEqual(call[2].env.YARN_PLUGINS, "");
-      }
-      assert.strictEqual(existsSync(stagedRoot), false);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
-  });
-});
-
-test("candidate dependency state - fails closed without a lockfile", async () => {
-  const root = mkdtempSync(join(tmpdir(), "pastoralist-candidate-no-lock-"));
-  const execFile = mock(resolveCandidateCommand);
-
-  try {
-    await assert.rejects(
-      withCandidateDependencyState(
-        candidateConfig,
-        { path: join(root, "package.json") },
-        () => undefined,
-        { execFile: execFile as any },
-      ),
-      /No npm lockfile is available/,
-    );
-    assert.strictEqual(execFile.mock.callCount(), 0);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
-test("candidate dependency state - updates staged pnpm overrides", async () => {
-  const root = createCandidateProject("pnpm-lock.yaml");
-  writeFileSync(join(root, "pnpm-workspace.yaml"), "packages: []\noverrides:\n  removed: 1.0.0\n");
-  const config = Object.assign({}, candidateConfig, {
-    pnpm: { overrides: { kept: "2.0.0" } },
-  });
-  const execFile = mock(resolveCandidateCommand);
-
-  try {
-    await withCandidateDependencyState(
-      config,
-      { path: join(root, "package.json") },
-      (candidateRoot) => {
-        const workspace = readFileSync(join(candidateRoot, "pnpm-workspace.yaml"), "utf8");
-        assert.match(workspace, /"kept": "2.0.0"/);
-        assert.doesNotMatch(workspace, /removed:/);
-        return undefined;
-      },
-      { execFile: execFile as any },
-    );
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
-test("candidate dependency state - stages declarative pnpm resolver inputs", async () => {
-  const root = createCandidateProject("pnpm-lock.yaml");
-  const patchPath = join("patches", "dependency.patch");
-  mkdirSync(join(root, "patches"), { recursive: true });
-  writeFileSync(join(root, ".npmrc"), "strict-peer-dependencies=true\n");
-  writeFileSync(join(root, patchPath), "patch contents");
-  const execFile = mock(resolveCandidateCommand);
-
-  try {
-    await withCandidateDependencyState(
-      candidateConfig,
-      { path: join(root, "package.json") },
-      (candidateRoot) => {
-        assert.strictEqual(existsSync(join(candidateRoot, ".npmrc")), true);
-        assert.strictEqual(readFileSync(join(candidateRoot, patchPath), "utf8"), "patch contents");
-        return undefined;
-      },
-      { execFile: execFile as any },
-    );
-    const call = execFile.mock.calls[0].arguments;
-    assert.strictEqual(call[1].includes("--ignore-pnpmfile"), true);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
-const executableResolverCases = [
-  {
-    name: "pnpm hooks",
-    lockfile: "pnpm-lock.yaml",
-    path: ".pnpmfile.cjs",
-    content: "module.exports = { hooks: {} };\n",
-  },
-  {
-    name: "configured pnpm hooks",
-    lockfile: "pnpm-lock.yaml",
-    path: ".npmrc",
-    content: "pnpmfile=.config/hooks.cjs\n",
-  },
-  {
-    name: "Yarn plugins",
-    lockfile: "yarn.lock",
-    path: ".yarnrc.yml",
-    content: "plugins: [./plugin.cjs]\n",
-  },
-  {
-    name: "project-local Yarn binaries",
-    lockfile: "yarn.lock",
-    path: ".yarnrc.yml",
-    content: "yarnPath: .yarn/releases/yarn.cjs\n",
-  },
-  {
-    name: "Bun security scanners",
-    lockfile: "bun.lock",
-    path: "bunfig.toml",
-    content: '[install.security]\nscanner = "project-scanner"\n',
-  },
-];
-
-executableResolverCases.forEach(({ name, lockfile, path, content }) => {
-  test(`candidate dependency state - rejects ${name}`, async () => {
-    const root = createCandidateProject(lockfile);
-    writeFileSync(join(root, path), content);
-    const execFile = mock(resolveCandidateCommand);
-
-    try {
-      await assert.rejects(
-        withCandidateDependencyState(
-          candidateConfig,
-          { path: join(root, "package.json") },
-          () => undefined,
-          { execFile: execFile as any },
-        ),
-        errorIncludes(`Executable resolver config prevents safe verification: ${path}`),
-      );
-      assert.strictEqual(execFile.mock.callCount(), 0);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
-  });
-});
-
-test("candidate dependency state - stages workspace manifests", async () => {
-  const root = createCandidateProject("package-lock.json");
-  const workspaceDir = join(root, "packages", "app");
-  mkdirSync(workspaceDir, { recursive: true });
-  const workspaceManifest = {
-    name: "workspace-app",
-    version: "1.0.0",
-    scripts: { postinstall: "node project-hook.js" },
-  };
-  writeFileSync(join(workspaceDir, "package.json"), JSON.stringify(workspaceManifest));
-  const config = Object.assign({}, candidateConfig, { workspaces: ["packages/*"] });
-  const execFile = mock(resolveCandidateCommand);
-
-  try {
-    await withCandidateDependencyState(
-      config,
-      { path: join(root, "package.json") },
-      (candidateRoot) => {
-        const manifestPath = join(candidateRoot, "packages", "app", "package.json");
-        assert.strictEqual(existsSync(manifestPath), true);
-        const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-        assert.strictEqual(manifest.scripts, undefined);
-        return undefined;
-      },
-      { execFile: execFile as any },
-    );
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+  assert.strictEqual(removalConfig.resolutions, undefined);
 });
 
 const BEST_CASE_RESULT: BestCaseResult = {

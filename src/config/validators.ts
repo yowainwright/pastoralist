@@ -14,11 +14,9 @@ import {
   SECURITY_CHECK_RESULTS,
   SECURITY_PROVIDERS,
   SEVERITY_THRESHOLDS,
-} from "./constants";
+} from "./validation/constants";
 import type {
   DepPathAlias,
-  FieldValidation,
-  FieldValidator,
   PastoralistConfig,
   ResolvedBy,
   SecurityCheckResult,
@@ -27,60 +25,27 @@ import type {
   SeverityThreshold,
 } from "./types";
 import type { BestCaseObjective, BestCaseRiskAggregation, BestCaseSearchMode } from "../types";
-
-const isObject = (value: unknown): value is Record<string, unknown> => {
-  if (typeof value !== "object") return false;
-  if (value === null) return false;
-  return !Array.isArray(value);
-};
-
-const isString = (value: unknown): value is string => {
-  const isStringValue = typeof value === "string";
-  return isStringValue;
-};
-
-const isNonEmptyString = (value: unknown): value is string => {
-  if (!isString(value)) return false;
-  const hasValue = value.trim().length > 0;
-  return hasValue;
-};
-
-const isBoolean = (value: unknown): value is boolean => {
-  const isBooleanValue = typeof value === "boolean";
-  return isBooleanValue;
-};
-
-const isArray = (value: unknown): value is unknown[] => {
-  return Array.isArray(value);
-};
-
-const isStringArray = (value: unknown): value is string[] => {
-  return isArray(value) && value.every(isString);
-};
-
-const isNonEmptyStringArray = (value: unknown): value is string[] => {
-  return isArray(value) && value.every(isNonEmptyString);
-};
-
-const isUniqueNonEmptyStringArray = (value: unknown): value is string[] => {
-  if (!isNonEmptyStringArray(value)) return false;
-  return new Set(value).size === value.length;
-};
-
-const hasOnlyFields = (value: Record<string, unknown>, fields: readonly string[]): boolean => {
-  return Object.keys(value).every((field) => fields.includes(field));
-};
-
-const isNonNegativeInteger = (value: unknown): value is number => {
-  if (typeof value !== "number") return false;
-  if (!Number.isInteger(value)) return false;
-  return value >= 0;
-};
-
-const isPositiveInteger = (value: unknown): value is number => {
-  if (!isNonNegativeInteger(value)) return false;
-  return value > 0;
-};
+import type { FieldValidation, FieldValidator } from "./validation/types";
+import {
+  applyFieldValidatorOverrides,
+  areFieldsValid,
+  createFieldValidations,
+  getFieldNames,
+  hasOnlyFields,
+  isArray,
+  isBoolean,
+  isNonEmptyString,
+  isNonEmptyStringArray,
+  isNonNegativeInteger,
+  isObject,
+  isPositiveInteger,
+  isRecord,
+  isString,
+  isStringArray,
+  isStringRecord,
+  isUniqueNonEmptyStringArray,
+  validateRecordValues,
+} from "./validation/utils";
 
 const isSecurityProvider = (value: unknown): value is SecurityProvider => {
   return isString(value) && SECURITY_PROVIDERS.includes(value as SecurityProvider);
@@ -93,45 +58,6 @@ const isSecurityProviders = (value: unknown): value is SecurityProviders => {
 
 const isSeverityThreshold = (value: unknown): value is SeverityThreshold => {
   return isString(value) && SEVERITY_THRESHOLDS.includes(value as SeverityThreshold);
-};
-
-const isRecord = (value: unknown): value is Record<string, unknown> => {
-  return isObject(value);
-};
-
-const isStringRecord = (value: unknown): value is Record<string, string> => {
-  if (!isObject(value)) return false;
-  return Object.values(value).every(isString);
-};
-
-const isFieldValid = (
-  value: Record<string, unknown>,
-  field: string,
-  validator: (v: unknown) => boolean,
-): boolean => {
-  const fieldPresent = field in value && value[field] !== undefined;
-  if (!fieldPresent) return true;
-  return validator(value[field]);
-};
-
-const areFieldsValid = (value: Record<string, unknown>, fields: FieldValidation[]): boolean => {
-  return fields.every(({ field, validator }) => isFieldValid(value, field, validator));
-};
-
-const createFieldValidations = (
-  fields: readonly string[],
-  validator: (value: unknown) => boolean,
-): FieldValidation[] => fields.map((field) => ({ field, validator }));
-
-const applyFieldValidatorOverrides = (
-  fields: FieldValidation[],
-  overrides: Partial<Record<string, FieldValidator>>,
-): FieldValidation[] => {
-  return fields.map(({ field, validator }) => {
-    const override = overrides[field];
-    const selectedValidator = override ?? validator;
-    return { field, validator: selectedValidator };
-  });
 };
 
 const isValidKeepObject = (v: unknown): boolean => {
@@ -295,10 +221,6 @@ const STRICT_LEDGER_ADDITIONAL_FIELDS: FieldValidation[] = createFieldValidation
 
 const STRICT_LEDGER_FIELDS = LEDGER_FIELDS.concat(STRICT_LEDGER_ADDITIONAL_FIELDS);
 
-const getFieldNames = (fields: FieldValidation[]): string[] => {
-  return fields.map(({ field }) => field);
-};
-
 const STRICT_LEDGER_FIELD_NAMES = ["addedDate"].concat(getFieldNames(STRICT_LEDGER_FIELDS));
 
 const validateLedger = (value: unknown): boolean => {
@@ -326,11 +248,6 @@ const APPENDIX_ITEM_FIELDS: FieldValidation[] = createFieldValidations(
 
 const validateAppendixItem = (value: unknown): boolean => {
   return isObject(value) && areFieldsValid(value, APPENDIX_ITEM_FIELDS);
-};
-
-const validateRecordValues = (value: unknown, validator: FieldValidator): boolean => {
-  if (!isObject(value)) return false;
-  return Object.values(value).every(validator);
 };
 
 const validateAppendix = (value: unknown): boolean => {

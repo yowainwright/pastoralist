@@ -1,6 +1,6 @@
 import type { KeepConstraint } from "../../types";
 import { ANSI, FARMER } from "../../constants";
-import { gray, green } from "../../utils/colors";
+import { gray, green } from "../colors";
 import { ICON } from "../../constants";
 import type { Output, TerminalGraphOptions } from "../types";
 import { defaultOutput } from "../output";

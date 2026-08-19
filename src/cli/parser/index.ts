@@ -7,7 +7,7 @@ import type {
   ParserState,
   ProcessedArgument,
 } from "./types";
-import type { PrintFunc } from "../../utils";
+import type { PrintFunc } from "../../observability";
 
 const findOptionDef = (flag: string): OptionDefinition | undefined =>
   OPTION_DEFINITIONS.find((def) => def.flags.includes(flag));

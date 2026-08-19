@@ -1,8 +1,9 @@
 import { test, mock as moduleMock } from "node:test";
 import { mock } from "../../../setup";
 import assert from "node:assert/strict";
-import * as originalPrompts from "../../../../../src/utils/prompts";
+import * as originalPrompts from "../../../../../src/cli/prompts";
 import * as originalUtils from "../../../../../src/utils";
+import * as originalObservability from "../../../../../src/observability";
 import * as originalPackageJSON from "../../../../../src/core/package";
 import * as originalConfig from "../../../../../src/config";
 import * as originalDx from "../../../../../src/dx";
@@ -19,17 +20,20 @@ import {
 } from "../../../setup";
 
 const createPromptMock = mock(originalPrompts.createPrompt);
-const loggerMock = mock(originalUtils.logger);
+const loggerMock = mock(originalObservability.logger);
 const resolveJSONMock = mock(originalPackageJSON.resolveJSON);
 const loadExternalConfigMock = mock(originalConfig.loadExternalConfig);
 const formatCompletionMock = mock(originalDx.formatCompletion);
 const shimmerFrameMock = mock(originalShimmer.shimmerFrame);
 
-moduleMock.module(import.meta.resolve("../../../../../src/utils/prompts/index"), {
+moduleMock.module(import.meta.resolve("../../../../../src/cli/prompts/index"), {
   namedExports: Object.assign({}, originalPrompts, { createPrompt: createPromptMock }),
 });
 moduleMock.module(import.meta.resolve("../../../../../src/utils/index"), {
-  namedExports: Object.assign({}, originalUtils, { logger: loggerMock }),
+  namedExports: originalUtils,
+});
+moduleMock.module(import.meta.resolve("../../../../../src/observability/index"), {
+  namedExports: Object.assign({}, originalObservability, { logger: loggerMock }),
 });
 moduleMock.module(import.meta.resolve("../../../../../src/core/package/index"), {
   namedExports: Object.assign({}, originalPackageJSON, { resolveJSON: resolveJSONMock }),

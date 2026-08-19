@@ -21,8 +21,8 @@ importers:
         specifier: ^1.0.8
         version: 1.0.8
       eslint-plugin-legibility:
-        specifier: ^0.2.0
-        version: 0.2.0
+        specifier: ^0.3.0
+        version: 0.3.0
       oxfmt:
         specifier: ^0.50.0
         version: 0.50.0
@@ -853,8 +853,8 @@ packages:
     engines: {node: '>=6.0'}
     hasBin: true
 
-  eslint-plugin-legibility@0.2.0:
-    resolution: {integrity: sha512-o4+/OS6zUckvJrDgAMfR3QjYmA5Q2xi5lp/FZ1dzsH5v7FOtpjaRnh4M1Asj4aPStFi2VIH8eLhGnnlmDB1dvw==}
+  eslint-plugin-legibility@0.3.0:
+    resolution: {integrity: sha512-UAF2BQM/PxPOznqudVWwBYoSo6b71BZdD2ZJ+KoGYYVKunMK/yBYI3vXMrE8tYjgqJ6rL9pL8OLq0JhvpxaWbw==}
     engines: {node: ^20.19.0 || ^22.13.0 || >=24.0.0}
     hasBin: true
 
@@ -1980,7 +1980,7 @@ snapshots:
     optionalDependencies:
       source-map: 0.6.1
 
-  eslint-plugin-legibility@0.2.0: {}
+  eslint-plugin-legibility@0.3.0: {}
 
   esprima@4.0.1: {}
 

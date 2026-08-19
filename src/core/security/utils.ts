@@ -8,8 +8,8 @@ import type {
 import { compareVersions } from "../../utils";
 import { execFile } from "child_process";
 import { promisify } from "util";
-import { logger } from "../../utils";
-import { red, yellow, cyan, gray } from "../../utils/colors";
+import { logger } from "../../observability";
+import { red, yellow, cyan, gray } from "../../dx/colors";
 import * as readline from "readline";
 import {
   CONFIDENCE_WEIGHTS,

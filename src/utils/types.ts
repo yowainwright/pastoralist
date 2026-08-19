@@ -1,5 +1,15 @@
 import type { ICON, PREFIX } from "../constants";
 
+export { LOG_INDENT } from "../observability/types";
+export type {
+  ConsoleMethod,
+  DebugLogFunc,
+  ItemFunc,
+  Logger,
+  LoggerOptions,
+  PrintFunc,
+} from "../observability/types";
+
 export type IconKey = keyof typeof ICON;
 export type PrefixKey = keyof typeof PREFIX;
 
@@ -102,32 +112,6 @@ export type ResolvedRetryOptions = RetryTimingOptions &
 export interface RetryError extends Error {
   attemptNumber: number;
   retriesLeft: number;
-}
-
-export type DebugLogFunc = (msg: string, caller: string, ...args: unknown[]) => void;
-
-export type PrintFunc = (msg: string) => void;
-
-export type ItemFunc = (n: number, msg: string) => void;
-
-export type ConsoleMethod = "debug" | "error" | "warn";
-
-export const LOG_INDENT = "   ";
-
-export interface Logger {
-  debug: DebugLogFunc;
-  error: DebugLogFunc;
-  fail: PrintFunc;
-  warn: DebugLogFunc;
-  print: PrintFunc;
-  line: PrintFunc;
-  indent: PrintFunc;
-  item: ItemFunc;
-}
-
-export interface LoggerOptions {
-  file: string;
-  isLogging?: boolean;
 }
 
 export interface GlobOptions {

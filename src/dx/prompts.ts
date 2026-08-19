@@ -1,7 +1,7 @@
 import type { PromptChoiceOption } from "./types";
 import { box, indent, width } from "./format";
 import { PROMPT_BOX_MAX_WIDTH, PROMPT_TERMINAL_MARGIN, STEP_BOX_MAX_WIDTH } from "./constants";
-import { green, cyan, gray, yellow } from "../utils/colors";
+import { green, cyan, gray, yellow } from "./colors";
 import { ICON } from "../constants";
 
 const promptBoxWidth = (): number =>

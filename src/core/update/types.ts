@@ -8,7 +8,7 @@ import type {
 } from "../../types";
 import type { PastoralistConfig } from "../../config";
 import type { ResolveOverrides } from "../../types";
-import type { Logger } from "../../utils";
+import type { Logger } from "../../observability";
 import type { OverrideSource } from "../overrides";
 
 export interface ProcessingMode {

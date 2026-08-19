@@ -17,7 +17,7 @@ import {
   extractPackageNames,
   removeOverrideKeys,
 } from "../../../src/core/appendix/utils";
-import { logger } from "../../../src/utils";
+import { logger } from "../../../src/observability";
 
 const TEST_DIR = resolve(import.meta.dirname, ".test-appendix");
 

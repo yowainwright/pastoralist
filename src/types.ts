@@ -1,5 +1,5 @@
 import type { SecurityAlert, SecurityProviderType } from "./core/security/types";
-import type { Logger } from "./utils/types";
+import type { Logger } from "./observability/types";
 
 export type OverrideValue = string | Record<string, string>;
 export type PackageJsonWorkspaces = string[] | { packages?: string[] };

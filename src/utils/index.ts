@@ -1,34 +1,4 @@
-import { LOG_PREFIX } from "../constants";
-import type { ConsoleMethod, DebugLogFunc, Logger, LoggerOptions } from "./types";
-
-const LOG_INDENT = "   ";
 const DEFAULT_LEDGER_DATE = () => new Date().toISOString();
-
-const createDebugMethod = (type: ConsoleMethod, isLogging: boolean, file: string): DebugLogFunc => {
-  return (msg: string, caller: string, ...args: unknown[]) => {
-    if (!isLogging) return;
-    const message = `${LOG_PREFIX}[${file}][${caller}] ${msg}`;
-    console[type](message, ...args);
-  };
-};
-
-const createWarnMethod = (file: string): DebugLogFunc => {
-  return (msg: string, caller: string, ...args: unknown[]) => {
-    const message = `${LOG_PREFIX}[${file}][${caller}] ${msg}`;
-    console.warn(message, ...args);
-  };
-};
-
-export const logger = ({ file, isLogging = false }: LoggerOptions): Logger => ({
-  debug: createDebugMethod("debug", isLogging, file),
-  error: createDebugMethod("error", isLogging, file),
-  fail: (msg: string) => console.error(msg),
-  warn: createWarnMethod(file),
-  print: (msg: string) => console.log(msg),
-  line: (msg: string) => console.log("\n" + msg),
-  indent: (msg: string) => console.log(LOG_INDENT + msg),
-  item: (index: number, msg: string) => console.log(`${LOG_INDENT}${index}. ${msg}`),
-});
 
 const stripPrerelease = (version: string): string => version.split("-")[0];
 
@@ -91,42 +61,7 @@ export const colonKey = buildKey(":");
 export const getLedgerAddedDate = (createDate: () => string = DEFAULT_LEDGER_DATE): string =>
   createDate();
 
-export {
-  createSpinner,
-  hideCursor,
-  showCursor,
-  clearLine,
-  renderFrame,
-  stopInterval,
-  updateStateText,
-  incrementFrame,
-  startInterval,
-  writeSymbol,
-  start,
-  stop,
-  succeed,
-  fail,
-  info,
-  warn,
-  createSpinnerMethods,
-  shimmerFrame,
-  playShimmer,
-} from "../dx";
-export type { SpinnerState, Spinner } from "../dx";
-export {
-  green,
-  yellow,
-  red,
-  cyan,
-  gray,
-  gold,
-  copper,
-  gradientGreenTan,
-  gradientPastoralist,
-  link,
-} from "./colors";
 export { ICON, PREFIX, STEP, BRAND } from "../constants";
-export type { ConsoleMethod, DebugLogFunc, Logger, LoggerOptions, PrintFunc } from "./types";
 export { ConcurrencyLimiter, createLimit } from "./limit";
 export {
   LRUCache,
@@ -137,7 +72,6 @@ export {
   pruneBackups,
 } from "./cache";
 export { retry } from "./retry";
-export { quickConfirm } from "./prompts";
 export {
   fetchLatestVersion,
   fetchLatestCompatibleVersion,

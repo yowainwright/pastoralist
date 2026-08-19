@@ -1,4 +1,4 @@
-import { link } from "../../utils/colors";
+import { link } from "../../dx/colors";
 import type {
   DependabotAlert,
   PromptChoice,

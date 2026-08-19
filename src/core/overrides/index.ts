@@ -6,7 +6,7 @@ import type {
   OverrideValue,
   ResolveResolutionOptions,
 } from "../../types";
-import { logger } from "../../utils";
+import { logger } from "../../observability";
 import type { OverrideSource, OverrideType } from "./types";
 
 const log = logger({ file: "overrides.ts", isLogging: IS_DEBUGGING });

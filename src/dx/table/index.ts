@@ -4,7 +4,7 @@ import {
   DEFAULT_MIN_VALUE_WIDTH,
   TABLE_COLUMN_SEPARATOR_WIDTH,
 } from "./constants";
-import { green, yellow, red, cyan, gray } from "../../utils/colors";
+import { green, yellow, red, cyan, gray } from "../colors";
 import { visibleLength } from "../format";
 
 export type { TableRow, TableOptions, TableColor } from "./types";

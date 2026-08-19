@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { copper, gold, gradientPastoralist, green, link } from "../../../src/utils/colors";
+import { copper, gold, gradientPastoralist, green, link } from "../../../src/dx/colors";
 
 test("green - should wrap text with green ANSI codes", () => {
   const result = green("test");

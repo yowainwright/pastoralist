@@ -2,7 +2,7 @@ import { isAbsolute, resolve } from "path";
 import type { update } from "../core/update";
 import { findUnusedAppendixEntries } from "../core/appendix/utils";
 import type { PastoralistJSON, PastoralistResult, SecurityAlert } from "../types";
-import { logger as createLogger } from "../utils";
+import { logger as createLogger } from "../observability";
 
 const BINARY_NAME = "pastoralist";
 const SCRIPT_EXTENSIONS = [".cjs", ".js", ".mjs", ".ts", ".tsx"];

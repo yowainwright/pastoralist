@@ -8,7 +8,8 @@ import {
   type GithubApiError,
   SecurityProviderPermissionError,
 } from "../../../types";
-import { logger, retry } from "../../../utils";
+import { retry } from "../../../utils";
+import { logger } from "../../../observability";
 import { SECURITY_ENV_VARS } from "../../../constants";
 import {
   DEFAULT_CLI_TIMEOUT,

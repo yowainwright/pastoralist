@@ -2,7 +2,7 @@ import * as fs from "fs";
 import { resolve } from "path";
 import { IS_DEBUGGING } from "../../constants";
 import type { OverrideValue, PastoralistJSON } from "../../types";
-import { logger } from "../../utils";
+import { logger } from "../../observability";
 import { UNKNOWN_DEPENDENCY_VERSION } from "./constants";
 import type { DependencyTree, NpmLsTree, OverrideField, PackageManager } from "./types";
 

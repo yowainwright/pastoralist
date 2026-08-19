@@ -4,8 +4,8 @@ import {
   SocketCLIProvider,
   OSVProvider,
   SpektionProvider,
-  PackageManagerAuditProvider,
 } from "./providers";
+import { PackageManagerAuditProvider } from "../../providers";
 import {
   type SecurityAlert,
   type SecurityCheckProgress,
@@ -73,6 +73,7 @@ import {
 } from "../best-case";
 
 export * from "./providers";
+export { PackageManagerAuditProvider } from "../../providers";
 
 const resolveBackupCacheDir = (root: string, cacheDir?: string): string => {
   const baseCacheDir = resolveCacheDir({ cacheDir, root });

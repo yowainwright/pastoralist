@@ -224,8 +224,8 @@ import type {
   SocketCLIProvider,
   OSVProvider,
   SpektionProvider,
-  PackageManagerAuditProvider,
 } from "./providers";
+import type { PackageManagerAuditProvider } from "../../providers";
 
 export type SecurityProvider =
   | GitHubSecurityProvider

@@ -393,5 +393,6 @@ export const loadCliConfig = async (
 };
 
 export * from "./constants";
+export * from "./validation/constants";
 export * from "./types";
 export { validateConfig, safeValidateConfig } from "./validators";

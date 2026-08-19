@@ -104,7 +104,7 @@ and what condition makes it removable.
 | Area               | Details                                                      |
 | ------------------ | ------------------------------------------------------------ |
 | Package managers   | npm, pnpm, Yarn, Bun                                         |
-| Runtime            | Node 20+                                                     |
+| Runtime            | Node 20.19+                                                  |
 | Security default   | OSV, no token required                                       |
 | Optional providers | GitHub, npm audit, Snyk, Socket, Spektion                    |
 | Monorepos          | Auto-detects `workspaces`; accepts explicit package globs    |

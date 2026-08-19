@@ -70,7 +70,7 @@
     "setup:agents": "sh scripts/setup-agent-config.sh",
     "setup:local-dev": "sh scripts/setup-local-dev.sh",
     "setup:pastoralist-skill": "sh scripts/setup-pastoralist-skill.sh",
-    "prepublishOnly": "pnpm run test:unit",
+    "prepublishOnly": "node tests/unit/run-node20.mjs",
     "preview": "pnpm --dir app run preview",
     "release": "bun scripts/release.ts",
     "release:patch": "bun scripts/release.ts --increment=patch",
@@ -88,7 +88,7 @@
     "release:dry": "bun scripts/release.ts --dry-run",
     "test": "pnpm run test:unit",
     "test:node": "env -u NO_COLOR FORCE_COLOR=1 node --experimental-test-module-mocks",
-    "test:setup": "pnpm run test:node --import=./tests/unit/setup.ts",
+    "test:setup": "pnpm run test:node --import=./tests/unit/setup-node22.mjs",
     "test:unit": "pnpm run test:setup --test 'tests/unit/**/*.test.ts'",
     "test:bench": "./tests/benchmarks/run-benchmarks.sh",
     "test:e2e:binary": "./tests/e2e/scripts/test-binary.sh",
@@ -121,10 +121,11 @@
     "release-it": "21.0.2",
     "scriptc": "0.0.21",
     "turbo": "2.10.9",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "typescript5": "npm:typescript@5.9.3"
   },
   "engines": {
-    "node": ">=22.15.0"
+    "node": ">=20.19.0"
   },
   "packageManager": "pnpm@11.18.0",
   "release-it": {

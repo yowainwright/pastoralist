@@ -120,7 +120,7 @@
     "oxlint": "^1.78.0",
     "release-it": "21.0.2",
     "scriptc": "0.0.21",
-    "turbo": "2.10.9",
+    "turbo": "2.10.10",
     "typescript": "7.0.2"
   },
   "engines": {

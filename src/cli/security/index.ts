@@ -10,7 +10,10 @@ import {
 } from "../../types";
 import { SecurityChecker } from "../../core/security";
 import { resolveWorkspaceManifestPaths } from "../../core/workspaces";
-import { createSpinner, green, yellow, logger as createLogger } from "../../utils";
+import { createSpinner } from "../../dx";
+import { green, yellow } from "../../dx/colors";
+import { logger as createLogger } from "../../observability";
+import { dirname, resolve } from "node:path";
 import { DEFAULT_SECURITY_PROVIDER, MSG_SCANNING } from "./constants";
 import { renderRemovalVerification, renderSecurityFindings } from "../display";
 import { verifyRemovals } from "./utils";
@@ -29,6 +32,12 @@ export { verifyRemovals } from "./utils";
 const logger = createLogger({ file: "program.ts", isLogging: false });
 type SecurityCheckerClass = typeof SecurityChecker;
 type SecurityCheckerOptions = NonNullable<Parameters<SecurityChecker["checkSecurity"]>[1]>;
+
+const resolveSecurityRoot = (options: Options): string => {
+  if (options.root) return options.root;
+  if (options.path) return dirname(resolve(options.path));
+  return "./";
+};
 
 export const normalizeCacheTtl = (value: unknown): number | undefined => {
   if (value === undefined) return undefined;
@@ -211,7 +220,7 @@ const buildSecurityCheckOptions = (
 ): SecurityCheckerOptions =>
   Object.assign({}, mergedOptions, {
     depPaths: scanPaths,
-    root: mergedOptions.root || "./",
+    root: resolveSecurityRoot(mergedOptions),
     packageJsonPath: mergedOptions.path,
     onProgress: createProgressHandler(spinner),
     severityThreshold: config?.pastoralist?.security?.severityThreshold,

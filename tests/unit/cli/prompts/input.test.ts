@@ -7,7 +7,7 @@ import {
   getNextPipedInput,
   enhancedQuestion,
   resetPipedInputState,
-} from "../../../../src/utils/prompts/input";
+} from "../../../../src/cli/prompts/input";
 
 describe("Piped Input Functionality", () => {
   beforeEach(() => {

@@ -3,8 +3,8 @@ import { promisify } from "util";
 import { existsSync, readFileSync, appendFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
-import { logger } from "../../utils";
-import { green, yellow, cyan, gray, red } from "../../utils/colors";
+import { logger } from "../../observability";
+import { green, yellow, cyan, gray, red } from "../../dx/colors";
 import { promptConfirm, promptSelect, promptInput, promptSecret } from "./utils";
 import {
   DEFAULT_CLI_TIMEOUT,

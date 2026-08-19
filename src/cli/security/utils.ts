@@ -1,296 +1,18 @@
-import type {
-  Options,
-  OverridesType,
-  PastoralistJSON,
-  RemovalVerification,
-  SecurityAlert,
-} from "../../types";
+import type { Options, PastoralistJSON, RemovalVerification, SecurityAlert } from "../../types";
 import type { SecurityChecker } from "../../core/security";
 import type { SecurityCheckRuntimeOptions } from "../../core/security/types";
-import { execFile as execFileCallback } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import { copyFile, cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { promisify } from "node:util";
-import {
-  applyOverridesToConfig,
-  detectPackageManager,
-  type PackageManager,
-} from "../../core/package";
+import { resolve } from "node:path";
+import { applyOverridesToConfig, withRemovalState } from "../../core/package";
 import {
   applyOverridesToSourceConfig,
   resolveOverrideSource,
   type OverrideSource,
-  updatePnpmWorkspaceOverrides,
 } from "../../core/overrides";
 import {
   extractPackageNames,
   findUnusedAppendixEntries,
   removeOverrideKeys,
 } from "../../core/appendix/utils";
-import { resolveWorkspaceManifestPaths } from "../../core/workspaces";
-import { sync as globSync } from "../../utils/glob";
-
-const execFile = promisify(execFileCallback);
-const CANDIDATE_TIMEOUT_MS = 120_000;
-const CANDIDATE_MAX_BUFFER = 10 * 1024 * 1024;
-const RESOLVER_PATHS: Record<PackageManager, string[]> = {
-  npm: [".npmrc"],
-  pnpm: [".npmrc", "patches"],
-  yarn: [".yarnrc", ".yarnrc.yml", ".yarn/patches"],
-  bun: ["bunfig.toml", "patches"],
-};
-const EXECUTABLE_RESOLVER_PATHS: Partial<Record<PackageManager, string[]>> = {
-  pnpm: [".pnpmfile.cjs", ".pnpmfile.js", ".pnpmfile.mjs"],
-};
-
-type ResolverConfigGuard = {
-  path: string;
-  pattern: RegExp;
-};
-
-const EXECUTABLE_RESOLVER_CONFIGS: Partial<Record<PackageManager, ResolverConfigGuard[]>> = {
-  pnpm: [
-    { path: ".npmrc", pattern: /^\s*(?:global-)?pnpmfile(?:\[\])?\s*=/im },
-    {
-      path: "pnpm-workspace.yaml",
-      pattern:
-        /(?:^|[\n{,])\s*["']?(?:pnpmfile|globalPnpmfile|global-pnpmfile|configDependencies)["']?\s*:/i,
-    },
-  ],
-  yarn: [
-    { path: ".yarnrc", pattern: /^\s*(?:--)?yarn-path(?:\s|=)/im },
-    {
-      path: ".yarnrc.yml",
-      pattern: /(?:^|[\n{,])\s*["']?(?:yarnPath|plugins)["']?\s*:/i,
-    },
-  ],
-  bun: [{ path: "bunfig.toml", pattern: /\bscanner\s*=/i }],
-};
-
-type CandidateCommand = {
-  command: string;
-  args: string[];
-};
-
-export type CandidateResolverDeps = {
-  execFile: typeof execFile;
-};
-
-const defaultCandidateDeps: CandidateResolverDeps = { execFile };
-
-const getProjectRoot = (options: Options): string => {
-  if (options.root) return resolve(options.root);
-  if (options.path) return dirname(resolve(options.path));
-  return resolve(".");
-};
-
-const getLockfileNames = (packageManager: PackageManager): string[] => {
-  if (packageManager === "bun") return ["bun.lock", "bun.lockb"];
-  if (packageManager === "pnpm") return ["pnpm-lock.yaml"];
-  if (packageManager === "yarn") return ["yarn.lock"];
-  return ["package-lock.json"];
-};
-
-const getSourceLockfile = (projectRoot: string, packageManager: PackageManager): string => {
-  const lockfile = getLockfileNames(packageManager)
-    .map((name) => join(projectRoot, name))
-    .find(existsSync);
-  if (lockfile) return lockfile;
-  throw new Error(`No ${packageManager} lockfile is available for removal verification`);
-};
-
-const getCandidateCommand = (packageManager: PackageManager): CandidateCommand => {
-  if (packageManager === "pnpm") {
-    const args = ["install", "--lockfile-only", "--ignore-scripts", "--ignore-pnpmfile"];
-    return { command: "pnpm", args };
-  }
-  if (packageManager === "yarn") {
-    return { command: "yarn", args: ["install", "--ignore-scripts", "--non-interactive"] };
-  }
-  if (packageManager === "bun") {
-    return { command: "bun", args: ["install", "--lockfile-only", "--ignore-scripts"] };
-  }
-  return {
-    command: "npm",
-    args: ["install", "--package-lock-only", "--ignore-scripts", "--no-audit", "--no-fund"],
-  };
-};
-
-const updatePnpmWorkspaceContent = (
-  content: string,
-  overrides: OverridesType | undefined,
-): string => {
-  if (!overrides) return content;
-  return updatePnpmWorkspaceOverrides(content, overrides);
-};
-
-const removeManifestScripts = <T extends object>(config: T): T => {
-  const candidate = Object.assign({}, config);
-  Reflect.deleteProperty(candidate, "scripts");
-  return candidate;
-};
-
-const assertRequestsSucceeded = (results: PromiseSettledResult<void>[]): void => {
-  const failedRequest = results.find((result) => result.status === "rejected");
-  if (failedRequest?.status === "rejected") throw failedRequest.reason;
-};
-
-const runRequests = async <T>(items: T[], request: (item: T) => Promise<void>): Promise<void> => {
-  const requests = items.map(request);
-  const results = await Promise.allSettled(requests);
-  assertRequestsSucceeded(results);
-};
-
-const stagePnpmWorkspace = async (
-  projectRoot: string,
-  candidateRoot: string,
-  config: PastoralistJSON,
-): Promise<void> => {
-  const sourcePath = join(projectRoot, "pnpm-workspace.yaml");
-  if (!existsSync(sourcePath)) return;
-  const content = await readFile(sourcePath, "utf8");
-  const overrides = config.pnpm?.overrides;
-  const candidateContent = updatePnpmWorkspaceContent(content, overrides);
-  await writeFile(join(candidateRoot, "pnpm-workspace.yaml"), candidateContent);
-};
-
-const copyWorkspaceManifest = async (
-  manifestPath: string,
-  projectRoot: string,
-  candidateRoot: string,
-): Promise<void> => {
-  const relativePath = relative(projectRoot, manifestPath);
-  const escapesProject = relativePath === ".." || relativePath.startsWith(`..${sep}`);
-  const invalidTarget = escapesProject || isAbsolute(relativePath);
-  if (invalidTarget) {
-    throw new Error(`Workspace manifest is outside the project root: ${manifestPath}`);
-  }
-  const targetPath = join(candidateRoot, relativePath);
-  const content = await readFile(manifestPath, "utf8");
-  const manifest = removeManifestScripts(JSON.parse(content));
-  await mkdir(dirname(targetPath), { recursive: true });
-  await writeFile(targetPath, JSON.stringify(manifest, null, 2));
-};
-
-const stageWorkspaceManifests = (
-  config: PastoralistJSON,
-  projectRoot: string,
-  candidateRoot: string,
-): Promise<void> => {
-  const patterns = resolveWorkspaceManifestPaths(config, projectRoot);
-  const manifests = globSync(patterns, { cwd: projectRoot, absolute: true });
-  return runRequests(manifests, (manifestPath) =>
-    copyWorkspaceManifest(manifestPath, projectRoot, candidateRoot),
-  );
-};
-
-const copyResolverPath = async (
-  projectRoot: string,
-  candidateRoot: string,
-  resolverPath: string,
-): Promise<void> => {
-  const sourcePath = join(projectRoot, resolverPath);
-  if (!existsSync(sourcePath)) return;
-  const targetPath = join(candidateRoot, resolverPath);
-  await mkdir(dirname(targetPath), { recursive: true });
-  await cp(sourcePath, targetPath, { recursive: true });
-};
-
-const matchesResolverGuard = (projectRoot: string, guard: ResolverConfigGuard): boolean => {
-  const sourcePath = join(projectRoot, guard.path);
-  if (!existsSync(sourcePath)) return false;
-  const content = readFileSync(sourcePath, "utf8");
-  return guard.pattern.test(content);
-};
-
-const findExecutableResolverConfig = (
-  projectRoot: string,
-  packageManager: PackageManager,
-): string | undefined => {
-  const executablePaths = EXECUTABLE_RESOLVER_PATHS[packageManager] || [];
-  const executablePath = executablePaths.find((path) => existsSync(join(projectRoot, path)));
-  if (executablePath) return executablePath;
-  const guards = EXECUTABLE_RESOLVER_CONFIGS[packageManager] || [];
-  return guards.find((guard) => matchesResolverGuard(projectRoot, guard))?.path;
-};
-
-const assertResolverConfigIsSafe = (projectRoot: string, packageManager: PackageManager): void => {
-  const executableConfig = findExecutableResolverConfig(projectRoot, packageManager);
-  if (!executableConfig) return;
-  throw new Error(`Executable resolver config prevents safe verification: ${executableConfig}`);
-};
-
-const stageResolverConfig = (
-  projectRoot: string,
-  candidateRoot: string,
-  packageManager: PackageManager,
-): Promise<void> => {
-  assertResolverConfigIsSafe(projectRoot, packageManager);
-  const resolverPaths = RESOLVER_PATHS[packageManager];
-  return runRequests(resolverPaths, (resolverPath) =>
-    copyResolverPath(projectRoot, candidateRoot, resolverPath),
-  );
-};
-
-const stageCandidateProject = async (
-  config: PastoralistJSON,
-  options: Options,
-  candidateRoot: string,
-): Promise<PackageManager> => {
-  const projectRoot = getProjectRoot(options);
-  const packageManager = detectPackageManager(projectRoot);
-  const sourceLockfile = getSourceLockfile(projectRoot, packageManager);
-  const candidateConfig = removeManifestScripts(config);
-  await writeFile(join(candidateRoot, "package.json"), JSON.stringify(candidateConfig, null, 2));
-  await copyFile(sourceLockfile, join(candidateRoot, basename(sourceLockfile)));
-  await stageResolverConfig(projectRoot, candidateRoot, packageManager);
-  if (packageManager === "pnpm") await stagePnpmWorkspace(projectRoot, candidateRoot, config);
-  await stageWorkspaceManifests(config, projectRoot, candidateRoot);
-  return packageManager;
-};
-
-const resolveCandidateLockfile = async (
-  candidateRoot: string,
-  packageManager: PackageManager,
-  deps: CandidateResolverDeps,
-): Promise<void> => {
-  const command = getCandidateCommand(packageManager);
-  const yarnEnvironment = Object.assign({}, process.env, {
-    YARN_ENABLE_SCRIPTS: "false",
-    YARN_IGNORE_PATH: "true",
-    YARN_PLUGINS: "",
-    YARN_RC_FILENAME: ".yarnrc.yml",
-  });
-  const env = packageManager === "yarn" ? yarnEnvironment : process.env;
-  const execOptions = {
-    cwd: candidateRoot,
-    timeout: CANDIDATE_TIMEOUT_MS,
-    maxBuffer: CANDIDATE_MAX_BUFFER,
-    env,
-  };
-  await deps.execFile(command.command, command.args, execOptions);
-};
-
-export const withCandidateDependencyState = async <T>(
-  config: PastoralistJSON,
-  options: Options,
-  inspect: (candidateRoot: string) => T | Promise<T>,
-  deps: CandidateResolverDeps = defaultCandidateDeps,
-): Promise<T> => {
-  const tempBase = join(tmpdir(), "pastoralist");
-  await mkdir(tempBase, { recursive: true });
-  const candidateRoot = await mkdtemp(join(tempBase, "removal-check-"));
-
-  try {
-    const packageManager = await stageCandidateProject(config, options, candidateRoot);
-    await resolveCandidateLockfile(candidateRoot, packageManager, deps);
-    return await inspect(candidateRoot);
-  } finally {
-    await rm(candidateRoot, { recursive: true, force: true });
-  }
-};
 
 const getRootDependencies = (config: PastoralistJSON): Record<string, string> =>
   Object.assign({}, config.dependencies, config.devDependencies, config.peerDependencies);
@@ -340,7 +62,7 @@ const getManifestPath = (options: Options): string => {
 const getOverrideSource = (config: PastoralistJSON, options: Options): OverrideSource =>
   resolveOverrideSource({ config, manifestPath: getManifestPath(options) });
 
-const getCandidateRemovalKeys = (
+const getRemovableKeys = (
   config: PastoralistJSON,
   options: Options,
   source: OverrideSource,
@@ -353,7 +75,7 @@ const getCandidateRemovalKeys = (
   );
 };
 
-const createCandidateConfig = (
+const createRemovalConfig = (
   config: PastoralistJSON,
   removableKeys: string[],
   source: OverrideSource,
@@ -392,7 +114,7 @@ const getBeforeAlerts = async (
   return result.alerts;
 };
 
-const getCandidateScanOptions = (
+const getRemovalScanOptions = (
   config: PastoralistJSON,
   options: Options,
   root: string,
@@ -412,13 +134,13 @@ const getAfterAlerts = (
   securityChecker: SecurityChecker,
   options: Options,
 ): Promise<SecurityAlert[]> => {
-  const scanCandidate = async (root: string): Promise<SecurityAlert[]> => {
-    const scanOptions = getCandidateScanOptions(config, options, root);
+  const scanAfterRemoval = async (root: string): Promise<SecurityAlert[]> => {
+    const scanOptions = getRemovalScanOptions(config, options, root);
     const result = await securityChecker.checkSecurity(config, scanOptions);
     return result.alerts;
   };
-  if (options.isTesting) return scanCandidate(options.root || "./");
-  return withCandidateDependencyState(config, options, scanCandidate);
+  if (options.isTesting) return scanAfterRemoval(options.root || "./");
+  return withRemovalState(config, options, scanAfterRemoval);
 };
 
 const getKeysForVulnerableRemovedPackages = (
@@ -527,7 +249,7 @@ const buildFailedComparison = (
     afterRiskScore: beforeRiskScore,
     newVulnerabilityKeys: [],
     status: "blocked",
-    reason: `Candidate security scan failed: ${failure}`,
+    reason: `Post-removal security scan failed: ${failure}`,
   };
 };
 
@@ -563,10 +285,10 @@ const verifyRemoval = async (
   key: string,
 ): Promise<RemovalState> => {
   const allowedKeys = state.allowedKeys.concat(key);
-  const candidateConfig = createCandidateConfig(context.config, allowedKeys, context.source);
+  const removalConfig = createRemovalConfig(context.config, allowedKeys, context.source);
   try {
     const afterAlerts = await getAfterAlerts(
-      candidateConfig,
+      removalConfig,
       context.securityChecker,
       context.options,
     );
@@ -633,7 +355,7 @@ export const verifyRemovals = async (
   mergedOptions: Options,
 ): Promise<RemovalVerification | undefined> => {
   const source = getOverrideSource(config, mergedOptions);
-  const removableKeys = getCandidateRemovalKeys(config, mergedOptions, source);
+  const removableKeys = getRemovableKeys(config, mergedOptions, source);
   if (removableKeys.length === 0) return undefined;
 
   const beforeAlerts = await getBeforeAlerts(config, securityChecker, mergedOptions);

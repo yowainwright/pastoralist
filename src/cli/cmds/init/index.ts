@@ -7,8 +7,9 @@ import { formatCompletion, formatInfo, formatStepHeader } from "../../../dx";
 import { shimmerFrame } from "../../../dx/shimmer";
 import { FARMER } from "../../../constants";
 import { BRAND } from "../../../constants";
-import { createPrompt, type Prompt } from "../../../utils/prompts";
-import { green, logger as createLogger, type Logger } from "../../../utils";
+import { createPrompt, type Prompt } from "../../prompts";
+import { green } from "../../../dx/colors";
+import { logger as createLogger, type Logger } from "../../../observability";
 import type { PastoralistJSON } from "../../../types";
 import { resolvePathFromRoot } from "../../utils";
 import {

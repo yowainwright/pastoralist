@@ -4,7 +4,7 @@ import type {
   SECURITY_CHECK_RESULTS,
   SECURITY_PROVIDERS,
   SEVERITY_THRESHOLDS,
-} from "./constants";
+} from "./validation/constants";
 import type {
   AppendixItem as SharedAppendixItem,
   AppendixTarget,
@@ -45,9 +45,4 @@ export type MergedExternalConfig = {
 
 export type ConfigAppendix = PastoralistConfig["appendix"];
 
-export type FieldValidator = (value: unknown) => boolean;
-
-export type FieldValidation = {
-  field: string;
-  validator: FieldValidator;
-};
+export type { FieldValidation, FieldValidator } from "./validation/types";

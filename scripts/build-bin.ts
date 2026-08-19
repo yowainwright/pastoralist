@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import packageJson from "../package.json" with { type: "json" };
-import { logger as createLogger } from "../src/utils";
+import { logger as createLogger } from "../src/observability";
 
 const BIN_OUTPUT_DIR = "artifacts";
 const BIN_OUTPUT_FILE = `${BIN_OUTPUT_DIR}/pastoralist`;

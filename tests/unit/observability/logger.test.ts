@@ -1,7 +1,7 @@
 import { anyValue, assertCalledWith, spyOn, stringContaining } from "../setup";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { logger } from "../../../src/utils";
+import { logger } from "../../../src/observability";
 
 test("logger.debug should log when isLogging is true", () => {
   const consoleDebugSpy = spyOn(console, "debug");

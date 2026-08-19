@@ -1,20 +1,30 @@
 import { assertCalledWith, assertHasProperty, mock } from "../setup";
 import { test, afterEach, beforeEach, mock as moduleMock } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
-import type { Appendix, ResolveOverrides } from "../../../src/types";
-import type { Logger } from "../../../src/utils";
-import { constructAppendix } from "../../../src/core/appendix";
-import * as originalPackageJSON from "../../../src/core/package";
+import type { Appendix, PastoralistJSON, ResolveOverrides } from "../../../src/types";
+import type { Logger } from "../../../src/observability";
 
-const getDependencyTreeMock = mock(originalPackageJSON.getDependencyTree);
+const resolveJSONImplementation = (path: string): PastoralistJSON | undefined => {
+  try {
+    return JSON.parse(readFileSync(path, "utf8")) as PastoralistJSON;
+  } catch {
+    return undefined;
+  }
+};
 
-moduleMock.module(import.meta.resolve("../../../src/core/package/index"), {
-  namedExports: Object.assign({}, originalPackageJSON, {
+const resolveJSONMock = mock(resolveJSONImplementation);
+const getDependencyTreeMock = mock(async () => ({}) as Record<string, string>);
+const jsonCache = { delete: (_key: string): boolean => true };
+
+moduleMock.module(import.meta.resolve("../../../src/core/package/index.ts"), {
+  namedExports: {
+    resolveJSON: resolveJSONMock,
     getDependencyTree: getDependencyTreeMock,
-  }),
+    jsonCache,
+  },
 });
 
 const {
@@ -29,8 +39,9 @@ const {
   resolveWorkspaceManifestPaths,
   workspacePatternToPackageManifestPath,
 } = await import("../../../src/core/workspaces");
+const { constructAppendix } = await import("../../../src/core/appendix");
 
-const { clearDependencyTreeCache } = originalPackageJSON;
+const clearDependencyTreeCache = (): void => undefined;
 
 const TEST_DIR = resolve(import.meta.dirname, ".test-workspaces");
 

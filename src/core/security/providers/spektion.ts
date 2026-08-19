@@ -1,5 +1,5 @@
 import type { SecurityAlert, SecurityProviderScanOptions } from "../../../types";
-import { logger } from "../../../utils";
+import { logger } from "../../../observability";
 import { SPEKTION_API, SEVERITY_MAP } from "../constants";
 import type { Severity } from "../types";
 

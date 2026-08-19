@@ -7,14 +7,18 @@ import type {
   NpmAuditVulnerability,
   YarnAuditAdvisory,
   YarnAuditLine,
-} from "../../../types";
-import { logger } from "../../../utils";
-import { detectPackageManager } from "../../package";
+} from "../types";
+import { logger } from "../observability";
+import { detectPackageManager } from "../core/package";
 import {
   DEFAULT_AUDIT_TIMEOUT,
   SECURITY_PATCHED_VERSION_PATTERN,
   SEVERITY_MAP,
-} from "../constants";
+} from "../core/security/constants";
+
+type SecurityAlerts = SecurityAlert[];
+type AsyncSecurityAlerts = Promise<SecurityAlerts>;
+type AdvisoryCvesField = Partial<Pick<SecurityAlert, "cves">>;
 
 export class PackageManagerAuditProvider {
   readonly providerType = "npm" as const;
@@ -33,7 +37,7 @@ export class PackageManagerAuditProvider {
   async fetchAlerts(
     packages: Array<{ name: string; version: string }>,
     options: { root?: string } = {},
-  ): Promise<SecurityAlert[]> {
+  ): AsyncSecurityAlerts {
     if (packages.length === 0) return [];
 
     const root = options.root || process.cwd();
@@ -59,9 +63,9 @@ export class PackageManagerAuditProvider {
   }
 
   private enrichWithVersions(
-    alerts: SecurityAlert[],
+    alerts: SecurityAlerts,
     packages: Array<{ name: string; version: string }>,
-  ): SecurityAlert[] {
+  ): SecurityAlerts {
     const packageMap = new Map(packages.map((p) => [p.name, p.version]));
     return alerts.map((alert) => {
       const version = packageMap.get(alert.packageName);
@@ -74,7 +78,7 @@ export class PackageManagerAuditProvider {
   private async runAudit(
     pm: "npm" | "yarn" | "pnpm" | "bun",
     root: string = process.cwd(),
-  ): Promise<SecurityAlert[]> {
+  ): AsyncSecurityAlerts {
     const execOptions = { timeout: DEFAULT_AUDIT_TIMEOUT, cwd: root };
 
     if (pm === "yarn") {
@@ -101,7 +105,7 @@ export class PackageManagerAuditProvider {
     return this.parseNpmCompatibleOutput(parsed);
   }
 
-  private parseNpmCompatibleOutput(parsed: NpmAuditResult): SecurityAlert[] {
+  private parseNpmCompatibleOutput(parsed: NpmAuditResult): SecurityAlerts {
     const hasVulnerabilities = Boolean(parsed?.vulnerabilities);
     if (!hasVulnerabilities) return [];
 
@@ -131,12 +135,12 @@ export class PackageManagerAuditProvider {
     };
   }
 
-  private convertNpmVulnerability(vuln: NpmAuditVulnerability): SecurityAlert[] {
+  private convertNpmVulnerability(vuln: NpmAuditVulnerability): SecurityAlerts {
     const advisories = this.getNpmAdvisories(vuln);
     return advisories.map((advisory) => this.convertNpmAdvisory(vuln, advisory));
   }
 
-  private parseYarnAuditOutput(stdout: string): SecurityAlert[] {
+  private parseYarnAuditOutput(stdout: string): SecurityAlerts {
     const lines = stdout.split("\n").filter(Boolean);
     return lines
       .map((line) => {
@@ -166,9 +170,7 @@ export class PackageManagerAuditProvider {
       });
   }
 
-  private createAdvisoryCvesField(
-    advisory: YarnAuditAdvisory,
-  ): Partial<Pick<SecurityAlert, "cves">> {
+  private createAdvisoryCvesField(advisory: YarnAuditAdvisory): AdvisoryCvesField {
     if (!advisory.cves?.length) return {};
     return { cves: advisory.cves };
   }

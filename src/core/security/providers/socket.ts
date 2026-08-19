@@ -1,7 +1,7 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
 import type { SecurityAlert, SocketResult, SocketPackage, SocketIssue } from "../../../types";
-import { logger } from "../../../utils";
+import { logger } from "../../../observability";
 import { CLIInstaller } from "../utils";
 import { AUTH_MESSAGES } from "../constants";
 import type { ExecFileAsync } from "../../types";

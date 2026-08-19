@@ -2,17 +2,12 @@ import { loadCliConfig, loadConfig, loadConfigWithSource } from "../config";
 import { IS_DEBUGGING } from "../constants";
 import { resolveJSON } from "../core/package";
 import { update } from "../core/update";
-import { createTerminalGraph } from "../dx";
+import { createSpinner, createTerminalGraph } from "../dx";
+import { green } from "../dx/colors";
+import { logger as createLogger } from "../observability";
 import type { Options, PastoralistResult } from "../types";
-import {
-  createSpinner,
-  getLedgerAddedDate,
-  green,
-  logger as createLogger,
-  pruneBackups,
-  quickConfirm,
-  resolveCacheDir,
-} from "../utils";
+import { getLedgerAddedDate, pruneBackups, resolveCacheDir } from "../utils";
+import { quickConfirm } from "./prompts";
 import { initCommand } from "./cmds/init/index";
 import { displaySummaryTable, renderUpdateOutput } from "./display";
 import { buildUpdateResult, createEmptyResult, createErrorResult, outputResult } from "./utils";

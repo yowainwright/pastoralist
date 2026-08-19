@@ -4,8 +4,8 @@ import {
   SocketCLIProvider,
   OSVProvider,
   SpektionProvider,
-  PackageManagerAuditProvider,
 } from "./providers";
+import { PackageManagerAuditProvider } from "../../providers";
 import {
   type SecurityAlert,
   type SecurityCheckProgress,
@@ -29,7 +29,6 @@ import {
 } from "../overrides";
 import type { OverrideSource } from "../overrides";
 import {
-  logger,
   LRUCache,
   DiskCache,
   hashLockfile,
@@ -37,6 +36,7 @@ import {
   pruneBackups,
   fetchLatestCompatibleVersions,
 } from "../../utils";
+import { logger } from "../../observability";
 import { CACHE_NAMESPACES, CACHE_TTLS, CACHE_NS_VERSIONS } from "../../utils/cache";
 import { compareVersions } from "../../utils";
 import {
@@ -73,6 +73,7 @@ import {
 } from "../best-case";
 
 export * from "./providers";
+export { PackageManagerAuditProvider } from "../../providers";
 
 const resolveBackupCacheDir = (root: string, cacheDir?: string): string => {
   const baseCacheDir = resolveCacheDir({ cacheDir, root });

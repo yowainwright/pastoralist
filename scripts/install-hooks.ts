@@ -6,69 +6,67 @@ import { join } from "path";
 const HOOKS_DIR = ".git/hooks";
 const MANAGED_HOOK_MARKER = "pastoralist-managed-hook";
 
-const PRE_COMMIT = `#!/usr/bin/env bun
-// ${MANAGED_HOOK_MARKER}
+const PRE_COMMIT = `#!/bin/sh
+# ${MANAGED_HOOK_MARKER}
 
-import { $ } from 'bun';
+echo 'Running pre-commit checks...'
 
-console.log('Running pre-commit checks...');
-
-try {
-  await $\`node node_modules/eslint-plugin-legibility/bin/lint-changed.js\`;
-  await $\`pnpm run format\`;
-  await $\`pnpm run build\`;
-  await $\`pnpm --dir app install --frozen-lockfile\`;
-  await $\`pnpm --dir app run build\`;
-  await $\`pnpm run lint\`;
-  await $\`pnpm run test:coverage\`;
-  console.log('All pre-commit checks passed');
-} catch {
-  console.error('Pre-commit checks failed');
-  process.exit(1);
-}
+if node node_modules/eslint-plugin-legibility/bin/lint-changed.js \
+  && pnpm run format \
+  && pnpm run build \
+  && pnpm --dir app install --frozen-lockfile \
+  && pnpm --dir app run build \
+  && pnpm run lint \
+  && pnpm run test:coverage; then
+  echo 'All pre-commit checks passed'
+else
+  echo 'Pre-commit checks failed' >&2
+  exit 1
+fi
 `;
 
-const COMMIT_MSG = `#!/usr/bin/env bun
-// ${MANAGED_HOOK_MARKER}
+const COMMIT_MSG = `#!/bin/sh
+# ${MANAGED_HOOK_MARKER}
 
-import { readFileSync } from 'fs';
+commit_msg_file=$1
+commit_msg=$(head -n 1 "$commit_msg_file")
 
-const commitMsgFile = process.argv[2];
-const commitMsg = readFileSync(commitMsgFile, 'utf-8').trim();
+if ! printf '%s\\n' "$commit_msg" | grep -Eq '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)([(][^)]+[)])?: .+'; then
+  echo 'Invalid commit message format' >&2
+  echo 'Expected format: <type>(<scope>): <message>' >&2
+  echo 'Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert' >&2
+  echo "Received: $commit_msg" >&2
+  exit 1
+fi
 
-const conventionalCommitPattern = /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\\(.+\\))?: .{1,}/;
-
-if (!conventionalCommitPattern.test(commitMsg)) {
-  console.error('Invalid commit message format');
-  console.error('Expected format: <type>(<scope>): <message>');
-  console.error('Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert');
-  console.error(\`Received: \${commitMsg}\`);
-  process.exit(1);
-}
-
-console.log('Commit message is valid');
+echo 'Commit message is valid'
 `;
 
-const POST_MERGE = `#!/usr/bin/env bun
-// ${MANAGED_HOOK_MARKER}
+const POST_MERGE = `#!/bin/sh
+# ${MANAGED_HOOK_MARKER}
 
-import { $ } from 'bun';
+echo 'Running post-merge checks...'
 
-console.log('Running post-merge checks...');
+changed_files=$(git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD)
+dependencies_changed=false
+for dependency_file in pnpm-lock.yaml package.json app/pnpm-lock.yaml app/package.json; do
+  if printf '%s\n' "$changed_files" | grep -Fqx "$dependency_file"; then
+    dependencies_changed=true
+    break
+  fi
+done
 
-const dependencyFiles = ['pnpm-lock.yaml', 'package.json', 'app/pnpm-lock.yaml', 'app/package.json'];
-
-const lockfileChanged = await $\`git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD\`.text();
-const dependenciesChanged = dependencyFiles.some((file) => lockfileChanged.includes(file));
-
-if (dependenciesChanged) {
-  console.log('Dependencies changed, running pnpm install...');
-  await $\`pnpm install\`;
-  await $\`pnpm --dir app install\`;
-  console.log('Dependencies updated');
-} else {
-  console.log('No dependency changes detected');
-}
+if [ "$dependencies_changed" = true ]; then
+  echo 'Dependencies changed, running pnpm install...'
+  if pnpm install && pnpm --dir app install; then
+    echo 'Dependencies updated'
+  else
+    echo 'Dependency installation failed' >&2
+    exit 1
+  fi
+else
+  echo 'No dependency changes detected'
+fi
 `;
 
 const HOOKS = {

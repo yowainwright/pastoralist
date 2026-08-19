@@ -88,7 +88,7 @@
     "release:dry": "bun scripts/release.ts --dry-run",
     "test": "pnpm run test:unit",
     "test:node": "env -u NO_COLOR FORCE_COLOR=1 node --experimental-test-module-mocks",
-    "test:setup": "pnpm run test:node --import=./tests/unit/setup-node22.mjs",
+    "test:setup": "pnpm run test:node --import=./tests/unit/setup.ts",
     "test:unit": "pnpm run test:setup --test 'tests/unit/**/*.test.ts'",
     "test:bench": "./tests/benchmarks/run-benchmarks.sh",
     "test:e2e:binary": "./tests/e2e/scripts/test-binary.sh",

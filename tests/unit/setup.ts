@@ -1,13 +1,87 @@
+import * as nodeModule from "node:module";
 import assert from "node:assert/strict";
 import { mock as nodeMock } from "node:test";
-import { resolve } from "path";
+import { extname, resolve } from "path";
 import { isDeepStrictEqual } from "node:util";
+import { fileURLToPath } from "node:url";
 import * as fs from "fs";
 
 const TEST_TEMP_DIR = resolve(import.meta.dirname, ".tmp", String(process.pid));
 process.env.TMPDIR = TEST_TEMP_DIR;
 fs.mkdirSync(TEST_TEMP_DIR, { recursive: true });
 process.once("exit", () => fs.rmSync(TEST_TEMP_DIR, { recursive: true, force: true }));
+
+type ResolveHook = NonNullable<Parameters<typeof nodeModule.registerHooks>[0]["resolve"]>;
+type ResolveContext = Parameters<ResolveHook>[1];
+type NextResolve = Parameters<ResolveHook>[2];
+type LoadHook = NonNullable<Parameters<typeof nodeModule.registerHooks>[0]["load"]>;
+
+const appendExtension = (specifier: string, extension: string): string => {
+  const queryIndex = specifier.indexOf("?");
+  if (queryIndex === -1) return `${specifier}${extension}`;
+  const path = specifier.slice(0, queryIndex);
+  const query = specifier.slice(queryIndex);
+  return `${path}${extension}${query}`;
+};
+
+const resolveCandidates = (specifier: string): readonly string[] => [
+  appendExtension(specifier, ".ts"),
+  appendExtension(specifier, ".tsx"),
+  appendExtension(`${specifier}/index`, ".ts"),
+  appendExtension(`${specifier}/index`, ".tsx"),
+];
+
+const tryResolve = (specifier: string, context: ResolveContext, nextResolve: NextResolve) => {
+  try {
+    return nextResolve(specifier, context);
+  } catch {
+    return undefined;
+  }
+};
+
+const resolveTypeScript = (
+  specifier: string,
+  context: ResolveContext,
+  nextResolve: NextResolve,
+) => {
+  try {
+    return nextResolve(specifier, context);
+  } catch (error) {
+    const isFileUrl = specifier.startsWith("file:");
+    const isLocal = isFileUrl || specifier.startsWith(".") || specifier.startsWith("/");
+    if (!isLocal) throw error;
+
+    const results = resolveCandidates(specifier).map((candidate) =>
+      tryResolve(candidate, context, nextResolve),
+    );
+    const resolved = results.find((result) => result !== undefined);
+    if (!resolved) throw error;
+    return resolved;
+  }
+};
+
+const createLoadHook = (
+  stripTypeScriptTypes: NonNullable<typeof nodeModule.stripTypeScriptTypes>,
+): LoadHook => {
+  const loadTypeScript = (url: string): string => {
+    const source = fs.readFileSync(fileURLToPath(url), "utf8");
+    return stripTypeScriptTypes(source, { sourceUrl: url });
+  };
+
+  return (url, context, nextLoad) => {
+    const isTypeScript = url.startsWith("file:") && extname(new URL(url).pathname) === ".ts";
+    if (!isTypeScript) return nextLoad(url, context);
+    return { format: "module", shortCircuit: true, source: loadTypeScript(url) };
+  };
+};
+
+const registerTypeScriptHooks = (): void => {
+  const { registerHooks, stripTypeScriptTypes } = nodeModule;
+  if (!registerHooks || !stripTypeScriptTypes) return;
+  registerHooks({ resolve: resolveTypeScript, load: createLoadHook(stripTypeScriptTypes) });
+};
+
+registerTypeScriptHooks();
 
 type AnyFunction = (...args: any[]) => any;
 type NativeMock<F extends AnyFunction> = ReturnType<typeof nodeMock.fn<F>>;

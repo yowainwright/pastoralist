@@ -107,7 +107,7 @@ jobs:
     needs: build
     strategy:
       matrix:
-        node-version: ["22.15.0", 24, 26]
+        node-version: ["20.19.0", 22, 24, 26]
       fail-fast: false
 
     name: node ${{ matrix.node-version }}
@@ -143,6 +143,10 @@ jobs:
         name: Setup Node.js ${{ matrix.node-version }}
         with:
           node-version: ${{ matrix.node-version }}
+
+      - name: Test unit suite with Node 20 compatibility shim
+        if: matrix.node-version == '20.19.0'
+        run: node tests/unit/run-node20.mjs
 
       - name: Test with Node.js
         run: node dist/index.js --help

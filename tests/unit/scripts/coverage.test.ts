@@ -58,7 +58,10 @@ test("coverage uploads once without parsing reports", () => {
   assert.doesNotMatch(ciWorkflow, /awk.*lcov/i);
 });
 
-test("test reporter emits color in CI output", () => {
+const nodeMajor = Number(process.versions.node.split(".")[0]);
+const skipOnNode20 = nodeMajor === 20 ? "pnpm 11 requires Node 22 or newer" : false;
+
+test("test reporter emits color in CI output", { skip: skipOnNode20 }, () => {
   const args = ["run", "test:setup", "--test", "tests/unit/utils/string.test.ts"];
   const options = { cwd: root, encoding: "utf8" as const, env: createCiEnv() };
   const result = spawnSync("pnpm", args, options);

@@ -68,16 +68,16 @@ describe("scripts/install-hooks", () => {
       const hook = readFixture(root, ".git/hooks/pre-commit");
 
       assert.strictEqual(result.status, 0);
-      assert.ok(hook.includes("pastoralist-managed-hook"));
-      assert.ok(
-        hook.includes("await $`node node_modules/eslint-plugin-legibility/bin/lint-changed.js`;"),
-      );
-      assert.ok(hook.includes("await $`pnpm run format`;"));
-      assert.ok(hook.includes("await $`pnpm run build`;"));
-      assert.ok(hook.includes("await $`pnpm --dir app install --frozen-lockfile`;"));
-      assert.ok(hook.includes("await $`pnpm --dir app run build`;"));
-      assert.ok(hook.includes("await $`pnpm run lint`;"));
-      assert.ok(hook.includes("await $`pnpm run test:coverage`;"));
+      assert.ok(hook.includes("# pastoralist-managed-hook"));
+      assert.ok(hook.startsWith("#!/bin/sh"));
+      assert.ok(hook.includes("node node_modules/eslint-plugin-legibility/bin/lint-changed.js"));
+      assert.ok(hook.includes("pnpm run format"));
+      assert.ok(hook.includes("pnpm run build"));
+      assert.ok(hook.includes("pnpm --dir app install --frozen-lockfile"));
+      assert.ok(hook.includes("pnpm --dir app run build"));
+      assert.ok(hook.includes("pnpm run lint"));
+      assert.ok(hook.includes("pnpm run test:coverage"));
+      assert.ok(!hook.includes("bun"));
     });
   });
 });

@@ -33,8 +33,8 @@ importers:
         specifier: 21.0.2
         version: 21.0.2(@types/node@26.2.0)(magicast@0.5.4)(supports-color@10.2.2)
       scriptc:
-        specifier: 0.0.21
-        version: 0.0.21
+        specifier: 0.0.32
+        version: 0.0.32
       turbo:
         specifier: 2.10.9
         version: 2.10.9
@@ -519,11 +519,11 @@ packages:
     resolution: {integrity: sha512-oeQJs1aa8Ghke8JIK9yuq/+KjMiaYeDZ38jx7MhkXncXlUKjqQ3wEm2X3qCKyjo+ZZofZj+WsEEiqkTtRuE2xQ==}
     engines: {node: ^20.9.0 || >=22.0.0, npm: '>=10.8.2'}
 
-  '@scriptc/compiler@0.0.21':
-    resolution: {integrity: sha512-R88r87LpBmRSjWyv/9Qp0HaZ8o3qyYO6W3T13xlyOuFdzXz7zxPJdT8lLIEBEVI65TG8q/D34KOzPQI1zyXgtA==}
+  '@scriptc/compiler@0.0.32':
+    resolution: {integrity: sha512-DnPy5g4OXj5SNE+L9Q1Qb+9nSyFceULj7d5JKTXVh+DBJXZMQwJW/bfVPk+cLFKDKbIFX78MXHcALdm3tfuJfg==}
 
-  '@scriptc/runtime@0.0.21':
-    resolution: {integrity: sha512-fj3Xn4K80B3OCaY7G3lN7blsfHqQXh6rDPERGLlVVx+TiCTuZaFMfjivw9lvQwrYqu3uWIx2JqaQDP4ibyLLJg==}
+  '@scriptc/runtime@0.0.32':
+    resolution: {integrity: sha512-Hm3/Jq8nTglaPGIJdRl3b4RPOxBZHG+IuH8SK+QtUYXb8iAJtMTpCR3N1yai0YFU/i1rgrPH/ZLlFQDQXPDIew==}
 
   '@socketsecurity/bun-security-scanner@1.1.2':
     resolution: {integrity: sha512-TdsAg6SMolubyZ6HfIjLWlANfHvhV6i7pdWof4OQ33zPEwXJm2ilA755levHMR618MKq22+06Ag8efiVKowxqA==}
@@ -1238,8 +1238,8 @@ packages:
   safer-buffer@2.1.2:
     resolution: {integrity: sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==}
 
-  scriptc@0.0.21:
-    resolution: {integrity: sha512-m+CFFlQvKpry+bSrU0ol1rYCY4amm8nGLZ1m8+0ck8i5zJDCoQ8+6kYfj6pGsyFmBuJ3Dabn4ZFWl4BXuffD1A==}
+  scriptc@0.0.32:
+    resolution: {integrity: sha512-LvG+zoij7ZqnMecsLL3hYRq8cMjMHgBM0fgWw6bKUVzXVsQ7V/qLRSPlB/TLBhVNTyAk5ks16LyIUSZw+9uLMg==}
     engines: {node: '>=20'}
     hasBin: true
 
@@ -1735,13 +1735,13 @@ snapshots:
 
   '@phun-ky/typeof@2.0.3': {}
 
-  '@scriptc/compiler@0.0.21':
+  '@scriptc/compiler@0.0.32':
     dependencies:
-      '@scriptc/runtime': 0.0.21
+      '@scriptc/runtime': 0.0.32
       typescript: 7.0.2
       typescript5: typescript@5.9.3
 
-  '@scriptc/runtime@0.0.21': {}
+  '@scriptc/runtime@0.0.32': {}
 
   '@socketsecurity/bun-security-scanner@1.1.2': {}
 
@@ -2391,9 +2391,9 @@ snapshots:
 
   safer-buffer@2.1.2: {}
 
-  scriptc@0.0.21:
+  scriptc@0.0.32:
     dependencies:
-      '@scriptc/compiler': 0.0.21
+      '@scriptc/compiler': 0.0.32
 
   semver@7.8.5: {}
 

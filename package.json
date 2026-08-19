@@ -119,7 +119,7 @@
     "oxfmt": "^0.50.0",
     "oxlint": "^1.78.0",
     "release-it": "21.0.2",
-    "scriptc": "0.0.21",
+    "scriptc": "0.0.32",
     "turbo": "2.10.9",
     "typescript": "7.0.2"
   },

@@ -22,7 +22,7 @@ const STATIC_PATHS = [
 const isTypeScript = (path) => [".ts", ".tsx"].includes(extname(path));
 const NON_MODULE_EXTENSIONS = [".cjs", ".json", ".js", ".mjs"];
 const LOCAL_IMPORT_PATTERN =
-  /(\bfrom\s+|\bimport\s*(?:\(\s*|\s+)|\bimport\.meta\.resolve\(\s*)(["'])(\.{1,2}\/[^"']+)\2/g;
+  /(\bfrom\s+|\bimport\s*(?:\(\s*|\s+)|\bimport\.meta\.resolve\(\s*|\bnew\s+URL\(\s*)(["'])(\.{1,2}\/[^"']+)\2/g;
 
 const outputPath = (sourcePath) => {
   const relativePath = relative(ROOT, sourcePath);
@@ -114,6 +114,12 @@ const copyFile = async (sourcePath) => {
   await cp(sourcePath, destination);
 };
 
+const copyOriginalSource = async (sourcePath) => {
+  const destination = resolve(OUTPUT, relative(ROOT, sourcePath));
+  await mkdir(dirname(destination), { recursive: true });
+  await cp(sourcePath, destination);
+};
+
 const copyTree = async (sourcePath) => {
   const entries = await readdir(sourcePath, { withFileTypes: true });
   for (const entry of entries) {
@@ -125,6 +131,7 @@ const copyTree = async (sourcePath) => {
     }
     if (isTypeScript(entryPath)) {
       await compileTypeScript(entryPath);
+      await copyOriginalSource(entryPath);
       continue;
     }
     await copyFile(entryPath);

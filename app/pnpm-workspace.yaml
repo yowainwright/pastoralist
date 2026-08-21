@@ -3,3 +3,9 @@ enableGlobalVirtualStore: false
 allowBuilds:
   "@parcel/watcher": true
   esbuild: true
+minimumReleaseAgeExclude:
+  - '@types/bun@1.4.0'
+  - bun-types@1.4.0
+  - daisyui@5.7.20
+  - framer-motion@13.1.1
+  - motion-dom@13.1.1

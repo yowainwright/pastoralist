@@ -161,6 +161,25 @@
   align-items: stretch;
 }
 
+.terminal-line-enter {
+  animation: terminal-line-reveal 180ms ease-out both;
+}
+
+@keyframes terminal-line-reveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .terminal-line-enter {
+    animation: none;
+  }
+}
+
 .tree-connector {
   display: inline-flex;
   flex-shrink: 0;

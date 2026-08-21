@@ -6,6 +6,7 @@ import {
   DEFAULT_PAUSE_DURATION,
   INTERSECTION_OBSERVER_OPTIONS,
   TERMINAL_CLASSES,
+  getTerminalContentMinHeight,
 } from "./constants";
 import { TerminalWindow } from "@/components/TerminalWindow";
 import { STYLES } from "@/components/TerminalWindow/constants";
@@ -40,25 +41,30 @@ const TerminalLines: React.FC<{
   isTyping: boolean;
   currentLine: TerminalLine | undefined;
   displayedText: string;
-}> = ({ visibleLines, isTyping, currentLine, displayedText }) => (
-  <>
-    {visibleLines.map((line, index) => (
-      <div key={index} className={`${STYLES.line} ${line.className ?? ""}`}>
-        {line.prefix && <span className={STYLES.prefix}>{line.prefix}</span>}
-        <TreeConnectors line={line} />
-        <span dangerouslySetInnerHTML={{ __html: line.text }} />
-      </div>
-    ))}
-    {isTyping && currentLine && (
-      <div className={`${STYLES.line} ${currentLine.className ?? ""}`}>
-        {currentLine.prefix && <span className={STYLES.prefix}>{currentLine.prefix}</span>}
-        <TreeConnectors line={currentLine} />
-        <span dangerouslySetInnerHTML={{ __html: displayedText }} />
-        <span className={STYLES.cursor} />
-      </div>
-    )}
-  </>
-);
+  animateLines: boolean;
+}> = ({ visibleLines, isTyping, currentLine, displayedText, animateLines }) => {
+  const lineAnimationClass = animateLines ? "terminal-line-enter" : "";
+
+  return (
+    <>
+      {visibleLines.map((line, index) => (
+        <div key={index} className={`${STYLES.line} ${lineAnimationClass} ${line.className ?? ""}`}>
+          {line.prefix && <span className={STYLES.prefix}>{line.prefix}</span>}
+          <TreeConnectors line={line} />
+          <span dangerouslySetInnerHTML={{ __html: line.text }} />
+        </div>
+      ))}
+      {isTyping && currentLine && (
+        <div className={`${STYLES.line} ${currentLine.className ?? ""}`}>
+          {currentLine.prefix && <span className={STYLES.prefix}>{currentLine.prefix}</span>}
+          <TreeConnectors line={currentLine} />
+          <span dangerouslySetInnerHTML={{ __html: displayedText }} />
+          <span className={STYLES.cursor} />
+        </div>
+      )}
+    </>
+  );
+};
 
 const getTypingLine = (
   hasStarted: boolean,
@@ -74,6 +80,7 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
   demos,
   loop = DEFAULT_LOOP,
   typingSpeed = DEFAULT_TYPING_SPEED,
+  timing,
   startAnimation,
   shouldAnimate = true,
   onComplete,
@@ -86,6 +93,13 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
   const [hasStarted, setHasStarted] = useState(!shouldAnimate);
   const [isFinished, setIsFinished] = useState(!shouldAnimate);
   const containerRef = useRef<HTMLDivElement>(null);
+  const demoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (demoTimerRef.current) clearTimeout(demoTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!shouldAnimate) {
@@ -159,14 +173,14 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
 
     if (isLastLine) {
       const pauseDuration = currentDemo.pauseAfter ?? DEFAULT_PAUSE_DURATION;
-      setTimeout(moveToNextDemo, pauseDuration);
+      demoTimerRef.current = setTimeout(moveToNextDemo, pauseDuration);
     } else {
       setCurrentLineIndex(currentLineIndex + 1);
     }
   }, [currentLineIndex, currentDemo, moveToNextDemo, currentLine]);
 
   const typingLine = getTypingLine(hasStarted, isFinished, currentLine);
-  const { isTyping, setIsTyping } = useLineProcessor(typingLine, visibleLines, moveToNextLine);
+  const { isTyping, setIsTyping } = useLineProcessor(typingLine, timing, moveToNextLine);
 
   const { displayedText, isComplete } = useTypingAnimation(
     currentLine?.text ?? "",
@@ -187,12 +201,14 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
     isTyping,
     currentLine,
     displayedText,
+    animateLines: shouldAnimate && hasStarted,
   };
+  const contentStyle = { minHeight: getTerminalContentMinHeight(demos) };
 
   if (hideHeader) {
     return (
       <div ref={containerRef} className="bg-transparent">
-        <div className={STYLES.content}>
+        <div className={STYLES.content} style={contentStyle}>
           <TerminalLines {...lineProps} />
         </div>
       </div>
@@ -202,7 +218,7 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
   return (
     <div ref={containerRef}>
       <TerminalWindow className={TERMINAL_CLASSES} minHeight={minHeight}>
-        <div className={STYLES.content}>
+        <div className={STYLES.content} style={contentStyle}>
           <TerminalLines {...lineProps} />
         </div>
       </TerminalWindow>

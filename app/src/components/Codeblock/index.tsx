@@ -64,7 +64,7 @@ const getHighlightedCode = (
   return highlighted;
 };
 
-function CodeblockContent({
+export function HighlightedCode({
   code,
   lang = "text",
   showLineNumbers = false,
@@ -125,7 +125,7 @@ export function Codeblock({
             </pre>
           }
         >
-          <CodeblockContent code={code} lang={lang} showLineNumbers={showLineNumbers} />
+          <HighlightedCode code={code} lang={lang} showLineNumbers={showLineNumbers} />
         </Suspense>
       </div>
     </div>

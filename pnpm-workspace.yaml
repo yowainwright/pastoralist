@@ -3,3 +3,6 @@ enableGlobalVirtualStore: false
 allowBuilds:
   "@parcel/watcher": true
   esbuild: true
+minimumReleaseAgeExclude:
+  - '@types/bun@1.4.0'
+  - bun-types@1.4.0

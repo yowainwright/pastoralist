@@ -18,6 +18,7 @@ export interface AnimatedTerminalProps {
   demos: TerminalDemo[];
   loop?: boolean;
   typingSpeed?: number;
+  timing?: number;
   startAnimation?: boolean;
   shouldAnimate?: boolean;
   onComplete?: () => void;

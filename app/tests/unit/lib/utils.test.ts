@@ -1,6 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { capturePrerenderState, clearPrerenderMarker } from "../../../src/lib/utils";
+import {
+  getLineDelay,
+  getTerminalContentMinHeight,
+} from "../../../src/components/home/AnimatedTerminal/constants";
+import {
+  normalizeCodeBlock,
+  shouldShowCodeLineNumbers,
+} from "../../../src/components/Codeblock/constants";
 
 test("clears prerender state without changing other root data", () => {
   const rootElement = {
@@ -23,4 +31,36 @@ test("captures prerender state before the marker is cleared", () => {
   clearPrerenderMarker(rootElement);
 
   assert.strictEqual(wasPrerendered, true);
+});
+
+test("uses terminal timing as a global override", () => {
+  assert.strictEqual(getLineDelay({ delay: 40 }, 125), 125);
+});
+
+test("preserves line timing without a terminal override", () => {
+  assert.strictEqual(getLineDelay({ delay: 40 }), 40);
+});
+
+test("uses the default line timing when no delay is configured", () => {
+  assert.strictEqual(getLineDelay({ delay: undefined }), 35);
+});
+
+test("clamps negative timing values to zero", () => {
+  assert.strictEqual(getLineDelay({ delay: 40 }, -1), 0);
+});
+
+test("reserves the tallest terminal demo content", () => {
+  const demos = [{ lines: [{ text: "one" }, { text: "two" }] }];
+  assert.strictEqual(getTerminalContentMinHeight(demos), "2.8em");
+});
+
+test("removes the trailing fence newline from code blocks", () => {
+  assert.strictEqual(normalizeCodeBlock("single line\n"), "single line");
+  assert.strictEqual(normalizeCodeBlock("first\nsecond\n"), "first\nsecond");
+});
+
+test("does not add line numbers to terminal code", () => {
+  assert.strictEqual(shouldShowCodeLineNumbers("bash"), false);
+  assert.strictEqual(shouldShowCodeLineNumbers("text"), false);
+  assert.strictEqual(shouldShowCodeLineNumbers("json"), true);
 });

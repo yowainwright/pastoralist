@@ -113,7 +113,9 @@ export function HeroSection() {
   }, [showRainbow, wasAlreadySeen]);
 
   const handleTerminalComplete = () => {
-    send({ type: "TERMINAL_DONE" });
+    const terminalDoneEvent = { type: "TERMINAL_DONE" } as const;
+    if (!snapshot.can(terminalDoneEvent)) return;
+    send(terminalDoneEvent);
     sessionStorage.setItem(HERO_SEEN_KEY, "true");
   };
 
@@ -168,22 +170,28 @@ export function HeroSection() {
             <h1 className={styles.h1}>
               <span className="font-bold gradient-text">{CONTENT.headingStart}</span>{" "}
               {CONTENT.headingMid}
-              {terminalComplete && (
-                <motion.span
-                  ref={automaticallyRef}
-                  className={`inline-block ml-2 ${
-                    showRainbow
-                      ? "rainbow-text animate-rainbow-bounce"
-                      : "text-glow-shimmer animate-slide-in-right"
-                  }`}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.4, ease: "easeOut" }}
-                >
-                  {CONTENT.headingHighlight}
-                </motion.span>
-              )}
-              {showEmoji && <span className="inline-block animate-thumbs-up">{CONTENT.emoji}</span>}
+              <motion.span
+                ref={automaticallyRef}
+                className={`inline-block ml-2 ${
+                  showRainbow
+                    ? "rainbow-text animate-rainbow-bounce"
+                    : "text-glow-shimmer animate-slide-in-right"
+                }`}
+                initial={{ opacity: 0, x: 20 }}
+                animate={terminalComplete ? { opacity: 1, x: 0 } : { opacity: 0, x: 20 }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+                aria-hidden={!terminalComplete}
+              >
+                {CONTENT.headingHighlight}
+              </motion.span>
+              <motion.span
+                className="inline-block animate-thumbs-up"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: showEmoji ? 1 : 0 }}
+                aria-hidden={!showEmoji}
+              >
+                {CONTENT.emoji}
+              </motion.span>
             </h1>
 
             <nav className={styles.nav}>

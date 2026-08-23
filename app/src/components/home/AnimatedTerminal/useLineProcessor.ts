@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import type { TerminalLine } from "./types";
-import { DEFAULT_ANIMATE, DEFAULT_LINE_DELAY } from "./constants";
+import { DEFAULT_ANIMATE, getLineDelay } from "./constants";
 
 export const useLineProcessor = (
   currentLine: TerminalLine | undefined,
-  _visibleLines: TerminalLine[],
+  timing: number | undefined,
   onLineComplete: () => void,
 ) => {
   const [isTyping, setIsTyping] = useState(false);
@@ -13,7 +13,7 @@ export const useLineProcessor = (
     if (!currentLine) return;
 
     const shouldAnimate = currentLine.animate ?? DEFAULT_ANIMATE;
-    const lineDelay = currentLine.delay ?? DEFAULT_LINE_DELAY;
+    const lineDelay = getLineDelay(currentLine, timing);
 
     if (!shouldAnimate) {
       const timer = setTimeout(() => {
@@ -27,7 +27,7 @@ export const useLineProcessor = (
     }, lineDelay);
 
     return () => clearTimeout(startTimer);
-  }, [currentLine, onLineComplete]);
+  }, [currentLine, onLineComplete, timing]);
 
   return { isTyping, setIsTyping };
 };

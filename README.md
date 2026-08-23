@@ -133,24 +133,24 @@ When you are ready to add it to the project:
 
 ```bash
 npm install pastoralist --save-dev
-pastoralist init
-pastoralist
+npx pastoralist init
+npx pastoralist
 ```
 
 Optionally keep the appendix current after installs:
 
-```jsonc
+```json
 {
   "scripts": {
-    "postinstall": "pastoralist",
-  },
+    "postinstall": "pastoralist"
+  }
 }
 ```
 
 Pastoralist can add that hook for you:
 
 ```bash
-pastoralist --setup-hook
+npx pastoralist --setup-hook
 ```
 
 ---

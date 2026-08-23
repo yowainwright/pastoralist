@@ -63,6 +63,9 @@ jobs:
       - run: rm -rf dist .turbo
       - run: pnpm run build
       - run: pnpm --dir app install --frozen-lockfile
+      - name: Run Socket security scan
+        if: ${{ env.SOCKET_SECURITY_API_KEY != '' || env.SOCKET_API_KEY != '' }}
+        run: pnpm run security:socket
       - name: Build and test ScriptC binary
         run: pnpm run test:e2e:binary
       - name: Test docs build functions

@@ -5,6 +5,10 @@ import {
   getLineDelay,
   getTerminalContentMinHeight,
 } from "../../../src/components/home/AnimatedTerminal/constants";
+import {
+  normalizeCodeBlock,
+  shouldShowCodeLineNumbers,
+} from "../../../src/components/Codeblock/constants";
 
 test("clears prerender state without changing other root data", () => {
   const rootElement = {
@@ -48,4 +52,15 @@ test("clamps negative timing values to zero", () => {
 test("reserves the tallest terminal demo content", () => {
   const demos = [{ lines: [{ text: "one" }, { text: "two" }] }];
   assert.strictEqual(getTerminalContentMinHeight(demos), "2.8em");
+});
+
+test("removes the trailing fence newline from code blocks", () => {
+  assert.strictEqual(normalizeCodeBlock("single line\n"), "single line");
+  assert.strictEqual(normalizeCodeBlock("first\nsecond\n"), "first\nsecond");
+});
+
+test("does not add line numbers to terminal code", () => {
+  assert.strictEqual(shouldShowCodeLineNumbers("bash"), false);
+  assert.strictEqual(shouldShowCodeLineNumbers("text"), false);
+  assert.strictEqual(shouldShowCodeLineNumbers("json"), true);
 });

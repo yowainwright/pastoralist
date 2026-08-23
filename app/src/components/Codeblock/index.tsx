@@ -1,7 +1,13 @@
 import { Suspense, use } from "react";
 import { cn } from "@/lib/utils";
 import { CopyButton } from "./CopyButton";
-import { SHIKI_LANGS, CODEBLOCK_CLASSES, normalizeCodeLanguage } from "./constants";
+import {
+  SHIKI_LANGS,
+  CODEBLOCK_CLASSES,
+  normalizeCodeBlock,
+  normalizeCodeLanguage,
+  shouldShowCodeLineNumbers,
+} from "./constants";
 import type { CodeblockProps } from "./types";
 
 const WINDOW_DOTS = ["bg-rose-400", "bg-amber-400", "bg-emerald-400"] as const;
@@ -73,7 +79,8 @@ export function HighlightedCode({
   lang?: string;
   showLineNumbers?: boolean;
 }) {
-  const html = use(getHighlightedCode(code, lang, showLineNumbers));
+  const normalizedCode = normalizeCodeBlock(code);
+  const html = use(getHighlightedCode(normalizedCode, lang, showLineNumbers));
 
   return <div className={CODEBLOCK_CLASSES.content} dangerouslySetInnerHTML={{ __html: html }} />;
 }
@@ -87,12 +94,18 @@ export function Codeblock({
   showCopy = true,
   className,
 }: CodeblockProps) {
+  const normalizedCode = normalizeCodeBlock(code);
+  const lineNumbersVisible = showLineNumbers && shouldShowCodeLineNumbers(lang);
   const hasHeader = Boolean(title || showLanguage || showCopy);
-  const copyButton = showCopy ? <CopyButton code={code} /> : null;
+  const copyButton = showCopy ? <CopyButton code={normalizedCode} /> : null;
 
   return (
     <div
-      className={cn(CODEBLOCK_CLASSES.wrapper, showLineNumbers && "show-line-numbers", className)}
+      className={cn(
+        CODEBLOCK_CLASSES.wrapper,
+        lineNumbersVisible && "show-line-numbers",
+        className,
+      )}
     >
       {hasHeader && (
         <div className={CODEBLOCK_CLASSES.header}>
@@ -121,11 +134,11 @@ export function Codeblock({
         <Suspense
           fallback={
             <pre className="text-sm leading-relaxed">
-              <code>{code}</code>
+              <code>{normalizedCode}</code>
             </pre>
           }
         >
-          <HighlightedCode code={code} lang={lang} showLineNumbers={showLineNumbers} />
+          <HighlightedCode code={normalizedCode} lang={lang} showLineNumbers={lineNumbersVisible} />
         </Suspense>
       </div>
     </div>

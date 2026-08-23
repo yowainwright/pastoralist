@@ -8,6 +8,7 @@ export const SHIKI_LANGS = [
   "bash",
   "shellscript",
   "json",
+  "jsonc",
   "yaml",
   "markdown",
   "text",
@@ -18,7 +19,25 @@ const LANGUAGE_ALIASES: Record<string, string> = {
   ts: "typescript",
 };
 
+const TERMINAL_LANGUAGES = new Set([
+  "bash",
+  "console",
+  "plaintext",
+  "shell",
+  "shellscript",
+  "sh",
+  "terminal",
+  "text",
+]);
+
 export const normalizeCodeLanguage = (lang: string): string => LANGUAGE_ALIASES[lang] || lang;
+
+export const normalizeCodeBlock = (code: string): string => code.replace(/\r?\n$/, "");
+
+export const shouldShowCodeLineNumbers = (lang: string): boolean => {
+  const normalizedLanguage = normalizeCodeLanguage(lang.trim().toLowerCase());
+  return !TERMINAL_LANGUAGES.has(normalizedLanguage);
+};
 
 export const CODEBLOCK_CLASSES = {
   wrapper:

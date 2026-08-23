@@ -20,6 +20,7 @@ const languageLoaders: Record<string, LanguageLoader | undefined> = {
   bash: () => import("shiki/langs/bash.mjs").then((module) => module.default),
   javascript: () => import("shiki/langs/javascript.mjs").then((module) => module.default),
   json: () => import("shiki/langs/json.mjs").then((module) => module.default),
+  jsonc: () => import("shiki/langs/jsonc.mjs").then((module) => module.default),
   jsx: () => import("shiki/langs/jsx.mjs").then((module) => module.default),
   markdown: () => import("shiki/langs/markdown.mjs").then((module) => module.default),
   shellscript: () => import("shiki/langs/shellscript.mjs").then((module) => module.default),

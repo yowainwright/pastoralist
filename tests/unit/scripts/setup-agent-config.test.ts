@@ -110,7 +110,7 @@ const createHookTools = (root: string) => {
 };
 
 describe("scripts/install-hooks", () => {
-  test("pre-commit runs legibility and the complete validation sequence", () => {
+  test("pre-commit does not lint changed files before the full lint", () => {
     withTempRepo((root) => {
       mkdirSync(join(root, ".git"), { recursive: true });
 
@@ -120,7 +120,7 @@ describe("scripts/install-hooks", () => {
       assert.strictEqual(result.status, 0);
       assert.ok(hook.includes("# pastoralist-managed-hook"));
       assert.ok(hook.startsWith("#!/bin/sh"));
-      assert.ok(hook.includes("node node_modules/eslint-plugin-legibility/bin/lint-changed.js"));
+      assert.ok(!hook.includes("lint-changed.js"));
       assert.ok(hook.includes("pnpm run format"));
       assert.ok(hook.includes("pnpm run build"));
       assert.ok(hook.includes("pnpm --dir app install --frozen-lockfile"));

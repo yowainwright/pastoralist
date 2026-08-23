@@ -11,8 +11,7 @@ const PRE_COMMIT = `#!/bin/sh
 
 echo 'Running pre-commit checks...'
 
-if node node_modules/eslint-plugin-legibility/bin/lint-changed.js \
-  && pnpm run format \
+if pnpm run format \
   && pnpm run build \
   && pnpm --dir app install --frozen-lockfile \
   && pnpm --dir app run build \

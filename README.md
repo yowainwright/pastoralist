@@ -79,67 +79,6 @@ still in `package.json`, but the reason is usually somewhere else.
 </td>
 </tr>
 </tbody>
-</table><table width="100%">
-<thead>
-<tr>
-<th width="50%">Without Pastoralist</th>
-<th width="50%">With Pastoralist</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td width="50%" valign="top">
-<pre lang="diff">{
-  "overrides": {
--    // Why is this in overrides?
-    "barn-yard": "2.0.0",
--    // Is this still needed?
-    "old-goat": "4.1.0",
--    // What is the CVE?
-    "escaped-sheep": "1.0.1",
--    // Is this a patch?
-    "patchy-alpaca": "1.4.0"
-  }
-}</pre>
-</td>
-<td width="50%" valign="top">
-<pre lang="diff">{
-  "overrides": {
-    "barn-yard": "2.0.0",
-    "old-goat": "4.1.0",
-    "escaped-sheep": "1.0.1",
-    "patchy-alpaca": "1.4.0"
-  },
-  "pastoralist": {
-    "appendix": {
-+      // Keeps the gate API compatible with shepherd-cli.
-      "barn-yard@2.0.0": {
-        "ledger": {
-          "addedDate": "2026-08-22T00:00:00.000Z",
-          "reason": "Compatibility pin"
-        }
-      },
-+      // shepherd-cli still depends on old-goat@^3.
-      "old-goat@4.1.0": {
-        "dependents": { "shepherd-cli": "old-goat@^3" }
-      },
-+      // Pins the fix for CVE-escaped-sheep.
-      "escaped-sheep@1.0.1": {
-        "ledger": {
-          "addedDate": "2026-08-22T00:00:00.000Z",
-          "cves": ["CVE-escaped-sheep"]
-        }
-      },
-+      // Carries the local alpaca patch.
-      "patchy-alpaca@1.4.0": {
-        "patches": ["patches/patchy-alpaca+1.4.0.patch"]
-      }
-    }
-  }
-}</pre>
-</td>
-</tr>
-</tbody>
 </table>
 
 Pastoralist keeps the package-manager instruction where it belongs and adds the

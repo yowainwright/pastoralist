@@ -17,13 +17,41 @@ export function getActiveHeadingId(
   return passedHeadings.at(-1)?.id ?? firstHeading.id;
 }
 
-const getHeadings = (root: ParentNode) =>
-  Array.from(root.querySelectorAll<HTMLElement>(HEADING_SELECTORS));
+const createHeadingReader = (content: HTMLElement, headingIds: readonly string[]) => {
+  const expectedIds = new Set(headingIds);
+  return () =>
+    Array.from(content.querySelectorAll<HTMLElement>(HEADING_SELECTORS)).filter(({ id }) =>
+      expectedIds.has(id),
+    );
+};
 
-const getScrollTarget = (content: HTMLElement) => {
+const getScrollTarget = (content: HTMLElement, view: Window) => {
   const { body, documentElement } = content.ownerDocument;
-  const bodyOwnsScroll = getComputedStyle(body).overflowY !== "visible";
+  const bodyOwnsScroll = view.getComputedStyle(body).overflowY !== "visible";
   return bodyOwnsScroll ? body : documentElement;
+};
+
+const createActiveIdUpdater = (
+  view: Window,
+  scrollTarget: HTMLElement,
+  readHeadings: () => HTMLElement[],
+  onActiveIdChange: (id: string | null) => void,
+) => {
+  let frameId: number | undefined;
+  const isAtBottom = () =>
+    scrollTarget.scrollTop + scrollTarget.clientHeight >= scrollTarget.scrollHeight - 1;
+  const update = () => {
+    if (frameId !== undefined) view.cancelAnimationFrame(frameId);
+    frameId = view.requestAnimationFrame(() => {
+      frameId = undefined;
+      onActiveIdChange(getActiveHeadingId(readHeadings(), isAtBottom()));
+    });
+  };
+  const cancel = () => {
+    if (frameId !== undefined) view.cancelAnimationFrame(frameId);
+  };
+
+  return { update, cancel };
 };
 
 function createScrollspy(
@@ -35,41 +63,30 @@ function createScrollspy(
   const shouldWaitForContent = !content || headingIds.length === 0;
   if (shouldWaitForContent) return;
 
-  const expectedIds = new Set(headingIds);
-  const getCurrentHeadings = () => getHeadings(content).filter(({ id }) => expectedIds.has(id));
-  const headings = getCurrentHeadings();
-  const hasTooFewHeadings = headings.length < headingIds.length;
-  if (hasTooFewHeadings) return;
-
   const view = content.ownerDocument.defaultView;
   if (!view) return;
 
-  const scrollTarget = getScrollTarget(content);
-  let frameId: number | undefined;
-  const isAtBottom = () =>
-    scrollTarget.scrollTop + scrollTarget.clientHeight >= scrollTarget.scrollHeight - 1;
-  const updateActiveId = () => {
-    if (frameId !== undefined) view.cancelAnimationFrame(frameId);
-    frameId = view.requestAnimationFrame(() => {
-      frameId = undefined;
-      onActiveIdChange(getActiveHeadingId(getCurrentHeadings(), isAtBottom()));
-    });
-  };
+  const readHeadings = createHeadingReader(content, headingIds);
+  const headings = readHeadings();
+  if (headings.length < headingIds.length) return;
+
+  const scrollTarget = getScrollTarget(content, view);
+  const activeIdUpdater = createActiveIdUpdater(view, scrollTarget, readHeadings, onActiveIdChange);
   const intersectionObserver = new IntersectionObserver(
-    updateActiveId,
+    activeIdUpdater.update,
     INTERSECTION_OBSERVER_OPTIONS,
   );
 
-  updateActiveId();
-  scrollTarget.addEventListener("scroll", updateActiveId, { passive: true });
-  view.addEventListener("resize", updateActiveId);
+  activeIdUpdater.update();
+  scrollTarget.addEventListener("scroll", activeIdUpdater.update, { passive: true });
+  view.addEventListener("resize", activeIdUpdater.update);
   headings.forEach((heading) => intersectionObserver.observe(heading));
 
   return () => {
     intersectionObserver.disconnect();
-    scrollTarget.removeEventListener("scroll", updateActiveId);
-    view.removeEventListener("resize", updateActiveId);
-    if (frameId !== undefined) view.cancelAnimationFrame(frameId);
+    scrollTarget.removeEventListener("scroll", activeIdUpdater.update);
+    view.removeEventListener("resize", activeIdUpdater.update);
+    activeIdUpdater.cancel();
   };
 }
 
@@ -87,12 +104,13 @@ export function useScrollspy(
     let cleanup = createScrollspy(contentRef, headingIds, setActiveId);
     if (cleanup) return cleanup;
 
+    const content = contentRef.current;
+    if (!content) return;
+
     const mutationObserver = new MutationObserver(() => {
       cleanup = createScrollspy(contentRef, headingIds, setActiveId);
       if (cleanup) mutationObserver.disconnect();
     });
-    const content = contentRef.current;
-    if (!content) return;
     mutationObserver.observe(content, { childList: true, subtree: true });
 
     return () => {

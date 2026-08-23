@@ -23,7 +23,7 @@
     "sourceMap": false,
     "strict": true,
     "target": "es2022",
-    "types": ["bun"],
+    "types": ["node"],
     "incremental": true,
     "tsBuildInfoFile": ".tsbuildinfo"
   },

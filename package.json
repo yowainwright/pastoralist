@@ -83,6 +83,7 @@
     "release:beta:dry": "bun scripts/release.ts --preRelease=beta --dry-run",
     "release:alpha": "bun scripts/release.ts --preRelease=alpha",
     "release:alpha:dry": "bun scripts/release.ts --preRelease=alpha --dry-run",
+    "security:socket": "socket scan create --report package.json pnpm-lock.yaml app/package.json app/pnpm-lock.yaml",
     "release:tag": "bun scripts/tag-release.ts",
     "release:tag:dry": "bun scripts/tag-release.ts --dry-run",
     "release:dry": "bun scripts/release.ts --dry-run",
@@ -111,8 +112,7 @@
     "setup": "sh scripts/setup.sh"
   },
   "devDependencies": {
-    "@socketsecurity/bun-security-scanner": "^1.1.2",
-    "@types/bun": "1.4.0",
+    "@types/node": "26.2.0",
     "c8": "^12.0.0",
     "codependence": "^1.0.8",
     "eslint-plugin-legibility": "^0.3.0",
@@ -120,6 +120,7 @@
     "oxlint": "^1.79.0",
     "release-it": "21.0.2",
     "scriptc": "0.0.21",
+    "socket": "1.1.158",
     "turbo": "2.10.11",
     "typescript": "7.0.2",
     "typescript5": "npm:typescript@5.9.3"
@@ -139,8 +140,5 @@
     "npm": {
       "publish": false
     }
-  },
-  "dependencies": {},
-  "peerDependencies": {},
-  "optionalDependencies": {}
+  }
 }

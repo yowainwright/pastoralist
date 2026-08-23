@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { useParams, Link, Navigate } from "@tanstack/react-router";
 import { getDocBySlug, getDocComponent, getDocContent, type LazyDocComponent } from "@/content";
 import { extractHeadings } from "@/lib/mdx/extractHeadings";
@@ -9,7 +9,39 @@ import katexStylesheet from "katex/dist/katex.min.css?url";
 
 export function DocsPage() {
   const { slug } = useParams({ from: "/docs/$slug" });
+  const contentRef = useRef<HTMLElement>(null);
   const doc = getDocBySlug(slug);
+
+  useEffect(() => {
+    const targetId = window.location.hash.slice(1);
+    const hasTargetId = targetId.length > 0;
+    if (!hasTargetId) return;
+
+    const content = contentRef.current;
+    if (!content) return;
+
+    let frameId: number | undefined;
+    const scrollToHash = () => {
+      const target = Array.from(content.querySelectorAll<HTMLElement>("[id]")).find(
+        (element) => element.id === targetId,
+      );
+      if (!target) return false;
+
+      frameId = window.requestAnimationFrame(() => target.scrollIntoView({ block: "start" }));
+      return true;
+    };
+
+    const observer = new MutationObserver(() => {
+      if (scrollToHash()) observer.disconnect();
+    });
+    const targetFound = scrollToHash();
+    if (!targetFound) observer.observe(content, { childList: true, subtree: true });
+
+    return () => {
+      observer.disconnect();
+      if (frameId !== undefined) window.cancelAnimationFrame(frameId);
+    };
+  }, [contentRef, slug]);
 
   if (!doc) {
     return <Navigate to="/docs/$slug/" params={{ slug: "introduction" }} />;
@@ -26,7 +58,10 @@ export function DocsPage() {
       <article className="flex flex-col w-full max-w-[600px]">
         <Breadcrumbs title={doc.title} />
 
-        <section className="docs-prose prose prose-sm sm:prose-base md:prose-md mb-10 max-w-none prose-pre:max-w-[90vw] prose-pre:overflow-x-auto">
+        <section
+          ref={contentRef}
+          className="docs-prose prose prose-sm sm:prose-base md:prose-md mb-10 max-w-none prose-pre:max-w-[90vw] prose-pre:overflow-x-auto"
+        >
           <header>
             <h1>{doc.title}</h1>
             <p>{doc.description}</p>
@@ -39,7 +74,7 @@ export function DocsPage() {
       </article>
 
       <aside className="hidden xl:block pl-8">
-        <TocWithScrollspy headings={headings} />
+        <TocWithScrollspy key={slug} headings={headings} contentRef={contentRef} />
       </aside>
     </section>
   );

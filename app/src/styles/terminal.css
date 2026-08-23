@@ -139,6 +139,7 @@
 
 .terminal-content {
   padding: 1rem;
+  display: grid;
   overflow-x: auto;
   overflow-y: auto;
   font-family:
@@ -147,6 +148,19 @@
   font-size: 14px;
   line-height: 1.4;
   color: #1e293b;
+}
+
+.terminal-content > * {
+  grid-area: 1 / 1;
+}
+
+.terminal-content-sizer {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.terminal-content-output {
+  min-width: 0;
 }
 
 [data-theme="night"] .terminal-content {
@@ -159,25 +173,6 @@
   word-break: break-word;
   display: flex;
   align-items: stretch;
-}
-
-.terminal-line-enter {
-  animation: terminal-line-reveal 180ms ease-out both;
-}
-
-@keyframes terminal-line-reveal {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .terminal-line-enter {
-    animation: none;
-  }
 }
 
 .tree-connector {

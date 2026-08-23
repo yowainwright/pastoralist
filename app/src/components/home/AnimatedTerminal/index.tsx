@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import type { AnimatedTerminalProps, TerminalLine } from "./types";
+import type { AnimatedTerminalProps, TerminalDemo, TerminalLine } from "./types";
 import {
   DEFAULT_TYPING_SPEED,
   DEFAULT_LOOP,
@@ -65,6 +65,29 @@ const TerminalLines: React.FC<{
     </>
   );
 };
+
+const TerminalContent: React.FC<{
+  demos: TerminalDemo[];
+  lineProps: React.ComponentProps<typeof TerminalLines>;
+  style: React.CSSProperties;
+}> = ({ demos, lineProps, style }) => (
+  <div className={STYLES.content} style={style}>
+    {demos.map((demo, index) => (
+      <div key={index} className="terminal-content-sizer" aria-hidden="true">
+        <TerminalLines
+          visibleLines={demo.lines}
+          isTyping={false}
+          currentLine={undefined}
+          displayedText=""
+          animateLines={false}
+        />
+      </div>
+    ))}
+    <div className="terminal-content-output">
+      <TerminalLines {...lineProps} />
+    </div>
+  </div>
+);
 
 const getTypingLine = (
   hasStarted: boolean,
@@ -204,13 +227,14 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
     animateLines: shouldAnimate && hasStarted,
   };
   const contentStyle = { minHeight: getTerminalContentMinHeight(demos) };
+  const terminalContent = (
+    <TerminalContent demos={demos} lineProps={lineProps} style={contentStyle} />
+  );
 
   if (hideHeader) {
     return (
       <div ref={containerRef} className="bg-transparent">
-        <div className={STYLES.content} style={contentStyle}>
-          <TerminalLines {...lineProps} />
-        </div>
+        {terminalContent}
       </div>
     );
   }
@@ -218,9 +242,7 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
   return (
     <div ref={containerRef}>
       <TerminalWindow className={TERMINAL_CLASSES} minHeight={minHeight}>
-        <div className={STYLES.content} style={contentStyle}>
-          <TerminalLines {...lineProps} />
-        </div>
+        {terminalContent}
       </TerminalWindow>
     </div>
   );

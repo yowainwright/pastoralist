@@ -3,6 +3,7 @@ import type { TocWithScrollspyProps, TocHeading } from "./types";
 import { useScrollspy } from "./useScrollspy";
 import { buildToc } from "./buildToc";
 import { parseInlineCode } from "./utils";
+import { HEADING_SELECTORS } from "./constants";
 
 const BASE_LINK_CLASSES =
   "block text-sm transition-colors border-l-2 pl-4 -ml-0.5 font-spline-sans-mono";
@@ -16,8 +17,12 @@ function getLinkClasses(isActive: boolean, isSubheading = false) {
   return `${BASE_LINK_CLASSES} ${padding} ${stateClasses}`;
 }
 
-function scrollToElement(slug: string): boolean {
-  const target = document.getElementById(slug);
+function scrollToElement(content: HTMLElement | null, slug: string): boolean {
+  const target = content
+    ? Array.from(content.querySelectorAll<HTMLElement>(HEADING_SELECTORS)).find(
+        (heading) => heading.id === slug,
+      )
+    : undefined;
   if (!target) return false;
 
   target.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -25,14 +30,19 @@ function scrollToElement(slug: string): boolean {
   return true;
 }
 
-export function TocWithScrollspy({ headings }: TocWithScrollspyProps) {
-  const toc = buildToc(headings || []);
-  const activeId = useScrollspy(headings?.length || 0);
+export function TocWithScrollspy({ headings, contentRef }: TocWithScrollspyProps) {
+  const headingList = headings ?? [];
+  const toc = buildToc(headingList);
+  const headingIds = headingList.map(({ slug }) => slug);
+  const activeId = useScrollspy(contentRef, headingIds);
 
-  const handleClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>, slug: string) => {
-    if (!scrollToElement(slug)) return;
-    e.preventDefault();
-  }, []);
+  const handleClick = useCallback(
+    (e: React.MouseEvent<HTMLAnchorElement>, slug: string) => {
+      if (!scrollToElement(contentRef.current, slug)) return;
+      e.preventDefault();
+    },
+    [contentRef],
+  );
 
   if (toc.length === 0) return null;
 

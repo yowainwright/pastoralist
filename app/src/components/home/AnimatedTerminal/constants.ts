@@ -1,15 +1,22 @@
-import type { TerminalDemo } from "./types";
+import type { TerminalDemo, TerminalLine } from "./types";
 import {
   TERMINAL_LINE_HEIGHT_PX,
   TERMINAL_HEADER_HEIGHT_PX,
   TERMINAL_PADDING_PX,
-} from "@/components/TerminalWindow/constants";
-
+} from "../../../components/TerminalWindow/constants";
 export const DEFAULT_TYPING_SPEED = 12;
 export const DEFAULT_LOOP = true;
 export const DEFAULT_PAUSE_DURATION = 2000;
 export const DEFAULT_ANIMATE = false;
 export const DEFAULT_LINE_DELAY = 35;
+
+const normalizeDelay = (delay: number): number => {
+  if (!Number.isFinite(delay)) return 0;
+  return Math.max(0, delay);
+};
+
+export const getLineDelay = (line: { delay?: TerminalLine["delay"] }, timing?: number): number =>
+  normalizeDelay(timing ?? line.delay ?? DEFAULT_LINE_DELAY);
 
 export const INTERSECTION_OBSERVER_OPTIONS = {
   threshold: 0.1,
@@ -20,6 +27,15 @@ export const TERMINAL_CLASSES = "terminal-window max-w-lg w-full my-4";
 const OVERRIDE_DEMO_LINES = 16;
 const SECURITY_DEMO_LINES = 21;
 export const HERO_TERMINAL_MIN_HEIGHT = `${TERMINAL_HEADER_HEIGHT_PX + TERMINAL_PADDING_PX + Math.max(OVERRIDE_DEMO_LINES, SECURITY_DEMO_LINES) * TERMINAL_LINE_HEIGHT_PX}px`;
+
+export const getTerminalContentMinHeight = (demos: TerminalDemo[]): string => {
+  const maxLineCount = demos.reduce(
+    (currentMax, demo) => Math.max(currentMax, demo.lines.length),
+    0,
+  );
+
+  return `${maxLineCount * 1.4}em`;
+};
 
 const ICON_SUCCESS = "\u25CF";
 const ICON_CHECK = "\u2713";

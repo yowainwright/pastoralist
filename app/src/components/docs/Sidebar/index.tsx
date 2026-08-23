@@ -89,7 +89,7 @@ function SidebarLink({
   pathname: string;
 }) {
   const slug = extractSlug(item.href);
-  const isActive = pathname.endsWith(`/docs/${slug}`);
+  const isActive = isSidebarLinkActive(pathname, slug);
 
   return (
     <li>
@@ -107,6 +107,11 @@ function SidebarLink({
       </Link>
     </li>
   );
+}
+
+function isSidebarLinkActive(pathname: string, slug: string): boolean {
+  const normalizedPathname = pathname.replace(/\/+$/, "");
+  return normalizedPathname.endsWith(`/docs/${slug}`);
 }
 
 export function extractSlug(href: string): string {

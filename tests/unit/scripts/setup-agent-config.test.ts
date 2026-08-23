@@ -110,7 +110,7 @@ const createHookTools = (root: string) => {
 };
 
 describe("scripts/install-hooks", () => {
-  test("pre-commit runs legibility and the complete validation sequence", () => {
+  test("pre-commit does not lint changed files before the full lint", () => {
     withTempRepo((root) => {
       mkdirSync(join(root, ".git"), { recursive: true });
 
@@ -120,7 +120,7 @@ describe("scripts/install-hooks", () => {
       assert.strictEqual(result.status, 0);
       assert.ok(hook.includes("# pastoralist-managed-hook"));
       assert.ok(hook.startsWith("#!/bin/sh"));
-      assert.ok(hook.includes("node node_modules/eslint-plugin-legibility/bin/lint-changed.js"));
+      assert.ok(!hook.includes("lint-changed.js"));
       assert.ok(hook.includes("pnpm run format"));
       assert.ok(hook.includes("pnpm run build"));
       assert.ok(hook.includes("pnpm --dir app install --frozen-lockfile"));
@@ -139,7 +139,12 @@ describe("scripts/install-hooks", () => {
       const success = runGeneratedHook(root, "pre-commit", [], env);
       assert.strictEqual(success.status, 0);
       assert.strictEqual(readFixture(root, "hook.log").trim().split("\n").length, 6);
-      const failure = runGeneratedHook(root, "pre-commit", [], { ...env, FAKE_STATUS: "1" });
+      const failure = runGeneratedHook(
+        root,
+        "pre-commit",
+        [],
+        Object.assign({}, env, { FAKE_STATUS: "1" }),
+      );
       assert.notStrictEqual(failure.status, 0);
       assert.ok(existsSync(logPath));
     });
@@ -167,16 +172,20 @@ describe("scripts/install-hooks", () => {
       mkdirSync(join(root, ".git"), { recursive: true });
       assert.strictEqual(runHookInstaller(root).status, 0);
       const { env, logPath } = createHookTools(root);
-      const unchanged = runGeneratedHook(root, "post-merge", [], {
-        ...env,
-        FAKE_CHANGED_FILES: "src/index.ts",
-      });
+      const unchanged = runGeneratedHook(
+        root,
+        "post-merge",
+        [],
+        Object.assign({}, env, { FAKE_CHANGED_FILES: "src/index.ts" }),
+      );
       assert.strictEqual(unchanged.status, 0);
       assert.strictEqual(existsSync(logPath), false);
-      const changed = runGeneratedHook(root, "post-merge", [], {
-        ...env,
-        FAKE_CHANGED_FILES: "package.json",
-      });
+      const changed = runGeneratedHook(
+        root,
+        "post-merge",
+        [],
+        Object.assign({}, env, { FAKE_CHANGED_FILES: "package.json" }),
+      );
       assert.strictEqual(changed.status, 0);
       assert.strictEqual(readFixture(root, "hook.log").trim().split("\n").length, 2);
     });

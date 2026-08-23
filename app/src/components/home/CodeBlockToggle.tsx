@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { HighlightedCode } from "@/components/Codeblock";
 import { AnimatedTerminal, TreeConnectors } from "@/components/home/AnimatedTerminal";
 import { TerminalWindow } from "@/components/TerminalWindow";
 import { STYLES } from "@/components/TerminalWindow/constants";
@@ -73,9 +74,15 @@ function CliContent({ shouldAnimate, onComplete }: Required<CodeBlockToggleProps
 function JsonContent() {
   return (
     <div className={STYLES.content}>
-      <pre className="text-sm leading-relaxed text-base-content">
-        <code>{PACKAGE_JSON}</code>
-      </pre>
+      <Suspense
+        fallback={
+          <pre className="text-sm leading-relaxed text-base-content">
+            <code>{PACKAGE_JSON}</code>
+          </pre>
+        }
+      >
+        <HighlightedCode code={PACKAGE_JSON} lang="json" />
+      </Suspense>
     </div>
   );
 }

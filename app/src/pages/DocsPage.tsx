@@ -1,5 +1,6 @@
-import { Suspense } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { useParams, Link, Navigate } from "@tanstack/react-router";
+import { Loader2 } from "lucide-react";
 import { getDocBySlug, getDocComponent, getDocContent, type LazyDocComponent } from "@/content";
 import { extractHeadings } from "@/lib/mdx/extractHeadings";
 import { TocWithScrollspy } from "@/components/docs/TocWithScrollspy";
@@ -9,7 +10,39 @@ import katexStylesheet from "katex/dist/katex.min.css?url";
 
 export function DocsPage() {
   const { slug } = useParams({ from: "/docs/$slug" });
+  const contentRef = useRef<HTMLElement>(null);
   const doc = getDocBySlug(slug);
+
+  useEffect(() => {
+    const targetId = window.location.hash.slice(1);
+    const hasTargetId = targetId.length > 0;
+    if (!hasTargetId) return;
+
+    const content = contentRef.current;
+    if (!content) return;
+
+    let frameId: number | undefined;
+    const scrollToHash = () => {
+      const target = Array.from(content.querySelectorAll<HTMLElement>("[id]")).find(
+        (element) => element.id === targetId,
+      );
+      if (!target) return false;
+
+      frameId = window.requestAnimationFrame(() => target.scrollIntoView({ block: "start" }));
+      return true;
+    };
+
+    const observer = new MutationObserver(() => {
+      if (scrollToHash()) observer.disconnect();
+    });
+    const targetFound = scrollToHash();
+    if (!targetFound) observer.observe(content, { childList: true, subtree: true });
+
+    return () => {
+      observer.disconnect();
+      if (frameId !== undefined) window.cancelAnimationFrame(frameId);
+    };
+  }, [contentRef, slug]);
 
   if (!doc) {
     return <Navigate to="/docs/$slug/" params={{ slug: "introduction" }} />;
@@ -21,12 +54,15 @@ export function DocsPage() {
   const { prevItem, nextItem } = getPagination(slug);
 
   return (
-    <section className="flex flex-col lg:flex-row p-4 sm:p-6 md:p-10 md:pt-10 font-spline-sans-mono gap-8">
+    <section className="relative flex min-h-[calc(100vh-68px)] flex-col gap-8 p-4 font-spline-sans-mono sm:p-6 md:p-10 md:pt-10 lg:flex-row">
       <MathStyles enabled={doc.usesMath} />
       <article className="flex flex-col w-full max-w-[600px]">
         <Breadcrumbs title={doc.title} />
 
-        <section className="docs-prose prose prose-sm sm:prose-base md:prose-md mb-10 max-w-none prose-pre:max-w-[90vw] prose-pre:overflow-x-auto">
+        <section
+          ref={contentRef}
+          className="docs-prose prose prose-sm sm:prose-base md:prose-md mb-10 max-w-none prose-pre:max-w-[90vw] prose-pre:overflow-x-auto"
+        >
           <header>
             <h1>{doc.title}</h1>
             <p>{doc.description}</p>
@@ -39,7 +75,7 @@ export function DocsPage() {
       </article>
 
       <aside className="hidden xl:block pl-8">
-        <TocWithScrollspy headings={headings} />
+        <TocWithScrollspy key={slug} headings={headings} contentRef={contentRef} />
       </aside>
     </section>
   );
@@ -68,8 +104,20 @@ function Breadcrumbs({ title }: { title: string }) {
 function MDXContent({ Content }: { Content: LazyDocComponent | undefined }) {
   if (!Content) return null;
   return (
-    <Suspense fallback={<div className="h-32 animate-pulse rounded bg-base-content/10" />}>
+    <Suspense fallback={<DocsLoadingState />}>
       <Content components={mdxComponents as unknown as Record<string, React.ComponentType>} />
     </Suspense>
+  );
+}
+
+function DocsLoadingState() {
+  return (
+    <div
+      className="not-prose absolute inset-0 z-10 flex min-h-[calc(100vh-68px)] items-center justify-center bg-base-100/90 backdrop-blur-sm"
+      role="status"
+      aria-label="Loading documentation"
+    >
+      <Loader2 className="size-8 animate-spin text-primary" aria-hidden="true" />
+    </div>
   );
 }

@@ -1,3 +1,5 @@
+import type { RefObject } from "react";
+
 export interface Heading {
   depth: number;
   slug: string;
@@ -10,4 +12,5 @@ export interface TocHeading extends Heading {
 
 export interface TocWithScrollspyProps {
   headings: Heading[];
+  contentRef: RefObject<HTMLElement | null>;
 }

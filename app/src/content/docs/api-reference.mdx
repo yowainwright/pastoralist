@@ -9,7 +9,38 @@ Pastoralist provides both a CLI interface and a Node.js API for programmatic usa
 Most CLI options can be configured using config files. See the [Configuration](/docs/configuration) documentation for details on using `.pastoralistrc`, `pastoralist.config.js`, or `package.json` for persistent settings.
 :::
 
+{/* public CLI commands and options from src/cli/parser/constants.ts and src/cli/index.ts */}
+
 ## CLI
+
+### Command Summary
+
+| Command                          | Purpose                                               |
+| -------------------------------- | ----------------------------------------------------- |
+| `pastoralist`                    | Update override tracking for the selected manifest    |
+| `pastoralist doctor`             | Run read-only dry-run checks with summary metrics     |
+| `pastoralist onboard`            | Print first-run local, agent, and GitHub Action setup |
+| `pastoralist onboarding`         | Alias for `onboard`                                   |
+| `pastoralist init`               | Start guided config setup                             |
+| `pastoralist init agent-skill`   | Install the bundled Pastoralist agent skill           |
+| `pastoralist --init agent-skill` | Flag form of the same agent-skill setup               |
+| `pastoralist-setup-local-dev`    | Set up local agent config, skills, and hooks          |
+| `pastoralist-setup-skill`        | Install the standalone Pastoralist skill              |
+
+### Common Flags
+
+| Flag                        | Purpose                                    |
+| --------------------------- | ------------------------------------------ |
+| `-h, --help`                | Print CLI help                             |
+| `-v, --version`             | Print the installed version                |
+| `-p, --path <path>`         | Select the root `package.json`             |
+| `-d, --depPaths <paths...>` | Process workspace package manifest globs   |
+| `--ignore <paths...>`       | Exclude matching package manifests         |
+| `-r, --root <root>`         | Resolve relative paths from another root   |
+| `--dry-run`                 | Preview without writing                    |
+| `--outputFormat text\|json` | Choose terminal or machine-readable output |
+| `--summary`                 | Print metrics after a text run             |
+| `-q, --quiet`               | Use minimal CI output                      |
 
 ### `pastoralist`
 
@@ -36,6 +67,8 @@ and GitHub Action setup.
 ```bash
 npx pastoralist onboard
 ```
+
+`pastoralist onboarding` and `pastoralist --onboard` are aliases.
 
 ### `pastoralist --path <path>`
 
@@ -111,6 +144,9 @@ workspace paths, security scanning, and where the configuration should be saved.
 npx pastoralist init
 ```
 
+`pastoralist init config` and `pastoralist --init config` run the same config
+wizard.
+
 When run, this will:
 
 - Detect `workspaces` entries from `package.json`
@@ -160,6 +196,36 @@ Return machine-readable output for CI or custom tooling.
 
 ```bash
 npx pastoralist --summary --outputFormat json
+```
+
+JSON output is a single result object.
+
+```jsonc
+{
+  "success": true,
+  "hasSecurityIssues": false,
+  "hasUnusedOverrides": true,
+  "updated": false,
+  "securityAlertCount": 0,
+  "unusedOverrideCount": 1,
+  "overrideCount": 2,
+  "errors": [],
+  "securityAlerts": [],
+  "unusedOverrides": ["left-pad@1.3.0"],
+  "appliedOverrides": {
+    "left-pad": "1.3.0",
+  },
+  "metrics": {
+    "packagesScanned": 1,
+    "workspacePackagesScanned": 0,
+    "appendixEntriesUpdated": 2,
+    "vulnerabilitiesBlocked": 0,
+    "overridesAdded": 0,
+    "overridesRemoved": 0,
+    "writeSuccess": false,
+    "writeSkipped": true,
+  },
+}
 ```
 
 ### `pastoralist --quiet`
@@ -223,12 +289,38 @@ Choose one or more security providers. Supported values are `osv`, `github`,
 npx pastoralist --checkSecurity --securityProvider osv npm
 ```
 
+### `pastoralist --securityProviderToken <token>`
+
+Pass a provider token without writing it to config. Prefer environment variables
+for committed workflows.
+
+```bash
+npx pastoralist --checkSecurity --securityProvider github --securityProviderToken "$GITHUB_TOKEN"
+```
+
+### `pastoralist --hasWorkspaceSecurityChecks`
+
+Include workspace package manifests in security scans when workspaces are
+configured.
+
+```bash
+npx pastoralist --checkSecurity --hasWorkspaceSecurityChecks
+```
+
 ### `pastoralist --forceSecurityRefactor`
 
 Apply security override fixes without prompting.
 
 ```bash
 npx pastoralist --checkSecurity --forceSecurityRefactor
+```
+
+### `pastoralist --promptForReasons`
+
+Prompt for ledger reasons when Pastoralist adds manual override records.
+
+```bash
+npx pastoralist --promptForReasons
 ```
 
 ### `pastoralist --strict`
@@ -250,6 +342,42 @@ npx pastoralist --checkSecurity --no-cache
 npx pastoralist --checkSecurity --refresh-cache
 ```
 
+## CI
+
+Use the CLI directly when CI only needs to validate or report data.
+
+```bash
+# Validate without changing package.json.
+npx pastoralist --dry-run --summary
+
+# Fail with minimal output when security issues are detected.
+npx pastoralist --quiet --checkSecurity
+
+# Emit a machine-readable result object.
+npx pastoralist --dry-run --outputFormat json
+```
+
+Use the GitHub Action when the workflow should also expose outputs or create a
+maintenance PR.
+
+```yaml
+- uses: yowainwright/pastoralist@v1
+  id: pastoralist
+  with:
+    mode: check
+    check-security: true
+    security-provider: osv
+
+- name: Block unused overrides
+  if: steps.pastoralist.outputs.has-unused-overrides == 'true'
+  run: exit 1
+```
+
+The action exposes `has-security-issues`, `has-unused-overrides`, `updated`,
+`security-count`, `unused-count`, `override-count`, and `pr-url`.
+
+{/* primary public Node.js API exports from src/index.ts and src/types.ts */}
+
 ## Node.js API
 
 ### Installation
@@ -257,6 +385,26 @@ npx pastoralist --checkSecurity --refresh-cache
 ```bash
 npm install pastoralist
 ```
+
+### Public Exports
+
+| Export                         | Purpose                                                |
+| ------------------------------ | ------------------------------------------------------ |
+| `update(options)`              | Update overrides and the appendix synchronously        |
+| `SecurityChecker`              | Run provider-backed vulnerability checks               |
+| `optimizeBestCasePortfolio()`  | Evaluate complete package-version states               |
+| `resolveJSON()`                | Read and parse JSON files                              |
+| `loadConfig()`                 | Load and validate Pastoralist config                   |
+| `loadConfigWithSource()`       | Load config with source metadata                       |
+| `clearConfigCache()`           | Clear cached config reads                              |
+| `detectPackageManager()`       | Detect npm, pnpm, Yarn, or Bun                         |
+| `resolveOverridesFromSource()` | Read overrides from manifest or external override file |
+| `writeOverrideSource()`        | Write overrides back to their resolved source          |
+| `findUnusedOverrides()`        | Find overrides with no active dependent                |
+| `cleanupUnusedOverrides()`     | Remove unused overrides and appendix entries           |
+| `constructAppendix()`          | Build appendix entries from override data              |
+| `updateAppendix()`             | Merge new appendix data into existing appendix data    |
+| `logger()`                     | Create a Pastoralist logger                            |
 
 ### `update(options)`
 
@@ -277,12 +425,19 @@ do not use `await`.
   - `root`: root directory path
   - `debug`: enable debug logging
   - `dryRun`: preview changes without writing package.json
-  - `summary`: include summary metrics
+  - `outputFormat`: `text` or `json`
+  - `summary`: collect full dependency count for metrics
   - `removeUnused`: remove overrides with no active dependents
-  - `checkSecurity`: enable security checks
-  - `securityProvider`: security provider to use
-  - `forceSecurityRefactor`: apply security fixes without prompting
-  - `strict`: fail on security provider errors
+  - `skipRemovalKeys`: unused override keys to keep
+  - `removalVerification`: verified safe-removal comparison result
+  - `securityOverrides`: security fixes supplied by a security check
+  - `securityOverrideDetails`: security metadata to write into the ledger
+  - `securityProvider`: provider label to write for security metadata
+  - `securityAlerts`: alerts used to refresh kept CVE entries
+  - `manualOverrideReasons`: pre-supplied ledger reasons by override key
+  - `appendixTarget`: external appendix destination
+  - `addedDate`: ledger date override
+  - `clearCache`: clear in-process package caches before running
 
 ```javascript
 import { resolveJSON, update } from "pastoralist";
@@ -316,6 +471,46 @@ if (config) {
     depPaths: ["packages/*/package.json"],
     ignore: ["**/test/**"],
   });
+}
+```
+
+### `SecurityChecker.checkSecurity(config, options)`
+
+Run vulnerability scanning directly and receive provider alerts, suggested
+overrides, update suggestions, package counts, and optional best-case metadata.
+
+**params:**
+
+- `config`: parsed package.json content
+- `options`: security check options
+  - `provider`: one provider or an array of providers
+  - `token`: provider token
+  - `root`: project root
+  - `packageJsonPath`: manifest path
+  - `depPaths`: workspace manifest paths to scan
+  - `forceRefactor`: apply generated fixes without prompting
+  - `interactive`: review fixes interactively
+  - `strict`: fail on provider errors
+  - `severityThreshold`: minimum severity to report
+  - `excludePackages`: package names to ignore
+  - `cacheDir`, `cacheTtl`, `noCache`, `refreshCache`: cache controls
+  - `bestCase`: best-case resolution config
+  - `bestCaseEvaluator`: callback used to score complete version states
+
+```typescript
+import { resolveJSON, SecurityChecker } from "pastoralist";
+
+const config = resolveJSON("./package.json");
+const checker = new SecurityChecker({ provider: "osv" });
+
+if (config) {
+  const result = await checker.checkSecurity(config, {
+    root: process.cwd(),
+    packageJsonPath: "./package.json",
+    severityThreshold: "high",
+  });
+
+  process.stdout.write(`${result.alerts.length} alerts found\n`);
 }
 ```
 
@@ -537,6 +732,18 @@ try {
 ### `DEBUG=true`
 
 Enable debug output (equivalent to --debug flag).
+
+### Provider Tokens
+
+Security providers read tokens from environment variables when a token is not
+passed with `--securityProviderToken` or `SecurityChecker` options.
+
+| Provider   | Environment variable      |
+| ---------- | ------------------------- |
+| `github`   | `GITHUB_TOKEN`            |
+| `snyk`     | `SNYK_TOKEN`              |
+| `socket`   | `SOCKET_SECURITY_API_KEY` |
+| `spektion` | `SPEKTION_API_KEY`        |
 
 ```bash
 DEBUG=true npx pastoralist

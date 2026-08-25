@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { createMachine } from "xstate";
 import { useMachine } from "@xstate/react";
 import { CopyButton } from "@/components/CopyButton";
+import { useHasHydrated } from "@/hooks/useFadeInUp";
 import { isStaticRender } from "@/lib/utils";
 import { LogoSparkle } from "@/components/home/LogoSparkle";
 import { HeroSparkles } from "@/components/home/HeroSparkles";
@@ -17,7 +18,6 @@ import {
 const HERO_SEEN_KEY = "pastoralist-hero-animation-seen";
 const CONFETTI_COLORS = ["#ff0000", "#ff8000", "#ffff00", "#00ff00", "#0080ff", "#8000ff"];
 const hadSeen = (): boolean => {
-  if (isStaticRender()) return true;
   return sessionStorage.getItem(HERO_SEEN_KEY) === "true";
 };
 
@@ -83,8 +83,8 @@ function atLeast(snapshot: { matches: (s: string) => boolean }, state: HeroState
   return STATE_ORDER.slice(idx).some((s) => snapshot.matches(s));
 }
 
-export function HeroSection() {
-  const [wasAlreadySeen] = useState(hadSeen);
+function HeroContent({ showComplete }: { showComplete: boolean }) {
+  const [wasAlreadySeen] = useState(() => showComplete || hadSeen());
   const heroMachine = useMemo(() => createHeroMachine(wasAlreadySeen), [wasAlreadySeen]);
   const [snapshot, send] = useMachine(heroMachine);
   const automaticallyRef = useRef<HTMLSpanElement>(null);
@@ -212,6 +212,14 @@ export function HeroSection() {
       </article>
     </section>
   );
+}
+
+export function HeroSection() {
+  const hasHydrated = useHasHydrated();
+  const showComplete = isStaticRender() && !hasHydrated;
+  const key = showComplete ? "static" : "interactive";
+
+  return <HeroContent key={key} showComplete={showComplete} />;
 }
 
 const BLOB_CLIP =

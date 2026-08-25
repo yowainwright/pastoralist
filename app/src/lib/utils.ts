@@ -10,15 +10,13 @@ interface PrerenderRoot {
 export const capturePrerenderState = (rootElement: PrerenderRoot | null): boolean =>
   rootElement?.dataset.prerendered === "true";
 
-const wasPrerendered =
-  typeof document === "undefined" || capturePrerenderState(document.getElementById("root"));
-
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 export function isStaticRender(): boolean {
-  return wasPrerendered;
+  if (typeof document === "undefined") return true;
+  return capturePrerenderState(document.getElementById("root"));
 }
 
 export function clearPrerenderMarker(rootElement: PrerenderRoot): void {

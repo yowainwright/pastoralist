@@ -117,13 +117,13 @@ brew install yowainwright/tap/pastoralist
 Start with a read-only check:
 
 ```sh
-npx pastoralist doctor
+pastoralist doctor
 ```
 
 For first-run guidance across local use, agents, and CI:
 
 ```sh
-npx pastoralist onboard
+pastoralist onboard
 ```
 
 > [!NOTE]
@@ -134,19 +134,19 @@ npx pastoralist onboard
 
 Set up the Pastoralist agent skill in a repo:
 
-```diff
-+npx pastoralist --init agent-skill
+```sh
++pastoralist --init agent-skill
 ```
 
 Set up local dev with selected skills and hooks:
 
-```diff
-+npx -p pastoralist pastoralist-setup-local-dev --skills all --hooks git,postinstall
+```sh
++pastoralist pastoralist-setup-local-dev --skills all --hooks git,postinstall
 ```
 
 When you are ready to add it to the project:
 
-```diff
+```sh
 +npm install pastoralist --save-dev
 +npx pastoralist init
 +npx pastoralist

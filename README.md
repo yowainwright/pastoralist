@@ -85,6 +85,59 @@ Pastoralist keeps the package-manager instruction where it belongs and adds the
 missing review record: why the override exists, which packages still need it,
 which security provider found it, and when it can be removed.
 
+<!-- high-level runtime flow from src/cli/action.ts and src/core/update/index.ts -->
+
+## How It Works
+
+```mermaid
+flowchart LR
+    Manifest["package.json overrides / resolutions"] --> Config["Load CLI and project config"]
+    Config --> Security{"Security enabled?"}
+    Security -->|Yes| Scan["Scan providers and collect alerts"]
+    Scan --> Fixes["Merge fixable security overrides"]
+    Security -->|No| Update["Run update()"]
+    Fixes --> Update
+    Update --> Patches["Detect patch-package files"]
+    Patches --> Overrides["Resolve package manager overrides"]
+    Overrides --> Workspaces{"Workspace paths?"}
+    Workspaces -->|Yes| WorkspaceAppendix["Read workspace manifests"]
+    Workspaces -->|No| Appendix["Build appendix"]
+    WorkspaceAppendix --> Appendix
+    Appendix --> Cleanup{"--remove-unused?"}
+    Cleanup -->|Yes| Remove["Remove verified unused overrides"]
+    Cleanup -->|No| Write["Write package.json or appendix target"]
+    Remove --> Write
+    Write --> Result["Report metrics and outputs"]
+```
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Developer
+    participant Entry as CLI / Node API
+    participant Config as Config loader
+    participant Security as Security phase
+    participant Update as update()
+    participant Manifest as package.json
+
+    Developer->>Entry: Run pastoralist
+    Entry->>Config: load config and merge options
+    Config-->>Entry: config, source, appendix target
+    opt Security checks enabled
+        Entry->>Security: scan providers
+        Security-->>Entry: alerts and override fixes
+    end
+    Entry->>Update: update(merged options)
+    Update->>Manifest: read overrides, resolutions, dependencies
+    Update->>Update: build appendix and attach patches
+    opt remove unused
+        Update->>Update: verify unused overrides
+    end
+    Update->>Manifest: write changes unless dry-run
+    Update-->>Entry: metrics and final appendix
+    Entry-->>Developer: text or JSON result
+```
+
 <!-- first-run CLI commands from src/cli/parser/constants.ts and src/cli/cmds/init/ -->
 
 ---
@@ -134,19 +187,19 @@ pastoralist onboard
 
 Set up the Pastoralist agent skill in a repo:
 
-```sh
+```diff
 +pastoralist --init agent-skill
 ```
 
 Set up local dev with selected skills and hooks:
 
-```sh
-+pastoralist pastoralist-setup-local-dev --skills all --hooks git,postinstall
+```diff
++npx -p pastoralist pastoralist-setup-local-dev --skills all --hooks git,postinstall
 ```
 
 When you are ready to add it to the project:
 
-```sh
+```diff
 +npm install pastoralist --save-dev
 +npx pastoralist init
 +npx pastoralist

@@ -7,18 +7,23 @@ description: "Deep dive into how Pastoralist works, including overrides, resolut
 
 ```mermaid
 flowchart LR
-    You[You add override] --> Install[npm install]
-    Install --> Pastor[Pastoralist runs]
-    Pastor --> Track[Tracks it]
-    Pastor --> Scan[Scans it]
-    Pastor --> Clean[Cleans if unused]
-    Track --> Chill[You go back to coding]
-    Scan --> Chill
-    Clean --> Chill
-
-    style You fill:#e3f2fd
-    style Pastor fill:#f3e5f5
-    style Chill fill:#e8f5e9
+    Manifest["package.json overrides / resolutions"] --> Config["Load CLI and project config"]
+    Config --> Security{"Security enabled?"}
+    Security -->|Yes| Scan["Scan providers and collect alerts"]
+    Scan --> Fixes["Merge fixable security overrides"]
+    Security -->|No| Update["Run update()"]
+    Fixes --> Update
+    Update --> Patches["Detect patch-package files"]
+    Patches --> Overrides["Resolve package manager overrides"]
+    Overrides --> Workspaces{"Workspace paths?"}
+    Workspaces -->|Yes| WorkspaceAppendix["Read workspace manifests"]
+    Workspaces -->|No| Appendix["Build appendix"]
+    WorkspaceAppendix --> Appendix
+    Appendix --> Cleanup{"--remove-unused?"}
+    Cleanup -->|Yes| Remove["Remove verified unused overrides"]
+    Cleanup -->|No| Write["Write package.json or appendix target"]
+    Remove --> Write
+    Write --> Result["Report metrics and outputs"]
 ```
 
 Pastoralist reads the root `package.json`, maps each override or resolution into

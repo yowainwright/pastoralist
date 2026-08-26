@@ -21,13 +21,13 @@ still in `package.json`, but the reason is usually somewhere else.
 <table width="100%">
 <thead>
 <tr>
-<th width="50%">Without Pastoralist</th>
-<th width="50%">With Pastoralist</th>
+<th>Without Pastoralist</th>
+<th>With Pastoralist</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td width="50%" valign="top">
+<td valign="top">
 <pre lang="diff">{
   "overrides": {
 -    // Why is this in overrides?
@@ -41,7 +41,7 @@ still in `package.json`, but the reason is usually somewhere else.
   }
 }</pre>
 </td>
-<td width="50%" valign="top">
+<td valign="top">
 <pre lang="diff">{
   "overrides": {
     "barn-yard": "2.0.0",
@@ -95,62 +95,77 @@ which security provider found it, and when it can be removed.
 > For the quick start section, we will be using `npx` as we're assuming pastoralist is not installed.
 > Ensure your agent doesn't establish this pattern long term because it will use more memory.
 
-Start with a read-only check:
+Install with your favorite JS package manager:
 
-```bash
-npx pastoralist doctor
+```sh
+npm install --global pastoralist
 ```
 
-Or install it with Homebrew:
+Or install with Homebrew:
 
-```bash
+```sh
 brew install yowainwright/tap/pastoralist
+```
+
+> [!NOTE]
+> For local projects where you just use pastoralist within scripts or CI,
+> `npm install pastoralist --save-dev` is enough
+> I'm also working to get pastoralist into brew officially soon, if possible! [August '26]
+
+---
+
+Start with a read-only check:
+
+```sh
+pastoralist doctor
 ```
 
 For first-run guidance across local use, agents, and CI:
 
-```bash
-npx pastoralist onboard
+```sh
+pastoralist onboard
 ```
 
 > [!NOTE]
 > The onboarding output includes quick scripts and copy/paste prompts for agents.
 > See the [Onboarding guide](https://jeffry.in/pastoralist/docs/onboarding) for the same checklist in the docs.
 
+---
+
 Set up the Pastoralist agent skill in a repo:
 
-```bash
-npx pastoralist --init agent-skill
+```diff
++pastoralist --init agent-skill
 ```
 
 Set up local dev with selected skills and hooks:
 
-```bash
-npx -p pastoralist pastoralist-setup-local-dev --skills all --hooks git,postinstall
+```diff
++npx -p pastoralist pastoralist-setup-local-dev --skills all --hooks git,postinstall
 ```
 
 When you are ready to add it to the project:
 
-```bash
-npm install pastoralist --save-dev
-npx pastoralist init
-npx pastoralist
+```diff
++npm install pastoralist --save-dev
++npx pastoralist init
++npx pastoralist
 ```
 
 Optionally keep the appendix current after installs:
 
-```json
-{
+```diff
+ {
   "scripts": {
-    "postinstall": "pastoralist"
++    "postinstall": "pastoralist"
   }
-}
+ }
 ```
 
 Pastoralist can add that hook for you:
 
-```bash
-npx pastoralist --setup-hook
+```diff
++npx pastoralist --setup-hook
 ```
 
 ---
@@ -176,104 +191,143 @@ Pastoralist reads each package manager's native override field.
 
 The appendix keeps the reason beside the packages that still need the override.
 
-```jsonc
-{
+```diff
+ {
   "pastoralist": {
     "appendix": {
-      "barn-yard@2.0.0": {
-        "dependents": { "shepherd-cli": "barn-yard@^1" },
-        "ledger": {
-          "addedDate": "2026-08-22T00:00:00.000Z",
-          "reason": "Keep the gate API compatible.",
-        },
-        //  the ledger object provides insight so you can quickly know why an override was added
-      },
++      "barn-yard@2.0.0": {
++        "dependents": { "shepherd-cli": "barn-yard@^1" },
++        "ledger": {
++          "addedDate": "2026-08-22T00:00:00.000Z",
++          "reason": "Keep the gate API compatible.",
++        },
++      },
     },
   },
-}
+ }
 ```
 
 ### Keep Security Context With the Override
 
 Security records include the advisory, severity, provider, and patched version.
 
-```jsonc
-// we can provide an object ledger to make decisions clear
-{
+```diff
+ {
   "pastoralist": {
     "appendix": {
-      "escaped-sheep@1.0.1": {
-        "ledger": {
-          "addedDate": "2026-08-22T00:00:00.000Z",
-          "cves": ["CVE-escaped-sheep"],
-          "severity": "high",
-          "securityProvider": "osv",
-          "patchedVersion": "1.0.1",
-        },
-      },
++      "escaped-sheep@1.0.1": {
++        "ledger": {
++          "addedDate": "2026-08-22T00:00:00.000Z",
++          "cves": ["CVE-escaped-sheep"],
++          "severity": "high",
++          "securityProvider": "osv",
++          "patchedVersion": "1.0.1",
++        },
++      },
     },
   },
-}
+ }
 ```
 
 ### Link Local Patches
 
 Pastoralist records the `patch-package` files that support an override.
 
-```jsonc
-{
+```diff
+ {
   "pastoralist": {
     "appendix": {
-      // Connect this override to the patch that maintains it.
       "patchy-alpaca@1.4.0": {
-        "patches": ["patches/patchy-alpaca+1.4.0.patch"],
++        "patches": ["patches/patchy-alpaca+1.4.0.patch"],
       },
     },
   },
-}
+ }
 ```
 
 ### Remove Stale Overrides Safely
 
 Preview unused overrides before explicitly removing them.
 
-```bash
-# Show what would be removed without changing package.json.
-pastoralist --remove-unused --dry-run
-
-# Remove overrides confirmed as unused.
-pastoralist --remove-unused
+```diff
+ pastoralist --remove-unused --dry-run
++pastoralist --remove-unused
 ```
 
 ### Consolidate Workspace Overrides
 
 Read workspace manifests and write one appendix in the root `package.json`.
 
-```jsonc
-{
+```diff
+ {
   "pastoralist": {
-    // Discover manifests from the package manager's workspace configuration.
-    "depPaths": "workspace",
++    "depPaths": "workspace",
   },
-}
+ }
 ```
 
 ### Run Pastoralist in CI
 
 Choose preview, summary, quiet, or machine-readable output.
 
-```bash
-# Preview package.json changes.
-pastoralist --dry-run
+```diff
++pastoralist --dry-run
++pastoralist --summary
++pastoralist --quiet --checkSecurity
++pastoralist --outputFormat json
+```
 
-# Print package, override, and security metrics.
-pastoralist --summary
+<!-- high-level runtime flow from src/cli/action.ts and src/core/update/index.ts -->
 
-# Report vulnerabilities with minimal output and a CI exit code.
-pastoralist --quiet --checkSecurity
+## How It Works
 
-# Return structured output for another tool to consume.
-pastoralist --outputFormat json
+```mermaid
+flowchart LR
+    Manifest["package.json overrides / resolutions"] --> Config["Load CLI and project config"]
+    Config --> Security{"Security enabled?"}
+    Security -->|Yes| Scan["Scan providers and collect alerts"]
+    Scan --> Fixes["Merge fixable security overrides"]
+    Security -->|No| Update["Run update()"]
+    Fixes --> Update
+    Update --> Patches["Detect patch-package files"]
+    Patches --> Overrides["Resolve package manager overrides"]
+    Overrides --> Workspaces{"Workspace paths?"}
+    Workspaces -->|Yes| WorkspaceAppendix["Read workspace manifests"]
+    Workspaces -->|No| Appendix["Build appendix"]
+    WorkspaceAppendix --> Appendix
+    Appendix --> Cleanup{"--remove-unused?"}
+    Cleanup -->|Yes| Remove["Remove verified unused overrides"]
+    Cleanup -->|No| Write["Write package.json or appendix target"]
+    Remove --> Write
+    Write --> Result["Report metrics and outputs"]
+```
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Developer
+    participant Entry as CLI / Node API
+    participant Config as Config loader
+    participant Security as Security phase
+    participant Update as update()
+    participant Manifest as package.json
+
+    Developer->>Entry: Run pastoralist
+    Entry->>Config: load config and merge options
+    Config-->>Entry: config, source, appendix target
+    opt Security checks enabled
+        Entry->>Security: scan providers
+        Security-->>Entry: alerts and override fixes
+    end
+    Entry->>Update: update(merged options)
+    Update->>Manifest: read overrides, resolutions, dependencies
+    Update->>Update: build appendix and attach patches
+    opt remove unused
+        Update->>Update: verify unused overrides
+    end
+    Update->>Manifest: write changes unless dry-run
+    Update-->>Entry: metrics and final appendix
+    Entry-->>Developer: text or JSON result
 ```
 
 <!-- public CLI commands from src/cli/parser/constants.ts -->
@@ -302,9 +356,8 @@ Pastoralist reads the installed dependency graph from the lockfile.
 }
 ```
 
-```bash
-# Preview the package.json update without writing it.
-pastoralist --dry-run
+```diff
++pastoralist --dry-run
 ```
 
 ```diff
@@ -339,9 +392,8 @@ Pastoralist adds the relationship to `package.json`:
 
 JSON output exposes the same result without terminal formatting.
 
-```bash
-# Return a machine-readable dry-run result.
-pastoralist --dry-run --outputFormat json
+```diff
++pastoralist --dry-run --outputFormat json
 ```
 
 ```jsonc
@@ -362,12 +414,37 @@ pastoralist --dry-run --outputFormat json
 
 ## Setup Helpers
 
-| Command                                                                               | Purpose                              |
-| ------------------------------------------------------------------------------------- | ------------------------------------ |
-| `npx pastoralist --init agent-skill`                                                  | Set up the Pastoralist agent skill   |
-| `npx -p pastoralist pastoralist-setup-local-dev --help`                               | Show local dev setup options         |
-| `npx -p pastoralist pastoralist-setup-local-dev --dry-run`                            | Preview agent, skill, and hook setup |
-| `npx -p pastoralist pastoralist-setup-local-dev --skills all --hooks git,postinstall` | Set up skills and hooks              |
+### `pastoralist --init agent-skill`
+
+Set up the Pastoralist agent skill.
+
+```diff
++npx pastoralist --init agent-skill
+```
+
+### `pastoralist-setup-local-dev --help`
+
+Show local dev setup options.
+
+```diff
++npx -p pastoralist pastoralist-setup-local-dev --help
+```
+
+### `pastoralist-setup-local-dev --dry-run`
+
+Preview agent, skill, and hook setup.
+
+```diff
++npx -p pastoralist pastoralist-setup-local-dev --dry-run
+```
+
+### `pastoralist-setup-local-dev --skills all --hooks git,postinstall`
+
+Set up skills and hooks.
+
+```diff
++npx -p pastoralist pastoralist-setup-local-dev --skills all --hooks git,postinstall
+```
 
 ## Configuration
 
@@ -399,18 +476,18 @@ The JSON Schema is exported as `pastoralist/schema.json`.
 External JSON config files can reference `./node_modules/pastoralist/src/schema.json` with `$schema`.
 Configs that reference this schema reject unknown or mistyped fields; other configs retain compatible validation behavior.
 
-```jsonc
-{
+```diff
+ {
   "pastoralist": {
-    "depPaths": "workspace",
-    "checkSecurity": true,
-    "security": {
-      "provider": "osv",
-      "severityThreshold": "medium",
-      "hasWorkspaceSecurityChecks": true,
-    },
++    "depPaths": "workspace",
++    "checkSecurity": true,
++    "security": {
++      "provider": "osv",
++      "severityThreshold": "medium",
++      "hasWorkspaceSecurityChecks": true,
++    },
   },
-}
+ }
 ```
 
 See [Configuration](https://jeffry.in/pastoralist/docs/configuration) and
@@ -421,19 +498,19 @@ surface.
 
 Check override tracking on pull requests:
 
-```yaml
-name: Override Check
-on: [pull_request]
+```diff
+ name: Override Check
+ on: [pull_request]
 
-jobs:
+ jobs:
   pastoralist:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: yowainwright/pastoralist@v1
-        with:
-          mode: check
-          check-security: false
++      - uses: yowainwright/pastoralist@v1
++        with:
++          mode: check
++          check-security: false
 ```
 
 The action can also run security checks, update files, or open scheduled

@@ -139,7 +139,6 @@
 
 .terminal-content {
   padding: 1rem;
-  display: grid;
   overflow-x: auto;
   overflow-y: auto;
   font-family:
@@ -150,7 +149,11 @@
   color: #1e293b;
 }
 
-.terminal-content > * {
+.terminal-content-layered {
+  display: grid;
+}
+
+.terminal-content-layered > * {
   grid-area: 1 / 1;
 }
 

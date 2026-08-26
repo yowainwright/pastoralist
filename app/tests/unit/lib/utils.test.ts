@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { capturePrerenderState, clearPrerenderMarker } from "../../../src/lib/utils";
+import {
+  capturePrerenderState,
+  clearPrerenderMarker,
+  isStaticRender,
+} from "../../../src/lib/utils";
 import {
   getLineDelay,
   getTerminalContentMinHeight,
@@ -31,6 +35,29 @@ test("captures prerender state before the marker is cleared", () => {
   clearPrerenderMarker(rootElement);
 
   assert.strictEqual(wasPrerendered, true);
+});
+
+test("reads the current prerender marker when checking static render state", () => {
+  const rootElement = { dataset: { prerendered: "true" } };
+  const documentStub = {
+    getElementById: (id: string) => (id === "root" ? rootElement : null),
+  };
+  const previousDocument = globalThis.document;
+  Object.defineProperty(globalThis, "document", {
+    configurable: true,
+    value: documentStub,
+  });
+
+  try {
+    assert.strictEqual(isStaticRender(), true);
+    clearPrerenderMarker(rootElement);
+    assert.strictEqual(isStaticRender(), false);
+  } finally {
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: previousDocument,
+    });
+  }
 });
 
 test("uses terminal timing as a global override", () => {

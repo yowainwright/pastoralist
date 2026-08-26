@@ -1,12 +1,16 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { CopyButton } from "@/components/CopyButton";
-import { useFadeInUp } from "@/hooks/useFadeInUp";
+import { useFadeInUp, useHasHydrated } from "@/hooks/useFadeInUp";
+import { isStaticRender } from "@/lib/utils";
 import type { GetStartedSectionProps } from "./types";
 import { SECTION_ID, CONTENT, STYLES } from "./constants";
 
-export function GetStartedSection({ id = SECTION_ID }: GetStartedSectionProps) {
-  const { ref, isVisible } = useFadeInUp();
+function GetStartedContent({
+  id,
+  showComplete,
+}: Required<GetStartedSectionProps> & { showComplete: boolean }) {
+  const { ref, isVisible } = useFadeInUp({ initialInView: showComplete });
 
   const articleClassName = `${STYLES.article} ${
     isVisible ? STYLES.articleVisible : STYLES.articleHidden
@@ -33,4 +37,12 @@ export function GetStartedSection({ id = SECTION_ID }: GetStartedSectionProps) {
       </article>
     </section>
   );
+}
+
+export function GetStartedSection({ id = SECTION_ID }: GetStartedSectionProps) {
+  const hasHydrated = useHasHydrated();
+  const showComplete = isStaticRender() && !hasHydrated;
+  const key = showComplete ? "static" : "interactive";
+
+  return <GetStartedContent key={key} id={id} showComplete={showComplete} />;
 }

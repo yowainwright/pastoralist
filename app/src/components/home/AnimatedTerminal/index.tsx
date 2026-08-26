@@ -71,7 +71,7 @@ const TerminalContent: React.FC<{
   lineProps: React.ComponentProps<typeof TerminalLines>;
   style: React.CSSProperties;
 }> = ({ demos, lineProps, style }) => (
-  <div className={STYLES.content} style={style}>
+  <div className={`${STYLES.content} terminal-content-layered`} style={style}>
     {demos.map((demo, index) => (
       <div key={index} className="terminal-content-sizer" aria-hidden="true">
         <TerminalLines

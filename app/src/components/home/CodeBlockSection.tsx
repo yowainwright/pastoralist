@@ -2,13 +2,12 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { CheckList } from "@/components/CheckList";
 import { CodeBlockToggle } from "@/components/home/CodeBlockToggle";
-import { useFadeInUp } from "@/hooks/useFadeInUp";
+import { useFadeInUp, useHasHydrated } from "@/hooks/useFadeInUp";
 import { isStaticRender } from "@/lib/utils";
 
 const SEEN_KEY = "pastoralist-codeblock-animation-seen";
 
 const hasSeenCodeBlock = (): boolean => {
-  if (isStaticRender()) return true;
   return sessionStorage.getItem(SEEN_KEY) === "true";
 };
 
@@ -34,9 +33,11 @@ const CONTENT = {
   githubHref: "https://github.com/yowainwright/pastoralist",
 } as const;
 
-export function CodeBlockSection() {
-  const [hasSeenAnimation, setHasSeenAnimation] = useState(hasSeenCodeBlock);
-  const { ref, isVisible } = useFadeInUp();
+function CodeBlockContent({ showComplete }: { showComplete: boolean }) {
+  const [hasSeenAnimation, setHasSeenAnimation] = useState(
+    () => showComplete || hasSeenCodeBlock(),
+  );
+  const { ref, isVisible } = useFadeInUp({ initialInView: showComplete });
   const active = hasSeenAnimation || isVisible;
   const handleComplete = () => {
     setHasSeenAnimation(true);
@@ -79,4 +80,12 @@ export function CodeBlockSection() {
       </article>
     </section>
   );
+}
+
+export function CodeBlockSection() {
+  const hasHydrated = useHasHydrated();
+  const showComplete = isStaticRender() && !hasHydrated;
+  const key = showComplete ? "static" : "interactive";
+
+  return <CodeBlockContent key={key} showComplete={showComplete} />;
 }

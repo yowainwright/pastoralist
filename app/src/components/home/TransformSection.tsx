@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { TransformDemo } from "@/components/home/TransformDemo";
 import { TransformDemoStatic } from "@/components/home/TransformDemo/static";
-import { useFadeInUp } from "@/hooks/useFadeInUp";
+import { useFadeInUp, useHasHydrated } from "@/hooks/useFadeInUp";
 import { isStaticRender } from "@/lib/utils";
 
 const SEEN_KEY = "pastoralist-transform-animation-seen";
 
 const hasSeenTransform = (): boolean => {
-  if (isStaticRender()) return true;
   return sessionStorage.getItem(SEEN_KEY) === "true";
 };
 
@@ -38,9 +37,11 @@ const CONTENT = {
     "Pastoralist reads your overrides and creates a detailed appendix documenting why each one exists, who depends on it, and any security context.",
 } as const;
 
-export function TransformSection() {
-  const [hasSeenAnimation] = useState(hasSeenTransform);
-  const { ref: headerRef, isVisible: headerVisible } = useFadeInUp();
+function TransformSectionContent({ showComplete }: { showComplete: boolean }) {
+  const [hasSeenAnimation] = useState(() => showComplete || hasSeenTransform());
+  const { ref: headerRef, isVisible: headerVisible } = useFadeInUp({
+    initialInView: showComplete,
+  });
 
   return (
     <section id="demo" className={styles.section}>
@@ -60,6 +61,14 @@ export function TransformSection() {
       </article>
     </section>
   );
+}
+
+export function TransformSection() {
+  const hasHydrated = useHasHydrated();
+  const showComplete = isStaticRender() && !hasHydrated;
+  const key = showComplete ? "static" : "interactive";
+
+  return <TransformSectionContent key={key} showComplete={showComplete} />;
 }
 
 function TransformBackground() {

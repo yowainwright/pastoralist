@@ -134,38 +134,38 @@ npx pastoralist onboard
 
 Set up the Pastoralist agent skill in a repo:
 
-```bash
-npx pastoralist --init agent-skill
+```diff
++npx pastoralist --init agent-skill
 ```
 
 Set up local dev with selected skills and hooks:
 
-```bash
-npx -p pastoralist pastoralist-setup-local-dev --skills all --hooks git,postinstall
+```diff
++npx -p pastoralist pastoralist-setup-local-dev --skills all --hooks git,postinstall
 ```
 
 When you are ready to add it to the project:
 
-```bash
-npm install pastoralist --save-dev
-npx pastoralist init
-npx pastoralist
+```diff
++npm install pastoralist --save-dev
++npx pastoralist init
++npx pastoralist
 ```
 
 Optionally keep the appendix current after installs:
 
-```json
-{
+```diff
+ {
   "scripts": {
-    "postinstall": "pastoralist"
++    "postinstall": "pastoralist"
   }
-}
+ }
 ```
 
 Pastoralist can add that hook for you:
 
-```bash
-npx pastoralist --setup-hook
+```diff
++npx pastoralist --setup-hook
 ```
 
 ---
@@ -191,155 +191,95 @@ Pastoralist reads each package manager's native override field.
 
 The appendix keeps the reason beside the packages that still need the override.
 
-```jsonc
-{
+```diff
+ {
   "pastoralist": {
     "appendix": {
-      "barn-yard@2.0.0": {
-        "dependents": { "shepherd-cli": "barn-yard@^1" },
-        "ledger": {
-          "addedDate": "2026-08-22T00:00:00.000Z",
-          "reason": "Keep the gate API compatible.",
-        },
-        //  the ledger object provides insight so you can quickly know why an override was added
-      },
++      "barn-yard@2.0.0": {
++        "dependents": { "shepherd-cli": "barn-yard@^1" },
++        "ledger": {
++          "addedDate": "2026-08-22T00:00:00.000Z",
++          "reason": "Keep the gate API compatible.",
++        },
++      },
     },
   },
-}
+ }
 ```
 
 ### Keep Security Context With the Override
 
 Security records include the advisory, severity, provider, and patched version.
 
-```jsonc
-// we can provide an object ledger to make decisions clear
-{
+```diff
+ {
   "pastoralist": {
     "appendix": {
-      "escaped-sheep@1.0.1": {
-        "ledger": {
-          "addedDate": "2026-08-22T00:00:00.000Z",
-          "cves": ["CVE-escaped-sheep"],
-          "severity": "high",
-          "securityProvider": "osv",
-          "patchedVersion": "1.0.1",
-        },
-      },
++      "escaped-sheep@1.0.1": {
++        "ledger": {
++          "addedDate": "2026-08-22T00:00:00.000Z",
++          "cves": ["CVE-escaped-sheep"],
++          "severity": "high",
++          "securityProvider": "osv",
++          "patchedVersion": "1.0.1",
++        },
++      },
     },
   },
-}
+ }
 ```
 
 ### Link Local Patches
 
 Pastoralist records the `patch-package` files that support an override.
 
-```jsonc
-{
+```diff
+ {
   "pastoralist": {
     "appendix": {
-      // Connect this override to the patch that maintains it.
       "patchy-alpaca@1.4.0": {
-        "patches": ["patches/patchy-alpaca+1.4.0.patch"],
++        "patches": ["patches/patchy-alpaca+1.4.0.patch"],
       },
     },
   },
-}
+ }
 ```
 
 ### Remove Stale Overrides Safely
 
 Preview unused overrides before explicitly removing them.
 
-```bash
-# Show what would be removed without changing package.json.
-pastoralist --remove-unused --dry-run
-
-# Remove overrides confirmed as unused.
-pastoralist --remove-unused
+```diff
+ pastoralist --remove-unused --dry-run
++pastoralist --remove-unused
 ```
 
 ### Consolidate Workspace Overrides
 
 Read workspace manifests and write one appendix in the root `package.json`.
 
-```jsonc
-{
+```diff
+ {
   "pastoralist": {
-    // Discover manifests from the package manager's workspace configuration.
-    "depPaths": "workspace",
++    "depPaths": "workspace",
   },
-}
+ }
 ```
 
 ### Run Pastoralist in CI
 
-Choose dry-run validation, human-readable metrics, quiet security gates, or
-machine-readable output.
+Choose preview, summary, quiet, or machine-readable output.
 
-```bash
-# Validate package.json changes without writing.
-pastoralist --dry-run --summary
-
-# Report vulnerabilities with minimal output and a non-zero exit code.
-pastoralist --quiet --checkSecurity
-
-# Return structured output for another tool to consume.
-pastoralist --dry-run --outputFormat json
+```diff
++pastoralist --dry-run
++pastoralist --summary
++pastoralist --quiet --checkSecurity
++pastoralist --outputFormat json
 ```
 
 <!-- public CLI commands from src/cli/parser/constants.ts -->
 
 ## Commands
-
-Pastoralist exposes one primary CLI and two setup helper binaries.
-
-| Command                          | What it does                                                |
-| -------------------------------- | ----------------------------------------------------------- |
-| `pastoralist`                    | Updates override tracking for the selected package manifest |
-| `pastoralist doctor`             | Runs read-only dry-run summary checks                       |
-| `pastoralist onboard`            | Prints the first-run checklist                              |
-| `pastoralist onboarding`         | Alias for `onboard`                                         |
-| `pastoralist init`               | Starts the config initialization wizard                     |
-| `pastoralist init agent-skill`   | Installs the bundled Pastoralist agent skill                |
-| `pastoralist --init agent-skill` | Flag form of the same agent-skill setup                     |
-| `pastoralist-setup-local-dev`    | Sets up local agent config, skills, and hooks               |
-| `pastoralist-setup-skill`        | Installs the standalone Pastoralist skill                   |
-
-Common flags:
-
-| Flag                        | Purpose                                                    |
-| --------------------------- | ---------------------------------------------------------- |
-| `-p, --path <path>`         | Select the root `package.json`                             |
-| `-d, --depPaths <paths...>` | Process workspace package manifest globs                   |
-| `--ignore <paths...>`       | Exclude matching package manifests                         |
-| `-r, --root <root>`         | Resolve relative paths from another root                   |
-| `-h, --help`                | Print CLI help                                             |
-| `-v, --version`             | Print the installed version                                |
-| `--dry-run`                 | Preview without writing                                    |
-| `--outputFormat text\|json` | Choose terminal or machine-readable output                 |
-| `--summary`                 | Print metrics after a text run                             |
-| `-q, --quiet`               | Use minimal CI output and fail on detected vulnerabilities |
-| `--setup-hook`              | Add `pastoralist` to `postinstall`                         |
-| `--remove-unused`           | Remove overrides that no active dependent needs            |
-
-Security flags:
-
-| Flag                                | Purpose                                                     |
-| ----------------------------------- | ----------------------------------------------------------- |
-| `--checkSecurity`                   | Scan dependencies and generate security overrides           |
-| `--securityProvider <providers...>` | Use `osv`, `github`, `npm`, `snyk`, `socket`, or `spektion` |
-| `--securityProviderToken <token>`   | Provide a provider token without storing it in config       |
-| `--hasWorkspaceSecurityChecks`      | Include workspace packages in the security scan             |
-| `--interactive`                     | Review security fixes before applying them                  |
-| `--forceSecurityRefactor`           | Apply security fixes without prompting                      |
-| `--promptForReasons`                | Prompt for ledger reasons when adding manual overrides      |
-| `--strict`                          | Fail on provider, network, or API errors                    |
-| `--cache-dir <path>`                | Store provider cache data in a custom directory             |
-| `--cache-ttl <seconds>`             | Override provider cache TTL                                 |
-| `--no-cache`                        | Bypass cache reads and writes                               |
-| `--refresh-cache`                   | Bypass cache reads and write fresh provider results         |
 
 ### Trace an Override to the Package That Needs It
 
@@ -363,9 +303,8 @@ Pastoralist reads the installed dependency graph from the lockfile.
 }
 ```
 
-```bash
-# Preview the package.json update without writing it.
-pastoralist --dry-run
+```diff
++pastoralist --dry-run
 ```
 
 ```diff
@@ -400,9 +339,8 @@ Pastoralist adds the relationship to `package.json`:
 
 JSON output exposes the same result without terminal formatting.
 
-```bash
-# Return a machine-readable dry-run result.
-pastoralist --dry-run --outputFormat json
+```diff
++pastoralist --dry-run --outputFormat json
 ```
 
 ```jsonc
@@ -410,71 +348,50 @@ pastoralist --dry-run --outputFormat json
   "success": true,
   "hasSecurityIssues": false,
   "hasUnusedOverrides": true,
+  // Dry-run prevented package.json from being written.
   "updated": false,
-  "securityAlertCount": 0,
-  "unusedOverrideCount": 1,
-  "overrideCount": 2,
-  "errors": [],
-  "securityAlerts": [],
+  // These overrides can be reviewed for removal.
   "unusedOverrides": ["escaped-sheep@1.0.0"],
-  "appliedOverrides": {
-    "old-goat": "4.1.0",
-    "escaped-sheep": "1.0.0",
-  },
   "metrics": {
-    "packagesScanned": 1,
-    "workspacePackagesScanned": 0,
     "appendixEntriesUpdated": 2,
     "overridesRemoved": 0,
-    "writeSuccess": false,
-    "writeSkipped": true,
   },
-}
-```
-
-<!-- primary public Node.js API exports from src/index.ts and src/types.ts -->
-
-## Node.js API
-
-Use the Node API when you need the same primitives inside scripts, custom CI,
-or build tooling.
-
-```bash
-npm install pastoralist
-```
-
-| Export                         | Use it for                                      |
-| ------------------------------ | ----------------------------------------------- |
-| `update(options)`              | Update overrides and the appendix synchronously |
-| `SecurityChecker`              | Run provider-backed vulnerability checks        |
-| `optimizeBestCasePortfolio()`  | Evaluate complete dependency-version states     |
-| `resolveJSON()`                | Read and parse a package manifest               |
-| `loadConfig()`                 | Load and validate Pastoralist config            |
-| `detectPackageManager()`       | Detect npm, pnpm, Yarn, or Bun from the project |
-| `resolveOverridesFromSource()` | Read overrides from manifest or external source |
-| `findUnusedOverrides()`        | Find override keys with no active dependent     |
-| `cleanupUnusedOverrides()`     | Remove unused overrides and appendix entries    |
-| `logger()`                     | Create a Pastoralist logger                     |
-
-```ts
-import { resolveJSON, update } from "pastoralist";
-
-const path = "./package.json";
-const config = resolveJSON(path);
-
-if (config) {
-  update({ path, config, dryRun: true, summary: true });
 }
 ```
 
 ## Setup Helpers
 
-| Command                                                                               | Purpose                              |
-| ------------------------------------------------------------------------------------- | ------------------------------------ |
-| `npx pastoralist --init agent-skill`                                                  | Set up the Pastoralist agent skill   |
-| `npx -p pastoralist pastoralist-setup-local-dev --help`                               | Show local dev setup options         |
-| `npx -p pastoralist pastoralist-setup-local-dev --dry-run`                            | Preview agent, skill, and hook setup |
-| `npx -p pastoralist pastoralist-setup-local-dev --skills all --hooks git,postinstall` | Set up skills and hooks              |
+### `pastoralist --init agent-skill`
+
+Set up the Pastoralist agent skill.
+
+```diff
++npx pastoralist --init agent-skill
+```
+
+### `pastoralist-setup-local-dev --help`
+
+Show local dev setup options.
+
+```diff
++npx -p pastoralist pastoralist-setup-local-dev --help
+```
+
+### `pastoralist-setup-local-dev --dry-run`
+
+Preview agent, skill, and hook setup.
+
+```diff
++npx -p pastoralist pastoralist-setup-local-dev --dry-run
+```
+
+### `pastoralist-setup-local-dev --skills all --hooks git,postinstall`
+
+Set up skills and hooks.
+
+```diff
++npx -p pastoralist pastoralist-setup-local-dev --skills all --hooks git,postinstall
+```
 
 ## Configuration
 
@@ -506,18 +423,18 @@ The JSON Schema is exported as `pastoralist/schema.json`.
 External JSON config files can reference `./node_modules/pastoralist/src/schema.json` with `$schema`.
 Configs that reference this schema reject unknown or mistyped fields; other configs retain compatible validation behavior.
 
-```jsonc
-{
+```diff
+ {
   "pastoralist": {
-    "depPaths": "workspace",
-    "checkSecurity": true,
-    "security": {
-      "provider": "osv",
-      "severityThreshold": "medium",
-      "hasWorkspaceSecurityChecks": true,
-    },
++    "depPaths": "workspace",
++    "checkSecurity": true,
++    "security": {
++      "provider": "osv",
++      "severityThreshold": "medium",
++      "hasWorkspaceSecurityChecks": true,
++    },
   },
-}
+ }
 ```
 
 See [Configuration](https://jeffry.in/pastoralist/docs/configuration) and
@@ -526,36 +443,25 @@ surface.
 
 ## GitHub Action
 
-The action wraps `pastoralist --outputFormat json`, publishes result outputs,
-and can validate, update, or open a maintenance PR.
-
-| Mode     | Behavior                                             |
-| -------- | ---------------------------------------------------- |
-| `check`  | Adds `--dry-run` and reports failures without writes |
-| `update` | Writes package changes for a later workflow step     |
-| `pr`     | Writes changes and opens or updates a PR when needed |
-
 Check override tracking on pull requests:
 
-```yaml
-name: Override Check
-on: [pull_request]
+```diff
+ name: Override Check
+ on: [pull_request]
 
-jobs:
+ jobs:
   pastoralist:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: yowainwright/pastoralist@v1
-        with:
-          mode: check
-          check-security: false
++      - uses: yowainwright/pastoralist@v1
++        with:
++          mode: check
++          check-security: false
 ```
 
 The action can also run security checks, update files, or open scheduled
-maintenance PRs. Outputs include `has-security-issues`,
-`has-unused-overrides`, `updated`, `security-count`, `unused-count`,
-`override-count`, and `pr-url`. See the
+maintenance PRs. See the
 [GitHub Action docs](https://jeffry.in/pastoralist/docs/github-action).
 
 ## Security and Release Assurance

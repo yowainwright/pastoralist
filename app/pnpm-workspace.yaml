@@ -7,3 +7,5 @@ minimumReleaseAgeExclude:
   - daisyui@5.7.20
   - framer-motion@13.1.1
   - motion-dom@13.1.1
+  - '@vitejs/plugin-react@6.1.1'
+  - lucide-react@1.35.0

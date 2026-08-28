@@ -112,16 +112,16 @@
     "setup": "sh scripts/setup.sh"
   },
   "devDependencies": {
-    "@types/node": "26.2.0",
+    "@types/node": "26.4.0",
     "c8": "^12.0.0",
-    "codependence": "^1.0.8",
+    "codependence": "^1.0.13",
     "eslint-plugin-legibility": "^0.3.0",
     "oxfmt": "^0.50.0",
-    "oxlint": "^1.79.0",
+    "oxlint": "^1.80.0",
     "release-it": "21.0.2",
     "scriptc": "0.0.21",
     "socket": "1.1.158",
-    "turbo": "2.10.11",
+    "turbo": "2.10.12",
     "typescript": "7.0.2",
     "typescript5": "npm:typescript@5.9.3"
   },
@@ -140,5 +140,8 @@
     "npm": {
       "publish": false
     }
-  }
+  },
+  "dependencies": {},
+  "peerDependencies": {},
+  "optionalDependencies": {}
 }

@@ -26,8 +26,8 @@ import {
   resolveAvailableReleaseVersion,
   runRelease,
   type ReleaseRunner,
-} from "../../../scripts/release";
-import type { GitResult } from "../../../scripts/tag-release";
+} from "../../../scripts/release/index";
+import type { GitResult } from "../../../scripts/release/tag";
 
 const ok = (stdout = ""): GitResult => ({ status: 0, stdout, stderr: "" });
 const missing = (): GitResult => ({ status: 2, stdout: "", stderr: "" });
@@ -98,28 +98,36 @@ function buildPrCreateCommand(version: string, branch: string): string {
   ].join(" ");
 }
 
-function releasePullRequestOverrides(version: string): Record<string, GitResult> {
-  const branch = buildReleaseBranch(version);
-  const prUrl = "https://github.com/yowainwright/pastoralist/pull/999";
-  const prCreate = buildPrCreateCommand(version, branch);
-  const readyState = JSON.stringify({
+const releasePullRequestUrl = "https://github.com/yowainwright/pastoralist/pull/999";
+
+const buildReadyPullRequestState = (): string =>
+  JSON.stringify({
     mergeCommit: null,
     mergeStateStatus: "CLEAN",
     mergedAt: null,
     state: "OPEN",
   });
-  const mergedState = JSON.stringify({
+
+const buildMergedPullRequestState = (): string =>
+  JSON.stringify({
     mergeCommit: { oid: MERGE_COMMIT },
     mergedAt: "2026-08-03T01:00:00Z",
     state: "MERGED",
   });
+
+function releasePullRequestOverrides(version: string): Record<string, GitResult> {
+  const branch = buildReleaseBranch(version);
+  const prCreate = buildPrCreateCommand(version, branch);
+  const readyState = buildReadyPullRequestState();
+  const mergedState = buildMergedPullRequestState();
   return {
     [`git switch --create ${branch}`]: ok(""),
     [`git push --set-upstream origin ${branch}`]: ok(""),
-    [prCreate]: ok(`${prUrl}\n`),
-    [`gh pr view ${prUrl} --json state,mergedAt,mergeCommit,mergeStateStatus`]: ok(readyState),
-    [`gh pr merge --squash --delete-branch ${prUrl}`]: ok(""),
-    [`gh pr view ${prUrl} --json state,mergedAt,mergeCommit`]: ok(mergedState),
+    [prCreate]: ok(`${releasePullRequestUrl}\n`),
+    [`gh pr view ${releasePullRequestUrl} --json state,mergedAt,mergeCommit,mergeStateStatus`]:
+      ok(readyState),
+    [`gh pr merge --squash --delete-branch ${releasePullRequestUrl}`]: ok(""),
+    [`gh pr view ${releasePullRequestUrl} --json state,mergedAt,mergeCommit`]: ok(mergedState),
     "git switch main": ok(""),
     "git pull --ff-only origin main": ok(""),
     [`git merge-base --is-ancestor ${MERGE_COMMIT} origin/main`]: ok(""),
@@ -228,7 +236,7 @@ describe("scripts/release", () => {
 
   test("parseReleaseVersion reads the release-it version output", () => {
     assert.strictEqual(
-      parseReleaseVersion("🚀 Let's release pastoralist (1.2.3...1.2.4-beta.6)"),
+      parseReleaseVersion("Let's release pastoralist (1.2.3...1.2.4-beta.6)"),
       "1.2.4-beta.6",
     );
   });

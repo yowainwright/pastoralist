@@ -33,10 +33,10 @@ describe("package security boundary", () => {
   test("installs workspace dependencies from root setup", () => {
     const rootPackage = readPackage("package.json");
     const scripts = rootPackage.scripts as Record<string, string>;
-    const setupScript = readRepositoryFile("scripts/setup.sh");
+    const setupScript = readRepositoryFile("scripts/setup/setup.sh");
 
     assert.strictEqual(rootPackage.packageManager, "pnpm@11.18.0");
-    assert.strictEqual(scripts.setup, "sh scripts/setup.sh");
+    assert.strictEqual(scripts.setup, "sh scripts/setup/setup.sh bootstrap");
     assert.ok(setupScript.includes("pnpm install"));
     assert.ok(setupScript.includes("pnpm --dir app install"));
   });
@@ -48,13 +48,14 @@ describe("package security boundary", () => {
     assert.ok(scripts["test:unit"].includes("tests/unit"));
   });
 
-  test("uses pnpm for package script composition", () => {
+  test("keeps package script composition explicit", () => {
     const rootPackage = readPackage("package.json");
     const docsPackage = readPackage("app/package.json");
     const rootScripts = rootPackage.scripts as Record<string, string>;
     const docsScripts = docsPackage.scripts as Record<string, string>;
 
-    assert.ok(rootScripts["build-dist"].startsWith("pnpm run"));
+    assert.ok(rootScripts["build-dist"].startsWith("bun scripts/build"));
+    assert.ok(rootScripts["check:test-manifests"].includes("tests/integration"));
     assert.ok(docsScripts.build.startsWith("pnpm run"));
     assert.ok(docsScripts["generate:llms"].startsWith("bun "));
   });

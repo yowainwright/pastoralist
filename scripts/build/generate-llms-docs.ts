@@ -43,15 +43,17 @@ export interface GenerateLlmsDocsResult {
   paths: LlmsDocsPaths;
 }
 
-export interface GenerateLlmsDocsOptions {
-  appRoot?: string;
-  docsBaseUrl?: string;
-  fs?: LlmsDocsFileSystem;
-  logger?: Pick<Console, "log">;
-}
+type GenerateLlmsDocsOptionValues = {
+  appRoot: string;
+  docsBaseUrl: string;
+  fs: LlmsDocsFileSystem;
+  logger: Pick<Console, "log">;
+};
+
+export type GenerateLlmsDocsOptions = Partial<GenerateLlmsDocsOptionValues>;
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(scriptDir, "..");
+const repoRoot = resolve(scriptDir, "../..");
 const defaultAppRoot = resolve(repoRoot, "app");
 
 export const nodeFileSystem: LlmsDocsFileSystem = {
@@ -82,19 +84,42 @@ export const readDocOrder = (
   fs: LlmsDocsFileSystem = nodeFileSystem,
 ): string[] => parseDocOrder(fs.readText(contentIndexPath));
 
+const parseFrontmatterLine = (line: string): [string, string] | undefined => {
+  const separatorIndex = line.indexOf(":");
+  if (separatorIndex < 0) return undefined;
+
+  const key = line.slice(0, separatorIndex).trim();
+  if (!/^[A-Za-z0-9_-]+$/.test(key)) return undefined;
+
+  const rawValue = line.slice(separatorIndex + 1).trim();
+  if (!rawValue.startsWith('"')) return [key, rawValue];
+  if (!rawValue.endsWith('"')) return [key, rawValue];
+  return [key, rawValue.slice(1, -1)];
+};
+
 export const parseFrontmatter = (source: string): FrontmatterResult => {
-  const match = source.match(/^---\n([\s\S]*?)\n---\n?/);
-  if (!match) return { attributes: {}, body: source };
+  if (!source.startsWith("---\n")) return { attributes: {}, body: source };
+
+  const marker = "\n---";
+  const endIndex = source.indexOf(marker, 4);
+  if (endIndex < 0) return { attributes: {}, body: source };
+
+  const header = source.slice(4, endIndex);
+  const bodyOffset = endIndex + marker.length;
+  let bodyStart = bodyOffset;
+
+  if (source[bodyOffset] === "\n") {
+    bodyStart += 1;
+  }
 
   const attributes = Object.fromEntries(
-    match[1]
+    header
       .split("\n")
-      .map((line) => line.match(/^([A-Za-z0-9_-]+):\s*"?([^"]*)"?\s*$/))
-      .filter((match): match is RegExpMatchArray => Boolean(match))
-      .map((match) => [match[1], match[2]]),
+      .map(parseFrontmatterLine)
+      .filter((entry): entry is [string, string] => Boolean(entry)),
   );
 
-  return { attributes, body: source.slice(match[0].length) };
+  return { attributes, body: source.slice(bodyStart) };
 };
 
 export const readFrontmatter = parseFrontmatter;
@@ -103,8 +128,10 @@ export const stripMdxNoise = (source: string): string =>
   source
     .replace(/<DocVideo[\s\S]*?\/>/g, "")
     .replace(/<a[\s\S]*?>\s*<img[\s\S]*?\/>\s*<\/a>/g, "")
-    .replace(/<\/?div[^>]*>/g, "")
-    .replace(/:::([a-zA-Z]+)(?:\[[^\]]+\])?/g, "### $1")
+    .replace(/<\/div[^>]*>/g, "")
+    .replace(/<div[^>]*>/g, "")
+    .replace(/:::([a-zA-Z]+)\[[^\]]+\]/g, "### $1")
+    .replace(/:::([a-zA-Z]+)/g, "### $1")
     .replace(/:::/g, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
@@ -172,6 +199,11 @@ ${docs
   .join("\n")}
 `;
 
+const formatDocDescription = (description: string): string => {
+  if (!description) return "";
+  return `> ${description}\n\n`;
+};
+
 export const buildLlmsFullTxt = (docs: readonly DocEntry[]): string => `# Pastoralist Documentation
 
 > Complete Markdown context for Pastoralist. Use this when helping a developer install, configure, troubleshoot, or automate Pastoralist.
@@ -187,13 +219,14 @@ npx pastoralist --remove-unused
 \`\`\`
 
 ${docs
-  .map(
-    (doc) => `---
+  .map((doc) => {
+    const description = formatDocDescription(doc.description);
+    return `---
 
 # ${doc.title}
 
-${doc.description ? `> ${doc.description}\n\n` : ""}${doc.content}`,
-  )
+${description}${doc.content}`;
+  })
   .join("\n\n")}
 `;
 

@@ -150,19 +150,19 @@ const getPackageVersion = (): string => {
 const resolveSetupAgentSkillScript = (): string => {
   const moduleDir = getModuleDir();
   const candidates = [
-    resolve(moduleDir, "scripts/setup-pastoralist-skill.sh"),
-    resolve(moduleDir, "../scripts/setup-pastoralist-skill.sh"),
-    resolve(moduleDir, "../../scripts/setup-pastoralist-skill.sh"),
+    resolve(moduleDir, "scripts/setup/setup.sh"),
+    resolve(moduleDir, "../scripts/setup/setup.sh"),
+    resolve(moduleDir, "../../scripts/setup/setup.sh"),
   ];
   const script = candidates.find(existsSync);
-  if (!script) throw new Error("Unable to find setup-pastoralist-skill.sh");
+  if (!script) throw new Error("Unable to find scripts/setup/setup.sh");
   return script;
 };
 
 const buildSetupAgentSkillArgs = (options: Options, args: readonly string[] = []): string[] => {
   const script = resolveSetupAgentSkillScript();
   const dryRunArgs = options.dryRun ? ["--dry-run"] : [];
-  return [script].concat(dryRunArgs, args);
+  return [script, "skill"].concat(dryRunArgs, args);
 };
 
 const firstSecurityProvider = (options: Options): InitSecurityProvider => {

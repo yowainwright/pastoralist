@@ -30,14 +30,10 @@ still in `package.json`, but the reason is usually somewhere else.
 <td valign="top">
 <pre lang="diff">{
   "overrides": {
--    // Why is this in overrides?
+-    // Why is "barn-yarn" in overrides?
+-    // Is it still needed in overrides?
+-    // Is it a security fix? What was the CVE?
     "barn-yard": "2.0.0",
--    // Is this still needed?
-    "old-goat": "4.1.0",
--    // What is the CVE?
-    "escaped-sheep": "1.0.1",
--    // Is this a patch?
-    "patchy-alpaca": "1.4.0"
   }
 }</pre>
 </td>
@@ -58,21 +54,6 @@ still in `package.json`, but the reason is usually somewhere else.
           "reason": "Compatibility pin"
         }
       },
-+      // shepherd-cli still depends on old-goat@^3.
-      "old-goat@4.1.0": {
-        "dependents": { "shepherd-cli": "old-goat@^3" }
-      },
-+      // Pins the fix for CVE-escaped-sheep.
-      "escaped-sheep@1.0.1": {
-        "ledger": {
-          "addedDate": "2026-08-22T00:00:00.000Z",
-          "cves": ["CVE-escaped-sheep"]
-        }
-      },
-+      // Carries the local alpaca patch.
-      "patchy-alpaca@1.4.0": {
-        "patches": ["patches/patchy-alpaca+1.4.0.patch"]
-      }
     }
   }
 }</pre>
@@ -81,8 +62,8 @@ still in `package.json`, but the reason is usually somewhere else.
 </tbody>
 </table>
 
-Pastoralist keeps the package-manager instruction where it belongs and adds the
-missing review record: why the override exists, which packages still need it,
+Pastoralist handles your overrides and gives you a apendix ledger so you know know why:
+why the override exists, which packages still need it,
 which security provider found it, and when it can be removed.
 
 <!-- first-run CLI commands from src/cli/parser/constants.ts and src/cli/cmds/init/ -->

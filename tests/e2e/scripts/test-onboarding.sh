@@ -6,33 +6,33 @@ echo "\nTesting Onboarding"
 echo "=================="
 
 SETUP_ROOT="${PASTORALIST_SETUP_ROOT:-/app/pastoralist-package}"
-SETUP_SKILL="$SETUP_ROOT/scripts/setup-pastoralist-skill.sh"
+SETUP_SCRIPT="$SETUP_ROOT/scripts/setup/setup.sh"
 PASTORALIST_CLI="${PASTORALIST_CLI_PATH:-/app/pastoralist/index.js}"
 
 print_result() {
-    if [ $1 -eq 0 ]; then
-        echo "PASS: $2"
-    else
-        echo "FAIL: $2"
-        exit 1
-    fi
+	if [ $1 -eq 0 ]; then
+		echo "PASS: $2"
+	else
+		echo "FAIL: $2"
+		exit 1
+	fi
 }
 
 assert_contains() {
-    value="$1"
-    expected="$2"
+	value="$1"
+	expected="$2"
 
-    echo "$value" | grep -q -- "$expected"
+	echo "$value" | grep -q -- "$expected"
 }
 
 reset_repo() {
-    rm -rf /tmp/test-onboarding
-    mkdir -p /tmp/test-onboarding
-    cd /tmp/test-onboarding
+	rm -rf /tmp/test-onboarding
+	mkdir -p /tmp/test-onboarding
+	cd /tmp/test-onboarding
 }
 
 write_package_json() {
-    cat > package.json <<'EOF'
+	cat >package.json <<'EOF'
 {
   "name": "test-onboarding",
   "version": "1.0.0",
@@ -47,12 +47,12 @@ EOF
 }
 
 hash_file() {
-    if command -v sha256sum >/dev/null 2>&1; then
-        sha256sum "$1" | awk '{print $1}'
-        return
-    fi
+	if command -v sha256sum >/dev/null 2>&1; then
+		sha256sum "$1" | awk '{print $1}'
+		return
+	fi
 
-    shasum -a 256 "$1" | awk '{print $1}'
+	shasum -a 256 "$1" | awk '{print $1}'
 }
 
 echo "\n1. Testing onboard command output"
@@ -75,8 +75,8 @@ assert_contains "$OUTPUT" "Apply the smallest needed setup command"
 print_result $? "Onboard command printed setup scripts, prompts, and loop"
 
 if [ "$BEFORE" != "$AFTER" ]; then
-    echo "FAIL: onboard command modified package.json"
-    exit 1
+	echo "FAIL: onboard command modified package.json"
+	exit 1
 fi
 
 echo "\n2. Testing onboarding flag alias"
@@ -90,27 +90,27 @@ print_result $? "Onboarding flag printed expected output"
 
 echo "\n3. Testing installed Pastoralist skill onboarding guidance"
 reset_repo
-sh "$SETUP_SKILL"
+sh "$SETUP_SCRIPT" skill
 print_result $? "Pastoralist skill installer completed"
 
 if ! grep -q "npx pastoralist onboard" ".agents/skills/pastoralist/SKILL.md"; then
-    echo "FAIL: installed skill missing onboard command"
-    exit 1
+	echo "FAIL: installed skill missing onboard command"
+	exit 1
 fi
 
 if ! grep -q "Agent Loop" ".agents/skills/pastoralist/SKILL.md"; then
-    echo "FAIL: installed skill missing agent loop"
-    exit 1
+	echo "FAIL: installed skill missing agent loop"
+	exit 1
 fi
 
 if ! grep -q "npx pastoralist --init agent-skill" ".agents/skills/pastoralist/SKILL.md"; then
-    echo "FAIL: installed skill missing agent skill init command"
-    exit 1
+	echo "FAIL: installed skill missing agent skill init command"
+	exit 1
 fi
 
 if ! grep -q "pastoralist-setup-local-dev --dry-run" ".agents/skills/pastoralist/SKILL.md"; then
-    echo "FAIL: installed skill missing local dev dry run"
-    exit 1
+	echo "FAIL: installed skill missing local dev dry run"
+	exit 1
 fi
 
 echo "\nOnboarding tests passed"

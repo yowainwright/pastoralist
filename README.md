@@ -29,33 +29,28 @@ still in `package.json`, but the reason is usually somewhere else.
 <tr>
 <td valign="top">
 <pre lang="diff">{
-  "overrides": {
--    // Why is "barn-yarn" in overrides?
--    // Is it still needed in overrides?
--    // Is it a security fix? What was the CVE?
-    "barn-yard": "2.0.0",
-  }
+"overrides": {
+  // Q: Why is "barn-yarn" in overrides?
+  "barn-yard": "2.0.0",
+}
 }</pre>
 </td>
 <td valign="top">
 <pre lang="diff">{
-  "overrides": {
-    "barn-yard": "2.0.0",
-    "old-goat": "4.1.0",
-    "escaped-sheep": "1.0.1",
-    "patchy-alpaca": "1.4.0"
-  },
-  "pastoralist": {
-    "appendix": {
-+      // Keeps the gate API compatible with shepherd-cli.
-      "barn-yard@2.0.0": {
-        "ledger": {
-          "addedDate": "2026-08-22T00:00:00.000Z",
-          "reason": "Compatibility pin"
-        }
-      },
+ "overrides": {
+- // Q: Why is "barn-yarn" in overrides?
+  "barn-yard": "2.0.0",
+ },
+ "pastoralist": {
+  "appendix": {
++  // A: Compatibility pin
++  "barn-yard@2.0.0": {
++   "ledger": {
++    "addedDate": "2026-08-22T00:00:00.000Z",
++    "reason": "Compatibility pin"
     }
-  }
+   }
+ }
 }</pre>
 </td>
 </tr>

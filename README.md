@@ -29,10 +29,10 @@ still in `package.json`, but the reason is usually somewhere else.
 <tr>
 <td valign="top">
 <pre lang="diff">{
-"overrides": {
-  // Q: Why is "barn-yarn" in overrides?
-  "barn-yard": "2.0.0",
-}
++  "overrides": {
++   // Q: Why is "barn-yarn" in overrides?
++    "barn-yard": "2.0.0",
++  }
 }</pre>
 </td>
 <td valign="top">
@@ -41,16 +41,16 @@ still in `package.json`, but the reason is usually somewhere else.
 - // Q: Why is "barn-yarn" in overrides?
   "barn-yard": "2.0.0",
  },
- "pastoralist": {
-  "appendix": {
++ "pastoralist": {
++  "appendix": {
 +  // A: Compatibility pin
 +  "barn-yard@2.0.0": {
 +   "ledger": {
 +    "addedDate": "2026-08-22T00:00:00.000Z",
 +    "reason": "Compatibility pin"
-    }
-   }
- }
++    }
++   }
++ }
 }</pre>
 </td>
 </tr>

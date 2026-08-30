@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SCRIPT_PATH = fileURLToPath(
-  new URL("../../../scripts/upload-release-assets.sh", import.meta.url),
+  new URL("../../../scripts/release/upload-assets.sh", import.meta.url),
 );
 const FAKE_GH = `#!/bin/sh
 printf '%s\n' "$*" >> "$FAKE_GH_LOG"
@@ -73,7 +73,7 @@ afterEach(() => {
   tempDirectories.clear();
 });
 
-describe("scripts/upload-release-assets", () => {
+describe("scripts/release/upload-assets", () => {
   test("uploads a missing asset", () => {
     const fixture = createFixture();
     const result = runUpload(fixture);

@@ -11,7 +11,7 @@ describe("GetStartedSection", () => {
     it("has required content", () => {
       assert.notStrictEqual(CONTENT.heading, undefined);
       assert.notStrictEqual(CONTENT.headingHighlight, undefined);
-      assert.strictEqual(CONTENT.command, "bun add -g pastoralist");
+      assert.strictEqual(CONTENT.command, "npm install -g pastoralist");
       assert.notStrictEqual(CONTENT.buttonText, undefined);
       assert.strictEqual(CONTENT.docsSlug, "introduction");
     });

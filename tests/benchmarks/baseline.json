@@ -1,10 +1,10 @@
 {
-  "note": "Baseline performance metrics - run 'bun run bench:baseline' to update",
+  "note": "Baseline performance metrics - run 'pnpm run test:bench' to update",
   "lastUpdated": "2024-11-06T22:00:00.000Z",
   "system": {
     "platform": "darwin",
     "arch": "arm64",
-    "node": "bun"
+    "node": "node"
   },
   "benchmarks": {
     "resolveJSON": {

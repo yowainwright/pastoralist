@@ -13,9 +13,9 @@ import {
   runBrewCli,
   sha256,
   validateStableVersion,
-} from "../../../scripts/brew";
+} from "../../../scripts/release/brew";
 
-describe("scripts/brew", () => {
+describe("scripts/release/brew", () => {
   test("builds the published npm tarball URL", () => {
     assert.strictEqual(
       npmTarballUrl("1.13.0"),

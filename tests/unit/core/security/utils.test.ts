@@ -45,9 +45,15 @@ test("constructor - should initialize with debug option", () => {
 });
 
 test("isInstalled - should return true for installed command", async () => {
-  const installer = new CLIInstaller({ debug: false });
-  const result = await installer.isInstalled("bun");
+  const execFileAsync = mock(() => Promise.resolve({ stdout: "", stderr: "" }));
+  const installer = new CLIInstaller({
+    debug: false,
+    execFileAsync: execFileAsync as any,
+  });
+  const result = await installer.isInstalled("available-command");
+
   assert.strictEqual(result, true);
+  assertCalledWith(execFileAsync, "which", ["available-command"], { timeout: 30000 });
 });
 
 test("isInstalled - should return false for non-existent command", async () => {
@@ -56,10 +62,16 @@ test("isInstalled - should return false for non-existent command", async () => {
   assert.strictEqual(result, false);
 });
 
-test("isInstalled - should return true for bun", async () => {
-  const installer = new CLIInstaller({ debug: false });
-  const result = await installer.isInstalled("bun");
+test("isInstalled - should return true when command lookup succeeds", async () => {
+  const execFileAsync = mock(() => Promise.resolve({ stdout: "", stderr: "" }));
+  const installer = new CLIInstaller({
+    debug: false,
+    execFileAsync: execFileAsync as any,
+  });
+  const result = await installer.isInstalled("mock-command");
+
   assert.strictEqual(result, true);
+  assertCalledWith(execFileAsync, "which", ["mock-command"], { timeout: 30000 });
 });
 
 test("isInstalled - should return true for git", async () => {
@@ -108,12 +120,18 @@ test("isInstalledGlobally - should handle npm list errors gracefully", async () 
   );
 });
 
-test("getVersion - should return version for bun", async () => {
-  const installer = new CLIInstaller({ debug: false });
-  const version = await installer.getVersion("bun");
+test("getVersion - should return command version output", async () => {
+  const execFileAsync = mock(() => Promise.resolve({ stdout: "1.2.3\n", stderr: "" }));
+  const installer = new CLIInstaller({
+    debug: false,
+    execFileAsync: execFileAsync as any,
+  });
+  const version = await installer.getVersion("mock-command");
+
   assert.notStrictEqual(version, undefined);
   assert.strictEqual(typeof version, "string");
-  assert.ok(version!.length > 0);
+  assert.strictEqual(version, "1.2.3");
+  assertCalledWith(execFileAsync, "mock-command", ["--version"], { timeout: 30000 });
 });
 
 test("getVersion - should return version for git", async () => {
@@ -123,11 +141,17 @@ test("getVersion - should return version for git", async () => {
   assert.strictEqual(typeof version, "string");
 });
 
-test("getVersion - should return version for bun", async () => {
-  const installer = new CLIInstaller({ debug: false });
-  const version = await installer.getVersion("bun");
+test("getVersion - should trim version output", async () => {
+  const execFileAsync = mock(() => Promise.resolve({ stdout: "  2.0.0  \n", stderr: "" }));
+  const installer = new CLIInstaller({
+    debug: false,
+    execFileAsync: execFileAsync as any,
+  });
+  const version = await installer.getVersion("mock-command");
+
   assert.notStrictEqual(version, undefined);
   assert.strictEqual(typeof version, "string");
+  assert.strictEqual(version, "2.0.0");
 });
 
 test("getVersion - should return undefined for non-existent command", async () => {
@@ -137,13 +161,18 @@ test("getVersion - should return undefined for non-existent command", async () =
 });
 
 test("ensureInstalled - should return true if command is already available", async () => {
-  const installer = new CLIInstaller({ debug: false });
+  const execFileAsync = mock(() => Promise.resolve({ stdout: "", stderr: "" }));
+  const installer = new CLIInstaller({
+    debug: false,
+    execFileAsync: execFileAsync as any,
+  });
   const result = await installer.ensureInstalled({
-    packageName: "bun",
-    cliCommand: "bun",
+    packageName: "available-package",
+    cliCommand: "available-command",
   });
 
   assert.strictEqual(result, true);
+  assertCalledWith(execFileAsync, "which", ["available-command"], { timeout: 30000 });
 });
 
 test("ensureInstalled - should handle non-existent package without throwing", async () => {

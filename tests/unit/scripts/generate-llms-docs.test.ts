@@ -16,7 +16,7 @@ import {
   stripMdxNoise,
   type DocEntry,
   type LlmsDocsFileSystem,
-} from "../../../scripts/generate-llms-docs";
+} from "../../../scripts/build/generate-llms-docs";
 
 const createMemoryFileSystem = (
   files: Record<string, string>,
@@ -81,7 +81,7 @@ Run security checks.
 `,
 };
 
-describe("scripts/generate-llms-docs", () => {
+describe("scripts/build/generate-llms-docs", () => {
   afterEach(() => {
     mock.restore();
   });

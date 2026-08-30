@@ -9,7 +9,9 @@ describe("release workflows", () => {
   test("exports the Homebrew version before validation", () => {
     const workflow = readWorkflow("homebrew.yml");
     const exportIndex = workflow.indexOf('export VERSION="${RELEASE_REF#v}"');
-    const validationIndex = workflow.indexOf("bun scripts/brew.ts validate-version");
+    const validationIndex = workflow.indexOf(
+      "pnpm exec jiti scripts/release/brew.ts validate-version",
+    );
 
     assert.ok(exportIndex > -1);
     assert.ok(validationIndex > exportIndex);
@@ -19,7 +21,9 @@ describe("release workflows", () => {
     const workflows = [readWorkflow("publish.yml"), readWorkflow("homebrew.yml")];
 
     workflows.forEach((workflow) => assert.ok(!workflow.includes("--clobber")));
-    workflows.forEach((workflow) => assert.ok(workflow.includes("upload-release-assets.sh")));
+    workflows.forEach((workflow) =>
+      assert.ok(workflow.includes("scripts/release/upload-assets.sh")),
+    );
   });
 
   test("publishes draft releases by numeric ID", () => {
@@ -27,7 +31,7 @@ describe("release workflows", () => {
 
     assert.ok(workflow.includes("path: release-tools"));
     assert.ok(workflow.includes('ref: "${{ github.workflow_sha }}"'));
-    assert.ok(workflow.includes("release-tools/scripts/upload-release-assets.sh"));
+    assert.ok(workflow.includes("release-tools/scripts/release/upload-assets.sh"));
     assert.ok(workflow.includes("releases/$RELEASE_ID"));
     assert.ok(!workflow.includes('gh release edit "v${VERSION}"'));
   });
@@ -38,7 +42,7 @@ describe("release workflows", () => {
     const publishIndex = workflow.indexOf("npm publish");
 
     assert.ok(workflow.includes("runs-on: macos-latest"));
-    assert.ok(workflow.includes("bun scripts/brew.ts generate-local"));
+    assert.ok(workflow.includes("pnpm exec jiti scripts/release/brew.ts generate-local"));
     assert.ok(auditIndex > -1);
     assert.ok(publishIndex > auditIndex);
   });

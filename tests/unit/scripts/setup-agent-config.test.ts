@@ -13,10 +13,9 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
-const scriptPath = resolve("scripts/setup-agent-config.sh");
-const localDevScriptPath = resolve("scripts/setup-local-dev.sh");
-const skillScriptPath = resolve("scripts/setup-pastoralist-skill.sh");
-const hookScriptPath = resolve("scripts/install-hooks.ts");
+const setupScriptPath = resolve("scripts/setup/setup.sh");
+const hookScriptPath = resolve("scripts/setup/install-hooks.ts");
+const jitiScriptPath = resolve("node_modules/jiti/lib/jiti-cli.mjs");
 const baseEnv = { PATH: "/usr/bin:/bin" };
 
 const withTempRepo = (callback: (root: string) => void) => {
@@ -60,12 +59,12 @@ const runScript = (
 };
 
 const runSetup = (root: string, args: string[], env: Record<string, string> = {}) =>
-  runScript(scriptPath, root, args, env);
+  runScript(setupScriptPath, root, ["agent-config"].concat(args), env);
 
 const runHookInstaller = (root: string) => {
   const env = Object.assign({}, process.env, { CI: "" });
 
-  return spawnSync("bun", [hookScriptPath], {
+  return spawnSync("node", [jitiScriptPath, hookScriptPath], {
     cwd: root,
     encoding: "utf8",
     env,
@@ -109,7 +108,7 @@ const createHookTools = (root: string) => {
   return { env: { HOOK_LOG: logPath, PATH: `${toolPath}:${process.env.PATH ?? ""}` }, logPath };
 };
 
-describe("scripts/install-hooks", () => {
+describe("scripts/setup/install-hooks", () => {
   test("pre-commit does not lint changed files before the full lint", () => {
     withTempRepo((root) => {
       mkdirSync(join(root, ".git"), { recursive: true });
@@ -192,7 +191,7 @@ describe("scripts/install-hooks", () => {
   });
 });
 
-describe("scripts/setup-agent-config", () => {
+describe("scripts/setup setup agent-config", () => {
   test("dry run prints Codex writes without touching disk", () => {
     withTempRepo((root) => {
       const result = runSetup(root, ["--dry-run", "--target", "codex"]);
@@ -290,10 +289,10 @@ describe("scripts/setup-agent-config", () => {
   });
 });
 
-describe("scripts/setup-pastoralist-skill", () => {
+describe("scripts/setup setup skill", () => {
   test("dry run prints Pastoralist skill install without touching disk", () => {
     withTempRepo((root) => {
-      const result = runScript(skillScriptPath, root, ["--dry-run"]);
+      const result = runScript(setupScriptPath, root, ["skill", "--dry-run"]);
 
       assert.strictEqual(result.status, 0);
       assert.ok(result.stdout.includes("Would install .agents/skills/pastoralist/SKILL.md"));
@@ -303,7 +302,7 @@ describe("scripts/setup-pastoralist-skill", () => {
 
   test("installs the bundled Pastoralist skill", () => {
     withTempRepo((root) => {
-      const result = runScript(skillScriptPath, root, []);
+      const result = runScript(setupScriptPath, root, ["skill"]);
 
       assert.strictEqual(result.status, 0);
       assert.ok(
@@ -327,7 +326,7 @@ describe("scripts/setup-pastoralist-skill", () => {
     withTempRepo((root) => {
       writeFixture(root, ".agents/skills/pastoralist/SKILL.md", "custom skill\n");
 
-      const result = runScript(skillScriptPath, root, []);
+      const result = runScript(setupScriptPath, root, ["skill"]);
 
       assert.strictEqual(result.status, 0);
       assert.ok(
@@ -343,10 +342,11 @@ describe("scripts/setup-pastoralist-skill", () => {
   });
 });
 
-describe("scripts/setup-local-dev", () => {
+describe("scripts/setup setup local-dev", () => {
   test("dry run can select agent, skills, and hooks", () => {
     withTempRepo((root) => {
-      const result = runScript(localDevScriptPath, root, [
+      const result = runScript(setupScriptPath, root, [
+        "local-dev",
         "--dry-run",
         "--agent",
         "codex",
@@ -369,7 +369,8 @@ describe("scripts/setup-local-dev", () => {
 
   test("can skip agent config and hooks while installing selected skills", () => {
     withTempRepo((root) => {
-      const result = runScript(localDevScriptPath, root, [
+      const result = runScript(setupScriptPath, root, [
+        "local-dev",
         "--agent",
         "skip",
         "--skills",

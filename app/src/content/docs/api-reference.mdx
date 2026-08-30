@@ -222,21 +222,13 @@ Add pastoralist to your postinstall script automatically.
 +npx pastoralist --setup-hook
 ```
 
-### `pastoralist-setup-local-dev`
+### `pnpm run setup:local-dev`
 
 Set up local agent config, selected skills, and selected local hooks.
 
 ```diff
-+npx -p pastoralist pastoralist-setup-local-dev --dry-run
-+npx -p pastoralist pastoralist-setup-local-dev --skills all --hooks git,postinstall
-```
-
-### `pastoralist-setup-skill`
-
-Install the standalone Pastoralist skill.
-
-```diff
-+npx -p pastoralist pastoralist-setup-skill --dry-run
++pnpm run setup:local-dev -- --dry-run
++pnpm run setup:local-dev -- --skills all --hooks git,postinstall
 ```
 
 ### `pastoralist --remove-unused`

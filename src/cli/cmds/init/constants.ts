@@ -161,11 +161,11 @@ export const ONBOARDING_SECTIONS: readonly OnboardingSection[] = [
       "1. Install only the Pastoralist skill:",
       "   npx pastoralist --init agent-skill",
       "2. Preview local dev setup:",
-      "   npx -p pastoralist pastoralist-setup-local-dev --dry-run",
+      "   pnpm run setup:local-dev -- --dry-run",
       "3. Set up Codex with skills and hooks:",
-      "   npx -p pastoralist pastoralist-setup-local-dev --agent codex --skills all --hooks git,postinstall",
+      "   pnpm run setup:local-dev -- --agent codex --skills all --hooks git,postinstall",
       "4. Set up Claude with skills and hooks:",
-      "   npx -p pastoralist pastoralist-setup-local-dev --agent claude --skills all --hooks git,postinstall",
+      "   pnpm run setup:local-dev -- --agent claude --skills all --hooks git,postinstall",
     ],
   },
   {
@@ -173,7 +173,7 @@ export const ONBOARDING_SECTIONS: readonly OnboardingSection[] = [
     lines: [
       "Set up Pastoralist in this repository.",
       "Start with `npx pastoralist doctor` and inspect the current package manager setup.",
-      "Run `npx -p pastoralist pastoralist-setup-local-dev --dry-run` before writing files.",
+      "Run `pnpm run setup:local-dev -- --dry-run` before writing files.",
       "Configure the Pastoralist skill, local agent config, GitHub Action, and postinstall hook only when appropriate.",
       "Keep changes scoped to setup files, docs, and tests.",
     ],
@@ -191,7 +191,7 @@ export const ONBOARDING_SECTIONS: readonly OnboardingSection[] = [
     title: "Agent setup loop",
     lines: [
       "1. Run `npx pastoralist doctor`.",
-      "2. Run `npx -p pastoralist pastoralist-setup-local-dev --dry-run`.",
+      "2. Run `pnpm run setup:local-dev -- --dry-run`.",
       "3. Apply the smallest needed setup command.",
       "4. Run `npx pastoralist --dry-run`.",
       "5. Report changed files and remaining manual steps.",

@@ -955,7 +955,7 @@ test("fixture - FAILURE_RESULT has correct properties", () => {
 
 test("isCommandAvailable - returns true for existing command", async () => {
   const wizard = new SecuritySetupWizard();
-  const result = await (wizard as any).isCommandAvailable("bun");
+  const result = await (wizard as any).isCommandAvailable("node");
   assert.strictEqual(result, true);
 });
 

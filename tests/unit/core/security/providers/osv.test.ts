@@ -4,17 +4,22 @@ import assert from "node:assert/strict";
 import { OSVProvider, clearOSVCache } from "../../../../../src/core/security/providers/osv";
 import type { OSVVulnerability } from "../../../../../src/types";
 
+type OSVProviderOptions = NonNullable<ConstructorParameters<typeof OSVProvider>[0]>;
+
+const createProvider = (options: OSVProviderOptions = {}) =>
+  new OSVProvider({ debug: false, noCache: true, ...options });
+
 afterEach(() => {
   clearOSVCache();
 });
 
 test("providerType - should be 'osv'", () => {
-  const provider = new OSVProvider({ debug: false });
+  const provider = createProvider();
   assert.strictEqual(provider.providerType, "osv");
 });
 
 test("isAvailable - should return true when OSV API is accessible", async () => {
-  const provider = new OSVProvider({ debug: false });
+  const provider = createProvider();
   const originalFetch = global.fetch;
 
   global.fetch = mock((_url: string) => {
@@ -31,7 +36,7 @@ test("isAvailable - should return true when OSV API is accessible", async () => 
 });
 
 test("isAvailable - should return false when OSV API is not accessible", async () => {
-  const provider = new OSVProvider({ debug: false });
+  const provider = createProvider();
   const originalFetch = global.fetch;
 
   global.fetch = mock(() => {
@@ -45,7 +50,7 @@ test("isAvailable - should return false when OSV API is not accessible", async (
 });
 
 test("isAvailable - should return false when response is not ok", async () => {
-  const provider = new OSVProvider({ debug: false });
+  const provider = createProvider();
   const originalFetch = global.fetch;
 
   global.fetch = mock(() => {
@@ -62,7 +67,7 @@ test("isAvailable - should return false when response is not ok", async () => {
 });
 
 test("fetchAlerts - should return empty array when no vulnerabilities found", async () => {
-  const provider = new OSVProvider({ debug: false });
+  const provider = createProvider();
   const originalFetch = global.fetch;
 
   global.fetch = mock(() => {
@@ -80,7 +85,7 @@ test("fetchAlerts - should return empty array when no vulnerabilities found", as
 });
 
 test("fetchAlerts - should convert OSV vulnerabilities to SecurityAlerts", async () => {
-  const provider = new OSVProvider({ debug: false });
+  const provider = createProvider();
   const originalFetch = global.fetch;
 
   const mockVuln: OSVVulnerability = {
@@ -144,7 +149,7 @@ test("fetchAlerts - should convert OSV vulnerabilities to SecurityAlerts", async
 });
 
 test("fetchAlerts - selects the patch for the installed release stream", async () => {
-  const provider = new OSVProvider({ debug: false });
+  const provider = createProvider();
   const originalFetch = global.fetch;
   const vulnerability: OSVVulnerability = {
     id: "OSV-MULTI-STREAM",
@@ -186,7 +191,7 @@ test("fetchAlerts - selects the patch for the installed release stream", async (
 });
 
 test("fetchAlerts - should handle multiple packages", async () => {
-  const provider = new OSVProvider({ debug: false });
+  const provider = createProvider();
   const originalFetch = global.fetch;
 
   const mockVuln = {
@@ -236,8 +241,7 @@ test("fetchAlerts - should handle multiple packages", async () => {
 });
 
 test("fetchAlerts - should handle fetch errors gracefully", async () => {
-  const provider = new OSVProvider({
-    debug: false,
+  const provider = createProvider({
     retryOptions: { retries: 1, minTimeout: 10 },
   });
   const originalFetch = global.fetch;
@@ -254,8 +258,7 @@ test("fetchAlerts - should handle fetch errors gracefully", async () => {
 });
 
 test("fetchAlerts - should handle non-ok responses", async () => {
-  const provider = new OSVProvider({
-    debug: false,
+  const provider = createProvider({
     retryOptions: { retries: 1, minTimeout: 10 },
   });
   const originalFetch = global.fetch;
@@ -275,7 +278,7 @@ test("fetchAlerts - should handle non-ok responses", async () => {
 });
 
 test("fetchAlerts - should extract severity correctly", async () => {
-  const provider = new OSVProvider({ debug: false });
+  const provider = createProvider();
   const originalFetch = global.fetch;
 
   const mockVuln: OSVVulnerability = {
@@ -321,7 +324,7 @@ test("fetchAlerts - should extract severity correctly", async () => {
 });
 
 test("fetchAlerts - should default to medium severity when not specified", async () => {
-  const provider = new OSVProvider({ debug: false });
+  const provider = createProvider();
   const originalFetch = global.fetch;
 
   const mockVuln: OSVVulnerability = {
@@ -364,7 +367,7 @@ test("fetchAlerts - should default to medium severity when not specified", async
 });
 
 test("fetchAlerts - should extract CVE from aliases", async () => {
-  const provider = new OSVProvider({ debug: false });
+  const provider = createProvider();
   const originalFetch = global.fetch;
 
   const mockVuln: OSVVulnerability = {
@@ -408,7 +411,7 @@ test("fetchAlerts - should extract CVE from aliases", async () => {
 });
 
 test("fetchAlerts - should map numeric CVSS score 9.5 to critical", async () => {
-  const provider = new OSVProvider({ debug: false });
+  const provider = createProvider();
   const originalFetch = global.fetch;
 
   const mockVuln: OSVVulnerability = {
@@ -446,7 +449,7 @@ test("fetchAlerts - should map numeric CVSS score 9.5 to critical", async () => 
 });
 
 test("fetchAlerts - should map numeric CVSS score 7.5 to high", async () => {
-  const provider = new OSVProvider({ debug: false });
+  const provider = createProvider();
   const originalFetch = global.fetch;
 
   const mockVuln: OSVVulnerability = {
@@ -484,7 +487,7 @@ test("fetchAlerts - should map numeric CVSS score 7.5 to high", async () => {
 });
 
 test("fetchAlerts - should map numeric CVSS score 5.0 to medium", async () => {
-  const provider = new OSVProvider({ debug: false });
+  const provider = createProvider();
   const originalFetch = global.fetch;
 
   const mockVuln: OSVVulnerability = {
@@ -522,7 +525,7 @@ test("fetchAlerts - should map numeric CVSS score 5.0 to medium", async () => {
 });
 
 test("fetchAlerts - should map numeric CVSS score 2.0 to low", async () => {
-  const provider = new OSVProvider({ debug: false });
+  const provider = createProvider();
   const originalFetch = global.fetch;
 
   const mockVuln: OSVVulnerability = {
@@ -560,7 +563,7 @@ test("fetchAlerts - should map numeric CVSS score 2.0 to low", async () => {
 });
 
 test("fetchAlerts - should return undefined for CVE when not in aliases", async () => {
-  const provider = new OSVProvider({ debug: false });
+  const provider = createProvider();
   const originalFetch = global.fetch;
 
   const mockVuln: OSVVulnerability = {
@@ -604,7 +607,7 @@ test("fetchAlerts - should return undefined for CVE when not in aliases", async 
 });
 
 test("fetchAlerts - should use default URL when no references", async () => {
-  const provider = new OSVProvider({ debug: false });
+  const provider = createProvider();
   const originalFetch = global.fetch;
 
   const mockVuln: OSVVulnerability = {
@@ -647,8 +650,7 @@ test("fetchAlerts - should use default URL when no references", async () => {
 });
 
 test("fetchAlerts - should throw error when strict mode is enabled and fetch fails", async () => {
-  const provider = new OSVProvider({
-    debug: false,
+  const provider = createProvider({
     strict: true,
     retryOptions: { retries: 1, minTimeout: 10 },
   });
@@ -667,8 +669,7 @@ test("fetchAlerts - should throw error when strict mode is enabled and fetch fai
 });
 
 test("fetchAlerts - strict mode error message includes retry count", async () => {
-  const provider = new OSVProvider({
-    debug: false,
+  const provider = createProvider({
     strict: true,
     retryOptions: { retries: 2, minTimeout: 10 },
   });
@@ -692,8 +693,7 @@ test("fetchAlerts - strict mode error message includes retry count", async () =>
 });
 
 test("fetchAlerts - strict mode error message includes original error reason", async () => {
-  const provider = new OSVProvider({
-    debug: false,
+  const provider = createProvider({
     strict: true,
     retryOptions: { retries: 1, minTimeout: 10 },
   });
@@ -715,8 +715,7 @@ test("fetchAlerts - strict mode error message includes original error reason", a
 });
 
 test("fetchAlerts - should return empty array when strict is false and fetch fails", async () => {
-  const provider = new OSVProvider({
-    debug: false,
+  const provider = createProvider({
     strict: false,
     retryOptions: { retries: 1, minTimeout: 10 },
   });
@@ -738,8 +737,7 @@ test("fetchAlerts - should return empty array when strict is false and fetch fai
 });
 
 test("fetchAlerts - should reject incomplete scans when strict is false", async () => {
-  const provider = new OSVProvider({
-    debug: false,
+  const provider = createProvider({
     strict: false,
     retryOptions: { retries: 1, minTimeout: 10 },
   });
@@ -757,7 +755,7 @@ test("fetchAlerts - should reject incomplete scans when strict is false", async 
 });
 
 test("fetchAlerts - should extract all CVE aliases when multiple CVEs exist", async () => {
-  const provider = new OSVProvider({ debug: false });
+  const provider = createProvider();
   const originalFetch = global.fetch;
 
   const mockVuln: OSVVulnerability = {
@@ -801,8 +799,7 @@ test("fetchAlerts - should extract all CVE aliases when multiple CVEs exist", as
 });
 
 test("fetchAlerts - strict mode throws when individual vuln detail fetch fails", async () => {
-  const provider = new OSVProvider({
-    debug: false,
+  const provider = createProvider({
     strict: true,
     retryOptions: { retries: 1, minTimeout: 10 },
   });
@@ -857,8 +854,7 @@ test("fetchAlerts - strict mode throws when individual vuln detail fetch fails",
 });
 
 test("fetchAlerts - non-strict returns partial results when individual vuln detail fetch fails", async () => {
-  const provider = new OSVProvider({
-    debug: false,
+  const provider = createProvider({
     strict: false,
     retryOptions: { retries: 1, minTimeout: 10 },
   });

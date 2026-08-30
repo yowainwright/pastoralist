@@ -30,9 +30,7 @@
     "url": "git+https://github.com/yowainwright/pastoralist.git"
   },
   "bin": {
-    "pastoralist": "./dist/index.js",
-    "pastoralist-setup-local-dev": "./scripts/setup/setup.sh",
-    "pastoralist-setup-skill": "./scripts/setup/setup.sh"
+    "pastoralist": "./dist/index.js"
   },
   "files": [
     "dist",
@@ -109,22 +107,25 @@
     "validate:full": "pnpm run validate && pnpm run test:e2e && pnpm run test:bench",
     "setup": "sh scripts/setup/setup.sh bootstrap"
   },
+  "dependencies": {},
   "devDependencies": {
-    "@types/node": "26.2.0",
+    "@types/node": "26.4.0",
     "c8": "^12.0.0",
-    "codependence": "^1.0.8",
+    "codependence": "^1.0.13",
     "eslint-plugin-legibility": "^0.3.0",
     "jiti": "2.7.0",
     "oxfmt": "^0.50.0",
-    "oxlint": "^1.79.0",
+    "oxlint": "^1.80.0",
     "release-it": "21.0.2",
     "rolldown": "1.2.5",
     "scriptc": "0.0.21",
     "socket": "1.1.158",
-    "turbo": "2.10.11",
+    "turbo": "2.10.12",
     "typescript": "7.0.2",
     "typescript5": "npm:typescript@5.9.3"
   },
+  "peerDependencies": {},
+  "optionalDependencies": {},
   "engines": {
     "node": ">=20.19.0"
   },

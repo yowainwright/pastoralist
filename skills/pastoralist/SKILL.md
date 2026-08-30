@@ -9,7 +9,7 @@ description: >
 
 Start with `npx pastoralist onboard` when setting up a repo.
 Use `npx pastoralist doctor` for read-only project health.
-Run `npx -p pastoralist pastoralist-setup-local-dev --dry-run` before setup writes.
+Run `pnpm run setup:local-dev -- --dry-run` before setup writes.
 Use `npx pastoralist init` to create config.
 Config can live under `package.json#pastoralist` or as top-level settings in `.pastoralistrc`, `.pastoralistrc.json`, `pastoralist.json`, or `pastoralist.config.*`.
 Use `npx pastoralist` to update the override appendix.
@@ -54,7 +54,7 @@ evaluated with those versions as hard constraints.
 Prefer the packaged setup script for agent config and skills:
 
 ```bash
-npx -p pastoralist pastoralist-setup-local-dev --agent codex --skills all --hooks git,postinstall
+pnpm run setup:local-dev -- --agent codex --skills all --hooks git,postinstall
 ```
 
 If only the skill is needed:
@@ -66,7 +66,7 @@ npx pastoralist --init agent-skill
 ## Agent Loop
 
 1. Run `npx pastoralist doctor`.
-2. Run `npx -p pastoralist pastoralist-setup-local-dev --dry-run`.
+2. Run `pnpm run setup:local-dev -- --dry-run`.
 3. Apply the smallest needed setup command.
 4. Run `npx pastoralist --dry-run`.
 5. Report changed files and remaining manual steps.

@@ -41,6 +41,13 @@ describe("package security boundary", () => {
     assert.ok(setupScript.includes("pnpm --dir app install"));
   });
 
+  test("keeps setup helpers out of package bin aliases", () => {
+    const rootPackage = readPackage("package.json");
+    const bin = rootPackage.bin as Record<string, string>;
+
+    assert.deepStrictEqual(bin, { pastoralist: "./dist/index.js" });
+  });
+
   test("keeps root tests outside the docs package", () => {
     const rootPackage = readPackage("package.json");
     const scripts = rootPackage.scripts as Record<string, string>;

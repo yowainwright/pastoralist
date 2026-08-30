@@ -3,3 +3,5 @@ enableGlobalVirtualStore: false
 allowBuilds:
   "@parcel/watcher": true
   esbuild: true
+minimumReleaseAgeExclude:
+  - codependence@1.0.13

@@ -69,7 +69,7 @@ assert_contains "$OUTPUT" "Prompt for a setup agent"
 assert_contains "$OUTPUT" "Prompt for a maintenance agent"
 assert_contains "$OUTPUT" "Agent setup loop"
 assert_contains "$OUTPUT" "GitHub Action setup"
-assert_contains "$OUTPUT" "pastoralist-setup-local-dev --dry-run"
+assert_contains "$OUTPUT" "pnpm run setup:local-dev -- --dry-run"
 assert_contains "$OUTPUT" "--agent codex --skills all --hooks git,postinstall"
 assert_contains "$OUTPUT" "Apply the smallest needed setup command"
 print_result $? "Onboard command printed setup scripts, prompts, and loop"
@@ -108,7 +108,7 @@ if ! grep -q "npx pastoralist --init agent-skill" ".agents/skills/pastoralist/SK
 	exit 1
 fi
 
-if ! grep -q "pastoralist-setup-local-dev --dry-run" ".agents/skills/pastoralist/SKILL.md"; then
+if ! grep -q "pnpm run setup:local-dev -- --dry-run" ".agents/skills/pastoralist/SKILL.md"; then
 	echo "FAIL: installed skill missing local dev dry run"
 	exit 1
 fi

@@ -17,7 +17,7 @@ help_output=$("$BIN" --help)
 printf '%s\n' "$help_output" | grep -Fq "Pastoralist" || fail "binary help"
 printf '[PASS] binary help\n'
 
-expected_version=$(bun -e 'import manifest from "./package.json"; process.stdout.write(manifest.version)')
+expected_version=$(node -e 'process.stdout.write(require("./package.json").version)')
 actual_version=$("$BIN" --version)
 [ "$actual_version" = "$expected_version" ] || fail "binary version"
 printf '[PASS] binary version\n'

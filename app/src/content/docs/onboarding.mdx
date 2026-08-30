@@ -52,21 +52,21 @@ npx pastoralist --init agent-skill
 Preview local dev setup before writing files:
 
 ```bash
-npx -p pastoralist pastoralist-setup-local-dev --dry-run
+pnpm run setup:local-dev -- --dry-run
 ```
 
 Set up agent config, bundled skills, and local hooks:
 
 ```bash
-npx -p pastoralist pastoralist-setup-local-dev --skills all --hooks git,postinstall
+pnpm run setup:local-dev -- --skills all --hooks git,postinstall
 ```
 
 The local dev setup script auto-detects Codex or Claude when possible. You can
 pin the target explicitly:
 
 ```bash
-npx -p pastoralist pastoralist-setup-local-dev --agent codex
-npx -p pastoralist pastoralist-setup-local-dev --agent claude
+pnpm run setup:local-dev -- --agent codex
+pnpm run setup:local-dev -- --agent claude
 ```
 
 ## Copy/Paste Prompts
@@ -76,7 +76,7 @@ Use this prompt when you want an agent to do the setup:
 ```text
 Set up Pastoralist in this repository.
 Start with `npx pastoralist doctor` and inspect the current package manager setup.
-Run `npx -p pastoralist pastoralist-setup-local-dev --dry-run` before writing files.
+Run `pnpm run setup:local-dev -- --dry-run` before writing files.
 Configure the Pastoralist skill, local agent config, GitHub Action, and postinstall hook only when appropriate.
 Keep changes scoped to setup files, docs, and tests.
 ```
@@ -95,7 +95,7 @@ If setup is missing, propose the smallest script, skill, hook, or GitHub Action 
 Use this loop when an agent owns the setup:
 
 1. Run `npx pastoralist doctor`.
-2. Run `npx -p pastoralist pastoralist-setup-local-dev --dry-run`.
+2. Run `pnpm run setup:local-dev -- --dry-run`.
 3. Apply the smallest needed setup command.
 4. Run `npx pastoralist --dry-run`.
 5. Report changed files and remaining manual steps.

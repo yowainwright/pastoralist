@@ -418,26 +418,15 @@ read_value() {
 }
 
 command="local-dev"
-script_name=${0##*/}
 
-case "$script_name" in
-pastoralist-setup-skill)
-	command="skill"
-	;;
-pastoralist-setup-local-dev)
-	command="local-dev"
-	;;
-*)
-	if [ "$#" -gt 0 ]; then
-		case "$1" in
-		bootstrap | prepare | agent-config | local-dev | skill)
-			command="$1"
-			shift
-			;;
-		esac
-	fi
-	;;
-esac
+if [ "$#" -gt 0 ]; then
+	case "$1" in
+	bootstrap | prepare | agent-config | local-dev | skill)
+		command="$1"
+		shift
+		;;
+	esac
+fi
 
 case "$command" in
 agent-config)

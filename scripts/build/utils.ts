@@ -1,12 +1,12 @@
 import { spawnSync } from "node:child_process";
 import type { BuildLogger, RolldownBuildConfig } from "./types";
 
-export const buildBunBundleArgs = (config: RolldownBuildConfig): string[] => {
+export const buildRolldownBundleArgs = (config: RolldownBuildConfig): string[] => {
   const minifyArgs = config.minify ? ["--minify"] : [];
-  const splittingArgs = config.splitting ? ["--splitting"] : [];
-  const externalArgs = config.external.flatMap((name) => ["--external", name]);
-  const outputArgs = ["--outdir", config.outDir, "--target", config.target];
-  return ["build", config.input].concat(outputArgs, minifyArgs, splittingArgs, externalArgs);
+  const splittingArgs = config.splitting ? [] : ["--no-codeSplitting"];
+  const externalArgs = config.external.length > 0 ? ["--external", config.external.join(",")] : [];
+  const outputArgs = ["--dir", config.outDir, "--platform", config.target, "--format", "esm"];
+  return [config.input].concat(outputArgs, minifyArgs, splittingArgs, externalArgs);
 };
 
 const printOutput = (logger: BuildLogger, stdout?: string, stderr?: string): void => {

@@ -15,6 +15,7 @@ import { dirname, join, resolve } from "node:path";
 
 const setupScriptPath = resolve("scripts/setup/setup.sh");
 const hookScriptPath = resolve("scripts/setup/install-hooks.ts");
+const jitiScriptPath = resolve("node_modules/jiti/lib/jiti-cli.mjs");
 const baseEnv = { PATH: "/usr/bin:/bin" };
 
 const withTempRepo = (callback: (root: string) => void) => {
@@ -63,7 +64,7 @@ const runSetup = (root: string, args: string[], env: Record<string, string> = {}
 const runHookInstaller = (root: string) => {
   const env = Object.assign({}, process.env, { CI: "" });
 
-  return spawnSync("bun", [hookScriptPath], {
+  return spawnSync("node", [jitiScriptPath, hookScriptPath], {
     cwd: root,
     encoding: "utf8",
     env,

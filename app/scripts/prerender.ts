@@ -1,10 +1,13 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Effect, Schema } from "effect";
 import { DOCS } from "../src/content/constants";
+import { isMainModule } from "../../scripts/is-main";
 import type { DocMeta } from "../src/content/types";
 
-const DIST_DIR = path.resolve(import.meta.dirname, "../dist");
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const DIST_DIR = path.resolve(currentDir, "../dist");
 const SERVER_ENTRYPOINT = new URL("../dist-server/entry-server.js", import.meta.url).href;
 const ROOT_MARKUP = '<div id="root"><div class="initial-loader"></div></div>';
 
@@ -206,6 +209,6 @@ export const prerenderStaticSite = Effect.fn("staticSite.prerender")(function* (
   );
 });
 
-if (import.meta.main) {
+if (isMainModule(import.meta.url)) {
   await Effect.runPromise(prerenderStaticSite());
 }

@@ -1,5 +1,4 @@
-#!/usr/bin/env bun
-
+import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 
@@ -102,6 +101,23 @@ const isGeneratedHook = (hookName: HookName, hookContent: string): boolean => {
   return hookContent.includes(GENERATED_HOOK_SIGNATURES[hookName]);
 };
 
+const runGitConfig = (args: readonly string[]) =>
+  spawnSync("git", ["config"].concat(Array.from(args)), { encoding: "utf8" });
+
+const readHooksPath = (): string => {
+  const result = runGitConfig(["--get", "core.hooksPath"]);
+  if (result.status !== 0) return "";
+  return result.stdout.trim();
+};
+
+const unsetHooksPath = (): void => {
+  const result = runGitConfig(["--unset", "core.hooksPath"]);
+  if (result.status === 0) return;
+
+  const message = result.stderr.trim() || "Unable to unset core.hooksPath";
+  throw new Error(message);
+};
+
 const writeHook = (hookPath: string, hookContent: string): void => {
   writeFileSync(hookPath, hookContent, { mode: 0o755 });
   chmodSync(hookPath, 0o755);
@@ -128,7 +144,7 @@ const installHook = (hookName: HookName, stats: HookStats): HookStats => {
   return incrementStat(stats, "updated");
 };
 
-const installHooks = async (): Promise<void> => {
+const installHooks = (): void => {
   const isCI = process.env.CI === "true" || process.env.CI === "1";
   if (isCI) {
     console.log("CI environment detected, skipping hook installation");
@@ -141,17 +157,11 @@ const installHooks = async (): Promise<void> => {
     return;
   }
 
-  const { $ } = await import("bun");
-
-  try {
-    const hooksPath = await $`git config --get core.hooksPath`.text();
-    const isHuskyPath = hooksPath.trim() === ".husky/_";
-    if (isHuskyPath) {
-      await $`git config --unset core.hooksPath`;
-      console.log("Removed husky hooks path configuration");
-    }
-  } catch {
-    // core.hooksPath not set, which is fine
+  const hooksPath = readHooksPath();
+  const isHuskyPath = hooksPath === ".husky/_";
+  if (isHuskyPath) {
+    unsetHooksPath();
+    console.log("Removed husky hooks path configuration");
   }
 
   const hooksDir = HOOKS_DIR;
@@ -177,4 +187,4 @@ const installHooks = async (): Promise<void> => {
   if (hasNoChanges) console.log("No hooks to install");
 };
 
-await installHooks();
+installHooks();

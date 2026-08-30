@@ -3,7 +3,7 @@ export const SECTION_ID = "get-started";
 export const CONTENT = {
   heading: "Ready to",
   headingHighlight: "get started",
-  command: "bun add -g pastoralist",
+  command: "npm install -g pastoralist",
   buttonText: "Learn More",
   docsSlug: "introduction",
 } as const;

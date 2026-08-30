@@ -61,7 +61,7 @@ const CONTENT = {
   headingMid: "tracks, documents, and cleans up your npm dependency overrides",
   headingHighlight: "automatically",
   emoji: "👍",
-  command: "bun add -g pastoralist",
+  command: "npm install -g pastoralist",
   docsSlug: "introduction",
   buttonText: "Get Started",
 } as const;

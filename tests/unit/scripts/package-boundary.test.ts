@@ -54,9 +54,9 @@ describe("package security boundary", () => {
     const rootScripts = rootPackage.scripts as Record<string, string>;
     const docsScripts = docsPackage.scripts as Record<string, string>;
 
-    assert.ok(rootScripts["build-dist"].startsWith("bun scripts/build"));
+    assert.ok(rootScripts["build-dist"].startsWith("jiti scripts/build"));
     assert.ok(rootScripts["check:test-manifests"].includes("tests/integration"));
     assert.ok(docsScripts.build.startsWith("pnpm run"));
-    assert.ok(docsScripts["generate:llms"].startsWith("bun "));
+    assert.ok(docsScripts["generate:llms"].startsWith("jiti "));
   });
 });

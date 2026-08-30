@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isMainModule } from "../is-main";
 
 export const DEFAULT_DOCS_BASE_URL = "https://jeffry.in/pastoralist";
 
@@ -264,6 +265,6 @@ export function generateLlmsDocs({
   return { docs, outputs, paths };
 }
 
-if (import.meta.main) {
+if (isMainModule(import.meta.url)) {
   generateLlmsDocs();
 }

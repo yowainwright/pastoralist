@@ -129,6 +129,9 @@ importers:
       daisyui:
         specifier: ^5.7.20
         version: 5.7.20
+      jiti:
+        specifier: 2.7.0
+        version: 2.7.0
       katex:
         specifier: ^0.16.47
         version: 0.16.47

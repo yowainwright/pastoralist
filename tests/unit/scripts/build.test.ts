@@ -2,7 +2,7 @@ import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { parseBuildTarget } from "../../../scripts/build/index";
 import { rolldownConfig } from "../../../scripts/build/rolldown.config";
-import { buildBunBundleArgs } from "../../../scripts/build/utils";
+import { buildRolldownBundleArgs } from "../../../scripts/build/utils";
 
 describe("scripts/build", () => {
   test("parseBuildTarget defaults to the dist build", () => {
@@ -20,22 +20,18 @@ describe("scripts/build", () => {
     assert.throws(() => parseBuildTarget(["release"]), /Invalid build target/);
   });
 
-  test("buildBunBundleArgs translates the bundle config", () => {
-    assert.deepStrictEqual(buildBunBundleArgs(rolldownConfig), [
-      "build",
+  test("buildRolldownBundleArgs translates the bundle config", () => {
+    assert.deepStrictEqual(buildRolldownBundleArgs(rolldownConfig), [
       "src/index.ts",
-      "--outdir",
+      "--dir",
       "dist",
-      "--target",
+      "--platform",
       "node",
+      "--format",
+      "esm",
       "--minify",
-      "--splitting",
       "--external",
-      "fs",
-      "--external",
-      "path",
-      "--external",
-      "crypto",
+      "fs,path,crypto",
     ]);
   });
 });

@@ -20,7 +20,8 @@ import {
 } from "./constants";
 import { rolldownConfig } from "./rolldown.config";
 import type { BuildTarget, RuntimePackageManifest } from "./types";
-import { buildBunBundleArgs, runCommand } from "./utils";
+import { isMainModule } from "../is-main";
+import { buildRolldownBundleArgs, runCommand } from "./utils";
 
 const log = createLogger({ file: BUILD_SCRIPT_LABEL });
 
@@ -50,7 +51,7 @@ export const cleanDist = (): void => {
 };
 
 const buildBundle = (): void => {
-  runBuildCommand("bun", buildBunBundleArgs(rolldownConfig));
+  runBuildCommand("rolldown", buildRolldownBundleArgs(rolldownConfig));
 };
 
 const buildTypes = (): void => {
@@ -91,18 +92,17 @@ const renderRuntimePackage = (): string => {
 
 const bundleBinaryRuntime = (): void => {
   const args = [
-    "build",
     BIN_RUNTIME_ENTRY_FILE,
-    "--outfile",
+    "--file",
     BIN_BUNDLE_FILE,
-    "--target",
+    "--platform",
     "node",
     "--format",
     "cjs",
     "--banner",
     BIN_BUNDLE_BANNER,
   ];
-  runBuildCommand("bun", args);
+  runBuildCommand("rolldown", args);
 };
 
 const writeBinarySources = (): void => {
@@ -143,7 +143,7 @@ export const runBuild = (target: BuildTarget): void => {
   return buildBinary();
 };
 
-if (import.meta.main) {
+if (isMainModule(import.meta.url)) {
   try {
     runBuild(parseBuildTarget(process.argv.slice(2)));
   } catch (error) {

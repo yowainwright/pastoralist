@@ -39,6 +39,7 @@ import {
   readPackageVersion,
   runCommand,
 } from "./utils";
+import { isMainModule } from "../is-main";
 
 export type {
   GitResult,
@@ -721,7 +722,7 @@ function checkoutMergedMain(runner: ReleaseRunner): void {
   runCommand(runner, "git", ["pull", "--ff-only", "origin", "main"]);
 }
 
-if (import.meta.main) {
+if (isMainModule(import.meta.url)) {
   try {
     const command = parseCommand(process.argv.slice(2));
     process.exitCode =

@@ -9,8 +9,8 @@
     "build:client": "pnpm run generate:llms && tsc && vite build",
     "build:ssr": "vite build --ssr src/entry-server.tsx --outDir dist-server",
     "build:static": "pnpm run build:ssr && pnpm run prerender",
-    "generate:llms": "bun ../scripts/build/generate-llms-docs.ts",
-    "prerender": "bun scripts/prerender.ts",
+    "generate:llms": "jiti ../scripts/build/generate-llms-docs.ts",
+    "prerender": "jiti scripts/prerender.ts",
     "preview": "vite preview",
     "serve": "vite preview --port 5174",
     "test:unit": "node --import=../tests/unit/setup.ts --test"
@@ -58,6 +58,7 @@
     "@types/react-dom": "^19.2.4",
     "@types/unist": "^3.0.3",
     "daisyui": "^5.7.20",
+    "jiti": "2.7.0",
     "katex": "^0.16.47",
     "rehype-katex": "^7.0.1",
     "remark-math": "^6.0.0",

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { logger as createLogger } from "../../src/observability";
+import { isMainModule } from "../is-main";
 
 const STABLE_VERSION_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 const LOG_OPTIONS = { file: "scripts/release/brew.ts" };
@@ -108,7 +109,7 @@ export const runBrewCli = async ({
   await createPublishedFormula({ outputPath, version });
 };
 
-if (import.meta.main) {
+if (isMainModule(import.meta.url)) {
   runBrewCli().catch((error) => {
     const log = createLogger(LOG_OPTIONS);
     log.fail(error instanceof Error ? error.message : String(error));

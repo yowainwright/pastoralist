@@ -9,7 +9,9 @@ describe("release workflows", () => {
   test("exports the Homebrew version before validation", () => {
     const workflow = readWorkflow("homebrew.yml");
     const exportIndex = workflow.indexOf('export VERSION="${RELEASE_REF#v}"');
-    const validationIndex = workflow.indexOf("bun scripts/release/brew.ts validate-version");
+    const validationIndex = workflow.indexOf(
+      "pnpm exec jiti scripts/release/brew.ts validate-version",
+    );
 
     assert.ok(exportIndex > -1);
     assert.ok(validationIndex > exportIndex);
@@ -40,7 +42,7 @@ describe("release workflows", () => {
     const publishIndex = workflow.indexOf("npm publish");
 
     assert.ok(workflow.includes("runs-on: macos-latest"));
-    assert.ok(workflow.includes("bun scripts/release/brew.ts generate-local"));
+    assert.ok(workflow.includes("pnpm exec jiti scripts/release/brew.ts generate-local"));
     assert.ok(auditIndex > -1);
     assert.ok(publishIndex > auditIndex);
   });

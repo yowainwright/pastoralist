@@ -340,8 +340,8 @@ setup_git_hooks() {
 		return
 	fi
 
-	if ! command -v bun >/dev/null 2>&1; then
-		echo "Skipping git hooks; bun unavailable"
+	if ! command -v pnpm >/dev/null 2>&1; then
+		echo "Skipping git hooks; pnpm unavailable"
 		return
 	fi
 
@@ -350,7 +350,7 @@ setup_git_hooks() {
 		return
 	fi
 
-	bun scripts/setup/install-hooks.ts
+	pnpm exec jiti scripts/setup/install-hooks.ts
 }
 
 setup_postinstall_hook() {

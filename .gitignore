@@ -120,6 +120,7 @@ app/public/llms-full.txt
 .DS_Store
 docs/app/page
 .turbo
+.rolldown-check/
 .pnpm-store
 tests/fixtures/package.json
 tests/fixtures/package-overrides.json

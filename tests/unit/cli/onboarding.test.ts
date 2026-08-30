@@ -18,7 +18,7 @@ describe("cli onboarding", () => {
 
     assert.ok(text.includes("Agent quick setup"));
     assert.ok(text.includes("npx pastoralist --init agent-skill"));
-    assert.ok(text.includes("pastoralist-setup-local-dev --dry-run"));
+    assert.ok(text.includes("pnpm run setup:local-dev -- --dry-run"));
     assert.ok(text.includes("--agent codex --skills all --hooks git,postinstall"));
     assert.ok(text.includes("--agent claude --skills all --hooks git,postinstall"));
   });

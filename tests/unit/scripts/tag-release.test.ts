@@ -12,10 +12,10 @@ import {
   assertReleaseReady,
   buildTagPushArgs,
   formatTagName,
-  parseArgs,
+  parseTagArgs,
   runReleaseTag,
   type GitResult,
-} from "../../../scripts/tag-release";
+} from "../../../scripts/release";
 
 const ok = (stdout = ""): GitResult => ({ status: 0, stdout, stderr: "" });
 const missing = (): GitResult => ({ status: 2, stdout: "", stderr: "" });
@@ -41,10 +41,10 @@ const readyGitOverrides = {
   "ls-remote --exit-code --tags origin refs/tags/v1.2.3-beta.6": missing(),
 };
 
-describe("scripts/tag-release", () => {
+describe("scripts/release/tag", () => {
   test("parseArgs detects dry run", () => {
-    assert.deepStrictEqual(parseArgs(["--dry-run"]), { dryRun: true });
-    assert.deepStrictEqual(parseArgs([]), { dryRun: false });
+    assert.deepStrictEqual(parseTagArgs(["--dry-run"]), { dryRun: true });
+    assert.deepStrictEqual(parseTagArgs([]), { dryRun: false });
   });
 
   test("formatTagName formats semver release tags", () => {
@@ -73,7 +73,7 @@ describe("scripts/tag-release", () => {
 
     assert.throws(
       () => assertReleaseReady(git, "v1.2.3"),
-      errorIncludes("Release tags must be created from main"),
+      errorIncludes("Release tags must start from main"),
     );
   });
 

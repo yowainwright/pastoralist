@@ -5,9 +5,11 @@ import {
   errorIncludes,
   objectContaining,
 } from "../setup";
-import { test } from "node:test";
+import { mock as nodeMock, test } from "node:test";
 import { mock } from "../setup";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import packageJSON from "../../../package.json" with { type: "json" };
@@ -3729,6 +3731,37 @@ test("run - bundled agent skill setup supports dry run", async () => {
   } finally {
     process.exitCode = originalExitCode ?? 0;
   }
+});
+
+test("run - reports missing setup script for agent skill setup", async () => {
+  const originalLog = console.log;
+  const originalError = console.error;
+  const originalExitCode = process.exitCode;
+  const logged: string[] = [];
+  const errors: string[] = [];
+  let exitCode: string | number | undefined;
+  const existsMock = nodeMock.method(fs, "existsSync", () => false);
+
+  console.log = captureLine(logged);
+  console.error = captureLine(errors);
+  process.exitCode = undefined;
+  syncBuiltinESMExports();
+
+  try {
+    const module = await import("../../../src/cli/index?missing-setup-script");
+    await module.run(["node", "pastoralist", "--init", "agent-skill"]);
+    exitCode = process.exitCode;
+  } finally {
+    console.log = originalLog;
+    console.error = originalError;
+    process.exitCode = originalExitCode ?? 0;
+    existsMock.mock.restore();
+    syncBuiltinESMExports();
+  }
+
+  assert.strictEqual(exitCode, 1);
+  assert.ok(errors.join("\n").includes("Unable to find scripts/setup/setup.sh"));
+  assert.ok(logged.join("\n").includes("init [config|agent-skill]"));
 });
 
 test("run - rejects extra config init args", async () => {

@@ -29,10 +29,6 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: 1.3.14
-
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         name: Install pnpm
 
@@ -50,7 +46,7 @@ jobs:
           RELEASE_REF: ${{ github.ref_name }}
         run: |
           VERSION="${RELEASE_REF#v}"
-          PACKAGE_VERSION="$(bun -p 'require("./package.json").version')"
+          PACKAGE_VERSION="$(node -p 'require("./package.json").version')"
           test "$VERSION" = "$PACKAGE_VERSION"
 
       - run: pnpm run test:unit
@@ -82,7 +78,7 @@ jobs:
           TARBALL_PATH: ${{ steps.pack.outputs.tarball }}
         run: |
           case "$GITHUB_REF_NAME" in *-*) exit 0 ;; esac
-          VERSION="${GITHUB_REF_NAME#v}" bun scripts/brew.ts generate-local
+          VERSION="${GITHUB_REF_NAME#v}" pnpm exec jiti scripts/release/brew.ts generate-local
 
       - name: Audit formula before publishing
         run: |
@@ -132,7 +128,7 @@ jobs:
           fi
 
           if gh release view "$VERSION" > /dev/null 2>&1; then
-            sh scripts/upload-release-assets.sh "$VERSION" "$TARBALL" "$SIGSTORE_BUNDLE"
+            sh scripts/release/upload-assets.sh "$VERSION" "$TARBALL" "$SIGSTORE_BUNDLE"
             exit 0
           fi
 

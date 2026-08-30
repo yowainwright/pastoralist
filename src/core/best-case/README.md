@@ -124,6 +124,6 @@ The reason belongs to one appendix dependency item. Items selected in the same p
 
 ## Performance
 
-Search cost is dominated by the evaluator. Pure ranking and state enumeration run under `bun run test:bench`.
+Search cost is dominated by the evaluator. Pure ranking and state enumeration run under `pnpm run test:bench`.
 
 Every result exposes duration and evaluated-state count so resolver or scanner cost can be measured separately.

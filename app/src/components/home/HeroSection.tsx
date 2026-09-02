@@ -196,7 +196,7 @@ function HeroContent({ showComplete }: { showComplete: boolean }) {
 
             <nav className={styles.nav}>
               <Link to="/docs/$slug/" params={{ slug: CONTENT.docsSlug }} preload="intent">
-                <button className="btn btn-lg btn-primary rounded-2xl">
+                <button className="btn btn-lg btn-primary rounded-2xl whitespace-nowrap">
                   {CONTENT.buttonText}
                   <ArrowRight className="size-4" />
                 </button>

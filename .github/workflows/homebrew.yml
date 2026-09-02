@@ -184,7 +184,10 @@ jobs:
         run: |
           RELEASE_SCRIPT="release-tools/scripts/release/upload-assets.sh"
           RELEASE_TAG="v${VERSION}"
-          mapfile -t BINARY_ASSETS < <(find . -maxdepth 1 -type f \( -name 'pastoralist-darwin-*' -o -name 'pastoralist-linux-*' \) | sort)
+          BINARY_ASSETS=()
+          while IFS= read -r asset; do
+            BINARY_ASSETS+=("$asset")
+          done < <(find . -maxdepth 1 -type f \( -name 'pastoralist-darwin-*' -o -name 'pastoralist-linux-*' \) | sort)
           test "${#BINARY_ASSETS[@]}" -eq 8
           RELEASE_ASSETS=("$FORMULA_PATH" "${BINARY_ASSETS[@]}")
           RELEASE_ID="$(sh "$RELEASE_SCRIPT" "$RELEASE_TAG" "${RELEASE_ASSETS[@]}")"

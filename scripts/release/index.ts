@@ -32,6 +32,7 @@ import type {
 } from "./types";
 import {
   commandText,
+  createGitRunner,
   createRunner,
   delay,
   formatShellCommand,

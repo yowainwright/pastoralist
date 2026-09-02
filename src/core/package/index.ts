@@ -588,12 +588,38 @@ const parsePnpmPackageMatches = (content: string): SecurityPackage[] => {
   return Array.from(legacy, toPackage).concat(Array.from(current, toPackage));
 };
 
+const splitPnpmLockDocuments = (content: string): string[] => {
+  const documents = content.split(/^---\s*$/m).map((document) => document.trim());
+  return documents.filter(Boolean);
+};
+
+const hasPnpmProjectDependencies = (content: string): boolean =>
+  /^\s{4}(dependencies|devDependencies|optionalDependencies):/m.test(content);
+
+const isPnpmPackageManagerDocument = (content: string): boolean => {
+  const hasPackageManagerDependencies = /^\s{4}packageManagerDependencies:/m.test(content);
+  if (!hasPackageManagerDependencies) return false;
+  const hasSnapshots = /^snapshots:\s*$/m.test(content);
+  const hasProjectDependencies = hasPnpmProjectDependencies(content);
+  const hasNoSnapshots = !hasSnapshots;
+  const hasNoProjectDependencies = !hasProjectDependencies;
+  return hasNoSnapshots && hasNoProjectDependencies;
+};
+
+const parsePnpmLockDocuments = (content: string): SecurityPackage[] => {
+  const documents = splitPnpmLockDocuments(content);
+  const lockDocuments = documents.length > 0 ? documents : [content];
+  return lockDocuments
+    .filter((document) => !isPnpmPackageManagerDocument(document))
+    .flatMap(parsePnpmPackageMatches);
+};
+
 const parsePnpmLockedPackages = (root: string): SecurityPackage[] | undefined => {
   const lockPath = resolve(root, PNPM_LOCK_FILENAME);
   if (!fs.existsSync(lockPath)) return undefined;
   try {
     const content = fs.readFileSync(lockPath, "utf8");
-    return getPopulatedPackages(parsePnpmPackageMatches(content));
+    return getPopulatedPackages(parsePnpmLockDocuments(content));
   } catch {
     return undefined;
   }

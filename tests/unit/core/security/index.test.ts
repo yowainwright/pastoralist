@@ -1921,13 +1921,11 @@ test("applyAutoFix - should throw error when package.json not found", async () =
 
 test("applyAutoFix - should use cwd when no path provided", async () => {
   const checker = new SecurityChecker({ provider: "osv" });
-  const testPath = path.join(process.cwd(), "package.json");
-  const originalExists = fs.existsSync(testPath);
-  let originalContent = "";
-
-  if (originalExists) {
-    originalContent = fs.readFileSync(testPath, "utf-8");
-  }
+  const root = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-cwd-autofix-"));
+  const testPath = path.join(root, "package.json");
+  const originalCwd = process.cwd();
+  const npmPackage = { ...mockPackageJson, packageManager: "npm@11.5.2" };
+  fs.writeFileSync(testPath, JSON.stringify(npmPackage));
 
   const overrides = [
     {
@@ -1941,19 +1939,17 @@ test("applyAutoFix - should use cwd when no path provided", async () => {
 
   const mockConsoleLog = spyOn(console, "log").mockImplementation(() => {});
 
-  if (originalExists) {
-    const npmPackage = { ...JSON.parse(originalContent), packageManager: "npm@11.5.2" };
-    fs.writeFileSync(testPath, JSON.stringify(npmPackage));
+  try {
+    process.chdir(root);
     const backupPath = (await checker.applyAutoFix(overrides)) as string;
 
     assert.ok(backupPath);
     assert.strictEqual(fs.existsSync(backupPath as string), true);
-
-    fs.writeFileSync(testPath, originalContent);
-    fs.unlinkSync(backupPath as string);
+  } finally {
+    process.chdir(originalCwd);
+    mockConsoleLog.mockRestore();
+    fs.rmSync(root, { recursive: true, force: true });
   }
-
-  mockConsoleLog.mockRestore();
 });
 
 test("rollbackAutoFix - should restore from backup", async () => {

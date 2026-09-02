@@ -71,6 +71,20 @@ describe("release workflows", () => {
     workflows.forEach((workflow) => assert.ok(workflow.includes("ScriptC binary")));
   });
 
+  test("publishes the Homebrew binary asset matrix", () => {
+    const workflow = readWorkflow("homebrew.yml");
+    const targets = ["darwin-arm64", "darwin-amd64", "linux-arm64", "linux-amd64"];
+
+    targets.forEach((target) => assert.ok(workflow.includes(`target: ${target}`)));
+    assert.ok(workflow.includes("actions/upload-artifact@"));
+    assert.ok(workflow.includes("actions/download-artifact@"));
+    assert.ok(!workflow.includes("mapfile"));
+    assert.ok(workflow.includes("while IFS= read -r asset; do"));
+    assert.ok(workflow.includes("pastoralist-darwin-*"));
+    assert.ok(workflow.includes("pastoralist-linux-*"));
+    assert.ok(workflow.includes('test "${#BINARY_ASSETS[@]}" -eq 8'));
+  });
+
   test("always cleans Docker resources after e2e runs", () => {
     const workflow = readWorkflow("ci.yml");
     const cleanupSteps = workflow.match(

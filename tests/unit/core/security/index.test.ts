@@ -790,6 +790,43 @@ test("checkSecurity - uses locked versions for semver range dependencies", async
   );
 });
 
+test("checkSecurity - ignores pnpm package-manager inventory documents", async () => {
+  const root = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-pnpm-12-"));
+  const content = [
+    "---",
+    "lockfileVersion: '9.0'",
+    "importers:",
+    "  .:",
+    "    configDependencies: {}",
+    "    packageManagerDependencies:",
+    "      pnpm:",
+    "        specifier: 12.2.1",
+    "        version: 12.2.1",
+    "packages:",
+    "  pnpm@12.2.1: {}",
+    "---",
+    "lockfileVersion: '9.0'",
+    "packages:",
+    "  alpha@1.5.0: {}",
+    "snapshots:",
+    "  alpha@1.5.0: {}",
+  ].join("\n");
+  fs.writeFileSync(path.join(root, "pnpm-lock.yaml"), content);
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([]);
+
+  try {
+    await checker.checkSecurity({ dependencies: { alpha: "^1.0.0" } }, { root });
+    assertCalledWith(fetchAlerts, [{ name: "alpha", version: "1.5.0" }], {
+      root,
+      requireCompleteScan: false,
+      onIncomplete: anyValue(Function),
+    });
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("checkSecurity - ignores linked dependencies and absent peers in lock completeness", async () => {
   const config: PastoralistJSON = {
     dependencies: {

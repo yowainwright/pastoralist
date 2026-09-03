@@ -30,25 +30,25 @@ still in `package.json`, but the reason is usually somewhere else.
 <td valign="top">
 <pre lang="diff">{
 +  "overrides": {
-+   // Q: Why is "barn-yarn" in overrides?
-+    "barn-yard": "2.0.0",
++    // Why is "barn-yard" here? 🤷🏽
++    "barn-yard": "2.0.0"
 +  }
 }</pre>
 </td>
 <td valign="top">
 <pre lang="diff">{
  "overrides": {
-- // Q: Why is "barn-yarn" in overrides?
+-   // Why is "barn-yard" here? 🤷🏽
   "barn-yard": "2.0.0",
  },
 + "pastoralist": {
-+  "appendix": {
-+  // A: Compatibility pin
-+  "barn-yard@2.0.0": {
-+   "ledger": {
-+    "addedDate": "2026-08-22T00:00:00.000Z",
-+    "reason": "Compatibility pin"
-+    }
++   "appendix": {
++     "barn-yard@2.0.0": {
++       "ledger": {
++         "addedDate": "2026-08-22T00:00:00.000Z",
++         "reason": "Compatibility pin for animals-js"
++       }
++     }
 +   }
 + }
 }</pre>
@@ -67,30 +67,32 @@ found it, and when it can be removed.
 
 ## Quick Start
 
-> [!NOTE]
-> For the quick start section, we will be using `npx` as we're assuming pastoralist is not installed.
-> Ensure your agent doesn't establish this pattern long term because it will use more memory.
-
-Install with your favorite JS package manager:
+Install the global CLI with npm:
 
 ```sh
 npm install --global pastoralist
 ```
 
-Or install with Homebrew:
+Or install the global CLI with Homebrew:
 
 ```sh
 brew install yowainwright/tap/pastoralist
 ```
 
-> [!NOTE]
+That's basically it. You can now run `pastoralist` from your shell when you
+manage overrides.
+
+---
+
 > For local projects where you just use pastoralist within scripts or CI,
 > `npm install pastoralist --save-dev` is enough.
 > Use Homebrew when you want a global CLI outside a project install.
 
 ---
 
-Start with a read-only check:
+### Try It
+
+To see what Pastoralist will find, start with a read-only check:
 
 ```sh
 pastoralist doctor
@@ -102,11 +104,18 @@ For first-run guidance across local use, agents, and CI:
 pastoralist onboard
 ```
 
-> [!NOTE]
 > The onboarding output includes quick scripts and copy/paste prompts for agents.
 > See the [Onboarding guide](https://jeffry.in/pastoralist/docs/onboarding) for the same checklist in the docs.
 
 ---
+
+### Working With Your Agent
+
+Pastoralist does not need AI to work. It is ordinary CLI software.
+
+If you use an agent, the included [skill](./skills/) gives it the project
+instructions it needs to set up Pastoralist and keep override or CVE context
+current later.
 
 Set up the Pastoralist agent skill in a repo:
 
@@ -114,7 +123,9 @@ Set up the Pastoralist agent skill in a repo:
 pastoralist --init agent-skill
 ```
 
-When you are ready to add it to the project:
+### Add Pastoralist to a Project
+
+When you are ready to add Pastoralist to the project:
 
 ```sh
 npm install pastoralist --save-dev
@@ -132,7 +143,7 @@ Optionally keep the appendix current after installs:
  }
 ```
 
-Pastoralist can add that hook for you:
+Pastoralist can even add the hook above for you:
 
 ```sh
 npx pastoralist --setup-hook
@@ -140,7 +151,7 @@ npx pastoralist --setup-hook
 
 ---
 
-## What It Does
+## What Pastoralist Does
 
 ### Track Overrides Across Package Managers
 
@@ -248,26 +259,6 @@ pastoralist --summary
 pastoralist --quiet --checkSecurity
 pastoralist --outputFormat json
 ```
-
-<!-- high-level runtime flow from src/cli/action.ts and src/core/update/index.ts -->
-
-## How It Works
-
-#### Runtime Flow
-
-> Type: **`CLI options -> PastoralistResult`**
-
-Pastoralist loads CLI options and project config, resolves native override data,
-runs the optional security phase, rebuilds appendix entries, attaches
-`patch-package` files, optionally removes verified unused overrides, then writes
-the configured targets. `--dry-run` uses the same path without writing.
-
-```sh
-pastoralist --dry-run --summary
-pastoralist --checkSecurity --securityProvider osv --dry-run
-```
-
-<!-- public CLI commands from src/cli/parser/constants.ts and src/cli/index.ts -->
 
 ## CLI API
 
@@ -960,9 +951,6 @@ maintenance PRs. See the
 
 ## Security and Release Assurance
 
-Pastoralist can write to `package.json`, so the package should be boring to
-verify.
-
 <!-- release behavior from .github/workflows/publish.yml and .github/workflows/homebrew.yml -->
 
 - Releases are published from GitHub Actions with npm provenance
@@ -983,8 +971,7 @@ Please reach out with any desired security requests and I will do my best to sup
 
 ## Thanks
 
-Shout out to [Bryant Cabrera](https://github.com/bryantcabrera) and
-[Mardin](https://github.com/mardinyadegar) for the conversation, insight, and
+Shout out to [Mardin](https://github.com/mardinyadegar) for the conversation, insight, and
 pairing around this topic.
 
 Made by [@yowainwright](https://github.com/yowainwright). [MIT](./LICENSE), 2022-2026.

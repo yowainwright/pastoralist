@@ -89,7 +89,8 @@ export default {
 
 ## Configuration Priority
 
-When both external config files and `package.json` configuration exist, they are merged with `package.json` taking precedence:
+When both external config files and `package.json` configuration exist,
+Pastoralist merges them and lets `package.json` take precedence:
 
 1. **External config** provides base settings
 2. **`package.json`** overrides top-level fields
@@ -257,7 +258,7 @@ The simplest approach for monorepos with a `workspaces` field:
 }
 ```
 
-This automatically scans all workspace packages defined in your `workspaces` field.
+This scans all workspace packages defined in your `workspaces` field.
 `"workspaces"` is accepted as an alias.
 
 ### Using Custom Paths
@@ -411,7 +412,8 @@ For time-bounded or version-bounded keeps, use a `KeepConstraint` object:
 - **`untilVersion`**: Semver. The keep expires once the root dependency meets or exceeds this version
 - **`reviewBy`**: Freeform field for tracking who should review the decision
 
-This allows you to see at a glance which packages were overridden due to security issues and when they were last verified.
+This shows which packages were overridden for security reasons and when they
+were last checked.
 
 ## Best Practices
 

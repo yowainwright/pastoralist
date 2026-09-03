@@ -54,14 +54,14 @@ export function DocsPage() {
   const { prevItem, nextItem } = getPagination(slug);
 
   return (
-    <section className="relative flex min-h-[calc(100vh-68px)] flex-col gap-8 p-4 font-spline-sans-mono sm:p-6 md:p-10 md:pt-10 lg:flex-row">
+    <section className="relative mx-auto grid min-h-[calc(100vh-68px)] w-full max-w-[1120px] grid-cols-1 gap-8 overflow-x-clip px-4 py-6 font-spline-sans-mono sm:px-6 md:px-10 md:py-10 lg:px-12 xl:grid-cols-[minmax(0,680px)_240px] xl:gap-16 xl:px-16 2xl:max-w-[1240px] 2xl:grid-cols-[minmax(0,720px)_260px] 2xl:gap-20 2xl:px-20">
       <MathStyles enabled={doc.usesMath} />
-      <article className="flex flex-col w-full max-w-[600px]">
+      <article className="flex w-[calc(100vw-2rem)] min-w-0 max-w-full flex-col sm:w-full">
         <Breadcrumbs title={doc.title} />
 
         <section
           ref={contentRef}
-          className="docs-prose prose prose-sm sm:prose-base md:prose-md mb-10 max-w-none prose-pre:max-w-[90vw] prose-pre:overflow-x-auto"
+          className="docs-prose prose prose-sm sm:prose-base md:prose-md mb-10 w-full min-w-0 max-w-full break-words prose-pre:max-w-full prose-pre:overflow-x-auto [&>*]:max-w-full"
         >
           <header>
             <h1>{doc.title}</h1>
@@ -74,7 +74,7 @@ export function DocsPage() {
         <Pagination prevItem={prevItem} nextItem={nextItem} />
       </article>
 
-      <aside className="hidden xl:block pl-8">
+      <aside className="hidden xl:block">
         <TocWithScrollspy key={slug} headings={headings} contentRef={contentRef} />
       </aside>
     </section>

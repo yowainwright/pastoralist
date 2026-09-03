@@ -26,9 +26,9 @@ that package owns its own override field.
 
 ## Configuration Methods
 
-Pastoralist provides multiple ways to configure workspace scanning in monorepos:
+Pastoralist can configure workspace scanning in three ways:
 
-### Method 1: depPaths in package.json (Recommended)
+### Method 1: depPaths in package.json
 
 Configure dependency paths directly in your `package.json` for workspace
 tracking:
@@ -49,7 +49,7 @@ tracking:
 }
 ```
 
-**Using `"workspace"` string** - Pastoralist automatically uses all packages defined in your `workspaces` field. The appendix only appears in the root; workspace packages stay clean.
+**Using `"workspace"` string** - Pastoralist uses all packages defined in your `workspaces` field. The appendix only appears in the root; workspace packages stay clean.
 
 **Using array of paths** - Specify custom paths to scan:
 
@@ -126,7 +126,7 @@ The initializer can:
 pastoralist
 ```
 
-This will manage overrides in your root `package.json`, which affect all workspaces.
+This manages overrides in your root `package.json`, which affect all workspaces.
 
 ### Running on Workspace Packages
 
@@ -203,7 +203,7 @@ override field.
 
 ## Integration Strategies
 
-### Strategy 1: Centralized Management with depPaths (Recommended)
+### Strategy 1: Centralized Management with depPaths
 
 Keep all overrides in the root `package.json` and use `depPaths` configuration:
 
@@ -318,7 +318,7 @@ packages:
 
 ## Best Practices
 
-### CI/CD Integration
+### CI Integration
 
 Ensure overrides are valid in CI:
 
@@ -335,7 +335,7 @@ Ensure overrides are valid in CI:
 
 **Symptom:** Workspace packages don't respect root overrides
 
-**Solution:** Ensure you're using a package manager that supports workspace overrides:
+**Solution:** Use a package manager that supports workspace overrides:
 
 - npm 8.3+ ✅
 - yarn 1.x (use resolutions) ✅
@@ -383,4 +383,4 @@ find . -name "package.json" -not -path "*/node_modules/*" \
 1. Identify package-specific needs
 2. Move relevant overrides to packages
 3. Run pastoralist on each package
-4. Update CI/CD scripts
+4. Update CI scripts

@@ -57,9 +57,9 @@ still in `package.json`, but the reason is usually somewhere else.
 </tbody>
 </table>
 
-Pastoralist handles your overrides and gives you a apendix ledger so you know know why:
-why the override exists, which packages still need it,
-which security provider found it, and when it can be removed.
+Pastoralist handles your overrides and writes an appendix ledger so you know
+why each override exists, which packages still need it, which security provider
+found it, and when it can be removed.
 
 <!-- first-run CLI commands from src/cli/parser/constants.ts and src/cli/cmds/init/ -->
 
@@ -85,8 +85,8 @@ brew install yowainwright/tap/pastoralist
 
 > [!NOTE]
 > For local projects where you just use pastoralist within scripts or CI,
-> `npm install pastoralist --save-dev` is enough
-> I'm also working to get pastoralist into brew officially soon, if possible! [August '26]
+> `npm install pastoralist --save-dev` is enough.
+> Use Homebrew when you want a global CLI outside a project install.
 
 ---
 
@@ -968,7 +968,7 @@ verify.
 - Releases are published from GitHub Actions with npm provenance
 - Published tarballs are packed before release and attached to GitHub Releases
   with artifact attestations
-- ScriptC binaries are built, tested, and attested only for stable Homebrew releases
+- Stable Homebrew releases build, test, and attest the binary asset matrix
 - Stable releases open a reviewed Homebrew tap update
 - CI runs CodeQL, OpenSSF Scorecard, unit, integration, e2e, and dependency
   policy checks

@@ -8,6 +8,13 @@ interface DocsLayoutProps {
   children: ReactNode;
 }
 
+const styles = {
+  shell: "relative flex min-h-screen flex-col",
+  main: "drawer lg:drawer-open relative min-h-[calc(100vh-68px)] flex-1",
+  drawerContent: "drawer-content flex min-h-[calc(100vh-68px)] flex-col pt-[68px]",
+  article: "flex min-h-[calc(100vh-68px)] flex-1 flex-col",
+} as const;
+
 export function DocsLayout({ children }: DocsLayoutProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const handleDrawerChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -16,10 +23,10 @@ export function DocsLayout({ children }: DocsLayoutProps) {
   const closeDrawer = () => setDrawerOpen(false);
 
   return (
-    <section className="flex flex-col min-h-screen relative">
+    <section className={styles.shell}>
       <Header />
 
-      <main className="drawer lg:drawer-open flex-1 relative">
+      <main className={styles.main}>
         <input
           id="my-drawer-2"
           type="checkbox"
@@ -27,8 +34,8 @@ export function DocsLayout({ children }: DocsLayoutProps) {
           checked={drawerOpen}
           onChange={handleDrawerChange}
         />
-        <section className="drawer-content flex flex-col pt-[68px]">
-          <article className="flex-1">{children}</article>
+        <section className={styles.drawerContent}>
+          <article className={styles.article}>{children}</article>
         </section>
         <Sidebar onClose={closeDrawer} />
       </main>

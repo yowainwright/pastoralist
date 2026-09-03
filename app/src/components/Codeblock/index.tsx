@@ -85,6 +85,32 @@ export function HighlightedCode({
   return <div className={CODEBLOCK_CLASSES.content} dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
+function CodeFallbackLine({ line }: { line: string }) {
+  const text = line || "\u00A0";
+
+  return (
+    <span className="line">
+      <span>{text}</span>
+    </span>
+  );
+}
+
+function CodeFallback({ code }: { code: string }) {
+  const lines = code.split("\n");
+
+  return (
+    <div className={CODEBLOCK_CLASSES.content}>
+      <pre className="shiki">
+        <code>
+          {lines.map((line, index) => (
+            <CodeFallbackLine key={index} line={line} />
+          ))}
+        </code>
+      </pre>
+    </div>
+  );
+}
+
 export function Codeblock({
   code,
   lang = "text",
@@ -131,13 +157,7 @@ export function Codeblock({
         </div>
       )}
       <div className={CODEBLOCK_CLASSES.pre}>
-        <Suspense
-          fallback={
-            <pre className="text-sm leading-relaxed">
-              <code>{normalizedCode}</code>
-            </pre>
-          }
-        >
+        <Suspense fallback={<CodeFallback code={normalizedCode} />}>
           <HighlightedCode code={normalizedCode} lang={lang} showLineNumbers={lineNumbersVisible} />
         </Suspense>
       </div>

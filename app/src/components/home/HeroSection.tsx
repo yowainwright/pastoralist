@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, type TargetAndTransition, type Transition } from "framer-motion";
 import { createMachine } from "xstate";
 import { useMachine } from "@xstate/react";
 import { CopyButton } from "@/components/CopyButton";
@@ -30,13 +30,43 @@ const createHeroMachine = (wasAlreadySeen: boolean) =>
       logoVisible: { after: { 700: "textVisible" } },
       textVisible: { after: { 400: "terminalVisible" } },
       terminalVisible: { on: { TERMINAL_DONE: "terminalComplete" } },
-      terminalComplete: { after: { 1200: "rainbow" } },
-      rainbow: { after: { 600: "done" } },
+      terminalComplete: { after: { 500: "rainbow" } },
+      rainbow: { after: { 700: "done" } },
       done: {},
     },
   });
 
-const EASE = [0.16, 1, 0.3, 1] as const;
+const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
+const BOUNCE_TIMES = [0, 0.45, 0.78, 1];
+const HIGHLIGHT_BOUNCE_SCALE = [1, 1.14, 0.98, 1];
+const EMOJI_BOUNCE_ROTATION = [0, 12, -4, 0];
+const EMOJI_BOUNCE_SCALE = [1, 1.18, 0.96, 1];
+const HIGHLIGHT_HIDDEN: TargetAndTransition = { opacity: 0, x: -18, scale: 1 };
+const HIGHLIGHT_VISIBLE: TargetAndTransition = { opacity: 1, x: 0, scale: 1 };
+const HIGHLIGHT_BOUNCE: TargetAndTransition = {
+  opacity: 1,
+  x: 0,
+  scale: HIGHLIGHT_BOUNCE_SCALE,
+};
+const EMOJI_HIDDEN: TargetAndTransition = { opacity: 0, scale: 0.75, rotate: -18 };
+const EMOJI_VISIBLE: TargetAndTransition = { opacity: 1, scale: 1, rotate: 0 };
+const EMOJI_BOUNCE: TargetAndTransition = {
+  opacity: 1,
+  rotate: EMOJI_BOUNCE_ROTATION,
+  scale: EMOJI_BOUNCE_SCALE,
+};
+const HIGHLIGHT_VISIBLE_TRANSITION: Transition = { duration: 0.4, ease: EASE };
+const HIGHLIGHT_BOUNCE_TRANSITION: Transition = {
+  duration: 0.62,
+  ease: EASE,
+  times: BOUNCE_TIMES,
+};
+const EMOJI_VISIBLE_TRANSITION: Transition = { duration: 0.2, ease: "easeOut" };
+const EMOJI_BOUNCE_TRANSITION: Transition = {
+  duration: 0.72,
+  ease: EASE,
+  times: BOUNCE_TIMES,
+};
 
 const styles = {
   section:
@@ -83,6 +113,28 @@ function atLeast(snapshot: { matches: (s: string) => boolean }, state: HeroState
   return STATE_ORDER.slice(idx).some((s) => snapshot.matches(s));
 }
 
+function getHighlightAnimation(celebrationActive: boolean, terminalComplete: boolean) {
+  if (celebrationActive) return HIGHLIGHT_BOUNCE;
+  if (terminalComplete) return HIGHLIGHT_VISIBLE;
+  return HIGHLIGHT_HIDDEN;
+}
+
+function getEmojiAnimation(celebrationActive: boolean, showEmoji: boolean) {
+  if (celebrationActive) return EMOJI_BOUNCE;
+  if (showEmoji) return EMOJI_VISIBLE;
+  return EMOJI_HIDDEN;
+}
+
+function getHighlightTransition(celebrationActive: boolean): Transition {
+  if (celebrationActive) return HIGHLIGHT_BOUNCE_TRANSITION;
+  return HIGHLIGHT_VISIBLE_TRANSITION;
+}
+
+function getEmojiTransition(celebrationActive: boolean): Transition {
+  if (celebrationActive) return EMOJI_BOUNCE_TRANSITION;
+  return EMOJI_VISIBLE_TRANSITION;
+}
+
 function HeroContent({ showComplete }: { showComplete: boolean }) {
   const [wasAlreadySeen] = useState(() => showComplete || hadSeen());
   const heroMachine = useMemo(() => createHeroMachine(wasAlreadySeen), [wasAlreadySeen]);
@@ -95,12 +147,25 @@ function HeroContent({ showComplete }: { showComplete: boolean }) {
   const textVisible = atLeast(snapshot, "textVisible");
   const terminalVisible = atLeast(snapshot, "terminalVisible");
   const terminalComplete = atLeast(snapshot, "terminalComplete");
-  const showRainbow = atLeast(snapshot, "rainbow");
-  const showEmoji = atLeast(snapshot, "done");
+  const rainbowVisible = atLeast(snapshot, "rainbow");
+  const celebrationActive = snapshot.matches("rainbow");
+  const announcementSettled = atLeast(snapshot, "done");
+  const showEmoji = terminalComplete;
+  const announcementWordClassName =
+    "text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.65),0_0_18px_rgba(0,0,0,0.35)]";
+  const highlightToneClassName = rainbowVisible ? "rainbow-text" : announcementWordClassName;
+  const highlightShimmerClassName = announcementSettled
+    ? "[animation:gradient-shimmer_3.2s_ease-in-out_1.4s_infinite]"
+    : "";
+  const highlightClassName = `inline-block ${highlightToneClassName} ${highlightShimmerClassName}`;
+  const highlightAnimation = getHighlightAnimation(celebrationActive, terminalComplete);
+  const highlightTransition = getHighlightTransition(celebrationActive);
+  const emojiAnimation = getEmojiAnimation(celebrationActive, showEmoji);
+  const emojiTransition = getEmojiTransition(celebrationActive);
 
   useEffect(() => {
     const confettiTarget = automaticallyRef.current;
-    const shouldSkipConfetti = wasAlreadySeen || !showRainbow || !confettiTarget;
+    const shouldSkipConfetti = wasAlreadySeen || !rainbowVisible || !confettiTarget;
     if (shouldSkipConfetti) return;
 
     const rect = confettiTarget.getBoundingClientRect();
@@ -110,7 +175,7 @@ function HeroContent({ showComplete }: { showComplete: boolean }) {
     const options = { particleCount: 100, spread: 70, origin, colors: CONFETTI_COLORS };
     const loadConfetti = import("canvas-confetti");
     void loadConfetti.then(({ default: confetti }) => confetti(options)).catch(() => undefined);
-  }, [showRainbow, wasAlreadySeen]);
+  }, [rainbowVisible, wasAlreadySeen]);
 
   const handleTerminalComplete = () => {
     const terminalDoneEvent = { type: "TERMINAL_DONE" } as const;
@@ -170,28 +235,27 @@ function HeroContent({ showComplete }: { showComplete: boolean }) {
             <h1 className={styles.h1}>
               <span className="font-bold gradient-text">{CONTENT.headingStart}</span>{" "}
               {CONTENT.headingMid}
-              <motion.span
-                ref={automaticallyRef}
-                className={`inline-block ml-2 ${
-                  showRainbow
-                    ? "rainbow-text animate-rainbow-bounce"
-                    : "text-base-content animate-slide-in-right"
-                }`}
-                initial={{ opacity: 0, x: 20 }}
-                animate={terminalComplete ? { opacity: 1, x: 0 } : { opacity: 0, x: 20 }}
-                transition={{ duration: 0.4, ease: "easeOut" }}
-                aria-hidden={!terminalComplete}
-              >
-                {CONTENT.headingHighlight}
-              </motion.span>
-              <motion.span
-                className="inline-block animate-thumbs-up"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: showEmoji ? 1 : 0 }}
-                aria-hidden={!showEmoji}
-              >
-                {CONTENT.emoji}
-              </motion.span>
+              <span className="ml-2 inline-flex items-baseline gap-1 whitespace-nowrap align-baseline">
+                <motion.span
+                  ref={automaticallyRef}
+                  className={highlightClassName}
+                  initial={wasAlreadySeen ? false : HIGHLIGHT_HIDDEN}
+                  animate={highlightAnimation}
+                  transition={highlightTransition}
+                  aria-hidden={!terminalComplete}
+                >
+                  {CONTENT.headingHighlight}
+                </motion.span>
+                <motion.span
+                  className="inline-block origin-[50%_80%]"
+                  initial={wasAlreadySeen ? false : EMOJI_HIDDEN}
+                  animate={emojiAnimation}
+                  transition={emojiTransition}
+                  aria-hidden={!showEmoji}
+                >
+                  {CONTENT.emoji}
+                </motion.span>
+              </span>
             </h1>
 
             <nav className={styles.nav}>

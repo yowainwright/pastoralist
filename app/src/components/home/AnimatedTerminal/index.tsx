@@ -6,7 +6,6 @@ import {
   DEFAULT_PAUSE_DURATION,
   INTERSECTION_OBSERVER_OPTIONS,
   TERMINAL_CLASSES,
-  getTerminalContentMinHeight,
 } from "./constants";
 import { TerminalWindow } from "@/components/TerminalWindow";
 import { STYLES } from "@/components/TerminalWindow/constants";
@@ -42,7 +41,8 @@ const TerminalLines: React.FC<{
   currentLine: TerminalLine | undefined;
   displayedText: string;
   animateLines: boolean;
-}> = ({ visibleLines, isTyping, currentLine, displayedText, animateLines }) => {
+  reserveCursor?: boolean;
+}> = ({ visibleLines, isTyping, currentLine, displayedText, animateLines, reserveCursor }) => {
   const lineAnimationClass = animateLines ? "terminal-line-enter" : "";
 
   return (
@@ -52,6 +52,7 @@ const TerminalLines: React.FC<{
           {line.prefix && <span className={STYLES.prefix}>{line.prefix}</span>}
           <TreeConnectors line={line} />
           <span dangerouslySetInnerHTML={{ __html: line.text }} />
+          {reserveCursor && <span className={`${STYLES.cursor} invisible !animate-none`} />}
         </div>
       ))}
       {isTyping && currentLine && (
@@ -69,9 +70,8 @@ const TerminalLines: React.FC<{
 const TerminalContent: React.FC<{
   demos: TerminalDemo[];
   lineProps: React.ComponentProps<typeof TerminalLines>;
-  style: React.CSSProperties;
-}> = ({ demos, lineProps, style }) => (
-  <div className={`${STYLES.content} terminal-content-layered`} style={style}>
+}> = ({ demos, lineProps }) => (
+  <div className={`${STYLES.content} terminal-content-layered min-h-0 flex-1`}>
     {demos.map((demo, index) => (
       <div key={index} className="terminal-content-sizer" aria-hidden="true">
         <TerminalLines
@@ -80,6 +80,7 @@ const TerminalContent: React.FC<{
           currentLine={undefined}
           displayedText=""
           animateLines={false}
+          reserveCursor
         />
       </div>
     ))}
@@ -226,10 +227,7 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
     displayedText,
     animateLines: shouldAnimate && hasStarted,
   };
-  const contentStyle = { minHeight: getTerminalContentMinHeight(demos) };
-  const terminalContent = (
-    <TerminalContent demos={demos} lineProps={lineProps} style={contentStyle} />
-  );
+  const terminalContent = <TerminalContent demos={demos} lineProps={lineProps} />;
 
   if (hideHeader) {
     return (
@@ -241,7 +239,7 @@ export const AnimatedTerminal: React.FC<AnimatedTerminalProps> = ({
 
   return (
     <div ref={containerRef}>
-      <TerminalWindow className={TERMINAL_CLASSES} minHeight={minHeight}>
+      <TerminalWindow className={TERMINAL_CLASSES} height={minHeight} minHeight={minHeight}>
         {terminalContent}
       </TerminalWindow>
     </div>

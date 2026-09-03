@@ -27,8 +27,8 @@ function MermaidBlock({ chart }: MermaidProps) {
   return (
     <Suspense
       fallback={
-        <div className="my-6 flex justify-center animate-pulse">
-          <div className="h-32 w-full max-w-md bg-base-content/10 rounded" />
+        <div className="my-6 flex min-h-64 items-center justify-center animate-pulse">
+          <div className="h-48 w-full max-w-lg rounded bg-base-content/10" />
         </div>
       }
     >

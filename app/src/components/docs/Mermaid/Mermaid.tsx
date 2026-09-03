@@ -44,7 +44,7 @@ export function Mermaid({ chart }: MermaidProps) {
   return (
     <figure
       ref={ref}
-      className="mermaid my-6 flex justify-center"
+      className="mermaid my-6 flex min-h-64 justify-center"
       dangerouslySetInnerHTML={renderedMarkup}
     />
   );

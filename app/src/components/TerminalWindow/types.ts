@@ -5,6 +5,7 @@ export interface TerminalTab {
 
 export interface TerminalWindowProps {
   isActive?: boolean;
+  height?: string;
   minHeight?: string;
   fileName?: string;
   tabs?: TerminalTab[];

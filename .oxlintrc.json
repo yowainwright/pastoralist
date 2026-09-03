@@ -16,35 +16,35 @@
       }
     ],
     "legibility/hoist-if-operators": [
-      "warn",
+      "error",
       {
         "max": 0
       }
     ],
     "legibility/max-expression-operators": [
-      "warn",
+      "error",
       {
         "max": 4
       }
     ],
     "legibility/no-complex-ternaries": [
-      "warn",
+      "error",
       {
         "max": 2
       }
     ],
     "legibility/no-computed-values": [
-      "warn",
+      "error",
       {
         "max": 1
       }
     ],
-    "legibility/no-hidden-side-effects": "warn",
-    "legibility/no-quadratic-patterns": "warn",
-    "legibility/no-standalone-array-mutations": "warn",
-    "legibility/prefer-concat-object-assign": "warn",
+    "legibility/no-hidden-side-effects": "error",
+    "legibility/no-quadratic-patterns": "error",
+    "legibility/no-standalone-array-mutations": "error",
+    "legibility/prefer-concat-object-assign": "error",
     "legibility/require-executable-shebang": [
-      "warn",
+      "error",
       {
         "files": ["src/index.ts", "src/cli/index.ts"]
       }
@@ -77,7 +77,7 @@
         "legibility/prefer-concat-object-assign": "off",
         "legibility/require-executable-shebang": "off",
         "legibility/no-direct-node-bin-smoke": [
-          "warn",
+          "error",
           {
             "entryPatterns": [
               "dist/index.js",

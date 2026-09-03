@@ -76,7 +76,7 @@ function Pre({
   }
 
   return (
-    <div className="not-prose my-4">
+    <div className="not-prose my-4 min-w-0 max-w-full overflow-hidden">
       <Codeblock code={code} lang={lang} showCopy={false} showLanguage={false} showLineNumbers />
     </div>
   );

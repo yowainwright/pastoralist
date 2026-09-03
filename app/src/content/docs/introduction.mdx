@@ -20,10 +20,10 @@ description: "Pastoralist keeps dependency overrides explainable, current, and r
 
 Pastoralist is the audit trail for package manager overrides.
 
-If your project uses `overrides`, `pnpm.overrides`, or `resolutions`,
-Pastoralist records why each entry exists, which packages still need it, and
-when it can be removed. It can also connect security fixes, patch files,
-workspace packages, and CI checks to the same record.
+If your project uses npm or Bun `overrides`, pnpm `pnpm.overrides`, or Yarn
+`resolutions`, Pastoralist records why each entry exists, which packages still
+need it, and when it can be removed. It can also connect security fixes, patch
+files, workspace packages, and CI checks to the same record.
 
 ## Why This Matters
 
@@ -109,7 +109,7 @@ and what condition makes it removable.
 | Optional providers | GitHub, npm audit, Snyk, Socket, Spektion                    |
 | Monorepos          | Auto-detects `workspaces`; accepts explicit package globs    |
 | CI                 | CLI flags plus a GitHub Action                               |
-| Test surface       | 1,700+ test cases across unit, integration, and e2e fixtures |
+| Test surface       | 2,000+ test cases across unit, integration, and e2e fixtures |
 
 ## When To Use It
 

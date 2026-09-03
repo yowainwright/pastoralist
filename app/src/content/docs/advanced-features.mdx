@@ -1,11 +1,11 @@
 ---
 title: Advanced Features
-description: Deep dive into pastoralist's advanced capabilities
+description: Advanced cleanup, patch tracking, and override management workflows
 ---
 
 ## Nested Overrides (Transitive Dependencies)
 
-Pastoralist supports npm's nested override syntax for overriding transitive dependencies (dependencies of dependencies).
+Pastoralist supports npm's nested override syntax for transitive dependencies.
 
 ### How It Works
 
@@ -24,7 +24,8 @@ When you need to override a transitive dependency, you can use nested overrides:
 }
 ```
 
-This tells npm to use `pg-types@^4.0.1` whenever it's required by the `pg` package, regardless of what version `pg` actually specifies.
+This tells npm to use `pg-types@^4.0.1` whenever `pg` requests `pg-types`,
+regardless of the version range declared by `pg`.
 
 ### Multiple Nested Overrides
 
@@ -78,8 +79,8 @@ still gets a `ledger` recording when it was added:
 
 ### Workspace Support
 
-In monorepos, nested overrides in workspace packages are also tracked. For example,
-`packages/app/package.json` might contain:
+In monorepos, nested overrides in workspace packages are also tracked. For
+example, `packages/app/package.json` might contain:
 
 ```json
 {
@@ -91,11 +92,12 @@ In monorepos, nested overrides in workspace packages are also tracked. For examp
 }
 ```
 
-Pastoralist will detect and manage these nested overrides across all workspace packages when using the `--depPaths` option.
+With `--depPaths`, Pastoralist tracks these nested overrides across workspace
+packages.
 
 ## Patch Support
 
-Pastoralist automatically detects and tracks patches created by tools like `patch-package`.
+Pastoralist detects and tracks patches created by tools such as `patch-package`.
 
 ### How It Works
 
@@ -108,7 +110,7 @@ patches/
 └── react+18.2.0.patch
 ```
 
-Pastoralist will track them in the appendix:
+Pastoralist tracks them in the appendix:
 
 ```json
 {
@@ -131,7 +133,7 @@ Pastoralist will track them in the appendix:
 
 ### Unused Patch Detection
 
-When a dependency is removed, pastoralist alerts you:
+When a dependency is removed, Pastoralist alerts you:
 
 ```
 🐑 Found 2 potentially unused patch files:
@@ -228,7 +230,8 @@ When a dependency is updated and no longer needs an override:
 
 ### Unused Override Detection
 
-When an override exists but no package in your project depends on it, Pastoralist labels it as `(unused override)` in the appendix:
+When an override exists but no package in your project depends on it,
+Pastoralist labels it as `(unused override)` in the appendix:
 
 ```json
 {
@@ -260,7 +263,8 @@ This removes both the override from `overrides` and its entry from the appendix.
 
 ### Protecting Overrides from Removal
 
-Set `keep: true` on a ledger entry to prevent `--remove-unused` from ever removing it:
+Set `keep: true` on a ledger entry to prevent `--remove-unused` from removing
+it:
 
 ```json
 {
@@ -338,7 +342,8 @@ And this override:
 }
 ```
 
-Pastoralist understands that `^4.18.0` could resolve to `4.18.2` naturally, so the override might not be necessary unless it's fixing a specific issue.
+Pastoralist understands that `^4.18.0` can resolve to `4.18.2` without an
+override. Unless the override fixes a specific issue, it may be removable.
 
 ## Appendix Cleanup
 
@@ -411,13 +416,14 @@ Debug mode (`--debug`) provides detailed information:
 
 ### patch-package
 
-Pastoralist complements `patch-package` by tracking which overrides have associated patches:
+Pastoralist complements `patch-package` by tracking which overrides have
+associated patches:
 
 ```bash
 # Apply a patch
 npx patch-package lodash
 
-# Run pastoralist to update tracking
+# Run Pastoralist to update tracking
 npx pastoralist
 ```
 
@@ -435,7 +441,7 @@ npx pastoralist
 
 ### Renovate/Dependabot
 
-Configure automated tools to run pastoralist after updates:
+Configure automated tools to run Pastoralist after updates:
 
 ```json
 {
@@ -493,5 +499,5 @@ console.log("Highest impact overrides:", overrideImpact.slice(0, 5));
 
 ## Best Practices
 
-1. **Regular Updates**: Run pastoralist on install, scheduled CI, or dependency-update PRs
+1. **Regular Updates**: Run Pastoralist on install, scheduled CI, or dependency-update PRs
 2. **Review Patches**: Check for upstream fixes when dependencies update

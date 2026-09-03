@@ -1,6 +1,6 @@
 ---
 title: Architecture
-description: "Deep dive into how Pastoralist works, including overrides, resolutions, patches, and the object anatomy"
+description: "How Pastoralist reads overrides, writes the appendix, tracks patches, and handles cleanup"
 ---
 
 ## How Pastoralist Works
@@ -42,11 +42,11 @@ You manage the override or resolution field; Pastoralist manages the appendix.
 
 In workspace/monorepo setups, Pastoralist:
 
-- Reads the root package.json or project manifest file
+- Reads the root `package.json` or project manifest file
 - Maps overrides, resolutions, and patches to the `pastoralist.appendix`, with a
   `ledger` entry recording when each override was added
 - Reads workspace package manifests when `depPaths` or `workspaces` are configured
-- Writes the consolidated appendix to the target package.json, usually the root
+- Writes the consolidated appendix to the target `package.json`, usually the root
 
 ## Simple Project Architecture
 
@@ -83,7 +83,8 @@ flowchart TD
 
 ### Overrides (npm)
 
-Overrides allow you to replace a package version in your dependency tree with a different version. This is npm's way of handling dependency conflicts:
+Overrides replace a package version in your dependency tree with the version
+you choose. This is npm's way to handle dependency conflicts:
 
 ```json
 {
@@ -98,7 +99,7 @@ Overrides allow you to replace a package version in your dependency tree with a 
 
 ### Resolutions (Yarn)
 
-Resolutions serve the same purpose for Yarn users, allowing you to force specific versions:
+Resolutions serve the same purpose for Yarn users:
 
 ```json
 {
@@ -111,11 +112,12 @@ Resolutions serve the same purpose for Yarn users, allowing you to force specifi
 
 ### Patches
 
-Patches are custom modifications to node_modules packages, typically created with tools like `patch-package`. Pastoralist automatically detects and tracks these patches.
+Patches are local changes to `node_modules` packages, usually created with
+tools such as `patch-package`. Pastoralist detects and tracks these patches.
 
 ## Object Anatomy
 
-The Pastoralist object in your package.json provides full transparency into what's being managed:
+The Pastoralist object in `package.json` records what the tool manages:
 
 ```json
 {
@@ -181,7 +183,7 @@ npm registry requests are limited to 5 concurrent to avoid rate limits during se
 
 ## Dependency Resolution Flow
 
-Complete flow of how dependencies are resolved with overrides:
+How package managers resolve dependencies with overrides:
 
 ```mermaid
 flowchart TD

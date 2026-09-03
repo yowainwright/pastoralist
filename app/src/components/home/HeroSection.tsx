@@ -175,7 +175,7 @@ function HeroContent({ showComplete }: { showComplete: boolean }) {
                 className={`inline-block ml-2 ${
                   showRainbow
                     ? "rainbow-text animate-rainbow-bounce"
-                    : "text-glow-shimmer animate-slide-in-right"
+                    : "text-base-content animate-slide-in-right"
                 }`}
                 initial={{ opacity: 0, x: 20 }}
                 animate={terminalComplete ? { opacity: 1, x: 0 } : { opacity: 0, x: 20 }}

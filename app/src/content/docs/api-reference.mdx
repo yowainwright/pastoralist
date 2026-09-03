@@ -3,10 +3,10 @@ title: API Reference
 description: Complete reference for pastoralist CLI and Node.js API
 ---
 
-Pastoralist provides both a CLI interface and a Node.js API for programmatic usage.
+Pastoralist provides a CLI and a Node.js API.
 
 :::tip[Configuration Files]
-Most CLI options can be configured using config files. See the [Configuration](/docs/configuration) documentation for details on using `.pastoralistrc`, `pastoralist.config.js`, or `package.json` for persistent settings.
+Most CLI options can be stored in config files. See [Configuration](/docs/configuration) for `.pastoralistrc`, `pastoralist.config.js`, and `package.json` settings.
 :::
 
 {/* public CLI commands and options from src/cli/parser/constants.ts and src/cli/index.ts */}
@@ -18,7 +18,7 @@ directly.
 
 ### `pastoralist`
 
-Run pastoralist on the current directory's package.json.
+Run Pastoralist on the current directory's `package.json`.
 
 ```bash
 npx pastoralist
@@ -49,7 +49,7 @@ npx pastoralist onboard
 > Type: **`string`**
 > Default: `"package.json"`
 
-Run pastoralist on a specific package.json file.
+Run Pastoralist on a specific `package.json` file.
 
 ```diff
  npx pastoralist
@@ -62,7 +62,7 @@ Run pastoralist on a specific package.json file.
 > Type: **`string[]`**
 > Default: unset
 
-Run pastoralist on multiple package.json files using glob patterns.
+Read dependency data from multiple `package.json` files using glob patterns.
 
 ```diff
  npx pastoralist
@@ -80,7 +80,7 @@ Exclude files matching glob patterns.
 ```diff
  npx pastoralist
 +npx pastoralist --ignore "**/test/**" "**/dist/**"
-+npx pastoralist --depPaths "**/*package.json" --ignore "**/node_modules/**" "**/legacy/**"
++npx pastoralist --depPaths "**/package.json" --ignore "**/node_modules/**" "**/legacy/**"
 ```
 
 ### `pastoralist --root <root>`
@@ -146,7 +146,7 @@ Enable detailed debug output.
 
 ### `pastoralist --dry-run`
 
-Preview changes without modifying package.json.
+Preview changes without modifying `package.json`.
 
 ```diff
  npx pastoralist
@@ -215,7 +215,7 @@ Display metrics after run.
 
 ### `pastoralist --setup-hook`
 
-Add pastoralist to your postinstall script automatically.
+Add Pastoralist to your `postinstall` script automatically.
 
 ```diff
  npx pastoralist
@@ -233,7 +233,7 @@ Set up local agent config, selected skills, and selected local hooks.
 
 ### `pastoralist --remove-unused`
 
-Remove overrides that no package in your project depends on. When Pastoralist detects unused overrides during a run, it displays a notice suggesting this flag.
+Remove overrides that no package in your project depends on. When Pastoralist detects unused overrides during a run, it suggests this flag.
 
 ```diff
  npx pastoralist
@@ -586,7 +586,7 @@ Create a logger instance for custom debugging.
 +}
 ```
 
-### CI/CD Validation
+### CI Validation
 
 ```diff
  import { resolveJSON, update } from "pastoralist";

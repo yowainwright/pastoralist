@@ -1,6 +1,6 @@
 ---
 title: GitHub Action
-description: Automated dependency override management for CI/CD
+description: Automated dependency override management for CI
 ---
 
 ## Quick Start
@@ -53,7 +53,7 @@ The action enables OSV security scanning by default. Set
 
 ### `mode: check`
 
-Runs pastoralist in dry-run mode. Reports issues without modifying files.
+Runs Pastoralist in dry-run mode. Reports issues without modifying files.
 
 ```diff
  - uses: yowainwright/pastoralist@v1
@@ -65,7 +65,7 @@ Runs pastoralist in dry-run mode. Reports issues without modifying files.
 
 > Default: selected when `mode` is unset
 
-Runs pastoralist and modifies `package.json`. Use when you want to handle commits yourself.
+Runs Pastoralist and modifies `package.json`. Use when you want to handle commits yourself.
 
 ```diff
  - uses: actions/checkout@v7
@@ -85,7 +85,7 @@ Runs pastoralist and modifies `package.json`. Use when you want to handle commit
 
 ### `mode: pr`
 
-Runs pastoralist and creates a PR if changes are needed. Ideal for scheduled workflows.
+Runs Pastoralist and creates a PR if changes are needed. This is best for scheduled workflows.
 Use this mode with `contents: write` and `pull-requests: write` workflow
 permissions.
 

@@ -249,7 +249,7 @@ The GitHub provider uses Dependabot alerts to check for vulnerabilities. This pr
 
 The GitHub provider supports two authentication methods:
 
-**Option 1: GitHub CLI (Recommended)**
+**Option 1: GitHub CLI**
 
 If you have the [GitHub CLI](https://cli.github.com/) installed and authenticated, no additional setup is required:
 
@@ -268,14 +268,14 @@ If you don't have the GitHub CLI, you can provide a GitHub token:
 1. Create a personal access token at https://github.com/settings/tokens with `repo` scope
 2. Set the token as an environment variable:
    ```bash
-   export GITHUB_TOKEN=your_token_here
+   export GITHUB_TOKEN="..."
    ```
 3. Or pass it via CLI in one-off/local use:
    ```bash
-   pastoralist --checkSecurity --securityProvider github --securityProviderToken your_token_here
+   pastoralist --checkSecurity --securityProvider github --securityProviderToken "$GITHUB_TOKEN"
    ```
 
-#### CI/CD Permissions
+#### CI Permissions
 
 When using the GitHub provider in CI workflows, you need to:
 
@@ -289,7 +289,7 @@ permissions:
 
 2. **Enable Dependabot alerts** in your repository: Settings → Code security and analysis → Dependabot alerts
 
-If permissions are insufficient, Pastoralist will display a warning with guidance and continue (your workflow won't fail).
+If permissions are insufficient, Pastoralist displays a warning and continues.
 
 ### npm Audit Provider
 
@@ -313,7 +313,7 @@ Requires the Snyk CLI and API authentication token.
 
 ```bash
 # Set your Snyk token
-export SNYK_TOKEN=your_token_here
+export SNYK_TOKEN="..."
 
 # Run with Snyk provider
 pastoralist --checkSecurity --securityProvider snyk
@@ -390,7 +390,9 @@ the fixed CVEs remain in the sibling `cves` field.
 
 ## Keeping Security Overrides with `keep`
 
-By default, `--remove-unused` will remove overrides whose dependents no longer require them. For security overrides you want to retain regardless, set `keep` on the ledger:
+By default, `--remove-unused` removes overrides whose dependents no longer
+require them. For security overrides you want to retain, set `keep` on the
+ledger:
 
 ```json
 {
@@ -417,7 +419,8 @@ For expiring keeps, use a `KeepConstraint` object:
 }
 ```
 
-Once the root dependency reaches `4.18.0`, the keep is considered expired and `--remove-unused` will treat it as removable again.
+Once the root dependency reaches `4.18.0`, the keep is expired and
+`--remove-unused` can treat it as removable again.
 
 ## How It Works
 
@@ -462,7 +465,7 @@ Generated 2 override(s):
 
 :::caution[Performance Impact]
 
-- Security scanning is **disabled by default** to maintain fast performance
+- Security scanning is **disabled by default** for CLI config and enabled by default in the GitHub Action
 - Workspace scanning is **opt-in** via the `hasWorkspaceSecurityChecks` option
 - The OSV provider is optimized for batch queries
 - Provider results can be cached using the CLI cache options
@@ -483,13 +486,13 @@ Generated 2 override(s):
 
 ### No vulnerabilities found when expected
 
-- Ensure you're using the latest version of pastoralist
-- Check that your dependencies are correctly specified in package.json
+- Ensure you're using the latest version of Pastoralist
+- Check that your dependencies are correctly specified in `package.json`
 - Try running with `--debug` to see detailed logs
 
 ### Fixes not being applied
 
-- Verify you have write permissions to package.json
+- Verify you have write permissions to `package.json`
 - Check for existing overrides that might conflict
 - Ensure the package manager supports overrides
 
@@ -509,7 +512,7 @@ This happens when the GitHub API can't access Dependabot alerts. To fix:
 
 Pastoralist will show specific guidance in the warning message.
 
-## Example: CI/CD Integration
+## Example: CI Integration
 
 ### GitHub Actions
 

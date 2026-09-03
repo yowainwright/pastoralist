@@ -28,8 +28,8 @@ Yes. Pastoralist reads and writes the override field your package manager uses:
 
 Pastoralist is designed to keep changes reviewable:
 
-- Only modifies override/resolution fields and the `pastoralist` section of package.json
-- Normalizes package.json output to two-space JSON
+- Only modifies override/resolution fields and the `pastoralist` section of `package.json`
+- Normalizes `package.json` output to two-space JSON
 - Leaves changes visible in git so you can review or revert them
 - Creates a temporary backup before security auto-fix writes package.json
 
@@ -56,9 +56,9 @@ npx pastoralist --debug
 
 Look for output showing which packages require the override.
 
-### Package.json Formatting Changes
+### package.json Formatting Changes
 
-**Problem:** Pastoralist changes the formatting of my package.json.
+**Problem:** Pastoralist changes the formatting of my `package.json`.
 
 **Solution:** Pastoralist rewrites `package.json` as two-space JSON. If you see unexpected changes:
 
@@ -91,7 +91,7 @@ patches/
 
 ```bash
 # Instead of
-pastoralist --depPaths "**/*package.json"
+pastoralist --depPaths "**/package.json"
 
 # Try
 find . -name "package.json" -not -path "*/node_modules/*" | \
@@ -126,7 +126,7 @@ Packages can hold their own compatibility requirements:
 
 ### CI Failures
 
-**Problem:** CI fails saying package.json was modified.
+**Problem:** CI fails saying `package.json` was modified.
 
 **Solution:** Run pastoralist locally and commit the changes:
 
@@ -162,7 +162,7 @@ Debug output includes:
 
 ### "Cannot find package.json"
 
-Pastoralist can't locate your package.json. Solutions:
+Pastoralist can't locate your `package.json`. Solutions:
 
 - Run from project root
 - Use `--path` to specify location
@@ -170,7 +170,7 @@ Pastoralist can't locate your package.json. Solutions:
 
 ### "Invalid package.json"
 
-Your package.json has syntax errors. Validate with:
+Your `package.json` has syntax errors. Validate with:
 
 ```bash
 npx json package.json
@@ -236,7 +236,7 @@ Review and remove unused patches to keep your repo clean.
 
 ### Resources
 
-- [GitHub Issues](https://github.com/yowainwright/pastoralist/issues) - Report bugs & ask questions
+- [GitHub Issues](https://github.com/yowainwright/pastoralist/issues) - Report bugs and ask questions
 
 ### Before Filing an Issue
 
@@ -251,7 +251,7 @@ When reporting issues, include:
 
 - Pastoralist version
 - Node.js version
-- Package manager (npm/yarn/pnpm)
+- Package manager (npm, Yarn, pnpm, or Bun)
 - Relevant package.json sections
 - Debug output
 

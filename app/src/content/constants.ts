@@ -35,7 +35,7 @@ export const DOCS = [
   {
     slug: "codelab",
     title: "Interactive Tutorial",
-    description: "Learn pastoralist step-by-step",
+    description: "Learn Pastoralist step by step",
   },
   {
     slug: "api-reference",
@@ -46,7 +46,7 @@ export const DOCS = [
     slug: "architecture",
     title: "Architecture",
     description:
-      "Deep dive into how Pastoralist works, including overrides, resolutions, patches, and the object anatomy",
+      "How Pastoralist reads overrides, writes the appendix, tracks patches, and handles cleanup",
   },
   {
     slug: "troubleshooting",
@@ -61,6 +61,6 @@ export const DOCS = [
   {
     slug: "github-action",
     title: "GitHub Action",
-    description: "Automated dependency override management for CI/CD",
+    description: "Automated dependency override management for CI",
   },
 ] satisfies readonly DocMeta[];

@@ -5,7 +5,6 @@
 ![CI](https://github.com/yowainwright/pastoralist/actions/workflows/ci.yml/badge.svg)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/yowainwright/pastoralist/badge)](https://scorecard.dev/viewer/?uri=github.com/yowainwright/pastoralist)
 [![codecov](https://codecov.io/gh/yowainwright/pastoralist/branch/main/graph/badge.svg)](https://codecov.io/gh/yowainwright/pastoralist)
-<img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=6f41d7dd-fce9-49ea-ae43-040a51f458bd" />
 
 [npm-package]: https://www.npmjs.com/package/pastoralist
 [npm-version-badge]: https://img.shields.io/npm/v/pastoralist.svg
@@ -262,6 +261,8 @@ pastoralist --outputFormat json
 
 ## CLI API
 
+Full reference: [CLI API](https://jeffry.in/pastoralist/docs/api-reference#cli).
+
 The direct commands below assume `pastoralist` is available from a project
 script, global npm install, or Homebrew install. Use `npx pastoralist ...` for
 one-off project setup.
@@ -286,8 +287,7 @@ Prints CLI help or the installed package version.
 
 ```sh
 pastoralist --help
-pastoralist --version
-pastoralist -v
+pastoralist --version # -v
 ```
 
 #### `pastoralist doctor`
@@ -307,12 +307,9 @@ pastoralist doctor --outputFormat json
 > Type: **`command`**
 
 Prints first-run guidance for local setup, agent setup, and GitHub Action setup.
-`pastoralist onboarding` and `pastoralist --onboard` are aliases.
 
 ```sh
 pastoralist onboard
-pastoralist onboarding
-pastoralist --onboard
 ```
 
 #### `pastoralist init`
@@ -324,8 +321,6 @@ external config file, configure workspace paths, and set up security scanning.
 
 ```sh
 pastoralist init
-pastoralist init config
-pastoralist --init config
 ```
 
 #### `pastoralist init agent-skill`
@@ -337,7 +332,6 @@ Installs the bundled Pastoralist agent skill into
 
 ```sh
 pastoralist init agent-skill
-pastoralist --init agent-skill --dry-run
 ```
 
 #### `--path`, `-p`
@@ -348,8 +342,7 @@ pastoralist --init agent-skill --dry-run
 Selects the package manifest Pastoralist should read and update.
 
 ```sh
-pastoralist --path packages/app/package.json
-pastoralist -p ./fixtures/package.json --dry-run
+pastoralist --path packages/app/package.json # -p packages/app/package.json
 ```
 
 #### `--root`, `-r`
@@ -360,8 +353,7 @@ Sets the root directory used to resolve relative paths, config files, lockfiles,
 patches, and workspace globs.
 
 ```sh
-pastoralist --root ../my-project
-pastoralist --root ../my-project --path package.json
+pastoralist --root ../my-project # -r ../my-project
 ```
 
 #### `--depPaths`, `-d`
@@ -372,8 +364,7 @@ Scans additional package manifests for monorepo dependency context. Values are
 collected until the next flag.
 
 ```sh
-pastoralist --depPaths "packages/*/package.json"
-pastoralist -d "packages/*/package.json" "apps/*/package.json"
+pastoralist --depPaths "packages/*/package.json" # -d "packages/*/package.json"
 ```
 
 #### `--ignore`
@@ -383,8 +374,7 @@ pastoralist -d "packages/*/package.json" "apps/*/package.json"
 Excludes package manifests from `--depPaths` matching.
 
 ```sh
-pastoralist --depPaths "**/package.json" --ignore "**/node_modules/**"
-pastoralist --depPaths "**/package.json" --ignore "**/fixtures/**" "**/dist/**"
+pastoralist --ignore "**/node_modules/**"
 ```
 
 #### `--debug`
@@ -395,7 +385,6 @@ Enables debug logging for CLI execution.
 
 ```sh
 pastoralist --debug
-pastoralist --checkSecurity --debug
 ```
 
 #### `--dry-run`
@@ -407,7 +396,6 @@ writing files.
 
 ```sh
 pastoralist --dry-run
-pastoralist --checkSecurity --dry-run
 ```
 
 #### `--outputFormat`
@@ -419,7 +407,6 @@ Selects terminal output or a single machine-readable JSON result.
 
 ```sh
 pastoralist --outputFormat text
-pastoralist --dry-run --outputFormat json
 ```
 
 #### `--summary`
@@ -430,7 +417,6 @@ Prints the metrics table after a text-mode run.
 
 ```sh
 pastoralist --summary
-pastoralist --checkSecurity --summary
 ```
 
 #### `--quiet`, `-q`
@@ -441,8 +427,7 @@ Suppresses normal text output for CI. Security findings make the command exit
 with code `1`; clean security checks exit with code `0`.
 
 ```sh
-pastoralist --quiet --checkSecurity
-pastoralist -q --checkSecurity --securityProvider osv
+pastoralist --quiet # -q --checkSecurity
 ```
 
 #### `--setup-hook`
@@ -454,7 +439,6 @@ postinstall scripts are appended with `&& pastoralist`.
 
 ```sh
 pastoralist --setup-hook
-pastoralist --root packages/app --setup-hook
 ```
 
 #### `--remove-unused`
@@ -465,7 +449,6 @@ Removes verified unused override entries from the active override source and
 appendix. Preview first with `--dry-run`.
 
 ```sh
-pastoralist --remove-unused --dry-run
 pastoralist --remove-unused
 ```
 
@@ -478,7 +461,6 @@ findings can add override data and security ledger fields.
 
 ```sh
 pastoralist --checkSecurity
-pastoralist --checkSecurity --dry-run --summary
 ```
 
 #### `--securityProvider`
@@ -490,7 +472,6 @@ enabled and no provider is set.
 
 ```sh
 pastoralist --checkSecurity --securityProvider osv
-pastoralist --checkSecurity --securityProvider osv npm
 ```
 
 #### `--securityProviderToken`
@@ -503,7 +484,6 @@ for CI: `GITHUB_TOKEN`, `SNYK_TOKEN`, `SOCKET_SECURITY_API_KEY`, or
 
 ```sh
 pastoralist --checkSecurity --securityProvider github --securityProviderToken "$GITHUB_TOKEN"
-pastoralist --checkSecurity --securityProvider socket --securityProviderToken "$SOCKET_SECURITY_API_KEY"
 ```
 
 #### Security Mode Flags
@@ -537,24 +517,11 @@ pastoralist --checkSecurity --no-cache
 pastoralist --checkSecurity --refresh-cache
 ```
 
-<!-- local setup script options from scripts/setup/setup.sh -->
-
-#### `pnpm run setup:local-dev`
-
-> Type: **`package script`**
-
-Sets up local agent config, bundled skills, Git hooks, and the postinstall hook.
-Use `--dry-run` before writing setup files.
-
-```sh
-pnpm run setup:local-dev -- --dry-run
-pnpm run setup:local-dev -- --agent codex --skills all --hooks git,postinstall
-pnpm run setup:local-dev -- --agent skip --skills pastoralist --hooks none
-```
-
 <!-- public result and appendix data from src/cli/utils.ts and src/types.ts -->
 
 ## Data API
+
+Full reference: [Data API](https://jeffry.in/pastoralist/docs/api-reference#data-api).
 
 #### `PastoralistResult`
 
@@ -655,6 +622,8 @@ resolution fields.
 <!-- primary public Node.js API exports from src/index.ts and src/types.ts -->
 
 ## Node.js API
+
+Full reference: [Node.js API](https://jeffry.in/pastoralist/docs/api-reference#nodejs-api).
 
 #### `update(options)`
 

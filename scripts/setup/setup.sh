@@ -91,6 +91,10 @@ write_agents_file() {
 Never run git add, git commit, or git push.
 Generate commit messages only.
 
+## Change Approval
+
+Ask before writing files. Reading files and running checks is fine.
+
 ## Code Style
 
 - Prefer const and immutability.

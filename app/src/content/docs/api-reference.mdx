@@ -24,6 +24,15 @@ Run Pastoralist on the current directory's `package.json`.
 npx pastoralist
 ```
 
+### `--help` and `--version`
+
+Print CLI help or the installed package version.
+
+```bash
+npx pastoralist --help
+npx pastoralist --version # -v
+```
+
 ### `pastoralist doctor`
 
 Run a read-only setup and override health check. This command enables dry-run
@@ -42,7 +51,7 @@ and GitHub Action setup.
 npx pastoralist onboard
 ```
 
-`pastoralist onboarding` and `pastoralist --onboard` are aliases.
+Aliases: `pastoralist onboarding`, `pastoralist --onboard`.
 
 ### `pastoralist --path <path>`
 
@@ -51,10 +60,8 @@ npx pastoralist onboard
 
 Run Pastoralist on a specific `package.json` file.
 
-```diff
- npx pastoralist
-+npx pastoralist --path packages/app/package.json
-+npx pastoralist --path ./nested/project/package.json
+```bash
+npx pastoralist --path packages/app/package.json # -p packages/app/package.json
 ```
 
 ### `pastoralist --depPaths [paths...]`
@@ -64,10 +71,8 @@ Run Pastoralist on a specific `package.json` file.
 
 Read dependency data from multiple `package.json` files using glob patterns.
 
-```diff
- npx pastoralist
-+npx pastoralist --depPaths "packages/*/package.json"
-+npx pastoralist --depPaths "packages/*/package.json" "apps/*/package.json"
+```bash
+npx pastoralist --depPaths "packages/*/package.json" # -d "packages/*/package.json"
 ```
 
 ### `pastoralist --ignore [patterns...]`
@@ -77,10 +82,8 @@ Read dependency data from multiple `package.json` files using glob patterns.
 
 Exclude files matching glob patterns.
 
-```diff
- npx pastoralist
-+npx pastoralist --ignore "**/test/**" "**/dist/**"
-+npx pastoralist --depPaths "**/package.json" --ignore "**/node_modules/**" "**/legacy/**"
+```bash
+npx pastoralist --ignore "**/node_modules/**"
 ```
 
 ### `pastoralist --root <root>`
@@ -90,10 +93,8 @@ Exclude files matching glob patterns.
 
 Set the root directory for all operations.
 
-```diff
- npx pastoralist
-+npx pastoralist --root /path/to/project
-+npx pastoralist --root ../my-project --path package.json
+```bash
+npx pastoralist --root ../my-project # -r ../my-project
 ```
 
 ### `pastoralist init`
@@ -101,12 +102,11 @@ Set the root directory for all operations.
 Initialize configuration with the guided setup. The wizard can configure
 workspace paths, security scanning, and where the configuration should be saved.
 
-```diff
-+npx pastoralist init
+```bash
+npx pastoralist init
 ```
 
-`pastoralist init config` and `pastoralist --init config` run the same config
-wizard.
+Aliases: `pastoralist init config`, `pastoralist --init config`.
 
 When run, this will:
 
@@ -119,47 +119,43 @@ When run, this will:
 
 Install the bundled Pastoralist agent skill into `.agents/skills/pastoralist`.
 
-```diff
-+npx pastoralist --init agent-skill
+```bash
+npx pastoralist init agent-skill
 ```
 
-`pastoralist init agent-skill` is also supported.
+Alias: `pastoralist --init agent-skill`.
 
 ### `pastoralist --interactive`
 
 Review security fixes interactively. Use this with `--checkSecurity` when you
 want to approve fixes instead of applying everything with `--forceSecurityRefactor`.
 
-```diff
- npx pastoralist --checkSecurity
-+npx pastoralist --checkSecurity --interactive
+```bash
+npx pastoralist --checkSecurity --interactive
 ```
 
 ### `pastoralist --debug`
 
 Enable detailed debug output.
 
-```diff
- npx pastoralist
-+npx pastoralist --debug
+```bash
+npx pastoralist --debug
 ```
 
 ### `pastoralist --dry-run`
 
 Preview changes without modifying `package.json`.
 
-```diff
- npx pastoralist
-+npx pastoralist --dry-run
+```bash
+npx pastoralist --dry-run
 ```
 
 ### `pastoralist --outputFormat json`
 
 Return machine-readable output for CI or custom tooling.
 
-```diff
- npx pastoralist --summary
-+npx pastoralist --summary --outputFormat json
+```bash
+npx pastoralist --summary --outputFormat json
 ```
 
 JSON output is a single result object.
@@ -199,54 +195,40 @@ Quiet mode for CI pipelines. Outputs minimal text and uses exit codes.
 - Exit 0: No vulnerabilities found
 - Exit 1: Vulnerabilities detected
 
-```diff
- npx pastoralist --checkSecurity
-+npx pastoralist --quiet --checkSecurity
+```bash
+npx pastoralist --quiet --checkSecurity # -q --checkSecurity
 ```
 
 ### `pastoralist --summary`
 
 Display metrics after run.
 
-```diff
- npx pastoralist
-+npx pastoralist --summary
+```bash
+npx pastoralist --summary
 ```
 
 ### `pastoralist --setup-hook`
 
 Add Pastoralist to your `postinstall` script automatically.
 
-```diff
- npx pastoralist
-+npx pastoralist --setup-hook
-```
-
-### `pnpm run setup:local-dev`
-
-Set up local agent config, selected skills, and selected local hooks.
-
-```diff
-+pnpm run setup:local-dev -- --dry-run
-+pnpm run setup:local-dev -- --skills all --hooks git,postinstall
+```bash
+npx pastoralist --setup-hook
 ```
 
 ### `pastoralist --remove-unused`
 
 Remove overrides that no package in your project depends on. When Pastoralist detects unused overrides during a run, it suggests this flag.
 
-```diff
- npx pastoralist
-+npx pastoralist --remove-unused
+```bash
+npx pastoralist --remove-unused
 ```
 
 ### `pastoralist --checkSecurity`
 
 Enable security vulnerability scanning.
 
-```diff
- npx pastoralist
-+npx pastoralist --checkSecurity
+```bash
+npx pastoralist --checkSecurity
 ```
 
 ### `pastoralist --securityProvider <provider...>`
@@ -254,9 +236,8 @@ Enable security vulnerability scanning.
 Choose one or more security providers. Supported values are `osv`, `github`,
 `npm`, `snyk`, `socket`, and `spektion`.
 
-```diff
- npx pastoralist --checkSecurity
-+npx pastoralist --checkSecurity --securityProvider osv npm
+```bash
+npx pastoralist --checkSecurity --securityProvider osv
 ```
 
 ### `pastoralist --securityProviderToken <token>`
@@ -264,9 +245,8 @@ Choose one or more security providers. Supported values are `osv`, `github`,
 Pass a provider token without writing it to config. Prefer environment variables
 for committed workflows.
 
-```diff
- npx pastoralist --checkSecurity --securityProvider github
-+npx pastoralist --checkSecurity --securityProvider github --securityProviderToken "$GITHUB_TOKEN"
+```bash
+npx pastoralist --checkSecurity --securityProvider github --securityProviderToken "$GITHUB_TOKEN"
 ```
 
 ### `pastoralist --hasWorkspaceSecurityChecks`
@@ -274,36 +254,32 @@ for committed workflows.
 Include workspace package manifests in security scans when workspaces are
 configured.
 
-```diff
- npx pastoralist --checkSecurity
-+npx pastoralist --checkSecurity --hasWorkspaceSecurityChecks
+```bash
+npx pastoralist --checkSecurity --hasWorkspaceSecurityChecks
 ```
 
 ### `pastoralist --forceSecurityRefactor`
 
 Apply security override fixes without prompting.
 
-```diff
- npx pastoralist --checkSecurity
-+npx pastoralist --checkSecurity --forceSecurityRefactor
+```bash
+npx pastoralist --checkSecurity --forceSecurityRefactor
 ```
 
 ### `pastoralist --promptForReasons`
 
 Prompt for ledger reasons when Pastoralist adds manual override records.
 
-```diff
- npx pastoralist
-+npx pastoralist --promptForReasons
+```bash
+npx pastoralist --promptForReasons
 ```
 
 ### `pastoralist --strict`
 
 Fail when a security provider, network request, or API call cannot complete.
 
-```diff
- npx pastoralist --checkSecurity
-+npx pastoralist --checkSecurity --strict
+```bash
+npx pastoralist --checkSecurity --strict
 ```
 
 ### `pastoralist --cache-dir <path>`
@@ -313,9 +289,8 @@ Fail when a security provider, network request, or API call cannot complete.
 
 Store provider cache data in a custom directory.
 
-```diff
- npx pastoralist --checkSecurity
-+npx pastoralist --checkSecurity --cache-dir .cache/pastoralist
+```bash
+npx pastoralist --checkSecurity --cache-dir .cache/pastoralist
 ```
 
 ### `pastoralist --cache-ttl <seconds>`
@@ -325,27 +300,24 @@ Store provider cache data in a custom directory.
 
 Override the provider cache TTL.
 
-```diff
- npx pastoralist --checkSecurity
-+npx pastoralist --checkSecurity --cache-ttl 3600
+```bash
+npx pastoralist --checkSecurity --cache-ttl 3600
 ```
 
 ### `pastoralist --no-cache`
 
 Bypass cache reads and writes for a security run.
 
-```diff
- npx pastoralist --checkSecurity
-+npx pastoralist --checkSecurity --no-cache
+```bash
+npx pastoralist --checkSecurity --no-cache
 ```
 
 ### `pastoralist --refresh-cache`
 
 Bypass cache reads and write fresh provider results.
 
-```diff
- npx pastoralist --checkSecurity
-+npx pastoralist --checkSecurity --refresh-cache
+```bash
+npx pastoralist --checkSecurity --refresh-cache
 ```
 
 ## CI
@@ -377,6 +349,108 @@ maintenance PR.
 
 The action exposes `has-security-issues`, `has-unused-overrides`, `updated`,
 `security-count`, `unused-count`, `override-count`, and `pr-url`.
+
+{/* public result and appendix data from src/cli/utils.ts and src/types.ts */}
+
+## Data API
+
+Use these shapes when you read JSON output, inspect the appendix, or build
+tooling around Pastoralist.
+
+### `PastoralistResult`
+
+`PastoralistResult` is the JSON object returned by `--outputFormat json`. It
+reports whether the run succeeded, whether files changed, what security or
+unused-override issues were found, and the run metrics.
+
+```bash
+npx pastoralist --dry-run --outputFormat json
+```
+
+```jsonc
+{
+  "success": true,
+  "hasSecurityIssues": false,
+  "hasUnusedOverrides": true,
+  "updated": false,
+  "securityAlertCount": 0,
+  "unusedOverrideCount": 1,
+  "overrideCount": 2,
+  "errors": [],
+  "securityAlerts": [],
+  "unusedOverrides": ["left-pad@1.3.0"],
+  "appliedOverrides": {
+    "left-pad": "1.3.0",
+  },
+  "metrics": {
+    "packagesScanned": 1,
+    "workspacePackagesScanned": 0,
+    "appendixEntriesUpdated": 2,
+    "vulnerabilitiesBlocked": 0,
+    "overridesAdded": 0,
+    "overridesRemoved": 0,
+    "severityCritical": 0,
+    "severityHigh": 0,
+    "severityMedium": 0,
+    "severityLow": 0,
+    "writeSuccess": false,
+    "writeSkipped": true,
+  },
+}
+```
+
+Optional fields include `securityAlerts`, `unusedOverrides`,
+`appliedOverrides`, `removalVerification`, `bestCase`, and `metrics`.
+
+### `pastoralist.appendix`
+
+`pastoralist.appendix` stores one entry per override version. Keys use
+`package-name@version`; values can include root dependencies, dependents, patch
+files, and ledger data.
+
+```json
+{
+  "pastoralist": {
+    "appendix": {
+      "left-pad@1.3.0": {
+        "dependents": {
+          "example-app": "left-pad@^1.0.0"
+        },
+        "patches": ["patches/left-pad+1.3.0.patch"],
+        "ledger": {
+          "addedDate": "2026-08-22T00:00:00.000Z",
+          "reason": "Keep the legacy formatter working."
+        }
+      }
+    }
+  }
+}
+```
+
+### `AppendixItem.ledger`
+
+Every current appendix entry has a `ledger` with `addedDate`. Manual records can
+add `reason`; security runs can add provider, CVE, severity, vulnerable range,
+patched version, confidence, source, and resolution fields.
+
+```json
+{
+  "ledger": {
+    "addedDate": "2026-08-22T00:00:00.000Z",
+    "source": "security",
+    "securityProvider": "osv",
+    "cves": ["CVE-2026-1234"],
+    "severity": "high",
+    "vulnerableRange": "<1.3.0",
+    "patchedVersion": "1.3.0",
+    "confidence": "confirmed",
+    "keep": {
+      "reason": "Wait for upstream compatibility confirmation.",
+      "reviewBy": "2026-09-30"
+    }
+  }
+}
+```
 
 {/* primary public Node.js API exports from src/index.ts and src/types.ts */}
 

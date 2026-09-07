@@ -128,9 +128,49 @@ When you are ready to add Pastoralist to the project:
 
 ```sh
 npm install pastoralist --save-dev
-npx pastoralist init
 npx pastoralist
 ```
+
+This keeps the override where your package manager expects it, explains why it
+exists, and leaves the installed version visible in the lockfile after install:
+
+```diff
+--- package.json
++++ package.json
+@@
+ {
+   "name": "shepherd-cli",
+   "version": "1.0.0",
+   "dependencies": {
+     "barn-yard": "^1.8.0"
+   },
+   "overrides": {
+     "barn-yard": "2.0.0"
+-  }
++  },
++  "pastoralist": {
++    "appendix": {
++      "barn-yard@2.0.0": {
++        "dependents": {
++          "shepherd-cli": "barn-yard@^1.8.0"
++        },
++        "ledger": {
++          "addedDate": "2026-08-22T00:00:00.000Z"
++        }
++      }
++    }
++  }
+}
+
+--- package-lock.json
++++ package-lock.json
+@@ after npm install
+-    "node_modules/barn-yard": { "version": "1.8.0" }
++    "node_modules/barn-yard": { "version": "2.0.0" }
+```
+
+Use `npx pastoralist init` when you want the config wizard for workspace paths,
+external config, or security scanning.
 
 Optionally keep the appendix current after installs:
 
@@ -279,6 +319,10 @@ pastoralist
 pastoralist --dry-run
 ```
 
+Use this after dependency changes so the appendix stays tied to the override
+that package managers actually read. Use `--dry-run` to preview the same update
+without writing files.
+
 #### `--help` and `--version`
 
 > Type: **`boolean options`**
@@ -289,6 +333,9 @@ Prints CLI help or the installed package version.
 pastoralist --help
 pastoralist --version # -v
 ```
+
+Use these to check the installed CLI surface before wiring Pastoralist into
+scripts or CI.
 
 #### `pastoralist doctor`
 
@@ -302,6 +349,18 @@ pastoralist doctor
 pastoralist doctor --outputFormat json
 ```
 
+Use this before setup or cleanup work to see pending appendix, cleanup, and
+security state without changing `package.json`.
+
+In JSON mode, the important proof is small:
+
+```json
+{
+  "updated": false,
+  "overrideCount": 1
+}
+```
+
 #### `pastoralist onboard`
 
 > Type: **`command`**
@@ -312,6 +371,9 @@ Prints first-run guidance for local setup, agent setup, and GitHub Action setup.
 pastoralist onboard
 ```
 
+Use this when a human or agent needs the same first-run checklist, setup
+commands, and CI prompt text.
+
 #### `pastoralist init`
 
 > Type: **`command`**
@@ -321,6 +383,18 @@ external config file, configure workspace paths, and set up security scanning.
 
 ```sh
 pastoralist init
+```
+
+Stores repeatable setup choices so future runs do not depend on memory or local
+shell history:
+
+```diff
+ {
++  "pastoralist": {
++    "depPaths": "workspace",
++    "checkSecurity": true
++  }
+ }
 ```
 
 #### `pastoralist init agent-skill`
@@ -334,6 +408,22 @@ Installs the bundled Pastoralist agent skill into
 pastoralist init agent-skill
 ```
 
+Use this to give agents Pastoralist-specific setup and maintenance instructions.
+The marker file lets Pastoralist update only the skill files it manages.
+
+```diff
+--- .agents/skills/pastoralist/SKILL.md
++++ .agents/skills/pastoralist/SKILL.md
+@@
++Use `npx pastoralist doctor` for read-only project health.
++Use `npx pastoralist --remove-unused` only after reviewing dry-run output.
+
+--- .agents/skills/pastoralist/.pastoralist-agent-config
++++ .agents/skills/pastoralist/.pastoralist-agent-config
+@@
++pastoralist-agent-config
+```
+
 #### `--path`, `-p`
 
 > Type: **`string option`**
@@ -344,6 +434,8 @@ Selects the package manifest Pastoralist should read and update.
 ```sh
 pastoralist --path packages/app/package.json # -p packages/app/package.json
 ```
+
+Use this when the manifest you want to check is not the root `package.json`.
 
 #### `--root`, `-r`
 
@@ -356,6 +448,9 @@ patches, and workspace globs.
 pastoralist --root ../my-project # -r ../my-project
 ```
 
+Use this when scripts run outside the project directory but paths should still
+resolve from the project root.
+
 #### `--depPaths`, `-d`
 
 > Type: **`string[] option`**
@@ -365,6 +460,28 @@ collected until the next flag.
 
 ```sh
 pastoralist --depPaths "packages/*/package.json" # -d "packages/*/package.json"
+```
+
+Use this in monorepos so one root appendix can explain which packages still need
+each override.
+
+For a small barn-yard workspace, it turns scattered dependents into one root
+ledger entry:
+
+```diff
+--- package.json
++++ package.json
+@@
++  "pastoralist": {
++    "appendix": {
++      "barn-yard@2.0.0": {
++        "dependents": {
++          "shepherd-cli": "barn-yard@^1.8.0",
++          "pasture-ui": "barn-yard@^1.9.0"
++        }
++      }
++    }
++  }
 ```
 
 #### `--ignore`
@@ -377,6 +494,9 @@ Excludes package manifests from `--depPaths` matching.
 pastoralist --ignore "**/node_modules/**"
 ```
 
+Use this to keep generated, vendored, or irrelevant manifests out of workspace
+scans.
+
 #### `--debug`
 
 > Type: **`boolean option`**
@@ -386,6 +506,9 @@ Enables debug logging for CLI execution.
 ```sh
 pastoralist --debug
 ```
+
+Use this when config discovery, workspace matching, or provider behavior needs a
+trace.
 
 #### `--dry-run`
 
@@ -398,6 +521,8 @@ writing files.
 pastoralist --dry-run
 ```
 
+Use this before committing config, appendix, cleanup, or security changes.
+
 #### `--outputFormat`
 
 > Type: **`"text" | "json" option`**
@@ -406,7 +531,18 @@ pastoralist --dry-run
 Selects terminal output or a single machine-readable JSON result.
 
 ```sh
-pastoralist --outputFormat text
+pastoralist --dry-run --outputFormat json
+```
+
+Use JSON output when CI or another tool needs stable fields instead of terminal
+text. See `PastoralistResult` below for the full shape.
+
+```json
+{
+  "success": true,
+  "updated": false,
+  "overrideCount": 1
+}
 ```
 
 #### `--summary`
@@ -419,6 +555,8 @@ Prints the metrics table after a text-mode run.
 pastoralist --summary
 ```
 
+Use this for human-readable run metrics without switching to JSON output.
+
 #### `--quiet`, `-q`
 
 > Type: **`boolean option`**
@@ -430,6 +568,9 @@ with code `1`; clean security checks exit with code `0`.
 pastoralist --quiet # -q --checkSecurity
 ```
 
+Use this when CI should fail on vulnerabilities without printing the normal
+terminal report.
+
 #### `--setup-hook`
 
 > Type: **`boolean option`**
@@ -439,6 +580,17 @@ postinstall scripts are appended with `&& pastoralist`.
 
 ```sh
 pastoralist --setup-hook
+```
+
+Keeps the appendix current after package installs:
+
+```diff
+ {
+   "scripts": {
+-    "postinstall": "build"
++    "postinstall": "build && pastoralist"
+   }
+ }
 ```
 
 #### `--remove-unused`
@@ -452,6 +604,30 @@ appendix. Preview first with `--dry-run`.
 pastoralist --remove-unused
 ```
 
+Removes stale override records only after verification says they are no longer
+needed:
+
+```diff
+--- package.json
++++ package.json
+@@
+ {
+   "overrides": {
+-    "stray-sheep": "1.0.0"
+   },
+   "pastoralist": {
+     "appendix": {
+-      "stray-sheep@1.0.0": {}
+     }
+   }
+ }
+
+--- package-lock.json
++++ package-lock.json
+@@ after npm install
+-    "node_modules/stray-sheep": { "version": "1.0.0" }
+```
+
 #### `--checkSecurity`
 
 > Type: **`boolean option`**
@@ -461,6 +637,38 @@ findings can add override data and security ledger fields.
 
 ```sh
 pastoralist --checkSecurity
+```
+
+Use this to connect vulnerability evidence to the override. With
+`--forceSecurityRefactor` or an approved `--interactive` fix, Pastoralist can add
+the patched override and security ledger fields:
+
+```diff
+--- package.json
++++ package.json
+@@
+ {
++  "overrides": {
++    "barn-yard": "2.0.0"
++  },
++  "pastoralist": {
++    "appendix": {
++      "barn-yard@2.0.0": {
++        "ledger": {
++          "source": "security",
++          "cves": ["CVE-barn-yard-gate"],
++          "patchedVersion": "2.0.0"
++        }
++      }
++    }
++  }
+ }
+
+--- package-lock.json
++++ package-lock.json
+@@ after npm install
+-    "node_modules/barn-yard": { "version": "1.8.0" }
++    "node_modules/barn-yard": { "version": "2.0.0" }
 ```
 
 #### `--securityProvider`
@@ -474,6 +682,9 @@ enabled and no provider is set.
 pastoralist --checkSecurity --securityProvider osv
 ```
 
+Use this when you need a specific advisory source. OSV is the default when
+security is enabled and no provider is set.
+
 #### `--securityProviderToken`
 
 > Type: **`string option`**
@@ -485,6 +696,9 @@ for CI: `GITHUB_TOKEN`, `SNYK_TOKEN`, `SOCKET_SECURITY_API_KEY`, or
 ```sh
 pastoralist --checkSecurity --securityProvider github --securityProviderToken "$GITHUB_TOKEN"
 ```
+
+Use this for a one-off authenticated scan without writing tokens to project
+config.
 
 #### Security Mode Flags
 
@@ -502,6 +716,9 @@ pastoralist --checkSecurity --hasWorkspaceSecurityChecks
 pastoralist --promptForReasons
 ```
 
+Use `--interactive` for review, `--forceSecurityRefactor` for unattended fixes,
+and `--strict` when provider errors should fail the run.
+
 #### Cache Flags
 
 > Type: **`string | number | boolean options`**
@@ -516,6 +733,9 @@ pastoralist --checkSecurity --cache-ttl 3600
 pastoralist --checkSecurity --no-cache
 pastoralist --checkSecurity --refresh-cache
 ```
+
+Use these to avoid repeated provider calls, shorten cache windows, or force a
+fresh advisory lookup.
 
 <!-- public result and appendix data from src/cli/utils.ts and src/types.ts -->
 

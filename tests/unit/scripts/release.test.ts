@@ -67,7 +67,7 @@ const mergeOverrides = (
 const readyOverrides = {
   "git branch --show-current": ok("main\n"),
   "git status --short": ok(""),
-  "git fetch origin main --tags": ok(""),
+  "git fetch origin main": ok(""),
   "git rev-parse HEAD": ok("abc\n"),
   "git rev-parse origin/main": ok("abc\n"),
 };

@@ -565,7 +565,7 @@ Suppresses normal text output for CI. Security findings make the command exit
 with code `1`; clean security checks exit with code `0`.
 
 ```sh
-pastoralist --quiet # -q --checkSecurity
+pastoralist --quiet --checkSecurity # -q --checkSecurity
 ```
 
 Use this when CI should fail on vulnerabilities without printing the normal

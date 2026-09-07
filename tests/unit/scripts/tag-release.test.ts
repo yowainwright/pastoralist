@@ -81,7 +81,7 @@ describe("scripts/release/tag", () => {
     const { calls, git } = createGit({
       "branch --show-current": ok("main\n"),
       "status --short": ok(""),
-      "fetch origin main --tags": ok(""),
+      "fetch origin main": ok(""),
       "rev-parse -q --verify refs/tags/v1.2.3": fail("missing"),
       "ls-remote --exit-code --tags origin refs/tags/v1.2.3": missing(),
     });
@@ -94,7 +94,7 @@ describe("scripts/release/tag", () => {
     const { git } = createGit({
       "branch --show-current": ok("main\n"),
       "status --short": ok(""),
-      "fetch origin main --tags": ok(""),
+      "fetch origin main": ok(""),
       [`merge-base --is-ancestor ${TARGET_COMMIT} origin/main`]: fail(""),
     });
 

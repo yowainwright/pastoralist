@@ -151,8 +151,7 @@ function HeroContent({ showComplete }: { showComplete: boolean }) {
   const celebrationActive = snapshot.matches("rainbow");
   const announcementSettled = atLeast(snapshot, "done");
   const showEmoji = terminalComplete;
-  const announcementWordClassName =
-    "text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.65),0_0_18px_rgba(0,0,0,0.35)]";
+  const announcementWordClassName = "text-base-content";
   const highlightToneClassName = rainbowVisible ? "rainbow-text" : announcementWordClassName;
   const highlightShimmerClassName = announcementSettled
     ? "[animation:gradient-shimmer_3.2s_ease-in-out_1.4s_infinite]"
@@ -281,9 +280,8 @@ function HeroContent({ showComplete }: { showComplete: boolean }) {
 export function HeroSection() {
   const hasHydrated = useHasHydrated();
   const showComplete = isStaticRender() && !hasHydrated;
-  const key = showComplete ? "static" : "interactive";
 
-  return <HeroContent key={key} showComplete={showComplete} />;
+  return <HeroContent showComplete={showComplete} />;
 }
 
 const BLOB_CLIP =

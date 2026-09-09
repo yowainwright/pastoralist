@@ -66,9 +66,8 @@ function TransformSectionContent({ showComplete }: { showComplete: boolean }) {
 export function TransformSection() {
   const hasHydrated = useHasHydrated();
   const showComplete = isStaticRender() && !hasHydrated;
-  const key = showComplete ? "static" : "interactive";
 
-  return <TransformSectionContent key={key} showComplete={showComplete} />;
+  return <TransformSectionContent showComplete={showComplete} />;
 }
 
 function TransformBackground() {

@@ -101,7 +101,8 @@ export function CodeBlockToggle({
       tabs={TABS}
       activeTab={activeTab}
       onTabChange={setActiveTab}
-      minHeight="350px"
+      height="400px"
+      minHeight="400px"
     >
       {content}
     </TerminalWindow>

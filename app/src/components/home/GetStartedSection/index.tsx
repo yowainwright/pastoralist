@@ -42,7 +42,6 @@ function GetStartedContent({
 export function GetStartedSection({ id = SECTION_ID }: GetStartedSectionProps) {
   const hasHydrated = useHasHydrated();
   const showComplete = isStaticRender() && !hasHydrated;
-  const key = showComplete ? "static" : "interactive";
 
-  return <GetStartedContent key={key} id={id} showComplete={showComplete} />;
+  return <GetStartedContent id={id} showComplete={showComplete} />;
 }

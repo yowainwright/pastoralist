@@ -85,7 +85,6 @@ function CodeBlockContent({ showComplete }: { showComplete: boolean }) {
 export function CodeBlockSection() {
   const hasHydrated = useHasHydrated();
   const showComplete = isStaticRender() && !hasHydrated;
-  const key = showComplete ? "static" : "interactive";
 
-  return <CodeBlockContent key={key} showComplete={showComplete} />;
+  return <CodeBlockContent showComplete={showComplete} />;
 }

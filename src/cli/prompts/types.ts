@@ -1,6 +1,9 @@
 export interface PromptChoice {
   name: string;
   value: string;
+  description?: string;
+  checked?: boolean;
+  disabled?: boolean | string;
 }
 
 export interface InputOptions {

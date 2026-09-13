@@ -3514,6 +3514,24 @@ test("run - shows help with -h flag", async () => {
   assert.ok(output.includes("pastoralist"));
 });
 
+test("run - calls styleguide and returns early", async () => {
+  const mockStyleguide = mock(() => Promise.resolve());
+  const mockAction = mock(() => Promise.resolve());
+  const mockInitCommand = mock(() => Promise.resolve());
+  const mockShowOnboarding = mock(() => {});
+
+  await run(["node", "pastoralist", "--styleguide"], {
+    action: mockAction,
+    initCommand: mockInitCommand,
+    showOnboarding: mockShowOnboarding,
+    styleguide: mockStyleguide,
+  });
+
+  assert.strictEqual(mockStyleguide.mock.callCount(), 1);
+  assert.strictEqual(mockAction.mock.callCount(), 0);
+  assert.strictEqual(mockInitCommand.mock.callCount(), 0);
+});
+
 test("run - prints package version and returns early", async () => {
   const mockAction = mock(() => Promise.resolve());
   const mockInitCommand = mock(() => Promise.resolve());

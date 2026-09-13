@@ -388,6 +388,12 @@ describe("parseArgs", () => {
       assert.strictEqual(onboardingResult.options.onboard, true);
     });
 
+    test("should parse styleguide flag", () => {
+      const result = parseArgs(["node", "script.js", "--styleguide"]);
+
+      assert.strictEqual(result.options.styleguide, true);
+    });
+
     test("should parse all flags correctly", () => {
       const result = parseArgs([
         "node",

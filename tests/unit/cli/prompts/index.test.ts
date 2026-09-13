@@ -15,7 +15,7 @@ moduleMock.module(import.meta.resolve("../../../../src/cli/prompts/input"), {
   namedExports: Object.assign({}, originalInput, { enhancedQuestion }),
 });
 
-const { Prompt, createPrompt, quickConfirm, quickInput, quickList } =
+const { Prompt, createPrompt, promptCheckbox, promptSelect, quickConfirm, quickInput, quickList } =
   await import("../../../../src/cli/prompts");
 
 let mockCreateInterface: ReturnType<typeof spyOn>;
@@ -50,14 +50,6 @@ afterEach(() => {
     process.stdin.setMaxListeners(0);
   }
 });
-
-interface MockRl {
-  question: (msg: string, callback: (answer: string) => void) => void;
-  close: () => void;
-  removeAllListeners: () => void;
-  pause: () => void;
-  resume: () => void;
-}
 
 class TestablePrompt extends Prompt {
   private mockQuestion?: (msg: string, callback: (answer: string) => void) => void;
@@ -276,6 +268,37 @@ test("Prompt - list handles non-numeric input by returning first option", async 
   prompt.close();
 });
 
+test("promptSelect returns the selected value in noninteractive mode", async () => {
+  const choices: PromptChoice[] = [
+    { name: "Option 1", value: "opt1" },
+    { name: "Option 2", value: "opt2" },
+  ];
+  mockCreateInterface.mockReturnValue({
+    question: (_message: string, callback: (answer: string) => void) => callback("2"),
+    close: mock(),
+  } as unknown as readline.Interface);
+
+  const result = await promptSelect("Choose:", choices);
+
+  assert.strictEqual(result, "opt2");
+});
+
+test("promptCheckbox returns selected values and skips disabled choices", async () => {
+  const choices: PromptChoice[] = [
+    { name: "Option 1", value: "opt1" },
+    { name: "Disabled", value: "disabled", disabled: "not installed" },
+    { name: "Option 3", value: "opt3" },
+  ];
+  mockCreateInterface.mockReturnValue({
+    question: (_message: string, callback: (answer: string) => void) => callback("1, 2, 3"),
+    close: mock(),
+  } as unknown as readline.Interface);
+
+  const result = await promptCheckbox("Choose:", choices, true);
+
+  assert.deepStrictEqual(result, ["opt1", "opt3"]);
+});
+
 test("Prompt - prompt method delegates to input for 'input' type", async () => {
   const prompt = new TestablePrompt();
   const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
@@ -350,7 +373,9 @@ test("Prompt - promptMany processes multiple questions sequentially", async () =
   const answers = ["answer1", "y", "2"];
 
   const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
-    callback(answers[callIndex++]);
+    const answer = answers[callIndex] ?? "";
+    callIndex += 1;
+    callback(answer);
   });
   prompt.setQuestion(questionSpy);
 

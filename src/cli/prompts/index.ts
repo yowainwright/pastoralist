@@ -277,10 +277,7 @@ const writeChoiceFrame = (
 };
 
 const firstSelectableIndex = (choices: PromptChoice[]): number => {
-  const index = choices.findIndex((choice) => !isDisabled(choice));
-  const hasSelectableChoice = index >= 0;
-  if (hasSelectableChoice) return index;
-  return 0;
+  return choices.findIndex((choice) => !isDisabled(choice));
 };
 
 const moveCursor = (cursorIndex: number, direction: number, choices: PromptChoice[]): number => {
@@ -307,7 +304,11 @@ const selectedValues = (
   state: SelectorState,
   mode: SelectorMode,
 ): string[] => {
-  if (mode === "radio") return [choices[state.cursorIndex]?.value ?? ""];
+  const selectedChoice = choices[state.cursorIndex];
+  const isSelectableChoice = selectedChoice !== undefined && !isDisabled(selectedChoice);
+  const hasSelectedRadioChoice = mode === "radio" && isSelectableChoice;
+  if (hasSelectedRadioChoice) return [selectedChoice.value];
+  if (mode === "radio") return [];
   return choices.filter((_, index) => state.selected[index]).map(({ value }) => value);
 };
 
@@ -343,7 +344,10 @@ const updateSelected = (
   choices: PromptChoice[],
 ): SelectorState => {
   const isSpace = input === " ";
-  if (isSpace) {
+  const currentChoice = choices[state.cursorIndex];
+  const isSelectableChoice = currentChoice !== undefined && !isDisabled(currentChoice);
+  const shouldToggle = isSpace && isSelectableChoice;
+  if (shouldToggle) {
     const selected = state.selected.map((value, index) =>
       toggleSelectedChoice(value, index, state.cursorIndex),
     );
@@ -369,8 +373,14 @@ const runSelector = (
       reject(new Error("Prompt requires at least one choice"));
       return;
     }
+    const cursorIndex = firstSelectableIndex(choices);
+    const hasSelectableChoice = cursorIndex >= 0;
+    if (!hasSelectableChoice) {
+      resolve([]);
+      return;
+    }
     const state: SelectorState = {
-      cursorIndex: firstSelectableIndex(choices),
+      cursorIndex,
       selected: choices.map((choice) => choice.checked === true && !isDisabled(choice)),
       viewportStart: 0,
     };

@@ -293,13 +293,13 @@ export const run = async (
     return;
   }
 
-  if (options.styleguide) {
-    await (deps.styleguide || showStyleguide)();
+  if (!isKnownCommand(parsed.command)) {
+    showRunError(new Error(`Unknown command: ${parsed.command}`), log);
     return;
   }
 
-  if (!isKnownCommand(parsed.command)) {
-    showRunError(new Error(`Unknown command: ${parsed.command}`), log);
+  if (options.styleguide) {
+    await (deps.styleguide || showStyleguide)();
     return;
   }
 

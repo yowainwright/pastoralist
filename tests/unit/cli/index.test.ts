@@ -3627,6 +3627,30 @@ test("run - rejects unknown positional commands", async () => {
   assert.strictEqual(mockAction.mock.callCount(), 0);
 });
 
+test("run - rejects unknown positional commands before styleguide", async () => {
+  const mockStyleguide = mock(() => Promise.resolve());
+  const originalError = console.error;
+  const originalExitCode = process.exitCode;
+  const errors: string[] = [];
+  console.error = captureLine(errors);
+
+  try {
+    await run(["node", "pastoralist", "innit", "--styleguide"], {
+      action: mock(() => Promise.resolve()),
+      initCommand: mock(() => Promise.resolve()),
+      setupAgentSkill: mock(() => Promise.resolve()),
+      showOnboarding: mock(() => {}),
+      styleguide: mockStyleguide,
+    });
+  } finally {
+    console.error = originalError;
+    process.exitCode = originalExitCode ?? 0;
+  }
+
+  assert.ok(errors.join("\n").includes("Unknown command: innit"));
+  assert.strictEqual(mockStyleguide.mock.callCount(), 0);
+});
+
 test("run - calls init command with first parsed security provider", async () => {
   const mockInitCommand = mock(() => Promise.resolve());
   const mockAction = mock(() => Promise.resolve());

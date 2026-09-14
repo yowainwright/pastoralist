@@ -10,6 +10,7 @@ import { logger as createLogger } from "../observability";
 import { initCommand, showOnboarding } from "./cmds/init";
 import { action } from "./action";
 import { handleSetupHook } from "./setup-hook";
+import { showStyleguide } from "./styleguide";
 import type { InitSecurityProvider, RunDeps } from "./types";
 import type { Logger, PrintFunc } from "../observability";
 
@@ -35,6 +36,7 @@ export {
 export { displayOverrides, displaySummaryTable } from "./display";
 export { handleSetupHook } from "./setup-hook";
 export { buildOnboardingText, showOnboarding } from "./cmds/init";
+export { showStyleguide } from "./styleguide";
 
 type PackageVersion = { version?: unknown };
 const INIT_COMMAND_TYPES = ["config", "agent-skill"] as const;
@@ -269,6 +271,7 @@ const defaultRunDeps: RunDeps = {
   action,
   showOnboarding,
   setupAgentSkill,
+  styleguide: showStyleguide,
 };
 
 export const run = async (
@@ -292,6 +295,11 @@ export const run = async (
 
   if (!isKnownCommand(parsed.command)) {
     showRunError(new Error(`Unknown command: ${parsed.command}`), log);
+    return;
+  }
+
+  if (options.styleguide) {
+    await (deps.styleguide || showStyleguide)();
     return;
   }
 

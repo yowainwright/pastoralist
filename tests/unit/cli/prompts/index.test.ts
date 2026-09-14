@@ -6,16 +6,26 @@ import * as readline from "readline";
 import * as originalInput from "../../../../src/cli/prompts/input";
 
 const createInterface = mock(readline.createInterface);
+const emitKeypressEvents = mock();
+const moveCursor = mock();
+const cursorTo = mock();
+const clearScreenDown = mock();
 const enhancedQuestion = mock(originalInput.enhancedQuestion);
 
 moduleMock.module("readline", {
-  namedExports: Object.assign({}, readline, { createInterface }),
+  namedExports: Object.assign({}, readline, {
+    clearScreenDown,
+    createInterface,
+    cursorTo,
+    emitKeypressEvents,
+    moveCursor,
+  }),
 });
 moduleMock.module(import.meta.resolve("../../../../src/cli/prompts/input"), {
   namedExports: Object.assign({}, originalInput, { enhancedQuestion }),
 });
 
-const { Prompt, createPrompt, quickConfirm, quickInput, quickList } =
+const { Prompt, createPrompt, promptCheckbox, promptSelect, quickConfirm, quickInput, quickList } =
   await import("../../../../src/cli/prompts");
 
 let mockCreateInterface: ReturnType<typeof spyOn>;
@@ -51,13 +61,48 @@ afterEach(() => {
   }
 });
 
-interface MockRl {
-  question: (msg: string, callback: (answer: string) => void) => void;
-  close: () => void;
-  removeAllListeners: () => void;
-  pause: () => void;
-  resume: () => void;
-}
+type TerminalState = {
+  inputTTY: boolean | undefined;
+  outputTTY: boolean | undefined;
+  setRawMode: typeof process.stdin.setRawMode;
+  pause: typeof process.stdin.pause;
+  resume: typeof process.stdin.resume;
+  write: typeof process.stdout.write;
+};
+
+const enableInteractiveTerminal = (): TerminalState => {
+  const state = {
+    inputTTY: process.stdin.isTTY,
+    outputTTY: process.stdout.isTTY,
+    setRawMode: process.stdin.setRawMode,
+    pause: process.stdin.pause,
+    resume: process.stdin.resume,
+    write: process.stdout.write,
+  };
+  process.stdin.isTTY = true;
+  Object.defineProperty(process.stdout, "isTTY", { configurable: true, value: true });
+  process.stdin.setRawMode = mock(() => process.stdin) as typeof process.stdin.setRawMode;
+  process.stdin.pause = mock(() => process.stdin) as typeof process.stdin.pause;
+  process.stdin.resume = mock(() => process.stdin) as typeof process.stdin.resume;
+  process.stdout.write = mock(() => true) as unknown as typeof process.stdout.write;
+  return state;
+};
+
+const restoreTerminal = (state: TerminalState): void => {
+  process.stdin.isTTY = state.inputTTY;
+  Object.defineProperty(process.stdout, "isTTY", {
+    configurable: true,
+    value: state.outputTTY,
+  });
+  process.stdin.setRawMode = state.setRawMode;
+  process.stdin.pause = state.pause;
+  process.stdin.resume = state.resume;
+  process.stdout.write = state.write;
+};
+
+const emitKeypress = (input: string, key: { name?: string; ctrl?: boolean } = {}): void => {
+  process.stdin.emit("keypress", input, key);
+};
 
 class TestablePrompt extends Prompt {
   private mockQuestion?: (msg: string, callback: (answer: string) => void) => void;
@@ -276,6 +321,124 @@ test("Prompt - list handles non-numeric input by returning first option", async 
   prompt.close();
 });
 
+test("promptSelect returns the selected value in noninteractive mode", async () => {
+  const choices: PromptChoice[] = [
+    { name: "Option 1", value: "opt1" },
+    { name: "Option 2", value: "opt2" },
+  ];
+  mockCreateInterface.mockReturnValue({
+    question: (_message: string, callback: (answer: string) => void) => callback("2"),
+    close: mock(),
+  } as unknown as readline.Interface);
+
+  const result = await promptSelect("Choose:", choices);
+
+  assert.strictEqual(result, "opt2");
+});
+
+test("promptCheckbox returns selected values and skips disabled choices", async () => {
+  const choices: PromptChoice[] = [
+    { name: "Option 1", value: "opt1" },
+    { name: "Disabled", value: "disabled", disabled: "not installed" },
+    { name: "Option 3", value: "opt3" },
+  ];
+  mockCreateInterface.mockReturnValue({
+    question: (_message: string, callback: (answer: string) => void) => callback("1, 2, 3"),
+    close: mock(),
+  } as unknown as readline.Interface);
+
+  const result = await promptCheckbox("Choose:", choices, true);
+
+  assert.deepStrictEqual(result, ["opt1", "opt3"]);
+});
+
+test("promptSelect supports interactive radio navigation", async () => {
+  const terminal = enableInteractiveTerminal();
+  try {
+    const resultPromise = promptSelect("Choose:", [
+      { name: "Option 1", value: "opt1", description: "first" },
+      { name: "Option 2", value: "opt2" },
+    ]);
+    emitKeypress("", { name: "down" });
+    emitKeypress("", { name: "enter" });
+
+    assert.strictEqual(await resultPromise, "opt2");
+  } finally {
+    restoreTerminal(terminal);
+  }
+});
+
+test("promptCheckbox supports interactive toggling and skips disabled choices", async () => {
+  const terminal = enableInteractiveTerminal();
+  try {
+    const resultPromise = promptCheckbox("Choose:", [
+      { name: "Option 1", value: "opt1" },
+      { name: "Disabled", value: "disabled", disabled: "not installed" },
+      { name: "Option 3", value: "opt3", checked: true },
+    ]);
+    process.stdin.emit("data", Buffer.from(" "));
+    emitKeypress("", { name: "down" });
+    process.stdin.emit("data", Buffer.from(" "));
+    emitKeypress("", { name: "enter" });
+
+    assert.deepStrictEqual(await resultPromise, ["opt1"]);
+  } finally {
+    restoreTerminal(terminal);
+  }
+});
+
+test("promptCheckbox supports all and none shortcuts", async () => {
+  const terminal = enableInteractiveTerminal();
+  try {
+    const resultPromise = promptCheckbox("Choose:", [
+      { name: "Option 1", value: "opt1" },
+      { name: "Option 2", value: "opt2" },
+      { name: "Disabled", value: "disabled", disabled: true },
+    ]);
+    emitKeypress("a");
+    emitKeypress("n");
+    emitKeypress("", { name: "return" });
+
+    assert.deepStrictEqual(await resultPromise, []);
+  } finally {
+    restoreTerminal(terminal);
+  }
+});
+
+test("interactive selectors scroll and cancel safely", async () => {
+  const terminal = enableInteractiveTerminal();
+  try {
+    const choices = Array.from({ length: 10 }, (_, index) => ({
+      name: `Option ${index + 1}`,
+      value: `opt${index + 1}`,
+    }));
+    const resultPromise = promptSelect("Choose:", choices);
+    Array.from({ length: 9 }).forEach(() => emitKeypress("", { name: "down" }));
+    Array.from({ length: 9 }).forEach(() => emitKeypress("", { name: "up" }));
+    emitKeypress("", { name: "enter" });
+
+    assert.strictEqual(await resultPromise, "opt1");
+
+    const cancelledPromise = promptSelect("Choose:", choices);
+    emitKeypress("\u001b");
+    await assert.rejects(cancelledPromise, { name: "PromptCancelled" });
+  } finally {
+    restoreTerminal(terminal);
+  }
+});
+
+test("interactive selectors return no value when every choice is disabled", async () => {
+  const terminal = enableInteractiveTerminal();
+  const choices = [{ name: "Unavailable", value: "unavailable", disabled: "not installed" }];
+  try {
+    assert.strictEqual(await promptSelect("Choose:", choices), "");
+    assert.deepStrictEqual(await promptCheckbox("Choose:", choices), []);
+    await assert.rejects(promptSelect("Choose:", []), /at least one choice/);
+  } finally {
+    restoreTerminal(terminal);
+  }
+});
+
 test("Prompt - prompt method delegates to input for 'input' type", async () => {
   const prompt = new TestablePrompt();
   const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
@@ -350,7 +513,9 @@ test("Prompt - promptMany processes multiple questions sequentially", async () =
   const answers = ["answer1", "y", "2"];
 
   const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
-    callback(answers[callIndex++]);
+    const answer = answers[callIndex] ?? "";
+    callIndex += 1;
+    callback(answer);
   });
   prompt.setQuestion(questionSpy);
 

@@ -248,6 +248,7 @@ export interface Options extends SecurityOptions, OutputOptions, TestingOptions,
   clearCache?: boolean;
   help?: boolean;
   version?: boolean;
+  styleguide?: boolean;
   init?: boolean | string | string[];
   interactive?: boolean;
   onboard?: boolean;

@@ -22,6 +22,7 @@ export const OPTION_DEFINITIONS: OptionDefinition[] = [
   { flags: ["--promptForReasons"], hasValue: false },
   { flags: ["--strict"], hasValue: false },
   { flags: ["--summary"], hasValue: false },
+  { flags: ["--styleguide"], hasValue: false },
   { flags: ["--onboard", "--onboarding"], hasValue: false },
   { flags: ["-q", "--quiet"], hasValue: false },
   { flags: ["--setup-hook"], hasValue: false },
@@ -63,6 +64,7 @@ Options:
   --promptForReasons                    Prompt for reasons when adding manual overrides
   --strict                              Fail on any security check errors (network failures, API errors)
   --summary                             Show summary metrics table after run
+  --styleguide                          Render the Pastoralist DX component styleguide
   --onboard, --onboarding               Show first-run onboarding guidance
   -q, --quiet                           Quiet mode for CI (exit 1 if vulnerabilities, 0 if clean)
   --setup-hook                          Add postinstall script to run pastoralist automatically

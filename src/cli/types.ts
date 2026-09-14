@@ -137,4 +137,5 @@ export type RunDeps = {
   action: CliAction;
   showOnboarding: typeof showOnboarding;
   setupAgentSkill: (options: Options, args?: readonly string[]) => Promise<void> | void;
+  styleguide?: () => Promise<void> | void;
 };

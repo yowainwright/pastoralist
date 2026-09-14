@@ -82,7 +82,7 @@ function wrapText(text: string, width: number): string[] {
   return appendLine(state.lines, state.current);
 }
 
-function renderHintBox(text: string, width = DEFAULT_HINT_BOX_WIDTH): string {
+const renderHintBox = (text: string, width = DEFAULT_HINT_BOX_WIDTH): string => {
   const innerWidth = width - 4;
   const textWidth = innerWidth - 3;
   const lines = wrapText(text, textWidth);
@@ -94,7 +94,10 @@ function renderHintBox(text: string, width = DEFAULT_HINT_BOX_WIDTH): string {
     return gold(contentLine);
   });
   return [border].concat(content, border).join("\n");
-}
+};
+
+export const renderHint = (text: string, width = DEFAULT_HINT_BOX_WIDTH): string =>
+  renderHintBox(text, width);
 
 export function showHint(
   hintId: string,
@@ -104,7 +107,7 @@ export function showHint(
 ): void {
   if (!shouldShowHint(hintId, ttlMs)) return;
   out.writeLine("");
-  out.writeLine(renderHintBox(text));
+  out.writeLine(renderHint(text));
   out.writeLine("");
   markHintShown(hintId);
 }

@@ -337,6 +337,19 @@ pastoralist --version # -v
 Use these to check the installed CLI surface before wiring Pastoralist into
 scripts or CI.
 
+#### `--styleguide`
+
+> Type: **`boolean option`**
+
+Opens an interactive radio menu for exploring the Pastoralist DX components
+without reading or changing project configuration. Use the arrow keys and Enter
+to choose a demo. In the prompt demo, Space toggles choices, `a` selects all,
+`n` selects none, and Esc cancels.
+
+```sh
+pastoralist --styleguide
+```
+
 #### `pastoralist doctor`
 
 > Type: **`command`**

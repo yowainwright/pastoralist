@@ -135,6 +135,7 @@ type SecurityAlertScan = {
 
 const STATE_AWARE_BEST_CASE_PROVIDERS: readonly SecurityProviderType[] = ["osv", "spektion"];
 const PACKAGE_QUERY_PROVIDERS = new Set<SecurityProviderType>(["osv", "spektion"]);
+const SECURITY_QUERY_BATCH_SIZE = 1000;
 
 type DeclaredSecurityDependency = {
   name: string;
@@ -815,7 +816,26 @@ export class SecurityChecker {
     packages: SecurityPackage[],
     options: SecurityProviderScanOptions,
   ): Promise<SecurityAlert[]>[] {
-    return this.providers.map((provider) => provider.fetchAlerts(packages, options));
+    return this.providers.map((provider) =>
+      this.fetchProviderPackages(provider, packages, options),
+    );
+  }
+
+  private async fetchProviderPackages(
+    provider: SecurityProvider,
+    packages: SecurityPackage[],
+    options: SecurityProviderScanOptions,
+  ): Promise<SecurityAlert[]> {
+    const shouldBatch = PACKAGE_QUERY_PROVIDERS.has(provider.providerType);
+    if (!shouldBatch) return provider.fetchAlerts(packages, options);
+    const batchCount = Math.ceil(packages.length / SECURITY_QUERY_BATCH_SIZE);
+    const results: SecurityAlert[][] = [];
+    for (let index = 0; index < batchCount; index += 1) {
+      const start = index * SECURITY_QUERY_BATCH_SIZE;
+      const batch = packages.slice(start, start + SECURITY_QUERY_BATCH_SIZE);
+      results[index] = await provider.fetchAlerts(batch, options);
+    }
+    return results.flat();
   }
 
   private normalizeProviderResult(

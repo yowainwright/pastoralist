@@ -262,6 +262,10 @@ const TRANSITIVE_SCAN_PACKAGES: SecurityPackage[] = [
   { name: "transitive", version: "3.0.0" },
 ];
 const TRANSITIVE_SCAN_CONFIG: PastoralistJSON = { dependencies: { parent: "^1.0.0" } };
+const LARGE_SCAN_PACKAGES: SecurityPackage[] = Array.from({ length: 1998 }, (_, index) => ({
+  name: `filler-${index}`,
+  version: "1.0.0",
+})).concat(TRANSITIVE_SCAN_PACKAGES);
 const TRANSITIVE_YARN_LOCK = [
   'parent@^1.0.0:\n  version "1.0.0"',
   'transitive@^2.0.0:\n  version "2.0.0"',
@@ -350,6 +354,70 @@ TRANSITIVE_LOCK_FORMATS.forEach(([filename, content]) => {
       requireCompleteScan: false,
       onIncomplete: anyValue(Function),
     });
+  });
+});
+
+(["osv", "spektion"] as const).forEach((provider) => {
+  test(`checkSecurity - bounds ${provider} requests without losing package versions`, async () => {
+    const root = createBestCaseRoot(LARGE_SCAN_PACKAGES);
+    const { checker, fetchAlerts } = createTransitiveScanChecker(root, { provider });
+    const result = await checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, { root });
+    const batches = fetchAlerts.mock.calls.map(({ arguments: args }) => args[0]);
+    assert.deepStrictEqual(
+      batches.map((batch) => batch.length),
+      [1000, 1000, 1],
+    );
+    assert.deepStrictEqual(batches.flat(), LARGE_SCAN_PACKAGES);
+    assert.strictEqual(result.packagesScanned, 2001);
+    assert.strictEqual(result.alerts.length, 1);
+    assert.strictEqual(result.alerts[0].currentVersion, "2.0.0");
+    assert.deepStrictEqual(result.alerts[0].sources, [provider]);
+  });
+});
+
+test("checkSecurity - batches query providers while scanning project providers once", async () => {
+  const root = createBestCaseRoot(LARGE_SCAN_PACKAGES);
+  const checker = new SecurityChecker({ provider: ["osv", "npm"], noCache: true });
+  const providers = (checker as unknown as SecurityCheckerProviderHarness).providers;
+  const scans = providers.map((provider) => spyOn(provider, "fetchAlerts").mockResolvedValue([]));
+  await checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, { root });
+  assert.strictEqual(scans[0].mock.callCount(), 3);
+  assert.strictEqual(scans[1].mock.callCount(), 1);
+  assert.deepStrictEqual(scans[1].mock.calls[0].arguments[0], LARGE_SCAN_PACKAGES);
+});
+
+test("checkSecurity - incomplete later batches never populate memory or disk caches", async () => {
+  const root = createBestCaseRoot(LARGE_SCAN_PACKAGES);
+  const { checker, fetchAlerts } = createTransitiveScanChecker(root, { noCache: false });
+  fetchAlerts.mockImplementation((packages, options) => {
+    if (packages.length === 1) options?.onIncomplete?.();
+    return Promise.resolve(getTransitiveScanAlerts(packages));
+  });
+  await checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, { root });
+  await checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, { root });
+  assert.strictEqual(fetchAlerts.mock.callCount(), 6);
+  const fresh = createTransitiveScanChecker(root, { noCache: false });
+  await fresh.checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, { root });
+  assert.strictEqual(fresh.fetchAlerts.mock.callCount(), 3);
+});
+
+[
+  { strict: true, requireCompleteScan: false },
+  { strict: false, requireCompleteScan: true },
+].forEach(({ strict, requireCompleteScan }) => {
+  test(`checkSecurity - rejects later batch failures with strict=${strict}`, async () => {
+    const root = createBestCaseRoot(LARGE_SCAN_PACKAGES);
+    const { checker, fetchAlerts } = createTransitiveScanChecker(root, { strict });
+    fetchAlerts.mockImplementation((packages) => {
+      if (packages[0].name !== LARGE_SCAN_PACKAGES[0].name) {
+        return Promise.reject(new Error("batch unavailable"));
+      }
+      return Promise.resolve([]);
+    });
+    const scan = checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, { root, requireCompleteScan });
+    const expectedError = strict ? "batch unavailable" : "complete provider scan";
+    await assert.rejects(scan, errorIncludes(expectedError));
+    assert.strictEqual(fetchAlerts.mock.callCount(), 2);
   });
 });
 

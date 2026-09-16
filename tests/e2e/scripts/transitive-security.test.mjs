@@ -21,7 +21,6 @@ const CLI_ARGS = [
   "--import",
   TEST_FILE,
   CLI,
-  "--dry-run",
   "--checkSecurity",
   "--hasWorkspaceSecurityChecks",
   "--strict",
@@ -49,6 +48,9 @@ const MANIFEST = JSON.stringify({
   workspaces: ["packages/*"],
   pastoralist: { overrideSource: "overrides.json" },
 });
+const AUTO_FIX_MANIFEST = JSON.stringify(
+  Object.assign({}, JSON.parse(MANIFEST), { pastoralist: {} }),
+);
 const PACKAGE_MANAGER_LOCK = [
   "---",
   "lockfileVersion: '9.0'",
@@ -106,10 +108,10 @@ const projectLock = (version) =>
     `  transitive@${version}: {}`,
   ].join("\n");
 
-const createFixture = (root, version) => {
+const createFixture = (root, version, manifest = MANIFEST) => {
   const lock = [PACKAGE_MANAGER_LOCK, projectLock(version)].join("\n");
   const files = {
-    "package.json": MANIFEST,
+    "package.json": manifest,
     "pnpm-lock.yaml": lock,
     "pnpm-workspace.yaml": "packages:\n  - packages/*\noverrides: {}\n",
     "overrides.json": '{"overrides":{}}',
@@ -120,7 +122,7 @@ const createFixture = (root, version) => {
   return files;
 };
 
-const runCli = (root) => {
+const runCli = (root, flags = ["--dry-run"]) => {
   const cacheDir = join(root, ".cache");
   const queryLog = join(root, "queries.jsonl");
   const env = Object.assign({}, process.env, {
@@ -129,7 +131,7 @@ const runCli = (root) => {
     PASTORALIST_CACHE_DIR: cacheDir,
     PASTORALIST_E2E_QUERY_LOG: queryLog,
   });
-  const args = CLI_ARGS.concat("--cache-dir", cacheDir);
+  const args = CLI_ARGS.concat(flags, "--cache-dir", cacheDir);
   return spawnSync(process.execPath, args, { cwd: root, env, encoding: "utf8", timeout: 15000 });
 };
 
@@ -145,6 +147,7 @@ const assertResult = (child, scenario) => {
   assert.strictEqual(result.securityAlertCount, scenario.alerts.length);
   const names = result.securityAlerts.map(({ packageName }) => packageName);
   assert.deepStrictEqual(names, scenario.alerts);
+  return result;
 };
 
 const assertQueriedInventory = (root, version) => {
@@ -157,7 +160,7 @@ const assertQueriedInventory = (root, version) => {
 const assertFilesUnchanged = (root, files) => {
   Object.entries(files).forEach(([name, content]) => {
     const actual = readFileSync(join(root, name), "utf8");
-    assert.strictEqual(actual, content, `${name} changed during dry-run`);
+    assert.strictEqual(actual, content, `${name} unexpectedly changed`);
   });
 };
 
@@ -178,6 +181,31 @@ const registerScenario = (scenario) => {
   });
 };
 
+const assertPersistedOverride = (root, files) => {
+  const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  assert.strictEqual(manifest.dependencies.transitive, undefined);
+  assert.ok(manifest.pastoralist.appendix["transitive@3.0.0"]);
+  const workspace = readFileSync(join(root, "pnpm-workspace.yaml"), "utf8");
+  assert.match(workspace, /overrides:\n  "transitive": "3\.0\.0"/);
+  const preserved = ["pnpm-lock.yaml", "overrides.json", "packages/app/package.json"];
+  const unchangedFiles = Object.fromEntries(preserved.map((name) => [name, files[name]]));
+  assertFilesUnchanged(root, unchangedFiles);
+};
+
+const registerAutoFixScenario = () => {
+  test("built CLI persists a transitive override in pnpm-workspace.yaml", (t) => {
+    const root = mkdtempSync(join(SCRIPT_DIR, ".test-transitive-security-"));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const files = createFixture(root, "2.0.0", AUTO_FIX_MANIFEST);
+    const child = runCli(root, ["--forceSecurityRefactor"]);
+    const result = assertResult(child, scenarios[0]);
+    assert.deepStrictEqual(result.appliedOverrides, { transitive: "3.0.0" });
+    assertPersistedOverride(root, files);
+    assertResult(runCli(root), scenarios[0]);
+    assertPersistedOverride(root, files);
+  });
+};
+
 const run = () => {
   const isCliPreload = process.argv[1] !== TEST_FILE;
   if (isCliPreload) {
@@ -185,6 +213,7 @@ const run = () => {
     return;
   }
   scenarios.forEach(registerScenario);
+  registerAutoFixScenario();
 };
 
 run();

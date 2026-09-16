@@ -14,9 +14,11 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import packageJSON from "../../../package.json" with { type: "json" };
 import type { BestCaseResult } from "../../../src/core/best-case";
+import type { OSVPackageQuery } from "../../../src/core/security/types";
 import {
   SecurityProviderPermissionError,
   type Options,
+  type PastoralistResult,
   type PastoralistJSON,
   type SecurityAlert,
 } from "../../../src/types";
@@ -84,6 +86,169 @@ const CLI_SECURITY_OVERRIDE = {
   reason: "Security fix",
   severity: "high",
 };
+
+const TRANSITIVE_CLI_LOCK = [
+  "---",
+  "lockfileVersion: '9.0'",
+  "importers:",
+  "  .:",
+  "    packageManagerDependencies:",
+  "      pnpm:",
+  "        version: 12.2.1",
+  "packages:",
+  "  pnpm@12.2.1: {}",
+  "---",
+  "lockfileVersion: '9.0'",
+  "importers:",
+  "  .:",
+  "    dependencies:",
+  "      parent:",
+  "        specifier: ^1.0.0",
+  "        version: 1.0.0",
+  "packages:",
+  "  parent@1.0.0: {}",
+  "  transitive@2.0.0: {}",
+  "  transitive@3.0.0: {}",
+  "snapshots:",
+  "  parent@1.0.0:",
+  "    dependencies:",
+  "      transitive: 2.0.0",
+  "  transitive@2.0.0: {}",
+  "  transitive@3.0.0: {}",
+].join("\n");
+const TRANSITIVE_CLI_ADVISORY = {
+  id: "TEST-transitive",
+  summary: "Transitive security regression",
+  database_specific: { severity: "HIGH" },
+  affected: [
+    {
+      package: { name: "transitive", ecosystem: "npm" },
+      ranges: [{ type: "SEMVER", events: [{ introduced: "0" }, { fixed: "3.0.0" }] }],
+    },
+  ],
+};
+
+const TRANSITIVE_CLI_CONFIG = {
+  name: "transitive-cli",
+  version: "1.0.0",
+  packageManager: "pnpm@12.2.1",
+  dependencies: { parent: "^1.0.0" },
+  workspaces: ["packages/*"],
+  pastoralist: { overrideSource: "overrides.json" },
+};
+
+const createTransitiveCliFixture = () => {
+  const root = mkdtempSync(join(tmpdir(), "pastoralist-transitive-cli-"));
+  const manifest = JSON.stringify(TRANSITIVE_CLI_CONFIG);
+  const files = {
+    "package.json": manifest,
+    "pnpm-lock.yaml": TRANSITIVE_CLI_LOCK,
+    "pnpm-workspace.yaml": "packages:\n  - packages/*\noverrides: {}\n",
+    "overrides.json": '{"overrides":{}}',
+    "packages/app/package.json": '{"dependencies":{"parent":"^1.0.0"}}',
+  };
+  fs.mkdirSync(join(root, "packages", "app"), { recursive: true });
+  Object.entries(files).forEach(([name, content]) => fs.writeFileSync(join(root, name), content));
+  return { root, files };
+};
+
+const createTransitiveBatchResponse = (init?: RequestInit): Response => {
+  const { queries } = JSON.parse(String(init?.body)) as { queries: OSVPackageQuery[] };
+  const pairs = queries.map(({ package: pkg, version }) => `${pkg.name}@${version}`);
+  assert.deepStrictEqual(pairs, ["parent@1.0.0", "transitive@2.0.0", "transitive@3.0.0"]);
+  const results = pairs.map((pair: string) => {
+    if (pair !== "transitive@2.0.0") return {};
+    return { vulns: [{ id: TRANSITIVE_CLI_ADVISORY.id }] };
+  });
+  return Response.json({ results });
+};
+
+const fetchTransitiveCliResponse = (input: string | URL | Request, init?: RequestInit) => {
+  const url = String(input);
+  if (url.endsWith("/querybatch")) return Promise.resolve(createTransitiveBatchResponse(init));
+  if (url.endsWith("/vulns/TEST-transitive"))
+    return Promise.resolve(Response.json(TRANSITIVE_CLI_ADVISORY));
+  if (url === "https://registry.npmjs.org/transitive") {
+    const registry = { "dist-tags": { latest: "3.0.0" }, versions: { "3.0.0": {} } };
+    return Promise.resolve(Response.json(registry));
+  }
+  return Promise.reject(new Error(`Unexpected request: ${url}`));
+};
+
+const setTransitiveCliCache = (root: string) => {
+  const previous = process.env.PASTORALIST_CACHE_DIR;
+  process.env.PASTORALIST_CACHE_DIR = join(root, ".cache");
+  return () => {
+    if (previous === undefined) {
+      delete process.env.PASTORALIST_CACHE_DIR;
+      return;
+    }
+    process.env.PASTORALIST_CACHE_DIR = previous;
+  };
+};
+
+const assertTransitiveCliFiles = (root: string, files: Record<string, string>) => {
+  Object.entries(files).forEach(([name, content]) => {
+    const actual = fs.readFileSync(join(root, name), "utf8");
+    assert.strictEqual(actual, content);
+  });
+};
+
+const transitiveCliModes: Options[] = [
+  { quiet: true, outputFormat: "json", noCache: true },
+  { quiet: false, noCache: true },
+  { quiet: true, outputFormat: "json", noCache: false },
+];
+
+const createTransitiveCliOptions = (root: string, mode: Options): Options => {
+  const path = join(root, "package.json");
+  const cacheDir = join(root, ".cache");
+  return Object.assign(
+    {
+      root,
+      path,
+      cacheDir,
+      dryRun: true,
+      checkSecurity: true,
+      strict: true,
+      hasWorkspaceSecurityChecks: true,
+      forceSecurityRefactor: true,
+    },
+    mode,
+  );
+};
+
+const assertTransitiveCliFinding = (result: PastoralistResult): void => {
+  assertMatchObject(result, {
+    success: true,
+    hasSecurityIssues: true,
+    securityAlertCount: 1,
+  });
+  assertMatchObject(result.securityAlerts?.[0], {
+    packageName: "transitive",
+    patchedVersion: "3.0.0",
+    fixAvailable: true,
+  });
+};
+
+transitiveCliModes.forEach((mode) => {
+  test(`action - default transitive scan preserves dry-run files with quiet=${mode.quiet}, noCache=${mode.noCache}`, async (t) => {
+    const { root, files } = createTransitiveCliFixture();
+    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    t.after(setTransitiveCliCache(root));
+    const output = t.mock.method(process.stdout, "write", () => true);
+    const exit = t.mock.method(process, "exit", () => undefined as never);
+    t.mock.method(globalThis, "fetch", fetchTransitiveCliResponse);
+    const options = createTransitiveCliOptions(root, mode);
+    const result = await action(options);
+    assertTransitiveCliFinding(result);
+    const outputText = output.mock.calls.map((call) => String(call.arguments[0])).join("");
+    assert.match(outputText, /transitive/);
+    assert.strictEqual(exit.mock.callCount(), Number(mode.quiet));
+    if (mode.quiet) assertCalledWith(exit, 1);
+    assertTransitiveCliFiles(root, files);
+  });
+});
 
 const createBestCaseOptions = (): { config: PastoralistJSON; options: Options } => {
   const config: PastoralistJSON = {

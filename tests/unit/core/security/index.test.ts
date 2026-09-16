@@ -256,6 +256,293 @@ const assertProjectProviderScansNonnumericSpec = async (
   });
 };
 
+const TRANSITIVE_SCAN_PACKAGES: SecurityPackage[] = [
+  { name: "parent", version: "1.0.0" },
+  { name: "transitive", version: "2.0.0" },
+  { name: "transitive", version: "3.0.0" },
+];
+const TRANSITIVE_SCAN_CONFIG: PastoralistJSON = { dependencies: { parent: "^1.0.0" } };
+const LARGE_SCAN_PACKAGES: SecurityPackage[] = Array.from({ length: 1998 }, (_, index) => ({
+  name: `filler-${index}`,
+  version: "1.0.0",
+})).concat(TRANSITIVE_SCAN_PACKAGES);
+const TRANSITIVE_YARN_LOCK = [
+  'parent@^1.0.0:\n  version "1.0.0"',
+  'transitive@^2.0.0:\n  version "2.0.0"',
+  'transitive@^3.0.0:\n  version "3.0.0"',
+].join("\n\n");
+const TRANSITIVE_BUN_LOCK = JSON.stringify({
+  lockfileVersion: 1,
+  packages: {
+    parent: ["parent@1.0.0"],
+    transitive: ["transitive@2.0.0"],
+    "parent/transitive": ["transitive@3.0.0"],
+  },
+});
+const TRANSITIVE_PNPM_SNAPSHOTS = [
+  "lockfileVersion: '9.0'",
+  "snapshots:",
+  "  parent@1.0.0: {}",
+  "  transitive@2.0.0(peer@1.0.0): {}",
+  "  transitive@2.0.0(peer@2.0.0): {}",
+  "  transitive@3.0.0: {}",
+].join("\n");
+const TRANSITIVE_LOCK_FORMATS = [
+  ["yarn.lock", TRANSITIVE_YARN_LOCK],
+  ["bun.lock", TRANSITIVE_BUN_LOCK],
+  ["pnpm-lock.yaml", TRANSITIVE_PNPM_SNAPSHOTS],
+];
+
+const getTransitiveScanAlerts = (packages: SecurityPackage[]): SecurityAlert[] =>
+  packages
+    .filter(({ name, version }) => name === "transitive" && version === "2.0.0")
+    .map(() =>
+      createAlert({
+        packageName: "transitive",
+        currentVersion: "2.0.0",
+        vulnerableVersions: "<3.0.0",
+        fixAvailable: false,
+        patchedVersion: undefined,
+      }),
+    );
+
+const createTransitiveScanChecker = (
+  root: string,
+  options: ConstructorParameters<typeof SecurityChecker>[0] = {},
+) => {
+  const cacheDir = path.join(root, ".cache");
+  const factoryOptions = Object.assign(
+    { provider: "osv", noCache: true, strict: true, cacheDir },
+    options,
+  );
+  const checker = new SecurityChecker(factoryOptions);
+  const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockImplementation(
+    (packages) => Promise.resolve(getTransitiveScanAlerts(packages)),
+  );
+  return { checker, fetchAlerts };
+};
+
+const assertTransitiveScan = (result: Awaited<ReturnType<SecurityChecker["checkSecurity"]>>) => {
+  assert.strictEqual(result.packagesScanned, 3);
+  assert.strictEqual(result.alerts.length, 1);
+  assert.strictEqual(result.alerts[0].packageName, "transitive");
+  assert.strictEqual(result.alerts[0].currentVersion, "2.0.0");
+};
+
+(["osv", "spektion"] as const).forEach((provider) => {
+  test(`checkSecurity - default ${provider} inventory includes every transitive version`, async () => {
+    const root = createBestCaseRoot(TRANSITIVE_SCAN_PACKAGES);
+    const { checker, fetchAlerts } = createTransitiveScanChecker(root, { provider });
+    const result = await checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, { root });
+    assertTransitiveScan(result);
+    assertCalledWith(fetchAlerts, TRANSITIVE_SCAN_PACKAGES, {
+      root,
+      requireCompleteScan: false,
+      onIncomplete: anyValue(Function),
+    });
+  });
+});
+
+TRANSITIVE_LOCK_FORMATS.forEach(([filename, content]) => {
+  test(`checkSecurity - default ${filename} scan preserves transitive versions`, async () => {
+    const root = createTempCacheDir("transitive-lock");
+    fs.writeFileSync(path.join(root, filename), content);
+    const { checker, fetchAlerts } = createTransitiveScanChecker(root);
+    assertTransitiveScan(await checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, { root }));
+    assertCalledWith(fetchAlerts, TRANSITIVE_SCAN_PACKAGES, {
+      root,
+      requireCompleteScan: false,
+      onIncomplete: anyValue(Function),
+    });
+  });
+});
+
+(["osv", "spektion"] as const).forEach((provider) => {
+  test(`checkSecurity - bounds ${provider} requests without losing package versions`, async () => {
+    const root = createBestCaseRoot(LARGE_SCAN_PACKAGES);
+    const { checker, fetchAlerts } = createTransitiveScanChecker(root, { provider });
+    const result = await checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, { root });
+    const batches = fetchAlerts.mock.calls.map(({ arguments: args }) => args[0]);
+    assert.deepStrictEqual(
+      batches.map((batch) => batch.length),
+      [1000, 1000, 1],
+    );
+    assert.deepStrictEqual(batches.flat(), LARGE_SCAN_PACKAGES);
+    assert.strictEqual(result.packagesScanned, 2001);
+    assert.strictEqual(result.alerts.length, 1);
+    assert.strictEqual(result.alerts[0].currentVersion, "2.0.0");
+    assert.deepStrictEqual(result.alerts[0].sources, [provider]);
+  });
+});
+
+test("checkSecurity - batches query providers while scanning project providers once", async () => {
+  const root = createBestCaseRoot(LARGE_SCAN_PACKAGES);
+  const checker = new SecurityChecker({ provider: ["osv", "npm"], noCache: true });
+  const providers = (checker as unknown as SecurityCheckerProviderHarness).providers;
+  const scans = providers.map((provider) => spyOn(provider, "fetchAlerts").mockResolvedValue([]));
+  await checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, { root });
+  assert.strictEqual(scans[0].mock.callCount(), 3);
+  assert.strictEqual(scans[1].mock.callCount(), 1);
+  assert.deepStrictEqual(scans[1].mock.calls[0].arguments[0], LARGE_SCAN_PACKAGES);
+});
+
+test("checkSecurity - incomplete later batches never populate memory or disk caches", async () => {
+  const root = createBestCaseRoot(LARGE_SCAN_PACKAGES);
+  const { checker, fetchAlerts } = createTransitiveScanChecker(root, { noCache: false });
+  fetchAlerts.mockImplementation((packages, options) => {
+    if (packages.length === 1) options?.onIncomplete?.();
+    return Promise.resolve(getTransitiveScanAlerts(packages));
+  });
+  await checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, { root });
+  await checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, { root });
+  assert.strictEqual(fetchAlerts.mock.callCount(), 6);
+  const fresh = createTransitiveScanChecker(root, { noCache: false });
+  await fresh.checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, { root });
+  assert.strictEqual(fresh.fetchAlerts.mock.callCount(), 3);
+});
+
+[
+  { strict: true, requireCompleteScan: false },
+  { strict: false, requireCompleteScan: true },
+].forEach(({ strict, requireCompleteScan }) => {
+  test(`checkSecurity - rejects later batch failures with strict=${strict}`, async () => {
+    const root = createBestCaseRoot(LARGE_SCAN_PACKAGES);
+    const { checker, fetchAlerts } = createTransitiveScanChecker(root, { strict });
+    fetchAlerts.mockImplementation((packages) => {
+      if (packages[0].name !== LARGE_SCAN_PACKAGES[0].name) {
+        return Promise.reject(new Error("batch unavailable"));
+      }
+      return Promise.resolve([]);
+    });
+    const scan = checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, { root, requireCompleteScan });
+    const expectedError = strict ? "batch unavailable" : "complete provider scan";
+    await assert.rejects(scan, errorIncludes(expectedError));
+    assert.strictEqual(fetchAlerts.mock.callCount(), 2);
+  });
+});
+
+test("checkSecurity - mixed providers receive the complete default inventory", async () => {
+  const root = createBestCaseRoot(TRANSITIVE_SCAN_PACKAGES);
+  const checker = new SecurityChecker({ provider: ["osv", "npm"], noCache: true });
+  const providers = (checker as unknown as SecurityCheckerProviderHarness).providers;
+  const scans = providers.map((provider) => spyOn(provider, "fetchAlerts").mockResolvedValue([]));
+  await checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, { root });
+  scans.forEach((scan) =>
+    assertCalledWith(scan, TRANSITIVE_SCAN_PACKAGES, {
+      root,
+      requireCompleteScan: false,
+      onIncomplete: anyValue(Function),
+    }),
+  );
+});
+
+[false, true].forEach((scanFullDependencyInventory) => {
+  test(`checkSecurity - deduplicates resolved pairs with full inventory ${scanFullDependencyInventory}`, async () => {
+    const packages = TRANSITIVE_SCAN_PACKAGES.concat(TRANSITIVE_SCAN_PACKAGES[1]);
+    const root = createBestCaseRoot(packages);
+    const { checker } = createTransitiveScanChecker(root);
+    const result = await checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, {
+      root,
+      scanFullDependencyInventory,
+    });
+    assertTransitiveScan(result);
+  });
+});
+
+test("checkSecurity - default inventory excludes every version of an excluded name", async () => {
+  const root = createBestCaseRoot(TRANSITIVE_SCAN_PACKAGES);
+  const { checker, fetchAlerts } = createTransitiveScanChecker(root);
+  const result = await checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, {
+    root,
+    excludePackages: ["transitive"],
+  });
+  assert.strictEqual(result.packagesScanned, 1);
+  assert.deepStrictEqual(result.alerts, []);
+  assertCalledWith(fetchAlerts, [TRANSITIVE_SCAN_PACKAGES[0]], {
+    root,
+    requireCompleteScan: false,
+    onIncomplete: anyValue(Function),
+  });
+});
+
+test("checkSecurity - excluding a required declaration still scans transitives", async () => {
+  const root = createBestCaseRoot(TRANSITIVE_SCAN_PACKAGES.slice(1));
+  const { checker } = createTransitiveScanChecker(root);
+  const result = await checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, {
+    root,
+    excludePackages: ["parent"],
+  });
+  assert.strictEqual(result.packagesScanned, 2);
+  assert.strictEqual(result.alerts[0].packageName, "transitive");
+});
+
+test("checkSecurity - shared workspace inventory scans with no root dependencies", async () => {
+  const root = createBestCaseRoot(TRANSITIVE_SCAN_PACKAGES);
+  const workspace = path.join(root, "packages", "app");
+  fs.mkdirSync(workspace, { recursive: true });
+  fs.writeFileSync(path.join(workspace, "package.json"), JSON.stringify(TRANSITIVE_SCAN_CONFIG));
+  const { checker } = createTransitiveScanChecker(root);
+  const result = await checker.checkSecurity(
+    { workspaces: ["packages/*"] },
+    {
+      root,
+      depPaths: ["packages/*/package.json"],
+    },
+  );
+  assertTransitiveScan(result);
+});
+
+test("checkSecurity - resolved optional packages are included without requiring absent peers", async () => {
+  const root = createBestCaseRoot(TRANSITIVE_SCAN_PACKAGES);
+  const config = {
+    optionalDependencies: { transitive: "^2.0.0" },
+    peerDependencies: { absent: "^1.0.0" },
+  };
+  const { checker } = createTransitiveScanChecker(root);
+  assertTransitiveScan(await checker.checkSecurity(config, { root }));
+});
+
+test("checkSecurity - severity filtering does not shrink the queried inventory", async () => {
+  const root = createBestCaseRoot(TRANSITIVE_SCAN_PACKAGES);
+  const { checker, fetchAlerts } = createTransitiveScanChecker(root);
+  const result = await checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, {
+    root,
+    severityThreshold: "critical",
+  });
+  assert.strictEqual(result.packagesScanned, 3);
+  assert.deepStrictEqual(result.alerts, []);
+  assertCalledWith(fetchAlerts, TRANSITIVE_SCAN_PACKAGES, {
+    root,
+    requireCompleteScan: false,
+    onIncomplete: anyValue(Function),
+  });
+});
+
+test("checkSecurity - expanded inventory bypasses cached declared-only results", async () => {
+  const root = createBestCaseRoot(TRANSITIVE_SCAN_PACKAGES);
+  const { checker, fetchAlerts } = createTransitiveScanChecker(root, { noCache: false });
+  await (checker as any).resolveSecurityAlerts([TRANSITIVE_SCAN_PACKAGES[0]], { root });
+  assertTransitiveScan(await checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, { root }));
+  assertTransitiveScan(await checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, { root }));
+  assert.strictEqual(fetchAlerts.mock.callCount(), 2);
+  const disk = createTransitiveScanChecker(root, { noCache: false });
+  assertTransitiveScan(await disk.checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, { root }));
+  assert.strictEqual(disk.fetchAlerts.mock.callCount(), 0);
+  assertTransitiveScan(
+    await disk.checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, { root, refreshCache: true }),
+  );
+  assert.strictEqual(disk.fetchAlerts.mock.callCount(), 1);
+});
+
+test("checkSecurity - warns when only declared exact versions can be scanned", async () => {
+  const root = createTempCacheDir("no-lockfile");
+  const { checker } = createTransitiveScanChecker(root);
+  const warn = spyOn((checker as any).log, "warn");
+  const result = await checker.checkSecurity({ dependencies: { parent: "1.0.0" } }, { root });
+  assert.strictEqual(result.packagesScanned, 1);
+  assert.match(JSON.stringify(warn.mock.calls), /declared exact versions only/);
+});
+
 const createTempCacheDir = (name: string): string => {
   const dir = path.join(TEST_DIR, `${name}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   fs.mkdirSync(dir, { recursive: true });

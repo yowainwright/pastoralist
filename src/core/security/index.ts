@@ -189,14 +189,27 @@ const resolvePinnedSecurityPackages = (
   return packages;
 };
 
+const filterSecurityInventory = (
+  inventory: SecurityPackage[],
+  excludes: string[],
+): SecurityPackage[] => {
+  const excludedNames = new Set(excludes);
+  const entries = inventory
+    .filter(({ name }) => !excludedNames.has(name))
+    .map((pkg) => {
+      const key = `${pkg.name}@${pkg.version}`;
+      return [key, pkg] as const;
+    });
+  return Array.from(new Map(entries).values());
+};
+
 const resolveLockedSecurityPackages = (
   dependencies: DeclaredSecurityDependency[],
   inventory: SecurityPackage[],
+  excludes: string[],
 ): SecurityPackage[] => {
   const queryableDependencies = getQueryableSecurityDependencies(dependencies);
-  const dependencyNames = new Set(queryableDependencies.map(({ name }) => name));
-  const packages = inventory.filter(({ name }) => dependencyNames.has(name));
-  const resolvedNames = new Set(packages.map(({ name }) => name));
+  const resolvedNames = new Set(inventory.map(({ name }) => name));
   const missingNames = queryableDependencies
     .filter(({ required }) => required)
     .map(({ name }) => name)
@@ -206,7 +219,7 @@ const resolveLockedSecurityPackages = (
     const errorMessage = `Lockfile inventory is incomplete for security scan: ${missingPackages}`;
     throw new Error(errorMessage);
   }
-  return packages;
+  return filterSecurityInventory(inventory, excludes);
 };
 
 export class SecurityChecker {
@@ -620,8 +633,7 @@ export class SecurityChecker {
     if (!root) throw new Error("A project root is required for a full dependency scan");
     const inventory = getLockedPackages(root);
     if (!inventory) throw new Error(`Unable to resolve the dependency inventory at ${root}`);
-    const excludedPackages = new Set(excludes);
-    return inventory.filter(({ name }) => !excludedPackages.has(name));
+    return filterSecurityInventory(inventory, excludes);
   }
 
   private resolveVersionScanPackages(
@@ -631,14 +643,26 @@ export class SecurityChecker {
   ): SecurityPackage[] {
     const root = this.resolveConfiguredPackageRoot(options);
     const dependencies = getDeclaredSecurityDependencies(config, excludes);
-    if (!root) return resolvePinnedSecurityPackages(dependencies);
+    if (!root) return this.resolveDeclaredVersionPackages(dependencies);
 
     const inventory = getLockedPackages(root);
-    if (inventory) return resolveLockedSecurityPackages(dependencies, inventory);
+    if (inventory) return resolveLockedSecurityPackages(dependencies, inventory, excludes);
     if (hasDependencyLockfile(root)) {
       throw new Error(`Unable to read installed package versions from the lockfile at ${root}`);
     }
-    return resolvePinnedSecurityPackages(dependencies);
+    return this.resolveDeclaredVersionPackages(dependencies);
+  }
+
+  private resolveDeclaredVersionPackages(
+    dependencies: DeclaredSecurityDependency[],
+  ): SecurityPackage[] {
+    const packages = resolvePinnedSecurityPackages(dependencies);
+    if (packages.length === 0) return packages;
+    const warning =
+      "No resolved lockfile inventory; checking declared exact versions only. " +
+      "Transitive dependencies were not scanned.";
+    this.log.warn(warning, "resolveVersionScanPackages");
+    return packages;
   }
 
   private resolveConfiguredPackageRoot(options: SecurityCheckRuntimeOptions): string | undefined {

@@ -393,6 +393,10 @@ echo "✅ pnpm-workspace.yaml auto-detection works correctly"
 
 cd /app/e2e
 
+printf '\nRunning transitive security regression...\n'
+PASTORALIST_E2E_CLI=/app/pastoralist/index.js node --test /app/scripts/transitive-security.test.mjs
+print_result $? "Transitive security regression completed"
+
 echo "\n🔒 Running Security Feature Tests..."
 echo "=============================="
 /app/scripts/test-security-features.sh

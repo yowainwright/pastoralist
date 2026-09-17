@@ -27,7 +27,7 @@ import {
   yellow,
 } from "../dx";
 import type { Output, TerminalGraph } from "../dx";
-import { promptCheckbox, promptSelect } from "./prompts";
+import { promptCheckbox, promptSelect, quickConfirm, quickInput, quickList } from "./prompts";
 import type { PromptChoice } from "./prompts/types";
 import type {
   OverrideInfo,
@@ -35,7 +35,19 @@ import type {
   SecurityFixInfo,
   VulnerabilityInfo,
 } from "../dx/types";
-import { box, divider, indent, item, line, progress as renderProgress } from "../dx/format";
+import {
+  box,
+  calculateWidths,
+  divider,
+  indent,
+  item,
+  line,
+  pad,
+  progress as renderProgress,
+  truncate,
+  visibleLength,
+  width,
+} from "../dx/format";
 
 const writeSection = (out: Output, title: string): void => {
   out.writeLine("");
@@ -68,6 +80,16 @@ const showFormatting = (out: Output): void => {
   writeBlock(out, indent("Indented text"));
   writeBlock(out, line("Leading newline"));
   writeBlock(out, item(1, "Numbered item"));
+  const widthSample = cyan("visible text");
+  const columnWidths = calculateWidths([
+    { label: "Packages", value: 12 },
+    { label: "Security fixes", value: 3 },
+  ]);
+  writeBlock(out, `  terminal width: ${width()}`);
+  writeBlock(out, `  visible width: ${visibleLength(widthSample)}`);
+  writeBlock(out, `  padded: ${pad("left", 10)}`);
+  writeBlock(out, `  truncated: ${truncate("long visible text", 12)}`);
+  writeBlock(out, `  column widths: ${columnWidths.labelWidth}/${columnWidths.valueWidth}`);
 };
 
 const showPrompts = (out: Output): void => {
@@ -115,9 +137,13 @@ const showSpinner = (out: Output): void => {
   createSpinner("Example warning", out).warn();
 };
 
-const showShimmer = async (out: Output): Promise<void> => {
+const showShimmerFrame = (out: Output): void => {
   writeSection(out, "Shimmer");
   writeBlock(out, `  ${shimmerFrame("Shimmer frame", 0.5)}`);
+};
+
+const showShimmer = async (out: Output): Promise<void> => {
+  showShimmerFrame(out);
   await playShimmer("Animated shimmer", 30, out, "  ");
 };
 
@@ -239,18 +265,85 @@ const promptDemoChoices: PromptChoice[] = [
   },
 ];
 
+const promptListChoices = promptDemoChoices.filter((choice) => !choice.disabled);
+
 export type StyleguidePrompts = {
   select: (message: string, choices: PromptChoice[]) => Promise<string>;
   checkbox: (message: string, choices: PromptChoice[]) => Promise<string[]>;
+  confirm: (message: string, defaultValue?: boolean) => Promise<boolean>;
+  input: (message: string, defaultValue?: string) => Promise<string>;
+  list: (message: string, choices: PromptChoice[]) => Promise<string>;
 };
 
 const defaultStyleguidePrompts: StyleguidePrompts = {
   select: promptSelect,
   checkbox: promptCheckbox,
+  confirm: quickConfirm,
+  input: quickInput,
+  list: quickList,
+};
+
+type CapturedOutput = Output & { readonly text: string };
+
+const createCapturedOutput = (): CapturedOutput => {
+  let text = "";
+  return {
+    get text() {
+      return text;
+    },
+    write: (value: string) => {
+      text += value;
+    },
+    writeLine: (value: string) => {
+      text += `${value}\n`;
+    },
+    clearLine: () => {},
+    hideCursor: () => {},
+    showCursor: () => {},
+  };
+};
+
+const capture = (render: (out: Output) => void): string => {
+  const out = createCapturedOutput();
+  render(out);
+  return out.text.trim();
+};
+
+const formatGraphPreview = (): string =>
+  [
+    `${cyan("◆ Terminal graph")}`,
+    "  banner → scanning → progress → vulnerability",
+    "  resolving → override → security fix → removed override",
+    "  summary → notice → complete",
+  ].join("\n");
+
+export const formatStyleguide = (): string => {
+  const staticSections = [
+    showColors,
+    showFormatting,
+    showPrompts,
+    showTable,
+    showSpinner,
+    showShimmerFrame,
+    showHints,
+  ].map(capture);
+
+  return [
+    `${gradientPastoralist()} ${cyan("DX styleguide")}`,
+    gray("Static preview of Pastoralist's public terminal components."),
+  ]
+    .concat(staticSections, formatGraphPreview())
+    .join("\n\n");
 };
 
 const showPromptDemo = async (out: Output, prompts: StyleguidePrompts): Promise<void> => {
   writeSection(out, "Interactive prompts");
+  const confirmed = await prompts.confirm("Apply the example fix", true);
+  writeBlock(out, gray(`Confirmed: ${confirmed ? "yes" : "no"}`));
+  const input = await prompts.input("Project name", "pastoralist");
+  writeBlock(out, gray(`Input: ${input || "empty"}`));
+  const listed = await prompts.list("Choose a package manager", promptListChoices);
+  writeBlock(out, gray(`List: ${listed || "none"}`));
   const selected = await prompts.checkbox("Choose package managers", promptDemoChoices);
   writeBlock(out, gray(`Selected: ${selected.join(", ") || "none"}`));
   showPrompts(out);
@@ -283,6 +376,8 @@ export const showStyleguide = async (
       const selection = await prompts.select("Choose a component demo", styleguideChoices);
       if (selection === "exit") return;
       await runStyleguideDemo(selection, out, prompts);
+      const returnToMenu = await prompts.confirm("Return to the styleguide menu?", true);
+      if (!returnToMenu) return;
     }
   } catch (error: unknown) {
     const wasCancelled = error instanceof Error && error.name === "PromptCancelled";

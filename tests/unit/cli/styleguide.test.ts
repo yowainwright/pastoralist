@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { showStyleguide, type StyleguidePrompts } from "../../../src/cli/styleguide";
+import {
+  formatStyleguide,
+  showStyleguide,
+  type StyleguidePrompts,
+} from "../../../src/cli/styleguide";
 import type { Output } from "../../../src/dx";
 
 const ANSI_COLOR_PATTERN = new RegExp(String.fromCharCode(27) + "\\[[0-9;]*m", "g");
@@ -35,8 +39,25 @@ const createStyleguidePrompts = (
       return selection;
     },
     checkbox: async () => checked,
+    confirm: async () => true,
+    input: async (_message, defaultValue) => defaultValue ?? "pastoralist",
+    list: async () => "pnpm",
   };
 };
+
+test("formatStyleguide renders a deterministic public DX preview", () => {
+  const rendered = formatStyleguide().replace(ANSI_COLOR_PATTERN, "");
+
+  assert.match(rendered, /DX styleguide/);
+  assert.match(rendered, /Colors and links/);
+  assert.match(rendered, /visible width/);
+  assert.match(rendered, /Prompts/);
+  assert.match(rendered, /DX metrics/);
+  assert.match(rendered, /Spinner/);
+  assert.match(rendered, /Shimmer/);
+  assert.match(rendered, /Hint/);
+  assert.match(rendered, /Terminal graph/);
+});
 
 test("showStyleguide renders each DX component group", async () => {
   const output = createOutput();
@@ -65,6 +86,9 @@ test("showStyleguide runs interactive prompt demos without changing files", asyn
 
   const rendered = output.output.replace(ANSI_COLOR_PATTERN, "");
   assert.match(rendered, /Interactive prompts/);
+  assert.match(rendered, /Confirmed: yes/);
+  assert.match(rendered, /Input: pastoralist/);
+  assert.match(rendered, /List: pnpm/);
   assert.match(rendered, /Selected: npm, pnpm/);
   assert.match(rendered, /Prompts/);
 });

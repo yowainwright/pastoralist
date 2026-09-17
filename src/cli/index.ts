@@ -36,7 +36,7 @@ export {
 export { displayOverrides, displaySummaryTable } from "./display";
 export { handleSetupHook } from "./setup-hook";
 export { buildOnboardingText, showOnboarding } from "./cmds/init";
-export { showStyleguide } from "./styleguide";
+export { formatStyleguide, showStyleguide } from "./styleguide";
 
 type PackageVersion = { version?: unknown };
 const INIT_COMMAND_TYPES = ["config", "agent-skill"] as const;

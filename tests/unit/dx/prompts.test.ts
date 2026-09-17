@@ -61,6 +61,13 @@ describe("Enhanced Prompt UI Components", () => {
 
       assert.ok(result.includes(cyan("1.")));
     });
+
+    test("uses an explicit terminal width when provided", () => {
+      const result = formatChoiceList("Test:", [{ name: "Option", value: "option" }], 40);
+      const topBorder = stripAnsi(result).split("\n")[0];
+
+      assert.strictEqual(topBorder?.length, 36);
+    });
   });
 
   describe("formatChoicePrompt", () => {

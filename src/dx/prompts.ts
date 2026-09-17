@@ -4,10 +4,11 @@ import { PROMPT_BOX_MAX_WIDTH, PROMPT_TERMINAL_MARGIN, STEP_BOX_MAX_WIDTH } from
 import { green, cyan, gray, yellow } from "./colors";
 import { ICON } from "../constants";
 
-const promptBoxWidth = (): number =>
-  Math.min(width() - PROMPT_TERMINAL_MARGIN, PROMPT_BOX_MAX_WIDTH);
+const promptBoxWidth = (terminalWidth = width()): number =>
+  Math.min(terminalWidth - PROMPT_TERMINAL_MARGIN, PROMPT_BOX_MAX_WIDTH);
 
-const stepBoxWidth = (): number => Math.min(width() - PROMPT_TERMINAL_MARGIN, STEP_BOX_MAX_WIDTH);
+const stepBoxWidth = (terminalWidth = width()): number =>
+  Math.min(terminalWidth - PROMPT_TERMINAL_MARGIN, STEP_BOX_MAX_WIDTH);
 
 const colorBoxBorder = (line: string, index: number, total: number): string => {
   const isHorizontalBorder = index === 0 || index === total - 1;
@@ -32,13 +33,17 @@ export function formatConfirmPrompt(message: string, defaultValue: boolean = tru
   return `${icon} ${message} (${yesOption}/${noOption}) ${gray(defaultHint)}: `;
 }
 
-export function formatChoiceList(message: string, choices: PromptChoiceOption[]): string {
+export function formatChoiceList(
+  message: string,
+  choices: PromptChoiceOption[],
+  terminalWidth = width(),
+): string {
   const lines = [`${cyan("?")} ${message}`, ""].concat(choices.map(formatChoiceLine));
 
   const boxed = box(lines, {
     title: yellow("Configuration"),
     padding: 1,
-    width: promptBoxWidth(),
+    width: promptBoxWidth(terminalWidth),
   });
 
   return colorBoxBorders(boxed).join("\n");
@@ -59,13 +64,17 @@ export function formatInputPrompt(message: string, defaultValue?: string): strin
   return `${icon} ${message}: `;
 }
 
-export function formatStepHeader(stepNumber: number, title: string): string {
+export function formatStepHeader(
+  stepNumber: number,
+  title: string,
+  terminalWidth = width(),
+): string {
   const stepIcon = cyan(`▶ Step ${stepNumber}:`);
   const lines = [`${stepIcon} ${title}`];
 
   const boxed = box(lines, {
     padding: 1,
-    width: stepBoxWidth(),
+    width: stepBoxWidth(terminalWidth),
   });
 
   return `\n${colorBoxBorders(boxed).join("\n")}\n`;
@@ -83,7 +92,12 @@ export function formatWarning(message: string): string {
   return `${yellow(ICON.warning)} ${message}`;
 }
 
-export function formatCompletion(title: string, steps: string[], shimmerTitle?: string): string {
+export function formatCompletion(
+  title: string,
+  steps: string[],
+  shimmerTitle?: string,
+  terminalWidth = width(),
+): string {
   const heading = shimmerTitle || green(`✓ ${title}`);
   const formattedSteps = steps.map((step, index) => `  ${cyan(`${index + 1}.`)} ${step}`);
   const lines = [heading, ""].concat(formattedSteps);
@@ -91,7 +105,7 @@ export function formatCompletion(title: string, steps: string[], shimmerTitle?: 
   const boxed = box(lines, {
     title: yellow("Next Steps"),
     padding: 2,
-    width: promptBoxWidth(),
+    width: promptBoxWidth(terminalWidth),
   });
 
   return colorBoxBorders(boxed).join("\n");

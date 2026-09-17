@@ -49,6 +49,8 @@ import {
   width,
 } from "../dx/format";
 
+const STYLEGUIDE_PREVIEW_WIDTH = 80;
+
 const writeSection = (out: Output, title: string): void => {
   out.writeLine("");
   out.writeLine(cyan(`◆ ${title}`));
@@ -67,13 +69,15 @@ const showColors = (out: Output): void => {
   writeBlock(out, `  ${link("https://jeffry.in/pastoralist", "documentation link")}`);
 };
 
-const showFormatting = (out: Output): void => {
+const showFormatting = (out: Output, terminalWidth = width()): void => {
+  const boxWidth = terminalWidth - 2;
   writeSection(out, "Formatting");
   writeBlock(
     out,
-    box([green("Boxed content"), "Aligned with visible-width support"], { title: "Box" }).join(
-      "\n",
-    ),
+    box([green("Boxed content"), "Aligned with visible-width support"], {
+      title: "Box",
+      width: boxWidth,
+    }).join("\n"),
   );
   writeBlock(out, divider("─", 40));
   writeBlock(out, renderProgress(75));
@@ -85,30 +89,37 @@ const showFormatting = (out: Output): void => {
     { label: "Packages", value: 12 },
     { label: "Security fixes", value: 3 },
   ]);
-  writeBlock(out, `  terminal width: ${width()}`);
+  writeBlock(out, `  terminal width: ${terminalWidth}`);
   writeBlock(out, `  visible width: ${visibleLength(widthSample)}`);
   writeBlock(out, `  padded: ${pad("left", 10)}`);
   writeBlock(out, `  truncated: ${truncate("long visible text", 12)}`);
   writeBlock(out, `  column widths: ${columnWidths.labelWidth}/${columnWidths.valueWidth}`);
 };
 
-const showPrompts = (out: Output): void => {
+const showPrompts = (out: Output, terminalWidth = width()): void => {
   writeSection(out, "Prompts");
   writeBlock(out, formatConfirmPrompt("Apply the example fix"));
   writeBlock(
     out,
-    formatChoiceList("Choose a package manager", [
-      { name: "npm", value: "npm" },
-      { name: "pnpm", value: "pnpm" },
-    ]),
+    formatChoiceList(
+      "Choose a package manager",
+      [
+        { name: "npm", value: "npm" },
+        { name: "pnpm", value: "pnpm" },
+      ],
+      terminalWidth,
+    ),
   );
   writeBlock(out, formatChoicePrompt());
   writeBlock(out, formatInputPrompt("Project name", "pastoralist"));
-  writeBlock(out, formatStepHeader(1, "Configuration"));
+  writeBlock(out, formatStepHeader(1, "Configuration", terminalWidth));
   writeBlock(out, formatInfo("Informational message"));
   writeBlock(out, formatSuccess("Successful message"));
   writeBlock(out, formatWarning("Warning message"));
-  writeBlock(out, formatCompletion("Complete", ["Inspect output", "Keep building"]));
+  writeBlock(
+    out,
+    formatCompletion("Complete", ["Inspect output", "Keep building"], undefined, terminalWidth),
+  );
 };
 
 const showTable = (out: Output): void => {
@@ -320,8 +331,8 @@ const formatGraphPreview = (): string =>
 export const formatStyleguide = (): string => {
   const staticSections = [
     showColors,
-    showFormatting,
-    showPrompts,
+    (out: Output) => showFormatting(out, STYLEGUIDE_PREVIEW_WIDTH),
+    (out: Output) => showPrompts(out, STYLEGUIDE_PREVIEW_WIDTH),
     showTable,
     showSpinner,
     showShimmerFrame,

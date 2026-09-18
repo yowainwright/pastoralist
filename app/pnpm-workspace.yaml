@@ -4,9 +4,9 @@ allowBuilds:
   "@parcel/watcher": true
   esbuild: true
 minimumReleaseAgeExclude:
-  - daisyui@5.7.20 || 5.7.28
+  - daisyui@5.7.20 || 5.7.28 || 5.7.40
   - framer-motion@13.1.1
   - motion-dom@13.1.1
   - "@vitejs/plugin-react@6.1.1"
-  - lucide-react@1.35.0 || 1.40.0
+  - lucide-react@1.35.0 || 1.40.0 || 1.47.0
   - "@types/react-dom@19.2.7"

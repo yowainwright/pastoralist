@@ -35,7 +35,7 @@ describe("package security boundary", () => {
     const scripts = rootPackage.scripts as Record<string, string>;
     const setupScript = readRepositoryFile("scripts/setup/setup.sh");
 
-    assert.strictEqual(rootPackage.packageManager, "pnpm@11.18.0");
+    assert.strictEqual(rootPackage.packageManager, "pnpm@12.4.2");
     assert.strictEqual(scripts.setup, "sh scripts/setup/setup.sh bootstrap");
     assert.ok(setupScript.includes("pnpm install"));
     assert.ok(setupScript.includes("pnpm --dir app install"));

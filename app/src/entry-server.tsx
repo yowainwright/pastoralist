@@ -1,8 +1,9 @@
 import { renderToReadableStream } from "react-dom/server";
 import type { ReactNode } from "react";
+import { RouterContextProvider, Scripts } from "@tanstack/react-router";
 import { RouterServer, createRequestHandler } from "@tanstack/react-router/ssr/server";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { createAppRouter } from "./routes";
+import { createAppRouter, type AppRouter } from "./routes";
 
 export interface RenderedRoute {
   appHtml: string;
@@ -21,7 +22,16 @@ const renderToHtml = async (app: ReactNode): Promise<string> => {
   return new Response(stream).text();
 };
 
-const renderApp = async (router: ReturnType<typeof createAppRouter>): Promise<RenderedRoute> => {
+const renderRouterScripts = (router: AppRouter): Promise<string> => {
+  const scripts = (
+    <RouterContextProvider router={router}>
+      <Scripts />
+    </RouterContextProvider>
+  );
+  return renderToHtml(scripts);
+};
+
+const renderApp = async (router: AppRouter): Promise<RenderedRoute> => {
   const serverSsr = router.serverSsr;
   if (!serverSsr) throw new Error("Missing router SSR context");
 
@@ -31,8 +41,8 @@ const renderApp = async (router: ReturnType<typeof createAppRouter>): Promise<Re
     </TooltipProvider>
   );
   const appHtml = await renderToHtml(app);
+  const routerHtml = await renderRouterScripts(router);
   serverSsr.setRenderFinished();
-  const routerHtml = serverSsr.takeBufferedHtml() ?? "";
   return { appHtml, routerHtml };
 };
 

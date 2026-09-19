@@ -129,7 +129,7 @@
   "engines": {
     "node": ">=20.19.0"
   },
-  "packageManager": "pnpm@11.18.0",
+  "packageManager": "pnpm@12.4.2",
   "release-it": {
     "git": {
       "commitMessage": "chore(release): ${version}",

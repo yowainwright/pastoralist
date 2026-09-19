@@ -104,7 +104,7 @@ export function CodeBlockToggle({
       height="400px"
       minHeight="400px"
     >
-      {content}
+      <div className="min-h-0 flex-1 overflow-auto">{content}</div>
     </TerminalWindow>
   );
 }

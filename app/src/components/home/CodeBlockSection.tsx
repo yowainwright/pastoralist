@@ -3,7 +3,6 @@ import { Link } from "@tanstack/react-router";
 import { CheckList } from "@/components/CheckList";
 import { CodeBlockToggle } from "@/components/home/CodeBlockToggle";
 import { useFadeInUp, useHasHydrated } from "@/hooks/useFadeInUp";
-import { isStaticRender } from "@/lib/utils";
 
 const SEEN_KEY = "pastoralist-codeblock-animation-seen";
 
@@ -14,7 +13,7 @@ const hasSeenCodeBlock = (): boolean => {
 const styles = {
   section: "py-16 lg:py-24 bg-base-200/50 border-y border-base-content/10",
   article:
-    "lg:flex gap-10 items-center max-w-2xl md:max-w-5xl mx-auto px-4 transition-all duration-700 ease-out",
+    "lg:flex gap-10 items-center max-w-2xl md:max-w-5xl mx-auto px-4 transition-[opacity,transform] duration-700 ease-out",
   articleVisible: "opacity-100 translate-y-0",
   articleHidden: "opacity-0 translate-y-8",
   header: "lg:max-w-md flex flex-col justify-center",
@@ -84,7 +83,7 @@ function CodeBlockContent({ showComplete }: { showComplete: boolean }) {
 
 export function CodeBlockSection() {
   const hasHydrated = useHasHydrated();
-  const showComplete = isStaticRender() && !hasHydrated;
+  const showComplete = !hasHydrated;
 
   return <CodeBlockContent showComplete={showComplete} />;
 }

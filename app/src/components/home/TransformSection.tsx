@@ -2,7 +2,6 @@ import { useState } from "react";
 import { TransformDemo } from "@/components/home/TransformDemo";
 import { TransformDemoStatic } from "@/components/home/TransformDemo/static";
 import { useFadeInUp, useHasHydrated } from "@/hooks/useFadeInUp";
-import { isStaticRender } from "@/lib/utils";
 
 const SEEN_KEY = "pastoralist-transform-animation-seen";
 
@@ -23,7 +22,7 @@ const BLOB_CLIP =
 const styles = {
   section: "relative py-16 lg:py-24 overflow-hidden",
   article: "max-w-2xl md:max-w-6xl mx-auto px-4",
-  header: "text-center mb-10 transition-all duration-700 ease-out",
+  header: "text-center mb-10 transition-[opacity,transform] duration-700 ease-out",
   headerVisible: "opacity-100 translate-y-0",
   headerHidden: "opacity-0 translate-y-8",
   h2: "text-3xl lg:text-4xl font-black text-base-content",
@@ -65,7 +64,7 @@ function TransformSectionContent({ showComplete }: { showComplete: boolean }) {
 
 export function TransformSection() {
   const hasHydrated = useHasHydrated();
-  const showComplete = isStaticRender() && !hasHydrated;
+  const showComplete = !hasHydrated;
 
   return <TransformSectionContent showComplete={showComplete} />;
 }

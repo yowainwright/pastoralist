@@ -10,6 +10,8 @@ export const CLITerminal: React.FC<CLITerminalProps> = ({
   showSuccess,
 }) => {
   const showCursor = phase === "step2";
+  const spinnerClass = showSpinner ? "text-cyan-400" : "invisible";
+  const successClass = showSuccess ? "text-success" : "invisible";
 
   return (
     <TerminalWindow isActive={isActive}>
@@ -22,17 +24,13 @@ export const CLITerminal: React.FC<CLITerminalProps> = ({
           <span>{typedCommand}</span>
           {showCursor && <span className={STYLES.cursor} />}
         </div>
-        {showSpinner && (
-          <div className={`${STYLES.line} text-cyan-400`}>
-            <span className="inline-block animate-spin mr-2">&#x280B;</span>
-            Scanning overrides...
-          </div>
-        )}
-        {showSuccess && (
-          <div className={`${STYLES.line} text-success`}>
-            &#x2514;&#x2500;&#x2500; The herd is safe! &#x1F411;
-          </div>
-        )}
+        <div className={`${STYLES.line} ${spinnerClass}`} aria-hidden={!showSpinner}>
+          <span className="inline-block animate-spin mr-2">&#x280B;</span>
+          Scanning overrides...
+        </div>
+        <div className={`${STYLES.line} ${successClass}`} aria-hidden={!showSuccess}>
+          &#x2514;&#x2500;&#x2500; The herd is safe! &#x1F411;
+        </div>
       </div>
     </TerminalWindow>
   );

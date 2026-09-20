@@ -11,11 +11,10 @@
 [socket-badge]: https://socket.dev/api/badge/npm/package/pastoralist
 [socket-package]: https://socket.dev/npm/package/pastoralist
 
-Pastoralist is an audit trail for package manager overrides.
-
+Pastoralist tracks project package manager [overrides](https://docs.npmjs.com/cli/v11/configuring-npm/package-json#overrides).
 Overrides often start as real fixes: a CVE patch, a compatibility pin, a fork,
-or a temporary transitive dependency workaround. Months later, the override is
-still in `package.json`, but the reason is usually somewhere else.
+or a temporary transitive dependency workaround. Months later, overrides can remain in `package.json`,
+and no one know's why—until now.
 
 <table width="100%">
 <thead>
@@ -56,11 +55,9 @@ still in `package.json`, but the reason is usually somewhere else.
 </tbody>
 </table>
 
-Pastoralist handles your overrides and writes an appendix ledger so you know
-why each override exists, which packages still need it, which security provider
-found it, and when it can be removed.
-
-<!-- first-run CLI commands from src/cli/parser/constants.ts and src/cli/cmds/init/ -->
+Pastoralist manages your package manager overrides AND provides an appendix ledger telling you why the overrides is there.
+Better yet, Pastoralist will manage your overrides for you: cleaning them up when possible and even
+helping you reduce CVEs!
 
 ---
 

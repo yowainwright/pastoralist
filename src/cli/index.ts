@@ -9,9 +9,9 @@ import type { Options } from "../types";
 import { logger as createLogger } from "../observability";
 import { initCommand, showOnboarding } from "./cmds/init";
 import { action } from "./action";
-import { handleSetupHook } from "./setup-hook";
+import { addPostinstallHook, readPackageJson, resolvePackagePath, writePackageJson } from "./utils";
 import { showStyleguide } from "./styleguide";
-import type { InitSecurityProvider, RunDeps } from "./types";
+import type { InitSecurityProvider, RunDeps, SetupHookDeps } from "./types";
 import type { Logger, PrintFunc } from "../observability";
 
 export { action, handleInitMode, handleTestMode } from "./action";
@@ -32,9 +32,9 @@ export {
   createErrorResult,
   outputResult,
   resolvePathFromRoot,
+  displayOverrides,
+  displaySummaryTable,
 } from "./utils";
-export { displayOverrides, displaySummaryTable } from "./display";
-export { handleSetupHook } from "./setup-hook";
 export { buildOnboardingText, showOnboarding } from "./cmds/init";
 export { formatStyleguide, showStyleguide } from "./styleguide";
 
@@ -326,4 +326,43 @@ export const run = async (
   if (isDoctorCommand) return runDoctorCommand(options, deps, log.print);
 
   await deps.action(options);
+};
+
+const defaultSetupHookDeps: SetupHookDeps = {
+  readFileSync,
+  writeFileSync,
+  resolve,
+};
+
+export const handleSetupHook = (
+  options: Options,
+  log: ReturnType<typeof createLogger>,
+  deps: SetupHookDeps = defaultSetupHookDeps,
+): boolean => {
+  if (options.setupHook !== true) return false;
+
+  try {
+    const packagePath = resolvePackagePath(options, deps);
+    const config = readPackageJson(packagePath, deps);
+    const existingPostinstall = config.scripts?.postinstall || "";
+
+    if (existingPostinstall.includes("pastoralist")) {
+      log.print("postinstall hook already configured");
+      return true;
+    }
+
+    if (options.dryRun) {
+      log.print("[DRY RUN] would add postinstall hook to package.json");
+      return true;
+    }
+
+    writePackageJson(packagePath, addPostinstallHook(config), deps);
+    log.print("added postinstall hook to package.json");
+    return true;
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    log.fail(`Failed to setup hook: ${reason}`);
+    process.exitCode = 1;
+    return true;
+  }
 };

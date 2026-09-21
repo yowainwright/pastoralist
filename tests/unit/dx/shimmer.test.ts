@@ -1,7 +1,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { playShimmer, shimmerFrame } from "../../../src/dx/shimmer";
-import type { Output } from "../../../src/dx/output";
+import { playShimmer, shimmerFrame } from "../../../src/dx/utils";
+import type { Output } from "../../../src/dx/types";
 
 type MockOutput = Output & { lines: string[]; written: string[] };
 

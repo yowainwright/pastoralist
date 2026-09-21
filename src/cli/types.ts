@@ -1,3 +1,5 @@
+import type { readFileSync, writeFileSync } from "fs";
+import type { resolve } from "path";
 import type {
   AppendixItem,
   AppendixTarget,
@@ -11,13 +13,19 @@ import type { resolveJSON } from "../core/package";
 import type { loadConfig, loadConfigWithSource } from "../config";
 import type { getLedgerAddedDate } from "../utils";
 import type { createSpinner } from "../dx";
-import type { green } from "../dx/colors";
+import type { green } from "../dx/utils";
 import type { logger as createLogger } from "../observability";
 import type { quickConfirm } from "./prompts";
 import type { initCommand } from "./cmds/init";
 import type { showOnboarding } from "./cmds/init";
 import type { buildMergedOptions, handleSecurityResults, runSecurityCheck } from "./security";
 import type { SecurityPhaseResult } from "./security/types";
+
+export type SetupHookDeps = {
+  readFileSync: typeof readFileSync;
+  writeFileSync: typeof writeFileSync;
+  resolve: typeof resolve;
+};
 
 export type OverrideDisplayContext = {
   finalOverrides: Record<string, unknown>;

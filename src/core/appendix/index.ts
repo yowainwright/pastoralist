@@ -20,7 +20,7 @@ import type {
   LedgerReason,
 } from "../../types";
 import type { ConfigSource, PastoralistConfig } from "../../config/types";
-import { validateConfig } from "../../config/validators";
+import { validateConfig } from "../../config/validation";
 import type { Logger } from "../../observability";
 import type {
   AppendixUpdateOptions,

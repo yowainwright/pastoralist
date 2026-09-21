@@ -3,7 +3,6 @@ import { test } from "node:test";
 import { spyOn } from "../setup";
 import assert from "node:assert/strict";
 import {
-  createSpinner,
   hideCursor,
   showCursor,
   clearLine,
@@ -13,7 +12,8 @@ import {
   incrementFrame,
   writeSymbol,
   update,
-} from "../../../src/dx/spinner";
+} from "../../../src/dx/utils";
+import { createSpinner } from "../../../src/dx";
 import { ICON } from "../../../src/constants";
 import type { SpinnerState } from "../../../src/dx/types";
 

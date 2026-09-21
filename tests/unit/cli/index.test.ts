@@ -42,10 +42,10 @@ import {
 import { clearConfigCache } from "../../../src/config";
 import { forceClearCache, resolveJSON } from "../../../src/core/package";
 import { update as realUpdate } from "../../../src/core/update";
-import { renderUpdateOutput } from "../../../src/cli/display";
+import { renderUpdateOutput } from "../../../src/cli/utils";
 import { verifyRemovals } from "../../../src/cli/security";
-import { createOutput } from "../../../src/dx/output";
-import { createTerminalGraph } from "../../../src/dx/terminal-graph";
+import { createOutput } from "../../../src/dx/utils";
+import { createTerminalGraph } from "../../../src/dx/tree";
 import { join, resolve } from "path";
 import {
   captureConsoleOutput,

@@ -35,7 +35,27 @@ jobs:
           results_format: sarif
           publish_results: true
 
+      - name: Apply test bootstrap exceptions
+        run: |
+          jq '
+            def is_test_bootstrap:
+              .ruleId == "PinnedDependenciesID"
+              and (.message.text // "" | test("^score is [0-9]+: npmCommand not pinned by hash\n"))
+              and (.locations | length == 1)
+              and (.locations[0].physicalLocation.artifactLocation.uri as $path
+                | [
+                    "tests/e2e/Dockerfile",
+                    "tests/e2e/Dockerfile.pnpm-yaml",
+                    "tests/e2e/Dockerfile.yarn"
+                  ] | index($path) != null);
+            .runs |= map(
+              if .tool.driver.name == "Scorecard" then
+                .results |= map(select(is_test_bootstrap | not))
+              else . end
+            )
+          ' scorecard.sarif > scorecard-filtered.sarif
+
       - name: Upload Scorecard SARIF
         uses: github/codeql-action/upload-sarif@7211b7c8077ea37d8641b6271f6a365a22a5fbfa # v4.36.0
         with:
-          sarif_file: scorecard.sarif
+          sarif_file: scorecard-filtered.sarif

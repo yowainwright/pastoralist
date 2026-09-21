@@ -29,6 +29,9 @@ export const PROMPT_BOX_MAX_WIDTH = 80;
 export const STEP_BOX_MAX_WIDTH = 60;
 export const PROMPT_TERMINAL_MARGIN = 4;
 
+export const GRADIENT_GREEN: RgbTuple = [0, 128, 0];
+export const GRADIENT_TAN: RgbTuple = [210, 180, 140];
+
 export const SHIMMER_GOLD: RgbTuple = [255, 215, 0];
 export const SHIMMER_WHITE: RgbTuple = [255, 255, 255];
 export const SHIMMER_WAVE_WIDTH = 0.25;

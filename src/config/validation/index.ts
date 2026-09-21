@@ -14,7 +14,7 @@ import {
   SECURITY_CHECK_RESULTS,
   SECURITY_PROVIDERS,
   SEVERITY_THRESHOLDS,
-} from "./validation/constants";
+} from "./constants";
 import type {
   DepPathAlias,
   PastoralistConfig,
@@ -23,9 +23,9 @@ import type {
   SecurityProvider,
   SecurityProviders,
   SeverityThreshold,
-} from "./types";
-import type { BestCaseObjective, BestCaseRiskAggregation, BestCaseSearchMode } from "../types";
-import type { FieldValidation, FieldValidator } from "./validation/types";
+} from "../types";
+import type { BestCaseObjective, BestCaseRiskAggregation, BestCaseSearchMode } from "../../types";
+import type { FieldValidation, FieldValidator } from "./types";
 import {
   applyFieldValidatorOverrides,
   areFieldsValid,
@@ -45,7 +45,7 @@ import {
   isStringRecord,
   isUniqueNonEmptyStringArray,
   validateRecordValues,
-} from "./validation/utils";
+} from "./utils";
 
 const isSecurityProvider = (value: unknown): value is SecurityProvider => {
   return isString(value) && SECURITY_PROVIDERS.includes(value as SecurityProvider);

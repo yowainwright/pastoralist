@@ -1,11 +1,9 @@
 import type { KeepConstraint } from "../../types";
 import { ANSI, FARMER } from "../../constants";
-import { gray, green } from "../colors";
+import { gray, green, defaultOutput, playShimmer } from "../utils";
 import { ICON } from "../../constants";
 import type { Output, TerminalGraphOptions } from "../types";
-import { defaultOutput } from "../output";
 import { visibleLength } from "../format";
-import { playShimmer } from "../shimmer";
 import {
   SHIMMER_DEFAULT_FRAME_INTERVAL_MS,
   SPINNER_FRAMES,

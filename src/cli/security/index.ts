@@ -11,13 +11,12 @@ import {
 import { SecurityChecker } from "../../core/security";
 import { resolveWorkspaceManifestPaths } from "../../core/workspaces";
 import { createSpinner } from "../../dx";
-import { green, yellow } from "../../dx/colors";
+import { green, yellow } from "../../dx/utils";
 import { logger as createLogger } from "../../observability";
 import { dirname, resolve } from "node:path";
 import { DEFAULT_SECURITY_PROVIDER, MSG_SCANNING } from "./constants";
-import { renderRemovalVerification, renderSecurityFindings } from "../display";
 import { verifyRemovals } from "./utils";
-import { buildSecurityResult } from "../utils";
+import { buildSecurityResult, renderRemovalVerification, renderSecurityFindings } from "../utils";
 import type { CliGraph, SecurityPhaseDeps } from "../types";
 import type {
   OptionalSecurityOverrideDetail,

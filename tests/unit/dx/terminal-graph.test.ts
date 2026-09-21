@@ -1,7 +1,7 @@
 import { test, describe, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { createTerminalGraph } from "../../../src/dx/terminal-graph";
-import type { Output } from "../../../src/dx/output";
+import { createTerminalGraph } from "../../../src/dx/tree";
+import type { Output } from "../../../src/dx/types";
 import type {
   OverrideInfo,
   VulnerabilityInfo,

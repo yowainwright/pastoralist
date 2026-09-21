@@ -9,7 +9,7 @@ import { compareVersions } from "../../utils";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { logger } from "../../observability";
-import { red, yellow, cyan, gray } from "../../dx/colors";
+import { red, yellow, cyan, gray } from "../../dx/utils";
 import * as readline from "readline";
 import {
   CONFIDENCE_WEIGHTS,

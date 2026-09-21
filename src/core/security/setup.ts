@@ -4,7 +4,7 @@ import { existsSync, readFileSync, appendFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 import { logger } from "../../observability";
-import { green, yellow, cyan, gray, red } from "../../dx/colors";
+import { green, yellow, cyan, gray, red } from "../../dx/utils";
 import { promptConfirm, promptSelect, promptInput, promptSecret } from "./utils";
 import {
   DEFAULT_CLI_TIMEOUT,

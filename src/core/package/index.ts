@@ -16,7 +16,7 @@ import type {
 import { logger } from "../../observability";
 import { LRUCache, DiskCache, hashLockfile, resolveCacheDir } from "../../utils/cache";
 import { CACHE_NAMESPACES, CACHE_TTLS, CACHE_NS_VERSIONS } from "../../utils/cache";
-import { showHint } from "../../dx/hint";
+import { showHint } from "../../dx";
 import {
   BUN_BINARY_LOCK_FILENAME,
   BUN_LOCK_FILENAME,

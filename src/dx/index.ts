@@ -1,9 +1,19 @@
+import { DEFAULT_HINT_TTL_MS } from "./constants";
+import type { Output, Spinner, SpinnerState } from "./types";
+import {
+  createSpinnerMethods,
+  defaultOutput,
+  markHintShown,
+  renderHint,
+  shouldShowHint,
+} from "./utils";
+
 export { renderTable } from "./table";
 export type { TableRow, TableOptions } from "./table";
-export { createOutput, defaultOutput } from "./output";
-export type { Output } from "./output";
-export { default as createSpinner } from "./spinner";
+export type { Output } from "./types";
 export {
+  createOutput,
+  defaultOutput,
   hideCursor,
   showCursor,
   clearLine,
@@ -20,18 +30,10 @@ export {
   info,
   warn,
   createSpinnerMethods,
-} from "./spinner";
-export type {
-  SpinnerState,
-  Spinner,
-  TerminalGraphState,
-  TerminalGraph,
-  TerminalPhase,
-} from "./types";
-export { shimmerFrame, playShimmer } from "./shimmer";
-export { createTerminalGraph } from "./terminal-graph";
-export { showHint, renderHint, clearHintCache } from "./hint";
-export {
+  shimmerFrame,
+  playShimmer,
+  renderHint,
+  clearHintCache,
   green,
   red,
   yellow,
@@ -42,7 +44,15 @@ export {
   gradientPastoralist,
   gradientGreenTan,
   link,
-} from "./colors";
+} from "./utils";
+export type {
+  SpinnerState,
+  Spinner,
+  TerminalGraphState,
+  TerminalGraph,
+  TerminalPhase,
+} from "./types";
+export { createTerminalGraph } from "./tree";
 export {
   formatConfirmPrompt,
   formatChoiceList,
@@ -54,3 +64,27 @@ export {
   formatWarning,
   formatCompletion,
 } from "./prompts";
+
+export const createSpinner = (text: string, out: Output = defaultOutput): Spinner => {
+  const state: SpinnerState = {
+    text,
+    isSpinning: false,
+    frameIndex: 0,
+    interval: null,
+  };
+
+  return createSpinnerMethods(state, out);
+};
+
+export function showHint(
+  hintId: string,
+  text: string,
+  ttlMs = DEFAULT_HINT_TTL_MS,
+  out: Output = defaultOutput,
+): void {
+  if (!shouldShowHint(hintId, ttlMs)) return;
+  out.writeLine("");
+  out.writeLine(renderHint(text));
+  out.writeLine("");
+  markHintShown(hintId);
+}

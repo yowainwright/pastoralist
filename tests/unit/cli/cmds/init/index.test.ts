@@ -7,7 +7,6 @@ import * as originalObservability from "../../../../../src/observability";
 import * as originalPackageJSON from "../../../../../src/core/package";
 import * as originalConfig from "../../../../../src/config";
 import * as originalDx from "../../../../../src/dx";
-import * as originalShimmer from "../../../../../src/dx/shimmer";
 import { resolve } from "path";
 import {
   safeReadFileSync as readFileSync,
@@ -24,7 +23,7 @@ const loggerMock = mock(originalObservability.logger);
 const resolveJSONMock = mock(originalPackageJSON.resolveJSON);
 const loadExternalConfigMock = mock(originalConfig.loadExternalConfig);
 const formatCompletionMock = mock(originalDx.formatCompletion);
-const shimmerFrameMock = mock(originalShimmer.shimmerFrame);
+const shimmerFrameMock = mock(originalDx.shimmerFrame);
 
 moduleMock.module(import.meta.resolve("../../../../../src/cli/prompts/index"), {
   namedExports: Object.assign({}, originalPrompts, { createPrompt: createPromptMock }),
@@ -42,10 +41,10 @@ moduleMock.module(import.meta.resolve("../../../../../src/config/index"), {
   namedExports: Object.assign({}, originalConfig, { loadExternalConfig: loadExternalConfigMock }),
 });
 moduleMock.module(import.meta.resolve("../../../../../src/dx/index"), {
-  namedExports: Object.assign({}, originalDx, { formatCompletion: formatCompletionMock }),
-});
-moduleMock.module(import.meta.resolve("../../../../../src/dx/shimmer"), {
-  namedExports: Object.assign({}, originalShimmer, { shimmerFrame: shimmerFrameMock }),
+  namedExports: Object.assign({}, originalDx, {
+    formatCompletion: formatCompletionMock,
+    shimmerFrame: shimmerFrameMock,
+  }),
 });
 
 const { initCommand } = await import("../../../../../src/cli/cmds/init");
@@ -1387,7 +1386,7 @@ test("initCommand - enhanced UI integration with formatCompletion", async () => 
   await initCommand({ path: testPath, isTesting: true });
 
   assert.strictEqual(typeof originalDx.formatCompletion, "function");
-  assert.strictEqual(typeof originalShimmer.shimmerFrame, "function");
+  assert.strictEqual(typeof originalDx.shimmerFrame, "function");
 
   formatCompletionSpy.mockRestore();
   shimmerFrameSpy.mockRestore();

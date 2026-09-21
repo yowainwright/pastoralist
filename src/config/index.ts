@@ -16,7 +16,7 @@ import type {
   SecurityConfig,
 } from "./types";
 import { CONFIG_FILES, UNSUPPORTED_TYPESCRIPT_CONFIG } from "./constants";
-import { validateConfig } from "./validators";
+import { validateConfig } from "./validation";
 import { loadTargetAppendix, resolveAppendixTarget } from "../core/appendix";
 
 const configCache = new Map<string, LoadedConfig>();
@@ -395,4 +395,4 @@ export const loadCliConfig = async (
 export * from "./constants";
 export * from "./validation/constants";
 export * from "./types";
-export { validateConfig, safeValidateConfig } from "./validators";
+export { validateConfig, safeValidateConfig } from "./validation";

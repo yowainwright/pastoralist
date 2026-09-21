@@ -34,7 +34,7 @@ import {
   getDependencyGraphStatus,
   clearDependencyGraphCache,
 } from "../../../src/core/package";
-import { clearHintCache } from "../../../src/dx/hint";
+import { clearHintCache } from "../../../src/dx";
 import { HINT_RC_FILE_TEXT } from "../../../src/constants";
 import {
   safeWriteFileSync as writeFileSync,

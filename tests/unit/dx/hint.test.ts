@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import * as fs from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import type { Output } from "../../../src/dx/output";
+import type { Output } from "../../../src/dx/types";
 import { resolveCacheDir } from "../../../src/utils/cache";
 
 const writeFileSyncMock = mock(fs.writeFileSync);
@@ -19,7 +19,7 @@ moduleMock.module("fs", {
   },
 });
 
-const { showHint, clearHintCache } = await import("../../../src/dx/hint");
+const { showHint, clearHintCache } = await import("../../../src/dx");
 
 function createMockOutput(): { output: Output; calls: string[] } {
   const calls: string[] = [];

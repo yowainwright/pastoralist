@@ -25,6 +25,8 @@ Container-image findings, other rules, and findings outside these files remain v
 All E2E base images must remain pinned by digest.
 The filter only changes the SARIF uploaded to GitHub code scanning; Scorecard still
 publishes its complete results and score.
+Filtering runs in a separate job to comply with
+[Scorecard's publishing restrictions](https://github.com/ossf/scorecard-action/blob/4eaacf0543bb3f2c246792bd56e8cdeffafb205a/README.md#workflow-restrictions).
 
 See [Scorecard's test Dockerfile policy](https://github.com/ossf/scorecard/blob/main/docs/faq.md#pinned-dependencies-will-scorecard-detect-unpinned-dependencies-in-tests-with-dockerfiles)
 and [Pinned-Dependencies guidance](https://github.com/ossf/scorecard/blob/main/docs/checks.md#pinned-dependencies).

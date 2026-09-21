@@ -1,8 +1,8 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
 
-echo "\nTesting Onboarding"
+printf '\nTesting Onboarding\n'
 echo "=================="
 
 SETUP_ROOT="${PASTORALIST_SETUP_ROOT:-/app/pastoralist-package}"
@@ -10,7 +10,7 @@ SETUP_SCRIPT="$SETUP_ROOT/scripts/setup/setup.sh"
 PASTORALIST_CLI="${PASTORALIST_CLI_PATH:-/app/pastoralist/index.js}"
 
 print_result() {
-	if [ $1 -eq 0 ]; then
+	if [ "$1" -eq 0 ]; then
 		echo "PASS: $2"
 	else
 		echo "FAIL: $2"
@@ -19,10 +19,15 @@ print_result() {
 }
 
 assert_contains() {
-	value="$1"
-	expected="$2"
+	local value="$1"
+	local expected="$2"
 
-	echo "$value" | grep -q -- "$expected"
+	if grep -Fq -- "$expected" <<<"$value"; then
+		return
+	fi
+
+	printf 'FAIL: expected output to contain "%s"\nActual output:\n%s\n' "$expected" "$value" >&2
+	exit 1
 }
 
 reset_repo() {
@@ -55,7 +60,7 @@ hash_file() {
 	shasum -a 256 "$1" | awk '{print $1}'
 }
 
-echo "\n1. Testing onboard command output"
+printf '\n1. Testing onboard command output\n'
 reset_repo
 write_package_json
 BEFORE=$(hash_file package.json)
@@ -69,17 +74,26 @@ assert_contains "$OUTPUT" "Prompt for a setup agent"
 assert_contains "$OUTPUT" "Prompt for a maintenance agent"
 assert_contains "$OUTPUT" "Agent setup loop"
 assert_contains "$OUTPUT" "GitHub Action setup"
-assert_contains "$OUTPUT" "pnpm run setup:local-dev -- --dry-run"
-assert_contains "$OUTPUT" "--agent codex --skills all --hooks git,postinstall"
+assert_contains "$OUTPUT" "npx pastoralist doctor"
+assert_contains "$OUTPUT" "npx pastoralist --dry-run"
+assert_contains "$OUTPUT" "npx pastoralist --setup-hook"
+assert_contains "$OUTPUT" "npx pastoralist --init agent-skill --dry-run"
+assert_contains "$OUTPUT" ".agents/skills/pastoralist/SKILL.md"
 assert_contains "$OUTPUT" "Apply the smallest needed setup command"
-print_result $? "Onboard command printed setup scripts, prompts, and loop"
+
+if grep -Fq -- "setup:local-dev" <<<"$OUTPUT"; then
+	echo "FAIL: onboard command recommended maintainer-only setup"
+	exit 1
+fi
+
+print_result 0 "Onboard command printed consumer setup, prompts, and loop"
 
 if [ "$BEFORE" != "$AFTER" ]; then
 	echo "FAIL: onboard command modified package.json"
 	exit 1
 fi
 
-echo "\n2. Testing onboarding flag alias"
+printf '\n2. Testing onboarding flag alias\n'
 reset_repo
 OUTPUT=$(node "$PASTORALIST_CLI" --onboarding)
 
@@ -88,30 +102,15 @@ assert_contains "$OUTPUT" "Agent setup loop"
 assert_contains "$OUTPUT" "Review this repository's Pastoralist setup"
 print_result $? "Onboarding flag printed expected output"
 
-echo "\n3. Testing installed Pastoralist skill onboarding guidance"
+printf '\n3. Testing installed Pastoralist skill onboarding guidance\n'
 reset_repo
 sh "$SETUP_SCRIPT" skill
 print_result $? "Pastoralist skill installer completed"
 
-if ! grep -q "npx pastoralist onboard" ".agents/skills/pastoralist/SKILL.md"; then
-	echo "FAIL: installed skill missing onboard command"
+if ! cmp "$SETUP_ROOT/skills/pastoralist/SKILL.md" ".agents/skills/pastoralist/SKILL.md"; then
+	echo "FAIL: installed skill differs from the packaged skill"
 	exit 1
 fi
 
-if ! grep -q "Agent Loop" ".agents/skills/pastoralist/SKILL.md"; then
-	echo "FAIL: installed skill missing agent loop"
-	exit 1
-fi
-
-if ! grep -q "npx pastoralist --init agent-skill" ".agents/skills/pastoralist/SKILL.md"; then
-	echo "FAIL: installed skill missing agent skill init command"
-	exit 1
-fi
-
-if ! grep -q "pnpm run setup:local-dev -- --dry-run" ".agents/skills/pastoralist/SKILL.md"; then
-	echo "FAIL: installed skill missing local dev dry run"
-	exit 1
-fi
-
-echo "\nOnboarding tests passed"
+printf '\nOnboarding tests passed\n'
 echo "========================"

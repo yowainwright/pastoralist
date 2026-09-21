@@ -2,7 +2,6 @@ import { Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { CopyButton } from "@/components/CopyButton";
 import { useFadeInUp, useHasHydrated } from "@/hooks/useFadeInUp";
-import { isStaticRender } from "@/lib/utils";
 import type { GetStartedSectionProps } from "./types";
 import { SECTION_ID, CONTENT, STYLES } from "./constants";
 
@@ -41,7 +40,7 @@ function GetStartedContent({
 
 export function GetStartedSection({ id = SECTION_ID }: GetStartedSectionProps) {
   const hasHydrated = useHasHydrated();
-  const showComplete = isStaticRender() && !hasHydrated;
+  const showComplete = !hasHydrated;
 
   return <GetStartedContent id={id} showComplete={showComplete} />;
 }

@@ -25,15 +25,22 @@ function extractText(node: unknown): string {
 
 function MermaidBlock({ chart }: MermaidProps) {
   return (
-    <Suspense
-      fallback={
-        <div className="my-6 flex min-h-64 items-center justify-center animate-pulse">
-          <div className="h-48 w-full max-w-lg rounded bg-base-content/10" />
-        </div>
-      }
+    <div
+      className="not-prose my-6 h-80 overflow-auto sm:h-96"
+      role="region"
+      aria-label="Architecture diagram"
+      tabIndex={0}
     >
-      <Mermaid chart={chart} />
-    </Suspense>
+      <Suspense
+        fallback={
+          <div className="flex h-full items-center justify-center animate-pulse" aria-hidden="true">
+            <div className="h-48 w-full max-w-lg rounded bg-base-content/10" />
+          </div>
+        }
+      >
+        <Mermaid chart={chart} />
+      </Suspense>
+    </div>
   );
 }
 

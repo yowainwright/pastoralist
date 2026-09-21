@@ -13,14 +13,14 @@ describe("cli onboarding", () => {
     assert.ok(text.includes("npx pastoralist --setup-hook"));
   });
 
-  test("buildOnboardingText includes agent scripts", () => {
+  test("buildOnboardingText installs the skill without maintainer-only scripts", () => {
     const text = buildOnboardingText();
 
     assert.ok(text.includes("Agent quick setup"));
     assert.ok(text.includes("npx pastoralist --init agent-skill"));
-    assert.ok(text.includes("pnpm run setup:local-dev -- --dry-run"));
-    assert.ok(text.includes("--agent codex --skills all --hooks git,postinstall"));
-    assert.ok(text.includes("--agent claude --skills all --hooks git,postinstall"));
+    assert.ok(text.includes("npx pastoralist --init agent-skill --dry-run"));
+    assert.ok(text.includes(".agents/skills/pastoralist/SKILL.md"));
+    assert.ok(!text.includes("setup:local-dev"));
   });
 
   test("buildOnboardingText includes agent prompts", () => {

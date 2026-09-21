@@ -80,7 +80,7 @@
     "release:beta:dry": "jiti scripts/release/index.ts --preRelease=beta --dry-run",
     "release:alpha": "jiti scripts/release/index.ts --preRelease=alpha",
     "release:alpha:dry": "jiti scripts/release/index.ts --preRelease=alpha --dry-run",
-    "security:socket": "socket scan create --report package.json pnpm-lock.yaml app/package.json app/pnpm-lock.yaml",
+    "security:socket": "socket scan create --org yowainwright --no-interactive --report package.json pnpm-lock.yaml app/package.json app/pnpm-lock.yaml",
     "release:tag": "jiti scripts/release/index.ts tag",
     "release:tag:dry": "jiti scripts/release/index.ts tag --dry-run",
     "release:dry": "jiti scripts/release/index.ts --dry-run",
@@ -129,7 +129,7 @@
   "engines": {
     "node": ">=20.19.0"
   },
-  "packageManager": "pnpm@11.18.0",
+  "packageManager": "pnpm@12.4.2",
   "release-it": {
     "git": {
       "commitMessage": "chore(release): ${version}",

@@ -14,7 +14,7 @@
 Pastoralist tracks project package manager [overrides](https://docs.npmjs.com/cli/v11/configuring-npm/package-json#overrides).
 Overrides often start as real fixes: a CVE patch, a compatibility pin, a fork,
 or a temporary transitive dependency workaround. Months later, overrides can remain in `package.json`,
-and no one know's why—until now.
+and no one knows why—until now.
 
 <table width="100%">
 <thead>
@@ -55,7 +55,7 @@ and no one know's why—until now.
 </tbody>
 </table>
 
-Pastoralist manages your package manager overrides AND provides an appendix ledger telling you why the overrides is there.
+Pastoralist manages your package manager overrides AND provides an appendix ledger telling you why the overrides are there.
 Better yet, Pastoralist will manage your overrides for you: cleaning them up when possible and even
 helping you reduce CVEs!
 

@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
+import { useHasHydrated } from "./useFadeInUp";
 
 type Theme = "lofi" | "night";
 
 export function useTheme() {
+  const hasHydrated = useHasHydrated();
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window === "undefined") return "lofi";
     const stored = localStorage.getItem("theme") as Theme | null;
@@ -17,6 +19,7 @@ export function useTheme() {
   }, [theme]);
 
   const toggle = () => setTheme((t) => (t === "lofi" ? "night" : "lofi"));
+  const renderedTheme = hasHydrated ? theme : "lofi";
 
-  return { theme, setTheme, toggle };
+  return { theme: renderedTheme, setTheme, toggle };
 }

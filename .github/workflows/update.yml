@@ -38,10 +38,22 @@ jobs:
       - run: pnpm run update
       - run: pnpm install --no-frozen-lockfile
       - run: pnpm --dir app install --no-frozen-lockfile
+      - run: pnpm run build
+      - name: Apply security overrides with Pastoralist
+        run: |
+          node dist/index.js --checkSecurity --forceSecurityRefactor --securityProvider osv --strict --no-cache
+          node dist/index.js --path app/package.json --checkSecurity --forceSecurityRefactor --securityProvider osv --strict --no-cache
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm --dir app install --no-frozen-lockfile
+      - name: Verify resolved dependencies with Pastoralist
+        run: |
+          node dist/index.js --checkSecurity --securityProvider osv --strict --quiet --dry-run --no-cache
+          node dist/index.js --path app/package.json --checkSecurity --securityProvider osv --strict --quiet --dry-run --no-cache
       - name: Verify dependency update policy
         run: pnpm run deps:check
-      - run: pnpm run build
       - run: pnpm run test
+      - run: pnpm --dir app run test:unit
+      - run: pnpm --dir app run build
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:

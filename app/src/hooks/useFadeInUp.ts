@@ -1,6 +1,9 @@
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { useInView } from "react-intersection-observer";
-import { isStaticRender } from "@/lib/utils";
+
+const subscribeToHydration = () => () => undefined;
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 interface UseFadeInUpOptions {
   threshold?: number;
@@ -11,23 +14,19 @@ interface UseFadeInUpOptions {
 
 export function useFadeInUp(options: UseFadeInUpOptions = {}) {
   const { threshold = 0.1, triggerOnce = true, initialInView, onChange } = options;
+  const hasHydrated = useHasHydrated();
+  const initiallyVisible = initialInView ?? !hasHydrated;
 
   const { ref, inView } = useInView({
     threshold,
     triggerOnce,
     onChange,
-    initialInView: initialInView ?? isStaticRender(),
+    initialInView: initiallyVisible,
   });
 
   return { ref, isVisible: inView };
 }
 
 export function useHasHydrated() {
-  const [hasHydrated, setHasHydrated] = useState(false);
-
-  useEffect(() => {
-    setHasHydrated(true);
-  }, []);
-
-  return hasHydrated;
+  return useSyncExternalStore(subscribeToHydration, getClientSnapshot, getServerSnapshot);
 }

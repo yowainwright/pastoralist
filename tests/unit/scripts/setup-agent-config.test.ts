@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
 const setupScriptPath = resolve("scripts/setup/setup.sh");
+const skillSourcePath = resolve("skills/pastoralist/SKILL.md");
 const hookScriptPath = resolve("scripts/setup/install-hooks.ts");
 const jitiScriptPath = resolve("node_modules/jiti/lib/jiti-cli.mjs");
 const baseEnv = { PATH: "/usr/bin:/bin" };
@@ -305,13 +306,9 @@ describe("scripts/setup setup skill", () => {
       const result = runScript(setupScriptPath, root, ["skill"]);
 
       assert.strictEqual(result.status, 0);
-      assert.ok(
-        readFixture(root, ".agents/skills/pastoralist/SKILL.md").includes("npx pastoralist doctor"),
-      );
-      assert.ok(
-        readFixture(root, ".agents/skills/pastoralist/SKILL.md").includes(
-          "npx pastoralist --init agent-skill",
-        ),
+      assert.strictEqual(
+        readFixture(root, ".agents/skills/pastoralist/SKILL.md"),
+        readFileSync(skillSourcePath, "utf8"),
       );
       assert.ok(
         readFixture(root, ".agents/skills/pastoralist/.pastoralist-agent-config").includes(

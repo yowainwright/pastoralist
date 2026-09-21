@@ -6,7 +6,6 @@ import { createMachine } from "xstate";
 import { useMachine } from "@xstate/react";
 import { CopyButton } from "@/components/CopyButton";
 import { useHasHydrated } from "@/hooks/useFadeInUp";
-import { isStaticRender } from "@/lib/utils";
 import { LogoSparkle } from "@/components/home/LogoSparkle";
 import { HeroSparkles } from "@/components/home/HeroSparkles";
 import { AnimatedTerminal } from "@/components/home/AnimatedTerminal";
@@ -279,7 +278,7 @@ function HeroContent({ showComplete }: { showComplete: boolean }) {
 
 export function HeroSection() {
   const hasHydrated = useHasHydrated();
-  const showComplete = isStaticRender() && !hasHydrated;
+  const showComplete = !hasHydrated;
 
   return <HeroContent showComplete={showComplete} />;
 }

@@ -142,30 +142,37 @@ export const ONBOARDING_TITLE = "Pastoralist onboarding";
 
 export const ONBOARDING_SECTIONS: readonly OnboardingSection[] = [
   {
+    title: "How it works",
+    lines: [
+      "Overrides select versions. The appendix records why they exist and what depends on them.",
+      "Your package manager installs those versions and updates the lockfile.",
+      "After changing overrides: install dependencies, run Pastoralist again, then run project checks.",
+    ],
+  },
+  {
     title: "Human quick start",
     lines: [
       "1. Inspect the project without writing files:",
       "   npx pastoralist doctor",
-      "2. Add Pastoralist and create config:",
+      "2. Add Pastoralist using your project's package manager (npm example):",
       "   npm install pastoralist --save-dev",
-      "   npx pastoralist init",
-      "3. Update the override appendix:",
+      "3. Preview, then update the override appendix:",
+      "   npx pastoralist --dry-run",
       "   npx pastoralist",
-      "4. Keep it current after installs:",
+      "4. Optionally keep it current after installs:",
       "   npx pastoralist --setup-hook",
+      "Use npx pastoralist init for the optional interactive config wizard.",
     ],
   },
   {
     title: "Agent quick setup",
     lines: [
-      "1. Install only the Pastoralist skill:",
+      "1. Preview skill installation:",
+      "   npx pastoralist --init agent-skill --dry-run",
+      "2. Install the Pastoralist skill:",
       "   npx pastoralist --init agent-skill",
-      "2. Preview local dev setup:",
-      "   pnpm run setup:local-dev -- --dry-run",
-      "3. Set up Codex with skills and hooks:",
-      "   pnpm run setup:local-dev -- --agent codex --skills all --hooks git,postinstall",
-      "4. Set up Claude with skills and hooks:",
-      "   pnpm run setup:local-dev -- --agent claude --skills all --hooks git,postinstall",
+      "3. Read .agents/skills/pastoralist/SKILL.md for setup, maintenance, and verification.",
+      "No Pastoralist repository scripts are needed in consumer projects.",
     ],
   },
   {
@@ -173,8 +180,8 @@ export const ONBOARDING_SECTIONS: readonly OnboardingSection[] = [
     lines: [
       "Set up Pastoralist in this repository.",
       "Start with `npx pastoralist doctor` and inspect the current package manager setup.",
-      "Run `pnpm run setup:local-dev -- --dry-run` before writing files.",
-      "Configure the Pastoralist skill, local agent config, GitHub Action, and postinstall hook only when appropriate.",
+      "Preview tracking with `npx pastoralist --dry-run` before applying changes.",
+      "Install the Pastoralist skill; add a GitHub Action or postinstall hook when appropriate.",
       "Keep changes scoped to setup files, docs, and tests.",
     ],
   },
@@ -191,7 +198,7 @@ export const ONBOARDING_SECTIONS: readonly OnboardingSection[] = [
     title: "Agent setup loop",
     lines: [
       "1. Run `npx pastoralist doctor`.",
-      "2. Run `pnpm run setup:local-dev -- --dry-run`.",
+      "2. Read existing scripts, overrides, config, and the lockfile.",
       "3. Apply the smallest needed setup command.",
       "4. Run `npx pastoralist --dry-run`.",
       "5. Report changed files and remaining manual steps.",

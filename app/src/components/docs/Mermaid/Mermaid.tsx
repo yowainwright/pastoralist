@@ -8,6 +8,7 @@ if (isBrowser) {
     startOnLoad: false,
     theme: "neutral",
     securityLevel: "loose",
+    flowchart: { useMaxWidth: false },
   });
 }
 
@@ -44,7 +45,7 @@ export function Mermaid({ chart }: MermaidProps) {
   return (
     <figure
       ref={ref}
-      className="mermaid my-6 flex min-h-64 justify-center"
+      className="mermaid m-0 flex min-h-full items-center [&>svg]:max-w-none [&>svg]:shrink-0"
       dangerouslySetInnerHTML={renderedMarkup}
     />
   );

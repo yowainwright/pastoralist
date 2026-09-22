@@ -40,6 +40,18 @@ const unsafeConfigs = [
   ],
   ["hidden indentation", `  nodeLinker: "value\nsafe: value"\n  plugins: [${pluginPath}]`],
   ["unsupported root", `[plugins, ${pluginPath}]`],
+  ["root sequence", "- nodeLinker: node-modules"],
+  ["list before plugins", `unsafeHttpWhitelist:\n- localhost\nplugins: [${pluginPath}]`],
+  [
+    "list before escaped plugins",
+    `unsafeHttpWhitelist:\n- localhost\n"\\u0070lugins": [${pluginPath}]`,
+  ],
+  ["list before binary key", `unsafeHttpWhitelist:\n- localhost\nyarnPath: ${pluginPath}`],
+  [
+    "indented list before plugins",
+    `  unsafeHttpWhitelist:\n  - localhost\n  plugins: [${pluginPath}]`,
+  ],
+  ["dedented list", "  unsafeHttpWhitelist:\n- localhost"],
 ];
 
 const createProject = (content: string): string => {
@@ -76,6 +88,11 @@ const safeConfigs = [
   "nodeLinker: node-modules\n",
   "  nodeLinker: node-modules\n  enableGlobalCache: true\n",
   "\uFEFF---\nnodeLinker: node-modules\n",
+  "unsafeHttpWhitelist:\n- localhost\n",
+  "unsafeHttpWhitelist:\n- localhost\n\n# Another host\n- example.test\nnodeLinker: node-modules\n",
+  "  unsafeHttpWhitelist:\n  - localhost\n  enableGlobalCache: true\n",
+  "unsafeHttpWhitelist:\n  - localhost\nnodeLinker: node-modules\n",
+  "logFilters:\n- code: YN0005\n  level: discard\nnodeLinker: node-modules\n",
   `# Keep registry settings and patch files
 nodeLinker: node-modules
 "npmRegistryServer": "https://registry.npmjs.org"

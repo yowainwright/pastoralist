@@ -6,6 +6,7 @@ export const YARN_LOCK_PACKAGE_PATTERN = /^[\w@][\w\-./]*@/gm;
 export const YARN_BERRY_DEPENDENCY_PATTERN = /^\s{4}(?:"([^"]+)"|([^:\s"]+)):\s/;
 export const YARN_CLASSIC_DEPENDENCY_PATTERN = /^\s{4}(?:"([^"]+)"|(\S+))\s/;
 export const YARN_CONFIG_KEY_PATTERN = /^ *(?:([\w-]+)|"([\w-]+)"|'([\w-]+)')[ \t]*:/;
+export const YARN_CONFIG_LIST_PATTERN = /^ *-(?:[ \t]|$)/;
 export const REMOVAL: RemovalConfig = {
   args: ["install", "--ignore-scripts", "--non-interactive"],
   paths: [".yarnrc", ".yarnrc.yml", ".yarn/patches"],

@@ -8,6 +8,7 @@ import {
   YARN_BERRY_DEPENDENCY_PATTERN,
   YARN_CLASSIC_DEPENDENCY_PATTERN,
   YARN_CONFIG_KEY_PATTERN,
+  YARN_CONFIG_LIST_PATTERN,
 } from "./constants";
 
 const isConfigContent = (line: string): boolean => {
@@ -19,9 +20,11 @@ const isConfigContent = (line: string): boolean => {
 
 const getIndent = (line: string): number => line.search(/[^ ]/);
 
-const hasUnsafeConfigLine = (line: string, rootIndent: number): boolean => {
+const hasUnsafeConfigLine = (line: string, rootIndent: number, index: number): boolean => {
   const indent = getIndent(line);
-  if (indent > rootIndent) return false;
+  const isListValue = index > 0 && indent === rootIndent && YARN_CONFIG_LIST_PATTERN.test(line);
+  const isValue = indent > rootIndent || isListValue;
+  if (isValue) return false;
   const match = line.match(YARN_CONFIG_KEY_PATTERN);
   const isUnsupported = indent < rootIndent || !match;
   if (isUnsupported) {
@@ -39,7 +42,7 @@ export const hasUnsafeYarnConfig = (content: string): boolean => {
     .filter(isConfigContent);
   if (lines.length === 0) return false;
   const rootIndent = getIndent(lines[0]);
-  return lines.some((line) => hasUnsafeConfigLine(line, rootIndent));
+  return lines.some((line, index) => hasUnsafeConfigLine(line, rootIndent, index));
 };
 
 const parseYarnLockPackageName = (line: string): string | undefined => {

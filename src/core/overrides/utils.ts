@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { dirname, extname, resolve } from "path";
-import { PNPM_WORKSPACE_FILE } from "../constants";
+import { getJsManager } from "../../mgrs";
 import type { OverridesType, PastoralistJSON } from "../../types";
 import { PACKAGE_MANAGERS } from "./constants";
 import type {
@@ -32,13 +32,6 @@ const getPackageManager = (config: PastoralistJSON, manifestPath: string): Packa
   return detectPackageManager(manifestRoot);
 };
 
-const isPnpmEleven = (config: PastoralistJSON): boolean => {
-  const match = config.packageManager?.match(/^pnpm@(\d+)/);
-  if (!match) return false;
-  const major = Number(match[1]);
-  return major >= 11;
-};
-
 const isYamlFile = (path: string): boolean => {
   const extension = extname(path).toLowerCase();
   const isYamlExtension = extension === ".yaml" || extension === ".yml";
@@ -52,18 +45,6 @@ const resolveConfiguredSource = (
   const configuredPath = config.pastoralist?.overrideSource;
   if (!configuredPath) return undefined;
   return resolve(dirname(resolve(manifestPath)), configuredPath);
-};
-
-const hasWorkspaceOverrides = (path: string): boolean => {
-  if (!existsSync(path)) return false;
-  const content = readFileSync(path, "utf8");
-  return Object.keys(parsePnpmWorkspaceOverrides(content)).length > 0;
-};
-
-const resolvePnpmSource = (config: PastoralistJSON, manifestPath: string): string | undefined => {
-  const workspacePath = resolve(dirname(resolve(manifestPath)), PNPM_WORKSPACE_FILE);
-  const usesWorkspaceSource = isPnpmEleven(config) || hasWorkspaceOverrides(workspacePath);
-  return usesWorkspaceSource ? workspacePath : undefined;
 };
 
 const readJsonSource = (path: string): PastoralistJSON => {
@@ -112,9 +93,9 @@ export const resolveOverrideSource = ({
 }: OverrideSourceOptions): OverrideSource => {
   const packageManager = getPackageManager(config, manifestPath);
   const configuredSource = resolveConfiguredSource(config, manifestPath);
-  const pnpmSource =
-    packageManager === "pnpm" ? resolvePnpmSource(config, manifestPath) : undefined;
-  const sourcePath = configuredSource || pnpmSource || resolve(manifestPath);
+  const manager = getJsManager(packageManager);
+  const nativeSource = manager.resolveOverridePath?.(config, manifestPath);
+  const sourcePath = configuredSource || nativeSource || resolve(manifestPath);
 
   if (isYamlFile(sourcePath)) return createYamlSource(sourcePath, packageManager);
   return createJsonSource(sourcePath, manifestPath, packageManager, config);

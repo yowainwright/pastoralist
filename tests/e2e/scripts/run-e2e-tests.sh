@@ -32,6 +32,7 @@ if [ ! -f /.dockerenv ]; then
     docker compose up --abort-on-container-exit e2e-pnpm
     docker compose run --rm e2e-pnpm-yaml
     docker compose run --rm e2e-external-config
+    docker compose run --rm e2e-js-mgrs
 
     TEST_EXIT_CODE=$?
     

@@ -1,4 +1,9 @@
 services:
+  e2e-js-mgrs:
+    build:
+      context: ../..
+      dockerfile: tests/e2e/Dockerfile.js-mgrs
+
   e2e-pnpm-yaml:
     build:
       context: ../..

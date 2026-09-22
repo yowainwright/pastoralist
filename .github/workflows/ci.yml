@@ -149,7 +149,7 @@ jobs:
     needs: build
     strategy:
       matrix:
-        package-manager: [pnpm, npm, yarn, pnpm-yaml, external-config]
+        package-manager: [pnpm, npm, yarn, pnpm-yaml, external-config, js-mgrs]
       fail-fast: false
 
     name: e2e (${{ matrix.package-manager }})
@@ -188,7 +188,7 @@ jobs:
       - name: Run E2E Tests (${{ matrix.package-manager }})
         run: |
           cd tests/e2e
-          docker compose up --abort-on-container-exit e2e-${{ matrix.package-manager }}
+          docker compose up --abort-on-container-exit --exit-code-from e2e-${{ matrix.package-manager }} e2e-${{ matrix.package-manager }}
         env:
           CI: true
 

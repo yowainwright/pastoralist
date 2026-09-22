@@ -651,6 +651,8 @@ const matchesResolverGuard = (projectRoot: string, guard: ResolverConfigGuard): 
   const sourcePath = join(projectRoot, guard.path);
   if (!fs.existsSync(sourcePath)) return false;
   const content = fs.readFileSync(sourcePath, "utf8");
+  const hasContentGuard = "isUnsafe" in guard;
+  if (hasContentGuard) return guard.isUnsafe(content);
   return guard.pattern.test(content);
 };
 

@@ -12,8 +12,7 @@ export type DependencyGraphState = {
 
 export type ResolverConfigGuard = {
   path: string;
-  pattern: RegExp;
-};
+} & ({ pattern: RegExp } | { isUnsafe: (content: string) => boolean });
 
 export type RemovalConfig = {
   args: string[];

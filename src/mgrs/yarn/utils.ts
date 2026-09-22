@@ -7,7 +7,40 @@ import {
   YARN_LOCK_FILENAME,
   YARN_BERRY_DEPENDENCY_PATTERN,
   YARN_CLASSIC_DEPENDENCY_PATTERN,
+  YARN_CONFIG_KEY_PATTERN,
 } from "./constants";
+
+const isConfigContent = (line: string): boolean => {
+  const trimmed = line.trim();
+  const isDocumentMarker = trimmed === "---" || trimmed === "...";
+  const isIgnored = !trimmed || trimmed.startsWith("#") || isDocumentMarker;
+  return !isIgnored;
+};
+
+const getIndent = (line: string): number => line.search(/[^ ]/);
+
+const hasUnsafeConfigLine = (line: string, rootIndent: number): boolean => {
+  const indent = getIndent(line);
+  if (indent > rootIndent) return false;
+  const match = line.match(YARN_CONFIG_KEY_PATTERN);
+  const isUnsupported = indent < rootIndent || !match;
+  if (isUnsupported) {
+    throw new Error("Unsupported Yarn config syntax prevents safe verification: .yarnrc.yml");
+  }
+  const key = match[1] ?? match[2] ?? match[3];
+  const isExecutable = key === "plugins" || key === "yarnPath";
+  return isExecutable;
+};
+
+export const hasUnsafeYarnConfig = (content: string): boolean => {
+  const lines = content
+    .replace(/^\uFEFF/, "")
+    .split(/\r\n?|\n/)
+    .filter(isConfigContent);
+  if (lines.length === 0) return false;
+  const rootIndent = getIndent(lines[0]);
+  return lines.some((line) => hasUnsafeConfigLine(line, rootIndent));
+};
 
 const parseYarnLockPackageName = (line: string): string | undefined => {
   const match = line.match(/^"?((?:@[^/@\n"]+\/)?[^@,\n"]+)@.*"?:$/);

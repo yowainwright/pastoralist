@@ -283,7 +283,9 @@ const securityCheckDeps = {
 
 export const runSecurityCheck = async (...args: SecurityCheckArgs) => {
   const [config, mergedOptions, isLogging, log, deps = securityCheckDeps] = args;
-  const spinner = deps.createSpinner(MSG_SCANNING).start();
+  const spinner = deps.createSpinner(MSG_SCANNING);
+  const showSpinner = !mergedOptions.quiet && mergedOptions.outputFormat !== "json";
+  if (showSpinner) spinner.start();
   const context = { isLogging, log, spinner, deps };
 
   try {
@@ -321,16 +323,19 @@ const handleSecurityCheckError = (
   context: SecurityScanContext,
 ) => {
   const { spinner, deps } = context;
+  const showSpinner = !mergedOptions.quiet && mergedOptions.outputFormat !== "json";
   const isPermissionError = error instanceof SecurityProviderPermissionError;
+  const showWarning = isPermissionError && showSpinner;
+  if (showWarning) spinner.warn(`${deps.yellow(`pastoralist`)} ${error.message}`);
   if (isPermissionError) {
-    spinner.warn(`${deps.yellow(`pastoralist`)} ${error.message}`);
     const result = createSkippedSecurityRun(mergedOptions, context);
     return result;
   }
 
   const isError = error instanceof Error;
   const errorMessage = isError ? error.message : String(error);
-  spinner.fail(`${deps.yellow(`pastoralist`)} security check failed: ${errorMessage}`);
+  if (showSpinner)
+    spinner.fail(`${deps.yellow(`pastoralist`)} security check failed: ${errorMessage}`);
   throw error;
 };
 
@@ -581,8 +586,10 @@ const resolveSecurityPhaseOptions = async (
   deps: Pick<SecurityPhaseDeps, "handleSecurityResults" | "quickConfirm">,
 ): Promise<Options> => {
   const { userOwnedOverridesAdded, alerts: securityAlerts, securityChecker } = result;
+  const { packagesScanned: securityPackagesScanned } = result;
   const optionsWithOwnership = persistUserOwnedOverrides(mergedOptions, userOwnedOverridesAdded);
-  const optionsWithAlerts = Object.assign({}, optionsWithOwnership, { securityAlerts });
+  const scan = { securityAlerts, securityPackagesScanned };
+  const optionsWithAlerts = Object.assign({}, optionsWithOwnership, scan);
   const optionsWithVerification = await verifyUnusedRemovals(
     config,
     optionsWithAlerts,

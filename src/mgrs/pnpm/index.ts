@@ -1,13 +1,5 @@
-import { resolve } from "path";
 import type { JsManager } from "../types";
-import { countPatternLockPackages } from "../utils";
-import {
-  DETECT_FILES,
-  LOCKFILES,
-  PNPM_LOCK_FILENAME,
-  PNPM_LOCK_PACKAGE_PATTERN,
-  REMOVAL,
-} from "./constants";
+import { DETECT_FILES, LOCKFILES, REMOVAL } from "./constants";
 import {
   parsePnpmLockGraph,
   parsePnpmLockTree,
@@ -17,8 +9,8 @@ import {
 } from "./utils";
 
 const countPackages = (root: string): number => {
-  const path = resolve(root, PNPM_LOCK_FILENAME);
-  const count = countPatternLockPackages(path, PNPM_LOCK_PACKAGE_PATTERN);
+  const packages = parsePnpmLockedPackages(root);
+  const count = packages?.length ?? 0;
   return count;
 };
 

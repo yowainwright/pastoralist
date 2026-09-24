@@ -76,7 +76,8 @@ const createActionRuntime = (options: Options, deps: RuntimeDeps): ActionRuntime
   const isJsonOutput = options.outputFormat === "json";
   const isQuietMode = options.quiet === true;
   const log = deps.createLogger({ file: "program.ts", isLogging });
-  const graph = deps.createTerminalGraph({ quiet: isQuietMode });
+  const quiet = isQuietMode || isJsonOutput;
+  const graph = deps.createTerminalGraph({ quiet });
   const emptyResult = createEmptyResult();
   const { isTestingCLI = false, init = false, ...rest } = options;
 

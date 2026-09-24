@@ -272,6 +272,7 @@ const writeUpdatedPackageJson = (
   path: string,
   updatedConfig: PastoralistJSON,
   jsonString: string,
+  silent: boolean,
 ): void => {
   if (IS_DEBUGGING) {
     log.debug(`Writing updated package.json:\n${jsonString}`, "updatePackageJSON");
@@ -280,7 +281,8 @@ const writeUpdatedPackageJson = (
   writeJsonFile(path, jsonString);
   jsonCache.delete(resolve(path));
 
-  if (shouldSuggestRcFile(updatedConfig)) {
+  const showConfigHint = !silent && shouldSuggestRcFile(updatedConfig);
+  if (showConfigHint) {
     showHint(HINT_RC_FILE_ID, HINT_RC_FILE_TEXT);
   }
 };
@@ -300,7 +302,7 @@ export const updatePackageJSON = (options: UpdatePackageJSONOptions): Pastoralis
   if (isUnchanged) return;
   if (dryRun) return updatedConfig;
 
-  writeUpdatedPackageJson(path, updatedConfig, jsonString);
+  writeUpdatedPackageJson(path, updatedConfig, jsonString, silent);
 };
 
 export const executeNpmLs = async (root: string = process.cwd()): Promise<string> => {

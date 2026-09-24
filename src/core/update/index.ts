@@ -545,6 +545,8 @@ const countSeverities = (details: Array<{ severity?: string }> | undefined): Sev
 
 const getPackagesScanned = (ctx: UpdateContext): number => {
   const opts = ctx.options;
+  const securityPackagesScanned = opts?.securityPackagesScanned;
+  if (securityPackagesScanned !== undefined) return securityPackagesScanned;
   const isJsonOutput = opts?.outputFormat === "json";
   const needsMetrics = Boolean(opts && (opts.summary || isJsonOutput));
   if (!needsMetrics) return 0;

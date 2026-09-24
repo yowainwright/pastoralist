@@ -18,12 +18,12 @@ npx pastoralist --remove-unused
 
 > Pastoralist keeps dependency overrides explainable, current, and removable
 
-Pastoralist is the audit trail for package manager overrides.
+Pastoralist tracks your dependency overrides: why they’re there, which packages
+need them, and when you can remove them.
 
-If your project uses npm or Bun `overrides`, pnpm `pnpm.overrides`, or Yarn
-`resolutions`, Pastoralist records why each entry exists, which packages still
-need it, and when it can be removed. It can also connect security fixes, patch
-files, workspace packages, and CI checks to the same record.
+Pastoralist works with npm and Bun `overrides`, pnpm `pnpm.overrides`, and Yarn
+`resolutions`. It can also tie security fixes, patch files, workspace packages,
+and CI checks to the same record.
 
 ## Why This Matters
 
@@ -37,9 +37,9 @@ Overrides usually start with a good reason:
 }
 ```
 
-Months later, the context is gone. Was it a security fix? A transitive bug? Who
-still needs it? Is it safe to remove? The override should stay as the package
-manager instruction; the appendix carries the review detail:
+Months later, you might not remember why you added it. Was it a security fix?
+A transitive bug? Which packages still need it? Can you remove it? The override
+sets the version, and with Pastoralist, you have an appendix that keeps the context.
 
 ```json
 {
@@ -81,9 +81,7 @@ manager instruction; the appendix carries the review detail:
 }
 ```
 
-The override controls the installed version. The appendix explains why that
-control exists, who still depends on it, what scanner or reviewer justified it,
-and what condition makes it removable.
+The appendix shows why the override was added, why it is needed, or if it can be removed.
 
 ## What Pastoralist Handles
 
@@ -113,8 +111,8 @@ and what condition makes it removable.
 
 ## When To Use It
 
-Use Pastoralist when your project has overrides that need a durable reason, a
-regular cleanup path, or a security audit trail.
+Use Pastoralist to document dependency overrides, remove the overrides you don't
+need anymore, and track override security fixes.
 
 It is designed to sit beside tools such as npm audit, Dependabot, Renovate,
 patch-package, syncpack, and depcheck. Those tools find or apply dependency
@@ -171,17 +169,15 @@ brew install yowainwright/tap/pastoralist
 
 ## Initialize
 
-Run a read-only setup and override health check first:
+Check your dependency overrides without touching `package.json`:
 
 ```bash
 npx pastoralist doctor
 ```
 
-`doctor` runs in dry-run summary mode, so it shows current override health
-without modifying `package.json`.
+`doctor` shows a summary of your dependency overrides.
 
-Print the full first-run checklist when you want local setup, agent setup, and
-CI setup in one place:
+The `onboard` command shows setup steps for local use, agents, and CI.
 
 ```bash
 npx pastoralist onboard
@@ -205,8 +201,8 @@ Run the guided setup:
 npx pastoralist init
 ```
 
-The initializer can detect workspace packages, ask whether security checks
-should run, and save the configuration in `package.json` or a config file.
+The init command can detect workspaces, set up security checks, and save settings
+in a config file.
 
 For a simple project, you can also run Pastoralist directly:
 
@@ -214,8 +210,8 @@ For a simple project, you can also run Pastoralist directly:
 npx pastoralist
 ```
 
-It will scan your package manager overrides or resolutions, update the
-`pastoralist.appendix`, and leave unrelated package fields alone.
+Pastoralist checks dependency overrides and updates its appendix; it does this
+without touching other package settings.
 
 ## Add The Install Hook
 

@@ -44,95 +44,135 @@ export const APPENDIX_CONTENT = [
   "  }",
 ];
 
+const APPENDIX_LINE_COUNT = APPENDIX_CONTENT.length;
+
 export const AFTER_TERMINAL_HEIGHT =
   TERMINAL_HEADER_HEIGHT_PX +
   TERMINAL_PADDING_PX +
-  (BASE_LINES + APPENDIX_CONTENT.length) * TERMINAL_LINE_HEIGHT_PX;
+  (BASE_LINES + APPENDIX_LINE_COUNT) * TERMINAL_LINE_HEIGHT_PX;
 
-export const AFTER_CONTENT_HEIGHT =
-  (BASE_LINES + APPENDIX_CONTENT.length) * TERMINAL_LINE_HEIGHT_PX;
+export const AFTER_CONTENT_HEIGHT = (BASE_LINES + APPENDIX_LINE_COUNT) * TERMINAL_LINE_HEIGHT_PX;
 
 export const COMMAND = "pastoralist";
 
+const STEP1_SNAPSHOT = {
+  activeStep: 1,
+  typedCommand: "",
+  appendixLines: 0,
+  showAll: false,
+} as const;
+const STEP2_SNAPSHOT = {
+  activeStep: 2,
+  typedCommand: COMMAND,
+  appendixLines: 0,
+  showAll: false,
+} as const;
+const STEP3_SNAPSHOT = {
+  activeStep: 3,
+  typedCommand: COMMAND,
+  appendixLines: APPENDIX_LINE_COUNT,
+  showAll: true,
+} as const;
 export const STEP_SNAPSHOTS = {
-  1: { activeStep: 1, typedCommand: "", appendixLines: 0, showAll: false },
-  2: { activeStep: 2, typedCommand: COMMAND, appendixLines: 0, showAll: false },
-  3: {
-    activeStep: 3,
-    typedCommand: COMMAND,
-    appendixLines: APPENDIX_CONTENT.length,
-    showAll: true,
-  },
+  1: STEP1_SNAPSHOT,
+  2: STEP2_SNAPSHOT,
+  3: STEP3_SNAPSHOT,
 } as const;
 
+const PREVIEW_STEP = {
+  target: "previewing",
+  actions: "applyStepSnapshot",
+} as const;
+const SKIP_TO_PREVIEW = { target: "previewing", actions: "applySkip" } as const;
+const IDLE_EVENTS = {
+  START: "animating",
+  STEP_CLICK: PREVIEW_STEP,
+  SKIP: SKIP_TO_PREVIEW,
+} as const;
 const IDLE_STATE = {
-  on: {
-    START: "animating",
-    STEP_CLICK: { target: "previewing", actions: "applyStepSnapshot" },
-    SKIP: { target: "previewing", actions: "applySkip" },
-  },
+  on: IDLE_EVENTS,
 } as const;
 
+const TYPING_DELAY = { 800: "typing" } as const;
 const STEP1_STATE = {
   entry: "resetStep1",
-  after: { 800: "typing" },
+  after: TYPING_DELAY,
 } as const;
 
+const TYPING_ACTOR = { src: "typingActor" } as const;
+const UPDATE_COMMAND = { actions: "updateTypedCommand" } as const;
+const TYPING_EVENTS = {
+  TYPING_TICK: UPDATE_COMMAND,
+  TYPING_DONE: "checking",
+} as const;
 const TYPING_STATE = {
   entry: "setActiveStep2",
-  invoke: { src: "typingActor" },
-  on: {
-    TYPING_TICK: { actions: "updateTypedCommand" },
-    TYPING_DONE: "checking",
-  },
+  invoke: TYPING_ACTOR,
+  on: TYPING_EVENTS,
 } as const;
 
-const CHECKING_STATE = { after: { 500: "success" } } as const;
+const SUCCESS_DELAY = { 500: "success" } as const;
+const CHECKING_STATE = { after: SUCCESS_DELAY } as const;
 
-const SUCCESS_STATE = { after: { 300: "step3" } } as const;
+const APPENDIX_DELAY = { 300: "step3" } as const;
+const SUCCESS_STATE = { after: APPENDIX_DELAY } as const;
 
+const APPENDIX_ACTOR = { src: "appendixActor" } as const;
+const UPDATE_APPENDIX = { actions: "updateAppendixLines" } as const;
+const APPENDIX_EVENTS = {
+  APPENDIX_TICK: UPDATE_APPENDIX,
+  APPENDIX_DONE: "complete",
+} as const;
 const STEP3_STATE = {
   entry: "setActiveStep3",
-  invoke: { src: "appendixActor" },
-  on: {
-    APPENDIX_TICK: { actions: "updateAppendixLines" },
-    APPENDIX_DONE: "complete",
-  },
+  invoke: APPENDIX_ACTOR,
+  on: APPENDIX_EVENTS,
 } as const;
 
+const DONE_DELAY = { 150: "done" } as const;
+const SETTLING_STATE = { after: DONE_DELAY } as const;
+const DONE_STATE = {} as const;
+const COMPLETE_STATES = {
+  settling: SETTLING_STATE,
+  done: DONE_STATE,
+} as const;
 const COMPLETE_STATE = {
   entry: "setCompleteContext",
   initial: "settling",
-  states: {
-    settling: { after: { 150: "done" } },
-    done: {},
-  },
+  states: COMPLETE_STATES,
 } as const;
 
+const PREVIEW_FROM_ANIMATION = {
+  target: "#transformDemo.previewing",
+  actions: "applyStepSnapshot",
+} as const;
+const ANIMATION_EVENTS = {
+  STEP_CLICK: PREVIEW_FROM_ANIMATION,
+} as const;
+const ANIMATION_STATES = {
+  step1: STEP1_STATE,
+  typing: TYPING_STATE,
+  checking: CHECKING_STATE,
+  success: SUCCESS_STATE,
+  step3: STEP3_STATE,
+  complete: COMPLETE_STATE,
+} as const;
 const ANIMATING_STATE = {
   initial: "step1",
-  on: {
-    STEP_CLICK: {
-      target: "#transformDemo.previewing",
-      actions: "applyStepSnapshot",
-    },
-  },
-  states: {
-    step1: STEP1_STATE,
-    typing: TYPING_STATE,
-    checking: CHECKING_STATE,
-    success: SUCCESS_STATE,
-    step3: STEP3_STATE,
-    complete: COMPLETE_STATE,
-  },
+  on: ANIMATION_EVENTS,
+  states: ANIMATION_STATES,
 } as const;
 
+const RESTART_ANIMATION = { target: "animating", actions: "resetContext" } as const;
+const APPLY_STEP = { actions: "applyStepSnapshot" } as const;
+const APPLY_SKIP = { actions: "applySkip" } as const;
+const PREVIEW_EVENTS = {
+  START: RESTART_ANIMATION,
+  STEP_CLICK: APPLY_STEP,
+  SKIP: APPLY_SKIP,
+} as const;
 const PREVIEWING_STATE = {
-  on: {
-    START: { target: "animating", actions: "resetContext" },
-    STEP_CLICK: { actions: "applyStepSnapshot" },
-    SKIP: { actions: "applySkip" },
-  },
+  on: PREVIEW_EVENTS,
 } as const;
 
 export const MACHINE_CONTEXT = {
@@ -142,15 +182,16 @@ export const MACHINE_CONTEXT = {
   showAll: false,
 } as const;
 
+const MACHINE_STATES = {
+  idle: IDLE_STATE,
+  animating: ANIMATING_STATE,
+  previewing: PREVIEWING_STATE,
+} as const;
 export const MACHINE_CONFIG = {
   id: "transformDemo",
   initial: "idle",
   context: MACHINE_CONTEXT,
-  states: {
-    idle: IDLE_STATE,
-    animating: ANIMATING_STATE,
-    previewing: PREVIEWING_STATE,
-  },
+  states: MACHINE_STATES,
 } as const;
 
 export const STEP_STYLES = {
@@ -184,11 +225,13 @@ const HIGHLIGHTABLE_KEYS = [
 ];
 
 export const shouldHighlightLine = (line: string): boolean => {
-  return HIGHLIGHTABLE_KEYS.some((key) => line.includes(key));
+  const result = HIGHLIGHTABLE_KEYS.some((key) => line.includes(key));
+  return result;
 };
 
 export const highlightJsonSyntax = (line: string): string => {
-  return line
+  const result = line
     .replace(JSON_KEY_PATTERN, '<span class="text-primary">"$1"</span>:')
     .replace(JSON_VALUE_PATTERN, ': <span class="text-success">"$1"</span>');
+  return result;
 };

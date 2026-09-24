@@ -61,8 +61,11 @@
     "dryrun": "jiti src/index.ts --dry-run",
     "format": "oxfmt --check .",
     "format:fix": "oxfmt --write .",
-    "lint": "oxlint -c .oxlintrc.json src app scripts tests/unit/scripts",
-    "lint-fix": "oxlint -c .oxlintrc.json src app scripts tests/unit/scripts --fix",
+    "lint": "pnpm run lint:js && pnpm run lint:shell",
+    "lint:js": "oxlint --disable-nested-config --max-warnings 0 --report-unused-disable-directives-severity error -c .oxlintrc.json src app scripts tests/unit/scripts",
+    "lint:shell": "sh scripts/lint/shell.sh",
+    "lint/session": "lint-changed --comments=forbid",
+    "lint-fix": "pnpm run lint:js --fix",
     "prepare": "sh scripts/setup/setup.sh prepare",
     "setup:agents": "sh scripts/setup/setup.sh agent-config",
     "setup:local-dev": "sh scripts/setup/setup.sh local-dev",
@@ -107,15 +110,14 @@
     "validate:full": "pnpm run validate && pnpm run test:e2e && pnpm run test:bench",
     "setup": "sh scripts/setup/setup.sh bootstrap"
   },
-  "dependencies": {},
   "devDependencies": {
     "@types/node": "26.6.1",
     "c8": "^12.0.0",
     "codependence": "^1.0.15",
-    "eslint-plugin-legibility": "^0.3.0",
     "jiti": "2.7.0",
     "oxfmt": "^0.50.0",
     "oxlint": "^1.83.0",
+    "oxlint-plugin-legibility": "0.0.5",
     "release-it": "21.0.3",
     "rolldown": "1.2.5",
     "scriptc": "0.0.21",
@@ -124,12 +126,10 @@
     "typescript": "7.0.2",
     "typescript5": "npm:typescript@5.9.3"
   },
-  "peerDependencies": {},
-  "optionalDependencies": {},
   "engines": {
     "node": ">=20.19.0"
   },
-  "packageManager": "pnpm@12.4.2",
+  "packageManager": "pnpm@12.5.1",
   "release-it": {
     "git": {
       "commitMessage": "chore(release): ${version}",

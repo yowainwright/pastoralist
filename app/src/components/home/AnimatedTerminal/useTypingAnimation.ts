@@ -22,5 +22,6 @@ export const useTypingAnimation = (text: string, speed: number, isActive: boolea
 
   const isComplete = displayedText.length === text.length && text.length > 0;
 
-  return { displayedText, isComplete };
+  const result = { displayedText, isComplete };
+  return result;
 };

@@ -14,7 +14,8 @@ function getLinkClasses(isActive: boolean, isSubheading = false) {
   const baseOpacity = isSubheading ? "text-base-content/60" : "text-base-content/70";
   const padding = isSubheading ? "py-0.5" : "py-1";
   const stateClasses = isActive ? ACTIVE_CLASSES : `${baseOpacity} ${INACTIVE_CLASSES}`;
-  return `${BASE_LINK_CLASSES} ${padding} ${stateClasses}`;
+  const linkClasses = `${BASE_LINK_CLASSES} ${padding} ${stateClasses}`;
+  return linkClasses;
 }
 
 function scrollToElement(content: HTMLElement | null, slug: string): boolean {
@@ -62,15 +63,13 @@ function TocHeader() {
   );
 }
 
-function TocList({
-  toc,
-  activeId,
-  onClickLink,
-}: {
+interface TocListProps {
   toc: TocHeading[];
   activeId: string | null;
   onClickLink: (e: React.MouseEvent<HTMLAnchorElement>, slug: string) => void;
-}) {
+}
+
+function TocList({ toc, activeId, onClickLink }: TocListProps) {
   return (
     <ul className="space-y-2.5">
       {toc.map((heading) => (
@@ -85,26 +84,21 @@ function TocList({
   );
 }
 
-function TocItem({
-  heading,
-  activeId,
-  onClickLink,
-}: {
+interface TocItemProps {
   heading: TocHeading;
   activeId: string | null;
   onClickLink: (e: React.MouseEvent<HTMLAnchorElement>, slug: string) => void;
-}) {
+}
+
+function TocItem({ heading, activeId, onClickLink }: TocItemProps) {
   const isActive = activeId === heading.slug;
   const hasSubheadings = heading.subheadings.length > 0;
+  const { slug, text } = heading;
+  const linkProps = { slug, text, isActive, onClickLink };
 
   return (
     <li>
-      <TocLink
-        slug={heading.slug}
-        text={heading.text}
-        isActive={isActive}
-        onClickLink={onClickLink}
-      />
+      <TocLink {...linkProps} />
       {hasSubheadings && (
         <TocSubheadings
           subheadings={heading.subheadings}
@@ -116,19 +110,15 @@ function TocItem({
   );
 }
 
-function TocLink({
-  slug,
-  text,
-  isActive,
-  isSubheading = false,
-  onClickLink,
-}: {
+interface TocLinkProps {
   slug: string;
   text: string;
   isActive: boolean;
   isSubheading?: boolean;
   onClickLink: (e: React.MouseEvent<HTMLAnchorElement>, slug: string) => void;
-}) {
+}
+
+function TocLink({ slug, text, isActive, isSubheading = false, onClickLink }: TocLinkProps) {
   const parts = parseInlineCode(text);
 
   return (
@@ -150,15 +140,13 @@ function TocLink({
   );
 }
 
-function TocSubheadings({
-  subheadings,
-  activeId,
-  onClickLink,
-}: {
+interface TocSubheadingsProps {
   subheadings: TocHeading[];
   activeId: string | null;
   onClickLink: (e: React.MouseEvent<HTMLAnchorElement>, slug: string) => void;
-}) {
+}
+
+function TocSubheadings({ subheadings, activeId, onClickLink }: TocSubheadingsProps) {
   return (
     <ul className="mt-2 space-y-2 ml-3">
       {subheadings.map((subheading) => (

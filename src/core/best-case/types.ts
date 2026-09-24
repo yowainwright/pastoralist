@@ -10,6 +10,22 @@ import type {
 
 export type BestCaseState = Record<string, string>;
 
+export interface VersionSources {
+  latestVersions: Map<string, string>;
+  userOwnedVersions: Map<string, string>;
+  baselineVersions: Map<string, string>;
+}
+
+export interface BestCaseResultInput {
+  baseline: EvaluatedState;
+  selected: EvaluatedState;
+  context: EvaluationContext;
+  policy: ResolvedBestCasePolicy;
+  mode: BestCaseSearchResult["mode"];
+  totalStates: number;
+  startedAt: number;
+}
+
 export interface BestCasePackageChoice {
   packageName: string;
   currentVersion: string;

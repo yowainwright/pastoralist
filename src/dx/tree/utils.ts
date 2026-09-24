@@ -41,45 +41,52 @@ export const noopOutput: Output = {
 
 const resolveOutput = (options: TerminalGraphOptions): Output => {
   if (options.quiet) return noopOutput;
-  return options.out || defaultOutput;
+  const output = options.out || defaultOutput;
+  return output;
 };
 
 export const createState = <T>(initial: T): StateContainer<T> => {
   let current = initial;
-  return {
+  const state: StateContainer<T> = {
     get: () => current,
     set: (next: T) => {
       current = next;
     },
   };
+  return state;
 };
 
-export const createInitialState = (): TerminalGraphState => ({
-  phase: "idle",
-  ancestors: [],
-  spinner: {
+export const createInitialState = (): TerminalGraphState => {
+  const ancestors: boolean[] = [];
+  const spinner = {
     active: false,
     frame: 0,
     text: "",
     interval: null,
-  },
-  progress: {
-    current: 0,
-    total: 0,
-  },
-});
+  };
+  const progress = { current: 0, total: 0 };
+  const state: TerminalGraphState = { phase: "idle", ancestors, spinner, progress };
+  return state;
+};
 
 export const buildPrefix = (ancestors: boolean[]): string =>
   ancestors
     .map((continues) => {
-      if (continues) return `${TREE_CHARS.pipe}${TREE_CHARS.indent}`;
+      if (continues) {
+        const result = `${TREE_CHARS.pipe}${TREE_CHARS.indent}`;
+        return result;
+      }
       return EMPTY_TREE_PREFIX;
     })
     .join("");
 
 export const buildConnector = (isLast: boolean): string => {
-  if (isLast) return TREE_CHARS.last;
-  return TREE_CHARS.branch;
+  if (isLast) {
+    const connector = TREE_CHARS.last;
+    return connector;
+  }
+  const connector2 = TREE_CHARS.branch;
+  return connector2;
 };
 
 export const composeLine = (...parts: (string | undefined)[]): string =>
@@ -204,20 +211,24 @@ export const createSpinnerControl = (
   state: StateContainer<TerminalGraphState>,
 ): SpinnerControl => {
   const render = () => renderTreeSpinner(out, state);
-
-  return {
-    start: createSpinnerStarter(out, state, render),
-    stop: createSpinnerStopper(out, state),
-    isActive: createSpinnerActiveReader(state),
+  const start = createSpinnerStarter(out, state, render);
+  const stop = createSpinnerStopper(out, state);
+  const isActive = createSpinnerActiveReader(state);
+  const spinnerControl: SpinnerControl = {
+    start,
+    stop,
+    isActive,
     render,
   };
+  return spinnerControl;
 };
 
 export const withSpinnerPaused =
   (spinner: SpinnerControl): SpinnerPausedRunner =>
   <T>(action: () => T): T => {
     spinner.stop();
-    return action();
+    const result = action();
+    return result;
   };
 
 export const createShimmerCompleter =
@@ -233,7 +244,8 @@ export const createTerminalTreeContext = (options: TerminalGraphOptions): Termin
   const paused = withSpinnerPaused(spinner);
   const completer = createShimmerCompleter(out);
 
-  return { out, state, tree, spinner, paused, completer };
+  const terminalTreeContext: TerminalTreeContext = { out, state, tree, spinner, paused, completer };
+  return terminalTreeContext;
 };
 
 export const buildBannerOutput = (): string =>
@@ -244,33 +256,41 @@ export const buildProgressText = (current: number, total: number, item: string):
 
 export const buildVulnerabilityHeader = (info: VulnerabilityInfo): string => {
   const severity = info.severity.toUpperCase();
-  return `[${severity}] ${info.packageName}@${info.currentVersion}`;
+  const vulnerabilityHeader = `[${severity}] ${info.packageName}@${info.currentVersion}`;
+  return vulnerabilityHeader;
 };
 
 export const selectVulnerabilityIcon = (fixAvailable: boolean): string => {
-  if (fixAvailable) return ICON.warning;
-  return ICON.error;
+  if (fixAvailable) {
+    const result = ICON.warning;
+    return result;
+  }
+  const result2 = ICON.error;
+  return result2;
 };
 
 export const formatCves = (cves: string[] | undefined): string | undefined => {
-  const hasNoCves = !cves || cves.length === 0;
-  if (hasNoCves) return undefined;
-  return `CVE: ${cves.join(", ")}`;
+  if (!cves) return undefined;
+  if (cves.length === 0) return undefined;
+  const cves2 = `CVE: ${cves.join(", ")}`;
+  return cves2;
 };
 
 export const formatVulnerabilityFix = (
   fixAvailable: boolean,
   patchedVersion: string | undefined,
 ): string => {
-  const hasNoFix = !fixAvailable || !patchedVersion;
-  if (hasNoFix) return "No fix available";
-  return `Fix: upgrade to ${patchedVersion}`;
+  if (!fixAvailable) return "No fix available";
+  if (!patchedVersion) return "No fix available";
+  const vulnerabilityFix = `Fix: upgrade to ${patchedVersion}`;
+  return vulnerabilityFix;
 };
 
 export const buildVulnerabilityDetails = (info: VulnerabilityInfo): string[] => {
   const cve = formatCves(info.cves);
   const fix = formatVulnerabilityFix(info.fixAvailable, info.patchedVersion);
-  return [info.title, cve, fix, info.url].filter(isDefined);
+  const vulnerabilityDetails = [info.title, cve, fix, info.url].filter(isDefined);
+  return vulnerabilityDetails;
 };
 
 export const buildOverrideHeader = (info: OverrideInfo): string =>
@@ -280,15 +300,23 @@ export const selectOverrideIcon = (
   isSecurityFix: boolean | undefined,
   keep: boolean | KeepConstraint | undefined,
 ): string => {
-  if (keep) return ICON.info;
-  if (isSecurityFix) return ICON.warning;
-  return ICON.success;
+  if (keep) {
+    const result = ICON.info;
+    return result;
+  }
+  if (isSecurityFix) {
+    const result2 = ICON.warning;
+    return result2;
+  }
+  const result3 = ICON.success;
+  return result3;
 };
 
 export const formatPatches = (patches: string[] | undefined): string | undefined => {
-  const hasNoPatches = !patches || patches.length === 0;
-  if (hasNoPatches) return undefined;
-  return `Patches: ${patches.join(", ")}`;
+  if (!patches) return undefined;
+  if (patches.length === 0) return undefined;
+  const patches2 = `Patches: ${patches.join(", ")}`;
+  return patches2;
 };
 
 export const formatDependentCount = (
@@ -296,8 +324,10 @@ export const formatDependentCount = (
 ): string | undefined => {
   const count = Object.keys(dependents ?? {}).length;
   if (count === 0) return undefined;
-  const plural = count === 1 ? "" : "s";
-  return `Used by: ${count} package${plural}`;
+  const isSingle = count === 1;
+  const plural = isSingle ? "" : "s";
+  const dependentCount = `Used by: ${count} package${plural}`;
+  return dependentCount;
 };
 
 export const formatKeepStatus = (
@@ -305,34 +335,44 @@ export const formatKeepStatus = (
 ): string | undefined => {
   if (!keep) return undefined;
   const hasKeepReason = typeof keep === "object" && keep.reason;
-  if (hasKeepReason) return `Kept: ${keep.reason}`;
+  if (hasKeepReason) {
+    const keepStatus = `Kept: ${keep.reason}`;
+    return keepStatus;
+  }
   return "Kept by user";
 };
 
 export const formatPotentiallyFixedIn = (version: string | undefined): string | undefined => {
   if (!version) return undefined;
-  return `Potentially fixed in ${version}, maybe removable`;
+  const potentiallyFixedIn = `Potentially fixed in ${version}, maybe removable`;
+  return potentiallyFixedIn;
 };
 
 type StructuredLedgerReason = Extract<NonNullable<OverrideInfo["reason"]>, object>;
 
 const formatReasonValue = (label: string, value: string | undefined): string | undefined => {
   if (!value) return undefined;
-  return `${label}: ${value}`;
+  const reasonValue = `${label}: ${value}`;
+  return reasonValue;
 };
 
 const formatReasonList = (label: string, values: string[] | undefined): string | undefined => {
   if (!values?.length) return undefined;
-  return `${label}: ${values.join(", ")}`;
+  const reasonList = `${label}: ${values.join(", ")}`;
+  return reasonList;
 };
 
 const formatProjectReason = (reason: StructuredLedgerReason): string[] => {
-  if (reason.type !== "project") return [];
+  if (reason.type !== "project") {
+    const projectReason: string[] = [];
+    return projectReason;
+  }
   const pin = formatReasonValue("Pin", reason.pin);
   const patch = formatReasonValue("Patch", reason.patch);
   const constraints = formatReasonList("Constraints", reason.constraints);
   const references = formatReasonList("References", reason.references);
-  return [reason.summary, pin, patch, constraints, references].filter(isDefined);
+  const projectReason2 = [reason.summary, pin, patch, constraints, references].filter(isDefined);
+  return projectReason2;
 };
 
 const getOptimalityLabel = (provenOptimal: boolean): string => {
@@ -341,20 +381,34 @@ const getOptimalityLabel = (provenOptimal: boolean): string => {
 };
 
 const formatBestCaseReason = (reason: StructuredLedgerReason): string[] => {
-  if (reason.type !== "best-case") return [];
+  if (reason.type !== "best-case") {
+    const bestCaseReason: string[] = [];
+    return bestCaseReason;
+  }
   const optimality = getOptimalityLabel(reason.search.provenOptimal);
-  const states = reason.search.evaluatedStates;
+  const { evaluatedStates: states } = reason.search;
   const search = `Decision: ${reason.decisionId} (${optimality}, ${states} states)`;
   const impact = reason.impact;
   const impactText = `Impact: ${impact.fixedVulnerabilities} fixed, ${impact.introducedVulnerabilities} introduced, ${impact.remainingVulnerabilities} remaining`;
-  return [reason.summary, search, impactText];
+  const bestCaseReason2: string[] = [reason.summary, search, impactText];
+  return bestCaseReason2;
 };
 
 export const formatLedgerReason = (reason: OverrideInfo["reason"]): string[] => {
-  if (!reason) return [];
-  if (typeof reason === "string") return [reason];
-  if (reason.type === "project") return formatProjectReason(reason);
-  return formatBestCaseReason(reason);
+  if (!reason) {
+    const ledgerReason: string[] = [];
+    return ledgerReason;
+  }
+  if (typeof reason === "string") {
+    const ledgerReason2: string[] = [reason];
+    return ledgerReason2;
+  }
+  if (reason.type === "project") {
+    const ledgerReason3 = formatProjectReason(reason);
+    return ledgerReason3;
+  }
+  const ledgerReason4 = formatBestCaseReason(reason);
+  return ledgerReason4;
 };
 
 export const buildOverrideDetails = (info: OverrideInfo): string[] => {
@@ -365,22 +419,25 @@ export const buildOverrideDetails = (info: OverrideInfo): string[] => {
   const fixedIn = formatPotentiallyFixedIn(info.potentiallyFixedIn);
   const reason = formatLedgerReason(info.reason);
   const otherDetails = [cve, patches, dependents, kept, fixedIn].filter(isDefined);
-  return reason.concat(otherDetails);
+  const overrideDetails = reason.concat(otherDetails);
+  return overrideDetails;
 };
 
 export const buildSecurityFixHeader = (info: SecurityFixInfo): string =>
   `${info.packageName}@${info.toVersion}`;
 
 export const formatBlockedCves = (cves: string[] | undefined): string | undefined => {
-  const hasNoCves = !cves || cves.length === 0;
-  if (hasNoCves) return undefined;
-  return `Blocks ${cves.join(", ")}`;
+  if (!cves) return undefined;
+  if (cves.length === 0) return undefined;
+  const blockedCves = `Blocks ${cves.join(", ")}`;
+  return blockedCves;
 };
 
 export const buildSecurityFixDetails = (info: SecurityFixInfo): string[] => {
   const upgrade = `${info.fromVersion} → ${info.toVersion}`;
   const cves = formatBlockedCves(info.cves);
-  return [upgrade, cves, info.reason].filter(isDefined);
+  const securityFixDetails = [upgrade, cves, info.reason].filter(isDefined);
+  return securityFixDetails;
 };
 
 export const buildRemovedOverrideHeader = (info: RemovedOverrideInfo): string =>
@@ -393,17 +450,20 @@ const pluralize = (count: number, singular: string, plural: string): string => {
 
 const buildVulnerabilityFixedLine = (count: number): string => {
   const suffix = pluralize(count, "y", "ies");
-  return `${ICON.CHECK} ${count} vulnerabilit${suffix} fixed`;
+  const vulnerabilityFixedLine = `${ICON.CHECK} ${count} vulnerabilit${suffix} fixed`;
+  return vulnerabilityFixedLine;
 };
 
 const buildStaleRemovedLine = (count: number): string => {
   const suffix = pluralize(count, "", "s");
-  return `${ICON.CHECK} ${count} stale override${suffix} removed`;
+  const staleRemovedLine = `${ICON.CHECK} ${count} stale override${suffix} removed`;
+  return staleRemovedLine;
 };
 
 const buildPackagesProtectedLine = (count: number): string => {
   const suffix = pluralize(count, "", "s");
-  return `${ICON.SHIELD} ${count} package${suffix} protected`;
+  const packagesProtectedLine = `${ICON.SHIELD} ${count} package${suffix} protected`;
+  return packagesProtectedLine;
 };
 
 export const buildExecutiveSummaryLines = (data: ExecutiveSummaryData): string[] =>
@@ -424,7 +484,8 @@ export const buildCompactSummaryLine = (data: CompactSummaryData): string => {
     `${ICON.skip} ${data.overridesRemoved} removed`,
     `${data.packagesScanned} scanned`,
   ];
-  return parts.join(sep);
+  const compactSummaryLine = parts.join(sep);
+  return compactSummaryLine;
 };
 
 export const writeDetailLines = (tree: TreeWriter, details: string[]): void => {
@@ -461,8 +522,8 @@ export const writeOverridesSection = (
 };
 
 export const writeChangesSection = (tree: TreeWriter, changes: string[] | undefined): void => {
-  const hasNoChanges = !changes || changes.length === 0;
-  if (hasNoChanges) return;
+  if (!changes) return;
+  if (changes.length === 0) return;
   const lastIndex = changes.length - 1;
   tree.line(true, "Changes");
   tree.nested(true, () => {
@@ -480,7 +541,8 @@ const selectDashColor = (index: number): string => {
 const buildDashedBorder = (width: number): string =>
   Array.from({ length: width }, (_, index) => {
     const color = selectDashColor(index);
-    return `${color}-${RESET}`;
+    const result = `${color}-${RESET}`;
+    return result;
   }).join("");
 
 const padNoticeText = (text: string): string => {
@@ -496,5 +558,6 @@ export const buildNoticeBox = (text: string): string[] => {
   const innerWidth = visibleLength(text) + NOTICE_BOX_PADDING * 2;
   const border = buildDashedBorder(innerWidth + 2);
   const styledText = styleNoticeText(padNoticeText(text));
-  return [border, styledText, border];
+  const noticeBox: string[] = [border, styledText, border];
+  return noticeBox;
 };

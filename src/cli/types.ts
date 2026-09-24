@@ -6,6 +6,8 @@ import type {
   Options,
   PastoralistJSON,
   PastoralistResult,
+  SecurityAlert,
+  SecurityOverride,
 } from "../types";
 import type { update } from "../core/update";
 import type { createTerminalGraph } from "../dx";
@@ -19,7 +21,35 @@ import type { quickConfirm } from "./prompts";
 import type { initCommand } from "./cmds/init";
 import type { showOnboarding } from "./cmds/init";
 import type { buildMergedOptions, handleSecurityResults, runSecurityCheck } from "./security";
-import type { SecurityPhaseResult } from "./security/types";
+import type { SecurityPhaseResult, SecurityResultSummary } from "./security/types";
+
+export type UpdateOutcome = Pick<
+  PastoralistResult,
+  | "appliedOverrides"
+  | "hasUnusedOverrides"
+  | "overrideCount"
+  | "unusedOverrideCount"
+  | "unusedOverrides"
+  | "updated"
+>;
+
+export type SecurityFindingsArgs = [
+  graph: CliGraph,
+  alerts: SecurityAlert[],
+  securityOverrides: SecurityOverride[],
+  mergedOptions: Options,
+  packagesScanned: number,
+];
+
+export type UpdateOutputArgs = [
+  graph: CliGraph,
+  updateContext: UpdateContext,
+  updateResultData: UpdateResultData,
+  securityResult: SecurityResultSummary,
+  packagesScanned: number,
+  mergedOptions: Options,
+  options: Options,
+];
 
 export type SetupHookDeps = {
   readFileSync: typeof readFileSync;

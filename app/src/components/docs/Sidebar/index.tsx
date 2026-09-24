@@ -9,11 +9,27 @@ interface SidebarProps {
 
 const toggleSectionAt = (sections: boolean[], index: number): boolean[] =>
   sections.map((isOpen, sectionIndex) => {
-    if (sectionIndex === index) return !isOpen;
+    const toggled = !isOpen;
+    if (sectionIndex === index) return toggled;
     return isOpen;
   });
 
 export function Sidebar({ onClose = () => undefined }: SidebarProps) {
+  return (
+    <aside className="drawer-side">
+      <label
+        htmlFor="my-drawer-2"
+        className="drawer-overlay lg:hidden bg-transparent"
+        onClick={onClose}
+      />
+      <nav className="w-64 bg-base-100 z-20 sticky top-[68px] h-[calc(100vh-68px)] overflow-y-auto border-r border-base-content/10">
+        <SidebarSections />
+      </nav>
+    </aside>
+  );
+}
+
+function SidebarSections() {
   const pathname = useLocation().pathname;
   const [sections, setSections] = useState(() => SIDEBAR.map(() => true));
   const toggleSection = (index: number) => {
@@ -32,44 +48,21 @@ export function Sidebar({ onClose = () => undefined }: SidebarProps) {
     );
   });
 
-  return (
-    <aside className="drawer-side">
-      <label
-        htmlFor="my-drawer-2"
-        className="drawer-overlay lg:hidden bg-transparent"
-        onClick={onClose}
-      />
-      <nav className="w-64 bg-base-100 z-20 sticky top-[68px] h-[calc(100vh-68px)] overflow-y-auto border-r border-base-content/10">
-        <section className="px-3 pt-2 space-y-3">{sectionEntries}</section>
-      </nav>
-    </aside>
-  );
+  return <section className="px-3 pt-2 space-y-3">{sectionEntries}</section>;
 }
 
-function SidebarSection({
-  section,
-  isOpen,
-  onToggle,
-  pathname,
-}: {
+interface SidebarSectionProps {
   section: { title: string; items: { title: string; href: string }[] };
   isOpen: boolean;
   onToggle: () => void;
   pathname: string;
-}) {
-  const contentClassName = `sidebar-content ${isOpen ? "" : "hidden"}`;
-  const chevronClassName = `w-4 h-4 transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`;
+}
 
+function SidebarSection({ section, isOpen, onToggle, pathname }: SidebarSectionProps) {
+  const contentClassName = `sidebar-content ${isOpen ? "" : "hidden"}`;
   return (
     <article className="sidebar-section">
-      <button
-        className="sidebar-toggle w-full flex items-center justify-between px-2 py-1.5 text-xs font-semibold text-base-content/70 uppercase tracking-normal font-spline-sans-mono hover:text-base-content transition-colors"
-        aria-expanded={isOpen}
-        onClick={onToggle}
-      >
-        <span>{section.title}</span>
-        <ChevronRight className={chevronClassName} />
-      </button>
+      <SidebarToggle title={section.title} isOpen={isOpen} onToggle={onToggle} />
       <nav className={contentClassName}>
         <ul className="ml-2 mt-1 border-l-2 border-base-content/10 space-y-0.5 py-1">
           {section.items.map((item) => (
@@ -81,13 +74,32 @@ function SidebarSection({
   );
 }
 
-function SidebarLink({
-  item,
-  pathname,
-}: {
+interface SidebarToggleProps {
+  title: string;
+  isOpen: boolean;
+  onToggle: () => void;
+}
+
+function SidebarToggle({ title, isOpen, onToggle }: SidebarToggleProps) {
+  const chevronClassName = `w-4 h-4 transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`;
+  return (
+    <button
+      className="sidebar-toggle w-full flex items-center justify-between px-2 py-1.5 text-xs font-semibold text-base-content/70 uppercase tracking-normal font-spline-sans-mono hover:text-base-content transition-colors"
+      aria-expanded={isOpen}
+      onClick={onToggle}
+    >
+      <span>{title}</span>
+      <ChevronRight className={chevronClassName} />
+    </button>
+  );
+}
+
+interface SidebarLinkProps {
   item: { title: string; href: string };
   pathname: string;
-}) {
+}
+
+function SidebarLink({ item, pathname }: SidebarLinkProps) {
   const slug = extractSlug(item.href);
   const isActive = isSidebarLinkActive(pathname, slug);
 
@@ -111,10 +123,12 @@ function SidebarLink({
 
 function isSidebarLinkActive(pathname: string, slug: string): boolean {
   const normalizedPathname = pathname.replace(/\/+$/, "");
-  return normalizedPathname.endsWith(`/docs/${slug}`);
+  const isActive = normalizedPathname.endsWith(`/docs/${slug}`);
+  return isActive;
 }
 
 export function extractSlug(href: string): string {
   const match = href.match(/docs\/([^/]+)$/);
-  return match ? match[1] : "introduction";
+  const slug = match ? match[1] : "introduction";
+  return slug;
 }

@@ -49,7 +49,8 @@ const isConfigInitMode = (init: Options["init"]): boolean => {
   if (!Array.isArray(init)) return false;
 
   const [target] = init;
-  return target === "config";
+  const result = target === "config";
+  return result;
 };
 
 export const handleInitMode = async (
@@ -62,14 +63,11 @@ export const handleInitMode = async (
   const securityProvider = Array.isArray(rest.securityProvider)
     ? rest.securityProvider[0]
     : rest.securityProvider;
+  const { path, root } = options;
+  const { checkSecurity, hasWorkspaceSecurityChecks } = rest;
 
-  await deps.initCommand({
-    path: options.path,
-    root: options.root,
-    checkSecurity: rest.checkSecurity,
-    securityProvider,
-    hasWorkspaceSecurityChecks: rest.hasWorkspaceSecurityChecks,
-  });
+  const initOptions = { path, root, checkSecurity, securityProvider, hasWorkspaceSecurityChecks };
+  await deps.initCommand(initOptions);
   return true;
 };
 
@@ -82,30 +80,25 @@ const createActionRuntime = (options: Options, deps: RuntimeDeps): ActionRuntime
   const emptyResult = createEmptyResult();
   const { isTestingCLI = false, init = false, ...rest } = options;
 
-  return {
-    emptyResult,
-    graph,
-    init,
-    isJsonOutput,
-    isLogging,
-    isQuietMode,
-    isTestingCLI,
-    log,
-    rest,
-  };
+  const context = { emptyResult, graph, init };
+  const modes = { isJsonOutput, isLogging, isQuietMode, isTestingCLI };
+  const actionRuntime: ActionRuntime = Object.assign({}, context, modes, { log, rest });
+  return actionRuntime;
 };
 
 const prepareCache = (options: Options): void => {
+  const { cacheDir: requestedCacheDir, root } = options;
   const cacheDir = resolveCacheDir({
-    cacheDir: options.cacheDir,
-    root: options.root,
+    cacheDir: requestedCacheDir,
+    root,
   });
   pruneBackups(cacheDir);
 };
 
 const outputEarlyResult = (runtime: ActionRuntime): PastoralistResult => {
   outputResult(runtime.emptyResult, runtime.isJsonOutput);
-  return runtime.emptyResult;
+  const result = runtime.emptyResult;
+  return result;
 };
 
 const handleEarlyActionResult = async (
@@ -114,11 +107,13 @@ const handleEarlyActionResult = async (
   runtime: ActionRuntime,
 ): Promise<PastoralistResult | undefined> => {
   if (deps.handleTestMode(runtime.isTestingCLI, runtime.log, options)) {
-    return outputEarlyResult(runtime);
+    const result = outputEarlyResult(runtime);
+    return result;
   }
 
   if (await deps.handleInitMode(runtime.init, options, runtime.rest)) {
-    return outputEarlyResult(runtime);
+    const result = outputEarlyResult(runtime);
+    return result;
   }
 
   return undefined;
@@ -150,7 +145,8 @@ const addLedgerDateToOptions = (
   deps: Pick<UpdateWorkflowDeps, "getLedgerAddedDate">,
 ): Options => {
   const addedDate = deps.getLedgerAddedDate();
-  return Object.assign({}, mergedOptions, { addedDate });
+  const result = Object.assign({}, mergedOptions, { addedDate });
+  return result;
 };
 
 const runPackageUpdate = (
@@ -161,7 +157,8 @@ const runPackageUpdate = (
 ) => {
   const updateContext = deps.update(mergedOptions);
   const updateResultData = buildUpdateResult(updateContext, config, options.dryRun || false);
-  return { updateContext, updateResultData };
+  const result = { updateContext, updateResultData };
+  return result;
 };
 
 const runUpdateWorkflow = async (
@@ -179,29 +176,27 @@ const runUpdateWorkflow = async (
   const mergedOptions = addLedgerDateToOptions(securityPhase.mergedOptions, deps);
   const updateResult = runPackageUpdate(loadedConfig.config, mergedOptions, options, deps);
 
-  return Object.assign(
-    {},
-    loadedConfig,
-    {
-      mergedOptions,
-      securityPhase,
-    },
-    updateResult,
-  );
+  const result = Object.assign({}, loadedConfig, { mergedOptions, securityPhase }, updateResult);
+  return result;
 };
 
-const buildActionResult = (runtime: ActionRuntime, workflow: UpdateWorkflow): PastoralistResult =>
-  Object.assign(
+const buildActionResult = (runtime: ActionRuntime, workflow: UpdateWorkflow): PastoralistResult => {
+  const { removalVerification } = workflow.mergedOptions;
+  const { bestCase } = workflow.securityPhase;
+  const { metrics } = workflow.updateContext;
+  const result = Object.assign(
     {},
     runtime.emptyResult,
     workflow.securityPhase.securityResult,
     workflow.updateResultData,
     {
-      removalVerification: workflow.mergedOptions.removalVerification,
-      bestCase: workflow.securityPhase.bestCase,
-      metrics: workflow.updateContext.metrics,
+      removalVerification,
+      bestCase,
+      metrics,
     },
   );
+  return result;
+};
 
 const finishActionResult = (
   result: PastoralistResult,
@@ -241,7 +236,8 @@ const runActionWorkflow = async (
 ): Promise<PastoralistResult> => {
   const workflow = await runUpdateWorkflow(options, deps, runtime);
   await renderActionOutput(workflow, runtime, options);
-  return finishActionResult(buildActionResult(runtime, workflow), deps, runtime, options);
+  const result = finishActionResult(buildActionResult(runtime, workflow), deps, runtime, options);
+  return result;
 };
 
 const handleActionError = (
@@ -273,7 +269,10 @@ const defaultActionDeps: ActionDeps = {
   getLedgerAddedDate,
   loadConfig,
   loadConfigWithSource,
-  processExit: (code: number) => process.exit(code),
+  get processExit() {
+    const exit = process.exit.bind(process);
+    return exit;
+  },
 };
 
 export async function action(
@@ -287,8 +286,10 @@ export async function action(
 
   maybeShowBanner(runtime);
   try {
-    return await runActionWorkflow(options, deps, runtime);
+    const result = await runActionWorkflow(options, deps, runtime);
+    return result;
   } catch (err) {
-    return handleActionError(err, deps, runtime);
+    const result2 = handleActionError(err, deps, runtime);
+    return result2;
   }
 }

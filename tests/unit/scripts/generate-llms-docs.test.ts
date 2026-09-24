@@ -1,3 +1,4 @@
+import { assertContainsText, assertExcludesText } from "./utils";
 import { assertCalledWith, mock } from "../setup";
 import { afterEach, describe, test } from "node:test";
 import assert from "node:assert/strict";
@@ -18,38 +19,50 @@ import {
   type LlmsDocsFileSystem,
 } from "../../../scripts/build/generate-llms-docs";
 
-const createMemoryFileSystem = (
-  files: Record<string, string>,
-): LlmsDocsFileSystem & {
+type MemoryFileSystem = LlmsDocsFileSystem & {
   directories: string[];
   writes: Record<string, string>;
-} => {
+};
+
+const readMemoryFile = (files: Record<string, string>, path: string): string => {
+  const normalizedPath = resolve(path);
+  const content = files[normalizedPath];
+  if (content === undefined) throw new Error(`Missing fixture file: ${normalizedPath}`);
+  return content;
+};
+
+const createMemoryFileSystem = (files: Record<string, string>): MemoryFileSystem => {
   const normalizedFiles = Object.fromEntries(
     Object.entries(files).map(([path, content]) => [resolve(path), content]),
   );
   const writes: Record<string, string> = {};
   const directories: string[] = [];
 
-  return {
-    directories,
-    exists: (path) => Object.hasOwn(normalizedFiles, resolve(path)),
-    mkdirp: (path) => {
-      directories[directories.length] = resolve(path);
-    },
-    readText: (path) => {
-      const normalizedPath = resolve(path);
-      const content = normalizedFiles[normalizedPath];
-      if (content === undefined) throw new Error(`Missing fixture file: ${normalizedPath}`);
-      return content;
-    },
-    writeText: (path, content) => {
-      writes[resolve(path)] = content;
-    },
-    writes,
+  const readText = (path: string) => readMemoryFile(normalizedFiles, path);
+  const exists = (path: string) => Object.hasOwn(normalizedFiles, resolve(path));
+  const mkdirp = (path: string) => {
+    directories[directories.length] = resolve(path);
   };
+  const writeText = (path: string, content: string) => {
+    writes[resolve(path)] = content;
+  };
+  const memoryFileSystem = { directories, exists, mkdirp, readText, writeText, writes };
+  return memoryFileSystem;
 };
 
 const fixtureAppRoot = "/fixture/app";
+
+const assertWrittenDocs = (fs: MemoryFileSystem): void => {
+  const index = fs.writes[resolve(fixtureAppRoot, "public/llms.txt")];
+  const full = fs.writes[resolve(fixtureAppRoot, "public/llms-full.txt")];
+  assert.deepStrictEqual(fs.directories, [resolve(fixtureAppRoot, "public")]);
+  assertContainsText(index, "- [Introduction](https://example.test/pastoralist/docs/intro)");
+  assertContainsText(index, "- [Security](https://example.test/pastoralist/docs/security)");
+  assertExcludesText(full, "<DocVideo");
+  assertExcludesText(full, "<div");
+  assertContainsText(full, "Use `npx pastoralist doctor`.");
+  assertContainsText(full, "### tip\nRun security checks.");
+};
 
 const fixtureFiles = {
   [resolve(fixtureAppRoot, "src/content/constants.ts")]: `
@@ -81,43 +94,46 @@ Run security checks.
 `,
 };
 
-describe("scripts/build/generate-llms-docs", () => {
-  afterEach(() => {
-    mock.restore();
-  });
-
-  test("parseDocOrder reads doc slugs in source order", () => {
-    assert.deepStrictEqual(
-      parseDocOrder(`
+const cases = [
+  {
+    name: "parseDocOrder reads doc slugs in source order",
+    run: () => {
+      assert.deepStrictEqual(
+        parseDocOrder(`
         { slug: "introduction" },
         { slug: "setup" },
       `),
-      ["introduction", "setup"],
-    );
-  });
-
-  test("parseFrontmatter separates attributes from body", () => {
-    const source = `---
+        ["introduction", "setup"],
+      );
+    },
+  },
+  {
+    name: "parseFrontmatter separates attributes from body",
+    run: () => {
+      const source = `---
 title: "Setup"
 description: Install and configure Pastoralist.
 ---
 # Body
 `;
-    const expected = {
-      attributes: {
+      const attributes = {
         description: "Install and configure Pastoralist.",
         title: "Setup",
-      },
-      body: "# Body\n",
-    };
+      };
+      const expected = {
+        attributes,
+        body: "# Body\n",
+      };
 
-    assert.deepStrictEqual(parseFrontmatter(source), expected);
-    assert.deepStrictEqual(readFrontmatter(source), expected);
-  });
-
-  test("stripMdxNoise removes presentation-only MDX", () => {
-    assert.strictEqual(
-      stripMdxNoise(`
+      assert.deepStrictEqual(parseFrontmatter(source), expected);
+      assert.deepStrictEqual(readFrontmatter(source), expected);
+    },
+  },
+  {
+    name: "stripMdxNoise removes presentation-only MDX",
+    run: () => {
+      assert.strictEqual(
+        stripMdxNoise(`
 <DocVideo src="/demo.mp4" />
 <a href="https://stackblitz.com"><img src="/stackblitz.svg" /></a>
 <div className="callout">
@@ -126,158 +142,165 @@ Keep this.
 :::
 </div>
 `),
-      "### tip\nKeep this.",
-    );
-  });
-
-  test("resolveLlmsDocsPaths centralizes build paths", () => {
-    assert.deepStrictEqual(resolveLlmsDocsPaths(fixtureAppRoot), {
-      appRoot: fixtureAppRoot,
-      contentIndexPath: resolve(fixtureAppRoot, "src/content/constants.ts"),
-      docsDir: resolve(fixtureAppRoot, "src/content/docs"),
-      llmsFullTxtPath: resolve(fixtureAppRoot, "public/llms-full.txt"),
-      llmsTxtPath: resolve(fixtureAppRoot, "public/llms.txt"),
-      publicDir: resolve(fixtureAppRoot, "public"),
-    });
-  });
-
-  test("buildDocEntry applies frontmatter defaults and MDX cleanup", () => {
-    assert.deepStrictEqual(
-      buildDocEntry(
-        "setup",
-        `---
+        "### tip\nKeep this.",
+      );
+    },
+  },
+  {
+    name: "resolveLlmsDocsPaths centralizes build paths",
+    run: () => {
+      const contentIndexPath = resolve(fixtureAppRoot, "src/content/constants.ts");
+      const docsDir = resolve(fixtureAppRoot, "src/content/docs");
+      const llmsFullTxtPath = resolve(fixtureAppRoot, "public/llms-full.txt");
+      const llmsTxtPath = resolve(fixtureAppRoot, "public/llms.txt");
+      const publicDir = resolve(fixtureAppRoot, "public");
+      assert.deepStrictEqual(resolveLlmsDocsPaths(fixtureAppRoot), {
+        appRoot: fixtureAppRoot,
+        contentIndexPath,
+        docsDir,
+        llmsFullTxtPath,
+        llmsTxtPath,
+        publicDir,
+      });
+    },
+  },
+  {
+    name: "buildDocEntry applies frontmatter defaults and MDX cleanup",
+    run: () => {
+      assert.deepStrictEqual(
+        buildDocEntry(
+          "setup",
+          `---
 title: Setup
 ---
 <div>
 Use Pastoralist.
 </div>
 `,
-      ),
-      {
-        content: "Use Pastoralist.",
-        description: "",
-        slug: "setup",
-        title: "Setup",
-      },
-    );
-  });
+        ),
+        {
+          content: "Use Pastoralist.",
+          description: "",
+          slug: "setup",
+          title: "Setup",
+        },
+      );
+    },
+  },
+  {
+    name: "collectDocs reads ordered docs through an injected filesystem",
+    run: () => {
+      const fs = createMemoryFileSystem(fixtureFiles);
 
-  test("collectDocs reads ordered docs through an injected filesystem", () => {
-    const fs = createMemoryFileSystem(fixtureFiles);
-
-    assert.deepStrictEqual(collectDocs(resolveLlmsDocsPaths(fixtureAppRoot), fs), [
-      {
-        content: "Use `npx pastoralist doctor`.",
-        description: "Start with Pastoralist.",
-        slug: "intro",
-        title: "Introduction",
-      },
-      {
-        content: "### tip\nRun security checks.",
-        description: "Scan overrides.",
-        slug: "security",
-        title: "Security",
-      },
-    ]);
-  });
-
-  test("buildLlmsTxt includes core links, commands, and ordered docs", () => {
-    const docs: DocEntry[] = [
-      {
-        content: "Use the CLI.",
-        description: "Start here.",
-        slug: "introduction",
-        title: "Introduction",
-      },
-    ];
-
-    const output = buildLlmsTxt(docs, "https://example.test/pastoralist");
-
-    assert.ok(output.includes("npx pastoralist doctor"));
-    assert.ok(output.includes("https://example.test/pastoralist/llms-full.txt"));
-    assert.ok(
-      output.includes(
-        "- [Introduction](https://example.test/pastoralist/docs/introduction): Start here.",
-      ),
-    );
-  });
-
-  test("buildLlmsFullTxt includes cleaned doc bodies", () => {
-    const output = buildLlmsFullTxt([
-      {
-        content: "Use `npx pastoralist doctor` first.\n\n$$\nx^* = \\arg\\min F(x)\n$$",
-        description: "Start here.",
-        slug: "introduction",
-        title: "Introduction",
-      },
-    ]);
-
-    assert.ok(output.includes("# Pastoralist Documentation"));
-    assert.ok(output.includes("# Introduction"));
-    assert.ok(output.includes("> Start here."));
-    assert.ok(output.includes("Use `npx pastoralist doctor` first."));
-    assert.ok(output.includes("$$\nx^* = \\arg\\min F(x)\n$$"));
-  });
-
-  test("buildLlmsOutputs returns both generated documents", () => {
-    const outputs = buildLlmsOutputs(
-      [
+      assert.deepStrictEqual(collectDocs(resolveLlmsDocsPaths(fixtureAppRoot), fs), [
+        {
+          content: "Use `npx pastoralist doctor`.",
+          description: "Start with Pastoralist.",
+          slug: "intro",
+          title: "Introduction",
+        },
+        {
+          content: "### tip\nRun security checks.",
+          description: "Scan overrides.",
+          slug: "security",
+          title: "Security",
+        },
+      ]);
+    },
+  },
+  {
+    name: "buildLlmsTxt includes core links, commands, and ordered docs",
+    run: () => {
+      const docs: DocEntry[] = [
         {
           content: "Use the CLI.",
           description: "Start here.",
           slug: "introduction",
           title: "Introduction",
         },
-      ],
-      "https://example.test/pastoralist",
-    );
+      ];
 
-    assert.ok(
-      outputs.llmsTxt.includes(
+      const output = buildLlmsTxt(docs, "https://example.test/pastoralist");
+
+      assertContainsText(output, "npx pastoralist doctor");
+      assertContainsText(output, "https://example.test/pastoralist/llms-full.txt");
+      assertContainsText(
+        output,
         "- [Introduction](https://example.test/pastoralist/docs/introduction): Start here.",
-      ),
-    );
-    assert.ok(outputs.llmsFullTxt.includes("Use the CLI."));
+      );
+    },
+  },
+  {
+    name: "buildLlmsFullTxt includes cleaned doc bodies",
+    run: () => {
+      const output = buildLlmsFullTxt([
+        {
+          content: "Use `npx pastoralist doctor` first.\n\n$$\nx^* = \\arg\\min F(x)\n$$",
+          description: "Start here.",
+          slug: "introduction",
+          title: "Introduction",
+        },
+      ]);
+
+      assertContainsText(output, "# Pastoralist Documentation");
+      assertContainsText(output, "# Introduction");
+      assertContainsText(output, "> Start here.");
+      assertContainsText(output, "Use `npx pastoralist doctor` first.");
+      assertContainsText(output, "$$\nx^* = \\arg\\min F(x)\n$$");
+    },
+  },
+  {
+    name: "buildLlmsOutputs returns both generated documents",
+    run: () => {
+      const outputs = buildLlmsOutputs(
+        [
+          {
+            content: "Use the CLI.",
+            description: "Start here.",
+            slug: "introduction",
+            title: "Introduction",
+          },
+        ],
+        "https://example.test/pastoralist",
+      );
+
+      assertContainsText(
+        outputs.llmsTxt,
+        "- [Introduction](https://example.test/pastoralist/docs/introduction): Start here.",
+      );
+      assertContainsText(outputs.llmsFullTxt, "Use the CLI.");
+    },
+  },
+  {
+    name: "generateLlmsDocs writes llms files through injected dependencies",
+    run: () => {
+      const fs = createMemoryFileSystem(fixtureFiles);
+      const log = mock(() => {});
+      const logger = { log };
+
+      const result = generateLlmsDocs({
+        appRoot: fixtureAppRoot,
+        docsBaseUrl: "https://example.test/pastoralist",
+        fs,
+        logger,
+      });
+
+      assert.deepStrictEqual(
+        result.docs.map((doc) => doc.slug),
+        ["intro", "security"],
+      );
+      assertWrittenDocs(fs);
+      assertCalledWith(
+        logger.log,
+        "Generated 2 docs into public/llms.txt and public/llms-full.txt",
+      );
+    },
+  },
+];
+
+describe("scripts/build/generate-llms-docs", () => {
+  afterEach(() => {
+    mock.restore();
   });
-
-  test("generateLlmsDocs writes llms files through injected dependencies", () => {
-    const fs = createMemoryFileSystem(fixtureFiles);
-    const logger = { log: mock(() => {}) };
-
-    const result = generateLlmsDocs({
-      appRoot: fixtureAppRoot,
-      docsBaseUrl: "https://example.test/pastoralist",
-      fs,
-      logger,
-    });
-
-    assert.deepStrictEqual(
-      result.docs.map((doc) => doc.slug),
-      ["intro", "security"],
-    );
-    assert.deepStrictEqual(fs.directories, [resolve(fixtureAppRoot, "public")]);
-    assert.ok(
-      fs.writes[resolve(fixtureAppRoot, "public/llms.txt")].includes(
-        "- [Introduction](https://example.test/pastoralist/docs/intro)",
-      ),
-    );
-    assert.ok(
-      fs.writes[resolve(fixtureAppRoot, "public/llms.txt")].includes(
-        "- [Security](https://example.test/pastoralist/docs/security)",
-      ),
-    );
-    assert.ok(!fs.writes[resolve(fixtureAppRoot, "public/llms-full.txt")].includes("<DocVideo"));
-    assert.ok(!fs.writes[resolve(fixtureAppRoot, "public/llms-full.txt")].includes("<div"));
-    assert.ok(
-      fs.writes[resolve(fixtureAppRoot, "public/llms-full.txt")].includes(
-        "Use `npx pastoralist doctor`.",
-      ),
-    );
-    assert.ok(
-      fs.writes[resolve(fixtureAppRoot, "public/llms-full.txt")].includes(
-        "### tip\nRun security checks.",
-      ),
-    );
-    assertCalledWith(logger.log, "Generated 2 docs into public/llms.txt and public/llms-full.txt");
-  });
+  cases.forEach(({ name, run }) => test(name, run));
 });

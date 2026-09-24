@@ -150,15 +150,18 @@ class TerminalTree implements TerminalGraph {
   complete(text: string, suffix = ""): TerminalGraph {
     this.completion = this.context.paused(() => {
       const current = this.context.state.get();
-      this.context.state.set(Object.assign({}, current, { phase: "complete", ancestors: [] }));
-      const prefix = buildPrefix([]) + buildConnector(true);
-      return this.context.completer(text, prefix, suffix);
+      const ancestors: boolean[] = [];
+      this.context.state.set(Object.assign({}, current, { phase: "complete", ancestors }));
+      const prefix = buildPrefix(ancestors) + buildConnector(true);
+      const result = this.context.completer(text, prefix, suffix);
+      return result;
     });
     return this;
   }
 
   waitForCompletion(): Promise<void> {
-    return this.completion;
+    const result = this.completion;
+    return result;
   }
 
   notice(text: string): TerminalGraph {
@@ -179,7 +182,8 @@ class TerminalTree implements TerminalGraph {
   private updateProgressState(current: number, total: number, text: string): void {
     const state = this.context.state.get();
     const spinner = Object.assign({}, state.spinner, { text });
-    this.context.state.set(Object.assign({}, state, { spinner, progress: { current, total } }));
+    const progress = { current, total };
+    this.context.state.set(Object.assign({}, state, { spinner, progress }));
   }
 }
 

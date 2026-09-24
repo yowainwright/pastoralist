@@ -4,7 +4,9 @@ import { Anchor } from "./Anchor";
 import { createHeading } from "./Heading";
 import type { MermaidProps } from "../Mermaid";
 
-const Mermaid = lazy(() => import("../Mermaid").then((m) => ({ default: m.Mermaid })));
+const Mermaid = lazy(() =>
+  import("../Mermaid").then(({ Mermaid: diagram }) => ({ default: diagram })),
+);
 const H1 = createHeading("h1");
 const H2 = createHeading("h2");
 const H3 = createHeading("h3");
@@ -14,11 +16,16 @@ const H6 = createHeading("h6");
 
 function extractText(node: unknown): string {
   if (typeof node === "string") return node;
-  if (Array.isArray(node)) return node.map(extractText).join("");
-  const hasProps = Boolean(node && typeof node === "object" && "props" in (node as object));
-  if (hasProps) {
+  if (Array.isArray(node)) {
+    const text = node.map(extractText).join("");
+    return text;
+  }
+  const isObject = node !== null && typeof node === "object";
+  if (!isObject) return "";
+  if ("props" in node) {
     const el = node as ReactElement<{ children?: unknown }>;
-    return extractText(el.props?.children);
+    const text = extractText(el.props?.children);
+    return text;
   }
   return "";
 }
@@ -44,40 +51,41 @@ function MermaidBlock({ chart }: MermaidProps) {
   );
 }
 
-function Pre({
-  children,
-  ...props
-}: React.HTMLAttributes<HTMLPreElement> & {
+interface CodeAttributes {
+  className?: string;
+  children?: unknown;
   "data-language"?: string;
   "data-mermaid-content"?: string;
-}) {
-  const mermaidContent = props["data-mermaid-content"];
-  const dataLanguage = props["data-language"];
+}
 
-  const hasMermaidProps = dataLanguage === "mermaid" && mermaidContent;
-  if (hasMermaidProps) {
+type PreProps = React.HTMLAttributes<HTMLPreElement> & CodeAttributes;
+
+function getMermaidContent(props: CodeAttributes | undefined) {
+  if (props?.["data-language"] !== "mermaid") return undefined;
+  const content = props["data-mermaid-content"];
+  return content;
+}
+
+function readCode(children: React.ReactNode, props: PreProps) {
+  const child = children as ReactElement<CodeAttributes>;
+  const childProps = child?.props ?? {};
+  const className = childProps.className ?? "";
+  const { "data-language": childLanguage } = childProps;
+  const { "data-language": dataLanguage } = props;
+  const rawLang = className.match(/language-(\S+)/)?.[1] ?? childLanguage ?? dataLanguage ?? "text";
+  const lang = rawLang.replace(/^language-/, "");
+  const code = extractText(childProps.children ?? children);
+  const content = { lang, code };
+  return content;
+}
+
+function Pre({ children, ...props }: PreProps) {
+  const child = children as ReactElement<CodeAttributes>;
+  const mermaidContent = getMermaidContent(props) || getMermaidContent(child?.props);
+  if (mermaidContent) {
     return <MermaidBlock chart={mermaidContent} />;
   }
-
-  const child = children as ReactElement<{
-    className?: string;
-    children?: unknown;
-    "data-language"?: string;
-    "data-mermaid-content"?: string;
-  }>;
-  const childMermaidContent = child?.props?.["data-mermaid-content"];
-  const childDataLanguage = child?.props?.["data-language"];
-  const hasChildMermaidProps = childDataLanguage === "mermaid" && childMermaidContent;
-  if (hasChildMermaidProps) {
-    return <MermaidBlock chart={childMermaidContent} />;
-  }
-
-  const className = child?.props?.className ?? "";
-  const rawLang =
-    className.match(/language-(\S+)/)?.[1] ?? childDataLanguage ?? dataLanguage ?? "text";
-  const lang = rawLang.replace(/^language-/, "");
-  const code = extractText(child?.props?.children ?? children);
-
+  const { lang, code } = readCode(children, props);
   if (lang === "mermaid") {
     return <MermaidBlock chart={code} />;
   }
@@ -99,16 +107,16 @@ export const mdxComponents = {
   h4: H4,
   h5: H5,
   h6: H6,
-  p: "p" as const,
-  code: "code" as const,
-  span: "span" as const,
-  strong: "strong" as const,
-  em: "em" as const,
-  ul: "ul" as const,
-  ol: "ol" as const,
-  li: "li" as const,
-  img: "img" as const,
-};
+  p: "p",
+  code: "code",
+  span: "span",
+  strong: "strong",
+  em: "em",
+  ul: "ul",
+  ol: "ol",
+  li: "li",
+  img: "img",
+} as const;
 
 export { Anchor };
 export { Heading } from "./Heading";

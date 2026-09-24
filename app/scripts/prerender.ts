@@ -31,48 +31,60 @@ interface RendererModule {
   render: Renderer;
 }
 
+const { String: StringSchema, Defect } = Schema;
+
 export class StaticSiteOperationError extends Schema.TaggedError<StaticSiteOperationError>(
   "StaticSiteOperationError",
 )("StaticSiteOperationError", {
-  operation: Schema.String,
-  target: Schema.String,
-  cause: Schema.Defect,
+  operation: StringSchema,
+  target: StringSchema,
+  cause: Defect,
 }) {
   get message(): string {
-    return `${this.operation} failed for ${this.target}`;
+    const message = `${this.operation} failed for ${this.target}`;
+    return message;
   }
 }
 
 export class InvalidStaticDocument extends Schema.TaggedError<InvalidStaticDocument>(
   "InvalidStaticDocument",
 )("InvalidStaticDocument", {
-  routeFile: Schema.String,
-  reason: Schema.String,
+  routeFile: StringSchema,
+  reason: StringSchema,
 }) {
   get message(): string {
-    return `${this.routeFile}: ${this.reason}`;
+    const message = `${this.routeFile}: ${this.reason}`;
+    return message;
   }
 }
 
+const REQUIRED_HOME_CONTENT = ['id="hero"', 'id="features"', 'id="demo"', 'id="get-started"'];
+const FORBIDDEN_HOME_CONTENT = [
+  '<template id="B:',
+  "min-h-[32rem]",
+  "min-h-[40rem]",
+  "min-h-[24rem]",
+];
 const HOME_ROUTE: StaticRoute = {
   pathname: "/pastoralist/",
   outputPath: "index.html",
   title: "Pastoralist - Dependency Management Tool",
   description: "Manage package.json overrides, resolutions, and patches with Pastoralist",
-  requiredContent: ['id="hero"', 'id="features"', 'id="demo"', 'id="get-started"'],
-  forbiddenContent: ['<template id="B:', "min-h-[32rem]", "min-h-[40rem]", "min-h-[24rem]"],
+  requiredContent: REQUIRED_HOME_CONTENT,
+  forbiddenContent: FORBIDDEN_HOME_CONTENT,
 };
 
-const makeDocRoute = (doc: DocMeta): StaticRoute => ({
-  pathname: `/pastoralist/docs/${doc.slug}/`,
-  outputPath: path.join("docs", doc.slug, "index.html"),
-  title: doc.title,
-  description: doc.description,
-});
+const makeDocRoute = ({ slug, title, description }: DocMeta): StaticRoute => {
+  const pathname = `/pastoralist/docs/${slug}/`;
+  const outputPath = path.join("docs", slug, "index.html");
+  const route = { pathname, outputPath, title, description };
+  return route;
+};
 
 export const buildStaticRoutes = (docs: readonly DocMeta[]): readonly StaticRoute[] => {
   const docRoutes = docs.map(makeDocRoute);
-  return [HOME_ROUTE].concat(docRoutes);
+  const staticRoutes = [HOME_ROUTE].concat(docRoutes);
+  return staticRoutes;
 };
 
 const escapeAttribute = (value: string): string =>
@@ -87,7 +99,8 @@ const applyMetadata = (html: string, route: StaticRoute): string => {
   const description = escapeAttribute(route.description);
   const meta = `<meta name="description" content="${description}" />`;
   const withTitle = html.replace(/<title>[^<]*<\/title>/, title);
-  return withTitle.replace(/<meta\s+name="description"\s+content="[^"]*"\s*\/>/, meta);
+  const metadata = withTitle.replace(/<meta\s+name="description"\s+content="[^"]*"\s*\/>/, meta);
+  return metadata;
 };
 
 export const createStaticDocument = (
@@ -98,11 +111,14 @@ export const createStaticDocument = (
   const root = `<div id="root" data-prerendered="true">${rendered.appHtml}</div>`;
   const withApp = template.replace(ROOT_MARKUP, root);
   const withMetadata = applyMetadata(withApp, route);
-  return withMetadata.replace("</body>", `${rendered.routerHtml}</body>`);
+  const staticDocument = withMetadata.replace("</body>", `${rendered.routerHtml}</body>`);
+  return staticDocument;
 };
 
-const invalidDocument = (route: StaticRoute, reason: string) =>
-  Effect.fail(new InvalidStaticDocument({ routeFile: route.outputPath, reason }));
+const invalidDocument = ({ outputPath: routeFile }: StaticRoute, reason: string) => {
+  const failure = Effect.fail(new InvalidStaticDocument({ routeFile, reason }));
+  return failure;
+};
 
 const findMissingContent = (route: StaticRoute, html: string): string | undefined =>
   route.requiredContent?.find((content) => !html.includes(content));
@@ -110,29 +126,41 @@ const findMissingContent = (route: StaticRoute, html: string): string | undefine
 const findForbiddenContent = (route: StaticRoute, html: string): string | undefined =>
   route.forbiddenContent?.find((content) => html.includes(content));
 
+const DOCUMENT_CHECKS = [
+  { content: 'data-prerendered="true"', required: true, reason: "missing prerendered root" },
+  { content: "$_TSR", required: true, reason: "missing router state" },
+  { content: ROOT_MARKUP, required: false, reason: "contains initial loader" },
+  {
+    content: "Switched to client rendering",
+    required: false,
+    reason: "contains a client-render fallback",
+  },
+  {
+    content: "server rendering aborted",
+    required: false,
+    reason: "contains a client-render fallback",
+  },
+  {
+    content: "server rendering errored",
+    required: false,
+    reason: "contains a client-render fallback",
+  },
+  { content: "<h1", required: true, reason: "missing rendered heading" },
+];
+
 export const validateStaticDocument = Effect.fn("staticSite.validate")(function* (
   route: StaticRoute,
   html: string,
 ) {
-  if (!html.includes('data-prerendered="true"')) {
-    return yield* invalidDocument(route, "missing prerendered root");
-  }
-  if (!html.includes("$_TSR")) return yield* invalidDocument(route, "missing router state");
-  if (html.includes(ROOT_MARKUP)) return yield* invalidDocument(route, "contains initial loader");
-  const hasClientFallback =
-    html.includes("Switched to client rendering") ||
-    html.includes("server rendering aborted") ||
-    html.includes("server rendering errored");
-  if (hasClientFallback) {
-    return yield* invalidDocument(route, "contains a client-render fallback");
-  }
-  if (!html.includes("<h1")) return yield* invalidDocument(route, "missing rendered heading");
+  const failed = DOCUMENT_CHECKS.find(
+    ({ content, required }) => html.includes(content) !== required,
+  );
+  if (failed) yield* invalidDocument(route, failed.reason);
   const missingContent = findMissingContent(route, html);
-  if (missingContent)
-    return yield* invalidDocument(route, `missing required content: ${missingContent}`);
+  if (missingContent) yield* invalidDocument(route, `missing required content: ${missingContent}`);
   const forbiddenContent = findForbiddenContent(route, html);
   if (forbiddenContent) {
-    return yield* invalidDocument(route, `contains deferred content: ${forbiddenContent}`);
+    yield* invalidDocument(route, `contains deferred content: ${forbiddenContent}`);
   }
 });
 
@@ -141,50 +169,64 @@ const operationError =
   (cause: unknown): StaticSiteOperationError =>
     new StaticSiteOperationError({ operation, target, cause });
 
-const readUtf8 = Effect.fn("staticSite.readUtf8")((filePath: string) =>
-  Effect.tryPromise({
+const readUtf8 = Effect.fn("staticSite.readUtf8")((filePath: string) => {
+  const onError = operationError("read", filePath);
+  const read = Effect.tryPromise({
     try: () => readFile(filePath, "utf8"),
-    catch: operationError("read", filePath),
-  }),
-);
+    catch: onError,
+  });
+  return read;
+});
 
 const writeUtf8 = Effect.fn("staticSite.writeUtf8")(function* (filePath: string, content: string) {
   const directory = path.dirname(filePath);
+  const onDirectoryError = operationError("create directory", directory);
+  const onWriteError = operationError("write", filePath);
   yield* Effect.tryPromise({
     try: () => mkdir(directory, { recursive: true }),
-    catch: operationError("create directory", directory),
+    catch: onDirectoryError,
   });
   yield* Effect.tryPromise({
     try: () => writeFile(filePath, content),
-    catch: operationError("write", filePath),
+    catch: onWriteError,
   });
 });
 
 const isRendererModule = (value: unknown): value is RendererModule => {
-  const isNotObject = typeof value !== "object" || value === null;
-  if (isNotObject) return false;
+  const isObject = typeof value === "object" && value !== null;
+  if (!isObject) return false;
   if (!("render" in value)) return false;
   const isRenderFunction = typeof value.render === "function";
   return isRenderFunction;
 };
 
 const loadRenderer = Effect.fn("staticSite.loadRenderer")(function* () {
+  const onError = operationError("load renderer", SERVER_ENTRYPOINT);
   const serverModule: unknown = yield* Effect.tryPromise({
     try: () => import(SERVER_ENTRYPOINT),
-    catch: operationError("load renderer", SERVER_ENTRYPOINT),
+    catch: onError,
   });
-  if (isRendererModule(serverModule)) return serverModule.render;
+  if (isRendererModule(serverModule)) {
+    const { render } = serverModule;
+    return render;
+  }
 
   const cause = new TypeError("Server entrypoint does not export render()");
-  return yield* Effect.fail(operationError("load renderer", SERVER_ENTRYPOINT)(cause));
+  const failure = yield* Effect.fail(onError(cause));
+  return failure;
 });
 
-const renderRoute = Effect.fn("staticSite.renderRoute")((renderer: Renderer, route: StaticRoute) =>
-  Effect.tryPromise({
+const renderRoute = Effect.fn("staticSite.renderRoute")((
+  renderer: Renderer,
+  route: StaticRoute,
+) => {
+  const onError = operationError("render", route.pathname);
+  const rendered = Effect.tryPromise({
     try: () => renderer(route.pathname),
-    catch: operationError("render", route.pathname),
-  }),
-);
+    catch: onError,
+  });
+  return rendered;
+});
 
 const writeStaticRoute = Effect.fn("staticSite.writeRoute")(function* (
   renderer: Renderer,

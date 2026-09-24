@@ -5,60 +5,68 @@ import { cn } from "@/lib/utils";
 export type { TerminalTab, TerminalWindowProps } from "./types";
 export { STYLES } from "./constants";
 
-export const TerminalWindow: React.FC<TerminalWindowProps> = ({
-  isActive = false,
-  height,
-  minHeight,
-  fileName,
-  tabs,
-  activeTab,
-  onTabChange,
-  hideHeader = false,
-  footer,
-  footerClassName,
-  children,
-  className,
-}) => {
+function getWindowProps({ isActive = false, height, minHeight, className }: TerminalWindowProps) {
   const activeClass = isActive ? STYLES.windowActive : "";
   const baseClass = className ?? STYLES.window;
   const windowClass = cn(baseClass, "transition-shadow duration-300", activeClass);
-  const style = height || minHeight ? { height, minHeight } : undefined;
-  const hasTabs = tabs && tabs.length > 0;
-  const headerClass = hasTabs ? STYLES.headerWithTabs : STYLES.header;
-  const label = fileName ?? "terminal";
+  const size = { height, minHeight };
+  const hasSize = Boolean(height || minHeight);
+  const style = hasSize ? size : undefined;
+  const props = { className: windowClass, style };
+  return props;
+}
 
+export const TerminalWindow: React.FC<TerminalWindowProps> = (props) => {
+  const { hideHeader, children, footer, footerClassName } = props;
+  const windowProps = getWindowProps(props);
   return (
-    <div className={windowClass} style={style}>
-      {!hideHeader && (
-        <div className={headerClass}>
-          <div className={STYLES.dots}>
-            <div className={STYLES.dotRed} />
-            <div className={STYLES.dotYellow} />
-            <div className={STYLES.dotGreen} />
-            <span className={STYLES.label}>{label}</span>
-          </div>
-
-          {hasTabs && (
-            <div className={STYLES.tabs}>
-              {tabs.map((tab) => {
-                const isTabActive = tab.id === activeTab;
-                const tabClass = isTabActive ? STYLES.tabActive : STYLES.tab;
-
-                return (
-                  <button key={tab.id} onClick={() => onTabChange?.(tab.id)} className={tabClass}>
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+    <div {...windowProps}>
+      {!hideHeader && <TerminalHeader {...props} />}
       {children}
       {footer && <div className={cn(STYLES.footer, footerClassName)}>{footer}</div>}
     </div>
   );
 };
+
+function TerminalHeader({ tabs, fileName, activeTab, onTabChange }: TerminalWindowProps) {
+  const hasTabs = tabs && tabs.length > 0;
+  const headerClass = hasTabs ? STYLES.headerWithTabs : STYLES.header;
+  const label = fileName ?? "terminal";
+
+  return (
+    <div className={headerClass}>
+      <div className={STYLES.dots}>
+        <div className={STYLES.dotRed} />
+        <div className={STYLES.dotYellow} />
+        <div className={STYLES.dotGreen} />
+        <span className={STYLES.label}>{label}</span>
+      </div>
+
+      {hasTabs && <TerminalTabs tabs={tabs} activeTab={activeTab} onTabChange={onTabChange} />}
+    </div>
+  );
+}
+
+type TerminalTabsProps = Pick<TerminalWindowProps, "activeTab" | "onTabChange"> & {
+  tabs: NonNullable<TerminalWindowProps["tabs"]>;
+};
+
+function TerminalTabs({ tabs, activeTab, onTabChange }: TerminalTabsProps) {
+  return (
+    <div className={STYLES.tabs}>
+      {tabs.map((tab) => {
+        const isTabActive = tab.id === activeTab;
+        const tabClass = isTabActive ? STYLES.tabActive : STYLES.tab;
+
+        return (
+          <button key={tab.id} onClick={() => onTabChange?.(tab.id)} className={tabClass}>
+            {tab.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 export const TerminalLoader: React.FC<{ minHeight?: string }> = ({ minHeight }) => (
   <TerminalWindow className={STYLES.loader} minHeight={minHeight}>

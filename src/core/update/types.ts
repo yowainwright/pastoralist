@@ -18,6 +18,18 @@ export interface ProcessingMode {
   missingInRoot: string[];
 }
 
+export type ProcessingModeArguments = [
+  hasRootOverrides: boolean,
+  missingInRoot: string[],
+  log?: Logger,
+];
+
+export interface WritableUpdateContext extends UpdateContext {
+  config: PastoralistJSON;
+  finalAppendix: Appendix;
+  finalOverrides: OverridesType;
+}
+
 export interface MergedConfig {
   overrides: OverridesType;
   overridesData: ResolveOverrides;

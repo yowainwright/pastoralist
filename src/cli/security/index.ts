@@ -24,6 +24,11 @@ import type {
   SecurityPhaseResult,
   SecurityProviderOption,
   SecurityResultSummary,
+  SecurityCheckArgs,
+  SecurityResultsArgs,
+  SecurityScanContext,
+  SecurityPhaseArgs,
+  SecurityPhaseContext,
 } from "./types";
 
 export { verifyRemovals } from "./utils";
@@ -33,8 +38,14 @@ type SecurityCheckerClass = typeof SecurityChecker;
 type SecurityCheckerOptions = NonNullable<Parameters<SecurityChecker["checkSecurity"]>[1]>;
 
 const resolveSecurityRoot = (options: Options): string => {
-  if (options.root) return options.root;
-  if (options.path) return dirname(resolve(options.path));
+  if (options.root) {
+    const securityRoot = options.root;
+    return securityRoot;
+  }
+  if (options.path) {
+    const securityRoot = dirname(resolve(options.path));
+    return securityRoot;
+  }
   return "./";
 };
 
@@ -43,11 +54,31 @@ export const normalizeCacheTtl = (value: unknown): number | undefined => {
 
   const isNumber = typeof value === "number";
   const isNonEmptyString = typeof value === "string" && value.trim() !== "";
-  const numberValue = isNumber || isNonEmptyString ? Number(value) : Number.NaN;
+  const isNumericInput = isNumber || isNonEmptyString;
+  const numberValue = isNumericInput ? Number(value) : Number.NaN;
 
   const isValidCacheTtl = Number.isFinite(numberValue) && numberValue >= 0;
   if (isValidCacheTtl) return numberValue;
   throw new Error("--cache-ttl must be a non-negative number of seconds");
+};
+
+const getConfiguredSecurityOptions = (
+  options: Options,
+  securityConfig: Partial<SecurityConfig>,
+) => {
+  const checkSecurity = options.checkSecurity ?? securityConfig.enabled;
+  const forceSecurityRefactor = options.forceSecurityRefactor ?? securityConfig.autoFix;
+  const securityProviderToken =
+    options.securityProviderToken ?? securityConfig.securityProviderToken;
+  const interactive = options.interactive ?? securityConfig.interactive;
+  const hasWorkspaceSecurityChecks =
+    options.hasWorkspaceSecurityChecks ?? securityConfig.hasWorkspaceSecurityChecks;
+  const strict = options.strict ?? securityConfig.strict;
+
+  const securityMode = { checkSecurity, forceSecurityRefactor, securityProviderToken };
+  const behavior = { interactive, hasWorkspaceSecurityChecks, strict };
+  const securityOptions = Object.assign({}, securityMode, behavior);
+  return securityOptions;
 };
 
 export const buildMergedOptions = (
@@ -59,28 +90,12 @@ export const buildMergedOptions = (
   const providerFromOptions = options.securityProvider ?? configProvider;
   const securityProvider = providerFromOptions ?? DEFAULT_SECURITY_PROVIDER;
   const cacheTtl = normalizeCacheTtl(options.cacheTtl ?? rest.cacheTtl);
-  const checkSecurity = options.checkSecurity ?? securityConfig.enabled;
-  const forceSecurityRefactor = options.forceSecurityRefactor ?? securityConfig.autoFix;
-  const securityProviderToken =
-    options.securityProviderToken ?? securityConfig.securityProviderToken;
-  const interactive = options.interactive ?? securityConfig.interactive;
-  const hasWorkspaceSecurityChecks =
-    options.hasWorkspaceSecurityChecks ?? securityConfig.hasWorkspaceSecurityChecks;
-  const strict = options.strict ?? securityConfig.strict;
-
-  return Object.assign({}, rest, {
-    checkSecurity,
-    forceSecurityRefactor,
-    securityProvider,
-    securityProviderToken,
-    interactive,
-    hasWorkspaceSecurityChecks,
-    strict,
-    cacheTtl,
-  });
+  const configuredOptions = getConfiguredSecurityOptions(options, securityConfig);
+  const mergedOptions = Object.assign({}, rest, configuredOptions, { securityProvider, cacheTtl });
+  return mergedOptions;
 };
 
-export const buildSecurityOverrideDetail = (override: SecurityOverride): SecurityOverrideDetail => {
+const getOptionalOverrideDetails = (override: SecurityOverride) => {
   const optionalEntries: [keyof OptionalSecurityOverrideDetail, unknown][] = [
     ["cves", override.cves?.length ? override.cves : undefined],
     ["severity", override.severity],
@@ -91,85 +106,83 @@ export const buildSecurityOverrideDetail = (override: SecurityOverride): Securit
     ["sources", override.sources],
   ];
 
-  const optionalFields = optionalEntries
-    .filter(([, value]) => value !== undefined)
-    .reduce<Partial<OptionalSecurityOverrideDetail>>(
-      (acc, [key, value]) => Object.assign({}, acc, { [key]: value }),
-      {},
-    );
+  const presentEntries = optionalEntries.filter(([, value]) => value !== undefined);
+  const optionalFields: Partial<OptionalSecurityOverrideDetail> =
+    Object.fromEntries(presentEntries);
+  return optionalFields;
+};
 
-  return Object.assign(
-    {},
-    {
-      packageName: override.packageName,
-      reason: override.ledgerReason ?? override.reason,
-    },
-    optionalFields,
-  );
+export const buildSecurityOverrideDetail = (override: SecurityOverride): SecurityOverrideDetail => {
+  const { packageName } = override;
+  const reason = override.ledgerReason ?? override.reason;
+  const optionalFields = getOptionalOverrideDetails(override);
+  const securityOverrideDetail = Object.assign({}, { packageName, reason }, optionalFields);
+  return securityOverrideDetail;
 };
 
 const createSecurityChecker = (
   mergedOptions: Options,
   isLogging: boolean,
   Checker: SecurityCheckerClass,
-): SecurityChecker =>
-  new Checker({
-    provider: mergedOptions.securityProvider,
-    forceRefactor: mergedOptions.forceSecurityRefactor,
-    interactive: mergedOptions.interactive,
-    token: mergedOptions.securityProviderToken,
-    debug: isLogging,
-    strict: mergedOptions.strict,
-    root: mergedOptions.root,
-    cacheDir: mergedOptions.cacheDir,
-    cacheTtl: mergedOptions.cacheTtl,
-    noCache: mergedOptions.noCache,
-    refreshCache: mergedOptions.refreshCache,
-  });
+): SecurityChecker => {
+  const commonOptions = getSecurityCheckerOptions(mergedOptions, isLogging);
+  const { cacheDir, noCache, refreshCache } = mergedOptions;
+  const options = Object.assign({}, commonOptions, { cacheDir, noCache, refreshCache });
+  const checker = new Checker(options);
+  return checker;
+};
 
 const createPermissionFallbackChecker = (
   mergedOptions: Options,
   isLogging: boolean,
   Checker: SecurityCheckerClass,
-): SecurityChecker =>
-  new Checker({
-    provider: mergedOptions.securityProvider,
-    forceRefactor: mergedOptions.forceSecurityRefactor,
-    interactive: mergedOptions.interactive,
-    token: mergedOptions.securityProviderToken,
-    debug: isLogging,
-    strict: mergedOptions.strict,
-    root: mergedOptions.root,
-    cacheTtl: mergedOptions.cacheTtl,
-  });
+): SecurityChecker => {
+  const options = getSecurityCheckerOptions(mergedOptions, isLogging);
+  const checker = new Checker(options);
+  return checker;
+};
+
+const getSecurityCheckerOptions = (mergedOptions: Options, debug: boolean) => {
+  const {
+    securityProvider: provider,
+    forceSecurityRefactor: forceRefactor,
+    interactive,
+    securityProviderToken: token,
+    strict,
+    root,
+    cacheTtl,
+  } = mergedOptions;
+  const options = { provider, forceRefactor, interactive, token, debug, strict, root, cacheTtl };
+  return options;
+};
 
 export const determineSecurityScanPaths = (
   config: PastoralistJSON | undefined,
   mergedOptions: Options,
   log: ReturnType<typeof createLogger> = logger,
 ): string[] => {
-  const configDepPaths = config?.pastoralist?.depPaths;
-  const hasSecurityEnabled =
-    mergedOptions.checkSecurity || config?.pastoralist?.checkSecurity || false;
+  const pastoralist = config?.pastoralist;
+  const configDepPaths = pastoralist?.depPaths;
+  const hasSecurityEnabled = mergedOptions.checkSecurity || pastoralist?.checkSecurity || false;
 
   if (shouldUseDepPaths(configDepPaths, hasSecurityEnabled)) {
-    log.debug(
-      `Using depPaths configuration for security checks: ${configDepPaths.join(", ")}`,
-      "determineSecurityScanPaths",
-    );
+    logScanPaths(configDepPaths, "depPaths", log);
     return configDepPaths;
   }
 
   const workspacePaths = resolveWorkspaceManifestPaths(config, mergedOptions.root || "./", log);
   if (shouldScanWorkspaces(configDepPaths, workspacePaths, hasSecurityEnabled, mergedOptions)) {
-    log.debug(
-      `Using workspace configuration for security checks: ${workspacePaths.join(", ")}`,
-      "determineSecurityScanPaths",
-    );
+    logScanPaths(workspacePaths, "workspace", log);
     return workspacePaths;
   }
 
-  return [];
+  const result: string[] = [];
+  return result;
+};
+
+const logScanPaths = (paths: string[], source: string, log: ReturnType<typeof createLogger>) => {
+  const message = `Using ${source} configuration for security checks: ${paths.join(", ")}`;
+  log.debug(message, "determineSecurityScanPaths");
 };
 
 const shouldUseDepPaths = (
@@ -202,7 +215,8 @@ const shouldUseExplicitWorkspaceChecks = (
   hasWorkspaces: boolean,
 ): boolean => {
   const hasWorkspaceSecurityChecks = mergedOptions.hasWorkspaceSecurityChecks || false;
-  return hasWorkspaceSecurityChecks && hasWorkspaces;
+  const result = hasWorkspaceSecurityChecks && hasWorkspaces;
+  return result;
 };
 
 const createProgressHandler =
@@ -216,120 +230,133 @@ const buildSecurityCheckOptions = (
   mergedOptions: Options,
   scanPaths: string[],
   spinner: ReturnType<typeof createSpinner>,
-): SecurityCheckerOptions =>
-  Object.assign({}, mergedOptions, {
+): SecurityCheckerOptions => {
+  const root = resolveSecurityRoot(mergedOptions);
+  const { path: packageJsonPath } = mergedOptions;
+  const onProgress = createProgressHandler(spinner);
+  const { severityThreshold, excludePackages } = config?.pastoralist?.security ?? {};
+  const checkOptions = Object.assign({}, mergedOptions, {
     depPaths: scanPaths,
-    root: resolveSecurityRoot(mergedOptions),
-    packageJsonPath: mergedOptions.path,
-    onProgress: createProgressHandler(spinner),
-    severityThreshold: config?.pastoralist?.security?.severityThreshold,
-    excludePackages: config?.pastoralist?.security?.excludePackages,
+    root,
+    packageJsonPath,
+    onProgress,
+    severityThreshold,
+    excludePackages,
   });
+  return checkOptions;
+};
 
 const toSecurityRunResult = (
   spinner: ReturnType<typeof createSpinner>,
   securityChecker: SecurityChecker,
   result: Awaited<ReturnType<SecurityChecker["checkSecurity"]>>,
-) => ({
-  spinner,
-  securityChecker,
-  alerts: result.alerts,
-  securityOverrides: result.overrides,
-  updates: result.updates,
-  packagesScanned: result.packagesScanned,
-  bestCase: result.bestCase,
-  userOwnedOverridesAdded: result.userOwnedOverridesAdded,
-  skipped: false,
-});
+) => {
+  const { alerts, overrides: securityOverrides, updates, packagesScanned } = result;
+  const { bestCase, userOwnedOverridesAdded } = result;
+  const findings = { alerts, securityOverrides, updates, packagesScanned };
+  const resolution = { bestCase, userOwnedOverridesAdded, skipped: false };
+  const runResult = Object.assign({}, { spinner, securityChecker }, findings, resolution);
+  return runResult;
+};
 
 const runSecurityScan = async (
   config: PastoralistJSON,
   mergedOptions: Options,
-  isLogging: boolean,
-  log: ReturnType<typeof createLogger>,
-  spinner: ReturnType<typeof createSpinner>,
-  deps: {
-    SecurityChecker: SecurityCheckerClass;
-    determineSecurityScanPaths: typeof determineSecurityScanPaths;
-  },
+  context: SecurityScanContext,
 ) => {
+  const { isLogging, log, spinner, deps } = context;
   const securityChecker = createSecurityChecker(mergedOptions, isLogging, deps.SecurityChecker);
   const scanPaths = deps.determineSecurityScanPaths(config, mergedOptions, log);
   const checkOptions = buildSecurityCheckOptions(config, mergedOptions, scanPaths, spinner);
   const result = await securityChecker.checkSecurity(config, checkOptions);
-  return toSecurityRunResult(spinner, securityChecker, result);
+  const runResult = toSecurityRunResult(spinner, securityChecker, result);
+  return runResult;
 };
 
-export const runSecurityCheck = async (
-  config: PastoralistJSON,
-  mergedOptions: Options,
-  isLogging: boolean,
-  log: ReturnType<typeof createLogger>,
-  deps = {
-    createSpinner,
-    SecurityChecker,
-    determineSecurityScanPaths,
-    green,
-    yellow,
-  },
-) => {
+const securityCheckDeps = {
+  createSpinner,
+  SecurityChecker,
+  determineSecurityScanPaths,
+  green,
+  yellow,
+};
+
+export const runSecurityCheck = async (...args: SecurityCheckArgs) => {
+  const [config, mergedOptions, isLogging, log, deps = securityCheckDeps] = args;
   const spinner = deps.createSpinner(MSG_SCANNING).start();
+  const context = { isLogging, log, spinner, deps };
 
   try {
-    return await runSecurityScan(config, mergedOptions, isLogging, log, spinner, deps);
+    const result = await runSecurityScan(config, mergedOptions, context);
+    return result;
   } catch (error) {
-    return handleSecurityCheckError(error, spinner, mergedOptions, isLogging, deps);
+    const failure = handleSecurityCheckError(error, mergedOptions, context);
+    return failure;
   }
+};
+
+const createSkippedSecurityRun = (mergedOptions: Options, context: SecurityScanContext) => {
+  const { spinner, isLogging, deps } = context;
+  const securityChecker = createPermissionFallbackChecker(
+    mergedOptions,
+    isLogging,
+    deps.SecurityChecker,
+  );
+  const alerts: SecurityAlert[] = [];
+  const securityOverrides: SecurityOverride[] = [];
+  const updates: OverrideUpdate[] = [];
+  const findings = { alerts, securityOverrides, updates, packagesScanned: 0 };
+  const resolution = {
+    bestCase: undefined,
+    userOwnedOverridesAdded: undefined,
+    skipped: true,
+  };
+  const result = Object.assign({}, { spinner, securityChecker }, findings, resolution);
+  return result;
 };
 
 const handleSecurityCheckError = (
   error: unknown,
-  spinner: ReturnType<typeof createSpinner>,
   mergedOptions: Options,
-  isLogging: boolean,
-  deps: { yellow: typeof yellow; SecurityChecker: SecurityCheckerClass },
+  context: SecurityScanContext,
 ) => {
-  if (error instanceof SecurityProviderPermissionError) {
+  const { spinner, deps } = context;
+  const isPermissionError = error instanceof SecurityProviderPermissionError;
+  if (isPermissionError) {
     spinner.warn(`${deps.yellow(`pastoralist`)} ${error.message}`);
-    return {
-      spinner,
-      securityChecker: createPermissionFallbackChecker(
-        mergedOptions,
-        isLogging,
-        deps.SecurityChecker,
-      ),
-      alerts: [],
-      securityOverrides: [],
-      updates: [],
-      packagesScanned: 0,
-      bestCase: undefined,
-      userOwnedOverridesAdded: undefined,
-      skipped: true,
-    };
+    const result = createSkippedSecurityRun(mergedOptions, context);
+    return result;
   }
 
-  const errorMessage = error instanceof Error ? error.message : String(error);
+  const isError = error instanceof Error;
+  const errorMessage = isError ? error.message : String(error);
   spinner.fail(`${deps.yellow(`pastoralist`)} security check failed: ${errorMessage}`);
   throw error;
 };
 
-const toUpdateOverride = (update: OverrideUpdate): SecurityOverride => ({
-  packageName: update.packageName,
-  fromVersion: update.currentOverride,
-  toVersion: update.newerVersion,
-  reason: update.reason,
-  severity: "medium",
-});
+const toUpdateOverride = (update: OverrideUpdate): SecurityOverride => {
+  const { packageName, currentOverride: fromVersion, newerVersion: toVersion, reason } = update;
+  const override: SecurityOverride = {
+    packageName,
+    fromVersion,
+    toVersion,
+    reason,
+    severity: "medium",
+  };
+  return override;
+};
 
 const getOverridesToApply = (
   allOverrides: SecurityOverride[],
   finalOverrides: Record<string, unknown>,
 ): SecurityOverride[] => {
-  return allOverrides.filter((override) => {
+  const applicableOverrides = allOverrides.filter((override) => {
     const finalVersion = finalOverrides[override.packageName];
     if (typeof finalVersion !== "string") return false;
-    return finalVersion === override.toVersion;
+    const result = finalVersion === override.toVersion;
+    return result;
   });
+  return applicableOverrides;
 };
 
 const buildSecurityFixes = (
@@ -344,72 +371,86 @@ const buildSecurityFixes = (
   if (shouldApplyAutoFix) {
     securityChecker.applyAutoFix(overridesToApply, mergedOptions.path, mergedOptions.config);
   }
-  return { securityOverrides, securityOverrideDetails };
+  const securityFixes: Pick<Options, "securityOverrides" | "securityOverrideDetails"> = {
+    securityOverrides,
+    securityOverrideDetails,
+  };
+  return securityFixes;
+};
+
+const shouldApplySecurityResults = (
+  alerts: SecurityAlert[],
+  updates: OverrideUpdate[],
+  mergedOptions: Options,
+) => {
+  const shouldApplySecurityFixes = mergedOptions.forceSecurityRefactor || mergedOptions.interactive;
+  const shouldGenerateOverrides = alerts.length > 0 && shouldApplySecurityFixes;
+  const shouldApplyUpdates = updates.length > 0 && shouldApplySecurityFixes;
+  const shouldApply = shouldGenerateOverrides || shouldApplyUpdates;
+  return shouldApply;
 };
 
 export const handleSecurityResults = (
-  alerts: SecurityAlert[],
-  securityOverrides: SecurityOverride[],
-  securityChecker: SecurityChecker,
-  spinner: ReturnType<typeof createSpinner>,
-  mergedOptions: Options,
-  updates: OverrideUpdate[] = [],
-  hasBestCaseResult = false,
+  ...args: SecurityResultsArgs
 ): Pick<Options, "securityOverrides" | "securityOverrideDetails"> => {
-  const shouldApplySecurityFixes = mergedOptions.forceSecurityRefactor || mergedOptions.interactive;
-  const shouldGenerateOverrides = alerts.length > 0 && shouldApplySecurityFixes;
-  const applicableUpdates = hasBestCaseResult ? [] : updates;
-  const shouldApplyUpdates = applicableUpdates.length > 0 && shouldApplySecurityFixes;
+  const [alerts, overrides, checker, spinner, options, ...updateArgs] = args;
+  const [updates = [], hasBestCase = false] = updateArgs;
+  const applicableUpdates = hasBestCase ? [] : updates;
 
-  const shouldSkipSecurityFixes = !shouldGenerateOverrides && !shouldApplyUpdates;
-  if (shouldSkipSecurityFixes) {
+  const shouldApply = shouldApplySecurityResults(alerts, applicableUpdates, options);
+  if (!shouldApply) {
     spinner.stop();
-    return {};
+    const result: Pick<Options, "securityOverrides" | "securityOverrideDetails"> = {};
+    return result;
   }
 
   const updateOverrides = applicableUpdates.map(toUpdateOverride);
-  const allOverrides = securityOverrides.concat(updateOverrides);
-  const fixes = buildSecurityFixes(allOverrides, securityChecker, mergedOptions);
+  const allOverrides = overrides.concat(updateOverrides);
+  const fixes = buildSecurityFixes(allOverrides, checker, options);
   spinner.stop();
   return fixes;
 };
 
-const createEmptySecurityResult = (): SecurityResultSummary => ({
-  hasSecurityIssues: false,
-  securityAlertCount: 0,
-  securityAlerts: [],
-});
+const createEmptySecurityResult = (): SecurityResultSummary => {
+  const securityAlerts: SecurityAlert[] = [];
+  const result = { hasSecurityIssues: false, securityAlertCount: 0, securityAlerts };
+  return result;
+};
 
 const toBestCaseSummary = (
   bestCase: Awaited<ReturnType<SecurityChecker["checkSecurity"]>>["bestCase"],
 ): PastoralistResult["bestCase"] => {
   if (!bestCase) return undefined;
-  const selectedState = bestCase.selectedState;
-  const decisionId = bestCase.decisionId;
-  const policyHash = bestCase.policyHash;
-  const search = bestCase.search;
-  const impact = bestCase.impact;
-  const failedStates = bestCase.failedStates;
-  return { selectedState, decisionId, policyHash, search, impact, failedStates };
+  const { selectedState, decisionId, policyHash, search, impact, failedStates } = bestCase;
+  const result: PastoralistResult["bestCase"] = {
+    selectedState,
+    decisionId,
+    policyHash,
+    search,
+    impact,
+    failedStates,
+  };
+  return result;
 };
 
 const formatRemovalKeys = (keys: string[], limit = 5): string => {
   const visibleKeys = keys.slice(0, limit).join(", ");
   const remainingCount = keys.length - limit;
   if (remainingCount <= 0) return visibleKeys;
-  return `${visibleKeys}, +${remainingCount} more`;
+  const removalKeys = `${visibleKeys}, +${remainingCount} more`;
+  return removalKeys;
 };
 
 const buildRemovalPrompt = (comparison: NonNullable<Options["removalVerification"]>): string => {
   const count = comparison.allowedKeys.length;
   const removalKeys = formatRemovalKeys(comparison.allowedKeys);
-  const beforeCount = comparison.beforeAlertCount;
-  const afterCount = comparison.afterAlertCount;
-  const overrideLabel = `override${count === 1 ? "" : "s"}`;
-  return (
+  const { beforeAlertCount: beforeCount, afterAlertCount: afterCount } = comparison;
+  const isSingular = count === 1;
+  const overrideLabel = isSingular ? "override" : "overrides";
+  const removalPrompt =
     `Removal verification check found ${beforeCount} -> ${afterCount} vulnerabilities. ` +
-    `Remove ${count} unused ${overrideLabel} (${removalKeys})?`
-  );
+    `Remove ${count} unused ${overrideLabel} (${removalKeys})?`;
+  return removalPrompt;
 };
 
 const verifyUnusedRemovals = async (
@@ -423,6 +464,14 @@ const verifyUnusedRemovals = async (
   if (!comparison) return mergedOptions;
 
   const approvedComparison = await confirmVerifiedRemoval(comparison, mergedOptions, deps);
+  const options = applyRemovalComparison(mergedOptions, approvedComparison);
+  return options;
+};
+
+const applyRemovalComparison = (
+  mergedOptions: Options,
+  approvedComparison: NonNullable<Options["removalVerification"]>,
+): Options => {
   const existingSkipKeys = mergedOptions.skipRemovalKeys || [];
   const skipRemovalKeys = Array.from(
     new Set(existingSkipKeys.concat(approvedComparison.blockedKeys)),
@@ -432,7 +481,8 @@ const verifyUnusedRemovals = async (
     removalVerification: approvedComparison,
   });
   if (skipRemovalKeys.length === 0) return optionsWithComparison;
-  return Object.assign({}, optionsWithComparison, { skipRemovalKeys });
+  const result = Object.assign({}, optionsWithComparison, { skipRemovalKeys });
+  return result;
 };
 
 const confirmVerifiedRemoval = async (
@@ -448,12 +498,21 @@ const confirmVerifiedRemoval = async (
   const approved = await deps.quickConfirm(buildRemovalPrompt(comparison), false);
   if (approved) return comparison;
 
-  return Object.assign({}, comparison, {
-    status: "declined" as const,
-    allowedKeys: [],
-    blockedKeys: comparison.removableKeys,
+  const result = createDeclinedComparison(comparison);
+  return result;
+};
+
+const createDeclinedComparison = (comparison: NonNullable<Options["removalVerification"]>) => {
+  const allowedKeys: string[] = [];
+  const { removableKeys: blockedKeys } = comparison;
+  const status = "declined" as const;
+  const result = Object.assign({}, comparison, {
+    status,
+    allowedKeys,
+    blockedKeys,
     reason: "User declined cleanup after reviewing the removal verification.",
   });
+  return result;
 };
 
 const applySecurityResults = (
@@ -471,7 +530,8 @@ const applySecurityResults = (
     result.updates,
     Boolean(result.bestCase),
   );
-  return Object.assign({}, mergedOptions, securityUpdates);
+  const securityResults = Object.assign({}, mergedOptions, securityUpdates);
+  return securityResults;
 };
 
 const mergeUserOwnedOverrides = (
@@ -480,7 +540,8 @@ const mergeUserOwnedOverrides = (
 ): NonNullable<Options["bestCase"]> => {
   const current = bestCase?.userOwnedOverrides ?? [];
   const userOwnedOverrides = Array.from(new Set(current.concat(added)));
-  return Object.assign({}, bestCase, { userOwnedOverrides });
+  const nextBestCase = Object.assign({}, bestCase, { userOwnedOverrides });
+  return nextBestCase;
 };
 
 const addUserOwnedOverridesToConfig = (
@@ -491,7 +552,8 @@ const addUserOwnedOverridesToConfig = (
   const pastoralist = config.pastoralist ?? {};
   const bestCase = mergeUserOwnedOverrides(pastoralist.bestCase, added);
   const nextPastoralist = Object.assign({}, pastoralist, { bestCase });
-  return Object.assign({}, config, { pastoralist: nextPastoralist });
+  const result = Object.assign({}, config, { pastoralist: nextPastoralist });
+  return result;
 };
 
 const persistUserOwnedOverrides = (
@@ -502,15 +564,15 @@ const persistUserOwnedOverrides = (
   const bestCase = mergeUserOwnedOverrides(mergedOptions.bestCase, added);
   const config = addUserOwnedOverridesToConfig(mergedOptions.config, added);
   const manifestConfig = addUserOwnedOverridesToConfig(mergedOptions.manifestConfig, added);
-  return Object.assign({}, mergedOptions, { bestCase, config, manifestConfig });
+  const result = Object.assign({}, mergedOptions, { bestCase, config, manifestConfig });
+  return result;
 };
 
-const createSkippedSecurityPhase = (mergedOptions: Options): SecurityPhaseResult => ({
-  mergedOptions,
-  securityResult: createEmptySecurityResult(),
-  packagesScanned: 0,
-  bestCase: undefined,
-});
+const createSkippedSecurityPhase = (mergedOptions: Options): SecurityPhaseResult => {
+  const securityResult = createEmptySecurityResult();
+  const phase = { mergedOptions, securityResult, packagesScanned: 0, bestCase: undefined };
+  return phase;
+};
 
 const resolveSecurityPhaseOptions = async (
   config: PastoralistJSON,
@@ -518,20 +580,17 @@ const resolveSecurityPhaseOptions = async (
   result: Awaited<ReturnType<typeof runSecurityCheck>>,
   deps: Pick<SecurityPhaseDeps, "handleSecurityResults" | "quickConfirm">,
 ): Promise<Options> => {
-  const optionsWithOwnership = persistUserOwnedOverrides(
-    mergedOptions,
-    result.userOwnedOverridesAdded,
-  );
-  const optionsWithAlerts = Object.assign({}, optionsWithOwnership, {
-    securityAlerts: result.alerts,
-  });
+  const { userOwnedOverridesAdded, alerts: securityAlerts, securityChecker } = result;
+  const optionsWithOwnership = persistUserOwnedOverrides(mergedOptions, userOwnedOverridesAdded);
+  const optionsWithAlerts = Object.assign({}, optionsWithOwnership, { securityAlerts });
   const optionsWithVerification = await verifyUnusedRemovals(
     config,
     optionsWithAlerts,
-    result.securityChecker,
+    securityChecker,
     deps,
   );
-  return applySecurityResults(result, optionsWithVerification, deps);
+  const securityPhaseOptions = applySecurityResults(result, optionsWithVerification, deps);
+  return securityPhaseOptions;
 };
 
 const renderSecurityPhaseResult = (
@@ -553,47 +612,43 @@ const renderSecurityPhaseResult = (
 };
 
 const runEnabledSecurityPhase = async (
-  graph: CliGraph,
   config: PastoralistJSON,
   mergedOptions: Options,
-  isJsonOutput: boolean,
-  isLogging: boolean,
-  log: ReturnType<typeof createLogger>,
+  context: SecurityPhaseContext,
   deps: SecurityPhaseDeps,
 ): Promise<SecurityPhaseResult> => {
+  const { graph, isJsonOutput, isLogging, log } = context;
   if (!isJsonOutput) graph.startPhase("scanning", "Scanning packages");
   const result = await deps.runSecurityCheck(config, mergedOptions, isLogging, log);
   const securityResult = buildSecurityResult(result.alerts);
   const nextOptions = await resolveSecurityPhaseOptions(config, mergedOptions, result, deps);
   renderSecurityPhaseResult(graph, result, nextOptions, isJsonOutput);
   const bestCase = toBestCaseSummary(result.bestCase);
+  const { packagesScanned } = result;
 
-  return {
-    mergedOptions: nextOptions,
-    securityResult,
-    packagesScanned: result.packagesScanned,
-    bestCase,
-  };
+  const phase = { mergedOptions: nextOptions, securityResult, packagesScanned, bestCase };
+  return phase;
 };
 
 export const runSecurityPhase = (
-  graph: CliGraph,
-  config: PastoralistJSON,
-  mergedOptions: Options,
-  isJsonOutput: boolean,
-  isLogging: boolean,
-  log: ReturnType<typeof createLogger>,
-  deps: SecurityPhaseDeps,
+  ...args: SecurityPhaseArgs
 ): SecurityPhaseResult | Promise<SecurityPhaseResult> => {
-  if (!mergedOptions.checkSecurity) return createSkippedSecurityPhase(mergedOptions);
-  return runEnabledSecurityPhase(graph, config, mergedOptions, isJsonOutput, isLogging, log, deps);
+  const [graph, config, mergedOptions, isJsonOutput, isLogging, log, deps] = args;
+  if (!mergedOptions.checkSecurity) {
+    const result = createSkippedSecurityPhase(mergedOptions);
+    return result;
+  }
+  const context = { graph, isJsonOutput, isLogging, log };
+  const result = runEnabledSecurityPhase(config, mergedOptions, context, deps);
+  return result;
 };
 
 export const formatUpdateReport = (updates: OverrideUpdate[]): string => {
   const header = "\nSecurity Override Updates\n" + "=".repeat(50) + "\n\n";
   const summary = `Found ${updates.length} existing override(s) with newer patches available:\n\n`;
   const updateList = updates.map(formatUpdateLine).join("");
-  return [header, summary, updateList].join("");
+  const updateReport = [header, summary, updateList].join("");
+  return updateReport;
 };
 
 const formatUpdateLine = (update: OverrideUpdate): string =>

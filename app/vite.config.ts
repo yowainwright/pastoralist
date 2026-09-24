@@ -39,43 +39,43 @@ type MermaidParentNode = {
 };
 
 const manualChunks = (id: string) => {
-  if (!id.includes("node_modules")) return;
   if (id.includes("/node_modules/shiki/dist/langs/")) return;
 
   const chunkEntry = manualChunkEntries.find(([packagePath]) => id.includes(packagePath));
   if (!chunkEntry) return;
-  return chunkEntry[1];
+  const [, chunk] = chunkEntry;
+  return chunk;
 };
 
 const stripFrontmatter = (source: string): string => source.replace(FRONTMATTER_REGEX, "");
 
-const renderMermaidRemark = () => {
-  return (tree: Node) => {
-    visit(
-      tree,
-      "code",
-      (node: MermaidCodeNode, index: number | undefined, parent: MermaidParentNode | undefined) => {
-        if (node.lang !== "mermaid") return;
-        const children = parent?.children;
-        const isMissingParentInfo = typeof index !== "number" || !children;
-        if (isMissingParentInfo) return;
+function replaceMermaidNode(
+  node: MermaidCodeNode,
+  index: number | undefined,
+  parent: MermaidParentNode | undefined,
+) {
+  if (node.lang !== "mermaid") return;
+  const children = parent?.children;
+  const isMissingParentInfo = typeof index !== "number" || !children;
+  if (isMissingParentInfo) return;
 
-        children[index] = {
-          type: "mdxJsxFlowElement",
-          name: "Mermaid",
-          attributes: [
-            {
-              type: "mdxJsxAttribute",
-              name: "chart",
-              value: node.value,
-            },
-          ],
-          children: [],
-        };
-      },
-    );
+  const { value } = node;
+  const attributes = [{ type: "mdxJsxAttribute", name: "chart", value }];
+  const childNodes: unknown[] = [];
+  children[index] = {
+    type: "mdxJsxFlowElement",
+    name: "Mermaid",
+    attributes,
+    children: childNodes,
   };
+}
+
+const renderMermaidRemark = () => {
+  return (tree: Node) => visit(tree, "code", replaceMermaidNode);
 };
+
+const remarkPlugins = [remarkGfm, remarkMath, renderMermaidRemark];
+const rehypePlugins = [rehypeSlug, rehypeKatex];
 
 const pastoralistMdx = (): Plugin => ({
   name: "pastoralist-mdx",
@@ -84,33 +84,32 @@ const pastoralistMdx = (): Plugin => ({
 
     const compiled = await compile(stripFrontmatter(source), {
       outputFormat: "program",
-      remarkPlugins: [remarkGfm, remarkMath, renderMermaidRemark],
-      rehypePlugins: [rehypeSlug, rehypeKatex],
+      remarkPlugins,
+      rehypePlugins,
     });
 
-    return {
-      code: String(compiled),
+    const code = String(compiled);
+    const transformed = {
+      code,
       map: null,
     };
+    return transformed;
   },
 });
+
+const plugins = [pastoralistMdx(), react(), tailwindcss()];
+const srcPath = path.resolve(__dirname, "./src");
+const alias = { "@": srcPath };
+const dedupe = ["react", "react-dom"];
+const resolve = { alias, dedupe };
+const output = { manualChunks };
+const rollupOptions = { output };
+const build = { chunkSizeWarningLimit: 650, rollupOptions };
 
 export default defineConfig({
   base: "/pastoralist",
   builder: "rolldown",
-  plugins: [pastoralistMdx(), react(), tailwindcss()],
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
-    dedupe: ["react", "react-dom"],
-  },
-  build: {
-    chunkSizeWarningLimit: 650,
-    rollupOptions: {
-      output: {
-        manualChunks,
-      },
-    },
-  },
+  plugins,
+  resolve,
+  build,
 });

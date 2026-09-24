@@ -19,27 +19,28 @@ const colorFns: Record<TableColor, (s: string) => string> = {
 
 const padRight = (str: string, len: number): string => {
   const padLen = Math.max(0, len - visibleLength(str));
-  return str + " ".repeat(padLen);
+  const result = str + " ".repeat(padLen);
+  return result;
 };
 
 const padLeft = (str: string, len: number): string => {
   const padLen = Math.max(0, len - visibleLength(str));
-  return " ".repeat(padLen) + str;
+  const result = " ".repeat(padLen) + str;
+  return result;
 };
 
 const createHorizontalLine = (labelWidth: number, valueWidth: number): string =>
   `+-${"-".repeat(labelWidth)}-+-${"-".repeat(valueWidth)}-+`;
 
 const createRow = (
-  label: string,
-  value: string,
+  { label, value, color }: TableRow,
   labelWidth: number,
   valueWidth: number,
-  color?: TableColor,
 ): string => {
-  const paddedValue = padLeft(value, valueWidth);
+  const paddedValue = padLeft(String(value), valueWidth);
   const coloredValue = color ? colorFns[color](paddedValue) : paddedValue;
-  return `| ${padRight(label, labelWidth)} | ${coloredValue} |`;
+  const row = `| ${padRight(label, labelWidth)} | ${coloredValue} |`;
+  return row;
 };
 
 const calculateWidths = (
@@ -49,15 +50,16 @@ const calculateWidths = (
 ): { labelWidth: number; valueWidth: number } => {
   const maxLabel = rows.reduce((max, r) => Math.max(max, visibleLength(r.label)), 0);
   const maxValue = rows.reduce((max, r) => Math.max(max, visibleLength(String(r.value))), 0);
-  return {
-    labelWidth: Math.max(minLabelWidth, maxLabel),
-    valueWidth: Math.max(minValueWidth, maxValue),
-  };
+  const labelWidth = Math.max(minLabelWidth, maxLabel);
+  const valueWidth = Math.max(minValueWidth, maxValue);
+  const widths = { labelWidth, valueWidth };
+  return widths;
 };
 
 const buildTitleRow = (title: string, labelWidth: number, valueWidth: number): string => {
   const titleWidth = labelWidth + valueWidth + TABLE_COLUMN_SEPARATOR_WIDTH;
-  return `| ${padRight(title, titleWidth)} |`;
+  const titleRow = `| ${padRight(title, titleWidth)} |`;
+  return titleRow;
 };
 
 export const renderTable = (rows: TableRow[], options: TableOptions = {}): string => {
@@ -73,9 +75,8 @@ export const renderTable = (rows: TableRow[], options: TableOptions = {}): strin
     ? [separator, buildTitleRow(title, labelWidth, valueWidth), separator]
     : [separator];
 
-  const dataLines = rows.map((row) =>
-    createRow(row.label, String(row.value), labelWidth, valueWidth, row.color),
-  );
+  const dataLines = rows.map((row) => createRow(row, labelWidth, valueWidth));
 
-  return titleLines.concat(dataLines, [separator]).join("\n");
+  const result = titleLines.concat(dataLines, [separator]).join("\n");
+  return result;
 };

@@ -52,7 +52,8 @@ type InitCommandInput = {
 };
 
 const showRunError = (error: unknown, log: Pick<Logger, "fail" | "print">): void => {
-  const message = error instanceof Error ? error.message : String(error);
+  const isError = error instanceof Error;
+  const message = isError ? error.message : String(error);
   log.fail(`Error: ${message}`);
   showHelp(log.print);
   process.exitCode = 1;
@@ -63,7 +64,8 @@ const parseRunArgs = (
   log: Pick<Logger, "fail" | "print">,
 ): ReturnType<typeof parseArgs> | undefined => {
   try {
-    return parseArgs(argv);
+    const runArgs = parseArgs(argv);
+    return runArgs;
   } catch (error) {
     showRunError(error, log);
     return undefined;
@@ -71,44 +73,61 @@ const parseRunArgs = (
 };
 
 const isHelpRequested = (argv: string[], options: Options): boolean =>
-  Boolean(options.help || argv.includes("-h") || argv.includes("--help"));
+  Boolean(options.help || argv.some((arg) => arg === "-h" || arg === "--help"));
 
 const isVersionRequested = (argv: string[], options: Options): boolean =>
-  Boolean(options.version || argv.includes("-v") || argv.includes("--version"));
+  Boolean(options.version || argv.some((arg) => arg === "-v" || arg === "--version"));
 
 const isKnownCommand = (command: string | undefined): boolean => {
   if (!command) return true;
-  return KNOWN_COMMANDS.some((knownCommand) => knownCommand === command);
+  const result = KNOWN_COMMANDS.some((knownCommand) => knownCommand === command);
+  return result;
 };
 
 const isOnboardingCommand = (command: string | undefined): boolean => {
   const isOnboardCommand = command === "onboard";
   const isOnboardingAlias = command === "onboarding";
 
-  return isOnboardCommand || isOnboardingAlias;
+  const result = isOnboardCommand || isOnboardingAlias;
+  return result;
 };
 
 const isOnboardingRequested = (command: string | undefined, options: Options): boolean => {
   const isOnboardFlag = options.onboard === true;
 
   if (isOnboardFlag) return true;
-  return isOnboardingCommand(command);
+  const result = isOnboardingCommand(command);
+  return result;
 };
 
 const isInitCommandType = (value: string): value is InitCommandType =>
   INIT_COMMAND_TYPES.includes(value as InitCommandType);
 
 const toStringList = (value: Options["init"]): string[] => {
-  if (value === true) return [];
-  if (typeof value === "string") return [value];
+  if (value === true) {
+    const result: string[] = [];
+    return result;
+  }
+  if (typeof value === "string") {
+    const values = [value];
+    return values;
+  }
   if (Array.isArray(value)) return value;
-  return [];
+  const values: string[] = [];
+  return values;
 };
 
 const parseInitCommandInput = (args: readonly string[]): InitCommandInput => {
   const [target, ...initArgs] = args;
-  if (!target) return { type: "config", args: [] };
-  if (isInitCommandType(target)) return { type: target, args: initArgs };
+  if (!target) {
+    const emptyArgs: string[] = [];
+    const initCommandInput: InitCommandInput = { type: "config", args: emptyArgs };
+    return initCommandInput;
+  }
+  if (isInitCommandType(target)) {
+    const input: InitCommandInput = { type: target, args: initArgs };
+    return input;
+  }
 
   throw new Error(`Unknown init type: ${target}. Expected config or agent-skill.`);
 };
@@ -118,22 +137,28 @@ const getInitCommandInput = (
   commandArgs: readonly string[],
   init: Options["init"],
 ): InitCommandInput => {
-  if (command === "init") return parseInitCommandInput(commandArgs);
-  return parseInitCommandInput(toStringList(init));
+  if (command === "init") {
+    const initCommandInput = parseInitCommandInput(commandArgs);
+    return initCommandInput;
+  }
+  const input = parseInitCommandInput(toStringList(init));
+  return input;
 };
 
 const isInitRequested = (command: string | undefined, init: Options["init"]): boolean => {
   if (command === "init") return true;
   const hasInitValue = init !== undefined;
-  const isNotDisabled = init !== false;
-  return hasInitValue && isNotDisabled;
+  const isEnabled = init !== false;
+  const result = hasInitValue && isEnabled;
+  return result;
 };
 
 const readVersion = (path: string): string | undefined => {
   if (!existsSync(path)) return undefined;
   const manifest = JSON.parse(readFileSync(path, "utf8")) as PackageVersion;
   if (typeof manifest.version !== "string") return undefined;
-  return manifest.version;
+  const result = manifest.version;
+  return result;
 };
 
 const getModuleDir = (): string => dirname(fileURLToPath(import.meta.url));
@@ -164,17 +189,23 @@ const resolveSetupAgentSkillScript = (): string => {
 const buildSetupAgentSkillArgs = (options: Options, args: readonly string[] = []): string[] => {
   const script = resolveSetupAgentSkillScript();
   const dryRunArgs = options.dryRun ? ["--dry-run"] : [];
-  return [script, "skill"].concat(dryRunArgs, args);
+  const setupAgentSkillArgs = [script, "skill"].concat(dryRunArgs, args);
+  return setupAgentSkillArgs;
 };
 
 const firstSecurityProvider = (options: Options): InitSecurityProvider => {
-  if (Array.isArray(options.securityProvider)) return options.securityProvider[0];
-  return options.securityProvider;
+  if (Array.isArray(options.securityProvider)) {
+    const result = options.securityProvider[0];
+    return result;
+  }
+  const result2 = options.securityProvider;
+  return result2;
 };
 
 const runInitCommand = async (options: Options, deps: Pick<RunDeps, "initCommand">) => {
+  const securityProvider = firstSecurityProvider(options);
   const initOptions = Object.assign({}, options, {
-    securityProvider: firstSecurityProvider(options),
+    securityProvider,
   });
   await deps.initCommand(initOptions);
 };
@@ -198,7 +229,8 @@ const runDoctorCommand = async (
 
 const resolveAgentSkillPath = (root: string | undefined, path: string): string => {
   if (!root) return path;
-  return join(root, path);
+  const agentSkillPath = join(root, path);
+  return agentSkillPath;
 };
 
 const writeEmbeddedAgentSkill = (root: string | undefined, skill: string): boolean => {
@@ -281,23 +313,41 @@ export const run = async (
   const log = createLogger({ file: "program.ts", isLogging: false });
   const parsed = parseRunArgs(argv, log);
   if (!parsed) return;
+  const wasHandled = handleRunDisplay(argv, parsed, log);
+  if (wasHandled) return;
+  const options = parsed.options as Options;
+  await runCommand(parsed, options, deps, log);
+};
 
+const handleRunDisplay = (
+  argv: string[],
+  parsed: ReturnType<typeof parseArgs>,
+  log: Pick<Logger, "fail" | "print">,
+): boolean => {
   const options = parsed.options as Options;
   if (isHelpRequested(argv, options)) {
     showHelp(log.print);
-    return;
+    return true;
   }
 
   if (isVersionRequested(argv, options)) {
     log.print(getPackageVersion());
-    return;
+    return true;
   }
 
   if (!isKnownCommand(parsed.command)) {
     showRunError(new Error(`Unknown command: ${parsed.command}`), log);
-    return;
+    return true;
   }
+  return false;
+};
 
+const runCommand = async (
+  parsed: ReturnType<typeof parseArgs>,
+  options: Options,
+  deps: RunDeps,
+  log: Logger,
+): Promise<void> => {
   if (options.styleguide) {
     await (deps.styleguide || showStyleguide)();
     return;
@@ -309,23 +359,41 @@ export const run = async (
   }
 
   const didSetupHook = handleSetupHook(options, log);
-  if (didSetupHook) {
-    return;
-  }
+  if (didSetupHook) return;
+  await runPackageCommand(parsed, options, deps, log);
+};
 
+const runPackageCommand = async (
+  parsed: ReturnType<typeof parseArgs>,
+  options: Options,
+  deps: RunDeps,
+  log: Logger,
+): Promise<void> => {
   if (isInitRequested(parsed.command, options.init)) {
-    try {
-      await handleInitCommand(parsed.command, parsed.commandArgs, options, deps);
-    } catch (error) {
-      showRunError(error, log);
-    }
+    await tryInitCommand(parsed, options, deps, log);
     return;
   }
 
   const isDoctorCommand = parsed.command === "doctor";
-  if (isDoctorCommand) return runDoctorCommand(options, deps, log.print);
+  if (isDoctorCommand) {
+    const result = runDoctorCommand(options, deps, log.print);
+    return result;
+  }
 
   await deps.action(options);
+};
+
+const tryInitCommand = async (
+  parsed: ReturnType<typeof parseArgs>,
+  options: Options,
+  deps: RunDeps,
+  log: Logger,
+): Promise<void> => {
+  try {
+    await handleInitCommand(parsed.command, parsed.commandArgs, options, deps);
+  } catch (error) {
+    showRunError(error, log);
+  }
 };
 
 const defaultSetupHookDeps: SetupHookDeps = {
@@ -342,27 +410,28 @@ export const handleSetupHook = (
   if (options.setupHook !== true) return false;
 
   try {
-    const packagePath = resolvePackagePath(options, deps);
-    const config = readPackageJson(packagePath, deps);
-    const existingPostinstall = config.scripts?.postinstall || "";
-
-    if (existingPostinstall.includes("pastoralist")) {
-      log.print("postinstall hook already configured");
-      return true;
-    }
-
-    if (options.dryRun) {
-      log.print("[DRY RUN] would add postinstall hook to package.json");
-      return true;
-    }
-
-    writePackageJson(packagePath, addPostinstallHook(config), deps);
-    log.print("added postinstall hook to package.json");
-    return true;
+    installPostinstallHook(options, log, deps);
   } catch (err) {
-    const reason = err instanceof Error ? err.message : String(err);
+    const isError = err instanceof Error;
+    const reason = isError ? err.message : String(err);
     log.fail(`Failed to setup hook: ${reason}`);
     process.exitCode = 1;
-    return true;
   }
+  return true;
+};
+
+const installPostinstallHook = (options: Options, log: Logger, deps: SetupHookDeps): void => {
+  const packagePath = resolvePackagePath(options, deps);
+  const config = readPackageJson(packagePath, deps);
+  const existingPostinstall = config.scripts?.postinstall || "";
+  if (existingPostinstall.includes("pastoralist")) {
+    log.print("postinstall hook already configured");
+    return;
+  }
+  if (options.dryRun) {
+    log.print("[DRY RUN] would add postinstall hook to package.json");
+    return;
+  }
+  writePackageJson(packagePath, addPostinstallHook(config), deps);
+  log.print("added postinstall hook to package.json");
 };

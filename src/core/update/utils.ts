@@ -14,7 +14,9 @@ import type {
   OverridesType,
   ResolveOverrides,
   MergedConfig,
+  UpdatePackageJSONOptions,
 } from "../../types";
+import type { ProcessingModeArguments } from "./types";
 import type { WriteResultContext, ProcessingMode } from "../../types";
 import type { Logger } from "../../observability";
 
@@ -26,12 +28,14 @@ export const findPackageFiles = (
   ignore: string[],
   log: Logger,
 ): string[] => {
-  return findPackageJsonFiles(patterns, ignore, root, log);
+  const packageFiles = findPackageJsonFiles(patterns, ignore, root, log);
+  return packageFiles;
 };
 
 const resolveAppendix = (finalAppendix: Appendix, useCompact: boolean): PersistedAppendix => {
   if (!useCompact) return finalAppendix;
-  return toCompactAppendix(finalAppendix);
+  const appendix = toCompactAppendix(finalAppendix);
+  return appendix;
 };
 
 const writeExternalAppendix = (ctx: WriteResultContext, appendix: Appendix): void => {
@@ -43,58 +47,50 @@ const writeExternalAppendix = (ctx: WriteResultContext, appendix: Appendix): voi
   if (!dryRun) clearConfigCache();
 };
 
+const buildPackageUpdate = (
+  ctx: WriteResultContext,
+  appendix: PersistedAppendix | undefined,
+  silent: boolean,
+): UpdatePackageJSONOptions => {
+  const { path, config, isTesting, finalOverrides: overrides } = ctx;
+  const dryRun = ctx.options?.dryRun || false;
+  const manageOverrides = !ctx.overrideSource || ctx.overrideSource.kind === "manifest";
+  const update = { appendix, path, config, overrides, dryRun, silent, isTesting, manageOverrides };
+  return update;
+};
+
 export const writeResult = (ctx: WriteResultContext): void => {
   const isJsonOutput = ctx.options?.outputFormat === "json";
   const useCompact = ctx.config?.pastoralist?.compactAppendix === true;
   const appendix = resolveAppendix(ctx.finalAppendix, useCompact);
-  const hasExternalSource = Boolean(ctx.overrideSource && ctx.overrideSource.kind !== "manifest");
   const packageAppendix = ctx.appendixTarget ? undefined : appendix;
 
   if (ctx.overrideSource) {
-    writeOverrideSource(ctx.overrideSource, ctx.finalOverrides, {
-      dryRun: ctx.options?.dryRun,
-    });
+    const { dryRun } = ctx.options ?? {};
+    writeOverrideSource(ctx.overrideSource, ctx.finalOverrides, { dryRun });
   }
 
   writeExternalAppendix(ctx, appendix);
 
-  updatePackageJSON({
-    appendix: packageAppendix,
-    path: ctx.path,
-    config: ctx.config,
-    overrides: ctx.finalOverrides,
-    dryRun: ctx.options?.dryRun || false,
-    silent: isJsonOutput,
-    isTesting: ctx.isTesting,
-    manageOverrides: !hasExternalSource,
-  });
+  updatePackageJSON(buildPackageUpdate(ctx, packageAppendix, isJsonOutput));
 };
 
 export const determineProcessingMode = (
   options: Options,
   config: PastoralistJSON,
-  hasRootOverrides: boolean,
-  missingInRoot: string[],
-  log?: Logger,
+  ...[hasRootOverrides, missingInRoot, log]: ProcessingModeArguments
 ): ProcessingMode => {
-  const configDepPaths = config.pastoralist?.depPaths;
   const hasOptionsDepPaths = options?.depPaths && options.depPaths.length > 0;
-  const hasConfigDepPaths = !hasOptionsDepPaths && configDepPaths;
+  const hasConfigDepPaths = Boolean(config.pastoralist?.depPaths);
 
   const depPaths = resolveDepPaths(options, config, log);
   const hasResolvedDepPaths = Boolean(depPaths && depPaths.length > 0);
   const shouldUseWorkspaceMode = Boolean(
     hasOptionsDepPaths || hasConfigDepPaths || hasResolvedDepPaths,
   );
-  let mode: ProcessingMode["mode"] = "root";
-  if (shouldUseWorkspaceMode) mode = "workspace";
-
-  return {
-    mode,
-    depPaths,
-    hasRootOverrides,
-    missingInRoot,
-  };
+  const mode = shouldUseWorkspaceMode ? "workspace" : "root";
+  const result: ProcessingMode = { mode, depPaths, hasRootOverrides, missingInRoot };
+  return result;
 };
 
 const toNullableDepPaths = (depPaths: string[]): string[] | null => {
@@ -108,26 +104,31 @@ export const resolveDepPaths = (
   config: PastoralistJSON,
   log?: Logger,
 ): string[] | null => {
-  if (options?.depPaths) return options.depPaths;
+  if (options?.depPaths) {
+    const depPaths2 = options.depPaths;
+    return depPaths2;
+  }
 
   const configDepPaths = config.pastoralist?.depPaths;
   const root = options.root || "./";
 
   const usesWorkspaceMode =
     configDepPaths === WORKSPACE_MODES.SINGLE || configDepPaths === WORKSPACE_MODES.MULTIPLE;
-  if (usesWorkspaceMode) {
-    const depPaths = resolveWorkspaceManifestPaths(config, root, log);
-    return toNullableDepPaths(depPaths);
-  }
-
   if (Array.isArray(configDepPaths)) return configDepPaths;
+  const shouldResolveWorkspaces = usesWorkspaceMode || !configDepPaths;
+  if (!shouldResolveWorkspaces) return null;
+  const depPaths = resolveWorkspaceManifestPaths(config, root, log);
+  const result = toNullableDepPaths(depPaths);
+  return result;
+};
 
-  if (!configDepPaths) {
-    const depPaths = resolveWorkspaceManifestPaths(config, root, log);
-    return toNullableDepPaths(depPaths);
-  }
-
-  return null;
+const findAppendixDependents = (appendix: Appendix): Set<string> => {
+  const packages = new Set(
+    Object.entries(appendix)
+      .filter(([, item]) => item.dependents && Object.keys(item.dependents).length)
+      .map(([key]) => key.replace(/@[^@]+$/, "")),
+  );
+  return packages;
 };
 
 export const findRemovableOverrides = (
@@ -136,20 +137,18 @@ export const findRemovableOverrides = (
   allDeps: Record<string, string>,
   missingInRoot: string[],
 ): string[] => {
-  const appendixPackagesWithDependents = new Set(
-    Object.entries(appendix)
-      .filter(([, item]) => item.dependents && Object.keys(item.dependents).length)
-      .map(([key]) => key.replace(/@[^@]+$/, "")),
-  );
+  const appendixPackagesWithDependents = findAppendixDependents(appendix);
   const missingSet = new Set(missingInRoot);
 
-  return Object.keys(overrides).filter((pkg) => {
+  const removable = Object.keys(overrides).filter((pkg) => {
     const isInAppendix = appendixPackagesWithDependents.has(pkg);
     const isInDeps = pkg in allDeps;
     const isMissingInRoot = missingSet.has(pkg);
     const isKnownPackage = isInAppendix || isInDeps || isMissingInRoot;
-    return !isKnownPackage;
+    const result = !isKnownPackage;
+    return result;
   });
+  return removable;
 };
 
 export const mergeAllConfigs = (
@@ -159,32 +158,32 @@ export const mergeAllConfigs = (
   overrides: OverridesType,
 ): MergedConfig => {
   const depPaths = cliOptions.depPaths ?? packageJsonConfig?.depPaths;
-  return {
+  const { appendix } = packageJsonConfig ?? {};
+  const { securityOverrideDetails, securityProvider } = cliOptions;
+  const allConfigs: MergedConfig = {
     overrides,
     overridesData,
-    appendix: packageJsonConfig?.appendix,
+    appendix,
     depPaths,
-    securityOverrideDetails: cliOptions.securityOverrideDetails,
-    securityProvider: cliOptions.securityProvider,
+    securityOverrideDetails,
+    securityProvider,
   };
+  return allConfigs;
 };
 
 export const hasConfigOverrides = (
   options: Options | undefined,
   config: PastoralistJSON,
 ): boolean => {
-  const hasNoSources = !options && !config;
-  if (hasNoSources) return false;
-
-  const optionsOverrides = options?.securityOverrides;
-  const configOverrides = config?.overrides;
-  const configResolutions = config?.resolutions;
-  const configPnpmOverrides = config?.pnpm?.overrides;
-
-  return [optionsOverrides, configOverrides, configResolutions, configPnpmOverrides].some(hasKeys);
+  const { securityOverrides } = options ?? {};
+  const { overrides, resolutions, pnpm } = config ?? {};
+  const sources = [securityOverrides, overrides, resolutions, pnpm?.overrides];
+  const result = sources.some(hasKeys);
+  return result;
 };
 
 const hasKeys = (value: Record<string, unknown> | undefined): boolean => {
   if (!value) return false;
-  return Object.keys(value).length > 0;
+  const result = Object.keys(value).length > 0;
+  return result;
 };

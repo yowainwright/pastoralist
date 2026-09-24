@@ -1,3 +1,4 @@
+import { assertContainsText } from "./utils";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
@@ -18,21 +19,23 @@ const createCiEnv = (): NodeJS.ProcessEnv => {
   const inheritedEnv = Object.fromEntries(inheritedEntries);
   const ciEnv = { CI: "true", NO_COLOR: "1" };
 
-  return Object.assign({}, inheritedEnv, ciEnv);
+  const ciEnv2 = Object.assign({}, inheritedEnv, ciEnv);
+  return ciEnv2;
 };
 
 const readWorkflows = (): string[] => {
   const workflowsRoot = resolve(root, ".github/workflows");
   const workflowNames = readdirSync(workflowsRoot).filter((name) => name.endsWith(".yml"));
 
-  return workflowNames.map((name) => readText(`.github/workflows/${name}`));
+  const result = workflowNames.map((name) => readText(`.github/workflows/${name}`));
+  return result;
 };
 
 test("coverage measures source and enforces local thresholds", () => {
   const config = readJson<Record<string, unknown>>("tests/coverage/c8.json");
   const packageConfig = readJson<{ scripts: Record<string, string> }>("package.json");
-  const coverageScript = packageConfig.scripts["test:coverage"];
-  const htmlScript = packageConfig.scripts["test:coverage:html"];
+  const { "test:coverage": coverageScript, "test:coverage:html": htmlScript } =
+    packageConfig.scripts;
 
   assert.equal(config.all, true);
   assert.deepEqual(config.include, ["src/**/*.ts"]);
@@ -50,7 +53,8 @@ test("coverage uploads once without parsing reports", () => {
   const workflows = readWorkflows();
   const uploadCount = workflows.reduce((count, workflow) => {
     const uploads = workflow.match(/codecov\/codecov-action@/g) ?? [];
-    return count + uploads.length;
+    const result = count + uploads.length;
+    return result;
   }, 0);
   const ciWorkflow = readText(".github/workflows/ci.yml");
 
@@ -59,11 +63,14 @@ test("coverage uploads once without parsing reports", () => {
 });
 
 const nodeMajor = Number(process.versions.node.split(".")[0]);
-const skipOnNode20 = nodeMajor === 20 ? "pnpm 11 requires Node 22 or newer" : false;
+const isNode20 = nodeMajor === 20;
+const skipOnNode20 = isNode20 ? "pnpm 11 requires Node 22 or newer" : false;
 
 test("test reporter emits color in CI output", { skip: skipOnNode20 }, () => {
   const args = ["run", "test:setup", "--test", "tests/unit/utils/string.test.ts"];
-  const options = { cwd: root, encoding: "utf8" as const, env: createCiEnv() };
+  const env = createCiEnv();
+  const encoding = "utf8" as const;
+  const options = { cwd: root, encoding, env };
   const result = spawnSync("pnpm", args, options);
   const output = `${result.stdout}${result.stderr}`;
   const escape = String.fromCodePoint(27);
@@ -71,7 +78,7 @@ test("test reporter emits color in CI output", { skip: skipOnNode20 }, () => {
   const greenPassPrefix = `${escape}[32m${passSymbol}`;
 
   assert.equal(result.status, 0, output);
-  assert.ok(output.includes(greenPassPrefix));
+  assertContainsText(output, greenPassPrefix);
   assert.doesNotMatch(output, /env is ignored/);
 });
 

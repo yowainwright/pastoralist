@@ -103,7 +103,8 @@ import { fileURLToPath } from "url";
 const resolveEntryPath = (entry: string | undefined): string => {
   if (!entry) return "";
   try {
-    return realpathSync(entry);
+    const entryPath = realpathSync(entry);
+    return entryPath;
   } catch {
     return "";
   }

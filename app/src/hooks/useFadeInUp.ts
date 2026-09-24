@@ -24,9 +24,11 @@ export function useFadeInUp(options: UseFadeInUpOptions = {}) {
     initialInView: initiallyVisible,
   });
 
-  return { ref, isVisible: inView };
+  const result = { ref, isVisible: inView };
+  return result;
 }
 
 export function useHasHydrated() {
-  return useSyncExternalStore(subscribeToHydration, getClientSnapshot, getServerSnapshot);
+  const result = useSyncExternalStore(subscribeToHydration, getClientSnapshot, getServerSnapshot);
+  return result;
 }

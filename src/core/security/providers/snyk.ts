@@ -22,11 +22,13 @@ export class SnykCLIProvider {
   private strict: boolean;
 
   constructor(options: SnykCLIProviderOptions = {}) {
+    const { debug } = options;
+    const isLogging = debug || false;
     this.log = logger({
       file: "security/snyk.ts",
-      isLogging: options.debug || false,
+      isLogging,
     });
-    this.installer = new CLIInstaller({ debug: options.debug });
+    this.installer = new CLIInstaller({ debug });
     this.execFileAsync = options.execFileAsync ?? execFileAsync;
     this.token = options.token || process.env.SNYK_TOKEN;
     this.strict = options.strict || false;
@@ -37,10 +39,11 @@ export class SnykCLIProvider {
   }
 
   ensureInstalled(): Promise<boolean> {
-    return this.installer.ensureInstalled({
+    const result = this.installer.ensureInstalled({
       packageName: "snyk",
       cliCommand: "snyk",
     });
+    return result;
   }
 
   async isAuthenticated(): Promise<boolean> {
@@ -88,13 +91,13 @@ export class SnykCLIProvider {
   }
 
   private async runSnykScan(root?: string): Promise<SnykResult> {
-    const env = this.token
-      ? Object.assign({}, process.env, { SNYK_TOKEN: this.token })
-      : process.env;
+    const { token: SNYK_TOKEN } = this;
+    const env = SNYK_TOKEN ? Object.assign({}, process.env, { SNYK_TOKEN }) : process.env;
     const execOptions = { timeout: DEFAULT_SNYK_SCAN_TIMEOUT, env, cwd: root };
     const { stdout } = await this.execFileAsync("snyk", ["test", "--json"], execOptions);
 
-    return JSON.parse(stdout);
+    const result = JSON.parse(stdout);
+    return result;
   }
 
   async fetchAlerts(
@@ -102,19 +105,23 @@ export class SnykCLIProvider {
     options: { root?: string } = {},
   ): Promise<SecurityAlert[]> {
     if (!(await this.validatePrerequisites())) {
-      return [];
+      const alerts: SecurityAlert[] = [];
+      return alerts;
     }
 
     try {
-      return await this.fetchSnykAlerts(options.root);
+      const alerts = await this.fetchSnykAlerts(options.root);
+      return alerts;
     } catch (error: unknown) {
-      return this.handleSnykScanError(error);
+      const alerts = this.handleSnykScanError(error);
+      return alerts;
     }
   }
 
   private async fetchSnykAlerts(root?: string): Promise<SecurityAlert[]> {
     const result = await this.runSnykScan(root);
-    return this.convertSnykVulnerabilities(result);
+    const snykAlerts = this.convertSnykVulnerabilities(result);
+    return snykAlerts;
   }
 
   private handleSnykScanError(error: unknown): SecurityAlert[] {
@@ -125,7 +132,8 @@ export class SnykCLIProvider {
     }
 
     this.log.debug("Snyk scan failed", "fetchAlerts", { error });
-    const reason = error instanceof Error ? error.message : "Unknown error";
+    const isError = error instanceof Error;
+    const reason = isError ? error.message : "Unknown error";
 
     if (this.strict) {
       throw new Error(
@@ -134,7 +142,8 @@ export class SnykCLIProvider {
     }
 
     this.log.warn(this.createScanWarning(reason), "fetchAlerts");
-    return [];
+    const result: SecurityAlert[] = [];
+    return result;
   }
 
   private parseAlertsFromError(error: unknown): SecurityAlert[] | undefined {
@@ -145,7 +154,8 @@ export class SnykCLIProvider {
     }
 
     try {
-      return this.convertSnykVulnerabilities(JSON.parse(stdout));
+      const alertsFromError = this.convertSnykVulnerabilities(JSON.parse(stdout));
+      return alertsFromError;
     } catch {
       this.log.debug("Failed to parse Snyk error output", "fetchAlerts", { error });
       return undefined;
@@ -153,52 +163,52 @@ export class SnykCLIProvider {
   }
 
   private createScanWarning(reason: string): string {
-    return (
+    const scanWarning =
       `Snyk security check failed. Your dependencies were NOT checked. ` +
-      `Reason: ${reason}. Run with --debug for details or --strict to fail on errors.`
-    );
+      `Reason: ${reason}. Run with --debug for details or --strict to fail on errors.`;
+    return scanWarning;
   }
 
   private convertSnykVulnerabilities(snykResult: SnykResult): SecurityAlert[] {
     const hasInvalidVulnerabilities =
       !snykResult.vulnerabilities || !Array.isArray(snykResult.vulnerabilities);
     if (hasInvalidVulnerabilities) {
-      return [];
+      const result: SecurityAlert[] = [];
+      return result;
     }
 
-    return snykResult.vulnerabilities.map((vuln) => this.convertVulnToAlert(vuln));
+    const alerts = snykResult.vulnerabilities.map((vuln) => this.convertVulnToAlert(vuln));
+    return alerts;
   }
 
   private convertVulnToAlert(vuln: SnykAlertVulnerability): SecurityAlert {
     const cves = vuln.identifiers?.CVE || [];
     const base = this.createSnykAlertBase(vuln);
     if (cves.length === 0) return base;
-    return Object.assign({}, base, { cves });
+    const result = Object.assign({}, base, { cves });
+    return result;
   }
 
   private createSnykAlertBase(vuln: SnykAlertVulnerability) {
     const patchedVersion = this.extractPatchedVersion(vuln);
     const packageName = vuln.packageName || vuln.name || "";
     const fixAvailable = Boolean(patchedVersion);
-
-    return {
-      packageName,
-      currentVersion: vuln.version,
-      vulnerableVersions: vuln.semver?.vulnerable || "",
-      patchedVersion,
-      severity: this.normalizeSeverity(vuln.severity),
-      title: vuln.title,
-      description: vuln.description,
-      url: vuln.url || `https://snyk.io/vuln/${vuln.id}`,
-      fixAvailable,
-    };
+    const { version: currentVersion, title, description } = vuln;
+    const vulnerableVersions = vuln.semver?.vulnerable || "";
+    const severity = this.normalizeSeverity(vuln.severity);
+    const url = vuln.url || `https://snyk.io/vuln/${vuln.id}`;
+    const versions = { packageName, currentVersion, vulnerableVersions, patchedVersion };
+    const advisory = { severity, title, description, url, fixAvailable };
+    const snykAlertBase = Object.assign({}, versions, advisory);
+    return snykAlertBase;
   }
 
   private extractPatchedVersion(vuln: SnykAlertVulnerability): string | undefined {
     const fixedIn = vuln.fixedIn;
     const hasFixedVersion = fixedIn && fixedIn.length > 0;
     if (hasFixedVersion) {
-      return fixedIn[0];
+      const patchedVersion = fixedIn[0];
+      return patchedVersion;
     }
 
     const upgradePath = vuln.upgradePath;
@@ -206,7 +216,8 @@ export class SnykCLIProvider {
     if (hasUpgradeTarget) {
       const lastItem = upgradePath[upgradePath.length - 1];
       if (typeof lastItem === "string") {
-        return lastItem.split("@")[1];
+        const upgradeVersion = lastItem.split("@")[1];
+        return upgradeVersion;
       }
     }
 

@@ -11,9 +11,6 @@ import type { OverrideSource, OverrideType } from "./types";
 
 const log = logger({ file: "overrides.ts", isLogging: IS_DEBUGGING });
 
-const hasEntries = (obj: Record<string, unknown> | undefined): boolean =>
-  Object.keys(obj ?? {}).length > 0;
-
 const buildOverrideTypes = (
   overrides: Record<string, OverrideValue>,
   pnpm: { overrides?: Record<string, OverrideValue> } | undefined,
@@ -21,19 +18,12 @@ const buildOverrideTypes = (
 ): OverrideType[] => {
   const pnpmOverrides = pnpm?.overrides || {};
 
-  return [
+  const overrideTypes: OverrideType[] = [
     { type: "overrides", overrides },
     { type: "pnpmOverrides", overrides: pnpmOverrides },
     { type: "resolutions", overrides: resolutions },
   ];
-};
-
-const filterNonEmptyOverrides = (overrideTypes: OverrideType[]): OverrideType[] => {
-  return overrideTypes.filter(({ overrides }) => Object.keys(overrides).length > 0);
-};
-
-const hasMultipleOverrideTypes = (overrideTypes: OverrideType[]): boolean => {
-  return overrideTypes.length > 1;
+  return overrideTypes;
 };
 
 export const defineOverride = ({
@@ -41,68 +31,68 @@ export const defineOverride = ({
   pnpm = {},
   resolutions = {},
 }: OverridesConfig = {}) => {
-  const hasOverrides = hasEntries(overrides);
-  const hasPnpmOverrides = hasEntries(pnpm?.overrides);
-  const hasResolutions = hasEntries(resolutions);
-  const hasAny = hasOverrides || hasPnpmOverrides || hasResolutions;
-
-  if (!hasAny) return undefined;
-
   const overrideTypes = buildOverrideTypes(overrides, pnpm, resolutions);
-  const nonEmptyTypes = filterNonEmptyOverrides(overrideTypes);
-  const hasMultiple = hasMultipleOverrideTypes(nonEmptyTypes);
+  const nonEmptyTypes = overrideTypes.filter(
+    ({ overrides: values }) => Object.keys(values).length > 0,
+  );
+  const hasMultiple = nonEmptyTypes.length > 1;
 
   if (hasMultiple) {
     log.error("Only 1 override object allowed", "defineOverride");
     return undefined;
   }
 
-  return nonEmptyTypes[0];
-};
-
-const normalizeOverrides = (initialOverrides: Record<string, OverrideValue>): OverridesType => {
-  const overridesItems = Object.keys(initialOverrides);
-
-  return overridesItems.reduce((acc, name) => {
-    const value = initialOverrides[name];
-    acc[name] = value;
-    return acc;
-  }, {} as OverridesType);
+  const [override] = nonEmptyTypes;
+  return override;
 };
 
 const buildPnpmResult = (overrides: OverridesType): ResolveOverrides => {
-  return { type: "pnpm", pnpm: { overrides } };
+  const pnpm = { overrides };
+  const result: ResolveOverrides = { type: "pnpm", pnpm };
+  return result;
 };
 
 const buildResolutionsResult = (overrides: OverridesType): ResolveOverrides => {
-  return {
-    type: "resolutions",
-    resolutions: overrides as Record<string, string>,
-  };
+  const resolutions = overrides as Record<string, string>;
+  const result: ResolveOverrides = { type: "resolutions", resolutions };
+  return result;
 };
 
 const buildNpmResult = (overrides: OverridesType): ResolveOverrides => {
-  return { type: "npm", overrides };
+  const result: ResolveOverrides = { type: "npm", overrides };
+  return result;
 };
 
 const buildResultByType = (type: string, overrides: OverridesType): ResolveOverrides => {
-  if (type === "pnpmOverrides") return buildPnpmResult(overrides);
-  if (type === "resolutions") return buildResolutionsResult(overrides);
-  return buildNpmResult(overrides);
+  if (type === "pnpmOverrides") {
+    const resultByType: ResolveOverrides = buildPnpmResult(overrides);
+    return resultByType;
+  }
+  if (type === "resolutions") {
+    const result: ResolveOverrides = buildResolutionsResult(overrides);
+    return result;
+  }
+  const result2: ResolveOverrides = buildNpmResult(overrides);
+  return result2;
 };
 
 export const resolveOverridesFromSource = (source: OverrideSource): ResolveOverrides => {
   if (Object.keys(source.overrides).length === 0) return undefined;
-  if (source.field === "resolutions") return buildResolutionsResult(source.overrides);
-  if (source.packageManager === "pnpm") return buildPnpmResult(source.overrides);
-  return buildNpmResult(source.overrides);
+  if (source.field === "resolutions") {
+    const overridesFromSource: ResolveOverrides = buildResolutionsResult(source.overrides);
+    return overridesFromSource;
+  }
+  if (source.packageManager === "pnpm") {
+    const result: ResolveOverrides = buildPnpmResult(source.overrides);
+    return result;
+  }
+  const result2: ResolveOverrides = buildNpmResult(source.overrides);
+  return result2;
 };
 
 export const resolveOverrides = ({ config = {} }: ResolveResolutionOptions): ResolveOverrides => {
   const overrideData = defineOverride(config);
-  const hasNoOverrideData = !overrideData;
-
-  if (hasNoOverrideData) {
+  if (!overrideData) {
     log.debug("No overrides configuration found", "resolveOverrides");
     return undefined;
   }
@@ -117,74 +107,57 @@ export const resolveOverrides = ({ config = {} }: ResolveResolutionOptions): Res
     return undefined;
   }
 
-  const overrides = normalizeOverrides(initialOverrides);
-  return buildResultByType(type, overrides);
-};
-
-const getResolutions = (data: ResolveOverrides): OverridesType | undefined => {
-  return data?.resolutions;
-};
-
-const getPnpmOverrides = (data: ResolveOverrides): OverridesType | undefined => {
-  return data?.pnpm?.overrides;
-};
-
-const getNpmOverrides = (data: ResolveOverrides): OverridesType | undefined => {
-  return data?.overrides;
+  const overrides = Object.assign({}, initialOverrides);
+  const result: ResolveOverrides = buildResultByType(type, overrides);
+  return result;
 };
 
 export const getOverridesByType = (data: ResolveOverrides): OverridesType | undefined => {
   const type = data?.type;
-  const hasNoType = !type;
-
-  if (hasNoType) {
+  if (!type) {
     log.error("no type found", "getOverridesByType");
     return undefined;
   }
 
-  if (type === "resolutions") return getResolutions(data);
-  if (type === "pnpm") return getPnpmOverrides(data);
-  return getNpmOverrides(data);
-};
-
-const shouldKeepOverride = (key: string, removableItems: string[]): boolean => {
-  return !removableItems.includes(key);
+  if (type === "resolutions") {
+    const { resolutions } = data!;
+    return resolutions;
+  }
+  if (type === "pnpm") {
+    const { overrides: pnpmOverrides } = data?.pnpm ?? {};
+    return pnpmOverrides;
+  }
+  const { overrides } = data!;
+  return overrides;
 };
 
 const filterRemovedOverrides = (
   overrides: OverridesType,
   removableItems: string[],
 ): OverridesType => {
-  return Object.entries(overrides).reduce((acc, [key, value]) => {
-    const shouldKeep = shouldKeepOverride(key, removableItems);
-
-    if (shouldKeep) {
-      acc[key] = value;
-    }
-
-    return acc;
-  }, {} as OverridesType);
+  const removed = new Set(removableItems);
+  const entries = Object.entries(overrides).filter(([key]) => !removed.has(key));
+  const remaining = Object.fromEntries(entries);
+  return remaining;
 };
 
 export const updateOverrides = (
   overrideData: ResolveOverrides,
   removableItems: string[],
 ): OverridesType | undefined => {
-  const hasNoData = !overrideData;
-
-  if (hasNoData) return undefined;
+  if (!overrideData) return undefined;
 
   const overrides = getOverridesByType(overrideData);
-  const hasNoOverrides = !overrides || Object.keys(overrides).length === 0;
-
-  if (hasNoOverrides) {
+  const hasOverrides = overrides && Object.keys(overrides).length > 0;
+  if (!hasOverrides) {
     log.debug("No overrides found to update", "updateOverrides");
     return undefined;
   }
 
-  return filterRemovedOverrides(overrides, removableItems);
+  const result = filterRemovedOverrides(overrides, removableItems);
+  return result;
 };
 
 export { applyOverridesToSourceConfig, resolveOverrideSource, writeOverrideSource } from "./utils";
-export { parsePnpmWorkspaceOverrides, updatePnpmWorkspaceOverrides } from "./yaml";
+export { parsePnpmWorkspaceOverrides, updatePnpmWorkspaceOverrides } from "../../mgrs/pnpm/utils";
 export type { OverrideSource, OverrideSourceKind } from "./types";

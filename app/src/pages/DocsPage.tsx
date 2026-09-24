@@ -1,7 +1,13 @@
 import { Suspense, useEffect, useRef } from "react";
 import { useParams, Link, Navigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
-import { getDocBySlug, getDocComponent, getDocContent, type LazyDocComponent } from "@/content";
+import {
+  getDocBySlug,
+  getDocComponent,
+  getDocContent,
+  type LazyDocComponent,
+  type DocMeta,
+} from "@/content";
 import { extractHeadings } from "@/lib/mdx/extractHeadings";
 import { TocWithScrollspy } from "@/components/docs/TocWithScrollspy";
 import { mdxComponents } from "@/components/docs/MDXComponents";
@@ -17,11 +23,7 @@ const styles = {
     "not-prose flex min-h-[calc(100vh-220px)] w-full items-center justify-center rounded-md border border-base-content/10 bg-base-100/70",
 } as const;
 
-export function DocsPage() {
-  const { slug } = useParams({ from: "/docs/$slug" });
-  const contentRef = useRef<HTMLElement>(null);
-  const doc = getDocBySlug(slug);
-
+function useHashScroll(contentRef: React.RefObject<HTMLElement | null>, slug: string) {
   useEffect(() => {
     const targetId = window.location.hash.slice(1);
     const hasTargetId = targetId.length > 0;
@@ -30,55 +32,56 @@ export function DocsPage() {
     const content = contentRef.current;
     if (!content) return;
 
-    let frameId: number | undefined;
-    const scrollToHash = () => {
-      const target = Array.from(content.querySelectorAll<HTMLElement>("[id]")).find(
-        (element) => element.id === targetId,
-      );
-      if (!target) return false;
-
-      frameId = window.requestAnimationFrame(() => target.scrollIntoView({ block: "start" }));
-      return true;
-    };
-
-    const observer = new MutationObserver(() => {
-      if (scrollToHash()) observer.disconnect();
-    });
-    const targetFound = scrollToHash();
-    if (!targetFound) observer.observe(content, { childList: true, subtree: true });
-
-    return () => {
-      observer.disconnect();
-      if (frameId !== undefined) window.cancelAnimationFrame(frameId);
-    };
+    const cleanup = observeHashTarget(content, targetId);
+    return cleanup;
   }, [contentRef, slug]);
+}
 
+function observeTarget(content: HTMLElement, scrollToHash: () => boolean) {
+  const observer = new MutationObserver(() => {
+    if (scrollToHash()) observer.disconnect();
+  });
+  const targetFound = scrollToHash();
+  if (!targetFound) observer.observe(content, { childList: true, subtree: true });
+  return observer;
+}
+
+function observeHashTarget(content: HTMLElement, targetId: string) {
+  let frameId: number | undefined;
+  const scrollToHash = () => {
+    const target = Array.from(content.querySelectorAll<HTMLElement>("[id]")).find(
+      (element) => element.id === targetId,
+    );
+    if (!target) return false;
+
+    frameId = window.requestAnimationFrame(() => target.scrollIntoView({ block: "start" }));
+    return true;
+  };
+
+  const observer = observeTarget(content, scrollToHash);
+
+  return () => {
+    observer.disconnect();
+    if (frameId !== undefined) window.cancelAnimationFrame(frameId);
+  };
+}
+
+export function DocsPage() {
+  const { slug } = useParams({ from: "/docs/$slug" });
+  const contentRef = useRef<HTMLElement>(null);
+  const doc = getDocBySlug(slug);
+  useHashScroll(contentRef, slug);
   if (!doc) {
     return <Navigate to="/docs/$slug/" params={{ slug: "introduction" }} />;
   }
 
-  const Content = getDocComponent(slug);
   const content = getDocContent(slug);
   const headings = content ? extractHeadings(content) : [];
-  const { prevItem, nextItem } = getPagination(slug);
 
   return (
     <section className={styles.page}>
       <MathStyles enabled={doc.usesMath} />
-      <article className={styles.article}>
-        <Breadcrumbs title={doc.title} />
-
-        <section ref={contentRef} className={styles.content}>
-          <header>
-            <h1>{doc.title}</h1>
-            <p>{doc.description}</p>
-          </header>
-
-          <MDXContent Content={Content} />
-        </section>
-
-        <Pagination prevItem={prevItem} nextItem={nextItem} />
-      </article>
+      <DocArticle doc={doc} slug={slug} contentRef={contentRef} />
 
       <aside className="hidden xl:block">
         <TocWithScrollspy key={slug} headings={headings} contentRef={contentRef} />
@@ -121,5 +124,42 @@ function DocsLoadingState() {
     <div className={styles.loading} role="status" aria-label="Loading documentation">
       <Loader2 className="size-8 animate-spin text-primary" aria-hidden="true" />
     </div>
+  );
+}
+
+interface DocArticleProps {
+  doc: DocMeta;
+  slug: string;
+  contentRef: React.RefObject<HTMLElement | null>;
+}
+function DocArticle({ doc, slug, contentRef }: DocArticleProps) {
+  const Content = getDocComponent(slug);
+  const { prevItem, nextItem } = getPagination(slug);
+  return (
+    <article className={styles.article}>
+      <Breadcrumbs title={doc.title} />
+
+      <DocBody doc={doc} Content={Content} contentRef={contentRef} />
+
+      <Pagination prevItem={prevItem} nextItem={nextItem} />
+    </article>
+  );
+}
+
+interface DocBodyProps {
+  doc: DocMeta;
+  Content: LazyDocComponent | undefined;
+  contentRef: React.RefObject<HTMLElement | null>;
+}
+function DocBody({ doc, Content, contentRef }: DocBodyProps) {
+  return (
+    <section ref={contentRef} className={styles.content}>
+      <header>
+        <h1>{doc.title}</h1>
+        <p>{doc.description}</p>
+      </header>
+
+      <MDXContent Content={Content} />
+    </section>
   );
 }

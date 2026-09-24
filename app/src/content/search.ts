@@ -7,26 +7,32 @@ export const buildSearchDocuments = (
   docs: readonly DocMeta[],
   readContent: ReadDocContent,
 ): SearchDocument[] =>
-  docs.map((doc) => {
-    const content = readContent(doc.slug) ?? "";
-    return {
-      title: doc.title,
-      description: doc.description,
+  docs.map(({ title, description, slug }) => {
+    const content = readContent(slug) ?? "";
+    const result = {
+      title,
+      description,
       content,
-      slug: doc.slug,
+      slug,
     };
+    return result;
   });
 
 export const createSearchIndex = (documents: readonly SearchDocument[]) => {
   const keys = ["title", "description", "content"];
-  return new Fuse(documents, { keys, threshold: 0.3, ignoreLocation: true });
+  const searchIndex = new Fuse(documents, { keys, threshold: 0.3, ignoreLocation: true });
+  return searchIndex;
 };
 
 export const getSearchResults = (index: Fuse<SearchDocument>, query: string): SearchDocument[] => {
   const normalizedQuery = query.trim();
-  if (!normalizedQuery) return [];
-  return index
+  if (!normalizedQuery) {
+    const empty: SearchDocument[] = [];
+    return empty;
+  }
+  const searchResults = index
     .search(normalizedQuery)
     .slice(0, 5)
     .map((result) => result.item);
+  return searchResults;
 };

@@ -1,12 +1,84 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "options": {
+    "denyWarnings": true,
+    "maxWarnings": 0,
+    "reportUnusedDisableDirectives": "error"
+  },
   "jsPlugins": [
     {
       "name": "legibility",
-      "specifier": "eslint-plugin-legibility"
+      "specifier": "oxlint-plugin-legibility"
     }
   ],
   "rules": {
+    "legibility/hoist-if-operators": [
+      "error",
+      {
+        "max": 0
+      }
+    ],
+    "legibility/max-array-chain-depth": "error",
+    "legibility/max-control-flow-depth": [
+      "error",
+      {
+        "max": 2
+      }
+    ],
+    "legibility/max-expression-operators": [
+      "error",
+      {
+        "max": 3
+      }
+    ],
+    "legibility/max-function-parameters": "error",
+    "legibility/no-complex-ternaries": [
+      "error",
+      {
+        "max": 1
+      }
+    ],
+    "legibility/no-computed-values": [
+      "error",
+      {
+        "max": 0,
+        "objectValues": "named",
+        "returnValues": "named"
+      }
+    ],
+    "legibility/no-hidden-side-effects": "error",
+    "legibility/no-identity-array-callback": "error",
+    "legibility/no-mixed-filename-casing": "error",
+    "legibility/no-redundant-boolean-logic": "error",
+    "legibility/no-redundant-nullish-fallback": "error",
+    "legibility/no-trivial-wrapper-functions": "error",
+    "legibility/no-unnecessary-block-callback": "error",
+    "legibility/prefer-early-return": "error",
+    "legibility/prefer-flat-map": "error",
+    "legibility/prefer-guard-clauses": "error",
+    "legibility/prefer-object-lookup": "error",
+    "legibility/prefer-positive-condition-names": "error",
+    "legibility/no-automated-comment-attribution": "error",
+    "legibility/no-stacked-comments": "error",
+    "legibility/no-unmatched-comments": "error",
+    "legibility/require-jsdoc-multiline-comments": "error",
+    "legibility/no-direct-node-bin-smoke": "error",
+    "legibility/no-quadratic-patterns": "error",
+    "legibility/no-repeated-collection-search": "error",
+    "legibility/no-single-use-renaming-alias": "error",
+    "legibility/no-small-collection-conversion": "error",
+    "legibility/no-standalone-array-mutations": "error",
+    "legibility/no-unnecessary-async": "error",
+    "complexity": ["error", 10],
+    "max-lines-per-function": [
+      "error",
+      {
+        "max": 20,
+        "skipBlankLines": true,
+        "skipComments": true,
+        "IIFEs": true
+      }
+    ],
     "no-restricted-properties": [
       "error",
       {
@@ -15,33 +87,6 @@
         "message": "Promise.all is not allowed. Use composable async work or Promise.allSettled."
       }
     ],
-    "legibility/hoist-if-operators": [
-      "error",
-      {
-        "max": 0
-      }
-    ],
-    "legibility/max-expression-operators": [
-      "error",
-      {
-        "max": 4
-      }
-    ],
-    "legibility/no-complex-ternaries": [
-      "error",
-      {
-        "max": 2
-      }
-    ],
-    "legibility/no-computed-values": [
-      "error",
-      {
-        "max": 1
-      }
-    ],
-    "legibility/no-hidden-side-effects": "error",
-    "legibility/no-quadratic-patterns": "error",
-    "legibility/no-standalone-array-mutations": "error",
     "legibility/prefer-concat-object-assign": "error",
     "legibility/require-executable-shebang": [
       "error",
@@ -51,6 +96,12 @@
     ]
   },
   "overrides": [
+    {
+      "files": ["src/mgrs/**/*.ts"],
+      "rules": {
+        "legibility/require-filename-matches-dirname": ["error", { "schema": "index" }]
+      }
+    },
     {
       "files": [
         "src/**/*.ts",
@@ -63,34 +114,11 @@
       "rules": {
         "require-await": "error"
       }
-    },
-    {
-      "files": ["scripts/**/*.js", "scripts/**/*.ts"],
-      "rules": {
-        "legibility/hoist-if-operators": "off",
-        "legibility/max-expression-operators": "off",
-        "legibility/no-complex-ternaries": "off",
-        "legibility/no-computed-values": "off",
-        "legibility/no-hidden-side-effects": "off",
-        "legibility/no-quadratic-patterns": "off",
-        "legibility/no-standalone-array-mutations": "off",
-        "legibility/prefer-concat-object-assign": "off",
-        "legibility/require-executable-shebang": "off",
-        "legibility/no-direct-node-bin-smoke": [
-          "error",
-          {
-            "entryPatterns": [
-              "dist/index.js",
-              "dist/cli/index.js",
-              "src/index.ts",
-              "src/cli/index.ts",
-              "app/*/index.js",
-              "*/dist/index.js",
-              "*/dist/cli/index.js"
-            ]
-          }
-        ]
-      }
     }
-  ]
+  ],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "error"
+  }
 }

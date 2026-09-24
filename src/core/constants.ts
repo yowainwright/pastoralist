@@ -6,6 +6,6 @@ export const PATCH_PATTERNS = [
 ];
 
 export const PACKAGE_JSON = "package.json";
-export const PNPM_WORKSPACE_FILE = "pnpm-workspace.yaml";
+export { PNPM_WORKSPACE_FILE } from "../mgrs/pnpm/constants";
 export const BACKUP_CACHE_DIR = "backups";
 export const DEFAULT_MEMORY_CACHE_TTL = 1000 * 60 * 60;

@@ -5,7 +5,8 @@ const realPath = (path: string | undefined): string => {
   if (!path) return "";
 
   try {
-    return realpathSync(path);
+    const result = realpathSync(path);
+    return result;
   } catch {
     return "";
   }
@@ -14,5 +15,6 @@ const realPath = (path: string | undefined): string => {
 export const isMainModule = (metaUrl: string): boolean => {
   const currentFile = realPath(fileURLToPath(metaUrl));
   const entryFile = realPath(process.argv[1]);
-  return Boolean(currentFile) && currentFile === entryFile;
+  const result = Boolean(currentFile) && currentFile === entryFile;
+  return result;
 };

@@ -11,10 +11,15 @@
 [socket-badge]: https://socket.dev/api/badge/npm/package/pastoralist
 [socket-package]: https://socket.dev/npm/package/pastoralist
 
-Pastoralist tracks project package manager [overrides](https://docs.npmjs.com/cli/v11/configuring-npm/package-json#overrides).
+Pastoralist tracks your dependency [overrides](https://docs.npmjs.com/cli/v11/configuring-npm/package-json#overrides):
+why they’re there, which packages need them, and when you can remove them.
+
 Overrides often start as real fixes: a CVE patch, a compatibility pin, a fork,
-or a temporary transitive dependency workaround. Months later, overrides can remain in `package.json`,
-and no one knows why—until now.
+or a temporary transitive dependency workaround.
+
+Months later, you might not remember why you added it. Was it a security fix?
+A transitive bug? Which packages still need it? Can you remove it? The override
+sets the version, and with Pastoralist, you have an appendix that keeps the context.
 
 <table width="100%">
 <thead>
@@ -55,9 +60,8 @@ and no one knows why—until now.
 </tbody>
 </table>
 
-Pastoralist manages your package manager overrides AND provides an appendix ledger telling you why the overrides are there.
-Better yet, Pastoralist will manage your overrides for you: cleaning them up when possible and even
-helping you reduce CVEs!
+Use Pastoralist to document dependency overrides, remove the overrides you don't
+need anymore, and track override security fixes.
 
 ---
 
@@ -191,7 +195,9 @@ npx pastoralist --setup-hook
 
 ### Track Overrides Across Package Managers
 
-Pastoralist reads each package manager's native override field.
+Pastoralist works with npm and Bun `overrides`, pnpm `pnpm.overrides`, and Yarn
+`resolutions`. It can also tie security fixes, patch files, workspace packages,
+and CI checks to the same record.
 
 ```jsonc
 {
@@ -206,7 +212,7 @@ Pastoralist reads each package manager's native override field.
 
 ### Record Why an Override Exists
 
-The appendix keeps the reason beside the packages that still need the override.
+The appendix shows why the override was added, why it is needed, or if it can be removed.
 
 ```diff
  {

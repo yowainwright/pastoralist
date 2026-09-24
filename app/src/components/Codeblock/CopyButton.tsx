@@ -3,13 +3,18 @@ import { createMachine } from "xstate";
 import { useMachine } from "@xstate/react";
 import { Check, Copy } from "lucide-react";
 
+const COPY_EVENTS = { COPY: "copied" };
+const IDLE_STATE = { on: COPY_EVENTS };
+const RESET_DELAY = { 2000: "idle" };
+const COPIED_STATE = { after: RESET_DELAY };
+const COPY_STATES = {
+  idle: IDLE_STATE,
+  copied: COPIED_STATE,
+};
 const copyMachine = createMachine({
   id: "copy",
   initial: "idle",
-  states: {
-    idle: { on: { COPY: "copied" } },
-    copied: { after: { 2000: "idle" } },
-  },
+  states: COPY_STATES,
 });
 
 interface CopyButtonProps {
@@ -30,7 +35,7 @@ const writeClipboard = async (code: string): Promise<boolean> => {
   }
 };
 
-export function CopyButton({ code }: CopyButtonProps) {
+function useCopyState(code: string) {
   const [snapshot, send] = useMachine(copyMachine);
   const copied = snapshot.matches("copied");
 
@@ -39,6 +44,12 @@ export function CopyButton({ code }: CopyButtonProps) {
     if (!copiedSuccessfully) return;
     send({ type: "COPY" });
   };
+  const state = { copied, handleCopy };
+  return state;
+}
+
+export function CopyButton({ code }: CopyButtonProps) {
+  const { copied, handleCopy } = useCopyState(code);
 
   const ariaLabel = copied ? "Copied!" : "Copy code";
   const icon = getIcon(copied);

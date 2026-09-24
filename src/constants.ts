@@ -31,47 +31,62 @@ const colorize = (color: string, text: string): string => `${color}${text}${ANSI
 
 export const BRAND = BRAND_PREFIX;
 
+const success = colorize(ANSI.FG_GREEN, "\u{25CF}");
+const error = colorize(ANSI.FG_RED, "\u{25A0}");
+const warning = colorize(ANSI.FG_YELLOW, "\u{25B2}");
+const info = colorize(ANSI.FG_CYAN, "\u{25C6}");
+const arrow = colorize(ANSI.FG_CYAN, "\u{25B8}");
+const bullet = colorize(ANSI.FG_GRAY, "\u{25AB}");
+const check = colorize(ANSI.FG_GREEN, "\u{2713}");
+const shield = colorize(ANSI.FG_CYAN, "\u{2B22}");
+const step = colorize(ANSI.FG_CYAN, "\u{25B6}");
+const section = colorize(ANSI.FG_CYAN, "\u{25BA}");
+const search = colorize(ANSI.FG_CYAN, "\u{25C7}");
+const edit = colorize(ANSI.FG_YELLOW, "\u{25C6}");
+const skip = colorize(ANSI.FG_GRAY, "\u{25CB}");
+const hint = colorize(ANSI.FG_YELLOW, "\u{1F4A1}");
+
 export const ICON = {
-  success: colorize(ANSI.FG_GREEN, "\u{25CF}"),
-  error: colorize(ANSI.FG_RED, "\u{25A0}"),
-  warning: colorize(ANSI.FG_YELLOW, "\u{25B2}"),
-  info: colorize(ANSI.FG_CYAN, "\u{25C6}"),
-  arrow: colorize(ANSI.FG_CYAN, "\u{25B8}"),
-  bullet: colorize(ANSI.FG_GRAY, "\u{25AB}"),
-  check: colorize(ANSI.FG_GREEN, "\u{25CF}"),
-  CHECK: colorize(ANSI.FG_GREEN, "\u{2713}"),
-  SHIELD: colorize(ANSI.FG_CYAN, "\u{2B22}"),
-  step: colorize(ANSI.FG_CYAN, "\u{25B6}"),
-  section: colorize(ANSI.FG_CYAN, "\u{25BA}"),
-  search: colorize(ANSI.FG_CYAN, "\u{25C7}"),
-  edit: colorize(ANSI.FG_YELLOW, "\u{25C6}"),
-  folder: colorize(ANSI.FG_CYAN, "\u{25B8}"),
-  skip: colorize(ANSI.FG_GRAY, "\u{25CB}"),
-  help: colorize(ANSI.FG_CYAN, "\u{25C7}"),
-  hint: colorize(ANSI.FG_YELLOW, "\u{1F4A1}"),
+  success,
+  error,
+  warning,
+  info,
+  arrow,
+  bullet,
+  check: success,
+  CHECK: check,
+  SHIELD: shield,
+  step,
+  section,
+  search,
+  edit,
+  folder: arrow,
+  skip,
+  help: search,
+  hint,
 } as const;
 
 export const PREFIX = {
-  success: ICON.success,
-  error: ICON.error,
-  warning: ICON.warning,
-  info: ICON.info,
-  step: ICON.step,
-  save: ICON.arrow,
-  next: ICON.bullet,
+  success,
+  error,
+  warning,
+  info,
+  step,
+  save: arrow,
+  next: bullet,
 } as const;
+
+const configStep = `${ICON.step} Step 1: Configuration Location`;
+const workspaceStep = `${ICON.step} Step 2: Workspace Configuration`;
+const securityStep = `${ICON.step} Step 3: Security Configuration`;
 
 export const STEP = {
-  config: `${ICON.step} Step 1: Configuration Location`,
-  workspace: `${ICON.step} Step 2: Workspace Configuration`,
-  security: `${ICON.step} Step 3: Security Configuration`,
+  config: configStep,
+  workspace: workspaceStep,
+  security: securityStep,
 } as const;
 
-const BRIGHT = ANSI.BOLD;
-const GOLD = ANSI.FG_GOLD;
-const RESET = ANSI.RESET;
-
-export const MSG_HERD_SAFE = `${BRIGHT}${GOLD}The herd is safe!${RESET} ${SHEEP}`;
+export const MSG_HERD_SAFE = `${ANSI.BOLD}${ANSI.FG_GOLD}The herd is safe!${ANSI.RESET} ${SHEEP}`;
 
 export const HINT_RC_FILE_ID = "rc-file-suggestion";
 export const HINT_RC_FILE_TEXT =

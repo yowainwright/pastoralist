@@ -67,27 +67,32 @@ export const EMPTY_TOKEN_INFO: TokenInfo = {
   optional: false,
 };
 
+const githubScopes = ["repo"];
+const githubTokenInfo: TokenInfo = {
+  required: false,
+  optional: true,
+  envVar: "GITHUB_TOKEN",
+  createUrl:
+    "https://github.com/settings/tokens/new?description=Pastoralist%20Security&scopes=repo",
+  scopes: githubScopes,
+};
+const snykTokenInfo: TokenInfo = {
+  required: true,
+  optional: false,
+  envVar: "SNYK_TOKEN",
+  createUrl: "https://app.snyk.io/account",
+};
+const socketTokenInfo: TokenInfo = {
+  required: true,
+  optional: false,
+  envVar: "SOCKET_SECURITY_API_KEY",
+  createUrl: "https://socket.dev/dashboard/settings",
+};
+
 export const TOKEN_INFO_BY_PROVIDER: Partial<Record<SecurityProvider, TokenInfo>> = {
-  github: {
-    required: false,
-    optional: true,
-    envVar: "GITHUB_TOKEN",
-    createUrl:
-      "https://github.com/settings/tokens/new?description=Pastoralist%20Security&scopes=repo",
-    scopes: ["repo"],
-  },
-  snyk: {
-    required: true,
-    optional: false,
-    envVar: "SNYK_TOKEN",
-    createUrl: "https://app.snyk.io/account",
-  },
-  socket: {
-    required: true,
-    optional: false,
-    envVar: "SOCKET_SECURITY_API_KEY",
-    createUrl: "https://socket.dev/dashboard/settings",
-  },
+  github: githubTokenInfo,
+  snyk: snykTokenInfo,
+  socket: socketTokenInfo,
 } as const;
 
 export const INIT_MESSAGES = {
@@ -140,97 +145,113 @@ export const PROMPTS = {
 
 export const ONBOARDING_TITLE = "Pastoralist onboarding";
 
+const howItWorksLines = [
+  "Overrides select versions. The appendix records why they exist and what depends on them.",
+  "Your package manager installs those versions and updates the lockfile.",
+  "After changing overrides: install dependencies, run Pastoralist again, then run project checks.",
+];
+
+const humanSetupLines = [
+  "1. Inspect the project without writing files:",
+  "   npx pastoralist doctor",
+  "2. Add Pastoralist using your project's package manager (npm example):",
+  "   npm install pastoralist --save-dev",
+  "3. Preview, then update the override appendix:",
+  "   npx pastoralist --dry-run",
+  "   npx pastoralist",
+  "4. Optionally keep it current after installs:",
+  "   npx pastoralist --setup-hook",
+  "Use npx pastoralist init for the optional interactive config wizard.",
+];
+
+const agentSetupLines = [
+  "1. Preview skill installation:",
+  "   npx pastoralist --init agent-skill --dry-run",
+  "2. Install the Pastoralist skill:",
+  "   npx pastoralist --init agent-skill",
+  "3. Read .agents/skills/pastoralist/SKILL.md for setup, maintenance, and verification.",
+  "No Pastoralist repository scripts are needed in consumer projects.",
+];
+
+const setupPromptLines = [
+  "Set up Pastoralist in this repository.",
+  "Start with `npx pastoralist doctor` and inspect the current package manager setup.",
+  "Preview tracking with `npx pastoralist --dry-run` before applying changes.",
+  "Install the Pastoralist skill; add a GitHub Action or postinstall hook when appropriate.",
+  "Keep changes scoped to setup files, docs, and tests.",
+];
+
+const maintenancePromptLines = [
+  "Review this repository's Pastoralist setup.",
+  "Run `npx pastoralist --dry-run` and summarize stale overrides, security checks, and missing setup.",
+  "Do not remove overrides unless `npx pastoralist --remove-unused --dry-run` shows they are unused.",
+  "If setup is missing, propose the smallest script, skill, hook, or GitHub Action change.",
+];
+
+const agentLoopLines = [
+  "1. Run `npx pastoralist doctor`.",
+  "2. Read existing scripts, overrides, config, and the lockfile.",
+  "3. Apply the smallest needed setup command.",
+  "4. Run `npx pastoralist --dry-run`.",
+  "5. Report changed files and remaining manual steps.",
+];
+
+const githubActionLines = [
+  "Create .github/workflows/pastoralist.yml:",
+  "",
+  "```yaml",
+  "name: Override Check",
+  "on: [pull_request]",
+  "jobs:",
+  "  pastoralist:",
+  "    runs-on: ubuntu-latest",
+  "    steps:",
+  "      - uses: actions/checkout@v7",
+  "      - uses: yowainwright/pastoralist@v1",
+  "        with:",
+  "          mode: check",
+  "          check-security: false",
+  "```",
+];
+
+const commandLines = [
+  "npx pastoralist --dry-run",
+  "npx pastoralist --summary",
+  "npx pastoralist --checkSecurity",
+  "npx pastoralist --remove-unused",
+];
+
 export const ONBOARDING_SECTIONS: readonly OnboardingSection[] = [
   {
     title: "How it works",
-    lines: [
-      "Overrides select versions. The appendix records why they exist and what depends on them.",
-      "Your package manager installs those versions and updates the lockfile.",
-      "After changing overrides: install dependencies, run Pastoralist again, then run project checks.",
-    ],
+    lines: howItWorksLines,
   },
   {
     title: "Human quick start",
-    lines: [
-      "1. Inspect the project without writing files:",
-      "   npx pastoralist doctor",
-      "2. Add Pastoralist using your project's package manager (npm example):",
-      "   npm install pastoralist --save-dev",
-      "3. Preview, then update the override appendix:",
-      "   npx pastoralist --dry-run",
-      "   npx pastoralist",
-      "4. Optionally keep it current after installs:",
-      "   npx pastoralist --setup-hook",
-      "Use npx pastoralist init for the optional interactive config wizard.",
-    ],
+    lines: humanSetupLines,
   },
   {
     title: "Agent quick setup",
-    lines: [
-      "1. Preview skill installation:",
-      "   npx pastoralist --init agent-skill --dry-run",
-      "2. Install the Pastoralist skill:",
-      "   npx pastoralist --init agent-skill",
-      "3. Read .agents/skills/pastoralist/SKILL.md for setup, maintenance, and verification.",
-      "No Pastoralist repository scripts are needed in consumer projects.",
-    ],
+    lines: agentSetupLines,
   },
   {
     title: "Prompt for a setup agent",
-    lines: [
-      "Set up Pastoralist in this repository.",
-      "Start with `npx pastoralist doctor` and inspect the current package manager setup.",
-      "Preview tracking with `npx pastoralist --dry-run` before applying changes.",
-      "Install the Pastoralist skill; add a GitHub Action or postinstall hook when appropriate.",
-      "Keep changes scoped to setup files, docs, and tests.",
-    ],
+    lines: setupPromptLines,
   },
   {
     title: "Prompt for a maintenance agent",
-    lines: [
-      "Review this repository's Pastoralist setup.",
-      "Run `npx pastoralist --dry-run` and summarize stale overrides, security checks, and missing setup.",
-      "Do not remove overrides unless `npx pastoralist --remove-unused --dry-run` shows they are unused.",
-      "If setup is missing, propose the smallest script, skill, hook, or GitHub Action change.",
-    ],
+    lines: maintenancePromptLines,
   },
   {
     title: "Agent setup loop",
-    lines: [
-      "1. Run `npx pastoralist doctor`.",
-      "2. Read existing scripts, overrides, config, and the lockfile.",
-      "3. Apply the smallest needed setup command.",
-      "4. Run `npx pastoralist --dry-run`.",
-      "5. Report changed files and remaining manual steps.",
-    ],
+    lines: agentLoopLines,
   },
   {
     title: "GitHub Action setup",
-    lines: [
-      "Create .github/workflows/pastoralist.yml:",
-      "",
-      "```yaml",
-      "name: Override Check",
-      "on: [pull_request]",
-      "jobs:",
-      "  pastoralist:",
-      "    runs-on: ubuntu-latest",
-      "    steps:",
-      "      - uses: actions/checkout@v7",
-      "      - uses: yowainwright/pastoralist@v1",
-      "        with:",
-      "          mode: check",
-      "          check-security: false",
-      "```",
-    ],
+    lines: githubActionLines,
   },
   {
     title: "Useful commands",
-    lines: [
-      "npx pastoralist --dry-run",
-      "npx pastoralist --summary",
-      "npx pastoralist --checkSecurity",
-      "npx pastoralist --remove-unused",
-    ],
+    lines: commandLines,
   },
 ];

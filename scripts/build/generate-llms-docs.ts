@@ -66,15 +66,20 @@ export const nodeFileSystem: LlmsDocsFileSystem = {
 
 export const resolveLlmsDocsPaths = (appRoot = defaultAppRoot): LlmsDocsPaths => {
   const publicDir = resolve(appRoot, "public");
+  const contentIndexPath = resolve(appRoot, "src/content/constants.ts");
+  const docsDir = resolve(appRoot, "src/content/docs");
+  const llmsFullTxtPath = resolve(publicDir, "llms-full.txt");
+  const llmsTxtPath = resolve(publicDir, "llms.txt");
 
-  return {
+  const llmsDocsPaths: LlmsDocsPaths = {
     appRoot,
-    contentIndexPath: resolve(appRoot, "src/content/constants.ts"),
-    docsDir: resolve(appRoot, "src/content/docs"),
-    llmsFullTxtPath: resolve(publicDir, "llms-full.txt"),
-    llmsTxtPath: resolve(publicDir, "llms.txt"),
+    contentIndexPath,
+    docsDir,
+    llmsFullTxtPath,
+    llmsTxtPath,
     publicDir,
   };
+  return llmsDocsPaths;
 };
 
 export const parseDocOrder = (source: string): string[] =>
@@ -93,20 +98,36 @@ const parseFrontmatterLine = (line: string): [string, string] | undefined => {
   if (!/^[A-Za-z0-9_-]+$/.test(key)) return undefined;
 
   const rawValue = line.slice(separatorIndex + 1).trim();
-  if (!rawValue.startsWith('"')) return [key, rawValue];
-  if (!rawValue.endsWith('"')) return [key, rawValue];
-  return [key, rawValue.slice(1, -1)];
+  const isQuoted = rawValue.startsWith('"') && rawValue.endsWith('"');
+  const value = isQuoted ? rawValue.slice(1, -1) : rawValue;
+  const frontmatterLine: [string, string] = [key, value];
+  return frontmatterLine;
 };
 
 export const parseFrontmatter = (source: string): FrontmatterResult => {
-  if (!source.startsWith("---\n")) return { attributes: {}, body: source };
+  const attributes = {};
+  const unparsed = { attributes, body: source };
+  if (!source.startsWith("---\n")) {
+    return unparsed;
+  }
 
   const marker = "\n---";
   const endIndex = source.indexOf(marker, 4);
-  if (endIndex < 0) return { attributes: {}, body: source };
+  if (endIndex < 0) {
+    return unparsed;
+  }
 
-  const header = source.slice(4, endIndex);
   const bodyOffset = endIndex + marker.length;
+  const frontmatter = parseFrontmatterBody(source, endIndex, bodyOffset);
+  return frontmatter;
+};
+
+const parseFrontmatterBody = (
+  source: string,
+  endIndex: number,
+  bodyOffset: number,
+): FrontmatterResult => {
+  const header = source.slice(4, endIndex);
   let bodyStart = bodyOffset;
 
   if (source[bodyOffset] === "\n") {
@@ -120,7 +141,9 @@ export const parseFrontmatter = (source: string): FrontmatterResult => {
       .filter((entry): entry is [string, string] => Boolean(entry)),
   );
 
-  return { attributes, body: source.slice(bodyStart) };
+  const body = source.slice(bodyStart);
+  const frontmatter = { attributes, body };
+  return frontmatter;
 };
 
 export const readFrontmatter = parseFrontmatter;
@@ -139,12 +162,11 @@ export const stripMdxNoise = (source: string): string =>
 
 export const buildDocEntry = (slug: string, source: string): DocEntry => {
   const { attributes, body } = parseFrontmatter(source);
-  return {
-    slug,
-    title: attributes.title || slug,
-    description: attributes.description || "",
-    content: stripMdxNoise(body),
-  };
+  const title = attributes.title || slug;
+  const description = attributes.description || "";
+  const content = stripMdxNoise(body);
+  const docEntry = { slug, title, description, content };
+  return docEntry;
 };
 
 export const readDoc = (
@@ -155,7 +177,8 @@ export const readDoc = (
   const path = resolve(docsDir, `${slug}.mdx`);
   if (!fs.exists(path)) return undefined;
 
-  return buildDocEntry(slug, fs.readText(path));
+  const result = buildDocEntry(slug, fs.readText(path));
+  return result;
 };
 
 export const collectDocs = (
@@ -165,6 +188,15 @@ export const collectDocs = (
   readDocOrder(paths.contentIndexPath, fs)
     .map((slug) => readDoc(slug, paths.docsDir, fs))
     .filter((doc): doc is DocEntry => Boolean(doc));
+
+const commonCommands = `\`\`\`bash
+npm install pastoralist --save-dev
+npx pastoralist doctor
+npx pastoralist --summary --dry-run
+npx pastoralist --checkSecurity --securityProvider osv
+npx pastoralist --remove-unused
+npx pastoralist --setup-hook
+\`\`\``;
 
 export const buildLlmsTxt = (
   docs: readonly DocEntry[],
@@ -184,14 +216,7 @@ Pastoralist records why each override exists, which packages still need it, and 
 
 ## Common Commands
 
-\`\`\`bash
-npm install pastoralist --save-dev
-npx pastoralist doctor
-npx pastoralist --summary --dry-run
-npx pastoralist --checkSecurity --securityProvider osv
-npx pastoralist --remove-unused
-npx pastoralist --setup-hook
-\`\`\`
+${commonCommands}
 
 ## Documentation
 
@@ -202,7 +227,8 @@ ${docs
 
 const formatDocDescription = (description: string): string => {
   if (!description) return "";
-  return `> ${description}\n\n`;
+  const docDescription = `> ${description}\n\n`;
+  return docDescription;
 };
 
 export const buildLlmsFullTxt = (docs: readonly DocEntry[]): string => `# Pastoralist Documentation
@@ -222,11 +248,12 @@ npx pastoralist --remove-unused
 ${docs
   .map((doc) => {
     const description = formatDocDescription(doc.description);
-    return `---
+    const result = `---
 
 # ${doc.title}
 
 ${description}${doc.content}`;
+    return result;
   })
   .join("\n\n")}
 `;
@@ -234,10 +261,12 @@ ${description}${doc.content}`;
 export const buildLlmsOutputs = (
   docs: readonly DocEntry[],
   docsBaseUrl = DEFAULT_DOCS_BASE_URL,
-): LlmsDocsOutputs => ({
-  llmsFullTxt: buildLlmsFullTxt(docs),
-  llmsTxt: buildLlmsTxt(docs, docsBaseUrl),
-});
+): LlmsDocsOutputs => {
+  const llmsFullTxt = buildLlmsFullTxt(docs);
+  const llmsTxt = buildLlmsTxt(docs, docsBaseUrl);
+  const outputs = { llmsFullTxt, llmsTxt };
+  return outputs;
+};
 
 export function writeLlmsOutputs(
   paths: Pick<LlmsDocsPaths, "llmsFullTxtPath" | "llmsTxtPath" | "publicDir">,
@@ -262,7 +291,8 @@ export function generateLlmsDocs({
   writeLlmsOutputs(paths, outputs, fs);
   logger.log(`Generated ${docs.length} docs into public/llms.txt and public/llms-full.txt`);
 
-  return { docs, outputs, paths };
+  const result: GenerateLlmsDocsResult = { docs, outputs, paths };
+  return result;
 }
 
 if (isMainModule(import.meta.url)) {

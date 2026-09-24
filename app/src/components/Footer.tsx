@@ -19,19 +19,25 @@ export function Footer() {
         </Link>
       </div>
 
-      <nav className="flex justify-center sm:justify-end order-2 sm:order-3">
-        <div className="grid grid-flow-col gap-4">
-          <a
-            className="btn btn-ghost btn-circle flex items-center justify-center"
-            href="https://github.com/yowainwright/pastoralist"
-            aria-label="GitHub"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <GithubIcon className="h-5 w-5" />
-          </a>
-        </div>
-      </nav>
+      <FooterLinks />
     </footer>
+  );
+}
+
+function FooterLinks() {
+  return (
+    <nav className="flex justify-center sm:justify-end order-2 sm:order-3">
+      <div className="grid grid-flow-col gap-4">
+        <a
+          className="btn btn-ghost btn-circle flex items-center justify-center"
+          href="https://github.com/yowainwright/pastoralist"
+          aria-label="GitHub"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <GithubIcon className="h-5 w-5" />
+        </a>
+      </div>
+    </nav>
   );
 }

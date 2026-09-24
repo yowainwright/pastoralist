@@ -2,6 +2,21 @@ import { useState, useEffect } from "react";
 import type { TerminalLine } from "./types";
 import { DEFAULT_ANIMATE, getLineDelay } from "./constants";
 
+function queueLine(
+  currentLine: TerminalLine,
+  timing: number | undefined,
+  onLineComplete: () => void,
+  setIsTyping: (value: boolean) => void,
+) {
+  const shouldAnimate = currentLine.animate ?? DEFAULT_ANIMATE;
+  const lineDelay = getLineDelay(currentLine, timing);
+  const startTyping = () => setIsTyping(true);
+  const callback = shouldAnimate ? startTyping : onLineComplete;
+  const timer = setTimeout(callback, lineDelay);
+  const cancel = () => clearTimeout(timer);
+  return cancel;
+}
+
 export const useLineProcessor = (
   currentLine: TerminalLine | undefined,
   timing: number | undefined,
@@ -12,22 +27,10 @@ export const useLineProcessor = (
   useEffect(() => {
     if (!currentLine) return;
 
-    const shouldAnimate = currentLine.animate ?? DEFAULT_ANIMATE;
-    const lineDelay = getLineDelay(currentLine, timing);
-
-    if (!shouldAnimate) {
-      const timer = setTimeout(() => {
-        onLineComplete();
-      }, lineDelay);
-      return () => clearTimeout(timer);
-    }
-
-    const startTimer = setTimeout(() => {
-      setIsTyping(true);
-    }, lineDelay);
-
-    return () => clearTimeout(startTimer);
+    const cancel = queueLine(currentLine, timing, onLineComplete, setIsTyping);
+    return cancel;
   }, [currentLine, onLineComplete, timing]);
 
-  return { isTyping, setIsTyping };
+  const result = { isTyping, setIsTyping };
+  return result;
 };

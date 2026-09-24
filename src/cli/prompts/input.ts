@@ -1,3 +1,5 @@
+import type { PromptReader } from "./types";
+
 let pipedInputLines: string[] = [];
 let lineIndex = 0;
 let pipedInputReady = false;
@@ -6,16 +8,19 @@ let pipedInputReadyWaiters: Array<() => void> = [];
 
 const resolvePipedInputReady = (): void => {
   pipedInputReady = true;
-  const waiters = pipedInputReadyWaiters;
+  pipedInputReadyWaiters.forEach((resolve) => resolve());
   pipedInputReadyWaiters = [];
-  waiters.forEach((resolve) => resolve());
 };
 
 const waitForPipedInput = (): Promise<void> => {
-  if (pipedInputReady) return Promise.resolve();
-  return new Promise((resolve) => {
+  if (pipedInputReady) {
+    const result = Promise.resolve();
+    return result;
+  }
+  const ready = new Promise<void>((resolve) => {
     pipedInputReadyWaiters = pipedInputReadyWaiters.concat(resolve);
   });
+  return ready;
 };
 
 export function initializePipedInput(): void {
@@ -39,7 +44,8 @@ export function initializePipedInput(): void {
 }
 
 export function isPipedInput(): boolean {
-  return !process.stdin.isTTY;
+  const result = !process.stdin.isTTY;
+  return result;
 }
 
 export async function waitForPipedInputReady(): Promise<void> {
@@ -67,15 +73,13 @@ export function getNextPipedInput(): string | null {
 }
 
 export async function enhancedQuestion<T = string>(
-  rl: {
-    question: (prompt: string, callback: (answer: string) => void) => void;
-  },
+  rl: PromptReader,
   prompt: string,
   processor: (answer: string) => T = ((answer: string) => answer.trim()) as (answer: string) => T,
 ): Promise<T> {
   await waitForPipedInputReady();
 
-  return new Promise((resolve) => {
+  const result = new Promise<T>((resolve) => {
     const pipedAnswer = getNextPipedInput();
 
     if (pipedAnswer !== null) {
@@ -87,6 +91,7 @@ export async function enhancedQuestion<T = string>(
       });
     }
   });
+  return result;
 }
 export function resetPipedInputState(): void {
   pipedInputLines = [];

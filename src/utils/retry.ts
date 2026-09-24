@@ -9,7 +9,7 @@ const resolveRetryOptions = ({
   onFailedAttempt,
   onRetry,
 }: RetryOptions): ResolvedRetryOptions => {
-  return {
+  const retryOptions: ResolvedRetryOptions = {
     retries,
     factor,
     minTimeout,
@@ -17,6 +17,7 @@ const resolveRetryOptions = ({
     onFailedAttempt,
     onRetry,
   };
+  return retryOptions;
 };
 
 const toError = (error: unknown): Error => {
@@ -24,7 +25,8 @@ const toError = (error: unknown): Error => {
     return error;
   }
 
-  return new Error(String(error));
+  const result: Error = new Error(String(error));
+  return result;
 };
 
 const createRetryError = (error: Error, attemptNumber: number, retriesLeft: number): RetryError => {
@@ -41,19 +43,23 @@ const calculateDelay = (
   maxTimeout: number,
 ): number => {
   const exponentialDelay = minTimeout * Math.pow(factor, attemptNumber - 1);
-  return Math.min(exponentialDelay, maxTimeout);
+  const delay: number = Math.min(exponentialDelay, maxTimeout);
+  return delay;
 };
 
 const sleep = (ms: number): Promise<void> => {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  const result: Promise<void> = new Promise((resolve) => setTimeout(resolve, ms));
+  return result;
 };
 
 const getRetriesLeft = (attemptNumber: number, retries: number): number => {
-  return retries - attemptNumber;
+  const retriesLeft: number = retries - attemptNumber;
+  return retriesLeft;
 };
 
 const hasRetryAvailable = (retriesLeft: number): boolean => {
-  return retriesLeft >= 0;
+  const result: boolean = retriesLeft >= 0;
+  return result;
 };
 
 const buildRetryError = (
@@ -61,7 +67,12 @@ const buildRetryError = (
   attemptNumber: number,
   retriesLeft: number,
 ): RetryError => {
-  return createRetryError(toError(error), attemptNumber, Math.max(0, retriesLeft));
+  const retryError: RetryError = createRetryError(
+    toError(error),
+    attemptNumber,
+    Math.max(0, retriesLeft),
+  );
+  return retryError;
 };
 
 const notifyFailedAttempt = async (
@@ -117,7 +128,8 @@ const retryAfterFailure = async <T>(
   notifyRetry(attemptNumber, retryError.retriesLeft, options);
   await waitForNextAttempt(attemptNumber, options);
 
-  return attempt(fn, options, attemptNumber + 1);
+  const result = attempt(fn, options, attemptNumber + 1);
+  return result;
 };
 
 const attempt = async <T>(
@@ -126,12 +138,15 @@ const attempt = async <T>(
   attemptNumber: number,
 ): Promise<T> => {
   try {
-    return await fn();
+    const result = await fn();
+    return result;
   } catch (error) {
-    return retryAfterFailure(fn, options, error, attemptNumber);
+    const result2 = retryAfterFailure(fn, options, error, attemptNumber);
+    return result2;
   }
 };
 
 export const retry = <T>(fn: () => Promise<T>, options: RetryOptions = {}): Promise<T> => {
-  return attempt(fn, resolveRetryOptions(options), 1);
+  const result: Promise<T> = attempt(fn, resolveRetryOptions(options), 1);
+  return result;
 };

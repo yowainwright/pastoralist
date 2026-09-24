@@ -1,6 +1,14 @@
 import { IS_DEBUGGING } from "../../constants";
 import { dirname, resolve } from "node:path";
-import type { Appendix, Options, SecurityAlert, AppendixItem } from "../../types";
+import type {
+  Appendix,
+  Options,
+  SecurityAlert,
+  AppendixItem,
+  PastoralistJSON,
+  OverridesType,
+  WriteResultContext,
+} from "../../types";
 import { logger } from "../../observability";
 import {
   clearDependencyGraphCache,
@@ -37,6 +45,7 @@ import type {
   UpdateContext,
   UpdateMetrics,
   UpdateRuntime,
+  WritableUpdateContext,
 } from "./types";
 
 const getPrimarySecurityProvider = (
@@ -51,16 +60,15 @@ const stepDetectPatches = (ctx: UpdateContext): UpdateContext => {
     ctx.log.debug(`Found patches for packages: ${patchedPackages.join(", ")}`, "stepDetectPatches");
   }
 
-  return Object.assign({}, ctx, { patchMap });
+  const result = Object.assign({}, ctx, { patchMap });
+  return result;
 };
 
 const stepPrepareOverrides = (ctx: UpdateContext): UpdateContext => {
-  if (!ctx.config) return ctx;
+  const { config, path: manifestPath } = ctx;
+  if (!config) return ctx;
 
-  const overrideSource = resolveOverrideSource({
-    config: ctx.config,
-    manifestPath: ctx.path,
-  });
+  const overrideSource = resolveOverrideSource({ config, manifestPath });
   const overridesData = resolveOverridesFromSource(overrideSource);
   let overrides = getOverridesByType(overridesData) || {};
 
@@ -69,7 +77,8 @@ const stepPrepareOverrides = (ctx: UpdateContext): UpdateContext => {
     overrides = Object.assign({}, overrides, ctx.options.securityOverrides);
   }
 
-  return Object.assign({}, ctx, { overrideSource, overridesData, overrides });
+  const result = Object.assign({}, ctx, { overrideSource, overridesData, overrides });
+  return result;
 };
 
 const stepDetermineMode = (ctx: UpdateContext): UpdateContext => {
@@ -77,12 +86,8 @@ const stepDetermineMode = (ctx: UpdateContext): UpdateContext => {
 
   const overrides = ctx.overrides || {};
   const hasRootOverrides = Object.keys(overrides).length > 0;
-  const rootDeps = Object.assign(
-    {},
-    ctx.config.dependencies,
-    ctx.config.devDependencies,
-    ctx.config.peerDependencies,
-  );
+  const { dependencies, devDependencies, peerDependencies } = ctx.config;
+  const rootDeps = Object.assign({}, dependencies, devDependencies, peerDependencies);
 
   const missingInRoot = checkMonorepoOverrides(overrides, rootDeps, ctx.log, ctx.options);
   const mode = determineProcessingMode(
@@ -93,7 +98,8 @@ const stepDetermineMode = (ctx: UpdateContext): UpdateContext => {
     ctx.log,
   );
 
-  return Object.assign({}, ctx, { hasRootOverrides, rootDeps, missingInRoot, mode });
+  const result = Object.assign({}, ctx, { hasRootOverrides, rootDeps, missingInRoot, mode });
+  return result;
 };
 
 const canProcessWorkspaceStep = (
@@ -111,45 +117,53 @@ const canProcessWorkspaceStep = (
 const resolveDependencyGraphContext = (
   ctx: UpdateContext,
 ): Pick<UpdateContext, "dependencyGraph" | "dependencyGraphAvailable"> => {
-  if (ctx.isTesting) return { dependencyGraphAvailable: true };
-  if (ctx.dependencyGraphAvailable !== undefined) {
-    return {
-      dependencyGraph: ctx.dependencyGraph,
-      dependencyGraphAvailable: ctx.dependencyGraphAvailable,
-    };
+  if (ctx.isTesting) {
+    const graphContext = { dependencyGraphAvailable: true };
+    return graphContext;
   }
-  const status = getDependencyGraphStatus(ctx.root);
-  return { dependencyGraph: status.graph, dependencyGraphAvailable: status.available };
+  const { dependencyGraph, dependencyGraphAvailable } = ctx;
+  if (dependencyGraphAvailable !== undefined) {
+    const graphContext = { dependencyGraph, dependencyGraphAvailable };
+    return graphContext;
+  }
+  const { graph, available } = getDependencyGraphStatus(ctx.root);
+  const graphContext = { dependencyGraph: graph, dependencyGraphAvailable: available };
+  return graphContext;
 };
 
-const stepProcessWorkspaces = (ctx: UpdateContext): UpdateContext => {
-  if (!canProcessWorkspaceStep(ctx)) return ctx;
-
-  const depPaths = ctx.mode.depPaths;
-  const shouldProcessWorkspaces = depPaths && depPaths.length > 0;
-
-  if (!shouldProcessWorkspaces) return ctx;
-
-  const ignore = ctx.options?.ignore || [];
-  const packageJsonFiles = findPackageFiles(depPaths, ctx.root, ignore, ctx.log);
-
-  if (packageJsonFiles.length === 0) return ctx;
-
+const buildWorkspaceContext = (ctx: UpdateContext, packageJsonFiles: string[]): UpdateContext => {
   ctx.log.debug(
     `Processing ${packageJsonFiles.length} workspace packages`,
     "stepProcessWorkspaces",
   );
 
   const graphContext = resolveDependencyGraphContext(ctx);
+  const { dependencyGraph } = graphContext;
+  const dependencyContext = { dependencyGraph };
+  const workspaceOptions = { constructAppendix, dependencyContext };
   const { appendix: workspaceAppendix, allWorkspaceDeps } = processWorkspacePackages(
     packageJsonFiles,
     ctx.overridesData,
     ctx.log,
-    constructAppendix,
-    { dependencyGraph: graphContext.dependencyGraph },
+    workspaceOptions,
   );
 
-  return Object.assign({}, ctx, graphContext, { workspaceAppendix, allWorkspaceDeps });
+  const result = Object.assign({}, ctx, graphContext, { workspaceAppendix, allWorkspaceDeps });
+  return result;
+};
+
+const stepProcessWorkspaces = (ctx: UpdateContext): UpdateContext => {
+  if (!canProcessWorkspaceStep(ctx)) return ctx;
+  const { depPaths } = ctx.mode;
+  const shouldProcessWorkspaces = depPaths && depPaths.length > 0;
+  if (!shouldProcessWorkspaces) return ctx;
+
+  const ignore = ctx.options?.ignore || [];
+  const packageJsonFiles = findPackageFiles(depPaths, ctx.root, ignore, ctx.log);
+  if (packageJsonFiles.length === 0) return ctx;
+
+  const workspaceContext = buildWorkspaceContext(ctx, packageJsonFiles);
+  return workspaceContext;
 };
 
 const stepExtractExistingAppendix = (ctx: UpdateContext): UpdateContext => {
@@ -159,42 +173,47 @@ const stepExtractExistingAppendix = (ctx: UpdateContext): UpdateContext => {
 
   const existingAppendix = normalizeAppendix(config.pastoralist?.appendix || {});
 
-  return Object.assign({}, ctx, { existingAppendix });
+  const result = Object.assign({}, ctx, { existingAppendix });
+  return result;
 };
 
-const stepBuildAppendix = (ctx: UpdateContext): UpdateContext => {
-  const { config, overrides } = ctx;
-  const isMissingRequiredData = !config || !overrides;
-  if (isMissingRequiredData) return ctx;
-
+const buildRootAppendix = (
+  ctx: UpdateContext,
+  config: PastoralistJSON,
+  overrides: OverridesType,
+  dependencyGraph: UpdateContext["dependencyGraph"],
+): Appendix => {
   const { dependencies = {}, devDependencies = {}, peerDependencies = {} } = config;
+  const deps = { dependencies, devDependencies, peerDependencies };
+  const appendix = ctx.existingAppendix || {};
+  const packageName = config.name || "root";
+  const { securityOverrideDetails, manualOverrideReasons, addedDate } = ctx.options;
+  const securityProvider = getPrimarySecurityProvider(ctx.options?.securityProvider);
+  const security = { securityOverrideDetails, manualOverrideReasons, addedDate, securityProvider };
+  const options = { overrides, appendix, packageName, dependencyGraph };
+  const rootAppendix = updateAppendix(Object.assign({}, deps, security, options));
+  return rootAppendix;
+};
 
-  const graphContext = resolveDependencyGraphContext(ctx);
-  const dependencyGraph = graphContext.dependencyGraph;
-  const appendix = updateAppendix({
-    overrides,
-    appendix: ctx.existingAppendix || {},
-    dependencies,
-    devDependencies,
-    peerDependencies,
-    packageName: config.name || "root",
-    securityOverrideDetails: ctx.options?.securityOverrideDetails,
-    securityProvider: getPrimarySecurityProvider(ctx.options?.securityProvider),
-    manualOverrideReasons: ctx.options?.manualOverrideReasons,
-    addedDate: ctx.options?.addedDate,
-    dependencyGraph,
-  });
-
-  if (!ctx.workspaceAppendix) return Object.assign({}, ctx, graphContext, { appendix });
-
+const mergeWorkspaceAppendix = (ctx: UpdateContext, appendix: Appendix): Appendix => {
+  if (!ctx.workspaceAppendix) return appendix;
   ctx.log.debug("Merging workspace appendix with root appendix", "stepBuildAppendix");
-
   const mergedAppendix = Object.entries(ctx.workspaceAppendix).reduce(
     (acc, [key, value]) => mergeAppendixDependents(acc, key, value),
     appendix,
   );
+  return mergedAppendix;
+};
 
-  return Object.assign({}, ctx, graphContext, { appendix: mergedAppendix });
+const stepBuildAppendix = (ctx: UpdateContext): UpdateContext => {
+  const { config, overrides } = ctx;
+  if (!config) return ctx;
+  if (!overrides) return ctx;
+  const graphContext = resolveDependencyGraphContext(ctx);
+  const rootAppendix = buildRootAppendix(ctx, config, overrides, graphContext.dependencyGraph);
+  const appendix = mergeWorkspaceAppendix(ctx, rootAppendix);
+  const result = Object.assign({}, ctx, graphContext, { appendix });
+  return result;
 };
 
 const stepAttachPatches = (ctx: UpdateContext): UpdateContext => {
@@ -204,7 +223,8 @@ const stepAttachPatches = (ctx: UpdateContext): UpdateContext => {
 
   const appendixWithPatches = attachPatchesToAppendix(appendix, patchMap);
 
-  return Object.assign({}, ctx, { appendix: appendixWithPatches });
+  const result = Object.assign({}, ctx, { appendix: appendixWithPatches });
+  return result;
 };
 
 const canMergeOverridePathsStep = (
@@ -228,7 +248,8 @@ const stepMergeOverridePaths = (ctx: UpdateContext): UpdateContext => {
     ctx.config.pastoralist?.overridePaths || ctx.config.pastoralist?.resolutionPaths;
   const appendix = mergeOverridePaths(ctx.appendix, overridePaths, ctx.missingInRoot, ctx.log);
 
-  return Object.assign({}, ctx, { appendix, overridePaths });
+  const result = Object.assign({}, ctx, { appendix, overridePaths });
+  return result;
 };
 
 const stepLogUnusedPatches = (ctx: UpdateContext): UpdateContext => {
@@ -245,7 +266,9 @@ const stepLogUnusedPatches = (ctx: UpdateContext): UpdateContext => {
     ctx.log.print("Consider removing these patches if the packages are no longer used.");
   }
 
-  return Object.assign({}, ctx, { allDeps, unusedPatchCount: unusedPatches.length });
+  const { length: unusedPatchCount } = unusedPatches;
+  const result = Object.assign({}, ctx, { allDeps, unusedPatchCount });
+  return result;
 };
 
 const findAlertMatchingCves = (
@@ -253,13 +276,15 @@ const findAlertMatchingCves = (
   entryCves: string[],
 ): SecurityAlert | undefined => {
   const entryCveSet = new Set(entryCves);
-  return alerts.find((alert) => alertHasPatchedCve(alert, entryCveSet));
+  const alertMatchingCves = alerts.find((alert) => alertHasPatchedCve(alert, entryCveSet));
+  return alertMatchingCves;
 };
 
 const alertHasPatchedCve = (alert: SecurityAlert, entryCveSet: Set<string>): boolean => {
   if (!alert.patchedVersion) return false;
   const alertCves = alert.cves || [];
-  return alertCves.some((cve) => entryCveSet.has(cve));
+  const result = alertCves.some((cve) => entryCveSet.has(cve));
+  return result;
 };
 
 const withPotentiallyFixedIn = (
@@ -279,24 +304,29 @@ const getKeptOverrideLedger = (
   item: AppendixItem,
   alerts: SecurityAlert[],
 ): AppendixItem["ledger"] => {
-  if (!isKeptEntry(item)) return item.ledger;
-  if (!item.ledger) return item.ledger;
-
-  const entryCves = item.ledger.cves || [];
-  if (entryCves.length === 0) return item.ledger;
+  const { ledger } = item;
+  if (!isKeptEntry(item)) return ledger;
+  if (!ledger) return ledger;
+  const entryCves = ledger.cves || [];
+  if (entryCves.length === 0) return ledger;
 
   const matchingAlert = findAlertMatchingCves(alerts, entryCves);
   const newFixedIn = matchingAlert?.patchedVersion;
-  if (item.ledger.potentiallyFixedIn === newFixedIn) return item.ledger;
+  if (ledger.potentiallyFixedIn === newFixedIn) return ledger;
 
-  if (newFixedIn) return withPotentiallyFixedIn(item.ledger, newFixedIn);
-  return withoutPotentiallyFixedIn(item.ledger);
+  if (newFixedIn) {
+    const updated = withPotentiallyFixedIn(ledger, newFixedIn);
+    return updated;
+  }
+  const updated = withoutPotentiallyFixedIn(ledger);
+  return updated;
 };
 
 const updateKeptAppendixItem = (item: AppendixItem, alerts: SecurityAlert[]): AppendixItem => {
   const ledger = getKeptOverrideLedger(item, alerts);
   if (ledger === item.ledger) return item;
-  return Object.assign({}, item, { ledger });
+  const keptAppendixItem = Object.assign({}, item, { ledger });
+  return keptAppendixItem;
 };
 
 const refreshKeptAppendix = (appendix: Appendix, alerts: SecurityAlert[]): Appendix =>
@@ -314,38 +344,47 @@ const stepUpdateKeptOverrides = (ctx: UpdateContext): UpdateContext => {
   const alerts = ctx.securityAlerts || ctx.options?.securityAlerts || [];
   const updatedAppendix = refreshKeptAppendix(appendix, alerts);
   if (!didAppendixChange(appendix, updatedAppendix)) return ctx;
-  return Object.assign({}, ctx, { appendix: updatedAppendix });
+  const result = Object.assign({}, ctx, { appendix: updatedAppendix });
+  return result;
 };
 
 const createRemovalBaseContext = (ctx: UpdateContext): UpdateContext => {
   const appendix = ctx.finalAppendix || ctx.appendix || {};
   const overrides = ctx.finalOverrides || ctx.overrides || {};
-  return Object.assign({}, ctx, { finalOverrides: overrides, finalAppendix: appendix });
+  const removalBaseContext = Object.assign({}, ctx, {
+    finalOverrides: overrides,
+    finalAppendix: appendix,
+  });
+  return removalBaseContext;
 };
 
 const filterVerifiedRemovalKeys = (ctx: UpdateContext, unusedKeys: string[]): string[] => {
   const comparison = ctx.options?.removalVerification;
   if (comparison) {
     const allowedKeys = new Set(comparison.allowedKeys);
-    return unusedKeys.filter((key) => allowedKeys.has(key));
+    const verifiedRemovalKeys = unusedKeys.filter((key) => allowedKeys.has(key));
+    return verifiedRemovalKeys;
   }
   if (ctx.isTesting) return unusedKeys;
   if (ctx.dependencyGraphAvailable === true) return unusedKeys;
-  return [];
+  const verifiedRemovalKeys2: string[] = [];
+  return verifiedRemovalKeys2;
 };
 
 const getRemovableAppendixKeys = (ctx: UpdateContext, appendix: Appendix): string[] => {
   const unusedKeys = findUnusedAppendixEntries(appendix, ctx.rootDeps);
   const verifiedKeys = filterVerifiedRemovalKeys(ctx, unusedKeys);
   const skipKeys = new Set(ctx.options?.skipRemovalKeys || []);
-  return verifiedKeys.filter((key) => !skipKeys.has(key));
+  const removableAppendixKeys = verifiedKeys.filter((key) => !skipKeys.has(key));
+  return removableAppendixKeys;
 };
 
 const appendixKeyHasCves =
   (appendix: Appendix) =>
   (key: string): boolean => {
     const cves = appendix[key]?.ledger?.cves;
-    return Boolean(cves?.length);
+    const result = Boolean(cves?.length);
+    return result;
   };
 
 const warnCveRemovals = (ctx: UpdateContext, appendix: Appendix, removableKeys: string[]): void => {
@@ -372,7 +411,8 @@ const resolveRemovalDependencyGraph = (ctx: UpdateContext): UpdateContext => {
   if (ctx.options?.removeUnused !== true) return ctx;
   if (ctx.dependencyGraphAvailable !== undefined) return ctx;
 
-  return Object.assign({}, ctx, resolveDependencyGraphContext(ctx));
+  const removalDependencyGraph = Object.assign({}, ctx, resolveDependencyGraphContext(ctx));
+  return removalDependencyGraph;
 };
 
 const stepRemoveUnused = (ctx: UpdateContext): UpdateContext => {
@@ -394,41 +434,47 @@ const stepRemoveUnused = (ctx: UpdateContext): UpdateContext => {
   const finalAppendix = removeAppendixKeys(appendix, removableKeys);
   const finalOverrides = removeOverrideKeys(overrides, packageNames);
 
-  return Object.assign({}, base, { finalOverrides, finalAppendix });
+  const result = Object.assign({}, base, { finalOverrides, finalAppendix });
+  return result;
+};
+
+const writeUpdateContext = (ctx: WritableUpdateContext): void => {
+  const { path, finalAppendix, finalOverrides, overrideSource, options, isTesting } = ctx;
+  const { appendixTarget } = options;
+  const config = options.manifestConfig || ctx.config;
+  const result: WriteResultContext = {
+    appendixTarget,
+    path,
+    config,
+    finalAppendix,
+    finalOverrides,
+    overrideSource,
+    options,
+    isTesting,
+  };
+  ctx.log.debug(
+    `Writing results: appendix keys=${Object.keys(finalAppendix).length}, override keys=${Object.keys(finalOverrides).length}`,
+    "stepWriteResult",
+  );
+  writeResult(result);
 };
 
 const stepWriteResult = (ctx: UpdateContext): UpdateContext => {
   if (ctx.isTesting) {
-    return Object.assign({}, ctx, { writeSkipped: false, writeSuccess: true });
+    const result = Object.assign({}, ctx, { writeSkipped: false, writeSuccess: true });
+    return result;
   }
-
-  const hasWritableData = hasWritableResultData(ctx);
-
-  if (!hasWritableData) {
+  if (!hasWritableResultData(ctx)) {
     ctx.log.debug("No changes to write - missing required data", "stepWriteResult");
-    return Object.assign({}, ctx, { writeSkipped: true, writeSuccess: false });
+    const result = Object.assign({}, ctx, { writeSkipped: true, writeSuccess: false });
+    return result;
   }
-
-  ctx.log.debug(
-    `Writing results: appendix keys=${Object.keys(ctx.finalAppendix || {}).length}, override keys=${Object.keys(ctx.finalOverrides || {}).length}`,
-    "stepWriteResult",
-  );
-
-  writeResult({
-    appendixTarget: ctx.options.appendixTarget,
-    path: ctx.path,
-    config: ctx.options.manifestConfig || ctx.config!,
-    finalAppendix: ctx.finalAppendix!,
-    finalOverrides: ctx.finalOverrides!,
-    overrideSource: ctx.overrideSource,
-    options: ctx.options,
-    isTesting: ctx.isTesting,
-  });
-
-  return Object.assign({}, ctx, { writeSkipped: false, writeSuccess: true });
+  writeUpdateContext(ctx);
+  const result = Object.assign({}, ctx, { writeSkipped: false, writeSuccess: true });
+  return result;
 };
 
-const hasWritableResultData = (ctx: UpdateContext): boolean => {
+const hasWritableResultData = (ctx: UpdateContext): ctx is WritableUpdateContext => {
   const hasConfig = Boolean(ctx.config);
   const hasAppendix = ctx.finalAppendix !== undefined;
   const hasOverrides = ctx.finalOverrides !== undefined;
@@ -438,7 +484,8 @@ const hasWritableResultData = (ctx: UpdateContext): boolean => {
 
 const countKeys = (obj: Record<string, unknown> | undefined): number => {
   if (!obj) return 0;
-  return Object.keys(obj).length;
+  const result = Object.keys(obj).length;
+  return result;
 };
 
 const countAppendixUpdates = (
@@ -446,12 +493,16 @@ const countAppendixUpdates = (
   final: Record<string, unknown> | undefined,
 ): number => {
   if (!final) return 0;
-  if (!existing) return Object.keys(final).length;
+  if (!existing) {
+    const result = Object.keys(final).length;
+    return result;
+  }
 
   const existingKeys = new Set(Object.keys(existing));
   const finalKeys = Object.keys(final);
   const newOrUpdated = finalKeys.filter((key) => !existingKeys.has(key));
-  return newOrUpdated.length;
+  const result2 = newOrUpdated.length;
+  return result2;
 };
 
 const countOverrideChanges = (
@@ -463,31 +514,33 @@ const countOverrideChanges = (
 
   const added = Array.from(currKeys).filter((k) => !prevKeys.has(k)).length;
   const removedKeys = Array.from(prevKeys).filter((k) => !currKeys.has(k));
-  const removed = removedKeys.length;
+  const { length: removed } = removedKeys;
 
-  const removedPackages = removedKeys.map((k) => ({
-    packageName: k,
-    version: String(previous?.[k] || ""),
-  }));
+  const removedPackages = removedKeys.map((packageName) => {
+    const version = String(previous?.[packageName] || "");
+    const removedPackage = { packageName, version };
+    return removedPackage;
+  });
 
-  return { added, removed, removedPackages };
+  const result: OverrideChangeCounts = { added, removed, removedPackages };
+  return result;
+};
+
+const normalizeSeverity = (value: string | undefined): keyof SeverityCounts => {
+  const severity = (value || "medium").toLowerCase();
+  if (severity === "critical") return severity;
+  if (severity === "high") return severity;
+  if (severity === "low") return severity;
+  return "medium";
 };
 
 const countSeverities = (details: Array<{ severity?: string }> | undefined): SeverityCounts => {
-  if (!details) return { critical: 0, high: 0, medium: 0, low: 0 };
-
-  return details.reduce(
-    (counts, detail) => {
-      const severity = (detail.severity || "medium").toLowerCase();
-      if (severity === "critical") {
-        return Object.assign({}, counts, { critical: counts.critical + 1 });
-      }
-      if (severity === "high") return Object.assign({}, counts, { high: counts.high + 1 });
-      if (severity === "low") return Object.assign({}, counts, { low: counts.low + 1 });
-      return Object.assign({}, counts, { medium: counts.medium + 1 });
-    },
-    { critical: 0, high: 0, medium: 0, low: 0 },
-  );
+  const counts = { critical: 0, high: 0, medium: 0, low: 0 };
+  details?.forEach((detail) => {
+    const severity = normalizeSeverity(detail.severity);
+    counts[severity] += 1;
+  });
+  return counts;
 };
 
 const getPackagesScanned = (ctx: UpdateContext): number => {
@@ -495,7 +548,8 @@ const getPackagesScanned = (ctx: UpdateContext): number => {
   const isJsonOutput = opts?.outputFormat === "json";
   const needsMetrics = Boolean(opts && (opts.summary || isJsonOutput));
   if (!needsMetrics) return 0;
-  return getFullDependencyCount(ctx.root);
+  const packagesScanned = getFullDependencyCount(ctx.root);
+  return packagesScanned;
 };
 
 const getSecurityDetails = (ctx: UpdateContext): NonNullable<Options["securityOverrideDetails"]> =>
@@ -504,43 +558,59 @@ const getSecurityDetails = (ctx: UpdateContext): NonNullable<Options["securityOv
 const getExistingOverrides = (ctx: UpdateContext): Record<string, unknown> | undefined =>
   ctx.overrideSource?.overrides;
 
+const buildSeverityMetrics = (details: Options["securityOverrideDetails"]) => {
+  const {
+    critical: severityCritical,
+    high: severityHigh,
+    medium: severityMedium,
+    low: severityLow,
+  } = countSeverities(details);
+  const metrics = { severityCritical, severityHigh, severityMedium, severityLow };
+  return metrics;
+};
+
+const buildOverrideMetrics = (ctx: UpdateContext) => {
+  const {
+    added: overridesAdded,
+    removed: overridesRemoved,
+    removedPackages: removedOverridePackages,
+  } = countOverrideChanges(getExistingOverrides(ctx), ctx.finalOverrides);
+  const metrics = { overridesAdded, overridesRemoved, removedOverridePackages };
+  return metrics;
+};
+
 const buildUpdateMetrics = (ctx: UpdateContext): UpdateMetrics => {
   const securityDetails = getSecurityDetails(ctx);
-  const overrideChanges = countOverrideChanges(getExistingOverrides(ctx), ctx.finalOverrides);
+  const overrides = buildOverrideMetrics(ctx);
+  const severities = buildSeverityMetrics(securityDetails);
   const appendixEntriesUpdated = countAppendixUpdates(ctx.existingAppendix, ctx.finalAppendix);
-  const severities = countSeverities(securityDetails);
-
-  return {
-    packagesScanned: getPackagesScanned(ctx),
-    workspacePackagesScanned: countKeys(ctx.allWorkspaceDeps),
-    appendixEntriesUpdated,
-    vulnerabilitiesBlocked: securityDetails.length,
-    overridesAdded: overrideChanges.added,
-    overridesRemoved: overrideChanges.removed,
-    removedOverridePackages: overrideChanges.removedPackages,
-    severityCritical: severities.critical,
-    severityHigh: severities.high,
-    severityMedium: severities.medium,
-    severityLow: severities.low,
-    writeSuccess: ctx.writeSuccess || false,
-    writeSkipped: ctx.writeSkipped || false,
-  };
+  const packagesScanned = getPackagesScanned(ctx);
+  const workspacePackagesScanned = countKeys(ctx.allWorkspaceDeps);
+  const { length: vulnerabilitiesBlocked } = securityDetails;
+  const writeSuccess = ctx.writeSuccess || false;
+  const writeSkipped = ctx.writeSkipped || false;
+  const scanned = { packagesScanned, workspacePackagesScanned, appendixEntriesUpdated };
+  const written = { vulnerabilitiesBlocked, writeSuccess, writeSkipped };
+  const metrics = Object.assign({}, scanned, written, overrides, severities);
+  return metrics;
 };
 
 const stepCollectMetrics = (ctx: UpdateContext): UpdateContext => {
   const metrics = buildUpdateMetrics(ctx);
-  return Object.assign({}, ctx, { metrics });
+  const result = Object.assign({}, ctx, { metrics });
+  return result;
 };
 
 const pipe = <T>(initialValue: T, ...fns: Array<(value: T) => T>): T => {
-  return fns.reduce((result, fn) => fn(result), initialValue);
+  const result2 = fns.reduce((result, fn) => fn(result), initialValue);
+  return result2;
 };
 
 const stepHandleNoOverrides = (ctx: UpdateContext): UpdateContext => {
-  const hasNoOverrides = !ctx.mode?.hasRootOverrides;
+  if (ctx.mode?.hasRootOverrides) return ctx;
   const isRootMode = ctx.mode?.mode === "root";
   const hasConfig = Boolean(ctx.config);
-  const shouldWriteEmptyResult = hasNoOverrides && isRootMode && hasConfig;
+  const shouldWriteEmptyResult = isRootMode && hasConfig;
 
   if (!shouldWriteEmptyResult) {
     return ctx;
@@ -548,7 +618,10 @@ const stepHandleNoOverrides = (ctx: UpdateContext): UpdateContext => {
 
   ctx.log.debug("No overrides found", "update");
 
-  return Object.assign({}, ctx, { finalOverrides: {}, finalAppendix: {} });
+  const finalOverrides = {};
+  const finalAppendix = {};
+  const result = Object.assign({}, ctx, { finalOverrides, finalAppendix });
+  return result;
 };
 
 const clearUpdateCaches = (): void => {
@@ -558,8 +631,14 @@ const clearUpdateCaches = (): void => {
 };
 
 const resolveUpdateRoot = (options: Options): string => {
-  if (options.root) return options.root;
-  if (options.path) return dirname(resolve(options.path));
+  if (options.root) {
+    const updateRoot = options.root;
+    return updateRoot;
+  }
+  if (options.path) {
+    const updateRoot2 = dirname(resolve(options.path));
+    return updateRoot2;
+  }
   return "./";
 };
 
@@ -569,29 +648,23 @@ const createUpdateRuntime = (options: Options): UpdateRuntime => {
   const isTesting = options?.isTesting || false;
   const isLogging = Boolean(IS_DEBUGGING || options?.debug);
   const log = logger({ file: "update", isLogging });
-  return { path, root, isTesting, isLogging, log };
+  const updateRuntime: UpdateRuntime = { path, root, isTesting, isLogging, log };
+  return updateRuntime;
 };
 
 const createMissingConfigContext = (options: Options, runtime: UpdateRuntime): UpdateContext => {
   runtime.log.debug("No config provided", "update");
-  return {
-    options,
-    path: runtime.path,
-    root: runtime.root,
-    isTesting: runtime.isTesting,
-    log: runtime.log,
-  };
+  const { path, root, isTesting, log } = runtime;
+  const missingConfigContext = { options, path, root, isTesting, log };
+  return missingConfigContext;
 };
 
-const createInitialContext = (options: Options, runtime: UpdateRuntime): UpdateContext => ({
-  options,
-  path: runtime.path,
-  root: runtime.root,
-  isTesting: runtime.isTesting,
-  log: runtime.log,
-  config: options.config,
-  securityAlerts: options.securityAlerts,
-});
+const createInitialContext = (options: Options, runtime: UpdateRuntime): UpdateContext => {
+  const { path, root, isTesting, log } = runtime;
+  const { config, securityAlerts } = options;
+  const context = { options, path, root, isTesting, log, config, securityAlerts };
+  return context;
+};
 
 const runUpdatePipeline = (initialContext: UpdateContext): UpdateContext =>
   pipe(
@@ -622,7 +695,10 @@ export const update = (options: Options): UpdateContext => {
   if (options?.clearCache === true) clearUpdateCaches();
 
   const runtime = createUpdateRuntime(options);
-  if (!options.config) return createMissingConfigContext(options, runtime);
+  if (!options.config) {
+    const result = createMissingConfigContext(options, runtime);
+    return result;
+  }
 
   const ctx = runUpdatePipeline(createInitialContext(options, runtime));
   logUpdateComplete(ctx);

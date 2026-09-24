@@ -48,22 +48,26 @@ import {
 } from "./utils";
 
 const isSecurityProvider = (value: unknown): value is SecurityProvider => {
-  return isString(value) && SECURITY_PROVIDERS.includes(value as SecurityProvider);
+  const result = isString(value) && SECURITY_PROVIDERS.includes(value as SecurityProvider);
+  return result;
 };
 
 const isSecurityProviders = (value: unknown): value is SecurityProviders => {
   if (isSecurityProvider(value)) return true;
-  return isArray(value) && value.every(isSecurityProvider);
+  const result = isArray(value) && value.every(isSecurityProvider);
+  return result;
 };
 
 const isSeverityThreshold = (value: unknown): value is SeverityThreshold => {
-  return isString(value) && SEVERITY_THRESHOLDS.includes(value as SeverityThreshold);
+  const result = isString(value) && SEVERITY_THRESHOLDS.includes(value as SeverityThreshold);
+  return result;
 };
 
 const isValidKeepObject = (v: unknown): boolean => {
   const isObj = isObject(v);
   const reason = isObj ? (v as Record<string, unknown>).reason : undefined;
-  return isObj && isString(reason);
+  const result: boolean = isObj && isString(reason);
+  return result;
 };
 
 const isValidKeep = (v: unknown): boolean => isBoolean(v) || isValidKeepObject(v);
@@ -75,17 +79,20 @@ const isStrictKeepObject = (value: unknown): boolean => {
   if (!hasOnlyFields(value, KEEP_CONSTRAINT_FIELDS)) return false;
   if (!isString(value.reason)) return false;
   const fields = ["until", "untilVersion", "reviewBy"] as const;
-  return areFieldsValid(value, createFieldValidations(fields, isString));
+  const result: boolean = areFieldsValid(value, createFieldValidations(fields, isString));
+  return result;
 };
 
 const isStrictKeep = (value: unknown): boolean => isBoolean(value) || isStrictKeepObject(value);
 
 const isSecurityCheckResult = (v: unknown): v is SecurityCheckResult => {
-  return isString(v) && SECURITY_CHECK_RESULTS.includes(v as SecurityCheckResult);
+  const result = isString(v) && SECURITY_CHECK_RESULTS.includes(v as SecurityCheckResult);
+  return result;
 };
 
 const isResolvedBy = (v: unknown): v is ResolvedBy => {
-  return isString(v) && RESOLVED_BY_VALUES.includes(v as ResolvedBy);
+  const result = isString(v) && RESOLVED_BY_VALUES.includes(v as ResolvedBy);
+  return result;
 };
 
 const isSecuritySource = (value: unknown): boolean => {
@@ -103,16 +110,19 @@ const isSecurityConfidence = (value: unknown): boolean => {
 };
 
 const isSecurityProviderArray = (value: unknown): boolean => {
-  return isArray(value) && value.every(isSecurityProvider);
+  const result: boolean = isArray(value) && value.every(isSecurityProvider);
+  return result;
 };
 
 const isDepPathAlias = (value: unknown): value is DepPathAlias => {
-  return isString(value) && DEP_PATH_ALIASES.includes(value as DepPathAlias);
+  const result = isString(value) && DEP_PATH_ALIASES.includes(value as DepPathAlias);
+  return result;
 };
 
 const hasValidAddedDate = (value: Record<string, unknown>): boolean => {
   if (!("addedDate" in value)) return false;
-  return isString(value.addedDate);
+  const result: boolean = isString(value.addedDate);
+  return result;
 };
 
 const PROJECT_REASON_FIELDS = [
@@ -136,14 +146,17 @@ const validateProjectReason = (value: Record<string, unknown>): boolean => {
     { field: "constraints", validator: isNonEmptyStringArray },
     { field: "references", validator: isNonEmptyStringArray },
   ];
-  return areFieldsValid(value, fields);
+  const projectReason: boolean = areFieldsValid(value, fields);
+  return projectReason;
 };
 
 const validateBestCaseSearchReason = (value: unknown): boolean => {
   if (!isObject(value)) return false;
   const fields = ["evaluatedStates", "provenOptimal"] as const;
   if (!hasOnlyFields(value, fields)) return false;
-  return isPositiveInteger(value.evaluatedStates) && isBoolean(value.provenOptimal);
+  const bestCaseSearchReason: boolean =
+    isPositiveInteger(value.evaluatedStates) && isBoolean(value.provenOptimal);
+  return bestCaseSearchReason;
 };
 
 const validateBestCaseImpact = (value: unknown): boolean => {
@@ -154,7 +167,8 @@ const validateBestCaseImpact = (value: unknown): boolean => {
     "remainingVulnerabilities",
   ] as const;
   if (!hasOnlyFields(value, fields)) return false;
-  return fields.every((field) => isNonNegativeInteger(value[field]));
+  const bestCaseImpact: boolean = fields.every((field) => isNonNegativeInteger(value[field]));
+  return bestCaseImpact;
 };
 
 const validateBestCaseReason = (value: Record<string, unknown>): boolean => {
@@ -167,14 +181,22 @@ const validateBestCaseReason = (value: Record<string, unknown>): boolean => {
     isNonEmptyString,
   );
   if (!stringsAreValid) return false;
-  return validateBestCaseSearchReason(value.search) && validateBestCaseImpact(value.impact);
+  const bestCaseReason: boolean =
+    validateBestCaseSearchReason(value.search) && validateBestCaseImpact(value.impact);
+  return bestCaseReason;
 };
 
 const validateLedgerReason = (value: unknown): boolean => {
   if (isNonEmptyString(value)) return true;
   if (!isObject(value)) return false;
-  if (value.type === "project") return validateProjectReason(value);
-  if (value.type === "best-case") return validateBestCaseReason(value);
+  if (value.type === "project") {
+    const ledgerReason: boolean = validateProjectReason(value);
+    return ledgerReason;
+  }
+  if (value.type === "best-case") {
+    const result: boolean = validateBestCaseReason(value);
+    return result;
+  }
   return false;
 };
 
@@ -188,11 +210,13 @@ const validateCveDetail = (value: unknown): boolean => {
     { field: "severity", validator: isSeverityThreshold },
     { field: "patchedVersion", validator: isString },
   ];
-  return areFieldsValid(value, fields);
+  const cveDetail: boolean = areFieldsValid(value, fields);
+  return cveDetail;
 };
 
 const validateCveDetails = (value: unknown): boolean => {
-  return isArray(value) && value.every(validateCveDetail);
+  const cveDetails: boolean = isArray(value) && value.every(validateCveDetail);
+  return cveDetails;
 };
 
 const LEDGER_FIELDS: FieldValidation[] = createFieldValidations(
@@ -227,14 +251,16 @@ const validateLedger = (value: unknown): boolean => {
   if (!isObject(value)) return false;
   if (!hasValidAddedDate(value)) return false;
 
-  return areFieldsValid(value, LEDGER_FIELDS);
+  const ledger: boolean = areFieldsValid(value, LEDGER_FIELDS);
+  return ledger;
 };
 
 const validateStrictLedger = (value: unknown): boolean => {
   if (!isObject(value)) return false;
   if (!hasOnlyFields(value, STRICT_LEDGER_FIELD_NAMES)) return false;
   if (!hasValidAddedDate(value)) return false;
-  return areFieldsValid(value, STRICT_LEDGER_FIELDS);
+  const strictLedger: boolean = areFieldsValid(value, STRICT_LEDGER_FIELDS);
+  return strictLedger;
 };
 
 const APPENDIX_ITEM_FIELDS: FieldValidation[] = createFieldValidations(
@@ -247,11 +273,13 @@ const APPENDIX_ITEM_FIELDS: FieldValidation[] = createFieldValidations(
 ]);
 
 const validateAppendixItem = (value: unknown): boolean => {
-  return isObject(value) && areFieldsValid(value, APPENDIX_ITEM_FIELDS);
+  const appendixItem: boolean = isObject(value) && areFieldsValid(value, APPENDIX_ITEM_FIELDS);
+  return appendixItem;
 };
 
 const validateAppendix = (value: unknown): boolean => {
-  return validateRecordValues(value, validateAppendixItem);
+  const appendix: boolean = validateRecordValues(value, validateAppendixItem);
+  return appendix;
 };
 
 const STRICT_APPENDIX_ITEM_VALIDATORS: Partial<Record<string, FieldValidator>> = {
@@ -269,11 +297,13 @@ const STRICT_APPENDIX_ITEM_FIELD_NAMES = getFieldNames(STRICT_APPENDIX_ITEM_FIEL
 const validateStrictAppendixItem = (value: unknown): boolean => {
   if (!isObject(value)) return false;
   if (!hasOnlyFields(value, STRICT_APPENDIX_ITEM_FIELD_NAMES)) return false;
-  return areFieldsValid(value, STRICT_APPENDIX_ITEM_FIELDS);
+  const strictAppendixItem: boolean = areFieldsValid(value, STRICT_APPENDIX_ITEM_FIELDS);
+  return strictAppendixItem;
 };
 
 const validateStrictAppendix = (value: unknown): boolean => {
-  return validateRecordValues(value, validateStrictAppendixItem);
+  const strictAppendix: boolean = validateRecordValues(value, validateStrictAppendixItem);
+  return strictAppendix;
 };
 
 const SECURITY_CONFIG_FIELDS: FieldValidation[] = createFieldValidations(
@@ -287,7 +317,8 @@ const SECURITY_CONFIG_FIELDS: FieldValidation[] = createFieldValidations(
 ]);
 
 const validateSecurityConfig = (value: unknown): boolean => {
-  return isObject(value) && areFieldsValid(value, SECURITY_CONFIG_FIELDS);
+  const securityConfig: boolean = isObject(value) && areFieldsValid(value, SECURITY_CONFIG_FIELDS);
+  return securityConfig;
 };
 
 const SECURITY_CONFIG_FIELD_NAMES = getFieldNames(SECURITY_CONFIG_FIELDS);
@@ -295,11 +326,13 @@ const SECURITY_CONFIG_FIELD_NAMES = getFieldNames(SECURITY_CONFIG_FIELDS);
 const validateStrictSecurityConfig = (value: unknown): boolean => {
   if (!isObject(value)) return false;
   if (!hasOnlyFields(value, SECURITY_CONFIG_FIELD_NAMES)) return false;
-  return areFieldsValid(value, SECURITY_CONFIG_FIELDS);
+  const strictSecurityConfig: boolean = areFieldsValid(value, SECURITY_CONFIG_FIELDS);
+  return strictSecurityConfig;
 };
 
 const isBestCaseObjective = (value: unknown): value is BestCaseObjective => {
-  return isString(value) && BEST_CASE_OBJECTIVES.includes(value as BestCaseObjective);
+  const result = isString(value) && BEST_CASE_OBJECTIVES.includes(value as BestCaseObjective);
+  return result;
 };
 
 const isBestCaseObjectives = (value: unknown): value is BestCaseObjective[] => {
@@ -308,15 +341,19 @@ const isBestCaseObjectives = (value: unknown): value is BestCaseObjective[] => {
   const hasInvalidObjective = !value.every(isBestCaseObjective);
   const isInvalidObjectiveList = isEmpty || hasInvalidObjective;
   if (isInvalidObjectiveList) return false;
-  return new Set(value).size === value.length;
+  const result = new Set(value).size === value.length;
+  return result;
 };
 
 const isBestCaseRiskAggregation = (value: unknown): value is BestCaseRiskAggregation => {
-  return isString(value) && BEST_CASE_RISK_AGGREGATIONS.includes(value as BestCaseRiskAggregation);
+  const result =
+    isString(value) && BEST_CASE_RISK_AGGREGATIONS.includes(value as BestCaseRiskAggregation);
+  return result;
 };
 
 const isBestCaseSearchMode = (value: unknown): value is BestCaseSearchMode => {
-  return isString(value) && BEST_CASE_SEARCH_MODES.includes(value as BestCaseSearchMode);
+  const result = isString(value) && BEST_CASE_SEARCH_MODES.includes(value as BestCaseSearchMode);
+  return result;
 };
 
 const validateBestCaseSearch = (value: unknown): boolean => {
@@ -329,7 +366,8 @@ const validateBestCaseSearch = (value: unknown): boolean => {
     { field: "beamWidth", validator: isPositiveInteger },
     { field: "maxEvaluations", validator: isPositiveInteger },
   ];
-  return areFieldsValid(value, fields);
+  const bestCaseSearch: boolean = areFieldsValid(value, fields);
+  return bestCaseSearch;
 };
 
 const validateBestCaseConfig = (value: unknown): boolean => {
@@ -349,20 +387,24 @@ const validateBestCaseConfig = (value: unknown): boolean => {
     { field: "objectives", validator: isBestCaseObjectives },
     { field: "search", validator: validateBestCaseSearch },
   ];
-  return areFieldsValid(value, fields);
+  const bestCaseConfig: boolean = areFieldsValid(value, fields);
+  return bestCaseConfig;
 };
 
 const validateDepPaths = (value: unknown): boolean => {
   if (isDepPathAlias(value)) return true;
-  return isStringArray(value);
+  const depPaths: boolean = isStringArray(value);
+  return depPaths;
 };
 
 const validateAppendixCollection = (value: unknown): boolean => {
-  return validateRecordValues(value, validateAppendix);
+  const appendixCollection: boolean = validateRecordValues(value, validateAppendix);
+  return appendixCollection;
 };
 
 const validateStrictAppendixCollection = (value: unknown): boolean => {
-  return validateRecordValues(value, validateStrictAppendix);
+  const strictAppendixCollection: boolean = validateRecordValues(value, validateStrictAppendix);
+  return strictAppendixCollection;
 };
 
 const PASTORALIST_CONFIG_FIELDS: FieldValidation[] = createFieldValidations(
@@ -395,7 +437,8 @@ const STRICT_PASTORALIST_CONFIG_FIELD_NAMES = getFieldNames(STRICT_PASTORALIST_C
 
 const validateStrictPastoralistConfig = (value: Record<string, unknown>): boolean => {
   if (!hasOnlyFields(value, STRICT_PASTORALIST_CONFIG_FIELD_NAMES)) return false;
-  return areFieldsValid(value, STRICT_PASTORALIST_CONFIG_FIELDS);
+  const strictPastoralistConfig: boolean = areFieldsValid(value, STRICT_PASTORALIST_CONFIG_FIELDS);
+  return strictPastoralistConfig;
 };
 
 const validatePastoralistConfig = (value: unknown): boolean => {
@@ -403,19 +446,22 @@ const validatePastoralistConfig = (value: unknown): boolean => {
   if (!areFieldsValid(value, PASTORALIST_CONFIG_FIELDS)) return false;
   const usesPastoralistSchema = value.$schema === PASTORALIST_SCHEMA_PATH;
   if (!usesPastoralistSchema) return true;
-  return validateStrictPastoralistConfig(value);
+  const pastoralistConfig: boolean = validateStrictPastoralistConfig(value);
+  return pastoralistConfig;
 };
 
 export function validateConfig(config: unknown): PastoralistConfig {
   if (!validatePastoralistConfig(config)) {
     throw new Error(INVALID_CONFIG_STRUCTURE);
   }
-  return config as PastoralistConfig;
+  const result = config as PastoralistConfig;
+  return result;
 }
 
 export function safeValidateConfig(config: unknown): PastoralistConfig | undefined {
   if (!validatePastoralistConfig(config)) {
     return undefined;
   }
-  return config as PastoralistConfig;
+  const result = config as PastoralistConfig;
+  return result;
 }

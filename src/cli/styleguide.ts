@@ -84,6 +84,10 @@ const showFormatting = (out: Output, terminalWidth = width()): void => {
   writeBlock(out, indent("Indented text"));
   writeBlock(out, line("Leading newline"));
   writeBlock(out, item(1, "Numbered item"));
+  showFormattingMetrics(out, terminalWidth);
+};
+
+const showFormattingMetrics = (out: Output, terminalWidth: number): void => {
   const widthSample = cyan("visible text");
   const columnWidths = calculateWidths([
     { label: "Packages", value: 12 },
@@ -99,17 +103,11 @@ const showFormatting = (out: Output, terminalWidth = width()): void => {
 const showPrompts = (out: Output, terminalWidth = width()): void => {
   writeSection(out, "Prompts");
   writeBlock(out, formatConfirmPrompt("Apply the example fix"));
-  writeBlock(
-    out,
-    formatChoiceList(
-      "Choose a package manager",
-      [
-        { name: "npm", value: "npm" },
-        { name: "pnpm", value: "pnpm" },
-      ],
-      terminalWidth,
-    ),
-  );
+  const choices = [
+    { name: "npm", value: "npm" },
+    { name: "pnpm", value: "pnpm" },
+  ];
+  writeBlock(out, formatChoiceList("Choose a package manager", choices, terminalWidth));
   writeBlock(out, formatChoicePrompt());
   writeBlock(out, formatInputPrompt("Project name", "pastoralist"));
   writeBlock(out, formatStepHeader(1, "Configuration", terminalWidth));
@@ -163,12 +161,18 @@ const showHints = (out: Output): void => {
   writeBlock(out, renderHint("Hints can be rendered without changing the hint cache."));
 };
 
+const demoVulnerabilityCves = ["CVE-2026-0001"];
+const demoOverrideCves = ["CVE-2026-0001"];
+const demoFixCves = ["CVE-2026-0001"];
+const demoDependents = { "styleguide-app": "demo-package@^1.0.0" };
+const demoPatches = ["1.0.0 -> 1.0.1"];
+
 const demoVulnerability: VulnerabilityInfo = {
   severity: "high",
   packageName: "demo-package",
   currentVersion: "1.0.0",
   title: "Example vulnerability",
-  cves: ["CVE-2026-0001"],
+  cves: demoVulnerabilityCves,
   fixAvailable: true,
   patchedVersion: "1.0.1",
   url: "https://osv.dev/",
@@ -178,17 +182,17 @@ const demoOverride: OverrideInfo = {
   packageName: "demo-package",
   version: "1.0.1",
   reason: "security",
-  dependents: { "styleguide-app": "demo-package@^1.0.0" },
-  patches: ["1.0.0 -> 1.0.1"],
+  dependents: demoDependents,
+  patches: demoPatches,
   isSecurityFix: true,
-  cves: ["CVE-2026-0001"],
+  cves: demoOverrideCves,
 };
 
 const demoSecurityFix: SecurityFixInfo = {
   packageName: "demo-package",
   fromVersion: "1.0.0",
   toVersion: "1.0.1",
-  cves: ["CVE-2026-0001"],
+  cves: demoFixCves,
   severity: "high",
   reason: "Patched security release",
 };
@@ -223,21 +227,26 @@ const showGraph = async (out: Output): Promise<void> => {
   graph.banner();
   showScanPhase(graph);
   showResolutionPhase(graph);
+  showGraphSummary(graph);
+  graph.stop().complete("DX styleguide complete");
+  await graph.waitForCompletion();
+};
+
+const showGraphSummary = (graph: TerminalGraph): void => {
+  const metrics = {
+    severityCritical: 0,
+    severityHigh: 1,
+    severityMedium: 0,
+    severityLow: 0,
+    overridesTracked: 1,
+    overridesRemoved: 1,
+    packagesScanned: 12,
+  };
   graph
     .summary({ "demo-package": "1.0.1" }, ["Applied security fix"])
     .executiveSummary({ vulnerabilitiesFixed: 1, packagesProtected: 1 })
-    .compactSummary({
-      severityCritical: 0,
-      severityHigh: 1,
-      severityMedium: 0,
-      severityLow: 0,
-      overridesTracked: 1,
-      overridesRemoved: 1,
-      packagesScanned: 12,
-    })
+    .compactSummary(metrics)
     .notice("Terminal graph components are composable.");
-  graph.stop().complete("DX styleguide complete");
-  await graph.waitForCompletion();
 };
 
 const showAllComponents = async (out: Output): Promise<void> => {
@@ -298,7 +307,7 @@ type CapturedOutput = Output & { readonly text: string };
 
 const createCapturedOutput = (): CapturedOutput => {
   let text = "";
-  return {
+  const capturedOutput: CapturedOutput = {
     get text() {
       return text;
     },
@@ -312,12 +321,14 @@ const createCapturedOutput = (): CapturedOutput => {
     hideCursor: () => {},
     showCursor: () => {},
   };
+  return capturedOutput;
 };
 
 const capture = (render: (out: Output) => void): string => {
   const out = createCapturedOutput();
   render(out);
-  return out.text.trim();
+  const result = out.text.trim();
+  return result;
 };
 
 const formatGraphPreview = (): string =>
@@ -339,12 +350,13 @@ export const formatStyleguide = (): string => {
     showHints,
   ].map(capture);
 
-  return [
+  const styleguide2 = [
     `${gradientPastoralist()} ${cyan("DX styleguide")}`,
     gray("Static preview of Pastoralist's public terminal components."),
   ]
     .concat(staticSections, formatGraphPreview())
     .join("\n\n");
+  return styleguide2;
 };
 
 const showPromptDemo = async (out: Output, prompts: StyleguidePrompts): Promise<void> => {
@@ -360,20 +372,32 @@ const showPromptDemo = async (out: Output, prompts: StyleguidePrompts): Promise<
   showPrompts(out);
 };
 
-const runStyleguideDemo = async (
-  selection: string,
-  out: Output,
-  prompts: StyleguidePrompts,
-): Promise<void> => {
-  if (selection === "prompts") return await showPromptDemo(out, prompts);
-  if (selection === "all") return await showAllComponents(out);
-  if (selection === "colors") return showColors(out);
-  if (selection === "formatting") return showFormatting(out);
-  if (selection === "table") return showTable(out);
-  if (selection === "spinner") return showSpinner(out);
-  if (selection === "shimmer") return await showShimmer(out);
-  if (selection === "hint") return showHints(out);
-  if (selection === "graph") return await showGraph(out);
+const createStyleguideDemos = (out: Output, prompts: StyleguidePrompts) => {
+  const demos = new Map<string, () => void | Promise<void>>([
+    ["prompts", () => showPromptDemo(out, prompts)],
+    ["all", () => showAllComponents(out)],
+    ["colors", () => showColors(out)],
+    ["formatting", () => showFormatting(out)],
+    ["table", () => showTable(out)],
+    ["spinner", () => showSpinner(out)],
+    ["shimmer", () => showShimmer(out)],
+    ["hint", () => showHints(out)],
+    ["graph", () => showGraph(out)],
+  ]);
+  return demos;
+};
+
+const runStyleguideMenu = async (out: Output, prompts: StyleguidePrompts): Promise<void> => {
+  const selection = await prompts.select("Choose a component demo", styleguideChoices);
+  const isExit = selection === "exit";
+  if (isExit) return;
+  const demos = createStyleguideDemos(out, prompts);
+  const runDemo = demos.get(selection);
+  if (runDemo) await runDemo();
+  const returnToMenu = await prompts.confirm("Return to the styleguide menu?", true);
+  if (!returnToMenu) return;
+  const nextSelection = runStyleguideMenu(out, prompts);
+  return nextSelection;
 };
 
 export const showStyleguide = async (
@@ -383,13 +407,7 @@ export const showStyleguide = async (
   writeBlock(out, `${gradientPastoralist()} ${cyan("DX styleguide")}`);
   writeBlock(out, gray("A live tour of Pastoralist's terminal UI components."));
   try {
-    while (true) {
-      const selection = await prompts.select("Choose a component demo", styleguideChoices);
-      if (selection === "exit") return;
-      await runStyleguideDemo(selection, out, prompts);
-      const returnToMenu = await prompts.confirm("Return to the styleguide menu?", true);
-      if (!returnToMenu) return;
-    }
+    await runStyleguideMenu(out, prompts);
   } catch (error: unknown) {
     const wasCancelled = error instanceof Error && error.name === "PromptCancelled";
     if (!wasCancelled) throw error;

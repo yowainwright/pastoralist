@@ -28,6 +28,22 @@ export type PromptChoiceOption = {
 
 export type HintCache = Record<string, number>;
 
+export type ShimmerArguments = [
+  frameInterval?: number,
+  out?: Output,
+  prefix?: string,
+  suffix?: string,
+  isTTY?: boolean,
+];
+
+export type ShimmerOptions = {
+  frameInterval: number;
+  out: Output;
+  prefix: string;
+  suffix: string;
+  isTTY: boolean;
+};
+
 export type RgbTuple = [number, number, number];
 
 export type TruncateState = {

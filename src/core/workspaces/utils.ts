@@ -13,31 +13,46 @@ import { logger, type Logger } from "../../observability";
 import { resolveJSON } from "../package";
 import { extractPackageNames, mergeAppendixDependents } from "../appendix/utils";
 import { PACKAGE_JSON, PNPM_WORKSPACE_FILE } from "../constants";
-import type { InlineArrayState, WorkspaceParseState } from "../types";
+import type {
+  CleanupArguments,
+  InlineArrayState,
+  UnusedOverrideContext,
+  WorkspaceParseState,
+} from "../types";
 
 const log = logger({ file: "workspaces/utils.ts", isLogging: IS_DEBUGGING });
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
-  const isObject = typeof value === "object";
-  const hasValue = value !== null;
-  const isNotArray = !Array.isArray(value);
-  const isPlainObject = isObject && hasValue;
-  return isPlainObject && isNotArray;
+  if (typeof value !== "object") return false;
+  if (value === null) return false;
+  const result = !Array.isArray(value);
+  return result;
 };
 
 const isString = (value: unknown): value is string => typeof value === "string";
 
 const toStringArray = (value: unknown): string[] => {
-  if (!Array.isArray(value)) return [];
-  return value.filter(isString);
+  if (!Array.isArray(value)) {
+    const result: string[] = [];
+    return result;
+  }
+  const result2 = value.filter(isString);
+  return result2;
 };
 
 export const getPackageJsonWorkspacePatterns = (
   workspaces: PackageJsonWorkspaces | undefined,
 ): string[] => {
-  if (Array.isArray(workspaces)) return toStringArray(workspaces);
-  if (isRecord(workspaces)) return toStringArray(workspaces.packages);
-  return [];
+  if (Array.isArray(workspaces)) {
+    const packageJsonWorkspacePatterns = toStringArray(workspaces);
+    return packageJsonWorkspacePatterns;
+  }
+  if (isRecord(workspaces)) {
+    const packageJsonWorkspacePatterns2 = toStringArray(workspaces.packages);
+    return packageJsonWorkspacePatterns2;
+  }
+  const packageJsonWorkspacePatterns3: string[] = [];
+  return packageJsonWorkspacePatterns3;
 };
 
 const isQuote = (char: string): boolean => char === `"` || char === `'`;
@@ -56,7 +71,8 @@ const isCommentStart = (
   const isOutsideQuote = quote === null;
   const hasCommentPrefix = previous === undefined || /\s/.test(previous);
   const isHashOutsideQuote = char === "#" && isOutsideQuote;
-  return isHashOutsideQuote && hasCommentPrefix;
+  const result = isHashOutsideQuote && hasCommentPrefix;
+  return result;
 };
 
 const stripComment = (line: string): string => {
@@ -65,12 +81,16 @@ const stripComment = (line: string): string => {
   const commentIndex = chars.findIndex((char, index) => {
     const previous = chars[index - 1];
     const shouldToggleQuote = isQuote(char) && previous !== "\\";
-    if (!shouldToggleQuote) return isCommentStart(char, quote, previous);
+    if (!shouldToggleQuote) {
+      const result = isCommentStart(char, quote, previous);
+      return result;
+    }
     quote = toggleQuote(quote, char);
     return false;
   });
   if (commentIndex < 0) return line;
-  return chars.slice(0, commentIndex).join("");
+  const result = chars.slice(0, commentIndex).join("");
+  return result;
 };
 
 const trimYamlScalar = (value: string): string => {
@@ -79,7 +99,8 @@ const trimYamlScalar = (value: string): string => {
   const last = trimmed[trimmed.length - 1];
   const isQuoted = isQuote(first) && first === last;
   if (!isQuoted) return trimmed;
-  return trimmed.slice(1, -1).trim();
+  const result = trimmed.slice(1, -1).trim();
+  return result;
 };
 
 const reduceInlineArray = (
@@ -92,18 +113,30 @@ const reduceInlineArray = (
   const shouldToggleQuote = isQuote(char) && previous !== "\\";
   const quote = shouldToggleQuote ? toggleQuote(state.quote, char) : state.quote;
   const isSeparator = char === "," && quote === null;
-  if (isSeparator) return { entries: state.entries.concat(state.current), current: "", quote };
-  return { entries: state.entries, current: state.current + char, quote };
+  if (isSeparator) {
+    const entries = state.entries.concat(state.current);
+    const next = { entries, current: "", quote };
+    return next;
+  }
+  const { entries } = state;
+  const current = state.current + char;
+  const next = { entries, current, quote };
+  return next;
 };
 
 const splitInlineArray = (value: string): string[] => {
   const trimmed = value.trim();
   const isInlineArray = trimmed.startsWith("[") && trimmed.endsWith("]");
-  if (!isInlineArray) return [];
+  if (!isInlineArray) {
+    const result2: string[] = [];
+    return result2;
+  }
   const inner = trimmed.slice(1, -1);
-  const initial = { entries: [], current: "", quote: null } satisfies InlineArrayState;
+  const entries: string[] = [];
+  const initial = { entries, current: "", quote: null } satisfies InlineArrayState;
   const result = Array.from(inner).reduce(reduceInlineArray, initial);
-  return result.entries.concat(result.current).map(trimYamlScalar).filter(Boolean);
+  const result3 = result.entries.concat(result.current).map(trimYamlScalar).filter(Boolean);
+  return result3;
 };
 
 const parseWorkspaceStart = (
@@ -114,7 +147,12 @@ const parseWorkspaceStart = (
   const packagesMatch = line.match(/^packages\s*:\s*(.*)$/);
   if (!packagesMatch) return state;
   const packages = state.packages.concat(splitInlineArray(packagesMatch[1]));
-  return Object.assign({}, state, { packages, isInPackagesBlock: true, packagesIndent: indent });
+  const workspaceStart = Object.assign({}, state, {
+    packages,
+    isInPackagesBlock: true,
+    packagesIndent: indent,
+  });
+  return workspaceStart;
 };
 
 const parseWorkspaceItem = (state: WorkspaceParseState, line: string): WorkspaceParseState => {
@@ -122,7 +160,9 @@ const parseWorkspaceItem = (state: WorkspaceParseState, line: string): Workspace
   if (!itemMatch) return state;
   const item = trimYamlScalar(itemMatch[1]);
   if (!item) return state;
-  return Object.assign({}, state, { packages: state.packages.concat(item) });
+  const packages = state.packages.concat(item);
+  const workspaceItem = Object.assign({}, state, { packages });
+  return workspaceItem;
 };
 
 const parseWorkspaceLine = (state: WorkspaceParseState, rawLine: string): WorkspaceParseState => {
@@ -131,20 +171,32 @@ const parseWorkspaceLine = (state: WorkspaceParseState, rawLine: string): Worksp
   if (!line.trim()) return state;
   const indent = line.search(/\S/);
   const trimmed = line.trim();
-  if (!state.isInPackagesBlock) return parseWorkspaceStart(state, trimmed, indent);
+  if (!state.isInPackagesBlock) {
+    const workspaceLine = parseWorkspaceStart(state, trimmed, indent);
+    return workspaceLine;
+  }
   const isOutsideBlock = indent <= state.packagesIndent;
-  if (isOutsideBlock) return Object.assign({}, state, { isComplete: true });
-  return parseWorkspaceItem(state, trimmed);
+  if (isOutsideBlock) {
+    const workspaceLine2 = Object.assign({}, state, { isComplete: true });
+    return workspaceLine2;
+  }
+  const workspaceLine3 = parseWorkspaceItem(state, trimmed);
+  return workspaceLine3;
 };
 
 export const parsePnpmWorkspacePackages = (contents: string): string[] => {
+  const packages: string[] = [];
+  const packagesIndent = -1;
   const initial: WorkspaceParseState = {
-    packages: [],
+    packages,
     isInPackagesBlock: false,
-    packagesIndent: -1,
+    packagesIndent,
     isComplete: false,
   };
-  return contents.split(/\r?\n/).reduce(parseWorkspaceLine, initial).packages;
+  const pnpmWorkspacePackages = contents
+    .split(/\r?\n/)
+    .reduce(parseWorkspaceLine, initial).packages;
+  return pnpmWorkspacePackages;
 };
 
 export const workspacePatternToPackageManifestPath = (pattern: string): string | null => {
@@ -156,45 +208,55 @@ export const workspacePatternToPackageManifestPath = (pattern: string): string |
   if (trimmed.endsWith(PACKAGE_JSON)) return trimmed;
   const withoutTrailingSlash = trimmed.replace(/\/+$/, "");
   if (withoutTrailingSlash === ".") return PACKAGE_JSON;
-  return `${withoutTrailingSlash}/${PACKAGE_JSON}`;
+  const result = `${withoutTrailingSlash}/${PACKAGE_JSON}`;
+  return result;
 };
 
 export const normalizeWorkspaceManifestPaths = (patterns: string[]): string[] => {
   const manifestPaths = patterns
     .map(workspacePatternToPackageManifestPath)
     .filter((path): path is string => Boolean(path));
-  return Array.from(new Set(manifestPaths));
+  const result = Array.from(new Set(manifestPaths));
+  return result;
 };
 
 export const readPnpmWorkspacePatterns = (root: string, logInstance?: Logger): string[] => {
   const path = resolve(root, PNPM_WORKSPACE_FILE);
-  if (!existsSync(path)) return [];
+  if (!existsSync(path)) {
+    const result: string[] = [];
+    return result;
+  }
   try {
-    return parsePnpmWorkspacePackages(readFileSync(path, "utf8"));
+    const result2 = parsePnpmWorkspacePackages(readFileSync(path, "utf8"));
+    return result2;
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
     logInstance?.debug(
-      `Unable to read ${PNPM_WORKSPACE_FILE}; falling back to package.json workspaces: ${message}`,
+      `Unable to read ${PNPM_WORKSPACE_FILE}; falling back to package.json workspaces`,
       "readPnpmWorkspacePatterns",
+      error,
     );
-    return [];
+    const result3: string[] = [];
+    return result3;
   }
 };
 
 const isPackageInRootDeps = (packageName: string, rootDeps: Record<string, string>): boolean => {
-  return Boolean(rootDeps[packageName]);
+  const result = Boolean(rootDeps[packageName]);
+  return result;
 };
 
 export const findMissingPackages = (
   overridesList: string[],
   rootDeps: Record<string, string>,
 ): string[] => {
-  return overridesList.filter((pkg) => !isPackageInRootDeps(pkg, rootDeps));
+  const missingPackages = overridesList.filter((pkg) => !isPackageInRootDeps(pkg, rootDeps));
+  return missingPackages;
 };
 
 export const shouldShowMonorepoInfo = (missingCount: number, hasDepPaths: boolean): boolean => {
   if (missingCount <= 0) return false;
-  return !hasDepPaths;
+  const result = !hasDepPaths;
+  return result;
 };
 
 const collectPackageDependencies = (
@@ -204,7 +266,8 @@ const collectPackageDependencies = (
   const devDependencies = packageConfig?.devDependencies || {};
   const peerDependencies = packageConfig?.peerDependencies || {};
 
-  return Object.assign({}, dependencies, devDependencies, peerDependencies);
+  const packageDependencies = Object.assign({}, dependencies, devDependencies, peerDependencies);
+  return packageDependencies;
 };
 
 export const aggregateWorkspaceDependencies = (
@@ -214,7 +277,7 @@ export const aggregateWorkspaceDependencies = (
     .map((packagePath) => resolveJSON(packagePath))
     .filter(Boolean);
 
-  return packageConfigs.reduce(
+  const result = packageConfigs.reduce(
     (allDeps, packageConfig) => {
       const deps = collectPackageDependencies(packageConfig);
       Object.assign(allDeps, deps);
@@ -222,6 +285,7 @@ export const aggregateWorkspaceDependencies = (
     },
     {} as Record<string, string>,
   );
+  return result;
 };
 
 export const canMergeOverridePaths = (
@@ -230,14 +294,16 @@ export const canMergeOverridePaths = (
 ): boolean => {
   const hasOverridePaths = Boolean(overridePaths);
   const hasMissingPackages = missingInRoot.length > 0;
-  return hasOverridePaths && hasMissingPackages;
+  const result = hasOverridePaths && hasMissingPackages;
+  return result;
 };
 
 export const mergePathAppendix = (appendix: Appendix, pathAppendix: Appendix): Appendix => {
-  return Object.entries(pathAppendix).reduce(
+  const pathAppendix2 = Object.entries(pathAppendix).reduce(
     (inner, [key, value]) => mergeAppendixDependents(inner, key, value),
     appendix,
   );
+  return pathAppendix2;
 };
 
 const isNestedOverride = (packageName: string, overrides: OverridesType): boolean => {
@@ -246,7 +312,8 @@ const isNestedOverride = (packageName: string, overrides: OverridesType): boolea
 };
 
 const isInDirectDeps = (packageName: string, allDependencies: Record<string, string>): boolean => {
-  return Boolean(allDependencies[packageName]);
+  const result = Boolean(allDependencies[packageName]);
+  return result;
 };
 
 const isUnusedNestedOverride = (
@@ -315,10 +382,7 @@ const shouldRemoveSimpleOverride = (
 
 const isUnusedSimpleOverride = (
   packageName: string,
-  overrides: OverridesType,
-  allDependencies: Record<string, string>,
-  dependencyTree: Record<string, string>,
-  hasAnyDeps: boolean,
+  { overrides, allDependencies, dependencyTree, hasAnyDeps }: UnusedOverrideContext,
 ): boolean => {
   const shouldCheckSimpleOverride = isSimpleOverrideCandidate(
     packageName,
@@ -327,26 +391,17 @@ const isUnusedSimpleOverride = (
   );
   if (!shouldCheckSimpleOverride) return false;
 
-  return shouldRemoveSimpleOverride(packageName, dependencyTree, hasAnyDeps);
+  const result = shouldRemoveSimpleOverride(packageName, dependencyTree, hasAnyDeps);
+  return result;
 };
 
-export const checkIfUnused = (
-  packageName: string,
-  overrides: OverridesType,
-  allDependencies: Record<string, string>,
-  dependencyTree: Record<string, string>,
-  hasAnyDeps: boolean,
-): boolean => {
+export const checkIfUnused = (packageName: string, context: UnusedOverrideContext): boolean => {
+  const { overrides, allDependencies } = context;
   const isUnusedNested = isUnusedNestedOverride(packageName, overrides, allDependencies);
   if (isUnusedNested) return true;
 
-  return isUnusedSimpleOverride(
-    packageName,
-    overrides,
-    allDependencies,
-    dependencyTree,
-    hasAnyDeps,
-  );
+  const result = isUnusedSimpleOverride(packageName, context);
+  return result;
 };
 
 const isPackageTrackedInPaths = (
@@ -358,25 +413,31 @@ const isPackageTrackedInPaths = (
   const appendixKeys = Object.values(overridePaths).flatMap((pathAppendix) =>
     Object.keys(pathAppendix),
   );
-  return appendixKeys.some((key) => key.startsWith(`${packageName}@`));
+  const result = appendixKeys.some((key) => key.startsWith(`${packageName}@`));
+  return result;
 };
 
 const findTrackedPackages = (
   missingInRoot: string[],
   overridePaths: Record<string, Appendix> | undefined,
 ): string[] => {
-  return missingInRoot.filter((pkg) => isPackageTrackedInPaths(pkg, overridePaths));
+  const trackedPackages = missingInRoot.filter((pkg) =>
+    isPackageTrackedInPaths(pkg, overridePaths),
+  );
+  return trackedPackages;
 };
 
 const filterActuallyRemovable = (removableItems: string[], trackedInPaths: string[]): string[] => {
   const trackedSet = new Set(trackedInPaths);
-  return removableItems.filter((pkg) => !trackedSet.has(pkg));
+  const actuallyRemovable = removableItems.filter((pkg) => !trackedSet.has(pkg));
+  return actuallyRemovable;
 };
 
 const shouldRemoveAppendixKey = (key: string, packageSet: Set<string>): boolean => {
   const packageName = extractPackageNames([key])[0] ?? key;
   const hasVersionSuffix = key.startsWith(`${packageName}@`);
-  return hasVersionSuffix && packageSet.has(packageName);
+  const result = hasVersionSuffix && packageSet.has(packageName);
+  return result;
 };
 
 const removeAppendixEntries = (
@@ -389,25 +450,28 @@ const removeAppendixEntries = (
     shouldRemoveAppendixKey(key, packageSet),
   );
 
-  return keysToRemove.reduce((updated, key) => {
+  const result = keysToRemove.reduce((updated, key) => {
     logInstance.debug(`Removed appendix entry for ${key}`, "removeAppendixEntries");
     const { [key]: _removed, ...rest } = updated;
     return rest;
   }, appendix);
+  return result;
 };
 
 const createCleanupResult = (
   finalOverrides: OverridesType,
   finalAppendix: Appendix,
 ): CleanupUnusedOverridesResult => {
-  return { finalOverrides, finalAppendix };
+  const cleanupResult: CleanupUnusedOverridesResult = { finalOverrides, finalAppendix };
+  return cleanupResult;
 };
 
 export const keepCurrentOverrides = (
   overrides: OverridesType,
   appendix: Appendix,
 ): CleanupUnusedOverridesResult => {
-  return createCleanupResult(overrides, appendix);
+  const result = createCleanupResult(overrides, appendix);
+  return result;
 };
 
 const logRemovablePackages = (packages: string[], logInstance: Logger): void => {
@@ -430,7 +494,8 @@ export const removeUnusedOverrideEntries = (
     context.logInstance,
   );
 
-  return createCleanupResult(finalOverrides, finalAppendix);
+  const result = createCleanupResult(finalOverrides, finalAppendix);
+  return result;
 };
 
 export const logTrackedPackages = (trackedInPaths: string[], logInstance: Logger): void => {
@@ -451,5 +516,37 @@ export const findActuallyRemovableOverrides = (
   const trackedInPaths = findTrackedPackages(context.missingInRoot, context.overridePaths);
   const actuallyRemovable = filterActuallyRemovable(removableItems, trackedInPaths);
 
-  return { actuallyRemovable, trackedInPaths };
+  const actuallyRemovableOverrides: { actuallyRemovable: string[]; trackedInPaths: string[] } = {
+    actuallyRemovable,
+    trackedInPaths,
+  };
+  return actuallyRemovableOverrides;
+};
+
+export const logMonorepoInfo = (missingInRoot: string[], logInstance: Logger): void => {
+  logInstance.debug(
+    `Found overrides for packages not in root dependencies: ${missingInRoot.join(", ")}`,
+    "checkMonorepoOverrides",
+  );
+  logInstance.debug(
+    "For monorepo support, use --depPaths flag or add depPaths configuration in package.json",
+    "checkMonorepoOverrides",
+  );
+};
+
+export const createCleanupContext = (args: CleanupArguments): CleanupUnusedOverridesContext => {
+  const [overrides, overridesData, appendix, allDeps, ...options] = args;
+  const [missingInRoot, overridePaths, logInstance, updateOverrides, root] = options;
+  const context = {
+    overrides,
+    overridesData,
+    appendix,
+    allDeps,
+    missingInRoot,
+    overridePaths,
+    logInstance,
+    updateOverrides,
+    root,
+  };
+  return context;
 };

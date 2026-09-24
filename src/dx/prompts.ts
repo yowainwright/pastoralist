@@ -12,8 +12,12 @@ const stepBoxWidth = (terminalWidth = width()): number =>
 
 const colorBoxBorder = (line: string, index: number, total: number): string => {
   const isHorizontalBorder = index === 0 || index === total - 1;
-  if (isHorizontalBorder) return yellow(line);
-  return line.replace(/^│/, yellow("│")).replace(/│$/, yellow("│"));
+  if (isHorizontalBorder) {
+    const result = yellow(line);
+    return result;
+  }
+  const result2 = line.replace(/^│/, yellow("│")).replace(/│$/, yellow("│"));
+  return result2;
 };
 
 const colorBoxBorders = (lines: string[]): string[] =>
@@ -21,16 +25,18 @@ const colorBoxBorders = (lines: string[]): string[] =>
 
 const formatChoiceLine = (choice: PromptChoiceOption, index: number): string => {
   const num = cyan(`${index + 1}.`);
-  return `  ${num} ${choice.name}`;
+  const choiceLine = `  ${num} ${choice.name}`;
+  return choiceLine;
 };
 
 export function formatConfirmPrompt(message: string, defaultValue: boolean = true): string {
   const icon = defaultValue ? green("●") : gray("○");
   const yesOption = defaultValue ? green("Y") : "y";
-  const noOption = !defaultValue ? green("N") : "n";
+  const declineOption = defaultValue ? "n" : green("N");
   const defaultHint = defaultValue ? green("[enter for yes]") : green("[enter for no]");
 
-  return `${icon} ${message} (${yesOption}/${noOption}) ${gray(defaultHint)}: `;
+  const confirmPrompt = `${icon} ${message} (${yesOption}/${declineOption}) ${gray(defaultHint)}: `;
+  return confirmPrompt;
 }
 
 export function formatChoiceList(
@@ -40,17 +46,21 @@ export function formatChoiceList(
 ): string {
   const lines = [`${cyan("?")} ${message}`, ""].concat(choices.map(formatChoiceLine));
 
+  const title = yellow("Configuration");
+  const boxWidth = promptBoxWidth(terminalWidth);
   const boxed = box(lines, {
-    title: yellow("Configuration"),
+    title,
     padding: 1,
-    width: promptBoxWidth(terminalWidth),
+    width: boxWidth,
   });
 
-  return colorBoxBorders(boxed).join("\n");
+  const choiceList = colorBoxBorders(boxed).join("\n");
+  return choiceList;
 }
 
 export function formatChoicePrompt(): string {
-  return `\n${cyan("▶")} Enter your choice ${gray("(number)")}: `;
+  const choicePrompt = `\n${cyan("▶")} Enter your choice ${gray("(number)")}: `;
+  return choicePrompt;
 }
 
 export function formatInputPrompt(message: string, defaultValue?: string): string {
@@ -58,10 +68,12 @@ export function formatInputPrompt(message: string, defaultValue?: string): strin
 
   if (defaultValue) {
     const defaultHint = gray(`[enter for "${defaultValue}"]`);
-    return `${icon} ${message} ${defaultHint}: `;
+    const inputPrompt = `${icon} ${message} ${defaultHint}: `;
+    return inputPrompt;
   }
 
-  return `${icon} ${message}: `;
+  const inputPrompt2 = `${icon} ${message}: `;
+  return inputPrompt2;
 }
 
 export function formatStepHeader(
@@ -72,24 +84,29 @@ export function formatStepHeader(
   const stepIcon = cyan(`▶ Step ${stepNumber}:`);
   const lines = [`${stepIcon} ${title}`];
 
+  const boxWidth = stepBoxWidth(terminalWidth);
   const boxed = box(lines, {
     padding: 1,
-    width: stepBoxWidth(terminalWidth),
+    width: boxWidth,
   });
 
-  return `\n${colorBoxBorders(boxed).join("\n")}\n`;
+  const stepHeader = `\n${colorBoxBorders(boxed).join("\n")}\n`;
+  return stepHeader;
 }
 
 export function formatInfo(message: string): string {
-  return indent(gray(`${ICON.info} ${message}`), 3);
+  const info2 = indent(gray(`${ICON.info} ${message}`), 3);
+  return info2;
 }
 
 export function formatSuccess(message: string): string {
-  return `${green(ICON.CHECK)} ${message}`;
+  const success = `${green(ICON.CHECK)} ${message}`;
+  return success;
 }
 
 export function formatWarning(message: string): string {
-  return `${yellow(ICON.warning)} ${message}`;
+  const warning2 = `${yellow(ICON.warning)} ${message}`;
+  return warning2;
 }
 
 export function formatCompletion(
@@ -102,11 +119,14 @@ export function formatCompletion(
   const formattedSteps = steps.map((step, index) => `  ${cyan(`${index + 1}.`)} ${step}`);
   const lines = [heading, ""].concat(formattedSteps);
 
+  const boxTitle = yellow("Next Steps");
+  const boxWidth = promptBoxWidth(terminalWidth);
   const boxed = box(lines, {
-    title: yellow("Next Steps"),
+    title: boxTitle,
     padding: 2,
-    width: promptBoxWidth(terminalWidth),
+    width: boxWidth,
   });
 
-  return colorBoxBorders(boxed).join("\n");
+  const completion = colorBoxBorders(boxed).join("\n");
+  return completion;
 }

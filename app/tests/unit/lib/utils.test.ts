@@ -15,11 +15,9 @@ import {
 } from "../../../src/components/Codeblock/constants";
 
 test("clears prerender state without changing other root data", () => {
+  const dataset = { prerendered: "true", theme: "dark" };
   const rootElement = {
-    dataset: {
-      prerendered: "true",
-      theme: "dark",
-    },
+    dataset,
   };
 
   clearPrerenderMarker(rootElement);
@@ -29,7 +27,8 @@ test("clears prerender state without changing other root data", () => {
 });
 
 test("captures prerender state before the marker is cleared", () => {
-  const rootElement = { dataset: { prerendered: "true" } };
+  const dataset = { prerendered: "true" };
+  const rootElement = { dataset };
   const wasPrerendered = capturePrerenderState(rootElement);
 
   clearPrerenderMarker(rootElement);
@@ -38,27 +37,37 @@ test("captures prerender state before the marker is cleared", () => {
 });
 
 test("reads the current prerender marker when checking static render state", () => {
-  const rootElement = { dataset: { prerendered: "true" } };
+  const dataset = { prerendered: "true" };
+  const rootElement = { dataset };
   const documentStub = {
-    getElementById: (id: string) => (id === "root" ? rootElement : null),
+    getElementById: (id: string) => {
+      if (id === "root") return rootElement;
+      return null;
+    },
   };
-  const previousDocument = globalThis.document;
+  withDocument(documentStub, () => {
+    assert.strictEqual(isStaticRender(), true);
+    clearPrerenderMarker(rootElement);
+    assert.strictEqual(isStaticRender(), false);
+  });
+});
+
+function withDocument(documentStub: object, run: () => void) {
+  const { document: previousDocument } = globalThis;
   Object.defineProperty(globalThis, "document", {
     configurable: true,
     value: documentStub,
   });
 
   try {
-    assert.strictEqual(isStaticRender(), true);
-    clearPrerenderMarker(rootElement);
-    assert.strictEqual(isStaticRender(), false);
+    run();
   } finally {
     Object.defineProperty(globalThis, "document", {
       configurable: true,
       value: previousDocument,
     });
   }
-});
+}
 
 test("uses terminal timing as a global override", () => {
   assert.strictEqual(getLineDelay({ delay: 40 }, 125), 125);
@@ -77,7 +86,8 @@ test("clamps negative timing values to zero", () => {
 });
 
 test("reserves the tallest terminal demo content", () => {
-  const demos = [{ lines: [{ text: "one" }, { text: "two" }] }];
+  const lines = [{ text: "one" }, { text: "two" }];
+  const demos = [{ lines }];
   assert.strictEqual(getTerminalContentMinHeight(demos), "2.8em");
 });
 

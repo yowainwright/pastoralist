@@ -1,4 +1,14 @@
+import type { OverridesType } from "../../types";
+import type { RetryOptions } from "../../utils/types";
+import type { ExecFileAsync } from "../types";
+
 export type Severity = "low" | "medium" | "high" | "critical";
+
+export interface AutoFixOverrideChanges {
+  mergedOverrides: OverridesType;
+  newOverrides: OverridesType;
+  overrides: SecurityOverride[];
+}
 
 export interface SecurityAlert {
   packageName: string;
@@ -192,25 +202,25 @@ export class SecurityProviderPermissionError extends Error {
   }
 
   private static getGuidance(message: string): string {
-    const lowerMessage = message.toLowerCase();
+    const lowerMessage: string = message.toLowerCase();
 
     const isAccessError =
       lowerMessage.includes("resource not accessible") || lowerMessage.includes("must have admin");
 
-    const isNotEnabledError =
+    const isDisabledError =
       lowerMessage.includes("not enabled") || lowerMessage.includes("disabled");
 
-    const isNotFoundError = lowerMessage.includes("not found");
+    const isMissingError = lowerMessage.includes("not found");
 
     if (isAccessError) {
       return "Add 'vulnerability-alerts: read' permission to your workflow or enable Dependabot alerts in repo settings.";
     }
 
-    if (isNotEnabledError) {
+    if (isDisabledError) {
       return "Enable Dependabot alerts in Settings > Code security and analysis.";
     }
 
-    if (isNotFoundError) {
+    if (isMissingError) {
       return "Verify the repository exists and you have access, or enable Dependabot alerts.";
     }
 
@@ -235,6 +245,8 @@ export type SecurityProvider =
   | SpektionProvider
   | PackageManagerAuditProvider;
 
+export type SecurityProviderFactory = (options: SecurityProviderFactoryOptions) => SecurityProvider;
+
 export interface SecurityProviderBase {
   readonly providerType: SecurityProviderType;
   fetchAlerts(
@@ -254,6 +266,17 @@ export interface OSVVulnerability {
     ranges?: OSVVersionRange[];
   }>;
   references?: Array<{ type: string; url: string }>;
+}
+
+export interface OSVProviderOptions {
+  debug?: boolean;
+  isIRLFix?: boolean;
+  isIRLCatch?: boolean;
+  strict?: boolean;
+  retryOptions?: RetryOptions;
+  cacheDir?: string;
+  cacheTtl?: number;
+  noCache?: boolean;
 }
 
 export interface OSVVersionRange {
@@ -345,6 +368,13 @@ export interface SocketIssue {
   url?: string;
 }
 
+export interface SocketCLIProviderOptions {
+  debug?: boolean;
+  token?: string;
+  strict?: boolean;
+  execFileAsync?: ExecFileAsync;
+}
+
 export interface SocketPackage {
   name: string;
   version: string;
@@ -380,6 +410,11 @@ export interface CLIInstallOptions {
 export interface PromptChoice {
   name: string;
   value: string;
+}
+
+export interface PromptSelection {
+  choices: PromptChoice[];
+  defaultChoice: string;
 }
 
 export interface InteractivePrompt {

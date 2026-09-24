@@ -1,0 +1,15 @@
+FROM oven/bun:1.4.0-alpine@sha256:07235578f79ef8c6f97d94aee7938e76f5cdba5f21ae5dbfdd3d3d38058437eb AS bun
+FROM node:26-alpine@sha256:aadf416b2cdce311a8811ba3f0608a61b77dbf997500e2eafe781b51f6a0b019
+
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
+RUN npm install --global pnpm@12.4.2 yarn@1.22.22
+
+WORKDIR /app
+COPY dist/ ./pastoralist/
+COPY package.json ./pastoralist/package.json
+COPY tests/e2e/scripts/js-mgrs.test.mjs ./tests/js-mgrs.test.mjs
+
+ENV PASTORALIST_E2E_CLI=/app/pastoralist/index.js
+ENV npm_config_manage_package_manager_versions=false
+
+CMD ["node", "--test", "tests/js-mgrs.test.mjs"]

@@ -325,9 +325,9 @@ const handleSecurityCheckError = (
   const { spinner, deps } = context;
   const showSpinner = !mergedOptions.quiet && mergedOptions.outputFormat !== "json";
   const isPermissionError = error instanceof SecurityProviderPermissionError;
-  const showWarning = isPermissionError && showSpinner;
-  if (showWarning) spinner.warn(`${deps.yellow(`pastoralist`)} ${error.message}`);
-  if (isPermissionError) {
+  const canSkip = isPermissionError && showSpinner && !mergedOptions.strict;
+  if (canSkip) {
+    spinner.warn(`${deps.yellow(`pastoralist`)} ${error.message}`);
     const result = createSkippedSecurityRun(mergedOptions, context);
     return result;
   }

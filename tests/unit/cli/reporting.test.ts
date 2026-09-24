@@ -20,6 +20,12 @@ const pnpmLock = [
   "        version: 12.5.1",
   "packages:",
   "  pnpm@12.5.1: {}",
+  "  '@pnpm/exe.darwin-arm64@12.5.1': {}",
+  "snapshots:",
+  "  pnpm@12.5.1:",
+  "    optionalDependencies:",
+  "      '@pnpm/exe.darwin-arm64': 12.5.1",
+  "  '@pnpm/exe.darwin-arm64@12.5.1': {}",
   "---",
   "lockfileVersion: '9.0'",
   "packages:",
@@ -210,18 +216,33 @@ test("JSON security errors contain no spinner or graph controls", async (t) => {
   assertUnchanged(fixture);
 });
 
-test("JSON permission fallback contains no spinner warning", async (t) => {
-  const fixture = createFixture(t, "npm");
-  const output = captureStdout(t);
-  const error = new SecurityProviderPermissionError("osv", "access denied");
-  t.mock.method(SecurityChecker.prototype, "checkSecurity", () => Promise.reject(error));
-  const options: Options = {
-    root: fixture.root,
-    path: fixture.path,
-    outputFormat: "json",
-    dryRun: true,
-  };
-  await action(options);
-  assert.equal(JSON.parse(output()).success, true);
-  assertUnchanged(fixture);
+const permissionModes: Options[] = [
+  { outputFormat: "json" },
+  { outputFormat: "json", quiet: true },
+  { quiet: true },
+  { strict: true },
+];
+
+permissionModes.forEach((mode) => {
+  test(`permission failures fail visibly in ${JSON.stringify(mode)}`, async (t) => {
+    const fixture = createFixture(t, "npm");
+    const output = captureStdout(t);
+    const exit = t.mock.method(process, "exit", () => undefined as never);
+    const error = new SecurityProviderPermissionError("osv", "access denied");
+    t.mock.method(SecurityChecker.prototype, "checkSecurity", () => Promise.reject(error));
+    const options = Object.assign({ root: fixture.root, path: fixture.path, dryRun: true }, mode);
+    const result = await action(options);
+    assert.equal(result.success, false);
+    assert.deepEqual(result.errors, [error.message]);
+    assert.equal(exit.mock.calls[0].arguments[0], 1);
+    if (mode.outputFormat === "json") assert.equal(JSON.parse(output()).success, false);
+    assertUnchanged(fixture);
+  });
+});
+
+test("pnpm counts retain genuine project dependencies on pnpm", (t) => {
+  const fixture = createFixture(t, "pnpm", false);
+  const lock = pnpmLock.replace("packageManagerDependencies:", "dependencies:");
+  writeFileSync(fixture.lockPath, lock);
+  assert.equal(getFullDependencyCount(fixture.root), 3);
 });

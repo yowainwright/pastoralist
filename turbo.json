@@ -20,6 +20,19 @@
       "cache": true,
       "outputs": []
     },
+    "lint:shell:check": {
+      "inputs": [
+        "scripts/**",
+        "tests/benchmarks/**",
+        "tests/e2e/scripts/**",
+        "scripts/.shellcheck-legibilityrc",
+        ".shellcheckrc",
+        ".github/workflows/ci.yml"
+      ],
+      "env": ["SHELLCHECK_VERSION", "SHELLCHECK_LEGIBILITY_VERSION", "SHELL_LINT_PLATFORM"],
+      "outputs": [],
+      "cache": true
+    },
     "typecheck": {
       "dependsOn": ["^typecheck"],
       "cache": true,

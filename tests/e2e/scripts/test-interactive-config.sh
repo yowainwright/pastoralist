@@ -32,21 +32,21 @@ print_result() {
 show_config() {
     echo "📄 Current config:"
     echo "------------------------"
-    cat package.json | jq '.pastoralist' || echo "No config found"
+    jq '.pastoralist' package.json || echo "No config found"
     echo "------------------------"
 }
 
 show_overrides() {
     echo "📄 Overrides:"
     echo "------------------------"
-    cat package.json | jq '.overrides' || echo "No overrides"
+    jq '.overrides' package.json || echo "No overrides"
     echo "------------------------"
 }
 
 show_resolutions() {
     echo "📄 Resolutions:"
     echo "------------------------"
-    cat package.json | jq '.resolutions' || echo "No resolutions"
+    jq '.resolutions' package.json || echo "No resolutions"
     echo "------------------------"
 }
 
@@ -266,7 +266,7 @@ EOF
     show_overrides
     show_resolutions
 
-    OVERRIDE_COUNT=$(cat package.json | jq '.overrides | length')
+    OVERRIDE_COUNT=$(jq '.overrides | length' package.json)
     if [ "$OVERRIDE_COUNT" -eq 3 ]; then
         echo "✅ All overrides present"
     else
@@ -274,7 +274,7 @@ EOF
         exit 1
     fi
 
-    RESOLUTION_COUNT=$(cat package.json | jq '.resolutions | length')
+    RESOLUTION_COUNT=$(jq '.resolutions | length' package.json)
     if [ "$RESOLUTION_COUNT" -eq 2 ]; then
         echo "✅ All resolutions present"
     else

@@ -105,7 +105,7 @@ print_result() {
 show_package_json() {
     echo "📄 Current package.json:"
     echo "------------------------"
-    cat package.json | head -30
+    head -30 package.json
     echo "------------------------"
 }
 

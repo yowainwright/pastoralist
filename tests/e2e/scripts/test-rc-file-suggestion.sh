@@ -19,7 +19,7 @@ print_result() {
 show_config() {
     echo "📄 Current pastoralist config:"
     echo "------------------------"
-    cat package.json | jq '.pastoralist' || echo "No config found"
+    jq '.pastoralist' package.json || echo "No config found"
     echo "------------------------"
 }
 

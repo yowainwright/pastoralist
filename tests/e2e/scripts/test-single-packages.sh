@@ -41,7 +41,7 @@ validate_appendix() {
     local package_name="${1:-}"
     local expected_keys="${2:-}"
     echo "📄 Checking package.json for $package_name:"
-    cat package.json | head -40
+    head -40 package.json
     echo ""
     assert_package_contains "pastoralist" "❌ Pastoralist section missing for $package_name" || return 1
     assert_package_contains "appendix" "❌ Appendix missing for $package_name" || return 1
@@ -215,7 +215,7 @@ test_bun() {
 
 check_patches() {
     echo "📄 Checking for patches in appendix:"
-    cat package.json | grep -A 10 "patches"
+    grep -A 10 "patches" package.json
     if grep -q "patches" package.json; then
         echo "✅ Patches found in appendix"
     else
@@ -273,7 +273,7 @@ check_peer_dependencies() {
 
     # Validate that both peerDependencies are included
     echo "📄 Checking full appendix content:"
-    cat package.json | grep -A 20 "appendix"
+    grep -A 20 "appendix" package.json
 }
 
 test_peer_dependencies() {

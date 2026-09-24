@@ -54,7 +54,7 @@ check_nested_app() {
 
 check_nested_workspaces() {
     echo "📄 Checking root appendix:"
-    cat package.json | grep -A 40 "appendix"
+    grep -A 40 "appendix" package.json
 
     # Verify all workspace packages are tracked
     if grep -q "@workspace/package-a" package.json; then
@@ -113,7 +113,7 @@ test_nested_workspaces() {
 
 check_mixed_managers() {
     echo "📄 Checking appendix:"
-    cat package.json | grep -A 20 "appendix"
+    grep -A 20 "appendix" package.json
 
     # Should track overrides from all formats
     override_entries=$(grep -o "axios@1.6.0" package.json | wc -l)
@@ -157,7 +157,7 @@ check_nested_override() {
 
 check_dependency_inheritance() {
     echo "📄 Checking root appendix:"
-    cat package.json | grep -A 60 "appendix"
+    grep -A 60 "appendix" package.json
 
     # Verify direct dependencies are tracked for correct packages
     if grep -q "@complex/pkg1" package.json; then
@@ -282,7 +282,7 @@ EOF
 
 check_workspace_patterns() {
     echo "📄 Checking appendix:"
-    cat package.json | grep -A 50 "appendix"
+    grep -A 50 "appendix" package.json
 
     # Verify packages from all patterns are tracked
     if has_all_workspace_patterns; then

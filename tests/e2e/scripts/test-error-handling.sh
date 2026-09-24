@@ -105,7 +105,7 @@ test_missing_package() {
 
 check_scoped_packages() {
     echo "📄 Checking for scoped packages in appendix:"
-    cat package.json | grep -A 20 "appendix"
+    grep -A 20 "appendix" package.json
 
     if grep -q "@types/node@20.10.0" package.json; then
         echo "✅ Scoped package @types/node tracked correctly"
@@ -155,7 +155,7 @@ check_beta_version() {
 
 check_prerelease_versions() {
     echo "📄 Checking for pre-release versions in appendix:"
-    cat package.json | grep -A 30 "appendix"
+    grep -A 30 "appendix" package.json
 
     if grep -q "18.3.0-next.1" package.json; then
         echo "✅ Pre-release version (next) handled correctly"
@@ -198,7 +198,7 @@ test_prerelease_versions() {
 
 check_glob_appendix() {
     echo "📄 Checking appendix:"
-    cat package.json | grep -A 20 "appendix"
+    grep -A 20 "appendix" package.json
 
     if grep -q "appendix" package.json; then
         echo "✅ Appendix created for package with glob patterns"
@@ -259,7 +259,7 @@ EOF
     print_result $? "Nested dependency overrides test run"
 
     echo "📄 Checking for nested overrides in appendix:"
-    cat package.json | grep -A 30 "appendix"
+    grep -A 30 "appendix" package.json
 
     if has_nested_override; then
         echo "✅ Nested dependency override tracked"

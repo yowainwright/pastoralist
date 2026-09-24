@@ -33,7 +33,7 @@ show_package() {
     printf '\n%s\n' "📦 Package.json content:"
     echo "------------------------"
     if [ -f package.json ]; then
-        cat package.json | head -20
+        head -20 package.json
         echo "..."
     else
         echo "❌ package.json not found"

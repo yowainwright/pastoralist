@@ -17,13 +17,23 @@ const createWarnMethod = (file: string): DebugLogFunc => {
   };
 };
 
-export const logger = ({ file, isLogging = false }: LoggerOptions): Logger => ({
-  debug: createDebugMethod("debug", isLogging, file),
-  error: createDebugMethod("error", isLogging, file),
-  fail: (msg: string) => console.error(msg),
-  warn: createWarnMethod(file),
-  print: (msg: string) => console.log(msg),
-  line: (msg: string) => console.log("\n" + msg),
-  indent: (msg: string) => console.log(LOG_INDENT + msg),
-  item: (index: number, msg: string) => console.log(`${LOG_INDENT}${index}. ${msg}`),
-});
+export const logger = ({ file, isLogging = false }: LoggerOptions): Logger => {
+  const debug = createDebugMethod("debug", isLogging, file);
+  const error = createDebugMethod("error", isLogging, file);
+  const warn = createWarnMethod(file);
+  const methods = {
+    debug,
+    error,
+    warn,
+    fail: (msg: string): void => {
+      console.error(msg);
+    },
+    print: (msg: string): void => {
+      console.log(msg);
+    },
+    line: (msg: string) => console.log("\n" + msg),
+    indent: (msg: string) => console.log(LOG_INDENT + msg),
+    item: (index: number, msg: string) => console.log(`${LOG_INDENT}${index}. ${msg}`),
+  };
+  return methods;
+};

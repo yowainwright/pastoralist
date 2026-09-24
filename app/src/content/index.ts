@@ -15,7 +15,8 @@ type DocModule = {
 type DocModuleLoader = () => Promise<DocModule>;
 
 const toLazyDoc = ([path, load]: [string, DocModuleLoader]): [string, LazyDocComponent] => {
-  return [path, lazy(load)];
+  const result: [string, LazyDocComponent] = [path, lazy(load)];
+  return result;
 };
 
 const docModuleLoaders = import.meta.glob<DocModule>("./docs/*.mdx");
@@ -28,17 +29,20 @@ const rawDocModules = import.meta.glob<string>("./docs/*.mdx", {
 });
 
 export function getDocBySlug(slug: string): DocMeta | undefined {
-  return DOCS.find((doc) => doc.slug === slug);
+  const docBySlug = DOCS.find((doc) => doc.slug === slug);
+  return docBySlug;
 }
 
 export function getDocContent(slug: string): string | undefined {
   const path = `./docs/${slug}.mdx`;
-  return rawDocModules[path];
+  const docContent = rawDocModules[path];
+  return docContent;
 }
 
 export function getDocComponent(slug: string): LazyDocComponent | undefined {
   const path = `./docs/${slug}.mdx`;
-  return docModules[path];
+  const docComponent = docModules[path];
+  return docComponent;
 }
 
 export function getAllDocs(): readonly DocMeta[] {

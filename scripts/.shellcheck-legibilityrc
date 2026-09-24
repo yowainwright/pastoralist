@@ -1,0 +1,8 @@
+select=LEG
+ignore=LEG025,LEG038
+max-expression-operators=4
+max-if-operators=0
+max-control-flow-depth=2
+max-function-lines=20
+min-case-chain-length=3
+min-object-lookup-chain-length=3

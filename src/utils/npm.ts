@@ -23,33 +23,41 @@ import {
 
 const npmLimit = createLimit(NPM_REGISTRY_CONCURRENCY);
 
-let _registryCache: DiskCache<NpmPackageInfo> | null = null;
+let registryCache: DiskCache<NpmPackageInfo> | null = null;
 
 const getRegistryCache = (): DiskCache<NpmPackageInfo> => {
-  if (!_registryCache) {
-    _registryCache = new DiskCache<NpmPackageInfo>(CACHE_NAMESPACES.REGISTRY, {
-      dir: resolveCacheDir(),
-      ttl: CACHE_TTLS.REGISTRY,
-      version: CACHE_NS_VERSIONS.REGISTRY,
+  if (!registryCache) {
+    const dir = resolveCacheDir();
+    const { REGISTRY: ttl } = CACHE_TTLS;
+    const { REGISTRY: version } = CACHE_NS_VERSIONS;
+    registryCache = new DiskCache<NpmPackageInfo>(CACHE_NAMESPACES.REGISTRY, {
+      dir,
+      ttl,
+      version,
       maxEntries: NPM_REGISTRY_CACHE_MAX_ENTRIES,
     });
   }
-  return _registryCache;
+  return registryCache;
 };
 
 export const clearRegistryCache = (): void => {
-  const cache = _registryCache ?? getRegistryCache();
+  const cache = registryCache ?? getRegistryCache();
   cache.clear();
-  _registryCache = null;
+  registryCache = null;
 };
 
 const getMajorVersion = (version: string): number => {
   const major = version.split(".")[0];
-  return parseInt(major, 10) || 0;
+  const parsed = parseInt(major, 10) || 0;
+  return parsed;
 };
 
-const isPrerelease = (version: string): boolean => {
-  return version.includes("-");
+const requestPackageInfo = async (packageName: string): Promise<NpmPackageInfo> => {
+  const headers = { Accept: "application/json" };
+  const res = await fetch(`${NPM_REGISTRY_URL}/${encodeURIComponent(packageName)}`, { headers });
+  if (!res.ok) throw new Error(`Failed to fetch ${packageName}: ${res.status}`);
+  const info = res.json() as Promise<NpmPackageInfo>;
+  return info;
 };
 
 const fetchPackageInfo = async (packageName: string): Promise<NpmPackageInfo | null> => {
@@ -59,17 +67,7 @@ const fetchPackageInfo = async (packageName: string): Promise<NpmPackageInfo | n
   if (cached !== undefined) return cached;
 
   try {
-    const result = await retry(async () => {
-      const res = await fetch(`${NPM_REGISTRY_URL}/${encodeURIComponent(packageName)}`, {
-        headers: { Accept: "application/json" },
-      });
-
-      if (!res.ok) {
-        throw new Error(`Failed to fetch ${packageName}: ${res.status}`);
-      }
-
-      return res.json() as Promise<NpmPackageInfo>;
-    }, NPM_FETCH_RETRY_OPTIONS);
+    const result = await retry(() => requestPackageInfo(packageName), NPM_FETCH_RETRY_OPTIONS);
     cache.set(cacheKey, result);
     return result;
   } catch {
@@ -79,7 +77,19 @@ const fetchPackageInfo = async (packageName: string): Promise<NpmPackageInfo | n
 
 export const fetchLatestVersion = async (packageName: string): Promise<string | null> => {
   const info = await fetchPackageInfo(packageName);
-  return info?.["dist-tags"]?.latest ?? null;
+  const latest = info?.["dist-tags"]?.latest ?? null;
+  return latest;
+};
+
+const compatibleVersions = (versions: string[], minVersion: string): string[] => {
+  const targetMajor = getMajorVersion(minVersion);
+  const matches = versions.filter((version) => {
+    if (getMajorVersion(version) !== targetMajor) return false;
+    if (version.includes("-")) return false;
+    const isNewerOrEqual = compareVersions(version, minVersion) >= 0;
+    return isNewerOrEqual;
+  });
+  return matches;
 };
 
 export const fetchLatestCompatibleVersion = async (
@@ -88,58 +98,40 @@ export const fetchLatestCompatibleVersion = async (
 ): Promise<string | null> => {
   const info = await fetchPackageInfo(packageName);
   if (!info) return null;
-  const hasInvalidVersions = !info.versions || typeof info.versions !== "object";
-  if (hasInvalidVersions) return null;
-
-  const targetMajor = getMajorVersion(minVersion);
-  const versions = Object.keys(info.versions);
-
-  const compatibleVersions = versions.filter((v) => {
-    const vMajor = getMajorVersion(v);
-    const isCompatible = vMajor === targetMajor;
-    const isStable = !isPrerelease(v);
-    const isNewerOrEqual = compareVersions(v, minVersion) >= 0;
-    if (!isCompatible) return false;
-    if (!isStable) return false;
-    return isNewerOrEqual;
-  });
-
-  if (compatibleVersions.length === 0) return null;
-
-  const sortedCompatibleVersions = compatibleVersions.slice().sort((a, b) => compareVersions(b, a));
-  return sortedCompatibleVersions[0];
-};
-
-const isFirstPackageRequest = (
-  pkg: NpmPackageRequest,
-  index: number,
-  packages: NpmPackageRequest[],
-): boolean => {
-  return packages.findIndex((entry) => entry.name === pkg.name) === index;
-};
-
-const toPackageEntry = (pkg: NpmPackageRequest): NpmPackageEntry => {
-  return [pkg.name, pkg.minVersion];
+  if (!info.versions) return null;
+  if (typeof info.versions !== "object") return null;
+  const matches = compatibleVersions(Object.keys(info.versions), minVersion);
+  if (matches.length === 0) return null;
+  const [latest] = matches.toSorted((a, b) => compareVersions(b, a));
+  return latest;
 };
 
 const uniquePackageEntries = (packages: NpmPackageRequest[]): NpmPackageEntry[] => {
-  return packages.filter(isFirstPackageRequest).map(toPackageEntry);
+  const versions = new Map<string, string>();
+  packages.forEach(({ name, minVersion }) => {
+    if (!versions.has(name)) versions.set(name, minVersion);
+  });
+  const entries = Array.from(versions.entries());
+  return entries;
 };
 
 const fetchCompatibleVersion = ([
   name,
   minVersion,
 ]: NpmPackageEntry): Promise<NpmPackageVersionResult> => {
-  return npmLimit(async () => {
+  const pending = npmLimit(async () => {
     const version = await fetchLatestCompatibleVersion(name, minVersion);
-    return { name, version };
+    const result = { name, version };
+    return result;
   });
+  return pending;
 };
 
 const hasResolvedVersion = (
   result: NpmPackageVersionResult,
 ): result is { name: string; version: string } => {
-  return Boolean(result.version);
+  const resolved = Boolean(result.version);
+  return resolved;
 };
 
 const toVersionMap = (results: NpmPackageVersionResult[]): Map<string, string> => {
@@ -147,7 +139,8 @@ const toVersionMap = (results: NpmPackageVersionResult[]): Map<string, string> =
     .filter(hasResolvedVersion)
     .map((result) => [result.name, result.version] as const);
 
-  return new Map(entries);
+  const versions = new Map(entries);
+  return versions;
 };
 
 export const fetchLatestCompatibleVersions = async (
@@ -160,5 +153,6 @@ export const fetchLatestCompatibleVersions = async (
     .filter((result) => result.status === "fulfilled")
     .map((result) => result.value);
 
-  return toVersionMap(fetches);
+  const versions = toVersionMap(fetches);
+  return versions;
 };

@@ -20,6 +20,18 @@ export const DEPENDENCY_LOCK_FILENAMES = [
 export const TREE_CACHE_MAX_ENTRIES = 50;
 export const NPM_LS_MAX_BUFFER = 1024 * 1024 * 10;
 export const NPM_LS_TIMEOUT_MS = 60000;
+export const PRESERVED_CONFIG_FIELDS = [
+  "$schema",
+  "appendixSource",
+  "depPaths",
+  "overridePaths",
+  "overrideSource",
+  "resolutionPaths",
+  "security",
+  "checkSecurity",
+  "compactAppendix",
+  "bestCase",
+] as const;
 export { UNKNOWN_DEPENDENCY_VERSION } from "../../mgrs/constants";
 export { PNPM_LOCK_PACKAGE_PATTERN } from "../../mgrs/pnpm/constants";
 export {

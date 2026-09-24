@@ -48,7 +48,8 @@ export const sha256 = (content: Buffer): string =>
 
 export const renderFormula = ({ digest, url }: FormulaSource): string => {
   const source = [`  url "${url}"`, `  sha256 "${digest}"`];
-  return FORMULA_HEADER.concat(source, FORMULA_BODY, "").join("\n");
+  const result = FORMULA_HEADER.concat(source, FORMULA_BODY, "").join("\n");
+  return result;
 };
 
 export const fetchPublishedTarball = async (
@@ -57,7 +58,8 @@ export const fetchPublishedTarball = async (
 ): Promise<Buffer> => {
   const response = await fetchImpl(url);
   if (!response.ok) throw new Error(`Unable to download published tarball: ${response.status}`);
-  return Buffer.from(await response.arrayBuffer());
+  const publishedTarball = Buffer.from(await response.arrayBuffer());
+  return publishedTarball;
 };
 
 const createFormula = (content: Buffer, { outputPath, version }: FormulaOptions): FormulaInput => {
@@ -65,7 +67,8 @@ const createFormula = (content: Buffer, { outputPath, version }: FormulaOptions)
   const url = npmTarballUrl(version);
   const digest = sha256(content);
   writeFileSync(outputPath, renderFormula({ digest, url }));
-  return { digest, url, version };
+  const formula: FormulaInput = { digest, url, version };
+  return formula;
 };
 
 export const createPublishedFormula = async ({
@@ -75,7 +78,8 @@ export const createPublishedFormula = async ({
 }: PublishedFormulaOptions): Promise<FormulaInput> => {
   const url = npmTarballUrl(version);
   const content = await fetchPublishedTarball(url, fetchImpl);
-  return createFormula(content, { outputPath, version });
+  const publishedFormula = createFormula(content, { outputPath, version });
+  return publishedFormula;
 };
 
 export const createLocalFormula = ({
@@ -109,10 +113,19 @@ export const runBrewCli = async ({
   await createPublishedFormula({ outputPath, version });
 };
 
+const formatBrewError = (error: unknown): string => {
+  if (error instanceof Error) {
+    const { message } = error;
+    return message;
+  }
+  const message = String(error);
+  return message;
+};
+
 if (isMainModule(import.meta.url)) {
   runBrewCli().catch((error) => {
     const log = createLogger(LOG_OPTIONS);
-    log.fail(error instanceof Error ? error.message : String(error));
+    log.fail(formatBrewError(error));
     process.exitCode = 1;
   });
 }

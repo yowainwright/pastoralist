@@ -1,43 +1,19 @@
 import SIDEBAR from "@/components/docs/Sidebar/constants";
-import type { PaginationItem } from "./types";
+import type { PaginationProps } from "./types";
 
 export function extractSlug(href: string): string {
   const match = href.match(/docs\/([^/]+)$/);
-  return match ? match[1] : "introduction";
+  const slug = match ? match[1] : "introduction";
+  return slug;
 }
 
-export function getPagination(currentSlug: string): {
-  prevItem?: PaginationItem;
-  nextItem?: PaginationItem;
-} {
-  let prevItem: PaginationItem | undefined;
-  let nextItem: PaginationItem | undefined;
-  let currentSectionIndex: number | undefined;
-  let currentItemIndex: number | undefined;
-
-  SIDEBAR.forEach((section, sIndex) => {
-    const itemIndex = section.items.findIndex((item) => item.href.endsWith(`/${currentSlug}`));
-    if (itemIndex !== -1) {
-      currentSectionIndex = sIndex;
-      currentItemIndex = itemIndex;
-    }
-  });
-
-  if (currentSectionIndex === undefined) return { prevItem, nextItem };
-  if (currentItemIndex === undefined) return { prevItem, nextItem };
-
-  if (currentItemIndex > 0) {
-    prevItem = SIDEBAR[currentSectionIndex].items[currentItemIndex - 1];
-  } else if (currentSectionIndex > 0) {
-    const prevSection = SIDEBAR[currentSectionIndex - 1];
-    prevItem = prevSection.items[prevSection.items.length - 1];
-  }
-
-  if (currentItemIndex < SIDEBAR[currentSectionIndex].items.length - 1) {
-    nextItem = SIDEBAR[currentSectionIndex].items[currentItemIndex + 1];
-  } else if (currentSectionIndex < SIDEBAR.length - 1) {
-    nextItem = SIDEBAR[currentSectionIndex + 1].items[0];
-  }
-
-  return { prevItem, nextItem };
+export function getPagination(currentSlug: string): PaginationProps {
+  const items = SIDEBAR.flatMap((section) => section.items);
+  const index = items.findIndex((item) => item.href.endsWith(`/${currentSlug}`));
+  const prevItem = items[index - 1];
+  const found = index >= 0;
+  const followingItem = items[index + 1];
+  const nextItem = found ? followingItem : undefined;
+  const pagination = { prevItem, nextItem };
+  return pagination;
 }

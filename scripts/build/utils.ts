@@ -4,9 +4,16 @@ import type { BuildLogger, RolldownBuildConfig } from "./types";
 export const buildRolldownBundleArgs = (config: RolldownBuildConfig): string[] => {
   const minifyArgs = config.minify ? ["--minify"] : [];
   const splittingArgs = config.splitting ? [] : ["--no-codeSplitting"];
-  const externalArgs = config.external.length > 0 ? ["--external", config.external.join(",")] : [];
+  const hasExternals = config.external.length > 0;
+  const externalArgs = hasExternals ? ["--external", config.external.join(",")] : [];
   const outputArgs = ["--dir", config.outDir, "--platform", config.target, "--format", "esm"];
-  return [config.input].concat(outputArgs, minifyArgs, splittingArgs, externalArgs);
+  const rolldownBundleArgs = [config.input].concat(
+    outputArgs,
+    minifyArgs,
+    splittingArgs,
+    externalArgs,
+  );
+  return rolldownBundleArgs;
 };
 
 const printOutput = (logger: BuildLogger, stdout?: string, stderr?: string): void => {

@@ -1,9 +1,13 @@
 import type { PromptChoice } from "./types";
 
+const standardPaths = ["packages/*/package.json", "apps/*/package.json"] as const;
+const packagePaths = ["packages/*/package.json"] as const;
+const appPaths = ["apps/*/package.json"] as const;
+
 export const WORKSPACE_TYPES = {
-  standard: ["packages/*/package.json", "apps/*/package.json"],
-  "packages-only": ["packages/*/package.json"],
-  "apps-only": ["apps/*/package.json"],
+  standard: standardPaths,
+  "packages-only": packagePaths,
+  "apps-only": appPaths,
   custom: null,
 } as const;
 

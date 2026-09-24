@@ -16,31 +16,33 @@ const styles = {
 } as const;
 
 export function DocsLayout({ children }: DocsLayoutProps) {
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const handleDrawerChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setDrawerOpen(event.target.checked);
-  };
-  const closeDrawer = () => setDrawerOpen(false);
-
   return (
     <section className={styles.shell}>
       <Header />
 
-      <main className={styles.main}>
-        <input
-          id="my-drawer-2"
-          type="checkbox"
-          className="drawer-toggle"
-          checked={drawerOpen}
-          onChange={handleDrawerChange}
-        />
-        <section className={styles.drawerContent}>
-          <article className={styles.article}>{children}</article>
-        </section>
-        <Sidebar onClose={closeDrawer} />
-      </main>
+      <DocsDrawer children={children} />
 
       <Footer />
     </section>
+  );
+}
+
+interface DocsDrawerProps {
+  children: ReactNode;
+}
+function DocsDrawer({ children }: DocsDrawerProps) {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const handleDrawerChange = (event: ChangeEvent<HTMLInputElement>) =>
+    setDrawerOpen(event.target.checked);
+  const closeDrawer = () => setDrawerOpen(false);
+  const inputProps = { checked: drawerOpen, onChange: handleDrawerChange };
+  return (
+    <main className={styles.main}>
+      <input id="my-drawer-2" type="checkbox" className="drawer-toggle" {...inputProps} />
+      <section className={styles.drawerContent}>
+        <article className={styles.article}>{children}</article>
+      </section>
+      <Sidebar onClose={closeDrawer} />
+    </main>
   );
 }

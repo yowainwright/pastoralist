@@ -29,6 +29,7 @@ import type {
   CLIInstallOptions,
   PromptFunctions,
   PromptChoice,
+  PromptSelection,
   SecretPromptCharResult,
   SecretPromptSession,
 } from "./types";
@@ -43,94 +44,108 @@ export const getSeverityScore = (severity: string): number => {
     high: 3,
     critical: 4,
   };
-  return scores[severity.toLowerCase()] || 0;
+  const severityScore = scores[severity.toLowerCase()] || 0;
+  return severityScore;
 };
 
 const mergeSources = (a: SecurityAlert, b: SecurityAlert): SecurityProviderType[] => {
   const combined = (a.sources || []).concat(b.sources || []);
-  return Array.from(new Set(combined)) as SecurityProviderType[];
+  const sources = Array.from(new Set(combined));
+  return sources;
 };
 
 const createCvesField = (cves: string[] | undefined): Partial<Pick<SecurityAlert, "cves">> => {
-  if (!cves?.length) return {};
-  return { cves };
+  if (!cves?.length) {
+    const emptyField = {};
+    return emptyField;
+  }
+  const cvesField = { cves };
+  return cvesField;
 };
 
 const createSourcesField = (
   sources: SecurityProviderType[] | undefined,
 ): Partial<Pick<SecurityAlert, "sources">> => {
-  if (!sources?.length) return {};
-  return { sources };
+  if (!sources?.length) {
+    const emptyField = {};
+    return emptyField;
+  }
+  const sourcesField = { sources };
+  return sourcesField;
+};
+
+const mergeAlert = (existing: SecurityAlert | undefined, alert: SecurityAlert): SecurityAlert => {
+  if (!existing) {
+    const newAlert = Object.assign({}, alert);
+    return newAlert;
+  }
+  const isMoreSevere = getSeverityScore(alert.severity) > getSeverityScore(existing.severity);
+  const preferred = isMoreSevere ? alert : existing;
+  const allCves = (existing.cves || []).concat(alert.cves || []);
+  const mergedCves = Array.from(new Set(allCves));
+  const mergedSources = mergeSources(existing, alert);
+  const withCves = createCvesField(mergedCves);
+  const withSources = createSourcesField(mergedSources);
+  const merged = Object.assign({}, preferred, withCves, withSources);
+  return merged;
 };
 
 export const deduplicateAlerts = (alerts: SecurityAlert[]): SecurityAlert[] => {
   const seen = alerts.reduce((map, alert) => {
     const key = `${alert.packageName}@${alert.currentVersion}:${alert.cves?.[0] || alert.title}`;
     const existing = map.get(key);
-    const shouldReplace =
-      !existing || getSeverityScore(alert.severity) > getSeverityScore(existing.severity);
-
-    if (shouldReplace) {
-      const mergedCves = existing
-        ? Array.from(new Set((existing.cves || []).concat(alert.cves || [])))
-        : alert.cves;
-      const mergedSources = existing ? mergeSources(existing, alert) : alert.sources;
-      const withCves = createCvesField(mergedCves);
-      const withSources = createSourcesField(mergedSources);
-      map.set(key, Object.assign({}, alert, withCves, withSources));
-    } else if (existing) {
-      const allCves = (existing.cves || []).concat(alert.cves || []);
-      const mergedCves = Array.from(new Set(allCves));
-      const mergedSources = mergeSources(existing, alert);
-      const withCves = createCvesField(mergedCves);
-      const withSources = createSourcesField(mergedSources);
-      map.set(key, Object.assign({}, existing, withCves, withSources));
-    }
-
+    map.set(key, mergeAlert(existing, alert));
     return map;
   }, new Map<string, SecurityAlert>());
-
-  return Array.from(seen.values());
+  const uniqueAlerts = Array.from(seen.values());
+  return uniqueAlerts;
 };
 
-export const computeConfidence = (sources: SecurityProviderType[]): "confirmed" | "possible" =>
-  sources.length >= 2 ? "confirmed" : "possible";
+export const computeConfidence = (sources: SecurityProviderType[]): "confirmed" | "possible" => {
+  const hasMultipleSources = sources.length >= 2;
+  if (hasMultipleSources) return "confirmed";
+  return "possible";
+};
 
 export const sortAlertsByPriority = (alerts: SecurityAlert[]): SecurityAlert[] =>
-  alerts.slice().sort((a, b) => {
+  alerts.toSorted((a, b) => {
     const sourcesA = a.sources ?? [];
     const sourcesB = b.sources ?? [];
     const weightA = CONFIDENCE_WEIGHTS[computeConfidence(sourcesA)];
     const weightB = CONFIDENCE_WEIGHTS[computeConfidence(sourcesB)];
     const priorityA = getSeverityScore(a.severity) * weightA;
     const priorityB = getSeverityScore(b.severity) * weightB;
-    return priorityB - priorityA;
+    const result = priorityB - priorityA;
+    return result;
   });
 
 const normalizeSecurityPackageVersion = (version: string): string => {
   const normalizedVersion = version.trim();
   const match = normalizedVersion.match(SECURITY_REGISTRY_SPEC_PATTERN);
   if (!match) return normalizedVersion;
-  return match[1];
+  const result = match[1];
+  return result;
+};
+
+const getDirectDependencies = (config: PastoralistJSON) => {
+  const { dependencies, devDependencies, peerDependencies } = config;
+  const combined = Object.assign({}, dependencies, devDependencies, peerDependencies);
+  return combined;
 };
 
 export const extractPackages = (
   config: PastoralistJSON,
   excludePackages: string[] = [],
 ): Array<{ name: string; version: string }> => {
-  const allDeps = Object.assign(
-    {},
-    config.dependencies,
-    config.devDependencies,
-    config.peerDependencies,
-  );
-
-  return Object.entries(allDeps)
+  const allDeps = getDirectDependencies(config);
+  const packages = Object.entries(allDeps)
     .filter(([name]) => !excludePackages.includes(name))
     .map(([name, version]) => {
       const packageVersion = normalizeSecurityPackageVersion(version);
-      return { name, version: packageVersion };
+      const result = { name, version: packageVersion };
+      return result;
     });
+  return packages;
 };
 
 const checkBoundedRange = (version: string, range: string): boolean | null => {
@@ -164,7 +179,8 @@ const checkLessThanOrEqual = (version: string, range: string): boolean | null =>
   if (!isLessThanOrEqual) return null;
 
   const maxVersion = range.slice(2).trim();
-  return compareVersions(version, maxVersion) <= 0;
+  const result = compareVersions(version, maxVersion) <= 0;
+  return result;
 };
 
 const checkLessThan = (version: string, range: string): boolean | null => {
@@ -172,7 +188,8 @@ const checkLessThan = (version: string, range: string): boolean | null => {
   if (!isLessThan) return null;
 
   const maxVersion = range.slice(1).trim();
-  return compareVersions(version, maxVersion) < 0;
+  const result = compareVersions(version, maxVersion) < 0;
+  return result;
 };
 
 const checkGreaterThanOrEqual = (version: string, range: string): boolean | null => {
@@ -180,7 +197,8 @@ const checkGreaterThanOrEqual = (version: string, range: string): boolean | null
   if (!isOpenEnded) return null;
 
   const minVersion = range.slice(2).trim();
-  return compareVersions(version, minVersion) >= 0;
+  const result = compareVersions(version, minVersion) >= 0;
+  return result;
 };
 
 export const isVersionVulnerable = (currentVersion: string, vulnerableRange: string): boolean => {
@@ -198,10 +216,30 @@ export const isVersionVulnerable = (currentVersion: string, vulnerableRange: str
     const exactVersion = checkExactVersion(cleanVersion, vulnerableRange);
     if (exactVersion !== null) return exactVersion;
 
-    return checkLessThan(cleanVersion, vulnerableRange) ?? false;
+    const result = checkLessThan(cleanVersion, vulnerableRange) ?? false;
+    return result;
   } catch {
     return false;
   }
+};
+
+const countVulnerableVersions = (
+  currentVersion: string,
+  targetVersion: string,
+  alerts: SecurityAlert[],
+) => {
+  const counts = alerts.reduce(
+    (previous, alert) => {
+      const current =
+        previous.current + Number(isVersionVulnerable(currentVersion, alert.vulnerableVersions));
+      const target =
+        previous.target + Number(isVersionVulnerable(targetVersion, alert.vulnerableVersions));
+      const next = { current, target };
+      return next;
+    },
+    { current: 0, target: 0 },
+  );
+  return counts;
 };
 
 export const computeVulnerabilityReduction = (
@@ -210,48 +248,40 @@ export const computeVulnerabilityReduction = (
   targetVersion: string,
   allAlerts: SecurityAlert[],
 ): { skip: boolean; targetStillVulnerable: boolean } => {
+  const unchanged = { skip: false, targetStillVulnerable: false };
   const hasKnownCurrentVersion = Boolean(currentVersion) && currentVersion !== "unknown";
-  if (!hasKnownCurrentVersion) {
-    return { skip: false, targetStillVulnerable: false };
-  }
-
+  if (!hasKnownCurrentVersion) return unchanged;
   const packageAlerts = allAlerts.filter(
     (a) => a.packageName === packageName && a.vulnerableVersions,
   );
   const hasVulnerableRanges = packageAlerts.length > 0;
-  if (!hasVulnerableRanges) return { skip: false, targetStillVulnerable: false };
-
-  const currentCount = packageAlerts.filter((a) =>
-    isVersionVulnerable(currentVersion, a.vulnerableVersions!),
-  ).length;
-  const targetCount = packageAlerts.filter((a) =>
-    isVersionVulnerable(targetVersion, a.vulnerableVersions!),
-  ).length;
-
-  return {
-    skip: targetCount >= currentCount,
-    targetStillVulnerable: targetCount > 0,
-  };
+  if (!hasVulnerableRanges) return unchanged;
+  const { current, target } = countVulnerableVersions(currentVersion, targetVersion, packageAlerts);
+  const skip = target >= current;
+  const targetStillVulnerable = target > 0;
+  const reduction = { skip, targetStillVulnerable };
+  return reduction;
 };
 
 export const findVulnerablePackages = (
   config: PastoralistJSON,
   alerts: SecurityAlert[],
 ): SecurityAlert[] => {
-  const allDeps = Object.assign(
-    {},
-    config.dependencies,
-    config.devDependencies,
-    config.peerDependencies,
-  );
+  const allDeps = getDirectDependencies(config);
 
-  return alerts
+  const vulnerablePackages = alerts
     .filter((alert) => {
       const currentVersion = allDeps[alert.packageName];
       const hasDep = Boolean(currentVersion);
-      return hasDep && isVersionVulnerable(currentVersion, alert.vulnerableVersions);
+      const result = hasDep && isVersionVulnerable(currentVersion, alert.vulnerableVersions);
+      return result;
     })
-    .map((alert) => Object.assign({}, alert, { currentVersion: allDeps[alert.packageName] }));
+    .map((alert) => {
+      const currentVersion = allDeps[alert.packageName];
+      const installedAlert = Object.assign({}, alert, { currentVersion });
+      return installedAlert;
+    });
+  return vulnerablePackages;
 };
 
 export class CLIInstaller {
@@ -259,9 +289,10 @@ export class CLIInstaller {
   private execFileAsync: ExecFileAsync;
 
   constructor(options: { debug?: boolean; execFileAsync?: ExecFileAsync } = {}) {
+    const { debug: isLogging } = options;
     this.log = logger({
       file: "security/cli-installer.ts",
-      isLogging: options.debug,
+      isLogging,
     });
     this.execFileAsync = options.execFileAsync ?? execFileAsync;
   }
@@ -281,7 +312,8 @@ export class CLIInstaller {
     const args = ["list", "-g", packageName, "--depth=0"];
     try {
       const { stdout } = await this.execFileAsync("npm", args, execOptions);
-      return stdout.includes(packageName);
+      const result = stdout.includes(packageName);
+      return result;
     } catch {
       return false;
     }
@@ -298,7 +330,7 @@ export class CLIInstaller {
       this.log.error(`Failed to install ${packageName}`, "installGlobally", {
         error,
       });
-      throw new Error(`Failed to install ${packageName}: ${error}`);
+      throw new Error(`Failed to install ${packageName}: ${error}`, { cause: error });
     }
   }
 
@@ -315,7 +347,8 @@ export class CLIInstaller {
       return true;
     }
 
-    return this.installMissingCommand(packageName, cliCommand);
+    const result = this.installMissingCommand(packageName, cliCommand);
+    return result;
   }
 
   private async hasAvailableCommand(cliCommand: string): Promise<boolean> {
@@ -345,7 +378,8 @@ export class CLIInstaller {
     this.log.print(`${cliCommand} not found, installing ${packageName}...`);
     try {
       await this.installGlobally(packageName);
-      return this.verifyInstalledCommand(packageName, cliCommand);
+      const result = this.verifyInstalledCommand(packageName, cliCommand);
+      return result;
     } catch (error) {
       this.log.error(`Could not install ${packageName}`, "ensureInstalled", { error });
       return false;
@@ -369,7 +403,8 @@ export class CLIInstaller {
     const execOptions = { timeout: DEFAULT_CLI_TIMEOUT };
     try {
       const { stdout } = await this.execFileAsync(command, ["--version"], execOptions);
-      return stdout.trim();
+      const version = stdout.trim();
+      return version;
     } catch {
       return undefined;
     }
@@ -377,10 +412,21 @@ export class CLIInstaller {
 }
 
 export const createPromptInterface = () => {
-  return readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
+  const { stdin: input, stdout: output } = process;
+  const promptInterface = readline.createInterface({ input, output });
+  return promptInterface;
+};
+
+const startPromptTimeout = (
+  rl: readline.Interface,
+  reject: (error: Error) => void,
+  timeout: number,
+) => {
+  const timeoutId = setTimeout(() => {
+    rl.close();
+    reject(new Error("Prompt timed out"));
+  }, timeout);
+  return timeoutId;
 };
 
 const questionWithTimeout = (
@@ -388,11 +434,8 @@ const questionWithTimeout = (
   prompt: string,
   timeout: number,
 ): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const timeoutId = setTimeout(() => {
-      rl.close();
-      reject(new Error("Prompt timed out"));
-    }, timeout);
+  const pendingAnswer = new Promise<string>((resolve, reject) => {
+    const timeoutId = startPromptTimeout(rl, reject, timeout);
 
     const resolveAnswer = (answer: string): void => {
       clearTimeout(timeoutId);
@@ -406,13 +449,16 @@ const questionWithTimeout = (
       reject(error);
     }
   });
+  return pendingAnswer;
 };
 
 const formatYesNo = (defaultValue: boolean): string => {
   if (defaultValue) {
-    return `${cyan("Y")}/n`;
+    const yesDefault = `${cyan("Y")}/n`;
+    return yesDefault;
   }
-  return `y/${cyan("N")}`;
+  const noDefault = `y/${cyan("N")}`;
+  return noDefault;
 };
 
 export const promptConfirm = async (message: string, defaultValue = true): Promise<boolean> => {
@@ -440,10 +486,11 @@ export const promptConfirm = async (message: string, defaultValue = true): Promi
 export const promptSelect = async (message: string, choices: PromptChoice[]): Promise<string> => {
   const rl = createPromptInterface();
   const defaultChoice = choices[0]?.value || "";
+  const selection = { choices, defaultChoice };
   const selectPrompt = `${gray("Select")} (1-${choices.length}): `;
 
   printSelectChoices(message, choices);
-  const selectedValue = await promptForSelection(rl, selectPrompt, choices, defaultChoice);
+  const selectedValue = await promptForSelection(rl, selectPrompt, selection);
 
   rl.close();
   return selectedValue;
@@ -458,24 +505,21 @@ function printSelectChoices(message: string, choices: PromptChoice[]): void {
 async function promptForSelection(
   rl: readline.Interface,
   selectPrompt: string,
-  choices: PromptChoice[],
-  defaultChoice: string,
+  selection: PromptSelection,
   attempt = 1,
 ): Promise<string> {
-  if (attempt > PROMPT_SELECT_MAX_ATTEMPTS) {
-    return defaultChoice;
-  }
+  const { choices, defaultChoice } = selection;
+  if (attempt > PROMPT_SELECT_MAX_ATTEMPTS) return defaultChoice;
 
   try {
     const input = await questionWithTimeout(rl, selectPrompt, DEFAULT_PROMPT_TIMEOUT);
     const selectedValue = getSelectedChoice(input, choices);
 
-    if (selectedValue) {
-      return selectedValue;
-    }
+    if (selectedValue) return selectedValue;
 
     console.log("Invalid selection. Please try again.");
-    return promptForSelection(rl, selectPrompt, choices, defaultChoice, attempt + 1);
+    const retry = promptForSelection(rl, selectPrompt, selection, attempt + 1);
+    return retry;
   } catch {
     return defaultChoice;
   }
@@ -489,15 +533,18 @@ function getSelectedChoice(input: string, choices: PromptChoice[]): string | und
     return undefined;
   }
 
-  return choices[num - 1].value;
+  const selectedChoice = choices[num - 1].value;
+  return selectedChoice;
 }
 
 const formatInputPrompt = (message: string, defaultValue: string): string => {
   const hasDefault = defaultValue !== "";
   if (hasDefault) {
-    return `${cyan("?")} ${message} (${gray(defaultValue)}): `;
+    const promptWithDefault = `${cyan("?")} ${message} (${gray(defaultValue)}): `;
+    return promptWithDefault;
   }
-  return `${cyan("?")} ${message}: `;
+  const prompt = `${cyan("?")} ${message}: `;
+  return prompt;
 };
 
 export const promptInput = async (message: string, defaultValue = ""): Promise<string> => {
@@ -519,36 +566,43 @@ export const promptInput = async (message: string, defaultValue = ""): Promise<s
 
 export const promptSecret = (message: string, defaultValue = ""): Promise<string> => {
   if (!isInteractiveSecretPrompt()) {
-    return promptInput(message, defaultValue);
+    const result = promptInput(message, defaultValue);
+    return result;
   }
 
   const promptText = formatInputPrompt(message, defaultValue);
-  return readSecretPrompt(promptText, defaultValue);
+  const secret = readSecretPrompt(promptText, defaultValue);
+  return secret;
 };
 
 function isInteractiveSecretPrompt(): boolean {
-  return Boolean(process.stdin.isTTY && process.stdout.isTTY);
+  const result = Boolean(process.stdin.isTTY && process.stdout.isTTY);
+  return result;
 }
 
 function readSecretPrompt(promptText: string, defaultValue: string): Promise<string> {
-  return new Promise((resolvePrompt) => {
+  const result = new Promise<string>((resolvePrompt) => {
     const session = createSecretPromptSession(defaultValue, resolvePrompt);
     startSecretPromptSession(session, promptText);
   });
+  return result;
 }
 
 function createSecretPromptSession(
   defaultValue: string,
   resolvePrompt: (value: string) => void,
 ): SecretPromptSession {
-  return {
-    input: process.stdin,
-    output: process.stdout,
-    wasRaw: process.stdin.isRaw,
+  const { stdin: input, stdout: output } = process;
+  const { isRaw: wasRaw } = input;
+  const secretPromptSession: SecretPromptSession = {
+    input,
+    output,
+    wasRaw,
     defaultValue,
     resolvePrompt,
     value: "",
   };
+  return secretPromptSession;
 }
 
 function startSecretPromptSession(session: SecretPromptSession, promptText: string): void {
@@ -567,14 +621,14 @@ function createSecretDataHandler(session: SecretPromptSession): (chunk: Buffer) 
 }
 
 function handleSecretDataChar(session: SecretPromptSession, char: string): boolean {
-  const result = handleSecretChar(char, session.value, session.defaultValue);
-  session.value = result.value;
+  const { value, output, done } = handleSecretChar(char, session.value, session.defaultValue);
+  session.value = value;
 
-  if (result.done) {
-    finishSecretPrompt(session, result.output);
+  if (done) {
+    finishSecretPrompt(session, output);
   }
 
-  return result.done;
+  return done;
 }
 
 function createSecretPromptTimeout(session: SecretPromptSession): ReturnType<typeof setTimeout> {
@@ -611,20 +665,30 @@ function handleSecretChar(
   defaultValue: string,
 ): SecretPromptCharResult {
   if (char === "\u0003") {
-    return { value, output: defaultValue, done: true };
+    const result: SecretPromptCharResult = { value, output: defaultValue, done: true };
+    return result;
   }
 
   const isSubmitChar = char === "\r" || char === "\n";
   if (isSubmitChar) {
-    return { value, output: value.trim() || defaultValue, done: true };
+    const output = value.trim() || defaultValue;
+    const submitted = { value, output, done: true };
+    return submitted;
   }
+  const edited = editSecretChar(char, value);
+  return edited;
+}
 
+function editSecretChar(char: string, previous: string): SecretPromptCharResult {
   const isBackspaceChar = char === "\u007f" || char === "\b";
   if (isBackspaceChar) {
-    return { value: value.slice(0, -1), output: "", done: false };
+    const value = previous.slice(0, -1);
+    const shortened = { value, output: "", done: false };
+    return shortened;
   }
-
-  return { value: value + char, output: "", done: false };
+  const value = previous + char;
+  const appended = { value, output: "", done: false };
+  return appended;
 }
 
 export class InteractiveSecurityManager {
@@ -644,22 +708,20 @@ export class InteractiveSecurityManager {
     vulnerablePackages: SecurityAlert[],
     suggestedOverrides: SecurityOverride[],
   ): Promise<SecurityOverride[]> {
-    if (vulnerablePackages.length === 0) {
-      return [];
-    }
+    const empty: SecurityOverride[] = [];
+    if (vulnerablePackages.length === 0) return empty;
 
     this.printSecurityReview(vulnerablePackages);
     const proceed = await this.confirmSecurityReview();
 
-    if (!proceed) {
-      return [];
-    }
+    if (!proceed) return empty;
 
     const selectedOverrides = await this.collectSelectedOverrides(
       vulnerablePackages,
       suggestedOverrides,
     );
-    return this.confirmSelectedOverrides(selectedOverrides);
+    const confirmed = this.confirmSelectedOverrides(selectedOverrides);
+    return confirmed;
   }
 
   async promptForBestCasePortfolio(
@@ -670,17 +732,24 @@ export class InteractiveSecurityManager {
     this.printSelectedOverrides(suggestedOverrides);
     const message = "Apply this complete best-case portfolio without edits?";
     const accepted = await this.prompts.confirm(message, false);
-    if (!accepted) return [];
+    if (!accepted) {
+      const result: SecurityOverride[] = [];
+      return result;
+    }
     return suggestedOverrides;
   }
 
   async promptForUserOwnedOverrides(updates: OverrideUpdate[]): Promise<OverrideUpdate[]> {
     const [update, ...remaining] = updates;
-    if (!update) return [];
+    if (!update) {
+      const result: OverrideUpdate[] = [];
+      return result;
+    }
     const isUserOwned = await this.promptForUserOwnedOverride(update);
     const selected = await this.promptForUserOwnedOverrides(remaining);
     if (!isUserOwned) return selected;
-    return [update].concat(selected);
+    const updatesWithSelection = [update].concat(selected);
+    return updatesWithSelection;
   }
 
   private promptForUserOwnedOverride(update: OverrideUpdate): Promise<boolean> {
@@ -688,12 +757,14 @@ export class InteractiveSecurityManager {
     const subject = `${update.packageName}@${update.newerVersion}`;
     const message = `Mark ${subject} as user-owned and force it into the best-case portfolio?`;
     const prompt = message + addedDate;
-    return this.prompts.confirm(prompt, false);
+    const result = this.prompts.confirm(prompt, false);
+    return result;
   }
 
   private formatUserOwnedAddedDate(update: OverrideUpdate): string {
     if (!update.addedDate) return "";
-    return ` Existing override added ${update.addedDate}.`;
+    const userOwnedAddedDate = ` Existing override added ${update.addedDate}.`;
+    return userOwnedAddedDate;
   }
 
   private printSecurityReview(vulnerablePackages: SecurityAlert[]): void {
@@ -703,21 +774,27 @@ export class InteractiveSecurityManager {
   }
 
   private confirmSecurityReview(): Promise<boolean> {
-    return this.prompts.confirm("Would you like to review and apply security fixes?", false);
+    const result = this.prompts.confirm(
+      "Would you like to review and apply security fixes?",
+      false,
+    );
+    return result;
   }
 
   private collectSelectedOverrides(
     vulnerablePackages: SecurityAlert[],
     suggestedOverrides: SecurityOverride[],
   ): Promise<SecurityOverride[]> {
-    return suggestedOverrides.reduce(
+    const selections = suggestedOverrides.reduce(
       async (previousSelections, override) => {
         const previous = await previousSelections;
         const selected = await this.selectOverride(vulnerablePackages, override);
-        return previous.concat(selected);
+        const result = previous.concat(selected);
+        return result;
       },
       Promise.resolve([] as SecurityOverride[]),
     );
+    return selections;
   }
 
   private async selectOverride(
@@ -727,7 +804,8 @@ export class InteractiveSecurityManager {
     const vulnerability = this.findVulnerability(vulnerablePackages, override);
 
     if (!vulnerability) {
-      return [];
+      const result: SecurityOverride[] = [];
+      return result;
     }
 
     this.printOverrideReview(override, vulnerability);
@@ -736,16 +814,19 @@ export class InteractiveSecurityManager {
       this.getActionChoices(override),
     );
     const selectedOverride = await this.createSelectedOverride(action, override);
-    return selectedOverride ? [selectedOverride] : [];
+    const selection = selectedOverride ? [selectedOverride] : [];
+    return selection;
   }
 
   private findVulnerability(
     vulnerablePackages: SecurityAlert[],
     override: SecurityOverride,
   ): SecurityAlert | undefined {
-    return vulnerablePackages.find((vulnerability) => {
-      return vulnerability.packageName === override.packageName;
+    const vulnerability = vulnerablePackages.find((alert) => {
+      const matches = alert.packageName === override.packageName;
+      return matches;
     });
+    return vulnerability;
   }
 
   private printOverrideReview(override: SecurityOverride, vulnerability: SecurityAlert): void {
@@ -761,13 +842,16 @@ export class InteractiveSecurityManager {
   }
 
   private getActionChoices(override: SecurityOverride): PromptChoice[] {
-    return SECURITY_ACTION_CHOICES.map((choice) => {
+    const choices = SECURITY_ACTION_CHOICES.map((choice) => {
       if (choice.value !== "apply") {
         return choice;
       }
 
-      return Object.assign({}, choice, { name: `Apply fix: Update to ${override.toVersion}` });
+      const name = `Apply fix: Update to ${override.toVersion}`;
+      const result = Object.assign({}, choice, { name });
+      return result;
     });
+    return choices;
   }
 
   private async createSelectedOverride(
@@ -783,7 +867,8 @@ export class InteractiveSecurityManager {
         "Enter the version to use:",
         override.toVersion,
       );
-      return Object.assign({}, override, { toVersion: customVersion });
+      const selectedOverride = Object.assign({}, override, { toVersion: customVersion });
+      return selectedOverride;
     }
 
     return undefined;
@@ -793,7 +878,8 @@ export class InteractiveSecurityManager {
     selectedOverrides: SecurityOverride[],
   ): Promise<SecurityOverride[]> {
     if (selectedOverrides.length === 0) {
-      return [];
+      const result: SecurityOverride[] = [];
+      return result;
     }
 
     this.printSelectedOverrides(selectedOverrides);
@@ -801,7 +887,8 @@ export class InteractiveSecurityManager {
       "Apply these overrides to your package.json?",
       false,
     );
-    return confirm ? selectedOverrides : [];
+    const confirmed = confirm ? selectedOverrides : [];
+    return confirmed;
   }
 
   private printSelectedOverrides(selectedOverrides: SecurityOverride[]): void {
@@ -818,19 +905,22 @@ export class InteractiveSecurityManager {
     const severityLines = SECURITY_SUMMARY_SEVERITIES.map((severity) =>
       this.formatSeveritySummary(severity, counts[severity]),
     ).filter(Boolean);
-    return [`Found ${vulnerablePackages.length} vulnerable package(s):`]
+    const result = [`Found ${vulnerablePackages.length} vulnerable package(s):`]
       .concat(severityLines)
       .join("\n");
+    return result;
   }
 
   private countBySeverity(vulnerablePackages: SecurityAlert[]) {
-    return vulnerablePackages.reduce(
-      (counts, vulnerability) =>
-        Object.assign({}, counts, {
-          [vulnerability.severity]: counts[vulnerability.severity] + 1,
-        }),
+    const result = vulnerablePackages.reduce(
+      (counts, vulnerability) => {
+        const count = counts[vulnerability.severity] + 1;
+        const updated = Object.assign({}, counts, { [vulnerability.severity]: count });
+        return updated;
+      },
       { critical: 0, high: 0, medium: 0, low: 0 },
     );
+    return result;
   }
 
   private formatSeveritySummary(severity: SecurityAlert["severity"], count: number): string {
@@ -839,37 +929,45 @@ export class InteractiveSecurityManager {
     }
 
     const label = this.getSeverityLabel(severity);
-    return `  ${label} ${count}`;
+    const severitySummary = `  ${label} ${count}`;
+    return severitySummary;
   }
 
   private getSeverityLabel(severity: SecurityAlert["severity"]): string {
     if (severity === "critical") {
-      return red("[CRITICAL]");
+      const critical = red("[CRITICAL]");
+      return critical;
     }
 
     if (severity === "high") {
-      return red("[HIGH]    ");
+      const high = red("[HIGH]    ");
+      return high;
     }
 
     if (severity === "medium") {
-      return yellow("[MEDIUM]  ");
+      const medium = yellow("[MEDIUM]  ");
+      return medium;
     }
 
-    return cyan("[LOW]     ");
+    const low = cyan("[LOW]     ");
+    return low;
   }
 
   private getSeverityEmoji(severity: string): string {
     switch (severity.toLowerCase()) {
       case "critical":
-        return red("[!]");
       case "high":
-        return red("[!]");
+        const alert = red("[!]");
+        return alert;
       case "medium":
-        return yellow("[*]");
+        const warning = yellow("[*]");
+        return warning;
       case "low":
-        return cyan("[i]");
+        const info = cyan("[i]");
+        return info;
       default:
-        return gray("[*]");
+        const unknown = gray("[*]");
+        return unknown;
     }
   }
 }

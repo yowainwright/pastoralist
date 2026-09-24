@@ -1,3 +1,4 @@
+import { assertContainsText, assertExcludesText } from "./utils";
 import { afterEach, describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -28,7 +29,10 @@ const createReleaseJson = (
   assets: Array<{ digest: string | null; name: string }>,
   exists: boolean,
 ) => {
-  if (!exists) return JSON.stringify([[]]);
+  if (!exists) {
+    const releaseJson = JSON.stringify([[]]);
+    return releaseJson;
+  }
   const release = {
     assets,
     draft: true,
@@ -36,7 +40,8 @@ const createReleaseJson = (
     tag_name: "v1.2.3",
     upload_url: UPLOAD_URL,
   };
-  return JSON.stringify([[release]]);
+  const releaseJson2 = JSON.stringify([[release]]);
+  return releaseJson2;
 };
 
 const createFixture = (publishedDigest?: string | null, releaseExists = true): Fixture => {
@@ -48,12 +53,7 @@ const createFixture = (publishedDigest?: string | null, releaseExists = true): F
   const assets = hasPublishedAsset ? [{ name: "pastoralist.tgz", digest: publishedDigest }] : [];
   const path = `${binPath}:${process.env.PATH ?? ""}`;
 
-  tempDirectories.add(root);
-  mkdirSync(binPath);
-  writeFileSync(assetPath, "release asset");
-  writeFileSync(logPath, "");
-  writeFileSync(join(binPath, "gh"), FAKE_GH);
-  chmodSync(join(binPath, "gh"), 0o755);
+  writeFixtureFiles(root, binPath, assetPath, logPath);
 
   const releaseJson = createReleaseJson(assets, releaseExists);
   const env = Object.assign({}, process.env, {
@@ -62,7 +62,17 @@ const createFixture = (publishedDigest?: string | null, releaseExists = true): F
     GITHUB_REPOSITORY: "yowainwright/pastoralist",
     PATH: path,
   });
-  return { assetPath, env, logPath };
+  const fixture: Fixture = { assetPath, env, logPath };
+  return fixture;
+};
+
+const writeFixtureFiles = (root: string, binPath: string, assetPath: string, logPath: string) => {
+  tempDirectories.add(root);
+  mkdirSync(binPath);
+  writeFileSync(assetPath, "release asset");
+  writeFileSync(logPath, "");
+  writeFileSync(join(binPath, "gh"), FAKE_GH);
+  chmodSync(join(binPath, "gh"), 0o755);
 };
 
 const runUpload = ({ assetPath, env }: Fixture) =>
@@ -73,56 +83,71 @@ afterEach(() => {
   tempDirectories.clear();
 });
 
+const cases = [
+  {
+    name: "uploads a missing asset",
+    run: () => {
+      const fixture = createFixture();
+      const result = runUpload(fixture);
+      const log = readFileSync(fixture.logPath, "utf8");
+
+      assert.strictEqual(result.status, 0);
+      assert.strictEqual(result.stdout, "123\n");
+      assertContainsText(log, "api --paginate --slurp");
+      assertContainsText(log, "api --method POST");
+      assertContainsText(log, "releases/123/assets?name=pastoralist.tgz");
+      assertExcludesText(log, "releases/tags");
+    },
+  },
+  {
+    name: "skips an existing asset with the expected digest",
+    run: () => {
+      const digest = createHash("sha256").update("release asset").digest("hex");
+      const fixture = createFixture(`sha256:${digest}`);
+      const result = runUpload(fixture);
+      const log = readFileSync(fixture.logPath, "utf8");
+
+      assert.strictEqual(result.status, 0);
+      assert.strictEqual(result.stdout, "123\n");
+      assertExcludesText(log, "api --method POST");
+    },
+  },
+  {
+    name: "rejects an existing asset with a different digest",
+    run: () => {
+      const fixture = createFixture("sha256:unexpected");
+      const result = runUpload(fixture);
+      const log = readFileSync(fixture.logPath, "utf8");
+
+      assert.strictEqual(result.status, 1);
+      assertContainsText(result.stderr, "Release asset digest mismatch: pastoralist.tgz");
+      assertExcludesText(log, "api --method POST");
+    },
+  },
+  {
+    name: "rejects an existing asset without a published digest",
+    run: () => {
+      const fixture = createFixture(null);
+      const result = runUpload(fixture);
+      const log = readFileSync(fixture.logPath, "utf8");
+
+      assert.strictEqual(result.status, 1);
+      assertContainsText(result.stderr, "Release asset digest unavailable: pastoralist.tgz");
+      assertExcludesText(log, "api --method POST");
+    },
+  },
+  {
+    name: "rejects a missing release",
+    run: () => {
+      const fixture = createFixture(undefined, false);
+      const result = runUpload(fixture);
+
+      assert.strictEqual(result.status, 1);
+      assertContainsText(result.stderr, "Release not found: v1.2.3");
+    },
+  },
+];
+
 describe("scripts/release/upload-assets", () => {
-  test("uploads a missing asset", () => {
-    const fixture = createFixture();
-    const result = runUpload(fixture);
-    const log = readFileSync(fixture.logPath, "utf8");
-
-    assert.strictEqual(result.status, 0);
-    assert.strictEqual(result.stdout, "123\n");
-    assert.ok(log.includes("api --paginate --slurp"));
-    assert.ok(log.includes("api --method POST"));
-    assert.ok(log.includes("releases/123/assets?name=pastoralist.tgz"));
-    assert.ok(!log.includes("releases/tags"));
-  });
-
-  test("skips an existing asset with the expected digest", () => {
-    const digest = createHash("sha256").update("release asset").digest("hex");
-    const fixture = createFixture(`sha256:${digest}`);
-    const result = runUpload(fixture);
-    const log = readFileSync(fixture.logPath, "utf8");
-
-    assert.strictEqual(result.status, 0);
-    assert.strictEqual(result.stdout, "123\n");
-    assert.ok(!log.includes("api --method POST"));
-  });
-
-  test("rejects an existing asset with a different digest", () => {
-    const fixture = createFixture("sha256:unexpected");
-    const result = runUpload(fixture);
-    const log = readFileSync(fixture.logPath, "utf8");
-
-    assert.strictEqual(result.status, 1);
-    assert.ok(result.stderr.includes("Release asset digest mismatch: pastoralist.tgz"));
-    assert.ok(!log.includes("api --method POST"));
-  });
-
-  test("rejects an existing asset without a published digest", () => {
-    const fixture = createFixture(null);
-    const result = runUpload(fixture);
-    const log = readFileSync(fixture.logPath, "utf8");
-
-    assert.strictEqual(result.status, 1);
-    assert.ok(result.stderr.includes("Release asset digest unavailable: pastoralist.tgz"));
-    assert.ok(!log.includes("api --method POST"));
-  });
-
-  test("rejects a missing release", () => {
-    const fixture = createFixture(undefined, false);
-    const result = runUpload(fixture);
-
-    assert.strictEqual(result.status, 1);
-    assert.ok(result.stderr.includes("Release not found: v1.2.3"));
-  });
+  cases.forEach(({ name, run }) => test(name, run));
 });

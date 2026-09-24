@@ -1,4 +1,16 @@
 import type { SecurityProvider, SeverityThreshold } from "../../../config";
+import type { PastoralistJSON } from "../../../types";
+import type { Logger } from "../../../observability";
+import type { Prompt } from "../../prompts";
+
+export type InitSession = {
+  prompt: Prompt;
+  answers: InitAnswers;
+  packageJson: PastoralistJSON | null | undefined;
+  context: InitWizardContext;
+  log: Logger;
+  options: InitOptions;
+};
 
 export type InitConfigFormat =
   | ".pastoralistrc.json"

@@ -1,5 +1,5 @@
 import * as fs from "fs";
-import { copyFile, cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { execFile as execFileCallback } from "node:child_process";
 import { tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "path";
@@ -10,6 +10,7 @@ import type {
   Options,
   OverridesType,
   PastoralistJSON,
+  PastoralistConfig,
   SecurityPackage,
   UpdatePackageJSONOptions,
 } from "../../types";
@@ -22,6 +23,7 @@ import {
   NPM_LS_MAX_BUFFER,
   NPM_LS_TIMEOUT_MS,
   TREE_CACHE_MAX_ENTRIES,
+  PRESERVED_CONFIG_FIELDS,
 } from "./constants";
 import type { OverrideField, PackageManager } from "./types";
 import type { ResolverConfigGuard } from "../../mgrs/types";
@@ -47,28 +49,31 @@ export type { OverrideField, PackageManager } from "./types";
 const execFile = promisify(execFileCallback);
 const log = logger({ file: "package/index.ts", isLogging: IS_DEBUGGING });
 
-let _treeCache: DiskCache<Record<string, string>> | null = null;
-let _pendingTreeRequests: Map<string, Promise<Record<string, string>>> | null = null;
+let treeCache: DiskCache<Record<string, string>> | null = null;
+let pendingTreeRequests: Map<string, Promise<Record<string, string>>> | null = null;
 
 const getTreeCache = (cacheDir?: string): DiskCache<Record<string, string>> => {
-  if (!_treeCache) {
-    _treeCache = new DiskCache<Record<string, string>>(CACHE_NAMESPACES.TREE, {
-      dir: cacheDir ?? resolveCacheDir(),
-      ttl: CACHE_TTLS.TREE,
-      version: CACHE_NS_VERSIONS.TREE,
+  if (!treeCache) {
+    const dir = cacheDir ?? resolveCacheDir();
+    const { TREE: ttl } = CACHE_TTLS;
+    const { TREE: version } = CACHE_NS_VERSIONS;
+    treeCache = new DiskCache<Record<string, string>>(CACHE_NAMESPACES.TREE, {
+      dir,
+      ttl,
+      version,
       maxEntries: TREE_CACHE_MAX_ENTRIES,
     });
   }
-  return _treeCache;
+  return treeCache;
 };
 
 export const jsonCache = new LRUCache<string, PastoralistJSON>({ max: 500 });
 
 export const getCacheStats = () => {
-  return {
-    size: jsonCache.size,
-    keys: Array.from(jsonCache.keys()),
-  };
+  const { size } = jsonCache;
+  const keys = jsonCache.keys();
+  const cacheStats = { size, keys };
+  return cacheStats;
 };
 
 export const forceClearCache = () => {
@@ -81,7 +86,8 @@ export const forceClearCache = () => {
 const parseJsonFile = (filePath: string): PastoralistJSON | undefined => {
   try {
     const file = fs.readFileSync(filePath, "utf8");
-    return JSON.parse(file);
+    const jsonFile = JSON.parse(file);
+    return jsonFile;
   } catch (err) {
     log.error(`Invalid JSON at: ${filePath}`, "parseJsonFile", err);
     return undefined;
@@ -103,75 +109,16 @@ export const resolveJSON = (path: string): PastoralistJSON | undefined => {
   return json;
 };
 
-const hasOtherPastoralistConfig = (config: PastoralistJSON): boolean => {
-  const hasSchema = Boolean(config.pastoralist?.$schema);
-  const hasAppendixSource = Boolean(config.pastoralist?.appendixSource);
-  const hasOverridePaths = Boolean(config.pastoralist?.overridePaths);
-  const hasResolutionPaths = Boolean(config.pastoralist?.resolutionPaths);
-  const hasSecurity = Boolean(config.pastoralist?.security);
-  const hasCheckSecurity = config.pastoralist?.checkSecurity !== undefined;
-  const hasCompactAppendix = config.pastoralist?.compactAppendix !== undefined;
-  const hasBestCase = Boolean(config.pastoralist?.bestCase);
-  const hasDepPaths = Boolean(config.pastoralist?.depPaths);
-  const hasOverrideSource = Boolean(config.pastoralist?.overrideSource);
-
-  if (hasSchema) return true;
-  if (hasAppendixSource) return true;
-  if (hasOverridePaths) return true;
-  if (hasResolutionPaths) return true;
-  if (hasSecurity) return true;
-  if (hasCheckSecurity) return true;
-  if (hasCompactAppendix) return true;
-  if (hasBestCase) return true;
-  if (hasOverrideSource) return true;
-  return hasDepPaths;
+const hasPreservedValue = ([key, value]: readonly [string, unknown]): boolean => {
+  const preservesFalsy = key === "checkSecurity" || key === "compactAppendix";
+  const keep = Boolean(value) || (preservesFalsy && value !== undefined);
+  return keep;
 };
 
-const createBestCaseField = (config: PastoralistJSON) => {
-  const bestCase = config.pastoralist?.bestCase;
-  if (!bestCase) return undefined;
-  return { bestCase };
-};
-
-const createSchemaField = (config: PastoralistJSON) => {
-  const schema = config.pastoralist?.$schema;
-  if (!schema) return undefined;
-  return { $schema: schema };
-};
-
-const buildPreservedConfig = (config: PastoralistJSON) => {
-  const appendixSource = config.pastoralist?.appendixSource;
-  const depPaths = config.pastoralist?.depPaths;
-  const overridePaths = config.pastoralist?.overridePaths;
-  const overrideSource = config.pastoralist?.overrideSource;
-  const resolutionPaths = config.pastoralist?.resolutionPaths;
-  const security = config.pastoralist?.security;
-  const checkSecurity = config.pastoralist?.checkSecurity;
-  const compactAppendix = config.pastoralist?.compactAppendix;
-  const appendixSourceField = appendixSource ? { appendixSource } : undefined;
-  const depPathsField = depPaths ? { depPaths } : undefined;
-  const overridePathsField = overridePaths ? { overridePaths } : undefined;
-  const overrideSourceField = overrideSource ? { overrideSource } : undefined;
-  const resolutionPathsField = resolutionPaths ? { resolutionPaths } : undefined;
-  const securityField = security ? { security } : undefined;
-  const checkSecurityField = checkSecurity !== undefined ? { checkSecurity } : undefined;
-  const compactAppendixField = compactAppendix !== undefined ? { compactAppendix } : undefined;
-  const bestCaseField = createBestCaseField(config);
-  const schemaField = createSchemaField(config);
-
-  return Object.assign(
-    {},
-    schemaField,
-    appendixSourceField,
-    depPathsField,
-    overridePathsField,
-    overrideSourceField,
-    resolutionPathsField,
-    securityField,
-    checkSecurityField,
-    compactAppendixField,
-    bestCaseField,
-  );
+const buildPreservedConfig = (config: PastoralistJSON): PastoralistConfig => {
+  const entries = PRESERVED_CONFIG_FIELDS.map((key) => [key, config.pastoralist?.[key]] as const);
+  const preservedConfig = Object.fromEntries(entries.filter(hasPreservedValue));
+  return preservedConfig;
 };
 
 const removeAllOverrides = (config: PastoralistJSON): PastoralistJSON => {
@@ -182,19 +129,8 @@ const removeAllOverrides = (config: PastoralistJSON): PastoralistJSON => {
   const { overrides: _pnpmOverrides, ...restPnpm } = pnpm;
   const hasPnpmConfig = Object.keys(restPnpm).length > 0;
 
-  return Object.assign({}, rest, hasPnpmConfig ? { pnpm: restPnpm } : undefined);
-};
-
-const removePastoralistAppendix = (config: PastoralistJSON): PastoralistJSON => {
-  const hasOtherConfig = hasOtherPastoralistConfig(config);
-
-  if (!hasOtherConfig) {
-    const { pastoralist: _pastoralist, ...rest } = config;
-    return rest;
-  }
-
-  const preservedConfig = buildPreservedConfig(config);
-  return Object.assign({}, config, { pastoralist: preservedConfig });
+  const result = Object.assign({}, rest, hasPnpmConfig ? { pnpm: restPnpm } : undefined);
+  return result;
 };
 
 const addAppendixToConfig = (
@@ -204,12 +140,14 @@ const addAppendixToConfig = (
   const preservedConfig = buildPreservedConfig(config);
   const pastoralist = Object.assign({ appendix }, preservedConfig);
 
-  return Object.assign({}, config, { pastoralist });
+  const result = Object.assign({}, config, { pastoralist });
+  return result;
 };
 
 const processConfigWithoutOverrides = (config: PastoralistJSON): PastoralistJSON => {
   const withoutOverrides = removeAllOverrides(config);
-  return removePastoralistAppendix(withoutOverrides);
+  const result = removePastoralistButPreserveConfig(withoutOverrides);
+  return result;
 };
 
 const removePastoralistButPreserveConfig = (config: PastoralistJSON): PastoralistJSON => {
@@ -217,7 +155,8 @@ const removePastoralistButPreserveConfig = (config: PastoralistJSON): Pastoralis
   const hasPreservedConfig = Object.keys(preservedConfig).length > 0;
   const { pastoralist: _pastoralist, ...configWithoutPastoralist } = config;
   if (!hasPreservedConfig) return configWithoutPastoralist;
-  return Object.assign({}, configWithoutPastoralist, { pastoralist: preservedConfig });
+  const result = Object.assign({}, configWithoutPastoralist, { pastoralist: preservedConfig });
+  return result;
 };
 
 const applyAppendixToConfig = (
@@ -225,8 +164,12 @@ const applyAppendixToConfig = (
   appendix: NonNullable<PastoralistJSON["pastoralist"]>["appendix"],
 ): PastoralistJSON => {
   const shouldAddAppendix = appendix && Object.keys(appendix).length > 0;
-  if (shouldAddAppendix) return addAppendixToConfig(config, appendix);
-  return removePastoralistButPreserveConfig(config);
+  if (shouldAddAppendix) {
+    const appendixToConfig = addAppendixToConfig(config, appendix);
+    return appendixToConfig;
+  }
+  const appendixToConfig2 = removePastoralistButPreserveConfig(config);
+  return appendixToConfig2;
 };
 
 const hasOverrideEntries = (overrides: OverridesType): boolean => Object.keys(overrides).length > 0;
@@ -241,24 +184,27 @@ const resolveOverrideField = (
   if (isTesting) return null;
 
   const projectRoot = dirname(resolve(path));
-  return getOverrideFieldForPackageManager(detectPackageManager(projectRoot));
+  const overrideField = getOverrideFieldForPackageManager(detectPackageManager(projectRoot));
+  return overrideField;
 };
 
-const processConfigWithOverrides = (
-  config: PastoralistJSON,
-  appendix: NonNullable<PastoralistJSON["pastoralist"]>["appendix"],
-  overrides: OverridesType,
-  isTesting: boolean,
-  path: string,
-): PastoralistJSON => {
+const processConfigWithOverrides = ({
+  config,
+  appendix,
+  overrides = {},
+  isTesting = false,
+  path,
+}: UpdatePackageJSONOptions): PastoralistJSON => {
   const updatedConfig = applyAppendixToConfig(config, appendix);
   if (!hasOverrideEntries(overrides)) return updatedConfig;
   const overrideField = resolveOverrideField(updatedConfig, isTesting, path);
-  return applyOverridesToConfig(updatedConfig, overrides, overrideField);
+  const result = applyOverridesToConfig(updatedConfig, overrides, overrideField);
+  return result;
 };
 
 const formatJson = (config: PastoralistJSON): string => {
-  return JSON.stringify(config, null, 2) + "\n";
+  const json = JSON.stringify(config, null, 2) + "\n";
+  return json;
 };
 
 const countPastoralistLines = (config: PastoralistJSON): number => {
@@ -266,12 +212,14 @@ const countPastoralistLines = (config: PastoralistJSON): number => {
 
   const pastoralistJson = JSON.stringify(config.pastoralist, null, 2);
   const lines = pastoralistJson.split("\n");
-  return lines.length;
+  const result = lines.length;
+  return result;
 };
 
 const shouldSuggestRcFile = (config: PastoralistJSON): boolean => {
   const lineCount = countPastoralistLines(config);
-  return lineCount > 10;
+  const result = lineCount > 10;
+  return result;
 };
 
 const writeJsonFile = (path: string, content: string): void => {
@@ -292,20 +240,22 @@ const hasPackageJsonData = (
 ): boolean => {
   const hasOverridesData = overrides && Object.keys(overrides).length > 0;
   const hasAppendixData = appendix && Object.keys(appendix).length > 0;
-  return Boolean(hasOverridesData || hasAppendixData);
+  const result = Boolean(hasOverridesData || hasAppendixData);
+  return result;
 };
 
-const buildUpdatedPackageConfig = ({
-  appendix,
-  path,
-  config,
-  overrides,
-  isTesting = false,
-  manageOverrides = true,
-}: UpdatePackageJSONOptions): PastoralistJSON => {
-  if (!manageOverrides) return applyAppendixToConfig(config, appendix);
-  if (!hasPackageJsonData(appendix, overrides)) return processConfigWithoutOverrides(config);
-  return processConfigWithOverrides(config, appendix, overrides || {}, isTesting, path);
+const buildUpdatedPackageConfig = (options: UpdatePackageJSONOptions): PastoralistJSON => {
+  const { appendix, config, overrides, manageOverrides = true } = options;
+  if (!manageOverrides) {
+    const updatedPackageConfig = applyAppendixToConfig(config, appendix);
+    return updatedPackageConfig;
+  }
+  if (!hasPackageJsonData(appendix, overrides)) {
+    const updatedPackageConfig2 = processConfigWithoutOverrides(config);
+    return updatedPackageConfig2;
+  }
+  const updatedPackageConfig3 = processConfigWithOverrides(options);
+  return updatedPackageConfig3;
 };
 
 const logDryRun = (jsonString: string, isUnchanged: boolean): void => {
@@ -335,24 +285,9 @@ const writeUpdatedPackageJson = (
   }
 };
 
-export const updatePackageJSON = ({
-  appendix,
-  path,
-  config,
-  overrides,
-  isTesting = false,
-  dryRun = false,
-  silent = false,
-  manageOverrides = true,
-}: UpdatePackageJSONOptions): PastoralistJSON | void => {
-  const updatedConfig = buildUpdatedPackageConfig({
-    appendix,
-    path,
-    config,
-    overrides,
-    isTesting,
-    manageOverrides,
-  });
+export const updatePackageJSON = (options: UpdatePackageJSONOptions): PastoralistJSON | void => {
+  const { path, config, isTesting = false, dryRun = false, silent = false } = options;
+  const updatedConfig = buildUpdatedPackageConfig(options);
   if (isTesting) return updatedConfig;
 
   const jsonString = formatJson(updatedConfig);
@@ -380,7 +315,10 @@ export const executeNpmLs = async (root: string = process.cwd()): Promise<string
   } catch (error: unknown) {
     const err = error as { code?: number; stdout?: string };
     const hasStdout = err.code === 1 && err.stdout;
-    if (hasStdout) return err.stdout!;
+    if (hasStdout) {
+      const result = err.stdout!;
+      return result;
+    }
     throw error;
   }
 };
@@ -388,24 +326,27 @@ export const executeNpmLs = async (root: string = process.cwd()): Promise<string
 const createDependencyTreeCacheKey = (root: string): string => {
   const lockfileHash = hashLockfile(root);
   const pm = detectPackageManager(root);
-  const nodeVersion = process.versions.node;
-  return `tree:${root}:${lockfileHash}:${pm}:${nodeVersion}`;
+  const { node: nodeVersion } = process.versions;
+  const dependencyTreeCacheKey = `tree:${root}:${lockfileHash}:${pm}:${nodeVersion}`;
+  return dependencyTreeCacheKey;
 };
 
 const createDependencyGraphCacheKey = (root: string): string => {
   const lockfileHash = hashLockfile(root);
   const pm = detectPackageManager(root);
-  return `graph:${root}:${lockfileHash}:${pm}`;
+  const dependencyGraphCacheKey = `graph:${root}:${lockfileHash}:${pm}`;
+  return dependencyGraphCacheKey;
 };
 
 const getPendingTreeRequests = (): Map<string, Promise<Record<string, string>>> => {
-  if (!_pendingTreeRequests) _pendingTreeRequests = new Map();
-  return _pendingTreeRequests;
+  if (!pendingTreeRequests) pendingTreeRequests = new Map();
+  return pendingTreeRequests;
 };
 
 export const getLockedPackages = (root: string = process.cwd()): SecurityPackage[] | undefined => {
   const packageManager = detectPackageManager(root);
-  return getJsManager(packageManager).readPackages(root);
+  const lockedPackages = getJsManager(packageManager).readPackages(root);
+  return lockedPackages;
 };
 
 export const hasDependencyLockfile = (root: string = process.cwd()): boolean =>
@@ -413,34 +354,39 @@ export const hasDependencyLockfile = (root: string = process.cwd()): boolean =>
 
 const parseTreeFromLockfile = (root: string): Record<string, string> | undefined => {
   const pm = detectPackageManager(root);
-  return getJsManager(pm).readTree(root);
+  const treeFromLockfile = getJsManager(pm).readTree(root);
+  return treeFromLockfile;
 };
 
-const createDependencyTreeRequest = (
+const readDependencyTree = async (
+  root: string,
+  execute: (root?: string) => Promise<string>,
+): Promise<Record<string, string>> => {
+  const tree = parseTreeFromLockfile(root);
+  if (tree) return tree;
+  const stdout = await execute(root);
+  const packages = parseNpmLsOutput(stdout);
+  return packages;
+};
+
+const createDependencyTreeRequest = async (
   cacheKey: string,
   cache: DiskCache<Record<string, string>>,
   root: string,
-  mockExecuteNpmLs?: (root?: string) => Promise<string>,
-): Promise<Record<string, string>> =>
-  (async () => {
-    try {
-      const lockfileTree = parseTreeFromLockfile(root);
-      if (lockfileTree) {
-        cache.set(cacheKey, lockfileTree);
-        return lockfileTree;
-      }
-      const execute = mockExecuteNpmLs || executeNpmLs;
-      const stdout = await execute(root);
-      const packageMap = parseNpmLsOutput(stdout);
-      cache.set(cacheKey, packageMap);
-      return packageMap;
-    } catch (error) {
-      log.debug("Failed to get dependency tree", "getDependencyTree", error);
-      return {};
-    } finally {
-      _pendingTreeRequests?.delete(cacheKey);
-    }
-  })();
+  execute: (root?: string) => Promise<string> = executeNpmLs,
+): Promise<Record<string, string>> => {
+  try {
+    const packageMap = await readDependencyTree(root, execute);
+    cache.set(cacheKey, packageMap);
+    return packageMap;
+  } catch (error) {
+    log.debug("Failed to get dependency tree", "getDependencyTree", error);
+    const result = {};
+    return result;
+  } finally {
+    pendingTreeRequests?.delete(cacheKey);
+  }
+};
 
 export const getDependencyTree = (
   mockExecuteNpmLs?: (root?: string) => Promise<string>,
@@ -468,24 +414,27 @@ type DependencyGraphStatus = {
   available: boolean;
 };
 
-let _graphCache: Map<string, DependencyGraphStatus> | null = null;
+let graphCache: Map<string, DependencyGraphStatus> | null = null;
 
 const parseDependencyGraph = (
   packageManager: PackageManager,
   root: string,
 ): DependencyGraph | undefined => {
-  return getJsManager(packageManager).readGraph(root);
+  const dependencyGraph = getJsManager(packageManager).readGraph(root);
+  return dependencyGraph;
 };
 
 export const getDependencyGraphStatus = (root: string = process.cwd()): DependencyGraphStatus => {
-  if (!_graphCache) _graphCache = new Map();
+  if (!graphCache) graphCache = new Map();
   const cacheKey = createDependencyGraphCacheKey(root);
-  const cached = _graphCache.get(cacheKey);
+  const cached = graphCache.get(cacheKey);
   if (cached) return cached;
   const pm = detectPackageManager(root);
   const result = parseDependencyGraph(pm, root);
-  const status = { graph: result ?? {}, available: result !== undefined };
-  _graphCache.set(cacheKey, status);
+  const graph = result ?? {};
+  const available = result !== undefined;
+  const status = { graph, available };
+  graphCache.set(cacheKey, status);
   return status;
 };
 
@@ -493,15 +442,15 @@ export const getDependencyGraph = (root: string = process.cwd()): Record<string,
   getDependencyGraphStatus(root).graph;
 
 export const clearDependencyGraphCache = (): void => {
-  _graphCache?.clear();
-  _graphCache = null;
+  graphCache?.clear();
+  graphCache = null;
 };
 
 export const clearDependencyTreeCache = (): void => {
-  _treeCache?.clear();
-  _treeCache = null;
-  _pendingTreeRequests?.clear();
-  _pendingTreeRequests = null;
+  treeCache?.clear();
+  treeCache = null;
+  pendingTreeRequests?.clear();
+  pendingTreeRequests = null;
 };
 
 const assertDepPathsProvided = (depPaths: string[], logInstance: typeof log): void => {
@@ -575,9 +524,16 @@ type RemovalDeps = {
 const defaultRemovalDeps: RemovalDeps = { execFile };
 
 const getProjectRoot = (options: Options): string => {
-  if (options.root) return resolve(options.root);
-  if (options.path) return dirname(resolve(options.path));
-  return resolve(".");
+  if (options.root) {
+    const projectRoot = resolve(options.root);
+    return projectRoot;
+  }
+  if (options.path) {
+    const projectRoot2 = dirname(resolve(options.path));
+    return projectRoot2;
+  }
+  const projectRoot3 = resolve(".");
+  return projectRoot3;
 };
 
 const getSourceLockfile = (projectRoot: string, packageManager: PackageManager): string => {
@@ -594,22 +550,11 @@ const removeManifestScripts = <T extends object>(config: T): T => {
   return removalConfig;
 };
 
-const assertRequestsSucceeded = (results: PromiseSettledResult<void>[]): void => {
-  const failedRequest = results.find((result) => result.status === "rejected");
-  if (failedRequest?.status === "rejected") throw failedRequest.reason;
-};
-
-const runRequests = async <T>(items: T[], request: (item: T) => Promise<void>): Promise<void> => {
-  const requests = items.map(request);
-  const results = await Promise.allSettled(requests);
-  assertRequestsSucceeded(results);
-};
-
-const copyWorkspaceManifest = async (
+const copyWorkspaceManifest = (
   manifestPath: string,
   projectRoot: string,
   removalRoot: string,
-): Promise<void> => {
+): void => {
   const relativePath = relative(projectRoot, manifestPath);
   const escapesProject = relativePath === ".." || relativePath.startsWith(`..${sep}`);
   const invalidTarget = escapesProject || isAbsolute(relativePath);
@@ -617,34 +562,30 @@ const copyWorkspaceManifest = async (
     throw new Error(`Workspace manifest is outside the project root: ${manifestPath}`);
   }
   const targetPath = join(removalRoot, relativePath);
-  const content = await readFile(manifestPath, "utf8");
+  const content = fs.readFileSync(manifestPath, "utf8");
   const manifest = removeManifestScripts(JSON.parse(content));
-  await mkdir(dirname(targetPath), { recursive: true });
-  await writeFile(targetPath, JSON.stringify(manifest, null, 2));
+  fs.mkdirSync(dirname(targetPath), { recursive: true });
+  fs.writeFileSync(targetPath, JSON.stringify(manifest, null, 2));
 };
 
 const stageWorkspaceManifests = (
   config: PastoralistJSON,
   projectRoot: string,
   removalRoot: string,
-): Promise<void> => {
+): void => {
   const patterns = resolveWorkspaceManifestPaths(config, projectRoot);
   const manifests = fg.sync(patterns, { cwd: projectRoot, absolute: true });
-  return runRequests(manifests, (manifestPath) =>
+  manifests.forEach((manifestPath) =>
     copyWorkspaceManifest(manifestPath, projectRoot, removalRoot),
   );
 };
 
-const copyResolverPath = async (
-  projectRoot: string,
-  removalRoot: string,
-  resolverPath: string,
-): Promise<void> => {
+const copyResolverPath = (projectRoot: string, removalRoot: string, resolverPath: string): void => {
   const sourcePath = join(projectRoot, resolverPath);
   if (!fs.existsSync(sourcePath)) return;
   const targetPath = join(removalRoot, resolverPath);
-  await mkdir(dirname(targetPath), { recursive: true });
-  await cp(sourcePath, targetPath, { recursive: true });
+  fs.mkdirSync(dirname(targetPath), { recursive: true });
+  fs.cpSync(sourcePath, targetPath, { recursive: true });
 };
 
 const matchesResolverGuard = (projectRoot: string, guard: ResolverConfigGuard): boolean => {
@@ -652,8 +593,12 @@ const matchesResolverGuard = (projectRoot: string, guard: ResolverConfigGuard): 
   if (!fs.existsSync(sourcePath)) return false;
   const content = fs.readFileSync(sourcePath, "utf8");
   const hasContentGuard = "isUnsafe" in guard;
-  if (hasContentGuard) return guard.isUnsafe(content);
-  return guard.pattern.test(content);
+  if (hasContentGuard) {
+    const result = guard.isUnsafe(content);
+    return result;
+  }
+  const result2 = guard.pattern.test(content);
+  return result2;
 };
 
 const findExecutableResolverConfig = (
@@ -664,7 +609,10 @@ const findExecutableResolverConfig = (
   const executablePath = executablePaths.find((path) => fs.existsSync(join(projectRoot, path)));
   if (executablePath) return executablePath;
   const guards = getJsManager(packageManager).removal.guards || [];
-  return guards.find((guard) => matchesResolverGuard(projectRoot, guard))?.path;
+  const executableResolverConfig = guards.find((guard) =>
+    matchesResolverGuard(projectRoot, guard),
+  )?.path;
+  return executableResolverConfig;
 };
 
 const assertResolverConfigIsSafe = (projectRoot: string, packageManager: PackageManager): void => {
@@ -677,12 +625,10 @@ const stageResolverConfig = (
   projectRoot: string,
   removalRoot: string,
   packageManager: PackageManager,
-): Promise<void> => {
+): void => {
   assertResolverConfigIsSafe(projectRoot, packageManager);
   const resolverPaths = getJsManager(packageManager).removal.paths;
-  return runRequests(resolverPaths, (resolverPath) =>
-    copyResolverPath(projectRoot, removalRoot, resolverPath),
-  );
+  resolverPaths.forEach((resolverPath) => copyResolverPath(projectRoot, removalRoot, resolverPath));
 };
 
 const stageRemovalProject = async (
@@ -696,10 +642,10 @@ const stageRemovalProject = async (
   const removalConfig = removeManifestScripts(config);
   await writeFile(join(removalRoot, "package.json"), JSON.stringify(removalConfig, null, 2));
   await copyFile(sourceLockfile, join(removalRoot, basename(sourceLockfile)));
-  await stageResolverConfig(projectRoot, removalRoot, packageManager);
+  stageResolverConfig(projectRoot, removalRoot, packageManager);
   const manager = getJsManager(packageManager);
   await manager.stageWorkspace?.(projectRoot, removalRoot, config);
-  await stageWorkspaceManifests(config, projectRoot, removalRoot);
+  stageWorkspaceManifests(config, projectRoot, removalRoot);
   return packageManager;
 };
 
@@ -732,7 +678,8 @@ export const withRemovalState = async <T>(
   try {
     const packageManager = await stageRemovalProject(config, options, removalRoot);
     await resolveRemovalLockfile(removalRoot, packageManager, deps);
-    return await inspect(removalRoot);
+    const result = await inspect(removalRoot);
+    return result;
   } finally {
     await rm(removalRoot, { recursive: true, force: true });
   }

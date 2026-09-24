@@ -14,6 +14,7 @@ import {
 } from "./utils";
 import type {
   BestCaseResult,
+  BestCaseResultInput,
   BestCaseSearchResult,
   BestCaseState,
   EvaluatedState,
@@ -46,12 +47,14 @@ export {
 
 const hashValue = (value: unknown, length = 16): string => {
   const json = JSON.stringify(value);
-  return createHash("sha256").update(json).digest("hex").slice(0, length);
+  const result = createHash("sha256").update(json).digest("hex").slice(0, length);
+  return result;
 };
 
 const createDecisionId = (state: BestCaseState, policyHash: string): string => {
   const decision = { state, policyHash };
-  return `best-case-${hashValue(decision, 12)}`;
+  const decisionId = `best-case-${hashValue(decision, 12)}`;
+  return decisionId;
 };
 
 const createContext = (
@@ -59,17 +62,20 @@ const createContext = (
   policy: ResolvedBestCasePolicy,
 ): EvaluationContext => {
   const choices = normalizeChoices(options.choices);
-  const evaluate = options.evaluate;
-  const maxEvaluations = policy.search.maxEvaluations;
+  const { evaluate } = options;
+  const { maxEvaluations } = policy.search;
   const cache = new Map<string, EvaluatedState>();
-  return { cache, choices, evaluate, maxEvaluations, policy };
+  const context: EvaluationContext = { cache, choices, evaluate, maxEvaluations, policy };
+  return context;
 };
 
 const countFailedStates = (context: EvaluationContext): number => {
   const failed = Array.from(context.cache.values()).filter((item) => {
-    return item.evaluation.valid === false;
+    const result = item.evaluation.valid === false;
+    return result;
   });
-  return failed.length;
+  const result = failed.length;
+  return result;
 };
 
 const buildSearchResult = (
@@ -82,18 +88,15 @@ const buildSearchResult = (
   const isExhaustive = mode === "exact" && evaluatedStates === totalStates;
   const hasFailedStates = countFailedStates(context) > 0;
   const provenOptimal = isExhaustive && !hasFailedStates;
-  return { mode, evaluatedStates, totalStates, provenOptimal, durationMs };
+  const searchResult: BestCaseSearchResult = {
+    mode,
+    evaluatedStates,
+    totalStates,
+    provenOptimal,
+    durationMs,
+  };
+  return searchResult;
 };
-
-interface BestCaseResultInput {
-  baseline: EvaluatedState;
-  selected: EvaluatedState;
-  context: EvaluationContext;
-  policy: ResolvedBestCasePolicy;
-  mode: BestCaseSearchResult["mode"];
-  totalStates: number;
-  startedAt: number;
-}
 
 const buildBestCaseMetrics = (input: BestCaseResultInput) => {
   const { baseline, selected, context, policy, mode, totalStates, startedAt } = input;
@@ -103,19 +106,23 @@ const buildBestCaseMetrics = (input: BestCaseResultInput) => {
   const search = buildSearchResult(mode, totalStates, context, durationMs);
   const impact = buildImpact(baseline.evaluation, selected.evaluation);
   const failedStates = countFailedStates(context);
-  return { decisionId, policyHash, search, impact, failedStates };
+  const bestCaseMetrics = { decisionId, policyHash, search, impact, failedStates };
+  return bestCaseMetrics;
 };
 
 const buildBestCaseResult = (input: BestCaseResultInput): BestCaseResult => {
   const { baseline, selected } = input;
   const metrics = buildBestCaseMetrics(input);
+  const { state: selectedState, evaluation: selectedEvaluation } = selected;
+  const { state: baselineState, evaluation: baselineEvaluation } = baseline;
   const selection = {
-    selectedState: selected.state,
-    selectedEvaluation: selected.evaluation,
-    baselineState: baseline.state,
-    baselineEvaluation: baseline.evaluation,
+    selectedState,
+    selectedEvaluation,
+    baselineState,
+    baselineEvaluation,
   };
-  return Object.assign({}, selection, metrics);
+  const bestCaseResult = Object.assign({}, selection, metrics);
+  return bestCaseResult;
 };
 
 const selectValidBestCase = (
@@ -128,14 +135,16 @@ const selectValidBestCase = (
       "Best-case optimization failed: no portfolio states were evaluated successfully",
     );
   }
-  return selectBest(validItems, context);
+  const result = selectBest(validItems, context);
+  return result;
 };
 
 const getBaselineVersions = (
   packages: NonNullable<OptimizeSecurityOverridesOptions["baselinePackages"]>,
 ): Map<string, string> => {
   const entries = packages.map(({ name, version }) => [name, version] as const);
-  return new Map(entries);
+  const baselineVersions = new Map(entries);
+  return baselineVersions;
 };
 
 export const optimizeBestCasePortfolio = async (
@@ -152,7 +161,8 @@ export const optimizeBestCasePortfolio = async (
   const searched = await runSearch(mode, baselineState, context);
   const selected = selectValidBestCase(searched.concat(baseline), context);
   const resultInput = { baseline, selected, context, policy, mode, totalStates, startedAt };
-  return buildBestCaseResult(resultInput);
+  const result = buildBestCaseResult(resultInput);
+  return result;
 };
 
 export const optimizeSecurityOverrides = async (
@@ -165,9 +175,9 @@ export const optimizeSecurityOverrides = async (
     options.userOwnedVersions,
     baselineVersions,
   );
-  const evaluate = options.evaluate;
-  const config = options.config;
+  const { evaluate, config } = options;
   const bestCase = await optimizeBestCasePortfolio({ choices, evaluate, config });
   const overrides = buildOverrides(choices, options.vulnerablePackages, bestCase);
-  return { overrides, bestCase };
+  const result = { overrides, bestCase };
+  return result;
 };

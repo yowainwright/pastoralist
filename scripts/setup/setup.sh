@@ -2,19 +2,42 @@
 
 set -eu
 
-case "$0" in
-*/*)
-	script_path=${0%/*}
-	;;
-*)
-	script_path=.
-	;;
-esac
+is_pastoralist_missing() {
+	! command -v pastoralist >/dev/null 2>&1
+}
 
-start_dir=$PWD
-cd "$script_path"
-script_dir=$PWD
-cd "$start_dir"
+is_hook_installer_missing() {
+	[ ! -f "scripts/setup/install-hooks.ts" ]
+}
+
+is_pnpm_missing() {
+	! command -v pnpm >/dev/null 2>&1
+}
+
+is_unmanaged_skill() {
+	! can_write_skill "$dest" "$marker"
+}
+
+is_unmanaged_file() {
+	! can_write_file "$path"
+}
+
+resolve_script_dir() {
+	case "$0" in
+	*/*)
+		script_path=${0%/*}
+		;;
+	*)
+		script_path=.
+		;;
+	esac
+	start_dir=$PWD
+	cd "$script_path"
+	script_dir=$PWD
+	cd "$start_dir"
+}
+
+resolve_script_dir
 agent="${PASTORALIST_AGENT_CONFIG:-auto}"
 skills="pastoralist,legibility"
 hooks="git"
@@ -22,9 +45,9 @@ dry_run=0
 force=0
 explicit_agent=0
 node_modules_dir="$script_dir/../../node_modules"
-legibility_package_dir="$node_modules_dir/eslint-plugin-legibility"
+legibility_package_dir="$node_modules_dir/oxlint-plugin-legibility"
 pastoralist_skill_source="$script_dir/../../skills/pastoralist/SKILL.md"
-legibility_skill_source="$legibility_package_dir/skills/eslint-plugin-legibility/SKILL.md"
+legibility_skill_source="$legibility_package_dir/skills/oxlint-plugin-legibility/SKILL.md"
 
 usage() {
 	echo "Usage: sh scripts/setup/setup.sh [bootstrap|prepare|agent-config|local-dev|skill]"
@@ -33,8 +56,8 @@ usage() {
 }
 
 has_item() {
-	value="$1"
-	item="$2"
+	value="${1?Missing item list}"
+	item="${2?Missing item}"
 
 	case ",$value," in
 	*",$item,"* | *,all,*)
@@ -47,23 +70,21 @@ has_item() {
 }
 
 can_write_file() {
-	path="$1"
+	path="${1?Missing path}"
 
 	if [ "$force" = "1" ]; then
 		return 0
 	fi
 
-	if [ ! -e "$path" ]; then
-		return 0
-	fi
+	[ -e "$path" ] || return 0
 
 	grep -q "pastoralist-agent-config" "$path" 2>/dev/null
 }
 
 write_file() {
-	path="$1"
+	path="${1?Missing path}"
 
-	if ! can_write_file "$path"; then
+	if is_unmanaged_file; then
 		echo "Skipping $path; existing file is unmanaged"
 		return 1
 	fi
@@ -77,9 +98,7 @@ write_file() {
 }
 
 write_agents_file() {
-	if ! write_file "AGENTS.md"; then
-		return
-	fi
+	write_file "AGENTS.md" || return 0
 
 	cat >AGENTS.md <<'EOF'
 <!-- pastoralist-agent-config -->
@@ -119,9 +138,7 @@ EOF
 }
 
 write_codex_config() {
-	if ! write_file ".codex/config.toml"; then
-		return
-	fi
+	write_file ".codex/config.toml" || return 0
 
 	mkdir -p .codex
 	cat >.codex/config.toml <<'EOF'
@@ -131,9 +148,7 @@ EOF
 }
 
 write_claude_file() {
-	if ! write_file "CLAUDE.md"; then
-		return
-	fi
+	write_file "CLAUDE.md" || return 0
 
 	cat >CLAUDE.md <<'EOF'
 <!-- pastoralist-agent-config -->
@@ -145,57 +160,38 @@ EOF
 }
 
 write_legibility_skill() {
-	dest="$1"
+	dest="${1?Missing destination}"
 
 	cat >"$dest" <<'EOF'
 ---
-name: eslint-plugin-legibility
-description: Check JS/TS readability with eslint-plugin-legibility.
+name: oxlint-plugin-legibility
+description: Check JS/TS readability with oxlint-plugin-legibility.
 ---
 
-# ESLint Plugin Legibility
+# Oxlint Plugin Legibility
 
 Run the repository lint command first. Prefer small readability fixes.
 EOF
 }
 
 can_write_skill() {
-	dest="$1"
-	marker="$2"
+	dest="${1?Missing destination}"
+	marker="${2?Missing marker}"
 
 	if [ "$force" = "1" ]; then
 		return 0
 	fi
 
-	if [ ! -e "$dest" ]; then
-		return 0
-	fi
+	[ -e "$dest" ] || return 0
 
 	[ -e "$marker" ]
 }
 
-install_skill() {
-	name="$1"
-	source="$2"
-	dir=".agents/skills/$name"
-	dest="$dir/SKILL.md"
-	marker="$dir/.pastoralist-agent-config"
-
-	if ! can_write_skill "$dest" "$marker"; then
-		echo "Skipping $dest; existing file is unmanaged"
-		return
-	fi
-
-	if [ "$dry_run" = "1" ]; then
-		echo "Would install $dest"
-		return
-	fi
-
+write_skill_files() {
 	mkdir -p "$dir"
-
 	if [ -f "$source" ]; then
 		cp "$source" "$dest"
-	elif [ "$name" = "eslint-plugin-legibility" ]; then
+	elif [ "$name" = "oxlint-plugin-legibility" ]; then
 		write_legibility_skill "$dest"
 	else
 		echo "Missing skill source: $source" >&2
@@ -203,6 +199,24 @@ install_skill() {
 	fi
 
 	printf "%s\n" "pastoralist-agent-config" >"$marker"
+}
+
+install_skill() {
+	name="${1?Missing skill name}"
+	source="${2?Missing skill source}"
+	dir=".agents/skills/$name"
+	dest="$dir/SKILL.md"
+	marker="$dir/.pastoralist-agent-config"
+
+	if is_unmanaged_skill; then
+		echo "Skipping $dest; existing file is unmanaged"
+		return
+	fi
+	if [ "$dry_run" = "1" ]; then
+		echo "Would install $dest"
+		return
+	fi
+	write_skill_files
 }
 
 has_codex_context() {
@@ -251,23 +265,19 @@ confirm_codex() {
 	if [ "$explicit_agent" = "1" ]; then
 		return
 	fi
-
 	if [ "$agent" != "codex" ]; then
 		return
 	fi
-
 	if has_codex_files; then
 		return
 	fi
+	[ -t 0 ] || return 0
+	prompt_codex
+}
 
-	if [ ! -t 0 ]; then
-		return
-	fi
-
+prompt_codex() {
 	printf "Set up local Codex agent config [Y/n] "
-	if ! read answer; then
-		answer="n"
-	fi
+	read -r answer || answer="n"
 
 	case "$answer" in
 	"" | y | Y | yes | YES | Yes)
@@ -281,9 +291,7 @@ confirm_codex() {
 }
 
 has_codex_files() {
-	if [ ! -f "AGENTS.md" ]; then
-		return 1
-	fi
+	[ -f "AGENTS.md" ] || return 1
 
 	[ -f ".codex/config.toml" ]
 }
@@ -296,26 +304,33 @@ is_ci() {
 	[ "${CI:-}" = "1" ]
 }
 
+setup_codex() {
+	write_agents_file
+	write_codex_config
+}
+
+fail_usage() {
+	echo "${1?Missing error message}"
+	usage
+	exit 1
+}
+
 setup_agent() {
 	case "$agent" in
 	codex)
-		write_agents_file
-		write_codex_config
+		setup_codex
 		;;
 	claude)
 		write_claude_file
 		;;
 	all)
-		write_agents_file
-		write_codex_config
+		setup_codex
 		write_claude_file
 		;;
 	skip)
 		;;
 	*)
-		echo "Unknown agent: $agent"
-		usage
-		exit 1
+		fail_usage "Unknown agent: $agent"
 		;;
 	esac
 }
@@ -330,26 +345,27 @@ setup_skills() {
 	fi
 
 	if has_item "$skills" "legibility"; then
-		install_skill "eslint-plugin-legibility" "$legibility_skill_source"
+		install_skill "oxlint-plugin-legibility" "$legibility_skill_source"
 	fi
 }
 
 setup_git_hooks() {
-	if ! has_item "$hooks" "git"; then
-		return
-	fi
+	has_item "$hooks" "git" || return 0
 
 	if [ "$dry_run" = "1" ]; then
 		echo "Would install git hooks"
 		return
 	fi
+	install_git_hooks
+}
 
-	if ! command -v pnpm >/dev/null 2>&1; then
+install_git_hooks() {
+	if is_pnpm_missing; then
 		echo "Skipping git hooks; pnpm unavailable"
 		return
 	fi
 
-	if [ ! -f "scripts/setup/install-hooks.ts" ]; then
+	if is_hook_installer_missing; then
 		echo "Skipping git hooks; installer unavailable"
 		return
 	fi
@@ -358,16 +374,14 @@ setup_git_hooks() {
 }
 
 setup_postinstall_hook() {
-	if ! has_item "$hooks" "postinstall"; then
-		return
-	fi
+	has_item "$hooks" "postinstall" || return 0
 
 	if [ "$dry_run" = "1" ]; then
 		echo "Would add Pastoralist postinstall hook"
 		return
 	fi
 
-	if ! command -v pastoralist >/dev/null 2>&1; then
+	if is_pastoralist_missing; then
 		echo "Skipping postinstall hook; pastoralist unavailable"
 		return
 	fi
@@ -410,8 +424,11 @@ run_local_dev() {
 }
 
 read_value() {
-	flag="$1"
+	flag="${1?Missing flag}"
 	shift
+	case "$flag" in
+	--target) flag="--agent" ;;
+	esac
 
 	if [ "$#" -eq 0 ]; then
 		echo "Missing value for $flag"
@@ -421,44 +438,23 @@ read_value() {
 	printf "%s\n" "$1"
 }
 
-command="local-dev"
-
-if [ "$#" -gt 0 ]; then
-	case "$1" in
-	bootstrap | prepare | agent-config | local-dev | skill)
-		command="$1"
-		shift
-		;;
-	esac
-fi
-
-case "$command" in
-agent-config)
-	skills="legibility"
-	hooks="none"
-	;;
-skill)
-	agent="skip"
-	skills="pastoralist"
-	hooks="none"
-	;;
-esac
-
-while [ "$#" -gt 0 ]; do
-	case "$1" in
+set_value_option() {
+	case "${1?Missing option}" in
 	--agent | --target)
-		shift
-		agent=$(read_value "--agent" "$@")
+		agent="${2?Missing agent}"
 		explicit_agent=1
 		;;
 	--skills)
-		shift
-		skills=$(read_value "--skills" "$@")
+		skills="${2?Missing skills}"
 		;;
 	--hooks)
-		shift
-		hooks=$(read_value "--hooks" "$@")
+		hooks="${2?Missing hooks}"
 		;;
+	esac
+}
+
+set_flag() {
+	case "${1?Missing flag}" in
 	--dry-run)
 		dry_run=1
 		;;
@@ -470,28 +466,77 @@ while [ "$#" -gt 0 ]; do
 		exit 0
 		;;
 	*)
-		echo "Unknown option: $1"
-		usage
-		exit 1
+		fail_usage "Unknown option: $1"
 		;;
 	esac
+}
 
-	shift
-done
+parse_options() {
+	while [ "$#" -gt 0 ]; do
+		option="${1?Missing option}"
+		shift
+		case "$option" in
+		--agent | --target | --skills | --hooks)
+			option_value=$(read_value "$option" "$@")
+			set_value_option "$option" "$option_value"
+			shift
+			;;
+		*)
+			set_flag "$option"
+			;;
+		esac
+	done
+}
 
-case "$command" in
-bootstrap)
-	run_bootstrap
-	;;
-prepare)
-	run_prepare
-	;;
-agent-config | local-dev | skill)
-	run_local_dev
-	;;
-*)
-	echo "Unknown setup command: $command"
-	usage
-	exit 1
-	;;
-esac
+is_setup_command() {
+	case "${1:-}" in
+	bootstrap | prepare | agent-config | local-dev | skill)
+		return 0
+		;;
+	*) return 1 ;;
+	esac
+}
+
+set_command_defaults() {
+	case "$command" in
+	agent-config)
+		skills="legibility"
+		hooks="none"
+		;;
+	skill)
+		agent="skip"
+		skills="pastoralist"
+		hooks="none"
+		;;
+	esac
+}
+
+run_command() {
+	case "$command" in
+	bootstrap)
+		run_bootstrap
+		;;
+	prepare)
+		run_prepare
+		;;
+	agent-config | local-dev | skill)
+		run_local_dev
+		;;
+	*)
+		fail_usage "Unknown setup command: $command"
+		;;
+	esac
+}
+
+main() {
+	command="local-dev"
+	if is_setup_command "${1:-}"; then
+		command="${1?Missing command}"
+		shift
+	fi
+	set_command_defaults
+	parse_options "$@"
+	run_command
+}
+
+main "$@"

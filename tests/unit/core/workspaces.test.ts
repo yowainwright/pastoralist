@@ -229,7 +229,7 @@ test("processWorkspacePackages", async () => {
     ["pkg/package.json"],
     {} as ResolveOverrides,
     mockLog,
-    mockConstructAppendix,
+    { constructAppendix: mockConstructAppendix },
   );
 
   assert.notStrictEqual(result.appendix, undefined);
@@ -456,7 +456,7 @@ test("processWorkspacePackages - returns appendix for valid packages", async () 
     ["pkg-a/package.json", "pkg-b/package.json"],
     {} as ResolveOverrides,
     mockLog,
-    mockConstructAppendix,
+    { constructAppendix: mockConstructAppendix },
   );
 
   assert.notStrictEqual(result.appendix, undefined);
@@ -467,12 +467,9 @@ test("processWorkspacePackages - handles empty package list", async () => {
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
   const mockConstructAppendix = async () => ({});
 
-  const result = await processWorkspacePackages(
-    [],
-    {} as ResolveOverrides,
-    mockLog,
-    mockConstructAppendix,
-  );
+  const result = await processWorkspacePackages([], {} as ResolveOverrides, mockLog, {
+    constructAppendix: mockConstructAppendix,
+  });
 
   assert.notStrictEqual(result.appendix, undefined);
 });
@@ -557,7 +554,7 @@ test("processWorkspacePackages - aggregates dependencies from multiple packages"
     ["pkg-a/package.json", "pkg-b/package.json"],
     {} as ResolveOverrides,
     mockLog,
-    mockConstructAppendix,
+    { constructAppendix: mockConstructAppendix },
   );
 
   assert.notStrictEqual(result.appendix, undefined);
@@ -657,7 +654,7 @@ test("processWorkspacePackages - collects all dependency types from fixtures", a
     [resolve(pkgADir, "package.json"), resolve(pkgBDir, "package.json")],
     overridesData,
     mockLog,
-    constructAppendix,
+    { constructAppendix: constructAppendix },
   );
 
   assert.notStrictEqual(result.allWorkspaceDeps, undefined);
@@ -683,12 +680,9 @@ test("processWorkspacePackages - handles packages with only devDependencies", as
 
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
 
-  const result = await processWorkspacePackages(
-    [resolve(pkgDir, "package.json")],
-    {},
-    mockLog,
-    constructAppendix,
-  );
+  const result = await processWorkspacePackages([resolve(pkgDir, "package.json")], {}, mockLog, {
+    constructAppendix: constructAppendix,
+  });
 
   assert.strictEqual(result.allWorkspaceDeps["typescript"], "^5.0.0");
   assert.strictEqual(result.allWorkspaceDeps["eslint"], "^8.0.0");
@@ -710,12 +704,9 @@ test("processWorkspacePackages - handles packages with only peerDependencies", a
 
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
 
-  const result = await processWorkspacePackages(
-    [resolve(pkgDir, "package.json")],
-    {},
-    mockLog,
-    constructAppendix,
-  );
+  const result = await processWorkspacePackages([resolve(pkgDir, "package.json")], {}, mockLog, {
+    constructAppendix: constructAppendix,
+  });
 
   assert.strictEqual(result.allWorkspaceDeps["react"], "^18.0.0");
   assert.strictEqual(result.allWorkspaceDeps["react-dom"], "^18.0.0");
@@ -752,7 +743,7 @@ test("processWorkspacePackages - aggregates overlapping dependencies", async () 
     [resolve(pkgADir, "package.json"), resolve(pkgBDir, "package.json")],
     {},
     mockLog,
-    constructAppendix,
+    { constructAppendix: constructAppendix },
   );
 
   assert.notStrictEqual(result.allWorkspaceDeps["lodash"], undefined);
@@ -773,12 +764,9 @@ test("processWorkspacePackages - handles empty package.json files", async () => 
 
   const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
 
-  const result = await processWorkspacePackages(
-    [resolve(pkgDir, "package.json")],
-    {},
-    mockLog,
-    constructAppendix,
-  );
+  const result = await processWorkspacePackages([resolve(pkgDir, "package.json")], {}, mockLog, {
+    constructAppendix: constructAppendix,
+  });
 
   assert.deepStrictEqual(result.allWorkspaceDeps, {});
 });

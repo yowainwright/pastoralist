@@ -3,41 +3,45 @@ import mermaid from "mermaid";
 import type { MermaidProps } from "./types";
 
 const isBrowser = typeof document !== "undefined";
+const flowchart = { useMaxWidth: false };
 if (isBrowser) {
   mermaid.initialize({
     startOnLoad: false,
     theme: "neutral",
     securityLevel: "loose",
-    flowchart: { useMaxWidth: false },
+    flowchart,
   });
+}
+
+function renderChart(chart: string, setSvg: (svg: string) => void) {
+  let cancelled = false;
+  const id = `mermaid-${Math.random().toString(36).slice(2, 9)}`;
+  setSvg("");
+
+  const render = mermaid.render(id, chart);
+  void render
+    .then(({ svg: renderedSvg }) => {
+      if (cancelled) return;
+      setSvg(renderedSvg);
+    })
+    .catch((error) => {
+      if (cancelled) return;
+      console.error("Mermaid: render error", error);
+    });
+
+  return () => {
+    cancelled = true;
+  };
 }
 
 export function Mermaid({ chart }: MermaidProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [svg, setSvg] = useState<string>("");
-
   useEffect(() => {
     const isMissingRenderTarget = !ref.current || !chart;
     if (isMissingRenderTarget) return;
-
-    let cancelled = false;
-    const id = `mermaid-${Math.random().toString(36).slice(2, 9)}`;
-    setSvg("");
-
-    const render = mermaid.render(id, chart);
-    void render
-      .then(({ svg: renderedSvg }) => {
-        if (cancelled) return;
-        setSvg(renderedSvg);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        console.error("Mermaid: render error", error);
-      });
-
-    return () => {
-      cancelled = true;
-    };
+    const cleanup = renderChart(chart, setSvg);
+    return cleanup;
   }, [chart]);
 
   const renderedMarkup = { __html: svg };

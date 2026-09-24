@@ -37,7 +37,8 @@ const PACKAGE_JSON = `{
 function StaticLine({ line }: { line: TerminalLine }) {
   const lineClassName = `${STYLES.line} ${line.className ?? ""}`;
   const prefix = line.prefix ? <span className={STYLES.prefix}>{line.prefix}</span> : null;
-  const lineMarkup = { __html: line.text };
+  const { text } = line;
+  const lineMarkup = { __html: text };
 
   return (
     <div className={lineClassName}>
@@ -92,8 +93,7 @@ export function CodeBlockToggle({
   onComplete = () => undefined,
 }: CodeBlockToggleProps) {
   const [activeTab, setActiveTab] = useState("cli");
-  const cliContent = <CliContent shouldAnimate={shouldAnimate} onComplete={onComplete} />;
-  const content = activeTab === "cli" ? cliContent : <JsonContent />;
+  const contentProps = { activeTab, shouldAnimate, onComplete };
 
   return (
     <TerminalWindow
@@ -104,7 +104,16 @@ export function CodeBlockToggle({
       height="400px"
       minHeight="400px"
     >
-      <div className="min-h-0 flex-1 overflow-auto">{content}</div>
+      <ToggleContent {...contentProps} />
     </TerminalWindow>
   );
+}
+
+type ToggleContentProps = Required<CodeBlockToggleProps> & { activeTab: string };
+
+function ToggleContent({ activeTab, shouldAnimate, onComplete }: ToggleContentProps) {
+  const isCli = activeTab === "cli";
+  const cli = <CliContent shouldAnimate={shouldAnimate} onComplete={onComplete} />;
+  const content = isCli ? cli : <JsonContent />;
+  return <div className="min-h-0 flex-1 overflow-auto">{content}</div>;
 }

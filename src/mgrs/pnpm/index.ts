@@ -18,7 +18,8 @@ import {
 
 const countPackages = (root: string): number => {
   const path = resolve(root, PNPM_LOCK_FILENAME);
-  return countPatternLockPackages(path, PNPM_LOCK_PACKAGE_PATTERN);
+  const count = countPatternLockPackages(path, PNPM_LOCK_PACKAGE_PATTERN);
+  return count;
 };
 
 export const pnpm: JsManager = {

@@ -36,7 +36,8 @@ export const normalizeCodeBlock = (code: string): string => code.replace(/\r?\n$
 
 export const shouldShowCodeLineNumbers = (lang: string): boolean => {
   const normalizedLanguage = normalizeCodeLanguage(lang.trim().toLowerCase());
-  return !TERMINAL_LANGUAGES.has(normalizedLanguage);
+  const result = !TERMINAL_LANGUAGES.has(normalizedLanguage);
+  return result;
 };
 
 export const CODEBLOCK_CLASSES = {

@@ -36,7 +36,8 @@ export class GitHubSecurityProvider {
 
   constructor(options: SecurityCheckOptions & { debug?: boolean }) {
     this.token = options.token || process.env.GITHUB_TOKEN;
-    this.log = logger({ file: "github.ts", isLogging: options.debug });
+    const { debug: isLogging } = options;
+    this.log = logger({ file: "github.ts", isLogging });
     this.log.debug(
       `Token provided: ${this.token ? "yes (length: " + this.token.length + ")" : "no"}`,
       "constructor",
@@ -64,7 +65,8 @@ export class GitHubSecurityProvider {
       if (this.isGitHubUrl(remoteUrl)) {
         const match = remoteUrl.match(GITHUB_OWNER_PATTERN);
         if (match) {
-          return match[1];
+          const repoOwner = match[1];
+          return repoOwner;
         }
       }
     } catch {
@@ -83,7 +85,8 @@ export class GitHubSecurityProvider {
       if (this.isGitHubUrl(remoteUrl)) {
         const match = remoteUrl.match(GITHUB_REPOSITORY_PATTERN);
         if (match) {
-          return match[1].replace(GITHUB_REPOSITORY_SUFFIX_PATTERN, "");
+          const repoName = match[1].replace(GITHUB_REPOSITORY_SUFFIX_PATTERN, "");
+          return repoName;
         }
       }
     } catch {
@@ -99,7 +102,8 @@ export class GitHubSecurityProvider {
 
     try {
       const parsed = new URL(url);
-      return parsed.hostname === "github.com";
+      const result = parsed.hostname === "github.com";
+      return result;
     } catch {
       return false;
     }
@@ -121,27 +125,32 @@ export class GitHubSecurityProvider {
     await this.initialize();
 
     if (this.isMockMode()) {
-      return this.fetchMockAlerts();
+      const dependabotAlerts = this.fetchMockAlerts();
+      return dependabotAlerts;
     }
 
-    return this.fetchRealAlerts();
+    const alerts = this.fetchRealAlerts();
+    return alerts;
   }
 
   private isMockMode(): boolean {
-    return process.env[SECURITY_ENV_VARS.MOCK_MODE] === "true";
+    const result = process.env[SECURITY_ENV_VARS.MOCK_MODE] === "true";
+    return result;
   }
 
   private async fetchRealAlerts(): Promise<DependabotAlert[]> {
     if (this.token) {
       this.log.debug("Using GitHub API with provided token", "fetchRealAlerts");
-      return this.fetchAlertsWithApi();
+      const realAlerts = this.fetchAlertsWithApi();
+      return realAlerts;
     }
 
     const useGhCli = await this.isGhCliAvailable();
 
     if (useGhCli) {
       this.log.debug("Using gh CLI (no token provided)", "fetchRealAlerts");
-      return this.fetchAlertsWithGhCli();
+      const alerts = this.fetchAlertsWithGhCli();
+      return alerts;
     }
 
     throw new Error(AUTH_MESSAGES.GITHUB_CLI_NOT_FOUND);
@@ -151,14 +160,17 @@ export class GitHubSecurityProvider {
     this.log.debug("Using mock Dependabot alerts", "fetchMockAlerts");
 
     if (this.shouldForceVulnerable()) {
-      return this.getMockVulnerableAlerts();
+      const mockAlerts = this.getMockVulnerableAlerts();
+      return mockAlerts;
     }
 
-    return [];
+    const alerts: DependabotAlert[] = [];
+    return alerts;
   }
 
   private shouldForceVulnerable(): boolean {
-    return process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE] === "true";
+    const result = process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE] === "true";
+    return result;
   }
 
   private getMockVulnerableAlerts(): DependabotAlert[] {
@@ -169,13 +181,15 @@ export class GitHubSecurityProvider {
       if (alerts) return alerts;
     }
 
-    return this.getDefaultMockAlerts();
+    const mockVulnerableAlerts = this.getDefaultMockAlerts();
+    return mockVulnerableAlerts;
   }
 
   private loadMockFile(filePath: string): DependabotAlert[] | null {
     try {
       const mockData = readFileSync(filePath, "utf-8");
-      return JSON.parse(mockData);
+      const result = JSON.parse(mockData);
+      return result;
     } catch (error) {
       this.log.debug("Failed to read mock file", "loadMockFile", { error });
       return null;
@@ -209,19 +223,22 @@ export class GitHubSecurityProvider {
   private async fetchAlertsWithGhCli(): Promise<DependabotAlert[]> {
     try {
       const stdout = await this.retryGhCliFetch();
-      return this.parseGhCliAlerts(stdout);
+      const alertsWithGhCli = this.parseGhCliAlerts(stdout);
+      return alertsWithGhCli;
     } catch (error) {
       this.handleGhCliFetchError(error);
     }
   }
 
   private retryGhCliFetch(): Promise<string> {
-    return retry(() => this.executeGhCli(), {
+    const onFailedAttempt = this.handleGhCliRetryFailure.bind(this);
+    const result = retry(() => this.executeGhCli(), {
       retries: 3,
       factor: 2,
       minTimeout: 1000,
-      onFailedAttempt: (error) => this.handleGhCliRetryFailure(error),
+      onFailedAttempt,
     });
+    return result;
   }
 
   private handleGhCliRetryFailure(error: Error & { attemptNumber?: number }): void {
@@ -238,7 +255,8 @@ export class GitHubSecurityProvider {
     const alerts = JSON.parse(stdout);
     const alertCount = Array.isArray(alerts) ? alerts.length : "non-array";
     this.log.debug(`Parsed ${alertCount} alerts`, "fetchAlertsWithGhCli");
-    return Array.isArray(alerts) ? alerts : [];
+    const ghCliAlerts = Array.isArray(alerts) ? alerts : [];
+    return ghCliAlerts;
   }
 
   private handleGhCliFetchError(error: unknown): never {
@@ -263,9 +281,10 @@ export class GitHubSecurityProvider {
       "Dependabot alerts are not enabled",
       "vulnerability alerts are disabled",
     ];
-    return permissionPatterns.some((pattern) =>
+    const result = permissionPatterns.some((pattern) =>
       message.toLowerCase().includes(pattern.toLowerCase()),
     );
+    return result;
   }
 
   private async fetchFromGitHubAPI(
@@ -280,7 +299,8 @@ export class GitHubSecurityProvider {
       const nextUrl = this.getNextPageUrl(response);
       if (!nextUrl) return alerts;
       const nextAlerts = await this.fetchFromGitHubAPI(nextUrl);
-      return alerts.concat(nextAlerts);
+      const fromGitHubAPI = alerts.concat(nextAlerts);
+      return fromGitHubAPI;
     } finally {
       clearTimeout(timeoutId);
     }
@@ -292,17 +312,18 @@ export class GitHubSecurityProvider {
     const nextLink = links.split(",").find((link) => link.includes('rel="next"'));
     if (!nextLink) return undefined;
     const match = GITHUB_NEXT_LINK_PATTERN.exec(nextLink);
-    return match?.[1];
+    const nextPageUrl = match?.[1];
+    return nextPageUrl;
   }
 
   private requestDependabotAlerts(url: string, signal: AbortSignal): Promise<Response> {
-    return fetch(url, {
-      headers: {
-        Authorization: `Bearer ${this.token}`,
-        Accept: "application/vnd.github.v3+json",
-      },
+    const Authorization = `Bearer ${this.token}`;
+    const headers = { Authorization, Accept: "application/vnd.github.v3+json" };
+    const result = fetch(url, {
+      headers,
       signal,
     });
+    return result;
   }
 
   private async readDependabotResponse(response: Response): Promise<DependabotAlert[]> {
@@ -311,7 +332,8 @@ export class GitHubSecurityProvider {
     }
 
     const alerts = await response.json();
-    return Array.isArray(alerts) ? alerts : [];
+    const result = Array.isArray(alerts) ? alerts : [];
+    return result;
   }
 
   private async throwDependabotResponseError(response: Response): Promise<never> {
@@ -327,18 +349,8 @@ export class GitHubSecurityProvider {
 
   private async fetchAlertsWithApi(): Promise<DependabotAlert[]> {
     try {
-      return await retry(() => this.fetchFromGitHubAPI(), {
-        retries: 3,
-        factor: 2,
-        minTimeout: 1000,
-        onFailedAttempt: (error: Error & { attemptNumber?: number }) => {
-          const isPermissionError = error.name === "SecurityProviderPermissionError";
-          if (isPermissionError) {
-            throw error;
-          }
-          this.log.debug(`GitHub API attempt ${error.attemptNumber} failed`, "fetchAlertsWithApi");
-        },
-      });
+      const alertsWithApi = await this.retryApiFetch();
+      return alertsWithApi;
     } catch (error) {
       const isPermissionError = error instanceof SecurityProviderPermissionError;
       if (isPermissionError) {
@@ -347,8 +359,25 @@ export class GitHubSecurityProvider {
       this.log.error("Failed to fetch alerts with API", "fetchAlertsWithApi", {
         error,
       });
-      throw new Error(`Failed to fetch Dependabot alerts: ${error}`);
+      throw new Error(`Failed to fetch Dependabot alerts: ${error}`, { cause: error });
     }
+  }
+
+  private retryApiFetch(): Promise<DependabotAlert[]> {
+    const onFailedAttempt = this.handleApiRetryFailure.bind(this);
+    const pending = retry(() => this.fetchFromGitHubAPI(), {
+      retries: 3,
+      factor: 2,
+      minTimeout: 1000,
+      onFailedAttempt,
+    });
+    return pending;
+  }
+
+  private handleApiRetryFailure(error: Error & { attemptNumber?: number }): void {
+    const isPermissionError = error.name === "SecurityProviderPermissionError";
+    if (isPermissionError) throw error;
+    this.log.debug(`GitHub API attempt ${error.attemptNumber} failed`, "fetchAlertsWithApi");
   }
 
   convertToSecurityAlerts(
@@ -357,16 +386,17 @@ export class GitHubSecurityProvider {
   ): SecurityAlert[] {
     const packageVersions = new Map(packages.map((pkg) => [pkg.name, pkg.version]));
 
-    return dependabotAlerts
+    const result = dependabotAlerts
       .filter((alert) => this.shouldIncludeAlert(alert, packageVersions))
       .map((alert) => this.convertDependabotAlert(alert, packageVersions));
+    return result;
   }
 
   private shouldIncludeAlert(
     alert: DependabotAlert,
     packageVersions: Map<string, string>,
   ): boolean {
-    const packageName = alert.security_vulnerability.package.name;
+    const { name: packageName } = alert.security_vulnerability.package;
     const matchesPackageFilter = packageVersions.size === 0 || packageVersions.has(packageName);
     if (alert.state !== "open") return false;
     if (!this.isNpmAlert(alert)) return false;
@@ -377,48 +407,49 @@ export class GitHubSecurityProvider {
     alert: DependabotAlert,
     packageVersions: Map<string, string>,
   ): SecurityAlert {
-    const vulnerability = alert.security_vulnerability;
-    const advisory = alert.security_advisory;
-    const cves = advisory.cve_id ? [advisory.cve_id] : [];
-    const currentVersion =
-      packageVersions.get(vulnerability.package.name) || this.extractCurrentVersion(alert);
-    const fixAvailable = Boolean(vulnerability.first_patched_version);
-    const base = {
-      packageName: vulnerability.package.name,
-      currentVersion,
-      vulnerableVersions: vulnerability.vulnerable_version_range,
-      patchedVersion: vulnerability.first_patched_version?.identifier,
-      severity: this.normalizeSeverity(vulnerability.severity),
-      title: advisory.summary,
-      description: advisory.description,
-      url: alert.html_url,
-      fixAvailable,
-    };
+    const { cve_id: cve } = alert.security_advisory;
+    const cves = cve ? [cve] : [];
+    const base = this.createDependabotAlertBase(alert, packageVersions);
     if (cves.length === 0) return base;
-    return Object.assign({}, base, { cves });
+    const result = Object.assign({}, base, { cves });
+    return result;
+  }
+
+  private createDependabotAlertBase(
+    alert: DependabotAlert,
+    packageVersions: Map<string, string>,
+  ): SecurityAlert {
+    const { security_vulnerability: vulnerability, html_url: url } = alert;
+    const { name: packageName } = vulnerability.package;
+    const { vulnerable_version_range: vulnerableVersions } = vulnerability;
+    const { summary: title, description } = alert.security_advisory;
+    const currentVersion = packageVersions.get(packageName) || this.extractCurrentVersion(alert);
+    const { identifier: patchedVersion } = vulnerability.first_patched_version ?? {};
+    const severity = this.normalizeSeverity(vulnerability.severity);
+    const fixAvailable = Boolean(vulnerability.first_patched_version);
+    const versions = { packageName, currentVersion, vulnerableVersions, patchedVersion };
+    const advisory = { severity, title, description, url, fixAvailable };
+    const base = Object.assign({}, versions, advisory);
+    return base;
   }
 
   private isNpmAlert(alert: DependabotAlert): boolean {
     const dependencyEcosystem = alert.dependency?.package?.ecosystem;
     const vulnerabilityEcosystem = alert.security_vulnerability?.package?.ecosystem;
-    const hasNoEcosystem = !dependencyEcosystem && !vulnerabilityEcosystem;
-    if (hasNoEcosystem) return true;
+    const hasEcosystem = dependencyEcosystem || vulnerabilityEcosystem;
+    if (!hasEcosystem) return true;
     if (dependencyEcosystem === "npm") return true;
-    return vulnerabilityEcosystem === "npm";
+    const result = vulnerabilityEcosystem === "npm";
+    return result;
   }
 
   private extractCurrentVersion(alert: DependabotAlert): string {
     const vulnerableRange = alert.security_vulnerability.vulnerable_version_range;
-    const hasBoundedRange = vulnerableRange.includes(">=") && vulnerableRange.includes("<=");
-    if (hasBoundedRange) {
-      const match = vulnerableRange.match(GITHUB_VULNERABLE_LOWER_BOUND_PATTERN);
-      return match ? match[1] : "unknown";
-    }
-    if (vulnerableRange.includes(">=")) {
-      const match = vulnerableRange.match(GITHUB_VULNERABLE_LOWER_BOUND_PATTERN);
-      return match ? match[1] : "unknown";
-    }
-    return "unknown";
+    const hasLowerBound = vulnerableRange.includes(">=");
+    if (!hasLowerBound) return "unknown";
+    const match = vulnerableRange.match(GITHUB_VULNERABLE_LOWER_BOUND_PATTERN);
+    const currentVersion = match ? match[1] : "unknown";
+    return currentVersion;
   }
 
   private normalizeSeverity(severity: string): "low" | "medium" | "high" | "critical" {

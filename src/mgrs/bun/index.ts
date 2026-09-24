@@ -11,7 +11,8 @@ import {
 const countPackages = (root: string): number => {
   const path = resolveBunInventoryPath(root);
   if (!path) return 0;
-  return countBunLockPackages(path);
+  const count = countBunLockPackages(path);
+  return count;
 };
 
 export const bun: JsManager = {

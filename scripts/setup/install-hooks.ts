@@ -93,12 +93,16 @@ const initialHookStats = (): HookStats => ({
   updated: 0,
 });
 
-const incrementStat = (stats: HookStats, key: keyof HookStats): HookStats =>
-  Object.assign({}, stats, { [key]: stats[key] + 1 });
+const incrementStat = (stats: HookStats, key: keyof HookStats): HookStats => {
+  const count = stats[key] + 1;
+  const updated = Object.assign({}, stats, { [key]: count });
+  return updated;
+};
 
 const isGeneratedHook = (hookName: HookName, hookContent: string): boolean => {
   if (hookContent.includes(MANAGED_HOOK_MARKER)) return true;
-  return hookContent.includes(GENERATED_HOOK_SIGNATURES[hookName]);
+  const hasGeneratedSignature = hookContent.includes(GENERATED_HOOK_SIGNATURES[hookName]);
+  return hasGeneratedSignature;
 };
 
 const runGitConfig = (args: readonly string[]) =>
@@ -107,7 +111,8 @@ const runGitConfig = (args: readonly string[]) =>
 const readHooksPath = (): string => {
   const result = runGitConfig(["--get", "core.hooksPath"]);
   if (result.status !== 0) return "";
-  return result.stdout.trim();
+  const hooksPath = result.stdout.trim();
+  return hooksPath;
 };
 
 const unsetHooksPath = (): void => {
@@ -131,17 +136,29 @@ const installHook = (hookName: HookName, stats: HookStats): HookStats => {
   if (!hookExists) {
     writeHook(hookPath, hookContent);
     console.log(`Installed ${hookName} hook`);
-    return incrementStat(stats, "installed");
+    const updated = incrementStat(stats, "installed");
+    return updated;
   }
 
+  const updated = updateHook(hookName, stats);
+  return updated;
+};
+
+const updateHook = (hookName: HookName, stats: HookStats): HookStats => {
+  const hookPath = join(HOOKS_DIR, hookName);
+  const hookContent = HOOKS[hookName];
   const existingHook = readFileSync(hookPath, "utf8");
   const canUpdate = isGeneratedHook(hookName, existingHook);
-  if (!canUpdate) return incrementStat(stats, "skipped");
-  if (existingHook === hookContent) return incrementStat(stats, "skipped");
+  const shouldSkip = !canUpdate || existingHook === hookContent;
+  if (shouldSkip) {
+    const skipped = incrementStat(stats, "skipped");
+    return skipped;
+  }
 
   writeHook(hookPath, hookContent);
   console.log(`Updated ${hookName} hook`);
-  return incrementStat(stats, "updated");
+  const updated = incrementStat(stats, "updated");
+  return updated;
 };
 
 const installHooks = (): void => {
@@ -157,6 +174,16 @@ const installHooks = (): void => {
     return;
   }
 
+  prepareHooksDirectory();
+  const hookNames = Object.keys(HOOKS) as HookName[];
+  const hookStats = hookNames.reduce(
+    (stats, hookName) => installHook(hookName, stats),
+    initialHookStats(),
+  );
+  printHookStats(hookStats);
+};
+
+const prepareHooksDirectory = (): void => {
   const hooksPath = readHooksPath();
   const isHuskyPath = hooksPath === ".husky/_";
   if (isHuskyPath) {
@@ -164,27 +191,20 @@ const installHooks = (): void => {
     console.log("Removed husky hooks path configuration");
   }
 
-  const hooksDir = HOOKS_DIR;
-  if (!existsSync(hooksDir)) {
-    mkdirSync(hooksDir, { recursive: true });
+  if (!existsSync(HOOKS_DIR)) {
+    mkdirSync(HOOKS_DIR, { recursive: true });
   }
+};
 
-  const hookNames = Object.keys(HOOKS) as HookName[];
-  const hookStats = hookNames.reduce(
-    (stats, hookName) => installHook(hookName, stats),
-    initialHookStats(),
-  );
+const printHookStats = (hookStats: HookStats): void => {
   const { installed, skipped, updated } = hookStats;
 
   if (installed > 0) console.log(`\nInstalled ${installed} git hook(s)`);
   if (updated > 0) console.log(`Updated ${updated} git hook(s)`);
   if (skipped > 0) console.log(`Skipped ${skipped} existing hook(s)`);
 
-  const noHooksInstalled = installed === 0;
-  const noHooksSkipped = skipped === 0;
-  const noHooksUpdated = updated === 0;
-  const hasNoChanges = noHooksInstalled && noHooksSkipped && noHooksUpdated;
-  if (hasNoChanges) console.log("No hooks to install");
+  const hasChanges = Boolean(installed || skipped || updated);
+  if (!hasChanges) console.log("No hooks to install");
 };
 
 installHooks();

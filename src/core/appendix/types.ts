@@ -1,5 +1,6 @@
 import type {
   AppendixItem,
+  AppendixDependencyContext,
   Appendix,
   CompactAppendixItem,
   LedgerReason,
@@ -30,6 +31,21 @@ export type SecurityLedgerFields = Pick<
 >;
 
 export type PartialSecurityLedger = Partial<SecurityLedgerFields>;
+
+export type AppendixLedgerArgs = [
+  securityLedger: Omit<Ledger, "addedDate" | "reason">,
+  addedDate?: string,
+];
+
+export type DependencyInfoArgs = [
+  dependencyTree?: Record<string, string>,
+  dependencyGraph?: Record<string, string[]>,
+];
+
+export type PackageAppendixArgs = [
+  writeAppendixToFile?: boolean,
+  dependencyContext?: AppendixDependencyContext,
+];
 
 export type CompactAppendix = Record<string, CompactAppendixItem | AppendixItem>;
 

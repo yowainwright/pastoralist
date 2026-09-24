@@ -17,37 +17,65 @@ import {
 const HERO_SEEN_KEY = "pastoralist-hero-animation-seen";
 const CONFETTI_COLORS = ["#ff0000", "#ff8000", "#ffff00", "#00ff00", "#0080ff", "#8000ff"];
 const hadSeen = (): boolean => {
-  return sessionStorage.getItem(HERO_SEEN_KEY) === "true";
+  const hasSeen = sessionStorage.getItem(HERO_SEEN_KEY) === "true";
+  return hasSeen;
 };
 
-const createHeroMachine = (wasAlreadySeen: boolean) =>
-  createMachine({
+const LOGO_DELAY = { 500: "logoVisible" };
+const IDLE_STATE = { after: LOGO_DELAY };
+const TEXT_DELAY = { 700: "textVisible" };
+const LOGO_STATE = {
+  after: TEXT_DELAY,
+};
+const TERMINAL_DELAY = { 400: "terminalVisible" };
+const TEXT_STATE = {
+  after: TERMINAL_DELAY,
+};
+const TERMINAL_EVENTS = { TERMINAL_DONE: "terminalComplete" };
+const TERMINAL_STATE = {
+  on: TERMINAL_EVENTS,
+};
+const RAINBOW_DELAY = { 500: "rainbow" };
+const COMPLETE_STATE = {
+  after: RAINBOW_DELAY,
+};
+const DONE_DELAY = { 700: "done" };
+const RAINBOW_STATE = { after: DONE_DELAY };
+const DONE_STATE = {};
+const HERO_STATES = {
+  idle: IDLE_STATE,
+  logoVisible: LOGO_STATE,
+  textVisible: TEXT_STATE,
+  terminalVisible: TERMINAL_STATE,
+  terminalComplete: COMPLETE_STATE,
+  rainbow: RAINBOW_STATE,
+  done: DONE_STATE,
+};
+const createHeroMachine = (wasAlreadySeen: boolean) => {
+  const initial = wasAlreadySeen ? "done" : "terminalVisible";
+  const machine = createMachine({
     id: "hero",
-    initial: wasAlreadySeen ? "done" : "terminalVisible",
-    states: {
-      idle: { after: { 500: "logoVisible" } },
-      logoVisible: { after: { 700: "textVisible" } },
-      textVisible: { after: { 400: "terminalVisible" } },
-      terminalVisible: { on: { TERMINAL_DONE: "terminalComplete" } },
-      terminalComplete: { after: { 500: "rainbow" } },
-      rainbow: { after: { 700: "done" } },
-      done: {},
-    },
+    initial,
+    states: HERO_STATES,
   });
+  return machine;
+};
 
 const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
 const BOUNCE_TIMES = [0, 0.45, 0.78, 1];
 const HIGHLIGHT_BOUNCE_SCALE = [1, 1.14, 0.98, 1];
 const EMOJI_BOUNCE_ROTATION = [0, 12, -4, 0];
 const EMOJI_BOUNCE_SCALE = [1, 1.18, 0.96, 1];
-const HIGHLIGHT_HIDDEN: TargetAndTransition = { opacity: 0, x: -18, scale: 1 };
+const INTRO_OFFSET = -18;
+const TERMINAL_OFFSET = -32;
+const HIGHLIGHT_HIDDEN: TargetAndTransition = { opacity: 0, x: INTRO_OFFSET, scale: 1 };
 const HIGHLIGHT_VISIBLE: TargetAndTransition = { opacity: 1, x: 0, scale: 1 };
 const HIGHLIGHT_BOUNCE: TargetAndTransition = {
   opacity: 1,
   x: 0,
   scale: HIGHLIGHT_BOUNCE_SCALE,
 };
-const EMOJI_HIDDEN: TargetAndTransition = { opacity: 0, scale: 0.75, rotate: -18 };
+const EMOJI_HIDDEN: TargetAndTransition = { opacity: 0, scale: 0.75, rotate: INTRO_OFFSET };
 const EMOJI_VISIBLE: TargetAndTransition = { opacity: 1, scale: 1, rotate: 0 };
 const EMOJI_BOUNCE: TargetAndTransition = {
   opacity: 1,
@@ -109,7 +137,8 @@ type HeroState = (typeof STATE_ORDER)[number];
 
 function atLeast(snapshot: { matches: (s: string) => boolean }, state: HeroState) {
   const idx = STATE_ORDER.indexOf(state);
-  return STATE_ORDER.slice(idx).some((s) => snapshot.matches(s));
+  const hasReachedState = STATE_ORDER.slice(idx).some((s) => snapshot.matches(s));
+  return hasReachedState;
 }
 
 function getHighlightAnimation(celebrationActive: boolean, terminalComplete: boolean) {
@@ -134,39 +163,30 @@ function getEmojiTransition(celebrationActive: boolean): Transition {
   return EMOJI_VISIBLE_TRANSITION;
 }
 
-function HeroContent({ showComplete }: { showComplete: boolean }) {
+function useHeroState(showComplete: boolean) {
   const [wasAlreadySeen] = useState(() => showComplete || hadSeen());
   const heroMachine = useMemo(() => createHeroMachine(wasAlreadySeen), [wasAlreadySeen]);
   const [snapshot, send] = useMachine(heroMachine);
-  const automaticallyRef = useRef<HTMLSpanElement>(null);
-  const BASE_URL = import.meta.env.BASE_URL || "/pastoralist";
-  const base = BASE_URL.endsWith("/") ? BASE_URL : BASE_URL + "/";
+  const handleTerminalComplete = () => {
+    const event = { type: "TERMINAL_DONE" } as const;
+    if (!snapshot.can(event)) return;
+    send(event);
+    sessionStorage.setItem(HERO_SEEN_KEY, "true");
+  };
+  const state = { wasAlreadySeen, snapshot, handleTerminalComplete };
+  return state;
+}
 
-  const logoVisible = atLeast(snapshot, "logoVisible");
-  const textVisible = atLeast(snapshot, "textVisible");
-  const terminalVisible = atLeast(snapshot, "terminalVisible");
-  const terminalComplete = atLeast(snapshot, "terminalComplete");
-  const rainbowVisible = atLeast(snapshot, "rainbow");
-  const celebrationActive = snapshot.matches("rainbow");
-  const announcementSettled = atLeast(snapshot, "done");
-  const showEmoji = terminalComplete;
-  const announcementWordClassName = "text-base-content";
-  const highlightToneClassName = rainbowVisible ? "rainbow-text" : announcementWordClassName;
-  const highlightShimmerClassName = announcementSettled
-    ? "[animation:gradient-shimmer_3.2s_ease-in-out_1.4s_infinite]"
-    : "";
-  const highlightClassName = `inline-block ${highlightToneClassName} ${highlightShimmerClassName}`;
-  const highlightAnimation = getHighlightAnimation(celebrationActive, terminalComplete);
-  const highlightTransition = getHighlightTransition(celebrationActive);
-  const emojiAnimation = getEmojiAnimation(celebrationActive, showEmoji);
-  const emojiTransition = getEmojiTransition(celebrationActive);
+type HeroViewProps = { state: ReturnType<typeof useHeroState> };
 
+function useHeroConfetti(wasAlreadySeen: boolean, rainbowVisible: boolean) {
+  const targetRef = useRef<HTMLSpanElement>(null);
   useEffect(() => {
-    const confettiTarget = automaticallyRef.current;
-    const shouldSkipConfetti = wasAlreadySeen || !rainbowVisible || !confettiTarget;
-    if (shouldSkipConfetti) return;
-
-    const rect = confettiTarget.getBoundingClientRect();
+    const target = targetRef.current;
+    const animationReady = !wasAlreadySeen && rainbowVisible;
+    const shouldSkip = !animationReady || !target;
+    if (shouldSkip) return;
+    const rect = target.getBoundingClientRect();
     const x = (rect.left + rect.width / 2) / window.innerWidth;
     const y = (rect.top + rect.height / 2) / window.innerHeight;
     const origin = { x, y };
@@ -174,105 +194,213 @@ function HeroContent({ showComplete }: { showComplete: boolean }) {
     const loadConfetti = import("canvas-confetti");
     void loadConfetti.then(({ default: confetti }) => confetti(options)).catch(() => undefined);
   }, [rainbowVisible, wasAlreadySeen]);
+  return targetRef;
+}
 
-  const handleTerminalComplete = () => {
-    const terminalDoneEvent = { type: "TERMINAL_DONE" } as const;
-    if (!snapshot.can(terminalDoneEvent)) return;
-    send(terminalDoneEvent);
-    sessionStorage.setItem(HERO_SEEN_KEY, "true");
-  };
-
+function HeroContent({ showComplete }: { showComplete: boolean }) {
+  const state = useHeroState(showComplete);
   return (
     <section id="hero" className={styles.section}>
       <HeroBackground />
       <HeroSparkles />
       <article className={styles.article} style={{ position: "relative", zIndex: 1 }}>
-        <header className={styles.logoHeader}>
-          <LogoSparkle maskSrc={`${base}pastoralist-logo.svg`}>
-            <motion.img
-              src={`${base}pastoralist-logo.svg`}
-              alt={CONTENT.logoAlt}
-              className={styles.logo}
-              initial={wasAlreadySeen ? false : { opacity: 0, y: 16, scale: 0.75 }}
-              animate={logoVisible ? { opacity: 1, y: 0, scale: 1 } : undefined}
-              transition={{ duration: 0.5, ease: EASE }}
-            />
-          </LogoSparkle>
-        </header>
-
+        <HeroLogo state={state} />
         <main className={styles.main}>
-          <motion.aside
-            className={styles.aside}
-            initial={wasAlreadySeen ? false : { opacity: 0, x: -32 }}
-            animate={terminalVisible ? { opacity: 1, x: 0 } : undefined}
-            transition={{ duration: 0.7, ease: EASE }}
-          >
-            <div className={styles.terminalFrame}>
-              <div
-                className="pointer-events-none absolute inset-x-8 bottom-2 h-24 rounded-full bg-gradient-to-r from-sky-500/18 via-cyan-400/10 to-emerald-400/16 blur-3xl"
-                aria-hidden="true"
-              />
-              <AnimatedTerminal
-                demos={CLI_OVERRIDE_DEMO}
-                loop={false}
-                typingSpeed={18}
-                startAnimation={terminalVisible}
-                shouldAnimate={!wasAlreadySeen}
-                minHeight={HERO_TERMINAL_MIN_HEIGHT}
-                onComplete={handleTerminalComplete}
-              />
-            </div>
-          </motion.aside>
-
-          <motion.header
-            className={styles.contentHeader}
-            initial={wasAlreadySeen ? false : { opacity: 0, y: 32 }}
-            animate={textVisible ? { opacity: 1, y: 0 } : undefined}
-            transition={{ duration: 0.7, ease: EASE }}
-          >
-            <h1 className={styles.h1}>
-              <span className="font-bold gradient-text">{CONTENT.headingStart}</span>{" "}
-              {CONTENT.headingMid}
-              <span className="ml-2 inline-flex items-baseline gap-1 whitespace-nowrap align-baseline">
-                <motion.span
-                  ref={automaticallyRef}
-                  className={highlightClassName}
-                  initial={wasAlreadySeen ? false : HIGHLIGHT_HIDDEN}
-                  animate={highlightAnimation}
-                  transition={highlightTransition}
-                  aria-hidden={!terminalComplete}
-                >
-                  {CONTENT.headingHighlight}
-                </motion.span>
-                <motion.span
-                  className="inline-block origin-[50%_80%]"
-                  initial={wasAlreadySeen ? false : EMOJI_HIDDEN}
-                  animate={emojiAnimation}
-                  transition={emojiTransition}
-                  aria-hidden={!showEmoji}
-                >
-                  {CONTENT.emoji}
-                </motion.span>
-              </span>
-            </h1>
-
-            <nav className={styles.nav}>
-              <Link to="/docs/$slug/" params={{ slug: CONTENT.docsSlug }} preload="intent">
-                <button className="btn btn-lg btn-primary rounded-2xl whitespace-nowrap">
-                  {CONTENT.buttonText}
-                  <ArrowRight className="size-4" />
-                </button>
-              </Link>
-
-              <figure className={styles.codeBlock}>
-                <code className={styles.code}>{CONTENT.command}</code>
-                <CopyButton />
-              </figure>
-            </nav>
-          </motion.header>
+          <HeroTerminal state={state} />
+          <HeroHeading state={state} />
         </main>
       </article>
     </section>
+  );
+}
+
+function getLogoSrc() {
+  const baseUrl = import.meta.env.BASE_URL || "/pastoralist";
+  const base = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+  const src = `${base}pastoralist-logo.svg`;
+  return src;
+}
+
+function HeroLogo({ state }: HeroViewProps) {
+  const src = getLogoSrc();
+  return (
+    <header className={styles.logoHeader}>
+      <LogoSparkle maskSrc={src}>
+        <HeroLogoImage src={src} state={state} />
+      </LogoSparkle>
+    </header>
+  );
+}
+
+function HeroLogoImage({ src, state }: HeroViewProps & { src: string }) {
+  const { wasAlreadySeen, snapshot } = state;
+  const visible = atLeast(snapshot, "logoVisible");
+  return (
+    <motion.img
+      src={src}
+      alt={CONTENT.logoAlt}
+      className={styles.logo}
+      initial={wasAlreadySeen ? false : { opacity: 0, y: 16, scale: 0.75 }}
+      animate={visible ? { opacity: 1, y: 0, scale: 1 } : undefined}
+      transition={{ duration: 0.5, ease: EASE }}
+    />
+  );
+}
+
+function HeroTerminal({ state }: HeroViewProps) {
+  const { wasAlreadySeen, snapshot } = state;
+  const terminalVisible = atLeast(snapshot, "terminalVisible");
+  return (
+    <motion.aside
+      className={styles.aside}
+      initial={wasAlreadySeen ? false : { opacity: 0, x: TERMINAL_OFFSET }}
+      animate={terminalVisible ? { opacity: 1, x: 0 } : undefined}
+      transition={{ duration: 0.7, ease: EASE }}
+    >
+      <HeroTerminalFrame state={state} terminalVisible={terminalVisible} />
+    </motion.aside>
+  );
+}
+
+function HeroTerminalFrame({
+  state,
+  terminalVisible,
+}: HeroViewProps & { terminalVisible: boolean }) {
+  const { wasAlreadySeen, handleTerminalComplete } = state;
+  return (
+    <div className={styles.terminalFrame}>
+      <TerminalGlow />
+      <AnimatedTerminal
+        demos={CLI_OVERRIDE_DEMO}
+        loop={false}
+        typingSpeed={18}
+        startAnimation={terminalVisible}
+        shouldAnimate={!wasAlreadySeen}
+        minHeight={HERO_TERMINAL_MIN_HEIGHT}
+        onComplete={handleTerminalComplete}
+      />
+    </div>
+  );
+}
+
+function HeroHeading({ state }: HeroViewProps) {
+  const { wasAlreadySeen, snapshot } = state;
+  const textVisible = atLeast(snapshot, "textVisible");
+  return (
+    <motion.header
+      className={styles.contentHeader}
+      initial={wasAlreadySeen ? false : { opacity: 0, y: 32 }}
+      animate={textVisible ? { opacity: 1, y: 0 } : undefined}
+      transition={{ duration: 0.7, ease: EASE }}
+    >
+      <HeroTitle state={state} />
+      <HeroActions />
+    </motion.header>
+  );
+}
+
+function HeroTitle({ state }: HeroViewProps) {
+  return (
+    <h1 className={styles.h1}>
+      <span className="font-bold gradient-text">{CONTENT.headingStart}</span> {CONTENT.headingMid}
+      <HeroCelebration state={state} />
+    </h1>
+  );
+}
+
+function getCelebrationState({ wasAlreadySeen, snapshot }: HeroViewProps["state"]) {
+  const terminalComplete = atLeast(snapshot, "terminalComplete");
+  const rainbowVisible = atLeast(snapshot, "rainbow");
+  const celebrationActive = snapshot.matches("rainbow");
+  const announcementSettled = atLeast(snapshot, "done");
+  const state = {
+    wasAlreadySeen,
+    terminalComplete,
+    rainbowVisible,
+    celebrationActive,
+    announcementSettled,
+  };
+  return state;
+}
+
+type CelebrationState = ReturnType<typeof getCelebrationState>;
+
+function HeroCelebration({ state: heroState }: HeroViewProps) {
+  const state = getCelebrationState(heroState);
+  const targetRef = useHeroConfetti(state.wasAlreadySeen, state.rainbowVisible);
+  return (
+    <span className="ml-2 inline-flex items-baseline gap-1 whitespace-nowrap align-baseline">
+      <HeroHighlight state={state} targetRef={targetRef} />
+      <HeroEmoji state={state} />
+    </span>
+  );
+}
+
+function getHighlightClassName(state: CelebrationState) {
+  const tone = state.rainbowVisible ? "rainbow-text" : "text-base-content";
+  const shimmer = state.announcementSettled
+    ? "[animation:gradient-shimmer_3.2s_ease-in-out_1.4s_infinite]"
+    : "";
+  const className = `inline-block ${tone} ${shimmer}`;
+  return className;
+}
+
+interface HeroHighlightProps {
+  state: CelebrationState;
+  targetRef: React.RefObject<HTMLSpanElement | null>;
+}
+
+function HeroHighlight({ state, targetRef }: HeroHighlightProps) {
+  const { wasAlreadySeen, terminalComplete, celebrationActive } = state;
+  const className = getHighlightClassName(state);
+  const animate = getHighlightAnimation(celebrationActive, terminalComplete);
+  const transition = getHighlightTransition(celebrationActive);
+  return (
+    <motion.span
+      ref={targetRef}
+      className={className}
+      initial={wasAlreadySeen ? false : HIGHLIGHT_HIDDEN}
+      animate={animate}
+      transition={transition}
+      aria-hidden={!terminalComplete}
+    >
+      {CONTENT.headingHighlight}
+    </motion.span>
+  );
+}
+
+function HeroEmoji({ state }: { state: CelebrationState }) {
+  const { wasAlreadySeen, terminalComplete, celebrationActive } = state;
+  const animate = getEmojiAnimation(celebrationActive, terminalComplete);
+  const transition = getEmojiTransition(celebrationActive);
+  return (
+    <motion.span
+      className="inline-block origin-[50%_80%]"
+      initial={wasAlreadySeen ? false : EMOJI_HIDDEN}
+      animate={animate}
+      transition={transition}
+      aria-hidden={!terminalComplete}
+    >
+      {CONTENT.emoji}
+    </motion.span>
+  );
+}
+
+function HeroActions() {
+  const { docsSlug } = CONTENT;
+  return (
+    <nav className={styles.nav}>
+      <Link to="/docs/$slug/" params={{ slug: docsSlug }} preload="intent">
+        <button className="btn btn-lg btn-primary rounded-2xl whitespace-nowrap">
+          {CONTENT.buttonText}
+          <ArrowRight className="size-4" />
+        </button>
+      </Link>
+      <figure className={styles.codeBlock}>
+        <code className={styles.code}>{CONTENT.command}</code>
+        <CopyButton />
+      </figure>
+    </nav>
   );
 }
 
@@ -301,5 +429,14 @@ function HeroBackground() {
         style={{ clipPath: BLOB_CLIP }}
       />
     </figure>
+  );
+}
+
+function TerminalGlow() {
+  return (
+    <div
+      className="pointer-events-none absolute inset-x-8 bottom-2 h-24 rounded-full bg-gradient-to-r from-sky-500/18 via-cyan-400/10 to-emerald-400/16 blur-3xl"
+      aria-hidden="true"
+    />
   );
 }

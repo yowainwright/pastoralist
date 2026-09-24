@@ -12,6 +12,11 @@ export interface OptionDefinition {
   emptyValue?: unknown;
 }
 
+export interface FlagOption {
+  key: string;
+  def: OptionDefinition;
+}
+
 export interface ParsedFlag {
   flag: string;
   value?: string;

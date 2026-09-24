@@ -16,34 +16,30 @@ export class ConcurrencyLimiter {
   }
 
   run<T>(task: Task<T>): Promise<T> {
-    return new Promise<T>((resolve, reject) => {
+    const pending = new Promise<T>((resolve, reject) => {
+      const queuedTask = task as Task<unknown>;
+      const resolveTask = resolve as (value: unknown) => void;
       const item = {
-        task: task as Task<unknown>,
-        resolve: resolve as (value: unknown) => void,
+        task: queuedTask,
+        resolve: resolveTask,
         reject,
       };
       this.queue = this.queue.concat(item);
       this.process();
     });
+    return pending;
   }
 
-  private async process(): Promise<void> {
-    const isAtCapacity = this.running >= this.concurrency;
-    const hasNoQueuedTasks = this.queue.length === 0;
-    const shouldWait = isAtCapacity || hasNoQueuedTasks;
-    if (shouldWait) {
-      return;
-    }
-
-    this.running++;
+  private process(): void {
+    if (this.running >= this.concurrency) return;
     const [item, ...remainingQueue] = this.queue;
     this.queue = remainingQueue;
+    if (!item) return;
+    this.running++;
+    void this.execute(item);
+  }
 
-    if (!item) {
-      this.running--;
-      return;
-    }
-
+  private async execute(item: QueueItem<unknown>): Promise<void> {
     try {
       const result = await item.task();
       item.resolve(result);
@@ -56,15 +52,17 @@ export class ConcurrencyLimiter {
   }
 
   get queueSize(): number {
-    return this.queue.length;
+    const { length } = this.queue;
+    return length;
   }
 
   get activeCount(): number {
-    return this.running;
+    const { running } = this;
+    return running;
   }
 
   clear(): void {
-    const pending = this.queue;
+    const { queue: pending } = this;
     this.queue = [];
     pending.forEach((item) => item.reject(new Error(LIMITER_CLEARED_ERROR_MESSAGE)));
   }
@@ -72,5 +70,6 @@ export class ConcurrencyLimiter {
 
 export const createLimit = (concurrency: number) => {
   const limiter = new ConcurrencyLimiter(concurrency);
-  return <T>(task: Task<T>) => limiter.run(task);
+  const run: <T>(task: Task<T>) => Promise<T> = limiter.run.bind(limiter);
+  return run;
 };

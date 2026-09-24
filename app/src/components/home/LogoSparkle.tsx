@@ -2,22 +2,11 @@ import React from "react";
 
 interface LogoSparkleProps {
   children: React.ReactNode;
-  /** SVG src URL — used as CSS mask so the shine clips to the logo shape */
   maskSrc: string;
 }
 
 export const LogoSparkle: React.FC<LogoSparkleProps> = ({ children, maskSrc }) => {
-  const maskStyle: React.CSSProperties = {
-    WebkitMaskImage: `url(${maskSrc})`,
-    maskImage: `url(${maskSrc})`,
-    WebkitMaskSize: "contain",
-    maskSize: "contain",
-    WebkitMaskRepeat: "no-repeat",
-    maskRepeat: "no-repeat",
-    WebkitMaskPosition: "center",
-    maskPosition: "center",
-  };
-
+  const maskStyle = getMaskStyle(maskSrc);
   return (
     <div style={{ position: "relative", display: "inline-flex" }}>
       <div className="logo-shine-wrap" style={maskStyle}>
@@ -27,3 +16,19 @@ export const LogoSparkle: React.FC<LogoSparkleProps> = ({ children, maskSrc }) =
     </div>
   );
 };
+
+function getMaskStyle(maskSrc: string): React.CSSProperties {
+  const maskImage = `url(${maskSrc})`;
+  const style: React.CSSProperties = {
+    WebkitMaskImage: maskImage,
+    maskImage,
+    WebkitMaskSize: "contain",
+    maskSize: "contain",
+    WebkitMaskRepeat: "no-repeat",
+    maskRepeat: "no-repeat",
+    WebkitMaskPosition: "center",
+    maskPosition: "center",
+  };
+
+  return style;
+}

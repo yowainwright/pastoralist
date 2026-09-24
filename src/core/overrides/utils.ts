@@ -16,7 +16,7 @@ import {
   getExistingOverrideField,
   getOverrideFieldForPackageManager,
 } from "../package/utils";
-import { parsePnpmWorkspaceOverrides, updatePnpmWorkspaceOverrides } from "./yaml";
+import { parsePnpmWorkspaceOverrides, updatePnpmWorkspaceOverrides } from "../../mgrs/pnpm/utils";
 
 const getDeclaredPackageManager = (config: PastoralistJSON): PackageManager | undefined => {
   const name = config.packageManager?.split("@")[0] as PackageManager | undefined;
@@ -29,7 +29,8 @@ const getPackageManager = (config: PastoralistJSON, manifestPath: string): Packa
   const declaredManager = getDeclaredPackageManager(config);
   if (declaredManager) return declaredManager;
   const manifestRoot = dirname(resolve(manifestPath));
-  return detectPackageManager(manifestRoot);
+  const packageManager = detectPackageManager(manifestRoot);
+  return packageManager;
 };
 
 const isYamlFile = (path: string): boolean => {
@@ -44,33 +45,52 @@ const resolveConfiguredSource = (
 ): string | undefined => {
   const configuredPath = config.pastoralist?.overrideSource;
   if (!configuredPath) return undefined;
-  return resolve(dirname(resolve(manifestPath)), configuredPath);
+  const configuredSource = resolve(dirname(resolve(manifestPath)), configuredPath);
+  return configuredSource;
 };
 
 const readJsonSource = (path: string): PastoralistJSON => {
-  if (!existsSync(path)) return {} as PastoralistJSON;
-  return JSON.parse(readFileSync(path, "utf8")) as PastoralistJSON;
+  if (!existsSync(path)) {
+    const empty = {} as PastoralistJSON;
+    return empty;
+  }
+  const config = JSON.parse(readFileSync(path, "utf8")) as PastoralistJSON;
+  return config;
 };
 
 const getOverridesFromField = (config: PastoralistJSON, field: OverrideField): OverridesType => {
-  if (field === "resolutions") return config.resolutions || {};
-  if (field === "pnpm") return config.pnpm?.overrides || {};
-  return config.overrides || {};
+  if (field === "resolutions") {
+    const resolutions = config.resolutions || {};
+    return resolutions;
+  }
+  if (field === "pnpm") {
+    const pnpmOverrides = config.pnpm?.overrides || {};
+    return pnpmOverrides;
+  }
+  const overrides = config.overrides || {};
+  return overrides;
 };
 
 const resolveJsonField = (
   sourceConfig: PastoralistJSON,
   packageManager: PackageManager,
 ): OverrideField => {
-  return (
-    getExistingOverrideField(sourceConfig) || getOverrideFieldForPackageManager(packageManager)
-  );
+  const jsonField: OverrideField =
+    getExistingOverrideField(sourceConfig) || getOverrideFieldForPackageManager(packageManager);
+  return jsonField;
 };
 
 const createYamlSource = (path: string, packageManager: PackageManager): OverrideSource => {
   const content = existsSync(path) ? readFileSync(path, "utf8") : "";
   const overrides = parsePnpmWorkspaceOverrides(content);
-  return { kind: "yaml", path, field: "overrides", packageManager, overrides };
+  const yamlSource: OverrideSource = {
+    kind: "yaml",
+    path,
+    field: "overrides",
+    packageManager,
+    overrides,
+  };
+  return yamlSource;
 };
 
 const createJsonSource = (
@@ -84,7 +104,8 @@ const createJsonSource = (
   const field = resolveJsonField(sourceConfig, packageManager);
   const kind = isManifest ? "manifest" : "json";
   const overrides = getOverridesFromField(sourceConfig, field);
-  return { kind, path, field, packageManager, overrides };
+  const jsonSource: OverrideSource = { kind, path, field, packageManager, overrides };
+  return jsonSource;
 };
 
 export const resolveOverrideSource = ({
@@ -97,24 +118,25 @@ export const resolveOverrideSource = ({
   const nativeSource = manager.resolveOverridePath?.(config, manifestPath);
   const sourcePath = configuredSource || nativeSource || resolve(manifestPath);
 
-  if (isYamlFile(sourcePath)) return createYamlSource(sourcePath, packageManager);
-  return createJsonSource(sourcePath, manifestPath, packageManager, config);
+  if (isYamlFile(sourcePath)) {
+    const yaml = createYamlSource(sourcePath, packageManager);
+    return yaml;
+  }
+  const json = createJsonSource(sourcePath, manifestPath, packageManager, config);
+  return json;
 };
 
 const removeOverrideField = (config: PastoralistJSON, field: OverrideField): PastoralistJSON => {
-  if (field === "resolutions") {
-    const { resolutions: _, ...rest } = config;
-    return rest as PastoralistJSON;
-  }
-  if (field === "overrides") {
-    const { overrides: _, ...rest } = config;
-    return rest as PastoralistJSON;
+  if (field !== "pnpm") {
+    const { [field]: _, ...remaining } = config;
+    return remaining;
   }
 
-  const { overrides: _, ...pnpm } = config.pnpm || {};
-  const { pnpm: _pnpm, ...rest } = config;
-  if (Object.keys(pnpm).length === 0) return rest as PastoralistJSON;
-  return Object.assign({}, rest, { pnpm });
+  const { pnpm: workspace, ...rest } = config;
+  const { overrides: _, ...pnpm } = workspace || {};
+  if (Object.keys(pnpm).length === 0) return rest;
+  const updated = Object.assign({}, rest, { pnpm });
+  return updated;
 };
 
 export const applyOverridesToSourceConfig = (
@@ -125,8 +147,12 @@ export const applyOverridesToSourceConfig = (
   const isJsonSource = source.kind === "manifest" || source.kind === "json";
   if (!isJsonSource) return config;
   const field = source.field as OverrideField;
-  if (Object.keys(overrides).length === 0) return removeOverrideField(config, field);
-  return applyOverridesToConfig(config, overrides, field);
+  if (Object.keys(overrides).length === 0) {
+    const removed = removeOverrideField(config, field);
+    return removed;
+  }
+  const updated = applyOverridesToConfig(config, overrides, field);
+  return updated;
 };
 
 const writeYamlSource = (source: OverrideSource, overrides: OverridesType): void => {

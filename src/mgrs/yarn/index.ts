@@ -15,7 +15,8 @@ const removal = Object.assign({}, REMOVAL, { guards });
 
 const countPackages = (root: string): number => {
   const path = resolve(root, YARN_LOCK_FILENAME);
-  return countPatternLockPackages(path, YARN_LOCK_PACKAGE_PATTERN);
+  const count = countPatternLockPackages(path, YARN_LOCK_PACKAGE_PATTERN);
+  return count;
 };
 
 export const yarn: JsManager = {

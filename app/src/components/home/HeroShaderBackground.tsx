@@ -3,29 +3,36 @@ import { Shader, Aurora, CursorRipples, Vignette } from "shaders/react";
 
 const DARK_THEME = "night";
 
-const AURORA_COLORS = {
-  dark: { colorA: "#7c3aed", colorB: "#22d3ee", colorC: "#3b82f6" },
-  light: { colorA: "#a78bfa", colorB: "#34d399", colorC: "#60a5fa" },
-} as const;
+const DARK_COLORS = { colorA: "#7c3aed", colorB: "#22d3ee", colorC: "#3b82f6" };
+const LIGHT_COLORS = { colorA: "#a78bfa", colorB: "#34d399", colorC: "#60a5fa" };
+const THEME_ATTRIBUTES = ["data-theme"];
 
-export default function HeroShaderBackground() {
-  const [isDark, setIsDark] = useState(() => {
-    if (typeof document === "undefined") return false;
-    return document.documentElement.getAttribute("data-theme") === DARK_THEME;
-  });
+function isDarkTheme() {
+  if (typeof document === "undefined") return false;
+  const isDark = document.documentElement.getAttribute("data-theme") === DARK_THEME;
+  return isDark;
+}
 
+function useDarkTheme() {
+  const [isDark, setIsDark] = useState(isDarkTheme);
   useEffect(() => {
     const observer = new MutationObserver(() => {
-      setIsDark(document.documentElement.getAttribute("data-theme") === DARK_THEME);
+      setIsDark(isDarkTheme());
     });
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["data-theme"],
+      attributeFilter: THEME_ATTRIBUTES,
     });
-    return () => observer.disconnect();
+    const disconnect = observer.disconnect.bind(observer);
+    return disconnect;
   }, []);
 
-  const colors = isDark ? AURORA_COLORS.dark : AURORA_COLORS.light;
+  return isDark;
+}
+
+export default function HeroShaderBackground() {
+  const isDark = useDarkTheme();
+  const colors = isDark ? DARK_COLORS : LIGHT_COLORS;
 
   return (
     <Shader className="w-full h-full">

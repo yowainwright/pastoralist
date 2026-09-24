@@ -17,10 +17,20 @@ import {
   SPINNER_INTERVAL_MS,
 } from "./constants";
 import { pad } from "./format";
-import type { HintCache, Output, RgbTuple, Spinner, SpinnerState } from "./types";
+import type {
+  HintCache,
+  Output,
+  RgbTuple,
+  ShimmerArguments,
+  ShimmerOptions,
+  Spinner,
+  SpinnerState,
+} from "./types";
 
 export const createOutput = (stream: NodeJS.WriteStream = process.stdout): Output => ({
-  write: (text: string) => stream.write(text),
+  write: (text: string): void => {
+    stream.write(text);
+  },
   writeLine: (text: string) => stream.write(`${text}\n`),
   clearLine: () => stream.write(ANSI.CLEAR_LINE),
   hideCursor: () => stream.write(ANSI.HIDE_CURSOR),
@@ -47,47 +57,57 @@ export const gradientPastoralist = (): string => {
   const p = green("Past");
   const o = gold("oral");
   const ist = copper("ist");
-  return `${p}${o}${ist}`;
+  const result = `${p}${o}${ist}`;
+  return result;
 };
 
 export const gradientGreenTan = (text: string): string => {
   const chars = text.split("");
   const lastIndex = chars.length - 1;
   if (lastIndex < 0) return "";
-  if (lastIndex === 0) return `${rgb(...GRADIENT_GREEN)}${text}${ANSI.RESET}`;
+  if (lastIndex === 0) {
+    const result2 = `${rgb(...GRADIENT_GREEN)}${text}${ANSI.RESET}`;
+    return result2;
+  }
 
   const result = chars
     .map((char, index) => {
       if (char === " ") return char;
       const color = interpolateColor(GRADIENT_GREEN, GRADIENT_TAN, index / lastIndex);
-      return `${rgb(...color)}${char}`;
+      const coloredChar = `${rgb(...color)}${char}`;
+      return coloredChar;
     })
     .join("");
 
-  return result + ANSI.RESET;
+  const result3 = result + ANSI.RESET;
+  return result3;
 };
 
 export const link = (url: string, text?: string): string => {
   const displayText = text || url;
-  return `\x1b]8;;${url}\x07${displayText}\x1b]8;;\x07`;
+  const result = `\x1b]8;;${url}\x07${displayText}\x1b]8;;\x07`;
+  return result;
 };
 
-const getHintCacheDir = (): string => resolveCacheDir();
-
-const getHintCacheFile = (): string => join(getHintCacheDir(), "hints.json");
+const getHintCacheFile = (): string => join(resolveCacheDir(), "hints.json");
 
 function loadHintCache(): HintCache {
   const hintCacheFile = getHintCacheFile();
-  if (!existsSync(hintCacheFile)) return {};
+  if (!existsSync(hintCacheFile)) {
+    const result: HintCache = {};
+    return result;
+  }
   try {
-    return JSON.parse(readFileSync(hintCacheFile, "utf8"));
+    const result2 = JSON.parse(readFileSync(hintCacheFile, "utf8"));
+    return result2;
   } catch {
-    return {};
+    const result3: HintCache = {};
+    return result3;
   }
 }
 
 function saveHintCache(cache: HintCache): void {
-  const hintCacheDir = getHintCacheDir();
+  const hintCacheDir = resolveCacheDir();
   const hintCacheFile = getHintCacheFile();
   try {
     if (!existsSync(hintCacheDir)) {
@@ -125,24 +145,31 @@ export function clearHintCache(): void {
   }
 }
 
+const appendLine = (lines: string[], line: string): string[] => {
+  if (!line) return lines;
+  const result = lines.concat(line);
+  return result;
+};
+
 function wrapText(text: string, width: number): string[] {
-  const appendLine = (lines: string[], line: string): string[] => {
-    if (!line) return lines;
-    return lines.concat(line);
-  };
+  const lines: string[] = [];
   const state = text.split(" ").reduce(
     (acc, word) => {
       const { current } = acc;
       const test = current ? current + " " + word : word;
       if (test.length <= width) {
-        return Object.assign({}, acc, { current: test });
+        const result = Object.assign({}, acc, { current: test });
+        return result;
       }
 
-      return { lines: appendLine(acc.lines, current), current: word };
+      const completedLines = appendLine(acc.lines, current);
+      const result2 = { lines: completedLines, current: word };
+      return result2;
     },
-    { lines: [] as string[], current: "" },
+    { lines, current: "" },
   );
-  return appendLine(state.lines, state.current);
+  const result = appendLine(state.lines, state.current);
+  return result;
 }
 
 const renderHintBox = (text: string, width = DEFAULT_HINT_BOX_WIDTH): string => {
@@ -151,12 +178,16 @@ const renderHintBox = (text: string, width = DEFAULT_HINT_BOX_WIDTH): string => 
   const lines = wrapText(text, textWidth);
   const border = gold("+" + "-".repeat(width - 2) + "+");
   const content = lines.map((line, i) => {
-    const prefix = i === 0 ? ICON.hint + " " : "   ";
+    const hintPrefix = ICON.hint + " ";
+    const isFirst = i === 0;
+    const prefix = isFirst ? hintPrefix : "   ";
     const padded = pad(prefix + line, innerWidth);
     const contentLine = "| " + padded + " |";
-    return gold(contentLine);
+    const result = gold(contentLine);
+    return result;
   });
-  return [border].concat(content, border).join("\n");
+  const result = [border].concat(content, border).join("\n");
+  return result;
 };
 
 export const renderHint = (text: string, width = DEFAULT_HINT_BOX_WIDTH): string =>
@@ -185,7 +216,8 @@ export const shimmerFrame = (text: string, offset: number): string => {
     const intensity = Math.max(0, 1 - wrapDist / SHIMMER_WAVE_WIDTH);
 
     const [r, g, b] = interpolateColor(SHIMMER_GOLD, SHIMMER_WHITE, intensity);
-    return `${rgb(r, g, b)}${char}`;
+    const result = `${rgb(r, g, b)}${char}`;
+    return result;
   });
 
   const frame = ANSI.BOLD + coloredChars.join("") + ANSI.RESET;
@@ -193,65 +225,65 @@ export const shimmerFrame = (text: string, offset: number): string => {
 };
 
 const repeatOffsets = (offsets: number[], cycles: number): number[] => {
-  return Array.from({ length: cycles }, () => offsets).flat();
+  const result = Array.from({ length: cycles }, () => offsets).flat();
+  return result;
 };
 
 const writeShimmerFrame = (
   text: string,
   offset: number,
-  out: Output,
-  prefix: string,
-  suffix: string,
+  { out, prefix, suffix }: ShimmerOptions,
 ): void => {
   out.clearLine();
   out.write(`${prefix}${shimmerFrame(text, offset)}${suffix}`);
 };
 
-const writeFinalShimmerLine = (text: string, out: Output, prefix: string, suffix: string): void => {
+const writeFinalShimmerLine = (text: string, { out, prefix, suffix }: ShimmerOptions): void => {
   out.clearLine();
   out.writeLine(`${prefix}${shimmerFrame(text, 0)}${suffix}`);
 };
 
-const scheduleShimmer = (
-  text: string,
-  offsets: number[],
-  frameInterval: number,
-  out: Output,
-  prefix: string,
-  suffix: string,
-): Promise<void> =>
+const scheduleShimmer = (text: string, offsets: number[], options: ShimmerOptions): Promise<void> =>
   new Promise((resolve) => {
+    const { frameInterval } = options;
     offsets.forEach((offset, index) => {
-      setTimeout(() => writeShimmerFrame(text, offset, out, prefix, suffix), index * frameInterval);
+      setTimeout(() => writeShimmerFrame(text, offset, options), index * frameInterval);
     });
     const completionDelay = offsets.length * frameInterval;
     setTimeout(() => {
-      writeFinalShimmerLine(text, out, prefix, suffix);
+      writeFinalShimmerLine(text, options);
       resolve();
     }, completionDelay);
   });
 
-export const playShimmer = (
-  text: string,
-  frameInterval: number = SHIMMER_DEFAULT_FRAME_INTERVAL_MS,
-  out: Output = defaultOutput,
-  prefix: string = "",
-  suffix: string = "",
-  isTTY: boolean = process.stdout.isTTY ?? false,
-): Promise<void> => {
-  const shouldAnimate = isTTY;
+const resolveShimmerOptions = ([
+  frameInterval = SHIMMER_DEFAULT_FRAME_INTERVAL_MS,
+  out = defaultOutput,
+  prefix = "",
+  suffix = "",
+  isTTY = process.stdout.isTTY ?? false,
+]: ShimmerArguments): ShimmerOptions => {
+  const options = { frameInterval, out, prefix, suffix, isTTY };
+  return options;
+};
+
+export const playShimmer = (text: string, ...args: ShimmerArguments): Promise<void> => {
+  const options = resolveShimmerOptions(args);
+  const { out, prefix, suffix, isTTY } = options;
   const offsets = Array.from(
     { length: SHIMMER_FRAMES_PER_CYCLE },
     (_, i) => i / SHIMMER_FRAMES_PER_CYCLE,
   );
 
-  if (shouldAnimate) {
+  if (isTTY) {
     const animationOffsets = repeatOffsets(offsets, SHIMMER_CYCLES);
-    return scheduleShimmer(text, animationOffsets, frameInterval, out, prefix, suffix);
+    const result = scheduleShimmer(text, animationOffsets, options);
+    return result;
   }
 
   out.writeLine(`${prefix}${shimmerFrame(text, 0)}${suffix}`);
-  return Promise.resolve();
+  const result2 = Promise.resolve();
+  return result2;
 };
 
 export const hideCursor = (out: Output = defaultOutput): void => {
@@ -283,16 +315,19 @@ export const stopInterval = (state: SpinnerState): SpinnerState => {
   if (hasInterval) {
     clearInterval(interval);
   }
-  return Object.assign({}, state, { interval: null, isSpinning: false });
+  const result = Object.assign({}, state, { interval: null, isSpinning: false });
+  return result;
 };
 
 export const updateStateText = (state: SpinnerState, text: string): SpinnerState => {
-  return Object.assign({}, state, { text });
+  const stateText = Object.assign({}, state, { text });
+  return stateText;
 };
 
 export const incrementFrame = (state: SpinnerState): SpinnerState => {
   const nextIndex = (state.frameIndex + 1) % SPINNER_FRAMES.length;
-  return Object.assign({}, state, { frameIndex: nextIndex });
+  const result = Object.assign({}, state, { frameIndex: nextIndex });
+  return result;
 };
 
 export const startInterval = (state: SpinnerState, out: Output = defaultOutput): SpinnerState => {
@@ -301,7 +336,8 @@ export const startInterval = (state: SpinnerState, out: Output = defaultOutput):
     Object.assign(state, incrementFrame(state));
   }, SPINNER_INTERVAL_MS);
 
-  return Object.assign({}, state, { interval, isSpinning: true });
+  const result = Object.assign({}, state, { interval, isSpinning: true });
+  return result;
 };
 
 export const writeSymbol = (symbol: string, text: string, out: Output = defaultOutput): void => {
@@ -310,28 +346,30 @@ export const writeSymbol = (symbol: string, text: string, out: Output = defaultO
 };
 
 export const start = (state: SpinnerState, out: Output = defaultOutput): Spinner => {
-  const isAlreadySpinning = state.isSpinning;
-  if (isAlreadySpinning) {
-    return createSpinnerMethods(state, out);
+  if (state.isSpinning) {
+    const result = createSpinnerMethods(state, out);
+    return result;
   }
 
   out.hideCursor();
   const newState = startInterval(state, out);
   Object.assign(state, newState);
-  return createSpinnerMethods(state, out);
+  const result2 = createSpinnerMethods(state, out);
+  return result2;
 };
 
 export const stop = (state: SpinnerState, out: Output = defaultOutput): Spinner => {
-  const isNotSpinning = !state.isSpinning;
-  if (isNotSpinning) {
-    return createSpinnerMethods(state, out);
+  if (!state.isSpinning) {
+    const result = createSpinnerMethods(state, out);
+    return result;
   }
 
   const newState = stopInterval(state);
   Object.assign(state, newState);
   out.clearLine();
   out.showCursor();
-  return createSpinnerMethods(state, out);
+  const result2 = createSpinnerMethods(state, out);
+  return result2;
 };
 
 export const succeed = (
@@ -344,7 +382,8 @@ export const succeed = (
   const displayText = text || state.text;
   writeSymbol(ICON.success, displayText, out);
   out.showCursor();
-  return createSpinnerMethods(state, out);
+  const result = createSpinnerMethods(state, out);
+  return result;
 };
 
 export const fail = (state: SpinnerState, text?: string, out: Output = defaultOutput): Spinner => {
@@ -353,7 +392,8 @@ export const fail = (state: SpinnerState, text?: string, out: Output = defaultOu
   const displayText = text || state.text;
   writeSymbol(ICON.error, displayText, out);
   out.showCursor();
-  return createSpinnerMethods(state, out);
+  const result = createSpinnerMethods(state, out);
+  return result;
 };
 
 export const info = (state: SpinnerState, text?: string, out: Output = defaultOutput): Spinner => {
@@ -362,7 +402,8 @@ export const info = (state: SpinnerState, text?: string, out: Output = defaultOu
   const displayText = text || state.text;
   writeSymbol(ICON.info, displayText, out);
   out.showCursor();
-  return createSpinnerMethods(state, out);
+  const result = createSpinnerMethods(state, out);
+  return result;
 };
 
 export const warn = (state: SpinnerState, text?: string, out: Output = defaultOutput): Spinner => {
@@ -371,17 +412,19 @@ export const warn = (state: SpinnerState, text?: string, out: Output = defaultOu
   const displayText = text || state.text;
   writeSymbol(ICON.warning, displayText, out);
   out.showCursor();
-  return createSpinnerMethods(state, out);
+  const result = createSpinnerMethods(state, out);
+  return result;
 };
 
 export const update = (state: SpinnerState, text: string, out: Output = defaultOutput): Spinner => {
   const newState = updateStateText(state, text);
   Object.assign(state, newState);
-  return createSpinnerMethods(state, out);
+  const result = createSpinnerMethods(state, out);
+  return result;
 };
 
 export const createSpinnerMethods = (state: SpinnerState, out: Output = defaultOutput): Spinner => {
-  return {
+  const spinnerMethods: Spinner = {
     start: () => start(state, out),
     stop: () => stop(state, out),
     succeed: (text?: string) => succeed(state, text, out),
@@ -390,4 +433,5 @@ export const createSpinnerMethods = (state: SpinnerState, out: Output = defaultO
     warn: (text?: string) => warn(state, text, out),
     update: (text: string) => update(state, text, out),
   };
+  return spinnerMethods;
 };

@@ -1,10 +1,15 @@
-const DEFAULT_LEDGER_DATE = () => new Date().toISOString();
+const DEFAULT_LEDGER_DATE = () => {
+  const date = new Date();
+  const timestamp = date.toISOString();
+  return timestamp;
+};
 
 const stripPrerelease = (version: string): string => version.split("-")[0];
 
 const parseVersionPart = (part: string): number => {
   const value = parseInt(part, 10);
-  return isNaN(value) ? 0 : value;
+  const versionPart = isNaN(value) ? 0 : value;
+  return versionPart;
 };
 
 export const compareVersions = (first: string, second: string): number => {
@@ -12,12 +17,14 @@ export const compareVersions = (first: string, second: string): number => {
   const secondParts = stripPrerelease(second).split(".").map(parseVersionPart);
   const maxLength = Math.max(firstParts.length, secondParts.length);
 
-  return Array.from({ length: maxLength }).reduce<number>((result, _, index) => {
+  const comparison = Array.from({ length: maxLength }).reduce<number>((result, _, index) => {
     if (result !== 0) return result;
     const firstPart = firstParts[index] || 0;
     const secondPart = secondParts[index] || 0;
-    return firstPart - secondPart;
+    const difference = firstPart - secondPart;
+    return difference;
   }, 0);
+  return comparison;
 };
 
 export const buildObject = <T>(

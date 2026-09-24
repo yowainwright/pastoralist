@@ -36,6 +36,6 @@ export type JsManager = {
     projectRoot: string,
     removalRoot: string,
     config: PastoralistJSON,
-  ) => Promise<void>;
+  ) => void | Promise<void>;
   removal: RemovalConfig;
 };

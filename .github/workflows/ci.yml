@@ -12,6 +12,33 @@ env:
   SOCKET_SECURITY_API_KEY: ${{ secrets.SOCKET_SECURITY_API_KEY }}
 
 jobs:
+  shell-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Install ShellCheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes shellcheck
+
+      - name: Install shellcheck-legibility
+        run: |
+          mkdir -p .cache/shellcheck-legibility
+          curl --fail --silent --show-error --location \
+            https://github.com/yowainwright/shellcheck_legibility/releases/download/v0.2.4/shellcheck-legibility-linux-amd64.tar.gz \
+            --output .cache/shellcheck-legibility/tool.tar.gz
+          echo '4c65e9b4c365fbd903679d124b46f9f51ef155f11eb19e0585b7995a55a38e33  .cache/shellcheck-legibility/tool.tar.gz' | sha256sum --check
+          tar -xzf .cache/shellcheck-legibility/tool.tar.gz -C .cache/shellcheck-legibility
+          echo "$GITHUB_WORKSPACE/.cache/shellcheck-legibility" >> "$GITHUB_PATH"
+
+      - name: Lint shell scripts
+        run: sh scripts/lint/shell.sh
+
   dependency-review:
     runs-on: ubuntu-latest
     permissions:
@@ -69,7 +96,7 @@ jobs:
         env:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
-      - run: pnpm run lint
+      - run: pnpm run lint:js
         env:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_TEAM: ${{ secrets.TURBO_TEAM }}

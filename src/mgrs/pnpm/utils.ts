@@ -1,6 +1,7 @@
 import * as fs from "fs";
-import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "path";
+import { IS_DEBUGGING } from "../../constants";
+import { logger } from "../../observability";
 import type { OverridesType, OverrideValue, PastoralistJSON, SecurityPackage } from "../../types";
 import type { DependencyGraph, DependencyGraphState } from "../types";
 import { addDependencyParent, getPopulatedPackages } from "../utils";
@@ -13,60 +14,71 @@ import {
 } from "./constants";
 import type { YamlPair, YamlSection, YamlEntry, ScanState, FlowSplitState } from "./types";
 
-const isPnpmTopLevelField = (line: string): boolean => /^[^\s#][^:]*:/.test(line);
+const log = logger({ file: "mgrs/pnpm/utils.ts", isLogging: IS_DEBUGGING });
 
 const getPnpmSectionLines = (lines: string[], headerIndex: number): string[] => {
   const remaining = lines.slice(headerIndex + 1);
-  const nextFieldIndex = remaining.findIndex(isPnpmTopLevelField);
+  const nextFieldIndex = remaining.findIndex((line) => /^[^\s#][^:]*:/.test(line));
   if (nextFieldIndex === -1) return remaining;
-  return remaining.slice(0, nextFieldIndex);
+  const section = remaining.slice(0, nextFieldIndex);
+  return section;
 };
 
 const getPnpmPackageSections = (content: string): string => {
   const lines = content.split(/\r?\n/);
-  const packagesIndex = lines.indexOf("packages:");
-  if (packagesIndex !== -1) return getPnpmSectionLines(lines, packagesIndex).join("\n");
-  const snapshotsIndex = lines.indexOf("snapshots:");
-  if (snapshotsIndex === -1) return "";
-  return getPnpmSectionLines(lines, snapshotsIndex).join("\n");
+  const headers = new Map<string, number>();
+  lines.forEach((line, index) => {
+    const isPackageSection = line === "packages:" || line === "snapshots:";
+    if (!isPackageSection) return;
+    if (!headers.has(line)) headers.set(line, index);
+  });
+  const index = headers.get("packages:") ?? headers.get("snapshots:");
+  if (index === undefined) return "";
+  const section = getPnpmSectionLines(lines, index).join("\n");
+  return section;
+};
+
+const toPnpmPackage = ([, name, reference]: RegExpMatchArray): SecurityPackage => {
+  const peerSuffixIndex = reference.indexOf("(");
+  const hasPeerSuffix = peerSuffixIndex !== -1;
+  const version = hasPeerSuffix ? reference.slice(0, peerSuffixIndex) : reference;
+  const pkg = { name, version };
+  return pkg;
 };
 
 const parsePnpmPackageMatches = (content: string): SecurityPackage[] => {
   const packageSections = getPnpmPackageSections(content);
   const legacy = packageSections.matchAll(/^  \/((?:@[^/@\n]+\/)?[^/@\n\s]+)(?:@|\/)([^\s:]+):/gm);
   const current = packageSections.matchAll(/^  '?((?:@[^@/\n'"]+\/)?[\w][\w.-]*)@([^\s:'"]+)/gm);
-  const toPackage = ([, name, version]: RegExpMatchArray): SecurityPackage => {
-    const peerSuffixIndex = version.indexOf("(");
-    if (peerSuffixIndex === -1) return { name, version };
-    return { name, version: version.slice(0, peerSuffixIndex) };
-  };
-  return Array.from(legacy, toPackage).concat(Array.from(current, toPackage));
+  const packages = Array.from(legacy, toPnpmPackage).concat(Array.from(current, toPnpmPackage));
+  return packages;
 };
 
 const splitPnpmLockDocuments = (content: string): string[] => {
   const documents = content.split(/^---\s*$/m).map((document) => document.trim());
-  return documents.filter(Boolean);
+  const populated = documents.filter(Boolean);
+  return populated;
 };
-
-const hasPnpmProjectDependencies = (content: string): boolean =>
-  /^\s{4}(dependencies|devDependencies|optionalDependencies):/m.test(content);
 
 const isPnpmPackageManagerDocument = (content: string): boolean => {
   const hasPackageManagerDependencies = /^\s{4}packageManagerDependencies:/m.test(content);
   if (!hasPackageManagerDependencies) return false;
   const hasSnapshots = /^snapshots:\s*$/m.test(content);
-  const hasProjectDependencies = hasPnpmProjectDependencies(content);
-  const hasNoSnapshots = !hasSnapshots;
-  const hasNoProjectDependencies = !hasProjectDependencies;
-  return hasNoSnapshots && hasNoProjectDependencies;
+  const hasProjectDependencies = /^\s{4}(dependencies|devDependencies|optionalDependencies):/m.test(
+    content,
+  );
+  const isManagerOnly = !hasSnapshots && !hasProjectDependencies;
+  return isManagerOnly;
 };
 
 const parsePnpmLockDocuments = (content: string): SecurityPackage[] => {
   const documents = splitPnpmLockDocuments(content);
-  const lockDocuments = documents.length > 0 ? documents : [content];
-  return lockDocuments
+  const hasDocuments = documents.length > 0;
+  const lockDocuments = hasDocuments ? documents : [content];
+  const packages = lockDocuments
     .filter((document) => !isPnpmPackageManagerDocument(document))
     .flatMap(parsePnpmPackageMatches);
+  return packages;
 };
 
 export const parsePnpmLockedPackages = (root: string): SecurityPackage[] | undefined => {
@@ -74,8 +86,10 @@ export const parsePnpmLockedPackages = (root: string): SecurityPackage[] | undef
   if (!fs.existsSync(lockPath)) return undefined;
   try {
     const content = fs.readFileSync(lockPath, "utf8");
-    return getPopulatedPackages(parsePnpmLockDocuments(content));
+    const packages = getPopulatedPackages(parsePnpmLockDocuments(content));
+    return packages;
   } catch {
+    log.debug("Could not read package inventory", "parsePnpmLockedPackages", lockPath);
     return undefined;
   }
 };
@@ -84,7 +98,8 @@ export const parsePnpmLockTree = (root: string): Record<string, string> | undefi
   const packages = parsePnpmLockedPackages(root);
   if (!packages) return undefined;
   const entries = packages.map(({ name, version }) => [name, version]);
-  return Object.fromEntries(entries);
+  const tree = Object.fromEntries(entries);
+  return tree;
 };
 
 const hasPnpmLockStructure = (content: string): boolean =>
@@ -93,7 +108,21 @@ const hasPnpmLockStructure = (content: string): boolean =>
 const matchPnpmGraphPackage = (line: string): RegExpMatchArray | null => {
   const v5v6Match = line.match(/^  \/((?:@[^/@\n]+\/)?[^/@\n\s]+)(?:@|\/)([^\s:]+):/);
   const v9Match = line.match(/^  '?((?:@[^@/\n'"]+\/)?[\w][\w.-]*)@([^\s:'"]+)/);
-  return v5v6Match ?? v9Match;
+  const match = v5v6Match ?? v9Match;
+  return match;
+};
+
+const addPnpmDependencyLine = (
+  graph: DependencyGraph,
+  state: DependencyGraphState,
+  line: string,
+): void => {
+  const { currentPackage } = state;
+  const isDependency = state.inDependencies && currentPackage;
+  if (!isDependency) return;
+  const dependencyMatch = line.match(/^      '?([^':\s]+)'?:/);
+  if (dependencyMatch) addDependencyParent(graph, dependencyMatch[1], currentPackage);
+  if (!line.startsWith("      ")) state.inDependencies = false;
 };
 
 const addPnpmGraphLine = (
@@ -107,17 +136,13 @@ const addPnpmGraphLine = (
     state.inDependencies = false;
     return;
   }
-  const currentPackage = state.currentPackage;
+  const { currentPackage } = state;
   const startsDependencies = currentPackage && line.match(/^    dependencies:/);
   if (startsDependencies) {
     state.inDependencies = true;
     return;
   }
-  const isOutsideDependencies = !state.inDependencies || !currentPackage;
-  if (isOutsideDependencies) return;
-  const dependencyMatch = line.match(/^      '?([^':\s]+)'?:/);
-  if (dependencyMatch) addDependencyParent(graph, dependencyMatch[1], currentPackage);
-  if (!line.startsWith("      ")) state.inDependencies = false;
+  addPnpmDependencyLine(graph, state, line);
 };
 
 export const parsePnpmLockGraph = (root: string): Record<string, string[]> | undefined => {
@@ -133,6 +158,7 @@ export const parsePnpmLockGraph = (root: string): Record<string, string[]> | und
     });
     return inverted;
   } catch {
+    log.debug("Could not read dependency graph", "parsePnpmLockGraph", lockPath);
     return undefined;
   }
 };
@@ -142,33 +168,35 @@ const updatePnpmWorkspaceContent = (
   overrides: OverridesType | undefined,
 ): string => {
   if (!overrides) return content;
-  return updatePnpmWorkspaceOverrides(content, overrides);
+  const updated = updatePnpmWorkspaceOverrides(content, overrides);
+  return updated;
 };
 
-export const stagePnpmWorkspace = async (
+export const stagePnpmWorkspace = (
   projectRoot: string,
   removalRoot: string,
   config: PastoralistJSON,
-): Promise<void> => {
+): void => {
   const sourcePath = join(projectRoot, "pnpm-workspace.yaml");
   if (!fs.existsSync(sourcePath)) return;
-  const content = await readFile(sourcePath, "utf8");
-  const overrides = config.pnpm?.overrides;
-  const removalContent = updatePnpmWorkspaceContent(content, overrides);
-  await writeFile(join(removalRoot, "pnpm-workspace.yaml"), removalContent);
+  const content = fs.readFileSync(sourcePath, "utf8");
+  const removalContent = updatePnpmWorkspaceContent(content, config.pnpm?.overrides);
+  fs.writeFileSync(join(removalRoot, "pnpm-workspace.yaml"), removalContent);
 };
 
 const isPnpmEleven = (config: PastoralistJSON): boolean => {
   const match = config.packageManager?.match(/^pnpm@(\d+)/);
   if (!match) return false;
   const major = Number(match[1]);
-  return major >= 11;
+  const usesWorkspaceOverrides = major >= 11;
+  return usesWorkspaceOverrides;
 };
 
 const hasWorkspaceOverrides = (path: string): boolean => {
   if (!fs.existsSync(path)) return false;
   const content = fs.readFileSync(path, "utf8");
-  return Object.keys(parsePnpmWorkspaceOverrides(content)).length > 0;
+  const hasOverrides = Object.keys(parsePnpmWorkspaceOverrides(content)).length > 0;
+  return hasOverrides;
 };
 
 export const resolvePnpmSource = (
@@ -177,7 +205,8 @@ export const resolvePnpmSource = (
 ): string | undefined => {
   const workspacePath = resolve(dirname(resolve(manifestPath)), PNPM_WORKSPACE_FILE);
   const usesWorkspaceSource = isPnpmEleven(config) || hasWorkspaceOverrides(workspacePath);
-  return usesWorkspaceSource ? workspacePath : undefined;
+  const source = usesWorkspaceSource ? workspacePath : undefined;
+  return source;
 };
 
 const getIndent = (line: string): string => line.match(/^\s*/)?.[0] || "";
@@ -190,15 +219,20 @@ const updateQuote = (quote: string | undefined, character: string): string | und
 };
 
 const scanCharacter = (state: ScanState, character: string): ScanState => {
-  if (state.escaped) return { quote: state.quote, escaped: false };
-  const startsEscape = state.quote === '"' && character === "\\";
-  if (startsEscape) return { quote: state.quote, escaped: true };
-  return { quote: updateQuote(state.quote, character), escaped: false };
+  const { quote } = state;
+  if (state.escaped) {
+    const next = { quote, escaped: false };
+    return next;
+  }
+  const startsEscape = quote === '"' && character === "\\";
+  const nextQuote = startsEscape ? quote : updateQuote(quote, character);
+  const next = { quote: nextQuote, escaped: startsEscape };
+  return next;
 };
 
 const findSeparator = (line: string): number => {
   let state: ScanState = { escaped: false };
-  return line.split("").findIndex((character, index) => {
+  const separator = line.split("").findIndex((character, index) => {
     const isUnquoted = !state.quote;
     const isUnescaped = !state.escaped;
     const canMatchSeparator = isUnquoted && isUnescaped;
@@ -209,17 +243,24 @@ const findSeparator = (line: string): number => {
     state = scanCharacter(state, character);
     return isYamlSeparator;
   });
+  return separator;
 };
 
 const parseQuotedScalar = (value: string): string => {
-  if (value.startsWith('"')) return JSON.parse(value) as string;
-  if (value.startsWith("'")) return value.slice(1, -1).replaceAll("''", "'");
+  if (value.startsWith('"')) {
+    const parsed = JSON.parse(value) as string;
+    return parsed;
+  }
+  if (value.startsWith("'")) {
+    const unquoted = value.slice(1, -1).replaceAll("''", "'");
+    return unquoted;
+  }
   return value;
 };
 
 const findComment = (value: string): number => {
   let state: ScanState = { escaped: false };
-  return value.split("").findIndex((character, index) => {
+  const comment = value.split("").findIndex((character, index) => {
     const isUnquoted = !state.quote;
     const isUnescaped = !state.escaped;
     const canMatchComment = isUnquoted && isUnescaped;
@@ -229,16 +270,22 @@ const findComment = (value: string): number => {
     state = scanCharacter(state, character);
     return startsComment;
   });
+  return comment;
 };
 
 const splitValue = (source: string): Pick<YamlPair, "valueSource" | "suffix"> => {
   const trimmed = source.trimStart();
   const commentIndex = findComment(trimmed);
-  if (commentIndex < 0) return { valueSource: trimmed.trimEnd(), suffix: "" };
+  if (commentIndex < 0) {
+    const valueSource = trimmed.trimEnd();
+    const value = { valueSource, suffix: "" };
+    return value;
+  }
 
   const valueSource = trimmed.slice(0, commentIndex).trimEnd();
   const suffix = ` ${trimmed.slice(commentIndex).trimEnd()}`;
-  return { valueSource, suffix };
+  const value = { valueSource, suffix };
+  return value;
 };
 
 const parsePair = (line: string): YamlPair | undefined => {
@@ -252,7 +299,8 @@ const parsePair = (line: string): YamlPair | undefined => {
   const keySource = content.slice(0, separator).trim();
   const key = parseQuotedScalar(keySource);
   const value = splitValue(content.slice(separator + 1));
-  return Object.assign({}, { key, keySource, indent }, value);
+  const pair = Object.assign({}, { key, keySource, indent }, value);
+  return pair;
 };
 
 const isTopLevelBoundary = (line: string): boolean => {
@@ -260,7 +308,8 @@ const isTopLevelBoundary = (line: string): boolean => {
   if (isIgnoredLine) return false;
   const hasPair = Boolean(parsePair(line));
   const isDocumentBoundary = line === "---" || line === "...";
-  return hasPair || isDocumentBoundary;
+  const isBoundary = hasPair || isDocumentBoundary;
+  return isBoundary;
 };
 
 const findOverridesSection = (lines: string[]): YamlSection | undefined => {
@@ -272,54 +321,67 @@ const findOverridesSection = (lines: string[]): YamlSection | undefined => {
   if (start < 0) return undefined;
 
   const relativeEnd = lines.slice(start + 1).findIndex(isTopLevelBoundary);
-  const hasNoBoundary = relativeEnd < 0;
+  const hasBoundary = relativeEnd >= 0;
   const absoluteEnd = start + relativeEnd + 1;
-  const end = hasNoBoundary ? lines.length : absoluteEnd;
+  const end = hasBoundary ? absoluteEnd : lines.length;
   const pair = parsePair(lines[start])!;
-  return { start, end, pair };
+  const section = { start, end, pair };
+  return section;
 };
 
 const findEntryIndent = (lines: string[], section: YamlSection): number | undefined => {
-  const indents = lines
+  const pairs = lines
     .slice(section.start + 1, section.end)
     .map(parsePair)
-    .filter((pair): pair is YamlPair => Boolean(pair))
-    .map((pair) => pair.indent.length)
-    .filter((indent) => indent > 0);
+    .filter((pair): pair is YamlPair => Boolean(pair));
+  const indents = pairs.map((pair) => pair.indent.length).filter((indent) => indent > 0);
   if (indents.length === 0) return undefined;
-  return Math.min(...indents);
+  const indent = Math.min(...indents);
+  return indent;
 };
 
 const findEntries = (lines: string[], section: YamlSection): YamlEntry[] => {
   const entryIndent = findEntryIndent(lines, section);
-  if (entryIndent === undefined) return [];
+  const empty: YamlEntry[] = [];
+  if (entryIndent === undefined) return empty;
 
   const createEntry = (line: string, offset: number): Array<YamlPair & { line: number }> => {
     const pair = parsePair(line);
     const isEntry = Boolean(pair && pair.indent.length === entryIndent);
-    if (!isEntry) return [];
+    if (!isEntry) return empty;
     const entryLine = section.start + offset + 1;
-    return [Object.assign({}, pair, { line: entryLine })];
+    const matches = [Object.assign({}, pair, { line: entryLine })];
+    return matches;
   };
 
   const entries = lines.slice(section.start + 1, section.end).flatMap(createEntry);
-  return entries.map((entry, index) => {
+  const complete = entries.map((entry, index) => {
     const end = entries[index + 1]?.line ?? section.end;
-    return Object.assign({}, entry, { end });
+    const bounded = Object.assign({}, entry, { end });
+    return bounded;
   });
+  return complete;
 };
 
 const isFlowMapping = (source: string): boolean => {
   const trimmed = source.trim();
-  return trimmed.startsWith("{") && trimmed.endsWith("}");
+  const isMapping = trimmed.startsWith("{") && trimmed.endsWith("}");
+  return isMapping;
 };
 
 const updateFlowDepth = (state: ScanState & { depth: number }, character: string): number => {
   const isQuotedOrEscaped = Boolean(state.quote || state.escaped);
-  if (isQuotedOrEscaped) return state.depth;
-  if (character === "{") return state.depth + 1;
-  if (character === "}") return state.depth - 1;
-  return state.depth;
+  const { depth } = state;
+  if (isQuotedOrEscaped) return depth;
+  if (character === "{") {
+    const nested = depth + 1;
+    return nested;
+  }
+  if (character === "}") {
+    const parent = depth - 1;
+    return parent;
+  }
+  return depth;
 };
 
 const scanFlowEntry = (
@@ -337,11 +399,14 @@ const scanFlowEntry = (
   const start = isSeparator ? index + 1 : current.start;
   const depth = updateFlowDepth(current.scan, character);
   const scan = Object.assign({}, scanCharacter(current.scan, character), { depth });
-  return { entries, scan, start };
+  const next = { entries, scan, start };
+  return next;
 };
 
 const splitFlowEntries = (source: string): string[] => {
-  const initial: FlowSplitState = { entries: [], scan: { escaped: false, depth: 0 }, start: 0 };
+  const pending: string[] = [];
+  const scan = { escaped: false, depth: 0 };
+  const initial: FlowSplitState = { entries: pending, scan, start: 0 };
   const result = source
     .split("")
     .reduce(
@@ -353,27 +418,29 @@ const splitFlowEntries = (source: string): string[] => {
   return entries;
 };
 
+const hasFlowKeyBoundary = (source: string, index: number): boolean => {
+  const nextCharacter = source[index + 1];
+  if (!nextCharacter) return true;
+  if (/[\s[{]/.test(nextCharacter)) return true;
+  const keySource = source.slice(0, index).trim();
+  const quote = keySource.at(0);
+  if (!quote) return false;
+  if (!QUOTE_CHARACTERS.has(quote)) return false;
+  const hasClosingQuote = keySource.endsWith(quote);
+  return hasClosingQuote;
+};
+
 const findFlowSeparator = (source: string): number => {
   let state: ScanState = { escaped: false };
-  return source.split("").findIndex((character, index) => {
-    const keySource = source.slice(0, index).trim();
-    const quote = keySource.at(0);
-    const hasQuote = Boolean(quote);
-    const isKnownQuote = Boolean(quote && QUOTE_CHARACTERS.has(quote));
-    const hasClosingQuote = Boolean(quote && keySource.endsWith(quote));
-    const hasQuotedKey = hasQuote && isKnownQuote && hasClosingQuote;
-    const nextCharacter = source[index + 1] || "";
-    const hasValueBoundary =
-      !nextCharacter || /\s/.test(nextCharacter) || "[{".includes(nextCharacter);
-    const isColon = character === ":";
-    const isUnquoted = !state.quote;
-    const isUnescaped = !state.escaped;
-    const canSeparate = isColon && isUnquoted && isUnescaped;
-    const hasKeyBoundary = hasQuotedKey || hasValueBoundary;
-    const isSeparator = canSeparate && hasKeyBoundary;
+  const separator = source.split("").findIndex((character, index) => {
+    const canSeparate = !state.quote && !state.escaped;
+    const isCandidate = character === ":" && canSeparate;
     state = scanCharacter(state, character);
+    if (!isCandidate) return false;
+    const isSeparator = hasFlowKeyBoundary(source, index);
     return isSeparator;
   });
+  return separator;
 };
 
 const parseFlowPair = (source: string): [string, OverrideValue] => {
@@ -381,41 +448,55 @@ const parseFlowPair = (source: string): [string, OverrideValue] => {
   if (separator < 0) throw new Error("pnpm overrides must be a YAML mapping");
   const keySource = source.slice(0, separator).trim();
   const valueSource = source.slice(separator + 1).trim();
-  const hasMissingPairValue = !keySource || !valueSource;
-  if (hasMissingPairValue) throw new Error("pnpm overrides must be a YAML mapping");
-  return [parseQuotedScalar(keySource), parseOverrideValue(valueSource)];
+  const hasPairValue = keySource && valueSource;
+  if (!hasPairValue) throw new Error("pnpm overrides must be a YAML mapping");
+  const pair: [string, OverrideValue] = [
+    parseQuotedScalar(keySource),
+    parseOverrideValue(valueSource),
+  ];
+  return pair;
 };
 
 const parseFlowMapping = (source: string): OverridesType => {
   const trimmed = source.trim();
   if (!isFlowMapping(trimmed)) throw new Error("pnpm overrides must be a YAML mapping");
   const content = trimmed.slice(1, -1).trim();
-  if (!content) return {};
-  return Object.fromEntries(splitFlowEntries(content).map(parseFlowPair));
+  const empty: OverridesType = {};
+  if (!content) return empty;
+  const mapping = Object.fromEntries(splitFlowEntries(content).map(parseFlowPair));
+  return mapping;
 };
 
 const parseNestedFlowMapping = (source: string): Record<string, string> => {
   const mapping = parseFlowMapping(source);
   const hasOnlyStringValues = Object.values(mapping).every((value) => typeof value === "string");
   if (!hasOnlyStringValues) throw new Error("nested pnpm overrides must contain string values");
-  return mapping as Record<string, string>;
+  const nested = mapping as Record<string, string>;
+  return nested;
 };
 
 const parseOverrideValue = (source: string): OverrideValue => {
-  if (isFlowMapping(source)) return parseNestedFlowMapping(source);
-  return parseQuotedScalar(source);
+  const value = isFlowMapping(source) ? parseNestedFlowMapping(source) : parseQuotedScalar(source);
+  return value;
 };
 
 const findEntryContentEnd = (lines: string[], entry: YamlEntry): number => {
-  if (entry.valueSource) return entry.line + 1;
+  if (entry.valueSource) {
+    const end = entry.line + 1;
+    return end;
+  }
   const relativeEnd = lines.slice(entry.line + 1, entry.end).findIndex((line) => {
     const isContent = line.trim().length > 0;
     const isComment = line.trimStart().startsWith("#");
     const isNested = getIndent(line).length > entry.indent.length;
-    const isBoundary = isContent && !isComment && !isNested;
+    const hasEntryContent = isComment || isNested;
+    const isBoundary = isContent && !hasEntryContent;
     return isBoundary;
   });
-  if (relativeEnd < 0) return entry.end;
+  if (relativeEnd < 0) {
+    const { end } = entry;
+    return end;
+  }
   const absoluteEnd = entry.line + relativeEnd + 1;
   return absoluteEnd;
 };
@@ -427,7 +508,8 @@ const findNestedEntries = (lines: string[], entry: YamlEntry): YamlPair[] => {
     .map(parsePair)
     .filter((pair): pair is YamlPair => Boolean(pair));
   const nestedIndent = Math.min(...pairs.map((pair) => pair.indent.length));
-  return pairs.filter((pair) => pair.indent.length === nestedIndent);
+  const nested = pairs.filter((pair) => pair.indent.length === nestedIndent);
+  return nested;
 };
 
 const parseNestedBlockMapping = (lines: string[], entry: YamlEntry): Record<string, string> => {
@@ -436,13 +518,18 @@ const parseNestedBlockMapping = (lines: string[], entry: YamlEntry): Record<stri
     if (typeof value !== "string") {
       throw new Error("nested pnpm overrides must contain string values");
     }
-    return [pair.key, value];
+    const parsed: [string, string] = [pair.key, value];
+    return parsed;
   });
-  return Object.fromEntries(pairs);
+  const mapping = Object.fromEntries(pairs);
+  return mapping;
 };
 
 const parseEntryValue = (lines: string[], entry: YamlEntry): OverrideValue | undefined => {
-  if (entry.valueSource) return parseOverrideValue(entry.valueSource);
+  if (entry.valueSource) {
+    const value = parseOverrideValue(entry.valueSource);
+    return value;
+  }
   const mapping = parseNestedBlockMapping(lines, entry);
   if (Object.keys(mapping).length === 0) return undefined;
   return mapping;
@@ -451,36 +538,54 @@ const parseEntryValue = (lines: string[], entry: YamlEntry): OverrideValue | und
 export const parsePnpmWorkspaceOverrides = (content: string): OverridesType => {
   const lines = content.split(/\r?\n/);
   const section = findOverridesSection(lines);
-  if (!section) return {};
-  if (section.pair.valueSource) return parseFlowMapping(section.pair.valueSource);
+  const empty: OverridesType = {};
+  if (!section) return empty;
+  if (section.pair.valueSource) {
+    const mapping = parseFlowMapping(section.pair.valueSource);
+    return mapping;
+  }
 
   const entries = findEntries(lines, section).flatMap((entry): Array<[string, OverrideValue]> => {
     const value = parseEntryValue(lines, entry);
-    if (value === undefined) return [];
-    return [[entry.key, value]];
+    const matches: Array<[string, OverrideValue]> = [];
+    if (value === undefined) return matches;
+    const pair: Array<[string, OverrideValue]> = [[entry.key, value]];
+    return pair;
   });
-  return Object.fromEntries(entries);
+  const overrides = Object.fromEntries(entries);
+  return overrides;
 };
 
-const formatNewScalar = (value: OverrideValue): string => JSON.stringify(value);
-
 const hasUnsafeScalarCharacter = (value: string): boolean => {
-  return Array.from(value).some((character) => UNSAFE_SCALAR_CHARACTERS.has(character));
+  const hasUnsafeCharacter = Array.from(value).some((character) =>
+    UNSAFE_SCALAR_CHARACTERS.has(character),
+  );
+  return hasUnsafeCharacter;
 };
 
 const formatUpdatedScalar = (value: OverrideValue, previous: string): string => {
-  if (typeof value !== "string") return JSON.stringify(value);
-  if (previous.startsWith("'")) return `'${value.replaceAll("'", "''")}'`;
-  if (previous.startsWith('"')) return JSON.stringify(value);
+  if (typeof value !== "string") {
+    const serialized = JSON.stringify(value);
+    return serialized;
+  }
+  if (previous.startsWith("'")) {
+    const quoted = `'${value.replaceAll("'", "''")}'`;
+    return quoted;
+  }
+  const serialized = JSON.stringify(value);
+  if (previous.startsWith('"')) return serialized;
   const hasValue = value.length > 0;
   const hasWhitespace = /\s/.test(value);
-  const isSafePlainValue = hasValue && !hasWhitespace && !hasUnsafeScalarCharacter(value);
-  return isSafePlainValue ? value : JSON.stringify(value);
+  const requiresQuotes = hasWhitespace || hasUnsafeScalarCharacter(value);
+  const isSafePlainValue = hasValue && !requiresQuotes;
+  const formatted = isSafePlainValue ? value : serialized;
+  return formatted;
 };
 
 const hasSameValue = (lines: string[], entry: YamlEntry, value: OverrideValue): boolean => {
   try {
-    return JSON.stringify(parseEntryValue(lines, entry)) === JSON.stringify(value);
+    const isSame = JSON.stringify(parseEntryValue(lines, entry)) === JSON.stringify(value);
+    return isSame;
   } catch {
     return false;
   }
@@ -488,7 +593,21 @@ const hasSameValue = (lines: string[], entry: YamlEntry, value: OverrideValue): 
 
 const updateEntry = (entry: YamlEntry, value: OverrideValue): string => {
   const scalar = formatUpdatedScalar(value, entry.valueSource);
-  return `${entry.indent}${entry.keySource}: ${scalar}${entry.suffix}`;
+  const line = `${entry.indent}${entry.keySource}: ${scalar}${entry.suffix}`;
+  return line;
+};
+
+const getPreservedEntryLines = (lines: string[], entry: YamlEntry): string[] => {
+  const contentEnd = findEntryContentEnd(lines, entry);
+  const nestedLines = lines.slice(entry.line + 1, contentEnd);
+  const preserved = nestedLines.filter((line) => {
+    const trimmed = line.trimStart();
+    const shouldPreserve = !trimmed || trimmed.startsWith("#");
+    return shouldPreserve;
+  });
+  const trailing = lines.slice(contentEnd, entry.end);
+  const retained = preserved.concat(trailing);
+  return retained;
 };
 
 const updateExistingEntry = (
@@ -496,20 +615,15 @@ const updateExistingEntry = (
   entry: YamlEntry,
   overrides: OverridesType,
 ): string[] => {
-  const contentEnd = findEntryContentEnd(lines, entry);
-  const nestedLines = lines.slice(entry.line + 1, contentEnd);
-  const preservedLines = nestedLines.filter((line) => {
-    const trimmed = line.trimStart();
-    const isEmpty = !trimmed;
-    const isComment = trimmed.startsWith("#");
-    const shouldPreserve = isEmpty || isComment;
-    return shouldPreserve;
-  });
-  const trailingLines = lines.slice(contentEnd, entry.end);
+  const preservedLines = getPreservedEntryLines(lines, entry);
   const value = overrides[entry.key];
-  if (value === undefined) return preservedLines.concat(trailingLines);
-  if (hasSameValue(lines, entry, value)) return lines.slice(entry.line, entry.end);
-  return [updateEntry(entry, value)].concat(preservedLines, trailingLines);
+  if (value === undefined) return preservedLines;
+  if (hasSameValue(lines, entry, value)) {
+    const original = lines.slice(entry.line, entry.end);
+    return original;
+  }
+  const updated = [updateEntry(entry, value)].concat(preservedLines);
+  return updated;
 };
 
 const updateExistingEntries = (
@@ -522,7 +636,8 @@ const updateExistingEntries = (
   const beforeEntries = lines.slice(0, entries[0].line);
   const updatedEntries = entries.flatMap((entry) => updateExistingEntry(lines, entry, overrides));
   const afterEntries = lines.slice(section.end);
-  return beforeEntries.concat(updatedEntries, afterEntries);
+  const updated = beforeEntries.concat(updatedEntries, afterEntries);
+  return updated;
 };
 
 const appendNewEntries = (lines: string[], overrides: OverridesType): string[] => {
@@ -534,56 +649,70 @@ const appendNewEntries = (lines: string[], overrides: OverridesType): string[] =
 
   const indent = entries[0]?.indent || "  ";
   const newLines = newKeys.map((key) => {
-    const scalar = formatNewScalar(overrides[key]);
-    return `${indent}${JSON.stringify(key)}: ${scalar}`;
+    const scalar = JSON.stringify(overrides[key]);
+    const line = `${indent}${JSON.stringify(key)}: ${scalar}`;
+    return line;
   });
   const lastEntry = entries.at(-1);
   const insertionIndex = lastEntry ? findEntryContentEnd(lines, lastEntry) - 1 : section.start;
   const before = lines.slice(0, insertionIndex + 1);
   const after = lines.slice(insertionIndex + 1);
-  return before.concat(newLines, after);
+  const appended = before.concat(newLines, after);
+  return appended;
 };
 
 const replaceLine = (lines: string[], index: number, replacement: string): string[] => {
-  return lines.map((line, lineIndex) => (lineIndex === index ? replacement : line));
+  const updated = lines.map((line, lineIndex) => {
+    if (lineIndex === index) return replacement;
+    return line;
+  });
+  return updated;
 };
 
 const replaceFlowSection = (lines: string[], section: YamlSection): string[] => {
   if (!section.pair.valueSource) return lines;
-  return replaceLine(lines, section.start, `overrides:${section.pair.suffix}`);
+  const updated = replaceLine(lines, section.start, `overrides:${section.pair.suffix}`);
+  return updated;
 };
 
 const formatEmptySection = (lines: string[], overrides: OverridesType): string[] => {
   if (Object.keys(overrides).length > 0) return lines;
   const section = findOverridesSection(lines)!;
-  return replaceLine(lines, section.start, `overrides: {}${section.pair.suffix}`);
+  const updated = replaceLine(lines, section.start, `overrides: {}${section.pair.suffix}`);
+  return updated;
 };
 
 const ensureFinalNewline = (content: string, newline: string): string => {
   const hasFinalNewline = content.length === 0 || content.endsWith(newline);
   if (hasFinalNewline) return content;
-  return `${content}${newline}`;
+  const terminated = `${content}${newline}`;
+  return terminated;
 };
 
 const appendSection = (content: string, overrides: OverridesType, newline: string): string => {
   if (Object.keys(overrides).length === 0) return content;
   const prefix = ensureFinalNewline(content, newline);
   const entries = Object.entries(overrides).map(
-    ([key, value]) => `  ${JSON.stringify(key)}: ${formatNewScalar(value)}`,
+    ([key, value]) => `  ${JSON.stringify(key)}: ${JSON.stringify(value)}`,
   );
-  return `${prefix}overrides:${newline}${entries.join(newline)}${newline}`;
+  const appended = `${prefix}overrides:${newline}${entries.join(newline)}${newline}`;
+  return appended;
 };
 
 export const updatePnpmWorkspaceOverrides = (content: string, overrides: OverridesType): string => {
   const newline = content.includes("\r\n") ? "\r\n" : "\n";
   const lines = content.split(/\r?\n/);
   const section = findOverridesSection(lines);
-  if (!section) return appendSection(content, overrides, newline);
+  if (!section) {
+    const appended = appendSection(content, overrides, newline);
+    return appended;
+  }
 
   const blockLines = replaceFlowSection(lines, section);
   const blockSection = findOverridesSection(blockLines)!;
   const updatedLines = updateExistingEntries(blockLines, blockSection, overrides);
   const appendedLines = appendNewEntries(updatedLines, overrides);
   const finalLines = formatEmptySection(appendedLines, overrides);
-  return finalLines.join(newline);
+  const updated = finalLines.join(newline);
+  return updated;
 };

@@ -1,50 +1,67 @@
 #!/bin/sh
 
-echo "🔧 Verifying E2E Test Setup"
-echo "==========================="
+show_environment() {
+    echo "🔧 Verifying E2E Test Setup"
+    echo "==========================="
 
-echo "\n📍 Current directory: $(pwd)"
-echo "📍 Node version: $(node --version)"
-echo "📍 NPM version: $(npm --version)"
+    printf '\n%s\n' "📍 Current directory: $(pwd)"
+    echo "📍 Node version: $(node --version)"
+    echo "📍 NPM version: $(npm --version)"
 
-if command -v pnpm >/dev/null 2>&1; then
-    echo "📍 PNPM version: $(pnpm --version)"
-else
-    echo "❌ PNPM not available"
-fi
+    if command -v pnpm >/dev/null 2>&1; then
+        echo "📍 PNPM version: $(pnpm --version)"
+    else
+        echo "❌ PNPM not available"
+    fi
+}
 
-echo "\n📁 Available files:"
-echo "-------------------"
-ls -la
+show_files() {
+    printf '\n%s\n' "📁 Available files:"
+    echo "-------------------"
+    ls -la
 
-echo "\n📁 Pastoralist binary:"
-echo "----------------------"
-ls -la /app/pastoralist/
+    printf '\n%s\n' "📁 Pastoralist binary:"
+    echo "----------------------"
+    ls -la /app/pastoralist/
 
-echo "\n📁 Test scripts:"
-echo "----------------"
-ls -la /app/test-scripts/
+    printf '\n%s\n' "📁 Test scripts:"
+    echo "----------------"
+    ls -la /app/test-scripts/
+}
 
-echo "\n📦 Package.json content:"
-echo "------------------------"
-if [ -f package.json ]; then
-    cat package.json | head -20
-    echo "..."
-else
-    echo "❌ package.json not found"
-fi
+show_package() {
+    printf '\n%s\n' "📦 Package.json content:"
+    echo "------------------------"
+    if [ -f package.json ]; then
+        cat package.json | head -20
+        echo "..."
+    else
+        echo "❌ package.json not found"
+    fi
 
-echo "\n📦 Workspace packages:"
-echo "----------------------"
-ls -la packages/*/package.json
+    printf '\n%s\n' "📦 Workspace packages:"
+    echo "----------------------"
+    ls -la packages/*/package.json
+}
 
-echo "\n🧪 Testing pastoralist binary..."
-echo "--------------------------------"
-if node /app/pastoralist/index.cjs --help; then
-    echo "✅ Pastoralist binary works!"
-else
-    echo "❌ Pastoralist binary failed"
-    exit 1
-fi
+test_binary() {
+    printf '\n%s\n' "🧪 Testing pastoralist binary..."
+    echo "--------------------------------"
+    if node /app/pastoralist/index.cjs --help; then
+        echo "✅ Pastoralist binary works!"
+    else
+        echo "❌ Pastoralist binary failed"
+        exit 1
+    fi
 
-echo "\n✨ Setup verification complete!"
+    printf '\n%s\n' "✨ Setup verification complete!"
+}
+
+main() {
+    show_environment
+    show_files
+    show_package
+    test_binary
+}
+
+main "$@"

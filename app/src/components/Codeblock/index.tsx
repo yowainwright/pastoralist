@@ -29,7 +29,9 @@ export function getHighlighter(): Promise<CodeHighlighter> {
 
 const resolveCodeblockLanguage = (lang: string): string => {
   const normalizedLang = normalizeCodeLanguage(lang);
-  return (SHIKI_LANGS as readonly string[]).includes(normalizedLang) ? normalizedLang : "text";
+  const supported = (SHIKI_LANGS as readonly string[]).includes(normalizedLang);
+  const language = supported ? normalizedLang : "text";
+  return language;
 };
 
 const getCachedHighlightedCode = (cacheKey: string): Promise<string> | undefined => {
@@ -111,56 +113,76 @@ function CodeFallback({ code }: { code: string }) {
   );
 }
 
-export function Codeblock({
+function getCodeblockProps({
   code,
   lang = "text",
-  title,
   showLineNumbers = false,
-  showLanguage = true,
-  showCopy = true,
   className,
 }: CodeblockProps) {
   const normalizedCode = normalizeCodeBlock(code);
   const lineNumbersVisible = showLineNumbers && shouldShowCodeLineNumbers(lang);
-  const hasHeader = Boolean(title || showLanguage || showCopy);
-  const copyButton = showCopy ? <CopyButton code={normalizedCode} /> : null;
+  const wrapperClass = cn(
+    CODEBLOCK_CLASSES.wrapper,
+    lineNumbersVisible && "show-line-numbers",
+    className,
+  );
+  const highlightedProps = { code: normalizedCode, lang, showLineNumbers: lineNumbersVisible };
+  const props = { normalizedCode, wrapperClass, highlightedProps };
+  return props;
+}
 
+export function Codeblock(props: CodeblockProps) {
+  const { normalizedCode, wrapperClass, highlightedProps } = getCodeblockProps(props);
   return (
-    <div
-      className={cn(
-        CODEBLOCK_CLASSES.wrapper,
-        lineNumbersVisible && "show-line-numbers",
-        className,
-      )}
-    >
-      {hasHeader && (
-        <div className={CODEBLOCK_CLASSES.header}>
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex items-center gap-1.5" aria-hidden="true">
-              {WINDOW_DOTS.map((tone) => (
-                <span
-                  key={tone}
-                  className={cn("h-2.5 w-2.5 rounded-full ring-1 ring-black/5", tone)}
-                />
-              ))}
-            </div>
-            <div className="flex min-w-0 items-center gap-2">
-              {title && (
-                <span className="truncate text-xs font-medium text-base-content/70">{title}</span>
-              )}
-              {showLanguage && lang && lang !== "text" && (
-                <span className="font-mono text-xs text-base-content/50">{lang}</span>
-              )}
-            </div>
-          </div>
-          {copyButton}
-        </div>
-      )}
+    <div className={wrapperClass}>
+      <CodeHeader {...props} code={normalizedCode} />
       <div className={CODEBLOCK_CLASSES.pre}>
         <Suspense fallback={<CodeFallback code={normalizedCode} />}>
-          <HighlightedCode code={normalizedCode} lang={lang} showLineNumbers={lineNumbersVisible} />
+          <HighlightedCode {...highlightedProps} />
         </Suspense>
       </div>
+    </div>
+  );
+}
+
+function CodeHeader({
+  code,
+  title,
+  lang = "text",
+  showLanguage = true,
+  showCopy = true,
+}: CodeblockProps) {
+  const hasHeader = Boolean(title || showLanguage || showCopy);
+  if (!hasHeader) return null;
+  return (
+    <div className={CODEBLOCK_CLASSES.header}>
+      <div className="flex min-w-0 items-center gap-3">
+        <WindowDots />
+        <CodeLabel title={title} lang={lang} showLanguage={showLanguage} />
+      </div>
+      {showCopy && <CopyButton code={code} />}
+    </div>
+  );
+}
+
+function WindowDots() {
+  return (
+    <div className="flex items-center gap-1.5" aria-hidden="true">
+      {WINDOW_DOTS.map((tone) => (
+        <span key={tone} className={cn("h-2.5 w-2.5 rounded-full ring-1 ring-black/5", tone)} />
+      ))}
+    </div>
+  );
+}
+
+type CodeLabelProps = Pick<CodeblockProps, "title" | "lang" | "showLanguage">;
+
+function CodeLabel({ title, lang, showLanguage }: CodeLabelProps) {
+  const hasLanguage = showLanguage && lang && lang !== "text";
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      {title && <span className="truncate text-xs font-medium text-base-content/70">{title}</span>}
+      {hasLanguage && <span className="font-mono text-xs text-base-content/50">{lang}</span>}
     </div>
   );
 }

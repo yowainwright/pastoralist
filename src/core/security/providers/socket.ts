@@ -5,6 +5,7 @@ import { logger } from "../../../observability";
 import { CLIInstaller } from "../utils";
 import { AUTH_MESSAGES } from "../constants";
 import type { ExecFileAsync } from "../../types";
+import type { SocketCLIProviderOptions } from "../types";
 
 const execFileAsync = promisify(execFile);
 
@@ -16,19 +17,14 @@ export class SocketCLIProvider {
   private strict: boolean;
   private execFileAsync: ExecFileAsync;
 
-  constructor(
-    options: {
-      debug?: boolean;
-      token?: string;
-      strict?: boolean;
-      execFileAsync?: ExecFileAsync;
-    } = {},
-  ) {
+  constructor(options: SocketCLIProviderOptions = {}) {
+    const { debug } = options;
+    const isLogging = debug || false;
     this.log = logger({
       file: "security/socket.ts",
-      isLogging: options.debug || false,
+      isLogging,
     });
-    this.installer = new CLIInstaller({ debug: options.debug });
+    this.installer = new CLIInstaller({ debug });
     this.token = options.token || process.env.SOCKET_SECURITY_API_KEY;
     this.strict = options.strict || false;
     this.execFileAsync = options.execFileAsync ?? execFileAsync;
@@ -39,14 +35,16 @@ export class SocketCLIProvider {
   }
 
   ensureInstalled(): Promise<boolean> {
-    return this.installer.ensureInstalled({
+    const result = this.installer.ensureInstalled({
       packageName: "@socketsecurity/cli",
       cliCommand: "socket",
     });
+    return result;
   }
 
   isAuthenticated(): boolean {
-    return Boolean(this.token);
+    const result = Boolean(this.token);
+    return result;
   }
 
   private async validatePrerequisites(): Promise<boolean> {
@@ -68,7 +66,8 @@ export class SocketCLIProvider {
   }
 
   private async runSocketScan(root?: string): Promise<SocketResult> {
-    const env = Object.assign({}, process.env, { SOCKET_SECURITY_API_KEY: this.token });
+    const { token: SOCKET_SECURITY_API_KEY } = this;
+    const env = Object.assign({}, process.env, { SOCKET_SECURITY_API_KEY });
 
     const { stdout } = await this.execFileAsync(
       "socket",
@@ -80,7 +79,8 @@ export class SocketCLIProvider {
       },
     );
 
-    return JSON.parse(stdout);
+    const result = JSON.parse(stdout);
+    return result;
   }
 
   async fetchAlerts(
@@ -90,71 +90,79 @@ export class SocketCLIProvider {
     const isValid = await this.validatePrerequisites();
 
     if (!isValid) {
-      return [];
+      const alerts: SecurityAlert[] = [];
+      return alerts;
     }
 
     try {
       const result = await this.runSocketScan(options.root);
-      return this.convertSocketAlerts(result);
+      const alerts = this.convertSocketAlerts(result);
+      return alerts;
     } catch (error) {
-      this.log.debug("Socket scan failed", "fetchAlerts", { error });
-      const reason = error instanceof Error ? error.message : "Unknown error";
-      if (this.strict) {
-        throw new Error(
-          `Socket security check failed. Reason: ${reason}. Failing due to --strict mode.`,
-        );
-      }
-      this.log.warn(
-        `Socket security check failed. Your dependencies were NOT checked. ` +
-          `Reason: ${reason}. Run with --debug for details or --strict to fail on errors.`,
-        "fetchAlerts",
-      );
-      return [];
+      const alerts = this.handleScanError(error);
+      return alerts;
     }
+  }
+
+  private handleScanError(error: unknown): SecurityAlert[] {
+    this.log.debug("Socket scan failed", "fetchAlerts", { error });
+    const isError = error instanceof Error;
+    const reason = isError ? error.message : "Unknown error";
+    if (this.strict) {
+      throw new Error(
+        `Socket security check failed. Reason: ${reason}. Failing due to --strict mode.`,
+        { cause: error },
+      );
+    }
+    this.log.warn(
+      `Socket security check failed. Your dependencies were NOT checked. ` +
+        `Reason: ${reason}. Run with --debug for details or --strict to fail on errors.`,
+      "fetchAlerts",
+    );
+    const alerts: SecurityAlert[] = [];
+    return alerts;
   }
 
   private convertSocketAlerts(socketResult: SocketResult): SecurityAlert[] {
     if (!socketResult?.packages) {
-      return [];
+      const result: SecurityAlert[] = [];
+      return result;
     }
 
-    return socketResult.packages
+    const alerts = socketResult.packages
       .filter((pkg) => pkg.issues && pkg.issues.length > 0)
       .flatMap((pkg) => this.convertPackageIssues(pkg));
+    return alerts;
   }
 
   private convertPackageIssues(pkg: SocketPackage): SecurityAlert[] {
     const issues = pkg.issues || [];
-    return issues.map((issue) => this.convertIssueToAlert(pkg, issue));
+    const result = issues.map((issue) => this.convertIssueToAlert(pkg, issue));
+    return result;
   }
 
   private convertIssueToAlert(pkg: SocketPackage, issue: SocketIssue): SecurityAlert {
+    const base = this.createSocketAlertBase(pkg, issue);
+    const hasCVE = issue.type === "vulnerability" && issue.cve;
+    const cves = hasCVE ? [issue.cve!] : [];
+    if (cves.length === 0) return base;
+    const alert = Object.assign({}, base, { cves });
+    return alert;
+  }
+
+  private createSocketAlertBase(pkg: SocketPackage, issue: SocketIssue): SecurityAlert {
     const isCVE = issue.type === "vulnerability";
-    const packageName = pkg.name;
-    const currentVersion = pkg.version;
+    const { name: packageName, version: currentVersion } = pkg;
     const vulnerableVersions = isCVE ? `<= ${currentVersion}` : "";
-    const patchedVersion = undefined;
     const severity = this.mapSocketSeverity(issue.severity);
     const title = issue.title || issue.type;
-    const description = issue.description;
-    const cves = isCVE && issue.cve ? [issue.cve] : [];
+    const { description } = issue;
     const url =
       issue.url || `https://socket.dev/npm/package/${packageName}/overview/${currentVersion}`;
-    const fixAvailable = false;
-
-    const base = {
-      packageName,
-      currentVersion,
-      vulnerableVersions,
-      patchedVersion,
-      severity,
-      title,
-      description,
-      url,
-      fixAvailable,
-    };
-    if (cves.length === 0) return base;
-    return Object.assign({}, base, { cves });
+    const versions = { packageName, currentVersion, vulnerableVersions, patchedVersion: undefined };
+    const advisory = { severity, title, description, url, fixAvailable: false };
+    const alert = Object.assign({}, versions, advisory);
+    return alert;
   }
 
   private mapSocketSeverity(severity: string): "low" | "medium" | "high" | "critical" {

@@ -1,5 +1,7 @@
 import * as fs from "fs";
 import { resolve } from "path";
+import { IS_DEBUGGING } from "../../constants";
+import { logger } from "../../observability";
 import type { SecurityPackage } from "../../types";
 import type { DependencyGraph, DependencyGraphState } from "../types";
 import { addDependencyParent, getPopulatedPackages } from "../utils";
@@ -11,18 +13,22 @@ import {
   YARN_CONFIG_LIST_PATTERN,
 } from "./constants";
 
+const log = logger({ file: "mgrs/yarn/utils.ts", isLogging: IS_DEBUGGING });
+
 const isConfigContent = (line: string): boolean => {
   const trimmed = line.trim();
   const isDocumentMarker = trimmed === "---" || trimmed === "...";
   const isIgnored = !trimmed || trimmed.startsWith("#") || isDocumentMarker;
-  return !isIgnored;
+  const hasContent = !isIgnored;
+  return hasContent;
 };
 
 const getIndent = (line: string): number => line.search(/[^ ]/);
 
 const hasUnsafeConfigLine = (line: string, rootIndent: number, index: number): boolean => {
   const indent = getIndent(line);
-  const isListValue = index > 0 && indent === rootIndent && YARN_CONFIG_LIST_PATTERN.test(line);
+  const isFollowingRoot = index > 0 && indent === rootIndent;
+  const isListValue = isFollowingRoot && YARN_CONFIG_LIST_PATTERN.test(line);
   const isValue = indent > rootIndent || isListValue;
   if (isValue) return false;
   const match = line.match(YARN_CONFIG_KEY_PATTERN);
@@ -42,12 +48,14 @@ export const hasUnsafeYarnConfig = (content: string): boolean => {
     .filter(isConfigContent);
   if (lines.length === 0) return false;
   const rootIndent = getIndent(lines[0]);
-  return lines.some((line, index) => hasUnsafeConfigLine(line, rootIndent, index));
+  const isUnsafe = lines.some((line, index) => hasUnsafeConfigLine(line, rootIndent, index));
+  return isUnsafe;
 };
 
 const parseYarnLockPackageName = (line: string): string | undefined => {
   const match = line.match(/^"?((?:@[^/@\n"]+\/)?[^@,\n"]+)@.*"?:$/);
-  return match?.[1]?.trim();
+  const name = match?.[1]?.trim();
+  return name;
 };
 
 const parseYarnLockBlock = (block: string): SecurityPackage | undefined => {
@@ -58,7 +66,8 @@ const parseYarnLockBlock = (block: string): SecurityPackage | undefined => {
   if (!versionLine?.startsWith("version")) return undefined;
   const rawVersion = versionLine.slice("version".length).replace(/^:\s*|^\s+/, "");
   const version = rawVersion.replace(/^"|"$/g, "");
-  return { name, version };
+  const pkg = { name, version };
+  return pkg;
 };
 
 export const parseYarnLockedPackages = (root: string): SecurityPackage[] | undefined => {
@@ -68,10 +77,13 @@ export const parseYarnLockedPackages = (root: string): SecurityPackage[] | undef
     const content = fs.readFileSync(lockPath, "utf8");
     const packages = content.split(/\n(?=\S)/).flatMap((block) => {
       const pkg = parseYarnLockBlock(block.trim());
-      return pkg ? [pkg] : [];
+      const matches = pkg ? [pkg] : [];
+      return matches;
     });
-    return getPopulatedPackages(packages);
+    const inventory = getPopulatedPackages(packages);
+    return inventory;
   } catch {
+    log.debug("Could not read package inventory", "parseYarnLockedPackages", lockPath);
     return undefined;
   }
 };
@@ -80,7 +92,23 @@ export const parseYarnLockTree = (root: string): Record<string, string> | undefi
   const packages = parseYarnLockedPackages(root);
   if (!packages) return undefined;
   const entries = packages.map(({ name, version }) => [name, version]);
-  return Object.fromEntries(entries);
+  const tree = Object.fromEntries(entries);
+  return tree;
+};
+
+const addYarnDependencyLine = (
+  graph: DependencyGraph,
+  state: DependencyGraphState,
+  line: string,
+): void => {
+  const { currentPackage } = state;
+  const isDependency = state.inDependencies && currentPackage;
+  if (!isDependency) return;
+  const match =
+    line.match(YARN_BERRY_DEPENDENCY_PATTERN) ?? line.match(YARN_CLASSIC_DEPENDENCY_PATTERN);
+  const dependencyName = match?.[1] ?? match?.[2];
+  if (dependencyName) addDependencyParent(graph, dependencyName, currentPackage);
+  if (!line.startsWith("    ")) state.inDependencies = false;
 };
 
 const addYarnGraphLine = (
@@ -94,20 +122,13 @@ const addYarnGraphLine = (
     state.inDependencies = false;
     return;
   }
-  const currentPackage = state.currentPackage;
+  const { currentPackage } = state;
   const startsDependencies = currentPackage && line === "  dependencies:";
   if (startsDependencies) {
     state.inDependencies = true;
     return;
   }
-  const isOutsideDependencies = !state.inDependencies || !currentPackage;
-  if (isOutsideDependencies) return;
-  const berryMatch = line.match(YARN_BERRY_DEPENDENCY_PATTERN);
-  const classicMatch = line.match(YARN_CLASSIC_DEPENDENCY_PATTERN);
-  const dependencyName =
-    berryMatch?.[1] ?? berryMatch?.[2] ?? classicMatch?.[1] ?? classicMatch?.[2];
-  if (dependencyName) addDependencyParent(graph, dependencyName, currentPackage);
-  if (!line.startsWith("    ")) state.inDependencies = false;
+  addYarnDependencyLine(graph, state, line);
 };
 
 const hasYarnLockStructure = (content: string): boolean =>
@@ -132,6 +153,7 @@ export const parseYarnLockGraph = (root: string): Record<string, string[]> | und
     });
     return inverted;
   } catch {
+    log.debug("Could not read dependency graph", "parseYarnLockGraph", lockPath);
     return undefined;
   }
 };

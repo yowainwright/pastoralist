@@ -6,7 +6,8 @@ import { useFadeInUp, useHasHydrated } from "@/hooks/useFadeInUp";
 const SEEN_KEY = "pastoralist-transform-animation-seen";
 
 const hasSeenTransform = (): boolean => {
-  return sessionStorage.getItem(SEEN_KEY) === "true";
+  const hasSeen = sessionStorage.getItem(SEEN_KEY) === "true";
+  return hasSeen;
 };
 
 const markTransformSeen = () => sessionStorage.setItem(SEEN_KEY, "true");
@@ -46,15 +47,7 @@ function TransformSectionContent({ showComplete }: { showComplete: boolean }) {
     <section id="demo" className={styles.section}>
       <TransformBackground />
       <article className={styles.article}>
-        <header
-          ref={headerRef}
-          className={`${styles.header} ${headerVisible ? styles.headerVisible : styles.headerHidden}`}
-        >
-          <h2 className={styles.h2}>
-            {CONTENT.headingStart} <span className="gradient-text">{CONTENT.headingHighlight}</span>
-          </h2>
-          <p className={styles.description}>{CONTENT.description}</p>
-        </header>
+        <TransformHeading headerRef={headerRef} headerVisible={headerVisible} />
 
         <TransformContent isStatic={hasSeenAnimation} />
       </article>
@@ -84,5 +77,23 @@ function TransformBackground() {
         style={{ clipPath: BLOB_CLIP }}
       />
     </figure>
+  );
+}
+
+interface TransformHeadingProps {
+  headerRef: (node?: Element | null) => void;
+  headerVisible: boolean;
+}
+function TransformHeading({ headerRef, headerVisible }: TransformHeadingProps) {
+  return (
+    <header
+      ref={headerRef}
+      className={`${styles.header} ${headerVisible ? styles.headerVisible : styles.headerHidden}`}
+    >
+      <h2 className={styles.h2}>
+        {CONTENT.headingStart} <span className="gradient-text">{CONTENT.headingHighlight}</span>
+      </h2>
+      <p className={styles.description}>{CONTENT.description}</p>
+    </header>
   );
 }

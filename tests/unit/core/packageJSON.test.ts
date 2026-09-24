@@ -2140,6 +2140,30 @@ test("parseBunLockTree - handles escaped characters in strings", () => {
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
+const bunStringValues = [",}", ",]", '\\",}', "\\\\", "line\n,}", 'quote",]', "\\u0022,}"];
+
+bunStringValues.forEach((value) => {
+  test(`parseBunLockTree - preserves string content ${JSON.stringify(value)}`, (t) => {
+    mkdirSync(lockTestDir, { recursive: true });
+    t.after(() => rmSync(lockTestDir, { recursive: true, force: true }));
+    const reference = JSON.stringify(`example@${value}`);
+    const content = `{"packages":{"example":[${reference}, "", {},],\r\n\t}, }`;
+    writeFileSync(resolve(lockTestDir, "bun.lock"), content);
+
+    assert.deepStrictEqual(parseBunLockTree(lockTestDir), { example: value });
+  });
+});
+
+test("parseBunLockTree - rejects an unterminated string with many escaped quotes", (t) => {
+  mkdirSync(lockTestDir, { recursive: true });
+  t.after(() => rmSync(lockTestDir, { recursive: true, force: true }));
+  const escapedQuotes = '\\"'.repeat(100_000);
+  const content = `{"packages":{"example":["${escapedQuotes}\\`;
+  writeFileSync(resolve(lockTestDir, "bun.lock"), content);
+
+  assert.equal(parseBunLockTree(lockTestDir), undefined);
+});
+
 test("parseBunLockGraph - returns undefined for malformed bun.lock", () => {
   mkdirSync(lockTestDir, { recursive: true });
   writeFileSync(resolve(lockTestDir, "bun.lock"), "not valid json {{{");

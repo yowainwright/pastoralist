@@ -1,61 +1,22 @@
 import * as fs from "fs";
 import { resolve } from "path";
+import { IS_DEBUGGING } from "../../constants";
+import { logger } from "../../observability";
 import type { SecurityPackage } from "../../types";
 import { UNKNOWN_DEPENDENCY_VERSION } from "../constants";
 import type { DependencyGraph } from "../types";
 import { addPackageDependencies, getPopulatedPackages } from "../utils";
-import { BUN_LOCK_FILENAME, BUN_BINARY_LOCK_FILENAME, JSON_WHITESPACE } from "./constants";
+import { BUN_LOCK_FILENAME, BUN_BINARY_LOCK_FILENAME, BUN_LOCK_TOKEN_PATTERN } from "./constants";
 import type { BunLockFile } from "./types";
 
-const isJsonWhitespace = (char: string): boolean => JSON_WHITESPACE.has(char);
-
-const findNextJsonToken = (content: string, startIndex: number): string | undefined => {
-  let nextIndex = startIndex;
-  while (nextIndex < content.length && isJsonWhitespace(content[nextIndex])) nextIndex++;
-  return content[nextIndex];
-};
+const log = logger({ file: "mgrs/bun/utils.ts", isLogging: IS_DEBUGGING });
 
 const stripBunLockTrailingCommas = (content: string): string => {
-  let result = "";
-  let inString = false;
-  let isEscaped = false;
-
-  for (let index = 0; index < content.length; index++) {
-    const char = content[index];
-
-    if (inString) {
-      result += char;
-
-      if (isEscaped) {
-        isEscaped = false;
-        continue;
-      }
-
-      if (char === "\\") {
-        isEscaped = true;
-        continue;
-      }
-
-      if (char === '"') inString = false;
-      continue;
-    }
-
-    if (char === '"') {
-      inString = true;
-      result += char;
-      continue;
-    }
-
-    if (char === ",") {
-      const nextChar = findNextJsonToken(content, index + 1);
-      const isTrailingComma = nextChar === "}" || nextChar === "]";
-      if (isTrailingComma) continue;
-    }
-
-    result += char;
-  }
-
-  return result;
+  const stripped = content.replace(BUN_LOCK_TOKEN_PATTERN, (token) => {
+    if (token === ",") return "";
+    return token;
+  });
+  return stripped;
 };
 
 const parseBunLockFile = (content: string): BunLockFile =>
@@ -71,7 +32,8 @@ const extractBunPackageVersion = (entry: unknown): string => {
   const hasVersionSeparator = separatorIndex > 0 && separatorIndex < versionEntry.length - 1;
   if (!hasVersionSeparator) return UNKNOWN_DEPENDENCY_VERSION;
 
-  return versionEntry.slice(separatorIndex + 1);
+  const version = versionEntry.slice(separatorIndex + 1);
+  return version;
 };
 
 const parsePackageReference = (reference: string): SecurityPackage | undefined => {
@@ -80,7 +42,8 @@ const parsePackageReference = (reference: string): SecurityPackage | undefined =
   if (!hasVersion) return undefined;
   const name = reference.slice(0, separatorIndex);
   const version = reference.slice(separatorIndex + 1);
-  return { name, version };
+  const pkg = { name, version };
+  return pkg;
 };
 
 export const resolveBunInventoryPath = (root: string): string | undefined => {
@@ -98,12 +61,14 @@ export const resolveBunInventoryPath = (root: string): string | undefined => {
 
 const getBunLockedPackages = (lock: BunLockFile): SecurityPackage[] => {
   const entries = Object.values(lock.packages ?? {});
-  return entries.flatMap((entry) => {
+  const packages = entries.flatMap((entry) => {
     const reference = Array.isArray(entry) ? entry[0] : undefined;
-    if (typeof reference !== "string") return [];
-    const pkg = parsePackageReference(reference);
-    return pkg ? [pkg] : [];
+    const isReference = typeof reference === "string";
+    const pkg = isReference ? parsePackageReference(reference) : undefined;
+    const matches = pkg ? [pkg] : [];
+    return matches;
   });
+  return packages;
 };
 
 export const parseBunLockedPackages = (root: string): SecurityPackage[] | undefined => {
@@ -113,10 +78,32 @@ export const parseBunLockedPackages = (root: string): SecurityPackage[] | undefi
     const content = fs.readFileSync(lockPath, "utf8");
     const lock = parseBunLockFile(content);
     const packages = getBunLockedPackages(lock);
-    return getPopulatedPackages(packages);
+    const inventory = getPopulatedPackages(packages);
+    return inventory;
   } catch {
+    log.debug("Could not read package inventory", "parseBunLockedPackages", lockPath);
     return undefined;
   }
+};
+
+const getBunPackages = (lock: BunLockFile): BunLockFile["packages"] => {
+  const packages = lock?.packages;
+  if (!packages) return undefined;
+  const isObject = typeof packages === "object" && !Array.isArray(packages);
+  if (!isObject) return undefined;
+  return packages;
+};
+
+const getBunDependencyTree = (packages: NonNullable<BunLockFile["packages"]>) => {
+  const entries = Object.entries(packages);
+  if (entries.length === 0) return undefined;
+  const versions = entries.map(([name, entry]) => {
+    const version = extractBunPackageVersion(entry);
+    const pair = [name, version];
+    return pair;
+  });
+  const tree = Object.fromEntries(versions);
+  return tree;
 };
 
 export const parseBunLockTree = (root: string): Record<string, string> | undefined => {
@@ -125,17 +112,12 @@ export const parseBunLockTree = (root: string): Record<string, string> | undefin
   try {
     const content = fs.readFileSync(lockPath, "utf8");
     const lock = parseBunLockFile(content);
-    const packages = lock?.packages;
-    const isValidPackages = packages && typeof packages === "object" && !Array.isArray(packages);
-    if (!isValidPackages) return undefined;
-    const packageEntries = Object.entries(packages);
-    if (packageEntries.length === 0) return undefined;
-    return Object.fromEntries(
-      packageEntries.map(([name, entry]) => {
-        return [name, extractBunPackageVersion(entry)];
-      }),
-    );
+    const packages = getBunPackages(lock);
+    if (!packages) return undefined;
+    const tree = getBunDependencyTree(packages);
+    return tree;
   } catch {
+    log.debug("Could not read dependency tree", "parseBunLockTree", lockPath);
     return undefined;
   }
 };
@@ -152,15 +134,15 @@ export const parseBunLockGraph = (root: string): Record<string, string[]> | unde
   try {
     const content = fs.readFileSync(lockPath, "utf8");
     const lock = parseBunLockFile(content);
-    const packages = lock?.packages;
-    const isValidPackages = packages && typeof packages === "object" && !Array.isArray(packages);
-    if (!isValidPackages) return undefined;
+    const packages = getBunPackages(lock);
+    if (!packages) return undefined;
     const inverted: Record<string, string[]> = {};
     Object.entries(packages).forEach(([name, entry]) => {
       addBunPackageDependencies(inverted, name, entry);
     });
     return inverted;
   } catch {
+    log.debug("Could not read dependency graph", "parseBunLockGraph", lockPath);
     return undefined;
   }
 };
@@ -168,10 +150,12 @@ export const parseBunLockGraph = (root: string): Record<string, string[]> | unde
 export const countBunLockPackages = (lockPath: string): number => {
   try {
     const content = fs.readFileSync(lockPath, "utf8");
-    const packages = parseBunLockFile(content).packages;
-    const hasPackages = packages && typeof packages === "object" && !Array.isArray(packages);
-    return hasPackages ? Object.keys(packages).length : 0;
+    const lock = parseBunLockFile(content);
+    const packages = getBunPackages(lock);
+    const count = packages ? Object.keys(packages).length : 0;
+    return count;
   } catch {
+    log.debug("Could not count locked packages", "countBunLockPackages", lockPath);
     return 0;
   }
 };

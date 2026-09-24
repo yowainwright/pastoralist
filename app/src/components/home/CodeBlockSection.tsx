@@ -7,7 +7,8 @@ import { useFadeInUp, useHasHydrated } from "@/hooks/useFadeInUp";
 const SEEN_KEY = "pastoralist-codeblock-animation-seen";
 
 const hasSeenCodeBlock = (): boolean => {
-  return sessionStorage.getItem(SEEN_KEY) === "true";
+  const hasSeen = sessionStorage.getItem(SEEN_KEY) === "true";
+  return hasSeen;
 };
 
 const styles = {
@@ -32,7 +33,7 @@ const CONTENT = {
   githubHref: "https://github.com/yowainwright/pastoralist",
 } as const;
 
-function CodeBlockContent({ showComplete }: { showComplete: boolean }) {
+function useCodeBlockState(showComplete: boolean) {
   const [hasSeenAnimation, setHasSeenAnimation] = useState(
     () => showComplete || hasSeenCodeBlock(),
   );
@@ -42,6 +43,13 @@ function CodeBlockContent({ showComplete }: { showComplete: boolean }) {
     setHasSeenAnimation(true);
     sessionStorage.setItem(SEEN_KEY, "true");
   };
+  const shouldAnimate = !hasSeenAnimation && isVisible;
+  const state = { ref, active, handleComplete, shouldAnimate };
+  return state;
+}
+
+function CodeBlockContent({ showComplete }: { showComplete: boolean }) {
+  const { ref, active, handleComplete, shouldAnimate } = useCodeBlockState(showComplete);
 
   return (
     <section id="features" className={styles.section}>
@@ -49,32 +57,10 @@ function CodeBlockContent({ showComplete }: { showComplete: boolean }) {
         ref={ref}
         className={`${styles.article} ${active ? styles.articleVisible : styles.articleHidden}`}
       >
-        <header className={styles.header}>
-          <h2 className={styles.h2}>
-            <span className="gradient-text">{CONTENT.headingStart}</span> {CONTENT.headingEnd}
-          </h2>
-          <p className={styles.description}>{CONTENT.description}</p>
-          <CheckList isVisible={active} />
-          <nav className={styles.nav}>
-            <Link
-              to="/docs/$slug/"
-              params={{ slug: CONTENT.learnMoreSlug }}
-              preload="intent"
-              className="btn btn-lg btn-primary rounded-2xl"
-            >
-              Learn More
-            </Link>
-            <a href={CONTENT.githubHref} className="btn btn-lg btn-ghost rounded-2xl">
-              View on GitHub
-            </a>
-          </nav>
-        </header>
+        <CodeBlockHeading active={active} />
 
         <aside className={styles.aside}>
-          <CodeBlockToggle
-            shouldAnimate={!hasSeenAnimation && isVisible}
-            onComplete={handleComplete}
-          />
+          <CodeBlockToggle shouldAnimate={shouldAnimate} onComplete={handleComplete} />
         </aside>
       </article>
     </section>
@@ -86,4 +72,39 @@ export function CodeBlockSection() {
   const showComplete = !hasHydrated;
 
   return <CodeBlockContent showComplete={showComplete} />;
+}
+
+interface CodeBlockHeadingProps {
+  active: boolean;
+}
+function CodeBlockHeading({ active }: CodeBlockHeadingProps) {
+  return (
+    <header className={styles.header}>
+      <h2 className={styles.h2}>
+        <span className="gradient-text">{CONTENT.headingStart}</span> {CONTENT.headingEnd}
+      </h2>
+      <p className={styles.description}>{CONTENT.description}</p>
+      <CheckList isVisible={active} />
+      <CodeBlockActions />
+    </header>
+  );
+}
+
+function CodeBlockActions() {
+  const { learnMoreSlug } = CONTENT;
+  return (
+    <nav className={styles.nav}>
+      <Link
+        to="/docs/$slug/"
+        params={{ slug: learnMoreSlug }}
+        preload="intent"
+        className="btn btn-lg btn-primary rounded-2xl"
+      >
+        Learn More
+      </Link>
+      <a href={CONTENT.githubHref} className="btn btn-lg btn-ghost rounded-2xl">
+        View on GitHub
+      </a>
+    </nav>
+  );
 }

@@ -5,3 +5,4 @@ allowBuilds:
   esbuild: true
 minimumReleaseAgeExclude:
   - codependence@1.0.13
+  - oxlint-plugin-legibility@0.0.5

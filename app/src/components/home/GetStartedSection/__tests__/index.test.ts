@@ -2,21 +2,28 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { SECTION_ID, CONTENT, STYLES } from "../constants";
 
-describe("GetStartedSection", () => {
-  describe("constants", () => {
-    it("has correct section id", () => {
+const cases = [
+  {
+    name: "has correct section id",
+    run: () => {
       assert.strictEqual(SECTION_ID, "get-started");
-    });
+    },
+  },
 
-    it("has required content", () => {
+  {
+    name: "has required content",
+    run: () => {
       assert.notStrictEqual(CONTENT.heading, undefined);
       assert.notStrictEqual(CONTENT.headingHighlight, undefined);
       assert.strictEqual(CONTENT.command, "npm install -g pastoralist");
       assert.notStrictEqual(CONTENT.buttonText, undefined);
       assert.strictEqual(CONTENT.docsSlug, "introduction");
-    });
+    },
+  },
 
-    it("has required styles", () => {
+  {
+    name: "has required styles",
+    run: () => {
       assert.notStrictEqual(STYLES.section, undefined);
       assert.notStrictEqual(STYLES.article, undefined);
       assert.notStrictEqual(STYLES.articleVisible, undefined);
@@ -26,6 +33,10 @@ describe("GetStartedSection", () => {
       assert.notStrictEqual(STYLES.codeBlock, undefined);
       assert.notStrictEqual(STYLES.code, undefined);
       assert.notStrictEqual(STYLES.button, undefined);
-    });
-  });
+    },
+  },
+];
+
+describe("GetStartedSection", () => {
+  describe("constants", () => cases.forEach(({ name, run }) => it(name, run)));
 });

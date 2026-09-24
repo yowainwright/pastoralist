@@ -26,7 +26,8 @@ export const hashLockfile = (root = process.cwd()): string => {
   if (!lockfile) return "no-lockfile";
   try {
     const content = fs.readFileSync(join(root, lockfile), "utf8");
-    return createHash("sha256").update(content).digest("hex").slice(0, 16);
+    const result: string = createHash("sha256").update(content).digest("hex").slice(0, 16);
+    return result;
   } catch {
     return "no-lockfile";
   }
@@ -46,39 +47,42 @@ const isWritableCacheDir = (cacheDir: string): boolean => {
 };
 
 const configuredCacheDir = (options: CacheDirOptions): string | undefined => {
-  return options.cacheDir ?? process.env.PASTORALIST_CACHE_DIR;
+  const result: string | undefined = options.cacheDir ?? process.env.PASTORALIST_CACHE_DIR;
+  return result;
 };
 
 const nodeModulesCacheDir = (root: string): string => {
-  return join(root, "node_modules", ".cache", "pastoralist");
+  const result: string = join(root, "node_modules", ".cache", "pastoralist");
+  return result;
 };
 
 const userCacheDir = (): string => {
   if (process.platform === "darwin") {
-    return join(homedir(), "Library", "Caches", "pastoralist");
+    const cacheDir = join(homedir(), "Library", "Caches", "pastoralist");
+    return cacheDir;
   }
-
   if (process.platform === "win32") {
-    const localAppData = process.env.LOCALAPPDATA;
-    if (localAppData) return join(localAppData, "pastoralist", "Cache");
-    return join(homedir(), "AppData", "Local", "pastoralist", "Cache");
+    const appData = process.env.LOCALAPPDATA || join(homedir(), "AppData", "Local");
+    const cacheDir = join(appData, "pastoralist", "Cache");
+    return cacheDir;
   }
-
-  const xdgCacheHome = process.env.XDG_CACHE_HOME;
-  if (xdgCacheHome) return join(xdgCacheHome, "pastoralist");
-  return join(homedir(), ".cache", "pastoralist");
+  const cacheHome = process.env.XDG_CACHE_HOME || join(homedir(), ".cache");
+  const cacheDir = join(cacheHome, "pastoralist");
+  return cacheDir;
 };
 
 const fallbackCacheDirs = (): string[] => {
   const osCacheDir = userCacheDir();
   const tempCacheDir = join(tmpdir(), "pastoralist", "cache");
-  return [osCacheDir, tempCacheDir];
+  const result: string[] = [osCacheDir, tempCacheDir];
+  return result;
 };
 
 const writableCacheDir = (root: string): string | undefined => {
   const projectCacheDir = nodeModulesCacheDir(root);
   const cacheDirs = [projectCacheDir].concat(fallbackCacheDirs());
-  return cacheDirs.find(isWritableCacheDir);
+  const result: string | undefined = cacheDirs.find(isWritableCacheDir);
+  return result;
 };
 
 export const resolveCacheDir = (options: CacheDirOptions = {}): string => {
@@ -91,6 +95,20 @@ export const resolveCacheDir = (options: CacheDirOptions = {}): string => {
   throw new Error("Unable to create a writable cache directory");
 };
 
+const readBackups = (cacheDir: string) => {
+  const files = fs
+    .readdirSync(cacheDir)
+    .filter((f) => f.includes(".backup-"))
+    .map((f) => {
+      const path = join(cacheDir, f);
+      const mtime = fs.statSync(path).mtimeMs;
+      const backup = { path, mtime };
+      return backup;
+    })
+    .toSorted((a, b) => b.mtime - a.mtime);
+  return files;
+};
+
 export const pruneBackups = (
   cacheDir: string,
   options: { keep?: number; maxAgeMs?: number } = {},
@@ -99,24 +117,13 @@ export const pruneBackups = (
     const keep = options.keep ?? 5;
     const maxAgeMs = options.maxAgeMs ?? 7 * 24 * 60 * 60 * 1000;
     const now = Date.now();
-
-    const files = fs
-      .readdirSync(cacheDir)
-      .filter((f) => f.includes(".backup-"))
-      .map((f) => {
-        const fullPath = join(cacheDir, f);
-        const mtime = fs.statSync(fullPath).mtimeMs;
-        return { path: fullPath, mtime };
-      })
-      .sort((a, b) => b.mtime - a.mtime);
-
+    const files = readBackups(cacheDir);
     files.forEach((file, i) => {
       const isTooOld = now - file.mtime > maxAgeMs;
       const isOverLimit = i >= keep;
       const shouldDeleteFile = isTooOld || isOverLimit;
-      if (shouldDeleteFile) {
-        fs.unlinkSync(file.path);
-      }
+      if (!shouldDeleteFile) return;
+      fs.unlinkSync(file.path);
     });
   } catch {
     return;
@@ -132,19 +139,22 @@ type StoredCacheEntry<V> = DiskCacheEntry<V> & {
 const isRecord = (value: unknown): value is Record<string, unknown> => {
   if (typeof value !== "object") return false;
   if (value === null) return false;
-  return !Array.isArray(value);
+  const result = !Array.isArray(value);
+  return result;
 };
 
 const isCacheEntry = (value: unknown): value is DiskCacheEntry<unknown> => {
   if (!isRecord(value)) return false;
   if (!("v" in value)) return false;
   if (typeof value.t !== "number") return false;
-  return Number.isFinite(value.t);
+  const result = Number.isFinite(value.t);
+  return result;
 };
 
 const isCacheEntryRecord = (value: unknown): value is Record<string, DiskCacheEntry<unknown>> => {
   if (!isRecord(value)) return false;
-  return Object.values(value).every(isCacheEntry);
+  const result = Object.values(value).every(isCacheEntry);
+  return result;
 };
 
 const isStoredCacheEntry = (value: unknown): value is StoredCacheEntry<unknown> => {
@@ -152,7 +162,8 @@ const isStoredCacheEntry = (value: unknown): value is StoredCacheEntry<unknown> 
   if (typeof value.key !== "string") return false;
   if (typeof value.schema !== "number") return false;
   if (typeof value.version !== "number") return false;
-  return isCacheEntry(value);
+  const result = isCacheEntry(value);
+  return result;
 };
 
 export class DiskCache<V> {
@@ -177,35 +188,44 @@ export class DiskCache<V> {
   }
 
   private empty(): DiskCacheEnvelope<V> {
-    return {
+    const { version } = this;
+    const entries = {};
+    const envelope: DiskCacheEnvelope<V> = {
       schema: DISK_CACHE_SCHEMA_VERSION,
-      version: this.version,
-      entries: {},
+      version,
+      entries,
     };
+    return envelope;
   }
 
   private load(): DiskCacheEnvelope<V> {
-    if (this.data) return this.data;
+    if (this.data) {
+      const result: DiskCacheEnvelope<V> = this.data;
+      return result;
+    }
     const legacyEntries = this.loadLegacyEntries();
     this.migrateLegacyEntries(legacyEntries);
     const storedEntries = this.loadStoredEntries();
     const entries = Object.assign({}, legacyEntries, storedEntries);
     this.data = Object.assign(this.empty(), { entries });
-    return this.data;
+    const result2: DiskCacheEnvelope<V> = this.data;
+    return result2;
   }
 
   private loadLegacyEntries(): Record<string, DiskCacheEntry<V>> {
-    if (!fs.existsSync(this.filePath)) return {};
+    const empty = {};
+    if (!fs.existsSync(this.filePath)) return empty;
     try {
       const raw = fs.readFileSync(this.filePath, "utf8");
       const parsed = JSON.parse(raw) as unknown;
-      if (!isRecord(parsed)) return {};
-      if (parsed.schema !== DISK_CACHE_SCHEMA_VERSION) return {};
-      if (parsed.version !== this.version) return {};
-      if (!isCacheEntryRecord(parsed.entries)) return {};
-      return parsed.entries as Record<string, DiskCacheEntry<V>>;
+      if (!isRecord(parsed)) return empty;
+      if (parsed.schema !== DISK_CACHE_SCHEMA_VERSION) return empty;
+      if (parsed.version !== this.version) return empty;
+      if (!isCacheEntryRecord(parsed.entries)) return empty;
+      const entries = parsed.entries as Record<string, DiskCacheEntry<V>>;
+      return entries;
     } catch {
-      return {};
+      return empty;
     }
   }
 
@@ -224,8 +244,13 @@ export class DiskCache<V> {
       .readdirSync(this.entriesDir)
       .map((file) => this.readEntry(join(this.entriesDir, file)))
       .filter((entry): entry is StoredCacheEntry<V> => entry !== undefined);
-    const pairs = entries.map((entry) => [entry.key, { v: entry.v, t: entry.t }] as const);
-    return Object.fromEntries(pairs);
+    const pairs = entries.map(({ key, v, t }) => {
+      const entry = { v, t };
+      const pair = [key, entry] as const;
+      return pair;
+    });
+    const result: Record<string, DiskCacheEntry<V>> = Object.fromEntries(pairs);
+    return result;
   }
 
   private readEntry(path: string): StoredCacheEntry<V> | undefined {
@@ -234,7 +259,8 @@ export class DiskCache<V> {
       if (!isStoredCacheEntry(parsed)) return undefined;
       if (parsed.schema !== DISK_CACHE_SCHEMA_VERSION) return undefined;
       if (parsed.version !== this.version) return undefined;
-      return parsed as StoredCacheEntry<V>;
+      const result = parsed as StoredCacheEntry<V>;
+      return result;
     } catch {
       return undefined;
     }
@@ -242,20 +268,23 @@ export class DiskCache<V> {
 
   private entryPath(key: string): string {
     const keyHash = createHash("sha256").update(key).digest("hex");
-    return join(this.entriesDir, `${keyHash}.json`);
+    const result: string = join(this.entriesDir, `${keyHash}.json`);
+    return result;
   }
 
   private writeEntry(key: string, entry: DiskCacheEntry<V>): void {
+    const { v, t } = entry;
+    const { version } = this;
     const path = this.entryPath(key);
     const rand = Math.random().toString(36).slice(2);
     const tmpName = `${basename(path)}.tmp-${process.pid}-${rand}`;
     const tmpPath = join(dirname(path), tmpName);
     const storedEntry = {
       key,
-      v: entry.v,
-      t: entry.t,
+      v,
+      t,
       schema: DISK_CACHE_SCHEMA_VERSION,
-      version: this.version,
+      version,
     };
     fs.writeFileSync(tmpPath, JSON.stringify(storedEntry));
     fs.renameSync(tmpPath, path);
@@ -271,8 +300,11 @@ export class DiskCache<V> {
   ): Record<string, DiskCacheEntry<V>> {
     const entriesArray = Object.entries(entries);
     if (entriesArray.length <= this.maxEntries) return entries;
-    const newestFirst = entriesArray.slice().sort((a, b) => b[1].t - a[1].t);
-    return Object.fromEntries(newestFirst.slice(0, this.maxEntries));
+    const newestFirst = entriesArray.toSorted((a, b) => b[1].t - a[1].t);
+    const result: Record<string, DiskCacheEntry<V>> = Object.fromEntries(
+      newestFirst.slice(0, this.maxEntries),
+    );
+    return result;
   }
 
   private updateData(entries: Record<string, DiskCacheEntry<V>>): void {
@@ -282,7 +314,8 @@ export class DiskCache<V> {
   private isExpired(entry: { v: V; t: number }): boolean {
     if (this.ttl <= 0) return false;
     const age = Date.now() - entry.t;
-    return age > this.ttl;
+    const result: boolean = age > this.ttl;
+    return result;
   }
 
   get(key: string): V | undefined {
@@ -296,13 +329,15 @@ export class DiskCache<V> {
       this.updateData(rest);
       return undefined;
     }
-    return entry.v;
+    const result: V | undefined = entry.v;
+    return result;
   }
 
   set(key: string, value: V): void {
     if (!this.enabled) return;
     const envelope = this.load();
-    const entry = { v: value, t: Date.now() };
+    const t = Date.now();
+    const entry = { v: value, t };
     const entries = Object.assign({}, envelope.entries, { [key]: entry });
     const trimmed = this.trimEntries(entries);
     const removedKeys = Object.keys(entries).filter((entryKey) => !(entryKey in trimmed));
@@ -312,7 +347,8 @@ export class DiskCache<V> {
   }
 
   has(key: string): boolean {
-    return this.get(key) !== undefined;
+    const result: boolean = this.get(key) !== undefined;
+    return result;
   }
 
   delete(key: string): void {
@@ -341,6 +377,7 @@ export class DiskCache<V> {
     const expiredKeys = Object.keys(envelope.entries).filter((key) => !(key in fresh));
     expiredKeys.forEach((key) => this.removeEntry(key));
     if (before !== after) this.updateData(fresh);
-    return before - after;
+    const result: number = before - after;
+    return result;
   }
 }

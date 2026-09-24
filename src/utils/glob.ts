@@ -38,7 +38,8 @@ const compilePattern = (pattern: string): RegExp => {
   const withGlobstar = withQuestion.replace(GLOBSTAR_PLACEHOLDER_PATTERN, ".*");
   const final = withGlobstar.replace(GLOBSTAR_DIRECTORY_PLACEHOLDER_PATTERN, "(?:.*/)?");
 
-  return new RegExp(`^${final}$`);
+  const regex = new RegExp(`^${final}$`);
+  return regex;
 };
 
 const evictOldestRegex = (): void => {
@@ -66,30 +67,30 @@ const isLiteralPattern = (pattern: string): boolean =>
 
 const toProjectPattern = (pattern: string, cwd: string): string => {
   const absolutePattern = isAbsolute(pattern) ? pattern : resolve(cwd, pattern);
-  return normalizePath(relative(cwd, absolutePattern));
+  const projectPattern = normalizePath(relative(cwd, absolutePattern));
+  return projectPattern;
 };
 
 const matchesPattern = (filePath: string, pattern: string): boolean => {
   if (isLiteralPattern(pattern)) {
-    return filePath === pattern;
+    const matches = filePath === pattern;
+    return matches;
   }
 
-  return patternToRegex(pattern).test(filePath);
+  const matches = patternToRegex(pattern).test(filePath);
+  return matches;
 };
 
 const matchesAnyIgnore = (filePath: string, ignorePatterns: string[]): boolean =>
   ignorePatterns.some((pattern) => patternToRegex(pattern).test(filePath));
 
-const isIgnoredDirectory = (name: string): boolean => IGNORED_DIRECTORIES.includes(name);
-
-const shouldIgnorePath = (filePath: string, ignorePatterns: string[]): boolean =>
-  matchesAnyIgnore(filePath, ignorePatterns);
-
 const collectAllFiles = (dir: string, baseDir: string, ignorePatterns: string[]): string[] => {
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+  const empty: string[] = [];
+  if (!existsSync(dir)) return empty;
+  const files = readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
     collectDirectoryEntry(entry, dir, baseDir, ignorePatterns),
   );
+  return files;
 };
 
 const collectDirectoryEntry = (
@@ -100,11 +101,15 @@ const collectDirectoryEntry = (
 ): string[] => {
   const fullPath = join(dir, entry.name);
   const relativePath = normalizePath(relative(baseDir, fullPath));
-
-  if (shouldIgnorePath(relativePath, ignorePatterns)) return [];
-  if (!entry.isDirectory()) return [relativePath];
-  if (isIgnoredDirectory(entry.name)) return [];
-  return collectAllFiles(fullPath, baseDir, ignorePatterns);
+  const empty: string[] = [];
+  if (matchesAnyIgnore(relativePath, ignorePatterns)) return empty;
+  if (!entry.isDirectory()) {
+    const files = [relativePath];
+    return files;
+  }
+  if (IGNORED_DIRECTORIES.includes(entry.name)) return empty;
+  const files = collectAllFiles(fullPath, baseDir, ignorePatterns);
+  return files;
 };
 
 const toPatternArray = (patterns: string | string[]): string[] =>
@@ -120,7 +125,10 @@ const splitPattern = (pattern: string): string[] =>
 
 const findLiteralPrefixLength = (segments: string[]): number => {
   const firstPatternIndex = segments.findIndex(isSegmentPattern);
-  if (firstPatternIndex === -1) return segments.length;
+  if (firstPatternIndex === -1) {
+    const { length } = segments;
+    return length;
+  }
   return firstPatternIndex;
 };
 
@@ -130,8 +138,11 @@ const isSegmentPattern = (segment: string): boolean =>
 const matchSegment = (value: string, pattern: string): boolean =>
   patternToRegex(pattern).test(value);
 
-const resolvePatternRoot = (cwd: string, prefixSegments: string[]): string =>
-  prefixSegments.length > 0 ? resolve(cwd, ...prefixSegments) : cwd;
+const resolvePatternRoot = (cwd: string, prefixSegments: string[]): string => {
+  if (prefixSegments.length === 0) return cwd;
+  const root = resolve(cwd, ...prefixSegments);
+  return root;
+};
 
 const createDirectMatchPlan = (pattern: string, cwd: string): DirectMatchPlan | undefined => {
   const segments = splitPattern(pattern);
@@ -142,7 +153,8 @@ const createDirectMatchPlan = (pattern: string, cwd: string): DirectMatchPlan | 
 
   if (!existsSync(root)) return undefined;
   if (remainingSegments.length === 0) return undefined;
-  return { root, remainingSegments };
+  const plan = { root, remainingSegments };
+  return plan;
 };
 
 const createDirectMatchContext = (cwd: string, ignorePatterns: string[]): DirectMatchContext => ({
@@ -150,21 +162,24 @@ const createDirectMatchContext = (cwd: string, ignorePatterns: string[]): Direct
   ignorePatterns,
 });
 
-const createInitialDirectMatchState = (root: string): DirectMatchState => ({
-  candidates: [root],
-  results: [],
-});
+const createInitialDirectMatchState = (root: string): DirectMatchState => {
+  const candidates = [root];
+  const results: string[] = [];
+  const state = { candidates, results };
+  return state;
+};
 
 const toDirectMatchStep = (segment: string, index: number, segments: string[]): DirectMatchStep => {
   const lastIndex = segments.length - 1;
   const isLast = index === lastIndex;
-  return { segment, isLast };
+  const step = { segment, isLast };
+  return step;
 };
 
 const toRelativePath = (cwd: string, path: string): string => normalizePath(relative(cwd, path));
 
 const shouldIncludeRelativePath = (relativePath: string, ignorePatterns: string[]): boolean =>
-  !shouldIgnorePath(relativePath, ignorePatterns);
+  !matchesAnyIgnore(relativePath, ignorePatterns);
 
 const isExistingDirectory = (path: string): boolean =>
   existsSync(path) && statSync(path).isDirectory();
@@ -177,38 +192,50 @@ const getItemPaths = (items: DirectMatchItem[], type: DirectMatchItem["type"]): 
 const toDirectMatchState = (
   currentResults: string[],
   items: DirectMatchItem[],
-): DirectMatchState => ({
-  candidates: getItemPaths(items, "candidate"),
-  results: currentResults.concat(getItemPaths(items, "result")),
-});
+): DirectMatchState => {
+  const candidates = getItemPaths(items, "candidate");
+  const results = currentResults.concat(getItemPaths(items, "result"));
+  const state = { candidates, results };
+  return state;
+};
 
 const collectLiteralSegmentMatches = (
   candidate: string,
   step: DirectMatchStep,
   context: DirectMatchContext,
 ): DirectMatchItem[] => {
+  const empty: DirectMatchItem[] = [];
   const nextPath = join(candidate, step.segment);
   const relativePath = toRelativePath(context.cwd, nextPath);
   const shouldInclude = shouldIncludeRelativePath(relativePath, context.ignorePatterns);
 
-  if (!shouldInclude) return [];
+  if (!shouldInclude) return empty;
   const isLastExistingFile = step.isLast && isExistingFile(nextPath);
-  if (isLastExistingFile) return [{ type: "result", path: relativePath }];
-
+  if (isLastExistingFile) {
+    const matches = fileMatch(relativePath);
+    return matches;
+  }
   const isNextDirectory = !step.isLast && isExistingDirectory(nextPath);
-  if (isNextDirectory) return [{ type: "candidate", path: nextPath }];
-  return [];
+  if (!isNextDirectory) return empty;
+  const matches = candidateMatch(nextPath);
+  return matches;
 };
+
+const candidateMatch = (path: string): DirectMatchItem[] => [{ type: "candidate", path }];
+
+const fileMatch = (path: string): DirectMatchItem[] => [{ type: "result", path }];
 
 const canEnterPatternDirectory = (
   entry: Dirent,
   step: DirectMatchStep,
   relativePath: string,
   ignorePatterns: string[],
-): boolean =>
-  !step.isLast &&
-  !isIgnoredDirectory(entry.name) &&
-  shouldIncludeRelativePath(relativePath, ignorePatterns);
+): boolean => {
+  if (step.isLast) return false;
+  if (IGNORED_DIRECTORIES.includes(entry.name)) return false;
+  const included = shouldIncludeRelativePath(relativePath, ignorePatterns);
+  return included;
+};
 
 const collectPatternEntryMatches = (
   entry: Dirent,
@@ -216,19 +243,19 @@ const collectPatternEntryMatches = (
   step: DirectMatchStep,
   context: DirectMatchContext,
 ): DirectMatchItem[] => {
-  if (!matchSegment(entry.name, step.segment)) return [];
-
+  const empty: DirectMatchItem[] = [];
+  if (!matchSegment(entry.name, step.segment)) return empty;
   const fullPath = join(candidate, entry.name);
   const relativePath = toRelativePath(context.cwd, fullPath);
-
   if (entry.isDirectory()) {
-    if (!canEnterPatternDirectory(entry, step, relativePath, context.ignorePatterns)) return [];
-    return [{ type: "candidate", path: fullPath }];
+    if (!canEnterPatternDirectory(entry, step, relativePath, context.ignorePatterns)) return empty;
+    const matches = candidateMatch(fullPath);
+    return matches;
   }
-
-  if (!step.isLast) return [];
-  if (!shouldIncludeRelativePath(relativePath, context.ignorePatterns)) return [];
-  return [{ type: "result", path: relativePath }];
+  if (!step.isLast) return empty;
+  if (!shouldIncludeRelativePath(relativePath, context.ignorePatterns)) return empty;
+  const matches = fileMatch(relativePath);
+  return matches;
 };
 
 const collectPatternSegmentMatches = (
@@ -245,56 +272,65 @@ const collectCandidateMatches = (
   step: DirectMatchStep,
   context: DirectMatchContext,
 ): DirectMatchItem[] => {
-  if (!existsSync(candidate)) return [];
+  const empty: DirectMatchItem[] = [];
+  if (!existsSync(candidate)) return empty;
   if (!isSegmentPattern(step.segment)) {
-    return collectLiteralSegmentMatches(candidate, step, context);
+    const matches = collectLiteralSegmentMatches(candidate, step, context);
+    return matches;
   }
-  return collectPatternSegmentMatches(candidate, step, context);
+  const matches = collectPatternSegmentMatches(candidate, step, context);
+  return matches;
 };
 
 const applyDirectMatchStep = (
   state: DirectMatchState,
-  segment: string,
-  index: number,
-  segments: string[],
+  step: DirectMatchStep,
   context: DirectMatchContext,
 ): DirectMatchState => {
   if (state.candidates.length === 0) return state;
-  const step = toDirectMatchStep(segment, index, segments);
   const items = state.candidates.flatMap((candidate) =>
     collectCandidateMatches(candidate, step, context),
   );
-  return toDirectMatchState(state.results, items);
+  const nextState = toDirectMatchState(state.results, items);
+  return nextState;
 };
 
 const collectDirectMatches = (pattern: string, cwd: string, ignorePatterns: string[]): string[] => {
   const plan = createDirectMatchPlan(pattern, cwd);
-  if (!plan) return [];
+  const empty: string[] = [];
+  if (!plan) return empty;
 
   const context = createDirectMatchContext(cwd, ignorePatterns);
   const initialState = createInitialDirectMatchState(plan.root);
-  const finalState = plan.remainingSegments.reduce(
-    (state, segment, index, segments) =>
-      applyDirectMatchStep(state, segment, index, segments, context),
+  const steps = plan.remainingSegments.map(toDirectMatchStep);
+  const finalState = steps.reduce(
+    (state, step) => applyDirectMatchStep(state, step, context),
     initialState,
   );
 
-  return finalState.results;
+  const { results } = finalState;
+  return results;
+};
+
+const collectLiteralMatch = (pattern: string, cwd: string, ignorePatterns: string[]): string[] => {
+  const empty: string[] = [];
+  const absolutePath = resolve(cwd, pattern);
+  if (!existsSync(absolutePath)) return empty;
+  if (statSync(absolutePath).isDirectory()) return empty;
+  const relativePath = normalizePath(relative(cwd, absolutePath));
+  if (matchesAnyIgnore(relativePath, ignorePatterns)) return empty;
+  const matches = [relativePath];
+  return matches;
 };
 
 const collectMatches = (plan: PatternPlan, cwd: string, ignorePatterns: string[]): string[] => {
   if (isLiteralPattern(plan.pattern)) {
-    const absolutePath = resolve(cwd, plan.pattern);
-    if (!existsSync(absolutePath)) return [];
-    if (statSync(absolutePath).isDirectory()) return [];
-
-    const relativePath = normalizePath(relative(cwd, absolutePath));
-    if (shouldIgnorePath(relativePath, ignorePatterns)) return [];
-    return [relativePath];
+    const matches = collectLiteralMatch(plan.pattern, cwd, ignorePatterns);
+    return matches;
   }
-
   if (!plan.hasGlobStar) {
-    return collectDirectMatches(plan.pattern, cwd, ignorePatterns);
+    const matches = collectDirectMatches(plan.pattern, cwd, ignorePatterns);
+    return matches;
   }
 
   const segments = splitPattern(plan.pattern);
@@ -303,16 +339,19 @@ const collectMatches = (plan: PatternPlan, cwd: string, ignorePatterns: string[]
   const root = resolvePatternRoot(cwd, prefixSegments);
   const files = collectAllFiles(root, cwd, ignorePatterns);
 
-  return files.filter((file) => matchesPattern(file, plan.pattern));
+  const matches = files.filter((file) => matchesPattern(file, plan.pattern));
+  return matches;
 };
 
 const createPatternPlans = (patterns: string[], cwd: string): PatternPlan[] =>
   patterns.map((pattern) => {
     const projectPattern = toProjectPattern(pattern, cwd);
-    return {
+    const hasGlobStar = projectPattern.includes("**");
+    const plan = {
       pattern: projectPattern,
-      hasGlobStar: projectPattern.includes("**"),
+      hasGlobStar,
     };
+    return plan;
   });
 
 const collectUniqueMatches = (
@@ -327,9 +366,10 @@ export const sync = (patterns: string | string[], options: GlobOptions = {}): st
   const resolvedCwd = resolve(cwd);
   const plans = createPatternPlans(toPatternArray(patterns), resolvedCwd);
   const ignorePatterns = ignore.map((pattern) => toProjectPattern(pattern, resolvedCwd));
-  return collectUniqueMatches(plans, resolvedCwd, ignorePatterns)
+  const matches = collectUniqueMatches(plans, resolvedCwd, ignorePatterns)
     .map((file) => formatPath(file, resolvedCwd, absolute))
-    .sort();
+    .toSorted();
+  return matches;
 };
 
 export const glob = (patterns: string | string[], options: GlobOptions = {}): string[] =>

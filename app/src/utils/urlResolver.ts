@@ -6,9 +6,11 @@ export function resolveUrl(path: string): string {
   }
   const normalizedBase = base.endsWith("/") ? base : base + "/";
   const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
-  return normalizedBase + normalizedPath;
+  const url = normalizedBase + normalizedPath;
+  return url;
 }
 
 export function resolveDocsUrl(slug: string): string {
-  return resolveUrl(`docs/${slug}`);
+  const docsUrl = resolveUrl(`docs/${slug}`);
+  return docsUrl;
 }

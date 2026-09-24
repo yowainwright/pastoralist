@@ -8,7 +8,7 @@ import {
 import customDark from "@/themes/dark.json";
 import customLight from "@/themes/light.json";
 import { normalizeCodeLanguage } from "./constants";
-import type { LanguageRegistration, ThemeRegistration } from "shiki/types";
+import type { HighlighterCore, LanguageRegistration, ThemeRegistration } from "shiki/types";
 
 const LIGHT_THEME = "pastoralist-light";
 const DARK_THEME = "pastoralist-dark";
@@ -29,70 +29,101 @@ const languageLoaders: Record<string, LanguageLoader | undefined> = {
   yaml: () => import("shiki/langs/yaml.mjs").then((module) => module.default),
 };
 
-export async function createCodeHighlighter() {
-  const highlighter = await createHighlighterCore({
-    engine: createJavaScriptRegexEngine(),
-    themes: [
-      customLight as unknown as ThemeRegistration,
-      customDark as unknown as ThemeRegistration,
-    ],
-    langs: [],
-  });
+interface LanguageState {
+  loaded: Set<string>;
+  pending: Map<string, Promise<void>>;
+}
 
-  const loadedLanguages = new Set<string>(["text"]);
-  const languagePromises = new Map<string, Promise<void>>();
+async function registerLanguage(highlighter: HighlighterCore, loader: LanguageLoader) {
+  const language = await loader();
+  const languages = Array.isArray(language) ? language : [language];
+  await highlighter.loadLanguage(...languages);
+}
 
-  const loadLanguage = (lang: string): Promise<void> => {
+function loadLanguage(
+  highlighter: HighlighterCore,
+  state: LanguageState,
+  lang: string,
+): Promise<void> {
+  const { loaded, pending } = state;
+  const languageKey = normalizeCodeLanguage(lang);
+  const ready = Promise.resolve();
+  if (loaded.has(languageKey)) return ready;
+  const existing = pending.get(languageKey);
+  if (existing) return existing;
+
+  const loader = languageLoaders[lang] || languageLoaders[languageKey];
+  if (!loader) return ready;
+  const promise = trackLanguage(highlighter, state, languageKey, loader);
+  return promise;
+}
+
+function trackLanguage(
+  highlighter: HighlighterCore,
+  state: LanguageState,
+  languageKey: string,
+  loader: LanguageLoader,
+) {
+  const { loaded, pending } = state;
+  const promise = registerLanguage(highlighter, loader)
+    .then(() => {
+      loaded.add(languageKey);
+    })
+    .catch((error) => {
+      pending.delete(languageKey);
+      throw error;
+    });
+  pending.set(languageKey, promise);
+  return promise;
+}
+
+function highlightCode(
+  highlighter: HighlighterCore,
+  code: string,
+  lang: string,
+  showLineNumbers: boolean,
+) {
+  const themes = { light: LIGHT_THEME, dark: DARK_THEME };
+  const transformers = [
+    transformerNotationDiff(),
+    transformerNotationHighlight(),
+    transformerNotationFocus(),
+  ];
+  const baseOptions = { lang, themes, defaultColor: false, transformers } as const;
+  const meta = { __raw: "showLineNumbers" };
+  const numbered = { meta };
+  const lineNumberOptions = showLineNumbers ? numbered : undefined;
+  const htmlOptions = Object.assign({}, baseOptions, lineNumberOptions);
+  const html = highlighter.codeToHtml(code, htmlOptions);
+  return html;
+}
+
+function createClient(highlighter: HighlighterCore) {
+  const loaded = new Set<string>(["text"]);
+  const pending = new Map<string, Promise<void>>();
+  const state = { loaded, pending };
+  const codeToHtml = async (
+    code: string,
+    lang: string,
+    showLineNumbers = false,
+  ): Promise<string> => {
     const languageKey = normalizeCodeLanguage(lang);
-    if (loadedLanguages.has(languageKey)) return Promise.resolve();
-
-    const existing = languagePromises.get(languageKey);
-    if (existing) return existing;
-
-    const loader = languageLoaders[lang] || languageLoaders[languageKey];
-    if (!loader) return Promise.resolve();
-
-    const promise = loader()
-      .then(async (language) => {
-        const languages = Array.isArray(language) ? language : [language];
-        await highlighter.loadLanguage(...languages);
-        loadedLanguages.add(languageKey);
-      })
-      .catch((error) => {
-        languagePromises.delete(languageKey);
-        throw error;
-      });
-    languagePromises.set(languageKey, promise);
-    return promise;
+    await loadLanguage(highlighter, state, languageKey);
+    const html = highlightCode(highlighter, code, languageKey, showLineNumbers);
+    return html;
   };
+  const client = { codeToHtml };
+  return client;
+}
 
-  return {
-    async codeToHtml(code: string, lang: string, showLineNumbers = false): Promise<string> {
-      const languageKey = normalizeCodeLanguage(lang);
-      await loadLanguage(languageKey);
-
-      const lineNumberOptions = showLineNumbers
-        ? { meta: { __raw: "showLineNumbers" } }
-        : undefined;
-      const htmlOptions = Object.assign(
-        {},
-        {
-          lang: languageKey,
-          themes: {
-            light: LIGHT_THEME,
-            dark: DARK_THEME,
-          },
-          defaultColor: false as const,
-          transformers: [
-            transformerNotationDiff(),
-            transformerNotationHighlight(),
-            transformerNotationFocus(),
-          ],
-        },
-        lineNumberOptions,
-      );
-
-      return highlighter.codeToHtml(code, htmlOptions);
-    },
-  };
+export async function createCodeHighlighter() {
+  const engine = createJavaScriptRegexEngine();
+  const themes = [
+    customLight as unknown as ThemeRegistration,
+    customDark as unknown as ThemeRegistration,
+  ];
+  const langs: LanguageRegistration[] = [];
+  const highlighter = await createHighlighterCore({ engine, themes, langs });
+  const client = createClient(highlighter);
+  return client;
 }

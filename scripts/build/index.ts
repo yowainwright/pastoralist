@@ -67,7 +67,7 @@ const buildDist = (): void => {
 const renderRuntimeEntry = (): string => {
   const agentSkill = JSON.stringify(readFileSync(AGENT_SKILL_FILE, "utf8"));
   const version = JSON.stringify(packageJson.version);
-  return [
+  const result = [
     'import { run, setEmbeddedAgentSkill } from "../src/cli/index";',
     'import { runBinaryEntry } from "../src/cli/utils";',
     "",
@@ -75,19 +75,21 @@ const renderRuntimeEntry = (): string => {
     `void runBinaryEntry(${version}, run);`,
     "",
   ].join("\n");
+  return result;
 };
 
 const renderBinaryEntry = (): string => 'import "pastoralist-runtime";\n';
 
 const renderRuntimePackage = (): string => {
-  const version = packageJson.version;
+  const { version } = packageJson;
   const manifest: RuntimePackageManifest = {
     main: "index.js",
     name: RUNTIME_PACKAGE_NAME,
     type: "commonjs",
     version,
   };
-  return JSON.stringify(manifest);
+  const result = JSON.stringify(manifest);
+  return result;
 };
 
 const bundleBinaryRuntime = (): void => {
@@ -135,19 +137,32 @@ export const buildBinary = (): void => {
   printBinarySize();
 };
 
+const buildActions = new Map<BuildTarget, () => void>([
+  ["dist", buildDist],
+  ["bundle", buildBundle],
+  ["types", buildTypes],
+  ["clean", cleanDist],
+]);
+
 export const runBuild = (target: BuildTarget): void => {
-  if (target === "dist") return buildDist();
-  if (target === "bundle") return buildBundle();
-  if (target === "types") return buildTypes();
-  if (target === "clean") return cleanDist();
-  return buildBinary();
+  const build = buildActions.get(target) ?? buildBinary;
+  build();
+};
+
+const formatBuildError = (error: unknown): string => {
+  if (error instanceof Error) {
+    const { message } = error;
+    return message;
+  }
+  const message = String(error);
+  return message;
 };
 
 if (isMainModule(import.meta.url)) {
   try {
     runBuild(parseBuildTarget(process.argv.slice(2)));
   } catch (error) {
-    log.fail(error instanceof Error ? error.message : String(error));
+    log.fail(formatBuildError(error));
     process.exitCode = 1;
   }
 }

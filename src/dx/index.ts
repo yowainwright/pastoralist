@@ -73,7 +73,8 @@ export const createSpinner = (text: string, out: Output = defaultOutput): Spinne
     interval: null,
   };
 
-  return createSpinnerMethods(state, out);
+  const spinner = createSpinnerMethods(state, out);
+  return spinner;
 };
 
 export function showHint(

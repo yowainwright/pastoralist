@@ -11,8 +11,10 @@ export const DEFAULT_OBJECTIVES: readonly BestCaseObjective[] = [
   "oldness",
 ];
 
+const defaultMode = "auto" as BestCaseSearchMode;
+
 export const DEFAULT_SEARCH_POLICY = {
-  mode: "auto" as BestCaseSearchMode,
+  mode: defaultMode,
   exactStateLimit: 256,
   beamWidth: 16,
   maxEvaluations: 1000,

@@ -28,7 +28,8 @@ export class LRUCache<K, V> {
     }
 
     this.moveToFront(node);
-    return node.value;
+    const { value } = node;
+    return value;
   }
 
   set(key: K, value: V): void {
@@ -41,20 +42,22 @@ export class LRUCache<K, V> {
       return;
     }
 
-    const newNode: CacheNode<K, V> = {
+    this.insert(key, value);
+    if (this.cache.size > this.max) this.evictLRU();
+  }
+
+  private insert(key: K, value: V): void {
+    const timestamp = Date.now();
+    const node: CacheNode<K, V> = {
       key,
       value,
       prev: null,
       next: null,
-      timestamp: Date.now(),
+      timestamp,
     };
 
-    this.cache.set(key, newNode);
-    this.addToFront(newNode);
-
-    if (this.cache.size > this.max) {
-      this.evictLRU();
-    }
+    this.cache.set(key, node);
+    this.addToFront(node);
   }
 
   has(key: K): boolean {
@@ -90,11 +93,13 @@ export class LRUCache<K, V> {
   }
 
   get size(): number {
-    return this.cache.size;
+    const { size } = this.cache;
+    return size;
   }
 
   keys(): K[] {
-    return Array.from(this.cache.keys());
+    const keys = Array.from(this.cache.keys());
+    return keys;
   }
 
   values(): V[] {
@@ -112,14 +117,11 @@ export class LRUCache<K, V> {
   }
 
   private isExpired(node: CacheNode<K, V>): boolean {
-    const ttl = this.ttl;
-    const hasNoTtl = ttl === undefined;
-    if (hasNoTtl) {
-      return false;
-    }
-
+    const { ttl } = this;
+    if (ttl === undefined) return false;
     const age = Date.now() - node.timestamp;
-    return age > ttl;
+    const expired = age > ttl;
+    return expired;
   }
 
   private moveToFront(node: CacheNode<K, V>): void {

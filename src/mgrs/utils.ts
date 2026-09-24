@@ -1,6 +1,10 @@
 import * as fs from "fs";
+import { IS_DEBUGGING } from "../constants";
+import { logger } from "../observability";
 import type { OverrideValue, PastoralistJSON, SecurityPackage } from "../types";
 import type { DependencyGraph, OverrideField } from "./types";
+
+const log = logger({ file: "mgrs/utils.ts", isLogging: IS_DEBUGGING });
 
 export const getExistingOverrideField = (config: PastoralistJSON): OverrideField | null => {
   if (config.resolutions !== undefined) return "resolutions";
@@ -14,7 +18,8 @@ const applyPnpmOverrides = (
   overrides: Record<string, OverrideValue>,
 ): PastoralistJSON => {
   const pnpm = Object.assign({}, config.pnpm, { overrides });
-  return Object.assign({}, config, { pnpm });
+  const updated = Object.assign({}, config, { pnpm });
+  return updated;
 };
 
 export const applyOverridesToConfig = (
@@ -22,12 +27,14 @@ export const applyOverridesToConfig = (
   overrides: Record<string, OverrideValue> | Record<string, string>,
   fieldType: OverrideField | null,
 ): PastoralistJSON => {
-  if (fieldType === "resolutions") return Object.assign({}, config, { resolutions: overrides });
   if (fieldType === "pnpm") {
-    return applyPnpmOverrides(config, overrides as Record<string, OverrideValue>);
+    const updated = applyPnpmOverrides(config, overrides);
+    return updated;
   }
-  if (fieldType === "overrides") return Object.assign({}, config, { overrides });
-  return config;
+  const isRootField = fieldType === "resolutions" || fieldType === "overrides";
+  if (!isRootField) return config;
+  const updated = Object.assign({}, config, { [fieldType]: overrides });
+  return updated;
 };
 
 export const getPopulatedPackages = (
@@ -60,8 +67,10 @@ export const countPatternLockPackages = (lockPath: string, pattern: RegExp): num
   try {
     const content = fs.readFileSync(lockPath, "utf8");
     const matches = content.match(pattern);
-    return matches ? matches.length : 0;
+    const count = matches ? matches.length : 0;
+    return count;
   } catch {
+    log.debug("Could not count locked packages", "countPatternLockPackages", lockPath);
     return 0;
   }
 };

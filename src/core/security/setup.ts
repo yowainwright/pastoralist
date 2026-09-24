@@ -25,7 +25,8 @@ const execFileAsync = promisify(execFile);
 
 const quoteShellValue = (value: string): string => {
   const escaped = value.replaceAll("'", "'\\''");
-  return `'${escaped}'`;
+  const result = `'${escaped}'`;
+  return result;
 };
 
 export const createOutput = (): OutputFunctions => ({
@@ -43,9 +44,10 @@ export class SecuritySetupWizard {
   private out: OutputFunctions;
 
   constructor(options: { debug?: boolean; skipBrowserOpen?: boolean } = {}) {
+    const { debug: isLogging } = options;
     this.log = logger({
       file: "security/setup.ts",
-      isLogging: options.debug,
+      isLogging,
     });
     this.prompts = {
       confirm: promptConfirm,
@@ -59,13 +61,8 @@ export class SecuritySetupWizard {
 
   checkTokenAvailable(provider: SetupSecurityProvider): boolean | Promise<boolean> {
     const config = PROVIDER_CONFIGS[provider];
-    const noEnvVarNeeded = !config.envVar;
-
-    if (noEnvVarNeeded) {
-      return true;
-    }
-
-    const envVar = config.envVar as string;
+    const { envVar } = config;
+    if (!envVar) return true;
     const hasEnvToken = !!process.env[envVar];
     if (hasEnvToken) {
       return true;
@@ -76,7 +73,8 @@ export class SecuritySetupWizard {
       return false;
     }
 
-    return this.isGhCliAuthenticated();
+    const result = this.isGhCliAuthenticated();
+    return result;
   }
 
   private async isGhCliAuthenticated(): Promise<boolean> {
@@ -102,25 +100,23 @@ export class SecuritySetupWizard {
 
     this.printSetupHeader(config.name);
 
-    const noEnvVarNeeded = !config.envVar;
-    if (noEnvVarNeeded) {
-      return {
+    const requiresToken = !!config.envVar;
+    if (!requiresToken) {
+      const result = {
         success: true,
         message: "OSV requires no setup - you're good to go!",
       };
+      return result;
     }
 
     const existingTokenResult = await this.checkExistingToken(provider, config);
-    if (existingTokenResult) {
-      return existingTokenResult;
-    }
+    if (existingTokenResult) return existingTokenResult;
 
     const ghCliResult = await this.tryGitHubCliIfApplicable(provider);
-    if (ghCliResult) {
-      return ghCliResult;
-    }
+    if (ghCliResult) return ghCliResult;
 
-    return this.runTokenSetup(provider, config);
+    const tokenSetup = this.runTokenSetup(provider, config);
+    return tokenSetup;
   }
 
   private async checkExistingToken(
@@ -128,11 +124,7 @@ export class SecuritySetupWizard {
     config: ProviderConfig,
   ): Promise<SetupResult | null> {
     const existingToken = process.env[config.envVar!];
-    const hasExistingToken = !!existingToken;
-
-    if (!hasExistingToken) {
-      return null;
-    }
+    if (!existingToken) return null;
 
     const isValid = await this.validateToken(provider, existingToken);
     if (!isValid) {
@@ -140,11 +132,13 @@ export class SecuritySetupWizard {
       return null;
     }
 
-    return {
+    const message = `${config.envVar} is already configured and working!`;
+    const result = {
       success: true,
       token: existingToken,
-      message: `${config.envVar} is already configured and working!`,
+      message,
     };
+    return result;
   }
 
   private async tryGitHubCliIfApplicable(
@@ -167,19 +161,23 @@ export class SecuritySetupWizard {
     const hasGh = await this.isCommandAvailable("gh");
 
     if (!hasGh) {
-      return this.handleMissingGhCli();
+      const result = this.handleMissingGhCli();
+      return result;
     }
 
     const isAuthed = await this.isGhCliAuthenticated();
     if (isAuthed) {
       this.out.success("GitHub CLI is installed and authenticated!\n");
-      return {
-        success: true,
-        usedCli: true,
-        message: "Using GitHub CLI for authentication",
-      };
+      const message = "Using GitHub CLI for authentication";
+      const result = { success: true, usedCli: true, message };
+      return result;
     }
 
+    const authSetup = this.promptGhAuth();
+    return authSetup;
+  }
+
+  private async promptGhAuth(): Promise<SetupResult> {
     this.out.log("GitHub CLI is installed but not authenticated.\n");
     const useGh = await this.prompts.confirm(
       "Would you like to authenticate with GitHub CLI? (recommended)",
@@ -187,10 +185,12 @@ export class SecuritySetupWizard {
     );
 
     if (!useGh) {
-      return { success: false, message: "Proceeding with token setup" };
+      const result = { success: false, message: "Proceeding with token setup" };
+      return result;
     }
 
-    return this.runGhAuth();
+    const auth = this.runGhAuth();
+    return auth;
   }
 
   private async handleMissingGhCli(): Promise<SetupResult> {
@@ -206,15 +206,14 @@ export class SecuritySetupWizard {
 
     const shouldInstall = installChoice === "install-gh";
     if (shouldInstall) {
-      return this.installAndAuthGh();
+      const result = this.installAndAuthGh();
+      return result;
     }
 
     const shouldSkip = installChoice === "skip";
-    if (shouldSkip) {
-      return { success: false, message: "Setup skipped" };
-    }
-
-    return { success: false, message: "Proceeding with token setup" };
+    const message = shouldSkip ? "Setup skipped" : "Proceeding with token setup";
+    const result = { success: false, message };
+    return result;
   }
 
   private async runGhAuth(): Promise<SetupResult> {
@@ -226,23 +225,30 @@ export class SecuritySetupWizard {
 
       const isAuthed = await this.isGhCliAuthenticated();
       if (isAuthed) {
-        this.out.success("GitHub CLI authenticated successfully!\n");
-        return {
-          success: true,
-          usedCli: true,
-          message: "Authenticated via GitHub CLI",
-        };
+        const result = this.completeGhAuth();
+        return result;
       }
     } catch (error) {
       this.log.debug("gh auth failed", "runGhAuth", { error });
     }
 
     this.out.warn("GitHub CLI authentication did not complete.\n");
-    return { success: false, message: "GitHub CLI auth failed" };
+    const result = { success: false, message: "GitHub CLI auth failed" };
+    return result;
+  }
+
+  private completeGhAuth(): SetupResult {
+    this.out.success("GitHub CLI authenticated successfully!\n");
+    const result = {
+      success: true,
+      usedCli: true,
+      message: "Authenticated via GitHub CLI",
+    };
+    return result;
   }
 
   private spawnGhAuth(): Promise<void> {
-    return new Promise((resolve, reject) => {
+    const result = new Promise<void>((resolve, reject) => {
       const child = spawn("gh", ["auth", "login", "--web", "-h", "github.com"], {
         stdio: "inherit",
       });
@@ -258,36 +264,39 @@ export class SecuritySetupWizard {
 
       child.on("error", reject);
     });
+    return result;
   }
 
   private async installAndAuthGh(): Promise<SetupResult> {
     const platform = process.platform;
     const isLinux = platform === "linux";
     const isMac = platform === "darwin";
-    const manualInstallMsg = "Manual gh install required";
-
     this.out.log("\n" + GH_MESSAGES.INSTALLING + "\n");
 
-    if (isLinux) {
-      this.out.warn(GH_MESSAGES.LINUX_INSTALL);
-      return { success: false, message: manualInstallMsg };
-    }
-
     if (!isMac) {
-      this.out.warn(GH_MESSAGES.MANUAL_INSTALL);
-      return { success: false, message: manualInstallMsg };
+      const instruction = isLinux ? GH_MESSAGES.LINUX_INSTALL : GH_MESSAGES.MANUAL_INSTALL;
+      this.out.warn(instruction);
+      const result = { success: false, message: "Manual gh install required" };
+      return result;
     }
 
+    const installation = await this.installGhWithBrew();
+    return installation;
+  }
+
+  private async installGhWithBrew(): Promise<SetupResult> {
     try {
       this.out.info(GH_MESSAGES.BREW_CMD + "\n");
       await execFileAsync("brew", ["install", "gh"], { timeout: 120000 });
       this.out.success(GH_MESSAGES.INSTALLED + "\n");
-      return this.runGhAuth();
+      const auth = this.runGhAuth();
+      return auth;
     } catch (error) {
       this.log.debug("gh install failed", "installAndAuthGh", { error });
       this.out.warn(GH_MESSAGES.INSTALL_FAILED + "\n");
       this.out.log(GH_MESSAGES.MANUAL_INSTALL);
-      return { success: false, message: "gh install failed" };
+      const result = { success: false, message: "gh install failed" };
+      return result;
     }
   }
 
@@ -301,17 +310,18 @@ export class SecuritySetupWizard {
     const token = await this.promptForToken(config);
 
     if (!token) {
-      return { success: false, message: SETUP_MESSAGES.NO_TOKEN };
+      const { NO_TOKEN: message } = SETUP_MESSAGES;
+      const result = { success: false, message };
+      return result;
     }
 
     this.out.log(`\n${SETUP_MESSAGES.VALIDATING}`);
     const isValid = await this.validateToken(provider, token);
 
-    if (!isValid) {
-      return this.handleInvalidToken(config);
-    }
-
-    return this.completeTokenSetup(config, token);
+    const setup = isValid
+      ? this.completeTokenSetup(config, token)
+      : this.handleInvalidToken(config);
+    return setup;
   }
 
   private printTokenSetupInstructions(config: ProviderConfig): void {
@@ -347,13 +357,15 @@ export class SecuritySetupWizard {
 
   private shouldOfferBrowserOpen(config: ProviderConfig): boolean {
     if (!config.tokenUrl) return false;
-    return !this.skipBrowserOpen;
+    const result = !this.skipBrowserOpen;
+    return result;
   }
 
   private promptForToken(config: ProviderConfig): Promise<string> {
     this.out.info(`${SETUP_MESSAGES.TOKEN_TIP}\n`);
     const readToken = this.prompts.secret ?? this.prompts.input;
-    return readToken(`Paste your ${config.name} token here`);
+    const result = readToken(`Paste your ${config.name} token here`);
+    return result;
   }
 
   private async completeTokenSetup(config: ProviderConfig, token: string): Promise<SetupResult> {
@@ -361,12 +373,14 @@ export class SecuritySetupWizard {
     const savedToProfile = await this.promptForProfileSave(config, token);
     process.env[config.envVar!] = token;
 
-    return {
+    const message = this.createTokenSetupMessage(config, savedToProfile);
+    const result = {
       success: true,
       token,
       savedToProfile,
-      message: this.createTokenSetupMessage(config, savedToProfile),
+      message,
     };
+    return result;
   }
 
   private async promptForProfileSave(config: ProviderConfig, token: string): Promise<boolean> {
@@ -377,15 +391,18 @@ export class SecuritySetupWizard {
       return false;
     }
 
-    return this.saveToShellProfile(config.envVar!, token);
+    const result = this.saveToShellProfile(config.envVar!, token);
+    return result;
   }
 
   private createTokenSetupMessage(config: ProviderConfig, savedToProfile: boolean): string {
     if (savedToProfile) {
-      return SETUP_MESSAGES.SAVED_TO_PROFILE;
+      const tokenSetupMessage = SETUP_MESSAGES.SAVED_TO_PROFILE;
+      return tokenSetupMessage;
     }
 
-    return SETUP_MESSAGES.SESSION_ONLY.replace("{envVar}", config.envVar!);
+    const message = SETUP_MESSAGES.SESSION_ONLY.replace("{envVar}", config.envVar!);
+    return message;
   }
 
   private handleInvalidToken(config: ProviderConfig): SetupResult {
@@ -399,27 +416,21 @@ export class SecuritySetupWizard {
       this.out.log(`  - Scopes include: ${config.requiredScopes!.join(", ")}`);
     }
 
-    return { success: false, message: "Token validation failed" };
+    const result: SetupResult = { success: false, message: "Token validation failed" };
+    return result;
   }
 
   validateToken(provider: SetupSecurityProvider, token: string): boolean | Promise<boolean> {
     try {
-      const isGitHub = provider === "github";
-      if (isGitHub) {
-        return this.validateGitHubToken(token);
-      }
-
-      const isSnyk = provider === "snyk";
-      if (isSnyk) {
-        return this.validateSnykToken(token);
-      }
-
-      const isSocket = provider === "socket";
-      if (isSocket) {
-        return this.validateSocketToken(token);
-      }
-
-      return true;
+      const validators = new Map<string, (value: string) => Promise<boolean>>([
+        ["github", this.validateGitHubToken],
+        ["snyk", this.validateSnykToken],
+        ["socket", this.validateSocketToken],
+      ]);
+      const validate = validators.get(provider);
+      if (!validate) return true;
+      const isValid = validate.call(this, token);
+      return isValid;
     } catch (error) {
       this.log.debug("Token validation error", "validateToken", { error });
       return false;
@@ -428,13 +439,11 @@ export class SecuritySetupWizard {
 
   private async validateGitHubToken(token: string): Promise<boolean> {
     try {
-      const response = await fetch(VALIDATION_ENDPOINTS.github, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/vnd.github.v3+json",
-        },
-      });
-      return response.ok;
+      const Authorization = `Bearer ${token}`;
+      const headers = { Authorization, Accept: "application/vnd.github.v3+json" };
+      const response = await fetch(VALIDATION_ENDPOINTS.github, { headers });
+      const isValid = response.ok;
+      return isValid;
     } catch {
       return false;
     }
@@ -442,13 +451,11 @@ export class SecuritySetupWizard {
 
   private async validateSnykToken(token: string): Promise<boolean> {
     try {
-      const response = await fetch(VALIDATION_ENDPOINTS.snyk, {
-        headers: {
-          Authorization: `token ${token}`,
-          "Content-Type": "application/vnd.api+json",
-        },
-      });
-      return response.ok;
+      const Authorization = `token ${token}`;
+      const headers = { Authorization, "Content-Type": "application/vnd.api+json" };
+      const response = await fetch(VALIDATION_ENDPOINTS.snyk, { headers });
+      const isValid = response.ok;
+      return isValid;
     } catch {
       return false;
     }
@@ -457,12 +464,11 @@ export class SecuritySetupWizard {
   private async validateSocketToken(token: string): Promise<boolean> {
     try {
       const credentials = Buffer.from(`${token}:`).toString("base64");
-      const response = await fetch(VALIDATION_ENDPOINTS.socket, {
-        headers: {
-          Authorization: `Basic ${credentials}`,
-        },
-      });
-      return response.ok;
+      const Authorization = `Basic ${credentials}`;
+      const headers = { Authorization };
+      const response = await fetch(VALIDATION_ENDPOINTS.socket, { headers });
+      const isValid = response.ok;
+      return isValid;
     } catch {
       return false;
     }
@@ -479,24 +485,16 @@ export class SecuritySetupWizard {
   }
 
   private async openUrl(url: string): Promise<void> {
-    const platform = process.platform;
-    const isMac = platform === "darwin";
-    const isLinux = platform === "linux";
-    const isWindows = platform === "win32";
-
+    const commands = new Map<string, [string, string[]]>([
+      ["darwin", ["open", [url]]],
+      ["linux", ["xdg-open", [url]]],
+      ["win32", ["cmd", ["/c", "start", url]]],
+    ]);
+    const command = commands.get(process.platform);
     try {
-      if (isMac) {
-        await execFileAsync("open", [url]);
-        return;
-      }
-
-      if (isLinux) {
-        await execFileAsync("xdg-open", [url]);
-        return;
-      }
-
-      if (isWindows) {
-        await execFileAsync("cmd", ["/c", "start", url]);
+      if (command) {
+        const [executable, args] = command;
+        await execFileAsync(executable, args);
         return;
       }
     } catch (error) {
@@ -512,7 +510,8 @@ export class SecuritySetupWizard {
     const profilePath = this.findShellProfile(home, shellProfiles);
 
     try {
-      return this.writeTokenToShellProfile(profilePath, envVar, token);
+      const result = this.writeTokenToShellProfile(profilePath, envVar, token);
+      return result;
     } catch (error) {
       this.handleProfileSaveError(profilePath, envVar, error);
       return false;
@@ -536,7 +535,8 @@ export class SecuritySetupWizard {
   }
 
   private profileHasEnvVar(content: string, envVar: string): boolean {
-    return content.includes(`export ${envVar}=`);
+    const result = content.includes(`export ${envVar}=`);
+    return result;
   }
 
   private handleProfileSaveError(profilePath: string, envVar: string, error: unknown): void {
@@ -549,7 +549,8 @@ export class SecuritySetupWizard {
   private findShellProfile(home: string, profiles: string[]): string {
     const found = profiles.find((profile) => existsSync(join(home, profile)));
     const defaultProfile = join(home, ".zshrc");
-    return found ? join(home, found) : defaultProfile;
+    const shellProfile = found ? join(home, found) : defaultProfile;
+    return shellProfile;
   }
 }
 
@@ -561,37 +562,45 @@ export async function promptForSetup(
   const hasToken = await wizard.checkTokenAvailable(provider);
 
   if (hasToken) {
-    return createAlreadyConfiguredResult(provider);
+    const result = createAlreadyConfiguredResult(provider);
+    return result;
   }
 
   const config = PROVIDER_CONFIGS[provider];
   const wantsSetup = await confirmSetupHelp(config);
 
   if (wantsSetup) {
-    return wizard.runSetup(provider);
+    const setup = wizard.runSetup(provider);
+    return setup;
   }
 
-  return createSetupSkippedResult(config);
+  const skipped = createSetupSkippedResult(config);
+  return skipped;
 }
 
 function createAlreadyConfiguredResult(provider: SetupSecurityProvider): SetupResult {
-  return {
+  const message = `${PROVIDER_CONFIGS[provider].name} is already configured.`;
+  const alreadyConfiguredResult: SetupResult = {
     success: true,
-    message: `${PROVIDER_CONFIGS[provider].name} is already configured.`,
+    message,
   };
+  return alreadyConfiguredResult;
 }
 
 function confirmSetupHelp(config: ProviderConfig): Promise<boolean> {
   const out = createOutput();
   out.warn(`No ${config.name} authentication found.\n`);
-  return promptConfirm(`Would you like help setting up ${config.name}?`, true);
+  const result = promptConfirm(`Would you like help setting up ${config.name}?`, true);
+  return result;
 }
 
 function createSetupSkippedResult(config: ProviderConfig): SetupResult {
-  return {
+  const message = `Skipped ${config.name} setup. Security scan may be limited.`;
+  const setupSkippedResult: SetupResult = {
     success: false,
-    message: `Skipped ${config.name} setup. Security scan may be limited.`,
+    message,
   };
+  return setupSkippedResult;
 }
 
 export type { SetupSecurityProvider };

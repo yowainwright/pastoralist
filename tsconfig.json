@@ -9,7 +9,7 @@
     "checkJs": false,
     "forceConsistentCasingInFileNames": true,
     "importHelpers": true,
-    "lib": ["es2022", "dom", "dom.iterable"],
+    "lib": ["es2023", "dom", "dom.iterable"],
     "module": "esnext",
     "moduleResolution": "bundler",
     "noEmit": false,

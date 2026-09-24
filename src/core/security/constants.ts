@@ -58,54 +58,75 @@ const spektionTokenLink = link(SPEKTION_TOKEN_URL, "Spektion");
 
 export const KNOWN_PROVIDERS = ["github", "snyk", "socket", "osv", "npm", "spektion"] as const;
 
-export const PROVIDER_CONFIGS: Record<SetupSecurityProvider, ProviderConfig> = {
-  github: {
-    name: "GitHub Dependabot",
-    envVar: "GITHUB_TOKEN",
-    tokenUrl: GITHUB_TOKEN_URL,
-    cliAlternative: "gh",
-    requiredScopes: ["repo", "security_events"],
-    setupSteps: [
-      `1. Open ${githubTokenLink}`,
-      "2. Click 'Generate new token (classic)'",
-      "3. Name it 'pastoralist-security'",
-      "4. Select scopes: 'repo' and 'security_events'",
-      "5. Click 'Generate token' and copy it",
-    ],
-  },
-  snyk: {
-    name: "Snyk",
-    envVar: "SNYK_TOKEN",
-    tokenUrl: SNYK_TOKEN_URL,
-    setupSteps: [
-      `1. Open ${snykTokenLink}`,
-      "2. Find 'Auth Token' section",
-      "3. Click to reveal and copy the token",
-    ],
-  },
-  socket: {
-    name: "Socket.dev",
-    envVar: "SOCKET_SECURITY_API_KEY",
-    tokenUrl: SOCKET_TOKEN_URL,
-    setupSteps: [`1. Open ${socketTokenLink}`, "2. Create a new API key", "3. Copy the key"],
-  },
-  osv: {
-    name: "OSV (Open Source Vulnerabilities)",
-    envVar: null,
-    tokenUrl: null,
-    setupSteps: ["OSV is free and requires no authentication!"],
-  },
-  spektion: {
-    name: "Spektion",
-    envVar: "SPEKTION_API_KEY",
-    tokenUrl: SPEKTION_TOKEN_URL,
-    setupSteps: [
-      `1. Open ${spektionTokenLink}`,
-      "2. Create an account and generate an API key",
-      "3. Set SPEKTION_API_KEY in your environment",
-    ],
-  },
+const githubScopes = ["repo", "security_events"];
+const githubSteps = [
+  `1. Open ${githubTokenLink}`,
+  "2. Click 'Generate new token (classic)'",
+  "3. Name it 'pastoralist-security'",
+  "4. Select scopes: 'repo' and 'security_events'",
+  "5. Click 'Generate token' and copy it",
+];
+const githubConfig: ProviderConfig = {
+  name: "GitHub Dependabot",
+  envVar: "GITHUB_TOKEN",
+  tokenUrl: GITHUB_TOKEN_URL,
+  cliAlternative: "gh",
+  requiredScopes: githubScopes,
+  setupSteps: githubSteps,
 };
+
+const snykSteps = [
+  `1. Open ${snykTokenLink}`,
+  "2. Find 'Auth Token' section",
+  "3. Click to reveal and copy the token",
+];
+const snykConfig: ProviderConfig = {
+  name: "Snyk",
+  envVar: "SNYK_TOKEN",
+  tokenUrl: SNYK_TOKEN_URL,
+  setupSteps: snykSteps,
+};
+
+const socketSteps = [`1. Open ${socketTokenLink}`, "2. Create a new API key", "3. Copy the key"];
+const socketConfig: ProviderConfig = {
+  name: "Socket.dev",
+  envVar: "SOCKET_SECURITY_API_KEY",
+  tokenUrl: SOCKET_TOKEN_URL,
+  setupSteps: socketSteps,
+};
+
+const osvSteps = ["OSV is free and requires no authentication!"];
+const osvConfig: ProviderConfig = {
+  name: "OSV (Open Source Vulnerabilities)",
+  envVar: null,
+  tokenUrl: null,
+  setupSteps: osvSteps,
+};
+
+const spektionSteps = [
+  `1. Open ${spektionTokenLink}`,
+  "2. Create an account and generate an API key",
+  "3. Set SPEKTION_API_KEY in your environment",
+];
+const spektionConfig: ProviderConfig = {
+  name: "Spektion",
+  envVar: "SPEKTION_API_KEY",
+  tokenUrl: SPEKTION_TOKEN_URL,
+  setupSteps: spektionSteps,
+};
+
+export const PROVIDER_CONFIGS: Record<SetupSecurityProvider, ProviderConfig> = {
+  github: githubConfig,
+  snyk: snykConfig,
+  socket: socketConfig,
+  osv: osvConfig,
+  spektion: spektionConfig,
+};
+
+const tokenChecks = [
+  "The token was copied correctly",
+  "The token has the required permissions",
+] as const;
 
 export const SETUP_MESSAGES = {
   OSV_NO_SETUP: "OSV requires no setup - you're good to go!",
@@ -120,13 +141,15 @@ export const SETUP_MESSAGES = {
   SESSION_ONLY: "Token set for this session. Set {envVar} in your environment to persist.",
   SAVED_TO_PROFILE:
     "Token saved to shell profile. Restart your terminal or run 'source ~/.zshrc' to use it globally.",
-  CHECK_ITEMS: ["The token was copied correctly", "The token has the required permissions"],
+  CHECK_ITEMS: tokenChecks,
 } as const;
 
 const ghCliUrl = "https://cli.github.com/";
 const ghLinuxUrl = "https://github.com/cli/cli/blob/trunk/docs/install_linux.md";
 const ghCliLink = link(ghCliUrl, "cli.github.com");
 const ghLinuxLink = link(ghLinuxUrl, "GitHub CLI Linux install guide");
+const ghManualInstall = `Install manually: ${ghCliLink}`;
+const ghLinuxInstall = `Install manually: ${ghLinuxLink}`;
 
 export const GH_MESSAGES = {
   READY: "GitHub CLI is installed and authenticated!",
@@ -149,8 +172,8 @@ export const GH_MESSAGES = {
   BREW_CMD: "Running: brew install gh",
   INSTALLED: "GitHub CLI installed!",
   INSTALL_FAILED: "Failed to install GitHub CLI automatically.",
-  MANUAL_INSTALL: `Install manually: ${ghCliLink}`,
-  LINUX_INSTALL: `Install manually: ${ghLinuxLink}`,
+  MANUAL_INSTALL: ghManualInstall,
+  LINUX_INSTALL: ghLinuxInstall,
 } as const;
 
 export const VALIDATION_ENDPOINTS = {
@@ -166,6 +189,8 @@ export const OSV_API = {
   VULN: (id: string) => `https://api.osv.dev/v1/vulns/${id}`,
 } as const;
 
+const fixAlertCves = ["CVE-FAKE-PASTORALIST-2024-0001"];
+
 export const OSV_IRL_FIX_ALERT: SecurityAlert = {
   packageName: "fake-pastoralist-check-2",
   currentVersion: "1.0.0",
@@ -174,12 +199,14 @@ export const OSV_IRL_FIX_ALERT: SecurityAlert = {
   severity: "critical",
   title:
     "Critical vulnerability in fake-pastoralist-check-2 (transitive from fake-pastoralist-check-1)",
-  cves: ["CVE-FAKE-PASTORALIST-2024-0001"],
+  cves: fixAlertCves,
   fixAvailable: true,
   description:
     "Fake critical security vulnerability in fake-pastoralist-check-2. Used by fake-pastoralist-check-1@1.0.0.",
   url: "https://example.com/fake-pastoralist-advisory-0001",
 };
+
+const catchAlertCves = ["CVE-FAKE-PASTORALIST-2024-0002"];
 
 export const OSV_IRL_CATCH_ALERT: SecurityAlert = {
   packageName: "fake-pastoralist-check-4",
@@ -188,7 +215,7 @@ export const OSV_IRL_CATCH_ALERT: SecurityAlert = {
   patchedVersion: undefined,
   severity: "high",
   title: "High severity issue in fake-pastoralist-check-4 with no patch available",
-  cves: ["CVE-FAKE-PASTORALIST-2024-0002"],
+  cves: catchAlertCves,
   fixAvailable: false,
   description:
     "Fake high severity vulnerability with no available patch for testing alert capture functionality.",
@@ -230,67 +257,67 @@ export const SECURITY_ACTION_CHOICES: PromptChoice[] = [
   },
 ];
 
+const createMockDependency = (name: string): DependabotAlert["dependency"] => {
+  const pkg = { ecosystem: "npm", name };
+  const dependency: DependabotAlert["dependency"] = {
+    package: pkg,
+    manifest_path: "package.json",
+    scope: "runtime",
+  };
+  return dependency;
+};
+
+const createMockVulnerability = (name: string, version: string) => {
+  const pkg = { ecosystem: "npm", name };
+  const vulnerable_version_range = `< ${version}`;
+  const first_patched_version = { identifier: version };
+  const vulnerability = { package: pkg, vulnerable_version_range, first_patched_version };
+  return vulnerability;
+};
+
+const createMockAdvisory = (name: string, version: string, severity: Severity) => {
+  const summary = `Mock vulnerability in ${name}`;
+  const vulnerabilities = [createMockVulnerability(name, version)];
+  const advisory = { severity, summary, description: "Mock description", vulnerabilities };
+  return advisory;
+};
+
+const createMockSecurityVulnerability = (name: string, version: string, severity: Severity) => {
+  const {
+    package: pkg,
+    vulnerable_version_range,
+    first_patched_version,
+  } = createMockVulnerability(name, version);
+  const vulnerability = { package: pkg, severity, vulnerable_version_range, first_patched_version };
+  return vulnerability;
+};
+
+const mockAlertMetadata = {
+  state: "open",
+  url: "https://mock.url",
+  html_url: "https://mock.url",
+  created_at: "2021-01-01T00:00:00Z",
+  updated_at: "2021-01-01T00:00:00Z",
+} as const;
+
+const createMockAlert = (
+  name: string,
+  version: string,
+  severity: Severity,
+  number: number,
+): DependabotAlert => {
+  const dependency = createMockDependency(name);
+  const security_advisory = createMockAdvisory(name, version, severity);
+  const security_vulnerability = createMockSecurityVulnerability(name, version, severity);
+  const alert: DependabotAlert = Object.assign({}, { number }, mockAlertMetadata, {
+    dependency,
+    security_advisory,
+    security_vulnerability,
+  });
+  return alert;
+};
+
 export const GITHUB_DEFAULT_MOCK_ALERTS: DependabotAlert[] = [
-  {
-    number: 1,
-    state: "open",
-    url: "https://mock.url",
-    html_url: "https://mock.url",
-    created_at: "2021-01-01T00:00:00Z",
-    updated_at: "2021-01-01T00:00:00Z",
-    dependency: {
-      package: { ecosystem: "npm", name: "lodash" },
-      manifest_path: "package.json",
-      scope: "runtime",
-    },
-    security_advisory: {
-      severity: "high",
-      summary: "Mock vulnerability in lodash",
-      description: "Mock description",
-      vulnerabilities: [
-        {
-          package: { ecosystem: "npm", name: "lodash" },
-          vulnerable_version_range: "< 4.17.21",
-          first_patched_version: { identifier: "4.17.21" },
-        },
-      ],
-    },
-    security_vulnerability: {
-      package: { ecosystem: "npm", name: "lodash" },
-      severity: "high",
-      vulnerable_version_range: "< 4.17.21",
-      first_patched_version: { identifier: "4.17.21" },
-    },
-  },
-  {
-    number: 2,
-    state: "open",
-    url: "https://mock.url",
-    html_url: "https://mock.url",
-    created_at: "2021-01-01T00:00:00Z",
-    updated_at: "2021-01-01T00:00:00Z",
-    dependency: {
-      package: { ecosystem: "npm", name: "minimist" },
-      manifest_path: "package.json",
-      scope: "runtime",
-    },
-    security_advisory: {
-      severity: "medium",
-      summary: "Mock vulnerability in minimist",
-      description: "Mock description",
-      vulnerabilities: [
-        {
-          package: { ecosystem: "npm", name: "minimist" },
-          vulnerable_version_range: "< 1.2.6",
-          first_patched_version: { identifier: "1.2.6" },
-        },
-      ],
-    },
-    security_vulnerability: {
-      package: { ecosystem: "npm", name: "minimist" },
-      severity: "medium",
-      vulnerable_version_range: "< 1.2.6",
-      first_patched_version: { identifier: "1.2.6" },
-    },
-  },
+  createMockAlert("lodash", "4.17.21", "high", 1),
+  createMockAlert("minimist", "1.2.6", "medium", 2),
 ];

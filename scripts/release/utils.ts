@@ -9,7 +9,8 @@ type DelayPromise = Promise<void>;
 export function readPackageVersion(cwd: string): string {
   const manifest = JSON.parse(readFileSync(join(cwd, "package.json"), "utf8")) as PackageManifest;
   if (typeof manifest.version !== "string") throw new Error("package.json version is missing");
-  return manifest.version;
+  const result = manifest.version;
+  return result;
 }
 
 export function createGitRunner(cwd: string): GitRunner {
@@ -17,11 +18,13 @@ export function createGitRunner(cwd: string): GitRunner {
     const result = spawnSync("git", Array.from(args), { cwd, encoding: "utf8" });
     const stderr = result.stderr || "";
     const stdout = result.stdout || "";
-    return {
-      status: result.status,
+    const { status } = result;
+    const commandResult = {
+      status,
       stderr,
       stdout,
     };
+    return commandResult;
   };
 }
 
@@ -30,17 +33,22 @@ export function createRunner(cwd: string): ReleaseRunner {
     const result = spawnSync(command, Array.from(args), { cwd, encoding: "utf8" });
     const stderr = result.stderr || "";
     const stdout = result.stdout || "";
-    return {
-      status: result.status,
+    const { status } = result;
+    const commandResult = {
+      status,
       stderr,
       stdout,
     };
+    return commandResult;
   };
 }
 
 export function gitText(git: GitRunner, args: readonly string[], message: string): string {
   const result = git(args);
-  if (result.status === 0) return result.stdout.trim();
+  if (result.status === 0) {
+    const output = result.stdout.trim();
+    return output;
+  }
 
   const errorMessage = result.stderr.trim() || message;
   throw new Error(errorMessage);
@@ -52,7 +60,10 @@ export function commandText(
   args: readonly string[],
 ): string {
   const result = runner(command, args);
-  if (result.status === 0) return result.stdout.trim();
+  if (result.status === 0) {
+    const output = result.stdout.trim();
+    return output;
+  }
 
   const commandMessage = `${command} ${args.join(" ")} failed`;
   const message = result.stderr.trim() || commandMessage;
@@ -65,13 +76,17 @@ export function runCommand(runner: ReleaseRunner, command: string, args: readonl
 
 export function quoteShellArg(arg: string): string {
   if (SAFE_SHELL_ARG_PATTERN.test(arg)) return arg;
-  return JSON.stringify(arg);
+  const result = JSON.stringify(arg);
+  return result;
 }
 
 export function formatShellCommand(command: string, args: readonly string[]): string {
-  return [command, ...args].map(quoteShellArg).join(" ");
+  const argumentsWithCommand = [command].concat(args);
+  const shellCommand = argumentsWithCommand.map(quoteShellArg).join(" ");
+  return shellCommand;
 }
 
 export function delay(milliseconds: number): DelayPromise {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+  const result = new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+  return result;
 }

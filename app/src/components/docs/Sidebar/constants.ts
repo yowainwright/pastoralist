@@ -1,69 +1,45 @@
 import { resolveDocsUrl } from "../../../utils/urlResolver";
 
+const sidebarItem = (title: string, slug: string) => {
+  const href = resolveDocsUrl(slug);
+  const item = { title, href };
+  return item;
+};
+
+const gettingStarted = [
+  sidebarItem("Introduction", "introduction"),
+  sidebarItem("Setup", "setup"),
+  sidebarItem("Onboarding", "onboarding"),
+];
+const features = [
+  sidebarItem("Security Scanning", "security"),
+  sidebarItem("Workspaces & Monorepos", "workspaces"),
+  sidebarItem("Advanced Features", "advanced-features"),
+];
+const codelabs = [sidebarItem("Basic Usage", "codelab")];
+const reference = [
+  sidebarItem("API Reference", "api-reference"),
+  sidebarItem("GitHub Action", "github-action"),
+  sidebarItem("Architecture", "architecture"),
+  sidebarItem("Troubleshooting & FAQ", "troubleshooting"),
+];
+
 export const SIDEBAR = [
   {
     title: "Getting Started",
-    items: [
-      {
-        title: "Introduction",
-        href: resolveDocsUrl("introduction"),
-      },
-      {
-        title: "Setup",
-        href: resolveDocsUrl("setup"),
-      },
-      {
-        title: "Onboarding",
-        href: resolveDocsUrl("onboarding"),
-      },
-    ],
+    items: gettingStarted,
   },
   {
     title: "Features",
-    items: [
-      {
-        title: "Security Scanning",
-        href: resolveDocsUrl("security"),
-      },
-      {
-        title: "Workspaces & Monorepos",
-        href: resolveDocsUrl("workspaces"),
-      },
-      {
-        title: "Advanced Features",
-        href: resolveDocsUrl("advanced-features"),
-      },
-    ],
+    items: features,
   },
   {
     title: "Codelabs",
-    items: [
-      {
-        title: "Basic Usage",
-        href: resolveDocsUrl("codelab"),
-      },
-    ],
+    items: codelabs,
   },
   {
     title: "Reference",
-    items: [
-      {
-        title: "API Reference",
-        href: resolveDocsUrl("api-reference"),
-      },
-      {
-        title: "GitHub Action",
-        href: resolveDocsUrl("github-action"),
-      },
-      {
-        title: "Architecture",
-        href: resolveDocsUrl("architecture"),
-      },
-      {
-        title: "Troubleshooting & FAQ",
-        href: resolveDocsUrl("troubleshooting"),
-      },
-    ],
+    items: reference,
   },
 ];
 

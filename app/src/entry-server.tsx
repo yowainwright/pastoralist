@@ -19,7 +19,8 @@ const renderToHtml = async (app: ReactNode): Promise<string> => {
   });
   await stream.allReady;
   if (renderError) throw renderError;
-  return new Response(stream).text();
+  const result = new Response(stream).text();
+  return result;
 };
 
 const renderRouterScripts = (router: AppRouter): Promise<string> => {
@@ -28,7 +29,8 @@ const renderRouterScripts = (router: AppRouter): Promise<string> => {
       <Scripts />
     </RouterContextProvider>
   );
-  return renderToHtml(scripts);
+  const result = renderToHtml(scripts);
+  return result;
 };
 
 const renderApp = async (router: AppRouter): Promise<RenderedRoute> => {
@@ -43,7 +45,8 @@ const renderApp = async (router: AppRouter): Promise<RenderedRoute> => {
   const appHtml = await renderToHtml(app);
   const routerHtml = await renderRouterScripts(router);
   serverSsr.setRenderFinished();
-  return { appHtml, routerHtml };
+  const result = { appHtml, routerHtml };
+  return result;
 };
 
 export async function render(pathname: string): Promise<RenderedRoute> {
@@ -53,7 +56,8 @@ export async function render(pathname: string): Promise<RenderedRoute> {
 
   await handleRequest(async ({ router }) => {
     rendered = await renderApp(router);
-    return new Response(null, { status: 200 });
+    const result = new Response(null, { status: 200 });
+    return result;
   });
 
   if (!rendered) throw new Error(`Failed to render ${pathname}`);

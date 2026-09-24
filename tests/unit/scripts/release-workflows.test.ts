@@ -1,3 +1,4 @@
+import { assertExcludesText, assertContainsText } from "./utils";
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -5,92 +6,119 @@ import { readFileSync } from "node:fs";
 const readWorkflow = (name: string): string =>
   readFileSync(new URL(`../../../.github/workflows/${name}`, import.meta.url), "utf8");
 
+const cases = [
+  {
+    name: "exports the Homebrew version before validation",
+    run: () => {
+      const workflow = readWorkflow("homebrew.yml");
+      const steps = [
+        'export VERSION="${RELEASE_REF#v}"',
+        "pnpm exec jiti scripts/release/brew.ts validate-version",
+      ];
+      const [exportIndex, validationIndex] = steps.map((step) => workflow.indexOf(step));
+
+      assert.ok(exportIndex > -1);
+      assert.ok(validationIndex > exportIndex);
+    },
+  },
+  {
+    name: "does not overwrite release assets",
+    run: () => {
+      const workflows = [readWorkflow("publish.yml"), readWorkflow("homebrew.yml")];
+
+      workflows.forEach((workflow) => assertExcludesText(workflow, "--clobber"));
+      workflows.forEach((workflow) =>
+        assertContainsText(workflow, "scripts/release/upload-assets.sh"),
+      );
+    },
+  },
+  {
+    name: "publishes draft releases by numeric ID",
+    run: () => {
+      const workflow = readWorkflow("homebrew.yml");
+
+      assertContainsText(workflow, "path: release-tools");
+      assertContainsText(workflow, 'ref: "${{ github.workflow_sha }}"');
+      assertContainsText(workflow, "release-tools/scripts/release/upload-assets.sh");
+      assertContainsText(workflow, "releases/$RELEASE_ID");
+      assertExcludesText(workflow, 'gh release edit "v${VERSION}"');
+    },
+  },
+  {
+    name: "audits the packed formula before npm publication",
+    run: () => {
+      const workflow = readWorkflow("publish.yml");
+      const steps = ["brew audit --strict --formula", "npm publish"];
+      const [auditIndex, publishIndex] = steps.map((step) => workflow.indexOf(step));
+
+      assertContainsText(workflow, "runs-on: macos-latest");
+      assertContainsText(workflow, "pnpm exec jiti scripts/release/brew.ts generate-local");
+      assert.ok(auditIndex > -1);
+      assert.ok(publishIndex > auditIndex);
+    },
+  },
+  {
+    name: "validates the tag against the package version before publication",
+    run: () => {
+      const workflow = readWorkflow("publish.yml");
+      const steps = ['test "$VERSION" = "$PACKAGE_VERSION"', "npm publish"];
+      const [validationIndex, publishIndex] = steps.map((step) => workflow.indexOf(step));
+
+      assert.ok(validationIndex > -1);
+      assert.ok(publishIndex > validationIndex);
+    },
+  },
+  {
+    name: "configures tap push authentication before cloning",
+    run: () => {
+      const workflow = readWorkflow("homebrew.yml");
+      const steps = [
+        "gh auth setup-git --hostname github.com --force",
+        "gh repo clone yowainwright/homebrew-tap tap",
+      ];
+      const [authIndex, cloneIndex] = steps.map((step) => workflow.indexOf(step));
+
+      assert.ok(authIndex > -1);
+      assert.ok(cloneIndex > authIndex);
+    },
+  },
+  {
+    name: "uses ScriptC for release binaries",
+    run: () => {
+      const workflows = [readWorkflow("ci.yml"), readWorkflow("homebrew.yml")];
+
+      workflows.forEach((workflow) => assertContainsText(workflow, "ScriptC binary"));
+    },
+  },
+  {
+    name: "publishes the Homebrew binary asset matrix",
+    run: () => {
+      const workflow = readWorkflow("homebrew.yml");
+      const targets = ["darwin-arm64", "darwin-amd64", "linux-arm64", "linux-amd64"];
+
+      targets.forEach((target) => assertContainsText(workflow, `target: ${target}`));
+      assertContainsText(workflow, "actions/upload-artifact@");
+      assertContainsText(workflow, "actions/download-artifact@");
+      assertExcludesText(workflow, "mapfile");
+      assertContainsText(workflow, "while IFS= read -r asset; do");
+      assertContainsText(workflow, "pastoralist-darwin-*");
+      assertContainsText(workflow, "pastoralist-linux-*");
+      assertContainsText(workflow, 'test "${#BINARY_ASSETS[@]}" -eq 8');
+    },
+  },
+  {
+    name: "always cleans Docker resources after e2e runs",
+    run: () => {
+      const workflow = readWorkflow("ci.yml");
+      const cleanupSteps = workflow.match(
+        /if: always\(\)\n\s+working-directory: tests\/e2e\n\s+run: docker compose down/g,
+      );
+
+      assert.strictEqual(cleanupSteps?.length, 2);
+    },
+  },
+];
+
 describe("release workflows", () => {
-  test("exports the Homebrew version before validation", () => {
-    const workflow = readWorkflow("homebrew.yml");
-    const exportIndex = workflow.indexOf('export VERSION="${RELEASE_REF#v}"');
-    const validationIndex = workflow.indexOf(
-      "pnpm exec jiti scripts/release/brew.ts validate-version",
-    );
-
-    assert.ok(exportIndex > -1);
-    assert.ok(validationIndex > exportIndex);
-  });
-
-  test("does not overwrite release assets", () => {
-    const workflows = [readWorkflow("publish.yml"), readWorkflow("homebrew.yml")];
-
-    workflows.forEach((workflow) => assert.ok(!workflow.includes("--clobber")));
-    workflows.forEach((workflow) =>
-      assert.ok(workflow.includes("scripts/release/upload-assets.sh")),
-    );
-  });
-
-  test("publishes draft releases by numeric ID", () => {
-    const workflow = readWorkflow("homebrew.yml");
-
-    assert.ok(workflow.includes("path: release-tools"));
-    assert.ok(workflow.includes('ref: "${{ github.workflow_sha }}"'));
-    assert.ok(workflow.includes("release-tools/scripts/release/upload-assets.sh"));
-    assert.ok(workflow.includes("releases/$RELEASE_ID"));
-    assert.ok(!workflow.includes('gh release edit "v${VERSION}"'));
-  });
-
-  test("audits the packed formula before npm publication", () => {
-    const workflow = readWorkflow("publish.yml");
-    const auditIndex = workflow.indexOf("brew audit --strict --formula");
-    const publishIndex = workflow.indexOf("npm publish");
-
-    assert.ok(workflow.includes("runs-on: macos-latest"));
-    assert.ok(workflow.includes("pnpm exec jiti scripts/release/brew.ts generate-local"));
-    assert.ok(auditIndex > -1);
-    assert.ok(publishIndex > auditIndex);
-  });
-
-  test("validates the tag against the package version before publication", () => {
-    const workflow = readWorkflow("publish.yml");
-    const validationIndex = workflow.indexOf('test "$VERSION" = "$PACKAGE_VERSION"');
-    const publishIndex = workflow.indexOf("npm publish");
-
-    assert.ok(validationIndex > -1);
-    assert.ok(publishIndex > validationIndex);
-  });
-
-  test("configures tap push authentication before cloning", () => {
-    const workflow = readWorkflow("homebrew.yml");
-    const authIndex = workflow.indexOf("gh auth setup-git --hostname github.com --force");
-    const cloneIndex = workflow.indexOf("gh repo clone yowainwright/homebrew-tap tap");
-
-    assert.ok(authIndex > -1);
-    assert.ok(cloneIndex > authIndex);
-  });
-
-  test("uses ScriptC for release binaries", () => {
-    const workflows = [readWorkflow("ci.yml"), readWorkflow("homebrew.yml")];
-
-    workflows.forEach((workflow) => assert.ok(workflow.includes("ScriptC binary")));
-  });
-
-  test("publishes the Homebrew binary asset matrix", () => {
-    const workflow = readWorkflow("homebrew.yml");
-    const targets = ["darwin-arm64", "darwin-amd64", "linux-arm64", "linux-amd64"];
-
-    targets.forEach((target) => assert.ok(workflow.includes(`target: ${target}`)));
-    assert.ok(workflow.includes("actions/upload-artifact@"));
-    assert.ok(workflow.includes("actions/download-artifact@"));
-    assert.ok(!workflow.includes("mapfile"));
-    assert.ok(workflow.includes("while IFS= read -r asset; do"));
-    assert.ok(workflow.includes("pastoralist-darwin-*"));
-    assert.ok(workflow.includes("pastoralist-linux-*"));
-    assert.ok(workflow.includes('test "${#BINARY_ASSETS[@]}" -eq 8'));
-  });
-
-  test("always cleans Docker resources after e2e runs", () => {
-    const workflow = readWorkflow("ci.yml");
-    const cleanupSteps = workflow.match(
-      /if: always\(\)\n\s+working-directory: tests\/e2e\n\s+run: docker compose down/g,
-    );
-
-    assert.strictEqual(cleanupSteps?.length, 2);
-  });
+  cases.forEach(({ name, run }) => test(name, run));
 });

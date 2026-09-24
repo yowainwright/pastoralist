@@ -28,17 +28,15 @@ brew install yowainwright/tap/pastoralist
 
 ## Initialize
 
-Run a read-only setup and override health check first:
+Check your dependency overrides without touching `package.json`:
 
 ```bash
 npx pastoralist doctor
 ```
 
-`doctor` runs in dry-run summary mode, so it shows current override health
-without modifying `package.json`.
+`doctor` shows a summary of your dependency overrides.
 
-Print the full first-run checklist when you want local setup, agent setup, and
-CI setup in one place:
+The `onboard` command shows setup steps for local use, agents, and CI.
 
 ```bash
 npx pastoralist onboard
@@ -62,8 +60,8 @@ Run the guided setup:
 npx pastoralist init
 ```
 
-The initializer can detect workspace packages, ask whether security checks
-should run, and save the configuration in `package.json` or a config file.
+The init command can detect workspaces, set up security checks, and save settings
+in a config file.
 
 For a simple project, you can also run Pastoralist directly:
 
@@ -71,8 +69,8 @@ For a simple project, you can also run Pastoralist directly:
 npx pastoralist
 ```
 
-It will scan your package manager overrides or resolutions, update the
-`pastoralist.appendix`, and leave unrelated package fields alone.
+Pastoralist checks dependency overrides and updates its appendix; it does this
+without touching other package settings.
 
 ## Add The Install Hook
 

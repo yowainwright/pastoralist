@@ -204,6 +204,7 @@ export interface SecurityOptions {
   securityOverrides?: OverridesType;
   securityOverrideDetails?: SecurityOverrideDetail[];
   securityAlerts?: SecurityAlert[];
+  securityPackagesScanned?: number;
   strict?: boolean;
   bestCase?: BestCaseConfig;
 }

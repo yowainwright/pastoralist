@@ -61,13 +61,16 @@ const splitPnpmLockDocuments = (content: string): string[] => {
 };
 
 const isPnpmPackageManagerDocument = (content: string): boolean => {
-  const hasPackageManagerDependencies = /^\s{4}packageManagerDependencies:/m.test(content);
+  const lines = content.split(/\r?\n/);
+  const importerIndex = lines.indexOf("importers:");
+  if (importerIndex === -1) return false;
+  const importers = getPnpmSectionLines(lines, importerIndex).join("\n");
+  const hasPackageManagerDependencies = /^\s{4}packageManagerDependencies:/m.test(importers);
   if (!hasPackageManagerDependencies) return false;
-  const hasSnapshots = /^snapshots:\s*$/m.test(content);
   const hasProjectDependencies = /^\s{4}(dependencies|devDependencies|optionalDependencies):/m.test(
-    content,
+    importers,
   );
-  const isManagerOnly = !hasSnapshots && !hasProjectDependencies;
+  const isManagerOnly = !hasProjectDependencies;
   return isManagerOnly;
 };
 

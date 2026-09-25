@@ -4,9 +4,16 @@ allowBuilds:
   "@parcel/watcher": true
   esbuild: true
 minimumReleaseAgeExclude:
-  - daisyui@5.7.20 || 5.7.28 || 5.7.40
-  - framer-motion@13.1.1
+  - daisyui@5.7.20 || 5.7.28 || 5.7.40 || 5.7.46
+  - framer-motion@13.1.1 || 13.4.3
   - motion-dom@13.1.1
   - "@vitejs/plugin-react@6.1.1"
-  - lucide-react@1.35.0 || 1.40.0 || 1.47.0
+  - lucide-react@1.35.0 || 1.40.0 || 1.47.0 || 1.48.0
   - "@types/react-dom@19.2.7"
+  - vite@8.3.1
+overrides:
+  "fast-uri": "3.1.8"
+  "js-yaml": "4.3.2"
+  "lodash-es": "4.18.1"
+  "hono": "4.13.9"
+  "qs": "6.16.0"

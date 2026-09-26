@@ -6,10 +6,10 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - codependence@1.0.13
   - oxlint-plugin-legibility@0.0.5
-  - '@turbo/darwin-64@2.11.4'
-  - '@turbo/darwin-arm64@2.11.4'
-  - '@turbo/linux-64@2.11.4'
-  - '@turbo/linux-arm64@2.11.4'
-  - '@turbo/windows-64@2.11.4'
-  - '@turbo/windows-arm64@2.11.4'
+  - "@turbo/darwin-64@2.11.4"
+  - "@turbo/darwin-arm64@2.11.4"
+  - "@turbo/linux-64@2.11.4"
+  - "@turbo/linux-arm64@2.11.4"
+  - "@turbo/windows-64@2.11.4"
+  - "@turbo/windows-arm64@2.11.4"
   - turbo@2.11.4

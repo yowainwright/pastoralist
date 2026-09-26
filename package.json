@@ -111,6 +111,7 @@
     "validate:full": "pnpm run validate && pnpm run test:e2e && pnpm run test:bench",
     "setup": "sh scripts/setup/setup.sh bootstrap"
   },
+  "dependencies": {},
   "devDependencies": {
     "@types/node": "26.6.2",
     "c8": "^12.0.0",
@@ -127,6 +128,8 @@
     "typescript": "7.0.2",
     "typescript5": "npm:typescript@5.9.3"
   },
+  "peerDependencies": {},
+  "optionalDependencies": {},
   "engines": {
     "node": ">=20.19.0"
   },
@@ -142,8 +145,5 @@
     "npm": {
       "publish": false
     }
-  },
-  "dependencies": {},
-  "peerDependencies": {},
-  "optionalDependencies": {}
+  }
 }

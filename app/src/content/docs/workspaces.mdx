@@ -3,9 +3,8 @@ title: Workspaces & Monorepos
 description: Using pastoralist in workspace and monorepo environments
 ---
 
-Pastoralist works with workspace and monorepo setups. This guide covers how to
-track root-level overrides while still showing which workspace packages depend
-on them.
+Pastoralist works with workspace and monorepo setups. It tracks root-level
+overrides and shows which workspace packages depend on them.
 
 <a
   href="https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/monorepo?title=Pastoralist%20Monorepo&file=README.md&startScript=demo&view=editor"
@@ -18,8 +17,8 @@ on them.
 ## How Pastoralist Works in Workspaces
 
 Pastoralist updates one target `package.json`, usually the workspace root. When
-`depPaths` is configured, it also reads workspace package manifests so the root
-appendix can show which packages still need each override.
+`depPaths` is set, it reads workspace package manifests, so the root appendix
+can show which packages still need each override.
 
 You can also run it against an individual workspace package with `--path` when
 that package owns its own override field.

@@ -18,7 +18,7 @@ npx pastoralist --remove-unused
 
 > Pastoralist keeps dependency overrides explainable, current, and removable
 
-Pastoralist tracks your dependency overrides: why they’re there, which packages
+Pastoralist tracks your dependency overrides: why they're there, which packages
 need them, and when you can remove them.
 
 Pastoralist works with npm and Bun `overrides`, pnpm `pnpm.overrides`, and Yarn
@@ -27,7 +27,8 @@ and CI checks to the same record.
 
 ## Why This Matters
 
-Overrides usually start with a good reason:
+Overrides usually start as real fixes: a CVE patch, a compatibility pin, a fork,
+or a transitive dependency workaround.
 
 ```json
 {
@@ -37,9 +38,9 @@ Overrides usually start with a good reason:
 }
 ```
 
-Months later, you might not remember why you added it. Was it a security fix?
-A transitive bug? Which packages still need it? Can you remove it? The override
-sets the version, and with Pastoralist, you have an appendix that keeps the context.
+Months later, the reason may not be clear. Was it a security fix? A transitive
+bug? Which packages still need it? Can it be removed? With Pastoralist, the
+override sets the version, and the appendix holds the context.
 
 ```json
 {
@@ -111,8 +112,8 @@ The appendix shows why the override was added, why it is needed, or if it can be
 
 ## When To Use It
 
-Use Pastoralist to document dependency overrides, remove the overrides you don't
-need anymore, and track override security fixes.
+Use Pastoralist to document dependency overrides, remove the ones you no longer
+need, and track override security fixes.
 
 It is designed to sit beside tools such as npm audit, Dependabot, Renovate,
 patch-package, syncpack, and depcheck. Those tools find or apply dependency
@@ -965,15 +966,14 @@ security:
 
 > Using pastoralist in workspace and monorepo environments
 
-Pastoralist works with workspace and monorepo setups. This guide covers how to
-track root-level overrides while still showing which workspace packages depend
-on them.
+Pastoralist works with workspace and monorepo setups. It tracks root-level
+overrides and shows which workspace packages depend on them.
 
 ## How Pastoralist Works in Workspaces
 
 Pastoralist updates one target `package.json`, usually the workspace root. When
-`depPaths` is configured, it also reads workspace package manifests so the root
-appendix can show which packages still need each override.
+`depPaths` is set, it reads workspace package manifests, so the root appendix
+can show which packages still need each override.
 
 You can also run it against an individual workspace package with `--path` when
 that package owns its own override field.
@@ -3008,7 +3008,7 @@ and which packages depend on it.
 
 ### Why do I need pastoralist?
 
-Without pastoralist, it's easy to forget why an override was added, which
+Without Pastoralist, it's easy to lose track of why an override was added, which
 packages still need it, or whether it's safe to remove.
 
 ### Does pastoralist work with Yarn, pnpm, and Bun?
@@ -3303,8 +3303,8 @@ Object.entries(appendix).forEach(([override, info]) => {
 
 > Learn how to configure Pastoralist using config files or package.json
 
-For most projects, start small: enable workspace scanning only if you have
-workspaces, and enable security checks only where you want advisory data.
+Start small for most projects. Enable workspace scanning only if you have
+workspaces, and security checks only where you want advisory data.
 
 ## Configuration Files
 

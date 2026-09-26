@@ -12,14 +12,14 @@
 [socket-package]: https://socket.dev/npm/package/pastoralist
 
 Pastoralist tracks your dependency [overrides](https://docs.npmjs.com/cli/v11/configuring-npm/package-json#overrides):
-why they’re there, which packages need them, and when you can remove them.
+why they're there, which packages need them, and when you can remove them.
 
-Overrides often start as real fixes: a CVE patch, a compatibility pin, a fork,
-or a temporary transitive dependency workaround.
+Overrides usually start as real fixes: a CVE patch, a compatibility pin, a fork,
+or a transitive dependency workaround.
 
-Months later, you might not remember why you added it. Was it a security fix?
-A transitive bug? Which packages still need it? Can you remove it? The override
-sets the version, and with Pastoralist, you have an appendix that keeps the context.
+Months later, the reason may not be clear. Was it a security fix? A transitive
+bug? Which packages still need it? Can it be removed? With Pastoralist, the
+override sets the version, and the appendix holds the context.
 
 <table width="100%">
 <thead>
@@ -60,8 +60,8 @@ sets the version, and with Pastoralist, you have an appendix that keeps the cont
 </tbody>
 </table>
 
-Use Pastoralist to document dependency overrides, remove the overrides you don't
-need anymore, and track override security fixes.
+Use Pastoralist to document dependency overrides, remove the ones you no longer
+need, and track override security fixes.
 
 ---
 

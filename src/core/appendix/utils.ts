@@ -320,14 +320,15 @@ const describeIndirectDependency = (
   dependencyTree?: Record<string, string>,
   dependencyGraph?: Record<string, string[]>,
 ): string => {
-  const requiredBy = dependencyGraph?.[name];
-  if (requiredBy?.length) {
+  const requiredBy = dependencyGraph?.[name] ?? [];
+  const canNameDependents = override.trim() === name && requiredBy.length > 0;
+  if (canNameDependents) {
     const dependents = requiredBy.slice(0, REQUIRED_BY_DEPENDENT_LIMIT).join(", ");
     const info = `${override} (${REQUIRED_BY_LABEL} ${dependents})`;
     return info;
   }
-  const isInDependencyTree = Boolean(dependencyTree?.[name]);
-  const label = isInDependencyTree ? TRANSITIVE_DEPENDENCY_LABEL : UNUSED_OVERRIDE_LABEL;
+  const isTransitive = requiredBy.length > 0 || Boolean(dependencyTree?.[name]);
+  const label = isTransitive ? TRANSITIVE_DEPENDENCY_LABEL : UNUSED_OVERRIDE_LABEL;
   const info = `${override} ${label}`;
   return info;
 };

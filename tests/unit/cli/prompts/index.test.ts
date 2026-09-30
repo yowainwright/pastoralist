@@ -12,18 +12,18 @@ const cursorTo = mock();
 const clearScreenDown = mock();
 const enhancedQuestion = mock(originalInput.enhancedQuestion);
 
-moduleMock.module("readline", {
-  namedExports: Object.assign({}, readline, {
-    clearScreenDown,
-    createInterface,
-    cursorTo,
-    emitKeypressEvents,
-    moveCursor,
-  }),
+const readlineExports = Object.assign({}, readline, {
+  clearScreenDown,
+  createInterface,
+  cursorTo,
+  emitKeypressEvents,
+  moveCursor,
 });
-moduleMock.module(import.meta.resolve("../../../../src/cli/prompts/input"), {
-  namedExports: Object.assign({}, originalInput, { enhancedQuestion }),
-});
+const inputExports = Object.assign({}, originalInput, { enhancedQuestion });
+const inputModulePath = import.meta.resolve("../../../../src/cli/prompts/input");
+
+moduleMock.module("readline", { namedExports: readlineExports });
+moduleMock.module(inputModulePath, { namedExports: inputExports });
 
 const { Prompt, createPrompt, promptCheckbox, promptSelect, quickConfirm, quickInput, quickList } =
   await import("../../../../src/cli/prompts");
@@ -31,25 +31,81 @@ const { Prompt, createPrompt, promptCheckbox, promptSelect, quickConfirm, quickI
 let mockCreateInterface: ReturnType<typeof spyOn>;
 let mockEnhancedQuestion: ReturnType<typeof spyOn>;
 
+const createMockInterface = () => {
+  const question = mock();
+  const close = mock();
+  const removeAllListeners = mock();
+  const pause = mock();
+  const resume = mock();
+  const rl = { question, close, removeAllListeners, pause, resume } as readline.Interface;
+  return rl;
+};
+
+const createAnsweringReadline = (answer: string) => {
+  const question = mock((_msg: string, callback: (answer: string) => void) => {
+    callback(answer);
+  });
+  const close = mock();
+  const readlineMock = { question, close };
+  return readlineMock;
+};
+
+const createCallbackReadline = (answer: string) => {
+  const close = mock();
+  const question = (_message: string, callback: (answer: string) => void) => callback(answer);
+  const readlineMock = { question, close } as unknown as readline.Interface;
+  return readlineMock;
+};
+
+const silenceConsoleLog = () => spyOn(console, "log").mockImplementation(() => undefined);
+
+const restoreProperty = (target: object, key: string, descriptor?: PropertyDescriptor) => {
+  if (descriptor) {
+    Object.defineProperty(target, key, descriptor);
+    return;
+  }
+  Reflect.deleteProperty(target, key);
+};
+
+const snapshotProperty = (target: object, key: string) => {
+  const descriptor = Object.getOwnPropertyDescriptor(target, key);
+  return () => restoreProperty(target, key, descriptor);
+};
+
+const enableRawModeSpy = () => {
+  const restoreIsTTY = snapshotProperty(process.stdin, "isTTY");
+  const restoreSetRawMode = snapshotProperty(process.stdin, "setRawMode");
+  process.stdin.isTTY = true;
+  const setRawModeMock = mock(() => {});
+  process.stdin.setRawMode = setRawModeMock;
+  const restore = () => {
+    restoreIsTTY();
+    restoreSetRawMode();
+  };
+  const rawMode = { setRawModeMock, restore };
+  return rawMode;
+};
+
+const toNumberedOption = (_: unknown, index: number) => {
+  const position = index + 1;
+  const name = `Option ${position}`;
+  const value = `opt${position}`;
+  const option = { name, value };
+  return option;
+};
+
 beforeEach(() => {
-  mockCreateInterface = createInterface.mockReturnValue({
-    question: mock(),
-    close: mock(),
-    removeAllListeners: mock(),
-    pause: mock(),
-    resume: mock(),
-  } as readline.Interface);
+  mockCreateInterface = createInterface.mockReturnValue(createMockInterface());
 
   mockEnhancedQuestion = enhancedQuestion.mockImplementation(
-    async (rl: any, prompt: string, processor: any = (answer: string) => answer.trim()) => {
-      return new Promise((resolve) => {
+    async (rl: any, prompt: string, processor: any = (answer: string) => answer.trim()) =>
+      new Promise((resolve) => {
         if (rl.question) {
           rl.question(prompt, (answer: string) => {
             resolve(processor(answer));
           });
         }
-      });
-    },
+      }),
   );
 });
 
@@ -71,14 +127,9 @@ type TerminalState = {
 };
 
 const enableInteractiveTerminal = (): TerminalState => {
-  const state = {
-    inputTTY: process.stdin.isTTY,
-    outputTTY: process.stdout.isTTY,
-    setRawMode: process.stdin.setRawMode,
-    pause: process.stdin.pause,
-    resume: process.stdin.resume,
-    write: process.stdout.write,
-  };
+  const { isTTY: inputTTY, setRawMode, pause, resume } = process.stdin;
+  const { isTTY: outputTTY, write } = process.stdout;
+  const state = { inputTTY, outputTTY, setRawMode, pause, resume, write };
   process.stdin.isTTY = true;
   Object.defineProperty(process.stdout, "isTTY", { configurable: true, value: true });
   process.stdin.setRawMode = mock(() => process.stdin) as typeof process.stdin.setRawMode;
@@ -90,10 +141,8 @@ const enableInteractiveTerminal = (): TerminalState => {
 
 const restoreTerminal = (state: TerminalState): void => {
   process.stdin.isTTY = state.inputTTY;
-  Object.defineProperty(process.stdout, "isTTY", {
-    configurable: true,
-    value: state.outputTTY,
-  });
+  const { outputTTY } = state;
+  Object.defineProperty(process.stdout, "isTTY", { configurable: true, value: outputTTY });
   process.stdin.setRawMode = state.setRawMode;
   process.stdin.pause = state.pause;
   process.stdin.resume = state.resume;
@@ -326,10 +375,7 @@ test("promptSelect returns the selected value in noninteractive mode", async () 
     { name: "Option 1", value: "opt1" },
     { name: "Option 2", value: "opt2" },
   ];
-  mockCreateInterface.mockReturnValue({
-    question: (_message: string, callback: (answer: string) => void) => callback("2"),
-    close: mock(),
-  } as unknown as readline.Interface);
+  mockCreateInterface.mockReturnValue(createCallbackReadline("2"));
 
   const result = await promptSelect("Choose:", choices);
 
@@ -342,10 +388,7 @@ test("promptCheckbox returns selected values and skips disabled choices", async 
     { name: "Disabled", value: "disabled", disabled: "not installed" },
     { name: "Option 3", value: "opt3" },
   ];
-  mockCreateInterface.mockReturnValue({
-    question: (_message: string, callback: (answer: string) => void) => callback("1, 2, 3"),
-    close: mock(),
-  } as unknown as readline.Interface);
+  mockCreateInterface.mockReturnValue(createCallbackReadline("1, 2, 3"));
 
   const result = await promptCheckbox("Choose:", choices, true);
 
@@ -408,10 +451,7 @@ test("promptCheckbox supports all and none shortcuts", async () => {
 test("interactive selectors scroll and cancel safely", async () => {
   const terminal = enableInteractiveTerminal();
   try {
-    const choices = Array.from({ length: 10 }, (_, index) => ({
-      name: `Option ${index + 1}`,
-      value: `opt${index + 1}`,
-    }));
+    const choices = Array.from({ length: 10 }, toNumberedOption);
     const resultPromise = promptSelect("Choose:", choices);
     Array.from({ length: 9 }).forEach(() => emitKeypress("", { name: "down" }));
     Array.from({ length: 9 }).forEach(() => emitKeypress("", { name: "up" }));
@@ -437,107 +477,6 @@ test("interactive selectors return no value when every choice is disabled", asyn
   } finally {
     restoreTerminal(terminal);
   }
-});
-
-test("Prompt - prompt method delegates to input for 'input' type", async () => {
-  const prompt = new TestablePrompt();
-  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
-    callback("test input");
-  });
-  prompt.setQuestion(questionSpy);
-
-  const result = await prompt.prompt({
-    type: "input",
-    message: "Enter value:",
-    default: "",
-  });
-
-  assert.strictEqual(result, "test input");
-  prompt.close();
-});
-
-test("Prompt - prompt method delegates to confirm for 'confirm' type", async () => {
-  const prompt = new TestablePrompt();
-  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
-    callback("y");
-  });
-  prompt.setQuestion(questionSpy);
-
-  const result = await prompt.prompt({
-    type: "confirm",
-    message: "Are you sure?",
-    default: false,
-  });
-
-  assert.strictEqual(result, true);
-  prompt.close();
-});
-
-test("Prompt - prompt method delegates to list for 'list' type", async () => {
-  const prompt = new TestablePrompt();
-  const choices: PromptChoice[] = [{ name: "Choice A", value: "a" }];
-
-  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
-    callback("1");
-  });
-  prompt.setQuestion(questionSpy);
-
-  const result = await prompt.prompt({
-    type: "list",
-    message: "Select:",
-    choices,
-  });
-
-  assert.strictEqual(result, "a");
-  prompt.close();
-});
-
-test("Prompt - prompt method defaults to input when type is not specified", async () => {
-  const prompt = new TestablePrompt();
-  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
-    callback("default type test");
-  });
-  prompt.setQuestion(questionSpy);
-
-  const result = await prompt.prompt({
-    message: "Enter:",
-  });
-
-  assert.strictEqual(result, "default type test");
-  prompt.close();
-});
-
-test("Prompt - promptMany processes multiple questions sequentially", async () => {
-  const prompt = new TestablePrompt();
-  let callIndex = 0;
-  const answers = ["answer1", "y", "2"];
-
-  const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
-    const answer = answers[callIndex] ?? "";
-    callIndex += 1;
-    callback(answer);
-  });
-  prompt.setQuestion(questionSpy);
-
-  const questions = [
-    { type: "input" as const, message: "Question 1?" },
-    { type: "confirm" as const, message: "Question 2?", default: false },
-    {
-      type: "list" as const,
-      message: "Question 3?",
-      choices: [
-        { name: "A", value: "a" },
-        { name: "B", value: "b" },
-      ],
-    },
-  ];
-
-  const results = await prompt.promptMany(questions);
-
-  assert.strictEqual(results.answer0, "answer1");
-  assert.strictEqual(results.answer1, true);
-  assert.strictEqual(results.answer2, "b");
-  prompt.close();
 });
 
 test("createPrompt executes callback with prompt instance and closes it", async () => {
@@ -576,7 +515,8 @@ test("quickConfirm wrapper function works", async () => {
     prompt["rl"].question = (msg: string, callback: (answer: string) => void) => {
       callback("y");
     };
-    return prompt.confirm("Test?");
+    const confirmed = prompt.confirm("Test?");
+    return confirmed;
   });
 
   assert.strictEqual(result, true);
@@ -587,7 +527,8 @@ test("quickInput wrapper function works", async () => {
     prompt["rl"].question = (msg: string, callback: (answer: string) => void) => {
       callback("test value");
     };
-    return prompt.input("Enter:");
+    const value = prompt.input("Enter:");
+    return value;
   });
 
   assert.strictEqual(result, "test value");
@@ -599,28 +540,23 @@ test("quickList wrapper function works", async () => {
     { name: "Second", value: "2nd" },
   ];
 
-  const mockLog = console.log;
-  console.log = () => {};
+  const logMock = silenceConsoleLog();
 
   const result = await createPrompt(async (prompt) => {
     prompt["rl"].question = (msg: string, callback: (answer: string) => void) => {
       callback("2");
     };
-    return prompt.list("Select:", choices);
+    const selected = prompt.list("Select:", choices);
+    return selected;
   });
 
   assert.strictEqual(result, "2nd");
 
-  console.log = mockLog;
+  logMock.mockRestore();
 });
 
 test("quickConfirm - directly tests the quickConfirm wrapper with default true", async () => {
-  const mockReadline = {
-    question: mock((msg: string, callback: (answer: string) => void) => {
-      callback("yes");
-    }),
-    close: mock(),
-  };
+  const mockReadline = createAnsweringReadline("yes");
 
   const createInterfaceSpy = createInterface.mockReturnValue(mockReadline);
 
@@ -632,12 +568,7 @@ test("quickConfirm - directly tests the quickConfirm wrapper with default true",
 });
 
 test("quickConfirm - directly tests the quickConfirm wrapper with default false", async () => {
-  const mockReadline = {
-    question: mock((msg: string, callback: (answer: string) => void) => {
-      callback("n");
-    }),
-    close: mock(),
-  };
+  const mockReadline = createAnsweringReadline("n");
 
   const createInterfaceSpy = createInterface.mockReturnValue(mockReadline);
 
@@ -649,12 +580,7 @@ test("quickConfirm - directly tests the quickConfirm wrapper with default false"
 });
 
 test("quickInput - directly tests the quickInput wrapper", async () => {
-  const mockReadline = {
-    question: mock((msg: string, callback: (answer: string) => void) => {
-      callback("user input");
-    }),
-    close: mock(),
-  };
+  const mockReadline = createAnsweringReadline("user input");
 
   const createInterfaceSpy = createInterface.mockReturnValue(mockReadline);
 
@@ -666,12 +592,7 @@ test("quickInput - directly tests the quickInput wrapper", async () => {
 });
 
 test("quickInput - uses default value when provided", async () => {
-  const mockReadline = {
-    question: mock((msg: string, callback: (answer: string) => void) => {
-      callback("");
-    }),
-    close: mock(),
-  };
+  const mockReadline = createAnsweringReadline("");
 
   const createInterfaceSpy = createInterface.mockReturnValue(mockReadline);
 
@@ -688,15 +609,9 @@ test("quickList - directly tests the quickList wrapper", async () => {
     { name: "Option B", value: "b" },
   ];
 
-  const mockReadline = {
-    question: mock((msg: string, callback: (answer: string) => void) => {
-      callback("1");
-    }),
-    close: mock(),
-  };
+  const mockReadline = createAnsweringReadline("1");
 
-  const mockLog = console.log;
-  console.log = () => {};
+  const logMock = silenceConsoleLog();
 
   const createInterfaceSpy = createInterface.mockReturnValue(mockReadline);
 
@@ -704,17 +619,12 @@ test("quickList - directly tests the quickList wrapper", async () => {
 
   assert.strictEqual(result, "a");
 
-  console.log = mockLog;
+  logMock.mockRestore();
   createInterfaceSpy.mockRestore();
 });
 
 test("Prompt - input calls setRawMode(false) when stdin is TTY", async () => {
-  const originalIsTTY = process.stdin.isTTY;
-  const originalSetRawMode = process.stdin.setRawMode;
-
-  process.stdin.isTTY = true;
-  const setRawModeMock = mock(() => {});
-  process.stdin.setRawMode = setRawModeMock;
+  const { setRawModeMock, restore } = enableRawModeSpy();
 
   const prompt = new TestablePrompt();
   const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
@@ -726,18 +636,12 @@ test("Prompt - input calls setRawMode(false) when stdin is TTY", async () => {
 
   assertCalledWith(setRawModeMock, false);
 
-  process.stdin.isTTY = originalIsTTY;
-  process.stdin.setRawMode = originalSetRawMode;
+  restore();
   prompt.close();
 });
 
 test("Prompt - confirm calls setRawMode(false) when stdin is TTY", async () => {
-  const originalIsTTY = process.stdin.isTTY;
-  const originalSetRawMode = process.stdin.setRawMode;
-
-  process.stdin.isTTY = true;
-  const setRawModeMock = mock(() => {});
-  process.stdin.setRawMode = setRawModeMock;
+  const { setRawModeMock, restore } = enableRawModeSpy();
 
   const prompt = new TestablePrompt();
   const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
@@ -749,18 +653,12 @@ test("Prompt - confirm calls setRawMode(false) when stdin is TTY", async () => {
 
   assertCalledWith(setRawModeMock, false);
 
-  process.stdin.isTTY = originalIsTTY;
-  process.stdin.setRawMode = originalSetRawMode;
+  restore();
   prompt.close();
 });
 
 test("Prompt - list calls setRawMode(false) when stdin is TTY", async () => {
-  const originalIsTTY = process.stdin.isTTY;
-  const originalSetRawMode = process.stdin.setRawMode;
-
-  process.stdin.isTTY = true;
-  const setRawModeMock = mock(() => {});
-  process.stdin.setRawMode = setRawModeMock;
+  const { setRawModeMock, restore } = enableRawModeSpy();
 
   const prompt = new TestablePrompt();
   const questionSpy = mock((msg: string, callback: (answer: string) => void) => {
@@ -768,15 +666,13 @@ test("Prompt - list calls setRawMode(false) when stdin is TTY", async () => {
   });
   prompt.setQuestion(questionSpy);
 
-  const mockLog = console.log;
-  console.log = () => {};
+  const logMock = silenceConsoleLog();
 
   await prompt.list("Choose:", [{ name: "Test", value: "test" }]);
 
   assertCalledWith(setRawModeMock, false);
 
-  console.log = mockLog;
-  process.stdin.isTTY = originalIsTTY;
-  process.stdin.setRawMode = originalSetRawMode;
+  logMock.mockRestore();
+  restore();
   prompt.close();
 });

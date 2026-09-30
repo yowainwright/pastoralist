@@ -1,14 +1,16 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
-import type {
-  SecurityAlert,
-  SnykAlertVulnerability,
-  SnykErrorWithStdout,
-  SnykResult,
-} from "../../../types";
+import type { SecurityAlert, SnykAlertVulnerability } from "../../../types";
 import { logger } from "../../../observability";
-import { CLIInstaller } from "../utils";
-import { DEFAULT_CLI_TIMEOUT, DEFAULT_SNYK_SCAN_TIMEOUT, AUTH_MESSAGES } from "../constants";
+import { getStringField } from "../../../utils";
+import { CLIInstaller, isSnykResult } from "../utils";
+import {
+  DEFAULT_CLI_TIMEOUT,
+  DEFAULT_SNYK_SCAN_TIMEOUT,
+  AUTH_MESSAGES,
+  SNYK_RANGE_JOINER,
+  SNYK_VERSION_SEPARATOR,
+} from "../constants";
 import type { ExecFileAsync, SnykCLIProviderOptions } from "../../types";
 
 const execFileAsync = promisify(execFile);
@@ -90,13 +92,13 @@ export class SnykCLIProvider {
     return true;
   }
 
-  private async runSnykScan(root?: string): Promise<SnykResult> {
+  private async runSnykScan(root?: string): Promise<unknown> {
     const { token: SNYK_TOKEN } = this;
     const env = SNYK_TOKEN ? Object.assign({}, process.env, { SNYK_TOKEN }) : process.env;
     const execOptions = { timeout: DEFAULT_SNYK_SCAN_TIMEOUT, env, cwd: root };
     const { stdout } = await this.execFileAsync("snyk", ["test", "--json"], execOptions);
 
-    const result = JSON.parse(stdout);
+    const result: unknown = JSON.parse(stdout);
     return result;
   }
 
@@ -147,14 +149,15 @@ export class SnykCLIProvider {
   }
 
   private parseAlertsFromError(error: unknown): SecurityAlert[] | undefined {
-    const stdout = (error as SnykErrorWithStdout).stdout;
+    const stdout = getStringField(error, "stdout");
 
     if (!stdout) {
       return undefined;
     }
 
     try {
-      const alertsFromError = this.convertSnykVulnerabilities(JSON.parse(stdout));
+      const parsed: unknown = JSON.parse(stdout);
+      const alertsFromError = this.convertSnykVulnerabilities(parsed);
       return alertsFromError;
     } catch {
       this.log.debug("Failed to parse Snyk error output", "fetchAlerts", { error });
@@ -169,10 +172,8 @@ export class SnykCLIProvider {
     return scanWarning;
   }
 
-  private convertSnykVulnerabilities(snykResult: SnykResult): SecurityAlert[] {
-    const hasInvalidVulnerabilities =
-      !snykResult.vulnerabilities || !Array.isArray(snykResult.vulnerabilities);
-    if (hasInvalidVulnerabilities) {
+  private convertSnykVulnerabilities(snykResult: unknown): SecurityAlert[] {
+    if (!isSnykResult(snykResult)) {
       const result: SecurityAlert[] = [];
       return result;
     }
@@ -194,13 +195,19 @@ export class SnykCLIProvider {
     const packageName = vuln.packageName || vuln.name || "";
     const fixAvailable = Boolean(patchedVersion);
     const { version: currentVersion, title, description } = vuln;
-    const vulnerableVersions = vuln.semver?.vulnerable || "";
+    const vulnerableVersions = this.formatVulnerableVersions(vuln.semver?.vulnerable);
     const severity = this.normalizeSeverity(vuln.severity);
     const url = vuln.url || `https://snyk.io/vuln/${vuln.id}`;
     const versions = { packageName, currentVersion, vulnerableVersions, patchedVersion };
     const advisory = { severity, title, description, url, fixAvailable };
     const snykAlertBase = Object.assign({}, versions, advisory);
     return snykAlertBase;
+  }
+
+  private formatVulnerableVersions(vulnerable: string | string[] | undefined): string {
+    const ranges = [vulnerable ?? []].flat();
+    const formatted = ranges.join(SNYK_RANGE_JOINER);
+    return formatted;
   }
 
   private extractPatchedVersion(vuln: SnykAlertVulnerability): string | undefined {
@@ -210,18 +217,24 @@ export class SnykCLIProvider {
       const patchedVersion = fixedIn[0];
       return patchedVersion;
     }
+    const upgradePath = vuln.upgradePath ?? [];
+    const hasUpgradeTarget = upgradePath.length > 1;
+    const lastItem = upgradePath.at(-1);
+    if (!hasUpgradeTarget) return undefined;
+    if (typeof lastItem !== "string") return undefined;
+    const packageName = vuln.packageName || vuln.name || "";
+    const upgradeVersion = this.parseUpgradeVersion(lastItem, packageName);
+    return upgradeVersion;
+  }
 
-    const upgradePath = vuln.upgradePath;
-    const hasUpgradeTarget = upgradePath && upgradePath.length > 1;
-    if (hasUpgradeTarget) {
-      const lastItem = upgradePath[upgradePath.length - 1];
-      if (typeof lastItem === "string") {
-        const upgradeVersion = lastItem.split("@")[1];
-        return upgradeVersion;
-      }
-    }
-
-    return undefined;
+  private parseUpgradeVersion(item: string, packageName: string): string | undefined {
+    const separatorIndex = item.lastIndexOf(SNYK_VERSION_SEPARATOR);
+    if (separatorIndex <= 0) return undefined;
+    const name = item.slice(0, separatorIndex);
+    if (name !== packageName) return undefined;
+    const version = item.slice(separatorIndex + 1);
+    if (!version) return undefined;
+    return version;
   }
 
   private normalizeSeverity(severity: string): "low" | "medium" | "high" | "critical" {

@@ -37,26 +37,41 @@ import {
 } from "../../fixtures/security.fixtures";
 import { createMockFetch, withMockedFetch } from "../../fixtures/setup.fixtures";
 
+const vulnerabilities = [LODASH_VULNERABILITY];
+const securityAdvisory = Object.assign({}, LODASH_ADVISORY, {
+  vulnerabilities,
+});
+const highAlertSeverity = "high" as const;
+const securityVulnerability = Object.assign({}, LODASH_VULNERABILITY, {
+  severity: highAlertSeverity,
+});
 const mockDependabotAlert: DependabotAlert = Object.assign({}, BASE_DEPENDABOT_ALERT, {
   dependency: LODASH_DEPENDENCY,
-  security_advisory: Object.assign({}, LODASH_ADVISORY, {
-    vulnerabilities: [LODASH_VULNERABILITY],
-  }),
-  security_vulnerability: Object.assign({}, LODASH_VULNERABILITY, {
-    severity: "high" as const,
-  }),
+  security_advisory: securityAdvisory,
+  security_vulnerability: securityVulnerability,
 });
 
+const dependencies = {
+  lodash: "4.17.20",
+  express: "4.18.0",
+};
+const devDependencies = {
+  typescript: "5.0.0",
+};
 const mockPackageJson: PastoralistJSON = {
   name: "test-package",
   version: "1.0.0",
-  dependencies: {
-    lodash: "4.17.20",
-    express: "4.18.0",
-  },
-  devDependencies: {
-    typescript: "5.0.0",
-  },
+  dependencies,
+  devDependencies,
+};
+
+const withTempDir = async (fn: (directory: string) => unknown) => {
+  const directory = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-"));
+  try {
+    await fn(directory);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
 };
 
 type FetchAlertsProvider = {
@@ -87,15 +102,22 @@ const createCheckerWithMockAlerts = (
 ): SecurityChecker => {
   const checkerOptions = Object.assign({}, { provider: "osv", noCache: true }, options);
   const checker = new SecurityChecker(checkerOptions);
-  return mockProviderAlerts(checker, alerts);
+  const mockProviderAlertsResult = mockProviderAlerts(checker, alerts);
+  return mockProviderAlertsResult;
 };
 
-const createBuiltInBestCaseConfig = (): PastoralistJSON => ({
-  name: "best-case-test",
-  version: "1.0.0",
-  dependencies: { alpha: "1.0.0" },
-  pastoralist: { bestCase: { enabled: true } },
-});
+const createBuiltInBestCaseConfig = (): PastoralistJSON => {
+  const dependencies2 = { alpha: "1.0.0" };
+  const pastoralistBestCase = { enabled: true };
+  const pastoralist = { bestCase: pastoralistBestCase };
+  const result = {
+    name: "best-case-test",
+    version: "1.0.0",
+    dependencies: dependencies2,
+    pastoralist,
+  };
+  return result;
+};
 
 const createUserOwnedBestCaseConfig = (): PastoralistJSON => {
   const config = createBuiltInBestCaseConfig();
@@ -105,8 +127,12 @@ const createUserOwnedBestCaseConfig = (): PastoralistJSON => {
 };
 
 const getLockedPackagePath = (name: string, index: number): string => {
-  if (index === 0) return `node_modules/${name}`;
-  return `node_modules/wrapper-${index}/node_modules/${name}`;
+  if (index === 0) {
+    const text = `node_modules/${name}`;
+    return text;
+  }
+  const getLockedPackagePathText = `node_modules/wrapper-${index}/node_modules/${name}`;
+  return getLockedPackagePathText;
 };
 
 const createBestCaseRoot = (
@@ -114,7 +140,8 @@ const createBestCaseRoot = (
 ): string => {
   const root = path.join(TEST_DIR, "best-case-root");
   const entries = packages.map(({ name, version }, index) => {
-    return [getLockedPackagePath(name, index), { version }];
+    const items = [getLockedPackagePath(name, index), { version }];
+    return items;
   });
   const lockedPackages = Object.fromEntries([["", {}]].concat(entries));
   const lock = { lockfileVersion: 3, packages: lockedPackages };
@@ -135,17 +162,19 @@ const createBestCaseOptions = (
   packages?: SecurityPackage[],
 ): SecurityCheckRuntimeOptions => {
   const root = createBestCaseRoot(packages);
-  return Object.assign({ root }, options);
+  const assignResult = Object.assign({ root }, options);
+  return assignResult;
 };
 
 const createBestCaseAlert = (severity: SecurityAlert["severity"] = "high"): SecurityAlert => {
-  return createAlert({
+  const createAlertResult = createAlert({
     packageName: "alpha",
     currentVersion: "1.0.0",
     vulnerableVersions: "<2.0.0",
     patchedVersion: "2.0.0",
     severity,
   });
+  return createAlertResult;
 };
 
 const createPnpmPeerBestCaseRoot = (): string => {
@@ -170,8 +199,10 @@ const createLockedBaselineChecker = (): SecurityChecker => {
   const checker = new SecurityChecker({ provider: "osv", noCache: true });
   spyOn(getFirstProvider(checker), "fetchAlerts").mockImplementation(([pkg]) => {
     assert.ok(!pkg.version.includes("("));
-    const alerts = pkg.version === "1.5.0" ? [] : [createBestCaseAlert()];
-    return Promise.resolve(alerts);
+    const isLockedBaseline = pkg.version === "1.5.0";
+    const alerts = isLockedBaseline ? [] : [createBestCaseAlert()];
+    const resolveResult = Promise.resolve(alerts);
+    return resolveResult;
   });
   mockLatestBestCaseVersion(checker);
   return checker;
@@ -205,35 +236,40 @@ const mockUserOwnedPrompts = (update: ReturnType<typeof createBestCaseUpdate>) =
 
 const getFirstProvider = (checker: SecurityChecker): FetchAlertsProvider => {
   const harness = checker as unknown as SecurityCheckerProviderHarness;
-  return harness.providers[0];
+  const value = harness.providers[0];
+  return value;
 };
 
+const lockPackagesValueDependencies = { parent: "1.0.0" };
+const lockPackagesValue = { dependencies: lockPackagesValueDependencies };
+const nodeModulesParent = { version: "1.0.0" };
+const nodeModulesTransitive = { version: "2.0.0" };
+const lockPackages = {
+  "": lockPackagesValue,
+  "node_modules/parent": nodeModulesParent,
+  "node_modules/transitive": nodeModulesTransitive,
+};
+const checkSecurityDependencies = { parent: "1.0.0" };
+const candidateInventoryLock = { lockfileVersion: 3, packages: lockPackages };
+const CANDIDATE_INVENTORY_PACKAGES = [
+  { name: "parent", version: "1.0.0" },
+  { name: "transitive", version: "2.0.0" },
+];
 test("checkSecurity - scans the complete candidate lockfile inventory", async () => {
   const root = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-full-inventory-"));
-  const lock = {
-    lockfileVersion: 3,
-    packages: {
-      "": { dependencies: { parent: "1.0.0" } },
-      "node_modules/parent": { version: "1.0.0" },
-      "node_modules/transitive": { version: "2.0.0" },
-    },
-  };
-  fs.writeFileSync(path.join(root, "package-lock.json"), JSON.stringify(lock));
+  fs.writeFileSync(path.join(root, "package-lock.json"), JSON.stringify(candidateInventoryLock));
   const checker = new SecurityChecker({ provider: "osv", noCache: true });
   const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([]);
 
   try {
     await checker.checkSecurity(
-      { name: "candidate", version: "1.0.0", dependencies: { parent: "1.0.0" } },
+      { name: "candidate", version: "1.0.0", dependencies: checkSecurityDependencies },
       { root, scanFullDependencyInventory: true },
     );
     const packages = fetchAlerts.mock.calls.map((call) =>
       Array.isArray(call) ? call : call.arguments,
     )[0][0];
-    assert.deepStrictEqual(packages, [
-      { name: "parent", version: "1.0.0" },
-      { name: "transitive", version: "2.0.0" },
-    ]);
+    assert.deepStrictEqual(packages, CANDIDATE_INVENTORY_PACKAGES);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -242,17 +278,19 @@ test("checkSecurity - scans the complete candidate lockfile inventory", async ()
 const assertProjectProviderScansNonnumericSpec = async (
   provider: SecurityProviderType,
 ): Promise<void> => {
-  const config: PastoralistJSON = { dependencies: { local: "workspace:*" } };
+  const configDependencies = { local: "workspace:*" };
+  const config: PastoralistJSON = { dependencies: configDependencies };
   const checker = new SecurityChecker({ provider, noCache: true });
   const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([]);
 
   const result = await checker.checkSecurity(config);
 
   assert.strictEqual(result.packagesScanned, 1);
+  const onIncomplete = anyValue(Function);
   assertCalledWith(fetchAlerts, [{ name: "local", version: "workspace:*" }], {
     root: undefined,
     requireCompleteScan: false,
-    onIncomplete: anyValue(Function),
+    onIncomplete,
   });
 };
 
@@ -261,23 +299,34 @@ const TRANSITIVE_SCAN_PACKAGES: SecurityPackage[] = [
   { name: "transitive", version: "2.0.0" },
   { name: "transitive", version: "3.0.0" },
 ];
-const TRANSITIVE_SCAN_CONFIG: PastoralistJSON = { dependencies: { parent: "^1.0.0" } };
-const LARGE_SCAN_PACKAGES: SecurityPackage[] = Array.from({ length: 1998 }, (_, index) => ({
-  name: `filler-${index}`,
-  version: "1.0.0",
-})).concat(TRANSITIVE_SCAN_PACKAGES);
+const transitiveScanDependencies = { parent: "^1.0.0" };
+const TRANSITIVE_SCAN_CONFIG: PastoralistJSON = {
+  dependencies: transitiveScanDependencies,
+};
+const LARGE_SCAN_PACKAGES: SecurityPackage[] = Array.from({ length: 1998 }, (_, index) => {
+  const name = `filler-${index}`;
+  const result = {
+    name,
+    version: "1.0.0",
+  };
+  return result;
+}).concat(TRANSITIVE_SCAN_PACKAGES);
 const TRANSITIVE_YARN_LOCK = [
   'parent@^1.0.0:\n  version "1.0.0"',
   'transitive@^2.0.0:\n  version "2.0.0"',
   'transitive@^3.0.0:\n  version "3.0.0"',
 ].join("\n\n");
+const parent = ["parent@1.0.0"];
+const transitive = ["transitive@2.0.0"];
+const parentTransitive = ["transitive@3.0.0"];
+const stringifyPackages = {
+  parent,
+  transitive,
+  "parent/transitive": parentTransitive,
+};
 const TRANSITIVE_BUN_LOCK = JSON.stringify({
   lockfileVersion: 1,
-  packages: {
-    parent: ["parent@1.0.0"],
-    transitive: ["transitive@2.0.0"],
-    "parent/transitive": ["transitive@3.0.0"],
-  },
+  packages: stringifyPackages,
 });
 const TRANSITIVE_PNPM_SNAPSHOTS = [
   "lockfileVersion: '9.0'",
@@ -319,7 +368,8 @@ const createTransitiveScanChecker = (
   const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockImplementation(
     (packages) => Promise.resolve(getTransitiveScanAlerts(packages)),
   );
-  return { checker, fetchAlerts };
+  const result = { checker, fetchAlerts };
+  return result;
 };
 
 const assertTransitiveScan = (result: Awaited<ReturnType<SecurityChecker["checkSecurity"]>>) => {
@@ -330,6 +380,7 @@ const assertTransitiveScan = (result: Awaited<ReturnType<SecurityChecker["checkS
 };
 
 (["osv", "spektion"] as const).forEach((provider) => {
+  const onIncomplete = anyValue(Function);
   test(`checkSecurity - default ${provider} inventory includes every transitive version`, async () => {
     const root = createBestCaseRoot(TRANSITIVE_SCAN_PACKAGES);
     const { checker, fetchAlerts } = createTransitiveScanChecker(root, { provider });
@@ -338,12 +389,13 @@ const assertTransitiveScan = (result: Awaited<ReturnType<SecurityChecker["checkS
     assertCalledWith(fetchAlerts, TRANSITIVE_SCAN_PACKAGES, {
       root,
       requireCompleteScan: false,
-      onIncomplete: anyValue(Function),
+      onIncomplete,
     });
   });
 });
 
 TRANSITIVE_LOCK_FORMATS.forEach(([filename, content]) => {
+  const onIncomplete = anyValue(Function);
   test(`checkSecurity - default ${filename} scan preserves transitive versions`, async () => {
     const root = createTempCacheDir("transitive-lock");
     fs.writeFileSync(path.join(root, filename), content);
@@ -352,7 +404,7 @@ TRANSITIVE_LOCK_FORMATS.forEach(([filename, content]) => {
     assertCalledWith(fetchAlerts, TRANSITIVE_SCAN_PACKAGES, {
       root,
       requireCompleteScan: false,
-      onIncomplete: anyValue(Function),
+      onIncomplete,
     });
   });
 });
@@ -375,9 +427,10 @@ TRANSITIVE_LOCK_FORMATS.forEach(([filename, content]) => {
   });
 });
 
+const securityCheckerProvider = ["osv", "npm"];
 test("checkSecurity - batches query providers while scanning project providers once", async () => {
   const root = createBestCaseRoot(LARGE_SCAN_PACKAGES);
-  const checker = new SecurityChecker({ provider: ["osv", "npm"], noCache: true });
+  const checker = new SecurityChecker({ provider: securityCheckerProvider, noCache: true });
   const providers = (checker as unknown as SecurityCheckerProviderHarness).providers;
   const scans = providers.map((provider) => spyOn(provider, "fetchAlerts").mockResolvedValue([]));
   await checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, { root });
@@ -391,7 +444,8 @@ test("checkSecurity - incomplete later batches never populate memory or disk cac
   const { checker, fetchAlerts } = createTransitiveScanChecker(root, { noCache: false });
   fetchAlerts.mockImplementation((packages, options) => {
     if (packages.length === 1) options?.onIncomplete?.();
-    return Promise.resolve(getTransitiveScanAlerts(packages));
+    const resolveResult = Promise.resolve(getTransitiveScanAlerts(packages));
+    return resolveResult;
   });
   await checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, { root });
   await checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, { root });
@@ -410,9 +464,11 @@ test("checkSecurity - incomplete later batches never populate memory or disk cac
     const { checker, fetchAlerts } = createTransitiveScanChecker(root, { strict });
     fetchAlerts.mockImplementation((packages) => {
       if (packages[0].name !== LARGE_SCAN_PACKAGES[0].name) {
-        return Promise.reject(new Error("batch unavailable"));
+        const rejectResult = Promise.reject(new Error("batch unavailable"));
+        return rejectResult;
       }
-      return Promise.resolve([]);
+      const resolveResult = Promise.resolve([]);
+      return resolveResult;
     });
     const scan = checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, { root, requireCompleteScan });
     const expectedError = strict ? "batch unavailable" : "complete provider scan";
@@ -423,17 +479,19 @@ test("checkSecurity - incomplete later batches never populate memory or disk cac
 
 test("checkSecurity - mixed providers receive the complete default inventory", async () => {
   const root = createBestCaseRoot(TRANSITIVE_SCAN_PACKAGES);
-  const checker = new SecurityChecker({ provider: ["osv", "npm"], noCache: true });
+  const checker = new SecurityChecker({ provider: securityCheckerProvider, noCache: true });
   const providers = (checker as unknown as SecurityCheckerProviderHarness).providers;
   const scans = providers.map((provider) => spyOn(provider, "fetchAlerts").mockResolvedValue([]));
   await checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, { root });
-  scans.forEach((scan) =>
-    assertCalledWith(scan, TRANSITIVE_SCAN_PACKAGES, {
+  scans.forEach((scan) => {
+    const onIncomplete = anyValue(Function);
+    const assertCalledWithResult = assertCalledWith(scan, TRANSITIVE_SCAN_PACKAGES, {
       root,
       requireCompleteScan: false,
-      onIncomplete: anyValue(Function),
-    }),
-  );
+      onIncomplete,
+    });
+    return assertCalledWithResult;
+  });
 });
 
 [false, true].forEach((scanFullDependencyInventory) => {
@@ -449,33 +507,38 @@ test("checkSecurity - mixed providers receive the complete default inventory", a
   });
 });
 
+const excludePackages = ["transitive"];
+const assertCalledWithOnIncomplete = anyValue(Function);
 test("checkSecurity - default inventory excludes every version of an excluded name", async () => {
   const root = createBestCaseRoot(TRANSITIVE_SCAN_PACKAGES);
   const { checker, fetchAlerts } = createTransitiveScanChecker(root);
   const result = await checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, {
     root,
-    excludePackages: ["transitive"],
+    excludePackages,
   });
   assert.strictEqual(result.packagesScanned, 1);
   assert.deepStrictEqual(result.alerts, []);
   assertCalledWith(fetchAlerts, [TRANSITIVE_SCAN_PACKAGES[0]], {
     root,
     requireCompleteScan: false,
-    onIncomplete: anyValue(Function),
+    onIncomplete: assertCalledWithOnIncomplete,
   });
 });
 
+const checkSecurityExcludePackages = ["parent"];
 test("checkSecurity - excluding a required declaration still scans transitives", async () => {
   const root = createBestCaseRoot(TRANSITIVE_SCAN_PACKAGES.slice(1));
   const { checker } = createTransitiveScanChecker(root);
   const result = await checker.checkSecurity(TRANSITIVE_SCAN_CONFIG, {
     root,
-    excludePackages: ["parent"],
+    excludePackages: checkSecurityExcludePackages,
   });
   assert.strictEqual(result.packagesScanned, 2);
   assert.strictEqual(result.alerts[0].packageName, "transitive");
 });
 
+const workspaces = ["packages/*"];
+const depPaths = ["packages/*/package.json"];
 test("checkSecurity - shared workspace inventory scans with no root dependencies", async () => {
   const root = createBestCaseRoot(TRANSITIVE_SCAN_PACKAGES);
   const workspace = path.join(root, "packages", "app");
@@ -483,20 +546,22 @@ test("checkSecurity - shared workspace inventory scans with no root dependencies
   fs.writeFileSync(path.join(workspace, "package.json"), JSON.stringify(TRANSITIVE_SCAN_CONFIG));
   const { checker } = createTransitiveScanChecker(root);
   const result = await checker.checkSecurity(
-    { workspaces: ["packages/*"] },
+    { workspaces },
     {
       root,
-      depPaths: ["packages/*/package.json"],
+      depPaths,
     },
   );
   assertTransitiveScan(result);
 });
 
+const optionalDependencies = { transitive: "^2.0.0" };
+const peerDependencies = { absent: "^1.0.0" };
 test("checkSecurity - resolved optional packages are included without requiring absent peers", async () => {
   const root = createBestCaseRoot(TRANSITIVE_SCAN_PACKAGES);
   const config = {
-    optionalDependencies: { transitive: "^2.0.0" },
-    peerDependencies: { absent: "^1.0.0" },
+    optionalDependencies,
+    peerDependencies,
   };
   const { checker } = createTransitiveScanChecker(root);
   assertTransitiveScan(await checker.checkSecurity(config, { root }));
@@ -514,7 +579,7 @@ test("checkSecurity - severity filtering does not shrink the queried inventory",
   assertCalledWith(fetchAlerts, TRANSITIVE_SCAN_PACKAGES, {
     root,
     requireCompleteScan: false,
-    onIncomplete: anyValue(Function),
+    onIncomplete: assertCalledWithOnIncomplete,
   });
 });
 
@@ -538,7 +603,7 @@ test("checkSecurity - warns when only declared exact versions can be scanned", a
   const root = createTempCacheDir("no-lockfile");
   const { checker } = createTransitiveScanChecker(root);
   const warn = spyOn((checker as any).log, "warn");
-  const result = await checker.checkSecurity({ dependencies: { parent: "1.0.0" } }, { root });
+  const result = await checker.checkSecurity({ dependencies: checkSecurityDependencies }, { root });
   assert.strictEqual(result.packagesScanned, 1);
   assert.match(JSON.stringify(warn.mock.calls), /declared exact versions only/);
 });
@@ -553,28 +618,49 @@ const createPnpmAutoFixFixture = () => {
   const root = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-pnpm-autofix-"));
   const packagePath = path.join(root, "package.json");
   const workspacePath = path.join(root, "pnpm-workspace.yaml");
+  const packageJsonDependencies = { lodash: "4.17.20" };
   const packageJson = {
     name: "pnpm-project",
     version: "1.0.0",
     packageManager: "pnpm@11.0.0",
-    dependencies: { lodash: "4.17.20" },
+    dependencies: packageJsonDependencies,
   };
   fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
   fs.writeFileSync(workspacePath, '# retained\noverrides:\n  axios: "1.8.0"\n');
   const checker = new SecurityChecker({ provider: "osv", root });
-  return { root, packagePath, workspacePath, checker };
+  const result = { root, packagePath, workspacePath, checker };
+  return result;
 };
 
 const assertPnpmAutoFix = (fixture: ReturnType<typeof createPnpmAutoFixFixture>): void => {
   fixture.checker.applyAutoFix([BASE_SECURITY_OVERRIDE], fixture.packagePath);
   const updatedPackage = JSON.parse(fs.readFileSync(fixture.packagePath, "utf8"));
-  const updatedWorkspace = fs.readFileSync(fixture.workspacePath, "utf8");
+  const updatedWorkspace: string = fs.readFileSync(fixture.workspacePath, "utf8");
   assert.strictEqual(updatedPackage.pnpm, undefined);
   assert.strictEqual(updatedPackage.overrides, undefined);
   assert.notStrictEqual(updatedPackage.pastoralist.appendix["lodash@4.17.21"], undefined);
   assert.ok(updatedWorkspace.includes("# retained"));
   assert.ok(updatedWorkspace.includes('axios: "1.8.0"'));
   assert.ok(updatedWorkspace.includes('"lodash": "4.17.21"'));
+};
+
+const externalOverridesDependencies = { lodash: "4.17.20" };
+const EXTERNAL_OVERRIDES_PACKAGE = {
+  name: "external-overrides",
+  version: "1.0.0",
+  packageManager: "npm@11.0.0",
+  dependencies: externalOverridesDependencies,
+};
+
+const writeExternalOverrideFiles = (
+  packagePath: string,
+  overridePath: string,
+  packageJson: object,
+): void => {
+  fs.mkdirSync(path.dirname(overridePath), { recursive: true });
+  fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
+  const overrides = { axios: "1.8.0" };
+  fs.writeFileSync(overridePath, JSON.stringify({ overrides }, null, 2));
 };
 
 const createExternalJsonAutoFixFixture = (
@@ -585,22 +671,13 @@ const createExternalJsonAutoFixFixture = (
   const packagePath = path.join(root, "package.json");
   const overridePath = path.join(root, overrideSource);
   const pastoralist = { overrideSource };
-  const packageJson = Object.assign(
-    {},
-    {
-      name: "external-overrides",
-      version: "1.0.0",
-      packageManager: "npm@11.0.0",
-      dependencies: { lodash: "4.17.20" },
-    },
-    hasManifestSource ? { pastoralist } : undefined,
-  );
-  fs.mkdirSync(path.dirname(overridePath), { recursive: true });
-  fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
-  fs.writeFileSync(overridePath, JSON.stringify({ overrides: { axios: "1.8.0" } }, null, 2));
+  const manifestSource = hasManifestSource ? { pastoralist } : undefined;
+  const packageJson = Object.assign({}, EXTERNAL_OVERRIDES_PACKAGE, manifestSource);
+  writeExternalOverrideFiles(packagePath, overridePath, packageJson);
   const checker = new SecurityChecker({ provider: "osv", root });
   const effectiveConfig = Object.assign({}, packageJson, { pastoralist });
-  return { root, packagePath, overridePath, checker, effectiveConfig };
+  const result = { root, packagePath, overridePath, checker, effectiveConfig };
+  return result;
 };
 
 test("Security Alert Detection - should identify vulnerable packages in dependencies", () => {
@@ -613,15 +690,17 @@ test("Security Alert Detection - should identify vulnerable packages in dependen
   assert.strictEqual(alerts[0].patchedVersion, "4.17.21");
 });
 
+const dismissedState = "dismissed" as const;
+const fixedState = "fixed" as const;
 test("Security Alert Detection - should filter out dismissed and fixed alerts", () => {
   const provider = new GitHubSecurityProvider({ debug: false });
 
   const dismissedAlert: DependabotAlert = Object.assign({}, mockDependabotAlert, {
-    state: "dismissed" as const,
+    state: dismissedState,
   });
 
   const fixedAlert: DependabotAlert = Object.assign({}, mockDependabotAlert, {
-    state: "fixed" as const,
+    state: fixedState,
   });
 
   const alerts = provider.convertToSecurityAlerts([
@@ -684,9 +763,10 @@ test("Override Generation - should not generate overrides for packages without f
   assert.strictEqual(overrides.length, 0);
 });
 
+const cves = [LODASH_CVE];
 test("Override Generation - should include CVE in overrides when available", () => {
   const checker = new SecurityChecker({ debug: false });
-  const vulnerablePackages = [createAlert({ cves: [LODASH_CVE] })];
+  const vulnerablePackages = [createAlert({ cves })];
 
   const latestVersions = new Map<string, string>();
   const overrides = (checker as any).generateOverrides(vulnerablePackages, latestVersions);
@@ -762,8 +842,9 @@ test("Override Generation - should handle multiple packages with different lates
 
   assert.strictEqual(overrides.length, 2);
 
-  const lodashOverride = overrides.find((o: any) => o.packageName === "lodash");
-  const axiosOverride = overrides.find((o: any) => o.packageName === "axios");
+  const overridesByName = new Map(overrides.map((o: any) => [o.packageName, o]));
+  const lodashOverride = overridesByName.get("lodash");
+  const axiosOverride = overridesByName.get("axios");
 
   assert.strictEqual(lodashOverride.toVersion, "4.17.25");
   assert.strictEqual(axiosOverride.toVersion, "0.21.4");
@@ -787,21 +868,30 @@ test("Override Generation - should prefer patched when latest is older (edge cas
   assert.strictEqual(overrides[0].toVersion, "1.2.0");
 });
 
-test("fetchLatestForVulnerablePackages - should extract packages with fixes", async () => {
-  const checker = new SecurityChecker({ debug: false, noCache: true });
-  const noFixFields = Object.assign({}, { packageName: "no-fix-pkg" }, NO_FIX_FIELDS);
-  const vulnerablePackages = [createAlert(), createAlert(noFixFields)];
-
-  const mockFetch = mock(() =>
+const mockLodashRegistryFetch = () =>
+  mock(() =>
     Promise.resolve({
       ok: true,
-      json: () =>
-        Promise.resolve({
-          "dist-tags": { latest: "4.17.21" },
-          versions: { "4.17.20": {}, "4.17.21": {} },
-        }),
+      json: () => {
+        const distTags = { latest: "4.17.21" };
+        const v41720 = {};
+        const v41721 = {};
+        const versions = { "4.17.20": v41720, "4.17.21": v41721 };
+        const resolveResult = Promise.resolve({
+          "dist-tags": distTags,
+          versions,
+        });
+        return resolveResult;
+      },
     } as Response),
   );
+
+test("fetchLatestForVulnerablePackages - should extract packages with fixes", async () => {
+  const checker = new SecurityChecker({ debug: false, noCache: true });
+  const unpatchedAlertFields = Object.assign({}, { packageName: "no-fix-pkg" }, NO_FIX_FIELDS);
+  const vulnerablePackages = [createAlert(), createAlert(unpatchedAlertFields)];
+
+  const mockFetch = mockLodashRegistryFetch();
 
   const result = await withMockedFetch(mockFetch, () =>
     (checker as any).fetchLatestForVulnerablePackages(vulnerablePackages),
@@ -848,21 +938,24 @@ test("Provider Abstraction - should support multiple providers", () => {
   }
 });
 
+const multipleProviders = ["osv", "github"];
 test("Provider Abstraction - should support array of providers", () => {
-  const checker = new SecurityChecker({ provider: ["osv", "github"] });
+  const checker = new SecurityChecker({ provider: multipleProviders });
   assert.notStrictEqual(checker, undefined);
 });
 
+const dependencies3 = {
+  lodash: "4.17.20",
+};
+const createCheckerWithMockAlertsProvider = ["osv"];
 test("Provider Abstraction - should deduplicate alerts from multiple providers", async () => {
   const config: PastoralistJSON = {
     name: "test-package",
     version: "1.0.0",
-    dependencies: {
-      lodash: "4.17.20",
-    },
+    dependencies: dependencies3,
   };
 
-  const checker = createCheckerWithMockAlerts({ provider: ["osv"] });
+  const checker = createCheckerWithMockAlerts({ provider: createCheckerWithMockAlertsProvider });
   const result = await checker.checkSecurity(config);
 
   assert.strictEqual(Array.isArray(result.alerts), true);
@@ -876,8 +969,9 @@ test("Provider Abstraction - should use unified provider token", () => {
   assert.notStrictEqual(checker, undefined);
 });
 
+const unknownProvider = "unknown" as any;
 test("Provider Abstraction - should fall back to OSV for unknown providers", () => {
-  const checker = new SecurityChecker({ provider: "unknown" as any });
+  const checker = new SecurityChecker({ provider: unknownProvider });
   assert.notStrictEqual(checker, undefined);
 });
 
@@ -885,10 +979,8 @@ test("Workspace Security Scanning - should not scan workspaces by default", asyn
   const config: PastoralistJSON = {
     name: "test-workspace",
     version: "1.0.0",
-    workspaces: ["packages/*"],
-    dependencies: {
-      lodash: "4.17.20",
-    },
+    workspaces,
+    dependencies: dependencies3,
   };
 
   const checker = createCheckerWithMockAlerts();
@@ -898,17 +990,18 @@ test("Workspace Security Scanning - should not scan workspaces by default", asyn
   assert.strictEqual(Array.isArray(result.overrides), true);
 });
 
+const dependencies4 = {};
 test("Workspace Security Scanning - should scan workspaces when explicitly enabled", async () => {
   const config: PastoralistJSON = {
     name: "test-workspace",
     version: "1.0.0",
-    workspaces: ["packages/*"],
-    dependencies: {},
+    workspaces,
+    dependencies: dependencies4,
   };
 
   const checker = createCheckerWithMockAlerts();
   const result = await checker.checkSecurity(config, {
-    depPaths: ["packages/*/package.json"],
+    depPaths,
     root: "./",
   });
 
@@ -916,27 +1009,30 @@ test("Workspace Security Scanning - should scan workspaces when explicitly enabl
   assert.strictEqual(Array.isArray(result.overrides), true);
 });
 
+const security = {
+  enabled: true,
+  provider: "github",
+  autoFix: true,
+  interactive: false,
+  providerToken: "test-token",
+  includeWorkspaces: true,
+};
+const configPastoralist = {
+  security,
+};
 test("Configuration Integration - should read security settings from pastoralist config", () => {
   const config: PastoralistJSON = {
     name: "test-package",
     version: "1.0.0",
-    pastoralist: {
-      security: {
-        enabled: true,
-        provider: "github",
-        autoFix: true,
-        interactive: false,
-        providerToken: "test-token",
-        includeWorkspaces: true,
-      },
-    },
+    pastoralist: configPastoralist,
   };
 
-  assert.strictEqual(config.pastoralist?.security?.enabled, true);
-  assert.strictEqual(config.pastoralist?.security?.provider, "github");
-  assert.strictEqual(config.pastoralist?.security?.autoFix, true);
-  assert.strictEqual(config.pastoralist?.security?.providerToken, "test-token");
-  assert.strictEqual(config.pastoralist?.security?.includeWorkspaces, true);
+  const securitySettings = config.pastoralist?.security ?? {};
+  assert.strictEqual(securitySettings.enabled, true);
+  assert.strictEqual(securitySettings.provider, "github");
+  assert.strictEqual(securitySettings.autoFix, true);
+  assert.strictEqual(securitySettings.providerToken, "test-token");
+  assert.strictEqual(securitySettings.includeWorkspaces, true);
 });
 
 test("Configuration Integration - should use default values when config is missing", () => {
@@ -955,7 +1051,7 @@ test("checkSecurity - should check security with empty dependencies", async () =
   const config: PastoralistJSON = {
     name: "test-package",
     version: "1.0.0",
-    dependencies: {},
+    dependencies: dependencies4,
   };
 
   const checker = createCheckerWithMockAlerts({ provider: "osv" });
@@ -965,14 +1061,15 @@ test("checkSecurity - should check security with empty dependencies", async () =
   assert.strictEqual(Array.isArray(result.overrides), true);
 });
 
+const dependencies5 = {
+  lodash: "4.17.20",
+  express: "4.17.0",
+};
 test("checkSecurity - should check security with multiple dependencies", async () => {
   const config: PastoralistJSON = {
     name: "test-package",
     version: "1.0.0",
-    dependencies: {
-      lodash: "4.17.20",
-      express: "4.17.0",
-    },
+    dependencies: dependencies5,
   };
 
   const checker = createCheckerWithMockAlerts({ provider: "osv" });
@@ -982,13 +1079,14 @@ test("checkSecurity - should check security with multiple dependencies", async (
   assert.strictEqual(Array.isArray(result.overrides), true);
 });
 
+const configDevDependencies = {
+  typescript: "4.0.0",
+};
 test("checkSecurity - should handle devDependencies", async () => {
   const config: PastoralistJSON = {
     name: "test-package",
     version: "1.0.0",
-    devDependencies: {
-      typescript: "4.0.0",
-    },
+    devDependencies: configDevDependencies,
   };
 
   const checker = new SecurityChecker({ provider: "osv", noCache: true });
@@ -1002,41 +1100,54 @@ test("checkSecurity - should handle devDependencies", async () => {
   assertCalledWith(mockFetchAlerts, [{ name: "typescript", version: "4.0.0" }], {
     root: undefined,
     requireCompleteScan: false,
-    onIncomplete: anyValue(Function),
+    onIncomplete: assertCalledWithOnIncomplete,
   });
 
   mockFetchAlerts.mockRestore();
 });
 
+type FetchAlertsSpy = Parameters<typeof assertCalledWith>[0];
+
+const createSpiedOsvChecker = () => {
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([]);
+  const spied = { checker, fetchAlerts };
+  return spied;
+};
+
+const assertScannedPackages = (
+  fetchAlerts: FetchAlertsSpy,
+  packages: SecurityPackage[],
+  root?: string,
+): void => {
+  const scanOptions = {
+    root,
+    requireCompleteScan: false,
+    onIncomplete: assertCalledWithOnIncomplete,
+  };
+  assertCalledWith(fetchAlerts, packages, scanOptions);
+};
+
+const LODASH_AND_TYPESCRIPT_PACKAGES = [
+  { name: "lodash", version: "4.17.20" },
+  { name: "typescript", version: "4.0.0" },
+];
 test("checkSecurity - should handle both dependencies and devDependencies", async () => {
   const config: PastoralistJSON = {
     name: "test-package",
     version: "1.0.0",
-    dependencies: {
-      lodash: "4.17.20",
-    },
-    devDependencies: {
-      typescript: "4.0.0",
-    },
+    dependencies: dependencies3,
+    devDependencies: configDevDependencies,
   };
 
-  const checker = new SecurityChecker({ provider: "osv", noCache: true });
-  const providers = (checker as unknown as SecurityCheckerProviderHarness).providers;
-  const mockFetchAlerts = spyOn(providers[0], "fetchAlerts").mockResolvedValue([]);
+  const { checker, fetchAlerts: mockFetchAlerts } = createSpiedOsvChecker();
 
   const result = await checker.checkSecurity(config);
 
   assert.strictEqual(Array.isArray(result.alerts), true);
   assert.strictEqual(Array.isArray(result.overrides), true);
   assert.strictEqual(result.packagesScanned, 2);
-  assertCalledWith(
-    mockFetchAlerts,
-    [
-      { name: "lodash", version: "4.17.20" },
-      { name: "typescript", version: "4.0.0" },
-    ],
-    { root: undefined, requireCompleteScan: false, onIncomplete: anyValue(Function) },
-  );
+  assertScannedPackages(mockFetchAlerts, LODASH_AND_TYPESCRIPT_PACKAGES);
 
   mockFetchAlerts.mockRestore();
 });
@@ -1048,109 +1159,96 @@ test("checkSecurity - project providers scan nonnumeric dependency specs", async
   await assertProjectProviderScansNonnumericSpec("npm");
 });
 
+const dependencies6 = {
+  alpha: "^1.0.0",
+  beta: "~ 2.0.0",
+};
+const LOCKED_ALPHA_BETA_PACKAGES = [
+  { name: "alpha", version: "1.5.0" },
+  { name: "beta", version: "2.0.4" },
+];
 test("checkSecurity - uses locked versions for semver range dependencies", async () => {
   const config: PastoralistJSON = {
     name: "test-package",
     version: "1.0.0",
-    dependencies: {
-      alpha: "^1.0.0",
-      beta: "~ 2.0.0",
-    },
+    dependencies: dependencies6,
   };
-  const root = createBestCaseRoot([
-    { name: "alpha", version: "1.5.0" },
-    { name: "beta", version: "2.0.4" },
-  ]);
-  const checker = new SecurityChecker({ provider: "osv", noCache: true });
-  const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([]);
+  const root = createBestCaseRoot(LOCKED_ALPHA_BETA_PACKAGES);
+  const { checker, fetchAlerts } = createSpiedOsvChecker();
 
   const result = await checker.checkSecurity(config, { root });
 
   assert.strictEqual(result.packagesScanned, 2);
-  assertCalledWith(
-    fetchAlerts,
-    [
-      { name: "alpha", version: "1.5.0" },
-      { name: "beta", version: "2.0.4" },
-    ],
-    { root, requireCompleteScan: false, onIncomplete: anyValue(Function) },
-  );
+  assertScannedPackages(fetchAlerts, LOCKED_ALPHA_BETA_PACKAGES, root);
 });
 
+const dependencies7 = { alpha: "^1.0.0" };
+const PNPM_MANAGER_INVENTORY_LOCK = [
+  "---",
+  "lockfileVersion: '9.0'",
+  "importers:",
+  "  .:",
+  "    configDependencies: {}",
+  "    packageManagerDependencies:",
+  "      pnpm:",
+  "        specifier: 12.2.1",
+  "        version: 12.2.1",
+  "packages:",
+  "  pnpm@12.2.1: {}",
+  "snapshots:",
+  "  pnpm@12.2.1:",
+  "    optionalDependencies:",
+  "      '@pnpm/exe.darwin-arm64': 12.2.1",
+  "---",
+  "lockfileVersion: '9.0'",
+  "packages:",
+  "  alpha@1.5.0: {}",
+  "snapshots:",
+  "  alpha@1.5.0: {}",
+].join("\n");
+const LOCKED_ALPHA_PACKAGES = [{ name: "alpha", version: "1.5.0" }];
 test("checkSecurity - ignores pnpm package-manager inventory documents", async () => {
   const root = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-pnpm-12-"));
-  const content = [
-    "---",
-    "lockfileVersion: '9.0'",
-    "importers:",
-    "  .:",
-    "    configDependencies: {}",
-    "    packageManagerDependencies:",
-    "      pnpm:",
-    "        specifier: 12.2.1",
-    "        version: 12.2.1",
-    "packages:",
-    "  pnpm@12.2.1: {}",
-    "snapshots:",
-    "  pnpm@12.2.1:",
-    "    optionalDependencies:",
-    "      '@pnpm/exe.darwin-arm64': 12.2.1",
-    "---",
-    "lockfileVersion: '9.0'",
-    "packages:",
-    "  alpha@1.5.0: {}",
-    "snapshots:",
-    "  alpha@1.5.0: {}",
-  ].join("\n");
-  fs.writeFileSync(path.join(root, "pnpm-lock.yaml"), content);
-  const checker = new SecurityChecker({ provider: "osv", noCache: true });
-  const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([]);
+  fs.writeFileSync(path.join(root, "pnpm-lock.yaml"), PNPM_MANAGER_INVENTORY_LOCK);
+  const { checker, fetchAlerts } = createSpiedOsvChecker();
 
   try {
-    await checker.checkSecurity({ dependencies: { alpha: "^1.0.0" } }, { root });
-    assertCalledWith(fetchAlerts, [{ name: "alpha", version: "1.5.0" }], {
-      root,
-      requireCompleteScan: false,
-      onIncomplete: anyValue(Function),
-    });
+    await checker.checkSecurity({ dependencies: dependencies7 }, { root });
+    assertScannedPackages(fetchAlerts, LOCKED_ALPHA_PACKAGES, root);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
 
+const dependencies8 = {
+  alpha: "^1.0.0",
+  beta: "latest",
+  workspace: "workspace:*",
+  local: "file:../local",
+};
+const configPeerDependencies = { optionalPeer: "^3.0.0" };
+const LINKED_ALPHA_BETA_PACKAGES = [
+  { name: "alpha", version: "1.5.0" },
+  { name: "beta", version: "2.1.0" },
+];
 test("checkSecurity - ignores linked dependencies and absent peers in lock completeness", async () => {
   const config: PastoralistJSON = {
-    dependencies: {
-      alpha: "^1.0.0",
-      beta: "latest",
-      workspace: "workspace:*",
-      local: "file:../local",
-    },
-    peerDependencies: { optionalPeer: "^3.0.0" },
+    dependencies: dependencies8,
+    peerDependencies: configPeerDependencies,
   };
-  const root = createBestCaseRoot([
-    { name: "alpha", version: "1.5.0" },
-    { name: "beta", version: "2.1.0" },
-  ]);
-  const checker = new SecurityChecker({ provider: "osv", noCache: true });
-  const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([]);
+  const root = createBestCaseRoot(LINKED_ALPHA_BETA_PACKAGES);
+  const { checker, fetchAlerts } = createSpiedOsvChecker();
 
   const result = await checker.checkSecurity(config, { root });
 
   assert.strictEqual(result.packagesScanned, 2);
-  assertCalledWith(
-    fetchAlerts,
-    [
-      { name: "alpha", version: "1.5.0" },
-      { name: "beta", version: "2.1.0" },
-    ],
-    { root, requireCompleteScan: false, onIncomplete: anyValue(Function) },
-  );
+  assertScannedPackages(fetchAlerts, LINKED_ALPHA_BETA_PACKAGES, root);
 });
 
+const dependencies9 = { alpha: "^1.0.0", beta: "^2.0.0" };
 test("checkSecurity - rejects missing queryable lockfile dependencies", async () => {
   const config: PastoralistJSON = {
-    dependencies: { alpha: "^1.0.0", beta: "^2.0.0" },
+    dependencies: dependencies9,
   };
   const root = createBestCaseRoot([{ name: "alpha", version: "1.5.0" }]);
   const checker = createCheckerWithMockAlerts({ provider: "osv", noCache: true });
@@ -1166,7 +1264,7 @@ test("checkSecurity - rejects unresolved semver range dependencies", async () =>
   const config: PastoralistJSON = {
     name: "test-package",
     version: "1.0.0",
-    dependencies: { alpha: "^1.0.0" },
+    dependencies: dependencies7,
   };
   const checker = new SecurityChecker({ provider: "osv", noCache: true });
   const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([]);
@@ -1177,6 +1275,7 @@ test("checkSecurity - rejects unresolved semver range dependencies", async () =>
   assert.strictEqual(fetchAlerts.mock.callCount(), 0);
 });
 
+const dependencies10 = { alpha: "1.0.0" };
 test("checkSecurity - rejects an unreadable lockfile inventory", async () => {
   const root = path.join(TEST_DIR, "malformed-lockfile");
   fs.mkdirSync(root, { recursive: true });
@@ -1184,7 +1283,7 @@ test("checkSecurity - rejects an unreadable lockfile inventory", async () => {
   const config: PastoralistJSON = {
     name: "test-package",
     version: "1.0.0",
-    dependencies: { alpha: "1.0.0" },
+    dependencies: dependencies10,
   };
   const checker = createCheckerWithMockAlerts({ provider: "osv", noCache: true });
 
@@ -1193,70 +1292,87 @@ test("checkSecurity - rejects an unreadable lockfile inventory", async () => {
   await assert.rejects(result, errorIncludes("Unable to read installed package versions"));
 });
 
+const alphaAlertCves = ["CVE-ALPHA"];
+const betaAlertCves = ["CVE-BETA"];
+const dependencies11 = { alpha: "1.0.0", beta: "1.0.0" };
+const pastoralist2BestCase = { enabled: true };
+const pastoralist2 = { bestCase: pastoralist2BestCase };
+const ALPHA_PORTFOLIO_ALERT: SecurityAlert = {
+  packageName: "alpha",
+  currentVersion: "1.0.0",
+  vulnerableVersions: "<2.0.0",
+  patchedVersion: "2.0.0",
+  severity: "critical",
+  title: "Alpha vulnerability",
+  cves: alphaAlertCves,
+  fixAvailable: true,
+};
+const BETA_PORTFOLIO_ALERT: SecurityAlert = {
+  packageName: "beta",
+  currentVersion: "1.0.0",
+  vulnerableVersions: "<2.0.0",
+  patchedVersion: "2.0.0",
+  severity: "high",
+  title: "Beta vulnerability",
+  cves: betaAlertCves,
+  fixAvailable: true,
+};
+const mixedCves = ["CVE-MIX"];
+const mixedVersionFields = {
+  packageName: "gamma",
+  title: "Mixed-version vulnerability",
+  cves: mixedCves,
+};
+const MIXED_PORTFOLIO_ALERT = Object.assign({}, ALPHA_PORTFOLIO_ALERT, mixedVersionFields);
+const portfolioAlerts = [ALPHA_PORTFOLIO_ALERT, BETA_PORTFOLIO_ALERT];
+const betaOnlyAlerts = [BETA_PORTFOLIO_ALERT];
+const alphaOnlyAlerts = [ALPHA_PORTFOLIO_ALERT];
+const mixedOnlyAlerts = [MIXED_PORTFOLIO_ALERT];
+const PORTFOLIO_ALERTS_BY_STATE: Record<string, SecurityAlert[]> = {
+  "2.0.0:1.0.0": betaOnlyAlerts,
+  "1.0.0:2.0.0": alphaOnlyAlerts,
+  "2.0.0:2.0.0": mixedOnlyAlerts,
+};
+const PORTFOLIO_LATEST_VERSIONS: Array<[string, string]> = [
+  ["alpha", "2.0.0"],
+  ["beta", "2.0.0"],
+];
+const PORTFOLIO_PACKAGES = [
+  { name: "alpha", version: "1.0.0" },
+  { name: "beta", version: "1.0.0" },
+];
+const PORTFOLIO_CONFIG: PastoralistJSON = {
+  name: "best-case-test",
+  version: "1.0.0",
+  dependencies: dependencies11,
+  pastoralist: pastoralist2,
+};
+const PORTFOLIO_SELECTED_STATE = { alpha: "2.0.0", beta: "1.0.0" };
+
+const evaluatePortfolioState = (state: Record<string, string>) => {
+  const key = `${state.alpha}:${state.beta}`;
+  const alerts = PORTFOLIO_ALERTS_BY_STATE[key] ?? portfolioAlerts;
+  const evaluation = { alerts };
+  return evaluation;
+};
+
 test("checkSecurity - applies the best-case portfolio and records its reason", async () => {
-  const alphaAlert: SecurityAlert = {
-    packageName: "alpha",
-    currentVersion: "1.0.0",
-    vulnerableVersions: "<2.0.0",
-    patchedVersion: "2.0.0",
-    severity: "critical",
-    title: "Alpha vulnerability",
-    cves: ["CVE-ALPHA"],
-    fixAvailable: true,
-  };
-  const betaAlert: SecurityAlert = {
-    packageName: "beta",
-    currentVersion: "1.0.0",
-    vulnerableVersions: "<2.0.0",
-    patchedVersion: "2.0.0",
-    severity: "high",
-    title: "Beta vulnerability",
-    cves: ["CVE-BETA"],
-    fixAvailable: true,
-  };
-  const checker = createCheckerWithMockAlerts({}, [alphaAlert, betaAlert]);
-  spyOn(checker as any, "fetchLatestForVulnerablePackages").mockResolvedValue(
-    new Map([
-      ["alpha", "2.0.0"],
-      ["beta", "2.0.0"],
-    ]),
-  );
-  const bestCaseEvaluator = (state: Record<string, string>) => {
-    const key = `${state.alpha}:${state.beta}`;
-    if (key === "2.0.0:1.0.0") return { alerts: [betaAlert] };
-    if (key === "1.0.0:2.0.0") return { alerts: [alphaAlert] };
-    if (key === "2.0.0:2.0.0") {
-      const mixedAlert = Object.assign({}, alphaAlert, {
-        packageName: "gamma",
-        title: "Mixed-version vulnerability",
-        cves: ["CVE-MIX"],
-      });
-      return { alerts: [mixedAlert] };
-    }
-    return { alerts: [alphaAlert, betaAlert] };
-  };
-  const config: PastoralistJSON = {
-    name: "best-case-test",
-    version: "1.0.0",
-    dependencies: { alpha: "1.0.0", beta: "1.0.0" },
-    pastoralist: { bestCase: { enabled: true } },
-  };
+  const checker = createCheckerWithMockAlerts({}, portfolioAlerts);
+  const latestVersions = new Map(PORTFOLIO_LATEST_VERSIONS);
+  spyOn(checker as any, "fetchLatestForVulnerablePackages").mockResolvedValue(latestVersions);
+  const bestCaseOptions = { bestCaseEvaluator: evaluatePortfolioState };
+  const options = createBestCaseOptions(bestCaseOptions, PORTFOLIO_PACKAGES);
+  const result = await checker.checkSecurity(PORTFOLIO_CONFIG, options);
 
-  const packages = [
-    { name: "alpha", version: "1.0.0" },
-    { name: "beta", version: "1.0.0" },
-  ];
-  const options = createBestCaseOptions({ bestCaseEvaluator }, packages);
-  const result = await checker.checkSecurity(config, options);
-
-  assert.deepStrictEqual(result.bestCase?.selectedState, { alpha: "2.0.0", beta: "1.0.0" });
+  assert.deepStrictEqual(result.bestCase?.selectedState, PORTFOLIO_SELECTED_STATE);
   assert.strictEqual(result.bestCase?.search.provenOptimal, true);
   assert.strictEqual(result.overrides.length, 1);
   assert.strictEqual(result.overrides[0].packageName, "alpha");
   assert.deepStrictEqual(result.overrides[0].cves, ["CVE-ALPHA"]);
+  const { decisionId } = result.bestCase ?? {};
   assertMatchObject(result.overrides[0].ledgerReason, {
     type: "best-case",
-    decisionId: result.bestCase?.decisionId,
+    decisionId,
   });
 });
 
@@ -1266,7 +1382,11 @@ test("checkSecurity - reports independent updates for a non-interactive portfoli
   const update = mockBestCaseUpdate(checker);
 
   const options = createBestCaseOptions({
-    bestCaseEvaluator: () => ({ alerts: [] }),
+    bestCaseEvaluator: () => {
+      const alerts = [];
+      const bestCaseEvaluatorResult = { alerts };
+      return bestCaseEvaluatorResult;
+    },
   });
   const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
 
@@ -1280,7 +1400,11 @@ test("checkSecurity - hard-constrains configured user-owned overrides", async ()
   mockLatestBestCaseVersion(checker);
 
   const options = createBestCaseOptions({
-    bestCaseEvaluator: () => ({ alerts: [] }),
+    bestCaseEvaluator: () => {
+      const alerts = [];
+      const bestCaseEvaluatorResult = { alerts };
+      return bestCaseEvaluatorResult;
+    },
   });
   const result = await checker.checkSecurity(config, options);
 
@@ -1308,7 +1432,11 @@ test("checkSecurity - rejects user-owned packages without string overrides", asy
   mockLatestBestCaseVersion(checker);
 
   const options = createBestCaseOptions({
-    bestCaseEvaluator: () => ({ alerts: [] }),
+    bestCaseEvaluator: () => {
+      const alerts = [];
+      const result = { alerts };
+      return result;
+    },
   });
   const check = checker.checkSecurity(config, options);
 
@@ -1325,7 +1453,11 @@ test("checkSecurity - returns interactive user-owned approvals for persistence",
   const restorePrompts = mockUserOwnedPrompts(update);
 
   const options = createBestCaseOptions({
-    bestCaseEvaluator: () => ({ alerts: [] }),
+    bestCaseEvaluator: () => {
+      const alerts = [];
+      const bestCaseEvaluatorResult = { alerts };
+      return bestCaseEvaluatorResult;
+    },
     interactive: true,
   });
   const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
@@ -1342,7 +1474,8 @@ test("checkSecurity - filters built-in best-case alerts by severity", async () =
   spyOn(getFirstProvider(checker), "fetchAlerts").mockImplementation((packages) => {
     const isPatchedVersion = packages[0].version === "2.0.0";
     const alerts = isPatchedVersion ? [lowAlert] : [highAlert];
-    return Promise.resolve(alerts);
+    const resolveResult = Promise.resolve(alerts);
+    return resolveResult;
   });
   mockLatestBestCaseVersion(checker);
 
@@ -1360,9 +1493,10 @@ test("checkSecurity - uses locked versions for the security baseline", async () 
   const config: PastoralistJSON = {
     name: "locked-baseline-test",
     version: "1.0.0",
-    dependencies: { alpha: "^1.0.0" },
+    dependencies: dependencies7,
   };
-  const options = { root: createPnpmPeerBestCaseRoot() };
+  const root = createPnpmPeerBestCaseRoot();
+  const options = { root };
 
   const result = await checker.checkSecurity(config, options);
 
@@ -1407,8 +1541,12 @@ test("checkSecurity - rejects incomplete built-in best-case evaluations", async 
   const checker = new SecurityChecker({ provider: "osv", noCache: true });
   spyOn(getFirstProvider(checker), "fetchAlerts").mockImplementation((packages) => {
     const isUnavailable = packages[0].version === "2.0.0";
-    if (isUnavailable) return Promise.reject(new Error("provider unavailable"));
-    return Promise.resolve([createBestCaseAlert()]);
+    if (isUnavailable) {
+      const rejectResult = Promise.reject(new Error("provider unavailable"));
+      return rejectResult;
+    }
+    const resolveResult = Promise.resolve([createBestCaseAlert()]);
+    return resolveResult;
   });
   mockLatestBestCaseVersion(checker);
 
@@ -1432,23 +1570,24 @@ test("checkSecurity - uses standard overrides for state-unaware providers", asyn
   assert.strictEqual(result.overrides[0].toVersion, "2.0.0");
 });
 
+const alphaSecondVersionFields = {
+  currentVersion: "2.0.0",
+  vulnerableVersions: "<3.0.0",
+  patchedVersion: "3.0.0",
+};
+const ALPHA_MULTI_VERSION_INVENTORY = [
+  { name: "alpha", version: "1.0.0" },
+  { name: "alpha", version: "2.0.0" },
+];
+const alphaThreeLatest: Array<[string, string]> = [["alpha", "3.0.0"]];
 test("checkSecurity - uses standard overrides for multi-version baselines", async () => {
   const firstAlert = createBestCaseAlert();
-  const secondAlert = Object.assign({}, firstAlert, {
-    currentVersion: "2.0.0",
-    vulnerableVersions: "<3.0.0",
-    patchedVersion: "3.0.0",
-  });
-  const inventory = [
-    { name: "alpha", version: "1.0.0" },
-    { name: "alpha", version: "2.0.0" },
-  ];
+  const secondAlert = Object.assign({}, firstAlert, alphaSecondVersionFields);
   const checker = createCheckerWithMockAlerts({}, [firstAlert, secondAlert]);
-  spyOn(checker as any, "fetchLatestForVulnerablePackages").mockResolvedValue(
-    new Map([["alpha", "3.0.0"]]),
-  );
+  const latestVersions = new Map(alphaThreeLatest);
+  spyOn(checker as any, "fetchLatestForVulnerablePackages").mockResolvedValue(latestVersions);
 
-  const options = createBestCaseOptions({}, inventory);
+  const options = createBestCaseOptions({}, ALPHA_MULTI_VERSION_INVENTORY);
   const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
 
   assert.strictEqual(result.bestCase, undefined);
@@ -1507,7 +1646,8 @@ test("checkSecurity - omits best-case provenance when interactive approval is de
   spyOn(getFirstProvider(checker), "fetchAlerts").mockImplementation((packages) => {
     const isPatchedVersion = packages[0].version === "2.0.0";
     const alerts = isPatchedVersion ? [] : [createBestCaseAlert()];
-    return Promise.resolve(alerts);
+    const resolveResult = Promise.resolve(alerts);
+    return resolveResult;
   });
   const prompt = spyOn(
     InteractiveSecurityManager.prototype,
@@ -1515,9 +1655,7 @@ test("checkSecurity - omits best-case provenance when interactive approval is de
   ).mockResolvedValue([]);
   mockLatestBestCaseVersion(checker);
 
-  const options = createBestCaseOptions({
-    interactive: true,
-  });
+  const options = createBestCaseOptions({ interactive: true });
   const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
 
   assert.deepStrictEqual(result.overrides, []);
@@ -1525,13 +1663,14 @@ test("checkSecurity - omits best-case provenance when interactive approval is de
   prompt.mockRestore();
 });
 
+const bestCase = { enabled: false };
 test("checkSecurity - prompts for standard security overrides", async () => {
   const checker = createCheckerWithMockAlerts({}, [createBestCaseAlert()]);
   mockLatestBestCaseVersion(checker);
-  const manager = InteractiveSecurityManager.prototype;
+  const { prototype: manager } = InteractiveSecurityManager;
   const prompt = spyOn(manager, "promptForSecurityActions").mockResolvedValue([]);
   try {
-    const options = { interactive: true, bestCase: { enabled: false } };
+    const options = { interactive: true, bestCase };
     const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
     assert.ok(prompt.mock.callCount() > 0);
     assert.deepStrictEqual(result.overrides, []);
@@ -1571,14 +1710,26 @@ test("createProvider - should create Socket provider with token", () => {
 
 test("createProvider - should create multiple providers", () => {
   const checker = new SecurityChecker({
-    provider: ["osv", "github"],
+    provider: multipleProviders,
     token: "test-token",
   });
   assert.notStrictEqual(checker, undefined);
 });
 
-test("checkSecurity - should handle workspace scanning", async () => {
-  const mockOsvResponse = { vulns: [] };
+const vulns = [];
+const configWorkspaces = ["packages/*"];
+const workspaceConfigDependencies = { lodash: "4.17.20" };
+const WORKSPACE_SCAN_CONFIG: PastoralistJSON = {
+  name: "test-workspace",
+  version: "1.0.0",
+  workspaces: configWorkspaces,
+  dependencies: workspaceConfigDependencies,
+};
+const workspaceDepPaths = ["packages/a/package.json"];
+const lockedLodashPackages = [{ name: "lodash", version: "4.17.20" }];
+
+const createEmptyOsvFetch = () => {
+  const mockOsvResponse = { vulns };
   const mockFetch = createMockFetch({ ok: true });
   mockFetch.mockImplementation(() =>
     Promise.resolve({
@@ -1587,57 +1738,57 @@ test("checkSecurity - should handle workspace scanning", async () => {
       json: () => Promise.resolve(mockOsvResponse),
     } as Response),
   );
+  return mockFetch;
+};
+
+test("checkSecurity - should handle workspace scanning", async () => {
+  const mockFetch = createEmptyOsvFetch();
 
   await withMockedFetch(mockFetch, async () => {
-    const config: PastoralistJSON = {
-      name: "test-workspace",
-      version: "1.0.0",
-      workspaces: ["packages/*"],
-      dependencies: {
-        lodash: "4.17.20",
-      },
-    };
-    const root = createBestCaseRoot([{ name: "lodash", version: "4.17.20" }]);
-
+    const root = createBestCaseRoot(lockedLodashPackages);
     const checker = new SecurityChecker({ provider: "osv", noCache: true });
-    const result = await checker.checkSecurity(config, {
-      depPaths: ["packages/a/package.json"],
-      root,
-    });
+    const scanOptions = { depPaths: workspaceDepPaths, root };
+    const result = await checker.checkSecurity(WORKSPACE_SCAN_CONFIG, scanOptions);
 
     assert.strictEqual(Array.isArray(result.alerts), true);
     assert.strictEqual(Array.isArray(result.overrides), true);
   });
 });
 
-test("checkSecurity - deduplicates matching root and workspace alerts", async () => {
-  const root = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-workspace-alerts-"));
+const stringifyDependencies = { lodash: "4.17.20" };
+const WORKSPACE_APP_PACKAGE = {
+  name: "app",
+  version: "1.0.0",
+  dependencies: stringifyDependencies,
+};
+const WORKSPACE_ROOT_PACKAGE = {
+  name: "root",
+  version: "1.0.0",
+  dependencies: stringifyDependencies,
+};
+const WORKSPACE_LODASH_ALERT_FIELDS = {
+  packageName: "lodash",
+  currentVersion: "4.17.20",
+  vulnerableVersions: "<4.17.21",
+  patchedVersion: "4.17.21",
+};
+
+const writeWorkspaceAppPackage = (root: string): void => {
   const workspaceDir = path.join(root, "packages", "app");
   fs.mkdirSync(workspaceDir, { recursive: true });
-  fs.writeFileSync(
-    path.join(workspaceDir, "package.json"),
-    JSON.stringify({ name: "app", version: "1.0.0", dependencies: { lodash: "4.17.20" } }),
-  );
-  const alert = createAlert({
-    packageName: "lodash",
-    currentVersion: "4.17.20",
-    vulnerableVersions: "<4.17.21",
-    patchedVersion: "4.17.21",
-  });
-  const checker = createCheckerWithMockAlerts({ root, cacheDir: path.join(root, ".cache") }, [
-    alert,
-  ]);
+  fs.writeFileSync(path.join(workspaceDir, "package.json"), JSON.stringify(WORKSPACE_APP_PACKAGE));
+};
+
+test("checkSecurity - deduplicates matching root and workspace alerts", async () => {
+  const root = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-workspace-alerts-"));
+  writeWorkspaceAppPackage(root);
+  const alert = createAlert(WORKSPACE_LODASH_ALERT_FIELDS);
+  const cacheDir = path.join(root, ".cache");
+  const checker = createCheckerWithMockAlerts({ root, cacheDir }, [alert]);
   spyOn(checker as any, "fetchLatestForVulnerablePackages").mockResolvedValue(new Map());
 
   try {
-    const result = await checker.checkSecurity(
-      {
-        name: "root",
-        version: "1.0.0",
-        dependencies: { lodash: "4.17.20" },
-      },
-      { root, depPaths: ["packages/*/package.json"] },
-    );
+    const result = await checker.checkSecurity(WORKSPACE_ROOT_PACKAGE, { root, depPaths });
 
     assert.strictEqual(result.alerts.length, 1);
     assert.strictEqual(result.overrides.length, 1);
@@ -1659,27 +1810,31 @@ test("checkSecurity - should handle config with no dependencies or devDependenci
   assert.strictEqual(result.alerts.length, 0);
 });
 
+const configOverrides = {
+  lodash: "4.17.21",
+};
+const dependents = { root: "lodash@^4.17.20" };
+const ledger = {
+  addedDate: "2024-01-01",
+  securityChecked: true,
+};
+const lodashEntry = {
+  dependents,
+  ledger,
+};
+const appendix = {
+  "lodash@4.17.21": lodashEntry,
+};
+const pastoralist3 = {
+  appendix,
+};
 test("checkSecurity - should check for override updates", async () => {
   const config: PastoralistJSON = {
     name: "test-package",
     version: "1.0.0",
-    dependencies: {
-      lodash: "4.17.20",
-    },
-    overrides: {
-      lodash: "4.17.21",
-    },
-    pastoralist: {
-      appendix: {
-        "lodash@4.17.21": {
-          dependents: { root: "lodash@^4.17.20" },
-          ledger: {
-            addedDate: "2024-01-01",
-            securityChecked: true,
-          },
-        },
-      },
-    },
+    dependencies: dependencies3,
+    overrides: configOverrides,
+    pastoralist: pastoralist3,
   };
 
   const checker = createCheckerWithMockAlerts({ provider: "osv" });
@@ -1688,18 +1843,15 @@ test("checkSecurity - should check for override updates", async () => {
   assert.strictEqual(Array.isArray(result.updates), true);
 });
 
+const pnpm = {
+  overrides: configOverrides,
+};
 test("checkSecurity - should handle pnpm overrides", async () => {
   const config: PastoralistJSON = {
     name: "test-package",
     version: "1.0.0",
-    dependencies: {
-      lodash: "4.17.20",
-    },
-    pnpm: {
-      overrides: {
-        lodash: "4.17.21",
-      },
-    },
+    dependencies: dependencies3,
+    pnpm,
   };
 
   const checker = createCheckerWithMockAlerts({ provider: "osv" });
@@ -1708,16 +1860,15 @@ test("checkSecurity - should handle pnpm overrides", async () => {
   assert.strictEqual(Array.isArray(result.updates), true);
 });
 
+const resolutions = {
+  lodash: "4.17.21",
+};
 test("checkSecurity - should handle resolutions", async () => {
   const config: PastoralistJSON = {
     name: "test-package",
     version: "1.0.0",
-    dependencies: {
-      lodash: "4.17.20",
-    },
-    resolutions: {
-      lodash: "4.17.21",
-    },
+    dependencies: dependencies3,
+    resolutions,
   };
 
   const checker = createCheckerWithMockAlerts({ provider: "osv" });
@@ -1726,23 +1877,38 @@ test("checkSecurity - should handle resolutions", async () => {
   assert.strictEqual(Array.isArray(result.updates), true);
 });
 
+const highSeverity = "high" as const;
+const criticalSeverity = "critical" as const;
+const LODASH_SECURITY_FIX = {
+  packageName: "lodash",
+  fromVersion: "4.17.20",
+  toVersion: "4.17.21",
+  reason: "Security fix",
+  severity: highSeverity,
+};
+const AXIOS_SECURITY_FIX = {
+  packageName: "axios",
+  fromVersion: "0.21.0",
+  toVersion: "0.21.4",
+  reason: "Security fix",
+  severity: criticalSeverity,
+};
+const LODASH_REPORT_ALERT: SecurityAlert = {
+  packageName: "lodash",
+  currentVersion: "4.17.20",
+  vulnerableVersions: "< 4.17.21",
+  patchedVersion: "4.17.21",
+  severity: "high",
+  title: "Prototype Pollution",
+  fixAvailable: true,
+};
+const lodashReportAlert = (): SecurityAlert => Object.assign({}, LODASH_REPORT_ALERT);
+
 test("generatePackageOverrides - should convert security overrides to overrides object", () => {
   const checker = new SecurityChecker({ provider: "osv" });
   const securityOverrides = [
-    {
-      packageName: "lodash",
-      fromVersion: "4.17.20",
-      toVersion: "4.17.21",
-      reason: "Security fix",
-      severity: "high" as const,
-    },
-    {
-      packageName: "axios",
-      fromVersion: "0.21.0",
-      toVersion: "0.21.4",
-      reason: "Security fix",
-      severity: "critical" as const,
-    },
+    Object.assign({}, LODASH_SECURITY_FIX),
+    Object.assign({}, AXIOS_SECURITY_FIX),
   ];
 
   const overrides = checker.generatePackageOverrides(securityOverrides);
@@ -1755,7 +1921,7 @@ test("generatePackageOverrides - should convert security overrides to overrides 
 
 test("formatSecurityReport - should format empty report when no vulnerabilities", () => {
   const checker = new SecurityChecker({ provider: "osv" });
-  const report = checker.formatSecurityReport([], []);
+  const report: string = checker.formatSecurityReport([], []);
 
   assert.ok(report.includes("Security Check Report"));
   assert.ok(report.includes("No vulnerable packages found"));
@@ -1775,7 +1941,7 @@ test("formatSecurityReport - should format report with vulnerabilities", () => {
     },
   ];
 
-  const report = checker.formatSecurityReport(vulnerablePackages, []);
+  const report: string = checker.formatSecurityReport(vulnerablePackages, []);
 
   assert.ok(report.includes("Security Check Report"));
   assert.ok(report.includes("Found 1 vulnerable package(s)"));
@@ -1784,6 +1950,7 @@ test("formatSecurityReport - should format report with vulnerabilities", () => {
   assert.ok(report.includes("Fix available: 4.17.21"));
 });
 
+const vulnerablePackagesCves = ["CVE-2021-23337"];
 test("formatSecurityReport - should include CVE when available", () => {
   const checker = new SecurityChecker({ provider: "osv" });
   const vulnerablePackages: SecurityAlert[] = [
@@ -1795,11 +1962,11 @@ test("formatSecurityReport - should include CVE when available", () => {
       severity: "high",
       title: "Prototype Pollution",
       fixAvailable: true,
-      cves: ["CVE-2021-23337"],
+      cves: vulnerablePackagesCves,
     },
   ];
 
-  const report = checker.formatSecurityReport(vulnerablePackages, []);
+  const report: string = checker.formatSecurityReport(vulnerablePackages, []);
 
   assert.ok(report.includes("CVE: CVE-2021-23337"));
 });
@@ -1819,7 +1986,7 @@ test("formatSecurityReport - should include URL when available", () => {
     },
   ];
 
-  const report = checker.formatSecurityReport(vulnerablePackages, []);
+  const report: string = checker.formatSecurityReport(vulnerablePackages, []);
 
   assert.ok(report.includes("https://nvd.nist.gov/vuln/detail/CVE-2021-23337"));
 });
@@ -1838,60 +2005,44 @@ test("formatSecurityReport - should show no fix available when not fixable", () 
     },
   ];
 
-  const report = checker.formatSecurityReport(vulnerablePackages, []);
+  const report: string = checker.formatSecurityReport(vulnerablePackages, []);
 
   assert.ok(report.includes("No fix available yet"));
 });
 
 test("formatSecurityReport - should include overrides section when overrides exist", () => {
   const checker = new SecurityChecker({ provider: "osv" });
-  const vulnerablePackages: SecurityAlert[] = [
-    {
-      packageName: "lodash",
-      currentVersion: "4.17.20",
-      vulnerableVersions: "< 4.17.21",
-      patchedVersion: "4.17.21",
-      severity: "high",
-      title: "Prototype Pollution",
-      fixAvailable: true,
-    },
-  ];
-  const securityOverrides = [
-    {
-      packageName: "lodash",
-      fromVersion: "4.17.20",
-      toVersion: "4.17.21",
-      reason: "Security fix",
-      severity: "high" as const,
-    },
-  ];
+  const vulnerablePackages = [lodashReportAlert()];
+  const securityOverrides = [Object.assign({}, LODASH_SECURITY_FIX)];
 
-  const report = checker.formatSecurityReport(vulnerablePackages, securityOverrides);
+  const report: string = checker.formatSecurityReport(vulnerablePackages, securityOverrides);
 
   assert.ok(report.includes("Generated 1 override(s)"));
   assert.ok(report.includes('"lodash": "4.17.21"'));
 });
 
-test("readPackageFile - should read valid package.json", () => {
-  const checker = new SecurityChecker({ provider: "osv" });
-  const testPath = path.join(process.cwd(), "test-package.json");
+test("readPackageFile - should read valid package.json", async () => {
+  await withTempDir((directory) => {
+    const checker = new SecurityChecker({ provider: "osv" });
+    const testPath = path.join(directory, "test-package.json");
+    fs.writeFileSync(testPath, JSON.stringify({ name: "test", version: "1.0.0" }));
 
-  fs.writeFileSync(testPath, JSON.stringify({ name: "test", version: "1.0.0" }));
-  const result = (checker as any).readPackageFile(testPath);
-  fs.unlinkSync(testPath);
+    const result = (checker as any).readPackageFile(testPath);
 
-  assert.deepStrictEqual(result, { name: "test", version: "1.0.0" });
+    assert.deepStrictEqual(result, { name: "test", version: "1.0.0" });
+  });
 });
 
-test("readPackageFile - should return null for invalid JSON", () => {
-  const checker = new SecurityChecker({ provider: "osv" });
-  const testPath = path.join(process.cwd(), "test-package-invalid.json");
+test("readPackageFile - should return null for invalid JSON", async () => {
+  await withTempDir((directory) => {
+    const checker = new SecurityChecker({ provider: "osv" });
+    const testPath = path.join(directory, "test-package-invalid.json");
+    fs.writeFileSync(testPath, "invalid json");
 
-  fs.writeFileSync(testPath, "invalid json");
-  const result = (checker as any).readPackageFile(testPath);
-  fs.unlinkSync(testPath);
+    const result = (checker as any).readPackageFile(testPath);
 
-  assert.strictEqual(result, null);
+    assert.strictEqual(result, null);
+  });
 });
 
 test("readPackageFile - should return null for non-existent file", () => {
@@ -1901,15 +2052,16 @@ test("readPackageFile - should return null for non-existent file", () => {
   assert.strictEqual(result, null);
 });
 
-test("readPackageFile - should return null for invalid object", () => {
-  const checker = new SecurityChecker({ provider: "osv" });
-  const testPath = path.join(process.cwd(), "test-package-invalid-obj.json");
+test("readPackageFile - should return null for invalid object", async () => {
+  await withTempDir((directory) => {
+    const checker = new SecurityChecker({ provider: "osv" });
+    const testPath = path.join(directory, "test-package-invalid-obj.json");
+    fs.writeFileSync(testPath, JSON.stringify("not an object"));
 
-  fs.writeFileSync(testPath, JSON.stringify("not an object"));
-  const result = (checker as any).readPackageFile(testPath);
-  fs.unlinkSync(testPath);
+    const result = (checker as any).readPackageFile(testPath);
 
-  assert.strictEqual(result, null);
+    assert.strictEqual(result, null);
+  });
 });
 
 test("isNewVulnerability - should return true for new vulnerability", () => {
@@ -1953,21 +2105,9 @@ test("extractNewVulnerabilities - should extract only new vulnerabilities", () =
   const pkgJson: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    dependencies: {
-      lodash: "4.17.20",
-    },
+    dependencies: dependencies3,
   };
-  const alerts: SecurityAlert[] = [
-    {
-      packageName: "lodash",
-      currentVersion: "4.17.20",
-      vulnerableVersions: "< 4.17.21",
-      patchedVersion: "4.17.21",
-      severity: "high",
-      title: "Prototype Pollution",
-      fixAvailable: true,
-    },
-  ];
+  const alerts = [lodashReportAlert()];
   const existingKeys = new Set<string>();
 
   const result = (checker as any).extractNewVulnerabilities(pkgJson, alerts, existingKeys);
@@ -1976,30 +2116,22 @@ test("extractNewVulnerabilities - should extract only new vulnerabilities", () =
   assert.strictEqual(result[0].packageName, "lodash");
 });
 
+const EXPRESS_XSS_ALERT: SecurityAlert = {
+  packageName: "express",
+  currentVersion: "4.17.0",
+  vulnerableVersions: "< 4.18.2",
+  patchedVersion: "4.18.2",
+  severity: "medium",
+  title: "XSS",
+  fixAvailable: true,
+};
 test("extractNewVulnerabilities - Set correctly filters duplicates across workspaces", () => {
   const checker = new SecurityChecker({ provider: "osv" });
 
   const existingKeys = new Set(["lodash@4.17.20"]);
 
-  const vuln1: SecurityAlert = {
-    packageName: "lodash",
-    currentVersion: "4.17.20",
-    vulnerableVersions: "< 4.17.21",
-    patchedVersion: "4.17.21",
-    severity: "high",
-    title: "Prototype Pollution",
-    fixAvailable: true,
-  };
-
-  const vuln2: SecurityAlert = {
-    packageName: "express",
-    currentVersion: "4.17.0",
-    vulnerableVersions: "< 4.18.2",
-    patchedVersion: "4.18.2",
-    severity: "medium",
-    title: "XSS",
-    fixAvailable: true,
-  };
+  const vuln1 = lodashReportAlert();
+  const vuln2 = Object.assign({}, EXPRESS_XSS_ALERT);
 
   const isNew1 = (checker as any).isNewVulnerability(vuln1, existingKeys);
   const isNew2 = (checker as any).isNewVulnerability(vuln2, existingKeys);
@@ -2086,44 +2218,32 @@ test("createBackup - should use configured root for project cache", () => {
   }
 });
 
+const npmAutofixDependencies = { lodash: "4.17.20" };
+const NPM_AUTOFIX_PACKAGE = {
+  name: "test",
+  version: "1.0.0",
+  packageManager: "npm@11.5.2",
+  dependencies: npmAutofixDependencies,
+};
 test("applyAutoFix - should apply security overrides to package.json", async () => {
-  const checker = new SecurityChecker({ provider: "osv" });
-  const testPath = path.join(process.cwd(), "test-autofix.json");
-  const testPackageJson = {
-    name: "test",
-    version: "1.0.0",
-    packageManager: "npm@11.5.2",
-    dependencies: {
-      lodash: "4.17.20",
-    },
-  };
+  await withTempDir((directory) => {
+    const checker = new SecurityChecker({ provider: "osv" });
+    const testPath = path.join(directory, "test-autofix.json");
+    fs.writeFileSync(testPath, JSON.stringify(NPM_AUTOFIX_PACKAGE, null, 2));
+    const overrides = [Object.assign({}, LODASH_SECURITY_FIX)];
 
-  fs.writeFileSync(testPath, JSON.stringify(testPackageJson, null, 2));
+    const mockConsoleLog = spyOn(console, "log").mockImplementation(() => {});
 
-  const overrides = [
-    {
-      packageName: "lodash",
-      fromVersion: "4.17.20",
-      toVersion: "4.17.21",
-      reason: "Security fix",
-      severity: "high" as const,
-    },
-  ];
+    const backupPath = checker.applyAutoFix(overrides, testPath) as string;
 
-  const mockConsoleLog = spyOn(console, "log").mockImplementation(() => {});
+    const updated = JSON.parse(fs.readFileSync(testPath, "utf-8"));
+    assert.deepStrictEqual(updated.overrides, { lodash: "4.17.21" });
 
-  const backupPath = (await checker.applyAutoFix(overrides, testPath)) as string;
+    mockConsoleLog.mockRestore();
 
-  const updated = JSON.parse(fs.readFileSync(testPath, "utf-8"));
-  assert.deepStrictEqual(updated.overrides, { lodash: "4.17.21" });
-
-  assert.ok(backupPath);
-  assert.strictEqual(fs.existsSync(backupPath as string), true);
-
-  fs.unlinkSync(testPath);
-  fs.unlinkSync(backupPath as string);
-
-  mockConsoleLog.mockRestore();
+    assert.ok(backupPath);
+    assert.strictEqual(fs.existsSync(backupPath as string), true);
+  });
 });
 
 test("applyAutoFix - should write pnpm 11 overrides to the workspace manifest", () => {
@@ -2198,35 +2318,29 @@ test("applyAutoFix - should throw error when package.json not found", async () =
       fromVersion: "4.17.20",
       toVersion: "4.17.21",
       reason: "Security fix",
-      severity: "high" as const,
+      severity: highSeverity,
     },
   ];
 
-  try {
-    await checker.applyAutoFix(overrides, "/non/existent/package.json");
-    assert.strictEqual(true, false);
-  } catch (error: any) {
-    assert.ok(error.message.includes("package.json not found"));
-  }
+  assert.throws(
+    () => checker.applyAutoFix(overrides, "/non/existent/package.json"),
+    /package\.json not found/,
+  );
 });
 
+const npmPackageManager = { packageManager: "npm@11.5.2" };
+const createNpmPackageRoot = (): string => {
+  const root = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-cwd-autofix-"));
+  const npmPackage = Object.assign({}, mockPackageJson, npmPackageManager);
+  fs.writeFileSync(path.join(root, "package.json"), JSON.stringify(npmPackage));
+  return root;
+};
 test("applyAutoFix - should use cwd when no path provided", async () => {
   const checker = new SecurityChecker({ provider: "osv" });
-  const root = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-cwd-autofix-"));
-  const testPath = path.join(root, "package.json");
+  const root = createNpmPackageRoot();
   const originalCwd = process.cwd();
-  const npmPackage = { ...mockPackageJson, packageManager: "npm@11.5.2" };
-  fs.writeFileSync(testPath, JSON.stringify(npmPackage));
 
-  const overrides = [
-    {
-      packageName: "lodash",
-      fromVersion: "4.17.20",
-      toVersion: "4.17.21",
-      reason: "Security fix",
-      severity: "high" as const,
-    },
-  ];
+  const overrides = [Object.assign({}, LODASH_SECURITY_FIX)];
 
   const mockConsoleLog = spyOn(console, "log").mockImplementation(() => {});
 
@@ -2244,76 +2358,59 @@ test("applyAutoFix - should use cwd when no path provided", async () => {
 });
 
 test("rollbackAutoFix - should restore from backup", async () => {
-  const checker = new SecurityChecker({ provider: "osv" });
-  const testPath = path.join(process.cwd(), "test-rollback.json");
-  const original = { name: "original", version: "1.0.0" };
+  await withTempDir((directory) => {
+    const checker = new SecurityChecker({ provider: "osv" });
+    const testPath = path.join(directory, "test-rollback.json");
+    const original = { name: "original", version: "1.0.0" };
 
-  fs.writeFileSync(testPath, JSON.stringify(original));
-  const backupPath = (checker as any).createBackup(testPath);
+    fs.writeFileSync(testPath, JSON.stringify(original));
+    const backupPath = (checker as any).createBackup(testPath);
+    fs.writeFileSync(testPath, JSON.stringify({ name: "modified" }));
 
-  fs.writeFileSync(testPath, JSON.stringify({ name: "modified" }));
+    const mockConsoleLog = spyOn(console, "log").mockImplementation(() => {});
+    checker.rollbackAutoFix(backupPath, testPath);
+    mockConsoleLog.mockRestore();
 
-  const mockConsoleLog = spyOn(console, "log").mockImplementation(() => {});
-  await checker.rollbackAutoFix(backupPath, testPath);
-  mockConsoleLog.mockRestore();
-
-  const restored = JSON.parse(fs.readFileSync(testPath, "utf-8"));
-  assert.deepStrictEqual(restored, original);
-
-  fs.unlinkSync(testPath);
-  fs.unlinkSync(backupPath);
+    const restored = JSON.parse(fs.readFileSync(testPath, "utf-8"));
+    assert.deepStrictEqual(restored, original);
+  });
 });
 
-test("rollbackAutoFix - should throw error when backup not found", async () => {
+test("rollbackAutoFix - should throw error when backup not found", () => {
   const checker = new SecurityChecker({ provider: "osv" });
 
-  try {
-    await checker.rollbackAutoFix("/non/existent/backup.json", "/non/existent/package.json");
-    assert.strictEqual(true, false);
-  } catch (error: any) {
-    assert.ok(error.message.includes("Backup file not found"));
-  }
+  assert.throws(
+    () => checker.rollbackAutoFix("/non/existent/backup.json", "/non/existent/package.json"),
+    /Backup file not found/,
+  );
 });
 
+const workspaceVulnDependencies = { lodash: "4.17.20" };
+const WORKSPACE_VULN_PACKAGE = {
+  name: "workspace-pkg",
+  version: "1.0.0",
+  dependencies: workspaceVulnDependencies,
+};
+const workspaceVulnPaths = ["test-workspace-vuln/package.json"];
 test("findWorkspaceVulnerabilities - should find vulnerabilities in workspace packages", async () => {
-  const checker = new SecurityChecker({ provider: "osv" });
-  const workspaceDir = path.join(process.cwd(), "test-workspace-vuln");
-  const pkgPath = path.join(workspaceDir, "package.json");
+  await withTempDir(async (directory) => {
+    const checker = new SecurityChecker({ provider: "osv" });
+    const workspaceDir = path.join(directory, "test-workspace-vuln");
+    const pkgPath = path.join(workspaceDir, "package.json");
 
-  fs.mkdirSync(workspaceDir, { recursive: true });
-  fs.writeFileSync(
-    pkgPath,
-    JSON.stringify({
-      name: "workspace-pkg",
-      version: "1.0.0",
-      dependencies: {
-        lodash: "4.17.20",
-      },
-    }),
-  );
+    fs.mkdirSync(workspaceDir, { recursive: true });
+    fs.writeFileSync(pkgPath, JSON.stringify(WORKSPACE_VULN_PACKAGE));
 
-  const alerts: SecurityAlert[] = [
-    {
-      packageName: "lodash",
-      currentVersion: "4.17.20",
-      vulnerableVersions: "< 4.17.21",
-      patchedVersion: "4.17.21",
-      severity: "high",
-      title: "Prototype Pollution",
-      fixAvailable: true,
-    },
-  ];
+    const alerts = [lodashReportAlert()];
 
-  const result = await (checker as any).findWorkspaceVulnerabilities(
-    ["test-workspace-vuln/package.json"],
-    process.cwd(),
-    alerts,
-  );
+    const result = await (checker as any).findWorkspaceVulnerabilities(
+      workspaceVulnPaths,
+      directory,
+      alerts,
+    );
 
-  fs.unlinkSync(pkgPath);
-  fs.rmdirSync(workspaceDir);
-
-  assert.strictEqual(Array.isArray(result), true);
+    assert.deepStrictEqual(result, alerts);
+  });
 });
 
 test("isKnownSecurityProvider - returns true for github", () => {
@@ -2422,7 +2519,7 @@ test("generateCacheKey - generates unique key for packages", () => {
     { name: "axios", version: "0.21.0" },
   ];
 
-  const key = (checker as any).generateCacheKey(packages);
+  const key: string = (checker as any).generateCacheKey(packages);
   assert.ok(key.includes("lodash@4.17.20"));
   assert.ok(key.includes("axios@0.21.0"));
 });
@@ -2521,39 +2618,40 @@ test("generatePackageOverrides - does not downgrade existing higher version", ()
   assert.strictEqual(overrides["lodash"], "4.17.25");
 });
 
-test("checkSecurity - expires in-memory alerts using cache TTL seconds", async () => {
-  const checker = new SecurityChecker({
-    provider: "osv",
-    cacheTtl: 1,
-    noCache: true,
-  });
-  const config: PastoralistJSON = {
-    name: "test",
-    version: "1.0.0",
-    dependencies: { lodash: "4.17.20" },
-  };
+const LODASH_TEST_CONFIG: PastoralistJSON = {
+  name: "test",
+  version: "1.0.0",
+  dependencies: stringifyDependencies,
+};
+const shortTtlCheckerOptions: ConstructorParameters<typeof SecurityChecker>[0] = {
+  provider: "osv",
+  cacheTtl: 1,
+  noCache: true,
+};
+const emptyOsvBatchFetch = () => {
+  const results = [{}];
+  const headers = { "Content-Type": "application/json" };
+  const response = new Response(JSON.stringify({ results }), { status: 200, headers });
+  const resolveResult = Promise.resolve(response);
+  return resolveResult;
+};
 
-  const originalFetch = global.fetch;
+test("checkSecurity - expires in-memory alerts using cache TTL seconds", async () => {
+  const checker = new SecurityChecker(shortTtlCheckerOptions);
+  const config = Object.assign({}, LODASH_TEST_CONFIG);
+  const { fetch: originalFetch } = global;
   let now = 1_000;
   const nowSpy = spyOn(Date, "now").mockImplementation(() => now);
-  const fetchMock = mock(() => {
-    const response = new Response(JSON.stringify({ results: [{}] }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-    return Promise.resolve(response);
-  });
+  const fetchMock = mock(emptyOsvBatchFetch);
   global.fetch = fetchMock as unknown as typeof fetch;
 
   try {
     await checker.checkSecurity(config);
     await checker.checkSecurity(config);
-
     assert.strictEqual(fetchMock.mock.callCount(), 1);
 
     now += 1_001;
     await checker.checkSecurity(config);
-
     assert.strictEqual(fetchMock.mock.callCount(), 2);
   } finally {
     nowSpy.mockRestore();
@@ -2572,7 +2670,7 @@ test("checkSecurity - skipCacheWrite does not seed in-memory alerts cache", asyn
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    dependencies: { lodash: "4.17.20" },
+    dependencies: stringifyDependencies,
   };
 
   await checker.checkSecurity(config, { skipCacheWrite: true });
@@ -2589,8 +2687,8 @@ test("checkSecurity - does not cache incomplete provider scans", async () => {
     .mockResolvedValue([]);
   const config = createBuiltInBestCaseConfig();
 
-  await checker.checkSecurity(config, { bestCase: { enabled: false } });
-  await checker.checkSecurity(config, { bestCase: { enabled: false } });
+  await checker.checkSecurity(config, { bestCase });
+  await checker.checkSecurity(config, { bestCase });
 
   assert.strictEqual(fetchAlerts.mock.callCount(), 2);
 });
@@ -2600,79 +2698,80 @@ test("checkSecurity - does not cache provider-reported partial scans", async () 
   const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockImplementation(
     (_packages, options) => {
       options?.onIncomplete?.();
-      return Promise.resolve([]);
+      const resolveResult = Promise.resolve([]);
+      return resolveResult;
     },
   );
   const config = createBuiltInBestCaseConfig();
 
-  await checker.checkSecurity(config, { bestCase: { enabled: false } });
-  await checker.checkSecurity(config, { bestCase: { enabled: false } });
+  await checker.checkSecurity(config, { bestCase });
+  await checker.checkSecurity(config, { bestCase });
 
   assert.strictEqual(fetchAlerts.mock.callCount(), 2);
 });
 
+const packageValue = { name: "lodash", ecosystem: "npm" };
+const events = [{ introduced: "0" }, { fixed: "4.17.21" }];
+const ranges = [
+  {
+    type: "SEMVER",
+    events,
+  },
+];
+const affected = [
+  {
+    package: packageValue,
+    ranges,
+  },
+];
+const references = [{ type: "ADVISORY", url: "https://example.com" }];
+const MOCK_OSV_VULN = {
+  id: "OSV-2021-1234",
+  summary: "Prototype Pollution",
+  details: "Details",
+  affected,
+  references,
+};
+
+const osvBatchBody = () => {
+  const resultsVulns = [{ id: "OSV-2021-1234" }];
+  const results = [{ vulns: resultsVulns }];
+  const body = { results };
+  return body;
+};
+
+const lodashRegistryBody = () => {
+  const distTags = { latest: "4.17.21" };
+  const v41720 = {};
+  const v41721 = {};
+  const versions = { "4.17.20": v41720, "4.17.21": v41721 };
+  const body = { "dist-tags": distTags, versions };
+  return body;
+};
+
+const OSV_FETCH_ROUTES = [
+  { matches: (url: string) => url.includes("querybatch"), body: osvBatchBody },
+  { matches: (url: string) => url.includes("vulns/"), body: () => MOCK_OSV_VULN },
+  {
+    matches: (url: string) => url.startsWith("https://registry.npmjs.org/"),
+    body: lodashRegistryBody,
+  },
+];
+
+const routeOsvFetch = (url: string): Promise<Response> => {
+  const isStringUrl = typeof url === "string";
+  const route = isStringUrl ? OSV_FETCH_ROUTES.find((entry) => entry.matches(url)) : undefined;
+  const body = route ? route.body() : {};
+  const response = { ok: true, json: () => Promise.resolve(body) } as Response;
+  const resolveResult = Promise.resolve(response);
+  return resolveResult;
+};
+
 test("checkSecurity - returns results when provider fetch succeeds", async () => {
   const checker = new SecurityChecker({ debug: false, noCache: true });
-  const config = {
-    name: "test",
-    version: "1.0.0",
-    dependencies: { lodash: "4.17.20" },
-  };
-
-  const originalFetch = global.fetch;
-
-  const mockVuln = {
-    id: "OSV-2021-1234",
-    summary: "Prototype Pollution",
-    details: "Details",
-    affected: [
-      {
-        package: { name: "lodash", ecosystem: "npm" },
-        ranges: [
-          {
-            type: "SEMVER",
-            events: [{ introduced: "0" }, { fixed: "4.17.21" }],
-          },
-        ],
-      },
-    ],
-    references: [{ type: "ADVISORY", url: "https://example.com" }],
-  };
-
-  global.fetch = mock((url: string) => {
-    const isBatchCall = typeof url === "string" && url.includes("querybatch");
-    if (isBatchCall) {
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            results: [{ vulns: [{ id: "OSV-2021-1234" }] }],
-          }),
-      } as Response);
-    }
-    const isVulnCall = typeof url === "string" && url.includes("vulns/");
-    if (isVulnCall) {
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve(mockVuln),
-      } as Response);
-    }
-    const isRegistryCall = typeof url === "string" && url.startsWith("https://registry.npmjs.org/");
-    if (isRegistryCall) {
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            "dist-tags": { latest: "4.17.21" },
-            versions: { "4.17.20": {}, "4.17.21": {} },
-          }),
-      } as Response);
-    }
-    return Promise.resolve({
-      ok: true,
-      json: () => Promise.resolve({}),
-    } as Response);
-  });
+  const config = Object.assign({}, LODASH_TEST_CONFIG);
+  const { fetch: originalFetch } = global;
+  global.fetch = mock(routeOsvFetch);
 
   try {
     const result = await checker.checkSecurity(config);
@@ -2740,42 +2839,32 @@ afterEach(() => {
   }
 });
 
+const createTestPackageDependencies = { lodash: "^4.17.20" };
+const PROJECT_BACKUP_DIR = path.join("node_modules", ".cache", "pastoralist", "backups");
+const BACKUP_TEST_PACKAGE = {
+  name: "backup-test",
+  version: "1.0.0",
+  dependencies: createTestPackageDependencies,
+};
 test("applyAutoFix creates backup in project cache before modifying", () => {
-  const pkgPath = createTestPackage("backup-test", {
-    name: "backup-test",
-    version: "1.0.0",
-    dependencies: { lodash: "^4.17.20" },
-  });
+  const pkgPath = createTestPackage("backup-test", BACKUP_TEST_PACKAGE);
 
   const checker = new SecurityChecker({ provider: "osv" });
-  const overrides: SecurityOverride[] = [
-    {
-      packageName: "lodash",
-      fromVersion: "4.17.20",
-      toVersion: "4.17.21",
-      reason: "Security fix",
-      severity: "high",
-    },
-  ];
+  const overrides: SecurityOverride[] = [Object.assign({}, LODASH_SECURITY_FIX)];
 
   const backupPath = rememberBackup(checker.applyAutoFix(overrides, pkgPath));
-  const expectedBackupDir = path.join(
-    path.dirname(pkgPath),
-    "node_modules",
-    ".cache",
-    "pastoralist",
-    "backups",
-  );
+  const expectedBackupDir = path.join(path.dirname(pkgPath), PROJECT_BACKUP_DIR);
 
   assert.strictEqual(fs.existsSync(backupPath), true);
   assert.strictEqual(path.dirname(backupPath), expectedBackupDir);
 });
 
+const dependencies12 = { lodash: "^4.17.21" };
 test("applyAutoFix handles empty overrides array", () => {
   const pkgPath = createTestPackage("empty-overrides", {
     name: "empty-test",
     version: "1.0.0",
-    dependencies: { lodash: "^4.17.21" },
+    dependencies: dependencies12,
   });
 
   const checker = new SecurityChecker({ provider: "osv" });
@@ -2785,24 +2874,17 @@ test("applyAutoFix handles empty overrides array", () => {
   assert.notStrictEqual(result.pastoralist, undefined);
 });
 
+const createTestPackageOverrides = { minimist: "1.2.8" };
 test("applyAutoFix preserves existing overrides", () => {
   const pkgPath = createTestPackage("preserve-overrides", {
     name: "preserve-test",
     version: "1.0.0",
-    dependencies: { lodash: "^4.17.20" },
-    overrides: { minimist: "1.2.8" },
+    dependencies: createTestPackageDependencies,
+    overrides: createTestPackageOverrides,
   });
 
   const checker = new SecurityChecker({ provider: "osv" });
-  const overrides: SecurityOverride[] = [
-    {
-      packageName: "lodash",
-      fromVersion: "4.17.20",
-      toVersion: "4.17.21",
-      reason: "Security fix",
-      severity: "high",
-    },
-  ];
+  const overrides: SecurityOverride[] = [Object.assign({}, LODASH_SECURITY_FIX)];
 
   rememberBackup(checker.applyAutoFix(overrides, pkgPath));
 
@@ -2811,30 +2893,19 @@ test("applyAutoFix preserves existing overrides", () => {
   assert.strictEqual(result.overrides.lodash, "4.17.21");
 });
 
+const briefFixReason = { reason: "fix" };
 test("rollbackAutoFix restores to originalPath, not cache dir", () => {
   const pkgPath = createTestPackage("rollback-path-test", {
     name: "rollback-path-test",
     version: "1.0.0",
-    dependencies: { lodash: "^4.17.20" },
+    dependencies: createTestPackageDependencies,
   });
 
   const checker = new SecurityChecker({ provider: "osv" });
-  const backupPath = rememberBackup(
-    checker.applyAutoFix(
-      [
-        {
-          packageName: "lodash",
-          fromVersion: "4.17.20",
-          toVersion: "4.17.21",
-          reason: "fix",
-          severity: "high",
-        },
-      ],
-      pkgPath,
-    ),
-  );
+  const overrides: SecurityOverride[] = [Object.assign({}, LODASH_SECURITY_FIX, briefFixReason)];
+  const backupPath = rememberBackup(checker.applyAutoFix(overrides, pkgPath));
 
-  assert.ok(backupPath.includes(path.join("node_modules", ".cache", "pastoralist", "backups")));
+  assert.ok(backupPath.includes(PROJECT_BACKUP_DIR));
 
   checker.rollbackAutoFix(backupPath, pkgPath);
 
@@ -2850,20 +2921,12 @@ test("rollbackAutoFix restores original file", () => {
   const originalContent = {
     name: "rollback-test",
     version: "1.0.0",
-    dependencies: { lodash: "^4.17.20" },
+    dependencies: createTestPackageDependencies,
   };
 
   const pkgPath = createTestPackage("rollback-test", originalContent);
   const checker = new SecurityChecker({ provider: "osv" });
-  const overrides: SecurityOverride[] = [
-    {
-      packageName: "lodash",
-      fromVersion: "4.17.20",
-      toVersion: "4.17.21",
-      reason: "Security fix",
-      severity: "high",
-    },
-  ];
+  const overrides: SecurityOverride[] = [Object.assign({}, LODASH_SECURITY_FIX)];
 
   const backupPath = rememberBackup(checker.applyAutoFix(overrides, pkgPath));
 
@@ -2877,13 +2940,16 @@ test("rollbackAutoFix restores original file", () => {
   assert.strictEqual(restored.name, "rollback-test");
 });
 
+const createTestPackagePnpmOverrides = {};
+const createTestPackagePnpm = { overrides: createTestPackagePnpmOverrides };
+const PNPM_FORMAT_PACKAGE = {
+  name: "pnpm-test",
+  version: "1.0.0",
+  dependencies: createTestPackageDependencies,
+  pnpm: createTestPackagePnpm,
+};
 test("applyAutoFix handles pnpm override format", () => {
-  const pkgPath = createTestPackage("pnpm-format", {
-    name: "pnpm-test",
-    version: "1.0.0",
-    dependencies: { lodash: "^4.17.20" },
-    pnpm: { overrides: {} },
-  });
+  const pkgPath = createTestPackage("pnpm-format", PNPM_FORMAT_PACKAGE);
 
   fs.writeFileSync(path.join(TEST_DIR, "pnpm-format", "pnpm-lock.yaml"), "");
 
@@ -2892,15 +2958,7 @@ test("applyAutoFix handles pnpm override format", () => {
 
   try {
     const checker = new SecurityChecker({ provider: "osv" });
-    const overrides: SecurityOverride[] = [
-      {
-        packageName: "lodash",
-        fromVersion: "4.17.20",
-        toVersion: "4.17.21",
-        reason: "Security fix",
-        severity: "high",
-      },
-    ];
+    const overrides: SecurityOverride[] = [Object.assign({}, LODASH_SECURITY_FIX)];
 
     rememberBackup(checker.applyAutoFix(overrides, pkgPath));
 
@@ -2911,12 +2969,13 @@ test("applyAutoFix handles pnpm override format", () => {
   }
 });
 
+const YARN_FORMAT_PACKAGE = {
+  name: "yarn-test",
+  version: "1.0.0",
+  dependencies: createTestPackageDependencies,
+};
 test("applyAutoFix handles yarn resolutions format", () => {
-  const pkgPath = createTestPackage("yarn-format", {
-    name: "yarn-test",
-    version: "1.0.0",
-    dependencies: { lodash: "^4.17.20" },
-  });
+  const pkgPath = createTestPackage("yarn-format", YARN_FORMAT_PACKAGE);
 
   fs.writeFileSync(path.join(TEST_DIR, "yarn-format", "yarn.lock"), "");
 
@@ -2925,15 +2984,7 @@ test("applyAutoFix handles yarn resolutions format", () => {
 
   try {
     const checker = new SecurityChecker({ provider: "osv" });
-    const overrides: SecurityOverride[] = [
-      {
-        packageName: "lodash",
-        fromVersion: "4.17.20",
-        toVersion: "4.17.21",
-        reason: "Security fix",
-        severity: "high",
-      },
-    ];
+    const overrides: SecurityOverride[] = [Object.assign({}, LODASH_SECURITY_FIX)];
 
     rememberBackup(checker.applyAutoFix(overrides, pkgPath));
 
@@ -2944,23 +2995,26 @@ test("applyAutoFix handles yarn resolutions format", () => {
   }
 });
 
+const spektionProvider = "spektion" as any;
 test("Provider Abstraction - should support spektion provider", () => {
   const checker = new SecurityChecker({
-    provider: "spektion" as any,
+    provider: spektionProvider,
     token: "test-token",
   });
   assert.notStrictEqual(checker, undefined);
 });
 
+const express = { react: "18.0.0" } as any;
+const overrides2 = {
+  lodash: "4.17.21",
+  express,
+};
 test("checkOverrideUpdates - logs and skips nested override entries", async () => {
   const checker = new SecurityChecker({ provider: "osv" });
   const config = {
     name: "root",
     version: "1.0.0",
-    overrides: {
-      lodash: "4.17.21",
-      express: { react: "18.0.0" } as any,
-    },
+    overrides: overrides2,
   };
   const result = await (checker as any).checkOverrideUpdates(config, []);
   assert.strictEqual(Array.isArray(result), true);
@@ -2982,3 +3036,26 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   console.log(`All ${tests.length} test suites passed!`);
 }
+
+const NEWER_PATCH_BASE_ALERT = {
+  packageName: "lodash",
+  currentVersion: "4.17.0",
+  vulnerableVersions: "<4.17.21",
+  severity: highSeverity,
+  title: "Vuln",
+  fixAvailable: true,
+};
+const NEWER_PATCH_CANDIDATES = ["4.17.12", "4.17.21", "4.17.15", undefined];
+test("findNewerPatch - returns the highest newer patched version", () => {
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  const harness = checker as unknown as {
+    findNewerPatch: (alerts: SecurityAlert[], version: string) => SecurityAlert | undefined;
+  };
+  const alerts: SecurityAlert[] = NEWER_PATCH_CANDIDATES.map((patchedVersion) =>
+    Object.assign({}, NEWER_PATCH_BASE_ALERT, { patchedVersion }),
+  );
+
+  const result = harness.findNewerPatch(alerts, "4.17.10");
+
+  assert.strictEqual(result?.patchedVersion, "4.17.21");
+});

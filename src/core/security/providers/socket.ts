@@ -1,8 +1,8 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
-import type { SecurityAlert, SocketResult, SocketPackage, SocketIssue } from "../../../types";
+import type { SecurityAlert, SocketPackage, SocketIssue } from "../../../types";
 import { logger } from "../../../observability";
-import { CLIInstaller } from "../utils";
+import { CLIInstaller, isSocketResult } from "../utils";
 import { AUTH_MESSAGES } from "../constants";
 import type { ExecFileAsync } from "../../types";
 import type { SocketCLIProviderOptions } from "../types";
@@ -65,7 +65,7 @@ export class SocketCLIProvider {
     return true;
   }
 
-  private async runSocketScan(root?: string): Promise<SocketResult> {
+  private async runSocketScan(root?: string): Promise<unknown> {
     const { token: SOCKET_SECURITY_API_KEY } = this;
     const env = Object.assign({}, process.env, { SOCKET_SECURITY_API_KEY });
 
@@ -79,7 +79,7 @@ export class SocketCLIProvider {
       },
     );
 
-    const result = JSON.parse(stdout);
+    const result: unknown = JSON.parse(stdout);
     return result;
   }
 
@@ -123,8 +123,8 @@ export class SocketCLIProvider {
     return alerts;
   }
 
-  private convertSocketAlerts(socketResult: SocketResult): SecurityAlert[] {
-    if (!socketResult?.packages) {
+  private convertSocketAlerts(socketResult: unknown): SecurityAlert[] {
+    if (!isSocketResult(socketResult)) {
       const result: SecurityAlert[] = [];
       return result;
     }

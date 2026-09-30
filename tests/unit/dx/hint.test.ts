@@ -1,41 +1,44 @@
-import { test, beforeEach, afterEach, mock as moduleMock } from "node:test";
+import { test, beforeEach, mock as moduleMock } from "node:test";
 import { mock } from "../setup";
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, writeFileSync, rmSync } from "fs";
-import * as fs from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import type { Output } from "../../../src/dx/types";
 import { resolveCacheDir } from "../../../src/utils/cache";
 
-const writeFileSyncMock = mock(fs.writeFileSync);
+const writeFileSyncMock = mock(writeFileSync);
 
-moduleMock.module("fs", {
-  namedExports: {
-    existsSync: fs.existsSync,
-    mkdirSync: fs.mkdirSync,
-    readFileSync: fs.readFileSync,
-    writeFileSync: writeFileSyncMock,
-  },
-});
+const fsNamedExports = {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync: writeFileSyncMock,
+};
+
+moduleMock.module("fs", { namedExports: fsNamedExports });
 
 const { showHint, clearHintCache } = await import("../../../src/dx");
 
-function createMockOutput(): { output: Output; calls: string[] } {
-  const calls: string[] = [];
+const DATE_TIMER_APIS: Array<"Date"> = ["Date"];
+const DATE_TIMER_OPTIONS = { apis: DATE_TIMER_APIS, now: 1000 };
+
+function createMockOutput(): { output: Output; calls: () => string[] } {
+  const write = moduleMock.fn((_text: string) => undefined);
   const output: Output = {
-    write: (text: string) => {
-      calls.push(text);
-    },
-    writeLine: (text: string) => {
-      calls.push(text + "\n");
-    },
+    write,
+    writeLine: (text: string) => write(`${text}\n`),
     clearLine: () => {},
     hideCursor: () => {},
     showCursor: () => {},
   };
-  return { output, calls };
+  const calls = () => write.mock.calls.map((call) => call.arguments[0]);
+  const mockOutput = { output, calls };
+  return mockOutput;
 }
+
+const assertIncludesAll = (text: string, fragments: string[]) =>
+  fragments.forEach((fragment) => assert.ok(text.includes(fragment)));
 
 beforeEach(() => {
   clearHintCache();
@@ -44,54 +47,52 @@ beforeEach(() => {
 test("showHint - displays hint when cache is empty", () => {
   const { output, calls } = createMockOutput();
   showHint("test-hint-1", "Test message", undefined, output);
-  const joined = calls.join("");
-  assert.ok(joined.includes("Test"));
-  assert.ok(joined.includes("message"));
+  const joined = calls().join("");
+  assertIncludesAll(joined, ["Test", "message"]);
 });
 
 test("showHint - skips hint when recently shown", () => {
   const { output, calls } = createMockOutput();
   showHint("test-hint-2", "First display", undefined, output);
-  const firstCount = calls.length;
+  const firstCount = calls().length;
   showHint("test-hint-2", "Second display", undefined, output);
-  assert.strictEqual(calls.length, firstCount);
+  assert.strictEqual(calls().length, firstCount);
 });
 
 test("showHint - different hint IDs are independent", () => {
   const { output, calls } = createMockOutput();
   showHint("hint-a", "Message A", undefined, output);
-  const afterFirst = calls.length;
+  const afterFirst = calls().length;
   showHint("hint-b", "Message B", undefined, output);
-  assert.ok(calls.length > afterFirst);
+  assert.ok(calls().length > afterFirst);
 });
 
-test("showHint - respects custom TTL", async () => {
+test("showHint - respects custom TTL", (context) => {
+  context.mock.timers.enable(DATE_TIMER_OPTIONS);
   const { output, calls } = createMockOutput();
   showHint("ttl-hint", "Message", 1, output);
-  const afterFirst = calls.length;
-  await new Promise((r) => setTimeout(r, 5));
+  const afterFirst = calls().length;
+  context.mock.timers.tick(2);
   showHint("ttl-hint", "Message", 1, output);
-  assert.ok(calls.length > afterFirst);
+  assert.ok(calls().length > afterFirst);
 });
 
 test("clearHintCache - allows hint to show again", () => {
   const { output, calls } = createMockOutput();
   showHint("clear-test", "Message", undefined, output);
-  const afterFirst = calls.length;
+  const afterFirst = calls().length;
   showHint("clear-test", "Message", undefined, output);
-  assert.strictEqual(calls.length, afterFirst);
+  assert.strictEqual(calls().length, afterFirst);
   clearHintCache();
   showHint("clear-test", "Message", undefined, output);
-  assert.ok(calls.length > afterFirst);
+  assert.ok(calls().length > afterFirst);
 });
 
 test("showHint - renders box with border", () => {
   const { output, calls } = createMockOutput();
   showHint("box-test", "Test content", undefined, output);
-  const joined = calls.join("");
-  assert.ok(joined.includes("+"));
-  assert.ok(joined.includes("-"));
-  assert.ok(joined.includes("|"));
+  const joined = calls().join("");
+  assertIncludesAll(joined, ["+", "-", "|"]);
 });
 
 test("showHint - wraps long text", () => {
@@ -99,9 +100,8 @@ test("showHint - wraps long text", () => {
   const longText =
     "This is a very long message that should wrap across multiple lines in the hint box";
   showHint("wrap-test", longText, undefined, output);
-  const joined = calls.join("");
-  assert.ok(joined.includes("This"));
-  assert.ok(joined.includes("wrap"));
+  const joined = calls().join("");
+  assertIncludesAll(joined, ["This", "wrap"]);
 });
 
 test("showHint - handles corrupt cache file gracefully", () => {
@@ -115,8 +115,8 @@ test("showHint - handles corrupt cache file gracefully", () => {
 
   const { output, calls } = createMockOutput();
   showHint("corrupt-test", "Message after corrupt", undefined, output);
-  assert.ok(calls.length > 0);
-  assert.ok(calls.join("").includes("Message"));
+  assert.ok(calls().length > 0);
+  assert.ok(calls().join("").includes("Message"));
 });
 
 test("saveHintCache - creates cache dir when it does not exist", () => {
@@ -130,7 +130,7 @@ test("saveHintCache - creates cache dir when it does not exist", () => {
     const { output, calls } = createMockOutput();
     showHint("new-dir-test", "Message", undefined, output);
 
-    assert.ok(calls.join("").includes("Message"));
+    assert.ok(calls().join("").includes("Message"));
     assert.strictEqual(existsSync(tmpCacheDir), true);
   } finally {
     if (existsSync(tmpCacheDir)) rmSync(tmpCacheDir, { recursive: true, force: true });

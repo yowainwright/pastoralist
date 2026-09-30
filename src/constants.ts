@@ -2,10 +2,6 @@ export const IS_DEBUGGING = process.env.DEBUG === "true" || false;
 
 export const FARMER = "\u{1F9D1}\u{200D}\u{1F33E}";
 export const SHEEP = "\u{1F411}";
-export const GOAT = "\u{1F410}";
-export const BULLET = "\u{2022}";
-export const INDENT = "   ";
-export const BULLET_INDENT = `${INDENT}${BULLET} `;
 export const BRAND_PREFIX = "\u{25aa}\u{25ab}\u{25aa} Pastoralist";
 export const LOG_PREFIX = "Pastoralist:";
 
@@ -85,8 +81,6 @@ export const STEP = {
   workspace: workspaceStep,
   security: securityStep,
 } as const;
-
-export const MSG_HERD_SAFE = `${ANSI.BOLD}${ANSI.FG_GOLD}The herd is safe!${ANSI.RESET} ${SHEEP}`;
 
 export const HINT_RC_FILE_ID = "rc-file-suggestion";
 export const HINT_RC_FILE_TEXT =

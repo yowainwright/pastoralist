@@ -10,6 +10,14 @@ export const GLOBSTAR_DIRECTORY_PLACEHOLDER = "{{GLOBSTAR_DIRECTORY}}";
 export const GLOBSTAR_DIRECTORY_PLACEHOLDER_PATTERN = /{{GLOBSTAR_DIRECTORY}}/g;
 export const GLOB_REGEX_CACHE_MAX_SIZE = 200;
 
+export const VERSION_COMPARE_PREFIX_PATTERN = /^[\s=v^~]+/;
+export const VERSION_BUILD_METADATA_SEPARATOR = "+";
+export const VERSION_PRERELEASE_SEPARATOR = "-";
+export const VERSION_NUMERIC_IDENTIFIER_PATTERN = /^\d+$/;
+export const VERSION_ORDER_BEFORE = -1;
+export const VERSION_ORDER_EQUAL = 0;
+export const VERSION_ORDER_AFTER = 1;
+
 export const IGNORED_DIRECTORIES = ["node_modules", ".git"];
 
 export const DEFAULT_RETRY_OPTIONS: RetryTimingOptions = {

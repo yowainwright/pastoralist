@@ -5,10 +5,10 @@ import {
   type DependabotAlert,
   type SecurityAlert,
   type SecurityCheckOptions,
-  type GithubApiError,
   SecurityProviderPermissionError,
 } from "../../../types";
-import { retry } from "../../../utils";
+import { getStringField, retry } from "../../../utils";
+import { toDependabotAlerts } from "../utils";
 import { logger } from "../../../observability";
 import { SECURITY_ENV_VARS } from "../../../constants";
 import {
@@ -187,8 +187,8 @@ export class GitHubSecurityProvider {
 
   private loadMockFile(filePath: string): DependabotAlert[] | null {
     try {
-      const mockData = readFileSync(filePath, "utf-8");
-      const result = JSON.parse(mockData);
+      const mockData: unknown = JSON.parse(readFileSync(filePath, "utf-8"));
+      const result = toDependabotAlerts(mockData);
       return result;
     } catch (error) {
       this.log.debug("Failed to read mock file", "loadMockFile", { error });
@@ -252,10 +252,10 @@ export class GitHubSecurityProvider {
   }
 
   private parseGhCliAlerts(stdout: string): DependabotAlert[] {
-    const alerts = JSON.parse(stdout);
+    const alerts: unknown = JSON.parse(stdout);
     const alertCount = Array.isArray(alerts) ? alerts.length : "non-array";
     this.log.debug(`Parsed ${alertCount} alerts`, "fetchAlertsWithGhCli");
-    const ghCliAlerts = Array.isArray(alerts) ? alerts : [];
+    const ghCliAlerts = toDependabotAlerts(alerts);
     return ghCliAlerts;
   }
 
@@ -331,14 +331,15 @@ export class GitHubSecurityProvider {
       await this.throwDependabotResponseError(response);
     }
 
-    const alerts = await response.json();
-    const result = Array.isArray(alerts) ? alerts : [];
+    const alerts: unknown = await response.json();
+    const result = toDependabotAlerts(alerts);
     return result;
   }
 
   private async throwDependabotResponseError(response: Response): Promise<never> {
-    const error: GithubApiError = await response.json();
-    const errorMessage = error.message || response.statusText;
+    const body: unknown = await response.json().catch(() => null);
+    const bodyMessage = getStringField(body, "message");
+    const errorMessage = bodyMessage || response.statusText;
 
     if (this.isPermissionError(errorMessage)) {
       throw new SecurityProviderPermissionError("GitHub", errorMessage);
@@ -396,10 +397,11 @@ export class GitHubSecurityProvider {
     alert: DependabotAlert,
     packageVersions: Map<string, string>,
   ): boolean {
-    const { name: packageName } = alert.security_vulnerability.package;
-    const matchesPackageFilter = packageVersions.size === 0 || packageVersions.has(packageName);
+    const packageName = alert.security_vulnerability?.package?.name;
+    if (!packageName) return false;
     if (alert.state !== "open") return false;
     if (!this.isNpmAlert(alert)) return false;
+    const matchesPackageFilter = packageVersions.size === 0 || packageVersions.has(packageName);
     return matchesPackageFilter;
   }
 

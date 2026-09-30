@@ -1,5 +1,6 @@
 import type {
   SecurityAlert,
+  OSVAffected,
   OSVBatchApiResult,
   OSVBatchResult,
   OSVPackageQuery,
@@ -16,9 +17,14 @@ import type {
 } from "../../../types";
 import { compareVersions, retry, type RetryError, type RetryOptions } from "../../../utils";
 import { logger } from "../../../observability";
+import { isOSVVulnerability, toOSVBatchApiResults } from "../utils";
 import {
   OSV_API,
   OSV_CACHE_MAX_ENTRIES,
+  OSV_CVSS_VECTOR_PREFIX,
+  OSV_GIT_RANGE_TYPE,
+  OSV_NPM_ECOSYSTEM,
+  SEVERITY_MAP,
   OSV_DETAIL_CONCURRENCY,
   OSV_IRL_CATCH_ALERT,
   OSV_IRL_FIX_ALERT,
@@ -108,8 +114,8 @@ export class OSVProvider {
     options: SecurityProviderScanOptions,
   ): Promise<OSVBatchResult[]> {
     const response = await this.requestOSVBatch(this.createOSVQueries(packages));
-    const data = await response.json();
-    const fromOSVBatchAPI = this.enrichBatchResults(data.results || [], options);
+    const data: unknown = await response.json();
+    const fromOSVBatchAPI = this.enrichBatchResults(toOSVBatchApiResults(data), options);
     return fromOSVBatchAPI;
   }
 
@@ -181,7 +187,8 @@ export class OSVProvider {
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
-    const result = (await response.json()) as OSVVulnerability;
+    const result: unknown = await response.json();
+    if (!isOSVVulnerability(result)) throw new Error(`Invalid OSV response for ${vuln.id}`);
     this.osvCache.set(cacheKey, result);
     return result;
   }
@@ -376,7 +383,7 @@ export class OSVProvider {
     vuln: OSVVulnerability,
   ): SecurityAlert {
     const { name: packageName, version: currentVersion } = pkg;
-    const interval = this.findVersionInterval(vuln, currentVersion);
+    const interval = this.findVersionInterval(vuln, pkg);
     const patchedVersion = interval?.fixed;
     const vulnerableVersions = this.formatVersionInterval(interval);
     const severity = this.extractSeverity(vuln);
@@ -390,10 +397,36 @@ export class OSVProvider {
     return alert;
   }
 
-  private getVersionIntervals(vuln: OSVVulnerability): OSVVersionInterval[] {
-    const ranges = vuln.affected?.flatMap((affected) => affected.ranges || []) || [];
+  private isMatchingAffected(affected: OSVAffected, packageName: string): boolean {
+    const isSamePackage = affected.package?.name === packageName;
+    const isNpmEcosystem = affected.package?.ecosystem === OSV_NPM_ECOSYSTEM;
+    const isMatching = isSamePackage && isNpmEcosystem;
+    return isMatching;
+  }
+
+  private getVersionIntervals(vuln: OSVVulnerability, packageName: string): OSVVersionInterval[] {
+    const affectedEntries = vuln.affected ?? [];
+    const matchingEntries = affectedEntries.filter((affected) =>
+      this.isMatchingAffected(affected, packageName),
+    );
+    const ranges = matchingEntries
+      .flatMap((affected) => affected.ranges ?? [])
+      .filter((range) => range.type !== OSV_GIT_RANGE_TYPE);
     const versionIntervals = ranges.flatMap((range) => this.toVersionIntervals(range));
     return versionIntervals;
+  }
+
+  private closeVersionInterval(
+    state: OSVVersionIntervalState,
+    event: OSVVersionEvent,
+  ): OSVVersionIntervalState {
+    const introduced = state.currentIntroduced;
+    if (introduced === undefined) return state;
+    const { fixed, last_affected: lastAffected } = event;
+    const interval = fixed ? { introduced, fixed } : { introduced, lastAffected };
+    const intervals = state.intervals.concat(interval);
+    const closed = { intervals };
+    return closed;
   }
 
   private applyVersionEvent(
@@ -405,13 +438,9 @@ export class OSVProvider {
       const versionEvent = Object.assign({}, state, { currentIntroduced });
       return versionEvent;
     }
-    const fixed = event.fixed;
-    if (!fixed) return state;
-    const introduced = state.currentIntroduced;
-    if (introduced === undefined) return state;
-    const interval = { introduced, fixed };
-    const intervals = state.intervals.concat(interval);
-    const closed = { intervals };
+    const hasUpperBound = Boolean(event.fixed) || Boolean(event.last_affected);
+    if (!hasUpperBound) return state;
+    const closed = this.closeVersionInterval(state, event);
     return closed;
   }
 
@@ -432,13 +461,25 @@ export class OSVProvider {
     return complete;
   }
 
+  private isBelowUpperBound(version: string, interval: OSVVersionInterval): boolean {
+    const { fixed, lastAffected } = interval;
+    if (fixed) {
+      const isBeforeFixed = compareVersions(version, fixed) < 0;
+      return isBeforeFixed;
+    }
+    if (!lastAffected) return true;
+    const isAtOrBeforeLastAffected = compareVersions(version, lastAffected) <= 0;
+    return isAtOrBeforeLastAffected;
+  }
+
   private findVersionInterval(
     vuln: OSVVulnerability,
-    version: string,
+    pkg: { name: string; version: string },
   ): OSVVersionInterval | undefined {
-    const matched = this.getVersionIntervals(vuln).find((interval) => {
+    const { name, version } = pkg;
+    const matched = this.getVersionIntervals(vuln, name).find((interval) => {
       const meetsLowerBound = compareVersions(version, interval.introduced) >= 0;
-      const meetsUpperBound = !interval.fixed || compareVersions(version, interval.fixed) < 0;
+      const meetsUpperBound = this.isBelowUpperBound(version, interval);
       const result = meetsLowerBound && meetsUpperBound;
       return result;
     });
@@ -447,41 +488,38 @@ export class OSVProvider {
 
   private formatVersionInterval(interval: OSVVersionInterval | undefined): string {
     if (!interval) return "";
-    if (!interval.fixed) {
-      const versionInterval = `>= ${interval.introduced}`;
-      return versionInterval;
-    }
-    const boundedInterval = `>= ${interval.introduced} < ${interval.fixed}`;
-    return boundedInterval;
+    const { introduced, fixed, lastAffected } = interval;
+    const lowerBound = `>= ${introduced}`;
+    const fixedInterval = `${lowerBound} < ${fixed}`;
+    const lastAffectedInterval = `${lowerBound} <= ${lastAffected}`;
+    if (fixed) return fixedInterval;
+    if (lastAffected) return lastAffectedInterval;
+    return lowerBound;
   }
 
   private extractSeverity(vuln: OSVSeverityVulnerability): Severity {
-    const severity = vuln.database_specific?.severity || vuln.severity?.[0]?.score || "medium";
-
-    if (typeof severity === "string") {
-      const parsed = this.parseSeverity(severity);
-      return parsed;
-    }
-
-    const isNumber = typeof severity === "number";
-    if (isNumber) {
-      const scoreSeverity = this.cvssScoreToSeverity(severity as number);
-      return scoreSeverity;
-    }
-
-    return "medium";
+    const labelSeverity = this.parseSeverityLabel(vuln.database_specific?.severity);
+    if (labelSeverity) return labelSeverity;
+    const scoreSeverity = this.parseSeverity(vuln.severity?.[0]?.score);
+    const severity = scoreSeverity ?? "medium";
+    return severity;
   }
 
-  private parseSeverity(value: string): Severity {
-    const normalized = value.toLowerCase();
-    const isLabel = ["low", "medium", "high", "critical"].includes(normalized);
-    if (isLabel) {
-      const severity = normalized as Severity;
-      return severity;
-    }
-    const score = parseFloat(normalized);
-    const isNumericScore = !isNaN(score);
-    if (!isNumericScore) return "medium";
+  private parseSeverityLabel(value: string | undefined): Severity | undefined {
+    const normalized = value?.trim().toLowerCase() ?? "";
+    const isKnownLabel = Object.hasOwn(SEVERITY_MAP, normalized);
+    if (!isKnownLabel) return undefined;
+    const severity = SEVERITY_MAP[normalized];
+    return severity;
+  }
+
+  private parseSeverity(value: string | undefined): Severity | undefined {
+    const labelSeverity = this.parseSeverityLabel(value);
+    if (labelSeverity) return labelSeverity;
+    const isVector = value?.startsWith(OSV_CVSS_VECTOR_PREFIX) ?? true;
+    if (isVector) return undefined;
+    const score = parseFloat(value ?? "");
+    if (isNaN(score)) return undefined;
     const severity = this.cvssScoreToSeverity(score);
     return severity;
   }

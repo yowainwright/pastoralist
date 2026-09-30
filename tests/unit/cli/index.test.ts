@@ -5,6 +5,7 @@ import {
   errorIncludes,
   objectContaining,
 } from "../setup";
+
 import { mock as nodeMock, test } from "node:test";
 import { mock } from "../setup";
 import assert from "node:assert/strict";
@@ -22,6 +23,7 @@ import {
   type PastoralistJSON,
   type SecurityAlert,
 } from "../../../src/types";
+
 import { logger as createLogger } from "../../../src/observability";
 import {
   action,
@@ -39,6 +41,7 @@ import {
   runSecurityCheck,
   runSecurityPhase,
 } from "../../../src/cli/index";
+
 import { clearConfigCache } from "../../../src/config";
 import { forceClearCache, resolveJSON } from "../../../src/core/package";
 import { update as realUpdate } from "../../../src/core/update";
@@ -52,7 +55,9 @@ import {
   createActionDeps,
   createMockSecurityResults,
   createMockSpinner,
+  createMockTerminalGraph,
 } from "./mocks";
+
 import {
   safeWriteFileSync as writeFileSync,
   safeMkdirSync as mkdirSync,
@@ -69,16 +74,19 @@ const captureLine =
     lines[lines.length] = message;
   };
 const actionExternalConfigDir = resolve(import.meta.dirname, "..", ".test-action-external-config");
+const pastoralist = { overrideSource: "overrides.json" };
 const EXTERNAL_OVERRIDE_CONFIG: PastoralistJSON = {
   name: "test-app",
   version: "1.0.0",
-  pastoralist: { overrideSource: "overrides.json" },
+  pastoralist,
 };
+
 const EXTERNAL_OVERRIDE_OPTIONS: Options = {
   forceSecurityRefactor: true,
   path: "package.json",
   config: EXTERNAL_OVERRIDE_CONFIG,
 };
+
 const CLI_SECURITY_OVERRIDE = {
   packageName: "lodash",
   fromVersion: "4.17.20",
@@ -116,25 +124,37 @@ const TRANSITIVE_CLI_LOCK = [
   "  transitive@2.0.0: {}",
   "  transitive@3.0.0: {}",
 ].join("\n");
+const databaseSpecific = { severity: "HIGH" };
+const packageValue = { name: "transitive", ecosystem: "npm" };
+const events = [{ introduced: "0" }, { fixed: "3.0.0" }];
+const ranges = [{ type: "SEMVER", events }];
+const affected = [
+  {
+    package: packageValue,
+    ranges,
+  },
+];
 const TRANSITIVE_CLI_ADVISORY = {
   id: "TEST-transitive",
   summary: "Transitive security regression",
-  database_specific: { severity: "HIGH" },
-  affected: [
-    {
-      package: { name: "transitive", ecosystem: "npm" },
-      ranges: [{ type: "SEMVER", events: [{ introduced: "0" }, { fixed: "3.0.0" }] }],
-    },
-  ],
+  database_specific: databaseSpecific,
+  affected,
 };
 
+const dependencies = { parent: "^1.0.0" };
+const workspaces = ["packages/*"];
+const TRANSITIVE_CLI_CONFIGPastoralist = { overrideSource: "overrides.json" };
 const TRANSITIVE_CLI_CONFIG = {
   name: "transitive-cli",
   version: "1.0.0",
   packageManager: "pnpm@12.2.1",
-  dependencies: { parent: "^1.0.0" },
-  workspaces: ["packages/*"],
-  pastoralist: { overrideSource: "overrides.json" },
+  dependencies,
+  workspaces,
+  pastoralist: TRANSITIVE_CLI_CONFIGPastoralist,
+};
+
+const assertIncludesAll = (text: string, parts: string[]): void => {
+  parts.forEach((part) => assert.ok(text.includes(part)));
 };
 
 const createTransitiveCliFixture = () => {
@@ -149,30 +169,53 @@ const createTransitiveCliFixture = () => {
   };
   fs.mkdirSync(join(root, "packages", "app"), { recursive: true });
   Object.entries(files).forEach(([name, content]) => fs.writeFileSync(join(root, name), content));
-  return { root, files };
+  const transitiveCliFixture = { root, files };
+  return transitiveCliFixture;
 };
 
 const createTransitiveBatchResponse = (init?: RequestInit): Response => {
   const { queries } = JSON.parse(String(init?.body)) as { queries: OSVPackageQuery[] };
-  const pairs = queries.map(({ package: pkg, version }) => `${pkg.name}@${version}`);
+  const pairs = queries.map(({ package: pkg, version: pkgVersion }) => `${pkg.name}@${pkgVersion}`);
   assert.deepStrictEqual(pairs, ["parent@1.0.0", "transitive@2.0.0", "transitive@3.0.0"]);
   const results = pairs.map((pair: string) => {
-    if (pair !== "transitive@2.0.0") return {};
-    return { vulns: [{ id: TRANSITIVE_CLI_ADVISORY.id }] };
+    if (pair !== "transitive@2.0.0") {
+      const value = {};
+      return value;
+    }
+    const { id } = TRANSITIVE_CLI_ADVISORY;
+    const vulns = [{ id }];
+    const result = { vulns };
+    return result;
   });
-  return Response.json({ results });
+  const transitiveBatchResponse = Response.json({ results });
+  return transitiveBatchResponse;
+};
+
+const createTransitiveRegistryResponse = (): Response => {
+  const distTags = { latest: "3.0.0" };
+  const latestManifest = {};
+  const versions = { "3.0.0": latestManifest };
+  const registry = { "dist-tags": distTags, versions };
+  const response = Response.json(registry);
+  return response;
 };
 
 const fetchTransitiveCliResponse = (input: string | URL | Request, init?: RequestInit) => {
   const url = String(input);
-  if (url.endsWith("/querybatch")) return Promise.resolve(createTransitiveBatchResponse(init));
-  if (url.endsWith("/vulns/TEST-transitive"))
-    return Promise.resolve(Response.json(TRANSITIVE_CLI_ADVISORY));
-  if (url === "https://registry.npmjs.org/transitive") {
-    const registry = { "dist-tags": { latest: "3.0.0" }, versions: { "3.0.0": {} } };
-    return Promise.resolve(Response.json(registry));
+  if (url.endsWith("/querybatch")) {
+    const output = Promise.resolve(createTransitiveBatchResponse(init));
+    return output;
   }
-  return Promise.reject(new Error(`Unexpected request: ${url}`));
+  if (url.endsWith("/vulns/TEST-transitive")) {
+    const response = Promise.resolve(Response.json(TRANSITIVE_CLI_ADVISORY));
+    return response;
+  }
+  if (url === "https://registry.npmjs.org/transitive") {
+    const result = Promise.resolve(createTransitiveRegistryResponse());
+    return result;
+  }
+  const value = Promise.reject(new Error(`Unexpected request: ${url}`));
+  return value;
 };
 
 const setTransitiveCliCache = (root: string) => {
@@ -203,7 +246,7 @@ const transitiveCliModes: Options[] = [
 const createTransitiveCliOptions = (root: string, mode: Options): Options => {
   const path = join(root, "package.json");
   const cacheDir = join(root, ".cache");
-  return Object.assign(
+  const transitiveCliOptions = Object.assign(
     {
       root,
       path,
@@ -216,6 +259,7 @@ const createTransitiveCliOptions = (root: string, mode: Options): Options => {
     },
     mode,
   );
+  return transitiveCliOptions;
 };
 
 const assertTransitiveCliFinding = (result: PastoralistResult): void => {
@@ -251,36 +295,18 @@ transitiveCliModes.forEach((mode) => {
 });
 
 const createBestCaseOptions = (): { config: PastoralistJSON; options: Options } => {
+  const userOwnedOverrides = ["beta"];
+  const configPastoralistBestCase = { enabled: true, userOwnedOverrides };
+  const configPastoralist = { bestCase: configPastoralistBestCase };
   const config: PastoralistJSON = {
     name: "owned-test",
     version: "1.0.0",
-    pastoralist: { bestCase: { enabled: true, userOwnedOverrides: ["beta"] } },
+    pastoralist: configPastoralist,
   };
   const bestCase = config.pastoralist!.bestCase!;
   const options = { checkSecurity: true, bestCase, config, manifestConfig: config };
-  return { config, options };
-};
-
-const createMockTerminalGraph = () => {
-  const graph = {
-    banner: mock(() => graph),
-    startPhase: mock(() => graph),
-    progress: mock(() => graph),
-    item: mock(() => graph),
-    vulnerability: mock(() => graph),
-    override: mock(() => graph),
-    securityFix: mock(() => graph),
-    removedOverride: mock(() => graph),
-    endPhase: mock(() => graph),
-    summary: mock(() => graph),
-    executiveSummary: mock(() => graph),
-    compactSummary: mock(() => graph),
-    complete: mock(() => graph),
-    waitForCompletion: mock(() => Promise.resolve()),
-    notice: mock(() => graph),
-    stop: mock(() => graph),
-  };
-  return graph;
+  const bestCaseOptions = { config, options };
+  return bestCaseOptions;
 };
 
 test("handleTestMode - returns true when isTestingCLI is true", () => {
@@ -312,7 +338,11 @@ test("handleSetupHook - returns false when setupHook is undefined", () => {
 });
 
 test("handleSetupHook - returns true when postinstall already has pastoralist", () => {
-  const mockReadFileSync = mock(() => JSON.stringify({ scripts: { postinstall: "pastoralist" } }));
+  const mockReadFileSync = mock(() => {
+    const scripts = { postinstall: "pastoralist" };
+    const value = JSON.stringify({ scripts });
+    return value;
+  });
   const mockWriteFileSync = mock(() => {});
   const mockResolve = mock((p: string) => p);
 
@@ -348,9 +378,18 @@ test("handleSetupHook - adds pastoralist to empty scripts", () => {
   assert.strictEqual(parsed.scripts.postinstall, "pastoralist");
 });
 
+const createReadFileSyncMock = () => {
+  const mockReadFileSync = mock(() => {
+    const scripts = { postinstall: "echo done" };
+    const value = JSON.stringify({ scripts });
+    return value;
+  });
+  return mockReadFileSync;
+};
+
 test("handleSetupHook - appends pastoralist to existing postinstall", () => {
   let writtenContent = "";
-  const mockReadFileSync = mock(() => JSON.stringify({ scripts: { postinstall: "echo done" } }));
+  const mockReadFileSync = createReadFileSyncMock();
   const mockWriteFileSync = mock((_path: string, content: string) => {
     writtenContent = content;
   });
@@ -368,16 +407,21 @@ test("handleSetupHook - appends pastoralist to existing postinstall", () => {
   assert.strictEqual(parsed.scripts.postinstall, "echo done && pastoralist");
 });
 
-test("handleSetupHook - resolves relative path under root", () => {
-  const mockReadFileSync = mock(() => JSON.stringify({ name: "test" }));
-  const mockWriteFileSync = mock(() => {});
-  const mockResolve = mock((...parts: string[]) => parts.join("/"));
-
+const createOptions = (): Options => {
   const options: Options = {
     setupHook: true,
     root: "/repo",
     path: "packages/app/package.json",
   };
+  return options;
+};
+
+test("handleSetupHook - resolves relative path under root", () => {
+  const mockReadFileSync = mock(() => JSON.stringify({ name: "test" }));
+  const mockWriteFileSync = mock(() => {});
+  const mockResolve = mock((...parts: string[]) => parts.join("/"));
+
+  const options: Options = createOptions();
   const result = handleSetupHook(options, log, {
     readFileSync: mockReadFileSync,
     writeFileSync: mockWriteFileSync,
@@ -392,13 +436,18 @@ test("handleSetupHook - resolves relative path under root", () => {
   );
 });
 
-test("handleSetupHook - handles read errors", () => {
+const createReadFileSyncMockForReadErrors = () => {
   const mockReadFileSync = mock(() => {
     throw new Error("File not found");
   });
+  return mockReadFileSync;
+};
+
+test("handleSetupHook - handles read errors", () => {
+  const mockReadFileSync = createReadFileSyncMockForReadErrors();
   const mockWriteFileSync = mock(() => {});
   const mockResolve = mock((p: string) => p);
-  const originalExitCode = process.exitCode;
+  const { exitCode: originalExitCode } = process;
 
   const options: Options = { setupHook: true };
   process.exitCode = undefined;
@@ -418,10 +467,11 @@ test("handleSetupHook - handles read errors", () => {
 });
 
 test("buildSecurityOverrideDetail - builds complete detail object", () => {
+  const cves = ["CVE-2021-23337"];
   const override = {
     packageName: "lodash",
     reason: "Security vulnerability",
-    cves: ["CVE-2021-23337"],
+    cves,
     severity: "high",
     description: "Prototype pollution vulnerability",
     url: "https://nvd.nist.gov/vuln/detail/CVE-2021-23337",
@@ -467,10 +517,11 @@ test("buildSecurityOverrideDetail - excludes missing optional fields", () => {
 });
 
 test("buildSecurityOverrideDetail - includes only present optional fields", () => {
+  const cves = ["CVE-2024-1234"];
   const override = {
     packageName: "react",
     reason: "Security update",
-    cves: ["CVE-2024-1234"],
+    cves,
     severity: "medium",
   };
 
@@ -484,6 +535,17 @@ test("buildSecurityOverrideDetail - includes only present optional fields", () =
   assert.strictEqual(result.url, undefined);
 });
 
+const createSecurityConfig = () => {
+  const securityConfig = {
+    enabled: false,
+    autoFix: true,
+    provider: "github",
+    interactive: true,
+    hasWorkspaceSecurityChecks: false,
+  };
+  return securityConfig;
+};
+
 test("buildMergedOptions - merges options with config security settings", () => {
   const options: Options = {
     checkSecurity: true,
@@ -495,13 +557,7 @@ test("buildMergedOptions - merges options with config security settings", () => 
     root: "./",
   };
 
-  const securityConfig = {
-    enabled: false,
-    autoFix: true,
-    provider: "github",
-    interactive: true,
-    hasWorkspaceSecurityChecks: false,
-  };
+  const securityConfig = createSecurityConfig();
 
   const configProvider = "github";
 
@@ -544,9 +600,8 @@ test("buildMergedOptions - defaults to osv provider when not specified", () => {
   const options: Options = {};
   const rest = {};
   const securityConfig = {};
-  const configProvider = undefined;
 
-  const result = buildMergedOptions(options, rest, securityConfig, configProvider);
+  const result = buildMergedOptions(options, rest, securityConfig, undefined);
 
   assert.strictEqual(result.securityProvider, "osv");
 });
@@ -560,51 +615,41 @@ test("buildMergedOptions - carries strict from CLI or config", () => {
 });
 
 test("buildMergedOptions - normalizes cache TTL from CLI seconds", () => {
-  const result = buildMergedOptions({ cacheTtl: "3600" as unknown as number }, {}, {}, undefined);
+  const cacheTtl = "3600" as unknown as number;
+  const result = buildMergedOptions({ cacheTtl }, {}, {}, undefined);
 
   assert.strictEqual(result.cacheTtl, 3600);
 });
 
 test("buildMergedOptions - rejects invalid cache TTL", () => {
-  assert.throws(
-    () => buildMergedOptions({ cacheTtl: "-1" as unknown as number }, {}, {}, undefined),
-    errorIncludes("--cache-ttl must be a non-negative number of seconds"),
-  );
+  assert.throws(() => {
+    const cacheTtl = "-1" as unknown as number;
+    const result = buildMergedOptions({ cacheTtl }, {}, {}, undefined);
+    return result;
+  }, errorIncludes("--cache-ttl must be a non-negative number of seconds"));
 });
 
-test("handleSecurityResults - generates overrides when alerts found", () => {
+const createAlerts = () => {
+  const cves = ["CVE-2021-23337"];
   const alerts = [
     {
       packageName: "lodash",
       severity: "high",
       title: "Prototype Pollution",
-      cves: ["CVE-2021-23337"],
+      cves,
     },
   ];
+  return alerts;
+};
 
-  const securityOverrides = [
-    {
-      packageName: "lodash",
-      fromVersion: "4.17.20",
-      toVersion: "4.17.21",
-      reason: "Security fix",
-      severity: "high",
-    },
-  ];
+test("handleSecurityResults - generates overrides when alerts found", () => {
+  const alerts = createAlerts();
 
-  const mockSecurityChecker = {
-    generatePackageOverrides: mock(() => ({ lodash: "4.17.21" })),
-    applyAutoFix: mock(() => {}),
-  };
+  const securityOverrides = createSecurityOverridesForAlertsFound();
+  const mockSecurityChecker = createSecurityCheckerMockForAlertsFound();
+  const mockSpinner = createSpinnerMockForStopsSpinner();
 
-  const mockSpinner = {
-    stop: mock(),
-  };
-
-  const mergedOptions: Options = {
-    forceSecurityRefactor: true,
-    path: "package.json",
-  };
+  const mergedOptions: Options = createMergedOptionsForAppliesUpdates();
 
   const updates: any[] = [];
 
@@ -627,17 +672,45 @@ test("handleSecurityResults - passes merged config to auto-fix", () => {
   const generatePackageOverrides = mock(() => ({ lodash: "4.17.21" }));
   const checker = { applyAutoFix, generatePackageOverrides };
 
+  const stop = mock();
   handleSecurityResults(
     [{} as any],
     [CLI_SECURITY_OVERRIDE],
     checker as any,
-    { stop: mock() } as any,
+    { stop } as any,
     EXTERNAL_OVERRIDE_OPTIONS,
   );
   assertCalledWith(applyAutoFix, [CLI_SECURITY_OVERRIDE], "package.json", EXTERNAL_OVERRIDE_CONFIG);
 });
 
-test("handleSecurityResults - generates overrides in interactive mode", () => {
+const createSecurityOverrides = () => {
+  const cves = ["CVE-2024-1234"];
+  const securityOverrides = [
+    {
+      packageName: "express",
+      fromVersion: "4.17.0",
+      toVersion: "4.18.2",
+      reason: "Security fix",
+      cves,
+      severity: "medium",
+    },
+  ];
+  return securityOverrides;
+};
+
+const createSecurityCheckerMockForInteractive = () => {
+  const formatSecurityReport = mock(() => "Report");
+  const generatePackageOverrides = mock(() => ({ express: "4.18.2" }));
+  const applyAutoFix = mock(() => {});
+  const mockSecurityChecker = {
+    formatSecurityReport,
+    generatePackageOverrides,
+    applyAutoFix,
+  };
+  return mockSecurityChecker;
+};
+
+const createAlertsForGeneratesOverrides = () => {
   const alerts = [
     {
       packageName: "express",
@@ -645,43 +718,40 @@ test("handleSecurityResults - generates overrides in interactive mode", () => {
       title: "XSS",
     },
   ];
+  return alerts;
+};
 
-  const securityOverrides = [
-    {
-      packageName: "express",
-      fromVersion: "4.17.0",
-      toVersion: "4.18.2",
-      reason: "Security fix",
-      cves: ["CVE-2024-1234"],
-      severity: "medium",
-    },
-  ];
-
-  const mockSecurityChecker = {
-    formatSecurityReport: mock(() => "Report"),
-    generatePackageOverrides: mock(() => ({ express: "4.18.2" })),
-    applyAutoFix: mock(() => {}),
-  };
-
+const createSpinnerMockForGeneratesOverrides = () => {
+  const stop = mock();
+  const info = mock();
   const mockSpinner = {
-    stop: mock(),
-    info: mock(),
+    stop,
+    info,
   };
+  return mockSpinner;
+};
 
+const createMergedOptionsForGeneratesOverrides = (): Options => {
   const mergedOptions: Options = {
     interactive: true,
     path: "package.json",
   };
+  return mergedOptions;
+};
 
-  const updates: any[] = [];
+test("handleSecurityResults - generates overrides in interactive mode", () => {
+  const alerts = createAlertsForGeneratesOverrides();
+  const securityOverrides = createSecurityOverrides();
+  const mockSecurityChecker = createSecurityCheckerMockForInteractive();
+  const mockSpinner = createSpinnerMockForGeneratesOverrides();
 
   const result = handleSecurityResults(
     alerts,
     securityOverrides,
     mockSecurityChecker as any,
     mockSpinner as any,
-    mergedOptions,
-    updates,
+    createMergedOptionsForGeneratesOverrides(),
+    [],
   );
 
   assert.deepStrictEqual(result.securityOverrides, { express: "4.18.2" });
@@ -692,18 +762,29 @@ test("handleSecurityResults - generates overrides in interactive mode", () => {
   assert.ok(mockSecurityChecker.applyAutoFix.mock.callCount() > 0);
 });
 
+const createSecurityCheckerMock = () => {
+  const generatePackageOverrides = mock(() => ({}));
+  const applyAutoFix = mock(() => {});
+  const mockSecurityChecker = {
+    generatePackageOverrides,
+    applyAutoFix,
+  };
+  return mockSecurityChecker;
+};
+
+const createSpinnerMockForStopsSpinner = () => {
+  const stop = mock();
+  const mockSpinner = {
+    stop,
+  };
+  return mockSpinner;
+};
+
 test("handleSecurityResults - stops spinner when no alerts", () => {
   const alerts: any[] = [];
   const securityOverrides: any[] = [];
-
-  const mockSecurityChecker = {
-    generatePackageOverrides: mock(() => ({})),
-    applyAutoFix: mock(() => {}),
-  };
-
-  const mockSpinner = {
-    stop: mock(),
-  };
+  const mockSecurityChecker = createSecurityCheckerMock();
+  const mockSpinner = createSpinnerMockForStopsSpinner();
 
   const mergedOptions: Options = {};
 
@@ -723,23 +804,31 @@ test("handleSecurityResults - stops spinner when no alerts", () => {
   assert.strictEqual(mockSecurityChecker.applyAutoFix.mock.callCount(), 0);
 });
 
-test("handleSecurityResults - does not generate overrides without autofix or interactive", () => {
-  const alerts = [{ packageName: "test", severity: "low" }];
-  const securityOverrides = [{ packageName: "test", fromVersion: "1.0.0", toVersion: "2.0.0" }];
-
+const createSecurityCheckerMockForGenerateOverrides = () => {
+  const generatePackageOverrides = mock(() => ({ test: "2.0.0" }));
+  const applyAutoFix = mock(() => {});
   const mockSecurityChecker = {
-    generatePackageOverrides: mock(() => ({ test: "2.0.0" })),
-    applyAutoFix: mock(() => {}),
+    generatePackageOverrides,
+    applyAutoFix,
   };
+  return mockSecurityChecker;
+};
 
-  const mockSpinner = {
-    stop: mock(),
-  };
-
+const createMergedOptionsForGenerateOverrides = (): Options => {
   const mergedOptions: Options = {
     forceSecurityRefactor: false,
     interactive: false,
   };
+  return mergedOptions;
+};
+
+test("handleSecurityResults - does not generate overrides without autofix or interactive", () => {
+  const alerts = [{ packageName: "test", severity: "low" }];
+  const securityOverrides = [{ packageName: "test", fromVersion: "1.0.0", toVersion: "2.0.0" }];
+  const mockSecurityChecker = createSecurityCheckerMockForGenerateOverrides();
+  const mockSpinner = createSpinnerMockForStopsSpinner();
+
+  const mergedOptions: Options = createMergedOptionsForGenerateOverrides();
 
   const updates: any[] = [];
 
@@ -771,15 +860,17 @@ test("formatUpdateReport - formats single update", () => {
 
   const result = formatUpdateReport(updates);
 
-  assert.ok(result.includes("Security Override Updates"));
-  assert.ok(result.includes("Found 1 existing override(s)"));
-  assert.ok(result.includes("[UPDATE] vite"));
-  assert.ok(result.includes("Current override: 6.3.6"));
-  assert.ok(result.includes("Newer patch: 6.4.1"));
-  assert.ok(result.includes("CVE-2025-62522 has a newer patch available"));
+  assertIncludesAll(result, [
+    "Security Override Updates",
+    "Found 1 existing override(s)",
+    "[UPDATE] vite",
+    "Current override: 6.3.6",
+    "Newer patch: 6.4.1",
+    "CVE-2025-62522 has a newer patch available",
+  ]);
 });
 
-test("formatUpdateReport - formats multiple updates", () => {
+const createUpdates = () => {
   const updates = [
     {
       packageName: "vite",
@@ -794,22 +885,26 @@ test("formatUpdateReport - formats multiple updates", () => {
       reason: "XSS vulnerability fix",
     },
   ];
+  return updates;
+};
+
+test("formatUpdateReport - formats multiple updates", () => {
+  const updates = createUpdates();
 
   const result = formatUpdateReport(updates);
 
-  assert.ok(result.includes("Found 2 existing override(s)"));
-  assert.ok(result.includes("[UPDATE] vite"));
-  assert.ok(result.includes("[UPDATE] astro"));
-  assert.ok(result.includes("6.3.6"));
-  assert.ok(result.includes("6.4.1"));
-  assert.ok(result.includes("5.15.5"));
-  assert.ok(result.includes("5.15.6"));
+  assertIncludesAll(result, [
+    "Found 2 existing override(s)",
+    "[UPDATE] vite",
+    "[UPDATE] astro",
+    "6.3.6",
+    "6.4.1",
+    "5.15.5",
+    "5.15.6",
+  ]);
 });
 
-test("handleSecurityResults - applies updates when autoFix enabled", () => {
-  const alerts: any[] = [];
-  const securityOverrides: any[] = [];
-
+const createUpdatesForAppliesUpdates = () => {
   const updates = [
     {
       packageName: "vite",
@@ -818,20 +913,36 @@ test("handleSecurityResults - applies updates when autoFix enabled", () => {
       reason: "Newer patch available",
     },
   ];
+  return updates;
+};
 
+const createSecurityCheckerMockForAppliesUpdates = () => {
+  const generatePackageOverrides = mock(() => ({ vite: "6.4.1" }));
+  const applyAutoFix = mock(() => {});
   const mockSecurityChecker = {
-    generatePackageOverrides: mock(() => ({ vite: "6.4.1" })),
-    applyAutoFix: mock(() => {}),
+    generatePackageOverrides,
+    applyAutoFix,
   };
+  return mockSecurityChecker;
+};
 
-  const mockSpinner = {
-    stop: mock(),
-  };
-
+const createMergedOptionsForAppliesUpdates = (): Options => {
   const mergedOptions: Options = {
     forceSecurityRefactor: true,
     path: "package.json",
   };
+  return mergedOptions;
+};
+
+test("handleSecurityResults - applies updates when autoFix enabled", () => {
+  const alerts: any[] = [];
+  const securityOverrides: any[] = [];
+
+  const updates = createUpdatesForAppliesUpdates();
+  const mockSecurityChecker = createSecurityCheckerMockForAppliesUpdates();
+  const mockSpinner = createSpinnerMockForStopsSpinner();
+
+  const mergedOptions: Options = createMergedOptionsForAppliesUpdates();
 
   const result = handleSecurityResults(
     alerts,
@@ -855,12 +966,16 @@ const createBestCaseUpdateFixture = () => {
     newerVersion: "6.4.1",
     reason: "Newer patch available",
   };
+  const generatePackageOverrides = mock(() => ({ vite: "6.4.1" }));
+  const applyAutoFix = mock();
   const checker = {
-    generatePackageOverrides: mock(() => ({ vite: "6.4.1" })),
-    applyAutoFix: mock(),
+    generatePackageOverrides,
+    applyAutoFix,
   };
-  const spinner = { stop: mock() };
-  return { update, checker, spinner };
+  const stop = mock();
+  const spinner = { stop };
+  const bestCaseUpdateFixture = { update, checker, spinner };
+  return bestCaseUpdateFixture;
 };
 
 test("handleSecurityResults - does not auto-apply updates beside best-case results", () => {
@@ -881,15 +996,22 @@ test("handleSecurityResults - does not auto-apply updates beside best-case resul
   assert.strictEqual(checker.applyAutoFix.mock.callCount(), 0);
 });
 
-test("handleSecurityResults - merges updates with new overrides", () => {
-  const alerts = [
-    {
-      packageName: "express",
-      severity: "high",
-      title: "Security issue",
-    },
-  ];
+const createSecurityCheckerMockForMergesUpdates = () => {
+  const formatSecurityReport = mock(() => "Report");
+  const generatePackageOverrides = mock(() => ({
+    express: "4.18.2",
+    vite: "6.4.1",
+  }));
+  const applyAutoFix = mock(() => {});
+  const mockSecurityChecker = {
+    formatSecurityReport,
+    generatePackageOverrides,
+    applyAutoFix,
+  };
+  return mockSecurityChecker;
+};
 
+const createSecurityOverridesForMergesUpdates = () => {
   const securityOverrides = [
     {
       packageName: "express",
@@ -899,60 +1021,53 @@ test("handleSecurityResults - merges updates with new overrides", () => {
       severity: "high",
     },
   ];
+  return securityOverrides;
+};
 
-  const updates = [
+const createAlertsForMergesUpdates = () => {
+  const alerts = [
     {
-      packageName: "vite",
-      currentOverride: "6.3.6",
-      newerVersion: "6.4.1",
-      reason: "Newer patch available",
+      packageName: "express",
+      severity: "high",
+      title: "Security issue",
     },
   ];
+  return alerts;
+};
 
-  const mockSecurityChecker = {
-    formatSecurityReport: mock(() => "Report"),
-    generatePackageOverrides: mock(() => ({
-      express: "4.18.2",
-      vite: "6.4.1",
-    })),
-    applyAutoFix: mock(() => {}),
-  };
+test("handleSecurityResults - merges updates with new overrides", () => {
+  const alerts = createAlertsForMergesUpdates();
 
-  const mockSpinner = {
-    stop: mock(),
-    info: mock(),
-  };
+  const securityOverrides = createSecurityOverridesForMergesUpdates();
 
-  const mergedOptions: Options = {
-    forceSecurityRefactor: true,
-    path: "package.json",
-  };
+  const updates = createUpdatesForAppliesUpdates();
+  const mockSecurityChecker = createSecurityCheckerMockForMergesUpdates();
+  const mockSpinner = createSpinnerMockForGeneratesOverrides();
 
   const result = handleSecurityResults(
     alerts,
     securityOverrides,
     mockSecurityChecker as any,
     mockSpinner as any,
-    mergedOptions,
+    createMergedOptionsForAppliesUpdates(),
     updates,
   );
 
   assert.ok(mockSecurityChecker.generatePackageOverrides.mock.callCount() > 0);
   assert.ok(mockSecurityChecker.applyAutoFix.mock.callCount() > 0);
-  assert.deepStrictEqual(result.securityOverrides, {
-    express: "4.18.2",
-    vite: "6.4.1",
-  });
+  assert.deepStrictEqual(result.securityOverrides, { express: "4.18.2", vite: "6.4.1" });
 });
 
 test("determineSecurityScanPaths - returns depPaths when array and security enabled", () => {
+  const depPaths = ["packages/*/package.json", "apps/*/package.json"];
+  const configPastoralist = {
+    depPaths,
+    checkSecurity: true,
+  };
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    pastoralist: {
-      depPaths: ["packages/*/package.json", "apps/*/package.json"],
-      checkSecurity: true,
-    },
+    pastoralist: configPastoralist,
   };
 
   const mergedOptions: Options = {
@@ -965,12 +1080,14 @@ test("determineSecurityScanPaths - returns depPaths when array and security enab
 });
 
 test("determineSecurityScanPaths - returns empty array when depPaths array but security disabled", () => {
+  const depPaths = ["packages/*/package.json"];
+  const configPastoralist = {
+    depPaths,
+  };
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    pastoralist: {
-      depPaths: ["packages/*/package.json"],
-    },
+    pastoralist: configPastoralist,
   };
 
   const mergedOptions: Options = {
@@ -983,14 +1100,16 @@ test("determineSecurityScanPaths - returns empty array when depPaths array but s
 });
 
 test("determineSecurityScanPaths - returns workspace paths when depPaths is 'workspace'", () => {
+  const configWorkspaces = ["packages/*", "apps/*"];
+  const configPastoralist = {
+    depPaths: "workspace",
+    checkSecurity: true,
+  };
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    workspaces: ["packages/*", "apps/*"],
-    pastoralist: {
-      depPaths: "workspace",
-      checkSecurity: true,
-    },
+    workspaces: configWorkspaces,
+    pastoralist: configPastoralist,
   };
 
   const mergedOptions: Options = {
@@ -1003,10 +1122,11 @@ test("determineSecurityScanPaths - returns workspace paths when depPaths is 'wor
 });
 
 test("determineSecurityScanPaths - returns workspace paths with hasWorkspaceSecurityChecks", () => {
+  const configWorkspaces = ["packages/*"];
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    workspaces: ["packages/*"],
+    workspaces: configWorkspaces,
   };
 
   const mergedOptions: Options = {
@@ -1019,13 +1139,14 @@ test("determineSecurityScanPaths - returns workspace paths with hasWorkspaceSecu
 });
 
 test("determineSecurityScanPaths - returns empty array when no workspaces", () => {
+  const configPastoralist = {
+    depPaths: "workspace",
+    checkSecurity: true,
+  };
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    pastoralist: {
-      depPaths: "workspace",
-      checkSecurity: true,
-    },
+    pastoralist: configPastoralist,
   };
 
   const mergedOptions: Options = {
@@ -1038,23 +1159,25 @@ test("determineSecurityScanPaths - returns empty array when no workspaces", () =
 });
 
 test("determineSecurityScanPaths - returns empty array when no config", () => {
-  const config = undefined;
   const mergedOptions: Options = {};
 
-  const result = determineSecurityScanPaths(config, mergedOptions, log);
+  const result = determineSecurityScanPaths(undefined, mergedOptions, log);
 
   assert.deepStrictEqual(result, []);
 });
 
 test("determineSecurityScanPaths - prioritizes depPaths array over workspace", () => {
+  const configWorkspaces = ["packages/*"];
+  const depPaths = ["custom/path/package.json"];
+  const configPastoralist = {
+    depPaths,
+    checkSecurity: true,
+  };
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    workspaces: ["packages/*"],
-    pastoralist: {
-      depPaths: ["custom/path/package.json"],
-      checkSecurity: true,
-    },
+    workspaces: configWorkspaces,
+    pastoralist: configPastoralist,
   };
 
   const mergedOptions: Options = {
@@ -1067,27 +1190,39 @@ test("determineSecurityScanPaths - prioritizes depPaths array over workspace", (
   assert.deepStrictEqual(result, ["custom/path/package.json"]);
 });
 
-test("determineSecurityScanPaths - skips workspace manifest read when depPaths array is used", () => {
-  const root = resolve(import.meta.dirname, "..", ".test-security-scan-paths");
-  const workspaceManifestPath = resolve(root, "pnpm-workspace.yaml");
-  const debug = mock(() => {});
-  const debugLog = Object.assign({}, log, { debug });
-
+const createConfigForSkipsWorkspace = (): PastoralistJSON => {
+  const configWorkspaces = ["packages/*"];
+  const depPaths = ["custom/path/package.json"];
+  const configPastoralist = {
+    depPaths,
+    checkSecurity: true,
+  };
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    workspaces: ["packages/*"],
-    pastoralist: {
-      depPaths: ["custom/path/package.json"],
-      checkSecurity: true,
-    },
+    workspaces: configWorkspaces,
+    pastoralist: configPastoralist,
   };
+  return config;
+};
 
+const createMergedOptions = (root: string): Options => {
   const mergedOptions: Options = {
     checkSecurity: true,
     hasWorkspaceSecurityChecks: true,
     root,
   };
+  return mergedOptions;
+};
+
+test("determineSecurityScanPaths - skips workspace manifest read when depPaths array is used", () => {
+  const root = resolve(import.meta.dirname, "..", ".test-security-scan-paths");
+  const workspaceManifestPath = resolve(root, "pnpm-workspace.yaml");
+  const debug = mock(() => {});
+  const debugLog = Object.assign({}, log, { debug });
+  const config: PastoralistJSON = createConfigForSkipsWorkspace();
+
+  const mergedOptions: Options = createMergedOptions(root);
 
   try {
     rmSync(root, { recursive: true, force: true });
@@ -1097,11 +1232,8 @@ test("determineSecurityScanPaths - skips workspace manifest read when depPaths a
 
     assert.deepStrictEqual(result, ["custom/path/package.json"]);
     assert.strictEqual(debug.mock.callCount(), 1);
-    assert.ok(
-      debug.mock.calls
-        .map((call) => (Array.isArray(call) ? call : call.arguments))[0][0]
-        .includes("Using depPaths configuration"),
-    );
+    const debugArgs = debug.mock.calls.map((c) => (Array.isArray(c) ? c : c.arguments));
+    assert.ok(debugArgs[0][0].includes("Using depPaths configuration"));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -1113,9 +1245,8 @@ test("buildMergedOptions - handles undefined config values", () => {
     path: "package.json",
   };
   const securityConfig = {};
-  const configProvider = undefined;
 
-  const result = buildMergedOptions(options, rest, securityConfig, configProvider);
+  const result = buildMergedOptions(options, rest, securityConfig, undefined);
 
   assert.strictEqual(result.checkSecurity, undefined);
   assert.strictEqual(result.forceSecurityRefactor, undefined);
@@ -1126,7 +1257,7 @@ test("buildMergedOptions - handles undefined config values", () => {
   assert.strictEqual(result.path, "package.json");
 });
 
-test("buildMergedOptions - options override config values", () => {
+const createOptionsForOptionsOverride = (): Options => {
   const options: Options = {
     checkSecurity: false,
     forceSecurityRefactor: false,
@@ -1135,6 +1266,11 @@ test("buildMergedOptions - options override config values", () => {
     interactive: false,
     hasWorkspaceSecurityChecks: false,
   };
+  return options;
+};
+
+test("buildMergedOptions - options override config values", () => {
+  const options: Options = createOptionsForOptionsOverride();
 
   const rest = {};
 
@@ -1159,19 +1295,25 @@ test("buildMergedOptions - options override config values", () => {
   assert.strictEqual(result.hasWorkspaceSecurityChecks, false);
 });
 
-test("buildSecurityOverrideDetail - handles all fields", () => {
+const createOverride = () => {
+  const cves = ["CVE-2024-5678"];
   const override = {
     packageName: "react",
     fromVersion: "17.0.0",
     toVersion: "18.2.0",
     reason: "Critical security update",
-    cves: ["CVE-2024-5678"],
+    cves,
     severity: "critical",
     description: "XSS vulnerability in React",
     url: "https://github.com/advisories/GHSA-test",
     vulnerableRange: ">= 0 < 18.2.0",
     patchedVersion: "18.2.0",
   };
+  return override;
+};
+
+test("buildSecurityOverrideDetail - handles all fields", () => {
+  const override = createOverride();
 
   const result = buildSecurityOverrideDetail(override);
 
@@ -1189,15 +1331,8 @@ test("handleSecurityResults - does not generate overrides when no alerts and no 
   const alerts: any[] = [];
   const securityOverrides: any[] = [];
   const updates: any[] = [];
-
-  const mockSecurityChecker = {
-    generatePackageOverrides: mock(() => ({})),
-    applyAutoFix: mock(() => {}),
-  };
-
-  const mockSpinner = {
-    stop: mock(),
-  };
+  const mockSecurityChecker = createSecurityCheckerMock();
+  const mockSpinner = createSpinnerMockForStopsSpinner();
 
   const mergedOptions: Options = {};
 
@@ -1214,15 +1349,21 @@ test("handleSecurityResults - does not generate overrides when no alerts and no 
   assert.ok(mockSpinner.stop.mock.callCount() > 0);
 });
 
-test("handleSecurityResults - does not call applyAutoFix when no overrides to apply", () => {
-  const alerts = [
-    {
-      packageName: "test-pkg",
-      severity: "low",
-      title: "Test issue",
-    },
-  ];
+const createSecurityCheckerMockForNoOverrides = () => {
+  const formatSecurityReport = mock(() => "Report");
+  const generatePackageOverrides = mock(() => ({
+    "different-pkg": "3.0.0",
+  }));
+  const applyAutoFix = mock(() => {});
+  const mockSecurityChecker = {
+    formatSecurityReport,
+    generatePackageOverrides,
+    applyAutoFix,
+  };
+  return mockSecurityChecker;
+};
 
+const createSecurityOverridesForNoOverrides = () => {
   const securityOverrides = [
     {
       packageName: "test-pkg",
@@ -1232,26 +1373,30 @@ test("handleSecurityResults - does not call applyAutoFix when no overrides to ap
       severity: "low",
     },
   ];
+  return securityOverrides;
+};
+
+const createAlertsForNoOverrides = () => {
+  const alerts = [
+    {
+      packageName: "test-pkg",
+      severity: "low",
+      title: "Test issue",
+    },
+  ];
+  return alerts;
+};
+
+test("handleSecurityResults - does not call applyAutoFix when no overrides to apply", () => {
+  const alerts = createAlertsForNoOverrides();
+
+  const securityOverrides = createSecurityOverridesForNoOverrides();
 
   const updates: any[] = [];
+  const mockSecurityChecker = createSecurityCheckerMockForNoOverrides();
+  const mockSpinner = createSpinnerMockForGeneratesOverrides();
 
-  const mockSecurityChecker = {
-    formatSecurityReport: mock(() => "Report"),
-    generatePackageOverrides: mock(() => ({
-      "different-pkg": "3.0.0",
-    })),
-    applyAutoFix: mock(() => {}),
-  };
-
-  const mockSpinner = {
-    stop: mock(),
-    info: mock(),
-  };
-
-  const mergedOptions: Options = {
-    forceSecurityRefactor: true,
-    path: "package.json",
-  };
+  const mergedOptions: Options = createMergedOptionsForAppliesUpdates();
 
   handleSecurityResults(
     alerts,
@@ -1266,14 +1411,7 @@ test("handleSecurityResults - does not call applyAutoFix when no overrides to ap
   assert.strictEqual(mockSecurityChecker.applyAutoFix.mock.callCount(), 0);
 });
 
-test("handleSecurityResults - does not call applyAutoFix during dry run", () => {
-  const alerts = [
-    {
-      packageName: "lodash",
-      severity: "high",
-      title: "Prototype Pollution",
-    },
-  ];
+const createSecurityOverridesForAlertsFound = () => {
   const securityOverrides = [
     {
       packageName: "lodash",
@@ -1283,14 +1421,25 @@ test("handleSecurityResults - does not call applyAutoFix during dry run", () => 
       severity: "high",
     },
   ];
+  return securityOverrides;
+};
 
-  const mockSecurityChecker = {
-    generatePackageOverrides: mock(() => ({ lodash: "4.17.21" })),
-    applyAutoFix: mock(() => {}),
-  };
-  const mockSpinner = {
-    stop: mock(),
-  };
+const createAlertsForDryRun = () => {
+  const alerts = [
+    {
+      packageName: "lodash",
+      severity: "high",
+      title: "Prototype Pollution",
+    },
+  ];
+  return alerts;
+};
+
+test("handleSecurityResults - does not call applyAutoFix during dry run", () => {
+  const alerts = createAlertsForDryRun();
+  const securityOverrides = createSecurityOverridesForAlertsFound();
+  const mockSecurityChecker = createSecurityCheckerMockForAlertsFound();
+  const mockSpinner = createSpinnerMockForStopsSpinner();
 
   const result = handleSecurityResults(
     alerts,
@@ -1321,23 +1470,28 @@ test("formatUpdateReport - formats updates without addedDate", () => {
 
   const result = formatUpdateReport(updates);
 
-  assert.ok(result.includes("Security Override Updates"));
-  assert.ok(result.includes("Found 1 existing override(s)"));
-  assert.ok(result.includes("[UPDATE] express"));
-  assert.ok(result.includes("Current override: 4.17.1"));
-  assert.ok(result.includes("Newer patch: 4.18.2"));
-  assert.ok(result.includes("Security patch available"));
+  assertIncludesAll(result, [
+    "Security Override Updates",
+    "Found 1 existing override(s)",
+    "[UPDATE] express",
+    "Current override: 4.17.1",
+    "Newer patch: 4.18.2",
+    "Security patch available",
+  ]);
 });
 
 test("determineSecurityScanPaths - prioritizes array depPaths over hasWorkspaceSecurityChecks", () => {
+  const configWorkspaces = ["packages/*"];
+  const depPaths = ["custom/package.json"];
+  const configPastoralist = {
+    depPaths,
+    checkSecurity: true,
+  };
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    workspaces: ["packages/*"],
-    pastoralist: {
-      depPaths: ["custom/package.json"],
-      checkSecurity: true,
-    },
+    workspaces: configWorkspaces,
+    pastoralist: configPastoralist,
   };
 
   const mergedOptions: Options = {
@@ -1351,13 +1505,15 @@ test("determineSecurityScanPaths - prioritizes array depPaths over hasWorkspaceS
 });
 
 test("determineSecurityScanPaths - returns empty when security disabled with workspace depPaths", () => {
+  const configWorkspaces = ["packages/*"];
+  const configPastoralist = {
+    depPaths: "workspace",
+  };
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    workspaces: ["packages/*"],
-    pastoralist: {
-      depPaths: "workspace",
-    },
+    workspaces: configWorkspaces,
+    pastoralist: configPastoralist,
   };
 
   const mergedOptions: Options = {
@@ -1369,9 +1525,7 @@ test("determineSecurityScanPaths - returns empty when security disabled with wor
   assert.deepStrictEqual(result, []);
 });
 
-test("handleSecurityResults - generates overrides when updates exist and autofix enabled", () => {
-  const alerts: any[] = [];
-  const securityOverrides: any[] = [];
+const createUpdatesForGeneratesOverrides = () => {
   const updates = [
     {
       packageName: "lodash",
@@ -1380,20 +1534,27 @@ test("handleSecurityResults - generates overrides when updates exist and autofix
       reason: "Newer patch available",
     },
   ];
+  return updates;
+};
 
+const createSecurityCheckerMockForAlertsFound = () => {
+  const generatePackageOverrides = mock(() => ({ lodash: "4.17.21" }));
+  const applyAutoFix = mock(() => {});
   const mockSecurityChecker = {
-    generatePackageOverrides: mock(() => ({ lodash: "4.17.21" })),
-    applyAutoFix: mock(() => {}),
+    generatePackageOverrides,
+    applyAutoFix,
   };
+  return mockSecurityChecker;
+};
 
-  const mockSpinner = {
-    stop: mock(),
-  };
+test("handleSecurityResults - generates overrides when updates exist and autofix enabled", () => {
+  const alerts: any[] = [];
+  const securityOverrides: any[] = [];
+  const updates = createUpdatesForGeneratesOverrides();
+  const mockSecurityChecker = createSecurityCheckerMockForAlertsFound();
+  const mockSpinner = createSpinnerMockForStopsSpinner();
 
-  const mergedOptions: Options = {
-    forceSecurityRefactor: true,
-    path: "package.json",
-  };
+  const mergedOptions: Options = createMergedOptionsForAppliesUpdates();
 
   const result = handleSecurityResults(
     alerts,
@@ -1430,19 +1591,11 @@ test("formatUpdateReport - empty updates array", () => {
 
   const result = formatUpdateReport(updates);
 
-  assert.ok(result.includes("Security Override Updates"));
-  assert.ok(result.includes("Found 0 existing override(s)"));
+  assertIncludesAll(result, ["Security Override Updates", "Found 0 existing override(s)"]);
 });
 
-test("handleSecurityResults - both alerts and updates with interactive mode", () => {
-  const alerts = [
-    {
-      packageName: "lodash",
-      severity: "high",
-      title: "Prototype Pollution",
-    },
-  ];
-
+const createSecurityOverridesForBothAlerts = () => {
+  const cves = ["CVE-2021-23337"];
   const securityOverrides = [
     {
       packageName: "lodash",
@@ -1450,64 +1603,50 @@ test("handleSecurityResults - both alerts and updates with interactive mode", ()
       toVersion: "4.17.21",
       reason: "Security fix",
       severity: "high",
-      cves: ["CVE-2021-23337"],
+      cves,
     },
   ];
+  return securityOverrides;
+};
 
-  const updates = [
-    {
-      packageName: "vite",
-      currentOverride: "6.3.6",
-      newerVersion: "6.4.1",
-      reason: "Newer patch available",
-    },
-  ];
-
+const createSecurityCheckerMockForBothAlerts = () => {
+  const generatePackageOverrides = mock(() => ({
+    lodash: "4.17.21",
+    vite: "6.4.1",
+  }));
+  const applyAutoFix = mock(() => {});
   const mockSecurityChecker = {
-    generatePackageOverrides: mock(() => ({
-      lodash: "4.17.21",
-      vite: "6.4.1",
-    })),
-    applyAutoFix: mock(() => {}),
+    generatePackageOverrides,
+    applyAutoFix,
   };
+  return mockSecurityChecker;
+};
 
-  const mockSpinner = {
-    stop: mock(),
-  };
+test("handleSecurityResults - both alerts and updates with interactive mode", () => {
+  const alerts = createAlertsForDryRun();
+  const securityOverrides = createSecurityOverridesForBothAlerts();
 
-  const mergedOptions: Options = {
-    interactive: true,
-    path: "package.json",
-  };
+  const updates = createUpdatesForAppliesUpdates();
+  const mockSecurityChecker = createSecurityCheckerMockForBothAlerts();
+  const mockSpinner = createSpinnerMockForStopsSpinner();
 
   const result = handleSecurityResults(
     alerts,
     securityOverrides,
     mockSecurityChecker as any,
     mockSpinner as any,
-    mergedOptions,
+    createMergedOptionsForGeneratesOverrides(),
     updates,
   );
 
   assert.ok(mockSecurityChecker.generatePackageOverrides.mock.callCount() > 0);
   assert.ok(mockSecurityChecker.applyAutoFix.mock.callCount() > 0);
-  assert.deepStrictEqual(result.securityOverrides, {
-    lodash: "4.17.21",
-    vite: "6.4.1",
-  });
+  assert.deepStrictEqual(result.securityOverrides, { lodash: "4.17.21", vite: "6.4.1" });
   assert.notStrictEqual(result.securityOverrideDetails, undefined);
   assert.ok(mockSpinner.stop.mock.callCount() > 0);
 });
 
-test("handleSecurityResults - filters overrides to match final versions", () => {
-  const alerts = [
-    {
-      packageName: "pkg",
-      severity: "high",
-      title: "Issue",
-    },
-  ];
-
+const createSecurityOverridesForFiltersOverrides = () => {
   const securityOverrides = [
     {
       packageName: "pkg",
@@ -1524,24 +1663,42 @@ test("handleSecurityResults - filters overrides to match final versions", () => 
       severity: "high",
     },
   ];
+  return securityOverrides;
+};
 
+const createSecurityCheckerMockForFiltersOverrides = () => {
+  const formatSecurityReport = mock(() => "Report");
+  const generatePackageOverrides = mock(() => ({
+    pkg: "3.0.0",
+  }));
+  const applyAutoFix = mock(() => {});
   const mockSecurityChecker = {
-    formatSecurityReport: mock(() => "Report"),
-    generatePackageOverrides: mock(() => ({
-      pkg: "3.0.0",
-    })),
-    applyAutoFix: mock(() => {}),
+    formatSecurityReport,
+    generatePackageOverrides,
+    applyAutoFix,
   };
+  return mockSecurityChecker;
+};
 
-  const mockSpinner = {
-    stop: mock(),
-    info: mock(),
-  };
+const createAlertsForFiltersOverrides = () => {
+  const alerts = [
+    {
+      packageName: "pkg",
+      severity: "high",
+      title: "Issue",
+    },
+  ];
+  return alerts;
+};
 
-  const mergedOptions: Options = {
-    forceSecurityRefactor: true,
-    path: "package.json",
-  };
+test("handleSecurityResults - filters overrides to match final versions", () => {
+  const alerts = createAlertsForFiltersOverrides();
+
+  const securityOverrides = createSecurityOverridesForFiltersOverrides();
+  const mockSecurityChecker = createSecurityCheckerMockForFiltersOverrides();
+  const mockSpinner = createSpinnerMockForGeneratesOverrides();
+
+  const mergedOptions: Options = createMergedOptionsForAppliesUpdates();
 
   const result = handleSecurityResults(
     alerts,
@@ -1575,16 +1732,23 @@ test("buildSecurityOverrideDetail - handles only packageName and reason", () => 
   assert.strictEqual(result.url, undefined);
 });
 
-test("determineSecurityScanPaths - multiple workspace patterns", () => {
+const createConfigForMultipleWorkspace = (): PastoralistJSON => {
+  const configWorkspaces = ["packages/*", "apps/*", "libs/*"];
+  const configPastoralist = {
+    depPaths: "workspace",
+    checkSecurity: true,
+  };
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    workspaces: ["packages/*", "apps/*", "libs/*"],
-    pastoralist: {
-      depPaths: "workspace",
-      checkSecurity: true,
-    },
+    workspaces: configWorkspaces,
+    pastoralist: configPastoralist,
   };
+  return config;
+};
+
+test("determineSecurityScanPaths - multiple workspace patterns", () => {
+  const config: PastoralistJSON = createConfigForMultipleWorkspace();
 
   const mergedOptions: Options = {
     checkSecurity: true,
@@ -1599,91 +1763,178 @@ test("determineSecurityScanPaths - multiple workspace patterns", () => {
   ]);
 });
 
-test("runSecurityCheck - creates spinner and security checker", async () => {
+const createSecurityCheckerMockForCreatesSpinner = () => {
+  const checkSecurity = mock(() => {
+    const alerts = [];
+    const overrides = [];
+    const updates = [];
+    const value = Promise.resolve({
+      alerts,
+      overrides,
+      updates,
+      packagesScanned: 0,
+    });
+    return value;
+  });
+  const mockSecurityChecker = {
+    checkSecurity,
+  };
+  return mockSecurityChecker;
+};
+
+const createConfigForCreatesSpinner = (): PastoralistJSON => {
+  const depPaths = ["packages/*/package.json"];
+  const configPastoralist = {
+    depPaths,
+    checkSecurity: true,
+  };
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    pastoralist: {
-      depPaths: ["packages/*/package.json"],
-      checkSecurity: true,
-    },
+    pastoralist: configPastoralist,
   };
+  return config;
+};
 
+const createSpinnerMockForCreatesSpinner = () => {
+  const stop = mock();
+  const start = mock(() => mockSpinner);
+  const succeed = mock();
+  const info = mock();
+  const mockSpinner = {
+    stop,
+    start,
+    succeed,
+    info,
+  };
+  return mockSpinner;
+};
+
+const createMergedOptionsForCreatesSpinner = (): Options => {
   const mergedOptions: Options = {
     checkSecurity: true,
     securityProvider: "osv",
   };
+  return mergedOptions;
+};
 
-  const mockSpinner = {
-    stop: mock(),
-    start: mock(() => mockSpinner),
-    succeed: mock(),
-    info: mock(),
-  };
+const OSV_SECURITY_CHECKER_ARGS = {
+  provider: "osv",
+  forceRefactor: undefined,
+  interactive: undefined,
+  token: undefined,
+  debug: false,
+};
 
-  const mockSecurityChecker = {
-    checkSecurity: mock(() =>
-      Promise.resolve({
-        alerts: [],
-        overrides: [],
-        updates: [],
-        packagesScanned: 0,
-      }),
-    ),
-  };
-
-  const mockDetermineSecurityScanPaths = mock(() => ["packages/*/package.json"]);
-
+const createRunSecurityCheckDeps = <Spinner, Checker>(
+  mockSpinner: Spinner,
+  mockSecurityChecker: Checker,
+  scanPaths: string[],
+) => {
+  const mockDetermineSecurityScanPaths = mock(() => scanPaths);
+  const createSpinner = mock(() => mockSpinner);
+  const securityChecker = mock(() => mockSecurityChecker);
+  const green = mock((text: string) => text);
   const deps = {
-    createSpinner: mock(() => mockSpinner),
-    SecurityChecker: mock(() => mockSecurityChecker),
+    createSpinner,
+    SecurityChecker: securityChecker,
     determineSecurityScanPaths: mockDetermineSecurityScanPaths,
-    green: mock((text: string) => text),
+    green,
   };
+  return deps;
+};
+
+test("runSecurityCheck - creates spinner and security checker", async () => {
+  const config: PastoralistJSON = createConfigForCreatesSpinner();
+
+  const mergedOptions: Options = createMergedOptionsForCreatesSpinner();
+  const mockSpinner = createSpinnerMockForCreatesSpinner();
+  const mockSecurityChecker = createSecurityCheckerMockForCreatesSpinner();
+  const scanPaths = ["packages/*/package.json"];
+  const deps = createRunSecurityCheckDeps(mockSpinner, mockSecurityChecker, scanPaths);
 
   const result = await runSecurityCheck(config, mergedOptions, false, log, deps);
 
   assert.ok(deps.createSpinner.mock.callCount() > 0);
-  assertCalledWith(deps.SecurityChecker, {
-    provider: "osv",
-    forceRefactor: undefined,
-    interactive: undefined,
-    token: undefined,
-    debug: false,
-  });
+  assertCalledWith(deps.SecurityChecker, OSV_SECURITY_CHECKER_ARGS);
   assert.ok(mockSecurityChecker.checkSecurity.mock.callCount() > 0);
   assert.deepStrictEqual(result.alerts, []);
   assert.deepStrictEqual(result.securityOverrides, []);
   assert.deepStrictEqual(result.updates, []);
 });
 
+const createPastoralistValue = () => {
+  const userOwnedOverrides = ["beta", "alpha"];
+  const bestCase = { enabled: true, userOwnedOverrides };
+  const pastoralistValue = {
+    bestCase,
+  };
+  return pastoralistValue;
+};
+
+const createUserOwnedPhaseDeps = () => {
+  const userOwnedOverridesAdded = ["alpha"];
+  const scan = Object.assign(createMockSecurityResults(), {
+    userOwnedOverridesAdded,
+  });
+  const depsRunSecurityCheck = mock(() => Promise.resolve(scan));
+  const depsHandleSecurityResults = mock(() => ({}));
+  const quickConfirm = mock(() => Promise.resolve(true));
+  const deps = {
+    runSecurityCheck: depsRunSecurityCheck,
+    handleSecurityResults: depsHandleSecurityResults,
+    quickConfirm,
+  };
+  return deps;
+};
+
 test("runSecurityPhase persists approved user-owned overrides in package config", async () => {
   const { config, options } = createBestCaseOptions();
-  const scan = Object.assign(createMockSecurityResults(), {
-    userOwnedOverridesAdded: ["alpha"],
-  });
-  const deps = {
-    runSecurityCheck: mock(() => Promise.resolve(scan)),
-    handleSecurityResults: mock(() => ({})),
-    quickConfirm: mock(() => Promise.resolve(true)),
-  };
+  const deps = createUserOwnedPhaseDeps();
 
   const graph = createMockTerminalGraph();
   const result = await runSecurityPhase(graph, config, options, true, false, log, deps);
-
+  const pastoralistValue = createPastoralistValue();
   assertMatchObject(result.mergedOptions.manifestConfig, {
-    pastoralist: {
-      bestCase: { enabled: true, userOwnedOverrides: ["beta", "alpha"] },
-    },
+    pastoralist: pastoralistValue,
   });
 });
 
-test("runSecurityCheck - passes correct options to SecurityChecker", async () => {
-  const config: PastoralistJSON = {
-    name: "test",
-    version: "1.0.0",
+const createSecurityCheckerMockForPassesCorrect = () => {
+  const checkSecurity = mock(() => {
+    const alerts = [{ packageName: "lodash", severity: "high" }];
+    const overrides = [];
+    const updates = [];
+    const result = Promise.resolve({
+      alerts,
+      overrides,
+      updates,
+      packagesScanned: 1,
+    });
+    return result;
+  });
+  const mockSecurityChecker = {
+    checkSecurity,
   };
+  const securityChecker = mock(() => mockSecurityChecker);
+  return securityChecker;
+};
 
+const createDeps = (mockSpinner: ReturnType<typeof createSpinnerMockForErrorSpinner>) => {
+  const createSpinner = mock(() => mockSpinner);
+  const securityChecker = createSecurityCheckerMockForPassesCorrect();
+  const depsDetermineSecurityScanPaths = mock(() => []);
+  const green = mock((text: string) => text);
+  const deps = {
+    createSpinner,
+    SecurityChecker: securityChecker,
+    determineSecurityScanPaths: depsDetermineSecurityScanPaths,
+    green,
+  };
+  return deps;
+};
+
+const createMergedOptionsForPassesCorrect = (): Options => {
   const mergedOptions: Options = {
     checkSecurity: true,
     securityProvider: "github",
@@ -1692,30 +1943,18 @@ test("runSecurityCheck - passes correct options to SecurityChecker", async () =>
     securityProviderToken: "test-token",
     cacheTtl: 600,
   };
+  return mergedOptions;
+};
 
-  const mockSpinner = {
-    stop: mock(),
-    start: mock(() => mockSpinner),
-    fail: mock(),
+test("runSecurityCheck - passes correct options to SecurityChecker", async () => {
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
   };
 
-  const mockSecurityChecker = {
-    checkSecurity: mock(() =>
-      Promise.resolve({
-        alerts: [{ packageName: "lodash", severity: "high" }],
-        overrides: [],
-        updates: [],
-        packagesScanned: 1,
-      }),
-    ),
-  };
-
-  const deps = {
-    createSpinner: mock(() => mockSpinner),
-    SecurityChecker: mock(() => mockSecurityChecker),
-    determineSecurityScanPaths: mock(() => []),
-    green: mock((text: string) => text),
-  };
+  const mergedOptions: Options = createMergedOptionsForPassesCorrect();
+  const mockSpinner = createSpinnerMockForErrorSpinner();
+  const deps = createDeps(mockSpinner);
 
   await runSecurityCheck(config, mergedOptions, true, log, deps);
 
@@ -1729,151 +1968,214 @@ test("runSecurityCheck - passes correct options to SecurityChecker", async () =>
   });
 });
 
-test("runSecurityCheck - uses determineSecurityScanPaths for depPaths", async () => {
-  const config: PastoralistJSON = {
-    name: "test",
-    version: "1.0.0",
-    workspaces: ["packages/*", "apps/*"],
-    pastoralist: {
-      depPaths: "workspace",
-      checkSecurity: true,
-    },
-  };
-
-  const mergedOptions: Options = {
-    checkSecurity: true,
-    root: "./",
-  };
-
-  const mockSpinner = { start: mock(() => mockSpinner), fail: mock() };
+const createSecurityCheckerMockForDeppaths = () => {
+  const checkSecurity = mock(() => {
+    const alerts = [];
+    const overrides = [];
+    const updates = [];
+    const result = Promise.resolve({
+      alerts,
+      overrides,
+      updates,
+      packagesScanned: 0,
+    });
+    return result;
+  });
   const mockSecurityChecker = {
-    checkSecurity: mock(() =>
-      Promise.resolve({
-        alerts: [],
-        overrides: [],
-        updates: [],
-        packagesScanned: 0,
-      }),
-    ),
+    checkSecurity,
   };
+  return mockSecurityChecker;
+};
 
+const createDepsForDeppaths = (
+  mockSpinner: ReturnType<typeof createSpinnerMockForDeppaths>,
+  mockSecurityChecker: ReturnType<typeof createSecurityCheckerMockForDeppaths>,
+) => {
   const mockDetermineSecurityScanPaths = mock(() => [
     "packages/*/package.json",
     "apps/*/package.json",
   ]);
-
+  const createSpinner = mock(() => mockSpinner);
+  const securityChecker = mock(() => mockSecurityChecker);
+  const green = mock((text: string) => text);
   const deps = {
-    createSpinner: mock(() => mockSpinner),
-    SecurityChecker: mock(() => mockSecurityChecker),
+    createSpinner,
+    SecurityChecker: securityChecker,
     determineSecurityScanPaths: mockDetermineSecurityScanPaths,
-    green: mock((text: string) => text),
+    green,
   };
+  return deps;
+};
+
+const createConfigForDeppaths = (): PastoralistJSON => {
+  const configWorkspaces = ["packages/*", "apps/*"];
+  const configPastoralist = {
+    depPaths: "workspace",
+    checkSecurity: true,
+  };
+  const config: PastoralistJSON = {
+    name: "test",
+    version: "1.0.0",
+    workspaces: configWorkspaces,
+    pastoralist: configPastoralist,
+  };
+  return config;
+};
+
+const createMergedOptionsForDeppaths = (): Options => {
+  const mergedOptions: Options = {
+    checkSecurity: true,
+    root: "./",
+  };
+  return mergedOptions;
+};
+
+const createSpinnerMockForDeppaths = () => {
+  const start = mock(() => mockSpinner);
+  const fail = mock();
+  const mockSpinner = { start, fail };
+  return mockSpinner;
+};
+
+test("runSecurityCheck - uses determineSecurityScanPaths for depPaths", async () => {
+  const config: PastoralistJSON = createConfigForDeppaths();
+
+  const mergedOptions: Options = createMergedOptionsForDeppaths();
+  const mockSpinner = createSpinnerMockForDeppaths();
+  const mockSecurityChecker = createSecurityCheckerMockForDeppaths();
+  const deps = createDepsForDeppaths(mockSpinner, mockSecurityChecker);
 
   await runSecurityCheck(config, mergedOptions, false, log, deps);
 
-  assertCalledWith(mockDetermineSecurityScanPaths, config, mergedOptions, log);
+  assertCalledWith(deps.determineSecurityScanPaths, config, mergedOptions, log);
+  const depPaths = ["packages/*/package.json", "apps/*/package.json"];
   assertCalledWith(
     mockSecurityChecker.checkSecurity,
     config,
     objectContaining(
       Object.assign({}, mergedOptions, {
-        depPaths: ["packages/*/package.json", "apps/*/package.json"],
+        depPaths,
         root: "./",
       }),
     ),
   );
 });
 
-test("action - handles test mode early return", async () => {
-  const mockHandleTestMode = mock(() => true);
-  const mockHandleInitMode = mock(() => Promise.resolve(false));
+const createBasicSpinnerFactoryMock = () => {
+  const createSpinner = mock(() => {
+    const start = mock();
+    const succeed = mock();
+    const stop = mock();
+    const result = {
+      start,
+      succeed,
+      stop,
+    };
+    return result;
+  });
+  return createSpinner;
+};
 
+const createActionCoreDeps = () => {
+  const mockCreateLogger = mock(() => log);
+  const mockHandleTestMode = mock(() => false);
+  const mockHandleInitMode = mock(() => Promise.resolve(false));
+  const mockResolveJSON = createPackageResolveJSONMock();
+  const mockBuildMergedOptions = mock(() => ({}));
+  const mockRunSecurityCheck = mock(() => Promise.resolve({}));
+  const mockHandleSecurityResults = mock(() => {});
   const deps = {
-    createLogger: mock(() => log),
+    createLogger: mockCreateLogger,
     handleTestMode: mockHandleTestMode,
     handleInitMode: mockHandleInitMode,
-    resolveJSON: mock(() => ({})),
-    buildMergedOptions: mock(() => ({})),
-    runSecurityCheck: mock(() => Promise.resolve({})),
-    handleSecurityResults: mock(() => {}),
-    createSpinner: mock(() => ({
-      start: mock(),
-      succeed: mock(),
-      stop: mock(),
-    })),
-    green: mock((text: string) => text),
-    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
-    createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => new Date().toISOString()),
-    processExit: mock(() => {}),
+    resolveJSON: mockResolveJSON,
+    buildMergedOptions: mockBuildMergedOptions,
+    runSecurityCheck: mockRunSecurityCheck,
+    handleSecurityResults: mockHandleSecurityResults,
   };
+  return deps;
+};
+
+const createActionRunDeps = () => {
+  const mockCreateSpinner = createBasicSpinnerFactoryMock();
+  const mockGreen = mock((text: string) => text);
+  const mockUpdate = createEmptyUpdateMock();
+  const mockCreateTerminalGraph = mock(() => createMockTerminalGraph());
+  const mockGetLedgerAddedDate = mock(() => new Date().toISOString());
+  const mockProcessExit = mock(() => {});
+  const deps = {
+    createSpinner: mockCreateSpinner,
+    green: mockGreen,
+    update: mockUpdate,
+    createTerminalGraph: mockCreateTerminalGraph,
+    getLedgerAddedDate: mockGetLedgerAddedDate,
+    processExit: mockProcessExit,
+  };
+  return deps;
+};
+
+const createBaseActionDeps = () => Object.assign(createActionCoreDeps(), createActionRunDeps());
+
+const createDepsForTestMode = () => {
+  const mockHandleTestMode = mock(() => true);
+  const depsResolveJSON = mock(() => ({}));
+  const depsOverrides = { handleTestMode: mockHandleTestMode, resolveJSON: depsResolveJSON };
+  const deps = Object.assign(createBaseActionDeps(), depsOverrides);
+  return deps;
+};
+
+test("action - handles test mode early return", async () => {
+  const deps = createDepsForTestMode();
 
   await action({ isTestingCLI: true }, deps);
 
-  assert.ok(mockHandleTestMode.mock.callCount() > 0);
-  assert.strictEqual(mockHandleInitMode.mock.callCount(), 0);
+  assert.ok(deps.handleTestMode.mock.callCount() > 0);
+  assert.strictEqual(deps.handleInitMode.mock.callCount(), 0);
   assert.strictEqual(deps.resolveJSON.mock.callCount(), 0);
 });
 
-test("action - handles init mode early return", async () => {
+const createDepsForInitMode = () => {
   const mockHandleInitMode = mock(() => Promise.resolve(true));
+  const depsResolveJSON = mock(() => ({}));
+  const depsOverrides = { handleInitMode: mockHandleInitMode, resolveJSON: depsResolveJSON };
+  const deps = Object.assign(createBaseActionDeps(), depsOverrides);
+  return deps;
+};
 
-  const deps = {
-    createLogger: mock(() => log),
-    handleTestMode: mock(() => false),
-    handleInitMode: mockHandleInitMode,
-    resolveJSON: mock(() => ({})),
-    buildMergedOptions: mock(() => ({})),
-    runSecurityCheck: mock(() => Promise.resolve({})),
-    handleSecurityResults: mock(() => {}),
-    createSpinner: mock(() => ({
-      start: mock(),
-      succeed: mock(),
-      stop: mock(),
-    })),
-    green: mock((text: string) => text),
-    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
-    createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => new Date().toISOString()),
-    processExit: mock(() => {}),
-  };
+test("action - handles init mode early return", async () => {
+  const deps = createDepsForInitMode();
 
   await action({ init: true }, deps);
 
-  assert.ok(mockHandleInitMode.mock.callCount() > 0);
+  assert.ok(deps.handleInitMode.mock.callCount() > 0);
   assert.strictEqual(deps.resolveJSON.mock.callCount(), 0);
 });
 
-test("action - resolves package.json and runs update", async () => {
+const createPackageResolveJSONMock = () => {
+  const mockConfigPastoralist = {};
   const mockConfig: PastoralistJSON = {
     name: "test-package",
     version: "1.0.0",
-    pastoralist: {},
+    pastoralist: mockConfigPastoralist,
   };
+  const depsResolveJSON = mock(() => mockConfig);
+  return depsResolveJSON;
+};
 
+const createDepsForResolvesPackage = (mockGraph: ReturnType<typeof createMockTerminalGraph>) => {
+  const depsBuildMergedOptions = createBuildMergedOptionsMockForLoadsExternal();
+  const depsCreateTerminalGraph = mock(() => mockGraph);
+  const depsOverrides = {
+    buildMergedOptions: depsBuildMergedOptions,
+    createTerminalGraph: depsCreateTerminalGraph,
+  };
+  const deps = Object.assign(createBaseActionDeps(), depsOverrides);
+  return deps;
+};
+
+test("action - resolves package.json and runs update", async () => {
   const mockGraph = createMockTerminalGraph();
-
-  const deps = {
-    createLogger: mock(() => log),
-    handleTestMode: mock(() => false),
-    handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => mockConfig),
-    buildMergedOptions: mock((options: any, rest: any) =>
-      Object.assign({}, options, rest, { checkSecurity: false }),
-    ),
-    runSecurityCheck: mock(() => Promise.resolve({})),
-    handleSecurityResults: mock(() => {}),
-    createSpinner: mock(() => ({
-      start: mock(),
-      succeed: mock(),
-      stop: mock(),
-    })),
-    green: mock((text: string) => text),
-    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
-    createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => new Date().toISOString()),
-    processExit: mock(() => {}),
-  };
+  const deps = createDepsForResolvesPackage(mockGraph);
 
   await action({ path: "package.json" }, deps);
 
@@ -1882,48 +2184,79 @@ test("action - resolves package.json and runs update", async () => {
   assert.ok(mockGraph.endPhase.mock.callCount() > 0);
 });
 
-test("action - runs security check when enabled", async () => {
+const createResolveJSONMock = () => {
+  const security = {
+    enabled: true,
+    provider: "osv",
+  };
+  const mockConfigPastoralist = {
+    security,
+  };
   const mockConfig: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    pastoralist: {
-      security: {
-        enabled: true,
-        provider: "osv",
-      },
-    },
+    pastoralist: mockConfigPastoralist,
   };
+  const depsResolveJSON = mock(() => mockConfig);
+  return depsResolveJSON;
+};
 
+const createDepsForRunsSecurity = (
+  mockSecurityResults: ReturnType<typeof createSecurityResultsMock>,
+  mockSpinner: ReturnType<typeof createSpinnerMockForRunsSecurity>,
+) => {
+  const depsResolveJSON = createResolveJSONMock();
+  const depsBuildMergedOptions = mock(() => ({ checkSecurity: true }));
+  const depsRunSecurityCheck = mock(() => Promise.resolve(mockSecurityResults));
+  const createSpinner = mock(() => mockSpinner);
+  const update = createUpdateMock();
+  const depsOverrides = {
+    resolveJSON: depsResolveJSON,
+    buildMergedOptions: depsBuildMergedOptions,
+    runSecurityCheck: depsRunSecurityCheck,
+    createSpinner,
+    update,
+  };
+  const deps = Object.assign(createBaseActionDeps(), depsOverrides);
+  return deps;
+};
+
+const createSecurityResultsMock = () => {
+  const info = mock();
+  const spinnerSucceed = mock();
+  const spinnerStop = mock();
+  const spinner = { info, succeed: spinnerSucceed, stop: spinnerStop };
+  const securityChecker = {};
+  const alerts = [{ packageName: "lodash", severity: "high" }];
+  const securityOverrides = [];
+  const updates = [];
   const mockSecurityResults = {
-    spinner: { info: mock(), succeed: mock(), stop: mock() },
-    securityChecker: {},
-    alerts: [{ packageName: "lodash", severity: "high" }],
-    securityOverrides: [],
-    updates: [],
+    spinner,
+    securityChecker,
+    alerts,
+    securityOverrides,
+    updates,
     packagesScanned: 100,
   };
+  return mockSecurityResults;
+};
 
+const createSpinnerMockForRunsSecurity = () => {
+  const start = mock(() => mockSpinner);
+  const succeed = mock();
+  const stop = mock();
   const mockSpinner = {
-    start: mock(() => mockSpinner),
-    succeed: mock(),
-    stop: mock(),
+    start,
+    succeed,
+    stop,
   };
+  return mockSpinner;
+};
 
-  const deps = {
-    createLogger: mock(() => log),
-    handleTestMode: mock(() => false),
-    handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => mockConfig),
-    buildMergedOptions: mock(() => ({ checkSecurity: true })),
-    runSecurityCheck: mock(() => Promise.resolve(mockSecurityResults)),
-    handleSecurityResults: mock(() => {}),
-    createSpinner: mock(() => mockSpinner),
-    green: mock((text: string) => text),
-    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
-    createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => new Date().toISOString()),
-    processExit: mock(() => {}),
-  };
+test("action - runs security check when enabled", async () => {
+  const mockSecurityResults = createSecurityResultsMock();
+  const mockSpinner = createSpinnerMockForRunsSecurity();
+  const deps = createDepsForRunsSecurity(mockSecurityResults, mockSpinner);
 
   await action({}, deps);
 
@@ -1940,52 +2273,86 @@ test("action - runs security check when enabled", async () => {
   );
 });
 
-test("action - runs security check from top-level config", async () => {
+const createRunSecurityCheckMockForRunsSecurity = (mockSpinner: Record<string, unknown>) => {
+  const depsRunSecurityCheck = mock(() => {
+    const securityChecker = {};
+    const alerts = [];
+    const securityOverrides = [];
+    const updates = [];
+    const result = Promise.resolve({
+      spinner: mockSpinner,
+      securityChecker,
+      alerts,
+      securityOverrides,
+      updates,
+      packagesScanned: 1,
+      skipped: false,
+    });
+    return result;
+  });
+  return depsRunSecurityCheck;
+};
+
+const createResolveJSONMockForRunsSecurity = () => {
+  const mockConfigPastoralist = {
+    checkSecurity: true,
+  };
   const mockConfig: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    pastoralist: {
-      checkSecurity: true,
-    },
+    pastoralist: mockConfigPastoralist,
   };
+  const depsResolveJSON = mock(() => mockConfig);
+  return depsResolveJSON;
+};
 
-  const mockSpinner = {
-    stop: mock(() => mockSpinner),
-    start: mock(() => mockSpinner),
-    warn: mock(() => mockSpinner),
-    fail: mock(() => mockSpinner),
-    update: mock(() => mockSpinner),
-  };
+const createUpdateMockForRunsSecurity = () => {
+  const depsUpdate = mock(() => {
+    const finalOverrides = {};
+    const finalAppendix = {};
+    const value = { finalOverrides, finalAppendix };
+    return value;
+  });
+  return depsUpdate;
+};
 
-  const originalLog = console.log;
-  console.log = mock(() => {});
-
-  const deps = {
-    createLogger: mock(() => log),
-    handleTestMode: mock(() => false),
-    handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => mockConfig),
-    loadConfig: mock((_root: string, config: unknown) => Promise.resolve(config)),
+const createDepsForTopLevelConfig = (mockSpinner: Record<string, unknown>) => {
+  const depsResolveJSON = createResolveJSONMockForRunsSecurity();
+  const loadConfig = mock((_root: string, config: unknown) => Promise.resolve(config));
+  const depsRunSecurityCheck = createRunSecurityCheckMockForRunsSecurity(mockSpinner);
+  const depsHandleSecurityResults = mock(() => ({}));
+  const createSpinner = mock(() => mockSpinner);
+  const depsUpdate = createUpdateMockForRunsSecurity();
+  const depsOverrides = {
+    resolveJSON: depsResolveJSON,
+    loadConfig,
     buildMergedOptions,
-    runSecurityCheck: mock(() =>
-      Promise.resolve({
-        spinner: mockSpinner,
-        securityChecker: {},
-        alerts: [],
-        securityOverrides: [],
-        updates: [],
-        packagesScanned: 1,
-        skipped: false,
-      }),
-    ),
-    handleSecurityResults: mock(() => ({})),
-    createSpinner: mock(() => mockSpinner),
-    green: mock((text: string) => text),
-    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
-    createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => new Date().toISOString()),
-    processExit: mock(() => {}),
+    runSecurityCheck: depsRunSecurityCheck,
+    handleSecurityResults: depsHandleSecurityResults,
+    createSpinner,
+    update: depsUpdate,
   };
+  const deps = Object.assign(createBaseActionDeps(), depsOverrides);
+  return deps;
+};
+
+test("action - runs security check from top-level config", async () => {
+  const stop = mock(() => mockSpinner);
+  const start = mock(() => mockSpinner);
+  const warn = mock(() => mockSpinner);
+  const fail = mock(() => mockSpinner);
+  const update = mock(() => mockSpinner);
+  const mockSpinner = {
+    stop,
+    start,
+    warn,
+    fail,
+    update,
+  };
+
+  const { log: originalLog } = console;
+  console.log = mock(() => {});
+  const deps = createDepsForTopLevelConfig(mockSpinner);
 
   await action({ outputFormat: "json" }, deps);
 
@@ -1994,33 +2361,57 @@ test("action - runs security check from top-level config", async () => {
   assert.ok(deps.runSecurityCheck.mock.callCount() > 0);
 });
 
-test("action - handles path with root option", async () => {
+const createUpdateMock = () => {
+  const update = mock(() => {
+    const finalOverrides = {};
+    const finalAppendix = {};
+    const result = { finalOverrides, finalAppendix };
+    return result;
+  });
+  return update;
+};
+
+const createResolveJSONMockForPathRoot = () => {
   const mockConfig: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
   };
+  const depsResolveJSON = mock(() => mockConfig);
+  return depsResolveJSON;
+};
 
+const createBuildMergedOptionsMockForPathRoot = () => {
+  const depsBuildMergedOptions = mock((options: any, rest: any) =>
+    Object.assign({}, options, rest),
+  );
+  return depsBuildMergedOptions;
+};
+
+const createDepsForPathRoot = (mockSpinner: Record<string, unknown>) => {
+  const depsResolveJSON = createResolveJSONMockForPathRoot();
+  const depsBuildMergedOptions = createBuildMergedOptionsMockForPathRoot();
+  const createSpinner = mock(() => mockSpinner);
+  const update = createUpdateMock();
+  const depsOverrides = {
+    resolveJSON: depsResolveJSON,
+    buildMergedOptions: depsBuildMergedOptions,
+    createSpinner,
+    update,
+  };
+  const deps = Object.assign(createBaseActionDeps(), depsOverrides);
+  return deps;
+};
+
+test("action - handles path with root option", async () => {
+  const start = mock(() => mockSpinner);
+  const succeed = mock();
+  const stop = mock();
   const mockSpinner = {
-    start: mock(() => mockSpinner),
-    succeed: mock(),
-    stop: mock(),
+    start,
+    succeed,
+    stop,
   };
-
-  const deps = {
-    createLogger: mock(() => log),
-    handleTestMode: mock(() => false),
-    handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => mockConfig),
-    buildMergedOptions: mock((options: any, rest: any) => Object.assign({}, options, rest)),
-    runSecurityCheck: mock(() => Promise.resolve({})),
-    handleSecurityResults: mock(() => {}),
-    createSpinner: mock(() => mockSpinner),
-    green: mock((text: string) => text),
-    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
-    createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => new Date().toISOString()),
-    processExit: mock(() => {}),
-  };
+  const deps = createDepsForPathRoot(mockSpinner);
 
   await action({ path: "package.json", root: "/root/dir" }, deps);
 
@@ -2028,68 +2419,71 @@ test("action - handles path with root option", async () => {
 });
 
 test("action - handles absolute path without root", async () => {
-  const mockConfig: PastoralistJSON = {
-    name: "test",
-    version: "1.0.0",
-  };
-
+  const start = mock(() => mockSpinner);
+  const succeed = mock();
+  const stop = mock();
   const mockSpinner = {
-    start: mock(() => mockSpinner),
-    succeed: mock(),
-    stop: mock(),
+    start,
+    succeed,
+    stop,
   };
-
-  const deps = {
-    createLogger: mock(() => log),
-    handleTestMode: mock(() => false),
-    handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => mockConfig),
-    buildMergedOptions: mock((options: any, rest: any) => Object.assign({}, options, rest)),
-    runSecurityCheck: mock(() => Promise.resolve({})),
-    handleSecurityResults: mock(() => {}),
-    createSpinner: mock(() => mockSpinner),
-    green: mock((text: string) => text),
-    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
-    createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => new Date().toISOString()),
-    processExit: mock(() => {}),
-  };
+  const deps = createDepsForPathRoot(mockSpinner);
 
   await action({ path: "/absolute/path/package.json", root: "/root" }, deps);
 
   assertCalledWith(deps.resolveJSON, "/absolute/path/package.json");
 });
 
-test("action - calls processExit on error", async () => {
+const createResolveJSONMockForProcessexitError = () => {
   const mockError = new Error("Test error");
-  const mockProcessExit = mock(() => {});
+  const depsResolveJSON = mock(() => {
+    throw mockError;
+  });
+  return depsResolveJSON;
+};
 
-  const deps = {
-    createLogger: mock(() => log),
-    handleTestMode: mock(() => false),
-    handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => {
-      throw mockError;
-    }),
-    buildMergedOptions: mock(() => ({})),
-    runSecurityCheck: mock(() => Promise.resolve({})),
-    handleSecurityResults: mock(() => {}),
-    createSpinner: mock(() => ({
-      start: mock(),
-      succeed: mock(),
-      stop: mock(),
-    })),
-    green: mock((text: string) => text),
-    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
-    createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => new Date().toISOString()),
-    processExit: mockProcessExit,
-  };
+const createDepsForProcessexitError = () => {
+  const depsResolveJSON = createResolveJSONMockForProcessexitError();
+  const depsOverrides = { resolveJSON: depsResolveJSON };
+  const deps = Object.assign(createBaseActionDeps(), depsOverrides);
+  return deps;
+};
+
+test("action - calls processExit on error", async () => {
+  const deps = createDepsForProcessexitError();
 
   await action({}, deps);
 
-  assertCalledWith(mockProcessExit, 1);
+  assertCalledWith(deps.processExit, 1);
 });
+
+const createSpinnerFactoryMock = () => {
+  const createSpinner = mock(() => {
+    const start = mock();
+    const succeed = mock();
+    const stop = mock();
+    const result = { start, succeed, stop };
+    return result;
+  });
+  return createSpinner;
+};
+
+const createEmptyUpdateMock = () => {
+  const update = mock(() => {
+    const finalOverrides = {};
+    const finalAppendix = {};
+    const value = { finalOverrides, finalAppendix };
+    return value;
+  });
+  return update;
+};
+
+const createResolveJSONMockForReportsErrors = () => {
+  const depsResolveJSON = mock(() => {
+    throw new Error("Test error");
+  });
+  return depsResolveJSON;
+};
 
 test("action - reports errors in default output mode", async () => {
   let failures: string[] = [];
@@ -2098,95 +2492,96 @@ test("action - reports errors in default output mode", async () => {
       failures = failures.concat(message);
     },
   });
-  const deps = {
-    createLogger: mock(() => visibleLog),
-    handleTestMode: mock(() => false),
-    handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => {
-      throw new Error("Test error");
-    }),
-    buildMergedOptions: mock(() => ({})),
-    runSecurityCheck: mock(() => Promise.resolve({})),
-    handleSecurityResults: mock(() => {}),
-    createSpinner: mock(() => ({ start: mock(), succeed: mock(), stop: mock() })),
-    green: mock((text: string) => text),
-    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
-    createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => new Date().toISOString()),
-    processExit: mock(() => {}),
+  const depsCreateLogger = mock(() => visibleLog);
+  const depsResolveJSON = createResolveJSONMockForReportsErrors();
+  const createSpinner = createSpinnerFactoryMock();
+  const depsOverrides = {
+    createLogger: depsCreateLogger,
+    resolveJSON: depsResolveJSON,
+    createSpinner,
   };
+  const deps = Object.assign(createBaseActionDeps(), depsOverrides);
 
   await action({}, deps);
 
   assert.ok(failures.join("\n").includes("Test error"));
 });
 
+const createSpinnerFactoryMockForFailsPackage = () => {
+  const createSpinner = mock(() => {
+    const start = mock();
+    const succeed = mock();
+    const stop = mock();
+    const value = {
+      start,
+      succeed,
+      stop,
+    };
+    return value;
+  });
+  return createSpinner;
+};
+
+const createUpdateMockForFailsPackage = () => {
+  const update = mock(() => {
+    const finalOverrides = {};
+    const finalAppendix = {};
+    const output = { finalOverrides, finalAppendix };
+    return output;
+  });
+  return update;
+};
+
+const createDepsForFailsPackage = () => {
+  const depsResolveJSON = mock(() => undefined);
+  const loadConfig = mock(() => Promise.resolve(undefined));
+  const createSpinner = createSpinnerFactoryMockForFailsPackage();
+  const update = createUpdateMockForFailsPackage();
+  const depsOverrides = { resolveJSON: depsResolveJSON, loadConfig, createSpinner, update };
+  const deps = Object.assign(createBaseActionDeps(), depsOverrides);
+  return deps;
+};
+
 test("action - fails when package.json cannot be loaded", async () => {
-  const mockProcessExit = mock(() => {});
-  const deps = {
-    createLogger: mock(() => log),
-    handleTestMode: mock(() => false),
-    handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => undefined),
-    loadConfig: mock(() => Promise.resolve(undefined)),
-    buildMergedOptions: mock(() => ({})),
-    runSecurityCheck: mock(() => Promise.resolve({})),
-    handleSecurityResults: mock(() => {}),
-    createSpinner: mock(() => ({
-      start: mock(),
-      succeed: mock(),
-      stop: mock(),
-    })),
-    green: mock((text: string) => text),
-    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
-    createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => new Date().toISOString()),
-    processExit: mockProcessExit,
-  };
+  const deps = createDepsForFailsPackage();
 
   const result = await action({ path: "/tmp/missing-package.json", outputFormat: "json" }, deps);
 
   assert.strictEqual(result.success, false);
   assert.ok(result.errors[0].includes("Unable to load package.json at /tmp/missing-package.json"));
   assert.strictEqual(deps.update.mock.callCount(), 0);
-  assertCalledWith(mockProcessExit, 1);
+  assertCalledWith(deps.processExit, 1);
 });
 
-test("action - merges external config into package config", async () => {
-  const mockConfig: PastoralistJSON = {
-    name: "test",
-    version: "1.0.0",
+const createLoadConfigMock = () => {
+  const depPaths = ["packages/*/package.json"];
+  const security = {
+    enabled: false,
+    provider: "osv",
   };
   const externalConfig = {
-    depPaths: ["packages/*/package.json"],
-    security: {
-      enabled: false,
-      provider: "osv",
-    },
+    depPaths,
+    security,
   };
+  const loadConfig = mock(() => Promise.resolve(externalConfig));
+  return loadConfig;
+};
 
-  const deps = {
-    createLogger: mock(() => log),
-    handleTestMode: mock(() => false),
-    handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => mockConfig),
-    loadConfig: mock(() => Promise.resolve(externalConfig)),
-    buildMergedOptions: mock((options: any, rest: any) =>
-      Object.assign({}, options, rest, { checkSecurity: false }),
-    ),
-    runSecurityCheck: mock(() => Promise.resolve({})),
-    handleSecurityResults: mock(() => {}),
-    createSpinner: mock(() => ({
-      start: mock(),
-      succeed: mock(),
-      stop: mock(),
-    })),
-    green: mock((text: string) => text),
-    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
-    createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => new Date().toISOString()),
-    processExit: mock(() => {}),
+const createDepsForMergesExternal = () => {
+  const depsResolveJSON = createResolveJSONMockForPathRoot();
+  const loadConfig = createLoadConfigMock();
+  const depsBuildMergedOptions = createBuildMergedOptionsMockForLoadsExternal();
+  const depsOverrides = {
+    resolveJSON: depsResolveJSON,
+    loadConfig,
+    buildMergedOptions: depsBuildMergedOptions,
   };
+  const deps = Object.assign(createBaseActionDeps(), depsOverrides);
+  return deps;
+};
+
+test("action - merges external config into package config", async () => {
+  const deps = createDepsForMergesExternal();
 
   await action({ path: "package.json", root: "/repo" }, deps);
 
@@ -2197,47 +2592,58 @@ test("action - merges external config into package config", async () => {
   assert.deepStrictEqual(updateOptions.config?.pastoralist?.depPaths, ["packages/*/package.json"]);
 });
 
-test("action - loads external config when package.json has no pastoralist config", async () => {
-  const packagePath = resolve(actionExternalConfigDir, "package.json");
-  const configPath = resolve(actionExternalConfigDir, ".pastoralistrc.json");
-  const externalConfig = {
-    depPaths: ["packages/*/package.json"],
-    security: {
-      enabled: false,
-      provider: "osv",
-    },
-  };
+const createBuildMergedOptionsMockForLoadsExternal = () => {
+  const depsBuildMergedOptions = mock((options: any, rest: any) =>
+    Object.assign({}, options, rest, { checkSecurity: false }),
+  );
+  return depsBuildMergedOptions;
+};
 
+const createDepsForLoadsExternal = () => {
+  const depsResolveJSON = mock((path: string) => resolveJSON(path));
+  const depsBuildMergedOptions = createBuildMergedOptionsMockForLoadsExternal();
+  const depsOverrides = {
+    resolveJSON: depsResolveJSON,
+    buildMergedOptions: depsBuildMergedOptions,
+  };
+  const deps = Object.assign(createBaseActionDeps(), depsOverrides);
+  return deps;
+};
+
+const createExternalConfig = () => {
+  const depPaths = ["packages/*/package.json"];
+  const security = {
+    enabled: false,
+    provider: "osv",
+  };
+  const externalConfig = {
+    depPaths,
+    security,
+  };
+  return externalConfig;
+};
+
+const resetActionExternalConfigDir = () => {
   clearConfigCache();
   forceClearCache();
   if (existsSync(actionExternalConfigDir)) {
     rmSync(actionExternalConfigDir, { recursive: true, force: true });
   }
+};
+
+const writeActionExternalConfig = (externalConfig: ReturnType<typeof createExternalConfig>) => {
+  const packagePath = resolve(actionExternalConfigDir, "package.json");
+  const configPath = resolve(actionExternalConfigDir, ".pastoralistrc.json");
+  resetActionExternalConfigDir();
   mkdirSync(actionExternalConfigDir, { recursive: true });
   writeFileSync(packagePath, JSON.stringify({ name: "test", version: "1.0.0" }, null, 2));
   writeFileSync(configPath, JSON.stringify(externalConfig, null, 2));
+};
 
-  const deps = {
-    createLogger: mock(() => log),
-    handleTestMode: mock(() => false),
-    handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock((path: string) => resolveJSON(path)),
-    buildMergedOptions: mock((options: any, rest: any) =>
-      Object.assign({}, options, rest, { checkSecurity: false }),
-    ),
-    runSecurityCheck: mock(() => Promise.resolve({})),
-    handleSecurityResults: mock(() => {}),
-    createSpinner: mock(() => ({
-      start: mock(),
-      succeed: mock(),
-      stop: mock(),
-    })),
-    green: mock((text: string) => text),
-    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
-    createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => new Date().toISOString()),
-    processExit: mock(() => {}),
-  };
+test("action - loads external config when package.json has no pastoralist config", async () => {
+  const externalConfig = createExternalConfig();
+  writeActionExternalConfig(externalConfig);
+  const deps = createDepsForLoadsExternal();
 
   try {
     await action({ path: "package.json", root: actionExternalConfigDir }, deps as any);
@@ -2246,66 +2652,79 @@ test("action - loads external config when package.json has no pastoralist config
       Array.isArray(call) ? call : call.arguments,
     )[0][0] as Options;
     assert.deepStrictEqual(updateOptions.config?.pastoralist?.depPaths, externalConfig.depPaths);
-    assertCalledWith(
-      deps.buildMergedOptions,
-      anything(),
-      anything(),
-      objectContaining(externalConfig.security),
-      "osv",
-    );
+    const expectedSecurity = objectContaining(externalConfig.security);
+    assertCalledWith(deps.buildMergedOptions, anything(), anything(), expectedSecurity, "osv");
   } finally {
-    clearConfigCache();
-    forceClearCache();
-    if (existsSync(actionExternalConfigDir)) {
-      rmSync(actionExternalConfigDir, { recursive: true, force: true });
-    }
+    resetActionExternalConfigDir();
   }
 });
 
-test("action - handles array security provider", async () => {
+const createResolveJSONMockForArraySecurity = () => {
+  const provider = ["github", "osv"];
+  const security = {
+    provider,
+  };
+  const mockConfigPastoralist = {
+    security,
+  };
   const mockConfig: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    pastoralist: {
-      security: {
-        provider: ["github", "osv"],
-      },
-    },
+    pastoralist: mockConfigPastoralist,
   };
+  const depsResolveJSON = mock(() => mockConfig);
+  return depsResolveJSON;
+};
 
-  const mockSpinner = {
-    start: mock(() => mockSpinner),
-    succeed: mock(),
-    stop: mock(),
-  };
-
+const createBuildMergedOptionsMock = () => {
   const mockBuildMergedOptions = mock(
     (options: any, rest: any, securityConfig: any, configProvider: any) => {
       assert.deepStrictEqual(configProvider, ["github", "osv"]);
-      return Object.assign({}, options, rest);
+      const result = Object.assign({}, options, rest);
+      return result;
     },
   );
+  return mockBuildMergedOptions;
+};
 
-  const deps = {
-    createLogger: mock(() => log),
-    handleTestMode: mock(() => false),
-    handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => mockConfig),
+const createDepsForArraySecurity = (mockSpinner: Record<string, unknown>) => {
+  const mockBuildMergedOptions = createBuildMergedOptionsMock();
+  const depsResolveJSON = createResolveJSONMockForArraySecurity();
+  const createSpinner = mock(() => mockSpinner);
+  const depsOverrides = {
+    resolveJSON: depsResolveJSON,
     buildMergedOptions: mockBuildMergedOptions,
-    runSecurityCheck: mock(() => Promise.resolve({})),
-    handleSecurityResults: mock(() => {}),
-    createSpinner: mock(() => mockSpinner),
-    green: mock((text: string) => text),
-    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
-    createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => new Date().toISOString()),
-    processExit: mock(() => {}),
+    createSpinner,
   };
+  const deps = Object.assign(createBaseActionDeps(), depsOverrides);
+  return deps;
+};
+
+test("action - handles array security provider", async () => {
+  const start = mock(() => mockSpinner);
+  const succeed = mock();
+  const stop = mock();
+  const mockSpinner = {
+    start,
+    succeed,
+    stop,
+  };
+  const deps = createDepsForArraySecurity(mockSpinner);
 
   await action({}, deps);
 
-  assert.ok(mockBuildMergedOptions.mock.callCount() > 0);
+  assert.ok(deps.buildMergedOptions.mock.callCount() > 0);
 });
+
+const createRest = () => {
+  const securityProvider = "osv" as const;
+  const rest = {
+    checkSecurity: true,
+    securityProvider,
+    hasWorkspaceSecurityChecks: false,
+  };
+  return rest;
+};
 
 test("handleInitMode - calls initCommand when init is true", async () => {
   const mockInitCommand = mock(() => Promise.resolve());
@@ -2314,12 +2733,7 @@ test("handleInitMode - calls initCommand when init is true", async () => {
     path: "package.json",
     root: "./",
   };
-
-  const rest = {
-    checkSecurity: true,
-    securityProvider: "osv" as const,
-    hasWorkspaceSecurityChecks: false,
-  };
+  const rest = createRest();
 
   const result = await handleInitMode(true, options, rest, {
     initCommand: mockInitCommand,
@@ -2369,44 +2783,24 @@ test("handleInitMode - returns false when init is false", async () => {
 
 test("handleInitMode - returns false when init targets agent skill", async () => {
   const mockInitCommand = mock(() => Promise.resolve());
-  const stringResult = await handleInitMode(
-    "agent-skill",
-    {},
-    {},
-    {
-      initCommand: mockInitCommand,
-    },
-  );
-  const arrayResult = await handleInitMode(
-    ["agent-skill"],
-    {},
-    {},
-    {
-      initCommand: mockInitCommand,
-    },
-  );
+  const initDeps = { initCommand: mockInitCommand };
+  const stringResult = await handleInitMode("agent-skill", {}, {}, initDeps);
+  const arrayResult = await handleInitMode(["agent-skill"], {}, {}, initDeps);
 
   assert.strictEqual(stringResult, false);
   assert.strictEqual(arrayResult, false);
   assert.strictEqual(mockInitCommand.mock.callCount(), 0);
 });
 
-test("determineSecurityScanPaths - returns empty array when no config", () => {
-  const config = undefined;
-  const options: Options = { checkSecurity: false };
-
-  const result = determineSecurityScanPaths(config, options, log);
-
-  assert.deepStrictEqual(result, []);
-});
-
 test("determineSecurityScanPaths - returns empty array when security not enabled", () => {
+  const depPaths = ["packages/*/package.json"];
+  const configPastoralist = {
+    depPaths,
+  };
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    pastoralist: {
-      depPaths: ["packages/*/package.json"],
-    },
+    pastoralist: configPastoralist,
   };
   const options: Options = { checkSecurity: false };
 
@@ -2416,13 +2810,15 @@ test("determineSecurityScanPaths - returns empty array when security not enabled
 });
 
 test("determineSecurityScanPaths - returns depPaths from config when array and security enabled", () => {
+  const depPaths = ["packages/*/package.json", "apps/*/package.json"];
+  const configPastoralist = {
+    depPaths,
+    checkSecurity: true,
+  };
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    pastoralist: {
-      depPaths: ["packages/*/package.json", "apps/*/package.json"],
-      checkSecurity: true,
-    },
+    pastoralist: configPastoralist,
   };
   const options: Options = { checkSecurity: true };
 
@@ -2432,14 +2828,16 @@ test("determineSecurityScanPaths - returns depPaths from config when array and s
 });
 
 test("determineSecurityScanPaths - uses workspace paths when depPaths is workspace", () => {
+  const configWorkspaces = ["packages/*", "apps/*"];
+  const configPastoralist = {
+    depPaths: "workspace",
+    checkSecurity: true,
+  };
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    workspaces: ["packages/*", "apps/*"],
-    pastoralist: {
-      depPaths: "workspace",
-      checkSecurity: true,
-    },
+    workspaces: configWorkspaces,
+    pastoralist: configPastoralist,
   };
   const options: Options = { checkSecurity: true };
 
@@ -2449,14 +2847,16 @@ test("determineSecurityScanPaths - uses workspace paths when depPaths is workspa
 });
 
 test("determineSecurityScanPaths - uses workspace paths when depPaths is workspaces", () => {
+  const configWorkspaces = ["packages/*", "apps/*"];
+  const configPastoralist = {
+    depPaths: "workspaces",
+    checkSecurity: true,
+  };
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    workspaces: ["packages/*", "apps/*"],
-    pastoralist: {
-      depPaths: "workspaces",
-      checkSecurity: true,
-    },
+    workspaces: configWorkspaces,
+    pastoralist: configPastoralist,
   };
   const options: Options = { checkSecurity: true };
 
@@ -2466,10 +2866,11 @@ test("determineSecurityScanPaths - uses workspace paths when depPaths is workspa
 });
 
 test("determineSecurityScanPaths - uses workspace paths when hasWorkspaceSecurityChecks is true", () => {
+  const configWorkspaces = ["packages/*"];
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    workspaces: ["packages/*"],
+    workspaces: configWorkspaces,
   };
   const options: Options = {
     checkSecurity: true,
@@ -2482,14 +2883,16 @@ test("determineSecurityScanPaths - uses workspace paths when hasWorkspaceSecurit
 });
 
 test("determineSecurityScanPaths - returns empty array when depPaths is workspace but no workspaces", () => {
+  const configWorkspaces = [];
+  const configPastoralist = {
+    depPaths: "workspace",
+    checkSecurity: true,
+  };
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    workspaces: [],
-    pastoralist: {
-      depPaths: "workspace",
-      checkSecurity: true,
-    },
+    workspaces: configWorkspaces,
+    pastoralist: configPastoralist,
   };
   const options: Options = { checkSecurity: true };
 
@@ -2499,10 +2902,11 @@ test("determineSecurityScanPaths - returns empty array when depPaths is workspac
 });
 
 test("determineSecurityScanPaths - returns empty array when hasWorkspaceSecurityChecks but no workspaces", () => {
+  const configWorkspaces = [];
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    workspaces: [],
+    workspaces: configWorkspaces,
   };
   const options: Options = {
     checkSecurity: true,
@@ -2514,31 +2918,16 @@ test("determineSecurityScanPaths - returns empty array when hasWorkspaceSecurity
   assert.deepStrictEqual(result, []);
 });
 
-test("determineSecurityScanPaths - prioritizes depPaths array over workspace", () => {
-  const config: PastoralistJSON = {
-    name: "test",
-    version: "1.0.0",
-    workspaces: ["packages/*"],
-    pastoralist: {
-      depPaths: ["custom/path/package.json"],
-      checkSecurity: true,
-    },
-  };
-  const options: Options = { checkSecurity: true };
-
-  const result = determineSecurityScanPaths(config, options, log);
-
-  assert.deepStrictEqual(result, ["custom/path/package.json"]);
-});
-
 test("determineSecurityScanPaths - uses config.pastoralist.checkSecurity when option not set", () => {
+  const depPaths = ["packages/*/package.json"];
+  const configPastoralist = {
+    depPaths,
+    checkSecurity: true,
+  };
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    pastoralist: {
-      depPaths: ["packages/*/package.json"],
-      checkSecurity: true,
-    },
+    pastoralist: configPastoralist,
   };
   const options: Options = {};
 
@@ -2560,13 +2949,15 @@ test("determineSecurityScanPaths - handles missing pastoralist config", () => {
 });
 
 test("determineSecurityScanPaths - handles empty depPaths array", () => {
+  const depPaths = [];
+  const configPastoralist = {
+    depPaths,
+    checkSecurity: true,
+  };
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    pastoralist: {
-      depPaths: [],
-      checkSecurity: true,
-    },
+    pastoralist: configPastoralist,
   };
   const options: Options = { checkSecurity: true };
 
@@ -2576,14 +2967,16 @@ test("determineSecurityScanPaths - handles empty depPaths array", () => {
 });
 
 test("determineSecurityScanPaths - handles single workspace path", () => {
+  const configWorkspaces = ["packages"];
+  const configPastoralist = {
+    depPaths: "workspace",
+    checkSecurity: true,
+  };
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    workspaces: ["packages"],
-    pastoralist: {
-      depPaths: "workspace",
-      checkSecurity: true,
-    },
+    workspaces: configWorkspaces,
+    pastoralist: configPastoralist,
   };
   const options: Options = { checkSecurity: true };
 
@@ -2593,13 +2986,15 @@ test("determineSecurityScanPaths - handles single workspace path", () => {
 });
 
 test("determineSecurityScanPaths - option.checkSecurity takes precedence over config", () => {
+  const depPaths = ["packages/*/package.json"];
+  const configPastoralist = {
+    depPaths,
+    checkSecurity: false,
+  };
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    pastoralist: {
-      depPaths: ["packages/*/package.json"],
-      checkSecurity: false,
-    },
+    pastoralist: configPastoralist,
   };
   const options: Options = { checkSecurity: true };
 
@@ -2609,10 +3004,11 @@ test("determineSecurityScanPaths - option.checkSecurity takes precedence over co
 });
 
 test("determineSecurityScanPaths - handles workspace with hasWorkspaceSecurityChecks false", () => {
+  const configWorkspaces = ["packages/*"];
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    workspaces: ["packages/*"],
+    workspaces: configWorkspaces,
   };
   const options: Options = {
     checkSecurity: true,
@@ -2624,35 +3020,56 @@ test("determineSecurityScanPaths - handles workspace with hasWorkspaceSecurityCh
   assert.deepStrictEqual(result, []);
 });
 
-test("runSecurityCheck - handles error and calls spinner.fail", async () => {
+const createDepsForErrorSpinner = (
+  mockSpinner: ReturnType<typeof createSpinnerMockForErrorSpinner>,
+) => {
+  const testError = new Error("Security check failed");
+  const checkSecurity = mock(() => Promise.reject(testError));
+  const mockSecurityChecker = {
+    checkSecurity,
+  };
+  const createSpinner = mock(() => mockSpinner);
+  const securityChecker = mock(() => mockSecurityChecker);
+  const depsDetermineSecurityScanPaths = mock(() => []);
+  const yellow = mock((text: string) => text);
+  const deps = {
+    createSpinner,
+    SecurityChecker: securityChecker,
+    determineSecurityScanPaths: depsDetermineSecurityScanPaths,
+    yellow,
+  };
+  return deps;
+};
+
+const createSpinnerMockForErrorSpinner = () => {
+  const stop = mock();
+  const start = mock(() => mockSpinner);
+  const fail = mock();
+  const mockSpinner = {
+    stop,
+    start,
+    fail,
+  };
+  return mockSpinner;
+};
+
+const createConfigForErrorSpinner = (): PastoralistJSON => {
   const config: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
   };
+  return config;
+};
+
+test("runSecurityCheck - handles error and calls spinner.fail", async () => {
+  const config: PastoralistJSON = createConfigForErrorSpinner();
 
   const mergedOptions: Options = {
     checkSecurity: true,
     securityProvider: "osv",
   };
-
-  const mockSpinner = {
-    stop: mock(),
-    start: mock(() => mockSpinner),
-    fail: mock(),
-  };
-
-  const testError = new Error("Security check failed");
-
-  const mockSecurityChecker = {
-    checkSecurity: mock(() => Promise.reject(testError)),
-  };
-
-  const deps = {
-    createSpinner: mock(() => mockSpinner),
-    SecurityChecker: mock(() => mockSecurityChecker),
-    determineSecurityScanPaths: mock(() => []),
-    yellow: mock((text: string) => text),
-  };
+  const mockSpinner = createSpinnerMockForErrorSpinner();
+  const deps = createDepsForErrorSpinner(mockSpinner);
 
   await assert.rejects(
     runSecurityCheck(config, mergedOptions, false, log, deps),
@@ -2663,9 +3080,28 @@ test("runSecurityCheck - handles error and calls spinner.fail", async () => {
   const failCall = mockSpinner.fail.mock.calls.map((call) =>
     Array.isArray(call) ? call : call.arguments,
   )[0][0];
-  assert.ok(failCall.includes("security check failed"));
-  assert.ok(failCall.includes("Security check failed"));
+  assertIncludesAll(failCall, ["security check failed", "Security check failed"]);
 });
+
+const createDepsForNonError = (
+  mockSpinner: ReturnType<typeof createSpinnerMockForErrorSpinner>,
+) => {
+  const checkSecurity = mock(() => Promise.reject("String error"));
+  const mockSecurityChecker = {
+    checkSecurity,
+  };
+  const createSpinner = mock(() => mockSpinner);
+  const securityChecker = mock(() => mockSecurityChecker);
+  const depsDetermineSecurityScanPaths = mock(() => []);
+  const yellow = mock((text: string) => text);
+  const deps = {
+    createSpinner,
+    SecurityChecker: securityChecker,
+    determineSecurityScanPaths: depsDetermineSecurityScanPaths,
+    yellow,
+  };
+  return deps;
+};
 
 test("runSecurityCheck - handles non-Error throws and calls spinner.fail", async () => {
   const config: PastoralistJSON = {
@@ -2677,23 +3113,8 @@ test("runSecurityCheck - handles non-Error throws and calls spinner.fail", async
     checkSecurity: true,
     securityProvider: "osv",
   };
-
-  const mockSpinner = {
-    stop: mock(),
-    start: mock(() => mockSpinner),
-    fail: mock(),
-  };
-
-  const mockSecurityChecker = {
-    checkSecurity: mock(() => Promise.reject("String error")),
-  };
-
-  const deps = {
-    createSpinner: mock(() => mockSpinner),
-    SecurityChecker: mock(() => mockSecurityChecker),
-    determineSecurityScanPaths: mock(() => []),
-    yellow: mock((text: string) => text),
-  };
+  const mockSpinner = createSpinnerMockForErrorSpinner();
+  const deps = createDepsForNonError(mockSpinner);
 
   await assert.rejects(runSecurityCheck(config, mergedOptions, false, log, deps), (error) =>
     Object.is(error, "String error"),
@@ -2703,9 +3124,51 @@ test("runSecurityCheck - handles non-Error throws and calls spinner.fail", async
   const failCall = mockSpinner.fail.mock.calls.map((call) =>
     Array.isArray(call) ? call : call.arguments,
   )[0][0];
-  assert.ok(failCall.includes("security check failed"));
-  assert.ok(failCall.includes("String error"));
+  assertIncludesAll(failCall, ["security check failed", "String error"]);
 });
+
+const createSecurityCheckerMockForGracefully = () => {
+  const permissionError = new SecurityProviderPermissionError(
+    "GitHub",
+    "Resource not accessible by integration",
+  );
+  const checkSecurity = mock(() => Promise.reject(permissionError));
+  const mockSecurityChecker = {
+    checkSecurity,
+  };
+  const securityChecker = mock(() => mockSecurityChecker);
+  return securityChecker;
+};
+
+const createDepsForGracefully = (
+  mockSpinner: ReturnType<typeof createSpinnerMockForGracefully>,
+) => {
+  const createSpinner = mock(() => mockSpinner);
+  const securityChecker = createSecurityCheckerMockForGracefully();
+  const depsDetermineSecurityScanPaths = mock(() => []);
+  const green = mock((text: string) => text);
+  const yellow = mock((text: string) => text);
+  const deps = {
+    createSpinner,
+    SecurityChecker: securityChecker,
+    determineSecurityScanPaths: depsDetermineSecurityScanPaths,
+    green,
+    yellow,
+  };
+  return deps;
+};
+
+const createSpinnerMockForGracefully = () => {
+  const stop = mock();
+  const start = mock(() => mockSpinner);
+  const warn = mock();
+  const mockSpinner = {
+    stop,
+    start,
+    warn,
+  };
+  return mockSpinner;
+};
 
 test("runSecurityCheck - handles SecurityProviderPermissionError gracefully", async () => {
   const config: PastoralistJSON = {
@@ -2717,29 +3180,8 @@ test("runSecurityCheck - handles SecurityProviderPermissionError gracefully", as
     checkSecurity: true,
     securityProvider: "github",
   };
-
-  const mockSpinner = {
-    stop: mock(),
-    start: mock(() => mockSpinner),
-    warn: mock(),
-  };
-
-  const permissionError = new SecurityProviderPermissionError(
-    "GitHub",
-    "Resource not accessible by integration",
-  );
-
-  const mockSecurityChecker = {
-    checkSecurity: mock(() => Promise.reject(permissionError)),
-  };
-
-  const deps = {
-    createSpinner: mock(() => mockSpinner),
-    SecurityChecker: mock(() => mockSecurityChecker),
-    determineSecurityScanPaths: mock(() => []),
-    green: mock((text: string) => text),
-    yellow: mock((text: string) => text),
-  };
+  const mockSpinner = createSpinnerMockForGracefully();
+  const deps = createDepsForGracefully(mockSpinner);
 
   const result = await runSecurityCheck(config, mergedOptions, false, log, deps);
 
@@ -2749,6 +3191,51 @@ test("runSecurityCheck - handles SecurityProviderPermissionError gracefully", as
   assert.deepStrictEqual(result.securityOverrides, []);
   assert.deepStrictEqual(result.updates, []);
 });
+
+const createSecurityCheckerMockForPermissionError = () => {
+  const permissionError = new SecurityProviderPermissionError(
+    "GitHub CLI",
+    "Resource not accessible by integration",
+  );
+  const checkSecurity = mock(() => Promise.reject(permissionError));
+  const mockSecurityChecker = {
+    checkSecurity,
+  };
+  const securityChecker = mock(() => mockSecurityChecker);
+  return securityChecker;
+};
+
+const createDepsForPermissionNoThrow = (
+  mockSpinner: ReturnType<typeof createSpinnerMockForPermissionError>,
+) => {
+  const createSpinner = mock(() => mockSpinner);
+  const securityChecker = createSecurityCheckerMockForPermissionError();
+  const depsDetermineSecurityScanPaths = mock(() => []);
+  const green = mock((text: string) => text);
+  const yellow = mock((text: string) => text);
+  const deps = {
+    createSpinner,
+    SecurityChecker: securityChecker,
+    determineSecurityScanPaths: depsDetermineSecurityScanPaths,
+    green,
+    yellow,
+  };
+  return deps;
+};
+
+const createSpinnerMockForPermissionError = () => {
+  const stop = mock();
+  const start = mock(() => mockSpinner);
+  const warn = mock();
+  const fail = mock();
+  const mockSpinner = {
+    stop,
+    start,
+    warn,
+    fail,
+  };
+  return mockSpinner;
+};
 
 test("runSecurityCheck - permission error does not throw", async () => {
   const config: PastoralistJSON = {
@@ -2760,30 +3247,8 @@ test("runSecurityCheck - permission error does not throw", async () => {
     checkSecurity: true,
     securityProvider: "github",
   };
-
-  const mockSpinner = {
-    stop: mock(),
-    start: mock(() => mockSpinner),
-    warn: mock(),
-    fail: mock(),
-  };
-
-  const permissionError = new SecurityProviderPermissionError(
-    "GitHub CLI",
-    "Resource not accessible by integration",
-  );
-
-  const mockSecurityChecker = {
-    checkSecurity: mock(() => Promise.reject(permissionError)),
-  };
-
-  const deps = {
-    createSpinner: mock(() => mockSpinner),
-    SecurityChecker: mock(() => mockSecurityChecker),
-    determineSecurityScanPaths: mock(() => []),
-    green: mock((text: string) => text),
-    yellow: mock((text: string) => text),
-  };
+  const mockSpinner = createSpinnerMockForPermissionError();
+  const deps = createDepsForPermissionNoThrow(mockSpinner);
 
   await runSecurityCheck(config, mergedOptions, false, log, deps).then((value) =>
     assert.notStrictEqual(value, undefined),
@@ -2793,49 +3258,76 @@ test("runSecurityCheck - permission error does not throw", async () => {
   assert.ok(mockSpinner.warn.mock.callCount() > 0);
 });
 
-test("runSecurityCheck - permission error warning contains error message", async () => {
-  const config: PastoralistJSON = {
-    name: "test",
-    version: "1.0.0",
+const createDepsForPermissionWarning = (
+  mockSpinner: ReturnType<typeof createSpinnerMockForGracefully>,
+) => {
+  const createSpinner = mock(() => mockSpinner);
+  const securityChecker = createSecurityCheckerMockForGracefully();
+  const depsDetermineSecurityScanPaths = mock(() => []);
+  const green = mock((text: string) => text);
+  const yellow = mock((text: string) => `[yellow]${text}[/yellow]`);
+  const deps = {
+    createSpinner,
+    SecurityChecker: securityChecker,
+    determineSecurityScanPaths: depsDetermineSecurityScanPaths,
+    green,
+    yellow,
   };
+  return deps;
+};
+
+test("runSecurityCheck - permission error warning contains error message", async () => {
+  const config: PastoralistJSON = createConfigForErrorSpinner();
 
   const mergedOptions: Options = {
     checkSecurity: true,
     securityProvider: "github",
   };
-
-  const mockSpinner = {
-    stop: mock(),
-    start: mock(() => mockSpinner),
-    warn: mock(),
-  };
-
-  const permissionError = new SecurityProviderPermissionError(
-    "GitHub",
-    "Resource not accessible by integration",
-  );
-
-  const mockSecurityChecker = {
-    checkSecurity: mock(() => Promise.reject(permissionError)),
-  };
-
-  const deps = {
-    createSpinner: mock(() => mockSpinner),
-    SecurityChecker: mock(() => mockSecurityChecker),
-    determineSecurityScanPaths: mock(() => []),
-    green: mock((text: string) => text),
-    yellow: mock((text: string) => `[yellow]${text}[/yellow]`),
-  };
+  const mockSpinner = createSpinnerMockForGracefully();
+  const deps = createDepsForPermissionWarning(mockSpinner);
 
   await runSecurityCheck(config, mergedOptions, false, log, deps);
 
   const warnCall = mockSpinner.warn.mock.calls.map((call) =>
     Array.isArray(call) ? call : call.arguments,
   )[0][0];
-  assert.ok(warnCall.includes("pastoralist"));
-  assert.ok(warnCall.includes("Resource not accessible"));
-  assert.ok(warnCall.includes("vulnerability-alerts: read"));
+  assertIncludesAll(warnCall, [
+    "pastoralist",
+    "Resource not accessible",
+    "vulnerability-alerts: read",
+  ]);
 });
+
+const createMockSecurityCheckerMock = () => {
+  const permissionError = new SecurityProviderPermissionError(
+    "GitHub",
+    "Resource not accessible by integration",
+  );
+  const checkSecurity = mock(() => Promise.reject(permissionError));
+  const mockSecurityChecker = {
+    checkSecurity,
+  };
+  const MockSecurityChecker = mock(() => mockSecurityChecker);
+  return MockSecurityChecker;
+};
+
+const createDepsForPermissionChecker = (
+  mockSpinner: ReturnType<typeof createSpinnerMockForGracefully>,
+) => {
+  const MockSecurityChecker = createMockSecurityCheckerMock();
+  const createSpinner = mock(() => mockSpinner);
+  const depsDetermineSecurityScanPaths = mock(() => []);
+  const green = mock((text: string) => text);
+  const yellow = mock((text: string) => text);
+  const deps = {
+    createSpinner,
+    SecurityChecker: MockSecurityChecker,
+    determineSecurityScanPaths: depsDetermineSecurityScanPaths,
+    green,
+    yellow,
+  };
+  return deps;
+};
 
 test("runSecurityCheck - permission error creates new SecurityChecker for return", async () => {
   const config: PastoralistJSON = {
@@ -2850,37 +3342,49 @@ test("runSecurityCheck - permission error creates new SecurityChecker for return
     interactive: true,
     securityProviderToken: "test-token",
   };
-
-  const mockSpinner = {
-    stop: mock(),
-    start: mock(() => mockSpinner),
-    warn: mock(),
-  };
-
-  const permissionError = new SecurityProviderPermissionError(
-    "GitHub",
-    "Resource not accessible by integration",
-  );
-
-  const mockSecurityChecker = {
-    checkSecurity: mock(() => Promise.reject(permissionError)),
-  };
-
-  const MockSecurityChecker = mock(() => mockSecurityChecker);
-
-  const deps = {
-    createSpinner: mock(() => mockSpinner),
-    SecurityChecker: MockSecurityChecker,
-    determineSecurityScanPaths: mock(() => []),
-    green: mock((text: string) => text),
-    yellow: mock((text: string) => text),
-  };
+  const mockSpinner = createSpinnerMockForGracefully();
+  const deps = createDepsForPermissionChecker(mockSpinner);
 
   const result = await runSecurityCheck(config, mergedOptions, true, log, deps);
 
-  assert.strictEqual(MockSecurityChecker.mock.callCount(), 2);
+  assert.strictEqual(deps.SecurityChecker.mock.callCount(), 2);
   assert.notStrictEqual(result.securityChecker, undefined);
 });
+
+const createDepsForRegularErrors = (
+  mockSpinner: ReturnType<typeof createSpinnerMockForRegularErrors>,
+) => {
+  const regularError = new Error("Network timeout");
+  const checkSecurity = mock(() => Promise.reject(regularError));
+  const mockSecurityChecker = { checkSecurity };
+  const createSpinner = mock(() => mockSpinner);
+  const securityChecker = mock(() => mockSecurityChecker);
+  const depsDetermineSecurityScanPaths = mock(() => []);
+  const green = mock((text: string) => text);
+  const yellow = mock((text: string) => text);
+  const deps = {
+    createSpinner,
+    SecurityChecker: securityChecker,
+    determineSecurityScanPaths: depsDetermineSecurityScanPaths,
+    green,
+    yellow,
+  };
+  return deps;
+};
+
+const createSpinnerMockForRegularErrors = () => {
+  const stop = mock();
+  const start = mock(() => mockSpinner);
+  const fail = mock();
+  const warn = mock();
+  const mockSpinner = {
+    stop,
+    start,
+    fail,
+    warn,
+  };
+  return mockSpinner;
+};
 
 test("runSecurityCheck - regular errors still throw after spinner.fail", async () => {
   const config: PastoralistJSON = {
@@ -2892,27 +3396,8 @@ test("runSecurityCheck - regular errors still throw after spinner.fail", async (
     checkSecurity: true,
     securityProvider: "osv",
   };
-
-  const mockSpinner = {
-    stop: mock(),
-    start: mock(() => mockSpinner),
-    fail: mock(),
-    warn: mock(),
-  };
-
-  const regularError = new Error("Network timeout");
-
-  const mockSecurityChecker = {
-    checkSecurity: mock(() => Promise.reject(regularError)),
-  };
-
-  const deps = {
-    createSpinner: mock(() => mockSpinner),
-    SecurityChecker: mock(() => mockSecurityChecker),
-    determineSecurityScanPaths: mock(() => []),
-    green: mock((text: string) => text),
-    yellow: mock((text: string) => text),
-  };
+  const mockSpinner = createSpinnerMockForRegularErrors();
+  const deps = createDepsForRegularErrors(mockSpinner);
 
   await assert.rejects(
     runSecurityCheck(config, mergedOptions, false, log, deps),
@@ -2923,73 +3408,110 @@ test("runSecurityCheck - regular errors still throw after spinner.fail", async (
   assert.strictEqual(mockSpinner.warn.mock.callCount(), 0);
 });
 
-test("action - continues successfully when security check hits permission error", async () => {
-  const mockConfig: PastoralistJSON = {
-    name: "test-package",
-    version: "1.0.0",
-    pastoralist: {
-      security: {
-        enabled: true,
-        provider: "github",
-      },
-    },
-  };
-
+const createSecurityCheckerMockForContinuesSuccessfully = () => {
   const permissionError = new SecurityProviderPermissionError(
     "GitHub",
     "Resource not accessible by integration",
   );
+  const checkSecurity = mock(() => Promise.reject(permissionError));
+  const mockSecurityChecker = {
+    checkSecurity,
+  };
+  return mockSecurityChecker;
+};
 
+const createRunSecurityCheckMock = (
+  mockSecuritySpinner: ReturnType<typeof createSecuritySpinnerMock>,
+) => {
+  const mockSecurityChecker = createSecurityCheckerMockForContinuesSuccessfully();
+  const depsRunSecurityCheck = mock(() => {
+    const alerts = [];
+    const securityOverrides = [];
+    const updates = [];
+    const result = Promise.resolve({
+      spinner: mockSecuritySpinner,
+      securityChecker: mockSecurityChecker,
+      alerts,
+      securityOverrides,
+      updates,
+      skipped: true,
+    });
+    return result;
+  });
+  return depsRunSecurityCheck;
+};
+
+const createResolveJSONMockForContinuesSuccessfully = () => {
+  const security = {
+    enabled: true,
+    provider: "github",
+  };
+  const mockConfigPastoralist = {
+    security,
+  };
+  const mockConfig: PastoralistJSON = {
+    name: "test-package",
+    version: "1.0.0",
+    pastoralist: mockConfigPastoralist,
+  };
+  const depsResolveJSON = mock(() => mockConfig);
+  return depsResolveJSON;
+};
+
+const createSecuritySpinnerMock = () => {
+  const start = mock(() => mockSecuritySpinner);
+  const warn = mock();
+  const info = mock();
+  const succeed = mock();
+  const stop = mock();
   const mockSecuritySpinner = {
-    start: mock(() => mockSecuritySpinner),
-    warn: mock(),
-    info: mock(),
-    succeed: mock(),
-    stop: mock(),
+    start,
+    warn,
+    info,
+    succeed,
+    stop,
   };
+  return mockSecuritySpinner;
+};
 
+const createUpdateSpinnerMock = () => {
+  const mockUpdateSpinnerStart = mock(() => mockUpdateSpinner);
+  const mockUpdateSpinnerSucceed = mock();
+  const mockUpdateSpinnerStop = mock();
   const mockUpdateSpinner = {
-    start: mock(() => mockUpdateSpinner),
-    succeed: mock(),
-    stop: mock(),
+    start: mockUpdateSpinnerStart,
+    succeed: mockUpdateSpinnerSucceed,
+    stop: mockUpdateSpinnerStop,
   };
+  return mockUpdateSpinner;
+};
 
+const createSequencedSpinnerMock = <Spinner, NextSpinner>(first: Spinner, next: NextSpinner) => {
   let spinnerCount = 0;
   const mockCreateSpinner = mock(() => {
     spinnerCount++;
     const isSecuritySpinner = spinnerCount === 1;
-    if (isSecuritySpinner) return mockSecuritySpinner;
-    return mockUpdateSpinner;
+    if (isSecuritySpinner) return first;
+    return next;
   });
+  return mockCreateSpinner;
+};
 
-  const mockSecurityChecker = {
-    checkSecurity: mock(() => Promise.reject(permissionError)),
-  };
+test("action - continues successfully when security check hits permission error", async () => {
+  const mockSecuritySpinner = createSecuritySpinnerMock();
+  const mockUpdateSpinner = createUpdateSpinnerMock();
 
-  const deps = {
-    createLogger: mock(() => log),
-    handleTestMode: mock(() => false),
-    handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => mockConfig),
-    buildMergedOptions: mock(() => ({ checkSecurity: true })),
-    runSecurityCheck: mock(() =>
-      Promise.resolve({
-        spinner: mockSecuritySpinner,
-        securityChecker: mockSecurityChecker,
-        alerts: [],
-        securityOverrides: [],
-        updates: [],
-        skipped: true,
-      }),
-    ),
-    handleSecurityResults: mock(() => {}),
+  const mockCreateSpinner = createSequencedSpinnerMock(mockSecuritySpinner, mockUpdateSpinner);
+  const depsResolveJSON = createResolveJSONMockForContinuesSuccessfully();
+  const depsBuildMergedOptions = mock(() => ({ checkSecurity: true }));
+  const depsRunSecurityCheck = createRunSecurityCheckMock(mockSecuritySpinner);
+  const depsOverrides = {
+    resolveJSON: depsResolveJSON,
+    buildMergedOptions: depsBuildMergedOptions,
+    runSecurityCheck: depsRunSecurityCheck,
     createSpinner: mockCreateSpinner,
-    green: mock((text: string) => text),
-    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
-    createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => new Date().toISOString()),
-    processExit: mock(() => {}),
   };
+  const deps = Object.assign(createBaseActionDeps(), depsOverrides);
 
   await action({}, deps);
 
@@ -2998,75 +3520,83 @@ test("action - continues successfully when security check hits permission error"
   assert.ok(deps.runSecurityCheck.mock.callCount() > 0);
 });
 
+const createRunSecurityCheckMockForCallSecurity = (mockSpinner: Record<string, unknown>) => {
+  const depsRunSecurityCheck = mock(() => {
+    const securityChecker = {};
+    const alerts = [];
+    const securityOverrides = [];
+    const updates = [];
+    const result = Promise.resolve({
+      spinner: mockSpinner,
+      securityChecker,
+      alerts,
+      securityOverrides,
+      updates,
+      skipped: true,
+    });
+    return result;
+  });
+  return depsRunSecurityCheck;
+};
+
+const createDepsForCallSecurity = (mockSpinner: Record<string, unknown>) => {
+  const depsResolveJSON = createResolveJSONMockForContinuesSuccessfully();
+  const depsBuildMergedOptions = mock(() => ({ checkSecurity: true }));
+  const depsRunSecurityCheck = createRunSecurityCheckMockForCallSecurity(mockSpinner);
+  const createSpinner = mock(() => mockSpinner);
+  const depsOverrides = {
+    resolveJSON: depsResolveJSON,
+    buildMergedOptions: depsBuildMergedOptions,
+    runSecurityCheck: depsRunSecurityCheck,
+    createSpinner,
+  };
+  const deps = Object.assign(createBaseActionDeps(), depsOverrides);
+  return deps;
+};
+
 test("action - does not call handleSecurityResults when security check is skipped", async () => {
-  const mockConfig: PastoralistJSON = {
-    name: "test-package",
-    version: "1.0.0",
-    pastoralist: {
-      security: {
-        enabled: true,
-        provider: "github",
-      },
-    },
-  };
-
+  const start = mock(() => mockSpinner);
+  const warn = mock();
+  const succeed = mock();
+  const stop = mock();
   const mockSpinner = {
-    start: mock(() => mockSpinner),
-    warn: mock(),
-    succeed: mock(),
-    stop: mock(),
+    start,
+    warn,
+    succeed,
+    stop,
   };
-
-  const deps = {
-    createLogger: mock(() => log),
-    handleTestMode: mock(() => false),
-    handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => mockConfig),
-    buildMergedOptions: mock(() => ({ checkSecurity: true })),
-    runSecurityCheck: mock(() =>
-      Promise.resolve({
-        spinner: mockSpinner,
-        securityChecker: {},
-        alerts: [],
-        securityOverrides: [],
-        updates: [],
-        skipped: true,
-      }),
-    ),
-    handleSecurityResults: mock(() => {}),
-    createSpinner: mock(() => mockSpinner),
-    green: mock((text: string) => text),
-    update: mock(() => ({ finalOverrides: {}, finalAppendix: {} })),
-    createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => new Date().toISOString()),
-    processExit: mock(() => {}),
-  };
+  const deps = createDepsForCallSecurity(mockSpinner);
 
   await action({}, deps);
 
   assert.strictEqual(deps.handleSecurityResults.mock.callCount(), 0);
 });
 
-test("displaySummaryTable - renders table with metrics", () => {
-  const originalLog = console.log;
-  const logged: string[] = [];
-  console.log = captureLine(logged);
-
+const createResult = () => {
+  const metrics = {
+    packagesScanned: 10,
+    vulnerabilitiesFound: 3,
+    vulnerabilitiesBlocked: 2,
+    overridesAdded: 2,
+    overridesRemoved: 1,
+    severityCritical: 0,
+    severityHigh: 1,
+    severityMedium: 1,
+    severityLow: 1,
+    writeSuccess: true,
+  };
   const result = {
     success: true,
-    metrics: {
-      packagesScanned: 10,
-      vulnerabilitiesFound: 3,
-      vulnerabilitiesBlocked: 2,
-      overridesAdded: 2,
-      overridesRemoved: 1,
-      severityCritical: 0,
-      severityHigh: 1,
-      severityMedium: 1,
-      severityLow: 1,
-      writeSuccess: true,
-    },
+    metrics,
   };
+  return result;
+};
+
+test("displaySummaryTable - renders table with metrics", () => {
+  const { log: originalLog } = console;
+  const logged: string[] = [];
+  console.log = captureLine(logged);
+  const result = createResult();
 
   displaySummaryTable(result);
 
@@ -3077,7 +3607,7 @@ test("displaySummaryTable - renders table with metrics", () => {
 });
 
 test("displaySummaryTable - skips when no metrics", () => {
-  const originalLog = console.log;
+  const { log: originalLog } = console;
   const logged: string[] = [];
   console.log = captureLine(logged);
 
@@ -3090,41 +3620,70 @@ test("displaySummaryTable - skips when no metrics", () => {
   assert.strictEqual(logged.length, 0);
 });
 
+const createFinalAppendix = () => {
+  const dependents = { "test-pkg": "lodash@^4.17.0" };
+  const cves = ["CVE-2021-23337"];
+  const ledger = {
+    securityChecked: true,
+    cves,
+    reason: "Security fix",
+  };
+  const lodashEntry = {
+    dependents,
+    ledger,
+  };
+  const finalAppendix = {
+    "lodash@4.17.21": lodashEntry,
+  };
+  return finalAppendix;
+};
+
+const createCtx = () => {
+  const finalOverrides = { lodash: "4.17.21" };
+  const finalAppendix = createFinalAppendix();
+  const ctx = {
+    finalOverrides,
+    finalAppendix,
+  };
+  return ctx;
+};
+
 test("displayOverrides - renders override info from context", () => {
   const output = createOutput();
   const graph = createTerminalGraph(output);
-
-  const ctx = {
-    finalOverrides: { lodash: "4.17.21" },
-    finalAppendix: {
-      "lodash@4.17.21": {
-        dependents: { "test-pkg": "lodash@^4.17.0" },
-        ledger: {
-          securityChecked: true,
-          cves: ["CVE-2021-23337"],
-          reason: "Security fix",
-        },
-      },
-    },
-  };
+  const ctx = createCtx();
 
   displayOverrides(graph, ctx);
 });
 
 test("renderUpdateOutput - does not report unapplied alerts as fixed", async () => {
   const graph = createMockTerminalGraph();
-  const updateContext = { finalOverrides: {}, finalAppendix: {}, metrics: {} };
+  const finalOverrides = {};
+  const finalAppendix = {};
+  const metrics = {};
+  const updateContext = { finalOverrides, finalAppendix, metrics };
   const updateResult = { overrideCount: 0, updated: false };
+  const securityAlerts = [];
   const securityResult = {
     hasSecurityIssues: true,
     securityAlertCount: 2,
-    securityAlerts: [],
+    securityAlerts,
   };
 
   await renderUpdateOutput(graph, updateContext, updateResult, securityResult, 10, {}, {});
 
   assertCalledWith(graph.executiveSummary, objectContaining({ vulnerabilitiesFixed: 0 }));
 });
+
+const createSecurityResult = () => {
+  const securityAlerts = [];
+  const securityResult = {
+    hasSecurityIssues: false,
+    securityAlertCount: 0,
+    securityAlerts,
+  };
+  return securityResult;
+};
 
 test("renderUpdateOutput - waits for completion before rendering notices", async () => {
   const state = { didComplete: false };
@@ -3137,135 +3696,199 @@ test("renderUpdateOutput - waits for completion before rendering notices", async
     assert.strictEqual(state.didComplete, true);
     return graph;
   });
-  const updateContext = { finalOverrides: {}, finalAppendix: {}, metrics: {} };
+  const finalOverrides = {};
+  const finalAppendix = {};
+  const metrics = {};
+  const updateContext = { finalOverrides, finalAppendix, metrics };
   const updateResult = { overrideCount: 0, updated: true };
-  const securityResult = {
-    hasSecurityIssues: false,
-    securityAlertCount: 0,
-    securityAlerts: [],
-  };
+  const securityResult = createSecurityResult();
 
   await renderUpdateOutput(graph, updateContext, updateResult, securityResult, 0, {}, {});
 
   assert.strictEqual(graph.notice.mock.callCount(), 1);
 });
 
+const createSpinnerMock = () => {
+  const start = mock(() => mockSpinner);
+  const update = mock();
+  const fail = mock();
+  const mockSpinner = {
+    start,
+    update,
+    fail,
+  };
+  return mockSpinner;
+};
+
+const createProgressCheckSecurityMock = () => {
+  let capturedOnProgress: ((p: { message: string }) => void) | null = null;
+
+  const checkSecurity = mock((_cfg: any, opts: any) => {
+    capturedOnProgress = opts.onProgress;
+    if (capturedOnProgress) {
+      capturedOnProgress({ message: "Checking lodash (1/5)" });
+    }
+    const alerts = [];
+    const overrides = [];
+    const updates = [];
+    const result = Promise.resolve({
+      alerts,
+      overrides,
+      updates,
+      packagesScanned: 5,
+    });
+    return result;
+  });
+  return checkSecurity;
+};
+
 test("runSecurityCheck - calls onProgress callback during check", async () => {
   const config = { name: "test", version: "1.0.0" };
   const mergedOptions = { checkSecurity: true, securityProvider: "osv" };
-
-  const mockSpinner = {
-    start: mock(() => mockSpinner),
-    update: mock(),
-    fail: mock(),
-  };
-
-  let capturedOnProgress: ((p: { message: string }) => void) | null = null;
-
+  const mockSpinner = createSpinnerMock();
+  const checkSecurity = createProgressCheckSecurityMock();
   const mockSecurityChecker = {
-    checkSecurity: mock((_cfg: any, opts: any) => {
-      capturedOnProgress = opts.onProgress;
-      if (capturedOnProgress) {
-        capturedOnProgress({ message: "Checking lodash (1/5)" });
-      }
-      return Promise.resolve({
-        alerts: [],
-        overrides: [],
-        updates: [],
-        packagesScanned: 5,
-      });
-    }),
+    checkSecurity,
   };
-
-  const deps = {
-    createSpinner: mock(() => mockSpinner),
-    SecurityChecker: mock(() => mockSecurityChecker),
-    determineSecurityScanPaths: mock(() => []),
-    green: mock((t: string) => t),
-  };
+  const deps = createRunSecurityCheckDeps(mockSpinner, mockSecurityChecker, []);
 
   await runSecurityCheck(config, mergedOptions, false, log, deps);
 
   assertCalledWith(mockSpinner.update, "Checking lodash (1/5)");
 });
 
-test("action - displays security fixes when forceSecurityRefactor is true", async () => {
-  const mockConfig = {
-    name: "test",
-    version: "1.0.0",
-    pastoralist: { security: { enabled: true } },
-  };
-
-  const mockGraph = {
-    banner: mock(() => mockGraph),
-    startPhase: mock(() => mockGraph),
-    progress: mock(() => mockGraph),
-    item: mock(() => mockGraph),
-    vulnerability: mock(() => mockGraph),
-    override: mock(() => mockGraph),
-    endPhase: mock(() => mockGraph),
-    summary: mock(() => mockGraph),
-    executiveSummary: mock(() => mockGraph),
-    compactSummary: mock(() => mockGraph),
-    complete: mock(() => mockGraph),
-    waitForCompletion: mock(() => Promise.resolve()),
-    stop: mock(() => mockGraph),
-    notice: mock(() => mockGraph),
-    securityFix: mock(() => mockGraph),
-    removedOverride: mock(() => mockGraph),
-  };
-
+const createSecurityOverridesForDisplaysSecurity = () => {
+  const cves = ["CVE-2021-23337"];
   const securityOverrides = [
     {
       packageName: "lodash",
       fromVersion: "4.17.20",
       toVersion: "4.17.21",
       reason: "Security fix",
-      cves: ["CVE-2021-23337"],
+      cves,
       severity: "high",
     },
   ];
+  return securityOverrides;
+};
 
+const createAutoFixSecurityCheckerStub = () => {
+  const generatePackageOverrides = mock(() => ({}));
+  const applyAutoFix = mock();
+  const securityChecker = {
+    generatePackageOverrides,
+    applyAutoFix,
+  };
+  return securityChecker;
+};
+
+const createRunSecurityCheckMockForDisplaysSecurity = (mockSpinner: Record<string, unknown>) => {
+  const securityOverrides = createSecurityOverridesForDisplaysSecurity();
+  const depsRunSecurityCheck = mock(() => {
+    const securityChecker = createAutoFixSecurityCheckerStub();
+    const alerts = [{ packageName: "lodash", severity: "high" }];
+    const updates = [];
+    const result = Promise.resolve({
+      spinner: mockSpinner,
+      securityChecker,
+      alerts,
+      securityOverrides,
+      updates,
+      packagesScanned: 10,
+    });
+    return result;
+  });
+  return depsRunSecurityCheck;
+};
+
+const createUpdateMockForDisplaysSecurity = () => {
+  const depsUpdate = mock(() => {
+    const finalOverrides = { lodash: "4.17.21" };
+    const finalAppendix = {};
+    const metrics = {};
+    const value = {
+      finalOverrides,
+      finalAppendix,
+      metrics,
+    };
+    return value;
+  });
+  return depsUpdate;
+};
+
+const createResolveJSONMockForDisplaysSecurity = () => {
+  const security = { enabled: true };
+  const mockConfigPastoralist = { security };
+  const mockConfig = {
+    name: "test",
+    version: "1.0.0",
+    pastoralist: mockConfigPastoralist,
+  };
+  const depsResolveJSON = mock(() => mockConfig);
+  return depsResolveJSON;
+};
+
+const createBuildMergedOptionsMockForDisplaysSecurity = () => {
+  const depsBuildMergedOptions = mock(() => ({
+    checkSecurity: true,
+    forceSecurityRefactor: true,
+  }));
+  return depsBuildMergedOptions;
+};
+
+const createGraphOverrides = (mockGraph: ReturnType<typeof createMockTerminalGraph>) => {
+  const mockGreen = mock((t: string) => t);
+  const mockCreateTerminalGraph = mock(() => mockGraph);
+  const mockProcessExit = mock();
+  const graphOverrides = {
+    green: mockGreen,
+    createTerminalGraph: mockCreateTerminalGraph,
+    processExit: mockProcessExit,
+  };
+  return graphOverrides;
+};
+
+const createSpinnerGraphOverrides = (
+  mockSpinner: Record<string, unknown>,
+  mockGraph: ReturnType<typeof createMockTerminalGraph>,
+) => {
+  const createSpinner = mock(() => mockSpinner);
+  const spinnerOverrides = { createSpinner };
+  const overrides = Object.assign(createGraphOverrides(mockGraph), spinnerOverrides);
+  return overrides;
+};
+
+const createDepsForDisplaysSecurity = (
+  mockSpinner: Record<string, unknown>,
+  mockGraph: ReturnType<typeof createMockTerminalGraph>,
+) => {
+  const depsResolveJSON = createResolveJSONMockForDisplaysSecurity();
+  const depsBuildMergedOptions = createBuildMergedOptionsMockForDisplaysSecurity();
+  const depsRunSecurityCheck = createRunSecurityCheckMockForDisplaysSecurity(mockSpinner);
+  const depsUpdate = createUpdateMockForDisplaysSecurity();
+  const depsOverrides = {
+    resolveJSON: depsResolveJSON,
+    buildMergedOptions: depsBuildMergedOptions,
+    runSecurityCheck: depsRunSecurityCheck,
+    update: depsUpdate,
+  };
+  const graphOverrides = createSpinnerGraphOverrides(mockSpinner, mockGraph);
+  const deps = Object.assign(createBaseActionDeps(), graphOverrides, depsOverrides);
+  return deps;
+};
+
+test("action - displays security fixes when forceSecurityRefactor is true", async () => {
+  const mockGraph = createMockTerminalGraph();
+
+  const start = mock(() => mockSpinner);
+  const mockSpinnerStop = mock();
+  const update = mock();
   const mockSpinner = {
-    start: mock(() => mockSpinner),
-    stop: mock(),
-    update: mock(),
+    start,
+    stop: mockSpinnerStop,
+    update,
   };
-
-  const deps = {
-    createLogger: mock(() => log),
-    handleTestMode: mock(() => false),
-    handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => mockConfig),
-    buildMergedOptions: mock(() => ({
-      checkSecurity: true,
-      forceSecurityRefactor: true,
-    })),
-    runSecurityCheck: mock(() =>
-      Promise.resolve({
-        spinner: mockSpinner,
-        securityChecker: {
-          generatePackageOverrides: mock(() => ({})),
-          applyAutoFix: mock(),
-        },
-        alerts: [{ packageName: "lodash", severity: "high" }],
-        securityOverrides,
-        updates: [],
-        packagesScanned: 10,
-      }),
-    ),
-    handleSecurityResults: mock(() => {}),
-    createSpinner: mock(() => mockSpinner),
-    green: mock((t: string) => t),
-    update: mock(() => ({
-      finalOverrides: { lodash: "4.17.21" },
-      finalAppendix: {},
-      metrics: {},
-    })),
-    createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => new Date().toISOString()),
-    processExit: mock(),
-  };
+  const deps = createDepsForDisplaysSecurity(mockSpinner, mockGraph);
 
   await action({}, deps);
 
@@ -3274,57 +3897,57 @@ test("action - displays security fixes when forceSecurityRefactor is true", asyn
   assertCalledWith(mockGraph.endPhase, "1 override added");
 });
 
-test("action - displays removed overrides when present", async () => {
+const createUpdateMockForDisplaysRemoved = () => {
+  const update = mock(() => {
+    const finalOverrides = {};
+    const finalAppendix = {};
+    const removedOverridePackages = [
+      { packageName: "old-pkg", version: "1.0.0" },
+      { packageName: "stale-pkg", version: "2.0.0" },
+    ];
+    const metrics = {
+      removedOverridePackages,
+    };
+    const result = {
+      finalOverrides,
+      finalAppendix,
+      metrics,
+    };
+    return result;
+  });
+  return update;
+};
+
+const createDepsForDisplaysRemoved = (
+  mockSpinner: Record<string, unknown>,
+  mockGraph: ReturnType<typeof createMockTerminalGraph>,
+) => {
   const mockConfig = { name: "test", version: "1.0.0" };
-
-  const mockGraph = {
-    banner: mock(() => mockGraph),
-    startPhase: mock(() => mockGraph),
-    progress: mock(() => mockGraph),
-    item: mock(() => mockGraph),
-    vulnerability: mock(() => mockGraph),
-    override: mock(() => mockGraph),
-    endPhase: mock(() => mockGraph),
-    summary: mock(() => mockGraph),
-    executiveSummary: mock(() => mockGraph),
-    compactSummary: mock(() => mockGraph),
-    complete: mock(() => mockGraph),
-    waitForCompletion: mock(() => Promise.resolve()),
-    stop: mock(() => mockGraph),
-    notice: mock(() => mockGraph),
-    securityFix: mock(() => mockGraph),
-    removedOverride: mock(() => mockGraph),
+  const depsResolveJSON = mock(() => mockConfig);
+  const depsBuildMergedOptions = mock(() => ({ checkSecurity: false }));
+  const depsHandleSecurityResults = mock();
+  const update = createUpdateMockForDisplaysRemoved();
+  const depsOverrides = {
+    resolveJSON: depsResolveJSON,
+    buildMergedOptions: depsBuildMergedOptions,
+    handleSecurityResults: depsHandleSecurityResults,
+    update,
   };
+  const graphOverrides = createSpinnerGraphOverrides(mockSpinner, mockGraph);
+  const deps = Object.assign(createBaseActionDeps(), graphOverrides, depsOverrides);
+  return deps;
+};
 
+test("action - displays removed overrides when present", async () => {
+  const mockGraph = createMockTerminalGraph();
+
+  const start = mock(() => mockSpinner);
+  const mockSpinnerStop = mock();
   const mockSpinner = {
-    start: mock(() => mockSpinner),
-    stop: mock(),
+    start,
+    stop: mockSpinnerStop,
   };
-
-  const deps = {
-    createLogger: mock(() => log),
-    handleTestMode: mock(() => false),
-    handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => mockConfig),
-    buildMergedOptions: mock(() => ({ checkSecurity: false })),
-    runSecurityCheck: mock(() => Promise.resolve({})),
-    handleSecurityResults: mock(),
-    createSpinner: mock(() => mockSpinner),
-    green: mock((t: string) => t),
-    update: mock(() => ({
-      finalOverrides: {},
-      finalAppendix: {},
-      metrics: {
-        removedOverridePackages: [
-          { packageName: "old-pkg", version: "1.0.0" },
-          { packageName: "stale-pkg", version: "2.0.0" },
-        ],
-      },
-    })),
-    createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => new Date().toISOString()),
-    processExit: mock(),
-  };
+  const deps = createDepsForDisplaysRemoved(mockSpinner, mockGraph);
 
   await action({}, deps);
 
@@ -3333,53 +3956,52 @@ test("action - displays removed overrides when present", async () => {
   assertCalledWith(mockGraph.endPhase, "2 stale overrides removed");
 });
 
-test("action - displays summary table when summary option is true", async () => {
+const createUpdateMockForDisplaysSummary = () => {
+  const update = mock(() => {
+    const finalOverrides = {};
+    const finalAppendix = {};
+    const metrics = { packagesScanned: 5 };
+    const result = {
+      finalOverrides,
+      finalAppendix,
+      metrics,
+    };
+    return result;
+  });
+  return update;
+};
+
+const createDepsForDisplaysSummary = (
+  mockSpinner: Record<string, unknown>,
+  mockGraph: ReturnType<typeof createMockTerminalGraph>,
+) => {
   const mockConfig = { name: "test", version: "1.0.0" };
-
-  const mockGraph = {
-    banner: mock(() => mockGraph),
-    startPhase: mock(() => mockGraph),
-    progress: mock(() => mockGraph),
-    item: mock(() => mockGraph),
-    vulnerability: mock(() => mockGraph),
-    override: mock(() => mockGraph),
-    endPhase: mock(() => mockGraph),
-    summary: mock(() => mockGraph),
-    executiveSummary: mock(() => mockGraph),
-    compactSummary: mock(() => mockGraph),
-    complete: mock(() => mockGraph),
-    waitForCompletion: mock(() => Promise.resolve()),
-    stop: mock(() => mockGraph),
-    notice: mock(() => mockGraph),
-    securityFix: mock(() => mockGraph),
-    removedOverride: mock(() => mockGraph),
+  const depsResolveJSON = mock(() => mockConfig);
+  const depsBuildMergedOptions = mock(() => ({ checkSecurity: false, summary: true }));
+  const depsHandleSecurityResults = mock();
+  const update = createUpdateMockForDisplaysSummary();
+  const depsOverrides = {
+    resolveJSON: depsResolveJSON,
+    buildMergedOptions: depsBuildMergedOptions,
+    handleSecurityResults: depsHandleSecurityResults,
+    update,
   };
+  const graphOverrides = createSpinnerGraphOverrides(mockSpinner, mockGraph);
+  const deps = Object.assign(createBaseActionDeps(), graphOverrides, depsOverrides);
+  return deps;
+};
 
-  const mockSpinner = { start: mock(() => mockSpinner), stop: mock() };
+test("action - displays summary table when summary option is true", async () => {
+  const mockGraph = createMockTerminalGraph();
 
-  const originalLog = console.log;
+  const start = mock(() => mockSpinner);
+  const mockSpinnerStop = mock();
+  const mockSpinner = { start, stop: mockSpinnerStop };
+
+  const { log: originalLog } = console;
   const logged: string[] = [];
   console.log = captureLine(logged);
-
-  const deps = {
-    createLogger: mock(() => log),
-    handleTestMode: mock(() => false),
-    handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => mockConfig),
-    buildMergedOptions: mock(() => ({ checkSecurity: false, summary: true })),
-    runSecurityCheck: mock(() => Promise.resolve({})),
-    handleSecurityResults: mock(),
-    createSpinner: mock(() => mockSpinner),
-    green: mock((t: string) => t),
-    update: mock(() => ({
-      finalOverrides: {},
-      finalAppendix: {},
-      metrics: { packagesScanned: 5 },
-    })),
-    createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => new Date().toISOString()),
-    processExit: mock(),
-  };
+  const deps = createDepsForDisplaysSummary(mockSpinner, mockGraph);
 
   await action({ summary: true }, deps);
 
@@ -3389,118 +4011,180 @@ test("action - displays summary table when summary option is true", async () => 
   assert.ok(output.includes("Pastoralist Summary"));
 });
 
+const createSpinnerFactoryMockForOutputsJson = () => {
+  const createSpinner = mock(() => {
+    const start = mock();
+    const resultStop = mock();
+    const result = { start, stop: resultStop };
+    return result;
+  });
+  return createSpinner;
+};
+
+const createResolveJSONMockForOutputsJson = () => {
+  const depsResolveJSON = mock(() => {
+    throw new Error("File not found");
+  });
+  return depsResolveJSON;
+};
+
+const createDepsForOutputsJson = (mockGraph: Record<string, unknown>) => {
+  const depsResolveJSON = createResolveJSONMockForOutputsJson();
+  const depsBuildMergedOptions = mock(() => ({ outputFormat: "json" }));
+  const depsHandleSecurityResults = mock();
+  const createSpinner = createSpinnerFactoryMockForOutputsJson();
+  const update = mock(() => ({}));
+  const depsOverrides = {
+    resolveJSON: depsResolveJSON,
+    buildMergedOptions: depsBuildMergedOptions,
+    handleSecurityResults: depsHandleSecurityResults,
+    createSpinner,
+    update,
+  };
+  const graphOverrides = createGraphOverrides(mockGraph);
+  const deps = Object.assign(createBaseActionDeps(), graphOverrides, depsOverrides);
+  return deps;
+};
+
 test("action - outputs JSON on error when outputFormat is json", async () => {
+  const banner = mock(() => mockGraph);
+  const startPhase = mock(() => mockGraph);
+  const stop = mock(() => mockGraph);
   const mockGraph = {
-    banner: mock(() => mockGraph),
-    startPhase: mock(() => mockGraph),
-    stop: mock(() => mockGraph),
+    banner,
+    startPhase,
+    stop,
   };
 
-  const originalLog = console.log;
+  const { log: originalLog } = console;
   const logged: string[] = [];
   console.log = captureLine(logged);
-
-  const deps = {
-    createLogger: mock(() => log),
-    handleTestMode: mock(() => false),
-    handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => {
-      throw new Error("File not found");
-    }),
-    buildMergedOptions: mock(() => ({ outputFormat: "json" })),
-    runSecurityCheck: mock(() => Promise.resolve({})),
-    handleSecurityResults: mock(),
-    createSpinner: mock(() => ({ start: mock(), stop: mock() })),
-    green: mock((t: string) => t),
-    update: mock(() => ({})),
-    createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => new Date().toISOString()),
-    processExit: mock(),
-  };
+  const deps = createDepsForOutputsJson(mockGraph);
 
   await action({ outputFormat: "json" }, deps);
 
   console.log = originalLog;
 
   const output = logged.join("\n");
-  assert.ok(output.includes('"success":false'));
-  assert.ok(output.includes("File not found"));
+  assertIncludesAll(output, ['"success":false', "File not found"]);
   assertCalledWith(deps.processExit, 1);
 });
 
-test("action - applies security results when outputFormat is json", async () => {
+const createRunSecurityCheckMockForAppliesSecurity = (mockSpinner: Record<string, unknown>) => {
+  const depsRunSecurityCheck = mock(() => {
+    const securityChecker = {};
+    const alerts = [];
+    const securityOverridesValue = [];
+    const updates = [];
+    const value = Promise.resolve({
+      spinner: mockSpinner,
+      securityChecker,
+      alerts,
+      securityOverrides: securityOverridesValue,
+      updates,
+      packagesScanned: 1,
+      skipped: false,
+    });
+    return value;
+  });
+  return depsRunSecurityCheck;
+};
+
+const createResolveJSONMockForAppliesSecurity = () => {
+  const mockConfigDependencies = {
+    lodash: "4.17.20",
+  };
+  const mockConfigPastoralist = {};
   const mockConfig: PastoralistJSON = {
     name: "test-package",
     version: "1.0.0",
-    dependencies: {
-      lodash: "4.17.20",
-    },
-    pastoralist: {},
+    dependencies: mockConfigDependencies,
+    pastoralist: mockConfigPastoralist,
   };
+  const depsResolveJSON = mock(() => mockConfig);
+  return depsResolveJSON;
+};
 
+const createUpdateMockForAppliesSecurity = () => {
+  const update = mock(() => {
+    const finalOverrides = { lodash: "4.17.21" };
+    const finalAppendix = {};
+    const metrics = {};
+    const output = {
+      finalOverrides,
+      finalAppendix,
+      metrics,
+    };
+    return output;
+  });
+  return update;
+};
+
+const createHandleSecurityResultsMock = () => {
+  const mockHandleSecurityResults = mock(() => {
+    const securityOverrides = { lodash: "4.17.21" };
+    const securityOverrideDetails = [];
+    const result = {
+      securityOverrides,
+      securityOverrideDetails,
+    };
+    return result;
+  });
+  return mockHandleSecurityResults;
+};
+
+const createBuildMergedOptionsMockForAppliesSecurity = () => {
+  const depsBuildMergedOptions = mock((options: Options, rest: Options) =>
+    Object.assign({}, options, rest, { checkSecurity: true }),
+  );
+  return depsBuildMergedOptions;
+};
+
+const createDepsForAppliesSecurity = (mockSpinner: Record<string, unknown>) => {
+  const mockHandleSecurityResults = createHandleSecurityResultsMock();
+  const depsResolveJSON = createResolveJSONMockForAppliesSecurity();
+  const depsBuildMergedOptions = createBuildMergedOptionsMockForAppliesSecurity();
+  const depsRunSecurityCheck = createRunSecurityCheckMockForAppliesSecurity(mockSpinner);
+  const createSpinner = mock(() => mockSpinner);
+  const update = createUpdateMockForAppliesSecurity();
+  const processExit = mock();
+  const depsOverrides = {
+    resolveJSON: depsResolveJSON,
+    buildMergedOptions: depsBuildMergedOptions,
+    runSecurityCheck: depsRunSecurityCheck,
+    handleSecurityResults: mockHandleSecurityResults,
+    createSpinner,
+    update,
+    processExit,
+  };
+  const deps = Object.assign(createBaseActionDeps(), depsOverrides);
+  return deps;
+};
+
+test("action - applies security results when outputFormat is json", async () => {
+  const start = mock(() => mockSpinner);
+  const stop = mock(() => mockSpinner);
+  const succeed = mock(() => mockSpinner);
+  const warn = mock(() => mockSpinner);
   const mockSpinner = {
-    start: mock(() => mockSpinner),
-    stop: mock(() => mockSpinner),
-    succeed: mock(() => mockSpinner),
-    warn: mock(() => mockSpinner),
+    start,
+    stop,
+    succeed,
+    warn,
   };
 
-  const handleSecurityResults = mock(() => ({
-    securityOverrides: { lodash: "4.17.21" },
-    securityOverrideDetails: [],
-  }));
-
-  const originalLog = console.log;
+  const { log: originalLog } = console;
   console.log = mock(() => {});
-
-  const deps = {
-    createLogger: mock(() => log),
-    handleTestMode: mock(() => false),
-    handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => mockConfig),
-    buildMergedOptions: mock((options: Options, rest: Options) =>
-      Object.assign({}, options, rest, { checkSecurity: true }),
-    ),
-    runSecurityCheck: mock(() =>
-      Promise.resolve({
-        spinner: mockSpinner,
-        securityChecker: {},
-        alerts: [],
-        securityOverrides: [],
-        updates: [],
-        packagesScanned: 1,
-        skipped: false,
-      }),
-    ),
-    handleSecurityResults,
-    createSpinner: mock(() => mockSpinner),
-    green: mock((text: string) => text),
-    update: mock(() => ({
-      finalOverrides: { lodash: "4.17.21" },
-      finalAppendix: {},
-      metrics: {},
-    })),
-    createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => new Date().toISOString()),
-    processExit: mock(),
-  };
+  const deps = createDepsForAppliesSecurity(mockSpinner);
 
   await action({ outputFormat: "json" }, deps);
 
   console.log = originalLog;
 
-  assert.ok(handleSecurityResults.mock.callCount() > 0);
+  assert.ok(deps.handleSecurityResults.mock.callCount() > 0);
 });
 
-test("action - exits non-zero in quiet mode when vulnerabilities are found", async () => {
-  const mockConfig: PastoralistJSON = {
-    name: "test-package",
-    version: "1.0.0",
-    dependencies: {
-      lodash: "4.17.20",
-    },
-  };
-
+const createAlertMock = () => {
   const mockAlert = {
     packageName: "lodash",
     currentVersion: "4.17.20",
@@ -3510,88 +4194,152 @@ test("action - exits non-zero in quiet mode when vulnerabilities are found", asy
     title: "Prototype pollution",
     fixAvailable: true,
   };
-  const mockExit = mock(() => {});
+  return mockAlert;
+};
 
-  const deps = {
-    createLogger: mock(() => log),
-    handleTestMode: mock(() => false),
-    handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => mockConfig),
-    buildMergedOptions: mock((options: any, rest: any) =>
-      Object.assign({}, options, rest, { checkSecurity: true }),
-    ),
-    runSecurityCheck: mock(() =>
-      Promise.resolve({
-        spinner: { stop: mock() },
-        securityChecker: {},
-        alerts: [mockAlert],
-        securityOverrides: [],
-        updates: [],
-        packagesScanned: 1,
-        skipped: false,
-      }),
-    ),
-    handleSecurityResults: mock(() => ({})),
-    createSpinner: mock(() => ({ start: mock(), stop: mock() })),
-    green: mock((text: string) => text),
-    update: mock(() => ({
-      finalOverrides: {},
-      finalAppendix: {},
-      metrics: {},
-    })),
-    createTerminalGraph: mock(() => createMockTerminalGraph()),
-    getLedgerAddedDate: mock(() => new Date().toISOString()),
-    processExit: mockExit,
+const createSingleAlertScan = (mockAlert: Partial<SecurityAlert>) => {
+  const spinnerStop = mock();
+  const spinner = { stop: spinnerStop };
+  const securityChecker = {};
+  const alerts = [mockAlert];
+  const securityOverrides = [];
+  const updates = [];
+  const scan = {
+    spinner,
+    securityChecker,
+    alerts,
+    securityOverrides,
+    updates,
+    packagesScanned: 1,
+    skipped: false,
   };
+  return scan;
+};
+
+const createRunSecurityCheckMockForExitsNon = () => {
+  const mockAlert = createAlertMock();
+  const depsRunSecurityCheck = mock(() => Promise.resolve(createSingleAlertScan(mockAlert)));
+  return depsRunSecurityCheck;
+};
+
+const createUpdateMockForExitsNon = () => {
+  const update = mock(() => {
+    const finalOverrides = {};
+    const finalAppendix = {};
+    const metrics = {};
+    const response = {
+      finalOverrides,
+      finalAppendix,
+      metrics,
+    };
+    return response;
+  });
+  return update;
+};
+
+const createResolveJSONMockForExitsNon = () => {
+  const mockConfigDependencies = {
+    lodash: "4.17.20",
+  };
+  const mockConfig: PastoralistJSON = {
+    name: "test-package",
+    version: "1.0.0",
+    dependencies: mockConfigDependencies,
+  };
+  const depsResolveJSON = mock(() => mockConfig);
+  return depsResolveJSON;
+};
+
+const createSpinnerFactoryMockForExitsNon = () => {
+  const createSpinner = mock(() => {
+    const start = mock();
+    const stop = mock();
+    const output = { start, stop };
+    return output;
+  });
+  return createSpinner;
+};
+
+const createBuildMergedOptionsMockForExitsNon = () => {
+  const depsBuildMergedOptions = mock((options: any, rest: any) =>
+    Object.assign({}, options, rest, { checkSecurity: true }),
+  );
+  return depsBuildMergedOptions;
+};
+
+const createDepsForExitsNon = () => {
+  const depsResolveJSON = createResolveJSONMockForExitsNon();
+  const depsBuildMergedOptions = createBuildMergedOptionsMockForExitsNon();
+  const depsRunSecurityCheck = createRunSecurityCheckMockForExitsNon();
+  const depsHandleSecurityResults = mock(() => ({}));
+  const createSpinner = createSpinnerFactoryMockForExitsNon();
+  const update = createUpdateMockForExitsNon();
+  const depsOverrides = {
+    resolveJSON: depsResolveJSON,
+    buildMergedOptions: depsBuildMergedOptions,
+    runSecurityCheck: depsRunSecurityCheck,
+    handleSecurityResults: depsHandleSecurityResults,
+    createSpinner,
+    update,
+  };
+  const deps = Object.assign(createBaseActionDeps(), depsOverrides);
+  return deps;
+};
+
+test("action - exits non-zero in quiet mode when vulnerabilities are found", async () => {
+  const deps = createDepsForExitsNon();
 
   const result = await action({ quiet: true, checkSecurity: true }, deps);
 
   assert.strictEqual(result.hasSecurityIssues, true);
-  assertCalledWith(mockExit, 1);
+  assertCalledWith(deps.processExit, 1);
 });
 
-test("action - displays unused override notice when unused overrides exist", async () => {
-  const mockConfig: PastoralistJSON = {
-    name: "test-package",
-    version: "1.0.0",
-    pastoralist: {},
+const createUnusedAppendix = () => {
+  const dependents = { "test-package": "lodash@^4.17.0" };
+  const lodashEntry = {
+    dependents,
   };
-
-  const mockGraph = createMockTerminalGraph();
-
+  const unusedPkgDependents = { root: "unused-pkg (unused override)" };
+  const unusedPkgEntry = {
+    dependents: unusedPkgDependents,
+  };
   const unusedAppendix = {
-    "lodash@4.17.21": {
-      dependents: { "test-package": "lodash@^4.17.0" },
-    },
-    "unused-pkg@1.0.0": {
-      dependents: { root: "unused-pkg (unused override)" },
-    },
+    "lodash@4.17.21": lodashEntry,
+    "unused-pkg@1.0.0": unusedPkgEntry,
   };
+  return unusedAppendix;
+};
 
-  const deps = {
-    createLogger: mock(() => log),
-    handleTestMode: mock(() => false),
-    handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => mockConfig),
-    buildMergedOptions: mock((options: any, rest: any) =>
-      Object.assign({}, options, rest, { checkSecurity: false }),
-    ),
-    runSecurityCheck: mock(() => Promise.resolve({})),
-    handleSecurityResults: mock(() => {}),
-    createSpinner: mock(() => ({
-      start: mock(),
-      succeed: mock(),
-      stop: mock(),
-    })),
-    green: mock((text: string) => text),
-    update: mock(() => ({
-      finalOverrides: { lodash: "4.17.21", "unused-pkg": "1.0.0" },
+const createUpdateMockForDisplaysUnused = () => {
+  const unusedAppendix = createUnusedAppendix();
+  const update = mock(() => {
+    const finalOverrides = { lodash: "4.17.21", "unused-pkg": "1.0.0" };
+    const value = {
+      finalOverrides,
       finalAppendix: unusedAppendix,
-    })),
-    createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => new Date().toISOString()),
-    processExit: mock(() => {}),
+    };
+    return value;
+  });
+  return update;
+};
+
+const createDepsForDisplaysUnused = (mockGraph: ReturnType<typeof createMockTerminalGraph>) => {
+  const depsBuildMergedOptions = createBuildMergedOptionsMockForLoadsExternal();
+  const update = createUpdateMockForDisplaysUnused();
+  const depsCreateTerminalGraph = mock(() => mockGraph);
+  const depsOverrides = {
+    buildMergedOptions: depsBuildMergedOptions,
+    update,
+    createTerminalGraph: depsCreateTerminalGraph,
   };
+  const deps = Object.assign(createBaseActionDeps(), depsOverrides);
+  return deps;
+};
+
+test("action - displays unused override notice when unused overrides exist", async () => {
+  const mockGraph = createMockTerminalGraph();
+  const deps = createDepsForDisplaysUnused(mockGraph);
 
   await action({ path: "package.json" }, deps);
 
@@ -3604,43 +4352,41 @@ test("action - displays unused override notice when unused overrides exist", asy
   assert.strictEqual(hasRemoveUnusedNotice, true);
 });
 
+const createUpdateMockForDisplayUnused = () => {
+  const update = mock(() => {
+    const finalOverrides = { lodash: "4.17.21" };
+    const dependents = { "test-package": "lodash@^4.17.0" };
+    const lodashEntry = {
+      dependents,
+    };
+    const finalAppendix = {
+      "lodash@4.17.21": lodashEntry,
+    };
+    const value = {
+      finalOverrides,
+      finalAppendix,
+    };
+    return value;
+  });
+  return update;
+};
+
+const createDepsForDisplayUnused = (mockGraph: ReturnType<typeof createMockTerminalGraph>) => {
+  const depsBuildMergedOptions = createBuildMergedOptionsMockForLoadsExternal();
+  const update = createUpdateMockForDisplayUnused();
+  const depsCreateTerminalGraph = mock(() => mockGraph);
+  const depsOverrides = {
+    buildMergedOptions: depsBuildMergedOptions,
+    update,
+    createTerminalGraph: depsCreateTerminalGraph,
+  };
+  const deps = Object.assign(createBaseActionDeps(), depsOverrides);
+  return deps;
+};
+
 test("action - does not display unused override notice when removeUnused is true", async () => {
-  const mockConfig: PastoralistJSON = {
-    name: "test-package",
-    version: "1.0.0",
-    pastoralist: {},
-  };
-
   const mockGraph = createMockTerminalGraph();
-
-  const deps = {
-    createLogger: mock(() => log),
-    handleTestMode: mock(() => false),
-    handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => mockConfig),
-    buildMergedOptions: mock((options: any, rest: any) =>
-      Object.assign({}, options, rest, { checkSecurity: false }),
-    ),
-    runSecurityCheck: mock(() => Promise.resolve({})),
-    handleSecurityResults: mock(() => {}),
-    createSpinner: mock(() => ({
-      start: mock(),
-      succeed: mock(),
-      stop: mock(),
-    })),
-    green: mock((text: string) => text),
-    update: mock(() => ({
-      finalOverrides: { lodash: "4.17.21" },
-      finalAppendix: {
-        "lodash@4.17.21": {
-          dependents: { "test-package": "lodash@^4.17.0" },
-        },
-      },
-    })),
-    createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => new Date().toISOString()),
-    processExit: mock(() => {}),
-  };
+  const deps = createDepsForDisplayUnused(mockGraph);
 
   await action({ isTesting: true, path: "package.json", removeUnused: true }, deps);
 
@@ -3653,8 +4399,46 @@ test("action - does not display unused override notice when removeUnused is true
   assert.strictEqual(hasRemoveUnusedNotice, false);
 });
 
+const withCapturedConsole = async (task: () => Promise<unknown>) => {
+  const { log: originalLog, error: originalError } = console;
+  const { exitCode: originalExitCode } = process;
+  const logged: string[] = [];
+  const errors: string[] = [];
+  console.log = captureLine(logged);
+  console.error = captureLine(errors);
+  try {
+    await task();
+    const { exitCode } = process;
+    const captured = { logged, errors, exitCode };
+    return captured;
+  } finally {
+    console.log = originalLog;
+    console.error = originalError;
+    process.exitCode = originalExitCode ?? 0;
+  }
+};
+
+const createRunDeps = () => {
+  const mockAction = mock(() => Promise.resolve());
+  const mockInitCommand = mock(() => Promise.resolve());
+  const mockShowOnboarding = mock(() => {});
+  const deps = {
+    action: mockAction,
+    initCommand: mockInitCommand,
+    showOnboarding: mockShowOnboarding,
+  };
+  return deps;
+};
+
+const createRunDepsWithSetup = () => {
+  const mockSetupAgentSkill = mock(() => Promise.resolve());
+  const setupDeps = { setupAgentSkill: mockSetupAgentSkill };
+  const deps = Object.assign(createRunDeps(), setupDeps);
+  return deps;
+};
+
 test("run - shows help and returns early when help flag is passed", async () => {
-  const originalLog = console.log;
+  const { log: originalLog } = console;
   const logged: string[] = [];
   console.log = captureLine(logged);
 
@@ -3667,7 +4451,7 @@ test("run - shows help and returns early when help flag is passed", async () => 
 });
 
 test("run - shows help with -h flag", async () => {
-  const originalLog = console.log;
+  const { log: originalLog } = console;
   const logged: string[] = [];
   console.log = captureLine(logged);
 
@@ -3698,48 +4482,22 @@ test("run - calls styleguide and returns early", async () => {
 });
 
 test("run - prints package version and returns early", async () => {
-  const mockAction = mock(() => Promise.resolve());
-  const mockInitCommand = mock(() => Promise.resolve());
-  const mockShowOnboarding = mock(() => {});
+  const deps = createRunDeps();
 
-  const originalLog = console.log;
-  const logged: string[] = [];
-  console.log = captureLine(logged);
-
-  try {
-    await run(["node", "pastoralist", "--version"], {
-      action: mockAction,
-      initCommand: mockInitCommand,
-      showOnboarding: mockShowOnboarding,
-    });
-  } finally {
-    console.log = originalLog;
-  }
+  const { logged } = await withCapturedConsole(() =>
+    run(["node", "pastoralist", "--version"], deps),
+  );
 
   assert.deepStrictEqual(logged, [version]);
-  assert.strictEqual(mockAction.mock.callCount(), 0);
-  assert.strictEqual(mockInitCommand.mock.callCount(), 0);
-  assert.strictEqual(mockShowOnboarding.mock.callCount(), 0);
+  assert.strictEqual(deps.action.mock.callCount(), 0);
+  assert.strictEqual(deps.initCommand.mock.callCount(), 0);
+  assert.strictEqual(deps.showOnboarding.mock.callCount(), 0);
 });
 
 test("run - handles unknown flags without throwing", async () => {
-  const originalLog = console.log;
-  const originalError = console.error;
-  const originalExitCode = process.exitCode;
-  const logged: string[] = [];
-  const errors: string[] = [];
-  let exitCode: string | number | undefined;
-  console.log = captureLine(logged);
-  console.error = captureLine(errors);
-
-  try {
-    await run(["node", "pastoralist", "--wat"]);
-    exitCode = process.exitCode;
-  } finally {
-    console.log = originalLog;
-    console.error = originalError;
-    process.exitCode = originalExitCode ?? 0;
-  }
+  const { logged, errors, exitCode } = await withCapturedConsole(() =>
+    run(["node", "pastoralist", "--wat"]),
+  );
 
   assert.ok(errors.join("\n").includes("Unknown option: --wat"));
   assert.ok(logged.join("\n").includes("pastoralist"));
@@ -3747,70 +4505,30 @@ test("run - handles unknown flags without throwing", async () => {
 });
 
 test("run - rejects value-taking flags without a value", async () => {
-  const mockAction = mock(() => Promise.resolve());
-  const originalError = console.error;
-  const originalExitCode = process.exitCode;
-  const errors: string[] = [];
-  console.error = captureLine(errors);
+  const deps = createRunDepsWithSetup();
 
-  try {
-    await run(["node", "pastoralist", "--root"], {
-      action: mockAction,
-      initCommand: mock(() => Promise.resolve()),
-      setupAgentSkill: mock(() => Promise.resolve()),
-      showOnboarding: mock(() => {}),
-    });
-  } finally {
-    console.error = originalError;
-    process.exitCode = originalExitCode ?? 0;
-  }
+  const { errors } = await withCapturedConsole(() => run(["node", "pastoralist", "--root"], deps));
 
   assert.ok(errors.join("\n").includes("Option root requires a value"));
-  assert.strictEqual(mockAction.mock.callCount(), 0);
+  assert.strictEqual(deps.action.mock.callCount(), 0);
 });
 
 test("run - rejects unknown positional commands", async () => {
-  const mockAction = mock(() => Promise.resolve());
-  const originalError = console.error;
-  const originalExitCode = process.exitCode;
-  const errors: string[] = [];
-  console.error = captureLine(errors);
+  const deps = createRunDepsWithSetup();
 
-  try {
-    await run(["node", "pastoralist", "innit"], {
-      action: mockAction,
-      initCommand: mock(() => Promise.resolve()),
-      setupAgentSkill: mock(() => Promise.resolve()),
-      showOnboarding: mock(() => {}),
-    });
-  } finally {
-    console.error = originalError;
-    process.exitCode = originalExitCode ?? 0;
-  }
+  const { errors } = await withCapturedConsole(() => run(["node", "pastoralist", "innit"], deps));
 
   assert.ok(errors.join("\n").includes("Unknown command: innit"));
-  assert.strictEqual(mockAction.mock.callCount(), 0);
+  assert.strictEqual(deps.action.mock.callCount(), 0);
 });
 
 test("run - rejects unknown positional commands before styleguide", async () => {
   const mockStyleguide = mock(() => Promise.resolve());
-  const originalError = console.error;
-  const originalExitCode = process.exitCode;
-  const errors: string[] = [];
-  console.error = captureLine(errors);
+  const styleguideDeps = { styleguide: mockStyleguide };
+  const deps = Object.assign(createRunDepsWithSetup(), styleguideDeps);
+  const argv = ["node", "pastoralist", "innit", "--styleguide"];
 
-  try {
-    await run(["node", "pastoralist", "innit", "--styleguide"], {
-      action: mock(() => Promise.resolve()),
-      initCommand: mock(() => Promise.resolve()),
-      setupAgentSkill: mock(() => Promise.resolve()),
-      showOnboarding: mock(() => {}),
-      styleguide: mockStyleguide,
-    });
-  } finally {
-    console.error = originalError;
-    process.exitCode = originalExitCode ?? 0;
-  }
+  const { errors } = await withCapturedConsole(() => run(argv, deps));
 
   assert.ok(errors.join("\n").includes("Unknown command: innit"));
   assert.strictEqual(mockStyleguide.mock.callCount(), 0);
@@ -3928,7 +4646,7 @@ test("run - calls agent skill setup for init flag target list", async () => {
 });
 
 test("run - bundled agent skill setup supports dry run", async () => {
-  const originalExitCode = process.exitCode;
+  const { exitCode: originalExitCode } = process;
 
   process.exitCode = 0;
 
@@ -3941,228 +4659,115 @@ test("run - bundled agent skill setup supports dry run", async () => {
 });
 
 test("run - reports missing setup script for agent skill setup", async () => {
-  const originalLog = console.log;
-  const originalError = console.error;
-  const originalExitCode = process.exitCode;
-  const logged: string[] = [];
-  const errors: string[] = [];
-  let exitCode: string | number | undefined;
   const existsMock = nodeMock.method(fs, "existsSync", () => false);
 
-  console.log = captureLine(logged);
-  console.error = captureLine(errors);
-  process.exitCode = undefined;
-  syncBuiltinESMExports();
-
   try {
-    const module = await import("../../../src/cli/index?missing-setup-script");
-    await module.run(["node", "pastoralist", "--init", "agent-skill"]);
-    exitCode = process.exitCode;
+    const { logged, errors, exitCode } = await withCapturedConsole(async () => {
+      process.exitCode = undefined;
+      syncBuiltinESMExports();
+      const module = await import("../../../src/cli/index?missing-setup-script");
+      await module.run(["node", "pastoralist", "--init", "agent-skill"]);
+    });
+    assert.strictEqual(exitCode, 1);
+    assert.ok(errors.join("\n").includes("Unable to find scripts/setup/setup.sh"));
+    assert.ok(logged.join("\n").includes("init [config|agent-skill]"));
   } finally {
-    console.log = originalLog;
-    console.error = originalError;
-    process.exitCode = originalExitCode ?? 0;
     existsMock.mock.restore();
     syncBuiltinESMExports();
   }
-
-  assert.strictEqual(exitCode, 1);
-  assert.ok(errors.join("\n").includes("Unable to find scripts/setup/setup.sh"));
-  assert.ok(logged.join("\n").includes("init [config|agent-skill]"));
 });
 
 test("run - rejects extra config init args", async () => {
-  const mockInitCommand = mock(() => Promise.resolve());
-  const mockAction = mock(() => Promise.resolve());
-  const mockShowOnboarding = mock(() => {});
-  const mockSetupAgentSkill = mock(() => Promise.resolve());
+  const deps = createRunDepsWithSetup();
+  const argv = ["node", "pastoralist", "--init", "config", "extra"];
 
-  const originalLog = console.log;
-  const originalError = console.error;
-  const originalExitCode = process.exitCode;
-  const logged: string[] = [];
-  const errors: string[] = [];
-  let exitCode: string | number | undefined;
-  console.log = captureLine(logged);
-  console.error = captureLine(errors);
-
-  try {
-    await run(["node", "pastoralist", "--init", "config", "extra"], {
-      action: mockAction,
-      initCommand: mockInitCommand,
-      setupAgentSkill: mockSetupAgentSkill,
-      showOnboarding: mockShowOnboarding,
-    });
-    exitCode = process.exitCode;
-  } finally {
-    console.log = originalLog;
-    console.error = originalError;
-    process.exitCode = originalExitCode ?? 0;
-  }
+  const { logged, errors, exitCode } = await withCapturedConsole(() => run(argv, deps));
 
   assert.ok(errors.join("\n").includes("Unexpected init config argument: extra"));
   assert.ok(logged.join("\n").includes("--init [type] [args...]"));
   assert.strictEqual(exitCode, 1);
-  assert.strictEqual(mockInitCommand.mock.callCount(), 0);
-  assert.strictEqual(mockSetupAgentSkill.mock.callCount(), 0);
-  assert.strictEqual(mockAction.mock.callCount(), 0);
+  assert.strictEqual(deps.initCommand.mock.callCount(), 0);
+  assert.strictEqual(deps.setupAgentSkill.mock.callCount(), 0);
+  assert.strictEqual(deps.action.mock.callCount(), 0);
 });
 
 test("run - rejects unknown init target", async () => {
-  const mockInitCommand = mock(() => Promise.resolve());
-  const mockAction = mock(() => Promise.resolve());
-  const mockShowOnboarding = mock(() => {});
-  const mockSetupAgentSkill = mock(() => Promise.resolve());
+  const deps = createRunDepsWithSetup();
+  const argv = ["node", "pastoralist", "init", "wat"];
 
-  const originalLog = console.log;
-  const originalError = console.error;
-  const originalExitCode = process.exitCode;
-  const logged: string[] = [];
-  const errors: string[] = [];
-  let exitCode: string | number | undefined;
-  console.log = captureLine(logged);
-  console.error = captureLine(errors);
-
-  try {
-    await run(["node", "pastoralist", "init", "wat"], {
-      action: mockAction,
-      initCommand: mockInitCommand,
-      setupAgentSkill: mockSetupAgentSkill,
-      showOnboarding: mockShowOnboarding,
-    });
-    exitCode = process.exitCode;
-  } finally {
-    console.log = originalLog;
-    console.error = originalError;
-    process.exitCode = originalExitCode ?? 0;
-  }
+  const { logged, errors, exitCode } = await withCapturedConsole(() => run(argv, deps));
 
   assert.ok(errors.join("\n").includes("Unknown init type: wat"));
   assert.ok(logged.join("\n").includes("init [config|agent-skill]"));
   assert.strictEqual(exitCode, 1);
-  assert.strictEqual(mockInitCommand.mock.callCount(), 0);
-  assert.strictEqual(mockSetupAgentSkill.mock.callCount(), 0);
-  assert.strictEqual(mockAction.mock.callCount(), 0);
+  assert.strictEqual(deps.initCommand.mock.callCount(), 0);
+  assert.strictEqual(deps.setupAgentSkill.mock.callCount(), 0);
+  assert.strictEqual(deps.action.mock.callCount(), 0);
 });
 
 test("run - calls action in dry-run summary mode for doctor command", async () => {
-  const mockInitCommand = mock(() => Promise.resolve());
-  const mockAction = mock(() => Promise.resolve());
-  const mockShowOnboarding = mock(() => {});
+  const deps = createRunDeps();
+  const argv = ["node", "pastoralist", "doctor", "--path", "custom.json"];
 
-  const originalLog = console.log;
-  const logged: string[] = [];
-  console.log = captureLine(logged);
+  const { logged } = await withCapturedConsole(() => run(argv, deps));
 
-  try {
-    await run(["node", "pastoralist", "doctor", "--path", "custom.json"], {
-      action: mockAction,
-      initCommand: mockInitCommand,
-      showOnboarding: mockShowOnboarding,
-    });
-  } finally {
-    console.log = originalLog;
-  }
-
-  assertCalledWith(
-    mockAction,
-    objectContaining({
-      dryRun: true,
-      path: "custom.json",
-      summary: true,
-    }),
-  );
-  assert.strictEqual(mockInitCommand.mock.callCount(), 0);
-  assert.strictEqual(mockShowOnboarding.mock.callCount(), 0);
+  const expectedOptions = objectContaining({ dryRun: true, path: "custom.json", summary: true });
+  assertCalledWith(deps.action, expectedOptions);
+  assert.strictEqual(deps.initCommand.mock.callCount(), 0);
+  assert.strictEqual(deps.showOnboarding.mock.callCount(), 0);
   assert.ok(logged.join("\n").includes("dry-run mode"));
 });
 
 test("run - suppresses doctor preface when JSON output is requested", async () => {
-  const mockInitCommand = mock(() => Promise.resolve());
-  const mockAction = mock(() => Promise.resolve());
-  const mockShowOnboarding = mock(() => {});
+  const deps = createRunDeps();
+  const argv = ["node", "pastoralist", "doctor", "--outputFormat", "json"];
 
-  const originalLog = console.log;
-  const logged: string[] = [];
-  console.log = captureLine(logged);
+  const { logged } = await withCapturedConsole(() => run(argv, deps));
 
-  try {
-    await run(["node", "pastoralist", "doctor", "--outputFormat", "json"], {
-      action: mockAction,
-      initCommand: mockInitCommand,
-      showOnboarding: mockShowOnboarding,
-    });
-  } finally {
-    console.log = originalLog;
-  }
-
-  assertCalledWith(
-    mockAction,
-    objectContaining({
-      dryRun: true,
-      outputFormat: "json",
-      summary: true,
-    }),
-  );
-  assert.strictEqual(mockShowOnboarding.mock.callCount(), 0);
+  const expectedOptions = objectContaining({ dryRun: true, outputFormat: "json", summary: true });
+  assertCalledWith(deps.action, expectedOptions);
+  assert.strictEqual(deps.showOnboarding.mock.callCount(), 0);
   assert.deepStrictEqual(logged, []);
 });
 
 test("run - returns early when setup hook is already configured", async () => {
-  const mockInitCommand = mock(() => Promise.resolve());
-  const mockAction = mock(() => Promise.resolve());
-  const mockShowOnboarding = mock(() => {});
-  const mockSetupAgentSkill = mock(() => Promise.resolve());
+  const deps = createRunDepsWithSetup();
   const root = resolve(import.meta.dirname, "..", ".test-run-setup-hook");
   const packagePath = resolve(root, "package.json");
 
   mkdirSync(root, { recursive: true });
-  writeFileSync(packagePath, JSON.stringify({ scripts: { postinstall: "pastoralist" } }));
+  const scripts = { postinstall: "pastoralist" };
+  writeFileSync(packagePath, JSON.stringify({ scripts }));
 
   try {
-    await run(["node", "pastoralist", "--setup-hook", "--root", root], {
-      action: mockAction,
-      initCommand: mockInitCommand,
-      setupAgentSkill: mockSetupAgentSkill,
-      showOnboarding: mockShowOnboarding,
-    });
+    await run(["node", "pastoralist", "--setup-hook", "--root", root], deps);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }
 
-  assert.strictEqual(mockAction.mock.callCount(), 0);
-  assert.strictEqual(mockInitCommand.mock.callCount(), 0);
-  assert.strictEqual(mockSetupAgentSkill.mock.callCount(), 0);
-  assert.strictEqual(mockShowOnboarding.mock.callCount(), 0);
+  assert.strictEqual(deps.action.mock.callCount(), 0);
+  assert.strictEqual(deps.initCommand.mock.callCount(), 0);
+  assert.strictEqual(deps.setupAgentSkill.mock.callCount(), 0);
+  assert.strictEqual(deps.showOnboarding.mock.callCount(), 0);
 });
 
 test("run - reports setup hook failures without running the default action", async () => {
-  const mockAction = mock(() => Promise.resolve());
-  const logged: string[] = [];
-  const originalError = console.error;
-  const originalExitCode = process.exitCode;
-  console.error = captureLine(logged);
-  process.exitCode = undefined;
+  const deps = createRunDepsWithSetup();
+  const argv = ["node", "pastoralist", "--setup-hook", "--root", "/missing/root"];
 
-  try {
-    await run(["node", "pastoralist", "--setup-hook", "--root", "/missing/root"], {
-      action: mockAction,
-      initCommand: mock(() => Promise.resolve()),
-      setupAgentSkill: mock(() => Promise.resolve()),
-      showOnboarding: mock(() => {}),
-    });
-    assert.strictEqual(process.exitCode, 1);
-  } finally {
-    console.error = originalError;
-    process.exitCode = originalExitCode;
-  }
+  const { errors, exitCode } = await withCapturedConsole(() => {
+    process.exitCode = undefined;
+    const pendingRun = run(argv, deps);
+    return pendingRun;
+  });
 
-  assert.strictEqual(mockAction.mock.callCount(), 0);
-  assert.ok(logged.join("\n").includes("Failed to setup hook"));
+  assert.strictEqual(exitCode, 1);
+  assert.strictEqual(deps.action.mock.callCount(), 0);
+  assert.ok(errors.join("\n").includes("Failed to setup hook"));
 });
 
 test("run - setup hook respects dry-run", async () => {
-  const mockAction = mock(() => Promise.resolve());
+  const deps = createRunDepsWithSetup();
   const root = resolve(import.meta.dirname, "..", ".test-run-setup-hook-dry-run");
   const packagePath = resolve(root, "package.json");
   const original = JSON.stringify({ name: "test-package" });
@@ -4170,18 +4775,13 @@ test("run - setup hook respects dry-run", async () => {
   writeFileSync(packagePath, original);
 
   try {
-    await run(["node", "pastoralist", "--setup-hook", "--dry-run", "--root", root], {
-      action: mockAction,
-      initCommand: mock(() => Promise.resolve()),
-      setupAgentSkill: mock(() => Promise.resolve()),
-      showOnboarding: mock(() => {}),
-    });
+    await run(["node", "pastoralist", "--setup-hook", "--dry-run", "--root", root], deps);
     assert.strictEqual(readFileSync(packagePath, "utf8"), original);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }
 
-  assert.strictEqual(mockAction.mock.callCount(), 0);
+  assert.strictEqual(deps.action.mock.callCount(), 0);
 });
 
 test("run - prints onboarding and returns early", async () => {
@@ -4232,13 +4832,18 @@ test("run - supports onboarding command alias", async () => {
   assert.strictEqual(mockInitCommand.mock.callCount(), 0);
 });
 
-test("handleSetupHook - error is handled", () => {
+const createReadFileSyncMockForErrorHandled = () => {
   const mockReadFileSync = mock(() => {
     throw new Error("ENOENT");
   });
+  return mockReadFileSync;
+};
+
+test("handleSetupHook - error is handled", () => {
+  const mockReadFileSync = createReadFileSyncMockForErrorHandled();
   const mockWriteFileSync = mock(() => {});
   const mockResolve = mock((p: string) => p);
-  const originalExitCode = process.exitCode;
+  const { exitCode: originalExitCode } = process;
 
   const options: Options = { setupHook: true };
   process.exitCode = undefined;
@@ -4256,58 +4861,128 @@ test("handleSetupHook - error is handled", () => {
   }
 });
 
-test("handleSecurityResults - returned values are used by action via spread", async () => {
+const createRunSecurityCheckMockForReturnedValues = () => {
+  const depsRunSecurityCheck = mock(() => {
+    const vulnerableAlert = { packageName: "lodash", severity: "high", title: "Vuln" };
+    const scan = Promise.resolve(createSingleAlertScan(vulnerableAlert));
+    return scan;
+  });
+  return depsRunSecurityCheck;
+};
+
+const createResolveJSONMockForReturnedValues = () => {
+  const mockConfigDependencies = { lodash: "^4.17.20" };
+  const overrides = { lodash: "4.17.21" };
   const mockConfig: PastoralistJSON = {
     name: "test",
     version: "1.0.0",
-    dependencies: { lodash: "^4.17.20" },
-    overrides: { lodash: "4.17.21" },
+    dependencies: mockConfigDependencies,
+    overrides,
   };
+  const depsResolveJSON = mock(() => mockConfig);
+  return depsResolveJSON;
+};
 
+const createSpinnerFactoryMockForReturnedValues = () => {
+  const createSpinner = mock(() => {
+    const start = mock();
+    const stop = mock();
+    const output = {
+      start,
+      stop,
+    };
+    return output;
+  });
+  return createSpinner;
+};
+
+const createUpdateMockForReturnedValues = (capturedUpdateOptions: Options[]) => {
+  const update = mock((opts: Options) => {
+    capturedUpdateOptions[capturedUpdateOptions.length] = opts;
+    const finalOverrides = {};
+    const finalAppendix = {};
+    const result = { finalOverrides, finalAppendix };
+    return result;
+  });
+  return update;
+};
+
+const createBuildMergedOptionsMockForReturnedValues = () => {
+  const depsBuildMergedOptions = mock(() => ({
+    checkSecurity: true,
+    path: "package.json",
+  }));
+  return depsBuildMergedOptions;
+};
+
+const createHandleSecurityResultsMockForReturnedValues = (
+  securityOverridesResult: { lodash: string },
+  securityDetailResult: { packageName: string; reason: string }[],
+) => {
+  const depsHandleSecurityResults = mock(() => ({
+    securityOverrides: securityOverridesResult,
+    securityOverrideDetails: securityDetailResult,
+  }));
+  return depsHandleSecurityResults;
+};
+
+const createReturnedValuesScanOverrides = (
+  securityOverridesResult: { lodash: string },
+  securityDetailResult: { packageName: string; reason: string }[],
+) => {
+  const depsResolveJSON = createResolveJSONMockForReturnedValues();
+  const depsBuildMergedOptions = createBuildMergedOptionsMockForReturnedValues();
+  const depsRunSecurityCheck = createRunSecurityCheckMockForReturnedValues();
+  const depsHandleSecurityResults = createHandleSecurityResultsMockForReturnedValues(
+    securityOverridesResult,
+    securityDetailResult,
+  );
+  const scanOverrides = {
+    resolveJSON: depsResolveJSON,
+    buildMergedOptions: depsBuildMergedOptions,
+    runSecurityCheck: depsRunSecurityCheck,
+    handleSecurityResults: depsHandleSecurityResults,
+  };
+  return scanOverrides;
+};
+
+const createReturnedValuesUiOverrides = () => {
   const mockGraph = createMockTerminalGraph();
+  const green = mock((t: string) => t);
+  const depsCreateTerminalGraph = mock(() => mockGraph);
+  const getLedgerAddedDate = mock(() => "2024-01-01");
+  const uiOverrides = { green, createTerminalGraph: depsCreateTerminalGraph, getLedgerAddedDate };
+  return uiOverrides;
+};
 
+const createDepsForReturnedValues = (
+  securityOverridesResult: { lodash: string },
+  securityDetailResult: { packageName: string; reason: string }[],
+  capturedUpdateOptions: Options[],
+) => {
+  const scanOverrides = createReturnedValuesScanOverrides(
+    securityOverridesResult,
+    securityDetailResult,
+  );
+  const createSpinner = createSpinnerFactoryMockForReturnedValues();
+  const update = createUpdateMockForReturnedValues(capturedUpdateOptions);
+  const depsOverrides = { createSpinner, update };
+  const uiOverrides = createReturnedValuesUiOverrides();
+  const baseDeps = createBaseActionDeps();
+  const deps = Object.assign(baseDeps, scanOverrides, depsOverrides, uiOverrides);
+  return deps;
+};
+
+test("handleSecurityResults - returned values are used by action via spread", async () => {
   const securityOverridesResult = { lodash: "4.17.21" };
   const securityDetailResult = [{ packageName: "lodash", reason: "Security fix" }];
 
   const capturedUpdateOptions: Options[] = [];
-
-  const deps = {
-    createLogger: mock(() => log),
-    handleTestMode: mock(() => false),
-    handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => mockConfig),
-    buildMergedOptions: mock(() => ({
-      checkSecurity: true,
-      path: "package.json",
-    })),
-    runSecurityCheck: mock(() =>
-      Promise.resolve({
-        spinner: { stop: mock() },
-        securityChecker: {},
-        alerts: [{ packageName: "lodash", severity: "high", title: "Vuln" }],
-        securityOverrides: [],
-        updates: [],
-        packagesScanned: 1,
-        skipped: false,
-      }),
-    ),
-    handleSecurityResults: mock(() => ({
-      securityOverrides: securityOverridesResult,
-      securityOverrideDetails: securityDetailResult,
-    })),
-    createSpinner: mock(() => ({
-      start: mock(),
-      stop: mock(),
-    })),
-    green: mock((t: string) => t),
-    update: mock((opts: Options) => {
-      capturedUpdateOptions[capturedUpdateOptions.length] = opts;
-      return { finalOverrides: {}, finalAppendix: {} };
-    }),
-    createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => "2024-01-01"),
-    processExit: mock(() => {}),
-  };
+  const deps = createDepsForReturnedValues(
+    securityOverridesResult,
+    securityDetailResult,
+    capturedUpdateOptions,
+  );
 
   await action({}, deps);
 
@@ -4319,10 +4994,13 @@ test("handleSecurityResults - returned values are used by action via spread", as
 });
 
 test("handleSecurityResults - returns empty object when no fixes needed", () => {
-  const mockSpinner = { stop: mock() };
+  const stop = mock();
+  const mockSpinner = { stop };
+  const generatePackageOverrides = mock(() => ({}));
+  const applyAutoFix = mock(() => {});
   const mockChecker = {
-    generatePackageOverrides: mock(() => ({})),
-    applyAutoFix: mock(() => {}),
+    generatePackageOverrides,
+    applyAutoFix,
   };
 
   const result = handleSecurityResults(
@@ -4338,37 +5016,29 @@ test("handleSecurityResults - returns empty object when no fixes needed", () => 
   assert.strictEqual(mockChecker.generatePackageOverrides.mock.callCount(), 0);
 });
 
-test("handleSecurityResults - does not mutate mergedOptions", () => {
-  const alerts = [
-    {
-      packageName: "lodash",
-      severity: "high",
-      title: "Prototype Pollution",
-      cves: ["CVE-2021-23337"],
-    },
-  ];
-
+const createSecurityOverridesForMutate = () => {
+  const severity = "high" as const;
   const securityOverrides = [
     {
       packageName: "lodash",
       fromVersion: "4.17.20",
       toVersion: "4.17.21",
       reason: "Security fix",
-      severity: "high" as const,
+      severity,
     },
   ];
+  return securityOverrides;
+};
 
-  const mockSecurityChecker = {
-    generatePackageOverrides: mock(() => ({ lodash: "4.17.21" })),
-    applyAutoFix: mock(() => {}),
-  };
+test("handleSecurityResults - does not mutate mergedOptions", () => {
+  const alerts = createAlerts();
+  const securityOverrides = createSecurityOverridesForMutate();
+  const mockSecurityChecker = createSecurityCheckerMockForAlertsFound();
 
-  const mockSpinner = { stop: mock() };
+  const stop = mock();
+  const mockSpinner = { stop };
 
-  const mergedOptions: Options = {
-    forceSecurityRefactor: true,
-    path: "package.json",
-  };
+  const mergedOptions: Options = createMergedOptionsForAppliesUpdates();
 
   const optionsSnapshot = JSON.parse(JSON.stringify(mergedOptions));
 
@@ -4384,85 +5054,164 @@ test("handleSecurityResults - does not mutate mergedOptions", () => {
   assert.deepStrictEqual(mergedOptions, optionsSnapshot);
 });
 
-test("action - displays blocked removals notice when skipRemovalKeys set", async () => {
+const createLodashScanResult = () => {
+  const cves = ["CVE-2021-23337"];
+  const lodashAlert = {
+    packageName: "lodash",
+    severity: "high",
+    currentVersion: "4.17.20",
+    cves,
+  };
+  const alerts = [lodashAlert];
+  const overrides = [];
+  const updates = [];
+  const scanResult = { alerts, overrides, updates, packagesScanned: 1 };
+  return scanResult;
+};
+
+const createCheckSecurityMock = () => {
+  const checkSecurity = mock(() => Promise.resolve(createLodashScanResult()));
+  return checkSecurity;
+};
+
+const createSecurityChecker = () => {
+  const checkSecurity = createCheckSecurityMock();
+  const securityChecker = {
+    checkSecurity,
+  };
+  return securityChecker;
+};
+
+const createAlertsForDisplaysBlocked = () => {
+  const cvesValue = ["CVE-2021-23337"];
+  const alerts = [
+    {
+      packageName: "lodash",
+      severity: "high",
+      currentVersion: "4.17.20",
+      cves: cvesValue,
+    },
+  ];
+  return alerts;
+};
+
+const createStartSucceedStopSpinner = () => {
+  const spinnerStart = mock();
+  const spinnerSucceed = mock();
+  const spinnerStop = mock();
+  const spinner = { start: spinnerStart, succeed: spinnerSucceed, stop: spinnerStop };
+  return spinner;
+};
+
+const createRunSecurityCheckMockForDisplaysBlocked = () => {
+  const depsRunSecurityCheck = mock(() => {
+    const alerts = createAlertsForDisplaysBlocked();
+    const securityOverrides = [];
+    const updates = [];
+    const spinner = createStartSucceedStopSpinner();
+    const securityChecker = createSecurityChecker();
+    const result = Promise.resolve({
+      alerts,
+      securityOverrides,
+      updates,
+      packagesScanned: 1,
+      skipped: false,
+      spinner,
+      securityChecker,
+    });
+    return result;
+  });
+  return depsRunSecurityCheck;
+};
+
+const createUpdateMockForDisplaysBlocked = (mockConfig: PastoralistJSON) => {
+  const update = mock(() => {
+    const finalOverrides = { lodash: "4.17.21" };
+    const { appendix: finalAppendix } = mockConfig.pastoralist!;
+    const output = {
+      finalOverrides,
+      finalAppendix,
+    };
+    return output;
+  });
+  return update;
+};
+
+const createBuildMergedOptionsMockForDisplaysBlocked = () => {
+  const depsBuildMergedOptions = mock((options: any, rest: any) =>
+    Object.assign({}, options, rest, {
+      checkSecurity: true,
+      isTesting: true,
+      removeUnused: true,
+    }),
+  );
+  return depsBuildMergedOptions;
+};
+
+const createBlockedConfigOverrides = (mockConfig: PastoralistJSON) => {
+  const depsResolveJSON = mock(() => mockConfig);
+  const update = createUpdateMockForDisplaysBlocked(mockConfig);
+  const configOverrides = { resolveJSON: depsResolveJSON, update };
+  return configOverrides;
+};
+
+const createDepsForDisplaysBlocked = (
+  mockConfig: PastoralistJSON,
+  mockGraph: ReturnType<typeof createMockTerminalGraph>,
+) => {
+  const depsBuildMergedOptions = createBuildMergedOptionsMockForDisplaysBlocked();
+  const depsRunSecurityCheck = createRunSecurityCheckMockForDisplaysBlocked();
+  const depsHandleSecurityResults = mock(() => ({}));
+  const createSpinner = createSpinnerFactoryMockForFailsPackage();
+  const depsCreateTerminalGraph = mock(() => mockGraph);
+  const depsOverrides = {
+    buildMergedOptions: depsBuildMergedOptions,
+    runSecurityCheck: depsRunSecurityCheck,
+    handleSecurityResults: depsHandleSecurityResults,
+    createSpinner,
+    createTerminalGraph: depsCreateTerminalGraph,
+  };
+  const configOverrides = createBlockedConfigOverrides(mockConfig);
+  const deps = Object.assign(createBaseActionDeps(), configOverrides, depsOverrides);
+  return deps;
+};
+
+const createConfigPastoralistMock = () => {
+  const dependents = { root: "lodash (unused override)" };
+  const cves = ["CVE-2021-23337"];
+  const ledger = { addedDate: "2024-01-01", cves };
+  const lodashEntry = {
+    dependents,
+    ledger,
+  };
+  const appendix = {
+    "lodash@4.17.21": lodashEntry,
+  };
+  const mockConfigPastoralist = {
+    appendix,
+  };
+  return mockConfigPastoralist;
+};
+
+const createConfigMock = (): PastoralistJSON => {
+  const mockConfigDependencies = { lodash: "^4.17.20" };
+  const overrides = { lodash: "4.17.21" };
+  const mockConfigPastoralist = createConfigPastoralistMock();
   const mockConfig: PastoralistJSON = {
     name: "test-package",
     version: "1.0.0",
-    dependencies: { lodash: "^4.17.20" },
-    overrides: { lodash: "4.17.21" },
-    pastoralist: {
-      appendix: {
-        "lodash@4.17.21": {
-          dependents: { root: "lodash (unused override)" },
-          ledger: { addedDate: "2024-01-01", cves: ["CVE-2021-23337"] },
-        },
-      },
-    },
+    dependencies: mockConfigDependencies,
+    overrides,
+    pastoralist: mockConfigPastoralist,
   };
+  return mockConfig;
+};
+
+test("action - displays blocked removals notice when skipRemovalKeys set", async () => {
+  const mockConfig: PastoralistJSON = createConfigMock();
 
   const mockGraph = createMockTerminalGraph();
-
-  const deps = {
-    createLogger: mock(() => log),
-    handleTestMode: mock(() => false),
-    handleInitMode: mock(() => Promise.resolve(false)),
-    resolveJSON: mock(() => mockConfig),
-    buildMergedOptions: mock((options: any, rest: any) =>
-      Object.assign({}, options, rest, {
-        checkSecurity: true,
-        isTesting: true,
-        removeUnused: true,
-      }),
-    ),
-    runSecurityCheck: mock(() =>
-      Promise.resolve({
-        alerts: [
-          {
-            packageName: "lodash",
-            severity: "high",
-            currentVersion: "4.17.20",
-            cves: ["CVE-2021-23337"],
-          },
-        ],
-        securityOverrides: [],
-        updates: [],
-        packagesScanned: 1,
-        skipped: false,
-        spinner: { start: mock(), succeed: mock(), stop: mock() },
-        securityChecker: {
-          checkSecurity: mock(() =>
-            Promise.resolve({
-              alerts: [
-                {
-                  packageName: "lodash",
-                  severity: "high",
-                  currentVersion: "4.17.20",
-                  cves: ["CVE-2021-23337"],
-                },
-              ],
-              overrides: [],
-              updates: [],
-              packagesScanned: 1,
-            }),
-          ),
-        },
-      }),
-    ),
-    handleSecurityResults: mock(() => ({})),
-    createSpinner: mock(() => ({
-      start: mock(),
-      succeed: mock(),
-      stop: mock(),
-    })),
-    green: mock((text: string) => text),
-    update: mock(() => ({
-      finalOverrides: { lodash: "4.17.21" },
-      finalAppendix: mockConfig.pastoralist!.appendix,
-    })),
-    createTerminalGraph: mock(() => mockGraph),
-    getLedgerAddedDate: mock(() => new Date().toISOString()),
-    processExit: mock(() => {}),
-  };
+  const deps = createDepsForDisplaysBlocked(mockConfig, mockGraph);
 
   await action({ path: "package.json", removeUnused: true }, deps);
 
@@ -4474,6 +5223,7 @@ test("action - displays blocked removals notice when skipRemovalKeys set", async
   );
   assert.strictEqual(hasBlockedNotice, true);
 });
+
 const alert = (
   packageName: string,
   severity: SecurityAlert["severity"] = "medium",
@@ -4488,37 +5238,53 @@ const alert = (
   patchedVersion: "2.0.0",
 });
 
-const createConfig = (overrides: PastoralistJSON["overrides"] = { "unused-pkg": "1.0.0" }) =>
-  ({
+const createConfig = (overrides: PastoralistJSON["overrides"] = { "unused-pkg": "1.0.0" }) => {
+  const appendix = Object.fromEntries(
+    Object.entries(overrides || {}).map(([pkg, pkgVersion]) => {
+      const root = `${pkg} (unused override)`;
+      const dependents = { root };
+      const result = [`${pkg}@${pkgVersion}`, { dependents }];
+      return result;
+    }),
+  );
+  const pastoralistValue = {
+    appendix,
+  };
+  const config = {
     name: "test-app",
     version: "1.0.0",
     overrides,
-    pastoralist: {
-      appendix: Object.fromEntries(
-        Object.entries(overrides || {}).map(([pkg, version]) => [
-          `${pkg}@${version}`,
-          { dependents: { root: `${pkg} (unused override)` } },
-        ]),
-      ),
-    },
-  }) as PastoralistJSON;
+    pastoralist: pastoralistValue,
+  } as PastoralistJSON;
+  return config;
+};
+
+const createCheckerResult = (next: SecurityAlert[]) => {
+  const overrides = [];
+  const updates = [];
+  const result = {
+    alerts: next,
+    overrides,
+    updates,
+    packagesScanned: 1,
+  };
+  return result;
+};
 
 const createChecker = (results: Array<SecurityAlert[] | Error>) => {
   const queue = results.slice();
   let resultIndex = 0;
-  return {
-    checkSecurity: mock(() => {
-      const next = queue[resultIndex] || [];
-      resultIndex += 1;
-      if (next instanceof Error) throw next;
-      return {
-        alerts: next,
-        overrides: [],
-        updates: [],
-        packagesScanned: 1,
-      };
-    }),
+  const checkSecurity = mock(() => {
+    const next = queue[resultIndex] || [];
+    resultIndex += 1;
+    if (next instanceof Error) throw next;
+    const result = createCheckerResult(next);
+    return result;
+  });
+  const checker = {
+    checkSecurity,
   };
+  return checker;
 };
 
 const verifyTestRemovals = (
@@ -4541,18 +5307,9 @@ test("verifyRemovals - allows cleanup when post-removal alerts are lower", async
   assert.strictEqual(comparison?.beforeRiskScore, 2);
   assert.strictEqual(comparison?.afterRiskScore, 0);
   assert.strictEqual(checker.checkSecurity.mock.callCount(), 2);
-  assert.strictEqual(
-    checker.checkSecurity.mock.calls.map((call) =>
-      Array.isArray(call) ? call : call.arguments,
-    )[1][0].overrides,
-    undefined,
-  );
-  assert.strictEqual(
-    checker.checkSecurity.mock.calls.map((call) =>
-      Array.isArray(call) ? call : call.arguments,
-    )[1][1].root,
-    "./",
-  );
+  const calls = checker.checkSecurity.mock.calls.map((c) => (Array.isArray(c) ? c : c.arguments));
+  assert.strictEqual(calls[1][0].overrides, undefined);
+  assert.strictEqual(calls[1][1].root, "./");
 });
 
 test("verifyRemovals - blocks removal that restores a vulnerable transitive version", async () => {
@@ -4643,8 +5400,9 @@ test("verifyRemovals - performs a complete baseline scan", async () => {
   const config = createConfig();
   const checker = createChecker([[], []]);
 
+  const securityAlerts = [alert("baseline-pkg", "medium")];
   const comparison = await verifyTestRemovals(config, checker as any, {
-    securityAlerts: [alert("baseline-pkg", "medium")],
+    securityAlerts,
   });
 
   assert.strictEqual(comparison?.beforeAlertCount, 0);
@@ -4659,8 +5417,9 @@ test("verifyRemovals - performs a complete baseline scan", async () => {
 
 test("verifyRemovals - reuses config security filters for verification scans", async () => {
   const config = createConfig();
+  const excludePackages = ["ignored-pkg"];
   config.pastoralist!.security = {
-    excludePackages: ["ignored-pkg"],
+    excludePackages,
     severityThreshold: "high",
   };
   const checker = createChecker([[], []]);
@@ -4676,18 +5435,27 @@ test("verifyRemovals - reuses config security filters for verification scans", a
   });
 });
 
-test("verifyRemovals - ignores stale appendix-only entries", async () => {
+const createConfigForIgnoresStale = (): PastoralistJSON => {
+  const dependents = { root: "appendix-only (unused override)" };
+  const appendixOnlyEntry = {
+    dependents,
+  };
+  const appendix = {
+    "appendix-only@1.0.0": appendixOnlyEntry,
+  };
+  const configPastoralist = {
+    appendix,
+  };
   const config: PastoralistJSON = {
     name: "test-app",
     version: "1.0.0",
-    pastoralist: {
-      appendix: {
-        "appendix-only@1.0.0": {
-          dependents: { root: "appendix-only (unused override)" },
-        },
-      },
-    },
+    pastoralist: configPastoralist,
   };
+  return config;
+};
+
+test("verifyRemovals - ignores stale appendix-only entries", async () => {
+  const config: PastoralistJSON = createConfigForIgnoresStale();
   const checker = createChecker([[], []]);
 
   const comparison = await verifyTestRemovals(config, checker as any, {});
@@ -4700,8 +5468,9 @@ test("verifyRemovals - respects existing skipRemovalKeys", async () => {
   const config = createConfig({ skipped: "1.0.0", removable: "1.0.0" });
   const checker = createChecker([[]]);
 
+  const skipRemovalKeys = ["skipped@1.0.0"];
   const comparison = await verifyTestRemovals(config, checker as any, {
-    skipRemovalKeys: ["skipped@1.0.0"],
+    skipRemovalKeys,
   });
 
   assert.deepStrictEqual(comparison?.removableKeys, ["removable@1.0.0"]);
@@ -4714,19 +5483,35 @@ test("verifyRemovals - respects existing skipRemovalKeys", async () => {
   );
 });
 
-test("verifyRemovals - recognizes pnpm overrides for removal", async () => {
+const createConfigPastoralist = () => {
+  const dependents = { root: "pnpm-pkg (unused override)" };
+  const pnpmPkgEntry = {
+    dependents,
+  };
+  const appendix = {
+    "pnpm-pkg@1.0.0": pnpmPkgEntry,
+  };
+  const configPastoralist = {
+    appendix,
+  };
+  return configPastoralist;
+};
+
+const createConfigForRecognizesPnpm = (): PastoralistJSON => {
+  const overrides = { "pnpm-pkg": "1.0.0" };
+  const pnpm = { overrides };
+  const configPastoralist = createConfigPastoralist();
   const config: PastoralistJSON = {
     name: "test-app",
     version: "1.0.0",
-    pnpm: { overrides: { "pnpm-pkg": "1.0.0" } },
-    pastoralist: {
-      appendix: {
-        "pnpm-pkg@1.0.0": {
-          dependents: { root: "pnpm-pkg (unused override)" },
-        },
-      },
-    },
+    pnpm,
+    pastoralist: configPastoralist,
   };
+  return config;
+};
+
+test("verifyRemovals - recognizes pnpm overrides for removal", async () => {
+  const config: PastoralistJSON = createConfigForRecognizesPnpm();
   const checker = createChecker([[], []]);
 
   const comparison = await verifyTestRemovals(config, checker as any, {});
@@ -4738,53 +5523,69 @@ test("verifyRemovals - recognizes pnpm overrides for removal", async () => {
   assert.strictEqual(removalConfig.pnpm, undefined);
 });
 
-test("verifyRemovals - removes pnpm workspace override from removal config", async () => {
-  const root = mkdtempSync(join(tmpdir(), "pastoralist-pnpm-removal-"));
-  const packagePath = join(root, "package.json");
+const createConfigForRemovesPnpm = (): PastoralistJSON => {
+  const dependents = { root: "pnpm-pkg (unused override)" };
+  const pnpmPkgEntry = {
+    dependents,
+  };
+  const appendix = {
+    "pnpm-pkg@1.0.0": pnpmPkgEntry,
+  };
+  const configPastoralist = {
+    appendix,
+  };
   const config: PastoralistJSON = {
     name: "test-app",
     version: "1.0.0",
     packageManager: "pnpm@11.0.0",
-    pastoralist: {
-      appendix: {
-        "pnpm-pkg@1.0.0": {
-          dependents: { root: "pnpm-pkg (unused override)" },
-        },
-      },
-    },
+    pastoralist: configPastoralist,
   };
+  return config;
+};
+
+const PNPM_WORKSPACE_OVERRIDE_YAML = 'packages: []\noverrides:\n  "pnpm-pkg": "1.0.0"\n';
+
+test("verifyRemovals - removes pnpm workspace override from removal config", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pastoralist-pnpm-removal-"));
+  const packagePath = join(root, "package.json");
+  const config: PastoralistJSON = createConfigForRemovesPnpm();
   writeFileSync(packagePath, JSON.stringify(config));
-  writeFileSync(
-    join(root, "pnpm-workspace.yaml"),
-    'packages: []\noverrides:\n  "pnpm-pkg": "1.0.0"\n',
-  );
+  writeFileSync(join(root, "pnpm-workspace.yaml"), PNPM_WORKSPACE_OVERRIDE_YAML);
   const checker = createChecker([[], []]);
 
   try {
     const comparison = await verifyTestRemovals(config, checker as any, { path: packagePath });
-    const removalConfig = checker.checkSecurity.mock.calls.map((call) =>
-      Array.isArray(call) ? call : call.arguments,
-    )[1][0];
+    const calls = checker.checkSecurity.mock.calls.map((c) => (Array.isArray(c) ? c : c.arguments));
     assert.deepStrictEqual(comparison?.removableKeys, ["pnpm-pkg@1.0.0"]);
-    assert.deepStrictEqual(removalConfig.pnpm?.overrides, {});
+    assert.deepStrictEqual(calls[1][0].pnpm?.overrides, {});
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test("verifyRemovals - recognizes resolutions for removal", async () => {
+const createConfigForRecognizesResolutions = (): PastoralistJSON => {
+  const resolutions = { "yarn-pkg": "1.0.0" };
+  const dependents = { root: "yarn-pkg (unused override)" };
+  const yarnPkgEntry = {
+    dependents,
+  };
+  const appendix = {
+    "yarn-pkg@1.0.0": yarnPkgEntry,
+  };
+  const configPastoralist = {
+    appendix,
+  };
   const config: PastoralistJSON = {
     name: "test-app",
     version: "1.0.0",
-    resolutions: { "yarn-pkg": "1.0.0" },
-    pastoralist: {
-      appendix: {
-        "yarn-pkg@1.0.0": {
-          dependents: { root: "yarn-pkg (unused override)" },
-        },
-      },
-    },
+    resolutions,
+    pastoralist: configPastoralist,
   };
+  return config;
+};
+
+test("verifyRemovals - recognizes resolutions for removal", async () => {
+  const config: PastoralistJSON = createConfigForRecognizesResolutions();
   const checker = createChecker([[], []]);
 
   const comparison = await verifyTestRemovals(config, checker as any, {});
@@ -4796,25 +5597,35 @@ test("verifyRemovals - recognizes resolutions for removal", async () => {
   assert.strictEqual(removalConfig.resolutions, undefined);
 });
 
+const selectedState = { alpha: "2.0.0" };
+const selectedEvaluationAlerts = [];
+const selectedEvaluation = { alerts: selectedEvaluationAlerts };
+const baselineState = { alpha: "1.0.0" };
+const baselineEvaluationAlerts = [alert("alpha", "high")];
+const baselineEvaluation = { alerts: baselineEvaluationAlerts };
+const search = {
+  mode: "exact",
+  evaluatedStates: 2,
+  totalStates: 2,
+  provenOptimal: true,
+  durationMs: 1,
+};
+
+const impact = {
+  fixedVulnerabilities: 1,
+  introducedVulnerabilities: 0,
+  remainingVulnerabilities: 0,
+};
+
 const BEST_CASE_RESULT: BestCaseResult = {
-  selectedState: { alpha: "2.0.0" },
-  selectedEvaluation: { alerts: [] },
-  baselineState: { alpha: "1.0.0" },
-  baselineEvaluation: { alerts: [alert("alpha", "high")] },
+  selectedState,
+  selectedEvaluation,
+  baselineState,
+  baselineEvaluation,
   decisionId: "best-case-decision",
   policyHash: "policy-hash",
-  search: {
-    mode: "exact",
-    evaluatedStates: 2,
-    totalStates: 2,
-    provenOptimal: true,
-    durationMs: 1,
-  },
-  impact: {
-    fixedVulnerabilities: 1,
-    introducedVulnerabilities: 0,
-    remainingVulnerabilities: 0,
-  },
+  search,
+  impact,
   failedStates: 0,
 };
 
@@ -4824,15 +5635,50 @@ test("action security - returns the selected best-case summary", async () => {
 
   const result = await action({ checkSecurity: true, isTesting: true }, deps);
 
+  const { selectedState: selectedStateValue } = BEST_CASE_RESULT;
+  const { decisionId } = BEST_CASE_RESULT;
+  const { policyHash } = BEST_CASE_RESULT;
+  const { search: searchValue } = BEST_CASE_RESULT;
+  const { impact: impactValue } = BEST_CASE_RESULT;
+  const { failedStates } = BEST_CASE_RESULT;
   assert.deepStrictEqual(result.bestCase, {
-    selectedState: BEST_CASE_RESULT.selectedState,
-    decisionId: BEST_CASE_RESULT.decisionId,
-    policyHash: BEST_CASE_RESULT.policyHash,
-    search: BEST_CASE_RESULT.search,
-    impact: BEST_CASE_RESULT.impact,
-    failedStates: BEST_CASE_RESULT.failedStates,
+    selectedState: selectedStateValue,
+    decisionId,
+    policyHash,
+    search: searchValue,
+    impact: impactValue,
+    failedStates,
   });
 });
+
+const createSequencedCheckSecurity = (
+  scanResults: SecurityAlert[][],
+  fallbackAlerts: SecurityAlert[],
+) => {
+  let scanIndex = 0;
+  const checkSecurity = mock(() => {
+    const alerts = scanResults[scanIndex] || fallbackAlerts;
+    scanIndex += 1;
+    const overrides = [];
+    const updatesValue = [];
+    const result = Promise.resolve({
+      alerts,
+      overrides,
+      updates: updatesValue,
+      packagesScanned: 1,
+    });
+    return result;
+  });
+  return checkSecurity;
+};
+
+const createEmptyActionScan = () => {
+  const spinner = createMockSpinner();
+  const securityOverrides = [];
+  const updates = [];
+  const scan = { spinner, securityOverrides, updates, packagesScanned: 1, skipped: false };
+  return scan;
+};
 
 const createActionSecurityResults = (
   baselineAlerts: SecurityAlert[],
@@ -4840,22 +5686,11 @@ const createActionSecurityResults = (
 ) => {
   const scanResults = [baselineAlerts].concat(candidateScans);
   const fallbackAlerts = candidateScans.at(-1) || baselineAlerts;
-  let scanIndex = 0;
-  return {
-    spinner: createMockSpinner(),
-    securityChecker: {
-      checkSecurity: mock(() => {
-        const alerts = scanResults[scanIndex] || fallbackAlerts;
-        scanIndex += 1;
-        return Promise.resolve({ alerts, overrides: [], updates: [], packagesScanned: 1 });
-      }),
-    },
-    alerts: baselineAlerts,
-    securityOverrides: [],
-    updates: [],
-    packagesScanned: 1,
-    skipped: false,
-  };
+  const checkSecurity = createSequencedCheckSecurity(scanResults, fallbackAlerts);
+  const securityChecker = { checkSecurity };
+  const scanDetails = { securityChecker, alerts: baselineAlerts };
+  const actionSecurityResults = Object.assign(createEmptyActionScan(), scanDetails);
+  return actionSecurityResults;
 };
 
 const createRemovalActionDeps = (
@@ -4874,7 +5709,16 @@ const createRemovalActionDeps = (
   const graph = options.graph || createMockTerminalGraph();
   deps.createTerminalGraph = mock(() => graph);
   if (options.quickConfirm) deps.quickConfirm = options.quickConfirm;
-  return { deps, graph };
+  const removalActionDeps = { deps, graph };
+  return removalActionDeps;
+};
+
+const createActionOptions = (options: Options) => {
+  const actionOptions = Object.assign(
+    { checkSecurity: true, removeUnused: true, isTesting: true },
+    options,
+  );
+  return actionOptions;
 };
 
 const runRemovalAction = (
@@ -4887,14 +5731,13 @@ const runRemovalAction = (
   let updateOptions: Options | undefined;
   deps.update = mock((mergedOptions: Options) => {
     updateOptions = mergedOptions;
-    return realUpdate(mergedOptions);
+    const result = realUpdate(mergedOptions);
+    return result;
   });
-  const actionOptions = Object.assign(
-    { checkSecurity: true, removeUnused: true, isTesting: true },
-    options,
-  );
+  const actionOptions = createActionOptions(options);
   const resultPromise = action(actionOptions, deps);
-  return { resultPromise, graph, getUpdateOptions: () => updateOptions };
+  const value = { resultPromise, graph, getUpdateOptions: () => updateOptions };
+  return value;
 };
 
 test("action removal - renders comparison before update runs", async () => {
@@ -4905,7 +5748,8 @@ test("action removal - renders comparison before update runs", async () => {
     noticedBeforeUpdate = graph.notice.mock.calls
       .map((call) => (Array.isArray(call) ? call : call.arguments))
       .some((call) => typeof call[0] === "string" && call[0].includes("Removal verification:"));
-    return realUpdate(mergedOptions);
+    const result = realUpdate(mergedOptions);
+    return result;
   });
 
   await action({ checkSecurity: true, removeUnused: true, isTesting: true }, deps);
@@ -4975,11 +5819,12 @@ test("action removal - current vulnerability blocks cleanup", async () => {
 
 test("action removal - removes a security override after a clean candidate scan", async () => {
   const config = createConfig({ "security-pkg": "1.0.0" });
+  const cves = ["CVE-2026-0001"];
   config.pastoralist!.appendix!["security-pkg@1.0.0"].ledger = {
     addedDate: "2026-08-16",
     source: "security",
     securityChecked: true,
-    cves: ["CVE-2026-0001"],
+    cves,
   };
   const { resultPromise } = runRemovalAction(config, []);
   const result = await resultPromise;
@@ -5008,7 +5853,7 @@ test("action removal - confirms interactive cleanup", async () => {
   assert.strictEqual(result.appliedOverrides?.["interactive-pkg"], undefined);
 });
 
-test("action removal - truncates long cleanup prompts", async () => {
+const createConfigForTruncatesLong = () => {
   const config = createConfig({
     "pkg-one": "1.0.0",
     "pkg-two": "1.0.0",
@@ -5017,6 +5862,11 @@ test("action removal - truncates long cleanup prompts", async () => {
     "pkg-five": "1.0.0",
     "pkg-six": "1.0.0",
   });
+  return config;
+};
+
+test("action removal - truncates long cleanup prompts", async () => {
+  const config = createConfigForTruncatesLong();
   const quickConfirm = mock(() => Promise.resolve(true));
   const { deps } = createRemovalActionDeps(config, [], { quickConfirm });
   deps.update = mock((mergedOptions: Options) => realUpdate(mergedOptions));
@@ -5030,7 +5880,7 @@ test("action removal - truncates long cleanup prompts", async () => {
   );
 
   assert.ok(prompt.includes("pkg-five@1.0.0, +1 more"));
-  assert.ok(!prompt.includes("pkg-six@1.0.0"));
+  assert.doesNotMatch(prompt, /pkg-six@1\.0\.0/);
 });
 
 test("action removal - keeps overrides when cleanup is declined", async () => {

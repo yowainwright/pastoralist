@@ -66,3 +66,22 @@ test("compareVersions - should support security vulnerability range checking", (
   assert.ok(compareVersions(currentVersion, fixedVersion) < 0);
   assert.ok(compareVersions(fixedVersion, currentVersion) > 0);
 });
+
+test("compareVersions - strips prefixes and build metadata", () => {
+  assert.strictEqual(compareVersions("v1.2.3", "1.2.3"), 0);
+  assert.strictEqual(compareVersions("=1.2.3", "^1.2.3"), 0);
+  assert.strictEqual(compareVersions(" ~1.2.3 ", "1.2.3+build.5"), 0);
+});
+
+test("compareVersions - ranks prerelease below release", () => {
+  assert.ok(compareVersions("1.0.0-beta", "1.0.0") < 0);
+  assert.ok(compareVersions("1.0.0", "1.0.0-rc.1") > 0);
+});
+
+test("compareVersions - compares prerelease identifiers per semver", () => {
+  assert.ok(compareVersions("1.0.0-alpha", "1.0.0-alpha.1") < 0);
+  assert.ok(compareVersions("1.0.0-alpha.1", "1.0.0-alpha.beta") < 0);
+  assert.ok(compareVersions("1.0.0-beta.2", "1.0.0-beta.11") < 0);
+  assert.ok(compareVersions("1.0.0-beta.11", "1.0.0-rc.1") < 0);
+  assert.strictEqual(compareVersions("1.0.0-rc.1", "1.0.0-rc.1+build"), 0);
+});

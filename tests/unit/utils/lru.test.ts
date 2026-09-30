@@ -2,6 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { LRUCache } from "../../../src/utils/cache";
 
+const DATE_TIMER_APIS: Array<"Date"> = ["Date"];
+const DATE_TIMER_OPTIONS = { apis: DATE_TIMER_APIS, now: 0 };
+
 test("LRUCache - should set and get values", () => {
   const cache = new LRUCache<string, number>({ max: 3 });
 
@@ -70,15 +73,18 @@ test("LRUCache - should handle has() correctly", () => {
   assert.strictEqual(cache.has("b"), false);
 });
 
-test("LRUCache - should delete keys", () => {
+test("LRUCache - should delete keys", (context) => {
   const cache = new LRUCache<string, number>({ max: 3 });
+  const deleteSpy = context.mock.method(cache, "delete");
 
   cache.set("a", 1);
   cache.set("b", 2);
 
-  assert.strictEqual(cache.delete("a"), true);
+  cache.delete("a");
+  assert.strictEqual(deleteSpy.mock.calls[0].result, true);
   assert.strictEqual(cache.get("a"), undefined);
-  assert.strictEqual(cache.delete("a"), false);
+  cache.delete("a");
+  assert.strictEqual(deleteSpy.mock.calls[1].result, false);
 });
 
 test("LRUCache - should clear all entries", () => {
@@ -119,9 +125,10 @@ test("LRUCache - should return all keys", () => {
   cache.set("c", 3);
 
   const keys = cache.keys();
-  assert.ok(keys.includes("a"));
-  assert.ok(keys.includes("b"));
-  assert.ok(keys.includes("c"));
+  const keySet = new Set(keys);
+  assert.ok(keySet.has("a"));
+  assert.ok(keySet.has("b"));
+  assert.ok(keySet.has("c"));
   assert.strictEqual(keys.length, 3);
 });
 
@@ -136,7 +143,8 @@ test("LRUCache - should return all values in LRU order", () => {
   assert.deepStrictEqual(values, [3, 2, 1]);
 });
 
-test("LRUCache - should handle TTL expiration", async () => {
+test("LRUCache - should handle TTL expiration", (context) => {
+  context.mock.timers.enable(DATE_TIMER_OPTIONS);
   const cache = new LRUCache<string, number>({ max: 3, ttl: 50 });
 
   cache.set("a", 1);
@@ -144,29 +152,31 @@ test("LRUCache - should handle TTL expiration", async () => {
 
   assert.strictEqual(cache.get("a"), 1);
 
-  await new Promise((resolve) => setTimeout(resolve, 60));
+  context.mock.timers.tick(60);
 
   assert.strictEqual(cache.get("a"), undefined);
   assert.strictEqual(cache.has("a"), false);
 });
 
-test("LRUCache - should not expire without TTL", async () => {
+test("LRUCache - should not expire without TTL", (context) => {
+  context.mock.timers.enable(DATE_TIMER_OPTIONS);
   const cache = new LRUCache<string, number>({ max: 3 });
 
   cache.set("a", 1);
 
-  await new Promise((resolve) => setTimeout(resolve, 100));
+  context.mock.timers.tick(86_400_000);
 
   assert.strictEqual(cache.get("a"), 1);
 });
 
-test("LRUCache - should filter expired values from values()", async () => {
+test("LRUCache - should filter expired values from values()", (context) => {
+  context.mock.timers.enable(DATE_TIMER_OPTIONS);
   const cache = new LRUCache<string, number>({ max: 3, ttl: 50 });
 
   cache.set("a", 1);
   cache.set("b", 2);
 
-  await new Promise((resolve) => setTimeout(resolve, 60));
+  context.mock.timers.tick(60);
 
   cache.set("c", 3);
 

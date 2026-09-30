@@ -9,6 +9,27 @@ import {
   MOCK_DEPENDABOT_ALERT_MINIMIST,
 } from "../../../fixtures/github";
 
+const TEST_REPO_OPTIONS = { owner: "test-owner", repo: "test-repo", debug: false };
+const TEST_REPO_TOKEN_OPTIONS = {
+  owner: "test-owner",
+  repo: "test-repo",
+  token: "test-token",
+  debug: false,
+};
+
+const execResolving = (stdout: string) => async () => ({ stdout, stderr: "" });
+const execRejecting = (message: string) => async () => {
+  throw new Error(message);
+};
+
+const restoreEnv = (name: string, value: string | undefined): void => {
+  if (value) {
+    process.env[name] = value;
+    return;
+  }
+  delete process.env[name];
+};
+
 test("providerType - should be 'github'", () => {
   process.env.PASTORALIST_MOCK_SECURITY = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
@@ -47,11 +68,7 @@ test("constructor - initializes with debug option", () => {
 
 test("constructor - initializes with owner and repo", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
   assert.notStrictEqual(provider, undefined);
 });
 
@@ -71,10 +88,11 @@ test("convertToSecurityAlerts - converts Dependabot alerts to SecurityAlerts", (
 test("convertToSecurityAlerts - filters out dismissed alerts", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
-  const dismissedAlert: DependabotAlert = {
-    ...(MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert),
-    state: "dismissed",
-  };
+  const dismissedAlert: DependabotAlert = Object.assign(
+    {},
+    MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert,
+    { state: "dismissed" },
+  );
 
   const alerts = provider.convertToSecurityAlerts([dismissedAlert]);
 
@@ -84,10 +102,11 @@ test("convertToSecurityAlerts - filters out dismissed alerts", () => {
 test("convertToSecurityAlerts - filters out fixed alerts", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
-  const fixedAlert: DependabotAlert = {
-    ...(MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert),
-    state: "fixed",
-  };
+  const fixedAlert: DependabotAlert = Object.assign(
+    {},
+    MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert,
+    { state: "fixed" },
+  );
 
   const alerts = provider.convertToSecurityAlerts([fixedAlert]);
 
@@ -99,10 +118,7 @@ test("convertToSecurityAlerts - only includes open alerts", () => {
   const provider = new GitHubSecurityProvider({ debug: false });
   const alerts: DependabotAlert[] = [
     MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert,
-    {
-      ...(MOCK_DEPENDABOT_ALERT_MINIMIST as DependabotAlert),
-      state: "dismissed",
-    },
+    Object.assign({}, MOCK_DEPENDABOT_ALERT_MINIMIST as DependabotAlert, { state: "dismissed" }),
   ];
 
   const securityAlerts = provider.convertToSecurityAlerts(alerts);
@@ -111,16 +127,18 @@ test("convertToSecurityAlerts - only includes open alerts", () => {
   assert.strictEqual(securityAlerts[0].packageName, "lodash");
 });
 
+const cveId = null as any;
 test("convertToSecurityAlerts - handles alerts without CVE", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
-  const alertWithoutCve: DependabotAlert = {
-    ...(MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert),
-    security_advisory: {
-      ...MOCK_DEPENDABOT_ALERT_LODASH.security_advisory,
-      cve_id: null as any,
-    },
-  };
+  const securityAdvisory = Object.assign({}, MOCK_DEPENDABOT_ALERT_LODASH.security_advisory, {
+    cve_id: cveId,
+  });
+  const alertWithoutCve: DependabotAlert = Object.assign(
+    {},
+    MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert,
+    { security_advisory: securityAdvisory },
+  );
 
   const alerts = provider.convertToSecurityAlerts([alertWithoutCve]);
 
@@ -128,16 +146,20 @@ test("convertToSecurityAlerts - handles alerts without CVE", () => {
   assert.ok(!alerts[0].cves?.length);
 });
 
+const firstPatchedVersion = null as any;
 test("convertToSecurityAlerts - handles alerts without patched version", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
-  const alertWithoutPatch: DependabotAlert = {
-    ...(MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert),
-    security_vulnerability: {
-      ...MOCK_DEPENDABOT_ALERT_LODASH.security_vulnerability,
-      first_patched_version: null as any,
-    },
-  };
+  const securityVulnerability = Object.assign(
+    {},
+    MOCK_DEPENDABOT_ALERT_LODASH.security_vulnerability,
+    { first_patched_version: firstPatchedVersion },
+  );
+  const alertWithoutPatch: DependabotAlert = Object.assign(
+    {},
+    MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert,
+    { security_vulnerability: securityVulnerability },
+  );
 
   const alerts = provider.convertToSecurityAlerts([alertWithoutPatch]);
 
@@ -175,20 +197,22 @@ test("convertToSecurityAlerts - filters alerts to scanned npm packages", () => {
   assert.strictEqual(alerts[0].currentVersion, "4.17.20");
 });
 
+const packageValue = { ecosystem: "pip", name: "lodash" };
+const pipPackage = { package: packageValue };
+const createPipAlert = (): DependabotAlert => {
+  const lodashAlert = MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert;
+  const dependency = Object.assign({}, lodashAlert.dependency, pipPackage);
+  const securityVulnerability = Object.assign({}, lodashAlert.security_vulnerability, pipPackage);
+  const pipAlert: DependabotAlert = Object.assign({}, lodashAlert, {
+    dependency,
+    security_vulnerability: securityVulnerability,
+  });
+  return pipAlert;
+};
 test("convertToSecurityAlerts - filters non-npm alerts when ecosystem is known", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
-  const pipAlert: DependabotAlert = {
-    ...(MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert),
-    dependency: {
-      ...(MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert).dependency,
-      package: { ecosystem: "pip", name: "lodash" },
-    },
-    security_vulnerability: {
-      ...(MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert).security_vulnerability,
-      package: { ecosystem: "pip", name: "lodash" },
-    },
-  };
+  const pipAlert = createPipAlert();
 
   const alerts = provider.convertToSecurityAlerts(
     [pipAlert],
@@ -198,30 +222,28 @@ test("convertToSecurityAlerts - filters non-npm alerts when ecosystem is known",
   assert.strictEqual(alerts.length, 0);
 });
 
+const dependabotAlertsSecurityVulnerabilityPackageValue = { name: "test-pkg" };
+const dependabotAlertsSecurityVulnerabilityFirstPatchedVersion = { identifier: "2.0.0" };
+const dependabotAlertsSecurityVulnerability = {
+  package: dependabotAlertsSecurityVulnerabilityPackageValue,
+  vulnerable_version_range: "< 2.0.0",
+  first_patched_version: dependabotAlertsSecurityVulnerabilityFirstPatchedVersion,
+  severity: "critical",
+};
+const dependabotAlertsSecurityAdvisory = {
+  summary: "Security Issue",
+  description: "Detailed description",
+  cve_id: "CVE-2024-1234",
+};
+const OPEN_TEST_PACKAGE_ALERT = {
+  state: "open",
+  security_vulnerability: dependabotAlertsSecurityVulnerability,
+  security_advisory: dependabotAlertsSecurityAdvisory,
+  html_url: "https://github.com/test/test/security/dependabot/1",
+};
 test("convertToSecurityAlerts - maps fields correctly", () => {
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
-
-  const dependabotAlerts = [
-    {
-      state: "open",
-      security_vulnerability: {
-        package: { name: "test-pkg" },
-        vulnerable_version_range: "< 2.0.0",
-        first_patched_version: { identifier: "2.0.0" },
-        severity: "critical",
-      },
-      security_advisory: {
-        summary: "Security Issue",
-        description: "Detailed description",
-        cve_id: "CVE-2024-1234",
-      },
-      html_url: "https://github.com/test/test/security/dependabot/1",
-    },
-  ];
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
+  const dependabotAlerts = [Object.assign({}, OPEN_TEST_PACKAGE_ALERT)];
 
   const alerts = provider.convertToSecurityAlerts(dependabotAlerts as any);
 
@@ -236,6 +258,19 @@ test("convertToSecurityAlerts - maps fields correctly", () => {
   assert.strictEqual(alerts[0].fixAvailable, true);
 });
 
+const alertsSecurityVulnerabilityPackageValue = { name: "pkg" };
+const alertsSecurityVulnerabilityFirstPatchedVersion = { identifier: "4.17.21" };
+const alertsSecurityVulnerability = {
+  package: alertsSecurityVulnerabilityPackageValue,
+  vulnerable_version_range: ">= 4.17.0, <= 4.17.20",
+  first_patched_version: alertsSecurityVulnerabilityFirstPatchedVersion,
+  severity: "high",
+};
+const alertsSecurityAdvisory = {
+  summary: "Vuln",
+  description: "Desc",
+  cve_id: "CVE-2024-1",
+};
 test("convertToSecurityAlerts - extracts current version from range", () => {
   const provider = new GitHubSecurityProvider({
     owner: "test",
@@ -246,17 +281,8 @@ test("convertToSecurityAlerts - extracts current version from range", () => {
   const alerts = [
     {
       state: "open",
-      security_vulnerability: {
-        package: { name: "pkg" },
-        vulnerable_version_range: ">= 4.17.0, <= 4.17.20",
-        first_patched_version: { identifier: "4.17.21" },
-        severity: "high",
-      },
-      security_advisory: {
-        summary: "Vuln",
-        description: "Desc",
-        cve_id: "CVE-2024-1",
-      },
+      security_vulnerability: alertsSecurityVulnerability,
+      security_advisory: alertsSecurityAdvisory,
       html_url: "https://github.com/test/test/1",
     },
   ];
@@ -362,11 +388,7 @@ test("isGitHubUrl - handles HTTP GitHub URL", () => {
 });
 
 test("isGitHubUrl - rejects gitlab SSH URL", () => {
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
   assert.strictEqual(provider["isGitHubUrl"]("git@gitlab.com:owner/repo.git"), false);
 });
@@ -477,80 +499,65 @@ test("fetchDependabotAlerts - returns mock alerts when forcing vulnerable", asyn
   delete process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE];
 });
 
-test("fetchDependabotAlerts - preserves dots in inferred repository names", async () => {
+const withLiveGitHubFetch = async (fetchImpl: typeof fetch, run: () => Promise<void>) => {
   const originalMockMode = process.env[SECURITY_ENV_VARS.MOCK_MODE];
-  const originalFetch = global.fetch;
+  const { fetch: originalFetch } = global;
   delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
-
-  const provider = new GitHubSecurityProvider({
-    token: ["test", "token"].join("-"),
-    debug: false,
-  });
-  provider["execFileAsync"] = async () => ({
-    stdout: "https://github.com/vercel/next.js.git\n",
-    stderr: "",
-  });
-
-  let requestedUrl = "";
-  global.fetch = async (input) => {
-    requestedUrl = String(input);
-    return {
-      ok: true,
-      headers: new Headers(),
-      json: async () => [],
-    } as Response;
-  };
+  global.fetch = fetchImpl;
 
   try {
-    await provider.fetchDependabotAlerts();
-    assert.ok(requestedUrl.includes("/vercel/next.js/dependabot/alerts"));
+    await run();
   } finally {
     global.fetch = originalFetch;
-    if (originalMockMode) {
-      process.env[SECURITY_ENV_VARS.MOCK_MODE] = originalMockMode;
-    } else {
-      delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
-    }
+    restoreEnv(SECURITY_ENV_VARS.MOCK_MODE, originalMockMode);
   }
+};
+
+const jsonResponse = (body: unknown, headers: Headers): Response => {
+  const json = async () => body;
+  const response = { ok: true, headers, json } as Response;
+  return response;
+};
+
+const NEXT_PAGE_LINK = { Link: '<https://api.github.com/alerts?page=2>; rel="next"' };
+
+test("fetchDependabotAlerts - preserves dots in inferred repository names", async () => {
+  let requestedUrl = "";
+  const fetchImpl = async (input: string | URL | Request) => {
+    requestedUrl = String(input);
+    const response = jsonResponse([], new Headers());
+    return response;
+  };
+
+  await withLiveGitHubFetch(fetchImpl, async () => {
+    const token = ["test", "token"].join("-");
+    const provider = new GitHubSecurityProvider({ token, debug: false });
+    provider["execFileAsync"] = execResolving("https://github.com/vercel/next.js.git\n") as any;
+
+    await provider.fetchDependabotAlerts();
+    assert.ok(requestedUrl.includes("/vercel/next.js/dependabot/alerts"));
+  });
 });
 
 test("fetchDependabotAlerts - follows GitHub API pagination", async () => {
-  const originalMockMode = process.env[SECURITY_ENV_VARS.MOCK_MODE];
-  const originalFetch = global.fetch;
-  delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
-
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    token: ["test", "token"].join("-"),
-    debug: false,
-  });
   const firstAlert = MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert;
   const secondAlert = MOCK_DEPENDABOT_ALERT_MINIMIST as DependabotAlert;
   let requestCount = 0;
-
-  global.fetch = async () => {
+  const fetchImpl = async () => {
     requestCount += 1;
     const isFirstPage = requestCount === 1;
-    const headers = isFirstPage
-      ? new Headers({ Link: '<https://api.github.com/alerts?page=2>; rel="next"' })
-      : new Headers();
+    const headers = isFirstPage ? new Headers(NEXT_PAGE_LINK) : new Headers();
     const alerts = isFirstPage ? [firstAlert] : [secondAlert];
-    return { ok: true, headers, json: async () => alerts } as Response;
+    const response = jsonResponse(alerts, headers);
+    return response;
   };
 
-  try {
+  await withLiveGitHubFetch(fetchImpl, async () => {
+    const provider = new GitHubSecurityProvider(TEST_REPO_TOKEN_OPTIONS);
     const alerts = await provider.fetchDependabotAlerts();
     assert.deepStrictEqual(alerts, [firstAlert, secondAlert]);
     assert.strictEqual(requestCount, 2);
-  } finally {
-    global.fetch = originalFetch;
-    if (originalMockMode) {
-      process.env[SECURITY_ENV_VARS.MOCK_MODE] = originalMockMode;
-    } else {
-      delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
-    }
-  }
+  });
 });
 
 test("fetchAlerts - converts Dependabot alerts to SecurityAlerts", async () => {
@@ -577,13 +584,16 @@ test("fetchAlerts - converts Dependabot alerts to SecurityAlerts", async () => {
 test("extractCurrentVersion - extracts version from >= range", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
-  const alert: DependabotAlert = {
-    ...(MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert),
-    security_vulnerability: {
-      ...MOCK_DEPENDABOT_ALERT_LODASH.security_vulnerability,
-      vulnerable_version_range: ">= 4.0.0",
-    },
-  };
+  const securityVulnerability = Object.assign(
+    {},
+    MOCK_DEPENDABOT_ALERT_LODASH.security_vulnerability,
+    { vulnerable_version_range: ">= 4.0.0" },
+  );
+  const alert: DependabotAlert = Object.assign(
+    {},
+    MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert,
+    { security_vulnerability: securityVulnerability },
+  );
 
   const version = (provider as any).extractCurrentVersion(alert);
   assert.strictEqual(version, "4.0.0");
@@ -592,13 +602,16 @@ test("extractCurrentVersion - extracts version from >= range", () => {
 test("extractCurrentVersion - extracts version from >= <= range", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
-  const alert: DependabotAlert = {
-    ...(MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert),
-    security_vulnerability: {
-      ...MOCK_DEPENDABOT_ALERT_LODASH.security_vulnerability,
-      vulnerable_version_range: ">= 4.0.0, <= 4.17.20",
-    },
-  };
+  const securityVulnerability = Object.assign(
+    {},
+    MOCK_DEPENDABOT_ALERT_LODASH.security_vulnerability,
+    { vulnerable_version_range: ">= 4.0.0, <= 4.17.20" },
+  );
+  const alert: DependabotAlert = Object.assign(
+    {},
+    MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert,
+    { security_vulnerability: securityVulnerability },
+  );
 
   const version = (provider as any).extractCurrentVersion(alert);
   assert.strictEqual(version, "4.0.0");
@@ -607,18 +620,33 @@ test("extractCurrentVersion - extracts version from >= <= range", () => {
 test("extractCurrentVersion - returns unknown for unparseable range", () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   const provider = new GitHubSecurityProvider({ debug: false });
-  const alert: DependabotAlert = {
-    ...(MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert),
-    security_vulnerability: {
-      ...MOCK_DEPENDABOT_ALERT_LODASH.security_vulnerability,
-      vulnerable_version_range: "< 1.0.0",
-    },
-  };
+  const securityVulnerability = Object.assign(
+    {},
+    MOCK_DEPENDABOT_ALERT_LODASH.security_vulnerability,
+    { vulnerable_version_range: "< 1.0.0" },
+  );
+  const alert: DependabotAlert = Object.assign(
+    {},
+    MOCK_DEPENDABOT_ALERT_LODASH as DependabotAlert,
+    { security_vulnerability: securityVulnerability },
+  );
 
   const version = (provider as any).extractCurrentVersion(alert);
   assert.strictEqual(version, "unknown");
 });
 
+const alertSecurityVulnerabilityPackageValue = { name: "test" };
+const alertSecurityVulnerability = {
+  package: alertSecurityVulnerabilityPackageValue,
+  vulnerable_version_range: ">= 4.17.0",
+  first_patched_version: alertsSecurityVulnerabilityFirstPatchedVersion,
+  severity: "high",
+};
+const alertSecurityAdvisory = {
+  summary: "Test",
+  description: "Test",
+  cve_id: "CVE-2024-TEST",
+};
 test("extractCurrentVersion - handles >= with single space", () => {
   const provider = new GitHubSecurityProvider({
     owner: "test",
@@ -628,17 +656,8 @@ test("extractCurrentVersion - handles >= with single space", () => {
 
   const alert = {
     state: "open",
-    security_vulnerability: {
-      package: { name: "test" },
-      vulnerable_version_range: ">= 4.17.0",
-      first_patched_version: { identifier: "4.17.21" },
-      severity: "high",
-    },
-    security_advisory: {
-      summary: "Test",
-      description: "Test",
-      cve_id: "CVE-2024-TEST",
-    },
+    security_vulnerability: alertSecurityVulnerability,
+    security_advisory: alertSecurityAdvisory,
     html_url: "https://github.com/test/test/1",
   } as any;
 
@@ -646,6 +665,13 @@ test("extractCurrentVersion - handles >= with single space", () => {
   assert.strictEqual(result, "4.17.0");
 });
 
+const securityVulnerability2FirstPatchedVersion = { identifier: "1.0.0" };
+const securityVulnerability2 = {
+  package: alertSecurityVulnerabilityPackageValue,
+  vulnerable_version_range: "",
+  first_patched_version: securityVulnerability2FirstPatchedVersion,
+  severity: "low",
+};
 test("extractCurrentVersion - handles empty vulnerable range", () => {
   const provider = new GitHubSecurityProvider({
     owner: "test",
@@ -655,17 +681,8 @@ test("extractCurrentVersion - handles empty vulnerable range", () => {
 
   const alert = {
     state: "open",
-    security_vulnerability: {
-      package: { name: "test" },
-      vulnerable_version_range: "",
-      first_patched_version: { identifier: "1.0.0" },
-      severity: "low",
-    },
-    security_advisory: {
-      summary: "Test",
-      description: "Test",
-      cve_id: "CVE-2024-TEST",
-    },
+    security_vulnerability: securityVulnerability2,
+    security_advisory: alertSecurityAdvisory,
     html_url: "https://github.com/test/test/1",
   } as any;
 
@@ -693,11 +710,7 @@ test("fetchMockAlerts - returns empty when not forcing vulnerable", async () => 
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   delete process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE];
 
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
   const alerts = await provider["fetchMockAlerts"]();
   assert.deepStrictEqual(alerts, []);
@@ -715,11 +728,7 @@ test("fetchMockAlerts - returns alerts when forcing vulnerable", async () => {
   process.env[SECURITY_ENV_VARS.MOCK_MODE] = "true";
   process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE] = "true";
 
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
   const alerts = await provider["fetchMockAlerts"]();
   assert.strictEqual(Array.isArray(alerts), true);
@@ -741,11 +750,7 @@ test("getMockVulnerableAlerts - uses default when no mock file", async () => {
   process.env[SECURITY_ENV_VARS.FORCE_VULNERABLE] = "true";
   delete process.env[SECURITY_ENV_VARS.MOCK_FILE];
 
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
   const alerts = await provider["getMockVulnerableAlerts"]();
   assert.strictEqual(Array.isArray(alerts), true);
@@ -760,6 +765,18 @@ test("getMockVulnerableAlerts - uses default when no mock file", async () => {
   if (originalFile) process.env[SECURITY_ENV_VARS.MOCK_FILE] = originalFile;
 });
 
+const mockDataSecurityVulnerabilityPackageValue = { name: "test-package" };
+const mockDataSecurityVulnerability = {
+  package: mockDataSecurityVulnerabilityPackageValue,
+  vulnerable_version_range: "< 1.0.0",
+  first_patched_version: securityVulnerability2FirstPatchedVersion,
+  severity: "high",
+};
+const mockDataSecurityAdvisory = {
+  summary: "Test Alert",
+  description: "Test Description",
+  cve_id: "CVE-2024-TEST",
+};
 test("loadMockFile - loads valid mock file", async () => {
   const { writeFileSync, unlinkSync } = await import("fs");
   const { resolve } = await import("path");
@@ -768,28 +785,15 @@ test("loadMockFile - loads valid mock file", async () => {
   const mockData = [
     {
       state: "open",
-      security_vulnerability: {
-        package: { name: "test-package" },
-        vulnerable_version_range: "< 1.0.0",
-        first_patched_version: { identifier: "1.0.0" },
-        severity: "high",
-      },
-      security_advisory: {
-        summary: "Test Alert",
-        description: "Test Description",
-        cve_id: "CVE-2024-TEST",
-      },
+      security_vulnerability: mockDataSecurityVulnerability,
+      security_advisory: mockDataSecurityAdvisory,
       html_url: "https://github.com/test/test/security/1",
     },
   ];
 
   writeFileSync(testFile, JSON.stringify(mockData));
 
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
   const alerts = await provider["loadMockFile"](testFile);
   assert.notStrictEqual(alerts, undefined);
@@ -800,11 +804,7 @@ test("loadMockFile - loads valid mock file", async () => {
 });
 
 test("loadMockFile - returns null for invalid file", async () => {
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
   const alerts = await provider["loadMockFile"]("/nonexistent/path/file.json");
   assert.strictEqual(alerts, null);
@@ -817,11 +817,7 @@ test("loadMockFile - returns null for malformed JSON", async () => {
   const testFile = resolve(process.cwd(), "tests/unit/.test-invalid-json.json");
   writeFileSync(testFile, "{ invalid json }");
 
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
   const alerts = await provider["loadMockFile"](testFile);
   assert.strictEqual(alerts, null);
@@ -836,11 +832,7 @@ test("fetchRealAlerts - throws when no token and no gh CLI", async () => {
   delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
   delete process.env.GITHUB_TOKEN;
 
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
   provider["isGhCliAvailable"] = async () => false;
 
@@ -858,17 +850,13 @@ test("fetchRealAlerts - uses API when token provided", async () => {
 
   delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
 
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    token: "test-token",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_TOKEN_OPTIONS);
 
   let apiCalled = false;
   provider["fetchAlertsWithApi"] = async () => {
     apiCalled = true;
-    return [];
+    const items = [];
+    return items;
   };
 
   await provider["fetchRealAlerts"]();
@@ -884,18 +872,15 @@ test("fetchRealAlerts - uses gh CLI when no token but CLI available", async () =
   delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
   delete process.env.GITHUB_TOKEN;
 
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
   provider["isGhCliAvailable"] = async () => true;
 
   let cliCalled = false;
   provider["fetchAlertsWithGhCli"] = async () => {
     cliCalled = true;
-    return [];
+    const items = [];
+    return items;
   };
 
   await provider["fetchRealAlerts"]();
@@ -909,12 +894,7 @@ test("fetchRealAlerts - API path throws wrapped error on failure", async () => {
   const originalMock = process.env[SECURITY_ENV_VARS.MOCK_MODE];
   delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
 
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    token: "test-token",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_TOKEN_OPTIONS);
 
   provider["fetchAlertsWithApi"] = async () => {
     throw new Error("Failed to fetch Dependabot alerts: API error");
@@ -935,11 +915,7 @@ test("fetchRealAlerts - CLI path throws wrapped error on failure", async () => {
   delete process.env[SECURITY_ENV_VARS.MOCK_MODE];
   delete process.env.GITHUB_TOKEN;
 
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
   provider["isGhCliAvailable"] = async () => true;
   provider["fetchAlertsWithGhCli"] = async () => {
@@ -955,27 +931,25 @@ test("fetchRealAlerts - CLI path throws wrapped error on failure", async () => {
   if (originalToken) process.env.GITHUB_TOKEN = originalToken;
 });
 
+const mockAlertsSecurityVulnerability = {
+  package: dependabotAlertsSecurityVulnerabilityPackageValue,
+  vulnerable_version_range: "< 1.0.0",
+  first_patched_version: securityVulnerability2FirstPatchedVersion,
+  severity: "high",
+};
+const mockAlertsSecurityAdvisory = {
+  summary: "Test",
+  description: "Test",
+  cve_id: "CVE-2024-1234",
+};
 test("fetchAlertsWithGhCli - parses JSON response", async () => {
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
   const mockAlerts = [
     {
       state: "open",
-      security_vulnerability: {
-        package: { name: "test-pkg" },
-        vulnerable_version_range: "< 1.0.0",
-        first_patched_version: { identifier: "1.0.0" },
-        severity: "high",
-      },
-      security_advisory: {
-        summary: "Test",
-        description: "Test",
-        cve_id: "CVE-2024-1234",
-      },
+      security_vulnerability: mockAlertsSecurityVulnerability,
+      security_advisory: mockAlertsSecurityAdvisory,
       html_url: "https://github.com/test/test/1",
     },
   ];
@@ -987,11 +961,7 @@ test("fetchAlertsWithGhCli - parses JSON response", async () => {
 });
 
 test("fetchAlertsWithGhCli - handles non-array response", async () => {
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
   provider["executeGhCli"] = async () => JSON.stringify({ message: "error" });
 
@@ -1000,72 +970,44 @@ test("fetchAlertsWithGhCli - handles non-array response", async () => {
 });
 
 test("isPermissionError - detects 'Resource not accessible by integration' error", () => {
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
   assert.strictEqual(provider["isPermissionError"]("Resource not accessible by integration"), true);
 });
 
 test("isPermissionError - detects 'Must have admin rights' error", () => {
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
   assert.strictEqual(provider["isPermissionError"]("Must have admin rights"), true);
 });
 
 test("isPermissionError - detects 'Not Found' error", () => {
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
   assert.strictEqual(provider["isPermissionError"]("Not Found"), true);
 });
 
 test("isPermissionError - detects 'Dependabot alerts are not enabled' error", () => {
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
   assert.strictEqual(provider["isPermissionError"]("Dependabot alerts are not enabled"), true);
 });
 
 test("isPermissionError - detects 'vulnerability alerts are disabled' error", () => {
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
   assert.strictEqual(provider["isPermissionError"]("vulnerability alerts are disabled"), true);
 });
 
 test("isPermissionError - is case insensitive", () => {
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
   assert.strictEqual(provider["isPermissionError"]("RESOURCE NOT ACCESSIBLE BY INTEGRATION"), true);
   assert.strictEqual(provider["isPermissionError"]("resource not accessible by integration"), true);
 });
 
 test("isPermissionError - returns false for non-permission errors", () => {
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
   assert.strictEqual(provider["isPermissionError"]("Rate limit exceeded"), false);
   assert.strictEqual(provider["isPermissionError"]("Server error"), false);
@@ -1075,11 +1017,7 @@ test("isPermissionError - returns false for non-permission errors", () => {
 test("fetchAlertsWithGhCli - throws SecurityProviderPermissionError for permission errors", async () => {
   const { SecurityProviderPermissionError } =
     await import("../../../../../src/core/security/types");
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
   provider["executeGhCli"] = async () => {
     throw new Error("Resource not accessible by integration");
@@ -1091,12 +1029,7 @@ test("fetchAlertsWithGhCli - throws SecurityProviderPermissionError for permissi
 test("fetchAlertsWithApi - throws SecurityProviderPermissionError for permission errors", async () => {
   const { SecurityProviderPermissionError } =
     await import("../../../../../src/core/security/types");
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    token: "test-token",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_TOKEN_OPTIONS);
 
   provider["fetchFromGitHubAPI"] = async () => {
     throw new SecurityProviderPermissionError("GitHub", "Resource not accessible by integration");
@@ -1117,9 +1050,10 @@ test("SecurityProviderPermissionError - has correct message format", async () =>
   assert.strictEqual(error.name, "SecurityProviderPermissionError");
   assert.strictEqual(error.provider, "GitHub");
   assert.strictEqual(error.originalMessage, "Resource not accessible by integration");
-  assert.ok(error.message.includes("GitHub"));
-  assert.ok(error.message.includes("Resource not accessible by integration"));
-  assert.ok(error.message.includes("vulnerability-alerts: read"));
+  const message: string = error.message;
+  assert.ok(message.includes("GitHub"));
+  assert.ok(message.includes("Resource not accessible by integration"));
+  assert.ok(message.includes("vulnerability-alerts: read"));
 });
 
 test("SecurityProviderPermissionError - provides guidance for disabled alerts", async () => {
@@ -1127,9 +1061,10 @@ test("SecurityProviderPermissionError - provides guidance for disabled alerts", 
     await import("../../../../../src/core/security/types");
 
   const error = new SecurityProviderPermissionError("GitHub", "Dependabot alerts are not enabled");
+  const message: string = error.message;
 
-  assert.ok(error.message.includes("Enable Dependabot alerts"));
-  assert.ok(error.message.includes("Settings > Code security"));
+  assert.ok(message.includes("Enable Dependabot alerts"));
+  assert.ok(message.includes("Settings > Code security"));
 });
 
 test("SecurityProviderPermissionError - provides guidance for not found errors", async () => {
@@ -1164,12 +1099,7 @@ test("fetchFromGitHubAPI - throws SecurityProviderPermissionError for permission
   const { SecurityProviderPermissionError } =
     await import("../../../../../src/core/security/types");
 
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    token: "test-token",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_TOKEN_OPTIONS);
 
   const mockResponse = {
     ok: false,
@@ -1177,7 +1107,7 @@ test("fetchFromGitHubAPI - throws SecurityProviderPermissionError for permission
     json: async () => ({ message: "Resource not accessible by integration" }),
   };
 
-  const originalFetch = global.fetch;
+  const { fetch: originalFetch } = global;
   global.fetch = async () => mockResponse as Response;
 
   try {
@@ -1188,12 +1118,7 @@ test("fetchFromGitHubAPI - throws SecurityProviderPermissionError for permission
 });
 
 test("fetchFromGitHubAPI - throws regular error for non-permission API errors", async () => {
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    token: "test-token",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_TOKEN_OPTIONS);
 
   const mockResponse = {
     ok: false,
@@ -1201,7 +1126,7 @@ test("fetchFromGitHubAPI - throws regular error for non-permission API errors", 
     json: async () => ({ message: "Server error" }),
   };
 
-  const originalFetch = global.fetch;
+  const { fetch: originalFetch } = global;
   global.fetch = async () => mockResponse as Response;
 
   try {
@@ -1215,12 +1140,7 @@ test("fetchFromGitHubAPI - throws regular error for non-permission API errors", 
 });
 
 test("fetchFromGitHubAPI - uses statusText when message is missing", async () => {
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    token: "test-token",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_TOKEN_OPTIONS);
 
   const mockResponse = {
     ok: false,
@@ -1228,7 +1148,7 @@ test("fetchFromGitHubAPI - uses statusText when message is missing", async () =>
     json: async () => ({}),
   };
 
-  const originalFetch = global.fetch;
+  const { fetch: originalFetch } = global;
   global.fetch = async () => mockResponse as Response;
 
   try {
@@ -1241,21 +1161,17 @@ test("fetchFromGitHubAPI - uses statusText when message is missing", async () =>
   }
 });
 
+const securityVulnerability3 = {};
 test("fetchFromGitHubAPI - returns alerts array on success", async () => {
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    token: "test-token",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_TOKEN_OPTIONS);
 
-  const mockAlerts = [{ state: "open", security_vulnerability: {} }];
+  const mockAlerts = [{ state: "open", security_vulnerability: securityVulnerability3 }];
   const mockResponse = {
     ok: true,
     json: async () => mockAlerts,
   };
 
-  const originalFetch = global.fetch;
+  const { fetch: originalFetch } = global;
   global.fetch = async () => mockResponse as Response;
 
   try {
@@ -1267,19 +1183,14 @@ test("fetchFromGitHubAPI - returns alerts array on success", async () => {
 });
 
 test("fetchFromGitHubAPI - returns empty array for non-array response", async () => {
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    token: "test-token",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_TOKEN_OPTIONS);
 
   const mockResponse = {
     ok: true,
     json: async () => ({ message: "unexpected format" }),
   };
 
-  const originalFetch = global.fetch;
+  const { fetch: originalFetch } = global;
   global.fetch = async () => mockResponse as Response;
 
   try {
@@ -1294,11 +1205,7 @@ test("fetchAlertsWithGhCli - does not retry on permission error", async () => {
   const { SecurityProviderPermissionError } =
     await import("../../../../../src/core/security/types");
 
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
   let callCount = 0;
   provider["executeGhCli"] = async () => {
@@ -1315,12 +1222,7 @@ test("fetchAlertsWithApi - does not retry on permission error", async () => {
   const { SecurityProviderPermissionError } =
     await import("../../../../../src/core/security/types");
 
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    token: "test-token",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_TOKEN_OPTIONS);
 
   let callCount = 0;
   provider["fetchFromGitHubAPI"] = async () => {
@@ -1334,11 +1236,7 @@ test("fetchAlertsWithApi - does not retry on permission error", async () => {
 });
 
 test("isPermissionError - detects error in longer message", () => {
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
   const hasPermissionError = provider["isPermissionError"](
     "Error: GitHub API error: Resource not accessible by integration (status 403)",
@@ -1348,11 +1246,7 @@ test("isPermissionError - detects error in longer message", () => {
 });
 
 test("isPermissionError - handles empty string", () => {
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
   assert.strictEqual(provider["isPermissionError"](""), false);
 });
@@ -1360,12 +1254,9 @@ test("isPermissionError - handles empty string", () => {
 test("getRepoOwner - extracts owner from HTTPS GitHub URL", async () => {
   const provider = new GitHubSecurityProvider({ debug: false });
 
-  const mockExecFileAsync = async () => ({
-    stdout: "https://github.com/yowainwright/pastoralist.git\n",
-    stderr: "",
-  });
-
-  provider["execFileAsync"] = mockExecFileAsync as any;
+  provider["execFileAsync"] = execResolving(
+    "https://github.com/yowainwright/pastoralist.git\n",
+  ) as any;
 
   const owner = await provider["getRepoOwner"]();
   assert.strictEqual(owner, "yowainwright");
@@ -1374,12 +1265,7 @@ test("getRepoOwner - extracts owner from HTTPS GitHub URL", async () => {
 test("getRepoOwner - extracts owner from SSH GitHub URL", async () => {
   const provider = new GitHubSecurityProvider({ debug: false });
 
-  const mockExecFileAsync = async () => ({
-    stdout: "git@github.com:yowainwright/pastoralist.git\n",
-    stderr: "",
-  });
-
-  provider["execFileAsync"] = mockExecFileAsync as any;
+  provider["execFileAsync"] = execResolving("git@github.com:yowainwright/pastoralist.git\n") as any;
 
   const owner = await provider["getRepoOwner"]();
   assert.strictEqual(owner, "yowainwright");
@@ -1388,12 +1274,7 @@ test("getRepoOwner - extracts owner from SSH GitHub URL", async () => {
 test("getRepoOwner - throws for non-GitHub URL", async () => {
   const provider = new GitHubSecurityProvider({ debug: false });
 
-  const mockExecFileAsync = async () => ({
-    stdout: "https://gitlab.com/user/repo.git\n",
-    stderr: "",
-  });
-
-  provider["execFileAsync"] = mockExecFileAsync as any;
+  provider["execFileAsync"] = execResolving("https://gitlab.com/user/repo.git\n") as any;
 
   await assert.rejects(
     provider["getRepoOwner"](),
@@ -1404,11 +1285,7 @@ test("getRepoOwner - throws for non-GitHub URL", async () => {
 test("getRepoOwner - throws when git command fails", async () => {
   const provider = new GitHubSecurityProvider({ debug: false });
 
-  const mockExecFileAsync = async () => {
-    throw new Error("git command failed");
-  };
-
-  provider["execFileAsync"] = mockExecFileAsync as any;
+  provider["execFileAsync"] = execRejecting("git command failed") as any;
 
   await assert.rejects(
     provider["getRepoOwner"](),
@@ -1419,12 +1296,9 @@ test("getRepoOwner - throws when git command fails", async () => {
 test("getRepoName - extracts repo name from HTTPS GitHub URL", async () => {
   const provider = new GitHubSecurityProvider({ debug: false });
 
-  const mockExecFileAsync = async () => ({
-    stdout: "https://github.com/yowainwright/pastoralist.git\n",
-    stderr: "",
-  });
-
-  provider["execFileAsync"] = mockExecFileAsync as any;
+  provider["execFileAsync"] = execResolving(
+    "https://github.com/yowainwright/pastoralist.git\n",
+  ) as any;
 
   const repo = await provider["getRepoName"]();
   assert.strictEqual(repo, "pastoralist");
@@ -1433,12 +1307,7 @@ test("getRepoName - extracts repo name from HTTPS GitHub URL", async () => {
 test("getRepoName - extracts repo name from SSH GitHub URL", async () => {
   const provider = new GitHubSecurityProvider({ debug: false });
 
-  const mockExecFileAsync = async () => ({
-    stdout: "git@github.com:yowainwright/pastoralist.git\n",
-    stderr: "",
-  });
-
-  provider["execFileAsync"] = mockExecFileAsync as any;
+  provider["execFileAsync"] = execResolving("git@github.com:yowainwright/pastoralist.git\n") as any;
 
   const repo = await provider["getRepoName"]();
   assert.strictEqual(repo, "pastoralist");
@@ -1447,12 +1316,7 @@ test("getRepoName - extracts repo name from SSH GitHub URL", async () => {
 test("getRepoName - throws for non-GitHub URL", async () => {
   const provider = new GitHubSecurityProvider({ debug: false });
 
-  const mockExecFileAsync = async () => ({
-    stdout: "https://gitlab.com/user/repo.git\n",
-    stderr: "",
-  });
-
-  provider["execFileAsync"] = mockExecFileAsync as any;
+  provider["execFileAsync"] = execResolving("https://gitlab.com/user/repo.git\n") as any;
 
   await assert.rejects(
     provider["getRepoName"](),
@@ -1463,11 +1327,7 @@ test("getRepoName - throws for non-GitHub URL", async () => {
 test("getRepoName - throws when git command fails", async () => {
   const provider = new GitHubSecurityProvider({ debug: false });
 
-  const mockExecFileAsync = async () => {
-    throw new Error("git command failed");
-  };
-
-  provider["execFileAsync"] = mockExecFileAsync as any;
+  provider["execFileAsync"] = execRejecting("git command failed") as any;
 
   await assert.rejects(
     provider["getRepoName"](),
@@ -1478,12 +1338,7 @@ test("getRepoName - throws when git command fails", async () => {
 test("getRepoOwner - handles URL without .git suffix", async () => {
   const provider = new GitHubSecurityProvider({ debug: false });
 
-  const mockExecFileAsync = async () => ({
-    stdout: "https://github.com/yowainwright/pastoralist\n",
-    stderr: "",
-  });
-
-  provider["execFileAsync"] = mockExecFileAsync as any;
+  provider["execFileAsync"] = execResolving("https://github.com/yowainwright/pastoralist\n") as any;
 
   const owner = await provider["getRepoOwner"]();
   assert.strictEqual(owner, "yowainwright");
@@ -1492,64 +1347,42 @@ test("getRepoOwner - handles URL without .git suffix", async () => {
 test("getRepoName - handles URL without .git suffix", async () => {
   const provider = new GitHubSecurityProvider({ debug: false });
 
-  const mockExecFileAsync = async () => ({
-    stdout: "https://github.com/yowainwright/pastoralist\n",
-    stderr: "",
-  });
-
-  provider["execFileAsync"] = mockExecFileAsync as any;
+  provider["execFileAsync"] = execResolving("https://github.com/yowainwright/pastoralist\n") as any;
 
   const repo = await provider["getRepoName"]();
   assert.strictEqual(repo, "pastoralist");
 });
 
 test("isGhCliAvailable - returns true when gh CLI is available", async () => {
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
-  const mockExecFileAsync = async () => ({
-    stdout: "gh version 2.40.0\n",
-    stderr: "",
-  });
-
-  provider["execFileAsync"] = mockExecFileAsync as any;
+  provider["execFileAsync"] = execResolving("gh version 2.40.0\n") as any;
 
   const isAvailable = await provider["isGhCliAvailable"]();
   assert.strictEqual(isAvailable, true);
 });
 
 test("isGhCliAvailable - returns false when gh CLI is not available", async () => {
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
-  const mockExecFileAsync = async () => {
-    throw new Error("command not found: gh");
-  };
-
-  provider["execFileAsync"] = mockExecFileAsync as any;
+  provider["execFileAsync"] = execRejecting("command not found: gh") as any;
 
   const isAvailable = await provider["isGhCliAvailable"]();
   assert.strictEqual(isAvailable, false);
 });
 
 test("executeGhCli - returns stdout from gh CLI", async () => {
-  const provider = new GitHubSecurityProvider({
-    owner: "test-owner",
-    repo: "test-repo",
-    debug: false,
-  });
+  const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
   const mockAlerts = [{ state: "open" }];
-  const mockExecFileAsync = async () => ({
-    stdout: JSON.stringify(mockAlerts),
-    stderr: "",
-  });
+  const mockExecFileAsync = async () => {
+    const stdout = JSON.stringify(mockAlerts);
+    const mockExecFileAsyncResult = {
+      stdout,
+      stderr: "",
+    };
+    return mockExecFileAsyncResult;
+  };
 
   provider["execFileAsync"] = mockExecFileAsync as any;
 
@@ -1567,14 +1400,37 @@ test("executeGhCli - uses correct API endpoint", async () => {
   let capturedArgs: string[] = [];
   const mockExecFileAsync = async (cmd: string, args: string[]) => {
     capturedArgs = args;
-    return { stdout: "[]", stderr: "" };
+    const result = { stdout: "[]", stderr: "" };
+    return result;
   };
 
   provider["execFileAsync"] = mockExecFileAsync as any;
 
   await provider["executeGhCli"]();
+  const capturedArgSet = new Set(capturedArgs);
 
-  assert.ok(capturedArgs.includes("api"));
-  assert.ok(capturedArgs.includes("repos/yowainwright/pastoralist/dependabot/alerts"));
-  assert.ok(capturedArgs.includes("--paginate"));
+  assert.ok(capturedArgSet.has("api"));
+  assert.ok(capturedArgSet.has("repos/yowainwright/pastoralist/dependabot/alerts"));
+  assert.ok(capturedArgSet.has("--paginate"));
+});
+
+const securityAdvisory2 = { summary: "Broken" };
+test("convertToSecurityAlerts - skips alerts missing security_vulnerability", () => {
+  const provider = new GitHubSecurityProvider({
+    owner: "test",
+    repo: "test",
+    debug: false,
+  });
+  const alerts = [
+    { state: "open", security_advisory: securityAdvisory2 },
+    {
+      state: "open",
+      security_vulnerability: securityVulnerability3,
+      security_advisory: securityAdvisory2,
+    },
+  ] as unknown as DependabotAlert[];
+
+  const result = provider.convertToSecurityAlerts(alerts);
+
+  assert.deepStrictEqual(result, []);
 });

@@ -8,7 +8,6 @@ import {
 } from "../../dx";
 import type {
   PromptChoice,
-  PromptOptions,
   PromptKey,
   SelectorMode,
   SelectorState,
@@ -16,6 +15,9 @@ import type {
   SelectorCallbacks,
 } from "./types";
 import { PROMPT_LIST_MAX_ATTEMPTS } from "./constants";
+import { logger } from "../../observability";
+
+const promptOutput = logger({ file: "cli/prompts/index.ts" });
 
 export class Prompt {
   protected rl: readline.Interface;
@@ -65,7 +67,7 @@ export class Prompt {
   }
 
   list(message: string, choices: PromptChoice[]): Promise<string> {
-    console.log(formatChoiceList(message, choices));
+    promptOutput.print(formatChoiceList(message, choices));
     this.ensureCookedMode();
     const result = this.askForListChoice(choices);
     return result;
@@ -76,7 +78,7 @@ export class Prompt {
     const selected = this.getListChoice(answer, choices);
     if (selected) return selected;
 
-    console.log("Invalid choice. Please enter a number between 1 and " + choices.length);
+    promptOutput.print("Invalid choice. Please enter a number between 1 and " + choices.length);
     const exhaustedAttempts = attempt >= PROMPT_LIST_MAX_ATTEMPTS;
     if (exhaustedAttempts) {
       const result = choices[0]?.value ?? "";
@@ -94,34 +96,6 @@ export class Prompt {
     if (isInvalidChoice) return undefined;
     const listChoice = choices[choiceNumber - 1]?.value;
     return listChoice;
-  }
-
-  prompt(options: PromptOptions): Promise<string | boolean> {
-    const { message } = options;
-    if (options.type === "confirm") {
-      const confirmation = this.confirm(message, options.default ?? true);
-      return confirmation;
-    }
-    if (options.type === "list") {
-      const selection = this.list(message, options.choices);
-      return selection;
-    }
-    const input = this.input(message, options.default ?? "");
-    return input;
-  }
-
-  promptMany(questions: PromptOptions[]): Promise<Record<string, string | boolean>> {
-    const result = questions.reduce(
-      async (accPromise, question, index) => {
-        const answers = await accPromise;
-        const key = `answer${index}`;
-
-        answers[key] = await this.prompt(question);
-        return answers;
-      },
-      Promise.resolve({} as Record<string, string | boolean>),
-    );
-    return result;
   }
 }
 
@@ -577,10 +551,10 @@ const isChoiceNumber = (value: number, count: number): boolean => {
 };
 
 const numberedSelect = async (message: string, choices: PromptChoice[]): Promise<string[]> => {
-  console.log(`\n${message}`);
+  promptOutput.print(`\n${message}`);
   choices.forEach((choice, index) => {
     const suffix = isDisabled(choice) ? ` (${choice.disabled})` : "";
-    console.log(`  ${index + 1}. ${choice.name}${suffix}`);
+    promptOutput.print(`  ${index + 1}. ${choice.name}${suffix}`);
   });
   const answer = await askLine("\nEnter choices (comma-separated numbers): ");
   const result = parseSelectedChoices(answer, choices);

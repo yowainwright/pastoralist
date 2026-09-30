@@ -99,10 +99,3 @@ export interface NormalizedAppendixUpdateOptions extends AppendixUpdateOptions {
   cache: Map<string, AppendixItem>;
   onlyUsedOverrides: boolean;
 }
-
-export interface NestedAppendixItemOptions extends Pick<
-  ProcessOverrideOptions,
-  "securityOverrideDetails" | "securityProvider" | "manualOverrideReasons" | "addedDate"
-> {
-  nestedPkg: string;
-}

@@ -10,7 +10,7 @@ import type {
   SecurityProviderType,
   Severity,
 } from "../../types";
-import { compareVersions } from "../../utils";
+import { compareVersions, getErrorMessage } from "../../utils";
 import { getSeverityScore } from "../security/utils";
 import {
   DEFAULT_OBJECTIVES,
@@ -595,15 +595,6 @@ export const getTotalStates = (choices: BestCasePackageChoice[]): number => {
     return result;
   }, 1);
   return totalStates;
-};
-
-const getErrorMessage = (reason: unknown): string => {
-  if (reason instanceof Error) {
-    const errorMessage = reason.message;
-    return errorMessage;
-  }
-  const errorMessage2 = String(reason);
-  return errorMessage2;
 };
 
 const createInvalidEvaluation = (reason: unknown): BestCaseEvaluation => {

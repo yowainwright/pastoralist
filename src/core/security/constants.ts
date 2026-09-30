@@ -18,6 +18,12 @@ export const DEFAULT_AUDIT_TIMEOUT = 120000;
 export const PROMPT_SELECT_MAX_ATTEMPTS = 5;
 export const OSV_DETAIL_CONCURRENCY = 5;
 export const OSV_CACHE_MAX_ENTRIES = 500;
+export const SNYK_VERSION_SEPARATOR = "@";
+export const SNYK_RANGE_JOINER = " || ";
+export const OSV_NPM_ECOSYSTEM = "npm";
+export const OSV_GIT_RANGE_TYPE = "GIT";
+export const OSV_CVSS_VECTOR_PREFIX = "CVSS:";
+export const OSV_MALFORMED_BATCH_RESPONSE = "OSV batch response is malformed";
 export const GITHUB_OWNER_PATTERN = /github\.com[:/]([^/]+)\//;
 export const GITHUB_REPOSITORY_PATTERN = /github\.com[:/][^/]+\/([^/\s]+)$/;
 export const GITHUB_REPOSITORY_SUFFIX_PATTERN = /\.git$/;
@@ -25,6 +31,7 @@ export const GITHUB_NEXT_LINK_PATTERN = /<([^>]+)>/;
 export const GITHUB_VULNERABLE_LOWER_BOUND_PATTERN = />= ?([^\s,]+)/;
 export const SECURITY_BOUNDED_MINIMUM_PATTERN = />=\s*([^\s,]+)/;
 export const SECURITY_BOUNDED_MAXIMUM_PATTERN = /(<=?)\s*([^\s,]+)/;
+export const SECURITY_RANGE_OR_SEPARATOR = "||";
 export const SECURITY_EXACT_RANGE_PATTERN = /^=\s*([^\s,]+)$/;
 export const SECURITY_EXACT_VERSION_PATTERN =
   /^(\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?)$/;
@@ -321,3 +328,10 @@ export const GITHUB_DEFAULT_MOCK_ALERTS: DependabotAlert[] = [
   createMockAlert("lodash", "4.17.21", "high", 1),
   createMockAlert("minimist", "1.2.6", "medium", 2),
 ];
+
+export const SECURITY_SEVERITY_SCORES: Record<string, number> = {
+  low: 1,
+  medium: 2,
+  high: 3,
+  critical: 4,
+};

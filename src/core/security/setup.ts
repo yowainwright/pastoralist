@@ -340,25 +340,15 @@ export class SecuritySetupWizard {
   }
 
   private async offerTokenPage(config: ProviderConfig): Promise<void> {
-    if (!this.shouldOfferBrowserOpen(config)) {
-      return;
-    }
+    const { tokenUrl } = config;
+    if (!tokenUrl) return;
+    if (this.skipBrowserOpen) return;
 
-    const openBrowser = await this.prompts.confirm(
-      `Open ${config.tokenUrl} in your browser?`,
-      true,
-    );
+    const openBrowser = await this.prompts.confirm(`Open ${tokenUrl} in your browser?`, true);
+    if (!openBrowser) return;
 
-    if (openBrowser) {
-      await this.openUrl(config.tokenUrl!);
-      this.out.info(`\n${SETUP_MESSAGES.BROWSER_OPENED}\n`);
-    }
-  }
-
-  private shouldOfferBrowserOpen(config: ProviderConfig): boolean {
-    if (!config.tokenUrl) return false;
-    const result = !this.skipBrowserOpen;
-    return result;
+    await this.openUrl(tokenUrl);
+    this.out.info(`\n${SETUP_MESSAGES.BROWSER_OPENED}\n`);
   }
 
   private promptForToken(config: ProviderConfig): Promise<string> {
@@ -370,10 +360,9 @@ export class SecuritySetupWizard {
 
   private async completeTokenSetup(config: ProviderConfig, token: string): Promise<SetupResult> {
     this.out.success(`${SETUP_MESSAGES.TOKEN_VALID}\n`);
-    const savedToProfile = await this.promptForProfileSave(config, token);
-    process.env[config.envVar!] = token;
-
-    const message = this.createTokenSetupMessage(config, savedToProfile);
+    const { envVar } = config;
+    const savedToProfile = await this.storeToken(envVar, token);
+    const message = this.createTokenSetupMessage(envVar, savedToProfile);
     const result = {
       success: true,
       token,
@@ -383,7 +372,14 @@ export class SecuritySetupWizard {
     return result;
   }
 
-  private async promptForProfileSave(config: ProviderConfig, token: string): Promise<boolean> {
+  private async storeToken(envVar: string | null, token: string): Promise<boolean> {
+    if (!envVar) return false;
+    const savedToProfile = await this.promptForProfileSave(envVar, token);
+    process.env[envVar] = token;
+    return savedToProfile;
+  }
+
+  private async promptForProfileSave(envVar: string, token: string): Promise<boolean> {
     this.out.warn(SETUP_MESSAGES.PLAINTEXT_WARNING);
     const saveToProfile = await this.prompts.confirm(SETUP_MESSAGES.SAVE_PROMPT, false);
 
@@ -391,17 +387,18 @@ export class SecuritySetupWizard {
       return false;
     }
 
-    const result = this.saveToShellProfile(config.envVar!, token);
+    const result = this.saveToShellProfile(envVar, token);
     return result;
   }
 
-  private createTokenSetupMessage(config: ProviderConfig, savedToProfile: boolean): string {
+  private createTokenSetupMessage(envVar: string | null, savedToProfile: boolean): string {
     if (savedToProfile) {
       const tokenSetupMessage = SETUP_MESSAGES.SAVED_TO_PROFILE;
       return tokenSetupMessage;
     }
 
-    const message = SETUP_MESSAGES.SESSION_ONLY.replace("{envVar}", config.envVar!);
+    const envVarName = envVar ?? "";
+    const message = SETUP_MESSAGES.SESSION_ONLY.replace("{envVar}", envVarName);
     return message;
   }
 
@@ -411,9 +408,9 @@ export class SecuritySetupWizard {
     this.out.log("  - The token was copied correctly");
     this.out.log("  - The token has the required permissions");
 
-    const hasRequiredScopes = !!config.requiredScopes;
-    if (hasRequiredScopes) {
-      this.out.log(`  - Scopes include: ${config.requiredScopes!.join(", ")}`);
+    const { requiredScopes } = config;
+    if (requiredScopes) {
+      this.out.log(`  - Scopes include: ${requiredScopes.join(", ")}`);
     }
 
     const result: SetupResult = { success: false, message: "Token validation failed" };

@@ -37,7 +37,6 @@ import {
   isNonEmptyString,
   isNonEmptyStringArray,
   isNonNegativeInteger,
-  isObject,
   isPositiveInteger,
   isRecord,
   isString,
@@ -64,7 +63,7 @@ const isSeverityThreshold = (value: unknown): value is SeverityThreshold => {
 };
 
 const isValidKeepObject = (v: unknown): boolean => {
-  const isObj = isObject(v);
+  const isObj = isRecord(v);
   const reason = isObj ? (v as Record<string, unknown>).reason : undefined;
   const result: boolean = isObj && isString(reason);
   return result;
@@ -75,7 +74,7 @@ const isValidKeep = (v: unknown): boolean => isBoolean(v) || isValidKeepObject(v
 const KEEP_CONSTRAINT_FIELDS = ["reason", "until", "untilVersion", "reviewBy"] as const;
 
 const isStrictKeepObject = (value: unknown): boolean => {
-  if (!isObject(value)) return false;
+  if (!isRecord(value)) return false;
   if (!hasOnlyFields(value, KEEP_CONSTRAINT_FIELDS)) return false;
   if (!isString(value.reason)) return false;
   const fields = ["until", "untilVersion", "reviewBy"] as const;
@@ -151,7 +150,7 @@ const validateProjectReason = (value: Record<string, unknown>): boolean => {
 };
 
 const validateBestCaseSearchReason = (value: unknown): boolean => {
-  if (!isObject(value)) return false;
+  if (!isRecord(value)) return false;
   const fields = ["evaluatedStates", "provenOptimal"] as const;
   if (!hasOnlyFields(value, fields)) return false;
   const bestCaseSearchReason: boolean =
@@ -160,7 +159,7 @@ const validateBestCaseSearchReason = (value: unknown): boolean => {
 };
 
 const validateBestCaseImpact = (value: unknown): boolean => {
-  if (!isObject(value)) return false;
+  if (!isRecord(value)) return false;
   const fields = [
     "fixedVulnerabilities",
     "introducedVulnerabilities",
@@ -188,7 +187,7 @@ const validateBestCaseReason = (value: Record<string, unknown>): boolean => {
 
 const validateLedgerReason = (value: unknown): boolean => {
   if (isNonEmptyString(value)) return true;
-  if (!isObject(value)) return false;
+  if (!isRecord(value)) return false;
   if (value.type === "project") {
     const ledgerReason: boolean = validateProjectReason(value);
     return ledgerReason;
@@ -203,7 +202,7 @@ const validateLedgerReason = (value: unknown): boolean => {
 const CVE_DETAIL_FIELDS = ["cve", "severity", "patchedVersion"] as const;
 
 const validateCveDetail = (value: unknown): boolean => {
-  if (!isObject(value)) return false;
+  if (!isRecord(value)) return false;
   if (!hasOnlyFields(value, CVE_DETAIL_FIELDS)) return false;
   if (!isString(value.cve)) return false;
   const fields: FieldValidation[] = [
@@ -248,7 +247,7 @@ const STRICT_LEDGER_FIELDS = LEDGER_FIELDS.concat(STRICT_LEDGER_ADDITIONAL_FIELD
 const STRICT_LEDGER_FIELD_NAMES = ["addedDate"].concat(getFieldNames(STRICT_LEDGER_FIELDS));
 
 const validateLedger = (value: unknown): boolean => {
-  if (!isObject(value)) return false;
+  if (!isRecord(value)) return false;
   if (!hasValidAddedDate(value)) return false;
 
   const ledger: boolean = areFieldsValid(value, LEDGER_FIELDS);
@@ -256,7 +255,7 @@ const validateLedger = (value: unknown): boolean => {
 };
 
 const validateStrictLedger = (value: unknown): boolean => {
-  if (!isObject(value)) return false;
+  if (!isRecord(value)) return false;
   if (!hasOnlyFields(value, STRICT_LEDGER_FIELD_NAMES)) return false;
   if (!hasValidAddedDate(value)) return false;
   const strictLedger: boolean = areFieldsValid(value, STRICT_LEDGER_FIELDS);
@@ -273,7 +272,7 @@ const APPENDIX_ITEM_FIELDS: FieldValidation[] = createFieldValidations(
 ]);
 
 const validateAppendixItem = (value: unknown): boolean => {
-  const appendixItem: boolean = isObject(value) && areFieldsValid(value, APPENDIX_ITEM_FIELDS);
+  const appendixItem: boolean = isRecord(value) && areFieldsValid(value, APPENDIX_ITEM_FIELDS);
   return appendixItem;
 };
 
@@ -295,7 +294,7 @@ const STRICT_APPENDIX_ITEM_FIELDS = applyFieldValidatorOverrides(
 const STRICT_APPENDIX_ITEM_FIELD_NAMES = getFieldNames(STRICT_APPENDIX_ITEM_FIELDS);
 
 const validateStrictAppendixItem = (value: unknown): boolean => {
-  if (!isObject(value)) return false;
+  if (!isRecord(value)) return false;
   if (!hasOnlyFields(value, STRICT_APPENDIX_ITEM_FIELD_NAMES)) return false;
   const strictAppendixItem: boolean = areFieldsValid(value, STRICT_APPENDIX_ITEM_FIELDS);
   return strictAppendixItem;
@@ -317,14 +316,14 @@ const SECURITY_CONFIG_FIELDS: FieldValidation[] = createFieldValidations(
 ]);
 
 const validateSecurityConfig = (value: unknown): boolean => {
-  const securityConfig: boolean = isObject(value) && areFieldsValid(value, SECURITY_CONFIG_FIELDS);
+  const securityConfig: boolean = isRecord(value) && areFieldsValid(value, SECURITY_CONFIG_FIELDS);
   return securityConfig;
 };
 
 const SECURITY_CONFIG_FIELD_NAMES = getFieldNames(SECURITY_CONFIG_FIELDS);
 
 const validateStrictSecurityConfig = (value: unknown): boolean => {
-  if (!isObject(value)) return false;
+  if (!isRecord(value)) return false;
   if (!hasOnlyFields(value, SECURITY_CONFIG_FIELD_NAMES)) return false;
   const strictSecurityConfig: boolean = areFieldsValid(value, SECURITY_CONFIG_FIELDS);
   return strictSecurityConfig;
@@ -357,7 +356,7 @@ const isBestCaseSearchMode = (value: unknown): value is BestCaseSearchMode => {
 };
 
 const validateBestCaseSearch = (value: unknown): boolean => {
-  if (!isObject(value)) return false;
+  if (!isRecord(value)) return false;
   const allowedFields = ["mode", "exactStateLimit", "beamWidth", "maxEvaluations"] as const;
   if (!hasOnlyFields(value, allowedFields)) return false;
   const fields: FieldValidation[] = [
@@ -371,7 +370,7 @@ const validateBestCaseSearch = (value: unknown): boolean => {
 };
 
 const validateBestCaseConfig = (value: unknown): boolean => {
-  if (!isObject(value)) return false;
+  if (!isRecord(value)) return false;
   const allowedFields = [
     "enabled",
     "userOwnedOverrides",
@@ -441,8 +440,8 @@ const validateStrictPastoralistConfig = (value: Record<string, unknown>): boolea
   return strictPastoralistConfig;
 };
 
-const validatePastoralistConfig = (value: unknown): boolean => {
-  if (!isObject(value)) return false;
+const validatePastoralistConfig = (value: unknown): value is PastoralistConfig => {
+  if (!isRecord(value)) return false;
   if (!areFieldsValid(value, PASTORALIST_CONFIG_FIELDS)) return false;
   const usesPastoralistSchema = value.$schema === PASTORALIST_SCHEMA_PATH;
   if (!usesPastoralistSchema) return true;
@@ -454,14 +453,12 @@ export function validateConfig(config: unknown): PastoralistConfig {
   if (!validatePastoralistConfig(config)) {
     throw new Error(INVALID_CONFIG_STRUCTURE);
   }
-  const result = config as PastoralistConfig;
-  return result;
+  return config;
 }
 
 export function safeValidateConfig(config: unknown): PastoralistConfig | undefined {
   if (!validatePastoralistConfig(config)) {
     return undefined;
   }
-  const result = config as PastoralistConfig;
-  return result;
+  return config;
 }

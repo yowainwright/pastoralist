@@ -16,6 +16,7 @@ export interface PastoralistJSON {
   pnpm?: { overrides?: Record<string, OverrideValue> };
   workspaces?: PackageJsonWorkspaces;
   pastoralist?: PastoralistConfig;
+  scripts?: Record<string, string>;
 }
 
 export interface KeepConstraint {
@@ -284,33 +285,9 @@ export interface UpdatePackageJSONOptions {
   manageOverrides?: boolean;
 }
 
-export interface FindRootDeps {
-  packageJSONs?: string[];
-  debug?: boolean;
-  resolutionName: string;
-  resolutionVersion: string;
-  rootName: string;
-}
-
-export interface GetRootDeps {
-  debug?: boolean;
-  resolutions: Array<string>;
-}
-
-export interface RootDepItem {
-  resolution: string;
-  rootDeps: Array<string>;
-}
-
 export interface LoggerOptions {
   file: string;
   isLogging?: boolean;
-}
-
-export interface ResolveAppendixOptions {
-  config: PastoralistJSON;
-  options: Options;
-  resolutions: Record<string, string>;
 }
 
 export interface OverridesWithType extends OverridesConfig {

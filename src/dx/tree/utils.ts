@@ -31,7 +31,7 @@ const { BOLD, RESET, FG_RED, FG_WHITE } = ANSI;
 
 const isDefined = <T>(value: T | undefined): value is T => value !== undefined;
 
-export const noopOutput: Output = {
+const noopOutput: Output = {
   write: () => {},
   writeLine: () => {},
   clearLine: () => {},
@@ -45,7 +45,7 @@ const resolveOutput = (options: TerminalGraphOptions): Output => {
   return output;
 };
 
-export const createState = <T>(initial: T): StateContainer<T> => {
+const createState = <T>(initial: T): StateContainer<T> => {
   let current = initial;
   const state: StateContainer<T> = {
     get: () => current,
@@ -56,7 +56,7 @@ export const createState = <T>(initial: T): StateContainer<T> => {
   return state;
 };
 
-export const createInitialState = (): TerminalGraphState => {
+const createInitialState = (): TerminalGraphState => {
   const ancestors: boolean[] = [];
   const spinner = {
     active: false,
@@ -89,10 +89,9 @@ export const buildConnector = (isLast: boolean): string => {
   return connector2;
 };
 
-export const composeLine = (...parts: (string | undefined)[]): string =>
-  parts.filter(Boolean).join(" ");
+const composeLine = (...parts: (string | undefined)[]): string => parts.filter(Boolean).join(" ");
 
-export const buildTreeLine = (
+const buildTreeLine = (
   ancestors: boolean[],
   isLast: boolean,
   ...content: (string | undefined)[]
@@ -110,10 +109,7 @@ const popAncestor = (state: StateContainer<TerminalGraphState>): void => {
   state.set(Object.assign({}, current, { ancestors }));
 };
 
-export const createTreeWriter = (
-  out: Output,
-  state: StateContainer<TerminalGraphState>,
-): TreeWriter => ({
+const createTreeWriter = (out: Output, state: StateContainer<TerminalGraphState>): TreeWriter => ({
   line: (isLast, ...content) => {
     const { ancestors } = state.get();
     out.writeLine(buildTreeLine(ancestors, isLast, ...content));
@@ -206,7 +202,7 @@ const createSpinnerActiveReader =
   () =>
     state.get().spinner.active;
 
-export const createSpinnerControl = (
+const createSpinnerControl = (
   out: Output,
   state: StateContainer<TerminalGraphState>,
 ): SpinnerControl => {
@@ -223,7 +219,7 @@ export const createSpinnerControl = (
   return spinnerControl;
 };
 
-export const withSpinnerPaused =
+const withSpinnerPaused =
   (spinner: SpinnerControl): SpinnerPausedRunner =>
   <T>(action: () => T): T => {
     spinner.stop();
@@ -231,7 +227,7 @@ export const withSpinnerPaused =
     return result;
   };
 
-export const createShimmerCompleter =
+const createShimmerCompleter =
   (out: Output): Completer =>
   (text, prefix, suffix) =>
     playShimmer(text, SHIMMER_DEFAULT_FRAME_INTERVAL_MS, out, prefix, suffix);
@@ -276,7 +272,7 @@ export const formatCves = (cves: string[] | undefined): string | undefined => {
   return cves2;
 };
 
-export const formatVulnerabilityFix = (
+const formatVulnerabilityFix = (
   fixAvailable: boolean,
   patchedVersion: string | undefined,
 ): string => {
@@ -312,14 +308,14 @@ export const selectOverrideIcon = (
   return result3;
 };
 
-export const formatPatches = (patches: string[] | undefined): string | undefined => {
+const formatPatches = (patches: string[] | undefined): string | undefined => {
   if (!patches) return undefined;
   if (patches.length === 0) return undefined;
   const patches2 = `Patches: ${patches.join(", ")}`;
   return patches2;
 };
 
-export const formatDependentCount = (
+const formatDependentCount = (
   dependents: Record<string, string> | undefined,
 ): string | undefined => {
   const count = Object.keys(dependents ?? {}).length;
@@ -330,9 +326,7 @@ export const formatDependentCount = (
   return dependentCount;
 };
 
-export const formatKeepStatus = (
-  keep: boolean | KeepConstraint | undefined,
-): string | undefined => {
+const formatKeepStatus = (keep: boolean | KeepConstraint | undefined): string | undefined => {
   if (!keep) return undefined;
   const hasKeepReason = typeof keep === "object" && keep.reason;
   if (hasKeepReason) {
@@ -342,7 +336,7 @@ export const formatKeepStatus = (
   return "Kept by user";
 };
 
-export const formatPotentiallyFixedIn = (version: string | undefined): string | undefined => {
+const formatPotentiallyFixedIn = (version: string | undefined): string | undefined => {
   if (!version) return undefined;
   const potentiallyFixedIn = `Potentially fixed in ${version}, maybe removable`;
   return potentiallyFixedIn;
@@ -394,7 +388,7 @@ const formatBestCaseReason = (reason: StructuredLedgerReason): string[] => {
   return bestCaseReason2;
 };
 
-export const formatLedgerReason = (reason: OverrideInfo["reason"]): string[] => {
+const formatLedgerReason = (reason: OverrideInfo["reason"]): string[] => {
   if (!reason) {
     const ledgerReason: string[] = [];
     return ledgerReason;
@@ -426,7 +420,7 @@ export const buildOverrideDetails = (info: OverrideInfo): string[] => {
 export const buildSecurityFixHeader = (info: SecurityFixInfo): string =>
   `${info.packageName}@${info.toVersion}`;
 
-export const formatBlockedCves = (cves: string[] | undefined): string | undefined => {
+const formatBlockedCves = (cves: string[] | undefined): string | undefined => {
   if (!cves) return undefined;
   if (cves.length === 0) return undefined;
   const blockedCves = `Blocks ${cves.join(", ")}`;

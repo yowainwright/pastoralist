@@ -1,16 +1,7 @@
+import { isRecord, isString } from "../../utils";
 import type { FieldValidation, FieldValidator } from "./types";
 
-export const isObject = (value: unknown): value is Record<string, unknown> => {
-  if (typeof value !== "object") return false;
-  if (value === null) return false;
-  const result = !Array.isArray(value);
-  return result;
-};
-
-export const isString = (value: unknown): value is string => {
-  const isStringValue = typeof value === "string";
-  return isStringValue;
-};
+export { isRecord, isString };
 
 export const isNonEmptyString = (value: unknown): value is string => {
   if (!isString(value)) return false;
@@ -62,10 +53,8 @@ export const isPositiveInteger = (value: unknown): value is number => {
   return result;
 };
 
-export const isRecord = isObject;
-
 export const isStringRecord = (value: unknown): value is Record<string, string> => {
-  if (!isObject(value)) return false;
+  if (!isRecord(value)) return false;
   const result = Object.values(value).every(isString);
   return result;
 };
@@ -109,7 +98,7 @@ export const applyFieldValidatorOverrides = (
 };
 
 export const validateRecordValues = (value: unknown, validator: FieldValidator): boolean => {
-  if (!isObject(value)) return false;
+  if (!isRecord(value)) return false;
   const recordValues: boolean = Object.values(value).every(validator);
   return recordValues;
 };

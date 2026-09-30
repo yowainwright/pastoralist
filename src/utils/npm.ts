@@ -46,9 +46,9 @@ export const clearRegistryCache = (): void => {
   registryCache = null;
 };
 
-const getMajorVersion = (version: string): number => {
-  const major = version.split(".")[0];
-  const parsed = parseInt(major, 10) || 0;
+const getVersionPart = (version: string, index: number): number => {
+  const part = version.split(".")[index];
+  const parsed = parseInt(part, 10) || 0;
   return parsed;
 };
 
@@ -81,10 +81,22 @@ export const fetchLatestVersion = async (packageName: string): Promise<string | 
   return latest;
 };
 
+const isSameReleaseLine = (version: string, minVersion: string): boolean => {
+  const targetMajor = getVersionPart(minVersion, 0);
+  const isSameMajor = getVersionPart(version, 0) === targetMajor;
+  if (!isSameMajor) return false;
+  if (targetMajor !== 0) return true;
+  const targetMinor = getVersionPart(minVersion, 1);
+  const isSameMinor = getVersionPart(version, 1) === targetMinor;
+  if (!isSameMinor) return false;
+  if (targetMinor !== 0) return true;
+  const isSamePatch = getVersionPart(version, 2) === getVersionPart(minVersion, 2);
+  return isSamePatch;
+};
+
 const compatibleVersions = (versions: string[], minVersion: string): string[] => {
-  const targetMajor = getMajorVersion(minVersion);
   const matches = versions.filter((version) => {
-    if (getMajorVersion(version) !== targetMajor) return false;
+    if (!isSameReleaseLine(version, minVersion)) return false;
     if (version.includes("-")) return false;
     const isNewerOrEqual = compareVersions(version, minVersion) >= 0;
     return isNewerOrEqual;
@@ -106,11 +118,19 @@ export const fetchLatestCompatibleVersion = async (
   return latest;
 };
 
+const keepHighestMinVersion = (
+  versions: Map<string, string>,
+  { name, minVersion }: NpmPackageRequest,
+): Map<string, string> => {
+  const existing = versions.get(name);
+  const isHigher = !existing || compareVersions(minVersion, existing) > 0;
+  if (!isHigher) return versions;
+  versions.set(name, minVersion);
+  return versions;
+};
+
 const uniquePackageEntries = (packages: NpmPackageRequest[]): NpmPackageEntry[] => {
-  const versions = new Map<string, string>();
-  packages.forEach(({ name, minVersion }) => {
-    if (!versions.has(name)) versions.set(name, minVersion);
-  });
+  const versions = packages.reduce(keepHighestMinVersion, new Map<string, string>());
   const entries = Array.from(versions.entries());
   return entries;
 };

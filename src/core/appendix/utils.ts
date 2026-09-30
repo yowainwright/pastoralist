@@ -20,6 +20,7 @@ import { compareVersions } from "../../utils";
 import { getSeverityScore } from "../security/utils";
 import {
   APPENDIX_SEMVER_PATTERN,
+  NPM_ALIAS_PREFIX,
   OVERRIDE_PARENT_SEPARATOR_PATTERN,
   PACKAGE_NAME_PATTERN,
   REQUIRED_BY_DEPENDENT_LIMIT,
@@ -471,11 +472,18 @@ const isDateExpired = (until: string | undefined): boolean => {
   return expired;
 };
 
+const toVersionSpec = (rawVersion: string | undefined): string | undefined => {
+  const isAlias = rawVersion?.startsWith(NPM_ALIAS_PREFIX);
+  if (!isAlias) return rawVersion;
+  const aliasVersion = rawVersion?.slice(rawVersion.lastIndexOf("@") + 1);
+  return aliasVersion;
+};
+
 const isVersionExpired = (
   untilVersion: string | undefined,
   rawVersion: string | undefined,
 ): boolean => {
-  const [depVersion] = rawVersion?.match(APPENDIX_SEMVER_PATTERN) ?? [];
+  const [depVersion] = toVersionSpec(rawVersion)?.match(APPENDIX_SEMVER_PATTERN) ?? [];
   const [targetVersion] = untilVersion?.match(APPENDIX_SEMVER_PATTERN) ?? [];
   if (!depVersion) return false;
   if (!targetVersion) return false;

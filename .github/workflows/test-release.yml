@@ -42,6 +42,7 @@ jobs:
             # Get the latest published version from npm
             VERSION=$(npm view pastoralist version)
           fi
+          VERSION="${VERSION#v}"
           SEMVER_PATTERN='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
           if ! [[ "$VERSION" =~ $SEMVER_PATTERN ]]; then
             echo "Invalid version: $VERSION" >&2

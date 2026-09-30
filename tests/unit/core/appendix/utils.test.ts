@@ -759,6 +759,12 @@ test("isKeepExpired - returns false when dep version is below untilVersion", () 
   assert.strictEqual(isKeepExpired(item, "lodash", rootDeps), false);
 });
 
+test("isKeepExpired - reads the version from an npm alias, not the package name", () => {
+  const item: AppendixItem = { ledger: ledger6 };
+  const rootDeps = { lodash: "npm:foo99@4.17.0" };
+  assert.strictEqual(isKeepExpired(item, "lodash", rootDeps), false);
+});
+
 test("isKeepExpired - returns false when dep is missing from rootDeps", () => {
   const item: AppendixItem = {
     ledger: ledger6,

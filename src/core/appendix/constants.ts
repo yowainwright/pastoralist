@@ -13,4 +13,5 @@ export const SECURITY_LEDGER_SOURCE = "security";
 export const SECURITY_CONFIDENCE_CONFIRMATION_THRESHOLD = 2;
 export const SECURITY_CONFIDENCE_CONFIRMED = "confirmed";
 export const SECURITY_CONFIDENCE_POSSIBLE = "possible";
+export const NPM_ALIAS_PREFIX = "npm:";
 export const APPENDIX_SEMVER_PATTERN = /\d+(?:\.\d+){0,2}(?:-[0-9A-Za-z.-]+)?/;

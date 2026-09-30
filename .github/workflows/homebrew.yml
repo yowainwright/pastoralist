@@ -25,17 +25,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  preflight:
-    uses: yowainwright/homebrew-tap/.github/workflows/publish-formula.yml@c175e0ca1e20631c6d04ee2d690c6d6b626c5dee
-    with:
-      package: pastoralist
-      tag: ${{ inputs.version }}
-      preflight_only: true
-    secrets:
-      tap_token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-
   build-binaries:
-    needs: preflight
     name: build ${{ matrix.target }}
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -113,6 +103,7 @@ jobs:
       contents: write
     env:
       RELEASE_REF: "${{ inputs.version }}"
+      TAP_NAME: pastoralist/release-test
 
     steps:
       - name: Checkout
@@ -127,8 +118,30 @@ jobs:
           path: release-tools
           persist-credentials: false
           ref: "${{ github.workflow_sha }}"
-          sparse-checkout: scripts/release/upload-assets.sh
+          sparse-checkout: |
+            scripts/release/upload-assets.sh
+            scripts/release/brew-preflight.rb
           sparse-checkout-cone-mode: false
+
+      - name: Verify tap access after environment approval
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          test -n "$GH_TOKEN"
+          gh api repos/yowainwright/homebrew-tap --jq '.permissions.push' | grep -qx true
+
+      - name: Checkout Homebrew tap
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: yowainwright/homebrew-tap
+          path: tap
+          ref: main
+          persist-credentials: false
+
+      - name: Set up tap Ruby
+        run: |
+          brew list ruby >/dev/null 2>&1 || brew install ruby
+          echo "$(brew --prefix ruby)/bin" >> "$GITHUB_PATH"
 
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         name: Install pnpm
@@ -155,6 +168,33 @@ jobs:
         with:
           pattern: homebrew-*
           merge-multiple: true
+
+      - name: Generate test formula with the shared tap template
+        run: |
+          brew tap-new --no-git "$TAP_NAME"
+          TAP_PATH="$(brew --repository "$TAP_NAME")"
+          ruby release-tools/scripts/release/brew-preflight.rb \
+            "$GITHUB_WORKSPACE/tap" "$VERSION" "$GITHUB_WORKSPACE" "$TAP_PATH/Formula/pastoralist.rb"
+          brew trust --formula "$TAP_NAME/pastoralist"
+
+      - name: Cache the binary for draft release validation
+        run: |
+          case "$(uname -m)" in
+            arm64) BINARY=pastoralist-darwin-arm64 ;;
+            x86_64) BINARY=pastoralist-darwin-amd64 ;;
+            *) exit 1 ;;
+          esac
+          CACHE_PATH="$(brew --cache --formula "$TAP_NAME/pastoralist")"
+          mkdir -p "$(dirname "$CACHE_PATH")"
+          cp "$BINARY" "$CACHE_PATH"
+
+      - name: Audit, install, and test the binary formula
+        run: |
+          DEPENDENCIES="$(brew deps --formula --include-build --include-test "$TAP_NAME/pastoralist")"
+          test -z "$DEPENDENCIES"
+          brew audit --strict --formula "$TAP_NAME/pastoralist"
+          brew install --build-from-source "$TAP_NAME/pastoralist"
+          brew test "$TAP_NAME/pastoralist"
 
       - name: Attach binaries to GitHub release
         env:

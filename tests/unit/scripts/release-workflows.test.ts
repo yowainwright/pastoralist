@@ -45,16 +45,12 @@ const cases = [
     },
   },
   {
-    name: "audits the packed formula before npm publication",
+    name: "keeps npm tarballs out of Homebrew publication",
     run: () => {
-      const workflow = readWorkflow("publish.yml");
-      const steps = ["brew audit --strict --formula", "npm publish"];
-      const [auditIndex, publishIndex] = steps.map((step) => workflow.indexOf(step));
-
-      assertContainsText(workflow, "runs-on: macos-latest");
-      assertContainsText(workflow, "pnpm exec jiti scripts/release/brew.ts generate-local");
-      assert.ok(auditIndex > -1);
-      assert.ok(publishIndex > auditIndex);
+      const workflows = [readWorkflow("publish.yml"), readWorkflow("homebrew.yml")];
+      workflows.forEach((workflow) => assertExcludesText(workflow, "FORMULA_PATH"));
+      workflows.forEach((workflow) => assertExcludesText(workflow, "brew.ts generate"));
+      assertExcludesText(readWorkflow("homebrew.yml"), "npm view");
     },
   },
   {
@@ -69,17 +65,51 @@ const cases = [
     },
   },
   {
-    name: "configures tap push authentication before cloning",
+    name: "delegates formula updates to the tap after publishing binaries",
+    run: () => {
+      const workflow = readWorkflow("homebrew.yml");
+      const publisher = "yowainwright/homebrew-tap/.github/workflows/publish-formula.yml@";
+      assertContainsText(workflow, publisher);
+      assertExcludesText(workflow, "preflight_only: true");
+      assertContainsText(workflow, "needs: publish-binaries");
+      assertContainsText(workflow, "package: pastoralist");
+      assertContainsText(workflow, "tag: ${{ inputs.version }}");
+      assertContainsText(workflow, "tap_token: ${{ secrets.HOMEBREW_TAP_TOKEN }}");
+      assertExcludesText(workflow, "gh repo clone");
+    },
+  },
+  {
+    name: "validates the binary formula before publishing the stable release",
     run: () => {
       const workflow = readWorkflow("homebrew.yml");
       const steps = [
-        "gh auth setup-git --hostname github.com --force",
-        "gh repo clone yowainwright/homebrew-tap tap",
+        "brew-preflight.rb \\",
+        "brew --cache --formula",
+        "brew audit --strict",
+        "brew install --build-from-source",
+        "brew test",
+        "-F draft=false",
       ];
-      const [authIndex, cloneIndex] = steps.map((step) => workflow.indexOf(step));
-
-      assert.ok(authIndex > -1);
-      assert.ok(cloneIndex > authIndex);
+      const indexes = steps.map((step) => workflow.indexOf(step));
+      indexes.forEach((index) => assert.ok(index > -1));
+      const ordered = indexes.every(
+        (index, position) => position === 0 || index > indexes[position - 1],
+      );
+      assert.ok(ordered);
+      assertContainsText(workflow, 'test -z "$DEPENDENCIES"');
+    },
+  },
+  {
+    name: "keeps tap credentials behind the Homebrew environment gate",
+    run: () => {
+      const workflow = readWorkflow("homebrew.yml");
+      const buildJob = workflow.split("  publish-binaries:")[0];
+      assertExcludesText(buildJob, "${{ secrets.HOMEBREW_TAP_TOKEN }}");
+      const gatedJob = workflow.split("  publish-binaries:")[1].split("  homebrew:")[0];
+      assertContainsText(gatedJob, "environment: homebrew-publish");
+      assertContainsText(gatedJob, "GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}");
+      const publisher = workflow.split("  homebrew:")[1];
+      assertContainsText(publisher, "needs: publish-binaries");
     },
   },
   {

@@ -44,7 +44,8 @@ reject_digest() {
 upload_asset() {
 	asset_path="${1:?Release asset is required}"
 	asset_name=$(basename "$asset_path")
-	expected_digest="sha256:$(shasum -a 256 "$asset_path" | awk '{print $1}')"
+	asset_checksum=$(shasum -a 256 "$asset_path")
+	expected_digest="sha256:${asset_checksum%% *}"
 	published_digest=$(printf '%s' "$release_json" | jq -r --arg name "$asset_name" \
 		'[.assets[] | select(.name == $name)] | if length == 0 then "missing" else .[0].digest // "unavailable" end')
 	if [ "$published_digest" = "missing" ]; then

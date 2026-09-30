@@ -9,7 +9,7 @@ on:
         type: string
     secrets:
       HOMEBREW_TAP_TOKEN:
-        required: false
+        required: true
   workflow_dispatch:
     inputs:
       version:
@@ -21,11 +21,21 @@ permissions:
   contents: read
 
 concurrency:
-  group: homebrew-pastoralist
+  group: pastoralist-binary-release
   cancel-in-progress: false
 
 jobs:
+  preflight:
+    uses: yowainwright/homebrew-tap/.github/workflows/publish-formula.yml@c175e0ca1e20631c6d04ee2d690c6d6b626c5dee
+    with:
+      package: pastoralist
+      tag: ${{ inputs.version }}
+      preflight_only: true
+    secrets:
+      tap_token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
   build-binaries:
+    needs: preflight
     name: build ${{ matrix.target }}
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -95,18 +105,14 @@ jobs:
             ${{ steps.perry.outputs.binary }}
             ${{ steps.perry-attestation.outputs.sigstore_bundle }}
 
-  homebrew:
+  publish-binaries:
     needs: build-binaries
     runs-on: macos-latest
     environment: homebrew-publish
     permissions:
       contents: write
-      id-token: write
-      attestations: write
     env:
-      FORMULA_PATH: pastoralist.rb
       RELEASE_REF: "${{ inputs.version }}"
-      TAP_NAME: pastoralist/release-test
 
     steps:
       - name: Checkout
@@ -144,41 +150,13 @@ jobs:
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           pnpm exec jiti scripts/release/brew.ts validate-version
 
-      - name: Wait for npm package availability
-        run: |
-          for _ in {1..30}; do
-            if npm view "pastoralist@$VERSION" version >/dev/null 2>&1; then
-              exit 0
-            fi
-            sleep 30
-          done
-          exit 1
-
       - name: Download binary assets
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: homebrew-*
           merge-multiple: true
 
-      - name: Generate formula from published tarball
-        run: pnpm exec jiti scripts/release/brew.ts generate
-
-      - name: Create formula test tap
-        run: |
-          brew tap-new --no-git "$TAP_NAME"
-          TAP_PATH="$(brew --repository "$TAP_NAME")"
-          cp "$FORMULA_PATH" "$TAP_PATH/Formula/pastoralist.rb"
-
-      - name: Install and test formula
-        run: |
-          brew audit --new --formula "$TAP_NAME/pastoralist"
-          brew audit --strict --online "$TAP_NAME/pastoralist"
-          brew install --build-from-source "$TAP_NAME/pastoralist"
-          brew test "$TAP_NAME/pastoralist"
-          pastoralist --help
-          pastoralist --version
-
-      - name: Attach formula to GitHub release
+      - name: Attach binaries to GitHub release
         env:
           GITHUB_TOKEN: "${{ github.token }}"
         run: |
@@ -189,25 +167,9 @@ jobs:
             BINARY_ASSETS+=("$asset")
           done < <(find . -maxdepth 1 -type f \( -name 'pastoralist-darwin-*' -o -name 'pastoralist-linux-*' \) | sort)
           test "${#BINARY_ASSETS[@]}" -eq 8
-          RELEASE_ASSETS=("$FORMULA_PATH" "${BINARY_ASSETS[@]}")
-          RELEASE_ID="$(sh "$RELEASE_SCRIPT" "$RELEASE_TAG" "${RELEASE_ASSETS[@]}")"
+          RELEASE_ID="$(sh "$RELEASE_SCRIPT" "$RELEASE_TAG" "${BINARY_ASSETS[@]}")"
           test -n "$RELEASE_ID"
           echo "RELEASE_ID=$RELEASE_ID" >> "$GITHUB_ENV"
-
-      - name: Update Homebrew tap
-        env:
-          GH_TOKEN: "${{ secrets.HOMEBREW_TAP_TOKEN }}"
-          TAP_BRANCH: "pastoralist-${{ inputs.version }}-${{ github.run_id }}-${{ github.run_attempt }}"
-        run: |
-          gh auth setup-git --hostname github.com --force
-          gh repo clone yowainwright/homebrew-tap tap
-          cd tap
-          git switch -c "$TAP_BRANCH"
-          cp "../$FORMULA_PATH" Formula/pastoralist.rb
-          git add Formula/pastoralist.rb
-          git -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "pastoralist $VERSION"
-          git push --set-upstream origin "$TAP_BRANCH"
-          gh pr create --base main --head "$TAP_BRANCH" --title "pastoralist $VERSION" --body "Automated formula update for pastoralist $VERSION."
 
       - name: Publish GitHub release
         env:
@@ -215,3 +177,12 @@ jobs:
         run: |
           RELEASE_ENDPOINT="repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID"
           gh api --method PATCH "$RELEASE_ENDPOINT" -F draft=false --silent
+
+  homebrew:
+    needs: publish-binaries
+    uses: yowainwright/homebrew-tap/.github/workflows/publish-formula.yml@c175e0ca1e20631c6d04ee2d690c6d6b626c5dee
+    with:
+      package: pastoralist
+      tag: ${{ inputs.version }}
+    secrets:
+      tap_token: ${{ secrets.HOMEBREW_TAP_TOKEN }}

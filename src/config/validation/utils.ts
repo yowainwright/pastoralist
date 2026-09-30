@@ -3,6 +3,8 @@ import type { FieldValidation, FieldValidator } from "./types";
 
 export { isRecord, isString };
 
+export const isObject = isRecord;
+
 export const isNonEmptyString = (value: unknown): value is string => {
   if (!isString(value)) return false;
   const result = value.trim().length > 0;
@@ -54,7 +56,7 @@ export const isPositiveInteger = (value: unknown): value is number => {
 };
 
 export const isStringRecord = (value: unknown): value is Record<string, string> => {
-  if (!isRecord(value)) return false;
+  if (!isObject(value)) return false;
   const result = Object.values(value).every(isString);
   return result;
 };
@@ -98,7 +100,7 @@ export const applyFieldValidatorOverrides = (
 };
 
 export const validateRecordValues = (value: unknown, validator: FieldValidator): boolean => {
-  if (!isRecord(value)) return false;
+  if (!isObject(value)) return false;
   const recordValues: boolean = Object.values(value).every(validator);
   return recordValues;
 };

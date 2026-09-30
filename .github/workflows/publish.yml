@@ -8,10 +8,6 @@ on:
 permissions:
   contents: read
 
-env:
-  SOCKET_API_KEY: ${{ secrets.SOCKET_SECURITY_API_KEY || secrets.SOCKET_API_KEY }}
-  SOCKET_SECURITY_API_KEY: ${{ secrets.SOCKET_SECURITY_API_KEY }}
-
 jobs:
   publish:
     runs-on: macos-latest
@@ -36,7 +32,7 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Validate release version
         env:

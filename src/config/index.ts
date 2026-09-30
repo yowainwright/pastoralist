@@ -15,12 +15,7 @@ import type {
   PastoralistConfig,
   SecurityConfig,
 } from "./types";
-import {
-  CONFIG_FILES,
-  SECURITY_CONFIG_FIELDS,
-  UNSUPPORTED_TYPESCRIPT_CONFIG,
-  UNVALIDATED_CONFIG_PLACEHOLDER,
-} from "./constants";
+import { CONFIG_FILES, SECURITY_CONFIG_FIELDS, UNSUPPORTED_TYPESCRIPT_CONFIG } from "./constants";
 import { validateConfig } from "./validation";
 import { isRecord } from "../utils";
 import { loadTargetAppendix, resolveAppendixTarget } from "../core/appendix";
@@ -85,7 +80,8 @@ const loadConfigFile = (filename: string, path: string) => {
 };
 
 const toUnvalidatedConfig = (config: unknown): PastoralistConfig => {
-  if (!isRecord(config)) return UNVALIDATED_CONFIG_PLACEHOLDER;
+  const emptyConfig: PastoralistConfig = {};
+  if (!isRecord(config)) return emptyConfig;
   const unvalidatedConfig = config as PastoralistConfig;
   return unvalidatedConfig;
 };

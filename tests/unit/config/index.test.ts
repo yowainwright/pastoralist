@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { mock, test } from "node:test";
 import assert from "node:assert/strict";
 import { resolve } from "path";
 import {
@@ -17,11 +17,49 @@ import {
   safeWriteFileSync as writeFileSync,
   safeMkdirSync as mkdirSync,
   safeRmSync as rmSync,
-  safeExistsSync as existsSync,
   validateRootPackageJsonIntegrity,
 } from "../setup";
 
 const testDir = resolve(import.meta.dirname, "..", ".test-config");
+
+const PACKAGE_DEP_PATHS = ["packages/*/package.json"];
+const APP_DEP_PATHS = ["apps/*/package.json"];
+const TEST_DEP_PATHS = ["test/*"];
+const DEP_PATHS_CONFIG = { depPaths: PACKAGE_DEP_PATHS };
+
+const prepareTestDir = (): void => {
+  validateRootPackageJsonIntegrity();
+  clearConfigCache();
+  mkdirSync(testDir, { recursive: true });
+};
+
+const cleanupTestDir = (): void => {
+  rmSync(testDir, { recursive: true, force: true });
+  clearConfigCache();
+  validateRootPackageJsonIntegrity();
+};
+
+const withTestDir = async (run: () => Promise<void>): Promise<void> => {
+  prepareTestDir();
+  try {
+    await run();
+  } finally {
+    cleanupTestDir();
+  }
+};
+
+const writeConfigFile = (filename: string, content: string): string => {
+  const path = resolve(testDir, filename);
+  writeFileSync(path, content);
+  return path;
+};
+
+const loadWrittenConfig = async (filename: string, content: string) => {
+  writeConfigFile(filename, content);
+  clearConfigCache();
+  const config = await loadExternalConfig(testDir);
+  return config;
+};
 
 test("validateConfig - should validate minimal valid config", () => {
   const config = {};
@@ -29,270 +67,183 @@ test("validateConfig - should validate minimal valid config", () => {
   assert.deepStrictEqual(result, {});
 });
 
-test("validateConfig - should validate complete config", () => {
-  const config = {
-    appendix: {
-      "lodash@4.17.21": {
-        dependents: { app: "lodash@^4.17.0" },
-      },
-    },
-    depPaths: ["packages/*/package.json"],
-    security: {
-      enabled: true,
-      provider: "github",
-    },
-  };
+const LODASH_APP_DEPENDENTS = { app: "lodash@^4.17.0" };
+const LODASH_APP_ENTRY = { dependents: LODASH_APP_DEPENDENTS };
+const LODASH_APP_APPENDIX = { "lodash@4.17.21": LODASH_APP_ENTRY };
+const GITHUB_SECURITY = { enabled: true, provider: "github" };
+const COMPLETE_CONFIG = {
+  appendix: LODASH_APP_APPENDIX,
+  depPaths: PACKAGE_DEP_PATHS,
+  security: GITHUB_SECURITY,
+};
 
-  const result = validateConfig(config);
-  assert.deepStrictEqual(result, config);
+test("validateConfig - should validate complete config", () => {
+  const result = validateConfig(COMPLETE_CONFIG);
+  assert.deepStrictEqual(result, COMPLETE_CONFIG);
 });
 
-test("validateConfig - should throw on invalid security provider", () => {
-  const config = {
-    security: {
-      provider: "invalid",
-    },
-  };
+const INVALID_PROVIDER_SECURITY = { provider: "invalid" };
+const INVALID_PROVIDER_CONFIG = { security: INVALID_PROVIDER_SECURITY };
 
-  assert.throws(() => validateConfig(config));
+test("validateConfig - should throw on invalid security provider", () => {
+  assert.throws(() => validateConfig(INVALID_PROVIDER_CONFIG));
 });
 
 test("safeValidateConfig - should return undefined for invalid config", () => {
-  const config = {
-    security: {
-      provider: "invalid",
-    },
-  };
-
-  const result = safeValidateConfig(config);
+  const result = safeValidateConfig(INVALID_PROVIDER_CONFIG);
   assert.strictEqual(result, undefined);
 });
 
 test("safeValidateConfig - should return parsed config for valid input", () => {
-  const config = {
-    depPaths: ["packages/*/package.json"],
-  };
-
-  const result = safeValidateConfig(config);
-  assert.deepStrictEqual(result, config);
+  const result = safeValidateConfig(DEP_PATHS_CONFIG);
+  assert.deepStrictEqual(result, DEP_PATHS_CONFIG);
 });
 
-test("safeValidateConfig - should allow security strict config", () => {
-  const config = {
-    security: {
-      enabled: true,
-      strict: true,
-    },
-  };
+const STRICT_SECURITY = { enabled: true, strict: true };
+const STRICT_SECURITY_CONFIG = { security: STRICT_SECURITY };
 
-  const result = safeValidateConfig(config);
-  assert.deepStrictEqual(result, config);
+test("safeValidateConfig - should allow security strict config", () => {
+  const result = safeValidateConfig(STRICT_SECURITY_CONFIG);
+  assert.deepStrictEqual(result, STRICT_SECURITY_CONFIG);
 });
 
 test("loadConfig - should return undefined when no config", async () => {
-  validateRootPackageJsonIntegrity();
-  if (!existsSync(testDir)) {
-    mkdirSync(testDir, { recursive: true });
-  }
-
-  const result = await loadConfig(testDir);
-  assert.strictEqual(result, undefined);
-
-  if (existsSync(testDir)) {
-    rmSync(testDir, { recursive: true, force: true });
-  }
-  validateRootPackageJsonIntegrity();
+  await withTestDir(async () => {
+    const result = await loadConfig(testDir);
+    assert.strictEqual(result, undefined);
+  });
 });
 
 test("loadConfig - should load config from package.json", async () => {
-  validateRootPackageJsonIntegrity();
-  if (!existsSync(testDir)) {
-    mkdirSync(testDir, { recursive: true });
-  }
-
-  const packageJsonConfig = {
-    depPaths: ["packages/*/package.json"],
-  };
-
-  const result = await loadConfig(testDir, packageJsonConfig);
-  assert.deepStrictEqual(result?.depPaths, ["packages/*/package.json"]);
-
-  if (existsSync(testDir)) {
-    rmSync(testDir, { recursive: true, force: true });
-  }
-  validateRootPackageJsonIntegrity();
+  await withTestDir(async () => {
+    const result = await loadConfig(testDir, DEP_PATHS_CONFIG);
+    assert.deepStrictEqual(result?.depPaths, PACKAGE_DEP_PATHS);
+  });
 });
 
 test("loadExternalConfig - should return undefined when file doesn't exist", async () => {
-  validateRootPackageJsonIntegrity();
-  if (!existsSync(testDir)) {
-    mkdirSync(testDir, { recursive: true });
-  }
-
-  const result = await loadExternalConfig(testDir);
-  assert.strictEqual(result, undefined);
-
-  if (existsSync(testDir)) {
-    rmSync(testDir, { recursive: true, force: true });
-  }
-  validateRootPackageJsonIntegrity();
+  await withTestDir(async () => {
+    const result = await loadExternalConfig(testDir);
+    assert.strictEqual(result, undefined);
+  });
 });
 
 test("loadExternalConfig - should load JSON config file", async () => {
-  validateRootPackageJsonIntegrity();
-  if (!existsSync(testDir)) {
-    mkdirSync(testDir, { recursive: true });
-  }
+  await withTestDir(async () => {
+    writeConfigFile(".pastoralistrc.json", JSON.stringify(DEP_PATHS_CONFIG));
+    const result = await loadExternalConfig(testDir);
+    assert.deepStrictEqual(result?.depPaths, PACKAGE_DEP_PATHS);
+  });
+});
 
-  const configPath = resolve(testDir, ".pastoralistrc.json");
-  const config = { depPaths: ["packages/*/package.json"] };
-  writeFileSync(configPath, JSON.stringify(config));
-
-  const result = await loadExternalConfig(testDir);
-  assert.deepStrictEqual(result?.depPaths, ["packages/*/package.json"]);
-
-  if (existsSync(testDir)) {
-    rmSync(testDir, { recursive: true, force: true });
-  }
-  validateRootPackageJsonIntegrity();
+test("loadExternalConfig - returns empty config for non-object file when not validating", async () => {
+  await withTestDir(async () => {
+    writeConfigFile(".pastoralistrc.json", "[]");
+    const result = await loadExternalConfig(testDir, false);
+    assert.deepStrictEqual(result, {});
+  });
 });
 
 test("loadConfigWithSource - tracks a writable JSON appendix target", async () => {
-  validateRootPackageJsonIntegrity();
-  mkdirSync(testDir, { recursive: true });
-  const configPath = resolve(testDir, ".pastoralistrc.json");
-  writeFileSync(configPath, JSON.stringify({ checkSecurity: false }));
-
-  clearConfigCache();
-  const loaded = await loadConfigWithSource(testDir);
-
-  assert.deepStrictEqual(loaded.source, { format: "json", path: configPath });
-  assert.deepStrictEqual(loaded.appendixTarget, { path: configPath });
-  rmSync(testDir, { recursive: true, force: true });
-  validateRootPackageJsonIntegrity();
+  await withTestDir(async () => {
+    const configPath = writeConfigFile(".pastoralistrc.json", '{ "checkSecurity": false }');
+    const loaded = await loadConfigWithSource(testDir);
+    assert.deepStrictEqual(loaded.source, { format: "json", path: configPath });
+    assert.deepStrictEqual(loaded.appendixTarget, { path: configPath });
+  });
 });
+
+const LEDGER_DEPENDENTS = { app: "lodash@^4" };
+const LEDGER_ENTRY = { dependents: LEDGER_DEPENDENTS };
+const LEDGER_APPENDIX = { "lodash@4.17.21": LEDGER_ENTRY };
+const LEDGER_CONFIG = { appendix: LEDGER_APPENDIX };
 
 test("loadConfigWithSource - merges an explicit target appendix", async () => {
-  validateRootPackageJsonIntegrity();
-  mkdirSync(testDir, { recursive: true });
-  const configPath = resolve(testDir, "ledger.json");
-  const appendix = { "lodash@4.17.21": { dependents: { app: "lodash@^4" } } };
-  writeFileSync(configPath, JSON.stringify({ appendix }));
-
-  clearConfigCache();
-  const loaded = await loadConfigWithSource(testDir, { appendixSource: "ledger.json" });
-
-  assert.deepStrictEqual(loaded.appendixTarget, { path: configPath });
-  assert.deepStrictEqual(loaded.config?.appendix, appendix);
-  rmSync(testDir, { recursive: true, force: true });
-  validateRootPackageJsonIntegrity();
+  await withTestDir(async () => {
+    const configPath = writeConfigFile("ledger.json", JSON.stringify(LEDGER_CONFIG));
+    const loaded = await loadConfigWithSource(testDir, { appendixSource: "ledger.json" });
+    assert.deepStrictEqual(loaded.appendixTarget, { path: configPath });
+    assert.deepStrictEqual(loaded.config?.appendix, LEDGER_APPENDIX);
+  });
 });
 
+const EMPTY_PASTORALIST = {};
+const CLI_PACKAGE_CONFIG = { name: "app", version: "1.0.0", pastoralist: EMPTY_PASTORALIST };
+const LEDGER_TARGET = { path: "ledger.json" };
+const EMPTY_CONFIG: PastoralistConfig = {};
+const CLI_LOADED_CONFIG = {
+  appendixTarget: LEDGER_TARGET,
+  config: EMPTY_CONFIG,
+  source: undefined,
+};
+const CLI_CONFIG_DEPS: CliConfigDeps = {
+  resolveJSON: () => CLI_PACKAGE_CONFIG,
+  buildMergedOptions: () => ({}),
+  loadConfigWithSource: () => Promise.resolve(CLI_LOADED_CONFIG),
+};
+
 test("loadCliConfig - uses source-aware config loading", async () => {
-  const packageConfig = { name: "app", version: "1.0.0", pastoralist: {} };
-  const deps: CliConfigDeps = {
-    resolveJSON: () => packageConfig,
-    buildMergedOptions: () => ({}),
-    loadConfigWithSource: () =>
-      Promise.resolve({
-        appendixTarget: { path: "ledger.json" },
-        config: {},
-        source: undefined,
-      }),
-  };
-
-  const loaded = await loadCliConfig({}, {}, deps);
-
-  assert.deepStrictEqual(loaded.appendixTarget, { path: "ledger.json" });
-  assert.deepStrictEqual(loaded.manifestConfig, packageConfig);
+  const loaded = await loadCliConfig({}, {}, CLI_CONFIG_DEPS);
+  assert.deepStrictEqual(loaded.appendixTarget, LEDGER_TARGET);
+  assert.deepStrictEqual(loaded.manifestConfig, CLI_PACKAGE_CONFIG);
 });
 
 test("loadExternalConfig - should handle invalid JSON", async () => {
-  validateRootPackageJsonIntegrity();
-  if (!existsSync(testDir)) {
-    mkdirSync(testDir, { recursive: true });
-  }
-
-  const configPath = resolve(testDir, ".pastoralistrc.json");
-  writeFileSync(configPath, "{ invalid json");
-
-  const result = await loadExternalConfig(testDir);
-  assert.strictEqual(result, undefined);
-
-  if (existsSync(testDir)) {
-    rmSync(testDir, { recursive: true, force: true });
-  }
-  validateRootPackageJsonIntegrity();
-});
-
-test("loadExternalConfig - stops after an invalid higher-priority config", async () => {
-  validateRootPackageJsonIntegrity();
-  mkdirSync(testDir, { recursive: true });
-  const invalidConfigPath = resolve(testDir, ".pastoralistrc");
-  writeFileSync(invalidConfigPath, JSON.stringify({ security: { provider: 42 } }));
-  writeFileSync(
-    resolve(testDir, ".pastoralistrc.json"),
-    JSON.stringify({ depPaths: ["packages/*/package.json"] }),
-  );
-  const originalError = console.error;
-  let errorOutput = "";
-  console.error = (...args: unknown[]) => {
-    errorOutput = args.map(String).join(" ");
-  };
-
-  try {
+  await withTestDir(async () => {
+    writeConfigFile(".pastoralistrc.json", "{ invalid json");
     const result = await loadExternalConfig(testDir);
     assert.strictEqual(result, undefined);
-    assert.strictEqual(
-      errorOutput,
-      "Failed to load config from .pastoralistrc: Invalid config structure",
-    );
-  } finally {
-    console.error = originalError;
-    rmSync(testDir, { recursive: true, force: true });
-    validateRootPackageJsonIntegrity();
-  }
+  });
 });
 
+const NUMERIC_PROVIDER_SECURITY = { provider: 42 };
+const NUMERIC_PROVIDER_CONFIG = { security: NUMERIC_PROVIDER_SECURITY };
+const INVALID_STRUCTURE_ERROR =
+  "Failed to load config from .pastoralistrc: Invalid config structure";
+
+const assertStopsAfterInvalidConfig = async (): Promise<void> => {
+  writeConfigFile(".pastoralistrc", JSON.stringify(NUMERIC_PROVIDER_CONFIG));
+  writeConfigFile(".pastoralistrc.json", JSON.stringify(DEP_PATHS_CONFIG));
+  const errorSpy = mock.method(console, "error", () => {});
+  try {
+    const result = await loadExternalConfig(testDir);
+    const lastCall = errorSpy.mock.calls.at(-1);
+    const errorOutput = lastCall?.arguments.map(String).join(" ");
+    assert.strictEqual(result, undefined);
+    assert.strictEqual(errorOutput, INVALID_STRUCTURE_ERROR);
+  } finally {
+    errorSpy.mock.restore();
+  }
+};
+
+test("loadExternalConfig - stops after an invalid higher-priority config", async () => {
+  await withTestDir(assertStopsAfterInvalidConfig);
+});
+
+const ENABLED_SECURITY = { enabled: true };
+const DISABLED_SECURITY = { enabled: false };
+const ENABLED_SECURITY_CONFIG = { security: ENABLED_SECURITY };
+const DISABLED_SECURITY_CONFIG = { security: DISABLED_SECURITY };
+
 test("mergeConfigs - should merge two configs", () => {
-  const base = {
-    depPaths: ["packages/*/package.json"],
-  };
-
-  const override = {
-    security: {
-      enabled: true,
-    },
-  };
-
-  const result = mergeConfigs(base, override);
-  assert.deepStrictEqual(result.depPaths, ["packages/*/package.json"]);
+  const result = mergeConfigs(DEP_PATHS_CONFIG, ENABLED_SECURITY_CONFIG);
+  assert.deepStrictEqual(result.depPaths, PACKAGE_DEP_PATHS);
   assert.strictEqual(result.security?.enabled, true);
 });
 
 test("mergeConfigs - should override base with override", () => {
-  const base = {
-    security: {
-      enabled: false,
-    },
-  };
-
-  const override = {
-    security: {
-      enabled: true,
-    },
-  };
-
-  const result = mergeConfigs(base, override);
+  const result = mergeConfigs(DISABLED_SECURITY_CONFIG, ENABLED_SECURITY_CONFIG);
   assert.strictEqual(result.security?.enabled, true);
 });
 
 test("mergeConfigs - deep merges best-case search tuning", () => {
   const baseSearch = { exactStateLimit: 256, beamWidth: 16 };
-  const baseBestCase = { enabled: true, riskAggregation: "both" as const, search: baseSearch };
+  const riskAggregation = "both" as const;
+  const baseBestCase = { enabled: true, riskAggregation, search: baseSearch };
   const base = { bestCase: baseBestCase };
   const overrideSearch = { beamWidth: 8, maxEvaluations: 500 };
-  const override = { bestCase: { search: overrideSearch } };
+  const overrideBestCase = { search: overrideSearch };
+  const override = { bestCase: overrideBestCase };
 
   const result = mergeConfigs(base, override);
 
@@ -301,135 +252,66 @@ test("mergeConfigs - deep merges best-case search tuning", () => {
   assert.deepStrictEqual(result?.bestCase, expected);
 });
 
+const PKG_A_DEPENDENTS = { "pkg-a": "lodash@^4.17.0" };
+const PKG_B_DEPENDENTS = { "pkg-b": "lodash@^4.17.0" };
+const PKG_A_ENTRY = { dependents: PKG_A_DEPENDENTS };
+const PKG_B_ENTRY = { dependents: PKG_B_DEPENDENTS };
+const PKG_A_APPENDIX = { "lodash@4.17.21": PKG_A_ENTRY };
+const PKG_B_APPENDIX = { "lodash@4.17.21": PKG_B_ENTRY };
+const PKG_A_CONFIG = { appendix: PKG_A_APPENDIX };
+const PKG_B_CONFIG = { appendix: PKG_B_APPENDIX };
+
 test("mergeConfigs - should deep merge appendix", () => {
-  const base = {
-    appendix: {
-      "lodash@4.17.21": {
-        dependents: { "pkg-a": "lodash@^4.17.0" },
-      },
-    },
-  };
-
-  const override = {
-    appendix: {
-      "lodash@4.17.21": {
-        dependents: { "pkg-b": "lodash@^4.17.0" },
-      },
-    },
-  };
-
-  const result = mergeConfigs(base, override);
+  const result = mergeConfigs(PKG_A_CONFIG, PKG_B_CONFIG);
   assert.notStrictEqual(result.appendix?.["lodash@4.17.21"]?.dependents?.["pkg-a"], undefined);
   assert.notStrictEqual(result.appendix?.["lodash@4.17.21"]?.dependents?.["pkg-b"], undefined);
 });
 
+const TEST_DEP_PATHS_CONFIG = { depPaths: TEST_DEP_PATHS };
+
 test("clearConfigCache - clears the config cache", async () => {
-  validateRootPackageJsonIntegrity();
-
-  if (!existsSync(testDir)) {
-    mkdirSync(testDir, { recursive: true });
-  }
-
-  const configPath = resolve(testDir, ".pastoralistrc.json");
-  writeFileSync(configPath, JSON.stringify({ depPaths: ["test/*"] }));
-
-  const config1 = await loadConfig(testDir);
-  assert.notStrictEqual(config1, undefined);
-
-  clearConfigCache();
-
-  const config2 = await loadConfig(testDir);
-  assert.notStrictEqual(config2, undefined);
-
-  if (existsSync(configPath)) {
-    rmSync(configPath);
-  }
-
-  validateRootPackageJsonIntegrity();
+  await withTestDir(async () => {
+    writeConfigFile(".pastoralistrc.json", JSON.stringify(TEST_DEP_PATHS_CONFIG));
+    const config1 = await loadConfig(testDir);
+    assert.notStrictEqual(config1, undefined);
+    clearConfigCache();
+    const config2 = await loadConfig(testDir);
+    assert.notStrictEqual(config2, undefined);
+  });
 });
 
-test("loadExternalConfig - loads JS config file", async () => {
-  validateRootPackageJsonIntegrity();
-
-  if (!existsSync(testDir)) {
-    mkdirSync(testDir, { recursive: true });
-  }
-
-  const configPath = resolve(testDir, "pastoralist.config.js");
-
-  if (existsSync(configPath)) {
-    rmSync(configPath);
-  }
-
-  const configContent = `
+const CJS_CONFIG = `
     module.exports = {
       depPaths: ["packages/*/package.json"]
     };
   `;
-  writeFileSync(configPath, configContent);
 
-  clearConfigCache();
-  const config = await loadExternalConfig(testDir);
-
-  assert.notStrictEqual(config, undefined);
-  assert.deepStrictEqual(config?.depPaths, ["packages/*/package.json"]);
-
-  if (existsSync(configPath)) {
-    rmSync(configPath);
-  }
-
-  validateRootPackageJsonIntegrity();
+test("loadExternalConfig - loads JS config file", async () => {
+  await withTestDir(async () => {
+    const config = await loadWrittenConfig("pastoralist.config.js", CJS_CONFIG);
+    assert.notStrictEqual(config, undefined);
+    assert.deepStrictEqual(config?.depPaths, PACKAGE_DEP_PATHS);
+  });
 });
 
-test("loadExternalConfig - loads JS CommonJS config after leading statements", async () => {
-  validateRootPackageJsonIntegrity();
-
-  if (!existsSync(testDir)) {
-    mkdirSync(testDir, { recursive: true });
-  }
-
-  const configPath = resolve(testDir, "pastoralist.config.js");
-
-  if (existsSync(configPath)) {
-    rmSync(configPath);
-  }
-
-  const configContent = `
+const CJS_CONFIG_WITH_LEADING_STATEMENT = `
     "use strict";
 
     module.exports = {
       depPaths: ["packages/*/package.json"]
     };
   `;
-  writeFileSync(configPath, configContent);
 
-  clearConfigCache();
-  const config = await loadExternalConfig(testDir);
-
-  assert.notStrictEqual(config, undefined);
-  assert.deepStrictEqual(config?.depPaths, ["packages/*/package.json"]);
-
-  if (existsSync(configPath)) {
-    rmSync(configPath);
-  }
-
-  validateRootPackageJsonIntegrity();
+test("loadExternalConfig - loads JS CommonJS config after leading statements", async () => {
+  await withTestDir(async () => {
+    const filename = "pastoralist.config.js";
+    const config = await loadWrittenConfig(filename, CJS_CONFIG_WITH_LEADING_STATEMENT);
+    assert.notStrictEqual(config, undefined);
+    assert.deepStrictEqual(config?.depPaths, PACKAGE_DEP_PATHS);
+  });
 });
 
-test("loadExternalConfig - ignores TypeScript config files", async () => {
-  validateRootPackageJsonIntegrity();
-
-  if (!existsSync(testDir)) {
-    mkdirSync(testDir, { recursive: true });
-  }
-
-  const configPath = resolve(testDir, "pastoralist.config.ts");
-
-  if (existsSync(configPath)) {
-    rmSync(configPath);
-  }
-
-  const configContent = `
+const TS_CONFIG = `
     import type { PastoralistConfig } from "pastoralist";
 
     const config: PastoralistConfig = {
@@ -438,76 +320,44 @@ test("loadExternalConfig - ignores TypeScript config files", async () => {
 
     export default config;
   `;
-  writeFileSync(configPath, configContent);
 
-  clearConfigCache();
-  const originalWarn = console.warn;
-  const warnings: string[] = [];
-  console.warn = (message: string) => {
-    warnings[warnings.length] = message;
-  };
-  let config: Awaited<ReturnType<typeof loadExternalConfig>>;
+const assertIgnoresTypeScriptConfig = async (): Promise<void> => {
+  const warnSpy = mock.method(console, "warn", () => {});
   try {
-    config = await loadExternalConfig(testDir);
+    const config = await loadWrittenConfig("pastoralist.config.ts", TS_CONFIG);
+    const warnings = warnSpy.mock.calls.map((call) => String(call.arguments[0])).join("\n");
+    assert.strictEqual(config, undefined);
+    assert.ok(warnings.includes("pastoralist.config.ts is not supported"));
   } finally {
-    console.warn = originalWarn;
+    warnSpy.mock.restore();
   }
+};
 
-  assert.strictEqual(config, undefined);
-  assert.ok(warnings.join("\n").includes("pastoralist.config.ts is not supported"));
-
-  if (existsSync(configPath)) {
-    rmSync(configPath);
-  }
-
-  validateRootPackageJsonIntegrity();
+test("loadExternalConfig - ignores TypeScript config files", async () => {
+  await withTestDir(assertIgnoresTypeScriptConfig);
 });
+
+const ESM_CONFIG = `export default { depPaths: ["apps/*/package.json"] };\n`;
 
 test("loadExternalConfig - loads ESM config file", async () => {
-  validateRootPackageJsonIntegrity();
-
-  if (!existsSync(testDir)) {
-    mkdirSync(testDir, { recursive: true });
-  }
-
-  const configPath = resolve(testDir, "pastoralist.config.mjs");
-
-  if (existsSync(configPath)) {
-    rmSync(configPath);
-  }
-
-  writeFileSync(configPath, `export default { depPaths: ["apps/*/package.json"] };\n`);
-
-  clearConfigCache();
-  const config = await loadExternalConfig(testDir);
-
-  assert.notStrictEqual(config, undefined);
-  assert.deepStrictEqual(config?.depPaths, ["apps/*/package.json"]);
-
-  if (existsSync(configPath)) {
-    rmSync(configPath);
-  }
-
-  validateRootPackageJsonIntegrity();
+  await withTestDir(async () => {
+    const config = await loadWrittenConfig("pastoralist.config.mjs", ESM_CONFIG);
+    assert.notStrictEqual(config, undefined);
+    assert.deepStrictEqual(config?.depPaths, APP_DEP_PATHS);
+  });
 });
 
-test("mergeConfigs - merges appendix entries with no overlap", () => {
-  const external: PastoralistConfig = {
-    appendix: {
-      "lodash@4.17.21": {
-        dependents: { app1: "lodash@^4.17.0" },
-        patches: ["patches/lodash.patch"],
-      },
-    },
-  };
+const LODASH_APP1_DEPENDENTS = { app1: "lodash@^4.17.0" };
+const LODASH_PATCHES = ["patches/lodash.patch"];
+const LODASH_PATCHED_ENTRY = { dependents: LODASH_APP1_DEPENDENTS, patches: LODASH_PATCHES };
+const LODASH_PATCHED_APPENDIX = { "lodash@4.17.21": LODASH_PATCHED_ENTRY };
+const EXPRESS_DEPENDENTS = { app2: "express@^4.18.0" };
+const EXPRESS_ENTRY = { dependents: EXPRESS_DEPENDENTS };
+const EXPRESS_APPENDIX = { "express@4.18.0": EXPRESS_ENTRY };
 
-  const packageJson: PastoralistConfig = {
-    appendix: {
-      "express@4.18.0": {
-        dependents: { app2: "express@^4.18.0" },
-      },
-    },
-  };
+test("mergeConfigs - merges appendix entries with no overlap", () => {
+  const external: PastoralistConfig = { appendix: LODASH_PATCHED_APPENDIX };
+  const packageJson: PastoralistConfig = { appendix: EXPRESS_APPENDIX };
 
   const merged = mergeConfigs(external, packageJson);
 
@@ -516,50 +366,36 @@ test("mergeConfigs - merges appendix entries with no overlap", () => {
   assert.notStrictEqual(merged?.appendix?.["express@4.18.0"], undefined);
 });
 
-test("mergeConfigs - merges appendix entries when key exists in external but not with that field", () => {
-  const external: PastoralistConfig = {
-    appendix: {
-      "lodash@4.17.21": {
-        dependents: { app1: "lodash@^4.17.0" },
-      },
-    },
-  };
+const LODASH_APP1_ENTRY = { dependents: LODASH_APP1_DEPENDENTS };
+const LODASH_APP1_APPENDIX = { "lodash@4.17.21": LODASH_APP1_ENTRY };
+const LODASH_APP2_DEPENDENTS = { app2: "lodash@^4.17.0" };
+const NEW_PATCHES = ["patches/new.patch"];
+const LODASH_APP2_ENTRY = { dependents: LODASH_APP2_DEPENDENTS, patches: NEW_PATCHES };
+const LODASH_APP2_APPENDIX = { "lodash@4.17.21": LODASH_APP2_ENTRY };
+const MERGED_LODASH_DEPENDENTS = { app1: "lodash@^4.17.0", app2: "lodash@^4.17.0" };
 
-  const packageJson: PastoralistConfig = {
-    appendix: {
-      "lodash@4.17.21": {
-        dependents: { app2: "lodash@^4.17.0" },
-        patches: ["patches/new.patch"],
-      },
-    },
-  };
+test("mergeConfigs - merges appendix entries when key exists in external but not with that field", () => {
+  const external: PastoralistConfig = { appendix: LODASH_APP1_APPENDIX };
+  const packageJson: PastoralistConfig = { appendix: LODASH_APP2_APPENDIX };
 
   const merged = mergeConfigs(external, packageJson);
 
-  assert.deepStrictEqual(merged?.appendix?.["lodash@4.17.21"].dependents, {
-    app1: "lodash@^4.17.0",
-    app2: "lodash@^4.17.0",
-  });
-  assert.deepStrictEqual(merged?.appendix?.["lodash@4.17.21"].patches, ["patches/new.patch"]);
+  const lodashEntry = merged?.appendix?.["lodash@4.17.21"];
+  assert.deepStrictEqual(lodashEntry?.dependents, MERGED_LODASH_DEPENDENTS);
+  assert.deepStrictEqual(lodashEntry?.patches, NEW_PATCHES);
 });
 
-test("mergeConfigs - handles when external has no key and packageJson does", () => {
-  const external: PastoralistConfig = {
-    appendix: {},
-  };
+const EMPTY_APPENDIX = {};
+const REACT_DEPENDENTS = { frontend: "react@^18.0.0" };
+const REACT_ENTRY = { dependents: REACT_DEPENDENTS };
+const REACT_APPENDIX = { "react@18.0.0": REACT_ENTRY };
 
-  const packageJson: PastoralistConfig = {
-    appendix: {
-      "react@18.0.0": {
-        dependents: { frontend: "react@^18.0.0" },
-      },
-    },
-  };
+test("mergeConfigs - handles when external has no key and packageJson does", () => {
+  const external: PastoralistConfig = { appendix: EMPTY_APPENDIX };
+  const packageJson: PastoralistConfig = { appendix: REACT_APPENDIX };
 
   const merged = mergeConfigs(external, packageJson);
 
   assert.notStrictEqual(merged?.appendix?.["react@18.0.0"], undefined);
-  assert.deepStrictEqual(merged?.appendix?.["react@18.0.0"].dependents, {
-    frontend: "react@^18.0.0",
-  });
+  assert.deepStrictEqual(merged?.appendix?.["react@18.0.0"].dependents, REACT_DEPENDENTS);
 });

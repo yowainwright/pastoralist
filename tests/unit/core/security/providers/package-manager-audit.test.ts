@@ -253,6 +253,29 @@ test("parseNpmCompatibleOutput - tolerates missing via", () => {
   assert.deepStrictEqual((provider as any).parseNpmCompatibleOutput(MISSING_VIA_RESULT), []);
 });
 
+const EMPTY_VIA: unknown[] = [];
+const MISSING_RANGE_VULNERABILITY = { name: "no-range", severity: "high", via: EMPTY_VIA };
+const MISSING_SEVERITY_VULNERABILITY = { name: "no-severity", range: "<1.0.0", via: EMPTY_VIA };
+const STRING_VIA_FIELD_VULNERABILITY = {
+  name: "string-via",
+  severity: "high",
+  range: "<1.0.0",
+  via: "lodash",
+};
+const MALFORMED_VULNERABILITIES = {
+  broken: BROKEN_VULNERABILITY,
+  "no-range": MISSING_RANGE_VULNERABILITY,
+  "no-severity": MISSING_SEVERITY_VULNERABILITY,
+  "string-via": STRING_VIA_FIELD_VULNERABILITY,
+};
+const MALFORMED_AUDIT_OUTPUT = JSON.stringify({ vulnerabilities: MALFORMED_VULNERABILITIES });
+
+test("parseNpmAuditJson - drops entries missing range, severity, or array via", () => {
+  const provider = new PackageManagerAuditProvider();
+  const parsed = (provider as any).parseNpmAuditJson(MALFORMED_AUDIT_OUTPUT);
+  assert.deepStrictEqual(Object.keys(parsed.vulnerabilities), ["broken"]);
+});
+
 test("extractNpmPatchedVersion - returns undefined for boolean true", () => {
   const provider = new PackageManagerAuditProvider();
   assert.strictEqual((provider as any).extractNpmPatchedVersion(true), undefined);

@@ -33,6 +33,7 @@ const {
   promptSelect,
   promptInput,
   promptSecret,
+  toDependabotAlerts,
 } = await import("../../../../src/core/security/utils");
 
 test("constructor - should initialize with default options", () => {
@@ -1537,4 +1538,35 @@ test("isVersionVulnerable - matches any part of an OR range", () => {
 
 test("isVersionVulnerable - treats prerelease of bound as below it", () => {
   assert.strictEqual(isVersionVulnerable("1.2.3-beta.1", "<1.2.3"), true);
+});
+
+const DEPENDABOT_PACKAGE = { ecosystem: "npm", name: "lodash" };
+const DEPENDABOT_VULNERABILITY = { package: DEPENDABOT_PACKAGE };
+const DEPENDABOT_ADVISORY = { summary: "Prototype pollution" };
+const COMPLETE_DEPENDABOT_ALERT = {
+  security_vulnerability: DEPENDABOT_VULNERABILITY,
+  security_advisory: DEPENDABOT_ADVISORY,
+};
+const MISSING_VULNERABILITY_ALERT = { security_advisory: DEPENDABOT_ADVISORY };
+const EMPTY_VULNERABILITY = {};
+const MISSING_PACKAGE_ALERT = {
+  security_vulnerability: EMPTY_VULNERABILITY,
+  security_advisory: DEPENDABOT_ADVISORY,
+};
+const MISSING_ADVISORY_ALERT = { security_vulnerability: DEPENDABOT_VULNERABILITY };
+const MIXED_DEPENDABOT_ALERTS = [
+  COMPLETE_DEPENDABOT_ALERT,
+  MISSING_VULNERABILITY_ALERT,
+  MISSING_PACKAGE_ALERT,
+  MISSING_ADVISORY_ALERT,
+  "not-an-alert",
+];
+
+test("toDependabotAlerts - keeps only alerts with vulnerability package and advisory", () => {
+  const alerts = toDependabotAlerts(MIXED_DEPENDABOT_ALERTS);
+  assert.deepStrictEqual(alerts, [COMPLETE_DEPENDABOT_ALERT]);
+});
+
+test("toDependabotAlerts - returns empty list for non-array input", () => {
+  assert.deepStrictEqual(toDependabotAlerts({ message: "Not Found" }), []);
 });

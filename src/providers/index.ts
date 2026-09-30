@@ -21,8 +21,10 @@ type SecurityAlerts = SecurityAlert[];
 
 const isNpmAuditVulnerability = (value: unknown): value is NpmAuditVulnerability => {
   if (!isRecord(value)) return false;
-  const hasName = isString(value.name);
-  return hasName;
+  const hasStrings = [value.name, value.range, value.severity].every(isString);
+  if (!hasStrings) return false;
+  const hasValidVia = value.via === undefined || Array.isArray(value.via);
+  return hasValidVia;
 };
 
 const isNpmAuditVulnerabilityEntry = (

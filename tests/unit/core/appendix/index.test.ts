@@ -144,6 +144,24 @@ test("updateAppendix - keeps selector-range override when required by a dependen
   assert.notStrictEqual(result["minimatch@<4@3.1.5"], undefined);
 });
 
+test("updateAppendix - replaces inaccurate selector consumers and preserves its ledger", () => {
+  const key = "undici@7.29.0@7.29.1";
+  const ledger = { addedDate: "2026-09-30T05:27:17.253Z", reason: "Patch release-it's pin" };
+  const dependents = { m2rd: "undici@7.29.0 (required by jsdom, release-it)" };
+  const appendix = { [key]: { dependents, ledger } };
+  const options = {
+    overrides: { "undici@7.29.0": "7.29.1" },
+    appendix,
+    packageName: "m2rd",
+    dependencyGraph: { undici: ["jsdom", "release-it"] },
+  };
+  const result = updateAppendix(options);
+  assert.strictEqual(result[key].dependents?.m2rd, "undici@7.29.0 (transitive dependency)");
+  assert.deepStrictEqual(result[key].ledger, ledger);
+  const repeated = updateAppendix(Object.assign({}, options, { appendix: result }));
+  assert.deepStrictEqual(repeated, result);
+});
+
 test("updateAppendix - keeps nested parent>child override when child is in dependency tree (onlyUsedOverrides=true)", () => {
   const overrides: OverridesType = { "gray-matter>js-yaml": "3.14.2" };
   const result = updateAppendix({

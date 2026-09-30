@@ -791,12 +791,32 @@ test("parseOverridePackageName - resolves pnpm selector and nested override keys
   assert.strictEqual(parseOverridePackageName("foo@1>@scope/bar@<2"), "@scope/bar");
 });
 
-test("buildDependentInfo - resolves selector-range key to real name for graph lookup", () => {
+test("buildDependentInfo - keeps range selectors without claiming version-specific consumers", () => {
   const info = buildDependentInfo(false, "minimatch@>=9 <10", undefined, undefined, {
     minimatch: ["glob", "rimraf"],
   });
-  assert.ok(info.includes("required by"));
-  assert.ok(!info.includes("unused override"));
+  assert.strictEqual(info, "minimatch@>=9 <10 (transitive dependency)");
+});
+
+const undiciSelectors = ["undici@7.29.0", "release-it>undici", "release-it@21.0.3>undici@7.29.0"];
+undiciSelectors.forEach((selector) => {
+  test(`buildDependentInfo - avoids unverified consumers for ${selector}`, () => {
+    const graph = { undici: ["@dotenvx/dotenvx", "jsdom", "release-it"] };
+    const info = buildDependentInfo(false, selector, undefined, undefined, graph);
+    assert.strictEqual(info, `${selector} (transitive dependency)`);
+  });
+});
+
+test("buildDependentInfo - preserves consumer names for an unqualified package", () => {
+  const graph = { undici: ["jsdom", "release-it"] };
+  const info = buildDependentInfo(false, "undici", undefined, undefined, graph);
+  assert.strictEqual(info, "undici (required by jsdom, release-it)");
+});
+
+test("buildDependentInfo - preserves consumer names for a scoped package without a selector", () => {
+  const graph = { "@scope/pkg": ["consumer"] };
+  const info = buildDependentInfo(false, "@scope/pkg", undefined, undefined, graph);
+  assert.strictEqual(info, "@scope/pkg (required by consumer)");
 });
 
 test("buildDependentInfo - resolves selector-range key to real name for tree lookup", () => {

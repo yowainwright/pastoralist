@@ -15,8 +15,14 @@ import type {
   PastoralistConfig,
   SecurityConfig,
 } from "./types";
-import { CONFIG_FILES, SECURITY_CONFIG_FIELDS, UNSUPPORTED_TYPESCRIPT_CONFIG } from "./constants";
+import {
+  CONFIG_FILES,
+  SECURITY_CONFIG_FIELDS,
+  UNSUPPORTED_TYPESCRIPT_CONFIG,
+  UNVALIDATED_CONFIG_PLACEHOLDER,
+} from "./constants";
 import { validateConfig } from "./validation";
+import { isRecord } from "../utils";
 import { loadTargetAppendix, resolveAppendixTarget } from "../core/appendix";
 
 const configCache = new Map<string, LoadedConfig>();
@@ -31,13 +37,13 @@ const isJsonFile = (filename: string): boolean =>
 
 const loadJsonConfig = (path: string): unknown => {
   const content = readFileSync(path, "utf8");
-  const result = JSON.parse(content);
+  const result: unknown = JSON.parse(content);
   return result;
 };
 
 const unwrapModuleConfig = (moduleValue: unknown): unknown => {
-  const maybeModule = moduleValue as { default?: unknown };
-  const result = maybeModule?.default ?? moduleValue;
+  const defaultExport = isRecord(moduleValue) ? moduleValue.default : undefined;
+  const result = defaultExport ?? moduleValue;
   return result;
 };
 
@@ -78,10 +84,16 @@ const loadConfigFile = (filename: string, path: string) => {
   return result2;
 };
 
+const toUnvalidatedConfig = (config: unknown): PastoralistConfig => {
+  if (!isRecord(config)) return UNVALIDATED_CONFIG_PLACEHOLDER;
+  const unvalidatedConfig = config as PastoralistConfig;
+  return unvalidatedConfig;
+};
+
 const validateAndReturn = (config: unknown, validate: boolean): PastoralistConfig => {
   if (!validate) {
-    const andReturn = config as PastoralistConfig;
-    return andReturn;
+    const unvalidatedConfig = toUnvalidatedConfig(config);
+    return unvalidatedConfig;
   }
   const andReturn2 = validateConfig(config);
   return andReturn2;

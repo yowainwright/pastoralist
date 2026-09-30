@@ -14,6 +14,7 @@ import type {
   SecurityOverride,
 } from "../types";
 import { logger as createLogger } from "../observability";
+import { getErrorMessage, parsePackageJson } from "../utils";
 import { SUMMARY_ROW_CONFIG } from "./constants";
 import type {
   CliGraph,
@@ -53,15 +54,6 @@ const normalizeArgv = (argv: readonly string[]): string[] => {
   }
   const normalized = Array.from(argv);
   return normalized;
-};
-
-const getErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) {
-    const errorMessage = error.message;
-    return errorMessage;
-  }
-  const message = String(error);
-  return message;
 };
 
 const runBinary = async (
@@ -555,10 +547,11 @@ export const resolvePackagePath = (
 export const readPackageJson = (
   packagePath: string,
   deps: Pick<SetupHookDeps, "readFileSync">,
-): PastoralistJSON & { scripts?: Record<string, string> } =>
-  JSON.parse(deps.readFileSync(packagePath, "utf8")) as PastoralistJSON & {
-    scripts?: Record<string, string>;
-  };
+): PastoralistJSON => {
+  const config = parsePackageJson(deps.readFileSync(packagePath, "utf8"));
+  if (!config) throw new Error(`Invalid package.json at ${packagePath}`);
+  return config;
+};
 
 const buildPostinstallScript = (existingPostinstall: string): string => {
   if (existingPostinstall) {
@@ -569,7 +562,7 @@ const buildPostinstallScript = (existingPostinstall: string): string => {
 };
 
 export const addPostinstallHook = (
-  config: PastoralistJSON & { scripts?: Record<string, string> },
+  config: PastoralistJSON,
 ): PastoralistJSON & { scripts: Record<string, string> } => {
   const scripts = config.scripts || {};
   const postinstall = buildPostinstallScript(scripts.postinstall || "");

@@ -36,3 +36,7 @@ export const LOCKFILE_NAMES = [
   "pnpm-lock.yaml",
   "package-lock.json",
 ] as const;
+
+export const CACHE_DIR_MODE = 0o700;
+export const CACHE_FILE_MODE = 0o600;
+export const CACHE_TEMP_DIR_PREFIX = "pastoralist-";

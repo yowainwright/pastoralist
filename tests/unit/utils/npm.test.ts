@@ -9,13 +9,40 @@ import {
 } from "../../../src/utils/npm";
 import {
   BASE_NPM_PACKAGE_INFO,
-  PRERELEASE_VERSIONS,
   MULTI_MAJOR_VERSIONS,
   ZERO_MAJOR_VERSIONS,
   mockOkResponse,
   mockNotFoundResponse,
   createNpmPackageInfo,
 } from "../fixtures/npm.fixtures";
+
+type FetchInput = string | URL | Request;
+
+const respondWith = (info: unknown) => () => Promise.resolve(mockOkResponse(info));
+
+const respondNotFound = () => Promise.resolve(mockNotFoundResponse());
+
+const versionsOf = (...versions: string[]) =>
+  Object.fromEntries(versions.map((version) => [version, {}]));
+
+const toPackageRequest = (name: string) => ({ name, minVersion: "4.17.15" });
+
+const routeRegistryRequests = (responses: Map<string, unknown>) => async (url: FetchInput) => {
+  const urlString = url.toString();
+  const packageName = Array.from(responses.keys()).find((name) => urlString.includes(name));
+  const isKnownPackage = packageName !== undefined;
+  const response = isKnownPackage
+    ? mockOkResponse(responses.get(packageName))
+    : mockNotFoundResponse();
+  return response;
+};
+
+const EMPTY_DIST_TAGS = {};
+const EMPTY_VERSIONS = {};
+const EMPTY_PACKAGE_INFO = { "dist-tags": EMPTY_DIST_TAGS, versions: EMPTY_VERSIONS };
+const LATEST_DIST_TAGS = { latest: "4.17.21" };
+const MISSING_VERSIONS_INFO = { "dist-tags": LATEST_DIST_TAGS };
+const INVALID_VERSIONS_INFO = { "dist-tags": LATEST_DIST_TAGS, versions: "invalid" };
 
 let originalFetch: typeof globalThis.fetch;
 
@@ -54,8 +81,7 @@ test("fetchLatestVersion - should return null when fetch fails", async () => {
 });
 
 test("fetchLatestVersion - should return null when dist-tags.latest is missing", async () => {
-  const emptyInfo = { "dist-tags": {}, versions: {} };
-  globalThis.fetch = mock(() => Promise.resolve(mockOkResponse(emptyInfo)));
+  globalThis.fetch = mock(respondWith(EMPTY_PACKAGE_INFO));
 
   const result = await fetchLatestVersion("some-package");
 
@@ -80,10 +106,8 @@ test("fetchLatestCompatibleVersion - should not cross major version boundary", a
 });
 
 test("fetchLatestCompatibleVersion - should exclude prerelease versions", async () => {
-  const info = createNpmPackageInfo("2.0.5", {
-    ...MULTI_MAJOR_VERSIONS,
-    "2.1.0-beta.1": {},
-  });
+  const versions = Object.assign({}, MULTI_MAJOR_VERSIONS, versionsOf("2.1.0-beta.1"));
+  const info = createNpmPackageInfo("2.0.5", versions);
   globalThis.fetch = mock(() => Promise.resolve(mockOkResponse(info)));
 
   const result = await fetchLatestCompatibleVersion("some-package", "2.0.0");
@@ -91,8 +115,18 @@ test("fetchLatestCompatibleVersion - should exclude prerelease versions", async 
   assert.strictEqual(result, "2.0.5");
 });
 
+test("fetchLatestCompatibleVersion - should stay on the exact patch for 0.0.x", async () => {
+  const versions = versionsOf("0.0.3", "0.0.5", "0.1.0");
+  const info = createNpmPackageInfo("0.0.5", versions);
+  globalThis.fetch = mock(() => Promise.resolve(mockOkResponse(info)));
+
+  const result = await fetchLatestCompatibleVersion("zero-zero-pkg", "0.0.3");
+
+  assert.strictEqual(result, "0.0.3");
+});
+
 test("fetchLatestCompatibleVersion - should return null when no compatible version exists", async () => {
-  const info = createNpmPackageInfo("1.0.0", { "1.0.0": {} });
+  const info = createNpmPackageInfo("1.0.0", versionsOf("1.0.0"));
   globalThis.fetch = mock(() => Promise.resolve(mockOkResponse(info)));
 
   const result = await fetchLatestCompatibleVersion("some-package", "2.0.0");
@@ -109,9 +143,7 @@ test("fetchLatestCompatibleVersion - should return null when package not found",
 });
 
 test("fetchLatestCompatibleVersion - should return null when versions metadata is missing", async () => {
-  globalThis.fetch = mock(() =>
-    Promise.resolve(mockOkResponse({ "dist-tags": { latest: "4.17.21" } })),
-  );
+  globalThis.fetch = mock(respondWith(MISSING_VERSIONS_INFO));
 
   const result = await fetchLatestCompatibleVersion("some-package", "4.17.20");
 
@@ -119,14 +151,7 @@ test("fetchLatestCompatibleVersion - should return null when versions metadata i
 });
 
 test("fetchLatestCompatibleVersion - should return null when versions is not an object", async () => {
-  globalThis.fetch = mock(() =>
-    Promise.resolve(
-      mockOkResponse({
-        "dist-tags": { latest: "4.17.21" },
-        versions: "invalid",
-      }),
-    ),
-  );
+  globalThis.fetch = mock(respondWith(INVALID_VERSIONS_INFO));
 
   const result = await fetchLatestCompatibleVersion("some-package", "4.17.20");
 
@@ -165,11 +190,8 @@ test("fetchLatestCompatibleVersions - should fetch versions for multiple package
 });
 
 test("fetchLatestCompatibleVersions - should deduplicate packages by name", async () => {
-  let fetchCount = 0;
-  globalThis.fetch = mock(() => {
-    fetchCount++;
-    return Promise.resolve(mockOkResponse(BASE_NPM_PACKAGE_INFO));
-  });
+  const fetchMock = mock(respondWith(BASE_NPM_PACKAGE_INFO));
+  globalThis.fetch = fetchMock;
 
   const packages = [
     { name: "lodash", minVersion: "4.17.15" },
@@ -179,7 +201,7 @@ test("fetchLatestCompatibleVersions - should deduplicate packages by name", asyn
 
   const result = await fetchLatestCompatibleVersions(packages);
 
-  assert.strictEqual(fetchCount, 1);
+  assert.strictEqual(fetchMock.mock.callCount(), 1);
   assert.strictEqual(result.get("lodash"), "4.17.21");
 });
 
@@ -191,14 +213,9 @@ test("fetchLatestCompatibleVersions - should handle empty package list", async (
 });
 
 test("fetchLatestCompatibleVersions - should skip packages that fail to fetch", async () => {
-  let callCount = 0;
-  globalThis.fetch = mock(() => {
-    callCount++;
-    if (callCount === 1) {
-      return Promise.resolve(mockOkResponse(BASE_NPM_PACKAGE_INFO));
-    }
-    return Promise.resolve(mockNotFoundResponse());
-  });
+  const fetchMock = mock(respondNotFound);
+  fetchMock.mockImplementationOnce(respondWith(BASE_NPM_PACKAGE_INFO));
+  globalThis.fetch = fetchMock;
 
   const packages = [
     { name: "lodash", minVersion: "4.17.15" },
@@ -212,25 +229,14 @@ test("fetchLatestCompatibleVersions - should skip packages that fail to fetch", 
 });
 
 test("fetchLatestCompatibleVersions - should handle mixed success and failure", async () => {
-  const lodashInfo = createNpmPackageInfo("4.17.21", {
-    "4.17.20": {},
-    "4.17.21": {},
-  });
-  const axiosInfo = createNpmPackageInfo("1.6.0", {
-    "1.5.0": {},
-    "1.6.0": {},
-  });
+  const lodashInfo = createNpmPackageInfo("4.17.21", versionsOf("4.17.20", "4.17.21"));
+  const axiosInfo = createNpmPackageInfo("1.6.0", versionsOf("1.5.0", "1.6.0"));
+  const responses = new Map<string, unknown>([
+    ["lodash", lodashInfo],
+    ["axios", axiosInfo],
+  ]);
 
-  globalThis.fetch = mock((url: string | URL | Request) => {
-    const urlString = url.toString();
-    if (urlString.includes("lodash")) {
-      return Promise.resolve(mockOkResponse(lodashInfo));
-    }
-    if (urlString.includes("axios")) {
-      return Promise.resolve(mockOkResponse(axiosInfo));
-    }
-    return Promise.resolve(mockNotFoundResponse());
-  });
+  globalThis.fetch = mock(routeRegistryRequests(responses));
 
   const packages = [
     { name: "lodash", minVersion: "4.17.20" },
@@ -251,16 +257,35 @@ test("fetchLatestCompatibleVersion - should handle versions with zero major", as
 
   const result = await fetchLatestCompatibleVersion("zero-major-pkg", "0.2.0");
 
-  assert.strictEqual(result, "0.5.0");
+  assert.strictEqual(result, "0.2.0");
+});
+
+test("fetchLatestCompatibleVersion - should stay within same minor for zero major", async () => {
+  const info = createNpmPackageInfo("0.3.0", versionsOf("0.2.0", "0.2.5", "0.3.0"));
+  globalThis.fetch = mock(() => Promise.resolve(mockOkResponse(info)));
+
+  const result = await fetchLatestCompatibleVersion("zero-major-pkg", "0.2.1");
+
+  assert.strictEqual(result, "0.2.5");
+});
+
+test("fetchLatestCompatibleVersions - should keep the highest minVersion per package", async () => {
+  const info = createNpmPackageInfo("4.17.21", versionsOf("4.17.10", "4.17.21"));
+  globalThis.fetch = mock(() => Promise.resolve(mockOkResponse(info)));
+
+  const packages = [
+    { name: "lodash", minVersion: "4.17.10" },
+    { name: "lodash", minVersion: "4.17.30" },
+  ];
+
+  const result = await fetchLatestCompatibleVersions(packages);
+
+  assert.strictEqual(result.has("lodash"), false);
 });
 
 test("fetchLatestCompatibleVersion - should return stable version when starting from stable minVersion", async () => {
-  const info = createNpmPackageInfo("2.0.0", {
-    "2.0.0-alpha.1": {},
-    "2.0.0-beta.1": {},
-    "2.0.0": {},
-    "2.0.1": {},
-  });
+  const versions = versionsOf("2.0.0-alpha.1", "2.0.0-beta.1", "2.0.0", "2.0.1");
+  const info = createNpmPackageInfo("2.0.0", versions);
   globalThis.fetch = mock(() => Promise.resolve(mockOkResponse(info)));
 
   const result = await fetchLatestCompatibleVersion("some-pkg", "2.0.0");
@@ -269,14 +294,12 @@ test("fetchLatestCompatibleVersion - should return stable version when starting 
 });
 
 test("fetchLatestVersion - should encode package name in URL", async () => {
-  let capturedUrl = "";
-  globalThis.fetch = mock((url: string | URL | Request) => {
-    capturedUrl = url.toString();
-    return Promise.resolve(mockOkResponse(BASE_NPM_PACKAGE_INFO));
-  });
+  const fetchMock = mock(respondWith(BASE_NPM_PACKAGE_INFO));
+  globalThis.fetch = fetchMock;
 
   await fetchLatestVersion("@scope/package-name");
 
+  const capturedUrl = String(fetchMock.mock.calls[0].arguments[0]);
   assert.ok(capturedUrl.includes(encodeURIComponent("@scope/package-name")));
 });
 
@@ -289,13 +312,11 @@ test("fetchLatestCompatibleVersions - should rate limit concurrent requests", as
     maxConcurrent = Math.max(maxConcurrent, currentConcurrent);
     await new Promise((resolve) => setTimeout(resolve, 50));
     currentConcurrent--;
-    return mockOkResponse(BASE_NPM_PACKAGE_INFO);
+    const response = mockOkResponse(BASE_NPM_PACKAGE_INFO);
+    return response;
   });
 
-  const packages = Array.from({ length: 20 }, (_, i) => ({
-    name: `package-${i}`,
-    minVersion: "4.17.15",
-  }));
+  const packages = Array.from({ length: 20 }, (_, i) => toPackageRequest(`package-${i}`));
 
   await fetchLatestCompatibleVersions(packages);
 

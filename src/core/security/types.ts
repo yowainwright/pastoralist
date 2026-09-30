@@ -26,6 +26,8 @@ export interface SecurityAlert {
   sources?: SecurityProviderType[];
 }
 
+export type PatchableAlert = SecurityAlert & { patchedVersion: string };
+
 export type SecurityProviderType = "osv" | "github" | "snyk" | "npm" | "socket" | "spektion";
 export type SetupSecurityProvider = Exclude<SecurityProviderType, "npm">;
 
@@ -183,12 +185,6 @@ export interface DependabotAlert {
   fixed_at?: string;
 }
 
-export interface GithubApiError {
-  message: string;
-  documentation_url?: string;
-  status?: number;
-}
-
 export class SecurityProviderPermissionError extends Error {
   public provider: string;
   public originalMessage: string;
@@ -247,14 +243,6 @@ export type SecurityProvider =
 
 export type SecurityProviderFactory = (options: SecurityProviderFactoryOptions) => SecurityProvider;
 
-export interface SecurityProviderBase {
-  readonly providerType: SecurityProviderType;
-  fetchAlerts(
-    packages: Array<{ name: string; version: string }>,
-    options?: SecurityProviderScanOptions,
-  ): Promise<SecurityAlert[]>;
-}
-
 export interface OSVVulnerability {
   id: string;
   summary?: string;
@@ -287,12 +275,16 @@ export interface OSVVersionRange {
 export interface OSVVersionEvent {
   introduced?: string;
   fixed?: string;
+  last_affected?: string;
 }
 
 export interface OSVVersionInterval {
   introduced: string;
   fixed?: string;
+  lastAffected?: string;
 }
+
+export type OSVAffected = NonNullable<OSVVulnerability["affected"]>[number];
 
 export interface OSVVersionIntervalState {
   currentIntroduced?: string;
@@ -338,14 +330,10 @@ export interface SnykVulnerability {
 }
 
 export interface SnykAlertVulnerability extends SnykVulnerability {
-  semver?: { vulnerable?: string };
+  semver?: { vulnerable?: string | string[] };
   fixedIn?: string[];
   url?: string;
   name?: string;
-}
-
-export interface SnykErrorWithStdout {
-  stdout?: string;
 }
 
 export interface SnykResult {
@@ -417,14 +405,6 @@ export interface PromptSelection {
   defaultChoice: string;
 }
 
-export interface InteractivePrompt {
-  type: string;
-  name: string;
-  message: string;
-  choices?: PromptChoice[];
-  default?: string | boolean;
-}
-
 export interface PromptFunctions {
   confirm: (message: string, defaultValue?: boolean) => Promise<boolean>;
   select: (message: string, choices: PromptChoice[]) => Promise<string>;
@@ -465,7 +445,7 @@ export interface NpmAuditVulnerability {
   name: string;
   severity: string;
   isDirect?: boolean;
-  via: Array<NpmAuditAdvisory | string>;
+  via?: Array<NpmAuditAdvisory | string>;
   range: string;
   fixAvailable: boolean | { name: string; version: string; isSemVerMajor: boolean };
 }

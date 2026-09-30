@@ -1,11 +1,17 @@
 import type {
+  DependabotAlert,
+  OSVBatchApiResult,
+  OSVVulnerability,
+  PatchableAlert,
+  SnykResult,
+  SocketResult,
   PastoralistJSON,
   OverrideUpdate,
   SecurityAlert,
   SecurityOverride,
   SecurityProviderType,
 } from "../../types";
-import { compareVersions } from "../../utils";
+import { compareVersions, isRecord } from "../../utils";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { logger } from "../../observability";
@@ -20,10 +26,13 @@ import {
   SECURITY_BOUNDED_MAXIMUM_PATTERN,
   SECURITY_BOUNDED_MINIMUM_PATTERN,
   SECURITY_EXACT_RANGE_PATTERN,
+  SECURITY_RANGE_OR_SEPARATOR,
   SECURITY_REGISTRY_SPEC_PATTERN,
   SECURITY_ACTION_CHOICES,
+  SECURITY_SEVERITY_SCORES,
   SECURITY_SUMMARY_SEVERITIES,
   SECURITY_VERSION_PREFIX_PATTERN,
+  OSV_MALFORMED_BATCH_RESPONSE,
 } from "./constants";
 import type {
   CLIInstallOptions,
@@ -36,15 +45,11 @@ import type {
 import type { ExecFileAsync } from "../types";
 
 const execFileAsync = promisify(execFile);
+const promptOutput = logger({ file: "security/utils.ts" });
 
-export const getSeverityScore = (severity: string): number => {
-  const scores: Record<string, number> = {
-    low: 1,
-    medium: 2,
-    high: 3,
-    critical: 4,
-  };
-  const severityScore = scores[severity.toLowerCase()] || 0;
+export const getSeverityScore = (severity: string | undefined): number => {
+  const normalizedSeverity = severity?.toLowerCase() ?? "";
+  const severityScore = SECURITY_SEVERITY_SCORES[normalizedSeverity] || 0;
   return severityScore;
 };
 
@@ -201,23 +206,32 @@ const checkGreaterThanOrEqual = (version: string, range: string): boolean | null
   return result;
 };
 
+const isVersionInRangePart = (cleanVersion: string, vulnerableRange: string): boolean => {
+  const boundedRange = checkBoundedRange(cleanVersion, vulnerableRange);
+  if (boundedRange !== null) return boundedRange;
+
+  const greaterThanOrEqual = checkGreaterThanOrEqual(cleanVersion, vulnerableRange);
+  if (greaterThanOrEqual !== null) return greaterThanOrEqual;
+
+  const lessThanOrEqual = checkLessThanOrEqual(cleanVersion, vulnerableRange);
+  if (lessThanOrEqual !== null) return lessThanOrEqual;
+
+  const exactVersion = checkExactVersion(cleanVersion, vulnerableRange);
+  if (exactVersion !== null) return exactVersion;
+
+  const result = checkLessThan(cleanVersion, vulnerableRange) ?? false;
+  return result;
+};
+
 export const isVersionVulnerable = (currentVersion: string, vulnerableRange: string): boolean => {
   try {
     const cleanVersion = currentVersion.replace(SECURITY_VERSION_PREFIX_PATTERN, "");
-    const boundedRange = checkBoundedRange(cleanVersion, vulnerableRange);
-    if (boundedRange !== null) return boundedRange;
-
-    const greaterThanOrEqual = checkGreaterThanOrEqual(cleanVersion, vulnerableRange);
-    if (greaterThanOrEqual !== null) return greaterThanOrEqual;
-
-    const lessThanOrEqual = checkLessThanOrEqual(cleanVersion, vulnerableRange);
-    if (lessThanOrEqual !== null) return lessThanOrEqual;
-
-    const exactVersion = checkExactVersion(cleanVersion, vulnerableRange);
-    if (exactVersion !== null) return exactVersion;
-
-    const result = checkLessThan(cleanVersion, vulnerableRange) ?? false;
-    return result;
+    const rangeParts = vulnerableRange
+      .split(SECURITY_RANGE_OR_SEPARATOR)
+      .map((part) => part.trim())
+      .filter(Boolean);
+    const isVulnerable = rangeParts.some((part) => isVersionInRangePart(cleanVersion, part));
+    return isVulnerable;
   } catch {
     return false;
   }
@@ -497,9 +511,9 @@ export const promptSelect = async (message: string, choices: PromptChoice[]): Pr
 };
 
 function printSelectChoices(message: string, choices: PromptChoice[]): void {
-  console.log(`${cyan("?")} ${message}`);
+  promptOutput.print(`${cyan("?")} ${message}`);
   const lines = choices.map((choice, index) => `  ${cyan(`${index + 1})`)} ${choice.name}`);
-  console.log(lines.join("\n"));
+  promptOutput.print(lines.join("\n"));
 }
 
 async function promptForSelection(
@@ -517,7 +531,7 @@ async function promptForSelection(
 
     if (selectedValue) return selectedValue;
 
-    console.log("Invalid selection. Please try again.");
+    promptOutput.print("Invalid selection. Please try again.");
     const retry = promptForSelection(rl, selectPrompt, selection, attempt + 1);
     return retry;
   } catch {
@@ -768,9 +782,9 @@ export class InteractiveSecurityManager {
   }
 
   private printSecurityReview(vulnerablePackages: SecurityAlert[]): void {
-    console.log("\nSecurity Vulnerabilities Found\n");
-    console.log("═".repeat(50));
-    console.log(this.generateSummary(vulnerablePackages));
+    promptOutput.print("\nSecurity Vulnerabilities Found\n");
+    promptOutput.print("═".repeat(50));
+    promptOutput.print(this.generateSummary(vulnerablePackages));
   }
 
   private confirmSecurityReview(): Promise<boolean> {
@@ -830,14 +844,16 @@ export class InteractiveSecurityManager {
   }
 
   private printOverrideReview(override: SecurityOverride, vulnerability: SecurityAlert): void {
-    console.log(`\n${override.packageName}`);
-    console.log(`   Current: ${override.fromVersion}`);
-    console.log(`   ${this.getSeverityEmoji(vulnerability.severity)} ${vulnerability.title}`);
+    promptOutput.print(`\n${override.packageName}`);
+    promptOutput.print(`   Current: ${override.fromVersion}`);
+    promptOutput.print(
+      `   ${this.getSeverityEmoji(vulnerability.severity)} ${vulnerability.title}`,
+    );
 
     const cves = vulnerability.cves;
     const hasCves = cves && cves.length > 0;
     if (hasCves) {
-      console.log(`   CVE: ${cves.join(", ")}`);
+      promptOutput.print(`   CVE: ${cves.join(", ")}`);
     }
   }
 
@@ -892,12 +908,12 @@ export class InteractiveSecurityManager {
   }
 
   private printSelectedOverrides(selectedOverrides: SecurityOverride[]): void {
-    console.log("\nSelected Overrides:\n");
+    promptOutput.print("\nSelected Overrides:\n");
     selectedOverrides
       .map(
         (override) => `  ${override.packageName}: ${override.fromVersion} → ${override.toVersion}`,
       )
-      .forEach((line) => console.log(line));
+      .forEach((line) => promptOutput.print(line));
   }
 
   private generateSummary(vulnerablePackages: SecurityAlert[]): string {
@@ -971,3 +987,60 @@ export class InteractiveSecurityManager {
     }
   }
 }
+
+export const isDependabotAlert = (value: unknown): value is DependabotAlert => {
+  if (!isRecord(value)) return false;
+  const hasVulnerability = isRecord(value.security_vulnerability);
+  return hasVulnerability;
+};
+
+const NO_DEPENDABOT_ALERTS: DependabotAlert[] = [];
+
+export const toDependabotAlerts = (value: unknown): DependabotAlert[] => {
+  if (!Array.isArray(value)) return NO_DEPENDABOT_ALERTS;
+  const alerts = value.filter(isDependabotAlert);
+  return alerts;
+};
+
+const isOSVBatchApiResult = (value: unknown): value is OSVBatchApiResult => {
+  if (!isRecord(value)) return false;
+  const isVulnsMissing = value.vulns === undefined;
+  const isVulnsArray = Array.isArray(value.vulns);
+  const hasValidVulns = isVulnsMissing || isVulnsArray;
+  return hasValidVulns;
+};
+
+const toOSVBatchApiResult = (value: unknown): OSVBatchApiResult => {
+  if (!isOSVBatchApiResult(value)) throw new Error(OSV_MALFORMED_BATCH_RESPONSE);
+  return value;
+};
+
+export const toOSVBatchApiResults = (value: unknown): OSVBatchApiResult[] => {
+  const results = isRecord(value) ? value.results : undefined;
+  if (!Array.isArray(results)) throw new Error(OSV_MALFORMED_BATCH_RESPONSE);
+  const batchResults = results.map(toOSVBatchApiResult);
+  return batchResults;
+};
+
+export const isOSVVulnerability = (value: unknown): value is OSVVulnerability => {
+  if (!isRecord(value)) return false;
+  const hasId = typeof value.id === "string";
+  return hasId;
+};
+
+export const isSnykResult = (value: unknown): value is SnykResult => {
+  if (!isRecord(value)) return false;
+  const hasVulnerabilities = Array.isArray(value.vulnerabilities);
+  return hasVulnerabilities;
+};
+
+export const isSocketResult = (value: unknown): value is SocketResult => {
+  if (!isRecord(value)) return false;
+  const hasPackages = Array.isArray(value.packages);
+  return hasPackages;
+};
+
+export const isPatchable = (alert: SecurityAlert): alert is PatchableAlert => {
+  const hasPatchedVersion = Boolean(alert.patchedVersion);
+  return hasPatchedVersion;
+};

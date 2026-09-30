@@ -17,7 +17,10 @@ import type {
 import type { LedgerTransform } from "../types";
 import { packageAtVersion } from "../../utils";
 import { compareVersions } from "../../utils";
+import { getSeverityScore } from "../security/utils";
 import {
+  APPENDIX_SEMVER_PATTERN,
+  NPM_ALIAS_PREFIX,
   OVERRIDE_PARENT_SEPARATOR_PATTERN,
   PACKAGE_NAME_PATTERN,
   REQUIRED_BY_DEPENDENT_LIMIT,
@@ -26,7 +29,6 @@ import {
   SECURITY_CONFIDENCE_CONFIRMATION_THRESHOLD,
   SECURITY_CONFIDENCE_POSSIBLE,
   SECURITY_LEDGER_SOURCE,
-  SECURITY_SEVERITY_SCORES,
   TRANSITIVE_DEPENDENCY_LABEL,
   UNRESOLVED_OVERRIDE_KEY_LABEL,
   UNUSED_OVERRIDE_LABEL,
@@ -103,11 +105,6 @@ const addCvesToLedger = (
   if (uniqueCves.length === 0) return ledger;
   const result = Object.assign({}, ledger, { cves: uniqueCves });
   return result;
-};
-
-const getSeverityScore = (severity: string): number => {
-  const severityScore = SECURITY_SEVERITY_SCORES[severity.toLowerCase()] || 0;
-  return severityScore;
 };
 
 const addSeverityToLedger = (
@@ -352,8 +349,10 @@ export const buildDependentInfo = (
   return info;
 };
 
-export const isNestedOverride = (overrideValue: OverrideValue): boolean => {
-  const isNested = typeof overrideValue === "object";
+export const isNestedOverride = (
+  overrideValue: OverrideValue | null | undefined,
+): overrideValue is Record<string, string> => {
+  const isNested = typeof overrideValue === "object" && overrideValue !== null;
   return isNested;
 };
 
@@ -473,14 +472,22 @@ const isDateExpired = (until: string | undefined): boolean => {
   return expired;
 };
 
+const toVersionSpec = (rawVersion: string | undefined): string | undefined => {
+  const isAlias = rawVersion?.startsWith(NPM_ALIAS_PREFIX);
+  if (!isAlias) return rawVersion;
+  const aliasVersion = rawVersion?.slice(rawVersion.lastIndexOf("@") + 1);
+  return aliasVersion;
+};
+
 const isVersionExpired = (
   untilVersion: string | undefined,
   rawVersion: string | undefined,
 ): boolean => {
-  if (!untilVersion) return false;
-  const depVersion = rawVersion?.replace(/^[\^~]/, "");
-  const comparison = depVersion ? compareVersions(depVersion, untilVersion) : -1;
-  const expired = comparison >= 0;
+  const [depVersion] = toVersionSpec(rawVersion)?.match(APPENDIX_SEMVER_PATTERN) ?? [];
+  const [targetVersion] = untilVersion?.match(APPENDIX_SEMVER_PATTERN) ?? [];
+  if (!depVersion) return false;
+  if (!targetVersion) return false;
+  const expired = compareVersions(depVersion, targetVersion) >= 0;
   return expired;
 };
 

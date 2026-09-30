@@ -39,3 +39,5 @@ export {
   YARN_BERRY_DEPENDENCY_PATTERN,
   YARN_CLASSIC_DEPENDENCY_PATTERN,
 } from "../../mgrs/yarn/constants";
+
+export const REMOVAL_TEMP_PREFIX = "pastoralist-removal-";

@@ -1,4 +1,7 @@
 import type { PromptReader } from "./types";
+import { logger } from "../../observability";
+
+const promptOutput = logger({ file: "cli/prompts/input.ts" });
 
 let pipedInputLines: string[] = [];
 let lineIndex = 0;
@@ -83,7 +86,7 @@ export async function enhancedQuestion<T = string>(
     const pipedAnswer = getNextPipedInput();
 
     if (pipedAnswer !== null) {
-      console.log(`${prompt}${pipedAnswer}`);
+      promptOutput.print(`${prompt}${pipedAnswer}`);
       resolve(processor(pipedAnswer));
     } else {
       rl.question(prompt, (answer: string) => {

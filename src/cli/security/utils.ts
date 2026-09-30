@@ -1,6 +1,7 @@
 import type { Options, PastoralistJSON, RemovalVerification, SecurityAlert } from "../../types";
 import type { SecurityChecker } from "../../core/security";
 import type { SecurityCheckRuntimeOptions } from "../../core/security/types";
+import { getSeverityScore } from "../../core/security/utils";
 import { resolve } from "node:path";
 import { applyOverridesToConfig, withRemovalState } from "../../core/package";
 import {
@@ -18,22 +19,9 @@ import type { RemovalContext, RemovalMetrics, RemovalState } from "./types";
 const getRootDependencies = (config: PastoralistJSON): Record<string, string> =>
   Object.assign({}, config.dependencies, config.devDependencies, config.peerDependencies);
 
-const severityScore = (severity: string | undefined): number => {
-  const scores: Record<string, number> = {
-    low: 1,
-    medium: 2,
-    high: 3,
-    critical: 4,
-  };
-  const normalizedSeverity = severity?.toLowerCase() || "";
-  const score = scores[normalizedSeverity];
-  const result = score || 0;
-  return result;
-};
-
 const getRiskScore = (alerts: SecurityAlert[]): number =>
   alerts.reduce((score, alert) => {
-    const alertRisk = severityScore(alert.severity);
+    const alertRisk = getSeverityScore(alert.severity);
     const result = score + alertRisk;
     return result;
   }, 0);

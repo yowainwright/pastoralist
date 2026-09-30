@@ -54,8 +54,9 @@ jobs:
 
       - name: Resolve npm dist-tag
         id: dist-tag
+        env:
+          VERSION: ${{ github.ref_name }}
         run: |
-          VERSION="${{ github.ref_name }}"
           if [[ "$VERSION" =~ -(alpha|beta|rc) ]]; then
             echo "tag=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
           else
@@ -78,14 +79,19 @@ jobs:
 
       - name: Prepare release attestation
         id: release-attestation
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+          BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
         run: |
-          SIGSTORE_BUNDLE="${{ steps.pack.outputs.tarball }}.sigstore.json"
-          cp "${{ steps.attest.outputs.bundle-path }}" "$SIGSTORE_BUNDLE"
+          SIGSTORE_BUNDLE="$TARBALL.sigstore.json"
+          cp "$BUNDLE_PATH" "$SIGSTORE_BUNDLE"
           echo "sigstore_bundle=$SIGSTORE_BUNDLE" >> "$GITHUB_OUTPUT"
 
       - name: Publish npm package
         env:
           PACKAGE_VERSION: ${{ github.ref_name }}
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+          DIST_TAG: ${{ steps.dist-tag.outputs.tag }}
         run: |
           VERSION="${PACKAGE_VERSION#v}"
           if npm view "pastoralist@$VERSION" version > /dev/null 2>&1; then
@@ -93,7 +99,7 @@ jobs:
             exit 0
           fi
 
-          npm publish "${{ steps.pack.outputs.tarball }}" --provenance --access public --tag "${{ steps.dist-tag.outputs.tag }}"
+          npm publish "$TARBALL" --provenance --access public --tag "$DIST_TAG"
 
       - name: Publish GitHub release assets
         env:

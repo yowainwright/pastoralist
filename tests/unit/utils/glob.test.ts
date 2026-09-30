@@ -3,9 +3,27 @@ import assert from "node:assert/strict";
 import { sync, glob } from "../../../src/utils/glob";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { resolve } from "path";
+import { dirname, resolve } from "path";
 
 const PROJECT_ROOT = resolve(import.meta.dirname, "../../..");
+
+const MARKDOWN_FIXTURE_FILES = ["README.md", "docs/guide.md", "docs/nested/deep.md", "notes.txt"];
+const EXPECTED_MARKDOWN = ["README.md", "docs/guide.md", "docs/nested/deep.md"];
+const DIST_IGNORE = ["**/dist/**"];
+const BUILD_IGNORE = ["**/node_modules/**", "**/dist/**"];
+
+const withMarkdownFixture = async (fn: (directory: string) => unknown) => {
+  const directory = mkdtempSync(resolve(tmpdir(), "pastoralist-"));
+  MARKDOWN_FIXTURE_FILES.forEach((file) => {
+    mkdirSync(dirname(resolve(directory, file)), { recursive: true });
+    writeFileSync(resolve(directory, file), "");
+  });
+  try {
+    await fn(directory);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+};
 
 test("sync - should match package.json", () => {
   const results = sync("package.json", { cwd: PROJECT_ROOT });
@@ -16,20 +34,17 @@ test("sync - should match package.json", () => {
 
 test("sync - should match multiple patterns", () => {
   const results = sync(["package.json", "pnpm-lock.yaml"], { cwd: PROJECT_ROOT });
+  const matched = new Set(results);
 
-  assert.ok(results.includes("package.json"));
-  assert.ok(results.includes("pnpm-lock.yaml"));
+  assert.ok(matched.has("package.json"));
+  assert.ok(matched.has("pnpm-lock.yaml"));
   assert.strictEqual(results.length, 2);
 });
 
-test("sync - should match recursive pattern", () => {
-  const results = sync("**/*.md", { cwd: PROJECT_ROOT });
-
-  assert.ok(results.length > 0);
-  assert.strictEqual(
-    results.some((f) => f.endsWith(".md")),
-    true,
-  );
+test("sync - should match recursive pattern", async () => {
+  await withMarkdownFixture((directory) => {
+    assert.deepStrictEqual(sync("**/*.md", { cwd: directory }), EXPECTED_MARKDOWN);
+  });
 });
 
 test("sync - globstar matches zero or more directories", () => {
@@ -62,7 +77,7 @@ test("sync - ignores only paths matched by an ignore glob", () => {
   writeFileSync(resolve(directory, "src", "redistribute.ts"), "");
 
   try {
-    const results = sync("**/*.ts", { cwd: directory, ignore: ["**/dist/**"] });
+    const results = sync("**/*.ts", { cwd: directory, ignore: DIST_IGNORE });
     assert.deepStrictEqual(results, ["src/redistribute.ts"]);
   } finally {
     rmSync(directory, { recursive: true, force: true });
@@ -72,7 +87,7 @@ test("sync - ignores only paths matched by an ignore glob", () => {
 test("sync - should respect ignore patterns", () => {
   const results = sync("**/*.ts", {
     cwd: PROJECT_ROOT,
-    ignore: ["**/node_modules/**", "**/dist/**"],
+    ignore: BUILD_IGNORE,
   });
 
   assert.ok(results.length > 0);
@@ -121,7 +136,7 @@ test("sync - should return sorted results", () => {
     cwd: PROJECT_ROOT,
   });
 
-  const sorted = [...results].sort();
+  const sorted = results.toSorted();
   assert.deepStrictEqual(results, sorted);
 });
 
@@ -157,26 +172,23 @@ test("glob - should match multiple patterns async", async () => {
   const results = await glob(["package.json", "pnpm-lock.yaml"], {
     cwd: PROJECT_ROOT,
   });
+  const matched = new Set(results);
 
-  assert.ok(results.includes("package.json"));
-  assert.ok(results.includes("pnpm-lock.yaml"));
+  assert.ok(matched.has("package.json"));
+  assert.ok(matched.has("pnpm-lock.yaml"));
   assert.strictEqual(results.length, 2);
 });
 
 test("glob - should match recursive pattern async", async () => {
-  const results = await glob("**/*.md", { cwd: PROJECT_ROOT });
-
-  assert.ok(results.length > 0);
-  assert.strictEqual(
-    results.some((f) => f.endsWith(".md")),
-    true,
-  );
+  await withMarkdownFixture(async (directory) => {
+    assert.deepStrictEqual(await glob("**/*.md", { cwd: directory }), EXPECTED_MARKDOWN);
+  });
 });
 
 test("glob - should respect ignore patterns async", async () => {
   const results = await glob("**/*.ts", {
     cwd: PROJECT_ROOT,
-    ignore: ["**/node_modules/**", "**/dist/**"],
+    ignore: BUILD_IGNORE,
   });
 
   assert.ok(results.length > 0);
@@ -201,7 +213,7 @@ test("glob - should return sorted results async", async () => {
     cwd: PROJECT_ROOT,
   });
 
-  const sorted = [...results].sort();
+  const sorted = results.toSorted();
   assert.deepStrictEqual(results, sorted);
 });
 
@@ -214,17 +226,17 @@ test("glob - should deduplicate results from multiple patterns async", async () 
   assert.ok(results.includes("package.json"));
 });
 
-test("sync - cache eviction when MAX_CACHE_SIZE exceeded", () => {
-  const patterns = [];
-  for (let i = 0; i < 202; i++) {
-    patterns.push(`pattern${i}*`);
-  }
+test("sync - cache eviction when MAX_CACHE_SIZE exceeded", async () => {
+  await withMarkdownFixture((directory) => {
+    const firstResults = sync("**/*.md", { cwd: directory });
+    Array.from({ length: 202 }, (_, i) => `pattern${i}*`).forEach((pattern) => {
+      sync(pattern, { cwd: directory });
+    });
+    const evictedResults = sync("**/*.md", { cwd: directory });
 
-  patterns.forEach((pattern) => {
-    sync(pattern, { cwd: PROJECT_ROOT });
+    assert.deepStrictEqual(firstResults, EXPECTED_MARKDOWN);
+    assert.deepStrictEqual(evictedResults, EXPECTED_MARKDOWN);
   });
-
-  assert.strictEqual(true, true);
 });
 
 test("sync - literal pattern matching", () => {

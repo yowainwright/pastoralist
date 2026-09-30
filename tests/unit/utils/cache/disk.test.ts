@@ -1,4 +1,4 @@
-import { test, afterEach } from "node:test";
+import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "crypto";
 import { join } from "path";
@@ -13,22 +13,18 @@ import {
   DISK_CACHE_SCHEMA_VERSION,
 } from "../../../../src/utils/cache";
 
-const makeTmpDir = () => {
+const tmpCacheDir = () => {
   const dir = join(tmpdir(), `pastoralist-test-${randomUUID()}`);
   mkdirSync(dir, { recursive: true });
   return dir;
 };
 
-const dirs: string[] = [];
-const tmpCacheDir = () => {
-  const dir = makeTmpDir();
-  dirs.push(dir);
-  return dir;
-};
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-afterEach(() => {
-  dirs.length = 0;
-});
+const makeTrimCache = (dir: string) =>
+  new DiskCache<number>("test", { dir, ttl: 60000, version: 1, maxEntries: 3 });
+
+const isWindows = process.platform === "win32";
 
 test("DiskCache - set and get returns value", () => {
   const dir = tmpCacheDir();
@@ -83,30 +79,22 @@ test("DiskCache - persists across instances", () => {
   assert.strictEqual(cache2.get("persistent"), "yes");
 });
 
-test("DiskCache - expired entry returns undefined", () => {
+test("DiskCache - expired entry returns undefined", async () => {
   const dir = tmpCacheDir();
   const cache = new DiskCache<string>("test", { dir, ttl: 1, version: 1 });
   cache.set("k", "v");
-  return new Promise<void>((resolve) => {
-    setTimeout(() => {
-      assert.strictEqual(cache.get("k"), undefined);
-      resolve();
-    }, 10);
-  });
+  await sleep(10);
+  assert.strictEqual(cache.get("k"), undefined);
 });
 
-test("DiskCache - prune removes expired entries", () => {
+test("DiskCache - prune removes expired entries", async () => {
   const dir = tmpCacheDir();
   const cache = new DiskCache<string>("test", { dir, ttl: 1, version: 1 });
   cache.set("a", "1");
   cache.set("b", "2");
-  return new Promise<void>((resolve) => {
-    setTimeout(() => {
-      const pruned = cache.prune();
-      assert.strictEqual(pruned, 2);
-      resolve();
-    }, 10);
-  });
+  await sleep(10);
+  const pruned = cache.prune();
+  assert.strictEqual(pruned, 2);
 });
 
 test("DiskCache - corrupt file returns empty, next set succeeds", () => {
@@ -172,23 +160,13 @@ test("DiskCache - disabled cache never reads or writes", () => {
 
 test("DiskCache - trims to maxEntries on overflow", () => {
   const dir = tmpCacheDir();
-  const cache = new DiskCache<number>("test", {
-    dir,
-    ttl: 60000,
-    version: 1,
-    maxEntries: 3,
-  });
+  const cache = makeTrimCache(dir);
   cache.set("a", 1);
   cache.set("b", 2);
   cache.set("c", 3);
   cache.set("d", 4);
 
-  const cache2 = new DiskCache<number>("test", {
-    dir,
-    ttl: 60000,
-    version: 1,
-    maxEntries: 3,
-  });
+  const cache2 = makeTrimCache(dir);
   const keys = ["a", "b", "c", "d"].filter((k) => cache2.get(k) !== undefined);
   assert.strictEqual(keys.length, 3);
 });
@@ -301,9 +279,9 @@ test("pruneBackups - is no-op for non-backup files", () => {
 
   pruneBackups(dir, { keep: 5, maxAgeMs: 999999999 });
 
-  const remaining = readdirSync(dir);
-  assert.ok(remaining.includes("registry.json"));
-  assert.ok(remaining.includes("osv.json"));
+  const remaining = new Set(readdirSync(dir));
+  assert.ok(remaining.has("registry.json"));
+  assert.ok(remaining.has("osv.json"));
 });
 
 test("pruneBackups - does not throw on empty dir", () => {
@@ -317,4 +295,15 @@ test("pruneBackups - does not throw on missing dir", () => {
 
 test("DISK_CACHE_SCHEMA_VERSION is 1", () => {
   assert.strictEqual(DISK_CACHE_SCHEMA_VERSION, 1);
+});
+
+test("DiskCache - writes owner-only directories and files", { skip: isWindows }, () => {
+  const dir = tmpCacheDir();
+  const cache = new DiskCache<string>("perm", { dir, ttl: 60000, version: 1 });
+  cache.set("key1", "value1");
+  const entriesDir = join(dir, "perm.cache");
+  const [entryFile] = readdirSync(entriesDir);
+
+  assert.strictEqual(statSync(entriesDir).mode & 0o777, 0o700);
+  assert.strictEqual(statSync(join(entriesDir, entryFile)).mode & 0o777, 0o600);
 });

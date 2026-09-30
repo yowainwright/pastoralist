@@ -9,7 +9,10 @@ import type { Logger } from "../../../src/observability";
 
 const resolveJSONImplementation = (path: string): PastoralistJSON | undefined => {
   try {
-    return JSON.parse(readFileSync(path, "utf8")) as PastoralistJSON;
+    const resolveJSONImplementationResult = JSON.parse(
+      readFileSync(path, "utf8"),
+    ) as PastoralistJSON;
+    return resolveJSONImplementationResult;
   } catch {
     return undefined;
   }
@@ -19,13 +22,12 @@ const resolveJSONMock = mock(resolveJSONImplementation);
 const getDependencyTreeMock = mock(async () => ({}) as Record<string, string>);
 const jsonCache = { delete: (_key: string): boolean => true };
 
-moduleMock.module(import.meta.resolve("../../../src/core/package/index.ts"), {
-  namedExports: {
-    resolveJSON: resolveJSONMock,
-    getDependencyTree: getDependencyTreeMock,
-    jsonCache,
-  },
-});
+const namedExports = {
+  resolveJSON: resolveJSONMock,
+  getDependencyTree: getDependencyTreeMock,
+  jsonCache,
+};
+moduleMock.module(import.meta.resolve("../../../src/core/package/index.ts"), { namedExports });
 
 const {
   checkMonorepoOverrides,
@@ -44,6 +46,34 @@ const { constructAppendix } = await import("../../../src/core/appendix");
 const clearDependencyTreeCache = (): void => undefined;
 
 const TEST_DIR = resolve(import.meta.dirname, ".test-workspaces");
+
+const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
+
+const createDebugLog = (debug: Logger["debug"]): Logger => ({
+  debug,
+  error: () => {},
+  warn: () => {},
+  print: () => {},
+  line: () => {},
+  indent: () => {},
+  item: () => {},
+});
+
+const PKG_A_DIR = resolve(TEST_DIR, "packages", "pkg-a");
+const PKG_B_DIR = resolve(TEST_DIR, "packages", "pkg-b");
+
+const updateFakePkgOverrides = () => ({ "fake-pkg": "1.0.0" });
+const updateReactOverrides = () => ({ react: "18.0.0" });
+const updateLodashOverrides = () => ({ lodash: "4.17.21" });
+const updateNoOverrides = () => ({});
+const constructEmptyAppendix = async () => ({});
+
+const writePackageManifest = (dir: string, manifest: object) => {
+  const manifestPath = resolve(dir, "package.json");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(manifestPath, JSON.stringify(manifest));
+  return manifestPath;
+};
 
 beforeEach(() => {
   clearDependencyTreeCache();
@@ -105,11 +135,9 @@ test("getPackageJsonWorkspacePatterns - reads array workspaces", () => {
   ]);
 });
 
+const packages = ["packages/*", "apps/*"];
 test("getPackageJsonWorkspacePatterns - reads object workspaces", () => {
-  assert.deepStrictEqual(getPackageJsonWorkspacePatterns({ packages: ["packages/*", "apps/*"] }), [
-    "packages/*",
-    "apps/*",
-  ]);
+  assert.deepStrictEqual(getPackageJsonWorkspacePatterns({ packages }), ["packages/*", "apps/*"]);
 });
 
 test("parsePnpmWorkspacePackages - parses block package entries", () => {
@@ -157,6 +185,7 @@ packages:
   assert.deepStrictEqual(result, ["packages/*"]);
 });
 
+const workspaces2 = ["packages/*"];
 test("resolveWorkspaceManifestPaths - combines package.json and pnpm workspace sources", () => {
   const root = mkdtempSync(join(tmpdir(), "pastoralist-workspaces-"));
 
@@ -170,7 +199,7 @@ packages:
 `,
     );
 
-    const result = resolveWorkspaceManifestPaths({ workspaces: ["packages/*"] }, root);
+    const result = resolveWorkspaceManifestPaths({ workspaces: workspaces2 }, root);
 
     assert.deepStrictEqual(result, ["packages/*/package.json", "apps/*/package.json"]);
   } finally {
@@ -178,36 +207,28 @@ packages:
   }
 });
 
+const workspaces = ["packages/*"];
 test("resolveWorkspaceManifestPaths - falls back when pnpm workspace cannot be read", () => {
   const root = mkdtempSync(join(tmpdir(), "pastoralist-workspaces-"));
-  const debugCalls: Array<[string, string]> = [];
-  const log: Logger = {
-    debug: (message, caller) => debugCalls.push([message, caller]),
-    error: () => {},
-    warn: () => {},
-    print: () => {},
-    line: () => {},
-    indent: () => {},
-    item: () => {},
-  };
+  const debug = mock((_message: string, _caller?: string) => undefined);
+  const log = createDebugLog(debug);
 
   try {
     mkdirSync(join(root, "pnpm-workspace.yaml"));
 
-    const result = resolveWorkspaceManifestPaths({ workspaces: ["packages/*"] }, root, log);
+    const result = resolveWorkspaceManifestPaths({ workspaces }, root, log);
 
     assert.deepStrictEqual(result, ["packages/*/package.json"]);
-    assert.strictEqual(debugCalls.length, 1);
-    assert.ok(debugCalls[0][0].includes("Unable to read pnpm-workspace.yaml"));
-    assert.strictEqual(debugCalls[0][1], "readPnpmWorkspacePatterns");
+    const [message, caller] = debug.mock.calls[0].arguments;
+    assert.strictEqual(debug.mock.callCount(), 1);
+    assert.ok(message.includes("Unable to read pnpm-workspace.yaml"));
+    assert.strictEqual(caller, "readPnpmWorkspacePatterns");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
 test("checkMonorepoOverrides", () => {
-  const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
-
   const result = checkMonorepoOverrides({ lodash: "4.17.21" }, { lodash: "^4.17.20" }, mockLog);
   assert.deepStrictEqual(result, []);
 
@@ -219,47 +240,45 @@ test("checkMonorepoOverrides", () => {
   assert.deepStrictEqual(result2, ["react"]);
 });
 
-test("processWorkspacePackages", async () => {
-  const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
-  const mockConstructAppendix = async () => ({
-    "lodash@4.17.21": { dependents: {} },
-  });
+const constructEmptyLodashAppendix = async () => {
+  const dependents = {};
+  const lodashEntry = { dependents };
+  const appendix = { "lodash@4.17.21": lodashEntry };
+  return appendix;
+};
 
+test("processWorkspacePackages", async () => {
   const result = await processWorkspacePackages(
     ["pkg/package.json"],
     {} as ResolveOverrides,
     mockLog,
-    { constructAppendix: mockConstructAppendix },
+    { constructAppendix: constructEmptyLodashAppendix },
   );
 
   assert.notStrictEqual(result.appendix, undefined);
 });
 
+const lodashDependents5 = { "pkg-a": "lodash@^4.17.21" };
+const overridePathsPackagesALodash = { dependents: lodashDependents5 };
+const overridePathsPackagesA3 = { "lodash@4.17.21": overridePathsPackagesALodash };
+const lodashDependents6 = { root: "lodash@^4.17.21" };
+const appendixLodash5 = { dependents: lodashDependents6 };
+const reactDependents4 = { "pkg-a": "react@^18.0.0" };
+const overridePathsPackagesAReact = { dependents: reactDependents4 };
+const overridePathsPackagesA4 = { "react@18.0.0": overridePathsPackagesAReact };
+const lodashDependents7 = { root: "lodash@^4.17.21" };
+const appendixLodash6 = { dependents: lodashDependents7 };
 test("mergeOverridePaths", () => {
-  const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
-
-  const appendix: Appendix = {
-    "lodash@4.17.21": { dependents: { root: "lodash@^4.17.21" } },
-  };
-  const overridePaths = {
-    "packages/a": {
-      "react@18.0.0": { dependents: { "pkg-a": "react@^18.0.0" } },
-    },
-  };
+  const appendix: Appendix = { "lodash@4.17.21": appendixLodash6 };
+  const overridePaths = { "packages/a": overridePathsPackagesA4 };
 
   const result = mergeOverridePaths(appendix, overridePaths, ["react"], mockLog);
 
   assert.notStrictEqual(result["lodash@4.17.21"], undefined);
   assert.notStrictEqual(result["react@18.0.0"], undefined);
 
-  const appendix2: Appendix = {
-    "lodash@4.17.21": { dependents: { root: "lodash@^4.17.21" } },
-  };
-  const overridePaths2 = {
-    "packages/a": {
-      "lodash@4.17.21": { dependents: { "pkg-a": "lodash@^4.17.21" } },
-    },
-  };
+  const appendix2: Appendix = { "lodash@4.17.21": appendixLodash5 };
+  const overridePaths2 = { "packages/a": overridePathsPackagesA3 };
   const result2 = mergeOverridePaths(appendix2, overridePaths2, ["lodash"], mockLog);
   assert.notStrictEqual(result2["lodash@4.17.21"].dependents["root"], undefined);
   assert.notStrictEqual(result2["lodash@4.17.21"].dependents["pkg-a"], undefined);
@@ -268,10 +287,10 @@ test("mergeOverridePaths", () => {
   assert.deepStrictEqual(result3, appendix);
 });
 
+const react2 = { "react-dom": "18.0.0" };
+const react3 = { "react-dom": "18.0.0" };
 test("findUnusedOverrides", async () => {
-  const spy = getDependencyTreeMock.mockResolvedValue({
-    "fake-pkg": true,
-  });
+  const spy = getDependencyTreeMock.mockResolvedValue({ "fake-pkg": true });
 
   const result = await findUnusedOverrides({ "fake-pkg": "1.0.0" }, { "fake-pkg": "^1.0.0" });
   assert.deepStrictEqual(result, []);
@@ -279,13 +298,10 @@ test("findUnusedOverrides", async () => {
   const result2 = await findUnusedOverrides({ "fake-pkg": "1.0.0" }, {});
   assert.deepStrictEqual(result2, ["fake-pkg"]);
 
-  const result3 = await findUnusedOverrides({ react: { "react-dom": "18.0.0" } }, {});
+  const result3 = await findUnusedOverrides({ react: react3 }, {});
   assert.deepStrictEqual(result3, ["react"]);
 
-  const result4 = await findUnusedOverrides(
-    { react: { "react-dom": "18.0.0" } },
-    { react: "^18.0.0" },
-  );
+  const result4 = await findUnusedOverrides({ react: react2 }, { react: "^18.0.0" });
   assert.deepStrictEqual(result4, []);
 
   spy.mockRestore();
@@ -295,11 +311,7 @@ test("findUnusedOverrides - reads dependency tree once per run", async () => {
   const spy = getDependencyTreeMock.mockResolvedValue({});
 
   const result = await findUnusedOverrides(
-    {
-      alpha: "1.0.0",
-      beta: "2.0.0",
-      gamma: "3.0.0",
-    },
+    { alpha: "1.0.0", beta: "2.0.0", gamma: "3.0.0" },
     { root: "^1.0.0" },
   );
 
@@ -310,9 +322,7 @@ test("findUnusedOverrides - reads dependency tree once per run", async () => {
 });
 
 test("findUnusedOverrides - passes root to dependency tree lookup", async () => {
-  const spy = getDependencyTreeMock.mockResolvedValue({
-    "transitive-pkg": "1.0.0",
-  });
+  const spy = getDependencyTreeMock.mockResolvedValue({ "transitive-pkg": "1.0.0" });
 
   const result = await findUnusedOverrides(
     { "transitive-pkg": "1.0.0" },
@@ -326,18 +336,17 @@ test("findUnusedOverrides - passes root to dependency tree lookup", async () => 
   spy.mockRestore();
 });
 
-test("cleanupUnusedOverrides", async () => {
-  const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
-  const mockUpdateOverrides = () => ({ "fake-pkg": "1.0.0" });
-
-  const spy = getDependencyTreeMock.mockResolvedValue({
-    "fake-pkg": true,
-  });
-
-  const appendix: Appendix = {
-    "fake-pkg@1.0.0": { dependents: { root: "fake-pkg@^1.0.0" } },
-    "react@18.0.0": { dependents: {} },
-  };
+const packagesAReactDependents = { "pkg-a": "react@^18.0.0" };
+const packagesAReact = { dependents: packagesAReactDependents };
+const overridePathsPackagesA2 = { "react@18.0.0": packagesAReact };
+const reactDependents2 = { "pkg-a": "react@^18.0.0" };
+const appendixReact2 = { dependents: reactDependents2 };
+const reactDependents3 = {};
+const appendixReact3 = { dependents: reactDependents3 };
+const fakePkgDependents = { root: "fake-pkg@^1.0.0" };
+const fakePkg = { dependents: fakePkgDependents };
+const assertRemovesUnusedAppendixEntries = async () => {
+  const appendix: Appendix = { "fake-pkg@1.0.0": fakePkg, "react@18.0.0": appendixReact3 };
   const result = await cleanupUnusedOverrides(
     { "fake-pkg": "1.0.0", react: "18.0.0" },
     {} as ResolveOverrides,
@@ -346,21 +355,16 @@ test("cleanupUnusedOverrides", async () => {
     [],
     undefined,
     mockLog,
-    mockUpdateOverrides,
+    updateFakePkgOverrides,
   );
 
   assert.deepStrictEqual(result.finalOverrides, { "fake-pkg": "1.0.0" });
   assert.strictEqual(result.finalAppendix["react@18.0.0"], undefined);
+};
 
-  const appendix2: Appendix = {
-    "react@18.0.0": { dependents: { "pkg-a": "react@^18.0.0" } },
-  };
-  const overridePaths = {
-    "packages/a": {
-      "react@18.0.0": { dependents: { "pkg-a": "react@^18.0.0" } },
-    },
-  };
-  const mockUpdateOverrides2 = () => ({ react: "18.0.0" });
+const assertKeepsTrackedOverridePaths = async () => {
+  const appendix2: Appendix = { "react@18.0.0": appendixReact2 };
+  const overridePaths = { "packages/a": overridePathsPackagesA2 };
   const result2 = await cleanupUnusedOverrides(
     { react: "18.0.0" },
     {} as ResolveOverrides,
@@ -369,17 +373,22 @@ test("cleanupUnusedOverrides", async () => {
     ["react"],
     overridePaths,
     mockLog,
-    mockUpdateOverrides2,
+    updateReactOverrides,
   );
   assert.deepStrictEqual(result2.finalOverrides, { react: "18.0.0" });
+};
+
+test("cleanupUnusedOverrides", async () => {
+  const spy = getDependencyTreeMock.mockResolvedValue({ "fake-pkg": true });
+
+  await assertRemovesUnusedAppendixEntries();
+  await assertKeepsTrackedOverridePaths();
 
   spy.mockRestore();
 });
 
 test("findUnusedOverrides - handles packages in dependency tree", async () => {
-  const spy = getDependencyTreeMock.mockResolvedValue({
-    "transitive-pkg": true,
-  });
+  const spy = getDependencyTreeMock.mockResolvedValue({ "transitive-pkg": true });
 
   const result = await findUnusedOverrides(
     { "transitive-pkg": "1.0.0" },
@@ -391,7 +400,6 @@ test("findUnusedOverrides - handles packages in dependency tree", async () => {
 });
 
 test("checkMonorepoOverrides - returns empty for matching deps", () => {
-  const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
   const result = checkMonorepoOverrides(
     { react: "18.0.0", lodash: "4.17.21" },
     { react: "^18.0.0", lodash: "^4.17.0" },
@@ -401,31 +409,27 @@ test("checkMonorepoOverrides - returns empty for matching deps", () => {
 });
 
 test("checkMonorepoOverrides - identifies multiple missing overrides", () => {
-  const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
   const result = checkMonorepoOverrides(
     { react: "18.0.0", lodash: "4.17.21", express: "4.18.2" },
     { lodash: "^4.17.0" },
     mockLog,
   );
-  assert.ok(result.includes("react"));
-  assert.ok(result.includes("express"));
-  assert.ok(!result.includes("lodash"));
+  const missing = new Set(result);
+  assert.ok(missing.has("react"));
+  assert.ok(missing.has("express"));
+  assert.ok(!missing.has("lodash"));
 });
 
+const lodashDependents4 = { root: "lodash@^4.17.21" };
+const appendixLodash4 = { dependents: lodashDependents4 };
 test("mergeOverridePaths - handles empty override paths", () => {
-  const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
-  const appendix: Appendix = {
-    "lodash@4.17.21": { dependents: { root: "lodash@^4.17.21" } },
-  };
+  const appendix: Appendix = { "lodash@4.17.21": appendixLodash4 };
 
   const result = mergeOverridePaths(appendix, {}, [], mockLog);
   assert.deepStrictEqual(result, appendix);
 });
 
 test("cleanupUnusedOverrides - handles empty appendix", async () => {
-  const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
-  const mockUpdateOverrides = () => ({});
-
   const spy = getDependencyTreeMock.mockResolvedValue({});
 
   const result = await cleanupUnusedOverrides(
@@ -436,7 +440,7 @@ test("cleanupUnusedOverrides - handles empty appendix", async () => {
     [],
     undefined,
     mockLog,
-    mockUpdateOverrides,
+    updateNoOverrides,
   );
 
   assert.deepStrictEqual(result.finalOverrides, {});
@@ -445,52 +449,47 @@ test("cleanupUnusedOverrides - handles empty appendix", async () => {
   spy.mockRestore();
 });
 
-test("processWorkspacePackages - returns appendix for valid packages", async () => {
-  const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
-  const mockConstructAppendix = async () => ({
-    "react@18.0.0": { dependents: { "pkg-a": "react@^18.0.0" } },
-    "lodash@4.17.21": { dependents: { "pkg-a": "lodash@^4.17.0" } },
-  });
+const expectedAppendixLodashDependents = { "pkg-a": "lodash@^4.17.0" };
+const expectedAppendixLodash = { dependents: expectedAppendixLodashDependents };
+const expectedAppendixReactDependents = { "pkg-a": "react@^18.0.0" };
+const expectedAppendixReact = { dependents: expectedAppendixReactDependents };
+test("processWorkspacePackages - returns appendix for valid packages", () => {
+  const expectedAppendix = {
+    "react@18.0.0": expectedAppendixReact,
+    "lodash@4.17.21": expectedAppendixLodash,
+  };
+  const mockConstructAppendix = () => expectedAppendix;
 
-  const result = await processWorkspacePackages(
+  const result = processWorkspacePackages(
     ["pkg-a/package.json", "pkg-b/package.json"],
     {} as ResolveOverrides,
     mockLog,
     { constructAppendix: mockConstructAppendix },
   );
 
-  assert.notStrictEqual(result.appendix, undefined);
-  assert.ok(Object.keys(result.appendix).length >= 0);
+  assert.deepStrictEqual(result.appendix, expectedAppendix);
 });
 
 test("processWorkspacePackages - handles empty package list", async () => {
-  const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
-  const mockConstructAppendix = async () => ({});
-
   const result = await processWorkspacePackages([], {} as ResolveOverrides, mockLog, {
-    constructAppendix: mockConstructAppendix,
+    constructAppendix: constructEmptyAppendix,
   });
 
   assert.notStrictEqual(result.appendix, undefined);
 });
 
+const packagesBLodashDependents = { "pkg-b": "lodash@^4.17.0" };
+const packagesBLodash = { dependents: packagesBLodashDependents };
+const packagesB = { "lodash@4.17.21": packagesBLodash };
+const packagesALodashDependents = { "pkg-a": "lodash@^4.17.0" };
+const packagesALodash = { dependents: packagesALodashDependents };
+const overridePathsPackagesA = { "lodash@4.17.21": packagesALodash };
+const lodashDependents3 = { root: "lodash@^4.17.21" };
+const appendixLodash3 = { dependents: lodashDependents3 };
 test("mergeOverridePaths - merges dependents from multiple packages", () => {
-  const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
+  const appendix: Appendix = { "lodash@4.17.21": appendixLodash3 };
 
-  const appendix: Appendix = {
-    "lodash@4.17.21": {
-      dependents: { root: "lodash@^4.17.21" },
-    },
-  };
-
-  const overridePaths = {
-    "packages/a": {
-      "lodash@4.17.21": { dependents: { "pkg-a": "lodash@^4.17.0" } },
-    },
-    "packages/b": {
-      "lodash@4.17.21": { dependents: { "pkg-b": "lodash@^4.17.0" } },
-    },
-  };
+  const overridePaths = { "packages/a": overridePathsPackagesA, "packages/b": packagesB };
 
   const result = mergeOverridePaths(appendix, overridePaths, ["lodash"], mockLog);
 
@@ -499,33 +498,22 @@ test("mergeOverridePaths - merges dependents from multiple packages", () => {
   assert.notStrictEqual(result["lodash@4.17.21"].dependents["pkg-b"], undefined);
 });
 
+const parent = { child: "2.0.0" };
 test("findUnusedOverrides - returns empty for nested override with matching parent", async () => {
-  const spy = getDependencyTreeMock.mockResolvedValue({
-    parent: true,
-  });
+  const spy = getDependencyTreeMock.mockResolvedValue({ parent: true });
 
-  const result = await findUnusedOverrides({ parent: { child: "2.0.0" } }, { parent: "^1.0.0" });
+  const result = await findUnusedOverrides({ parent }, { parent: "^1.0.0" });
   assert.deepStrictEqual(result, []);
 
   spy.mockRestore();
 });
 
+const lodashDependents2 = { root: "lodash@^4.17.0", "pkg-a": "lodash@^4.17.0" };
+const appendixLodash2 = { dependents: lodashDependents2 };
 test("cleanupUnusedOverrides - preserves overrides with dependents", async () => {
-  const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
-  const mockUpdateOverrides = () => ({ lodash: "4.17.21" });
+  const spy = getDependencyTreeMock.mockResolvedValue({ lodash: true });
 
-  const spy = getDependencyTreeMock.mockResolvedValue({
-    lodash: true,
-  });
-
-  const appendix: Appendix = {
-    "lodash@4.17.21": {
-      dependents: {
-        root: "lodash@^4.17.0",
-        "pkg-a": "lodash@^4.17.0",
-      },
-    },
-  };
+  const appendix: Appendix = { "lodash@4.17.21": appendixLodash2 };
 
   const result = await cleanupUnusedOverrides(
     { lodash: "4.17.21" },
@@ -535,7 +523,7 @@ test("cleanupUnusedOverrides - preserves overrides with dependents", async () =>
     [],
     undefined,
     mockLog,
-    mockUpdateOverrides,
+    updateLodashOverrides,
   );
 
   assert.strictEqual(result.finalOverrides["lodash"], "4.17.21");
@@ -544,17 +532,19 @@ test("cleanupUnusedOverrides - preserves overrides with dependents", async () =>
   spy.mockRestore();
 });
 
-test("processWorkspacePackages - aggregates dependencies from multiple packages", async () => {
-  const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
-  const mockConstructAppendix = async () => ({
-    "lodash@4.17.21": { dependents: { root: "lodash@^4.17.0" } },
-  });
+const constructRootLodashAppendix = async () => {
+  const dependents = { root: "lodash@^4.17.0" };
+  const lodashEntry = { dependents };
+  const appendix = { "lodash@4.17.21": lodashEntry };
+  return appendix;
+};
 
+test("processWorkspacePackages - aggregates dependencies from multiple packages", async () => {
   const result = await processWorkspacePackages(
     ["pkg-a/package.json", "pkg-b/package.json"],
     {} as ResolveOverrides,
     mockLog,
-    { constructAppendix: mockConstructAppendix },
+    { constructAppendix: constructRootLodashAppendix },
   );
 
   assert.notStrictEqual(result.appendix, undefined);
@@ -562,9 +552,7 @@ test("processWorkspacePackages - aggregates dependencies from multiple packages"
 });
 
 test("findUnusedOverrides - keeps override in dependency tree", async () => {
-  const spy = getDependencyTreeMock.mockResolvedValue({
-    "transitive-dep": true,
-  });
+  const spy = getDependencyTreeMock.mockResolvedValue({ "transitive-dep": true });
 
   const result = await findUnusedOverrides(
     { "transitive-dep": "1.0.0" },
@@ -575,83 +563,57 @@ test("findUnusedOverrides - keeps override in dependency tree", async () => {
   spy.mockRestore();
 });
 
+const reactDependents = { "pkg-a": "react@^18.0.0" };
+const react = { dependents: reactDependents };
+const packagesA = { "react@18.0.0": react };
+const appendixReactDependents = {};
+const appendixReact = { dependents: appendixReactDependents };
+const trackedReactAppendix: Appendix = { "react@18.0.0": appendixReact };
+const trackedReactOverridePaths = { "packages/a": packagesA };
 test("cleanupUnusedOverrides - logs tracked packages in overridePaths", async () => {
-  const debugLogs: string[] = [];
-  const mockLog = {
-    debug: (msg: string) => debugLogs.push(msg),
-    error: () => {},
-    warn: () => {},
-    print: () => {},
-    line: () => {},
-    indent: () => {},
-    item: () => {},
-  };
-  const mockUpdateOverrides = () => ({ react: "18.0.0" });
+  const debug = mock((_message: string) => undefined);
+  const recordingLog = createDebugLog(debug);
 
-  const spy = getDependencyTreeMock.mockResolvedValue({
-    react: true,
-  });
-
-  const appendix: Appendix = {
-    "react@18.0.0": { dependents: {} },
-  };
-  const overridePaths = {
-    "packages/a": {
-      "react@18.0.0": { dependents: { "pkg-a": "react@^18.0.0" } },
-    },
-  };
+  const spy = getDependencyTreeMock.mockResolvedValue({ react: true });
 
   await cleanupUnusedOverrides(
     { react: "18.0.0" },
     {} as ResolveOverrides,
-    appendix,
+    trackedReactAppendix,
     {},
     ["react"],
-    overridePaths,
-    mockLog,
-    mockUpdateOverrides,
+    trackedReactOverridePaths,
+    recordingLog,
+    updateReactOverrides,
   );
 
-  assert.strictEqual(
-    debugLogs.some((log) => log.includes("overridePaths")),
-    true,
-  );
+  const debugMessages = debug.mock.calls.map((call) => call.arguments[0]);
+  const hasOverridePathsLog = debugMessages.some((message) => message.includes("overridePaths"));
+  assert.strictEqual(hasOverridePathsLog, true);
 
   spy.mockRestore();
 });
 
+const npm = { lodash: "4.17.21" };
+const allTypesDependencies = { lodash: "^4.17.0" };
+const allTypesDevDependencies = { jest: "^29.0.0" };
+const allTypesPeerDependencies = { react: "^18.0.0" };
+const expressDependencies = { express: "^4.18.0" };
+const allTypesManifest = {
+  name: "pkg-a",
+  version: "1.0.0",
+  dependencies: allTypesDependencies,
+  devDependencies: allTypesDevDependencies,
+  peerDependencies: allTypesPeerDependencies,
+};
+const expressManifest = { name: "pkg-b", version: "1.0.0", dependencies: expressDependencies };
 test("processWorkspacePackages - collects all dependency types from fixtures", async () => {
-  const pkgADir = resolve(TEST_DIR, "packages", "pkg-a");
-  const pkgBDir = resolve(TEST_DIR, "packages", "pkg-b");
-
-  mkdirSync(pkgADir, { recursive: true });
-  mkdirSync(pkgBDir, { recursive: true });
-
-  writeFileSync(
-    resolve(pkgADir, "package.json"),
-    JSON.stringify({
-      name: "pkg-a",
-      version: "1.0.0",
-      dependencies: { lodash: "^4.17.0" },
-      devDependencies: { jest: "^29.0.0" },
-      peerDependencies: { react: "^18.0.0" },
-    }),
-  );
-
-  writeFileSync(
-    resolve(pkgBDir, "package.json"),
-    JSON.stringify({
-      name: "pkg-b",
-      version: "1.0.0",
-      dependencies: { express: "^4.18.0" },
-    }),
-  );
-
-  const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
-  const overridesData = { npm: { lodash: "4.17.21" } };
+  const pkgAManifest = writePackageManifest(PKG_A_DIR, allTypesManifest);
+  const pkgBManifest = writePackageManifest(PKG_B_DIR, expressManifest);
+  const overridesData = { npm };
 
   const result = await processWorkspacePackages(
-    [resolve(pkgADir, "package.json"), resolve(pkgBDir, "package.json")],
+    [pkgAManifest, pkgBManifest],
     overridesData,
     mockLog,
     { constructAppendix: constructAppendix },
@@ -664,23 +626,15 @@ test("processWorkspacePackages - collects all dependency types from fixtures", a
   assert.strictEqual(result.allWorkspaceDeps["express"], "^4.18.0");
 });
 
+const devDependencies = { typescript: "^5.0.0", eslint: "^8.0.0" };
+const devOnlyManifest = { name: "dev-only", version: "1.0.0", devDependencies };
 test("processWorkspacePackages - handles packages with only devDependencies", async () => {
-  const pkgDir = resolve(TEST_DIR, "packages", "dev-only");
-
-  mkdirSync(pkgDir, { recursive: true });
-
-  writeFileSync(
-    resolve(pkgDir, "package.json"),
-    JSON.stringify({
-      name: "dev-only",
-      version: "1.0.0",
-      devDependencies: { typescript: "^5.0.0", eslint: "^8.0.0" },
-    }),
+  const manifestPath = writePackageManifest(
+    resolve(TEST_DIR, "packages", "dev-only"),
+    devOnlyManifest,
   );
 
-  const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
-
-  const result = await processWorkspacePackages([resolve(pkgDir, "package.json")], {}, mockLog, {
+  const result = await processWorkspacePackages([manifestPath], {}, mockLog, {
     constructAppendix: constructAppendix,
   });
 
@@ -688,23 +642,15 @@ test("processWorkspacePackages - handles packages with only devDependencies", as
   assert.strictEqual(result.allWorkspaceDeps["eslint"], "^8.0.0");
 });
 
+const peerDependencies = { react: "^18.0.0", "react-dom": "^18.0.0" };
+const peerOnlyManifest = { name: "peer-only", version: "1.0.0", peerDependencies };
 test("processWorkspacePackages - handles packages with only peerDependencies", async () => {
-  const pkgDir = resolve(TEST_DIR, "packages", "peer-only");
-
-  mkdirSync(pkgDir, { recursive: true });
-
-  writeFileSync(
-    resolve(pkgDir, "package.json"),
-    JSON.stringify({
-      name: "peer-only",
-      version: "1.0.0",
-      peerDependencies: { react: "^18.0.0", "react-dom": "^18.0.0" },
-    }),
+  const manifestPath = writePackageManifest(
+    resolve(TEST_DIR, "packages", "peer-only"),
+    peerOnlyManifest,
   );
 
-  const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
-
-  const result = await processWorkspacePackages([resolve(pkgDir, "package.json")], {}, mockLog, {
+  const result = await processWorkspacePackages([manifestPath], {}, mockLog, {
     constructAppendix: constructAppendix,
   });
 
@@ -712,86 +658,56 @@ test("processWorkspacePackages - handles packages with only peerDependencies", a
   assert.strictEqual(result.allWorkspaceDeps["react-dom"], "^18.0.0");
 });
 
+const lodashLooseDependencies = { lodash: "^4.17.0" };
+const lodashTightDependencies = { lodash: "^4.17.20" };
+const lodashLooseManifest = {
+  name: "pkg-a",
+  version: "1.0.0",
+  dependencies: lodashLooseDependencies,
+};
+const lodashTightManifest = {
+  name: "pkg-b",
+  version: "1.0.0",
+  dependencies: lodashTightDependencies,
+};
 test("processWorkspacePackages - aggregates overlapping dependencies", async () => {
-  const pkgADir = resolve(TEST_DIR, "packages", "pkg-a");
-  const pkgBDir = resolve(TEST_DIR, "packages", "pkg-b");
+  const pkgAManifest = writePackageManifest(PKG_A_DIR, lodashLooseManifest);
+  const pkgBManifest = writePackageManifest(PKG_B_DIR, lodashTightManifest);
 
-  mkdirSync(pkgADir, { recursive: true });
-  mkdirSync(pkgBDir, { recursive: true });
-
-  writeFileSync(
-    resolve(pkgADir, "package.json"),
-    JSON.stringify({
-      name: "pkg-a",
-      version: "1.0.0",
-      dependencies: { lodash: "^4.17.0" },
-    }),
-  );
-
-  writeFileSync(
-    resolve(pkgBDir, "package.json"),
-    JSON.stringify({
-      name: "pkg-b",
-      version: "1.0.0",
-      dependencies: { lodash: "^4.17.20" },
-    }),
-  );
-
-  const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
-
-  const result = await processWorkspacePackages(
-    [resolve(pkgADir, "package.json"), resolve(pkgBDir, "package.json")],
-    {},
-    mockLog,
-    { constructAppendix: constructAppendix },
-  );
+  const result = await processWorkspacePackages([pkgAManifest, pkgBManifest], {}, mockLog, {
+    constructAppendix: constructAppendix,
+  });
 
   assert.notStrictEqual(result.allWorkspaceDeps["lodash"], undefined);
 });
 
+const emptyManifest = { name: "empty", version: "1.0.0" };
 test("processWorkspacePackages - handles empty package.json files", async () => {
-  const pkgDir = resolve(TEST_DIR, "packages", "empty");
+  const manifestPath = writePackageManifest(resolve(TEST_DIR, "packages", "empty"), emptyManifest);
 
-  mkdirSync(pkgDir, { recursive: true });
-
-  writeFileSync(
-    resolve(pkgDir, "package.json"),
-    JSON.stringify({
-      name: "empty",
-      version: "1.0.0",
-    }),
-  );
-
-  const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
-
-  const result = await processWorkspacePackages([resolve(pkgDir, "package.json")], {}, mockLog, {
+  const result = await processWorkspacePackages([manifestPath], {}, mockLog, {
     constructAppendix: constructAppendix,
   });
 
   assert.deepStrictEqual(result.allWorkspaceDeps, {});
 });
 
+const expressDependents = { app: "express@^4.18.0" };
+const express = { dependents: expressDependents };
+const packagesAppLodashDependents = { app: "lodash@^4.17.20" };
+const packagesAppLodash = { dependents: packagesAppLodashDependents };
+const overridePathsPackagesApp = {
+  "lodash@4.17.21": packagesAppLodash,
+  "express@4.18.2": express,
+};
+const originalAppendixLodashDependents = { root: "lodash@^4.17.20" };
+const originalAppendixLodash = { dependents: originalAppendixLodashDependents };
 test("mergeOverridePaths - does not mutate original appendix", () => {
-  const originalAppendix: Appendix = {
-    "lodash@4.17.21": {
-      dependents: { root: "lodash@^4.17.20" },
-    },
-  };
+  const originalAppendix: Appendix = { "lodash@4.17.21": originalAppendixLodash };
 
   const appendixSnapshot = JSON.parse(JSON.stringify(originalAppendix));
 
-  const overridePaths = {
-    "packages/app": {
-      "lodash@4.17.21": {
-        dependents: { app: "lodash@^4.17.20" },
-      },
-      "express@4.18.2": {
-        dependents: { app: "express@^4.18.0" },
-      },
-    },
-  };
-
-  const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
+  const overridePaths = { "packages/app": overridePathsPackagesApp };
 
   const result = mergeOverridePaths(originalAppendix, overridePaths, ["express"], mockLog);
 
@@ -801,22 +717,15 @@ test("mergeOverridePaths - does not mutate original appendix", () => {
   assert.deepStrictEqual(originalAppendix, appendixSnapshot);
 });
 
+const lodashDependents = { "workspace-app": "lodash@^4.17.20" };
+const lodash = { dependents: lodashDependents };
+const packagesApp = { "lodash@4.17.21": lodash };
+const appendixLodashDependents = { root: "lodash@^4.17.20" };
+const appendixLodash = { dependents: appendixLodashDependents };
 test("mergeOverridePaths - merges dependents for existing entries", () => {
-  const appendix: Appendix = {
-    "lodash@4.17.21": {
-      dependents: { root: "lodash@^4.17.20" },
-    },
-  };
+  const appendix: Appendix = { "lodash@4.17.21": appendixLodash };
 
-  const overridePaths = {
-    "packages/app": {
-      "lodash@4.17.21": {
-        dependents: { "workspace-app": "lodash@^4.17.20" },
-      },
-    },
-  };
-
-  const mockLog = { debug: () => {}, error: () => {}, info: () => {} };
+  const overridePaths = { "packages/app": packagesApp };
 
   const result = mergeOverridePaths(appendix, overridePaths, ["lodash"], mockLog);
 

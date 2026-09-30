@@ -1,7 +1,36 @@
 import { errorIncludes, fulfilledValues } from "../setup";
-import { test } from "node:test";
+import { test, mock } from "node:test";
 import assert from "node:assert/strict";
 import { ConcurrencyLimiter, createLimit } from "../../../src/utils/limit";
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const createRecorder = () => mock.fn((_value: number) => undefined);
+
+type Recorder = ReturnType<typeof createRecorder>;
+
+const recordedValues = (recorder: Recorder) => recorder.mock.calls.map((call) => call.arguments[0]);
+
+const createRecordedTask = (recorder: Recorder, id: number, delay: number) => async () => {
+  recorder(id);
+  await sleep(delay);
+  return id;
+};
+
+const createDelayedTrueTask = (delay: number) => async () => {
+  await sleep(delay);
+  return true;
+};
+
+const successTask = async () => {
+  await sleep(10);
+  return "success";
+};
+
+const errorTask = async () => {
+  await sleep(10);
+  throw new Error("Task failed");
+};
 
 test("ConcurrencyLimiter - should throw on invalid concurrency", () => {
   assert.throws(() => new ConcurrencyLimiter(0), errorIncludes("Concurrency must be at least 1"));
@@ -10,13 +39,13 @@ test("ConcurrencyLimiter - should throw on invalid concurrency", () => {
 
 test("ConcurrencyLimiter - should limit concurrent executions", async () => {
   const limiter = new ConcurrencyLimiter(2);
-  const execution: number[] = [];
-  const completion: number[] = [];
+  const execution = createRecorder();
+  const completion = createRecorder();
 
   const createTask = (id: number, delay: number) => async () => {
-    execution.push(id);
-    await new Promise((resolve) => setTimeout(resolve, delay));
-    completion.push(id);
+    execution(id);
+    await sleep(delay);
+    completion(id);
     return id;
   };
 
@@ -28,17 +57,17 @@ test("ConcurrencyLimiter - should limit concurrent executions", async () => {
   ]);
 
   assert.deepStrictEqual(results, [1, 2, 3, 4]);
-  assert.deepStrictEqual(execution, [1, 2, 3, 4]);
-  assert.deepStrictEqual(completion, [1, 2, 3, 4]);
+  assert.deepStrictEqual(recordedValues(execution), [1, 2, 3, 4]);
+  assert.deepStrictEqual(recordedValues(completion), [1, 2, 3, 4]);
 });
 
 test("ConcurrencyLimiter - should track active count correctly", async () => {
   const limiter = new ConcurrencyLimiter(2);
-  const activeCounts: number[] = [];
+  const recordActiveCount = createRecorder();
 
   const createTask = (delay: number) => async () => {
-    activeCounts.push(limiter.activeCount);
-    await new Promise((resolve) => setTimeout(resolve, delay));
+    recordActiveCount(limiter.activeCount);
+    await sleep(delay);
     return true;
   };
 
@@ -48,6 +77,7 @@ test("ConcurrencyLimiter - should track active count correctly", async () => {
     limiter.run(createTask(10)),
   ]);
 
+  const activeCounts = recordedValues(recordActiveCount);
   assert.strictEqual(activeCounts[0], 1);
   assert.strictEqual(activeCounts[1], 2);
   assert.strictEqual(limiter.activeCount, 0);
@@ -56,14 +86,9 @@ test("ConcurrencyLimiter - should track active count correctly", async () => {
 test("ConcurrencyLimiter - should track queue size correctly", async () => {
   const limiter = new ConcurrencyLimiter(1);
 
-  const createTask = (delay: number) => async () => {
-    await new Promise((resolve) => setTimeout(resolve, delay));
-    return true;
-  };
-
-  const promise1 = limiter.run(createTask(20));
-  const promise2 = limiter.run(createTask(20));
-  const promise3 = limiter.run(createTask(20));
+  const promise1 = limiter.run(createDelayedTrueTask(20));
+  const promise2 = limiter.run(createDelayedTrueTask(20));
+  const promise3 = limiter.run(createDelayedTrueTask(20));
 
   assert.strictEqual(limiter.queueSize, 2);
   assert.strictEqual(limiter.activeCount, 1);
@@ -77,16 +102,6 @@ test("ConcurrencyLimiter - should track queue size correctly", async () => {
 test("ConcurrencyLimiter - should handle task errors", async () => {
   const limiter = new ConcurrencyLimiter(2);
 
-  const successTask = async () => {
-    await new Promise((resolve) => setTimeout(resolve, 10));
-    return "success";
-  };
-
-  const errorTask = async () => {
-    await new Promise((resolve) => setTimeout(resolve, 10));
-    throw new Error("Task failed");
-  };
-
   const results = await Promise.allSettled([
     limiter.run(successTask),
     limiter.run(errorTask),
@@ -98,58 +113,49 @@ test("ConcurrencyLimiter - should handle task errors", async () => {
   assert.strictEqual(results[2].status, "fulfilled");
 });
 
-test("ConcurrencyLimiter - clear rejects pending tasks", async () => {
+test("ConcurrencyLimiter - clear rejects pending tasks", { timeout: 1000 }, async () => {
   const limiter = new ConcurrencyLimiter(1);
-  const executed: number[] = [];
+  const executed = createRecorder();
 
-  const createTask = (id: number) => async () => {
-    executed.push(id);
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    return id;
-  };
-
-  const active = limiter.run(createTask(1));
-  const pending = [limiter.run(createTask(2)), limiter.run(createTask(3))];
+  const active = limiter.run(createRecordedTask(executed, 1, 20));
+  const pending = [
+    limiter.run(createRecordedTask(executed, 2, 20)),
+    limiter.run(createRecordedTask(executed, 3, 20)),
+  ];
 
   assert.strictEqual(limiter.queueSize, 2);
 
   limiter.clear();
 
   assert.strictEqual(limiter.queueSize, 0);
-  const timeout = new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), 10));
-  const settled = await Promise.race([Promise.allSettled(pending), timeout]);
+  const settled = await Promise.allSettled(pending);
 
-  assert.notStrictEqual(settled, "timeout");
-  assert.ok(Array.isArray(settled));
-  assert.ok(settled.every((result) => result.status === "rejected"));
+  assert.deepStrictEqual(
+    settled.map((result) => result.status),
+    ["rejected", "rejected"],
+  );
   await active;
-  assert.deepStrictEqual(executed, [1]);
+  assert.deepStrictEqual(recordedValues(executed), [1]);
 });
 
 test("createLimit - should create a working limiter function", async () => {
   const limit = createLimit(2);
-  const execution: number[] = [];
-
-  const createTask = (id: number) => async () => {
-    execution.push(id);
-    await new Promise((resolve) => setTimeout(resolve, 10));
-    return id;
-  };
+  const execution = createRecorder();
 
   const results = await fulfilledValues([
-    limit(createTask(1)),
-    limit(createTask(2)),
-    limit(createTask(3)),
+    limit(createRecordedTask(execution, 1, 10)),
+    limit(createRecordedTask(execution, 2, 10)),
+    limit(createRecordedTask(execution, 3, 10)),
   ]);
 
   assert.deepStrictEqual(results, [1, 2, 3]);
-  assert.deepStrictEqual(execution, [1, 2, 3]);
+  assert.deepStrictEqual(recordedValues(execution), [1, 2, 3]);
 });
 
 test("createLimit - should handle concurrent batches", async () => {
   const limit = createLimit(3);
   const tasks = Array.from({ length: 10 }, (_, i) => async () => {
-    await new Promise((resolve) => setTimeout(resolve, 5));
+    await sleep(5);
     return i;
   });
 
@@ -160,21 +166,15 @@ test("createLimit - should handle concurrent batches", async () => {
 
 test("ConcurrencyLimiter - should process tasks sequentially with concurrency 1", async () => {
   const limiter = new ConcurrencyLimiter(1);
-  const order: number[] = [];
-
-  const createTask = (id: number) => async () => {
-    order.push(id);
-    await new Promise((resolve) => setTimeout(resolve, 5));
-    return id;
-  };
+  const order = createRecorder();
 
   await fulfilledValues([
-    limiter.run(createTask(1)),
-    limiter.run(createTask(2)),
-    limiter.run(createTask(3)),
+    limiter.run(createRecordedTask(order, 1, 5)),
+    limiter.run(createRecordedTask(order, 2, 5)),
+    limiter.run(createRecordedTask(order, 3, 5)),
   ]);
 
-  assert.deepStrictEqual(order, [1, 2, 3]);
+  assert.deepStrictEqual(recordedValues(order), [1, 2, 3]);
 });
 
 test("ConcurrencyLimiter - should handle empty task queue", async () => {

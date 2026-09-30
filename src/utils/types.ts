@@ -13,13 +13,10 @@ export type {
 export type IconKey = keyof typeof ICON;
 export type PrefixKey = keyof typeof PREFIX;
 
-export type RGB = {
-  r: number;
-  g: number;
-  b: number;
+export type ComparableVersion = {
+  numbers: number[];
+  prerelease: string[];
 };
-
-export type GradientFunction = (text: string) => string;
 
 export type Task<T> = () => T | Promise<T>;
 

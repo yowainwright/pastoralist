@@ -274,9 +274,14 @@ const buildNestedAppendixItem = (
   return nestedAppendixItem;
 };
 
+const getOverrideValue = (options: ProcessOverrideOptions): OverrideValue =>
+  options.overrides?.[options.override] ?? "";
+
 const getNestedOverrideEntries = (options: ProcessOverrideOptions): Array<[string, string]> => {
-  const overrideValue = options.overrides?.[options.override] as Record<string, string>;
-  const nestedOverrideEntries = Object.entries(overrideValue);
+  const overrideValue = getOverrideValue(options);
+  const nestedOverrideEntries = isNestedOverride(overrideValue)
+    ? Object.entries(overrideValue)
+    : [];
   return nestedOverrideEntries;
 };
 
@@ -327,9 +332,6 @@ const createOverrideEntryOptions = (options: ProcessOverrideOptions): ProcessOve
   return entry;
 };
 
-const getOverrideValue = (options: ProcessOverrideOptions): OverrideValue =>
-  options.overrides?.[options.override] ?? "";
-
 const processOverrideEntry = (options: ProcessOverrideOptions): Appendix => {
   const entryOptions = createOverrideEntryOptions(options);
   const overrideValue = getOverrideValue(entryOptions);
@@ -338,8 +340,9 @@ const processOverrideEntry = (options: ProcessOverrideOptions): Appendix => {
     return result;
   }
 
-  const overrideVersion = overrideValue as string;
-  const result = processSimpleOverride(Object.assign({}, entryOptions, { overrideVersion }));
+  const result = processSimpleOverride(
+    Object.assign({}, entryOptions, { overrideVersion: overrideValue }),
+  );
   return result;
 };
 
@@ -592,7 +595,7 @@ const extractWorkspaceOverrides = (
   if (!hasConfig) return null;
 
   const workspaceOverridesData = resolveOverrides({ config: packageConfig });
-  const workspaceOverrides = getOverridesByType(workspaceOverridesData!) || null;
+  const workspaceOverrides = extractRootOverrides(workspaceOverridesData);
   const hasWorkspaceOverrides = hasOverrides(workspaceOverrides);
 
   if (hasWorkspaceOverrides) {

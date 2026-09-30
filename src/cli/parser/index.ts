@@ -125,8 +125,11 @@ const processCommandArgument = (
   return result;
 };
 
-const parseInlineValue = (inlineValue: string, option: FlagOption): string | boolean => {
+const parseInlineValue = (inlineValue: string, option: FlagOption): string | string[] | boolean => {
   const { key, def } = option;
+  const arrayValue = [inlineValue];
+  const isListOnlyOption = def.isArray && def.emptyValue === undefined;
+  if (isListOnlyOption) return arrayValue;
   if (def.hasValue) return inlineValue;
   if (inlineValue === "true") return true;
   if (inlineValue === "false") return false;

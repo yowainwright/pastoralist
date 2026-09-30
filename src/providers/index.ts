@@ -9,6 +9,7 @@ import type {
   YarnAuditLine,
 } from "../types";
 import { logger } from "../observability";
+import { isRecord, isString } from "../utils";
 import { detectPackageManager } from "../core/package";
 import {
   DEFAULT_AUDIT_TIMEOUT,
@@ -17,6 +18,23 @@ import {
 } from "../core/security/constants";
 
 type SecurityAlerts = SecurityAlert[];
+
+const isNpmAuditVulnerability = (value: unknown): value is NpmAuditVulnerability => {
+  if (!isRecord(value)) return false;
+  const hasName = isString(value.name);
+  return hasName;
+};
+
+const isNpmAuditVulnerabilityEntry = (
+  entry: [string, unknown],
+): entry is [string, NpmAuditVulnerability] => isNpmAuditVulnerability(entry[1]);
+
+const isYarnAuditLine = (value: unknown): value is YarnAuditLine => {
+  if (!isRecord(value)) return false;
+  if (!isString(value.type)) return false;
+  const hasData = isRecord(value.data);
+  return hasData;
+};
 type AsyncSecurityAlerts = Promise<SecurityAlerts>;
 type AdvisoryCvesField = Partial<Pick<SecurityAlert, "cves">>;
 
@@ -109,9 +127,28 @@ export class PackageManagerAuditProvider {
       return result;
     }
 
-    const parsed = JSON.parse(stdout) as NpmAuditResult;
+    const parsed = this.parseNpmAuditJson(stdout);
     const result = this.parseNpmCompatibleOutput(parsed);
     return result;
+  }
+
+  private parseNpmAuditJson(stdout: string): NpmAuditResult | null {
+    const parsed = this.parseAuditJson(stdout);
+    if (!isRecord(parsed)) return null;
+    if (!isRecord(parsed.vulnerabilities)) return null;
+    const entries = Object.entries(parsed.vulnerabilities).filter(isNpmAuditVulnerabilityEntry);
+    const vulnerabilities = Object.fromEntries(entries);
+    const result: NpmAuditResult = { vulnerabilities };
+    return result;
+  }
+
+  private parseAuditJson(stdout: string): unknown {
+    try {
+      const parsed: unknown = JSON.parse(stdout);
+      return parsed;
+    } catch (error) {
+      throw new Error("Package manager audit returned invalid JSON", { cause: error });
+    }
   }
 
   private recoverAuditOutput(error: Error & { stdout?: string }): { stdout: string } {
@@ -121,21 +158,22 @@ export class PackageManagerAuditProvider {
     return output;
   }
 
-  private parseNpmCompatibleOutput(parsed: NpmAuditResult): SecurityAlerts {
-    const hasVulnerabilities = Boolean(parsed?.vulnerabilities);
-    if (!hasVulnerabilities) {
+  private parseNpmCompatibleOutput(parsed: NpmAuditResult | null): SecurityAlerts {
+    const vulnerabilities = parsed?.vulnerabilities;
+    if (!vulnerabilities) {
       const npmCompatibleOutput: SecurityAlerts = [];
       return npmCompatibleOutput;
     }
 
-    const alerts = Object.values(parsed.vulnerabilities).flatMap((vuln) =>
+    const alerts = Object.values(vulnerabilities).flatMap((vuln) =>
       this.convertNpmVulnerability(vuln),
     );
     return alerts;
   }
 
   private getNpmAdvisories(vuln: NpmAuditVulnerability): NpmAuditAdvisory[] {
-    const npmAdvisories = vuln.via.filter(
+    const via = vuln.via ?? [];
+    const npmAdvisories = via.filter(
       (v): v is NpmAuditAdvisory => typeof v === "object" && v !== null,
     );
     return npmAdvisories;
@@ -145,7 +183,7 @@ export class PackageManagerAuditProvider {
     vuln: NpmAuditVulnerability,
     advisory: NpmAuditAdvisory,
   ): SecurityAlert {
-    const patchedVersion = this.extractNpmPatchedVersion(vuln.fixAvailable);
+    const patchedVersion = this.extractNpmPatchedVersion(vuln.fixAvailable, vuln.name);
     const { name: packageName } = vuln;
     const vulnerableVersions = advisory.range || vuln.range;
     const severity = this.normalizeSeverity(advisory.severity);
@@ -182,7 +220,8 @@ export class PackageManagerAuditProvider {
 
   private parseYarnAuditLine(line: string): YarnAuditLine | null {
     try {
-      const result = JSON.parse(line) as YarnAuditLine;
+      const parsed: unknown = JSON.parse(line);
+      const result = isYarnAuditLine(parsed) ? parsed : null;
       return result;
     } catch {
       return null;
@@ -218,9 +257,12 @@ export class PackageManagerAuditProvider {
 
   private extractNpmPatchedVersion(
     fixAvailable: boolean | { name: string; version: string; isSemVerMajor: boolean } | undefined,
+    packageName: string,
   ): string | undefined {
     const isObject = typeof fixAvailable === "object" && fixAvailable !== null;
     if (!isObject) return undefined;
+    const isSamePackage = fixAvailable.name === packageName;
+    if (!isSamePackage) return undefined;
     const npmPatchedVersion = fixAvailable.version;
     return npmPatchedVersion;
   }

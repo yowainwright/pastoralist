@@ -221,18 +221,6 @@ test("writeSymbol - should end with newline", () => {
   stdoutWriteSpy.mockRestore();
 });
 
-test("createSpinner - should create spinner with text", () => {
-  const spinner = createSpinner("Loading...");
-
-  assert.notStrictEqual(spinner, undefined);
-  assert.strictEqual(typeof spinner.start, "function");
-  assert.strictEqual(typeof spinner.stop, "function");
-  assert.strictEqual(typeof spinner.succeed, "function");
-  assert.strictEqual(typeof spinner.fail, "function");
-  assert.strictEqual(typeof spinner.info, "function");
-  assert.strictEqual(typeof spinner.warn, "function");
-});
-
 test("createSpinner - should start spinner", () => {
   const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
 
@@ -347,18 +335,15 @@ test("createSpinner - should warn with custom text", () => {
   stdoutWriteSpy.mockRestore();
 });
 
-test("createSpinner - should return spinner methods for chaining", () => {
+test("createSpinner - start returns methods bound to the same spinner", () => {
+  const stdoutWriteSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
+
   const spinner = createSpinner("Test");
-  const result = spinner.start();
+  spinner.start().stop();
 
-  assert.strictEqual(typeof result.start, "function");
-  assert.strictEqual(typeof result.stop, "function");
-  assert.strictEqual(typeof result.succeed, "function");
-  assert.strictEqual(typeof result.fail, "function");
-  assert.strictEqual(typeof result.info, "function");
-  assert.strictEqual(typeof result.warn, "function");
+  assertCalledWith(stdoutWriteSpy, "\x1B[?25h");
 
-  spinner.stop();
+  stdoutWriteSpy.mockRestore();
 });
 
 test("createSpinner - should not start twice", () => {
@@ -400,7 +385,8 @@ test("update - should update text in state", () => {
   const result = update(state, "New text");
 
   assert.strictEqual(state.text, "New text");
-  assert.strictEqual(typeof result.update, "function");
+  result.update("Chained text");
+  assert.strictEqual(state.text, "Chained text");
 });
 
 test("update - should preserve other state properties", () => {
@@ -415,38 +401,6 @@ test("update - should preserve other state properties", () => {
 
   assert.strictEqual(state.isSpinning, true);
   assert.strictEqual(state.frameIndex, 5);
-});
-
-test("update - should return spinner methods for chaining", () => {
-  const state: SpinnerState = {
-    text: "Test",
-    isSpinning: false,
-    frameIndex: 0,
-    interval: null,
-  };
-
-  const result = update(state, "New");
-
-  assert.strictEqual(typeof result.start, "function");
-  assert.strictEqual(typeof result.stop, "function");
-  assert.strictEqual(typeof result.succeed, "function");
-  assert.strictEqual(typeof result.fail, "function");
-  assert.strictEqual(typeof result.info, "function");
-  assert.strictEqual(typeof result.warn, "function");
-  assert.strictEqual(typeof result.update, "function");
-});
-
-test("createSpinner - should have update method", () => {
-  const spinner = createSpinner("Loading...");
-
-  assert.strictEqual(typeof spinner.update, "function");
-});
-
-test("createSpinner - should update spinner text", () => {
-  const spinner = createSpinner("Initial text");
-  const result = spinner.update("Updated text");
-
-  assert.strictEqual(typeof result.update, "function");
 });
 
 test("createSpinner - update should allow chaining", () => {

@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import { mock } from "../../setup";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import {
   SecuritySetupWizard,
   promptForSetup,
@@ -27,6 +27,21 @@ import {
   SUCCESS_RESULT,
   FAILURE_RESULT,
 } from "../../fixtures/setup.fixtures";
+
+const withFakeCommand = async (name: string, exitCode: number, fn: () => Promise<unknown>) => {
+  const binDir = mkdtempSync(join(tmpdir(), "pastoralist-bin-"));
+  const binPath = join(binDir, name);
+  const originalPath = process.env.PATH;
+  writeFileSync(binPath, `#!/bin/sh\nexit ${exitCode}\n`);
+  chmodSync(binPath, 0o755);
+  process.env.PATH = [binDir, originalPath].join(delimiter);
+  try {
+    await fn();
+  } finally {
+    process.env.PATH = originalPath;
+    rmSync(binDir, { recursive: true, force: true });
+  }
+};
 
 test("SecuritySetupWizard - initializes with default options", () => {
   const wizard = new SecuritySetupWizard();
@@ -235,7 +250,7 @@ test("checkExistingToken - warns when existing token is invalid", async () => {
     await withMockedFetch(createMockFetch({ ok: false, status: 401 }), async () => {
       await withMockedStdout(async (output) => {
         const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
-        const config = PROVIDER_CONFIGS.snyk;
+        const { snyk: config } = PROVIDER_CONFIGS;
         const result = await (wizard as any).checkExistingToken("snyk", config);
         assert.strictEqual(result, null);
         assert.strictEqual(
@@ -275,7 +290,8 @@ test("validateToken - validates socket token with basic auth", async () => {
   await withMockedFetch(mockFn, async () => {
     const result = await wizard.validateToken("socket", "test-token");
     assert.strictEqual(result, true);
-    assert.ok((captured.headers?.Authorization).includes("Basic"));
+    const authorization: string = captured.headers?.Authorization ?? "";
+    assert.ok(authorization.includes("Basic"));
   });
 });
 
@@ -286,17 +302,18 @@ test("validateGitHubToken - sends correct headers", async () => {
     const result = await wizard.validateToken("github", "test-token");
     assert.strictEqual(result, true);
     assert.strictEqual(captured.headers?.Authorization, "Bearer test-token");
-    assert.ok((captured.headers?.Accept).includes("github"));
+    const accept: string = captured.headers?.Accept ?? "";
+    assert.ok(accept.includes("github"));
   });
 });
 
 test("PROVIDER_CONFIGS - osv has setupSteps", () => {
-  const config = PROVIDER_CONFIGS.osv;
+  const { osv: config } = PROVIDER_CONFIGS;
   assert.ok(config.setupSteps.length > 0);
 });
 
 test("PROVIDER_CONFIGS - github has multiple setup steps", () => {
-  const config = PROVIDER_CONFIGS.github;
+  const { github: config } = PROVIDER_CONFIGS;
   assert.ok(config.setupSteps.length > 1);
 });
 
@@ -319,7 +336,7 @@ test("checkTokenAvailable - returns false for socket without env var", async () 
 test("handleInvalidToken - outputs error message", async () => {
   await withMockedStdout(async (output) => {
     const wizard = new SecuritySetupWizard();
-    const config = PROVIDER_CONFIGS.github;
+    const { github: config } = PROVIDER_CONFIGS;
     const result = (wizard as any).handleInvalidToken(config);
     assert.strictEqual(result.success, false);
     assert.strictEqual(result.message, "Token validation failed");
@@ -333,7 +350,7 @@ test("handleInvalidToken - outputs error message", async () => {
 test("handleInvalidToken - shows required scopes when available", async () => {
   await withMockedStdout(async (output) => {
     const wizard = new SecuritySetupWizard();
-    const config = PROVIDER_CONFIGS.github;
+    const { github: config } = PROVIDER_CONFIGS;
     (wizard as any).handleInvalidToken(config);
     assert.strictEqual(
       output.some((o) => o.includes("repo")),
@@ -343,9 +360,9 @@ test("handleInvalidToken - shows required scopes when available", async () => {
 });
 
 test("handleInvalidToken - works without required scopes", async () => {
-  await withMockedStdout(async (output) => {
+  await withMockedStdout(async () => {
     const wizard = new SecuritySetupWizard();
-    const config = { ...PROVIDER_CONFIGS.osv };
+    const config = Object.assign({}, PROVIDER_CONFIGS.osv);
     const result = (wizard as any).handleInvalidToken(config);
     assert.strictEqual(result.success, false);
   });
@@ -360,7 +377,7 @@ test("tryGitHubCliIfApplicable - returns null for non-github provider", async ()
 test("checkExistingToken - returns null when no token exists", async () => {
   await withEnvToken("snyk", null, async () => {
     const wizard = new SecuritySetupWizard();
-    const config = PROVIDER_CONFIGS.snyk;
+    const { snyk: config } = PROVIDER_CONFIGS;
     const result = await (wizard as any).checkExistingToken("snyk", config);
     assert.strictEqual(result, null);
   });
@@ -370,7 +387,7 @@ test("checkExistingToken - returns success when valid token exists", async () =>
   await withEnvToken("snyk", MOCK_TOKENS.snyk, async () => {
     await withMockedFetch(createMockFetch({ ok: true }), async () => {
       const wizard = new SecuritySetupWizard();
-      const config = PROVIDER_CONFIGS.snyk;
+      const { snyk: config } = PROVIDER_CONFIGS;
       const result = await (wizard as any).checkExistingToken("snyk", config);
       assert.notStrictEqual(result, null);
       assert.strictEqual(result.success, true);
@@ -402,15 +419,6 @@ test("findShellProfile - finds existing profile", () => {
   assert.ok(result.includes(home));
 });
 
-test("createOutput - returns object with all output functions", () => {
-  const out = createOutput();
-  assert.strictEqual(typeof out.log, "function");
-  assert.strictEqual(typeof out.success, "function");
-  assert.strictEqual(typeof out.warn, "function");
-  assert.strictEqual(typeof out.error, "function");
-  assert.strictEqual(typeof out.info, "function");
-});
-
 test("createOutput - log writes to stdout with newline", async () => {
   await withMockedStdout(async (output) => {
     const out = createOutput();
@@ -422,18 +430,15 @@ test("createOutput - log writes to stdout with newline", async () => {
   });
 });
 
+const outputIncludes = (output: string[], part: string): boolean =>
+  output.some((o) => o.includes(part));
+
 test("createOutput - success writes OK prefix", async () => {
   await withMockedStdout(async (output) => {
     const out = createOutput();
     out.success("success message");
-    assert.strictEqual(
-      output.some((o) => o.includes("[OK]")),
-      true,
-    );
-    assert.strictEqual(
-      output.some((o) => o.includes("success message")),
-      true,
-    );
+    assert.strictEqual(outputIncludes(output, "[OK]"), true);
+    assert.strictEqual(outputIncludes(output, "success message"), true);
   });
 });
 
@@ -441,14 +446,8 @@ test("createOutput - warn writes WARN prefix", async () => {
   await withMockedStdout(async (output) => {
     const out = createOutput();
     out.warn("warning message");
-    assert.strictEqual(
-      output.some((o) => o.includes("[WARN]")),
-      true,
-    );
-    assert.strictEqual(
-      output.some((o) => o.includes("warning message")),
-      true,
-    );
+    assert.strictEqual(outputIncludes(output, "[WARN]"), true);
+    assert.strictEqual(outputIncludes(output, "warning message"), true);
   });
 });
 
@@ -456,14 +455,8 @@ test("createOutput - error writes FAIL prefix", async () => {
   await withMockedStdout(async (output) => {
     const out = createOutput();
     out.error("error message");
-    assert.strictEqual(
-      output.some((o) => o.includes("[FAIL]")),
-      true,
-    );
-    assert.strictEqual(
-      output.some((o) => o.includes("error message")),
-      true,
-    );
+    assert.strictEqual(outputIncludes(output, "[FAIL]"), true);
+    assert.strictEqual(outputIncludes(output, "error message"), true);
   });
 });
 
@@ -495,10 +488,13 @@ test("tryGitHubCliSetup - prompts for auth when gh installed but not authed", as
     const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
     (wizard as any).isCommandAvailable = mock(() => Promise.resolve(true));
     (wizard as any).isGhCliAuthenticated = mock(() => Promise.resolve(false));
+    const confirm = mock(() => Promise.resolve(false));
+    const select = mock(() => Promise.resolve("token"));
+    const input = mock(() => Promise.resolve(""));
     (wizard as any).prompts = {
-      confirm: mock(() => Promise.resolve(false)),
-      select: mock(() => Promise.resolve("token")),
-      input: mock(() => Promise.resolve("")),
+      confirm,
+      select,
+      input,
     };
 
     const result = await (wizard as any).tryGitHubCliSetup();
@@ -511,10 +507,13 @@ test("tryGitHubCliSetup - calls handleMissingGhCli when gh not installed", async
   await withMockedStdout(async () => {
     const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
     (wizard as any).isCommandAvailable = mock(() => Promise.resolve(false));
+    const confirm = mock(() => Promise.resolve(false));
+    const select = mock(() => Promise.resolve("skip"));
+    const input = mock(() => Promise.resolve(""));
     (wizard as any).prompts = {
-      confirm: mock(() => Promise.resolve(false)),
-      select: mock(() => Promise.resolve("skip")),
-      input: mock(() => Promise.resolve("")),
+      confirm,
+      select,
+      input,
     };
 
     const result = await (wizard as any).tryGitHubCliSetup();
@@ -525,10 +524,13 @@ test("tryGitHubCliSetup - calls handleMissingGhCli when gh not installed", async
 test("handleMissingGhCli - returns skip result when user skips", async () => {
   await withMockedStdout(async () => {
     const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
+    const confirm = mock(() => Promise.resolve(false));
+    const select = mock(() => Promise.resolve("skip"));
+    const input = mock(() => Promise.resolve(""));
     (wizard as any).prompts = {
-      confirm: mock(() => Promise.resolve(false)),
-      select: mock(() => Promise.resolve("skip")),
-      input: mock(() => Promise.resolve("")),
+      confirm,
+      select,
+      input,
     };
 
     const result = await (wizard as any).handleMissingGhCli();
@@ -540,10 +542,13 @@ test("handleMissingGhCli - returns skip result when user skips", async () => {
 test("handleMissingGhCli - returns token result when user chooses token", async () => {
   await withMockedStdout(async () => {
     const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
+    const confirm = mock(() => Promise.resolve(false));
+    const select = mock(() => Promise.resolve("token"));
+    const input = mock(() => Promise.resolve(""));
     (wizard as any).prompts = {
-      confirm: mock(() => Promise.resolve(false)),
-      select: mock(() => Promise.resolve("token")),
-      input: mock(() => Promise.resolve("")),
+      confirm,
+      select,
+      input,
     };
 
     const result = await (wizard as any).handleMissingGhCli();
@@ -555,13 +560,16 @@ test("handleMissingGhCli - returns token result when user chooses token", async 
 test("runTokenSetup - returns failure when no token provided", async () => {
   await withMockedStdout(async () => {
     const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
+    const confirm = mock(() => Promise.resolve(false));
+    const select = mock(() => Promise.resolve("token"));
+    const input = mock(() => Promise.resolve(""));
     (wizard as any).prompts = {
-      confirm: mock(() => Promise.resolve(false)),
-      select: mock(() => Promise.resolve("token")),
-      input: mock(() => Promise.resolve("")),
+      confirm,
+      select,
+      input,
     };
 
-    const config = PROVIDER_CONFIGS.snyk;
+    const { snyk: config } = PROVIDER_CONFIGS;
     const result = await (wizard as any).runTokenSetup("snyk", config);
     assert.strictEqual(result.success, false);
     assert.strictEqual(result.message, "No token provided");
@@ -572,13 +580,16 @@ test("runTokenSetup - returns failure when token is invalid", async () => {
   await withMockedFetch(createMockFetch({ ok: false, status: 401 }), async () => {
     await withMockedStdout(async () => {
       const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
+      const confirm = mock(() => Promise.resolve(false));
+      const select = mock(() => Promise.resolve("token"));
+      const input = mock(() => Promise.resolve("invalid-token"));
       (wizard as any).prompts = {
-        confirm: mock(() => Promise.resolve(false)),
-        select: mock(() => Promise.resolve("token")),
-        input: mock(() => Promise.resolve("invalid-token")),
+        confirm,
+        select,
+        input,
       };
 
-      const config = PROVIDER_CONFIGS.snyk;
+      const { snyk: config } = PROVIDER_CONFIGS;
       const result = await (wizard as any).runTokenSetup("snyk", config);
       assert.strictEqual(result.success, false);
       assert.strictEqual(result.message, "Token validation failed");
@@ -590,13 +601,16 @@ test("runTokenSetup - returns success with valid token", async () => {
   await withMockedFetch(createMockFetch({ ok: true }), async () => {
     await withMockedStdout(async () => {
       const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
+      const confirm = mock(() => Promise.resolve(false));
+      const select = mock(() => Promise.resolve("token"));
+      const input = mock(() => Promise.resolve(MOCK_TOKENS.snyk));
       (wizard as any).prompts = {
-        confirm: mock(() => Promise.resolve(false)),
-        select: mock(() => Promise.resolve("token")),
-        input: mock(() => Promise.resolve(MOCK_TOKENS.snyk)),
+        confirm,
+        select,
+        input,
       };
 
-      const config = PROVIDER_CONFIGS.snyk;
+      const { snyk: config } = PROVIDER_CONFIGS;
       const result = await (wizard as any).runTokenSetup("snyk", config);
       assert.strictEqual(result.success, true);
       assert.strictEqual(result.token, MOCK_TOKENS.snyk);
@@ -610,14 +624,11 @@ test("runTokenSetup - uses secret prompt when available", async () => {
       const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
       const input = mock(() => Promise.resolve("plain-input-token"));
       const secret = mock(() => Promise.resolve(MOCK_TOKENS.snyk));
-      (wizard as any).prompts = {
-        confirm: mock(() => Promise.resolve(false)),
-        select: mock(() => Promise.resolve("token")),
-        input,
-        secret,
-      };
+      const confirm = mock(() => Promise.resolve(false));
+      const select = mock(() => Promise.resolve("token"));
+      (wizard as any).prompts = { confirm, select, input, secret };
 
-      const config = PROVIDER_CONFIGS.snyk;
+      const { snyk: config } = PROVIDER_CONFIGS;
       const result = await (wizard as any).runTokenSetup("snyk", config);
 
       assert.strictEqual(result.success, true);
@@ -632,13 +643,16 @@ test("runTokenSetup - prints setup steps", async () => {
   await withMockedFetch(createMockFetch({ ok: true }), async () => {
     await withMockedStdout(async (output) => {
       const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
+      const confirm = mock(() => Promise.resolve(false));
+      const select = mock(() => Promise.resolve("token"));
+      const input = mock(() => Promise.resolve(MOCK_TOKENS.snyk));
       (wizard as any).prompts = {
-        confirm: mock(() => Promise.resolve(false)),
-        select: mock(() => Promise.resolve("token")),
-        input: mock(() => Promise.resolve(MOCK_TOKENS.snyk)),
+        confirm,
+        select,
+        input,
       };
 
-      const config = PROVIDER_CONFIGS.snyk;
+      const { snyk: config } = PROVIDER_CONFIGS;
       await (wizard as any).runTokenSetup("snyk", config);
       const hasSetupStep = output.some((o) => o.includes("1."));
       assert.strictEqual(hasSetupStep, true);
@@ -650,13 +664,16 @@ test("runTokenSetup - prints required scopes for github", async () => {
   await withMockedFetch(createMockFetch({ ok: true }), async () => {
     await withMockedStdout(async (output) => {
       const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
+      const confirm = mock(() => Promise.resolve(false));
+      const select = mock(() => Promise.resolve("token"));
+      const input = mock(() => Promise.resolve(MOCK_TOKENS.github));
       (wizard as any).prompts = {
-        confirm: mock(() => Promise.resolve(false)),
-        select: mock(() => Promise.resolve("token")),
-        input: mock(() => Promise.resolve(MOCK_TOKENS.github)),
+        confirm,
+        select,
+        input,
       };
 
-      const config = PROVIDER_CONFIGS.github;
+      const { github: config } = PROVIDER_CONFIGS;
       await (wizard as any).runTokenSetup("github", config);
       const hasScopes = output.some((o) => o.includes("Required scopes"));
       assert.strictEqual(hasScopes, true);
@@ -682,7 +699,7 @@ test("openUrl - outputs manual message on unsupported platform", async () => {
 });
 
 test("installAndAuthGh - returns manual install for linux", async () => {
-  await withMockedStdout(async (output) => {
+  await withMockedStdout(async () => {
     const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
     const originalPlatform = Object.getOwnPropertyDescriptor(process, "platform");
     Object.defineProperty(process, "platform", { value: "linux" });
@@ -752,10 +769,13 @@ test("runGhAuth - handles spawn error gracefully", async () => {
 test("handleMissingGhCli - calls installAndAuthGh when user chooses install", async () => {
   await withMockedStdout(async () => {
     const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
+    const confirm = mock(() => Promise.resolve(false));
+    const select = mock(() => Promise.resolve("install-gh"));
+    const input = mock(() => Promise.resolve(""));
     (wizard as any).prompts = {
-      confirm: mock(() => Promise.resolve(false)),
-      select: mock(() => Promise.resolve("install-gh")),
-      input: mock(() => Promise.resolve("")),
+      confirm,
+      select,
+      input,
     };
     (wizard as any).installAndAuthGh = mock(() =>
       Promise.resolve({ success: true, message: "Installed" }),
@@ -771,11 +791,10 @@ test("tryGitHubCliSetup - runs gh auth when user confirms", async () => {
     const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
     (wizard as any).isCommandAvailable = mock(() => Promise.resolve(true));
     (wizard as any).isGhCliAuthenticated = mock(() => Promise.resolve(false));
-    (wizard as any).prompts = {
-      confirm: mock(() => Promise.resolve(true)),
-      select: mock(() => Promise.resolve("token")),
-      input: mock(() => Promise.resolve("")),
-    };
+    const confirm = mock(() => Promise.resolve(true));
+    const select = mock(() => Promise.resolve("token"));
+    const input = mock(() => Promise.resolve(""));
+    (wizard as any).prompts = { confirm, select, input };
     (wizard as any).runGhAuth = mock(() =>
       Promise.resolve({ success: true, usedCli: true, message: "authed" }),
     );
@@ -790,18 +809,17 @@ test("runTokenSetup - saves token to profile when user confirms", async () => {
   await withMockedFetch(createMockFetch({ ok: true }), async () => {
     await withMockedStdout(async () => {
       const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
-      let confirmCallCount = 0;
+      const confirm = mock(() => Promise.resolve(true));
+      const select = mock(() => Promise.resolve("token"));
+      const input = mock(() => Promise.resolve(MOCK_TOKENS.snyk));
       (wizard as any).prompts = {
-        confirm: mock(() => {
-          confirmCallCount++;
-          return Promise.resolve(true);
-        }),
-        select: mock(() => Promise.resolve("token")),
-        input: mock(() => Promise.resolve(MOCK_TOKENS.snyk)),
+        confirm,
+        select,
+        input,
       };
       (wizard as any).saveToShellProfile = mock(() => Promise.resolve(true));
 
-      const config = PROVIDER_CONFIGS.snyk;
+      const { snyk: config } = PROVIDER_CONFIGS;
       const result = await (wizard as any).runTokenSetup("snyk", config);
       assert.strictEqual(result.success, true);
       assert.strictEqual(result.savedToProfile, true);
@@ -809,34 +827,38 @@ test("runTokenSetup - saves token to profile when user confirms", async () => {
   });
 });
 
+const shellExpansion = ["$", "(printf injected)"].join("");
+const shellInjectionValue = [MOCK_TOKENS.snyk, `"`, shellExpansion, "'", "tail"].join("");
+const expectedQuotedExportLine = [
+  "export ",
+  ENV_VARS.snyk,
+  "='",
+  MOCK_TOKENS.snyk,
+  `"`,
+  shellExpansion,
+  "'\\''tail'",
+].join("");
+const shellInjectionAnswers = { confirm: true, input: shellInjectionValue };
+const runSetupWithShellProfile = async (profilePath: string) => {
+  const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
+  (wizard as any).findShellProfile = () => profilePath;
+  (wizard as any).prompts = createMockPrompts(shellInjectionAnswers);
+  const result = await wizard.runSetup("snyk");
+  return result;
+};
 test("runSetup - shell-quotes a saved value", async () => {
   const directory = mkdtempSync(join(tmpdir(), "pastoralist-profile-"));
   const profilePath = join(directory, ".zshrc");
-  const shellExpansion = ["$", "(printf injected)"].join("");
-  const value = [MOCK_TOKENS.snyk, `"`, shellExpansion, "'", "tail"].join("");
-  const expectedLine = [
-    "export ",
-    ENV_VARS.snyk,
-    "='",
-    MOCK_TOKENS.snyk,
-    `"`,
-    shellExpansion,
-    "'\\''tail'",
-  ].join("");
   writeFileSync(profilePath, "");
 
   try {
     await withEnvToken("snyk", null, async () => {
       await withMockedFetch(createMockFetch({ ok: true, status: 200 }), async () => {
         await withMockedStdout(async () => {
-          const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
-          (wizard as any).findShellProfile = () => profilePath;
-          (wizard as any).prompts = createMockPrompts({ confirm: true, input: value });
-
-          const result = await wizard.runSetup("snyk");
+          const result = await runSetupWithShellProfile(profilePath);
 
           assert.strictEqual(result.savedToProfile, true);
-          assert.ok(readFileSync(profilePath, "utf8").includes(expectedLine));
+          assert.ok(readFileSync(profilePath, "utf8").includes(expectedQuotedExportLine));
         });
       });
     });
@@ -849,13 +871,16 @@ test("runTokenSetup - does not save when user declines", async () => {
   await withMockedFetch(createMockFetch({ ok: true }), async () => {
     await withMockedStdout(async () => {
       const wizard = new SecuritySetupWizard({ skipBrowserOpen: true });
+      const confirm = mock(() => Promise.resolve(false));
+      const select = mock(() => Promise.resolve("token"));
+      const input = mock(() => Promise.resolve(MOCK_TOKENS.snyk));
       (wizard as any).prompts = {
-        confirm: mock(() => Promise.resolve(false)),
-        select: mock(() => Promise.resolve("token")),
-        input: mock(() => Promise.resolve(MOCK_TOKENS.snyk)),
+        confirm,
+        select,
+        input,
       };
 
-      const config = PROVIDER_CONFIGS.snyk;
+      const { snyk: config } = PROVIDER_CONFIGS;
       const result = await (wizard as any).runTokenSetup("snyk", config);
       assert.strictEqual(result.success, true);
       assert.strictEqual(result.savedToProfile, false);
@@ -863,25 +888,30 @@ test("runTokenSetup - does not save when user declines", async () => {
   });
 });
 
+const createConfirmOnlyFirst = () => {
+  let confirmCount = 0;
+  const confirm = mock(() => {
+    confirmCount++;
+    const isFirstConfirm = confirmCount === 1;
+    const resolveResult = Promise.resolve(isFirstConfirm);
+    return resolveResult;
+  });
+  return confirm;
+};
+
 test("runTokenSetup - opens browser when user confirms and not skipped", async () => {
   await withMockedFetch(createMockFetch({ ok: true }), async () => {
     await withMockedStdout(async (output) => {
       const wizard = new SecuritySetupWizard({ skipBrowserOpen: false });
-      let confirmCount = 0;
-      (wizard as any).prompts = {
-        confirm: mock(() => {
-          confirmCount++;
-          if (confirmCount === 1) return Promise.resolve(true);
-          return Promise.resolve(false);
-        }),
-        select: mock(() => Promise.resolve("token")),
-        input: mock(() => Promise.resolve(MOCK_TOKENS.snyk)),
-      };
+      const confirm = createConfirmOnlyFirst();
+      const select = mock(() => Promise.resolve("token"));
+      const input = mock(() => Promise.resolve(MOCK_TOKENS.snyk));
+      (wizard as any).prompts = { confirm, select, input };
       (wizard as any).openUrl = mock(() => Promise.resolve());
 
-      const config = PROVIDER_CONFIGS.snyk;
+      const { snyk: config } = PROVIDER_CONFIGS;
       await (wizard as any).runTokenSetup("snyk", config);
-      const hasBrowserMsg = output.some((o) => o.includes("Browser opened"));
+      const hasBrowserMsg = outputIncludes(output, "Browser opened");
       assert.strictEqual(hasBrowserMsg, true);
     });
   });
@@ -983,9 +1013,9 @@ test("saveToShellProfile - outputs manual instructions on error", async () => {
     (wizard as any).findShellProfile = () => "/nonexistent/path/.zshrc";
 
     await (wizard as any).saveToShellProfile("TEST_VAR", "test-value");
-    const hasManualInstructions = output.some((o) => o.includes("export TEST_VAR"));
+    const hasManualInstructions = outputIncludes(output, "export TEST_VAR");
     assert.strictEqual(hasManualInstructions, true);
-    const leakedToken = output.some((o) => o.includes("test-value"));
+    const leakedToken = outputIncludes(output, "test-value");
     assert.strictEqual(leakedToken, false);
   });
 });
@@ -996,32 +1026,27 @@ test("openUrl - handles error on darwin gracefully", async () => {
     const originalPlatform = Object.getOwnPropertyDescriptor(process, "platform");
     Object.defineProperty(process, "platform", { value: "darwin" });
 
-    await (wizard as any).openUrl("invalid://url");
+    await withFakeCommand("open", 1, () => (wizard as any).openUrl("invalid://url"));
 
     if (originalPlatform) {
       Object.defineProperty(process, "platform", originalPlatform);
     }
 
-    assert.ok(output.length >= 0);
+    const hasManualHint = output.some((o) => o.includes("Please open manually: invalid://url"));
+    assert.strictEqual(hasManualHint, true);
   });
 });
 
 test("spawnGhAuth - rejects on non-zero exit code", async () => {
   const wizard = new SecuritySetupWizard();
-  const originalSpawn = (wizard as any).spawnGhAuth;
+  await withFakeCommand("gh", 1, () =>
+    assert.rejects(() => (wizard as any).spawnGhAuth(), /gh auth exited with code 1/),
+  );
+});
 
-  (wizard as any).spawnGhAuth = () => {
-    return new Promise((_, reject) => {
-      reject(new Error("gh auth exited with code 1"));
-    });
-  };
-
-  try {
-    await (wizard as any).spawnGhAuth();
-    assert.strictEqual(true, false);
-  } catch (error: any) {
-    assert.ok(error.message.includes("gh auth exited"));
-  }
+test("spawnGhAuth - resolves on zero exit code", async () => {
+  const wizard = new SecuritySetupWizard();
+  await withFakeCommand("gh", 0, () => (wizard as any).spawnGhAuth());
 });
 
 test("runSetup - calls runTokenSetup when no existing token and no gh cli", async () => {

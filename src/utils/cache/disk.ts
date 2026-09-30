@@ -8,7 +8,14 @@ import type {
   DiskCacheEntry,
   DiskCacheEnvelope,
 } from "../types";
-import { DISK_CACHE_SCHEMA_VERSION, LOCKFILE_NAMES } from "./constants";
+import {
+  CACHE_DIR_MODE,
+  CACHE_FILE_MODE,
+  CACHE_TEMP_DIR_PREFIX,
+  DISK_CACHE_SCHEMA_VERSION,
+  LOCKFILE_NAMES,
+} from "./constants";
+import { isRecord } from "../index";
 
 export const detectCIEnv = (): boolean => {
   const hasCI = Boolean(process.env.CI);
@@ -35,10 +42,10 @@ export const hashLockfile = (root = process.cwd()): string => {
 
 const isWritableCacheDir = (cacheDir: string): boolean => {
   try {
-    fs.mkdirSync(cacheDir, { recursive: true });
+    fs.mkdirSync(cacheDir, { recursive: true, mode: CACHE_DIR_MODE });
     const probeName = `.write-test-${process.pid}-${Math.random().toString(36).slice(2)}`;
     const probePath = join(cacheDir, probeName);
-    fs.writeFileSync(probePath, "");
+    fs.writeFileSync(probePath, "", { mode: CACHE_FILE_MODE });
     fs.unlinkSync(probePath);
     return true;
   } catch {
@@ -73,7 +80,8 @@ const userCacheDir = (): string => {
 
 const fallbackCacheDirs = (): string[] => {
   const osCacheDir = userCacheDir();
-  const tempCacheDir = join(tmpdir(), "pastoralist", "cache");
+  const userId = process.getuid?.() ?? "user";
+  const tempCacheDir = join(tmpdir(), `${CACHE_TEMP_DIR_PREFIX}${userId}`, "cache");
   const result: string[] = [osCacheDir, tempCacheDir];
   return result;
 };
@@ -136,13 +144,6 @@ type StoredCacheEntry<V> = DiskCacheEntry<V> & {
   version: number;
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> => {
-  if (typeof value !== "object") return false;
-  if (value === null) return false;
-  const result = !Array.isArray(value);
-  return result;
-};
-
 const isCacheEntry = (value: unknown): value is DiskCacheEntry<unknown> => {
   if (!isRecord(value)) return false;
   if (!("v" in value)) return false;
@@ -183,7 +184,7 @@ export class DiskCache<V> {
     this.maxEntries = options.maxEntries ?? 1000;
     this.enabled = options.enabled ?? true;
     if (this.enabled) {
-      fs.mkdirSync(this.entriesDir, { recursive: true });
+      fs.mkdirSync(this.entriesDir, { recursive: true, mode: CACHE_DIR_MODE });
     }
   }
 
@@ -286,7 +287,7 @@ export class DiskCache<V> {
       schema: DISK_CACHE_SCHEMA_VERSION,
       version,
     };
-    fs.writeFileSync(tmpPath, JSON.stringify(storedEntry));
+    fs.writeFileSync(tmpPath, JSON.stringify(storedEntry), { mode: CACHE_FILE_MODE });
     fs.renameSync(tmpPath, path);
   }
 

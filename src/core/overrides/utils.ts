@@ -2,6 +2,7 @@ import { existsSync, readFileSync, writeFileSync } from "fs";
 import { dirname, extname, resolve } from "path";
 import { getJsManager } from "../../mgrs";
 import type { OverridesType, PastoralistJSON } from "../../types";
+import { parsePackageJson } from "../../utils";
 import { PACKAGE_MANAGERS } from "./constants";
 import type {
   OverrideField,
@@ -54,7 +55,8 @@ const readJsonSource = (path: string): PastoralistJSON => {
     const empty = {} as PastoralistJSON;
     return empty;
   }
-  const config = JSON.parse(readFileSync(path, "utf8")) as PastoralistJSON;
+  const config = parsePackageJson(readFileSync(path, "utf8"));
+  if (!config) throw new Error(`Invalid JSON at ${path}`);
   return config;
 };
 

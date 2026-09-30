@@ -1,5 +1,5 @@
 import * as fs from "fs";
-import { copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { execFile as execFileCallback } from "node:child_process";
 import { tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "path";
@@ -15,6 +15,7 @@ import type {
   UpdatePackageJSONOptions,
 } from "../../types";
 import { logger } from "../../observability";
+import { getStringField, isRecord, parsePackageJson } from "../../utils";
 import { LRUCache, DiskCache, hashLockfile, resolveCacheDir } from "../../utils/cache";
 import { CACHE_NAMESPACES, CACHE_TTLS, CACHE_NS_VERSIONS } from "../../utils/cache";
 import { showHint } from "../../dx";
@@ -24,6 +25,7 @@ import {
   NPM_LS_TIMEOUT_MS,
   TREE_CACHE_MAX_ENTRIES,
   PRESERVED_CONFIG_FIELDS,
+  REMOVAL_TEMP_PREFIX,
 } from "./constants";
 import type { OverrideField, PackageManager } from "./types";
 import type { ResolverConfigGuard } from "../../mgrs/types";
@@ -83,15 +85,23 @@ export const forceClearCache = () => {
   return sizeBefore;
 };
 
-const parseJsonFile = (filePath: string): PastoralistJSON | undefined => {
+const readJsonFileContent = (filePath: string): string | undefined => {
   try {
-    const file = fs.readFileSync(filePath, "utf8");
-    const jsonFile = JSON.parse(file);
-    return jsonFile;
+    const content = fs.readFileSync(filePath, "utf8");
+    return content;
   } catch (err) {
-    log.error(`Invalid JSON at: ${filePath}`, "parseJsonFile", err);
+    log.error(`Unable to read JSON at: ${filePath}`, "parseJsonFile", err);
     return undefined;
   }
+};
+
+const parseJsonFile = (filePath: string): PastoralistJSON | undefined => {
+  const file = readJsonFileContent(filePath);
+  if (file === undefined) return undefined;
+  const jsonFile = parsePackageJson(file);
+  if (jsonFile) return jsonFile;
+  log.error(`Invalid JSON at: ${filePath}`, "parseJsonFile");
+  return undefined;
 };
 
 export const resolveJSON = (path: string): PastoralistJSON | undefined => {
@@ -315,12 +325,10 @@ export const executeNpmLs = async (root: string = process.cwd()): Promise<string
     });
     return stdout;
   } catch (error: unknown) {
-    const err = error as { code?: number; stdout?: string };
-    const hasStdout = err.code === 1 && err.stdout;
-    if (hasStdout) {
-      const result = err.stdout!;
-      return result;
-    }
+    const isExitCodeOne = isRecord(error) && error.code === 1;
+    const stdout = getStringField(error, "stdout");
+    const hasStdout = isExitCodeOne && stdout;
+    if (hasStdout) return stdout;
     throw error;
   }
 };
@@ -503,17 +511,11 @@ export const findPackageJsonFiles = (
   logInstance = log,
 ): string[] => {
   assertDepPathsProvided(depPaths, logInstance);
-
-  try {
-    logPackageJsonSearch(depPaths, ignore, root, logInstance);
-    const files = findMatchingPackageJsonFiles(depPaths, ignore, root);
-    assertPackageJsonFilesFound(files, depPaths, root, logInstance);
-    logInstance.debug(`Found ${files.length} files`, "findPackageJsonFiles");
-    return files;
-  } catch (err) {
-    logInstance.error("Error finding package.json files", "findPackageJsonFiles", err);
-    throw err;
-  }
+  logPackageJsonSearch(depPaths, ignore, root, logInstance);
+  const files = findMatchingPackageJsonFiles(depPaths, ignore, root);
+  assertPackageJsonFilesFound(files, depPaths, root, logInstance);
+  logInstance.debug(`Found ${files.length} files`, "findPackageJsonFiles");
+  return files;
 };
 
 const REMOVAL_TIMEOUT_MS = 120_000;
@@ -673,9 +675,7 @@ export const withRemovalState = async <T>(
   inspect: (removalRoot: string) => T | Promise<T>,
   deps: RemovalDeps = defaultRemovalDeps,
 ): Promise<T> => {
-  const tempBase = join(tmpdir(), "pastoralist");
-  await mkdir(tempBase, { recursive: true });
-  const removalRoot = await mkdtemp(join(tempBase, "removal-check-"));
+  const removalRoot = await mkdtemp(join(tmpdir(), REMOVAL_TEMP_PREFIX));
 
   try {
     const packageManager = await stageRemovalProject(config, options, removalRoot);

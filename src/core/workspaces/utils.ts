@@ -10,6 +10,7 @@ import type {
   PastoralistJSON,
 } from "../../types";
 import { logger, type Logger } from "../../observability";
+import { isRecord, isString } from "../../utils";
 import { resolveJSON } from "../package";
 import { extractPackageNames, mergeAppendixDependents } from "../appendix/utils";
 import { PACKAGE_JSON, PNPM_WORKSPACE_FILE } from "../constants";
@@ -21,15 +22,6 @@ import type {
 } from "../types";
 
 const log = logger({ file: "workspaces/utils.ts", isLogging: IS_DEBUGGING });
-
-const isRecord = (value: unknown): value is Record<string, unknown> => {
-  if (typeof value !== "object") return false;
-  if (value === null) return false;
-  const result = !Array.isArray(value);
-  return result;
-};
-
-const isString = (value: unknown): value is string => typeof value === "string";
 
 const toStringArray = (value: unknown): string[] => {
   if (!Array.isArray(value)) {

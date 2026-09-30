@@ -1,4 +1,4 @@
-import type { Output, TerminalGraph, TerminalGraphState, TerminalPhase } from "../types";
+import type { Output, TerminalGraphState } from "../types";
 
 export type {
   CompactSummaryData,
@@ -45,10 +45,3 @@ export type TerminalTreeContext = {
   paused: SpinnerPausedRunner;
   completer: Completer;
 };
-
-export type TerminalGraphMethod = (
-  graph: TerminalGraph,
-  context: TerminalTreeContext,
-) => TerminalGraph;
-
-export type PhaseWriter = (phase: TerminalPhase, text: string, isLast?: boolean) => TerminalGraph;

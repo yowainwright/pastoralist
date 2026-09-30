@@ -33,12 +33,20 @@ jobs:
 
       - name: Determine Version to Test
         id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            VERSION="${{ inputs.version }}"
+          if [ -n "$INPUT_VERSION" ]; then
+            VERSION="$INPUT_VERSION"
           else
             # Get the latest published version from npm
             VERSION=$(npm view pastoralist version)
+          fi
+          VERSION="${VERSION#v}"
+          SEMVER_PATTERN='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
+          if ! [[ "$VERSION" =~ $SEMVER_PATTERN ]]; then
+            echo "Invalid version: $VERSION" >&2
+            exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Testing pastoralist version: $VERSION"
@@ -198,25 +206,29 @@ jobs:
       - name: Trigger External E2E Tests
         if: success()
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          RELEASE_URL: ${{ github.event.release.html_url }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          TRIGGER_TYPE: ${{ github.event_name }}
         with:
           github-token: ${{ secrets.PASTORALIST_TEST_DISPATCH_TOKEN }}
           script: |
             console.log('🚀 Triggering external e2e tests in pastoralist-test repository');
 
-            const releaseUrl = '${{ github.event.release.html_url }}' || 'Manual trigger';
+            const releaseUrl = process.env.RELEASE_URL || 'Manual trigger';
 
             await github.rest.repos.createDispatchEvent({
               owner: 'yowainwright',
               repo: 'pastoralist-test',
               event_type: 'pastoralist-release',
               client_payload: {
-                version: '${{ steps.version.outputs.version }}',
+                version: process.env.RELEASE_VERSION,
                 release_url: releaseUrl,
-                trigger_type: '${{ github.event_name }}'
+                trigger_type: process.env.TRIGGER_TYPE
               }
             });
 
-            console.log('✅ Successfully triggered external tests for version ${{ steps.version.outputs.version }}');
+            console.log(`✅ Successfully triggered external tests for version ${process.env.RELEASE_VERSION}`);
 
       - name: Create Test Report
         if: always()

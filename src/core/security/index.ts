@@ -38,7 +38,7 @@ import {
 } from "../../utils";
 import { logger } from "../../observability";
 import { CACHE_NAMESPACES, CACHE_TTLS, CACHE_NS_VERSIONS } from "../../utils/cache";
-import { compareVersions } from "../../utils";
+import { compareVersions, parsePackageJson } from "../../utils";
 import {
   InteractiveSecurityManager,
   deduplicateAlerts,
@@ -46,6 +46,7 @@ import {
   findVulnerablePackages,
   computeVulnerabilityReduction,
   getSeverityScore,
+  isPatchable,
   sortAlertsByPriority,
 } from "./utils";
 import { SecuritySetupWizard, promptForSetup } from "./setup";
@@ -53,6 +54,7 @@ import type {
   SetupSecurityProvider,
   SecurityProviderFactory,
   AutoFixOverrideChanges,
+  PatchableAlert,
   Severity,
 } from "./types";
 import {
@@ -76,9 +78,6 @@ import {
   type BestCaseEvaluator,
   type BestCaseResult,
 } from "../best-case";
-
-export * from "./providers";
-export { PackageManagerAuditProvider } from "../../providers";
 
 const resolveBackupCacheDir = (root: string, cacheDir?: string): string => {
   const baseCacheDir = resolveCacheDir({ cacheDir, root });
@@ -446,15 +445,9 @@ export class SecurityChecker {
     options: SecurityCheckRuntimeOptions = {},
   ): Promise<SecurityCheckResult> {
     this.log.debug("Starting security check", "checkSecurity");
-
-    try {
-      const runtimeOptions = this.resolveBestCaseConfig(config, options);
-      const result = await this.runSecurityCheck(config, runtimeOptions);
-      return result;
-    } catch (error) {
-      this.log.error("Security check failed", "checkSecurity", { error });
-      throw error;
-    }
+    const runtimeOptions = this.resolveBestCaseConfig(config, options);
+    const result = await this.runSecurityCheck(config, runtimeOptions);
+    return result;
   }
 
   private resolveBestCaseConfig(
@@ -1042,25 +1035,24 @@ export class SecurityChecker {
     return acceptedResolution;
   }
 
-  private readPackageFile(packageFile: string): PastoralistJSON | null {
+  private readPackageContent(packageFile: string): string | null {
     try {
       const content = readFileSync(packageFile, "utf-8");
-      const parsed = JSON.parse(content);
-
-      const isValidObject = parsed && typeof parsed === "object";
-      if (!isValidObject) {
-        this.log.debug(`Invalid package.json format in ${packageFile}`, "readPackageFile");
-        return null;
-      }
-
-      const result = parsed as PastoralistJSON;
-      return result;
+      return content;
     } catch (error) {
-      this.log.debug(`Failed to check ${packageFile}`, "readPackageFile", {
-        error,
-      });
+      this.log.debug(`Failed to check ${packageFile}`, "readPackageFile", { error });
       return null;
     }
+  }
+
+  private readPackageFile(packageFile: string): PastoralistJSON | null {
+    const content = this.readPackageContent(packageFile);
+    if (content === null) return null;
+    const parsed = parsePackageJson(content);
+    if (!parsed) {
+      this.log.debug(`Invalid package.json format in ${packageFile}`, "readPackageFile");
+    }
+    return parsed;
   }
 
   private isNewVulnerability(vuln: SecurityAlert, existingKeys: Set<string>): boolean {
@@ -1275,25 +1267,41 @@ export class SecurityChecker {
 
     const newerAlert = this.findNewerPatch(alertsByPackage.get(packageName) || [], version);
     if (!newerAlert) return undefined;
-    const newerVersion = newerAlert.patchedVersion!;
+    const { patchedVersion: newerVersion } = newerAlert;
     const reason = `Newer security patch available: ${newerAlert.title}`;
     const { addedDate } = entry.ledger;
     const update = { packageName, currentOverride: version, newerVersion, reason, addedDate };
     return update;
   }
 
-  private findNewerPatch(alerts: SecurityAlert[], version: string): SecurityAlert | undefined {
-    const newerPatch = alerts.find((alert) => compareVersions(alert.patchedVersion!, version) > 0);
-    return newerPatch;
+  private findNewerPatch(alerts: SecurityAlert[], version: string): PatchableAlert | undefined {
+    const newerPatches = alerts.filter((alert) => this.isNewerPatch(alert, version));
+    const highestPatch = newerPatches.reduce<PatchableAlert | undefined>(
+      (best, alert) => this.pickHigherPatch(best, alert),
+      undefined,
+    );
+    return highestPatch;
+  }
+
+  private isNewerPatch(alert: SecurityAlert, version: string): alert is PatchableAlert {
+    if (!isPatchable(alert)) return false;
+    const isNewer = compareVersions(alert.patchedVersion, version) > 0;
+    return isNewer;
+  }
+
+  private pickHigherPatch(best: PatchableAlert | undefined, alert: PatchableAlert): PatchableAlert {
+    if (!best) return alert;
+    const comparison = compareVersions(alert.patchedVersion, best.patchedVersion);
+    if (comparison > 0) return alert;
+    return best;
   }
 
   private fetchLatestForVulnerablePackages(
     vulnerablePackages: SecurityAlert[],
   ): Promise<Map<string, string>> {
     const packages = vulnerablePackages
-      .filter((pkg) => pkg.fixAvailable && pkg.patchedVersion)
-      .map(({ packageName: name, patchedVersion }) => {
-        const minVersion = patchedVersion!;
+      .filter((pkg) => this.canGenerateOverride(pkg))
+      .map(({ packageName: name, patchedVersion: minVersion }) => {
         const pkg = { name, minVersion };
         return pkg;
       });
@@ -1419,7 +1427,7 @@ export class SecurityChecker {
   }
 
   private generateOverride(
-    pkg: SecurityAlert,
+    pkg: PatchableAlert,
     latestVersions: Map<string, string>,
     alerts: SecurityAlert[],
   ): SecurityOverride[] {
@@ -1437,16 +1445,17 @@ export class SecurityChecker {
     return selected;
   }
 
-  private canGenerateOverride(pkg: SecurityAlert): boolean {
-    const result = Boolean(pkg.fixAvailable && pkg.patchedVersion);
+  private canGenerateOverride(pkg: SecurityAlert): pkg is PatchableAlert {
+    if (!pkg.fixAvailable) return false;
+    const result = isPatchable(pkg);
     return result;
   }
 
   private resolveOverrideTargetVersion(
-    pkg: SecurityAlert,
+    pkg: PatchableAlert,
     latestVersions: Map<string, string>,
   ): string {
-    const patchedVersion = pkg.patchedVersion!;
+    const { patchedVersion } = pkg;
     const latestVersion = latestVersions.get(pkg.packageName);
     const shouldUseLatest = latestVersion && compareVersions(latestVersion, patchedVersion) >= 0;
 
@@ -1455,13 +1464,12 @@ export class SecurityChecker {
   }
 
   private buildSecurityOverride(
-    pkg: SecurityAlert,
+    pkg: PatchableAlert,
     targetVersion: string,
     targetStillVulnerable: boolean,
   ): SecurityOverride {
     const { packageName, currentVersion: fromVersion, severity } = pkg;
-    const { vulnerableVersions: vulnerableRange } = pkg;
-    const patchedVersion = pkg.patchedVersion!;
+    const { vulnerableVersions: vulnerableRange, patchedVersion } = pkg;
     const reason = `Security fix: ${pkg.title} (${severity})`;
     const base = { packageName, fromVersion, toVersion: targetVersion, reason };
     const security = { severity, vulnerableRange, patchedVersion };
@@ -1688,8 +1696,9 @@ export class SecurityChecker {
   }
 
   private readPackageJsonForAutoFix(pkgPath: string): PastoralistJSON {
-    const result = JSON.parse(readFileSync(pkgPath, "utf-8"));
-    return result;
+    const parsed = parsePackageJson(readFileSync(pkgPath, "utf-8"));
+    if (!parsed) throw new Error(`Invalid package.json at ${pkgPath}`);
+    return parsed;
   }
 
   private buildAutoFixedPackageJson(
@@ -1787,8 +1796,3 @@ export class SecurityChecker {
     }
   }
 }
-
-export * from "../../types";
-export * from "./providers";
-export { SecuritySetupWizard, promptForSetup, createOutput } from "./setup";
-export type { SetupResult, OutputFunctions } from "./types";

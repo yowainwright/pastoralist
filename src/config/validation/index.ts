@@ -441,7 +441,7 @@ const validateStrictPastoralistConfig = (value: Record<string, unknown>): boolea
   return strictPastoralistConfig;
 };
 
-const validatePastoralistConfig = (value: unknown): boolean => {
+const validatePastoralistConfig = (value: unknown): value is PastoralistConfig => {
   if (!isObject(value)) return false;
   if (!areFieldsValid(value, PASTORALIST_CONFIG_FIELDS)) return false;
   const usesPastoralistSchema = value.$schema === PASTORALIST_SCHEMA_PATH;
@@ -454,14 +454,12 @@ export function validateConfig(config: unknown): PastoralistConfig {
   if (!validatePastoralistConfig(config)) {
     throw new Error(INVALID_CONFIG_STRUCTURE);
   }
-  const result = config as PastoralistConfig;
-  return result;
+  return config;
 }
 
 export function safeValidateConfig(config: unknown): PastoralistConfig | undefined {
   if (!validatePastoralistConfig(config)) {
     return undefined;
   }
-  const result = config as PastoralistConfig;
-  return result;
+  return config;
 }

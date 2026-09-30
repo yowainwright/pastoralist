@@ -579,6 +579,14 @@ const createSkippedSecurityPhase = (mergedOptions: Options): SecurityPhaseResult
   return phase;
 };
 
+const getScannedCount = (
+  result: Awaited<ReturnType<typeof runSecurityCheck>>,
+): number | undefined => {
+  if (result.skipped) return undefined;
+  const { packagesScanned } = result;
+  return packagesScanned;
+};
+
 const resolveSecurityPhaseOptions = async (
   config: PastoralistJSON,
   mergedOptions: Options,
@@ -586,7 +594,7 @@ const resolveSecurityPhaseOptions = async (
   deps: Pick<SecurityPhaseDeps, "handleSecurityResults" | "quickConfirm">,
 ): Promise<Options> => {
   const { userOwnedOverridesAdded, alerts: securityAlerts, securityChecker } = result;
-  const { packagesScanned: securityPackagesScanned } = result;
+  const securityPackagesScanned = getScannedCount(result);
   const optionsWithOwnership = persistUserOwnedOverrides(mergedOptions, userOwnedOverridesAdded);
   const scan = { securityAlerts, securityPackagesScanned };
   const optionsWithAlerts = Object.assign({}, optionsWithOwnership, scan);

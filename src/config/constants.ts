@@ -1,5 +1,3 @@
-import type { PastoralistConfig } from "./types";
-
 export const CONFIG_FILES = [
   ".pastoralistrc",
   ".pastoralistrc.json",
@@ -23,5 +21,3 @@ export const SECURITY_CONFIG_FIELDS = [
   "strict",
   "preferLatest",
 ] as const;
-
-export const UNVALIDATED_CONFIG_PLACEHOLDER: PastoralistConfig = {};

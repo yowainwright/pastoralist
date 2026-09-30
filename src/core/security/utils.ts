@@ -990,8 +990,11 @@ export class InteractiveSecurityManager {
 
 export const isDependabotAlert = (value: unknown): value is DependabotAlert => {
   if (!isRecord(value)) return false;
-  const hasVulnerability = isRecord(value.security_vulnerability);
-  return hasVulnerability;
+  const vulnerability = value.security_vulnerability;
+  if (!isRecord(vulnerability)) return false;
+  if (!isRecord(vulnerability.package)) return false;
+  const hasAdvisory = isRecord(value.security_advisory);
+  return hasAdvisory;
 };
 
 const NO_DEPENDABOT_ALERTS: DependabotAlert[] = [];

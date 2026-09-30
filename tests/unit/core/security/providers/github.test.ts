@@ -1162,10 +1162,18 @@ test("fetchFromGitHubAPI - uses statusText when message is missing", async () =>
 });
 
 const securityVulnerability3 = {};
+const successPackage = { ecosystem: "npm", name: "lodash" };
+const successVulnerability = { package: successPackage };
+const successAdvisory = { summary: "Prototype pollution" };
+const successAlert = {
+  state: "open",
+  security_vulnerability: successVulnerability,
+  security_advisory: successAdvisory,
+};
 test("fetchFromGitHubAPI - returns alerts array on success", async () => {
   const provider = new GitHubSecurityProvider(TEST_REPO_TOKEN_OPTIONS);
 
-  const mockAlerts = [{ state: "open", security_vulnerability: securityVulnerability3 }];
+  const mockAlerts = [successAlert];
   const mockResponse = {
     ok: true,
     json: async () => mockAlerts,

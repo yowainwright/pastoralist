@@ -56,14 +56,15 @@ const getHighlightedCode = (
   code: string,
   lang: string,
   showLineNumbers: boolean,
+  meta: string,
 ): Promise<string> => {
   const resolvedLang = resolveCodeblockLanguage(lang);
-  const cacheKey = JSON.stringify([code, resolvedLang, showLineNumbers]);
+  const cacheKey = JSON.stringify([code, resolvedLang, showLineNumbers, meta]);
   const cached = getCachedHighlightedCode(cacheKey);
   if (cached) return cached;
 
   const highlighted = getHighlighter()
-    .then((highlighter) => highlighter.codeToHtml(code, resolvedLang, showLineNumbers))
+    .then((highlighter) => highlighter.codeToHtml(code, resolvedLang, showLineNumbers, meta))
     .catch((error) => {
       highlightedCodeCache.delete(cacheKey);
       throw error;
@@ -76,13 +77,15 @@ export function HighlightedCode({
   code,
   lang = "text",
   showLineNumbers = false,
+  meta = "",
 }: {
   code: string;
   lang?: string;
   showLineNumbers?: boolean;
+  meta?: string;
 }) {
   const normalizedCode = normalizeCodeBlock(code);
-  const html = use(getHighlightedCode(normalizedCode, lang, showLineNumbers));
+  const html = use(getHighlightedCode(normalizedCode, lang, showLineNumbers, meta));
 
   return <div className={CODEBLOCK_CLASSES.content} dangerouslySetInnerHTML={{ __html: html }} />;
 }
@@ -113,20 +116,31 @@ function CodeFallback({ code }: { code: string }) {
   );
 }
 
-function getCodeblockProps({
-  code,
-  lang = "text",
-  showLineNumbers = false,
-  className,
-}: CodeblockProps) {
-  const normalizedCode = normalizeCodeBlock(code);
-  const lineNumbersVisible = showLineNumbers && shouldShowCodeLineNumbers(lang);
+const getWrapperClass = (lineNumbersVisible: boolean, className?: string): string => {
   const wrapperClass = cn(
     CODEBLOCK_CLASSES.wrapper,
     lineNumbersVisible && "show-line-numbers",
     className,
   );
-  const highlightedProps = { code: normalizedCode, lang, showLineNumbers: lineNumbersVisible };
+  return wrapperClass;
+};
+
+function getCodeblockProps({
+  code,
+  lang = "text",
+  showLineNumbers = false,
+  meta,
+  className,
+}: CodeblockProps) {
+  const normalizedCode = normalizeCodeBlock(code);
+  const lineNumbersVisible = showLineNumbers && shouldShowCodeLineNumbers(lang);
+  const wrapperClass = getWrapperClass(lineNumbersVisible, className);
+  const highlightedProps = {
+    code: normalizedCode,
+    lang,
+    showLineNumbers: lineNumbersVisible,
+    meta,
+  };
   const props = { normalizedCode, wrapperClass, highlightedProps };
   return props;
 }

@@ -34,7 +34,7 @@ The default blocks represent known-exploited vulnerabilities, critical vulnerabi
 The selected portfolio minimizes that vector lexicographically:
 
 $$
-x^* = \operatorname*{arg\,min}^{\mathrm{lex}}_{x \in \mathcal{X}} F_{\pi}(x)
+x^* = \mathop{\mathrm{arg\,min}}\limits^{\mathrm{lex}}_{x \in \mathcal{X}} F_{\pi}(x)
 $$
 
 Each selected dependency stores shared portfolio provenance in its ledger reason:

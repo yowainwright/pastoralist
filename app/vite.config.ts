@@ -74,8 +74,26 @@ const renderMermaidRemark = () => {
   return (tree: Node) => visit(tree, "code", replaceMermaidNode);
 };
 
+interface CodeElementNode extends Node {
+  tagName?: string;
+  properties?: Record<string, unknown>;
+  data?: { meta?: string };
+}
+
+function copyCodeMeta(node: CodeElementNode) {
+  const meta = node.data?.meta;
+  const isCode = node.tagName === "code";
+  const hasMeta = isCode && Boolean(meta);
+  if (!hasMeta) return;
+  node.properties = Object.assign({}, node.properties, { "data-meta": meta });
+}
+
+const rehypeCodeMeta = () => {
+  return (tree: Node) => visit(tree, "element", copyCodeMeta);
+};
+
 const remarkPlugins = [remarkGfm, remarkMath, renderMermaidRemark];
-const rehypePlugins = [rehypeSlug, rehypeKatex];
+const rehypePlugins = [rehypeSlug, rehypeKatex, rehypeCodeMeta];
 
 const pastoralistMdx = (): Plugin => ({
   name: "pastoralist-mdx",

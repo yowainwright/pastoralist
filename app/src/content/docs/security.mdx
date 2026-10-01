@@ -55,7 +55,7 @@ pastoralist --checkSecurity --hasWorkspaceSecurityChecks
 
 You can configure security settings in your `package.json`:
 
-```json
+```json title="package.json"
 {
   "pastoralist": {
     "security": {
@@ -95,7 +95,7 @@ Independent upgrades can interact: one package fix may introduce a
 vulnerability or compatibility failure in another package. Enable `bestCase`
 to rank complete package-version portfolios under one policy:
 
-```json
+```json title="package.json"
 {
   "pastoralist": {
     "checkSecurity": true,
@@ -123,7 +123,7 @@ Declare a package as user-owned when its active override must win over portfolio
 ranking. Interactive mode also prompts before promoting a newer independent
 security update and persists an approved package name.
 
-```json
+```json title="package.json" /appendix/
 {
   "overrides": {
     "alpha": "2.5.0"
@@ -394,7 +394,7 @@ By default, `--remove-unused` removes overrides whose dependents no longer
 require them. For security overrides you want to retain, set `keep` on the
 ledger:
 
-```json
+```json {5}
 {
   "ledger": {
     "addedDate": "2026-05-30T00:00:00.000Z",
@@ -406,7 +406,7 @@ ledger:
 
 For expiring keeps, use a `KeepConstraint` object:
 
-```json
+```json {5}
 {
   "ledger": {
     "addedDate": "2026-05-30T00:00:00.000Z",
@@ -516,7 +516,7 @@ Pastoralist will show specific guidance in the warning message.
 
 ### GitHub Actions
 
-```yaml
+```yaml title=".github/workflows/security.yml"
 name: Security Check
 on: [push, pull_request]
 
@@ -537,7 +537,7 @@ jobs:
 
 For OSV provider (no permissions needed):
 
-```yaml
+```yaml title=".github/workflows/security.yml"
 name: Security Check
 on: [push, pull_request]
 
@@ -553,7 +553,7 @@ jobs:
 
 ### GitLab CI
 
-```yaml
+```yaml title=".gitlab-ci.yml"
 security:
   script:
     - npm install

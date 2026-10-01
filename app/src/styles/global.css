@@ -654,6 +654,41 @@ samp {
     --line-highlight-accent: #60a5fa;
   }
 
+  .shiki-wrapper .shiki code .line.highlighted.error {
+    --line-bg: #fdecec;
+    --line-highlight-flash: #f9d2d2;
+    --line-highlight-accent: #ef4444;
+  }
+
+  .shiki-wrapper .shiki code .line.highlighted.warning {
+    --line-bg: #fff6e0;
+    --line-highlight-flash: #fde9b8;
+    --line-highlight-accent: #f59e0b;
+  }
+
+  [data-theme="night"] .shiki-wrapper .shiki code .line.highlighted.error {
+    --line-bg: #3b2530;
+    --line-highlight-flash: #5a2d3a;
+    --line-highlight-accent: #f87171;
+  }
+
+  [data-theme="night"] .shiki-wrapper .shiki code .line.highlighted.warning {
+    --line-bg: #3d3420;
+    --line-highlight-flash: #5a4a22;
+    --line-highlight-accent: #fbbf24;
+  }
+
+  .shiki-wrapper .shiki code .highlighted-word {
+    background-color: rgba(37, 99, 235, 0.16);
+    border-radius: 3px;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.16);
+  }
+
+  [data-theme="night"] .shiki-wrapper .shiki code .highlighted-word {
+    background-color: rgba(96, 165, 250, 0.24);
+    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.24);
+  }
+
   @media (prefers-reduced-motion: no-preference) {
     .shiki-wrapper .shiki code .line.highlighted {
       animation: shiki-line-highlight 1.4s ease-out both;

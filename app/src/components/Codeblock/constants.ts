@@ -40,7 +40,7 @@ export const parseCodeMeta = (raw = "") => {
   const title = raw.match(CODE_TITLE_PATTERN)?.[1];
   const withoutTitle = raw.replace(CODE_TITLE_PATTERN, "");
   const meta = withoutTitle.replace(NO_LINE_NUMBERS_PATTERN, "").trim();
-  const hidden = NO_LINE_NUMBERS_PATTERN.test(raw);
+  const hidden = NO_LINE_NUMBERS_PATTERN.test(withoutTitle);
   const lineNumbers = !hidden;
   const parsed = { title, meta, lineNumbers };
   return parsed;

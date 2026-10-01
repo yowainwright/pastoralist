@@ -345,7 +345,7 @@ npx pastoralist --dry-run --outputFormat json
 Use the GitHub Action when the workflow should also expose outputs or create a
 maintenance PR.
 
-```yaml title=".github/workflows/pastoralist.yml" {4-6,9-10}
+```yaml {4-6,9-10}
 - uses: yowainwright/pastoralist@v1
   id: pastoralist
   with:
@@ -725,7 +725,8 @@ try {
   if (!config) throw new Error("Package.json not found");
   update({ config, path });
 } catch (error) {
-  if (error.message === "Package.json not found") {
+  const isNotFound = error instanceof Error && error.message === "Package.json not found";
+  if (isNotFound) {
     console.error("Package.json not found");
   } else {
     console.error("Unexpected error:", error);

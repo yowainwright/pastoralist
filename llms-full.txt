@@ -30,7 +30,7 @@ and CI checks to the same record.
 Overrides usually start as real fixes: a CVE patch, a compatibility pin, a fork,
 or a transitive dependency workaround.
 
-```json
+```json title="package.json" {3}
 {
   "overrides": {
     "lodash": "4.17.21"
@@ -42,7 +42,7 @@ Months later, the reason may not be clear. Was it a security fix? A transitive
 bug? Which packages still need it? Can it be removed? With Pastoralist, the
 override sets the version, and the appendix holds the context.
 
-```json
+```json title="package.json" /appendix/
 {
   "overrides": {
     "lodash": "4.17.21"
@@ -129,7 +129,7 @@ npx pastoralist init
 
 Then add it to `postinstall`:
 
-```json
+```json title="package.json" {3}
 {
   "scripts": {
     "postinstall": "pastoralist"
@@ -218,7 +218,7 @@ without touching other package settings.
 
 Most projects should run Pastoralist after dependency installs:
 
-```json
+```json title="package.json" {3}
 {
   "scripts": {
     "postinstall": "pastoralist"
@@ -256,7 +256,7 @@ npx pastoralist --remove-unused
 
 For a workspace project with OSV security checks:
 
-```json
+```json title="package.json"
 {
   "pastoralist": {
     "depPaths": "workspace",
@@ -380,7 +380,7 @@ Use this loop when an agent owns the setup:
 
 Create `.github/workflows/pastoralist.yml`:
 
-```yaml
+```yaml title=".github/workflows/pastoralist.yml"
 name: Override Check
 on: [pull_request]
 
@@ -455,7 +455,7 @@ pastoralist --checkSecurity --hasWorkspaceSecurityChecks
 
 You can configure security settings in your `package.json`:
 
-```json
+```json title="package.json"
 {
   "pastoralist": {
     "security": {
@@ -495,7 +495,7 @@ Independent upgrades can interact: one package fix may introduce a
 vulnerability or compatibility failure in another package. Enable `bestCase`
 to rank complete package-version portfolios under one policy:
 
-```json
+```json title="package.json"
 {
   "pastoralist": {
     "checkSecurity": true,
@@ -523,7 +523,7 @@ Declare a package as user-owned when its active override must win over portfolio
 ranking. Interactive mode also prompts before promoting a newer independent
 security update and persists an approved package name.
 
-```json
+```json title="package.json" /appendix/
 {
   "overrides": {
     "alpha": "2.5.0"
@@ -791,7 +791,7 @@ By default, `--remove-unused` removes overrides whose dependents no longer
 require them. For security overrides you want to retain, set `keep` on the
 ledger:
 
-```json
+```json {5}
 {
   "ledger": {
     "addedDate": "2026-05-30T00:00:00.000Z",
@@ -803,7 +803,7 @@ ledger:
 
 For expiring keeps, use a `KeepConstraint` object:
 
-```json
+```json {5}
 {
   "ledger": {
     "addedDate": "2026-05-30T00:00:00.000Z",
@@ -913,7 +913,7 @@ Pastoralist will show specific guidance in the warning message.
 
 ### GitHub Actions
 
-```yaml
+```yaml title=".github/workflows/security.yml"
 name: Security Check
 on: [push, pull_request]
 
@@ -934,7 +934,7 @@ jobs:
 
 For OSV provider (no permissions needed):
 
-```yaml
+```yaml title=".github/workflows/security.yml"
 name: Security Check
 on: [push, pull_request]
 
@@ -950,7 +950,7 @@ jobs:
 
 ### GitLab CI
 
-```yaml
+```yaml title=".gitlab-ci.yml"
 security:
   script:
     - npm install
@@ -987,7 +987,7 @@ Pastoralist can configure workspace scanning in three ways:
 Configure dependency paths directly in your `package.json` for workspace
 tracking:
 
-```json
+```json title="package.json"
 {
   "name": "my-monorepo",
   "workspaces": ["packages/*", "apps/*"],
@@ -1007,7 +1007,7 @@ tracking:
 
 **Using array of paths** - Specify custom paths to scan:
 
-```json
+```json title="package.json" {3}
 {
   "pastoralist": {
     "depPaths": ["packages/app-a/package.json", "packages/app-b/package.json"]
@@ -1017,7 +1017,7 @@ tracking:
 
 After running `pastoralist`, your root package.json will contain:
 
-```json
+```json title="package.json" /appendix/
 {
   "overrides": {
     "lodash": "4.17.21"
@@ -1099,7 +1099,7 @@ pastoralist
 
 Most monorepos use root-level overrides that apply to all workspaces:
 
-```json
+```json title="package.json"
 {
   "name": "my-monorepo",
   "workspaces": ["packages/*"],
@@ -1120,7 +1120,7 @@ pastoralist
 
 Some packages may need their own overrides:
 
-```json
+```json title="package.json"
 {
   "name": "legacy-app",
   "overrides": {
@@ -1140,7 +1140,7 @@ pastoralist --path packages/legacy-app/package.json
 Most workspaces should avoid running Pastoralist separately in every package.
 Keep shared overrides at the root and let `depPaths` read workspace manifests:
 
-```json
+```json title="package.json" {4}
 {
   "workspaces": ["packages/*", "apps/*"],
   "pastoralist": {
@@ -1161,7 +1161,7 @@ override field.
 
 Keep all overrides in the root `package.json` and use `depPaths` configuration:
 
-```json
+```json title="package.json"
 {
   "workspaces": ["packages/*", "apps/*"],
   "overrides": {
@@ -1181,7 +1181,7 @@ Keep all overrides in the root `package.json` and use `depPaths` configuration:
 Allow packages to manage their own overrides only when those overrides are
 package-specific:
 
-```json
+```json title="package.json" {3}
 {
   "overrides": {
     "react": "17.0.2"
@@ -1198,7 +1198,7 @@ Combine root overrides with package-specific ones:
 
 Root overrides can hold shared security patches:
 
-```json
+```json title="package.json" {3}
 {
   "overrides": {
     "minimist": "1.2.8"
@@ -1208,7 +1208,7 @@ Root overrides can hold shared security patches:
 
 Package overrides can hold feature-specific constraints:
 
-```json
+```json title="package.json" {3}
 {
   "overrides": {
     "react": "17.0.2"
@@ -1220,7 +1220,7 @@ Package overrides can hold feature-specific constraints:
 
 ### npm Workspaces
 
-```json
+```json title="package.json" {5}
 {
   "name": "my-npm-workspace",
   "workspaces": ["packages/*", "apps/*"],
@@ -1235,14 +1235,13 @@ Package overrides can hold feature-specific constraints:
 
 ### pnpm Workspace
 
-```yaml
-# pnpm-workspace.yaml
+```yaml title="pnpm-workspace.yaml"
 packages:
   - "packages/*"
   - "apps/*"
 ```
 
-```json
+```json title="package.json" {3}
 {
   "pastoralist": {
     "depPaths": "workspace"
@@ -1255,7 +1254,7 @@ packages:
 
 ### Yarn Workspaces
 
-```json
+```json title="package.json" {7}
 {
   "private": true,
   "workspaces": {
@@ -1353,7 +1352,7 @@ Pastoralist supports npm's nested override syntax for transitive dependencies.
 
 When you need to override a transitive dependency, you can use nested overrides:
 
-```json
+```json title="package.json"
 {
   "dependencies": {
     "pg": "^8.13.1"
@@ -1373,7 +1372,7 @@ regardless of the version range declared by `pg`.
 
 You can override multiple transitive dependencies:
 
-```json
+```json title="package.json"
 {
   "overrides": {
     "pg": {
@@ -1392,7 +1391,7 @@ You can override multiple transitive dependencies:
 Nested overrides are tracked with a special notation in the appendix. Each entry
 still gets a `ledger` recording when it was added:
 
-```json
+```json title="package.json" /appendix/
 {
   "pastoralist": {
     "appendix": {
@@ -1424,7 +1423,7 @@ still gets a `ledger` recording when it was added:
 In monorepos, nested overrides in workspace packages are also tracked. For
 example, `packages/app/package.json` might contain:
 
-```json
+```json title="packages/app/package.json" {4}
 {
   "overrides": {
     "pg": {
@@ -1454,7 +1453,7 @@ patches/
 
 Pastoralist tracks them in the appendix:
 
-```json
+```json title="package.json" /appendix/
 {
   "pastoralist": {
     "appendix": {
@@ -1490,7 +1489,7 @@ Pastoralist considers `peerDependencies` when tracking override usage.
 
 ### Example
 
-```json
+```json title="package.json"
 {
   "peerDependencies": {
     "react": "^17.0.0 || ^18.0.0"
@@ -1503,7 +1502,7 @@ Pastoralist considers `peerDependencies` when tracking override usage.
 
 The appendix will reflect peer dependency requirements:
 
-```json
+```json title="package.json" /appendix/
 {
   "pastoralist": {
     "appendix": {
@@ -1532,7 +1531,7 @@ When a dependency is updated and no longer needs an override:
 
 **Before:**
 
-```json
+```json title="package.json" {3}
 {
   "dependencies": {
     "lodash": "^4.17.0"
@@ -1545,7 +1544,7 @@ When a dependency is updated and no longer needs an override:
 
 **After updating lodash to 4.17.21 and running `pastoralist --remove-unused`:**
 
-```json
+```json title="package.json" {3}
 {
   "dependencies": {
     "lodash": "^4.17.21"
@@ -1559,7 +1558,7 @@ When a dependency is updated and no longer needs an override:
 When an override exists but no package in your project depends on it,
 Pastoralist labels it as `(unused override)` in the appendix:
 
-```json
+```json title="package.json" /appendix/
 {
   "pastoralist": {
     "appendix": {
@@ -1592,7 +1591,7 @@ This removes both the override from `overrides` and its entry from the appendix.
 Set `keep: true` on a ledger entry to prevent `--remove-unused` from removing
 it:
 
-```json
+```json {5}
 {
   "lodash@4.17.21": {
     "ledger": {
@@ -1605,7 +1604,7 @@ it:
 
 For time- or version-bounded protection, use a `KeepConstraint`:
 
-```json
+```json {5}
 {
   "lodash@4.17.21": {
     "ledger": {
@@ -1627,7 +1626,7 @@ again.
 
 Pastoralist tracks overrides needed by transitive dependencies:
 
-```json
+```json title="package.json" /appendix/
 {
   "pastoralist": {
     "appendix": {
@@ -1650,7 +1649,7 @@ Pastoralist uses version-range matching to determine if overrides are needed.
 
 Given these dependencies:
 
-```json
+```json title="package.json"
 {
   "dependencies": {
     "express": "^4.18.0"
@@ -1660,7 +1659,7 @@ Given these dependencies:
 
 And this override:
 
-```json
+```json title="package.json" {3}
 {
   "overrides": {
     "express": "4.18.2"
@@ -1702,7 +1701,7 @@ Pastoralist chooses the field that matches the detected package manager.
 
 Yarn resolutions:
 
-```json
+```json title="package.json" {3}
 {
   "resolutions": {
     "package-a": "1.0.0",
@@ -1713,7 +1712,7 @@ Yarn resolutions:
 
 The equivalent npm or Bun override shape:
 
-```json
+```json title="package.json" {3}
 {
   "overrides": {
     "package-a": "1.0.0",
@@ -1784,8 +1783,7 @@ Configure automated tools to run Pastoralist after updates:
 
 Create policies for when overrides should be used:
 
-```javascript
-// scripts/check-override-policy.js
+```javascript title="scripts/check-override-policy.js"
 const pkg = require("./package.json");
 
 const policies = {
@@ -1864,7 +1862,7 @@ cat package.json
 
 ### Before Pastoralist
 
-```json
+```json title="package.json" {3}
 {
   "dependencies": {
     "express": "^4.18.0"
@@ -1877,7 +1875,7 @@ cat package.json
 
 ### After Pastoralist
 
-```json
+```json title="package.json" {3}
 {
   "overrides": {
     "qs": "6.11.2"
@@ -1917,7 +1915,7 @@ npm install --save-dev pastoralist
 
 ### Add to postinstall
 
-```json
+```json title="package.json" {3}
 {
   "scripts": {
     "postinstall": "pastoralist"
@@ -1939,7 +1937,7 @@ pastoralist --path packages/app/package.json
 
 ### Security Patches
 
-```json
+```json title="package.json" /appendix/
 {
   "overrides": {
     "minimist": "1.2.8"
@@ -1966,7 +1964,7 @@ when upstream dependencies no longer need it.
 
 ### Version Conflicts
 
-```json
+```json title="package.json" /appendix/
 {
   "overrides": {
     "react": "17.0.2"
@@ -2172,7 +2170,7 @@ npx pastoralist --summary --outputFormat json
 
 JSON output is a single result object.
 
-```jsonc
+```jsonc noLineNumbers
 {
   "success": true,
   "hasSecurityIssues": false,
@@ -2347,27 +2345,27 @@ npx pastoralist --checkSecurity --refresh-cache
 
 Use the CLI directly when CI only needs to validate or report data.
 
-```diff
- npx pastoralist
-+npx pastoralist --dry-run --summary
-+npx pastoralist --quiet --checkSecurity
-+npx pastoralist --dry-run --outputFormat json
+```bash {2-4}
+npx pastoralist
+npx pastoralist --dry-run --summary
+npx pastoralist --quiet --checkSecurity
+npx pastoralist --dry-run --outputFormat json
 ```
 
 Use the GitHub Action when the workflow should also expose outputs or create a
 maintenance PR.
 
-```diff
- - uses: yowainwright/pastoralist@v1
+```yaml {4-6,9-10}
+- uses: yowainwright/pastoralist@v1
   id: pastoralist
   with:
-+    mode: check
-+    check-security: true
-+    security-provider: osv
+    mode: check
+    check-security: true
+    security-provider: osv
 
- - name: Block unused overrides
-+  if: steps.pastoralist.outputs.has-unused-overrides == 'true'
-+  run: exit 1
+- name: Block unused overrides
+  if: steps.pastoralist.outputs.has-unused-overrides == 'true'
+  run: exit 1
 ```
 
 The action exposes `has-security-issues`, `has-unused-overrides`, `updated`,
@@ -2390,7 +2388,7 @@ unused-override issues were found, and the run metrics.
 npx pastoralist --dry-run --outputFormat json
 ```
 
-```jsonc
+```jsonc noLineNumbers
 {
   "success": true,
   "hasSecurityIssues": false,
@@ -2431,7 +2429,7 @@ Optional fields include `securityAlerts`, `unusedOverrides`,
 `package-name@version`; values can include root dependencies, dependents, patch
 files, and ledger data.
 
-```json
+```json title="package.json" /appendix/
 {
   "pastoralist": {
     "appendix": {
@@ -2456,7 +2454,7 @@ Every current appendix entry has a `ledger` with `addedDate`. Manual records can
 add `reason`; security runs can add provider, CVE, severity, vulnerable range,
 patched version, confidence, source, and resolution fields.
 
-```json
+```json {11}
 {
   "ledger": {
     "addedDate": "2026-08-22T00:00:00.000Z",
@@ -2498,25 +2496,25 @@ Update `package.json` overrides and the appendix. Each appendix entry includes a
 `ledger` with at least `addedDate`. Pass the parsed package manifest as
 `config`; the function is synchronous and returns an `UpdateContext`.
 
-```diff
- import { resolveJSON, update } from "pastoralist";
+```ts title="update.ts" {10-12,17}
+import { resolveJSON, update } from "pastoralist";
 
- const path = "./package.json";
- const config = resolveJSON(path);
+const path = "./package.json";
+const config = resolveJSON(path);
 
- if (config) {
+if (config) {
   const result = update({
     config,
     path,
-+    dryRun: true,
-+    outputFormat: "json",
-+    summary: true,
+    dryRun: true,
+    outputFormat: "json",
+    summary: true,
     depPaths: ["packages/*/package.json"],
     ignore: ["**/test/**"],
   });
 
-+  process.stdout.write(`${result.metrics?.appendixEntriesUpdated ?? 0} entries\n`);
- }
+  process.stdout.write(`${result.metrics?.appendixEntriesUpdated ?? 0} entries\n`);
+}
 ```
 
 ### `SecurityChecker.checkSecurity(config, options)`
@@ -2528,21 +2526,21 @@ Update `package.json` overrides and the appendix. Each appendix entry includes a
 Run vulnerability scanning directly and receive provider alerts, suggested
 overrides, update suggestions, package counts, and optional best-case metadata.
 
-```diff
- import { resolveJSON, SecurityChecker } from "pastoralist";
+```ts title="security-check.ts" {8-10}
+import { resolveJSON, SecurityChecker } from "pastoralist";
 
- const config = resolveJSON("./package.json");
- const checker = new SecurityChecker({ provider: "osv" });
+const config = resolveJSON("./package.json");
+const checker = new SecurityChecker({ provider: "osv" });
 
- if (config) {
+if (config) {
   const result = await checker.checkSecurity(config, {
-+    root: process.cwd(),
-+    packageJsonPath: "./package.json",
-+    severityThreshold: "high",
+    root: process.cwd(),
+    packageJsonPath: "./package.json",
+    severityThreshold: "high",
   });
 
   process.stdout.write(`${result.alerts.length} alerts found\n`);
- }
+}
 ```
 
 ### `optimizeBestCasePortfolio(options)`
@@ -2554,22 +2552,22 @@ Evaluate complete package-version states and return the lowest-risk state under
 a lexicographic policy. The evaluator must return alerts for the complete state,
 not for one package in isolation.
 
-```diff
- import {
+```ts title="best-case.ts" {38-41}
+import {
   optimizeBestCasePortfolio,
   type BestCaseEvaluator,
   type BestCasePackageChoice,
- } from "pastoralist";
+} from "pastoralist";
 
- const choices: BestCasePackageChoice[] = [
+const choices: BestCasePackageChoice[] = [
   {
     packageName: "example",
     currentVersion: "1.0.0",
     versions: ["1.0.0", "1.1.0"],
   },
- ];
+];
 
- const evaluate: BestCaseEvaluator = async (state) => {
+const evaluate: BestCaseEvaluator = async (state) => {
   const usesVulnerableVersion = state.example === "1.0.0";
   const alerts = usesVulnerableVersion
     ? [
@@ -2587,19 +2585,19 @@ not for one package in isolation.
     : [];
 
   return { alerts };
- };
+};
 
- const result = await optimizeBestCasePortfolio({
+const result = await optimizeBestCasePortfolio({
   choices,
   evaluate,
-+  config: {
-+    enabled: true,
-+    search: { mode: "auto", exactStateLimit: 256 },
-+  },
- });
+  config: {
+    enabled: true,
+    search: { mode: "auto", exactStateLimit: 256 },
+  },
+});
 
- console.log(result.selectedState);
- console.log(result.search.provenOptimal);
+console.log(result.selectedState);
+console.log(result.search.provenOptimal);
 ```
 
 `BestCaseEvaluation` may also return `incompatibilities`, `oldness`, `valid`,
@@ -2615,17 +2613,17 @@ the evaluator is an API option because functions cannot be stored in JSON.
 `LedgerReason` is a non-empty string, `ProjectReason`, or `BestCaseReason`.
 Reasons are stored per appendix dependency.
 
-```diff
- import type { LedgerReason } from "pastoralist";
+```ts title="ledger-reason.ts" {4-9}
+import type { LedgerReason } from "pastoralist";
 
- const reason: LedgerReason = {
-+  type: "project",
-+  summary: "Pin this dependency while the upstream fix is reviewed.",
-+  pin: "3.2.1",
-+  patch: "patches/example+3.2.1.patch",
-+  constraints: ["Must retain the current runtime API"],
-+  references: ["https://example.com/upstream/issue/123"],
- };
+const reason: LedgerReason = {
+  type: "project",
+  summary: "Pin this dependency while the upstream fix is reviewed.",
+  pin: "3.2.1",
+  patch: "patches/example+3.2.1.patch",
+  constraints: ["Must retain the current runtime API"],
+  references: ["https://example.com/upstream/issue/123"],
+};
 ```
 
 A `BestCaseReason` contains `decisionId`, `policyHash`, `search`, and `impact`.
@@ -2638,97 +2636,97 @@ CVEs stay in `ledger.cves`; they are not duplicated in the reason.
 
 Create a logger instance for custom debugging.
 
-```diff
- import { logger } from "pastoralist";
+```ts title="logger.ts" {5,8-9}
+import { logger } from "pastoralist";
 
- const log = logger({
+const log = logger({
   file: "my-script.js",
-+  isLogging: true,
- });
+  isLogging: true,
+});
 
-+log.debug("starting action", "method-name", { data: "value" });
-+log.error("unexpected error", "method-name", { error: err });
+log.debug("starting action", "method-name", { data: "value" });
+log.error("unexpected error", "method-name", { error: err });
 ```
 
 ## Examples
 
 ### Build Tool Integration
 
-```diff
- import { resolveJSON, update } from "pastoralist";
+```ts title="build.ts" {7-8}
+import { resolveJSON, update } from "pastoralist";
 
- const path = "./package.json";
- const config = resolveJSON(path);
+const path = "./package.json";
+const config = resolveJSON(path);
 
- if (config) {
-+  update({ config, path });
-+  console.log("Package overrides verified");
- }
+if (config) {
+  update({ config, path });
+  console.log("Package overrides verified");
+}
 ```
 
 ### Workspace Automation
 
-```diff
- import { resolveJSON, update } from "pastoralist";
- import glob from "glob";
+```ts title="workspaces.ts" {6-12}
+import { resolveJSON, update } from "pastoralist";
+import glob from "glob";
 
- const packages = glob.sync("packages/*/package.json");
+const packages = glob.sync("packages/*/package.json");
 
-+for (const pkgPath of packages) {
-+  const pkg = resolveJSON(pkgPath);
-+  if (pkg) {
-+    update({ config: pkg, path: pkgPath });
-+    console.log(`Updated ${pkgPath}`);
-+  }
-+}
+for (const pkgPath of packages) {
+  const pkg = resolveJSON(pkgPath);
+  if (pkg) {
+    update({ config: pkg, path: pkgPath });
+    console.log(`Updated ${pkgPath}`);
+  }
+}
 ```
 
 ### CI Validation
 
-```diff
- import { resolveJSON, update } from "pastoralist";
- import { execSync } from "child_process";
+```ts title="ci-validate.ts" {9,14-15}
+import { resolveJSON, update } from "pastoralist";
+import { execSync } from "child_process";
 
- const path = "./package.json";
- const config = resolveJSON(path);
+const path = "./package.json";
+const config = resolveJSON(path);
 
- const before = execSync("git status --porcelain").toString();
- if (config) {
-+  update({ config, path });
- }
- const after = execSync("git status --porcelain").toString();
+const before = execSync("git status --porcelain").toString();
+if (config) {
+  update({ config, path });
+}
+const after = execSync("git status --porcelain").toString();
 
- if (before !== after) {
-+  console.error("Package.json overrides need updating");
-+  process.exit(1);
- }
+if (before !== after) {
+  console.error("Package.json overrides need updating");
+  process.exit(1);
+}
 ```
 
 ### Custom Logger
 
-```diff
- import { logger, resolveJSON, update } from "pastoralist";
+```ts title="custom-logger.ts" {5,11,14,17}
+import { logger, resolveJSON, update } from "pastoralist";
 
- const log = logger({
+const log = logger({
   file: "my-script.js",
-+  isLogging: process.env.DEBUG === "true",
- });
+  isLogging: process.env.DEBUG === "true",
+});
 
- const path = "./package.json";
- const config = resolveJSON(path);
+const path = "./package.json";
+const config = resolveJSON(path);
 
-+log.debug("starting", "custom-action", { time: Date.now() });
+log.debug("starting", "custom-action", { time: Date.now() });
 
- if (config) {
-+  update({ config, path, debug: true });
- }
+if (config) {
+  update({ config, path, debug: true });
+}
 
-+log.debug("completed", "custom-action", { time: Date.now() });
+log.debug("completed", "custom-action", { time: Date.now() });
 ```
 
 ### Error Handling
 
-```javascript
+```ts title="error-handling.ts"
 import { resolveJSON, update } from "pastoralist";
 
 try {
@@ -2737,7 +2735,8 @@ try {
   if (!config) throw new Error("Package.json not found");
   update({ config, path });
 } catch (error) {
-  if (error.message === "Package.json not found") {
+  const isNotFound = error instanceof Error && error.message === "Package.json not found";
+  if (isNotFound) {
     console.error("Package.json not found");
   } else {
     console.error("Unexpected error:", error);
@@ -2761,32 +2760,32 @@ passed with `--securityProviderToken` or `SecurityChecker` options.
 - `socket`: `SOCKET_SECURITY_API_KEY`
 - `spektion`: `SPEKTION_API_KEY`
 
-```diff
- npx pastoralist
-+DEBUG=true npx pastoralist
+```bash {2}
+npx pastoralist
+DEBUG=true npx pastoralist
 ```
 
 ## TypeScript
 
 Pastoralist includes full TypeScript support.
 
-```diff
- import { resolveJSON, update, type Options } from "pastoralist";
+```ts title="index.ts" {13}
+import { resolveJSON, update, type Options } from "pastoralist";
 
- const path = "./package.json";
- const config = resolveJSON(path);
+const path = "./package.json";
+const config = resolveJSON(path);
 
- if (!config) {
+if (!config) {
   throw new Error("Package.json not found");
- }
+}
 
- const options: Options = {
+const options: Options = {
   config,
   path,
-+  debug: true,
- };
+  debug: true,
+};
 
- update(options);
+update(options);
 ```
 
 ---
@@ -2878,7 +2877,7 @@ flowchart TD
 Overrides replace a package version in your dependency tree with the version
 you choose. This is npm's way to handle dependency conflicts:
 
-```json
+```json title="package.json" {3}
 {
   "overrides": {
     "foo": "1.0.0",
@@ -2893,7 +2892,7 @@ you choose. This is npm's way to handle dependency conflicts:
 
 Resolutions serve the same purpose for Yarn users:
 
-```json
+```json title="package.json" {3}
 {
   "resolutions": {
     "foo": "1.0.0",
@@ -2911,7 +2910,7 @@ tools such as `patch-package`. Pastoralist detects and tracks these patches.
 
 The Pastoralist object in `package.json` records what the tool manages:
 
-```json
+```json title="package.json" /appendix/
 {
   "overrides": {
     "minimist": "1.2.8"
@@ -3101,7 +3100,7 @@ find . -name "package.json" -not -path "*/node_modules/*" | \
 
 Root package.json can hold shared security patches:
 
-```json
+```json title="package.json" {3}
 {
   "overrides": {
     "minimist": "1.2.8"
@@ -3111,7 +3110,7 @@ Root package.json can hold shared security patches:
 
 Packages can hold their own compatibility requirements:
 
-```json
+```json title="package.json" {3}
 {
   "overrides": {
     "react": "17.0.2"
@@ -3184,7 +3183,7 @@ This is normal if you don't have any overrides. Pastoralist will:
 
 Run pastoralist regularly:
 
-```json
+```json title="package.json" {3}
 {
   "scripts": {
     "postinstall": "pastoralist"
@@ -3197,7 +3196,7 @@ Run pastoralist regularly:
 `package.json` does not support comments. Every appendix entry has a `ledger`;
 add a `reason` to it (or provide manual reasons when you generate the appendix):
 
-```json
+```json title="package.json" /appendix/
 {
   "overrides": {
     "lodash": "4.17.21"
@@ -3266,8 +3265,7 @@ If you're tracking overrides manually in docs or issue trackers, Pastoralist wil
 
 To understand why an override is needed:
 
-```javascript
-// debug-override.js
+```javascript title="debug-override.js"
 import { resolveJSON, update } from "pastoralist";
 
 const path = "./package.json";
@@ -3282,8 +3280,7 @@ if (config) {
 
 ### Analyze Appendix
 
-```javascript
-// analyze-appendix.js
+```javascript title="analyze-appendix.js"
 import fs from "fs";
 
 const pkg = JSON.parse(fs.readFileSync("./package.json", "utf-8"));
@@ -3349,7 +3346,7 @@ Enable security checks with defaults:
 
 #### `.pastoralistrc.json`
 
-```json
+```json title=".pastoralistrc.json"
 {
   "checkSecurity": true,
   "depPaths": "workspace",
@@ -3362,7 +3359,7 @@ Enable security checks with defaults:
 
 #### `pastoralist.config.js`
 
-```js
+```js title="pastoralist.config.js"
 module.exports = {
   depPaths: ["packages/*/package.json", "apps/*/package.json"],
   checkSecurity: true,
@@ -3376,7 +3373,7 @@ module.exports = {
 
 #### `pastoralist.config.mjs`
 
-```js
+```js title="pastoralist.config.mjs"
 export default {
   checkSecurity: true,
   depPaths: "workspace",
@@ -3400,7 +3397,7 @@ Pastoralist merges them and lets `package.json` take precedence:
 
 `.pastoralistrc.json`:
 
-```json
+```json title=".pastoralistrc.json"
 {
   "checkSecurity": true,
   "depPaths": "workspace",
@@ -3413,7 +3410,7 @@ Pastoralist merges them and lets `package.json` take precedence:
 
 `package.json`:
 
-```json
+```json title="package.json"
 {
   "pastoralist": {
     "security": {
@@ -3473,7 +3470,7 @@ Enable `bestCase` when package fixes must be chosen as one portfolio instead
 of independently. Pastoralist evaluates complete version combinations so a fix
 for one package cannot hide a vulnerability introduced elsewhere.
 
-```json
+```json title="package.json"
 {
   "pastoralist": {
     "checkSecurity": true,
@@ -3525,7 +3522,7 @@ state. Beam search and capped exact search report `provenOptimal: false`.
 
 You can configure Pastoralist directly in your `package.json`:
 
-```json
+```json title="package.json" {6}
 {
   "name": "my-project",
   "version": "1.0.0",
@@ -3549,7 +3546,7 @@ For monorepos, use `depPaths` to specify which package.json files to scan:
 
 The simplest approach for monorepos with a `workspaces` field:
 
-```json
+```json title="package.json" {4}
 {
   "workspaces": ["packages/*", "apps/*"],
   "pastoralist": {
@@ -3565,7 +3562,7 @@ This scans all workspace packages defined in your `workspaces` field.
 
 For more control, specify custom glob patterns:
 
-```json
+```json title="package.json" {3}
 {
   "pastoralist": {
     "depPaths": ["packages/*/package.json", "apps/*/package.json"]
@@ -3579,7 +3576,7 @@ Every appendix entry gets a `ledger` with at least `addedDate`. When a security
 provider detects a fix, Pastoralist adds CVE, severity, provider, and
 vulnerable-range metadata to the same ledger:
 
-```json
+```json title="package.json" {27}
 {
   "pastoralist": {
     "appendix": {
@@ -3681,7 +3678,7 @@ portfolio share a `decisionId`. CVEs remain in the sibling `cves` field.
 
 To pin an override so `--remove-unused` never removes it, set `keep: true` on the ledger:
 
-```json
+```json {4}
 {
   "ledger": {
     "addedDate": "2026-05-30T00:00:00.000Z",
@@ -3692,7 +3689,7 @@ To pin an override so `--remove-unused` never removes it, set `keep: true` on th
 
 For time-bounded or version-bounded keeps, use a `KeepConstraint` object:
 
-```json
+```json {4}
 {
   "ledger": {
     "addedDate": "2026-05-30T00:00:00.000Z",
@@ -3725,7 +3722,7 @@ were last checked.
 
 Use `pastoralist.config.cjs` for CommonJS or `pastoralist.config.mjs` for ESM:
 
-```js
+```js title="pastoralist.config.mjs"
 export default {
   checkSecurity: true,
   depPaths: "workspace",
@@ -3743,8 +3740,7 @@ config files.
 
 You can use JavaScript config files to provide environment-specific settings:
 
-```js
-// pastoralist.config.js
+```js title="pastoralist.config.js"
 const isDev = process.env.NODE_ENV === "development";
 const isCI = process.env.CI === "true";
 
@@ -3771,7 +3767,7 @@ pastoralist --checkSecurity --depPaths "packages/*/package.json"
 
 ### After (config file)
 
-```json
+```json {3}
 {
   "checkSecurity": true,
   "depPaths": ["packages/*/package.json"]

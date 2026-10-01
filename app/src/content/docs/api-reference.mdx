@@ -160,7 +160,7 @@ npx pastoralist --summary --outputFormat json
 
 JSON output is a single result object.
 
-```jsonc
+```jsonc noLineNumbers
 {
   "success": true,
   "hasSecurityIssues": false,
@@ -335,27 +335,27 @@ npx pastoralist --checkSecurity --refresh-cache
 
 Use the CLI directly when CI only needs to validate or report data.
 
-```diff
- npx pastoralist
-+npx pastoralist --dry-run --summary
-+npx pastoralist --quiet --checkSecurity
-+npx pastoralist --dry-run --outputFormat json
+```bash {2-4}
+npx pastoralist
+npx pastoralist --dry-run --summary
+npx pastoralist --quiet --checkSecurity
+npx pastoralist --dry-run --outputFormat json
 ```
 
 Use the GitHub Action when the workflow should also expose outputs or create a
 maintenance PR.
 
-```diff
- - uses: yowainwright/pastoralist@v1
+```yaml title=".github/workflows/pastoralist.yml" {4-6,9-10}
+- uses: yowainwright/pastoralist@v1
   id: pastoralist
   with:
-+    mode: check
-+    check-security: true
-+    security-provider: osv
+    mode: check
+    check-security: true
+    security-provider: osv
 
- - name: Block unused overrides
-+  if: steps.pastoralist.outputs.has-unused-overrides == 'true'
-+  run: exit 1
+- name: Block unused overrides
+  if: steps.pastoralist.outputs.has-unused-overrides == 'true'
+  run: exit 1
 ```
 
 The action exposes `has-security-issues`, `has-unused-overrides`, `updated`,
@@ -378,7 +378,7 @@ unused-override issues were found, and the run metrics.
 npx pastoralist --dry-run --outputFormat json
 ```
 
-```jsonc
+```jsonc noLineNumbers
 {
   "success": true,
   "hasSecurityIssues": false,
@@ -419,7 +419,7 @@ Optional fields include `securityAlerts`, `unusedOverrides`,
 `package-name@version`; values can include root dependencies, dependents, patch
 files, and ledger data.
 
-```json
+```json title="package.json" /appendix/
 {
   "pastoralist": {
     "appendix": {
@@ -444,7 +444,7 @@ Every current appendix entry has a `ledger` with `addedDate`. Manual records can
 add `reason`; security runs can add provider, CVE, severity, vulnerable range,
 patched version, confidence, source, and resolution fields.
 
-```json
+```json {11}
 {
   "ledger": {
     "addedDate": "2026-08-22T00:00:00.000Z",
@@ -486,25 +486,25 @@ Update `package.json` overrides and the appendix. Each appendix entry includes a
 `ledger` with at least `addedDate`. Pass the parsed package manifest as
 `config`; the function is synchronous and returns an `UpdateContext`.
 
-```diff
- import { resolveJSON, update } from "pastoralist";
+```ts title="update.ts" {10-12,17}
+import { resolveJSON, update } from "pastoralist";
 
- const path = "./package.json";
- const config = resolveJSON(path);
+const path = "./package.json";
+const config = resolveJSON(path);
 
- if (config) {
+if (config) {
   const result = update({
     config,
     path,
-+    dryRun: true,
-+    outputFormat: "json",
-+    summary: true,
+    dryRun: true,
+    outputFormat: "json",
+    summary: true,
     depPaths: ["packages/*/package.json"],
     ignore: ["**/test/**"],
   });
 
-+  process.stdout.write(`${result.metrics?.appendixEntriesUpdated ?? 0} entries\n`);
- }
+  process.stdout.write(`${result.metrics?.appendixEntriesUpdated ?? 0} entries\n`);
+}
 ```
 
 ### `SecurityChecker.checkSecurity(config, options)`
@@ -516,21 +516,21 @@ Update `package.json` overrides and the appendix. Each appendix entry includes a
 Run vulnerability scanning directly and receive provider alerts, suggested
 overrides, update suggestions, package counts, and optional best-case metadata.
 
-```diff
- import { resolveJSON, SecurityChecker } from "pastoralist";
+```ts title="security-check.ts" {8-10}
+import { resolveJSON, SecurityChecker } from "pastoralist";
 
- const config = resolveJSON("./package.json");
- const checker = new SecurityChecker({ provider: "osv" });
+const config = resolveJSON("./package.json");
+const checker = new SecurityChecker({ provider: "osv" });
 
- if (config) {
+if (config) {
   const result = await checker.checkSecurity(config, {
-+    root: process.cwd(),
-+    packageJsonPath: "./package.json",
-+    severityThreshold: "high",
+    root: process.cwd(),
+    packageJsonPath: "./package.json",
+    severityThreshold: "high",
   });
 
   process.stdout.write(`${result.alerts.length} alerts found\n`);
- }
+}
 ```
 
 ### `optimizeBestCasePortfolio(options)`
@@ -542,22 +542,22 @@ Evaluate complete package-version states and return the lowest-risk state under
 a lexicographic policy. The evaluator must return alerts for the complete state,
 not for one package in isolation.
 
-```diff
- import {
+```ts title="best-case.ts" {38-41}
+import {
   optimizeBestCasePortfolio,
   type BestCaseEvaluator,
   type BestCasePackageChoice,
- } from "pastoralist";
+} from "pastoralist";
 
- const choices: BestCasePackageChoice[] = [
+const choices: BestCasePackageChoice[] = [
   {
     packageName: "example",
     currentVersion: "1.0.0",
     versions: ["1.0.0", "1.1.0"],
   },
- ];
+];
 
- const evaluate: BestCaseEvaluator = async (state) => {
+const evaluate: BestCaseEvaluator = async (state) => {
   const usesVulnerableVersion = state.example === "1.0.0";
   const alerts = usesVulnerableVersion
     ? [
@@ -575,19 +575,19 @@ not for one package in isolation.
     : [];
 
   return { alerts };
- };
+};
 
- const result = await optimizeBestCasePortfolio({
+const result = await optimizeBestCasePortfolio({
   choices,
   evaluate,
-+  config: {
-+    enabled: true,
-+    search: { mode: "auto", exactStateLimit: 256 },
-+  },
- });
+  config: {
+    enabled: true,
+    search: { mode: "auto", exactStateLimit: 256 },
+  },
+});
 
- console.log(result.selectedState);
- console.log(result.search.provenOptimal);
+console.log(result.selectedState);
+console.log(result.search.provenOptimal);
 ```
 
 `BestCaseEvaluation` may also return `incompatibilities`, `oldness`, `valid`,
@@ -603,17 +603,17 @@ the evaluator is an API option because functions cannot be stored in JSON.
 `LedgerReason` is a non-empty string, `ProjectReason`, or `BestCaseReason`.
 Reasons are stored per appendix dependency.
 
-```diff
- import type { LedgerReason } from "pastoralist";
+```ts title="ledger-reason.ts" {4-9}
+import type { LedgerReason } from "pastoralist";
 
- const reason: LedgerReason = {
-+  type: "project",
-+  summary: "Pin this dependency while the upstream fix is reviewed.",
-+  pin: "3.2.1",
-+  patch: "patches/example+3.2.1.patch",
-+  constraints: ["Must retain the current runtime API"],
-+  references: ["https://example.com/upstream/issue/123"],
- };
+const reason: LedgerReason = {
+  type: "project",
+  summary: "Pin this dependency while the upstream fix is reviewed.",
+  pin: "3.2.1",
+  patch: "patches/example+3.2.1.patch",
+  constraints: ["Must retain the current runtime API"],
+  references: ["https://example.com/upstream/issue/123"],
+};
 ```
 
 A `BestCaseReason` contains `decisionId`, `policyHash`, `search`, and `impact`.
@@ -626,97 +626,97 @@ CVEs stay in `ledger.cves`; they are not duplicated in the reason.
 
 Create a logger instance for custom debugging.
 
-```diff
- import { logger } from "pastoralist";
+```ts title="logger.ts" {5,8-9}
+import { logger } from "pastoralist";
 
- const log = logger({
+const log = logger({
   file: "my-script.js",
-+  isLogging: true,
- });
+  isLogging: true,
+});
 
-+log.debug("starting action", "method-name", { data: "value" });
-+log.error("unexpected error", "method-name", { error: err });
+log.debug("starting action", "method-name", { data: "value" });
+log.error("unexpected error", "method-name", { error: err });
 ```
 
 ## Examples
 
 ### Build Tool Integration
 
-```diff
- import { resolveJSON, update } from "pastoralist";
+```ts title="build.ts" {7-8}
+import { resolveJSON, update } from "pastoralist";
 
- const path = "./package.json";
- const config = resolveJSON(path);
+const path = "./package.json";
+const config = resolveJSON(path);
 
- if (config) {
-+  update({ config, path });
-+  console.log("Package overrides verified");
- }
+if (config) {
+  update({ config, path });
+  console.log("Package overrides verified");
+}
 ```
 
 ### Workspace Automation
 
-```diff
- import { resolveJSON, update } from "pastoralist";
- import glob from "glob";
+```ts title="workspaces.ts" {6-12}
+import { resolveJSON, update } from "pastoralist";
+import glob from "glob";
 
- const packages = glob.sync("packages/*/package.json");
+const packages = glob.sync("packages/*/package.json");
 
-+for (const pkgPath of packages) {
-+  const pkg = resolveJSON(pkgPath);
-+  if (pkg) {
-+    update({ config: pkg, path: pkgPath });
-+    console.log(`Updated ${pkgPath}`);
-+  }
-+}
+for (const pkgPath of packages) {
+  const pkg = resolveJSON(pkgPath);
+  if (pkg) {
+    update({ config: pkg, path: pkgPath });
+    console.log(`Updated ${pkgPath}`);
+  }
+}
 ```
 
 ### CI Validation
 
-```diff
- import { resolveJSON, update } from "pastoralist";
- import { execSync } from "child_process";
+```ts title="ci-validate.ts" {9,14-15}
+import { resolveJSON, update } from "pastoralist";
+import { execSync } from "child_process";
 
- const path = "./package.json";
- const config = resolveJSON(path);
+const path = "./package.json";
+const config = resolveJSON(path);
 
- const before = execSync("git status --porcelain").toString();
- if (config) {
-+  update({ config, path });
- }
- const after = execSync("git status --porcelain").toString();
+const before = execSync("git status --porcelain").toString();
+if (config) {
+  update({ config, path });
+}
+const after = execSync("git status --porcelain").toString();
 
- if (before !== after) {
-+  console.error("Package.json overrides need updating");
-+  process.exit(1);
- }
+if (before !== after) {
+  console.error("Package.json overrides need updating");
+  process.exit(1);
+}
 ```
 
 ### Custom Logger
 
-```diff
- import { logger, resolveJSON, update } from "pastoralist";
+```ts title="custom-logger.ts" {5,11,14,17}
+import { logger, resolveJSON, update } from "pastoralist";
 
- const log = logger({
+const log = logger({
   file: "my-script.js",
-+  isLogging: process.env.DEBUG === "true",
- });
+  isLogging: process.env.DEBUG === "true",
+});
 
- const path = "./package.json";
- const config = resolveJSON(path);
+const path = "./package.json";
+const config = resolveJSON(path);
 
-+log.debug("starting", "custom-action", { time: Date.now() });
+log.debug("starting", "custom-action", { time: Date.now() });
 
- if (config) {
-+  update({ config, path, debug: true });
- }
+if (config) {
+  update({ config, path, debug: true });
+}
 
-+log.debug("completed", "custom-action", { time: Date.now() });
+log.debug("completed", "custom-action", { time: Date.now() });
 ```
 
 ### Error Handling
 
-```javascript
+```ts title="error-handling.ts"
 import { resolveJSON, update } from "pastoralist";
 
 try {
@@ -749,30 +749,30 @@ passed with `--securityProviderToken` or `SecurityChecker` options.
 - `socket`: `SOCKET_SECURITY_API_KEY`
 - `spektion`: `SPEKTION_API_KEY`
 
-```diff
- npx pastoralist
-+DEBUG=true npx pastoralist
+```bash {2}
+npx pastoralist
+DEBUG=true npx pastoralist
 ```
 
 ## TypeScript
 
 Pastoralist includes full TypeScript support.
 
-```diff
- import { resolveJSON, update, type Options } from "pastoralist";
+```ts title="index.ts" {13}
+import { resolveJSON, update, type Options } from "pastoralist";
 
- const path = "./package.json";
- const config = resolveJSON(path);
+const path = "./package.json";
+const config = resolveJSON(path);
 
- if (!config) {
+if (!config) {
   throw new Error("Package.json not found");
- }
+}
 
- const options: Options = {
+const options: Options = {
   config,
   path,
-+  debug: true,
- };
+  debug: true,
+};
 
- update(options);
+update(options);
 ```

@@ -106,7 +106,7 @@ find . -name "package.json" -not -path "*/node_modules/*" | \
 
 Root package.json can hold shared security patches:
 
-```json
+```json title="package.json" {3}
 {
   "overrides": {
     "minimist": "1.2.8"
@@ -116,7 +116,7 @@ Root package.json can hold shared security patches:
 
 Packages can hold their own compatibility requirements:
 
-```json
+```json title="package.json" {3}
 {
   "overrides": {
     "react": "17.0.2"
@@ -189,7 +189,7 @@ This is normal if you don't have any overrides. Pastoralist will:
 
 Run pastoralist regularly:
 
-```json
+```json title="package.json" {3}
 {
   "scripts": {
     "postinstall": "pastoralist"
@@ -202,7 +202,7 @@ Run pastoralist regularly:
 `package.json` does not support comments. Every appendix entry has a `ledger`;
 add a `reason` to it (or provide manual reasons when you generate the appendix):
 
-```json
+```json title="package.json" /appendix/
 {
   "overrides": {
     "lodash": "4.17.21"
@@ -271,8 +271,7 @@ If you're tracking overrides manually in docs or issue trackers, Pastoralist wil
 
 To understand why an override is needed:
 
-```javascript
-// debug-override.js
+```javascript title="debug-override.js"
 import { resolveJSON, update } from "pastoralist";
 
 const path = "./package.json";
@@ -287,8 +286,7 @@ if (config) {
 
 ### Analyze Appendix
 
-```javascript
-// analyze-appendix.js
+```javascript title="analyze-appendix.js"
 import fs from "fs";
 
 const pkg = JSON.parse(fs.readFileSync("./package.json", "utf-8"));

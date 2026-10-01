@@ -4,10 +4,15 @@ import {
   transformerNotationDiff,
   transformerNotationHighlight,
   transformerNotationFocus,
+  transformerNotationErrorLevel,
+  transformerNotationWordHighlight,
+  transformerMetaHighlight,
+  transformerMetaWordHighlight,
 } from "@shikijs/transformers";
 import customDark from "@/themes/dark.json";
 import customLight from "@/themes/light.json";
 import { normalizeCodeLanguage } from "./constants";
+import type { HighlightSettings } from "./types";
 import type { HighlighterCore, LanguageRegistration, ThemeRegistration } from "shiki/types";
 
 const LIGHT_THEME = "pastoralist-light";
@@ -77,24 +82,25 @@ function trackLanguage(
   return promise;
 }
 
-function highlightCode(
-  highlighter: HighlighterCore,
-  code: string,
-  lang: string,
-  showLineNumbers: boolean,
-) {
+const createTransformers = () => [
+  transformerNotationDiff(),
+  transformerNotationHighlight(),
+  transformerNotationFocus(),
+  transformerNotationErrorLevel(),
+  transformerNotationWordHighlight(),
+  transformerMetaHighlight(),
+  transformerMetaWordHighlight(),
+];
+
+function highlightCode(highlighter: HighlighterCore, code: string, settings: HighlightSettings) {
+  const { lang, showLineNumbers, fenceMeta } = settings;
   const themes = { light: LIGHT_THEME, dark: DARK_THEME };
-  const transformers = [
-    transformerNotationDiff(),
-    transformerNotationHighlight(),
-    transformerNotationFocus(),
-  ];
-  const baseOptions = { lang, themes, defaultColor: false, transformers } as const;
-  const meta = { __raw: "showLineNumbers" };
-  const numbered = { meta };
-  const lineNumberOptions = showLineNumbers ? numbered : undefined;
-  const htmlOptions = Object.assign({}, baseOptions, lineNumberOptions);
-  const html = highlighter.codeToHtml(code, htmlOptions);
+  const transformers = createTransformers();
+  const numbering = showLineNumbers ? "showLineNumbers" : "";
+  const raw = [numbering, fenceMeta].filter(Boolean).join(" ");
+  const meta = { __raw: raw };
+  const options = { lang, themes, defaultColor: false, transformers, meta } as const;
+  const html = highlighter.codeToHtml(code, options);
   return html;
 }
 
@@ -106,10 +112,12 @@ function createClient(highlighter: HighlighterCore) {
     code: string,
     lang: string,
     showLineNumbers = false,
+    fenceMeta = "",
   ): Promise<string> => {
     const languageKey = normalizeCodeLanguage(lang);
     await loadLanguage(highlighter, state, languageKey);
-    const html = highlightCode(highlighter, code, languageKey, showLineNumbers);
+    const settings = { lang: languageKey, showLineNumbers, fenceMeta };
+    const html = highlightCode(highlighter, code, settings);
     return html;
   };
   const client = { codeToHtml };

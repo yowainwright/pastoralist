@@ -49,7 +49,7 @@ Enable security checks with defaults:
 
 #### `.pastoralistrc.json`
 
-```json
+```json title=".pastoralistrc.json"
 {
   "checkSecurity": true,
   "depPaths": "workspace",
@@ -62,7 +62,7 @@ Enable security checks with defaults:
 
 #### `pastoralist.config.js`
 
-```js
+```js title="pastoralist.config.js"
 module.exports = {
   depPaths: ["packages/*/package.json", "apps/*/package.json"],
   checkSecurity: true,
@@ -76,7 +76,7 @@ module.exports = {
 
 #### `pastoralist.config.mjs`
 
-```js
+```js title="pastoralist.config.mjs"
 export default {
   checkSecurity: true,
   depPaths: "workspace",
@@ -100,7 +100,7 @@ Pastoralist merges them and lets `package.json` take precedence:
 
 `.pastoralistrc.json`:
 
-```json
+```json title=".pastoralistrc.json"
 {
   "checkSecurity": true,
   "depPaths": "workspace",
@@ -113,7 +113,7 @@ Pastoralist merges them and lets `package.json` take precedence:
 
 `package.json`:
 
-```json
+```json title="package.json"
 {
   "pastoralist": {
     "security": {
@@ -173,7 +173,7 @@ Enable `bestCase` when package fixes must be chosen as one portfolio instead
 of independently. Pastoralist evaluates complete version combinations so a fix
 for one package cannot hide a vulnerability introduced elsewhere.
 
-```json
+```json title="package.json"
 {
   "pastoralist": {
     "checkSecurity": true,
@@ -225,7 +225,7 @@ state. Beam search and capped exact search report `provenOptimal: false`.
 
 You can configure Pastoralist directly in your `package.json`:
 
-```json
+```json title="package.json" {6}
 {
   "name": "my-project",
   "version": "1.0.0",
@@ -249,7 +249,7 @@ For monorepos, use `depPaths` to specify which package.json files to scan:
 
 The simplest approach for monorepos with a `workspaces` field:
 
-```json
+```json title="package.json" {4}
 {
   "workspaces": ["packages/*", "apps/*"],
   "pastoralist": {
@@ -265,7 +265,7 @@ This scans all workspace packages defined in your `workspaces` field.
 
 For more control, specify custom glob patterns:
 
-```json
+```json title="package.json" {3}
 {
   "pastoralist": {
     "depPaths": ["packages/*/package.json", "apps/*/package.json"]
@@ -279,7 +279,7 @@ Every appendix entry gets a `ledger` with at least `addedDate`. When a security
 provider detects a fix, Pastoralist adds CVE, severity, provider, and
 vulnerable-range metadata to the same ledger:
 
-```json
+```json title="package.json" {27}
 {
   "pastoralist": {
     "appendix": {
@@ -381,7 +381,7 @@ portfolio share a `decisionId`. CVEs remain in the sibling `cves` field.
 
 To pin an override so `--remove-unused` never removes it, set `keep: true` on the ledger:
 
-```json
+```json {4}
 {
   "ledger": {
     "addedDate": "2026-05-30T00:00:00.000Z",
@@ -392,7 +392,7 @@ To pin an override so `--remove-unused` never removes it, set `keep: true` on th
 
 For time-bounded or version-bounded keeps, use a `KeepConstraint` object:
 
-```json
+```json {4}
 {
   "ledger": {
     "addedDate": "2026-05-30T00:00:00.000Z",
@@ -425,7 +425,7 @@ were last checked.
 
 Use `pastoralist.config.cjs` for CommonJS or `pastoralist.config.mjs` for ESM:
 
-```js
+```js title="pastoralist.config.mjs"
 export default {
   checkSecurity: true,
   depPaths: "workspace",
@@ -443,8 +443,7 @@ config files.
 
 You can use JavaScript config files to provide environment-specific settings:
 
-```js
-// pastoralist.config.js
+```js title="pastoralist.config.js"
 const isDev = process.env.NODE_ENV === "development";
 const isCI = process.env.CI === "true";
 
@@ -471,7 +470,7 @@ pastoralist --checkSecurity --depPaths "packages/*/package.json"
 
 ### After (config file)
 
-```json
+```json {3}
 {
   "checkSecurity": true,
   "depPaths": ["packages/*/package.json"]

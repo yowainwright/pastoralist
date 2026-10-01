@@ -32,7 +32,7 @@ Pastoralist can configure workspace scanning in three ways:
 Configure dependency paths directly in your `package.json` for workspace
 tracking:
 
-```json
+```json title="package.json"
 {
   "name": "my-monorepo",
   "workspaces": ["packages/*", "apps/*"],
@@ -52,7 +52,7 @@ tracking:
 
 **Using array of paths** - Specify custom paths to scan:
 
-```json
+```json title="package.json" {3}
 {
   "pastoralist": {
     "depPaths": ["packages/app-a/package.json", "packages/app-b/package.json"]
@@ -62,7 +62,7 @@ tracking:
 
 After running `pastoralist`, your root package.json will contain:
 
-```json
+```json title="package.json" /appendix/
 {
   "overrides": {
     "lodash": "4.17.21"
@@ -144,7 +144,7 @@ pastoralist
 
 Most monorepos use root-level overrides that apply to all workspaces:
 
-```json
+```json title="package.json"
 {
   "name": "my-monorepo",
   "workspaces": ["packages/*"],
@@ -165,7 +165,7 @@ pastoralist
 
 Some packages may need their own overrides:
 
-```json
+```json title="package.json"
 {
   "name": "legacy-app",
   "overrides": {
@@ -185,7 +185,7 @@ pastoralist --path packages/legacy-app/package.json
 Most workspaces should avoid running Pastoralist separately in every package.
 Keep shared overrides at the root and let `depPaths` read workspace manifests:
 
-```json
+```json title="package.json" {4}
 {
   "workspaces": ["packages/*", "apps/*"],
   "pastoralist": {
@@ -206,7 +206,7 @@ override field.
 
 Keep all overrides in the root `package.json` and use `depPaths` configuration:
 
-```json
+```json title="package.json"
 {
   "workspaces": ["packages/*", "apps/*"],
   "overrides": {
@@ -226,7 +226,7 @@ Keep all overrides in the root `package.json` and use `depPaths` configuration:
 Allow packages to manage their own overrides only when those overrides are
 package-specific:
 
-```json
+```json title="package.json" {3}
 {
   "overrides": {
     "react": "17.0.2"
@@ -243,7 +243,7 @@ Combine root overrides with package-specific ones:
 
 Root overrides can hold shared security patches:
 
-```json
+```json title="package.json" {3}
 {
   "overrides": {
     "minimist": "1.2.8"
@@ -253,7 +253,7 @@ Root overrides can hold shared security patches:
 
 Package overrides can hold feature-specific constraints:
 
-```json
+```json title="package.json" {3}
 {
   "overrides": {
     "react": "17.0.2"
@@ -265,7 +265,7 @@ Package overrides can hold feature-specific constraints:
 
 ### npm Workspaces
 
-```json
+```json title="package.json" {5}
 {
   "name": "my-npm-workspace",
   "workspaces": ["packages/*", "apps/*"],
@@ -280,14 +280,13 @@ Package overrides can hold feature-specific constraints:
 
 ### pnpm Workspace
 
-```yaml
-# pnpm-workspace.yaml
+```yaml title="pnpm-workspace.yaml"
 packages:
   - "packages/*"
   - "apps/*"
 ```
 
-```json
+```json title="package.json" {3}
 {
   "pastoralist": {
     "depPaths": "workspace"
@@ -300,7 +299,7 @@ packages:
 
 ### Yarn Workspaces
 
-```json
+```json title="package.json" {7}
 {
   "private": true,
   "workspaces": {

@@ -30,7 +30,7 @@ and CI checks to the same record.
 Overrides usually start as real fixes: a CVE patch, a compatibility pin, a fork,
 or a transitive dependency workaround.
 
-```json
+```json title="package.json" {3}
 {
   "overrides": {
     "lodash": "4.17.21"
@@ -42,7 +42,7 @@ Months later, the reason may not be clear. Was it a security fix? A transitive
 bug? Which packages still need it? Can it be removed? With Pastoralist, the
 override sets the version, and the appendix holds the context.
 
-```json
+```json title="package.json" /appendix/
 {
   "overrides": {
     "lodash": "4.17.21"
@@ -129,7 +129,7 @@ npx pastoralist init
 
 Then add it to `postinstall`:
 
-```json
+```json title="package.json" {3}
 {
   "scripts": {
     "postinstall": "pastoralist"

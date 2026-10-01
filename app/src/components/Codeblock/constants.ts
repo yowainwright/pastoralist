@@ -32,6 +32,20 @@ const TERMINAL_LANGUAGES = new Set([
 
 export const normalizeCodeLanguage = (lang: string): string => LANGUAGE_ALIASES[lang] || lang;
 
+const CODE_TITLE_PATTERN = /\btitle="([^"]*)"/;
+
+const NO_LINE_NUMBERS_PATTERN = /\bnoLineNumbers\b/;
+
+export const parseCodeMeta = (raw = "") => {
+  const title = raw.match(CODE_TITLE_PATTERN)?.[1];
+  const withoutTitle = raw.replace(CODE_TITLE_PATTERN, "");
+  const meta = withoutTitle.replace(NO_LINE_NUMBERS_PATTERN, "").trim();
+  const hidden = NO_LINE_NUMBERS_PATTERN.test(raw);
+  const lineNumbers = !hidden;
+  const parsed = { title, meta, lineNumbers };
+  return parsed;
+};
+
 export const normalizeCodeBlock = (code: string): string => code.replace(/\r?\n$/, "");
 
 export const shouldShowCodeLineNumbers = (lang: string): boolean => {

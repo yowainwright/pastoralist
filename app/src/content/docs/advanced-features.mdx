@@ -11,7 +11,7 @@ Pastoralist supports npm's nested override syntax for transitive dependencies.
 
 When you need to override a transitive dependency, you can use nested overrides:
 
-```json
+```json title="package.json"
 {
   "dependencies": {
     "pg": "^8.13.1"
@@ -31,7 +31,7 @@ regardless of the version range declared by `pg`.
 
 You can override multiple transitive dependencies:
 
-```json
+```json title="package.json"
 {
   "overrides": {
     "pg": {
@@ -50,7 +50,7 @@ You can override multiple transitive dependencies:
 Nested overrides are tracked with a special notation in the appendix. Each entry
 still gets a `ledger` recording when it was added:
 
-```json
+```json title="package.json" /appendix/
 {
   "pastoralist": {
     "appendix": {
@@ -82,7 +82,7 @@ still gets a `ledger` recording when it was added:
 In monorepos, nested overrides in workspace packages are also tracked. For
 example, `packages/app/package.json` might contain:
 
-```json
+```json title="packages/app/package.json" {4}
 {
   "overrides": {
     "pg": {
@@ -112,7 +112,7 @@ patches/
 
 Pastoralist tracks them in the appendix:
 
-```json
+```json title="package.json" /appendix/
 {
   "pastoralist": {
     "appendix": {
@@ -156,7 +156,7 @@ Pastoralist considers `peerDependencies` when tracking override usage.
 
 ### Example
 
-```json
+```json title="package.json"
 {
   "peerDependencies": {
     "react": "^17.0.0 || ^18.0.0"
@@ -169,7 +169,7 @@ Pastoralist considers `peerDependencies` when tracking override usage.
 
 The appendix will reflect peer dependency requirements:
 
-```json
+```json title="package.json" /appendix/
 {
   "pastoralist": {
     "appendix": {
@@ -198,7 +198,7 @@ When a dependency is updated and no longer needs an override:
 
 **Before:**
 
-```json
+```json title="package.json" {3}
 {
   "dependencies": {
     "lodash": "^4.17.0"
@@ -211,7 +211,7 @@ When a dependency is updated and no longer needs an override:
 
 **After updating lodash to 4.17.21 and running `pastoralist --remove-unused`:**
 
-```json
+```json title="package.json" {3}
 {
   "dependencies": {
     "lodash": "^4.17.21"
@@ -233,7 +233,7 @@ When a dependency is updated and no longer needs an override:
 When an override exists but no package in your project depends on it,
 Pastoralist labels it as `(unused override)` in the appendix:
 
-```json
+```json title="package.json" /appendix/
 {
   "pastoralist": {
     "appendix": {
@@ -266,7 +266,7 @@ This removes both the override from `overrides` and its entry from the appendix.
 Set `keep: true` on a ledger entry to prevent `--remove-unused` from removing
 it:
 
-```json
+```json {5}
 {
   "lodash@4.17.21": {
     "ledger": {
@@ -279,7 +279,7 @@ it:
 
 For time- or version-bounded protection, use a `KeepConstraint`:
 
-```json
+```json {5}
 {
   "lodash@4.17.21": {
     "ledger": {
@@ -301,7 +301,7 @@ again.
 
 Pastoralist tracks overrides needed by transitive dependencies:
 
-```json
+```json title="package.json" /appendix/
 {
   "pastoralist": {
     "appendix": {
@@ -324,7 +324,7 @@ Pastoralist uses version-range matching to determine if overrides are needed.
 
 Given these dependencies:
 
-```json
+```json title="package.json"
 {
   "dependencies": {
     "express": "^4.18.0"
@@ -334,7 +334,7 @@ Given these dependencies:
 
 And this override:
 
-```json
+```json title="package.json" {3}
 {
   "overrides": {
     "express": "4.18.2"
@@ -376,7 +376,7 @@ Pastoralist chooses the field that matches the detected package manager.
 
 Yarn resolutions:
 
-```json
+```json title="package.json" {3}
 {
   "resolutions": {
     "package-a": "1.0.0",
@@ -387,7 +387,7 @@ Yarn resolutions:
 
 The equivalent npm or Bun override shape:
 
-```json
+```json title="package.json" {3}
 {
   "overrides": {
     "package-a": "1.0.0",
@@ -458,8 +458,7 @@ Configure automated tools to run Pastoralist after updates:
 
 Create policies for when overrides should be used:
 
-```javascript
-// scripts/check-override-policy.js
+```javascript title="scripts/check-override-policy.js"
 const pkg = require("./package.json");
 
 const policies = {

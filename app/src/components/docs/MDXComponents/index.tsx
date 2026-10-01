@@ -1,5 +1,7 @@
 import { lazy, Suspense, type ReactElement } from "react";
 import { Codeblock } from "@/components/Codeblock";
+import type { CodeblockProps } from "@/components/Codeblock";
+import { parseCodeMeta } from "@/components/Codeblock/constants";
 import { Anchor } from "./Anchor";
 import { createHeading } from "./Heading";
 import type { MermaidProps } from "../Mermaid";
@@ -55,6 +57,7 @@ interface CodeAttributes {
   className?: string;
   children?: unknown;
   "data-language"?: string;
+  "data-meta"?: string;
   "data-mermaid-content"?: string;
 }
 
@@ -75,8 +78,22 @@ function readCode(children: React.ReactNode, props: PreProps) {
   const rawLang = className.match(/language-(\S+)/)?.[1] ?? childLanguage ?? dataLanguage ?? "text";
   const lang = rawLang.replace(/^language-/, "");
   const code = extractText(childProps.children ?? children);
-  const content = { lang, code };
+  const { title, meta, lineNumbers } = parseCodeMeta(childProps["data-meta"]);
+  const content = { lang, code, title, meta, lineNumbers };
   return content;
+}
+
+type DocsCodeblockProps = Pick<
+  CodeblockProps,
+  "code" | "lang" | "title" | "meta" | "showLineNumbers"
+>;
+
+function DocsCodeblock(props: DocsCodeblockProps) {
+  return (
+    <div className="not-prose my-4 min-w-0 max-w-full overflow-hidden">
+      <Codeblock {...props} showCopy={false} showLanguage={false} />
+    </div>
+  );
 }
 
 function Pre({ children, ...props }: PreProps) {
@@ -85,15 +102,19 @@ function Pre({ children, ...props }: PreProps) {
   if (mermaidContent) {
     return <MermaidBlock chart={mermaidContent} />;
   }
-  const { lang, code } = readCode(children, props);
+  const { lang, code, title, meta, lineNumbers } = readCode(children, props);
   if (lang === "mermaid") {
     return <MermaidBlock chart={code} />;
   }
 
   return (
-    <div className="not-prose my-4 min-w-0 max-w-full overflow-hidden">
-      <Codeblock code={code} lang={lang} showCopy={false} showLanguage={false} showLineNumbers />
-    </div>
+    <DocsCodeblock
+      code={code}
+      lang={lang}
+      title={title}
+      meta={meta}
+      showLineNumbers={lineNumbers}
+    />
   );
 }
 

@@ -94,12 +94,35 @@ const escapeAttribute = (value: string): string =>
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
 
+const SITE_ORIGIN = "https://jeffry.in";
+const META_ATTRIBUTES = [
+  { key: "name", value: "description", field: "description" },
+  { key: "property", value: "og:title", field: "title" },
+  { key: "property", value: "og:description", field: "description" },
+  { key: "property", value: "og:url", field: "url" },
+  { key: "name", value: "twitter:title", field: "title" },
+  { key: "name", value: "twitter:description", field: "description" },
+] as const;
+
+const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\:]/g, "\\$&");
+
+const replaceMeta = (html: string, key: string, value: string, content: string): string => {
+  const pattern = new RegExp(`<meta\\s+${key}="${escapeRegExp(value)}"\\s+content="[^"]*"\\s*/>`);
+  const meta = `<meta ${key}="${value}" content="${escapeAttribute(content)}" />`;
+  const replaced = html.replace(pattern, () => meta);
+  return replaced;
+};
+
 const applyMetadata = (html: string, route: StaticRoute): string => {
   const title = `<title>${route.title}</title>`;
-  const description = escapeAttribute(route.description);
-  const meta = `<meta name="description" content="${description}" />`;
+  const { title: routeTitle, description: routeDescription, pathname } = route;
+  const url = `${SITE_ORIGIN}${pathname}`;
+  const fields = { title: routeTitle, description: routeDescription, url };
   const withTitle = html.replace(/<title>[^<]*<\/title>/, title);
-  const metadata = withTitle.replace(/<meta\s+name="description"\s+content="[^"]*"\s*\/>/, meta);
+  const metadata = META_ATTRIBUTES.reduce(
+    (current, { key, value, field }) => replaceMeta(current, key, value, fields[field]),
+    withTitle,
+  );
   return metadata;
 };
 

@@ -13,6 +13,18 @@ const template = `<!doctype html>
 <html>
   <head>
     <meta name="description" content="Old description" />
+    <meta property="og:url" content="https://jeffry.in/pastoralist/" />
+    <meta property="og:title" content="Old title" />
+    <meta
+      property="og:description"
+      content="Old description"
+    />
+    <meta property="og:image" content="https://jeffry.in/pastoralist/og-image.png" />
+    <meta name="twitter:title" content="Old title" />
+    <meta
+      name="twitter:description"
+      content="Old description"
+    />
     <title>Old title</title>
   </head>
   <body>
@@ -70,6 +82,27 @@ const createStaticDocumentCases = [
       assertContainsText(html, 'content="Install &quot;Pastoralist&quot; safely"');
       assertContainsText(html, rendered.routerHtml);
       assertExcludesText(html, '<div class="initial-loader"></div>');
+    },
+  },
+  {
+    name: "rewrites social tags per route and keeps the shared image",
+    run: () => {
+      const rendered = { appHtml: "<h1>Setup</h1>", routerHtml: "" };
+      const html = createStaticDocument(template, route, rendered);
+
+      assertContainsText(
+        html,
+        '<meta property="og:url" content="https://jeffry.in/pastoralist/docs/setup/" />',
+      );
+      assertContainsText(html, '<meta property="og:title" content="Setup" />');
+      assertContainsText(html, '<meta name="twitter:title" content="Setup" />');
+      assertContainsText(
+        html,
+        'property="og:description" content="Install &quot;Pastoralist&quot; safely"',
+      );
+      assertContainsText(html, 'content="https://jeffry.in/pastoralist/og-image.png"');
+      assertExcludesText(html, "Old title");
+      assertExcludesText(html, "Old description");
     },
   },
 ];

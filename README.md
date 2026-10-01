@@ -8,7 +8,7 @@
 
 [npm-package]: https://www.npmjs.com/package/pastoralist
 [npm-version-badge]: https://img.shields.io/npm/v/pastoralist.svg
-[socket-badge]: https://socket.dev/api/badge/npm/package/pastoralist
+[socket-badge]: https://badge.socket.dev/npm/package/pastoralist/1.13.6
 [socket-package]: https://socket.dev/npm/package/pastoralist
 
 Pastoralist tracks your dependency [overrides](https://docs.npmjs.com/cli/v11/configuring-npm/package-json#overrides):

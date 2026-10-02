@@ -29,7 +29,12 @@ import {
   resolveOverridesFromSource,
 } from "../overrides";
 import { updateAppendix, constructAppendix } from "../appendix";
-import { mergeAppendixDependents, normalizeAppendix } from "../appendix/utils";
+import {
+  carryExistingLedgers,
+  dropSupersededUnusedDependents,
+  mergeAppendixDependents,
+  normalizeAppendix,
+} from "../appendix/utils";
 import {
   findUnusedAppendixEntries,
   removeAppendixKeys,
@@ -185,7 +190,7 @@ const buildRootAppendix = (
 ): Appendix => {
   const { dependencies = {}, devDependencies = {}, peerDependencies = {} } = config;
   const deps = { dependencies, devDependencies, peerDependencies };
-  const appendix = ctx.existingAppendix || {};
+  const appendix: Appendix = {};
   const packageName = config.name || "root";
   const { securityOverrideDetails, manualOverrideReasons, addedDate } = ctx.options;
   const securityProvider = getPrimarySecurityProvider(ctx.options?.securityProvider);
@@ -211,7 +216,9 @@ const stepBuildAppendix = (ctx: UpdateContext): UpdateContext => {
   if (!overrides) return ctx;
   const graphContext = resolveDependencyGraphContext(ctx);
   const rootAppendix = buildRootAppendix(ctx, config, overrides, graphContext.dependencyGraph);
-  const appendix = mergeWorkspaceAppendix(ctx, rootAppendix);
+  const mergedAppendix = dropSupersededUnusedDependents(mergeWorkspaceAppendix(ctx, rootAppendix));
+  const existingAppendix = ctx.existingAppendix || {};
+  const appendix = carryExistingLedgers(mergedAppendix, existingAppendix);
   const result = Object.assign({}, ctx, graphContext, { appendix });
   return result;
 };

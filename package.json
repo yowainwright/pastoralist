@@ -95,6 +95,7 @@
     "test:bench": "./tests/benchmarks/run-benchmarks.sh",
     "test:e2e:binary": "./tests/e2e/scripts/test-binary.sh",
     "test:e2e": "./tests/e2e/scripts/run-e2e-tests.sh",
+    "test:e2e:n8n": "cd tests/e2e && docker compose run --rm --build e2e-n8n",
     "test:integration:docker": "cd tests/e2e && docker compose up --abort-on-container-exit",
     "typecheck": "turbo run typecheck-src",
     "typecheck-src": "tsc --noEmit",

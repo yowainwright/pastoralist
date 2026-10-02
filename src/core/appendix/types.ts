@@ -10,6 +10,7 @@ import type {
   SecurityProviderType,
   UpdateAppendixOptions,
 } from "../../types";
+import type { LEDGER_CHANGE_FIELDS } from "./constants";
 
 export type Ledger = NonNullable<AppendixItem["ledger"]>;
 
@@ -40,6 +41,7 @@ export type AppendixLedgerArgs = [
 export type DependencyInfoArgs = [
   dependencyTree?: Record<string, string>,
   dependencyGraph?: Record<string, string[]>,
+  directDeps?: Set<string>,
 ];
 
 export type PackageAppendixArgs = [
@@ -99,3 +101,5 @@ export interface NormalizedAppendixUpdateOptions extends AppendixUpdateOptions {
   cache: Map<string, AppendixItem>;
   onlyUsedOverrides: boolean;
 }
+
+export type LedgerChangeField = (typeof LEDGER_CHANGE_FIELDS)[number];

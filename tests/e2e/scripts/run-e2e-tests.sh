@@ -439,8 +439,14 @@ test_transitive_security() {
     cd /app/e2e
 
     printf '\nRunning transitive security regression...\n'
-    PASTORALIST_E2E_CLI=/app/pastoralist/index.js node --test /app/scripts/transitive-security.test.mjs
+    PASTORALIST_E2E_CLI=/app/pastoralist/index.js node --test /app/scripts/transitive-security.test.ts
     print_result $? "Transitive security regression completed"
+}
+
+test_appendix_refresh() {
+    printf '\n%s\n' "Running appendix refresh regression..."
+    PASTORALIST_E2E_CLI=/app/pastoralist/index.js /app/scripts/test-appendix-refresh.sh
+    print_result $? "Appendix refresh regression completed"
 }
 
 test_security_features() {
@@ -539,6 +545,7 @@ run_workspace_tests() {
 
 run_feature_tests() {
     test_transitive_security
+    test_appendix_refresh
     test_security_features
     test_init
     test_config_review

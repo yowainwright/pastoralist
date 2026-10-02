@@ -1,0 +1,20 @@
+FROM node:26-alpine@sha256:aadf416b2cdce311a8811ba3f0608a61b77dbf997500e2eafe781b51f6a0b019
+
+RUN apk add --no-cache bash jq git
+RUN npm install --global pnpm@10.22.0
+
+ARG N8N_REF=n8n@2.9.4
+WORKDIR /work
+RUN git clone --depth 1 --branch "$N8N_REF" https://github.com/n8n-io/n8n.git n8n
+
+WORKDIR /app
+COPY dist/ ./pastoralist/
+COPY package.json ./pastoralist/package.json
+COPY tests/e2e/scripts/test-n8n.sh ./tests/test-n8n.sh
+RUN chmod +x ./tests/test-n8n.sh
+
+ENV PASTORALIST_E2E_CLI=/app/pastoralist/index.js
+ENV N8N_DIR=/work/n8n
+ENV npm_config_manage_package_manager_versions=false
+
+CMD ["./tests/test-n8n.sh"]

@@ -40,6 +40,7 @@ import {
   buildAppendixItem,
   mergeDependents,
   buildDependentInfo,
+  findTopLevelDependents,
   isNestedOverride,
   removeEmptyEntries,
   mergeDependenciesForPackage,
@@ -204,8 +205,12 @@ const isUnusedSimpleOverride = (options: ProcessOverrideOptions): boolean => {
   if (isUnresolvedOverrideKey) return false;
 
   const depNames = new Set(Object.keys(deps));
-  const isRequiredByDependency = dependencyGraph?.[name]?.some((dep) => depNames.has(dep));
-  if (isRequiredByDependency) return false;
+  const topLevel = findTopLevelDependents(name, dependencyGraph, depNames);
+  if (topLevel.length > 0) return false;
+
+  const hasGraph = Object.keys(dependencyGraph ?? {}).length > 0;
+  const canJudgeByGraph = hasGraph && depNames.size > 0;
+  if (canJudgeByGraph) return true;
 
   const isInDependencyTree = Boolean(dependencyTree?.[name]);
   const result = !isInDependencyTree;
@@ -216,12 +221,15 @@ const buildSimpleDependentInfo = (options: ProcessOverrideOptions): string => {
   const { override, deps, dependencyTree, dependencyGraph } = options;
   const hasOverride = hasDependency(deps, override);
   const packageVersion = deps[override];
+  const hasDirectDeps = Object.keys(deps).length > 0;
+  const directDeps = hasDirectDeps ? new Set(Object.keys(deps)) : undefined;
   const dependentInfo = buildDependentInfo(
     hasOverride,
     override,
     packageVersion,
     dependencyTree,
     dependencyGraph,
+    directDeps,
   );
   return dependentInfo;
 };
@@ -418,80 +426,13 @@ const hasDependencyGraphMatch = (
 ): boolean => {
   if (!dependencyGraph) return false;
 
-  const graphDependents = overridesList.flatMap((override) => {
+  const result = overridesList.some((override) => {
     const name = parseOverridePackageName(override);
-    const result = dependencyGraph[name] || [];
-    return result;
+    const topLevel = findTopLevelDependents(name, dependencyGraph, deps);
+    const hasTopLevel = topLevel.length > 0;
+    return hasTopLevel;
   });
-  const graphDependentSet = new Set(graphDependents);
-
-  for (const dep of deps) {
-    if (graphDependentSet.has(dep)) return true;
-  }
-
-  return false;
-};
-
-const filterRelevantDependents = (dependents: string[], packageDeps: Set<string>): string[] => {
-  let relevant: string[] = [];
-
-  for (const dep of dependents) {
-    if (packageDeps.has(dep)) relevant = relevant.concat(dep);
-  }
-
-  return relevant;
-};
-
-const getRelevantDependencyGraph = (
-  packageJSON: PastoralistJSON,
-  dependencyGraph: Record<string, string[]> | undefined,
-): Record<string, string[]> | undefined => {
-  if (!dependencyGraph) return undefined;
-
-  const packageDeps = new Set(Object.keys(mergeDependenciesForPackage(packageJSON)));
-  let relevantEntries: Array<readonly [string, string[]]> = [];
-
-  for (const [pkg, dependents] of Object.entries(dependencyGraph)) {
-    const relevantDependents = filterRelevantDependents(dependents, packageDeps);
-    if (relevantDependents.length > 0)
-      relevantEntries = relevantEntries.concat([[pkg, relevantDependents] as const]);
-  }
-
-  if (relevantEntries.length === 0) return undefined;
-  const relevantDependencyGraph = Object.fromEntries(relevantEntries);
-  return relevantDependencyGraph;
-};
-
-const getRelevantDependencyTree = (
-  dependencyTree: Record<string, string> | undefined,
-  dependencyGraph: Record<string, string[]> | undefined,
-): Record<string, string> | undefined => {
-  if (!dependencyTree) return undefined;
-  if (!dependencyGraph) return undefined;
-
-  const relevantEntries = Object.keys(dependencyGraph)
-    .filter((pkg) => dependencyTree[pkg])
-    .map((pkg) => [pkg, dependencyTree[pkg]] as const);
-
-  if (relevantEntries.length === 0) return undefined;
-  const relevantDependencyTree = Object.fromEntries(relevantEntries);
-  return relevantDependencyTree;
-};
-
-const getPackageDependencyContext = (
-  packageJSON: PastoralistJSON,
-  dependencyContext: AppendixDependencyContext,
-): AppendixDependencyContext => {
-  const dependencyGraph = getRelevantDependencyGraph(
-    packageJSON,
-    dependencyContext.dependencyGraph,
-  );
-  const dependencyTree = getRelevantDependencyTree(
-    dependencyContext.dependencyTree,
-    dependencyGraph,
-  );
-  const context = { dependencyTree, dependencyGraph };
-  return context;
+  return result;
 };
 
 const buildPackageAppendix = (
@@ -500,7 +441,8 @@ const buildPackageAppendix = (
   dependencyContext: AppendixDependencyContext = {},
 ): Appendix => {
   const deps = getPackageDependencyFields(packageJSON);
-  const context = getPackageDependencyContext(packageJSON, dependencyContext);
+  const { dependencyTree, dependencyGraph } = dependencyContext;
+  const context = { dependencyTree, dependencyGraph };
   const { name: packageName } = packageJSON;
   const options = {
     overrides,

@@ -17,7 +17,7 @@ print_result() {
 }
 
 output_pattern_missing() {
-  ! grep -Fq "$1" <<<"$OUTPUT"
+  ! grep -Fq -- "$1" <<<"$OUTPUT"
 }
 
 test_small_config() {
@@ -66,7 +66,8 @@ EOF
   OUTPUT=$(node /app/pastoralist/index.js 2>&1)
   EXPECTED_PATTERNS=(
     "Your pastoralist config is getting large"
-    "pastoralist init --useRcConfigFile"
+    "pastoralist init"
+    "--useRcConfigFile"
     ".pastoralistrc"
   )
 

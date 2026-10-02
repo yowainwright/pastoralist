@@ -5,7 +5,11 @@ import { logger } from "../../observability";
 import type { SecurityPackage } from "../../types";
 import { UNKNOWN_DEPENDENCY_VERSION } from "../constants";
 import type { DependencyGraph } from "../types";
-import { addPackageDependencies, getPopulatedPackages } from "../utils";
+import {
+  addPackageDependencies,
+  filterAmbiguousDependencyEdges,
+  getPopulatedPackages,
+} from "../utils";
 import { BUN_LOCK_FILENAME, BUN_BINARY_LOCK_FILENAME, BUN_LOCK_TOKEN_PATTERN } from "./constants";
 import type { BunLockFile } from "./types";
 
@@ -44,6 +48,15 @@ const parsePackageReference = (reference: string): SecurityPackage | undefined =
   const version = reference.slice(separatorIndex + 1);
   const pkg = { name, version };
   return pkg;
+};
+
+const getBunPackageName = (fallbackName: string, entry: unknown): string => {
+  if (!Array.isArray(entry)) return fallbackName;
+  const reference = entry[0];
+  if (typeof reference !== "string") return fallbackName;
+  const pkg = parsePackageReference(reference);
+  const packageName = pkg?.name ?? fallbackName;
+  return packageName;
 };
 
 export const resolveBunInventoryPath = (root: string): string | undefined => {
@@ -124,8 +137,9 @@ export const parseBunLockTree = (root: string): Record<string, string> | undefin
 
 const addBunPackageDependencies = (graph: DependencyGraph, name: string, entry: unknown): void => {
   if (!Array.isArray(entry)) return;
+  const packageName = getBunPackageName(name, entry);
   const dependencies = (entry[2] as { dependencies?: Record<string, string> })?.dependencies ?? {};
-  addPackageDependencies(graph, name, dependencies);
+  addPackageDependencies(graph, packageName, dependencies);
 };
 
 export const parseBunLockGraph = (root: string): Record<string, string[]> | undefined => {
@@ -140,7 +154,9 @@ export const parseBunLockGraph = (root: string): Record<string, string[]> | unde
     Object.entries(packages).forEach(([name, entry]) => {
       addBunPackageDependencies(inverted, name, entry);
     });
-    return inverted;
+    const packageNames = getBunLockedPackages(lock);
+    const filteredGraph = filterAmbiguousDependencyEdges(inverted, packageNames);
+    return filteredGraph;
   } catch {
     log.debug("Could not read dependency graph", "parseBunLockGraph", lockPath);
     return undefined;

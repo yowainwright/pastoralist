@@ -10,7 +10,7 @@ import type {
   SecurityProviderType,
   Severity,
 } from "../../types";
-import { compareVersions, getErrorMessage } from "../../utils";
+import { compareVersions, getErrorMessage, groupBy } from "../../utils";
 import { getSeverityScore } from "../security/utils";
 import {
   DEFAULT_OBJECTIVES,
@@ -51,12 +51,14 @@ const normalizeCurrentVersion = (version: string): string => {
 };
 
 const groupInstalledVersions = (packages: SecurityPackage[]): Map<string, Set<string>> => {
-  const result = packages.reduce((grouped, pkg) => {
-    const versions = grouped.get(pkg.name) ?? new Set<string>();
-    const currentVersion = normalizeCurrentVersion(pkg.version);
-    grouped.set(pkg.name, new Set(Array.from(versions).concat(currentVersion)));
-    return grouped;
-  }, new Map<string, Set<string>>());
+  const packagesByName = groupBy(packages, (pkg) => pkg.name);
+  const versionGroups = Array.from(packagesByName, ([name, packageGroup]) => {
+    const versions = packageGroup.map((pkg) => normalizeCurrentVersion(pkg.version));
+    const uniqueVersions = new Set(versions);
+    const entry = [name, uniqueVersions] as const;
+    return entry;
+  });
+  const result = new Map(versionGroups);
   return result;
 };
 
@@ -145,14 +147,11 @@ const buildChoice = (
 };
 
 const groupPatchableAlerts = (alerts: SecurityAlert[]): Map<string, SecurityAlert[]> => {
-  const result = alerts.reduce((grouped, alert) => {
-    const isPatchable = alert.fixAvailable && Boolean(alert.patchedVersion);
-    if (!isPatchable) return grouped;
-    const packageAlerts = grouped.get(alert.packageName) ?? [];
-    grouped.set(alert.packageName, packageAlerts.concat(alert));
-    return grouped;
-  }, new Map<string, SecurityAlert[]>());
-  return result;
+  const patchableAlerts = alerts.filter(
+    (alert) => alert.fixAvailable && Boolean(alert.patchedVersion),
+  );
+  const groupedAlerts = groupBy(patchableAlerts, (alert) => alert.packageName);
+  return groupedAlerts;
 };
 
 export const buildBestCaseChoices = (

@@ -1,6 +1,51 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildObject, mergeInto } from "../../../src/utils";
+import { buildObject, mergeInto, omit, pick } from "../../../src/utils";
+
+const getBuildObjectValue = (key: string): string | undefined => {
+  if (key === "b") return undefined;
+  const value = key.toUpperCase();
+  return value;
+};
+
+test("pick - should return selected own enumerable keys", () => {
+  const source = { name: "Ada", role: "admin", active: true };
+  const result = pick(source, ["name", "active"]);
+
+  assert.deepStrictEqual(result, { name: "Ada", active: true });
+  assert.notStrictEqual(result, source);
+});
+
+test("pick - should retain selected keys whose value is undefined", () => {
+  const source: { name: string; alias?: string } = { name: "Ada", alias: undefined };
+  const result = pick(source, ["alias"]);
+
+  assert.deepStrictEqual(result, { alias: undefined });
+});
+
+test("pick - should support symbol keys", () => {
+  const internal = Symbol("internal");
+  const source = { name: "Ada", [internal]: true };
+  const result = pick(source, [internal]);
+
+  assert.deepStrictEqual(result, { [internal]: true });
+});
+
+test("omit - should remove selected keys without mutating the source", () => {
+  const source = { name: "Ada", localOnly: "value", active: true };
+  const result = omit(source, ["localOnly"]);
+
+  assert.deepStrictEqual(result, { name: "Ada", active: true });
+  assert.deepStrictEqual(source, { name: "Ada", localOnly: "value", active: true });
+});
+
+test("omit - should preserve symbol keys that are not omitted", () => {
+  const internal = Symbol("internal");
+  const source = { name: "Ada", [internal]: true };
+  const result = omit(source, ["name"]);
+
+  assert.deepStrictEqual(result, { [internal]: true });
+});
 
 test("buildObject - should build object from keys", () => {
   const keys = ["a", "b", "c"];
@@ -11,7 +56,7 @@ test("buildObject - should build object from keys", () => {
 
 test("buildObject - should skip undefined values", () => {
   const keys = ["a", "b", "c"];
-  const result = buildObject(keys, (key) => (key === "b" ? undefined : key.toUpperCase()));
+  const result = buildObject(keys, getBuildObjectValue);
 
   assert.deepStrictEqual(result, { a: "A", c: "C" });
 });
@@ -31,15 +76,11 @@ test("buildObject - should handle all undefined values", () => {
 
 test("buildObject - should handle complex values", () => {
   const keys = ["user1", "user2"];
-  const result = buildObject(keys, (key) => ({
-    id: key,
-    active: true,
-  }));
+  const user1 = { id: "user1", active: true };
+  const user2 = { id: "user2", active: true };
+  const result = buildObject(keys, (key) => ({ id: key, active: true }));
 
-  assert.deepStrictEqual(result, {
-    user1: { id: "user1", active: true },
-    user2: { id: "user2", active: true },
-  });
+  assert.deepStrictEqual(result, { user1, user2 });
 });
 
 test("mergeInto - should merge source into target", () => {

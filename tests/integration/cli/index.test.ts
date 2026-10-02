@@ -8,6 +8,23 @@ import type { Options } from "../../../src/types";
 
 const TEST_DIR = resolve(import.meta.dirname, ".test-cli");
 const TEST_PACKAGE_JSON = resolve(TEST_DIR, "package.json");
+const noTestModeErrors = [];
+const noTestModeSecurityAlerts = [];
+const noTestModeUnusedOverrides = [];
+const noTestModeAppliedOverrides = {};
+const testModeResult = {
+  success: true,
+  hasSecurityIssues: false,
+  hasUnusedOverrides: false,
+  updated: false,
+  securityAlertCount: 0,
+  unusedOverrideCount: 0,
+  overrideCount: 0,
+  errors: noTestModeErrors,
+  securityAlerts: noTestModeSecurityAlerts,
+  unusedOverrides: noTestModeUnusedOverrides,
+  appliedOverrides: noTestModeAppliedOverrides,
+};
 
 const createTestPackageJson = (content: any = {}) => {
   const defaultContent = {
@@ -43,8 +60,10 @@ test("action - should handle test mode", async () => {
     path: TEST_PACKAGE_JSON,
   };
 
-  await action(options);
-  assert.strictEqual(true, true);
+  const result = await action(options);
+
+  assert.deepStrictEqual(result, testModeResult);
+  assert.strictEqual(existsSync(TEST_PACKAGE_JSON), false);
 });
 
 test("action - should process package.json without security check", async () => {

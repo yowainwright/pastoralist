@@ -15,7 +15,7 @@ import type {
   UpdatePackageJSONOptions,
 } from "../../types";
 import { logger } from "../../observability";
-import { getStringField, isRecord, parsePackageJson } from "../../utils";
+import { getStringField, isRecord, parsePackageJson, pick } from "../../utils";
 import { LRUCache, DiskCache, hashLockfile, resolveCacheDir } from "../../utils/cache";
 import { CACHE_NAMESPACES, CACHE_TTLS, CACHE_NS_VERSIONS } from "../../utils/cache";
 import { showHint } from "../../dx";
@@ -126,7 +126,9 @@ const hasPreservedValue = ([key, value]: readonly [string, unknown]): boolean =>
 };
 
 const buildPreservedConfig = (config: PastoralistJSON): PastoralistConfig => {
-  const entries = PRESERVED_CONFIG_FIELDS.map((key) => [key, config.pastoralist?.[key]] as const);
+  const pastoralistConfig = config.pastoralist ?? {};
+  const selectedConfig = pick(pastoralistConfig, PRESERVED_CONFIG_FIELDS);
+  const entries = Object.entries(selectedConfig);
   const preservedConfig = Object.fromEntries(entries.filter(hasPreservedValue));
   return preservedConfig;
 };
@@ -367,6 +369,10 @@ const parseTreeFromLockfile = (root: string): Record<string, string> | undefined
   const treeFromLockfile = getJsManager(pm).readTree(root);
   return treeFromLockfile;
 };
+
+export const getLockfileDependencyTree = (
+  root: string = process.cwd(),
+): Record<string, string> | undefined => parseTreeFromLockfile(root);
 
 const readDependencyTree = async (
   root: string,

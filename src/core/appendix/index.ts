@@ -208,8 +208,8 @@ const isUnusedSimpleOverride = (options: ProcessOverrideOptions): boolean => {
   const topLevel = findTopLevelDependents(name, dependencyGraph, depNames);
   if (topLevel.length > 0) return false;
 
-  const hasGraph = Object.keys(dependencyGraph ?? {}).length > 0;
-  const canJudgeByGraph = hasGraph && depNames.size > 0;
+  const hasGraphParents = Boolean(dependencyGraph?.[name]?.length);
+  const canJudgeByGraph = hasGraphParents && depNames.size > 0;
   if (canJudgeByGraph) return true;
 
   const isInDependencyTree = Boolean(dependencyTree?.[name]);
@@ -407,15 +407,22 @@ const getPackageDependencyFields = (
 const hasMatchingPackageOverrides = (
   packageJSON: PastoralistJSON,
   overridesList: string[],
-  dependencyGraph?: Record<string, string[]>,
+  dependencyContext: AppendixDependencyContext,
 ): boolean => {
   const mergedDeps = mergeDependenciesForPackage(packageJSON);
   const depList = Object.keys(mergedDeps);
   const hasDirectMatch = hasDependenciesMatchingOverrides(depList, overridesList);
   if (hasDirectMatch) return true;
 
+  const hasLockedMatch = overridesList.some((override) => {
+    const name = parseOverridePackageName(override);
+    const isInDependencyTree = Boolean(dependencyContext.dependencyTree?.[name]);
+    return isInDependencyTree;
+  });
+  if (hasLockedMatch) return true;
+
   const deps = new Set(depList);
-  const result = hasDependencyGraphMatch(overridesList, deps, dependencyGraph);
+  const result = hasDependencyGraphMatch(overridesList, deps, dependencyContext.dependencyGraph);
   return result;
 };
 
@@ -509,7 +516,7 @@ export const processAndWritePackageJSON = (
   const hasMatchingOverrides = hasMatchingPackageOverrides(
     currentPackageJSON,
     overridesList,
-    dependencyContext.dependencyGraph,
+    dependencyContext,
   );
   if (!hasMatchingOverrides) return undefined;
 

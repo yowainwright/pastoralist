@@ -11,7 +11,7 @@ import type {
   SecurityOverride,
   SecurityProviderType,
 } from "../../types";
-import { compareVersions, isRecord } from "../../utils";
+import { compareVersions, countBy, isRecord } from "../../utils";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { logger } from "../../observability";
@@ -917,25 +917,13 @@ export class InteractiveSecurityManager {
   }
 
   private generateSummary(vulnerablePackages: SecurityAlert[]): string {
-    const counts = this.countBySeverity(vulnerablePackages);
+    const counts = countBy(vulnerablePackages, (vulnerability) => vulnerability.severity);
     const severityLines = SECURITY_SUMMARY_SEVERITIES.map((severity) =>
-      this.formatSeveritySummary(severity, counts[severity]),
+      this.formatSeveritySummary(severity, counts.get(severity) ?? 0),
     ).filter(Boolean);
     const result = [`Found ${vulnerablePackages.length} vulnerable package(s):`]
       .concat(severityLines)
       .join("\n");
-    return result;
-  }
-
-  private countBySeverity(vulnerablePackages: SecurityAlert[]) {
-    const result = vulnerablePackages.reduce(
-      (counts, vulnerability) => {
-        const count = counts[vulnerability.severity] + 1;
-        const updated = Object.assign({}, counts, { [vulnerability.severity]: count });
-        return updated;
-      },
-      { critical: 0, high: 0, medium: 0, low: 0 },
-    );
     return result;
   }
 

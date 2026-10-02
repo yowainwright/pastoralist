@@ -2,7 +2,7 @@ import { existsSync, readFileSync, writeFileSync } from "fs";
 import { dirname, extname, resolve } from "path";
 import { getJsManager } from "../../mgrs";
 import type { OverridesType, PastoralistJSON } from "../../types";
-import { parsePackageJson } from "../../utils";
+import { omit, parsePackageJson } from "../../utils";
 import { PACKAGE_MANAGERS } from "./constants";
 import type {
   OverrideField,
@@ -130,12 +130,13 @@ export const resolveOverrideSource = ({
 
 const removeOverrideField = (config: PastoralistJSON, field: OverrideField): PastoralistJSON => {
   if (field !== "pnpm") {
-    const { [field]: _, ...remaining } = config;
+    const remaining = omit(config, [field]);
     return remaining;
   }
 
-  const { pnpm: workspace, ...rest } = config;
-  const { overrides: _, ...pnpm } = workspace || {};
+  const workspace = config.pnpm ?? {};
+  const rest = omit(config, ["pnpm"]);
+  const pnpm = omit(workspace, ["overrides"]);
   if (Object.keys(pnpm).length === 0) return rest;
   const updated = Object.assign({}, rest, { pnpm });
   return updated;

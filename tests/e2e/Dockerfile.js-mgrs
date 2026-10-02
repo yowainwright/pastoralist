@@ -9,7 +9,8 @@ WORKDIR /app
 COPY dist/ ./pastoralist/
 COPY package.json ./pastoralist/package.json
 COPY tests/e2e/scripts/test-js-mgrs.sh ./tests/test-js-mgrs.sh
-RUN chmod +x ./tests/test-js-mgrs.sh
+COPY tests/e2e/scripts/test-top-level-mgrs.sh ./tests/test-top-level-mgrs.sh
+RUN chmod +x ./tests/test-js-mgrs.sh ./tests/test-top-level-mgrs.sh
 
 ENV PASTORALIST_E2E_CLI=/app/pastoralist/index.js
 ENV npm_config_manage_package_manager_versions=false

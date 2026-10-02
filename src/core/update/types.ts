@@ -100,6 +100,7 @@ export interface UpdateContext {
   workspaceAppendix?: Appendix;
   allWorkspaceDeps?: Record<string, string>;
   allDeps?: Record<string, string>;
+  dependencyTree?: Record<string, string>;
   dependencyGraph?: Record<string, string[]>;
   dependencyGraphAvailable?: boolean;
   overridePaths?: Record<string, Appendix>;

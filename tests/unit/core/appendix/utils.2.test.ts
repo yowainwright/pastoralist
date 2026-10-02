@@ -353,6 +353,15 @@ test("buildDependentInfo - marks an override the project does not reach as unuse
   assert.equal(info, "vite (unused override)");
 });
 
+test("buildDependentInfo - uses the dependency tree when the graph has no matching path", () => {
+  const rootDeps = new Set(["release-it"]);
+  const releaseItParents = ["release-it"];
+  const graph = { undici: releaseItParents };
+  const dependencyTree = { vite: "8.2.1" };
+  const info = buildDependentInfo(false, "vite", undefined, dependencyTree, graph, rootDeps);
+  assert.equal(info, "vite (transitive dependency)");
+});
+
 test("dropSupersededUnusedDependents - removes unused notes when another project uses it", () => {
   const dependents = { root: "vite (unused override)", docs: "vite@^8.2.1" };
   const item: AppendixItem = { dependents };
@@ -418,12 +427,12 @@ test("carryExistingLedgers - bumps addedDate when a security finding changes", (
   assert.equal(ledger?.patchedVersion, "7.30.0");
 });
 
-test("carryExistingLedgers - keeps addedDate when only the security check date differs", () => {
+test("carryExistingLedgers - refreshes security check date without changing addedDate", () => {
   const existing = withLedger("undici@7.30.0", RELEASE_IT, { securityCheckDate: OLD_DATE });
   const fresh = refreshed("undici@7.30.0", RELEASE_IT, { securityCheckDate: NEW_DATE });
   const ledger = carryExistingLedgers(fresh, existing)["undici@7.30.0"].ledger;
   assert.equal(ledger?.addedDate, OLD_DATE);
-  assert.equal(ledger?.securityCheckDate, OLD_DATE);
+  assert.equal(ledger?.securityCheckDate, NEW_DATE);
 });
 
 test("carryExistingLedgers - keeps stored security info when this run reports none", () => {

@@ -1129,6 +1129,74 @@ test("update - workspace appendix uses dependency graph for transitive overrides
   assertHasProperty(result.appendix?.["body-parser@1.20.0"]?.dependents, "pkg-a");
 });
 
+const workspaceRootExpressDependencies = { express: "^4.18.0" };
+const workspaceRootLockEntry = { dependencies: workspaceRootExpressDependencies };
+const workspaceExpress4 = { version: "4.18.0" };
+const workspaceExpress5Dependencies = { lodash: "^4.17.21" };
+const workspaceExpress5 = { version: "5.0.0", dependencies: workspaceExpress5Dependencies };
+const workspacePkgAExpressDependencies = { express: "^5.0.0" };
+const workspacePkgALockEntry = {
+  name: "pkg-a",
+  version: "1.0.0",
+  dependencies: workspacePkgAExpressDependencies,
+};
+const workspacePkgALodashLockEntry = { version: "4.17.21" };
+const duplicateExpressLockPackages = {
+  "": workspaceRootLockEntry,
+  "node_modules/express": workspaceExpress4,
+  "packages/pkg-a": workspacePkgALockEntry,
+  "packages/pkg-a/node_modules/express": workspaceExpress5,
+  "packages/pkg-a/node_modules/lodash": workspacePkgALodashLockEntry,
+};
+const duplicateExpressOverrides = { lodash: "4.17.21" };
+const duplicateExpressConfig: PastoralistJSON = {
+  name: "root-app",
+  version: "1.0.0",
+  dependencies: workspaceRootExpressDependencies,
+  overrides: duplicateExpressOverrides,
+  workspaces: configWorkspaces2,
+};
+const duplicateExpressWorkspaceDependencies = { express: "^5.0.0" };
+const duplicateExpressWorkspaceManifest = {
+  name: "pkg-a",
+  version: "1.0.0",
+  dependencies: duplicateExpressWorkspaceDependencies,
+};
+const unrelatedExpressWorkspaceDependencies = { express: "^4.18.0" };
+const unrelatedExpressWorkspaceManifest = {
+  name: "pkg-b",
+  version: "1.0.0",
+  dependencies: unrelatedExpressWorkspaceDependencies,
+};
+
+const setupDuplicateExpressWorkspace = (): void => {
+  clearDependencyGraphCache();
+  resetTestDir();
+  writePkgAManifest(duplicateExpressWorkspaceManifest);
+  const pkgBDir = resolve(TEST_DIR, "packages", "pkg-b");
+  const pkgBManifestPath = resolve(pkgBDir, "package.json");
+  mkdirSync(pkgBDir, { recursive: true });
+  writeFileSync(pkgBManifestPath, JSON.stringify(unrelatedExpressWorkspaceManifest));
+  writeLockfile(duplicateExpressLockPackages);
+};
+
+test("update - avoids attributing duplicate-name edges across workspaces", (t) => {
+  setupDuplicateExpressWorkspace();
+  t.after(() => {
+    rmSync(TEST_DIR, { recursive: true, force: true });
+    clearDependencyGraphCache();
+  });
+  const options = Object.assign({}, transitiveWorkspaceOptions, {
+    config: duplicateExpressConfig,
+  });
+  const result = update(options);
+
+  const dependents = result.appendix?.["lodash@4.17.21"]?.dependents ?? {};
+  assert.strictEqual(dependents["root-app"], "lodash (transitive dependency)");
+  assert.strictEqual(dependents["pkg-a"], undefined);
+  assert.strictEqual(dependents["pkg-b"], undefined);
+});
+
 const configWorkspaces = ["packages/*"];
 const configOverrides19 = { lodash: "4.17.21" };
 const configDependencies22 = { lodash: "^4.17.20" };

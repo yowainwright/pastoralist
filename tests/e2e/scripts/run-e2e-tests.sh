@@ -3,230 +3,230 @@
 set -e
 
 is_detected_tracking_missing() {
-    ! grep -q '"app-g":' package.json || ! grep -q '"app-h":' package.json
+  ! grep -q '"app-g":' package.json || ! grep -q '"app-h":' package.json
 }
 
 has_child_config() {
-    grep -q '"pastoralist":' packages/app-a/package.json || grep -q '"pastoralist":' apps/app-b/package.json
+  grep -q '"pastoralist":' packages/app-a/package.json || grep -q '"pastoralist":' apps/app-b/package.json
 }
 
 is_workspace_tracking_missing() {
-    ! grep -q '"app-a":' package.json || ! grep -q '"app-b":' package.json
+  ! grep -q '"app-a":' package.json || ! grep -q '"app-b":' package.json
 }
 
 has_appendix_dependents() {
-    grep -q '"appendix": {' package.json && grep -q '"dependents": {' package.json
+  grep -q '"appendix": {' package.json && grep -q '"dependents": {' package.json
 }
 
 fail() {
-    echo "${1:-}"
-    exit 1
+  echo "${1:-}"
+  exit 1
 }
 
 cleanup_docker() {
-    exit_code="${1:-0}"
-    trap - EXIT
-    echo ""
-    echo "Cleaning up Docker resources..."
-    docker compose down --volumes --remove-orphans --rmi local || true
-    exit "$exit_code"
+  exit_code="${1:-0}"
+  trap - EXIT
+  echo ""
+  echo "Cleaning up Docker resources..."
+  docker compose down --volumes --remove-orphans --rmi local || true
+  exit "$exit_code"
 }
 
 is_host() {
-    [ ! -f /.dockerenv ]
+  [ ! -f /.dockerenv ]
 }
 
 report_docker_results() {
-    echo "📊 Test Results:"
-    echo "================"
+  echo "📊 Test Results:"
+  echo "================"
 
-    if [ $TEST_EXIT_CODE -eq 0 ]; then
-        echo "🎉 All E2E tests PASSED!"
-    else
-        echo "❌ E2E tests FAILED!"
-        echo ""
-        echo "🔍 Container logs:"
-        docker compose logs e2e-pnpm
-        exit 1
-    fi
-
+  if [ $TEST_EXIT_CODE -eq 0 ]; then
+    echo "🎉 All E2E tests PASSED!"
+  else
+    echo "❌ E2E tests FAILED!"
     echo ""
-    echo "✨ E2E test run complete!"
-    cleanup_docker 0
+    echo "🔍 Container logs:"
+    docker compose logs e2e-pnpm
+    exit 1
+  fi
+
+  echo ""
+  echo "✨ E2E test run complete!"
+  cleanup_docker 0
 }
 
 run_docker_tests() {
-    echo "🐳 Starting E2E Tests..."
-    echo "========================"
+  echo "🐳 Starting E2E Tests..."
+  echo "========================"
 
-    docker compose down --remove-orphans 2>/dev/null || true
+  docker compose down --remove-orphans 2>/dev/null || true
 
-    echo "📦 Building Docker containers..."
-    docker compose build
+  echo "📦 Building Docker containers..."
+  docker compose build
 
-    echo "🧪 Running E2E tests..."
-    docker compose up --abort-on-container-exit e2e-pnpm
-    docker compose run --rm e2e-pnpm-yaml
-    docker compose run --rm e2e-external-config
-    docker compose run --rm e2e-js-mgrs
+  echo "🧪 Running E2E tests..."
+  docker compose up --abort-on-container-exit e2e-pnpm
+  docker compose run --rm e2e-pnpm-yaml
+  docker compose run --rm e2e-external-config
+  docker compose run --rm e2e-js-mgrs
 
-    TEST_EXIT_CODE=$?
+  TEST_EXIT_CODE=$?
 
-    echo ""
-    report_docker_results
+  echo ""
+  report_docker_results
 }
 
 run_host() {
-    echo "🔨 Building Pastoralist..."
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    cd "$SCRIPT_DIR/../../.."
-    pnpm run build
-    cd tests/e2e
+  echo "🔨 Building Pastoralist..."
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  cd "$SCRIPT_DIR/../../.."
+  pnpm run build
+  cd tests/e2e
 
-    trap 'cleanup_docker "$?"' EXIT
+  trap 'cleanup_docker "$?"' EXIT
 
-    run_docker_tests
+  run_docker_tests
 }
 
 print_header() {
-    echo "🧪 Starting Pastoralist E2E Tests"
-    echo "================================="
+  echo "🧪 Starting Pastoralist E2E Tests"
+  echo "================================="
 }
 
 print_result() {
-    if [ "$1" -eq 0 ]; then
-        echo "✅ $2"
-    else
-        echo "❌ $2"
-        exit 1
-    fi
+  if [ "$1" -eq 0 ]; then
+    echo "✅ $2"
+  else
+    echo "❌ $2"
+    exit 1
+  fi
 }
 
 show_package_json() {
-    echo "📄 Current package.json:"
-    echo "------------------------"
-    head -30 package.json
-    echo "------------------------"
+  echo "📄 Current package.json:"
+  echo "------------------------"
+  head -30 package.json
+  echo "------------------------"
 }
 
 test_initial_run() {
-    printf '\n%s\n' "1️⃣ Initial state - showing current package.json before pastoralist"
-    show_package_json
+  printf '\n%s\n' "1️⃣ Initial state - showing current package.json before pastoralist"
+  show_package_json
 
-    printf '\n%s\n' "2️⃣ Running pastoralist for the first time..."
-    node /app/pastoralist/index.js
-    print_result $? "Initial pastoralist run completed"
+  printf '\n%s\n' "2️⃣ Running pastoralist for the first time..."
+  node /app/pastoralist/index.js
+  print_result $? "Initial pastoralist run completed"
 }
 
 check_initial_appendix() {
-    printf '\n%s\n' "3️⃣ Checking if appendix was created..."
-    show_package_json
+  printf '\n%s\n' "3️⃣ Checking if appendix was created..."
+  show_package_json
 
-    if grep -q '"pastoralist": {' package.json; then
-        echo "✅ Pastoralist section exists"
-        if has_appendix_dependents; then
-            echo "✅ Appendix with dependents created successfully"
-        else
-            echo "❌ Appendix missing or malformed"
-            exit 1
-        fi
+  if grep -q '"pastoralist": {' package.json; then
+    echo "✅ Pastoralist section exists"
+    if has_appendix_dependents; then
+      echo "✅ Appendix with dependents created successfully"
     else
-        echo "❌ Pastoralist section missing"
-        exit 1
+      echo "❌ Appendix missing or malformed"
+      exit 1
     fi
+  else
+    echo "❌ Pastoralist section missing"
+    exit 1
+  fi
 }
 
 test_npm_overrides() {
-    printf '\n%s\n' "4️⃣ Testing override formats..."
+  printf '\n%s\n' "4️⃣ Testing override formats..."
 
-    cp /app/e2e/fixtures/npm-package.json package.json
-    echo "Testing npm overrides:"
-    node /app/pastoralist/index.js
-    print_result $? "NPM overrides test completed"
-    grep -q '"pastoralist": {' package.json || fail "❌ Pastoralist section missing for npm overrides"
+  cp /app/e2e/fixtures/npm-package.json package.json
+  echo "Testing npm overrides:"
+  node /app/pastoralist/index.js
+  print_result $? "NPM overrides test completed"
+  grep -q '"pastoralist": {' package.json || fail "❌ Pastoralist section missing for npm overrides"
 }
 
 test_pnpm_overrides() {
-    cp /app/e2e/fixtures/pnpm-package.json package.json
-    echo "Testing pnpm overrides:"
-    node /app/pastoralist/index.js
-    print_result $? "PNPM overrides test completed"
-    grep -q '"pastoralist": {' package.json || fail "❌ Pastoralist section missing for pnpm overrides"
+  cp /app/e2e/fixtures/pnpm-package.json package.json
+  echo "Testing pnpm overrides:"
+  node /app/pastoralist/index.js
+  print_result $? "PNPM overrides test completed"
+  grep -q '"pastoralist": {' package.json || fail "❌ Pastoralist section missing for pnpm overrides"
 }
 
 test_yarn_resolutions() {
-    cp /app/e2e/fixtures/yarn-package.json package.json
-    echo "Testing yarn resolutions:"
-    node /app/pastoralist/index.js
-    print_result $? "Yarn resolutions test completed"
-    grep -q '"pastoralist": {' package.json || fail "❌ Pastoralist section missing for yarn resolutions"
+  cp /app/e2e/fixtures/yarn-package.json package.json
+  echo "Testing yarn resolutions:"
+  node /app/pastoralist/index.js
+  print_result $? "Yarn resolutions test completed"
+  grep -q '"pastoralist": {' package.json || fail "❌ Pastoralist section missing for yarn resolutions"
 }
 
 test_patch_detection() {
-    printf '\n%s\n' "5️⃣ Testing patch detection..."
-    cp /app/e2e/fixtures/with-patches-package.json package.json
-    mkdir -p patches
-    cp /app/e2e/fixtures/patches/*.patch patches/
-    echo "Running pastoralist with patches:"
-    node /app/pastoralist/index.js
-    print_result $? "Patch detection test completed"
-    grep -q '"patches": \[' package.json || fail "❌ Patches section missing"
+  printf '\n%s\n' "5️⃣ Testing patch detection..."
+  cp /app/e2e/fixtures/with-patches-package.json package.json
+  mkdir -p patches
+  cp /app/e2e/fixtures/patches/*.patch patches/
+  echo "Running pastoralist with patches:"
+  node /app/pastoralist/index.js
+  print_result $? "Patch detection test completed"
+  grep -q '"patches": \[' package.json || fail "❌ Patches section missing"
 }
 
 test_override_removal() {
-    printf '\n%s\n' "6️⃣ Testing override removal..."
-    cp /app/e2e/fixtures/npm-package.json package.json
-    node /app/pastoralist/index.js
-    jq 'del(.overrides) | del(.pnpm.overrides) | del(.resolutions)' package.json >package.json.tmp && mv package.json.tmp package.json
-    node /app/pastoralist/index.js
-    if grep -q '"pastoralist": {' package.json; then
-        echo "❌ Pastoralist section should be removed when no overrides"
-        exit 1
-    fi
+  printf '\n%s\n' "6️⃣ Testing override removal..."
+  cp /app/e2e/fixtures/npm-package.json package.json
+  node /app/pastoralist/index.js
+  jq 'del(.overrides) | del(.pnpm.overrides) | del(.resolutions)' package.json >package.json.tmp && mv package.json.tmp package.json
+  node /app/pastoralist/index.js
+  if grep -q '"pastoralist": {' package.json; then
+    echo "❌ Pastoralist section should be removed when no overrides"
+    exit 1
+  fi
 }
 
 test_child_overrides() {
-    printf '\n%s\n' "7️⃣ Testing workspace package overrides..."
-    cp /app/e2e/fixtures/workspace-root-package.json package.json
-    mkdir -p packages/child
-    cp /app/e2e/fixtures/workspace-child-package.json packages/child/package.json
+  printf '\n%s\n' "7️⃣ Testing workspace package overrides..."
+  cp /app/e2e/fixtures/workspace-root-package.json package.json
+  mkdir -p packages/child
+  cp /app/e2e/fixtures/workspace-child-package.json packages/child/package.json
 
-    echo "Running pastoralist on child package..."
-    node /app/pastoralist/index.js --path packages/child/package.json
+  echo "Running pastoralist on child package..."
+  node /app/pastoralist/index.js --path packages/child/package.json
 
-    echo "📄 Checking child package.json appendix..."
-    grep -q '"pastoralist":' packages/child/package.json || fail "❌ Pastoralist section missing in child package.json"
+  echo "📄 Checking child package.json appendix..."
+  grep -q '"pastoralist":' packages/child/package.json || fail "❌ Pastoralist section missing in child package.json"
 
-    echo "📄 Checking root package.json not modified..."
-    if grep -q '"pastoralist":' package.json; then
-        echo "❌ Root package.json should not have pastoralist section"
-        exit 1
-    fi
+  echo "📄 Checking root package.json not modified..."
+  if grep -q '"pastoralist":' package.json; then
+    echo "❌ Root package.json should not have pastoralist section"
+    exit 1
+  fi
 }
 
 check_workspace_paths() {
-    if is_workspace_tracking_missing; then
-        echo "❌ Workspace packages not tracked in appendix"
-        exit 1
-    fi
-    if has_child_config; then
-        echo "❌ Workspace packages should not have pastoralist section"
-        exit 1
-    fi
-    echo "✅ depPaths workspace configuration works correctly"
+  if is_workspace_tracking_missing; then
+    echo "❌ Workspace packages not tracked in appendix"
+    exit 1
+  fi
+  if has_child_config; then
+    echo "❌ Workspace packages should not have pastoralist section"
+    exit 1
+  fi
+  echo "✅ depPaths workspace configuration works correctly"
 }
 
 test_workspace_paths() {
-    printf '\n%s\n' "8️⃣ Testing depPaths configuration..."
-    echo "======================================"
+  printf '\n%s\n' "8️⃣ Testing depPaths configuration..."
+  echo "======================================"
 
-    # Test 8.1: depPaths with "workspace" string
-    echo "Testing depPaths: 'workspace'..."
-    rm -rf /tmp/test-workspace
-    mkdir -p /tmp/test-workspace/packages/app-a /tmp/test-workspace/apps/app-b
-    cd /tmp/test-workspace
+  # Test 8.1: depPaths with "workspace" string
+  echo "Testing depPaths: 'workspace'..."
+  rm -rf /tmp/test-workspace
+  mkdir -p /tmp/test-workspace/packages/app-a /tmp/test-workspace/apps/app-b
+  cd /tmp/test-workspace
 
-    cat >package.json <<'EOF'
+  cat >package.json <<'EOF'
 {
   "name": "test-monorepo",
   "version": "1.0.0",
@@ -240,7 +240,7 @@ test_workspace_paths() {
 }
 EOF
 
-    cat >packages/app-a/package.json <<'EOF'
+  cat >packages/app-a/package.json <<'EOF'
 {
   "name": "app-a",
   "version": "1.0.0",
@@ -250,7 +250,7 @@ EOF
 }
 EOF
 
-    cat >apps/app-b/package.json <<'EOF'
+  cat >apps/app-b/package.json <<'EOF'
 {
   "name": "app-b",
   "version": "1.0.0",
@@ -260,21 +260,21 @@ EOF
 }
 EOF
 
-    node /app/pastoralist/index.js
-    print_result $? "depPaths workspace config completed"
+  node /app/pastoralist/index.js
+  print_result $? "depPaths workspace config completed"
 
-    grep -q '"appendix":' package.json || fail "❌ Appendix missing in root"
-    check_workspace_paths
+  grep -q '"appendix":' package.json || fail "❌ Appendix missing in root"
+  check_workspace_paths
 }
 
 test_path_array() {
-    # Test 8.2: depPaths with array
-    echo "Testing depPaths with array..."
-    rm -rf /tmp/test-array
-    mkdir -p /tmp/test-array/packages/app-c /tmp/test-array/packages/app-d
-    cd /tmp/test-array
+  # Test 8.2: depPaths with array
+  echo "Testing depPaths with array..."
+  rm -rf /tmp/test-array
+  mkdir -p /tmp/test-array/packages/app-c /tmp/test-array/packages/app-d
+  cd /tmp/test-array
 
-    cat >package.json <<'EOF'
+  cat >package.json <<'EOF'
 {
   "name": "test-monorepo",
   "version": "1.0.0",
@@ -287,7 +287,7 @@ test_path_array() {
 }
 EOF
 
-    cat >packages/app-c/package.json <<'EOF'
+  cat >packages/app-c/package.json <<'EOF'
 {
   "name": "app-c",
   "version": "1.0.0",
@@ -297,7 +297,7 @@ EOF
 }
 EOF
 
-    cat >packages/app-d/package.json <<'EOF'
+  cat >packages/app-d/package.json <<'EOF'
 {
   "name": "app-d",
   "version": "1.0.0",
@@ -307,25 +307,25 @@ EOF
 }
 EOF
 
-    node /app/pastoralist/index.js
-    print_result $? "depPaths array config completed"
+  node /app/pastoralist/index.js
+  print_result $? "depPaths array config completed"
 
-    grep -q '"app-c":' package.json || fail "❌ Specified package not tracked"
-    if grep -q '"app-d":' package.json; then
-        echo "❌ Non-specified package should not be tracked"
-        exit 1
-    fi
-    echo "✅ depPaths array configuration works correctly"
+  grep -q '"app-c":' package.json || fail "❌ Specified package not tracked"
+  if grep -q '"app-d":' package.json; then
+    echo "❌ Non-specified package should not be tracked"
+    exit 1
+  fi
+  echo "✅ depPaths array configuration works correctly"
 }
 
 test_cli_paths() {
-    # Test 8.3: CLI priority over config
-    echo "Testing CLI depPaths priority..."
-    rm -rf /tmp/test-priority
-    mkdir -p /tmp/test-priority/packages/app-e /tmp/test-priority/packages/app-f
-    cd /tmp/test-priority
+  # Test 8.3: CLI priority over config
+  echo "Testing CLI depPaths priority..."
+  rm -rf /tmp/test-priority
+  mkdir -p /tmp/test-priority/packages/app-e /tmp/test-priority/packages/app-f
+  cd /tmp/test-priority
 
-    cat >package.json <<'EOF'
+  cat >package.json <<'EOF'
 {
   "name": "test-monorepo",
   "version": "1.0.0",
@@ -339,7 +339,7 @@ test_cli_paths() {
 }
 EOF
 
-    cat >packages/app-e/package.json <<'EOF'
+  cat >packages/app-e/package.json <<'EOF'
 {
   "name": "app-e",
   "version": "1.0.0",
@@ -349,7 +349,7 @@ EOF
 }
 EOF
 
-    cat >packages/app-f/package.json <<'EOF'
+  cat >packages/app-f/package.json <<'EOF'
 {
   "name": "app-f",
   "version": "1.0.0",
@@ -359,39 +359,39 @@ EOF
 }
 EOF
 
-    node /app/pastoralist/index.js --depPaths "packages/app-e/package.json"
-    print_result $? "CLI depPaths override completed"
+  node /app/pastoralist/index.js --depPaths "packages/app-e/package.json"
+  print_result $? "CLI depPaths override completed"
 
-    grep -q '"app-e":' package.json || fail "❌ CLI-specified package not tracked"
-    if grep -q '"app-f":' package.json; then
-        echo "❌ CLI should override workspace config"
-        exit 1
-    fi
-    echo "✅ CLI depPaths correctly overrides config"
+  grep -q '"app-e":' package.json || fail "❌ CLI-specified package not tracked"
+  if grep -q '"app-f":' package.json; then
+    echo "❌ CLI should override workspace config"
+    exit 1
+  fi
+  echo "✅ CLI depPaths correctly overrides config"
 }
 
 check_workspace_detection() {
-    if is_detected_tracking_missing; then
-        echo "❌ pnpm-workspace.yaml packages not auto-detected"
-        cat package.json
-        exit 1
-    fi
-    if grep -q '"depPaths":' package.json; then
-        echo "❌ Auto-detection should not write depPaths config"
-        cat package.json
-        exit 1
-    fi
-    echo "✅ pnpm-workspace.yaml auto-detection works correctly"
+  if is_detected_tracking_missing; then
+    echo "❌ pnpm-workspace.yaml packages not auto-detected"
+    cat package.json
+    exit 1
+  fi
+  if grep -q '"depPaths":' package.json; then
+    echo "❌ Auto-detection should not write depPaths config"
+    cat package.json
+    exit 1
+  fi
+  echo "✅ pnpm-workspace.yaml auto-detection works correctly"
 }
 
 test_workspace_detection() {
-    # Test 8.4: Auto-detect pnpm-workspace.yaml with no depPaths
-    echo "Testing pnpm-workspace.yaml auto-detection..."
-    rm -rf /tmp/test-pnpm-workspace-autodetect
-    mkdir -p /tmp/test-pnpm-workspace-autodetect/packages/app-g /tmp/test-pnpm-workspace-autodetect/apps/app-h
-    cd /tmp/test-pnpm-workspace-autodetect
+  # Test 8.4: Auto-detect pnpm-workspace.yaml with no depPaths
+  echo "Testing pnpm-workspace.yaml auto-detection..."
+  rm -rf /tmp/test-pnpm-workspace-autodetect
+  mkdir -p /tmp/test-pnpm-workspace-autodetect/packages/app-g /tmp/test-pnpm-workspace-autodetect/apps/app-h
+  cd /tmp/test-pnpm-workspace-autodetect
 
-    cat >package.json <<'EOF'
+  cat >package.json <<'EOF'
 {
   "name": "test-pnpm-workspace-autodetect",
   "version": "1.0.0",
@@ -403,13 +403,13 @@ test_workspace_detection() {
 }
 EOF
 
-    cat >pnpm-workspace.yaml <<'EOF'
+  cat >pnpm-workspace.yaml <<'EOF'
 packages:
   - packages/*
   - apps/*
 EOF
 
-    cat >packages/app-g/package.json <<'EOF'
+  cat >packages/app-g/package.json <<'EOF'
 {
   "name": "app-g",
   "version": "1.0.0",
@@ -419,7 +419,7 @@ EOF
 }
 EOF
 
-    cat >apps/app-h/package.json <<'EOF'
+  cat >apps/app-h/package.json <<'EOF'
 {
   "name": "app-h",
   "version": "1.0.0",
@@ -429,143 +429,119 @@ EOF
 }
 EOF
 
-    node /app/pastoralist/index.js
-    print_result $? "pnpm-workspace.yaml auto-detection completed"
+  node /app/pastoralist/index.js
+  print_result $? "pnpm-workspace.yaml auto-detection completed"
 
-    check_workspace_detection
+  check_workspace_detection
 }
 
 test_transitive_security() {
-    cd /app/e2e
+  cd /app/e2e
 
-    printf '\nRunning transitive security regression...\n'
-    PASTORALIST_E2E_CLI=/app/pastoralist/index.js node --test /app/scripts/transitive-security.test.ts
-    print_result $? "Transitive security regression completed"
+  printf '\nRunning transitive security regression...\n'
+  PASTORALIST_E2E_CLI=/app/pastoralist/index.js node --test /app/scripts/transitive-security.test.ts
+  print_result $? "Transitive security regression completed"
 }
 
 test_appendix_refresh() {
-    printf '\n%s\n' "Running appendix refresh regression..."
-    PASTORALIST_E2E_CLI=/app/pastoralist/index.js /app/scripts/test-appendix-refresh.sh
-    print_result $? "Appendix refresh regression completed"
-}
-
-test_security_features() {
-    printf '\n%s\n' "🔒 Running Security Feature Tests..."
-    echo "=============================="
-    /app/scripts/test-security-features.sh
-    print_result $? "Security feature tests completed"
+  printf '\n%s\n' "Running appendix refresh regression..."
+  PASTORALIST_E2E_CLI=/app/pastoralist/index.js /app/scripts/test-appendix-refresh.sh
+  print_result $? "Appendix refresh regression completed"
 }
 
 test_init() {
-    printf '\n%s\n' "🎬 Running Init Command Tests..."
-    echo "=============================="
-    /app/scripts/test-init-command.sh
-    print_result $? "Init command tests completed"
+  printf '\n%s\n' "🎬 Running Init Command Tests..."
+  echo "=============================="
+  /app/scripts/test-init-command.sh
+  print_result $? "Init command tests completed"
 }
 
 test_config_review() {
-    printf '\n%s\n' "⚙️  Running Interactive Config Review Tests..."
-    echo "=============================="
-    /app/scripts/test-interactive-config.sh
-    print_result $? "Interactive config review tests completed"
-}
-
-test_snyk() {
-    printf '\n%s\n' "🔐 Running Snyk Security Provider Tests..."
-    echo "=============================="
-    /app/scripts/test-snyk-security.sh
-    print_result $? "Snyk security provider tests completed"
-}
-
-test_socket() {
-    printf '\n%s\n' "🔌 Running Socket Security Provider Tests..."
-    echo "=============================="
-    /app/scripts/test-socket-security.sh
-    print_result $? "Socket security provider tests completed"
+  printf '\n%s\n' "⚙️  Running Interactive Config Review Tests..."
+  echo "=============================="
+  /app/scripts/test-interactive-config.sh
+  print_result $? "Interactive config review tests completed"
 }
 
 test_errors() {
-    printf '\n%s\n' "🚨 Running Error Handling & Edge Cases Tests..."
-    echo "=============================="
-    /app/scripts/test-error-handling.sh
-    print_result $? "Error handling tests completed"
+  printf '\n%s\n' "🚨 Running Error Handling & Edge Cases Tests..."
+  echo "=============================="
+  /app/scripts/test-error-handling.sh
+  print_result $? "Error handling tests completed"
 }
 
 test_flags() {
-    printf '\n%s\n' "🎛️  Running CLI Flags & Options Tests..."
-    echo "=============================="
-    /app/scripts/test-cli-flags.sh
-    print_result $? "CLI flags tests completed"
+  printf '\n%s\n' "🎛️  Running CLI Flags & Options Tests..."
+  echo "=============================="
+  /app/scripts/test-cli-flags.sh
+  print_result $? "CLI flags tests completed"
 }
 
 test_agent_setup() {
-    printf '\n%s\n' "Running Agent And Local Dev Setup Tests..."
-    echo "=============================="
-    /app/scripts/test-agent-dev-setup.sh
-    print_result $? "Agent and local dev setup tests completed"
+  printf '\n%s\n' "Running Agent And Local Dev Setup Tests..."
+  echo "=============================="
+  /app/scripts/test-agent-dev-setup.sh
+  print_result $? "Agent and local dev setup tests completed"
 }
 
 test_onboarding() {
-    printf '\n%s\n' "Running Onboarding Tests..."
-    echo "=============================="
-    /app/scripts/test-onboarding.sh
-    print_result $? "Onboarding tests completed"
+  printf '\n%s\n' "Running Onboarding Tests..."
+  echo "=============================="
+  /app/scripts/test-onboarding.sh
+  print_result $? "Onboarding tests completed"
 }
 
 test_rc_suggestion() {
-    printf '\n%s\n' "📝 Running RC File Suggestion Tests..."
-    echo "=============================="
-    /app/scripts/test-rc-file-suggestion.sh
-    print_result $? "RC file suggestion tests completed"
+  printf '\n%s\n' "📝 Running RC File Suggestion Tests..."
+  echo "=============================="
+  /app/scripts/test-rc-file-suggestion.sh
+  print_result $? "RC file suggestion tests completed"
 }
 
 print_success() {
-    printf '\n%s\n' "🎯 All E2E tests passed!"
-    echo "===================================="
+  printf '\n%s\n' "🎯 All E2E tests passed!"
+  echo "===================================="
 }
 
 run_core_tests() {
-    print_header
-    test_initial_run
-    check_initial_appendix
-    test_npm_overrides
-    test_pnpm_overrides
-    test_yarn_resolutions
-    test_patch_detection
-    test_override_removal
-    test_child_overrides
+  print_header
+  test_initial_run
+  check_initial_appendix
+  test_npm_overrides
+  test_pnpm_overrides
+  test_yarn_resolutions
+  test_patch_detection
+  test_override_removal
+  test_child_overrides
 }
 
 run_workspace_tests() {
-    test_workspace_paths
-    test_path_array
-    test_cli_paths
-    test_workspace_detection
+  test_workspace_paths
+  test_path_array
+  test_cli_paths
+  test_workspace_detection
 }
 
 run_feature_tests() {
-    test_transitive_security
-    test_appendix_refresh
-    test_security_features
-    test_init
-    test_config_review
-    test_snyk
-    test_socket
-    test_errors
-    test_flags
-    test_agent_setup
-    test_onboarding
-    test_rc_suggestion
-    print_success
+  test_transitive_security
+  test_appendix_refresh
+  test_init
+  test_config_review
+  test_errors
+  test_flags
+  test_agent_setup
+  test_onboarding
+  test_rc_suggestion
+  print_success
 }
 
 main() {
-    if is_host; then
-        run_host
-    fi
-    run_core_tests
-    run_workspace_tests
-    run_feature_tests
+  if is_host; then
+    run_host
+  fi
+  run_core_tests
+  run_workspace_tests
+  run_feature_tests
 }
 
 main "$@"

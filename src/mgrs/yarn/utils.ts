@@ -4,7 +4,11 @@ import { IS_DEBUGGING } from "../../constants";
 import { logger } from "../../observability";
 import type { SecurityPackage } from "../../types";
 import type { DependencyGraph, DependencyGraphState } from "../types";
-import { addDependencyParent, getPopulatedPackages } from "../utils";
+import {
+  addDependencyParent,
+  filterAmbiguousDependencyEdges,
+  getPopulatedPackages,
+} from "../utils";
 import {
   YARN_LOCK_FILENAME,
   YARN_BERRY_DEPENDENCY_PATTERN,
@@ -70,16 +74,21 @@ const parseYarnLockBlock = (block: string): SecurityPackage | undefined => {
   return pkg;
 };
 
+const parseYarnLockPackages = (content: string): SecurityPackage[] => {
+  const packages = content.split(/\n(?=\S)/).flatMap((block) => {
+    const pkg = parseYarnLockBlock(block.trim());
+    const matches = pkg ? [pkg] : [];
+    return matches;
+  });
+  return packages;
+};
+
 export const parseYarnLockedPackages = (root: string): SecurityPackage[] | undefined => {
   const lockPath = resolve(root, YARN_LOCK_FILENAME);
   if (!fs.existsSync(lockPath)) return undefined;
   try {
     const content = fs.readFileSync(lockPath, "utf8");
-    const packages = content.split(/\n(?=\S)/).flatMap((block) => {
-      const pkg = parseYarnLockBlock(block.trim());
-      const matches = pkg ? [pkg] : [];
-      return matches;
-    });
+    const packages = parseYarnLockPackages(content);
     const inventory = getPopulatedPackages(packages);
     return inventory;
   } catch {
@@ -151,7 +160,9 @@ export const parseYarnLockGraph = (root: string): Record<string, string[]> | und
     content.split("\n").forEach((line) => {
       addYarnGraphLine(inverted, state, line);
     });
-    return inverted;
+    const packages = parseYarnLockPackages(content);
+    const filteredGraph = filterAmbiguousDependencyEdges(inverted, packages);
+    return filteredGraph;
   } catch {
     log.debug("Could not read dependency graph", "parseYarnLockGraph", lockPath);
     return undefined;

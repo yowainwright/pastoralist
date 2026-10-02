@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import { IS_DEBUGGING } from "../constants";
 import { logger } from "../observability";
+import { countBy } from "../utils";
 import type { OverrideValue, PastoralistJSON, SecurityPackage } from "../types";
 import type { DependencyGraph, OverrideField } from "./types";
 
@@ -61,6 +62,57 @@ export const addPackageDependencies = (
   Object.keys(dependencies).forEach((dependency) => {
     addDependencyParent(graph, dependency, parent);
   });
+};
+
+const findAmbiguousPackageNames = (packages: Pick<SecurityPackage, "name">[]): Set<string> => {
+  const counts = countBy(packages, (pkg) => pkg.name);
+  const duplicateNames = Array.from(counts)
+    .filter(([, count]) => count > 1)
+    .map(([name]) => name);
+  const ambiguousNames = new Set(duplicateNames);
+  return ambiguousNames;
+};
+
+const filterAmbiguousParents = (parents: string[], ambiguousNames: Set<string>): string[] => {
+  const unambiguousParents = parents.filter((parent) => !ambiguousNames.has(parent));
+  return unambiguousParents;
+};
+
+const filterAmbiguousEntry = (
+  [dependency, parents]: [string, string[]],
+  ambiguousNames: Set<string>,
+): [string, string[]] => {
+  const unambiguousParents = filterAmbiguousParents(parents, ambiguousNames);
+  const filteredEntry: [string, string[]] = [dependency, unambiguousParents];
+  return filteredEntry;
+};
+
+const hasUnambiguousDependencyName = (
+  [dependency]: [string, string[]],
+  ambiguousNames: Set<string>,
+): boolean => {
+  const isUnambiguous = !ambiguousNames.has(dependency);
+  return isUnambiguous;
+};
+
+const hasParents = ([, parents]: [string, string[]]): boolean => {
+  const hasParentEntries = parents.length > 0;
+  return hasParentEntries;
+};
+
+export const filterAmbiguousDependencyEdges = (
+  graph: DependencyGraph,
+  packages: Pick<SecurityPackage, "name">[],
+): DependencyGraph => {
+  const ambiguousNames = findAmbiguousPackageNames(packages);
+  const unambiguousEntries = Object.entries(graph).filter((entry) =>
+    hasUnambiguousDependencyName(entry, ambiguousNames),
+  );
+  const entries = unambiguousEntries
+    .map((entry) => filterAmbiguousEntry(entry, ambiguousNames))
+    .filter(hasParents);
+  const filteredGraph = Object.fromEntries(entries);
+  return filteredGraph;
 };
 
 export const countPatternLockPackages = (lockPath: string, pattern: RegExp): number => {

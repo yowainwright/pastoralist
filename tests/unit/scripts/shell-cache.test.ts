@@ -59,6 +59,7 @@ const createFixture = (t: TestContext): string => {
   writeProject(root);
   writeTool(root, "shellcheck");
   writeTool(root, "shellcheck-legibility");
+  writeTool(root, "shfmt");
   writeFileSync(join(root, "scripts/check.sh"), "#!/bin/sh\nexit 0\n");
   return root;
 };
@@ -76,10 +77,10 @@ const runLint = (root: string, status = 0): number => {
 
 test("shell lint reuses success after unrelated source edits", (t) => {
   const root = createFixture(t);
-  assert.equal(runLint(root), 2);
-  assert.equal(runLint(root), 2);
+  assert.equal(runLint(root), 3);
+  assert.equal(runLint(root), 3);
   writeFileSync(join(root, "src/index.ts"), "export const value = 1;\n");
-  assert.equal(runLint(root), 2);
+  assert.equal(runLint(root), 3);
 });
 
 const changedInputs = [
@@ -95,24 +96,24 @@ const changedInputs = [
 changedInputs.forEach((path) => {
   test(`shell lint invalidates changed input ${path}`, (t) => {
     const root = createFixture(t);
-    assert.equal(runLint(root), 2);
+    assert.equal(runLint(root), 3);
     writeFileSync(join(root, path), "changed\n");
-    assert.equal(runLint(root), 4);
+    assert.equal(runLint(root), 6);
   });
 });
 
-["shellcheck", "shellcheck-legibility"].forEach((name) => {
+["shellcheck", "shellcheck-legibility", "shfmt"].forEach((name) => {
   test(`shell lint invalidates changed ${name} version`, (t) => {
     const root = createFixture(t);
-    assert.equal(runLint(root), 2);
+    assert.equal(runLint(root), 3);
     writeTool(root, name, "2");
-    assert.equal(runLint(root), 4);
+    assert.equal(runLint(root), 6);
   });
 });
 
 test("shell lint never caches a failed check", (t) => {
   const root = createFixture(t);
-  writeTool(root, "shellcheck-legibility", "1", 1);
-  assert.equal(runLint(root, 1), 2);
-  assert.equal(runLint(root, 1), 4);
+  writeTool(root, "shfmt", "1", 1);
+  assert.equal(runLint(root, 1), 3);
+  assert.equal(runLint(root, 1), 6);
 });

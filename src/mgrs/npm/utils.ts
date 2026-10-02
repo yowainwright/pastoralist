@@ -2,7 +2,12 @@ import * as fs from "fs";
 import { resolve } from "path";
 import type { SecurityPackage } from "../../types";
 import { UNKNOWN_DEPENDENCY_VERSION } from "../constants";
-import { addDependencyParent, addPackageDependencies, getPopulatedPackages } from "../utils";
+import {
+  addDependencyParent,
+  addPackageDependencies,
+  filterAmbiguousDependencyEdges,
+  getPopulatedPackages,
+} from "../utils";
 import { IS_DEBUGGING } from "../../constants";
 import { logger } from "../../observability";
 import type { DependencyTree, DependencyGraph } from "../types";
@@ -217,8 +222,11 @@ export const parseNpmLockGraph = (root: string): Record<string, string[]> | unde
   try {
     const content = fs.readFileSync(lockPath, "utf8");
     const lock = JSON.parse(content) as NpmLockFile;
-    const inverted = getNpmDependencyGraph(lock);
-    return inverted;
+    const graph = getNpmDependencyGraph(lock);
+    if (!graph) return undefined;
+    const packageNames = collectNpmLockedPackages(lock);
+    const filteredGraph = filterAmbiguousDependencyEdges(graph, packageNames);
+    return filteredGraph;
   } catch {
     log.debug("Could not read dependency graph", "parseNpmLockGraph", lockPath);
     return undefined;

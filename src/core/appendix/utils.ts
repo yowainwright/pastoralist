@@ -17,8 +17,7 @@ import type {
   LedgerChangeField,
 } from "./types";
 import type { LedgerTransform } from "../types";
-import { packageAtVersion } from "../../utils";
-import { compareVersions } from "../../utils";
+import { compareVersions, omit, packageAtVersion } from "../../utils";
 import { getSeverityScore } from "../security/utils";
 import {
   APPENDIX_SEMVER_PATTERN,
@@ -363,13 +362,16 @@ export const findTopLevelDependents = (
   return sorted;
 };
 
-const hasGraphEntries = (dependencyGraph?: Record<string, string[]>): boolean =>
-  Object.keys(dependencyGraph ?? {}).length > 0;
-
 const pickIndirectLabel = (topLevel: string[], isLockedOnly: boolean): string => {
   const isTransitive = topLevel.length > 0 || isLockedOnly;
   const label = isTransitive ? TRANSITIVE_DEPENDENCY_LABEL : UNUSED_OVERRIDE_LABEL;
   return label;
+};
+
+const describeNamedDependents = (override: string, topLevel: string[]): string => {
+  const dependents = topLevel.slice(0, REQUIRED_BY_DEPENDENT_LIMIT).join(", ");
+  const info = `${override} (${REQUIRED_BY_LABEL} ${dependents})`;
+  return info;
 };
 
 const describeIndirectDependency = (
@@ -383,11 +385,11 @@ const describeIndirectDependency = (
     : immediate;
   const canNameDependents = override.trim() === name && topLevel.length > 0;
   if (canNameDependents) {
-    const dependents = topLevel.slice(0, REQUIRED_BY_DEPENDENT_LIMIT).join(", ");
-    const info = `${override} (${REQUIRED_BY_LABEL} ${dependents})`;
+    const info = describeNamedDependents(override, topLevel);
     return info;
   }
-  const isLockedOnly = !hasGraphEntries(dependencyGraph) && Boolean(dependencyTree?.[name]);
+  const hasGraphParents = Boolean(dependencyGraph?.[name]?.length);
+  const isLockedOnly = !hasGraphParents && Boolean(dependencyTree?.[name]);
   const label = pickIndirectLabel(topLevel, isLockedOnly);
   const info = `${override} ${label}`;
   return info;
@@ -532,10 +534,24 @@ const hasChangedLedger = (fresh: Ledger | undefined, previous: Ledger | undefine
   return isChanged;
 };
 
-const isUpdatedEntry = (item: AppendixItem, previous: AppendixItem): boolean => {
+const hasChangedSecurityCheckDate = (fresh: Ledger | undefined, previous: Ledger | undefined) => {
+  const isReported = fresh?.securityCheckDate !== undefined;
+  const isDifferent = !sameValue(fresh?.securityCheckDate, previous?.securityCheckDate);
+  const isChanged = isReported && isDifferent;
+  return isChanged;
+};
+
+const hasEntryContentChanged = (item: AppendixItem, previous: AppendixItem): boolean => {
   const dependentsChanged = hasChangedDependents(item, previous);
   const ledgerChanged = hasChangedLedger(item.ledger, previous.ledger);
-  const isUpdated = dependentsChanged || ledgerChanged;
+  const isChanged = dependentsChanged || ledgerChanged;
+  return isChanged;
+};
+
+const isUpdatedEntry = (item: AppendixItem, previous: AppendixItem): boolean => {
+  const contentChanged = hasEntryContentChanged(item, previous);
+  const checkDateChanged = hasChangedSecurityCheckDate(item.ledger, previous.ledger);
+  const isUpdated = contentChanged || checkDateChanged;
   return isUpdated;
 };
 
@@ -544,7 +560,12 @@ const carryLedger = (item: AppendixItem, previous: AppendixItem): Ledger | undef
   const unchanged = previous.ledger ?? item.ledger;
   if (!isUpdated) return unchanged;
   const updated = Object.assign({}, previous.ledger, item.ledger);
-  return updated;
+  const contentChanged = hasEntryContentChanged(item, previous);
+  const previousAddedDate = previous.ledger?.addedDate;
+  const shouldRefreshAddedDate = contentChanged || previousAddedDate === undefined;
+  if (shouldRefreshAddedDate) return updated;
+  const carried = Object.assign({}, updated, { addedDate: previousAddedDate });
+  return carried;
 };
 
 const carryPreviousItem = (
@@ -695,9 +716,18 @@ const isCompactAppendixItem = (
 ): item is CompactAppendixItem => "addedDate" in item;
 
 const normalizeAppendixItem = (item: AppendixItem | CompactAppendixItem): AppendixItem => {
-  if (!isCompactAppendixItem(item)) return item;
+  if (!isCompactAppendixItem(item)) {
+    const existingLedger = item.ledger;
+    const ledger = existingLedger ? normalizeLedgerCveField(existingLedger) : existingLedger;
+    if (ledger === existingLedger) return item;
+    const normalizedItem = Object.assign({}, item, { ledger });
+    return normalizedItem;
+  }
+
   const { addedDate, ...appendixItem } = item;
-  const ledger = Object.assign({}, appendixItem.ledger, { addedDate });
+  const existingLedger = appendixItem.ledger;
+  const normalizedLedger = existingLedger ? normalizeLedgerCveField(existingLedger) : undefined;
+  const ledger = Object.assign({}, normalizedLedger, { addedDate });
   const result = Object.assign({}, appendixItem, { ledger });
   return result;
 };
@@ -747,10 +777,7 @@ export const findUnusedAppendixEntries = (
 };
 
 export const removeAppendixKeys = (appendix: Appendix, keys: string[]): Appendix => {
-  const keySet = new Set(keys);
-  const result = Object.fromEntries(
-    Object.entries(appendix).filter(([key]) => !keySet.has(key)),
-  ) as Appendix;
+  const result = omit(appendix, keys);
   return result;
 };
 
@@ -766,7 +793,6 @@ export const removeOverrideKeys = (
   overrides: Record<string, string | Record<string, string>>,
   packageNames: string[],
 ): Record<string, string | Record<string, string>> => {
-  const nameSet = new Set(packageNames);
-  const result = Object.fromEntries(Object.entries(overrides).filter(([key]) => !nameSet.has(key)));
+  const result = omit(overrides, packageNames);
   return result;
 };

@@ -4,7 +4,11 @@ import { IS_DEBUGGING } from "../../constants";
 import { logger } from "../../observability";
 import type { OverridesType, OverrideValue, PastoralistJSON, SecurityPackage } from "../../types";
 import type { DependencyGraph, DependencyGraphState } from "../types";
-import { addDependencyParent, getPopulatedPackages } from "../utils";
+import {
+  addDependencyParent,
+  filterAmbiguousDependencyEdges,
+  getPopulatedPackages,
+} from "../utils";
 import {
   PNPM_LOCK_FILENAME,
   PNPM_WORKSPACE_FILE,
@@ -159,7 +163,9 @@ export const parsePnpmLockGraph = (root: string): Record<string, string[]> | und
     content.split("\n").forEach((line) => {
       addPnpmGraphLine(inverted, state, line);
     });
-    return inverted;
+    const packages = parsePnpmLockDocuments(content);
+    const filteredGraph = filterAmbiguousDependencyEdges(inverted, packages);
+    return filteredGraph;
   } catch {
     log.debug("Could not read dependency graph", "parsePnpmLockGraph", lockPath);
     return undefined;

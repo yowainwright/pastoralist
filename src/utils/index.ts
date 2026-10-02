@@ -182,6 +182,66 @@ export const mergeInto = <T>(
   return target;
 };
 
+const appendToGroup = <T, K>(groups: Map<K, T[]>, key: K, item: T): void => {
+  const group = groups.get(key);
+  const updatedGroup = (group ?? []).concat(item);
+  groups.set(key, updatedGroup);
+};
+
+export const groupBy = <T, K>(items: T[], getKey: (item: T) => K): Map<K, T[]> => {
+  const groups = new Map<K, T[]>();
+  items.forEach((item) => appendToGroup(groups, getKey(item), item));
+  return groups;
+};
+
+export const countBy = <T, K>(items: T[], getKey: (item: T) => K): Map<K, number> => {
+  const counts = new Map<K, number>();
+  items.forEach((item) => {
+    const key = getKey(item);
+    const count = counts.get(key) ?? 0;
+    counts.set(key, count + 1);
+  });
+  return counts;
+};
+
+const toPropertyKey = (key: PropertyKey): string | symbol => {
+  if (typeof key === "symbol") return key;
+  const propertyKey = String(key);
+  return propertyKey;
+};
+
+const getEnumerableEntries = <T extends object>(object: T): [string | symbol, unknown][] => {
+  const enumerableKeys = Reflect.ownKeys(object).filter((key) =>
+    Object.prototype.propertyIsEnumerable.call(object, key),
+  );
+  const entries = enumerableKeys.map((key): [string | symbol, unknown] => {
+    const value = object[key as keyof T];
+    const entry: [string | symbol, unknown] = [key, value];
+    return entry;
+  });
+  return entries;
+};
+
+export const pick = <T extends object, K extends keyof T>(
+  object: T,
+  keys: readonly K[],
+): Pick<T, K> => {
+  const selectedKeys = new Set(keys.map(toPropertyKey));
+  const entries = getEnumerableEntries(object).filter(([key]) => selectedKeys.has(key));
+  const result = Object.fromEntries(entries) as Pick<T, K>;
+  return result;
+};
+
+export const omit = <T extends object, K extends keyof T>(
+  object: T,
+  keys: readonly K[],
+): Omit<T, K> => {
+  const omittedKeys = new Set(keys.map(toPropertyKey));
+  const entries = getEnumerableEntries(object).filter(([key]) => !omittedKeys.has(key));
+  const result = Object.fromEntries(entries) as Omit<T, K>;
+  return result;
+};
+
 export const createPackageKey =
   (separator = "@") =>
   (pkg: string) =>

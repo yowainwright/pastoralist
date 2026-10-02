@@ -17,7 +17,7 @@ import type {
 } from "./types";
 import { CONFIG_FILES, SECURITY_CONFIG_FIELDS, UNSUPPORTED_TYPESCRIPT_CONFIG } from "./constants";
 import { validateConfig } from "./validation";
-import { isRecord } from "../utils";
+import { isRecord, parsePackageJson } from "../utils";
 import { loadTargetAppendix, resolveAppendixTarget } from "../core/appendix";
 
 const configCache = new Map<string, LoadedConfig>();
@@ -301,13 +301,30 @@ export const loadConfig = async (
   return result;
 };
 
+const getPackageConfigErrorMessage = (path: string): string => {
+  try {
+    const content = readFileSync(path, "utf8");
+    const packageConfig = parsePackageJson(content);
+    if (!packageConfig) {
+      const invalidJsonMessage = `Invalid JSON at: ${path}`;
+      return invalidJsonMessage;
+    }
+    const loadErrorMessage = `Unable to load package.json at ${path}`;
+    return loadErrorMessage;
+  } catch {
+    const readErrorMessage = `Unable to read JSON at: ${path}`;
+    return readErrorMessage;
+  }
+};
+
 const loadPackageConfig = (
   path: string,
   deps: Pick<CliConfigDeps, "resolveJSON">,
 ): PastoralistJSON => {
   const packageConfig = deps.resolveJSON(path);
   if (packageConfig) return packageConfig;
-  throw new Error(`Unable to load package.json at ${path}`);
+  const errorMessage = getPackageConfigErrorMessage(path);
+  throw new Error(errorMessage);
 };
 
 const createPastoralistField = (config: PastoralistConfig | undefined) => {

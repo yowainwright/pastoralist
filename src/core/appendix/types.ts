@@ -42,6 +42,7 @@ export type DependencyInfoArgs = [
   dependencyTree?: Record<string, string>,
   dependencyGraph?: Record<string, string[]>,
   directDeps?: Set<string>,
+  dependencyGraphAmbiguousParents?: Record<string, string[]>,
 ];
 
 export type PackageAppendixArgs = [
@@ -66,6 +67,7 @@ export interface ProcessOverrideOptions {
   onlyUsedOverrides?: boolean;
   dependencyTree?: Record<string, string>;
   dependencyGraph?: Record<string, string[]>;
+  dependencyGraphAmbiguousParents?: Record<string, string[]>;
   addedDate?: string;
   overrides?: OverridesType;
   overrideVersion?: string;

@@ -32,7 +32,7 @@ import type {
 } from "./types";
 import { resolveJSON, jsonCache } from "../package";
 import { getOverridesByType, resolveOverrides } from "../overrides";
-import { packageAtVersion } from "../../utils";
+import { packageAtVersion, pick } from "../../utils";
 import { NESTED_OVERRIDE_LABEL } from "./constants";
 import {
   mergeOverrideReasons,
@@ -50,6 +50,7 @@ import {
   mergeAppendixDependents,
   parseOverridePackageName,
   isResolvablePackageName,
+  hasAmbiguousPathToTopLevel,
 } from "./utils";
 
 const isJsonConfigPath = (path: string): boolean => {
@@ -194,6 +195,17 @@ const buildItemWithDependent = (
   return itemWithDependent;
 };
 
+const hasAmbiguousOverridePath = (
+  name: string,
+  options: ProcessOverrideOptions,
+  directDeps: Set<string>,
+): boolean => {
+  const graphContext = pick(options, ["dependencyGraph", "dependencyGraphAmbiguousParents"]);
+  const pathContext = Object.assign({}, graphContext, { directDeps });
+  const hasAmbiguousPath = hasAmbiguousPathToTopLevel(name, pathContext);
+  return hasAmbiguousPath;
+};
+
 const isUnusedSimpleOverride = (options: ProcessOverrideOptions): boolean => {
   const { override, deps, dependencyTree, dependencyGraph } = options;
   const hasOverride = hasDependency(deps, override);
@@ -208,9 +220,11 @@ const isUnusedSimpleOverride = (options: ProcessOverrideOptions): boolean => {
   const topLevel = findTopLevelDependents(name, dependencyGraph, depNames);
   if (topLevel.length > 0) return false;
 
-  const hasGraphParents = Boolean(dependencyGraph?.[name]?.length);
-  const canJudgeByGraph = hasGraphParents && depNames.size > 0;
-  if (canJudgeByGraph) return true;
+  const hasAmbiguousPath = hasAmbiguousOverridePath(name, options, depNames);
+  if (hasAmbiguousPath) return false;
+
+  const hasDependencyGraph = dependencyGraph !== undefined;
+  if (hasDependencyGraph) return true;
 
   const isInDependencyTree = Boolean(dependencyTree?.[name]);
   const result = !isInDependencyTree;
@@ -230,6 +244,7 @@ const buildSimpleDependentInfo = (options: ProcessOverrideOptions): string => {
     dependencyTree,
     dependencyGraph,
     directDeps,
+    options.dependencyGraphAmbiguousParents,
   );
   return dependentInfo;
 };
@@ -404,6 +419,16 @@ const getPackageDependencyFields = (
   return fields;
 };
 
+const hasMatchingTreeOverride = (
+  overridesList: string[],
+  dependencyTree: AppendixDependencyContext["dependencyTree"],
+): boolean =>
+  overridesList.some((override) => {
+    const name = parseOverridePackageName(override);
+    const isInDependencyTree = Boolean(dependencyTree?.[name]);
+    return isInDependencyTree;
+  });
+
 const hasMatchingPackageOverrides = (
   packageJSON: PastoralistJSON,
   overridesList: string[],
@@ -414,11 +439,10 @@ const hasMatchingPackageOverrides = (
   const hasDirectMatch = hasDependenciesMatchingOverrides(depList, overridesList);
   if (hasDirectMatch) return true;
 
-  const hasLockedMatch = overridesList.some((override) => {
-    const name = parseOverridePackageName(override);
-    const isInDependencyTree = Boolean(dependencyContext.dependencyTree?.[name]);
-    return isInDependencyTree;
-  });
+  const canUseDependencyTree = dependencyContext.dependencyGraph === undefined;
+  const hasLockedMatch =
+    canUseDependencyTree &&
+    hasMatchingTreeOverride(overridesList, dependencyContext.dependencyTree);
   if (hasLockedMatch) return true;
 
   const deps = new Set(depList);

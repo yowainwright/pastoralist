@@ -188,12 +188,13 @@ export interface UpdateAppendixOptions {
   onlyUsedOverrides?: boolean;
   dependencyTree?: Record<string, string>;
   dependencyGraph?: Record<string, string[]>;
+  dependencyGraphAmbiguousParents?: Record<string, string[]>;
   addedDate?: string;
 }
 
 export type AppendixDependencyContext = Pick<
   UpdateAppendixOptions,
-  "dependencyTree" | "dependencyGraph"
+  "dependencyTree" | "dependencyGraph" | "dependencyGraphAmbiguousParents"
 >;
 
 export interface SecurityOptions {

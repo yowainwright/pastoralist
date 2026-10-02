@@ -353,13 +353,20 @@ test("buildDependentInfo - marks an override the project does not reach as unuse
   assert.equal(info, "vite (unused override)");
 });
 
-test("buildDependentInfo - uses the dependency tree when the graph has no matching path", () => {
+test("buildDependentInfo - uses the dependency tree when no graph is available", () => {
+  const rootDeps = new Set(["release-it"]);
+  const dependencyTree = { vite: "8.2.1" };
+  const info = buildDependentInfo(false, "vite", undefined, dependencyTree, undefined, rootDeps);
+  assert.equal(info, "vite (transitive dependency)");
+});
+
+test("buildDependentInfo - ignores the tree when a graph has no matching path", () => {
   const rootDeps = new Set(["release-it"]);
   const releaseItParents = ["release-it"];
   const graph = { undici: releaseItParents };
   const dependencyTree = { vite: "8.2.1" };
   const info = buildDependentInfo(false, "vite", undefined, dependencyTree, graph, rootDeps);
-  assert.equal(info, "vite (transitive dependency)");
+  assert.equal(info, "vite (unused override)");
 });
 
 test("dropSupersededUnusedDependents - removes unused notes when another project uses it", () => {

@@ -30,6 +30,7 @@ import {
 import type { OverrideField, PackageManager } from "./types";
 import type { ResolverConfigGuard } from "../../mgrs/types";
 import { getJsManager } from "../../mgrs";
+import { getAmbiguousDependencyParents } from "../../mgrs/utils";
 import {
   applyOverridesToConfig,
   detectPackageManager,
@@ -428,6 +429,7 @@ type DependencyGraph = Record<string, string[]>;
 type DependencyGraphStatus = {
   graph: DependencyGraph;
   available: boolean;
+  ambiguousDependencyParents?: Record<string, string[]>;
 };
 
 let graphCache: Map<string, DependencyGraphStatus> | null = null;
@@ -440,6 +442,16 @@ const parseDependencyGraph = (
   return dependencyGraph;
 };
 
+const addAmbiguousDependencyParents = (
+  status: DependencyGraphStatus,
+  ambiguousDependencyParents: Record<string, string[]>,
+): DependencyGraphStatus => {
+  const hasAmbiguousParents = Object.keys(ambiguousDependencyParents).length > 0;
+  if (!hasAmbiguousParents) return status;
+  const result = Object.assign({}, status, { ambiguousDependencyParents });
+  return result;
+};
+
 export const getDependencyGraphStatus = (root: string = process.cwd()): DependencyGraphStatus => {
   if (!graphCache) graphCache = new Map();
   const cacheKey = createDependencyGraphCacheKey(root);
@@ -449,7 +461,8 @@ export const getDependencyGraphStatus = (root: string = process.cwd()): Dependen
   const result = parseDependencyGraph(pm, root);
   const graph = result ?? {};
   const available = result !== undefined;
-  const status = { graph, available };
+  const ambiguousDependencyParents = getAmbiguousDependencyParents(result);
+  const status = addAmbiguousDependencyParents({ graph, available }, ambiguousDependencyParents);
   graphCache.set(cacheKey, status);
   return status;
 };

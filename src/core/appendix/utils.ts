@@ -330,6 +330,30 @@ const markVisited = (parents: string[], visited: Set<string>): void => {
   for (const parent of parents) visited.add(parent);
 };
 
+const getAmbiguousParents = (
+  frontier: string[],
+  ambiguousDependencyParents: Record<string, string[]>,
+): string[] => frontier.flatMap((parent) => ambiguousDependencyParents[parent] ?? []);
+
+const hasDirectParent = (parents: string[], directDeps: Set<string>): boolean =>
+  parents.some((parent) => directDeps.has(parent));
+
+const getPathParents = (frontier: string[], context: AmbiguousPathContext): string[] => {
+  const graphParents = frontier.flatMap((parent) => context.dependencyGraph?.[parent] ?? []);
+  const ambiguousParents = getAmbiguousParents(
+    frontier,
+    context.dependencyGraphAmbiguousParents ?? {},
+  );
+  const parents = graphParents.concat(ambiguousParents);
+  return parents;
+};
+
+const getUnvisitedParents = (parents: string[], visited: Set<string>): string[] => {
+  const uniqueParents = Array.from(new Set(parents));
+  const unvisitedParents = uniqueParents.filter((parent) => !visited.has(parent));
+  return unvisitedParents;
+};
+
 const recordTopLevel = (
   parents: string[],
   directDeps: Set<string>,
@@ -362,6 +386,33 @@ export const findTopLevelDependents = (
   return sorted;
 };
 
+type AmbiguousPathContext = {
+  dependencyGraph?: Record<string, string[]>;
+  dependencyGraphAmbiguousParents?: Record<string, string[]>;
+  directDeps?: Set<string>;
+};
+
+export const hasAmbiguousPathToTopLevel = (
+  name: string,
+  context: AmbiguousPathContext,
+): boolean => {
+  const ambiguousDependencyParents = context.dependencyGraphAmbiguousParents;
+  const directDeps = context.directDeps;
+  if (!ambiguousDependencyParents) return false;
+  if (!directDeps) return false;
+  const visited = new Set([name]);
+  let frontier = [name];
+  while (frontier.length > 0) {
+    const removedParents = getAmbiguousParents(frontier, ambiguousDependencyParents);
+    if (hasDirectParent(removedParents, directDeps)) return true;
+    const parents = getPathParents(frontier, context);
+    const unseen = getUnvisitedParents(parents, visited);
+    markVisited(unseen, visited);
+    frontier = unseen;
+  }
+  return false;
+};
+
 const pickIndirectLabel = (topLevel: string[], isLockedOnly: boolean): string => {
   const isTransitive = topLevel.length > 0 || isLockedOnly;
   const label = isTransitive ? TRANSITIVE_DEPENDENCY_LABEL : UNUSED_OVERRIDE_LABEL;
@@ -374,22 +425,57 @@ const describeNamedDependents = (override: string, topLevel: string[]): string =
   return info;
 };
 
-const describeIndirectDependency = (
-  override: string,
+const getTopLevelDependents = (
   name: string,
-  ...[dependencyTree, dependencyGraph, directDeps]: DependencyInfoArgs
-): string => {
+  dependencyGraph: Record<string, string[]> | undefined,
+  directDeps: Set<string> | undefined,
+): string[] => {
   const immediate = dependencyGraph?.[name] ?? NO_DEPENDENTS;
   const topLevel = directDeps
     ? findTopLevelDependents(name, dependencyGraph, directDeps)
     : immediate;
+  return topLevel;
+};
+
+const getNamedDependentInfo = (
+  override: string,
+  name: string,
+  topLevel: string[],
+): string | undefined => {
   const canNameDependents = override.trim() === name && topLevel.length > 0;
-  if (canNameDependents) {
-    const info = describeNamedDependents(override, topLevel);
-    return info;
-  }
-  const hasGraphParents = Boolean(dependencyGraph?.[name]?.length);
-  const isLockedOnly = !hasGraphParents && Boolean(dependencyTree?.[name]);
+  if (!canNameDependents) return undefined;
+  const info = describeNamedDependents(override, topLevel);
+  return info;
+};
+
+const isOnlyInDependencyTree = (
+  name: string,
+  dependencyTree?: Record<string, string>,
+  context: AmbiguousPathContext = {},
+): boolean => {
+  const hasAmbiguousPath = hasAmbiguousPathToTopLevel(name, context);
+  if (hasAmbiguousPath) return true;
+  const hasDependencyGraph = context.dependencyGraph !== undefined;
+  if (hasDependencyGraph) return false;
+  const isInDependencyTree = Boolean(dependencyTree?.[name]);
+  return isInDependencyTree;
+};
+
+const describeIndirectDependency = (
+  override: string,
+  name: string,
+  ...[
+    dependencyTree,
+    dependencyGraph,
+    directDeps,
+    dependencyGraphAmbiguousParents,
+  ]: DependencyInfoArgs
+): string => {
+  const topLevel = getTopLevelDependents(name, dependencyGraph, directDeps);
+  const namedDependentInfo = getNamedDependentInfo(override, name, topLevel);
+  if (namedDependentInfo) return namedDependentInfo;
+  const context = { dependencyGraph, dependencyGraphAmbiguousParents, directDeps };
+  const isLockedOnly = isOnlyInDependencyTree(name, dependencyTree, context);
   const label = pickIndirectLabel(topLevel, isLockedOnly);
   const info = `${override} ${label}`;
   return info;

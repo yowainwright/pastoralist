@@ -6,6 +6,7 @@ import type { OverrideValue, PastoralistJSON, SecurityPackage } from "../types";
 import type { DependencyGraph, OverrideField } from "./types";
 
 const log = logger({ file: "mgrs/utils.ts", isLogging: IS_DEBUGGING });
+const ambiguousParentsByGraph = new WeakMap<DependencyGraph, Record<string, string[]>>();
 
 export const getExistingOverrideField = (config: PastoralistJSON): OverrideField | null => {
   if (config.resolutions !== undefined) return "resolutions";
@@ -100,6 +101,42 @@ const hasParents = ([, parents]: [string, string[]]): boolean => {
   return hasParentEntries;
 };
 
+const getAmbiguousParentEntry = (
+  [dependency, parents]: [string, string[]],
+  ambiguousNames: Set<string>,
+): [string, string[]] | undefined => {
+  const isAmbiguousDependency = ambiguousNames.has(dependency);
+  const ambiguousParents = parents.filter((parent) => ambiguousNames.has(parent));
+  const parentsToKeep = isAmbiguousDependency ? parents : ambiguousParents;
+  if (parentsToKeep.length === 0) return undefined;
+  const entry: [string, string[]] = [dependency, parentsToKeep];
+  return entry;
+};
+
+const getAmbiguousParentEntries = (
+  graph: DependencyGraph,
+  ambiguousNames: Set<string>,
+): Array<[string, string[]]> => {
+  const possibleEntries = Object.entries(graph).map((entry) =>
+    getAmbiguousParentEntry(entry, ambiguousNames),
+  );
+  const entries = possibleEntries.filter(
+    (entry): entry is [string, string[]] => entry !== undefined,
+  );
+  return entries;
+};
+
+export const getAmbiguousDependencyParents = (
+  graph: DependencyGraph | undefined,
+): Record<string, string[]> => {
+  if (!graph) {
+    const emptyParents: Record<string, string[]> = {};
+    return emptyParents;
+  }
+  const ambiguousParents = ambiguousParentsByGraph.get(graph) ?? {};
+  return ambiguousParents;
+};
+
 export const filterAmbiguousDependencyEdges = (
   graph: DependencyGraph,
   packages: Pick<SecurityPackage, "name">[],
@@ -112,6 +149,12 @@ export const filterAmbiguousDependencyEdges = (
     .map((entry) => filterAmbiguousEntry(entry, ambiguousNames))
     .filter(hasParents);
   const filteredGraph = Object.fromEntries(entries);
+  const ambiguousParentEntries = getAmbiguousParentEntries(graph, ambiguousNames);
+  const hasAmbiguousParents = ambiguousParentEntries.length > 0;
+  if (hasAmbiguousParents) {
+    const ambiguousParents = Object.fromEntries(ambiguousParentEntries);
+    ambiguousParentsByGraph.set(filteredGraph, ambiguousParents);
+  }
   return filteredGraph;
 };
 

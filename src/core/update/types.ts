@@ -103,6 +103,7 @@ export interface UpdateContext {
   dependencyTree?: Record<string, string>;
   dependencyGraph?: Record<string, string[]>;
   dependencyGraphAvailable?: boolean;
+  dependencyGraphAmbiguousParents?: Record<string, string[]>;
   overridePaths?: Record<string, Appendix>;
   finalOverrides?: OverridesType;
   finalAppendix?: Appendix;

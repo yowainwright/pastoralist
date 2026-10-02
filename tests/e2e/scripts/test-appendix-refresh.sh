@@ -130,16 +130,42 @@ JSON
 
 run_cli() {
   cd "$project_dir"
-  IS_DEBUGGING=false NODE_OPTIONS='' node "$cli" --quiet --no-cache
+  exit_code=0
+  output="$(IS_DEBUGGING=false NODE_OPTIONS='' node "$cli" --quiet --no-cache 2>&1)" || exit_code=$?
+  if [ "$exit_code" -eq 0 ]; then
+    printf '%s\n' "$output"
+    return
+  fi
+  printf '%s\n' "$output" >&2
+  echo "Pastoralist CLI failed with status $exit_code" >&2
+  return "$exit_code"
 }
 
 check_keys() {
   keys="$(jq -r '.pastoralist.appendix | keys | join(",")' package.json)"
   expected="lodash@4.17.20,nanoid@3.3.18,postcss@8.5.23,undici@7.30.0,vite@8.2.1"
+  if appendix_keys_match; then
+    return
+  fi
+  echo "Expected appendix keys: $expected" >&2
+  echo "Actual appendix keys: $keys" >&2
+  return 1
+}
+
+appendix_keys_match() {
   test "$keys" = "$expected"
 }
 
 check_keep() {
+  if kept_override_marker_present; then
+    return
+  fi
+  echo "Expected lodash keep marker to remain true" >&2
+  jq '.pastoralist.appendix["lodash@4.17.20"] // null' package.json >&2
+  return 1
+}
+
+kept_override_marker_present() {
   jq -e '.pastoralist.appendix["lodash@4.17.20"].ledger.keep == true' package.json >/dev/null
 }
 
@@ -165,8 +191,20 @@ check_updated_dates() {
 
 check_dependents() {
   jq -e '.pastoralist.appendix["undici@7.30.0"].dependents == {"refresh-e2e": "undici (required by release-it)", "refresh-e2e-docs": "undici (required by shadcn)"}' package.json >/dev/null
+  echo "Undici dependents verified"
   jq -e '.pastoralist.appendix["postcss@8.5.23"].dependents == {"refresh-e2e": "postcss (required by release-it)", "refresh-e2e-docs": "postcss (required by shadcn, vite)"}' package.json >/dev/null
+  echo "PostCSS dependents verified"
   jq -e '.pastoralist.appendix["nanoid@3.3.18"].dependents == {"refresh-e2e": "nanoid (required by release-it)", "refresh-e2e-docs": "nanoid (required by shadcn, vite)"}' package.json >/dev/null
+  echo "Nanoid dependents verified"
+  if vite_dependents_match; then
+    return
+  fi
+  echo "Actual Vite dependents:" >&2
+  jq '.pastoralist.appendix["vite@8.2.1"].dependents // null' package.json >&2
+  return 1
+}
+
+vite_dependents_match() {
   jq -e '.pastoralist.appendix["vite@8.2.1"].dependents == {"refresh-e2e-docs": "vite@^8.2.1"}' package.json >/dev/null
 }
 
@@ -176,11 +214,17 @@ main() {
   write_workspace
   run_cli
   check_keys
+  echo "Appendix keys verified"
   check_keep
+  echo "Keep marker verified"
   check_unchanged_dates
+  echo "Unchanged ledger date verified"
   check_new_key_date
+  echo "New ledger date verified"
   check_updated_dates
+  echo "Updated ledger dates verified"
   check_dependents
+  echo "Dependent labels verified"
   echo "appendix refresh E2E passed"
 }
 

@@ -9,8 +9,32 @@ import * as packageJSON from "../../src/core/package";
 import { clearOSVCache } from "../../src/core/security/providers/osv";
 import { clearRegistryCache } from "../../src/utils/npm";
 import { clearConfigCache } from "../../src/config";
+import type { NpmPackageEntry } from "../../src/mgrs/npm/types";
 
 const TEST_DIR = resolve(import.meta.dirname, ".test-e2e-cli");
+
+const REMOVAL_FIXTURE_VERSIONS: Record<string, string> = {
+  lodash: "4.17.21",
+  express: "4.18.2",
+  qs: "6.11.0",
+};
+
+const createRemovalPackages = (rootPackage: NpmPackageEntry): Record<string, NpmPackageEntry> => {
+  const dependencies = Object.assign(
+    {},
+    rootPackage.dependencies,
+    rootPackage.devDependencies,
+    rootPackage.peerDependencies,
+  );
+  const entries = Object.keys(dependencies).map((name) => {
+    const version = REMOVAL_FIXTURE_VERSIONS[name];
+    assert.ok(version, `Missing locked version for removal fixture dependency: ${name}`);
+    const entry: [string, NpmPackageEntry] = [`node_modules/${name}`, { version }];
+    return entry;
+  });
+  const packages = Object.assign({ "": rootPackage }, Object.fromEntries(entries));
+  return packages;
+};
 
 const createFixture = (name: string, content: object) => {
   const dir = join(TEST_DIR, name);
@@ -29,12 +53,13 @@ const createRemovalFixture = (name: string, content: object): string => {
     devDependencies: config.devDependencies,
     peerDependencies: config.peerDependencies,
   };
+  const packages = createRemovalPackages(rootPackage);
   const lockfile = {
     name: config.name,
     version: config.version,
     lockfileVersion: 3,
     requires: true,
-    packages: { "": rootPackage },
+    packages,
   };
   writeFileSync(join(dirname(packagePath), "package-lock.json"), JSON.stringify(lockfile, null, 2));
   return packagePath;
@@ -687,6 +712,56 @@ test("e2e: orphaned override gets removed with removeUnused", async () => {
   const result = JSON.parse(readFileSync(pkgPath, "utf-8"));
   assert.strictEqual(result.overrides?.["phantom-pkg"], undefined);
   assert.strictEqual(result.pastoralist?.appendix?.["phantom-pkg@2.0.0"], undefined);
+});
+
+["direct", "transitive"].forEach((missingDependency) => {
+  test(`e2e: removeUnused preserves overrides when a ${missingDependency} lock entry is missing`, async () => {
+    const pkgPath = createRemovalFixture(`incomplete-${missingDependency}`, {
+      name: "test-incomplete-lock",
+      version: "1.0.0",
+      dependencies: { lodash: "^4.17.20" },
+      overrides: { lodash: "4.17.21", "phantom-pkg": "2.0.0" },
+    });
+    const lockPath = join(dirname(pkgPath), "package-lock.json");
+    const lockfile = JSON.parse(readFileSync(lockPath, "utf-8"));
+    if (missingDependency === "direct") {
+      delete lockfile.packages["node_modules/lodash"];
+    } else {
+      lockfile.packages["node_modules/lodash"].dependencies = { "missing-child": "1.0.0" };
+    }
+    writeFileSync(lockPath, JSON.stringify(lockfile, null, 2));
+
+    await action({ path: pkgPath, checkSecurity: false, removeUnused: true });
+
+    const result = JSON.parse(readFileSync(pkgPath, "utf-8"));
+    assert.deepStrictEqual(result.overrides, { lodash: "4.17.21", "phantom-pkg": "2.0.0" });
+    assert.notStrictEqual(result.pastoralist?.appendix?.["phantom-pkg@2.0.0"], undefined);
+  });
+});
+
+test("e2e: removeUnused keeps a resolved transitive override while removing an orphan", async () => {
+  const pkgPath = createRemovalFixture("transitive-cleanup", {
+    name: "test-transitive-cleanup",
+    version: "1.0.0",
+    dependencies: { express: "^4.18.0" },
+    overrides: { qs: "6.11.0", orphan: "1.0.0" },
+  });
+  const lockPath = join(dirname(pkgPath), "package-lock.json");
+  const lockfile = JSON.parse(readFileSync(lockPath, "utf-8"));
+  lockfile.packages["node_modules/express"].dependencies = { qs: "^6.0.0" };
+  lockfile.packages["node_modules/qs"] = { version: "6.11.0" };
+  writeFileSync(lockPath, JSON.stringify(lockfile, null, 2));
+
+  await action({ path: pkgPath, checkSecurity: false, removeUnused: true });
+
+  const result = JSON.parse(readFileSync(pkgPath, "utf-8"));
+  assert.deepStrictEqual(result.overrides, { qs: "6.11.0" });
+  const appendix = result.pastoralist.appendix;
+  assert.deepStrictEqual(Object.keys(appendix), ["qs@6.11.0"]);
+  assert.strictEqual(
+    appendix["qs@6.11.0"].dependents["test-transitive-cleanup"],
+    "qs (required by express)",
+  );
 });
 
 test("e2e: override for devDependency package kept with removeUnused", async () => {

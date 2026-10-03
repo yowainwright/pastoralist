@@ -1,4 +1,6 @@
 import * as fs from "fs";
+import type { DependencyManifest, ResolvedDependencyGraph } from "../core/dep-tracker";
+import type { DependencyGroups, ManifestResolver } from "./types";
 import { IS_DEBUGGING } from "../constants";
 import { logger } from "../observability";
 import { countBy } from "../utils";
@@ -168,4 +170,52 @@ export const countPatternLockPackages = (lockPath: string, pattern: RegExp): num
     log.debug("Could not count locked packages", "countPatternLockPackages", lockPath);
     return 0;
   }
+};
+
+export const mergeDependencyGroups = (groups: DependencyGroups): Record<string, string> =>
+  Object.assign(
+    {},
+    groups.peerDependencies,
+    groups.devDependencies,
+    groups.dependencies,
+    groups.optionalDependencies,
+  );
+
+export const unresolvedDependency = (parent: string, name: string): string => `\0${parent}>${name}`;
+
+export const readLockGraph = (
+  path: string,
+  parse: (content: string) => ResolvedDependencyGraph,
+): ResolvedDependencyGraph | undefined => {
+  try {
+    const content = fs.readFileSync(path, "utf8");
+    const graph = parse(content);
+    return graph;
+  } catch {
+    return undefined;
+  }
+};
+
+const createManifestRoot = (manifest: DependencyManifest, resolveDependency: ManifestResolver) => {
+  const dependencies = Object.entries(manifest.dependencies).map(([name, range]) => {
+    const id = resolveDependency(manifest, name, range);
+    const entry = [name, id];
+    return entry;
+  });
+  const directDependencies = Object.fromEntries(dependencies);
+  const root = { directDependencies };
+  return root;
+};
+
+export const createManifestRoots = (
+  manifests: DependencyManifest[],
+  resolveDependency: ManifestResolver,
+): ResolvedDependencyGraph["roots"] => {
+  const entries = manifests.map((manifest) => {
+    const root = createManifestRoot(manifest, resolveDependency);
+    const entry = [manifest.path, root];
+    return entry;
+  });
+  const roots = Object.fromEntries(entries);
+  return roots;
 };

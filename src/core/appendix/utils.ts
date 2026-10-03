@@ -425,6 +425,20 @@ const describeNamedDependents = (override: string, topLevel: string[]): string =
   return info;
 };
 
+export const describeTrackedDependency = (
+  override: string,
+  tracking: import("../dep-tracker").TrackedDependencies,
+): string | undefined => {
+  const name = parseOverridePackageName(override);
+  if (!isResolvablePackageName(name)) return undefined;
+  const topLevel = tracking.dependents[name] ?? NO_DEPENDENTS;
+  const named = getNamedDependentInfo(override, name, topLevel);
+  if (named) return named;
+  const label = pickIndirectLabel(topLevel, !tracking.complete);
+  const description = `${override} ${label}`;
+  return description;
+};
+
 const getTopLevelDependents = (
   name: string,
   dependencyGraph: Record<string, string[]> | undefined,

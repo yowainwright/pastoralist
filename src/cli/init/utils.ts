@@ -1,4 +1,4 @@
-import type { PastoralistConfig } from "../../../config";
+import type { PastoralistConfig } from "../../config";
 import { ONBOARDING_SECTIONS, ONBOARDING_TITLE } from "./constants";
 import type { InitAnswers, InitConfigFormat, OnboardingSection } from "./types";
 

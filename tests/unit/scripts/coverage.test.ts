@@ -66,12 +66,27 @@ const nodeMajor = Number(process.versions.node.split(".")[0]);
 const isNode20 = nodeMajor === 20;
 const skipOnNode20 = isNode20 ? "pnpm 11 requires Node 22 or newer" : false;
 
-test("test reporter emits color in CI output", { skip: skipOnNode20 }, () => {
-  const args = ["run", "test:setup", "--test", "tests/unit/utils/string.test.ts"];
+const assertNodeTestEnablesColor = (): void => {
+  const packageConfig = readJson<{ scripts: Record<string, string> }>("package.json");
+  const expectedCommand = "env -u NO_COLOR FORCE_COLOR=1 node --experimental-test-module-mocks";
+  assert.equal(packageConfig.scripts["test:node"], expectedCommand);
+};
+
+const runColorOutputTest = () => {
+  const packageConfig = readJson<{ scripts: Record<string, string> }>("package.json");
+  const testFiles = "--import=./tests/unit/setup.ts --test tests/unit/utils/string.test.ts";
+  const shellCommand = `${packageConfig.scripts["test:node"]} ${testFiles}`;
+  const args = ["-c", shellCommand];
   const env = createCiEnv();
   const encoding = "utf8" as const;
   const options = { cwd: root, encoding, env };
-  const result = spawnSync("pnpm", args, options);
+  const result = spawnSync("sh", args, options);
+  return result;
+};
+
+test("test reporter emits color in CI output", { skip: skipOnNode20 }, () => {
+  assertNodeTestEnablesColor();
+  const result = runColorOutputTest();
   const output = `${result.stdout}${result.stderr}`;
   const escape = String.fromCodePoint(27);
   const passSymbol = String.fromCodePoint(0x2714);

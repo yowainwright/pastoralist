@@ -1,4 +1,5 @@
 import type { JsManager } from "../types";
+import { readPnpmResolvedGraph } from "./utils";
 import { DETECT_FILES, LOCKFILES, REMOVAL } from "./constants";
 import {
   parsePnpmLockGraph,
@@ -21,6 +22,7 @@ export const pnpm: JsManager = {
   overrideField: "pnpm",
   readTree: parsePnpmLockTree,
   readGraph: parsePnpmLockGraph,
+  readResolvedGraph: readPnpmResolvedGraph,
   readPackages: parsePnpmLockedPackages,
   countPackages,
   resolveOverridePath: resolvePnpmSource,

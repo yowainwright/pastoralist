@@ -1,7 +1,7 @@
-import type { SecurityProvider, SeverityThreshold } from "../../../config";
-import type { PastoralistJSON } from "../../../types";
-import type { Logger } from "../../../observability";
-import type { Prompt } from "../../prompts";
+import type { SecurityProvider, SeverityThreshold } from "../../config";
+import type { PastoralistJSON } from "../../types";
+import type { Logger } from "../../observability";
+import type { Prompt } from "../prompts";
 
 export type InitSession = {
   prompt: Prompt;

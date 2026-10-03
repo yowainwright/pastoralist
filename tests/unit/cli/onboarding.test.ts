@@ -1,6 +1,6 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { buildOnboardingText, showOnboarding } from "../../../src/cli/cmds/init";
+import { buildOnboardingText, showOnboarding } from "../../../src/cli/init";
 
 describe("cli onboarding", () => {
   test("buildOnboardingText includes human usage", () => {

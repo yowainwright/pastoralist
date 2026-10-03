@@ -1,4 +1,5 @@
 import type { JsManager } from "../types";
+import { readBunResolvedGraph } from "./utils";
 import { LOCKFILES, REMOVAL } from "./constants";
 import {
   countBunLockPackages,
@@ -22,6 +23,7 @@ export const bun: JsManager = {
   overrideField: "overrides",
   readTree: parseBunLockTree,
   readGraph: parseBunLockGraph,
+  readResolvedGraph: readBunResolvedGraph,
   readPackages: parseBunLockedPackages,
   countPackages,
   removal: REMOVAL,

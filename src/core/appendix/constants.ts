@@ -3,7 +3,7 @@ export const OVERRIDE_PARENT_SEPARATOR_PATTERN = /(?<!@)>/;
 export const PACKAGE_NAME_PATTERN = /^(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/i;
 
 export const UNUSED_OVERRIDE_LABEL = "(unused override)";
-export const NESTED_OVERRIDE_LABEL = "(nested override)";
+export { NESTED_OVERRIDE_LABEL } from "./process/constants";
 export const UNRESOLVED_OVERRIDE_KEY_LABEL = "(kept: unresolved override key)";
 export const REQUIRED_BY_LABEL = "required by";
 export const TRANSITIVE_DEPENDENCY_LABEL = "(transitive dependency)";

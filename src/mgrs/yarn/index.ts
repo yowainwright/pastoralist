@@ -1,4 +1,5 @@
 import { resolve } from "path";
+import { readYarnResolvedGraph } from "./utils";
 import type { JsManager, ResolverConfigGuard } from "../types";
 import { countPatternLockPackages } from "../utils";
 import { LOCKFILES, YARN_LOCK_FILENAME, YARN_LOCK_PACKAGE_PATTERN, REMOVAL } from "./constants";
@@ -26,6 +27,7 @@ export const yarn: JsManager = {
   overrideField: "resolutions",
   readTree: parseYarnLockTree,
   readGraph: parseYarnLockGraph,
+  readResolvedGraph: readYarnResolvedGraph,
   readPackages: parseYarnLockedPackages,
   countPackages,
   removal,

@@ -443,6 +443,13 @@ test_transitive_security() {
   print_result $? "Transitive security regression completed"
 }
 
+test_security_features() {
+  printf '\n%s\n' "🔒 Running Security Feature Tests..."
+  echo "=============================="
+  /app/scripts/test-security-features.sh
+  print_result $? "Security feature tests completed"
+}
+
 test_appendix_refresh() {
   printf '\n%s\n' "Running appendix refresh regression..."
   PASTORALIST_E2E_CLI=/app/pastoralist/index.js /app/scripts/test-appendix-refresh.sh
@@ -461,6 +468,20 @@ test_config_review() {
   echo "=============================="
   /app/scripts/test-interactive-config.sh
   print_result $? "Interactive config review tests completed"
+}
+
+test_snyk() {
+  printf '\n%s\n' "🔐 Running Snyk Security Provider Tests..."
+  echo "=============================="
+  /app/scripts/test-snyk-security.sh
+  print_result $? "Snyk security provider tests completed"
+}
+
+test_socket() {
+  printf '\n%s\n' "🔌 Running Socket Security Provider Tests..."
+  echo "=============================="
+  /app/scripts/test-socket-security.sh
+  print_result $? "Socket security provider tests completed"
 }
 
 test_errors() {
@@ -524,9 +545,12 @@ run_workspace_tests() {
 
 run_feature_tests() {
   test_transitive_security
+  test_security_features
   test_appendix_refresh
   test_init
   test_config_review
+  test_snyk
+  test_socket
   test_errors
   test_flags
   test_agent_setup

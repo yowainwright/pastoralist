@@ -1192,8 +1192,8 @@ test("update - avoids attributing duplicate-name edges across workspaces", (t) =
   const result = update(options);
 
   const dependents = result.appendix?.["lodash@4.17.21"]?.dependents ?? {};
-  assert.strictEqual(dependents["root-app"], "lodash (transitive dependency)");
-  assert.strictEqual(dependents["pkg-a"], undefined);
+  assert.strictEqual(dependents["root-app"], undefined);
+  assert.strictEqual(dependents["pkg-a"], "lodash (required by express)");
   assert.strictEqual(dependents["pkg-b"], undefined);
 });
 

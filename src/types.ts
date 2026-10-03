@@ -189,12 +189,18 @@ export interface UpdateAppendixOptions {
   dependencyTree?: Record<string, string>;
   dependencyGraph?: Record<string, string[]>;
   dependencyGraphAmbiguousParents?: Record<string, string[]>;
+  dependencyTracking?: import("./core/dep-tracker").DependencyTracking;
+  trackedDependencies?: import("./core/dep-tracker").TrackedDependencies;
   addedDate?: string;
 }
 
 export type AppendixDependencyContext = Pick<
   UpdateAppendixOptions,
-  "dependencyTree" | "dependencyGraph" | "dependencyGraphAmbiguousParents"
+  | "dependencyTree"
+  | "dependencyGraph"
+  | "dependencyGraphAmbiguousParents"
+  | "dependencyTracking"
+  | "trackedDependencies"
 >;
 
 export interface SecurityOptions {

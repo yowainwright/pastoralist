@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -e
+set -o pipefail
 
 has_appendix() {
   grep -q '"pastoralist": {' package.json && grep -q '"appendix": {' package.json
@@ -27,6 +28,16 @@ init_git_repo() {
   git remote add origin https://github.com/test/test-repo.git
 }
 
+assert_mock_provider_ran() {
+  output_file="${1:?Output file is required}"
+  if grep -q "Using mock Dependabot alerts" "$output_file"; then
+    return 0
+  fi
+  echo "❌ GitHub mock provider did not run"
+  cat "$output_file"
+  exit 1
+}
+
 test_default_security() {
   printf '\n%s\n' "1️⃣ Test: Security disabled by default"
   cp /app/e2e/fixtures/security-vulnerable-package.json package.json
@@ -48,14 +59,9 @@ test_security_flag() {
   export PASTORALIST_MOCK_SECURITY=true
   export MOCK_ALERTS_FILE=/app/e2e/fixtures/mock-dependabot-alerts.json
 
-  node /app/pastoralist/index.js --checkSecurity --debug 2>&1 | tee security-output.log || true
-
-  # Check if security check was attempted
-  if grep -q "checking for security\|Starting security check\|Security check failed\|no security vulnerabilities found" security-output.log; then
-    echo "✅ Security check was triggered"
-  else
-    echo "⚠️  Security check may not have executed (API might be unavailable)"
-  fi
+  node /app/pastoralist/index.js --checkSecurity --securityProvider github --debug 2>&1 | tee security-output.log
+  assert_mock_provider_ran security-output.log
+  echo "✅ Security check used the GitHub mock provider"
 }
 
 test_disabled_config() {
@@ -78,13 +84,10 @@ test_enabled_config() {
 
   # Use mock for predictable testing
   export PASTORALIST_MOCK_SECURITY=true
-  node /app/pastoralist/index.js --debug 2>&1 | tee enabled-output.log || true
+  node /app/pastoralist/index.js --debug 2>&1 | tee enabled-output.log
 
-  if grep -q "checking for security\|Starting security check" enabled-output.log; then
-    echo "✅ Security enabled via config"
-  else
-    echo "⚠️  Security may not have run (API might be unavailable)"
-  fi
+  assert_mock_provider_ran enabled-output.log
+  echo "✅ Security enabled via config"
 }
 
 test_cli_priority() {
@@ -93,13 +96,9 @@ test_cli_priority() {
   init_git_repo
 
   # CLI flag should override config
-  node /app/pastoralist/index.js --checkSecurity --debug 2>&1 | tee override-output.log || true
-
-  if grep -q "checking for security\|Starting security check" override-output.log; then
-    echo "✅ CLI options override config"
-  else
-    echo "⚠️  CLI override may not have worked"
-  fi
+  PASTORALIST_MOCK_SECURITY=true node /app/pastoralist/index.js --checkSecurity --securityProvider github --debug 2>&1 | tee override-output.log
+  assert_mock_provider_ran override-output.log
+  echo "✅ CLI options override config"
 }
 
 test_appendix() {
@@ -166,14 +165,9 @@ test_forced_refactor() {
   export PASTORALIST_MOCK_SECURITY=true
   export MOCK_FORCE_VULNERABLE=true # Force mock to return vulnerable packages
 
-  node /app/pastoralist/index.js --checkSecurity --forceSecurityRefactor --debug 2>&1 | tee force-output.log || true
-
-  # Check if the option was processed
-  if grep -q "forceSecurityRefactor\|autoFix\|force.*security" force-output.log; then
-    echo "✅ Force refactor option processed"
-  else
-    echo "⚠️  Force refactor option may not have been processed"
-  fi
+  PASTORALIST_MOCK_SECURITY=true node /app/pastoralist/index.js --checkSecurity --securityProvider github --forceSecurityRefactor --debug 2>&1 | tee force-output.log
+  assert_mock_provider_ran force-output.log
+  echo "✅ Force refactor option used the GitHub mock provider"
 }
 
 print_success() {

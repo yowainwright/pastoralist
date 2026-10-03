@@ -5,7 +5,7 @@ import {
   OSVProvider,
   SpektionProvider,
 } from "./providers";
-import { PackageManagerAuditProvider } from "../../providers";
+import { PackageManagerAuditProvider } from "./providers";
 import {
   type SecurityAlert,
   type SecurityCheckProgress,

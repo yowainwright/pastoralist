@@ -1,5 +1,6 @@
 import { resolve } from "path";
 import type { JsManager } from "../types";
+import { readNpmResolvedGraph } from "./utils";
 import { LOCKFILES, NPM_LOCK_FILENAME, REMOVAL } from "./constants";
 import {
   countNpmLockPackages,
@@ -18,6 +19,7 @@ export const npm: JsManager = {
   overrideField: "overrides",
   readTree: parseNpmLockTree,
   readGraph: parseNpmLockGraph,
+  readResolvedGraph: readNpmResolvedGraph,
   readPackages: parseNpmLockedPackages,
   countPackages,
   removal: REMOVAL,

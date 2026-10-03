@@ -11,6 +11,20 @@ import type { ResolveOverrides } from "../../types";
 import type { Logger } from "../../observability";
 import type { OverrideSource } from "../overrides";
 
+export type DependencyGraphContext = Pick<
+  UpdateContext,
+  | "dependencyTree"
+  | "dependencyGraph"
+  | "dependencyGraphAvailable"
+  | "dependencyGraphAmbiguousParents"
+  | "dependencyTracking"
+>;
+
+export type RootDependencyContext = Pick<
+  UpdateContext,
+  "dependencyTree" | "dependencyGraph" | "dependencyGraphAmbiguousParents" | "dependencyTracking"
+>;
+
 export interface ProcessingMode {
   mode: "workspace" | "root";
   depPaths: string[] | null;
@@ -104,6 +118,7 @@ export interface UpdateContext {
   dependencyGraph?: Record<string, string[]>;
   dependencyGraphAvailable?: boolean;
   dependencyGraphAmbiguousParents?: Record<string, string[]>;
+  dependencyTracking?: import("../dep-tracker").DependencyTracking;
   overridePaths?: Record<string, Appendix>;
   finalOverrides?: OverridesType;
   finalAppendix?: Appendix;

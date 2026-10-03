@@ -1,4 +1,5 @@
 import type { PastoralistJSON, SecurityPackage } from "../types";
+import type { DependencyManifest, ResolvedDependencyGraph } from "../core/dep-tracker";
 
 export type PackageManager = "npm" | "yarn" | "pnpm" | "bun";
 export type OverrideField = "resolutions" | "overrides" | "pnpm";
@@ -29,6 +30,10 @@ export type JsManager = {
   overrideField: OverrideField;
   readTree: (root: string) => DependencyTree | undefined;
   readGraph: (root: string) => DependencyGraph | undefined;
+  readResolvedGraph: (
+    root: string,
+    manifests: DependencyManifest[],
+  ) => ResolvedDependencyGraph | undefined;
   readPackages: (root: string) => SecurityPackage[] | undefined;
   countPackages: (root: string) => number;
   resolveOverridePath?: (config: PastoralistJSON, manifestPath: string) => string | undefined;
@@ -38,4 +43,24 @@ export type JsManager = {
     config: PastoralistJSON,
   ) => void | Promise<void>;
   removal: RemovalConfig;
+};
+
+export type DependencyGroups = {
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+  optionalDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
+};
+
+export type ManifestResolver = (
+  manifest: DependencyManifest,
+  name: string,
+  range: string,
+) => string;
+
+export type YarnPackage = {
+  id: string;
+  name: string;
+  selectors: string[];
+  dependencies: Record<string, string>;
 };

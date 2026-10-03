@@ -1,5 +1,6 @@
 import { IS_DEBUGGING } from "../../constants";
 import { resolveDependencyTracking } from "./utils";
+import { getProjectDependencyUsage } from "../dep-tracker";
 import type { DependencyGraphContext, RootDependencyContext } from "./types";
 import { dirname, resolve } from "node:path";
 import type {
@@ -42,9 +43,10 @@ import {
 import {
   findUnusedAppendixEntries,
   removeAppendixKeys,
-  extractPackageNames,
   removeOverrideKeys,
   isKeptEntry,
+  parseOverridePackageName,
+  isResolvablePackageName,
 } from "../appendix/utils";
 import { writeResult, determineProcessingMode, findPackageFiles } from "./utils";
 import type { SecurityProviderType } from "../security/types";
@@ -490,18 +492,48 @@ const filterVerifiedRemovalKeys = (ctx: UpdateContext, unusedKeys: string[]): st
     const verifiedRemovalKeys = unusedKeys.filter((key) => allowedKeys.has(key));
     return verifiedRemovalKeys;
   }
-  if (ctx.isTesting) return unusedKeys;
-  if (ctx.dependencyGraphAvailable === true) return unusedKeys;
-  const verifiedRemovalKeys2: string[] = [];
-  return verifiedRemovalKeys2;
+  return unusedKeys;
 };
 
-const getRemovableAppendixKeys = (ctx: UpdateContext, appendix: Appendix): string[] => {
+const hasUnusedDependencyProof = (ctx: UpdateContext, override: string | undefined): boolean => {
+  if (override === undefined) return false;
+  const name = parseOverridePackageName(override);
+  if (!isResolvablePackageName(name)) return false;
+  const value = ctx.overrides?.[override];
+  if (value === "-") return false;
+  const usage = getProjectDependencyUsage(name, ctx.dependencyTracking);
+  const usesTestFixture = ctx.isTesting && ctx.dependencyTracking === undefined;
+  const unused = usage === "unused" || usesTestFixture;
+  return unused;
+};
+
+const getRemovableAppendixKeys = (
+  ctx: UpdateContext,
+  appendix: Appendix,
+  overrideNames: Map<string, string>,
+): string[] => {
   const unusedKeys = findUnusedAppendixEntries(appendix, ctx.rootDeps);
-  const verifiedKeys = filterVerifiedRemovalKeys(ctx, unusedKeys);
+  const provenUnusedKeys = unusedKeys.filter((key) => {
+    const override = overrideNames.get(key);
+    const unused = hasUnusedDependencyProof(ctx, override);
+    return unused;
+  });
+  const verifiedKeys = filterVerifiedRemovalKeys(ctx, provenUnusedKeys);
   const skipKeys = new Set(ctx.options?.skipRemovalKeys || []);
   const removableAppendixKeys = verifiedKeys.filter((key) => !skipKeys.has(key));
   return removableAppendixKeys;
+};
+
+const getAppendixOverrideNames = (overrides: OverridesType): Map<string, string> => {
+  const entries = Object.entries(overrides).flatMap(([name, value]) => {
+    const nested: Array<[string, string]> = [];
+    if (typeof value !== "string") return nested;
+    const key = `${name}@${value}`;
+    const entry: Array<[string, string]> = [[key, name]];
+    return entry;
+  });
+  const names = new Map(entries);
+  return names;
 };
 
 const appendixKeyHasCves =
@@ -540,25 +572,16 @@ const resolveRemovalDependencyGraph = (ctx: UpdateContext): UpdateContext => {
   return removalDependencyGraph;
 };
 
-const hasIncompleteDependencyTracking = (context: UpdateContext): boolean => {
-  const trackedManifests = Object.values(context.dependencyTracking ?? {});
-  const hasIncompleteTracking = trackedManifests.some(({ complete }) => !complete);
-  return hasIncompleteTracking;
-};
-
 const stepRemoveUnused = (ctx: UpdateContext): UpdateContext => {
   const context = resolveRemovalDependencyGraph(ctx);
   const base = createRemovalBaseContext(context);
   if (context.options?.removeUnused !== true) return base;
-  if (hasIncompleteDependencyTracking(context)) return base;
-  const lacksDependencyEvidence = !context.isTesting && context.dependencyGraphAvailable !== true;
-  if (lacksDependencyEvidence) return base;
-
   const appendix = base.finalAppendix || {};
   const overrides = base.finalOverrides || {};
-  const removableKeys = getRemovableAppendixKeys(context, appendix);
+  const overrideNames = getAppendixOverrideNames(overrides);
+  const removableKeys = getRemovableAppendixKeys(context, appendix, overrideNames);
   if (removableKeys.length === 0) return base;
-  const packageNames = extractPackageNames(removableKeys);
+  const packageNames = removableKeys.map((key) => overrideNames.get(key)!);
 
   warnCveRemovals(context, appendix, removableKeys);
   logUnusedRemoval(context, removableKeys, packageNames);

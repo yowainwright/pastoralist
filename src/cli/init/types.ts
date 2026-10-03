@@ -2,6 +2,14 @@ import type { SecurityProvider, SeverityThreshold } from "../../config";
 import type { PastoralistJSON } from "../../types";
 import type { Logger } from "../../observability";
 import type { Prompt } from "../prompts";
+import type { readFileSync, writeFileSync } from "node:fs";
+import type { resolve } from "node:path";
+
+export type SetupHookDeps = {
+  readFileSync: typeof readFileSync;
+  writeFileSync: typeof writeFileSync;
+  resolve: typeof resolve;
+};
 
 export type InitSession = {
   prompt: Prompt;

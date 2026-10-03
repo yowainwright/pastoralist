@@ -16,6 +16,14 @@ import type { logger } from "../../observability";
 import type { CliGraph, SecurityPhaseDeps } from "../types";
 import type { determineSecurityScanPaths } from "./index";
 
+export type SecurityFindingsArgs = [
+  graph: CliGraph,
+  alerts: SecurityAlert[],
+  securityOverrides: SecurityOverride[],
+  mergedOptions: Options,
+  packagesScanned: number,
+];
+
 export type SecurityCheckDeps = {
   createSpinner: typeof createSpinner;
   SecurityChecker: typeof SecurityChecker;

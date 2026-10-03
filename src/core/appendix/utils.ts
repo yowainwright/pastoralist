@@ -19,6 +19,7 @@ import type {
 import type { LedgerTransform } from "../types";
 import { compareVersions, omit, packageAtVersion } from "../../utils";
 import { getSeverityScore } from "../security/utils";
+import { getDependencyUsage, type DependencyUsage } from "../dep-tracker";
 import {
   APPENDIX_SEMVER_PATTERN,
   NPM_ALIAS_PREFIX,
@@ -34,6 +35,7 @@ import {
   TRANSITIVE_DEPENDENCY_LABEL,
   UNRESOLVED_OVERRIDE_KEY_LABEL,
   UNUSED_OVERRIDE_LABEL,
+  UNKNOWN_DEPENDENCY_LABEL,
 } from "./constants";
 
 const getReasonFromSecurityDetails = (
@@ -425,6 +427,12 @@ const describeNamedDependents = (override: string, topLevel: string[]): string =
   return info;
 };
 
+const getTrackedDependencyLabel = (usage: DependencyUsage): string => {
+  if (usage === "unknown") return UNKNOWN_DEPENDENCY_LABEL;
+  if (usage === "used") return TRANSITIVE_DEPENDENCY_LABEL;
+  return UNUSED_OVERRIDE_LABEL;
+};
+
 export const describeTrackedDependency = (
   override: string,
   tracking: import("../dep-tracker").TrackedDependencies,
@@ -434,7 +442,8 @@ export const describeTrackedDependency = (
   const topLevel = tracking.dependents[name] ?? NO_DEPENDENTS;
   const named = getNamedDependentInfo(override, name, topLevel);
   if (named) return named;
-  const label = pickIndirectLabel(topLevel, !tracking.complete);
+  const usage = getDependencyUsage(name, tracking);
+  const label = getTrackedDependencyLabel(usage);
   const description = `${override} ${label}`;
   return description;
 };

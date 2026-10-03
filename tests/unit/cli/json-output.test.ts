@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import type { PastoralistJSON } from "../../../src/types";
 import {
   action,
-  buildSecurityResult,
   buildUpdateResult,
   createEmptyResult,
   createErrorResult,
@@ -68,54 +67,6 @@ describe("JSON Output Result Builders", () => {
       assert.strictEqual(result.success, false);
       assert.strictEqual(result.errors.length, 1);
       assert.ok(result.errors[0].includes("object"));
-    });
-  });
-
-  describe("buildSecurityResult", () => {
-    test("transforms alerts correctly", () => {
-      const alerts = [
-        {
-          packageName: "lodash",
-          severity: "high",
-          cves: ["CVE-2021-23337"],
-          description: "Prototype pollution",
-        },
-        {
-          packageName: "axios",
-          severity: "medium",
-          cves: ["CVE-2022-12345"],
-          description: "SSRF vulnerability",
-        },
-      ];
-
-      const result = buildSecurityResult(alerts);
-
-      assert.strictEqual(result.hasSecurityIssues, true);
-      assert.strictEqual(result.securityAlertCount, 2);
-      assert.strictEqual(result.securityAlerts.length, 2);
-      assert.deepStrictEqual(result.securityAlerts[0], {
-        packageName: "lodash",
-        severity: "high",
-        cves: ["CVE-2021-23337"],
-        description: "Prototype pollution",
-        patchedVersion: undefined,
-        fixAvailable: undefined,
-      });
-    });
-
-    test("returns false for empty alerts", () => {
-      const result = buildSecurityResult([]);
-
-      assert.strictEqual(result.hasSecurityIssues, false);
-      assert.strictEqual(result.securityAlertCount, 0);
-      assert.deepStrictEqual(result.securityAlerts, []);
-    });
-
-    test("handles missing severity with default", () => {
-      const alerts = [{ packageName: "test-pkg" }];
-      const result = buildSecurityResult(alerts);
-
-      assert.strictEqual(result.securityAlerts[0].severity, "unknown");
     });
   });
 

@@ -10,6 +10,11 @@ import {
 import type { ComparableVersion } from "./types";
 import type { PastoralistJSON } from "../types";
 
+export const pluralSuffix = (count: number): string => {
+  if (count === 1) return "";
+  return "s";
+};
+
 export const isRecord = (value: unknown): value is Record<string, unknown> => {
   if (typeof value !== "object") return false;
   if (value === null) return false;

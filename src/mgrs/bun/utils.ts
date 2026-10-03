@@ -1,5 +1,9 @@
 import * as fs from "fs";
-import type { DependencyManifest, ResolvedDependencyGraph } from "../../core/dep-tracker";
+import type {
+  DependencyManifest,
+  DependencyDiagnosticReporter,
+  ResolvedDependencyGraph,
+} from "../../core/dep-tracker";
 import {
   createManifestRoots,
   mergeDependencyGroups,
@@ -249,10 +253,11 @@ const createPackage = (id: string, lock: BunLockFile) => {
   const name = reference.slice(0, reference.indexOf("@", 1));
   const groups = resolveGroups(entry, lock);
   const refs = mergeDependencyGroups(groups);
-  const dependencies = Object.keys(refs).map((dependency) =>
+  const dependencyNames = Object.keys(refs);
+  const dependencies = dependencyNames.map((dependency) =>
     resolvePackage(lock.packages!, id, dependency),
   );
-  const pkg = { name, dependencies };
+  const pkg = { name, dependencies, dependencyNames };
   return pkg;
 };
 
@@ -284,10 +289,16 @@ const normalizeBunGraph = (
   return graph;
 };
 
-export const readBunResolvedGraph = (root: string, manifests: DependencyManifest[]) => {
+export const readBunResolvedGraph = (
+  root: string,
+  manifests: DependencyManifest[],
+  report?: DependencyDiagnosticReporter,
+) => {
   const path = resolve(root, BUN_LOCK_FILENAME);
-  const graph = readLockGraph(path, (content) =>
-    normalizeBunGraph(parseBunLockFile(content), root, manifests),
+  const graph = readLockGraph(
+    path,
+    (content) => normalizeBunGraph(parseBunLockFile(content), root, manifests),
+    report,
   );
   return graph;
 };

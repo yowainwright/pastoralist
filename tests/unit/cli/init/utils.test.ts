@@ -1,11 +1,55 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { resolve } from "node:path";
 import {
   parseWorkspacePaths,
   buildConfig,
   generateConfigContent,
+  addPostinstallHook,
+  readPackageJson,
+  resolvePackagePath,
+  writePackageJson,
 } from "../../../../src/cli/init/utils";
 import type { InitAnswers } from "../../../../src/cli/init/types";
+
+test("addPostinstallHook preserves existing scripts without mutating the manifest", () => {
+  const scripts = { postinstall: "prepare", build: "tsc" };
+  const config = { scripts };
+  const result = addPostinstallHook(config);
+  assert.strictEqual(result.scripts.postinstall, "prepare && pastoralist");
+  assert.strictEqual(result.scripts.build, "tsc");
+  assert.strictEqual(config.scripts.postinstall, "prepare");
+  assert.notStrictEqual(result.scripts, scripts);
+});
+
+test("addPostinstallHook creates the first script", () => {
+  const result = addPostinstallHook({});
+  assert.deepStrictEqual(result.scripts, { postinstall: "pastoralist" });
+});
+
+test("resolvePackagePath resolves the manifest relative to the project root", () => {
+  const options = { root: "/project", path: "packages/app/package.json" };
+  const path = resolvePackagePath(options, { resolve });
+  assert.strictEqual(path, "/project/packages/app/package.json");
+});
+
+test("init manifest helpers read and write formatted JSON", (t) => {
+  const config = { name: "fixture" };
+  const content = JSON.stringify(config);
+  const readFileSync = t.mock.fn(() => content);
+  const writeFileSync = t.mock.fn();
+  const read = readPackageJson("package.json", { readFileSync });
+  writePackageJson("package.json", read, { writeFileSync });
+  const expected = JSON.stringify(config, null, 2) + "\n";
+  assert.deepStrictEqual(read, config);
+  assert.deepStrictEqual(readFileSync.mock.calls[0].arguments, ["package.json", "utf8"]);
+  assert.deepStrictEqual(writeFileSync.mock.calls[0].arguments, ["package.json", expected]);
+});
+
+test("readPackageJson rejects malformed JSON", (t) => {
+  const readFileSync = t.mock.fn(() => "invalid");
+  assert.throws(() => readPackageJson("package.json", { readFileSync }), /Invalid package.json/);
+});
 
 test("parseWorkspacePaths - should parse comma-separated paths", () => {
   const result = parseWorkspacePaths("packages/*, apps/*");

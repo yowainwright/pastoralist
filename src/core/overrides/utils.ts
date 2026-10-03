@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { dirname, extname, resolve } from "path";
 import { getJsManager } from "../../mgrs";
+import { getDevPackageManager } from "../../mgrs/utils";
 import type { OverridesType, PastoralistJSON } from "../../types";
 import { omit, parsePackageJson } from "../../utils";
 import { PACKAGE_MANAGERS } from "./constants";
@@ -20,7 +21,8 @@ import {
 import { parsePnpmWorkspaceOverrides, updatePnpmWorkspaceOverrides } from "../../mgrs/pnpm/utils";
 
 const getDeclaredPackageManager = (config: PastoralistJSON): PackageManager | undefined => {
-  const name = config.packageManager?.split("@")[0] as PackageManager | undefined;
+  const engine = getDevPackageManager(config);
+  const name = (engine?.name ?? config.packageManager?.split("@")[0]) as PackageManager | undefined;
   const isKnownManager = Boolean(name && PACKAGE_MANAGERS.has(name));
   if (!isKnownManager) return undefined;
   return name;

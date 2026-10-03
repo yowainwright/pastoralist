@@ -1,4 +1,15 @@
-import type { SummaryRowConfig } from "./types";
+import type { SummaryRowConfig, TableColor } from "./types";
+
+export const BINARY_NAME = "pastoralist";
+
+export const SUMMARY_COLORS = new Map<string, TableColor>([
+  ["severityCritical", "red"],
+  ["severityHigh", "red"],
+  ["severityMedium", "yellow"],
+  ["severityLow", "gray"],
+  ["vulnerabilitiesBlocked", "green"],
+  ["overridesAdded", "cyan"],
+]);
 
 export const SUMMARY_ROW_CONFIG: SummaryRowConfig[] = [
   { label: "Packages scanned", key: "total" },

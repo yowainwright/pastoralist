@@ -1,5 +1,9 @@
 import * as fs from "fs";
-import type { DependencyManifest, ResolvedDependencyGraph } from "../../core/dep-tracker";
+import type {
+  DependencyManifest,
+  DependencyDiagnosticReporter,
+  ResolvedDependencyGraph,
+} from "../../core/dep-tracker";
 import { createManifestRoots, readLockGraph, unresolvedDependency } from "../utils";
 import type { YarnPackage } from "../types";
 import { parsePair, parseQuotedScalar } from "../pnpm/utils";
@@ -172,11 +176,12 @@ const selectorEntries = (pkg: YarnPackage): Array<[string, string]> =>
   pkg.selectors.map((selector) => [selector, pkg.id]);
 
 const createPackage = (pkg: YarnPackage, selectors: Map<string, string>) => {
+  const dependencyNames = Object.keys(pkg.dependencies);
   const dependencies = Object.entries(pkg.dependencies).map(([name, range]) =>
     resolveReference(selectors, name, range),
   );
   const metadata = pick(pkg, ["name"]);
-  const instance = Object.assign({}, metadata, { dependencies });
+  const instance = Object.assign({}, metadata, { dependencies, dependencyNames });
   const entry = [pkg.id, instance];
   return entry;
 };
@@ -210,9 +215,13 @@ const normalizeYarnGraph = (
   return graph;
 };
 
-export const readYarnResolvedGraph = (root: string, manifests: DependencyManifest[]) => {
+export const readYarnResolvedGraph = (
+  root: string,
+  manifests: DependencyManifest[],
+  report?: DependencyDiagnosticReporter,
+) => {
   const path = resolve(root, YARN_LOCK_FILENAME);
-  const graph = readLockGraph(path, (content) => normalizeYarnGraph(content, manifests));
+  const graph = readLockGraph(path, (content) => normalizeYarnGraph(content, manifests), report);
   return graph;
 };
 

@@ -15,8 +15,8 @@ import { green, yellow } from "../../dx/utils";
 import { logger as createLogger } from "../../observability";
 import { dirname, resolve } from "node:path";
 import { DEFAULT_SECURITY_PROVIDER, MSG_SCANNING } from "./constants";
-import { verifyRemovals } from "./utils";
-import { buildSecurityResult, renderRemovalVerification, renderSecurityFindings } from "../utils";
+import { verifyRemovals, buildSecurityResult, renderSecurityFindings } from "./utils";
+import { renderRemovalVerification } from "../diagnostics";
 import type { CliGraph, SecurityPhaseDeps } from "../types";
 import type {
   OptionalSecurityOverrideDetail,

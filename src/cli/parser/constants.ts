@@ -1,5 +1,7 @@
 import type { OptionDefinition } from "./types";
 
+export const SCRIPT_EXTENSIONS = [".cjs", ".js", ".mjs", ".ts", ".tsx"];
+
 const option = (flags: string[], settings: Omit<OptionDefinition, "flags">): OptionDefinition => {
   const definition = Object.assign({ flags }, settings);
   return definition;

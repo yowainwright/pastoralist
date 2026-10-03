@@ -441,6 +441,41 @@ test("resolveOverrideSource - keeps pnpm 10 overrides in the manifest", () => {
   rmSync(root, { recursive: true, force: true });
 });
 
+const modernPnpmEngine = { name: "pnpm", version: ">=12.0.0 <13.0.0" };
+const otherEngine = { name: "npm", version: "11.0.0" };
+const engineDeclarations = [modernPnpmEngine, [otherEngine, modernPnpmEngine]];
+const assertEngineOverrideSource = (
+  config: PastoralistJSON,
+  manifestPath: string,
+  root: string,
+) => {
+  const source = resolveOverrideSource({ config, manifestPath });
+  assert.equal(source.kind, "yaml");
+  assert.equal(source.packageManager, "pnpm");
+  assert.equal(source.path, join(root, "pnpm-workspace.yaml"));
+  const overrides = { lodash: "4.17.21" };
+  writeOverrideSource(source, overrides);
+  assert.deepEqual(parsePnpmWorkspaceOverrides(readFileSync(source.path, "utf8")), overrides);
+  assert.deepEqual(JSON.parse(readFileSync(manifestPath, "utf8")), config);
+};
+
+engineDeclarations.forEach((packageManager) => {
+  test("resolveOverrideSource - honors devEngines when creating pnpm overrides", (t) => {
+    const root = mkdtempSync(join(import.meta.dirname, ".pnpm-engine-"));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const manifestPath = join(root, "package.json");
+    const devEngines = { packageManager };
+    const config: PastoralistJSON = {
+      name: "engine-fixture",
+      version: "1.0.0",
+      packageManager: "npm@11.0.0",
+      devEngines,
+    };
+    writeFileSync(manifestPath, JSON.stringify(config));
+    assertEngineOverrideSource(config, manifestPath, root);
+  });
+});
+
 test("writeOverrideSource - writes an explicit YAML source without changing comments", () => {
   const root = mkdtempSync(join(tmpdir(), "pastoralist-custom-overrides-"));
   const sourceDir = join(root, "config");

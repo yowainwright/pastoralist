@@ -1,6 +1,7 @@
 export type DependencyPackageInstance = {
   name: string;
   dependencies: string[];
+  dependencyNames?: string[];
 };
 
 export type DependencyManifestRoot = {
@@ -16,9 +17,25 @@ export type DependencyManifest = {
 export type TrackedDependencies = {
   dependents: Record<string, string[]>;
   complete: boolean;
+  missingReferences?: string[];
+  diagnostic?: DependencyDiagnostic;
 };
 
+export type DependencyDiagnostic = {
+  lockfile: string;
+  reason?:
+    | "missing-lockfile"
+    | "unreadable-lockfile"
+    | "invalid-or-unsupported-lockfile"
+    | "unreadable-manifest"
+    | "missing-manifest-root";
+};
+
+export type DependencyDiagnosticReporter = (diagnostic: DependencyDiagnostic) => void;
+
 export type DependencyTracking = Record<string, TrackedDependencies>;
+
+export type DependencyUsage = "used" | "unused" | "unknown";
 
 export type ResolvedDependencyGraph = {
   packages: Record<string, DependencyPackageInstance>;

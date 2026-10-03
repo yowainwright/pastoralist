@@ -1,0 +1,35 @@
+lockfileVersion: "9.0"
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+overrides:
+  leaf@: 1.0.0
+  parent>removed: "-"
+  aliased: file:./packages/fork
+  orphan: 1.0.0
+
+importers:
+  .:
+    dependencies:
+      parent:
+        specifier: file:packages/parent
+        version: file:packages/parent
+
+  packages/leaf: {}
+
+packages:
+  fork@file:packages/fork:
+    resolution: { directory: packages/fork, type: directory }
+
+  parent@file:packages/parent:
+    resolution: { directory: packages/parent, type: directory }
+
+snapshots:
+  fork@file:packages/fork: {}
+
+  parent@file:packages/parent:
+    dependencies:
+      aliased: fork@file:packages/fork
+      leaf: link:packages/leaf

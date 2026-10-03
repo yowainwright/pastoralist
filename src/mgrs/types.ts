@@ -1,5 +1,9 @@
 import type { PastoralistJSON, SecurityPackage } from "../types";
-import type { DependencyManifest, ResolvedDependencyGraph } from "../core/dep-tracker";
+import type {
+  DependencyManifest,
+  DependencyDiagnosticReporter,
+  ResolvedDependencyGraph,
+} from "../core/dep-tracker";
 
 export type PackageManager = "npm" | "yarn" | "pnpm" | "bun";
 export type OverrideField = "resolutions" | "overrides" | "pnpm";
@@ -33,6 +37,7 @@ export type JsManager = {
   readResolvedGraph: (
     root: string,
     manifests: DependencyManifest[],
+    report?: DependencyDiagnosticReporter,
   ) => ResolvedDependencyGraph | undefined;
   readPackages: (root: string) => SecurityPackage[] | undefined;
   countPackages: (root: string) => number;

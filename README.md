@@ -25,8 +25,6 @@ Months later, the reason may not be clear. Was it a security fix? A transitive
 bug? Which packages still need it? Can it be removed? With Pastoralist, the
 override sets the version, and the appendix holds the context.
 
-![Pastoralist CLI finding an n8n vulnerability and previewing a pnpm override with fx](pastoralist-demo.gif)
-
 <table width="100%">
 <thead>
 <tr>

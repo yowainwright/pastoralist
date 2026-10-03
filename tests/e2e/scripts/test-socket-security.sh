@@ -66,14 +66,14 @@ EOF
 
   init_git_repo
 
-  node /app/pastoralist/index.js --checkSecurity --securityProvider socket --debug 2>&1 | tee socket-output.log
+  node /app/pastoralist/index.js --checkSecurity --securityProvider socket --no-cache --debug 2>&1 | tee socket-output.log
   require_provider_log "Socket provider is EXPERIMENTAL" socket-output.log
   require_provider_log "Socket requires authentication" socket-output.log
 }
 
 test_multiple_providers() {
   printf '\n%s\n' "2️⃣ Test: Multiple providers including Socket"
-  PASTORALIST_MOCK_SECURITY=true node /app/pastoralist/index.js --checkSecurity --securityProvider github socket --debug 2>&1 | tee socket-multi.log
+  PASTORALIST_MOCK_SECURITY=true node /app/pastoralist/index.js --checkSecurity --securityProvider github socket --no-cache --debug 2>&1 | tee socket-multi.log
   require_provider_log "Socket provider is EXPERIMENTAL" socket-multi.log
   require_provider_log "Using mock Dependabot alerts" socket-multi.log
   require_provider_log "Socket requires authentication" socket-multi.log
@@ -98,7 +98,7 @@ test_config() {
 EOF
 
   init_git_repo
-  node /app/pastoralist/index.js --debug 2>&1 | tee socket-config.log
+  node /app/pastoralist/index.js --no-cache --debug 2>&1 | tee socket-config.log
   require_provider_log "Socket provider is EXPERIMENTAL" socket-config.log
   require_provider_log "Socket requires authentication" socket-config.log
 }
@@ -122,7 +122,7 @@ test_config_array() {
 EOF
 
   init_git_repo
-  PASTORALIST_MOCK_SECURITY=true node /app/pastoralist/index.js --debug 2>&1 | tee multi-config.log
+  PASTORALIST_MOCK_SECURITY=true node /app/pastoralist/index.js --no-cache --debug 2>&1 | tee multi-config.log
   require_provider_log "Using mock Dependabot alerts" multi-config.log
   require_provider_log "Socket requires authentication" multi-config.log
 }

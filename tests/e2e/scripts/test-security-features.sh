@@ -59,7 +59,7 @@ test_security_flag() {
   export PASTORALIST_MOCK_SECURITY=true
   export MOCK_ALERTS_FILE=/app/e2e/fixtures/mock-dependabot-alerts.json
 
-  node /app/pastoralist/index.js --checkSecurity --securityProvider github --debug 2>&1 | tee security-output.log
+  node /app/pastoralist/index.js --checkSecurity --securityProvider github --no-cache --debug 2>&1 | tee security-output.log
   assert_mock_provider_ran security-output.log
   echo "✅ Security check used the GitHub mock provider"
 }
@@ -84,7 +84,7 @@ test_enabled_config() {
 
   # Use mock for predictable testing
   export PASTORALIST_MOCK_SECURITY=true
-  node /app/pastoralist/index.js --debug 2>&1 | tee enabled-output.log
+  node /app/pastoralist/index.js --no-cache --debug 2>&1 | tee enabled-output.log
 
   assert_mock_provider_ran enabled-output.log
   echo "✅ Security enabled via config"
@@ -96,7 +96,7 @@ test_cli_priority() {
   init_git_repo
 
   # CLI flag should override config
-  PASTORALIST_MOCK_SECURITY=true node /app/pastoralist/index.js --checkSecurity --securityProvider github --debug 2>&1 | tee override-output.log
+  PASTORALIST_MOCK_SECURITY=true node /app/pastoralist/index.js --checkSecurity --securityProvider github --no-cache --debug 2>&1 | tee override-output.log
   assert_mock_provider_ran override-output.log
   echo "✅ CLI options override config"
 }
@@ -165,7 +165,7 @@ test_forced_refactor() {
   export PASTORALIST_MOCK_SECURITY=true
   export MOCK_FORCE_VULNERABLE=true # Force mock to return vulnerable packages
 
-  PASTORALIST_MOCK_SECURITY=true node /app/pastoralist/index.js --checkSecurity --securityProvider github --forceSecurityRefactor --debug 2>&1 | tee force-output.log
+  PASTORALIST_MOCK_SECURITY=true node /app/pastoralist/index.js --checkSecurity --securityProvider github --forceSecurityRefactor --no-cache --debug 2>&1 | tee force-output.log
   assert_mock_provider_ran force-output.log
   echo "✅ Force refactor option used the GitHub mock provider"
 }

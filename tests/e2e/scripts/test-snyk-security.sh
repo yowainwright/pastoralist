@@ -75,14 +75,14 @@ EOF
 
   init_git_repo
 
-  node /app/pastoralist/index.js --checkSecurity --securityProvider snyk --debug 2>&1 | tee snyk-output.log
+  node /app/pastoralist/index.js --checkSecurity --securityProvider snyk --no-cache --debug 2>&1 | tee snyk-output.log
   require_provider_log "Snyk provider is EXPERIMENTAL" snyk-output.log
   require_provider_log "Snyk authentication failed, skipping Snyk scan" snyk-output.log
 }
 
 test_multiple_providers() {
   printf '\n%s\n' "2️⃣ Test: Multiple providers including Snyk"
-  node /app/pastoralist/index.js --checkSecurity --securityProvider snyk socket --debug 2>&1 | tee snyk-multi.log
+  node /app/pastoralist/index.js --checkSecurity --securityProvider snyk socket --no-cache --debug 2>&1 | tee snyk-multi.log
   require_provider_log "Snyk provider is EXPERIMENTAL" snyk-multi.log
   require_provider_log "Socket provider is EXPERIMENTAL" snyk-multi.log
 }
@@ -106,7 +106,7 @@ test_config() {
 EOF
 
   init_git_repo
-  node /app/pastoralist/index.js --debug 2>&1 | tee snyk-config.log
+  node /app/pastoralist/index.js --no-cache --debug 2>&1 | tee snyk-config.log
   require_provider_log "Snyk provider is EXPERIMENTAL" snyk-config.log
 }
 

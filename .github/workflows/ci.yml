@@ -45,6 +45,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes shellcheck
 
+      - name: Install shfmt
+        run: |
+          mkdir -p .cache/shfmt
+          curl --fail --silent --show-error --location \
+            https://github.com/mvdan/sh/releases/download/v3.14.0/shfmt_v3.14.0_linux_amd64 \
+            --output .cache/shfmt/shfmt
+          echo 'fe42021c7272ef2d67ea36cbc3031683c625d0badec733ef3a57b567246a0b66  .cache/shfmt/shfmt' | sha256sum --check
+          chmod +x .cache/shfmt/shfmt
+          echo "$GITHUB_WORKSPACE/.cache/shfmt" >> "$GITHUB_PATH"
+
       - name: Install shellcheck-legibility
         run: |
           mkdir -p .cache/shellcheck-legibility

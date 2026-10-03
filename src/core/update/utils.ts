@@ -1,3 +1,13 @@
+import { resolve } from "node:path";
+import { detectPackageManager, getJsManager } from "../../mgrs";
+import { mergeDependencyGroups } from "../../mgrs/utils";
+import {
+  trackDependencies,
+  type DependencyManifest,
+  type DependencyTracking,
+} from "../dep-tracker";
+import { resolveJSON } from "../package";
+import type { UpdateContext } from "./types";
 import { findPackageJsonFiles, updatePackageJSON } from "../package";
 import { writeOverrideSource } from "../overrides";
 import { toCompactAppendix } from "../appendix/utils";
@@ -19,8 +29,43 @@ import type {
 import type { ProcessingModeArguments } from "./types";
 import type { WriteResultContext, ProcessingMode } from "../../types";
 import type { Logger } from "../../observability";
+import { pick } from "../../utils";
 
 export { WORKSPACE_MODES } from "./constants";
+
+const createManifest = (path: string, config: PastoralistJSON): DependencyManifest => {
+  const dependencies = mergeDependencyGroups(config);
+  const name = pick(config, ["name"]);
+  const manifest = Object.assign({ path, dependencies }, name);
+  return manifest;
+};
+
+const readManifest = (path: string): DependencyManifest[] => {
+  const absolutePath = resolve(path);
+  const config = resolveJSON(absolutePath);
+  const missing: DependencyManifest[] = [];
+  if (!config) return missing;
+  const manifest = createManifest(absolutePath, config);
+  const manifests = [manifest];
+  return manifests;
+};
+
+export const resolveDependencyTracking = (
+  ctx: UpdateContext,
+  files: string[] = [],
+): DependencyTracking | undefined => {
+  if (ctx.isTesting) return undefined;
+  if (!ctx.config) return undefined;
+  const path = resolve(ctx.path);
+  const manifest = createManifest(path, ctx.config);
+  const workspaces = files.filter((file) => resolve(file) !== path).flatMap(readManifest);
+  const manifests = [manifest].concat(workspaces);
+  const manager = getJsManager(detectPackageManager(ctx.root));
+  const graph = manager.readResolvedGraph(ctx.root, manifests);
+  if (!graph) return undefined;
+  const tracking = trackDependencies(graph);
+  return tracking;
+};
 
 export const findPackageFiles = (
   patterns: string[],

@@ -24,3 +24,8 @@ export type FlowSplitState = {
   scan: ScanState & { depth: number };
   start: number;
 };
+
+export type LockSection = {
+  value: string;
+  children: Map<string, LockSection>;
+};

@@ -231,7 +231,11 @@ import type {
   OSVProvider,
   SpektionProvider,
 } from "./providers";
-import type { PackageManagerAuditProvider } from "../../providers";
+import type { PackageManagerAuditProvider } from "./providers";
+
+export type SecurityAlerts = SecurityAlert[];
+export type AsyncSecurityAlerts = Promise<SecurityAlerts>;
+export type AdvisoryCvesField = Partial<Pick<SecurityAlert, "cves">>;
 
 export type SecurityProvider =
   | GitHubSecurityProvider

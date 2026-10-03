@@ -4,6 +4,11 @@ services:
       context: ../..
       dockerfile: tests/e2e/Dockerfile.js-mgrs
 
+  e2e-n8n:
+    build:
+      context: ../..
+      dockerfile: tests/e2e/Dockerfile.n8n
+
   e2e-pnpm-yaml:
     build:
       context: ../..

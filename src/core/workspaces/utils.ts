@@ -10,7 +10,7 @@ import type {
   PastoralistJSON,
 } from "../../types";
 import { logger, type Logger } from "../../observability";
-import { isRecord, isString } from "../../utils";
+import { isRecord, isString, omit } from "../../utils";
 import { resolveJSON } from "../package";
 import { extractPackageNames, mergeAppendixDependents } from "../appendix/utils";
 import { PACKAGE_JSON, PNPM_WORKSPACE_FILE } from "../constants";
@@ -441,12 +441,12 @@ const removeAppendixEntries = (
   const keysToRemove = Object.keys(appendix).filter((key) =>
     shouldRemoveAppendixKey(key, packageSet),
   );
+  if (keysToRemove.length === 0) return appendix;
 
-  const result = keysToRemove.reduce((updated, key) => {
-    logInstance.debug(`Removed appendix entry for ${key}`, "removeAppendixEntries");
-    const { [key]: _removed, ...rest } = updated;
-    return rest;
-  }, appendix);
+  keysToRemove.forEach((key) =>
+    logInstance.debug(`Removed appendix entry for ${key}`, "removeAppendixEntries"),
+  );
+  const result = omit(appendix, keysToRemove);
   return result;
 };
 

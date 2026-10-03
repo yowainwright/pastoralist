@@ -1,8 +1,21 @@
 import * as fs from "fs";
-import { resolve } from "path";
+import type { DependencyManifest, ResolvedDependencyGraph } from "../../core/dep-tracker";
+import {
+  createManifestRoots,
+  mergeDependencyGroups,
+  readLockGraph,
+  unresolvedDependency,
+} from "../utils";
+import type { NpmPackageEntry, LegacyPackage } from "./types";
+import { dirname, posix, relative, resolve } from "path";
 import type { SecurityPackage } from "../../types";
 import { UNKNOWN_DEPENDENCY_VERSION } from "../constants";
-import { addDependencyParent, addPackageDependencies, getPopulatedPackages } from "../utils";
+import {
+  addDependencyParent,
+  addPackageDependencies,
+  filterAmbiguousDependencyEdges,
+  getPopulatedPackages,
+} from "../utils";
 import { IS_DEBUGGING } from "../../constants";
 import { logger } from "../../observability";
 import type { DependencyTree, DependencyGraph } from "../types";
@@ -217,8 +230,11 @@ export const parseNpmLockGraph = (root: string): Record<string, string[]> | unde
   try {
     const content = fs.readFileSync(lockPath, "utf8");
     const lock = JSON.parse(content) as NpmLockFile;
-    const inverted = getNpmDependencyGraph(lock);
-    return inverted;
+    const graph = getNpmDependencyGraph(lock);
+    if (!graph) return undefined;
+    const packageNames = collectNpmLockedPackages(lock);
+    const filteredGraph = filterAmbiguousDependencyEdges(graph, packageNames);
+    return filteredGraph;
   } catch {
     log.debug("Could not read dependency graph", "parseNpmLockGraph", lockPath);
     return undefined;
@@ -257,4 +273,84 @@ export const parseNpmLsOutput = (stdout: string): DependencyTree => {
     const empty: DependencyTree = {};
     return empty;
   }
+};
+
+const packageScopes = (path: string): string[] => {
+  const parts = path.split("/");
+  const scopes = parts.map((_, index) => parts.slice(0, index + 1).join("/"));
+  const ancestors = scopes.toReversed().filter((scope) => !scope.endsWith("node_modules"));
+  const ordered = ancestors.concat("");
+  return ordered;
+};
+
+const resolvePackage = (
+  packages: Record<string, NpmPackageEntry>,
+  parent: string,
+  name: string,
+): string => {
+  const candidates = packageScopes(parent).map((scope) => posix.join(scope, "node_modules", name));
+  const path = candidates.find((candidate) => Object.hasOwn(packages, candidate));
+  if (path === undefined) {
+    const missing = unresolvedDependency(parent, name);
+    return missing;
+  }
+  const pkg = packages[path];
+  const linkedPath = pkg.link ? pkg.resolved : undefined;
+  if (linkedPath) {
+    const target = linkedPath.replace(/^\.\//, "");
+    return target;
+  }
+  return path;
+};
+
+const createPackage = (path: string, entries: Record<string, NpmPackageEntry>) => {
+  const pkg = entries[path];
+  const name = pkg.name ?? path.split("node_modules/").at(-1) ?? path;
+  const groups = mergeDependencyGroups(pkg);
+  const dependencies = Object.keys(groups).map((dependency) =>
+    resolvePackage(entries, path, dependency),
+  );
+  const instance = { name, dependencies };
+  return instance;
+};
+
+const flattenLegacyPackages = (
+  packages: Record<string, LegacyPackage>,
+  parent = "",
+): Array<[string, NpmPackageEntry]> =>
+  Object.entries(packages).flatMap(([name, pkg]) => {
+    const path = posix.join(parent, "node_modules", name);
+    const nested = flattenLegacyPackages(pkg.dependencies ?? {}, path);
+    const dependencies = pkg.requires ?? {};
+    const entry = { name, dependencies };
+    const current: [string, NpmPackageEntry] = [path, entry];
+    const flattened = [current].concat(nested);
+    return flattened;
+  });
+
+const normalizeNpmGraph = (
+  lock: NpmLockFile,
+  root: string,
+  manifests: DependencyManifest[],
+): ResolvedDependencyGraph => {
+  const legacy = lock.dependencies as Record<string, LegacyPackage> | undefined;
+  const entries = lock.packages ?? Object.fromEntries(flattenLegacyPackages(legacy ?? {}));
+  const packages = Object.fromEntries(
+    Object.keys(entries).map((path) => [path, createPackage(path, entries)]),
+  );
+  const roots = createManifestRoots(manifests, (manifest, name) => {
+    const path = relative(root, dirname(manifest.path)).split("\\").join("/");
+    const id = resolvePackage(entries, path, name);
+    return id;
+  });
+  const graph = { packages, roots };
+  return graph;
+};
+
+export const readNpmResolvedGraph = (root: string, manifests: DependencyManifest[]) => {
+  const path = resolve(root, NPM_LOCK_FILENAME);
+  const graph = readLockGraph(path, (content) =>
+    normalizeNpmGraph(JSON.parse(content), root, manifests),
+  );
+  return graph;
 };

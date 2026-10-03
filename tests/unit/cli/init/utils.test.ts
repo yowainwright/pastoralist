@@ -4,8 +4,8 @@ import {
   parseWorkspacePaths,
   buildConfig,
   generateConfigContent,
-} from "../../../../../src/cli/cmds/init/utils";
-import type { InitAnswers } from "../../../../../src/cli/cmds/init/types";
+} from "../../../../src/cli/init/utils";
+import type { InitAnswers } from "../../../../src/cli/init/types";
 
 test("parseWorkspacePaths - should parse comma-separated paths", () => {
   const result = parseWorkspacePaths("packages/*, apps/*");

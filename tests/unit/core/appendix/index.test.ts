@@ -102,6 +102,26 @@ test("updateAppendix - does not skip transitive override when onlyUsedOverrides=
   assert.notStrictEqual(result["lodash@4.17.21"], undefined);
 });
 
+test("updateAppendix - skips tree-only override when graph has no matching path", () => {
+  const overrides: OverridesType = { lodash: "4.17.21" };
+  const dependencies = { unrelated: "^1.0.0" };
+  const dependencyTree = { lodash: "4.17.21" };
+  const unrelatedParents = ["another-dep"];
+  const dependencyGraph = { unrelated: unrelatedParents };
+  const appendix = {};
+  const options = {
+    overrides,
+    appendix,
+    dependencies,
+    packageName: "root",
+    onlyUsedOverrides: true,
+    dependencyTree,
+    dependencyGraph,
+  };
+  const result = updateAppendix(options);
+  assert.strictEqual(result["lodash@4.17.21"], undefined);
+});
+
 test("updateAppendix - skips genuinely unused override when onlyUsedOverrides=true", () => {
   const overrides: OverridesType = { lodash: "4.17.21" };
   const result = updateAppendix({

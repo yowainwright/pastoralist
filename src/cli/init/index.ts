@@ -1,15 +1,15 @@
 import { existsSync, writeFileSync } from "fs";
 import { resolve } from "path";
-import { loadExternalConfig, type PastoralistConfig, type SecurityProvider } from "../../../config";
-import { resolveJSON } from "../../../core/package";
-import { getPackageJsonWorkspacePatterns } from "../../../core/workspaces";
-import { formatCompletion, formatInfo, formatStepHeader, green, shimmerFrame } from "../../../dx";
-import { FARMER } from "../../../constants";
-import { BRAND } from "../../../constants";
-import { createPrompt, type Prompt } from "../../prompts";
-import { logger as createLogger, type Logger } from "../../../observability";
-import type { PastoralistJSON } from "../../../types";
-import { resolvePathFromRoot } from "../../utils";
+import { loadExternalConfig, type PastoralistConfig, type SecurityProvider } from "../../config";
+import { resolveJSON } from "../../core/package";
+import { getPackageJsonWorkspacePatterns } from "../../core/workspaces";
+import { formatCompletion, formatInfo, formatStepHeader, green, shimmerFrame } from "../../dx";
+import { FARMER } from "../../constants";
+import { BRAND } from "../../constants";
+import { createPrompt, type Prompt } from "../prompts";
+import { logger as createLogger, type Logger } from "../../observability";
+import type { PastoralistJSON } from "../../types";
+import { resolvePathFromRoot } from "../utils";
 import {
   CONFIG_FORMAT_CHOICES,
   CONFIG_LOCATION_CHOICES,

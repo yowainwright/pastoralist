@@ -3,60 +3,60 @@
 set -e
 
 has_complete_config() {
-    grep -q '"depPaths": "workspace"' package.json &&
-        grep -q '"provider": "osv"' package.json &&
-        grep -q '"severityThreshold": "medium"' package.json &&
-        grep -q '"lodash"' package.json &&
-        grep -q '"minimist"' package.json
+  grep -q '"depPaths": "workspace"' package.json &&
+    grep -q '"provider": "osv"' package.json &&
+    grep -q '"severityThreshold": "medium"' package.json &&
+    grep -q '"lodash"' package.json &&
+    grep -q '"minimist"' package.json
 }
 
 fail() {
-    echo "${1:-}"
-    exit 1
+  echo "${1:-}"
+  exit 1
 }
 
 print_header() {
-    echo "🧪 Testing Interactive Config Review"
-    echo "===================================="
+  echo "🧪 Testing Interactive Config Review"
+  echo "===================================="
 }
 
 print_result() {
-    if [ "$1" -eq 0 ]; then
-        echo "✅ $2"
-    else
-        echo "❌ $2"
-        exit 1
-    fi
+  if [ "$1" -eq 0 ]; then
+    echo "✅ $2"
+  else
+    echo "❌ $2"
+    exit 1
+  fi
 }
 
 show_config() {
-    echo "📄 Current config:"
-    echo "------------------------"
-    jq '.pastoralist' package.json || echo "No config found"
-    echo "------------------------"
+  echo "📄 Current config:"
+  echo "------------------------"
+  jq '.pastoralist' package.json || echo "No config found"
+  echo "------------------------"
 }
 
 show_overrides() {
-    echo "📄 Overrides:"
-    echo "------------------------"
-    jq '.overrides' package.json || echo "No overrides"
-    echo "------------------------"
+  echo "📄 Overrides:"
+  echo "------------------------"
+  jq '.overrides' package.json || echo "No overrides"
+  echo "------------------------"
 }
 
 show_resolutions() {
-    echo "📄 Resolutions:"
-    echo "------------------------"
-    jq '.resolutions' package.json || echo "No resolutions"
-    echo "------------------------"
+  echo "📄 Resolutions:"
+  echo "------------------------"
+  jq '.resolutions' package.json || echo "No resolutions"
+  echo "------------------------"
 }
 
 test_existing_config() {
-    printf '\n%s\n' "1️⃣ Testing interactive config review reads existing config..."
-    rm -rf /tmp/test-interactive
-    mkdir -p /tmp/test-interactive
-    cd /tmp/test-interactive
+  printf '\n%s\n' "1️⃣ Testing interactive config review reads existing config..."
+  rm -rf /tmp/test-interactive
+  mkdir -p /tmp/test-interactive
+  cd /tmp/test-interactive
 
-    cat >package.json <<'EOF'
+  cat >package.json <<'EOF'
 {
   "name": "test-interactive",
   "version": "1.0.0",
@@ -78,24 +78,24 @@ test_existing_config() {
 }
 EOF
 
-    echo "📄 Initial state:"
-    show_config
-    show_overrides
-    show_resolutions
+  echo "📄 Initial state:"
+  show_config
+  show_overrides
+  show_resolutions
 
-    grep -q '"pastoralist":' package.json || fail "❌ Pastoralist config not found"
-    echo "✅ Config exists"
+  grep -q '"pastoralist":' package.json || fail "❌ Pastoralist config not found"
+  echo "✅ Config exists"
 
-    grep -q '"overrides":' package.json || fail "❌ Overrides not found"
-    echo "✅ Overrides exist"
+  grep -q '"overrides":' package.json || fail "❌ Overrides not found"
+  echo "✅ Overrides exist"
 
-    grep -q '"resolutions":' package.json || fail "❌ Resolutions not found"
-    echo "✅ Resolutions exist"
+  grep -q '"resolutions":' package.json || fail "❌ Resolutions not found"
+  echo "✅ Resolutions exist"
 }
 
 test_workspace_paths() {
-    printf '\n%s\n' "2️⃣ Testing workspace config modifications..."
-    cat >package.json <<'EOF'
+  printf '\n%s\n' "2️⃣ Testing workspace config modifications..."
+  cat >package.json <<'EOF'
 {
   "name": "test-interactive",
   "version": "1.0.0",
@@ -106,17 +106,17 @@ test_workspace_paths() {
 }
 EOF
 
-    if grep -q '"depPaths": \[' package.json; then
-        echo "✅ Workspace paths can be modified to array"
-    else
-        echo "❌ Workspace paths modification failed"
-        exit 1
-    fi
+  if grep -q '"depPaths": \[' package.json; then
+    echo "✅ Workspace paths can be modified to array"
+  else
+    echo "❌ Workspace paths modification failed"
+    exit 1
+  fi
 }
 
 test_workspace_mode() {
-    # Test changing back to workspace string
-    cat >package.json <<'EOF'
+  # Test changing back to workspace string
+  cat >package.json <<'EOF'
 {
   "name": "test-interactive",
   "version": "1.0.0",
@@ -127,17 +127,17 @@ test_workspace_mode() {
 }
 EOF
 
-    if grep -q '"depPaths": "workspace"' package.json; then
-        echo "✅ Workspace paths can be changed to workspace mode"
-    else
-        echo "❌ Workspace mode change failed"
-        exit 1
-    fi
+  if grep -q '"depPaths": "workspace"' package.json; then
+    echo "✅ Workspace paths can be changed to workspace mode"
+  else
+    echo "❌ Workspace mode change failed"
+    exit 1
+  fi
 }
 
 test_disabled_tracking() {
-    # Test disabling workspace tracking
-    cat >package.json <<'EOF'
+  # Test disabling workspace tracking
+  cat >package.json <<'EOF'
 {
   "name": "test-interactive",
   "version": "1.0.0",
@@ -145,16 +145,16 @@ test_disabled_tracking() {
 }
 EOF
 
-    if grep -q '"depPaths":' package.json; then
-        echo "❌ Workspace disable failed"
-        exit 1
-    fi
-    echo "✅ Workspace tracking can be disabled"
+  if grep -q '"depPaths":' package.json; then
+    echo "❌ Workspace disable failed"
+    exit 1
+  fi
+  echo "✅ Workspace tracking can be disabled"
 }
 
 test_disabled_security() {
-    printf '\n%s\n' "3️⃣ Testing security config modifications..."
-    cat >package.json <<'EOF'
+  printf '\n%s\n' "3️⃣ Testing security config modifications..."
+  cat >package.json <<'EOF'
 {
   "name": "test-interactive",
   "version": "1.0.0",
@@ -164,17 +164,17 @@ test_disabled_security() {
 }
 EOF
 
-    if grep -q '"checkSecurity": false' package.json; then
-        echo "✅ Security can be disabled"
-    else
-        echo "❌ Security disable failed"
-        exit 1
-    fi
+  if grep -q '"checkSecurity": false' package.json; then
+    echo "✅ Security can be disabled"
+  else
+    echo "❌ Security disable failed"
+    exit 1
+  fi
 }
 
 test_enabled_security() {
-    # Test enabling security
-    cat >package.json <<'EOF'
+  # Test enabling security
+  cat >package.json <<'EOF'
 {
   "name": "test-interactive",
   "version": "1.0.0",
@@ -188,17 +188,17 @@ test_enabled_security() {
 }
 EOF
 
-    if grep -q '"checkSecurity": true' package.json; then
-        echo "✅ Security can be enabled"
-    else
-        echo "❌ Security enable failed"
-        exit 1
-    fi
+  if grep -q '"checkSecurity": true' package.json; then
+    echo "✅ Security can be enabled"
+  else
+    echo "❌ Security enable failed"
+    exit 1
+  fi
 }
 
 test_security_provider() {
-    # Test changing provider
-    cat >package.json <<'EOF'
+  # Test changing provider
+  cat >package.json <<'EOF'
 {
   "name": "test-interactive",
   "version": "1.0.0",
@@ -212,17 +212,17 @@ test_security_provider() {
 }
 EOF
 
-    if grep -q '"provider": "github"' package.json; then
-        echo "✅ Security provider can be changed"
-    else
-        echo "❌ Security provider change failed"
-        exit 1
-    fi
+  if grep -q '"provider": "github"' package.json; then
+    echo "✅ Security provider can be changed"
+  else
+    echo "❌ Security provider change failed"
+    exit 1
+  fi
 }
 
 test_severity() {
-    # Test severity threshold
-    cat >package.json <<'EOF'
+  # Test severity threshold
+  cat >package.json <<'EOF'
 {
   "name": "test-interactive",
   "version": "1.0.0",
@@ -237,17 +237,17 @@ test_severity() {
 }
 EOF
 
-    if grep -q '"severityThreshold": "high"' package.json; then
-        echo "✅ Severity threshold can be set"
-    else
-        echo "❌ Severity threshold change failed"
-        exit 1
-    fi
+  if grep -q '"severityThreshold": "high"' package.json; then
+    echo "✅ Severity threshold can be set"
+  else
+    echo "❌ Severity threshold change failed"
+    exit 1
+  fi
 }
 
 test_override_lists() {
-    printf '\n%s\n' "4️⃣ Testing override and resolution viewing..."
-    cat >package.json <<'EOF'
+  printf '\n%s\n' "4️⃣ Testing override and resolution viewing..."
+  cat >package.json <<'EOF'
 {
   "name": "test-interactive",
   "version": "1.0.0",
@@ -263,29 +263,29 @@ test_override_lists() {
 }
 EOF
 
-    show_overrides
-    show_resolutions
+  show_overrides
+  show_resolutions
 
-    OVERRIDE_COUNT=$(jq '.overrides | length' package.json)
-    if [ "$OVERRIDE_COUNT" -eq 3 ]; then
-        echo "✅ All overrides present"
-    else
-        echo "❌ Override count mismatch"
-        exit 1
-    fi
+  OVERRIDE_COUNT=$(jq '.overrides | length' package.json)
+  if [ "$OVERRIDE_COUNT" -eq 3 ]; then
+    echo "✅ All overrides present"
+  else
+    echo "❌ Override count mismatch"
+    exit 1
+  fi
 
-    RESOLUTION_COUNT=$(jq '.resolutions | length' package.json)
-    if [ "$RESOLUTION_COUNT" -eq 2 ]; then
-        echo "✅ All resolutions present"
-    else
-        echo "❌ Resolution count mismatch"
-        exit 1
-    fi
+  RESOLUTION_COUNT=$(jq '.resolutions | length' package.json)
+  if [ "$RESOLUTION_COUNT" -eq 2 ]; then
+    echo "✅ All resolutions present"
+  else
+    echo "❌ Resolution count mismatch"
+    exit 1
+  fi
 }
 
 test_override_removal() {
-    printf '\n%s\n' "5️⃣ Testing override removal..."
-    cat >package.json <<'EOF'
+  printf '\n%s\n' "5️⃣ Testing override removal..."
+  cat >package.json <<'EOF'
 {
   "name": "test-interactive",
   "version": "1.0.0",
@@ -300,16 +300,16 @@ test_override_removal() {
 }
 EOF
 
-    if grep -q '"lodash"' package.json; then
-        echo "❌ Override removal failed"
-        exit 1
-    fi
-    echo "✅ Override can be removed"
+  if grep -q '"lodash"' package.json; then
+    echo "❌ Override removal failed"
+    exit 1
+  fi
+  echo "✅ Override can be removed"
 }
 
 test_resolution_removal() {
-    printf '\n%s\n' "6️⃣ Testing resolution removal..."
-    cat >package.json <<'EOF'
+  printf '\n%s\n' "6️⃣ Testing resolution removal..."
+  cat >package.json <<'EOF'
 {
   "name": "test-interactive",
   "version": "1.0.0",
@@ -323,16 +323,16 @@ test_resolution_removal() {
 }
 EOF
 
-    if grep -q '"moment"' package.json; then
-        echo "❌ Resolution removal failed"
-        exit 1
-    fi
-    echo "✅ Resolution can be removed"
+  if grep -q '"moment"' package.json; then
+    echo "❌ Resolution removal failed"
+    exit 1
+  fi
+  echo "✅ Resolution can be removed"
 }
 
 test_complete_config() {
-    printf '\n%s\n' "7️⃣ Testing complete config review..."
-    cat >package.json <<'EOF'
+  printf '\n%s\n' "7️⃣ Testing complete config review..."
+  cat >package.json <<'EOF'
 {
   "name": "test-interactive",
   "version": "1.0.0",
@@ -357,38 +357,38 @@ test_complete_config() {
 }
 EOF
 
-    show_config
-    show_overrides
-    show_resolutions
+  show_config
+  show_overrides
+  show_resolutions
 
-    if has_complete_config; then
-        echo "✅ Complete config review structure valid"
-    else
-        echo "❌ Config review structure invalid"
-        exit 1
-    fi
+  if has_complete_config; then
+    echo "✅ Complete config review structure valid"
+  else
+    echo "❌ Config review structure invalid"
+    exit 1
+  fi
 }
 
 print_success() {
-    printf '\n%s\n' "🎯 All interactive config review tests passed!"
-    echo "==============================================="
+  printf '\n%s\n' "🎯 All interactive config review tests passed!"
+  echo "==============================================="
 }
 
 main() {
-    print_header
-    test_existing_config
-    test_workspace_paths
-    test_workspace_mode
-    test_disabled_tracking
-    test_disabled_security
-    test_enabled_security
-    test_security_provider
-    test_severity
-    test_override_lists
-    test_override_removal
-    test_resolution_removal
-    test_complete_config
-    print_success
+  print_header
+  test_existing_config
+  test_workspace_paths
+  test_workspace_mode
+  test_disabled_tracking
+  test_disabled_security
+  test_enabled_security
+  test_security_provider
+  test_severity
+  test_override_lists
+  test_override_removal
+  test_resolution_removal
+  test_complete_config
+  print_success
 }
 
 main "$@"

@@ -29,7 +29,12 @@
         ".shellcheckrc",
         ".github/workflows/ci.yml"
       ],
-      "env": ["SHELLCHECK_VERSION", "SHELLCHECK_LEGIBILITY_VERSION", "SHELL_LINT_PLATFORM"],
+      "env": [
+        "SHELLCHECK_VERSION",
+        "SHELLCHECK_LEGIBILITY_VERSION",
+        "SHFMT_VERSION",
+        "SHELL_LINT_PLATFORM"
+      ],
       "outputs": [],
       "cache": true
     },

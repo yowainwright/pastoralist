@@ -3,14 +3,14 @@
 set -e
 
 main() {
-	cd "$(dirname "$0")/../.."
+  cd "$(dirname "$0")/../.."
 
-	echo "Running benchmarks..."
-	node --no-warnings \
-		--import ./tests/unit/setup.ts \
-		--test \
-		--test-timeout=30000 \
-		'tests/benchmarks/*.test.ts'
+  echo "Running benchmarks..."
+  node --no-warnings \
+    --import ./tests/unit/setup.ts \
+    --test \
+    --test-timeout=30000 \
+    'tests/benchmarks/*.test.ts'
 }
 
 main "$@"

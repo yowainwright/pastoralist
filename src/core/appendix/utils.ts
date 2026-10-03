@@ -13,10 +13,11 @@ import type {
   CompactAppendix,
   AppendixLedgerArgs,
   DependencyInfoArgs,
+  Ledger,
+  LedgerChangeField,
 } from "./types";
 import type { LedgerTransform } from "../types";
-import { packageAtVersion } from "../../utils";
-import { compareVersions } from "../../utils";
+import { compareVersions, omit, packageAtVersion } from "../../utils";
 import { getSeverityScore } from "../security/utils";
 import {
   APPENDIX_SEMVER_PATTERN,
@@ -24,6 +25,7 @@ import {
   OVERRIDE_PARENT_SEPARATOR_PATTERN,
   PACKAGE_NAME_PATTERN,
   REQUIRED_BY_DEPENDENT_LIMIT,
+  LEDGER_CHANGE_FIELDS,
   REQUIRED_BY_LABEL,
   SECURITY_CONFIDENCE_CONFIRMED,
   SECURITY_CONFIDENCE_CONFIRMATION_THRESHOLD,
@@ -311,21 +313,184 @@ export const parseOverridePackageName = (overrideKey: string): string => {
   return overridePackageName;
 };
 
+const NO_DEPENDENTS: string[] = [];
+
+const unseenParents = (
+  frontier: string[],
+  dependencyGraph: Record<string, string[]>,
+  visited: Set<string>,
+): string[] => {
+  const parents = frontier.flatMap((name) => dependencyGraph[name] ?? []);
+  const unique = Array.from(new Set(parents));
+  const unseen = unique.filter((parent) => !visited.has(parent));
+  return unseen;
+};
+
+const markVisited = (parents: string[], visited: Set<string>): void => {
+  for (const parent of parents) visited.add(parent);
+};
+
+const getAmbiguousParents = (
+  frontier: string[],
+  ambiguousDependencyParents: Record<string, string[]>,
+): string[] => frontier.flatMap((parent) => ambiguousDependencyParents[parent] ?? []);
+
+const hasDirectParent = (parents: string[], directDeps: Set<string>): boolean =>
+  parents.some((parent) => directDeps.has(parent));
+
+const getPathParents = (frontier: string[], context: AmbiguousPathContext): string[] => {
+  const graphParents = frontier.flatMap((parent) => context.dependencyGraph?.[parent] ?? []);
+  const ambiguousParents = getAmbiguousParents(
+    frontier,
+    context.dependencyGraphAmbiguousParents ?? {},
+  );
+  const parents = graphParents.concat(ambiguousParents);
+  return parents;
+};
+
+const getUnvisitedParents = (parents: string[], visited: Set<string>): string[] => {
+  const uniqueParents = Array.from(new Set(parents));
+  const unvisitedParents = uniqueParents.filter((parent) => !visited.has(parent));
+  return unvisitedParents;
+};
+
+const recordTopLevel = (
+  parents: string[],
+  directDeps: Set<string>,
+  topLevel: Set<string>,
+): void => {
+  for (const parent of parents) {
+    if (directDeps.has(parent)) topLevel.add(parent);
+  }
+};
+
+const indirectParents = (parents: string[], directDeps: Set<string>): string[] =>
+  parents.flatMap((parent) => (directDeps.has(parent) ? [] : [parent]));
+
+export const findTopLevelDependents = (
+  name: string,
+  dependencyGraph: Record<string, string[]> | undefined,
+  directDeps: Set<string>,
+): string[] => {
+  if (!dependencyGraph) return NO_DEPENDENTS;
+  const visited = new Set([name]);
+  const topLevel = new Set<string>();
+  let frontier = [name];
+  while (frontier.length > 0) {
+    const parents = unseenParents(frontier, dependencyGraph, visited);
+    markVisited(parents, visited);
+    recordTopLevel(parents, directDeps, topLevel);
+    frontier = indirectParents(parents, directDeps);
+  }
+  const sorted = Array.from(topLevel).toSorted();
+  return sorted;
+};
+
+type AmbiguousPathContext = {
+  dependencyGraph?: Record<string, string[]>;
+  dependencyGraphAmbiguousParents?: Record<string, string[]>;
+  directDeps?: Set<string>;
+};
+
+export const hasAmbiguousPathToTopLevel = (
+  name: string,
+  context: AmbiguousPathContext,
+): boolean => {
+  const ambiguousDependencyParents = context.dependencyGraphAmbiguousParents;
+  const directDeps = context.directDeps;
+  if (!ambiguousDependencyParents) return false;
+  if (!directDeps) return false;
+  const visited = new Set([name]);
+  let frontier = [name];
+  while (frontier.length > 0) {
+    const removedParents = getAmbiguousParents(frontier, ambiguousDependencyParents);
+    if (hasDirectParent(removedParents, directDeps)) return true;
+    const parents = getPathParents(frontier, context);
+    const unseen = getUnvisitedParents(parents, visited);
+    markVisited(unseen, visited);
+    frontier = unseen;
+  }
+  return false;
+};
+
+const pickIndirectLabel = (topLevel: string[], isLockedOnly: boolean): string => {
+  const isTransitive = topLevel.length > 0 || isLockedOnly;
+  const label = isTransitive ? TRANSITIVE_DEPENDENCY_LABEL : UNUSED_OVERRIDE_LABEL;
+  return label;
+};
+
+const describeNamedDependents = (override: string, topLevel: string[]): string => {
+  const dependents = topLevel.slice(0, REQUIRED_BY_DEPENDENT_LIMIT).join(", ");
+  const info = `${override} (${REQUIRED_BY_LABEL} ${dependents})`;
+  return info;
+};
+
+export const describeTrackedDependency = (
+  override: string,
+  tracking: import("../dep-tracker").TrackedDependencies,
+): string | undefined => {
+  const name = parseOverridePackageName(override);
+  if (!isResolvablePackageName(name)) return undefined;
+  const topLevel = tracking.dependents[name] ?? NO_DEPENDENTS;
+  const named = getNamedDependentInfo(override, name, topLevel);
+  if (named) return named;
+  const label = pickIndirectLabel(topLevel, !tracking.complete);
+  const description = `${override} ${label}`;
+  return description;
+};
+
+const getTopLevelDependents = (
+  name: string,
+  dependencyGraph: Record<string, string[]> | undefined,
+  directDeps: Set<string> | undefined,
+): string[] => {
+  const immediate = dependencyGraph?.[name] ?? NO_DEPENDENTS;
+  const topLevel = directDeps
+    ? findTopLevelDependents(name, dependencyGraph, directDeps)
+    : immediate;
+  return topLevel;
+};
+
+const getNamedDependentInfo = (
+  override: string,
+  name: string,
+  topLevel: string[],
+): string | undefined => {
+  const canNameDependents = override.trim() === name && topLevel.length > 0;
+  if (!canNameDependents) return undefined;
+  const info = describeNamedDependents(override, topLevel);
+  return info;
+};
+
+const isOnlyInDependencyTree = (
+  name: string,
+  dependencyTree?: Record<string, string>,
+  context: AmbiguousPathContext = {},
+): boolean => {
+  const hasAmbiguousPath = hasAmbiguousPathToTopLevel(name, context);
+  if (hasAmbiguousPath) return true;
+  const hasDependencyGraph = context.dependencyGraph !== undefined;
+  if (hasDependencyGraph) return false;
+  const isInDependencyTree = Boolean(dependencyTree?.[name]);
+  return isInDependencyTree;
+};
+
 const describeIndirectDependency = (
   override: string,
   name: string,
-  dependencyTree?: Record<string, string>,
-  dependencyGraph?: Record<string, string[]>,
+  ...[
+    dependencyTree,
+    dependencyGraph,
+    directDeps,
+    dependencyGraphAmbiguousParents,
+  ]: DependencyInfoArgs
 ): string => {
-  const requiredBy = dependencyGraph?.[name] ?? [];
-  const canNameDependents = override.trim() === name && requiredBy.length > 0;
-  if (canNameDependents) {
-    const dependents = requiredBy.slice(0, REQUIRED_BY_DEPENDENT_LIMIT).join(", ");
-    const info = `${override} (${REQUIRED_BY_LABEL} ${dependents})`;
-    return info;
-  }
-  const isTransitive = requiredBy.length > 0 || Boolean(dependencyTree?.[name]);
-  const label = isTransitive ? TRANSITIVE_DEPENDENCY_LABEL : UNUSED_OVERRIDE_LABEL;
+  const topLevel = getTopLevelDependents(name, dependencyGraph, directDeps);
+  const namedDependentInfo = getNamedDependentInfo(override, name, topLevel);
+  if (namedDependentInfo) return namedDependentInfo;
+  const context = { dependencyGraph, dependencyGraphAmbiguousParents, directDeps };
+  const isLockedOnly = isOnlyInDependencyTree(name, dependencyTree, context);
+  const label = pickIndirectLabel(topLevel, isLockedOnly);
   const info = `${override} ${label}`;
   return info;
 };
@@ -334,7 +499,7 @@ export const buildDependentInfo = (
   hasOverride: boolean,
   override: string,
   packageVersion: string | undefined,
-  ...[dependencyTree, dependencyGraph]: DependencyInfoArgs
+  ...graphArgs: DependencyInfoArgs
 ): string => {
   if (hasOverride) {
     const info = packageAtVersion(override)(packageVersion ?? "");
@@ -345,7 +510,7 @@ export const buildDependentInfo = (
     const info = `${override} ${UNRESOLVED_OVERRIDE_KEY_LABEL}`;
     return info;
   }
-  const info = describeIndirectDependency(override, name, dependencyTree, dependencyGraph);
+  const info = describeIndirectDependency(override, name, ...graphArgs);
   return info;
 };
 
@@ -425,12 +590,123 @@ export const mergeAppendixDependents = (
 ): Appendix => {
   const existing = currentAppendix[key];
   const mergedDependents = Object.assign({}, existing?.dependents, value.dependents);
-  const mergedItem: AppendixItem = existing
-    ? Object.assign({}, existing, { dependents: mergedDependents })
-    : { dependents: mergedDependents };
+  const dependentsUpdate = { dependents: mergedDependents };
+  const mergedItem: AppendixItem = Object.assign({}, existing, dependentsUpdate);
   const appendixDependents = Object.assign({}, currentAppendix, { [key]: mergedItem });
   return appendixDependents;
 };
+
+const sameValue = (a: unknown, b: unknown): boolean => {
+  const isSame = JSON.stringify(a) === JSON.stringify(b);
+  return isSame;
+};
+
+const sortedDependents = (dependents: Record<string, string>): string[][] => {
+  const sorted = Object.entries(dependents).toSorted(([a], [b]) => a.localeCompare(b));
+  return sorted;
+};
+
+const hasChangedDependents = (item: AppendixItem, previous: AppendixItem): boolean => {
+  if (!previous.dependents) return false;
+  const current = sortedDependents(item.dependents ?? {});
+  const before = sortedDependents(previous.dependents);
+  const isChanged = !sameValue(current, before);
+  return isChanged;
+};
+
+const hasChangedLedgerField = (
+  field: LedgerChangeField,
+  fresh: Ledger,
+  previous: Ledger,
+): boolean => {
+  const isReported = fresh[field] !== undefined;
+  const isDifferent = !sameValue(fresh[field], previous[field]);
+  const isChanged = isReported && isDifferent;
+  return isChanged;
+};
+
+const hasChangedLedger = (fresh: Ledger | undefined, previous: Ledger | undefined): boolean => {
+  if (!fresh) return false;
+  const before = previous ?? ({} as Ledger);
+  const isChanged = LEDGER_CHANGE_FIELDS.some((field) =>
+    hasChangedLedgerField(field, fresh, before),
+  );
+  return isChanged;
+};
+
+const hasChangedSecurityCheckDate = (fresh: Ledger | undefined, previous: Ledger | undefined) => {
+  const isReported = fresh?.securityCheckDate !== undefined;
+  const isDifferent = !sameValue(fresh?.securityCheckDate, previous?.securityCheckDate);
+  const isChanged = isReported && isDifferent;
+  return isChanged;
+};
+
+const hasEntryContentChanged = (item: AppendixItem, previous: AppendixItem): boolean => {
+  const dependentsChanged = hasChangedDependents(item, previous);
+  const ledgerChanged = hasChangedLedger(item.ledger, previous.ledger);
+  const isChanged = dependentsChanged || ledgerChanged;
+  return isChanged;
+};
+
+const isUpdatedEntry = (item: AppendixItem, previous: AppendixItem): boolean => {
+  const contentChanged = hasEntryContentChanged(item, previous);
+  const checkDateChanged = hasChangedSecurityCheckDate(item.ledger, previous.ledger);
+  const isUpdated = contentChanged || checkDateChanged;
+  return isUpdated;
+};
+
+const carryLedger = (item: AppendixItem, previous: AppendixItem): Ledger | undefined => {
+  const isUpdated = isUpdatedEntry(item, previous);
+  const unchanged = previous.ledger ?? item.ledger;
+  if (!isUpdated) return unchanged;
+  const updated = Object.assign({}, previous.ledger, item.ledger);
+  const contentChanged = hasEntryContentChanged(item, previous);
+  const previousAddedDate = previous.ledger?.addedDate;
+  const shouldRefreshAddedDate = contentChanged || previousAddedDate === undefined;
+  if (shouldRefreshAddedDate) return updated;
+  const carried = Object.assign({}, updated, { addedDate: previousAddedDate });
+  return carried;
+};
+
+const carryPreviousItem = (
+  item: AppendixItem,
+  previous: AppendixItem | undefined,
+): AppendixItem => {
+  if (!previous) return item;
+  const ledger = carryLedger(item, previous);
+  const { dependents } = item;
+  const carried = Object.assign({}, previous, { dependents, ledger });
+  return carried;
+};
+
+export const carryExistingLedgers = (fresh: Appendix, existing: Appendix): Appendix => {
+  const carriedEntries: Array<[string, AppendixItem]> = Object.entries(fresh).map(([key, item]) => [
+    key,
+    carryPreviousItem(item, existing[key]),
+  ]);
+  const keptEntries = Object.entries(existing).filter(
+    ([key, item]) => !fresh[key] && isKeptEntry(item),
+  );
+  const carried = Object.fromEntries(carriedEntries.concat(keptEntries));
+  return carried;
+};
+
+const isUnusedDependent = (info: string): boolean => info.includes(UNUSED_OVERRIDE_LABEL);
+
+const dropSupersededUnused = (item: AppendixItem): AppendixItem => {
+  const entries = Object.entries(item.dependents ?? {});
+  const used = entries.filter(([, info]) => !isUnusedDependent(info));
+  const isMixed = used.length > 0 && used.length < entries.length;
+  if (!isMixed) return item;
+  const dependents = Object.fromEntries(used);
+  const trimmed = Object.assign({}, item, { dependents });
+  return trimmed;
+};
+
+export const dropSupersededUnusedDependents = (appendix: Appendix): Appendix =>
+  Object.fromEntries(
+    Object.entries(appendix).map(([key, item]) => [key, dropSupersededUnused(item)]),
+  );
 
 export const hasSecurityInfo = (item: AppendixItem): boolean => {
   const ledger = item.ledger;
@@ -540,9 +816,18 @@ const isCompactAppendixItem = (
 ): item is CompactAppendixItem => "addedDate" in item;
 
 const normalizeAppendixItem = (item: AppendixItem | CompactAppendixItem): AppendixItem => {
-  if (!isCompactAppendixItem(item)) return item;
+  if (!isCompactAppendixItem(item)) {
+    const existingLedger = item.ledger;
+    const ledger = existingLedger ? normalizeLedgerCveField(existingLedger) : existingLedger;
+    if (ledger === existingLedger) return item;
+    const normalizedItem = Object.assign({}, item, { ledger });
+    return normalizedItem;
+  }
+
   const { addedDate, ...appendixItem } = item;
-  const ledger = Object.assign({}, appendixItem.ledger, { addedDate });
+  const existingLedger = appendixItem.ledger;
+  const normalizedLedger = existingLedger ? normalizeLedgerCveField(existingLedger) : undefined;
+  const ledger = Object.assign({}, normalizedLedger, { addedDate });
   const result = Object.assign({}, appendixItem, { ledger });
   return result;
 };
@@ -592,10 +877,7 @@ export const findUnusedAppendixEntries = (
 };
 
 export const removeAppendixKeys = (appendix: Appendix, keys: string[]): Appendix => {
-  const keySet = new Set(keys);
-  const result = Object.fromEntries(
-    Object.entries(appendix).filter(([key]) => !keySet.has(key)),
-  ) as Appendix;
+  const result = omit(appendix, keys);
   return result;
 };
 
@@ -611,7 +893,6 @@ export const removeOverrideKeys = (
   overrides: Record<string, string | Record<string, string>>,
   packageNames: string[],
 ): Record<string, string | Record<string, string>> => {
-  const nameSet = new Set(packageNames);
-  const result = Object.fromEntries(Object.entries(overrides).filter(([key]) => !nameSet.has(key)));
+  const result = omit(overrides, packageNames);
   return result;
 };

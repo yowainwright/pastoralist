@@ -1,12 +1,12 @@
 import { test, mock as moduleMock } from "node:test";
-import { mock } from "../../../setup";
+import { mock } from "../../setup";
 import assert from "node:assert/strict";
-import * as originalPrompts from "../../../../../src/cli/prompts";
-import * as originalUtils from "../../../../../src/utils";
-import * as originalObservability from "../../../../../src/observability";
-import * as originalPackageJSON from "../../../../../src/core/package";
-import * as originalConfig from "../../../../../src/config";
-import * as originalDx from "../../../../../src/dx";
+import * as originalPrompts from "../../../../src/cli/prompts";
+import * as originalUtils from "../../../../src/utils";
+import * as originalObservability from "../../../../src/observability";
+import * as originalPackageJSON from "../../../../src/core/package";
+import * as originalConfig from "../../../../src/config";
+import * as originalDx from "../../../../src/dx";
 import { resolve } from "path";
 import {
   safeReadFileSync as readFileSync,
@@ -16,7 +16,7 @@ import {
   safeExistsSync as existsSync,
   safeUnlinkSync as unlinkSync,
   validateRootPackageJsonIntegrity,
-} from "../../../setup";
+} from "../../setup";
 
 const createPromptMock = mock(originalPrompts.createPrompt);
 const loggerMock = mock(originalObservability.logger);
@@ -25,32 +25,32 @@ const loadExternalConfigMock = mock(originalConfig.loadExternalConfig);
 const formatCompletionMock = mock(originalDx.formatCompletion);
 const shimmerFrameMock = mock(originalDx.shimmerFrame);
 
-moduleMock.module(import.meta.resolve("../../../../../src/cli/prompts/index"), {
+moduleMock.module(import.meta.resolve("../../../../src/cli/prompts/index"), {
   namedExports: Object.assign({}, originalPrompts, { createPrompt: createPromptMock }),
 });
-moduleMock.module(import.meta.resolve("../../../../../src/utils/index"), {
+moduleMock.module(import.meta.resolve("../../../../src/utils/index"), {
   namedExports: originalUtils,
 });
-moduleMock.module(import.meta.resolve("../../../../../src/observability/index"), {
+moduleMock.module(import.meta.resolve("../../../../src/observability/index"), {
   namedExports: Object.assign({}, originalObservability, { logger: loggerMock }),
 });
-moduleMock.module(import.meta.resolve("../../../../../src/core/package/index"), {
+moduleMock.module(import.meta.resolve("../../../../src/core/package/index"), {
   namedExports: Object.assign({}, originalPackageJSON, { resolveJSON: resolveJSONMock }),
 });
-moduleMock.module(import.meta.resolve("../../../../../src/config/index"), {
+moduleMock.module(import.meta.resolve("../../../../src/config/index"), {
   namedExports: Object.assign({}, originalConfig, { loadExternalConfig: loadExternalConfigMock }),
 });
-moduleMock.module(import.meta.resolve("../../../../../src/dx/index"), {
+moduleMock.module(import.meta.resolve("../../../../src/dx/index"), {
   namedExports: Object.assign({}, originalDx, {
     formatCompletion: formatCompletionMock,
     shimmerFrame: shimmerFrameMock,
   }),
 });
 
-const { initCommand } = await import("../../../../../src/cli/cmds/init");
+const { initCommand } = await import("../../../../src/cli/init");
 
-const testPath = resolve(import.meta.dirname, "..", "..", "..", ".test-init-package.json");
-const testRoot = resolve(import.meta.dirname, "..", "..", "..", ".test-init-root");
+const testPath = resolve(import.meta.dirname, "..", "..", ".test-init-package.json");
+const testRoot = resolve(import.meta.dirname, "..", "..", ".test-init-root");
 
 test("initCommand - should initialize with default options", async () => {
   validateRootPackageJsonIntegrity();

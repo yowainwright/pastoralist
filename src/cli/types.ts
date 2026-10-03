@@ -18,8 +18,8 @@ import type { createSpinner } from "../dx";
 import type { green } from "../dx/utils";
 import type { logger as createLogger } from "../observability";
 import type { quickConfirm } from "./prompts";
-import type { initCommand } from "./cmds/init";
-import type { showOnboarding } from "./cmds/init";
+import type { initCommand } from "./init";
+import type { showOnboarding } from "./init";
 import type { buildMergedOptions, handleSecurityResults, runSecurityCheck } from "./security";
 import type { SecurityPhaseResult, SecurityResultSummary } from "./security/types";
 

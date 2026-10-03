@@ -7,7 +7,7 @@ import { logger as createLogger } from "../observability";
 import type { Options, PastoralistResult } from "../types";
 import { getLedgerAddedDate, pruneBackups, resolveCacheDir } from "../utils";
 import { quickConfirm } from "./prompts";
-import { initCommand } from "./cmds/init/index";
+import { initCommand } from "./init/index";
 import {
   displaySummaryTable,
   renderUpdateOutput,

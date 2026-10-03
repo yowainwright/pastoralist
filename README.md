@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/yowainwright/pastoralist/main/app/public/favicon.svg" alt="Pastoralist icon" width="50" />
+</p>
+
 # [Pastoralist](https://jeffry.in/pastoralist/)
 
 [![Socket Badge][socket-badge]][socket-package] [![npm version][npm-version-badge]][npm-package]
@@ -20,6 +24,8 @@ or a transitive dependency workaround.
 Months later, the reason may not be clear. Was it a security fix? A transitive
 bug? Which packages still need it? Can it be removed? With Pastoralist, the
 override sets the version, and the appendix holds the context.
+
+![Pastoralist CLI finding an n8n vulnerability and previewing a pnpm override with fx](pastoralist-demo.gif)
 
 <table width="100%">
 <thead>

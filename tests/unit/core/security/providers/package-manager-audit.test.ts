@@ -1,7 +1,7 @@
 import { assertMatches, errorIncludes, mock, objectContaining, spyOn } from "../../../setup";
 import { test, describe, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { PackageManagerAuditProvider } from "../../../../../src/providers";
+import { PackageManagerAuditProvider } from "../../../../../src/core/security/providers";
 import type { NpmAuditResult, SecurityAlert, YarnAuditLine } from "../../../../../src/types";
 
 type NpmAuditFixture = {

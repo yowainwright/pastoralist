@@ -2548,7 +2548,7 @@ test("action - fails when package.json cannot be loaded", async () => {
   const result = await action({ path: "/tmp/missing-package.json", outputFormat: "json" }, deps);
 
   assert.strictEqual(result.success, false);
-  assert.ok(result.errors[0].includes("Unable to load package.json at /tmp/missing-package.json"));
+  assert.ok(result.errors[0].includes("Unable to read JSON at: /tmp/missing-package.json"));
   assert.strictEqual(deps.update.mock.callCount(), 0);
   assertCalledWith(deps.processExit, 1);
 });

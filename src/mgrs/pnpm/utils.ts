@@ -1,10 +1,17 @@
 import * as fs from "fs";
-import { dirname, join, resolve } from "path";
+import type { DependencyManifest, ResolvedDependencyGraph } from "../../core/dep-tracker";
+import { createManifestRoots, readLockGraph, unresolvedDependency } from "../utils";
+import type { LockSection } from "./types";
+import { dirname, join, posix, relative, resolve } from "path";
 import { IS_DEBUGGING } from "../../constants";
 import { logger } from "../../observability";
 import type { OverridesType, OverrideValue, PastoralistJSON, SecurityPackage } from "../../types";
 import type { DependencyGraph, DependencyGraphState } from "../types";
-import { addDependencyParent, getPopulatedPackages } from "../utils";
+import {
+  addDependencyParent,
+  filterAmbiguousDependencyEdges,
+  getPopulatedPackages,
+} from "../utils";
 import {
   PNPM_LOCK_FILENAME,
   PNPM_WORKSPACE_FILE,
@@ -54,13 +61,13 @@ const parsePnpmPackageMatches = (content: string): SecurityPackage[] => {
   return packages;
 };
 
-const splitPnpmLockDocuments = (content: string): string[] => {
+export const splitPnpmLockDocuments = (content: string): string[] => {
   const documents = content.split(/^---\s*$/m).map((document) => document.trim());
   const populated = documents.filter(Boolean);
   return populated;
 };
 
-const isPnpmPackageManagerDocument = (content: string): boolean => {
+export const isPnpmPackageManagerDocument = (content: string): boolean => {
   const lines = content.split(/\r?\n/);
   const importerIndex = lines.indexOf("importers:");
   if (importerIndex === -1) return false;
@@ -159,7 +166,9 @@ export const parsePnpmLockGraph = (root: string): Record<string, string[]> | und
     content.split("\n").forEach((line) => {
       addPnpmGraphLine(inverted, state, line);
     });
-    return inverted;
+    const packages = parsePnpmLockDocuments(content);
+    const filteredGraph = filterAmbiguousDependencyEdges(inverted, packages);
+    return filteredGraph;
   } catch {
     log.debug("Could not read dependency graph", "parsePnpmLockGraph", lockPath);
     return undefined;
@@ -249,7 +258,7 @@ const findSeparator = (line: string): number => {
   return separator;
 };
 
-const parseQuotedScalar = (value: string): string => {
+export const parseQuotedScalar = (value: string): string => {
   if (value.startsWith('"')) {
     const parsed = JSON.parse(value) as string;
     return parsed;
@@ -291,7 +300,7 @@ const splitValue = (source: string): Pick<YamlPair, "valueSource" | "suffix"> =>
   return value;
 };
 
-const parsePair = (line: string): YamlPair | undefined => {
+export const parsePair = (line: string): YamlPair | undefined => {
   const indent = getIndent(line);
   const content = line.slice(indent.length);
   const isIgnoredContent = !content || content.startsWith("#") || content.startsWith("-");
@@ -718,4 +727,191 @@ export const updatePnpmWorkspaceOverrides = (content: string, overrides: Overrid
   const finalLines = formatEmptySection(appendedLines, overrides);
   const updated = finalLines.join(newline);
   return updated;
+};
+
+const createSection = (value = ""): LockSection => {
+  const children = new Map<string, LockSection>();
+  const section = { value, children };
+  return section;
+};
+
+export const readLockSections = (content: string): LockSection => {
+  const root = createSection();
+  const rootIndent = -1;
+  let stack = [{ indent: rootIndent, section: root }];
+  content.split(/\r?\n/).forEach((line) => {
+    const pair = parsePair(line);
+    if (!pair) return;
+    const indent = pair.indent.length;
+    const parentIndex = stack.findLastIndex((entry) => entry.indent < indent);
+    const parent = stack[parentIndex];
+    const value = parseQuotedScalar(pair.valueSource);
+    const section = createSection(value);
+    parent.section.children.set(pair.key, section);
+    stack = stack.slice(0, parentIndex + 1).concat({ indent, section });
+  });
+  return root;
+};
+
+const dependencyGroups = ["dependencies", "devDependencies", "optionalDependencies"];
+
+const readDependencyGroup = (section: LockSection | undefined): Array<[string, string]> => {
+  const empty: Array<[string, string]> = [];
+  if (!section) return empty;
+  const unsupportedValue = section.value !== "" && section.value !== "{}";
+  if (unsupportedValue) throw new Error("Unsupported lockfile dependency mapping");
+  const entries = Array.from(section.children, ([name, dependency]): [string, string] => {
+    const version = dependency.children.get("version")?.value ?? dependency.value;
+    const entry: [string, string] = [name, version];
+    return entry;
+  });
+  return entries;
+};
+
+export const readSectionDependencies = (section: LockSection): Record<string, string> => {
+  const entries = dependencyGroups.flatMap((group) =>
+    readDependencyGroup(section.children.get(group)),
+  );
+  const dependencies = Object.fromEntries(entries);
+  return dependencies;
+};
+
+const normalizeId = (id: string): string => {
+  const unprefixed = id.replace(/^\//, "");
+  const normalized = unprefixed.replace(/^(@[^/]+\/[^/]+|[^@/]+)\//, "$1@");
+  return normalized;
+};
+
+const packageName = (id: string): string => {
+  const match = id.match(/^(@[^/]+\/[^@]+|[^@]+)@/);
+  const name = match?.[1] ?? id;
+  return name;
+};
+
+const resolveReference = (ids: Set<string>, name: string, reference: string): string => {
+  const normalized = normalizeId(reference);
+  if (ids.has(normalized)) return normalized;
+  const qualified = `${name}@${normalized}`;
+  if (ids.has(qualified)) return qualified;
+  const missing = unresolvedDependency(name, reference);
+  return missing;
+};
+
+const importerId = (directory: string): string => `workspace:${posix.normalize(directory)}`;
+
+const resolveImporterReference = (
+  ids: Set<string>,
+  directory: string,
+  name: string,
+  ref: string,
+): string => {
+  if (ref.startsWith("link:")) {
+    const path = posix.join(directory, ref.slice(5));
+    const linked = importerId(path);
+    return linked;
+  }
+  const id = resolveReference(ids, name, ref);
+  return id;
+};
+
+const createPackage = (id: string, section: LockSection, ids: Set<string>) => {
+  const name = section.children.get("name")?.value ?? packageName(id);
+  const refs = readSectionDependencies(section);
+  const dependencies = Object.entries(refs).map(([dependency, ref]) =>
+    resolveReference(ids, dependency, ref),
+  );
+  const pkg = { name, dependencies };
+  return pkg;
+};
+
+const createImporter = (directory: string, refs: Record<string, string>, ids: Set<string>) => {
+  const dependencies = Object.entries(refs).map(([name, ref]) =>
+    resolveImporterReference(ids, directory, name, ref),
+  );
+  const name = importerId(directory);
+  const importer = { name, dependencies };
+  return importer;
+};
+
+const getPackageSections = (document: LockSection): Map<string, LockSection> => {
+  const section = document.children.get("snapshots") ?? document.children.get("packages");
+  const entries = Array.from(
+    section?.children ?? [],
+    ([id, pkg]) => [normalizeId(id), pkg] as const,
+  );
+  const sections = new Map(entries);
+  return sections;
+};
+
+const getImporters = (document: LockSection): Map<string, Record<string, string>> => {
+  const sections = document.children.get("importers")?.children ?? new Map([[".", document]]);
+  const entries = Array.from(
+    sections,
+    ([directory, section]) => [directory, readSectionDependencies(section)] as const,
+  );
+  const importers = new Map(entries);
+  return importers;
+};
+
+const readProjectLockDocument = (content: string): LockSection => {
+  const documents = splitPnpmLockDocuments(content).filter(
+    (document) => !isPnpmPackageManagerDocument(document),
+  );
+  if (documents.length !== 1) throw new Error("Expected one project lockfile document");
+  const document = readLockSections(documents[0]);
+  return document;
+};
+
+const createResolvedPackages = (
+  sections: Map<string, LockSection>,
+  importers: Map<string, Record<string, string>>,
+  ids: Set<string>,
+): ResolvedDependencyGraph["packages"] => {
+  const packageEntries = Array.from(sections, ([id, section]) => [
+    id,
+    createPackage(id, section, ids),
+  ]);
+  const importerEntries = Array.from(importers, ([dir, section]) => [
+    importerId(dir),
+    createImporter(dir, section, ids),
+  ]);
+  const packages = Object.fromEntries(packageEntries.concat(importerEntries));
+  return packages;
+};
+
+const createPnpmManifestRoots = (
+  root: string,
+  manifests: DependencyManifest[],
+  importers: Map<string, Record<string, string>>,
+  ids: Set<string>,
+): ResolvedDependencyGraph["roots"] => {
+  const roots = createManifestRoots(manifests, (manifest, name, range) => {
+    const directory = relative(root, dirname(manifest.path)).split("\\").join("/") || ".";
+    const importer = importers.get(directory);
+    const ref = importer?.[name] ?? range;
+    const id = resolveImporterReference(ids, directory, name, ref);
+    return id;
+  });
+  return roots;
+};
+
+const normalizePnpmGraph = (
+  content: string,
+  root: string,
+  manifests: DependencyManifest[],
+): ResolvedDependencyGraph => {
+  const document = readProjectLockDocument(content);
+  const sections = getPackageSections(document);
+  const ids = new Set(sections.keys());
+  const importers = getImporters(document);
+  const packages = createResolvedPackages(sections, importers, ids);
+  const roots = createPnpmManifestRoots(root, manifests, importers, ids);
+  const graph = { packages, roots };
+  return graph;
+};
+
+export const readPnpmResolvedGraph = (root: string, manifests: DependencyManifest[]) => {
+  const path = resolve(root, PNPM_LOCK_FILENAME);
+  const graph = readLockGraph(path, (content) => normalizePnpmGraph(content, root, manifests));
+  return graph;
 };

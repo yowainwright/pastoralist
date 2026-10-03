@@ -7,6 +7,7 @@ import type {
   ResolveResolutionOptions,
 } from "../../types";
 import { logger } from "../../observability";
+import { omit } from "../../utils";
 import type { OverrideSource, OverrideType } from "./types";
 
 const log = logger({ file: "overrides.ts", isLogging: IS_DEBUGGING });
@@ -135,9 +136,7 @@ const filterRemovedOverrides = (
   overrides: OverridesType,
   removableItems: string[],
 ): OverridesType => {
-  const removed = new Set(removableItems);
-  const entries = Object.entries(overrides).filter(([key]) => !removed.has(key));
-  const remaining = Object.fromEntries(entries);
+  const remaining = omit(overrides, removableItems);
   return remaining;
 };
 

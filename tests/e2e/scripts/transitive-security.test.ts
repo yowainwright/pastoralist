@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import {
   appendFileSync,
   mkdirSync,
@@ -12,6 +12,16 @@ import { dirname, join, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { stripVTControlCharacters } from "node:util";
+
+type Scenario = { name: string; version: string; status: number; alerts: string[] };
+type CliResult = {
+  success: boolean;
+  hasSecurityIssues: boolean;
+  securityAlertCount: number;
+  securityAlerts: Array<{ packageName: string }>;
+  appliedOverrides: Record<string, string>;
+};
+type OsvQuery = { package: { name: string }; version: string };
 
 const TEST_FILE = fileURLToPath(import.meta.url);
 const SCRIPT_DIR = dirname(TEST_FILE);
@@ -29,28 +39,33 @@ const CLI_ARGS = [
   "json",
   "--no-cache",
 ];
+const AFFECTED_PACKAGE = { name: "transitive", ecosystem: "npm" };
+const AFFECTED_EVENTS = [{ introduced: "0" }, { fixed: "3.0.0" }];
+const AFFECTED_RANGES = [{ type: "SEMVER", events: AFFECTED_EVENTS }];
+const AFFECTED = [{ package: AFFECTED_PACKAGE, ranges: AFFECTED_RANGES }];
+const SEVERITY = { severity: "HIGH" };
 const ADVISORY = {
   id: "TEST-TRANSITIVE-E2E",
   summary: "Transitive-only vulnerability",
-  database_specific: { severity: "HIGH" },
-  affected: [
-    {
-      package: { name: "transitive", ecosystem: "npm" },
-      ranges: [{ type: "SEMVER", events: [{ introduced: "0" }, { fixed: "3.0.0" }] }],
-    },
-  ],
+  database_specific: SEVERITY,
+  affected: AFFECTED,
 };
-const MANIFEST = JSON.stringify({
+const MANIFEST_DEPENDENCIES = { parent: "^1.0.0" };
+const MANIFEST_WORKSPACES = ["packages/*"];
+const MANIFEST_PASTORALIST = { overrideSource: "overrides.json" };
+const MANIFEST_FIELDS = {
   name: "transitive-security-e2e",
   version: "1.0.0",
   packageManager: "pnpm@12.2.1",
-  dependencies: { parent: "^1.0.0" },
-  workspaces: ["packages/*"],
-  pastoralist: { overrideSource: "overrides.json" },
-});
-const AUTO_FIX_MANIFEST = JSON.stringify(
-  Object.assign({}, JSON.parse(MANIFEST), { pastoralist: {} }),
-);
+  dependencies: MANIFEST_DEPENDENCIES,
+  workspaces: MANIFEST_WORKSPACES,
+  pastoralist: MANIFEST_PASTORALIST,
+};
+const MANIFEST = JSON.stringify(MANIFEST_FIELDS);
+const EMPTY_OBJECT = {};
+const AUTO_FIX_PASTORALIST = { pastoralist: EMPTY_OBJECT };
+const AUTO_FIX_FIELDS = Object.assign({}, MANIFEST_FIELDS, AUTO_FIX_PASTORALIST);
+const AUTO_FIX_MANIFEST = JSON.stringify(AUTO_FIX_FIELDS);
 const PACKAGE_MANAGER_LOCK = [
   "---",
   "lockfileVersion: '9.0'",
@@ -63,32 +78,61 @@ const PACKAGE_MANAGER_LOCK = [
   "  pnpm@12.2.1: {}",
 ].join("\n");
 
-const queryResult = ({ package: pkg, version }) => {
+const queryResult = ({ package: pkg, version }: OsvQuery) => {
   const vulnerable = pkg.name === "transitive" && version === "2.0.0";
-  if (!vulnerable) return {};
-  return { vulns: [{ id: ADVISORY.id }] };
+  const clean = {};
+  if (!vulnerable) return clean;
+  const { id } = ADVISORY;
+  const vuln = { id };
+  const vulns = [vuln];
+  const result = { vulns };
+  return result;
 };
 
-const batchResponse = (init) => {
-  const { queries } = JSON.parse(init.body);
+const batchResponse = (init?: RequestInit) => {
+  const { queries } = JSON.parse(String(init?.body)) as { queries: OsvQuery[] };
   const record = `${JSON.stringify(queries)}\n`;
-  appendFileSync(process.env.PASTORALIST_E2E_QUERY_LOG, record);
+  appendFileSync(String(process.env.PASTORALIST_E2E_QUERY_LOG), record);
   const results = queries.map(queryResult);
-  return Response.json({ results });
+  const body = { results };
+  const response = Response.json(body);
+  return response;
 };
 
-const mockResponse = (input, init) => {
+const advisoryResponse = () => {
+  const response = Response.json(ADVISORY);
+  return response;
+};
+
+const registryResponse = () => {
+  const distTags = { latest: "3.0.0" };
+  const versions = { "3.0.0": EMPTY_OBJECT };
+  const registry = { "dist-tags": distTags, versions };
+  const response = Response.json(registry);
+  return response;
+};
+
+const mockResponse = (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input);
-  if (url === "https://api.osv.dev/v1/querybatch") return batchResponse(init);
-  if (url === "https://api.osv.dev/v1/vulns/TEST-TRANSITIVE-E2E") return Response.json(ADVISORY);
-  if (url === "https://registry.npmjs.org/transitive") {
-    const registry = { "dist-tags": { latest: "3.0.0" }, versions: { "3.0.0": {} } };
-    return Response.json(registry);
+  const isBatch = url === "https://api.osv.dev/v1/querybatch";
+  if (isBatch) {
+    const batch = batchResponse(init);
+    return batch;
+  }
+  const isAdvisory = url === "https://api.osv.dev/v1/vulns/TEST-TRANSITIVE-E2E";
+  if (isAdvisory) {
+    const advisory = advisoryResponse();
+    return advisory;
+  }
+  const isRegistry = url === "https://registry.npmjs.org/transitive";
+  if (isRegistry) {
+    const registry = registryResponse();
+    return registry;
   }
   throw new Error(`Unexpected network request: ${url}`);
 };
 
-const projectLock = (version) =>
+const projectLock = (version: string) =>
   [
     "---",
     "lockfileVersion: '9.0'",
@@ -108,9 +152,9 @@ const projectLock = (version) =>
     `  transitive@${version}: {}`,
   ].join("\n");
 
-const createFixture = (root, version, manifest = MANIFEST) => {
+const createFixture = (root: string, version: string, manifest = MANIFEST) => {
   const lock = [PACKAGE_MANAGER_LOCK, projectLock(version)].join("\n");
-  const files = {
+  const files: Record<string, string> = {
     "package.json": manifest,
     "pnpm-lock.yaml": lock,
     "pnpm-workspace.yaml": "packages:\n  - packages/*\noverrides: {}\n",
@@ -122,7 +166,7 @@ const createFixture = (root, version, manifest = MANIFEST) => {
   return files;
 };
 
-const runCli = (root, flags = ["--dry-run"]) => {
+const runCli = (root: string, flags: string[] = ["--dry-run"]) => {
   const cacheDir = join(root, ".cache");
   const queryLog = join(root, "queries.jsonl");
   const env = Object.assign({}, process.env, {
@@ -132,16 +176,18 @@ const runCli = (root, flags = ["--dry-run"]) => {
     PASTORALIST_E2E_QUERY_LOG: queryLog,
   });
   const args = CLI_ARGS.concat(flags, "--cache-dir", cacheDir);
-  return spawnSync(process.execPath, args, { cwd: root, env, encoding: "utf8", timeout: 15000 });
+  const options = { cwd: root, env, encoding: "utf8", timeout: 15000 } as const;
+  const child = spawnSync(process.execPath, args, options);
+  return child;
 };
 
-const assertResult = (child, scenario) => {
+const assertResult = (child: SpawnSyncReturns<string>, scenario: Scenario): CliResult => {
   const diagnostic = `${child.stdout}\n${child.stderr}`;
   assert.ifError(child.error);
   assert.strictEqual(child.signal, null, diagnostic);
   assert.strictEqual(child.status, scenario.status, diagnostic);
   const lastLine = stripVTControlCharacters(child.stdout).trim().split("\n").at(-1);
-  const result = JSON.parse(lastLine);
+  const result = JSON.parse(String(lastLine)) as CliResult;
   assert.strictEqual(result.success, true, diagnostic);
   assert.strictEqual(result.hasSecurityIssues, scenario.status === 1);
   assert.strictEqual(result.securityAlertCount, scenario.alerts.length);
@@ -150,26 +196,33 @@ const assertResult = (child, scenario) => {
   return result;
 };
 
-const assertQueriedInventory = (root, version) => {
+const assertQueriedInventory = (root: string, version: string) => {
   const records = readFileSync(join(root, "queries.jsonl"), "utf8").trim().split("\n");
-  const queries = records.flatMap((record) => JSON.parse(record));
+  const queries = records.flatMap((record) => JSON.parse(record) as OsvQuery[]);
   const pairs = queries.map(({ package: pkg, version: resolved }) => `${pkg.name}@${resolved}`);
   assert.deepStrictEqual(pairs, ["parent@1.0.0", `transitive@${version}`]);
 };
 
-const assertFilesUnchanged = (root, files) => {
+const assertFilesUnchanged = (root: string, files: Record<string, string>) => {
   Object.entries(files).forEach(([name, content]) => {
     const actual = readFileSync(join(root, name), "utf8");
     assert.strictEqual(actual, content, `${name} unexpectedly changed`);
   });
 };
 
-const scenarios = [
-  { name: "vulnerable transitive dependency", version: "2.0.0", status: 1, alerts: ["transitive"] },
-  { name: "patched transitive dependency", version: "3.0.0", status: 0, alerts: [] },
+const TRANSITIVE_ALERTS = ["transitive"];
+const NO_ALERTS: string[] = [];
+const scenarios: Scenario[] = [
+  {
+    name: "vulnerable transitive dependency",
+    version: "2.0.0",
+    status: 1,
+    alerts: TRANSITIVE_ALERTS,
+  },
+  { name: "patched transitive dependency", version: "3.0.0", status: 0, alerts: NO_ALERTS },
 ];
 
-const registerScenario = (scenario) => {
+const registerScenario = (scenario: Scenario) => {
   test(`built CLI scans ${scenario.name}`, (t) => {
     const root = mkdtempSync(join(SCRIPT_DIR, ".test-transitive-security-"));
     t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -181,7 +234,7 @@ const registerScenario = (scenario) => {
   });
 };
 
-const assertPersistedOverride = (root, files) => {
+const assertPersistedOverride = (root: string, files: Record<string, string>) => {
   const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
   assert.strictEqual(manifest.dependencies.transitive, undefined);
   assert.ok(manifest.pastoralist.appendix["transitive@3.0.0"]);

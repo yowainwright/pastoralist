@@ -4,8 +4,9 @@ set -eu
 main() {
   SHELLCHECK_VERSION=$(shellcheck --version)
   SHELLCHECK_LEGIBILITY_VERSION=$(shellcheck-legibility --version)
+  SHFMT_VERSION=$(shfmt --version)
   SHELL_LINT_PLATFORM=$(uname -sm)
-  export SHELLCHECK_VERSION SHELLCHECK_LEGIBILITY_VERSION SHELL_LINT_PLATFORM
+  export SHELLCHECK_VERSION SHELLCHECK_LEGIBILITY_VERSION SHFMT_VERSION SHELL_LINT_PLATFORM
   exec turbo run lint:shell:check "$@"
 }
 

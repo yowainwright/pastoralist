@@ -1,4 +1,6 @@
 import { IS_DEBUGGING } from "../../constants";
+import { resolveDependencyTracking } from "./utils";
+import type { DependencyGraphContext, RootDependencyContext } from "./types";
 import { dirname, resolve } from "node:path";
 import type {
   Appendix,
@@ -10,12 +12,14 @@ import type {
   WriteResultContext,
 } from "../../types";
 import { logger } from "../../observability";
+import { pick } from "../../utils";
 import {
   clearDependencyGraphCache,
   clearDependencyTreeCache,
   jsonCache,
   getFullDependencyCount,
   getDependencyGraphStatus,
+  getLockfileDependencyTree,
 } from "../package";
 import {
   mergeOverridePaths,
@@ -29,7 +33,12 @@ import {
   resolveOverridesFromSource,
 } from "../overrides";
 import { updateAppendix, constructAppendix } from "../appendix";
-import { mergeAppendixDependents, normalizeAppendix } from "../appendix/utils";
+import {
+  carryExistingLedgers,
+  dropSupersededUnusedDependents,
+  mergeAppendixDependents,
+  normalizeAppendix,
+} from "../appendix/utils";
 import {
   findUnusedAppendixEntries,
   removeAppendixKeys,
@@ -114,21 +123,111 @@ const canProcessWorkspaceStep = (
   return canProcess;
 };
 
+const resolveDependencyTree = (ctx: UpdateContext): Record<string, string> | undefined => {
+  const dependencyTree = ctx.dependencyTree;
+  if (dependencyTree) return dependencyTree;
+  if (ctx.isTesting) return undefined;
+  const lockfileDependencyTree = getLockfileDependencyTree(ctx.root);
+  return lockfileDependencyTree;
+};
+
+const getAvailableDependencyGraph = (
+  dependencyGraph: UpdateContext["dependencyGraph"],
+  dependencyGraphAvailable: boolean | undefined,
+): UpdateContext["dependencyGraph"] => {
+  if (dependencyGraphAvailable === false) return undefined;
+  return dependencyGraph;
+};
+
+const createDependencyGraphContext = (context: DependencyGraphContext): DependencyGraphContext => {
+  const availableGraph = getAvailableDependencyGraph(
+    context.dependencyGraph,
+    context.dependencyGraphAvailable,
+  );
+  const { dependencyGraphAmbiguousParents, ...graphOptions } = context;
+  const result = Object.assign({}, graphOptions, { dependencyGraph: availableGraph });
+  const hasAmbiguousParents =
+    availableGraph !== undefined && Object.keys(dependencyGraphAmbiguousParents ?? {}).length > 0;
+  if (!hasAmbiguousParents) return result;
+  const contextWithAmbiguousParents = Object.assign({}, result, {
+    dependencyGraphAmbiguousParents,
+  });
+  return contextWithAmbiguousParents;
+};
+
+const resolveProvidedDependencyGraphContext = (
+  ctx: UpdateContext,
+  dependencyTree: Record<string, string> | undefined,
+): DependencyGraphContext | undefined => {
+  if (ctx.dependencyGraphAvailable === undefined) return undefined;
+  const graphOptions = pick(ctx, [
+    "dependencyGraph",
+    "dependencyGraphAvailable",
+    "dependencyGraphAmbiguousParents",
+    "dependencyTracking",
+  ]);
+  const context = Object.assign({}, graphOptions, { dependencyTree });
+  const graphContext = createDependencyGraphContext(context);
+  return graphContext;
+};
+
+const createTestingDependencyGraphContext = (
+  dependencyTree: Record<string, string> | undefined,
+): DependencyGraphContext => {
+  const context = { dependencyTree, dependencyGraph: undefined, dependencyGraphAvailable: true };
+  const graphContext = createDependencyGraphContext(context);
+  return graphContext;
+};
+
+const createProjectDependencyGraphContext = (
+  ctx: UpdateContext,
+  dependencyTree: Record<string, string> | undefined,
+  files: string[] = [],
+): DependencyGraphContext => {
+  const { graph, available, ambiguousDependencyParents } = getDependencyGraphStatus(ctx.root);
+  const dependencyTracking = resolveDependencyTracking(ctx, files);
+  const context = {
+    dependencyGraph: graph,
+    dependencyGraphAvailable: available,
+    dependencyGraphAmbiguousParents: ambiguousDependencyParents,
+    dependencyTracking,
+    dependencyTree,
+  };
+  const graphContext = createDependencyGraphContext(context);
+  return graphContext;
+};
+
 const resolveDependencyGraphContext = (
   ctx: UpdateContext,
-): Pick<UpdateContext, "dependencyGraph" | "dependencyGraphAvailable"> => {
+  files: string[] = [],
+): DependencyGraphContext => {
+  const dependencyTree = resolveDependencyTree(ctx);
   if (ctx.isTesting) {
-    const graphContext = { dependencyGraphAvailable: true };
+    const graphContext = createTestingDependencyGraphContext(dependencyTree);
     return graphContext;
   }
-  const { dependencyGraph, dependencyGraphAvailable } = ctx;
-  if (dependencyGraphAvailable !== undefined) {
-    const graphContext = { dependencyGraph, dependencyGraphAvailable };
+  const suppliedContext = resolveProvidedDependencyGraphContext(ctx, dependencyTree);
+  if (!suppliedContext) {
+    const graphContext = createProjectDependencyGraphContext(ctx, dependencyTree, files);
     return graphContext;
   }
-  const { graph, available } = getDependencyGraphStatus(ctx.root);
-  const graphContext = { dependencyGraph: graph, dependencyGraphAvailable: available };
+  if (files.length === 0) return suppliedContext;
+  const dependencyTracking = resolveDependencyTracking(ctx, files);
+  const graphContext = Object.assign({}, suppliedContext, { dependencyTracking });
   return graphContext;
+};
+
+const createWorkspaceAppendixOptions = (ctx: UpdateContext, files: string[]) => {
+  const graphContext = resolveDependencyGraphContext(ctx, files);
+  const dependencyContext = pick(graphContext, [
+    "dependencyTree",
+    "dependencyGraph",
+    "dependencyGraphAmbiguousParents",
+    "dependencyTracking",
+  ]);
+  const workspaceOptions = { constructAppendix, dependencyContext };
+  const result = { graphContext, workspaceOptions };
+  return result;
 };
 
 const buildWorkspaceContext = (ctx: UpdateContext, packageJsonFiles: string[]): UpdateContext => {
@@ -137,10 +236,7 @@ const buildWorkspaceContext = (ctx: UpdateContext, packageJsonFiles: string[]): 
     "stepProcessWorkspaces",
   );
 
-  const graphContext = resolveDependencyGraphContext(ctx);
-  const { dependencyGraph } = graphContext;
-  const dependencyContext = { dependencyGraph };
-  const workspaceOptions = { constructAppendix, dependencyContext };
+  const { graphContext, workspaceOptions } = createWorkspaceAppendixOptions(ctx, packageJsonFiles);
   const { appendix: workspaceAppendix, allWorkspaceDeps } = processWorkspacePackages(
     packageJsonFiles,
     ctx.overridesData,
@@ -177,21 +273,48 @@ const stepExtractExistingAppendix = (ctx: UpdateContext): UpdateContext => {
   return result;
 };
 
+const createRootOptions = (
+  dependencyContext: RootDependencyContext,
+  overrides: OverridesType,
+  appendix: Appendix,
+  packageName: string,
+) => {
+  const rootDependencyContext = pick(dependencyContext, [
+    "dependencyTree",
+    "dependencyGraph",
+    "dependencyGraphAmbiguousParents",
+  ]);
+  const options = Object.assign({}, rootDependencyContext, { overrides, appendix, packageName });
+  return options;
+};
+
+const getRootPackageDependencies = (config: PastoralistJSON) => {
+  const { dependencies = {}, devDependencies = {}, peerDependencies = {} } = config;
+  const dependenciesByType = { dependencies, devDependencies, peerDependencies };
+  return dependenciesByType;
+};
+
+const createRootSecurityOptions = (options: UpdateContext["options"]) => {
+  const { securityOverrideDetails, manualOverrideReasons, addedDate } = options;
+  const securityProvider = getPrimarySecurityProvider(options?.securityProvider);
+  const security = { securityOverrideDetails, manualOverrideReasons, addedDate, securityProvider };
+  return security;
+};
+
 const buildRootAppendix = (
   ctx: UpdateContext,
   config: PastoralistJSON,
   overrides: OverridesType,
-  dependencyGraph: UpdateContext["dependencyGraph"],
+  dependencyContext: RootDependencyContext,
 ): Appendix => {
-  const { dependencies = {}, devDependencies = {}, peerDependencies = {} } = config;
-  const deps = { dependencies, devDependencies, peerDependencies };
-  const appendix = ctx.existingAppendix || {};
+  const deps = getRootPackageDependencies(config);
+  const appendix: Appendix = {};
   const packageName = config.name || "root";
-  const { securityOverrideDetails, manualOverrideReasons, addedDate } = ctx.options;
-  const securityProvider = getPrimarySecurityProvider(ctx.options?.securityProvider);
-  const security = { securityOverrideDetails, manualOverrideReasons, addedDate, securityProvider };
-  const options = { overrides, appendix, packageName, dependencyGraph };
-  const rootAppendix = updateAppendix(Object.assign({}, deps, security, options));
+  const security = createRootSecurityOptions(ctx.options);
+  const rootOptions = createRootOptions(dependencyContext, overrides, appendix, packageName);
+  const trackedDependencies = dependencyContext.dependencyTracking?.[resolve(ctx.path)];
+  const options = Object.assign({}, deps, security, rootOptions, { trackedDependencies });
+  const rootAppendix = updateAppendix(options);
   return rootAppendix;
 };
 
@@ -210,8 +333,10 @@ const stepBuildAppendix = (ctx: UpdateContext): UpdateContext => {
   if (!config) return ctx;
   if (!overrides) return ctx;
   const graphContext = resolveDependencyGraphContext(ctx);
-  const rootAppendix = buildRootAppendix(ctx, config, overrides, graphContext.dependencyGraph);
-  const appendix = mergeWorkspaceAppendix(ctx, rootAppendix);
+  const rootAppendix = buildRootAppendix(ctx, config, overrides, graphContext);
+  const mergedAppendix = dropSupersededUnusedDependents(mergeWorkspaceAppendix(ctx, rootAppendix));
+  const existingAppendix = ctx.existingAppendix || {};
+  const appendix = carryExistingLedgers(mergedAppendix, existingAppendix);
   const result = Object.assign({}, ctx, graphContext, { appendix });
   return result;
 };

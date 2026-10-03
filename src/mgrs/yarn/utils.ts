@@ -1,10 +1,19 @@
 import * as fs from "fs";
+import type { DependencyManifest, ResolvedDependencyGraph } from "../../core/dep-tracker";
+import { createManifestRoots, readLockGraph, unresolvedDependency } from "../utils";
+import type { YarnPackage } from "../types";
+import { parsePair, parseQuotedScalar } from "../pnpm/utils";
+import { pick } from "../../utils";
 import { resolve } from "path";
 import { IS_DEBUGGING } from "../../constants";
 import { logger } from "../../observability";
 import type { SecurityPackage } from "../../types";
 import type { DependencyGraph, DependencyGraphState } from "../types";
-import { addDependencyParent, getPopulatedPackages } from "../utils";
+import {
+  addDependencyParent,
+  filterAmbiguousDependencyEdges,
+  getPopulatedPackages,
+} from "../utils";
 import {
   YARN_LOCK_FILENAME,
   YARN_BERRY_DEPENDENCY_PATTERN,
@@ -70,22 +79,141 @@ const parseYarnLockBlock = (block: string): SecurityPackage | undefined => {
   return pkg;
 };
 
+const parseYarnLockPackages = (content: string): SecurityPackage[] => {
+  const packages = content.split(/\n(?=\S)/).flatMap((block) => {
+    const pkg = parseYarnLockBlock(block.trim());
+    const matches = pkg ? [pkg] : [];
+    return matches;
+  });
+  return packages;
+};
+
 export const parseYarnLockedPackages = (root: string): SecurityPackage[] | undefined => {
   const lockPath = resolve(root, YARN_LOCK_FILENAME);
   if (!fs.existsSync(lockPath)) return undefined;
   try {
     const content = fs.readFileSync(lockPath, "utf8");
-    const packages = content.split(/\n(?=\S)/).flatMap((block) => {
-      const pkg = parseYarnLockBlock(block.trim());
-      const matches = pkg ? [pkg] : [];
-      return matches;
-    });
+    const packages = parseYarnLockPackages(content);
     const inventory = getPopulatedPackages(packages);
     return inventory;
   } catch {
     log.debug("Could not read package inventory", "parseYarnLockedPackages", lockPath);
     return undefined;
   }
+};
+
+const readSelectors = (header: string): string[] => {
+  const tokens = header.replace(/:$/, "").match(/"(?:\\.|[^"\\])*"|[^,\s]+/g) ?? [];
+  const selectors = tokens.flatMap((token) => parseQuotedScalar(token).split(/,\s*/));
+  return selectors;
+};
+
+const readDependency = (line: string): [string, string] | undefined => {
+  const pair = parsePair(line);
+  if (pair) {
+    const value = parseQuotedScalar(pair.valueSource);
+    const entry: [string, string] = [pair.key, value];
+    return entry;
+  }
+  const match = line.trim().match(/^("(?:\\.|[^"\\])*"|\S+)\s+("(?:\\.|[^"\\])*"|\S+)$/);
+  if (!match) return undefined;
+  const name = parseQuotedScalar(match[1]);
+  const value = parseQuotedScalar(match[2]);
+  const entry: [string, string] = [name, value];
+  return entry;
+};
+
+const readDependencies = (lines: string[]): Record<string, string> => {
+  let inDependencies = false;
+  const entries = new Map<string, string>();
+  lines.forEach((line) => {
+    if (/^  \S/.test(line))
+      inDependencies = /^  (dependencies|optionalDependencies):\s*$/.test(line);
+    const isDependency = inDependencies && /^    \S/.test(line);
+    if (!isDependency) return;
+    const entry = readDependency(line);
+    if (entry) entries.set(entry[0], entry[1]);
+  });
+  const dependencies = Object.fromEntries(entries);
+  return dependencies;
+};
+
+const readPackage = (block: string): YarnPackage | undefined => {
+  const lines = block.split(/\r?\n/);
+  const header = lines[0];
+  if (!header.endsWith(":")) return undefined;
+  const selectors = readSelectors(header);
+  const id = selectors[0];
+  const separator = id?.indexOf("@", 1) ?? -1;
+  if (separator < 0) return undefined;
+  const name = id.slice(0, separator);
+  const dependencies = readDependencies(lines.slice(1));
+  const pkg = { id, name, selectors, dependencies };
+  return pkg;
+};
+
+const readPackages = (content: string): YarnPackage[] => {
+  const blocks = content.split(/\r?\n(?=\S)/);
+  const packages = blocks.map(readPackage);
+  const populated = packages.filter((pkg): pkg is YarnPackage => pkg !== undefined);
+  return populated;
+};
+
+const resolveReference = (selectors: Map<string, string>, name: string, range: string): string => {
+  const id = selectors.get(`${name}@${range}`) ?? selectors.get(`${name}@npm:${range}`);
+  if (id) return id;
+  const workspace = selectors.get(`${name}@workspace:*`);
+  if (workspace) return workspace;
+  const missing = unresolvedDependency(name, range);
+  return missing;
+};
+
+const selectorEntries = (pkg: YarnPackage): Array<[string, string]> =>
+  pkg.selectors.map((selector) => [selector, pkg.id]);
+
+const createPackage = (pkg: YarnPackage, selectors: Map<string, string>) => {
+  const dependencies = Object.entries(pkg.dependencies).map(([name, range]) =>
+    resolveReference(selectors, name, range),
+  );
+  const metadata = pick(pkg, ["name"]);
+  const instance = Object.assign({}, metadata, { dependencies });
+  const entry = [pkg.id, instance];
+  return entry;
+};
+
+const createWorkspace = (manifest: DependencyManifest): YarnPackage[] => {
+  const empty: YarnPackage[] = [];
+  const workspaceName = manifest.name;
+  if (!workspaceName) return empty;
+  const id = `workspace:${manifest.path}`;
+  const selectors = [`${workspaceName}@workspace:*`];
+  const metadata = pick(manifest, ["name", "dependencies"]);
+  const pkg = Object.assign({}, metadata, { id, name: workspaceName, selectors });
+  const packages = [pkg];
+  return packages;
+};
+
+const normalizeYarnGraph = (
+  content: string,
+  manifests: DependencyManifest[],
+): ResolvedDependencyGraph => {
+  const workspaces = manifests.flatMap(createWorkspace);
+  const entries = readPackages(content).concat(workspaces);
+  const descriptors = entries.flatMap(selectorEntries);
+  const selectors = new Map(descriptors);
+  const packageEntries = entries.map((pkg) => createPackage(pkg, selectors));
+  const packages = Object.fromEntries(packageEntries);
+  const roots = createManifestRoots(manifests, (_manifest, name, range) =>
+    resolveReference(selectors, name, range),
+  );
+  const graph = { packages, roots };
+  return graph;
+};
+
+export const readYarnResolvedGraph = (root: string, manifests: DependencyManifest[]) => {
+  const path = resolve(root, YARN_LOCK_FILENAME);
+  const graph = readLockGraph(path, (content) => normalizeYarnGraph(content, manifests));
+  return graph;
 };
 
 export const parseYarnLockTree = (root: string): Record<string, string> | undefined => {
@@ -151,7 +279,9 @@ export const parseYarnLockGraph = (root: string): Record<string, string[]> | und
     content.split("\n").forEach((line) => {
       addYarnGraphLine(inverted, state, line);
     });
-    return inverted;
+    const packages = parseYarnLockPackages(content);
+    const filteredGraph = filterAmbiguousDependencyEdges(inverted, packages);
+    return filteredGraph;
   } catch {
     log.debug("Could not read dependency graph", "parseYarnLockGraph", lockPath);
     return undefined;

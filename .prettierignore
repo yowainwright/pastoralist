@@ -1,5 +1,0 @@
-node_modules
-dist
-.turbo
-.astro
-tests/fixtures/package-overrides.json

@@ -7,7 +7,7 @@ import { fileURLToPath } from "url";
 import { parseArgs, showHelp } from "./parser";
 import type { Options } from "../types";
 import { logger as createLogger } from "../observability";
-import { initCommand, showOnboarding } from "./cmds/init";
+import { initCommand, showOnboarding } from "./init";
 import { action } from "./action";
 import { addPostinstallHook, readPackageJson, resolvePackagePath, writePackageJson } from "./utils";
 import { showStyleguide } from "./styleguide";
@@ -35,7 +35,7 @@ export {
   displayOverrides,
   displaySummaryTable,
 } from "./utils";
-export { buildOnboardingText, showOnboarding } from "./cmds/init";
+export { buildOnboardingText, showOnboarding } from "./init";
 export { formatStyleguide, showStyleguide } from "./styleguide";
 
 type PackageVersion = { version?: unknown };

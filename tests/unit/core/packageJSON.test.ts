@@ -1861,6 +1861,99 @@ test("parseNpmLockGraph - returns inverted dep graph from package-lock.json v2",
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
+const duplicateExpress418 = { version: "4.18.0" };
+const duplicateExpress5Dependencies = { lodash: "^4.17.21" };
+const duplicateExpress5 = { version: "5.0.0", dependencies: duplicateExpress5Dependencies };
+const duplicateUniqueParentDependencies = { "unique-child": "^1.0.0" };
+const duplicateUniqueParent = { version: "1.0.0", dependencies: duplicateUniqueParentDependencies };
+const duplicateUniqueChild = { version: "1.0.0" };
+const duplicateLodash = { version: "4.17.21" };
+const duplicateNpmPackages = {
+  "node_modules/express": duplicateExpress418,
+  "node_modules/unique-parent": duplicateUniqueParent,
+  "node_modules/unique-child": duplicateUniqueChild,
+  "packages/pkg-a/node_modules/express": duplicateExpress5,
+  "packages/pkg-a/node_modules/lodash": duplicateLodash,
+};
+const duplicatePnpmLock = [
+  "lockfileVersion: 6.0",
+  "packages:",
+  "  /express@4.18.0:",
+  "    resolution: {}",
+  "  /express@5.0.0:",
+  "    resolution: {}",
+  "    dependencies:",
+  "      lodash: 4.17.21",
+  "  /lodash@4.17.21:",
+  "    resolution: {}",
+  "  /unique-parent@1.0.0:",
+  "    resolution: {}",
+  "    dependencies:",
+  "      unique-child: 1.0.0",
+  "  /unique-child@1.0.0:",
+  "    resolution: {}",
+].join("\n");
+const duplicateYarnLock = [
+  "express@^4.18.0:",
+  '  version "4.18.0"',
+  "",
+  "express@^5.0.0:",
+  '  version "5.0.0"',
+  "  dependencies:",
+  '    lodash "^4.17.21"',
+  "",
+  "lodash@^4.17.21:",
+  '  version "4.17.21"',
+  "",
+  "unique-parent@^1.0.0:",
+  '  version "1.0.0"',
+  "  dependencies:",
+  '    unique-child "^1.0.0"',
+  "",
+  "unique-child@^1.0.0:",
+  '  version "1.0.0"',
+].join("\n");
+const duplicateBunEmptyMetadata = {};
+const duplicateBunExpress5Metadata = { dependencies: duplicateExpress5Dependencies };
+const duplicateBunUniqueParentMetadata = { dependencies: duplicateUniqueParentDependencies };
+const duplicateBunExpress418Entry = ["express@4.18.0", "", duplicateBunEmptyMetadata];
+const duplicateBunExpress5Entry = ["express@5.0.0", "", duplicateBunExpress5Metadata];
+const duplicateBunLodashEntry = ["lodash@4.17.21", "", duplicateBunEmptyMetadata];
+const duplicateBunUniqueParentEntry = ["unique-parent@1.0.0", "", duplicateBunUniqueParentMetadata];
+const duplicateBunUniqueChildEntry = ["unique-child@1.0.0", "", duplicateBunEmptyMetadata];
+const duplicateBunPackages = {
+  "express@4.18.0": duplicateBunExpress418Entry,
+  "express@5.0.0": duplicateBunExpress5Entry,
+  "lodash@4.17.21": duplicateBunLodashEntry,
+  "unique-parent@1.0.0": duplicateBunUniqueParentEntry,
+  "unique-child@1.0.0": duplicateBunUniqueChildEntry,
+};
+
+const assertDuplicateLockGraph = (graph: Record<string, string[]> | undefined): void => {
+  assert.strictEqual(graph?.lodash, undefined);
+  assert.deepStrictEqual(graph?.["unique-child"], ["unique-parent"]);
+};
+
+test("lock graph parsers omit edges through duplicate package names", (t) => {
+  mkdirSync(lockTestDir, { recursive: true });
+  t.after(() => rmSync(lockTestDir, { recursive: true, force: true }));
+
+  writeFileSync(
+    resolve(lockTestDir, "package-lock.json"),
+    JSON.stringify({ lockfileVersion: 3, packages: duplicateNpmPackages }),
+  );
+  assertDuplicateLockGraph(parseNpmLockGraph(lockTestDir));
+
+  writeFileSync(resolve(lockTestDir, "pnpm-lock.yaml"), duplicatePnpmLock);
+  assertDuplicateLockGraph(parsePnpmLockGraph(lockTestDir));
+
+  writeFileSync(resolve(lockTestDir, "yarn.lock"), duplicateYarnLock);
+  assertDuplicateLockGraph(parseYarnLockGraph(lockTestDir));
+
+  writeFileSync(resolve(lockTestDir, "bun.lock"), bunLockContent(duplicateBunPackages));
+  assertDuplicateLockGraph(parseBunLockGraph(lockTestDir));
+});
+
 test("parseNpmLockGraph - returns undefined when no package-lock.json", () => {
   assert.strictEqual(parseNpmLockGraph(testDir), undefined);
 });

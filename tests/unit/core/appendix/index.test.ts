@@ -396,6 +396,28 @@ test("processAndWritePackageJSON - includes workspace package whose dep is a gra
   assert.strictEqual(result?.name, "workspace-pkg");
 });
 
+test("processAndWritePackageJSON - falls back to dependency graph when tracking is incomplete", () => {
+  const pkgPath = join(tmpdir(), "pastoralist-test-workspace-incomplete-tracking.json");
+  writeFileSync(
+    pkgPath,
+    JSON.stringify({ name: "workspace-pkg", dependencies: { glob: "^7.0.0" } }),
+  );
+  const overrides: OverridesType = { "minimatch@<4": "3.1.5" };
+  const dependencyGraph = { minimatch: ["glob"] };
+  const dependencyTracking = { [pkgPath]: { dependents: {}, complete: false } };
+  const result = processAndWritePackageJSON(pkgPath, overrides, Object.keys(overrides), false, {
+    dependencyGraph,
+    dependencyTracking,
+  });
+  unlinkSync(pkgPath);
+  assert.notStrictEqual(result, undefined);
+  assert.strictEqual(result?.name, "workspace-pkg");
+  assert.strictEqual(
+    result?.appendix["minimatch@<4@3.1.5"]?.dependents?.["workspace-pkg"],
+    "minimatch@<4 (transitive dependency)",
+  );
+});
+
 test("processAndWritePackageJSON - excludes workspace package with no relation to any override", () => {
   const pkgPath = join(tmpdir(), "pastoralist-test-workspace-no-match.json");
   writeFileSync(

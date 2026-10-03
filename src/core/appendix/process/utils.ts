@@ -120,8 +120,17 @@ export const buildSimpleDependentInfo = (options: ProcessOverrideOptions): strin
   const override = options.override;
   const hasOverride = hasDependency(options.deps, override);
   const tracking = options.trackedDependencies;
-  const useTracking = !hasOverride && tracking;
-  const trackedInfo = useTracking ? describeTrackedDependency(override, tracking) : undefined;
+  if (tracking === undefined) {
+    const dependentInfo = buildGraphDependentInfo(options);
+    return dependentInfo;
+  }
+  const hasCompleteTracking = tracking.complete === true;
+  const shouldUseGraph = hasOverride || !hasCompleteTracking;
+  if (shouldUseGraph) {
+    const dependentInfo = buildGraphDependentInfo(options);
+    return dependentInfo;
+  }
+  const trackedInfo = describeTrackedDependency(override, tracking);
   if (trackedInfo) return trackedInfo;
   const dependentInfo = buildGraphDependentInfo(options);
   return dependentInfo;
@@ -176,7 +185,7 @@ const hasDirectOrTreeOverride = (
   const hasDirectMatch = hasDependenciesMatchingOverrides(depList, overridesList);
   if (hasDirectMatch) return true;
 
-  if (dependencyContext.trackedDependencies) return false;
+  if (dependencyContext.trackedDependencies?.complete) return false;
 
   const canUseDependencyTree = dependencyContext.dependencyGraph === undefined;
   if (!canUseDependencyTree) return false;
@@ -208,7 +217,7 @@ export const hasMatchingPackageOverrides = (
   );
   if (hasDirectOrTreeMatch) return true;
   const tracking = dependencyContext.trackedDependencies;
-  if (tracking) {
+  if (tracking?.complete) {
     const matches = hasTrackedPackageOverride(overridesList, tracking);
     return matches;
   }

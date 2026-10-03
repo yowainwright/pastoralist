@@ -540,10 +540,17 @@ const resolveRemovalDependencyGraph = (ctx: UpdateContext): UpdateContext => {
   return removalDependencyGraph;
 };
 
+const hasIncompleteDependencyTracking = (context: UpdateContext): boolean => {
+  const trackedManifests = Object.values(context.dependencyTracking ?? {});
+  const hasIncompleteTracking = trackedManifests.some(({ complete }) => !complete);
+  return hasIncompleteTracking;
+};
+
 const stepRemoveUnused = (ctx: UpdateContext): UpdateContext => {
   const context = resolveRemovalDependencyGraph(ctx);
   const base = createRemovalBaseContext(context);
   if (context.options?.removeUnused !== true) return base;
+  if (hasIncompleteDependencyTracking(context)) return base;
   const lacksDependencyEvidence = !context.isTesting && context.dependencyGraphAvailable !== true;
   if (lacksDependencyEvidence) return base;
 

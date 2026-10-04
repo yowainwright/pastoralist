@@ -35,7 +35,8 @@ import {
   NO_FIX_FIELDS,
   createAlert,
 } from "../../fixtures/security.fixtures";
-import { createMockFetch, withMockedFetch } from "../../fixtures/setup.fixtures";
+import { withMockedFetch } from "../../fixtures/setup.fixtures";
+import { OSV_API } from "../../../../src/core/security/constants";
 
 const vulnerabilities = [LODASH_VULNERABILITY];
 const securityAdvisory = Object.assign({}, LODASH_ADVISORY, {
@@ -1729,29 +1730,38 @@ const workspaceDepPaths = ["packages/a/package.json"];
 const lockedLodashPackages = [{ name: "lodash", version: "4.17.20" }];
 
 const createEmptyOsvFetch = () => {
-  const mockOsvResponse = { vulns };
-  const mockFetch = createMockFetch({ ok: true });
-  mockFetch.mockImplementation(() =>
-    Promise.resolve({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(mockOsvResponse),
-    } as Response),
-  );
+  const results = [{ vulns }];
+  const body = JSON.stringify({ results });
+  const mockFetch = mock<typeof fetch>(() => Promise.resolve(new Response(body)));
   return mockFetch;
 };
 
-test("checkSecurity - should handle workspace scanning", async () => {
+const assertWorkspaceOsvRequest = (mockFetch: ReturnType<typeof createEmptyOsvFetch>) => {
+  assert.strictEqual(mockFetch.mock.callCount(), 1);
+  const [url, request] = mockFetch.mock.calls[0].arguments;
+  assert.strictEqual(url, OSV_API.QUERY_BATCH);
+  assert.strictEqual(request?.method, "POST");
+  const pkg = { name: "lodash", ecosystem: "npm" };
+  const queries = [{ package: pkg, version: "4.17.20" }];
+  assert.deepStrictEqual(JSON.parse(String(request?.body)), { queries });
+};
+
+test("checkSecurity - should handle workspace scanning", async (context) => {
+  context.mock.method(globalThis, "setTimeout", () => {
+    assert.fail("A successful workspace scan must not schedule retries");
+  });
   const mockFetch = createEmptyOsvFetch();
 
   await withMockedFetch(mockFetch, async () => {
     const root = createBestCaseRoot(lockedLodashPackages);
     const checker = new SecurityChecker({ provider: "osv", noCache: true });
-    const scanOptions = { depPaths: workspaceDepPaths, root };
+    const scanOptions = { depPaths: workspaceDepPaths, root, requireCompleteScan: true };
     const result = await checker.checkSecurity(WORKSPACE_SCAN_CONFIG, scanOptions);
 
-    assert.strictEqual(Array.isArray(result.alerts), true);
-    assert.strictEqual(Array.isArray(result.overrides), true);
+    assert.deepStrictEqual(result.alerts, []);
+    assert.deepStrictEqual(result.overrides, []);
+    assert.strictEqual(result.packagesScanned, 1);
+    assertWorkspaceOsvRequest(mockFetch);
   });
 });
 

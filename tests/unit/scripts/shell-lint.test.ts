@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { runTestCommand } from "./utils";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -42,7 +42,7 @@ statuses.forEach((status) => {
     writeShellTool(root, "shfmt", shfmtStatus);
     const toolPath = `${join(root, "bin")}:/usr/bin:/bin`;
     const env = Object.assign({}, process.env, { PATH: toolPath });
-    const result = spawnSync("/bin/sh", [script], { cwd: root, encoding: "utf8", env });
+    const result = runTestCommand("/bin/sh", [script], { cwd: root, env });
     const output = result.stdout.trim().split("\n");
     const expectedStatus = Math.max(shellcheckStatus, legibilityStatus, shfmtStatus);
     assert.equal(result.status, expectedStatus, result.stderr);

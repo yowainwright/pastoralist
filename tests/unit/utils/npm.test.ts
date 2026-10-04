@@ -1,5 +1,5 @@
 import { test, beforeEach, afterEach } from "node:test";
-import { mock } from "../setup";
+import { advanceTimers, mock } from "../setup";
 import assert from "node:assert/strict";
 import {
   fetchLatestVersion,
@@ -45,8 +45,10 @@ const MISSING_VERSIONS_INFO = { "dist-tags": LATEST_DIST_TAGS };
 const INVALID_VERSIONS_INFO = { "dist-tags": LATEST_DIST_TAGS, versions: "invalid" };
 
 let originalFetch: typeof globalThis.fetch;
+const TIMER_APIS: "setTimeout"[] = ["setTimeout"];
 
-beforeEach(() => {
+beforeEach((context) => {
+  context.mock.timers.enable({ apis: TIMER_APIS });
   originalFetch = globalThis.fetch;
   clearRegistryCache();
 });
@@ -64,20 +66,57 @@ test("fetchLatestVersion - should return latest version from dist-tags", async (
   assert.strictEqual(result, "4.17.21");
 });
 
-test("fetchLatestVersion - should return null when package not found", async () => {
-  globalThis.fetch = mock(() => Promise.resolve(mockNotFoundResponse()));
+test("fetchLatestVersion - should return null when package not found", async (context) => {
+  const fetchMock = mock(() => Promise.resolve(mockNotFoundResponse()));
+  globalThis.fetch = fetchMock;
 
-  const result = await fetchLatestVersion("non-existent-package-xyz");
+  const pending = fetchLatestVersion("non-existent-package-xyz");
+  await advanceTimers(context, 500, 1000);
+  const result = await pending;
 
   assert.strictEqual(result, null);
+  assert.strictEqual(fetchMock.mock.callCount(), 3);
 });
 
-test("fetchLatestVersion - should return null when fetch fails", async () => {
-  globalThis.fetch = mock(() => Promise.reject(new Error("Network error")));
+test("fetchLatestVersion - should return null when fetch fails", async (context) => {
+  const fetchMock = mock(() => Promise.reject(new Error("Network error")));
+  globalThis.fetch = fetchMock;
 
-  const result = await fetchLatestVersion("some-package");
+  const pending = fetchLatestVersion("some-package");
+  await advanceTimers(context, 500, 1000);
+  const result = await pending;
 
   assert.strictEqual(result, null);
+  assert.strictEqual(fetchMock.mock.callCount(), 3);
+});
+
+test("fetchLatestVersion - waits for each retry deadline", async (context) => {
+  const fetchMock = mock(respondNotFound);
+  globalThis.fetch = fetchMock;
+  const pending = fetchLatestVersion("missing-package");
+  await advanceTimers(context, 499);
+  assert.strictEqual(fetchMock.mock.callCount(), 1);
+  await advanceTimers(context, 1);
+  assert.strictEqual(fetchMock.mock.callCount(), 2);
+  await advanceTimers(context, 999);
+  assert.strictEqual(fetchMock.mock.callCount(), 2);
+  await advanceTimers(context, 1);
+  assert.strictEqual(await pending, null);
+  assert.strictEqual(fetchMock.mock.callCount(), 3);
+  await advanceTimers(context, 3000);
+  assert.strictEqual(fetchMock.mock.callCount(), 3);
+});
+
+test("fetchLatestVersion - stops retrying after recovery and caches the result", async (context) => {
+  const fetchMock = mock(respondWith(BASE_NPM_PACKAGE_INFO));
+  fetchMock.mockImplementationOnce(respondNotFound);
+  globalThis.fetch = fetchMock;
+  const pending = fetchLatestVersion("lodash");
+  await advanceTimers(context, 500);
+  assert.strictEqual(await pending, "4.17.21");
+  await advanceTimers(context, 1000);
+  assert.strictEqual(await fetchLatestVersion("lodash"), "4.17.21");
+  assert.strictEqual(fetchMock.mock.callCount(), 2);
 });
 
 test("fetchLatestVersion - should return null when dist-tags.latest is missing", async () => {
@@ -134,12 +173,16 @@ test("fetchLatestCompatibleVersion - should return null when no compatible versi
   assert.strictEqual(result, null);
 });
 
-test("fetchLatestCompatibleVersion - should return null when package not found", async () => {
-  globalThis.fetch = mock(() => Promise.resolve(mockNotFoundResponse()));
+test("fetchLatestCompatibleVersion - should return null when package not found", async (context) => {
+  const fetchMock = mock(() => Promise.resolve(mockNotFoundResponse()));
+  globalThis.fetch = fetchMock;
 
-  const result = await fetchLatestCompatibleVersion("non-existent", "1.0.0");
+  const pending = fetchLatestCompatibleVersion("non-existent", "1.0.0");
+  await advanceTimers(context, 500, 1000);
+  const result = await pending;
 
   assert.strictEqual(result, null);
+  assert.strictEqual(fetchMock.mock.callCount(), 3);
 });
 
 test("fetchLatestCompatibleVersion - should return null when versions metadata is missing", async () => {
@@ -212,7 +255,7 @@ test("fetchLatestCompatibleVersions - should handle empty package list", async (
   assert.strictEqual(result.size, 0);
 });
 
-test("fetchLatestCompatibleVersions - should skip packages that fail to fetch", async () => {
+test("fetchLatestCompatibleVersions - should skip packages that fail to fetch", async (context) => {
   const fetchMock = mock(respondNotFound);
   fetchMock.mockImplementationOnce(respondWith(BASE_NPM_PACKAGE_INFO));
   globalThis.fetch = fetchMock;
@@ -222,13 +265,16 @@ test("fetchLatestCompatibleVersions - should skip packages that fail to fetch", 
     { name: "non-existent-pkg", minVersion: "1.0.0" },
   ];
 
-  const result = await fetchLatestCompatibleVersions(packages);
+  const pending = fetchLatestCompatibleVersions(packages);
+  await advanceTimers(context, 500, 1000);
+  const result = await pending;
 
   assert.strictEqual(result.get("lodash"), "4.17.21");
   assert.strictEqual(result.has("non-existent-pkg"), false);
+  assert.strictEqual(fetchMock.mock.callCount(), 4);
 });
 
-test("fetchLatestCompatibleVersions - should handle mixed success and failure", async () => {
+const createMixedRegistryFetch = () => {
   const lodashInfo = createNpmPackageInfo("4.17.21", versionsOf("4.17.20", "4.17.21"));
   const axiosInfo = createNpmPackageInfo("1.6.0", versionsOf("1.5.0", "1.6.0"));
   const responses = new Map<string, unknown>([
@@ -236,7 +282,13 @@ test("fetchLatestCompatibleVersions - should handle mixed success and failure", 
     ["axios", axiosInfo],
   ]);
 
-  globalThis.fetch = mock(routeRegistryRequests(responses));
+  const fetchMock = mock(routeRegistryRequests(responses));
+  return fetchMock;
+};
+
+test("fetchLatestCompatibleVersions - should handle mixed success and failure", async (context) => {
+  const fetchMock = createMixedRegistryFetch();
+  globalThis.fetch = fetchMock;
 
   const packages = [
     { name: "lodash", minVersion: "4.17.20" },
@@ -244,11 +296,14 @@ test("fetchLatestCompatibleVersions - should handle mixed success and failure", 
     { name: "unknown-pkg", minVersion: "1.0.0" },
   ];
 
-  const result = await fetchLatestCompatibleVersions(packages);
+  const pending = fetchLatestCompatibleVersions(packages);
+  await advanceTimers(context, 500, 1000);
+  const result = await pending;
 
   assert.strictEqual(result.get("lodash"), "4.17.21");
   assert.strictEqual(result.get("axios"), "1.6.0");
   assert.strictEqual(result.has("unknown-pkg"), false);
+  assert.strictEqual(fetchMock.mock.callCount(), 5);
 });
 
 test("fetchLatestCompatibleVersion - should handle versions with zero major", async () => {
@@ -303,7 +358,7 @@ test("fetchLatestVersion - should encode package name in URL", async () => {
   assert.ok(capturedUrl.includes(encodeURIComponent("@scope/package-name")));
 });
 
-test("fetchLatestCompatibleVersions - should rate limit concurrent requests", async () => {
+test("fetchLatestCompatibleVersions - should rate limit concurrent requests", async (context) => {
   let maxConcurrent = 0;
   let currentConcurrent = 0;
 
@@ -318,7 +373,11 @@ test("fetchLatestCompatibleVersions - should rate limit concurrent requests", as
 
   const packages = Array.from({ length: 20 }, (_, i) => toPackageRequest(`package-${i}`));
 
-  await fetchLatestCompatibleVersions(packages);
+  const pending = fetchLatestCompatibleVersions(packages);
+  await advanceTimers(context, 50, 50, 50, 50);
+  const result = await pending;
 
-  assert.ok(maxConcurrent <= 5);
+  assert.strictEqual(maxConcurrent, 5);
+  assert.strictEqual(currentConcurrent, 0);
+  assert.strictEqual(result.size, 20);
 });

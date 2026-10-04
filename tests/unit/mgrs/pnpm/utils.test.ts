@@ -43,6 +43,13 @@ const pnpmAliasContent = pnpmV9Content
 const pnpmRegistryContent = pnpmV9Content
   .replace("version: 5.0.0", "version: work:5.0.0(peer@1.0.0)")
   .replace("express@5.0.0:", "express@work:5.0.0(peer@1.0.0):");
+const pnpmScopedV5Content = pnpmV5Content.replaceAll("bridge", "@scope/bridge");
+const pnpmScopedV6Content = pnpmV6Content
+  .replaceAll("bridge", "@scope/bridge")
+  .replaceAll("1.0.0", "1.0.0(@types/node@26.6.2)");
+const pnpmScopedV9Content = pnpmV9Content
+  .replaceAll("bridge", "@scope/bridge")
+  .replaceAll("1.0.0", "1.0.0(@types/node@26.6.2)");
 const fixtures = [
   {
     name: "pnpm v9",
@@ -68,6 +75,21 @@ const fixtures = [
     name: "pnpm named registry with peer context",
     filename: "pnpm-lock.yaml",
     content: pnpmRegistryContent,
+  },
+  {
+    name: "pnpm v5 scoped package",
+    filename: "pnpm-lock.yaml",
+    content: pnpmScopedV5Content,
+  },
+  {
+    name: "pnpm v6 scoped package with scoped peer context",
+    filename: "pnpm-lock.yaml",
+    content: pnpmScopedV6Content,
+  },
+  {
+    name: "pnpm v9 scoped package with scoped peer context",
+    filename: "pnpm-lock.yaml",
+    content: pnpmScopedV9Content,
   },
 ];
 

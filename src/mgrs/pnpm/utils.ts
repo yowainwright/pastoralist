@@ -819,7 +819,7 @@ const normalizeId = (id: string): string => {
   const hasProtocol = /^[a-z][a-z\d+.-]*:/i.test(id);
   if (hasProtocol) return id;
   const unprefixed = id.replace(/^\//, "");
-  const normalized = unprefixed.replace(/^(@[^/]+\/[^/]+|[^@/]+)\//, "$1@");
+  const normalized = unprefixed.replace(/^(@[^/]+\/[^@/]+|[^@/]+)\//, "$1@");
   return normalized;
 };
 

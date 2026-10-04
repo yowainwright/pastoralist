@@ -1,5 +1,9 @@
 import * as fs from "fs";
-import type { DependencyManifest, ResolvedDependencyGraph } from "../../core/dep-tracker";
+import type {
+  DependencyManifest,
+  DependencyDiagnosticReporter,
+  ResolvedDependencyGraph,
+} from "../../core/dep-tracker";
 import {
   createManifestRoots,
   mergeDependencyGroups,
@@ -307,10 +311,11 @@ const createPackage = (path: string, entries: Record<string, NpmPackageEntry>) =
   const pkg = entries[path];
   const name = pkg.name ?? path.split("node_modules/").at(-1) ?? path;
   const groups = mergeDependencyGroups(pkg);
-  const dependencies = Object.keys(groups).map((dependency) =>
+  const dependencyNames = Object.keys(groups);
+  const dependencies = dependencyNames.map((dependency) =>
     resolvePackage(entries, path, dependency),
   );
-  const instance = { name, dependencies };
+  const instance = { name, dependencies, dependencyNames };
   return instance;
 };
 
@@ -347,10 +352,16 @@ const normalizeNpmGraph = (
   return graph;
 };
 
-export const readNpmResolvedGraph = (root: string, manifests: DependencyManifest[]) => {
+export const readNpmResolvedGraph = (
+  root: string,
+  manifests: DependencyManifest[],
+  report?: DependencyDiagnosticReporter,
+) => {
   const path = resolve(root, NPM_LOCK_FILENAME);
-  const graph = readLockGraph(path, (content) =>
-    normalizeNpmGraph(JSON.parse(content), root, manifests),
+  const graph = readLockGraph(
+    path,
+    (content) => normalizeNpmGraph(JSON.parse(content), root, manifests),
+    report,
   );
   return graph;
 };

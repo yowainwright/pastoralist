@@ -1,60 +1,31 @@
 import { isAbsolute, resolve } from "path";
+import {
+  renderBlockedRemovalNotice,
+  renderDependencyDiagnostics,
+  renderUnusedOverrideNotice,
+} from "./diagnostics";
 import { FARMER, SHEEP } from "../constants";
 import type { update } from "../core/update";
 import { findUnusedAppendixEntries } from "../core/appendix/utils";
 import { renderTable } from "../dx";
-import type { OverrideInfo, SecurityFixInfo, VulnerabilityInfo } from "../dx/types";
-import type {
-  AppendixItem,
-  Options,
-  PastoralistJSON,
-  PastoralistResult,
-  RemovalVerification,
-  SecurityAlert,
-  SecurityOverride,
-} from "../types";
+import type { OverrideInfo } from "../dx/types";
+import type { AppendixItem, PastoralistJSON, PastoralistResult } from "../types";
 import { logger as createLogger } from "../observability";
-import { getErrorMessage, parsePackageJson } from "../utils";
-import { SUMMARY_ROW_CONFIG } from "./constants";
+import { getErrorMessage, pluralSuffix } from "../utils";
+import { SUMMARY_ROW_CONFIG, SUMMARY_COLORS } from "./constants";
+import { normalizeArgv } from "./parser";
 import type {
   CliGraph,
   OverrideDisplayContext,
-  SetupHookDeps,
+  OverrideEntry,
   SummaryRowConfig,
   TableColor,
   UpdateContext,
   UpdateResultData,
   UpdateOutcome,
-  SecurityFindingsArgs,
   UpdateOutputArgs,
 } from "./types";
-import type { SecurityResultSummary } from "./security/types";
-
-const BINARY_NAME = "pastoralist";
-const SCRIPT_EXTENSIONS = [".cjs", ".js", ".mjs", ".ts", ".tsx"];
 const log = createLogger({ file: "cli/utils.ts" });
-
-const isScriptPath = (value: string | undefined): boolean => {
-  if (!value) return false;
-  const hasPathSegment = /[/\\]/.test(value);
-  const result = hasPathSegment || SCRIPT_EXTENSIONS.some((extension) => value.endsWith(extension));
-  return result;
-};
-
-const normalizeArgv = (argv: readonly string[]): string[] => {
-  const executable = argv[0] || BINARY_NAME;
-  const secondArg = argv[1];
-  if (secondArg === executable) {
-    const result = [executable, BINARY_NAME].concat(argv.slice(2));
-    return result;
-  }
-  if (!isScriptPath(secondArg)) {
-    const normalized = [executable, BINARY_NAME].concat(argv.slice(1));
-    return normalized;
-  }
-  const normalized = Array.from(argv);
-  return normalized;
-};
 
 const runBinary = async (
   version: string,
@@ -94,10 +65,7 @@ export const resolvePathFromRoot = (path: string, root?: string): string => {
   return path;
 };
 
-export const pluralSuffix = (count: number): string => {
-  if (count === 1) return "";
-  return "s";
-};
+export { pluralSuffix } from "../utils";
 
 export const createEmptyResult = (): PastoralistResult => {
   const errors: string[] = [];
@@ -127,21 +95,6 @@ export const createErrorResult = (error: unknown): PastoralistResult => {
     errors,
   });
   return errorResult;
-};
-
-const toSecurityAlertSummary = (alert: SecurityAlert) => {
-  const { packageName, cves, description, patchedVersion, fixAvailable } = alert;
-  const severity = alert.severity || "unknown";
-  const summary = { packageName, severity, cves, description, patchedVersion, fixAvailable };
-  return summary;
-};
-
-export const buildSecurityResult = (alerts: SecurityAlert[]): SecurityResultSummary => {
-  const hasSecurityIssues = alerts.length > 0;
-  const { length: securityAlertCount } = alerts;
-  const securityAlerts = alerts.map(toSecurityAlertSummary);
-  const result = { hasSecurityIssues, securityAlertCount, securityAlerts };
-  return result;
 };
 
 const getConfiguredOverrides = (config: PastoralistJSON | undefined) => {
@@ -222,20 +175,14 @@ const buildOverrideInfo = (
   return info;
 };
 
-const toOverrideEntry = (
-  pkg: string,
-  ctx: OverrideDisplayContext,
-): { pkg: string; version: string } | null => {
+const toOverrideEntry = (pkg: string, ctx: OverrideDisplayContext): OverrideEntry | null => {
   const version = ctx.finalOverrides[pkg];
   if (typeof version !== "string") return null;
-  const result: { pkg: string; version: string } | null = { pkg, version };
+  const result: OverrideEntry = { pkg, version };
   return result;
 };
 
-const toOverrideInfo = (
-  entry: { pkg: string; version: string },
-  ctx: OverrideDisplayContext,
-): OverrideInfo => {
+const toOverrideInfo = (entry: OverrideEntry, ctx: OverrideDisplayContext): OverrideInfo => {
   const appendixKey = `${entry.pkg}@${entry.version}`;
   const appendixEntry = ctx.finalAppendix[appendixKey];
   const result = buildOverrideInfo(entry.pkg, entry.version, appendixEntry);
@@ -245,110 +192,8 @@ const toOverrideInfo = (
 export const displayOverrides = (graph: CliGraph, ctx: OverrideDisplayContext): void => {
   const entries = Object.keys(ctx.finalOverrides)
     .map((pkg) => toOverrideEntry(pkg, ctx))
-    .filter((entry): entry is { pkg: string; version: string } => entry !== null);
+    .filter((entry): entry is OverrideEntry => entry !== null);
   entries.map((entry) => toOverrideInfo(entry, ctx)).forEach((info) => graph.override(info, false));
-};
-
-export const renderRemovalVerification = (
-  graph: CliGraph,
-  comparison: RemovalVerification | undefined,
-): void => {
-  if (!comparison) return;
-
-  const summary =
-    `Removal verification: vulnerabilities ${comparison.beforeAlertCount} -> ${comparison.afterAlertCount}, ` +
-    `risk ${comparison.beforeRiskScore} -> ${comparison.afterRiskScore}`;
-  graph.notice(summary);
-  graph.notice(getRemovalStatusMessage(comparison));
-};
-
-const getRemovalStatusMessage = (comparison: RemovalVerification): string => {
-  const isSafe = comparison.status === "safe";
-  if (isSafe) {
-    const count = comparison.removableKeys.length;
-    const message = `${count} unused override${pluralSuffix(count)} approved for cleanup.`;
-    return message;
-  }
-
-  const isDeclined = comparison.status === "declined";
-  if (isDeclined) {
-    const count = comparison.blockedKeys.length;
-    const message = `Cleanup of ${count} override${pluralSuffix(count)} declined by user.`;
-    return message;
-  }
-
-  const blockedCount = comparison.blockedKeys.length;
-  const reason = comparison.reason ? ` ${comparison.reason}` : "";
-  const message = `${blockedCount} override${pluralSuffix(blockedCount)} kept after removal verification.${reason}`;
-  return message;
-};
-
-const vulnerabilitySuffix = (count: number): string => {
-  if (count === 1) return "y";
-  return "ies";
-};
-
-const toVulnerabilityInfo = (alert: SecurityAlert): VulnerabilityInfo => {
-  const title = alert.title || alert.description || "Vulnerability";
-  const severity = alert.severity || "unknown";
-  const currentVersion = alert.currentVersion || "?";
-  const { packageName, cves, fixAvailable, patchedVersion, url } = alert;
-  const result: VulnerabilityInfo = {
-    severity,
-    packageName,
-    currentVersion,
-    title,
-    cves,
-    fixAvailable,
-    patchedVersion,
-    url,
-  };
-  return result;
-};
-
-const toSecurityFixInfo = (override: SecurityOverride): SecurityFixInfo => {
-  const { packageName, toVersion, cves, severity, reason } = override;
-  const fromVersion = override.fromVersion || "?";
-  const info = { packageName, fromVersion, toVersion, cves, severity, reason };
-  return info;
-};
-
-const buildSecurityMessage = (alertCount: number, packagesScanned: number): string => {
-  if (alertCount === 0) {
-    const securityMessage = `No vulnerabilities in ${packagesScanned} packages`;
-    return securityMessage;
-  }
-  const message = `${alertCount} vulnerabilit${vulnerabilitySuffix(alertCount)} found`;
-  return message;
-};
-
-const shouldShowFixesApplied = (
-  securityOverrides: SecurityOverride[],
-  mergedOptions: Options,
-): boolean =>
-  securityOverrides.length > 0 &&
-  Boolean(mergedOptions.forceSecurityRefactor || mergedOptions.interactive);
-
-export const renderSecurityFindings = (...args: SecurityFindingsArgs): void => {
-  const [graph, alerts, securityOverrides, mergedOptions, packagesScanned] = args;
-  alerts.map(toVulnerabilityInfo).forEach((info) => {
-    graph.vulnerability(info, false);
-  });
-
-  graph.endPhase(buildSecurityMessage(alerts.length, packagesScanned));
-
-  if (shouldShowFixesApplied(securityOverrides, mergedOptions)) {
-    renderSecurityFixes(graph, securityOverrides);
-  }
-};
-
-const renderSecurityFixes = (graph: CliGraph, securityOverrides: SecurityOverride[]): void => {
-  graph.startPhase("resolving", "Fixes applied");
-  securityOverrides.map(toSecurityFixInfo).forEach((info) => {
-    graph.securityFix(info, false);
-  });
-  const count = securityOverrides.length;
-  graph.endPhase(`${count} override${pluralSuffix(count)} added`);
 };
 
 const buildOverrideMessage = (overrideCount: number): string => {
@@ -438,29 +283,6 @@ const renderInstallNotice = (graph: CliGraph, updateResultData: UpdateResultData
   }
 };
 
-const renderBlockedRemovalNotice = (graph: CliGraph, mergedOptions: Options): void => {
-  const blockedKeys = mergedOptions.skipRemovalKeys || [];
-  if (blockedKeys.length === 0) return;
-  const count = blockedKeys.length;
-  graph.notice(
-    `${count} override${pluralSuffix(count)} kept after verification - ${blockedKeys.join(", ")}`,
-  );
-};
-
-const renderUnusedOverrideNotice = (
-  graph: CliGraph,
-  updateContext: UpdateContext,
-  options: Options,
-): void => {
-  const unusedEntries = findUnusedAppendixEntries(updateContext.finalAppendix ?? {});
-  const shouldSuggestRemoval = unusedEntries.length > 0 && !options.removeUnused;
-  if (!shouldSuggestRemoval) return;
-  const count = unusedEntries.length;
-  graph.notice(
-    `${count} unused override${pluralSuffix(count)} detected. Run with --remove-unused to clean up.`,
-  );
-};
-
 export const renderUpdateOutput = async (...args: UpdateOutputArgs): Promise<void> => {
   const [graph, updateContext, updateResultData, , packagesScanned, mergedOptions, options] = args;
   const removedPackages = updateContext.metrics?.removedOverridePackages ?? [];
@@ -469,6 +291,7 @@ export const renderUpdateOutput = async (...args: UpdateOutputArgs): Promise<voi
   await renderRunSummary(graph, updateContext, packagesScanned);
   renderInstallNotice(graph, updateResultData);
   renderBlockedRemovalNotice(graph, mergedOptions);
+  renderDependencyDiagnostics(graph, updateContext);
   renderUnusedOverrideNotice(graph, updateContext, options);
 };
 
@@ -505,18 +328,9 @@ const getRowColor = (
   }
   const hasValue = typeof value === "number" && value > 0;
   if (!hasValue) return undefined;
-  const color = summaryColors.get(key);
+  const color = SUMMARY_COLORS.get(key);
   return color;
 };
-
-const summaryColors = new Map<string, TableColor>([
-  ["severityCritical", "red"],
-  ["severityHigh", "red"],
-  ["severityMedium", "yellow"],
-  ["severityLow", "gray"],
-  ["vulnerabilitiesBlocked", "green"],
-  ["overridesAdded", "cyan"],
-]);
 
 const toSummaryRow = (
   metrics: NonNullable<PastoralistResult["metrics"]>,
@@ -537,44 +351,4 @@ export const displaySummaryTable = (result: PastoralistResult): void => {
   const title = `${FARMER} Pastoralist Summary`;
   const table = renderTable(rows, { title });
   log.print("\n" + table);
-};
-
-export const resolvePackagePath = (
-  options: Options,
-  deps: Pick<SetupHookDeps, "resolve">,
-): string => deps.resolve(resolvePathFromRoot(options.path || "package.json", options.root));
-
-export const readPackageJson = (
-  packagePath: string,
-  deps: Pick<SetupHookDeps, "readFileSync">,
-): PastoralistJSON => {
-  const config = parsePackageJson(deps.readFileSync(packagePath, "utf8"));
-  if (!config) throw new Error(`Invalid package.json at ${packagePath}`);
-  return config;
-};
-
-const buildPostinstallScript = (existingPostinstall: string): string => {
-  if (existingPostinstall) {
-    const postinstallScript = `${existingPostinstall} && pastoralist`;
-    return postinstallScript;
-  }
-  return "pastoralist";
-};
-
-export const addPostinstallHook = (
-  config: PastoralistJSON,
-): PastoralistJSON & { scripts: Record<string, string> } => {
-  const scripts = config.scripts || {};
-  const postinstall = buildPostinstallScript(scripts.postinstall || "");
-  const nextScripts = Object.assign({}, scripts, { postinstall });
-  const result = Object.assign({}, config, { scripts: nextScripts });
-  return result;
-};
-
-export const writePackageJson = (
-  packagePath: string,
-  config: PastoralistJSON,
-  deps: Pick<SetupHookDeps, "writeFileSync">,
-): void => {
-  deps.writeFileSync(packagePath, JSON.stringify(config, null, 2) + "\n");
 };

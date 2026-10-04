@@ -1,5 +1,5 @@
 import { errorIncludes } from "../setup";
-import { test } from "node:test";
+import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from "fs";
 import { tmpdir } from "os";
@@ -439,6 +439,153 @@ test("resolveOverrideSource - keeps pnpm 10 overrides in the manifest", () => {
   assert.strictEqual(source.kind, "manifest");
   assert.deepStrictEqual(source.overrides, { lodash: "4.17.21" });
   rmSync(root, { recursive: true, force: true });
+});
+
+const modernPnpmEngine = { name: "pnpm", version: ">=12.0.0 <13.0.0" };
+const otherEngine = { name: "npm", version: "11.0.0" };
+const engineDeclarations = [modernPnpmEngine, [otherEngine, modernPnpmEngine]];
+const writeManagerLock = (root: string, specifier: string, version: string) => {
+  const content = `---\nlockfileVersion: '9.0'\nimporters:\n  .:\n    packageManagerDependencies:\n      pnpm:\n        specifier: ${JSON.stringify(specifier)}\n        version: ${version}\n---\nlockfileVersion: '9.0'\nimporters:\n  .: {}\n`;
+  writeFileSync(join(root, "pnpm-lock.yaml"), content);
+};
+const assertEngineOverrideSource = (
+  config: PastoralistJSON,
+  manifestPath: string,
+  root: string,
+) => {
+  const source = resolveOverrideSource({ config, manifestPath });
+  assert.equal(source.kind, "yaml");
+  assert.equal(source.packageManager, "pnpm");
+  assert.equal(source.path, join(root, "pnpm-workspace.yaml"));
+  const overrides = { lodash: "4.17.21" };
+  writeOverrideSource(source, overrides);
+  assert.deepEqual(parsePnpmWorkspaceOverrides(readFileSync(source.path, "utf8")), overrides);
+  assert.deepEqual(JSON.parse(readFileSync(manifestPath, "utf8")), config);
+};
+
+engineDeclarations.forEach((packageManager) => {
+  test("resolveOverrideSource - honors devEngines when creating pnpm overrides", (t) => {
+    const root = mkdtempSync(join(import.meta.dirname, ".pnpm-engine-"));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const manifestPath = join(root, "package.json");
+    const devEngines = { packageManager };
+    const config: PastoralistJSON = {
+      name: "engine-fixture",
+      version: "1.0.0",
+      devEngines,
+    };
+    writeFileSync(manifestPath, JSON.stringify(config));
+    writeManagerLock(root, modernPnpmEngine.version, "12.0.0");
+    assertEngineOverrideSource(config, manifestPath, root);
+  });
+});
+
+const createSourceFixture = (context: TestContext, config: PastoralistJSON) => {
+  const root = mkdtempSync(join(tmpdir(), "pastoralist-manager-source-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  const manifestPath = join(root, "package.json");
+  writeFileSync(manifestPath, JSON.stringify(config));
+  const fixture = { root, manifestPath };
+  return fixture;
+};
+
+const pinnedManagers = [
+  { pin: "npm@11.0.0", manager: "npm", field: "overrides" },
+  { pin: "yarn@4.0.0", manager: "yarn", field: "resolutions" },
+  { pin: "bun@1.0.0", manager: "bun", field: "overrides" },
+];
+
+pinnedManagers.forEach(({ pin, manager, field }) => {
+  test(`resolveOverrideSource - ${pin} wins over alternative pnpm engines`, (context) => {
+    const packageManager = [otherEngine, modernPnpmEngine];
+    const devEngines = { packageManager };
+    const config = { name: "app", version: "1.0.0", packageManager: pin, devEngines };
+    const { root, manifestPath } = createSourceFixture(context, config);
+    writeFileSync(join(root, "pnpm-workspace.yaml"), 'overrides:\n  wrong: "1"\n');
+    const source = resolveOverrideSource({ config, manifestPath });
+    assert.equal(source.packageManager, manager);
+    assert.equal(source.kind, "manifest");
+    assert.equal(source.field, field);
+    const overrides = { lodash: "4.17.21" };
+    const updated = applyOverridesToSourceConfig(config, source, overrides);
+    assert.deepEqual(updated[field], overrides);
+  });
+});
+
+const pnpmPins = [
+  { pin: "pnpm@10.0.0", alternative: "12.0.0", kind: "manifest" },
+  { pin: "pnpm@12.0.0+sha512.abc", alternative: "10.0.0", kind: "yaml" },
+];
+
+pnpmPins.forEach(({ pin, alternative, kind }) => {
+  test(`resolveOverrideSource - ${pin} determines pnpm override location`, (context) => {
+    const packageManager = { name: "pnpm", version: alternative };
+    const devEngines = { packageManager };
+    const config = { name: "app", version: "1.0.0", packageManager: pin, devEngines };
+    const { manifestPath } = createSourceFixture(context, config);
+    assert.equal(resolveOverrideSource({ config, manifestPath }).kind, kind);
+  });
+});
+
+const createRangeConfig = (version = "^10.0.0 || ^12.0.0"): PastoralistJSON => {
+  const packageManager = { name: "pnpm", version };
+  const devEngines = { packageManager };
+  const config = { name: "app", version: "1.0.0", devEngines };
+  return config;
+};
+
+const lockedManagers = [
+  { version: "10.10.0", kind: "manifest" },
+  { version: "12.0.0", kind: "yaml" },
+];
+
+const unresolvedManagerVersions = ["^10.0.0 || ^12.0.0", ">=10.0.0", "latest", "*"];
+
+unresolvedManagerVersions.forEach((version) => {
+  test(`resolveOverrideSource - refuses to guess from pnpm ${version}`, (context) => {
+    const config = createRangeConfig(version);
+    const { manifestPath } = createSourceFixture(context, config);
+    assert.throws(() => resolveOverrideSource({ config, manifestPath }), /Pin an exact/);
+    assert.deepEqual(JSON.parse(readFileSync(manifestPath, "utf8")), config);
+  });
+});
+
+test("resolveOverrideSource - ignores stale package manager lock specifiers", (context) => {
+  const config = createRangeConfig();
+  const { root, manifestPath } = createSourceFixture(context, config);
+  writeManagerLock(root, "^10.0.0", "10.10.0");
+  assert.throws(() => resolveOverrideSource({ config, manifestPath }), /Pin an exact/);
+});
+
+test("resolveOverrideSource - explicit source resolves an ambiguous pnpm version", (context) => {
+  const pastoralist = { overrideSource: "pnpm-workspace.yaml" };
+  const config = Object.assign({}, createRangeConfig(), { pastoralist });
+  const { root, manifestPath } = createSourceFixture(context, config);
+  assertEngineOverrideSource(config, manifestPath, root);
+});
+
+test("resolveOverrideSource - retains existing YAML overrides with an ambiguous pnpm version", (context) => {
+  const config = createRangeConfig();
+  const { root, manifestPath } = createSourceFixture(context, config);
+  writeFileSync(join(root, "pnpm-workspace.yaml"), 'overrides:\n  lodash: "4.17.20"\n');
+  assertEngineOverrideSource(config, manifestPath, root);
+});
+
+lockedManagers.forEach(({ version, kind }) => {
+  test(`resolveOverrideSource - mixed pnpm range uses locked ${version}`, (context) => {
+    const config = createRangeConfig();
+    const { root, manifestPath } = createSourceFixture(context, config);
+    writeManagerLock(root, "^10.0.0 || ^12.0.0", version);
+    const source = resolveOverrideSource({ config, manifestPath });
+    assert.equal(source.kind, kind);
+    assert.equal(source.packageManager, "pnpm");
+    const overrides = { lodash: "4.17.21" };
+    writeOverrideSource(source, overrides);
+    if (kind === "yaml") {
+      assert.deepEqual(parsePnpmWorkspaceOverrides(readFileSync(source.path, "utf8")), overrides);
+    }
+    assert.deepEqual(JSON.parse(readFileSync(manifestPath, "utf8")), config);
+  });
 });
 
 test("writeOverrideSource - writes an explicit YAML source without changing comments", () => {

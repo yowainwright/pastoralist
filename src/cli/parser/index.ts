@@ -1,4 +1,5 @@
-import { OPTION_DEFINITIONS, HELP_TEXT, ARGS_START_INDEX } from "./constants";
+import { OPTION_DEFINITIONS, HELP_TEXT, ARGS_START_INDEX, SCRIPT_EXTENSIONS } from "./constants";
+import { BINARY_NAME } from "../constants";
 import type {
   ParsedArgs,
   OptionDefinition,
@@ -210,4 +211,26 @@ export const parseArgs = (argv: string[]): ParsedArgs => {
 
 export const showHelp = (print: PrintFunc): void => {
   print(HELP_TEXT);
+};
+
+const isScriptPath = (value: string | undefined): boolean => {
+  if (!value) return false;
+  const hasPathSegment = /[/\\]/.test(value);
+  const result = hasPathSegment || SCRIPT_EXTENSIONS.some((extension) => value.endsWith(extension));
+  return result;
+};
+
+export const normalizeArgv = (argv: readonly string[]): string[] => {
+  const executable = argv[0] || BINARY_NAME;
+  const secondArg = argv[1];
+  if (secondArg === executable) {
+    const result = [executable, BINARY_NAME].concat(argv.slice(2));
+    return result;
+  }
+  if (!isScriptPath(secondArg)) {
+    const normalized = [executable, BINARY_NAME].concat(argv.slice(1));
+    return normalized;
+  }
+  const normalized = Array.from(argv);
+  return normalized;
 };

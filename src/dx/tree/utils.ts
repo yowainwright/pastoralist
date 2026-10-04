@@ -1,4 +1,5 @@
 import type { KeepConstraint } from "../../types";
+import { UNKNOWN_DEPENDENCY_LABEL } from "../../core/appendix/constants";
 import { ANSI, FARMER } from "../../constants";
 import { gray, green, defaultOutput, playShimmer } from "../utils";
 import { ICON } from "../../constants";
@@ -318,12 +319,17 @@ const formatPatches = (patches: string[] | undefined): string | undefined => {
 const formatDependentCount = (
   dependents: Record<string, string> | undefined,
 ): string | undefined => {
-  const count = Object.keys(dependents ?? {}).length;
-  if (count === 0) return undefined;
+  const values = Object.values(dependents ?? {});
+  const known = values.filter((value) => !value.endsWith(UNKNOWN_DEPENDENCY_LABEL));
+  const count = known.length;
+  const hasUnknown = count !== values.length;
+  const unknown = hasUnknown ? "Usage unknown — override retained" : undefined;
+  if (count === 0) return unknown;
   const isSingle = count === 1;
   const plural = isSingle ? "" : "s";
   const dependentCount = `Used by: ${count} package${plural}`;
-  return dependentCount;
+  const description = [dependentCount, unknown].filter(isDefined).join("; ");
+  return description;
 };
 
 const formatKeepStatus = (keep: boolean | KeepConstraint | undefined): string | undefined => {

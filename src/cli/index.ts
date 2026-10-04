@@ -9,9 +9,15 @@ import type { Options } from "../types";
 import { logger as createLogger } from "../observability";
 import { initCommand, showOnboarding } from "./init";
 import { action } from "./action";
-import { addPostinstallHook, readPackageJson, resolvePackagePath, writePackageJson } from "./utils";
+import {
+  addPostinstallHook,
+  readPackageJson,
+  resolvePackagePath,
+  writePackageJson,
+} from "./init/utils";
 import { showStyleguide } from "./styleguide";
-import type { InitSecurityProvider, RunDeps, SetupHookDeps } from "./types";
+import type { InitSecurityProvider, RunDeps } from "./types";
+import type { SetupHookDeps } from "./init/types";
 import type { Logger, PrintFunc } from "../observability";
 
 export { action, handleInitMode, handleTestMode } from "./action";
@@ -25,8 +31,8 @@ export {
   runSecurityPhase,
   buildMergedOptions,
 } from "./security";
+export { buildSecurityResult } from "./security/utils";
 export {
-  buildSecurityResult,
   buildUpdateResult,
   createEmptyResult,
   createErrorResult,

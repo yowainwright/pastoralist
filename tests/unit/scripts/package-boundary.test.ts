@@ -65,7 +65,8 @@ const cases = [
       const rootPackage = readPackage("package.json");
       const scripts = rootPackage.scripts as Record<string, string>;
 
-      assertContainsText(scripts["test:unit"], "tests/unit");
+      assertContainsText(scripts["test:unit"], "test:unit:run");
+      assertContainsText(scripts["test:unit:run"], "tests/unit");
     },
   },
   {

@@ -1,6 +1,9 @@
 import type { PastoralistConfig } from "../../config";
+import type { Options, PastoralistJSON } from "../../types";
+import { parsePackageJson } from "../../utils";
+import { resolvePathFromRoot } from "../utils";
 import { ONBOARDING_SECTIONS, ONBOARDING_TITLE } from "./constants";
-import type { InitAnswers, InitConfigFormat, OnboardingSection } from "./types";
+import type { InitAnswers, InitConfigFormat, OnboardingSection, SetupHookDeps } from "./types";
 
 const joinOnboardingSection = (section: OnboardingSection): string => {
   const lines = [section.title, ""].concat(section.lines);
@@ -78,3 +81,43 @@ export function generateConfigContent(config: PastoralistConfig, format: InitCon
   const content = `export default ${JSON.stringify(config, null, 2)};\n`;
   return content;
 }
+
+export const resolvePackagePath = (
+  options: Options,
+  deps: Pick<SetupHookDeps, "resolve">,
+): string => deps.resolve(resolvePathFromRoot(options.path || "package.json", options.root));
+
+export const readPackageJson = (
+  packagePath: string,
+  deps: Pick<SetupHookDeps, "readFileSync">,
+): PastoralistJSON => {
+  const config = parsePackageJson(deps.readFileSync(packagePath, "utf8"));
+  if (!config) throw new Error(`Invalid package.json at ${packagePath}`);
+  return config;
+};
+
+const buildPostinstallScript = (existingPostinstall: string): string => {
+  if (existingPostinstall) {
+    const postinstallScript = `${existingPostinstall} && pastoralist`;
+    return postinstallScript;
+  }
+  return "pastoralist";
+};
+
+export const addPostinstallHook = (
+  config: PastoralistJSON,
+): PastoralistJSON & { scripts: Record<string, string> } => {
+  const scripts = config.scripts || {};
+  const postinstall = buildPostinstallScript(scripts.postinstall || "");
+  const nextScripts = Object.assign({}, scripts, { postinstall });
+  const result = Object.assign({}, config, { scripts: nextScripts });
+  return result;
+};
+
+export const writePackageJson = (
+  packagePath: string,
+  config: PastoralistJSON,
+  deps: Pick<SetupHookDeps, "writeFileSync">,
+): void => {
+  deps.writeFileSync(packagePath, JSON.stringify(config, null, 2) + "\n");
+};

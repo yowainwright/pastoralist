@@ -1,4 +1,18 @@
-import type { DependencyManifestRoot, TraversalContext, TraversalState } from "./types";
+import type {
+  DependencyManifestRoot,
+  DependencyPackageInstance,
+  TraversalContext,
+  TraversalState,
+} from "./types";
+
+export const recordPackageUsage = (
+  pkg: DependencyPackageInstance,
+  directDependency: string,
+  context: TraversalContext,
+): void => {
+  const names = [pkg.name].concat(pkg.dependencyNames ?? []);
+  names.forEach((name) => addReachablePackage(context.reachable, name, directDependency));
+};
 
 export const hasVisitedState = (
   visited: Map<string, Set<string>>,

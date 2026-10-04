@@ -1,8 +1,38 @@
 import { errorIncludes } from "../../setup";
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { parseArgs } from "../../../../src/cli/parser";
+import { normalizeArgv, parseArgs } from "../../../../src/cli/parser";
 import { HELP_TEXT } from "../../../../src/cli/parser/constants";
+
+const argvCases = [
+  [[], ["pastoralist", "pastoralist"]],
+  [
+    ["pastoralist", "--debug"],
+    ["pastoralist", "pastoralist", "--debug"],
+  ],
+  [
+    ["node", "node", "--help"],
+    ["node", "pastoralist", "--help"],
+  ],
+  [
+    ["node", "cli.js", "--debug"],
+    ["node", "cli.js", "--debug"],
+  ],
+  [
+    ["node", "src/cli", "--help"],
+    ["node", "src/cli", "--help"],
+  ],
+];
+
+argvCases.forEach(([input, expected]) => {
+  test(`normalizeArgv handles ${JSON.stringify(input)}`, () => {
+    const before = input.slice();
+    const result = normalizeArgv(input);
+    assert.deepStrictEqual(result, expected);
+    assert.deepStrictEqual(input, before);
+    assert.notStrictEqual(result, input);
+  });
+});
 
 const ONBOARDING_HELP_PHRASES = [
   "onboard",

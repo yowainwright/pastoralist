@@ -10,6 +10,7 @@ import { clearOSVCache } from "../../src/core/security/providers/osv";
 import { clearRegistryCache } from "../../src/utils/npm";
 import { clearConfigCache } from "../../src/config";
 import type { NpmPackageEntry } from "../../src/mgrs/npm/types";
+import { parsePnpmWorkspaceOverrides } from "../../src/core/overrides";
 
 const TEST_DIR = resolve(import.meta.dirname, ".test-e2e-cli");
 
@@ -739,6 +740,60 @@ test("e2e: orphaned override gets removed with removeUnused", async () => {
   });
 });
 
+const incompleteRemovalDependencies = { lodash: "^4.17.20" };
+const incompleteRemovalOverrides = {
+  lodash: "4.17.21",
+  "phantom-pkg": "2.0.0",
+  "blocked-pkg": "3.0.0",
+};
+const securityRemovableKeys = ["phantom-pkg@2.0.0", "blocked-pkg@3.0.0"];
+const securityAllowedKeys = ["phantom-pkg@2.0.0"];
+const securityBlockedKeys = ["blocked-pkg@3.0.0"];
+const noNewVulnerabilities: string[] = [];
+const securityRemovalVerification = {
+  removableKeys: securityRemovableKeys,
+  allowedKeys: securityAllowedKeys,
+  blockedKeys: securityBlockedKeys,
+  beforeAlertCount: 0,
+  afterAlertCount: 0,
+  beforeRiskScore: 0,
+  afterRiskScore: 0,
+  newVulnerabilityKeys: noNewVulnerabilities,
+  status: "blocked",
+};
+
+const createVerifiedIncompleteFixture = () => {
+  const pkgPath = createRemovalFixture("verified-incomplete-lock", {
+    name: "test-verified-incomplete-lock",
+    version: "1.0.0",
+    dependencies: incompleteRemovalDependencies,
+    overrides: incompleteRemovalOverrides,
+  });
+  const lockPath = join(dirname(pkgPath), "package-lock.json");
+  const lockfile = JSON.parse(readFileSync(lockPath, "utf-8"));
+  delete lockfile.packages["node_modules/lodash"];
+  writeFileSync(lockPath, JSON.stringify(lockfile, null, 2));
+  return pkgPath;
+};
+
+test("e2e: security verification cannot authorize removal with incomplete dependency tracking", async () => {
+  const pkgPath = createVerifiedIncompleteFixture();
+  await action({
+    path: pkgPath,
+    checkSecurity: false,
+    removeUnused: true,
+    removalVerification: securityRemovalVerification,
+  });
+
+  const result = JSON.parse(readFileSync(pkgPath, "utf-8"));
+  assert.strictEqual(result.overrides["phantom-pkg"], "2.0.0");
+  assert.strictEqual(result.overrides["blocked-pkg"], "3.0.0");
+  assert.strictEqual(
+    result.pastoralist.appendix["phantom-pkg@2.0.0"].dependents["test-verified-incomplete-lock"],
+    "phantom-pkg (dependency usage unknown)",
+  );
+});
+
 test("e2e: removeUnused keeps a resolved transitive override while removing an orphan", async () => {
   const pkgPath = createRemovalFixture("transitive-cleanup", {
     name: "test-transitive-cleanup",
@@ -762,6 +817,137 @@ test("e2e: removeUnused keeps a resolved transitive override while removing an o
     appendix["qs@6.11.0"].dependents["test-transitive-cleanup"],
     "qs (required by express)",
   );
+});
+
+const proofWorkspaces = ["packages/*"];
+const proofOverrides = { lodash: "4.17.21", phantom: "2.0.0" };
+const proofConfig = {
+  name: "root-app",
+  version: "1.0.0",
+  workspaces: proofWorkspaces,
+  dependencies: incompleteRemovalDependencies,
+  overrides: proofOverrides,
+};
+
+const writeProofWorkspace = (root: string, usage: string) => {
+  const workspace = join(root, "packages/app");
+  mkdirSync(workspace, { recursive: true });
+  const dependencies = { parent: "1.0.0" };
+  const manifest = { name: "workspace-app", dependencies };
+  const invalid = usage === "invalid";
+  const content = invalid ? "{ invalid" : JSON.stringify(manifest);
+  writeFileSync(join(workspace, "package.json"), content);
+};
+
+const writeProofLockfile = (root: string, usage: string) => {
+  const lockPath = join(root, "package-lock.json");
+  const lockfile = JSON.parse(readFileSync(lockPath, "utf8"));
+  if (usage !== "missing") {
+    lockfile.packages["node_modules/parent"] = { version: "1.0.0" };
+  }
+  if (usage === "used") {
+    lockfile.packages["node_modules/parent"].dependencies = { phantom: "2.0.0" };
+    lockfile.packages["node_modules/phantom"] = { version: "2.0.0" };
+  }
+  writeFileSync(lockPath, JSON.stringify(lockfile));
+};
+
+const createWorkspaceProofFixture = (usage: string) => {
+  const pkgPath = createRemovalFixture(`workspace-proof-${usage}`, proofConfig);
+  const root = dirname(pkgPath);
+  writeProofWorkspace(root, usage);
+  writeProofLockfile(root, usage);
+  return pkgPath;
+};
+
+["missing", "invalid", "used", "unused"].forEach((workspaceUsage) => {
+  test(`e2e: root cleanup accounts for ${workspaceUsage} dependencies in an unselected workspace`, async () => {
+    const pkgPath = createWorkspaceProofFixture(workspaceUsage);
+    const depPaths: string[] = [];
+    await action({ path: pkgPath, checkSecurity: false, removeUnused: true, depPaths });
+    const result = JSON.parse(readFileSync(pkgPath, "utf8"));
+    const isUnused = workspaceUsage === "unused";
+    const expected = isUnused ? undefined : "2.0.0";
+    assert.equal(result.overrides.phantom, expected);
+    assert.equal(result.overrides.lodash, "4.17.21");
+  });
+});
+
+const modernPnpmWorkspace = `# preserve workspace configuration
+catalog:
+  leaf: '2.0.0'
+overrides:
+  'parent>leaf': 'catalog:' # shared version
+  'form-data@': '4.0.6' # convergence
+  aliased: 'npm:fork@2.0.0'
+  'parent>removed': '-' # deliberate removal
+  orphan: '1.0.0'
+  orphan-alias: 'npm:unused-fork@1.0.0'
+`;
+
+const modernPnpmLock = `lockfileVersion: '9.0'
+importers:
+  .:
+    dependencies:
+      parent:
+        specifier: 1.0.0
+        version: 1.0.0
+snapshots:
+  parent@1.0.0:
+    dependencies:
+      leaf: 2.0.0
+      form-data: 4.0.6
+      aliased: fork@2.0.0
+  leaf@2.0.0: {}
+  form-data@4.0.6: {}
+  fork@2.0.0: {}
+`;
+
+const retainedPnpmOverrides = {
+  "parent>leaf": "catalog:",
+  "form-data@": "4.0.6",
+  aliased: "npm:fork@2.0.0",
+  "parent>removed": "-",
+};
+const preservedPnpmContent = [
+  "# shared version",
+  "# convergence",
+  "# deliberate removal",
+  "catalog:\n  leaf: '2.0.0'",
+];
+
+const createModernPnpmFixture = (version: string) => {
+  const packageManager = `pnpm@${version}`;
+  const dependencies = { parent: "1.0.0" };
+  const manifest = { name: "modern-pnpm", version: "1.0.0", packageManager, dependencies };
+  const pkgPath = createFixture(`modern-pnpm-${version}`, manifest);
+  const root = dirname(pkgPath);
+  writeFileSync(join(root, "pnpm-workspace.yaml"), modernPnpmWorkspace);
+  writeFileSync(join(root, "pnpm-lock.yaml"), modernPnpmLock);
+  return pkgPath;
+};
+
+const assertModernPnpmFiles = (pkgPath: string) => {
+  const root = dirname(pkgPath);
+  const content = readFileSync(join(root, "pnpm-workspace.yaml"), "utf8");
+  assert.deepEqual(parsePnpmWorkspaceOverrides(content), retainedPnpmOverrides);
+  preservedPnpmContent.forEach((fragment) => assert.ok(content.includes(fragment)));
+  assert.equal(readFileSync(join(root, "pnpm-lock.yaml"), "utf8"), modernPnpmLock);
+};
+
+["11.28.0", "12.5.1"].forEach((version) => {
+  test(`e2e: pnpm ${version} cleanup preserves YAML override semantics`, async () => {
+    const pkgPath = createModernPnpmFixture(version);
+    await action({ path: pkgPath, checkSecurity: false, removeUnused: true });
+    assertModernPnpmFiles(pkgPath);
+    const result = JSON.parse(readFileSync(pkgPath, "utf8"));
+    assert.equal(result.pnpm, undefined);
+    assert.equal(result.overrides, undefined);
+    assert.equal(
+      result.pastoralist.appendix["aliased@npm:fork@2.0.0"].dependents["modern-pnpm"],
+      "aliased (required by parent)",
+    );
+  });
 });
 
 test("e2e: override for devDependency package kept with removeUnused", async () => {

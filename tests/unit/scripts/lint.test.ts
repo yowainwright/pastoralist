@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { runTestCommand } from "./utils";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -24,7 +24,7 @@ const lintSnippet = (t: TestContext, source: string) => {
   const path = join(root, "index.ts");
   writeFileSync(path, source);
   const args = ["-c", configPath, "--no-ignore", "--max-warnings", "0", "--format", "json", path];
-  const result = spawnSync(executable, args, { encoding: "utf8" });
+  const result = runTestCommand(executable, args);
   const parsed = JSON.parse(result.stdout);
   const codes = parsed.diagnostics.map(({ code }: { code: string }) => code);
   const { status } = result;

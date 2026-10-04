@@ -1,8 +1,7 @@
-import { assertContainsText, assertExcludesText } from "./utils";
+import { assertContainsText, assertExcludesText, runTestCommand } from "./utils";
 import { afterEach, describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { spawnSync } from "node:child_process";
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -75,8 +74,13 @@ const writeFixtureFiles = (root: string, binPath: string, assetPath: string, log
   chmodSync(join(binPath, "gh"), 0o755);
 };
 
-const runUpload = ({ assetPath, env }: Fixture) =>
-  spawnSync("sh", [SCRIPT_PATH, "v1.2.3", assetPath], { encoding: "utf8", env });
+const runUpload = ({ assetPath, env }: Fixture) => {
+  const result = runTestCommand("sh", [SCRIPT_PATH, "v1.2.3", assetPath], {
+    encoding: "utf8",
+    env,
+  });
+  return result;
+};
 
 afterEach(() => {
   tempDirectories.forEach((directory) => rmSync(directory, { recursive: true }));

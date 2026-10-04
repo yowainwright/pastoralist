@@ -4,6 +4,12 @@ import type { Logger } from "./observability/types";
 export type OverrideValue = string | Record<string, string>;
 export type PackageJsonWorkspaces = string[] | { packages?: string[] };
 
+export interface PackageManagerEngine {
+  name: string;
+  version?: string;
+  onFail?: string;
+}
+
 export interface PastoralistJSON {
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
@@ -11,6 +17,7 @@ export interface PastoralistJSON {
   name: string;
   version: string;
   packageManager?: string;
+  devEngines?: { packageManager?: PackageManagerEngine | PackageManagerEngine[] };
   resolutions?: Record<string, string>;
   overrides?: Record<string, OverrideValue>;
   pnpm?: { overrides?: Record<string, OverrideValue> };

@@ -23,4 +23,14 @@ const fixture = {
   content: npmLock,
 };
 
-registerResolvedGraphTests(fixture, readNpmResolvedGraph);
+const aliasContent = npmLock.replace(
+  '"node_modules/lodash": {',
+  '"node_modules/lodash": { "name": "lodash-fork",',
+);
+const aliasFixture = {
+  name: "npm alias",
+  filename: "package-lock.json",
+  content: aliasContent,
+};
+
+registerResolvedGraphTests([fixture, aliasFixture], readNpmResolvedGraph);

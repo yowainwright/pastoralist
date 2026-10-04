@@ -1,4 +1,13 @@
-import type { Options, PastoralistJSON, RemovalVerification, SecurityAlert } from "../../types";
+import type {
+  Options,
+  PastoralistJSON,
+  RemovalVerification,
+  SecurityAlert,
+  SecurityOverride,
+} from "../../types";
+import type { VulnerabilityInfo, SecurityFixInfo } from "../../dx/types";
+import { pluralSuffix } from "../../utils";
+import type { CliGraph } from "../types";
 import type { SecurityChecker } from "../../core/security";
 import type { SecurityCheckRuntimeOptions } from "../../core/security/types";
 import { getSeverityScore } from "../../core/security/utils";
@@ -14,7 +23,13 @@ import {
   findUnusedAppendixEntries,
   removeOverrideKeys,
 } from "../../core/appendix/utils";
-import type { RemovalContext, RemovalMetrics, RemovalState } from "./types";
+import type {
+  RemovalContext,
+  RemovalMetrics,
+  RemovalState,
+  SecurityResultSummary,
+  SecurityFindingsArgs,
+} from "./types";
 
 const getRootDependencies = (config: PastoralistJSON): Record<string, string> =>
   Object.assign({}, config.dependencies, config.devDependencies, config.peerDependencies);
@@ -411,4 +426,87 @@ export const verifyRemovals = async (
   const state = await verifyRemovalSet(context, removableKeys);
   const result = buildVerification(removableKeys, beforeAlerts, state);
   return result;
+};
+
+const toSecurityAlertSummary = (alert: SecurityAlert) => {
+  const { packageName, cves, description, patchedVersion, fixAvailable } = alert;
+  const severity = alert.severity || "unknown";
+  const summary = { packageName, severity, cves, description, patchedVersion, fixAvailable };
+  return summary;
+};
+
+export const buildSecurityResult = (alerts: SecurityAlert[]): SecurityResultSummary => {
+  const hasSecurityIssues = alerts.length > 0;
+  const { length: securityAlertCount } = alerts;
+  const securityAlerts = alerts.map(toSecurityAlertSummary);
+  const result = { hasSecurityIssues, securityAlertCount, securityAlerts };
+  return result;
+};
+
+const vulnerabilitySuffix = (count: number): string => {
+  if (count === 1) return "y";
+  return "ies";
+};
+
+const toVulnerabilityInfo = (alert: SecurityAlert): VulnerabilityInfo => {
+  const title = alert.title || alert.description || "Vulnerability";
+  const severity = alert.severity || "unknown";
+  const currentVersion = alert.currentVersion || "?";
+  const { packageName, cves, fixAvailable, patchedVersion, url } = alert;
+  const result: VulnerabilityInfo = {
+    severity,
+    packageName,
+    currentVersion,
+    title,
+    cves,
+    fixAvailable,
+    patchedVersion,
+    url,
+  };
+  return result;
+};
+
+const toSecurityFixInfo = (override: SecurityOverride): SecurityFixInfo => {
+  const { packageName, toVersion, cves, severity, reason } = override;
+  const fromVersion = override.fromVersion || "?";
+  const info = { packageName, fromVersion, toVersion, cves, severity, reason };
+  return info;
+};
+
+const buildSecurityMessage = (alertCount: number, packagesScanned: number): string => {
+  if (alertCount === 0) {
+    const securityMessage = `No vulnerabilities in ${packagesScanned} packages`;
+    return securityMessage;
+  }
+  const message = `${alertCount} vulnerabilit${vulnerabilitySuffix(alertCount)} found`;
+  return message;
+};
+
+const shouldShowFixesApplied = (
+  securityOverrides: SecurityOverride[],
+  mergedOptions: Options,
+): boolean =>
+  securityOverrides.length > 0 &&
+  Boolean(mergedOptions.forceSecurityRefactor || mergedOptions.interactive);
+
+export const renderSecurityFindings = (...args: SecurityFindingsArgs): void => {
+  const [graph, alerts, securityOverrides, mergedOptions, packagesScanned] = args;
+  alerts.map(toVulnerabilityInfo).forEach((info) => {
+    graph.vulnerability(info, false);
+  });
+
+  graph.endPhase(buildSecurityMessage(alerts.length, packagesScanned));
+
+  if (shouldShowFixesApplied(securityOverrides, mergedOptions)) {
+    renderSecurityFixes(graph, securityOverrides);
+  }
+};
+
+const renderSecurityFixes = (graph: CliGraph, securityOverrides: SecurityOverride[]): void => {
+  graph.startPhase("resolving", "Fixes applied");
+  securityOverrides.map(toSecurityFixInfo).forEach((info) => {
+    graph.securityFix(info, false);
+  });
+  const count = securityOverrides.length;
+  graph.endPhase(`${count} override${pluralSuffix(count)} added`);
 };

@@ -11,12 +11,25 @@
     },
     "build-dist": {
       "dependsOn": ["^build-dist"],
-      "inputs": ["src/**/*.ts", "tsconfig.json", "package.json"],
+      "inputs": [
+        "src/**",
+        "scripts/build/**",
+        "scripts/is-main.ts",
+        "scripts/turbo.sh",
+        "skills/**",
+        "tsconfig*.json",
+        "package.json"
+      ],
       "outputs": ["dist/**"],
       "cache": true,
-      "env": ["NODE_ENV"]
+      "env": ["NODE_ENV", "PASTORALIST_RUNTIME", "NODE_OPTIONS"]
     },
     "lint": {
+      "cache": true,
+      "outputs": []
+    },
+    "lint:js:check": {
+      "env": ["PASTORALIST_RUNTIME", "NODE_OPTIONS"],
       "cache": true,
       "outputs": []
     },
@@ -44,13 +57,29 @@
       "outputs": []
     },
     "typecheck-src": {
-      "inputs": ["src/**/*.ts"],
+      "inputs": ["src/**", "tsconfig*.json", "scripts/turbo.sh"],
+      "env": ["PASTORALIST_RUNTIME", "NODE_OPTIONS"],
       "cache": true,
       "outputs": []
     },
-    "test": {
-      "dependsOn": ["build"],
-      "cache": false
+    "test:unit:run": {
+      "env": ["PASTORALIST_RUNTIME", "CI", "NODE_ENV", "NODE_OPTIONS", "TZ"],
+      "outputs": [],
+      "outputLogs": "errors-only",
+      "cache": true
+    },
+    "test:integration:run": {
+      "env": ["PASTORALIST_RUNTIME", "CI", "NODE_ENV", "NODE_OPTIONS", "TZ"],
+      "outputs": [],
+      "outputLogs": "errors-only",
+      "cache": true
+    },
+    "test:coverage:run": {
+      "inputs": ["$TURBO_DEFAULT$", "tests/coverage/**"],
+      "env": ["PASTORALIST_RUNTIME", "CI", "NODE_ENV", "NODE_OPTIONS", "TZ"],
+      "outputs": ["coverage/**", "!coverage/tmp/**"],
+      "outputLogs": "errors-only",
+      "cache": true
     },
     "dev": {
       "persistent": true,

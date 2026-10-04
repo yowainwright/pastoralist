@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { dirname, extname, resolve } from "path";
 import { getJsManager } from "../../mgrs";
+import { getDevPackageManager } from "../../mgrs/utils";
 import type { OverridesType, PastoralistJSON } from "../../types";
 import { omit, parsePackageJson } from "../../utils";
 import { PACKAGE_MANAGERS } from "./constants";
@@ -20,7 +21,8 @@ import {
 import { parsePnpmWorkspaceOverrides, updatePnpmWorkspaceOverrides } from "../../mgrs/pnpm/utils";
 
 const getDeclaredPackageManager = (config: PastoralistJSON): PackageManager | undefined => {
-  const name = config.packageManager?.split("@")[0] as PackageManager | undefined;
+  const engine = getDevPackageManager(config);
+  const name = (config.packageManager?.split("@")[0] ?? engine?.name) as PackageManager | undefined;
   const isKnownManager = Boolean(name && PACKAGE_MANAGERS.has(name));
   if (!isKnownManager) return undefined;
   return name;
@@ -117,8 +119,8 @@ export const resolveOverrideSource = ({
   const packageManager = getPackageManager(config, manifestPath);
   const configuredSource = resolveConfiguredSource(config, manifestPath);
   const manager = getJsManager(packageManager);
-  const nativeSource = manager.resolveOverridePath?.(config, manifestPath);
-  const sourcePath = configuredSource || nativeSource || resolve(manifestPath);
+  const selectedSource = configuredSource || manager.resolveOverridePath?.(config, manifestPath);
+  const sourcePath = selectedSource || resolve(manifestPath);
 
   if (isYamlFile(sourcePath)) {
     const yaml = createYamlSource(sourcePath, packageManager);

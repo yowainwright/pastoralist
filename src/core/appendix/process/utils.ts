@@ -7,7 +7,8 @@ import type {
 } from "../../../types";
 import { resolve } from "node:path";
 import { packageAtVersion, pick } from "../../../utils";
-import type { TrackedDependencies } from "../../dep-tracker";
+import { getDependencyUsage, type TrackedDependencies } from "../../dep-tracker";
+import { REMOVAL_OVERRIDE_LABEL } from "../constants";
 import type { ProcessOverrideOptions, PackageDependencyFields } from "./types";
 import {
   mergeDependents,
@@ -91,7 +92,8 @@ export const isUnusedSimpleOverride = (options: ProcessOverrideOptions): boolean
 
   const tracking = options.trackedDependencies;
   if (tracking) {
-    const unused = tracking.complete && !tracking.dependents[name]?.length;
+    const usage = getDependencyUsage(name, tracking);
+    const unused = usage === "unused";
     return unused;
   }
 
@@ -116,15 +118,29 @@ const isUnusedGraphOverride = (name: string, options: ProcessOverrideOptions): b
   return result;
 };
 
+const hasTrackedDependency = (override: string, tracking: TrackedDependencies): boolean => {
+  const name = parseOverridePackageName(override);
+  const usage = getDependencyUsage(name, tracking);
+  const hasDependents = usage === "used";
+  return hasDependents;
+};
+
 export const buildSimpleDependentInfo = (options: ProcessOverrideOptions): string => {
-  const override = options.override;
-  const hasOverride = hasDependency(options.deps, override);
-  const tracking = options.trackedDependencies;
-  const useTracking = !hasOverride && tracking;
-  const trackedInfo = useTracking ? describeTrackedDependency(override, tracking) : undefined;
+  const { override, trackedDependencies: tracking } = options;
+  if (options.overrideVersion === "-") {
+    const removalInfo = `${override} ${REMOVAL_OVERRIDE_LABEL}`;
+    return removalInfo;
+  }
+  const hasDirectOverride = hasDependency(options.deps, override);
+  const shouldUseGraph = hasDirectOverride || tracking === undefined;
+  if (shouldUseGraph) {
+    const graphInfo = buildGraphDependentInfo(options);
+    return graphInfo;
+  }
+  const trackedInfo = describeTrackedDependency(override, tracking);
   if (trackedInfo) return trackedInfo;
-  const dependentInfo = buildGraphDependentInfo(options);
-  return dependentInfo;
+  const graphInfo = buildGraphDependentInfo(options);
+  return graphInfo;
 };
 
 const buildGraphDependentInfo = (options: ProcessOverrideOptions): string => {
@@ -221,8 +237,7 @@ const hasTrackedPackageOverride = (
   tracking: TrackedDependencies,
 ): boolean => {
   const matches = overridesList.some((override) => {
-    const name = parseOverridePackageName(override);
-    const hasDependents = Boolean(tracking.dependents[name]?.length);
+    const hasDependents = hasTrackedDependency(override, tracking);
     return hasDependents;
   });
   return matches;

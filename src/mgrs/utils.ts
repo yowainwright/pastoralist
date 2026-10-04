@@ -1,14 +1,31 @@
 import * as fs from "fs";
-import type { DependencyManifest, ResolvedDependencyGraph } from "../core/dep-tracker";
+import type {
+  DependencyManifest,
+  DependencyDiagnostic,
+  DependencyDiagnosticReporter,
+  ResolvedDependencyGraph,
+} from "../core/dep-tracker";
 import type { DependencyGroups, ManifestResolver } from "./types";
 import { IS_DEBUGGING } from "../constants";
 import { logger } from "../observability";
 import { countBy } from "../utils";
-import type { OverrideValue, PastoralistJSON, SecurityPackage } from "../types";
+import type {
+  OverrideValue,
+  PastoralistJSON,
+  SecurityPackage,
+  PackageManagerEngine,
+} from "../types";
 import type { DependencyGraph, OverrideField } from "./types";
 
 const log = logger({ file: "mgrs/utils.ts", isLogging: IS_DEBUGGING });
 const ambiguousParentsByGraph = new WeakMap<DependencyGraph, Record<string, string[]>>();
+
+export const getDevPackageManager = (config: PastoralistJSON): PackageManagerEngine | undefined => {
+  const engines = config.devEngines?.packageManager;
+  if (!Array.isArray(engines)) return engines;
+  const engine = engines.find(({ name }) => name === "pnpm") ?? engines[0];
+  return engine;
+};
 
 export const getExistingOverrideField = (config: PastoralistJSON): OverrideField | null => {
   if (config.resolutions !== undefined) return "resolutions";
@@ -186,14 +203,34 @@ export const unresolvedDependency = (parent: string, name: string): string => `\
 export const readLockGraph = (
   path: string,
   parse: (content: string) => ResolvedDependencyGraph,
+  report?: DependencyDiagnosticReporter,
 ): ResolvedDependencyGraph | undefined => {
+  const content = readGraphContent(path, report);
+  if (content === undefined) return undefined;
   try {
-    const content = fs.readFileSync(path, "utf8");
     const graph = parse(content);
     return graph;
   } catch {
+    report?.({ lockfile: path, reason: "invalid-or-unsupported-lockfile" });
     return undefined;
   }
+};
+
+const readGraphContent = (lockfile: string, report?: DependencyDiagnosticReporter) => {
+  try {
+    const content = fs.readFileSync(lockfile, "utf8");
+    return content;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    const reason = getLockReadFailureReason(code);
+    report?.({ lockfile, reason });
+    return undefined;
+  }
+};
+
+const getLockReadFailureReason = (code?: string): DependencyDiagnostic["reason"] => {
+  if (code === "ENOENT") return "missing-lockfile";
+  return "unreadable-lockfile";
 };
 
 const createManifestRoot = (manifest: DependencyManifest, resolveDependency: ManifestResolver) => {

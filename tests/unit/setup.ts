@@ -1,6 +1,7 @@
 import * as nodeModule from "node:module";
 import assert from "node:assert/strict";
-import { mock as nodeMock } from "node:test";
+import { mock as nodeMock, type TestContext } from "node:test";
+import { setImmediate as nextTurn } from "node:timers/promises";
 import { extname, resolve } from "path";
 import { isDeepStrictEqual } from "node:util";
 import { fileURLToPath } from "node:url";
@@ -179,6 +180,17 @@ const restoreMocks = (): void => {
 };
 
 export const mock = Object.assign(createMock, { restore: restoreMocks });
+
+export const advanceTimers = async (
+  context: TestContext,
+  ...milliseconds: number[]
+): Promise<void> => {
+  await nextTurn();
+  const [duration, ...remaining] = milliseconds;
+  if (duration === undefined) return;
+  context.mock.timers.tick(duration);
+  await advanceTimers(context, ...remaining);
+};
 
 export const fulfilledValues = async <T>(promises: Promise<T>[]): Promise<T[]> => {
   const results = await Promise.allSettled(promises);

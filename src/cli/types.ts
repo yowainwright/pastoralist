@@ -1,13 +1,9 @@
-import type { readFileSync, writeFileSync } from "fs";
-import type { resolve } from "path";
 import type {
   AppendixItem,
   AppendixTarget,
   Options,
   PastoralistJSON,
   PastoralistResult,
-  SecurityAlert,
-  SecurityOverride,
 } from "../types";
 import type { update } from "../core/update";
 import type { createTerminalGraph } from "../dx";
@@ -33,14 +29,6 @@ export type UpdateOutcome = Pick<
   | "updated"
 >;
 
-export type SecurityFindingsArgs = [
-  graph: CliGraph,
-  alerts: SecurityAlert[],
-  securityOverrides: SecurityOverride[],
-  mergedOptions: Options,
-  packagesScanned: number,
-];
-
 export type UpdateOutputArgs = [
   graph: CliGraph,
   updateContext: UpdateContext,
@@ -51,10 +39,9 @@ export type UpdateOutputArgs = [
   options: Options,
 ];
 
-export type SetupHookDeps = {
-  readFileSync: typeof readFileSync;
-  writeFileSync: typeof writeFileSync;
-  resolve: typeof resolve;
+export type OverrideEntry = {
+  pkg: string;
+  version: string;
 };
 
 export type OverrideDisplayContext = {

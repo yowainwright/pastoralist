@@ -114,7 +114,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Check test manifest policy
         run: pnpm run check:test-manifests
-      - run: rm -rf dist .turbo
+      - name: Restore build and test cache
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25
+        with:
+          path: .turbo/cache
+          key: ${{ runner.os }}-${{ runner.arch }}-node26-turbo-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-${{ runner.arch }}-node26-turbo-
+      - run: rm -rf dist
       - run: pnpm run build
       - run: pnpm --dir app install --frozen-lockfile
       - name: Run Socket security scan

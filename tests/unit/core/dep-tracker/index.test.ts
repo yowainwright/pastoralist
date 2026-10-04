@@ -2,6 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   findDependencyReachability,
+  trackDependencies,
+  getDependencyUsage,
+  getProjectDependencyUsage,
   type DependencyManifestRoot,
   type DependencyPackageInstance,
   type ResolvedDependencyGraph,
@@ -100,4 +103,50 @@ test("findDependencyReachability - handles shared nodes and cycles per direct de
   const result = findDependencyReachability(cycleGraph);
 
   assert.deepStrictEqual(result["package.json"], expectedCycleReachability);
+});
+
+const partialParent = createPackageInstance("parent", ["leaf@1", "missing@1"]);
+const leafInstance = createPackageInstance("leaf");
+const partialPackages = { "parent@1": partialParent, "leaf@1": leafInstance };
+const completeRoot = createManifestRoot({ leaf: "leaf@1" });
+const incompleteRoot = createManifestRoot({ parent: "parent@1" });
+const partialRoots = {
+  "complete/package.json": completeRoot,
+  "incomplete/package.json": incompleteRoot,
+};
+const partialGraph = createGraph(partialPackages, partialRoots);
+
+test("dependency usage separates proof within each manifest from project-wide uncertainty", () => {
+  const tracking = trackDependencies(partialGraph);
+  assert.equal(getDependencyUsage("orphan", tracking["complete/package.json"]), "unused");
+  assert.equal(getDependencyUsage("orphan", tracking["incomplete/package.json"]), "unknown");
+  assert.equal(getDependencyUsage("leaf", tracking["incomplete/package.json"]), "used");
+  assert.equal(getProjectDependencyUsage("leaf", tracking), "used");
+  assert.equal(getProjectDependencyUsage("orphan", tracking), "unknown");
+  assert.equal(getProjectDependencyUsage("orphan", {}), "unknown");
+  assert.equal(getProjectDependencyUsage("orphan", undefined), "unknown");
+});
+
+const aliasParent = createPackageInstance("parent", ["fork@1", "missing@1"]);
+const dependencyNames = ["alias", "missing"];
+const aliasInstance = Object.assign({}, aliasParent, { dependencyNames });
+const forkInstance = createPackageInstance("fork");
+const aliasPackages = { "parent@1": aliasInstance, "fork@1": forkInstance };
+const aliasRoot = createManifestRoot({ parent: "parent@1", direct: "absent@1" });
+const aliasRoots = { "package.json": aliasRoot };
+const aliasGraph = createGraph(aliasPackages, aliasRoots);
+
+test("dependency usage retains direct declarations and aliases even when resolution is missing", () => {
+  const tracking = trackDependencies(aliasGraph)["package.json"];
+  assert.equal(tracking.complete, false);
+  ["parent", "alias", "fork", "missing", "direct"].forEach((name) => {
+    assert.equal(getDependencyUsage(name, tracking), "used", name);
+  });
+  assert.equal(getDependencyUsage("unobserved", tracking), "unknown");
+});
+
+test("dependency usage proves absence after traversing a complete cyclic graph", () => {
+  const tracking = trackDependencies(cycleGraph);
+  assert.equal(getProjectDependencyUsage("orphan", tracking), "unused");
+  assert.equal(getProjectDependencyUsage("shared", tracking), "used");
 });

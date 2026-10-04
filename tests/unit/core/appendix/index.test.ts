@@ -396,6 +396,63 @@ test("processAndWritePackageJSON - includes workspace package whose dep is a gra
   assert.strictEqual(result?.name, "workspace-pkg");
 });
 
+test("processAndWritePackageJSON - does not infer workspace usage from a flattened graph", () => {
+  const pkgPath = join(tmpdir(), "pastoralist-test-workspace-incomplete-tracking.json");
+  writeFileSync(
+    pkgPath,
+    JSON.stringify({ name: "workspace-pkg", dependencies: { glob: "^7.0.0" } }),
+  );
+  const overrides: OverridesType = { "minimatch@<4": "3.1.5" };
+  const dependencyGraph = { minimatch: ["glob"] };
+  const dependencyTracking = { [pkgPath]: { dependents: {}, complete: false } };
+  const result = processAndWritePackageJSON(pkgPath, overrides, Object.keys(overrides), false, {
+    dependencyGraph,
+    dependencyTracking,
+  });
+  unlinkSync(pkgPath);
+  assert.strictEqual(result, undefined);
+});
+
+const writeIncompleteWorkspaceFixture = (pkgPath: string, dependencies: Record<string, string>) => {
+  const manifest = { name: "workspace-pkg", dependencies };
+  writeFileSync(pkgPath, JSON.stringify(manifest));
+};
+
+test("processAndWritePackageJSON - retains known tracked dependents when tracking is incomplete", () => {
+  const pkgPath = join(tmpdir(), "pastoralist-test-workspace-known-incomplete-tracking.json");
+  writeIncompleteWorkspaceFixture(pkgPath, { glob: "^7.0.0" });
+  const globDependents = ["glob"];
+  const dependents = { minimatch: globDependents };
+  const tracking = { dependents, complete: false };
+  const dependencyTracking = { [pkgPath]: tracking };
+  const dependencyGraph = {};
+  const result = processAndWritePackageJSON(pkgPath, { minimatch: "3.1.5" }, ["minimatch"], false, {
+    dependencyGraph,
+    dependencyTracking,
+  });
+  unlinkSync(pkgPath);
+  assert.notStrictEqual(result, undefined);
+  assert.strictEqual(
+    result?.appendix["minimatch@3.1.5"]?.dependents?.["workspace-pkg"],
+    "minimatch (required by glob)",
+  );
+});
+
+test("processAndWritePackageJSON - does not use the shared tree for incomplete workspace tracking", () => {
+  const pkgPath = join(tmpdir(), "pastoralist-test-workspace-shared-tree.json");
+  writeIncompleteWorkspaceFixture(pkgPath, { express: "^4.0.0" });
+  const dependents = {};
+  const tracking = { dependents, complete: false };
+  const dependencyTracking = { [pkgPath]: tracking };
+  const dependencyTree = { minimatch: "3.1.5" };
+  const result = processAndWritePackageJSON(pkgPath, { minimatch: "3.1.5" }, ["minimatch"], false, {
+    dependencyTree,
+    dependencyTracking,
+  });
+  unlinkSync(pkgPath);
+  assert.strictEqual(result, undefined);
+});
+
 test("processAndWritePackageJSON - excludes workspace package with no relation to any override", () => {
   const pkgPath = join(tmpdir(), "pastoralist-test-workspace-no-match.json");
   writeFileSync(

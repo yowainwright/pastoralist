@@ -5,6 +5,8 @@ import {
   trackDependencies,
   type DependencyManifest,
   type DependencyTracking,
+  type TrackedDependencies,
+  type DependencyDiagnostic,
 } from "../dep-tracker";
 import { resolveJSON } from "../package";
 import type { UpdateContext } from "./types";
@@ -58,13 +60,89 @@ export const resolveDependencyTracking = (
   if (!ctx.config) return undefined;
   const path = resolve(ctx.path);
   const manifest = createManifest(path, ctx.config);
-  const workspaces = files.filter((file) => resolve(file) !== path).flatMap(readManifest);
+  const paths = getTrackingManifestPaths(ctx, files);
+  const workspaces = paths.filter((file) => file !== path).flatMap(readManifest);
   const manifests = [manifest].concat(workspaces);
-  const manager = getJsManager(detectPackageManager(ctx.root));
-  const graph = manager.readResolvedGraph(ctx.root, manifests);
-  if (!graph) return undefined;
-  const tracking = trackDependencies(graph);
+  const tracking = readManifestTracking(ctx.root, paths, manifests);
   return tracking;
+};
+
+const readManifestTracking = (root: string, paths: string[], manifests: DependencyManifest[]) => {
+  const manager = getJsManager(detectPackageManager(root));
+  const lockfile = resolve(root, manager.lockfiles[0]);
+  let diagnostic: DependencyDiagnostic = { lockfile };
+  const graph = manager.readResolvedGraph(root, manifests, (failure) => {
+    diagnostic = failure;
+  });
+  const resolvedTracking = graph ? trackDependencies(graph) : {};
+  const tracking = fillMissingTracking(paths, manifests, resolvedTracking, diagnostic);
+  return tracking;
+};
+
+const getTrackingManifestPaths = (ctx: UpdateContext, files: string[]): string[] => {
+  const patterns = resolveWorkspaceManifestPaths(ctx.config!, ctx.root, ctx.log);
+  const workspaceFiles = patterns.length ? findPackageFiles(patterns, ctx.root, [], ctx.log) : [];
+  const paths = [ctx.path].concat(files, workspaceFiles).map((path) => resolve(path));
+  const uniquePaths = Array.from(new Set(paths));
+  return uniquePaths;
+};
+
+const unknownManifestTracking = (manifest: DependencyManifest): TrackedDependencies => {
+  const entries = Object.keys(manifest.dependencies).map((name) => [name, [name]]);
+  const dependents = Object.fromEntries(entries);
+  const tracking = { dependents, complete: false };
+  return tracking;
+};
+
+const unknownManifestEntry = (manifest: DependencyManifest) => {
+  const tracking = unknownManifestTracking(manifest);
+  const entry = [manifest.path, tracking] as const;
+  return entry;
+};
+
+const fillMissingTracking = (
+  paths: string[],
+  manifests: DependencyManifest[],
+  tracking: DependencyTracking,
+  diagnostic: DependencyDiagnostic,
+): DependencyTracking => {
+  const dependents = {};
+  const missing: TrackedDependencies = { dependents, complete: false };
+  const unknownEntries = manifests.map(unknownManifestEntry);
+  const unknown = new Map(unknownEntries);
+  const entries = paths.map((path) => {
+    const result = tracking[path] ?? unknown.get(path) ?? missing;
+    const traced = withManifestDiagnostic(result, unknown.has(path), diagnostic);
+    const entry = [path, traced];
+    return entry;
+  });
+  const result = Object.fromEntries(entries);
+  return result;
+};
+
+const withManifestDiagnostic = (
+  tracking: TrackedDependencies,
+  readable: boolean,
+  diagnostic: DependencyDiagnostic,
+): TrackedDependencies => {
+  if (tracking.complete) return tracking;
+  const failure = getManifestDiagnostic(tracking, readable, diagnostic);
+  const traced = Object.assign({}, tracking, { diagnostic: failure });
+  return traced;
+};
+
+const getManifestDiagnostic = (
+  tracking: TrackedDependencies,
+  readable: boolean,
+  diagnostic: DependencyDiagnostic,
+): DependencyDiagnostic => {
+  const { lockfile } = diagnostic;
+  const unreadable: DependencyDiagnostic = { lockfile, reason: "unreadable-manifest" };
+  if (!readable) return unreadable;
+  if (diagnostic.reason) return diagnostic;
+  if (tracking.missingReferences?.length) return diagnostic;
+  const missing: DependencyDiagnostic = { lockfile, reason: "missing-manifest-root" };
+  return missing;
 };
 
 export const findPackageFiles = (

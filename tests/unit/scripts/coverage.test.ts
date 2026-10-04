@@ -1,6 +1,5 @@
-import { assertContainsText } from "./utils";
+import { assertContainsText, runTestCommand } from "./utils";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
@@ -34,19 +33,23 @@ const readWorkflows = (): string[] => {
 test("coverage measures source and enforces local thresholds", () => {
   const config = readJson<Record<string, unknown>>("tests/coverage/c8.json");
   const packageConfig = readJson<{ scripts: Record<string, string> }>("package.json");
-  const { "test:coverage": coverageScript, "test:coverage:html": htmlScript } =
-    packageConfig.scripts;
+  const {
+    "test:coverage": coverageScript,
+    "test:coverage:run": coverageRun,
+    "test:coverage:html": htmlScript,
+  } = packageConfig.scripts;
 
   assert.equal(config.all, true);
   assert.deepEqual(config.include, ["src/**/*.ts"]);
-  assert.deepEqual(config.reporter, ["lcov", "text-summary"]);
+  assert.deepEqual(config.reporter, ["lcov", "text-summary", "html"]);
   assert.equal(config["check-coverage"], true);
   assert.equal(config.statements, 95);
   assert.equal(config.branches, 90);
   assert.equal(config.functions, 95);
   assert.equal(config.lines, 95);
-  assert.equal(coverageScript, "c8 --config tests/coverage/c8.json pnpm test");
-  assert.match(htmlScript, /--config tests\/coverage\/c8\.json/);
+  assert.equal(coverageScript, "sh scripts/turbo.sh test:coverage:run");
+  assert.equal(coverageRun, "c8 --config tests/coverage/c8.json pnpm run test:uncached");
+  assert.equal(htmlScript, "pnpm run test:coverage");
 });
 
 test("coverage uploads once without parsing reports", () => {
@@ -80,7 +83,7 @@ const runColorOutputTest = () => {
   const env = createCiEnv();
   const encoding = "utf8" as const;
   const options = { cwd: root, encoding, env };
-  const result = spawnSync("sh", args, options);
+  const result = runTestCommand("sh", args, options);
   return result;
 };
 

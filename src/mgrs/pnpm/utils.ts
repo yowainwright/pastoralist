@@ -1,6 +1,15 @@
 import * as fs from "fs";
-import type { DependencyManifest, ResolvedDependencyGraph } from "../../core/dep-tracker";
-import { createManifestRoots, readLockGraph, unresolvedDependency } from "../utils";
+import type {
+  DependencyManifest,
+  DependencyDiagnosticReporter,
+  ResolvedDependencyGraph,
+} from "../../core/dep-tracker";
+import {
+  createManifestRoots,
+  getDevPackageManager,
+  readLockGraph,
+  unresolvedDependency,
+} from "../utils";
 import type { LockSection } from "./types";
 import { dirname, join, posix, relative, resolve } from "path";
 import { IS_DEBUGGING } from "../../constants";
@@ -15,6 +24,7 @@ import {
 import {
   PNPM_LOCK_FILENAME,
   PNPM_WORKSPACE_FILE,
+  PNPM_EXACT_VERSION,
   PNPM_GRAPH_FIELDS,
   QUOTE_CHARACTERS,
   UNSAFE_SCALAR_CHARACTERS,
@@ -196,10 +206,38 @@ export const stagePnpmWorkspace = (
   fs.writeFileSync(join(removalRoot, "pnpm-workspace.yaml"), removalContent);
 };
 
-const isPnpmEleven = (config: PastoralistJSON): boolean => {
-  const match = config.packageManager?.match(/^pnpm@(\d+)/);
-  if (!match) return false;
-  const major = Number(match[1]);
+const readLockedPnpmVersion = (root: string, specifier: string): string | undefined => {
+  const lockPath = resolve(root, PNPM_LOCK_FILENAME);
+  if (!fs.existsSync(lockPath)) return undefined;
+  const content = fs.readFileSync(lockPath, "utf8");
+  const versions = splitPnpmLockDocuments(content).flatMap((document) => {
+    const lock = readLockSections(document);
+    const importer = lock.children.get("importers")?.children.get(".");
+    const manager = importer?.children.get("packageManagerDependencies")?.children.get("pnpm");
+    const empty: string[] = [];
+    if (manager?.children.get("specifier")?.value !== specifier) return empty;
+    const version = manager.children.get("version")?.value;
+    const matches = version ? [version] : empty;
+    return matches;
+  });
+  if (versions.length !== 1) return undefined;
+  const [version] = versions;
+  return version;
+};
+
+const usesPnpmWorkspaceConfig = (config: PastoralistJSON, root: string): boolean => {
+  const engine = getDevPackageManager(config);
+  const version = config.packageManager?.split("@")[1] ?? engine?.version;
+  if (!version) return false;
+  const resolved =
+    version.match(PNPM_EXACT_VERSION) ??
+    readLockedPnpmVersion(root, version)?.match(PNPM_EXACT_VERSION);
+  if (!resolved) {
+    throw new Error(
+      `Cannot determine the pnpm override source from "${version}". Pin an exact packageManager version, refresh pnpm-lock.yaml, or set pastoralist.overrideSource.`,
+    );
+  }
+  const major = Number(resolved[1]);
   const usesWorkspaceOverrides = major >= 11;
   return usesWorkspaceOverrides;
 };
@@ -216,7 +254,8 @@ export const resolvePnpmSource = (
   manifestPath: string,
 ): string | undefined => {
   const workspacePath = resolve(dirname(resolve(manifestPath)), PNPM_WORKSPACE_FILE);
-  const usesWorkspaceSource = isPnpmEleven(config) || hasWorkspaceOverrides(workspacePath);
+  const usesWorkspaceSource =
+    hasWorkspaceOverrides(workspacePath) || usesPnpmWorkspaceConfig(config, dirname(workspacePath));
   const source = usesWorkspaceSource ? workspacePath : undefined;
   return source;
 };
@@ -777,6 +816,8 @@ export const readSectionDependencies = (section: LockSection): Record<string, st
 };
 
 const normalizeId = (id: string): string => {
+  const hasProtocol = /^[a-z][a-z\d+.-]*:/i.test(id);
+  if (hasProtocol) return id;
   const unprefixed = id.replace(/^\//, "");
   const normalized = unprefixed.replace(/^(@[^/]+\/[^/]+|[^@/]+)\//, "$1@");
   return normalized;
@@ -815,26 +856,36 @@ const resolveImporterReference = (
 };
 
 const createPackage = (id: string, section: LockSection, ids: Set<string>) => {
+  const unsupportedValue = section.value !== "" && section.value !== "{}";
+  if (unsupportedValue) throw new Error("Unsupported lockfile package mapping");
   const name = section.children.get("name")?.value ?? packageName(id);
   const refs = readSectionDependencies(section);
+  const dependencyNames = Object.keys(refs);
   const dependencies = Object.entries(refs).map(([dependency, ref]) =>
-    resolveReference(ids, dependency, ref),
+    resolveImporterReference(ids, ".", dependency, ref),
   );
-  const pkg = { name, dependencies };
+  const pkg = { name, dependencies, dependencyNames };
   return pkg;
 };
 
 const createImporter = (directory: string, refs: Record<string, string>, ids: Set<string>) => {
+  const dependencyNames = Object.keys(refs);
   const dependencies = Object.entries(refs).map(([name, ref]) =>
     resolveImporterReference(ids, directory, name, ref),
   );
   const name = importerId(directory);
-  const importer = { name, dependencies };
+  const importer = { name, dependencies, dependencyNames };
   return importer;
 };
 
 const getPackageSections = (document: LockSection): Map<string, LockSection> => {
-  const section = document.children.get("snapshots") ?? document.children.get("packages");
+  const snapshots = document.children.get("snapshots");
+  const version = document.children.get("lockfileVersion")?.value;
+  const usesSnapshots = version === "9.0";
+  const hasPackages = Boolean(document.children.get("packages")?.children.size);
+  const missingSnapshots = usesSnapshots && !snapshots && hasPackages;
+  if (missingSnapshots) throw new Error("Missing lockfile snapshots");
+  const section = snapshots ?? document.children.get("packages");
   const entries = Array.from(
     section?.children ?? [],
     ([id, pkg]) => [normalizeId(id), pkg] as const,
@@ -885,10 +936,14 @@ const createPnpmManifestRoots = (
   importers: Map<string, Record<string, string>>,
   ids: Set<string>,
 ): ResolvedDependencyGraph["roots"] => {
-  const roots = createManifestRoots(manifests, (manifest, name, range) => {
+  const roots = createManifestRoots(manifests, (manifest, name) => {
     const directory = relative(root, dirname(manifest.path)).split("\\").join("/") || ".";
     const importer = importers.get(directory);
-    const ref = importer?.[name] ?? range;
+    const ref = importer?.[name];
+    if (ref === undefined) {
+      const missing = unresolvedDependency(directory, name);
+      return missing;
+    }
     const id = resolveImporterReference(ids, directory, name, ref);
     return id;
   });
@@ -910,8 +965,16 @@ const normalizePnpmGraph = (
   return graph;
 };
 
-export const readPnpmResolvedGraph = (root: string, manifests: DependencyManifest[]) => {
+export const readPnpmResolvedGraph = (
+  root: string,
+  manifests: DependencyManifest[],
+  report?: DependencyDiagnosticReporter,
+) => {
   const path = resolve(root, PNPM_LOCK_FILENAME);
-  const graph = readLockGraph(path, (content) => normalizePnpmGraph(content, root, manifests));
+  const graph = readLockGraph(
+    path,
+    (content) => normalizePnpmGraph(content, root, manifests),
+    report,
+  );
   return graph;
 };

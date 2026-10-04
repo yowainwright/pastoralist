@@ -1,7 +1,6 @@
-import { assertContainsText, assertExcludesText } from "./utils";
+import { assertContainsText, assertExcludesText, runTestCommand } from "./utils";
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import {
   chmodSync,
   existsSync,
@@ -53,7 +52,7 @@ const runScript = (
   const commandArgs = [path].concat(args);
   const commandEnv = Object.assign({}, baseEnv, env);
 
-  const result = spawnSync("/bin/sh", commandArgs, {
+  const result = runTestCommand("/bin/sh", commandArgs, {
     cwd: root,
     encoding: "utf8",
     env: commandEnv,
@@ -67,7 +66,7 @@ const runSetup = (root: string, args: string[], env: Record<string, string> = {}
 const runHookInstaller = (root: string) => {
   const env = Object.assign({}, process.env, { CI: "" });
 
-  const result = spawnSync("node", [jitiScriptPath, hookScriptPath], {
+  const result = runTestCommand("node", [jitiScriptPath, hookScriptPath], {
     cwd: root,
     encoding: "utf8",
     env,
@@ -82,7 +81,7 @@ const runGeneratedHook = (
   env: Record<string, string> = {},
 ) => {
   const commandEnv = Object.assign({}, process.env, env);
-  const result = spawnSync(join(root, ".git/hooks", hookName), args, {
+  const result = runTestCommand(join(root, ".git/hooks", hookName), args, {
     cwd: root,
     encoding: "utf8",
     env: commandEnv,

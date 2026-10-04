@@ -952,7 +952,8 @@ const assertModernPnpmFiles = (pkgPath: string) => {
 
 const scopedPnpmLock = modernPnpmLock
   .replaceAll("parent", "@scope/parent")
-  .replaceAll("1.0.0", "1.0.0(@types/node@26.6.2)");
+  .replace("version: 1.0.0", "version: 1.0.0(@types/node@26.6.2)")
+  .replace("@scope/parent@1.0.0:", "@scope/parent@1.0.0(@types/node@26.6.2):");
 const scopedPnpmWorkspace = "overrides:\n  leaf: '2.0.0'\n  orphan: '1.0.0'\n";
 
 const createScopedPnpmFixture = () => {

@@ -2,6 +2,7 @@ import type { RemovalConfig } from "../types";
 
 export const PNPM_LOCK_FILENAME = "pnpm-lock.yaml";
 export const PNPM_WORKSPACE_FILE = "pnpm-workspace.yaml";
+export const PNPM_EXACT_VERSION = /^(\d+)\.\d+\.\d+(?:-[\w.-]+)?(?:\+[\w.-]+)?$/;
 export const LOCKFILES = [PNPM_LOCK_FILENAME];
 export const DETECT_FILES = [PNPM_LOCK_FILENAME, PNPM_WORKSPACE_FILE];
 export const PNPM_LOCK_PACKAGE_PATTERN = /^\s{2}\/[\w@]/gm;

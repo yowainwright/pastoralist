@@ -24,6 +24,7 @@ import {
 import {
   PNPM_LOCK_FILENAME,
   PNPM_WORKSPACE_FILE,
+  PNPM_EXACT_VERSION,
   PNPM_GRAPH_FIELDS,
   QUOTE_CHARACTERS,
   UNSAFE_SCALAR_CHARACTERS,
@@ -205,12 +206,38 @@ export const stagePnpmWorkspace = (
   fs.writeFileSync(join(removalRoot, "pnpm-workspace.yaml"), removalContent);
 };
 
-const isPnpmEleven = (config: PastoralistJSON): boolean => {
+const readLockedPnpmVersion = (root: string, specifier: string): string | undefined => {
+  const lockPath = resolve(root, PNPM_LOCK_FILENAME);
+  if (!fs.existsSync(lockPath)) return undefined;
+  const content = fs.readFileSync(lockPath, "utf8");
+  const versions = splitPnpmLockDocuments(content).flatMap((document) => {
+    const lock = readLockSections(document);
+    const importer = lock.children.get("importers")?.children.get(".");
+    const manager = importer?.children.get("packageManagerDependencies")?.children.get("pnpm");
+    const empty: string[] = [];
+    if (manager?.children.get("specifier")?.value !== specifier) return empty;
+    const version = manager.children.get("version")?.value;
+    const matches = version ? [version] : empty;
+    return matches;
+  });
+  if (versions.length !== 1) return undefined;
+  const [version] = versions;
+  return version;
+};
+
+const usesPnpmWorkspaceConfig = (config: PastoralistJSON, root: string): boolean => {
   const engine = getDevPackageManager(config);
-  const version = engine?.version ?? config.packageManager?.split("@")[1];
-  const match = version?.match(/^(?:[~^]|>=?)?\s*(\d+)/);
-  if (!match) return false;
-  const major = Number(match[1]);
+  const version = config.packageManager?.split("@")[1] ?? engine?.version;
+  if (!version) return false;
+  const resolved =
+    version.match(PNPM_EXACT_VERSION) ??
+    readLockedPnpmVersion(root, version)?.match(PNPM_EXACT_VERSION);
+  if (!resolved) {
+    throw new Error(
+      `Cannot determine the pnpm override source from "${version}". Pin an exact packageManager version, refresh pnpm-lock.yaml, or set pastoralist.overrideSource.`,
+    );
+  }
+  const major = Number(resolved[1]);
   const usesWorkspaceOverrides = major >= 11;
   return usesWorkspaceOverrides;
 };
@@ -227,7 +254,8 @@ export const resolvePnpmSource = (
   manifestPath: string,
 ): string | undefined => {
   const workspacePath = resolve(dirname(resolve(manifestPath)), PNPM_WORKSPACE_FILE);
-  const usesWorkspaceSource = isPnpmEleven(config) || hasWorkspaceOverrides(workspacePath);
+  const usesWorkspaceSource =
+    hasWorkspaceOverrides(workspacePath) || usesPnpmWorkspaceConfig(config, dirname(workspacePath));
   const source = usesWorkspaceSource ? workspacePath : undefined;
   return source;
 };

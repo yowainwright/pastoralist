@@ -950,6 +950,43 @@ const assertModernPnpmFiles = (pkgPath: string) => {
   });
 });
 
+const scopedPnpmLock = modernPnpmLock
+  .replaceAll("parent", "@scope/parent")
+  .replace("version: 1.0.0", "version: 1.0.0(@types/node@26.6.2)")
+  .replace("@scope/parent@1.0.0:", "@scope/parent@1.0.0(@types/node@26.6.2):");
+const scopedPnpmWorkspace = "overrides:\n  leaf: '2.0.0'\n  orphan: '1.0.0'\n";
+
+const createScopedPnpmFixture = () => {
+  const dependencies = { "@scope/parent": "1.0.0" };
+  const manifest = {
+    name: "scoped-pnpm",
+    version: "1.0.0",
+    packageManager: "pnpm@12.5.1",
+    dependencies,
+  };
+  const pkgPath = createFixture("scoped-pnpm", manifest);
+  const root = dirname(pkgPath);
+  writeFileSync(join(root, "pnpm-workspace.yaml"), scopedPnpmWorkspace);
+  writeFileSync(join(root, "pnpm-lock.yaml"), scopedPnpmLock);
+  return pkgPath;
+};
+
+test("e2e: pnpm scoped peer context preserves used overrides and removes orphans", async () => {
+  const pkgPath = createScopedPnpmFixture();
+  await action({ path: pkgPath, checkSecurity: false, removeUnused: true });
+  const root = dirname(pkgPath);
+  const content = readFileSync(join(root, "pnpm-workspace.yaml"), "utf8");
+  assert.deepEqual(parsePnpmWorkspaceOverrides(content), { leaf: "2.0.0" });
+  assert.equal(readFileSync(join(root, "pnpm-lock.yaml"), "utf8"), scopedPnpmLock);
+  const result = JSON.parse(readFileSync(pkgPath, "utf8"));
+  const appendix = result.pastoralist.appendix;
+  assert.deepEqual(Object.keys(appendix), ["leaf@2.0.0"]);
+  assert.equal(
+    appendix["leaf@2.0.0"].dependents["scoped-pnpm"],
+    "leaf (required by @scope/parent)",
+  );
+});
+
 test("e2e: override for devDependency package kept with removeUnused", async () => {
   const pkgPath = createRemovalFixture("dev-dep-override-kept", {
     name: "test-dev-dep-kept",

@@ -14,12 +14,18 @@ The Scorecard workflow excludes `PinnedDependenciesID` findings for
 `npmCommand not pinned by hash` when their only location is one of these files:
 
 - `tests/e2e/Dockerfile`: pnpm compatibility tests.
+- `tests/e2e/Dockerfile.js-mgrs`: pnpm and Yarn compatibility tests.
+- `tests/e2e/Dockerfile.n8n`: n8n integration tests.
 - `tests/e2e/Dockerfile.pnpm-yaml`: pnpm workspace configuration tests.
 - `tests/e2e/Dockerfile.yarn`: Yarn compatibility tests.
+- `tests/e2e/scripts/test-js-mgrs.sh`: generated package-manager test projects.
+- `tests/e2e/scripts/test-top-level-mgrs.sh`: generated workspace test projects.
 
-These containers use version-pinned `npm install --global` commands to exercise
-package-manager compatibility. Their lack of a committed integrity hash is an
-accepted exception limited to these package-manager bootstrap installs.
+The Dockerfiles use version-pinned `npm install --global` commands to exercise
+package-manager compatibility. The shell scripts install dependencies into
+disposable projects created for E2E tests. These test-only installs do not feed
+release artifacts. Their lack of committed integrity hashes is an accepted,
+path-limited exception.
 
 Container-image findings, other rules, and findings outside these files remain visible.
 All E2E base images must remain pinned by digest.

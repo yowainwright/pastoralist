@@ -2077,6 +2077,17 @@ test("parseBunLockTree - rejects an unterminated string with many escaped quotes
   assert.equal(parseBunLockTree(lockTestDir), undefined);
 });
 
+test("parseBunLockTree - rejects an unterminated string with repeated escapes", (t) => {
+  mkdirSync(lockTestDir, { recursive: true });
+  t.after(() => rmSync(lockTestDir, { recursive: true, force: true }));
+  const backslash = String.fromCharCode(92);
+  const repeatedEscapes = `!${backslash}`.repeat(100_000);
+  const content = `{"packages":{"example":["${backslash}${repeatedEscapes}`;
+  writeFileSync(resolve(lockTestDir, "bun.lock"), content);
+
+  assert.equal(parseBunLockTree(lockTestDir), undefined);
+});
+
 test("parseBunLockGraph - returns undefined for malformed bun.lock", () => {
   mkdirSync(lockTestDir, { recursive: true });
   writeFileSync(resolve(lockTestDir, "bun.lock"), "not valid json {{{");

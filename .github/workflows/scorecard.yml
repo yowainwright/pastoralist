@@ -62,22 +62,26 @@ jobs:
         with:
           name: scorecard-results
 
-      - name: Apply test bootstrap exceptions
+      - name: Apply test dependency exceptions
         run: |
           jq '
-            def is_test_bootstrap:
+            def is_test_dependency_install:
               .ruleId == "PinnedDependenciesID"
               and (.message.text // "" | test("^score is [0-9]+: npmCommand not pinned by hash\n"))
               and (.locations | length == 1)
               and (.locations[0].physicalLocation.artifactLocation.uri as $path
                 | [
                     "tests/e2e/Dockerfile",
+                    "tests/e2e/Dockerfile.js-mgrs",
+                    "tests/e2e/Dockerfile.n8n",
                     "tests/e2e/Dockerfile.pnpm-yaml",
-                    "tests/e2e/Dockerfile.yarn"
+                    "tests/e2e/Dockerfile.yarn",
+                    "tests/e2e/scripts/test-js-mgrs.sh",
+                    "tests/e2e/scripts/test-top-level-mgrs.sh"
                   ] | index($path) != null);
             .runs |= map(
               if .tool.driver.name == "Scorecard" then
-                .results |= map(select(is_test_bootstrap | not))
+                .results |= map(select(is_test_dependency_install | not))
               else . end
             )
           ' scorecard.sarif > scorecard-filtered.sarif

@@ -42,6 +42,10 @@ inputs:
     description: "Fail the action if security vulnerabilities are found (true/false)"
     required: false
     default: "true"
+  fail-on-scan-error:
+    description: "Fail the action if a security provider cannot complete its scan (true/false)"
+    required: false
+    default: "true"
   fail-on-unused:
     description: "Fail the action if unused overrides are detected (true/false)"
     required: false
@@ -137,6 +141,7 @@ runs:
         INPUT_DEP_PATHS: ${{ inputs.dep-paths }}
         INPUT_DRY_RUN: ${{ inputs.dry-run }}
         INPUT_FAIL_ON_SECURITY: ${{ inputs.fail-on-security }}
+        INPUT_FAIL_ON_SCAN_ERROR: ${{ inputs.fail-on-scan-error }}
         INPUT_FAIL_ON_UNUSED: ${{ inputs.fail-on-unused }}
         INPUT_MODE: ${{ inputs.mode }}
         INPUT_ROOT_DIR: ${{ inputs.root-dir }}
@@ -171,7 +176,7 @@ runs:
 
         if [ "$INPUT_CHECK_SECURITY" = "true" ]; then
           cmd+=(--checkSecurity)
-          if [ "$INPUT_FAIL_ON_SECURITY" = "true" ]; then
+          if [ "$INPUT_FAIL_ON_SCAN_ERROR" = "true" ]; then
             cmd+=(--strict)
           fi
           append_list_flag --securityProvider "$INPUT_SECURITY_PROVIDER"
@@ -212,12 +217,11 @@ runs:
         echo "Running Pastoralist in $INPUT_MODE mode"
         if [ "$INPUT_MODE" = "pr" ]; then
           PASTORALIST_STATUS_FILE="$RUNNER_TEMP/pastoralist-before-${GITHUB_RUN_ID:-0}-${GITHUB_RUN_ATTEMPT:-0}"
+          PASTORALIST_BASELINE_TREE=$(git stash create 2>/dev/null || true)
           git status --porcelain=v1 -z --untracked-files=all > "$PASTORALIST_STATUS_FILE"
-          if [ -s "$PASTORALIST_STATUS_FILE" ]; then
-            echo "::error::PR mode requires a clean Git worktree before Pastoralist runs."
-            exit 1
-          fi
           echo "PASTORALIST_STATUS_FILE=$PASTORALIST_STATUS_FILE" >> "$GITHUB_ENV"
+          echo "PASTORALIST_BASELINE_TREE=$PASTORALIST_BASELINE_TREE" >> "$GITHUB_ENV"
+          echo "PASTORALIST_INDEX_FILE=$RUNNER_TEMP/pastoralist-index-${GITHUB_RUN_ID:-0}-${GITHUB_RUN_ATTEMPT:-0}" >> "$GITHUB_ENV"
         fi
         set +e
         RAW_OUTPUT=$("${cmd[@]}" 2>&1)
@@ -355,28 +359,42 @@ runs:
           return paths;
         };
 
+        const baselineTree = process.env.PASTORALIST_BASELINE_TREE || "HEAD";
+        const currentTree = execFileSync("git", ["stash", "create"], { encoding: "utf8" }).trim();
+        const finalTree = currentTree || baselineTree;
+        const outputDiff = execFileSync(
+          "git",
+          ["diff", "--binary", "--no-ext-diff", "--no-renames", baselineTree, finalTree],
+        );
         const originalPaths = new Set(
           statusPaths(readFileSync(process.env.PASTORALIST_STATUS_FILE)).map((path) =>
             path.toString("base64"),
           ),
         );
-        const currentPaths = statusPaths(
-          execFileSync("git", ["status", "--porcelain=v1", "-z", "--untracked-files=all"]),
+        const currentUntracked = execFileSync("git", ["ls-files", "--others", "--exclude-standard", "-z"]);
+        const addedPaths = splitNullDelimited(currentUntracked).filter(
+          (path) => !originalPaths.has(path.toString("base64")),
         );
-        const changedPaths = new Map(
-          currentPaths
-            .filter((path) => !originalPaths.has(path.toString("base64")))
-            .map((path) => [path.toString("base64"), path]),
-        );
-        if (changedPaths.size > 0) {
-          const pathspecs = [...changedPaths.values()].flatMap((path) => [path, Buffer.from([0])]);
+        const indexEnv = Object.assign({}, process.env, { GIT_INDEX_FILE: process.env.PASTORALIST_INDEX_FILE });
+        execFileSync("git", ["read-tree", "HEAD"], { env: indexEnv });
+        if (outputDiff.length > 0) {
+          execFileSync("git", ["apply", "--cached", "--3way", "--binary", "-"], {
+            input: outputDiff,
+            env: indexEnv,
+            stdio: ["pipe", "inherit", "inherit"],
+          });
+        }
+        if (addedPaths.length > 0) {
+          const pathspecs = addedPaths.flatMap((path) => [path, Buffer.from([0])]);
           execFileSync(
             "git",
             ["--literal-pathspecs", "add", "-A", "--pathspec-from-file=-", "--pathspec-file-nul"],
-            { input: Buffer.concat(pathspecs), stdio: ["pipe", "inherit", "inherit"] },
+            { input: Buffer.concat(pathspecs), env: indexEnv, stdio: ["pipe", "inherit", "inherit"] },
           );
         }
         NODE
+
+        export GIT_INDEX_FILE="$PASTORALIST_INDEX_FILE"
 
         if git diff --cached --quiet; then
           echo "No changes to commit."

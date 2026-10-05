@@ -77,7 +77,8 @@ const HOME_ROUTE: StaticRoute = {
 const makeDocRoute = ({ slug, title, description }: DocMeta): StaticRoute => {
   const pathname = `/pastoralist/docs/${slug}/`;
   const outputPath = path.join("docs", slug, "index.html");
-  const route = { pathname, outputPath, title, description };
+  const requiredContent = ['aria-label="Table of contents"'];
+  const route = { pathname, outputPath, title, description, requiredContent };
   return route;
 };
 

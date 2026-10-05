@@ -1,14 +1,8 @@
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { useParams, Link, Navigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
-import {
-  getDocBySlug,
-  getDocComponent,
-  getDocContent,
-  type LazyDocComponent,
-  type DocMeta,
-} from "@/content";
-import { extractHeadings } from "@/lib/mdx/extractHeadings";
+import { getDocBySlug, getDocComponent, type LazyDocComponent, type DocMeta } from "@/content";
+import type { Heading } from "@/lib/mdx/types";
 import { TocWithScrollspy } from "@/components/docs/TocWithScrollspy";
 import { mdxComponents } from "@/components/docs/MDXComponents";
 import { Pagination, getPagination } from "@/components/docs/Pagination";
@@ -22,6 +16,8 @@ const styles = {
   loading:
     "not-prose flex min-h-[calc(100vh-220px)] w-full items-center justify-center rounded-md border border-base-content/10 bg-base-100/70",
 } as const;
+const INTRODUCTION_PARAMS = { slug: "introduction" } as const;
+const DOCS_ROUTE_ID = "/docs/$slug" as const;
 
 function useHashScroll(contentRef: React.RefObject<HTMLElement | null>, slug: string) {
   useEffect(() => {
@@ -66,16 +62,14 @@ function observeHashTarget(content: HTMLElement, targetId: string) {
   };
 }
 
-export function DocsPage() {
-  const { slug } = useParams({ from: "/docs/$slug" });
+export function DocsPage({ headings }: { headings: Heading[] }) {
+  const { slug } = useParams({ from: DOCS_ROUTE_ID });
   const contentRef = useRef<HTMLElement>(null);
   const doc = getDocBySlug(slug);
-  const headings = useDocHeadings(slug);
   useHashScroll(contentRef, slug);
   if (!doc) {
-    return <Navigate to="/docs/$slug/" params={{ slug: "introduction" }} />;
+    return <Navigate to="/docs/$slug/" params={INTRODUCTION_PARAMS} />;
   }
-
   return (
     <section className={styles.page}>
       <MathStyles enabled={doc.usesMath} />
@@ -86,26 +80,6 @@ export function DocsPage() {
       </aside>
     </section>
   );
-}
-
-function useDocHeadings(slug: string) {
-  const [headings, setHeadings] = useState<ReturnType<typeof extractHeadings>>([]);
-  useEffect(() => {
-    let isCurrent = true;
-    void getDocContent(slug)
-      .then((content) => {
-        if (!isCurrent) return;
-        const docHeadings = content ? extractHeadings(content) : [];
-        setHeadings(docHeadings);
-      })
-      .catch(() => {
-        if (isCurrent) setHeadings([]);
-      });
-    return () => {
-      isCurrent = false;
-    };
-  }, [slug]);
-  return headings;
 }
 
 function MathStyles({ enabled }: { enabled?: boolean }) {

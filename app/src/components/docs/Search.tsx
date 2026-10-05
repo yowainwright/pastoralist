@@ -102,23 +102,40 @@ interface SearchResultsProps {
   query: string;
   results: SearchDocument[];
   isLoading: boolean;
+  hasError: boolean;
   onSelect: () => void;
+  onRetry: () => void;
 }
 
-function SearchResults({ query, results, isLoading, onSelect }: SearchResultsProps) {
+function SearchResults(props: SearchResultsProps) {
+  const { query, results, isLoading, hasError, onSelect, onRetry } = props;
   if (isLoading)
     return <p className="p-8 text-center text-base-content/60">Loading documentation…</p>;
+  if (hasError) return <SearchLoadError onRetry={onRetry} />;
   if (!query) return <RecentSearches onSelect={onSelect} />;
-  if (results.length === 0) {
-    return <p className="p-8 text-center text-base-content/60">No results found</p>;
-  }
+  if (results.length === 0) return <NoSearchResults />;
+  return <SearchResultList results={results} onSelect={onSelect} />;
+}
 
+function NoSearchResults() {
+  return <p className="p-8 text-center text-base-content/60">No results found</p>;
+}
+
+function SearchResultList({ results, onSelect }: Pick<SearchResultsProps, "results" | "onSelect">) {
+  const items = results.map((result) => (
+    <SearchResult key={result.slug} result={result} onSelect={onSelect} />
+  ));
+  return <ul className="space-y-1 p-2">{items}</ul>;
+}
+
+function SearchLoadError({ onRetry }: { onRetry: () => void }) {
   return (
-    <ul className="space-y-1 p-2">
-      {results.map((result) => (
-        <SearchResult key={result.slug} result={result} onSelect={onSelect} />
-      ))}
-    </ul>
+    <div className="space-y-3 p-8 text-center" role="alert">
+      <p className="text-base-content/60">Search could not load documentation.</p>
+      <button className="btn btn-sm btn-outline" onClick={onRetry}>
+        Try again
+      </button>
+    </div>
   );
 }
 
@@ -148,9 +165,11 @@ interface SearchDialogProps {
   query: string;
   results: SearchDocument[];
   isLoading: boolean;
+  hasError: boolean;
   inputRef: RefObject<HTMLInputElement | null>;
   onQueryChange: (query: string) => void;
   onClose: () => void;
+  onRetry: () => void;
 }
 
 function SearchDialog(props: SearchDialogProps) {
@@ -170,37 +189,84 @@ function SearchDialogBackdrop({ onClose, ...props }: SearchDialogProps) {
   );
 }
 
-function SearchDialogPanel({
-  query,
-  results,
-  isLoading,
-  inputRef,
-  onQueryChange,
-  onClose,
-}: SearchDialogProps) {
+function SearchDialogPanel(props: SearchDialogProps) {
+  const content = buildSearchDialogContent(props);
   return (
     <section
       className="mx-auto w-full max-w-2xl overflow-hidden rounded-xl border border-base-content/10 bg-base-100 shadow-2xl"
-      onClick={(event) => event.stopPropagation()}
+      onClick={stopPropagation}
     >
-      <SearchInput query={query} inputRef={inputRef} onQueryChange={onQueryChange} />
-      <div className="max-h-[60vh] overflow-y-auto">
-        <SearchResults query={query} results={results} isLoading={isLoading} onSelect={onClose} />
-      </div>
+      {content}
     </section>
   );
+}
+
+function buildSearchDialogContent({
+  query,
+  results,
+  isLoading,
+  hasError,
+  inputRef,
+  onQueryChange,
+  onClose,
+  onRetry,
+}: SearchDialogProps) {
+  const searchResultsProps = { query, results, isLoading, hasError, onSelect: onClose, onRetry };
+  const contentProps = Object.assign({}, searchResultsProps, { inputRef, onQueryChange });
+  const content = <SearchDialogContent {...contentProps} />;
+  return content;
+}
+
+interface SearchDialogContentProps extends SearchResultsProps {
+  inputRef: RefObject<HTMLInputElement | null>;
+  onQueryChange: (query: string) => void;
+}
+
+interface SearchDialogValues {
+  query: string;
+  results: SearchDocument[];
+  searchData: ReturnType<typeof useSearchData>;
+  inputRef: RefObject<HTMLInputElement | null>;
+  onQueryChange: (query: string) => void;
+  controls: ReturnType<typeof useSearchControls>;
+}
+
+function SearchDialogContent({
+  query,
+  results,
+  isLoading,
+  hasError,
+  inputRef,
+  onQueryChange,
+  onSelect,
+  onRetry,
+}: SearchDialogContentProps) {
+  const searchResultsProps = { query, results, isLoading, hasError, onSelect, onRetry };
+  const searchResults = <SearchResults {...searchResultsProps} />;
+  return (
+    <>
+      <SearchInput query={query} inputRef={inputRef} onQueryChange={onQueryChange} />
+      <div className="max-h-[60vh] overflow-y-auto">{searchResults}</div>
+    </>
+  );
+}
+
+function stopPropagation(event: React.MouseEvent<HTMLElement>) {
+  event.stopPropagation();
 }
 
 type SearchInputProps = Pick<SearchDialogProps, "query" | "inputRef" | "onQueryChange">;
 
 function SearchInput({ query, inputRef, onQueryChange }: SearchInputProps) {
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) =>
+    onQueryChange(event.target.value);
   return (
     <label className="flex items-center border-b border-base-content/10 p-4">
       <SearchIcon className="mr-3 h-5 w-5 text-[#1D4ED8]" />
       <input
         ref={inputRef}
         value={query}
-        onChange={(event) => onQueryChange(event.target.value)}
+        onChange={handleChange}
         placeholder="Search documentation..."
         className="flex-1 bg-transparent text-lg outline-none"
       />
@@ -211,50 +277,70 @@ function SearchInput({ query, inputRef, onQueryChange }: SearchInputProps) {
 function useSearchData(loadSearchData: () => Promise<SearchDocument[]>) {
   const [searchData, setSearchData] = useState<SearchDocument[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasError, setHasError] = useState(false);
   const hasLoaded = useRef(false);
-  const load = useCallback(() => {
+  const onRetry = useCallback(() => {
     if (hasLoaded.current) return;
     hasLoaded.current = true;
     setIsLoading(true);
+    setHasError(false);
     void loadSearchData()
-      .then(
-        (documents) => setSearchData(documents),
-        () => {
-          hasLoaded.current = false;
-        },
-      )
+      .then(setSearchData, () => handleSearchLoadError(hasLoaded, setHasError))
       .finally(() => setIsLoading(false));
   }, [loadSearchData]);
-  const state = { searchData, isLoading, load };
+  const state = { searchData, isLoading, hasError, onRetry };
   return state;
 }
 
-function useSearchDialog(loadSearchData: () => Promise<SearchDocument[]>) {
+function handleSearchLoadError(
+  hasLoaded: { current: boolean },
+  setHasError: (hasError: boolean) => void,
+) {
+  hasLoaded.current = false;
+  setHasError(true);
+}
+
+function useSearchDialogData(loadSearchData: () => Promise<SearchDocument[]>) {
   const [query, onQueryChange] = useState("");
   const searchData = useSearchData(loadSearchData);
-  const { isLoading } = searchData;
   const inputRef = useRef<HTMLInputElement>(null);
   const results = useSearchResults(searchData.searchData, query);
-  const controls = useSearchControls(searchData.load, onQueryChange);
-  const { isOpen, open, close } = controls;
-  useSearchShortcut(open, close);
-  useSearchFocus(isOpen, inputRef);
-  const props = { query, results, isLoading, inputRef, onQueryChange, onClose: close };
-  const dialog = { isOpen, open, props };
+  const data = { query, results, searchData, inputRef, onQueryChange };
+  return data;
+}
+
+function useSearchDialog(loadSearchData: () => Promise<SearchDocument[]>) {
+  const data = useSearchDialogData(loadSearchData);
+  const controls = useSearchControls(data.searchData.onRetry, data.onQueryChange);
+  useSearchShortcut(controls.open, controls.onClose);
+  useSearchFocus(controls.isOpen, data.inputRef);
+  const values = Object.assign({}, data, { controls });
+  const props = buildSearchDialogProps(values);
+  const dialog = Object.assign({}, controls, { props });
   return dialog;
 }
 
-function useSearchControls(load: () => void, resetQuery: (query: string) => void) {
+function buildSearchDialogProps(values: SearchDialogValues): SearchDialogProps {
+  const { query, results, searchData, inputRef, onQueryChange, controls } = values;
+  const { isLoading, hasError, onRetry } = searchData;
+  const { onClose } = controls;
+  const baseProps = { query, results, isLoading, hasError, inputRef, onQueryChange };
+  const handlers = { onClose, onRetry };
+  const props = Object.assign({}, baseProps, handlers);
+  return props;
+}
+
+function useSearchControls(onRetry: () => void, resetQuery: (query: string) => void) {
   const [isOpen, setIsOpen] = useState(false);
   const open = useCallback(() => {
     setIsOpen(true);
-    load();
-  }, [load]);
-  const close = useCallback(() => {
+    onRetry();
+  }, [onRetry]);
+  const onClose = useCallback(() => {
     setIsOpen(false);
     resetQuery("");
   }, [resetQuery]);
-  const controls = { isOpen, open, close };
+  const controls = { isOpen, open, onClose };
   return controls;
 }
 
@@ -266,10 +352,11 @@ function useSearchFocus(isOpen: boolean, inputRef: RefObject<HTMLInputElement | 
 
 export default function Search({ loadSearchData, iconOnly = false }: SearchProps) {
   const { isOpen, open, props } = useSearchDialog(loadSearchData);
+  const dialog = isOpen ? <SearchDialog {...props} /> : null;
   return (
     <>
       <SearchTrigger iconOnly={iconOnly} onOpen={open} />
-      {isOpen && <SearchDialog {...props} />}
+      {dialog}
     </>
   );
 }

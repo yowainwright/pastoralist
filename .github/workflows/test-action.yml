@@ -335,6 +335,7 @@ jobs:
       - name: Setup test directory
         run: |
           mkdir -p /tmp/test-pr-dry-run
+          echo "pre-existing workflow output" > pastoralist-existing-output.txt
           cat > /tmp/test-pr-dry-run/package.json << 'EOF'
           {
             "name": "test-pr-dry-run-package",

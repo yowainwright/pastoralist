@@ -1,5 +1,6 @@
 import { lazy } from "react";
 import type { ComponentType, LazyExoticComponent } from "react";
+import type { Heading } from "../lib/mdx/types";
 import { DOCS } from "./constants";
 import type { DocMeta, SearchDocument } from "./types";
 import { buildSearchDocuments } from "./search";
@@ -11,6 +12,7 @@ export type LazyDocComponent = LazyExoticComponent<DocComponent>;
 
 type DocModule = {
   default: DocComponent;
+  headings: Heading[];
 };
 
 type DocModuleLoader = () => Promise<DocModule>;
@@ -44,6 +46,15 @@ export function getDocContent(slug: string): Promise<string | undefined> {
   }
   const content = loadDocContent();
   return content;
+}
+
+export async function getDocHeadings(slug: string): Promise<Heading[]> {
+  const path = `./docs/${slug}.mdx`;
+  const loadDoc = docModuleLoaders[path];
+  const emptyHeadings: Heading[] = [];
+  if (!loadDoc) return emptyHeadings;
+  const { headings } = await loadDoc();
+  return headings;
 }
 
 async function loadDocContents(): Promise<Map<string, string | undefined>> {

@@ -3,6 +3,7 @@ import { DocsLayout } from "./layouts/DocsLayout";
 import { HomeLayout } from "./layouts/RootLayout";
 import { DocsPage } from "./pages/DocsPage";
 import { HomePage } from "./pages/HomePage";
+import { getDocHeadings } from "./content";
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
@@ -21,12 +22,18 @@ const indexRoute = createRoute({
 const docsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/docs/$slug",
-  component: () => (
-    <DocsLayout>
-      <DocsPage />
-    </DocsLayout>
-  ),
+  loader: ({ params }) => getDocHeadings(params.slug),
+  component: DocsRoute,
 });
+
+function DocsRoute() {
+  const headings = docsRoute.useLoaderData();
+  return (
+    <DocsLayout>
+      <DocsPage headings={headings} />
+    </DocsLayout>
+  );
+}
 
 export const routeTree = rootRoute.addChildren([indexRoute, docsRoute]);
 

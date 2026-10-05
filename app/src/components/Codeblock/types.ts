@@ -18,9 +18,3 @@ export interface HighlightSettings {
   showLineNumbers: boolean;
   fenceMeta: string;
 }
-
-export interface CodeCardProps {
-  children: React.ReactNode;
-  variant?: "light" | "dark";
-  className?: string;
-}

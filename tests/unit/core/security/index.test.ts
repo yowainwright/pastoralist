@@ -442,7 +442,10 @@ test("checkSecurity - batches query providers while scanning project providers o
 
 test("checkSecurity - incomplete later batches never populate memory or disk caches", async () => {
   const root = createBestCaseRoot(LARGE_SCAN_PACKAGES);
-  const { checker, fetchAlerts } = createTransitiveScanChecker(root, { noCache: false });
+  const { checker, fetchAlerts } = createTransitiveScanChecker(root, {
+    noCache: false,
+    strict: false,
+  });
   fetchAlerts.mockImplementation((packages, options) => {
     if (packages.length === 1) options?.onIncomplete?.();
     const resolveResult = Promise.resolve(getTransitiveScanAlerts(packages));

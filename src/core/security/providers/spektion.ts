@@ -1,15 +1,23 @@
 import type { SecurityAlert, SecurityProviderScanOptions } from "../../../types";
+import { isRecord } from "../../../utils";
 import { logger } from "../../../observability";
-import { SPEKTION_API, SEVERITY_MAP } from "../constants";
+import { DEFAULT_FETCH_TIMEOUT, SPEKTION_API, SEVERITY_MAP } from "../constants";
 import type { Severity } from "../types";
 
 const mapSeverity = (severity: string): Severity =>
   SEVERITY_MAP[severity.toLowerCase()] ?? "medium";
 
-const convertVulnerability = (vuln: unknown): SecurityAlert | null => {
-  const isInvalidVulnerability = !vuln || typeof vuln !== "object";
-  if (isInvalidVulnerability) return null;
-  const v = vuln as Record<string, unknown>;
+const isSpektionVulnerability = (value: unknown): value is Record<string, unknown> => {
+  if (!isRecord(value)) return false;
+  const hasIdentity = [value.package, value.version, value.severity].every(
+    (field) => typeof field === "string" && field.length > 0,
+  );
+  const hasDescription = typeof value.title === "string" || typeof value.description === "string";
+  const isValidVulnerability = hasIdentity && hasDescription;
+  return isValidVulnerability;
+};
+
+const convertVulnerability = (v: Record<string, unknown>): SecurityAlert => {
   const versions = getVulnerabilityVersions(v);
   const advisory = getVulnerabilityAdvisory(v, versions.patchedVersion);
   const alert = Object.assign({}, versions, advisory);
@@ -40,19 +48,12 @@ const getVulnerabilityAdvisory = (
 };
 
 const convertAlerts = (result: unknown): SecurityAlert[] => {
-  const isInvalidResult = !result || typeof result !== "object";
-  if (isInvalidResult) {
-    const alerts: SecurityAlert[] = [];
-    return alerts;
-  }
-  const data = result as Record<string, unknown>;
-  if (!Array.isArray(data.vulnerabilities)) {
-    const alerts: SecurityAlert[] = [];
-    return alerts;
-  }
-  const alerts = data.vulnerabilities
-    .map(convertVulnerability)
-    .filter((a): a is SecurityAlert => a !== null);
+  if (!isRecord(result)) throw new Error("Spektion returned an invalid response");
+  const vulnerabilities = result.vulnerabilities;
+  if (!Array.isArray(vulnerabilities)) throw new Error("Spektion returned an invalid response");
+  const hasValidVulnerabilities = vulnerabilities.every(isSpektionVulnerability);
+  if (!hasValidVulnerabilities) throw new Error("Spektion returned an invalid vulnerability");
+  const alerts = vulnerabilities.map(convertVulnerability);
   return alerts;
 };
 
@@ -63,10 +64,12 @@ const scanPackages = async (
   const Authorization = `Bearer ${token}`;
   const headers = { "Content-Type": "application/json", Authorization };
   const body = JSON.stringify({ packages });
+  const signal = AbortSignal.timeout(DEFAULT_FETCH_TIMEOUT);
   const response = await fetch(SPEKTION_API.SCAN, {
     method: "POST",
     headers,
     body,
+    signal,
   });
 
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -119,7 +122,8 @@ export class SpektionProvider {
   private handleMissingToken(options: SecurityProviderScanOptions): SecurityAlert[] {
     const message =
       "Spektion requires authentication. Set SPEKTION_API_KEY or provide --securityProviderToken.";
-    if (options.requireCompleteScan) throw new Error(message);
+    const shouldFail = this.strict || options.requireCompleteScan;
+    if (shouldFail) throw new Error(message);
     options.onIncomplete?.();
     this.log.print(message);
     const result: SecurityAlert[] = [];

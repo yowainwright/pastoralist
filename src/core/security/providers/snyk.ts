@@ -1,6 +1,10 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
-import type { SecurityAlert, SnykAlertVulnerability } from "../../../types";
+import type {
+  SecurityAlert,
+  SecurityProviderScanOptions,
+  SnykAlertVulnerability,
+} from "../../../types";
 import { logger } from "../../../observability";
 import { getStringField } from "../../../utils";
 import { CLIInstaller, isSnykResult } from "../utils";
@@ -104,10 +108,10 @@ export class SnykCLIProvider {
 
   async fetchAlerts(
     _packages: Array<{ name: string; version: string }> = [],
-    options: { root?: string } = {},
+    options: SecurityProviderScanOptions = {},
   ): Promise<SecurityAlert[]> {
     if (!(await this.validatePrerequisites())) {
-      const alerts: SecurityAlert[] = [];
+      const alerts = this.handleIncompleteScan("Snyk prerequisites are unavailable", options);
       return alerts;
     }
 
@@ -115,18 +119,22 @@ export class SnykCLIProvider {
       const alerts = await this.fetchSnykAlerts(options.root);
       return alerts;
     } catch (error: unknown) {
-      const alerts = this.handleSnykScanError(error);
+      const alerts = this.handleSnykScanError(error, options);
       return alerts;
     }
   }
 
   private async fetchSnykAlerts(root?: string): Promise<SecurityAlert[]> {
     const result = await this.runSnykScan(root);
+    if (!isSnykResult(result)) throw new Error("Snyk scan returned an invalid response");
     const snykAlerts = this.convertSnykVulnerabilities(result);
     return snykAlerts;
   }
 
-  private handleSnykScanError(error: unknown): SecurityAlert[] {
+  private handleSnykScanError(
+    error: unknown,
+    options: SecurityProviderScanOptions,
+  ): SecurityAlert[] {
     const parsedAlerts = this.parseAlertsFromError(error);
 
     if (parsedAlerts) {
@@ -137,15 +145,31 @@ export class SnykCLIProvider {
     const isError = error instanceof Error;
     const reason = isError ? error.message : "Unknown error";
 
-    if (this.strict) {
-      throw new Error(
-        `Snyk security check failed. Reason: ${reason}. Failing due to --strict mode.`,
-      );
+    const shouldFail = this.strict || options.requireCompleteScan;
+    if (shouldFail) {
+      this.throwScanError(reason);
     }
 
+    options.onIncomplete?.();
     this.log.warn(this.createScanWarning(reason), "fetchAlerts");
     const result: SecurityAlert[] = [];
     return result;
+  }
+
+  private throwScanError(reason: string): never {
+    const message = `Snyk security check failed. Reason: ${reason}. Failing due to --strict mode.`;
+    throw new Error(message);
+  }
+
+  private handleIncompleteScan(
+    reason: string,
+    options: SecurityProviderScanOptions,
+  ): SecurityAlert[] {
+    options.onIncomplete?.();
+    const shouldFail = this.strict || options.requireCompleteScan;
+    if (shouldFail) throw new Error(reason);
+    const alerts: SecurityAlert[] = [];
+    return alerts;
   }
 
   private parseAlertsFromError(error: unknown): SecurityAlert[] | undefined {
@@ -157,6 +181,7 @@ export class SnykCLIProvider {
 
     try {
       const parsed: unknown = JSON.parse(stdout);
+      if (!isSnykResult(parsed)) return undefined;
       const alertsFromError = this.convertSnykVulnerabilities(parsed);
       return alertsFromError;
     } catch {

@@ -23,7 +23,6 @@ const manualChunkEntries = [
   ["/node_modules/@shikijs/core/", "shiki"],
   ["/node_modules/@shikijs/engine-javascript/", "shiki"],
   ["/node_modules/@shikijs/vscode-textmate/", "shiki"],
-  ["/node_modules/shaders/", "shaders"],
 ] as const;
 
 const FRONTMATTER_REGEX = /^---\n[\s\S]*?\n---\n?/;

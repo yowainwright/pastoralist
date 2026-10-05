@@ -8,7 +8,7 @@ import {
   SecurityProviderPermissionError,
 } from "../../../types";
 import { getStringField, retry } from "../../../utils";
-import { toDependabotAlerts } from "../utils";
+import { isDependabotAlert, toDependabotAlerts } from "../utils";
 import { logger } from "../../../observability";
 import { SECURITY_ENV_VARS } from "../../../constants";
 import {
@@ -253,10 +253,17 @@ export class GitHubSecurityProvider {
 
   private parseGhCliAlerts(stdout: string): DependabotAlert[] {
     const alerts: unknown = JSON.parse(stdout);
-    const alertCount = Array.isArray(alerts) ? alerts.length : "non-array";
-    this.log.debug(`Parsed ${alertCount} alerts`, "fetchAlertsWithGhCli");
-    const ghCliAlerts = toDependabotAlerts(alerts);
+    const ghCliAlerts = this.validateDependabotAlerts(alerts);
+    this.log.debug(`Parsed ${ghCliAlerts.length} alerts`, "fetchAlertsWithGhCli");
     return ghCliAlerts;
+  }
+
+  private validateDependabotAlerts(value: unknown): DependabotAlert[] {
+    if (!Array.isArray(value)) throw new Error("GitHub returned an invalid Dependabot response");
+    const alerts = value.filter(isDependabotAlert);
+    const hasInvalidAlerts = alerts.length !== value.length;
+    if (hasInvalidAlerts) throw new Error("GitHub returned malformed Dependabot alerts");
+    return alerts;
   }
 
   private handleGhCliFetchError(error: unknown): never {
@@ -332,7 +339,7 @@ export class GitHubSecurityProvider {
     }
 
     const alerts: unknown = await response.json();
-    const result = toDependabotAlerts(alerts);
+    const result = this.validateDependabotAlerts(alerts);
     return result;
   }
 

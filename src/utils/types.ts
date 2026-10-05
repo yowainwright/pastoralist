@@ -70,6 +70,14 @@ export interface CacheContext {
   ttlOverride?: number;
 }
 
+export interface NpmCacheOptions {
+  root?: string;
+  cacheDir?: string;
+  cacheTtl?: number;
+  noCache?: boolean;
+  refreshCache?: boolean;
+}
+
 export interface NpmPackageInfo {
   "dist-tags": {
     latest: string;

@@ -104,6 +104,10 @@ export interface WorkspaceVulnerabilityState {
 
 export interface SecurityProviderScanOptions {
   root?: string;
+  cacheDir?: string;
+  cacheTtl?: number;
+  noCache?: boolean;
+  refreshCache?: boolean;
   requireCompleteScan?: boolean;
   onIncomplete?: () => void;
 }
@@ -261,6 +265,7 @@ export interface OSVVulnerability {
 }
 
 export interface OSVProviderOptions {
+  root?: string;
   debug?: boolean;
   isIRLFix?: boolean;
   isIRLCatch?: boolean;
@@ -269,6 +274,7 @@ export interface OSVProviderOptions {
   cacheDir?: string;
   cacheTtl?: number;
   noCache?: boolean;
+  refreshCache?: boolean;
 }
 
 export interface OSVVersionRange {
@@ -474,5 +480,6 @@ export interface YarnAuditLine {
   data: {
     advisory?: YarnAuditAdvisory;
     resolution?: { id: number; path: string; dev: boolean };
+    vulnerabilities?: Record<string, number>;
   };
 }

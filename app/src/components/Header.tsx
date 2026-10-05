@@ -1,13 +1,11 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { Sun, Moon, Menu } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
-import { getAllDocs, getDocContent } from "@/content";
-import { buildSearchDocuments } from "@/content/search";
+import { loadSearchDocuments } from "@/content";
 import { GithubIcon } from "@/components/icons/GithubIcon";
 import Search from "@/components/docs/Search";
 
 const navigation = [{ title: "Docs", href: "/docs/introduction", preload: "intent" }];
-const searchData = buildSearchDocuments(getAllDocs(), getDocContent);
 
 export function Header() {
   return (
@@ -44,7 +42,7 @@ function HeaderActions() {
   return (
     <div className="flex items-center gap-1 justify-self-end">
       <HeaderLinks />
-      <Search searchData={searchData} iconOnly />
+      <Search loadSearchData={loadSearchDocuments} iconOnly />
       <a
         className="btn btn-sm btn-ghost btn-square"
         href="https://github.com/yowainwright/pastoralist"

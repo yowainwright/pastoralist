@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useParams, Link, Navigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import {
@@ -70,13 +70,11 @@ export function DocsPage() {
   const { slug } = useParams({ from: "/docs/$slug" });
   const contentRef = useRef<HTMLElement>(null);
   const doc = getDocBySlug(slug);
+  const headings = useDocHeadings(slug);
   useHashScroll(contentRef, slug);
   if (!doc) {
     return <Navigate to="/docs/$slug/" params={{ slug: "introduction" }} />;
   }
-
-  const content = getDocContent(slug);
-  const headings = content ? extractHeadings(content) : [];
 
   return (
     <section className={styles.page}>
@@ -88,6 +86,26 @@ export function DocsPage() {
       </aside>
     </section>
   );
+}
+
+function useDocHeadings(slug: string) {
+  const [headings, setHeadings] = useState<ReturnType<typeof extractHeadings>>([]);
+  useEffect(() => {
+    let isCurrent = true;
+    void getDocContent(slug)
+      .then((content) => {
+        if (!isCurrent) return;
+        const docHeadings = content ? extractHeadings(content) : [];
+        setHeadings(docHeadings);
+      })
+      .catch(() => {
+        if (isCurrent) setHeadings([]);
+      });
+    return () => {
+      isCurrent = false;
+    };
+  }, [slug]);
+  return headings;
 }
 
 function MathStyles({ enabled }: { enabled?: boolean }) {

@@ -171,6 +171,9 @@ runs:
 
         if [ "$INPUT_CHECK_SECURITY" = "true" ]; then
           cmd+=(--checkSecurity)
+          if [ "$INPUT_FAIL_ON_SECURITY" = "true" ]; then
+            cmd+=(--strict)
+          fi
           append_list_flag --securityProvider "$INPUT_SECURITY_PROVIDER"
         fi
 
@@ -207,6 +210,15 @@ runs:
         fi
 
         echo "Running Pastoralist in $INPUT_MODE mode"
+        if [ "$INPUT_MODE" = "pr" ]; then
+          PASTORALIST_STATUS_FILE="$RUNNER_TEMP/pastoralist-before-${GITHUB_RUN_ID:-0}-${GITHUB_RUN_ATTEMPT:-0}"
+          git status --porcelain=v1 -z --untracked-files=all > "$PASTORALIST_STATUS_FILE"
+          if [ -s "$PASTORALIST_STATUS_FILE" ]; then
+            echo "::error::PR mode requires a clean Git worktree before Pastoralist runs."
+            exit 1
+          fi
+          echo "PASTORALIST_STATUS_FILE=$PASTORALIST_STATUS_FILE" >> "$GITHUB_ENV"
+        fi
         set +e
         RAW_OUTPUT=$("${cmd[@]}" 2>&1)
         EXIT_CODE=$?
@@ -276,13 +288,13 @@ runs:
           exit 1
         fi
 
-        if [ "$INPUT_MODE" = "pr" ]; then
-          exit 0
-        fi
-
         if [ "$HAS_SECURITY" = "true" ] && [ "$INPUT_FAIL_ON_SECURITY" = "true" ]; then
           echo "::error::Security vulnerabilities detected ($SECURITY_COUNT). Run 'pastoralist --checkSecurity --forceSecurityRefactor' locally to fix."
           exit 1
+        fi
+
+        if [ "$INPUT_MODE" = "pr" ]; then
+          exit 0
         fi
 
         if [ "$HAS_UNUSED" = "true" ] && [ "$INPUT_FAIL_ON_UNUSED" = "true" ]; then
@@ -312,7 +324,59 @@ runs:
         git config --local user.name "github-actions[bot]"
 
         git checkout -B "$INPUT_PR_BRANCH"
-        git add -A
+        node <<'NODE'
+        const { execFileSync } = require("node:child_process");
+        const { readFileSync } = require("node:fs");
+
+        const splitNullDelimited = (buffer) => {
+          const fields = [];
+          let start = 0;
+          for (let index = 0; index < buffer.length; index += 1) {
+            if (buffer[index] !== 0) continue;
+            fields.push(buffer.subarray(start, index));
+            start = index + 1;
+          }
+          return fields;
+        };
+
+        const statusPaths = (buffer) => {
+          const fields = splitNullDelimited(buffer);
+          const paths = [];
+          for (let index = 0; index < fields.length; index += 1) {
+            const record = fields[index];
+            if (record.length < 3) continue;
+            const status = record.subarray(0, 2).toString("ascii");
+            paths.push(record.subarray(3));
+            if (status.includes("R") || status.includes("C")) {
+              index += 1;
+              if (fields[index]) paths.push(fields[index]);
+            }
+          }
+          return paths;
+        };
+
+        const originalPaths = new Set(
+          statusPaths(readFileSync(process.env.PASTORALIST_STATUS_FILE)).map((path) =>
+            path.toString("base64"),
+          ),
+        );
+        const currentPaths = statusPaths(
+          execFileSync("git", ["status", "--porcelain=v1", "-z", "--untracked-files=all"]),
+        );
+        const changedPaths = new Map(
+          currentPaths
+            .filter((path) => !originalPaths.has(path.toString("base64")))
+            .map((path) => [path.toString("base64"), path]),
+        );
+        if (changedPaths.size > 0) {
+          const pathspecs = [...changedPaths.values()].flatMap((path) => [path, Buffer.from([0])]);
+          execFileSync(
+            "git",
+            ["--literal-pathspecs", "add", "-A", "--pathspec-from-file=-", "--pathspec-file-nul"],
+            { input: Buffer.concat(pathspecs), stdio: ["pipe", "inherit", "inherit"] },
+          );
+        }
+        NODE
 
         if git diff --cached --quiet; then
           echo "No changes to commit."

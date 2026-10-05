@@ -371,8 +371,19 @@ export class SecurityChecker {
   }
 
   private createOsvProvider(options: SecurityProviderFactoryOptions): OSVProvider {
-    const { debug, isIRLFix, isIRLCatch, strict, cacheTtl } = options;
-    const osvProvider = new OSVProvider({ debug, isIRLFix, isIRLCatch, strict, cacheTtl });
+    const { debug, isIRLFix, isIRLCatch, strict, cacheDir, cacheTtl, noCache, refreshCache, root } =
+      options;
+    const osvProvider = new OSVProvider({
+      debug,
+      isIRLFix,
+      isIRLCatch,
+      strict,
+      cacheDir,
+      cacheTtl,
+      noCache,
+      refreshCache,
+      root,
+    });
     return osvProvider;
   }
 
@@ -511,7 +522,7 @@ export class SecurityChecker {
   ): Promise<SecurityResolutionScan> {
     const baselineAlerts = await this.resolveSecurityAlerts(installedPackages, options);
     const vulnerablePackages = this.resolveVulnerablePackages(baselineAlerts, options);
-    const latestVersions = await this.fetchLatestForVulnerablePackages(vulnerablePackages);
+    const latestVersions = await this.fetchLatestForVulnerablePackages(vulnerablePackages, options);
     const updates = this.checkOverrideUpdates(config, baselineAlerts, options.packageJsonPath);
     const input = this.createSecurityResolutionInput(
       installedPackages,
@@ -762,9 +773,7 @@ export class SecurityChecker {
     if (options.skipCacheWrite) return;
     this.cache.set(cacheKey, alerts);
     const shouldWriteDiskCache = !this.noCache && !options.noCache;
-    if (shouldWriteDiskCache) {
-      this.diskAlertsCache.set(diskCacheKey, alerts);
-    }
+    if (shouldWriteDiskCache) this.diskAlertsCache.set(diskCacheKey, alerts);
   }
 
   private async resolveSecurityAlerts(
@@ -786,9 +795,13 @@ export class SecurityChecker {
   }
 
   private assertCompleteScan(scan: SecurityAlertScan, options: SecurityCheckRuntimeOptions): void {
-    const incompleteRequiredScan = options.requireCompleteScan && !scan.complete;
-    if (!incompleteRequiredScan) return;
-    throw new Error("Best-case evaluation requires a complete provider scan");
+    if (scan.complete) return;
+    const shouldRequireCompleteScan = this.strict || options.requireCompleteScan;
+    if (!shouldRequireCompleteScan) return;
+    const reason = options.requireCompleteScan
+      ? "Best-case evaluation requires a complete provider scan"
+      : "Strict security scans require every provider to complete";
+    throw new Error(reason);
   }
 
   private reportProviderFetch(
@@ -810,10 +823,14 @@ export class SecurityChecker {
     options: SecurityCheckRuntimeOptions,
     onIncomplete: () => void,
   ): SecurityProviderScanOptions {
-    const { root } = options;
+    const { root, cacheDir, cacheTtl, noCache, refreshCache } = options;
     const requireCompleteScan = options.requireCompleteScan ?? false;
     const providerScanOptions: SecurityProviderScanOptions = {
       root,
+      cacheDir,
+      cacheTtl,
+      noCache,
+      refreshCache,
       requireCompleteScan,
       onIncomplete,
     };
@@ -837,8 +854,9 @@ export class SecurityChecker {
     const providerOptions = this.createProviderScanOptions(options, markIncomplete);
     const requests = this.createProviderRequests(packages, providerOptions);
     const results = await Promise.allSettled(requests);
-    const alerts = results.flatMap((result, index) => this.normalizeProviderResult(result, index));
     const providersCompleted = results.every((result) => result.status === "fulfilled");
+    if (!providersCompleted) markIncomplete();
+    const alerts = results.flatMap((result, index) => this.normalizeProviderResult(result, index));
     const complete = providersCompleted && incompleteScans.size === 0;
 
     this.logProviderAlerts(alerts);
@@ -1298,6 +1316,7 @@ export class SecurityChecker {
 
   private fetchLatestForVulnerablePackages(
     vulnerablePackages: SecurityAlert[],
+    options: SecurityCheckRuntimeOptions,
   ): Promise<Map<string, string>> {
     const packages = vulnerablePackages
       .filter((pkg) => this.canGenerateOverride(pkg))
@@ -1306,7 +1325,7 @@ export class SecurityChecker {
         return pkg;
       });
 
-    const latestForVulnerablePackages = fetchLatestCompatibleVersions(packages);
+    const latestForVulnerablePackages = fetchLatestCompatibleVersions(packages, options);
     return latestForVulnerablePackages;
   }
 

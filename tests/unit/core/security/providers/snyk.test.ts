@@ -54,7 +54,16 @@ const STRICT_TOKEN_OPTIONS = { token: "test-token", debug: false, strict: true }
 const LENIENT_TOKEN_OPTIONS = { token: "test-token", debug: false, strict: false };
 
 const NO_VULNERABILITIES: unknown[] = [];
-const EMPTY_SCAN_RESULT = { vulnerabilities: NO_VULNERABILITIES };
+const createSnykScanResult = (vulnerabilities: unknown[]) => ({
+  vulnerabilities,
+  ok: vulnerabilities.length === 0,
+  dependencyCount: vulnerabilities.length,
+  org: "test-org",
+  policy: "",
+  isPrivate: true,
+  packageManager: "npm",
+});
+const EMPTY_SCAN_RESULT = createSnykScanResult(NO_VULNERABILITIES);
 const EMPTY_SCAN_STDOUT = JSON.stringify(EMPTY_SCAN_RESULT);
 const EMPTY_SCAN_OUTPUT = { stdout: EMPTY_SCAN_STDOUT, stderr: "" };
 
@@ -84,7 +93,7 @@ const LODASH_RESULT_VULNERABILITIES = [
     fixedIn: LODASH_FIXED_IN,
   },
 ];
-const LODASH_SNYK_RESULT = { vulnerabilities: LODASH_RESULT_VULNERABILITIES };
+const LODASH_SNYK_RESULT = createSnykScanResult(LODASH_RESULT_VULNERABILITIES);
 
 const TEST_PKG_VULNERABILITIES = [
   {
@@ -422,7 +431,7 @@ test("validatePrerequisites - should return false when auth fails", async () => 
 test("fetchAlerts - should return alerts on successful scan", async () => {
   const p = createProvider(DEFAULT_OPTIONS);
   p.validatePrerequisites = async () => true;
-  p.runSnykScan = async () => ({ vulnerabilities: TEST_PKG_VULNERABILITIES });
+  p.runSnykScan = async () => createSnykScanResult(TEST_PKG_VULNERABILITIES);
 
   const alerts = await p.fetchAlerts();
   assert.strictEqual(alerts.length, 1);
@@ -459,7 +468,7 @@ test("runSnykScan - should parse JSON from successful scan", async () => {
 
 test("runSnykScan - should handle scan with vulnerabilities", async () => {
   const p = createProvider(TOKEN_OPTIONS);
-  p.runSnykScan = async () => ({ vulnerabilities: LODASH_DESCRIBED_VULNERABILITIES });
+  p.runSnykScan = async () => createSnykScanResult(LODASH_DESCRIBED_VULNERABILITIES);
   p.validatePrerequisites = async () => true;
 
   const alerts = await p.fetchAlerts();
@@ -476,7 +485,7 @@ test("validatePrerequisites - should return true when fully authenticated", asyn
 
 test("runSnykScan - executes snyk test command and parses JSON", async () => {
   const p = createProvider(TOKEN_OPTIONS);
-  p.runSnykScan = async () => ({ vulnerabilities: LODASH_UNDESCRIBED_VULNERABILITIES });
+  p.runSnykScan = async () => createSnykScanResult(LODASH_UNDESCRIBED_VULNERABILITIES);
   p.validatePrerequisites = async () => true;
 
   const alerts = await p.fetchAlerts();
@@ -511,7 +520,7 @@ test("runSnykScan - throws in strict mode on scan failure", async () => {
 
 test("runSnykScan - parses vulnerabilities with CVE identifiers", async () => {
   const p = createProvider(TOKEN_OPTIONS);
-  p.runSnykScan = async () => ({ vulnerabilities: AXIOS_VULNERABILITIES });
+  p.runSnykScan = async () => createSnykScanResult(AXIOS_VULNERABILITIES);
   p.validatePrerequisites = async () => true;
 
   const alerts = await p.fetchAlerts();
@@ -523,7 +532,7 @@ test("runSnykScan - parses vulnerabilities with CVE identifiers", async () => {
 
 test("runSnykScan - handles multiple vulnerabilities", async () => {
   const p = createProvider(TOKEN_OPTIONS);
-  p.runSnykScan = async () => ({ vulnerabilities: MULTIPLE_VULNERABILITIES });
+  p.runSnykScan = async () => createSnykScanResult(MULTIPLE_VULNERABILITIES);
   p.validatePrerequisites = async () => true;
 
   const alerts = await p.fetchAlerts();

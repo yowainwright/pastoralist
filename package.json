@@ -133,7 +133,7 @@
     "socket": "1.4.1",
     "turbo": "2.11.7",
     "typescript": "7.0.2",
-    "typescript5": "npm:typescript@7.0.2"
+    "typescript5": "npm:typescript@5.9.3"
   },
   "engines": {
     "node": ">=20.19.0"

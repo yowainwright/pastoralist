@@ -119,25 +119,22 @@
     "validate:full": "pnpm run validate && pnpm run test:e2e && pnpm run test:bench",
     "setup": "sh scripts/setup/setup.sh bootstrap"
   },
-  "dependencies": {},
   "devDependencies": {
-    "@types/node": "26.6.2",
+    "@types/node": "26.6.4",
     "c8": "^12.0.0",
     "codependence": "^1.0.15",
     "jiti": "2.7.0",
-    "oxfmt": "^0.50.0",
-    "oxlint": "^1.85.0",
+    "oxfmt": "^0.71.0",
+    "oxlint": "^1.86.0",
     "oxlint-plugin-legibility": "0.0.5",
     "release-it": "21.1.0",
-    "rolldown": "1.2.5",
+    "rolldown": "1.2.12",
     "scriptc": "0.0.21",
-    "socket": "1.1.158",
-    "turbo": "2.11.4",
+    "socket": "1.4.1",
+    "turbo": "2.11.7",
     "typescript": "7.0.2",
     "typescript5": "npm:typescript@5.9.3"
   },
-  "peerDependencies": {},
-  "optionalDependencies": {},
   "engines": {
     "node": ">=20.19.0"
   },

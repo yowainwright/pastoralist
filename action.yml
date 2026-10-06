@@ -39,7 +39,11 @@ inputs:
     description: "Deprecated. Config files are auto-detected from root-dir"
     required: false
   fail-on-security:
-    description: "Fail the action if security vulnerabilities are found (true/false)"
+    description: "Fail on findings unless an auto-fix PR has changes to submit (true/false)"
+    required: false
+    default: "true"
+  fail-on-scan-error:
+    description: "Fail the action if a security provider cannot complete its scan (true/false)"
     required: false
     default: "true"
   fail-on-unused:
@@ -80,6 +84,9 @@ outputs:
   has-unused-overrides:
     description: "Whether unused overrides were detected (true/false)"
     value: ${{ steps.pastoralist.outputs.has-unused-overrides }}
+  security-fixes-applied:
+    description: "Whether every detected vulnerability received a new security override"
+    value: ${{ steps.pastoralist.outputs.security-fixes-applied }}
   updated:
     description: "Whether package.json was modified (true/false)"
     value: ${{ steps.pastoralist.outputs.updated }}
@@ -137,6 +144,7 @@ runs:
         INPUT_DEP_PATHS: ${{ inputs.dep-paths }}
         INPUT_DRY_RUN: ${{ inputs.dry-run }}
         INPUT_FAIL_ON_SECURITY: ${{ inputs.fail-on-security }}
+        INPUT_FAIL_ON_SCAN_ERROR: ${{ inputs.fail-on-scan-error }}
         INPUT_FAIL_ON_UNUSED: ${{ inputs.fail-on-unused }}
         INPUT_MODE: ${{ inputs.mode }}
         INPUT_ROOT_DIR: ${{ inputs.root-dir }}
@@ -171,6 +179,9 @@ runs:
 
         if [ "$INPUT_CHECK_SECURITY" = "true" ]; then
           cmd+=(--checkSecurity)
+          if [ "$INPUT_FAIL_ON_SCAN_ERROR" = "true" ]; then
+            cmd+=(--strict)
+          fi
           append_list_flag --securityProvider "$INPUT_SECURITY_PROVIDER"
         fi
 
@@ -207,6 +218,70 @@ runs:
         fi
 
         echo "Running Pastoralist in $INPUT_MODE mode"
+        if [ "$INPUT_MODE" = "pr" ]; then
+          PASTORALIST_UNTRACKED_FILE="$RUNNER_TEMP/pastoralist-untracked-${GITHUB_RUN_ID:-0}-${GITHUB_RUN_ATTEMPT:-0}"
+          PASTORALIST_BASELINE_TREE=$(git stash create 2>/dev/null || true)
+          set +e
+          node <<'NODE' > "$PASTORALIST_UNTRACKED_FILE"
+          const { execFileSync } = require("node:child_process");
+          const { lstatSync, readFileSync, readlinkSync } = require("node:fs");
+
+          const splitNullDelimited = (buffer) => {
+            const paths = [];
+            let start = 0;
+            for (let index = 0; index < buffer.length; index += 1) {
+              if (buffer[index] !== 0) continue;
+              paths.push(buffer.subarray(start, index));
+              start = index + 1;
+            }
+            return paths;
+          };
+
+          const gitModeForPath = (fileStats) => {
+            if (fileStats.isSymbolicLink()) return "120000";
+            const hasExecutableBit = (fileStats.mode & 0o111) !== 0;
+            const mode = hasExecutableBit ? "100755" : "100644";
+            return mode;
+          };
+
+          const describeUntrackedPath = (path) => {
+            const fileStats = lstatSync(path);
+            if (fileStats.isDirectory()) return undefined;
+            const isSymbolicLink = fileStats.isSymbolicLink();
+            const content = isSymbolicLink
+              ? readlinkSync(path, { encoding: "buffer" })
+              : readFileSync(path);
+            const hash = execFileSync("git", ["hash-object", "--stdin"], {
+              input: content,
+              encoding: "utf8",
+            }).trim();
+            const mode = gitModeForPath(fileStats);
+            const fileEntry = { hash, mode };
+            return fileEntry;
+          };
+
+          const untrackedPaths = splitNullDelimited(
+            execFileSync("git", ["ls-files", "--others", "--exclude-standard", "-z"]),
+          );
+          const manifestFields = untrackedPaths.flatMap((path) => {
+            const fileEntry = describeUntrackedPath(path);
+            if (!fileEntry) return [];
+            const { hash, mode } = fileEntry;
+            return [path, Buffer.from(mode), Buffer.from(hash)];
+          });
+          const delimitedFields = manifestFields.flatMap((field) => [field, Buffer.from([0])]);
+          process.stdout.write(Buffer.concat(delimitedFields));
+        NODE
+          SNAPSHOT_EXIT_CODE=$?
+          set -e
+          if [ "$SNAPSHOT_EXIT_CODE" -ne 0 ]; then
+            echo "::error::Could not snapshot pre-existing untracked files."
+            exit 1
+          fi
+          echo "PASTORALIST_UNTRACKED_FILE=$PASTORALIST_UNTRACKED_FILE" >> "$GITHUB_ENV"
+          echo "PASTORALIST_BASELINE_TREE=$PASTORALIST_BASELINE_TREE" >> "$GITHUB_ENV"
+          echo "PASTORALIST_INDEX_FILE=$RUNNER_TEMP/pastoralist-index-${GITHUB_RUN_ID:-0}-${GITHUB_RUN_ATTEMPT:-0}" >> "$GITHUB_ENV"
+        fi
         set +e
         RAW_OUTPUT=$("${cmd[@]}" 2>&1)
         EXIT_CODE=$?
@@ -237,6 +312,7 @@ runs:
         fi
 
         HAS_SECURITY=$(echo "$JSON_OUTPUT" | jq -r '.hasSecurityIssues // false')
+        SECURITY_FIXES_APPLIED=$(echo "$JSON_OUTPUT" | jq -r '.securityFixesApplied // false')
         HAS_UNUSED=$(echo "$JSON_OUTPUT" | jq -r '.hasUnusedOverrides // false')
         UPDATED=$(echo "$JSON_OUTPUT" | jq -r '.updated // false')
         SUCCESS=$(echo "$JSON_OUTPUT" | jq -r '.success // false')
@@ -246,6 +322,7 @@ runs:
 
         {
           echo "has-security-issues=$HAS_SECURITY"
+          echo "security-fixes-applied=$SECURITY_FIXES_APPLIED"
           echo "has-unused-overrides=$HAS_UNUSED"
           echo "updated=$UPDATED"
           echo "security-count=$SECURITY_COUNT"
@@ -276,13 +353,18 @@ runs:
           exit 1
         fi
 
-        if [ "$INPUT_MODE" = "pr" ]; then
-          exit 0
+        ALLOW_SECURITY_FIX_PR="false"
+        if [ "$INPUT_MODE" = "pr" ] && [ "$INPUT_AUTO_FIX" = "true" ] && [ "$UPDATED" = "true" ] && [ "$SECURITY_FIXES_APPLIED" = "true" ]; then
+          ALLOW_SECURITY_FIX_PR="true"
         fi
 
-        if [ "$HAS_SECURITY" = "true" ] && [ "$INPUT_FAIL_ON_SECURITY" = "true" ]; then
-          echo "::error::Security vulnerabilities detected ($SECURITY_COUNT). Run 'pastoralist --checkSecurity --forceSecurityRefactor' locally to fix."
+        if [ "$HAS_SECURITY" = "true" ] && [ "$INPUT_FAIL_ON_SECURITY" = "true" ] && [ "$ALLOW_SECURITY_FIX_PR" != "true" ]; then
+          echo "::error::Security vulnerabilities detected ($SECURITY_COUNT), but the PR does not apply a complete security fix. Run 'pastoralist --checkSecurity --forceSecurityRefactor' locally to fix."
           exit 1
+        fi
+
+        if [ "$INPUT_MODE" = "pr" ]; then
+          exit 0
         fi
 
         if [ "$HAS_UNUSED" = "true" ] && [ "$INPUT_FAIL_ON_UNUSED" = "true" ]; then
@@ -299,7 +381,7 @@ runs:
       env:
         GH_TOKEN: ${{ inputs.github-token || github.token }}
         INPUT_BASE_REF: ${{ github.ref_name }}
-        INPUT_HAS_SECURITY: ${{ steps.pastoralist.outputs.has-security-issues }}
+        INPUT_SECURITY_FIXES_APPLIED: ${{ steps.pastoralist.outputs.security-fixes-applied }}
         INPUT_HAS_UNUSED: ${{ steps.pastoralist.outputs.has-unused-overrides }}
         INPUT_PR_BODY: ${{ inputs.pr-body }}
         INPUT_PR_BRANCH: ${{ inputs.pr-branch }}
@@ -312,7 +394,89 @@ runs:
         git config --local user.name "github-actions[bot]"
 
         git checkout -B "$INPUT_PR_BRANCH"
-        git add -A
+        node <<'NODE'
+        const { execFileSync } = require("node:child_process");
+        const { lstatSync, readFileSync, readlinkSync } = require("node:fs");
+
+        const splitNullDelimited = (buffer) => {
+          const fields = [];
+          let start = 0;
+          for (let index = 0; index < buffer.length; index += 1) {
+            if (buffer[index] !== 0) continue;
+            fields.push(buffer.subarray(start, index));
+            start = index + 1;
+          }
+          return fields;
+        };
+
+        const gitModeForPath = (fileStats) => {
+          if (fileStats.isSymbolicLink()) return "120000";
+          const hasExecutableBit = (fileStats.mode & 0o111) !== 0;
+          const mode = hasExecutableBit ? "100755" : "100644";
+          return mode;
+        };
+
+        const hashUntrackedPath = (path) => {
+          const fileStats = lstatSync(path);
+          const isSymbolicLink = fileStats.isSymbolicLink();
+          const content = isSymbolicLink
+            ? readlinkSync(path, { encoding: "buffer" })
+            : readFileSync(path);
+          const hash = execFileSync("git", ["hash-object", "--stdin"], {
+            input: content,
+            encoding: "utf8",
+          }).trim();
+          const mode = gitModeForPath(fileStats);
+          const fileEntry = { hash, mode };
+          return fileEntry;
+        };
+
+        const baselineTree = process.env.PASTORALIST_BASELINE_TREE || "HEAD";
+        const currentTree = execFileSync("git", ["stash", "create"], { encoding: "utf8" }).trim();
+        const finalTree = currentTree || baselineTree;
+        const outputDiff = execFileSync(
+          "git",
+          ["diff", "--binary", "--no-ext-diff", "--no-renames", baselineTree, finalTree],
+        );
+        const baselineFields = splitNullDelimited(readFileSync(process.env.PASTORALIST_UNTRACKED_FILE));
+        const originalUntracked = new Map();
+        for (let index = 0; index + 2 < baselineFields.length; index += 3) {
+          const pathKey = baselineFields[index].toString("base64");
+          const mode = baselineFields[index + 1].toString("ascii");
+          const hash = baselineFields[index + 2].toString("ascii");
+          originalUntracked.set(pathKey, { hash, mode });
+        }
+        const currentUntracked = execFileSync("git", ["ls-files", "--others", "--exclude-standard", "-z"]);
+        const changedUntracked = splitNullDelimited(currentUntracked).filter((path) => {
+          if (lstatSync(path).isDirectory()) return false;
+          const pathKey = path.toString("base64");
+          const baseline = originalUntracked.get(pathKey);
+          if (baseline === undefined) return true;
+          const current = hashUntrackedPath(path);
+          const contentChanged = current.hash !== baseline.hash;
+          const modeChanged = current.mode !== baseline.mode;
+          return contentChanged || modeChanged;
+        });
+        const indexEnv = Object.assign({}, process.env, { GIT_INDEX_FILE: process.env.PASTORALIST_INDEX_FILE });
+        execFileSync("git", ["read-tree", "HEAD"], { env: indexEnv });
+        if (outputDiff.length > 0) {
+          execFileSync("git", ["apply", "--cached", "--3way", "--binary", "-"], {
+            input: outputDiff,
+            env: indexEnv,
+            stdio: ["pipe", "inherit", "inherit"],
+          });
+        }
+        if (changedUntracked.length > 0) {
+          const pathspecs = changedUntracked.flatMap((path) => [path, Buffer.from([0])]);
+          execFileSync(
+            "git",
+            ["--literal-pathspecs", "add", "-A", "--pathspec-from-file=-", "--pathspec-file-nul"],
+            { input: Buffer.concat(pathspecs), env: indexEnv, stdio: ["pipe", "inherit", "inherit"] },
+          );
+        }
+        NODE
+
+        export GIT_INDEX_FILE="$PASTORALIST_INDEX_FILE"
 
         if git diff --cached --quiet; then
           echo "No changes to commit."
@@ -335,7 +499,7 @@ runs:
         - Updated dependency override tracking in \`package.json\`
         EOF
 
-          if [ "$INPUT_HAS_SECURITY" = "true" ]; then
+          if [ "$INPUT_SECURITY_FIXES_APPLIED" = "true" ]; then
             echo "- Applied security fixes for detected vulnerabilities" >> "$BODY_FILE"
           fi
 

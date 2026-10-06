@@ -15,7 +15,13 @@ import type {
   OSVProviderOptions,
   Severity,
 } from "../../../types";
-import { compareVersions, retry, type RetryError, type RetryOptions } from "../../../utils";
+import {
+  compareVersions,
+  createLimit,
+  retry,
+  type RetryError,
+  type RetryOptions,
+} from "../../../utils";
 import { logger } from "../../../observability";
 import { isOSVVulnerability, toOSVBatchApiResults } from "../utils";
 import {
@@ -26,6 +32,7 @@ import {
   OSV_NPM_ECOSYSTEM,
   SEVERITY_MAP,
   OSV_DETAIL_CONCURRENCY,
+  DEFAULT_FETCH_TIMEOUT,
   OSV_IRL_CATCH_ALERT,
   OSV_IRL_FIX_ALERT,
 } from "../constants";
@@ -36,6 +43,8 @@ import {
   CACHE_TTLS,
   CACHE_NS_VERSIONS,
 } from "../../../utils/cache";
+
+const limitOSVDetails = createLimit(OSV_DETAIL_CONCURRENCY);
 
 export const clearOSVCache = (): void => {
   const dir = resolveCacheDir();
@@ -58,12 +67,18 @@ export class OSVProvider {
   protected log: ReturnType<typeof logger>;
   protected retryOptions: RetryOptions;
   private readonly osvCache: DiskCache<OSVVulnerability>;
+  private readonly pendingVulnerabilities: Map<string, Promise<OSVVulnerability>>;
+  private readonly noCache: boolean;
+  private readonly refreshCache: boolean;
 
   constructor(options: OSVProviderOptions = {}) {
     this.debug = options.debug || false;
     this.isIRLFix = options.isIRLFix || false;
     this.isIRLCatch = options.isIRLCatch || false;
     this.strict = options.strict || false;
+    this.noCache = options.noCache ?? false;
+    this.refreshCache = options.refreshCache ?? false;
+    this.pendingVulnerabilities = new Map();
     const { debug: isLogging } = this;
     this.log = logger({ file: "security/osv.ts", isLogging });
     this.retryOptions = options.retryOptions || {
@@ -80,7 +95,8 @@ export class OSVProvider {
     const cacheTtlMs = hasCustomCacheTtl ? cacheTtl * 1000 : CACHE_TTLS.OSV;
     const isCacheDisabled = options.noCache ?? false;
     const cacheEnabled = !isCacheDisabled;
-    const dir = options.cacheDir ?? resolveCacheDir();
+    const defaultDir = cacheEnabled ? resolveCacheDir(options) : "";
+    const dir = options.cacheDir ?? defaultDir;
     const { OSV: version } = CACHE_NS_VERSIONS;
     const cache = new DiskCache<OSVVulnerability>(CACHE_NAMESPACES.OSV, {
       dir,
@@ -97,10 +113,12 @@ export class OSVProvider {
       const pkg = { name: "test", ecosystem: "npm" };
       const body = JSON.stringify({ package: pkg });
       const headers = { "Content-Type": "application/json" };
+      const signal = AbortSignal.timeout(DEFAULT_FETCH_TIMEOUT);
       const response = await fetch(OSV_API.QUERY, {
         method: "POST",
         headers,
         body,
+        signal,
       });
       const result = response.ok;
       return result;
@@ -115,7 +133,10 @@ export class OSVProvider {
   ): Promise<OSVBatchResult[]> {
     const response = await this.requestOSVBatch(this.createOSVQueries(packages));
     const data: unknown = await response.json();
-    const fromOSVBatchAPI = this.enrichBatchResults(toOSVBatchApiResults(data), options);
+    const batchResults = toOSVBatchApiResults(data);
+    const hasExpectedResultCount = batchResults.length === packages.length;
+    if (!hasExpectedResultCount) throw new Error("OSV returned an incomplete batch response");
+    const fromOSVBatchAPI = this.enrichBatchResults(batchResults, options);
     return fromOSVBatchAPI;
   }
 
@@ -131,10 +152,12 @@ export class OSVProvider {
   private async requestOSVBatch(queries: OSVPackageQuery[]): Promise<Response> {
     const headers = { "Content-Type": "application/json" };
     const body = JSON.stringify({ queries });
+    const signal = AbortSignal.timeout(DEFAULT_FETCH_TIMEOUT);
     const response = await fetch(OSV_API.QUERY_BATCH, {
       method: "POST",
       headers,
       body,
+      signal,
     });
 
     if (!response.ok) {
@@ -178,18 +201,50 @@ export class OSVProvider {
     return batchVulnerabilities;
   }
 
-  private async fetchSingleVulnerability(vuln: OSVPartialVulnerability): Promise<OSVVulnerability> {
+  private fetchSingleVulnerability(
+    vuln: OSVPartialVulnerability,
+    options: SecurityProviderScanOptions,
+  ): Promise<OSVVulnerability> {
     const cacheKey = `osv:${vuln.id}`;
-    const cached = this.osvCache.get(cacheKey);
-    if (cached) return cached;
+    const shouldSkipCacheRead =
+      this.noCache || options.noCache || this.refreshCache || options.refreshCache;
+    const cached = shouldSkipCacheRead ? undefined : this.osvCache.get(cacheKey);
+    if (cached) {
+      const cachedResult = Promise.resolve(cached);
+      return cachedResult;
+    }
+    const pending = this.pendingVulnerabilities.get(cacheKey);
+    if (pending) return pending;
 
-    const response = await fetch(OSV_API.VULN(vuln.id));
+    const request = limitOSVDetails(() => this.requestVulnerability(vuln, cacheKey, options));
+    this.trackPendingVulnerability(cacheKey, request);
+    return request;
+  }
+
+  private trackPendingVulnerability(cacheKey: string, request: Promise<OSVVulnerability>): void {
+    this.pendingVulnerabilities.set(cacheKey, request);
+    const clearPending = (): void => {
+      const isCurrentRequest = this.pendingVulnerabilities.get(cacheKey) === request;
+      if (!isCurrentRequest) return;
+      this.pendingVulnerabilities.delete(cacheKey);
+    };
+    void request.then(clearPending, clearPending);
+  }
+
+  private async requestVulnerability(
+    vuln: OSVPartialVulnerability,
+    cacheKey: string,
+    options: SecurityProviderScanOptions,
+  ): Promise<OSVVulnerability> {
+    const signal = AbortSignal.timeout(DEFAULT_FETCH_TIMEOUT);
+    const response = await fetch(OSV_API.VULN(vuln.id), { signal });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
     const result: unknown = await response.json();
     if (!isOSVVulnerability(result)) throw new Error(`Invalid OSV response for ${vuln.id}`);
-    this.osvCache.set(cacheKey, result);
+    const shouldWriteCache = !this.noCache && !options.noCache;
+    if (shouldWriteCache) this.osvCache.set(cacheKey, result);
     return result;
   }
 
@@ -225,7 +280,7 @@ export class OSVProvider {
     options: SecurityProviderScanOptions,
   ): Promise<OSVVulnerability[]> {
     const results = await Promise.allSettled(
-      batch.map((vuln) => this.fetchSingleVulnerability(vuln)),
+      batch.map((vuln) => this.fetchSingleVulnerability(vuln, options)),
     );
 
     const vulnerabilities = results.map((result, index) => {

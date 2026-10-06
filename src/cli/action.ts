@@ -16,6 +16,7 @@ import {
   createErrorResult,
   outputResult,
 } from "./utils";
+import { hasAppliedSecurityFixes } from "./security/utils";
 import {
   buildMergedOptions,
   handleSecurityResults,
@@ -185,6 +186,8 @@ const buildActionResult = (runtime: ActionRuntime, workflow: UpdateWorkflow): Pa
   const { removalVerification } = workflow.mergedOptions;
   const { bestCase } = workflow.securityPhase;
   const { metrics } = workflow.updateContext;
+  const hasSecurityFixes = hasAppliedSecurityFixes(workflow);
+  const securityFixesApplied = workflow.updateResultData.updated && hasSecurityFixes;
   const result = Object.assign(
     {},
     runtime.emptyResult,
@@ -194,6 +197,7 @@ const buildActionResult = (runtime: ActionRuntime, workflow: UpdateWorkflow): Pa
       removalVerification,
       bestCase,
       metrics,
+      securityFixesApplied,
     },
   );
   return result;

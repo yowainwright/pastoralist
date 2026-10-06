@@ -185,9 +185,6 @@ importers:
       '@radix-ui/react-slot':
         specifier: ^1.2.4
         version: 1.3.3(@types/react@19.3.0)(react@19.3.0)
-      '@shikijs/rehype':
-        specifier: ^4.4.3
-        version: 4.4.3
       '@shikijs/transformers':
         specifier: ^4.4.3
         version: 4.4.3
@@ -230,9 +227,6 @@ importers:
       mermaid:
         specifier: ^12.0.0
         version: 12.0.0
-      pino:
-        specifier: ^10.3.1
-        version: 10.3.1
       react:
         specifier: ^19.3.0
         version: 19.3.0
@@ -251,9 +245,6 @@ importers:
       shadcn:
         specifier: ^4.7.0
         version: 4.17.0(supports-color@10.2.2)(typescript@7.0.2)
-      shaders:
-        specifier: ^2.5.124
-        version: 2.5.135(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       shiki:
         specifier: ^4.4.3
         version: 4.4.3

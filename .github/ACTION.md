@@ -122,7 +122,18 @@ Deprecated. Config files are auto-detected from `root-dir`.
 > Type: **`boolean`**
 > Default: `true`
 
-Fails the action when vulnerabilities are found.
+Fails the action when vulnerabilities are found, except when `mode: pr` with
+`auto-fix: true` produces changes to submit. In that case the action continues
+so it can open the fix PR; `has-security-issues` still reports the scan findings.
+
+### `fail-on-scan-error`
+
+> Type: **`boolean`**
+> Default: `true`
+
+Fails the action when a security provider cannot complete its scan. Set this to
+`false` to allow provider errors while keeping vulnerability findings governed
+by `fail-on-security`.
 
 ### `fail-on-unused`
 

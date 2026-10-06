@@ -28,6 +28,7 @@ export const DEFAULT_RETRY_OPTIONS: RetryTimingOptions = {
 };
 
 export const NPM_REGISTRY_URL = "https://registry.npmjs.org";
+export const NPM_REGISTRY_FETCH_TIMEOUT = 30000;
 export const NPM_REGISTRY_CONCURRENCY = 5;
 export const NPM_REGISTRY_CACHE_MAX_ENTRIES = 1000;
 export const LIMITER_CLEARED_ERROR_MESSAGE = "Concurrency limiter queue cleared";

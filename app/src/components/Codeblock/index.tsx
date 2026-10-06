@@ -201,7 +201,6 @@ function CodeLabel({ title, lang, showLanguage }: CodeLabelProps) {
   );
 }
 
-export { CodeCard } from "./CodeCard";
 export { CopyButton } from "./CopyButton";
-export type { CodeblockProps, CodeCardProps, Language } from "./types";
+export type { CodeblockProps, Language } from "./types";
 export { SHIKI_LANGS, CODEBLOCK_CLASSES } from "./constants";

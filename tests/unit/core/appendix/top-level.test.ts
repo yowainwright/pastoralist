@@ -187,10 +187,10 @@ test("findTopLevelDependents - returns nothing for an empty graph or no direct d
 });
 
 test("findTopLevelDependents - survives a 50000 package deep chain", () => {
-  const entries = Array.from(
-    { length: 50000 },
-    (_, index): GraphEntry => [`n${index}`, [`n${index + 1}`]],
-  );
+  const entries = Array.from({ length: 50000 }, (_, index): GraphEntry => [
+    `n${index}`,
+    [`n${index + 1}`],
+  ]);
   const result = findTopLevelDependents("n0", graphFrom(entries), new Set(["n50000"]));
   assert.deepEqual(result, ["n50000"]);
 });

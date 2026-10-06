@@ -38,6 +38,7 @@ const route = {
   title: "Setup",
   description: 'Install "Pastoralist" safely',
 };
+const DOCS_TOC_REQUIRED_CONTENT = ['aria-label="Table of contents"'];
 
 const buildStaticRoutesCases = [
   {
@@ -58,6 +59,7 @@ const buildStaticRoutesCases = [
         outputPath: "docs/setup/index.html",
         title: "Setup",
         description: "Install Pastoralist",
+        requiredContent: DOCS_TOC_REQUIRED_CONTENT,
       });
     },
   },

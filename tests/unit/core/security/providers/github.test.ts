@@ -960,13 +960,15 @@ test("fetchAlertsWithGhCli - parses JSON response", async () => {
   assert.deepStrictEqual(alerts, mockAlerts);
 });
 
-test("fetchAlertsWithGhCli - handles non-array response", async () => {
+test("fetchAlertsWithGhCli - rejects non-array responses", async () => {
   const provider = new GitHubSecurityProvider(TEST_REPO_OPTIONS);
 
   provider["executeGhCli"] = async () => JSON.stringify({ message: "error" });
 
-  const alerts = await provider["fetchAlertsWithGhCli"]();
-  assert.deepStrictEqual(alerts, []);
+  await assert.rejects(
+    provider["fetchAlertsWithGhCli"](),
+    errorIncludes("GitHub returned an invalid Dependabot response"),
+  );
 });
 
 test("isPermissionError - detects 'Resource not accessible by integration' error", () => {
@@ -1190,7 +1192,7 @@ test("fetchFromGitHubAPI - returns alerts array on success", async () => {
   }
 });
 
-test("fetchFromGitHubAPI - returns empty array for non-array response", async () => {
+test("fetchFromGitHubAPI - rejects non-array responses", async () => {
   const provider = new GitHubSecurityProvider(TEST_REPO_TOKEN_OPTIONS);
 
   const mockResponse = {
@@ -1202,8 +1204,10 @@ test("fetchFromGitHubAPI - returns empty array for non-array response", async ()
   global.fetch = async () => mockResponse as Response;
 
   try {
-    const result = await provider["fetchFromGitHubAPI"]();
-    assert.deepStrictEqual(result, []);
+    await assert.rejects(
+      provider["fetchFromGitHubAPI"](),
+      errorIncludes("GitHub returned an invalid Dependabot response"),
+    );
   } finally {
     global.fetch = originalFetch;
   }

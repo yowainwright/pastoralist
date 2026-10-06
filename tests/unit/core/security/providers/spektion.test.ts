@@ -291,7 +291,7 @@ test("fetchAlerts - should map severity levels correctly", async () => {
   }
 });
 
-test("fetchAlerts - should filter out invalid vulnerabilities", async () => {
+test("fetchAlerts - should mark scans with invalid vulnerabilities incomplete", async () => {
   const mockResponse = {
     vulnerabilities: [
       null,
@@ -310,10 +310,13 @@ test("fetchAlerts - should filter out invalid vulnerabilities", async () => {
   );
 
   const provider = new SpektionProvider({ debug: false, token: "test-key" });
-  const alerts = await provider.fetchAlerts([{ name: "valid", version: "1.0.0" }]);
+  const onIncomplete = mock(() => undefined);
+  const alerts = await provider.fetchAlerts([{ name: "valid", version: "1.0.0" }], {
+    onIncomplete,
+  });
 
-  assert.strictEqual(alerts.length, 1);
-  assert.strictEqual(alerts[0].packageName, "valid");
+  assert.deepStrictEqual(alerts, []);
+  assert.strictEqual(onIncomplete.mock.callCount(), 1);
 });
 
 test("fetchAlerts - should handle invalid response format", async () => {

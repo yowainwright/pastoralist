@@ -1,6 +1,11 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
-import type { SecurityAlert, SocketPackage, SocketIssue } from "../../../types";
+import type {
+  SecurityAlert,
+  SecurityProviderScanOptions,
+  SocketPackage,
+  SocketIssue,
+} from "../../../types";
 import { logger } from "../../../observability";
 import { CLIInstaller, isSocketResult } from "../utils";
 import { AUTH_MESSAGES } from "../constants";
@@ -85,35 +90,38 @@ export class SocketCLIProvider {
 
   async fetchAlerts(
     _packages: Array<{ name: string; version: string }> = [],
-    options: { root?: string } = {},
+    options: SecurityProviderScanOptions = {},
   ): Promise<SecurityAlert[]> {
     const isValid = await this.validatePrerequisites();
 
     if (!isValid) {
-      const alerts: SecurityAlert[] = [];
+      const alerts = this.handleIncompleteScan("Socket prerequisites are unavailable", options);
       return alerts;
     }
 
     try {
       const result = await this.runSocketScan(options.root);
-      const alerts = this.convertSocketAlerts(result);
+      const socketResult = this.validateSocketResult(result);
+      const alerts = this.convertSocketAlerts(socketResult);
       return alerts;
     } catch (error) {
-      const alerts = this.handleScanError(error);
+      const alerts = this.handleScanError(error, options);
       return alerts;
     }
   }
 
-  private handleScanError(error: unknown): SecurityAlert[] {
+  private handleScanError(error: unknown, options: SecurityProviderScanOptions): SecurityAlert[] {
     this.log.debug("Socket scan failed", "fetchAlerts", { error });
     const isError = error instanceof Error;
     const reason = isError ? error.message : "Unknown error";
-    if (this.strict) {
+    const shouldFail = this.strict || options.requireCompleteScan;
+    if (shouldFail) {
       throw new Error(
         `Socket security check failed. Reason: ${reason}. Failing due to --strict mode.`,
         { cause: error },
       );
     }
+    options.onIncomplete?.();
     this.log.warn(
       `Socket security check failed. Your dependencies were NOT checked. ` +
         `Reason: ${reason}. Run with --debug for details or --strict to fail on errors.`,
@@ -125,13 +133,29 @@ export class SocketCLIProvider {
 
   private convertSocketAlerts(socketResult: unknown): SecurityAlert[] {
     if (!isSocketResult(socketResult)) {
-      const result: SecurityAlert[] = [];
-      return result;
+      const alerts: SecurityAlert[] = [];
+      return alerts;
     }
 
     const alerts = socketResult.packages
       .filter((pkg) => pkg.issues && pkg.issues.length > 0)
       .flatMap((pkg) => this.convertPackageIssues(pkg));
+    return alerts;
+  }
+
+  private validateSocketResult(result: unknown) {
+    if (!isSocketResult(result)) throw new Error("Socket scan returned an invalid response");
+    return result;
+  }
+
+  private handleIncompleteScan(
+    reason: string,
+    options: SecurityProviderScanOptions,
+  ): SecurityAlert[] {
+    options.onIncomplete?.();
+    const shouldFail = this.strict || options.requireCompleteScan;
+    if (shouldFail) throw new Error(reason);
+    const alerts: SecurityAlert[] = [];
     return alerts;
   }
 

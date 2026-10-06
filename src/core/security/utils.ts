@@ -4,6 +4,8 @@ import type {
   OSVVulnerability,
   PatchableAlert,
   SnykResult,
+  SocketIssue,
+  SocketPackage,
   SocketResult,
   PastoralistJSON,
   OverrideUpdate,
@@ -11,7 +13,7 @@ import type {
   SecurityOverride,
   SecurityProviderType,
 } from "../../types";
-import { compareVersions, countBy, isRecord } from "../../utils";
+import { compareVersions, countBy, isRecord, isString } from "../../utils";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { logger } from "../../observability";
@@ -1022,12 +1024,46 @@ export const isOSVVulnerability = (value: unknown): value is OSVVulnerability =>
 export const isSnykResult = (value: unknown): value is SnykResult => {
   if (!isRecord(value)) return false;
   const hasVulnerabilities = Array.isArray(value.vulnerabilities);
-  return hasVulnerabilities;
+  const hasValidOk = typeof value.ok === "boolean";
+  const dependencyCount = value.dependencyCount;
+  const hasNumericDependencyCount = typeof dependencyCount === "number";
+  const hasValidDependencyCount =
+    hasNumericDependencyCount && Number.isInteger(dependencyCount) && dependencyCount >= 0;
+  const hasValidOrg = isString(value.org);
+  const hasValidPolicy = isString(value.policy);
+  const hasValidPrivacy = typeof value.isPrivate === "boolean";
+  const hasValidPackageManager = isString(value.packageManager);
+  const hasScanMetadata = hasValidOk && hasValidDependencyCount && hasValidOrg;
+  const hasProjectMetadata = hasValidPolicy && hasValidPrivacy && hasValidPackageManager;
+  const hasRequiredMetadata = hasScanMetadata && hasProjectMetadata;
+  const isValidResult = hasVulnerabilities && hasRequiredMetadata;
+  return isValidResult;
+};
+
+const isSocketIssue = (value: unknown): value is SocketIssue => {
+  if (!isRecord(value)) return false;
+  const hasRequiredFields = isString(value.type) && isString(value.severity);
+  return hasRequiredFields;
+};
+
+const isSocketIssueList = (value: unknown): value is SocketIssue[] => {
+  if (!Array.isArray(value)) return false;
+  const hasValidIssueEntries = value.every(isSocketIssue);
+  return hasValidIssueEntries;
+};
+
+const isSocketPackage = (value: unknown): value is SocketPackage => {
+  if (!isRecord(value)) return false;
+  const hasNameAndVersion = isString(value.name) && isString(value.version);
+  if (!hasNameAndVersion) return false;
+  if (value.issues === undefined) return true;
+  const hasValidIssues = isSocketIssueList(value.issues);
+  return hasValidIssues;
 };
 
 export const isSocketResult = (value: unknown): value is SocketResult => {
   if (!isRecord(value)) return false;
-  const hasPackages = Array.isArray(value.packages);
+  const hasPackages = Array.isArray(value.packages) && value.packages.every(isSocketPackage);
   return hasPackages;
 };
 

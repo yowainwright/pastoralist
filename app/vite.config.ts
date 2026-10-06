@@ -10,6 +10,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { visit } from "unist-util-visit";
 import type { Node } from "unist";
+import { extractHeadings } from "./src/lib/mdx/extractHeadings";
 
 const manualChunkEntries = [
   ["/node_modules/react/", "react-vendor"],
@@ -23,7 +24,6 @@ const manualChunkEntries = [
   ["/node_modules/@shikijs/core/", "shiki"],
   ["/node_modules/@shikijs/engine-javascript/", "shiki"],
   ["/node_modules/@shikijs/vscode-textmate/", "shiki"],
-  ["/node_modules/shaders/", "shaders"],
 ] as const;
 
 const FRONTMATTER_REGEX = /^---\n[\s\S]*?\n---\n?/;
@@ -100,13 +100,15 @@ const pastoralistMdx = (): Plugin => ({
   async transform(source, id) {
     if (!id.endsWith(".mdx")) return;
 
-    const compiled = await compile(stripFrontmatter(source), {
+    const content = stripFrontmatter(source);
+    const compiled = await compile(content, {
       outputFormat: "program",
       remarkPlugins,
       rehypePlugins,
     });
 
-    const code = String(compiled);
+    const headings = JSON.stringify(extractHeadings(content));
+    const code = `${String(compiled)}\nexport const headings = ${headings};`;
     const transformed = {
       code,
       map: null,

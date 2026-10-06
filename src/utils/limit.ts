@@ -1,10 +1,13 @@
 import type { Task, QueueItem } from "./types";
 import { LIMITER_CLEARED_ERROR_MESSAGE } from "./constants";
 
+const QUEUE_COMPACTION_MINIMUM = 100;
+
 export class ConcurrencyLimiter {
   private concurrency: number;
   private running: number;
   private queue: QueueItem<unknown>[];
+  private queueHead: number;
 
   constructor(concurrency: number) {
     if (concurrency < 1) {
@@ -13,6 +16,7 @@ export class ConcurrencyLimiter {
     this.concurrency = concurrency;
     this.running = 0;
     this.queue = [];
+    this.queueHead = 0;
   }
 
   run<T>(task: Task<T>): Promise<T> {
@@ -24,7 +28,7 @@ export class ConcurrencyLimiter {
         resolve: resolveTask,
         reject,
       };
-      this.queue = this.queue.concat(item);
+      this.queue[this.queue.length] = item;
       this.process();
     });
     return pending;
@@ -32,11 +36,21 @@ export class ConcurrencyLimiter {
 
   private process(): void {
     if (this.running >= this.concurrency) return;
-    const [item, ...remainingQueue] = this.queue;
-    this.queue = remainingQueue;
+    const item = this.queue[this.queueHead];
     if (!item) return;
+    this.queueHead += 1;
+    this.compactQueue();
     this.running++;
     void this.execute(item);
+  }
+
+  private compactQueue(): void {
+    const hasEnoughProcessed = this.queueHead >= QUEUE_COMPACTION_MINIMUM;
+    const processedHalf = this.queueHead * 2 >= this.queue.length;
+    const shouldCompact = hasEnoughProcessed && processedHalf;
+    if (!shouldCompact) return;
+    this.queue = this.queue.slice(this.queueHead);
+    this.queueHead = 0;
   }
 
   private async execute(item: QueueItem<unknown>): Promise<void> {
@@ -52,8 +66,8 @@ export class ConcurrencyLimiter {
   }
 
   get queueSize(): number {
-    const { length } = this.queue;
-    return length;
+    const size = this.queue.length - this.queueHead;
+    return size;
   }
 
   get activeCount(): number {
@@ -62,8 +76,9 @@ export class ConcurrencyLimiter {
   }
 
   clear(): void {
-    const { queue: pending } = this;
+    const pending = this.queue.slice(this.queueHead);
     this.queue = [];
+    this.queueHead = 0;
     pending.forEach((item) => item.reject(new Error(LIMITER_CLEARED_ERROR_MESSAGE)));
   }
 }

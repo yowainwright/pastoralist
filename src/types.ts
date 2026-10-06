@@ -349,6 +349,7 @@ export interface PastoralistResultMetrics {
 export interface PastoralistResult {
   success: boolean;
   hasSecurityIssues: boolean;
+  securityFixesApplied?: boolean;
   hasUnusedOverrides: boolean;
   updated: boolean;
   securityAlertCount: number;
@@ -360,6 +361,8 @@ export interface PastoralistResult {
     severity: string;
     cves?: string[];
     description?: string;
+    patchedVersion?: string;
+    fixAvailable?: boolean;
   }>;
   unusedOverrides?: string[];
   appliedOverrides?: Record<string, string>;

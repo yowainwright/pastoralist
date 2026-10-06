@@ -218,9 +218,53 @@ runs:
         if [ "$INPUT_MODE" = "pr" ]; then
           PASTORALIST_UNTRACKED_FILE="$RUNNER_TEMP/pastoralist-untracked-${GITHUB_RUN_ID:-0}-${GITHUB_RUN_ATTEMPT:-0}"
           PASTORALIST_BASELINE_TREE=$(git stash create 2>/dev/null || true)
-          while IFS= read -r -d '' path; do
-            printf '%s\0%s\0' "$path" "$(git hash-object -- "$path")"
-          done < <(git ls-files --others --exclude-standard -z) > "$PASTORALIST_UNTRACKED_FILE"
+          node <<'NODE' > "$PASTORALIST_UNTRACKED_FILE"
+          const { execFileSync } = require("node:child_process");
+          const { lstatSync, readFileSync, readlinkSync } = require("node:fs");
+
+          const splitNullDelimited = (buffer) => {
+            const paths = [];
+            let start = 0;
+            for (let index = 0; index < buffer.length; index += 1) {
+              if (buffer[index] !== 0) continue;
+              paths.push(buffer.subarray(start, index));
+              start = index + 1;
+            }
+            return paths;
+          };
+
+          const gitModeForPath = (fileStats) => {
+            if (fileStats.isSymbolicLink()) return "120000";
+            const hasExecutableBit = (fileStats.mode & 0o111) !== 0;
+            const mode = hasExecutableBit ? "100755" : "100644";
+            return mode;
+          };
+
+          const describeUntrackedPath = (path) => {
+            const fileStats = lstatSync(path);
+            const isSymbolicLink = fileStats.isSymbolicLink();
+            const content = isSymbolicLink
+              ? readlinkSync(path, { encoding: "buffer" })
+              : readFileSync(path);
+            const hash = execFileSync("git", ["hash-object", "--stdin"], {
+              input: content,
+              encoding: "utf8",
+            }).trim();
+            const mode = gitModeForPath(fileStats);
+            const fileEntry = { hash, mode };
+            return fileEntry;
+          };
+
+          const untrackedPaths = splitNullDelimited(
+            execFileSync("git", ["ls-files", "--others", "--exclude-standard", "-z"]),
+          );
+          const manifestFields = untrackedPaths.flatMap((path) => {
+            const { hash, mode } = describeUntrackedPath(path);
+            return [path, Buffer.from(mode), Buffer.from(hash)];
+          });
+          const delimitedFields = manifestFields.flatMap((field) => [field, Buffer.from([0])]);
+          process.stdout.write(Buffer.concat(delimitedFields));
+        NODE
           echo "PASTORALIST_UNTRACKED_FILE=$PASTORALIST_UNTRACKED_FILE" >> "$GITHUB_ENV"
           echo "PASTORALIST_BASELINE_TREE=$PASTORALIST_BASELINE_TREE" >> "$GITHUB_ENV"
           echo "PASTORALIST_INDEX_FILE=$RUNNER_TEMP/pastoralist-index-${GITHUB_RUN_ID:-0}-${GITHUB_RUN_ATTEMPT:-0}" >> "$GITHUB_ENV"
@@ -350,8 +394,16 @@ runs:
           return fields;
         };
 
+        const gitModeForPath = (fileStats) => {
+          if (fileStats.isSymbolicLink()) return "120000";
+          const hasExecutableBit = (fileStats.mode & 0o111) !== 0;
+          const mode = hasExecutableBit ? "100755" : "100644";
+          return mode;
+        };
+
         const hashUntrackedPath = (path) => {
-          const isSymbolicLink = lstatSync(path).isSymbolicLink();
+          const fileStats = lstatSync(path);
+          const isSymbolicLink = fileStats.isSymbolicLink();
           const content = isSymbolicLink
             ? readlinkSync(path, { encoding: "buffer" })
             : readFileSync(path);
@@ -359,7 +411,9 @@ runs:
             input: content,
             encoding: "utf8",
           }).trim();
-          return hash;
+          const mode = gitModeForPath(fileStats);
+          const fileEntry = { hash, mode };
+          return fileEntry;
         };
 
         const baselineTree = process.env.PASTORALIST_BASELINE_TREE || "HEAD";
@@ -371,16 +425,21 @@ runs:
         );
         const baselineFields = splitNullDelimited(readFileSync(process.env.PASTORALIST_UNTRACKED_FILE));
         const originalUntracked = new Map();
-        for (let index = 0; index + 1 < baselineFields.length; index += 2) {
+        for (let index = 0; index + 2 < baselineFields.length; index += 3) {
           const pathKey = baselineFields[index].toString("base64");
-          originalUntracked.set(pathKey, baselineFields[index + 1].toString("ascii"));
+          const mode = baselineFields[index + 1].toString("ascii");
+          const hash = baselineFields[index + 2].toString("ascii");
+          originalUntracked.set(pathKey, { hash, mode });
         }
         const currentUntracked = execFileSync("git", ["ls-files", "--others", "--exclude-standard", "-z"]);
         const changedUntracked = splitNullDelimited(currentUntracked).filter((path) => {
           const pathKey = path.toString("base64");
-          const baselineHash = originalUntracked.get(pathKey);
-          if (baselineHash === undefined) return true;
-          return hashUntrackedPath(path) !== baselineHash;
+          const baseline = originalUntracked.get(pathKey);
+          if (baseline === undefined) return true;
+          const current = hashUntrackedPath(path);
+          const contentChanged = current.hash !== baseline.hash;
+          const modeChanged = current.mode !== baseline.mode;
+          return contentChanged || modeChanged;
         });
         const indexEnv = Object.assign({}, process.env, { GIT_INDEX_FILE: process.env.PASTORALIST_INDEX_FILE });
         execFileSync("git", ["read-tree", "HEAD"], { env: indexEnv });

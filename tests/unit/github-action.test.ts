@@ -1,7 +1,7 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const actionPath = resolve(import.meta.dirname, "../../action.yml");
@@ -52,52 +52,53 @@ const extractPrStagingScript = (actionYml: string): string => {
   return script;
 };
 
+const extractPrBaselineScript = (actionYml: string): string => {
+  const marker = "          node <<'NODE' > \"$PASTORALIST_UNTRACKED_FILE\"\n";
+  const start = actionYml.indexOf(marker);
+  const scriptStart = start + marker.length;
+  const end = actionYml.indexOf("\n        NODE", scriptStart);
+  const hasMissingMarker = start === -1 || end === -1;
+  if (hasMissingMarker) throw new Error("Missing action PR baseline script");
+  const script = actionYml.slice(scriptStart, end);
+  return script;
+};
+
 const runGit = (repository: string, args: string[]): Buffer =>
   execFileSync("git", args, { cwd: repository });
 
-const splitNullDelimited = (buffer: Buffer): Buffer[] => {
-  let fields: Buffer[] = [];
-  let start = 0;
-  for (let index = 0; index < buffer.length; index += 1) {
-    if (buffer[index] !== 0) continue;
-    const field = buffer.subarray(start, index);
-    fields = fields.concat(field);
-    start = index + 1;
-  }
-  return fields;
-};
-
-const writeUntrackedManifest = (repository: string): Buffer => {
-  const paths = runGit(repository, ["ls-files", "--others", "--exclude-standard", "-z"]);
-  const entries = splitNullDelimited(paths).map((path) => {
-    const name = path.toString("utf8");
-    const hash = runGit(repository, ["hash-object", "--", name]);
-    const entry = Buffer.concat([
-      path,
-      Buffer.from([0]),
-      Buffer.from(hash.toString().trim()),
-      Buffer.from([0]),
-    ]);
-    return entry;
-  });
-  const manifest = Buffer.concat(entries);
+const createUntrackedManifest = (repository: string, actionYml: string): Buffer => {
+  const script = extractPrBaselineScript(actionYml);
+  const manifest = execFileSync("node", ["-e", script], { cwd: repository });
   return manifest;
 };
 
-const initializePrFixture = (repository: string) => {
+const initializeGitRepository = (repository: string) => {
   runGit(repository, ["init", "--quiet"]);
   runGit(repository, ["config", "user.name", "Action test"]);
   runGit(repository, ["config", "user.email", "action-test@example.com"]);
+  runGit(repository, ["config", "core.filemode", "true"]);
   writeFileSync(join(repository, "package.json"), '{"name":"fixture"}\n');
   writeFileSync(join(repository, "workflow.txt"), "committed\n");
   runGit(repository, ["add", "package.json", "workflow.txt"]);
   runGit(repository, ["commit", "--quiet", "-m", "baseline"]);
   writeFileSync(join(repository, "workflow.txt"), "pre-existing edit\n");
+};
+
+const createPrOutputs = (repository: string) => {
   writeFileSync(join(repository, "unchanged.txt"), "keep out\n");
   writeFileSync(join(repository, "updated output.txt"), "before\n");
+  writeFileSync(join(repository, "mode output.sh"), "same contents\n");
+  chmodSync(join(repository, "mode output.sh"), 0o644);
+  writeFileSync(join(repository, "symlink target.txt"), "link target\n");
+  symlinkSync("symlink target.txt", join(repository, "unchanged symlink"));
+};
+
+const initializePrFixture = (repository: string, actionYml: string) => {
+  initializeGitRepository(repository);
+  createPrOutputs(repository);
   const baselineTree = runGit(repository, ["stash", "create"]).toString().trim();
   const manifest = join(repository, ".git", "untracked-manifest");
-  writeFileSync(manifest, writeUntrackedManifest(repository));
+  writeFileSync(manifest, createUntrackedManifest(repository, actionYml));
   const baseline = { baselineTree, manifest };
   return baseline;
 };
@@ -106,6 +107,7 @@ const updatePrFixture = (repository: string) => {
   writeFileSync(join(repository, "package.json"), '{"name":"fixed"}\n');
   writeFileSync(join(repository, "updated output.txt"), "after\n");
   writeFileSync(join(repository, "new output.txt"), "new file\n");
+  chmodSync(join(repository, "mode output.sh"), 0o755);
 };
 
 const runPrStagingScript = (
@@ -161,7 +163,7 @@ const runSecurityGate = (actionYml: string, mode: string, autoFix: string, updat
 };
 
 const runPrStagingScenario = (repository: string, actionYml: string) => {
-  const baseline = initializePrFixture(repository);
+  const baseline = initializePrFixture(repository, actionYml);
   updatePrFixture(repository);
   const script = extractPrStagingScript(actionYml);
   const { result, indexFile } = runPrStagingScript(script, repository, baseline);
@@ -196,12 +198,17 @@ test("keeps the security gate for non-PR and unchanged PR runs", () => {
   assert.strictEqual(unchangedPrResult.status, 1);
 });
 
-test("stages changed pre-existing untracked files and leaves unrelated files out", () => {
+test("stages changed untracked files and modes without adding unchanged paths", () => {
   const repository = mkdtempSync(resolve(import.meta.dirname, "pr-stage-"));
   try {
     const { result, stagedPaths, originalIndex } = runPrStagingScenario(repository, readAction());
     assert.strictEqual(result.status, 0, result.stderr);
-    assert.deepStrictEqual(stagedPaths, ["new output.txt", "package.json", "updated output.txt"]);
+    assert.deepStrictEqual(stagedPaths, [
+      "mode output.sh",
+      "new output.txt",
+      "package.json",
+      "updated output.txt",
+    ]);
     assert.strictEqual(originalIndex, "");
   } finally {
     rmSync(repository, { recursive: true, force: true });

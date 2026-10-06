@@ -1,0 +1,485 @@
+var e=`---
+title: Configuration
+description: Learn how to configure Pastoralist using config files or package.json
+---
+
+Start small for most projects. Enable workspace scanning only if you have
+workspaces, and security checks only where you want advisory data.
+
+## Configuration Files
+
+Pastoralist searches for configuration files in this order (first found wins):
+
+1. \`.pastoralistrc\` (JSON format)
+2. \`.pastoralistrc.json\`
+3. \`pastoralist.json\`
+4. \`pastoralist.config.cjs\`
+5. \`pastoralist.config.js\`
+6. \`pastoralist.config.mjs\`
+
+All external config files use the same top-level Pastoralist settings. Choose
+the filename by format and convention:
+
+- \`.pastoralistrc\`: extensionless rc file parsed as JSON
+- \`.pastoralistrc.json\`: explicit JSON rc file, and the JSON option created by
+  \`pastoralist init\`
+- \`pastoralist.json\`: visible non-dotfile JSON config
+- \`pastoralist.config.cjs\`: CommonJS module with \`module.exports\`
+- \`pastoralist.config.js\`: JavaScript config. CommonJS exports are accepted;
+  otherwise it is imported as a module
+- \`pastoralist.config.mjs\`: ESM module with \`export default\`
+
+Use \`pastoralist.json\`, not \`.pastoralist.json\`.
+
+### Example Configurations
+
+#### Minimal Configuration
+
+Enable security checks with defaults:
+
+\`\`\`json
+{
+  "checkSecurity": true,
+  "depPaths": "workspace",
+  "security": {
+    "provider": "osv"
+  }
+}
+\`\`\`
+
+#### \`.pastoralistrc.json\`
+
+\`\`\`json title=".pastoralistrc.json"
+{
+  "checkSecurity": true,
+  "depPaths": "workspace",
+  "security": {
+    "provider": "osv",
+    "severityThreshold": "medium"
+  }
+}
+\`\`\`
+
+#### \`pastoralist.config.js\`
+
+\`\`\`js title="pastoralist.config.js"
+module.exports = {
+  depPaths: ["packages/*/package.json", "apps/*/package.json"],
+  checkSecurity: true,
+  security: {
+    provider: "osv",
+    severityThreshold: "high",
+    excludePackages: ["@types/*"],
+  },
+};
+\`\`\`
+
+#### \`pastoralist.config.mjs\`
+
+\`\`\`js title="pastoralist.config.mjs"
+export default {
+  checkSecurity: true,
+  depPaths: "workspace",
+  security: {
+    provider: "osv",
+    severityThreshold: "critical",
+  },
+};
+\`\`\`
+
+## Configuration Priority
+
+When both external config files and \`package.json\` configuration exist,
+Pastoralist merges them and lets \`package.json\` take precedence:
+
+1. **External config** provides base settings
+2. **\`package.json\`** overrides top-level fields
+3. **Nested objects** (like \`security\`) are deep merged
+
+### Example: Config Merging
+
+\`.pastoralistrc.json\`:
+
+\`\`\`json title=".pastoralistrc.json"
+{
+  "checkSecurity": true,
+  "depPaths": "workspace",
+  "security": {
+    "provider": "osv",
+    "severityThreshold": "medium"
+  }
+}
+\`\`\`
+
+\`package.json\`:
+
+\`\`\`json title="package.json"
+{
+  "pastoralist": {
+    "security": {
+      "severityThreshold": "high"
+    }
+  }
+}
+\`\`\`
+
+Effective configuration:
+
+\`\`\`json
+{
+  "checkSecurity": true,
+  "depPaths": "workspace",
+  "security": {
+    "provider": "osv",
+    "severityThreshold": "high"
+  }
+}
+\`\`\`
+
+## Configuration Options
+
+### Top-Level Options
+
+| Option            | Type                                          | Description                                                                                                                           |
+| ----------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| \`checkSecurity\`   | \`boolean\`                                     | Enable security vulnerability scanning                                                                                                |
+| \`compactAppendix\` | \`boolean\`                                     | Collapse routine appendix entries to \`{ addedDate }\`; entries with security info, patches, or active \`keep\` constraints stay expanded |
+| \`depPaths\`        | \`"workspace"\` \\| \`"workspaces"\` \\| \`string[]\` | Paths to scan for dependencies in monorepos                                                                                           |
+| \`appendix\`        | \`object\`                                      | Auto-generated dependency tracking (managed by Pastoralist)                                                                           |
+| \`overridePaths\`   | \`object\`                                      | Manual override tracking for specific paths                                                                                           |
+| \`resolutionPaths\` | \`object\`                                      | Manual resolution tracking for specific paths                                                                                         |
+| \`bestCase\`        | \`object\`                                      | Opt-in dependency-portfolio optimization policy                                                                                       |
+| \`security\`        | \`object\`                                      | Security scanning configuration                                                                                                       |
+
+### Security Configuration
+
+The \`security\` object supports the following options:
+
+| Option                       | Type                                                                                | Description                                                                                                                                                 |
+| ---------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| \`enabled\`                    | \`boolean\`                                                                           | Enable/disable security checks                                                                                                                              |
+| \`provider\`                   | \`"osv"\` \\| \`"github"\` \\| \`"snyk"\` \\| \`"npm"\` \\| \`"socket"\` \\| \`"spektion"\` \\| array | Security provider or providers to use                                                                                                                       |
+| \`autoFix\`                    | \`boolean\`                                                                           | Automatically apply security fixes                                                                                                                          |
+| \`interactive\`                | \`boolean\`                                                                           | Use interactive mode for security fixes                                                                                                                     |
+| \`securityProviderToken\`      | \`string\`                                                                            | API token for providers that require authentication. Prefer provider environment variables; use this only for controlled config that will not be committed. |
+| \`severityThreshold\`          | \`"low"\` \\| \`"medium"\` \\| \`"high"\` \\| \`"critical"\`                                   | Minimum severity level to report                                                                                                                            |
+| \`excludePackages\`            | \`string[]\`                                                                          | Packages to exclude from security checks                                                                                                                    |
+| \`hasWorkspaceSecurityChecks\` | \`boolean\`                                                                           | Include workspace packages in security scans                                                                                                                |
+| \`strict\`                     | \`boolean\`                                                                           | Fail when a security provider cannot complete                                                                                                               |
+
+### Best-Case Portfolio Configuration
+
+Enable \`bestCase\` when package fixes must be chosen as one portfolio instead
+of independently. Pastoralist evaluates complete version combinations so a fix
+for one package cannot hide a vulnerability introduced elsewhere.
+
+\`\`\`json title="package.json"
+{
+  "pastoralist": {
+    "checkSecurity": true,
+    "bestCase": {
+      "enabled": true,
+      "userOwnedOverrides": ["alpha"],
+      "riskAggregation": "both",
+      "objectives": [
+        "known-exploited",
+        "critical",
+        "high",
+        "expected-exploitation",
+        "package-exposures",
+        "compatibility",
+        "change-count",
+        "oldness"
+      ],
+      "search": {
+        "mode": "auto",
+        "exactStateLimit": 256,
+        "beamWidth": 16,
+        "maxEvaluations": 1000
+      }
+    }
+  }
+}
+\`\`\`
+
+| Option                   | Type                                                 | Default   | Description                                                     |
+| ------------------------ | ---------------------------------------------------- | --------- | --------------------------------------------------------------- |
+| \`enabled\`                | \`boolean\`                                            | \`false\`   | Enable portfolio selection during security checks               |
+| \`userOwnedOverrides\`     | \`string[]\`                                           | \`[]\`      | Hard-constrain listed packages to their active override version |
+| \`riskAggregation\`        | \`"unique-cves"\` \\| \`"package-exposures"\` \\| \`"both"\` | \`"both"\`  | Choose how vulnerability risk is counted                        |
+| \`objectives\`             | \`BestCaseObjective[]\`                                | See above | Set the lexicographic ranking order                             |
+| \`search.mode\`            | \`"auto"\` \\| \`"exact"\` \\| \`"beam"\`                    | \`"auto"\`  | Select exhaustive or deterministic bounded search               |
+| \`search.exactStateLimit\` | positive integer                                     | \`256\`     | Limit exact search to this many states in auto mode             |
+| \`search.beamWidth\`       | positive integer                                     | \`16\`      | Retain this many states at each step during beam search         |
+| \`search.maxEvaluations\`  | positive integer                                     | \`1000\`    | Stop after this many complete-state evaluations                 |
+
+Objectives are compared in array order; Pastoralist does not combine them
+into a weighted sum. Supported objectives are \`known-exploited\`, \`critical\`,
+\`high\`, \`medium\`, \`low\`, \`expected-exploitation\`, \`package-exposures\`,
+\`compatibility\`, \`change-count\`, and \`oldness\`.
+
+An exact search reports \`provenOptimal: true\` only when it evaluates every
+state. Beam search and capped exact search report \`provenOptimal: false\`.
+
+## Package.json Configuration
+
+You can configure Pastoralist directly in your \`package.json\`:
+
+\`\`\`json title="package.json" {6}
+{
+  "name": "my-project",
+  "version": "1.0.0",
+  "pastoralist": {
+    "checkSecurity": true,
+    "depPaths": "workspace",
+    "security": {
+      "provider": "osv",
+      "severityThreshold": "medium",
+      "excludePackages": ["@types/*"]
+    }
+  }
+}
+\`\`\`
+
+## Monorepo Configuration
+
+For monorepos, use \`depPaths\` to specify which package.json files to scan:
+
+### Using "workspace"
+
+The simplest approach for monorepos with a \`workspaces\` field:
+
+\`\`\`json title="package.json" {4}
+{
+  "workspaces": ["packages/*", "apps/*"],
+  "pastoralist": {
+    "depPaths": "workspace"
+  }
+}
+\`\`\`
+
+This scans all workspace packages defined in your \`workspaces\` field.
+\`"workspaces"\` is accepted as an alias.
+
+### Using Custom Paths
+
+For more control, specify custom glob patterns:
+
+\`\`\`json title="package.json" {3}
+{
+  "pastoralist": {
+    "depPaths": ["packages/*/package.json", "apps/*/package.json"]
+  }
+}
+\`\`\`
+
+## Security Tracking
+
+Every appendix entry gets a \`ledger\` with at least \`addedDate\`. When a security
+provider detects a fix, Pastoralist adds CVE, severity, provider, and
+vulnerable-range metadata to the same ledger:
+
+\`\`\`json title="package.json" {27}
+{
+  "pastoralist": {
+    "appendix": {
+      "lodash@4.17.21": {
+        "dependents": {
+          "my-app": "lodash@^4.17.0"
+        },
+        "ledger": {
+          "addedDate": "2026-05-30T00:00:00.000Z",
+          "reason": "Security vulnerability CVE-2021-23337",
+          "source": "security",
+          "securityChecked": true,
+          "securityCheckDate": "2026-05-30T00:00:00.000Z",
+          "securityCheckResult": "clean",
+          "securityProvider": "osv",
+          "cves": ["CVE-2021-23337"],
+          "cveDetails": [
+            {
+              "cve": "CVE-2021-23337",
+              "severity": "high",
+              "patchedVersion": "4.17.21"
+            }
+          ],
+          "severity": "high",
+          "vulnerableRange": "<4.17.21",
+          "patchedVersion": "4.17.21",
+          "keep": true
+        }
+      }
+    }
+  }
+}
+\`\`\`
+
+### Ledger Fields
+
+- **\`addedDate\`**: ISO timestamp recorded when the entry was first written. Always present
+- **\`reason\`**: Why the override was needed. Accepts a non-empty string, a \`ProjectReason\`, or a \`BestCaseReason\`
+- **\`source\`**: How the entry was created — \`"manual"\` or \`"security"\`
+- **\`securityChecked\`**: Whether a security check was performed
+- **\`securityCheckDate\`**: When the last security check occurred
+- **\`securityCheckResult\`**: Result of the last check — \`"clean"\`, \`"error"\`, or \`"skipped"\`
+- **\`securityProvider\`**: Which provider detected the vulnerability
+- **\`cves\`**: All CVE identifiers related to this vulnerability
+- **\`cveDetails\`**: Per-CVE objects with \`cve\`, \`severity\`, and \`patchedVersion\`
+- **\`severity\`**: Highest severity across all CVEs (\`low\`, \`medium\`, \`high\`, \`critical\`)
+- **\`vulnerableRange\`**: Semver range that is affected
+- **\`patchedVersion\`**: Version that resolves the vulnerability
+- **\`keep\`**: Prevent \`--remove-unused\` from removing this entry. Set to \`true\` or a \`KeepConstraint\` object
+
+### Structured Ledger Reasons
+
+Use a project reason for an engineer-selected pin or patch:
+
+\`\`\`json
+{
+  "reason": {
+    "type": "project",
+    "summary": "Keep the patched fork until upstream publishes a release.",
+    "pin": "2.4.1",
+    "patch": "patches/example+2.4.1.patch",
+    "constraints": ["Requires the current plugin API"],
+    "references": ["https://example.com/upstream/issue/123"]
+  }
+}
+\`\`\`
+
+\`summary\` is required. \`pin\`, \`patch\`, \`constraints\`, and \`references\` are
+optional and descriptive; package-manager overrides and appendix patch paths
+remain authoritative.
+
+Best-case selection writes a reason tied to the complete portfolio decision:
+
+\`\`\`json
+{
+  "reason": {
+    "type": "best-case",
+    "summary": "Selected as part of the lowest-risk dependency portfolio",
+    "decisionId": "best-case-4b825dc642cb",
+    "policyHash": "d14a028c2a3a2bc9",
+    "search": {
+      "evaluatedStates": 64,
+      "provenOptimal": true
+    },
+    "impact": {
+      "fixedVulnerabilities": 3,
+      "introducedVulnerabilities": 0,
+      "remainingVulnerabilities": 1
+    }
+  },
+  "cves": ["CVE-2026-1234"]
+}
+\`\`\`
+
+The reason belongs to one dependency item. Dependencies selected by the same
+portfolio share a \`decisionId\`. CVEs remain in the sibling \`cves\` field.
+
+### Keeping Overrides with \`keep\`
+
+To pin an override so \`--remove-unused\` never removes it, set \`keep: true\` on the ledger:
+
+\`\`\`json {4}
+{
+  "ledger": {
+    "addedDate": "2026-05-30T00:00:00.000Z",
+    "keep": true
+  }
+}
+\`\`\`
+
+For time-bounded or version-bounded keeps, use a \`KeepConstraint\` object:
+
+\`\`\`json {4}
+{
+  "ledger": {
+    "addedDate": "2026-05-30T00:00:00.000Z",
+    "keep": {
+      "reason": "Waiting for upstream patch",
+      "until": "2027-06-01",
+      "untilVersion": "4.18.0"
+    }
+  }
+}
+\`\`\`
+
+\`KeepConstraint\` fields:
+
+- **\`reason\`** _(required)_: Why this override is being kept
+- **\`until\`**: ISO date after which the keep is considered expired
+- **\`untilVersion\`**: Semver. The keep expires once the root dependency meets or exceeds this version
+- **\`reviewBy\`**: Freeform field for tracking who should review the decision
+
+This shows which packages were overridden for security reasons and when they
+were last checked.
+
+## Best Practices
+
+1. **Use \`depPaths: "workspace"\`** for most monorepos
+2. **Enable security checks** in CI with \`--checkSecurity\`
+3. **Commit config files** to version control
+
+## JavaScript Config Files
+
+Use \`pastoralist.config.cjs\` for CommonJS or \`pastoralist.config.mjs\` for ESM:
+
+\`\`\`js title="pastoralist.config.mjs"
+export default {
+  checkSecurity: true,
+  depPaths: "workspace",
+  security: {
+    provider: "osv",
+    severityThreshold: "high",
+  },
+};
+\`\`\`
+
+TypeScript config files are not loaded directly. Use JSON, CJS, JS, or MJS
+config files.
+
+## Environment-Specific Configuration
+
+You can use JavaScript config files to provide environment-specific settings:
+
+\`\`\`js title="pastoralist.config.js"
+const isDev = process.env.NODE_ENV === "development";
+const isCI = process.env.CI === "true";
+
+module.exports = {
+  checkSecurity: !isDev, // Only check in production/CI
+  depPaths: "workspace",
+  security: {
+    provider: "osv",
+    severityThreshold: isCI ? "high" : "medium",
+    autoFix: isCI && !isDev,
+  },
+};
+\`\`\`
+
+## Migration from CLI Flags
+
+If you're currently using CLI flags, you can migrate to config files:
+
+### Before (CLI flags)
+
+\`\`\`bash
+pastoralist --checkSecurity --depPaths "packages/*/package.json"
+\`\`\`
+
+### After (config file)
+
+\`\`\`json {3}
+{
+  "checkSecurity": true,
+  "depPaths": ["packages/*/package.json"]
+}
+\`\`\`
+
+\`\`\`bash
+pastoralist
+\`\`\`
+
+CLI flags still work and will override config file settings.
+`;export{e as default};

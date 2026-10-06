@@ -1,0 +1,149 @@
+var e=`---
+title: Introduction to Pastoralist
+description: "Pastoralist keeps dependency overrides explainable, current, and removable"
+---
+
+<div className="flex flex-wrap gap-2 mb-8">
+  <a href="https://www.npmjs.com/package/pastoralist" target="_blank" rel="noopener noreferrer">
+    <img src="https://img.shields.io/npm/v/pastoralist.svg" alt="npm version" />
+  </a>
+  <a href="https://www.npmjs.com/package/pastoralist" target="_blank" rel="noopener noreferrer">
+    <img src="https://img.shields.io/npm/dm/pastoralist.svg" alt="npm downloads" />
+  </a>
+  <a href="https://www.typescriptlang.org/" target="_blank" rel="noopener noreferrer">
+    <img
+      src="https://img.shields.io/badge/TypeScript-types%20included-blue"
+      alt="TypeScript types included"
+    />
+  </a>
+</div>
+
+Pastoralist tracks your dependency overrides: why they're there, which packages
+need them, and when you can remove them.
+
+Pastoralist works with npm and Bun \`overrides\`, pnpm \`pnpm.overrides\`, and Yarn
+\`resolutions\`. It can also tie security fixes, patch files, workspace packages,
+and CI checks to the same record.
+
+## Why This Matters
+
+Overrides usually start as real fixes: a CVE patch, a compatibility pin, a fork,
+or a transitive dependency workaround.
+
+\`\`\`json title="package.json" {3}
+{
+  "overrides": {
+    "lodash": "4.17.21"
+  }
+}
+\`\`\`
+
+Months later, the reason may not be clear. Was it a security fix? A transitive
+bug? Which packages still need it? Can it be removed? With Pastoralist, the
+override sets the version, and the appendix holds the context.
+
+\`\`\`json title="package.json" /appendix/
+{
+  "overrides": {
+    "lodash": "4.17.21"
+  },
+  "pastoralist": {
+    "appendix": {
+      "lodash@4.17.21": {
+        "dependents": {
+          "web-app": "lodash@^4.17.20",
+          "admin-ui": "lodash@^4.17.19"
+        },
+        "ledger": {
+          "addedDate": "2026-05-06T00:00:00.000Z",
+          "reason": "Pin lodash to a patched version while workspace packages finish upgrades.",
+          "source": "manual",
+          "securityChecked": true,
+          "securityProvider": "osv",
+          "cves": ["CVE-2021-23337"],
+          "cveDetails": [
+            {
+              "cve": "CVE-2021-23337",
+              "severity": "high",
+              "patchedVersion": "4.17.21"
+            }
+          ],
+          "severity": "high",
+          "vulnerableRange": "<4.17.21",
+          "patchedVersion": "4.17.21",
+          "keep": {
+            "reason": "Keep until each workspace requests lodash 4.17.21 or newer.",
+            "untilVersion": "4.17.21"
+          }
+        }
+      }
+    }
+  }
+}
+\`\`\`
+
+The appendix shows why the override was added, why it is needed, or if it can be removed.
+
+## What Pastoralist Handles
+
+- Tracks npm and Bun \`overrides\`, pnpm \`pnpm.overrides\`, and Yarn
+  \`resolutions\`
+- Shows which direct or workspace packages still depend on each override
+- Removes stale overrides with \`--remove-unused\`
+- Links \`patch-package\` files to the overrides they support
+- Checks security advisories with OSV, GitHub Dependabot alerts, npm audit,
+  Snyk, Socket, or Spektion
+- Supports monorepos through \`workspaces\`, \`depPaths\`, \`overridePaths\`, and
+  \`resolutionPaths\`
+- Provides CI-friendly output with \`--dry-run\`, \`--quiet\`, \`--summary\`, and
+  \`--outputFormat json\`
+
+## At A Glance
+
+| Area               | Details                                                      |
+| ------------------ | ------------------------------------------------------------ |
+| Package managers   | npm, pnpm, Yarn, Bun                                         |
+| Runtime            | Node 20.19+                                                  |
+| Security default   | OSV, no token required                                       |
+| Optional providers | GitHub, npm audit, Snyk, Socket, Spektion                    |
+| Monorepos          | Auto-detects \`workspaces\`; accepts explicit package globs    |
+| CI                 | CLI flags plus a GitHub Action                               |
+| Test surface       | 2,000+ test cases across unit, integration, and e2e fixtures |
+
+## When To Use It
+
+Use Pastoralist to document dependency overrides, remove the ones you no longer
+need, and track override security fixes.
+
+It is designed to sit beside tools such as npm audit, Dependabot, Renovate,
+patch-package, syncpack, and depcheck. Those tools find or apply dependency
+changes. Pastoralist keeps the resulting overrides from becoming invisible
+technical debt.
+
+## Start Here
+
+\`\`\`bash
+npm install pastoralist --save-dev
+npx pastoralist init
+\`\`\`
+
+Then add it to \`postinstall\`:
+
+\`\`\`json title="package.json" {3}
+{
+  "scripts": {
+    "postinstall": "pastoralist"
+  }
+}
+\`\`\`
+
+Continue with the [setup guide](/docs/setup), or try a sandbox:
+
+<a
+  href="https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/basic-overrides?title=Pastoralist%20Basic%20Overrides&file=README.md&startScript=demo&view=editor"
+  target="_blank"
+  rel="noopener noreferrer"
+>
+  <img src="https://developer.stackblitz.com/img/open_in_stackblitz.svg" alt="Open in StackBlitz" />
+</a>
+`;export{e as default};

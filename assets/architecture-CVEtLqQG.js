@@ -1,0 +1,202 @@
+var e=`---
+title: Architecture
+description: "How Pastoralist reads overrides, writes the appendix, tracks patches, and handles cleanup"
+---
+
+## How Pastoralist Works
+
+\`\`\`mermaid
+flowchart LR
+    Manifest["package.json overrides / resolutions"] --> Config["Load CLI and project config"]
+    Config --> Security{"Security enabled?"}
+    Security -->|Yes| Scan["Scan providers and collect alerts"]
+    Scan --> Fixes["Merge fixable security overrides"]
+    Security -->|No| Update["Run update()"]
+    Fixes --> Update
+    Update --> Patches["Detect patch-package files"]
+    Patches --> Overrides["Resolve package manager overrides"]
+    Overrides --> Workspaces{"Workspace paths?"}
+    Workspaces -->|Yes| WorkspaceAppendix["Read workspace manifests"]
+    Workspaces -->|No| Appendix["Build appendix"]
+    WorkspaceAppendix --> Appendix
+    Appendix --> Cleanup{"--remove-unused?"}
+    Cleanup -->|Yes| Remove["Remove verified unused overrides"]
+    Cleanup -->|No| Write["Write package.json or appendix target"]
+    Remove --> Write
+    Write --> Result["Report metrics and outputs"]
+\`\`\`
+
+Pastoralist reads the root \`package.json\`, maps each override or resolution into
+a \`pastoralist.appendix\` entry, and records when the entry was created in its
+\`ledger\`. Patches created by tools such as \`patch-package\` are detected and
+tracked on the same entry.
+
+If an override or resolution is no longer needed, Pastoralist marks the appendix
+entry as unused and prints a cleanup notice. The override and its appendix entry
+are removed only when you run with \`--remove-unused\`. Patch files are reported
+as potentially unused; Pastoralist does not delete patch files for you.
+
+You manage the override or resolution field; Pastoralist manages the appendix.
+
+### Workspace Support
+
+In workspace/monorepo setups, Pastoralist:
+
+- Reads the root \`package.json\` or project manifest file
+- Maps overrides, resolutions, and patches to the \`pastoralist.appendix\`, with a
+  \`ledger\` entry recording when each override was added
+- Reads workspace package manifests when \`depPaths\` or \`workspaces\` are configured
+- Writes the consolidated appendix to the target \`package.json\`, usually the root
+
+## Simple Project Architecture
+
+Standard single-package project with overrides:
+
+\`\`\`mermaid
+flowchart TD
+    PkgJson[package.json] --> Pastoralist[Pastoralist]
+    NodeModules[node_modules] --> Pastoralist
+    Pastoralist --> UpdatedPkg[Updated package.json with appendix]
+
+    style PkgJson fill:#e3f2fd
+    style Pastoralist fill:#f3e5f5
+    style UpdatedPkg fill:#e8f5e9
+\`\`\`
+
+## Monorepo Architecture
+
+Complex workspace setup with shared overrides:
+
+\`\`\`mermaid
+flowchart TD
+    Root[Root package.json] --> Pastoralist[Pastoralist]
+    WS1[Workspace A] --> Pastoralist
+    WS2[Workspace B] --> Pastoralist
+    Pastoralist --> Output[Root package.json with consolidated appendix]
+
+    style Root fill:#e3f2fd
+    style Pastoralist fill:#f3e5f5
+    style Output fill:#e8f5e9
+\`\`\`
+
+## What Are Overrides, Resolutions, and Patches?
+
+### Overrides (npm)
+
+Overrides replace a package version in your dependency tree with the version
+you choose. This is npm's way to handle dependency conflicts:
+
+\`\`\`json title="package.json" {3}
+{
+  "overrides": {
+    "foo": "1.0.0",
+    "bar": {
+      "baz": "1.0.0"
+    }
+  }
+}
+\`\`\`
+
+### Resolutions (Yarn)
+
+Resolutions serve the same purpose for Yarn users:
+
+\`\`\`json title="package.json" {3}
+{
+  "resolutions": {
+    "foo": "1.0.0",
+    "**/bar/baz": "1.0.0"
+  }
+}
+\`\`\`
+
+### Patches
+
+Patches are local changes to \`node_modules\` packages, usually created with
+tools such as \`patch-package\`. Pastoralist detects and tracks these patches.
+
+## Object Anatomy
+
+The Pastoralist object in \`package.json\` records what the tool manages:
+
+\`\`\`json title="package.json" /appendix/
+{
+  "overrides": {
+    "minimist": "1.2.8"
+  },
+  "pastoralist": {
+    "appendix": {
+      "minimist@1.2.8": {
+        "dependents": {
+          "my-app": "minimist@^1.2.6",
+          "mkdirp": "minimist@^1.2.5"
+        },
+        "ledger": {
+          "addedDate": "2026-05-30T00:00:00.000Z",
+          "reason": "Pin minimist while upstream packages adopt the patched version.",
+          "source": "manual"
+        }
+      }
+    }
+  }
+}
+\`\`\`
+
+### Appendix Properties
+
+- **appendix key**: The package and override version, such as \`minimist@1.2.8\`
+- **dependents**: Direct, workspace, or transitive packages that still require the override
+- **patches**: Patch files associated with the package, when any are detected
+- **ledger**: Always present on entries written by current Pastoralist. Holds
+  \`addedDate\`, optional \`reason\` and \`source\`, security metadata (\`securityProvider\`,
+  \`cves\`, \`cveDetails\`, \`severity\`, \`vulnerableRange\`, \`patchedVersion\`), and
+  optional \`keep\` constraints
+
+## Nested Override Architecture
+
+How nested overrides work for transitive dependencies:
+
+\`\`\`mermaid
+flowchart TD
+    App[Your App] --> ParentPkg[Parent Package]
+    ParentPkg --> NestedDep[Nested Dependency]
+    Override[Override in package.json] -.->|Forces version| NestedDep
+
+    style App fill:#e3f2fd
+    style Override fill:#fff3cd
+    style NestedDep fill:#e8f5e9
+\`\`\`
+
+## Design Decisions
+
+### Synchronous I/O
+
+Pastoralist uses sync file I/O intentionally. As a CLI tool, predictable execution and simple debugging outweigh async benefits.
+
+### Caching
+
+Two caches avoid redundant work: \`jsonCache\` (parsed package.json files) and \`dependencyTreeCache\` (npm ls output). Caches persist across \`update()\` calls - pass \`clearCache: true\` to reset.
+
+### Rate Limiting
+
+npm registry requests are limited to 5 concurrent to avoid rate limits during security scans.
+
+## Dependency Resolution Flow
+
+How package managers resolve dependencies with overrides:
+
+\`\`\`mermaid
+flowchart TD
+    Install[npm install] --> ReadPkg[Read package.json]
+    ReadPkg --> CheckOverrides{Overrides exist?}
+    CheckOverrides -->|Yes| ApplyOverrides[Apply overrides to dependency tree]
+    CheckOverrides -->|No| NormalInstall[Normal install]
+    ApplyOverrides --> UpdateLock[Update lock file]
+    NormalInstall --> UpdateLock
+    UpdateLock --> Done[✓ Dependencies installed]
+
+    style Install fill:#e3f2fd
+    style ApplyOverrides fill:#fff3cd
+    style Done fill:#e8f5e9
+\`\`\`
+`;export{e as default};

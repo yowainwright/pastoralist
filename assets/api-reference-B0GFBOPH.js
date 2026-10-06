@@ -1,0 +1,780 @@
+var e=`---
+title: API Reference
+description: Complete reference for pastoralist CLI and Node.js API
+---
+
+Pastoralist provides a CLI and a Node.js API.
+
+:::tip[Configuration Files]
+Most CLI options can be stored in config files. See [Configuration](/docs/configuration) for \`.pastoralistrc\`, \`pastoralist.config.js\`, and \`package.json\` settings.
+:::
+
+{/* public CLI commands and options from src/cli/parser/constants.ts and src/cli/index.ts */}
+
+## CLI
+
+CLI commands and options have their own headings so each entry can be linked
+directly.
+
+### \`pastoralist\`
+
+Run Pastoralist on the current directory's \`package.json\`.
+
+\`\`\`bash
+npx pastoralist
+\`\`\`
+
+### \`--help\` and \`--version\`
+
+Print CLI help or the installed package version.
+
+\`\`\`bash
+npx pastoralist --help
+npx pastoralist --version # -v
+\`\`\`
+
+### \`pastoralist doctor\`
+
+Run a read-only setup and override health check. This command enables dry-run
+summary mode and does not modify \`package.json\`.
+
+\`\`\`bash
+npx pastoralist doctor
+\`\`\`
+
+### \`pastoralist onboard\`
+
+Print a first-run onboarding checklist with initial local usage, agent setup,
+and GitHub Action setup.
+
+\`\`\`bash
+npx pastoralist onboard
+\`\`\`
+
+Aliases: \`pastoralist onboarding\`, \`pastoralist --onboard\`.
+
+### \`pastoralist --path <path>\`
+
+> Type: **\`string\`**
+> Default: \`"package.json"\`
+
+Run Pastoralist on a specific \`package.json\` file.
+
+\`\`\`bash
+npx pastoralist --path packages/app/package.json # -p packages/app/package.json
+\`\`\`
+
+### \`pastoralist --depPaths [paths...]\`
+
+> Type: **\`string[]\`**
+> Default: unset
+
+Read dependency data from multiple \`package.json\` files using glob patterns.
+
+\`\`\`bash
+npx pastoralist --depPaths "packages/*/package.json" # -d "packages/*/package.json"
+\`\`\`
+
+### \`pastoralist --ignore [patterns...]\`
+
+> Type: **\`string[]\`**
+> Default: \`[]\`
+
+Exclude files matching glob patterns.
+
+\`\`\`bash
+npx pastoralist --ignore "**/node_modules/**"
+\`\`\`
+
+### \`pastoralist --root <root>\`
+
+> Type: **\`string\`**
+> Default: derived from \`--path\` or the current working directory
+
+Set the root directory for all operations.
+
+\`\`\`bash
+npx pastoralist --root ../my-project # -r ../my-project
+\`\`\`
+
+### \`pastoralist init\`
+
+Initialize configuration with the guided setup. The wizard can configure
+workspace paths, security scanning, and where the configuration should be saved.
+
+\`\`\`bash
+npx pastoralist init
+\`\`\`
+
+Aliases: \`pastoralist init config\`, \`pastoralist --init config\`.
+
+When run, this will:
+
+- Detect \`workspaces\` entries from \`package.json\`
+- Prompt for \`depPaths: "workspace"\` or custom package globs
+- Offer security provider and severity threshold setup
+- Save configuration to \`package.json\` or a supported config file
+
+### \`pastoralist --init agent-skill\`
+
+Install the bundled Pastoralist agent skill into \`.agents/skills/pastoralist\`.
+
+\`\`\`bash
+npx pastoralist init agent-skill
+\`\`\`
+
+Alias: \`pastoralist --init agent-skill\`.
+
+### \`pastoralist --interactive\`
+
+Review security fixes interactively. Use this with \`--checkSecurity\` when you
+want to approve fixes instead of applying everything with \`--forceSecurityRefactor\`.
+
+\`\`\`bash
+npx pastoralist --checkSecurity --interactive
+\`\`\`
+
+### \`pastoralist --debug\`
+
+Enable detailed debug output.
+
+\`\`\`bash
+npx pastoralist --debug
+\`\`\`
+
+### \`pastoralist --dry-run\`
+
+Preview changes without modifying \`package.json\`.
+
+\`\`\`bash
+npx pastoralist --dry-run
+\`\`\`
+
+### \`pastoralist --outputFormat json\`
+
+Return machine-readable output for CI or custom tooling.
+
+\`\`\`bash
+npx pastoralist --summary --outputFormat json
+\`\`\`
+
+JSON output is a single result object.
+
+\`\`\`jsonc noLineNumbers
+{
+  "success": true,
+  "hasSecurityIssues": false,
+  "hasUnusedOverrides": true,
+  "updated": false,
+  "securityAlertCount": 0,
+  "unusedOverrideCount": 1,
+  "overrideCount": 2,
+  "errors": [],
+  "securityAlerts": [],
+  "unusedOverrides": ["left-pad@1.3.0"],
+  "appliedOverrides": {
+    "left-pad": "1.3.0",
+  },
+  "metrics": {
+    "packagesScanned": 1,
+    "workspacePackagesScanned": 0,
+    "appendixEntriesUpdated": 2,
+    "vulnerabilitiesBlocked": 0,
+    "overridesAdded": 0,
+    "overridesRemoved": 0,
+    "writeSuccess": false,
+    "writeSkipped": true,
+  },
+}
+\`\`\`
+
+### \`pastoralist --styleguide\`
+
+Open an interactive radio menu for exploring the Pastoralist DX components
+without changing project configuration. Use the arrow keys and Enter to choose
+a demo. In the prompt demo, Space toggles choices, \`a\` selects all, \`n\` selects
+none, and Esc cancels.
+
+\`\`\`bash
+npx pastoralist --styleguide
+\`\`\`
+
+### \`pastoralist --quiet\`
+
+Quiet mode for CI pipelines. Outputs minimal text and uses exit codes.
+
+- Exit 0: No vulnerabilities found
+- Exit 1: Vulnerabilities detected
+
+\`\`\`bash
+npx pastoralist --quiet --checkSecurity # -q --checkSecurity
+\`\`\`
+
+### \`pastoralist --summary\`
+
+Display metrics after run.
+
+\`\`\`bash
+npx pastoralist --summary
+\`\`\`
+
+### \`pastoralist --setup-hook\`
+
+Add Pastoralist to your \`postinstall\` script automatically.
+
+\`\`\`bash
+npx pastoralist --setup-hook
+\`\`\`
+
+### \`pastoralist --remove-unused\`
+
+Remove overrides that no package in your project depends on. When Pastoralist detects unused overrides during a run, it suggests this flag.
+
+\`\`\`bash
+npx pastoralist --remove-unused
+\`\`\`
+
+### \`pastoralist --checkSecurity\`
+
+Enable security vulnerability scanning.
+
+\`\`\`bash
+npx pastoralist --checkSecurity
+\`\`\`
+
+### \`pastoralist --securityProvider <provider...>\`
+
+Choose one or more security providers. Supported values are \`osv\`, \`github\`,
+\`npm\`, \`snyk\`, \`socket\`, and \`spektion\`.
+
+\`\`\`bash
+npx pastoralist --checkSecurity --securityProvider osv
+\`\`\`
+
+### \`pastoralist --securityProviderToken <token>\`
+
+Pass a provider token without writing it to config. Prefer environment variables
+for committed workflows.
+
+\`\`\`bash
+npx pastoralist --checkSecurity --securityProvider github --securityProviderToken "$GITHUB_TOKEN"
+\`\`\`
+
+### \`pastoralist --hasWorkspaceSecurityChecks\`
+
+Include workspace package manifests in security scans when workspaces are
+configured.
+
+\`\`\`bash
+npx pastoralist --checkSecurity --hasWorkspaceSecurityChecks
+\`\`\`
+
+### \`pastoralist --forceSecurityRefactor\`
+
+Apply security override fixes without prompting.
+
+\`\`\`bash
+npx pastoralist --checkSecurity --forceSecurityRefactor
+\`\`\`
+
+### \`pastoralist --promptForReasons\`
+
+Prompt for ledger reasons when Pastoralist adds manual override records.
+
+\`\`\`bash
+npx pastoralist --promptForReasons
+\`\`\`
+
+### \`pastoralist --strict\`
+
+Fail when a security provider, network request, or API call cannot complete.
+
+\`\`\`bash
+npx pastoralist --checkSecurity --strict
+\`\`\`
+
+### \`pastoralist --cache-dir <path>\`
+
+> Type: **\`string\`**
+> Default: \`node_modules/.cache/pastoralist/\`
+
+Store provider cache data in a custom directory.
+
+\`\`\`bash
+npx pastoralist --checkSecurity --cache-dir .cache/pastoralist
+\`\`\`
+
+### \`pastoralist --cache-ttl <seconds>\`
+
+> Type: **\`number\`**
+> Default: provider default
+
+Override the provider cache TTL.
+
+\`\`\`bash
+npx pastoralist --checkSecurity --cache-ttl 3600
+\`\`\`
+
+### \`pastoralist --no-cache\`
+
+Bypass cache reads and writes for a security run.
+
+\`\`\`bash
+npx pastoralist --checkSecurity --no-cache
+\`\`\`
+
+### \`pastoralist --refresh-cache\`
+
+Bypass cache reads and write fresh provider results.
+
+\`\`\`bash
+npx pastoralist --checkSecurity --refresh-cache
+\`\`\`
+
+## CI
+
+Use the CLI directly when CI only needs to validate or report data.
+
+\`\`\`bash {2-4}
+npx pastoralist
+npx pastoralist --dry-run --summary
+npx pastoralist --quiet --checkSecurity
+npx pastoralist --dry-run --outputFormat json
+\`\`\`
+
+Use the GitHub Action when the workflow should also expose outputs or create a
+maintenance PR.
+
+\`\`\`yaml {4-6,9-10}
+- uses: yowainwright/pastoralist@v1
+  id: pastoralist
+  with:
+    mode: check
+    check-security: true
+    security-provider: osv
+
+- name: Block unused overrides
+  if: steps.pastoralist.outputs.has-unused-overrides == 'true'
+  run: exit 1
+\`\`\`
+
+The action exposes \`has-security-issues\`, \`has-unused-overrides\`, \`updated\`,
+\`security-count\`, \`unused-count\`, \`override-count\`, and \`pr-url\`.
+
+{/* public result and appendix data from src/cli/utils.ts and src/types.ts */}
+
+## Data API
+
+Use these shapes when you read JSON output, inspect the appendix, or build
+tooling around Pastoralist.
+
+### \`PastoralistResult\`
+
+\`PastoralistResult\` is the JSON object returned by \`--outputFormat json\`. It
+reports whether the run succeeded, whether files changed, what security or
+unused-override issues were found, and the run metrics.
+
+\`\`\`bash
+npx pastoralist --dry-run --outputFormat json
+\`\`\`
+
+\`\`\`jsonc noLineNumbers
+{
+  "success": true,
+  "hasSecurityIssues": false,
+  "hasUnusedOverrides": true,
+  "updated": false,
+  "securityAlertCount": 0,
+  "unusedOverrideCount": 1,
+  "overrideCount": 2,
+  "errors": [],
+  "securityAlerts": [],
+  "unusedOverrides": ["left-pad@1.3.0"],
+  "appliedOverrides": {
+    "left-pad": "1.3.0",
+  },
+  "metrics": {
+    "packagesScanned": 1,
+    "workspacePackagesScanned": 0,
+    "appendixEntriesUpdated": 2,
+    "vulnerabilitiesBlocked": 0,
+    "overridesAdded": 0,
+    "overridesRemoved": 0,
+    "severityCritical": 0,
+    "severityHigh": 0,
+    "severityMedium": 0,
+    "severityLow": 0,
+    "writeSuccess": false,
+    "writeSkipped": true,
+  },
+}
+\`\`\`
+
+Optional fields include \`securityAlerts\`, \`unusedOverrides\`,
+\`appliedOverrides\`, \`removalVerification\`, \`bestCase\`, and \`metrics\`.
+
+### \`pastoralist.appendix\`
+
+\`pastoralist.appendix\` stores one entry per override version. Keys use
+\`package-name@version\`; values can include root dependencies, dependents, patch
+files, and ledger data.
+
+\`\`\`json title="package.json" /appendix/
+{
+  "pastoralist": {
+    "appendix": {
+      "left-pad@1.3.0": {
+        "dependents": {
+          "example-app": "left-pad@^1.0.0"
+        },
+        "patches": ["patches/left-pad+1.3.0.patch"],
+        "ledger": {
+          "addedDate": "2026-08-22T00:00:00.000Z",
+          "reason": "Keep the legacy formatter working."
+        }
+      }
+    }
+  }
+}
+\`\`\`
+
+### \`AppendixItem.ledger\`
+
+Every current appendix entry has a \`ledger\` with \`addedDate\`. Manual records can
+add \`reason\`; security runs can add provider, CVE, severity, vulnerable range,
+patched version, confidence, source, and resolution fields.
+
+\`\`\`json {11}
+{
+  "ledger": {
+    "addedDate": "2026-08-22T00:00:00.000Z",
+    "source": "security",
+    "securityProvider": "osv",
+    "cves": ["CVE-2026-1234"],
+    "severity": "high",
+    "vulnerableRange": "<1.3.0",
+    "patchedVersion": "1.3.0",
+    "confidence": "confirmed",
+    "keep": {
+      "reason": "Wait for upstream compatibility confirmation.",
+      "reviewBy": "2026-09-30"
+    }
+  }
+}
+\`\`\`
+
+{/* primary public Node.js API exports from src/index.ts and src/types.ts */}
+
+## Node.js API
+
+### Installation
+
+\`\`\`bash
+npm install pastoralist
+\`\`\`
+
+The Node API runs the same override policy from JavaScript or TypeScript. The
+CLI loads config, runs security checks, then calls \`update()\`. If you use the
+API directly, call the pieces you need in that order.
+
+### \`update(options)\`
+
+> Type: **\`(options: Options) => UpdateContext\`**
+> Default: \`{ path: "package.json" }\`
+
+Update \`package.json\` overrides and the appendix. Each appendix entry includes a
+\`ledger\` with at least \`addedDate\`. Pass the parsed package manifest as
+\`config\`; the function is synchronous and returns an \`UpdateContext\`.
+
+\`\`\`ts title="update.ts" {10-12,17}
+import { resolveJSON, update } from "pastoralist";
+
+const path = "./package.json";
+const config = resolveJSON(path);
+
+if (config) {
+  const result = update({
+    config,
+    path,
+    dryRun: true,
+    outputFormat: "json",
+    summary: true,
+    depPaths: ["packages/*/package.json"],
+    ignore: ["**/test/**"],
+  });
+
+  process.stdout.write(\`\${result.metrics?.appendixEntriesUpdated ?? 0} entries\\n\`);
+}
+\`\`\`
+
+### \`SecurityChecker.checkSecurity(config, options)\`
+
+> Type: **\`(config: PastoralistJSON, options?: SecurityCheckRuntimeOptions) => Promise<SecurityCheckResult>\`**
+> Default: provider and cache settings come from the \`SecurityChecker\`
+> constructor.
+
+Run vulnerability scanning directly and receive provider alerts, suggested
+overrides, update suggestions, package counts, and optional best-case metadata.
+
+\`\`\`ts title="security-check.ts" {8-10}
+import { resolveJSON, SecurityChecker } from "pastoralist";
+
+const config = resolveJSON("./package.json");
+const checker = new SecurityChecker({ provider: "osv" });
+
+if (config) {
+  const result = await checker.checkSecurity(config, {
+    root: process.cwd(),
+    packageJsonPath: "./package.json",
+    severityThreshold: "high",
+  });
+
+  process.stdout.write(\`\${result.alerts.length} alerts found\\n\`);
+}
+\`\`\`
+
+### \`optimizeBestCasePortfolio(options)\`
+
+> Type: **\`(options: OptimizeBestCaseOptions) => Promise<BestCaseResult>\`**
+> Default: policy from \`resolveBestCasePolicy()\`
+
+Evaluate complete package-version states and return the lowest-risk state under
+a lexicographic policy. The evaluator must return alerts for the complete state,
+not for one package in isolation.
+
+\`\`\`ts title="best-case.ts" {38-41}
+import {
+  optimizeBestCasePortfolio,
+  type BestCaseEvaluator,
+  type BestCasePackageChoice,
+} from "pastoralist";
+
+const choices: BestCasePackageChoice[] = [
+  {
+    packageName: "example",
+    currentVersion: "1.0.0",
+    versions: ["1.0.0", "1.1.0"],
+  },
+];
+
+const evaluate: BestCaseEvaluator = async (state) => {
+  const usesVulnerableVersion = state.example === "1.0.0";
+  const alerts = usesVulnerableVersion
+    ? [
+        {
+          packageName: "example",
+          currentVersion: state.example,
+          vulnerableVersions: "<1.1.0",
+          patchedVersion: "1.1.0",
+          severity: "high" as const,
+          title: "Example vulnerability",
+          cves: ["CVE-2026-1234"],
+          fixAvailable: true,
+        },
+      ]
+    : [];
+
+  return { alerts };
+};
+
+const result = await optimizeBestCasePortfolio({
+  choices,
+  evaluate,
+  config: {
+    enabled: true,
+    search: { mode: "auto", exactStateLimit: 256 },
+  },
+});
+
+console.log(result.selectedState);
+console.log(result.search.provenOptimal);
+\`\`\`
+
+\`BestCaseEvaluation\` may also return \`incompatibilities\`, \`oldness\`, \`valid\`,
+and \`error\`. Rejected callbacks are recorded as invalid states and do not abort
+other evaluations.
+
+\`SecurityChecker.checkSecurity(config, options)\` accepts \`bestCase\` and a
+project-supplied \`bestCaseEvaluator\`. Package JSON can configure \`bestCase\`, but
+the evaluator is an API option because functions cannot be stored in JSON.
+
+### Ledger reason types
+
+\`LedgerReason\` is a non-empty string, \`ProjectReason\`, or \`BestCaseReason\`.
+Reasons are stored per appendix dependency.
+
+\`\`\`ts title="ledger-reason.ts" {4-9}
+import type { LedgerReason } from "pastoralist";
+
+const reason: LedgerReason = {
+  type: "project",
+  summary: "Pin this dependency while the upstream fix is reviewed.",
+  pin: "3.2.1",
+  patch: "patches/example+3.2.1.patch",
+  constraints: ["Must retain the current runtime API"],
+  references: ["https://example.com/upstream/issue/123"],
+};
+\`\`\`
+
+A \`BestCaseReason\` contains \`decisionId\`, \`policyHash\`, \`search\`, and \`impact\`.
+CVEs stay in \`ledger.cves\`; they are not duplicated in the reason.
+
+### \`logger(config)\`
+
+> Type: **\`(config: LoggerOptions) => Logger\`**
+> Default: \`{ isLogging: false }\`
+
+Create a logger instance for custom debugging.
+
+\`\`\`ts title="logger.ts" {5,8-9}
+import { logger } from "pastoralist";
+
+const log = logger({
+  file: "my-script.js",
+  isLogging: true,
+});
+
+log.debug("starting action", "method-name", { data: "value" });
+log.error("unexpected error", "method-name", { error: err });
+\`\`\`
+
+## Examples
+
+### Build Tool Integration
+
+\`\`\`ts title="build.ts" {7-8}
+import { resolveJSON, update } from "pastoralist";
+
+const path = "./package.json";
+const config = resolveJSON(path);
+
+if (config) {
+  update({ config, path });
+  console.log("Package overrides verified");
+}
+\`\`\`
+
+### Workspace Automation
+
+\`\`\`ts title="workspaces.ts" {6-12}
+import { resolveJSON, update } from "pastoralist";
+import glob from "glob";
+
+const packages = glob.sync("packages/*/package.json");
+
+for (const pkgPath of packages) {
+  const pkg = resolveJSON(pkgPath);
+  if (pkg) {
+    update({ config: pkg, path: pkgPath });
+    console.log(\`Updated \${pkgPath}\`);
+  }
+}
+\`\`\`
+
+### CI Validation
+
+\`\`\`ts title="ci-validate.ts" {9,14-15}
+import { resolveJSON, update } from "pastoralist";
+import { execSync } from "child_process";
+
+const path = "./package.json";
+const config = resolveJSON(path);
+
+const before = execSync("git status --porcelain").toString();
+if (config) {
+  update({ config, path });
+}
+const after = execSync("git status --porcelain").toString();
+
+if (before !== after) {
+  console.error("Package.json overrides need updating");
+  process.exit(1);
+}
+\`\`\`
+
+### Custom Logger
+
+\`\`\`ts title="custom-logger.ts" {5,11,14,17}
+import { logger, resolveJSON, update } from "pastoralist";
+
+const log = logger({
+  file: "my-script.js",
+  isLogging: process.env.DEBUG === "true",
+});
+
+const path = "./package.json";
+const config = resolveJSON(path);
+
+log.debug("starting", "custom-action", { time: Date.now() });
+
+if (config) {
+  update({ config, path, debug: true });
+}
+
+log.debug("completed", "custom-action", { time: Date.now() });
+\`\`\`
+
+### Error Handling
+
+\`\`\`ts title="error-handling.ts"
+import { resolveJSON, update } from "pastoralist";
+
+try {
+  const path = "./package.json";
+  const config = resolveJSON(path);
+  if (!config) throw new Error("Package.json not found");
+  update({ config, path });
+} catch (error) {
+  const isNotFound = error instanceof Error && error.message === "Package.json not found";
+  if (isNotFound) {
+    console.error("Package.json not found");
+  } else {
+    console.error("Unexpected error:", error);
+  }
+}
+\`\`\`
+
+## Environment Variables
+
+### \`DEBUG=true\`
+
+Enable debug output (equivalent to --debug flag).
+
+### Provider Tokens
+
+Security providers read tokens from environment variables when a token is not
+passed with \`--securityProviderToken\` or \`SecurityChecker\` options.
+
+- \`github\`: \`GITHUB_TOKEN\`
+- \`snyk\`: \`SNYK_TOKEN\`
+- \`socket\`: \`SOCKET_SECURITY_API_KEY\`
+- \`spektion\`: \`SPEKTION_API_KEY\`
+
+\`\`\`bash {2}
+npx pastoralist
+DEBUG=true npx pastoralist
+\`\`\`
+
+## TypeScript
+
+Pastoralist includes full TypeScript support.
+
+\`\`\`ts title="index.ts" {13}
+import { resolveJSON, update, type Options } from "pastoralist";
+
+const path = "./package.json";
+const config = resolveJSON(path);
+
+if (!config) {
+  throw new Error("Package.json not found");
+}
+
+const options: Options = {
+  config,
+  path,
+  debug: true,
+};
+
+update(options);
+\`\`\`
+`;export{e as default};

@@ -1,0 +1,133 @@
+var e=`---
+title: Setup
+description: "Install Pastoralist and keep your override appendix current"
+---
+
+## Install
+
+Add Pastoralist as a dev dependency:
+
+\`\`\`bash
+npm install pastoralist --save-dev
+\`\`\`
+
+Other package managers work too:
+
+\`\`\`bash
+pnpm add pastoralist --save-dev
+yarn add pastoralist --dev
+bun add pastoralist --dev
+\`\`\`
+
+For a global CLI, install with npm or Homebrew:
+
+\`\`\`bash
+npm install --global pastoralist
+brew install yowainwright/tap/pastoralist
+\`\`\`
+
+## Initialize
+
+Check your dependency overrides without touching \`package.json\`:
+
+\`\`\`bash
+npx pastoralist doctor
+\`\`\`
+
+\`doctor\` shows a summary of your dependency overrides.
+
+The \`onboard\` command shows setup steps for local use, agents, and CI.
+
+\`\`\`bash
+npx pastoralist onboard
+\`\`\`
+
+Install the Pastoralist agent skill in a repo:
+
+\`\`\`bash
+npx pastoralist --init agent-skill
+\`\`\`
+
+Set up local dev with selected skills and hooks:
+
+\`\`\`bash
+pnpm run setup:local-dev -- --skills all --hooks git,postinstall
+\`\`\`
+
+Run the guided setup:
+
+\`\`\`bash
+npx pastoralist init
+\`\`\`
+
+The init command can detect workspaces, set up security checks, and save settings
+in a config file.
+
+For a simple project, you can also run Pastoralist directly:
+
+\`\`\`bash
+npx pastoralist
+\`\`\`
+
+Pastoralist checks dependency overrides and updates its appendix; it does this
+without touching other package settings.
+
+## Add The Install Hook
+
+Most projects should run Pastoralist after dependency installs:
+
+\`\`\`json title="package.json" {3}
+{
+  "scripts": {
+    "postinstall": "pastoralist"
+  }
+}
+\`\`\`
+
+Pastoralist can add that hook automatically:
+
+\`\`\`bash
+npx pastoralist --setup-hook
+\`\`\`
+
+## Verify Changes
+
+Preview the package.json update before writing anything:
+
+\`\`\`bash
+npx pastoralist --dry-run
+\`\`\`
+
+Print summary metrics for CI or release checks:
+
+\`\`\`bash
+npx pastoralist --summary
+\`\`\`
+
+Remove overrides that no package still depends on:
+
+\`\`\`bash
+npx pastoralist --remove-unused
+\`\`\`
+
+## Common Starting Config
+
+For a workspace project with OSV security checks:
+
+\`\`\`json title="package.json"
+{
+  "pastoralist": {
+    "depPaths": "workspace",
+    "checkSecurity": true,
+    "security": {
+      "provider": "osv",
+      "severityThreshold": "medium",
+      "hasWorkspaceSecurityChecks": true
+    }
+  }
+}
+\`\`\`
+
+Read [Configuration](/docs/configuration) for all options or
+[Workspaces & Monorepos](/docs/workspaces) for monorepo setup.
+`;export{e as default};

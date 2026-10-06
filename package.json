@@ -129,7 +129,7 @@
     "oxlint-plugin-legibility": "0.0.5",
     "release-it": "21.1.0",
     "rolldown": "1.2.12",
-    "scriptc": "0.2.2",
+    "scriptc": "0.0.21",
     "socket": "1.4.1",
     "turbo": "2.11.7",
     "typescript": "7.0.2",

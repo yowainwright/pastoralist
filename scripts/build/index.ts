@@ -121,7 +121,7 @@ const compileBinary = (): void => {
     "--out",
     BIN_OUTPUT_FILE,
     "--dynamic",
-    "--no-keep-llvm",
+    "--no-keep-c",
   ]);
 };
 

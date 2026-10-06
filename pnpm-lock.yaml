@@ -194,8 +194,8 @@ importers:
         specifier: 1.2.12
         version: 1.2.12
       scriptc:
-        specifier: 0.2.2
-        version: 0.2.2
+        specifier: 0.0.21
+        version: 0.0.21
       socket:
         specifier: 1.4.1
         version: 1.4.1
@@ -771,44 +771,11 @@ packages:
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
 
-  '@scriptc/cli-darwin-arm64@0.2.2':
-    resolution: {integrity: sha512-8FpGYhwpSjFsu7aDRy5DFCPg1bC6JKVNAayLISX1Q3Nf/6urjAL8W2KbdTUKAcTNmn+KNmSG61O1PO2fWvJUyw==}
-    cpu: [arm64]
-    os: [darwin]
+  '@scriptc/compiler@0.0.21':
+    resolution: {integrity: sha512-R88r87LpBmRSjWyv/9Qp0HaZ8o3qyYO6W3T13xlyOuFdzXz7zxPJdT8lLIEBEVI65TG8q/D34KOzPQI1zyXgtA==}
 
-  '@scriptc/cli-darwin-x64@0.2.2':
-    resolution: {integrity: sha512-5eSN601Wh5zFSpilBlzTpbD9ootSmhR15iiIXFyHmqA9UBG42sIXjCb4FIlLkSQkv1OMZEh9vi8D3O6qD1+CwA==}
-    cpu: [x64]
-    os: [darwin]
-
-  '@scriptc/cli-linux-arm64-gnu@0.2.2':
-    resolution: {integrity: sha512-OYxTRdECvMseMqqDyNJrf13vaaHvirC/Ja7uOcslTaB97/qhTjnvA6/SNMBxzU30yg1bsWwyvvycjataESBnzQ==}
-    cpu: [arm64]
-    os: [linux]
-    libc: [glibc]
-
-  '@scriptc/cli-linux-arm64-musl@0.2.2':
-    resolution: {integrity: sha512-dSXywxEIa9tCHYGukqleEfxVYaQdE545uiD3XDMYT2W+nlwfhhIfULtPU1w6fZZiJDX96byzjq8oTYuShWFDAw==}
-    cpu: [arm64]
-    os: [linux]
-    libc: [musl]
-
-  '@scriptc/cli-linux-x64-gnu@0.2.2':
-    resolution: {integrity: sha512-nx+uZdDcToFm+keZpHsBlwDLTmUbk78amWAmlFg275PNPoMh/w8yW2RjO4Nhzr8tEFZCqEp1SqOScQOyKBq3Yg==}
-    cpu: [x64]
-    os: [linux]
-    libc: [glibc]
-
-  '@scriptc/cli-linux-x64-musl@0.2.2':
-    resolution: {integrity: sha512-9HcXlZe8VHzDM58jeOPMvz+AriI1+5Pjjj+FAgIFpzFr3BWWRpsfwV4VFiHyoGnnXdEWOLqfxvsoINuGtk4JjA==}
-    cpu: [x64]
-    os: [linux]
-    libc: [musl]
-
-  '@scriptc/cli-win32-x64-msvc@0.2.2':
-    resolution: {integrity: sha512-V1+ys9Y+gLPepRNWqkdC+BnaEugYojflZxVQHtXt++5RAt/2JwXKwaL2gOdfFw5ENg9h6MlEIaBq6iWtDvhjeQ==}
-    cpu: [x64]
-    os: [win32]
+  '@scriptc/runtime@0.0.21':
+    resolution: {integrity: sha512-fj3Xn4K80B3OCaY7G3lN7blsfHqQXh6rDPERGLlVVx+TiCTuZaFMfjivw9lvQwrYqu3uWIx2JqaQDP4ibyLLJg==}
 
   '@socketsecurity/socket-patch-android-arm64@2.0.0':
     resolution: {integrity: sha512-R/xsoKr0pRpxHeqoIxMj7R4w77mBPQ5Asv4PpNg2UTIEhxUx9XyXW7MVq9XjjrnWIEMpV1TwOptjvBicFTZZAQ==}
@@ -1656,9 +1623,9 @@ packages:
   safer-buffer@2.1.2:
     resolution: {integrity: sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==}
 
-  scriptc@0.2.2:
-    resolution: {integrity: sha512-DWSTPtyNYQxfrBeip9uvcgdnDRYBcJzwcVMmrFZsYO0sXxzqaA3KLuik543YIuYyatAuMO4BnYRCOgI2ny3g1Q==}
-    engines: {node: '>=24'}
+  scriptc@0.0.21:
+    resolution: {integrity: sha512-m+CFFlQvKpry+bSrU0ol1rYCY4amm8nGLZ1m8+0ck8i5zJDCoQ8+6kYfj6pGsyFmBuJ3Dabn4ZFWl4BXuffD1A==}
+    engines: {node: '>=20'}
     hasBin: true
 
   semver@7.8.5:
@@ -2189,26 +2156,13 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.1': {}
 
-  '@scriptc/cli-darwin-arm64@0.2.2':
-    optional: true
+  '@scriptc/compiler@0.0.21':
+    dependencies:
+      '@scriptc/runtime': 0.0.21
+      typescript: 7.0.2
+      typescript5: typescript@5.9.3
 
-  '@scriptc/cli-darwin-x64@0.2.2':
-    optional: true
-
-  '@scriptc/cli-linux-arm64-gnu@0.2.2':
-    optional: true
-
-  '@scriptc/cli-linux-arm64-musl@0.2.2':
-    optional: true
-
-  '@scriptc/cli-linux-x64-gnu@0.2.2':
-    optional: true
-
-  '@scriptc/cli-linux-x64-musl@0.2.2':
-    optional: true
-
-  '@scriptc/cli-win32-x64-msvc@0.2.2':
-    optional: true
+  '@scriptc/runtime@0.0.21': {}
 
   '@socketsecurity/socket-patch-android-arm64@2.0.0':
     optional: true
@@ -2989,15 +2943,9 @@ snapshots:
 
   safer-buffer@2.1.2: {}
 
-  scriptc@0.2.2:
-    optionalDependencies:
-      '@scriptc/cli-darwin-arm64': 0.2.2
-      '@scriptc/cli-darwin-x64': 0.2.2
-      '@scriptc/cli-linux-arm64-gnu': 0.2.2
-      '@scriptc/cli-linux-arm64-musl': 0.2.2
-      '@scriptc/cli-linux-x64-gnu': 0.2.2
-      '@scriptc/cli-linux-x64-musl': 0.2.2
-      '@scriptc/cli-win32-x64-msvc': 0.2.2
+  scriptc@0.0.21:
+    dependencies:
+      '@scriptc/compiler': 0.0.21
 
   semver@7.8.5: {}
 

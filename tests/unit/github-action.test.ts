@@ -1,7 +1,15 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
 
 const actionPath = resolve(import.meta.dirname, "../../action.yml");
@@ -84,7 +92,21 @@ const initializeGitRepository = (repository: string) => {
   writeFileSync(join(repository, "workflow.txt"), "pre-existing edit\n");
 };
 
+const createNestedRepository = (repository: string) => {
+  const nestedRepository = join(repository, "nested-repo");
+  mkdirSync(nestedRepository);
+  execFileSync("git", ["init", "--quiet"], { cwd: nestedRepository });
+  execFileSync("git", ["config", "user.name", "Nested action test"], { cwd: nestedRepository });
+  execFileSync("git", ["config", "user.email", "nested-action-test@example.com"], {
+    cwd: nestedRepository,
+  });
+  writeFileSync(join(nestedRepository, "nested.txt"), "nested repository\n");
+  execFileSync("git", ["add", "nested.txt"], { cwd: nestedRepository });
+  execFileSync("git", ["commit", "--quiet", "-m", "nested baseline"], { cwd: nestedRepository });
+};
+
 const createPrOutputs = (repository: string) => {
+  createNestedRepository(repository);
   writeFileSync(join(repository, "unchanged.txt"), "keep out\n");
   writeFileSync(join(repository, "updated output.txt"), "before\n");
   writeFileSync(join(repository, "mode output.sh"), "same contents\n");
@@ -145,14 +167,27 @@ const readStagedPaths = (repository: string, indexFile: string): string[] => {
   return stagedPaths;
 };
 
-const runSecurityGate = (actionYml: string, mode: string, autoFix: string, updated: string) => {
+type SecurityGateArguments = {
+  mode: string;
+  autoFix: string;
+  updated: string;
+  securityFixesApplied: string;
+};
+
+const createSecurityGateEnvironment = (args: SecurityGateArguments) => {
   const env = Object.assign({}, process.env);
   env.HAS_SECURITY = "true";
   env.INPUT_FAIL_ON_SECURITY = "true";
-  env.INPUT_MODE = mode;
-  env.INPUT_AUTO_FIX = autoFix;
-  env.UPDATED = updated;
+  env.INPUT_MODE = args.mode;
+  env.INPUT_AUTO_FIX = args.autoFix;
+  env.UPDATED = args.updated;
+  env.SECURITY_FIXES_APPLIED = args.securityFixesApplied;
   env.SECURITY_COUNT = "1";
+  return env;
+};
+
+const runSecurityGate = (actionYml: string, args: SecurityGateArguments) => {
+  const env = createSecurityGateEnvironment(args);
   const shellArgs = ["-e", "-c", extractSecurityGate(actionYml)];
   const options = {
     encoding: "utf8",
@@ -186,19 +221,29 @@ describe("github action", () => {
 });
 
 test("allows an updated auto-fix PR through the security gate", () => {
-  const result = runSecurityGate(readAction(), "pr", "true", "true");
+  const args = { mode: "pr", autoFix: "true", updated: "true", securityFixesApplied: "true" };
+  const result = runSecurityGate(readAction(), args);
   assert.strictEqual(result.status, 0, result.stdout);
+});
+
+test("keeps the security gate when an updated PR applies no security fix", () => {
+  const args = { mode: "pr", autoFix: "true", updated: "true", securityFixesApplied: "false" };
+  const result = runSecurityGate(readAction(), args);
+  assert.strictEqual(result.status, 1);
 });
 
 test("keeps the security gate for non-PR and unchanged PR runs", () => {
   const actionYml = readAction();
-  const checkResult = runSecurityGate(actionYml, "check", "true", "true");
-  const unchangedPrResult = runSecurityGate(actionYml, "pr", "true", "false");
+  const validFix = { autoFix: "true", securityFixesApplied: "true" };
+  const checkArgs = Object.assign({}, validFix, { mode: "check", updated: "true" });
+  const unchangedPrArgs = Object.assign({}, validFix, { mode: "pr", updated: "false" });
+  const checkResult = runSecurityGate(actionYml, checkArgs);
+  const unchangedPrResult = runSecurityGate(actionYml, unchangedPrArgs);
   assert.strictEqual(checkResult.status, 1);
   assert.strictEqual(unchangedPrResult.status, 1);
 });
 
-test("stages changed untracked files and modes without adding unchanged paths", () => {
+test("stages changed files without including unchanged paths or nested repositories", () => {
   const repository = mkdtempSync(resolve(import.meta.dirname, "pr-stage-"));
   try {
     const { result, stagedPaths, originalIndex } = runPrStagingScenario(repository, readAction());
@@ -209,6 +254,7 @@ test("stages changed untracked files and modes without adding unchanged paths", 
       "package.json",
       "updated output.txt",
     ]);
+    assert.ok(!stagedPaths.includes("nested-repo"));
     assert.strictEqual(originalIndex, "");
   } finally {
     rmSync(repository, { recursive: true, force: true });

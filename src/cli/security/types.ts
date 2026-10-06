@@ -112,6 +112,7 @@ export type SecurityResultSummary = Pick<
 export type SecurityPhaseResult = {
   mergedOptions: Options;
   securityResult: SecurityResultSummary;
+  securityOverrides: SecurityOverride[];
   packagesScanned: number;
   bestCase?: PastoralistResult["bestCase"];
 };

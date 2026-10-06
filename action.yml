@@ -84,6 +84,9 @@ outputs:
   has-unused-overrides:
     description: "Whether unused overrides were detected (true/false)"
     value: ${{ steps.pastoralist.outputs.has-unused-overrides }}
+  security-fixes-applied:
+    description: "Whether every detected vulnerability received a new security override"
+    value: ${{ steps.pastoralist.outputs.security-fixes-applied }}
   updated:
     description: "Whether package.json was modified (true/false)"
     value: ${{ steps.pastoralist.outputs.updated }}
@@ -218,6 +221,7 @@ runs:
         if [ "$INPUT_MODE" = "pr" ]; then
           PASTORALIST_UNTRACKED_FILE="$RUNNER_TEMP/pastoralist-untracked-${GITHUB_RUN_ID:-0}-${GITHUB_RUN_ATTEMPT:-0}"
           PASTORALIST_BASELINE_TREE=$(git stash create 2>/dev/null || true)
+          set +e
           node <<'NODE' > "$PASTORALIST_UNTRACKED_FILE"
           const { execFileSync } = require("node:child_process");
           const { lstatSync, readFileSync, readlinkSync } = require("node:fs");
@@ -242,6 +246,7 @@ runs:
 
           const describeUntrackedPath = (path) => {
             const fileStats = lstatSync(path);
+            if (fileStats.isDirectory()) return undefined;
             const isSymbolicLink = fileStats.isSymbolicLink();
             const content = isSymbolicLink
               ? readlinkSync(path, { encoding: "buffer" })
@@ -259,12 +264,20 @@ runs:
             execFileSync("git", ["ls-files", "--others", "--exclude-standard", "-z"]),
           );
           const manifestFields = untrackedPaths.flatMap((path) => {
-            const { hash, mode } = describeUntrackedPath(path);
+            const fileEntry = describeUntrackedPath(path);
+            if (!fileEntry) return [];
+            const { hash, mode } = fileEntry;
             return [path, Buffer.from(mode), Buffer.from(hash)];
           });
           const delimitedFields = manifestFields.flatMap((field) => [field, Buffer.from([0])]);
           process.stdout.write(Buffer.concat(delimitedFields));
         NODE
+          SNAPSHOT_EXIT_CODE=$?
+          set -e
+          if [ "$SNAPSHOT_EXIT_CODE" -ne 0 ]; then
+            echo "::error::Could not snapshot pre-existing untracked files."
+            exit 1
+          fi
           echo "PASTORALIST_UNTRACKED_FILE=$PASTORALIST_UNTRACKED_FILE" >> "$GITHUB_ENV"
           echo "PASTORALIST_BASELINE_TREE=$PASTORALIST_BASELINE_TREE" >> "$GITHUB_ENV"
           echo "PASTORALIST_INDEX_FILE=$RUNNER_TEMP/pastoralist-index-${GITHUB_RUN_ID:-0}-${GITHUB_RUN_ATTEMPT:-0}" >> "$GITHUB_ENV"
@@ -299,6 +312,7 @@ runs:
         fi
 
         HAS_SECURITY=$(echo "$JSON_OUTPUT" | jq -r '.hasSecurityIssues // false')
+        SECURITY_FIXES_APPLIED=$(echo "$JSON_OUTPUT" | jq -r '.securityFixesApplied // false')
         HAS_UNUSED=$(echo "$JSON_OUTPUT" | jq -r '.hasUnusedOverrides // false')
         UPDATED=$(echo "$JSON_OUTPUT" | jq -r '.updated // false')
         SUCCESS=$(echo "$JSON_OUTPUT" | jq -r '.success // false')
@@ -308,6 +322,7 @@ runs:
 
         {
           echo "has-security-issues=$HAS_SECURITY"
+          echo "security-fixes-applied=$SECURITY_FIXES_APPLIED"
           echo "has-unused-overrides=$HAS_UNUSED"
           echo "updated=$UPDATED"
           echo "security-count=$SECURITY_COUNT"
@@ -339,12 +354,12 @@ runs:
         fi
 
         ALLOW_SECURITY_FIX_PR="false"
-        if [ "$INPUT_MODE" = "pr" ] && [ "$INPUT_AUTO_FIX" = "true" ] && [ "$UPDATED" = "true" ]; then
+        if [ "$INPUT_MODE" = "pr" ] && [ "$INPUT_AUTO_FIX" = "true" ] && [ "$UPDATED" = "true" ] && [ "$SECURITY_FIXES_APPLIED" = "true" ]; then
           ALLOW_SECURITY_FIX_PR="true"
         fi
 
         if [ "$HAS_SECURITY" = "true" ] && [ "$INPUT_FAIL_ON_SECURITY" = "true" ] && [ "$ALLOW_SECURITY_FIX_PR" != "true" ]; then
-          echo "::error::Security vulnerabilities detected ($SECURITY_COUNT). Run 'pastoralist --checkSecurity --forceSecurityRefactor' locally to fix."
+          echo "::error::Security vulnerabilities detected ($SECURITY_COUNT), but the PR does not apply a complete security fix. Run 'pastoralist --checkSecurity --forceSecurityRefactor' locally to fix."
           exit 1
         fi
 
@@ -366,7 +381,7 @@ runs:
       env:
         GH_TOKEN: ${{ inputs.github-token || github.token }}
         INPUT_BASE_REF: ${{ github.ref_name }}
-        INPUT_HAS_SECURITY: ${{ steps.pastoralist.outputs.has-security-issues }}
+        INPUT_SECURITY_FIXES_APPLIED: ${{ steps.pastoralist.outputs.security-fixes-applied }}
         INPUT_HAS_UNUSED: ${{ steps.pastoralist.outputs.has-unused-overrides }}
         INPUT_PR_BODY: ${{ inputs.pr-body }}
         INPUT_PR_BRANCH: ${{ inputs.pr-branch }}
@@ -433,6 +448,7 @@ runs:
         }
         const currentUntracked = execFileSync("git", ["ls-files", "--others", "--exclude-standard", "-z"]);
         const changedUntracked = splitNullDelimited(currentUntracked).filter((path) => {
+          if (lstatSync(path).isDirectory()) return false;
           const pathKey = path.toString("base64");
           const baseline = originalUntracked.get(pathKey);
           if (baseline === undefined) return true;
@@ -483,7 +499,7 @@ runs:
         - Updated dependency override tracking in \`package.json\`
         EOF
 
-          if [ "$INPUT_HAS_SECURITY" = "true" ]; then
+          if [ "$INPUT_SECURITY_FIXES_APPLIED" = "true" ]; then
             echo "- Applied security fixes for detected vulnerabilities" >> "$BODY_FILE"
           fi
 

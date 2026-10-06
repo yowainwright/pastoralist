@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildSecurityResult, renderSecurityFindings } from "../../../../src/cli/security/utils";
+import {
+  buildSecurityResult,
+  hasAppliedSecurityFixes,
+  renderSecurityFindings,
+} from "../../../../src/cli/security/utils";
 import { createMockTerminalGraph } from "../mocks";
 
 const lodashCves = ["CVE-2021-23337"];
@@ -22,6 +26,66 @@ const expectedAlert = Object.assign({}, lodashAlert, {
   patchedVersion: undefined,
   fixAvailable: undefined,
 });
+const fixableAlert = {
+  packageName: "lodash",
+  cves: lodashCves,
+  patchedVersion: "4.17.21",
+  fixAvailable: true,
+};
+const securityFix = {
+  packageName: "lodash",
+  fromVersion: "4.17.20",
+  toVersion: "4.17.21",
+  reason: "Security fix",
+  severity: "high",
+  cves: lodashCves,
+  patchedVersion: "4.17.21",
+};
+const securityDetail = {
+  packageName: "lodash",
+  reason: "Security fix",
+  cves: lodashCves,
+  patchedVersion: "4.17.21",
+};
+const scenarioAlerts = [fixableAlert];
+const scannedSecurityOverrides = [securityFix];
+const selectedSecurityOverrides = { lodash: "4.17.21" };
+const originalOverrides = {};
+const writtenOverrides = { lodash: "4.17.21" };
+const appliedSecurityDetails = [securityDetail];
+const securityResultScenario = { securityAlerts: scenarioAlerts };
+const mergedOptionsScenario = {
+  securityOverrides: selectedSecurityOverrides,
+  securityOverrideDetails: appliedSecurityDetails,
+};
+const overrideSourceScenario = { overrides: originalOverrides };
+const securityPhaseScenario = {
+  securityResult: securityResultScenario,
+  securityOverrides: scannedSecurityOverrides,
+  mergedOptions: mergedOptionsScenario,
+};
+const updateContextScenario = {
+  overrideSource: overrideSourceScenario,
+  finalOverrides: writtenOverrides,
+};
+const securityFixScenario = {
+  securityPhase: securityPhaseScenario,
+  updateContext: updateContextScenario,
+};
+type SecurityFixScenario = Parameters<typeof hasAppliedSecurityFixes>[0];
+type SecurityPhaseChanges = Partial<SecurityFixScenario["securityPhase"]>;
+type UpdateContextChanges = Partial<SecurityFixScenario["updateContext"]>;
+
+const checkSecurityFix = (
+  securityPhaseChanges: SecurityPhaseChanges = {},
+  updateContextChanges: UpdateContextChanges = {},
+): boolean => {
+  const securityPhase = Object.assign({}, securityPhaseScenario, securityPhaseChanges);
+  const updateContext = Object.assign({}, updateContextScenario, updateContextChanges);
+  const scenario = Object.assign({}, securityFixScenario, { securityPhase, updateContext });
+  const result = hasAppliedSecurityFixes(scenario);
+  return result;
+};
 
 test("buildSecurityResult transforms alerts correctly", () => {
   const result = buildSecurityResult(alerts);
@@ -42,6 +106,36 @@ test("buildSecurityResult handles missing severity with default", () => {
   const missingSeverity = [{ packageName: "test-pkg" }];
   const result = buildSecurityResult(missingSeverity);
   assert.strictEqual(result.securityAlerts[0].severity, "unknown");
+});
+
+test("recognizes a newly applied security override for each alert", () => {
+  assert.strictEqual(checkSecurityFix(), true);
+});
+
+test("rejects a security override that was already present", () => {
+  const existingSecurityOverride = { lodash: "4.17.21" };
+  const existingOverrideSource = Object.assign({}, overrideSourceScenario, {
+    overrides: existingSecurityOverride,
+  });
+  const updateContextChanges = { overrideSource: existingOverrideSource };
+  assert.strictEqual(checkSecurityFix({}, updateContextChanges), false);
+});
+
+test("rejects a security target that remains vulnerable", () => {
+  const unsafeFix = Object.assign({}, securityFix, { targetStillVulnerable: true });
+  const unsafeCandidates = [unsafeFix];
+  const securityPhaseChanges = { securityOverrides: unsafeCandidates };
+  assert.strictEqual(checkSecurityFix(securityPhaseChanges), false);
+});
+
+test("rejects an alert without an available fix", () => {
+  const unfixableAlert = Object.assign({}, fixableAlert, { fixAvailable: false });
+  const unfixableAlerts = [unfixableAlert];
+  const securityResult = Object.assign({}, securityPhaseScenario.securityResult, {
+    securityAlerts: unfixableAlerts,
+  });
+  const securityPhaseChanges = { securityResult };
+  assert.strictEqual(checkSecurityFix(securityPhaseChanges), false);
 });
 
 test("renderSecurityFindings displays alerts and the scan count", (t) => {

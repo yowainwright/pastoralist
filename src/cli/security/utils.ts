@@ -1,5 +1,6 @@
 import type {
   Options,
+  OverridesType,
   PastoralistJSON,
   RemovalVerification,
   SecurityAlert,
@@ -440,6 +441,73 @@ export const buildSecurityResult = (alerts: SecurityAlert[]): SecurityResultSumm
   const { length: securityAlertCount } = alerts;
   const securityAlerts = alerts.map(toSecurityAlertSummary);
   const result = { hasSecurityIssues, securityAlertCount, securityAlerts };
+  return result;
+};
+
+type SecurityFixIdentity = Pick<SecurityAlert, "packageName" | "cves" | "patchedVersion">;
+type SecurityAlertFixSummary = SecurityFixIdentity & { fixAvailable?: boolean };
+type SecurityFixWorkflow = {
+  securityPhase: {
+    securityResult: Pick<SecurityResultSummary, "securityAlerts">;
+    securityOverrides: SecurityOverride[];
+    mergedOptions: Pick<Options, "securityOverrides" | "securityOverrideDetails">;
+  };
+  updateContext: {
+    overrideSource?: { overrides: OverridesType };
+    finalOverrides?: OverridesType;
+  };
+};
+
+const matchesSecurityFix = (alert: SecurityFixIdentity, fix: SecurityFixIdentity): boolean => {
+  if (alert.packageName !== fix.packageName) return false;
+  const sharesCve = alert.cves?.some((cve) => fix.cves?.includes(cve)) ?? false;
+  const sharesPatchedVersion = Boolean(
+    alert.patchedVersion && alert.patchedVersion === fix.patchedVersion,
+  );
+  const result = sharesCve || sharesPatchedVersion;
+  return result;
+};
+
+const findSafeSecurityFix = (
+  alert: SecurityAlertFixSummary,
+  workflow: SecurityFixWorkflow,
+): SecurityOverride | undefined => {
+  const candidate = workflow.securityPhase.securityOverrides.find((fix) =>
+    matchesSecurityFix(alert, fix),
+  );
+  if (!candidate) return undefined;
+  const hasSafeTarget = !candidate.targetStillVulnerable;
+  if (!hasSafeTarget) return undefined;
+  const hasAppliedDetail = workflow.securityPhase.mergedOptions.securityOverrideDetails?.some(
+    (detail) => matchesSecurityFix(alert, detail),
+  );
+  if (!hasAppliedDetail) return undefined;
+  return candidate;
+};
+
+const hasNewSecurityFixForAlert = (
+  alert: SecurityAlertFixSummary,
+  workflow: SecurityFixWorkflow,
+): boolean => {
+  const hasAvailablePatch = Boolean(alert.fixAvailable && alert.patchedVersion);
+  if (!hasAvailablePatch) return false;
+  const candidate = findSafeSecurityFix(alert, workflow);
+  if (!candidate) return false;
+  const generatedVersionMatches =
+    workflow.securityPhase.mergedOptions.securityOverrides?.[alert.packageName] ===
+    candidate.toVersion;
+  const finalVersionMatches =
+    workflow.updateContext.finalOverrides?.[alert.packageName] === candidate.toVersion;
+  const overrideIsNew =
+    workflow.updateContext.overrideSource?.overrides[alert.packageName] !== candidate.toVersion;
+  const result = generatedVersionMatches && finalVersionMatches && overrideIsNew;
+  return result;
+};
+
+export const hasAppliedSecurityFixes = (workflow: SecurityFixWorkflow): boolean => {
+  const alerts = workflow.securityPhase.securityResult.securityAlerts ?? [];
+  if (alerts.length === 0) return false;
+  const result = alerts.every((alert) => hasNewSecurityFixForAlert(alert, workflow));
   return result;
 };
 

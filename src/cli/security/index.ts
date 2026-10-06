@@ -575,7 +575,8 @@ const persistUserOwnedOverrides = (
 
 const createSkippedSecurityPhase = (mergedOptions: Options): SecurityPhaseResult => {
   const securityResult = createEmptySecurityResult();
-  const phase = { mergedOptions, securityResult, packagesScanned: 0, bestCase: undefined };
+  const securityOverrides: SecurityOverride[] = [];
+  const phase = { mergedOptions, securityResult, securityOverrides, packagesScanned: 0 };
   return phase;
 };
 
@@ -638,10 +639,18 @@ const runEnabledSecurityPhase = async (
   const securityResult = buildSecurityResult(result.alerts);
   const nextOptions = await resolveSecurityPhaseOptions(config, mergedOptions, result, deps);
   renderSecurityPhaseResult(graph, result, nextOptions, isJsonOutput);
-  const bestCase = toBestCaseSummary(result.bestCase);
-  const { packagesScanned } = result;
+  const phase = buildEnabledSecurityPhase(nextOptions, securityResult, result);
+  return phase;
+};
 
-  const phase = { mergedOptions: nextOptions, securityResult, packagesScanned, bestCase };
+const buildEnabledSecurityPhase = (
+  mergedOptions: Options,
+  securityResult: SecurityResultSummary,
+  scanResult: Awaited<ReturnType<typeof runSecurityCheck>>,
+): SecurityPhaseResult => {
+  const { securityOverrides, packagesScanned } = scanResult;
+  const bestCase = toBestCaseSummary(scanResult.bestCase);
+  const phase = { mergedOptions, securityResult, securityOverrides, packagesScanned, bestCase };
   return phase;
 };
 

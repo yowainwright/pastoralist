@@ -1,0 +1,74 @@
+{
+  "context": {
+    "packageName": "shepherd-cli",
+    "dependencies": {
+      "express": "4.18.2"
+    },
+    "overrides": {
+      "qs": "6.11.2"
+    },
+    "dependencyTree": {
+      "express": "4.18.2",
+      "qs": "6.11.2"
+    },
+    "dependencyGraph": {
+      "qs": ["express"]
+    },
+    "addedDate": "2026-10-16"
+  },
+  "before": {
+    "name": "shepherd-cli",
+    "dependencies": {
+      "express": "4.18.2"
+    },
+    "overrides": {
+      "qs": "6.11.2"
+    }
+  },
+  "after": {
+    "name": "shepherd-cli",
+    "dependencies": {
+      "express": "4.18.2"
+    },
+    "overrides": {
+      "qs": "6.11.2"
+    },
+    "pastoralist": {
+      "appendix": {
+        "qs@6.11.2": {
+          "dependents": {
+            "shepherd-cli": "qs (required by express)"
+          },
+          "ledger": {
+            "addedDate": "2026-10-16"
+          }
+        }
+      }
+    }
+  },
+  "cleanupBefore": {
+    "name": "shepherd-cli",
+    "overrides": {
+      "qs": "6.11.2"
+    },
+    "pastoralist": {
+      "appendix": {
+        "qs@6.11.2": {
+          "dependents": {
+            "shepherd-cli": "qs (required by express)"
+          },
+          "ledger": {
+            "addedDate": "2026-10-16"
+          }
+        }
+      }
+    }
+  },
+  "cleanupAfter": {
+    "name": "shepherd-cli",
+    "overrides": {}
+  },
+  "cleanupAppendix": {},
+  "trackingDiff": "--- package.json\n+++ package.json\n@@ -5,5 +5,17 @@\n   },\n   \"overrides\": {\n     \"qs\": \"6.11.2\"\n+  },\n+  \"pastoralist\": {\n+    \"appendix\": {\n+      \"qs@6.11.2\": {\n+        \"dependents\": {\n+          \"shepherd-cli\": \"qs (required by express)\"\n+        },\n+        \"ledger\": {\n+          \"addedDate\": \"2026-10-16\"\n+        }\n+      }\n+    }\n   }\n }",
+  "cleanupDiff": "--- package.json\n+++ package.json\n@@ -1,18 +1,4 @@\n {\n   \"name\": \"shepherd-cli\",\n-  \"overrides\": {\n-    \"qs\": \"6.11.2\"\n-  },\n-  \"pastoralist\": {\n-    \"appendix\": {\n-      \"qs@6.11.2\": {\n-        \"dependents\": {\n-          \"shepherd-cli\": \"qs (required by express)\"\n-        },\n-        \"ledger\": {\n-          \"addedDate\": \"2026-10-16\"\n-        }\n-      }\n-    }\n-  }\n+  \"overrides\": {}\n }"
+}

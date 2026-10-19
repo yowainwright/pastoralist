@@ -6,9 +6,11 @@ import { parseInlineCode } from "./utils";
 import { HEADING_SELECTORS } from "./constants";
 
 const BASE_LINK_CLASSES =
-  "block text-sm transition-colors border-l-2 pl-4 -ml-0.5 font-spline-sans-mono";
-const ACTIVE_CLASSES = "text-[#1D4ED8] font-medium border-[#1D4ED8]";
-const INACTIVE_CLASSES = "hover:text-[#1D4ED8] border-transparent";
+  "block break-words text-base transition-colors border-l-2 pl-4 font-spline-sans-mono";
+const TOC_CLASSES =
+  "sticky top-[68px] max-h-[calc(100vh-68px)] w-full min-w-0 max-w-xs overflow-y-auto pt-2";
+const ACTIVE_CLASSES = "text-navigation font-medium border-navigation";
+const INACTIVE_CLASSES = "hover:text-navigation border-transparent";
 
 function getLinkClasses(isActive: boolean, isSubheading = false) {
   const baseOpacity = isSubheading ? "text-base-content/60" : "text-base-content/70";
@@ -48,7 +50,7 @@ export function TocWithScrollspy({ headings, contentRef }: TocWithScrollspyProps
   if (toc.length === 0) return null;
 
   return (
-    <nav className="sticky top-28 w-64" aria-label="Table of contents">
+    <nav className={TOC_CLASSES} aria-label="Table of contents">
       <TocHeader />
       <TocList toc={toc} activeId={activeId} onClickLink={handleClick} />
     </nav>
@@ -57,7 +59,7 @@ export function TocWithScrollspy({ headings, contentRef }: TocWithScrollspyProps
 
 function TocHeader() {
   return (
-    <h2 className="mb-3 text-xs font-semibold text-base-content/60 uppercase tracking-wider font-spline-sans-mono">
+    <h2 className="mb-3 py-1.5 text-sm font-semibold text-base-content/60 uppercase tracking-wider font-spline-sans-mono">
       On this page
     </h2>
   );
@@ -129,7 +131,7 @@ function TocLink({ slug, text, isActive, isSubheading = false, onClickLink }: To
     >
       {parts.map((part, i) =>
         part.isCode ? (
-          <code key={i} className="text-xs px-1 py-0.5 rounded bg-base-content/10">
+          <code key={i} className="text-sm px-1 py-0.5 rounded bg-base-content/10">
             {part.text}
           </code>
         ) : (

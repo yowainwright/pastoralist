@@ -209,6 +209,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      codehike:
+        specifier: 1.1.0
+        version: 1.1.0(supports-color@10.2.2)
       effect:
         specifier: ^3.21.2
         version: 3.22.1
@@ -489,6 +492,9 @@ packages:
 
   '@chevrotain/utils@11.1.2':
     resolution: {integrity: sha512-4mudFAQ6H+MqBTfqLmU7G1ZwRzCLfJEooL/fsF6rCX5eePMbGhoy5n4g+G4vlh2muDcsCTJtL+uKbOzWxs5LHA==}
+
+  '@code-hike/lighter@1.0.1':
+    resolution: {integrity: sha512-mccvcsk5UTScRrE02oBz1/qzckyhD8YE3VQlQv++2bSVVZgNuCUX8MpokSCi5OmfRAAxbj6kmNiqq1Um8eXPrw==}
 
   '@dotenvx/dotenvx@1.75.1':
     resolution: {integrity: sha512-/BITOC9dmS/edY2zQwZNicQ059O6RKabtQfyEafV0nGtfYRNHYy1DIPiYVcov40+tob9hfmBnbR963dS+EQ1DQ==}
@@ -1374,6 +1380,9 @@ packages:
     resolution: {integrity: sha512-Bq3SmSpyFHaWjPk8If9yc6svM8c56dB5BAtW4Qbw5jHTwwXXcTLoRMkpDJp6VL0XzlWaCHTXrkFURMYmD0sLqg==}
     engines: {node: '>=12'}
 
+  ansi-sequence-parser@1.1.1:
+    resolution: {integrity: sha512-vJXt3yiaUL4UU546s3rPXlsry/RnM730G1+HkpKE012AN0sx1eOrxSu95oKDIonskeLTijMgqWZ3uDEe3NFvyg==}
+
   argparse@2.0.1:
     resolution: {integrity: sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==}
 
@@ -1490,6 +1499,9 @@ packages:
 
   code-block-writer@13.0.3:
     resolution: {integrity: sha512-Oofo0pq3IKnsFtuHqSF7TqBfr71aeyZDVJ0HpmqB7FBM2qEigL0iPONSCZSO9pE9dZTAxANe5XHG9Uy0YMv8cg==}
+
+  codehike@1.1.0:
+    resolution: {integrity: sha512-hOxqmTHjiOxhlcVEuDTCoAQ8TW358HVrNKlOwuKcnbwkuTpbGtwj5TnQ7AZjnZiQvJ3LeXohrd1E7qfYYN0Rdg==}
 
   collapse-white-space@2.1.0:
     resolution: {integrity: sha512-loKTxY1zCOuG4j9f6EPnuyyYkf58RnhhWTvRoZEokgB+WbdXehfjFviyOVYkqzEWz1Q5kRiZdBYS5SwxbQYwzw==}
@@ -1800,6 +1812,10 @@ packages:
 
   devlop@1.1.0:
     resolution: {integrity: sha512-RWmIqhcFf1lRYBvNmr7qTNuyCt/7/ns2jbpp1+PalgE/rDQcBT0fioSMUpJ93irlUhC5hrg4cYqe6U+0ImW0rA==}
+
+  diff@5.2.2:
+    resolution: {integrity: sha512-vtcDfH3TOjP8UekytvnHH1o1P4FcUdt4eQ1Y+Abap1tk/OB2MWQvcwS2ClCd1zuIhc3JKOx6p3kod8Vfys3E+A==}
+    engines: {node: '>=0.3.1'}
 
   diff@8.0.4:
     resolution: {integrity: sha512-DPi0FmjiSU5EvQV0++GFDOJ9ASQUVFh5kD+OzOnYdi7n3Wpm9hWWGfB/O2blfHcMVTL5WkQXSnRiK9makhrcnw==}
@@ -3802,6 +3818,10 @@ snapshots:
 
   '@chevrotain/utils@11.1.2': {}
 
+  '@code-hike/lighter@1.0.1':
+    dependencies:
+      ansi-sequence-parser: 1.1.1
+
   '@dotenvx/dotenvx@1.75.1':
     dependencies:
       '@dotenvx/primitives': 0.8.0
@@ -4537,6 +4557,8 @@ snapshots:
 
   ansi-regex@6.2.2: {}
 
+  ansi-sequence-parser@1.1.1: {}
+
   argparse@2.0.1: {}
 
   ast-types@0.16.1:
@@ -4644,6 +4666,14 @@ snapshots:
   clsx@2.1.1: {}
 
   code-block-writer@13.0.3: {}
+
+  codehike@1.1.0(supports-color@10.2.2):
+    dependencies:
+      '@code-hike/lighter': 1.0.1
+      diff: 5.2.2
+      estree-util-visit: 2.0.0
+      mdast-util-mdx-jsx: 3.2.0(supports-color@10.2.2)
+      unist-util-visit: 5.1.0
 
   collapse-white-space@2.1.0: {}
 
@@ -4949,6 +4979,8 @@ snapshots:
   devlop@1.1.0:
     dependencies:
       dequal: 2.0.3
+
+  diff@5.2.2: {}
 
   diff@8.0.4: {}
 

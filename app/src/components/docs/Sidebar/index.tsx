@@ -84,7 +84,7 @@ function SidebarToggle({ title, isOpen, onToggle }: SidebarToggleProps) {
   const chevronClassName = `w-4 h-4 transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`;
   return (
     <button
-      className="sidebar-toggle w-full flex items-center justify-between px-2 py-1.5 text-xs font-semibold text-base-content/70 uppercase tracking-normal font-spline-sans-mono hover:text-base-content transition-colors"
+      className="sidebar-toggle w-full flex items-center justify-between px-2 py-1.5 text-sm font-semibold text-base-content/70 uppercase tracking-normal font-spline-sans-mono hover:text-base-content transition-colors"
       aria-expanded={isOpen}
       onClick={onToggle}
     >
@@ -109,10 +109,10 @@ function SidebarLink({ item, pathname }: SidebarLinkProps) {
         to="/docs/$slug/"
         params={{ slug }}
         preload="intent"
-        className={`block ml-0 pl-4 pr-3 py-2 text-sm transition-colors relative ${
+        className={`block ml-0 pl-4 pr-3 py-2 text-base transition-colors relative ${
           isActive
-            ? "text-[#1D4ED8] bg-[#1D4ED8]/10 font-medium before:absolute before:left-[-2px] before:top-0 before:bottom-0 before:w-0.5 before:bg-[#1D4ED8]"
-            : "text-base-content/80 hover:text-[#1D4ED8] hover:bg-base-content/5"
+            ? "text-navigation bg-navigation/10 font-medium before:absolute before:left-[-2px] before:top-0 before:bottom-0 before:w-0.5 before:bg-navigation"
+            : "text-base-content/80 hover:text-navigation hover:bg-base-content/5"
         }`}
       >
         <span className="flex items-center justify-between">{item.title}</span>

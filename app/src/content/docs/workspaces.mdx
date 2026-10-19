@@ -1,36 +1,19 @@
 ---
 title: Workspaces & Monorepos
-description: Using pastoralist in workspace and monorepo environments
+description: Track root overrides and the workspace packages that need them
 ---
 
-Pastoralist works with workspace and monorepo setups. It tracks root-level
-overrides and shows which workspace packages depend on them.
+Pastoralist tracks root overrides and reads workspace manifests to identify
+which packages depend on each overridden dependency.
 
-<a
-  href="https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/monorepo?title=Pastoralist%20Monorepo&file=README.md&startScript=demo&view=editor"
-  target="_blank"
-  rel="noopener noreferrer"
->
-  <img src="https://developer.stackblitz.com/img/open_in_stackblitz.svg" alt="Open in StackBlitz" />
-</a>
+## Root Overrides
 
-## How Pastoralist Works in Workspaces
+npm reads overrides only from the root `package.json`. Overrides in workspace
+packages do not affect npm's dependency resolution.
+See [npm's override rules](https://docs.npmjs.com/cli/v11/configuring-npm/package-json/#overrides).
 
-Pastoralist updates one target `package.json`, usually the workspace root. When
-`depPaths` is set, it reads workspace package manifests, so the root appendix
-can show which packages still need each override.
-
-You can also run it against an individual workspace package with `--path` when
-that package owns its own override field.
-
-## Configuration Methods
-
-Pastoralist can configure workspace scanning in three ways:
-
-### Method 1: depPaths in package.json
-
-Configure dependency paths directly in your `package.json` for workspace
-tracking:
+Keep shared overrides at the root and use `depPaths` to include workspace
+dependency context:
 
 ```json title="package.json"
 {
@@ -41,344 +24,141 @@ tracking:
   },
   "pastoralist": {
     "depPaths": "workspace"
-  },
-  "scripts": {
-    "postinstall": "pastoralist"
   }
 }
 ```
 
-**Using `"workspace"` string** - Pastoralist uses all packages defined in your `workspaces` field. The appendix only appears in the root; workspace packages stay clean.
-
-**Using array of paths** - Specify custom paths to scan:
-
-```json title="package.json" {3}
-{
-  "pastoralist": {
-    "depPaths": ["packages/app-a/package.json", "packages/app-b/package.json"]
-  }
-}
-```
-
-After running `pastoralist`, your root package.json will contain:
-
-```json title="package.json" /appendix/
-{
-  "overrides": {
-    "lodash": "4.17.21"
-  },
-  "pastoralist": {
-    "depPaths": "workspace",
-    "appendix": {
-      "lodash@4.17.21": {
-        "dependents": {
-          "app-a": "lodash@^4.17.0",
-          "app-b": "lodash@^4.17.0",
-          "package-c": "lodash@^4.17.0"
-        },
-        "ledger": {
-          "addedDate": "2026-05-30T00:00:00.000Z",
-          "source": "manual"
-        }
-      }
-    }
-  }
-}
-```
-
-The workspace packages (`packages/*/package.json` and `apps/*/package.json`) remain clean without any pastoralist appendix.
-
-### Method 2: CLI depPaths Flag
-
-Specify paths at runtime:
+Run Pastoralist from the root:
 
 ```bash
-# Scan specific paths
-pastoralist --depPaths "packages/*/package.json" "apps/*/package.json"
-
-# CLI flags override package.json configuration
-pastoralist --depPaths "packages/app-a/package.json"
+npx pastoralist
 ```
 
-### Method 3: Guided Configuration
+Pastoralist reads workspace manifests to find dependents and writes the
+appendix to the configured target, usually the root manifest.
 
-Pastoralist offers guided configuration for monorepo setups:
+## Dependency Paths
 
-```bash
-# Initialize with guided setup
-pastoralist init
-```
+`"workspace"` and `"workspaces"` read workspace patterns from both
+`package.json#workspaces` and `pnpm-workspace.yaml`.
+Yarn's `workspaces: { "packages": [...] }` form is also supported.
 
-The initializer can:
-
-- Detect `workspaces` entries from `package.json`
-- Let you choose `depPaths: "workspace"` or custom package globs
-- Save configuration to `package.json` or a supported config file
-- Optionally configure security scanning
-
-## Basic Usage
-
-### Running on Root Package
-
-```bash
-# Run on the root package.json
-pastoralist
-```
-
-This manages overrides in your root `package.json`, which affect all workspaces.
-
-### Running on Workspace Packages
-
-```bash
-# Run on a specific workspace package
-pastoralist --path packages/app-a/package.json
-
-# Or navigate to the package
-cd packages/app-a
-pastoralist
-```
-
-## Common Patterns
-
-### Pattern 1: Root-Level Overrides
-
-Most monorepos use root-level overrides that apply to all workspaces:
+For other layouts, configure explicit manifest globs:
 
 ```json title="package.json"
 {
-  "name": "my-monorepo",
-  "workspaces": ["packages/*"],
-  "overrides": {
-    "lodash": "4.17.21",
-    "react": "18.2.0"
+  "pastoralist": {
+    "depPaths": ["packages/*/package.json", "apps/*/package.json"]
   }
 }
 ```
 
-Run pastoralist at the root:
+Or pass them for one run:
 
 ```bash
-pastoralist
+npx pastoralist --depPaths "packages/*/package.json" "apps/*/package.json"
 ```
 
-### Pattern 2: Package-Specific Overrides
+CLI paths take precedence over configured paths. Use `--ignore` to exclude
+generated or vendored manifests.
 
-Some packages may need their own overrides:
+## pnpm Workspaces
 
-```json title="package.json"
-{
-  "name": "legacy-app",
-  "overrides": {
-    "react": "17.0.2"
-  }
-}
-```
-
-Run pastoralist for this package:
-
-```bash
-pastoralist --path packages/legacy-app/package.json
-```
-
-### Pattern 3: Automated Workspace Management
-
-Most workspaces should avoid running Pastoralist separately in every package.
-Keep shared overrides at the root and let `depPaths` read workspace manifests:
-
-```json title="package.json" {4}
-{
-  "workspaces": ["packages/*", "apps/*"],
-  "pastoralist": {
-    "depPaths": "workspace"
-  },
-  "scripts": {
-    "pastoralist": "pastoralist"
-  }
-}
-```
-
-Use `--path` only for workspace packages that intentionally own their own
-override field.
-
-## Integration Strategies
-
-### Strategy 1: Centralized Management with depPaths
-
-Keep all overrides in the root `package.json` and use `depPaths` configuration:
-
-```json title="package.json"
-{
-  "workspaces": ["packages/*", "apps/*"],
-  "overrides": {
-    "lodash": "4.17.21"
-  },
-  "pastoralist": {
-    "depPaths": "workspace"
-  },
-  "scripts": {
-    "postinstall": "pastoralist"
-  }
-}
-```
-
-### Strategy 2: Distributed Management
-
-Allow packages to manage their own overrides only when those overrides are
-package-specific:
-
-```json title="package.json" {3}
-{
-  "overrides": {
-    "react": "17.0.2"
-  },
-  "scripts": {
-    "pastoralist": "pastoralist --path package.json"
-  }
-}
-```
-
-### Strategy 3: Hybrid Approach
-
-Combine root overrides with package-specific ones:
-
-Root overrides can hold shared security patches:
-
-```json title="package.json" {3}
-{
-  "overrides": {
-    "minimist": "1.2.8"
-  }
-}
-```
-
-Package overrides can hold feature-specific constraints:
-
-```json title="package.json" {3}
-{
-  "overrides": {
-    "react": "17.0.2"
-  }
-}
-```
-
-## Package Manager Examples
-
-### npm Workspaces
-
-```json title="package.json" {5}
-{
-  "name": "my-npm-workspace",
-  "workspaces": ["packages/*", "apps/*"],
-  "pastoralist": {
-    "depPaths": "workspace"
-  },
-  "scripts": {
-    "check-overrides": "pastoralist --dry-run"
-  }
-}
-```
-
-### pnpm Workspace
+pnpm 11+ stores overrides in the root `pnpm-workspace.yaml`:
 
 ```yaml title="pnpm-workspace.yaml"
 packages:
   - "packages/*"
   - "apps/*"
+overrides:
+  lodash: "4.17.21"
 ```
 
-```json title="package.json" {3}
+Configure Pastoralist in `package.json`:
+
+```json title="package.json"
 {
+  "packageManager": "pnpm@11.0.0",
   "pastoralist": {
     "depPaths": "workspace"
-  },
-  "scripts": {
-    "check-overrides": "pastoralist --dry-run"
   }
 }
 ```
 
-### Yarn Workspaces
+Pastoralist selects the YAML override source when it already contains
+overrides or the declared or lockfile-resolved pnpm version is 11 or newer.
+For earlier pnpm versions, it also supports `package.json#pnpm.overrides`.
 
-```json title="package.json" {7}
+If the pnpm version cannot be resolved, pin an exact `packageManager`
+version or set `pastoralist.overrideSource` explicitly.
+
+## Yarn Workspaces
+
+Keep resolutions at the root:
+
+```json title="package.json"
 {
   "private": true,
   "workspaces": {
     "packages": ["packages/*"]
   },
+  "resolutions": {
+    "lodash": "4.17.21"
+  },
   "pastoralist": {
     "depPaths": "workspace"
-  },
-  "scripts": {
-    "check-overrides": "pastoralist --dry-run"
   }
 }
 ```
 
-## Best Practices
+## Parent-Specific npm Overrides
 
-### CI Integration
+Use a nested root override when a transitive dependency needs a version
+under one parent:
 
-Ensure overrides are valid in CI:
+```json title="package.json"
+{
+  "overrides": {
+    "pg": {
+      "pg-types": "^4.0.1"
+    }
+  }
+}
+```
+
+`--path` selects a manifest in another project. It does not make npm honor
+overrides inside a workspace package.
+
+## Security Checks
+
+Workspace paths configured through `depPaths` are included when security
+scanning is enabled. `--hasWorkspaceSecurityChecks` also enables discovered
+workspace paths:
+
+```bash
+npx pastoralist --checkSecurity --hasWorkspaceSecurityChecks --dry-run
+```
+
+See [Security](/docs/security) for providers and fix options.
+
+## CI
+
+Check tracking without writing files:
 
 ```yaml
-- name: Validate overrides
-  run: |
-    npx pastoralist
-    git diff --exit-code package.json
+- uses: yowainwright/pastoralist@v1
+  with:
+    mode: check
+    check-security: false
+    fail-on-unused: true
+    dep-paths: "packages/*/package.json apps/*/package.json"
 ```
 
 ## Troubleshooting
 
-### Issue: Overrides Not Applied
+If an override appears unused, confirm that `depPaths` includes the
+manifests that depend on it. Use explicit globs to narrow large scans and
+`--debug` to inspect dependency resolution.
 
-**Symptom:** Workspace packages don't respect root overrides
-
-**Solution:** Use a package manager that supports workspace overrides:
-
-- npm 8.3+ ✅
-- yarn 1.x (use resolutions) ✅
-- pnpm (use pnpm.overrides) ✅
-
-### Issue: Duplicate Appendix Entries
-
-**Symptom:** Same override tracked in multiple package.json files
-
-**Solution:** If the override is shared, move it to the root package and use
-`depPaths: "workspace"`. If each package owns a different override, separate
-appendixes are expected.
-
-### Issue: Performance in Large Monorepos
-
-**Symptom:** Pastoralist takes long to run across many packages
-
-**Solution:** First prefer `depPaths: "workspace"` so one root run reads the
-workspace manifests. If you must scan packages individually, make sure your file
-search excludes `node_modules`:
-
-```bash
-# Using GNU parallel for package-owned override fields
-find . -name "node_modules" -prune -o -name "package.json" -print | \
-  parallel "pastoralist --path {}"
-```
-
-## Migration Guide
-
-### Moving to Centralized Overrides
-
-1. Collect all overrides:
-
-```bash
-find . -name "package.json" -not -path "*/node_modules/*" \
-  -exec jq '.overrides // {}' {} \; | jq -s 'add'
-```
-
-2. Add to root package.json
-3. Remove from individual packages
-4. Run pastoralist at root
-
-### Splitting Overrides
-
-1. Identify package-specific needs
-2. Move relevant overrides to packages
-3. Run pastoralist on each package
-4. Update CI scripts
+If multiple appendixes describe the same shared override, run Pastoralist
+once at the root with workspace paths configured.

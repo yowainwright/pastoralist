@@ -3,8 +3,8 @@ title: Configuration
 description: Learn how to configure Pastoralist using config files or package.json
 ---
 
-Start small for most projects. Enable workspace scanning only if you have
-workspaces, and security checks only where you want advisory data.
+CLI flags take precedence over `package.json` settings, which take precedence
+over external config files. Security settings are deep merged across sources.
 
 ## Configuration Files
 
@@ -35,15 +35,11 @@ Use `pastoralist.json`, not `.pastoralist.json`.
 
 #### Minimal Configuration
 
-Enable security checks with defaults:
+Enable security checks with OSV:
 
 ```json
 {
-  "checkSecurity": true,
-  "depPaths": "workspace",
-  "security": {
-    "provider": "osv"
-  }
+  "checkSecurity": true
 }
 ```
 
@@ -140,16 +136,18 @@ Effective configuration:
 
 ### Top-Level Options
 
-| Option            | Type                                          | Description                                                                                                                           |
-| ----------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `checkSecurity`   | `boolean`                                     | Enable security vulnerability scanning                                                                                                |
-| `compactAppendix` | `boolean`                                     | Collapse routine appendix entries to `{ addedDate }`; entries with security info, patches, or active `keep` constraints stay expanded |
-| `depPaths`        | `"workspace"` \| `"workspaces"` \| `string[]` | Paths to scan for dependencies in monorepos                                                                                           |
-| `appendix`        | `object`                                      | Auto-generated dependency tracking (managed by Pastoralist)                                                                           |
-| `overridePaths`   | `object`                                      | Manual override tracking for specific paths                                                                                           |
-| `resolutionPaths` | `object`                                      | Manual resolution tracking for specific paths                                                                                         |
-| `bestCase`        | `object`                                      | Opt-in dependency-portfolio optimization policy                                                                                       |
-| `security`        | `object`                                      | Security scanning configuration                                                                                                       |
+| Option            | Type                                          | Description                                                                                                               |
+| ----------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `checkSecurity`   | `boolean`                                     | Enable security vulnerability scanning                                                                                    |
+| `compactAppendix` | `boolean`                                     | Collapse routine appendix entries to `{ addedDate }`; reasons, security data, patches, and keep constraints stay expanded |
+| `depPaths`        | `"workspace"` \| `"workspaces"` \| `string[]` | Paths to scan for dependencies in monorepos                                                                               |
+| `overrideSource`  | `string`                                      | JSON or YAML file containing package-manager overrides                                                                    |
+| `appendixSource`  | `string`                                      | JSON file or `.pastoralistrc` receiving the appendix                                                                      |
+| `appendix`        | `object`                                      | Auto-generated dependency tracking (managed by Pastoralist)                                                               |
+| `overridePaths`   | `object`                                      | Manual override tracking for specific paths                                                                               |
+| `resolutionPaths` | `object`                                      | Manual resolution tracking for specific paths                                                                             |
+| `bestCase`        | `object`                                      | Opt-in dependency-portfolio optimization policy                                                                           |
+| `security`        | `object`                                      | Security scanning configuration                                                                                           |
 
 ### Security Configuration
 
@@ -165,13 +163,15 @@ The `security` object supports the following options:
 | `severityThreshold`          | `"low"` \| `"medium"` \| `"high"` \| `"critical"`                                   | Minimum severity level to report                                                                                                                            |
 | `excludePackages`            | `string[]`                                                                          | Packages to exclude from security checks                                                                                                                    |
 | `hasWorkspaceSecurityChecks` | `boolean`                                                                           | Include workspace packages in security scans                                                                                                                |
+| `preferLatest`               | `boolean`                                                                           | Prefer the latest candidate without reported vulnerabilities over the minimum patched version                                                               |
 | `strict`                     | `boolean`                                                                           | Fail when a security provider cannot complete                                                                                                               |
 
 ### Best-Case Portfolio Configuration
 
-Enable `bestCase` when package fixes must be chosen as one portfolio instead
-of independently. Pastoralist evaluates complete version combinations so a fix
-for one package cannot hide a vulnerability introduced elsewhere.
+Enable `bestCase` to rank candidate version combinations under one policy.
+The built-in evaluator checks advisory data for the candidate state; it does
+not materialize a lockfile or resolve peer compatibility. Supply an API
+`bestCaseEvaluator` when the project needs those checks.
 
 ```json title="package.json"
 {
@@ -221,63 +221,29 @@ into a weighted sum. Supported objectives are `known-exploited`, `critical`,
 An exact search reports `provenOptimal: true` only when it evaluates every
 state. Beam search and capped exact search report `provenOptimal: false`.
 
-## Package.json Configuration
+## Workspace Paths and External Sources
 
-You can configure Pastoralist directly in your `package.json`:
+`depPaths: "workspace"` reads patterns from `package.json#workspaces` and
+`pnpm-workspace.yaml`. Use explicit package manifest globs for other layouts.
+See [Workspaces](/docs/workspaces) for package-manager examples.
 
-```json title="package.json" {6}
-{
-  "name": "my-project",
-  "version": "1.0.0",
-  "pastoralist": {
-    "checkSecurity": true,
-    "depPaths": "workspace",
-    "security": {
-      "provider": "osv",
-      "severityThreshold": "medium",
-      "excludePackages": ["@types/*"]
-    }
-  }
-}
-```
+`overrideSource` reads and writes overrides from a separate JSON or YAML file.
+For pnpm 11+, Pastoralist resolves `pnpm-workspace.yaml` automatically.
+`appendixSource` writes the appendix to a JSON config file or `.pastoralistrc`.
 
-## Monorepo Configuration
-
-For monorepos, use `depPaths` to specify which package.json files to scan:
-
-### Using "workspace"
-
-The simplest approach for monorepos with a `workspaces` field:
-
-```json title="package.json" {4}
-{
-  "workspaces": ["packages/*", "apps/*"],
-  "pastoralist": {
-    "depPaths": "workspace"
-  }
-}
-```
-
-This scans all workspace packages defined in your `workspaces` field.
-`"workspaces"` is accepted as an alias.
-
-### Using Custom Paths
-
-For more control, specify custom glob patterns:
-
-```json title="package.json" {3}
+```json title="package.json"
 {
   "pastoralist": {
-    "depPaths": ["packages/*/package.json", "apps/*/package.json"]
+    "overrideSource": "config/overrides.json",
+    "appendixSource": ".pastoralistrc.json"
   }
 }
 ```
 
 ## Security Tracking
 
-Every appendix entry gets a `ledger` with at least `addedDate`. When a security
-provider detects a fix, Pastoralist adds CVE, severity, provider, and
-vulnerable-range metadata to the same ledger:
+Expanded appendix entries include `ledger.addedDate`. Security fixes can add
+CVE, severity, provider, and vulnerable-range metadata to that ledger:
 
 ```json title="package.json" {27}
 {
@@ -314,9 +280,13 @@ vulnerable-range metadata to the same ledger:
 }
 ```
 
+With `compactAppendix: true`, routine entries can use top-level `addedDate`
+instead of a ledger. Entries with reasons, security data, patches, or keep
+constraints stay expanded.
+
 ### Ledger Fields
 
-- **`addedDate`**: ISO timestamp recorded when the entry was first written. Always present
+- **`addedDate`**: Date recorded when the entry was first written
 - **`reason`**: Why the override was needed. Accepts a non-empty string, a `ProjectReason`, or a `BestCaseReason`
 - **`source`**: How the entry was created — `"manual"` or `"security"`
 - **`securityChecked`**: Whether a security check was performed
@@ -390,7 +360,7 @@ To pin an override so `--remove-unused` never removes it, set `keep: true` on th
 }
 ```
 
-For time-bounded or version-bounded keeps, use a `KeepConstraint` object:
+To keep an override until a date or version is reached, use a `KeepConstraint` object:
 
 ```json {4}
 {
@@ -415,12 +385,6 @@ For time-bounded or version-bounded keeps, use a `KeepConstraint` object:
 This shows which packages were overridden for security reasons and when they
 were last checked.
 
-## Best Practices
-
-1. **Use `depPaths: "workspace"`** for most monorepos
-2. **Enable security checks** in CI with `--checkSecurity`
-3. **Commit config files** to version control
-
 ## JavaScript Config Files
 
 Use `pastoralist.config.cjs` for CommonJS or `pastoralist.config.mjs` for ESM:
@@ -438,25 +402,6 @@ export default {
 
 TypeScript config files are not loaded directly. Use JSON, CJS, JS, or MJS
 config files.
-
-## Environment-Specific Configuration
-
-You can use JavaScript config files to provide environment-specific settings:
-
-```js title="pastoralist.config.js"
-const isDev = process.env.NODE_ENV === "development";
-const isCI = process.env.CI === "true";
-
-module.exports = {
-  checkSecurity: !isDev, // Only check in production/CI
-  depPaths: "workspace",
-  security: {
-    provider: "osv",
-    severityThreshold: isCI ? "high" : "medium",
-    autoFix: isCI && !isDev,
-  },
-};
-```
 
 ## Migration from CLI Flags
 

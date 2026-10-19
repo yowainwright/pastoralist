@@ -84,7 +84,8 @@ const copyWorkspaceManifest = (
   }
   const targetPath = join(removalRoot, relativePath);
   const content = fs.readFileSync(manifestPath, "utf8");
-  const manifest = removeManifestScripts(JSON.parse(content));
+  const config = JSON.parse(content) as PastoralistJSON;
+  const manifest = removeManifestScripts(config);
   fs.mkdirSync(dirname(targetPath), { recursive: true });
   fs.writeFileSync(targetPath, JSON.stringify(manifest, null, 2));
 };

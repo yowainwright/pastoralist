@@ -5,6 +5,7 @@ import { parseCodeMeta } from "@/components/Codeblock/constants";
 import { Anchor } from "./Anchor";
 import { createHeading } from "./Heading";
 import type { MermaidProps } from "../Mermaid";
+import { ScrollyCode } from "../ScrollyCode";
 
 const Mermaid = lazy(() =>
   import("../Mermaid").then(({ Mermaid: diagram }) => ({ default: diagram })),
@@ -34,15 +35,13 @@ function extractText(node: unknown): string {
 
 function MermaidBlock({ chart }: MermaidProps) {
   return (
-    <div
-      className="not-prose my-6 h-80 overflow-auto sm:h-96"
-      role="region"
-      aria-label="Architecture diagram"
-      tabIndex={0}
-    >
+    <div className="not-prose my-6 min-w-0" role="region" aria-label="Architecture diagram">
       <Suspense
         fallback={
-          <div className="flex h-full items-center justify-center animate-pulse" aria-hidden="true">
+          <div
+            className="flex h-80 items-center justify-center animate-pulse sm:h-96"
+            aria-hidden="true"
+          >
             <div className="h-48 w-full max-w-lg rounded bg-base-content/10" />
           </div>
         }
@@ -119,6 +118,7 @@ function Pre({ children, ...props }: PreProps) {
 }
 
 export const mdxComponents = {
+  ScrollyCode,
   Mermaid: MermaidBlock,
   pre: Pre,
   a: Anchor,

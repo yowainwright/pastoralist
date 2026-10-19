@@ -79,20 +79,9 @@ still gets a `ledger` recording when it was added:
 
 ### Workspace Support
 
-In monorepos, nested overrides in workspace packages are also tracked. For
-example, `packages/app/package.json` might contain:
-
-```json title="packages/app/package.json" {4}
-{
-  "overrides": {
-    "pg": {
-      "pg-types": "^4.0.1"
-    }
-  }
-}
-```
-
-With `--depPaths`, Pastoralist tracks these nested overrides across workspace
+Keep npm overrides in the root `package.json`. Nested overrides scope a
+transitive dependency to a parent; workspace manifests supply dependency
+context through `depPaths`. npm ignores overrides declared inside workspace
 packages.
 
 ## Patch Support
@@ -133,14 +122,8 @@ Pastoralist tracks them in the appendix:
 
 ### Unused Patch Detection
 
-When a dependency is removed, Pastoralist alerts you:
-
-```
-🐑 Found 2 potentially unused patch files:
-  - patches/old-package+1.0.0.patch
-  - patches/removed-dep+2.0.0.patch
-Consider removing these patches if the packages are no longer used.
-```
+Pastoralist reports potentially unused patch paths. Review those files when
+dependencies change; Pastoralist does not delete patches.
 
 <a
   href="https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/patches?title=Pastoralist%20Patches&file=README.md&startScript=demo&view=editor"
@@ -194,39 +177,37 @@ when you explicitly opt in.
 
 ### Removal with `--remove-unused`
 
-When a dependency is updated and no longer needs an override:
+In this fixture, `express` has already been removed and no package needs
+`qs`. Cleanup removes the override and its tracking entry:
 
-**Before:**
-
-```json title="package.json" {3}
-{
-  "dependencies": {
-    "lodash": "^4.17.0"
-  },
-  "overrides": {
-    "lodash": "4.17.21"
-  }
-}
+```diff
+--- package.json
++++ package.json
+@@ -1,18 +1,4 @@
+ {
+   "name": "shepherd-cli",
+-  "overrides": {
+-    "qs": "6.11.2"
+-  },
+-  "pastoralist": {
+-    "appendix": {
+-      "qs@6.11.2": {
+-        "dependents": {
+-          "shepherd-cli": "qs (required by express)"
+-        },
+-        "ledger": {
+-          "addedDate": "2026-10-16"
+-        }
+-      }
+-    }
+-  }
++  "overrides": {}
+ }
 ```
 
-**After updating lodash to 4.17.21 and running `pastoralist --remove-unused`:**
-
-```json title="package.json" {3}
-{
-  "dependencies": {
-    "lodash": "^4.17.21"
-  },
-  "overrides": {}
-}
-```
-
-<a
-  href="https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/cleanup?title=Pastoralist%20Cleanup&file=README.md&startScript=demo&view=editor"
-  target="_blank"
-  rel="noopener noreferrer"
->
-  <img src="https://developer.stackblitz.com/img/open_in_stackblitz.svg" alt="Open in StackBlitz" />
-</a>
+Preview removal with `pastoralist --remove-unused --dry-run`, then apply it
+with `pastoralist --remove-unused`. Active `ledger.keep` constraints protect
+entries from removal.
 
 ### Unused Override Detection
 
@@ -247,13 +228,7 @@ Pastoralist labels it as `(unused override)` in the appendix:
 }
 ```
 
-Pastoralist displays a notice when unused overrides are detected:
-
-```
-|  1 unused override detected. Run with --remove-unused to clean up.  |
-```
-
-To remove them, run with the `--remove-unused` flag:
+Preview removal with `--remove-unused --dry-run`, then apply it:
 
 ```bash
 pastoralist --remove-unused
@@ -277,7 +252,7 @@ it:
 }
 ```
 
-For time- or version-bounded protection, use a `KeepConstraint`:
+To keep an override until a date or version is reached, use a `KeepConstraint`:
 
 ```json {5}
 {
@@ -316,34 +291,12 @@ Pastoralist tracks overrides needed by transitive dependencies:
 }
 ```
 
-## Fuzzy Version Matching
+## Version Ranges and Cleanup
 
-Pastoralist uses version-range matching to determine if overrides are needed.
-
-### How It Works
-
-Given these dependencies:
-
-```json title="package.json"
-{
-  "dependencies": {
-    "express": "^4.18.0"
-  }
-}
-```
-
-And this override:
-
-```json title="package.json" {3}
-{
-  "overrides": {
-    "express": "4.18.2"
-  }
-}
-```
-
-Pastoralist understands that `^4.18.0` can resolve to `4.18.2` without an
-override. Unless the override fixes a specific issue, it may be removable.
+A version range that includes an override does not prove the override is
+redundant. Pastoralist checks dependency usage before removal and skips
+entries when usage cannot be established. Use ledger reasons and keep
+constraints for decisions that require human review.
 
 ## Appendix Cleanup
 
@@ -357,15 +310,15 @@ appendix entry.
 2. **Dependency removed**: Pastoralist reports the override as unused
 3. **Cleanup run**: `--remove-unused` removes the override and appendix entry
 
-Use ledger `reason` and `keep` fields for override decisions that should stay
-reviewable until a specific cleanup condition is met.
+Use ledger `reason` to explain why an override is needed and `keep` to control
+when it can be removed.
 
 ## Multi-Format Support
 
 Pastoralist reads the override field your package manager already uses:
 
 - **npm and Bun**: `overrides`
-- **pnpm**: `pnpm.overrides`
+- **pnpm**: `pnpm.overrides`, or `pnpm-workspace.yaml` for pnpm 11+
 - **Yarn**: `resolutions`
 
 When it writes changes, it preserves the existing override field when one is
@@ -396,32 +349,23 @@ The equivalent npm or Bun override shape:
 }
 ```
 
-## Debug Mode Insights
+## Debug Mode
 
-Debug mode (`--debug`) provides detailed information:
-
-```
-🐑 pastoralist checking herd...
-[DEBUG] Reading package.json from /path/to/package.json
-[DEBUG] Found 3 overrides
-[DEBUG] Analyzing dependency tree...
-[DEBUG] lodash@4.17.21 required by:
-  - express@4.18.0 (wants lodash@^4.17.0)
-  - custom-utils@1.0.0 (wants lodash@~4.17.0)
-[DEBUG] Writing updated package.json
-✅ pastoralist the herd is safe!
-```
+Use `pastoralist --debug` for dependency paths, config discovery, and removal
+diagnostics.
 
 ## Integration with Other Tools
 
 ### patch-package
 
-Pastoralist complements `patch-package` by tracking which overrides have
-associated patches:
+Pastoralist tracks which overrides have patches from `patch-package`:
 
 ```bash
-# Apply a patch
+# Create a patch from local changes to lodash
 npx patch-package lodash
+
+# Apply existing patches
+npx patch-package
 
 # Run Pastoralist to update tracking
 npx pastoralist
@@ -434,69 +378,14 @@ Use with `npm-check-updates` to manage both regular updates and overrides:
 ```bash
 # Update dependencies
 npx npm-check-updates -u
+npm install
 
 # Update override tracking
 npx pastoralist
 ```
 
-### Renovate/Dependabot
+### Dependency Update Bots
 
-Configure automated tools to run Pastoralist after updates:
-
-```json
-{
-  "postUpgradeTasks": {
-    "commands": ["npm install", "npx pastoralist"],
-    "fileFilters": ["package.json"]
-  }
-}
-```
-
-## Custom Workflows
-
-### Override Policies
-
-Create policies for when overrides should be used:
-
-```javascript title="scripts/check-override-policy.js"
-const pkg = require("./package.json");
-
-const policies = {
-  security: ["minimist", "lodash"], // Require review before keeping security overrides
-  compatibility: ["react"], // Track compatibility overrides
-  temporary: ["experimental-pkg"], // Review temporary overrides regularly
-};
-
-// Validate overrides match policies
-Object.keys(pkg.overrides || {}).forEach((override) => {
-  const category = Object.entries(policies).find(([_, pkgs]) => pkgs.includes(override))?.[0];
-
-  if (!category) {
-    console.warn(`Override '${override}' has no policy!`);
-  }
-});
-```
-
-### Appendix Analysis
-
-Extract insights from the appendix:
-
-```javascript
-const pkg = require("./package.json");
-const appendix = pkg.pastoralist?.appendix || {};
-
-// Find overrides with most dependents
-const overrideImpact = Object.entries(appendix)
-  .map(([override, info]) => ({
-    override,
-    dependentCount: Object.keys(info.dependents || {}).length,
-  }))
-  .sort((a, b) => b.dependentCount - a.dependentCount);
-
-console.log("Highest impact overrides:", overrideImpact.slice(0, 5));
-```
-
-## Best Practices
-
-1. **Regular Updates**: Run Pastoralist on install, scheduled CI, or dependency-update PRs
-2. **Review Patches**: Check for upstream fixes when dependencies update
+Run Pastoralist after your update bot installs dependencies to keep the
+appendix current. Use the [GitHub Action](/docs/github-action) for scheduled
+maintenance PRs.

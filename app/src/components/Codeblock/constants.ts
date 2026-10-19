@@ -9,9 +9,11 @@ export const SHIKI_LANGS = [
   "shellscript",
   "json",
   "jsonc",
+  "diff",
   "yaml",
   "markdown",
   "text",
+  "ansi",
 ] as const;
 
 const LANGUAGE_ALIASES: Record<string, string> = {
@@ -20,6 +22,7 @@ const LANGUAGE_ALIASES: Record<string, string> = {
 };
 
 const TERMINAL_LANGUAGES = new Set([
+  "ansi",
   "bash",
   "console",
   "plaintext",

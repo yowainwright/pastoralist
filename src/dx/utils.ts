@@ -98,7 +98,7 @@ function loadHintCache(): HintCache {
     return result;
   }
   try {
-    const result2 = JSON.parse(readFileSync(hintCacheFile, "utf8"));
+    const result2 = JSON.parse(readFileSync(hintCacheFile, "utf8")) as HintCache;
     return result2;
   } catch {
     const result3: HintCache = {};

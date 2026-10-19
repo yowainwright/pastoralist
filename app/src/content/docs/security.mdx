@@ -3,13 +3,13 @@ title: Security Vulnerability Detection
 description: Detect vulnerabilities and select lowest-risk dependency portfolios
 ---
 
-Pastoralist can check dependencies against security providers and connect fixes
-to the same appendix used for override tracking.
+Pastoralist can scan dependencies with security providers and record fixes
+in the override appendix.
 
 ## Overview
 
 Security checks scan your dependencies, report vulnerable packages, and can
-suggest or apply package manager overrides when a safe version is available. The
+suggest or apply package-manager overrides when a patched version is available. The
 appendix keeps the CVE, provider, severity, patched version, and reason with the
 override.
 
@@ -19,8 +19,12 @@ override.
 
 ```bash
 # Check for vulnerabilities and display a report
-pastoralist --checkSecurity
+pastoralist --checkSecurity --dry-run
 ```
+
+Applying fixes requires `--interactive`, `--forceSecurityRefactor`, or the
+matching config option. Review changes and reinstall dependencies to update
+the lockfile.
 
 ### Auto Fix
 
@@ -145,54 +149,14 @@ security update and persists an approved package name.
 ```
 
 `userOwnedOverrides` is the machine-readable ownership declaration. The active
-override supplies the constrained version. The ledger `addedDate` is displayed
-as the human-facing “user-owned since” signal, but does not establish ownership
-by itself.
+override supplies the constrained version. The ledger `addedDate` is shown
+as “user-owned since”, but the date alone does not establish ownership.
 
-The built-in evaluator scans all root packages and candidate-controlled
-packages. Projects that materialize lockfiles, solve peer constraints, or model
+The built-in evaluator scans root packages and candidate-controlled packages.
+It does not materialize lockfiles or resolve peer compatibility. A patched
+version is not a guarantee of compatibility or freedom from other vulnerabilities. Projects that materialize lockfiles, solve peer constraints, or model
 version-combination behavior can pass a whole-state `bestCaseEvaluator` through
 the Node.js API.
-
-#### Formal Model
-
-Package $i$ contributes a set of candidate versions $V_i$. The complete search
-space is the Cartesian product of those sets:
-
-$$
-\mathcal{X} = \prod_{i=1}^{n} V_i
-$$
-
-Let $\pi = (o_1, \ldots, o_m, a)$ be the resolved policy, where each $o_j$ is
-an objective and $a$ is the risk-aggregation mode. Each objective produces a
-score block $g_{o_j,a}(x)$, and the blocks are concatenated in policy order:
-
-$$
-F_{\pi}(x) = g_{o_1,a}(x) \mathbin{\Vert} \cdots \mathbin{\Vert} g_{o_m,a}(x)
-$$
-
-The default blocks represent known-exploited vulnerabilities, critical
-vulnerabilities, high vulnerabilities, summed EPSS, package exposures,
-incompatibilities, changed packages, and oldness. With `riskAggregation: "both"`,
-security blocks contain both unique-advisory and package-exposure values.
-
-Pastoralist minimizes the vector lexicographically:
-
-$$
-x^* = \operatorname*{arg\,min}^{\mathrm{lex}}_{x \in \mathcal{X}} F_{\pi}(x)
-$$
-
-For each selected dependency $i$, the ledger reason stores the shared decision
-provenance:
-
-$$
-r_i = \left(\mathtt{decisionId}(x^*), \mathtt{policyHash}(\pi),
-\mathtt{search}, \mathtt{impact}\right)
-$$
-
-The reason is per dependency, while the decision ID connects every dependency
-selected in the same portfolio. CVE identifiers remain in the sibling `cves`
-field rather than being duplicated in $r_i$.
 
 ## CLI Options
 
@@ -241,9 +205,8 @@ The [OSV database](https://osv.dev/) is a distributed vulnerability database for
 
 ### GitHub Provider
 
-Requires a token but provides more in-depth security awareness, including transitive dependencies.
-
-The GitHub provider uses Dependabot alerts to check for vulnerabilities. This provider queries GitHub's Dependabot API for your repository.
+Requires authentication. The GitHub provider reads your repository's
+Dependabot alerts, including alerts for transitive dependencies.
 
 #### Setup
 
@@ -305,9 +268,7 @@ pnpm, or Bun.
 
 ### Snyk Provider [EXPERIMENTAL]
 
-:::caution[Experimental]
 The Snyk provider is experimental and may have breaking changes. Report issues at https://github.com/yowainwright/pastoralist/issues
-:::
 
 Requires the Snyk CLI and API authentication token.
 
@@ -321,9 +282,7 @@ pastoralist --checkSecurity --securityProvider snyk
 
 ### Socket Provider [EXPERIMENTAL]
 
-:::caution[Experimental]
 The Socket provider is experimental and may have breaking changes. Report issues at https://github.com/yowainwright/pastoralist/issues
-:::
 
 Requires the Socket CLI and API key.
 
@@ -337,9 +296,7 @@ pastoralist --checkSecurity --securityProvider socket
 
 ### Spektion Provider [EXPERIMENTAL]
 
-:::caution[Experimental]
 The Spektion provider is experimental and may have breaking changes. Report issues at https://github.com/yowainwright/pastoralist/issues
-:::
 
 Requires a Spektion API key.
 
@@ -353,7 +310,7 @@ pastoralist --checkSecurity --securityProvider spektion
 
 ## CVE Tracking in the Ledger
 
-Every appendix entry has a `ledger`. When a security provider detects a fix,
+Expanded appendix entries have a `ledger`. When a security provider detects a fix,
 Pastoralist adds CVE, severity, provider, and vulnerable-range metadata to that
 ledger alongside the `addedDate`:
 
@@ -382,7 +339,8 @@ ledger alongside the `addedDate`:
 }
 ```
 
-Multiple CVEs from the same package are aggregated — `cveDetails` gives per-CVE granularity (severity and patched version per identifier), while `cves` is the deduplicated flat list for quick reference.
+For packages with multiple CVEs, `cveDetails` records the severity and patched
+version for each CVE when available. `cves` lists the unique CVE identifiers.
 
 `reason` accepts a non-empty string or a typed `project` or `best-case` object.
 A best-case reason links each dependency entry to the shared portfolio decision;
@@ -433,37 +391,7 @@ Once the root dependency reaches `4.18.0`, the keep is expired and
    - Let you choose interactively (with `--interactive`)
 5. **Applying**: Selected fixes are added to your `package.json` overrides section with full CVE context in the ledger
 
-## Example Output
-
-```text
-pastoralist checking for security vulnerabilities...
-
-Security Check Report
-==================================================
-
-Found 3 vulnerable package(s):
-
-lodash@4.17.20
-   Prototype Pollution
-   CVE: CVE-2021-23337
-   Fix available: 4.17.21
-   https://osv.dev/vulnerability/GHSA-35jh-r3h4-6jhm
-
-minimist@1.2.5
-   Prototype Pollution
-   CVE: CVE-2021-44906
-   Fix available: 1.2.6
-   https://osv.dev/vulnerability/GHSA-xvch-5gv4-984h
-
-Generated 2 override(s):
-
-  "lodash": "4.17.21" // Security fix: Prototype Pollution (high)
-  "minimist": "1.2.6" // Security fix: Prototype Pollution (medium)
-```
-
 ## Performance Considerations
-
-:::caution[Performance Impact]
 
 - Security scanning is **disabled by default** for CLI config and enabled by default in the GitHub Action
 - Workspace scanning is **opt-in** via the `hasWorkspaceSecurityChecks` option
@@ -471,16 +399,13 @@ Generated 2 override(s):
 - Provider results can be cached using the CLI cache options
 - Results are processed in parallel when possible
 - Best-case results record duration and evaluated-state count
-  :::
 
 ## Limitations
-
-:::note[Current Limitations]
 
 - Security checks focus on npm ecosystem packages
 - Some providers require credentials or local CLI access
 - Some vulnerabilities may not have available fixes
-  :::
+- `--dry-run` prevents project-file changes; providers may still write caches
 
 ## Troubleshooting
 
@@ -514,6 +439,9 @@ Pastoralist will show specific guidance in the warning message.
 
 ## Example: CI Integration
 
+`--quiet --checkSecurity` exits non-zero on findings. Add `--strict` to fail on
+provider errors and `--dry-run` to preview project changes.
+
 ### GitHub Actions
 
 ```yaml title=".github/workflows/security.yml"
@@ -530,7 +458,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6.4.0
       - run: npm install
-      - run: npx pastoralist --checkSecurity --securityProvider github
+      - run: npx pastoralist --dry-run --quiet --checkSecurity --securityProvider github --strict
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -548,7 +476,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6.4.0
       - run: npm install
-      - run: npx pastoralist --checkSecurity
+      - run: npx pastoralist --dry-run --quiet --checkSecurity --strict
 ```
 
 ### GitLab CI
@@ -557,7 +485,7 @@ jobs:
 security:
   script:
     - npm install
-    - npx pastoralist --checkSecurity
+    - npx pastoralist --dry-run --quiet --checkSecurity --strict
   only:
     - main
     - merge_requests

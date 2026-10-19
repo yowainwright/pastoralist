@@ -60,8 +60,8 @@ function navItemClassName(pathname: string, href: string) {
   const isDocsPage = pathname.includes("/docs");
   const matchesPath = pathname === href;
   const isActive = isDocsLink ? isDocsPage : matchesPath;
-  const activeClass = isActive ? "text-[#1D4ED8] bg-[#1D4ED8]/10" : "";
-  const className = `rounded-lg hover:text-[#1D4ED8] hover:bg-[#1D4ED8]/10 transition flex ${activeClass}`;
+  const activeClass = isActive ? "text-navigation bg-navigation/10" : "";
+  const className = `rounded-lg hover:text-navigation hover:bg-navigation/10 transition flex ${activeClass}`;
   return className;
 }
 

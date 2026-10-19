@@ -3,8 +3,9 @@ import type { RefObject } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "@tanstack/react-router";
 import { Search as SearchIcon } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { createSearchIndex, getSearchResults } from "@/content/search";
-import type { SearchDocument } from "@/content/types";
+import type { SearchDocument, SearchHit, SearchTextPart } from "@/content/types";
 
 interface SearchProps {
   loadSearchData: () => Promise<SearchDocument[]>;
@@ -16,10 +17,7 @@ interface SearchTriggerProps {
   onOpen: () => void;
 }
 
-const useSearchResults = (
-  searchData: readonly SearchDocument[],
-  query: string,
-): SearchDocument[] => {
+const useSearchResults = (searchData: readonly SearchDocument[], query: string): SearchHit[] => {
   const searchIndex = useMemo(() => createSearchIndex(searchData), [searchData]);
 
   const results = useMemo(() => getSearchResults(searchIndex, query), [query, searchIndex]);
@@ -29,8 +27,7 @@ const useSearchResults = (
 const useSearchShortcut = (open: () => void, close: () => void): void => {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      const isSearchShortcut = (event.metaKey || event.ctrlKey) && event.key === "k";
-      if (isSearchShortcut) {
+      if (shouldOpenSearch(event)) {
         event.preventDefault();
         open();
       }
@@ -42,14 +39,34 @@ const useSearchShortcut = (open: () => void, close: () => void): void => {
   }, [close, open]);
 };
 
+function shouldOpenSearch(event: KeyboardEvent) {
+  if (event.key !== "/") return false;
+  const hasModifier = event.metaKey || event.ctrlKey || event.altKey;
+  const isUnavailable = hasModifier || event.defaultPrevented || event.isComposing;
+  if (isUnavailable) return false;
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return true;
+  const reserved = target.closest("input, textarea, select, [role='textbox'], [role='dialog']");
+  const keepsFocus = target.isContentEditable || Boolean(reserved);
+  const canOpen = !keepsFocus;
+  return canOpen;
+}
+
 function SearchIconTrigger({ onOpen }: Pick<SearchTriggerProps, "onOpen">) {
   return (
-    <button onClick={onOpen} className="btn btn-sm btn-ghost gap-1" aria-label="Search (⌘K)">
-      <SearchIcon className="h-4 w-4" />
-      <kbd className="hidden rounded bg-base-200 px-1.5 py-0.5 text-xs font-medium text-base-content/60 lg:inline-flex">
-        ⌘K
-      </kbd>
-    </button>
+    <Tooltip>
+      <TooltipTrigger
+        onClick={onOpen}
+        className="btn btn-sm btn-ghost btn-square"
+        aria-label="Search (/)"
+        aria-keyshortcuts="/"
+      >
+        <SearchIcon className="h-4 w-4" />
+      </TooltipTrigger>
+      <TooltipContent side="bottom" sideOffset={8}>
+        Search docs (/)
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -100,7 +117,7 @@ function RecentLink({ slug, title, onSelect }: RecentLinkProps) {
 
 interface SearchResultsProps {
   query: string;
-  results: SearchDocument[];
+  results: SearchHit[];
   isLoading: boolean;
   hasError: boolean;
   onSelect: () => void;
@@ -140,12 +157,12 @@ function SearchLoadError({ onRetry }: { onRetry: () => void }) {
 }
 
 interface SearchResultProps {
-  result: SearchDocument;
+  result: SearchHit;
   onSelect: () => void;
 }
 
 function SearchResult({ result, onSelect }: SearchResultProps) {
-  const { slug, title, description } = result;
+  const { slug } = result;
   return (
     <li>
       <Link
@@ -154,16 +171,51 @@ function SearchResult({ result, onSelect }: SearchResultProps) {
         onClick={onSelect}
         className="block rounded-lg px-4 py-3 transition-colors hover:bg-base-200/50"
       >
-        <strong className="block">{title}</strong>
-        <span className="mt-0.5 block text-sm text-base-content/60">{description}</span>
+        <SearchResultContent result={result} />
       </Link>
     </li>
   );
 }
 
+function SearchResultContent({ result }: Pick<SearchResultProps, "result">) {
+  const { title, description, excerpt } = result;
+  return (
+    <>
+      <strong className="block">
+        <HighlightedText parts={title} />
+      </strong>
+      <span className="mt-0.5 block text-sm text-base-content/60">
+        <HighlightedText parts={description} />
+      </span>
+      <SearchExcerpt parts={excerpt} />
+    </>
+  );
+}
+
+function HighlightedText({ parts }: { parts: readonly SearchTextPart[] }) {
+  const content = parts.map(({ text, highlighted }, index) => {
+    if (!highlighted) return text;
+    return (
+      <mark key={index} className="rounded-sm bg-navigation/20 text-base-content">
+        {text}
+      </mark>
+    );
+  });
+  return <>{content}</>;
+}
+
+function SearchExcerpt({ parts }: { parts: readonly SearchTextPart[] }) {
+  if (parts.length === 0) return null;
+  return (
+    <span className="mt-2 block text-sm leading-relaxed text-base-content/75">
+      <HighlightedText parts={parts} />
+    </span>
+  );
+}
+
 interface SearchDialogProps {
   query: string;
-  results: SearchDocument[];
+  results: SearchHit[];
   isLoading: boolean;
   hasError: boolean;
   inputRef: RefObject<HTMLInputElement | null>;
@@ -224,7 +276,7 @@ interface SearchDialogContentProps extends SearchResultsProps {
 
 interface SearchDialogValues {
   query: string;
-  results: SearchDocument[];
+  results: SearchHit[];
   searchData: ReturnType<typeof useSearchData>;
   inputRef: RefObject<HTMLInputElement | null>;
   onQueryChange: (query: string) => void;
@@ -262,7 +314,7 @@ function SearchInput({ query, inputRef, onQueryChange }: SearchInputProps) {
     onQueryChange(event.target.value);
   return (
     <label className="flex items-center border-b border-base-content/10 p-4">
-      <SearchIcon className="mr-3 h-5 w-5 text-[#1D4ED8]" />
+      <SearchIcon className="mr-3 h-5 w-5 text-navigation" />
       <input
         ref={inputRef}
         value={query}

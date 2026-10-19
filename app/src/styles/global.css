@@ -10,6 +10,7 @@
 @plugin "@tailwindcss/typography";
 
 @theme {
+  --color-navigation: #1d4ed8;
   --animate-logo-glow: logo-glow 4s ease-in-out infinite;
   --animate-logo-shine: logo-shine-sweep 5s ease-in-out 1s infinite;
   --animate-terminal-shine: terminal-shine 8s ease-in-out infinite;
@@ -177,8 +178,16 @@
 }
 
 :root {
+  --brand-blue: #3b82f6;
+  --brand-purple: #8b5cf6;
+  --brand-pink: #ec4899;
   /* Light theme gradients - blue to pink */
-  --blue-teal-gradient: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%);
+  --blue-teal-gradient: linear-gradient(
+    90deg,
+    var(--brand-blue) 0%,
+    var(--brand-purple) 50%,
+    var(--brand-pink) 100%
+  );
   --blue-teal-gradient-light: linear-gradient(
     90deg,
     rgba(59, 130, 246, 0.8) 0%,
@@ -253,8 +262,17 @@ samp {
 }
 
 [data-theme="night"] {
+  --color-navigation: var(--color-primary);
+  --brand-blue: #60a5fa;
+  --brand-purple: #a78bfa;
+  --brand-pink: #f472b6;
   /* Dark theme gradients - blue to pink, brighter for dark mode */
-  --blue-teal-gradient: linear-gradient(90deg, #60a5fa 0%, #a78bfa 50%, #f472b6 100%);
+  --blue-teal-gradient: linear-gradient(
+    90deg,
+    var(--brand-blue) 0%,
+    var(--brand-purple) 50%,
+    var(--brand-pink) 100%
+  );
   --blue-teal-gradient-light: linear-gradient(
     90deg,
     rgba(96, 165, 250, 0.6) 0%,
@@ -459,6 +477,50 @@ samp {
   border-radius: 0;
 }
 
+.mermaid {
+  --diagram-color: var(--color-base-content);
+}
+
+.mermaid .diagram-read {
+  --diagram-color: var(--brand-blue);
+}
+
+.mermaid .diagram-track {
+  --diagram-color: var(--brand-purple);
+}
+
+.mermaid .diagram-write {
+  --diagram-color: var(--brand-pink);
+}
+
+.mermaid .node > :is(rect, polygon, path) {
+  fill: color-mix(in oklab, var(--diagram-color) 20%, var(--color-base-100)) !important;
+  stroke: var(--diagram-color) !important;
+}
+
+.mermaid .cluster > rect {
+  fill: color-mix(in oklab, var(--diagram-color) 5%, var(--color-base-100)) !important;
+  stroke: var(--diagram-color) !important;
+}
+
+.mermaid .nodeLabel {
+  color: var(--color-base-content) !important;
+  fill: var(--color-base-content) !important;
+}
+
+.mermaid :is(.edgeLabel, .edgeLabel p, .labelBkg) {
+  color: var(--color-base-content) !important;
+  background-color: var(--color-base-100) !important;
+}
+
+.mermaid .flowchart-link {
+  stroke: var(--color-base-content) !important;
+}
+
+.mermaid marker path {
+  fill: var(--color-base-content) !important;
+}
+
 /* Docs prose code - Dark mode */
 [data-theme="night"] .docs-prose pre:not(.shiki) {
   background-color: #1e293b !important;
@@ -486,6 +548,16 @@ samp {
 .docs-prose .shiki-wrapper code::before,
 .docs-prose .shiki-wrapper code::after {
   content: none !important;
+}
+
+.docs-prose > :is(h2, h3) {
+  padding-top: 1.5rem;
+  border-top: 2px solid color-mix(in oklab, var(--color-base-content) 15%, transparent);
+}
+
+.docs-prose > h2 {
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 12%, transparent);
 }
 
 .docs-prose :where(h1, h2, h3, h4, h5, h6),

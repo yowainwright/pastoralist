@@ -1,0 +1,15 @@
+{
+  "name": "shepherd-tool",
+  "private": true,
+  "dependencies": {
+    "qs": "6.11.2"
+  },
+  "overrides": {
+    "qs": "6.11.2"
+  },
+  "pastoralist": {
+    "security": {
+      "enabled": false
+    }
+  }
+}

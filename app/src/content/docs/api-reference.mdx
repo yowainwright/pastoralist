@@ -5,24 +5,20 @@ description: Complete reference for pastoralist CLI and Node.js API
 
 Pastoralist provides a CLI and a Node.js API.
 
-:::tip[Configuration Files]
-Most CLI options can be stored in config files. See [Configuration](/docs/configuration) for `.pastoralistrc`, `pastoralist.config.js`, and `package.json` settings.
-:::
+Store project settings in `package.json` or an external config file.
+See [Configuration](/docs/configuration) for formats and precedence.
 
 {/* public CLI commands and options from src/cli/parser/constants.ts and src/cli/index.ts */}
 
 ## CLI
 
-CLI commands and options have their own headings so each entry can be linked
-directly.
+Each command and option below has a direct link. The walkthroughs use fixed fixture versions.
 
 ### `pastoralist`
 
 Run Pastoralist on the current directory's `package.json`.
 
-```bash
-npx pastoralist
-```
+<ScrollyCode example="tracking" />
 
 ### `--help` and `--version`
 
@@ -38,20 +34,7 @@ npx pastoralist --version # -v
 Run a read-only setup and override health check. This command enables dry-run
 summary mode and does not modify `package.json`.
 
-```bash
-npx pastoralist doctor
-```
-
-### `pastoralist onboard`
-
-Print a first-run onboarding checklist with initial local usage, agent setup,
-and GitHub Action setup.
-
-```bash
-npx pastoralist onboard
-```
-
-Aliases: `pastoralist onboarding`, `pastoralist --onboard`.
+<ScrollyCode example="doctor" />
 
 ### `pastoralist --path <path>`
 
@@ -60,9 +43,9 @@ Aliases: `pastoralist onboarding`, `pastoralist --onboard`.
 
 Run Pastoralist on a specific `package.json` file.
 
-```bash
-npx pastoralist --path packages/app/package.json # -p packages/app/package.json
-```
+Alias: `-p`.
+
+<ScrollyCode example="path" />
 
 ### `pastoralist --depPaths [paths...]`
 
@@ -71,9 +54,9 @@ npx pastoralist --path packages/app/package.json # -p packages/app/package.json
 
 Read dependency data from multiple `package.json` files using glob patterns.
 
-```bash
-npx pastoralist --depPaths "packages/*/package.json" # -d "packages/*/package.json"
-```
+Alias: `-d`.
+
+<ScrollyCode example="workspaces" />
 
 ### `pastoralist --ignore [patterns...]`
 
@@ -82,9 +65,7 @@ npx pastoralist --depPaths "packages/*/package.json" # -d "packages/*/package.js
 
 Exclude files matching glob patterns.
 
-```bash
-npx pastoralist --ignore "**/node_modules/**"
-```
+<ScrollyCode example="ignore" />
 
 ### `pastoralist --root <root>`
 
@@ -144,49 +125,17 @@ npx pastoralist --debug
 
 ### `pastoralist --dry-run`
 
-Preview changes without modifying `package.json`.
+Preview changes to project files. Security providers may still write caches.
 
-```bash
-npx pastoralist --dry-run
-```
+<ScrollyCode example="dryRun" />
 
 ### `pastoralist --outputFormat json`
 
 Return machine-readable output for CI or custom tooling.
 
-```bash
-npx pastoralist --summary --outputFormat json
-```
-
 JSON output is a single result object.
 
-```jsonc noLineNumbers
-{
-  "success": true,
-  "hasSecurityIssues": false,
-  "hasUnusedOverrides": true,
-  "updated": false,
-  "securityAlertCount": 0,
-  "unusedOverrideCount": 1,
-  "overrideCount": 2,
-  "errors": [],
-  "securityAlerts": [],
-  "unusedOverrides": ["left-pad@1.3.0"],
-  "appliedOverrides": {
-    "left-pad": "1.3.0",
-  },
-  "metrics": {
-    "packagesScanned": 1,
-    "workspacePackagesScanned": 0,
-    "appendixEntriesUpdated": 2,
-    "vulnerabilitiesBlocked": 0,
-    "overridesAdded": 0,
-    "overridesRemoved": 0,
-    "writeSuccess": false,
-    "writeSkipped": true,
-  },
-}
-```
+<ScrollyCode example="json" />
 
 ### `pastoralist --styleguide`
 
@@ -204,7 +153,7 @@ npx pastoralist --styleguide
 Quiet mode for CI pipelines. Outputs minimal text and uses exit codes.
 
 - Exit 0: No vulnerabilities found
-- Exit 1: Vulnerabilities detected
+- Exit 1: Vulnerabilities detected, or a run error (including provider errors with `--strict`)
 
 ```bash
 npx pastoralist --quiet --checkSecurity # -q --checkSecurity
@@ -214,25 +163,19 @@ npx pastoralist --quiet --checkSecurity # -q --checkSecurity
 
 Display metrics after run.
 
-```bash
-npx pastoralist --summary
-```
+<ScrollyCode example="summary" />
 
 ### `pastoralist --setup-hook`
 
 Add Pastoralist to your `postinstall` script automatically.
 
-```bash
-npx pastoralist --setup-hook
-```
+<ScrollyCode example="hook" />
 
 ### `pastoralist --remove-unused`
 
 Remove overrides that no package in your project depends on. When Pastoralist detects unused overrides during a run, it suggests this flag.
 
-```bash
-npx pastoralist --remove-unused
-```
+<ScrollyCode example="cleanup" />
 
 ### `pastoralist --checkSecurity`
 
@@ -358,8 +301,9 @@ maintenance PR.
   run: exit 1
 ```
 
-The action exposes `has-security-issues`, `has-unused-overrides`, `updated`,
-`security-count`, `unused-count`, `override-count`, and `pr-url`.
+The action exposes `has-security-issues`, `has-unused-overrides`,
+`security-fixes-applied`, `updated`, `security-count`, `unused-count`,
+`override-count`, and `pr-url`.
 
 {/* public result and appendix data from src/cli/utils.ts and src/types.ts */}
 
@@ -440,9 +384,10 @@ files, and ledger data.
 
 ### `AppendixItem.ledger`
 
-Every current appendix entry has a `ledger` with `addedDate`. Manual records can
-add `reason`; security runs can add provider, CVE, severity, vulnerable range,
-patched version, confidence, source, and resolution fields.
+Expanded entries have `ledger.addedDate`. Manual records can add `reason`;
+security fixes can add provider, CVE, severity, vulnerable range, patched
+version, confidence, source, and resolution fields. With `compactAppendix`,
+routine entries may contain only top-level `addedDate`.
 
 ```json {11}
 {
@@ -480,11 +425,9 @@ API directly, call the pieces you need in that order.
 ### `update(options)`
 
 > Type: **`(options: Options) => UpdateContext`**
-> Default: `{ path: "package.json" }`
 
-Update `package.json` overrides and the appendix. Each appendix entry includes a
-`ledger` with at least `addedDate`. Pass the parsed package manifest as
-`config`; the function is synchronous and returns an `UpdateContext`.
+Pass a parsed package manifest as `config` and its manifest `path`.
+`update()` returns `UpdateContext` synchronously.
 
 ```ts title="update.ts" {10-12,17}
 import { resolveJSON, update } from "pastoralist";
@@ -586,8 +529,8 @@ const result = await optimizeBestCasePortfolio({
   },
 });
 
-console.log(result.selectedState);
-console.log(result.search.provenOptimal);
+process.stdout.write(`${JSON.stringify(result.selectedState)}\n`);
+process.stdout.write(`${result.search.provenOptimal}\n`);
 ```
 
 `BestCaseEvaluation` may also return `incompatibilities`, `oldness`, `valid`,
@@ -629,13 +572,10 @@ Create a logger instance for custom debugging.
 ```ts title="logger.ts" {5,8-9}
 import { logger } from "pastoralist";
 
-const log = logger({
-  file: "my-script.js",
-  isLogging: true,
-});
+const log = logger({ file: "my-script.js", isLogging: true });
 
 log.debug("starting action", "method-name", { data: "value" });
-log.error("unexpected error", "method-name", { error: err });
+log.error("unexpected error", "method-name", { error: new Error("Example failure") });
 ```
 
 ## Examples
@@ -650,46 +590,15 @@ const config = resolveJSON(path);
 
 if (config) {
   update({ config, path });
-  console.log("Package overrides verified");
-}
-```
-
-### Workspace Automation
-
-```ts title="workspaces.ts" {6-12}
-import { resolveJSON, update } from "pastoralist";
-import glob from "glob";
-
-const packages = glob.sync("packages/*/package.json");
-
-for (const pkgPath of packages) {
-  const pkg = resolveJSON(pkgPath);
-  if (pkg) {
-    update({ config: pkg, path: pkgPath });
-    console.log(`Updated ${pkgPath}`);
-  }
 }
 ```
 
 ### CI Validation
 
-```ts title="ci-validate.ts" {9,14-15}
-import { resolveJSON, update } from "pastoralist";
-import { execSync } from "child_process";
+Use the CLI when CI needs to fail on security findings or provider errors:
 
-const path = "./package.json";
-const config = resolveJSON(path);
-
-const before = execSync("git status --porcelain").toString();
-if (config) {
-  update({ config, path });
-}
-const after = execSync("git status --porcelain").toString();
-
-if (before !== after) {
-  console.error("Package.json overrides need updating");
-  process.exit(1);
-}
+```bash
+npx pastoralist --dry-run --quiet --checkSecurity --strict
 ```
 
 ### Custom Logger
@@ -757,7 +666,7 @@ DEBUG=true npx pastoralist
 
 ## TypeScript
 
-Pastoralist includes full TypeScript support.
+Pastoralist includes TypeScript types for its Node API.
 
 ```ts title="index.ts" {13}
 import { resolveJSON, update, type Options } from "pastoralist";

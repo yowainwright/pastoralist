@@ -1,0 +1,15 @@
+{
+  "name": "shepherd-workspace",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "overrides": {
+    "qs": "6.11.2"
+  },
+  "pastoralist": {
+    "security": {
+      "enabled": false
+    }
+  }
+}

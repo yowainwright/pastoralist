@@ -26,6 +26,7 @@ const languageLoaders: Record<string, LanguageLoader | undefined> = {
   javascript: () => import("shiki/langs/javascript.mjs").then((module) => module.default),
   json: () => import("shiki/langs/json.mjs").then((module) => module.default),
   jsonc: () => import("shiki/langs/jsonc.mjs").then((module) => module.default),
+  diff: () => import("shiki/langs/diff.mjs").then((module) => module.default),
   jsx: () => import("shiki/langs/jsx.mjs").then((module) => module.default),
   markdown: () => import("shiki/langs/markdown.mjs").then((module) => module.default),
   shellscript: () => import("shiki/langs/shellscript.mjs").then((module) => module.default),
@@ -105,7 +106,7 @@ function highlightCode(highlighter: HighlighterCore, code: string, settings: Hig
 }
 
 function createClient(highlighter: HighlighterCore) {
-  const loaded = new Set<string>(["text"]);
+  const loaded = new Set<string>(["text", "ansi"]);
   const pending = new Map<string, Promise<void>>();
   const state = { loaded, pending };
   const codeToHtml = async (

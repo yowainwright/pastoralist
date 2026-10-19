@@ -1,7 +1,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { stripVTControlCharacters } from "node:util";
 import { isMainModule } from "../is-main";
+import { walkthroughs } from "../../app/src/components/docs/ScrollyCode/utils";
+import type { Frame } from "../../app/src/components/docs/ScrollyCode/types";
 
 export const DEFAULT_DOCS_BASE_URL = "https://jeffry.in/pastoralist";
 
@@ -56,6 +59,8 @@ export type GenerateLlmsDocsOptions = Partial<GenerateLlmsDocsOptionValues>;
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "../..");
 const defaultAppRoot = resolve(repoRoot, "app");
+const SCROLLY_CODE_OR_FENCE =
+  /^`{3,}[^\n]*\n[\s\S]*?^`{3,}[ \t]*$|^~{3,}[^\n]*\n[\s\S]*?^~{3,}[ \t]*$|<ScrollyCode\s+example=(["'])([^"']+)\1\s*\/>/gm;
 
 export const nodeFileSystem: LlmsDocsFileSystem = {
   exists: existsSync,
@@ -150,6 +155,7 @@ export const readFrontmatter = parseFrontmatter;
 
 export const stripMdxNoise = (source: string): string =>
   source
+    .replace(SCROLLY_CODE_OR_FENCE, expandWalkthrough)
     .replace(/<DocVideo[\s\S]*?\/>/g, "")
     .replace(/<a[\s\S]*?>\s*<img[\s\S]*?\/>\s*<\/a>/g, "")
     .replace(/<\/div[^>]*>/g, "")
@@ -159,6 +165,23 @@ export const stripMdxNoise = (source: string): string =>
     .replace(/:::/g, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+
+const expandWalkthrough = (source: string, _quote?: string, example?: string): string => {
+  if (!example) return source;
+  const knownExample = Object.hasOwn(walkthroughs, example);
+  if (!knownExample) throw new Error(`Unknown ScrollyCode example: ${example}`);
+  const frames = walkthroughs[example as keyof typeof walkthroughs];
+  const markdown = frames.map(formatWalkthroughFrame).join("\n\n");
+  return markdown;
+};
+
+const formatWalkthroughFrame = ({ code, lang, title, filename, note }: Frame): string => {
+  const isAnsi = lang === "ansi";
+  const language = isAnsi ? "text" : lang;
+  const content = stripVTControlCharacters(code);
+  const markdown = `**${title}** (${filename})\n\n\`\`\`${language}\n${content}\n\`\`\`\n\n${note}`;
+  return markdown;
+};
 
 export const buildDocEntry = (slug: string, source: string): DocEntry => {
   const { attributes, body } = parseFrontmatter(source);

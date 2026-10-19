@@ -31,7 +31,7 @@ function TooltipContent({
   const position = { align, alignOffset, side, sideOffset };
   return (
     <TooltipPrimitive.Portal>
-      <TooltipPrimitive.Positioner {...position} className="isolate z-50">
+      <TooltipPrimitive.Positioner {...position} className="isolate z-[1200]">
         <TooltipPopup className={className} {...props}>
           {children}
         </TooltipPopup>
@@ -56,4 +56,4 @@ function TooltipPopup({ children, className, ...props }: TooltipPrimitive.Popup.
   );
 }
 
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider };
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipPopup, TooltipProvider };

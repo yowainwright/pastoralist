@@ -7,19 +7,19 @@ description: Automated dependency override management for CI
 
 ### Basic PR Check
 
-```diff
- name: Override Check
- on: [pull_request]
+```yaml
+name: Override Check
+on: [pull_request]
 
- jobs:
+jobs:
   check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-+      - uses: yowainwright/pastoralist@v1
-+        with:
-+          mode: check
-+          check-security: false
+      - uses: yowainwright/pastoralist@v1
+        with:
+          mode: check
+          check-security: false
 ```
 
 The action enables OSV security scanning by default. Set
@@ -27,26 +27,26 @@ The action enables OSV security scanning by default. Set
 
 ### Scheduled Maintenance with PR Creation
 
-```diff
- name: Override Maintenance
- on:
+```yaml
+name: Override Maintenance
+on:
   schedule:
-    - cron: "0 0 * * 1" # Weekly on Monday
+    - cron: "0 0 * * 1"
 
-+permissions:
-+  contents: write
-+  pull-requests: write
+permissions:
+  contents: write
+  pull-requests: write
 
- jobs:
+jobs:
   maintain:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-+      - uses: yowainwright/pastoralist@v1
-+        with:
-+          mode: pr
-+          pr-title: "chore(deps): update dependency overrides"
-+          pr-labels: "dependencies automated"
+      - uses: yowainwright/pastoralist@v1
+        with:
+          mode: pr
+          pr-title: "chore(deps): update dependency overrides"
+          pr-labels: "dependencies automated"
 ```
 
 ## Modes
@@ -55,32 +55,22 @@ The action enables OSV security scanning by default. Set
 
 Runs Pastoralist in dry-run mode. Reports issues without modifying files.
 
-```diff
- - uses: yowainwright/pastoralist@v1
+```yaml
+- uses: yowainwright/pastoralist@v1
   with:
-+    mode: check
+    mode: check
 ```
 
 ### `mode: update`
 
 > Default: selected when `mode` is unset
 
-Runs Pastoralist and modifies `package.json`. Use when you want to handle commits yourself.
+Writes changes to the configured project files without committing them.
 
-```diff
- - uses: actions/checkout@v7
-
- - uses: yowainwright/pastoralist@v1
+```yaml
+- uses: yowainwright/pastoralist@v1
   with:
-+    mode: update
-
-+- name: Commit changes
-+  run: |
-+    git config user.name github-actions[bot]
-+    git config user.email github-actions[bot]@users.noreply.github.com
-+    git add package.json
-+    git diff --staged --quiet || git commit -m "chore: update overrides"
-+    git push
+    mode: update
 ```
 
 ### `mode: pr`
@@ -89,11 +79,11 @@ Runs Pastoralist and creates a PR if changes are needed. This is best for schedu
 Use this mode with `contents: write` and `pull-requests: write` workflow
 permissions.
 
-```diff
- - uses: yowainwright/pastoralist@v1
+```yaml
+- uses: yowainwright/pastoralist@v1
   with:
-+    mode: pr
-+    pr-title: "fix(security): update vulnerable overrides"
+    mode: pr
+    pr-title: "fix(security): update vulnerable overrides"
 ```
 
 ## Inputs
@@ -167,7 +157,14 @@ Deprecated. Config files are auto-detected from `root-dir`.
 > Type: **`boolean`**
 > Default: `true`
 
-Fails the action when vulnerabilities are found.
+Fails on findings, except when an auto-fix PR has changes ready to submit.
+
+### `fail-on-scan-error`
+
+> Type: **`boolean`**
+> Default: `true`
+
+Fails the action if a security provider cannot complete its scan.
 
 ### `fail-on-unused`
 
@@ -242,6 +239,13 @@ Reports whether vulnerabilities were found.
 
 Reports whether unused overrides were detected.
 
+### `security-fixes-applied`
+
+> Type: **`"true" | "false"`**
+
+Reports whether every detected vulnerability received a new security override.
+This does not report a post-install rescan.
+
 ### `updated`
 
 > Type: **`"true" | "false"`**
@@ -281,11 +285,11 @@ Reports the created PR URL in `mode: pr`.
 
 ### PR Check with Security Gate
 
-```diff
- name: Override Security
- on: [pull_request]
+```yaml
+name: Override Security
+on: [pull_request]
 
- jobs:
+jobs:
   security:
     runs-on: ubuntu-latest
     steps:
@@ -293,83 +297,49 @@ Reports the created PR URL in `mode: pr`.
 
       - uses: yowainwright/pastoralist@v1
         with:
-+          mode: check
-+          fail-on-security: true
-+          security-provider: osv
+          mode: check
+          fail-on-security: true
+          security-provider: osv
 ```
 
 ### Monorepo Support
 
-```diff
- - uses: yowainwright/pastoralist@v1
+```yaml
+- uses: yowainwright/pastoralist@v1
   with:
-+    dep-paths: "packages/*/package.json apps/*/package.json"
+    dep-paths: "packages/*/package.json apps/*/package.json"
 ```
 
 ### Using GitHub Security Provider
 
-```diff
- - uses: yowainwright/pastoralist@v1
-  with:
-+    security-provider: github
-+    security-token: ${{ secrets.GITHUB_TOKEN }}
-```
+```yaml
+name: Dependabot Alert Check
+on: [pull_request]
 
-### Conditional PR on Vulnerabilities
+permissions:
+  contents: read
+  vulnerability-alerts: read
 
-```diff
- - uses: yowainwright/pastoralist@v1
-+  id: pastoralist
-  with:
-+    mode: check
-
-+- name: Create security PR
-+  if: steps.pastoralist.outputs.has-security-issues == 'true'
-+  run: |
-+    # Custom PR logic here
-```
-
-### Weekly Maintenance with Slack Notification
-
-```diff
- name: Weekly Override Maintenance
- on:
-  schedule:
-    - cron: "0 9 * * 1"
-
-+permissions:
-+  contents: write
-+  pull-requests: write
-
- jobs:
-  maintain:
+jobs:
+  security:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-
-+      - uses: yowainwright/pastoralist@v1
-+        id: pastoralist
-+        with:
-+          mode: pr
-+
-+      - name: Notify Slack
-+        if: steps.pastoralist.outputs.pr-url != ''
-+        uses: slackapi/slack-github-action@v3.0.3
-+        with:
-+          payload: |
-+            {
-+              "text": "Pastoralist created a PR: ${{ steps.pastoralist.outputs.pr-url }}"
-+            }
+      - uses: yowainwright/pastoralist@v1
+        with:
+          mode: check
+          security-provider: github
+          security-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 ## Permissions
 
 For `mode: pr`, the action needs write permissions:
 
-```diff
- permissions:
-+  contents: write
-+  pull-requests: write
+```yaml
+permissions:
+  contents: write
+  pull-requests: write
 ```
 
 ## Security Providers

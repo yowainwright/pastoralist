@@ -1,0 +1,301 @@
+@property --scrolly-border-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.scrolly-code {
+  --walkthrough-top: 7rem;
+
+  display: grid;
+  grid-template-columns: minmax(9rem, 1fr) minmax(0, 2.5fr);
+  align-items: start;
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.walkthrough-navigation {
+  position: sticky;
+  top: var(--walkthrough-top);
+  display: grid;
+  align-self: start;
+  gap: 0.5rem;
+}
+
+.walkthrough-navigation a {
+  border-left: 2px solid color-mix(in oklab, var(--color-base-content) 15%, transparent);
+  padding: 0.75rem;
+  color: color-mix(in oklab, var(--color-base-content) 65%, transparent);
+  font-size: 1rem;
+  line-height: 1.5;
+  text-decoration: none;
+  transition:
+    color 150ms,
+    border-color 150ms;
+}
+
+.walkthrough-navigation a:hover,
+.walkthrough-navigation a[aria-current="step"] {
+  border-color: var(--color-navigation);
+  color: var(--color-base-content);
+}
+
+.walkthrough-navigation a[aria-current="step"] {
+  font-weight: 600;
+}
+
+.walkthrough-scroll {
+  display: grid;
+  min-width: 0;
+  align-items: start;
+}
+
+.walkthrough-stages,
+.walkthrough-panel {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+
+.walkthrough-stages {
+  display: grid;
+  grid-template-rows: 4rem 1fr;
+  align-self: stretch;
+  pointer-events: none;
+}
+
+.walkthrough-stage {
+  scroll-margin-top: var(--walkthrough-top);
+}
+
+.walkthrough-panel {
+  position: sticky;
+  top: var(--walkthrough-top);
+  display: grid;
+  height: 100%;
+  z-index: 1;
+  overflow: visible;
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 15%, transparent);
+  border-radius: 0.75rem;
+  background: var(--color-base-100);
+}
+
+.walkthrough-sizing,
+.walkthrough-frame {
+  grid-area: 1 / 1;
+  display: grid;
+  min-width: 0;
+}
+
+.walkthrough-sizing {
+  border: 1px solid transparent;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.walkthrough-frame {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.walkthrough-header {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+}
+
+.walkthrough-note {
+  margin: 0;
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  padding: 0.75rem 1rem;
+  line-height: 1.6;
+}
+
+.walkthrough-code {
+  position: relative;
+  max-height: min(29rem, calc(100svh - 14rem));
+  overflow: auto;
+  padding: 1rem;
+}
+
+.scrolly-code .walkthrough-code pre {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.scrolly-code .walkthrough-code .shiki code,
+.scrolly-code .walkthrough-code .shiki code .line {
+  width: auto;
+  min-width: 0;
+  white-space: pre-wrap;
+}
+
+.walkthrough-code .line > span {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: top;
+}
+
+.scrolly-code .walkthrough-code .shiki code .line.highlighted {
+  border-radius: 0.25rem;
+  background-color: color-mix(in oklab, var(--color-base-content) 6%, transparent);
+  box-shadow: none;
+  animation: none;
+}
+
+.scrolly-code .walkthrough-code[data-language="bash"] .shiki code .line {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.walkthrough-code[data-language="ansi"] {
+  --codeblock-line-height: 1.1em;
+}
+
+.scrolly-code .walkthrough-code[data-language="ansi"] :is(pre, code, .line) {
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+.scrolly-tooltip-portal {
+  display: contents;
+}
+
+.scrolly-tooltip-slide {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.scrolly-tooltip-positioner {
+  display: none;
+  z-index: 5;
+  width: clamp(12rem, 24vw, 20rem);
+  pointer-events: none;
+}
+
+.scrolly-tooltip-positioner[data-anchor-hidden] {
+  visibility: hidden;
+}
+
+.scrolly-code-callout {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 15%, transparent);
+  background: var(--color-base-100);
+  color: var(--color-base-content);
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1.6;
+  box-shadow: 0 2px 4px color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  opacity: 1;
+  animation: none;
+  transition: opacity 180ms ease-in-out;
+}
+
+.scrolly-code-callout[data-starting-style],
+.scrolly-code-callout[data-ending-style] {
+  opacity: 0;
+}
+
+.scrolly-code-callout::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border: 2px solid transparent;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.scrolly-code-callout::before,
+.scrolly-code-callout > [aria-hidden="true"] {
+  background:
+    linear-gradient(var(--color-base-100), var(--color-base-100)) padding-box,
+    conic-gradient(
+        from var(--scrolly-border-angle, 0deg),
+        var(--brand-pink),
+        var(--color-error),
+        var(--color-warning),
+        var(--color-success),
+        var(--color-info),
+        var(--brand-blue),
+        var(--brand-purple),
+        var(--brand-pink)
+      )
+      border-box;
+  animation: scrolly-border-rotate 6s linear infinite;
+}
+
+@keyframes scrolly-border-rotate {
+  to {
+    --scrolly-border-angle: 1turn;
+  }
+}
+
+.scrolly-code-callout > [aria-hidden="true"] {
+  border: 2px solid transparent;
+  border-width: 2px 0 0 2px;
+}
+
+.scrolly-code-callout > [data-side="right"] {
+  border-width: 0 0 2px 2px;
+}
+
+.scrolly-code-callout > [data-side="left"] {
+  border-width: 2px 2px 0 0;
+}
+
+.scrolly-code-callout > [data-side="top"] {
+  border-width: 0 2px 2px 0;
+}
+
+.scrolly-code-callout p {
+  margin: 0;
+}
+
+@media (min-width: 1024px) {
+  .walkthrough-note {
+    display: none;
+  }
+
+  .scrolly-tooltip-positioner {
+    display: block;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scrolly-code-callout,
+  .scrolly-code-callout::before,
+  .scrolly-code-callout > [aria-hidden="true"] {
+    animation: none;
+    transition: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .scrolly-code {
+    --walkthrough-top: 10rem;
+
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+
+  .walkthrough-navigation {
+    top: 5rem;
+    z-index: 2;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0;
+    background: var(--color-base-100);
+  }
+
+  .walkthrough-code {
+    max-height: min(24rem, calc(100svh - 19rem));
+  }
+}

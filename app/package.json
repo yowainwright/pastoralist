@@ -28,6 +28,7 @@
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "codehike": "1.1.0",
     "effect": "^3.21.2",
     "framer-motion": "^13.4.3",
     "fuse.js": "^7.5.0",
@@ -67,6 +68,11 @@
   "optionalDependencies": {},
   "packageManager": "pnpm@12.4.2",
   "pastoralist": {
+    "security": {
+      "excludePackages": [
+        "braces"
+      ]
+    },
     "appendix": {
       "fast-uri@3.1.8": {
         "dependents": {

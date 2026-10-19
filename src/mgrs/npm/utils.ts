@@ -248,7 +248,7 @@ export const parseNpmLockGraph = (root: string): Record<string, string[]> | unde
 export const countNpmLockPackages = (lockPath: string): number => {
   try {
     const content = fs.readFileSync(lockPath, "utf8");
-    const lock = JSON.parse(content);
+    const lock = JSON.parse(content) as NpmLockFile;
     const packages = lock.packages || {};
     const count = Math.max(0, Object.keys(packages).length - 1);
     return count;
@@ -360,7 +360,7 @@ export const readNpmResolvedGraph = (
   const path = resolve(root, NPM_LOCK_FILENAME);
   const graph = readLockGraph(
     path,
-    (content) => normalizeNpmGraph(JSON.parse(content), root, manifests),
+    (content) => normalizeNpmGraph(JSON.parse(content) as NpmLockFile, root, manifests),
     report,
   );
   return graph;

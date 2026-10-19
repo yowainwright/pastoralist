@@ -6,13 +6,14 @@ import type { Heading } from "@/lib/mdx/types";
 import { TocWithScrollspy } from "@/components/docs/TocWithScrollspy";
 import { mdxComponents } from "@/components/docs/MDXComponents";
 import { Pagination, getPagination } from "@/components/docs/Pagination";
+import { ScrollyCodeProvider } from "@/components/docs/ScrollyCode";
 import katexStylesheet from "katex/dist/katex.min.css?url";
 
 const styles = {
-  page: "relative mx-auto grid min-h-[calc(100vh-68px)] w-full max-w-[1120px] grid-cols-1 gap-8 overflow-x-clip px-4 py-6 font-spline-sans-mono sm:px-6 md:px-10 md:py-10 lg:px-12 xl:grid-cols-[minmax(0,680px)_240px] xl:gap-16 xl:px-16 2xl:max-w-[1240px] 2xl:grid-cols-[minmax(0,720px)_260px] 2xl:gap-20 2xl:px-20",
-  article: "flex w-[calc(100vw-2rem)] min-w-0 max-w-full flex-1 flex-col sm:w-full",
+  page: "relative mx-auto grid min-h-[calc(100vh-68px)] w-full max-w-[1200px] grid-cols-1 gap-8 overflow-x-clip px-4 font-spline-sans-mono sm:px-6 md:px-10 lg:px-12 xl:grid-cols-[minmax(0,680px)_clamp(15rem,20vw,20rem)] xl:gap-16 xl:px-16 2xl:max-w-[1300px] 2xl:grid-cols-[minmax(0,720px)_clamp(15rem,20vw,20rem)] 2xl:gap-20 2xl:px-20",
+  article: "flex w-[calc(100vw-2rem)] min-w-0 max-w-full flex-1 flex-col py-6 sm:w-full md:py-10",
   content:
-    "docs-prose prose prose-sm sm:prose-base md:prose-md mb-10 min-h-[calc(100vh-220px)] w-full min-w-0 max-w-full break-words prose-pre:max-w-full prose-pre:overflow-x-auto [&>*]:max-w-full",
+    "docs-prose prose prose-base md:text-lg md:leading-8 mb-10 min-h-[calc(100vh-220px)] w-full min-w-0 max-w-full break-words prose-pre:max-w-full prose-pre:overflow-x-auto [&>*]:max-w-full",
   loading:
     "not-prose flex min-h-[calc(100vh-220px)] w-full items-center justify-center rounded-md border border-base-content/10 bg-base-100/70",
 } as const;
@@ -75,7 +76,7 @@ export function DocsPage({ headings }: { headings: Heading[] }) {
       <MathStyles enabled={doc.usesMath} />
       <DocArticle doc={doc} slug={slug} contentRef={contentRef} />
 
-      <aside className="hidden xl:block">
+      <aside className="hidden min-w-0 xl:block">
         <TocWithScrollspy key={slug} headings={headings} contentRef={contentRef} />
       </aside>
     </section>
@@ -131,7 +132,9 @@ function DocArticle({ doc, slug, contentRef }: DocArticleProps) {
     <article className={styles.article}>
       <Breadcrumbs title={doc.title} />
 
-      <DocBody doc={doc} Content={Content} contentRef={contentRef} />
+      <ScrollyCodeProvider key={slug} contentRef={contentRef}>
+        <DocBody doc={doc} Content={Content} contentRef={contentRef} />
+      </ScrollyCodeProvider>
 
       <Pagination prevItem={prevItem} nextItem={nextItem} />
     </article>

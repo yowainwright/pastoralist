@@ -21,17 +21,17 @@ packages still need it, or whether it's safe to remove.
 Yes. Pastoralist reads and writes the override field your package manager uses:
 
 - **npm and Bun**: `overrides`
-- **pnpm**: `pnpm.overrides`
+- **pnpm**: `pnpm.overrides`, or `pnpm-workspace.yaml` for pnpm 11+
 - **Yarn**: `resolutions`
 
-### Is pastoralist safe to use?
+### Which Files Can Change?
 
-Pastoralist is designed to keep changes reviewable:
+Pastoralist updates the configured manifest, override source, and appendix
+target. `--setup-hook` opts into a postinstall script change. Review changes
+with `--dry-run`; providers may still write caches.
 
-- Only modifies override/resolution fields and the `pastoralist` section of `package.json`
-- Normalizes `package.json` output to two-space JSON
-- Leaves changes visible in git so you can review or revert them
-- Creates a temporary backup before security auto-fix writes package.json
+Package manifests use two-space JSON. Security auto-fix creates a temporary
+backup before writing.
 
 ### When should overrides be used?
 
@@ -48,7 +48,9 @@ Use overrides for:
 
 **Problem:** Pastoralist isn't removing overrides that seem unnecessary.
 
-**Solution:** The override might still be needed by a transitive dependency. Run with debug mode to see why:
+**Solution:** Cleanup requires `--remove-unused`. Preview it with
+`--remove-unused --dry-run`. Active keep constraints and uncertain dependency
+usage can prevent removal. Use debug mode to inspect the decision:
 
 ```bash
 npx pastoralist --debug
@@ -79,69 +81,31 @@ patches/
 └── custom-patch.patch          # Won't be detected
 ```
 
-### Performance Issues
+### Workspace Scans Are Slow or Incomplete
 
-**Problem:** Pastoralist takes a long time to run.
-
-**Solution:** For large monorepos:
-
-1. Run on specific packages instead of all at once
-2. Use `--ignore` to skip unnecessary directories
-3. Run packages in parallel:
+Configure `depPaths: "workspace"` at the root, or use explicit manifest globs
+to narrow the scan:
 
 ```bash
-# Instead of
-pastoralist --depPaths "**/package.json"
-
-# Try
-find . -name "package.json" -not -path "*/node_modules/*" | \
-  xargs -P 4 -I {} npx pastoralist --path {}
+npx pastoralist --depPaths "packages/*/package.json" --debug
 ```
 
-### Monorepo Override Conflicts
+npm overrides belong in the root manifest. Moving them into workspace
+manifests does not make them package-specific; use root nested overrides
+to scope a transitive override to a parent.
 
-**Problem:** Different packages in my monorepo need different versions.
+### CI Reports Tracking Changes
 
-**Solution:** Use package-specific overrides:
-
-Root package.json can hold shared security patches:
-
-```json title="package.json" {3}
-{
-  "overrides": {
-    "minimist": "1.2.8"
-  }
-}
-```
-
-Packages can hold their own compatibility requirements:
-
-```json title="package.json" {3}
-{
-  "overrides": {
-    "react": "17.0.2"
-  }
-}
-```
-
-### CI Failures
-
-**Problem:** CI fails saying `package.json` was modified.
-
-**Solution:** Run pastoralist locally and commit the changes:
+Run Pastoralist locally, review the generated diff, and include the appendix
+with your dependency change:
 
 ```bash
 npx pastoralist
-git add package.json
-git commit -m "Update override appendix"
+git diff -- package.json
 ```
 
-Then add to your CI check:
-
-```yaml
-- run: npx pastoralist
-- run: git diff --exit-code package.json
-```
+For external sources, include those files in the review as well.
+See [GitHub Action](/docs/github-action) for checks and maintenance PRs.
 
 ## Debug Mode
 
@@ -173,15 +137,14 @@ Pastoralist can't locate your `package.json`. Solutions:
 Your `package.json` has syntax errors. Validate with:
 
 ```bash
-npx json package.json
+node -e 'JSON.parse(require("node:fs").readFileSync("package.json", "utf8"))'
 ```
 
 ### "No overrides found"
 
-This is normal if you don't have any overrides. Pastoralist will:
-
-- Clean up any existing appendix
-- Exit successfully
+Confirm that the override is in the field or file used by your package manager.
+For pnpm 11+, check `pnpm-workspace.yaml`. A project with no overrides does
+not need an override appendix.
 
 ## Best Practices
 
@@ -199,8 +162,8 @@ Run pastoralist regularly:
 
 ### 2. Document Override Reasons
 
-`package.json` does not support comments. Every appendix entry has a `ledger`;
-add a `reason` to it (or provide manual reasons when you generate the appendix):
+`package.json` does not support comments. Add a ledger `reason` to record
+why an override exists, or provide reasons with `--promptForReasons`:
 
 ```json title="package.json" /appendix/
 {
@@ -212,7 +175,7 @@ add a `reason` to it (or provide manual reasons when you generate the appendix):
       "lodash@4.17.21": {
         "ledger": {
           "addedDate": "2026-05-30T00:00:00.000Z",
-          "reason": "CVE-2021-12345 fix",
+          "reason": "Keep until upstream adopts the required version.",
           "source": "manual"
         }
       }
@@ -223,14 +186,8 @@ add a `reason` to it (or provide manual reasons when you generate the appendix):
 
 ### 3. Monitor Patch Files
 
-When you see this warning:
-
-```
-🐑 Found potentially unused patch files:
-  - patches/old-package+1.0.0.patch
-```
-
-Review and remove unused patches to keep your repo clean.
+Review potentially unused patch paths reported by Pastoralist. It does not
+delete patch files.
 
 ## Getting Help
 
@@ -265,37 +222,11 @@ If you're tracking overrides manually in docs or issue trackers, Pastoralist wil
 2. Track their usage going forward
 3. Flag unused overrides and remove them when you run with `--remove-unused`
 
-## Advanced Debugging
+## Ledger Shape
 
-### Trace Dependency Paths
+Expanded entries include `ledger.addedDate`. With `compactAppendix`,
+routine entries may contain only top-level `addedDate`. Reasons, security
+data, patches, and keep constraints require expanded entries.
 
-To understand why an override is needed:
-
-```javascript title="debug-override.js"
-import { resolveJSON, update } from "pastoralist";
-
-const path = "./package.json";
-const config = resolveJSON(path);
-
-if (config) {
-  update({ config, debug: true, path });
-}
-
-// Check the debug output for dependency paths
-```
-
-### Analyze Appendix
-
-```javascript title="analyze-appendix.js"
-import fs from "fs";
-
-const pkg = JSON.parse(fs.readFileSync("./package.json", "utf-8"));
-const appendix = pkg.pastoralist?.appendix || {};
-
-console.log("Override Report:");
-Object.entries(appendix).forEach(([override, info]) => {
-  console.log(`\n${override}:`);
-  console.log("  Dependents:", Object.keys(info.dependents || {}));
-  console.log("  Patches:", info.patches || "none");
-});
-```
+`reviewBy` is descriptive metadata; it does not expire a keep constraint.
+Use `until` or `untilVersion` for expiry.

@@ -1,5 +1,4 @@
-import type { walkthroughs } from "./constants";
-import type more from "./more-examples.json";
+import type { walkthroughs } from "./utils";
 import type { ReactNode, RefObject } from "react";
 
 export type Frame = {
@@ -20,16 +19,14 @@ export type CalloutCandidate = { id: string; distance: number };
 export type CalloutBounds = { id: string; top: number; bottom: number };
 export type CalloutEvent = { type: "viewport"; candidates: CalloutCandidate[] };
 export type FramesProps = { frames: readonly Frame[] };
-export type PanelFrameProps = { frame: Frame; position: string };
+export type PanelFrameProps = { frame: Frame; position: string; descriptionId?: string };
 export type AnimatedCodeProps = { html: string };
 export type CodeFrameProps = { frame: Frame };
 export type CalloutProps = CodeFrameProps & {
   panel?: HTMLElement | null;
   visible: boolean;
-  descriptionId: string;
 };
-export type CalloutContentProps = Pick<CalloutProps, "frame" | "panel" | "descriptionId">;
-export type SummaryReport = typeof more.doctorReport;
+export type CalloutContentProps = Pick<CalloutProps, "frame" | "panel">;
 export type TokenAnimationOptions = { selector: string; duration: number };
 
 export type LinkProps = {

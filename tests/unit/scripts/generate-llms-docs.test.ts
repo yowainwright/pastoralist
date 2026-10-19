@@ -3,6 +3,8 @@ import { assertCalledWith, mock } from "../setup";
 import { afterEach, describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
+import { stripVTControlCharacters } from "node:util";
+import { walkthroughs } from "../../../app/src/components/docs/ScrollyCode/utils";
 import {
   buildDocEntry,
   buildLlmsFullTxt,
@@ -185,6 +187,60 @@ Use Pastoralist.
           title: "Setup",
         },
       );
+    },
+  },
+  {
+    name: "buildDocEntry expands every walkthrough with code and explanatory notes",
+    run: () => {
+      const components = Object.keys(walkthroughs).map(
+        (example) => `<ScrollyCode example="${example}" />`,
+      );
+      const entry = buildDocEntry("api-reference", components.join("\n\n"));
+      const frames = Object.values(walkthroughs).flat();
+      frames.forEach(({ code, note }) => {
+        assertContainsText(entry.content, stripVTControlCharacters(code));
+        assertContainsText(entry.content, note);
+      });
+      assertContainsText(entry.content, "```bash\n");
+      assertContainsText(entry.content, "```json\n");
+      assertContainsText(entry.content, "```text\n");
+      assertExcludesText(entry.content, "<ScrollyCode");
+      assertExcludesText(entry.content, "\u001b[");
+    },
+  },
+  {
+    name: "buildDocEntry preserves literal walkthrough tags in fenced examples",
+    run: () => {
+      const backticks = '````mdx\n<ScrollyCode example="json" />\n````';
+      const tildes = '~~~mdx\n<ScrollyCode example="summary" />\n~~~';
+      const source = `${backticks}\n\n${tildes}`;
+      assert.equal(buildDocEntry("examples", source).content, source);
+    },
+  },
+  {
+    name: "buildDocEntry rejects unknown walkthrough names",
+    run: () => {
+      assert.throws(
+        () => buildDocEntry("example", '<ScrollyCode example="missing" />'),
+        /Unknown ScrollyCode example: missing/,
+      );
+    },
+  },
+  {
+    name: "generateLlmsDocs publishes walkthroughs in the full text export",
+    run: () => {
+      const path = resolve(fixtureAppRoot, "src/content/docs/security.mdx");
+      const source = "<ScrollyCode\n example='summary'\n/>";
+      const files = Object.assign({}, fixtureFiles, { [path]: source });
+      const fs = createMemoryFileSystem(files);
+      const log = mock(() => {});
+      const logger = { log };
+      generateLlmsDocs({ appRoot: fixtureAppRoot, fs, logger });
+      const full = fs.writes[resolve(fixtureAppRoot, "public/llms-full.txt")];
+      assertContainsText(full, "npx pastoralist --summary");
+      assertContainsText(full, "Packages scanned");
+      assertContainsText(full, "security scanning was disabled.");
+      assertExcludesText(full, "<ScrollyCode");
     },
   },
   {

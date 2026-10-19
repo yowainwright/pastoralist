@@ -1,3 +1,9 @@
+@property --scrolly-border-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
 .scrolly-code {
   --walkthrough-top: 7rem;
 
@@ -87,7 +93,7 @@
 }
 
 .walkthrough-frame {
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
   border-radius: inherit;
 }
@@ -98,6 +104,13 @@
   border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   padding: 0.75rem 1rem;
   font-size: 0.75rem;
+}
+
+.walkthrough-note {
+  margin: 0;
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  padding: 0.75rem 1rem;
+  line-height: 1.6;
 }
 
 .walkthrough-code {
@@ -171,6 +184,8 @@
 }
 
 .scrolly-code-callout {
+  position: relative;
+  isolation: isolate;
   width: 100%;
   border: 1px solid color-mix(in oklab, var(--color-base-content) 15%, transparent);
   background: var(--color-base-100);
@@ -179,24 +194,66 @@
   font-size: inherit;
   line-height: 1.6;
   box-shadow: 0 2px 4px color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  opacity: 1;
+  animation: none;
+  transition: opacity 180ms ease-in-out;
+}
+
+.scrolly-code-callout[data-starting-style],
+.scrolly-code-callout[data-ending-style] {
+  opacity: 0;
+}
+
+.scrolly-code-callout::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border: 2px solid transparent;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.scrolly-code-callout::before,
+.scrolly-code-callout > [aria-hidden="true"] {
+  background:
+    linear-gradient(var(--color-base-100), var(--color-base-100)) padding-box,
+    conic-gradient(
+        from var(--scrolly-border-angle, 0deg),
+        var(--brand-pink),
+        var(--color-error),
+        var(--color-warning),
+        var(--color-success),
+        var(--color-info),
+        var(--brand-blue),
+        var(--brand-purple),
+        var(--brand-pink)
+      )
+      border-box;
+  animation: scrolly-border-rotate 6s linear infinite;
+}
+
+@keyframes scrolly-border-rotate {
+  to {
+    --scrolly-border-angle: 1turn;
+  }
 }
 
 .scrolly-code-callout > [aria-hidden="true"] {
-  border: inherit;
-  border-width: 1px 0 0 1px;
-  background: inherit;
+  border: 2px solid transparent;
+  border-width: 2px 0 0 2px;
 }
 
 .scrolly-code-callout > [data-side="right"] {
-  border-width: 0 0 1px 1px;
+  border-width: 0 0 2px 2px;
 }
 
 .scrolly-code-callout > [data-side="left"] {
-  border-width: 1px 1px 0 0;
+  border-width: 2px 2px 0 0;
 }
 
 .scrolly-code-callout > [data-side="top"] {
-  border-width: 0 1px 1px 0;
+  border-width: 0 2px 2px 0;
 }
 
 .scrolly-code-callout p {
@@ -204,13 +261,19 @@
 }
 
 @media (min-width: 1024px) {
+  .walkthrough-note {
+    display: none;
+  }
+
   .scrolly-tooltip-positioner {
     display: block;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .scrolly-code-callout {
+  .scrolly-code-callout,
+  .scrolly-code-callout::before,
+  .scrolly-code-callout > [aria-hidden="true"] {
     animation: none;
     transition: none;
   }

@@ -1,10 +1,14 @@
 import { Component, createRef, Suspense, use, useEffect, useState } from "react";
+import { createActorContext } from "@xstate/react";
+import { fromTransition } from "xstate";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
 import { Tooltip, TooltipPopup } from "@/components/ui/tooltip";
 import { Selectable, SelectionProvider, useSelectedIndex } from "codehike/utils/selection";
 import {
+  calculateTransitions,
   getStartingSnapshot,
+  type TokenTransition,
   type TokenTransitionsSnapshot,
 } from "codehike/utils/token-transitions";
 import {
@@ -12,19 +16,12 @@ import {
   CALLOUT_POSITION,
   CALLOUT_STILL_MOTION,
   CALLOUT_VISIBILITY,
-  CalloutActor,
   EMPTY_SNAPSHOT,
   SCROLL_TRIGGER_TOP,
   TOKEN_TRANSITIONS,
-  walkthroughs,
 } from "./constants";
-import {
-  animateCode,
-  findFrameAnchor,
-  loadFrameHtml,
-  useCalloutCoordinator,
-  useScrollMargin,
-} from "./utils";
+import { findFrameAnchor, loadFrameHtml, selectActiveCallout, walkthroughs } from "./utils";
+import { useCalloutCoordinator, useScrollMargin } from "./hooks";
 import type {
   AnimatedCodeProps,
   CalloutContentProps,
@@ -36,6 +33,7 @@ import type {
   PanelFrameProps,
   ScrollyCodeProps,
   ScrollyCodeProviderProps,
+  TokenAnimationOptions,
 } from "./types";
 import "./styles.css";
 
@@ -70,6 +68,9 @@ class AnimatedCode extends Component<AnimatedCodeProps> {
       .forEach((animation) => animation.cancel());
   }
 }
+
+const calloutLogic = fromTransition(selectActiveCallout, null);
+const CalloutActor = createActorContext(calloutLogic);
 
 export function ScrollyCodeProvider({ children, contentRef }: ScrollyCodeProviderProps) {
   return (
@@ -156,10 +157,10 @@ function WalkthroughPanel({ frames }: FramesProps) {
   const descriptionId = `${frame.id}-callout`;
   const { title } = frame;
   const section = { ref, "aria-label": title, "aria-describedby": descriptionId };
-  const callout = { frame, panel, visible, descriptionId };
+  const callout = { frame, panel, visible };
   return (
     <section {...section} data-callout-id={id} className="walkthrough-panel">
-      <WalkthroughFrame frame={frame} position={position} />
+      <WalkthroughFrame frame={frame} position={position} descriptionId={descriptionId} />
       <WalkthroughCallout {...callout} />
     </section>
   );
@@ -177,7 +178,7 @@ function WalkthroughSizing({ frames }: FramesProps) {
   );
 }
 
-function WalkthroughFrame({ frame, position }: PanelFrameProps) {
+function WalkthroughFrame({ frame, position, descriptionId }: PanelFrameProps) {
   return (
     <div className="walkthrough-frame">
       <header className="walkthrough-header">
@@ -189,23 +190,26 @@ function WalkthroughFrame({ frame, position }: PanelFrameProps) {
           <WalkthroughCode frame={frame} />
         </Suspense>
       </div>
+      <p id={descriptionId} className="walkthrough-note">
+        {frame.note}
+      </p>
     </div>
   );
 }
 
-function WalkthroughCallout({ frame, panel, visible, descriptionId }: CalloutProps) {
+function WalkthroughCallout({ frame, panel, visible }: CalloutProps) {
   return (
     <Tooltip open={visible}>
       <TooltipPrimitive.Portal container={panel} className="scrolly-tooltip-portal">
         <Suspense fallback={null}>
-          <WalkthroughCalloutSlide frame={frame} panel={panel} descriptionId={descriptionId} />
+          <WalkthroughCalloutSlide frame={frame} panel={panel} />
         </Suspense>
       </TooltipPrimitive.Portal>
     </Tooltip>
   );
 }
 
-function WalkthroughCalloutContent({ frame, panel, descriptionId }: CalloutContentProps) {
+function WalkthroughCalloutContent({ frame, panel }: CalloutContentProps) {
   use(loadFrameHtml(frame));
   const anchor = () => findFrameAnchor(panel, frame);
   const isCommand = frame.lang === "bash";
@@ -213,20 +217,20 @@ function WalkthroughCalloutContent({ frame, panel, descriptionId }: CalloutConte
   const position = Object.assign({}, CALLOUT_POSITION, { anchor, side });
   return (
     <TooltipPrimitive.Positioner {...position} className="scrolly-tooltip-positioner">
-      <TooltipPopup id={descriptionId} className="scrolly-code-callout">
+      <TooltipPopup className="scrolly-code-callout">
         <p>{frame.note}</p>
       </TooltipPopup>
     </TooltipPrimitive.Positioner>
   );
 }
 
-function WalkthroughCalloutSlide({ frame, panel, descriptionId }: CalloutContentProps) {
+function WalkthroughCalloutSlide({ frame, panel }: CalloutContentProps) {
   const reducedMotion = useReducedMotion();
   const animation = reducedMotion ? CALLOUT_STILL_MOTION : CALLOUT_MOTION;
   return (
     <AnimatePresence mode="wait" initial={false}>
       <motion.div key={frame.id} className="scrolly-tooltip-slide" {...animation}>
-        <WalkthroughCalloutContent frame={frame} panel={panel} descriptionId={descriptionId} />
+        <WalkthroughCalloutContent frame={frame} panel={panel} />
       </motion.div>
     </AnimatePresence>
   );
@@ -235,4 +239,35 @@ function WalkthroughCalloutSlide({ frame, panel, descriptionId }: CalloutContent
 function WalkthroughCode({ frame }: CodeFrameProps) {
   const html = use(loadFrameHtml(frame));
   return <AnimatedCode html={html} />;
+}
+
+function animateCode(
+  element: HTMLElement,
+  snapshot: TokenTransitionsSnapshot,
+  options: TokenAnimationOptions,
+) {
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reducedMotion) return;
+  const transitions = calculateTransitions(element, snapshot, options);
+  transitions.forEach((transition) => animateToken(transition, options.duration));
+}
+
+function animateToken({ element, keyframes, options }: TokenTransition, durationMs: number) {
+  const { duration: durationRatio, delay: delayRatio, easing } = options;
+  const duration = durationRatio * durationMs;
+  const delay = delayRatio * durationMs;
+  const settings = { duration, delay, easing, fill: "both" } as const;
+  const frames = createKeyframes(keyframes);
+  element.animate(frames, settings);
+}
+
+function createKeyframes({ translateX, translateY, ...rest }: TokenTransition["keyframes"]) {
+  const keyframes: PropertyIndexedKeyframes = rest;
+  const hasTranslation = translateX && translateY;
+  if (!hasTranslation) return keyframes;
+  keyframes.translate = [
+    `${translateX[0]}px ${translateY[0]}px`,
+    `${translateX[1]}px ${translateY[1]}px`,
+  ];
+  return keyframes;
 }

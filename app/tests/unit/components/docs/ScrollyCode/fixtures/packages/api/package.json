@@ -1,6 +1,0 @@
-{
-  "name": "@shepherd/api",
-  "dependencies": {
-    "qs": "^6.10.0"
-  }
-}

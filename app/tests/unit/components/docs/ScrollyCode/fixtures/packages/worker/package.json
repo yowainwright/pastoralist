@@ -1,6 +1,0 @@
-{
-  "name": "@shepherd/worker",
-  "dependencies": {
-    "qs": "^6.11.0"
-  }
-}

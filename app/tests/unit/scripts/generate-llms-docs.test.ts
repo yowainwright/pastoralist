@@ -1,10 +1,9 @@
-import { assertContainsText, assertExcludesText } from "./utils";
-import { assertCalledWith, mock } from "../setup";
-import { afterEach, describe, test } from "node:test";
+import { assertContainsText, assertExcludesText } from "../../../../tests/unit/scripts/utils";
+import { afterEach, describe, mock, test } from "node:test";
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
 import { stripVTControlCharacters } from "node:util";
-import { walkthroughs } from "../../../app/src/components/docs/ScrollyCode/utils";
+import { walkthroughs } from "../../../src/components/docs/ScrollyCode/utils";
 import {
   buildDocEntry,
   buildLlmsFullTxt,
@@ -19,7 +18,7 @@ import {
   stripMdxNoise,
   type DocEntry,
   type LlmsDocsFileSystem,
-} from "../../../scripts/build/generate-llms-docs";
+} from "../../../../scripts/build/generate-llms-docs";
 
 type MemoryFileSystem = LlmsDocsFileSystem & {
   directories: string[];
@@ -233,7 +232,7 @@ Use Pastoralist.
       const source = "<ScrollyCode\n example='summary'\n/>";
       const files = Object.assign({}, fixtureFiles, { [path]: source });
       const fs = createMemoryFileSystem(files);
-      const log = mock(() => {});
+      const log = mock.fn(() => {});
       const logger = { log };
       generateLlmsDocs({ appRoot: fixtureAppRoot, fs, logger });
       const full = fs.writes[resolve(fixtureAppRoot, "public/llms-full.txt")];
@@ -331,7 +330,7 @@ Use Pastoralist.
     name: "generateLlmsDocs writes llms files through injected dependencies",
     run: () => {
       const fs = createMemoryFileSystem(fixtureFiles);
-      const log = mock(() => {});
+      const log = mock.fn(() => {});
       const logger = { log };
 
       const result = generateLlmsDocs({
@@ -346,17 +345,16 @@ Use Pastoralist.
         ["intro", "security"],
       );
       assertWrittenDocs(fs);
-      assertCalledWith(
-        logger.log,
+      assert.deepStrictEqual(logger.log.mock.calls[0].arguments, [
         "Generated 2 docs into public/llms.txt and public/llms-full.txt",
-      );
+      ]);
     },
   },
 ];
 
 describe("scripts/build/generate-llms-docs", () => {
   afterEach(() => {
-    mock.restore();
+    mock.restoreAll();
   });
   cases.forEach(({ name, run }) => test(name, run));
 });

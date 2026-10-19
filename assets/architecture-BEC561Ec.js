@@ -1,0 +1,185 @@
+var e=`---
+title: Architecture
+description: "How Pastoralist reads overrides, writes the appendix, tracks patches, and handles cleanup"
+---
+
+## How Pastoralist Works
+
+\`\`\`mermaid
+---
+config:
+  flowchart:
+    nodeSpacing: 20
+    rankSpacing: 24
+    padding: 12
+---
+flowchart TB
+    subgraph Read["1. Read"]
+        direction LR
+        Manifest["Manifest or external override source"] --> Config["Load CLI and project config"]
+        Config --> Security{"Security enabled?"}
+        Security -->|Yes| Scan["Scan providers and collect alerts"]
+        Scan --> Fixes["Merge fixable security overrides"]
+        Security -->|No| Update["Run update()"]
+        Fixes --> Update
+    end
+
+    subgraph Track["2. Track"]
+        direction LR
+        Patches["Detect patch-package files"] --> Overrides["Resolve package manager overrides"]
+        Overrides --> Workspaces{"Workspace paths?"}
+        Workspaces -->|Yes| WorkspaceAppendix["Read workspace manifests"]
+        Workspaces -->|No| Appendix["Build appendix"]
+        WorkspaceAppendix --> Appendix
+    end
+
+    subgraph Save["3. Write"]
+        direction LR
+        Cleanup{"--remove-unused?"} -->|Yes| Remove["Remove verified unused overrides"]
+        Cleanup -->|No| Write["Write package.json or appendix target"]
+        Remove --> Write
+        Write --> Result["Report metrics and outputs"]
+    end
+
+    Read --> Track --> Save
+
+    class Read,Manifest,Config,Security,Scan,Fixes,Update diagram-read
+    class Track,Patches,Overrides,Workspaces,WorkspaceAppendix,Appendix diagram-track
+    class Save,Cleanup,Remove,Write,Result diagram-write
+\`\`\`
+
+Pastoralist reads the root \`package.json\`, maps each override or resolution into
+a \`pastoralist.appendix\` entry, and records when the entry was created in its
+\`ledger\`. Patches created by tools such as \`patch-package\` are detected and
+tracked on the same entry.
+
+If an override or resolution is no longer needed, Pastoralist marks the appendix
+entry as unused and prints a cleanup notice. The override and its appendix entry
+are removed only when you run with \`--remove-unused\`. Patch files are reported
+as potentially unused; Pastoralist does not delete patch files for you.
+
+Your package manager applies overrides during installation. Pastoralist tracks
+them in the appendix and can change overrides when you opt into cleanup or
+security fixes.
+
+### Workspace Support
+
+In workspace/monorepo setups, Pastoralist:
+
+- Reads the root \`package.json\` or project manifest file
+- Maps overrides, resolutions, and patches to the \`pastoralist.appendix\`, with a
+  \`ledger\` entry recording when each override was added
+- Reads workspace package manifests when \`depPaths\` or \`workspaces\` are configured
+- Writes the consolidated appendix to the target \`package.json\`, usually the root
+
+## What Are Overrides, Resolutions, and Patches?
+
+### Overrides (npm)
+
+Overrides replace a package version in your dependency tree with the version
+you choose. This is npm's way to handle dependency conflicts:
+
+\`\`\`json title="package.json" {3}
+{
+  "overrides": {
+    "foo": "1.0.0",
+    "bar": {
+      "baz": "1.0.0"
+    }
+  }
+}
+\`\`\`
+
+### Resolutions (Yarn)
+
+Resolutions serve the same purpose for Yarn users:
+
+\`\`\`json title="package.json" {3}
+{
+  "resolutions": {
+    "foo": "1.0.0",
+    "**/bar/baz": "1.0.0"
+  }
+}
+\`\`\`
+
+### Patches
+
+Patches are local changes to \`node_modules\` packages, usually created with
+tools such as \`patch-package\`. Pastoralist detects and tracks these patches.
+
+## Object Anatomy
+
+The Pastoralist object in \`package.json\` records what the tool manages:
+
+\`\`\`json title="package.json" /appendix/
+{
+  "overrides": {
+    "minimist": "1.2.8"
+  },
+  "pastoralist": {
+    "appendix": {
+      "minimist@1.2.8": {
+        "dependents": {
+          "my-app": "minimist@^1.2.6",
+          "mkdirp": "minimist@^1.2.5"
+        },
+        "ledger": {
+          "addedDate": "2026-05-30T00:00:00.000Z",
+          "reason": "Pin minimist while upstream packages adopt the patched version.",
+          "source": "manual"
+        }
+      }
+    }
+  }
+}
+\`\`\`
+
+### Appendix Properties
+
+- **appendix key**: The package and override version, such as \`minimist@1.2.8\`
+- **dependents**: Direct, workspace, or transitive packages that still require the override
+- **patches**: Patch files associated with the package, when any are detected
+- **ledger**: Present on expanded entries. Holds
+  \`addedDate\`, optional \`reason\` and \`source\`, security metadata (\`securityProvider\`,
+  \`cves\`, \`cveDetails\`, \`severity\`, \`vulnerableRange\`, \`patchedVersion\`), and
+  optional \`keep\` constraints
+
+With \`compactAppendix\`, routine entries can use a top-level \`addedDate\`.
+Entries with reasons, security data, patches, or keep constraints stay expanded.
+
+## Nested Override Architecture
+
+How nested overrides work for transitive dependencies:
+
+\`\`\`mermaid
+flowchart TD
+    App[Your App] --> ParentPkg[Parent Package]
+    ParentPkg --> NestedDep[Nested Dependency]
+    Override[Override in package.json] -.->|Forces version| NestedDep
+
+    class App,ParentPkg diagram-read
+    class Override diagram-track
+    class NestedDep diagram-write
+\`\`\`
+
+## Design Decisions
+
+### Synchronous I/O
+
+Pastoralist uses sync file I/O intentionally. As a CLI tool, predictable execution and simple debugging outweigh async benefits.
+
+### Caching
+
+Two caches avoid redundant work: \`jsonCache\` (parsed package.json files) and \`dependencyTreeCache\` (npm ls output). Caches persist across \`update()\` calls - pass \`clearCache: true\` to reset.
+
+### Override Sources
+
+npm and Bun use \`overrides\`; Yarn uses \`resolutions\`.
+pnpm uses \`pnpm.overrides\` or \`pnpm-workspace.yaml\` for pnpm 11+.
+\`overrideSource\` can select a separate JSON or YAML source, and
+\`appendixSource\` can select a JSON appendix target.
+
+Pastoralist updates those project files. Reinstall dependencies to update
+the lockfile after changing overrides.
+`;export{e as default};

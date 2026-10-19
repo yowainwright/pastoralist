@@ -1,0 +1,110 @@
+var e=`---
+title: Setup
+description: "Install Pastoralist and keep your override appendix current"
+---
+
+## Install
+
+Add Pastoralist as a dev dependency:
+
+\`\`\`bash
+npm install pastoralist --save-dev
+\`\`\`
+
+Other package managers work too:
+
+\`\`\`bash
+pnpm add pastoralist --save-dev
+yarn add pastoralist --dev
+bun add pastoralist --dev
+\`\`\`
+
+For a global CLI, install with npm or Homebrew:
+
+\`\`\`bash
+npm install --global pastoralist
+brew install yowainwright/tap/pastoralist
+\`\`\`
+
+## Initialize
+
+Preview override tracking:
+
+\`\`\`bash
+npx pastoralist doctor
+\`\`\`
+
+Run Pastoralist to update the appendix, or use the guided setup to save
+workspace and security settings:
+
+\`\`\`bash
+npx pastoralist
+npx pastoralist init
+\`\`\`
+
+Install the bundled agent skill:
+
+\`\`\`bash
+npx pastoralist init agent-skill
+\`\`\`
+
+## Add The Install Hook
+
+To update tracking after dependency installs, add a postinstall hook:
+
+\`\`\`json title="package.json" {3}
+{
+  "scripts": {
+    "postinstall": "pastoralist"
+  }
+}
+\`\`\`
+
+Pastoralist can add that hook automatically:
+
+\`\`\`bash
+npx pastoralist --setup-hook
+\`\`\`
+
+## Verify Changes
+
+Preview the package.json update before writing anything:
+
+\`\`\`bash
+npx pastoralist --dry-run
+\`\`\`
+
+Print summary metrics for CI or release checks:
+
+\`\`\`bash
+npx pastoralist --dry-run --summary
+\`\`\`
+
+Preview unused override removal before applying it:
+
+\`\`\`bash
+npx pastoralist --remove-unused --dry-run
+npx pastoralist --remove-unused
+\`\`\`
+
+## Common Starting Config
+
+For a workspace project with OSV security checks:
+
+\`\`\`json title="package.json"
+{
+  "pastoralist": {
+    "depPaths": "workspace",
+    "checkSecurity": true,
+    "security": {
+      "provider": "osv",
+      "severityThreshold": "medium",
+      "hasWorkspaceSecurityChecks": true
+    }
+  }
+}
+\`\`\`
+
+Read [Configuration](/docs/configuration) for all options or
+[Workspaces & Monorepos](/docs/workspaces) for monorepo setup.
+`;export{e as default};

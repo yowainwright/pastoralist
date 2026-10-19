@@ -28,7 +28,7 @@ npx pastoralist --setup-hook
 - [Setup](https://jeffry.in/pastoralist/docs/setup): Install Pastoralist and keep your override appendix current
 - [Onboarding](https://jeffry.in/pastoralist/docs/onboarding): First-run checklist for local use, agent setup, and CI
 - [Security Vulnerability Detection](https://jeffry.in/pastoralist/docs/security): Detect vulnerabilities and select lowest-risk dependency portfolios
-- [Workspaces & Monorepos](https://jeffry.in/pastoralist/docs/workspaces): Using pastoralist in workspace and monorepo environments
+- [Workspaces & Monorepos](https://jeffry.in/pastoralist/docs/workspaces): Track root overrides and the workspace packages that need them
 - [Advanced Features](https://jeffry.in/pastoralist/docs/advanced-features): Advanced cleanup, patch tracking, and override management workflows
 - [Interactive Tutorial](https://jeffry.in/pastoralist/docs/codelab): Learn Pastoralist step by step
 - [API Reference](https://jeffry.in/pastoralist/docs/api-reference): Complete reference for pastoralist CLI and Node.js API

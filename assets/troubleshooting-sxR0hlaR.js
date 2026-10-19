@@ -1,0 +1,233 @@
+var e=`---
+title: Troubleshooting & FAQ
+description: Common issues and frequently asked questions
+---
+
+## Frequently Asked Questions
+
+### What is pastoralist?
+
+Pastoralist manages npm and Bun \`overrides\`, pnpm \`pnpm.overrides\`, and Yarn
+\`resolutions\` by creating an appendix that documents why each override exists
+and which packages depend on it.
+
+### Why do I need pastoralist?
+
+Without Pastoralist, it's easy to lose track of why an override was added, which
+packages still need it, or whether it's safe to remove.
+
+### Does pastoralist work with Yarn, pnpm, and Bun?
+
+Yes. Pastoralist reads and writes the override field your package manager uses:
+
+- **npm and Bun**: \`overrides\`
+- **pnpm**: \`pnpm.overrides\`, or \`pnpm-workspace.yaml\` for pnpm 11+
+- **Yarn**: \`resolutions\`
+
+### Which Files Can Change?
+
+Pastoralist updates the configured manifest, override source, and appendix
+target. \`--setup-hook\` opts into a postinstall script change. Review changes
+with \`--dry-run\`; providers may still write caches.
+
+Package manifests use two-space JSON. Security auto-fix creates a temporary
+backup before writing.
+
+### When should overrides be used?
+
+Use overrides for:
+
+- Security patches before upstream updates
+- Compatibility issues between packages
+- Bug fixes not yet released
+- Temporary workarounds
+
+## Common Issues
+
+### Overrides Not Being Removed
+
+**Problem:** Pastoralist isn't removing overrides that seem unnecessary.
+
+**Solution:** Cleanup requires \`--remove-unused\`. Preview it with
+\`--remove-unused --dry-run\`. Active keep constraints and uncertain dependency
+usage can prevent removal. Use debug mode to inspect the decision:
+
+\`\`\`bash
+npx pastoralist --debug
+\`\`\`
+
+Look for output showing which packages require the override.
+
+### package.json Formatting Changes
+
+**Problem:** Pastoralist changes the formatting of my \`package.json\`.
+
+**Solution:** Pastoralist rewrites \`package.json\` as two-space JSON. If you see unexpected changes:
+
+1. Ensure you're using the latest version
+2. Check if you have a \`.prettierrc\` or \`.editorconfig\` that might conflict
+3. Consider running a formatter after pastoralist
+
+### Patches Not Detected
+
+**Problem:** My patch files aren't being tracked in the appendix.
+
+**Solution:** Ensure patches follow the standard naming convention:
+
+\`\`\`
+patches/
+├── package-name+1.0.0.patch    # Correct
+├── package-name@1.0.0.patch    # Incorrect
+└── custom-patch.patch          # Won't be detected
+\`\`\`
+
+### Workspace Scans Are Slow or Incomplete
+
+Configure \`depPaths: "workspace"\` at the root, or use explicit manifest globs
+to narrow the scan:
+
+\`\`\`bash
+npx pastoralist --depPaths "packages/*/package.json" --debug
+\`\`\`
+
+npm overrides belong in the root manifest. Moving them into workspace
+manifests does not make them package-specific; use root nested overrides
+to scope a transitive override to a parent.
+
+### CI Reports Tracking Changes
+
+Run Pastoralist locally, review the generated diff, and include the appendix
+with your dependency change:
+
+\`\`\`bash
+npx pastoralist
+git diff -- package.json
+\`\`\`
+
+For external sources, include those files in the review as well.
+See [GitHub Action](/docs/github-action) for checks and maintenance PRs.
+
+## Debug Mode
+
+Enable debug mode for detailed information:
+
+\`\`\`bash
+npx pastoralist --debug
+\`\`\`
+
+Debug output includes:
+
+- Package resolution paths
+- Dependency tree analysis
+- Override usage detection
+- File operation details
+
+## Error Messages
+
+### "Cannot find package.json"
+
+Pastoralist can't locate your \`package.json\`. Solutions:
+
+- Run from project root
+- Use \`--path\` to specify location
+- Check file permissions
+
+### "Invalid package.json"
+
+Your \`package.json\` has syntax errors. Validate with:
+
+\`\`\`bash
+node -e 'JSON.parse(require("node:fs").readFileSync("package.json", "utf8"))'
+\`\`\`
+
+### "No overrides found"
+
+Confirm that the override is in the field or file used by your package manager.
+For pnpm 11+, check \`pnpm-workspace.yaml\`. A project with no overrides does
+not need an override appendix.
+
+## Best Practices
+
+### 1. Regular Updates
+
+Run pastoralist regularly:
+
+\`\`\`json title="package.json" {3}
+{
+  "scripts": {
+    "postinstall": "pastoralist"
+  }
+}
+\`\`\`
+
+### 2. Document Override Reasons
+
+\`package.json\` does not support comments. Add a ledger \`reason\` to record
+why an override exists, or provide reasons with \`--promptForReasons\`:
+
+\`\`\`json title="package.json" /appendix/
+{
+  "overrides": {
+    "lodash": "4.17.21"
+  },
+  "pastoralist": {
+    "appendix": {
+      "lodash@4.17.21": {
+        "ledger": {
+          "addedDate": "2026-05-30T00:00:00.000Z",
+          "reason": "Keep until upstream adopts the required version.",
+          "source": "manual"
+        }
+      }
+    }
+  }
+}
+\`\`\`
+
+### 3. Monitor Patch Files
+
+Review potentially unused patch paths reported by Pastoralist. It does not
+delete patch files.
+
+## Getting Help
+
+### Resources
+
+- [GitHub Issues](https://github.com/yowainwright/pastoralist/issues) - Report bugs and ask questions
+
+### Before Filing an Issue
+
+1. Update to the latest version
+2. Run with \`--debug\` flag
+3. Check existing issues
+4. Provide minimal reproduction
+
+### Issue Template
+
+When reporting issues, include:
+
+- Pastoralist version
+- Node.js version
+- Package manager (npm, Yarn, pnpm, or Bun)
+- Relevant package.json sections
+- Debug output
+
+## Migration Help
+
+### From Manual Management
+
+If you're tracking overrides manually in docs or issue trackers, Pastoralist will:
+
+1. Document all current overrides in \`pastoralist.appendix\`
+2. Track their usage going forward
+3. Flag unused overrides and remove them when you run with \`--remove-unused\`
+
+## Ledger Shape
+
+Expanded entries include \`ledger.addedDate\`. With \`compactAppendix\`,
+routine entries may contain only top-level \`addedDate\`. Reasons, security
+data, patches, and keep constraints require expanded entries.
+
+\`reviewBy\` is descriptive metadata; it does not expire a keep constraint.
+Use \`until\` or \`untilVersion\` for expiry.
+`;export{e as default};

@@ -1,0 +1,392 @@
+var e=`---
+title: Advanced Features
+description: Advanced cleanup, patch tracking, and override management workflows
+---
+
+## Nested Overrides (Transitive Dependencies)
+
+Pastoralist supports npm's nested override syntax for transitive dependencies.
+
+### How It Works
+
+When you need to override a transitive dependency, you can use nested overrides:
+
+\`\`\`json title="package.json"
+{
+  "dependencies": {
+    "pg": "^8.13.1"
+  },
+  "overrides": {
+    "pg": {
+      "pg-types": "^4.0.1"
+    }
+  }
+}
+\`\`\`
+
+This tells npm to use \`pg-types@^4.0.1\` whenever \`pg\` requests \`pg-types\`,
+regardless of the version range declared by \`pg\`.
+
+### Multiple Nested Overrides
+
+You can override multiple transitive dependencies:
+
+\`\`\`json title="package.json"
+{
+  "overrides": {
+    "pg": {
+      "pg-types": "^4.0.1",
+      "pg-protocol": "^1.6.0"
+    },
+    "express": {
+      "cookie": "0.5.0"
+    }
+  }
+}
+\`\`\`
+
+### Tracking in Appendix
+
+Nested overrides are tracked with a special notation in the appendix. Each entry
+still gets a \`ledger\` recording when it was added:
+
+\`\`\`json title="package.json" /appendix/
+{
+  "pastoralist": {
+    "appendix": {
+      "pg-types@^4.0.1": {
+        "dependents": {
+          "my-app": "pg@^8.13.1 (nested override)"
+        },
+        "ledger": {
+          "addedDate": "2026-05-30T00:00:00.000Z",
+          "source": "manual"
+        }
+      },
+      "cookie@0.5.0": {
+        "dependents": {
+          "my-app": "express@^4.18.0 (nested override)"
+        },
+        "ledger": {
+          "addedDate": "2026-05-30T00:00:00.000Z",
+          "source": "manual"
+        }
+      }
+    }
+  }
+}
+\`\`\`
+
+### Workspace Support
+
+Keep npm overrides in the root \`package.json\`. Nested overrides scope a
+transitive dependency to a parent; workspace manifests supply dependency
+context through \`depPaths\`. npm ignores overrides declared inside workspace
+packages.
+
+## Patch Support
+
+Pastoralist detects and tracks patches created by tools such as \`patch-package\`.
+
+### How It Works
+
+When you have patches in your \`patches/\` directory:
+
+\`\`\`
+patches/
+├── lodash+4.17.21.patch
+├── express+4.18.0.patch
+└── react+18.2.0.patch
+\`\`\`
+
+Pastoralist tracks them in the appendix:
+
+\`\`\`json title="package.json" /appendix/
+{
+  "pastoralist": {
+    "appendix": {
+      "lodash@4.17.21": {
+        "dependents": {
+          "my-app": "lodash@^4.17.0"
+        },
+        "patches": ["patches/lodash+4.17.21.patch"],
+        "ledger": {
+          "addedDate": "2026-05-30T00:00:00.000Z",
+          "source": "manual"
+        }
+      }
+    }
+  }
+}
+\`\`\`
+
+### Unused Patch Detection
+
+Pastoralist reports potentially unused patch paths. Review those files when
+dependencies change; Pastoralist does not delete patches.
+
+<a
+  href="https://stackblitz.com/github/yowainwright/pastoralist/tree/main/tests/sandboxes/patches?title=Pastoralist%20Patches&file=README.md&startScript=demo&view=editor"
+  target="_blank"
+  rel="noopener noreferrer"
+>
+  <img src="https://developer.stackblitz.com/img/open_in_stackblitz.svg" alt="Open in StackBlitz" />
+</a>
+
+## PeerDependencies Support
+
+Pastoralist considers \`peerDependencies\` when tracking override usage.
+
+### Example
+
+\`\`\`json title="package.json"
+{
+  "peerDependencies": {
+    "react": "^17.0.0 || ^18.0.0"
+  },
+  "overrides": {
+    "react": "18.2.0"
+  }
+}
+\`\`\`
+
+The appendix will reflect peer dependency requirements:
+
+\`\`\`json title="package.json" /appendix/
+{
+  "pastoralist": {
+    "appendix": {
+      "react@18.2.0": {
+        "dependents": {
+          "my-component": "react@^17.0.0 || ^18.0.0"
+        },
+        "ledger": {
+          "addedDate": "2026-05-30T00:00:00.000Z",
+          "source": "manual"
+        }
+      }
+    }
+  }
+}
+\`\`\`
+
+## Smart Cleanup
+
+Pastoralist identifies overrides that are no longer needed and can remove them
+when you explicitly opt in.
+
+### Removal with \`--remove-unused\`
+
+In this fixture, \`express\` has already been removed and no package needs
+\`qs\`. Cleanup removes the override and its tracking entry:
+
+\`\`\`diff
+--- package.json
++++ package.json
+@@ -1,18 +1,4 @@
+ {
+   "name": "shepherd-cli",
+-  "overrides": {
+-    "qs": "6.11.2"
+-  },
+-  "pastoralist": {
+-    "appendix": {
+-      "qs@6.11.2": {
+-        "dependents": {
+-          "shepherd-cli": "qs (required by express)"
+-        },
+-        "ledger": {
+-          "addedDate": "2026-10-16"
+-        }
+-      }
+-    }
+-  }
++  "overrides": {}
+ }
+\`\`\`
+
+Preview removal with \`pastoralist --remove-unused --dry-run\`, then apply it
+with \`pastoralist --remove-unused\`. Active \`ledger.keep\` constraints protect
+entries from removal.
+
+### Unused Override Detection
+
+When an override exists but no package in your project depends on it,
+Pastoralist labels it as \`(unused override)\` in the appendix:
+
+\`\`\`json title="package.json" /appendix/
+{
+  "pastoralist": {
+    "appendix": {
+      "stale-pkg@1.0.0": {
+        "dependents": {
+          "root": "stale-pkg (unused override)"
+        }
+      }
+    }
+  }
+}
+\`\`\`
+
+Preview removal with \`--remove-unused --dry-run\`, then apply it:
+
+\`\`\`bash
+pastoralist --remove-unused
+\`\`\`
+
+This removes both the override from \`overrides\` and its entry from the appendix.
+
+### Protecting Overrides from Removal
+
+Set \`keep: true\` on a ledger entry to prevent \`--remove-unused\` from removing
+it:
+
+\`\`\`json {5}
+{
+  "lodash@4.17.21": {
+    "ledger": {
+      "addedDate": "2026-05-30T00:00:00.000Z",
+      "keep": true
+    }
+  }
+}
+\`\`\`
+
+To keep an override until a date or version is reached, use a \`KeepConstraint\`:
+
+\`\`\`json {5}
+{
+  "lodash@4.17.21": {
+    "ledger": {
+      "addedDate": "2026-05-30T00:00:00.000Z",
+      "keep": {
+        "reason": "Waiting for upstream patch",
+        "untilVersion": "4.18.0",
+        "until": "2027-06-01"
+      }
+    }
+  }
+}
+\`\`\`
+
+Once the condition is met, \`--remove-unused\` can treat the override as removable
+again.
+
+### Transitive Dependency Tracking
+
+Pastoralist tracks overrides needed by transitive dependencies:
+
+\`\`\`json title="package.json" /appendix/
+{
+  "pastoralist": {
+    "appendix": {
+      "minimist@1.2.8": {
+        "dependents": {
+          "mkdirp": "minimist@^1.2.6",
+          "optimist": "minimist@~1.2.0"
+        }
+      }
+    }
+  }
+}
+\`\`\`
+
+## Version Ranges and Cleanup
+
+A version range that includes an override does not prove the override is
+redundant. Pastoralist checks dependency usage before removal and skips
+entries when usage cannot be established. Use ledger reasons and keep
+constraints for decisions that require human review.
+
+## Appendix Cleanup
+
+Pastoralist keeps appendix entries while an override is still tracked. When you
+run with \`--remove-unused\`, it removes both the override and the matching
+appendix entry.
+
+### Example Scenario
+
+1. **Initial state**: Override with appendix
+2. **Dependency removed**: Pastoralist reports the override as unused
+3. **Cleanup run**: \`--remove-unused\` removes the override and appendix entry
+
+Use ledger \`reason\` to explain why an override is needed and \`keep\` to control
+when it can be removed.
+
+## Multi-Format Support
+
+Pastoralist reads the override field your package manager already uses:
+
+- **npm and Bun**: \`overrides\`
+- **pnpm**: \`pnpm.overrides\`, or \`pnpm-workspace.yaml\` for pnpm 11+
+- **Yarn**: \`resolutions\`
+
+When it writes changes, it preserves the existing override field when one is
+present. If a security fix creates the first override field in a project,
+Pastoralist chooses the field that matches the detected package manager.
+
+### Format Example
+
+Yarn resolutions:
+
+\`\`\`json title="package.json" {3}
+{
+  "resolutions": {
+    "package-a": "1.0.0",
+    "**/package-b": "2.0.0"
+  }
+}
+\`\`\`
+
+The equivalent npm or Bun override shape:
+
+\`\`\`json title="package.json" {3}
+{
+  "overrides": {
+    "package-a": "1.0.0",
+    "package-b": "2.0.0"
+  }
+}
+\`\`\`
+
+## Debug Mode
+
+Use \`pastoralist --debug\` for dependency paths, config discovery, and removal
+diagnostics.
+
+## Integration with Other Tools
+
+### patch-package
+
+Pastoralist tracks which overrides have patches from \`patch-package\`:
+
+\`\`\`bash
+# Create a patch from local changes to lodash
+npx patch-package lodash
+
+# Apply existing patches
+npx patch-package
+
+# Run Pastoralist to update tracking
+npx pastoralist
+\`\`\`
+
+### npm-check-updates
+
+Use with \`npm-check-updates\` to manage both regular updates and overrides:
+
+\`\`\`bash
+# Update dependencies
+npx npm-check-updates -u
+npm install
+
+# Update override tracking
+npx pastoralist
+\`\`\`
+
+### Dependency Update Bots
+
+Run Pastoralist after your update bot installs dependencies to keep the
+appendix current. Use the [GitHub Action](/docs/github-action) for scheduled
+maintenance PRs.
+`;export{e as default};

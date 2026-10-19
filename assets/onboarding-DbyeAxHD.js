@@ -1,0 +1,77 @@
+var e=`---
+title: Onboarding
+description: "First-run checklist for local use, agent setup, and CI"
+---
+
+Follow these steps to add Pastoralist to a repo and share the setup with
+contributors and agents.
+
+## Start Read-Only
+
+Check the current project without writing files:
+
+\`\`\`bash
+npx pastoralist doctor
+\`\`\`
+
+## Add Project Setup
+
+Install Pastoralist and create the initial config:
+
+\`\`\`bash
+npm install pastoralist --save-dev
+npx pastoralist init
+\`\`\`
+
+Update the appendix once the config is in place:
+
+\`\`\`bash
+npx pastoralist
+\`\`\`
+
+Keep it current after dependency installs:
+
+\`\`\`bash
+npx pastoralist --setup-hook
+\`\`\`
+
+## Add Agent Setup
+
+Install the bundled Pastoralist skill:
+
+\`\`\`bash
+npx pastoralist init agent-skill
+\`\`\`
+
+The skill gives agents the commands and override tracking rules for this project.
+Review proposed config and override changes before applying them.
+
+## Add CI
+
+Create \`.github/workflows/pastoralist.yml\`:
+
+\`\`\`yaml title=".github/workflows/pastoralist.yml"
+name: Override Check
+on: [pull_request]
+
+jobs:
+  pastoralist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: yowainwright/pastoralist@v1
+        with:
+          mode: check
+          check-security: false
+\`\`\`
+
+## Verify
+
+Use these commands before merging setup changes:
+
+\`\`\`bash
+npx pastoralist --dry-run
+npx pastoralist --dry-run --summary
+npx pastoralist --dry-run --quiet --checkSecurity --strict
+\`\`\`
+`;export{e as default};

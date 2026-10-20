@@ -7,7 +7,7 @@ export const TOKEN_TRANSITIONS = {
 export const EMPTY_SNAPSHOT: TokenTransitionsSnapshot = [];
 export const SCROLL_TRIGGER_TOP = 160;
 export const CALLOUT_VISIBILITY = { threshold: 0.25 };
-const calloutCollisions = { side: "flip", align: "shift", fallbackAxisSide: "end" } as const;
+const calloutCollisions = { side: "none", align: "shift", fallbackAxisSide: "none" } as const;
 export const CALLOUT_POSITION = {
   side: "right",
   align: "center",

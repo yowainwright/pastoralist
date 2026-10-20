@@ -175,7 +175,6 @@
 .scrolly-tooltip-positioner {
   display: none;
   z-index: 5;
-  width: clamp(12rem, 24vw, 20rem);
   pointer-events: none;
 }
 
@@ -186,13 +185,10 @@
 .scrolly-code-callout {
   position: relative;
   isolation: isolate;
-  width: 100%;
   border: 1px solid color-mix(in oklab, var(--color-base-content) 15%, transparent);
   background: var(--color-base-100);
   color: var(--color-base-content);
   font-family: inherit;
-  font-size: inherit;
-  line-height: 1.6;
   box-shadow: 0 2px 4px color-mix(in oklab, var(--color-base-content) 10%, transparent);
   opacity: 1;
   animation: none;

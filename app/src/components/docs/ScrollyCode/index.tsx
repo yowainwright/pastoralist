@@ -216,8 +216,11 @@ function WalkthroughCalloutContent({ frame, panel }: CalloutContentProps) {
   const side = isCommand ? "bottom" : CALLOUT_POSITION.side;
   const position = Object.assign({}, CALLOUT_POSITION, { anchor, side });
   return (
-    <TooltipPrimitive.Positioner {...position} className="scrolly-tooltip-positioner">
-      <TooltipPopup className="scrolly-code-callout">
+    <TooltipPrimitive.Positioner
+      {...position}
+      className="scrolly-tooltip-positioner w-[22vw] min-w-44 max-w-72"
+    >
+      <TooltipPopup className="scrolly-code-callout w-full px-4 py-3 text-sm leading-relaxed">
         <p>{frame.note}</p>
       </TooltipPopup>
     </TooltipPrimitive.Positioner>

@@ -1,4 +1,8 @@
 import Fuse, { type FuseResult, type FuseResultMatch, type RangeTuple } from "fuse.js";
+import { unified } from "unified";
+import remarkParse from "remark-parse";
+import remarkGfm from "remark-gfm";
+import type { Node } from "unist";
 import { extractHeadings } from "../lib/mdx/extractHeadings";
 import type { DocMeta, SearchDocument, SearchHit, SearchTextPart } from "./types";
 
@@ -7,6 +11,12 @@ type ReadDocContent = (slug: string) => string | undefined;
 interface SearchIndex {
   metadata: Fuse<SearchDocument>;
   words: Fuse<SearchDocument>;
+}
+
+interface SearchTextNode extends Node {
+  readonly value?: string;
+  readonly alt?: string | null;
+  readonly children?: readonly SearchTextNode[];
 }
 
 const METADATA_KEYS = ["title", "tags", "headings", "description", "slug"];
@@ -18,16 +28,12 @@ const SEARCH_OPTIONS = {
   includeMatches: true,
 } as const;
 const SEARCH_LIMIT = { limit: 5 };
+const SEARCH_BLOCK_NODES = new Set(["root", "blockquote", "list", "listItem", "table", "tableRow"]);
+const SEARCH_MARKDOWN = unified().use(remarkParse).use(remarkGfm);
 const SEARCH_TEXT_REPLACEMENTS: readonly [RegExp, string][] = [
   [/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, ""],
   [/\{\/\*[\s\S]*?\*\/\}/g, " "],
   [/<[A-Z][\w.]*\b[^>]*\/>/g, " "],
-  [/^ {0,3}(?:`{3,}|~{3,})[^\n]*$/gm, ""],
-  [/^ {0,3}#{1,6}\s+/gm, ""],
-  [/!?\[([^\]]+)\]\([^)]*\)/g, "$1"],
-  [/`+/g, ""],
-  [/\*\*([^*]+)\*\*/g, "$1"],
-  [/\s+/g, " "],
 ];
 
 export const buildSearchDocuments = (
@@ -62,7 +68,9 @@ export const getSearchResults = (index: SearchIndex, query: string): SearchHit[]
 };
 
 function buildSearchDocument(doc: DocMeta, readContent: ReadDocContent): SearchDocument {
-  const { title, description, slug, tags = [] } = doc;
+  const { slug, tags = [] } = doc;
+  const title = normalizeSearchText(doc.title);
+  const description = normalizeSearchText(doc.description);
   const source = readContent(slug) ?? "";
   const headings = extractHeadings(source).map(({ text }) => normalizeSearchText(text));
   const content = normalizeSearchText(source);
@@ -154,6 +162,22 @@ function normalizeSearchText(source: string) {
     (text, [pattern, replacement]) => text.replace(pattern, replacement),
     source,
   );
-  const normalized = content.trim();
+  const tree = SEARCH_MARKDOWN.parse(content);
+  const text = getSearchNodeText(tree);
+  const normalized = text.replace(/\s+/g, " ").trim();
   return normalized;
+}
+
+function getSearchNodeText(node: SearchTextNode): string {
+  const { value, alt, children } = node;
+  const hasText = typeof value === "string";
+  if (hasText) return value;
+  const hasAlt = typeof alt === "string";
+  if (hasAlt) return alt;
+  if (!children) return "";
+  const parts = children.map(getSearchNodeText);
+  const isBlock = SEARCH_BLOCK_NODES.has(node.type);
+  const separator = isBlock ? " " : "";
+  const text = parts.join(separator);
+  return text;
 }

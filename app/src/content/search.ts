@@ -174,6 +174,8 @@ function getSearchNodeText(node: SearchTextNode): string {
   if (hasText) return value;
   const hasAlt = typeof alt === "string";
   if (hasAlt) return alt;
+  const isBreak = node.type === "break";
+  if (isBreak) return " ";
   if (!children) return "";
   const parts = children.map(getSearchNodeText);
   const isBlock = SEARCH_BLOCK_NODES.has(node.type);

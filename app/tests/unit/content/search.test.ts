@@ -204,6 +204,18 @@ test("keeps link labels and image descriptions without Markdown syntax", () => {
   assert.strictEqual(document.content, "Read the guide and the diagram.");
 });
 
+test("keeps Markdown hard breaks as spaces in search content and excerpts", () => {
+  const docs = [{ slug: "guide", title: "Guide", description: "Project notes" }];
+  const sources = ["first  \nsecond **work**spaces.", "first\\\nsecond **work**spaces."];
+  sources.forEach((source) => {
+    const [document] = buildSearchDocuments(docs, () => source);
+    assert.strictEqual(document.content, "first second workspaces.");
+    const index = createSearchIndex([document]);
+    const [result] = getSearchResults(index, "second");
+    assert.deepStrictEqual(highlightedWords(result.excerpt), ["second"]);
+  });
+});
+
 function highlightedWords(parts: readonly SearchTextPart[]) {
   const highlighted = parts.filter((part) => part.highlighted);
   const words = highlighted.map(({ text }) => text);

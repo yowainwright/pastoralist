@@ -3,6 +3,7 @@ import type { RefObject } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "@tanstack/react-router";
 import { Search as SearchIcon } from "lucide-react";
+import { Autocomplete } from "@base-ui/react/autocomplete";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { createSearchIndex, getSearchResults } from "@/content/search";
 import type { SearchDocument, SearchHit, SearchTextPart } from "@/content/types";
@@ -89,11 +90,11 @@ interface RecentSearchesProps {
 
 function RecentSearches({ onSelect }: RecentSearchesProps) {
   return (
-    <nav className="space-y-1 p-4" aria-label="Recent documentation">
+    <div className="space-y-1 p-4" role="group" aria-label="Recent documentation">
       <p className="px-2 text-xs font-medium uppercase text-base-content/40">Recent</p>
       <RecentLink slug="introduction" onSelect={onSelect} title="Introduction to Pastoralist" />
       <RecentLink slug="setup" onSelect={onSelect} title="Setup Guide" />
-    </nav>
+    </div>
   );
 }
 
@@ -103,15 +104,16 @@ interface RecentLinkProps extends RecentSearchesProps {
 }
 
 function RecentLink({ slug, title, onSelect }: RecentLinkProps) {
+  const link = <Link to="/docs/$slug/" params={{ slug }} />;
   return (
-    <Link
-      to="/docs/$slug/"
-      params={{ slug }}
+    <Autocomplete.Item
+      value={slug}
+      render={link}
       onClick={onSelect}
-      className="block rounded-lg px-3 py-2 text-sm hover:bg-base-200/50"
+      className="block rounded-lg px-3 py-2 text-sm hover:bg-base-200/50 data-highlighted:bg-navigation/10 data-highlighted:text-navigation"
     >
       {title}
-    </Link>
+    </Autocomplete.Item>
   );
 }
 
@@ -142,7 +144,11 @@ function SearchResultList({ results, onSelect }: Pick<SearchResultsProps, "resul
   const items = results.map((result) => (
     <SearchResult key={result.slug} result={result} onSelect={onSelect} />
   ));
-  return <ul className="space-y-1 p-2">{items}</ul>;
+  return (
+    <ul className="space-y-1 p-2" role="presentation">
+      {items}
+    </ul>
+  );
 }
 
 function SearchLoadError({ onRetry }: { onRetry: () => void }) {
@@ -163,16 +169,17 @@ interface SearchResultProps {
 
 function SearchResult({ result, onSelect }: SearchResultProps) {
   const { slug } = result;
+  const link = <Link to="/docs/$slug/" params={{ slug }} />;
   return (
-    <li>
-      <Link
-        to="/docs/$slug/"
-        params={{ slug }}
+    <li role="presentation">
+      <Autocomplete.Item
+        value={slug}
+        render={link}
         onClick={onSelect}
-        className="block rounded-lg px-4 py-3 transition-colors hover:bg-base-200/50"
+        className="block rounded-lg px-4 py-3 transition-colors hover:bg-base-200/50 data-highlighted:bg-navigation/10 data-highlighted:text-navigation"
       >
         <SearchResultContent result={result} />
-      </Link>
+      </Autocomplete.Item>
     </li>
   );
 }
@@ -283,23 +290,20 @@ interface SearchDialogValues {
   controls: ReturnType<typeof useSearchControls>;
 }
 
-function SearchDialogContent({
-  query,
-  results,
-  isLoading,
-  hasError,
-  inputRef,
-  onQueryChange,
-  onSelect,
-  onRetry,
-}: SearchDialogContentProps) {
-  const searchResultsProps = { query, results, isLoading, hasError, onSelect, onRetry };
-  const searchResults = <SearchResults {...searchResultsProps} />;
+function SearchDialogContent(props: SearchDialogContentProps) {
+  const { query, inputRef, onQueryChange } = props;
+  const autocomplete = { value: query, onValueChange: onQueryChange };
+  const searchResults = <SearchResults {...props} />;
   return (
-    <>
-      <SearchInput query={query} inputRef={inputRef} onQueryChange={onQueryChange} />
-      <div className="max-h-[60vh] overflow-y-auto">{searchResults}</div>
-    </>
+    <Autocomplete.Root {...autocomplete} mode="none" inline open keepHighlight>
+      <SearchInput inputRef={inputRef} />
+      <Autocomplete.List
+        className="max-h-[60vh] overflow-y-auto"
+        aria-label="Documentation results"
+      >
+        {searchResults}
+      </Autocomplete.List>
+    </Autocomplete.Root>
   );
 }
 
@@ -307,18 +311,15 @@ function stopPropagation(event: React.MouseEvent<HTMLElement>) {
   event.stopPropagation();
 }
 
-type SearchInputProps = Pick<SearchDialogProps, "query" | "inputRef" | "onQueryChange">;
+type SearchInputProps = Pick<SearchDialogProps, "inputRef">;
 
-function SearchInput({ query, inputRef, onQueryChange }: SearchInputProps) {
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) =>
-    onQueryChange(event.target.value);
+function SearchInput({ inputRef }: SearchInputProps) {
   return (
     <label className="flex items-center border-b border-base-content/10 p-4">
       <SearchIcon className="mr-3 h-5 w-5 text-navigation" />
-      <input
+      <Autocomplete.Input
         ref={inputRef}
-        value={query}
-        onChange={handleChange}
+        aria-label="Search documentation"
         placeholder="Search documentation..."
         className="flex-1 bg-transparent text-lg outline-none"
       />

@@ -274,9 +274,8 @@ const defaultActionDeps: ActionDeps = {
   getLedgerAddedDate,
   loadConfig,
   loadConfigWithSource,
-  get processExit() {
-    const exit = process.exit.bind(process);
-    return exit;
+  processExit(code) {
+    process.exit(code);
   },
 };
 

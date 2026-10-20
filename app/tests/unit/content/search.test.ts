@@ -139,6 +139,83 @@ test("preserves literal markup as text in body excerpts", () => {
   assert.deepStrictEqual(highlightedWords(result.excerpt), ["cleanup"]);
 });
 
+test("removes Markdown formatting from lists, quotes, and tables", () => {
+  const docs = [{ slug: "guide", title: "Guide", description: "Project notes" }];
+  const source = [
+    "## _Cleanup_",
+    "",
+    "> Keep **overrides** readable.",
+    "",
+    "- [x] Remove ~~unused~~ entries.",
+    "- Preview *changes*.",
+    "",
+    "| Option | Description |",
+    "| --- | --- |",
+    "| `--remove-unused` | **Removes** stale overrides |",
+  ].join("\n");
+  const [document] = buildSearchDocuments(docs, () => source);
+  const expected =
+    "Cleanup Keep overrides readable. Remove unused entries. Preview changes. Option Description --remove-unused Removes stale overrides";
+  assert.strictEqual(document.content, expected);
+});
+
+test("normalizes metadata before matching and highlighting", () => {
+  const docs = [
+    {
+      slug: "guide",
+      title: "**Cleanup** _guide_",
+      description: "Use `--remove-unused` and [preview](https://example.test).",
+    },
+  ];
+  const documents = buildSearchDocuments(docs, () => "Project notes");
+  const index = createSearchIndex(documents);
+  const [result] = getSearchResults(index, "cleanup");
+  assert.strictEqual(result.title.map(({ text }) => text).join(""), "Cleanup guide");
+  assert.strictEqual(
+    result.description.map(({ text }) => text).join(""),
+    "Use --remove-unused and preview.",
+  );
+  assert.deepStrictEqual(highlightedWords(result.title), ["Cleanup"]);
+});
+
+test("preserves code, escaped punctuation, and words split by emphasis", () => {
+  const docs = [{ slug: "guide", title: "Guide", description: "Project notes" }];
+  const source = [
+    "Use `foo_bar(a * b) || flag` in **work**spaces.",
+    "",
+    "```js",
+    'const pattern = "**/*.ts";',
+    "const is_valid = a > b && c < d;",
+    "```",
+    "",
+    "Keep \\*literal\\* punctuation.",
+  ].join("\n");
+  const [document] = buildSearchDocuments(docs, () => source);
+  const expected =
+    'Use foo_bar(a * b) || flag in workspaces. const pattern = "**/*.ts"; const is_valid = a > b && c < d; Keep *literal* punctuation.';
+  assert.strictEqual(document.content, expected);
+});
+
+test("keeps link labels and image descriptions without Markdown syntax", () => {
+  const docs = [{ slug: "guide", title: "Guide", description: "Project notes" }];
+  const source =
+    "Read [the guide][guide] and ![the diagram](diagram.png).\n\n[guide]: https://example.test";
+  const [document] = buildSearchDocuments(docs, () => source);
+  assert.strictEqual(document.content, "Read the guide and the diagram.");
+});
+
+test("keeps Markdown hard breaks as spaces in search content and excerpts", () => {
+  const docs = [{ slug: "guide", title: "Guide", description: "Project notes" }];
+  const sources = ["first  \nsecond **work**spaces.", "first\\\nsecond **work**spaces."];
+  sources.forEach((source) => {
+    const [document] = buildSearchDocuments(docs, () => source);
+    assert.strictEqual(document.content, "first second workspaces.");
+    const index = createSearchIndex([document]);
+    const [result] = getSearchResults(index, "second");
+    assert.deepStrictEqual(highlightedWords(result.excerpt), ["second"]);
+  });
+});
+
 function highlightedWords(parts: readonly SearchTextPart[]) {
   const highlighted = parts.filter((part) => part.highlighted);
   const words = highlighted.map(({ text }) => text);

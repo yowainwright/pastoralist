@@ -19,16 +19,18 @@ function TooltipTrigger({ ...props }: TooltipPrimitive.Trigger.Props) {
 type TooltipContentProps = TooltipPrimitive.Popup.Props &
   Pick<TooltipPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset">;
 
+const tooltipCollisions = { side: "none", align: "shift", fallbackAxisSide: "none" } as const;
+
 function TooltipContent({
   className,
-  side = "top",
+  side = "bottom",
   sideOffset = 4,
   align = "center",
   alignOffset = 0,
   children,
   ...props
 }: TooltipContentProps) {
-  const position = { align, alignOffset, side, sideOffset };
+  const position = { align, alignOffset, side, sideOffset, collisionAvoidance: tooltipCollisions };
   return (
     <TooltipPrimitive.Portal>
       <TooltipPrimitive.Positioner {...position} className="isolate z-[1200]">

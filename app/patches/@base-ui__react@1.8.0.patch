@@ -1,0 +1,26 @@
+diff --git a/floating-ui-react/hooks/useListNavigation.js b/floating-ui-react/hooks/useListNavigation.js
+index 9b6ae19bae3981c2280cc32efeb90f4295349279..08eb790e256eed87f92aef4be22a1532cc352057 100644
+--- a/floating-ui-react/hooks/useListNavigation.js
++++ b/floating-ui-react/hooks/useListNavigation.js
+@@ -161,7 +161,7 @@ function useListNavigation(context, props) {
+       }
+       const shouldScrollIntoView =
+       // eslint-disable-next-line @typescript-eslint/no-use-before-define
+-      item && (forceScrollIntoView || !isPointerModalityRef.current);
++      waitedItem && (forceScrollIntoView || !isPointerModalityRef.current);
+       if (shouldScrollIntoView) {
+         // JSDOM doesn't support `.scrollIntoView()` but it's widely supported
+         // by all browsers.
+diff --git a/floating-ui-react/hooks/useListNavigation.mjs b/floating-ui-react/hooks/useListNavigation.mjs
+index 3533b48b2a8fa43e311f68c179b38d21bbbab89f..09855d2a8e6f6e7b707c56b5174db02cdb850c01 100644
+--- a/floating-ui-react/hooks/useListNavigation.mjs
++++ b/floating-ui-react/hooks/useListNavigation.mjs
+@@ -154,7 +154,7 @@ export function useListNavigation(context, props) {
+       }
+       const shouldScrollIntoView =
+       // eslint-disable-next-line @typescript-eslint/no-use-before-define
+-      item && (forceScrollIntoView || !isPointerModalityRef.current);
++      waitedItem && (forceScrollIntoView || !isPointerModalityRef.current);
+       if (shouldScrollIntoView) {
+         // JSDOM doesn't support `.scrollIntoView()` but it's widely supported
+         // by all browsers.

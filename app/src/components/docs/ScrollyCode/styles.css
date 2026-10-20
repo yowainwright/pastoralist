@@ -191,7 +191,6 @@
   font-family: inherit;
   box-shadow: 0 2px 4px color-mix(in oklab, var(--color-base-content) 10%, transparent);
   opacity: 1;
-  animation: none;
   transition: opacity 180ms ease-in-out;
 }
 

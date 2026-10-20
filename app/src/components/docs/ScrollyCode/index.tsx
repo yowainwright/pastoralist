@@ -220,7 +220,7 @@ function WalkthroughCalloutContent({ frame, panel }: CalloutContentProps) {
       {...position}
       className="scrolly-tooltip-positioner w-[22vw] min-w-44 max-w-72"
     >
-      <TooltipPopup className="scrolly-code-callout w-full px-4 py-3 text-sm leading-relaxed">
+      <TooltipPopup className="scrolly-code-callout w-full px-4 py-3 text-sm leading-relaxed data-open:animate-pop-in data-closed:animate-none">
         <p>{frame.note}</p>
       </TooltipPopup>
     </TooltipPrimitive.Positioner>

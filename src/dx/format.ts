@@ -20,13 +20,17 @@ export const width = (): number => {
 };
 
 const getGraphemeSegmenter = (): Intl.Segmenter | undefined => {
-  const canUseSegmenter = typeof Intl !== "undefined" && Intl.Segmenter;
-  if (!canUseSegmenter) return undefined;
-  const hasCurrentSegmenter = graphemeSegmenterConstructor === Intl.Segmenter;
-  if (hasCurrentSegmenter) return graphemeSegmenter;
-  graphemeSegmenterConstructor = Intl.Segmenter;
-  graphemeSegmenter = new Intl.Segmenter("en", { granularity: "grapheme" });
-  return graphemeSegmenter;
+  try {
+    const canUseSegmenter = typeof Intl !== "undefined" && Intl.Segmenter;
+    if (!canUseSegmenter) return undefined;
+    const hasCurrentSegmenter = graphemeSegmenterConstructor === Intl.Segmenter;
+    if (hasCurrentSegmenter) return graphemeSegmenter;
+    graphemeSegmenterConstructor = Intl.Segmenter;
+    graphemeSegmenter = new Intl.Segmenter("en", { granularity: "grapheme" });
+    return graphemeSegmenter;
+  } catch {
+    return undefined;
+  }
 };
 
 const getGraphemes = (text: string): string[] => {

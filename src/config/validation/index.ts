@@ -245,7 +245,7 @@ const STRICT_LEDGER_ADDITIONAL_FIELDS: FieldValidation[] = createFieldValidation
 
 const STRICT_LEDGER_FIELDS = LEDGER_FIELDS.concat(STRICT_LEDGER_ADDITIONAL_FIELDS);
 
-const STRICT_LEDGER_FIELD_NAMES = ["addedDate"].concat(getFieldNames(STRICT_LEDGER_FIELDS));
+const STRICT_LEDGER_FIELD_NAMES = ["addedDate", getFieldNames(STRICT_LEDGER_FIELDS)].flat();
 
 const validateLedger = (value: unknown): boolean => {
   if (!isObject(value)) return false;

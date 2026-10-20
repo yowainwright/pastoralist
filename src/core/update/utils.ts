@@ -61,7 +61,12 @@ export const resolveDependencyTracking = (
   const path = resolve(ctx.path);
   const manifest = createManifest(path, ctx.config);
   const paths = getTrackingManifestPaths(ctx, files);
-  const workspaces = paths.filter((file) => file !== path).flatMap(readManifest);
+  const workspaces = paths
+    .filter((file) => file !== path)
+    .flatMap((manifestPath) => {
+      const manifests = readManifest(manifestPath);
+      return manifests;
+    });
   const manifests = [manifest].concat(workspaces);
   const tracking = readManifestTracking(ctx.root, paths, manifests);
   return tracking;

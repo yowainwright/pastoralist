@@ -77,6 +77,6 @@ export const renderTable = (rows: TableRow[], options: TableOptions = {}): strin
 
   const dataLines = rows.map((row) => createRow(row, labelWidth, valueWidth));
 
-  const result = titleLines.concat(dataLines, [separator]).join("\n");
+  const result = [titleLines, dataLines, separator].flat().join("\n");
   return result;
 };

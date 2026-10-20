@@ -53,7 +53,7 @@ export const runBinaryEntry = async (
     process.exit(1);
   }
   clearInterval(keepAlive);
-  process.exit(process.exitCode ?? 0);
+  process.exit();
 };
 
 export const resolvePathFromRoot = (path: string, root?: string): string => {
@@ -347,7 +347,7 @@ export const displaySummaryTable = (result: PastoralistResult): void => {
   const metrics = result.metrics;
   if (!metrics) return;
 
-  const rows = SUMMARY_ROW_CONFIG.map((config) => toSummaryRow(metrics, config));
+  const rows = Array.from(SUMMARY_ROW_CONFIG, (config) => toSummaryRow(metrics, config));
   const title = `${FARMER} Pastoralist Summary`;
   const table = renderTable(rows, { title });
   log.print("\n" + table);

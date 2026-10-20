@@ -304,7 +304,10 @@ export const mergeDependents = (
   return dependents;
 };
 
-export const isResolvablePackageName = PACKAGE_NAME_PATTERN.test.bind(PACKAGE_NAME_PATTERN);
+export const isResolvablePackageName = (name: string): boolean => {
+  const isResolvable = PACKAGE_NAME_PATTERN.test(name);
+  return isResolvable;
+};
 
 export const parseOverridePackageName = (overrideKey: string): string => {
   const segments = overrideKey.split(OVERRIDE_PARENT_SEPARATOR_PATTERN);

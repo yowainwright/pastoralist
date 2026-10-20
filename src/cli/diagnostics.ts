@@ -32,7 +32,8 @@ const formatDiagnostic = (
   if (!diagnostic) return heading;
   const lockfile = JSON.stringify(relative(root, diagnostic.lockfile));
   const reason = describeReason(diagnostic.reason);
-  const references = tracking.missingReferences?.map(quoteReference).join(", ");
+  const missingReferences = tracking.missingReferences ?? [];
+  const references = missingReferences.map(quoteReference).join(", ");
   const details = references ? `${reason}: ${references}` : reason;
   const message = `${heading}. Lockfile: ${lockfile}. ${details}. Overrides with unknown usage are retained.`;
   return message;

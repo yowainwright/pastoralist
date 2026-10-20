@@ -6,20 +6,17 @@ import {
   BIN_BUNDLE_BANNER,
   BIN_BUNDLE_FILE,
   BIN_ENTRY_FILE,
+  BIN_OUTPUT_DIR,
   BIN_OUTPUT_FILE,
-  BIN_RUNTIME_DIR,
-  BIN_RUNTIME_ENTRY_FILE,
-  BIN_RUNTIME_PACKAGE_FILE,
   BUILD_SCRIPT_LABEL,
   BUILD_TARGETS,
   DEFAULT_BUILD_TARGET,
   DIST_OUTPUT_DIR,
-  RUNTIME_PACKAGE_NAME,
   TS_BUILD_INFO_FILE,
   TYPECHECK_ARGS,
 } from "./constants";
 import { rolldownConfig } from "./rolldown.config";
-import type { BuildTarget, RuntimePackageManifest } from "./types";
+import type { BuildTarget } from "./types";
 import { isMainModule } from "../is-main";
 import { buildRolldownBundleArgs, runCommand } from "./utils";
 
@@ -64,7 +61,7 @@ const buildDist = (): void => {
   buildTypes();
 };
 
-const renderRuntimeEntry = (): string => {
+const renderBinaryEntry = (): string => {
   const agentSkill = JSON.stringify(readFileSync(AGENT_SKILL_FILE, "utf8"));
   const version = JSON.stringify(packageJson.version);
   const result = [
@@ -78,29 +75,15 @@ const renderRuntimeEntry = (): string => {
   return result;
 };
 
-const renderBinaryEntry = (): string => 'import "pastoralist-runtime";\n';
-
-const renderRuntimePackage = (): string => {
-  const { version } = packageJson;
-  const manifest: RuntimePackageManifest = {
-    main: "index.js",
-    name: RUNTIME_PACKAGE_NAME,
-    type: "commonjs",
-    version,
-  };
-  const result = JSON.stringify(manifest);
-  return result;
-};
-
 const bundleBinaryRuntime = (): void => {
   const args = [
-    BIN_RUNTIME_ENTRY_FILE,
+    BIN_ENTRY_FILE,
     "--file",
     BIN_BUNDLE_FILE,
     "--platform",
     "node",
     "--format",
-    "cjs",
+    "esm",
     "--banner",
     BIN_BUNDLE_BANNER,
   ];
@@ -108,20 +91,17 @@ const bundleBinaryRuntime = (): void => {
 };
 
 const writeBinarySources = (): void => {
-  mkdirSync(BIN_RUNTIME_DIR, { recursive: true });
+  mkdirSync(BIN_OUTPUT_DIR, { recursive: true });
   writeFileSync(BIN_ENTRY_FILE, renderBinaryEntry());
-  writeFileSync(BIN_RUNTIME_ENTRY_FILE, renderRuntimeEntry());
-  writeFileSync(BIN_RUNTIME_PACKAGE_FILE, renderRuntimePackage());
 };
 
 const compileBinary = (): void => {
   runBuildCommand("scriptc", [
     "build",
-    BIN_ENTRY_FILE,
+    BIN_BUNDLE_FILE,
     "--out",
     BIN_OUTPUT_FILE,
-    "--dynamic",
-    "--no-keep-c",
+    "--no-keep-llvm",
   ]);
 };
 

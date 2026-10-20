@@ -5,13 +5,6 @@ export type BuildLogger = {
   print: (message: string) => void;
 };
 
-export type RuntimePackageManifest = {
-  main: string;
-  name: string;
-  type: "commonjs";
-  version: string;
-};
-
 export type RolldownBuildConfig = {
   external: readonly string[];
   input: string;

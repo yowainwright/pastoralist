@@ -23,7 +23,10 @@ import {
   hasDependenciesMatchingOverrides,
 } from "../utils";
 
-export const hasDependency = Object.hasOwn;
+export const hasDependency = (object: object, key: PropertyKey): boolean => {
+  const result = Object.hasOwn(object, key);
+  return result;
+};
 
 export const buildOverrideKey = (packageName: string, version: string): string =>
   packageAtVersion(packageName)(version);

@@ -127,6 +127,14 @@ Ask before writing files. Reading files and running checks is fine.
 - Avoid comments unless explicitly requested.
 - Avoid emojis.
 
+## Unit Test Paths
+
+- Unit test paths must mirror an existing source file: `src/core/patches.ts` maps to `tests/unit/core/patches.test.ts`.
+- Extend the matching test file. Put scenario names in test cases, never in additional filenames such as `patches-pnpm.test.ts` or `onboarding-flow.test.ts`. Never create a source file just to satisfy a test filename.
+- Tests spanning multiple modules or repository configuration belong in integration tests.
+- A missing source counterpart must be a blocking fs-lint error. src-lint checks import boundaries; it does not replace this path check.
+- Run `pnpm run lint:paths` before adding tests. The full lint command and CI must run this check. Install an fs-lint build that supports counterpart rules.
+
 ## Commands
 
 - pnpm run format

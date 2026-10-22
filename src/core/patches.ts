@@ -1,8 +1,12 @@
 import * as fg from "../utils/glob";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { relative, resolve, sep } from "node:path";
 import { IS_DEBUGGING } from "../constants";
 import type { Appendix } from "../types";
 import { logger } from "../observability";
-import { PATCH_PATTERNS } from "./constants";
+import { isRecord } from "../utils";
+import { parsePnpmWorkspaceMapping } from "../mgrs/pnpm/utils";
+import { PACKAGE_JSON, PATCH_PATTERNS, PNPM_WORKSPACE_FILE } from "./constants";
 
 const log = logger({ file: "patches.ts", isLogging: IS_DEBUGGING });
 
@@ -45,6 +49,7 @@ const addPatchToMap = (
   patchFile: string,
 ): Record<string, string[]> => {
   const existingPatches = patchMap[packageName] || [];
+  if (existingPatches.includes(patchFile)) return patchMap;
   const patches = existingPatches.concat(patchFile);
   const result = Object.assign({}, patchMap, { [packageName]: patches });
   return result;
@@ -71,23 +76,81 @@ const processPatchFile = (
   return result;
 };
 
-const buildPatchMap = (patchFiles: string[]): Record<string, string[]> => {
-  const patchMap = patchFiles.reduce(
-    (map, file) => processPatchFile(file, map),
-    {} as Record<string, string[]>,
-  );
+const buildPatchMap = (
+  patchFiles: string[],
+  initial: Record<string, string[]> = {},
+): Record<string, string[]> => {
+  const patchMap = patchFiles.reduce((map, file) => processPatchFile(file, map), initial);
   return patchMap;
 };
 
 export const detectPatches = (root: string = "./"): Record<string, string[]> => {
   try {
+    const configured = readConfiguredPatches(root);
+    const configuredFiles = new Set(configured.map(([, file]) => file));
     const patchFiles = fg.sync(PATCH_PATTERNS, { cwd: root });
-    const result = buildPatchMap(patchFiles);
+    const unconfigured = patchFiles.filter((file) => !configuredFiles.has(file));
+    const initial = configured.reduce((map, [name, file]) => addPatchToMap(map, name, file), {});
+    const result = buildPatchMap(unconfigured, initial);
     return result;
   } catch (err) {
     log.error("Error detecting patches", "detectPatches", err);
     const result2: Record<string, string[]> = {};
     return result2;
+  }
+};
+
+const readConfiguredPatches = (root: string): [string, string][] => {
+  const manifest = readPatchSettings(root, PACKAGE_JSON);
+  const workspace = readPatchSettings(root, PNPM_WORKSPACE_FILE);
+  const settings = Object.assign({}, manifest, workspace);
+  const entries = Object.entries(settings).flatMap((entry) => configuredPatchEntry(root, entry));
+  return entries;
+};
+
+const readPatchSettings = (root: string, filename: string): Record<string, unknown> => {
+  const empty = {};
+  const path = resolve(root, filename);
+  if (!existsSync(path)) return empty;
+  try {
+    const content = readFileSync(path, "utf8");
+    if (filename === PNPM_WORKSPACE_FILE) {
+      const mapping = parsePnpmWorkspaceMapping(content, "patchedDependencies");
+      return mapping;
+    }
+    const mapping = parseManifestPatchSettings(content);
+    return mapping;
+  } catch (error) {
+    log.debug("Could not read pnpm patch settings", "readPatchSettings", error);
+    return empty;
+  }
+};
+
+const parseManifestPatchSettings = (content: string): Record<string, unknown> => {
+  const empty = {};
+  const manifest: unknown = JSON.parse(content);
+  if (!isRecord(manifest)) return empty;
+  const pnpm = manifest.pnpm;
+  if (!isRecord(pnpm)) return empty;
+  const patches = pnpm.patchedDependencies;
+  if (!isRecord(patches)) return empty;
+  return patches;
+};
+
+const configuredPatchEntry = (root: string, [selector, path]: [string, unknown]) => {
+  const empty: [string, string][] = [];
+  if (typeof path !== "string") return empty;
+  try {
+    const absolutePath = resolve(root, path);
+    if (!statSync(absolutePath).isFile()) return empty;
+    const patchFile = relative(resolve(root), absolutePath).split(sep).join("/");
+    const packageName = extractPackageNameFromKey(selector);
+    if (!packageName) return empty;
+    const entry: [string, string] = [packageName, patchFile];
+    const entries = [entry];
+    return entries;
+  } catch {
+    return empty;
   }
 };
 

@@ -114,6 +114,20 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Check test manifest policy
         run: pnpm run check:test-manifests
+      - name: Checkout fs-lint
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          repository: yowainwright/fs-lint
+          ref: ${{ vars.FS_LINT_REF || 'main' }}
+          path: .cache/fs-lint/source
+          persist-credentials: false
+      - name: Build fs-lint
+        run: |
+          cmake -S .cache/fs-lint/source -B .cache/fs-lint/build \
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+          cmake --build .cache/fs-lint/build --parallel
+      - name: Lint unit test paths
+        run: pnpm run lint:paths
       - name: Restore build and test cache
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25
         with:

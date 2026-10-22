@@ -144,6 +144,21 @@ export const PROMPTS = {
 } as const;
 
 export const ONBOARDING_TITLE = "Pastoralist onboarding";
+export const ONBOARDING_QUESTION = "How would you like to set up Pastoralist?";
+export const ONBOARDING_CHOICES: PromptChoice[] = [
+  { name: "Set up interactively", value: "interactive" },
+  { name: "Use an AI agent", value: "agent" },
+  { name: "Set up GitHub Actions", value: "github" },
+];
+export const ONBOARDING_OVERVIEW = [
+  ONBOARDING_TITLE,
+  "",
+  "Run pastoralist onboard in an interactive terminal to choose a setup path.",
+  "Interactive setup: npx pastoralist init",
+  "AI agent setup: npx pastoralist init agent-skill",
+  "GitHub Actions: https://jeffry.in/pastoralist/docs/github-action/",
+  "Verify setup: npx pastoralist doctor, then npx pastoralist --dry-run.",
+].join("\n");
 
 const howItWorksLines = [
   "Overrides select versions. The appendix records why they exist and what depends on them.",
@@ -212,6 +227,7 @@ const githubActionLines = [
   "          mode: check",
   "          check-security: false",
   "```",
+  "Open a pull request and confirm the Override Check workflow succeeds.",
 ];
 
 const commandLines = [
@@ -225,33 +241,41 @@ export const ONBOARDING_SECTIONS: readonly OnboardingSection[] = [
   {
     title: "How it works",
     lines: howItWorksLines,
+    path: undefined,
   },
   {
     title: "Human quick start",
     lines: humanSetupLines,
+    path: undefined,
   },
   {
     title: "Agent quick setup",
     lines: agentSetupLines,
+    path: "agent",
   },
   {
     title: "Prompt for a setup agent",
     lines: setupPromptLines,
+    path: "agent",
   },
   {
     title: "Prompt for a maintenance agent",
     lines: maintenancePromptLines,
+    path: undefined,
   },
   {
     title: "Agent setup loop",
     lines: agentLoopLines,
+    path: "agent",
   },
   {
     title: "GitHub Action setup",
     lines: githubActionLines,
+    path: "github",
   },
   {
     title: "Useful commands",
     lines: commandLines,
+    path: undefined,
   },
 ];

@@ -8,6 +8,8 @@ import * as originalPackageJSON from "../../../../src/core/package";
 import * as originalConfig from "../../../../src/config";
 import * as originalDx from "../../../../src/dx";
 import { resolve } from "path";
+import type { InitOptions, OnboardingDeps } from "../../../../src/cli/init/types";
+import type { PromptChoice } from "../../../../src/cli/prompts/types";
 import {
   safeReadFileSync as readFileSync,
   safeWriteFileSync as writeFileSync,
@@ -47,7 +49,7 @@ moduleMock.module(import.meta.resolve("../../../../src/dx/index"), {
   }),
 });
 
-const { initCommand } = await import("../../../../src/cli/init");
+const { initCommand, showOnboarding } = await import("../../../../src/cli/init");
 
 const testPath = resolve(import.meta.dirname, "..", "..", ".test-init-package.json");
 const testRoot = resolve(import.meta.dirname, "..", "..", ".test-init-root");
@@ -85,6 +87,92 @@ test("initCommand - should initialize with default options", async () => {
   }
   validateRootPackageJsonIntegrity();
 });
+
+test("interactive onboarding offers three paths and uses the existing config wizard", async () => {
+  const fixture = createDeps("interactive");
+  const options = { root: "/project", path: "custom.json" };
+  const output = await captureOnboarding(fixture.deps, options);
+  assert.strictEqual(output, "");
+  assert.deepStrictEqual(fixture.init.mock.calls[0].arguments, [options]);
+  const [question, choices] = fixture.select.mock.calls[0].arguments;
+  assert.match(question, /How would you like to set up/);
+  const names = choices.map(({ name }) => name);
+  assert.deepStrictEqual(names, [
+    "Set up interactively",
+    "Use an AI agent",
+    "Set up GitHub Actions",
+  ]);
+});
+
+test("agent onboarding prints its setup prompt and verification without unrelated paths", async () => {
+  const fixture = createDeps("agent");
+  const text = await captureOnboarding(fixture.deps);
+  assert.match(text, /Agent quick setup/);
+  assert.match(text, /Set up Pastoralist in this repository\./);
+  assert.match(text, /npx pastoralist --dry-run/);
+  assert.doesNotMatch(text, /Human quick start|GitHub Action setup|maintenance agent/);
+  assert.strictEqual(fixture.init.mock.callCount(), 0);
+});
+
+test("GitHub Actions onboarding prints the workflow and its verification", async () => {
+  const fixture = createDeps("github");
+  const text = await captureOnboarding(fixture.deps);
+  assert.match(text, /\.github\/workflows\/pastoralist\.yml/);
+  assert.match(text, /uses: yowainwright\/pastoralist@v1/);
+  assert.match(text, /confirm the Override Check workflow succeeds/);
+  assert.doesNotMatch(text, /Human quick start|Agent quick setup|Prompt for/);
+  assert.strictEqual(fixture.init.mock.callCount(), 0);
+});
+
+test("noninteractive onboarding never prompts or starts the config wizard", async () => {
+  const fixture = createDeps();
+  const deps = Object.assign({}, fixture.deps, { interactive: false });
+  const text = await captureOnboarding(deps);
+  assert.ok(text.split("\n").length <= 8);
+  assert.match(text, /npx pastoralist init agent-skill/);
+  assert.strictEqual(fixture.select.mock.callCount(), 0);
+  assert.strictEqual(fixture.init.mock.callCount(), 0);
+});
+
+test("unknown onboarding choices cannot start the config wizard", async () => {
+  const fixture = createDeps("invalid");
+  await assert.rejects(captureOnboarding(fixture.deps), /Unknown onboarding setup path/);
+  assert.strictEqual(fixture.init.mock.callCount(), 0);
+});
+
+test("cancelled onboarding does not fall through to the config wizard", async () => {
+  const fixture = createDeps();
+  const error = new Error("Prompt cancelled");
+  const select = () => Promise.reject(error);
+  const deps = Object.assign({}, fixture.deps, { select });
+  await assert.rejects(captureOnboarding(deps), /Prompt cancelled/);
+  assert.strictEqual(fixture.init.mock.callCount(), 0);
+});
+
+function createDeps(choice = "agent") {
+  const select = moduleMock.fn((_question: string, _choices: PromptChoice[]) =>
+    Promise.resolve(choice),
+  );
+  const init = moduleMock.fn((_options?: InitOptions) => Promise.resolve());
+  const deps: OnboardingDeps = { interactive: true, select, init };
+  const fixture = { deps, select, init };
+  return fixture;
+}
+
+async function captureOnboarding(deps: OnboardingDeps, options: InitOptions = {}): Promise<string> {
+  const print = moduleMock.fn((_message: string) => undefined);
+  const original = originalObservability.logger({ file: "onboarding-test" });
+  const logger = Object.assign({}, original, { print });
+  const loggerSpy = loggerMock.mockReturnValue(logger);
+  try {
+    await showOnboarding(options, deps);
+    const lines = print.mock.calls.map(({ arguments: args }) => args[0]);
+    const text = lines.join("\n");
+    return text;
+  } finally {
+    loggerSpy?.mockRestore();
+  }
+}
 
 test("initCommand - should handle security context initialization", async () => {
   validateRootPackageJsonIntegrity();

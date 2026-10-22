@@ -1,24 +1,35 @@
-import { anyValue, assertHasProperty, assertLacksProperty, assertMatches } from "../../setup";
-import { test } from "node:test";
-import assert from "node:assert/strict";
-import type { SecurityOverrideDetail, Appendix, AppendixItem } from "../../../../src/types";
 import {
-  mergeOverrideReasons,
-  createSecurityLedger,
-  buildAppendixItem,
-  toCompactAppendix,
-  findUnusedAppendixEntries,
-  removeAppendixKeys,
-  extractPackageNames,
-  removeOverrideKeys,
-  normalizeLedgerCveField,
-  isKeptEntry,
-  isKeepExpired,
-  buildDependentInfo,
-  parseOverridePackageName,
-  hasDependenciesMatchingOverrides,
-  isNestedOverride,
+  carryExistingLedgers,
+  dropSupersededUnusedDependents,
+  findTopLevelDependents,
+  hasOverrides,
+  mergeAppendixDependents,
+  mergeDependenciesForPackage,
+  shouldWriteAppendix,
 } from "../../../../src/core/appendix/utils";
+import type { OverridesType, PastoralistJSON } from "../../../../src/types";
+
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import {
+  buildAppendixItem,
+  buildDependentInfo,
+  createSecurityLedger,
+  extractPackageNames,
+  findUnusedAppendixEntries,
+  hasDependenciesMatchingOverrides,
+  isKeepExpired,
+  isKeptEntry,
+  isNestedOverride,
+  mergeOverrideReasons,
+  normalizeLedgerCveField,
+  parseOverridePackageName,
+  removeAppendixKeys,
+  removeOverrideKeys,
+  toCompactAppendix,
+} from "../../../../src/core/appendix/utils";
+import type { Appendix, AppendixItem, SecurityOverrideDetail } from "../../../../src/types";
+import { anyValue, assertHasProperty, assertLacksProperty, assertMatches } from "../../setup";
 
 test("mergeOverrideReasons - should return reason when provided", () => {
   const result = mergeOverrideReasons("lodash", "security fix", undefined, undefined);
@@ -952,4 +963,814 @@ test("isNestedOverride - excludes null and strings", () => {
   assert.strictEqual(isNestedOverride(null), false);
   assert.strictEqual(isNestedOverride("1.0.0"), false);
   assert.strictEqual(isNestedOverride({ foo: "1.0.0" }), true);
+});
+
+const LODASH_KEY = "lodash@4.17.21";
+const PACKAGE_BASE = { name: "test", version: "1.0.0" };
+
+const buildAppendix = (key: string, dependents: Record<string, string>): Appendix => {
+  const item: AppendixItem = { dependents };
+  const appendix: Appendix = Object.fromEntries([[key, item]]);
+  return appendix;
+};
+
+const buildItem = (dependents: Record<string, string>): AppendixItem => {
+  const item: AppendixItem = { dependents };
+  return item;
+};
+
+test("mergeDependenciesForPackage - merges all dependency types", () => {
+  const dependencies = { lodash: "^4.17.20", express: "^4.18.0" };
+  const devDependencies = { jest: "^29.0.0", typescript: "^5.0.0" };
+  const peerDependencies = { react: "^18.0.0" };
+  const packageConfig: PastoralistJSON = Object.assign({}, PACKAGE_BASE, {
+    dependencies,
+    devDependencies,
+    peerDependencies,
+  });
+
+  const result = mergeDependenciesForPackage(packageConfig);
+
+  assert.strictEqual(result.lodash, "^4.17.20");
+  assert.strictEqual(result.express, "^4.18.0");
+  assert.strictEqual(result.jest, "^29.0.0");
+  assert.strictEqual(result.typescript, "^5.0.0");
+  assert.strictEqual(result.react, "^18.0.0");
+});
+
+test("mergeDependenciesForPackage - handles missing dependency types", () => {
+  const dependencies = { lodash: "^4.17.20" };
+  const packageConfig: PastoralistJSON = Object.assign({}, PACKAGE_BASE, { dependencies });
+
+  const result = mergeDependenciesForPackage(packageConfig);
+
+  assert.strictEqual(result.lodash, "^4.17.20");
+  assert.strictEqual(Object.keys(result).length, 1);
+});
+
+test("mergeDependenciesForPackage - handles undefined config", () => {
+  const result = mergeDependenciesForPackage(undefined);
+
+  assert.deepStrictEqual(result, {});
+});
+
+test("mergeDependenciesForPackage - handles empty dependencies", () => {
+  const result = mergeDependenciesForPackage(PACKAGE_BASE);
+
+  assert.deepStrictEqual(result, {});
+});
+
+test("hasDependenciesMatchingOverrides - returns true when match found", () => {
+  const depList = ["lodash", "express", "react"];
+  const overridesList = ["lodash", "typescript"];
+
+  const result = hasDependenciesMatchingOverrides(depList, overridesList);
+
+  assert.strictEqual(result, true);
+});
+
+test("hasDependenciesMatchingOverrides - returns false when no match", () => {
+  const depList = ["lodash", "express"];
+  const overridesList = ["react", "vue"];
+
+  const result = hasDependenciesMatchingOverrides(depList, overridesList);
+
+  assert.strictEqual(result, false);
+});
+
+test("hasDependenciesMatchingOverrides - returns false with empty depList", () => {
+  const depList: string[] = [];
+  const overridesList = ["lodash"];
+
+  const result = hasDependenciesMatchingOverrides(depList, overridesList);
+
+  assert.strictEqual(result, false);
+});
+
+test("hasDependenciesMatchingOverrides - returns false with empty overridesList", () => {
+  const depList = ["lodash"];
+  const overridesList: string[] = [];
+
+  const result = hasDependenciesMatchingOverrides(depList, overridesList);
+
+  assert.strictEqual(result, false);
+});
+
+test("hasDependenciesMatchingOverrides - handles multiple matches", () => {
+  const depList = ["lodash", "express", "react"];
+  const overridesList = ["lodash", "express", "typescript"];
+
+  const result = hasDependenciesMatchingOverrides(depList, overridesList);
+
+  assert.strictEqual(result, true);
+});
+
+test("shouldWriteAppendix - returns true with appendix and write flag", () => {
+  const appendix = buildAppendix(LODASH_KEY, { app: "lodash@^4.17.0" });
+
+  const result = shouldWriteAppendix(appendix, true);
+
+  assert.strictEqual(result, true);
+});
+
+test("shouldWriteAppendix - returns false when write flag is false", () => {
+  const appendix = buildAppendix(LODASH_KEY, { app: "lodash@^4.17.0" });
+
+  const result = shouldWriteAppendix(appendix, false);
+
+  assert.strictEqual(result, false);
+});
+
+test("shouldWriteAppendix - returns false when appendix is undefined", () => {
+  const result = shouldWriteAppendix(undefined, true);
+
+  assert.strictEqual(result, false);
+});
+
+test("shouldWriteAppendix - returns false when appendix is empty", () => {
+  const appendix: Appendix = {};
+
+  const result = shouldWriteAppendix(appendix, true);
+
+  assert.strictEqual(result, false);
+});
+
+test("hasOverrides - returns true when overrides exist", () => {
+  const overrides: OverridesType = { lodash: "4.17.21", express: "4.18.2" };
+
+  const result = hasOverrides(overrides);
+
+  assert.strictEqual(result, true);
+});
+
+test("hasOverrides - returns false when overrides is null", () => {
+  const result = hasOverrides(null);
+
+  assert.strictEqual(result, false);
+});
+
+test("hasOverrides - returns false when overrides is empty object", () => {
+  const overrides: OverridesType = {};
+
+  const result = hasOverrides(overrides);
+
+  assert.strictEqual(result, false);
+});
+
+test("mergeAppendixDependents - merges dependents for existing key", () => {
+  const currentAppendix = buildAppendix(LODASH_KEY, { app1: "lodash@^4.17.0" });
+  const value = buildItem({ app2: "lodash@^4.17.20" });
+
+  const result = mergeAppendixDependents(currentAppendix, LODASH_KEY, value);
+
+  assert.strictEqual(result[LODASH_KEY].dependents.app1, "lodash@^4.17.0");
+  assert.strictEqual(result[LODASH_KEY].dependents.app2, "lodash@^4.17.20");
+});
+
+test("mergeAppendixDependents - creates new entry for non-existing key", () => {
+  const currentAppendix = buildAppendix(LODASH_KEY, { app1: "lodash@^4.17.0" });
+  const key = "express@4.18.2";
+  const value = buildItem({ app2: "express@^4.18.0" });
+
+  const result = mergeAppendixDependents(currentAppendix, key, value);
+
+  assert.notStrictEqual(result[LODASH_KEY], undefined);
+  assert.notStrictEqual(result[key], undefined);
+  assert.strictEqual(result[key].dependents.app2, "express@^4.18.0");
+});
+
+test("mergeAppendixDependents - handles empty currentAppendix", () => {
+  const currentAppendix: Appendix = {};
+  const key = "react@18.0.0";
+  const value = buildItem({ frontend: "react@^18.0.0" });
+
+  const result = mergeAppendixDependents(currentAppendix, key, value);
+
+  assert.notStrictEqual(result[key], undefined);
+  assert.strictEqual(result[key].dependents.frontend, "react@^18.0.0");
+});
+
+test("mergeAppendixDependents - overwrites duplicate dependent names", () => {
+  const currentAppendix = buildAppendix(LODASH_KEY, { app: "lodash@^4.17.0" });
+  const value = buildItem({ app: "lodash@^4.17.20" });
+
+  const result = mergeAppendixDependents(currentAppendix, LODASH_KEY, value);
+
+  assert.strictEqual(result[LODASH_KEY].dependents.app, "lodash@^4.17.20");
+  assert.strictEqual(Object.keys(result[LODASH_KEY].dependents).length, 1);
+});
+
+test("mergeAppendixDependents - preserves other appendix entries", () => {
+  const lodash = buildAppendix(LODASH_KEY, { app1: "lodash@^4.17.0" });
+  const express = buildAppendix("express@4.18.2", { app2: "express@^4.18.0" });
+  const currentAppendix = Object.assign({}, lodash, express);
+  const value = buildItem({ app3: "lodash@^4.17.20" });
+
+  const result = mergeAppendixDependents(currentAppendix, LODASH_KEY, value);
+
+  assert.strictEqual(result[LODASH_KEY].dependents.app1, "lodash@^4.17.0");
+  assert.strictEqual(result[LODASH_KEY].dependents.app3, "lodash@^4.17.20");
+  assert.strictEqual(result["express@4.18.2"].dependents.app2, "express@^4.18.0");
+});
+
+const OLD_DATE = "2026-06-28T00:00:00.000Z";
+const NEW_DATE = "2026-10-01T00:00:00.000Z";
+const UNDICI_DEPENDENTS = { codependence: "undici (required by release-it)" };
+const POSTCSS_DEPENDENTS = { codependence: "postcss (required by shadcn, vite)" };
+
+const entry = (key: string, dependents: Record<string, string>, addedDate: string): Appendix => {
+  const ledger = { addedDate };
+  const item: AppendixItem = { dependents, ledger };
+  const appendix: Appendix = Object.fromEntries([[key, item]]);
+  return appendix;
+};
+
+test("carryExistingLedgers - drops keys no current override produces", () => {
+  const fresh = entry("undici@7.30.0", UNDICI_DEPENDENTS, NEW_DATE);
+  const stale = entry("undici@7.28.0", UNDICI_DEPENDENTS, OLD_DATE);
+  const stale2 = entry("undici@7.29.0", UNDICI_DEPENDENTS, OLD_DATE);
+  const live = entry("undici@7.30.0", UNDICI_DEPENDENTS, OLD_DATE);
+  const existing = Object.assign({}, stale, stale2, live);
+  const result = carryExistingLedgers(fresh, existing);
+  assert.deepEqual(Object.keys(result), ["undici@7.30.0"]);
+});
+
+test("carryExistingLedgers - unchanged key keeps its original addedDate", () => {
+  const fresh = entry("postcss@8.5.23", POSTCSS_DEPENDENTS, NEW_DATE);
+  const existing = entry("postcss@8.5.23", POSTCSS_DEPENDENTS, OLD_DATE);
+  const result = carryExistingLedgers(fresh, existing);
+  assert.equal(result["postcss@8.5.23"].ledger?.addedDate, OLD_DATE);
+});
+
+test("carryExistingLedgers - new version key gets the fresh addedDate", () => {
+  const fresh = entry("postcss@8.5.23", POSTCSS_DEPENDENTS, NEW_DATE);
+  const existing = entry("postcss@8.5.18", POSTCSS_DEPENDENTS, OLD_DATE);
+  const result = carryExistingLedgers(fresh, existing);
+  assert.equal(result["postcss@8.5.23"].ledger?.addedDate, NEW_DATE);
+  assert.equal(result["postcss@8.5.18"], undefined);
+});
+
+test("carryExistingLedgers - replaces stale dependents with current ones", () => {
+  const current = { docs: "vite@^8.2.1" };
+  const stale = { codependence: "vite (unused override)", docs: "old" };
+  const fresh = entry("vite@8.2.1", current, NEW_DATE);
+  const existing = entry("vite@8.2.1", stale, OLD_DATE);
+  const result = carryExistingLedgers(fresh, existing);
+  assert.deepEqual(result["vite@8.2.1"].dependents, current);
+});
+
+test("carryExistingLedgers - keeps entries marked keep even without an override", () => {
+  const existing = entry("lodash@4.17.20", {}, OLD_DATE);
+  const ledger = { addedDate: OLD_DATE, keep: true };
+  const kept = Object.assign({}, existing["lodash@4.17.20"], { ledger });
+  const keptAppendix = Object.fromEntries([["lodash@4.17.20", kept]]);
+  const result = carryExistingLedgers({}, keptAppendix);
+  assert.deepEqual(result["lodash@4.17.20"], kept);
+});
+
+const UNDICI_PARENTS = ["release-it", "shadcn"];
+const NANOID_PARENTS = ["postcss"];
+const POSTCSS_PARENTS = ["release-it", "shadcn", "vite"];
+const VITE_PARENTS = ["shadcn"];
+const CHAIN_GRAPH = {
+  undici: UNDICI_PARENTS,
+  nanoid: NANOID_PARENTS,
+  postcss: POSTCSS_PARENTS,
+  vite: VITE_PARENTS,
+};
+
+test("findTopLevelDependents - returns the direct dependency of one project", () => {
+  const rootDeps = new Set(["release-it"]);
+  const result = findTopLevelDependents("undici", CHAIN_GRAPH, rootDeps);
+  assert.deepEqual(result, ["release-it"]);
+});
+
+test("findTopLevelDependents - returns every direct dependency that reaches the package", () => {
+  const docsDeps = new Set(["shadcn", "vite"]);
+  const result = findTopLevelDependents("postcss", CHAIN_GRAPH, docsDeps);
+  assert.deepEqual(result, ["shadcn", "vite"]);
+});
+
+test("findTopLevelDependents - follows the whole chain up to the direct dependency", () => {
+  const rootDeps = new Set(["release-it"]);
+  const result = findTopLevelDependents("nanoid", CHAIN_GRAPH, rootDeps);
+  assert.deepEqual(result, ["release-it"]);
+});
+
+test("findTopLevelDependents - ignores dependencies the project does not declare", () => {
+  const unrelated = new Set(["left-pad"]);
+  const result = findTopLevelDependents("undici", CHAIN_GRAPH, unrelated);
+  assert.deepEqual(result, []);
+});
+
+test("findTopLevelDependents - survives cycles in the graph", () => {
+  const aParents = ["b"];
+  const bParents = ["a", "app"];
+  const cyclic = { a: aParents, b: bParents };
+  const appDeps = new Set(["app"]);
+  const result = findTopLevelDependents("a", cyclic, appDeps);
+  assert.deepEqual(result, ["app"]);
+});
+
+test("findTopLevelDependents - returns nothing without a graph", () => {
+  const rootDeps = new Set(["release-it"]);
+  const result = findTopLevelDependents("undici", undefined, rootDeps);
+  assert.deepEqual(result, []);
+});
+
+test("buildDependentInfo - names the top-level dependency, not the immediate parent", () => {
+  const rootDeps = new Set(["release-it"]);
+  const tree = {};
+  const info = buildDependentInfo(false, "nanoid", undefined, tree, CHAIN_GRAPH, rootDeps);
+  assert.equal(info, "nanoid (required by release-it)");
+});
+
+test("buildDependentInfo - lists several top-level dependencies when several apply", () => {
+  const docsDeps = new Set(["shadcn", "vite"]);
+  const tree = {};
+  const info = buildDependentInfo(false, "postcss", undefined, tree, CHAIN_GRAPH, docsDeps);
+  assert.equal(info, "postcss (required by shadcn, vite)");
+});
+
+test("buildDependentInfo - marks an override the project does not reach as unused", () => {
+  const rootDeps = new Set(["release-it"]);
+  const info = buildDependentInfo(
+    false,
+    "vite",
+    undefined,
+    { vite: "8.2.1" },
+    CHAIN_GRAPH,
+    rootDeps,
+  );
+  assert.equal(info, "vite (unused override)");
+});
+
+test("buildDependentInfo - uses the dependency tree when no graph is available", () => {
+  const rootDeps = new Set(["release-it"]);
+  const dependencyTree = { vite: "8.2.1" };
+  const info = buildDependentInfo(false, "vite", undefined, dependencyTree, undefined, rootDeps);
+  assert.equal(info, "vite (transitive dependency)");
+});
+
+test("buildDependentInfo - ignores the tree when a graph has no matching path", () => {
+  const rootDeps = new Set(["release-it"]);
+  const releaseItParents = ["release-it"];
+  const graph = { undici: releaseItParents };
+  const dependencyTree = { vite: "8.2.1" };
+  const info = buildDependentInfo(false, "vite", undefined, dependencyTree, graph, rootDeps);
+  assert.equal(info, "vite (unused override)");
+});
+
+test("dropSupersededUnusedDependents - removes unused notes when another project uses it", () => {
+  const dependents = { root: "vite (unused override)", docs: "vite@^8.2.1" };
+  const item: AppendixItem = { dependents };
+  const appendix: Appendix = { "vite@8.2.1": item };
+  const result = dropSupersededUnusedDependents(appendix);
+  assert.deepEqual(result["vite@8.2.1"].dependents, { docs: "vite@^8.2.1" });
+});
+
+test("dropSupersededUnusedDependents - keeps the note when nobody uses the override", () => {
+  const dependents = { root: "vite (unused override)", docs: "vite (unused override)" };
+  const item: AppendixItem = { dependents };
+  const appendix: Appendix = { "vite@8.2.1": item };
+  const result = dropSupersededUnusedDependents(appendix);
+  assert.deepEqual(result["vite@8.2.1"].dependents, dependents);
+});
+
+const withLedger = (key: string, dependents: Record<string, string>, ledger: object): Appendix => {
+  const fullLedger = Object.assign({ addedDate: OLD_DATE }, ledger);
+  const item = { dependents, ledger: fullLedger };
+  const appendix: Appendix = Object.fromEntries([[key, item]]);
+  return appendix;
+};
+
+const refreshed = (key: string, dependents: Record<string, string>, ledger: object): Appendix => {
+  const fullLedger = Object.assign({ addedDate: NEW_DATE }, ledger);
+  const item = { dependents, ledger: fullLedger };
+  const appendix: Appendix = Object.fromEntries([[key, item]]);
+  return appendix;
+};
+
+const RELEASE_IT = { root: "undici (required by release-it)" };
+const SHADCN = { root: "undici (required by shadcn)" };
+
+test("carryExistingLedgers - bumps addedDate when the dependents change", () => {
+  const existing = withLedger("undici@7.30.0", RELEASE_IT, {});
+  const fresh = refreshed("undici@7.30.0", SHADCN, {});
+  const result = carryExistingLedgers(fresh, existing);
+  assert.equal(result["undici@7.30.0"].ledger?.addedDate, NEW_DATE);
+});
+
+test("carryExistingLedgers - keeps addedDate when dependents are only reordered", () => {
+  const first = { a: "undici (required by a)", b: "undici (required by b)" };
+  const reordered = { b: "undici (required by b)", a: "undici (required by a)" };
+  const existing = withLedger("undici@7.30.0", first, {});
+  const fresh = refreshed("undici@7.30.0", reordered, {});
+  const result = carryExistingLedgers(fresh, existing);
+  assert.equal(result["undici@7.30.0"].ledger?.addedDate, OLD_DATE);
+});
+
+test("carryExistingLedgers - bumps addedDate and takes the new reason when the reason changes", () => {
+  const existing = withLedger("undici@7.30.0", RELEASE_IT, { reason: "old reason" });
+  const fresh = refreshed("undici@7.30.0", RELEASE_IT, { reason: "new reason" });
+  const ledger = carryExistingLedgers(fresh, existing)["undici@7.30.0"].ledger;
+  assert.equal(ledger?.addedDate, NEW_DATE);
+  assert.equal(ledger?.reason, "new reason");
+});
+
+test("carryExistingLedgers - bumps addedDate when a security finding changes", () => {
+  const existing = withLedger("undici@7.30.0", RELEASE_IT, { patchedVersion: "7.29.1" });
+  const fresh = refreshed("undici@7.30.0", RELEASE_IT, { patchedVersion: "7.30.0" });
+  const ledger = carryExistingLedgers(fresh, existing)["undici@7.30.0"].ledger;
+  assert.equal(ledger?.addedDate, NEW_DATE);
+  assert.equal(ledger?.patchedVersion, "7.30.0");
+});
+
+test("carryExistingLedgers - refreshes security check date without changing addedDate", () => {
+  const existing = withLedger("undici@7.30.0", RELEASE_IT, { securityCheckDate: OLD_DATE });
+  const fresh = refreshed("undici@7.30.0", RELEASE_IT, { securityCheckDate: NEW_DATE });
+  const ledger = carryExistingLedgers(fresh, existing)["undici@7.30.0"].ledger;
+  assert.equal(ledger?.addedDate, OLD_DATE);
+  assert.equal(ledger?.securityCheckDate, NEW_DATE);
+});
+
+test("carryExistingLedgers - keeps stored security info when this run reports none", () => {
+  const cves = ["CVE-1"];
+  const stored = { severity: "high", cves };
+  const existing = withLedger("undici@7.30.0", RELEASE_IT, stored);
+  const fresh = refreshed("undici@7.30.0", RELEASE_IT, {});
+  const ledger = carryExistingLedgers(fresh, existing)["undici@7.30.0"].ledger;
+  assert.equal(ledger?.addedDate, OLD_DATE);
+  assert.equal(ledger?.severity, "high");
+});
+
+test("carryExistingLedgers - keeps the keep flag when an entry is updated", () => {
+  const existing = withLedger("undici@7.30.0", RELEASE_IT, { keep: true });
+  const fresh = refreshed("undici@7.30.0", SHADCN, {});
+  const ledger = carryExistingLedgers(fresh, existing)["undici@7.30.0"].ledger;
+  assert.equal(ledger?.addedDate, NEW_DATE);
+  assert.equal(ledger?.keep, true);
+});
+
+test("carryExistingLedgers - keeps addedDate for a compact entry with no stored dependents", () => {
+  const ledger = { addedDate: OLD_DATE };
+  const compactItem: AppendixItem = { ledger };
+  const compact: Appendix = { "undici@7.30.0": compactItem };
+  const fresh = refreshed("undici@7.30.0", RELEASE_IT, {});
+  const result = carryExistingLedgers(fresh, compact);
+  assert.equal(result["undici@7.30.0"].ledger?.addedDate, OLD_DATE);
+});
+
+type Random = (limit: number) => number;
+
+const CARRY_OLD_DATE = "2026-06-28T00:00:00.000Z";
+const CARRY_NEW_DATE = "2026-10-02T00:00:00.000Z";
+const KEYS = ["a@1.0.0", "b@2.0.0", "c@3.0.0", "d@4.0.0", "e@5.0.0"];
+const DEPENDENT_NAMES = ["root", "docs", "app"];
+const REQUIRED_BY = ["x", "y", "x, y"];
+const REASONS = ["reason one", "reason two"];
+const SEVERITIES = ["low", "high"] as const;
+const LCG_MULTIPLIER = 1664525;
+const LCG_INCREMENT = 1013904223;
+
+const createRandom = (seed: number): Random => {
+  let state = seed >>> 0;
+  const random: Random = (limit) => {
+    const product = Math.imul(state, LCG_MULTIPLIER);
+    state = (product + LCG_INCREMENT) >>> 0;
+    const value = state % limit;
+    return value;
+  };
+  return random;
+};
+
+const pick = <T>(random: Random, values: readonly T[]): T => values[random(values.length)];
+
+const randomDependents = (random: Random): Record<string, string> => {
+  const names = DEPENDENT_NAMES.filter(() => random(2) === 0);
+  const entries = names.map((name): [string, string] => [name, pick(random, REQUIRED_BY)]);
+  const dependents = Object.fromEntries(entries);
+  return dependents;
+};
+
+const sometimes = <T>(random: Random, limit: number, value: T): T | undefined => {
+  const isChosen = random(limit) === 0;
+  if (isChosen) return value;
+  return undefined;
+};
+
+const randomLedgerFields = (random: Random) => {
+  const reason = sometimes(random, 2, pick(random, REASONS));
+  const severity = sometimes(random, 2, pick(random, SEVERITIES));
+  const keep = sometimes(random, 5, true);
+  const fields = { reason, severity, keep };
+  return fields;
+};
+
+const withoutUndefined = <T extends object>(value: T): T => {
+  const entries = Object.entries(value).filter(([, entry]) => entry !== undefined);
+  const cleaned = Object.fromEntries(entries) as T;
+  return cleaned;
+};
+
+const randomItem = (random: Random, addedDate: string, keepAllowed: boolean): AppendixItem => {
+  const dependents = randomDependents(random);
+  const fields = randomLedgerFields(random);
+  const keep = keepAllowed ? fields.keep : undefined;
+  const ledger = withoutUndefined(Object.assign({ addedDate }, fields, { keep }));
+  const item: AppendixItem = { dependents, ledger };
+  return item;
+};
+
+const randomAppendix = (random: Random, addedDate: string, keepAllowed: boolean): Appendix => {
+  const keys = KEYS.filter(() => random(3) !== 0);
+  const entries = keys.map((key): [string, AppendixItem] => [
+    key,
+    randomItem(random, addedDate, keepAllowed),
+  ]);
+  const appendix: Appendix = Object.fromEntries(entries);
+  return appendix;
+};
+
+const isKept = (item: AppendixItem): boolean => item.ledger?.keep === true;
+
+const assertKeys = (fresh: Appendix, existing: Appendix, result: Appendix): void => {
+  const keptKeys = Object.entries(existing)
+    .filter(([key, item]) => !fresh[key] && isKept(item))
+    .map(([key]) => key);
+  const expected = new Set(Object.keys(fresh).concat(keptKeys));
+  assert.deepEqual(Object.keys(result).toSorted(), Array.from(expected).toSorted());
+};
+
+const sortedEntries = (dependents: Record<string, string> | undefined): string => {
+  const entries = Object.entries(dependents ?? {}).toSorted(([a], [b]) => a.localeCompare(b));
+  const text = JSON.stringify(entries);
+  return text;
+};
+
+const changedField = (
+  field: "reason" | "severity",
+  fresh: AppendixItem,
+  previous: AppendixItem,
+) => {
+  const next = fresh.ledger?.[field];
+  const before = previous.ledger?.[field];
+  const isChanged = next !== undefined && next !== before;
+  return isChanged;
+};
+
+const expectedDate = (key: string, fresh: Appendix, existing: Appendix): string | undefined => {
+  const previous = existing[key];
+  if (!previous) return CARRY_NEW_DATE;
+  const dependentsChanged =
+    sortedEntries(fresh[key].dependents) !== sortedEntries(previous.dependents);
+  const reasonChanged = changedField("reason", fresh[key], previous);
+  const severityChanged = changedField("severity", fresh[key], previous);
+  const isUpdated = dependentsChanged || reasonChanged || severityChanged;
+  if (isUpdated) return CARRY_NEW_DATE;
+  const storedDate = previous.ledger?.addedDate;
+  return storedDate;
+};
+
+const assertDate = (key: string, fresh: Appendix, existing: Appendix, result: Appendix): void => {
+  const expected = expectedDate(key, fresh, existing);
+  assert.equal(result[key].ledger?.addedDate, expected, `${key} date`);
+};
+
+const assertKeepSurvives = (key: string, existing: Appendix, result: Appendix): void => {
+  const wasKept = existing[key] ? isKept(existing[key]) : false;
+  if (!wasKept) return;
+  assert.equal(result[key].ledger?.keep, true, `${key} lost keep`);
+};
+
+const assertCase = (random: Random, trial: number): void => {
+  const fresh = randomAppendix(random, CARRY_NEW_DATE, false);
+  const existing = randomAppendix(random, CARRY_OLD_DATE, true);
+  const result = carryExistingLedgers(fresh, existing);
+  assertKeys(fresh, existing, result);
+  const freshKeys = Object.keys(fresh);
+  freshKeys.forEach((key) => assertDate(key, fresh, existing, result));
+  freshKeys.forEach((key) => assertKeepSurvives(key, existing, result));
+  assert.deepEqual(carryExistingLedgers(fresh, result), result, `trial ${trial} not stable`);
+};
+
+const trials = (count: number): number[] => Array.from({ length: count }, (_, index) => index);
+
+test("carryExistingLedgers - random appendices keep every key accounted for", () => {
+  const random = createRandom(20261002);
+  trials(3000).forEach((trial) => assertCase(random, trial));
+});
+
+test("carryExistingLedgers - an entry with no previous version is returned untouched", () => {
+  const random = createRandom(5);
+  const fresh = randomAppendix(random, CARRY_NEW_DATE, false);
+  const result = carryExistingLedgers(fresh, {});
+  assert.deepEqual(result, fresh);
+});
+
+test("carryExistingLedgers - an identical run changes nothing", () => {
+  const random = createRandom(11);
+  const appendix = randomAppendix(random, CARRY_OLD_DATE, true);
+  const result = carryExistingLedgers(appendix, appendix);
+  assert.deepEqual(result, appendix);
+});
+
+test("carryExistingLedgers - does not mutate either input", () => {
+  const random = createRandom(13);
+  const fresh = randomAppendix(random, CARRY_NEW_DATE, false);
+  const existing = randomAppendix(random, CARRY_OLD_DATE, true);
+  const before = JSON.stringify([fresh, existing]);
+  carryExistingLedgers(fresh, existing);
+  assert.equal(JSON.stringify([fresh, existing]), before);
+});
+
+type Graph = Record<string, string[]>;
+type GraphEntry = [string, string[]];
+
+const graphFrom = (entries: GraphEntry[]): Graph => {
+  const graph: Graph = Object.fromEntries(entries);
+  return graph;
+};
+
+const nodeNames = (size: number): string[] => {
+  const names = Array.from({ length: size }, (_, index) => `p${index}`);
+  return names;
+};
+
+const randomParents = (random: Random, names: string[]): string[] => {
+  const count = random(4);
+  const parents = Array.from({ length: count }, () => names[random(names.length)]);
+  return parents;
+};
+
+const randomGraph = (random: Random, size: number): Graph => {
+  const names = nodeNames(size);
+  const entries = names.map((name): GraphEntry => [name, randomParents(random, names)]);
+  const graph = graphFrom(entries);
+  return graph;
+};
+
+const randomDirectDeps = (random: Random, size: number): Set<string> => {
+  const picked = nodeNames(size).filter(() => random(4) === 0);
+  const directDeps = new Set(picked);
+  return directDeps;
+};
+
+const parentsOf = (names: Set<string>, graph: Graph): string[] => {
+  const parents = Array.from(names).flatMap((name) => graph[name] ?? []);
+  return parents;
+};
+
+const expandUntilStable = (expanded: Set<string>, graph: Graph, directDeps: Set<string>) => {
+  const indirect = parentsOf(expanded, graph).filter((parent) => !directDeps.has(parent));
+  const grown = new Set(Array.from(expanded).concat(indirect));
+  const isStable = grown.size === expanded.size;
+  const next = isStable ? expanded : expandUntilStable(grown, graph, directDeps);
+  return next;
+};
+
+const referenceTopLevel = (name: string, graph: Graph, directDeps: Set<string>): string[] => {
+  const expanded = expandUntilStable(new Set([name]), graph, directDeps);
+  const reached = parentsOf(expanded, graph).filter((parent) => directDeps.has(parent));
+  const others = reached.filter((parent) => parent !== name);
+  const sorted = Array.from(new Set(others)).toSorted();
+  return sorted;
+};
+
+const assertAllNames = (trial: number, graph: Graph, directDeps: Set<string>): void => {
+  Object.keys(graph).forEach((name) => {
+    const actual = findTopLevelDependents(name, graph, directDeps);
+    const expected = referenceTopLevel(name, graph, directDeps);
+    assert.deepEqual(actual, expected, `trial ${trial} name ${name}`);
+  });
+};
+
+const runRandomTrial = (random: Random, trial: number): void => {
+  const size = 2 + random(40);
+  const graph = randomGraph(random, size);
+  const directDeps = randomDirectDeps(random, size);
+  assertAllNames(trial, graph, directDeps);
+};
+
+const assertResultShape = (random: Random): void => {
+  const size = 2 + random(30);
+  const graph = randomGraph(random, size);
+  const directDeps = randomDirectDeps(random, size);
+  const result = findTopLevelDependents("p0", graph, directDeps);
+  assert.deepEqual(result, result.toSorted());
+  assert.equal(new Set(result).size, result.length);
+  assert.ok(result.every((dependency) => directDeps.has(dependency)));
+  assert.ok(!result.includes("p0"));
+};
+
+const topLevelTrials = (count: number): number[] =>
+  Array.from({ length: count }, (_, index) => index);
+
+test("findTopLevelDependents - matches a reference walk on 2000 random graphs", () => {
+  const random = createRandom(20261002);
+  topLevelTrials(2000).forEach((trial) => runRandomTrial(random, trial));
+});
+
+test("findTopLevelDependents - results are sorted, unique and only direct dependencies", () => {
+  const random = createRandom(7);
+  topLevelTrials(500).forEach(() => assertResultShape(random));
+});
+
+test("findTopLevelDependents - does not mutate its inputs", () => {
+  const graph = graphFrom([
+    ["a", ["b", "c"]],
+    ["b", ["app"]],
+    ["c", ["app", "b"]],
+  ]);
+  const before = JSON.stringify(graph);
+  const directDeps = new Set(["app"]);
+  findTopLevelDependents("a", graph, directDeps);
+  assert.equal(JSON.stringify(graph), before);
+  assert.deepEqual(Array.from(directDeps), ["app"]);
+});
+
+test("findTopLevelDependents - an unrelated direct dependency never changes the answer", () => {
+  const graph = graphFrom([
+    ["a", ["b"]],
+    ["b", ["app"]],
+  ]);
+  const base = findTopLevelDependents("a", graph, new Set(["app"]));
+  const extra = findTopLevelDependents("a", graph, new Set(["app", "other"]));
+  assert.deepEqual(extra, base);
+});
+
+test("findTopLevelDependents - stops at the first direct dependency on each path", () => {
+  const graph = graphFrom([
+    ["leaf", ["mid"]],
+    ["mid", ["outer"]],
+    ["outer", ["top"]],
+  ]);
+  const result = findTopLevelDependents("leaf", graph, new Set(["mid", "top"]));
+  assert.deepEqual(result, ["mid"]);
+});
+
+test("findTopLevelDependents - handles a diamond without duplicates", () => {
+  const graph = graphFrom([
+    ["leaf", ["left", "right"]],
+    ["left", ["app"]],
+    ["right", ["app"]],
+  ]);
+  const result = findTopLevelDependents("leaf", graph, new Set(["app"]));
+  assert.deepEqual(result, ["app"]);
+});
+
+test("findTopLevelDependents - handles a package that depends on itself", () => {
+  const graph = graphFrom([["loop", ["loop", "app"]]]);
+  const result = findTopLevelDependents("loop", graph, new Set(["app"]));
+  assert.deepEqual(result, ["app"]);
+});
+
+test("findTopLevelDependents - never reports the package itself", () => {
+  const graph = graphFrom([
+    ["a", ["b"]],
+    ["b", ["a"]],
+  ]);
+  const result = findTopLevelDependents("a", graph, new Set(["a", "b"]));
+  assert.deepEqual(result, ["b"]);
+});
+
+test("findTopLevelDependents - supports scoped package names", () => {
+  const graph = graphFrom([
+    ["@scope/leaf", ["@scope/mid"]],
+    ["@scope/mid", ["@scope/app"]],
+  ]);
+  const result = findTopLevelDependents("@scope/leaf", graph, new Set(["@scope/app"]));
+  assert.deepEqual(result, ["@scope/app"]);
+});
+
+test("findTopLevelDependents - returns nothing for an unknown package", () => {
+  const graph = graphFrom([["a", ["b"]]]);
+  assert.deepEqual(findTopLevelDependents("ghost", graph, new Set(["b"])), []);
+});
+
+test("findTopLevelDependents - returns nothing for an empty graph or no direct dependencies", () => {
+  const graph = graphFrom([["a", ["b"]]]);
+  assert.deepEqual(findTopLevelDependents("a", {}, new Set(["b"])), []);
+  assert.deepEqual(findTopLevelDependents("a", graph, new Set()), []);
+});
+
+test("findTopLevelDependents - survives a 50000 package deep chain", () => {
+  const entries = Array.from({ length: 50000 }, (_, index): GraphEntry => [
+    `n${index}`,
+    [`n${index + 1}`],
+  ]);
+  const result = findTopLevelDependents("n0", graphFrom(entries), new Set(["n50000"]));
+  assert.deepEqual(result, ["n50000"]);
+});
+
+test("findTopLevelDependents - stays fast on a wide graph with many lookups", () => {
+  const size = 5000;
+  const graph = randomGraph(createRandom(99), size);
+  const directDeps = new Set(nodeNames(size).filter((_, index) => index % 50 === 0));
+  const started = Date.now();
+  nodeNames(size)
+    .slice(0, 500)
+    .forEach((name) => findTopLevelDependents(name, graph, directDeps));
+  const elapsed = Date.now() - started;
+  assert.ok(elapsed < 5000, `500 lookups took ${elapsed}ms`);
 });

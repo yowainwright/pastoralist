@@ -282,7 +282,7 @@ const scanCharacter = (state: ScanState, character: string): ScanState => {
 };
 
 const findSeparator = (line: string): number => {
-  let state: ScanState = { escaped: false };
+  let state: ScanState = { escaped: false, quote: undefined };
   const separator = line.split("").findIndex((character, index) => {
     const isUnquoted = !state.quote;
     const isUnescaped = !state.escaped;
@@ -310,7 +310,7 @@ export const parseQuotedScalar = (value: string): string => {
 };
 
 const findComment = (value: string): number => {
-  let state: ScanState = { escaped: false };
+  let state: ScanState = { escaped: false, quote: undefined };
   const comment = value.split("").findIndex((character, index) => {
     const isUnquoted = !state.quote;
     const isUnescaped = !state.escaped;
@@ -363,11 +363,14 @@ const isTopLevelBoundary = (line: string): boolean => {
   return isBoundary;
 };
 
-const findOverridesSection = (lines: string[]): YamlSection | undefined => {
+const findWorkspaceSection = (
+  lines: string[],
+  field: string = "overrides",
+): YamlSection | undefined => {
   const start = lines.findIndex((line) => {
     const pair = parsePair(line);
-    const isOverridesSection = pair?.indent === "" && pair.key === "overrides";
-    return isOverridesSection;
+    const isFieldSection = pair?.indent === "" && pair.key === field;
+    return isFieldSection;
   });
   if (start < 0) return undefined;
 
@@ -385,9 +388,9 @@ const findEntryIndent = (lines: string[], section: YamlSection): number | undefi
     .slice(section.start + 1, section.end)
     .map(parsePair)
     .filter((pair): pair is YamlPair => Boolean(pair));
-  const indents = pairs.map((pair) => pair.indent.length).filter((indent) => indent > 0);
+  const indents = Array.from(pairs, (pair) => pair.indent.length).filter((indent) => indent > 0);
   if (indents.length === 0) return undefined;
-  const indent = Math.min(...indents);
+  const indent = indents.reduce((minimum, value) => Math.min(minimum, Number(value)), Infinity);
   return indent;
 };
 
@@ -456,7 +459,7 @@ const scanFlowEntry = (
 
 const splitFlowEntries = (source: string): string[] => {
   const pending: string[] = [];
-  const scan = { escaped: false, depth: 0 };
+  const scan = { escaped: false, quote: undefined, depth: 0 };
   const initial: FlowSplitState = { entries: pending, scan, start: 0 };
   const result = source
     .split("")
@@ -482,7 +485,7 @@ const hasFlowKeyBoundary = (source: string, index: number): boolean => {
 };
 
 const findFlowSeparator = (source: string): number => {
-  let state: ScanState = { escaped: false };
+  let state: ScanState = { escaped: false, quote: undefined };
   const separator = source.split("").findIndex((character, index) => {
     const canSeparate = !state.quote && !state.escaped;
     const isCandidate = character === ":" && canSeparate;
@@ -558,7 +561,11 @@ const findNestedEntries = (lines: string[], entry: YamlEntry): YamlPair[] => {
     .slice(entry.line + 1, contentEnd)
     .map(parsePair)
     .filter((pair): pair is YamlPair => Boolean(pair));
-  const nestedIndent = Math.min(...pairs.map((pair) => pair.indent.length));
+  const indents = Array.from(pairs, (pair) => pair.indent.length);
+  const nestedIndent = indents.reduce(
+    (minimum, value) => Math.min(minimum, Number(value)),
+    Infinity,
+  );
   const nested = pairs.filter((pair) => pair.indent.length === nestedIndent);
   return nested;
 };
@@ -587,8 +594,13 @@ const parseEntryValue = (lines: string[], entry: YamlEntry): OverrideValue | und
 };
 
 export const parsePnpmWorkspaceOverrides = (content: string): OverridesType => {
+  const overrides = parsePnpmWorkspaceMapping(content, "overrides");
+  return overrides;
+};
+
+export const parsePnpmWorkspaceMapping = (content: string, field: string): OverridesType => {
   const lines = content.split(/\r?\n/);
-  const section = findOverridesSection(lines);
+  const section = findWorkspaceSection(lines, field);
   const empty: OverridesType = {};
   if (!section) return empty;
   if (section.pair.valueSource) {
@@ -692,7 +704,7 @@ const updateExistingEntries = (
 };
 
 const appendNewEntries = (lines: string[], overrides: OverridesType): string[] => {
-  const section = findOverridesSection(lines)!;
+  const section = findWorkspaceSection(lines)!;
   const entries = findEntries(lines, section);
   const existingKeys = new Set(entries.map((entry) => entry.key));
   const newKeys = Object.keys(overrides).filter((key) => !existingKeys.has(key));
@@ -728,7 +740,7 @@ const replaceFlowSection = (lines: string[], section: YamlSection): string[] => 
 
 const formatEmptySection = (lines: string[], overrides: OverridesType): string[] => {
   if (Object.keys(overrides).length > 0) return lines;
-  const section = findOverridesSection(lines)!;
+  const section = findWorkspaceSection(lines)!;
   const updated = replaceLine(lines, section.start, `overrides: {}${section.pair.suffix}`);
   return updated;
 };
@@ -753,14 +765,14 @@ const appendSection = (content: string, overrides: OverridesType, newline: strin
 export const updatePnpmWorkspaceOverrides = (content: string, overrides: OverridesType): string => {
   const newline = content.includes("\r\n") ? "\r\n" : "\n";
   const lines = content.split(/\r?\n/);
-  const section = findOverridesSection(lines);
+  const section = findWorkspaceSection(lines);
   if (!section) {
     const appended = appendSection(content, overrides, newline);
     return appended;
   }
 
   const blockLines = replaceFlowSection(lines, section);
-  const blockSection = findOverridesSection(blockLines)!;
+  const blockSection = findWorkspaceSection(blockLines)!;
   const updatedLines = updateExistingEntries(blockLines, blockSection, overrides);
   const appendedLines = appendNewEntries(updatedLines, overrides);
   const finalLines = formatEmptySection(appendedLines, overrides);

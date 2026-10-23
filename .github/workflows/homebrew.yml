@@ -61,10 +61,10 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
-      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm install --frozen-lockfile
 
       - name: Build and test ScriptC binary
-        id: perry
+        id: scriptc
         run: |
           pnpm run test:e2e:binary
           BINARY="pastoralist-${{ matrix.target }}"
@@ -72,16 +72,16 @@ jobs:
           echo "binary=$BINARY" >> "$GITHUB_OUTPUT"
 
       - name: Attest ScriptC binary
-        id: perry-attest
+        id: scriptc-attest
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4
         with:
-          subject-path: ${{ steps.perry.outputs.binary }}
+          subject-path: ${{ steps.scriptc.outputs.binary }}
 
       - name: Prepare binary attestation
-        id: perry-attestation
+        id: scriptc-attestation
         env:
-          BINARY: ${{ steps.perry.outputs.binary }}
-          BUNDLE_PATH: ${{ steps.perry-attest.outputs.bundle-path }}
+          BINARY: ${{ steps.scriptc.outputs.binary }}
+          BUNDLE_PATH: ${{ steps.scriptc-attest.outputs.bundle-path }}
         run: |
           SIGSTORE_BUNDLE="${BINARY}.sigstore.json"
           cp "$BUNDLE_PATH" "$SIGSTORE_BUNDLE"
@@ -92,8 +92,8 @@ jobs:
         with:
           name: homebrew-${{ matrix.target }}
           path: |
-            ${{ steps.perry.outputs.binary }}
-            ${{ steps.perry-attestation.outputs.sigstore_bundle }}
+            ${{ steps.scriptc.outputs.binary }}
+            ${{ steps.scriptc-attestation.outputs.sigstore_bundle }}
 
   publish-binaries:
     needs: build-binaries

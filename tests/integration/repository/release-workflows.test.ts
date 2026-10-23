@@ -2,6 +2,7 @@ import { assertExcludesText, assertContainsText } from "../../unit/scripts/utils
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 const cases = [
   {
@@ -11,7 +12,7 @@ const cases = [
       const sources = Array.from(workflow.matchAll(/^\s+COPY\s+(\S+)\s+/gm));
       assert.ok(sources.length > 0);
       sources.forEach(([, source]) => {
-        const path = new URL(`../../../${source}`, import.meta.url);
+        const path = resolve(source);
         assert.ok(existsSync(path), `Docker COPY source does not exist: ${source}`);
       });
     },

@@ -1,6 +1,6 @@
 {
   "name": "pastoralist",
-  "version": "1.13.9",
+  "version": "1.14.0",
   "description": "keep your project more secure while maintaining dependency overrides with 1 command 👩🏽‍🌾",
   "keywords": [
     "bun",

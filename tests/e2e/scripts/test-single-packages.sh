@@ -62,7 +62,7 @@ test_npm() {
   cd /tmp/npm-single-test
 
   # Copy the npm single package fixture
-  cp /app/e2e/fixtures/npm-single-package.json package.json
+  jq 'del(.pastoralist.appendix)' /app/e2e/fixtures/npm-single-package.json >package.json
 
   echo "Initial package.json:"
   cat package.json

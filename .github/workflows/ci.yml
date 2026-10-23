@@ -114,11 +114,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Check test manifest policy
         run: pnpm run check:test-manifests
-      - name: Checkout fs-lint
+      - name: Checkout fs-lint v0.4.0
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           repository: yowainwright/fs-lint
-          ref: ${{ vars.FS_LINT_REF || 'main' }}
+          ref: 84d3a7db329e9c0001898e563b87e32ae82c00f5
           path: .cache/fs-lint/source
           persist-credentials: false
       - name: Build fs-lint

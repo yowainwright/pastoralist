@@ -1,5 +1,8 @@
 name: Test Published Release
 on:
+  workflow_run:
+    workflows: [publish]
+    types: [completed]
   release:
     types: [published]
   workflow_dispatch:
@@ -14,6 +17,9 @@ permissions:
 
 jobs:
   test-published-release:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
 
     steps:
@@ -21,6 +27,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
 
       - name: Login to Docker Hub
         uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
@@ -35,11 +42,10 @@ jobs:
         id: version
         env:
           INPUT_VERSION: ${{ inputs.version }}
+          RELEASE_VERSION: ${{ github.event.release.tag_name || github.event.workflow_run.head_branch }}
         run: |
-          if [ -n "$INPUT_VERSION" ]; then
-            VERSION="$INPUT_VERSION"
-          else
-            # Get the latest published version from npm
+          VERSION="${INPUT_VERSION:-$RELEASE_VERSION}"
+          if [ -z "$VERSION" ]; then
             VERSION=$(npm view pastoralist version)
           fi
           VERSION="${VERSION#v}"
@@ -52,18 +58,24 @@ jobs:
           echo "Testing pastoralist version: $VERSION"
 
       - name: Wait for NPM Package Availability
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          echo "Waiting for pastoralist@${{ steps.version.outputs.version }} to be available on npm..."
+          echo "Waiting for pastoralist@$VERSION to be available on npm..."
           for i in {1..30}; do
-            if npm view pastoralist@${{ steps.version.outputs.version }} version >/dev/null 2>&1; then
-              echo "✅ Package pastoralist@${{ steps.version.outputs.version }} is available on npm"
-              break
+            if npm view "pastoralist@$VERSION" version >/dev/null 2>&1; then
+              echo "Package pastoralist@$VERSION is available on npm"
+              exit 0
             fi
             echo "⏳ Attempt $i/30: Package not yet available, waiting 30 seconds..."
             sleep 30
           done
+          echo "Package pastoralist@$VERSION did not become available" >&2
+          exit 1
 
       - name: Build Test Docker Image
+        env:
+          PASTORALIST_VERSION: ${{ steps.version.outputs.version }}
         run: |
           cat > Dockerfile.release-test << 'EOF'
           ARG NODE_VERSION=26
@@ -72,28 +84,31 @@ jobs:
           FROM node:${NODE_VERSION}-${NODE_VARIANT}@${NODE_DIGEST}
 
           # Install bash and pnpm
-          RUN apk add --no-cache bash
-          RUN corepack enable && corepack prepare pnpm@10.25.0 --activate
+          RUN apk add --no-cache bash jq git
+          RUN npm install --global pnpm@10.25.0
 
           WORKDIR /app
 
           # Install the specific version of pastoralist from npm
           ARG PASTORALIST_VERSION
-          RUN echo "Installing pastoralist@${PASTORALIST_VERSION}" && \
-              npm install -g pastoralist@${PASTORALIST_VERSION}
+          RUN npm install --global "pastoralist@${PASTORALIST_VERSION}" && \
+              ln -s "$(npm root --global)/pastoralist/dist" /app/pastoralist && \
+              ln -s "$(npm root --global)/pastoralist" /app/pastoralist-package
 
           # Set up test environment
           RUN mkdir -p packages/app packages/utils packages/shared e2e/fixtures/patches
 
           # Copy test fixtures and scripts
-          COPY packages/e2e/fixtures/ ./e2e/fixtures/
-          COPY packages/e2e/scripts/ ./scripts/
+          COPY tests/e2e/fixtures/ ./e2e/fixtures/
+          COPY tests/e2e/scripts/ ./scripts/
 
           # Copy workspace configurations
-          COPY packages/e2e/fixtures/root-package.json ./package.json
-          COPY packages/e2e/fixtures/app-package.json ./packages/app/package.json
-          COPY packages/e2e/fixtures/utils-package.json ./packages/utils/package.json
-          COPY packages/e2e/fixtures/shared-package.json ./packages/shared/package.json
+          COPY tests/e2e/fixtures/root-package.json ./package.json
+          COPY tests/e2e/fixtures/root-pnpm-lock.yaml ./pnpm-lock.yaml
+          COPY tests/e2e/fixtures/root-pnpm-workspace.yaml ./pnpm-workspace.yaml
+          COPY tests/e2e/fixtures/app-package.json ./packages/app/package.json
+          COPY tests/e2e/fixtures/utils-package.json ./packages/utils/package.json
+          COPY tests/e2e/fixtures/shared-package.json ./packages/shared/package.json
 
           # Create dummy source files
           RUN echo 'console.log("App module");' > ./packages/app/index.js && \
@@ -101,20 +116,20 @@ jobs:
               echo 'console.log("Shared module");' > ./packages/shared/index.js
 
           # Install dependencies and prepare scripts
-          RUN pnpm install && chmod +x ./scripts/*.sh
+          RUN pnpm install --frozen-lockfile && rm ./pnpm-workspace.yaml && chmod +x ./scripts/*.sh
 
           CMD ["/bin/sh"]
           EOF
 
           docker build \
-            --build-arg PASTORALIST_VERSION=${{ steps.version.outputs.version }} \
+            --build-arg PASTORALIST_VERSION="$PASTORALIST_VERSION" \
             -f Dockerfile.release-test \
             -t pastoralist-release-test .
 
       - name: Verify Installation
         run: |
           echo "🔍 Verifying pastoralist installation..."
-          docker run --rm pastoralist-release-test bash -c "
+          docker run --rm pastoralist-release-test bash -euc "
             pastoralist --help
             echo 'Installation verified ✅'
           "
@@ -122,11 +137,7 @@ jobs:
       - name: Run Full E2E Test Suite
         run: |
           echo "🧪 Running full e2e test suite with published package..."
-          docker run --rm pastoralist-release-test bash -c "
-            # Update test scripts to use global pastoralist command
-            sed -i 's|node ./pastoralist/index.js|pastoralist|g' ./scripts/run-e2e-tests.sh
-            sed -i 's|node ./pastoralist/index.js|pastoralist|g' ./scripts/test-single-packages.sh
-
+          docker run --rm pastoralist-release-test bash -euc "
             echo '🏃‍♂️ Running workspace e2e tests...'
             ./scripts/run-e2e-tests.sh
 
@@ -137,6 +148,8 @@ jobs:
           "
 
       - name: Test with Different Package Managers
+        env:
+          PASTORALIST_VERSION: ${{ steps.version.outputs.version }}
         run: |
           echo "🔧 Testing with different package managers..."
 
@@ -146,30 +159,32 @@ jobs:
           ARG NODE_VARIANT=alpine
           ARG NODE_DIGEST=sha256:aadf416b2cdce311a8811ba3f0608a61b77dbf997500e2eafe781b51f6a0b019
           FROM node:${NODE_VERSION}-${NODE_VARIANT}@${NODE_DIGEST}
-          RUN apk add --no-cache bash
+          RUN apk add --no-cache bash jq git
           WORKDIR /app
           ARG PASTORALIST_VERSION
-          RUN npm install -g pastoralist@${PASTORALIST_VERSION}
-          COPY packages/e2e/fixtures/ ./e2e/fixtures/
-          COPY packages/e2e/scripts/ ./scripts/
-          COPY packages/e2e/fixtures/npm-root-package.json ./package.json
-          COPY packages/e2e/fixtures/app-package.json ./packages/app/package.json
-          COPY packages/e2e/fixtures/utils-package.json ./packages/utils/package.json
-          COPY packages/e2e/fixtures/shared-package.json ./packages/shared/package.json
+          RUN npm install --global "pastoralist@${PASTORALIST_VERSION}" && \
+              ln -s "$(npm root --global)/pastoralist/dist" /app/pastoralist && \
+              ln -s "$(npm root --global)/pastoralist" /app/pastoralist-package
+          COPY tests/e2e/fixtures/ ./e2e/fixtures/
+          COPY tests/e2e/scripts/ ./scripts/
+          COPY tests/e2e/fixtures/npm-root-package.json ./package.json
+          COPY tests/e2e/fixtures/npm-root-package-lock.json ./package-lock.json
+          COPY tests/e2e/fixtures/app-package.json ./packages/app/package.json
+          COPY tests/e2e/fixtures/utils-package.json ./packages/utils/package.json
+          COPY tests/e2e/fixtures/shared-package.json ./packages/shared/package.json
           RUN mkdir -p packages/app packages/utils packages/shared && \
               echo 'console.log("test");' > ./packages/app/index.js && \
               echo 'console.log("test");' > ./packages/utils/index.js && \
               echo 'console.log("test");' > ./packages/shared/index.js && \
-              npm install && chmod +x ./scripts/*.sh
+              npm ci && chmod +x ./scripts/*.sh
           EOF
 
           docker build \
-            --build-arg PASTORALIST_VERSION=${{ steps.version.outputs.version }} \
+            --build-arg PASTORALIST_VERSION="$PASTORALIST_VERSION" \
             -f Dockerfile.npm-test \
             -t pastoralist-npm-test .
 
-          docker run --rm pastoralist-npm-test bash -c "
-            sed -i 's|node ./pastoralist/index.js|pastoralist|g' ./scripts/run-e2e-tests.sh
+          docker run --rm pastoralist-npm-test bash -euc "
             ./scripts/run-e2e-tests.sh
             echo '✅ NPM workspace test passed'
           "
@@ -177,7 +192,7 @@ jobs:
       - name: Performance and Compatibility Check
         run: |
           echo "⚡ Running performance and compatibility checks..."
-          docker run --rm pastoralist-release-test bash -c "
+          docker run --rm pastoralist-release-test bash -euc "
             echo '🕐 Testing command execution time...'
             time pastoralist --help >/dev/null
 
@@ -207,7 +222,7 @@ jobs:
         if: success()
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
-          RELEASE_URL: ${{ github.event.release.html_url }}
+          RELEASE_URL: ${{ github.event.release.html_url || github.event.workflow_run.html_url }}
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
           TRIGGER_TYPE: ${{ github.event_name }}
         with:
@@ -232,29 +247,16 @@ jobs:
 
       - name: Create Test Report
         if: always()
+        env:
+          RELEASE_TEST_VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_TEST_STATUS: ${{ job.status }}
         run: |
           cat > test-report.md << EOF
           # Pastoralist Release Test Report
 
-          **Version Tested:** ${{ steps.version.outputs.version }}
+          **Version Tested:** $RELEASE_TEST_VERSION
           **Test Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
-          **Status:** ✅ PASSED
-
-          ## Test Coverage
-          - ✅ E2E workspace tests
-          - ✅ Single package tests
-          - ✅ NPM compatibility
-          - ✅ PNPM compatibility
-          - ✅ Yarn compatibility
-          - ✅ Bun compatibility
-          - ✅ Patch detection
-          - ✅ PeerDependencies handling
-          - ✅ Performance validation
-          - ✅ External test repository triggered
-
-          ## Summary
-          All tests passed successfully. The published package is ready for use.
-          External e2e tests have been triggered in the pastoralist-test repository.
+          **Status:** $RELEASE_TEST_STATUS
           EOF
 
           echo "📄 Test report created:"

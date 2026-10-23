@@ -1,12 +1,21 @@
 import { assertExcludesText, assertContainsText } from "../../unit/scripts/utils";
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-
-const readWorkflow = (name: string): string =>
-  readFileSync(new URL(`../../../.github/workflows/${name}`, import.meta.url), "utf8");
+import { existsSync, readFileSync } from "node:fs";
 
 const cases = [
+  {
+    name: "builds published-release images from existing files",
+    run: () => {
+      const workflow = readWorkflow("test-release.yml");
+      const sources = Array.from(workflow.matchAll(/^\s+COPY\s+(\S+)\s+/gm));
+      assert.ok(sources.length > 0);
+      sources.forEach(([, source]) => {
+        const path = new URL(`../../../${source}`, import.meta.url);
+        assert.ok(existsSync(path), `Docker COPY source does not exist: ${source}`);
+      });
+    },
+  },
   {
     name: "exports the Homebrew version before validation",
     run: () => {
@@ -148,6 +157,9 @@ const cases = [
     },
   },
 ];
+
+const readWorkflow = (name: string): string =>
+  readFileSync(new URL(`../../../.github/workflows/${name}`, import.meta.url), "utf8");
 
 describe("release workflows", () => {
   cases.forEach(({ name, run }) => test(name, run));

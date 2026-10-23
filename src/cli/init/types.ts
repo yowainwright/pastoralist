@@ -1,7 +1,7 @@
 import type { SecurityProvider, SeverityThreshold } from "../../config";
 import type { PastoralistJSON } from "../../types";
 import type { Logger } from "../../observability";
-import type { Prompt } from "../prompts";
+import type { Prompt, quickList } from "../prompts";
 import type { readFileSync, writeFileSync } from "node:fs";
 import type { resolve } from "node:path";
 
@@ -73,4 +73,13 @@ export interface SecurityPromptOptions {
 export interface OnboardingSection {
   title: string;
   lines: readonly string[];
+  path?: OnboardingPath;
 }
+
+export type OnboardingPath = "agent" | "github";
+
+export type OnboardingDeps = {
+  select: typeof quickList;
+  init: (options?: InitOptions) => Promise<void>;
+  interactive?: boolean;
+};

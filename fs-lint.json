@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "newFiles": {
+    "default": "allow",
+    "allow": ["!app/src/**.test.ts", "app/src/**/__tests__/index.test.ts"]
+  },
+  "counterparts": [
+    { "from": "tests/unit/**.test.ts", "to": "src/**.ts" },
+    { "from": "tests/unit/**.test.ts", "to": "src/**.tsx" },
+    { "from": "tests/unit/scripts/**.test.ts", "to": "scripts/**.ts" },
+    { "from": "tests/unit/scripts/**.test.ts", "to": "scripts/**.sh" },
+    { "from": "app/tests/unit/**.test.ts", "to": "app/src/**.ts" },
+    { "from": "app/tests/unit/**.test.ts", "to": "app/src/**.tsx" },
+    { "from": "app/tests/unit/scripts/**.test.ts", "to": "app/scripts/**.ts" },
+    { "from": "app/tests/unit/scripts/**.test.ts", "to": "scripts/**.ts" },
+    {
+      "from": "app/src/**/__tests__/index.test.ts",
+      "to": "app/src/**/index.tsx"
+    },
+    {
+      "from": "app/src/__tests__/**.test.ts",
+      "to": "app/src/**.tsx"
+    }
+  ]
+}

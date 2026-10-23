@@ -70,7 +70,7 @@ check_onboard_safety() {
     exit 1
   fi
 
-  print_result 0 "Onboard command printed consumer setup, prompts, and loop"
+  print_result 0 "Onboard command printed available setup paths"
 
   if [ "$BEFORE" != "$AFTER" ]; then
     echo "FAIL: onboard command modified package.json"
@@ -80,18 +80,12 @@ check_onboard_safety() {
 
 check_onboard_output() {
   assert_contains "$OUTPUT" "Pastoralist onboarding"
-  assert_contains "$OUTPUT" "Human quick start"
-  assert_contains "$OUTPUT" "Agent quick setup"
-  assert_contains "$OUTPUT" "Prompt for a setup agent"
-  assert_contains "$OUTPUT" "Prompt for a maintenance agent"
-  assert_contains "$OUTPUT" "Agent setup loop"
-  assert_contains "$OUTPUT" "GitHub Action setup"
+  assert_contains "$OUTPUT" "Run pastoralist onboard in an interactive terminal to choose a setup path."
+  assert_contains "$OUTPUT" "Interactive setup: npx pastoralist init"
+  assert_contains "$OUTPUT" "AI agent setup: npx pastoralist init agent-skill"
+  assert_contains "$OUTPUT" "GitHub Actions: https://jeffry.in/pastoralist/docs/github-action/"
   assert_contains "$OUTPUT" "npx pastoralist doctor"
   assert_contains "$OUTPUT" "npx pastoralist --dry-run"
-  assert_contains "$OUTPUT" "npx pastoralist --setup-hook"
-  assert_contains "$OUTPUT" "npx pastoralist --init agent-skill --dry-run"
-  assert_contains "$OUTPUT" ".agents/skills/pastoralist/SKILL.md"
-  assert_contains "$OUTPUT" "Apply the smallest needed setup command"
 
   check_onboard_safety
 }
@@ -110,11 +104,12 @@ test_onboard_command() {
 test_onboarding_flag() {
   printf '\n2. Testing onboarding flag alias\n'
   reset_repo
+  write_package_json
+  BEFORE=$(hash_file package.json)
   OUTPUT=$(node "$PASTORALIST_CLI" --onboarding)
+  AFTER=$(hash_file package.json)
 
-  assert_contains "$OUTPUT" "Pastoralist onboarding"
-  assert_contains "$OUTPUT" "Agent setup loop"
-  assert_contains "$OUTPUT" "Review this repository's Pastoralist setup"
+  check_onboard_output
   print_result $? "Onboarding flag printed expected output"
 }
 

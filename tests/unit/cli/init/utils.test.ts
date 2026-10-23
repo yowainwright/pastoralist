@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { resolve } from "node:path";
 import {
   parseWorkspacePaths,
+  buildOnboardingText,
   buildConfig,
   generateConfigContent,
   addPostinstallHook,
@@ -263,4 +264,49 @@ test("generateConfigContent - should handle empty config", () => {
   const emptyConfig = {};
   const result = generateConfigContent(emptyConfig, ".pastoralistrc.json");
   assert.strictEqual(result, "{}\n");
+});
+
+test("buildOnboardingText includes human usage", () => {
+  const text = buildOnboardingText();
+
+  assert.match(text, /Pastoralist onboarding/);
+  assert.match(text, /Human quick start/);
+  assert.match(text, /npx pastoralist doctor/);
+  assert.match(text, /npx pastoralist --init/);
+  assert.match(text, /npx pastoralist --setup-hook/);
+});
+
+test("buildOnboardingText installs the skill without maintainer-only scripts", () => {
+  const text = buildOnboardingText();
+
+  assert.match(text, /Agent quick setup/);
+  assert.match(text, /npx pastoralist --init agent-skill/);
+  assert.match(text, /npx pastoralist --init agent-skill --dry-run/);
+  assert.match(text, /\.agents\/skills\/pastoralist\/SKILL\.md/);
+  assert.doesNotMatch(text, /setup:local-dev/);
+});
+
+test("buildOnboardingText includes agent prompts", () => {
+  const text = buildOnboardingText();
+
+  assert.match(text, /Prompt for a setup agent/);
+  assert.match(text, /Set up Pastoralist in this repository\./);
+  assert.match(text, /Prompt for a maintenance agent/);
+  assert.match(text, /Review this repository's Pastoralist setup\./);
+});
+
+test("buildOnboardingText includes the agent loop", () => {
+  const text = buildOnboardingText();
+
+  assert.match(text, /Agent setup loop/);
+  assert.match(text, /Apply the smallest needed setup command\./);
+  assert.match(text, /Report changed files and remaining manual steps\./);
+});
+
+test("buildOnboardingText includes GitHub Action setup", () => {
+  const text = buildOnboardingText();
+
+  assert.match(text, /GitHub Action setup/);
+  assert.match(text, /\.github\/workflows\/pastoralist\.yml/);
+  assert.match(text, /uses: yowainwright\/pastoralist@v1/);
 });

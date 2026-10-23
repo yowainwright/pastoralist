@@ -15,7 +15,6 @@ import type { green } from "../dx/utils";
 import type { logger as createLogger } from "../observability";
 import type { quickConfirm } from "./prompts";
 import type { initCommand } from "./init";
-import type { showOnboarding } from "./init";
 import type { buildMergedOptions, handleSecurityResults, runSecurityCheck } from "./security";
 import type { SecurityPhaseResult, SecurityResultSummary } from "./security/types";
 
@@ -160,7 +159,7 @@ export type CliAction = (options?: Options, deps?: ActionDeps) => Promise<Pastor
 export type RunDeps = {
   initCommand: typeof initCommand;
   action: CliAction;
-  showOnboarding: typeof showOnboarding;
+  showOnboarding: (options?: Pick<Options, "root" | "path">) => Promise<void> | void;
   setupAgentSkill: (options: Options, args?: readonly string[]) => Promise<void> | void;
   styleguide?: () => Promise<void> | void;
 };

@@ -6,7 +6,8 @@ import typescript from "typescript5";
 
 const ROOT = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 const OUTPUT = resolve(ROOT, ".node20-test");
-const SOURCE_ROOTS = ["src", "scripts", "tests/unit"];
+const TEST_ROOTS = ["tests/unit", "tests/integration/repository", "tests/integration/core"];
+const SOURCE_ROOTS = ["src", "scripts", "tests/integration/cli"].concat(TEST_ROOTS);
 const STATIC_PATHS = [
   "package.json",
   "pnpm-lock.yaml",
@@ -191,12 +192,32 @@ const runTests = async (testFiles) => {
   });
 };
 
+const collectCompatibilityTests = async () => {
+  const reportingPath = resolve(ROOT, "tests/integration/cli/reporting.test.ts");
+  const reportingTest = outputPath(reportingPath);
+  const tasks = TEST_ROOTS.map((root) => {
+    const directory = resolve(ROOT, root);
+    const tests = collectTests(directory);
+    return tests;
+  });
+  const results = await Promise.allSettled(tasks);
+  const groups = results.flatMap(readTestGroup);
+  const tests = [reportingTest].concat(groups);
+  return tests;
+};
+
+const readTestGroup = (result) => {
+  if (result.status === "rejected") throw result.reason;
+  const tests = result.value;
+  return tests;
+};
+
 try {
   await buildTestTree();
   const selectedTest = process.env.NODE20_TEST_FILE;
   const testFiles = selectedTest
     ? [outputPath(resolve(ROOT, selectedTest))]
-    : await collectTests(resolve(ROOT, "tests/unit"));
+    : await collectCompatibilityTests();
   process.exitCode = await runTests(testFiles);
 } finally {
   await rm(OUTPUT, { recursive: true, force: true });

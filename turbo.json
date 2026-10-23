@@ -75,10 +75,10 @@
       "cache": true
     },
     "test:coverage:run": {
-      "inputs": ["$TURBO_DEFAULT$", "tests/coverage/**"],
+      "inputs": ["$TURBO_DEFAULT$", "tests/coverage/**", "!app/src/**"],
       "env": ["PASTORALIST_RUNTIME", "CI", "NODE_ENV", "NODE_OPTIONS", "TZ"],
       "outputs": ["coverage/**", "!coverage/tmp/**"],
-      "outputLogs": "errors-only",
+      "outputLogs": "new-only",
       "cache": true
     },
     "dev": {

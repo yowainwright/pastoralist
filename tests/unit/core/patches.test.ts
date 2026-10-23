@@ -1,7 +1,7 @@
-import { test, beforeEach, afterEach } from "node:test";
+import { test, beforeEach, afterEach, type TestContext } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, writeFileSync, rmSync, existsSync } from "fs";
-import { resolve } from "path";
+import { mkdirSync, writeFileSync, rmSync, existsSync, mkdtempSync } from "fs";
+import { dirname, join, resolve } from "path";
 import type { Appendix } from "../../../src/types";
 import {
   detectPatches,
@@ -331,3 +331,137 @@ test("attachPatchesToAppendix - should attach patches to scoped package entries"
     "patches/@babel+core+7.20.0.patch",
   ]);
 });
+
+const PATCH_PATH = "patches/@base-ui__react@1.8.0.patch";
+const WORKSPACE = `packages: []
+patchedDependencies:
+  "@base-ui/react@1.8.0": ${PATCH_PATH}
+`;
+const SCOPED_FILES = { "pnpm-workspace.yaml": WORKSPACE, [PATCH_PATH]: "patch content" };
+
+test("pnpm workspace patches use package identities instead of encoded filenames", (t) => {
+  const root = createFixture(t);
+  const patches = detectPatches(root);
+  const files = [PATCH_PATH];
+  assert.deepStrictEqual(patches, { "@base-ui/react": files });
+});
+
+test("pnpm patches link to the appendix without changing the ledger reason", (t) => {
+  const root = createFixture(t);
+  const ledger = { addedDate: "2026-10-19", reason: "Fix the upstream autocomplete crash" };
+  const dependents = { docs: "^1.8.0" };
+  const item = { dependents, ledger };
+  const appendix = { "@base-ui/react@1.8.0": item };
+  const patches = detectPatches(root);
+  const updated = attachPatchesToAppendix(appendix, patches);
+  assert.deepStrictEqual(updated["@base-ui/react@1.8.0"].patches, [PATCH_PATH]);
+  assert.strictEqual(updated["@base-ui/react@1.8.0"].ledger, ledger);
+  assert.strictEqual(appendix["@base-ui/react@1.8.0"], item);
+});
+
+test("active pnpm patches are retained and removed dependencies still report unused patches", (t) => {
+  const root = createFixture(t);
+  const patches = detectPatches(root);
+  const dependencies = { "@base-ui/react": "^1.8.0" };
+  assert.deepStrictEqual(findUnusedPatches(patches, dependencies), []);
+  assert.deepStrictEqual(findUnusedPatches(patches, {}), [PATCH_PATH]);
+});
+
+test("pnpm version ranges and bare scoped names support custom patch paths", (t) => {
+  const workspace = `patchedDependencies:
+  "lodash@^4.17.0": vendor/repair[1].diff
+  "@scope/package": fixes/custom.patch
+overrides:
+  unrelated: 1.0.0
+`;
+  const files = {
+    "pnpm-workspace.yaml": workspace,
+    "vendor/repair[1].diff": "patch",
+    "fixes/custom.patch": "patch",
+  };
+  const root = createFixture(t, files);
+  const lodashPatches = ["vendor/repair[1].diff"];
+  const scopedPatches = ["fixes/custom.patch"];
+  assert.deepStrictEqual(detectPatches(root), {
+    lodash: lodashPatches,
+    "@scope/package": scopedPatches,
+  });
+});
+
+test("pnpm inline workspace mappings support unscoped packages", (t) => {
+  const workspace = 'patchedDependencies: { "lodash@4.17.21": "patches/repair.patch" }';
+  const files = { "pnpm-workspace.yaml": workspace, "patches/repair.patch": "patch" };
+  const root = createFixture(t, files);
+  const patches = ["patches/repair.patch"];
+  assert.deepStrictEqual(detectPatches(root), { lodash: patches });
+});
+
+test("legacy package.json pnpm mappings identify patches", (t) => {
+  const patchedDependencies = { "@scope/package@1.0.0": "fixes/custom.patch" };
+  const pnpm = { patchedDependencies };
+  const manifest = { pnpm };
+  const packageJson = JSON.stringify(manifest);
+  const files = { "package.json": packageJson, "fixes/custom.patch": "patch" };
+  const root = createFixture(t, files);
+  const patches = ["fixes/custom.patch"];
+  assert.deepStrictEqual(detectPatches(root), { "@scope/package": patches });
+});
+
+test("workspace patch settings take precedence over the same legacy selector", (t) => {
+  const patchedDependencies = { "lodash@4.17.21": "fixes/old.patch" };
+  const pnpm = { patchedDependencies };
+  const packageJson = JSON.stringify({ pnpm });
+  const workspace = 'patchedDependencies: { "lodash@4.17.21": "fixes/new.patch" }';
+  const files = {
+    "package.json": packageJson,
+    "pnpm-workspace.yaml": workspace,
+    "fixes/old.patch": "old",
+    "fixes/new.patch": "new",
+  };
+  const root = createFixture(t, files);
+  const patches = ["fixes/new.patch"];
+  assert.deepStrictEqual(detectPatches(root), { lodash: patches });
+});
+
+test("pnpm selectors sharing a normalized patch path are deduplicated", (t) => {
+  const workspace = `patchedDependencies:
+  "lodash@4.17.21": ./patches/repair.patch
+  lodash: patches/repair.patch
+`;
+  const files = { "pnpm-workspace.yaml": workspace, "patches/repair.patch": "patch" };
+  const root = createFixture(t, files);
+  const patches = ["patches/repair.patch"];
+  assert.deepStrictEqual(detectPatches(root), { lodash: patches });
+});
+
+test("invalid or missing pnpm patch paths preserve patch-package detection", (t) => {
+  const patchedDependencies = { missing: "missing.patch", invalid: 123, directory: "patches" };
+  const pnpm = { patchedDependencies };
+  const packageJson = JSON.stringify({ pnpm });
+  const files = { "package.json": packageJson, "patches/lodash+4.17.21.patch": "patch" };
+  const root = createFixture(t, files);
+  const patches = ["patches/lodash+4.17.21.patch"];
+  assert.deepStrictEqual(detectPatches(root), { lodash: patches });
+});
+
+test("malformed patch settings do not hide existing patch-package files", (t) => {
+  const files = {
+    "package.json": "invalid json",
+    "pnpm-workspace.yaml": "patchedDependencies: []",
+    "patches/lodash+4.17.21.patch": "patch",
+  };
+  const root = createFixture(t, files);
+  const patches = ["patches/lodash+4.17.21.patch"];
+  assert.deepStrictEqual(detectPatches(root), { lodash: patches });
+});
+
+function createFixture(t: TestContext, files: Record<string, string> = SCOPED_FILES): string {
+  const root = mkdtempSync(join(import.meta.dirname, ".pnpm-patches-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  Object.entries(files).forEach(([path, content]) => {
+    const destination = join(root, path);
+    mkdirSync(dirname(destination), { recursive: true });
+    writeFileSync(destination, content);
+  });
+  return root;
+}

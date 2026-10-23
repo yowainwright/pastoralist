@@ -360,7 +360,8 @@ const runCommand = async (
   }
 
   if (isOnboardingRequested(parsed.command, options)) {
-    deps.showOnboarding();
+    const { root, path } = options;
+    await deps.showOnboarding({ root, path });
     return;
   }
 

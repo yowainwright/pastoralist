@@ -6,7 +6,7 @@ import { getPackageJsonWorkspacePatterns } from "../../core/workspaces";
 import { formatCompletion, formatInfo, formatStepHeader, green, shimmerFrame } from "../../dx";
 import { FARMER } from "../../constants";
 import { BRAND } from "../../constants";
-import { createPrompt, type Prompt } from "../prompts";
+import { createPrompt, quickList, type Prompt } from "../prompts";
 import { logger as createLogger, type Logger } from "../../observability";
 import type { PastoralistJSON } from "../../types";
 import { resolvePathFromRoot } from "../utils";
@@ -16,6 +16,9 @@ import {
   DEFAULT_WORKSPACE_PATHS,
   EMPTY_TOKEN_INFO,
   INIT_MESSAGES,
+  ONBOARDING_CHOICES,
+  ONBOARDING_OVERVIEW,
+  ONBOARDING_QUESTION,
   PROMPTS,
   SECURITY_PROVIDER_CHOICES,
   SEVERITY_THRESHOLD_CHOICES,
@@ -32,6 +35,7 @@ import type {
   SecurityPromptOptions,
   TokenInfo,
   InitSession,
+  OnboardingDeps,
 } from "./types";
 import {
   buildConfig,
@@ -42,9 +46,26 @@ import {
 
 export { buildOnboardingText } from "./utils";
 
-export const showOnboarding = (): void => {
+const onboardingDeps: OnboardingDeps = { select: quickList, init: initCommand };
+
+export const showOnboarding = async (
+  options: InitOptions = {},
+  deps: OnboardingDeps = onboardingDeps,
+): Promise<void> => {
   const log = createLogger({ file: "init/index.ts", isLogging: false });
-  log.print(buildOnboardingText());
+  const interactive = deps.interactive ?? Boolean(process.stdin.isTTY && process.stdout.isTTY);
+  if (!interactive) {
+    log.print(ONBOARDING_OVERVIEW);
+    return;
+  }
+  const choice = await deps.select(ONBOARDING_QUESTION, ONBOARDING_CHOICES);
+  if (choice === "interactive") {
+    await deps.init(options);
+    return;
+  }
+  const hasInstructions = choice === "agent" || choice === "github";
+  if (!hasInstructions) throw new Error("Unknown onboarding setup path");
+  log.print(buildOnboardingText(choice));
 };
 
 async function collectConfigLocationAnswers(

@@ -3,7 +3,13 @@ import type { Options, PastoralistJSON } from "../../types";
 import { parsePackageJson } from "../../utils";
 import { resolvePathFromRoot } from "../utils";
 import { ONBOARDING_SECTIONS, ONBOARDING_TITLE } from "./constants";
-import type { InitAnswers, InitConfigFormat, OnboardingSection, SetupHookDeps } from "./types";
+import type {
+  InitAnswers,
+  InitConfigFormat,
+  OnboardingPath,
+  OnboardingSection,
+  SetupHookDeps,
+} from "./types";
 
 const joinOnboardingSection = (section: OnboardingSection): string => {
   const lines = [section.title, ""].concat(section.lines);
@@ -11,8 +17,11 @@ const joinOnboardingSection = (section: OnboardingSection): string => {
   return result;
 };
 
-export const buildOnboardingText = (): string => {
-  const sections = ONBOARDING_SECTIONS.map(joinOnboardingSection);
+export const buildOnboardingText = (path?: OnboardingPath): string => {
+  const selected = path
+    ? ONBOARDING_SECTIONS.filter((section) => section.path === path)
+    : ONBOARDING_SECTIONS;
+  const sections = selected.map(joinOnboardingSection);
   const onboardingText = [ONBOARDING_TITLE].concat(sections).join("\n\n");
   return onboardingText;
 };

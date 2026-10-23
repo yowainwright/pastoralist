@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { delimiter, join, resolve } from "node:path";
 import { test, type TestContext } from "node:test";
+import { toolEnvironment } from "./utils";
 
 const wrapper = resolve("scripts/turbo.sh");
 const bin = resolve("node_modules/.bin");
@@ -56,7 +57,7 @@ const runCommand = (
   const expected = settings.expected ?? 0;
   const version = settings.runtime ?? runtime;
   const PATH = [bin, process.env.PATH].join(delimiter);
-  const env = Object.assign({}, process.env, { PATH, PASTORALIST_RUNTIME: version });
+  const env = toolEnvironment(process.env, { PATH, PASTORALIST_RUNTIME: version });
   const encoding = "utf8" as const;
   const options = { cwd: root, encoding, env, timeout: 30000 };
   const result = spawnSync(command, args, options);
@@ -79,6 +80,10 @@ test("Turbo reuses successful tests and restores coverage reports", (t) => {
   rmSync(join(root, "coverage"), { recursive: true });
   assert.equal(runCached(root), 1);
   assert.equal(readFileSync(report, "utf8"), runtime);
+  const docsRoot = join(root, "app", "src");
+  mkdirSync(docsRoot, { recursive: true });
+  writeFileSync(join(docsRoot, "index.tsx"), "export {};\n");
+  assert.equal(runCached(root), 1);
 });
 
 const inputs = [
@@ -116,8 +121,11 @@ test("Turbo never caches failed tests", (t) => {
 
 test("coverage runs instrumented tests without nested test cache hits", () => {
   const { scripts } = manifest;
+  const setup = "pnpm run test:setup --test --test-timeout=60000 ";
+  const integrationArgs = scripts["test:integration:run"].replace(setup, "");
+  const expectedUncached = `${scripts["test:unit:run"]} ${integrationArgs}`;
   assert.equal(scripts.test, "sh scripts/turbo.sh test:unit:run test:integration:run");
-  assert.equal(scripts["test:uncached"], "pnpm run test:unit:run && pnpm run test:integration:run");
+  assert.equal(scripts["test:uncached"], expectedUncached);
   assert.match(scripts[taskName], /pnpm run test:uncached$/);
   assert.doesNotMatch(scripts["test:unit:run"], /turbo/);
   assert.doesNotMatch(scripts["test:integration:run"], /turbo/);

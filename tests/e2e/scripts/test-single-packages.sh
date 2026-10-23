@@ -1,9 +1,9 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
 
 has_unused_patch_warning() {
-  grep -q "potentially unused patch files" output.log || grep -q "Found.*potentially unused" output.log
+  grep -Fq "potentially unused patch files" output.log && grep -Fq "axios+1.6.0.patch" output.log
 }
 
 print_header() {
@@ -62,7 +62,7 @@ test_npm() {
   cd /tmp/npm-single-test
 
   # Copy the npm single package fixture
-  cp /app/e2e/fixtures/npm-single-package.json package.json
+  jq 'del(.pastoralist.appendix)' /app/e2e/fixtures/npm-single-package.json >package.json
 
   echo "Initial package.json:"
   cat package.json
@@ -74,7 +74,7 @@ test_npm() {
   print_result $? "NPM single package pastoralist run"
 
   # Validate results
-  validate_appendix "npm-single-test" "follow-redirects@1.14.0 cookie@0.5.0"
+  validate_appendix "npm-single-test" "react@18.2.0"
   print_result $? "NPM single package appendix validation"
 }
 
@@ -101,7 +101,7 @@ test_yarn() {
   print_result $? "Yarn single package pastoralist run"
 
   # Validate results
-  validate_appendix "yarn-single-test" "follow-redirects@1.14.0 cookie@0.5.0"
+  validate_appendix "yarn-single-test" "webpack@5.90.0"
   print_result $? "Yarn single package appendix validation"
 }
 
@@ -128,7 +128,7 @@ test_pnpm() {
   print_result $? "PNPM single package pastoralist run"
 
   # Validate results
-  validate_appendix "pnpm-single-test" "follow-redirects@1.14.0 cookie@0.5.0"
+  validate_appendix "pnpm-single-test" "vue@3.4.0"
   print_result $? "PNPM single package appendix validation"
 }
 
@@ -141,8 +141,8 @@ test_override_update() {
   cd /tmp/npm-single-test
 
   # Update an override
-  echo "Updating follow-redirects from 1.14.0 to 1.15.0..."
-  sed -i 's/"follow-redirects": "1.14.0"/"follow-redirects": "1.15.0"/g' package.json
+  echo "Updating react from 18.2.0 to 18.3.0..."
+  sed -i 's/"react": "18.2.0"/"react": "18.3.0"/g' package.json
 
   # Run pastoralist again
   echo "Running pastoralist after override change..."
@@ -150,7 +150,7 @@ test_override_update() {
   print_result $? "NPM single package override update run"
 
   # Validate the appendix was updated
-  if grep -q "follow-redirects@1.15.0" package.json; then
+  if grep -q "react@18.3.0" package.json; then
     echo "✅ Override update reflected in appendix"
   else
     echo "❌ Override update not reflected in appendix"
@@ -209,7 +209,7 @@ test_bun() {
   print_result $? "Bun single package pastoralist run"
 
   # Validate results
-  validate_appendix "bun-single-test" "follow-redirects@1.14.0 cookie@0.5.0"
+  validate_appendix "bun-single-test" "lodash@4.17.21"
   print_result $? "Bun single package appendix validation"
 }
 
@@ -257,15 +257,15 @@ test_patches() {
 
 check_peer_dependencies() {
   echo "📄 Checking peerDependencies handling:"
-  if grep -q "lodash@5.0.0" package.json; then
-    echo "✅ PeerDependency override (lodash@5.0.0) tracked in appendix"
+  if grep -q "react-dom@18.2.0" package.json; then
+    echo "PeerDependency override (react-dom@18.2.0) tracked in appendix"
   else
     echo "❌ PeerDependency override not tracked"
     exit 1
   fi
 
   if grep -q "react@18.2.0" package.json; then
-    echo "✅ PeerDependency override (react@18.2.0) tracked in appendix"
+    echo "Dependency override (react@18.2.0) tracked in appendix"
   else
     echo "❌ PeerDependency override not tracked"
     exit 1
@@ -311,8 +311,6 @@ check_unused_patches() {
 
   if has_unused_patch_warning; then
     echo "✅ Unused patch detection working"
-  elif grep -q "express+4.18.0.patch" output.log; then
-    echo "✅ Unused patch detection working (patch file mentioned)"
   else
     echo "❌ Unused patch detection not working"
     echo "Expected to find unused patch warning but got:"
@@ -332,11 +330,12 @@ test_unused_patches() {
   cd /tmp/patches-test
 
   # Remove a dependency that has a patch
-  echo "Removing express dependency to test unused patch detection..."
+  echo "Removing axios dependency and override to test unused patch detection..."
   node -e "
 const fs = require('fs');
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-delete pkg.dependencies.express;
+delete pkg.dependencies.axios;
+delete pkg.overrides.axios;
 fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
 "
 

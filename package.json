@@ -91,7 +91,7 @@
     "release:tag:dry": "jiti scripts/release/index.ts tag --dry-run",
     "release:dry": "jiti scripts/release/index.ts --dry-run",
     "test": "sh scripts/turbo.sh test:unit:run test:integration:run",
-    "test:uncached": "pnpm run test:unit:run && pnpm run test:integration:run",
+    "test:uncached": "pnpm run test:setup --test --test-timeout=60000 'tests/unit/**/*.test.ts' tests/integration/index.test.ts tests/integration/e2e-cli.test.ts tests/integration/cli/index.test.ts tests/integration/cli/reporting.test.ts tests/integration/core/concurrent.test.ts 'tests/integration/repository/*.test.ts'",
     "test:node": "env -u NO_COLOR FORCE_COLOR=1 node --experimental-test-module-mocks",
     "test:setup": "pnpm run test:node --import=./tests/unit/setup.ts",
     "test:unit": "sh scripts/turbo.sh test:unit:run",

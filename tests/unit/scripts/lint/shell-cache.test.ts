@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { delimiter, join, resolve } from "node:path";
 import { test, type TestContext } from "node:test";
+import { toolEnvironment } from "../utils";
 
 const wrapper = resolve("scripts/lint/shell-cache.sh");
 const checker = resolve("scripts/lint/shell.sh");
@@ -66,7 +67,7 @@ const createFixture = (t: TestContext): string => {
 
 const runLint = (root: string, status = 0): number => {
   const PATH = [join(root, "bin"), bin, process.env.PATH].join(delimiter);
-  const env = Object.assign({}, process.env, { PATH });
+  const env = toolEnvironment(process.env, { PATH });
   const encoding = "utf8" as const;
   const options = { cwd: root, encoding, env, timeout: 30000 };
   const result = spawnSync("/bin/sh", [wrapper, "--cache=local:rw"], options);

@@ -6,6 +6,15 @@ import { resolve } from "node:path";
 
 const cases = [
   {
+    name: "runs published-release tests from the trusted workflow commit",
+    run: () => {
+      const workflow = readWorkflow("test-release.yml");
+      assertContainsText(workflow, 'ref: "${{ github.workflow_sha }}"');
+      assertExcludesText(workflow, "github.event.workflow_run.head_sha");
+      assertExcludesText(workflow, "github.event.pull_request");
+    },
+  },
+  {
     name: "builds published-release images from existing files",
     run: () => {
       const workflow = readWorkflow("test-release.yml");

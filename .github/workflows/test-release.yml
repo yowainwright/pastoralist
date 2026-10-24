@@ -226,7 +226,7 @@ jobs:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
           TRIGGER_TYPE: ${{ github.event_name }}
         with:
-          github-token: ${{ secrets.PASTORALIST_TEST_DISPATCH_TOKEN }}
+          github-token: ${{ secrets.REPO_ACCESS_TOKEN }}
           script: |
             console.log('🚀 Triggering external e2e tests in pastoralist-test repository');
 
@@ -235,7 +235,7 @@ jobs:
             await github.rest.repos.createDispatchEvent({
               owner: 'yowainwright',
               repo: 'pastoralist-test',
-              event_type: 'pastoralist-release',
+              event_type: 'pastoralist_update',
               client_payload: {
                 version: process.env.RELEASE_VERSION,
                 release_url: releaseUrl,

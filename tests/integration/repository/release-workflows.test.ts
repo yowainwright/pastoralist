@@ -6,6 +6,16 @@ import { resolve } from "node:path";
 
 const cases = [
   {
+    name: "uses the established external-test dispatch credential and event",
+    run: () => {
+      const workflow = readWorkflow("test-release.yml");
+      assertContainsText(workflow, "github-token: ${{ secrets.REPO_ACCESS_TOKEN }}");
+      assertContainsText(workflow, "event_type: 'pastoralist_update'");
+      assertExcludesText(workflow, "PASTORALIST_TEST_DISPATCH_TOKEN");
+      assertExcludesText(workflow, "event_type: 'pastoralist-release'");
+    },
+  },
+  {
     name: "runs published-release tests from the trusted workflow commit",
     run: () => {
       const workflow = readWorkflow("test-release.yml");

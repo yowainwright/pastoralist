@@ -256,6 +256,45 @@ test("interactive approval updates the declared SvelteKit range without a direct
   assert.equal(result.securityFixesApplied, true);
 });
 
+const approveSecurityFixes = (t: TestContext) => {
+  t.mock.method(
+    InteractiveSecurityManager.prototype,
+    "promptForSecurityActions",
+    (_alerts, fixes) => {
+      const approved = fixes.map((fix) => Object.assign({}, fix, { approved: true }));
+      const selection = Promise.resolve(approved);
+      return selection;
+    },
+  );
+};
+
+const pinKitParentDependency = (lockPath: string): string => {
+  const parentDependencies = "      '@sveltejs/kit': 2.70.3\n      lodash: 4.17.20";
+  const lock = readFileSync(lockPath, "utf8").replace("      lodash: 4.17.20", parentDependencies);
+  writeFileSync(lockPath, lock);
+  return lock;
+};
+
+test("a direct update does not report a pinned transitive copy as fixed", async (t) => {
+  const fixture = createKitFixture(t);
+  const { root, path, lockPath } = fixture;
+  captureStdout(t);
+  const lock = pinKitParentDependency(lockPath);
+  approveSecurityFixes(t);
+  const result = await action({
+    root,
+    path,
+    checkSecurity: true,
+    interactive: true,
+    noCache: true,
+    outputFormat: "json",
+  });
+  const manifest = JSON.parse(readFileSync(path, "utf8"));
+  assert.equal(manifest.dependencies["@sveltejs/kit"], "^3.0.0");
+  assert.equal(result.securityFixesApplied, false);
+  assert.equal(readFileSync(lockPath, "utf8"), lock);
+});
+
 test("declining interactive security fixes preserves all declared versions and existing overrides", async (t) => {
   const fixture = createKitFixture(t);
   captureStdout(t);

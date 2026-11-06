@@ -87,6 +87,34 @@ const checkSecurityFix = (
   return result;
 };
 
+const checkDirectSecurityFix = (context: UpdateContextChanges): boolean => {
+  const dependencyFields: Array<"dependencies" | "devDependencies"> = ["dependencies"];
+  const directFix = Object.assign({}, securityFix, { approved: true, dependencyFields });
+  const dependencies = { lodash: "^4.17.21" };
+  const config = { name: "fixture", version: "1.0.0", dependencies };
+  const mergedOptions = Object.assign({}, mergedOptionsScenario, { config });
+  const securityOverrides = [directFix];
+  const phase = { securityOverrides, mergedOptions };
+  const applied = checkSecurityFix(phase, context);
+  return applied;
+};
+
+test("recognizes an approved direct-only dependency update", () => {
+  assert.strictEqual(checkDirectSecurityFix({}), true);
+});
+
+test("does not count a direct update as fixing hoisted transitive copies", () => {
+  const parents = ["parent"];
+  const dependencyGraph = { lodash: parents };
+  assert.strictEqual(checkDirectSecurityFix({ dependencyGraph }), false);
+});
+
+test("does not count a direct update as fixing ambiguous transitive copies", () => {
+  const parents = ["parent"];
+  const dependencyGraphAmbiguousParents = { lodash: parents };
+  assert.strictEqual(checkDirectSecurityFix({ dependencyGraphAmbiguousParents }), false);
+});
+
 test("buildSecurityResult transforms alerts correctly", () => {
   const result = buildSecurityResult(alerts);
   assert.strictEqual(result.hasSecurityIssues, true);

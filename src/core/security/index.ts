@@ -703,17 +703,15 @@ export class SecurityChecker {
     vulnerablePackages: SecurityAlert[],
     options: SecurityCheckRuntimeOptions,
   ): Promise<SecurityOverrideResolutionInput> {
-    const fixContext = await resolveSecurityFixContext(config, vulnerablePackages, options);
+    const root = this.resolveConfiguredPackageRoot(options);
+    const fixOptions = Object.assign({}, options, { root });
+    const fixContext = await resolveSecurityFixContext(config, vulnerablePackages, fixOptions);
     const latestVersions = new Map<string, string>();
     const resolvedPackageInventory = this.resolveBestCaseInventory(vulnerablePackages, options);
     const userOwnedVersions = new Map<string, string>();
     const state = { installedPackages, vulnerablePackages, options, fixContext };
     const constraints = { resolvedPackageInventory, latestVersions, userOwnedVersions };
-    const securityResolutionInput: SecurityOverrideResolutionInput = Object.assign(
-      {},
-      state,
-      constraints,
-    );
+    const securityResolutionInput = Object.assign({}, state, constraints);
     return securityResolutionInput;
   }
 
@@ -932,7 +930,9 @@ export class SecurityChecker {
     const relevantNames = new Set(vulnerablePackages.map((alert) => alert.packageName));
     const relevantPackages = inventory.filter((pkg) => relevantNames.has(pkg.name));
     const isComplete = this.hasCompleteBestCaseInventory(relevantPackages, relevantNames);
-    if (!isComplete) return undefined;
+    const hasMultipleVersions = hasMultipleInstalledVersions(relevantPackages);
+    const unusable = !isComplete || hasMultipleVersions;
+    if (unusable) return undefined;
     return inventory;
   }
 
@@ -1596,11 +1596,8 @@ export class SecurityChecker {
     if (!automatic) return false;
     const enabled = this.isBestCaseEnabled(input.options);
     const supported = this.supportsBuiltInBestCase(input.options);
-    const inventory = input.resolvedPackageInventory;
-    const hasCompleteInventory = Boolean(inventory);
-    const hasMultipleVersions = inventory ? hasMultipleInstalledVersions(inventory) : true;
-    const hasSingleVersionInventory = hasCompleteInventory && !hasMultipleVersions;
-    const canUseBestCase = enabled && supported && hasSingleVersionInventory;
+    const hasCompleteInventory = Boolean(input.resolvedPackageInventory);
+    const canUseBestCase = enabled && supported && hasCompleteInventory;
     return canUseBestCase;
   }
 

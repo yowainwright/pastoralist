@@ -363,6 +363,7 @@ export interface PastoralistResult {
     description?: string;
     patchedVersion?: string;
     fixAvailable?: boolean;
+    fixNotice?: string;
   }>;
   unusedOverrides?: string[];
   appliedOverrides?: Record<string, string>;

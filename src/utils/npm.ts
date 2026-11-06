@@ -1,6 +1,8 @@
 import { createLimit } from "./limit";
 import { retry } from "./retry";
-import { compareVersions } from "./index";
+import { compareVersions, isRecord, isString } from "./index";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve, sep } from "node:path";
 import {
   NPM_FETCH_RETRY_OPTIONS,
   NPM_REGISTRY_CACHE_MAX_ENTRIES,
@@ -76,12 +78,6 @@ const clearDiskCache = (cache: DiskCache<NpmPackageInfo>): void => {
   cache.clear();
 };
 
-const getVersionPart = (version: string, index: number): number => {
-  const part = version.split(".")[index];
-  const parsed = parseInt(part, 10) || 0;
-  return parsed;
-};
-
 const requestPackageInfo = async (packageName: string): Promise<NpmPackageInfo> => {
   const headers = { Accept: "application/json" };
   const signal = AbortSignal.timeout(NPM_REGISTRY_FETCH_TIMEOUT);
@@ -113,6 +109,46 @@ const fetchPackageInfo = async (
   }
 };
 
+const readDependencyFields = (manifest: unknown): Record<string, string> | undefined => {
+  if (!isRecord(manifest)) return undefined;
+  const dependencies = Object.assign({}, manifest.dependencies, manifest.optionalDependencies);
+  const entries = Object.entries(dependencies);
+  if (entries.some(([, range]) => !isString(range))) return undefined;
+  const fields = Object.fromEntries(entries) as Record<string, string>;
+  return fields;
+};
+
+const readInstalledDependencies = (name: string, version: string, root?: string) => {
+  if (!root) return undefined;
+  const modules = resolve(root, "node_modules");
+  const path = resolve(modules, name, "package.json");
+  if (!path.startsWith(`${modules}${sep}`)) return undefined;
+  if (!existsSync(path)) return undefined;
+  try {
+    const manifest: unknown = JSON.parse(readFileSync(path, "utf8"));
+    if (!isRecord(manifest)) return undefined;
+    const matches = manifest.name === name && manifest.version === version;
+    if (!matches) return undefined;
+    const dependencies = readDependencyFields(manifest);
+    return dependencies;
+  } catch {
+    return undefined;
+  }
+};
+
+export const fetchPackageDependencies = async (
+  packageName: string,
+  version: string,
+  options: NpmCacheOptions = {},
+): Promise<Record<string, string> | undefined> => {
+  const installed = readInstalledDependencies(packageName, version, options.root);
+  if (installed) return installed;
+  const info = await npmLimit(() => fetchPackageInfo(packageName, options));
+  const manifest = info?.versions?.[version];
+  const result = readDependencyFields(manifest);
+  return result;
+};
+
 export const fetchLatestVersion = async (
   packageName: string,
   options: NpmCacheOptions = {},
@@ -120,6 +156,12 @@ export const fetchLatestVersion = async (
   const info = await fetchPackageInfo(packageName, options);
   const latest = info?.["dist-tags"]?.latest ?? null;
   return latest;
+};
+
+const getVersionPart = (version: string, index: number): number => {
+  const part = version.split(".")[index];
+  const parsed = parseInt(part, 10) || 0;
+  return parsed;
 };
 
 const isSameReleaseLine = (version: string, minVersion: string): boolean => {

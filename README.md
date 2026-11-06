@@ -20,6 +20,10 @@ Pastoralist keeps projects more secure while maintaining dependency overrides.
 It tracks each override in an appendix: which packages depend on it, when it
 was first recorded, and whether it can be removed.
 
+Packages you install bring dependencies of their own. Overrides let you choose
+a different version or replacement package—for example, to address a security
+issue.
+
 ## Override Tracking
 
 With an existing `qs` override, running `pastoralist` adds this record:
@@ -335,7 +339,7 @@ pastoralist --checkSecurity --securityProvider github --securityProviderToken "$
 > Type: **`boolean options`**
 
 Controls how security findings are handled: `--interactive` prompts for fixes,
-`--forceSecurityRefactor` applies available fixes without prompting,
+`--forceSecurityRefactor` applies compatible transitive fixes without prompting,
 `--hasWorkspaceSecurityChecks` includes workspace packages, `--promptForReasons`
 asks for manual ledger reasons, and `--strict` fails on provider errors.
 
@@ -348,6 +352,11 @@ pastoralist --promptForReasons
 
 Use `--interactive` for review, `--forceSecurityRefactor` for unattended fixes,
 and `--strict` when provider errors should fail the run.
+
+Direct dependency and devDependency updates require interactive approval and
+change the original `package.json` entry. Major upgrades and fixes outside a
+declared range also require approval. Overrides use the lowest known patched
+version that resolves the applicable advisories.
 
 #### Cache Flags
 

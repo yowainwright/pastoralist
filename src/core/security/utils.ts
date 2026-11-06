@@ -9,11 +9,18 @@ import type {
   SocketResult,
   PastoralistJSON,
   OverrideUpdate,
+  SecurityPackage,
   SecurityAlert,
   SecurityOverride,
   SecurityProviderType,
 } from "../../types";
-import { compareVersions, countBy, isRecord, isString } from "../../utils";
+import { compareVersions, countBy, groupBy, isRecord, isString, omit } from "../../utils";
+import {
+  isExactVersion,
+  isSameReleaseLine,
+  isVersionRangeSupported,
+  satisfiesVersionRange,
+} from "../../utils/semver";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { logger } from "../../observability";
@@ -37,6 +44,7 @@ import {
   OSV_MALFORMED_BATCH_RESPONSE,
 } from "./constants";
 import type {
+  SecurityFixContext,
   CLIInstallOptions,
   PromptFunctions,
   PromptChoice,
@@ -177,8 +185,8 @@ const checkBoundedRange = (version: string, range: string): boolean | null => {
 const checkExactVersion = (version: string, range: string): boolean | null => {
   const [, exactVersion] = range.match(SECURITY_EXACT_RANGE_PATTERN) || [];
   if (!exactVersion) return null;
-  const isExactVersion = compareVersions(version, exactVersion) === 0;
-  return isExactVersion;
+  const matchesExact = compareVersions(version, exactVersion) === 0;
+  return matchesExact;
 };
 
 const checkLessThanOrEqual = (version: string, range: string): boolean | null => {
@@ -817,12 +825,13 @@ export class InteractiveSecurityManager {
     vulnerablePackages: SecurityAlert[],
     override: SecurityOverride,
   ): Promise<SecurityOverride[]> {
-    const vulnerability = this.findVulnerability(vulnerablePackages, override);
-
-    if (!vulnerability) {
-      const result: SecurityOverride[] = [];
-      return result;
+    const empty: SecurityOverride[] = [];
+    if (override.blocked) {
+      promptOutput.print(`${override.packageName}: ${override.blocked}`);
+      return empty;
     }
+    const vulnerability = this.findVulnerability(vulnerablePackages, override);
+    if (!vulnerability) return empty;
 
     this.printOverrideReview(override, vulnerability);
     const action = await this.prompts.select(
@@ -830,8 +839,26 @@ export class InteractiveSecurityManager {
       this.getActionChoices(override),
     );
     const selectedOverride = await this.createSelectedOverride(action, override);
-    const selection = selectedOverride ? [selectedOverride] : [];
+    const selection = this.getValidatedSelection(selectedOverride, vulnerablePackages);
     return selection;
+  }
+
+  private getValidatedSelection(
+    fix: SecurityOverride | undefined,
+    alerts: SecurityAlert[],
+  ): SecurityOverride[] {
+    const empty: SecurityOverride[] = [];
+    if (!fix) return empty;
+    if (!this.isSelectedVersionSafe(fix, alerts)) return empty;
+    const selection = [fix];
+    return selection;
+  }
+
+  private isSelectedVersionSafe(fix: SecurityOverride, alerts: SecurityAlert[]): boolean {
+    const related = alerts.filter((alert) => alert.packageName === fix.packageName);
+    const valid = isExactVersion(fix.toVersion) && isSecurityTargetSafe(fix.toVersion, related);
+    if (!valid) promptOutput.print("Selected version does not resolve the known advisories.");
+    return valid;
   }
 
   private findVulnerability(
@@ -848,6 +875,10 @@ export class InteractiveSecurityManager {
   private printOverrideReview(override: SecurityOverride, vulnerability: SecurityAlert): void {
     promptOutput.print(`\n${override.packageName}`);
     promptOutput.print(`   Current: ${override.fromVersion}`);
+    if (override.approvalRequired) promptOutput.print(`   ${override.approvalRequired}`);
+    if (override.dependencyFields?.length) {
+      promptOutput.print("   Updates the manifest declaration and removes its direct override.");
+    }
     promptOutput.print(
       `   ${this.getSeverityEmoji(vulnerability.severity)} ${vulnerability.title}`,
     );
@@ -865,7 +896,8 @@ export class InteractiveSecurityManager {
         return choice;
       }
 
-      const name = `Apply fix: Update to ${override.toVersion}`;
+      const destination = override.dependencyFields?.join(" and ") ?? "overrides";
+      const name = `Apply fix: Update ${destination} to ${override.toVersion}`;
       const result = Object.assign({}, choice, { name });
       return result;
     });
@@ -902,10 +934,12 @@ export class InteractiveSecurityManager {
 
     this.printSelectedOverrides(selectedOverrides);
     const confirm = await this.prompts.confirm(
-      "Apply these overrides to your package.json?",
+      "Apply these security fixes to your project?",
       false,
     );
-    const confirmed = confirm ? selectedOverrides : [];
+    const confirmed = confirm
+      ? selectedOverrides.map((fix) => Object.assign({}, fix, { approved: true }))
+      : [];
     return confirmed;
   }
 
@@ -1070,4 +1104,246 @@ export const isSocketResult = (value: unknown): value is SocketResult => {
 export const isPatchable = (alert: SecurityAlert): alert is PatchableAlert => {
   const hasPatchedVersion = Boolean(alert.patchedVersion);
   return hasPatchedVersion;
+};
+
+const DIRECT_FIELDS = ["dependencies", "devDependencies"] as const;
+
+export const getDirectDependencyFields = (config: PastoralistJSON, name: string) => {
+  const fields = DIRECT_FIELDS.filter((field) => Object.hasOwn(config[field] ?? {}, name));
+  return fields;
+};
+
+const fixedCandidates = (alerts: SecurityAlert[], current: string): string[] => {
+  const versions = alerts.flatMap(({ patchedVersion }) => (patchedVersion ? [patchedVersion] : []));
+  const newer = versions.filter(
+    (version) => isExactVersion(version) && compareVersions(version, current) > 0,
+  );
+  const candidates = Array.from(new Set(newer)).toSorted(compareVersions);
+  return candidates;
+};
+
+export const selectPatchedVersion = (alert: SecurityAlert, alerts: SecurityAlert[]): string => {
+  const related = alerts.filter((item) => item.packageName === alert.packageName);
+  const candidates = fixedCandidates(related, alert.currentVersion);
+  const safe = candidates.find((version) => isSecurityTargetSafe(version, related));
+  const version = safe ?? alert.patchedVersion ?? "";
+  return version;
+};
+
+export const normalizeSecurityRange = (range: string): string => {
+  const normalized = range.replace(/,\s*/g, " ");
+  return normalized;
+};
+
+export const isSecurityTargetSafe = (version: string, alerts: SecurityAlert[]): boolean => {
+  const safe = alerts.every((alert) => {
+    const range = normalizeSecurityRange(alert.vulnerableVersions);
+    const supported = isVersionRangeSupported(range);
+    const vulnerable = satisfiesVersionRange(version, range, true);
+    const resolved = supported && !vulnerable;
+    return resolved;
+  });
+  return safe;
+};
+
+const getInstalledVersionBlocker = (
+  fix: SecurityOverride,
+  installed: SecurityPackage[],
+): string | undefined => {
+  const blockers = installed.map((pkg) => {
+    const differentLine = !isSameReleaseLine(pkg.version, fix.fromVersion);
+    if (differentLine) return "Fix requires separate overrides for coexisting release lines";
+    const downgrade = compareVersions(fix.toVersion, pkg.version) < 0;
+    if (downgrade) return "Fix would downgrade an installed package";
+    return undefined;
+  });
+  const blocker = blockers.find(Boolean);
+  return blocker;
+};
+
+const getDirectFixBlocker = (fix: SecurityOverride, config: PastoralistJSON) => {
+  const fields = getDirectDependencyFields(config, fix.packageName);
+  const supported = fields.every((field) =>
+    isVersionRangeSupported(config[field]?.[fix.packageName] ?? ""),
+  );
+  if (!supported) return "Update non-registry dependency declarations manually";
+  return undefined;
+};
+
+const getGlobalFixBlocker = (
+  fix: SecurityOverride,
+  context: SecurityFixContext,
+): string | undefined => {
+  if (fix.targetStillVulnerable) return "No proposed version resolves all known advisories";
+  const direct = getDirectDependencyFields(context.config, fix.packageName);
+  if (direct.length) {
+    const blocker = getDirectFixBlocker(fix, context.config);
+    return blocker;
+  }
+  if (context.workspace?.complete === false)
+    return "Workspace dependency declarations require review";
+  if (context.workspace?.names.has(fix.packageName))
+    return "Update the declaring workspace manifest explicitly";
+  const installed = context.inventory.filter((pkg) => pkg.name === fix.packageName);
+  const blocker = getInstalledVersionBlocker(fix, installed);
+  return blocker;
+};
+
+const getApprovalReason = (
+  fix: SecurityOverride,
+  context: SecurityFixContext,
+): string | undefined => {
+  if (!isSameReleaseLine(fix.fromVersion, fix.toVersion)) return "Fix requires a major upgrade";
+  const prerelease = fix.toVersion.split("+")[0].includes("-");
+  if (prerelease) return "Fix requires a prerelease version";
+  const direct = getDirectDependencyFields(context.config, fix.packageName);
+  if (direct.length) return "Direct dependency update requires approval";
+  const ranges = context.ranges.get(fix.packageName) ?? [];
+  if (ranges.length === 0) return "Fix requires dependency range review";
+  const compatible = ranges.every((range) => satisfiesVersionRange(fix.toVersion, range));
+  if (!compatible) return "Fix falls outside a declared dependency range";
+  return undefined;
+};
+
+export const classifySecurityFix = (
+  fix: SecurityOverride,
+  context: SecurityFixContext,
+): SecurityOverride => {
+  const fields = getDirectDependencyFields(context.config, fix.packageName);
+  const dependencyFields = fields.length ? fields : undefined;
+  const blocked = getGlobalFixBlocker(fix, context);
+  const approvalRequired = getApprovalReason(fix, context);
+  const alreadyConfigured = context.existingOverrides?.[fix.packageName] === fix.toVersion;
+  const classified = Object.assign({}, fix, {
+    dependencyFields,
+    blocked,
+    approvalRequired,
+    alreadyConfigured,
+  });
+  return classified;
+};
+
+export const canApplySecurityFix = (fix: SecurityOverride): boolean => {
+  if (!isExactVersion(fix.toVersion)) return false;
+  const blocked = fix.blocked || fix.targetStillVulnerable;
+  if (blocked) return false;
+  if (fix.approved) return true;
+  const needsApproval = fix.approvalRequired || fix.dependencyFields?.length;
+  if (needsApproval) return false;
+  const compatible = isSameReleaseLine(fix.fromVersion, fix.toVersion);
+  return compatible;
+};
+
+export const createSecurityCandidateFilter =
+  (context: SecurityFixContext) =>
+  (packageName: string, fromVersion: string, toVersion: string): boolean => {
+    const fix = { packageName, fromVersion, toVersion, reason: "", severity: "" };
+    const classified = classifySecurityFix(fix, context);
+    const allowed = canApplySecurityFix(classified);
+    return allowed;
+  };
+
+export const getApplicableSecurityFixes = (
+  fixes: SecurityOverride[],
+  config: PastoralistJSON,
+): SecurityOverride[] => {
+  const classified = fixes.map((fix) => {
+    const fields = getDirectDependencyFields(config, fix.packageName);
+    if (!fields.length) return fix;
+    const tagged = Object.assign({}, fix, { dependencyFields: fields });
+    return tagged;
+  });
+  const applicable = classified.filter(canApplySecurityFix);
+  return applicable;
+};
+
+const updateDependencyField = (
+  config: PastoralistJSON,
+  fix: SecurityOverride,
+  field: "dependencies" | "devDependencies",
+) => {
+  const current = config[field]?.[fix.packageName] ?? "";
+  const prefix = current.match(/^[~^]/)?.[0] ?? "";
+  const version = `${prefix}${fix.toVersion}`;
+  const dependencies = Object.assign({}, config[field], { [fix.packageName]: version });
+  const updated = Object.assign({}, config, { [field]: dependencies });
+  return updated;
+};
+
+const removeDirectRootOverride = (
+  config: PastoralistJSON,
+  name: string,
+  field: "overrides" | "resolutions",
+) => {
+  const values = config[field];
+  if (!values) return config;
+  const remaining = omit(values, [name]);
+  if (Object.keys(remaining).length === 0) {
+    const cleaned = omit(config, [field]);
+    return cleaned;
+  }
+  const updated = Object.assign({}, config, { [field]: remaining });
+  return updated;
+};
+
+const removeDirectPnpmOverride = (config: PastoralistJSON, name: string): PastoralistJSON => {
+  if (!config.pnpm?.overrides) return config;
+  const overrides = omit(config.pnpm.overrides, [name]);
+  const hasOverrides = Object.keys(overrides).length > 0;
+  const pnpm = hasOverrides
+    ? Object.assign({}, config.pnpm, { overrides })
+    : omit(config.pnpm, ["overrides"]);
+  if (Object.keys(pnpm).length === 0) {
+    const cleaned = omit(config, ["pnpm"]);
+    return cleaned;
+  }
+  const updated = Object.assign({}, config, { pnpm });
+  return updated;
+};
+
+const applyDirectFix = (config: PastoralistJSON, fix: SecurityOverride): PastoralistJSON => {
+  if (!fix.approved) return config;
+  const fields = getDirectDependencyFields(config, fix.packageName);
+  if (fields.length === 0) return config;
+  const updated = fields.reduce(
+    (current, field) => updateDependencyField(current, fix, field),
+    config,
+  );
+  const withoutOverride = removeDirectRootOverride(updated, fix.packageName, "overrides");
+  const withoutResolution = removeDirectRootOverride(
+    withoutOverride,
+    fix.packageName,
+    "resolutions",
+  );
+  const cleaned = removeDirectPnpmOverride(withoutResolution, fix.packageName);
+  return cleaned;
+};
+
+export const applyDirectDependencyUpdates = (
+  config: PastoralistJSON,
+  fixes: SecurityOverride[],
+): PastoralistJSON => {
+  const applicable = fixes.filter(canApplySecurityFix);
+  const updated = applicable.reduce(applyDirectFix, config);
+  return updated;
+};
+
+const getCompatibleGroup = (group: SecurityOverride[]): SecurityOverride[] => {
+  const versions = new Set(group.map((fix) => fix.fromVersion));
+  const [current] = versions;
+  const sameLine = Array.from(versions).every((version) => isSameReleaseLine(current, version));
+  if (!sameLine) {
+    const empty: SecurityOverride[] = [];
+    return empty;
+  }
+  const compatible = group.filter(
+    (fix) => canApplySecurityFix(fix) && !fix.dependencyFields?.length,
+  );
+  return compatible;
+};
+
+export const getCompatibleGlobalFixes = (fixes: SecurityOverride[]): SecurityOverride[] => {
+  const groups = groupBy(fixes, (fix) => fix.packageName);
+  const compatible = Array.from(groups.values()).flatMap(getCompatibleGroup);
+  return compatible;
 };

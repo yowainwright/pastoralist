@@ -84,6 +84,7 @@ export interface OptimizeSecurityOverridesOptions {
   baselinePackages?: SecurityPackage[];
   evaluate: BestCaseEvaluator;
   config?: BestCaseConfig;
+  candidateFilter?: (name: string, fromVersion: string, toVersion: string) => boolean;
 }
 
 export interface OptimizedSecurityOverrides {

@@ -33,6 +33,18 @@ const alert = (
 const evaluation = (alerts: SecurityAlert[]): BestCaseEvaluation => ({ alerts });
 
 describe("optimizeBestCasePortfolio", () => {
+  test("selects the lowest version when patched portfolios are equally safe", async () => {
+    const choices = [
+      { packageName: "alpha", currentVersion: "1.0.0", versions: ["1.10.0", "1.2.0"] },
+    ];
+    const evaluate = (state: BestCaseState): BestCaseEvaluation => {
+      if (state.alpha === "1.0.0") return evaluation([alert("alpha", "high", "CVE-ALPHA")]);
+      return evaluation([]);
+    };
+    const result = await optimizeBestCasePortfolio({ choices, evaluate });
+    assert.equal(result.selectedState.alpha, "1.2.0");
+  });
+
   test("finds the global portfolio instead of selecting every package fix", async () => {
     const choices = [
       { packageName: "alpha", currentVersion: "1.0.0", versions: ["1.0.0", "2.0.0"] },

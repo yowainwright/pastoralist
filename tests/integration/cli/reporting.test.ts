@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout } from "node:timers/promises";
 import { test, type TestContext } from "node:test";
 import { action, run } from "../../../src/cli";
 import { SecurityChecker } from "../../../src/core/security";
+import { OSVProvider } from "../../../src/core/security/providers/osv";
+import { InteractiveSecurityManager } from "../../../src/core/security/utils";
+import type { SecurityAlert } from "../../../src/types";
+import { parsePnpmWorkspaceOverrides } from "../../../src/core/overrides";
 import { clearConfigCache } from "../../../src/config";
 import { clearHintCache } from "../../../src/dx";
 import { getFullDependencyCount } from "../../../src/mgrs";
@@ -115,6 +119,221 @@ const assertUnchanged = (fixture: ReturnType<typeof createFixture>) => {
   assert.equal(readFileSync(fixture.path, "utf8"), fixture.manifest);
   assert.equal(readFileSync(fixture.lockPath, "utf8"), fixture.lock);
 };
+
+const kitAlert: SecurityAlert = {
+  packageName: "@sveltejs/kit",
+  currentVersion: "2.70.3",
+  patchedVersion: "3.0.0",
+  vulnerableVersions: "<3.0.0",
+  severity: "low",
+  title: "GHSA-27mw-82g8-phjj",
+  fixAvailable: true,
+};
+const lodashAlert: SecurityAlert = {
+  packageName: "lodash",
+  currentVersion: "4.17.20",
+  patchedVersion: "4.17.21",
+  vulnerableVersions: "<4.17.21",
+  severity: "high",
+  title: "Prototype pollution",
+  fixAvailable: true,
+  cves: ["CVE-2021-23337"],
+};
+
+const preservedOverrides = Object.fromEntries(
+  Array.from({ length: 10 }, (_, index) => {
+    const name = `existing-${index}`;
+    const entry = [name, "1.0.0"];
+    return entry;
+  }),
+);
+
+const createKitLock = (): string => {
+  const retained = Object.keys(preservedOverrides).map((name) => `  ${name}@1.0.0: {}`);
+  const parentDependencies = Object.keys(preservedOverrides).map((name) => `      ${name}: 1.0.0`);
+  const packages = [
+    "  '@sveltejs/kit@2.70.3': {}",
+    "  test-parent@1.0.0: {}",
+    "  lodash@4.17.20: {}",
+  ].concat(retained);
+  const snapshots = [
+    "  '@sveltejs/kit@2.70.3': {}",
+    "  test-parent@1.0.0:",
+    "    dependencies:",
+    "      lodash: 4.17.20",
+  ].concat(parentDependencies, "  lodash@4.17.20: {}", retained);
+  const lock = ["lockfileVersion: '9.0'", "packages:"]
+    .concat(packages, "snapshots:", snapshots)
+    .join("\n");
+  return lock;
+};
+
+const mockKitScan = (t: TestContext): void => {
+  t.mock.method(OSVProvider.prototype, "fetchAlerts", () =>
+    Promise.resolve([kitAlert, lodashAlert]),
+  );
+  const dependencies = { lodash: "^4.17.0" };
+  const response = JSON.stringify({ versions: { "1.0.0": { dependencies } } });
+  t.mock.method(globalThis, "fetch", () => Promise.resolve(new Response(response)));
+};
+
+const createKitFixture = (t: TestContext) => {
+  const fixture = createFixture(t, "pnpm");
+  const dependencies = { "@sveltejs/kit": "^2.70.3", "test-parent": "1.0.0" };
+  const manifest = {
+    name: "kit-fixture",
+    version: "1.0.0",
+    packageManager: "pnpm@11.0.7",
+    dependencies,
+  };
+  writeFileSync(fixture.path, JSON.stringify(manifest));
+  const lock = createKitLock();
+  writeFileSync(fixture.lockPath, lock);
+  const workspace = join(fixture.root, "pnpm-workspace.yaml");
+  const retained = Object.keys(preservedOverrides)
+    .map((name) => `  ${name}: "1.0.0"`)
+    .join("\n");
+  writeFileSync(workspace, `packages: []\noverrides:\n${retained}\n`);
+  mockKitScan(t);
+  const result = Object.assign({}, fixture, { workspace });
+  return result;
+};
+
+test("forceSecurityRefactor reports the SvelteKit migration and still applies a compatible transitive fix", async (t) => {
+  const fixture = createKitFixture(t);
+  const output = captureStdout(t);
+  const options = {
+    root: fixture.root,
+    path: fixture.path,
+    outputFormat: "json" as const,
+    checkSecurity: true,
+    forceSecurityRefactor: true,
+    noCache: true,
+  };
+  const result = await action(options);
+  const manifest = JSON.parse(readFileSync(fixture.path, "utf8"));
+  const workspace = readFileSync(fixture.workspace, "utf8");
+  assert.equal(manifest.dependencies["@sveltejs/kit"], "^2.70.3");
+  assert.doesNotMatch(workspace, /@sveltejs\/kit/);
+  assert.match(workspace, /lodash.*4\.17\.21/);
+  assert.deepEqual(
+    parsePnpmWorkspaceOverrides(workspace),
+    Object.assign({}, preservedOverrides, { lodash: "4.17.21" }),
+  );
+  assert.equal(result.securityFixesApplied, false);
+  const notice = JSON.parse(output()).securityAlerts.find(
+    (alert) => alert.packageName === "@sveltejs/kit",
+  ).fixNotice;
+  assert.equal(notice, "Fix requires a major upgrade");
+});
+
+test("interactive approval updates the declared SvelteKit range without a direct override", async (t) => {
+  const fixture = createKitFixture(t);
+  captureStdout(t);
+  const prompt = t.mock.method(
+    InteractiveSecurityManager.prototype,
+    "promptForSecurityActions",
+    (_alerts, fixes) => {
+      const approved = fixes.map((fix) => Object.assign({}, fix, { approved: true }));
+      return Promise.resolve(approved);
+    },
+  );
+  const options = {
+    root: fixture.root,
+    path: fixture.path,
+    outputFormat: "json" as const,
+    checkSecurity: true,
+    interactive: true,
+    noCache: true,
+  };
+  const result = await action(options);
+  const manifest = JSON.parse(readFileSync(fixture.path, "utf8"));
+  assert.equal(result.success, true, JSON.stringify(result));
+  assert.equal(prompt.mock.callCount(), 1, JSON.stringify(result));
+  assert.equal(manifest.dependencies["@sveltejs/kit"], "^3.0.0");
+  assert.doesNotMatch(readFileSync(fixture.workspace, "utf8"), /@sveltejs\/kit/);
+  assert.equal(result.updated, true);
+  assert.equal(result.securityFixesApplied, true);
+});
+
+test("declining interactive security fixes preserves all declared versions and existing overrides", async (t) => {
+  const fixture = createKitFixture(t);
+  captureStdout(t);
+  t.mock.method(InteractiveSecurityManager.prototype, "promptForSecurityActions", () =>
+    Promise.resolve([]),
+  );
+  const result = await action({
+    root: fixture.root,
+    path: fixture.path,
+    checkSecurity: true,
+    interactive: true,
+    noCache: true,
+    outputFormat: "json",
+  });
+  const manifest = JSON.parse(readFileSync(fixture.path, "utf8"));
+  assert.equal(manifest.dependencies["@sveltejs/kit"], "^2.70.3");
+  assert.deepEqual(
+    parsePnpmWorkspaceOverrides(readFileSync(fixture.workspace, "utf8")),
+    preservedOverrides,
+  );
+  assert.equal(result.securityFixesApplied, false);
+});
+
+test("dry-run does not write approved direct updates or transitive fixes", async (t) => {
+  const fixture = createKitFixture(t);
+  captureStdout(t);
+  const originalManifest = readFileSync(fixture.path, "utf8");
+  const originalWorkspace = readFileSync(fixture.workspace, "utf8");
+  t.mock.method(
+    InteractiveSecurityManager.prototype,
+    "promptForSecurityActions",
+    (_alerts, fixes) => {
+      const approved = fixes.map((fix) => Object.assign({}, fix, { approved: true }));
+      return Promise.resolve(approved);
+    },
+  );
+  const result = await action({
+    root: fixture.root,
+    path: fixture.path,
+    checkSecurity: true,
+    interactive: true,
+    dryRun: true,
+    noCache: true,
+    outputFormat: "json",
+  });
+  assert.equal(readFileSync(fixture.path, "utf8"), originalManifest);
+  assert.equal(readFileSync(fixture.workspace, "utf8"), originalWorkspace);
+  assert.equal(result.updated, false);
+  assert.equal(result.securityFixesApplied, false);
+});
+
+test("a workspace direct dependency cannot be changed by a root global security override", async (t) => {
+  const fixture = createKitFixture(t);
+  captureStdout(t);
+  const manifest = JSON.parse(readFileSync(fixture.path, "utf8"));
+  delete manifest.dependencies["@sveltejs/kit"];
+  manifest.workspaces = ["packages/*"];
+  writeFileSync(fixture.path, JSON.stringify(manifest));
+  const directory = join(fixture.root, "packages", "site");
+  mkdirSync(directory, { recursive: true });
+  const workspaceManifest = {
+    name: "site",
+    version: "1.0.0",
+    devDependencies: { "@sveltejs/kit": "^2.70.3" },
+  };
+  const path = join(directory, "package.json");
+  writeFileSync(path, JSON.stringify(workspaceManifest));
+  await action({
+    root: fixture.root,
+    path: fixture.path,
+    checkSecurity: true,
+    forceSecurityRefactor: true,
+    noCache: true,
+    outputFormat: "json",
+  });
+  assert.deepEqual(JSON.parse(readFileSync(path, "utf8")), workspaceManifest);
+  assert.doesNotMatch(readFileSync(fixture.workspace, "utf8"), /@sveltejs\/kit/);
+});
 
 ["npm", "pnpm"].forEach((manager) => {
   test(`${manager} doctor emits one JSON document and preserves files`, async (t) => {

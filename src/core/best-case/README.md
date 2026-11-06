@@ -13,7 +13,9 @@ This module ranks complete package-version portfolios under a configurable secur
 
 Choosing the newest fix for each package independently can produce a worse result. One version can introduce a vulnerability or compatibility failure elsewhere in the graph. The evaluator therefore scores complete states, not isolated upgrades.
 
-Each patchable package contributes its current version, known patched versions, and latest compatible version as candidates.
+Each patchable package contributes its current version and known patched versions as candidates.
+The security workflow filters automatic candidates against installed release lines
+and declared dependency ranges. Direct dependency changes require approval.
 
 ## Formal model
 

@@ -1,4 +1,4 @@
-import type { OverridesType } from "../../types";
+import type { OverridesType, PastoralistJSON } from "../../types";
 import type { RetryOptions } from "../../utils/types";
 import type { ExecFileAsync } from "../types";
 
@@ -24,6 +24,7 @@ export interface SecurityAlert {
   knownExploited?: boolean;
   epss?: number;
   sources?: SecurityProviderType[];
+  fixNotice?: string;
 }
 
 export type PatchableAlert = SecurityAlert & { patchedVersion: string };
@@ -126,9 +127,17 @@ export interface SecurityOverride {
   patchedVersion?: string;
   targetStillVulnerable?: boolean;
   sources?: SecurityProviderType[];
+  approvalRequired?: string;
+  approved?: boolean;
+  blocked?: string;
+  dependencyFields?: Array<"dependencies" | "devDependencies">;
+  alreadyConfigured?: boolean;
 }
 
-export interface OverrideUpdate {
+export interface OverrideUpdate extends Pick<
+  SecurityOverride,
+  "approvalRequired" | "blocked" | "dependencyFields"
+> {
   packageName: string;
   currentOverride: string;
   newerVersion: string;
@@ -483,3 +492,11 @@ export interface YarnAuditLine {
     vulnerabilities?: Record<string, number>;
   };
 }
+
+export type SecurityFixContext = {
+  config: PastoralistJSON;
+  inventory: SecurityPackage[];
+  ranges: Map<string, string[]>;
+  existingOverrides?: OverridesType;
+  workspace?: { names: Set<string>; complete: boolean };
+};

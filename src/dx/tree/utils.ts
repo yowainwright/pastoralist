@@ -286,7 +286,7 @@ const formatVulnerabilityFix = (
 export const buildVulnerabilityDetails = (info: VulnerabilityInfo): string[] => {
   const cve = formatCves(info.cves);
   const fix = formatVulnerabilityFix(info.fixAvailable, info.patchedVersion);
-  const vulnerabilityDetails = [info.title, cve, fix, info.url].filter(isDefined);
+  const vulnerabilityDetails = [info.title, cve, fix, info.fixNotice, info.url].filter(isDefined);
   return vulnerabilityDetails;
 };
 

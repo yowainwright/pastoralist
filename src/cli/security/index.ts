@@ -9,6 +9,10 @@ import {
   type PastoralistResult,
 } from "../../types";
 import { SecurityChecker } from "../../core/security";
+import {
+  applyDirectDependencyUpdates,
+  getApplicableSecurityFixes,
+} from "../../core/security/utils";
 import { resolveWorkspaceManifestPaths } from "../../core/workspaces";
 import { createSpinner } from "../../dx";
 import { green, yellow } from "../../dx/utils";
@@ -348,7 +352,11 @@ const toUpdateOverride = (update: OverrideUpdate): SecurityOverride => {
     reason,
     severity: "medium",
   };
-  return override;
+  const { approvalRequired, blocked, dependencyFields } = update;
+  const hasConstraints = approvalRequired || blocked || dependencyFields;
+  if (!hasConstraints) return override;
+  const constrained = Object.assign({}, override, { approvalRequired, blocked, dependencyFields });
+  return constrained;
 };
 
 const getOverridesToApply = (
@@ -356,6 +364,10 @@ const getOverridesToApply = (
   finalOverrides: Record<string, unknown>,
 ): SecurityOverride[] => {
   const applicableOverrides = allOverrides.filter((override) => {
+    if (override.dependencyFields?.length) {
+      const approved = override.approved === true;
+      return approved;
+    }
     const finalVersion = finalOverrides[override.packageName];
     if (typeof finalVersion !== "string") return false;
     const result = finalVersion === override.toVersion;
@@ -364,23 +376,51 @@ const getOverridesToApply = (
   return applicableOverrides;
 };
 
+const buildDirectDependencyOptions = (
+  source: PastoralistJSON,
+  fixes: SecurityOverride[],
+  options: Options,
+) => {
+  const hasDirectUpdate = fixes.some((fix) => fix.dependencyFields?.length);
+  if (!hasDirectUpdate) {
+    const unchanged = {};
+    return unchanged;
+  }
+  const config = applyDirectDependencyUpdates(source, fixes);
+  const manifest = options.manifestConfig ?? source;
+  const manifestConfig = applyDirectDependencyUpdates(manifest, fixes);
+  const updated = { config, manifestConfig };
+  return updated;
+};
+
+const applyApprovedSecurityFixes = (
+  fixes: SecurityOverride[],
+  checker: SecurityChecker,
+  options: Options,
+): void => {
+  const shouldApply = fixes.length > 0 && !options.dryRun;
+  if (!shouldApply) return;
+  checker.applyAutoFix(fixes, options.path, options.config);
+};
+
 const buildSecurityFixes = (
   allOverrides: SecurityOverride[],
   securityChecker: SecurityChecker,
   mergedOptions: Options,
-): Pick<Options, "securityOverrides" | "securityOverrideDetails"> => {
-  const securityOverrides = securityChecker.generatePackageOverrides(allOverrides);
-  const overridesToApply = getOverridesToApply(allOverrides, securityOverrides);
+): Pick<Options, "securityOverrides" | "securityOverrideDetails" | "config" | "manifestConfig"> => {
+  const source = mergedOptions.config ?? { name: "", version: "" };
+  const applicable = getApplicableSecurityFixes(allOverrides, source);
+  const securityOverrides = securityChecker.generatePackageOverrides(applicable);
+  const overridesToApply = getOverridesToApply(applicable, securityOverrides);
   const securityOverrideDetails = overridesToApply.map(buildSecurityOverrideDetail);
-  const shouldApplyAutoFix = overridesToApply.length > 0 && !mergedOptions.dryRun;
-  if (shouldApplyAutoFix) {
-    securityChecker.applyAutoFix(overridesToApply, mergedOptions.path, mergedOptions.config);
-  }
+  applyApprovedSecurityFixes(overridesToApply, securityChecker, mergedOptions);
   const securityFixes: Pick<Options, "securityOverrides" | "securityOverrideDetails"> = {
     securityOverrides,
     securityOverrideDetails,
   };
-  return securityFixes;
+  const dependencies = buildDirectDependencyOptions(source, overridesToApply, mergedOptions);
+  const result = Object.assign({}, securityFixes, dependencies);
+  return result;
 };
 
 const shouldApplySecurityResults = (
@@ -397,7 +437,7 @@ const shouldApplySecurityResults = (
 
 export const handleSecurityResults = (
   ...args: SecurityResultsArgs
-): Pick<Options, "securityOverrides" | "securityOverrideDetails"> => {
+): Pick<Options, "securityOverrides" | "securityOverrideDetails" | "config" | "manifestConfig"> => {
   const [alerts, overrides, checker, spinner, options, ...updateArgs] = args;
   const [updates = [], hasBestCase = false] = updateArgs;
   const applicableUpdates = hasBestCase ? [] : updates;

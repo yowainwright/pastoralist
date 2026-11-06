@@ -21,6 +21,10 @@ description: "Pastoralist keeps dependency overrides explainable, current, and r
 Pastoralist tracks your dependency overrides: why they're there, which packages
 need them, and when you can remove them.
 
+Packages you install bring dependencies of their own. Overrides let you choose
+a different version or replacement package—for example, to address a security
+issue.
+
 It works with npm and Bun `overrides`, pnpm `pnpm.overrides` or
 `pnpm-workspace.yaml` (pnpm 11+), and Yarn `resolutions`.
 

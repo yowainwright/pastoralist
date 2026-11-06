@@ -29,17 +29,15 @@ import {
 } from "../overrides";
 import type { OverrideSource } from "../overrides";
 import {
-  LRUCache,
-  DiskCache,
-  hashLockfile,
-  resolveCacheDir,
-  pruneBackups,
-  fetchLatestCompatibleVersions,
-} from "../../utils";
-import { logger } from "../../observability";
-import { CACHE_NAMESPACES, CACHE_TTLS, CACHE_NS_VERSIONS } from "../../utils/cache";
-import { compareVersions, parsePackageJson } from "../../utils";
-import {
+  applyDirectDependencyUpdates,
+  canApplySecurityFix,
+  classifySecurityFix,
+  createSecurityCandidateFilter,
+  getCompatibleGlobalFixes,
+  getApplicableSecurityFixes,
+  getDirectDependencyFields,
+  selectPatchedVersion,
+  isSecurityTargetSafe,
   InteractiveSecurityManager,
   deduplicateAlerts,
   extractPackages,
@@ -49,8 +47,13 @@ import {
   isPatchable,
   sortAlertsByPriority,
 } from "./utils";
+import { LRUCache, DiskCache, hashLockfile, resolveCacheDir, pruneBackups } from "../../utils";
+import { logger } from "../../observability";
+import { CACHE_NAMESPACES, CACHE_TTLS, CACHE_NS_VERSIONS } from "../../utils/cache";
+import { compareVersions, omit, parsePackageJson } from "../../utils";
 import { SecuritySetupWizard, promptForSetup } from "./setup";
 import type {
+  SecurityFixContext,
   SetupSecurityProvider,
   SecurityProviderFactory,
   AutoFixOverrideChanges,
@@ -68,7 +71,10 @@ import { readFileSync, copyFileSync, writeFileSync, existsSync, mkdirSync, unlin
 import { createHash, randomUUID } from "crypto";
 import { resolve, dirname, basename } from "path";
 import { updateAppendix } from "../appendix";
-import { getLockedPackages, hasDependencyLockfile } from "../package";
+import { getDependencyGraphStatus, getLockedPackages, hasDependencyLockfile } from "../package";
+import { resolveWorkspaceManifestPaths } from "../workspaces";
+import { fetchPackageDependencies } from "../../utils/npm";
+import { isSameReleaseLine } from "../../utils/semver";
 import { glob } from "../../utils/glob";
 import { BACKUP_CACHE_DIR, DEFAULT_MEMORY_CACHE_TTL } from "../constants";
 import {
@@ -78,6 +84,147 @@ import {
   type BestCaseEvaluator,
   type BestCaseResult,
 } from "../best-case";
+
+type RangeEntry = readonly [string, string[]];
+
+const readWorkspace = (path: string): PastoralistJSON | undefined => {
+  try {
+    const manifest = parsePackageJson(readFileSync(path, "utf8")) ?? undefined;
+    return manifest;
+  } catch {
+    return undefined;
+  }
+};
+
+const getWorkspaceNames = (manifest: PastoralistJSON | undefined): string[] => {
+  if (!manifest) {
+    const empty: string[] = [];
+    return empty;
+  }
+  const dependencies = Object.assign({}, manifest.dependencies, manifest.devDependencies);
+  const names = Object.keys(dependencies);
+  return names;
+};
+
+const readWorkspaceDependencies = (config: PastoralistJSON, root: string, paths: string[] = []) => {
+  const workspacePatterns = resolveWorkspaceManifestPaths(config, root);
+  const patterns = workspacePatterns.concat(paths);
+  const ignore = ["**/node_modules/**"];
+  const files = glob(patterns, { cwd: root, absolute: true, ignore });
+  const manifests = files.map(readWorkspace);
+  const complete = manifests.every((manifest) => manifest !== undefined);
+  const names = new Set(manifests.flatMap(getWorkspaceNames));
+  const workspace = { names, complete };
+  return workspace;
+};
+
+const readResolvedRange = (result: PromiseSettledResult<string | undefined>): string[] => {
+  if (result.status !== "fulfilled") {
+    const empty: string[] = [];
+    return empty;
+  }
+  const ranges = result.value ? [result.value] : [];
+  return ranges;
+};
+
+const fetchParentRange = async (
+  name: string,
+  pkg: SecurityPackage,
+  options: SecurityCheckRuntimeOptions,
+) => {
+  const dependencies = await fetchPackageDependencies(pkg.name, pkg.version, options);
+  const range = dependencies?.[name];
+  return range;
+};
+
+const resolveParentRanges = async (
+  name: string,
+  parents: string[],
+  inventory: SecurityPackage[],
+  options: SecurityCheckRuntimeOptions,
+): Promise<string[]> => {
+  const parentNames = new Set(parents);
+  const packages = inventory.filter((pkg) => parentNames.has(pkg.name));
+  const incomplete = parentNames.size === 0 || packages.length < parentNames.size;
+  if (incomplete) {
+    const empty: string[] = [];
+    return empty;
+  }
+  const requests = packages.map((pkg) => fetchParentRange(name, pkg, options));
+  const results = await Promise.allSettled(requests);
+  const ranges = results.flatMap(readResolvedRange);
+  if (ranges.length !== packages.length) ranges.length = 0;
+  return ranges;
+};
+
+const resolveContextRoot = (options: SecurityCheckRuntimeOptions): string | undefined => {
+  const { root: configuredRoot } = options;
+  if (configuredRoot) return configuredRoot;
+  if (!options.packageJsonPath) return undefined;
+  const root = dirname(resolve(options.packageJsonPath));
+  return root;
+};
+
+const readPackageRanges = async (
+  name: string,
+  config: PastoralistJSON,
+  inventory: SecurityPackage[],
+  source: { graph: Record<string, string[]>; options: SecurityCheckRuntimeOptions },
+): Promise<RangeEntry> => {
+  const direct = getDirectDependencyFields(config, name);
+  const parents = source.graph[name] ?? [];
+  const ranges = direct.length
+    ? []
+    : await resolveParentRanges(name, parents, inventory, source.options);
+  const entry = [name, ranges] as const;
+  return entry;
+};
+
+const readResolvedEntry = (entry: PromiseSettledResult<RangeEntry>): RangeEntry[] => {
+  if (entry.status !== "fulfilled") {
+    const empty: RangeEntry[] = [];
+    return empty;
+  }
+  const values = [entry.value];
+  return values;
+};
+
+const resolveContextRanges = async (
+  config: PastoralistJSON,
+  alerts: SecurityAlert[],
+  inventory: SecurityPackage[],
+  options: SecurityCheckRuntimeOptions,
+): Promise<Map<string, string[]>> => {
+  const root = resolveContextRoot(options);
+  const graph = root ? getDependencyGraphStatus(root).graph : {};
+  const compatible = alerts.filter((alert) =>
+    isSameReleaseLine(alert.currentVersion, alert.patchedVersion ?? ""),
+  );
+  const names = Array.from(new Set(compatible.map((alert) => alert.packageName)));
+  const resolvedOptions = Object.assign({}, options, { root });
+  const source = { graph, options: resolvedOptions };
+  const requests = names.map((name) => readPackageRanges(name, config, inventory, source));
+  const entries = await Promise.allSettled(requests);
+  const resolved = entries.flatMap(readResolvedEntry);
+  const ranges = new Map(resolved);
+  return ranges;
+};
+
+const resolveSecurityFixContext = async (
+  config: PastoralistJSON,
+  alerts: SecurityAlert[],
+  options: SecurityCheckRuntimeOptions,
+): Promise<SecurityFixContext> => {
+  const root = resolveContextRoot(options);
+  const inventory = root ? getLockedPackages(root) : undefined;
+  const packages = inventory ?? [];
+  const ranges = await resolveContextRanges(config, alerts, packages, options);
+  const manifestPath = options.packageJsonPath ?? resolve(root ?? ".", "package.json");
+  const existingOverrides = resolveOverrideSource({ config, manifestPath }).overrides;
+  const workspace = root ? readWorkspaceDependencies(config, root, options.depPaths) : undefined;
+  const context = { config, inventory: packages, ranges, existingOverrides, workspace };
+  return context;
+};
 
 const resolveBackupCacheDir = (root: string, cacheDir?: string): string => {
   const baseCacheDir = resolveCacheDir({ cacheDir, root });
@@ -113,6 +260,7 @@ type SecurityOverrideResolutionInput = {
   latestVersions: Map<string, string>;
   userOwnedVersions: Map<string, string>;
   options: SecurityCheckRuntimeOptions;
+  fixContext: SecurityFixContext;
 };
 
 type UserOwnedOverrideResolution = {
@@ -125,6 +273,7 @@ type SecurityResolutionOutcome = {
   prompted: SecurityOverrideResolution;
   userOwnedVersions: Map<string, string>;
   userOwnedOverridesAdded: string[];
+  fixContext: SecurityFixContext;
 };
 
 type SecurityResolutionScan = {
@@ -486,7 +635,7 @@ export class SecurityChecker {
     const outcome = await this.resolveSecurityOutcome(config, scan.updates, scan.input);
     const updates = this.resolveResultUpdates(outcome, scan.updates, options);
     const result = this.buildSecurityCheckResult(
-      scan.vulnerablePackages,
+      this.addFixNotices(scan.vulnerablePackages, outcome.source.overrides),
       outcome,
       updates,
       packages.length,
@@ -515,6 +664,19 @@ export class SecurityChecker {
     return result;
   }
 
+  private addFixNotices(alerts: SecurityAlert[], fixes: SecurityOverride[]): SecurityAlert[] {
+    const notices = new Map(
+      fixes.map((fix) => [fix.packageName, fix.blocked ?? fix.approvalRequired]),
+    );
+    const reported = alerts.map((alert) => {
+      const fixNotice = notices.get(alert.packageName);
+      if (!fixNotice) return alert;
+      const updated = Object.assign({}, alert, { fixNotice });
+      return updated;
+    });
+    return reported;
+  }
+
   private async resolveSecurityScan(
     config: PastoralistJSON,
     installedPackages: SecurityPackage[],
@@ -522,34 +684,36 @@ export class SecurityChecker {
   ): Promise<SecurityResolutionScan> {
     const baselineAlerts = await this.resolveSecurityAlerts(installedPackages, options);
     const vulnerablePackages = this.resolveVulnerablePackages(baselineAlerts, options);
-    const latestVersions = await this.fetchLatestForVulnerablePackages(vulnerablePackages, options);
+    const latestVersions = await this.resolvePatchedVersions(vulnerablePackages, options);
     const updates = this.checkOverrideUpdates(config, baselineAlerts, options.packageJsonPath);
-    const input = this.createSecurityResolutionInput(
+    const input = await this.createSecurityResolutionInput(
+      config,
       installedPackages,
       vulnerablePackages,
-      latestVersions,
       options,
     );
+    input.latestVersions = latestVersions;
     const securityResolutionScan: SecurityResolutionScan = { vulnerablePackages, updates, input };
     return securityResolutionScan;
   }
 
-  private createSecurityResolutionInput(
+  private async createSecurityResolutionInput(
+    config: PastoralistJSON,
     installedPackages: SecurityPackage[],
     vulnerablePackages: SecurityAlert[],
-    latestVersions: Map<string, string>,
     options: SecurityCheckRuntimeOptions,
-  ): SecurityOverrideResolutionInput {
+  ): Promise<SecurityOverrideResolutionInput> {
+    const fixContext = await resolveSecurityFixContext(config, vulnerablePackages, options);
+    const latestVersions = new Map<string, string>();
     const resolvedPackageInventory = this.resolveBestCaseInventory(vulnerablePackages, options);
     const userOwnedVersions = new Map<string, string>();
-    const securityResolutionInput: SecurityOverrideResolutionInput = {
-      installedPackages,
-      resolvedPackageInventory,
-      vulnerablePackages,
-      latestVersions,
-      userOwnedVersions,
-      options,
-    };
+    const state = { installedPackages, vulnerablePackages, options, fixContext };
+    const constraints = { resolvedPackageInventory, latestVersions, userOwnedVersions };
+    const securityResolutionInput: SecurityOverrideResolutionInput = Object.assign(
+      {},
+      state,
+      constraints,
+    );
     return securityResolutionInput;
   }
 
@@ -572,16 +736,31 @@ export class SecurityChecker {
     const userOwned = await this.resolveUserOwnedOverrides(config, updates, input);
     const { versions: userOwnedVersions, added } = userOwned;
     const constrainedInput = Object.assign({}, input, { userOwnedVersions });
-    const source = await this.resolveSecurityOverrides(constrainedInput);
+    const resolution = await this.resolveSecurityOverrides(constrainedInput);
+    const { fixContext } = input;
+    const source = this.classifyResolution(resolution, fixContext, userOwnedVersions);
     const prompted = await this.promptForResolutionIfNeeded(input, source);
     const userOwnedOverridesAdded = this.getAcceptedUserOwnedOverrides(prompted, added);
-    const securityOutcome = {
-      source,
-      prompted,
-      userOwnedVersions,
-      userOwnedOverridesAdded,
-    };
+    const ownership = { userOwnedVersions, userOwnedOverridesAdded };
+    const securityOutcome = Object.assign({ source, prompted, fixContext }, ownership);
     return securityOutcome;
+  }
+
+  private classifyResolution(
+    resolution: SecurityOverrideResolution,
+    context: SecurityFixContext,
+    owned: Map<string, string>,
+  ): SecurityOverrideResolution {
+    const overrides = resolution.overrides.map((fix) => {
+      const classified = classifySecurityFix(fix, context);
+      const isOwnedVersion = owned.get(fix.packageName) === fix.toVersion;
+      const explicitlyOwned = isOwnedVersion && !classified.dependencyFields?.length;
+      if (!explicitlyOwned) return classified;
+      const approved = Object.assign({}, classified, { approved: true });
+      return approved;
+    });
+    const classified = Object.assign({}, resolution, { overrides });
+    return classified;
   }
 
   private resolveResultUpdates(
@@ -595,8 +774,24 @@ export class SecurityChecker {
       const resultUpdates: OverrideUpdate[] = [];
       return resultUpdates;
     }
-    const remainingUpdates = updates.filter((update) => !userOwnedVersions.has(update.packageName));
+    const remainingUpdates = updates
+      .filter((update) => !userOwnedVersions.has(update.packageName))
+      .map((update) => this.classifyOverrideUpdate(update, outcome.fixContext));
     return remainingUpdates;
+  }
+
+  private classifyOverrideUpdate(
+    update: OverrideUpdate,
+    context: SecurityFixContext,
+  ): OverrideUpdate {
+    const { packageName, currentOverride: fromVersion, newerVersion: toVersion, reason } = update;
+    const fix = classifySecurityFix(
+      { packageName, fromVersion, toVersion, reason, severity: "medium" },
+      context,
+    );
+    const { approvalRequired, blocked, dependencyFields } = fix;
+    const classified = Object.assign({}, update, { approvalRequired, blocked, dependencyFields });
+    return classified;
   }
 
   private emptySecurityResult(): SecurityCheckResult {
@@ -738,7 +933,7 @@ export class SecurityChecker {
     const relevantPackages = inventory.filter((pkg) => relevantNames.has(pkg.name));
     const isComplete = this.hasCompleteBestCaseInventory(relevantPackages, relevantNames);
     if (!isComplete) return undefined;
-    return relevantPackages;
+    return inventory;
   }
 
   private resolveCachedAlerts(
@@ -1265,8 +1460,6 @@ export class SecurityChecker {
 
   private groupPatchableAlertsByPackage(alerts: SecurityAlert[]): Map<string, SecurityAlert[]> {
     const result = alerts.reduce((map, alert) => {
-      if (!alert.patchedVersion) return map;
-
       const existing = map.get(alert.packageName) || [];
       map.set(alert.packageName, existing.concat(alert));
       return map;
@@ -1294,11 +1487,11 @@ export class SecurityChecker {
 
   private findNewerPatch(alerts: SecurityAlert[], version: string): PatchableAlert | undefined {
     const newerPatches = alerts.filter((alert) => this.isNewerPatch(alert, version));
-    const highestPatch = newerPatches.reduce<PatchableAlert | undefined>(
-      (best, alert) => this.pickHigherPatch(best, alert),
-      undefined,
+    const sorted = newerPatches.toSorted((left, right) =>
+      compareVersions(left.patchedVersion, right.patchedVersion),
     );
-    return highestPatch;
+    const lowestSafe = sorted.find((alert) => isSecurityTargetSafe(alert.patchedVersion, alerts));
+    return lowestSafe;
   }
 
   private isNewerPatch(alert: SecurityAlert, version: string): alert is PatchableAlert {
@@ -1307,26 +1500,16 @@ export class SecurityChecker {
     return isNewer;
   }
 
-  private pickHigherPatch(best: PatchableAlert | undefined, alert: PatchableAlert): PatchableAlert {
-    if (!best) return alert;
-    const comparison = compareVersions(alert.patchedVersion, best.patchedVersion);
-    if (comparison > 0) return alert;
-    return best;
-  }
-
-  private fetchLatestForVulnerablePackages(
+  private resolvePatchedVersions(
     vulnerablePackages: SecurityAlert[],
-    options: SecurityCheckRuntimeOptions,
+    _options: SecurityCheckRuntimeOptions,
   ): Promise<Map<string, string>> {
-    const packages = vulnerablePackages
+    const entries = vulnerablePackages
       .filter((pkg) => this.canGenerateOverride(pkg))
-      .map(({ packageName: name, patchedVersion: minVersion }) => {
-        const pkg = { name, minVersion };
-        return pkg;
-      });
-
-    const latestForVulnerablePackages = fetchLatestCompatibleVersions(packages, options);
-    return latestForVulnerablePackages;
+      .map((pkg) => [pkg.packageName, pkg.patchedVersion] as const);
+    const versions = new Map(entries);
+    const resolved = Promise.resolve(versions);
+    return resolved;
   }
 
   private isBestCaseEnabled(options: SecurityCheckRuntimeOptions): boolean {
@@ -1389,7 +1572,7 @@ export class SecurityChecker {
       const result = !input.userOwnedVersions.has(alert.packageName);
       return result;
     });
-    const overrides = this.generateOverrides(vulnerablePackages, input.latestVersions);
+    const overrides = this.generateOverrides(vulnerablePackages);
     const standardOverrides: SecurityOverrideResolution = { overrides };
     return standardOverrides;
   }
@@ -1406,6 +1589,11 @@ export class SecurityChecker {
   }
 
   private shouldUseBestCase(input: SecurityOverrideResolutionInput): boolean {
+    const proposals = this.resolveStandardOverrides(input).overrides;
+    const automatic = proposals.every((fix) =>
+      canApplySecurityFix(classifySecurityFix(fix, input.fixContext)),
+    );
+    if (!automatic) return false;
     const enabled = this.isBestCaseEnabled(input.options);
     const supported = this.supportsBuiltInBestCase(input.options);
     const inventory = input.resolvedPackageInventory;
@@ -1423,35 +1611,24 @@ export class SecurityChecker {
     const evaluate = this.resolveBestCaseEvaluator(baselinePackages, input.options);
     const { vulnerablePackages, latestVersions, userOwnedVersions } = input;
     const { bestCase: config } = input.options;
-    const options = {
-      vulnerablePackages,
-      latestVersions,
-      userOwnedVersions,
-      baselinePackages,
-      evaluate,
-      config,
-    };
+    const candidateFilter = createSecurityCandidateFilter(input.fixContext);
+    const packages = { vulnerablePackages, latestVersions, userOwnedVersions };
+    const policy = { baselinePackages, evaluate, config, candidateFilter };
+    const options = Object.assign({}, packages, policy);
     const bestCaseOverrides = optimizeSecurityOverrides(options);
     return bestCaseOverrides;
   }
 
-  private generateOverrides(
-    vulnerablePackages: SecurityAlert[],
-    latestVersions: Map<string, string>,
-  ): SecurityOverride[] {
+  private generateOverrides(vulnerablePackages: SecurityAlert[]): SecurityOverride[] {
     const overrides = vulnerablePackages
       .filter((pkg) => this.canGenerateOverride(pkg))
-      .flatMap((pkg) => this.generateOverride(pkg, latestVersions, vulnerablePackages));
+      .flatMap((pkg) => this.generateOverride(pkg, vulnerablePackages));
     return overrides;
   }
 
-  private generateOverride(
-    pkg: PatchableAlert,
-    latestVersions: Map<string, string>,
-    alerts: SecurityAlert[],
-  ): SecurityOverride[] {
-    const targetVersion = this.resolveOverrideTargetVersion(pkg, latestVersions);
-    const { skip, targetStillVulnerable } = computeVulnerabilityReduction(
+  private generateOverride(pkg: PatchableAlert, alerts: SecurityAlert[]): SecurityOverride[] {
+    const targetVersion = selectPatchedVersion(pkg, alerts);
+    const { skip } = computeVulnerabilityReduction(
       pkg.packageName,
       pkg.currentVersion,
       targetVersion,
@@ -1459,6 +1636,8 @@ export class SecurityChecker {
     );
     const skipped: SecurityOverride[] = [];
     if (skip) return skipped;
+    const related = alerts.filter((alert) => alert.packageName === pkg.packageName);
+    const targetStillVulnerable = !isSecurityTargetSafe(targetVersion, related);
     const override = this.buildSecurityOverride(pkg, targetVersion, targetStillVulnerable);
     const selected = [override];
     return selected;
@@ -1468,18 +1647,6 @@ export class SecurityChecker {
     if (!pkg.fixAvailable) return false;
     const result = isPatchable(pkg);
     return result;
-  }
-
-  private resolveOverrideTargetVersion(
-    pkg: PatchableAlert,
-    latestVersions: Map<string, string>,
-  ): string {
-    const { patchedVersion } = pkg;
-    const latestVersion = latestVersions.get(pkg.packageName);
-    const shouldUseLatest = latestVersion && compareVersions(latestVersion, patchedVersion) >= 0;
-
-    const overrideTargetVersion = shouldUseLatest ? latestVersion : patchedVersion;
-    return overrideTargetVersion;
   }
 
   private buildSecurityOverride(
@@ -1512,7 +1679,8 @@ export class SecurityChecker {
   }
 
   generatePackageOverrides(securityOverrides: SecurityOverride[]): OverridesType {
-    const result = securityOverrides.reduce((overrides, override) => {
+    const compatible = getCompatibleGlobalFixes(securityOverrides);
+    const result = compatible.reduce((overrides, override) => {
       const existingVersion = overrides[override.packageName];
       const isStringVersion = typeof existingVersion === "string";
       const isNestedOverride = existingVersion && typeof existingVersion === "object";
@@ -1660,18 +1828,49 @@ export class SecurityChecker {
     return overridesToPackageJson;
   }
 
+  private mergeAutoFixOverrides(
+    source: OverrideSource,
+    fixes: SecurityOverride[],
+    newOverrides: OverridesType,
+  ): OverridesType {
+    const directNames = fixes
+      .filter((fix) => fix.dependencyFields?.length)
+      .map((fix) => fix.packageName);
+    const retainedOverrides = omit(source.overrides, directNames);
+    const merged = Object.assign({}, retainedOverrides, newOverrides);
+    return merged;
+  }
+
   private createAutoFixPlan(
     overrides: SecurityOverride[],
     pkgPath: string,
     effectiveConfig?: PastoralistJSON,
-  ): AutoFixPlan {
+  ): AutoFixPlan | undefined {
     const packageJson = this.readPackageJsonForAutoFix(pkgPath);
     const sourceConfig = effectiveConfig || packageJson;
-    const newOverrides = this.generatePackageOverrides(overrides);
+    const applicable = getApplicableSecurityFixes(overrides, sourceConfig);
+    if (applicable.length === 0) return undefined;
     const overrideSource = resolveOverrideSource({ config: sourceConfig, manifestPath: pkgPath });
-    const mergedOverrides = Object.assign({}, overrideSource.overrides, newOverrides);
-    const changes = { mergedOverrides, newOverrides, overrides };
-    const updatedPackageJson = this.buildAutoFixedPackageJson(packageJson, overrideSource, changes);
+    const plan = this.buildAutoFixPlan(packageJson, overrideSource, applicable);
+    return plan;
+  }
+
+  private buildAutoFixPlan(
+    packageJson: PastoralistJSON,
+    overrideSource: OverrideSource,
+    applicable: SecurityOverride[],
+  ): AutoFixPlan | undefined {
+    const updatedDependencies = applyDirectDependencyUpdates(packageJson, applicable);
+    const newOverrides = this.generatePackageOverrides(applicable);
+    const unchanged = updatedDependencies === packageJson && Object.keys(newOverrides).length === 0;
+    if (unchanged) return undefined;
+    const mergedOverrides = this.mergeAutoFixOverrides(overrideSource, applicable, newOverrides);
+    const changes = { mergedOverrides, newOverrides, overrides: applicable };
+    const updatedPackageJson = this.buildAutoFixedPackageJson(
+      updatedDependencies,
+      overrideSource,
+      changes,
+    );
     const autoFixPlan: AutoFixPlan = { mergedOverrides, overrideSource, updatedPackageJson };
     return autoFixPlan;
   }
@@ -1685,16 +1884,21 @@ export class SecurityChecker {
     try {
       const pkgPath = this.resolveAutoFixPackagePath(packageJsonPath);
       const plan = this.createAutoFixPlan(overrides, pkgPath, effectiveConfig);
+      if (!plan) return undefined;
       transaction = this.createAutoFixTransaction(pkgPath, plan.overrideSource);
-      this.writePackageJson(pkgPath, plan.updatedPackageJson);
-      writeOverrideSource(plan.overrideSource, plan.mergedOverrides);
-      const autoFix = transaction.backupPath;
-      return autoFix;
+      this.writeAutoFixPlan(pkgPath, plan);
+      const backupPath = transaction.backupPath;
+      return backupPath;
     } catch (error) {
       this.restoreFailedAutoFix(transaction);
       this.log.error("Failed to apply auto-fix", "applyAutoFix", { error });
       this.throwAutoFixError(error);
     }
+  }
+
+  private writeAutoFixPlan(path: string, plan: AutoFixPlan): void {
+    this.writePackageJson(path, plan.updatedPackageJson);
+    writeOverrideSource(plan.overrideSource, plan.mergedOverrides);
   }
 
   private throwAutoFixError(error: unknown): never {
@@ -1731,6 +1935,7 @@ export class SecurityChecker {
       overrideSource,
       mergedOverrides,
     );
+    if (Object.keys(newOverrides).length === 0) return updatedPackageJson;
 
     updatedPackageJson.pastoralist = updatedPackageJson.pastoralist || {};
     updatedPackageJson.pastoralist.appendix = this.buildUpdatedAppendix(

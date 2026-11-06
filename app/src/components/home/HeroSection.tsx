@@ -115,7 +115,7 @@ const styles = {
 const CONTENT = {
   logoAlt: "Pastoralist Logo",
   headingStart: "Pastoralist",
-  headingMid: "tracks, documents, and cleans up your npm dependency overrides",
+  headingMid: "tracks, documents, and cleans up dependency overrides",
   headingHighlight: "automatically",
   emoji: "👍",
   command: "npm install -g pastoralist",

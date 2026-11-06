@@ -19,6 +19,7 @@ const styles = {
   articleHidden: "opacity-0 translate-y-8",
   header: "lg:max-w-md flex flex-col justify-center",
   h2: "text-3xl lg:text-4xl font-black",
+  context: "mt-4 text-base text-base-content/80",
   description: "mt-6 text-lg text-base-content/80",
   nav: "flex gap-4 mt-8",
   aside: "flex-1 mt-8 lg:mt-0",
@@ -27,6 +28,8 @@ const styles = {
 const CONTENT = {
   headingStart: "Simple",
   headingEnd: "Override Tracking",
+  context:
+    "Packages you install bring dependencies of their own. Overrides let you choose a different version or replacement package—for example, to address a security issue.",
   description:
     "Pastoralist creates an appendix that documents why each override exists. Track which packages depend on each override, detect security fixes, and clean up stale overrides when they're no longer needed.",
   learnMoreSlug: "introduction",
@@ -83,6 +86,7 @@ function CodeBlockHeading({ active }: CodeBlockHeadingProps) {
       <h2 className={styles.h2}>
         <span className="gradient-text">{CONTENT.headingStart}</span> {CONTENT.headingEnd}
       </h2>
+      <p className={styles.context}>{CONTENT.context}</p>
       <p className={styles.description}>{CONTENT.description}</p>
       <CheckList isVisible={active} />
       <CodeBlockActions />

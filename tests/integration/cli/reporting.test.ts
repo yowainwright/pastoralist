@@ -268,11 +268,24 @@ const approveSecurityFixes = (t: TestContext) => {
   );
 };
 
-const pinKitParentDependency = (lockPath: string): string => {
-  const parentDependencies = "      '@sveltejs/kit': 2.70.3\n      lodash: 4.17.20";
-  const lock = readFileSync(lockPath, "utf8").replace("      lodash: 4.17.20", parentDependencies);
-  writeFileSync(lockPath, lock);
-  return lock;
+const pinKitParentDependency = (
+  lockPath: string,
+  field: "dependencies" | "optionalDependencies" = "dependencies",
+): string => {
+  const lock = readFileSync(lockPath, "utf8");
+  const pattern = /^([ \t]*)dependencies:\n([ \t]*)lodash: 4\.17\.20$/m;
+  const match = lock.match(pattern);
+  assert.ok(match, "Parent dependency section must exist in the fixture");
+  const [, fieldIndent, entryIndent] = match;
+  const entry = `${entryIndent}'@sveltejs/kit': 2.70.3`;
+  const required = `${fieldIndent}dependencies:\n${entry}`;
+  const optional = `${fieldIndent}optionalDependencies:\n${entry}\n${fieldIndent}dependencies:`;
+  const isOptional = field === "optionalDependencies";
+  const section = isOptional ? optional : required;
+  const replacement = `${section}\n${entryIndent}lodash: 4.17.20`;
+  const updated = lock.replace(pattern, replacement);
+  writeFileSync(lockPath, updated);
+  return updated;
 };
 
 test("a direct update does not report a pinned transitive copy as fixed", async (t) => {
@@ -280,6 +293,26 @@ test("a direct update does not report a pinned transitive copy as fixed", async 
   const { root, path, lockPath } = fixture;
   captureStdout(t);
   const lock = pinKitParentDependency(lockPath);
+  approveSecurityFixes(t);
+  const result = await action({
+    root,
+    path,
+    checkSecurity: true,
+    interactive: true,
+    noCache: true,
+    outputFormat: "json",
+  });
+  const manifest = JSON.parse(readFileSync(path, "utf8"));
+  assert.equal(manifest.dependencies["@sveltejs/kit"], "^3.0.0");
+  assert.equal(result.securityFixesApplied, false);
+  assert.equal(readFileSync(lockPath, "utf8"), lock);
+});
+
+test("a direct update does not report a pinned optional copy as fixed", async (t) => {
+  const fixture = createKitFixture(t);
+  const { root, path, lockPath } = fixture;
+  captureStdout(t);
+  const lock = pinKitParentDependency(lockPath, "optionalDependencies");
   approveSecurityFixes(t);
   const result = await action({
     root,

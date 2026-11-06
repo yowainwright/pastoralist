@@ -1,4 +1,4 @@
-import { readPnpmResolvedGraph } from "../../../../src/mgrs/pnpm/utils";
+import { parsePnpmLockGraph, readPnpmResolvedGraph } from "../../../../src/mgrs/pnpm/utils";
 import { registerResolvedGraphTests } from "../dependency-tracking.test-utils";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -94,6 +94,17 @@ const fixtures = [
 ];
 
 registerResolvedGraphTests(fixtures, readPnpmResolvedGraph);
+
+fixtures.slice(0, 3).forEach(({ name, content }) => {
+  test(`${name} graph includes optional dependency parents`, (t) => {
+    const root = mkdtempSync(resolve(".pnpm-optional-graph-"));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const optional = content.replaceAll("    dependencies:", "    optionalDependencies:");
+    writeFileSync(resolve(root, "pnpm-lock.yaml"), optional);
+    const graph = parsePnpmLockGraph(root);
+    assert.deepEqual(graph?.lodash, ["bridge"]);
+  });
+});
 
 const incompleteLocks = [
   {

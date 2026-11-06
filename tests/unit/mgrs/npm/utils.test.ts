@@ -1,5 +1,9 @@
-import { readNpmResolvedGraph } from "../../../../src/mgrs/npm/utils";
+import { parseNpmLockGraph, readNpmResolvedGraph } from "../../../../src/mgrs/npm/utils";
 import { registerResolvedGraphTests } from "../dependency-tracking.test-utils";
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 const npmLock = `{
   "lockfileVersion": 3,
@@ -34,3 +38,12 @@ const aliasFixture = {
 };
 
 registerResolvedGraphTests([fixture, aliasFixture], readNpmResolvedGraph);
+
+test("npm graph includes optional dependency parents", (t) => {
+  const root = mkdtempSync(resolve(".npm-optional-graph-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const content = npmLock.replaceAll('"dependencies"', '"optionalDependencies"');
+  writeFileSync(resolve(root, "package-lock.json"), content);
+  const graph = parseNpmLockGraph(root);
+  assert.deepEqual(graph?.lodash, ["bridge"]);
+});

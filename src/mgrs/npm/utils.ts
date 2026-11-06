@@ -185,12 +185,13 @@ export const parseNpmLockTree = (root: string): Record<string, string> | undefin
 const addNpmPackageDependencies = (
   graph: DependencyGraph,
   key: string,
-  pkg: { dependencies?: Record<string, string> },
+  pkg: NpmPackageEntry,
 ): void => {
   const isDependencyPackage = key !== "" && key.includes("node_modules/");
   if (!isDependencyPackage) return;
   const name = key.replace(/^.*node_modules\//, "");
-  addPackageDependencies(graph, name, pkg.dependencies ?? {});
+  const dependencies = Object.assign({}, pkg.dependencies, pkg.optionalDependencies);
+  addPackageDependencies(graph, name, dependencies);
 };
 
 const addNpmDependencyTree = (

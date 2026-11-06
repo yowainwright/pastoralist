@@ -459,6 +459,8 @@ type SecurityFixWorkflow = {
   updateContext: {
     overrideSource?: { overrides: OverridesType };
     finalOverrides?: OverridesType;
+    dependencyGraph?: Record<string, string[]>;
+    dependencyGraphAmbiguousParents?: Record<string, string[]>;
   };
 };
 
@@ -494,6 +496,11 @@ const hasDirectDependencyUpdate = (
   workflow: SecurityFixWorkflow,
 ): boolean => {
   if (!candidate.approved) return false;
+  const parents = workflow.updateContext.dependencyGraph?.[candidate.packageName] ?? [];
+  const ambiguousParents =
+    workflow.updateContext.dependencyGraphAmbiguousParents?.[candidate.packageName] ?? [];
+  const hasTransitiveDependents = parents.length > 0 || ambiguousParents.length > 0;
+  if (hasTransitiveDependents) return false;
   const updated =
     candidate.dependencyFields?.every((field) => {
       const value = workflow.securityPhase.mergedOptions.config?.[field]?.[candidate.packageName];

@@ -1583,6 +1583,31 @@ test("checkSecurity - uses standard overrides for state-unaware providers", asyn
   assert.strictEqual(result.overrides[0].toVersion, "1.1.0");
 });
 
+test("checkSecurity - uses the constructor root to classify compatible fixes", async () => {
+  const root = createBestCaseRoot(undefined, true);
+  const checker = createCheckerWithMockAlerts({ root }, [createBestCaseAlert()]);
+  const config = { name: "constructor-root", version: "1.0.0", dependencies: dependencies11 };
+  const result = await checker.checkSecurity(config);
+
+  assert.deepStrictEqual(checker.generatePackageOverrides(result.overrides), { alpha: "1.1.0" });
+  assert.strictEqual(result.overrides[0].approvalRequired, undefined);
+});
+
+test("checkSecurity - optimizes the portfolio despite unrelated duplicate versions", async () => {
+  const checker = createCheckerWithMockAlerts({}, portfolioAlerts);
+  const unrelated = [
+    { name: "helper", version: "1.0.0" },
+    { name: "helper", version: "2.0.0" },
+  ];
+  const inventory = PORTFOLIO_PACKAGES.concat(unrelated);
+  const options = createBestCaseOptions({ bestCaseEvaluator: evaluatePortfolioState }, inventory);
+  const result = await checker.checkSecurity(PORTFOLIO_CONFIG, options);
+
+  assert.deepStrictEqual(result.bestCase?.selectedState, PORTFOLIO_SELECTED_STATE);
+  assert.strictEqual(result.overrides.length, 1);
+  assert.strictEqual(result.overrides[0].packageName, "alpha");
+});
+
 const alphaSecondVersionFields = {
   currentVersion: "2.0.0",
   vulnerableVersions: "<3.0.0",

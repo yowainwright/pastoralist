@@ -157,7 +157,8 @@ const addPnpmGraphLine = (
     return;
   }
   const { currentPackage } = state;
-  const startsDependencies = currentPackage && line.match(/^    dependencies:/);
+  const startsDependencies =
+    currentPackage && line.match(/^    (?:dependencies|optionalDependencies):/);
   if (startsDependencies) {
     state.inDependencies = true;
     return;

@@ -63,7 +63,7 @@ Options:
   --isTesting                           Enable testing mode (no scripts run)
   --init [type] [args...]               Initialize config or a named init target
   --checkSecurity                       Check for security vulnerabilities and generate overrides
-  --forceSecurityRefactor               Automatically apply security overrides without prompting
+  --forceSecurityRefactor               Apply compatible transitive security fixes without prompting
   --securityProvider <provider...>      Security provider(s) to use (osv, github, snyk, npm, socket, spektion)
   --securityProviderToken <token>       Security provider token for API access
   --interactive                         Run security checks in interactive mode

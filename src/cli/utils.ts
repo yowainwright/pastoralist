@@ -120,7 +120,12 @@ const hasUpdateChanges = (
     JSON.stringify(updateResult.finalAppendix || {}) !== JSON.stringify(previousAppendix);
   const overridesChanged =
     JSON.stringify(updateResult.finalOverrides || {}) !== JSON.stringify(previousOverrides);
-  const result = appendixChanged || overridesChanged;
+  const dependencyChanges = ["dependencies", "devDependencies"].some((field) => {
+    const key = field as "dependencies" | "devDependencies";
+    const changed = JSON.stringify(updateResult.config?.[key]) !== JSON.stringify(config?.[key]);
+    return changed;
+  });
+  const result = appendixChanged || overridesChanged || dependencyChanges;
   return result;
 };
 

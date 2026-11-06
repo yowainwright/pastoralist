@@ -26,6 +26,13 @@ Applying fixes requires `--interactive`, `--forceSecurityRefactor`, or the
 matching config option. Review changes and reinstall dependencies to update
 the lockfile.
 
+Automatic fixes use overrides for compatible transitive dependencies. Direct
+dependency and devDependency updates require interactive approval and change the
+original `package.json` entry. Major upgrades and fixes outside a declared range
+also require approval. Pastoralist selects the lowest known patched version that
+resolves the applicable advisories. Conflicting installed release lines and
+workspace declarations that need separate changes are reported for manual review.
+
 ### Auto Fix
 
 ```bash
@@ -117,8 +124,8 @@ to rank complete package-version portfolios under one policy:
 }
 ```
 
-Each patchable package contributes its current version, known patched versions,
-and latest compatible version. Auto mode exhaustively evaluates small products
+Each patchable package contributes its current version and known patched versions.
+Automatic candidates must satisfy dependency constraints. Auto mode exhaustively evaluates small products
 and uses deterministic beam search above the configured cap. The result includes
 the selected state, decision ID, policy hash, vulnerability impact, duration,
 evaluated-state count, and `provenOptimal` status.
@@ -163,7 +170,7 @@ the Node.js API.
 | Option                            | Description                                           |
 | --------------------------------- | ----------------------------------------------------- |
 | `--checkSecurity`                 | Enable security vulnerability checking                |
-| `--forceSecurityRefactor`         | Automatically apply security fixes without prompting  |
+| `--forceSecurityRefactor`         | Apply compatible transitive fixes without prompting   |
 | `--securityProvider <provider>`   | Specify one or more security providers                |
 | `--securityProviderToken <token>` | Provide an authentication token for one-off/local use |
 | `--interactive`                   | Use interactive mode to select fixes                  |
@@ -387,9 +394,9 @@ Once the root dependency reaches `4.18.0`, the keep is expired and
 3. **Reporting**: Vulnerable packages are displayed with severity levels and available fixes
 4. **Fixing**: If fixes are available, Pastoralist can:
    - Display them for review
-   - Apply them automatically (with `--forceSecurityRefactor`)
+   - Apply compatible transitive fixes automatically (with `--forceSecurityRefactor`)
    - Let you choose interactively (with `--interactive`)
-5. **Applying**: Selected fixes are added to your `package.json` overrides section with full CVE context in the ledger
+5. **Applying**: Transitive fixes use package-manager overrides with CVE context in the ledger. Approved direct updates change the original dependency or devDependency entry.
 
 ## Performance Considerations
 

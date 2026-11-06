@@ -339,7 +339,7 @@ pastoralist --checkSecurity --securityProvider github --securityProviderToken "$
 > Type: **`boolean options`**
 
 Controls how security findings are handled: `--interactive` prompts for fixes,
-`--forceSecurityRefactor` applies available fixes without prompting,
+`--forceSecurityRefactor` applies compatible transitive fixes without prompting,
 `--hasWorkspaceSecurityChecks` includes workspace packages, `--promptForReasons`
 asks for manual ledger reasons, and `--strict` fails on provider errors.
 
@@ -352,6 +352,11 @@ pastoralist --promptForReasons
 
 Use `--interactive` for review, `--forceSecurityRefactor` for unattended fixes,
 and `--strict` when provider errors should fail the run.
+
+Direct dependency and devDependency updates require interactive approval and
+change the original `package.json` entry. Major upgrades and fixes outside a
+declared range also require approval. Overrides use the lowest known patched
+version that resolves the applicable advisories.
 
 #### Cache Flags
 

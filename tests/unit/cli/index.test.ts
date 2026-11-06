@@ -1656,14 +1656,14 @@ const createSecurityOverridesForFiltersOverrides = () => {
     {
       packageName: "pkg",
       fromVersion: "1.0.0",
-      toVersion: "2.0.0",
+      toVersion: "1.1.0",
       reason: "Fix 1",
       severity: "high",
     },
     {
       packageName: "pkg",
-      fromVersion: "2.0.0",
-      toVersion: "3.0.0",
+      fromVersion: "1.0.0",
+      toVersion: "1.2.0",
       reason: "Fix 2",
       severity: "high",
     },
@@ -1674,7 +1674,7 @@ const createSecurityOverridesForFiltersOverrides = () => {
 const createSecurityCheckerMockForFiltersOverrides = () => {
   const formatSecurityReport = mock(() => "Report");
   const generatePackageOverrides = mock(() => ({
-    pkg: "3.0.0",
+    pkg: "1.2.0",
   }));
   const applyAutoFix = mock(() => {});
   const mockSecurityChecker = {
@@ -3778,7 +3778,7 @@ const createSecurityOverridesForDisplaysSecurity = () => {
 };
 
 const createAutoFixSecurityCheckerStub = () => {
-  const generatePackageOverrides = mock(() => ({}));
+  const generatePackageOverrides = mock(() => ({ lodash: "4.17.21" }));
   const applyAutoFix = mock();
   const securityChecker = {
     generatePackageOverrides,
@@ -3876,6 +3876,7 @@ const createDepsForDisplaysSecurity = (
     buildMergedOptions: depsBuildMergedOptions,
     runSecurityCheck: depsRunSecurityCheck,
     update: depsUpdate,
+    handleSecurityResults,
   };
   const graphOverrides = createSpinnerGraphOverrides(mockSpinner, mockGraph);
   const deps = Object.assign(createBaseActionDeps(), graphOverrides, depsOverrides);

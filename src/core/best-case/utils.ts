@@ -108,19 +108,6 @@ const getPatchedVersions = (alerts: SecurityAlert[]): string[] => {
   return versions;
 };
 
-const getLatestVersionList = (
-  packageName: string,
-  latestVersions: Map<string, string>,
-): string[] => {
-  const latestVersion = latestVersions.get(packageName);
-  if (!latestVersion) {
-    const latestVersionList: string[] = [];
-    return latestVersionList;
-  }
-  const latestVersionList2: string[] = [latestVersion];
-  return latestVersionList2;
-};
-
 const removeDowngradeVersions = (versions: string[], currentVersion: string): string[] => {
   const result = versions.filter((version) => compareVersions(version, currentVersion) >= 0);
   return result;
@@ -131,16 +118,14 @@ const buildChoice = (
   alerts: SecurityAlert[],
   sources: VersionSources,
 ): BestCasePackageChoice => {
-  const { latestVersions, userOwnedVersions, baselineVersions } = sources;
+  const { userOwnedVersions, baselineVersions } = sources;
   const lockedVersion = normalizeCurrentVersion(baselineVersions.get(packageName) ?? "");
   const alertVersions = alerts.map((alert) => normalizeCurrentVersion(alert.currentVersion));
   const sortedAlertVersions = alertVersions.toSorted(compareVersions);
   const currentVersions = lockedVersion ? [lockedVersion] : sortedAlertVersions;
   const currentVersion = currentVersions[0];
   const patchedVersions = getPatchedVersions(alerts);
-  const latestVersion = getLatestVersionList(packageName, latestVersions);
-  const candidateVersions = patchedVersions.concat(latestVersion);
-  const versions = removeDowngradeVersions(candidateVersions, currentVersion);
+  const versions = removeDowngradeVersions(patchedVersions, currentVersion);
   const requiredVersion = userOwnedVersions.get(packageName);
   const choice: BestCasePackageChoice = { packageName, currentVersion, versions, requiredVersion };
   return choice;
@@ -515,6 +500,13 @@ const compareScores = (left: number[], right: number[]): number => {
   return result;
 };
 
+const compareStateVersions = (left: BestCaseState, right: BestCaseState): number => {
+  const names = Object.keys(left).toSorted();
+  const comparisons = names.map((name) => compareVersions(left[name], right[name] ?? left[name]));
+  const firstDifference = comparisons.find((comparison) => comparison !== 0) ?? 0;
+  return firstDifference;
+};
+
 export const compareEvaluatedStates = (
   left: EvaluatedState,
   right: EvaluatedState,
@@ -522,6 +514,8 @@ export const compareEvaluatedStates = (
 ): number => {
   const scoreComparison = compareScores(buildScore(left, context), buildScore(right, context));
   if (scoreComparison !== 0) return scoreComparison;
+  const versionComparison = compareStateVersions(left.state, right.state);
+  if (versionComparison !== 0) return versionComparison;
   const result = createStateKey(left.state).localeCompare(createStateKey(right.state));
   return result;
 };

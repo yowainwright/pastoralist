@@ -589,11 +589,25 @@ test("e2e: full scan pipeline — mocked OSV fetch populates vulnerableRange and
   const pkgPath = createFixture("scan-pipeline-seam", {
     name: "test-scan-seam",
     version: "1.0.0",
-    dependencies: { lodash: "4.17.15" },
+    dependencies: { parent: "1.0.0" },
   });
-
+  const root = dirname(pkgPath);
+  const parent = { name: "parent", version: "1.0.0", dependencies: { lodash: "^4.17.0" } };
+  mkdirSync(join(root, "node_modules/parent"), { recursive: true });
+  writeFileSync(join(root, "node_modules/parent/package.json"), JSON.stringify(parent));
+  writeFileSync(
+    join(root, "package-lock.json"),
+    JSON.stringify({
+      lockfileVersion: 3,
+      packages: {
+        "": { dependencies: { parent: "1.0.0" } },
+        "node_modules/parent": parent,
+        "node_modules/lodash": { version: "4.17.15" },
+      },
+    }),
+  );
   const mockOSVBatchResponse = {
-    results: [{ vulns: [{ id: "GHSA-p6mc-m468-83gw" }] }],
+    results: [{ vulns: [] }, { vulns: [{ id: "GHSA-p6mc-m468-83gw" }] }],
   };
   const mockOSVVulnResponse = {
     id: "GHSA-p6mc-m468-83gw",

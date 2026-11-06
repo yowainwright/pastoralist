@@ -11,7 +11,7 @@ import { pluralSuffix } from "../../utils";
 import type { CliGraph } from "../types";
 import type { SecurityChecker } from "../../core/security";
 import type { SecurityCheckRuntimeOptions } from "../../core/security/types";
-import { getSeverityScore } from "../../core/security/utils";
+import { canApplySecurityFix, getSeverityScore } from "../../core/security/utils";
 import { resolve } from "node:path";
 import { applyOverridesToConfig, withRemovalState } from "../../core/package";
 import {
@@ -430,9 +430,13 @@ export const verifyRemovals = async (
 };
 
 const toSecurityAlertSummary = (alert: SecurityAlert) => {
-  const { packageName, cves, description, patchedVersion, fixAvailable } = alert;
+  const { packageName, cves, description, patchedVersion, fixAvailable, fixNotice } = alert;
   const severity = alert.severity || "unknown";
   const summary = { packageName, severity, cves, description, patchedVersion, fixAvailable };
+  if (fixNotice) {
+    const reported = Object.assign({}, summary, { fixNotice });
+    return reported;
+  }
   return summary;
 };
 
@@ -450,7 +454,7 @@ type SecurityFixWorkflow = {
   securityPhase: {
     securityResult: Pick<SecurityResultSummary, "securityAlerts">;
     securityOverrides: SecurityOverride[];
-    mergedOptions: Pick<Options, "securityOverrides" | "securityOverrideDetails">;
+    mergedOptions: Pick<Options, "securityOverrides" | "securityOverrideDetails" | "config">;
   };
   updateContext: {
     overrideSource?: { overrides: OverridesType };
@@ -485,6 +489,35 @@ const findSafeSecurityFix = (
   return candidate;
 };
 
+const hasDirectDependencyUpdate = (
+  candidate: SecurityOverride,
+  workflow: SecurityFixWorkflow,
+): boolean => {
+  if (!candidate.approved) return false;
+  const updated =
+    candidate.dependencyFields?.every((field) => {
+      const value = workflow.securityPhase.mergedOptions.config?.[field]?.[candidate.packageName];
+      const version = value?.replace(/^[~^]/, "");
+      const matches = version === candidate.toVersion;
+      return matches;
+    }) ?? false;
+  return updated;
+};
+
+const hasNewOverride = (candidate: SecurityOverride, workflow: SecurityFixWorkflow): boolean => {
+  const { packageName } = candidate;
+  const generatedVersionMatches =
+    workflow.securityPhase.mergedOptions.securityOverrides?.[packageName] === candidate.toVersion;
+  const finalVersionMatches =
+    workflow.updateContext.finalOverrides?.[packageName] === candidate.toVersion;
+  const alreadyConfigured =
+    candidate.alreadyConfigured ??
+    workflow.updateContext.overrideSource?.overrides[packageName] === candidate.toVersion;
+  const overrideIsNew = !alreadyConfigured;
+  const result = generatedVersionMatches && finalVersionMatches && overrideIsNew;
+  return result;
+};
+
 const hasNewSecurityFixForAlert = (
   alert: SecurityAlertFixSummary,
   workflow: SecurityFixWorkflow,
@@ -493,15 +526,12 @@ const hasNewSecurityFixForAlert = (
   if (!hasAvailablePatch) return false;
   const candidate = findSafeSecurityFix(alert, workflow);
   if (!candidate) return false;
-  const generatedVersionMatches =
-    workflow.securityPhase.mergedOptions.securityOverrides?.[alert.packageName] ===
-    candidate.toVersion;
-  const finalVersionMatches =
-    workflow.updateContext.finalOverrides?.[alert.packageName] === candidate.toVersion;
-  const overrideIsNew =
-    workflow.updateContext.overrideSource?.overrides[alert.packageName] !== candidate.toVersion;
-  const result = generatedVersionMatches && finalVersionMatches && overrideIsNew;
-  return result;
+  if (candidate.dependencyFields?.length) {
+    const updated = hasDirectDependencyUpdate(candidate, workflow);
+    return updated;
+  }
+  const updated = hasNewOverride(candidate, workflow);
+  return updated;
 };
 
 export const hasAppliedSecurityFixes = (workflow: SecurityFixWorkflow): boolean => {
@@ -520,7 +550,7 @@ const toVulnerabilityInfo = (alert: SecurityAlert): VulnerabilityInfo => {
   const title = alert.title || alert.description || "Vulnerability";
   const severity = alert.severity || "unknown";
   const currentVersion = alert.currentVersion || "?";
-  const { packageName, cves, fixAvailable, patchedVersion, url } = alert;
+  const { packageName, cves, fixAvailable, patchedVersion, url, fixNotice } = alert;
   const result: VulnerabilityInfo = {
     severity,
     packageName,
@@ -530,6 +560,7 @@ const toVulnerabilityInfo = (alert: SecurityAlert): VulnerabilityInfo => {
     fixAvailable,
     patchedVersion,
     url,
+    fixNotice,
   };
   return result;
 };
@@ -557,6 +588,16 @@ const shouldShowFixesApplied = (
   securityOverrides.length > 0 &&
   Boolean(mergedOptions.forceSecurityRefactor || mergedOptions.interactive);
 
+const isWrittenSecurityFix = (fix: SecurityOverride, options: Options): boolean => {
+  if (!canApplySecurityFix(fix)) return false;
+  if (fix.dependencyFields?.length) {
+    const approved = fix.approved === true;
+    return approved;
+  }
+  const matches = options.securityOverrides?.[fix.packageName] === fix.toVersion;
+  return matches;
+};
+
 export const renderSecurityFindings = (...args: SecurityFindingsArgs): void => {
   const [graph, alerts, securityOverrides, mergedOptions, packagesScanned] = args;
   alerts.map(toVulnerabilityInfo).forEach((info) => {
@@ -565,8 +606,9 @@ export const renderSecurityFindings = (...args: SecurityFindingsArgs): void => {
 
   graph.endPhase(buildSecurityMessage(alerts.length, packagesScanned));
 
-  if (shouldShowFixesApplied(securityOverrides, mergedOptions)) {
-    renderSecurityFixes(graph, securityOverrides);
+  const applicable = securityOverrides.filter((fix) => isWrittenSecurityFix(fix, mergedOptions));
+  if (shouldShowFixesApplied(applicable, mergedOptions)) {
+    renderSecurityFixes(graph, applicable);
   }
 };
 

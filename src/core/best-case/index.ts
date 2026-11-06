@@ -17,6 +17,7 @@ import type {
   BestCaseResultInput,
   BestCaseSearchResult,
   BestCaseState,
+  BestCasePackageChoice,
   EvaluatedState,
   EvaluationContext,
   OptimizeBestCaseOptions,
@@ -165,16 +166,29 @@ export const optimizeBestCasePortfolio = async (
   return result;
 };
 
+const constrainChoice = (
+  choice: BestCasePackageChoice,
+  filter: OptimizeSecurityOverridesOptions["candidateFilter"],
+): BestCasePackageChoice => {
+  const versions = choice.versions.filter((version) => {
+    const allowed = filter?.(choice.packageName, choice.currentVersion, version) ?? true;
+    return allowed;
+  });
+  const constrained = Object.assign({}, choice, { versions });
+  return constrained;
+};
+
 export const optimizeSecurityOverrides = async (
   options: OptimizeSecurityOverridesOptions,
 ): Promise<OptimizedSecurityOverrides> => {
   const baselineVersions = getBaselineVersions(options.baselinePackages ?? []);
-  const choices = buildBestCaseChoices(
+  const candidates = buildBestCaseChoices(
     options.vulnerablePackages,
     options.latestVersions,
     options.userOwnedVersions,
     baselineVersions,
   );
+  const choices = candidates.map((choice) => constrainChoice(choice, options.candidateFilter));
   const { evaluate, config } = options;
   const bestCase = await optimizeBestCasePortfolio({ choices, evaluate, config });
   const overrides = buildOverrides(choices, options.vulnerablePackages, bestCase);

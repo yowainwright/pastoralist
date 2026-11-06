@@ -112,6 +112,7 @@ export type VulnerabilityInfo = {
   fixAvailable: boolean;
   patchedVersion?: string;
   url?: string;
+  fixNotice?: string;
 };
 
 export type OverrideInfo = {

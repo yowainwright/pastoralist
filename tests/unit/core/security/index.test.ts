@@ -108,7 +108,7 @@ const createCheckerWithMockAlerts = (
 };
 
 const createBuiltInBestCaseConfig = (): PastoralistJSON => {
-  const dependencies2 = { alpha: "1.0.0" };
+  const dependencies2 = { "portfolio-parent": "1.0.0" };
   const pastoralistBestCase = { enabled: true };
   const pastoralist = { bestCase: pastoralistBestCase };
   const result = {
@@ -138,6 +138,7 @@ const getLockedPackagePath = (name: string, index: number): string => {
 
 const createBestCaseRoot = (
   packages: SecurityPackage[] = [{ name: "alpha", version: "1.0.0" }],
+  includeParent = false,
 ): string => {
   const root = path.join(TEST_DIR, "best-case-root");
   const entries = packages.map(({ name, version }, index) => {
@@ -145,9 +146,18 @@ const createBestCaseRoot = (
     return items;
   });
   const lockedPackages = Object.fromEntries([["", {}]].concat(entries));
+  const parent = {
+    name: "portfolio-parent",
+    version: "1.0.0",
+    dependencies: { alpha: "^1.0.0", beta: "^1.0.0" },
+  };
+  if (includeParent) lockedPackages["node_modules/portfolio-parent"] = parent;
   const lock = { lockfileVersion: 3, packages: lockedPackages };
   fs.mkdirSync(root, { recursive: true });
   fs.writeFileSync(path.join(root, "package-lock.json"), JSON.stringify(lock));
+  const parentDir = path.join(root, "node_modules", "portfolio-parent");
+  fs.mkdirSync(parentDir, { recursive: true });
+  fs.writeFileSync(path.join(parentDir, "package.json"), JSON.stringify(parent));
   return root;
 };
 
@@ -162,7 +172,7 @@ const createBestCaseOptions = (
   options: SecurityCheckRuntimeOptions = {},
   packages?: SecurityPackage[],
 ): SecurityCheckRuntimeOptions => {
-  const root = createBestCaseRoot(packages);
+  const root = createBestCaseRoot(packages, true);
   const assignResult = Object.assign({ root }, options);
   return assignResult;
 };
@@ -171,8 +181,8 @@ const createBestCaseAlert = (severity: SecurityAlert["severity"] = "high"): Secu
   const createAlertResult = createAlert({
     packageName: "alpha",
     currentVersion: "1.0.0",
-    vulnerableVersions: "<2.0.0",
-    patchedVersion: "2.0.0",
+    vulnerableVersions: "<1.1.0",
+    patchedVersion: "1.1.0",
     severity,
   });
   return createAlertResult;
@@ -191,9 +201,7 @@ const createPnpmPeerBestCaseRoot = (): string => {
 };
 
 const mockLatestBestCaseVersion = (checker: SecurityChecker): void => {
-  spyOn(checker as any, "fetchLatestForVulnerablePackages").mockResolvedValue(
-    new Map([["alpha", "2.0.0"]]),
-  );
+  spyOn(checker as any, "resolvePatchedVersions").mockResolvedValue(new Map([["alpha", "2.0.0"]]));
 };
 
 const createLockedBaselineChecker = (): SecurityChecker => {
@@ -622,7 +630,7 @@ const createPnpmAutoFixFixture = () => {
   const root = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-pnpm-autofix-"));
   const packagePath = path.join(root, "package.json");
   const workspacePath = path.join(root, "pnpm-workspace.yaml");
-  const packageJsonDependencies = { lodash: "4.17.20" };
+  const packageJsonDependencies = { "parent-fixture": "1.0.0" };
   const packageJson = {
     name: "pnpm-project",
     version: "1.0.0",
@@ -648,7 +656,7 @@ const assertPnpmAutoFix = (fixture: ReturnType<typeof createPnpmAutoFixFixture>)
   assert.ok(updatedWorkspace.includes('"lodash": "4.17.21"'));
 };
 
-const externalOverridesDependencies = { lodash: "4.17.20" };
+const externalOverridesDependencies = { "parent-fixture": "1.0.0" };
 const EXTERNAL_OVERRIDES_PACKAGE = {
   name: "external-overrides",
   version: "1.0.0",
@@ -801,7 +809,7 @@ test("Override Generation - should include URL in overrides when available", () 
   assert.strictEqual(overrides[0].url, LODASH_URL);
 });
 
-test("Override Generation - should use latest version when available and newer than patched", () => {
+test("Override Generation - uses the minimum patched version even when latest is newer", () => {
   const checker = new SecurityChecker({ debug: false });
   const vulnerablePackages = [createAlert()];
 
@@ -809,7 +817,7 @@ test("Override Generation - should use latest version when available and newer t
   const overrides = (checker as any).generateOverrides(vulnerablePackages, latestVersions);
 
   assert.strictEqual(overrides.length, 1);
-  assert.strictEqual(overrides[0].toVersion, "4.17.25");
+  assert.strictEqual(overrides[0].toVersion, "4.17.21");
 });
 
 test("Override Generation - should use patched version when latest equals patched", () => {
@@ -850,8 +858,8 @@ test("Override Generation - should handle multiple packages with different lates
   const lodashOverride = overridesByName.get("lodash");
   const axiosOverride = overridesByName.get("axios");
 
-  assert.strictEqual(lodashOverride.toVersion, "4.17.25");
-  assert.strictEqual(axiosOverride.toVersion, "0.21.4");
+  assert.strictEqual(lodashOverride.toVersion, "4.17.21");
+  assert.strictEqual(axiosOverride.toVersion, "0.21.2");
 });
 
 test("Override Generation - should prefer patched when latest is older (edge case)", () => {
@@ -890,7 +898,7 @@ const mockLodashRegistryFetch = () =>
     } as Response),
   );
 
-test("fetchLatestForVulnerablePackages - should extract packages with fixes", async () => {
+test("resolvePatchedVersions - should extract packages with fixes", async () => {
   const checker = new SecurityChecker({ debug: false, noCache: true });
   const unpatchedAlertFields = Object.assign({}, { packageName: "no-fix-pkg" }, NO_FIX_FIELDS);
   const vulnerablePackages = [createAlert(), createAlert(unpatchedAlertFields)];
@@ -898,7 +906,7 @@ test("fetchLatestForVulnerablePackages - should extract packages with fixes", as
   const mockFetch = mockLodashRegistryFetch();
 
   const result = await withMockedFetch(mockFetch, () =>
-    (checker as any).fetchLatestForVulnerablePackages(vulnerablePackages),
+    (checker as any).resolvePatchedVersions(vulnerablePackages),
   );
 
   assert.strictEqual(result instanceof Map, true);
@@ -1298,14 +1306,14 @@ test("checkSecurity - rejects an unreadable lockfile inventory", async () => {
 
 const alphaAlertCves = ["CVE-ALPHA"];
 const betaAlertCves = ["CVE-BETA"];
-const dependencies11 = { alpha: "1.0.0", beta: "1.0.0" };
+const dependencies11 = { "portfolio-parent": "1.0.0" };
 const pastoralist2BestCase = { enabled: true };
 const pastoralist2 = { bestCase: pastoralist2BestCase };
 const ALPHA_PORTFOLIO_ALERT: SecurityAlert = {
   packageName: "alpha",
   currentVersion: "1.0.0",
-  vulnerableVersions: "<2.0.0",
-  patchedVersion: "2.0.0",
+  vulnerableVersions: "<1.1.0",
+  patchedVersion: "1.1.0",
   severity: "critical",
   title: "Alpha vulnerability",
   cves: alphaAlertCves,
@@ -1314,8 +1322,8 @@ const ALPHA_PORTFOLIO_ALERT: SecurityAlert = {
 const BETA_PORTFOLIO_ALERT: SecurityAlert = {
   packageName: "beta",
   currentVersion: "1.0.0",
-  vulnerableVersions: "<2.0.0",
-  patchedVersion: "2.0.0",
+  vulnerableVersions: "<1.1.0",
+  patchedVersion: "1.1.0",
   severity: "high",
   title: "Beta vulnerability",
   cves: betaAlertCves,
@@ -1333,9 +1341,9 @@ const betaOnlyAlerts = [BETA_PORTFOLIO_ALERT];
 const alphaOnlyAlerts = [ALPHA_PORTFOLIO_ALERT];
 const mixedOnlyAlerts = [MIXED_PORTFOLIO_ALERT];
 const PORTFOLIO_ALERTS_BY_STATE: Record<string, SecurityAlert[]> = {
-  "2.0.0:1.0.0": betaOnlyAlerts,
-  "1.0.0:2.0.0": alphaOnlyAlerts,
-  "2.0.0:2.0.0": mixedOnlyAlerts,
+  "1.1.0:1.0.0": betaOnlyAlerts,
+  "1.0.0:1.1.0": alphaOnlyAlerts,
+  "1.1.0:1.1.0": mixedOnlyAlerts,
 };
 const PORTFOLIO_LATEST_VERSIONS: Array<[string, string]> = [
   ["alpha", "2.0.0"],
@@ -1351,7 +1359,7 @@ const PORTFOLIO_CONFIG: PastoralistJSON = {
   dependencies: dependencies11,
   pastoralist: pastoralist2,
 };
-const PORTFOLIO_SELECTED_STATE = { alpha: "2.0.0", beta: "1.0.0" };
+const PORTFOLIO_SELECTED_STATE = { alpha: "1.1.0", beta: "1.0.0" };
 
 const evaluatePortfolioState = (state: Record<string, string>) => {
   const key = `${state.alpha}:${state.beta}`;
@@ -1363,7 +1371,7 @@ const evaluatePortfolioState = (state: Record<string, string>) => {
 test("checkSecurity - applies the best-case portfolio and records its reason", async () => {
   const checker = createCheckerWithMockAlerts({}, portfolioAlerts);
   const latestVersions = new Map(PORTFOLIO_LATEST_VERSIONS);
-  spyOn(checker as any, "fetchLatestForVulnerablePackages").mockResolvedValue(latestVersions);
+  spyOn(checker as any, "resolvePatchedVersions").mockResolvedValue(latestVersions);
   const bestCaseOptions = { bestCaseEvaluator: evaluatePortfolioState };
   const options = createBestCaseOptions(bestCaseOptions, PORTFOLIO_PACKAGES);
   const result = await checker.checkSecurity(PORTFOLIO_CONFIG, options);
@@ -1395,7 +1403,8 @@ test("checkSecurity - reports independent updates for a non-interactive portfoli
   const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
 
   assert.notStrictEqual(result.bestCase, undefined);
-  assert.deepStrictEqual(result.updates, [update]);
+  assertMatchObject(result.updates[0], update);
+  assert.match(result.updates[0].approvalRequired ?? "", /declared dependency range/);
 });
 
 test("checkSecurity - hard-constrains configured user-owned overrides", async () => {
@@ -1476,7 +1485,7 @@ test("checkSecurity - filters built-in best-case alerts by severity", async () =
   const lowAlert = createBestCaseAlert("low");
   const checker = new SecurityChecker({ provider: "osv", noCache: true });
   spyOn(getFirstProvider(checker), "fetchAlerts").mockImplementation((packages) => {
-    const isPatchedVersion = packages[0].version === "2.0.0";
+    const isPatchedVersion = packages[0].version === "1.1.0";
     const alerts = isPatchedVersion ? [lowAlert] : [highAlert];
     const resolveResult = Promise.resolve(alerts);
     return resolveResult;
@@ -1544,7 +1553,7 @@ test("checkSecurity - reuses cached baseline without best-case progress spam", a
 test("checkSecurity - rejects incomplete built-in best-case evaluations", async () => {
   const checker = new SecurityChecker({ provider: "osv", noCache: true });
   spyOn(getFirstProvider(checker), "fetchAlerts").mockImplementation((packages) => {
-    const isUnavailable = packages[0].version === "2.0.0";
+    const isUnavailable = packages[0].version === "1.1.0";
     if (isUnavailable) {
       const rejectResult = Promise.reject(new Error("provider unavailable"));
       return rejectResult;
@@ -1571,7 +1580,7 @@ test("checkSecurity - uses standard overrides for state-unaware providers", asyn
 
   assert.strictEqual(result.bestCase, undefined);
   assert.strictEqual(result.overrides.length, 1);
-  assert.strictEqual(result.overrides[0].toVersion, "2.0.0");
+  assert.strictEqual(result.overrides[0].toVersion, "1.1.0");
 });
 
 const alphaSecondVersionFields = {
@@ -1589,7 +1598,7 @@ test("checkSecurity - uses standard overrides for multi-version baselines", asyn
   const secondAlert = Object.assign({}, firstAlert, alphaSecondVersionFields);
   const checker = createCheckerWithMockAlerts({}, [firstAlert, secondAlert]);
   const latestVersions = new Map(alphaThreeLatest);
-  spyOn(checker as any, "fetchLatestForVulnerablePackages").mockResolvedValue(latestVersions);
+  spyOn(checker as any, "resolvePatchedVersions").mockResolvedValue(latestVersions);
 
   const options = createBestCaseOptions({}, ALPHA_MULTI_VERSION_INVENTORY);
   const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
@@ -1616,7 +1625,7 @@ test("checkSecurity - uses standard overrides when an installed version has no a
   const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), options);
 
   assert.strictEqual(result.bestCase, undefined);
-  assert.strictEqual(result.overrides[0].toVersion, "2.0.0");
+  assert.strictEqual(result.overrides[0].toVersion, "1.1.0");
   assert.strictEqual(fetchAlerts.mock.callCount(), 1);
 });
 
@@ -1629,7 +1638,7 @@ test("checkSecurity - uses standard overrides when lockfile inventory is incompl
   const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), { root });
 
   assert.strictEqual(result.bestCase, undefined);
-  assert.strictEqual(result.overrides[0].toVersion, "2.0.0");
+  assert.strictEqual(result.overrides[0].toVersion, "1.1.0");
 });
 
 test("checkSecurity - resolves lockfile inventory beside the package manifest", async () => {
@@ -1642,7 +1651,7 @@ test("checkSecurity - resolves lockfile inventory beside the package manifest", 
   const result = await checker.checkSecurity(createBuiltInBestCaseConfig(), { packageJsonPath });
 
   assert.strictEqual(result.bestCase, undefined);
-  assert.strictEqual(result.overrides[0].toVersion, "2.0.0");
+  assert.strictEqual(result.overrides[0].toVersion, "1.1.0");
 });
 
 test("checkSecurity - omits best-case provenance when interactive approval is declined", async () => {
@@ -1798,7 +1807,7 @@ test("checkSecurity - deduplicates matching root and workspace alerts", async ()
   const alert = createAlert(WORKSPACE_LODASH_ALERT_FIELDS);
   const cacheDir = path.join(root, ".cache");
   const checker = createCheckerWithMockAlerts({ root, cacheDir }, [alert]);
-  spyOn(checker as any, "fetchLatestForVulnerablePackages").mockResolvedValue(new Map());
+  spyOn(checker as any, "resolvePatchedVersions").mockResolvedValue(new Map());
 
   try {
     const result = await checker.checkSecurity(WORKSPACE_ROOT_PACKAGE, { root, depPaths });
@@ -2231,7 +2240,7 @@ test("createBackup - should use configured root for project cache", () => {
   }
 });
 
-const npmAutofixDependencies = { lodash: "4.17.20" };
+const npmAutofixDependencies = { "parent-fixture": "1.0.0" };
 const NPM_AUTOFIX_PACKAGE = {
   name: "test",
   version: "1.0.0",
@@ -2344,7 +2353,9 @@ test("applyAutoFix - should throw error when package.json not found", async () =
 const npmPackageManager = { packageManager: "npm@11.5.2" };
 const createNpmPackageRoot = (): string => {
   const root = fs.mkdtempSync(path.join(tmpdir(), "pastoralist-cwd-autofix-"));
-  const npmPackage = Object.assign({}, mockPackageJson, npmPackageManager);
+  const npmPackage = Object.assign({}, mockPackageJson, npmPackageManager, {
+    dependencies: npmAutofixDependencies,
+  });
   fs.writeFileSync(path.join(root, "package.json"), JSON.stringify(npmPackage));
   return root;
 };
@@ -2852,7 +2863,7 @@ afterEach(() => {
   }
 });
 
-const createTestPackageDependencies = { lodash: "^4.17.20" };
+const createTestPackageDependencies = { "parent-fixture": "1.0.0" };
 const PROJECT_BACKUP_DIR = path.join("node_modules", ".cache", "pastoralist", "backups");
 const BACKUP_TEST_PACKAGE = {
   name: "backup-test",
@@ -2881,10 +2892,12 @@ test("applyAutoFix handles empty overrides array", () => {
   });
 
   const checker = new SecurityChecker({ provider: "osv" });
-  rememberBackup(checker.applyAutoFix([], pkgPath));
+  const original = fs.readFileSync(pkgPath, "utf8");
+  assert.equal(checker.applyAutoFix([], pkgPath), undefined);
 
   const result = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
-  assert.notStrictEqual(result.pastoralist, undefined);
+  assert.equal(result.pastoralist, undefined);
+  assert.equal(fs.readFileSync(pkgPath, "utf8"), original);
 });
 
 const createTestPackageOverrides = { minimist: "1.2.8" };
@@ -3058,8 +3071,8 @@ const NEWER_PATCH_BASE_ALERT = {
   title: "Vuln",
   fixAvailable: true,
 };
-const NEWER_PATCH_CANDIDATES = ["4.17.12", "4.17.21", "4.17.15", undefined];
-test("findNewerPatch - returns the highest newer patched version", () => {
+const NEWER_PATCH_CANDIDATES = ["4.17.12", "4.17.21", "4.17.22", "4.17.15", undefined];
+test("findNewerPatch - returns the lowest newer version resolving the advisories", () => {
   const checker = new SecurityChecker({ provider: "osv", noCache: true });
   const harness = checker as unknown as {
     findNewerPatch: (alerts: SecurityAlert[], version: string) => SecurityAlert | undefined;
@@ -3093,7 +3106,7 @@ test("Security - applyAutoFix adds security overrides to appendix", async () => 
     name: "test-package",
     version: "1.0.0",
     dependencies: {
-      "test-dep": "1.0.0",
+      "parent-fixture": "1.0.0",
     },
   };
 
@@ -3139,7 +3152,7 @@ test("Security - applyAutoFix preserves existing appendix entries", async () => 
     name: "test-package",
     version: "1.0.0",
     dependencies: {
-      "test-dep": "1.0.0",
+      "parent-fixture": "1.0.0",
       "existing-dep": "2.0.0",
     },
     overrides: {
@@ -3192,7 +3205,7 @@ test("Security - applyAutoFix includes CVE and severity in appendix", async () =
     name: "test-package",
     version: "1.0.0",
     dependencies: {
-      "vuln-package": "1.0.0",
+      "parent-fixture": "1.0.0",
     },
   };
 
@@ -3202,7 +3215,7 @@ test("Security - applyAutoFix includes CVE and severity in appendix", async () =
     {
       packageName: "vuln-package",
       fromVersion: "1.0.0",
-      toVersion: "2.0.0",
+      toVersion: "1.1.0",
       reason: "Security fix: Critical RCE vulnerability (critical)",
       severity: "critical",
       cves: ["CVE-2024-12345"],
@@ -3217,7 +3230,7 @@ test("Security - applyAutoFix includes CVE and severity in appendix", async () =
   const updatedContent = fs.readFileSync(testPackageJsonPath, "utf-8");
   const updatedPackageJson = JSON.parse(updatedContent);
 
-  const entry = updatedPackageJson.pastoralist.appendix["vuln-package@2.0.0"];
+  const entry = updatedPackageJson.pastoralist.appendix["vuln-package@1.1.0"];
 
   assert.strictEqual(entry.ledger.securityProvider, "osv");
   assert.strictEqual(entry.ledger.securityChecked, true);
@@ -3229,9 +3242,7 @@ test("Security - applyAutoFix handles multiple overrides", async () => {
     name: "test-package",
     version: "1.0.0",
     dependencies: {
-      "package-a": "1.0.0",
-      "package-b": "2.0.0",
-      "package-c": "3.0.0",
+      "parent-fixture": "1.0.0",
     },
   };
 

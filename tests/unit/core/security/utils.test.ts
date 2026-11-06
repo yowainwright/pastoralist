@@ -1,3 +1,4 @@
+import type { SecurityFixContext } from "../../../../src/core/security/types";
 import {
   assertCalledWith,
   assertContainsEqual,
@@ -20,6 +21,11 @@ moduleMock.module("readline", {
 });
 
 const {
+  applyDirectDependencyUpdates,
+  canApplySecurityFix,
+  classifySecurityFix,
+  getCompatibleGlobalFixes,
+  selectPatchedVersion,
   CLIInstaller,
   getSeverityScore,
   deduplicateAlerts,
@@ -1569,4 +1575,138 @@ test("toDependabotAlerts - keeps only alerts with vulnerability package and advi
 
 test("toDependabotAlerts - returns empty list for non-array input", () => {
   assert.deepStrictEqual(toDependabotAlerts({ message: "Not Found" }), []);
+});
+
+const svelteAlert: SecurityAlert = {
+  packageName: "@sveltejs/kit",
+  currentVersion: "2.70.3",
+  patchedVersion: "3.0.0",
+  vulnerableVersions: "<3.0.0",
+  severity: "low",
+  title: "GHSA-27mw-82g8-phjj",
+  fixAvailable: true,
+};
+const svelteFix: SecurityOverride = {
+  packageName: "@sveltejs/kit",
+  fromVersion: "2.70.3",
+  toVersion: "3.0.0",
+  reason: svelteAlert.title,
+  severity: "low",
+};
+const context: SecurityFixContext = {
+  config: { name: "fixture", version: "1.0.0", dependencies: { "@sveltejs/kit": "^2.70.3" } },
+  inventory: [{ name: "@sveltejs/kit", version: "2.70.3" }],
+  ranges: new Map(),
+};
+
+test("SvelteKit migration is reported and cannot become an automatic override", () => {
+  assert.equal(selectPatchedVersion(svelteAlert, [svelteAlert]), "3.0.0");
+  const fix = classifySecurityFix(svelteFix, context);
+  assert.equal(fix.approvalRequired, "Fix requires a major upgrade");
+  assert.equal(canApplySecurityFix(fix), false);
+  assert.deepEqual(getCompatibleGlobalFixes([fix]), []);
+  assert.deepEqual(applyDirectDependencyUpdates(context.config, [fix]), context.config);
+});
+
+test("approval updates the original dependency field and preserves its operator", () => {
+  const fix = Object.assign({}, classifySecurityFix(svelteFix, context), { approved: true });
+  const updated = applyDirectDependencyUpdates(context.config, [fix]);
+  assert.equal(updated.dependencies?.[fix.packageName], "^3.0.0");
+  assert.equal(context.config.dependencies?.[fix.packageName], "^2.70.3");
+  assert.deepEqual(getCompatibleGlobalFixes([fix]), []);
+});
+
+test("same-major devDependency fixes also require approval", () => {
+  const config = { name: "fixture", version: "1.0.0", devDependencies: { tool: "~1.2.0" } };
+  const fix = Object.assign({}, svelteFix, {
+    packageName: "tool",
+    fromVersion: "1.2.0",
+    toVersion: "1.2.1",
+  });
+  const classified = classifySecurityFix(
+    fix,
+    Object.assign({}, context, { config, inventory: [] }),
+  );
+  assert.equal(canApplySecurityFix(classified), false);
+  assert.deepEqual(classified.dependencyFields, ["devDependencies"]);
+  const approved = Object.assign({}, classified, { approved: true });
+  assert.equal(applyDirectDependencyUpdates(config, [approved]).devDependencies?.tool, "~1.2.1");
+});
+
+test("approved direct updates remove their override and preserve unrelated pnpm settings", () => {
+  const config = Object.assign({}, context.config, {
+    overrides: { "@sveltejs/kit": "3.1.1" },
+    pnpm: {
+      overrides: { "@sveltejs/kit": "3.1.1", other: "1.0.1" },
+      patchedDependencies: { "other@1.0.1": "patches/other.patch" },
+    },
+  });
+  const fix = Object.assign({}, classifySecurityFix(svelteFix, context), { approved: true });
+  const updated = applyDirectDependencyUpdates(config, [fix]);
+  assert.equal(updated.dependencies?.[fix.packageName], "^3.0.0");
+  assert.equal(Object.hasOwn(updated, "overrides"), false);
+  assert.deepEqual(updated.pnpm, {
+    overrides: { other: "1.0.1" },
+    patchedDependencies: { "other@1.0.1": "patches/other.patch" },
+  });
+});
+
+test("non-registry direct declarations require a manual manifest change", () => {
+  const config = Object.assign({}, context.config, {
+    dependencies: { "@sveltejs/kit": "workspace:^" },
+  });
+  const fix = classifySecurityFix(svelteFix, Object.assign({}, context, { config }));
+  assert.match(fix.blocked ?? "", /non-registry/);
+  const approved = Object.assign({}, fix, { approved: true });
+  assert.equal(canApplySecurityFix(approved), false);
+  assert.deepEqual(applyDirectDependencyUpdates(config, [approved]), config);
+});
+
+test("minimum fix must resolve every known advisory", () => {
+  const first = Object.assign({}, svelteAlert, {
+    currentVersion: "3.0.0",
+    patchedVersion: "3.0.1",
+    vulnerableVersions: "<3.0.1",
+  });
+  const second = Object.assign({}, first, {
+    patchedVersion: "3.0.2",
+    vulnerableVersions: "<3.0.2",
+  });
+  assert.equal(selectPatchedVersion(first, [first, second]), "3.0.2");
+});
+
+test("transitive fixes must satisfy every parent range", () => {
+  const config = { name: "fixture", version: "1.0.0" };
+  const fix = Object.assign({}, svelteFix, {
+    packageName: "child",
+    fromVersion: "1.2.0",
+    toVersion: "1.3.0",
+  });
+  const ranges = new Map([["child", ["^1.0.0", "~1.2.0"]]]);
+  const classified = classifySecurityFix(fix, { config, inventory: [], ranges });
+  assert.equal(classified.approvalRequired, "Fix falls outside a declared dependency range");
+  assert.equal(canApplySecurityFix(classified), false);
+  ranges.set("child", ["^1.0.0", "^1.2.0"]);
+  assert.equal(
+    canApplySecurityFix(classifySecurityFix(fix, { config, inventory: [], ranges })),
+    true,
+  );
+});
+
+test("different installed release lines never collapse into one global override", () => {
+  const config = { name: "fixture", version: "1.0.0" };
+  const inventory = [
+    { name: "child", version: "1.2.0" },
+    { name: "child", version: "2.2.0" },
+  ];
+  const fix = Object.assign({}, svelteFix, {
+    packageName: "child",
+    fromVersion: "1.2.0",
+    toVersion: "1.2.1",
+  });
+  const classified = classifySecurityFix(fix, { config, inventory, ranges: new Map() });
+  assert.match(classified.blocked ?? "", /coexisting release lines/);
+  assert.equal(canApplySecurityFix(Object.assign({}, classified, { approved: true })), false);
+  const second = Object.assign({}, fix, { fromVersion: "2.2.0", toVersion: "2.2.1" });
+  assert.deepEqual(getCompatibleGlobalFixes([fix, second]), []);
 });

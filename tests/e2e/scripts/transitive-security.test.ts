@@ -419,10 +419,13 @@ const registerFullProfileScenario = () => {
     const before = readFileSync(join(root, "package.json"), "utf8");
     const lockPath = join(root, "pnpm-lock.yaml");
     const lock = readFileSync(lockPath, "utf8");
+    const workspacePath = join(root, "pnpm-workspace.yaml");
+    const workspace = readFileSync(workspacePath, "utf8");
     const child = runCli(root, ["--forceSecurityRefactor"]);
     const result = assertResult(child, FULL_PROFILE_SCENARIO);
     assertFullProfilePreserved(root, before, result);
     assert.strictEqual(readFileSync(lockPath, "utf8"), lock);
+    assert.strictEqual(readFileSync(workspacePath, "utf8"), workspace);
   });
 };
 

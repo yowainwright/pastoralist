@@ -108,7 +108,9 @@ const queryResult = ({ package: pkg, version }: OsvQuery) => {
   const finding = VULNERABILITIES.get(pkg.name);
   const clean = {};
   if (!finding) return clean;
-  const vulnerable = version === finding.version;
+  const isInstalledVersion = version === finding.version;
+  const isKitV2 = pkg.name === KIT_PACKAGE.name && version.startsWith("2.");
+  const vulnerable = isInstalledVersion || isKitV2;
   if (!vulnerable) return clean;
   const { id } = finding.advisory;
   const vuln = { id };
@@ -379,6 +381,51 @@ const registerSvelteKitScenario = (field: DirectField) => {
   });
 };
 
+const FULL_PROFILE_ALERTS = ["@sveltejs/kit"];
+const FULL_PROFILE_SCENARIO: Scenario = Object.assign({}, KIT_SCENARIO, {
+  alerts: FULL_PROFILE_ALERTS,
+});
+
+const assertSvelteKitQueriesStayV2 = (root: string) => {
+  const records = readFileSync(join(root, "queries.jsonl"), "utf8").trim().split("\n");
+  const queries = records.flatMap((record) => JSON.parse(record) as OsvQuery[]);
+  const kitQueries = queries.filter((query) => query.package.name === "@sveltejs/kit");
+  assert.ok(kitQueries.length > 0);
+  assert.ok(kitQueries.every((query) => query.version.startsWith("2.")));
+};
+
+const assertFullProfilePreserved = (root: string, before: string, result: CliResult) => {
+  const original = JSON.parse(before);
+  const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  const installed = JSON.parse(
+    readFileSync(join(root, "node_modules/@sveltejs/kit/package.json"), "utf8"),
+  );
+  assert.match(installed.version, /^2\./);
+  assert.strictEqual(original.pastoralist.bestCase.enabled, true);
+  assert.strictEqual(manifest.devDependencies["@sveltejs/kit"], "^2.70.3");
+  assert.deepStrictEqual(manifest.devDependencies, original.devDependencies);
+  assert.deepStrictEqual(manifest.dependencies, original.dependencies);
+  assert.strictEqual(result.appliedOverrides["@sveltejs/kit"], undefined);
+  const alert = result.securityAlerts.find(({ packageName }) => packageName === "@sveltejs/kit");
+  assert.strictEqual(alert?.patchedVersion, "3.0.0");
+  assert.match(alert?.fixNotice ?? "", /major upgrade/);
+  assertSvelteKitQueriesStayV2(root);
+};
+
+const registerFullProfileScenario = () => {
+  const root = process.env.PASTORALIST_E2E_FULL_PROFILE;
+  if (!root) return;
+  test("built CLI preserves full-profile SvelteKit 2 with best-case security enabled", () => {
+    const before = readFileSync(join(root, "package.json"), "utf8");
+    const lockPath = join(root, "pnpm-lock.yaml");
+    const lock = readFileSync(lockPath, "utf8");
+    const child = runCli(root, ["--forceSecurityRefactor"]);
+    const result = assertResult(child, FULL_PROFILE_SCENARIO);
+    assertFullProfilePreserved(root, before, result);
+    assert.strictEqual(readFileSync(lockPath, "utf8"), lock);
+  });
+};
+
 const run = () => {
   const isCliPreload = process.argv[1] !== TEST_FILE;
   if (isCliPreload) {
@@ -388,6 +435,7 @@ const run = () => {
   scenarios.forEach(registerScenario);
   registerAutoFixScenario();
   DIRECT_FIELDS.forEach(registerSvelteKitScenario);
+  registerFullProfileScenario();
 };
 
 run();

@@ -67,6 +67,7 @@ run_docker_tests() {
   echo "🧪 Running E2E tests..."
   docker compose up --abort-on-container-exit e2e-pnpm
   docker compose run --rm e2e-pnpm-yaml
+  docker compose run --rm e2e-sveltekit2
   docker compose run --rm e2e-external-config
   docker compose run --rm e2e-js-mgrs
 

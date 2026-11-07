@@ -4,6 +4,11 @@ services:
       context: ../..
       dockerfile: tests/e2e/Dockerfile.js-mgrs
 
+  e2e-sveltekit2:
+    build:
+      context: ../..
+      dockerfile: tests/e2e/Dockerfile.sveltekit2
+
   e2e-n8n:
     build:
       context: ../..

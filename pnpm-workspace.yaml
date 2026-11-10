@@ -4,6 +4,11 @@ allowBuilds:
   "@parcel/watcher": true
   esbuild: true
   scriptc: true
+overrides:
+  "get-uri@8.0.1>basic-ftp": "6.2.1"
+  "@socketsecurity/socket-patch@2.0.0>zod": "4.6.6"
+  "test-exclude@8.0.0>glob": "14.0.2"
+  "test-exclude@8.0.0>minimatch": "11.0.1"
 minimumReleaseAgeExclude:
   - codependence@1.0.13
   - oxlint-plugin-legibility@0.0.5

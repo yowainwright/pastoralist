@@ -69,7 +69,7 @@ Options:
   --interactive                         Run security checks in interactive mode
   --hasWorkspaceSecurityChecks          Include workspace packages in security scan
   --promptForReasons                    Prompt for reasons when adding manual overrides
-  --strict                              Fail on any security check errors (network failures, API errors)
+  --strict                              Fail instead of skipping provider permission errors
   --summary                             Show summary metrics table after run
   --styleguide                          Render the Pastoralist DX component styleguide
   --onboard, --onboarding               Show first-run onboarding guidance

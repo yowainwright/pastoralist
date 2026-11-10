@@ -22,6 +22,7 @@ import {
   satisfiesVersionRange,
 } from "../../utils/semver";
 import { execFile } from "child_process";
+import { parseNpmAlias } from "../../utils/npm";
 import { promisify } from "util";
 import { logger } from "../../observability";
 import { red, yellow, cyan, gray } from "../../dx/utils";
@@ -1108,6 +1109,18 @@ export const isPatchable = (alert: SecurityAlert): alert is PatchableAlert => {
 
 const DIRECT_FIELDS = ["dependencies", "devDependencies"] as const;
 
+const hasDeclaredRegistryAlias = (config: PastoralistJSON, name: string): boolean => {
+  const groups = [
+    config.dependencies,
+    config.devDependencies,
+    config.optionalDependencies,
+    config.peerDependencies,
+  ];
+  const declarations = groups.flatMap((group) => Object.values(group ?? {}));
+  const aliased = declarations.some((spec) => parseNpmAlias(spec)?.name === name);
+  return aliased;
+};
+
 export const getDirectDependencyFields = (config: PastoralistJSON, name: string) => {
   const fields = DIRECT_FIELDS.filter((field) => Object.hasOwn(config[field] ?? {}, name));
   return fields;
@@ -1146,10 +1159,12 @@ export const isSecurityTargetSafe = (version: string, alerts: SecurityAlert[]): 
   return safe;
 };
 
-const getInstalledVersionBlocker = (
+const getInstalledFixBlocker = (
   fix: SecurityOverride,
   installed: SecurityPackage[],
 ): string | undefined => {
+  const hasAlias = installed.some((pkg) => Boolean(pkg.registryName));
+  if (hasAlias) return "Update npm alias dependency declarations manually";
   const blockers = installed.map((pkg) => {
     const differentLine = !isSameReleaseLine(pkg.version, fix.fromVersion);
     if (differentLine) return "Fix requires separate overrides for coexisting release lines";
@@ -1175,6 +1190,8 @@ const getGlobalFixBlocker = (
   context: SecurityFixContext,
 ): string | undefined => {
   if (fix.targetStillVulnerable) return "No proposed version resolves all known advisories";
+  if (hasDeclaredRegistryAlias(context.config, fix.packageName))
+    return "Update npm alias dependency declarations manually";
   const direct = getDirectDependencyFields(context.config, fix.packageName);
   if (direct.length) {
     const blocker = getDirectFixBlocker(fix, context.config);
@@ -1185,7 +1202,7 @@ const getGlobalFixBlocker = (
   if (context.workspace?.names.has(fix.packageName))
     return "Update the declaring workspace manifest explicitly";
   const installed = context.inventory.filter((pkg) => pkg.name === fix.packageName);
-  const blocker = getInstalledVersionBlocker(fix, installed);
+  const blocker = getInstalledFixBlocker(fix, installed);
   return blocker;
 };
 

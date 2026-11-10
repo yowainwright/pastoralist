@@ -126,6 +126,8 @@ tests/fixtures/package.json
 tests/fixtures/package-overrides.json
 tests/.test-monorepo*/
 tests/integration/.test-*/
+tests/unit/scripts/.turbo-cache-*/
+tests/unit/scripts/lint/.shell-cache-*/
 test-update-depPaths.json
 tests/fixtures/temp-*/
 e2e/test-project/

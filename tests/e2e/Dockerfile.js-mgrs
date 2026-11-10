@@ -2,15 +2,24 @@ FROM oven/bun:1.4.0-alpine@sha256:07235578f79ef8c6f97d94aee7938e76f5cdba5f21ae5d
 FROM node:26-alpine@sha256:aadf416b2cdce311a8811ba3f0608a61b77dbf997500e2eafe781b51f6a0b019
 
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
-RUN apk add --no-cache bash jq
+RUN apk add --no-cache bash jq diffutils
 RUN npm install --global pnpm@12.4.2 yarn@1.22.22
 
 WORKDIR /app
 COPY dist/ ./pastoralist/
 COPY package.json ./pastoralist/package.json
+COPY package.json ./package.json
 COPY tests/e2e/scripts/test-js-mgrs.sh ./tests/test-js-mgrs.sh
 COPY tests/e2e/scripts/test-top-level-mgrs.sh ./tests/test-top-level-mgrs.sh
 RUN chmod +x ./tests/test-js-mgrs.sh ./tests/test-top-level-mgrs.sh
+
+COPY tests/e2e/scripts/interactive.sh ./tests/interactive.sh
+COPY tests/e2e/scripts/test-interactive.sh ./tests/test-interactive.sh
+RUN chmod +x ./tests/interactive.sh && \
+    mkdir -p /app/e2e/interactive && \
+    for helper in pastoralist e2e-diff e2e-reset e2e-install; do \
+      ln -s /app/tests/interactive.sh "/usr/local/bin/$helper"; \
+    done
 
 ENV PASTORALIST_E2E_CLI=/app/pastoralist/index.js
 ENV npm_config_manage_package_manager_versions=false

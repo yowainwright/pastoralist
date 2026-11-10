@@ -90,9 +90,8 @@ const applyStateToPackage = (
   multiVersionPackages: Set<string>,
 ): SecurityPackage => {
   if (multiVersionPackages.has(pkg.name)) return pkg;
-  const { name } = pkg;
   const version = state[pkg.name] ?? pkg.version;
-  const stateToPackage: SecurityPackage = { name, version };
+  const stateToPackage: SecurityPackage = Object.assign({}, pkg, { version });
   return stateToPackage;
 };
 

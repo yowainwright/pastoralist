@@ -12,6 +12,7 @@ import { resolve } from "path";
 import { IS_DEBUGGING } from "../../constants";
 import { logger } from "../../observability";
 import type { SecurityPackage } from "../../types";
+import { parseNpmAlias } from "../../utils/npm";
 import type { DependencyGraph, DependencyGraphState } from "../types";
 import {
   addDependencyParent,
@@ -71,6 +72,14 @@ const parseYarnLockPackageName = (line: string): string | undefined => {
   return name;
 };
 
+const parseYarnAlias = (selector: string, name: string) => {
+  const specifier = selector.slice(name.length + 1);
+  const hasAliasTarget = specifier.lastIndexOf("@") > "npm:".length;
+  if (!hasAliasTarget) return undefined;
+  const alias = parseNpmAlias(specifier);
+  return alias;
+};
+
 const parseYarnLockBlock = (block: string): SecurityPackage | undefined => {
   const lines = block.split("\n");
   const name = parseYarnLockPackageName(lines[0]);
@@ -80,7 +89,12 @@ const parseYarnLockBlock = (block: string): SecurityPackage | undefined => {
   const rawVersion = versionLine.slice("version".length).replace(/^:\s*|^\s+/, "");
   const version = rawVersion.replace(/^"|"$/g, "");
   const pkg = { name, version };
-  return pkg;
+  const [selector] = readSelectors(lines[0]);
+  const alias = parseYarnAlias(selector, name);
+  if (!alias) return pkg;
+  const { name: registryName } = alias;
+  const aliasedPackage = Object.assign({}, pkg, { registryName });
+  return aliasedPackage;
 };
 
 const parseYarnLockPackages = (content: string): SecurityPackage[] => {

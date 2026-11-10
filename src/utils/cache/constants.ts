@@ -25,7 +25,7 @@ export const CACHE_NS_VERSIONS = {
   REGISTRY: 1,
   OSV: 1,
   TREE: 1,
-  ALERTS: 3,
+  ALERTS: 4,
   DECISIONS: 1,
 } as const;
 

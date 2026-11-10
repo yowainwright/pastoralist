@@ -17,6 +17,7 @@ The Scorecard workflow excludes `PinnedDependenciesID` findings for
 - `tests/e2e/Dockerfile.js-mgrs`: pnpm and Yarn compatibility tests.
 - `tests/e2e/Dockerfile.n8n`: n8n integration tests.
 - `tests/e2e/Dockerfile.pnpm-yaml`: pnpm workspace configuration tests.
+- `tests/e2e/Dockerfile.sveltekit2`: SvelteKit transitive security tests.
 - `tests/e2e/Dockerfile.yarn`: Yarn compatibility tests.
 - `tests/e2e/scripts/test-js-mgrs.sh`: generated package-manager test projects.
 - `tests/e2e/scripts/test-top-level-mgrs.sh`: generated workspace test projects.

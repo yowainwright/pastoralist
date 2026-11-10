@@ -48,6 +48,7 @@ import {
   sortAlertsByPriority,
 } from "./utils";
 import { LRUCache, DiskCache, hashLockfile, resolveCacheDir, pruneBackups } from "../../utils";
+import { parseNpmAlias } from "../../utils/npm";
 import { logger } from "../../observability";
 import { CACHE_NAMESPACES, CACHE_TTLS, CACHE_NS_VERSIONS } from "../../utils/cache";
 import { compareVersions, omit, parsePackageJson } from "../../utils";
@@ -277,6 +278,7 @@ type SecurityResolutionOutcome = {
 };
 
 type SecurityResolutionScan = {
+  complete: boolean;
   vulnerablePackages: SecurityAlert[];
   updates: OverrideUpdate[];
   input: SecurityOverrideResolutionInput;
@@ -287,8 +289,44 @@ type SecurityAlertScan = {
   complete: boolean;
 };
 
+const toRegistrySecurityPackage = (pkg: SecurityPackage): SecurityPackage => {
+  const name = pkg.registryName ?? pkg.name;
+  const { version } = pkg;
+  const registryPackage = { name, version };
+  return registryPackage;
+};
+
+const groupRegistryPackages = (packages: SecurityPackage[]) => {
+  const groups = new Map<string, SecurityPackage[]>();
+  packages.forEach((pkg) => {
+    const name = pkg.registryName ?? pkg.name;
+    const key = `${name}@${pkg.version}`;
+    const matches = groups.get(key) ?? [];
+    groups.set(key, matches.concat(pkg));
+  });
+  return groups;
+};
+
+const rebindRegistryAlert = (alert: SecurityAlert, groups: Map<string, SecurityPackage[]>) => {
+  const key = `${alert.packageName}@${alert.currentVersion}`;
+  const matches = groups.get(key);
+  const original = [alert];
+  if (!matches) return original;
+  const rebound = matches.map(({ name: packageName }) => {
+    const renamed = Object.assign({}, alert, { packageName });
+    return renamed;
+  });
+  return rebound;
+};
+
+const rebindRegistryAlerts = (alerts: SecurityAlert[], packages: SecurityPackage[]) => {
+  const groups = groupRegistryPackages(packages);
+  const reboundAlerts = alerts.flatMap((alert) => rebindRegistryAlert(alert, groups));
+  return reboundAlerts;
+};
+
 const STATE_AWARE_BEST_CASE_PROVIDERS = new Set<SecurityProviderType>(["osv", "spektion"]);
-const PACKAGE_QUERY_PROVIDERS = new Set<SecurityProviderType>(["osv", "spektion"]);
+const PACKAGE_QUERY_PROVIDERS = new Set<SecurityProviderType>(["osv", "spektion", "socket"]);
 const SECURITY_QUERY_BATCH_SIZE = 1000;
 
 type DeclaredSecurityDependency = {
@@ -315,6 +353,7 @@ const getDeclaredSecurityDependencies = (
 
 const isQueryableSecuritySpec = (spec: string): boolean => {
   const normalizedSpec = spec.trim();
+  if (normalizedSpec.startsWith("npm:")) return true;
   const isVersionSpec = SECURITY_REGISTRY_SPEC_PATTERN.test(normalizedSpec);
   const isDistTag = SECURITY_DIST_TAG_PATTERN.test(normalizedSpec);
   const isWildcard = normalizedSpec === "*";
@@ -328,10 +367,13 @@ const getQueryableSecurityDependencies = (
 
 const resolvePinnedPackage = ({ name, spec }: DeclaredSecurityDependency): SecurityPackage[] => {
   const unresolved: SecurityPackage[] = [];
-  const match = spec.trim().match(SECURITY_EXACT_VERSION_PATTERN);
+  const alias = parseNpmAlias(spec.trim());
+  const normalizedSpec = alias?.version ?? spec.trim();
+  const match = normalizedSpec.match(SECURITY_EXACT_VERSION_PATTERN);
   if (!match) return unresolved;
   const [, version] = match;
-  const pkg = { name, version };
+  const pkg: SecurityPackage = { name, version };
+  if (alias) pkg.registryName = alias.name;
   const packages = [pkg];
   return packages;
 };
@@ -360,7 +402,7 @@ const filterSecurityInventory = (
   const entries = inventory
     .filter(({ name }) => !excludedNames.has(name))
     .map((pkg) => {
-      const key = `${pkg.name}@${pkg.version}`;
+      const key = `${pkg.name}:${pkg.registryName ?? pkg.name}@${pkg.version}`;
       const result = [key, pkg] as const;
       return result;
     });
@@ -374,9 +416,9 @@ const resolveLockedSecurityPackages = (
   excludes: string[],
 ): SecurityPackage[] => {
   const queryableDependencies = getQueryableSecurityDependencies(dependencies);
-  const resolvedNames = new Set(inventory.map(({ name }) => name));
+  const resolvedNames = new Set(inventory.map(({ name, registryName }) => registryName ?? name));
   const missingNames = queryableDependencies
-    .filter(({ name, required }) => required && !resolvedNames.has(name))
+    .filter((dependency) => isMissingSecurityDependency(dependency, resolvedNames))
     .map(({ name }) => name);
   if (missingNames.length > 0) {
     const missingPackages = missingNames.join(", ");
@@ -385,6 +427,18 @@ const resolveLockedSecurityPackages = (
   }
   const lockedSecurityPackages = filterSecurityInventory(inventory, excludes);
   return lockedSecurityPackages;
+};
+
+const isMissingSecurityDependency = (
+  dependency: DeclaredSecurityDependency,
+  names: Set<string>,
+) => {
+  if (!dependency.required) return false;
+  const alias = parseNpmAlias(dependency.spec);
+  const registryName = alias?.name ?? dependency.name;
+  const resolved = names.has(registryName);
+  const missing = !resolved;
+  return missing;
 };
 
 export class SecurityChecker {
@@ -579,7 +633,7 @@ export class SecurityChecker {
 
   private generateCacheKey(packages: SecurityPackage[]): string {
     const packageKeys = packages
-      .map((p) => `${p.name}@${p.version}`)
+      .map((p) => `${p.name}:${p.registryName ?? p.name}@${p.version}`)
       .toSorted()
       .join("|");
     const providerNames = this.providers
@@ -634,34 +688,39 @@ export class SecurityChecker {
     const scan = await this.resolveSecurityScan(config, packages, options);
     const outcome = await this.resolveSecurityOutcome(config, scan.updates, scan.input);
     const updates = this.resolveResultUpdates(outcome, scan.updates, options);
-    const result = this.buildSecurityCheckResult(
-      this.addFixNotices(scan.vulnerablePackages, outcome.source.overrides),
-      outcome,
-      updates,
-      packages.length,
-    );
+    const result = this.buildSecurityCheckResult(scan, outcome, updates, packages.length);
     return result;
   }
 
   private buildSecurityCheckResult(
-    alerts: SecurityAlert[],
+    scan: SecurityResolutionScan,
     outcome: SecurityResolutionOutcome,
     updates: OverrideUpdate[],
     packagesScanned: number,
   ): SecurityCheckResult {
-    const { prompted, userOwnedOverridesAdded } = outcome;
-    const { overrides, bestCase } = prompted;
+    const { overrides } = outcome.prompted;
+    const alerts = this.addFixNotices(scan.vulnerablePackages, outcome.source.overrides);
+    const { complete } = scan;
     const result: SecurityCheckResult = {
+      complete,
       alerts,
       overrides,
       updates,
       packagesScanned,
     };
-    if (bestCase) result.bestCase = bestCase;
-    if (userOwnedOverridesAdded.length > 0) {
-      result.userOwnedOverridesAdded = userOwnedOverridesAdded;
-    }
+    this.addSecurityResultMetadata(result, outcome);
     return result;
+  }
+
+  private addSecurityResultMetadata(
+    result: SecurityCheckResult,
+    outcome: SecurityResolutionOutcome,
+  ): void {
+    const { bestCase } = outcome.prompted;
+    const { userOwnedOverridesAdded } = outcome;
+    if (bestCase) result.bestCase = bestCase;
+    if (userOwnedOverridesAdded.length > 0)
+      result.userOwnedOverridesAdded = userOwnedOverridesAdded;
   }
 
   private addFixNotices(alerts: SecurityAlert[], fixes: SecurityOverride[]): SecurityAlert[] {
@@ -682,7 +741,8 @@ export class SecurityChecker {
     installedPackages: SecurityPackage[],
     options: SecurityCheckRuntimeOptions,
   ): Promise<SecurityResolutionScan> {
-    const baselineAlerts = await this.resolveSecurityAlerts(installedPackages, options);
+    const baseline = await this.resolveSecurityAlerts(installedPackages, options);
+    const { alerts: baselineAlerts, complete } = baseline;
     const vulnerablePackages = this.resolveVulnerablePackages(baselineAlerts, options);
     const latestVersions = await this.resolvePatchedVersions(vulnerablePackages, options);
     const updates = this.checkOverrideUpdates(config, baselineAlerts, options.packageJsonPath);
@@ -693,7 +753,7 @@ export class SecurityChecker {
       options,
     );
     input.latestVersions = latestVersions;
-    const securityResolutionScan: SecurityResolutionScan = { vulnerablePackages, updates, input };
+    const securityResolutionScan = { complete, vulnerablePackages, updates, input };
     return securityResolutionScan;
   }
 
@@ -798,6 +858,7 @@ export class SecurityChecker {
     const overrides: SecurityOverride[] = [];
     const updates: OverrideUpdate[] = [];
     const result: SecurityCheckResult = {
+      complete: true,
       alerts,
       overrides,
       updates,
@@ -974,19 +1035,20 @@ export class SecurityChecker {
   private async resolveSecurityAlerts(
     packages: SecurityPackage[],
     options: SecurityCheckRuntimeOptions,
-  ): Promise<SecurityAlert[]> {
+  ): Promise<SecurityAlertScan> {
     const cacheKey = this.generateCacheKey(packages);
     const diskCacheKey = this.generateDiskCacheKey(packages, options.root);
     const cachedAlerts = this.resolveCachedAlerts(cacheKey, diskCacheKey, options);
 
-    if (cachedAlerts) return cachedAlerts;
+    if (cachedAlerts) {
+      const cachedScan = { alerts: cachedAlerts, complete: true };
+      return cachedScan;
+    }
 
     const scan = await this.fetchProviderAlerts(packages, options);
     this.assertCompleteScan(scan, options);
-    const { alerts, complete } = scan;
-    if (!complete) return alerts;
-    this.cacheSecurityAlerts(cacheKey, diskCacheKey, alerts, options);
-    return alerts;
+    if (scan.complete) this.cacheSecurityAlerts(cacheKey, diskCacheKey, scan.alerts, options);
+    return scan;
   }
 
   private assertCompleteScan(scan: SecurityAlertScan, options: SecurityCheckRuntimeOptions): void {
@@ -994,7 +1056,7 @@ export class SecurityChecker {
     const shouldRequireCompleteScan = this.strict || options.requireCompleteScan;
     if (!shouldRequireCompleteScan) return;
     const reason = options.requireCompleteScan
-      ? "Best-case evaluation requires a complete provider scan"
+      ? "Security checks require a complete provider scan"
       : "Strict security scans require every provider to complete";
     throw new Error(reason);
   }
@@ -1079,8 +1141,10 @@ export class SecurityChecker {
       const providerPackages = provider.fetchAlerts(packages, options);
       return providerPackages;
     }
-    const alerts = await this.fetchProviderBatches(provider, packages, options);
-    return alerts;
+    const registryPackages = packages.map(toRegistrySecurityPackage);
+    const alerts = await this.fetchProviderBatches(provider, registryPackages, options);
+    const reboundAlerts = rebindRegistryAlerts(alerts, packages);
+    return reboundAlerts;
   }
 
   private async fetchProviderBatches(
@@ -1545,7 +1609,7 @@ export class SecurityChecker {
     return async (state) => {
       const portfolio = applyBestCaseState(packages, state);
       const scanOptions = this.createBestCaseScanOptions(options);
-      const alerts = await this.resolveSecurityAlerts(portfolio, scanOptions);
+      const { alerts } = await this.resolveSecurityAlerts(portfolio, scanOptions);
       const normalized = sortAlertsByPriority(deduplicateAlerts(alerts));
       const filteredAlerts = this.filterAlertsBySeverity(normalized, scanOptions);
       const evaluation = { alerts: filteredAlerts };

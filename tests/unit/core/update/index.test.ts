@@ -50,6 +50,22 @@ const resetTestDir = () => {
 
 const TEST_PACKAGE_PATH = resolve(TEST_DIR, "package.json");
 
+const updateFixture = (options: Options) => {
+  const usesFixturePath = !options.path || options.path === "package.json";
+  const hasFixtureConfig = Boolean(options.config) && usesFixturePath;
+  if (!hasFixtureConfig) {
+    const result = update(options);
+    return result;
+  }
+  const root = options.root ?? TEST_DIR;
+  const usesDefaultRoot = root === "./";
+  const fixtureRoot = usesDefaultRoot ? TEST_DIR : root;
+  const path = resolve(fixtureRoot, "package.json");
+  const fixtureOptions = Object.assign({}, options, { path });
+  const result = update(fixtureOptions);
+  return result;
+};
+
 const writeLockfile = (packages: object) => {
   const lockfile = { lockfileVersion: 2, packages };
   writeFileSync(resolve(TEST_DIR, "package-lock.json"), JSON.stringify(lockfile));
@@ -94,7 +110,7 @@ test("update - processes simple override in root mode", () => {
 
   const options: Options = { config, isTesting: true, debug: false };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.strictEqual(result.config, config);
   assert.notStrictEqual(result.overrides, undefined);
@@ -117,7 +133,7 @@ test("update - preserves compact appendix added dates", () => {
     pastoralist: configPastoralist18,
   };
 
-  const result = update({ config, isTesting: true, addedDate: "2025-02-20" });
+  const result = updateFixture({ config, isTesting: true, addedDate: "2025-02-20" });
 
   assert.strictEqual(result.appendix?.["lodash@4.17.21"]?.ledger?.addedDate, "2024-01-15");
 });
@@ -139,7 +155,7 @@ test("update - merges security overrides with config overrides", () => {
     isTesting: true,
   };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.strictEqual(result.overrides?.lodash, "4.17.21");
   assert.strictEqual(result.overrides?.express, "4.18.2");
@@ -158,7 +174,7 @@ test("update - determines workspace mode without file I/O", () => {
 
   const options: Options = { config, depPaths: optionsDepPaths8, isTesting: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.notStrictEqual(result.mode, undefined);
   assert.strictEqual(result.overrides?.react, "18.0.0");
@@ -174,7 +190,7 @@ test("update - detects patches when present", () => {
 
   const options: Options = { config, root: "./", isTesting: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.notStrictEqual(result.patchMap, undefined);
   assert.strictEqual(typeof result.patchMap, "object");
@@ -192,7 +208,7 @@ test("update - determines processing mode correctly", () => {
 
   const options: Options = { config, isTesting: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.strictEqual(result.hasRootOverrides, true);
   assert.notStrictEqual(result.rootDeps, undefined);
@@ -212,7 +228,7 @@ test("update - builds appendix with dependents", () => {
 
   const options: Options = { config, isTesting: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.notStrictEqual(result.appendix, undefined);
   const appendixKey = "lodash@4.17.21";
@@ -230,7 +246,7 @@ test("update - handles empty overrides", () => {
 
   const options: Options = { config, isTesting: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.strictEqual(result.mode?.hasRootOverrides, false);
   assert.deepStrictEqual(result.finalOverrides, {});
@@ -249,7 +265,7 @@ test("update - sets finalOverrides and finalAppendix in cleanup step", () => {
 
   const options: Options = { config, isTesting: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.notStrictEqual(result.finalOverrides, undefined);
   assert.notStrictEqual(result.finalAppendix, undefined);
@@ -268,7 +284,7 @@ test("update - skips write when isTesting is true", () => {
 
   const options: Options = { config, isTesting: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.strictEqual(result.isTesting, true);
   assert.notStrictEqual(result.finalOverrides, undefined);
@@ -287,7 +303,7 @@ test("update - handles devDependencies", () => {
 
   const options: Options = { config, isTesting: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.notStrictEqual(result.appendix, undefined);
   assert.notStrictEqual(result.appendix?.["jest@29.0.0"], undefined);
@@ -305,7 +321,7 @@ test("update - handles peerDependencies", () => {
 
   const options: Options = { config, isTesting: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.notStrictEqual(result.appendix, undefined);
   assert.strictEqual(result.rootDeps?.react, "^17.0.0");
@@ -324,7 +340,7 @@ test("update - handles nested overrides", () => {
 
   const options: Options = { config, isTesting: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.notStrictEqual(result.appendix, undefined);
 });
@@ -355,7 +371,7 @@ test("update - includes security override details in appendix", () => {
     isTesting: true,
   };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.notStrictEqual(result.appendix, undefined);
   const appendixEntry = result.appendix?.["lodash@4.17.21"];
@@ -405,7 +421,7 @@ test("update - handles yarn resolutions", () => {
 
   const options: Options = { config, isTesting: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.notStrictEqual(result.overrides, undefined);
   assert.strictEqual(result.overrides?.lodash, "4.17.21");
@@ -424,7 +440,7 @@ test("update - handles pnpm overrides", () => {
 
   const options: Options = { config, isTesting: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.notStrictEqual(result.overrides, undefined);
   assert.strictEqual(result.overrides?.react, "18.0.0");
@@ -447,7 +463,7 @@ test("update - preserves existing appendix entries", () => {
 
   const options: Options = { config, isTesting: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.notStrictEqual(result.existingAppendix, undefined);
   assert.notStrictEqual(result.existingAppendix?.["express@4.18.2"], undefined);
@@ -463,7 +479,7 @@ test("update - clears cache when clearCache option is true", () => {
 
   const options: Options = { config, isTesting: true, clearCache: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.strictEqual(result.config, config);
 });
@@ -493,7 +509,7 @@ test("update - clears dependency graph cache when clearCache option is true", ()
 
   const config: PastoralistJSON = { name: "test-app", version: "1.0.0" };
 
-  update({ config, isTesting: true, clearCache: true });
+  updateFixture({ config, isTesting: true, clearCache: true });
 
   assert.ok(getDependencyGraph(TEST_DIR)?.qs?.includes("lodash"));
   assert.strictEqual(getDependencyGraph(TEST_DIR)?.["body-parser"], undefined);
@@ -515,7 +531,7 @@ test("update - handles config with workspaces but no depPaths", () => {
 
   const options: Options = { config, depPaths: optionsDepPaths7, isTesting: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.notStrictEqual(result.appendix, undefined);
   assert.strictEqual(result.mode?.mode, "root");
@@ -524,7 +540,7 @@ test("update - handles config with workspaces but no depPaths", () => {
 test("update - handles empty final context", () => {
   const options: Options = { isTesting: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.strictEqual(result.config, undefined);
   assert.strictEqual(result.finalOverrides, undefined);
@@ -546,7 +562,7 @@ test("update - processes manualOverrideReasons", () => {
 
   const options: Options = { config, isTesting: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.notStrictEqual(result.appendix, undefined);
   assert.notStrictEqual(result.appendix?.["lodash@4.17.21"], undefined);
@@ -856,7 +872,7 @@ test("update - merges workspace appendix with existing root appendix entries", (
     depPaths: optionsDepPaths4,
   };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.notStrictEqual(result.appendix, undefined);
   assert.notStrictEqual(result.appendix?.["lodash@4.17.21"], undefined);
@@ -883,7 +899,7 @@ test("update - handles patches directory with unused patches", () => {
     depPaths: optionsDepPaths3,
   };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.strictEqual(result.isTesting, true);
 });
@@ -907,7 +923,7 @@ test("update - skips write step when isTesting is true", () => {
     depPaths: optionsDepPaths2,
   };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.strictEqual(result.isTesting, true);
   assert.notStrictEqual(result.finalOverrides, undefined);
@@ -922,7 +938,7 @@ test("update - handles config with no appendix or overrides data", () => {
     depPaths: optionsDepPaths,
   };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.strictEqual(result.path, "package.json");
   assert.strictEqual(result.config, undefined);
@@ -941,7 +957,7 @@ test("update - processes peerDependencies in dependency collection", () => {
 
   const options: Options = { path: "package.json", root: "./", isTesting: true, config, depPaths };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.notStrictEqual(result.appendix?.["react@18.2.0"], undefined);
 });
@@ -954,7 +970,7 @@ test("update - stepWriteResult skips when hasNoData is true", () => {
     config: undefined,
   };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.strictEqual(result.config, undefined);
   assert.strictEqual(result.finalAppendix, undefined);
@@ -979,7 +995,7 @@ test("update - handles workspaceAppendix merge with existing entry", () => {
     debug: true,
   };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.notStrictEqual(result.appendix, undefined);
   assert.notStrictEqual(result.appendix?.["lodash@4.17.21"], undefined);
@@ -998,7 +1014,7 @@ test("update - handles workspaceAppendix merge adding new entry", () => {
 
   const options: Options = { path: "package.json", root: "./", isTesting: true, config };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.notStrictEqual(result.appendix, undefined);
   assert.notStrictEqual(result.appendix?.["lodash@4.17.21"], undefined);
@@ -1023,7 +1039,7 @@ test("update - handles overridePaths from config", () => {
 
   const options: Options = { path: "package.json", root: "./", isTesting: true, config };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.notStrictEqual(result.overridePaths, undefined);
 });
@@ -1046,7 +1062,7 @@ test("update - handles resolutionPaths fallback", () => {
 
   const options: Options = { path: "package.json", root: "./", isTesting: true, config };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.notStrictEqual(result.appendix, undefined);
 });
@@ -1073,7 +1089,7 @@ test("update - fixture: merges workspace appendix with existing root entry", () 
     config: mergeWorkspaceRootConfig,
   };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   rmSync(TEST_DIR, { recursive: true, force: true });
 
@@ -1116,7 +1132,7 @@ test("update - workspace appendix uses dependency graph for transitive overrides
   writePkgAManifest({ name: "pkg-a", version: "1.0.0", dependencies: dependencies4 });
   writeLockfile(transitiveLockPackages);
 
-  const result = update(transitiveWorkspaceOptions);
+  const result = updateFixture(transitiveWorkspaceOptions);
 
   rmSync(TEST_DIR, { recursive: true, force: true });
   clearDependencyGraphCache();
@@ -1189,7 +1205,7 @@ test("update - avoids attributing duplicate-name edges across workspaces", (t) =
   const options = Object.assign({}, transitiveWorkspaceOptions, {
     config: duplicateExpressConfig,
   });
-  const result = update(options);
+  const result = updateFixture(options);
 
   const dependents = result.appendix?.["lodash@4.17.21"]?.dependents ?? {};
   assert.strictEqual(dependents["root-app"], undefined);
@@ -1226,7 +1242,7 @@ test("update - fixture: adds workspace-only override entry (line 157)", () => {
     config: workspaceOnlyOverrideConfig,
   };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   rmSync(TEST_DIR, { recursive: true, force: true });
 
@@ -1251,7 +1267,7 @@ test("update - processes overrides declared only by workspace packages", () => {
   });
 
   const config: PastoralistJSON = { name: "root-app", version: "1.0.0", workspaces };
-  const result = update({ root: TEST_DIR, isTesting: true, config });
+  const result = updateFixture({ root: TEST_DIR, isTesting: true, config });
 
   rmSync(TEST_DIR, { recursive: true, force: true });
   assert.notStrictEqual(result.workspaceAppendix?.["express@4.18.2"], undefined);
@@ -1277,7 +1293,7 @@ test("update - metrics include medium severity count", () => {
     isTesting: true,
   };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.notStrictEqual(result.metrics, undefined);
   assert.strictEqual(result.metrics?.severityMedium, 1);
@@ -1302,7 +1318,7 @@ test("update - metrics include low severity count", () => {
     isTesting: true,
   };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.notStrictEqual(result.metrics, undefined);
   assert.strictEqual(result.metrics?.severityLow, 1);
@@ -1327,7 +1343,7 @@ test("update - metrics track removed override packages", () => {
 
   const options: Options = { config, isTesting: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.notStrictEqual(result.metrics, undefined);
 });
@@ -1344,7 +1360,7 @@ test("update - skips lock file parsing without summary or json flag", () => {
 
   const options: Options = { config, isTesting: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.strictEqual(result.metrics?.packagesScanned, 0);
 });
@@ -1362,7 +1378,7 @@ test("update - parses lock file with summary flag", () => {
 
     const options: Options = { config, root, summary: true, isTesting: true };
 
-    const result = update(options);
+    const result = updateFixture(options);
 
     assert.strictEqual(result.metrics?.packagesScanned, 2);
   });
@@ -1381,7 +1397,7 @@ test("update - parses lock file with json outputFormat", () => {
 
     const options: Options = { config, root, outputFormat: "json", isTesting: true };
 
-    const result = update(options);
+    const result = updateFixture(options);
 
     assert.strictEqual(result.metrics?.packagesScanned, 2);
   });
@@ -1400,7 +1416,7 @@ test("update - tracks removed overrides in metrics", () => {
   withLockfileRoot((root) => {
     const options: Options = { config, root, isTesting: true, removeUnused: true };
 
-    const result = update(options);
+    const result = updateFixture(options);
 
     assert.strictEqual(result.metrics?.overridesRemoved, 2);
     assert.deepStrictEqual(result.metrics?.removedOverridePackages, [
@@ -1420,7 +1436,7 @@ test("update - handles config with no overrides", () => {
 
   const options: Options = { config, isTesting: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.strictEqual(result.mode?.hasRootOverrides, false);
   assert.deepStrictEqual(result.finalOverrides, {});
@@ -1439,7 +1455,7 @@ test("update - tracks override metrics including removed packages array", () => 
 
   const options: Options = { config, isTesting: true, summary: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.notStrictEqual(result.metrics, undefined);
   assert.strictEqual(Array.isArray(result.metrics?.removedOverridePackages), true);
@@ -1467,7 +1483,7 @@ test("update - logs unused patches when patches exist for missing dependencies",
 
   const options: Options = { config, root: PATCH_TEST_DIR, isTesting: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   rmSync(PATCH_TEST_DIR, { recursive: true, force: true });
 
@@ -1488,7 +1504,7 @@ test("update - counts removed overrides when config overrides differ from final"
 
   const options: Options = { config, isTesting: true, summary: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.notStrictEqual(result.metrics, undefined);
   assert.notStrictEqual(result.metrics?.overridesAdded, undefined);
@@ -1507,7 +1523,7 @@ test("update - stepRemoveUnused removes unused overrides when removeUnused is tr
 
   const options: Options = { config, isTesting: true, removeUnused: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.strictEqual(result.finalOverrides?.lodash, "4.17.21");
   assert.strictEqual(result.finalOverrides?.["unused-pkg"], undefined);
@@ -1527,7 +1543,7 @@ test("update - stepRemoveUnused skips when removeUnused is false", () => {
 
   const options: Options = { config, isTesting: true, removeUnused: false };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.strictEqual(result.finalOverrides?.["unused-pkg"], "1.0.0");
   assert.notStrictEqual(result.finalAppendix?.["unused-pkg@1.0.0"], undefined);
@@ -1555,7 +1571,7 @@ test("update - preserves potentially transitive overrides when no dependency gra
   writeFileSync(TEST_PACKAGE_PATH, JSON.stringify(transitiveOverrideConfig));
 
   try {
-    const result = update(transitiveOverrideOptions);
+    const result = updateFixture(transitiveOverrideOptions);
 
     assert.strictEqual(result.finalOverrides?.["body-parser"], "1.20.3");
   } finally {
@@ -1576,7 +1592,7 @@ test("update - stepRemoveUnused handles scoped packages", () => {
 
   const options: Options = { config, isTesting: true, removeUnused: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.strictEqual(result.finalOverrides?.["@babel/core"], undefined);
   assert.strictEqual(result.finalOverrides?.lodash, "4.17.21");
@@ -1601,7 +1617,7 @@ test("update - stepRemoveUnused respects keep: true, does not remove kept overri
 
   const options: Options = { config, isTesting: true, removeUnused: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.strictEqual(result.finalOverrides?.["kept-pkg"], "2.0.0");
   assert.notStrictEqual(result.finalAppendix?.["kept-pkg@2.0.0"], undefined);
@@ -1642,7 +1658,7 @@ test("update - stepUpdateKeptOverrides populates potentiallyFixedIn from matchin
 
   const options: Options = { config, isTesting: true, securityAlerts: optionsSecurityAlerts2 };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.strictEqual(result.appendix?.["some-pkg@1.0.0"]?.ledger?.potentiallyFixedIn, "2.0.0");
 });
@@ -1672,7 +1688,7 @@ test("update - stepUpdateKeptOverrides clears potentiallyFixedIn when no matchin
 
   const options: Options = { config, isTesting: true, securityAlerts: optionsSecurityAlerts };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.strictEqual(result.appendix?.["some-pkg@1.0.0"]?.ledger?.potentiallyFixedIn, undefined);
 });
@@ -1690,7 +1706,7 @@ test("update - stepRemoveUnused respects skipRemovalKeys, keeps blocked override
 
   const options: Options = { config, isTesting: true, removeUnused: true, skipRemovalKeys };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.strictEqual(result.finalOverrides?.["removable-fake-pkg"], undefined);
   assert.strictEqual(result.finalOverrides?.["blocked-fake-pkg"], "2.0.0");
@@ -1722,7 +1738,7 @@ test("update - stepRemoveUnused removes only verified keys", () => {
   };
   const options: Options = { config, isTesting: true, removeUnused: true, removalVerification };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.strictEqual(result.finalOverrides?.removable, undefined);
   assert.strictEqual(result.finalOverrides?.unverified, "2.0.0");
@@ -1755,7 +1771,7 @@ test("update - stepRemoveUnused respects keep: KeepConstraint, does not remove k
 
   const options: Options = { config, isTesting: true, removeUnused: true };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.strictEqual(result.finalOverrides?.["kept-constraint-pkg"], "2.0.0");
   assert.notStrictEqual(result.finalAppendix?.["kept-constraint-pkg@2.0.0"], undefined);
@@ -1779,7 +1795,7 @@ test("update - stepRemoveUnused warns when removing overrides with tracked CVEs"
   };
 
   const options: Options = { config, isTesting: true, removeUnused: true };
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.strictEqual(result.finalOverrides?.["vuln-pkg"], undefined);
   assert.strictEqual(result.finalAppendix?.["vuln-pkg@1.2.3"], undefined);
@@ -1818,7 +1834,7 @@ test("update - stepUpdateKeptOverrides handles keep: KeepConstraint entries", ()
 
   const options: Options = { config, isTesting: true, securityAlerts };
 
-  const result = update(options);
+  const result = updateFixture(options);
 
   assert.strictEqual(result.appendix?.["some-pkg@1.0.0"]?.ledger?.potentiallyFixedIn, "2.0.0");
 });
@@ -1834,7 +1850,7 @@ const countSeveritiesConfig = {
 
 const securityOverrideDetails4 = [];
 test("countSeverities - empty securityOverrideDetails produces zero severity counts", () => {
-  const result = update({
+  const result = updateFixture({
     config: countSeveritiesConfig,
     isTesting: true,
     summary: true,
@@ -1854,7 +1870,7 @@ const securityOverrideDetails3 = [
   { packageName: "e", reason: "fix", severity: "low" },
 ];
 test("countSeverities - mixed severities are counted correctly", () => {
-  const result = update({
+  const result = updateFixture({
     config: countSeveritiesConfig,
     isTesting: true,
     summary: true,
@@ -1871,7 +1887,7 @@ const securityOverrideDetails2 = [
   { packageName: "b", reason: "fix", severity: undefined },
 ];
 test("countSeverities - missing severity defaults to medium", () => {
-  const result = update({
+  const result = updateFixture({
     config: countSeveritiesConfig,
     isTesting: true,
     summary: true,
@@ -1886,7 +1902,7 @@ const securityOverrideDetails = [
   { packageName: "b", reason: "fix", severity: "Critical" },
 ];
 test("countSeverities - severity matching is case-insensitive", () => {
-  const result = update({
+  const result = updateFixture({
     config: countSeveritiesConfig,
     isTesting: true,
     summary: true,

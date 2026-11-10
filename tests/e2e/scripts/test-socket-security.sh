@@ -19,7 +19,7 @@ EOF
   SECURITY_PROVIDER_CALLS="$PWD/security-provider-cli-calls.log"
   export SECURITY_PROVIDER_CALLS
   : >"$SECURITY_PROVIDER_CALLS"
-  unset SNYK_TOKEN SOCKET_SECURITY_API_KEY
+  unset SNYK_TOKEN SOCKET_SECURITY_API_KEY SOCKET_CLI_API_TOKEN SOCKET_API_KEY
 }
 
 require_provider_log() {
@@ -34,11 +34,23 @@ require_provider_log() {
 }
 
 assert_no_provider_scans() {
-  if grep -Eq 'snyk test --json|socket report create' "$SECURITY_PROVIDER_CALLS"; then
+  if grep -Eq 'snyk test --json|socket (report create|package shallow)' "$SECURITY_PROVIDER_CALLS"; then
     echo "❌ A provider scan ran without credentials"
     cat "$SECURITY_PROVIDER_CALLS"
     exit 1
   fi
+}
+
+run_incomplete_scan() {
+  local output_file="${1:?Output file is required}"
+  shift
+  local status=0
+  node /app/pastoralist/index.js "$@" 2>&1 | tee "$output_file" || status=$?
+  if [ "$status" -ne 1 ]; then
+    echo "Expected an incomplete security scan to exit 1, got $status"
+    exit 1
+  fi
+  require_provider_log "Security checks require a complete provider scan" "$output_file"
 }
 
 print_header() {
@@ -66,14 +78,14 @@ EOF
 
   init_git_repo
 
-  node /app/pastoralist/index.js --checkSecurity --securityProvider socket --no-cache --debug 2>&1 | tee socket-output.log
+  run_incomplete_scan socket-output.log --checkSecurity --securityProvider socket --no-cache --debug
   require_provider_log "Socket provider is EXPERIMENTAL" socket-output.log
   require_provider_log "Socket requires authentication" socket-output.log
 }
 
 test_multiple_providers() {
   printf '\n%s\n' "2️⃣ Test: Multiple providers including Socket"
-  PASTORALIST_MOCK_SECURITY=true node /app/pastoralist/index.js --checkSecurity --securityProvider github socket --no-cache --debug 2>&1 | tee socket-multi.log
+  PASTORALIST_MOCK_SECURITY=true run_incomplete_scan socket-multi.log --checkSecurity --securityProvider github socket --no-cache --debug
   require_provider_log "Socket provider is EXPERIMENTAL" socket-multi.log
   require_provider_log "Using mock Dependabot alerts" socket-multi.log
   require_provider_log "Socket requires authentication" socket-multi.log
@@ -98,7 +110,7 @@ test_config() {
 EOF
 
   init_git_repo
-  node /app/pastoralist/index.js --no-cache --debug 2>&1 | tee socket-config.log
+  run_incomplete_scan socket-config.log --no-cache --debug
   require_provider_log "Socket provider is EXPERIMENTAL" socket-config.log
   require_provider_log "Socket requires authentication" socket-config.log
 }
@@ -122,7 +134,7 @@ test_config_array() {
 EOF
 
   init_git_repo
-  PASTORALIST_MOCK_SECURITY=true node /app/pastoralist/index.js --no-cache --debug 2>&1 | tee multi-config.log
+  PASTORALIST_MOCK_SECURITY=true run_incomplete_scan multi-config.log --no-cache --debug
   require_provider_log "Using mock Dependabot alerts" multi-config.log
   require_provider_log "Socket requires authentication" multi-config.log
 }

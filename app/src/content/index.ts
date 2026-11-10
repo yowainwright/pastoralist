@@ -3,7 +3,6 @@ import type { ComponentType, LazyExoticComponent } from "react";
 import type { Heading } from "../lib/mdx/types";
 import { DOCS } from "./constants";
 import type { DocMeta, SearchDocument } from "./types";
-import { buildSearchDocuments } from "./search";
 
 export type DocComponent = ComponentType<{
   components?: Record<string, ComponentType>;
@@ -57,27 +56,11 @@ export async function getDocHeadings(slug: string): Promise<Heading[]> {
   return headings;
 }
 
-async function loadDocContents(): Promise<Map<string, string | undefined>> {
-  const settledDocuments = await Promise.allSettled(
-    DOCS.map(async ({ slug }) => [slug, await getDocContent(slug)] as const),
-  );
-  const failedDocument = settledDocuments.find((result) => result.status === "rejected");
-  if (failedDocument?.status === "rejected") throw failedDocument.reason;
-  const loadedDocuments = settledDocuments.filter(
-    (result): result is PromiseFulfilledResult<readonly [string, string | undefined]> =>
-      result.status === "fulfilled",
-  );
-  const entries = loadedDocuments.map(({ value }) => value);
-  const contentBySlug = new Map(entries);
-  return contentBySlug;
-}
-
 export function loadSearchDocuments(): Promise<SearchDocument[]> {
   if (searchDocumentsPromise) return searchDocumentsPromise;
-  const searchDocuments = loadDocContents().then((contentBySlug) => {
-    const documents = buildSearchDocuments(DOCS, (slug) => contentBySlug.get(slug));
-    return documents;
-  });
+  const searchDocuments = import("virtual:pastoralist-search").then(
+    ({ default: documents }) => documents,
+  );
   searchDocumentsPromise = searchDocuments.catch((error: unknown) => {
     searchDocumentsPromise = undefined;
     throw error;

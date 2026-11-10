@@ -29,7 +29,6 @@ const SEARCH_OPTIONS = {
 } as const;
 const SEARCH_LIMIT = { limit: 5 };
 const SEARCH_BLOCK_NODES = new Set(["root", "blockquote", "list", "listItem", "table", "tableRow"]);
-const SEARCH_MARKDOWN = unified().use(remarkParse).use(remarkGfm);
 const SEARCH_TEXT_REPLACEMENTS: readonly [RegExp, string][] = [
   [/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, ""],
   [/\{\/\*[\s\S]*?\*\/\}/g, " "],
@@ -162,7 +161,8 @@ function normalizeSearchText(source: string) {
     (text, [pattern, replacement]) => text.replace(pattern, replacement),
     source,
   );
-  const tree = SEARCH_MARKDOWN.parse(content);
+  const processor = unified().use(remarkParse).use(remarkGfm);
+  const tree = processor.parse(content);
   const text = getSearchNodeText(tree);
   const normalized = text.replace(/\s+/g, " ").trim();
   return normalized;

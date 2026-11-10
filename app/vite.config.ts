@@ -3,6 +3,7 @@ import type { Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
+import { readFileSync } from "node:fs";
 import { compile } from "@mdx-js/mdx";
 import rehypeKatex from "rehype-katex";
 import rehypeSlug from "rehype-slug";
@@ -11,6 +12,11 @@ import remarkMath from "remark-math";
 import { visit } from "unist-util-visit";
 import type { Node } from "unist";
 import { extractHeadings } from "./src/lib/mdx/extractHeadings";
+import { buildSearchDocuments } from "./src/content/search";
+import { DOCS } from "./src/content/constants";
+
+const SEARCH_MODULE_ID = "virtual:pastoralist-search";
+const RESOLVED_SEARCH_MODULE_ID = `\0${SEARCH_MODULE_ID}`;
 
 const manualChunkEntries = [
   ["/node_modules/react/", "react-vendor"],
@@ -95,8 +101,25 @@ const rehypeCodeMeta = () => {
 const remarkPlugins = [remarkGfm, remarkMath, renderMermaidRemark];
 const rehypePlugins = [rehypeSlug, rehypeKatex, rehypeCodeMeta];
 
-const pastoralistMdx = (): Plugin => ({
+const pastoralistMdx: Plugin = {
   name: "pastoralist-mdx",
+  resolveId(id) {
+    if (id === SEARCH_MODULE_ID) return RESOLVED_SEARCH_MODULE_ID;
+  },
+  load(id) {
+    if (id !== RESOLVED_SEARCH_MODULE_ID) return;
+    const entries = DOCS.map(({ slug }) => {
+      const sourcePath = path.resolve(__dirname, "src/content/docs", `${slug}.mdx`);
+      this.addWatchFile(sourcePath);
+      const content = readFileSync(sourcePath, "utf8");
+      const entry = [slug, content] as const;
+      return entry;
+    });
+    const contents = new Map(entries);
+    const documents = buildSearchDocuments(DOCS, (slug) => contents.get(slug));
+    const code = `export default ${JSON.stringify(documents)};`;
+    return code;
+  },
   async transform(source, id) {
     if (!id.endsWith(".mdx")) return;
 
@@ -115,9 +138,9 @@ const pastoralistMdx = (): Plugin => ({
     };
     return transformed;
   },
-});
+};
 
-const plugins = [pastoralistMdx(), react(), tailwindcss()];
+const plugins = [pastoralistMdx, react(), tailwindcss()];
 const srcPath = path.resolve(__dirname, "./src");
 const alias = { "@": srcPath };
 const dedupe = ["react", "react-dom"];

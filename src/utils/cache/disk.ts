@@ -2,12 +2,7 @@ import * as fs from "fs";
 import { join, dirname, basename } from "path";
 import { homedir, tmpdir } from "os";
 import { createHash } from "crypto";
-import type {
-  CacheDirOptions,
-  DiskCacheOptions,
-  DiskCacheEntry,
-  DiskCacheEnvelope,
-} from "../types";
+import type { CacheDirOptions, DiskCacheOptions, DiskCacheEntry } from "../types";
 import {
   CACHE_DIR_MODE,
   CACHE_FILE_MODE,
@@ -174,7 +169,7 @@ export class DiskCache<V> {
   private readonly version: number;
   private readonly maxEntries: number;
   private readonly enabled: boolean;
-  private data: DiskCacheEnvelope<V> | null = null;
+  private data: Map<string, DiskCacheEntry<V>> | null = null;
 
   constructor(namespace: string, options: DiskCacheOptions) {
     this.filePath = join(options.dir, `${namespace}.json`);
@@ -188,29 +183,16 @@ export class DiskCache<V> {
     }
   }
 
-  private empty(): DiskCacheEnvelope<V> {
-    const { version } = this;
-    const entries = {};
-    const envelope: DiskCacheEnvelope<V> = {
-      schema: DISK_CACHE_SCHEMA_VERSION,
-      version,
-      entries,
-    };
-    return envelope;
-  }
-
-  private load(): DiskCacheEnvelope<V> {
-    if (this.data) {
-      const result: DiskCacheEnvelope<V> = this.data;
-      return result;
-    }
+  private load(): Map<string, DiskCacheEntry<V>> {
+    const cached = this.data;
+    if (cached) return cached;
     const legacyEntries = this.loadLegacyEntries();
     this.migrateLegacyEntries(legacyEntries);
     const storedEntries = this.loadStoredEntries();
-    const entries = Object.assign({}, legacyEntries, storedEntries);
-    this.data = Object.assign(this.empty(), { entries });
-    const result2: DiskCacheEnvelope<V> = this.data;
-    return result2;
+    const entries = Object.entries(legacyEntries).concat(Object.entries(storedEntries));
+    const loaded = new Map(entries);
+    this.data = loaded;
+    return loaded;
   }
 
   private loadLegacyEntries(): Record<string, DiskCacheEntry<V>> {
@@ -296,20 +278,13 @@ export class DiskCache<V> {
     if (fs.existsSync(path)) fs.unlinkSync(path);
   }
 
-  private trimEntries(
-    entries: Record<string, DiskCacheEntry<V>>,
-  ): Record<string, DiskCacheEntry<V>> {
-    const entriesArray = Object.entries(entries);
-    if (entriesArray.length <= this.maxEntries) return entries;
+  private trimEntries(entries: Map<string, DiskCacheEntry<V>>): void {
+    if (entries.size <= this.maxEntries) return;
+    const entriesArray = Array.from(entries);
     const newestFirst = entriesArray.toSorted((a, b) => b[1].t - a[1].t);
-    const result: Record<string, DiskCacheEntry<V>> = Object.fromEntries(
-      newestFirst.slice(0, this.maxEntries),
-    );
-    return result;
-  }
-
-  private updateData(entries: Record<string, DiskCacheEntry<V>>): void {
-    this.data = Object.assign(this.empty(), { entries });
+    newestFirst.slice(this.maxEntries).forEach(([key]) => {
+      this.delete(key);
+    });
   }
 
   private isExpired(entry: { v: V; t: number }): boolean {
@@ -321,13 +296,11 @@ export class DiskCache<V> {
 
   get(key: string): V | undefined {
     if (!this.enabled) return undefined;
-    const envelope = this.load();
-    const entry = envelope.entries[key];
+    const entries = this.load();
+    const entry = entries.get(key);
     if (!entry) return undefined;
     if (this.isExpired(entry)) {
-      const { [key]: _, ...rest } = envelope.entries;
-      this.removeEntry(key);
-      this.updateData(rest);
+      this.delete(key);
       return undefined;
     }
     const result: V | undefined = entry.v;
@@ -336,15 +309,12 @@ export class DiskCache<V> {
 
   set(key: string, value: V): void {
     if (!this.enabled) return;
-    const envelope = this.load();
+    const entries = this.load();
     const t = Date.now();
     const entry = { v: value, t };
-    const entries = Object.assign({}, envelope.entries, { [key]: entry });
-    const trimmed = this.trimEntries(entries);
-    const removedKeys = Object.keys(entries).filter((entryKey) => !(entryKey in trimmed));
     this.writeEntry(key, entry);
-    removedKeys.forEach((entryKey) => this.removeEntry(entryKey));
-    this.updateData(trimmed);
+    entries.set(key, entry);
+    this.trimEntries(entries);
   }
 
   has(key: string): boolean {
@@ -354,31 +324,26 @@ export class DiskCache<V> {
 
   delete(key: string): void {
     if (!this.enabled) return;
-    const envelope = this.load();
-    const { [key]: _, ...rest } = envelope.entries;
+    const entries = this.load();
     this.removeEntry(key);
-    this.updateData(rest);
+    entries.delete(key);
   }
 
   clear(): void {
     if (!this.enabled) return;
     fs.readdirSync(this.entriesDir).forEach((file) => fs.unlinkSync(join(this.entriesDir, file)));
     if (fs.existsSync(this.filePath)) fs.unlinkSync(this.filePath);
-    this.data = this.empty();
+    this.data = new Map();
   }
 
   prune(): number {
     if (!this.enabled) return 0;
-    const envelope = this.load();
-    const before = Object.keys(envelope.entries).length;
-    const fresh = Object.fromEntries(
-      Object.entries(envelope.entries).filter(([, e]) => !this.isExpired(e)),
-    );
-    const after = Object.keys(fresh).length;
-    const expiredKeys = Object.keys(envelope.entries).filter((key) => !(key in fresh));
-    expiredKeys.forEach((key) => this.removeEntry(key));
-    if (before !== after) this.updateData(fresh);
-    const result: number = before - after;
+    const entries = Array.from(this.load());
+    const expired = entries.filter(([, entry]) => this.isExpired(entry));
+    expired.forEach(([key]) => {
+      this.delete(key);
+    });
+    const result = expired.length;
     return result;
   }
 }

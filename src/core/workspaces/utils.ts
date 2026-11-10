@@ -198,7 +198,7 @@ export const workspacePatternToPackageManifestPath = (pattern: string): string |
   const shouldIgnore = isEmpty || isNegated;
   if (shouldIgnore) return null;
   if (trimmed.endsWith(PACKAGE_JSON)) return trimmed;
-  const withoutTrailingSlash = trimmed.replace(/\/+$/, "");
+  const withoutTrailingSlash = trimmed.replace(/(?<!\/)\/+$/, "");
   if (withoutTrailingSlash === ".") return PACKAGE_JSON;
   const result = `${withoutTrailingSlash}/${PACKAGE_JSON}`;
   return result;

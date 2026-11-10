@@ -120,6 +120,37 @@ const assertUnchanged = (fixture: ReturnType<typeof createFixture>) => {
   assert.equal(readFileSync(fixture.lockPath, "utf8"), fixture.lock);
 };
 
+const failSecurityProvider = (t: TestContext) => {
+  t.mock.method(OSVProvider.prototype, "fetchAlerts", async () => {
+    throw new Error("provider unavailable");
+  });
+};
+
+const incompleteModes: Options[] = [
+  {},
+  { quiet: true },
+  { outputFormat: "json" },
+  { strict: true },
+];
+incompleteModes.forEach((mode) => {
+  test(`incomplete provider scans fail without updating files in ${JSON.stringify(mode)}`, async (t) => {
+    const fixture = createFixture(t, "npm");
+    const output = captureStdout(t);
+    const exits: number[] = [];
+    t.mock.method(process, "exit", (code) => {
+      exits.push(Number(code));
+    });
+    failSecurityProvider(t);
+    const options = Object.assign({ root: fixture.root, path: fixture.path, noCache: true }, mode);
+    const result = await action(options);
+    assert.equal(result.success, false);
+    assert.deepEqual(exits, [1]);
+    assert.doesNotMatch(output(), /No vulnerabilities/);
+    if (mode.outputFormat === "json") assert.equal(JSON.parse(output()).success, false);
+    assertUnchanged(fixture);
+  });
+});
+
 const kitAlert: SecurityAlert = {
   packageName: "@sveltejs/kit",
   currentVersion: "2.70.3",

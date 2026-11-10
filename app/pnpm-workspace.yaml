@@ -12,10 +12,9 @@ minimumReleaseAgeExclude:
   - "@types/react-dom@19.2.7"
   - vite@8.3.1
 overrides:
-  "fast-uri": "3.1.8"
-  "js-yaml": "4.3.2"
   "lodash-es": "4.18.1"
-  "hono": "4.13.9"
-  "qs": "6.16.0"
+  "rehype-katex@7.0.1>katex": "0.19.1"
+  "micromark-extension-math@3.1.0>katex": "0.19.1"
+  "@tailwindcss/typography@0.5.20>postcss-selector-parser": "6.1.5"
 patchedDependencies:
   "@base-ui/react@^1.8.0": patches/@base-ui__react@1.8.0.patch

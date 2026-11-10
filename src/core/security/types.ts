@@ -85,6 +85,7 @@ export interface SecurityCheckRuntimeOptions extends SecurityCheckOptions {
 }
 
 export interface SecurityCheckResult {
+  complete: boolean;
   alerts: SecurityAlert[];
   overrides: SecurityOverride[];
   updates: OverrideUpdate[];
@@ -96,6 +97,7 @@ export interface SecurityCheckResult {
 export interface SecurityPackage {
   name: string;
   version: string;
+  registryName?: string;
 }
 
 export interface WorkspaceVulnerabilityState {

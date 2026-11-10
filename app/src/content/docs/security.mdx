@@ -175,7 +175,7 @@ the Node.js API.
 | `--securityProviderToken <token>` | Provide an authentication token for one-off/local use |
 | `--interactive`                   | Use interactive mode to select fixes                  |
 | `--hasWorkspaceSecurityChecks`    | Include workspace packages in the security scan       |
-| `--strict`                        | Fail on provider, network, or API errors              |
+| `--strict`                        | Fail instead of skipping provider permission errors   |
 
 ### Token Handling
 
@@ -446,8 +446,9 @@ Pastoralist will show specific guidance in the warning message.
 
 ## Example: CI Integration
 
-`--quiet --checkSecurity` exits non-zero on findings. Add `--strict` to fail on
-provider errors and `--dry-run` to preview project changes.
+`--quiet --checkSecurity` exits non-zero on findings or incomplete provider scans.
+Use `--dry-run` to preview project changes. Library results expose `complete`;
+set `requireCompleteScan: true` to reject incomplete scans.
 
 ### GitHub Actions
 

@@ -70,6 +70,7 @@ run_docker_tests() {
   docker compose run --rm e2e-sveltekit2
   docker compose run --rm e2e-external-config
   docker compose run --rm e2e-js-mgrs
+  docker compose run --rm e2e-js-mgrs bash /app/tests/test-interactive.sh
 
   TEST_EXIT_CODE=$?
 

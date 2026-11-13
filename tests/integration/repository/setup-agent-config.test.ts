@@ -120,6 +120,16 @@ const createHookTools = (root: string) => {
   return hookTools;
 };
 
+const mergeMessages = [
+  "Merge branch 'main' into nit-perf-fixes",
+  "Merge branches 'one' and 'two'",
+  "Merge remote-tracking branch 'origin/main'",
+  "Merge remote-tracking branches 'origin/one' and 'origin/two'",
+  "Merge tag 'v1.0.0'",
+  "Merge commit 'abc123'",
+  "Merge pull request #691 from yowainwright/nit-perf-fixes",
+];
+
 const installHooksCases = [
   {
     name: "pre-commit does not lint changed files before the full lint",
@@ -181,6 +191,23 @@ const installHooksCases = [
           writeFixture(root, path, message);
           assert.notStrictEqual(runGeneratedHook(root, "commit-msg", [join(root, path)]).status, 0);
         });
+      });
+    },
+  },
+  {
+    name: "commit-msg accepts standard Git merge messages",
+    run: () => {
+      withTempRepo((root) => {
+        mkdirSync(join(root, ".git"), { recursive: true });
+        assert.strictEqual(runHookInstaller(root).status, 0);
+        mergeMessages.forEach((message) => {
+          writeFixture(root, "merge-message", `${message}\n`);
+          const result = runGeneratedHook(root, "commit-msg", [join(root, "merge-message")]);
+          assert.strictEqual(result.status, 0, result.stderr);
+        });
+        writeFixture(root, "invalid-merge-message", "Merge something\n");
+        const invalid = runGeneratedHook(root, "commit-msg", [join(root, "invalid-merge-message")]);
+        assert.notStrictEqual(invalid.status, 0);
       });
     },
   },

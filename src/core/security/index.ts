@@ -20,6 +20,7 @@ import {
   type WorkspaceVulnerabilityState,
   type SecurityProviderScanOptions,
   type SecurityProviderType,
+  SecurityProviderPermissionError,
 } from "../../types";
 import type { Appendix, PastoralistJSON, OverridesType } from "../../types";
 import {
@@ -1099,6 +1100,19 @@ export class SecurityChecker {
     this.log.debug(message, "checkSecurity");
   }
 
+  private assertProviderPermissions(
+    results: PromiseSettledResult<SecurityAlert[]>[],
+    options: SecurityCheckRuntimeOptions,
+  ): void {
+    const requireCompleteScan = this.strict || options.requireCompleteScan;
+    if (!requireCompleteScan) return;
+    results.forEach((result) => {
+      if (result.status !== "rejected") return;
+      const denied = result.reason instanceof SecurityProviderPermissionError;
+      if (denied) throw result.reason;
+    });
+  }
+
   private async fetchProviderAlerts(
     packages: SecurityPackage[],
     options: SecurityCheckRuntimeOptions,
@@ -1111,8 +1125,8 @@ export class SecurityChecker {
     const providerOptions = this.createProviderScanOptions(options, markIncomplete);
     const requests = this.createProviderRequests(packages, providerOptions);
     const results = await Promise.allSettled(requests);
+    this.assertProviderPermissions(results, options);
     const providersCompleted = results.every((result) => result.status === "fulfilled");
-    if (!providersCompleted) markIncomplete();
     const alerts = results.flatMap((result, index) => this.normalizeProviderResult(result, index));
     const complete = providersCompleted && incompleteScans.size === 0;
 

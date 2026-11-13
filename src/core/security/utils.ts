@@ -1190,13 +1190,13 @@ const getGlobalFixBlocker = (
   context: SecurityFixContext,
 ): string | undefined => {
   if (fix.targetStillVulnerable) return "No proposed version resolves all known advisories";
-  if (hasDeclaredRegistryAlias(context.config, fix.packageName))
-    return "Update npm alias dependency declarations manually";
   const direct = getDirectDependencyFields(context.config, fix.packageName);
   if (direct.length) {
     const blocker = getDirectFixBlocker(fix, context.config);
     return blocker;
   }
+  if (hasDeclaredRegistryAlias(context.config, fix.packageName))
+    return "Update npm alias dependency declarations manually";
   if (context.workspace?.complete === false)
     return "Workspace dependency declarations require review";
   if (context.workspace?.names.has(fix.packageName))

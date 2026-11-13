@@ -233,11 +233,10 @@ const buildSecurityCheckOptions = (
   config: PastoralistJSON,
   mergedOptions: Options,
   scanPaths: string[],
-  spinner: ReturnType<typeof createSpinner>,
+  onProgress: ReturnType<typeof createProgressHandler>,
 ): SecurityCheckerOptions => {
   const root = resolveSecurityRoot(mergedOptions);
   const { path: packageJsonPath } = mergedOptions;
-  const onProgress = createProgressHandler(spinner);
   const { severityThreshold, excludePackages } = config?.pastoralist?.security ?? {};
   const checkOptions = Object.assign({}, mergedOptions, {
     depPaths: scanPaths,
@@ -246,6 +245,7 @@ const buildSecurityCheckOptions = (
     onProgress,
     severityThreshold,
     excludePackages,
+    requireCompleteScan: true,
   });
   return checkOptions;
 };
@@ -271,7 +271,8 @@ const runSecurityScan = async (
   const { isLogging, log, spinner, deps } = context;
   const securityChecker = createSecurityChecker(mergedOptions, isLogging, deps.SecurityChecker);
   const scanPaths = deps.determineSecurityScanPaths(config, mergedOptions, log);
-  const checkOptions = buildSecurityCheckOptions(config, mergedOptions, scanPaths, spinner);
+  const onProgress = createProgressHandler(spinner);
+  const checkOptions = buildSecurityCheckOptions(config, mergedOptions, scanPaths, onProgress);
   const result = await securityChecker.checkSecurity(config, checkOptions);
   const runResult = toSecurityRunResult(spinner, securityChecker, result);
   return runResult;

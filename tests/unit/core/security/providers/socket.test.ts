@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { mock } from "../../../setup";
 import assert from "node:assert/strict";
 import { SocketCLIProvider } from "../../../../../src/core/security/providers/socket";
+import { randomUUID } from "node:crypto";
 
 test("providerType - should be 'socket'", () => {
   const provider = new SocketCLIProvider({ debug: false });
@@ -352,8 +353,9 @@ test("fetchAlerts - should return alerts on successful scan", async () => {
 });
 
 test("fetchAlerts - passes the configured root to the Socket scan", async () => {
+  const packages = [{ name: "test-pkg", version: "1.0.0" }];
   const execFileAsync = mock(async () => ({
-    stdout: JSON.stringify({ packages: [] }),
+    stdout: JSON.stringify({ ok: true, data: packages }),
     stderr: "",
   }));
   const provider = new SocketCLIProvider({
@@ -363,13 +365,60 @@ test("fetchAlerts - passes the configured root to the Socket scan", async () => 
   });
   provider.ensureInstalled = async () => true;
 
-  await provider.fetchAlerts([], { root: "/project/root" });
+  await provider.fetchAlerts(packages, { root: "/project/root" });
 
   assertCalledWith(
     execFileAsync,
     "socket",
-    ["report", "create", "--format", "json"],
+    [
+      "package",
+      "shallow",
+      "npm",
+      "test-pkg@1.0.0",
+      "--json",
+      "--no-interactive",
+      "--no-banner",
+      "--no-spinner",
+    ],
     objectContaining({ cwd: "/project/root" }),
+  );
+});
+
+const createSocketLookup = (data: unknown) => {
+  const execFileAsync = mock(async () => ({
+    stdout: JSON.stringify({ ok: true, data }),
+    stderr: "",
+  }));
+  const token = randomUUID();
+  const provider = new SocketCLIProvider({ token, strict: true, execFileAsync });
+  provider.ensureInstalled = async () => true;
+  return provider;
+};
+
+test("fetchAlerts - converts scoped package CVEs from supported shallow lookup responses", async () => {
+  const alerts = [{ type: "criticalCVE", severity: "high", props: { cveId: "CVE-2026-12345" } }];
+  const provider = createSocketLookup([
+    { type: "npm", namespace: "@scope", name: "package", version: "1.0.0", alerts },
+  ]);
+  const result = await provider.fetchAlerts([{ name: "@scope/package", version: "1.0.0" }]);
+  assert.strictEqual(result[0].packageName, "@scope/package");
+  assert.strictEqual(result[0].severity, "critical");
+  assert.deepStrictEqual(result[0].cves, ["CVE-2026-12345"]);
+});
+
+test("fetchAlerts - rejects missing packages rather than reporting a clean scan", async () => {
+  const provider = createSocketLookup([]);
+  await assert.rejects(
+    provider.fetchAlerts([{ name: "missing", version: "1.0.0" }]),
+    /incomplete package inventory/,
+  );
+});
+
+test("fetchAlerts - rejects malformed alerts rather than reporting a clean scan", async () => {
+  const provider = createSocketLookup([{ name: "invalid", version: "1.0.0", alerts: [{}] }]);
+  await assert.rejects(
+    provider.fetchAlerts([{ name: "invalid", version: "1.0.0" }]),
+    /Invalid Socket alert metadata/,
   );
 });
 

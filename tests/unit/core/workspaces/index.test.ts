@@ -1,6 +1,7 @@
 import { assertCalledWith, assertHasProperty, mock } from "../../setup";
 import { test, afterEach, beforeEach, mock as moduleMock } from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
@@ -111,6 +112,41 @@ test("workspacePatternToPackageManifestPath - preserves package.json paths", () 
     workspacePatternToPackageManifestPath("apps/*/package.json"),
     "apps/*/package.json",
   );
+});
+
+test("workspacePatternToPackageManifestPath - removes only trailing slashes", () => {
+  const cases = [
+    [" packages/*/// ", "packages/*/package.json"],
+    [".///", "package.json"],
+    ["///", "/package.json"],
+    ["packages//nested///", "packages//nested/package.json"],
+    ["packages/\u{1F680}///", "packages/\u{1F680}/package.json"],
+    ["apps/*/package.json///", "apps/*/package.json/package.json"],
+  ];
+  cases.forEach(([pattern, expected]) => {
+    assert.strictEqual(workspacePatternToPackageManifestPath(pattern), expected);
+  });
+});
+
+test("workspacePatternToPackageManifestPath - handles long non-trailing slash runs", () => {
+  const modulePath = new URL("../../../../src/core/workspaces/utils.ts", import.meta.url).href;
+  const setupPath = new URL("../../setup.ts", import.meta.url).href;
+  const script = `
+    import assert from "node:assert/strict";
+    import { workspacePatternToPackageManifestPath as normalize } from ${JSON.stringify(modulePath)};
+    const slashes = "/".repeat(1_000_000);
+    const pattern = "packages/" + slashes + "x";
+    assert.equal(normalize(pattern), pattern + "/package.json");
+    assert.equal(normalize(pattern + "/"), pattern + "/package.json");
+    assert.equal(normalize("packages" + slashes), "packages/package.json");
+  `;
+  const args = ["--import", setupPath, "--input-type=module", "-e", script];
+  const encoding = "utf8" as const;
+  const killSignal = "SIGKILL" as const;
+  const options = { encoding, timeout: 5000, killSignal };
+  const result = spawnSync(process.execPath, args, options);
+  assert.ifError(result.error);
+  assert.strictEqual(result.status, 0, result.stderr);
 });
 
 test("workspacePatternToPackageManifestPath - ignores empty and negated patterns", () => {

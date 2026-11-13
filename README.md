@@ -341,7 +341,7 @@ pastoralist --checkSecurity --securityProvider github --securityProviderToken "$
 Controls how security findings are handled: `--interactive` prompts for fixes,
 `--forceSecurityRefactor` applies compatible transitive fixes without prompting,
 `--hasWorkspaceSecurityChecks` includes workspace packages, `--promptForReasons`
-asks for manual ledger reasons, and `--strict` fails on provider errors.
+asks for manual ledger reasons, and `--strict` disables the permission fallback.
 
 ```sh
 pastoralist --checkSecurity --interactive
@@ -351,7 +351,8 @@ pastoralist --promptForReasons
 ```
 
 Use `--interactive` for review, `--forceSecurityRefactor` for unattended fixes,
-and `--strict` when provider errors should fail the run.
+and `--strict` to disable the permission fallback. CLI scans fail if a provider
+cannot complete.
 
 Direct dependency and devDependency updates require interactive approval and
 change the original `package.json` entry. Major upgrades and fixes outside a

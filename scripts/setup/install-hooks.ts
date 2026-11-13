@@ -29,6 +29,12 @@ const COMMIT_MSG = `#!/bin/sh
 commit_msg_file=$1
 commit_msg=$(head -n 1 "$commit_msg_file")
 
+merge_message_pattern='^Merge (branch(es)?|remote-tracking branch(es)?|tag(s)?|commit(s)?|pull request) .+'
+if printf '%s\\n' "$commit_msg" | grep -Eq "$merge_message_pattern"; then
+  echo 'Merge commit message is valid'
+  exit 0
+fi
+
 if ! printf '%s\\n' "$commit_msg" | grep -Eq '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)([(][^)]+[)])?: .+'; then
   echo 'Invalid commit message format' >&2
   echo 'Expected format: <type>(<scope>): <message>' >&2

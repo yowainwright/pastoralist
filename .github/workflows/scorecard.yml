@@ -75,6 +75,7 @@ jobs:
                     "tests/e2e/Dockerfile.js-mgrs",
                     "tests/e2e/Dockerfile.n8n",
                     "tests/e2e/Dockerfile.pnpm-yaml",
+                    "tests/e2e/Dockerfile.sveltekit2",
                     "tests/e2e/Dockerfile.yarn",
                     "tests/e2e/scripts/test-js-mgrs.sh",
                     "tests/e2e/scripts/test-top-level-mgrs.sh"

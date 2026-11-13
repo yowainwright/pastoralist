@@ -29,6 +29,15 @@ const npmLimit = createLimit(NPM_REGISTRY_CONCURRENCY);
 
 const registryCaches = new Map<string, DiskCache<NpmPackageInfo>>();
 
+export const parseNpmAlias = (specifier: string) => {
+  const match = specifier.match(/^npm:((?:@[^/@\s]+\/)?[^/@\s]+)(?:@(.+))?$/);
+  if (!match) return undefined;
+  const [, name] = match;
+  const version = match[2] ?? "*";
+  const alias = { name, version };
+  return alias;
+};
+
 const resolveRegistryCacheDir = ({ cacheDir, root }: NpmCacheOptions): string => {
   const cacheDirOptions = { cacheDir, root };
   const dir = resolveCacheDir(cacheDirOptions);

@@ -72,6 +72,7 @@ import {
 } from "../setup";
 
 const log = createLogger({ file: "test.ts", isLogging: false });
+const REMOVAL_MANIFEST_PATH = join(tmpdir(), "removal-fixture", "package.json");
 const { version } = packageJSON;
 const captureLine =
   (lines: string[]) =>
@@ -5219,7 +5220,7 @@ test("action - displays blocked removals notice when skipRemovalKeys set", async
   const mockGraph = createMockTerminalGraph();
   const deps = createDepsForDisplaysBlocked(mockConfig, mockGraph);
 
-  await action({ path: "package.json", removeUnused: true }, deps);
+  await action({ path: REMOVAL_MANIFEST_PATH, removeUnused: true }, deps);
 
   const noticeCalls = mockGraph.notice.mock.calls.map((call) =>
     Array.isArray(call) ? call : call.arguments,
@@ -5297,7 +5298,12 @@ const verifyTestRemovals = (
   config: PastoralistJSON,
   checker: ReturnType<typeof createChecker>,
   options: Options = {},
-) => verifyRemovals(config, checker as any, Object.assign({ isTesting: true }, options));
+) =>
+  verifyRemovals(
+    config,
+    checker as any,
+    Object.assign({ isTesting: true, path: REMOVAL_MANIFEST_PATH }, options),
+  );
 
 test("verifyRemovals - allows cleanup when post-removal alerts are lower", async () => {
   const config = createConfig();
@@ -5721,7 +5727,7 @@ const createRemovalActionDeps = (
 
 const createActionOptions = (options: Options) => {
   const actionOptions = Object.assign(
-    { checkSecurity: true, removeUnused: true, isTesting: true },
+    { checkSecurity: true, removeUnused: true, isTesting: true, path: REMOVAL_MANIFEST_PATH },
     options,
   );
   return actionOptions;
@@ -5758,7 +5764,7 @@ test("action removal - renders comparison before update runs", async () => {
     return result;
   });
 
-  await action({ checkSecurity: true, removeUnused: true, isTesting: true }, deps);
+  await action(createActionOptions({}), deps);
 
   assert.strictEqual(noticedBeforeUpdate, true);
 });
@@ -5791,10 +5797,7 @@ test("action removal - removes a safe override when another removal is blocked",
   const { deps } = createRemovalActionDeps(config, [], { candidateScans, quickConfirm });
   deps.update = mock((mergedOptions: Options) => realUpdate(mergedOptions));
 
-  const result = await action(
-    { checkSecurity: true, interactive: true, removeUnused: true, isTesting: true },
-    deps,
-  );
+  const result = await action(createActionOptions({ interactive: true }), deps);
   const prompt = String(
     quickConfirm.mock.calls.map((call) => (Array.isArray(call) ? call : call.arguments))[0][0],
   );
@@ -5845,10 +5848,7 @@ test("action removal - confirms interactive cleanup", async () => {
   const { deps } = createRemovalActionDeps(config, [], { quickConfirm });
   deps.update = mock((mergedOptions: Options) => realUpdate(mergedOptions));
 
-  const result = await action(
-    { checkSecurity: true, interactive: true, removeUnused: true, isTesting: true },
-    deps,
-  );
+  const result = await action(createActionOptions({ interactive: true }), deps);
   const promptCall = quickConfirm.mock.calls.map((call) =>
     Array.isArray(call) ? call : call.arguments,
   )[0];
@@ -5877,10 +5877,7 @@ test("action removal - truncates long cleanup prompts", async () => {
   const { deps } = createRemovalActionDeps(config, [], { quickConfirm });
   deps.update = mock((mergedOptions: Options) => realUpdate(mergedOptions));
 
-  await action(
-    { checkSecurity: true, interactive: true, removeUnused: true, isTesting: true },
-    deps,
-  );
+  await action(createActionOptions({ interactive: true }), deps);
   const prompt = String(
     quickConfirm.mock.calls.map((call) => (Array.isArray(call) ? call : call.arguments))[0][0],
   );
@@ -5896,10 +5893,7 @@ test("action removal - keeps overrides when cleanup is declined", async () => {
   const { deps } = createRemovalActionDeps(config, [], { graph, quickConfirm });
   deps.update = mock((mergedOptions: Options) => realUpdate(mergedOptions));
 
-  const result = await action(
-    { checkSecurity: true, interactive: true, removeUnused: true, isTesting: true },
-    deps,
-  );
+  const result = await action(createActionOptions({ interactive: true }), deps);
   const notices = graph.notice.mock.calls
     .map((call) => (Array.isArray(call) ? call : call.arguments))
     .map((call) => String(call[0]));
@@ -5918,10 +5912,7 @@ test("action removal - includes the comparison in JSON output", async () => {
   const consoleCapture = captureConsoleOutput();
   consoleCapture.start();
 
-  const result = await action(
-    { checkSecurity: true, removeUnused: true, isTesting: true, outputFormat: "json" },
-    deps,
-  );
+  const result = await action(createActionOptions({ outputFormat: "json" }), deps);
   consoleCapture.stop();
   const [line] = consoleCapture.getOutput();
   const parsed = JSON.parse(line);

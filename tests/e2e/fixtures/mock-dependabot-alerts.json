@@ -9,6 +9,7 @@
       "description": "Versions of lodash prior to 4.17.21 are vulnerable to prototype pollution."
     },
     "security_vulnerability": {
+      "severity": "high",
       "package": {
         "name": "lodash",
         "ecosystem": "npm"

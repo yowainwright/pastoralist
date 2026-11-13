@@ -120,6 +120,37 @@ const assertUnchanged = (fixture: ReturnType<typeof createFixture>) => {
   assert.equal(readFileSync(fixture.lockPath, "utf8"), fixture.lock);
 };
 
+const failSecurityProvider = (t: TestContext) => {
+  t.mock.method(OSVProvider.prototype, "fetchAlerts", async () => {
+    throw new Error("provider unavailable");
+  });
+};
+
+const incompleteModes: Options[] = [
+  {},
+  { quiet: true },
+  { outputFormat: "json" },
+  { strict: true },
+];
+incompleteModes.forEach((mode) => {
+  test(`incomplete provider scans fail without updating files in ${JSON.stringify(mode)}`, async (t) => {
+    const fixture = createFixture(t, "npm");
+    const output = captureStdout(t);
+    const exits: number[] = [];
+    t.mock.method(process, "exit", (code) => {
+      exits.push(Number(code));
+    });
+    failSecurityProvider(t);
+    const options = Object.assign({ root: fixture.root, path: fixture.path, noCache: true }, mode);
+    const result = await action(options);
+    assert.equal(result.success, false);
+    assert.deepEqual(exits, [1]);
+    assert.doesNotMatch(output(), /No vulnerabilities/);
+    if (mode.outputFormat === "json") assert.equal(JSON.parse(output()).success, false);
+    assertUnchanged(fixture);
+  });
+});
+
 const kitAlert: SecurityAlert = {
   packageName: "@sveltejs/kit",
   currentVersion: "2.70.3",
@@ -526,8 +557,11 @@ permissionModes.forEach((mode) => {
     const output = captureStdout(t);
     const exit = t.mock.method(process, "exit", () => undefined as never);
     const error = new SecurityProviderPermissionError("osv", "access denied");
-    t.mock.method(SecurityChecker.prototype, "checkSecurity", () => Promise.reject(error));
-    const options = Object.assign({ root: fixture.root, path: fixture.path, dryRun: true }, mode);
+    t.mock.method(OSVProvider.prototype, "fetchAlerts", () => Promise.reject(error));
+    const options = Object.assign(
+      { root: fixture.root, path: fixture.path, dryRun: true, noCache: true },
+      mode,
+    );
     const result = await action(options);
     assert.equal(result.success, false);
     assert.deepEqual(result.errors, [error.message]);
@@ -535,6 +569,36 @@ permissionModes.forEach((mode) => {
     if (mode.outputFormat === "json") assert.equal(JSON.parse(output()).success, false);
     assertUnchanged(fixture);
   });
+});
+
+test("provider permission errors retain the human-mode fallback", async (t) => {
+  const fixture = createFixture(t, "npm");
+  const output = captureStdout(t);
+  const exit = t.mock.method(process, "exit", () => undefined as never);
+  const error = new SecurityProviderPermissionError("GitHub", "access denied");
+  t.mock.method(OSVProvider.prototype, "fetchAlerts", () => Promise.reject(error));
+  const result = await action({
+    root: fixture.root,
+    path: fixture.path,
+    dryRun: true,
+    noCache: true,
+  });
+  assert.equal(result.success, true);
+  assert.equal(exit.mock.calls.length, 0);
+  assert.match(output(), /access denied/);
+  assert.doesNotMatch(output(), /No vulnerabilities/);
+  assertUnchanged(fixture);
+});
+
+test("library callers can inspect incomplete permission scans", async (t) => {
+  const fixture = createFixture(t, "npm");
+  const error = new SecurityProviderPermissionError("GitHub", "access denied");
+  t.mock.method(OSVProvider.prototype, "fetchAlerts", () => Promise.reject(error));
+  const checker = new SecurityChecker({ provider: "osv", noCache: true });
+  const config = JSON.parse(fixture.manifest);
+  const result = await checker.checkSecurity(config, { root: fixture.root });
+  assert.equal(result.complete, false);
+  assertUnchanged(fixture);
 });
 
 test("pnpm counts retain genuine project dependencies on pnpm", (t) => {

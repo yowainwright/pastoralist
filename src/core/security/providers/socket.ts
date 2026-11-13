@@ -5,7 +5,10 @@ import type {
   SecurityProviderScanOptions,
   SocketPackage,
   SocketIssue,
+  SocketResult,
+  SecurityPackage,
 } from "../../../types";
+import { getStringField, isRecord } from "../../../utils";
 import { logger } from "../../../observability";
 import { CLIInstaller, isSocketResult } from "../utils";
 import { AUTH_MESSAGES } from "../constants";
@@ -13,6 +16,58 @@ import type { ExecFileAsync } from "../../types";
 import type { SocketCLIProviderOptions } from "../types";
 
 const execFileAsync = promisify(execFile);
+const SOCKET_SCAN_MAX_BUFFER = 10 * 1024 * 1024;
+const SOCKET_CVE_SEVERITIES = new Map([
+  ["cve", "high"],
+  ["criticalCVE", "critical"],
+  ["mediumCVE", "medium"],
+  ["mildCVE", "low"],
+]);
+
+const toSocketIssue = (value: unknown): SocketIssue => {
+  if (!isRecord(value)) throw new Error("Invalid Socket alert");
+  const rawType = getStringField(value, "type");
+  const rawSeverity = getStringField(value, "severity");
+  const hasMetadata = rawType && rawSeverity;
+  if (!hasMetadata) throw new Error("Invalid Socket alert metadata");
+  const cveSeverity = SOCKET_CVE_SEVERITIES.get(rawType);
+  const severity = cveSeverity ?? rawSeverity;
+  const type = cveSeverity ? "vulnerability" : rawType;
+  const title = getStringField(value, "title") ?? rawType;
+  const description = getStringField(value, "description");
+  const cve = getStringField(value.props, "cveId");
+  const url = getStringField(value, "url");
+  const issue = { type, severity, title, description, cve, url };
+  return issue;
+};
+
+const toSocketPackage = (value: unknown): SocketPackage => {
+  if (!isRecord(value)) throw new Error("Invalid Socket package");
+  const packageName = getStringField(value, "name");
+  const version = getStringField(value, "version");
+  const hasIdentity = packageName && version;
+  if (!hasIdentity) throw new Error("Invalid Socket package identity");
+  const namespace = getStringField(value, "namespace");
+  const isScoped = namespace && !packageName.startsWith(`${namespace}/`);
+  const name = isScoped ? `${namespace}/${packageName}` : packageName;
+  const alerts = value.alerts ?? [];
+  if (!Array.isArray(alerts)) throw new Error("Invalid Socket package alerts");
+  const issues = alerts.map(toSocketIssue);
+  const pkg = { name, version, issues };
+  return pkg;
+};
+
+const parseSocketPackages = (value: unknown, requested: SecurityPackage[]): SocketResult => {
+  if (!isRecord(value)) throw new Error("Invalid Socket response");
+  const succeeded = value.ok === true && Array.isArray(value.data);
+  if (!succeeded) throw new Error("Socket package lookup did not complete");
+  const packages = (value.data as unknown[]).map(toSocketPackage);
+  const returned = new Set(packages.map((pkg) => `${pkg.name}@${pkg.version}`));
+  const complete = requested.every((pkg) => returned.has(`${pkg.name}@${pkg.version}`));
+  if (!complete) throw new Error("Socket returned an incomplete package inventory");
+  const result = { packages };
+  return result;
+};
 
 export class SocketCLIProvider {
   readonly providerType = "socket" as const;
@@ -30,7 +85,11 @@ export class SocketCLIProvider {
       isLogging,
     });
     this.installer = new CLIInstaller({ debug });
-    this.token = options.token || process.env.SOCKET_SECURITY_API_KEY;
+    this.token =
+      options.token ||
+      process.env.SOCKET_SECURITY_API_KEY ||
+      process.env.SOCKET_CLI_API_TOKEN ||
+      process.env.SOCKET_API_KEY;
     this.strict = options.strict || false;
     this.execFileAsync = options.execFileAsync ?? execFileAsync;
     this.log.warn(
@@ -41,7 +100,7 @@ export class SocketCLIProvider {
 
   ensureInstalled(): Promise<boolean> {
     const result = this.installer.ensureInstalled({
-      packageName: "@socketsecurity/cli",
+      packageName: "socket",
       cliCommand: "socket",
     });
     return result;
@@ -70,26 +129,21 @@ export class SocketCLIProvider {
     return true;
   }
 
-  private async runSocketScan(root?: string): Promise<unknown> {
-    const { token: SOCKET_SECURITY_API_KEY } = this;
-    const env = Object.assign({}, process.env, { SOCKET_SECURITY_API_KEY });
-
-    const { stdout } = await this.execFileAsync(
-      "socket",
-      ["report", "create", "--format", "json"],
-      {
-        timeout: 60000,
-        env,
-        cwd: root,
-      },
-    );
-
-    const result: unknown = JSON.parse(stdout);
+  private async runSocketScan(packages: SecurityPackage[], root?: string): Promise<unknown> {
+    if (packages.length === 0) throw new Error("Socket requires a resolved package inventory");
+    const { token: SOCKET_CLI_API_TOKEN } = this;
+    const env = Object.assign({}, process.env, { SOCKET_CLI_API_TOKEN });
+    const identifiers = packages.map((pkg) => `${pkg.name}@${pkg.version}`);
+    const flags = ["--json", "--no-interactive", "--no-banner", "--no-spinner"];
+    const args = ["package", "shallow", "npm"].concat(identifiers, flags);
+    const options = { timeout: 60000, env, cwd: root, maxBuffer: SOCKET_SCAN_MAX_BUFFER };
+    const { stdout } = await this.execFileAsync("socket", args, options);
+    const result = parseSocketPackages(JSON.parse(stdout), packages);
     return result;
   }
 
   async fetchAlerts(
-    _packages: Array<{ name: string; version: string }> = [],
+    packages: SecurityPackage[] = [],
     options: SecurityProviderScanOptions = {},
   ): Promise<SecurityAlert[]> {
     const isValid = await this.validatePrerequisites();
@@ -100,7 +154,7 @@ export class SocketCLIProvider {
     }
 
     try {
-      const result = await this.runSocketScan(options.root);
+      const result = await this.runSocketScan(packages, options.root);
       const socketResult = this.validateSocketResult(result);
       const alerts = this.convertSocketAlerts(socketResult);
       return alerts;
@@ -199,6 +253,7 @@ export class SocketCLIProvider {
         return "high";
       case "medium":
       case "moderate":
+      case "middle":
         return "medium";
       case "low":
       case "info":

@@ -25,6 +25,8 @@ import { logger } from "../../observability";
 import type { DependencyTree, DependencyGraph } from "../types";
 import type { NpmLockFile, NpmLsTree, DependencyVersionCandidate } from "./types";
 import { NPM_LOCK_FILENAME } from "./constants";
+import { parseNpmAlias } from "../../utils/npm";
+import { getStringField } from "../../utils";
 
 const log = logger({ file: "mgrs/npm/utils.ts", isLogging: IS_DEBUGGING });
 
@@ -32,7 +34,8 @@ const getDependencyVersion = (value: unknown): string => {
   const version = (value as { version?: unknown })?.version;
   if (typeof version !== "string") return UNKNOWN_DEPENDENCY_VERSION;
   if (version.length === 0) return UNKNOWN_DEPENDENCY_VERSION;
-  return version;
+  const resolvedVersion = parseNpmAlias(version)?.version ?? version;
+  return resolvedVersion;
 };
 
 const shouldUseDependencyVersionCandidate = (
@@ -73,7 +76,12 @@ const createLockedPackage = (name: string, value: unknown): SecurityPackage | un
   const version = getDependencyVersion(value);
   if (version === UNKNOWN_DEPENDENCY_VERSION) return undefined;
   const pkg = { name, version };
-  return pkg;
+  const alias = parseNpmAlias(getStringField(value, "version") ?? "");
+  const registryName = getStringField(value, "name") ?? alias?.name;
+  const usesInstalledName = !registryName || registryName === name;
+  if (usesInstalledName) return pkg;
+  const aliasedPackage = Object.assign({}, pkg, { registryName });
+  return aliasedPackage;
 };
 
 const collectNestedNpmPackages = (value: unknown): SecurityPackage[] => {

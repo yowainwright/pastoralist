@@ -32,6 +32,12 @@ const alert = (
 
 const evaluation = (alerts: SecurityAlert[]): BestCaseEvaluation => ({ alerts });
 
+test("best-case rescans preserve canonical registry identities for aliases", () => {
+  const packages = [{ name: "alias", version: "1.0.0", registryName: "actual" }];
+  const result = applyBestCaseState(packages, { alias: "1.0.1" });
+  assert.deepStrictEqual(result, [{ name: "alias", version: "1.0.1", registryName: "actual" }]);
+});
+
 describe("optimizeBestCasePortfolio", () => {
   test("selects the lowest version when patched portfolios are equally safe", async () => {
     const choices = [

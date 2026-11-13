@@ -171,6 +171,20 @@ test("DiskCache - trims to maxEntries on overflow", () => {
   assert.strictEqual(keys.length, 3);
 });
 
+test("DiskCache - replacements and prototype-named keys persist without losing entries", () => {
+  const dir = tmpCacheDir();
+  const cache = makeTrimCache(dir);
+  cache.set("__proto__", 1);
+  cache.set("constructor", 2);
+  cache.set("__proto__", 3);
+  const restored = makeTrimCache(dir);
+  assert.strictEqual(restored.get("__proto__"), 3);
+  assert.strictEqual(restored.get("constructor"), 2);
+  restored.delete("__proto__");
+  assert.strictEqual(restored.get("__proto__"), undefined);
+  assert.strictEqual(restored.get("constructor"), 2);
+});
+
 test("hashLockfile - returns consistent hash for same content", () => {
   const dir = tmpCacheDir();
   writeFileSync(join(dir, "bun.lock"), "lockfile content A");

@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { delimiter, join, resolve } from "node:path";
 import { test, type TestContext } from "node:test";
-import { toolEnvironment } from "./utils";
+import { runTestCommand, toolEnvironment } from "./utils";
 
 const wrapper = resolve("scripts/turbo.sh");
 const bin = resolve("node_modules/.bin");
@@ -44,6 +44,8 @@ const writeProject = (root: string): void => {
 const createFixture = (t: TestContext): string => {
   const root = mkdtempSync(join(import.meta.dirname, ".turbo-cache-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
+  const initialized = runTestCommand("git", ["init", "--quiet"], { cwd: root });
+  assert.equal(initialized.status, 0, initialized.stderr);
   writeProject(root);
   return root;
 };

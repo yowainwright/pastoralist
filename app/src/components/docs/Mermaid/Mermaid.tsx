@@ -49,7 +49,7 @@ if (isBrowser) {
     startOnLoad: false,
     theme: "neutral",
     look: "classic",
-    securityLevel: "loose",
+    securityLevel: "strict",
     flowchart,
   });
 }

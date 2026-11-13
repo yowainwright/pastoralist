@@ -19,7 +19,7 @@ EOF
   SECURITY_PROVIDER_CALLS="$PWD/security-provider-cli-calls.log"
   export SECURITY_PROVIDER_CALLS
   : >"$SECURITY_PROVIDER_CALLS"
-  unset SNYK_TOKEN SOCKET_SECURITY_API_KEY
+  unset SNYK_TOKEN SOCKET_SECURITY_API_KEY SOCKET_CLI_API_TOKEN SOCKET_API_KEY
 }
 
 require_provider_log() {
@@ -34,11 +34,23 @@ require_provider_log() {
 }
 
 assert_no_provider_scans() {
-  if grep -Eq 'snyk test --json|socket report create' "$SECURITY_PROVIDER_CALLS"; then
+  if grep -Eq 'snyk test --json|socket (report create|package shallow)' "$SECURITY_PROVIDER_CALLS"; then
     echo "❌ A provider scan ran without credentials"
     cat "$SECURITY_PROVIDER_CALLS"
     exit 1
   fi
+}
+
+run_incomplete_scan() {
+  local output_file="${1:?Output file is required}"
+  shift
+  local status=0
+  node /app/pastoralist/index.js "$@" 2>&1 | tee "$output_file" || status=$?
+  if [ "$status" -ne 1 ]; then
+    echo "Expected an incomplete security scan to exit 1, got $status"
+    exit 1
+  fi
+  require_provider_log "Security checks require a complete provider scan" "$output_file"
 }
 
 print_header() {
@@ -75,14 +87,14 @@ EOF
 
   init_git_repo
 
-  node /app/pastoralist/index.js --checkSecurity --securityProvider snyk --no-cache --debug 2>&1 | tee snyk-output.log
+  run_incomplete_scan snyk-output.log --checkSecurity --securityProvider snyk --no-cache --debug
   require_provider_log "Snyk provider is EXPERIMENTAL" snyk-output.log
   require_provider_log "Snyk authentication failed, skipping Snyk scan" snyk-output.log
 }
 
 test_multiple_providers() {
   printf '\n%s\n' "2️⃣ Test: Multiple providers including Snyk"
-  node /app/pastoralist/index.js --checkSecurity --securityProvider snyk socket --no-cache --debug 2>&1 | tee snyk-multi.log
+  run_incomplete_scan snyk-multi.log --checkSecurity --securityProvider snyk socket --no-cache --debug
   require_provider_log "Snyk provider is EXPERIMENTAL" snyk-multi.log
   require_provider_log "Socket provider is EXPERIMENTAL" snyk-multi.log
 }
@@ -106,7 +118,7 @@ test_config() {
 EOF
 
   init_git_repo
-  node /app/pastoralist/index.js --no-cache --debug 2>&1 | tee snyk-config.log
+  run_incomplete_scan snyk-config.log --no-cache --debug
   require_provider_log "Snyk provider is EXPERIMENTAL" snyk-config.log
 }
 

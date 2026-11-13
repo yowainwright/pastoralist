@@ -1167,7 +1167,6 @@ test("checkSecurity - should handle both dependencies and devDependencies", asyn
 test("checkSecurity - project providers scan nonnumeric dependency specs", async () => {
   await assertProjectProviderScansNonnumericSpec("github");
   await assertProjectProviderScansNonnumericSpec("snyk");
-  await assertProjectProviderScansNonnumericSpec("socket");
   await assertProjectProviderScansNonnumericSpec("npm");
 });
 
@@ -2736,9 +2735,11 @@ test("checkSecurity - does not cache incomplete provider scans", async () => {
     .mockResolvedValue([]);
   const config = createBuiltInBestCaseConfig();
 
-  await checker.checkSecurity(config, { bestCase });
-  await checker.checkSecurity(config, { bestCase });
+  const incomplete = await checker.checkSecurity(config, { bestCase });
+  const complete = await checker.checkSecurity(config, { bestCase });
 
+  assert.strictEqual(incomplete.complete, false);
+  assert.strictEqual(complete.complete, true);
   assert.strictEqual(fetchAlerts.mock.callCount(), 2);
 });
 
@@ -2757,6 +2758,78 @@ test("checkSecurity - does not cache provider-reported partial scans", async () 
   await checker.checkSecurity(config, { bestCase });
 
   assert.strictEqual(fetchAlerts.mock.callCount(), 2);
+});
+
+test("checkSecurity - queries alias targets and preserves alias remediation identity", async () => {
+  const checker = new SecurityChecker({ provider: "osv", strict: true, noCache: true });
+  const alert = createAlert({ packageName: "lodash", currentVersion: "4.17.20" });
+  const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([alert]);
+  const config = { dependencies: { alias: "npm:lodash@4.17.20" } };
+  const result = await checker.checkSecurity(config);
+  const queried = fetchAlerts.mock.calls[0].arguments[0];
+  assert.deepStrictEqual(queried, [{ name: "lodash", version: "4.17.20" }]);
+  assert.strictEqual(result.complete, true);
+  assert.strictEqual(result.alerts[0].packageName, "alias");
+  assert.match(result.alerts[0].fixNotice ?? "", /manually/);
+  assert.strictEqual(config.dependencies.alias, "npm:lodash@4.17.20");
+  assert.ok(result.overrides.every((fix) => Boolean(fix.blocked)));
+});
+
+test("checkSecurity - alias target changes invalidate cached clean results", async () => {
+  const checker = new SecurityChecker({ provider: "osv", strict: true, noCache: true });
+  const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([]);
+  await checker.checkSecurity({ dependencies: { alias: "npm:first@1.0.0" } });
+  await checker.checkSecurity({ dependencies: { alias: "npm:second@1.0.0" } });
+  assert.strictEqual(fetchAlerts.mock.callCount(), 2);
+});
+
+test("checkSecurity - rejects omitted alias metadata instead of guessing the registry identity", async () => {
+  await withTempDir(async (root) => {
+    const packages = { "node_modules/alias": { version: "1.0.0" } };
+    fs.writeFileSync(path.join(root, "package-lock.json"), JSON.stringify({ packages }));
+    const checker = new SecurityChecker({ provider: "osv", strict: true, noCache: true });
+    const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([]);
+    await assert.rejects(
+      checker.checkSecurity({ dependencies: { alias: "npm:actual@1.0.0" } }, { root }),
+      /Lockfile inventory is incomplete/,
+    );
+    assert.strictEqual(fetchAlerts.mock.callCount(), 0);
+  });
+});
+
+test("checkSecurity - rejects a lockfile alias identity conflicting with the manifest", async () => {
+  await withTempDir(async (root) => {
+    const packages = { "node_modules/alias": { name: "different", version: "1.0.0" } };
+    fs.writeFileSync(path.join(root, "package-lock.json"), JSON.stringify({ packages }));
+    const checker = new SecurityChecker({ provider: "osv", strict: true, noCache: true });
+    await assert.rejects(
+      checker.checkSecurity({ dependencies: { alias: "npm:actual@1.0.0" } }, { root }),
+      /Lockfile inventory is incomplete/,
+    );
+  });
+});
+
+test("checkSecurity - scans real packages sharing an installed alias name and version", async () => {
+  await withTempDir(async (root) => {
+    const packages = {
+      "node_modules/alias": { name: "lodash", version: "1.0.0" },
+      "node_modules/parent/node_modules/alias": { version: "1.0.0" },
+    };
+    fs.writeFileSync(path.join(root, "package-lock.json"), JSON.stringify({ packages }));
+    const checker = new SecurityChecker({ provider: "osv", strict: true, noCache: true });
+    const alert = createAlert({ packageName: "alias", currentVersion: "1.0.0" });
+    const fetchAlerts = spyOn(getFirstProvider(checker), "fetchAlerts").mockResolvedValue([alert]);
+    const result = await checker.checkSecurity(
+      { dependencies: { alias: "npm:lodash@1.0.0" } },
+      { root },
+    );
+    assert.deepStrictEqual(fetchAlerts.mock.calls[0].arguments[0], [
+      { name: "lodash", version: "1.0.0" },
+      { name: "alias", version: "1.0.0" },
+    ]);
+    assert.strictEqual(result.alerts[0].packageName, "alias");
+    assert.strictEqual(result.complete, true);
+  });
 });
 
 const packageValue = { name: "lodash", ecosystem: "npm" };

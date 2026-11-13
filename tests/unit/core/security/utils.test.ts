@@ -1662,6 +1662,26 @@ test("non-registry direct declarations require a manual manifest change", () => 
   assert.deepEqual(applyDirectDependencyUpdates(config, [approved]), config);
 });
 
+(["dependencies", "devDependencies"] as const).forEach((field) => {
+  test(`direct ${field} updates preserve separate aliases of the same package`, () => {
+    const config = { [field]: { lodash: "^4.17.20", legacy: "npm:lodash@3.10.1" } };
+    const fix = Object.assign({}, svelteFix, {
+      packageName: "lodash",
+      fromVersion: "4.17.20",
+      toVersion: "4.17.21",
+    });
+    const classified = classifySecurityFix(fix, { config, inventory: [], ranges: new Map() });
+    assert.equal(classified.blocked, undefined);
+    assert.equal(canApplySecurityFix(classified), false);
+    const approved = Object.assign({}, classified, { approved: true });
+    assert.equal(canApplySecurityFix(approved), true);
+    const updated = applyDirectDependencyUpdates(config, [approved]);
+    assert.equal(updated[field]?.lodash, "^4.17.21");
+    assert.equal(updated[field]?.legacy, "npm:lodash@3.10.1");
+    assert.equal(config[field].lodash, "^4.17.20");
+  });
+});
+
 test("minimum fix must resolve every known advisory", () => {
   const first = Object.assign({}, svelteAlert, {
     currentVersion: "3.0.0",

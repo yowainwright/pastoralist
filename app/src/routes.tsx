@@ -1,9 +1,13 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from "@tanstack/react-router";
+import { lazy, Suspense } from "react";
 import { DocsLayout } from "./layouts/DocsLayout";
 import { HomeLayout } from "./layouts/RootLayout";
-import { DocsPage } from "./pages/DocsPage";
 import { HomePage } from "./pages/HomePage";
 import { getDocHeadings } from "./content";
+
+const DocsPage = lazy(() =>
+  import("./pages/DocsPage").then(({ DocsPage: component }) => ({ default: component })),
+);
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
@@ -30,7 +34,9 @@ function DocsRoute() {
   const headings = docsRoute.useLoaderData();
   return (
     <DocsLayout>
-      <DocsPage headings={headings} />
+      <Suspense fallback={null}>
+        <DocsPage headings={headings} />
+      </Suspense>
     </DocsLayout>
   );
 }

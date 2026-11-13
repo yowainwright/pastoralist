@@ -30,11 +30,15 @@ const cases = [
     },
   },
   {
-    name: "excludes the docs app from Socket project scans",
+    name: "includes both dependency trees in Socket project scans",
     run: () => {
       const socketConfig = readRepositoryFile("socket.yml");
+      const rootPackage = readPackage("package.json");
+      const scripts = rootPackage.scripts as Record<string, string>;
 
-      assertContainsText(socketConfig, '- "app/**"');
+      assertExcludesText(socketConfig, "app/**");
+      assertContainsText(scripts["security:socket"], "--report-level warn");
+      assertContainsText(scripts["security:socket"], "app/package.json app/pnpm-lock.yaml");
     },
   },
   {

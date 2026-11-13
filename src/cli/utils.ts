@@ -14,6 +14,7 @@ import { logger as createLogger } from "../observability";
 import { getErrorMessage, pluralSuffix } from "../utils";
 import { SUMMARY_ROW_CONFIG, SUMMARY_COLORS } from "./constants";
 import { normalizeArgv } from "./parser";
+import type { SecurityResultSummary } from "./security/types";
 import type {
   CliGraph,
   OverrideDisplayContext,
@@ -248,11 +249,18 @@ const renderRunSummary = async (
   graph: CliGraph,
   updateContext: UpdateContext,
   packagesScanned: number,
+  securityResult: SecurityResultSummary,
 ): Promise<void> => {
   const metrics = updateContext.metrics;
   graph.executiveSummary(buildExecutiveSummary(metrics, packagesScanned));
   graph.compactSummary(buildCompactSummary(metrics));
-  graph.complete("The herd is safe!", ` ${SHEEP}`);
+  const isSingular = securityResult.securityAlertCount === 1;
+  const suffix = isSingular ? "y remains" : "ies remain";
+  const unresolvedMessage = `${securityResult.securityAlertCount} vulnerabilit${suffix}`;
+  const completionMessage = securityResult.hasSecurityIssues
+    ? unresolvedMessage
+    : "The herd is safe!";
+  graph.complete(completionMessage, ` ${SHEEP}`);
   await graph.waitForCompletion();
 };
 
@@ -289,11 +297,19 @@ const renderInstallNotice = (graph: CliGraph, updateResultData: UpdateResultData
 };
 
 export const renderUpdateOutput = async (...args: UpdateOutputArgs): Promise<void> => {
-  const [graph, updateContext, updateResultData, , packagesScanned, mergedOptions, options] = args;
+  const [
+    graph,
+    updateContext,
+    updateResultData,
+    securityResult,
+    packagesScanned,
+    mergedOptions,
+    options,
+  ] = args;
   const removedPackages = updateContext.metrics?.removedOverridePackages ?? [];
   renderOverridesPhase(graph, updateContext, updateResultData, removedPackages.length === 0);
   renderRemovedOverridesPhase(graph, removedPackages);
-  await renderRunSummary(graph, updateContext, packagesScanned);
+  await renderRunSummary(graph, updateContext, packagesScanned, securityResult);
   renderInstallNotice(graph, updateResultData);
   renderBlockedRemovalNotice(graph, mergedOptions);
   renderDependencyDiagnostics(graph, updateContext);

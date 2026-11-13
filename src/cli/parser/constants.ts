@@ -63,13 +63,13 @@ Options:
   --isTesting                           Enable testing mode (no scripts run)
   --init [type] [args...]               Initialize config or a named init target
   --checkSecurity                       Check for security vulnerabilities and generate overrides
-  --forceSecurityRefactor               Apply compatible transitive security fixes without prompting
+  --forceSecurityRefactor               Apply available transitive security fixes without prompting
   --securityProvider <provider...>      Security provider(s) to use (osv, github, snyk, npm, socket, spektion)
   --securityProviderToken <token>       Security provider token for API access
   --interactive                         Run security checks in interactive mode
   --hasWorkspaceSecurityChecks          Include workspace packages in security scan
   --promptForReasons                    Prompt for reasons when adding manual overrides
-  --strict                              Fail instead of skipping provider permission errors
+  --strict                              Fail on unresolved vulnerabilities or provider permission errors
   --summary                             Show summary metrics table after run
   --styleguide                          Render the Pastoralist DX component styleguide
   --onboard, --onboarding               Show first-run onboarding guidance

@@ -114,7 +114,7 @@ export type UpdateWorkflowDeps = CliConfigDeps & {
 };
 
 export type ActionWorkflowDeps = UpdateWorkflowDeps & {
-  processExit: (code: number) => void;
+  processExit: (code: number) => void | Promise<void>;
 };
 
 export type ActionDeps = ActionWorkflowDeps &

@@ -224,7 +224,9 @@ const resolveSecurityFixContext = async (
   const manifestPath = options.packageJsonPath ?? resolve(root ?? ".", "package.json");
   const existingOverrides = resolveOverrideSource({ config, manifestPath }).overrides;
   const workspace = root ? readWorkspaceDependencies(config, root, options.depPaths) : undefined;
-  const context = { config, inventory: packages, ranges, existingOverrides, workspace };
+  const { forceRefactor } = options;
+  const constraints = { existingOverrides, workspace, forceRefactor };
+  const context = Object.assign({ config, inventory: packages, ranges }, constraints);
   return context;
 };
 

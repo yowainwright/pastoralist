@@ -1222,6 +1222,24 @@ const getApprovalReason = (
   return undefined;
 };
 
+const approveForcedTransitiveFix = (
+  fix: SecurityOverride,
+  fields: Array<"dependencies" | "devDependencies">,
+  forceRefactor?: boolean,
+): SecurityOverride => {
+  const prerelease = fix.toVersion.split("+")[0].includes("-");
+  const hasDeclaredFields = fields.length > 0;
+  const hasDirectFields = hasDeclaredFields || Boolean(fix.dependencyFields?.length);
+  const isTransitive = !hasDirectFields;
+  const isStableTransitive = isTransitive && !prerelease;
+  const changesReleaseLine = !isSameReleaseLine(fix.fromVersion, fix.toVersion);
+  const needsApproval = Boolean(fix.approvalRequired) || changesReleaseLine;
+  const canForce = forceRefactor && isStableTransitive && needsApproval;
+  if (!canForce) return fix;
+  const approved = Object.assign({}, fix, { approved: true, approvalRequired: undefined });
+  return approved;
+};
+
 export const classifySecurityFix = (
   fix: SecurityOverride,
   context: SecurityFixContext,
@@ -1237,7 +1255,8 @@ export const classifySecurityFix = (
     approvalRequired,
     alreadyConfigured,
   });
-  return classified;
+  const authorized = approveForcedTransitiveFix(classified, fields, context.forceRefactor);
+  return authorized;
 };
 
 export const canApplySecurityFix = (fix: SecurityOverride): boolean => {
@@ -1263,12 +1282,13 @@ export const createSecurityCandidateFilter =
 export const getApplicableSecurityFixes = (
   fixes: SecurityOverride[],
   config: PastoralistJSON,
+  forceRefactor?: boolean,
 ): SecurityOverride[] => {
   const classified = fixes.map((fix) => {
     const fields = getDirectDependencyFields(config, fix.packageName);
-    if (!fields.length) return fix;
-    const tagged = Object.assign({}, fix, { dependencyFields: fields });
-    return tagged;
+    const tagged = fields.length ? Object.assign({}, fix, { dependencyFields: fields }) : fix;
+    const authorized = approveForcedTransitiveFix(tagged, fields, forceRefactor);
+    return authorized;
   });
   const applicable = classified.filter(canApplySecurityFix);
   return applicable;

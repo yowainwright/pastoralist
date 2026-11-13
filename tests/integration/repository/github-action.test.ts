@@ -39,7 +39,7 @@ const runAwk = (script: string, input: string): string => {
 };
 
 const extractSecurityGate = (actionYml: string): string => {
-  const startMarker = '        ALLOW_SECURITY_FIX_PR="false"\n';
+  const startMarker = '        if [ "$EXIT_CODE" -ne 0 ] || [ "$SUCCESS" != "true" ]; then\n';
   const endMarker = '\n        if [ "$INPUT_MODE" = "pr" ]; then\n';
   const start = actionYml.indexOf(startMarker);
   const end = actionYml.indexOf(endMarker, start);
@@ -172,17 +172,32 @@ type SecurityGateArguments = {
   autoFix: string;
   updated: string;
   securityFixesApplied: string;
+  exitCode?: number;
+  cliResult?: Record<string, unknown>;
+  failOnSecurity?: string;
+};
+
+const scanErrors: string[] = [];
+const completeSecurityResult = {
+  success: true,
+  hasSecurityIssues: true,
+  securityAlertCount: 1,
+  errors: scanErrors,
 };
 
 const createSecurityGateEnvironment = (args: SecurityGateArguments) => {
   const env = Object.assign({}, process.env);
-  env.HAS_SECURITY = "true";
-  env.INPUT_FAIL_ON_SECURITY = "true";
+  const result = args.cliResult ?? completeSecurityResult;
+  env.HAS_SECURITY = String(result.hasSecurityIssues);
+  env.INPUT_FAIL_ON_SECURITY = args.failOnSecurity ?? "true";
   env.INPUT_MODE = args.mode;
   env.INPUT_AUTO_FIX = args.autoFix;
   env.UPDATED = args.updated;
   env.SECURITY_FIXES_APPLIED = args.securityFixesApplied;
-  env.SECURITY_COUNT = "1";
+  env.SECURITY_COUNT = String(result.securityAlertCount);
+  env.EXIT_CODE = String(args.exitCode ?? 0);
+  env.SUCCESS = String(result.success);
+  env.JSON_OUTPUT = JSON.stringify(result);
   return env;
 };
 
@@ -241,6 +256,61 @@ test("keeps the security gate for non-PR and unchanged PR runs", () => {
   const unchangedPrResult = runSecurityGate(actionYml, unchangedPrArgs);
   assert.strictEqual(checkResult.status, 1);
   assert.strictEqual(unchangedPrResult.status, 1);
+});
+
+const strictSecurityResult = Object.assign({}, completeSecurityResult, { success: false });
+const strictSecurityArguments: SecurityGateArguments = {
+  mode: "check",
+  autoFix: "true",
+  updated: "false",
+  securityFixesApplied: "false",
+  exitCode: 1,
+  cliResult: strictSecurityResult,
+  failOnSecurity: "false",
+};
+
+test("honors fail-on-security false when strict CLI findings exit unsuccessfully", () => {
+  const result = runSecurityGate(readAction(), strictSecurityArguments);
+  assert.equal(result.status, 0, result.stdout);
+});
+
+["check", "update", "pr"].forEach((mode) => {
+  test(`strict findings still fail ${mode} mode when fail-on-security is true`, () => {
+    const policy = { mode, failOnSecurity: "true" };
+    const args = Object.assign({}, strictSecurityArguments, policy);
+    assert.equal(runSecurityGate(readAction(), args).status, 1);
+  });
+});
+
+test("strict findings allow a complete auto-fix PR through the action gate", () => {
+  const policy = {
+    mode: "pr",
+    updated: "true",
+    securityFixesApplied: "true",
+    failOnSecurity: "true",
+  };
+  const args = Object.assign({}, strictSecurityArguments, policy);
+  const result = runSecurityGate(readAction(), args);
+  assert.equal(result.status, 0, result.stdout);
+});
+
+const rejectedScanErrors = [
+  ["provider errors", ["provider unavailable"]],
+  ["missing errors", undefined],
+  ["null errors", null],
+  ["invalid errors", ""],
+] as const;
+rejectedScanErrors.forEach(([name, errors]) => {
+  test(`does not suppress ${name} when fail-on-security is false`, () => {
+    const cliResult = Object.assign({}, strictSecurityResult, { errors });
+    const args = Object.assign({}, strictSecurityArguments, { cliResult });
+    assert.equal(runSecurityGate(readAction(), args).status, 1);
+  });
+});
+
+test("does not suppress unexpected CLI exit codes when findings are allowed", () => {
+  const args = Object.assign({}, strictSecurityArguments, { exitCode: 2 });
+  assert.equal(runSecurityGate(readAction(), args).status, 1);
 });
 
 test("stages changed files without including unchanged paths or nested repositories", () => {

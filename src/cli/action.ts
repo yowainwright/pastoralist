@@ -4,6 +4,7 @@ import { resolveJSON } from "../core/package";
 import { update } from "../core/update";
 import { createSpinner, createTerminalGraph, green } from "../dx";
 import { logger as createLogger } from "../observability";
+import { promisify } from "node:util";
 import type { Options, PastoralistResult } from "../types";
 import { getLedgerAddedDate, pruneBackups, resolveCacheDir } from "../utils";
 import { quickConfirm } from "./prompts";
@@ -203,18 +204,21 @@ const buildActionResult = (runtime: ActionRuntime, workflow: UpdateWorkflow): Pa
   return result;
 };
 
-const finishActionResult = (
+const finishActionResult = async (
   result: PastoralistResult,
-  deps: { processExit: (code: number) => void },
+  deps: Pick<ActionWorkflowDeps, "processExit">,
   runtime: ActionRuntime,
   options: Options,
-): PastoralistResult => {
+): Promise<PastoralistResult> => {
+  const enforceSecurity = runtime.isQuietMode || options.strict;
+  const shouldExitWithSecurityFailure = enforceSecurity && result.hasSecurityIssues;
+  const success = result.success && !shouldExitWithSecurityFailure;
+  const finalResult = Object.assign({}, result, { success });
   const shouldDisplaySummary = options.summary && !runtime.isJsonOutput;
-  if (shouldDisplaySummary) displaySummaryTable(result);
-  outputResult(result, runtime.isJsonOutput);
-  const shouldExitWithSecurityFailure = runtime.isQuietMode && result.hasSecurityIssues;
-  if (shouldExitWithSecurityFailure) deps.processExit(1);
-  return result;
+  if (shouldDisplaySummary) displaySummaryTable(finalResult);
+  outputResult(finalResult, runtime.isJsonOutput);
+  if (shouldExitWithSecurityFailure) await deps.processExit(1);
+  return finalResult;
 };
 
 const renderActionOutput = async (
@@ -241,20 +245,25 @@ const runActionWorkflow = async (
 ): Promise<PastoralistResult> => {
   const workflow = await runUpdateWorkflow(options, deps, runtime);
   await renderActionOutput(workflow, runtime, options);
-  const result = finishActionResult(buildActionResult(runtime, workflow), deps, runtime, options);
+  const result = finishActionResult(
+    buildActionResult(runtime, workflow),
+    deps,
+    runtime,
+    workflow.mergedOptions,
+  );
   return result;
 };
 
-const handleActionError = (
+const handleActionError = async (
   error: unknown,
-  deps: { processExit: (code: number) => void },
+  deps: Pick<ActionWorkflowDeps, "processExit">,
   runtime: ActionRuntime,
-): PastoralistResult => {
+): Promise<PastoralistResult> => {
   runtime.graph.stop();
   const result = createErrorResult(error);
   if (runtime.isJsonOutput) outputResult(result, runtime.isJsonOutput);
   else runtime.log.fail(result.errors[0] || "Action failed");
-  deps.processExit(1);
+  await deps.processExit(1);
   return result;
 };
 
@@ -274,7 +283,12 @@ const defaultActionDeps: ActionDeps = {
   getLedgerAddedDate,
   loadConfig,
   loadConfigWithSource,
-  processExit(code) {
+  async processExit(code) {
+    const hasPendingOutput = process.stdout.writableLength > 0;
+    if (hasPendingOutput) {
+      const write = promisify(process.stdout.write.bind(process.stdout));
+      await write("");
+    }
     process.exit(code);
   },
 };

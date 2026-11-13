@@ -24,6 +24,7 @@ const {
   applyDirectDependencyUpdates,
   canApplySecurityFix,
   classifySecurityFix,
+  getApplicableSecurityFixes,
   getCompatibleGlobalFixes,
   selectPatchedVersion,
   CLIInstaller,
@@ -1711,6 +1712,52 @@ test("transitive fixes must satisfy every parent range", () => {
     canApplySecurityFix(classifySecurityFix(fix, { config, inventory: [], ranges })),
     true,
   );
+});
+
+const forcedContextConfig = { name: "force-fixture", version: "1.0.0" };
+const forcedInventory = [{ name: "@sveltejs/kit", version: "2.70.3" }];
+const forcedRanges = new Map<string, string[]>();
+const forcedContext: SecurityFixContext = {
+  config: forcedContextConfig,
+  inventory: forcedInventory,
+  ranges: forcedRanges,
+  forceRefactor: true,
+};
+
+test("force authorizes transitive major upgrades without interactive approval", () => {
+  const fix = classifySecurityFix(svelteFix, forcedContext);
+  assert.equal(fix.approved, true);
+  assert.equal(fix.approvalRequired, undefined);
+  assert.equal(canApplySecurityFix(fix), true);
+  assert.deepEqual(getCompatibleGlobalFixes([fix]), [fix]);
+});
+
+test("force does not authorize direct dependency changes", () => {
+  const directContext = Object.assign({}, context, { forceRefactor: true });
+  const fix = classifySecurityFix(svelteFix, directContext);
+  assert.equal(canApplySecurityFix(fix), false);
+  assert.deepEqual(applyDirectDependencyUpdates(context.config, [fix]), context.config);
+});
+
+test("force preserves direct dependency classifications from another manifest", () => {
+  const dependencyFields: SecurityOverride["dependencyFields"] = ["dependencies"];
+  const fix = Object.assign({}, svelteFix, { dependencyFields });
+  assert.deepEqual(getApplicableSecurityFixes([fix], forcedContextConfig, true), []);
+});
+
+test("force retains blockers for vulnerable targets and coexisting release lines", () => {
+  const vulnerable = Object.assign({}, svelteFix, { targetStillVulnerable: true });
+  assert.equal(canApplySecurityFix(classifySecurityFix(vulnerable, forcedContext)), false);
+  const inventory = forcedContext.inventory.concat({ name: "@sveltejs/kit", version: "1.0.0" });
+  const mixedContext = Object.assign({}, forcedContext, { inventory });
+  const mixed = classifySecurityFix(svelteFix, mixedContext);
+  assert.match(mixed.blocked ?? "", /coexisting release lines/);
+  assert.equal(canApplySecurityFix(mixed), false);
+});
+
+test("force retains review for prerelease targets", () => {
+  const prerelease = Object.assign({}, svelteFix, { toVersion: "3.0.0-beta.1" });
+  assert.equal(canApplySecurityFix(classifySecurityFix(prerelease, forcedContext)), false);
 });
 
 test("different installed release lines never collapse into one global override", () => {

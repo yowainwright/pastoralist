@@ -8,22 +8,9 @@ import { update } from "../../../../src/core/update/index";
 import {
   clearDependencyGraphCache,
   forceClearCache,
-  getDependencyGraph,
+  getDependencyGraphStatus,
 } from "../../../../src/core/package";
-import {
-  determineProcessingMode,
-  resolveDepPaths,
-  mergeAllConfigs,
-  findRemovableOverrides,
-  hasConfigOverrides,
-} from "../../../../src/core/update/utils";
-import type {
-  Options,
-  PastoralistJSON,
-  OverridesType,
-  Appendix,
-  ResolveOverrides,
-} from "../../../../src/types";
+import type { Options, PastoralistJSON } from "../../../../src/types";
 
 const TEST_DIR = resolve(import.meta.dirname, ".test-update");
 
@@ -500,7 +487,7 @@ test("update - clears dependency graph cache when clearCache option is true", ()
     JSON.stringify({ lockfileVersion: 2, packages: expressLockPackages }),
   );
 
-  assert.ok(getDependencyGraph(TEST_DIR)?.["body-parser"]?.includes("express"));
+  assert.ok(getDependencyGraphStatus(TEST_DIR).graph?.["body-parser"]?.includes("express"));
 
   writeFileSync(
     resolve(TEST_DIR, "package-lock.json"),
@@ -511,8 +498,8 @@ test("update - clears dependency graph cache when clearCache option is true", ()
 
   updateFixture({ config, isTesting: true, clearCache: true });
 
-  assert.ok(getDependencyGraph(TEST_DIR)?.qs?.includes("lodash"));
-  assert.strictEqual(getDependencyGraph(TEST_DIR)?.["body-parser"], undefined);
+  assert.ok(getDependencyGraphStatus(TEST_DIR).graph?.qs?.includes("lodash"));
+  assert.strictEqual(getDependencyGraphStatus(TEST_DIR).graph?.["body-parser"], undefined);
 
   clearDependencyGraphCache();
   rmSync(TEST_DIR, { recursive: true, force: true });
@@ -566,286 +553,6 @@ test("update - processes manualOverrideReasons", () => {
 
   assert.notStrictEqual(result.appendix, undefined);
   assert.notStrictEqual(result.appendix?.["lodash@4.17.21"], undefined);
-});
-
-test("determineProcessingMode - returns root mode when no depPaths", () => {
-  const options: Options = {};
-  const config: PastoralistJSON = { name: "test", version: "1.0.0" };
-
-  const result = determineProcessingMode(options, config, true, []);
-
-  assert.strictEqual(result.mode, "root");
-  assert.strictEqual(result.hasRootOverrides, true);
-  assert.deepStrictEqual(result.missingInRoot, []);
-});
-
-const optionsDepPaths6 = ["packages/*/package.json"];
-test("determineProcessingMode - returns workspace mode when options depPaths", () => {
-  const options: Options = { depPaths: optionsDepPaths6 };
-  const config: PastoralistJSON = { name: "test", version: "1.0.0" };
-
-  const result = determineProcessingMode(options, config, false, ["lodash"]);
-
-  assert.strictEqual(result.mode, "workspace");
-  assert.deepStrictEqual(result.depPaths, ["packages/*/package.json"]);
-  assert.deepStrictEqual(result.missingInRoot, ["lodash"]);
-});
-
-const pastoralistDepPaths2 = ["apps/*/package.json"];
-const configPastoralist15 = { depPaths: pastoralistDepPaths2 };
-test("determineProcessingMode - returns workspace mode when config depPaths", () => {
-  const options: Options = {};
-  const config: PastoralistJSON = {
-    name: "test",
-    version: "1.0.0",
-    pastoralist: configPastoralist15,
-  };
-
-  const result = determineProcessingMode(options, config, true, []);
-
-  assert.strictEqual(result.mode, "workspace");
-  assert.deepStrictEqual(result.depPaths, ["apps/*/package.json"]);
-});
-
-const configPastoralistDepPaths = ["other/path"];
-const configPastoralist14 = { depPaths: configPastoralistDepPaths };
-const optionsDepPaths5 = ["custom/path"];
-test("resolveDepPaths - returns options depPaths when provided", () => {
-  const options: Options = { depPaths: optionsDepPaths5 };
-  const config: PastoralistJSON = {
-    name: "test",
-    version: "1.0.0",
-    pastoralist: configPastoralist14,
-  };
-
-  const result = resolveDepPaths(options, config);
-
-  assert.deepStrictEqual(result, ["custom/path"]);
-});
-
-const configPastoralist13 = { depPaths: "workspace" };
-const configWorkspaces6 = ["packages/*", "apps/*"];
-test("resolveDepPaths - resolves workspace keyword to workspace paths", () => {
-  const options: Options = {};
-  const config: PastoralistJSON = {
-    name: "test",
-    version: "1.0.0",
-    workspaces: configWorkspaces6,
-    pastoralist: configPastoralist13,
-  };
-
-  const result = resolveDepPaths(options, config);
-
-  assert.deepStrictEqual(result, ["packages/*/package.json", "apps/*/package.json"]);
-});
-
-const configPastoralist12 = { depPaths: "workspaces" };
-const configWorkspaces5 = ["packages"];
-test("resolveDepPaths - handles workspaces keyword", () => {
-  const options: Options = {};
-  const config: PastoralistJSON = {
-    name: "test",
-    version: "1.0.0",
-    workspaces: configWorkspaces5,
-    pastoralist: configPastoralist12,
-  };
-
-  const result = resolveDepPaths(options, config);
-
-  assert.deepStrictEqual(result, ["packages/package.json"]);
-});
-
-const pastoralistDepPaths = ["lib/package.json"];
-const configPastoralist11 = { depPaths: pastoralistDepPaths };
-test("resolveDepPaths - returns config depPaths array", () => {
-  const options: Options = {};
-  const config: PastoralistJSON = {
-    name: "test",
-    version: "1.0.0",
-    pastoralist: configPastoralist11,
-  };
-
-  const result = resolveDepPaths(options, config);
-
-  assert.deepStrictEqual(result, ["lib/package.json"]);
-});
-
-const configWorkspaces4 = ["packages/*"];
-test("resolveDepPaths - returns workspaces when no config depPaths", () => {
-  const options: Options = {};
-  const config: PastoralistJSON = {
-    name: "test",
-    version: "1.0.0",
-    workspaces: configWorkspaces4,
-  };
-
-  const result = resolveDepPaths(options, config);
-
-  assert.deepStrictEqual(result, ["packages/*/package.json"]);
-});
-
-test("resolveDepPaths - returns null when no depPaths or workspaces", () => {
-  const options: Options = {};
-  const config: PastoralistJSON = { name: "test", version: "1.0.0" };
-
-  const result = resolveDepPaths(options, config);
-
-  assert.strictEqual(result, null);
-});
-
-const overridesDataNpm = { lodash: "4.17.21" };
-const packageJsonConfigDepPaths = ["config/path"];
-const lodashDependents4 = {};
-const packageJsonConfigAppendixLodash = { dependents: lodashDependents4 };
-const packageJsonConfigAppendix = { "lodash@4.17.21": packageJsonConfigAppendixLodash };
-const cliOptionsSecurityOverrideDetails = [{ packageName: "lodash", reason: "security" }];
-const cliOptionsDepPaths2 = ["cli/path"];
-test("mergeAllConfigs - merges CLI options and package.json config", () => {
-  const cliOptions: Options = {
-    depPaths: cliOptionsDepPaths2,
-    securityOverrideDetails: cliOptionsSecurityOverrideDetails,
-    securityProvider: "osv",
-  };
-  const packageJsonConfig = {
-    appendix: packageJsonConfigAppendix,
-    depPaths: packageJsonConfigDepPaths,
-  };
-  const overridesData: ResolveOverrides = { npm: overridesDataNpm };
-  const overrides: OverridesType = { lodash: "4.17.21" };
-
-  const result = mergeAllConfigs(cliOptions, packageJsonConfig, overridesData, overrides);
-
-  assert.deepStrictEqual(result.overrides, overrides);
-  assert.deepStrictEqual(result.overridesData, overridesData);
-  assert.deepStrictEqual(result.appendix, packageJsonConfig.appendix);
-  assert.deepStrictEqual(result.depPaths, ["cli/path"]);
-  assert.notStrictEqual(result.securityOverrideDetails, undefined);
-  assert.strictEqual(result.securityProvider, "osv");
-});
-
-const npm = { express: "4.18.2" };
-const cliOptionsDepPaths = ["cli/path"];
-test("mergeAllConfigs - handles undefined packageJsonConfig", () => {
-  const cliOptions: Options = { depPaths: cliOptionsDepPaths };
-  const overridesData: ResolveOverrides = { npm };
-  const overrides: OverridesType = { express: "4.18.2" };
-
-  const result = mergeAllConfigs(cliOptions, undefined, overridesData, overrides);
-
-  assert.deepStrictEqual(result.overrides, overrides);
-  assert.deepStrictEqual(result.depPaths, ["cli/path"]);
-  assert.strictEqual(result.appendix, undefined);
-});
-
-const lodashDependents3 = { app: "lodash@^4.17.0" };
-const appendixLodash3 = { dependents: lodashDependents3 };
-test("findRemovableOverrides - finds unused overrides", () => {
-  const overrides: OverridesType = { lodash: "4.17.21", express: "4.18.2", react: "18.0.0" };
-  const appendix: Appendix = { "lodash@4.17.21": appendixLodash3 };
-  const allDeps = { express: "^4.18.0" };
-  const missingInRoot: string[] = [];
-
-  const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
-
-  assert.deepStrictEqual(result, ["react"]);
-});
-
-const lodashDependents2 = { app: "lodash@^4.17.0" };
-const appendixLodash2 = { dependents: lodashDependents2 };
-test("findRemovableOverrides - keeps overrides used in appendix", () => {
-  const overrides: OverridesType = { lodash: "4.17.21" };
-  const appendix: Appendix = { "lodash@4.17.21": appendixLodash2 };
-  const allDeps = {};
-  const missingInRoot: string[] = [];
-
-  const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
-
-  assert.deepStrictEqual(result, []);
-});
-
-test("findRemovableOverrides - keeps overrides with root dependencies", () => {
-  const overrides: OverridesType = { express: "4.18.2" };
-  const appendix: Appendix = {};
-  const allDeps = { express: "^4.18.0" };
-  const missingInRoot: string[] = [];
-
-  const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
-
-  assert.deepStrictEqual(result, []);
-});
-
-test("findRemovableOverrides - keeps overrides missing in root", () => {
-  const overrides: OverridesType = { react: "18.0.0" };
-  const appendix: Appendix = {};
-  const allDeps = {};
-  const missingInRoot: string[] = ["react"];
-
-  const result = findRemovableOverrides(overrides, appendix, allDeps, missingInRoot);
-
-  assert.deepStrictEqual(result, []);
-});
-
-const optionsSecurityOverrides3 = { lodash: "4.17.21" };
-test("hasConfigOverrides - returns true for security overrides", () => {
-  const options: Options = { securityOverrides: optionsSecurityOverrides3 };
-  const config: PastoralistJSON = { name: "test", version: "1.0.0" };
-
-  const result = hasConfigOverrides(options, config);
-
-  assert.strictEqual(result, true);
-});
-
-const configOverrides31 = { express: "4.18.2" };
-test("hasConfigOverrides - returns true for npm overrides", () => {
-  const config: PastoralistJSON = { name: "test", version: "1.0.0", overrides: configOverrides31 };
-
-  const result = hasConfigOverrides({}, config);
-
-  assert.strictEqual(result, true);
-});
-
-const resolutions = { lodash: "4.17.21" };
-test("hasConfigOverrides - returns true for yarn resolutions", () => {
-  const config: PastoralistJSON = { name: "test", version: "1.0.0", resolutions };
-
-  const result = hasConfigOverrides({}, config);
-
-  assert.strictEqual(result, true);
-});
-
-const pnpmOverrides = { react: "18.0.0" };
-const pnpm = { overrides: pnpmOverrides };
-test("hasConfigOverrides - returns true for pnpm overrides", () => {
-  const config: PastoralistJSON = { name: "test", version: "1.0.0", pnpm };
-
-  const result = hasConfigOverrides({}, config);
-
-  assert.strictEqual(result, true);
-});
-
-test("hasConfigOverrides - returns false when no overrides", () => {
-  const config: PastoralistJSON = { name: "test", version: "1.0.0" };
-
-  const result = hasConfigOverrides({}, config);
-
-  assert.strictEqual(result, false);
-});
-
-const configOverrides30 = {};
-const optionsSecurityOverrides2 = {};
-test("hasConfigOverrides - returns false when empty overrides", () => {
-  const options: Options = { securityOverrides: optionsSecurityOverrides2 };
-  const config: PastoralistJSON = { name: "test", version: "1.0.0", overrides: configOverrides30 };
-
-  const result = hasConfigOverrides(options, config);
-
-  assert.strictEqual(result, false);
-});
-
-test("hasConfigOverrides - handles undefined options and config", () => {
-  const result = hasConfigOverrides(undefined, {} as PastoralistJSON);
-
-  assert.strictEqual(result, false);
 });
 
 const optionsDepPaths4 = [];

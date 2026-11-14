@@ -26,6 +26,7 @@ const resolveJSONMock = mock(originalPackageJSON.resolveJSON);
 const loadExternalConfigMock = mock(originalConfig.loadExternalConfig);
 const formatCompletionMock = mock(originalDx.formatCompletion);
 const shimmerFrameMock = mock(originalDx.shimmerFrame);
+const formatStepHeaderMock = mock(originalDx.formatStepHeader);
 
 moduleMock.module(import.meta.resolve("../../../../src/cli/prompts/index"), {
   namedExports: Object.assign({}, originalPrompts, { createPrompt: createPromptMock }),
@@ -46,6 +47,7 @@ moduleMock.module(import.meta.resolve("../../../../src/dx/index"), {
   namedExports: Object.assign({}, originalDx, {
     formatCompletion: formatCompletionMock,
     shimmerFrame: shimmerFrameMock,
+    formatStepHeader: formatStepHeaderMock,
   }),
 });
 
@@ -1462,7 +1464,7 @@ test("initCommand - enhanced UI integration with formatCompletion", async () => 
   const formatCompletionSpy = formatCompletionMock;
   const shimmerFrameSpy = shimmerFrameMock.mockReturnValue("shimmered text");
 
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
+  createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock(() => Promise.resolve("package.json")),
       confirm: mock(() => Promise.resolve(false)),
@@ -1471,13 +1473,25 @@ test("initCommand - enhanced UI integration with formatCompletion", async () => 
     return callback(mockPrompt);
   });
 
+  formatCompletionSpy.mockClear();
+  shimmerFrameSpy.mockClear();
+  loadExternalConfigMock.mockResolvedValue(null);
+  resolveJSONMock.mockReturnValue({ name: "test" });
   await initCommand({ path: testPath, isTesting: true });
 
-  assert.strictEqual(typeof originalDx.formatCompletion, "function");
-  assert.strictEqual(typeof originalDx.shimmerFrame, "function");
+  assert.equal(formatCompletionSpy.mock.callCount(), 1);
+  const [title, steps, shimmerTitle] = formatCompletionSpy.mock.calls[0].arguments;
+  assert.equal(title, "Pastoralist initialization complete!");
+  assert.equal(steps.length, 2);
+  assert.match(shimmerTitle, /^shimmered text/);
+  assert.deepEqual(shimmerFrameSpy.mock.calls[0].arguments, [title, 0]);
+  const formatted = originalDx.formatCompletion(title, steps, shimmerTitle);
+  assert.ok(mockLog.print.mock.calls.some(({ arguments: args }) => args[0] === formatted));
 
   formatCompletionSpy.mockRestore();
   shimmerFrameSpy.mockRestore();
+  loadExternalConfigMock.mockRestore();
+  resolveJSONMock.mockRestore();
   loggerSpy?.mockRestore();
   if (existsSync(testPath)) {
     unlinkSync(testPath);
@@ -1524,7 +1538,7 @@ test("initCommand - enhanced UI with security enabled shows correct next steps",
   validateRootPackageJsonIntegrity();
 });
 
-test("initCommand - enhanced prompts use formatted UI components", async () => {
+test("initCommand - prints formatted configuration step headers", async () => {
   validateRootPackageJsonIntegrity();
   writeFileSync(testPath, JSON.stringify({ name: "test" }, null, 2));
 
@@ -1539,7 +1553,7 @@ test("initCommand - enhanced prompts use formatted UI components", async () => {
   };
   const loggerSpy = loggerMock.mockReturnValue(mockLog);
 
-  const createPromptSpy = createPromptMock.mockImplementation(async (callback) => {
+  createPromptMock.mockImplementation(async (callback) => {
     const mockPrompt = {
       list: mock(() => Promise.resolve("package.json")),
       confirm: mock(() => Promise.resolve(false)),
@@ -1548,11 +1562,24 @@ test("initCommand - enhanced prompts use formatted UI components", async () => {
     return callback(mockPrompt);
   });
 
+  formatStepHeaderMock.mockClear();
+  loadExternalConfigMock.mockResolvedValue(null);
+  resolveJSONMock.mockReturnValue({ name: "test" });
   await initCommand({ path: testPath, isTesting: true });
 
-  assert.strictEqual(typeof originalDx.formatChoiceList, "function");
-  assert.strictEqual(typeof originalDx.formatConfirmPrompt, "function");
+  assert.deepEqual(
+    formatStepHeaderMock.mock.calls.map(({ arguments: args }) => args),
+    [
+      [1, "Configuration Location"],
+      [2, "Workspace Configuration"],
+      [3, "Security Configuration"],
+    ],
+  );
+  const header = originalDx.formatStepHeader(1, "Configuration Location");
+  assert.ok(mockLog.print.mock.calls.some(({ arguments: args }) => args[0] === header));
 
+  loadExternalConfigMock.mockRestore();
+  resolveJSONMock.mockRestore();
   loggerSpy?.mockRestore();
   if (existsSync(testPath)) {
     unlinkSync(testPath);

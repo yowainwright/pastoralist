@@ -1,6 +1,5 @@
 import type {
   DependencyManifestRoot,
-  DependencyReachability,
   DependencyTracking,
   DependencyUsage,
   TrackedDependencies,
@@ -111,13 +110,4 @@ export const getProjectDependencyUsage = (
   if (usages.has("used")) return "used";
   if (usages.has("unknown")) return "unknown";
   return "unused";
-};
-
-export const findDependencyReachability = (
-  graph: ResolvedDependencyGraph,
-): DependencyReachability => {
-  const tracking = trackDependencies(graph);
-  const entries = Object.entries(tracking).map(([path, result]) => [path, result.dependents]);
-  const reachability = Object.fromEntries(entries);
-  return reachability;
 };

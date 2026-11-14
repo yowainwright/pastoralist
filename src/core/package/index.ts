@@ -327,9 +327,6 @@ export const getDependencyGraphStatus = (root: string = process.cwd()): Dependen
   return status;
 };
 
-export const getDependencyGraph = (root: string = process.cwd()): Record<string, string[]> =>
-  getDependencyGraphStatus(root).graph;
-
 export const clearDependencyGraphCache = (): void => {
   graphCache?.clear();
   graphCache = null;

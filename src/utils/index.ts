@@ -165,28 +165,6 @@ export const compareVersions = (first: string, second: string): number => {
   return prereleaseComparison;
 };
 
-export const buildObject = <T>(
-  keys: string[],
-  builder: (key: string) => T | undefined,
-): Record<string, T> => {
-  const result: Record<string, T> = {};
-  keys.forEach((key) => {
-    const value = builder(key);
-    if (value !== undefined) result[key] = value;
-  });
-  return result;
-};
-
-export const mergeInto = <T>(
-  target: Record<string, T>,
-  source: Record<string, T>,
-): Record<string, T> => {
-  Object.keys(source).forEach((key) => {
-    target[key] = source[key];
-  });
-  return target;
-};
-
 const appendToGroup = <T, K>(groups: Map<K, T[]>, key: K, item: T): void => {
   const group = groups.get(key);
   const updatedGroup = (group ?? []).concat(item);
@@ -254,14 +232,6 @@ export const createPackageKey =
     pkg + separator + version;
 
 export const packageAtVersion = createPackageKey("@");
-
-export const buildKey =
-  (separator: string) =>
-  (...parts: string[]) =>
-    parts.join(separator);
-
-export const atKey = buildKey("@");
-export const colonKey = buildKey(":");
 
 export const getLedgerAddedDate = (createDate: () => string = DEFAULT_LEDGER_DATE): string =>
   createDate();

@@ -19,13 +19,9 @@ import { resolveWorkspaceManifestPaths } from "../workspaces";
 import { WORKSPACE_MODES } from "./constants";
 import type {
   PastoralistJSON,
-  PastoralistConfig,
   Appendix,
   PersistedAppendix,
   Options,
-  OverridesType,
-  ResolveOverrides,
-  MergedConfig,
   UpdatePackageJSONOptions,
 } from "../../types";
 import type { ProcessingModeArguments } from "./types";
@@ -247,71 +243,5 @@ export const resolveDepPaths = (
   if (!shouldResolveWorkspaces) return null;
   const depPaths = resolveWorkspaceManifestPaths(config, root, log);
   const result = toNullableDepPaths(depPaths);
-  return result;
-};
-
-const findAppendixDependents = (appendix: Appendix): Set<string> => {
-  const packages = new Set(
-    Object.entries(appendix)
-      .filter(([, item]) => item.dependents && Object.keys(item.dependents).length)
-      .map(([key]) => key.replace(/@[^@]+$/, "")),
-  );
-  return packages;
-};
-
-export const findRemovableOverrides = (
-  overrides: OverridesType,
-  appendix: Appendix,
-  allDeps: Record<string, string>,
-  missingInRoot: string[],
-): string[] => {
-  const appendixPackagesWithDependents = findAppendixDependents(appendix);
-  const missingSet = new Set(missingInRoot);
-
-  const removable = Object.keys(overrides).filter((pkg) => {
-    const isInAppendix = appendixPackagesWithDependents.has(pkg);
-    const isInDeps = pkg in allDeps;
-    const isMissingInRoot = missingSet.has(pkg);
-    const isKnownPackage = isInAppendix || isInDeps || isMissingInRoot;
-    const result = !isKnownPackage;
-    return result;
-  });
-  return removable;
-};
-
-export const mergeAllConfigs = (
-  cliOptions: Options,
-  packageJsonConfig: PastoralistConfig | undefined,
-  overridesData: ResolveOverrides,
-  overrides: OverridesType,
-): MergedConfig => {
-  const depPaths = cliOptions.depPaths ?? packageJsonConfig?.depPaths;
-  const { appendix } = packageJsonConfig ?? {};
-  const { securityOverrideDetails, securityProvider } = cliOptions;
-  const allConfigs: MergedConfig = {
-    overrides,
-    overridesData,
-    appendix,
-    depPaths,
-    securityOverrideDetails,
-    securityProvider,
-  };
-  return allConfigs;
-};
-
-export const hasConfigOverrides = (
-  options: Options | undefined,
-  config: PastoralistJSON,
-): boolean => {
-  const { securityOverrides } = options ?? {};
-  const { overrides, resolutions, pnpm } = config ?? {};
-  const sources = [securityOverrides, overrides, resolutions, pnpm?.overrides];
-  const result = sources.some(hasKeys);
-  return result;
-};
-
-const hasKeys = (value: Record<string, unknown> | undefined): boolean => {
-  if (!value) return false;
-  const result = Object.keys(value).length > 0;
   return result;
 };

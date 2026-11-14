@@ -1,7 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  findDependencyReachability,
   trackDependencies,
   getDependencyUsage,
   getProjectDependencyUsage,
@@ -76,7 +75,7 @@ const expectedCycleReachability = {
   shared: clientReachableDependents,
 };
 
-test("findDependencyReachability - preserves direct dependency through a transitive path", () => {
+test("trackDependencies - preserves direct dependency through a transitive path", () => {
   const expressDependencies = ["lodash@4"];
   const expressPackage = createPackageInstance("express", expressDependencies);
   const lockedLodashPackage = createPackageInstance("lodash");
@@ -85,24 +84,27 @@ test("findDependencyReachability - preserves direct dependency through a transit
   const appRoot = createManifestRoot(directDependencies);
   const roots = { "packages/app/package.json": appRoot };
   const graph = createGraph(packages, roots);
-  const result = findDependencyReachability(graph);
+  const result = trackDependencies(graph);
   const expectedRoot = { express: expressDependents, lodash: expressDependents };
-  const expected = { "packages/app/package.json": expectedRoot };
 
-  assert.deepStrictEqual(result, expected);
+  assert.deepStrictEqual(result["packages/app/package.json"].dependents, expectedRoot);
+  assert.equal(result["packages/app/package.json"].complete, true);
 });
 
-test("findDependencyReachability - separates duplicate package instances by root", () => {
-  const result = findDependencyReachability(duplicateGraph);
+test("trackDependencies - separates duplicate package instances by root", () => {
+  const result = trackDependencies(duplicateGraph);
 
-  assert.deepStrictEqual(result["package.json"], expectedRootReachability);
-  assert.deepStrictEqual(result["packages/pkg-a/package.json"], expectedPkgAReachability);
+  assert.deepStrictEqual(result["package.json"].dependents, expectedRootReachability);
+  assert.deepStrictEqual(
+    result["packages/pkg-a/package.json"].dependents,
+    expectedPkgAReachability,
+  );
 });
 
-test("findDependencyReachability - handles shared nodes and cycles per direct dependency", () => {
-  const result = findDependencyReachability(cycleGraph);
+test("trackDependencies - handles shared nodes and cycles per direct dependency", () => {
+  const result = trackDependencies(cycleGraph);
 
-  assert.deepStrictEqual(result["package.json"], expectedCycleReachability);
+  assert.deepStrictEqual(result["package.json"].dependents, expectedCycleReachability);
 });
 
 const partialParent = createPackageInstance("parent", ["leaf@1", "missing@1"]);

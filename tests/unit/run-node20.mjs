@@ -7,7 +7,7 @@ import typescript from "typescript5";
 const ROOT = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 const OUTPUT = resolve(ROOT, ".node20-test");
 const TEST_ROOTS = ["tests/unit", "tests/integration/repository", "tests/integration/core"];
-const SOURCE_ROOTS = ["src", "scripts", "tests/integration/cli"].concat(TEST_ROOTS);
+const SOURCE_ROOTS = ["src", "scripts", "tests/unit", "tests/integration"];
 const STATIC_PATHS = [
   "package.json",
   "pnpm-lock.yaml",
@@ -193,8 +193,11 @@ const runTests = async (testFiles) => {
 };
 
 const collectCompatibilityTests = async () => {
-  const reportingPath = resolve(ROOT, "tests/integration/cli/reporting.test.ts");
-  const reportingTest = outputPath(reportingPath);
+  const extraPaths = [
+    "tests/integration/cli/reporting.test.ts",
+    "tests/integration/dependency-tracking.test.ts",
+  ];
+  const extraTests = extraPaths.map((path) => outputPath(resolve(ROOT, path)));
   const tasks = TEST_ROOTS.map((root) => {
     const directory = resolve(ROOT, root);
     const tests = collectTests(directory);
@@ -202,7 +205,7 @@ const collectCompatibilityTests = async () => {
   });
   const results = await Promise.allSettled(tasks);
   const groups = results.flatMap(readTestGroup);
-  const tests = [reportingTest].concat(groups);
+  const tests = extraTests.concat(groups);
   return tests;
 };
 

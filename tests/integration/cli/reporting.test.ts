@@ -1,13 +1,17 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { text as readStreamText } from "node:stream/consumers";
 import { setTimeout } from "node:timers/promises";
+import { stripVTControlCharacters } from "node:util";
 import { test, type TestContext } from "node:test";
 import { action, run } from "../../../src/cli";
 import { SecurityChecker } from "../../../src/core/security";
 import { OSVProvider } from "../../../src/core/security/providers/osv";
-import { InteractiveSecurityManager } from "../../../src/core/security/utils";
-import type { SecurityAlert } from "../../../src/types";
+import { InteractiveSecurityManager, isVersionVulnerable } from "../../../src/core/security/utils";
+import type { SecurityAlert, SecurityPackage } from "../../../src/types";
 import { parsePnpmWorkspaceOverrides } from "../../../src/core/overrides";
 import { clearConfigCache } from "../../../src/config";
 import { clearHintCache } from "../../../src/dx";
@@ -132,6 +136,62 @@ const incompleteModes: Options[] = [
   { outputFormat: "json" },
   { strict: true },
 ];
+
+const largeScanSource = `
+const description = "x".repeat(16384);
+const alerts = Array.from({ length: 256 }, (_, index) => ({
+  packageName: "alpha", currentVersion: "1.0.0", severity: "high",
+  title: "finding-" + index, description, vulnerableVersions: "*", fixAvailable: false,
+}));
+OSVProvider.prototype.fetchAlerts = async () => alerts;
+`;
+const largeScanOptions = { checkSecurity: true, dryRun: true, noCache: true, outputFormat: "json" };
+
+const buildLargeScanScript = ({ root, path }: ReturnType<typeof createFixture>, mode: Options) => {
+  const cli = new URL("../../../src/cli/index.ts", import.meta.url);
+  const provider = new URL("../../../src/core/security/providers/osv.ts", import.meta.url);
+  const options = Object.assign({ root, path }, largeScanOptions, mode);
+  const script = [
+    `import { action } from ${JSON.stringify(cli.href)};`,
+    `import { OSVProvider } from ${JSON.stringify(provider.href)};`,
+    largeScanSource,
+    `await action(${JSON.stringify(options)});`,
+  ].join("\n");
+  return script;
+};
+
+const runBackpressuredScan = async (script: string) => {
+  const setup = new URL("../../unit/setup.ts", import.meta.url).href;
+  const args = ["--import", setup, "--input-type=module", "--eval", script];
+  const child = spawn(process.execPath, args, { timeout: 15000 });
+  const completed = once(child, "close");
+  const stderr = readStreamText(child.stderr);
+  await setTimeout(100);
+  const stdout = await readStreamText(child.stdout);
+  const [status] = await completed;
+  const errors = await stderr;
+  const result = { status, stdout, errors };
+  return result;
+};
+
+const largeJsonModes: Options[] = [{ strict: true }, { quiet: true }];
+largeJsonModes.forEach((mode) => {
+  test(`large security JSON drains to a slow pipe in ${JSON.stringify(mode)}`, async (t) => {
+    const fixture = createFixture(t, "npm");
+    const script = buildLargeScanScript(fixture, mode);
+    const child = await runBackpressuredScan(script);
+    assert.equal(child.status, 1, child.errors);
+    const json = child.stdout.trim().split("\n").at(-1);
+    assert.match(String(json), /^\{/, child.errors);
+    const result = JSON.parse(String(json));
+    assert.equal(result.success, false);
+    assert.equal(result.securityAlertCount, 256);
+    assert.equal(result.securityAlerts.length, 256);
+    assert.equal(result.securityAlerts.at(-1).description.length, 16384);
+    assertUnchanged(fixture);
+  });
+});
+
 incompleteModes.forEach((mode) => {
   test(`incomplete provider scans fail without updating files in ${JSON.stringify(mode)}`, async (t) => {
     const fixture = createFixture(t, "npm");
@@ -149,6 +209,241 @@ incompleteModes.forEach((mode) => {
     if (mode.outputFormat === "json") assert.equal(JSON.parse(output()).success, false);
     assertUnchanged(fixture);
   });
+});
+
+const ftpAdvisories = [
+  ["GHSA-c475-qrg2-pj4r", "6.2.1"],
+  ["GHSA-5pm8-86m8-9m6r", "6.2.4"],
+  ["GHSA-r4jh-29pc-gfqr", "6.2.3"],
+];
+const ftpAlerts: SecurityAlert[] = ftpAdvisories.map(([title, patchedVersion]) => {
+  const vulnerableVersions = `<${patchedVersion}`;
+  const alert: SecurityAlert = {
+    packageName: "basic-ftp",
+    currentVersion: "5.3.1",
+    patchedVersion,
+    vulnerableVersions,
+    severity: "high",
+    title,
+    fixAvailable: true,
+  };
+  return alert;
+});
+const selectorAlert: SecurityAlert = {
+  packageName: "postcss-selector-parser",
+  currentVersion: "6.0.10",
+  patchedVersion: "6.1.5",
+  vulnerableVersions: "<6.1.5",
+  severity: "medium",
+  title: "GHSA-rj75-hqrm-r3gf",
+  fixAvailable: true,
+};
+const forcedAlerts = ftpAlerts.concat(selectorAlert);
+const forcedOverrides = { "basic-ftp": "6.2.4", "postcss-selector-parser": "6.1.5" };
+const forcedLock = `lockfileVersion: '9.0'
+importers:
+  .:
+    devDependencies:
+      release-it:
+        specifier: 20.0.0
+        version: 20.0.0
+  site:
+    devDependencies:
+      '@tailwindcss/typography':
+        specifier: 0.5.20
+        version: 0.5.20
+packages:
+  release-it@20.0.0: {}
+  proxy-agent@6.5.0: {}
+  pac-proxy-agent@7.2.0: {}
+  get-uri@8.0.1: {}
+  basic-ftp@5.3.1: {}
+  '@tailwindcss/typography@0.5.20': {}
+  postcss-selector-parser@6.0.10: {}
+snapshots:
+  release-it@20.0.0:
+    dependencies:
+      proxy-agent: 6.5.0
+  proxy-agent@6.5.0:
+    dependencies:
+      pac-proxy-agent: 7.2.0
+  pac-proxy-agent@7.2.0:
+    dependencies:
+      get-uri: 8.0.1
+  get-uri@8.0.1:
+    dependencies:
+      basic-ftp: 5.3.1
+  basic-ftp@5.3.1: {}
+  '@tailwindcss/typography@0.5.20':
+    dependencies:
+      postcss-selector-parser: 6.0.10
+  postcss-selector-parser@6.0.10: {}
+`;
+
+const resolveForcedSecurityAlerts = (packages: SecurityPackage[]) => {
+  const entries = packages.map((pkg) => [pkg.name, pkg.version] as const);
+  const installed = new Map(entries);
+  const alerts = forcedAlerts.flatMap((alert) => {
+    const currentVersion = installed.get(alert.packageName);
+    const vulnerable =
+      currentVersion && isVersionVulnerable(currentVersion, alert.vulnerableVersions);
+    const empty: SecurityAlert[] = [];
+    if (!vulnerable) return empty;
+    const finding = Object.assign({}, alert, { currentVersion });
+    const findings = [finding];
+    return findings;
+  });
+  return alerts;
+};
+
+const mockForcedSecurityScan = (t: TestContext) => {
+  t.mock.method(OSVProvider.prototype, "fetchAlerts", (packages) => {
+    const alerts = resolveForcedSecurityAlerts(packages);
+    const result = Promise.resolve(alerts);
+    return result;
+  });
+  const dependencies = { "postcss-selector-parser": "6.0.10" };
+  const version = { dependencies };
+  const versions = { "0.5.20": version };
+  t.mock.method(globalThis, "fetch", (input) => {
+    const name = decodeURIComponent(new URL(String(input)).pathname);
+    assert.equal(name, "/@tailwindcss/typography");
+    const response = Response.json({ versions });
+    const result = Promise.resolve(response);
+    return result;
+  });
+};
+
+const forcedDepPaths = ["package.json", "site/package.json"];
+const forcedSecurityMode = {
+  enabled: true,
+  provider: "osv",
+  strict: true,
+  autoFix: true,
+  interactive: false,
+  severityThreshold: "low",
+  hasWorkspaceSecurityChecks: true,
+};
+const forcedSecurityConfig = { depPaths: forcedDepPaths, security: forcedSecurityMode };
+const forcedDevDependencies = { "release-it": "20.0.0" };
+const forcedManifest = {
+  name: "force-regression",
+  version: "1.0.0",
+  packageManager: "pnpm@11.0.7",
+  devDependencies: forcedDevDependencies,
+};
+const forcedSiteDependencies = { "@tailwindcss/typography": "0.5.20" };
+const forcedSiteManifest = {
+  name: "site",
+  version: "1.0.0",
+  devDependencies: forcedSiteDependencies,
+};
+const forcedOptions: Options = {
+  forceSecurityRefactor: true,
+  interactive: false,
+  noCache: true,
+  summary: true,
+};
+
+const createForcedSecurityFixture = (t: TestContext) => {
+  const fixture = createFixture(t, "pnpm");
+  const { root, path, lockPath } = fixture;
+  writeFileSync(path, JSON.stringify(forcedManifest));
+  writeFileSync(join(root, ".pastoralistrc"), JSON.stringify(forcedSecurityConfig));
+  mkdirSync(join(fixture.root, "site"));
+  writeFileSync(join(root, "site/package.json"), JSON.stringify(forcedSiteManifest));
+  writeFileSync(lockPath, forcedLock);
+  const workspace = join(root, "pnpm-workspace.yaml");
+  writeFileSync(workspace, "packages: []\noverrides: {}\n");
+  mockForcedSecurityScan(t);
+  const result = Object.assign({}, fixture, { workspace });
+  return result;
+};
+
+const assertForcedOverrides = (
+  fixture: ReturnType<typeof createForcedSecurityFixture>,
+  result: Awaited<ReturnType<typeof action>>,
+) => {
+  const workspace = readFileSync(fixture.workspace, "utf8");
+  assert.deepEqual(parsePnpmWorkspaceOverrides(workspace), forcedOverrides);
+  assert.deepEqual(result.appliedOverrides, forcedOverrides);
+  assert.equal(result.success, false);
+  assert.equal(result.securityAlertCount, 4);
+  const hasFixNotice = result.securityAlerts?.some((alert) => alert.fixNotice);
+  assert.equal(hasFixNotice, false);
+  assert.equal(readFileSync(fixture.lockPath, "utf8"), forcedLock);
+};
+
+const runForcedSecurityRegression = async (t: TestContext, mode: Options) => {
+  const fixture = createForcedSecurityFixture(t);
+  const { root, path, lockPath } = fixture;
+  const output = captureStdout(t);
+  const exit = t.mock.method(process, "exit", () => undefined as never);
+  const options = Object.assign({ root, path }, forcedOptions, mode);
+  const result = await action(options);
+  assertForcedOverrides(fixture, result);
+  assert.equal(exit.mock.calls[0]?.arguments[0], 1);
+  assert.doesNotMatch(stripVTControlCharacters(output()), /The herd is safe!/);
+  const installedLock = forcedLock.replaceAll("5.3.1", "6.2.4").replaceAll("6.0.10", "6.1.5");
+  writeFileSync(lockPath, installedLock);
+  clearConfigCache();
+  const clean = await action(options);
+  assert.equal(clean.success, true);
+  assert.equal(clean.securityAlertCount, 0);
+  assert.equal(exit.mock.callCount(), 1);
+};
+
+const forcedBestCase = { enabled: true };
+const forcedModes: Options[] = [
+  {},
+  { quiet: true },
+  { outputFormat: "json" },
+  { bestCase: forcedBestCase },
+];
+forcedModes.forEach((mode) => {
+  test(`force applies major and pinned transitive fixes and requires a clean rescan in ${JSON.stringify(mode)}`, async (t) => {
+    await runForcedSecurityRegression(t, mode);
+  });
+});
+
+test("forced dry-runs preserve files and remain unresolved", async (t) => {
+  const fixture = createForcedSecurityFixture(t);
+  const { root, path, lockPath, workspace } = fixture;
+  const output = captureStdout(t);
+  const exit = t.mock.method(process, "exit", () => undefined as never);
+  const options = Object.assign({ root, path, dryRun: true }, forcedOptions);
+  const result = await action(options);
+  assert.equal(result.updated, false);
+  assert.equal(result.success, false);
+  assert.equal(result.securityAlertCount, 4);
+  assert.deepEqual(JSON.parse(readFileSync(path, "utf8")), forcedManifest);
+  assert.equal(readFileSync(workspace, "utf8"), "packages: []\noverrides: {}\n");
+  assert.equal(readFileSync(lockPath, "utf8"), forcedLock);
+  assert.equal(exit.mock.calls[0]?.arguments[0], 1);
+  assert.doesNotMatch(stripVTControlCharacters(output()), /The herd is safe!/);
+});
+
+test("configured auto-fix authorizes transitive fixes without the force flag", async (t) => {
+  const mode = { forceSecurityRefactor: undefined };
+  await runForcedSecurityRegression(t, mode);
+});
+
+test("strict scans preserve skipped fixes and never report safety", async (t) => {
+  const fixture = createForcedSecurityFixture(t);
+  const { root, path } = fixture;
+  const output = captureStdout(t);
+  const exit = t.mock.method(process, "exit", () => undefined as never);
+  const mode = { forceSecurityRefactor: false };
+  const options = Object.assign({ root, path }, forcedOptions, mode);
+  const result = await action(options);
+  assert.equal(result.securityAlertCount, 4);
+  const workspace = readFileSync(fixture.workspace, "utf8");
+  assert.deepEqual(parsePnpmWorkspaceOverrides(workspace), {});
+  assert.equal(exit.mock.calls[0]?.arguments[0], 1);
+  const text = stripVTControlCharacters(output());
+  assert.doesNotMatch(text, /The herd is safe!/);
+  assert.match(text, /4 vulnerabilities remain/);
+  assert.match(text, /Fix falls outside a declared dependency range/);
 });
 
 const kitAlert: SecurityAlert = {
@@ -475,7 +770,7 @@ test("a workspace direct dependency cannot be changed by a root global security 
         strict: true,
       });
       const result = JSON.parse(output());
-      assert.equal(result.success, true);
+      assert.equal(result.success, !quiet);
       assert.equal(result.hasSecurityIssues, quiet);
       assert.equal(result.metrics.packagesScanned, 518);
       assert.equal(exit.mock.callCount(), Number(quiet));

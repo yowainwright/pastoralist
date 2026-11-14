@@ -270,7 +270,8 @@ const assertResult = (child: SpawnSyncReturns<string>, scenario: Scenario): CliR
   assert.strictEqual(child.status, scenario.status, diagnostic);
   const lastLine = stripVTControlCharacters(child.stdout).trim().split("\n").at(-1);
   const result = JSON.parse(String(lastLine)) as CliResult;
-  assert.strictEqual(result.success, true, diagnostic);
+  const success = scenario.status === 0;
+  assert.strictEqual(result.success, success, diagnostic);
   assert.strictEqual(result.hasSecurityIssues, scenario.status === 1);
   assert.strictEqual(result.securityAlertCount, scenario.alerts.length);
   const names = result.securityAlerts.map(({ packageName }) => packageName);

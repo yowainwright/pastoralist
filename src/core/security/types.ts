@@ -499,6 +499,7 @@ export type SecurityFixContext = {
   config: PastoralistJSON;
   inventory: SecurityPackage[];
   ranges: Map<string, string[]>;
+  forceRefactor?: boolean;
   existingOverrides?: OverridesType;
   workspace?: { names: Set<string>; complete: boolean };
 };

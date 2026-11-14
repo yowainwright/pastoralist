@@ -270,7 +270,7 @@ const createTransitiveCliOptions = (root: string, mode: Options): Options => {
 
 const assertTransitiveCliFinding = (result: PastoralistResult): void => {
   assertMatchObject(result, {
-    success: true,
+    success: false,
     hasSecurityIssues: true,
     securityAlertCount: 1,
   });
@@ -294,8 +294,8 @@ transitiveCliModes.forEach((mode) => {
     assertTransitiveCliFinding(result);
     const outputText = output.mock.calls.map((call) => String(call.arguments[0])).join("");
     assert.match(outputText, /transitive/);
-    assert.strictEqual(exit.mock.callCount(), Number(mode.quiet));
-    if (mode.quiet) assertCalledWith(exit, 1);
+    assert.strictEqual(exit.mock.callCount(), 1);
+    assertCalledWith(exit, 1);
     assertTransitiveCliFiles(root, files);
   });
 });
@@ -3679,6 +3679,7 @@ test("renderUpdateOutput - does not report unapplied alerts as fixed", async () 
   await renderUpdateOutput(graph, updateContext, updateResult, securityResult, 10, {}, {});
 
   assertCalledWith(graph.executiveSummary, objectContaining({ vulnerabilitiesFixed: 0 }));
+  assertCalledWith(graph.complete, "2 vulnerabilities remain", anything());
 });
 
 const createSecurityResult = () => {

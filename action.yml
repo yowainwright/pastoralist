@@ -349,8 +349,14 @@ runs:
         fi
 
         if [ "$EXIT_CODE" -ne 0 ] || [ "$SUCCESS" != "true" ]; then
-          echo "::error::Pastoralist failed. Check logs for details."
-          exit 1
+          FINDINGS_ONLY=$(echo "$JSON_OUTPUT" | jq -r --arg code "$EXIT_CODE" '
+            $code == "1" and .success == false and .hasSecurityIssues == true and
+            .securityAlertCount > 0 and (.errors | type == "array" and length == 0)
+          ')
+          if [ "$FINDINGS_ONLY" != "true" ]; then
+            echo "::error::Pastoralist failed. Check logs for details."
+            exit 1
+          fi
         fi
 
         ALLOW_SECURITY_FIX_PR="false"

@@ -236,17 +236,16 @@ const buildSecurityCheckOptions = (
   onProgress: ReturnType<typeof createProgressHandler>,
 ): SecurityCheckerOptions => {
   const root = resolveSecurityRoot(mergedOptions);
-  const { path: packageJsonPath } = mergedOptions;
+  const { path: packageJsonPath, forceSecurityRefactor: forceRefactor } = mergedOptions;
   const { severityThreshold, excludePackages } = config?.pastoralist?.security ?? {};
-  const checkOptions = Object.assign({}, mergedOptions, {
-    depPaths: scanPaths,
-    root,
-    packageJsonPath,
-    onProgress,
+  const scan = { depPaths: scanPaths, root, packageJsonPath, onProgress };
+  const constraints = {
+    forceRefactor,
     severityThreshold,
     excludePackages,
     requireCompleteScan: true,
-  });
+  };
+  const checkOptions = Object.assign({}, mergedOptions, scan, constraints);
   return checkOptions;
 };
 
@@ -410,15 +409,16 @@ const buildSecurityFixes = (
   mergedOptions: Options,
 ): Pick<Options, "securityOverrides" | "securityOverrideDetails" | "config" | "manifestConfig"> => {
   const source = mergedOptions.config ?? { name: "", version: "" };
-  const applicable = getApplicableSecurityFixes(allOverrides, source);
+  const applicable = getApplicableSecurityFixes(
+    allOverrides,
+    source,
+    mergedOptions.forceSecurityRefactor,
+  );
   const securityOverrides = securityChecker.generatePackageOverrides(applicable);
   const overridesToApply = getOverridesToApply(applicable, securityOverrides);
   const securityOverrideDetails = overridesToApply.map(buildSecurityOverrideDetail);
   applyApprovedSecurityFixes(overridesToApply, securityChecker, mergedOptions);
-  const securityFixes: Pick<Options, "securityOverrides" | "securityOverrideDetails"> = {
-    securityOverrides,
-    securityOverrideDetails,
-  };
+  const securityFixes = { securityOverrides, securityOverrideDetails };
   const dependencies = buildDirectDependencyOptions(source, overridesToApply, mergedOptions);
   const result = Object.assign({}, securityFixes, dependencies);
   return result;

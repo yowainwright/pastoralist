@@ -326,12 +326,14 @@ Applying fixes requires `--interactive`, `--forceSecurityRefactor`, or the
 matching config option. Review changes and reinstall dependencies to update
 the lockfile.
 
-Automatic fixes use overrides for compatible transitive dependencies. Direct
+Automatic fixes use overrides for transitive dependencies. The force flag
+authorizes major upgrades and fixes outside parent dependency ranges. Direct
 dependency and devDependency updates require interactive approval and change the
-original `package.json` entry. Major upgrades and fixes outside a declared range
-also require approval. Pastoralist selects the lowest known patched version that
-resolves the applicable advisories. Conflicting installed release lines and
+original `package.json` entry. Pastoralist selects the lowest known patched version
+that resolves the applicable advisories. Conflicting installed release lines and
 workspace declarations that need separate changes are reported for manual review.
+Strict scans fail while installed vulnerabilities remain. Reinstall dependencies
+and rescan after applying fixes.
 
 ### Auto Fix
 
@@ -459,15 +461,15 @@ the Node.js API.
 
 ## CLI Options
 
-| Option                            | Description                                           |
-| --------------------------------- | ----------------------------------------------------- |
-| `--checkSecurity`                 | Enable security vulnerability checking                |
-| `--forceSecurityRefactor`         | Apply compatible transitive fixes without prompting   |
-| `--securityProvider <provider>`   | Specify one or more security providers                |
-| `--securityProviderToken <token>` | Provide an authentication token for one-off/local use |
-| `--interactive`                   | Use interactive mode to select fixes                  |
-| `--hasWorkspaceSecurityChecks`    | Include workspace packages in the security scan       |
-| `--strict`                        | Fail instead of skipping provider permission errors   |
+| Option                            | Description                                                      |
+| --------------------------------- | ---------------------------------------------------------------- |
+| `--checkSecurity`                 | Enable security vulnerability checking                           |
+| `--forceSecurityRefactor`         | Apply available transitive fixes without prompting               |
+| `--securityProvider <provider>`   | Specify one or more security providers                           |
+| `--securityProviderToken <token>` | Provide an authentication token for one-off/local use            |
+| `--interactive`                   | Use interactive mode to select fixes                             |
+| `--hasWorkspaceSecurityChecks`    | Include workspace packages in the security scan                  |
+| `--strict`                        | Fail on unresolved vulnerabilities or provider permission errors |
 
 ### Token Handling
 
@@ -686,7 +688,7 @@ Once the root dependency reaches `4.18.0`, the keep is expired and
 3. **Reporting**: Vulnerable packages are displayed with severity levels and available fixes
 4. **Fixing**: If fixes are available, Pastoralist can:
    - Display them for review
-   - Apply compatible transitive fixes automatically (with `--forceSecurityRefactor`)
+   - Apply available transitive fixes automatically (with `--forceSecurityRefactor`)
    - Let you choose interactively (with `--interactive`)
 5. **Applying**: Transitive fixes use package-manager overrides with CVE context in the ledger. Approved direct updates change the original dependency or devDependency entry.
 

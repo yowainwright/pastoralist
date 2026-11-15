@@ -22,7 +22,6 @@ import {
 import { HINT_RC_FILE_TEXT } from "../../../../src/constants";
 import {
   clearDependencyGraphCache,
-  getDependencyGraph,
   getDependencyGraphStatus,
   getDependencyTree,
   getFullDependencyCount,
@@ -1973,7 +1972,7 @@ const packagesNodeModulesLodash = {
 };
 const packages6 = {};
 const packages7 = { "": packages6, "node_modules/lodash": packagesNodeModulesLodash };
-test("getDependencyGraph - marks a parsed graph with no edges as available", () => {
+test("getDependencyGraphStatus - marks a parsed graph with no edges as available", () => {
   clearDependencyGraphCache();
   mkdirSync(lockTestDir, { recursive: true });
   writeFileSync(
@@ -1982,11 +1981,11 @@ test("getDependencyGraph - marks a parsed graph with no edges as available", () 
   );
 
   const status = getDependencyGraphStatus(lockTestDir);
-  const graph = getDependencyGraph(lockTestDir);
+  const graph = getDependencyGraphStatus(lockTestDir).graph;
 
   assert.deepStrictEqual(status, { graph: graph2, available: true });
   assert.strictEqual(graph, status.graph);
-  const graphAgain = getDependencyGraph(lockTestDir);
+  const graphAgain = getDependencyGraphStatus(lockTestDir).graph;
   assert.strictEqual(graphAgain, graph);
 
   clearDependencyGraphCache();
@@ -2011,7 +2010,7 @@ const packages5 = {
   "node_modules/express": nodeModulesExpress,
   "node_modules/body-parser": nodeModulesBodyParser,
 };
-test("getDependencyGraph - invalidates cache when package lock changes", () => {
+test("getDependencyGraphStatus - invalidates cache when package lock changes", () => {
   clearDependencyGraphCache();
   mkdirSync(lockTestDir, { recursive: true });
   writeFileSync(
@@ -2019,7 +2018,7 @@ test("getDependencyGraph - invalidates cache when package lock changes", () => {
     JSON.stringify({ lockfileVersion: 2, packages: packages5 }),
   );
 
-  const originalGraph = getDependencyGraph(lockTestDir);
+  const originalGraph = getDependencyGraphStatus(lockTestDir).graph;
   assert.deepStrictEqual(originalGraph?.["body-parser"], ["express"]);
 
   writeFileSync(
@@ -2027,7 +2026,7 @@ test("getDependencyGraph - invalidates cache when package lock changes", () => {
     JSON.stringify({ lockfileVersion: 2, packages: packages3 }),
   );
 
-  const updatedGraph = getDependencyGraph(lockTestDir);
+  const updatedGraph = getDependencyGraphStatus(lockTestDir).graph;
   assert.notStrictEqual(updatedGraph, originalGraph);
   assert.deepStrictEqual(updatedGraph?.qs, ["lodash"]);
   assert.strictEqual(updatedGraph?.["body-parser"], undefined);
@@ -2036,11 +2035,11 @@ test("getDependencyGraph - invalidates cache when package lock changes", () => {
   rmSync(lockTestDir, { recursive: true, force: true });
 });
 
-test("getDependencyGraph - returns empty object when no lock file", () => {
+test("getDependencyGraphStatus - returns empty object when no lock file", () => {
   clearDependencyGraphCache();
   mkdirSync(lockTestDir, { recursive: true });
 
-  const graph = getDependencyGraph(lockTestDir);
+  const graph = getDependencyGraphStatus(lockTestDir).graph;
 
   assert.deepStrictEqual(graph, {});
   clearDependencyGraphCache();

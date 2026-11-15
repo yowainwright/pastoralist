@@ -1,16 +1,27 @@
+import {
+  npmGraphFixtures,
+  npmAliasFixture,
+  pnpmGraphFixtures,
+  yarnGraphFixtures,
+  bunGraphFixtures,
+} from "../unit/fixtures/npm.fixtures";
+import { readNpmResolvedGraph } from "../../src/mgrs/npm/utils";
+import { readPnpmResolvedGraph } from "../../src/mgrs/pnpm/utils";
+import { readYarnResolvedGraph } from "../../src/mgrs/yarn/utils";
+import { readBunResolvedGraph } from "../../src/mgrs/bun/utils";
 import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { update } from "../../../src/core/update";
+import { update } from "../../src/core/update";
 import {
   trackDependencies,
   type DependencyManifest,
   type ResolvedDependencyGraph,
-} from "../../../src/core/dep-tracker";
-import type { Options, PastoralistJSON } from "../../../src/types";
+} from "../../src/core/dep-tracker";
+import type { Options, PastoralistJSON } from "../../src/types";
 
-export type ResolvedGraphFixture = {
+type ResolvedGraphFixture = {
   name: string;
   filename: string;
   content: string;
@@ -144,10 +155,15 @@ const registerTrackingTest = (
   registerLedgerRefreshTest(fixture);
 };
 
-export const registerResolvedGraphTests = (
+const registerResolvedGraphTests = (
   fixtures: ResolvedGraphFixture | ResolvedGraphFixture[],
   readGraph: ResolvedGraphReader,
 ): void => {
   const cases = Array.isArray(fixtures) ? fixtures : [fixtures];
   cases.forEach((fixture) => registerTrackingTest(fixture, readGraph));
 };
+
+registerResolvedGraphTests([npmGraphFixtures, npmAliasFixture], readNpmResolvedGraph);
+registerResolvedGraphTests(pnpmGraphFixtures, readPnpmResolvedGraph);
+registerResolvedGraphTests(yarnGraphFixtures, readYarnResolvedGraph);
+registerResolvedGraphTests(bunGraphFixtures, readBunResolvedGraph);

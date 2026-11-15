@@ -1,5 +1,4 @@
 import { describe, test, beforeEach, afterEach } from "node:test";
-import { mock } from "../setup";
 import assert from "node:assert/strict";
 import {
   visibleLength,

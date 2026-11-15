@@ -323,10 +323,6 @@ export const assertMatches = (actual: unknown, expected: unknown): void => {
   assert.ok(matchesExpected(actual, expected));
 };
 
-export const assertDoesNotMatch = (actual: unknown, expected: unknown): void => {
-  assert.ok(!matchesExpected(actual, expected));
-};
-
 export const assertContainsEqual = (actual: readonly unknown[], expected: unknown): void => {
   assert.ok(actual.some((value) => matchesExpected(value, expected)));
 };
@@ -363,7 +359,6 @@ export const assertMatchObject = (actual: unknown, expected: object): void => {
 };
 
 const ORIGINAL_CWD = process.cwd();
-const TEST_CWD = resolve(import.meta.dirname);
 
 const ROOT_PACKAGE_JSON = resolve(ORIGINAL_CWD, "package.json");
 const SRC_DIR = resolve(ORIGINAL_CWD, "src");
@@ -431,16 +426,6 @@ export function safeExistsSync(path: string): boolean {
 export function safeReadFileSync(path: string, encoding?: BufferEncoding): string {
   const normalizedPath = resolve(path);
   return fs.readFileSync(normalizedPath, encoding || "utf8");
-}
-
-export function safeResolve(...pathSegments: string[]): string {
-  const resolvedPath = resolve(...pathSegments);
-
-  if (isProtectedPath(resolvedPath)) {
-    console.warn(`[TEST WARNING] Resolved path points to protected location: ${resolvedPath}`);
-  }
-
-  return resolvedPath;
 }
 
 const rootPackageCorruptionError = (actualName: unknown): Error =>
